@@ -1,0 +1,1 @@
+{"hook_event_name":"UserPromptSubmit","session_id":"sess_fuzz0002","transcript_path":"/home/u/.claude/projects/proj/sess.jsonl","cwd":"/home/u/proj","prompt":"Refactor the retry loop to use exponential backoff."}
