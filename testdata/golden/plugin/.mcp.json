@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "qompack": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/qompack",
+      "args": [
+        "mcp"
+      ]
+    }
+  }
+}
