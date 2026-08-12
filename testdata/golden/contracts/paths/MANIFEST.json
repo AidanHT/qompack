@@ -1,0 +1,7 @@
+{
+  "package": "paths",
+  "owner": "SP-01",
+  "fixtures": [
+    { "name": "manifest_entry", "kind": "format", "state": "frozen", "input": "", "want": "want/manifest_entry.jsonl", "note": "checkpoints/MANIFEST.jsonl entry" }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "package": "contract",
+  "owner": "SP-05",
+  "fixtures": [
+    { "name": "not_yet_implemented_is_info", "kind": "behaviour", "state": "record-by-owner", "input": "", "want": "", "note": "an assertion whose producer is absent reports OK:true SevInfo (§12.1)" }
+  ]
+}

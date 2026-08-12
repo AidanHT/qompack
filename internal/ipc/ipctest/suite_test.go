@@ -1,0 +1,177 @@
+package ipctest_test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/ipc/ipctest"
+	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
+	"github.com/stretchr/testify/require"
+)
+
+// fakeStubClient mirrors the shape of an SP-01-style stub Client: every operation reports
+// core.ErrNotImplemented, exactly like ipc.NewClient's own stub does today. It exists only to
+// exercise RunClientSuite before SP-05 ships a real transport.
+type fakeStubClient struct{}
+
+func (fakeStubClient) Send(ctx context.Context, req ipc.Request, deadline time.Duration) (ipc.Response, error) {
+	return ipc.Response{}, core.ErrNotImplemented
+}
+func (fakeStubClient) Close() error { return core.ErrNotImplemented }
+
+// fakeStubSpool is fakeStubClient's SpoolWriter counterpart.
+type fakeStubSpool struct{}
+
+func (fakeStubSpool) Append(req ipc.Request) error { return core.ErrNotImplemented }
+func (fakeStubSpool) Path() string                 { return "" }
+
+// fakeStubServer is the stub Server ipc does not ship: §5.4 gives Server no constructor, so there
+// is nothing in the package for RunServerSuite to point at until SP-05 builds one.
+type fakeStubServer struct{}
+
+func (fakeStubServer) Serve(ctx context.Context, h ipc.Handler) error { return core.ErrNotImplemented }
+func (fakeStubServer) Addr() ipc.Addr                                 { return ipc.Addr{} }
+func (fakeStubServer) Close() error                                   { return core.ErrNotImplemented }
+
+// workingSpool is a minimal, correct SpoolWriter: one compact JSON line per request, newline
+// terminated, appended, with §2.4's 1 MiB frame limit enforced before anything is written.
+//
+// It exists so RunSpoolWriterSuite's behaviour block is demonstrably satisfiable rather than an
+// executable specification nobody has ever run — an unrunnable spec is worth very little to SP-05,
+// who inherits it. It is NOT the real spool: SP-05's writes to
+// .qompack/spool/client-<pid>.ndjson, coordinates with the daemon's drain, and is the durability
+// boundary §2.4 describes. This one only has to be right about the framing.
+type workingSpool struct{ path string }
+
+func (s *workingSpool) Append(req ipc.Request) error {
+	b, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	if len(b)+1 > ipc.MaxLineBytes {
+		return fmt.Errorf("%w: spool line of %d bytes exceeds the %d byte frame limit",
+			core.ErrBudget, len(b)+1, ipc.MaxLineBytes)
+	}
+
+	f, err := os.OpenFile(s.path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+
+	if _, err := f.Write(append(b, '\n')); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *workingSpool) Path() string { return s.path }
+
+// newWorkingSpool returns a workingSpool over a fresh temp file. Every test in this package writes
+// only under t.TempDir().
+func newWorkingSpool(t *testing.T) ipc.SpoolWriter {
+	t.Helper()
+	return &workingSpool{path: filepath.Join(t.TempDir(), "client-0.ndjson")}
+}
+
+// clock is the core.Clock obs.New needs; a fixed instant keeps metric timestamps deterministic and
+// keeps §6.1's ban on wall-clock dependence honest.
+type clock struct{}
+
+func (clock) Now() time.Time                  { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+func (clock) Since(t time.Time) time.Duration { return clock{}.Now().Sub(t) }
+
+// newQompackStubClient builds the Client SP-01 actually ships, wired the way a hook would wire it.
+func newQompackStubClient(t *testing.T) ipc.Client {
+	t.Helper()
+	addr, err := ipc.Resolve(t.TempDir())
+	require.NoError(t, err)
+	spool, err := ipc.NewSpool(t.TempDir())
+	require.NoError(t, err)
+	return ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
+}
+
+// newQompackStubSpool builds the SpoolWriter SP-01 actually ships.
+func newQompackStubSpool(t *testing.T) ipc.SpoolWriter {
+	t.Helper()
+	s, err := ipc.NewSpool(t.TempDir())
+	require.NoError(t, err)
+	return s
+}
+
+// TestIPCSuite_ShapePassesAgainstStub is the mandatory per-suite-package assertion: every suite's
+// shape block passes against a deliberately stubbed implementation, and every behaviour block is
+// skipped with the exact Rule W-1 message.
+//
+// Each suite runs inside its own subtest because Rule W-1's skip is a t.Skip on the calling test:
+// invoking all four directly would let the first one's skip abort the rest before their shape
+// blocks ever ran.
+func TestIPCSuite_ShapePassesAgainstStub(t *testing.T) {
+	t.Run("client", func(t *testing.T) {
+		ipctest.RunClientSuite(t, "fake-stub-client", func(t *testing.T) ipc.Client {
+			return fakeStubClient{}
+		})
+	})
+	t.Run("spool", func(t *testing.T) {
+		ipctest.RunSpoolWriterSuite(t, "fake-stub-spool", func(t *testing.T) ipc.SpoolWriter {
+			return fakeStubSpool{}
+		})
+	})
+	t.Run("server", func(t *testing.T) {
+		ipctest.RunServerSuite(t, "fake-stub-server", func(t *testing.T) ipc.Server {
+			return fakeStubServer{}
+		})
+	})
+	t.Run("transport", func(t *testing.T) {
+		ipctest.RunTransportSuite(t, "fake-stub-transport", func(t *testing.T, h ipc.Handler) ipctest.Transport {
+			return ipctest.Transport{Client: fakeStubClient{}}
+		})
+	})
+}
+
+// TestRunClientSuite_AgainstQompackStub exercises RunClientSuite against the real ipc.NewClient
+// stub, end to end, so a change to its stub behaviour that breaks the conformance suite is caught
+// here rather than only once SP-05 lands.
+func TestRunClientSuite_AgainstQompackStub(t *testing.T) {
+	ipctest.RunClientSuite(t, "ipc.NewClient-stub", newQompackStubClient)
+}
+
+// TestRunSpoolWriterSuite_AgainstQompackStub is TestRunClientSuite_AgainstQompackStub's SpoolWriter
+// sibling.
+func TestRunSpoolWriterSuite_AgainstQompackStub(t *testing.T) {
+	ipctest.RunSpoolWriterSuite(t, "ipc.NewSpool-stub", newQompackStubSpool)
+}
+
+// TestRunSpoolWriterSuite_AgainstAWorkingSpool runs the SpoolWriter behaviour block against a
+// minimal correct implementation, proving the framing and 1 MiB-limit specification SP-05 inherits
+// is satisfiable rather than merely unrun.
+func TestRunSpoolWriterSuite_AgainstAWorkingSpool(t *testing.T) {
+	ipctest.RunSpoolWriterSuite(t, "working-spool", newWorkingSpool)
+}
+
+// TestRunServerSuite_StubIsSkipped proves the Server suite's shape block passes against a stub and
+// that its behaviour block is skipped with the exact Rule W-1 message. ipc ships no Server at all
+// — §5.4 gives it no constructor — so this fake is the only Server in the tree until SP-05 lands.
+func TestRunServerSuite_StubIsSkipped(t *testing.T) {
+	ipctest.RunServerSuite(t, "stub-server", func(t *testing.T) ipc.Server {
+		return fakeStubServer{}
+	})
+}
+
+// TestRunTransportSuite_StubIsSkipped is the Server suite's paired sibling: the framing round-trip
+// needs both ends, and neither is real yet.
+func TestRunTransportSuite_StubIsSkipped(t *testing.T) {
+	ipctest.RunTransportSuite(t, "stub-transport", func(t *testing.T, h ipc.Handler) ipctest.Transport {
+		addr, err := ipc.Resolve(t.TempDir())
+		require.NoError(t, err)
+		return ipctest.Transport{Client: fakeStubClient{}, Addr: addr}
+	})
+}

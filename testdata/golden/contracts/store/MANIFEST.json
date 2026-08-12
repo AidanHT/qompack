@@ -1,0 +1,10 @@
+{
+  "package": "store",
+  "owner": "SP-06",
+  "fixtures": [
+    { "name": "tool_use_line", "kind": "format", "state": "frozen", "input": "", "want": "want/tool_use_line.jsonl", "note": "one index/tool_use.jsonl line; signature truncated to 4 perms for readability" },
+    { "name": "roots_line", "kind": "format", "state": "frozen", "input": "", "want": "want/roots_line.jsonl", "note": "one index/roots.jsonl line" },
+    { "name": "segments_line", "kind": "format", "state": "frozen", "input": "", "want": "want/segments_line.jsonl", "note": "one index/segments.jsonl line" },
+    { "name": "dedup_second_put", "kind": "behaviour", "state": "record-by-owner", "input": "input/two_reads.txt", "want": "", "note": "second put of identical bytes yields Novel==0" }
+  ]
+}
