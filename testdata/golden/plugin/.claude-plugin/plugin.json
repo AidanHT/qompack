@@ -1,0 +1,15 @@
+{
+  "name": "qompack",
+  "version": "0.1.0",
+  "description": "Cache-aware, retrieval-backed context compaction",
+  "author": {
+    "name": "Qompack"
+  },
+  "homepage": "https://github.com/qompack/qompack",
+  "keywords": [
+    "compaction",
+    "context",
+    "memory",
+    "cache"
+  ]
+}

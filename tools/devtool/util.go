@@ -148,17 +148,25 @@ func exeSuffix(goos string) string {
 // output of `git describe`, or a fixed development fallback when that is unavailable (a shallow
 // checkout with no tags, or no git at all). git describe is read-only and never mutates the repo.
 func resolveVersion() string {
-	out, _, err := runCapture(nil, "git", "describe", "--tags", "--always", "--dirty")
+	// --tags without --always: on a repo with no tags this FAILS rather than falling back to the
+	// short SHA, which is what we want. An untagged tree has no release identity, so stamping it
+	// with a commit hash would make `qompack version` report something that is not a version and
+	// would contradict the version the plugin manifest advertises. Returning "" means "do not
+	// stamp", leaving internal/core.Version's compiled-in default in place.
+	out, _, err := runCapture(nil, "git", "describe", "--tags", "--dirty")
 	if err == nil {
 		if v := strings.TrimSpace(string(out)); v != "" {
 			return v
 		}
 	}
-	return "0.0.0-dev"
+	return ""
 }
 
-// versionLdflags builds the -ldflags value that stamps internal/core.Version, shared by the
-// build and build-all tasks.
+// versionLdflags builds the -ldflags value shared by the build and build-all tasks. An empty
+// version omits the -X entirely, so the binary reports internal/core.Version's compiled-in value.
 func versionLdflags(version string) string {
+	if version == "" {
+		return "-s -w"
+	}
 	return "-s -w -X " + modulePath + "/internal/core.Version=" + version
 }
