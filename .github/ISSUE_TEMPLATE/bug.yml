@@ -1,0 +1,58 @@
+name: Bug report
+description: Something in Qompack behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Qompack is a sidecar: it must never be the reason a session gets worse. A bug report that
+        includes the two command outputs below is usually diagnosable on the first pass, because
+        together they show the effective config, where every value came from, and which host
+        contracts are currently holding.
+
+  - type: input
+    id: version
+    attributes:
+      label: Qompack version
+      description: Output of `qompack version`.
+      placeholder: 0.1.0
+    validations: { required: true }
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+    validations: { required: true }
+
+  - type: textarea
+    id: provenance
+    attributes:
+      label: Effective configuration and provenance
+      description: Output of `qompack config print --provenance`. Redact anything sensitive.
+      render: shell
+    validations: { required: true }
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Doctor output
+      description: Output of `qompack doctor`.
+      render: shell
+    validations: { required: true }
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: What you did, what you expected, and what happened instead.
+    validations: { required: true }
+
+  - type: textarea
+    id: loud
+    attributes:
+      label: Loud log (optional)
+      description: |
+        Contents of `.qompack/logs/LOUD.log`, if present. Every degradation is logged there;
+        nothing in Qompack degrades silently, so this file usually explains a behaviour change.
+      render: shell
