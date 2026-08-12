@@ -1,0 +1,1 @@
+{"hook_event_name":"PostToolUse","session_id":"sess_fuzz0001","transcript_path":"/home/u/.claude/projects/proj/sess.jsonl","cwd":"/home/u/proj","tool_name":"Bash","tool_use_id":"toolu_fuzz0001","tool_input":{"command":"go test ./..."},"tool_response":{"type":"text","text":"ok"}}
