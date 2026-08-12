@@ -1,0 +1,10 @@
+{
+  // project-local overrides
+  "store": {
+    "chunk": { "min": 2048, "target": 8192, "max": 32768 }, // wider windows for this repo
+    "compression": "zstd"
+  },
+  /* the ttl was tuned down after we noticed
+     the prefix going cold between review rounds */
+  "scheduler": { "cache": { "ttlSeconds": 180 } }
+}

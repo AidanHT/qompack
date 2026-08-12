@@ -1,0 +1,50 @@
+{
+  "store": {
+    "chunk": { "min": 1024, "target": 4096, "max": 16384 },
+    "compression": "zstd",
+    "retention": { "days": 30, "sessions": 10 },
+    "canonicalize": {
+      "enabled": true,
+      "strip": ["timestamps", "ansi", "pids", "addresses", "tmpPaths", "durations"],
+      "minhash": { "enabled": true, "permutations": 128, "nearDupThreshold": 0.9 }
+    }
+  },
+  "scheduler": {
+    "softFloorPct": 0.55,
+    "hardCeilingMargin": 20000,
+    "youngDaly": { "enabled": true, "measuredDeltaSeconds": null },
+    "changepoint": { "hazardRate": 0.004, "features": ["paths","tools","time","todos"] },
+    "cache": { "readMultiplier": 0.1, "writeMultiplier": 1.25, "ttlSeconds": 300 },
+    "idle": { "detectAfterSeconds": 120, "backgroundWork": true, "deepCutWhenCold": true }
+  },
+  "checkpoint": {
+    "budgetTokens": 12000,
+    "incrementalSpanInstruction": true,
+    "frontier": { "advanceOnSegmentClose": true, "maxResidualTokens": 20000 },
+    "tiers": { "never": ["invariants","user_intent","eliminated"],
+               "late":  ["decisions","open_questions","current_work"],
+               "first": ["pointers","narrative"] }
+  },
+  "sketches": {
+    "bloom": { "capacity": 10000, "fpRate": 0.01 },
+    "cms":   { "epsilon": 0.001, "delta": 0.01, "warmStartFromProject": true },
+    "hll":   { "registers": 2048 }
+  },
+  "eliminations": {
+    "requireEvidence": true,
+    "defaultScope": "session",
+    "rebuildOnStale": "nextIdle",
+    "staleResponse": "flag"          // "flag" | "drop"
+  },
+  "retrieval": {
+    "ephemeralResults": true,
+    "defaultSpan": "minimal",        // "minimal" | "full"
+    "promoteAfterExpansions": 2
+  },
+  "selection": {
+    "slicing": "thin",
+    "deltaScoring": "cheap",
+    "submodular": { "lambda": 0.4, "lazyGreedy": true }
+  },
+  "eval": { "replayOnPhaseGate": true, "minSessions": 20 }
+}
