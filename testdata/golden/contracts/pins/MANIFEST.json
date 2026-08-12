@@ -1,0 +1,8 @@
+{
+  "package": "pins",
+  "owner": "SP-10",
+  "fixtures": [
+    { "name": "add", "kind": "format", "state": "frozen", "input": "", "want": "want/add.jsonl", "note": "pins/invariants.jsonl add record" },
+    { "name": "tombstone", "kind": "format", "state": "frozen", "input": "", "want": "want/tombstone.jsonl", "note": "deletion is a tombstone record, never a rewrite" }
+  ]
+}

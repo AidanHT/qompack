@@ -1,0 +1,9 @@
+{
+  "package": "dag",
+  "owner": "SP-07",
+  "fixtures": [
+    { "name": "node_line", "kind": "format", "state": "frozen", "input": "", "want": "want/node_line.jsonl", "note": "dag/deps.jsonl node line; type discriminator distinguishes node from edge" },
+    { "name": "edge_line", "kind": "format", "state": "frozen", "input": "", "want": "want/edge_line.jsonl", "note": "dag/deps.jsonl edge line" },
+    { "name": "backward_slice_scores", "kind": "behaviour", "state": "record-by-owner", "input": "input/small_graph.jsonl", "want": "", "note": "slice scores descend and Thin drops EdgeControlOnly" }
+  ]
+}

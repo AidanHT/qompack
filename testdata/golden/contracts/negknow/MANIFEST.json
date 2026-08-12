@@ -1,0 +1,8 @@
+{
+  "package": "negknow",
+  "owner": "SP-09",
+  "fixtures": [
+    { "name": "elimination_record", "kind": "format", "state": "frozen", "input": "", "want": "want/elimination_record.jsonl", "note": "records/eliminations.jsonl record with the §8.3 staleness guard" },
+    { "name": "three_way_answer", "kind": "behaviour", "state": "record-by-owner", "input": "input/ledger_seed.jsonl", "want": "", "note": "absent / active / stale" }
+  ]
+}
