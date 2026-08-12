@@ -1,0 +1,27 @@
+# Qompack runtime store — never committed
+/.qompack/
+**/.qompack/
+
+# Build artifacts
+/bin/
+/dist/
+/plugin/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+/testdata/bench-*.json
+
+# Recorded sessions contain user code and prompts
+/testdata/sessions/recorded/*
+!/testdata/sessions/recorded/.gitkeep
+
+# Tooling
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
