@@ -1,0 +1,39 @@
+# Qompack runtime store — never committed
+/.qompack/
+**/.qompack/
+
+# Build artifacts
+/bin/
+/dist/
+/plugin/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.*
+/testdata/bench-*.json
+
+# Recorded sessions contain user code and prompts
+/testdata/sessions/recorded/*
+!/testdata/sessions/recorded/.gitkeep
+
+# Tooling
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# >>> private-files-block
+# Maintainer-only records (planning and verification documents, the design spec of record,
+# session handoffs and verification run logs) are kept outside this repository.
+/plans/
+/Qompack.md
+/NEXT-SESSION.md
+/.v4-artifacts/
+# Local agent configuration, at the root only: testdata/fixtures/rules/*/.claude/ are tracked
+# fixtures. Re-include a file meant for the repository with a "!/.claude/<file>" line.
+/.claude/*
+# <<< private-files-block
