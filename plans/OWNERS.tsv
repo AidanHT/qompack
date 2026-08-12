@@ -1,0 +1,48 @@
+# Package ownership, coverage floors and stub probes.
+#
+# Read by three devtool lint sub-checks:
+#   stubskips              — a Rule W-1 behaviour skip is a merge blocker only for the owning subplan
+#   cover                  — a package whose owner is not the merging subplan is exempt from its floor
+#   gen-contract-fixtures  — refuses to record a behaviour fixture while the owner's impl is a stub
+#
+# floor is the §6.4 line-coverage floor. probe names the method isStub() calls to decide whether
+# the package is still a stub; "-" means the package has no stub phase (SP-01 implements it now).
+#
+# devtool lint fails if a package exists on disk but is absent from this file: a new package
+# cannot appear without an ownership decision.
+#
+# package	owner	floor	probe
+core	SP-01	75	-
+paths	SP-01	90	-
+config	SP-01	90	-
+logging	SP-01	75	-
+obs	SP-01	75	-
+tokens	SP-01	75	-
+hookio	SP-01	75	-
+cli	SP-01	75	-
+pluginmanifest	SP-01	75	-
+testutil	SP-01	75	-
+cmd/qompack	SP-01	75	-
+eval	SP-02	85	Load
+sketch	SP-03	90	MarshalBinary
+chunk	SP-04	90	Split
+canon	SP-04	90	Canonicalize
+symbols	SP-04	75	Extract
+ipc	SP-05	75	Send
+daemon	SP-05	75	Run
+contract	SP-05	75	RunAll
+store	SP-06	90	PutBytes
+redact	SP-06	75	Redact
+dag	SP-07	85	AddNode
+observer	SP-08	75	OnToolUse
+negknow	SP-09	90	Query
+checkpoint	SP-10	90	Begin
+pins	SP-10	75	Add
+rehydrate	SP-11	85	Build
+rules	SP-11	75	PathScoped
+skills	SP-11	75	Index
+scheduler	SP-12	85	Evaluate
+mcp	SP-13	85	Serve
+commands	SP-14	75	Run
+analyzer	SP-15	85	Select
+grammar	SP-15	75	Append
