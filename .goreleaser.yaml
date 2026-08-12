@@ -1,0 +1,52 @@
+# Release build configuration for the qompack binary (00-ARCHITECTURE.md §2.6, §8).
+#
+# SP-01 (this file) owns only the six build targets, the CGO/trimpath/ldflags contract, and the
+# checksum file name. Release *execution* — plugin bundle assembly (plugin/bin population),
+# cross-platform validation, security audit, and attestation — is SP-17's, wired into
+# .github/workflows/release.yml (`goreleaser release --clean`, tag-triggered).
+version: 2
+
+project_name: qompack
+
+builds:
+  - id: qompack
+    main: ./cmd/qompack
+    binary: qompack
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/qompack/qompack/internal/core.Version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: qompack
+    ids: [qompack]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: >-
+      {{ .ProjectName }}-{{ .Os }}-{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ .Tag }}-next"
+
+changelog:
+  use: git
+  sort: asc
+
+release:
+  # SP-17 owns release execution; this section is filled in there. Left as an explicit,
+  # non-default placeholder rather than omitted, so a future edit is a diff, not a silent default.
+  disable: true
