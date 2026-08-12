@@ -85,10 +85,10 @@ func TestLoad_FlagsAllKinds(t *testing.T) {
 	env.Flags = map[string]string{
 		"store.canonicalize.enabled":               "false",
 		"store.chunk.target":                       "8192",
-		"scheduler.cache.ttlSeconds":                "600",
-		"eliminations.defaultScope":                 "project",
-		"scheduler.changepoint.features":            "paths,tools",
-		"scheduler.youngDaly.measuredDeltaSeconds":  "null",
+		"scheduler.cache.ttlSeconds":               "600",
+		"eliminations.defaultScope":                "project",
+		"scheduler.changepoint.features":           "paths,tools",
+		"scheduler.youngDaly.measuredDeltaSeconds": "null",
 	}
 
 	cfg, prov, warns, err := config.Load(env)

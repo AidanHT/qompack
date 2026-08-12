@@ -1,0 +1,5 @@
+* @qompack
+
+# The build plans and the normative architecture are amended only via an explicit
+# arch/<reason> branch (§0 amendment rule), never as a side effect of feature work.
+/plans/ @qompack

@@ -146,9 +146,9 @@ type BloomCfg struct {
 
 // CMSCfg sizes the touch.cms Count-Min sketch (§6.2, Appendix A).
 type CMSCfg struct {
-	Epsilon               float64 `json:"epsilon"               doc:"Count-Min sketch error factor ε" rng:"(0,1)" sec:"Appendix A"`
-	Delta                 float64 `json:"delta"                 doc:"Count-Min sketch failure probability δ" rng:"(0,1)" sec:"Appendix A"`
-	WarmStartFromProject  bool    `json:"warmStartFromProject"  doc:"seed the Count-Min sketch from project-scoped history at session start" sec:"§6.2"`
+	Epsilon              float64 `json:"epsilon"               doc:"Count-Min sketch error factor ε" rng:"(0,1)" sec:"Appendix A"`
+	Delta                float64 `json:"delta"                 doc:"Count-Min sketch failure probability δ" rng:"(0,1)" sec:"Appendix A"`
+	WarmStartFromProject bool    `json:"warmStartFromProject"  doc:"seed the Count-Min sketch from project-scoped history at session start" sec:"§6.2"`
 }
 
 // HLLCfg sizes the explore.hll cardinality sketch (§6.2).

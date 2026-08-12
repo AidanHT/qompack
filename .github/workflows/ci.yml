@@ -1,0 +1,147 @@
+name: ci
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [develop, main]
+
+env:
+  GOTOOLCHAIN: local
+  CGO_ENABLED: '0'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool fmt-check
+      - run: go run ./tools/devtool lint
+      - run: go vet ./...
+      - run: go build ./...
+      - name: reject attribution trailers
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base" ]; then base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"; fi
+          if git log --format=%B "$base..HEAD" | grep -Eiq 'Co-Authored-By|Signed-off-by|Generated with|🤖'; then
+            echo "attribution trailer found in commit range (§10)"; exit 1
+          fi
+      - name: conventional commits
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [ -z "$base" ]; then base="$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)"; fi
+          bad=0
+          while IFS= read -r s; do
+            [ -z "$s" ] && continue
+            echo "$s" | grep -Eq '^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9/_.,-]+\))?: .{1,64}$' \
+              || { echo "bad subject: $s"; bad=1; }
+          done < <(git log --format=%s "$base..HEAD")
+          exit $bad
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go: ['1.26.x']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '${{ matrix.go }}', cache: true }
+      - if: runner.os != 'Windows'
+        run: go test -race ./...
+      - if: runner.os == 'Windows'
+        run: go test -count=2 ./...
+
+  cover:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool cover
+      - uses: actions/upload-artifact@v4
+        with: { name: coverage, path: coverage.out }
+
+  crossbuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool build-all
+
+  bench-gate:
+    # NOT a required check until the end of wave 1 (§8): the hot-path harness is SP-05's.
+    # SP-05 removes this continue-on-error when test/bench/hotpath lands.
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool bench-hotpath --iterations 2000 --json bench.json
+
+  replay-gate:
+    # NOT a required check until the end of wave 1 (§8): the replay driver is SP-02's.
+    # SP-02 removes this continue-on-error when test/replay lands.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop
+
+  plugin-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool plugin-validate
+      - run: git diff --exit-code -- plugin/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...
+      - run: go run ./tools/devtool lint --only=importgraph,testdeps,bindeps
+      - name: import allowlist (§8, D10)
+        run: |
+          go list -deps -f '{{.ImportPath}} {{join .Imports " "}}' ./... > imports.txt
+          # No network stack anywhere; `net` itself is permitted only in internal/ipc (unix sockets).
+          ! grep -E '^github.com/qompack/qompack/(internal|cmd)/' imports.txt \
+            | grep -Ev '^github.com/qompack/qompack/internal/ipc ' \
+            | grep -E '\b(net/http|net/url|crypto/tls)\b'
+          # os/exec allowlist: daemon (detached self-spawn), cli, and testutil (§6.2 real-binary RunHook).
+          ! grep -E '^github.com/qompack/qompack/(internal|cmd)/' imports.txt \
+            | grep -Ev '^github.com/qompack/qompack/internal/(daemon|cli|testutil) ' \
+            | grep -E '\bos/exec\b'
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool gen-config-docs --check

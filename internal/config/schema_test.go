@@ -11,17 +11,33 @@ import (
 	"github.com/qompack/qompack/internal/config"
 )
 
-// update rewrites golden files in place when set: `go test ./internal/config/... -run
-// TestJSONSchema_Golden -update`. It is package-scoped (only one flag of this name may be
-// registered in the test binary) so every golden test in this package shares it.
-var update = flag.Bool("update", false, "update golden files")
+// update reports whether -update was passed: `go test ./internal/config/... -run
+// TestJSONSchema_Golden -update`. It is package-scoped so every golden test in this package
+// shares one flag.
+//
+// It adopts an existing registration rather than calling flag.Bool outright, mirroring
+// testutil.registerUpdateFlag. Only one flag of a given name may exist per test binary, and
+// internal/testutil registers -update for the same purpose; if any test file in this package ever
+// imports it, whichever init ran second would panic with "flag redefined". Two symmetric
+// adopt-or-register helpers cannot collide in either order.
+var update = registerUpdateFlag()
+
+// registerUpdateFlag returns a reader for -update, registering the flag only if nothing else has.
+// It returns a func because an already-registered flag exposes its value through flag.Value.
+func registerUpdateFlag() func() bool {
+	if f := flag.Lookup("update"); f != nil {
+		return func() bool { return f.Value.String() == "true" }
+	}
+	p := flag.Bool("update", false, "update golden files")
+	return func() bool { return *p }
+}
 
 const schemaGoldenPath = "../../testdata/golden/config/schema.json"
 
 func TestJSONSchema_Golden(t *testing.T) {
 	got := config.Defaults().JSONSchema()
 
-	if *update {
+	if update() {
 		require.NoError(t, os.WriteFile(schemaGoldenPath, got, 0o644))
 	}
 
