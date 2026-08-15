@@ -1,0 +1,10 @@
+{
+  "store": {
+    "futureKey": 1,
+    "chunk": { "min": 2048, "target": 8192, "max": 32768, "futureBound": 99 }
+  },
+  "newTopLevelSection": {
+    "nested": { "deeper": true }
+  },
+  "scheduler": { "softFloorPct": 0.5 }
+}

@@ -1,0 +1,79 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+env:
+  GOTOOLCHAIN: local
+  CGO_ENABLED: '0'
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { pkg: ./internal/chunk,      fn: FuzzSplit }
+          - { pkg: ./internal/canon,      fn: FuzzCanonicalize }
+          - { pkg: ./internal/sketch,     fn: FuzzUnmarshalBinary }
+          - { pkg: ./internal/hookio,     fn: FuzzReadEvent }
+          - { pkg: ./internal/ipc,        fn: FuzzFraming }
+          - { pkg: ./internal/config,     fn: FuzzConfigLoad }
+          - { pkg: ./internal/checkpoint, fn: FuzzCheckpointJSON }
+          - { pkg: ./internal/redact,     fn: FuzzRedact }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - name: fuzz ${{ matrix.target.fn }}
+        run: |
+          go test -run '^$' -fuzz '^${{ matrix.target.fn }}$' -fuzztime 10m ${{ matrix.target.pkg }}
+
+  race-windows:
+    # CGO is required for -race, so this job deliberately overrides the workflow-level
+    # CGO_ENABLED=0. The shipped binary is still built with CGO off (see crossbuild).
+    runs-on: windows-latest
+    env:
+      CGO_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go test -race ./...
+
+  bench-deep:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - run: go run ./tools/devtool bench-hotpath --iterations 5000 --json bench.json
+      - uses: actions/upload-artifact@v4
+        with: { name: "bench-${{ matrix.os }}", path: bench.json }
+
+  replay-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.x', cache: true }
+      - name: live-mode replay over the recorded corpus
+        env:
+          QOMPACK_SESSIONS_DIR: ${{ secrets.QOMPACK_SESSIONS_DIR }}
+        run: |
+          if [ -z "$QOMPACK_SESSIONS_DIR" ]; then
+            echo "no recorded corpus configured; skipping live replay (§6.3 tier 2)"
+            exit 0
+          fi
+          go run ./tools/devtool replay --corpus "$QOMPACK_SESSIONS_DIR" --baseline develop
