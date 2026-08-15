@@ -131,15 +131,20 @@ func TestRunStoreSuite_StubIsSkipped(t *testing.T) {
 	})
 }
 
-// TestRunStoreSuite_AgainstQompackStub exercises RunStoreSuite against the real store.Open stub,
-// end to end, so a change to its stub behaviour that breaks the conformance suite is caught here
-// rather than only once SP-06 lands.
-func TestRunStoreSuite_AgainstQompackStub(t *testing.T) {
-	storetest.RunStoreSuite(t, "store.Open-stub", func(t *testing.T) store.Store {
-		s, err := store.Open(t.TempDir(), config.Config{}, store.Deps{})
+// TestRunStoreSuite_AgainstRealStore exercises RunStoreSuite against the store store.Open
+// actually returns. As of SP-06 that is the real FSStore, so the suite's behaviour block runs
+// rather than skipping — which is what Rule W-1's runtime probe exists to switch on.
+func TestRunStoreSuite_AgainstRealStore(t *testing.T) {
+	storetest.RunStoreSuite(t, "store.Open", func(t *testing.T) store.Store {
+		s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{})
 		if err != nil {
 			t.Fatal(err)
 		}
+		// A real store holds open append-only handles, so it MUST be closed before the test's
+		// TempDir is removed: on Windows an open handle makes RemoveAll fail and the test error
+		// out during cleanup. The SP-01 stub held no handles, which is why this was not needed
+		// until SP-06 landed.
+		t.Cleanup(func() { _ = s.Close() })
 		return s
 	})
 }
@@ -151,14 +156,15 @@ func TestRunSegmentLogSuite_StubIsSkipped(t *testing.T) {
 	})
 }
 
-// TestRunSegmentLogSuite_AgainstQompackStub is TestRunStoreSuite_AgainstQompackStub's SegmentLog
+// TestRunSegmentLogSuite_AgainstRealStore is TestRunStoreSuite_AgainstRealStore's SegmentLog
 // sibling.
-func TestRunSegmentLogSuite_AgainstQompackStub(t *testing.T) {
+func TestRunSegmentLogSuite_AgainstRealStore(t *testing.T) {
 	storetest.RunSegmentLogSuite(t, func(t *testing.T) store.SegmentLog {
-		s, err := store.Open(t.TempDir(), config.Config{}, store.Deps{})
+		s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{})
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { _ = s.Close() })
 		return s.Segments()
 	})
 }

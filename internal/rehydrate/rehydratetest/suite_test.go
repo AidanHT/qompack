@@ -31,6 +31,9 @@ func buildFunc(t *testing.T) rehydratetest.BuildFunc {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// As of SP-06 store.Open returns a real store holding open append-only handles. They must be
+	// released before the test's TempDir is removed, or RemoveAll fails on Windows.
+	t.Cleanup(func() { _ = st.Close() })
 	ledger, err := negknow.Open(root, cfg, &sketch.Bloom{}, negknow.Deps{})
 	if err != nil {
 		t.Fatal(err)
