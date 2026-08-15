@@ -135,10 +135,11 @@ func (g *graph) load() error {
 	switch scanErr := sc.Err(); {
 	case scanErr != nil:
 		// The held line is complete and terminated — the failure lies in what came after it — so it
-		// is applied before the failure is reported.
+		// is applied before the failure is reported. haveHeld is deliberately not cleared here:
+		// nothing reads it again, since the other two cases of this switch are mutually exclusive
+		// with this one, and assigning to it anyway is what ineffassign exists to catch.
 		if haveHeld {
 			apply(held, heldAt)
-			haveHeld = false
 		}
 		if !errors.Is(scanErr, bufio.ErrTooLong) {
 			return fmt.Errorf("dag: read %s: %w", g.logPath, scanErr)

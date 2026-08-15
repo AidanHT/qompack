@@ -239,13 +239,13 @@ type sliceGoldenRow struct {
 	Scores   map[NodeID]string `json:"scores"`
 }
 
-// TestBackwardSliceGolden publishes slice-backward.json for both Thin settings.
+// TestSliceGoldenBackward publishes slice-backward.json for both Thin settings.
 //
 // Scores are recorded to five decimal places as strings rather than as raw float32s. A float32
 // renders through encoding/json at full precision — 0.7224999666213989 — which is unreadable and
 // gratuitously sensitive to the last bit of an intermediate product. Five places is far more
 // precision than any consumer ranks on, and it is stable across platforms.
-func TestBackwardSliceGolden(t *testing.T) {
+func TestSliceGoldenBackward(t *testing.T) {
 	g := buildGraphBasic(t)
 	criteria := []NodeID{DecisionNode(gbDecision)}
 
