@@ -1,10 +1,6 @@
 package dag
 
-import (
-	"encoding/json"
-
-	"github.com/qompack/qompack/internal/core"
-)
+import "github.com/qompack/qompack/internal/core"
 
 // EdgeKind classifies one dag.Edge. Values start at 0 and are frozen in this exact order by
 // testdata/golden/contracts/dag/want/edge_line.jsonl (Rule W-2): that fixture's edge is an
@@ -66,9 +62,11 @@ type edgeAlias Edge
 // MarshalJSON renders e as one dag/deps.jsonl edge line: the "type":"edge" discriminator followed
 // by every field of Edge, in the order testdata/golden/contracts/dag/want/edge_line.jsonl freezes
 // (from, to, kind, weight, turn). See Node.MarshalJSON's comment for why the discriminator is
-// produced here rather than stored as an Edge field.
+// produced here rather than stored as an Edge field, and why this goes through marshalLine's
+// escape-free encoder rather than json.Marshal: From and To carry NodeIDs whose keys are file
+// paths, and an escaped path is a path no `grep` of the log can find.
 func (e Edge) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
+	return marshalLine(struct {
 		Type string `json:"type"`
 		edgeAlias
 	}{Type: edgeLineType, edgeAlias: edgeAlias(e)})

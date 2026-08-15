@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -336,14 +335,30 @@ func (g *graph) AddEdge(e Edge) error {
 
 	key := edgeKey{from: normalized.From, to: normalized.To, kind: normalized.Kind}
 	if i, ok := g.edgeIdx[key]; ok {
-		// Fold: the strongest weight and the earliest turn seen for this triple win, and no new
-		// record is appended. This is what keeps the log linear when a shared-file edge is
-		// re-emitted on every read of the same path.
+		// Fold: the strongest weight and the earliest turn seen for this triple win.
+		//
+		// A record is appended only when the fold actually CHANGES the stored edge. That
+		// distinction is what keeps the log linear — SP-08 re-emits a shared-file edge on every
+		// read of the same path, and every one of those after the first is identical, so it costs
+		// nothing — while still keeping memory and disk in agreement.
+		//
+		// Appending nothing at all was the original rule, and it was wrong: a second emission
+		// carrying a stronger weight or an earlier turn changed the in-memory edge and left no
+		// trace, so a reload produced a DIFFERENT graph from the one that had been running. Edge
+		// weight is a factor in every slice score, so that divergence would have moved relevance
+		// rankings across a restart with nothing to point at. A property test found it.
+		changed := false
 		if normalized.Weight > g.edges[i].Weight {
 			g.edges[i].Weight = normalized.Weight
+			changed = true
 		}
 		if normalized.Turn < g.edges[i].Turn {
 			g.edges[i].Turn = normalized.Turn
+			changed = true
+		}
+		if changed {
+			g.pending = append(g.pending, record{kind: recEdge, edge: g.edges[i]})
+			g.maybeAutoFlushLocked()
 		}
 		return nil
 	}
@@ -594,52 +609,6 @@ func (g *graph) maybeAutoFlushLocked() {
 	}
 }
 
-// Open returns the dependence graph rooted at root.
-//
-// It creates <root>/.qompack/dag/ if it is absent, so a caller need not have run
-// paths.EnsureLayout first. Loading dag/deps.jsonl lands with log.go; until then a freshly opened
-// graph is empty, which is indistinguishable from opening a project that has never recorded one.
-func Open(root string, cfg config.Config, log logging.Logger) (Graph, error) {
-	g := newGraph(root, cfg, log)
-	if err := os.MkdirAll(paths.Long(filepath.Dir(g.logPath)), dagDirPerm); err != nil {
-		return nil, fmt.Errorf("dag: open %s: %w", g.logPath, err)
-	}
-	return g, nil
-}
-
-// dagDirPerm is the permission paths.EnsureLayout gives every .qompack subdirectory; Open matches
-// it so a directory it creates is indistinguishable from one EnsureLayout made.
-const dagDirPerm = 0o700
-
-// flushLocked appends every pending record to dag/deps.jsonl.
-//
-// It is a no-op in this commit: persistence lands with wire.go and log.go. The seam exists now so
-// that AddNode's auto-flush path is written against its final shape rather than being retrofitted.
-//
-// The caller must already hold g.mu for writing.
-func (g *graph) flushLocked(ctx context.Context) error {
-	if g.closed {
-		return ErrClosed
-	}
-	_ = ctx
-	return nil
-}
-
-// Flush appends any buffered records to dag/deps.jsonl.
-func (g *graph) Flush(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.flushLocked(ctx)
-}
-
-// Compact rewrites the log, dropping tombstoned nodes. It is a no-op in this commit; compact.go
-// lands the real rewrite.
-func (g *graph) Compact(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.closed {
-		return ErrClosed
-	}
-	_ = ctx
-	return nil
-}
+// Open, Flush and flushLocked live in log.go, and Compact in compact.go: this file is the
+// in-memory graph and its contracts, and the two persistence halves are large enough — and
+// independent enough of each other — to read on their own.
