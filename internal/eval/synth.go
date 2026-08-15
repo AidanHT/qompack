@@ -1,6 +1,7 @@
 package eval
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -104,12 +105,18 @@ func SynthesizeNamed(n NamedSpec) Session {
 // EncodeSession renders a session exactly as the committed corpus files hold it: indented JSON
 // with a trailing newline. The golden test compares these bytes, so the encoding is part of the
 // contract rather than a detail of whoever wrote the file.
+//
+// HTML escaping is off, matching every other JSON writer in this codebase, so a "<" in a redacted
+// span or a path appears literally rather than as <.
 func EncodeSession(s Session) ([]byte, error) {
-	b, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(s); err != nil {
 		return nil, fmt.Errorf("eval: encoding session %s: %w", s.ID, err)
 	}
-	return append(b, '\n'), nil
+	return buf.Bytes(), nil
 }
 
 // synthGen is one generation in progress.

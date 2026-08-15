@@ -1,0 +1,5 @@
+{"type":"user","message":{"role":"user","content":"start the migration"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"working through it"}],"usage":{"output_tokens":20}}}
+{"type":"user","message":{"role":"user","content":"continue"}}
+{"type":"user","isCompactSummary":true,"message":{"role":"user","content":"This session is being continued from a previous conversation that ran out of context."}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"resuming from the summary"}],"usage":{"output_tokens":15}}}
