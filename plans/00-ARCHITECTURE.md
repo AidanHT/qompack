@@ -757,7 +757,12 @@ func New(o Options) (Daemon, error)
 //   - IdleController.Register adds O3/O5 background work.
 //   - Services is the late-bound dependency set; nil members mean "not built yet" and every
 //     call site must tolerate that (waves 1–2 run with Checkpoints and Sched nil).
-func (Options) Handle(op ipc.Op, h ipc.Handler)
+//
+// Handle takes a POINTER receiver. The routing table is an unexported map that Handle allocates
+// on first use, so a value receiver would mutate a copy and register nothing — every caller would
+// silently get an empty table. Wiring is therefore `o := daemon.Options{...}; o.Handle(...)` and
+// composition roots must pass &o where an *Options is wanted.
+func (*Options) Handle(op ipc.Op, h ipc.Handler)
 
 type IdleController interface {
     // Register work that may run only when the session is idle (§8.4 O3).
