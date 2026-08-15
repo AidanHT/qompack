@@ -1,0 +1,80 @@
+=== RUN   TestLedger_AddAndTotal
+--- PASS: TestLedger_AddAndTotal (0.00s)
+=== RUN   TestLedger_Render
+    calc_test.go:25: Render() mismatch
+          got:  "alpha=3;beta=4;"
+          want: "alpha=3;beta=5;"
+--- FAIL: TestLedger_Render (0.00s)
+=== RUN   TestLedger_LookupMissing
+    calc_test.go:35: observed error: scratchfail: unknown key "nope"
+--- PASS: TestLedger_LookupMissing (0.00s)
+=== RUN   TestLedger_SlowPath
+--- PASS: TestLedger_SlowPath (0.12s)
+=== RUN   TestDivide_PanicsWithGoroutines
+    calc_test.go:70: dividing 10 by zero denominator
+--- FAIL: TestDivide_PanicsWithGoroutines (0.05s)
+panic: runtime error: integer divide by zero [recovered, repanicked]
+
+goroutine 11 [running]:
+testing.tRunner.func1.2({0x7ff716b02880, 0x7ff716c790a0})
+	C:/Program Files/Go/src/testing/testing.go:1974 +0x239
+testing.tRunner.func1()
+	C:/Program Files/Go/src/testing/testing.go:1977 +0x349
+panic({0x7ff716b02880?, 0x7ff716c790a0?})
+	C:/Program Files/Go/src/runtime/panic.go:860 +0x13a
+example.com/scratchfail.Divide(...)
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc.go:63
+example.com/scratchfail.TestDivide_PanicsWithGoroutines(0x1fdc98646c00)
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:71 +0x145
+testing.tRunner(0x1fdc98646c00, 0x7ff716b3cc90)
+	C:/Program Files/Go/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Program Files/Go/src/testing/testing.go:2101 +0x4a9
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x1fdc98646200, {0x7ff716b35ed7?, 0x7ff716a9140e?}, 0x7ff716b3cc90)
+	C:/Program Files/Go/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(0x1fdc98646200)
+	C:/Program Files/Go/src/testing/testing.go:2585 +0x3e
+testing.tRunner(0x1fdc98646200, 0x1fdc986e1c58)
+	C:/Program Files/Go/src/testing/testing.go:2036 +0xc3
+testing.runTests({0x7ff716b3309c, 0x17}, {0x7ff716b3309c, 0x17}, 0x1fdc9864e0c0, {0x7ff716c81a80, 0x5, 0x5}, {0xc2984d479733270c, 0x8bb2d53f71, ...})
+	C:/Program Files/Go/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(0x1fdc986fa140)
+	C:/Program Files/Go/src/testing/testing.go:2443 +0x6ac
+main.main()
+	_testmain.go:54 +0x9b
+
+goroutine 12 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:56 +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:54 +0x54
+
+goroutine 13 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:56 +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:54 +0x54
+
+goroutine 14 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:56 +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:54 +0x54
+
+goroutine 15 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:56 +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:54 +0x54
+
+goroutine 16 [sleep]:
+time.Sleep(0x5d21dba00)
+	C:/Program Files/Go/src/runtime/time.go:363 +0x167
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func2()
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:66 +0x85
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gofail/calc_test.go:62 +0x114
+exit status 2
+FAIL	example.com/scratchfail	1.128s

@@ -1,0 +1,67 @@
+[1m[92m   Compiling[0m ansicrate v0.2.0 (C:\Users\alice\AppData\Local\Temp\claude\C--Users-alice-Documents-Programming-Projects-qompack\9ca304cd-aa51-4d71-8c50-de6e43bc96d8\scratchpad\rustansi)
+[1m[93mwarning[0m[1m[97m: unused variable: `unused_capacity`[0m
+  [1m[96m--> [0msrc\lib.rs:13:13
+   [1m[96m|[0m
+[1m[96m13[0m [1m[96m|[0m         let unused_capacity = 64;
+   [1m[96m|[0m             [1m[93m^^^^^^^^^^^^^^^[0m [1m[93mhelp: if this is intentional, prefix it with an underscore: `_unused_capacity`[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+[1m[93mwarning[0m[1m[97m: variable does not need to be mutable[0m
+  [1m[96m--> [0msrc\lib.rs:26:13
+   [1m[96m|[0m
+[1m[96m26[0m [1m[96m|[0m         let mut candidate = path;
+   [1m[96m|[0m             [1m[96m----[0m[1m[93m^^^^^^^^^[0m
+   [1m[96m|[0m             [1m[96m|[0m
+   [1m[96m|[0m             [1m[96mhelp: remove this `mut`[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+[1m[93mwarning[0m[1m[97m: unused variable: `candidate`[0m
+  [1m[96m--> [0msrc\lib.rs:26:13
+   [1m[96m|[0m
+[1m[96m26[0m [1m[96m|[0m         let mut candidate = path;
+   [1m[96m|[0m             [1m[93m^^^^^^^^^^^^^[0m [1m[93mhelp: if this is intentional, prefix it with an underscore: `_candidate`[0m
+
+[1m[93mwarning[0m[1m[97m: unused variable: `unread`[0m
+  [1m[96m--> [0msrc\lib.rs:27:13
+   [1m[96m|[0m
+[1m[96m27[0m [1m[96m|[0m         let unread = self.fallback.len();
+   [1m[96m|[0m             [1m[93m^^^^^^[0m [1m[93mhelp: if this is intentional, prefix it with an underscore: `_unread`[0m
+
+[1m[93mwarning[0m[1m[97m: unused variable: `scratch`[0m
+  [1m[96m--> [0msrc\lib.rs:37:9
+   [1m[96m|[0m
+[1m[96m37[0m [1m[96m|[0m     let scratch: Vec<i32> = Vec::new();
+   [1m[96m|[0m         [1m[93m^^^^^^^[0m [1m[93mhelp: if this is intentional, prefix it with an underscore: `_scratch`[0m
+
+[1m[93mwarning[0m[1m[97m: unused variable: `suffix`[0m
+  [1m[96m--> [0msrc\lib.rs:50:9
+   [1m[96m|[0m
+[1m[96m50[0m [1m[96m|[0m     let suffix = "!";
+   [1m[96m|[0m         [1m[93m^^^^^^[0m [1m[93mhelp: if this is intentional, prefix it with an underscore: `_suffix`[0m
+
+[1m[93mwarning[0m[1m[97m: function `helper_never_used` is never used[0m
+  [1m[96m--> [0msrc\lib.rs:44:4
+   [1m[96m|[0m
+[1m[96m44[0m [1m[96m|[0m fn helper_never_used(x: u32) -> u32 {
+   [1m[96m|[0m    [1m[93m^^^^^^^^^^^^^^^^^[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+[1m[93mwarning[0m[1m[97m: variable `Normalized` should have a snake case name[0m
+  [1m[96m--> [0msrc\lib.rs:21:13
+   [1m[96m|[0m
+[1m[96m21[0m [1m[96m|[0m         let Normalized = path.trim_end_matches('/').to_string();
+   [1m[96m|[0m             [1m[93m^^^^^^^^^^[0m [1m[93mhelp: convert the identifier to snake case: `normalized`[0m
+   [1m[96m|[0m
+   [1m[96m= [0m[1m[97mnote[0m: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+[1m[93mwarning[0m[1m[97m: function `Compute_Total` should have a snake case name[0m
+  [1m[96m--> [0msrc\lib.rs:35:8
+   [1m[96m|[0m
+[1m[96m35[0m [1m[96m|[0m pub fn Compute_Total(values: &[i32]) -> i32 {
+   [1m[96m|[0m        [1m[93m^^^^^^^^^^^^^[0m [1m[93mhelp: convert the identifier to snake case: `compute_total`[0m
+
+[1m[93mwarning[0m: `ansicrate` (lib) generated 9 warnings (run `cargo fix --lib -p ansicrate` to apply 6 suggestions)
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`dev` profile [unoptimized + debuginfo]]8;;\ target(s) in 1.65s

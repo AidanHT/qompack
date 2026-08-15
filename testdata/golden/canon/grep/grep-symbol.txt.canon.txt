@@ -1,0 +1,178 @@
+internal/canon/apply.go:15:// candidate is one Match plus the identity of the Canonicalizer that emitted it: rank is that
+internal/canon/apply.go:112:// compose is the shared body of Registry.Run and of every built-in's standalone Canonicalize:
+internal/canon/apply.go:155:// canonicalizeVia is the standalone Canonicalize every built-in delegates to: it composes m's own
+internal/canon/bench_test.go:43:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/bench_test.go:44:	o := canon.OptionsFrom(config.Defaults().Store.Canonicalize, false)
+internal/canon/bench_test.go:59:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/bench_test.go:60:	o := canon.OptionsFrom(config.Defaults().Store.Canonicalize, false)
+internal/canon/bench_test.go:76:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/bench_test.go:77:	o := canon.OptionsFrom(config.Defaults().Store.Canonicalize, true)
+internal/canon/bench_test.go:93:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/bench_test.go:94:	o := canon.OptionsFrom(config.Defaults().Store.Canonicalize, true)
+internal/canon/builtins.go:34:func builtins() []Canonicalizer {
+internal/canon/builtins.go:35:	return []Canonicalizer{
+internal/canon/canonicalizer.go:3:// Canonicalizer strips one class of volatile content from one tool's output
+internal/canon/canonicalizer.go:4:// (00-ARCHITECTURE.md §5.6). Canonicalize MUST be idempotent:
+internal/canon/canonicalizer.go:5:// Canonicalize(Canonicalize(x).Canonical, o) == Canonicalize(x, o).
+internal/canon/canonicalizer.go:11:// Every built-in ALSO implements Matcher, which is what Registry.Run composes over; Canonicalize
+internal/canon/canonicalizer.go:14:// Result.Signature is left zero by a standalone Canonicalize: only Run sees the fully
+internal/canon/canonicalizer.go:17:type Canonicalizer interface {
+internal/canon/canonicalizer.go:22:	// Canonicalize strips this canonicalizer's class of content from in.
+internal/canon/canonicalizer.go:23:	Canonicalize(in []byte, o Options) (Result, error)
+internal/canon/canontest/behaviour.go:12:// Restore∘Canonicalize == identity under KeepDeltas, never growing the input, and registration
+internal/canon/canontest/behaviour.go:26:// runIdempotenceCase asserts Canonicalize(Canonicalize(x)) == Canonicalize(x) at the byte level
+internal/canon/canontest/behaviour.go:40:		"Canonicalize(Canonicalize(x)) must equal Canonicalize(x)")
+internal/canon/canontest/behaviour.go:43:// runRestoreRoundTripCase asserts Restore(Canonicalize(x, KeepDeltas).Canonical, .Deltas) == x
+internal/canon/canontest/behaviour.go:55:	require.Equal(t, in, restored, "Restore(Canonicalize(x, KeepDeltas).Canonical, .Deltas) must equal x")
+internal/canon/canontest/behaviour.go:72:// fakeRegistrationOrderCanonicalizer is a minimal Canonicalizer used only to probe Registry
+internal/canon/canontest/behaviour.go:75:type fakeRegistrationOrderCanonicalizer struct{ name string }
+internal/canon/canontest/behaviour.go:77:func (c fakeRegistrationOrderCanonicalizer) Name() string                   { return c.name }
+internal/canon/canontest/behaviour.go:78:func (c fakeRegistrationOrderCanonicalizer) Applies(tool, path string) bool { return true }
+internal/canon/canontest/behaviour.go:79:func (c fakeRegistrationOrderCanonicalizer) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/canontest/behaviour.go:83:// runRegistrationOrderPreservedCase asserts Names and For report registered Canonicalizers in
+internal/canon/canontest/behaviour.go:84:// registration order (00-ARCHITECTURE.md §5.6: "For(tool, path string) []Canonicalizer //
+internal/canon/canontest/behaviour.go:101:		require.NoError(t, r.Register(fakeRegistrationOrderCanonicalizer{name: n}))
+internal/canon/canontest/suite.go:21:// shapeProbeCanonicalizer is a minimal canon.Canonicalizer used only by the shape block's Register
+internal/canon/canontest/suite.go:23:type shapeProbeCanonicalizer struct{}
+internal/canon/canontest/suite.go:25:func (shapeProbeCanonicalizer) Name() string                   { return "shape-probe" }
+internal/canon/canontest/suite.go:26:func (shapeProbeCanonicalizer) Applies(tool, path string) bool { return true }
+internal/canon/canontest/suite.go:27:func (shapeProbeCanonicalizer) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/canontest/suite.go:44:		requireKnownError(t, r.Register(shapeProbeCanonicalizer{}))
+internal/canon/canontest/suite.go:85:// canon's probe method "Canonicalize", but Registry has no method by that name — Run is
+internal/canon/canontest/suite.go:87:// Canonicalizer's Canonicalize in turn — so this probes Run instead, the natural realization of
+internal/canon/canontest/suite_test.go:17:func (fakeStubRegistry) Register(c canon.Canonicalizer) error        { return core.ErrNotImplemented }
+internal/canon/canontest/suite_test.go:18:func (fakeStubRegistry) For(tool, path string) []canon.Canonicalizer { return nil }
+internal/canon/canontest/suite_test.go:46:		return canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/classes.go:93:func OptionsFrom(cfg config.CanonicalizeCfg, keepDeltas bool) Options {
+internal/canon/classes_test.go:33:	strip := config.Defaults().Store.Canonicalize.Strip
+internal/canon/classes_test.go:76:	cfg := config.Defaults().Store.Canonicalize
+internal/canon/classes_test.go:101:	cfg := config.Defaults().Store.Canonicalize
+internal/canon/classes_test.go:115:	cfg := config.Defaults().Store.Canonicalize
+internal/canon/dedup_test.go:17:func threshold() float64 { return config.Defaults().Store.Canonicalize.MinHash.NearDupThreshold }
+internal/canon/dedup_test.go:86:	o := canon.OptionsFrom(config.Defaults().Store.Canonicalize, false)
+internal/canon/default.go:19:func Default(cfg config.CanonicalizeCfg) Registry {
+internal/canon/default_test.go:26:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/default_test.go:32:// Registry.Run silently skips a Canonicalizer that does not implement Matcher, because SP-01's
+internal/canon/default_test.go:39:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/default_test.go:60:	cfg := config.Defaults().Store.Canonicalize
+internal/canon/default_test.go:76:// TestDefault_ForSelectsPerToolCanonicalizers asserts Applies actually dispatches: the seven
+internal/canon/default_test.go:78:func TestDefault_ForSelectsPerToolCanonicalizers(t *testing.T) {
+internal/canon/default_test.go:81:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/default_test.go:113:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/default_test.go:121:// namesOf renders a Canonicalizer slice as its names.
+internal/canon/default_test.go:122:func namesOf(cs []canon.Canonicalizer) []string {
+internal/canon/default_test.go:136:		return canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/errors.go:13:	// ErrNotMatcher is reported by MatchesOf when a Canonicalizer does not also implement Matcher
+internal/canon/errors.go:17:	// plain Canonicalizer and requires Register to succeed, and its shape block then calls Run on
+internal/canon/errors.go:20:	// (Rule W-3). Registration accepts any Canonicalizer; Run composes matches from the Matchers
+internal/canon/errors.go:25:	// ErrDuplicateName is reported by Registry.Register when a Canonicalizer's Name is already
+internal/canon/generic.go:12:// idempotence §5.6 demands — Canonicalize(Canonicalize(x)) == Canonicalize(x), byte for byte — a
+internal/canon/generic.go:186:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:187:func (c crlfCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:242:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:243:func (c ansiCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:300:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:301:func (c timestampsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:356:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:357:func (c durationsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:405:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:406:func (c pidsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:458:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:459:func (c addressesCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:519:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/generic.go:520:func (c tmpPathsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/golden_test.go:80:	return canon.OptionsFrom(config.Defaults().Store.Canonicalize, true)
+internal/canon/golden_test.go:88:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/golden_test.go:108:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/golden_test.go:122:				"Canonicalize(Canonicalize(x)) must equal Canonicalize(x) (§5.6)")
+internal/canon/golden_test.go:127:				"Restore(Canonicalize(x).Canonical, deltas) must equal x (§5.6)")
+internal/canon/golden_test.go:138:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/golden_test.go:162:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/golden_test.go:189:// FuzzCanonicalizeRun asserts the whole registry never panics, never grows its input, stays
+internal/canon/golden_test.go:194:func FuzzCanonicalizeRun(f *testing.F) {
+internal/canon/golden_test.go:202:	r := canon.Default(config.Defaults().Store.Canonicalize)
+internal/canon/golden_test.go:230:// fuzzSeeds reads the corpus for FuzzCanonicalizeRun. It takes *testing.F rather than *testing.T,
+internal/canon/match.go:31:// Matcher is the half of a built-in Canonicalizer that Registry.Run composes over. Every
+internal/canon/match.go:47:// Registry.Run calls this for every applicable Canonicalizer and skips the ones that report
+internal/canon/match.go:48:// ErrNotMatcher, so a third-party Canonicalizer registered through Register neither breaks Run
+internal/canon/match.go:50:func MatchesOf(c Canonicalizer, in []byte, o Options) ([]Match, error) {
+internal/canon/registry.go:12:// Registry holds a set of Canonicalizers and dispatches a tool's output through whichever of them
+internal/canon/registry.go:16:	Register(c Canonicalizer) error
+internal/canon/registry.go:17:	// For returns every registered Canonicalizer that applies to tool's output at path, in
+internal/canon/registry.go:19:	For(tool, path string) []Canonicalizer
+internal/canon/registry.go:20:	// Run applies every applicable Canonicalizer to in, in registration order, and returns the
+internal/canon/registry.go:23:	// Names returns every registered Canonicalizer's Name, in registration order.
+internal/canon/registry.go:40:	canons []Canonicalizer
+internal/canon/registry.go:46:// A nil Canonicalizer is a documented no-op returning nil rather than an error. Two reasons: there
+internal/canon/registry.go:51:func (r *registry) Register(c Canonicalizer) error {
+internal/canon/registry.go:70:// For returns the applicable Canonicalizers in registration order.
+internal/canon/registry.go:71:func (r *registry) For(tool, path string) []Canonicalizer {
+internal/canon/registry.go:75:	out := make([]Canonicalizer, 0, len(r.canons))
+internal/canon/registry.go:99:// applicable Canonicalizer reports the spans it would rewrite, all of those spans are expressed
+internal/canon/registry.go:107:// A Canonicalizer that does not implement Matcher contributes nothing and never appears in
+internal/canon/registry.go:133:// collect gathers every applicable Canonicalizer's matches over head, tagged with the emitter's
+internal/canon/registry_test.go:45:// canontest suite forces: it registers a plain Canonicalizer and requires Register to succeed,
+internal/canon/registry_test.go:298:		Permutations: config.Defaults().Store.Canonicalize.MinHash.Permutations,
+internal/canon/restore.go:11:// byte-exact inverse of Canonicalize when Options.KeepDeltas was set (00-ARCHITECTURE.md §5.6).
+internal/canon/testdouble_test.go:5:// fakeCanon is a Canonicalizer whose match set is supplied by the test rather than derived from
+internal/canon/testdouble_test.go:38:// Canonicalize echoes its input. The double exists to be composed by Registry.Run, which never
+internal/canon/testdouble_test.go:39:// calls Canonicalize; this satisfies the interface and nothing more.
+internal/canon/testdouble_test.go:40:func (f fakeCanon) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/testdouble_test.go:44:// plainCanon implements Canonicalizer but NOT Matcher. It is the shape canontest's own
+internal/canon/testdouble_test.go:55:// Canonicalize echoes its input.
+internal/canon/testdouble_test.go:56:func (p plainCanon) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/tools.go:133:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:134:func (c bashCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:219:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:220:func (c testRunnerCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:337:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:338:func (c grepCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:370:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:371:func (c globCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:427:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:428:func (c fileReadCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:490:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:491:func (c webFetchCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:550:// Canonicalize composes this canonicalizer's own matches exactly as Registry.Run would.
+internal/canon/tools.go:551:func (c gitCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/types.go:5:// Class names one category of volatile content a Canonicalizer strips (00-ARCHITECTURE.md §5.6).
+internal/canon/types.go:29:// Delta is one volatile span a Canonicalizer stripped: where it was, what it originally said, and
+internal/canon/types.go:43:// Result is one Canonicalizer's (or the Registry's) output.
+internal/config/config.go:41:	Canonicalize CanonicalizeCfg `json:"canonicalize"`
+internal/config/config.go:57:// CanonicalizeCfg controls the §8.1 pre-chunking canonicalization pass.
+internal/config/config.go:58:type CanonicalizeCfg struct {
+internal/config/defaults.go:22:			Canonicalize: CanonicalizeCfg{
+internal/config/load_kinds_test.go:37:	require.True(t, cfg.Store.Canonicalize.Enabled)
+internal/config/load_kinds_test.go:41:	require.Equal(t, []string{"timestamps", "crlf", "paths"}, cfg.Store.Canonicalize.Strip)
+internal/config/load_kinds_test.go:97:	require.False(t, cfg.Store.Canonicalize.Enabled)
+internal/config/load_kinds_test.go:159:	require.Equal(t, def.Store.Canonicalize.Enabled, cfg.Store.Canonicalize.Enabled)
+internal/config/load_kinds_test.go:160:	require.Equal(t, def.Store.Canonicalize.Strip, cfg.Store.Canonicalize.Strip)
+internal/config/load_test.go:253:	require.Equal(t, []string{"timestamps", "ansi"}, cfg.Store.Canonicalize.Strip)
+internal/config/load_test.go:272:	require.False(t, cfg.Store.Canonicalize.Enabled)
+internal/config/validate.go:83:	if !allKnown(c.Store.Canonicalize.Strip, knownCanonicalizeClasses) {
+internal/config/validate.go:84:		add("store.canonicalize.strip", "contains an unknown canonicalizer class", c.Store.Canonicalize.Strip,
+internal/config/validate.go:85:			"subset of "+strings.Join(sortedKeys(knownCanonicalizeClasses), "|"))
+internal/config/validate.go:89:	if c.Store.Canonicalize.MinHash.Permutations < 16 || c.Store.Canonicalize.MinHash.Permutations > 512 {
+internal/config/validate.go:90:		add("store.canonicalize.minhash.permutations", "out of range", c.Store.Canonicalize.MinHash.Permutations, "[16,512]")
+internal/config/validate.go:94:	if c.Store.Canonicalize.MinHash.NearDupThreshold <= 0 || c.Store.Canonicalize.MinHash.NearDupThreshold > 1 {
+internal/config/validate.go:95:		add("store.canonicalize.minhash.nearDupThreshold", "out of range", c.Store.Canonicalize.MinHash.NearDupThreshold, "(0,1]")
+internal/config/validate.go:305:// knownCanonicalizeClasses is the closed set store.canonicalize.strip may draw from (§8.1). It
+internal/config/validate.go:308:var knownCanonicalizeClasses = map[string]bool{
+internal/config/validate_test.go:39:	{"canonicalize.strip unknown class", func(c *config.Config) { c.Store.Canonicalize.Strip = []string{"bogus"} }, "store.canonicalize.strip"},
+internal/config/validate_test.go:42:	{"minhash.permutations below 16", func(c *config.Config) { c.Store.Canonicalize.MinHash.Permutations = 15 }, "store.canonicalize.minhash.permutations"},
+internal/config/validate_test.go:43:	{"minhash.permutations above 512", func(c *config.Config) { c.Store.Canonicalize.MinHash.Permutations = 513 }, "store.canonicalize.minhash.permutations"},
+internal/config/validate_test.go:46:	{"nearDupThreshold at 0", func(c *config.Config) { c.Store.Canonicalize.MinHash.NearDupThreshold = 0 }, "store.canonicalize.minhash.nearDupThreshold"},
+internal/config/validate_test.go:47:	{"nearDupThreshold above 1", func(c *config.Config) { c.Store.Canonicalize.MinHash.NearDupThreshold = 1.1 }, "store.canonicalize.minhash.nearDupThreshold"},
+internal/negknow/doc.go:19:// than stubbing it. Canonicalize, by contrast, IS a stub: turning free-text target/approach/reason
+internal/negknow/negknowtest/behaviour.go:40:	desc := negknow.Canonicalize(target, approach, reason)
+internal/negknow/negknowtest/behaviour.go:86:	activeDesc := negknow.Canonicalize("rebuild-active-target", "rebuild-active-approach", "still holds")
+internal/negknow/negknowtest/behaviour.go:94:	staleDesc := negknow.Canonicalize("rebuild-stale-target", "rebuild-stale-approach", "dependency changed")
+internal/negknow/negknowtest/behaviour.go:140:	desc := negknow.Canonicalize(target, approach, reason)
+internal/negknow/types.go:73:// Canonicalize turns free-text target/approach/reason strings into a canonical Descriptor
+internal/negknow/types.go:74:// (00-ARCHITECTURE.md §5.10). Canonicalize always returns the zero Descriptor in this build.
+internal/negknow/types.go:75:// Canonicalize has no error return, so the zero value is Rule 1's documented answer: unlike
+internal/negknow/types.go:81:func Canonicalize(target, approach, reason string) Descriptor { return Descriptor{} }
+internal/negknow/types_test.go:10:// TestCanonicalize_StubReturnsZeroDescriptor pins Canonicalize's documented stub behaviour (Rule
+internal/negknow/types_test.go:13:func TestCanonicalize_StubReturnsZeroDescriptor(t *testing.T) {
+internal/negknow/types_test.go:14:	require.Equal(t, negknow.Descriptor{}, negknow.Canonicalize("", "", ""))
+internal/negknow/types_test.go:16:		negknow.Canonicalize("src/auth.ts:refreshToken", "widen pool timeout", "pgbouncer ignores it"))

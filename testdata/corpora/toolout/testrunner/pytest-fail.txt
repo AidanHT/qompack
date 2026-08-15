@@ -1,0 +1,28 @@
+[1m============================= test session starts =============================[0m
+platform win32 -- Python 3.13.5, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\alice\AppData\Local\Temp\claude\C--Users-alice-Documents-Programming-Projects-qompack\9ca304cd-aa51-4d71-8c50-de6e43bc96d8\scratchpad\pyproj\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\alice\AppData\Local\Temp\claude\C--Users-alice-Documents-Programming-Projects-qompack\9ca304cd-aa51-4d71-8c50-de6e43bc96d8\scratchpad\pyproj
+[1mcollecting ... [0mcollected 5 items
+
+test_shipping.py::test_quote_single_parcel [32mPASSED[0m[32m                        [ 20%][0m
+test_shipping.py::test_quote_rejects_zero_weight [32mPASSED[0m[32m                  [ 40%][0m
+test_shipping.py::test_bulk_quote_sums_parcels [31mFAILED[0m[31m                    [ 60%][0m
+test_shipping.py::test_normalize_destination_collapses_whitespace [32mPASSED[0m[31m [ 80%][0m
+test_shipping.py::test_is_heavy_threshold [32mPASSED[0m[31m                         [100%][0m
+
+================================== FAILURES ===================================
+[31m[1m________________________ test_bulk_quote_sums_parcels _________________________[0m
+
+    [0m[94mdef[39;49;00m[90m [39;49;00m[92mtest_bulk_quote_sums_parcels[39;49;00m():[90m[39;49;00m
+        parcels = [[90m[39;49;00m
+            Parcel(destination=[33m"[39;49;00m[33mBoston[39;49;00m[33m"[39;49;00m, weight_kg=[94m4.0[39;49;00m),[90m[39;49;00m
+            Parcel(destination=[33m"[39;49;00m[33mReno[39;49;00m[33m"[39;49;00m, weight_kg=[94m2.0[39;49;00m),[90m[39;49;00m
+        ][90m[39;49;00m
+>       [94massert[39;49;00m bulk_quote(parcels) == [94m18.4[39;49;00m[90m[39;49;00m
+[1m[31mE       AssertionError: assert 17.4 == 18.4[0m
+[1m[31mE        +  where 17.4 = bulk_quote([Parcel(destination='Boston', weight_kg=4.0, tags=[]), Parcel(destination='Reno', weight_kg=2.0, tags=[])])[0m
+
+[1m[31mtest_shipping.py[0m:22: AssertionError
+[36m[1m=========================== short test summary info ===========================[0m
+[31mFAILED[0m test_shipping.py::[1mtest_bulk_quote_sums_parcels[0m - AssertionError: assert 17.4 == 18.4
+[31m========================= [31m[1m1 failed[0m, [32m4 passed[0m[31m in 0.14s[0m[31m =========================[0m
