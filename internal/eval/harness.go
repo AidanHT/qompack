@@ -1,7 +1,6 @@
 package eval
 
 import (
-	"context"
 	"time"
 
 	"github.com/qompack/qompack/internal/config"
@@ -71,10 +70,5 @@ func (h *harness) observe(name string, start time.Time) {
 	h.metrics.Hist(name).Observe(h.clock.Since(start))
 }
 
-// ScoreRun scores a Run against OPT. Implemented in score.go.
-func (h *harness) ScoreRun(r Run, opt map[core.TurnIndex]KeepSet) Score { return Score{} }
-
-// Report aggregates per-policy scores. Implemented in score.go.
-func (h *harness) Report(ctx context.Context, scores map[string][]Score) (Report, error) {
-	return Report{}, core.ErrNotImplemented
-}
+// Load, Replay, Compare, Belady, ScoreRun and Report are implemented in replay.go, divergence.go,
+// belady.go and score.go respectively.

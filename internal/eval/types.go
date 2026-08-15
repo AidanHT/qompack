@@ -544,7 +544,7 @@ type SketchHealth struct {
 	FillRatio float64 `json:"fillRatio"`
 	// EstFPRate is the estimated false-positive rate. §11.4: at 1% they are safe; at 10% the agent
 	// starts skipping viable approaches.
-	EstFPRate float64 `json:"estFpRate"`
+	EstFPRate float64 `json:"estFPRate"`
 	// Records is how many records the filter holds.
 	Records int `json:"records"`
 	// Active is how many are still live.

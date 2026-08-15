@@ -1,0 +1,58 @@
+[
+  {
+    "turn": 25,
+    "objects": 21,
+    "bytes": 37768,
+    "rawBytes": 100000,
+    "dedupRatio": 2.6477
+  },
+  {
+    "turn": 50,
+    "objects": 26,
+    "bytes": 58044,
+    "rawBytes": 200000,
+    "dedupRatio": 3.4457
+  },
+  {
+    "turn": 75,
+    "objects": 34,
+    "bytes": 89207,
+    "rawBytes": 400000,
+    "dedupRatio": 4.484
+  },
+  {
+    "turn": 100,
+    "objects": 45,
+    "bytes": 137100,
+    "rawBytes": 800000,
+    "dedupRatio": 5.8352
+  },
+  {
+    "turn": 125,
+    "objects": 63,
+    "bytes": 210705,
+    "rawBytes": 1600000,
+    "dedupRatio": 7.5936
+  },
+  {
+    "turn": 150,
+    "objects": 91,
+    "bytes": 323828,
+    "rawBytes": 3200000,
+    "dedupRatio": 9.8818
+  },
+  {
+    "turn": 175,
+    "objects": 134,
+    "bytes": 497683,
+    "rawBytes": 6400000,
+    "dedupRatio": 12.8596
+  },
+  {
+    "turn": 200,
+    "objects": 199,
+    "bytes": 764877,
+    "rawBytes": 12800000,
+    "dedupRatio": 16.7347
+  }
+]
