@@ -199,5 +199,6 @@ func TestClosedStoreErrors(t *testing.T) {
 	require.ErrorIs(t, err, core.ErrDegraded)
 
 	require.False(t, tp.Store.Has(core.Hash{}), "Has has no error return, so a closed store answers false")
+	require.NotNil(t, tp.Store.Segments(), "Segments must stay non-nil after Close")
 	require.NoError(t, tp.Store.Close(), "a second Close must be a no-op")
 }

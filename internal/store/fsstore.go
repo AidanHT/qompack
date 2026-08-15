@@ -225,6 +225,8 @@ type FSStore struct {
 	tuW    *appendFile
 	filesW *appendFile
 
+	seg *segLog
+
 	closeOnce sync.Once
 	closed    atomic.Bool
 }
@@ -299,6 +301,10 @@ func chunkingCovers(chunks []chunk.Chunk, n int) bool {
 	return off == int64(n)
 }
 
+// Segments returns this store's SegmentLog. It is never nil, so callers do not nil-check it, and
+// after Close every one of its methods reports core.ErrDegraded.
+func (s *FSStore) Segments() SegmentLog { return s.seg }
+
 // ApproxRefs is the approximate refcount of 00-ARCHITECTURE.md §5.8's GC semantics. It is
 // maintained alongside the authoritative mark-and-sweep purely for /qompack:status and for cheap
 // "is this worth keeping" decisions — it is never what GC collects from.
@@ -320,6 +326,10 @@ func (s *FSStore) Close() error {
 func (s *FSStore) closeBody() error {
 	var err error
 	s.closed.Store(true)
+
+	if s.seg != nil {
+		s.seg.degrade()
+	}
 
 	for _, a := range []*appendFile{s.rootsW, s.tuW, s.filesW} {
 		if a == nil {
