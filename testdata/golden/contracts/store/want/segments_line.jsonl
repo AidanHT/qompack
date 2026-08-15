@@ -1,0 +1,1 @@
+{"id":12,"session":"sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A","start_turn":48,"end_turn":61,"start_ts":1767224100000,"end_ts":1767225480000,"features":{"path_jaccard":0.72,"tool_shift":0.18,"lexical_cohesion":0.64,"gap_seconds":12.5,"todo_transition":0.0},"tokens":18420,"encoded_once":true,"checkpoint_seq":1,"closed":true,"bloom_ref":""}

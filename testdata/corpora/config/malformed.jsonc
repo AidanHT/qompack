@@ -1,0 +1,5 @@
+{
+  "scheduler": {
+    "softFloorPct": 0.6,
+    "cache": { "readMultiplier": 0.2
+  // missing closing braces below on purpose: this file must never crash Load, only warn

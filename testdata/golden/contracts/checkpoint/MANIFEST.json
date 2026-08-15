@@ -1,0 +1,8 @@
+{
+  "package": "checkpoint",
+  "owner": "SP-10",
+  "fixtures": [
+    { "name": "checkpoint_v1", "kind": "format", "state": "frozen", "input": "", "want": "want/0001.json", "note": "the §8.5 artifact with every tier populated; §13 invariant 5 forbids code blocks here" },
+    { "name": "truncate_tier3_first", "kind": "behaviour", "state": "record-by-owner", "input": "input/oversized_checkpoint.json", "want": "", "note": "Truncate drops tier 3, then tier 2, never tier 1" }
+  ]
+}

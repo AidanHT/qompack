@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+  "seq": 1,
+  "created": "2026-01-01T00:12:30.000Z",
+  "encoded_segments": [12, 13, 14],
+  "invariants": [
+    {
+      "id": "inv_7c1a9e2f4b60",
+      "text": "The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference.",
+      "source": "user",
+      "pinned": 1767225120000
+    },
+    {
+      "id": "inv_2d8f0a6c3e15",
+      "text": "Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction.",
+      "source": "agent",
+      "pinned": 1767225300000
+    }
+  ],
+  "user_intent": {
+    "original": "Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.",
+    "evolution": [
+      "Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.",
+      "Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help."
+    ]
+  },
+  "eliminated": [
+    {
+      "id": "elim_3f9b2c7d1a48",
+      "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+      "ts": 1767225480000,
+      "target": "src/auth.ts:refreshToken",
+      "approach": "widen pool timeout",
+      "reason": "pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect",
+      "descriptor": {
+        "normalized_path": "src/auth.ts",
+        "symbol": "refreshToken",
+        "approach_class": "widen-timeout",
+        "reason_hash": "sha256:9f2c4a7e1b8d3506e9a1c4f7b2d508e3a6c9f1b4d7e0a3c6f9b2d5e8a1c4f7b0"
+      },
+      "evidence": "sha256:4d7a0c3f6b9e2158a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3",
+      "depends_on": [
+        {
+          "path": "docker-compose.yml",
+          "hash": "sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d"
+        },
+        {
+          "path": "package-lock.json",
+          "hash": "sha256:7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e"
+        }
+      ],
+      "scope": "project",
+      "status": "active",
+      "source": 1
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec_a3f2c9e14b70",
+      "what": "Move refresh-token rotation out of the request transaction and into a dedicated short-lived connection.",
+      "why": "The rotation holds a row lock for the duration of the outbound identity-provider call, which is what exhausts the pool under concurrent refreshes.",
+      "alternatives_rejected": [
+        "Widen the pool timeout — eliminated: pgbouncer ignores it in transaction mode.",
+        "Increase pool size — rejected: moves the cliff without removing the lock-hold-across-IO pattern."
+      ],
+      "evidence": "sha256:c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9",
+      "turn": 61
+    }
+  ],
+  "open_questions": [
+    "Does the identity provider guarantee idempotency on a retried rotation, or do we need our own dedupe key?",
+    "Is the staging pgbouncer running the same 1.18 build as production?"
+  ],
+  "current_work": {
+    "goal": "Eliminate pool exhaustion on POST /api/session/refresh under 200 concurrent refreshes.",
+    "next_step": "Extract the identity-provider call out of the transaction in refreshToken, then re-run the reproduction.",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [
+      {
+        "path": "src/auth.ts",
+        "hash": "sha256:0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c",
+        "why": "refreshToken lives here; the lock-across-IO pattern is at the top of the function"
+      },
+      {
+        "path": "docker-compose.yml",
+        "hash": "sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d",
+        "why": "pins the pgbouncer version and pool mode the elimination depends on"
+      }
+    ],
+    "tools": [
+      {
+        "tool_use_id": "toolu_01A2B3C4D5E6F7G8H9J0K1L2",
+        "hash": "sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f",
+        "summary": "load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts"
+      }
+    ]
+  },
+  "narrative": "Reproduced the 500s under concurrent load and traced them to pool acquisition timeouts rather than token validation. Widening the timeout had no effect because pgbouncer ignores it in transaction pooling mode; that approach is recorded as eliminated with the compose file and lockfile as dependencies so it re-opens if either changes. The working hypothesis is that refreshToken holds a row lock across an outbound identity-provider call.",
+  "sketch_refs": {
+    "tried": "tried.bloom",
+    "touch": "touch.cms"
+  },
+  "dropped": [
+    {
+      "kind": "path_rule",
+      "id": "api-conventions.md",
+      "detail": "path-scoped rule for src/api/**; no pointer in this checkpoint matched its globs"
+    },
+    {
+      "kind": "tool_output",
+      "id": "toolu_01M3N4P5Q6R7S8T9U0V1W2X3",
+      "detail": "superseded by a later read of the same file"
+    }
+  ],
+  "cache": {
+    "p_chosen": 148230,
+    "rewrite_tokens": 18770,
+    "ttl_state": "warm"
+  }
+}

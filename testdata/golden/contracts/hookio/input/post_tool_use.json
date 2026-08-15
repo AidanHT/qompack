@@ -1,0 +1,1 @@
+{"hook_event_name":"PostToolUse","session_id":"sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A","transcript_path":"/home/u/.claude/projects/proj/sess.jsonl","cwd":"/home/u/proj","tool_name":"FileRead","tool_use_id":"toolu_01A2B3C4D5E6F7G8H9J0K1L2","tool_input":{"file_path":"src/auth.ts"},"tool_response":{"type":"text","file":{"numLines":84}}}

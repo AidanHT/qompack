@@ -1,0 +1,1054 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "checkpoint": {
+      "properties": {
+        "budgetTokens": {
+          "default": 12000,
+          "description": "target token budget for a single checkpoint artifact",
+          "type": "integer",
+          "x-qompack-range": "[1000,100000]",
+          "x-qompack-section": "§8.5"
+        },
+        "frontier": {
+          "properties": {
+            "advanceOnSegmentClose": {
+              "default": true,
+              "description": "advance the checkpoint frontier incrementally whenever a segment closes",
+              "type": "boolean",
+              "x-qompack-section": "§8.5"
+            },
+            "maxResidualTokens": {
+              "default": 20000,
+              "description": "maximum tokens between the frontier and the compaction point before a full pass is forced",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "§8.5"
+            }
+          },
+          "required": [
+            "advanceOnSegmentClose",
+            "maxResidualTokens"
+          ],
+          "type": "object"
+        },
+        "incrementalSpanInstruction": {
+          "default": true,
+          "description": "emit the O1 focus instruction narrowing the summarizer to the span after the checkpoint frontier",
+          "type": "boolean",
+          "x-qompack-section": "§8.5"
+        },
+        "tiers": {
+          "properties": {
+            "first": {
+              "default": [
+                "pointers",
+                "narrative"
+              ],
+              "description": "checkpoint fields truncated first under budget pressure",
+              "enum": [
+                "invariants",
+                "user_intent",
+                "eliminated",
+                "decisions",
+                "open_questions",
+                "current_work",
+                "pointers",
+                "narrative"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "x-qompack-section": "§6.9"
+            },
+            "late": {
+              "default": [
+                "decisions",
+                "open_questions",
+                "current_work"
+              ],
+              "description": "checkpoint fields truncated only after the first tier is exhausted",
+              "enum": [
+                "invariants",
+                "user_intent",
+                "eliminated",
+                "decisions",
+                "open_questions",
+                "current_work",
+                "pointers",
+                "narrative"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "x-qompack-section": "§6.9"
+            },
+            "never": {
+              "default": [
+                "invariants",
+                "user_intent",
+                "eliminated"
+              ],
+              "description": "checkpoint fields that are never truncated",
+              "enum": [
+                "invariants",
+                "user_intent",
+                "eliminated",
+                "decisions",
+                "open_questions",
+                "current_work",
+                "pointers",
+                "narrative"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "x-qompack-section": "§6.9"
+            }
+          },
+          "required": [
+            "first",
+            "late",
+            "never"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "budgetTokens",
+        "frontier",
+        "incrementalSpanInstruction",
+        "tiers"
+      ],
+      "type": "object"
+    },
+    "eliminations": {
+      "properties": {
+        "defaultScope": {
+          "default": "session",
+          "description": "default scope for a new elimination when the caller does not specify one",
+          "enum": [
+            "session",
+            "project"
+          ],
+          "type": "string",
+          "x-qompack-section": "§8.3"
+        },
+        "rebuildOnStale": {
+          "default": "nextIdle",
+          "description": "when to rebuild tried.bloom after a dependency hash changes",
+          "enum": [
+            "nextIdle",
+            "immediate",
+            "never"
+          ],
+          "type": "string",
+          "x-qompack-section": "§8.3"
+        },
+        "requireEvidence": {
+          "default": true,
+          "description": "require an evidence hash before an elimination is recorded",
+          "type": "boolean",
+          "x-qompack-section": "§8.3"
+        },
+        "staleResponse": {
+          "default": "flag",
+          "description": "how already_tried responds to a stale elimination",
+          "enum": [
+            "flag",
+            "drop"
+          ],
+          "type": "string",
+          "x-qompack-section": "§8.3"
+        }
+      },
+      "required": [
+        "defaultScope",
+        "rebuildOnStale",
+        "requireEvidence",
+        "staleResponse"
+      ],
+      "type": "object"
+    },
+    "eval": {
+      "properties": {
+        "minSessions": {
+          "default": 20,
+          "description": "minimum logged sessions required for a phase-gate replay to be credible",
+          "type": "integer",
+          "x-qompack-range": "[1,∞)",
+          "x-qompack-section": "§11.4"
+        },
+        "replayOnPhaseGate": {
+          "default": true,
+          "description": "run the full replay suite at every phase gate",
+          "type": "boolean",
+          "x-qompack-section": "§11.3"
+        }
+      },
+      "required": [
+        "minSessions",
+        "replayOnPhaseGate"
+      ],
+      "type": "object"
+    },
+    "retrieval": {
+      "properties": {
+        "defaultSpan": {
+          "default": "minimal",
+          "description": "default span returned by retrieval tools",
+          "enum": [
+            "minimal",
+            "full"
+          ],
+          "type": "string",
+          "x-qompack-section": "§8.7"
+        },
+        "ephemeralResults": {
+          "default": true,
+          "description": "tag every retrieval result ephemeral at birth so it is the first eviction candidate",
+          "type": "boolean",
+          "x-qompack-section": "§8.7"
+        },
+        "promoteAfterExpansions": {
+          "default": 2,
+          "description": "repeated expansions of the same hash before it is promoted into the next checkpoint's pointer tier",
+          "type": "integer",
+          "x-qompack-range": "[1,∞)",
+          "x-qompack-section": "§8.7"
+        }
+      },
+      "required": [
+        "defaultSpan",
+        "ephemeralResults",
+        "promoteAfterExpansions"
+      ],
+      "type": "object"
+    },
+    "runtime": {
+      "properties": {
+        "budgets": {
+          "properties": {
+            "checkpointFinalizeMs": {
+              "default": 2000,
+              "description": "B-E latency budget: PreCompact entry to exit",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "l0IngestMs": {
+              "default": 2,
+              "description": "B-B latency budget: daemon read to WAL append returned",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "l0ProcessMs": {
+              "default": 50,
+              "description": "B-C latency budget: WAL to fully chunked, stored, DAG/sketches updated",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "mcpToolCallMs": {
+              "default": 250,
+              "description": "B-F latency budget: MCP request to response",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "00-ARCH §2.4"
+            }
+          },
+          "required": [
+            "checkpointFinalizeMs",
+            "l0IngestMs",
+            "l0ProcessMs",
+            "mcpToolCallMs"
+          ],
+          "type": "object"
+        },
+        "daemon": {
+          "properties": {
+            "ackDeadlineMs": {
+              "default": 8,
+              "description": "deadline for the daemon's one-byte ACK on the hot path",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "connectDeadlineMs": {
+              "default": 5,
+              "description": "deadline for a hot-path client to connect to the daemon",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "enabled": {
+              "default": true,
+              "description": "run the resident per-project daemon",
+              "type": "boolean",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "idleExitSeconds": {
+              "default": 1800,
+              "description": "seconds with zero live sessions before the daemon exits",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "maxSessions": {
+              "default": 8,
+              "description": "maximum concurrent sessions the daemon tracks",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §2.4"
+            }
+          },
+          "required": [
+            "ackDeadlineMs",
+            "connectDeadlineMs",
+            "enabled",
+            "idleExitSeconds",
+            "maxSessions"
+          ],
+          "type": "object"
+        },
+        "hotPath": {
+          "properties": {
+            "breachWindows": {
+              "default": 3,
+              "description": "consecutive 512-sample windows over budget before the daemon spools instead of syncing",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "§8.1"
+            },
+            "budgetMs": {
+              "default": 15,
+              "description": "B-A hot-path latency budget in milliseconds",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "§8.1"
+            },
+            "maxPayloadBytes": {
+              "default": 1048576,
+              "description": "maximum NDJSON request line size accepted by the daemon",
+              "type": "integer",
+              "x-qompack-range": "[4096,∞)",
+              "x-qompack-section": "00-ARCH §2.4"
+            },
+            "spoolOnBreach": {
+              "default": true,
+              "description": "degrade to spool-only mode when the hot-path budget is breached",
+              "type": "boolean",
+              "x-qompack-section": "§8.1"
+            }
+          },
+          "required": [
+            "breachWindows",
+            "budgetMs",
+            "maxPayloadBytes",
+            "spoolOnBreach"
+          ],
+          "type": "object"
+        },
+        "logging": {
+          "properties": {
+            "level": {
+              "default": "info",
+              "description": "minimum log level written to the day log",
+              "enum": [
+                "debug",
+                "info",
+                "warn",
+                "error"
+              ],
+              "type": "string",
+              "x-qompack-section": "00-ARCH §5.2"
+            },
+            "maxFileMB": {
+              "default": 10,
+              "description": "log file size in MB before rotation",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §5.2"
+            },
+            "maxFiles": {
+              "default": 5,
+              "description": "number of rotated log files retained",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §5.2"
+            }
+          },
+          "required": [
+            "level",
+            "maxFileMB",
+            "maxFiles"
+          ],
+          "type": "object"
+        },
+        "mcp": {
+          "properties": {
+            "maxResponseBytes": {
+              "default": 262144,
+              "description": "maximum bytes an MCP tool response may return",
+              "type": "integer",
+              "x-qompack-range": "[4096,∞)",
+              "x-qompack-section": "§8.7"
+            },
+            "spanWidenLines": {
+              "default": 40,
+              "description": "lines to widen a minimal span by when the caller requests more context",
+              "type": "integer",
+              "x-qompack-range": "[0,∞)",
+              "x-qompack-section": "§8.7"
+            }
+          },
+          "required": [
+            "maxResponseBytes",
+            "spanWidenLines"
+          ],
+          "type": "object"
+        },
+        "mode": {
+          "default": "auto",
+          "description": "overall operating mode",
+          "enum": [
+            "auto",
+            "full",
+            "passive",
+            "off"
+          ],
+          "type": "string",
+          "x-qompack-section": "00-ARCH §12"
+        },
+        "redact": {
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "scrub secrets before content enters the store",
+              "type": "boolean",
+              "x-qompack-section": "00-ARCH §5.23"
+            },
+            "patterns": {
+              "default": [],
+              "description": "additional user-supplied secret-detection patterns",
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "x-qompack-section": "00-ARCH §5.23"
+            }
+          },
+          "required": [
+            "enabled",
+            "patterns"
+          ],
+          "type": "object"
+        },
+        "rehydrate": {
+          "properties": {
+            "eliminationsTopN": {
+              "default": 8,
+              "description": "number of eliminated approaches surfaced verbatim in the rehydrated digest",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "§8.6"
+            },
+            "maxTokens": {
+              "default": 12000,
+              "description": "upper bound of the rehydration budget",
+              "type": "integer",
+              "x-qompack-range": "[minTokens,∞)",
+              "x-qompack-section": "§8.6"
+            },
+            "minTokens": {
+              "default": 8000,
+              "description": "lower bound of the rehydration budget",
+              "type": "integer",
+              "x-qompack-range": "[1,maxTokens]",
+              "x-qompack-section": "§8.6"
+            },
+            "skillIndexTokens": {
+              "default": 450,
+              "description": "token budget for the compact skill index",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "§8.6"
+            }
+          },
+          "required": [
+            "eliminationsTopN",
+            "maxTokens",
+            "minTokens",
+            "skillIndexTokens"
+          ],
+          "type": "object"
+        },
+        "selection": {
+          "properties": {
+            "submodularEnabled": {
+              "default": false,
+              "description": "ship-order gate: enable submodular selection; refused without p-selection (closing-note-3)",
+              "type": "boolean",
+              "x-qompack-section": "Closing note"
+            }
+          },
+          "required": [
+            "submodularEnabled"
+          ],
+          "type": "object"
+        },
+        "telemetry": {
+          "properties": {
+            "enabled": {
+              "default": false,
+              "description": "send telemetry; hardwired off, the key exists only to say so",
+              "type": "boolean",
+              "x-qompack-section": "§7.1"
+            }
+          },
+          "required": [
+            "enabled"
+          ],
+          "type": "object"
+        },
+        "tokens": {
+          "properties": {
+            "binaryCharsPerToken": {
+              "default": 3,
+              "description": "baseline characters-per-token estimate for opaque binary content",
+              "type": "number",
+              "x-qompack-range": "[1,20]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "calibrationAlpha": {
+              "default": 0.2,
+              "description": "exponential-moving-average weight applied to each new calibration sample",
+              "type": "number",
+              "x-qompack-range": "(0,1]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "calibrationMax": {
+              "default": 1.6,
+              "description": "upper clamp on the per-project calibration factor",
+              "type": "number",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "calibrationMin": {
+              "default": 0.6,
+              "description": "lower clamp on the per-project calibration factor",
+              "type": "number",
+              "x-qompack-range": "(0,1]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "codeCharsPerToken": {
+              "default": 3.6,
+              "description": "baseline characters-per-token estimate for source code",
+              "type": "number",
+              "x-qompack-range": "[1,20]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "diffCharsPerToken": {
+              "default": 3.4,
+              "description": "baseline characters-per-token estimate for unified diffs",
+              "type": "number",
+              "x-qompack-range": "[1,20]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "imageMaxTokens": {
+              "default": 1600,
+              "description": "cap on estimated tokens for a single image",
+              "type": "integer",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "imagePixelsPerToken": {
+              "default": 750,
+              "description": "pixels per token used to estimate image cost from dimensions",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "jsonCharsPerToken": {
+              "default": 3.2,
+              "description": "baseline characters-per-token estimate for JSON",
+              "type": "number",
+              "x-qompack-range": "[1,20]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "pdfTokensPerPage": {
+              "default": 1800,
+              "description": "tokens charged per PDF page",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            },
+            "proseCharsPerToken": {
+              "default": 4,
+              "description": "baseline characters-per-token estimate for prose",
+              "type": "number",
+              "x-qompack-range": "[1,20]",
+              "x-qompack-section": "00-ARCH §10 (G10.2)"
+            }
+          },
+          "required": [
+            "binaryCharsPerToken",
+            "calibrationAlpha",
+            "calibrationMax",
+            "calibrationMin",
+            "codeCharsPerToken",
+            "diffCharsPerToken",
+            "imageMaxTokens",
+            "imagePixelsPerToken",
+            "jsonCharsPerToken",
+            "pdfTokensPerPage",
+            "proseCharsPerToken"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "budgets",
+        "daemon",
+        "hotPath",
+        "logging",
+        "mcp",
+        "mode",
+        "redact",
+        "rehydrate",
+        "selection",
+        "telemetry",
+        "tokens"
+      ],
+      "type": "object"
+    },
+    "scheduler": {
+      "properties": {
+        "cache": {
+          "properties": {
+            "readMultiplier": {
+              "default": 0.1,
+              "description": "prompt-cache read multiplier r",
+              "type": "number",
+              "x-qompack-range": "(0,1]",
+              "x-qompack-section": "§5.1"
+            },
+            "ttlSeconds": {
+              "default": 300,
+              "description": "sliding cache TTL",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "§5.4"
+            },
+            "writeMultiplier": {
+              "default": 1.25,
+              "description": "prompt-cache write multiplier w",
+              "type": "number",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "§5.1"
+            }
+          },
+          "required": [
+            "readMultiplier",
+            "ttlSeconds",
+            "writeMultiplier"
+          ],
+          "type": "object"
+        },
+        "changepoint": {
+          "properties": {
+            "features": {
+              "default": [
+                "paths",
+                "tools",
+                "time",
+                "todos"
+              ],
+              "description": "feature streams BOCD conditions its run-length posterior on",
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "x-qompack-section": "§6.6"
+            },
+            "hazardRate": {
+              "default": 0.004,
+              "description": "BOCD prior hazard rate for a changepoint at each step",
+              "type": "number",
+              "x-qompack-range": "(0,1)",
+              "x-qompack-section": "§6.6"
+            }
+          },
+          "required": [
+            "features",
+            "hazardRate"
+          ],
+          "type": "object"
+        },
+        "hardCeilingMargin": {
+          "default": 20000,
+          "description": "token headroom below Claude Code's own auto-compact threshold at which the plugin forces a checkpoint",
+          "type": "integer",
+          "x-qompack-range": "(0,∞)",
+          "x-qompack-section": "§2.5"
+        },
+        "idle": {
+          "properties": {
+            "backgroundWork": {
+              "default": true,
+              "description": "run idle-time background work (shadow checkpoint, GC, slice/Δ-score refresh)",
+              "type": "boolean",
+              "x-qompack-section": "§8.4"
+            },
+            "deepCutWhenCold": {
+              "default": true,
+              "description": "prefer a deep cut once the cache is provably cold during an idle gap",
+              "type": "boolean",
+              "x-qompack-section": "§8.4"
+            },
+            "detectAfterSeconds": {
+              "default": 120,
+              "description": "seconds of inactivity before the session is considered idle",
+              "type": "integer",
+              "x-qompack-section": "§8.4"
+            }
+          },
+          "required": [
+            "backgroundWork",
+            "deepCutWhenCold",
+            "detectAfterSeconds"
+          ],
+          "type": "object"
+        },
+        "softFloorPct": {
+          "default": 0.55,
+          "description": "fraction of the effective context window below which compaction never fires",
+          "type": "number",
+          "x-qompack-range": "(0,1)",
+          "x-qompack-section": "§8.4"
+        },
+        "youngDaly": {
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "use the Young-Daly optimal checkpoint interval to pace compaction",
+              "type": "boolean",
+              "x-qompack-section": "§6.7"
+            },
+            "measuredDeltaSeconds": {
+              "default": null,
+              "description": "measured compaction cost in seconds; null means measure at runtime",
+              "type": [
+                "number",
+                "null"
+              ],
+              "x-qompack-section": "§6.7"
+            }
+          },
+          "required": [
+            "enabled",
+            "measuredDeltaSeconds"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "cache",
+        "changepoint",
+        "hardCeilingMargin",
+        "idle",
+        "softFloorPct",
+        "youngDaly"
+      ],
+      "type": "object"
+    },
+    "selection": {
+      "properties": {
+        "deltaScoring": {
+          "default": "cheap",
+          "description": "cost tier of the Δ-scoring implementation",
+          "enum": [
+            "cheap",
+            "medium",
+            "expensive"
+          ],
+          "type": "string",
+          "x-qompack-section": "§8.3"
+        },
+        "slicing": {
+          "default": "thin",
+          "description": "dependence-DAG slicing variant used to compute the backward slice",
+          "enum": [
+            "thin",
+            "full"
+          ],
+          "type": "string",
+          "x-qompack-section": "§8.3"
+        },
+        "submodular": {
+          "properties": {
+            "lambda": {
+              "default": 0.4,
+              "description": "redundancy penalty weight in coverage(S) minus lambda*redundancy(S)",
+              "type": "number",
+              "x-qompack-range": "[0,∞)",
+              "x-qompack-section": "§8.3"
+            },
+            "lazyGreedy": {
+              "default": true,
+              "description": "use lazy greedy evaluation for submodular maximization",
+              "type": "boolean",
+              "x-qompack-section": "§6.5"
+            }
+          },
+          "required": [
+            "lambda",
+            "lazyGreedy"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "deltaScoring",
+        "slicing",
+        "submodular"
+      ],
+      "type": "object"
+    },
+    "sketches": {
+      "properties": {
+        "bloom": {
+          "properties": {
+            "capacity": {
+              "default": 10000,
+              "description": "expected number of entries the tried.bloom filter is sized for",
+              "type": "integer",
+              "x-qompack-range": "[100,∞)",
+              "x-qompack-section": "Appendix A"
+            },
+            "fpRate": {
+              "default": 0.01,
+              "description": "target false-positive rate of the tried.bloom filter",
+              "type": "number",
+              "x-qompack-range": "(0,0.25)",
+              "x-qompack-section": "Appendix A"
+            }
+          },
+          "required": [
+            "capacity",
+            "fpRate"
+          ],
+          "type": "object"
+        },
+        "cms": {
+          "properties": {
+            "delta": {
+              "default": 0.01,
+              "description": "Count-Min sketch failure probability δ",
+              "type": "number",
+              "x-qompack-range": "(0,1)",
+              "x-qompack-section": "Appendix A"
+            },
+            "epsilon": {
+              "default": 0.001,
+              "description": "Count-Min sketch error factor ε",
+              "type": "number",
+              "x-qompack-range": "(0,1)",
+              "x-qompack-section": "Appendix A"
+            },
+            "warmStartFromProject": {
+              "default": true,
+              "description": "seed the Count-Min sketch from project-scoped history at session start",
+              "type": "boolean",
+              "x-qompack-section": "§6.2"
+            }
+          },
+          "required": [
+            "delta",
+            "epsilon",
+            "warmStartFromProject"
+          ],
+          "type": "object"
+        },
+        "hll": {
+          "properties": {
+            "registers": {
+              "default": 2048,
+              "description": "HyperLogLog register count",
+              "type": "integer",
+              "x-qompack-range": "power of two in [64,65536]",
+              "x-qompack-section": "§6.2"
+            }
+          },
+          "required": [
+            "registers"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "bloom",
+        "cms",
+        "hll"
+      ],
+      "type": "object"
+    },
+    "store": {
+      "properties": {
+        "canonicalize": {
+          "properties": {
+            "enabled": {
+              "default": true,
+              "description": "run per-tool canonicalizers before chunking",
+              "type": "boolean",
+              "x-qompack-section": "§8.1"
+            },
+            "minhash": {
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "description": "compute a MinHash signature per stored result to detect near-duplicates",
+                  "type": "boolean",
+                  "x-qompack-section": "§8.1"
+                },
+                "nearDupThreshold": {
+                  "default": 0.9,
+                  "description": "Jaccard similarity above which two results are treated as near-duplicates",
+                  "type": "number",
+                  "x-qompack-range": "(0,1]",
+                  "x-qompack-section": "§8.1"
+                },
+                "permutations": {
+                  "default": 128,
+                  "description": "number of MinHash permutation functions",
+                  "type": "integer",
+                  "x-qompack-range": "[16,512]",
+                  "x-qompack-section": "§8.1"
+                }
+              },
+              "required": [
+                "enabled",
+                "nearDupThreshold",
+                "permutations"
+              ],
+              "type": "object"
+            },
+            "strip": {
+              "default": [
+                "timestamps",
+                "ansi",
+                "pids",
+                "addresses",
+                "tmpPaths",
+                "durations"
+              ],
+              "description": "canonicalizer classes to strip before chunking",
+              "enum": [
+                "timestamps",
+                "ansi",
+                "pids",
+                "addresses",
+                "tmpPaths",
+                "durations",
+                "crlf",
+                "paths"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "type": "array",
+              "x-qompack-section": "§8.1"
+            }
+          },
+          "required": [
+            "enabled",
+            "minhash",
+            "strip"
+          ],
+          "type": "object"
+        },
+        "chunk": {
+          "properties": {
+            "max": {
+              "default": 16384,
+              "description": "FastCDC maximum chunk size in bytes",
+              "type": "integer",
+              "x-qompack-range": "(target,∞)",
+              "x-qompack-section": "§8.1"
+            },
+            "min": {
+              "default": 1024,
+              "description": "FastCDC minimum chunk size in bytes",
+              "type": "integer",
+              "x-qompack-range": "(0,target)",
+              "x-qompack-section": "§8.1"
+            },
+            "target": {
+              "default": 4096,
+              "description": "FastCDC target chunk size in bytes",
+              "type": "integer",
+              "x-qompack-range": "(min,max)",
+              "x-qompack-section": "§8.1"
+            }
+          },
+          "required": [
+            "max",
+            "min",
+            "target"
+          ],
+          "type": "object"
+        },
+        "compression": {
+          "default": "zstd",
+          "description": "object compression codec",
+          "enum": [
+            "zstd",
+            "none"
+          ],
+          "type": "string",
+          "x-qompack-section": "§6.1"
+        },
+        "retention": {
+          "properties": {
+            "days": {
+              "default": 30,
+              "description": "minimum object retention window in days before GC may collect",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "§8.2"
+            },
+            "sessions": {
+              "default": 10,
+              "description": "minimum object retention window in sessions before GC may collect",
+              "type": "integer",
+              "x-qompack-range": "[1,∞)",
+              "x-qompack-section": "§8.2"
+            }
+          },
+          "required": [
+            "days",
+            "sessions"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "canonicalize",
+        "chunk",
+        "compression",
+        "retention"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "checkpoint",
+    "eliminations",
+    "eval",
+    "retrieval",
+    "runtime",
+    "scheduler",
+    "selection",
+    "sketches",
+    "store"
+  ],
+  "title": "Qompack Configuration",
+  "type": "object"
+}

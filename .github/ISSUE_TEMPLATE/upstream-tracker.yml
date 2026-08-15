@@ -1,0 +1,47 @@
+name: Upstream issue tracker
+description: Track a Claude Code behaviour Qompack depends on but does not control
+labels: [upstream]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Several Qompack capabilities rest on host behaviour that is undocumented and may change
+        (§12, G9.3). This template tracks one such dependency so that a silent upstream change
+        surfaces as a known issue rather than as a mysterious regression.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Upstream area
+      options:
+        - Agent-initiated compaction
+        - PreToolUse / PostToolUse retry ordering
+        - Path-scoped rule re-injection after compaction
+        - Skill index re-injection after compaction
+        - Drop report surface
+        - SessionStart source=compact semantics
+        - hookSpecificOutput.additionalContext delivery
+        - PreCompact customInstructions acceptance
+        - Other
+    validations: { required: true }
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behaviour
+      description: What the host does today, and how you observed it.
+    validations: { required: true }
+
+  - type: textarea
+    id: dependency
+    attributes:
+      label: What Qompack depends on
+      description: |
+        Which contract assertion in `internal/contract` covers this, and what happens when it
+        fails (degrade to passive, warn, or informational).
+    validations: { required: true }
+
+  - type: input
+    id: upstream-link
+    attributes:
+      label: Upstream issue or changelog link

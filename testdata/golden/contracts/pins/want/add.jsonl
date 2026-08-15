@@ -1,0 +1,1 @@
+{"op":"add","ts":1767225120000,"invariant":{"id":"inv_7c1a9e2f4b60","text":"The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference.","source":"user","pinned":1767225120000}}

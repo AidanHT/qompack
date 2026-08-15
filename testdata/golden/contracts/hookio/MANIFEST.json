@@ -1,0 +1,17 @@
+{
+  "package": "hookio",
+  "owner": "SP-01",
+  "fixtures": [
+    { "name": "post_tool_use", "kind": "format", "state": "frozen", "input": "input/post_tool_use.json", "want": "", "note": "" },
+    { "name": "user_prompt_submit", "kind": "format", "state": "frozen", "input": "input/user_prompt_submit.json", "want": "", "note": "" },
+    { "name": "session_start_startup", "kind": "format", "state": "frozen", "input": "input/session_start_startup.json", "want": "", "note": "" },
+    { "name": "session_start_resume", "kind": "format", "state": "frozen", "input": "input/session_start_resume.json", "want": "", "note": "" },
+    { "name": "session_start_compact", "kind": "format", "state": "frozen", "input": "input/session_start_compact.json", "want": "", "note": "the §12.1 contract assertion depends on this source value" },
+    { "name": "session_start_clear", "kind": "format", "state": "frozen", "input": "input/session_start_clear.json", "want": "", "note": "" },
+    { "name": "pre_compact", "kind": "format", "state": "frozen", "input": "input/pre_compact.json", "want": "", "note": "" },
+    { "name": "stop", "kind": "format", "state": "frozen", "input": "input/stop.json", "want": "", "note": "" },
+    { "name": "subagent_stop", "kind": "format", "state": "frozen", "input": "input/subagent_stop.json", "want": "", "note": "closes G10.1: subagent detail before double compression" },
+    { "name": "session_end", "kind": "format", "state": "frozen", "input": "input/session_end.json", "want": "", "note": "" },
+    { "name": "unknown_fields", "kind": "format", "state": "frozen", "input": "input/unknown_fields.json", "want": "", "note": "unknown keys land in Extra and never error" }
+  ]
+}

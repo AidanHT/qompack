@@ -1,0 +1,44 @@
+run:
+  timeout: 5m
+  build-tags: []
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - revive
+    - gocritic
+    - ineffassign
+    - unconvert
+    - unparam
+    - misspell
+    - bodyclose
+    - gosec
+    - forbidigo
+    - copyloopvar
+linters-settings:
+  forbidigo:
+    forbid:
+      - p: '^fmt\.Print.*$'
+        msg: "use logging.Logger or write to the io.Writer the caller supplied"
+      - p: '^time\.Sleep$'
+        msg: "banned outside test/bench — take a core.Clock (§6.1)"
+      - p: '^net\.Dial$'
+        msg: "no network I/O (D10); unix sockets are dialled in internal/ipc only"
+    exclude-godoc-examples: false
+  errcheck:
+    check-type-assertions: true
+  revive:
+    rules:
+      - name: exported
+      - name: package-comments
+issues:
+  exclude-rules:
+    - path: (_test\.go|^test/|^tools/)
+      linters: [forbidigo, gosec, unparam]
+    - path: ^internal/ipc/
+      text: 'net\.Dial'
+      linters: [forbidigo]
+  max-issues-per-linter: 0
+  max-same-issues: 0

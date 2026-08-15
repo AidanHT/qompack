@@ -1,0 +1,11 @@
+{
+  "eliminations": {
+    "requireEvidence": true,
+    "defaultScope": "project",
+  },
+  "store": {
+    "canonicalize": {
+      "strip": ["timestamps", "ansi", "crlf",],
+    },
+  },
+}
