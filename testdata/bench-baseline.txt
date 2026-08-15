@@ -98,11 +98,12 @@ BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   1
 #     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
 #
 # Budgets from plans/V2-SP-02-replay-harness-belady-baseline.md §14, and how this recording
-# compares. Both are algorithmic rather than I/O-bound, so unlike the two SP-01 misses these
-# numbers should hold on the Linux CI runners too:
+# compares. All of these are algorithmic rather than I/O-bound, so unlike the two SP-01 misses
+# they should hold on the Linux CI runners too:
 #
 #     BenchmarkBeladyDetail_400Turns        <= 250 ms/op   MET   ~1.6 ms/op, 0.68 MB/op (E-2)
-#     BenchmarkBreakpointOPT_256Candidates  <=  15 ms/op   MET   ~1.1 ms/op            (E-5)
+#     BenchmarkCompare_400Actions           <=  20 ms/op   MET   ~2.0 ms/op, 0.19 MB/op (E-4)
+#     BenchmarkBreakpointOPT_256Candidates  <=  15 ms/op   MET   ~1.1 ms/op             (E-5)
 #
 # E-2's allocation budget is 96 MB; the measured 0.68 MB/op is two orders of magnitude under it,
 # because pruning every never-demanded block leaves the DP a few hundred candidates rather than
@@ -134,3 +135,19 @@ BenchmarkBreakpointOPT_256Candidates-22    	    1722	    862446 ns/op	  778595 B
 BenchmarkBreakpointOPT_256Candidates-22    	    1603	    982321 ns/op	  778594 B/op	    5750 allocs/op
 PASS
 ok  	github.com/qompack/qompack/internal/eval	27.498s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCompare_400Actions-22    	     883	   1986727 ns/op	  186920 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     672	   2128505 ns/op	  186913 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     736	   1494951 ns/op	  186914 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     812	   2195298 ns/op	  186914 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     470	   2573539 ns/op	  186916 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     613	   1872845 ns/op	  186913 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     957	   1369827 ns/op	  186913 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     787	   1374582 ns/op	  186915 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	    1004	   1257093 ns/op	  186914 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     928	   1202938 ns/op	  186913 B/op	      48 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/eval	15.248s

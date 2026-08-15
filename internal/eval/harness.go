@@ -71,17 +71,6 @@ func (h *harness) observe(name string, start time.Time) {
 	h.metrics.Hist(name).Observe(h.clock.Since(start))
 }
 
-// Load reads every session file under dir. Implemented in replay.go.
-func (h *harness) Load(dir string) ([]Session, error) { return nil, core.ErrNotImplemented }
-
-// Replay re-applies p's keep-set decisions against s. Implemented in replay.go.
-func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptions) (Run, error) {
-	return Run{}, core.ErrNotImplemented
-}
-
-// Compare computes the §4.2 divergence. Implemented in divergence.go.
-func (h *harness) Compare(uncompacted, compacted Run) Divergence { return Divergence{} }
-
 // ScoreRun scores a Run against OPT. Implemented in score.go.
 func (h *harness) ScoreRun(r Run, opt map[core.TurnIndex]KeepSet) Score { return Score{} }
 
