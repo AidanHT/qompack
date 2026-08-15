@@ -82,11 +82,6 @@ func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptio
 // Compare computes the §4.2 divergence. Implemented in divergence.go.
 func (h *harness) Compare(uncompacted, compacted Run) Divergence { return Divergence{} }
 
-// Belady computes the retrospective OPT keep-set. Implemented in belady.go.
-func (h *harness) Belady(ctx context.Context, s Session, at core.TurnIndex, budget core.Tokens) (KeepSet, error) {
-	return KeepSet{}, core.ErrNotImplemented
-}
-
 // ScoreRun scores a Run against OPT. Implemented in score.go.
 func (h *harness) ScoreRun(r Run, opt map[core.TurnIndex]KeepSet) Score { return Score{} }
 
