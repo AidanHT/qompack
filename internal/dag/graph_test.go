@@ -305,9 +305,18 @@ func TestClosedGraphRejects(t *testing.T) {
 
 // TestConcurrentMutationAndRead runs writers and readers against one graph with no sleeps (§6.1
 // bans wall-clock sleeps outright). Under -race this is what proves the RWMutex discipline holds
-// and, once index.go lands, that withIndex's rebuild path never deadlocks against a reader.
+// and that withIndex's rebuild path never deadlocks or livelocks against a reader.
+//
+// On the sizing: what this test needs is INTERLEAVING, not volume. Every reader iteration calls
+// CrossingEdges and NodesAfter, and a concurrent writer has almost certainly dirtied the index
+// since the last one, so each of those iterations pays a full O(N log N) index rebuild. That is by
+// design — it is the contended path this test exists to exercise — but it means the total cost
+// grows as iterations × N log N, and N grows with iterations too. At 2000 iterations the graph
+// reaches 32,000 nodes and the run takes minutes; at 250 it is a couple of seconds and interleaves
+// just as densely. Do not raise these numbers to "test harder": it buys no additional coverage and
+// costs quadratic time. Throughput under contention belongs in a benchmark, not here.
 func TestConcurrentMutationAndRead(t *testing.T) {
-	const writers, readers, iterations = 8, 8, 2000
+	const writers, readers, iterations = 8, 8, 250
 
 	g := newTestGraph(t)
 	var wg sync.WaitGroup

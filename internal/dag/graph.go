@@ -626,19 +626,6 @@ func (g *graph) Compact(ctx context.Context) error {
 	return nil
 }
 
-// CrossingEdges is segment_coupling(pos). index.go lands the real position-indexed answer; until
-// then it reports 0, which is the honest answer for a graph with no index built.
-func (g *graph) CrossingEdges(pos int) int {
-	_ = pos
-	return 0
-}
-
-// NodesAfter returns every live node at or beyond pos. index.go lands the real answer.
-func (g *graph) NodesAfter(pos int) []Node {
-	_ = pos
-	return nil
-}
-
 // BackwardSlice walks backward from criteria. traverse.go lands the real best-first walk; the
 // closed check is already real, because it is a contract every caller may rely on today.
 func (g *graph) BackwardSlice(criteria []NodeID, o SliceOptions) (Slice, error) {
