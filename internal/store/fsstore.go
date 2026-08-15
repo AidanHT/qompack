@@ -1,6 +1,8 @@
 package store
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -61,6 +63,18 @@ func storeKey(p string) string {
 		return ""
 	}
 	return paths.Key(q)
+}
+
+// marshalLine encodes v as one compact, newline-terminated JSONL record with HTML escaping
+// disabled, so a "<" inside a path or a preview survives verbatim.
+func marshalLine(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // RefCounter exposes the approximate refcount 00-ARCHITECTURE.md §5.8's GC semantics maintain
@@ -192,13 +206,24 @@ type FSStore struct {
 	refs     map[core.Hash]uint32
 	byPath   map[string][]core.Hash
 
+	// ── tool_use.jsonl ──
+	toolUse  map[core.ToolUseID]*ToolUseRecord
+	byPathTU map[string][]core.ToolUseID
+
+	// ── files.jsonl ──
+	fileHist map[string][]FileVersion
+
 	// ── accounting (Stats) ──
 	bytesOnDisk int64
 	rawBytes    int64
+	// filesDirty marks index/files.json as needing regeneration on the next Flush.
+	filesDirty bool
 	// statsDirty marks state/store.json as needing rewriting on the next Flush.
 	statsDirty bool
 
 	rootsW *appendFile
+	tuW    *appendFile
+	filesW *appendFile
 
 	closeOnce sync.Once
 	closed    atomic.Bool
@@ -296,7 +321,7 @@ func (s *FSStore) closeBody() error {
 	var err error
 	s.closed.Store(true)
 
-	for _, a := range []*appendFile{s.rootsW} {
+	for _, a := range []*appendFile{s.rootsW, s.tuW, s.filesW} {
 		if a == nil {
 			continue
 		}
