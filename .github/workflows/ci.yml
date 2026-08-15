@@ -29,6 +29,11 @@ jobs:
           if git log --format=%B "$base..HEAD" | grep -Eiq 'Co-Authored-By|Signed-off-by|Generated with|🤖'; then
             echo "attribution trailer found in commit range (§10)"; exit 1
           fi
+      # The trailing-period check is separate from the pattern because "." in the subject regexp
+      # matches a literal period like any other character, so the pattern alone accepts a subject
+      # that ends in one. §10 forbids it and the local commit-msg hook rejects it, which is the
+      # worse shape of the two: a rule enforced before push but not after is one that only catches
+      # people who installed the hook.
       - name: conventional commits
         run: |
           base="${{ github.event.pull_request.base.sha }}"
@@ -38,6 +43,9 @@ jobs:
             [ -z "$s" ] && continue
             echo "$s" | grep -Eq '^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9/_.,-]+\))?: .{1,64}$' \
               || { echo "bad subject: $s"; bad=1; }
+            case "$s" in
+              *.) echo "subject must not end with a period (§10): $s"; bad=1 ;;
+            esac
           done < <(git log --format=%s "$base..HEAD")
           exit $bad
 

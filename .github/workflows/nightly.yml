@@ -29,8 +29,21 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.x', cache: true }
+      # The matrix names every fuzz target the finished tree will carry, including ones whose
+      # package is still an SP-01 stub. `go test -fuzz` on a target that does not exist yet fails
+      # the job, so at V1 six of these eight legs would fail on the first scheduled run — for the
+      # correct reason that nobody has written them, which is not a signal worth waking up to.
+      #
+      # A missing target is therefore reported and skipped rather than failing, and the skip is
+      # loud (§13 invariant 10). It is not silent forever either: TestNightlyFuzzMatrix in
+      # test/guards fails as soon as a package stops being a stub while its declared target is
+      # still absent, so the leg is owed the moment the owner lands and not before.
       - name: fuzz ${{ matrix.target.fn }}
         run: |
+          if ! go test -run '^$' -list '^${{ matrix.target.fn }}$' ${{ matrix.target.pkg }} 2>/dev/null | grep -q '^${{ matrix.target.fn }}$'; then
+            echo "::warning title=fuzz target not yet written::${{ matrix.target.fn }} is declared in the nightly matrix but does not exist in ${{ matrix.target.pkg }}; its owner has not landed it yet (see test/guards TestNightlyFuzzMatrix)"
+            exit 0
+          fi
           go test -run '^$' -fuzz '^${{ matrix.target.fn }}$' -fuzztime 10m ${{ matrix.target.pkg }}
 
   race-windows:

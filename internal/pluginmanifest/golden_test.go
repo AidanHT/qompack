@@ -41,9 +41,14 @@ func TestManifest_GoldenBytes(t *testing.T) {
 // committed plugin/ tree must be exactly what the generator produces.
 func TestBundle_OnDiskMatchesGenerator(t *testing.T) {
 	repoRoot := "../.."
-	if _, err := os.Stat(filepath.Join(repoRoot, "plugin")); os.IsNotExist(err) {
-		t.Skip("plugin/ bundle not materialized in this tree")
-	}
+	// The bundle is committed — ten tracked files under plugin/ — so its absence is a broken
+	// checkout or a deleted directory, not a state worth tolerating. This used to skip, which was
+	// wrong twice over: it would have turned the one test that proves the shipped bundle matches
+	// its generator into a silent pass, and "plugin/ bundle not materialized in this tree" is a
+	// fourth skip reason beyond the three `devtool lint stubskips` permits, so the moment it fired
+	// it would have failed the lint gate instead of reporting the real problem.
+	_, err := os.Stat(filepath.Join(repoRoot, "plugin"))
+	require.NoError(t, err, "plugin/ is committed to the repository and must be present")
 	diffs := pluginmanifest.Validate(repoRoot, pluginmanifest.Default(core.Version))
 	for _, d := range diffs {
 		t.Errorf("plugin bundle drift: %s (%s)", d.Path, d.Reason)
