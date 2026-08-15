@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"path/filepath"
 	"sync"
 
@@ -593,6 +594,23 @@ func (g *graph) maybeAutoFlushLocked() {
 	}
 }
 
+// Open returns the dependence graph rooted at root.
+//
+// It creates <root>/.qompack/dag/ if it is absent, so a caller need not have run
+// paths.EnsureLayout first. Loading dag/deps.jsonl lands with log.go; until then a freshly opened
+// graph is empty, which is indistinguishable from opening a project that has never recorded one.
+func Open(root string, cfg config.Config, log logging.Logger) (Graph, error) {
+	g := newGraph(root, cfg, log)
+	if err := os.MkdirAll(paths.Long(filepath.Dir(g.logPath)), dagDirPerm); err != nil {
+		return nil, fmt.Errorf("dag: open %s: %w", g.logPath, err)
+	}
+	return g, nil
+}
+
+// dagDirPerm is the permission paths.EnsureLayout gives every .qompack subdirectory; Open matches
+// it so a directory it creates is indistinguishable from one EnsureLayout made.
+const dagDirPerm = 0o700
+
 // flushLocked appends every pending record to dag/deps.jsonl.
 //
 // It is a no-op in this commit: persistence lands with wire.go and log.go. The seam exists now so
@@ -624,27 +642,4 @@ func (g *graph) Compact(ctx context.Context) error {
 	}
 	_ = ctx
 	return nil
-}
-
-// BackwardSlice walks backward from criteria. traverse.go lands the real best-first walk; the
-// closed check is already real, because it is a contract every caller may rely on today.
-func (g *graph) BackwardSlice(criteria []NodeID, o SliceOptions) (Slice, error) {
-	_, _ = criteria, o
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	if g.closed {
-		return Slice{}, ErrClosed
-	}
-	return Slice{}, nil
-}
-
-// ForwardSlice walks forward from criteria. traverse.go lands the real best-first walk.
-func (g *graph) ForwardSlice(criteria []NodeID, o SliceOptions) (Slice, error) {
-	_, _ = criteria, o
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	if g.closed {
-		return Slice{}, ErrClosed
-	}
-	return Slice{}, nil
 }
