@@ -14,11 +14,18 @@ import (
 // digest minted for one purpose can never collide with one minted for another. The complete set
 // of domains in use, and who owns each:
 //
-//	qompack.chunk.v1     chunk content hashes            (SP-04)
-//	qompack.root.v1      Merkle root over chunk hashes   (SP-04/06)
-//	qompack.neg.v1       negative-knowledge bloom key    (SP-09)
-//	qompack.decision     decision IDs                    (SP-10)
-//	qompack.args.v1      tool-arg digests                (SP-06)
+//	qompack.chunk.v1          chunk content hashes            (SP-04)
+//	qompack.root.v1           Merkle root over chunk hashes   (SP-04/06)
+//	qompack.neg.v1            negative-knowledge bloom key    (SP-09)
+//	qompack.decision          decision IDs                    (SP-10)
+//	qompack.args.v1           tool-arg digests                (SP-06)
+//	qompack.sketch.bloom.v1   Bloom bit indices               (SP-03)
+//	qompack.sketch.cms.v1     Count-Min cell indices          (SP-03)
+//	qompack.sketch.hll.v1     HyperLogLog register selection  (SP-03)
+//
+// The three qompack.sketch.* domains are declared as unexported constants in
+// internal/sketch/hash.go rather than here, because nothing outside that package may mint a sketch
+// index; they are listed above so this registry keeps its claim to completeness.
 //
 // Changing one of these strings re-keys every derived value already on disk. Treat them as a
 // wire format, not as identifiers.
