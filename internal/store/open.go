@@ -76,6 +76,10 @@ func openFS(root string, cfg config.Config, deps Deps) (*FSStore, error) {
 		return nil, fmt.Errorf("store: open %s: %w", filesLogFile, err)
 	}
 
+	if s.seg, err = openSegLog(filepath.Join(l.Index, segmentsFile), deps.Clock, deps.Log); err != nil {
+		return nil, fmt.Errorf("store: open %s: %w", segmentsFile, err)
+	}
+
 	// Replay the indices. A malformed line is counted and skipped inside each loader — only an
 	// unreadable directory is fatal, because the daemon then refuses to start and the client
 	// spools (§12.3).
