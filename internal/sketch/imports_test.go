@@ -28,11 +28,15 @@ const internalPrefix = "github.com/qompack/qompack/internal/"
 // are package sketch_test and legitimately do. Parsing test files here would fail them for
 // obeying their own rule.
 //
-// The assertion is "subset of {core, paths, logging}" plus "core is present", not equality. paths
-// and logging enter the non-test surface only when io.go lands (Save/Load/LoadWithLog/
-// ReplaceGenerational). An equality assertion would therefore have to be written as a lie today
-// and quietly relaxed later; a subset assertion is true at every commit in the subplan and still
-// fails the instant a fourth internal package is imported.
+// The assertion is EXACT-SET equality against {core, paths, logging}, in both directions.
+//
+// It was a subset check until io.go landed, because paths and logging enter the non-test surface
+// only with Save/Load/LoadWithLog/ReplaceGenerational and an equality assertion before that would
+// have had to be written as a lie. Now that all three edges exist it is tightened, and the tighter
+// form catches something the subset form could not: an import that DISAPPEARS. If a refactor ever
+// routed a write around internal/paths — a bare os.WriteFile onto a sketch path, say — the §7.4
+// append-only guard would stop being reachable from this package and the subset check would have
+// reported that as a pass.
 func TestImports_FoundationOnly(t *testing.T) {
 	allowed := map[string]bool{
 		internalPrefix + "core":    true,
@@ -67,6 +71,15 @@ func TestImports_FoundationOnly(t *testing.T) {
 	}
 
 	require.NotZero(t, nonTestFiles, "no non-test files found; the check would pass vacuously")
-	require.NotEmpty(t, seen[internalPrefix+"core"],
-		"no non-test file imports internal/core; the allow-list check would pass vacuously")
+
+	got := make([]string, 0, len(seen))
+	for path := range seen {
+		got = append(got, path)
+	}
+	require.ElementsMatch(t,
+		[]string{internalPrefix + "core", internalPrefix + "paths", internalPrefix + "logging"},
+		got,
+		"internal/sketch's non-test files must import core, paths and logging — all three, and "+
+			"nothing else (§3.2). A missing edge means a write or a log line stopped going through "+
+			"the package that owns the guard; %v", seen)
 }

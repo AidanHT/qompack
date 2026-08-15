@@ -76,10 +76,19 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 		}
 	}
 
-	// 23, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
-	// declared — contract/result_set (the nine §5.19 assertions as RunAll reports them) and
-	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives).
-	require.Equal(t, 23, frozenCount, "SP-01 froze 21 format fixtures and V1 added 2; adding or losing one is a contract change")
+	// 28 = SP-01's 21 + V1's 2 + SP-03's 5, and each group is worth being able to point at.
+	//
+	// V1 added the two §16 fixtures that had never been declared: contract/result_set (the nine
+	// §5.19 assertions as RunAll reports them) and config/appendix_c_defaults (the Appendix C
+	// golden, declared where it already lives).
+	//
+	// SP-03 added the five §5.7 QPKS sketch frames — bloom, cms, hll, mg, minhash — which are the
+	// first BINARY fixtures in the corpus; test/guards' IT-9 walker dispatches on the .bin
+	// extension to check them, since a JSON round-trip cannot express a versioned, checksummed
+	// byte layout.
+	require.Equal(t, 28, frozenCount,
+		"SP-01 froze 21 format fixtures, V1 added 2 and SP-03 added 5 sketch frames; "+
+			"adding or losing one is a contract change")
 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
 }
 
