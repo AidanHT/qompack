@@ -25,6 +25,11 @@ func (s *FSStore) GetChunk(ctx context.Context, h core.Hash) ([]byte, error) {
 	if err := s.use(); err != nil {
 		return nil, err
 	}
+	// A chunk read decompresses up to a whole zstd frame, so it is real work under the caller's
+	// budget — unlike GetRoot, which answers from the in-memory index and is deliberately exempt.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	s.mu.RLock()
 	n, known := s.chunkSet[h]
 	s.mu.RUnlock()
@@ -78,6 +83,9 @@ func (s *FSStore) Open(ctx context.Context, root core.Hash) (io.ReadCloser, erro
 	if err := s.use(); err != nil {
 		return nil, err
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	r, err := s.GetRoot(ctx, root)
 	if err != nil {
 		return nil, err
@@ -95,6 +103,9 @@ func (s *FSStore) Open(ctx context.Context, root core.Hash) (io.ReadCloser, erro
 // clamps to the end.
 func (s *FSStore) OpenSpan(ctx context.Context, root core.Hash, off, n int64) (io.ReadCloser, error) {
 	if err := s.use(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	r, err := s.GetRoot(ctx, root)

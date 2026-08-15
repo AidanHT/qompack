@@ -328,6 +328,27 @@ func (s *FSStore) Close() error {
 	return err
 }
 
+// releaseWriters closes every append-only handle the store has opened, without flushing.
+//
+// It is openFS's failure path, not Close's: a store that failed to open is never returned, so no
+// caller can ever close it, and anything it had already opened would otherwise be held until the
+// process exits. Errors are discarded deliberately — the open error is the one worth reporting, and
+// a close error on a handle nobody will use adds nothing. Flush is deliberately NOT called: the
+// store never became usable, so there is nothing of the caller's to persist.
+func (s *FSStore) releaseWriters() {
+	if s.seg != nil {
+		s.seg.degrade() // degrade closes the segment log's own handle
+	}
+	for _, a := range []*appendFile{s.rootsW, s.tuW, s.filesW, s.sessionsW} {
+		if a != nil {
+			_ = a.close()
+		}
+	}
+	if c, ok := s.deps.Tokens.(io.Closer); ok {
+		_ = c.Close()
+	}
+}
+
 // closeBody is Close's body, run exactly once.
 func (s *FSStore) closeBody() error {
 	// Flush before the closed flag goes up, since Flush itself refuses a closed store.

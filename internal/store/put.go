@@ -40,6 +40,11 @@ func (s *FSStore) Put(ctx context.Context, r io.Reader, o PutOptions) (PutResult
 	if err := s.use(); err != nil {
 		return PutResult{}, err
 	}
+	// Checked here as well as in PutBytes, because the read below happens first and a 64 MiB stream
+	// is exactly the case where an already-expired budget must not be spent.
+	if err := ctx.Err(); err != nil {
+		return PutResult{}, err
+	}
 	if r == nil {
 		return s.PutBytes(ctx, nil, o)
 	}
@@ -89,6 +94,12 @@ func readAllInto(dst []byte, r io.Reader) ([]byte, error) {
 // exactly what §13 invariant 7 forbids.
 func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResult, error) {
 	if err := s.use(); err != nil {
+		return PutResult{}, err
+	}
+	// The most expensive call in the package — redaction, canonicalization, chunking, compression
+	// and the object writes — and the one SP-05 runs closest to budget B-C. Refusing an
+	// already-cancelled context here is what keeps that budget from being advisory.
+	if err := ctx.Err(); err != nil {
 		return PutResult{}, err
 	}
 

@@ -65,23 +65,33 @@ func openFS(root string, cfg config.Config, deps Deps) (*FSStore, error) {
 		sessions:  make(map[core.SessionID]*sessionEntry),
 	}
 
+	// Every failure from here on runs through fail, which releases whatever has already been opened.
+	// A partially-opened store is never returned, so nothing else in the process holds a reference
+	// that could close these handles later: without this they leak for the lifetime of the process,
+	// and on Windows they also keep the index files locked against every other process — including
+	// the next attempt to open the very store that just failed.
+	fail := func(err error) (*FSStore, error) {
+		s.releaseWriters()
+		return nil, err
+	}
+
 	var err error
 	if s.rootsW, err = openAppendFile(filepath.Join(l.Index, rootsFile)); err != nil {
-		return nil, fmt.Errorf("store: open %s: %w", rootsFile, err)
+		return fail(fmt.Errorf("store: open %s: %w", rootsFile, err))
 	}
 
 	if s.tuW, err = openAppendFile(filepath.Join(l.Index, toolUseFile)); err != nil {
-		return nil, fmt.Errorf("store: open %s: %w", toolUseFile, err)
+		return fail(fmt.Errorf("store: open %s: %w", toolUseFile, err))
 	}
 	if s.filesW, err = openAppendFile(filepath.Join(l.Index, filesLogFile)); err != nil {
-		return nil, fmt.Errorf("store: open %s: %w", filesLogFile, err)
+		return fail(fmt.Errorf("store: open %s: %w", filesLogFile, err))
 	}
 
 	if s.sessionsW, err = openAppendFile(filepath.Join(l.Index, sessionsFile)); err != nil {
-		return nil, fmt.Errorf("store: open %s: %w", sessionsFile, err)
+		return fail(fmt.Errorf("store: open %s: %w", sessionsFile, err))
 	}
 	if s.seg, err = openSegLog(filepath.Join(l.Index, segmentsFile), deps.Clock, deps.Log); err != nil {
-		return nil, fmt.Errorf("store: open %s: %w", segmentsFile, err)
+		return fail(fmt.Errorf("store: open %s: %w", segmentsFile, err))
 	}
 
 	// Replay the indices. A malformed line is counted and skipped inside each loader — only an
@@ -89,7 +99,7 @@ func openFS(root string, cfg config.Config, deps Deps) (*FSStore, error) {
 	// spools (§12.3).
 	for _, load := range []func() error{s.loadRoots, s.loadToolUse, s.loadFiles, s.loadSessions} {
 		if err := load(); err != nil {
-			return nil, err
+			return fail(err)
 		}
 	}
 	s.loadStoreState()

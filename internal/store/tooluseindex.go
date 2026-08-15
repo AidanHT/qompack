@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-
 	"encoding/json"
 	"fmt"
 	"os"
@@ -292,6 +291,9 @@ func (s *FSStore) ToolUsesByPath(ctx context.Context, path string, limit int) ([
 // nothing, so a replayed hook cannot grow the file without bound.
 func (s *FSStore) MarkSuperseded(ctx context.Context, older core.ToolUseID, by core.ToolUseID) error {
 	if err := s.use(); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 

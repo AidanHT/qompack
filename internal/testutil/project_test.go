@@ -130,16 +130,18 @@ func TestProject_Options(t *testing.T) {
 }
 
 // TestProject_StoreOpens asserts (*Project).Store hands back a usable store.Store wired to this
-// project's own config, logger and clock. Until SP-06 lands, every operation on it reports
-// core.ErrNotImplemented — which is exactly what a wave-0 conformance suite needs.
+// project's own config, logger and clock.
+//
+// SP-06 landed the real store, so this now asserts that a Put actually stores: the wave-0 form of
+// this test required core.ErrNotImplemented, which a working store no longer returns.
 func TestProject_StoreOpens(t *testing.T) {
 	p := NewProject(t)
 	s := p.Store(t)
 	require.NotNil(t, s)
 
-	_, err := s.PutBytes(t.Context(), []byte("hello"), store.PutOptions{})
-	require.ErrorIs(t, err, core.ErrNotImplemented,
-		"SP-06 owns the real store; wave 0 only has to hand back a constructed one")
+	res, err := s.PutBytes(t.Context(), []byte("hello"), store.PutOptions{})
+	require.NoError(t, err)
+	require.False(t, res.Root.Hash.IsZero(), "a real store must report a content root for what it stored")
 }
 
 // recorder captures what an assertion reports, so a test can assert that the assertion FAILED

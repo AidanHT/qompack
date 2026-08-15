@@ -367,9 +367,17 @@ func widenToChunks(bounds []int64, lo, hi, total int64) [2]int64 {
 }
 
 // clampSpan bounds [lo, hi) to [0, total] and keeps it non-inverted.
+//
+// lo is bounded at BOTH ends, not just below. A symbol extractor reporting an offset past the end
+// of the canonicalized content would otherwise produce a Hit whose Span starts beyond the content
+// it indexes — Hit.Span[0] <= Root.CanonBytes has to be a real guarantee, because retrieval hands
+// that span straight to OpenSpan and a caller has no other way to know it is nonsense.
 func clampSpan(lo, hi, total int64) [2]int64 {
 	if lo < 0 {
 		lo = 0
+	}
+	if lo > total {
+		lo = total
 	}
 	if hi > total {
 		hi = total
@@ -418,6 +426,13 @@ func truncateRunes(s string, max int) string {
 	if len(s) <= max {
 		return s
 	}
+	// A bound too small to hold the ellipsis is honoured by dropping the ellipsis, not by exceeding
+	// the bound: appending it would return MORE bytes than the caller asked for, which is the one
+	// thing a truncation function must never do. The only caller today passes argsPreviewMax, so
+	// this is a latent contract, but it is the sort that is discovered by overflowing a buffer.
+	if max <= len(previewEllipsis) {
+		return s[:runeSafeCut(s, max)]
+	}
 	limit := max - len(previewEllipsis)
 	if limit < 0 {
 		limit = 0
@@ -430,6 +445,25 @@ func truncateRunes(s string, max int) string {
 		cut = i
 	}
 	return s[:cut] + previewEllipsis
+}
+
+// runeSafeCut returns the largest offset <= max that lands on a rune boundary of s, so a truncation
+// never splits a multi-byte rune into invalid UTF-8.
+func runeSafeCut(s string, max int) int {
+	if max <= 0 {
+		return 0
+	}
+	if max >= len(s) {
+		return len(s)
+	}
+	cut := 0
+	for i := range s {
+		if i > max {
+			break
+		}
+		cut = i
+	}
+	return cut
 }
 
 // lowerASCII folds one ASCII byte to lower case, leaving every other byte alone.

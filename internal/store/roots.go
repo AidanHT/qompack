@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -277,13 +278,32 @@ func (s *FSStore) indexRootLocked(rl rootEntry) {
 	entry := rl
 	s.rootIndex[rl.Root.Hash] = &entry
 	for _, c := range rl.Root.Chunks {
-		s.chunkSet[c.Hash] = int32(c.Len)
+		s.chunkSet[c.Hash] = chunkLenOrUnknown(c.Len)
 		s.refs[c.Hash]++
 	}
 	if rl.Path != "" {
 		k := storeKey(rl.Path)
 		s.byPath[k] = append(s.byPath[k], rl.Root.Hash)
 	}
+}
+
+// chunkLenOrUnknown narrows a chunk length to the int32 the chunk set stores, reporting -1 —
+// "present, length unknown" — for anything that cannot be one.
+//
+// The width matters because chunkSet holds one entry per chunk in the whole store, so int32 rather
+// than int is what keeps a million-chunk index affordable. The GUARD matters because c.Len does not
+// only come from the chunker: on the read path it comes from a parsed index line, where a corrupt
+// or hostile "n" can be any int64 JSON admits. A bare int32() conversion would wrap 3e9 to a
+// NEGATIVE length, and GetChunk passes that straight to getObject as the expected size — so a
+// single bad digit in one index line would turn every read of that chunk into either a spurious
+// integrity failure or, at exactly -1, a silently disabled length check. Reporting -1 deliberately
+// is the honest version of that: the checksum still stands alone, which is the same degradation an
+// object with no index entry already gets.
+func chunkLenOrUnknown(n int) int32 {
+	if n < 0 || n > MaxPutBytes {
+		return -1
+	}
+	return int32(n)
 }
 
 // retireRootLocked removes a tombstoned root from the in-memory index and decrements each of its
@@ -390,11 +410,24 @@ func (s *FSStore) sortByPathLocked() {
 	}
 }
 
+// errUnknownRecord marks a roots line this build cannot interpret: a record version it does not
+// speak, or an "op" a later wave introduced.
+//
+// Both are skipped rather than guessed at. Falling through to the content-record path — which is
+// what happens to any line that is merely not "gc" — would publish a PHANTOM root: an entry with no
+// chunks and zero bytes that Stats counts, Search ranks and GC reasons about, built entirely from a
+// line whose meaning this build does not know. loadToolUse and segLog.load already skip on both
+// axes; this is roots.jsonl agreeing with them.
+var errUnknownRecord = errors.New("qompack: unrecognized roots index record")
+
 // parseRootLine decodes one index/roots.jsonl line into either a content record or a tombstone.
 func parseRootLine(line []byte) (rl rootEntry, tombstone bool, root core.Hash, err error) {
 	var w rootWire
 	if err = json.Unmarshal(line, &w); err != nil {
 		return rootEntry{}, false, core.Hash{}, err
+	}
+	if w.V != indexRecordVersion {
+		return rootEntry{}, false, core.Hash{}, errUnknownRecord
 	}
 	h, err := core.ParseHash(w.Root)
 	if err != nil {
@@ -402,6 +435,9 @@ func parseRootLine(line []byte) (rl rootEntry, tombstone bool, root core.Hash, e
 	}
 	if w.Op == opGC {
 		return rootEntry{}, true, h, nil
+	}
+	if w.Op != "" {
+		return rootEntry{}, false, core.Hash{}, errUnknownRecord
 	}
 
 	rl.Root.Hash = h
