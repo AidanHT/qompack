@@ -216,7 +216,7 @@ func TestFilesJSON_MaterializedByFlush(t *testing.T) {
 	_, err := os.Stat(paths.Long(viewPath))
 	require.True(t, os.IsNotExist(err), "the view is materialized by Flush, never on the hot path")
 
-	require.NoError(t, f.s.materializeFilesJSON())
+	require.NoError(t, f.s.Flush(ctx))
 
 	b, err := os.ReadFile(paths.Long(viewPath))
 	require.NoError(t, err)

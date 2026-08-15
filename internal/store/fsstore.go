@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -213,6 +214,9 @@ type FSStore struct {
 	// ── files.jsonl ──
 	fileHist map[string][]FileVersion
 
+	// ── sessions.jsonl ──
+	sessions map[core.SessionID]*sessionEntry
+
 	// ── accounting (Stats) ──
 	bytesOnDisk int64
 	rawBytes    int64
@@ -224,6 +228,8 @@ type FSStore struct {
 	rootsW *appendFile
 	tuW    *appendFile
 	filesW *appendFile
+
+	sessionsW *appendFile
 
 	seg *segLog
 
@@ -324,14 +330,15 @@ func (s *FSStore) Close() error {
 
 // closeBody is Close's body, run exactly once.
 func (s *FSStore) closeBody() error {
-	var err error
+	// Flush before the closed flag goes up, since Flush itself refuses a closed store.
+	err := s.Flush(context.Background())
 	s.closed.Store(true)
 
 	if s.seg != nil {
 		s.seg.degrade()
 	}
 
-	for _, a := range []*appendFile{s.rootsW, s.tuW, s.filesW} {
+	for _, a := range []*appendFile{s.rootsW, s.tuW, s.filesW, s.sessionsW} {
 		if a == nil {
 			continue
 		}
