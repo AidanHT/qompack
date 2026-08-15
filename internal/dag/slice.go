@@ -29,17 +29,3 @@ type Slice struct {
 	// Visited is the total number of nodes the walk visited.
 	Visited int
 }
-
-// GraphStats summarizes a Graph's current size (00-ARCHITECTURE.md §14.0 of
-// plans/V1-SP-01-foundation-toolchain-and-contracts.md: §5.9's Graph.Stats() references this type
-// without defining it; SP-01 defines it here).
-type GraphStats struct {
-	// Nodes is the total node count.
-	Nodes int
-	// Edges is the total edge count.
-	Edges int
-	// ByKind counts nodes per NodeKind.
-	ByKind map[NodeKind]int
-	// Bytes is the on-disk size of dag/deps.jsonl.
-	Bytes int64
-}
