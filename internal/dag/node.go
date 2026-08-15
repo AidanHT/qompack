@@ -32,6 +32,13 @@ const (
 	KindElimination
 	// KindSegment is a closed session segment.
 	KindSegment
+	// KindInvalid is the "not a real kind" sentinel. It is deliberately LAST, not first: the
+	// frozen fixture testdata/golden/contracts/dag/want/node_line.jsonl pins "kind":4 to
+	// KindFile (Rule W-2), so prepending a sentinel would renumber every kind and break it.
+	// The consequence is that NodeKind's zero value is KindToolUse, not "unset" — so AddNode
+	// validates a node's kind against its NodeID prefix (which is unambiguous) rather than
+	// against the zero value.
+	KindInvalid
 )
 
 // NodeID identifies one Node: "<kind>:<stable-key>", for example "file:src/auth.ts" or

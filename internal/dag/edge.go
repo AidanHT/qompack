@@ -31,6 +31,13 @@ const (
 	// EdgeControlOnly connects nodes only for control flow, not data dependence; Thin slicing
 	// drops these first (00-ARCHITECTURE.md §6.4, §5.9's SliceOptions.Thin).
 	EdgeControlOnly
+	// EdgeInvalid is the "not a real kind" sentinel. It is deliberately LAST, not first: the
+	// frozen fixture testdata/golden/contracts/dag/want/edge_line.jsonl pins "kind":2 to
+	// EdgeConsumes (Rule W-2), so prepending a sentinel would renumber every kind and break it.
+	// The consequence is that EdgeKind's zero value is EdgeSequence rather than "unset" — which
+	// is legal, and is what the existing tests in internal/analyzer and internal/dag/dagtest
+	// already rely on when they build an edge without naming a kind.
+	EdgeInvalid
 )
 
 // Edge is one directed, typed connection between two Nodes (00-ARCHITECTURE.md §5.9).
