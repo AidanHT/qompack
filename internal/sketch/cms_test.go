@@ -390,6 +390,93 @@ func TestCMS_ScaleDecays(t *testing.T) {
 		"Total must clamp at maxTotalFloat = 2^62, the largest value that round-trips float64 exactly")
 }
 
+// The heavy-hitters fixture. Every number in it is load-bearing and none of it may be
+// "simplified" — see the two paragraphs on the test itself.
+const (
+	// hhCountA, hhCountB and hhCountC are the three heavy hitters' true frequencies.
+	hhCountA = 500
+	hhCountB = 300
+	hhCountC = 100
+	// hhSingletons is the number of one-off keys the three are hidden among.
+	hhSingletons = 200
+	// hhK is the Misra-Gries counter budget.
+	hhK = 64
+	// hhTotal is the stream's length: 500 + 300 + 100 + 200.
+	hhTotal = hhCountA + hhCountB + hhCountC + hhSingletons
+)
+
+// TestCMS_HeavyHittersPairsWithMG is the pairing this method exists for: a Count-Min sketch stores
+// no keys and a Misra-Gries summary under-counts, so the two are combined — MG supplies the
+// candidate keys, which it reports with no false positives, and CMS supplies the sharper count for
+// each.
+//
+// The stream shape is load-bearing, and must not be "simplified" in either direction.
+//
+// The count of 100 for c is a floor, not an arbitrary third value: Misra-Gries retains any key whose
+// true frequency exceeds total/(k+1) = 1100/65 = 16.9, so c at 100 is safely retained where a c at
+// 10 would be free to fall out of the summary and the assertion below would be flaky rather than
+// deterministic.
+//
+// The 200 singletons are a ceiling for the same kind of reason. They are what makes the test
+// meaningful — the three heavy hitters have to be found among a crowd — but every extra distinct key
+// raises the chance that a, b or c collides with something in ALL FIVE rows, which is the only way
+// the CMS count could come back above the true one. At 203 distinct keys in a 2 719-wide table that
+// probability is about (202/2719)^5 ≈ 2×10⁻⁶; at 2 000 singletons it would be about 4 %, and this
+// test would fail roughly one run in twenty-five for a reason that has nothing to do with the code.
+func TestCMS_HeavyHittersPairsWithMG(t *testing.T) {
+	c := NewCMS(cmsEpsilon, cmsDelta)
+	mg := NewMisraGries(hhK)
+
+	feed := func(key string, n int) {
+		for i := 0; i < n; i++ {
+			c.Add([]byte(key), 1)
+			mg.Add(key, 1)
+		}
+	}
+	feed("a", hhCountA)
+	feed("b", hhCountB)
+	feed("c", hhCountC)
+	for i := 0; i < hhSingletons; i++ {
+		feed("one-"+strconv.Itoa(i), 1)
+	}
+
+	require.Equal(t, uint64(hhTotal), c.Total(), "fixture sanity: both sketches see the same stream")
+	require.Equal(t, int64(hhTotal), mg.Total())
+	require.Greater(t, float64(hhCountC), float64(mg.Total())/float64(hhK+1),
+		"fixture sanity: c must clear the Misra-Gries retention threshold")
+
+	require.Equal(t, []Counted{
+		{Key: "a", Count: hhCountA},
+		{Key: "b", Count: hhCountB},
+		{Key: "c", Count: hhCountC},
+	}, c.HeavyHitters(mg, 3))
+
+	// The counts come from the CMS, not from the summary: Misra-Gries has already subtracted its
+	// accumulated error from c, and reporting that lower bound when a sharper estimate is available
+	// is the whole reason the two are paired. The candidate set is snapshotted once — Top sorts the
+	// whole counter map on every call, and the assertions below are one observation of one summary,
+	// not four.
+	candidates := mg.Top(0)
+	var mgC int
+	for _, e := range candidates {
+		if e.Key == "c" {
+			mgC = e.Count
+		}
+	}
+	t.Logf("c: true=%d cms=%d misra-gries=%d (MaxError=%d); candidates=%d",
+		hhCountC, c.Estimate([]byte("c")), mgC, mg.MaxError(), len(candidates))
+	require.LessOrEqual(t, mgC, hhCountC)
+
+	// Asking for more than the candidate set holds returns the candidate set, not padding.
+	require.Len(t, c.HeavyHitters(mg, len(candidates)+10), len(candidates))
+
+	// An empty summary is the third way to have no keys to estimate, alongside the nil summary and
+	// the non-positive n of TestCMS_HeavyHittersNilAndZero: the table below is populated, but a
+	// Count-Min sketch stores no keys of its own to fall back on.
+	require.Nil(t, c.HeavyHitters(NewMisraGries(hhK), 3),
+		"an empty candidate set leaves nothing to estimate")
+}
+
 // TestCMS_HeavyHittersNilAndZero pins the two degenerate arguments. HeavyHitters is the pairing of
 // a keyless CMS with a Misra-Gries candidate set — MG supplies the keys, CMS supplies the sharper
 // count — so with no candidate set, or with no room in the result, there is nothing it could

@@ -247,11 +247,42 @@ func (c *CMS) Scale(factor float64) {
 // frequency estimate for each. The result is ordered by count descending, then key ascending, so
 // "the five hottest files" is a stable answer rather than a map's iteration order.
 //
-// It reports nil when mg is nil or n <= 0, since neither leaves a key to report. It reports nil for
-// every other input too, for exactly as long as MisraGries.Top does — the candidate set is the only
-// source of keys here, because a Count-Min sketch never stores one. The Misra-Gries summary lands
-// one commit after this table, and this function gains its body with it.
-func (c *CMS) HeavyHitters(mg *MisraGries, n int) []Counted { return nil }
+// It reports nil when mg is nil or n <= 0, since neither leaves a key to report, and nil when the
+// candidate set is empty — the summary is the only source of keys here, because a Count-Min sketch
+// never stores one.
+//
+// The two error directions are opposite on purpose, and that is what makes the pairing worth the
+// second structure. Misra-Gries has already subtracted its accumulated error from every count, so it
+// UNDER-reports; the Count-Min table counts every occurrence it saw and only ever adds collisions,
+// so it OVER-reports. Taking the keys from the one that cannot invent a key and the counts from the
+// one that cannot lose an occurrence gives an answer sharper than either alone — and per §13
+// invariant 3 it is still a cache, never the source of truth.
+func (c *CMS) HeavyHitters(mg *MisraGries, n int) []Counted {
+	if mg == nil || n <= 0 {
+		return nil
+	}
+	// Every candidate is estimated before any is dropped: the two sketches order their keys
+	// differently, so trimming to n against the Misra-Gries counts could discard a key the CMS ranks
+	// above one that was kept.
+	candidates := mg.Top(0)
+	if len(candidates) == 0 {
+		return nil
+	}
+	out := make([]Counted, 0, len(candidates))
+	for _, cand := range candidates {
+		// Estimate is a uint32 and this package's counters saturate at MaxUint32, which does not fit
+		// an int on a 32-bit build: the conversion would report a saturated cell as −1, an answer
+		// worse than the saturation it describes. The int64 intermediate and the clamp keep the
+		// ceiling reporting as a ceiling on every platform.
+		est := int64(c.Estimate([]byte(cand.Key)))
+		out = append(out, Counted{Key: cand.Key, Count: int(min(est, int64(math.MaxInt)))})
+	}
+	sortCounted(out)
+	if n < len(out) {
+		out = out[:n]
+	}
+	return out
+}
 
 // Header returns the on-disk metadata for this table: Kind KindCMS, the current Total as Count, the
 // Created stamp, and the four params that make the frame self-describing without consulting config.
