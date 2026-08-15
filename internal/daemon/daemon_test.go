@@ -9,6 +9,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/sketch"
 )
 
 // TestNew_SucceedsWithNoServices is the property waves 1–2 depend on: a daemon constructs from an
@@ -46,6 +47,33 @@ func TestStubOperationsReportNotImplemented(t *testing.T) {
 	ran, err := d.Idle().RunOnce(ctx, 0)
 	require.True(t, core.IsNotImplemented(err))
 	require.Empty(t, ran)
+}
+
+// TestSketchSet_CarriesAllFourStructures pins the SP-01 §1341 spelling of SketchSet. The set had
+// three fields, missing Top, and nothing caught it because no test ever constructed one.
+//
+// The omission is not cosmetic: sketch.CMS.HeavyHitters takes a *MisraGries, so a resident CMS
+// with no resident top-k has no candidate set to estimate over and cannot answer the only question
+// it exists to answer. Wiring the pair here is what makes that impossible to lose again.
+func TestSketchSet_CarriesAllFourStructures(t *testing.T) {
+	t.Parallel()
+
+	s := &daemon.SketchSet{
+		Tried:   sketch.NewBloom(512, 0.01),
+		Touch:   sketch.NewCMS(0.001, 0.01),
+		Explore: sketch.NewHLL(14),
+		Top:     sketch.NewMisraGries(64),
+	}
+
+	require.NotNil(t, s.Tried)
+	require.NotNil(t, s.Touch)
+	require.NotNil(t, s.Explore)
+	require.NotNil(t, s.Top, "SP-01 §1341 spells Top; CMS.HeavyHitters is unusable without it")
+
+	// The set must survive being handed to Options, which is the only way it is ever consumed.
+	d, err := daemon.New(daemon.Options{ProjectRoot: t.TempDir(), Sketches: s})
+	require.NoError(t, err)
+	require.NotNil(t, d)
 }
 
 // TestHandle_RoutingTableIsData is the seam §5.4 calls out by name.

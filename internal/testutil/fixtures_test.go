@@ -76,7 +76,10 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, 21, frozenCount, "SP-01 froze 21 format fixtures; adding or losing one is a contract change")
+	// 23, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
+	// declared — contract/result_set (the nine §5.19 assertions as RunAll reports them) and
+	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives).
+	require.Equal(t, 23, frozenCount, "SP-01 froze 21 format fixtures and V1 added 2; adding or losing one is a contract change")
 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
 }
 

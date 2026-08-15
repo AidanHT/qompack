@@ -1,0 +1,74 @@
+[
+  {
+    "id": "session_start.fires",
+    "ok": true,
+    "severity": 0,
+    "expected": "SessionStart hook fires",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "session_start.source_compact",
+    "ok": true,
+    "severity": 0,
+    "expected": "SessionStart arrives with source=compact after PreCompact",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "hook.additional_context_delivered",
+    "ok": true,
+    "severity": 0,
+    "expected": "additionalContext reaches the transcript",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "precompact.has_time_to_write",
+    "ok": true,
+    "severity": 0,
+    "expected": "PreCompact has time to write",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "precompact.custom_instructions_accepted",
+    "ok": true,
+    "severity": 0,
+    "expected": "custom_instructions accepted",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "hook.payload_shape",
+    "ok": true,
+    "severity": 0,
+    "expected": "hook payload shape matches hookio.Event",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "mcp.server_registered",
+    "ok": true,
+    "severity": 0,
+    "expected": "MCP server received initialize",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "transcript.readable",
+    "ok": true,
+    "severity": 0,
+    "expected": "transcript_path exists and parses",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  },
+  {
+    "id": "plugin.root_resolves",
+    "ok": true,
+    "severity": 0,
+    "expected": "CLAUDE_PLUGIN_ROOT expands to an existing binary",
+    "observed": "not-yet-implemented",
+    "ts": 1767225510000
+  }
+]
