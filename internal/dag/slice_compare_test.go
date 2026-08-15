@@ -5,7 +5,6 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 	"time"
 
@@ -102,11 +101,24 @@ var compareUpdate = func() func() bool {
 // must not fail the build over the fifth decimal of a ratio.
 const compareTolerance = 0.02
 
-// medianRuns is how many timed repetitions each slice gets. The median discards the one run that
-// happened to land on a GC pause.
-const medianRuns = 5
+// batchRuns is how many slices are timed as a single interval.
+//
+// One backward slice here costs a few hundred microseconds, which is not safely above the clock's
+// own resolution. Go's monotonic clock on Windows falls back to roughly millisecond granularity
+// whenever no process is holding the system timer finer, and that can change underneath a running
+// test: inside one `go test ./...` this file reported a thin slice as "0s" and full slices pinned
+// to 997-1008µs, alongside honest 515-532µs readings for other seeds in the same loop. An earlier
+// version of this helper took a median of single-shot measurements, which does nothing about that
+// — the median of five quantized samples is still quantized — and then compared two numbers 8µs
+// apart, so the per-seed assertion below was deciding on clock ticks rather than on work.
+//
+// Timing a batch and dividing puts the measured span two orders of magnitude above the coarse
+// granularity, which is the same reasoning TestCrossingLatencyBudget already applies to a
+// microsecond-scale operation. At 20 runs the thin batch is ~10ms against the full batch's ~30ms:
+// a 3x gap no plausible scheduling noise inverts.
+const batchRuns = 20
 
-// sliceOnce runs one slice and returns its scores with the wall time it took.
+// sliceOnce runs one slice and returns its scores with the per-slice cost of computing it.
 func sliceOnce(tb testing.TB, g dag.Graph, criteria []dag.NodeID, thin bool) (map[dag.NodeID]float32, time.Duration) {
 	tb.Helper()
 	o := dag.DefaultSliceOptions(config.Defaults())
@@ -114,23 +126,23 @@ func sliceOnce(tb testing.TB, g dag.Graph, criteria []dag.NodeID, thin bool) (ma
 	o.Deadline = 0       // measure the walk, not the limiter
 	o.MaxNodes = 1 << 20 // ditto
 
-	var (
-		scores map[dag.NodeID]float32
-		best   time.Duration
-	)
-	times := make([]time.Duration, 0, medianRuns)
-	for range medianRuns {
-		start := time.Now()
-		sl, err := g.BackwardSlice(criteria, o)
-		elapsed := time.Since(start)
-		require.NoError(tb, err)
-		require.False(tb, sl.Truncated, "the comparison must measure complete slices")
-		scores = sl.Scores
-		times = append(times, elapsed)
+	// Validated once, outside the timed region, so the batch measures slicing rather than testify.
+	sl, err := g.BackwardSlice(criteria, o)
+	require.NoError(tb, err)
+	require.False(tb, sl.Truncated, "the comparison must measure complete slices")
+
+	var batchErr error
+	start := time.Now()
+	for range batchRuns {
+		if _, err := g.BackwardSlice(criteria, o); err != nil {
+			batchErr = err
+			break
+		}
 	}
-	sort.Slice(times, func(i, j int) bool { return times[i] < times[j] })
-	best = times[len(times)/2]
-	return scores, best
+	elapsed := time.Since(start)
+	require.NoError(tb, batchErr)
+
+	return sl.Scores, elapsed / batchRuns
 }
 
 // overlap returns how many of truth's members appear in scores.
