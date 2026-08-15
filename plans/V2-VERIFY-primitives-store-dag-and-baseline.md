@@ -1013,6 +1013,31 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 | V2-SP04-26 | corpus hygiene | | |
 | V2-SP04-27 | coverage 90/90/75 | | actual: |
 
+### 4.8 SP-04 carried defects — resolve or re-defer every row
+
+SP-04 shipped six defects it knowingly did not fix, recorded in `plans/CARRIED-DEFECTS.tsv` with the
+diagnosis and acceptance criteria for each in `plans/V2-SP-04-carried-defects.md`. They are listed
+here because two of them change what this checkpoint must do, and one of them will interrupt it:
+
+| id | what it costs | what this checkpoint owes it |
+|---|---|---|
+| SP04-D1 | JSON-escaped Windows temp paths are not canonicalized, so they fork the dedup space and carry user names into stored content | fix, or re-defer with a reason |
+| SP04-D2 | canonicalization is not idempotent when a deletion joins two fragments; §5.6 says it must be | a DECISION, not a patch — the complete fix changes the `canon.Delta` contract SP-06 stores against |
+| SP04-D3 | three timestamp/duration edges are wrong in the patterns and faithfully reproduced by the scanner | fix, or re-defer with a reason |
+| SP04-D4 | `devtool cover`'s `landedSubplans` does not list SP-02 or SP-03, so **their coverage floors are off on the merged `develop`** | add both at the merge; the `cover` run fails until you do |
+| SP04-D5 | canonicalization cost is now dominated by per-rule prefilter scans, ~1 ms of headroom left | re-measure and record; open a successor row if the headroom has gone |
+| SP04-D6 | `BenchmarkRun_Bash100KB` measured ±33% on the reference host, which the 25% bench-gate cannot tell from a regression | record the baseline from a quiet machine at `-count 10`, or exempt this one benchmark with the distribution as justification |
+
+`test/guards/carrieddefects_test.go` enforces this: it fails once `plans/V2-report.md` exists while
+any row owned by `V2-VERIFY` is still `open`. Resolving a row means setting its status to `fixed`, or
+to `deferred:<checkpoint>` with the reason written into the detail document. Both are fine. Leaving a
+row open is what the gate stops.
+
+```bash
+go test ./test/guards/ -run TestCarriedDefects -v
+# Expect: three PASS. After V2-report.md is written, expect a failure naming every unresolved row.
+```
+
 ## 5. Inventory — SP-05 daemon / IPC / contract
 | ID | Functionality | Verdict | Metric / note |
 |---|---|---|---|
@@ -1211,6 +1236,7 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 
 ## 14. Gate
 - [ ] Every row above is PASS (or a documented N/A this file authorises)
+- [ ] Every row in `plans/CARRIED-DEFECTS.tsv` owned by `V2-VERIFY` is `fixed` or `deferred:<checkpoint>`; `go test ./test/guards/ -run TestCarriedDefects` passes with `plans/V2-report.md` in place
 - [ ] CI green on verify/v2: verify, test ×3, cover, crossbuild, bench-gate, replay-gate, plugin-validate, security, docs
 - [ ] `testdata/bench-baseline.txt` updated with integrated wave-1 numbers
 - [ ] No `Co-Authored-By` / `Signed-off-by` / `Generated with` / 🤖 anywhere in `develop..verify/v2`

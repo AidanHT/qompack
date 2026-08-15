@@ -1,0 +1,735 @@
+[1mdiff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml[m
+[1mindex 7d805ef..5bfe6ae 100644[m
+[1m--- a/.github/workflows/ci.yml[m
+[1m+++ b/.github/workflows/ci.yml[m
+[36m@@ -29,6 +29,11 @@[m [mjobs:[m
+           if git log --format=%B "$base..HEAD" | grep -Eiq 'Co-Authored-By|Signed-off-by|Generated with|🤖'; then[m
+             echo "attribution trailer found in commit range (§10)"; exit 1[m
+           fi[m
+[32m+[m[32m      # The trailing-period check is separate from the pattern because "." in the subject regexp[m
+[32m+[m[32m      # matches a literal period like any other character, so the pattern alone accepts a subject[m
+[32m+[m[32m      # that ends in one. §10 forbids it and the local commit-msg hook rejects it, which is the[m
+[32m+[m[32m      # worse shape of the two: a rule enforced before push but not after is one that only catches[m
+[32m+[m[32m      # people who installed the hook.[m
+       - name: conventional commits[m
+         run: |[m
+           base="${{ github.event.pull_request.base.sha }}"[m
+[36m@@ -38,6 +43,9 @@[m [mjobs:[m
+             [ -z "$s" ] && continue[m
+             echo "$s" | grep -Eq '^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9/_.,-]+\))?: .{1,64}$' \[m
+               || { echo "bad subject: $s"; bad=1; }[m
+[32m+[m[32m            case "$s" in[m
+[32m+[m[32m              *.) echo "subject must not end with a period (§10): $s"; bad=1 ;;[m
+[32m+[m[32m            esac[m
+           done < <(git log --format=%s "$base..HEAD")[m
+           exit $bad[m
+ [m
+[1mdiff --git a/.github/workflows/nightly.yml b/.github/workflows/nightly.yml[m
+[1mindex 8e7bfc1..9754369 100644[m
+[1m--- a/.github/workflows/nightly.yml[m
+[1m+++ b/.github/workflows/nightly.yml[m
+[36m@@ -29,8 +29,21 @@[m [mjobs:[m
+         with: { fetch-depth: 0 }[m
+       - uses: actions/setup-go@v5[m
+         with: { go-version: '1.26.x', cache: true }[m
+[32m+[m[32m      # The matrix names every fuzz target the finished tree will carry, including ones whose[m
+[32m+[m[32m      # package is still an SP-01 stub. `go test -fuzz` on a target that does not exist yet fails[m
+[32m+[m[32m      # the job, so at V1 six of these eight legs would fail on the first scheduled run — for the[m
+[32m+[m[32m      # correct reason that nobody has written them, which is not a signal worth waking up to.[m
+[32m+[m[32m      #[m
+[32m+[m[32m      # A missing target is therefore reported and skipped rather than failing, and the skip is[m
+[32m+[m[32m      # loud (§13 invariant 10). It is not silent forever either: TestNightlyFuzzMatrix in[m
+[32m+[m[32m      # test/guards fails as soon as a package stops being a stub while its declared target is[m
+[32m+[m[32m      # still absent, so the leg is owed the moment the owner lands and not before.[m
+       - name: fuzz ${{ matrix.target.fn }}[m
+         run: |[m
+[32m+[m[32m          if ! go test -run '^$' -list '^${{ matrix.target.fn }}$' ${{ matrix.target.pkg }} 2>/dev/null | grep -q '^${{ matrix.target.fn }}$'; then[m
+[32m+[m[32m            echo "::warning title=fuzz target not yet written::${{ matrix.target.fn }} is declared in the nightly matrix but does not exist in ${{ matrix.target.pkg }}; its owner has not landed it yet (see test/guards TestNightlyFuzzMatrix)"[m
+[32m+[m[32m            exit 0[m
+[32m+[m[32m          fi[m
+           go test -run '^$' -fuzz '^${{ matrix.target.fn }}$' -fuzztime 10m ${{ matrix.target.pkg }}[m
+ [m
+   race-windows:[m
+[1mdiff --git a/internal/canon/canonicalizer.go b/internal/canon/canonicalizer.go[m
+[1mindex 9f441c5..c6624c7 100644[m
+[1m--- a/internal/canon/canonicalizer.go[m
+[1m+++ b/internal/canon/canonicalizer.go[m
+[36m@@ -4,9 +4,16 @@[m [mpackage canon[m
+ // (00-ARCHITECTURE.md §5.6). Canonicalize MUST be idempotent:[m
+ // Canonicalize(Canonicalize(x).Canonical, o) == Canonicalize(x, o).[m
+ //[m
+[31m-// This package declares the interface only: the twelve concrete canonicalizers §5.6 names (crlf,[m
+[31m-// ansi, timestamps, durations, pids, addresses, tmpPaths, then per-tool bash, testrunner, grep,[m
+[31m-// glob, fileread, webfetch, git) are SP-04's implementation, not SP-01's stub.[m
+[32m+[m[32m// Idempotence is achieved structurally rather than by convention: every built-in replaces a span[m
+[32m+[m[32m// with a token built from '<' and '>', characters that appear in no pattern, so no token can ever[m
+[32m+[m[32m// match a rule on a second pass. A canonicalizer added later must uphold the same property.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Every built-in ALSO implements Matcher, which is what Registry.Run composes over; Canonicalize[m
+[32m+[m[32m// is the standalone path, and each built-in implements it by delegating to the same sort/accept/[m
+[32m+[m[32m// apply pass Run uses, so a canonicalizer behaves identically alone and inside the registry.[m
+[32m+[m[32m// Result.Signature is left zero by a standalone Canonicalize: only Run sees the fully[m
+[32m+[m[32m// canonicalized bytes, and a near-duplicate score for a partially canonicalized document would be[m
+[32m+[m[32m// a score for something that never gets stored.[m
+ type Canonicalizer interface {[m
+ 	// Name identifies this canonicalizer; Registry.Register errors on a duplicate Name.[m
+ 	Name() string[m
+[1mdiff --git a/internal/canon/doc.go b/internal/canon/doc.go[m
+[1mindex 603c3a9..ed564c2 100644[m
+[1m--- a/internal/canon/doc.go[m
+[1m+++ b/internal/canon/doc.go[m
+[36m@@ -1,16 +1,38 @@[m
+[31m-// Package canon implements the canonicalizer registry of 00-ARCHITECTURE.md §5.6: a pipeline of[m
+[32m+[m[32m// Package canon implements the canonicalizer registry of 00-ARCHITECTURE.md §5.6: a set of[m
+ // per-tool, per-class text canonicalizers (crlf, ansi, timestamps, durations, pids, addresses,[m
+[31m-// tmpPaths, plus per-tool passes for bash/testrunner/grep/glob/fileread/webfetch/git) that strips[m
+[31m-// volatile, low-signal content before chunking (Qompack.md §8.1, O2), together with the MinHash[m
+[31m-// signature computed over the canonicalized result and the byte-exact Restore inverse.[m
+[32m+[m[32m// tmpPaths, plus per-tool passes for bash, testrunner, grep, glob, fileread, webfetch and git)[m
+[32m+[m[32m// that strips volatile, low-signal content before chunking (Qompack.md §8.1, O2), together with[m
+[32m+[m[32m// the MinHash signature computed over the canonicalized result and the byte-exact Restore inverse.[m
+[32m+[m[32m//[m
+[32m+[m[32m// # Why this package exists[m
+[32m+[m[32m//[m
+[32m+[m[32m// Exact-hash deduplication is defeated by volatile substrings. Timestamps, ANSI escape codes,[m
+[32m+[m[32m// PIDs, memory addresses, temp-dir paths and run durations make every Bash and test-runner result[m
+[32m+[m[32m// unique even when it is semantically identical to the last one, so a content-addressed store with[m
+[32m+[m[32m// no canonicalization in front of it grows linearly in the number of test runs. Qompack.md §8.1:[m
+[32m+[m[32m// "Test and build output is the noisiest content class in a coding session; this is where the[m
+[32m+[m[32m// dedup ratio is won or lost." test/dedup measures that claim rather than asserting it.[m
+[32m+[m[32m//[m
+[32m+[m[32m// # Composition is a single pass, not a chain[m
+[32m+[m[32m//[m
+[32m+[m[32m// Registry.Run does not pipe the output of one canonicalizer into the next. Every canonicalizer[m
+[32m+[m[32m// also implements Matcher and reports the spans it would rewrite in the ORIGINAL input; Run sorts[m
+[32m+[m[32m// those spans once, resolves overlaps once, and rewrites once. Three properties fall out of that[m
+[32m+[m[32m// choice rather than having to be maintained by fourteen separate implementations:[m
+[32m+[m[32m//[m
+[32m+[m[32m//   - Delta coordinates are unambiguous. In a chain, each stage shifts the previous stage's[m
+[32m+[m[32m//     offsets, so a Delta means nothing without knowing how many stages ran after it.[m
+[32m+[m[32m//   - Restore is order-independent. It replays an ascending, non-overlapping list in one forward[m
+[32m+[m[32m//     pass and never needs to know which canonicalizer produced which span.[m
+[32m+[m[32m//   - Non-growth and Options.Strip gating are structural. The accept loop drops any match whose[m
+[32m+[m[32m//     token is longer than its span, and any match whose Class is not in play, in one place — so[m
+[32m+[m[32m//     a canonicalizer cannot bypass a user's store.canonicalize.strip setting, and §5.6's "no[m
+[32m+[m[32m//     canonicalizer ever grows its input" holds by construction.[m
+[32m+[m[32m//[m
+[32m+[m[32m// # Import surface[m
+ //[m
+ // canon may additionally import sketch (00-ARCHITECTURE.md §3.2: canon's allow-set is sketch, plus[m
+ // foundation) because Result.Signature is a sketch.Signature, computed by sketch.MinHash over the[m
+[31m-// canonicalized output.[m
+[31m-//[m
+[31m-// SP-01 ships the complete §5.6 type set as real declarations and every operation as a stub:[m
+[31m-// NewRegistry and Default construct a usable, working Registry value — composition roots can wire[m
+[31m-// one today — but Register, Run and Restore report core.ErrNotImplemented, and For/Names (which[m
+[31m-// have no error return) report the documented nil, until SP-04 lands the real twelve[m
+[31m-// canonicalizers and the registry that dispatches to them.[m
+[32m+[m[32m// canonicalized output. It deliberately does NOT import chunk: the with-versus-without dedup[m
+[32m+[m[32m// measurement that needs both lives in test/dedup, outside internal/, for exactly that reason.[m
+ package canon[m
+[1mdiff --git a/internal/canon/registry.go b/internal/canon/registry.go[m
+[1mindex 04b0d46..f6a8e72 100644[m
+[1m--- a/internal/canon/registry.go[m
+[1m+++ b/internal/canon/registry.go[m
+[36m@@ -1,8 +1,12 @@[m
+ package canon[m
+ [m
+ import ([m
+[31m-	"github.com/qompack/qompack/internal/config"[m
+[31m-	"github.com/qompack/qompack/internal/core"[m
+[32m+[m	[32m"errors"[m
+[32m+[m	[32m"fmt"[m
+[32m+[m	[32m"strings"[m
+[32m+[m	[32m"sync"[m
+[32m+[m
+[32m+[m	[32m"github.com/qompack/qompack/internal/sketch"[m
+ )[m
+ [m
+ // Registry holds a set of Canonicalizers and dispatches a tool's output through whichever of them[m
+[36m@@ -20,45 +24,154 @@[m [mtype Registry interface {[m
+ 	Names() []string[m
+ }[m
+ [m
+[31m-// NewRegistry returns an empty Registry. Constructing always succeeds, so wave-0 composition[m
+[31m-// roots can wire a canon.Registry today, but every operation is a stub until SP-04 lands the real[m
+[31m-// registration/dispatch logic and the twelve canonicalizers it registers (00-ARCHITECTURE.md[m
+[31m-// §5.6): Register and Run report core.ErrNotImplemented, and For/Names (which have no error[m
+[31m-// return) report the documented nil.[m
+[31m-func NewRegistry() Registry {[m
+[31m-	return stubRegistry{}[m
+[32m+[m[32m// NewRegistry returns an empty Registry.[m
+[32m+[m[32m//[m
+[32m+[m[32m// The returned value is safe for concurrent use: SP-05's daemon serves several sessions from one[m
+[32m+[m[32m// process and SP-06's store holds a single Registry for the life of the daemon, so Run is called[m
+[32m+[m[32m// from many goroutines while Register may still be adding a project-specific canonicalizer. The[m
+[32m+[m[32m// lock is a read lock on the Run path, which costs tens of nanoseconds against a budget measured[m
+[32m+[m[32m// in milliseconds (Qompack.md §8.1).[m
+[32m+[m[32mfunc NewRegistry() Registry { return &registry{} }[m
+[32m+[m
+[32m+[m[32m// registry is the concrete Registry. canons is append-only in registration order, and byName is[m
+[32m+[m[32m// the duplicate-Name index §5.6 requires Register to enforce.[m
+[32m+[m[32mtype registry struct {[m
+[32m+[m	[32mmu     sync.RWMutex[m
+[32m+[m	[32mcanons []Canonicalizer[m
+[32m+[m	[32mbyName map[string]bool[m
+ }[m
+ [m
+[31m-// Default returns a Registry pre-populated the way a real implementation would: registering, in[m
+[31m-// order, crlf, ansi, timestamps, durations, pids, addresses, tmpPaths, then the per-tool passes[m
+[31m-// bash, testrunner (go/jest/pytest/cargo), grep, glob, fileread, webfetch, git[m
+[31m-// (00-ARCHITECTURE.md §5.6). cfg is accepted (and ignored) by the stub so the signature matches[m
+[31m-// what SP-04's real constructor needs; the stub itself registers nothing, since the twelve[m
+[31m-// concrete canonicalizers are SP-04's implementation, not SP-01's.[m
+[32m+[m[32m// Register adds c under its Name, reporting ErrDuplicateName if that Name is already taken.[m
+ //[m
+[31m-// Default has no error return, matching every other "computational" constructor in this codebase:[m
+[31m-// building a Registry performs no I/O by itself, so there is nothing for a stub constructor to[m
+[31m-// fail at.[m
+[31m-func Default(cfg config.CanonicalizeCfg) Registry {[m
+[31m-	return stubRegistry{}[m
+[32m+[m[32m// A nil Canonicalizer is a documented no-op returning nil rather than an error. Two reasons: there[m
+[32m+[m[32m// is nothing to add and no Name to collide with, so refusing would report a problem that does not[m
+[32m+[m[32m// exist; and test/guards' TestAllStubsReturnNotImplemented reflectively calls every[m
+[32m+[m[32m// error-returning method with zero-valued arguments and accepts only nil or core.ErrNotImplemented[m
+[32m+[m[32m// back, so any other error here would fail a guard that has nothing to do with canonicalization.[m
+[32m+[m[32mfunc (r *registry) Register(c Canonicalizer) error {[m
+[32m+[m	[32mif c == nil {[m
+[32m+[m		[32mreturn nil[m
+[32m+[m	[32m}[m
+[32m+[m	[32mname := c.Name()[m
+[32m+[m
+[32m+[m	[32mr.mu.Lock()[m
+[32m+[m	[32mdefer r.mu.Unlock()[m
+[32m+[m	[32mif r.byName == nil {[m
+[32m+[m		[32mr.byName = make(map[string]bool)[m
+[32m+[m	[32m}[m
+[32m+[m	[32mif r.byName[name] {[m
+[32m+[m		[32mreturn fmt.Errorf("%w: %q", ErrDuplicateName, name)[m
+[32m+[m	[32m}[m
+[32m+[m	[32mr.byName[name] = true[m
+[32m+[m	[32mr.canons = append(r.canons, c)[m
+[32m+[m	[32mreturn nil[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// For returns the applicable Canonicalizers in registration order.[m
+[32m+[m[32mfunc (r *registry) For(tool, path string) []Canonicalizer {[m
+[32m+[m	[32mr.mu.RLock()[m
+[32m+[m	[32mdefer r.mu.RUnlock()[m
+[32m+[m
+[32m+[m	[32mout := make([]Canonicalizer, 0, len(r.canons))[m
+[32m+[m	[32mfor _, c := range r.canons {[m
+[32m+[m		[32mif c.Applies(tool, path) {[m
+[32m+[m			[32mout = append(out, c)[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn out[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// Names returns every registered Name in registration order.[m
+[32m+[m[32mfunc (r *registry) Names() []string {[m
+[32m+[m	[32mr.mu.RLock()[m
+[32m+[m	[32mdefer r.mu.RUnlock()[m
+[32m+[m
+[32m+[m	[32mout := make([]string, len(r.canons))[m
+[32m+[m	[32mfor i, c := range r.canons {[m
+[32m+[m		[32mout[i] = c.Name()[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn out[m
+ }[m
+ [m
+[31m-// stubRegistry is the SP-01 placeholder Registry returned by both NewRegistry and Default. SP-04[m
+[31m-// owns the real implementation and the twelve canonicalizers it registers.[m
+[31m-type stubRegistry struct{}[m
+[32m+[m[32m// Run canonicalizes in as tool's output at path.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Composition is a SINGLE PASS over the original input, not a chain of byte transforms. Every[m
+[32m+[m[32m// applicable Canonicalizer reports the spans it would rewrite, all of those spans are expressed[m
+[32m+[m[32m// in one coordinate system, and Run resolves the overlaps once. Chaining would have made[m
+[32m+[m[32m// Delta offsets ambiguous — each stage shifts the previous stage's coordinates — would have made[m
+[32m+[m[32m// Restore depend on the order stages ran in, and would have forced every implementation to[m
+[32m+[m[32m// re-derive the non-growth rule for itself. See acceptCandidates in apply.go for the four[m
+[32m+[m[32m// rejections that make Options.Strip gating and 00-ARCHITECTURE.md §5.6's non-growth property[m
+[32m+[m[32m// structural rather than conventional.[m
+[32m+[m[32m//[m
+[32m+[m[32m// A Canonicalizer that does not implement Matcher contributes nothing and never appears in[m
+[32m+[m[32m// Result.Applied; see ErrNotMatcher for why that is a skip rather than a failure.[m
+[32m+[m[32mfunc (r *registry) Run(tool, path string, in []byte, o Options) (Result, error) {[m
+[32m+[m	[32mif err := validateStrip(o.Strip); err != nil {[m
+[32m+[m		[32mreturn Result{}, err[m
+[32m+[m	[32m}[m
+[32m+[m	[32mif len(in) == 0 {[m
+[32m+[m		[32mreturn Result{Applied: []string{}}, nil[m
+[32m+[m	[32m}[m
+ [m
+[31m-// Register always reports core.ErrNotImplemented.[m
+[31m-func (stubRegistry) Register(c Canonicalizer) error { return core.ErrNotImplemented }[m
+[32m+[m	[32mhead, _ := splitCapped(in)[m
+[32m+[m	[32mcands := r.collect(tool, path, head, o)[m
+[32m+[m
+[32m+[m	[32mcanonical, deltas, accepted := compose(in, cands, o)[m
+[32m+[m	[32mres := Result{[m
+[32m+[m		[32mCanonical: canonical,[m
+[32m+[m		[32mDeltas:    deltas,[m
+[32m+[m		[32mApplied:   appliedNames(accepted),[m
+[32m+[m		[32mReduced:   reduced(len(in), len(canonical)),[m
+[32m+[m	[32m}[m
+[32m+[m	[32mif o.MinHash.Enabled {[m
+[32m+[m		[32mres.Signature = sketch.MinHash(res.Canonical, o.MinHash)[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn res, nil[m
+[32m+[m[32m}[m
+ [m
+[31m-// For always returns nil: For has no error return, so nil — Rule 1's documented zero value — is[m
+[31m-// the only honest answer: the stub has no Canonicalizers registered, because Register never[m
+[31m-// succeeds.[m
+[31m-func (stubRegistry) For(tool, path string) []Canonicalizer { return nil }[m
+[32m+[m[32m// collect gathers every applicable Canonicalizer's matches over head, tagged with the emitter's[m
+[32m+[m[32m// registration index and Name so overlap resolution and Applied stay deterministic.[m
+[32m+[m[32mfunc (r *registry) collect(tool, path string, head []byte, o Options) []candidate {[m
+[32m+[m	[32mr.mu.RLock()[m
+[32m+[m	[32mdefer r.mu.RUnlock()[m
+ [m
+[31m-// Run always reports core.ErrNotImplemented.[m
+[31m-func (stubRegistry) Run(tool, path string, in []byte, o Options) (Result, error) {[m
+[31m-	return Result{}, core.ErrNotImplemented[m
+[32m+[m	[32mvar cands []candidate[m
+[32m+[m	[32mfor i, c := range r.canons {[m
+[32m+[m		[32mif !c.Applies(tool, path) {[m
+[32m+[m			[32mcontinue[m
+[32m+[m		[32m}[m
+[32m+[m		[32mfound, err := MatchesOf(c, head, o)[m
+[32m+[m		[32mif errors.Is(err, ErrNotMatcher) {[m
+[32m+[m			[32mcontinue[m
+[32m+[m		[32m}[m
+[32m+[m		[32mname := c.Name()[m
+[32m+[m		[32mfor _, m := range found {[m
+[32m+[m			[32mcands = append(cands, candidate{Match: m, rank: i, owner: name})[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn cands[m
+ }[m
+ [m
+[31m-// Names always returns nil, for the same reason as For.[m
+[31m-func (stubRegistry) Names() []string { return nil }[m
+[32m+[m[32m// validateStrip rejects an Options.Strip naming a Class that is not one of KnownClasses.[m
+[32m+[m[32m//[m
+[32m+[m[32m// This is a hard failure rather than a silent skip because a typo in store.canonicalize.strip[m
+[32m+[m[32m// silently disables a canonicalizer, and the only symptom is a dedup ratio that is quietly worse[m
+[32m+[m[32m// than it should be — a bug with no error message and a months-long feedback loop.[m
+[32m+[m[32mfunc validateStrip(strip []Class) error {[m
+[32m+[m	[32mfor _, c := range strip {[m
+[32m+[m		[32mif _, ok := ParseClass(string(c)); !ok {[m
+[32m+[m			[32mreturn fmt.Errorf("%w: %q (known: %s)", ErrUnknownClass, c, strings.Join(classNames(), ", "))[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn nil[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// classNames renders KnownClasses for an error message.[m
+[32m+[m[32mfunc classNames() []string {[m
+[32m+[m	[32mout := make([]string, len(knownClasses))[m
+[32m+[m	[32mfor i, c := range knownClasses {[m
+[32m+[m		[32mout[i] = string(c)[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn out[m
+[32m+[m[32m}[m
+[1mdiff --git a/internal/canon/restore.go b/internal/canon/restore.go[m
+[1mindex ed653b5..164d936 100644[m
+[1m--- a/internal/canon/restore.go[m
+[1m+++ b/internal/canon/restore.go[m
+[36m@@ -1,10 +1,76 @@[m
+ package canon[m
+ [m
+[31m-import "github.com/qompack/qompack/internal/core"[m
+[32m+[m[32mimport "fmt"[m
+[32m+[m
+[32m+[m[32m// restoreHeadroom is the slack Restore preallocates beyond len(canonical). Every Delta replaces a[m
+[32m+[m[32m// token with something at least as long, so the reconstruction is never shorter than the[m
+[32m+[m[32m// canonical form; this is a first guess at the overshoot, not a bound.[m
+[32m+[m[32mconst restoreHeadroom = 64[m
+ [m
+ // Restore applies deltas to canonical to reconstruct the original, pre-canonicalization bytes: a[m
+ // byte-exact inverse of Canonicalize when Options.KeepDeltas was set (00-ARCHITECTURE.md §5.6).[m
+[31m-// Restore always reports core.ErrNotImplemented until SP-04 lands the real implementation.[m
+[32m+[m[32m//[m
+[32m+[m[32m// It is a single forward pass, which is the whole reason Registry.Run composes matches over the[m
+[32m+[m[32m// original input rather than chaining byte transforms: every Delta.Offset is in canonical[m
+[32m+[m[32m// coordinates and the list is ascending and non-overlapping, so Restore never has to know which[m
+[32m+[m[32m// canonicalizer produced which span, or in what order they ran.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Restore never panics on adversarial input — FuzzRestore asserts that over arbitrary byte slices[m
+[32m+[m[32m// and arbitrary Delta lists. A malformed list is reported: ErrDeltaRange for an offset or length[m
+[32m+[m[32m// outside canonical, ErrDeltaOrder for a non-monotonic list. Both wrap with %w so a caller can[m
+[32m+[m[32m// errors.Is them; SP-06 treats either as a corrupt side record rather than as a missing object.[m
+ func Restore(canonical []byte, deltas []Delta) ([]byte, error) {[m
+[31m-	return nil, core.ErrNotImplemented[m
+[32m+[m	[32mif len(deltas) == 0 {[m
+[32m+[m		[32m// A copy, never the caller's backing array: Restore's result outlives the canonical buffer[m
+[32m+[m		[32m// in SP-06's read path, where the canonical bytes come straight out of a pooled decompress[m
+[32m+[m		[32m// buffer that is reused for the next object.[m
+[32m+[m		[32mreturn append([]byte(nil), canonical...), nil[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mout := make([]byte, 0, len(canonical)+restoreHeadroom)[m
+[32m+[m	[32mprev := 0[m
+[32m+[m	[32mfor i, d := range deltas {[m
+[32m+[m		[32mif i > 0 && d.Offset < deltas[i-1].Offset {[m
+[32m+[m			[32mreturn nil, fmt.Errorf("%w: delta %d offset %d precedes delta %d offset %d",[m
+[32m+[m				[32mErrDeltaOrder, i, d.Offset, i-1, deltas[i-1].Offset)[m
+[32m+[m		[32m}[m
+[32m+[m		[32mif d.Offset < prev || d.Len < 0 || d.Offset < 0 || d.Offset+d.Len > len(canonical) {[m
+[32m+[m			[32mreturn nil, fmt.Errorf("%w: delta %d offset=%d len=%d canonical=%d",[m
+[32m+[m				[32mErrDeltaRange, i, d.Offset, d.Len, len(canonical))[m
+[32m+[m		[32m}[m
+[32m+[m		[32mout = append(out, canonical[prev:d.Offset]...)[m
+[32m+[m		[32mout = append(out, d.Original...)[m
+[32m+[m		[32mprev = d.Offset + d.Len[m
+[32m+[m	[32m}[m
+[32m+[m	[32mreturn append(out, canonical[prev:]...), nil[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// LineEndingClass reports the original line-ending class of a canonicalized payload: "lf", "crlf"[m
+[32m+[m[32m// or "mixed". canonicalNewlines is bytes.Count(canonical, "\n").[m
+[32m+[m[32m//[m
+[32m+[m[32m// 00-ARCHITECTURE.md §4 requires the original line-ending class to be recorded as a canon.Delta,[m
+[32m+[m[32m// which the crlf canonicalizer does. This function is how a caller reads it back without a second[m
+[32m+[m[32m// scan over the payload, and without SP-04 adding a field to the §5.6 Result struct (which it may[m
+[32m+[m[32m// not do — that would need an arch amendment).[m
+[32m+[m[32m//[m
+[32m+[m[32m// It counts only Deltas whose Class is ClassCRLF AND whose Original is exactly "\r\n". ClassCRLF[m
+[32m+[m[32m// also carries the always-on trailing-whitespace rule that bash, grep, glob and fileread share —[m
+[32m+[m[32m// trailing whitespace is line-terminator normalization by the same argument as CRLF→LF — and[m
+[32m+[m[32m// counting those as line endings would report "mixed" for a pure-LF file that merely had a few[m
+[32m+[m[32m// trailing spaces.[m
+[32m+[m[32mfunc LineEndingClass(deltas []Delta, canonicalNewlines int) string {[m
+[32m+[m	[32mcrlfCount := 0[m
+[32m+[m	[32mfor _, d := range deltas {[m
+[32m+[m		[32mif d.Class == ClassCRLF && d.Original == "\r\n" {[m
+[32m+[m			[32mcrlfCount++[m
+[32m+[m		[32m}[m
+[32m+[m	[32m}[m
+[32m+[m	[32mswitch {[m
+[32m+[m	[32mcase crlfCount == 0:[m
+[32m+[m		[32mreturn "lf"[m
+[32m+[m	[32mcase crlfCount == canonicalNewlines:[m
+[32m+[m		[32mreturn "crlf"[m
+[32m+[m	[32mdefault:[m
+[32m+[m		[32mreturn "mixed"[m
+[32m+[m	[32m}[m
+ }[m
+[1mdiff --git a/internal/contract/golden_test.go b/internal/contract/golden_test.go[m
+[1mnew file mode 100644[m
+[1mindex 0000000..0248327[m
+[1m--- /dev/null[m
+[1m+++ b/internal/contract/golden_test.go[m
+[36m@@ -0,0 +1,95 @@[m
+[32m+[m[32mpackage contract_test[m
+[32m+[m
+[32m+[m[32mimport ([m
+[32m+[m	[32m"context"[m
+[32m+[m	[32m"encoding/json"[m
+[32m+[m	[32m"os"[m
+[32m+[m	[32m"path/filepath"[m
+[32m+[m	[32m"testing"[m
+[32m+[m	[32m"time"[m
+[32m+[m
+[32m+[m	[32m"github.com/stretchr/testify/require"[m
+[32m+[m
+[32m+[m	[32m"github.com/qompack/qompack/internal/contract"[m
+[32m+[m	[32m"github.com/qompack/qompack/internal/logging"[m
+[32m+[m	[32m"github.com/qompack/qompack/internal/obs"[m
+[32m+[m[32m)[m
+[32m+[m
+[32m+[m[32m// resultSetGolden is the frozen §16 format fixture: the nine §5.19 assertions as RunAll reports[m
+[32m+[m[32m// them on a build where every producer is still absent.[m
+[32m+[m[32mconst resultSetGolden = "../../testdata/golden/contracts/contract/want/result_set.json"[m
+[32m+[m
+[32m+[m[32m// resultSetClock is the instant the fixture is frozen at. It sits inside the window the rest of the[m
+[32m+[m[32m// contract corpus shares — the same session, just after the manifest entry at 1767225500000 — so[m
+[32m+[m[32m// the fixtures read as one coherent scenario rather than nine unrelated timestamps.[m
+[32m+[m[32mvar resultSetClock = &fakeClock{now: time.UnixMilli(1767225510000).UTC()}[m
+[32m+[m
+[32m+[m[32m// TestResultSet_MatchesFrozenGolden pins the on-disk shape of state/contract.json's results array.[m
+[32m+[m[32m//[m
+[32m+[m[32m// §16 lists the contract result set among the format fixtures that are authorable and frozen at[m
+[32m+[m[32m// SP-01, and it had no fixture: the manifest declared only a behaviour fixture deferred to SP-05.[m
+[32m+[m[32m// That left the one artifact two other subsystems read — /qompack:status renders it, and the next[m
+[32m+[m[32m// SessionStart loads it — with no frozen shape at all, so any wave could have respelled a JSON tag[m
+[32m+[m[32m// without anything noticing.[m
+[32m+[m[32m//[m
+[32m+[m[32m// The assertion is byte-level against the committed golden rather than field-by-field, because the[m
+[32m+[m[32m// bytes are the interface here. A field renamed, dropped, or newly emitted all change them, and all[m
+[32m+[m[32m// three are breaking changes to a file other components parse.[m
+[32m+[m[32mfunc TestResultSet_MatchesFrozenGolden(t *testing.T) {[m
+[32m+[m	[32mt.Parallel()[m
+[32m+[m
+[32m+[m	[32mm := contract.NewMonitor(logging.Nop(), obs.New(resultSetClock), filepath.Join(t.TempDir(), "contract.json"))[m
+[32m+[m	[32mfor _, a := range contract.StandardAssertions() {[m
+[32m+[m		[32mrequire.NoError(t, m.Register(a))[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mresults, mode := m.RunAll(context.Background(), contract.Env{Clock: resultSetClock})[m
+[32m+[m
+[32m+[m	[32m// §12.1: a build whose producers are all absent is ModeFull, never degraded. If this ever[m
+[32m+[m	[32m// flips, the golden below is the least of the problems — every wave-1 and wave-2 verification[m
+[32m+[m	[32m// run would be silently disabling the paths it is meant to be testing.[m
+[32m+[m	[32mrequire.Equal(t, contract.ModeFull, mode,[m
+[32m+[m		[32m"a fresh build reports every assertion OK/SevInfo, so the monitor must stay in full mode")[m
+[32m+[m	[32mrequire.Len(t, results, 9, "§5.19 fixes the assertion set at nine")[m
+[32m+[m
+[32m+[m	[32mgot, err := json.MarshalIndent(results, "", "  ")[m
+[32m+[m	[32mrequire.NoError(t, err)[m
+[32m+[m	[32mgot = append(got, '\n')[m
+[32m+[m
+[32m+[m	[32mwant, err := os.ReadFile(resultSetGolden)[m
+[32m+[m	[32mrequire.NoError(t, err, "the frozen result-set fixture is missing")[m
+[32m+[m
+[32m+[m	[32mrequire.Equal(t, string(want), string(got),[m
+[32m+[m		[32m"the contract result set drifted from its frozen §16 fixture.\n"+[m
+[32m+[m			[32m"state/contract.json is read by /qompack:status and by the next SessionStart, so this "+[m
+[32m+[m			[32m"is a wire-format change, not a formatting one. Rule W-2 applies: a fixture the "+[m
+[32m+[m			[32m"implementation cannot reproduce is a verification failure, not a fixture bug.")[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// TestResultSet_GoldenRoundTripsLosslessly is the other half of Rule W-2: the frozen bytes must be[m
+[32m+[m[32m// consumable by the declared type, not merely producible by it. A field on disk that []Result does[m
+[32m+[m[32m// not model would be dropped here in silence, and the golden would become unreproducible by the[m
+[32m+[m[32m// first implementation that tried.[m
+[32m+[m[32mfunc TestResultSet_GoldenRoundTripsLosslessly(t *testing.T) {[m
+[32m+[m	[32mt.Parallel()[m
+[32m+[m
+[32m+[m	[32mraw, err := os.ReadFile(resultSetGolden)[m
+[32m+[m	[32mrequire.NoError(t, err)[m
+[32m+[m
+[32m+[m	[32mvar results []contract.Result[m
+[32m+[m	[32mrequire.NoError(t, json.Unmarshal(raw, &results))[m
+[32m+[m	[32mrequire.Len(t, results, 9)[m
+[32m+[m
+[32m+[m	[32mround, err := json.MarshalIndent(results, "", "  ")[m
+[32m+[m	[32mrequire.NoError(t, err)[m
+[32m+[m	[32mrequire.Equal(t, string(raw), string(round)+"\n")[m
+[32m+[m
+[32m+[m	[32mfor _, r := range results {[m
+[32m+[m		[32mrequire.True(t, r.OK, "%s: a fresh build reports every assertion OK", r.ID)[m
+[32m+[m		[32mrequire.Equal(t, contract.SevInfo, r.Severity,[m
+[32m+[m			[32m"%s: the OBSERVED severity is SevInfo even where the assertion DECLARES SevCritical", r.ID)[m
+[32m+[m		[32mrequire.NotEmpty(t, r.Expected, "%s: Expected is half the degraded banner", r.ID)[m
+[32m+[m		[32mrequire.NotEmpty(t, r.Observed, "%s: Observed is the other half", r.ID)[m
+[32m+[m		[32mrequire.Positive(t, int64(r.TS), "%s: an untimestamped result cannot be aged out", r.ID)[m
+[32m+[m	[32m}[m
+[32m+[m[32m}[m
+[1mdiff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go[m
+[1mindex 489f77d..0bdea07 100644[m
+[1m--- a/internal/daemon/daemon.go[m
+[1m+++ b/internal/daemon/daemon.go[m
+[36m@@ -20,16 +20,23 @@[m [mimport ([m
+ 	"github.com/qompack/qompack/internal/store"[m
+ )[m
+ [m
+[31m-// SketchSet is the three probabilistic structures the daemon keeps resident (§3.3): the[m
+[31m-// negative-knowledge Bloom filter, the touch Count-Min sketch and the exploration HyperLogLog.[m
+[32m+[m[32m// SketchSet is the four probabilistic structures the daemon keeps resident (§3.3): the[m
+[32m+[m[32m// negative-knowledge Bloom filter, the touch Count-Min sketch, the exploration HyperLogLog and the[m
+[32m+[m[32m// Misra-Gries top-k counter.[m
+ //[m
+ // Tried is a pointer to the same Bloom the negknow ledger was opened over, not a copy. §7.4 makes[m
+ // tried.bloom append-only precisely because a rebuilt-from-summary Bloom would silently forget[m
+ // what has already been tried, so there must be exactly one of it in the process.[m
+[32m+[m[32m//[m
+[32m+[m[32m// Top is the companion to Touch, not an alternative to it: sketch.CMS.HeavyHitters takes a[m
+[32m+[m[32m// *MisraGries because a Count-Min sketch can estimate the count of a key it is handed but cannot[m
+[32m+[m[32m// enumerate which keys are heavy. Without Top resident there is no set of candidates to estimate,[m
+[32m+[m[32m// so the pair has to be wired together or the CMS answers a question nobody can ask.[m
+ type SketchSet struct {[m
+ 	Tried   *sketch.Bloom[m
+ 	Touch   *sketch.CMS[m
+ 	Explore *sketch.HLL[m
+[32m+[m	[32mTop     *sketch.MisraGries[m
+ }[m
+ [m
+ // Options is the late-bound dependency set (§5.4).[m
+[1mdiff --git a/internal/daemon/daemon_test.go b/internal/daemon/daemon_test.go[m
+[1mindex d066577..71b8459 100644[m
+[1m--- a/internal/daemon/daemon_test.go[m
+[1m+++ b/internal/daemon/daemon_test.go[m
+[36m@@ -9,6 +9,7 @@[m [mimport ([m
+ 	"github.com/qompack/qompack/internal/core"[m
+ 	"github.com/qompack/qompack/internal/daemon"[m
+ 	"github.com/qompack/qompack/internal/ipc"[m
+[32m+[m	[32m"github.com/qompack/qompack/internal/sketch"[m
+ )[m
+ [m
+ // TestNew_SucceedsWithNoServices is the property waves 1–2 depend on: a daemon constructs from an[m
+[36m@@ -48,6 +49,33 @@[m [mfunc TestStubOperationsReportNotImplemented(t *testing.T) {[m
+ 	require.Empty(t, ran)[m
+ }[m
+ [m
+[32m+[m[32m// TestSketchSet_CarriesAllFourStructures pins the SP-01 §1341 spelling of SketchSet. The set had[m
+[32m+[m[32m// three fields, missing Top, and nothing caught it because no test ever constructed one.[m
+[32m+[m[32m//[m
+[32m+[m[32m// The omission is not cosmetic: sketch.CMS.HeavyHitters takes a *MisraGries, so a resident CMS[m
+[32m+[m[32m// with no resident top-k has no candidate set to estimate over and cannot answer the only question[m
+[32m+[m[32m// it exists to answer. Wiring the pair here is what makes that impossible to lose again.[m
+[32m+[m[32mfunc TestSketchSet_CarriesAllFourStructures(t *testing.T) {[m
+[32m+[m	[32mt.Parallel()[m
+[32m+[m
+[32m+[m	[32ms := &daemon.SketchSet{[m
+[32m+[m		[32mTried:   sketch.NewBloom(512, 0.01),[m
+[32m+[m		[32mTouch:   sketch.NewCMS(0.001, 0.01),[m
+[32m+[m		[32mExplore: sketch.NewHLL(14),[m
+[32m+[m		[32mTop:     sketch.NewMisraGries(64),[m
+[32m+[m	[32m}[m
+[32m+[m
+[32m+[m	[32mrequire.NotNil(t, s.Tried)[m
+[32m+[m	[32mrequire.NotNil(t, s.Touch)[m
+[32m+[m	[32mrequire.NotNil(t, s.Explore)[m
+[32m+[m	[32mrequire.NotNil(t, s.Top, "SP-01 §1341 spells Top; CMS.HeavyHitters is unusable without it")[m
+[32m+[m
+[32m+[m	[32m// The set must survive being handed to Options, which is the only way it is ever consumed.[m
+[32m+[m	[32md, err := daemon.New(daemon.Options{ProjectRoot: t.TempDir(), Sketches: s})[m
+[32m+[m	[32mrequire.NoError(t, err)[m
+[32m+[m	[32mrequire.NotNil(t, d)[m
+[32m+[m[32m}[m
+[32m+[m
+ // TestHandle_RoutingTableIsData is the seam §5.4 calls out by name.[m
+ //[m
+ // The op-routing table has to be data rather than a switch, because otherwise every wave that[m
+[1mdiff --git a/internal/pluginmanifest/golden_test.go b/internal/pluginmanifest/golden_test.go[m
+[1mindex 5aac9eb..6f50b09 100644[m
+[1m--- a/internal/pluginmanifest/golden_test.go[m
+[1m+++ b/internal/pluginmanifest/golden_test.go[m
+[36m@@ -41,9 +41,14 @@[m [mfunc TestManifest_GoldenBytes(t *testing.T) {[m
+ // committed plugin/ tree must be exactly what the generator produces.[m
+ func TestBundle_OnDiskMatchesGenerator(t *testing.T) {[m
+ 	repoRoot := "../.."[m
+[31m-	if _, err := os.Stat(filepath.Join(repoRoot, "plugin")); os.IsNotExist(err) {[m
+[31m-		t.Skip("plugin/ bundle not materialized in this tree")[m
+[31m-	}[m
+[32m+[m	[32m// The bundle is committed — ten tracked files under plugin/ — so its absence is a broken[m
+[32m+[m	[32m// checkout or a deleted directory, not a state worth tolerating. This used to skip, which was[m
+[32m+[m	[32m// wrong twice over: it would have turned the one test that proves the shipped bundle matches[m
+[32m+[m	[32m// its generator into a silent pass, and "plugin/ bundle not materialized in this tree" is a[m
+[32m+[m	[32m// fourth skip reason beyond the three `devtool lint stubskips` permits, so the moment it fired[m
+[32m+[m	[32m// it would have failed the lint gate instead of reporting the real problem.[m
+[32m+[m	[32m_, err := os.Stat(filepath.Join(repoRoot, "plugin"))[m
+[32m+[m	[32mrequire.NoError(t, err, "plugin/ is committed to the repository and must be present")[m
+ 	diffs := pluginmanifest.Validate(repoRoot, pluginmanifest.Default(core.Version))[m
+ 	for _, d := range diffs {[m
+ 		t.Errorf("plugin bundle drift: %s (%s)", d.Path, d.Reason)[m
+[1mdiff --git a/internal/testutil/fixtures_test.go b/internal/testutil/fixtures_test.go[m
+[1mindex 18a8c17..366564f 100644[m
+[1m--- a/internal/testutil/fixtures_test.go[m
+[1m+++ b/internal/testutil/fixtures_test.go[m
+[36m@@ -76,7 +76,10 @@[m [mfunc TestContractFixture_EveryManifestIsReadable(t *testing.T) {[m
+ 		}[m
+ 	}[m
+ [m
+[31m-	require.Equal(t, 21, frozenCount, "SP-01 froze 21 format fixtures; adding or losing one is a contract change")[m
+[32m+[m	[32m// 23, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never[m
+[32m+[m	[32m// declared — contract/result_set (the nine §5.19 assertions as RunAll reports them) and[m
+[32m+[m	[32m// config/appendix_c_defaults (the Appendix C golden, declared where it already lives).[m
+[32m+[m	[32mrequire.Equal(t, 23, frozenCount, "SP-01 froze 21 format fixtures and V1 added 2; adding or losing one is a contract change")[m
+ 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")[m
+ }[m
+ [m
+[1mdiff --git a/plans/V1-VERIFY-foundation-and-contracts.md b/plans/V1-VERIFY-foundation-and-contracts.md[m
+[1mindex ccb2df2..522f4da 100644[m
+[1m--- a/plans/V1-VERIFY-foundation-and-contracts.md[m
+[1m+++ b/plans/V1-VERIFY-foundation-and-contracts.md[m
+[36m@@ -93,17 +93,17 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ [m
+ | # | Functionality | Command | Expected result |[m
+ |---|---|---|---|[m
+[31m-| A1 | Repository initialized with `main` and `develop`; root commit contains exactly `Qompack.md`, `plans/`, `.gitignore`, `LICENSE` | `git log --oneline --all` ; `git show --stat $(git rev-list --max-parents=0 HEAD)` | Root commit subject is `chore: initial commit — design document and build plans`; its stat lists only `Qompack.md`, `plans/*` (20 files), `.gitignore`, `LICENSE` — no Go files, no CI files |[m
+[32m+[m[32m| A1 | Repository initialized with `main` and `develop`; root commit contains exactly `Qompack.md`, `plans/`, `.gitignore`, `LICENSE` | `git log --oneline --all` ; `git show --stat $(git rev-list --max-parents=0 HEAD)` | Root commit subject is `chore: initial commit — design document and build plans`; its stat lists only `Qompack.md`, `plans/*` (22 files), `.gitignore`, `LICENSE` — 30 files total, no Go files, no CI files |[m
+ | A2 | Branch topology: `main`, `develop`, merged `feat/sp01-…`, current `verify/v1` | `git branch -a` ; `git merge-base --is-ancestor main develop && echo ok` | All four branches present; `ok` printed; `verify/v1` tip is a descendant of the SP-01 merge commit |[m
+[31m-| A3 | Exactly 8 commits total (1 root + 7 on the SP-01 branch), each a valid Conventional Commit | `git log --oneline $(git rev-list --max-parents=0 HEAD)..develop --no-merges` ; `git log --format=%s $(git rev-list --max-parents=0 HEAD)..develop --no-merges` | 7 non-merge commits on `develop` beyond the root; every subject matches `^(feat\|fix\|docs\|test\|refactor\|perf\|build\|ci\|chore\|revert)(\([a-z0-9/_.-]+\))?: .{1,64}$` with no trailing period |[m
+[32m+[m[32m| A3 | Exactly 8 commits total (1 root + 7 on the SP-01 branch), each a valid Conventional Commit | `git log --oneline $(git rev-list --max-parents=0 HEAD)..develop --no-merges` ; `git log --format=%s $(git rev-list --max-parents=0 HEAD)..develop --no-merges` | 7 non-merge commits on `develop` beyond the root; every subject matches `^(feat\|fix\|docs\|test\|refactor\|perf\|build\|ci\|chore\|revert)(\([a-z0-9/_.,-]+\))?: .{1,64}$` with no trailing period. **The scope class must include a comma**: SP-01 lands multi-package commits (`feat(logging,obs,tokens,hookio)`, `test(e2e,guards)`) and both `tools/devtool/checkcommitmsg.go` and CI spell it that way; a comma-less class rejects real commits on this branch |[m
+ | A4 | `Refs:` footer present on every `feat`/`fix` commit | `git log --format='%s%n%b%n---' develop --no-merges` | Every `feat:`/`fix:` commit body contains a `Refs:` line naming SP-01 and at least one `§`/`G` reference |[m
+ | A5 | **No attribution trailers anywhere** (§10, verbatim rule) | `git log --format=%B --all \| grep -Ei 'Co-Authored-By\|Signed-off-by\|Generated with\|🤖'` (PowerShell: `git log --format=%B --all \| Select-String -Pattern 'Co-Authored-By\|Signed-off-by\|Generated with\|🤖'`) | **Zero matches.** Any match is an immediate failure of this checkpoint |[m
+ | A6 | `.gitignore` is the §9 normative minimum, verbatim | `git show HEAD:.gitignore` | Byte-identical to the §9 block: `/.qompack/`, `**/.qompack/`, `/bin/`, `/dist/`, `/plugin/bin/`, `*.exe`, `*.dll`, `*.so`, `*.dylib`, `*.test`, `*.out`, `coverage.*`, `/testdata/bench-*.json`, the recorded-sessions pair, and the tooling block |[m
+ | A7 | `.qompack/` is genuinely ignored, and self-ignores | `mkdir -p .qompack && printf 'x' > .qompack/probe.txt && git status --porcelain` ; then delete the probe | `git status --porcelain` shows **no** `.qompack` entry |[m
+[31m-| A8 | `.gitattributes` protects goldens and corpora from CRLF mangling | `git check-attr -a -- testdata/golden/config/schema.json` ; `git check-attr -a -- "testdata/corpora/hookio/seed_posttooluse.json"` (any file under that path) | `*.golden` and `testdata/corpora/**` report `-text` (binary); `*.go`/`*.md` report `text eol=lf` |[m
+[32m+[m[32m| A8 | `.gitattributes` protects goldens and corpora from CRLF mangling | `git check-attr -a -- "testdata/corpora/hookio/seed_posttooluse.json"` ; `git check-attr -a -- internal/config/config.go` | `testdata/corpora/**` reports `text: unset` (i.e. `-text`, binary) and `*.go`/`*.md` report `text eol=lf`. **Do not use `testdata/golden/config/schema.json` as the probe**: it is not a `*.golden` file, so it correctly reports `text: auto, eol: lf`, and the original row expected `-text` from a path its own rule never covered |[m
+ | A9 | `Qompack.md` unmodified since the root commit (DoD 18) | `git diff $(git rev-list --max-parents=0 HEAD) HEAD -- Qompack.md` | Empty output |[m
+ | A10 | `commit-msg` hook installable and enforcing | `go run ./tools/devtool install-hooks` ; then `go test -run TestCheckCommitMsg ./tools/...` | Hook written to `.git/hooks/commit-msg` (mode 0755 on POSIX); `TestCheckCommitMsg` PASS — accepts valid subjects; rejects over-length subject, trailing period, missing type, `Co-Authored-By` in body, `🤖` in body, missing `Refs:` on a `feat` |[m
+[31m-| A11 | Placeholder scan clean | `grep -RniE 'TODO\|TBD\|FIXME\|XXX\|not sure\|implement appropriately\|handle edge cases' -- ':!Qompack.md' ':!plans/'` (use `git grep` for the pathspec syntax) | **Zero matches.** `core.ErrNotImplemented` bodies are a declared contract and are not placeholders |[m
+[32m+[m[32m| A11 | Placeholder scan clean | `git grep -nwE 'TODO\|TBD\|FIXME\|XXX' -- ':!Qompack.md' ':!plans/'` ; `git grep -niE 'not sure\|implement appropriately\|handle edge cases' -- ':!Qompack.md' ':!plans/'` | **Zero matches** from both. `core.ErrNotImplemented` bodies are a declared contract and are not placeholders. Three corrections to the original command, each of which made it useless: `-R` is not a `git grep` switch, so the command **errored out** and its zero-match result was an error exit, not a clean scan; the tag scan must be **case-sensitive**, because `-i` turns `TODO` into a match for the domain word *todo* (`TodoWrite`, `Signals.TodoCompleted`, `todo_transition`, `changepoint.features: ["…","todos"]`) and reports 23 false hits; and it needs `-w`, or `TBD` matches inside longer identifiers. The prose patterns keep `-i` since no domain term collides with them |[m
+ [m
+ #### Group B — Toolchain: module, pinned tools, `devtool`, `nomagic`, graph checks[m
+ [m
+[36m@@ -134,7 +134,7 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | C1 | Domain-separated hashing | `go test -run 'TestHashBytes_(DomainSeparation\|KnownVector)' ./internal/core/...` | Both PASS. `HashBytes("a","bc") != HashBytes("ab","c")`; `HashBytes("qompack.root.v1", nil) == sha256("qompack.root.v1\x00")` |[m
+ | C2 | `Hash` text form and parsing | `go test -run 'TestHash_StringShortParse_RoundTrip\|TestParseHash_Rejects\|TestHash_JSONRoundTrip' ./internal/core/...` | All PASS. `String()` = `"sha256:"` + 64 lowercase hex; `Short()` = 12 hex chars; `ParseHash` round-trips 100 random hashes; rejects `""`, `"sha256:"`, 63 hex, 65 hex, non-hex — each wrapping `ErrNotFound`; JSON marshals to `"sha256:…"` |[m
+ | C3 | Decision IDs | `go test -run TestNewDecisionID_Format ./internal/core/...` | PASS; matches `^dec_[0-9a-f]{12}$` |[m
+[31m-| C4 | Seven sentinels distinct, `IsNotImplemented` unwraps | `go test -run TestSentinels_AreDistinct ./internal/core/...` | PASS. `ErrNotImplemented`, `ErrNotFound`, `ErrAppendOnly`, `ErrAlreadyEncoded`, `ErrBudget`, `ErrDegraded`, `ErrContract` pairwise non-`errors.Is`; `IsNotImplemented(fmt.Errorf("w: %w", ErrNotImplemented))` is true |[m
+[32m+[m[32m| C4 | Seven sentinels distinct, `IsNotImplemented` unwraps | `go test -run 'TestSentinels_AreDistinct\|TestIsNotImplemented_UnwrapsWrapping' ./internal/core/...` (the unwrap half is a separate test; `TestSentinels_AreDistinct` alone never mentions `IsNotImplemented`) | PASS. `ErrNotImplemented`, `ErrNotFound`, `ErrAppendOnly`, `ErrAlreadyEncoded`, `ErrBudget`, `ErrDegraded`, `ErrContract` pairwise non-`errors.Is`; `IsNotImplemented(fmt.Errorf("w: %w", ErrNotImplemented))` is true |[m
+ | C5 | ID/scalar types, clock, version | `go test ./internal/core/...` ; `go doc ./internal/core` | Whole-package PASS. `SessionID ToolUseID TurnIndex SegmentID CheckpointSeq DecisionID Tokens UnixMilli ChunkRef Dep Clock SystemClock NowMilli UnixMilli.Time Version` all declared exactly as §4 / SP-01 Produces spells them; `Version == "0.1.0"` |[m
+ | C6 | Domain registry documented and the IPC non-member noted | inspect `internal/core/hash.go` comment block | Lists `qompack.chunk.v1`, `qompack.root.v1`, `qompack.neg.v1`, `qompack.decision`, `qompack.args.v1`, and explicitly states that the IPC endpoint hash is **undomained** `sha256.Sum256` and must not be "fixed" into `HashBytes` |[m
+ [m
+[36m@@ -150,7 +150,7 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | D6 | Checkpoint immutability on disk | `go test -run TestCreateNew_SetsReadOnly ./internal/paths/...` | PASS; file mode has no write bit (`FILE_ATTRIBUTE_READONLY` on Windows) and a subsequent `os.WriteFile` fails |[m
+ | D7 | JSONL append discipline | `go test -run TestAppendJSONL_OneLinePerRecord ./internal/paths/...` | PASS; exactly 3 lines for 3 records; an embedded `\n` is JSON-escaped, never raw |[m
+ | D8 | Bloom replacement is the only legal `tried.bloom` write path | `go test -run TestReplaceBloom_KeepsOneBackup ./internal/paths/...` | PASS; newest `tried.bloom` in place, exactly one `.bak` generation retained |[m
+[31m-| D9 | Windows long paths | `go test -run TestLongPath_Over260 ./internal/paths/...` | PASS on every platform, including a 300-character path |[m
+[32m+[m[32m| D9 | Windows long paths | `go test -run 'TestLongPath_Over260\|TestLong_PrefixesOverThreshold' ./internal/paths/...` | PASS on every platform. `TestLongPath_Over260` asserts only that the fixture path exceeds `MAX_PATH` (260); it does not reach 300. The 300-character case is `TestLong_PrefixesOverThreshold`, which is Windows-gated and skips elsewhere — so on Linux and macOS this row proves the >260 half only |[m
+ | D10 | Checkpoint manifest | `go test -run TestManifest_AppendAndRead ./internal/paths/...` | PASS; three `ManifestEntry` records read back in order with exact `seq`/`sha256`/`bytes`/`created` |[m
+ | D11 | Whole-package + coverage floor (90%, §6.4 row 1) | `go test -cover ./internal/paths/...` | PASS; statement coverage **≥ 90%** |[m
+ [m
+[36m@@ -205,7 +205,7 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | H4 | Calibration clamps and persists | `go test -run TestCalibrate_ClampsAndPersists ./internal/tokens/...` | PASS; `Factor()` ≤ `1.6` after 20 calls; `<home>/.qompack/calibration.json` written and re-read by a fresh `New` |[m
+ | H5 | `EstimateRoot` over `[]core.ChunkRef` (no `store` import) | `go test -run TestEstimateRoot_SumsChunks ./internal/tokens/...` ; `go list -deps ./internal/tokens \| grep -c 'qompack/internal/store'` | Test PASS (3×1000-byte prose chunks → `750`); grep count **0** |[m
+ | H6 | Monotonicity property | `go test -run TestEstimate_MonotoneInLength ./internal/tokens/...` | rapid property PASS |[m
+[31m-| H7 | `tokenstest` conformance suite shape | `go test -v -run 'TestTokensSuite' ./internal/tokens/...` | Shape block PASS; behaviour block skipped with exactly `behaviour: implementation is a stub (Rule W-1)` **only** for the parts SP-06 owns (`EstimateRoot` exact chunk accounting); baseline assertions run |[m
+[32m+[m[32m| H7 | `tokenstest` conformance suite shape | `go test -v -run 'TestEstimatorSuite_RealImplementation' ./internal/tokens/...` — **`TestTokensSuite` does not exist**, and `-run` on a name that matches nothing exits 0, so the original command reported success while running no test at all | Shape block PASS; behaviour block skipped with exactly `behaviour: implementation is a stub (Rule W-1)` **only** for the parts SP-06 owns (`EstimateRoot` exact chunk accounting); baseline assertions run |[m
+ | H8 | Coverage floor (75%) | `go test -cover ./internal/tokens/...` | ≥ 75% |[m
+ [m
+ #### Group I — `internal/hookio` (host-drift absorption)[m
+[36m@@ -230,7 +230,7 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | J4 | Hook observability log, without payload content | `go test -run TestHooks_WriteHookLog ./internal/cli/...` | PASS; `.qompack/logs/hooks-YYYYMMDD.jsonl` gains 6 lines with the right `hook` values and fields `{ts, hook, session_id, tool_name, bytes, truncated}` — **no payload text** |[m
+ | J5 | `config print` with provenance | `go test -run TestConfigPrint_Provenance ./internal/cli/...` ; `go run ./cmd/qompack config print --provenance` | Test PASS; the live command annotates each leaf with origin and location |[m
+ | J6 | `config schema` | `go test -run TestConfigSchema_Emits ./internal/cli/...` ; `go run ./cmd/qompack config schema \| head -5` | Test PASS; live output parses as JSON and equals `Defaults().JSONSchema()` |[m
+[31m-| J7 | `--set` flag plumbing | `go test -run TestSetFlagParsing ./internal/cli/...` | PASS; `--set scheduler.cache.readMultiplier=0.08 --set eval.minSessions=5` both land in `Env.Flags` and take effect |[m
+[32m+[m[32m| J7 | `--set` flag plumbing | `go test -run TestSetFlagParsing ./internal/cli/...` | PASS; `--set scheduler.cache.readMultiplier=0.08 --set eval.minSessions=5` both land in **`Env.Set`** and take effect. (The field is `Set`, not `Flags`; `Flags` is the name it is passed under into the config loader's own struct) |[m
+ | J8 | The dispatch table is complete from day one | `go run ./tools/devtool build` ; then for each of `mcp daemon status recall pin why dropped eval fsck doctor bench self-test`: `./bin/qompack <name>` (`.\bin\qompack.exe` on Windows) | Each prints `qompack <name>: not implemented in this build` to stderr and exits **1** (`self-test` may exit 1 by its own policy). None panics; none exits 0 falsely |[m
+ | J9 | `version` and `help` | `./bin/qompack version` ; `./bin/qompack --help` | `0.1.0`; usage text, exit 0 |[m
+ | J10 | Six hook subcommands respond correctly through the real binary | `./bin/qompack observe tool < payload.json`, `observe prompt`, `observe stop`, `observe stop --subagent`, `session-start`, `checkpoint`, `flush` | `observe *` and `flush` emit `{}`; `session-start` emits `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}`; `checkpoint` emits `{"hookSpecificOutput":{"hookEventName":"PreCompact"}}`; every exit code 0 |[m
+[36m@@ -262,15 +262,15 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | L6 | `scheduler.SkiRentalShouldWrite` (real, computed) | see B7 | PASS |[m
+ | L7 | `scheduler.PSelectionAvailable` gate | `go test ./internal/scheduler/...` | Returns **false** on this build (SP-12 flips it) |[m
+ | L8 | `negknow.Descriptor.Key` (real, frozen) | `go test -run TestDescriptorKey_Stable ./internal/negknow/...` | PASS; a fixed `Descriptor` yields the frozen 32-byte golden key (`qompack.neg.v1` domain, `0x1f` field separators) |[m
+[31m-| L9 | `checkpoint.StripInjections` + injection tags (real) | `go test -run TestStripInjections ./internal/checkpoint/...` | PASS on all three cases: full span removed; unclosed span removes to end of string; bare close tag removed. Constants are exactly `<!-- qompack:injected seq=%d ver=%d -->` and `<!-- /qompack:injected -->` |[m
+[31m-| L10 | `observer.Tombstone` (real, matches §8.1 verbatim) | `go test -v -run TestTombstone_MatchesDesignExample ./internal/observer/...` | PASS; renders `[cleared: sha256:<12hex> · 2.4KB · FileRead src/auth.ts · re-expandable]` — `humanBytes` divides by **1024** so `2457 → 2.4KB` |[m
+[32m+[m[32m| L9 | `checkpoint.StripInjections` + injection tags (real) | `go test -run TestStripInjections ./internal/checkpoint/...` | PASS on all three cases: full span removed; unclosed span removes to end of string; **a bare close tag is PRESERVED, not removed**. A close tag with no open tag before it delimits nothing, so it is ordinary transcript text — stripping it would silently edit content Qompack never wrote, which is the one thing this function must not do. Constants are exactly `<!-- qompack:injected seq=%d ver=%d -->` and `<!-- /qompack:injected -->` |[m
+[32m+[m[32m| L10 | `observer.Tombstone` (real, matches §8.1 verbatim) | `go test -v -run 'TestTombstone_' ./internal/observer/...` — the §8.1 case is `TestTombstone_RendersTheSection81Form`; **`TestTombstone_MatchesDesignExample` does not exist** and selected zero tests while exiting 0 | PASS; renders `[cleared: sha256:<12hex> · 2.4KB · FileRead src/auth.ts · re-expandable]` — `humanBytes` divides by **1024** so `2457 → 2.4KB` |[m
+ | L11 | `grammar.FormatWarning` (real, frozen wording) | `go test ./internal/grammar/...` | PASS; one line, no trailing newline, shape `[qompack] possible loop: A→B→C repeated N× (turns X–Y) — <message>` |[m
+ | L12 | `rehydrate.StandingInstruction` (real) | `go test ./internal/rehydrate/...` | Returns exactly `Before committing to an approach, call already_tried.` |[m
+ | L13 | `contract.Mode.String` (real, frozen) | `go test ./internal/contract/...` | `full`, `degraded-passive`, `off`, `unknown` |[m
+ | L14 | **`analyzer.NewSelector` constructor guards are real** (§13 invariant 4 + closing note 3) | `go test -v -run 'TestGuard_SubmodularInertWithoutPSelection\|TestGuard_SelectorRefusesWithoutPSelection' ./test/guards/...` | Both PASS. A block with `Pos < p` → `core.ErrBudget` **first** (so the §13-invariant-4 reason is never masked); with all `Pos >= p` but `PSelectionAvailable() == false` → `core.ErrNotImplemented` |[m
+ | L15 | `store/compress.go` zstd round-trip (real) | `go test -run TestStoreCompress_RoundTrip ./internal/store/...` | rapid PASS up to 1 MiB; a decompression bomb over the 64 MiB `MaxDecodedSize` returns an **error**, not an allocation |[m
+[31m-| L16 | `ipc.Resolve` endpoint derivation (real) | `go test -v -run TestIPCResolve_SunPathFallback ./internal/ipc/...` | PASS. Windows: `\\.\pipe\qompack.<hash12>`; POSIX: `$XDG_RUNTIME_DIR/qompack/<hash12>.sock` → `<tmp>/qompack-<uid>/<hash12>.sock` → `<tmp>/qp-<hash8>.sock` when the path exceeds 100 bytes. Hash is **undomained** `sha256.Sum256` of the normalized absolute project root |[m
+[31m-| L17 | `contract.StandardAssertions` returns the nine §5.19 IDs, all not-yet-implemented | `go test -v -run 'TestContractSuite' ./internal/contract/...` | PASS; nine assertions; each `Check` returns `OK:true, Severity:SevInfo, Observed:"not-yet-implemented"` |[m
+[32m+[m[32m| L16 | `ipc.Resolve` endpoint derivation (real) | `go test -v -run 'TestResolve' ./internal/ipc/...` — the derivation is covered by nine `TestResolveFor_*`/`TestResolve_*` tests; **`TestIPCResolve_SunPathFallback` does not exist** and selected zero tests while exiting 0 | PASS. Windows: `\\.\pipe\qompack.<hash12>`; POSIX: `$XDG_RUNTIME_DIR/qompack/<hash12>.sock` → `<tmp>/qompack-<uid>/<hash12>.sock` → `<tmp>/qp-<hash8>.sock` when the path exceeds 100 bytes. Hash is **undomained** `sha256.Sum256` of the normalized absolute project root |[m
+[32m+[m[32m| L17 | `contract.StandardAssertions` returns the nine §5.19 IDs, all not-yet-implemented | `go test -v -run 'TestStandardAssertions\|TestResultSet' ./internal/contract/...` — `TestContractSuite` matched only by prefix (the real name is `TestContractSuite_ShapePassesAgainstStub`, which asserts suite shape, not the nine IDs). The four `TestStandardAssertions_*` tests are what check the table, and `TestResultSet_MatchesFrozenGolden` pins the §16 fixture | PASS; nine assertions; each `Check` returns `OK:true, Severity:SevInfo, Observed:"not-yet-implemented"` |[m
+ | L18 | SP-01-declared types §5 names but never defines | `go doc ./internal/obs Counter` ; `go doc ./internal/ipc AddrKind` ; `go doc ./internal/daemon SketchSet` ; `go doc ./internal/dag GraphStats` ; `go doc ./internal/negknow Deps` ; `go doc ./internal/contract History` ; `go doc ./internal/paths Global` | All declared exactly as SP-01 §14.0 spells them: `obs.Counter/Gauge/Snapshot`; `ipc.AddrKind{NamedPipe,UnixSocket}`, `HotPathMode{HotSync,HotSpool}`, `ACK=0x06`, `NAK=0x15`, `MaxLineBytes=1<<20`; `daemon.SketchSet{Tried,Touch,Explore,Top}`; `dag.GraphStats`; `negknow.Deps`; `contract.History`; `paths.Global` |[m
+ | L19 | Stub packages are **exempt** from their coverage floors, visibly | `go run ./tools/devtool cover` | Exit 0; the log prints `exempt (stub, owned by <SP-NN>)` for `store sketch chunk canon negknow checkpoint scheduler dag analyzer rehydrate eval mcp` and every other non-SP-01-owned package; no floor is silently skipped |[m
+ [m
+[36m@@ -279,9 +279,9 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | # | Functionality | Command | Expected result |[m
+ |---|---|---|---|[m
+ | M1 | All 22 suites exist and their shape blocks pass against the stubs (DoD 5) | `go test -v ./internal/... \| grep -E '^(=== RUN\|--- (PASS\|SKIP))' ` , or simply `go test ./internal/...` | Suites present: `chunktest canontest sketchtest symbolstest redacttest tokenstest storetest dagtest negknowtest grammartest analyzertest schedulertest checkpointtest pinstest rehydratetest rulestest skillstest mcptest evaltest ipctest contracttest observertest` = **22**, with `storetest` exporting **two** (`RunStoreSuite`, `RunSegmentLogSuite`). Every shape block PASS |[m
+[31m-| M2 | Every behaviour block skipped with the **exact** Rule W-1 message | `go test -v ./internal/... \| grep -c 'behaviour: implementation is a stub (Rule W-1)'` ; then `go test -v ./... \| grep -E '^\s*--- SKIP' -A1 \| grep -v -E 'Rule W-1\|Rule W-2'` | The first count is ≥ 22 (one per suite with a behaviour block). The second search returns **nothing** — *no skip anywhere in the tree may carry any reason other than* `behaviour: implementation is a stub (Rule W-1)` *or* `contract fixture not yet recorded (Rule W-2)` |[m
+[31m-| M3 | Suite shape tests named per package | `go test -run 'Suite_ShapePassesAgainstStub' ./internal/...` | Every `Test<Pkg>Suite_ShapePassesAgainstStub` PASS |[m
+[31m-| M4 | `plans/OWNERS.tsv` is complete and authoritative | `cat plans/OWNERS.tsv` ; `go run ./tools/devtool lint --only=stubskips` | Tab-separated `package owner floor probe`; contains all 23 stubbed packages **plus** the 10 SP-01 implements; `devtool lint` fails if any package on disk is missing from the file (verify by temporarily renaming a line and re-running, then restoring) |[m
+[32m+[m[32m| M2 | Every behaviour block skipped with the **exact** Rule W-1 message | `go test -v ./internal/... \| grep -c 'behaviour: implementation is a stub (Rule W-1)'` ; then `go test -v ./... \| grep -E '^\s*--- SKIP' -A1 \| grep -v -E 'Rule W-1\|Rule W-2'` | The first count is ≥ 22 (one per suite with a behaviour block). The second search returns **nothing** — but the permitted set is **three**, not two: `behaviour: implementation is a stub (Rule W-1)`, `contract fixture not yet recorded (Rule W-2)`, and a **`platform: ` prefix followed by a mandatory reason**, which `tools/devtool/stubskips.go` accepts and which the OS-gated `internal/paths` symlink tests actually use. Filter on all three (`grep -v -E 'Rule W-1\|Rule W-2\|platform: '`) or this row reports false violations on every host that skips a platform-gated test |[m
+[32m+[m[32m| M3 | Suite shape tests named per package | `go test -run 'Suite_ShapePassesAgainstStub' ./internal/...` | Every `Test<Pkg>Suite_ShapePassesAgainstStub` PASS. There are **seven**, not one per package: `analyzer`, `checkpoint`, `contract`, `ipc`, `mcp`, `observer`, `rehydrate`. The other suites assert shape through their own named tests instead, so "one per package" is the wrong completeness bar here — M1 and M2 are what cover the rest |[m
+[32m+[m[32m| M4 | `plans/OWNERS.tsv` is complete and authoritative | `cat plans/OWNERS.tsv` ; `go test -run TestV1_StubGraphIsInertAndOwned ./test/guards/` | Tab-separated `package owner floor probe`; contains all 23 stubbed packages **plus** the 10 SP-01 implements. **The enforcing check is IT-9, not `devtool lint`** — verified by deleting the `paths` row and re-running: `lint --only=stubskips` still exits 0, while IT-9 fails with `package "paths" exists on disk but has no plans/OWNERS.tsv row`. IT-9 checks the correspondence in both directions and also that every floor matches §6.4 |[m
+ | M5 | The behaviour assertions SP-01 authored are present (not empty shells) | inspect each `<pkg>test` file for the assertions listed in SP-01's suite table | `chunktest` has boundary-stability/determinism/size assertions; `canontest` idempotence + inverse; `sketchtest` round-trip/CRC/FP properties; `symbolstest` enclosing-span; `redacttest` idempotence + per-rule fixtures; `tokenstest` monotone/clamp/sum; `storetest` dedup + `ChangedSince` + `MarkEncoded` DPI guard; `dagtest` slice/thin/crossing; `negknowtest` three-way answer + bloom-as-cache; `grammartest` Sequitur's two invariants; `analyzertest` selector guards; `schedulertest` purity + trigger table + Young–Daly; `checkpointtest` schema round-trip + tier truncation + no-code-blocks; `pinstest` append-only + tombstone; `rehydratetest` item order + budget; `rulestest` glob + nested CLAUDE.md; `skillstest` index-only + budget; `mcptest` JSON-RPC conformance; `evaltest` determinism + Belady optimality; `ipctest` framing + ACK/NAK; `contracttest` degrade/restore; `observertest` tombstone + signals |[m
+ [m
+ #### Group N — Golden contract fixtures (`testdata/golden/contracts/`, Rule W-2)[m
+[36m@@ -289,11 +289,11 @@[m [mImplementation spec (§1–§20), the Test plan, and the 18-item Definition of D[m
+ | # | Functionality | Command | Expected result |[m
+ |---|---|---|---|[m
+ | N1 | Per-package `MANIFEST.json` present and well-formed | `ls testdata/golden/contracts/` ; `cat testdata/golden/contracts/store/MANIFEST.json` | One directory per package with a `MANIFEST.json` carrying `package`, `owner`, and a `fixtures[]` list with `name`, `kind` ∈ {`format`,`behaviour`}, `state` ∈ {`frozen`,`record-by-owner`}, `input`, `want` |[m
+[31m-| N2 | Every `format` fixture is `frozen` and hand-authored | `grep -r '"kind": "format"' -A2 testdata/golden/contracts

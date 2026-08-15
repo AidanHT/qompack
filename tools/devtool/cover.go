@@ -16,10 +16,57 @@ import (
 // the path the `cover` CI job uploads as an artifact.
 const coverProfileName = "coverage.out"
 
+// landedSubplans names every subplan whose packages are real implementations rather than stubs, and
+// whose 00-ARCHITECTURE.md §6.4 coverage floors therefore apply. A subplan adds itself here in the
+// commit that lands it; until then its packages are exempt and say so in the job log.
+//
+// This is the one place the exemption is not derived from OWNERS.tsv, because OWNERS.tsv records
+// who OWNS a package and not whether it has been written yet, and the probe column cannot tell the
+// difference for a stub that returns a zero value rather than core.ErrNotImplemented. See taskCover
+// for the two packages that proved it.
+var landedSubplans = map[string]bool{
+	"SP-01": true,
+	"SP-04": true,
+}
+
+// probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
+// so the "still exempt, therefore still a stub" cross-check below has to skip them. Each entry is
+// a fact about the probe's SHAPE, not a judgement about the package, and each should disappear when
+// its subplan lands and the package gets a real floor.
+var probeBlind = map[string]bool{
+	// Evaluate returns a Decision and no error, so a stub returns a zero value rather than
+	// core.ErrNotImplemented and isBareNotImplementedStub cannot see it.
+	"scheduler": true,
+	// Append has an empty body — no return statement at all — for the same reason.
+	"grammar": true,
+	// RunAll and Redact are partly real at V1: SP-01 shipped working bodies that SP-05 and SP-06
+	// will extend, so "not a stub" is already true and says nothing about whether they have landed.
+	"contract": true,
+	"redact":   true,
+}
+
 // taskCover runs the full test suite under coverage, then applies the 00-ARCHITECTURE.md §6.4
-// per-group floors — but only to packages plans/OWNERS.tsv assigns to SP-01. Every other
-// package's floor is exempt until its own owner lands; the exemption is mechanical (read from
-// OWNERS.tsv), not a judgement call, and is printed so it is visible in the job log.
+// per-group floors. A package is exempt only while it is STILL A STUB; the exemption is mechanical
+// (OWNERS.tsv's probe column, parsed by probeStillStub) rather than a judgement call, and is
+// printed so it is visible in the job log.
+//
+// It was originally spelled `o.Owner != "SP-01"`, which was the same rule while SP-01 was the only
+// subplan that had landed: every other package was a stub, so owner and stubness coincided. SP-04
+// is what separated them. It implements chunk, canon and symbols, and under the owner test those
+// three would have gone on being exempt forever — their 90/90/75 floors silently unenforced from
+// the moment they were most worth enforcing, with the job log still calling them stubs.
+//
+// Deriving "has landed" from the probe alone does NOT work, and the two packages that prove it are
+// worth naming: scheduler's probe Evaluate returns a Decision and no error, and grammar's probe
+// Append has an empty body, so isBareNotImplementedStub — which looks for a lone
+// core.ErrNotImplemented return — reports neither as a stub even though both are. A probe-only
+// rule therefore turns SP-12's and SP-15's floors on years early and fails the gate on work nobody
+// has started. landedSubplans is the explicit half instead: one line, added by the subplan that
+// lands, reviewed in the commit that lands it.
+//
+// For a landed subplan a stub probe is a hard failure rather than an exemption: a package its own
+// owner has already shipped must not look like a stub, which is what catches a body reverted or
+// never written.
 func taskCover(args []string) error {
 	if err := goInherit("test", "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
 		return fmt.Errorf("cover: go test -coverprofile: %w", err)
@@ -36,11 +83,6 @@ func taskCover(args []string) error {
 
 	var problems []string
 	for _, o := range owners {
-		if o.Owner != "SP-01" {
-			fmt.Printf("exempt (stub, owned by %s): %s\n", o.Owner, o.Package)
-			continue
-		}
-
 		dir, path := packageDirAndPath(o.Package)
 		if !dirExists(dir) {
 			fmt.Printf("not yet present: %s\n", o.Package)
@@ -52,10 +94,34 @@ func taskCover(args []string) error {
 			continue
 		}
 
+		if !landedSubplans[o.Owner] {
+			// A package that is exempt because its subplan has not landed must still LOOK like a
+			// stub. When it stops looking like one, its subplan has landed and nobody updated
+			// landedSubplans — so its floor is silently off at exactly the moment it starts
+			// mattering. That is not hypothetical: SP-02 and SP-03 land in the same wave-1 merge
+			// as SP-04, and without this the eval and sketch floors would stay exempt with the job
+			// log still calling them stubs, which is the failure this whole function was rewritten
+			// to stop happening once already.
+			//
+			// probeBlind is the escape hatch for the packages whose probe shape carries no signal
+			// either way; it is deliberately a short, named list rather than a silent skip.
+			if o.Probe != "-" && !probeBlind[o.Package] && !probeStillStub(dir, o.Probe) {
+				problems = append(problems, fmt.Sprintf(
+					"%s: plans/OWNERS.tsv assigns this package to %s, which tools/devtool/cover.go's "+
+						"landedSubplans does not list as landed, but its probe %q is no longer a bare "+
+						"core.ErrNotImplemented stub. If %s has landed, add it to landedSubplans so its "+
+						"§6.4 floor is enforced; if the probe simply cannot be read, add %s to probeBlind "+
+						"with a one-line reason",
+					o.Package, o.Owner, o.Probe, o.Owner, o.Package))
+			}
+			fmt.Printf("exempt (stub, owned by %s): %s\n", o.Owner, o.Package)
+			continue
+		}
+
 		if o.Probe != "-" && probeStillStub(dir, o.Probe) {
 			problems = append(problems, fmt.Sprintf(
-				"%s: plans/OWNERS.tsv assigns this package to SP-01, but its probe %q still looks like a bare core.ErrNotImplemented stub",
-				o.Package, o.Probe))
+				"%s: plans/OWNERS.tsv assigns this package to %s, which has landed, but its probe %q still looks like a bare core.ErrNotImplemented stub",
+				o.Package, o.Owner, o.Probe))
 		}
 
 		stat, ok := byPkg[path]

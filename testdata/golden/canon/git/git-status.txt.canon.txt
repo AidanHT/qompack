@@ -1,0 +1,59 @@
+On branch develop
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   internal/canon/canonicalizer.go
+	modified:   internal/canon/doc.go
+	modified:   internal/canon/registry.go
+	modified:   internal/canon/restore.go
+	modified:   plans/V2-SP-02-replay-harness-belady-baseline.md
+	modified:   plans/V2-SP-03-sketch-library.md
+	modified:   plans/V2-SP-04-chunking-canonicalization-and-symbols.md
+	modified:   plans/V2-SP-05-daemon-ipc-and-hot-path.md
+	modified:   plans/V2-SP-06-content-addressed-store.md
+	modified:   plans/V2-SP-07-dependence-dag-and-slicing.md
+	modified:   plans/V2-VERIFY-primitives-store-dag-and-baseline.md
+	modified:   plans/V3-SP-08-observer-l0.md
+	modified:   plans/V3-SP-09-negative-knowledge.md
+	modified:   plans/V3-VERIFY-observer-and-negative-knowledge.md
+	modified:   plans/V4-SP-10-checkpointer-l4.md
+	modified:   plans/V4-SP-11-rehydrator-l5.md
+	modified:   plans/V4-SP-12-scheduler-l3.md
+	modified:   plans/V4-SP-13-mcp-retrieval-layer.md
+	modified:   plans/V4-VERIFY-checkpoint-rehydrate-schedule-retrieval.md
+	modified:   plans/V5-SP-14-slash-commands-and-observability.md
+	modified:   plans/V5-SP-15-analyzer-selection-and-grammar.md
+	modified:   plans/V5-SP-16-phase7-refinements.md
+	modified:   plans/V5-VERIFY-commands-selection-grammar-and-refinements.md
+	modified:   plans/V6-SP-17-packaging-hardening-and-release.md
+	modified:   plans/V6-SP-18-documentation-and-uat.md
+	modified:   plans/V6-VERIFY-production-readiness-and-uat.md
+	modified:   tools/devtool/importrules.go
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	internal/canon/apply.go
+	internal/canon/bench_test.go
+	internal/canon/builtins.go
+	internal/canon/classes.go
+	internal/canon/classes_test.go
+	internal/canon/dedup.go
+	internal/canon/dedup_test.go
+	internal/canon/default.go
+	internal/canon/default_test.go
+	internal/canon/errors.go
+	internal/canon/fuzz_test.go
+	internal/canon/generic.go
+	internal/canon/golden_test.go
+	internal/canon/match.go
+	internal/canon/registry_test.go
+	internal/canon/restore_test.go
+	internal/canon/testdouble_test.go
+	internal/canon/tools.go
+	internal/symbols/extract_test.go
+	test/dedup/
+	testdata/corpora/symbols/
+	testdata/corpora/toolout/
+	testdata/golden/canon/
+
+no changes added to commit (use "git add" and/or "git commit -a")
