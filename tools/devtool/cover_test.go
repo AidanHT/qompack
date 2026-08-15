@@ -86,6 +86,87 @@ func PutBytes() error {
 	}
 }
 
+// TestIsCompositionRoot covers the 00-ARCHITECTURE.md §6.4 exemption. The negative cases carry
+// the weight here: the exemption is only defensible while it stays narrow, so each way of growing
+// a second declaration must revoke it. A regression that widened this into "any main package" is
+// exactly the silent hole the amendment argues against.
+func TestIsCompositionRoot(t *testing.T) {
+	realShape := `package main
+
+import (
+	"context"
+	"os"
+
+	"github.com/qompack/qompack/internal/cli"
+)
+
+func main() {
+	os.Exit(cli.Dispatch(context.Background(), cli.All(), os.Args, cli.Env{}, os.Stdout, os.Stderr))
+}
+`
+
+	exempt := map[string]string{
+		"dispatch only, the cmd/qompack shape": realShape,
+		"no imports at all":                    "package main\n\nfunc main() {}\n",
+	}
+	for name, src := range exempt {
+		t.Run("exempt/"+name, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWrite(t, filepath.Join(dir, "main.go"), src)
+			if !isCompositionRoot(dir) {
+				t.Error("expected the composition-root exemption to apply")
+			}
+		})
+	}
+
+	notExempt := map[string]string{
+		"a second function":      "package main\n\nfunc main() {}\n\nfunc helper() int { return 1 }\n",
+		"a method":               "package main\n\ntype t struct{}\n\nfunc (t) m() {}\n\nfunc main() {}\n",
+		"a package-level var":    "package main\n\nvar version = \"dev\"\n\nfunc main() {}\n",
+		"a package-level const":  "package main\n\nconst limit = 10\n\nfunc main() {}\n",
+		"a type declaration":     "package main\n\ntype opts struct{ n int }\n\nfunc main() {}\n",
+		"not package main":       "package cli\n\nfunc main() {}\n",
+		"no func main":           "package main\n\nfunc other() {}\n",
+		"does not parse as Go":   "package main\n\nfunc main( {\n",
+		"empty, nothing to skip": "",
+	}
+	for name, src := range notExempt {
+		t.Run("not-exempt/"+name, func(t *testing.T) {
+			dir := t.TempDir()
+			if src != "" {
+				mustWrite(t, filepath.Join(dir, "main.go"), src)
+			}
+			if isCompositionRoot(dir) {
+				t.Error("expected the floor to still apply")
+			}
+		})
+	}
+
+	t.Run("not-exempt/second file adds a declaration", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "main.go"), realShape)
+		mustWrite(t, filepath.Join(dir, "flags.go"), "package main\n\nfunc parseFlags() {}\n")
+		if isCompositionRoot(dir) {
+			t.Error("a declaration in a sibling file must revoke the exemption too")
+		}
+	})
+
+	t.Run("exempt/test files are ignored", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "main.go"), realShape)
+		mustWrite(t, filepath.Join(dir, "main_test.go"), "package main\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) {}\n")
+		if !isCompositionRoot(dir) {
+			t.Error("a _test.go file must not revoke the exemption")
+		}
+	})
+
+	t.Run("not-exempt/unreadable directory", func(t *testing.T) {
+		if isCompositionRoot(filepath.Join(t.TempDir(), "no-such-dir")) {
+			t.Error("an unreadable directory must fail closed, keeping the floor")
+		}
+	})
+}
+
 func TestIsBareNotImplementedStub_WrappedError(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "wrapped.go")
