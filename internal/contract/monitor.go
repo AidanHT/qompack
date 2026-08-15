@@ -115,7 +115,7 @@ func (m *monitor) load() {
 	if err := json.Unmarshal(b, &st); err != nil {
 		return
 	}
-	mode, ok := parseMode(st.Mode)
+	mode, ok := ParseMode(st.Mode)
 	if !ok {
 		return
 	}
