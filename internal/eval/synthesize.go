@@ -29,15 +29,5 @@ type SynthSpec struct {
 	CompactionAt []core.TurnIndex
 }
 
-// Synthesize deterministically generates a synthetic Session from seed and spec: the same seed
-// and spec must always produce a byte-identical Session, so replay numbers stay comparable across
-// commits (00-ARCHITECTURE.md §6.3).
-//
-// Synthesize has no error return, so the stub's contract is expressed entirely through its return
-// value: SP-01 ships it returning the zero Session — no turns, no compactions — which is the
-// honest "nothing generated" answer until SP-02 implements the real generator (tool-mix sampling,
-// changepoint placement, elimination injection, …). SP-02 replaces this body; it may not change
-// the signature (§0).
-func Synthesize(seed int64, spec SynthSpec) Session {
-	return Session{}
-}
+// Synthesize is implemented in synth.go, alongside the generator's own helpers. SynthSpec stays
+// here because it is a §5.18 declaration and this is where SP-01 put it.
