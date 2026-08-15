@@ -193,7 +193,45 @@ func TestAddEdgeDedup(t *testing.T) {
 	require.InDelta(t, float32(0.9), out[0].Weight, 0, "the strongest weight wins")
 	require.EqualValues(t, 4, out[0].Turn, "the earliest turn wins")
 	require.Equal(t, 1, g.Stats().Edges)
-	require.Equal(t, 1, g.Stats().PendingRecords, "a folded edge appends no second record")
+
+	// Two records, not one and not three. The first emission creates the edge; the second changes
+	// it (stronger weight, earlier turn) and must therefore be journalled, or a reload would
+	// rebuild a different edge from the one in memory. The third changes nothing — weaker weight,
+	// later turn — and appends nothing, which is the case that keeps the log linear when SP-08
+	// re-emits a shared-file edge on every read of the same path.
+	require.Equal(t, 2, g.Stats().PendingRecords,
+		"a fold is journalled when it changes the stored edge, and only then")
+
+	// A fourth emission identical to the folded state must also be free.
+	require.NoError(t, g.AddEdge(Edge{From: "file:a", To: "file:b", Kind: EdgeSharedFile, Weight: 0.9, Turn: 4}))
+	require.Equal(t, 2, g.Stats().PendingRecords, "re-emitting the folded edge verbatim appends nothing")
+}
+
+// TestAddEdgeFoldSurvivesReload is the regression guard for the divergence TestAddEdgeDedup's
+// record count now encodes: whatever the fold leaves in memory must be what a reload rebuilds.
+//
+// Edge weight is a factor in every slice score, so an unjournalled fold does not merely lose a
+// number — it silently moves relevance rankings across a restart, with nothing in the log to point
+// at afterwards.
+func TestAddEdgeFoldSurvivesReload(t *testing.T) {
+	root := t.TempDir()
+	g := newGraph(root, config.Defaults(), logging.Nop())
+	require.NoError(t, g.AddNode(Node{ID: "file:a", Kind: KindFile, Ref: "a", Pos: 10}))
+	require.NoError(t, g.AddNode(Node{ID: "file:b", Kind: KindFile, Ref: "b", Pos: 20}))
+	require.NoError(t, g.AddEdge(Edge{From: "file:a", To: "file:b", Kind: EdgeSharedFile, Weight: 0.5, Turn: 9}))
+	require.NoError(t, g.AddEdge(Edge{From: "file:a", To: "file:b", Kind: EdgeSharedFile, Weight: 0.9, Turn: 4}))
+
+	before := g.Out("file:a")
+	require.Len(t, before, 1)
+	require.NoError(t, g.Flush(context.Background()))
+
+	reopened, err := Open(root, config.Defaults(), logging.Nop())
+	require.NoError(t, err)
+	after := reopened.Out("file:a")
+	require.Len(t, after, 1)
+
+	require.InDelta(t, before[0].Weight, after[0].Weight, 0, "the folded weight must survive a reload")
+	require.Equal(t, before[0].Turn, after[0].Turn, "the folded turn must survive a reload")
 }
 
 // TestAddEdgeDanglingEndpoint asserts an edge whose endpoints are not yet nodes is accepted (D-6):

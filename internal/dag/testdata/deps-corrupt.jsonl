@@ -1,0 +1,5 @@
+{"type":"node","id":"tooluse:toolu_corrupt","kind":0,"turn":3,"ts":1767225480000,"pos":100,"ref":"Read","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":10,"ephemeral":false}
+{"type":"node","id":
+{"type":"node","id":"file:src/corrupt.ts","kind":4,"turn":3,"ts":1767225480000,"pos":200,"ref":"src/corrupt.ts","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":20,"ephemeral":false}
+{"type":"zz","id":"file:src/from-a-newer-writer.ts","kind":4}
+{"type":"edge","from":"tooluse:toolu_corrupt","to":"file:src/corrupt.ts","kind":2,"weight":1,"turn":3}
