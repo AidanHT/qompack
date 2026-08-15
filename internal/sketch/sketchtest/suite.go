@@ -1,14 +1,27 @@
 // Package sketchtest is the conformance suite for the sketch package (00-ARCHITECTURE.md §5.22):
 // every implementation SP-03 ships must pass RunSketchSuite, plus the per-sketch-type suites below
 // (RunBloomSuite, RunCMSSuite, RunHLLSuite, RunMisraGriesSuite, RunMinHashSuite) that exercise the
-// accuracy guarantee specific to each algorithm. SP-01 ships every suite, including the behaviour
-// assertions SP-03 inherits (Rule W-1) — only each guarded /behaviour block is skipped until a
-// real implementation lands.
+// accuracy and algebra guarantees specific to each algorithm.
+//
+// SP-01 shipped every suite with its /behaviour block gated behind a Rule W-1 skip, because no
+// sketch had an implementation yet. SP-03 owns the package, so the gate is gone: every block below
+// runs unconditionally, no skip of any kind remains anywhere under internal/sketch, and a sketch
+// that cannot satisfy the contract now fails rather than being excused.
+//
+// Each suite is factory-driven so that SP-16's future per-segment bloom, and any warm-started
+// Count-Min, can be held to the same contract without this file learning about them. A factory must
+// return a FRESH instance on every call, and every call must return the same concrete type — the
+// round-trip and rejection cases below construct a second instance and expect it to be compatible
+// with the first's bytes.
 package sketchtest
 
 import (
+	"encoding/binary"
 	"errors"
+	"hash/crc32"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"testing"
 
 	"github.com/qompack/qompack/internal/core"
@@ -16,16 +29,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// ruleW1SkipMsg is the exact, mandatory Rule W-1 skip reason (00-ARCHITECTURE.md §5.22; §15 of
-// plans/V1-SP-01-foundation-toolchain-and-contracts.md). devtool lint's stubskips sub-check greps
-// test output for this literal string, so it must never be paraphrased.
-const ruleW1SkipMsg = "behaviour: implementation is a stub (Rule W-1)"
-
 // RunSketchSuite is the conformance suite for the generic sketch.Sketch interface. name
 // distinguishes multiple factories run in the same test binary; factory must return a fresh,
-// ready-to-use Sketch on every call, and every call must return the SAME concrete type (the
-// round-trip and CRC-rejection cases below construct a second instance via factory and expect it
-// to be compatible with the first's encoded bytes).
+// ready-to-use Sketch on every call.
 func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch.Sketch) {
 	t.Helper()
 
@@ -38,8 +44,8 @@ func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch
 		_ = s.Header()
 
 		_, err := s.MarshalBinary()
-		requireKnownError(t, err)
-		requireKnownError(t, s.UnmarshalBinary(nil))
+		require.NoError(t, err, "a conforming sketch must be able to encode itself")
+		require.ErrorIs(t, s.UnmarshalBinary(nil), sketch.ErrTruncated, errNilFrame)
 
 		// Save and Load are held to the NARROWER vocabulary. They sit on the far side of the
 		// package boundary, where the mapping to core.ErrNotFound is the contract.
@@ -48,56 +54,22 @@ func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch
 		requireKnownIOError(t, sketch.Load(filepath.Join(dir, "shape-probe.bin"), s))
 	})
 
-	if skipIfStubSketch(t, factory(t)) {
-		return
-	}
-
 	t.Run(name+"/behaviour", func(t *testing.T) {
+		t.Run("frame_is_a_well_formed_qpks_header", func(t *testing.T) { runFrameShapeCase(t, factory) })
+		t.Run("params_are_named_and_strictly_ascending", func(t *testing.T) { runParamOrderCase(t, factory) })
+		t.Run("live_crc_is_zero_decoded_crc_is_not", func(t *testing.T) { runCRCVisibilityCase(t, factory) })
 		t.Run("marshal_unmarshal_round_trip", func(t *testing.T) { runRoundTripCase(t, factory) })
 		t.Run("crc_detects_a_flipped_bit", func(t *testing.T) { runFlippedBitRejectionCase(t, factory) })
+		t.Run("malformed_frames_report_the_matching_sentinel", func(t *testing.T) { runRejectionCases(t, factory) })
+		t.Run("nil_receiver_reports_rather_than_panics", func(t *testing.T) { runNilReceiverCase(t, factory) })
 	})
 }
 
-// requireKnownError polices the CODEC boundary — MarshalBinary and UnmarshalBinary, which talk
-// about bytes. It fails the test unless err is nil or wraps one of two families of sentinel, and
-// the two exist because two different layers can be speaking.
-//
-// The four core sentinels (00-ARCHITECTURE.md §5.22; §15 of
-// plans/V1-SP-01-foundation-toolchain-and-contracts.md) are what a STUB reports: a codec that has
-// not been written yet answers core.ErrNotImplemented.
-//
-// The nine sketch sentinels (errors.go) are what a REAL codec reports about bytes. Once SP-03
-// lands, UnmarshalBinary(nil) answers ErrTruncated — a precise, correct description of a
-// zero-length frame, not an unexpected failure. Refusing it here would hold every real
-// implementation to a stub's error vocabulary and make the shape block fail for behaving
-// correctly, which is the opposite of what a conformance suite is for.
-//
-// Both families are accepted rather than one being swapped for the other, because this suite runs
-// against stubs and real implementations in the same test binary for as long as any sketch type
-// remains unimplemented.
-//
-// It is deliberately NOT used for Save and Load — see requireKnownIOError, which is the whole
-// reason the two helpers are separate.
-func requireKnownError(t *testing.T, err error) {
-	t.Helper()
-	if err == nil {
-		return
-	}
-	known := errors.Is(err, core.ErrNotImplemented) ||
-		errors.Is(err, core.ErrNotFound) ||
-		errors.Is(err, core.ErrBudget) ||
-		errors.Is(err, core.ErrDegraded) ||
-		errors.Is(err, sketch.ErrBadMagic) ||
-		errors.Is(err, sketch.ErrUnsupportedVersion) ||
-		errors.Is(err, sketch.ErrKindMismatch) ||
-		errors.Is(err, sketch.ErrCorrupt) ||
-		errors.Is(err, sketch.ErrTruncated) ||
-		errors.Is(err, sketch.ErrMalformed) ||
-		errors.Is(err, sketch.ErrShapeMismatch) ||
-		errors.Is(err, sketch.ErrTooLarge) ||
-		errors.Is(err, sketch.ErrGenerational)
-	require.True(t, known, "unexpected error: %v", err)
-}
+// errNilFrame explains what UnmarshalBinary(nil) must NOT be: silently accepted. It is spelled as a
+// message rather than a comment because the assertion it decorates is the one a reader is most
+// likely to mistake for a typo — a nil frame is not an empty sketch, it is a truncated one.
+const errNilFrame = "UnmarshalBinary(nil) must be refused; a zero-length frame is truncated, " +
+	"not an empty sketch"
 
 // requireKnownIOError polices the PACKAGE boundary — sketch.Save and sketch.Load, which talk to
 // callers outside this package. It accepts nil and the four core sentinels ONLY, and this
@@ -105,21 +77,15 @@ func requireKnownError(t *testing.T, err error) {
 //
 // errors.go states the contract: Load maps every one of this package's decode sentinels to
 // core.ErrNotFound before returning, because a sketch is a cache and an unreadable one and a
-// missing one are the same event to everything upstream (§13 invariant 3). A Load that leaked a
-// raw ErrCorrupt would force every caller to learn this package's private error vocabulary in
-// order to answer "is my sketch usable?", which is exactly the coupling the mapping exists to
-// prevent — and a helper that accepted both families here would let that regression through
-// silently.
-//
-// The two vocabularies therefore differ on purpose: a codec is allowed to be specific about bytes,
-// an I/O entry point is required to be generic about caches.
+// missing one are the same event to everything upstream (§13 invariant 3). A Load that leaked a raw
+// ErrCorrupt would force every caller to learn this package's private error vocabulary in order to
+// answer "is my sketch usable?", which is exactly the coupling the mapping exists to prevent.
 func requireKnownIOError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
 		return
 	}
-	known := errors.Is(err, core.ErrNotImplemented) ||
-		errors.Is(err, core.ErrNotFound) ||
+	known := errors.Is(err, core.ErrNotFound) ||
 		errors.Is(err, core.ErrBudget) ||
 		errors.Is(err, core.ErrDegraded)
 	require.True(t, known,
@@ -127,31 +93,121 @@ func requireKnownIOError(t *testing.T, err error) {
 			"(§13 invariant 3); got %v", err)
 }
 
-// isStubSketch reports whether s is still a stub, using MarshalBinary as the probe
-// (plans/OWNERS.tsv: sketch's probe method is MarshalBinary). MarshalBinary has an error return,
-// so — unlike chunk, symbols, redact and grammar's suites — this can check core.IsNotImplemented
-// directly rather than relying on an inferred zero-value heuristic.
-func isStubSketch(t *testing.T, s sketch.Sketch) bool {
+// The QPKS frame offsets this file needs (header.go's layout table). They are spelled out here
+// rather than imported because they are unexported in package sketch, and they are named rather
+// than inlined because getting any of them wrong would silently move a byte patch into a length
+// field — where the decoder would answer ErrTruncated and the test would pass for the wrong reason.
+const (
+	// magicOffset is where the four-byte "QPKS" prefix begins.
+	magicOffset = 0
+	// verOffset is where the two-byte format version begins.
+	verOffset = 4
+	// kindOffset is the single Kind byte.
+	kindOffset = 6
+	// paramsBlockOffset is where the params block begins: immediately after the fixed 32-byte
+	// prefix (magic, Ver, Kind, Reserved, Count, Created, ParamCount, BodyLen).
+	paramsBlockOffset = 32
+	// paramCountOffset is where the four-byte ParamCount begins.
+	paramCountOffset = 24
+	// paramNameLenSize is the width of a param entry's leading NameLen byte.
+	paramNameLenSize = 1
+	// paramValueSize is the width of a param entry's float64 value.
+	paramValueSize = 8
+	// crcSize is the width of the trailing CRC32C.
+	crcSize = 4
+)
+
+// futureVersion is a format version above anything this build writes. It is FormatVersion + 1 so
+// that the case keeps testing "a newer plugin's file" rather than a fixed number that would stop
+// being in the future the day FormatVersion is bumped.
+const futureVersion = sketch.FormatVersion + 1
+
+// paramNameRE is the param-name alphabet header.go enforces on both sides of the wire. It is
+// restated here rather than inferred, because the restriction is what forces bloom.go to write
+// `fprate` while the config key stays `fpRate` — a decoder that quietly accepted the camel-cased
+// name would make the two spellings interchangeable and the config key would drift into the file
+// format.
+var paramNameRE = regexp.MustCompile(`^[a-z0-9.]{1,32}$`)
+
+// crcTable is the Castagnoli table every rebuilt frame below is re-checksummed with. The rejection
+// cases have to recompute the CRC after patching a byte, because DecodeHeader verifies it and a
+// stale checksum would make every one of them report ErrCorrupt regardless of what was patched.
+var crcTable = crc32.MakeTable(crc32.Castagnoli)
+
+// runFrameShapeCase asserts the four things a caller can learn from a frame without knowing which
+// sketch produced it: it is non-empty, it decodes, it says QPKS, and it declares a version and a
+// kind this build recognises. Everything else in this package is a body inside that envelope.
+func runFrameShapeCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
 	t.Helper()
-	_, err := s.MarshalBinary()
-	return core.IsNotImplemented(err)
+
+	frame, err := factory(t).MarshalBinary()
+	require.NoError(t, err)
+	require.NotEmpty(t, frame, "MarshalBinary must produce a non-empty encoding")
+
+	h, body, err := sketch.DecodeHeader(frame)
+	require.NoError(t, err, "a sketch's own frame must decode")
+	require.Equal(t, sketch.HeaderMagic, h.Magic, "every frame must begin with QPKS")
+	require.Equal(t, sketch.FormatVersion, h.Ver,
+		"a frame written by this build must declare this build's FormatVersion")
+	require.True(t, h.Kind.Valid(), "kind %v is not one of the five defined sketch kinds", h.Kind)
+	require.Equal(t, len(frame)-paramsBlockOffset-paramsBlockLen(t, frame)-crcSize, len(body),
+		"the decoded body must be exactly the bytes between the params block and the CRC")
 }
 
-// skipIfStubSketch calls t.Skip with the exact Rule W-1 message when s is still a stub, and
-// reports whether it did. It is shared by every suite in this package (RunSketchSuite and every
-// per-type suite below), since Bloom, CMS, HLL and MisraGries all implement sketch.Sketch and so
-// all share the same MarshalBinary probe.
-func skipIfStubSketch(t *testing.T, s sketch.Sketch) bool {
+// runParamOrderCase asserts the params block is canonical: every name is inside the [a-z0-9.]
+// alphabet and no longer than 32 bytes, and the names are STRICTLY ascending.
+//
+// The order is what makes a given logical state have exactly one encoding. Go randomizes map
+// iteration deliberately, so an encoder that emitted params in map order would produce different
+// bytes for the same sketch on every run — and the frozen golden fixtures, the byte-identical
+// re-marshal assertion and the content-addressed store all rest on that not happening.
+func runParamOrderCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
 	t.Helper()
-	if isStubSketch(t, s) {
-		t.Skip(ruleW1SkipMsg)
-		return true
+
+	frame, err := factory(t).MarshalBinary()
+	require.NoError(t, err)
+
+	names := frameParamNames(t, frame)
+	require.NotEmpty(t, names,
+		"every sketch in this package declares at least one param, so a frame with none is "+
+			"self-describing about nothing")
+	for i, n := range names {
+		require.Regexp(t, paramNameRE, n, "param %d has a name outside the wire alphabet", i)
+		if i > 0 {
+			require.Less(t, names[i-1], n,
+				"param names must be STRICTLY ascending; %q does not follow %q", n, names[i-1])
+		}
 	}
-	return false
 }
 
-// runRoundTripCase asserts that marshaling one Sketch and unmarshaling the result into a second,
-// freshly constructed instance reproduces an equal Header.
+// runCRCVisibilityCase pins the one field a live sketch and a decoded one are required to DISAGREE
+// about. sketch.Sketch documents Header().CRC32C as zero on a live sketch, because the checksum
+// covers the encoded body and cannot be known without marshalling; DecodeHeader is the only thing
+// that ever populates it. A caller comparing a live sketch's CRC32C against a file's is comparing
+// zero against a real number, and this case is what keeps that documented rather than accidental.
+func runCRCVisibilityCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
+	t.Helper()
+
+	s := factory(t)
+	require.Zero(t, s.Header().CRC32C, "a live sketch must report CRC32C == 0")
+
+	frame, err := s.MarshalBinary()
+	require.NoError(t, err)
+	h, _, err := sketch.DecodeHeader(frame)
+	require.NoError(t, err)
+	require.NotZero(t, h.CRC32C, "a decoded frame must report the checksum it carried")
+	require.Equal(t, binary.LittleEndian.Uint32(frame[len(frame)-crcSize:]), h.CRC32C,
+		"the reported CRC32C must be the four bytes actually on the wire")
+}
+
+// runRoundTripCase asserts that marshalling a sketch, decoding it into a SECOND freshly constructed
+// instance and re-marshalling that reproduces the original bytes exactly.
+//
+// Byte equality rather than header equality is the assertion. Two encodings of the same logical
+// state would both decode correctly and would still break the content-addressed store (SP-06),
+// which keys on the bytes. The intermediate is a fresh instance rather than the original so that a
+// decoder which left a field untouched — inheriting it from whatever the receiver already held — is
+// caught here instead of passing because the receiver happened to hold the right value.
 func runRoundTripCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
 	t.Helper()
 	s1 := factory(t)
@@ -163,43 +219,28 @@ func runRoundTripCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
 	require.NoError(t, s2.UnmarshalBinary(data))
 	require.Equal(t, s1.Header(), s2.Header(),
 		"UnmarshalBinary(MarshalBinary(s)) must reproduce an equal Header")
+
+	again, err := s2.MarshalBinary()
+	require.NoError(t, err)
+	require.Equal(t, data, again,
+		"unmarshalling into a fresh instance and re-marshalling must be byte-identical")
 }
 
-// The two QPKS frame offsets this case needs (header.go's layout table). They are spelled out here
-// rather than imported because they are unexported in package sketch, and they are named rather
-// than inlined because getting either wrong would silently move the flip into a length field —
-// where the decoder would answer ErrTruncated and the test would pass for the wrong reason.
-const (
-	// paramsBlockOffset is where the params block begins: immediately after the fixed 32-byte
-	// prefix (magic, Ver, Kind, Reserved, Count, Created, ParamCount, BodyLen).
-	paramsBlockOffset = 32
-	// paramNameLenSize is the width of a param entry's leading NameLen byte.
-	paramNameLenSize = 1
-	// paramValueSize is the width of a param entry's float64 value.
-	paramValueSize = 8
-	// crcSize is the width of the trailing CRC32C.
-	crcSize = 4
-)
-
-// runFlippedBitRejectionCase asserts the CRC32C catches bit rot: a frame with one byte changed
-// must be refused, not decoded into a plausible half-sketch (00-ARCHITECTURE.md §5.7, "CRC +
-// version checked").
+// runFlippedBitRejectionCase asserts the CRC32C catches bit rot: a frame with one byte changed must
+// be refused, not decoded into a plausible half-sketch (00-ARCHITECTURE.md §5.7, "CRC + version
+// checked").
 //
 // It works entirely in memory, on the bytes MarshalBinary returned. Routing it through Save and
-// Load would test the file plumbing as well as the checksum, and would make this suite depend on
-// io.go — which lands several commits after the first real MarshalBinary, so the case would fail
-// for a reason that has nothing to do with checksums. In-memory is also the SHARPER assertion: it
-// pins the exact sentinel, ErrCorrupt, rather than the core.ErrNotFound the I/O layer maps every
-// decode failure to. The filesystem half of the contract — that a corrupt FILE reports both
-// core.ErrNotFound and ErrCorrupt — belongs to io_test.go's TestLoad_CorruptIsNotFoundAndCorrupt.
+// Load would test the file plumbing as well as the checksum, and in-memory is also the SHARPER
+// assertion: it pins the exact sentinel, ErrCorrupt, rather than the core.ErrNotFound the I/O layer
+// maps every decode failure to. The filesystem half of the contract — that a corrupt FILE reports
+// both core.ErrNotFound and ErrCorrupt — belongs to io_test.go's TestLoad_CorruptIsNotFoundAndCorrupt.
 //
 // The flipped byte is the first byte of the FIRST param's 8-byte value. That placement is
 // deliberate. DecodeHeader verifies the CRC only after every structural check has passed, so the
 // flip must leave the structure intact for ErrCorrupt to be the only possible answer: a flip in
-// ParamCount, BodyLen or a NameLen would trip ErrTruncated or ErrMalformed first, and the test
-// would then pass without ever exercising the checksum. A param value is the safest such target
-// for every sketch in this package, since each one declares at least one param but a degenerate
-// body may be empty.
+// ParamCount, BodyLen or a NameLen would trip ErrTruncated or ErrMalformed first, and the test would
+// then pass without ever exercising the checksum.
 func runFlippedBitRejectionCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
 	t.Helper()
 
@@ -226,9 +267,167 @@ func runFlippedBitRejectionCase(t *testing.T, factory func(t *testing.T) sketch.
 		i, len(frame))
 }
 
+// runRejectionCases walks the six structural rejections every decoder in this package inherits from
+// the QPKS envelope — two truncations, a wrong magic, a wrong kind, and a version on each side of
+// the supported one — and pins the exact sentinel each must answer with.
+//
+// Every patched frame is RE-CHECKSUMMED. Without that, all four would report ErrCorrupt — the
+// checksum would be the reason each frame was refused, and the four checks the cases exist to
+// exercise would never run. The two truncations are the exception: a truncated frame has no correct
+// checksum to restore, which is precisely the interrupted-write signal ErrTruncated names.
+func runRejectionCases(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
+	t.Helper()
+
+	frame, err := factory(t).MarshalBinary()
+	require.NoError(t, err)
+
+	cases := []struct {
+		name  string
+		build func() []byte
+		want  error
+	}{
+		{
+			// Shorter than the 36-byte minimum frame: there is not even a length block to read.
+			name:  "shorter_than_the_minimum_frame",
+			build: func() []byte { return append([]byte(nil), frame[:crcSize]...) },
+			want:  sketch.ErrTruncated,
+		},
+		{
+			// One byte short: every declared length is intact and none of them adds up.
+			name:  "one_byte_short",
+			build: func() []byte { return append([]byte(nil), frame[:len(frame)-1]...) },
+			want:  sketch.ErrTruncated,
+		},
+		{
+			name: "wrong_magic",
+			build: func() []byte {
+				out := append([]byte(nil), frame...)
+				out[magicOffset] = 'X'
+				return restamp(out)
+			},
+			want: sketch.ErrBadMagic,
+		},
+		{
+			name: "wrong_kind",
+			build: func() []byte {
+				out := append([]byte(nil), frame...)
+				out[kindOffset] = byte(otherKind(sketch.Kind(frame[kindOffset])))
+				return restamp(out)
+			},
+			want: sketch.ErrKindMismatch,
+		},
+		{
+			name: "version_zero",
+			build: func() []byte {
+				out := append([]byte(nil), frame...)
+				binary.LittleEndian.PutUint16(out[verOffset:], 0)
+				return restamp(out)
+			},
+			want: sketch.ErrUnsupportedVersion,
+		},
+		{
+			name: "version_from_the_future",
+			build: func() []byte {
+				out := append([]byte(nil), frame...)
+				binary.LittleEndian.PutUint16(out[verOffset:], futureVersion)
+				return restamp(out)
+			},
+			want: sketch.ErrUnsupportedVersion,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// factory(t) is a fresh instance, so a decoder that half-applied the frame before
+			// rejecting it leaves the damage visible to the assertions rather than to the next case.
+			err := factory(t).UnmarshalBinary(tc.build())
+			require.Error(t, err, "a %s frame must be refused, not decoded", tc.name)
+			require.ErrorIs(t, err, tc.want)
+		})
+	}
+}
+
+// runNilReceiverCase pins the plan's uniform rule: MarshalBinary and UnmarshalBinary on a NIL
+// receiver report ErrMalformed rather than panicking. §12.3 is the reason — a hook that dies takes
+// observability down with it — and a nil sketch is not hypothetical: it is what a composition root
+// holds after a constructor it forgot to check, and what a map lookup returns for a session that
+// was never registered.
+//
+// The nil is built by reflection rather than by a type switch so that a Sketch this package has
+// never heard of is still covered. Any implementation is a pointer type (the interface's
+// UnmarshalBinary mutates), so reflect.Zero of the factory's dynamic type is exactly the typed nil
+// a caller would hold.
+func runNilReceiverCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
+	t.Helper()
+
+	dyn := reflect.TypeOf(factory(t))
+	require.Equal(t, reflect.Pointer, dyn.Kind(),
+		"a Sketch must be a pointer type: UnmarshalBinary replaces the receiver's state")
+
+	nilRecv, ok := reflect.Zero(dyn).Interface().(sketch.Sketch)
+	require.True(t, ok, "the typed nil of %v must still satisfy sketch.Sketch", dyn)
+
+	_, err := nilRecv.MarshalBinary()
+	require.ErrorIs(t, err, sketch.ErrMalformed,
+		"MarshalBinary on a nil %v must report ErrMalformed, not panic", dyn)
+	require.ErrorIs(t, nilRecv.UnmarshalBinary(nil), sketch.ErrMalformed,
+		"UnmarshalBinary on a nil %v must report ErrMalformed, not panic", dyn)
+}
+
+// restamp recomputes the trailing CRC32C over a patched frame, so that the patched field is the only
+// thing the decoder can object to.
+func restamp(frame []byte) []byte {
+	crc := crc32.Checksum(frame[:len(frame)-crcSize], crcTable)
+	binary.LittleEndian.PutUint32(frame[len(frame)-crcSize:], crc)
+	return frame
+}
+
+// otherKind returns a valid sketch.Kind that is not k, so the wrong-kind case tests the kind CHECK
+// rather than the kind-validity check that precedes it. Feeding an invalid kind byte instead would
+// be refused by DecodeHeader as ErrMalformed and would never reach the receiver's own comparison.
+func otherKind(k sketch.Kind) sketch.Kind {
+	if k == sketch.KindBloom {
+		return sketch.KindCMS
+	}
+	return sketch.KindBloom
+}
+
+// frameParamNames walks a frame's params block and returns the names in wire order. It parses the
+// bytes rather than reading DecodeHeader's map because ORDER is the thing under test, and a Go map
+// has none.
+func frameParamNames(t *testing.T, frame []byte) []string {
+	t.Helper()
+	require.Greater(t, len(frame), paramsBlockOffset+crcSize,
+		"fixture sanity: the frame is shorter than the fixed prefix and CRC")
+
+	count := int(binary.LittleEndian.Uint32(frame[paramCountOffset : paramCountOffset+crcSize]))
+	names := make([]string, 0, count)
+	off := paramsBlockOffset
+	for i := 0; i < count; i++ {
+		require.Less(t, off, len(frame)-crcSize, "param %d begins past the end of the frame", i)
+		nameLen := int(frame[off])
+		require.LessOrEqual(t, off+paramNameLenSize+nameLen+paramValueSize, len(frame)-crcSize,
+			"param %d runs past the params block", i)
+		names = append(names, string(frame[off+paramNameLenSize:off+paramNameLenSize+nameLen]))
+		off += paramNameLenSize + nameLen + paramValueSize
+	}
+	return names
+}
+
+// paramsBlockLen returns the encoded size of a frame's params block, so runFrameShapeCase can state
+// the body length as an arithmetic identity over the frame rather than as a number it was told.
+func paramsBlockLen(t *testing.T, frame []byte) int {
+	t.Helper()
+	total := 0
+	for _, n := range frameParamNames(t, frame) {
+		total += paramNameLenSize + len(n) + paramValueSize
+	}
+	return total
+}
+
 // firstParamValueByte returns the index of the first byte of the first param's float64 value, and
-// proves on the way that the index really does land inside the params block: after the fixed
-// prefix, after that param's NameLen byte and name, and before the trailing CRC32C.
+// proves on the way that the index really does land inside the params block: after the fixed prefix,
+// after that param's NameLen byte and name, and before the trailing CRC32C.
 func firstParamValueByte(t *testing.T, frame []byte) int {
 	t.Helper()
 	require.Greater(t, len(frame), paramsBlockOffset,
