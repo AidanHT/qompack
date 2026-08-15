@@ -2,63 +2,95 @@ package eval
 
 import (
 	"context"
+	"time"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 )
 
-// Options configures a Harness constructed by New. It is not part of 00-ARCHITECTURE.md §5.18's
-// normative type set — Harness is the seam, not its constructor — so SP-02 is free to extend it
-// (for example with a logger or a metrics registry once eval's own real implementation needs
-// them) without that being an amendment: nothing §5.18 lists changes. SP-01 keeps Options minimal
-// and within eval's own foundation-only allow-set (00-ARCHITECTURE.md §3.2: core, paths, config).
-type Options struct {
-	// Cfg is the configuration in force for the harness's replay and scoring decisions. The zero
-	// value is replaced by config.Defaults() in New.
-	Cfg config.Config
-}
+// Latency-model coefficients. They are calibrated against two sentences of the design, not tuned:
+// see LatencyModel's doc comment and TestReplay_LatencyModelAnchors, which names the sentence each
+// one answers to. They are not Qompack tunables — nothing at runtime reads them — so they are
+// constants here rather than config keys.
+const (
+	defaultPauseBaseMS           = 3000
+	defaultPausePerKResidualMS   = 150
+	defaultFirstTurnBaseMS       = 800
+	defaultFirstTurnPerKRehydrMS = 90
+)
 
-// New returns a stub Harness: constructing it always succeeds — New(Options{}) is always valid,
-// with no need to pre-fill Options.Cfg — so wave-0 composition roots can wire an eval.Harness
-// today, but every operation reports core.ErrNotImplemented (or a documented zero value, for the
-// two methods with no error return) until SP-02 lands the real replay-and-scoring implementation
-// (00-ARCHITECTURE.md §5.18). The stub never reads o, since none of its methods have any real
-// behaviour to configure yet; SP-02's real New is expected to fall Options.Cfg back to
-// config.Defaults() once Cfg is actually consulted.
-//
-// New has no error return, matching every other "computational" constructor in this codebase
-// (chunk.New, symbols.New, grammar.New, redact.New): building a Harness performs no I/O by
-// itself, so there is nothing for a stub constructor to fail at.
+// New returns a Harness. Every zero-valued member of o is replaced by a safe default, so
+// eval.New(eval.Options{}) is always valid. New registers no policies and mutates no globals.
 func New(o Options) Harness {
-	return stubHarness{}
+	h := &harness{
+		cfg:     o.Cfg,
+		log:     o.Log,
+		metrics: o.Metrics,
+		clock:   o.Clock,
+		lat:     o.Latency,
+		pool:    map[string]latencyPool{},
+	}
+	if h.cfg.Eval.MinSessions == 0 {
+		h.cfg = config.Defaults()
+	}
+	if h.log == nil {
+		h.log = logging.Nop()
+	}
+	if h.clock == nil {
+		h.clock = core.SystemClock()
+	}
+	if h.metrics == nil {
+		h.metrics = obs.New(h.clock)
+	}
+	if !h.lat.Modelled {
+		h.lat = DefaultLatencyModel()
+	}
+	return h
 }
 
-// stubHarness is the SP-01 placeholder Harness. SP-02 owns the real implementation.
-type stubHarness struct{}
+// DefaultLatencyModel returns the calibrated model. Modelled is true, which is both the honest
+// answer and what New uses to tell a configured model from a zero value.
+func DefaultLatencyModel() LatencyModel {
+	return LatencyModel{
+		PauseBaseMS:           defaultPauseBaseMS,
+		PausePerKResidualMS:   defaultPausePerKResidualMS,
+		FirstTurnBaseMS:       defaultFirstTurnBaseMS,
+		FirstTurnPerKRehydrMS: defaultFirstTurnPerKRehydrMS,
+		Modelled:              true,
+	}
+}
 
-// Load always reports core.ErrNotImplemented.
-func (stubHarness) Load(dir string) ([]Session, error) { return nil, core.ErrNotImplemented }
+// SetLiveRunner installs the §6.3-tier-3 runner. It is declared on the concrete type and reached
+// through a type assertion, so the §5.18 Harness interface gains no method (Rule W-3).
+func (h *harness) SetLiveRunner(r LiveRunner) { h.live = r }
 
-// Replay always reports core.ErrNotImplemented.
-func (stubHarness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptions) (Run, error) {
+// observe records d against the named histogram. It is the only use this package makes of obs.
+func (h *harness) observe(name string, start time.Time) {
+	h.metrics.Hist(name).Observe(h.clock.Since(start))
+}
+
+// Load reads every session file under dir. Implemented in replay.go.
+func (h *harness) Load(dir string) ([]Session, error) { return nil, core.ErrNotImplemented }
+
+// Replay re-applies p's keep-set decisions against s. Implemented in replay.go.
+func (h *harness) Replay(ctx context.Context, s Session, p Policy, o ReplayOptions) (Run, error) {
 	return Run{}, core.ErrNotImplemented
 }
 
-// Compare always reports the zero Divergence. Compare has no error return, and the zero value —
-// no divergence detected at any turn, identical file sets, zero edit distance — is the only
-// honest "no comparison has actually been performed" answer a stub can give.
-func (stubHarness) Compare(uncompacted, compacted Run) Divergence { return Divergence{} }
+// Compare computes the §4.2 divergence. Implemented in divergence.go.
+func (h *harness) Compare(uncompacted, compacted Run) Divergence { return Divergence{} }
 
-// Belady always reports core.ErrNotImplemented.
-func (stubHarness) Belady(ctx context.Context, s Session, at core.TurnIndex, budget core.Tokens) (KeepSet, error) {
+// Belady computes the retrospective OPT keep-set. Implemented in belady.go.
+func (h *harness) Belady(ctx context.Context, s Session, at core.TurnIndex, budget core.Tokens) (KeepSet, error) {
 	return KeepSet{}, core.ErrNotImplemented
 }
 
-// ScoreRun always reports the zero Score, for the same reason as Compare: ScoreRun has no error
-// return, and a zero Score is the only honest "not scored" answer a stub can give.
-func (stubHarness) ScoreRun(r Run, opt map[core.TurnIndex]KeepSet) Score { return Score{} }
+// ScoreRun scores a Run against OPT. Implemented in score.go.
+func (h *harness) ScoreRun(r Run, opt map[core.TurnIndex]KeepSet) Score { return Score{} }
 
-// Report always reports core.ErrNotImplemented.
-func (stubHarness) Report(ctx context.Context, scores map[string][]Score) (Report, error) {
+// Report aggregates per-policy scores. Implemented in score.go.
+func (h *harness) Report(ctx context.Context, scores map[string][]Score) (Report, error) {
 	return Report{}, core.ErrNotImplemented
 }
