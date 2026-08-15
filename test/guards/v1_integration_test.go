@@ -488,6 +488,7 @@ var v1FixtureType = map[string]func() any{
 	"negknow/elimination_record": func() any { return new(negknow.Record) },
 	"paths/manifest_entry":       func() any { return new(paths.ManifestEntry) },
 	"checkpoint/checkpoint_v1":   func() any { return new(checkpoint.Checkpoint) },
+	"contract/result_set":        func() any { return new([]contract.Result) },
 }
 
 // v1CheckpointTiers is §8.5's complete field set: tiers 1-3 plus metadata. Every one must be
@@ -860,6 +861,13 @@ func v1RoundTrip(t *testing.T, key, path string) {
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err, "%s: frozen fixture missing from disk", key)
 	require.NotEmpty(t, strings.TrimSpace(string(raw)), "%s: frozen fixture is empty", key)
+
+	// A .jsonc fixture carries comments, which no JSON decoder accepts. Stripping is the same step
+	// every real reader of these bytes performs — config.Load runs StripJSONC before parsing — so
+	// doing it here keeps the walker honest rather than special-casing the file out of the check.
+	if strings.HasSuffix(path, ".jsonc") {
+		raw = config.StripJSONC(raw)
+	}
 
 	newValue, ok := v1FixtureType[key]
 	if !ok {
