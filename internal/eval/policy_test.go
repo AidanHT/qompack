@@ -151,5 +151,6 @@ func TestPolicyByName_UnknownIsNotFound(t *testing.T) {
 // TestPolicyNames_Sorted asserts the registry's order is lexicographic, so a report's column
 // order never depends on init order or on map iteration.
 func TestPolicyNames_Sorted(t *testing.T) {
-	require.Equal(t, []string{"null", "stock"}, eval.PolicyNames())
+	require.Equal(t, []string{"null", "oracle", "stock"}, eval.PolicyNames(),
+		"the three built-ins: the floor, the ceiling, and the thing being measured")
 }
