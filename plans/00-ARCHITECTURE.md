@@ -1963,6 +1963,17 @@ Coverage is measured on the merged profile from the Linux job. A drop below the 
 `verify`. Coverage is a floor, never a target — subplans are graded on the conformance suite
 and the replay gate.
 
+**Composition roots are exempt.** A `main` package that declares nothing but `func main`, whose
+body only constructs dependencies and hands off to a library entry point, carries no floor. The
+exemption is narrow and mechanical: the moment such a package declares a second function, a
+method, or a package-level variable with logic in it, the floor applies again in full. It exists
+because `func main` ends in `os.Exit`, which no in-process test can survive, so the only honest
+way to exercise a composition root is to spawn the real binary — and that coverage is credited to
+the `test/e2e` package that did the spawning, never to the `main` package itself. Chasing the
+number there would mean moving dispatch logic out of `main` for the tool's benefit rather than
+the design's, or writing a test that asserts nothing. The exemption is printed in the job log
+next to the stub exemptions so it stays visible rather than silent.
+
 ---
 
 ## 7. Benchmark and latency harness
