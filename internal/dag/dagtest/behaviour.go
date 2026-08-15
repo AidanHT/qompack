@@ -149,12 +149,17 @@ func runUpsertMergeCase(t *testing.T, factory func(t *testing.T) dag.Graph) {
 	require.Equal(t, 1, g.Stats().Nodes, "an upsert must not add a second node")
 }
 
-// The two positions runAnchorEarliestPosCase reads one file at. They are spelled as products rather
-// than as the literals 10000 and 90000 because 10000 is in the D11 / §11.6 forbidden set, and this
-// file is not one of the exempt ones.
+// The two positions runAnchorEarliestPosCase reads one file at: far enough apart that a merge rule
+// taking the later one is unmistakable in a failure message.
+//
+// The first is 10_500 rather than a round 10_000 because 10000 is in the D11 / §11.6
+// forbidden-literal set and this file — a library file in dagtest, not a _test.go — is not exempt
+// from that check. Spelling it as a product to slip past the linter would defeat the check by
+// construction rather than by argument, and the exact value carries no meaning here, so it is
+// simply chosen not to collide.
 const (
-	anchorFirstPos = 10 * 1000
-	anchorLaterPos = 90 * 1000
+	anchorFirstPos = 10_500
+	anchorLaterPos = 90_000
 )
 
 // runAnchorEarliestPosCase asserts a shared-state ANCHOR — a file, symbol or segment node — keeps
