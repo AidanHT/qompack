@@ -13,10 +13,10 @@ const (
 	OpAdminShutdown Op = OpAdminPrefix + "shutdown"
 )
 
-// KnownOps returns every operation this build understands — the eight §5.4 operations plus the
-// five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
-// Op.Valid has a single source of truth to check against.
-func KnownOps() []Op {
+// knownOps is KnownOps' backing array, sorted once at package init rather than on every call: a
+// router calls Op.Valid on the hot path (once per request), and re-sorting a 13-element slice on
+// every call was pure waste once there is a real caller instead of just self-test.
+var knownOps = func() []Op {
 	ops := []Op{
 		OpObserveTool, OpObservePrompt, OpObserveStop, OpSessionStart,
 		OpCheckpoint, OpFlush, OpStatus, OpMCP,
@@ -24,17 +24,32 @@ func KnownOps() []Op {
 	}
 	sort.Slice(ops, func(i, j int) bool { return ops[i] < ops[j] })
 	return ops
+}()
+
+// knownOpSet is knownOps as a set, precomputed once so Op.Valid is a map lookup rather than a
+// linear scan re-derived from a fresh sort on every call.
+var knownOpSet = func() map[Op]bool {
+	set := make(map[Op]bool, len(knownOps))
+	for _, o := range knownOps {
+		set[o] = true
+	}
+	return set
+}()
+
+// KnownOps returns every operation this build understands — the eight §5.4 operations plus the
+// five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
+// Op.Valid has a single source of truth to check against. It returns a fresh copy every call so a
+// caller mutating the result cannot corrupt the package's own copy.
+func KnownOps() []Op {
+	ops := make([]Op, len(knownOps))
+	copy(ops, knownOps)
+	return ops
 }
 
 // Valid reports whether o is one of KnownOps — the check a router applies before dispatching, and
 // self-test applies before trusting a spelling it did not itself produce.
 func (o Op) Valid() bool {
-	for _, k := range KnownOps() {
-		if o == k {
-			return true
-		}
-	}
-	return false
+	return knownOpSet[o]
 }
 
 // HotPath reports whether o is one of the three operations that flow through §8.1/§12.2's hot-path
