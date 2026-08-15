@@ -59,6 +59,9 @@ func openFS(root string, cfg config.Config, deps Deps) (*FSStore, error) {
 		chunkSet:  make(map[core.Hash]int32),
 		refs:      make(map[core.Hash]uint32),
 		byPath:    make(map[string][]core.Hash),
+		toolUse:   make(map[core.ToolUseID]*ToolUseRecord),
+		byPathTU:  make(map[string][]core.ToolUseID),
+		fileHist:  make(map[string][]FileVersion),
 	}
 
 	var err error
@@ -66,11 +69,20 @@ func openFS(root string, cfg config.Config, deps Deps) (*FSStore, error) {
 		return nil, fmt.Errorf("store: open %s: %w", rootsFile, err)
 	}
 
-	// Replay the content index. A malformed line is counted and skipped inside the loader — only
-	// an unreadable directory is fatal, because the daemon then refuses to start and the client
+	if s.tuW, err = openAppendFile(filepath.Join(l.Index, toolUseFile)); err != nil {
+		return nil, fmt.Errorf("store: open %s: %w", toolUseFile, err)
+	}
+	if s.filesW, err = openAppendFile(filepath.Join(l.Index, filesLogFile)); err != nil {
+		return nil, fmt.Errorf("store: open %s: %w", filesLogFile, err)
+	}
+
+	// Replay the indices. A malformed line is counted and skipped inside each loader — only an
+	// unreadable directory is fatal, because the daemon then refuses to start and the client
 	// spools (§12.3).
-	if err := s.loadRoots(); err != nil {
-		return nil, err
+	for _, load := range []func() error{s.loadRoots, s.loadToolUse, s.loadFiles} {
+		if err := load(); err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }
