@@ -17,9 +17,9 @@ import (
 const coverProfileName = "coverage.out"
 
 // taskCover runs the full test suite under coverage, then applies the 00-ARCHITECTURE.md §6.4
-// per-group floors — but only to packages plans/OWNERS.tsv assigns to SP-01. Every other
-// package's floor is exempt until its own owner lands; the exemption is mechanical (read from
-// OWNERS.tsv), not a judgement call, and is printed so it is visible in the job log.
+// per-group floors to every package whose implementation has actually landed. floorApplies decides
+// which those are, and prints the reason whenever a floor is skipped so the exemption is visible in
+// the job log rather than implied by a package's absence from it.
 func taskCover(args []string) error {
 	if err := goInherit("test", "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
 		return fmt.Errorf("cover: go test -coverprofile: %w", err)
@@ -36,26 +36,19 @@ func taskCover(args []string) error {
 
 	var problems []string
 	for _, o := range owners {
-		if o.Owner != "SP-01" {
-			fmt.Printf("exempt (stub, owned by %s): %s\n", o.Owner, o.Package)
-			continue
-		}
-
 		dir, path := packageDirAndPath(o.Package)
-		if !dirExists(dir) {
-			fmt.Printf("not yet present: %s\n", o.Package)
+		if applies, why := floorApplies(o, dir); !applies {
+			fmt.Println(why)
 			continue
 		}
 
-		if isCompositionRoot(dir) {
-			fmt.Printf("exempt (composition root, §6.4): %s\n", o.Package)
-			continue
-		}
-
+		// A landed subplan that left its own probe as a bare core.ErrNotImplemented stub has not
+		// landed. The heuristic only recognises the error-returning stub shape, so it can miss —
+		// but it never fires falsely, which is the direction that matters for a merge blocker.
 		if o.Probe != "-" && probeStillStub(dir, o.Probe) {
 			problems = append(problems, fmt.Sprintf(
-				"%s: plans/OWNERS.tsv assigns this package to SP-01, but its probe %q still looks like a bare core.ErrNotImplemented stub",
-				o.Package, o.Probe))
+				"%s: plans/OWNERS.tsv assigns this package to %s, which has landed, but its probe %q still looks like a bare core.ErrNotImplemented stub",
+				o.Package, o.Owner, o.Probe))
 		}
 
 		stat, ok := byPkg[path]
@@ -79,6 +72,38 @@ func taskCover(args []string) error {
 		fmt.Println("  " + p)
 	}
 	return fmt.Errorf("cover: %d package(s) below floor or still stubbed", len(problems))
+}
+
+// landedSubplans lists the subplans whose implementations are on develop. A package's §6.4
+// coverage floor binds once its owner appears here; before that the package is a stub and its
+// coverage percentage measures nothing. Each subplan adds its own ID in the commit that lands it —
+// the same flip Rule W-1 already requires for the conformance-suite skips, and enforced the same
+// way, by a test that fails when the set and the branch disagree.
+//
+// Inferring this from the OWNERS.tsv probe instead was tried and does not work. probeStillStub can
+// only recognise a stub that returns core.ErrNotImplemented, and several interface methods return
+// a value rather than an error — chunk.Split returns nil, grammar.Append returns nothing — so the
+// inference reads those stubs as landed while packages whose probe is declared on an inner type it
+// cannot find read as landed too. It gates code nobody has written and exempts code that shipped,
+// which is worse than an explicit list on both counts.
+var landedSubplans = map[string]bool{
+	"SP-01": true,
+	"SP-02": true,
+}
+
+// floorApplies reports whether o's §6.4 coverage floor binds right now, and when it does not, the
+// line to print explaining why. Exemptions are printed rather than silently skipped, so a package
+// missing from the job log is a bug in this function and not an intended state.
+func floorApplies(o ownerRow, dir string) (applies bool, exemption string) {
+	switch {
+	case !dirExists(dir):
+		return false, fmt.Sprintf("not yet present: %s", o.Package)
+	case isCompositionRoot(dir):
+		return false, fmt.Sprintf("exempt (composition root, §6.4): %s", o.Package)
+	case !landedSubplans[o.Owner]:
+		return false, fmt.Sprintf("exempt (stub, owned by %s): %s", o.Owner, o.Package)
+	}
+	return true, ""
 }
 
 // isCompositionRoot reports whether pkgDir is a `main` package that declares nothing but `func

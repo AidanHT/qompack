@@ -8,6 +8,11 @@ var foundation = []string{"core", "paths", "config", "logging", "obs"}
 // compositionRoots may import anything; nothing may import them. The first five entries are
 // §3.2's own list; test/e2e and test/guards are added by SP-01 because they import the whole tree
 // and must be subject to the same "nothing may import them" half of the rule.
+//
+// test/replay is added by SP-02. It is the replay-gate driver, and being a composition root is
+// exactly what lets internal/eval stay foundation-only: everything eval needs from a later wave —
+// store growth samples, negknow bloom health — is declared as a provider type in eval and supplied
+// here, so the dependency lives in the driver rather than in the layer being measured.
 var compositionRoots = map[string]bool{
 	"daemon":      true,
 	"cli":         true,
@@ -16,6 +21,7 @@ var compositionRoots = map[string]bool{
 	"cmd/qompack": true,
 	"test/e2e":    true,
 	"test/guards": true,
+	"test/replay": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
