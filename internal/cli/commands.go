@@ -27,6 +27,7 @@ func All() []Cmd {
 		Cmd{Name: "config print", Summary: "print the effective configuration", Run: runConfigPrint},
 		Cmd{Name: "config schema", Summary: "print the configuration JSON Schema", Run: runConfigSchema},
 	)
+	cmds = append(cmds, evalCmds()...)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
 	}
