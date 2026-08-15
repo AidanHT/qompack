@@ -64,10 +64,27 @@
 // §5.7 annotates Load with "corrupt → ErrNotFound + Loud log", but its signature carries no logger
 // and this package refuses package-level mutable state, so the contract is split and both halves
 // are mandatory. Load delivers the CRC and version checking and the core.ErrNotFound mapping, and
-// logs nothing because it has nothing to log to. LoadWithLog delivers the Loud half and is the
-// form every composition root must call; Load exists for tests and for callers that provably have
-// no logger. Choosing the silent path by accident would violate §13 invariant 10, "degradation is
-// loud".
+// writes no log line because it hands LoadWithLog a logging.Nop with no destination behind it.
+// LoadWithLog delivers the Loud half and is the form every composition root must call — SP-05's
+// SketchSet and SP-09's negknow.Open both call it, never Load; Load exists for tests and for
+// callers that provably have no logger. Choosing the silent path by accident would violate §13
+// invariant 10, "degradation is loud".
+//
+// Every failure the pair can report — absent, unstattable, oversize, unreadable, corrupt — comes
+// back as core.ErrNotFound with the underlying sentinel still inspectable through errors.Is, so a
+// caller's "not found ⇒ start empty" branch is also its corrupt-file branch (§13 invariant 3: a
+// sketch is a cache, never the source of truth).
+//
+// # Save refuses tried.bloom
+//
+// sketches/tried.bloom is the one file here that §7.4 makes append-only, and 00-ARCHITECTURE.md
+// §3.3 permits its replacement only through the generational path: write the new filter, rename
+// the old one to tried.bloom.<seq>.bak, keep exactly one generation. Save therefore refuses that
+// base name outright, with an error satisfying both ErrGenerational and core.ErrAppendOnly, and
+// ReplaceGenerational — which delegates the rename dance to paths.ReplaceBloom, the sole sanctioned
+// writer of that path — is the door. The refusal is mechanical enforcement rather than a comment
+// asking callers to be careful: internal/paths refuses the same path from the other side, so the
+// invariant holds even for a caller that never read this doc.
 //
 // # Literals
 //

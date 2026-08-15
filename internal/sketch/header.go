@@ -444,19 +444,6 @@ func paramByteOK(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.'
 }
 
-// Save writes s to p atomically (via paths.WriteAtomic), except sketches/tried.bloom, which goes
-// through paths.ReplaceBloom instead (00-ARCHITECTURE.md §3.3). It reports core.ErrNotImplemented
-// until this subplan's io.go lands the encode-plus-atomic-write half.
-func Save(p string, s Sketch) error {
-	return core.ErrNotImplemented
-}
-
-// Load reads p into s, checking CRC32C and Ver, and maps every corruption sentinel in errors.go to
-// core.ErrNotFound — a sketch is a cache (§13 invariant 3), so an unreadable one and a missing one
-// are the same event upstream. Load logs nothing, because it has no logger; prefer LoadWithLog,
-// which delivers the Loud line §13 invariant 10 requires and is the form every composition root
-// must call. It reports core.ErrNotImplemented until this subplan's io.go lands the
-// decode-plus-verification half.
-func Load(p string, s Sketch) error {
-	return core.ErrNotImplemented
-}
+// Save, Load, LoadWithLog, ReplaceGenerational and Quarantine live in io.go. They were declared
+// here while this package was a stub; they are the filesystem half of §5.7 and belong with the
+// internal/paths and internal/logging imports they need, leaving this file about framing alone.
