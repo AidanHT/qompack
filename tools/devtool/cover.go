@@ -47,6 +47,11 @@ func taskCover(args []string) error {
 			continue
 		}
 
+		if isCompositionRoot(dir) {
+			fmt.Printf("exempt (composition root, §6.4): %s\n", o.Package)
+			continue
+		}
+
 		if o.Probe != "-" && probeStillStub(dir, o.Probe) {
 			problems = append(problems, fmt.Sprintf(
 				"%s: plans/OWNERS.tsv assigns this package to SP-01, but its probe %q still looks like a bare core.ErrNotImplemented stub",
@@ -74,6 +79,51 @@ func taskCover(args []string) error {
 		fmt.Println("  " + p)
 	}
 	return fmt.Errorf("cover: %d package(s) below floor or still stubbed", len(problems))
+}
+
+// isCompositionRoot reports whether pkgDir is a `main` package that declares nothing but `func
+// main` — the narrow 00-ARCHITECTURE.md §6.4 coverage exemption. Such a package ends in os.Exit,
+// which no in-process test can survive, so its coverage is necessarily 0.0% and the behaviour is
+// credited to the test/e2e package that spawns the real binary instead.
+//
+// The check is deliberately strict on both axes the amendment names. Every non-test file in the
+// directory must be `package main`, and across all of them the only declaration permitted is
+// `func main` — no other function, no method, no package-level var, const or type. A second
+// declaration is somewhere a bug can hide, and the floor applies again the moment one appears.
+// Anything unreadable or unparseable returns false, so the failure mode is a reported floor
+// violation rather than a silently skipped package.
+func isCompositionRoot(pkgDir string) bool {
+	entries, err := os.ReadDir(pkgDir)
+	if err != nil {
+		return false
+	}
+	sawMain := false
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".go") || strings.HasSuffix(e.Name(), "_test.go") {
+			continue
+		}
+		fset := token.NewFileSet()
+		f, perr := parser.ParseFile(fset, filepath.Join(pkgDir, e.Name()), nil, 0)
+		if perr != nil || f.Name.Name != "main" {
+			return false
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok {
+				// A GenDecl that is only imports is structure, not logic; anything else
+				// (var, const, type) is a declaration the exemption does not cover.
+				if gd, isGen := decl.(*ast.GenDecl); isGen && gd.Tok == token.IMPORT {
+					continue
+				}
+				return false
+			}
+			if fn.Recv != nil || fn.Name.Name != "main" {
+				return false
+			}
+			sawMain = true
+		}
+	}
+	return sawMain
 }
 
 // packageDirAndPath maps an OWNERS.tsv package key to its on-disk directory and full import path.
