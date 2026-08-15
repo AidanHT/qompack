@@ -1,0 +1,50 @@
+[
+  {
+    "pos": 0,
+    "crossing": 0
+  },
+  {
+    "pos": 1,
+    "crossing": 0
+  },
+  {
+    "pos": 100,
+    "crossing": 0
+  },
+  {
+    "pos": 200,
+    "crossing": 1
+  },
+  {
+    "pos": 300,
+    "crossing": 1
+  },
+  {
+    "pos": 350,
+    "crossing": 4
+  },
+  {
+    "pos": 360,
+    "crossing": 3
+  },
+  {
+    "pos": 400,
+    "crossing": 2
+  },
+  {
+    "pos": 500,
+    "crossing": 2
+  },
+  {
+    "pos": 600,
+    "crossing": 2
+  },
+  {
+    "pos": 700,
+    "crossing": 1
+  },
+  {
+    "pos": 901,
+    "crossing": 0
+  }
+]
