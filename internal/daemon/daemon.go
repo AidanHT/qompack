@@ -20,16 +20,23 @@ import (
 	"github.com/qompack/qompack/internal/store"
 )
 
-// SketchSet is the three probabilistic structures the daemon keeps resident (§3.3): the
-// negative-knowledge Bloom filter, the touch Count-Min sketch and the exploration HyperLogLog.
+// SketchSet is the four probabilistic structures the daemon keeps resident (§3.3): the
+// negative-knowledge Bloom filter, the touch Count-Min sketch, the exploration HyperLogLog and the
+// Misra-Gries top-k counter.
 //
 // Tried is a pointer to the same Bloom the negknow ledger was opened over, not a copy. §7.4 makes
 // tried.bloom append-only precisely because a rebuilt-from-summary Bloom would silently forget
 // what has already been tried, so there must be exactly one of it in the process.
+//
+// Top is the companion to Touch, not an alternative to it: sketch.CMS.HeavyHitters takes a
+// *MisraGries because a Count-Min sketch can estimate the count of a key it is handed but cannot
+// enumerate which keys are heavy. Without Top resident there is no set of candidates to estimate,
+// so the pair has to be wired together or the CMS answers a question nobody can ask.
 type SketchSet struct {
 	Tried   *sketch.Bloom
 	Touch   *sketch.CMS
 	Explore *sketch.HLL
+	Top     *sketch.MisraGries
 }
 
 // Options is the late-bound dependency set (§5.4).
