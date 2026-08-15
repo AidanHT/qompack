@@ -167,6 +167,87 @@ func main() {
 	})
 }
 
+// TestFloorApplies pins the rule that decides whether a §6.4 coverage floor is live: a package is
+// measured once its owning subplan has landed, and exempt before that because a stub's coverage
+// number measures nothing.
+func TestFloorApplies(t *testing.T) {
+	t.Run("absent package is not yet present", func(t *testing.T) {
+		row := ownerRow{Package: "eval", Owner: "SP-02", Floor: 85, Probe: "Load"}
+		applies, why := floorApplies(row, filepath.Join(t.TempDir(), "no-such-dir"))
+		if applies {
+			t.Error("a package that does not exist yet cannot be below its floor")
+		}
+		if want := "not yet present: eval"; why != want {
+			t.Errorf("reason = %q, want %q", why, want)
+		}
+	})
+
+	t.Run("composition root is exempt", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "main.go"), "package main\n\nfunc main() {}\n")
+		row := ownerRow{Package: "cmd/qompack", Owner: "SP-01", Floor: 75, Probe: "-"}
+		applies, why := floorApplies(row, dir)
+		if applies {
+			t.Error("§6.4 exempts a composition root")
+		}
+		if want := "exempt (composition root, §6.4): cmd/qompack"; why != want {
+			t.Errorf("reason = %q, want %q", why, want)
+		}
+	})
+
+	t.Run("an unlanded owner is exempt and the log names it", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "sketch.go"), "package sketch\n\nfunc New() {}\n")
+		row := ownerRow{Package: "sketch", Owner: "SP-03", Floor: 90, Probe: "MarshalBinary"}
+		applies, why := floorApplies(row, dir)
+		if applies {
+			t.Error("a stub's coverage number measures nothing, so its floor cannot bind yet")
+		}
+		if want := "exempt (stub, owned by SP-03): sketch"; why != want {
+			t.Errorf("reason = %q, want %q", why, want)
+		}
+	})
+
+	t.Run("a landed owner is on the floor", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "eval.go"), "package eval\n\nfunc Load() {}\n")
+		row := ownerRow{Package: "eval", Owner: "SP-02", Floor: 85, Probe: "Load"}
+		applies, why := floorApplies(row, dir)
+		if !applies {
+			t.Errorf("SP-02 has landed, so internal/eval is measured; got exemption %q", why)
+		}
+		if why != "" {
+			t.Errorf("an applicable floor has no exemption reason, got %q", why)
+		}
+	})
+}
+
+// TestLandedSubplansMatchesTheBranch keeps the landed set honest. Every subplan that has landed
+// owns at least one package that is no longer a stub, so a set that drifts ahead of the branch
+// gates a package nobody has written yet — and one that drifts behind silently unmeasures a
+// package that shipped.
+func TestLandedSubplansMatchesTheBranch(t *testing.T) {
+	owners, err := loadOwners(filepath.Join(testModuleRoot(t), "plans", "OWNERS.tsv"))
+	if err != nil {
+		t.Fatalf("loadOwners: %v", err)
+	}
+	known := map[string]bool{}
+	for _, o := range owners {
+		known[o.Owner] = true
+	}
+	for id := range landedSubplans {
+		if !known[id] {
+			t.Errorf("landedSubplans names %s, which owns nothing in plans/OWNERS.tsv", id)
+		}
+	}
+	if !landedSubplans["SP-01"] || !landedSubplans["SP-02"] {
+		t.Error("SP-01 and SP-02 have both landed on develop")
+	}
+	if landedSubplans["SP-03"] {
+		t.Error("SP-03 has not landed; internal/sketch is still a stub")
+	}
+}
+
 func TestIsBareNotImplementedStub_WrappedError(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "wrapped.go")
