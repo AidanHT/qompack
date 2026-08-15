@@ -31,6 +31,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -489,6 +490,16 @@ var v1FixtureType = map[string]func() any{
 	"paths/manifest_entry":       func() any { return new(paths.ManifestEntry) },
 	"checkpoint/checkpoint_v1":   func() any { return new(checkpoint.Checkpoint) },
 	"contract/result_set":        func() any { return new([]contract.Result) },
+	"ipc/observe_tool":           func() any { return new(ipc.Request) },
+	"ipc/response_reply":         func() any { return new(ipc.Response) },
+}
+
+// v1BinaryFixtureKeys names frozen format fixtures whose bytes are not JSON at all — a wire format
+// 00-ARCHITECTURE.md §2.4 specifies as a fixed-layout binary record, not a JSON document (SP-05's
+// 32-byte hot-path state record). v1RoundTrip only checks these are present and non-empty;
+// json.Unmarshal has nothing to parse in a CRC-terminated binary record.
+var v1BinaryFixtureKeys = map[string]bool{
+	"ipc/state_degraded": true,
 }
 
 // v1CheckpointTiers is §8.5's complete field set: tiers 1-3 plus metadata. Every one must be
@@ -860,6 +871,11 @@ func v1RoundTrip(t *testing.T, key, path string) {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err, "%s: frozen fixture missing from disk", key)
+
+	if v1BinaryFixtureKeys[key] {
+		require.NotEmpty(t, raw, "%s: frozen fixture is empty", key)
+		return
+	}
 	require.NotEmpty(t, strings.TrimSpace(string(raw)), "%s: frozen fixture is empty", key)
 
 	// A .jsonc fixture carries comments, which no JSON decoder accepts. Stripping is the same step

@@ -1,0 +1,9 @@
+{
+  "package": "ipc",
+  "owner": "SP-05",
+  "fixtures": [
+    { "name": "observe_tool", "kind": "format", "state": "frozen", "input": "", "want": "observe_tool.ndjson", "note": "EncodeRequest's byte-exact output for the fixed observe.tool Request (00-ARCHITECTURE §2.4 framing)" },
+    { "name": "response_reply", "kind": "format", "state": "frozen", "input": "", "want": "response_reply.ndjson", "note": "EncodeResponse's byte-exact output for a Reply response carrying an Output" },
+    { "name": "state_degraded", "kind": "format", "state": "frozen", "input": "", "want": "state_degraded.bin", "note": "the 32-byte hot-path state record, mode=1 (degraded-passive) hot=1 (spool)" }
+  ]
+}
