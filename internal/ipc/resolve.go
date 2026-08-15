@@ -75,6 +75,15 @@ var ErrUnresolvedRoot = errors.New("ipc: project root must not be empty")
 // (NewClient) treat it as "spool-only for this process", never as a hook failure.
 var ErrAddrTooLong = errors.New("qompack: ipc address exceeds sun_path limit")
 
+// ErrAddrInUse is returned by listen (POSIX today; Windows cannot detect this case — see
+// listen_windows.go) when a live listener already owns the endpoint. This is the daemon-singleton
+// check's transport-level signal (00-ARCHITECTURE.md §2.4): ipc may not import daemon (§3.2), so
+// daemon.AcquireLock — which owns the actual singleton decision and daemon.ErrLockHeld, the
+// caller-facing sentinel — wraps this one rather than ipc wrapping daemon's (controller ruling
+// #21). Declared here, alongside ErrAddrTooLong, so both of listen's address-outcome sentinels
+// live in one place.
+var ErrAddrInUse = errors.New("qompack: ipc endpoint already owned by a live listener")
+
 // Resolve returns the local endpoint for projectRoot, exactly as 00-ARCHITECTURE.md §2.4 specifies
 // it, unless QOMPACK_IPC_ADDR overrides it.
 //
