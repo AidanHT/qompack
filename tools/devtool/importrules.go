@@ -7,15 +7,20 @@ var foundation = []string{"core", "paths", "config", "logging", "obs"}
 
 // compositionRoots may import anything; nothing may import them. The first five entries are
 // §3.2's own list; test/e2e and test/guards are added by SP-01 because they import the whole tree
-// and must be subject to the same "nothing may import them" half of the rule.
+// and must be subject to the same "nothing may import them" half of the rule. test/bench/hotpath
+// is added by SP-05 (task 7): the hot-path bench harness spawns the real binary and talks to a
+// real daemon child process directly, so — like test/e2e — it needs the whole tree (daemon for
+// StatusSnapshot, ipc for the Client it drives its own admin/status/warm-up traffic through, cli
+// only transitively via the binary it spawns) and nothing may import it back.
 var compositionRoots = map[string]bool{
-	"daemon":      true,
-	"cli":         true,
-	"commands":    true,
-	"testutil":    true,
-	"cmd/qompack": true,
-	"test/e2e":    true,
-	"test/guards": true,
+	"daemon":             true,
+	"cli":                true,
+	"commands":           true,
+	"testutil":           true,
+	"cmd/qompack":        true,
+	"test/e2e":           true,
+	"test/guards":        true,
+	"test/bench/hotpath": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
