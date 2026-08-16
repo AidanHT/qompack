@@ -19,7 +19,6 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
-	"github.com/qompack/qompack/internal/testutil"
 )
 
 // TestIngestWALIsExactBytes pins the WAL durability contract: Accept writes the exact bytes it
@@ -28,7 +27,7 @@ func TestIngestWALIsExactBytes(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
 	t.Cleanup(func() { _ = ing.Close() })
 
@@ -61,7 +60,7 @@ const ingestAcceptBudget = 500 * time.Millisecond
 // Drain reads.
 func TestIngestRingFullSpillsToSpool(t *testing.T) {
 	root := t.TempDir()
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	m := obs.New(clk)
 	ing := newIngest(root, config.Defaults(), logging.Nop(), m, clk)
 	t.Cleanup(func() { _ = ing.Close() })
@@ -103,7 +102,7 @@ const ingestACKWait = 10 * time.Second
 // ACK — before any worker touches the job, which is what makes the WAL the durability boundary.
 func TestIngestACKPrecedesProcessing(t *testing.T) {
 	root := t.TempDir()
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
 	t.Cleanup(func() { _ = ing.Close() })
 
@@ -149,7 +148,7 @@ func TestIngestWALRotates(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
 	t.Cleanup(func() { _ = ing.Close() })
 
@@ -187,7 +186,7 @@ func TestIngestResolvesBlobsEndToEnd(t *testing.T) {
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
 	t.Cleanup(func() { _ = ing.Close() })
 

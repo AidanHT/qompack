@@ -9,7 +9,6 @@ import (
 
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/testutil"
 )
 
 // TestBuildSpawnEnv_StripsFaultAddsProjectRoot pins SpawnDetached's environment contract: the
@@ -103,7 +102,7 @@ func TestEnsureRunning_AlreadyRunningNeverSpawns(t *testing.T) {
 	require.Eventually(t, func() bool { return ipc.Probe(addr, ensureRunningDialTimeout) },
 		2*time.Second, 5*time.Millisecond, "the test server never became reachable")
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	spawned, err := EnsureRunning(root, "/this/path/does/not/exist", logging.Nop(), clk)
 	require.NoError(t, err)
 	require.False(t, spawned, "a live daemon must never trigger a spawn")
@@ -115,7 +114,7 @@ func TestEnsureRunning_SpawnFailureReportsImmediately(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	spawned, err := EnsureRunning(root, "/this/path/does/not/exist", logging.Nop(), clk)
 	require.Error(t, err)

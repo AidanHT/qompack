@@ -12,7 +12,6 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
-	"github.com/qompack/qompack/internal/testutil"
 )
 
 func fullMode() contract.Mode { return contract.ModeFull }
@@ -21,7 +20,7 @@ func fullMode() contract.Mode { return contract.ModeFull }
 func TestIdleRunsByPriority(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
 
 	var ran []string
@@ -40,7 +39,7 @@ func TestIdleRunsByPriority(t *testing.T) {
 func TestIdleRespectsBudget(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
 
 	budget := 100 * time.Millisecond
@@ -65,7 +64,7 @@ func TestIdleRespectsBudget(t *testing.T) {
 func TestIdleTaskPanicIsolated(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	m := obs.New(clk)
 	c := newIdleController(120, clk, logging.Nop(), m, fullMode)
 
@@ -83,7 +82,7 @@ func TestIdleTaskPanicIsolated(t *testing.T) {
 func TestIdleTaskErrorIsNotFatal(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
 
 	c.Register("a", 10, func(context.Context) error { return errors.New("boom") })
@@ -98,7 +97,7 @@ func TestIdleTaskErrorIsNotFatal(t *testing.T) {
 func TestIsIdleUsesDetectAfterSeconds(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
 	c.Notify(core.NowMilli(clk))
 
@@ -111,7 +110,7 @@ func TestIsIdleUsesDetectAfterSeconds(t *testing.T) {
 func TestIdleRegisterReplacesInPlace(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
 
 	calls := 0
@@ -131,7 +130,7 @@ func TestIdleRegisterReplacesInPlace(t *testing.T) {
 func TestIdleActPrefixSkippedWhenNotMayAct(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	degraded := func() contract.Mode { return contract.ModeDegradedPassive }
 	c := newIdleController(120, clk, logging.Nop(), nil, degraded)
 
@@ -147,7 +146,7 @@ func TestIdleActPrefixSkippedWhenNotMayAct(t *testing.T) {
 func TestIdleActPrefixRunsWhenMayAct(t *testing.T) {
 	t.Parallel()
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
 
 	c.Register("act.checkpoint", 10, func(context.Context) error { return nil })

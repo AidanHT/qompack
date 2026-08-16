@@ -13,7 +13,6 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
-	"github.com/qompack/qompack/internal/testutil"
 )
 
 // TestAcquireLockExclusive pins the singleton property: a second AcquireLock against the same
@@ -25,7 +24,7 @@ func TestAcquireLockExclusive(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	l1, err := AcquireLock(root, addr, clk)
 	require.NoError(t, err)
@@ -44,7 +43,7 @@ func TestStaleLockReclaimed(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	writeCraftedLock(t, root, addr, 999999, clk.Now().Add(-10*time.Minute))
 
@@ -66,7 +65,7 @@ func TestLiveLockNotReclaimed(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
 	require.NoError(t, err)
@@ -99,7 +98,7 @@ func TestAcquireLockRaceWindowIsNotStale(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	runDir := paths.Of(root).Run
 	require.NoError(t, os.MkdirAll(runDir, 0o700))
@@ -125,7 +124,7 @@ func TestHeartbeatUpdatesMtime(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	l, err := AcquireLock(root, addr, clk)
 	require.NoError(t, err)
@@ -153,7 +152,7 @@ func TestLockRefusesAfterReclaim(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	l, err := AcquireLock(root, addr, clk)
 	require.NoError(t, err)
@@ -181,7 +180,7 @@ func TestReleaseIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	addr, err := ipc.Resolve(root)
 	require.NoError(t, err)
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 
 	l, err := AcquireLock(root, addr, clk)
 	require.NoError(t, err)

@@ -87,10 +87,14 @@ const (
 // Clock falls back to core.SystemClock().
 type ClientOptions struct {
 	ProjectRoot string
-	// State supplies mode, hot, deadlines and limits when ProjectRoot is empty (so a caller that
-	// already has a State — the daemon's own admin client, tests — need not round-trip it through
-	// disk). When ProjectRoot is set, ReadState(ProjectRoot, config.Defaults()) is used instead and
-	// this field is ignored.
+	// State supplies mode, hot, deadlines and limits. A non-zero State always wins — trusted
+	// outright, never re-read from disk — even when ProjectRoot is also set (fix round 1, Important
+	// I-1: a caller that already has a State, e.g. the hot-path hook skeleton's own single 32-byte
+	// read, or the daemon's own admin client, must never pay for a second round trip through disk
+	// just because ProjectRoot happens to be set too). Only when State is the zero value does
+	// ProjectRoot matter for this field: ReadState(ProjectRoot, config.Defaults()) is used, falling
+	// back further to StateFromConfig(config.Defaults()) when ProjectRoot is also empty. See
+	// NewClientWithOptions's own doc comment for the precedence spelled out in full.
 	State State
 	// Self is the client's own executable path (os.Executable()); "" disables lazy spawn.
 	Self string
@@ -140,11 +144,15 @@ func NewClient(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry)
 	return NewClientWithOptions(addr, spool, log, m, ClientOptions{})
 }
 
-// NewClientWithOptions is NewClient with every knob exposed. When o.ProjectRoot is set,
-// ReadState populates mode, hot, both deadlines, daemonEnabled, spoolOnBreach and
-// maxPayloadBytes; otherwise o.State is used directly, falling back to
-// StateFromConfig(config.Defaults()) if it is the zero value, so a caller that supplies neither
-// still gets sane deadlines rather than a State that reads "daemon disabled, deadlines 0".
+// NewClientWithOptions is NewClient with every knob exposed. A caller that already has a State —
+// because it just read it itself, e.g. the hot-path hook skeleton's own single 32-byte read
+// (task-6-spec.md: "one 32-byte read; no config.Load") — should never pay for a second one: a
+// non-zero o.State always wins, even when o.ProjectRoot is also set (ProjectRoot still matters for
+// lazySpawn's lock path and externalize()'s blob directory, both of which need it independently of
+// where State came from). Only when o.State is the zero value does this constructor read for
+// itself: ReadState(o.ProjectRoot, config.Defaults()) when a root is given, else
+// StateFromConfig(config.Defaults()), so a caller that supplies neither still gets sane deadlines
+// rather than a State that reads "daemon disabled, deadlines 0".
 func NewClientWithOptions(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry, o ClientOptions) Client {
 	if log == nil {
 		log = logging.Nop()
@@ -155,9 +163,11 @@ func NewClientWithOptions(addr Addr, spool SpoolWriter, log logging.Logger, m ob
 
 	st := o.State
 	switch {
+	case st != (State{}):
+		// Trust the caller's own already-read State; never re-read from disk.
 	case o.ProjectRoot != "":
 		st = ReadState(o.ProjectRoot, config.Defaults())
-	case st == (State{}):
+	default:
 		st = StateFromConfig(config.Defaults())
 	}
 	o.State = st
