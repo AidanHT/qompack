@@ -26,10 +26,26 @@ const (
 )
 
 // hash128 returns two 64-bit values derived from one domain-separated SHA-256. A single hash call
-// supplies both words Kirsch-Mitzenmacher double hashing needs (g_i(x) = h1 + i·h2), which is why
-// a k=7 Bloom costs one SHA-256 rather than seven hashes. h2 is forced odd so the stride is never
-// zero: a zero stride would collapse all k probes onto one bit and turn a 1 % filter into a
-// ~100 % one.
+// supplies both words Kirsch-Mitzenmacher double hashing needs, which is why a k=7 Bloom costs one
+// SHA-256 rather than seven hashes.
+//
+// Its two consumers use different members of that family, and the difference matters to what the
+// odd-forcing below is for:
+//
+//   - cms.go's cellIndex uses the PLAIN form, g_j(x) = h1 + j·h2, one probe per row.
+//   - bloom.go's Add and Test use the ENHANCED form, g_i(x) = h1 + i·h2 + i², which adds the
+//     quadratic term because without it two keys sharing an h2 keep their probe positions in
+//     lockstep and the measured false-positive rate drifts above the analytic one.
+//
+// h2 is forced odd so the stride is never zero, and the failure that prevents is the Count-Min one.
+// Under the plain form a zero stride puts every row's probe at the SAME column, so a depth-5 table
+// answers with one row's counter five times over: Estimate stops being a minimum over independent
+// rows, which is the property the ε·N-for-1−δ-of-keys bound rests on, and the sketch over-counts
+// with nothing left to detect it. Under the enhanced form the i² term separates the probes on its
+// own, so a zero stride there would still land on k distinct positions — the odd-forcing is not
+// what saves the Bloom filter, and a comment claiming it collapses "all k probes onto one bit" was
+// describing the plain form while naming the enhanced one. It applies to both because the pair is
+// shared, and it costs one OR.
 //
 // Keys are opaque bytes. Callers supply already-normalized keys — SP-09 passes
 // negknow.Descriptor.Key(), SP-08 passes []byte(paths.Key(path)) — and this package performs no

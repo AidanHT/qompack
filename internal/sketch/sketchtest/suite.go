@@ -47,11 +47,22 @@ func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch
 		require.NoError(t, err, "a conforming sketch must be able to encode itself")
 		require.ErrorIs(t, s.UnmarshalBinary(nil), sketch.ErrTruncated, errNilFrame)
 
-		// Save and Load are held to the NARROWER vocabulary. They sit on the far side of the
-		// package boundary, where the mapping to core.ErrNotFound is the contract.
+		// Save and Load sit on the far side of the package boundary, and they are held to DIFFERENT
+		// vocabularies — see requireLoadError and requireSaveError for why the two are not the same
+		// contract. Each is probed twice: once on the path that succeeds, and once on a failure the
+		// probe provokes deliberately, because a check that only ever sees nil is not a check.
 		dir := t.TempDir()
-		requireKnownIOError(t, sketch.Save(filepath.Join(dir, "shape-probe.bin"), s))
-		requireKnownIOError(t, sketch.Load(filepath.Join(dir, "shape-probe.bin"), s))
+		probe := filepath.Join(dir, "shape-probe.bin")
+		requireSaveError(t, sketch.Save(probe, s))
+		requireLoadError(t, sketch.Load(probe, factory(t)))
+
+		refused := sketch.Save(filepath.Join(dir, sketch.TriedBloomBase), s)
+		require.Error(t, refused, "§7.4: Save must refuse %s outright", sketch.TriedBloomBase)
+		requireSaveError(t, refused)
+
+		absent := sketch.Load(filepath.Join(dir, "never-written.bin"), factory(t))
+		require.Error(t, absent, "loading a file that was never written must fail")
+		requireLoadError(t, absent)
 	})
 
 	t.Run(name+"/behaviour", func(t *testing.T) {
@@ -62,6 +73,7 @@ func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch
 		t.Run("crc_detects_a_flipped_bit", func(t *testing.T) { runFlippedBitRejectionCase(t, factory) })
 		t.Run("malformed_frames_report_the_matching_sentinel", func(t *testing.T) { runRejectionCases(t, factory) })
 		t.Run("nil_receiver_reports_rather_than_panics", func(t *testing.T) { runNilReceiverCase(t, factory) })
+		t.Run("anything_marshalled_can_be_unmarshalled", func(t *testing.T) { runZeroValueCase(t, factory) })
 	})
 }
 
@@ -71,16 +83,19 @@ func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch
 const errNilFrame = "UnmarshalBinary(nil) must be refused; a zero-length frame is truncated, " +
 	"not an empty sketch"
 
-// requireKnownIOError polices the PACKAGE boundary — sketch.Save and sketch.Load, which talk to
-// callers outside this package. It accepts nil and the four core sentinels ONLY, and this
-// narrowness is the assertion, not an oversight.
+// requireLoadError polices the READ side of the package boundary — sketch.Load and
+// sketch.LoadWithLog, which talk to callers outside this package. It accepts nil and the three core
+// sentinels ONLY, and this narrowness is the assertion, not an oversight.
 //
 // errors.go states the contract: Load maps every one of this package's decode sentinels to
 // core.ErrNotFound before returning, because a sketch is a cache and an unreadable one and a
 // missing one are the same event to everything upstream (§13 invariant 3). A Load that leaked a raw
 // ErrCorrupt would force every caller to learn this package's private error vocabulary in order to
 // answer "is my sketch usable?", which is exactly the coupling the mapping exists to prevent.
-func requireKnownIOError(t *testing.T, err error) {
+//
+// It was once named requireKnownIOError and applied to Save as well, which stated something untrue
+// of Save in a comment and never noticed, because the probe that used it only ever passed a nil.
+func requireLoadError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {
 		return
@@ -89,8 +104,36 @@ func requireKnownIOError(t *testing.T, err error) {
 		errors.Is(err, core.ErrBudget) ||
 		errors.Is(err, core.ErrDegraded)
 	require.True(t, known,
-		"Save/Load must map every failure to a core sentinel at the package boundary "+
+		"Load must map every failure to a core sentinel at the package boundary "+
 			"(§13 invariant 3); got %v", err)
+}
+
+// requireSaveError polices the WRITE side, and the vocabulary is deliberately a different one.
+//
+// Load's mapping exists because a missing sketch and an unreadable one are the same event to a
+// caller: both mean "start empty". Nothing analogous is true of Save. A caller that could not write
+// has to know WHY — §7.4's append-only refusal of sketches/tried.bloom is a routing error the caller
+// fixes by calling ReplaceGenerational, while a marshal failure is a bug in the sketch it is holding
+// — so Save reports core.ErrAppendOnly for the first and passes the encoder's own sentinel through
+// for the second. Collapsing both to core.ErrNotFound would be actively misleading: nothing was
+// looked up and nothing was missing.
+//
+// The filesystem's own errors are the third case and are NOT in the accepted set, because they are
+// not this package's to name: paths.WriteAtomic's failures reach the caller as themselves. That is
+// why this helper is applied to the two failures Save PRODUCES rather than to every failure Save can
+// return.
+func requireSaveError(t *testing.T, err error) {
+	t.Helper()
+	if err == nil {
+		return
+	}
+	known := errors.Is(err, core.ErrAppendOnly) ||
+		errors.Is(err, sketch.ErrGenerational) ||
+		errors.Is(err, sketch.ErrMalformed) ||
+		errors.Is(err, sketch.ErrTooLarge)
+	require.True(t, known,
+		"a failure Save itself produces must be core.ErrAppendOnly or one of this package's "+
+			"sentinels, never a bare error; got %v", err)
 }
 
 // The QPKS frame offsets this file needs (header.go's layout table). They are spelled out here
@@ -372,6 +415,45 @@ func runNilReceiverCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) 
 		"MarshalBinary on a nil %v must report ErrMalformed, not panic", dyn)
 	require.ErrorIs(t, nilRecv.UnmarshalBinary(nil), sketch.ErrMalformed,
 		"UnmarshalBinary on a nil %v must report ErrMalformed, not panic", dyn)
+}
+
+// runZeroValueCase pins the ceiling rule's second half (sketch's errors.go): every sketch that can
+// be MARSHALLED must be re-readable. A frame this build's own decoder is guaranteed to reject is
+// worse than no frame, because the refusal is loud and recoverable at the call site whereas the file
+// is discovered dead on the next restart — the one failure §6.2 exists to prevent and the one
+// sketch's doc.go says cannot happen.
+//
+// The receiver is the type's ZERO value, because that is the state the rule is actually reachable
+// through: a caller outside the package writing `var c sketch.CMS` rather than calling NewCMS gets a
+// sketch with no dimensions, and Save takes the interface. Two of the five refused such a receiver
+// from the start; the other two wrote a valid 94- and 54-byte frame that their own decoders then
+// refused forever, which is what put this case in the SHARED suite rather than in two more per-type
+// assertions.
+//
+// The assertion is deliberately a DISJUNCTION rather than "an unsized sketch must be refused",
+// because a legal zero value exists: sketch.SigSketch's is the disabled signature, Perms 0 and no
+// minima, which round-trips exactly and must keep doing so. What no implementation may do is the
+// third thing — write bytes and then refuse them.
+func runZeroValueCase(t *testing.T, factory func(t *testing.T) sketch.Sketch) {
+	t.Helper()
+
+	dyn := reflect.TypeOf(factory(t))
+	require.Equal(t, reflect.Pointer, dyn.Kind(),
+		"a Sketch must be a pointer type: UnmarshalBinary replaces the receiver's state")
+	zero, ok := reflect.New(dyn.Elem()).Interface().(sketch.Sketch)
+	require.True(t, ok, "a freshly allocated %v must still satisfy sketch.Sketch", dyn)
+
+	frame, err := zero.MarshalBinary()
+	if err != nil {
+		require.ErrorIs(t, err, sketch.ErrMalformed,
+			"a zero %v that refuses to marshal must say so with ErrMalformed", dyn)
+		require.Nil(t, frame, "nothing may be written when nothing can be read back")
+		return
+	}
+
+	require.NoError(t, factory(t).UnmarshalBinary(frame),
+		"a zero %v marshalled to %d bytes that its own decoder then refuses: either refuse to "+
+			"marshal it, or decode what was written — never both", dyn, len(frame))
 }
 
 // restamp recomputes the trailing CRC32C over a patched frame, so that the patched field is the only

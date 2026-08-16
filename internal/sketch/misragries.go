@@ -60,10 +60,15 @@ const (
 // above which a float64 param cannot distinguish neighbouring integers and MustParamInt would accept
 // the neighbour, since it rejects only non-integral floats. err ≤ total/(k+1) puts that regime out of
 // reach of any stream this system can produce — it would take nine quadrillion observations — but it
-// is a limit of the format, not a property it has. The min with math.MaxInt keeps the conversion into
-// the int the counter map holds defined on a 32-bit build as well as on a 64-bit one. And 2^61 leaves
-// room for MergeFrom to add two decoded counters — the one arithmetic this package performs on
-// numbers it did not itself compute — without overflowing int64.
+// is a limit of the format, not a property it has. And the min with math.MaxInt keeps the conversion
+// into the int the counter map holds defined on a 32-bit build as well as on a 64-bit one.
+//
+// It buys NO headroom for MergeFrom, and an earlier version of this comment claimed it did. 2^61
+// does leave room to add two decoded counters inside an int64 — but on a 32-bit target the min
+// selects math.MaxInt32, the map holds a 32-bit int, and two frames decoded at that ceiling sum to a
+// negative number. That is why MergeFrom saturates rather than relying on the constant's size: a
+// bound that only holds on some of §2.6's release targets is not a bound, and the arithmetic is the
+// place to fix it rather than the sentence.
 const maxMGCount = min(1<<61, math.MaxInt)
 
 // mgSatTotal returns total + n, saturating at maxMGCount rather than wrapping. Both arguments must be
@@ -90,9 +95,10 @@ func mgSatTotal(total, n int64) int64 {
 // for the counter map, which holds int rather than int64, and it exists for the same reason: a
 // wrapped counter would make Top report a key as having occurred a negative number of times.
 //
-// Both arguments must be non-negative, and both are: a is a stored counter, which Add keeps positive
-// and decodeV1 refuses at or below zero, and b is a weight Add's own guard has already rejected at
-// zero.
+// Both arguments must be non-negative, and both are at both call sites. a is a stored counter, which
+// Add keeps positive and decodeV1 refuses at or below zero. b is either a weight, which Add's own
+// guard has already rejected at or below zero, or a counter decoded from the other summary in
+// MergeFrom, which decodeV1 refuses on the same terms.
 //
 // The comparison is written as b > maxMGCount−a rather than as a+b > maxMGCount because the second
 // form has to compute the sum that may already have overflowed in order to test whether it did.
@@ -327,8 +333,15 @@ func (m *MisraGries) MergeFrom(o *MisraGries) error {
 		return fmt.Errorf("%w: cannot merge k = %d into k = %d", ErrShapeMismatch, o.k, m.k)
 	}
 
+	// Saturating rather than `+=`. maxMGCount is min(2^61, math.MaxInt), so on the 64-bit targets
+	// §2.6 releases for it is 2^61 and the plain sum of two decoded counters could not overflow —
+	// but the repo cross-builds, and on a 32-bit target maxMGCount is math.MaxInt32 while the map
+	// holds int, so two forged frames at the ceiling wrap the sum negative and Top reports a key as
+	// having occurred a negative number of times BEFORE MarshalBinary gets to refuse it. Saturating
+	// costs one comparison and leaves one fewer platform-conditional truth in the package; see
+	// mgSatCount, which exists for the same reason on the Add path.
 	for kk, c := range o.counters {
-		m.counters[kk] += c
+		m.counters[kk] = mgSatCount(m.counters[kk], c)
 	}
 	if len(m.counters) > m.k {
 		counts := make([]int, 0, len(m.counters))

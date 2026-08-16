@@ -115,6 +115,43 @@ func TestBloom_SizingTable(t *testing.T) {
 	}
 }
 
+// TestBloom_CappedBitsRederiveK pins the third clamp, the one Capacity() cannot surface.
+//
+// bloomSizing derives k from the UNCAPPED m and then holds m itself inside MaxBloomBits (the
+// ceiling rule in errors.go). Above capacity ≈ 9.34 M at p = 1e-6 the cap binds, and a k left over
+// from the m that was asked for is then wrong in the expensive direction: k = (m/n)·ln 2 minimises
+// the false-positive rate at a GIVEN m, so over-probing a filter that is now eight times smaller
+// raises the rate as well as the cost. The pair really is reachable — MaxBloomCapacity and
+// Appendix A's tightest rate are both legal configuration values — which is why this is a
+// re-derivation rather than a note in a comment.
+//
+// The uncapped rows in TestBloom_SizingTable are what pins the other half: the re-derivation must
+// not move any filter whose m was never capped.
+func TestBloom_CappedBitsRederiveK(t *testing.T) {
+	const tightFPRate = 1e-6
+	b := NewBloom(MaxBloomCapacity, tightFPRate)
+
+	m, k := b.Bits()
+	mRaw, uncappedK, _ := bloomSizing(MaxBloomCapacity, tightFPRate)
+	t.Logf("n=%d p=%g: mRaw=%.0f capped m=%d (m/n=%.1f) k=%d",
+		MaxBloomCapacity, tightFPRate, mRaw, m, float64(m)/float64(MaxBloomCapacity), k)
+
+	require.Equal(t, MaxBloomBits, m, "fixture sanity: this configuration must actually hit the cap")
+	require.Greater(t, mRaw, float64(MaxBloomBits), "and must have asked for more than the cap allows")
+	require.Equal(t, uint8(11), k,
+		"k must be re-derived from the capped m: m/n = 16, so (m/n)·ln2 = 11.09 → 11")
+	require.Equal(t, 11, uncappedK,
+		"bloomSizing must return the same k it stored, so no caller can read the pre-cap value")
+
+	// Capacity() still reports the configuration, which the cap has made unachievable. That is the
+	// documented behaviour rather than a second defect: the honest number is EstimatedFPRate, which
+	// is computed from the bits actually set.
+	n, fp := b.Capacity()
+	require.Equal(t, MaxBloomCapacity, n)
+	require.InDelta(t, tightFPRate, fp, 0)
+	require.Zero(t, b.EstimatedFPRate(), "an empty filter's observed rate is 0 whatever it was sized for")
+}
+
 // TestBloom_NoFalseNegatives asserts the one guarantee a Bloom filter is not allowed to break
 // (00-ARCHITECTURE.md §5.7): Test may report true for a key that was never added, but it must
 // never report false for a key that was. A false negative here would make §8.3's negative

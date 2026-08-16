@@ -602,6 +602,26 @@ func TestCMS_UnmarshalRejects(t *testing.T) {
 	require.ErrorIs(t, nilCMS.UnmarshalBinary(nil), ErrMalformed)
 	_, err := nilCMS.MarshalBinary()
 	require.ErrorIs(t, err, ErrMalformed)
+
+	// An UNSIZED table is refused for the reason bloom.go and misragries.go state: marshallable
+	// means re-readable. Without this guard `Save(p, &CMS{})` wrote a perfectly valid 94-byte frame
+	// declaring width = 0 and depth = 0, which this very decoder then refuses forever as
+	// "param depth = 0 outside [1, 64]" — a sketch that cannot survive a restart, which doc.go says
+	// cannot happen. The assertion is here as well as in RunSketchSuite because the suite states the
+	// contract generically and this states which numbers make THIS type unsized.
+	t.Run("an unsized table is not written", func(t *testing.T) {
+		frame, err := new(CMS).MarshalBinary()
+		require.ErrorIs(t, err, ErrMalformed)
+		require.Nil(t, frame, "nothing is written when nothing can be read back")
+
+		// The decoder's half of the same statement: had it been written, this is what would have
+		// happened on the next restart.
+		sized, sizedErr := NewCMS(cmsEpsilon, cmsDelta).MarshalBinary()
+		require.NoError(t, sizedErr)
+		require.NoError(t, NewCMS(cmsEpsilon, cmsDelta).UnmarshalBinary(sized),
+			"fixture sanity: a SIZED table's frame does decode, so the refusal above is about the "+
+				"dimensions and not about the encoding")
+	})
 }
 
 // cmsFrame assembles a QPKS frame carrying the four CMS params verbatim. It exists so the rejection

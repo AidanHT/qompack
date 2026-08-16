@@ -37,6 +37,64 @@ const (
 	hllTolerance = 0.07
 )
 
+// TestHLL_AlphaTableMatchesFlajolet pins all four bias-correction constants against the published
+// values (Flajolet, Fusy, Gandouet & Meunier, "HyperLogLog: the analysis of a near-optimal
+// cardinality estimation algorithm", 2007, Fig. 3): α₁₆ = 0.673, α₃₂ = 0.697, α₆₄ = 0.709, and
+// α_m = 0.7213/(1 + 1.079/m) for m ≥ 128.
+//
+// Two of the four are UNREACHABLE through the exported surface — NewHLL clamps to
+// MinHLLRegisters = 64 and decodeV1 refuses anything below it, so alpha(16) and alpha(32) are dead
+// as far as any sketch this package will ever build is concerned. The table's own comment calls
+// itself "a specification, not a tuning knob", and this test is what makes that true of the dead
+// two as well as the live two: a reference implementation's constants are checked against the
+// reference, not against whichever branches happen to be reachable this release. It is also the
+// cheaper of the two available answers, the other being to delete the two arms and lose fidelity to
+// the algorithm the file claims to implement.
+//
+// The closed form is checked at three widths rather than one so that a transcription error in
+// either of its two constants is caught: a wrong numerator would move every row by the same factor
+// and a wrong bias term would move them by different ones.
+func TestHLL_AlphaTableMatchesFlajolet(t *testing.T) {
+	// The three measured constants are compared exactly. The closed-form rows carry one ULP of
+	// slack and it is not a weakening: Go evaluates an untyped-constant expression at compile time
+	// in arbitrary precision and rounds once, while alpha does the same arithmetic in float64 and
+	// rounds twice, so the two can differ in the last bit. A transcription error in either constant
+	// moves the result by parts in a thousand, four orders of magnitude above this.
+	const closedFormULP = 1e-15
+
+	for _, tc := range []struct {
+		name  string
+		m     int
+		want  float64
+		delta float64
+	}{
+		{"m=16 is measured, not derived", 16, 0.673, 0},
+		{"m=32 is measured, not derived", 32, 0.697, 0},
+		{"m=64 is measured, not derived", 64, 0.709, 0},
+		{"m=128 uses the closed form", 128, 0.7213 / (1 + 1.079/128), closedFormULP},
+		{"m=2048 is Appendix C's register count", hllRegisters, 0.7213 / (1 + 1.079/2048), closedFormULP},
+		{"m=65536 is MaxHLLRegisters", MaxHLLRegisters, 0.7213 / (1 + 1.079/65536), closedFormULP},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.InDelta(t, tc.want, alpha(tc.m), tc.delta,
+				"α for m = %d is a published constant", tc.m)
+		})
+	}
+
+	// The measured small-m values exist BECAUSE the closed form does not reproduce them; if it did,
+	// the three case arms would be redundant rather than specified. Stating that here is what stops
+	// a future reader "simplifying" alpha down to its default branch.
+	for _, m := range []int{16, 32, 64} {
+		require.NotEqual(t, 0.7213/(1+1.079/float64(m)), alpha(m),
+			"α for m = %d must differ from the closed form, or the special case is pointless", m)
+	}
+
+	// And the two the constructor can actually produce are the two the estimator uses.
+	require.Equal(t, MinHLLRegisters, NewHLL(16).Registers(),
+		"NewHLL clamps below MinHLLRegisters, which is what makes alpha(16) unreachable in practice")
+	require.InDelta(t, 0.709, alpha(NewHLL(16).Registers()), 0)
+}
+
 // TestHLL_AppendixSizing pins 00-ARCHITECTURE.md §5.7's "2048 registers, ~2KB, ~2.3% error" to the
 // exact numbers this implementation produces, at all three of the places that claim is made:
 // the register count after clamping and power-of-two rounding, the marshalled frame length, and
@@ -370,6 +428,26 @@ func TestHLL_UnmarshalRejects(t *testing.T) {
 	require.ErrorIs(t, nilHLL.UnmarshalBinary(nil), ErrMalformed)
 	_, err = nilHLL.MarshalBinary()
 	require.ErrorIs(t, err, ErrMalformed)
+
+	// An UNSIZED sketch is refused for the reason bloom.go and misragries.go state: marshallable
+	// means re-readable. Without this guard `Save(p, &HLL{})` wrote a perfectly valid 54-byte frame
+	// declaring registers = 0, which this very decoder then refuses forever as
+	// "param registers = 0 outside [64, 65536]" — a sketch that cannot survive a restart, which
+	// doc.go says cannot happen. The assertion is here as well as in RunSketchSuite because the
+	// suite states the contract generically and this states which number makes THIS type unsized.
+	t.Run("an unsized sketch is not written", func(t *testing.T) {
+		unsized, unsizedErr := new(HLL).MarshalBinary()
+		require.ErrorIs(t, unsizedErr, ErrMalformed)
+		require.Nil(t, unsized, "nothing is written when nothing can be read back")
+
+		// The decoder's half of the same statement: had it been written, this is what would have
+		// happened on the next restart.
+		sized, sizedErr := NewHLL(hllRegisters).MarshalBinary()
+		require.NoError(t, sizedErr)
+		require.NoError(t, NewHLL(hllRegisters).UnmarshalBinary(sized),
+			"fixture sanity: a SIZED sketch's frame does decode, so the refusal above is about the "+
+				"register count and not about the encoding")
+	})
 }
 
 // hllForgedBody returns a register body that is entirely legal except for its LAST byte, which

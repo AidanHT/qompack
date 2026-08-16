@@ -54,6 +54,13 @@ const (
 // and errors.Is(err, core.ErrAppendOnly), which is the sentinel every other §7.4 guard in the tree
 // already reports and every caller already branches on.
 //
+// Save does NOT map its failures to core.ErrNotFound the way Load does, and errors.go says why: a
+// caller that could not write has to know which of the three things went wrong. The refusal above is
+// core.ErrAppendOnly; a sketch that cannot encode returns the encoder's own sentinel unchanged
+// (ErrMalformed or ErrTooLarge), because that is a bug in the value the caller is holding; and a
+// filesystem failure under paths.WriteAtomic reaches the caller as itself. sketchtest's
+// requireSaveError is the conformance statement of that vocabulary.
+//
 // Save creates no directories: the target's parent must already exist, which for a real project it
 // does, because paths.EnsureLayout creates .qompack/sketches/ at daemon start. paths.WriteAtomic
 // stages under <root>/.qompack/tmp when p resolves to a project root and under filepath.Dir(p)
@@ -149,28 +156,51 @@ func LoadWithLog(p string, s Sketch, log logging.Logger) error {
 // refused with ErrMalformed: a caller that hands over a path outside a project layout gets a clear
 // failure, never a silent write to the wrong place.
 //
-// # Precondition: seq must exceed every surviving backup's sequence
+// # Precondition: seq must exceed every surviving backup's sequence, and it is checked FIRST
 //
 // seq is not merely a label. paths.pruneBloomBackups keeps the backup with the HIGHEST sequence,
 // not the most recently written one, so a call whose seq is at or below a surviving backup's has
 // its own backup pruned the instant it is created. SP-09 drives seq from a monotonic rebuild
-// counter, which satisfies this; nothing enforces it at the type level, so it is checked here
-// rather than assumed.
+// counter, which satisfies this; nothing enforces it at the type level, so it is enforced here.
 //
-// Both consequences are reported rather than swallowed, because both are the state this function
-// exists to prevent:
+// It is a REFUSAL and not a report, and that is the whole of the fix. Detecting the violation
+// afterwards left one path that destroys data: paths.ReplaceBloom renames the current file to its
+// backup before it stages the new content, the prune then deletes that backup for being
+// low-sequenced, and a staging failure at that point finds nothing to roll back — so
+// sketches/tried.bloom, the append-only negative-knowledge file §7.4 protects, is simply gone.
+// Reporting it accurately is not preventing it. paths.HighestBloomBackupSeq answers the question
+// before anything moves, and a violated precondition now costs a wrapped ErrMalformed and no
+// filesystem change at all.
 //
-//   - On success, the backup is stat'd before its path is returned. A caller must never be handed
-//     a path to a file that was deleted a microsecond after it was written; that path would read
-//     as "the previous generation is here" and be wrong. A violated precondition is ErrMalformed.
-//   - On failure, the rollback rename is CHECKED. paths.ReplaceBloom moves the current file to the
-//     backup before staging, so if the backup was pruned there is nothing left to roll back and the
-//     store now has no tried.bloom at all — strictly worse than the write error alone, and reported
-//     as its own failure wrapping both errors so neither is lost.
+// The two post-hoc checks below remain, narrower than they were:
+//
+//   - On success, the backup is stat'd before its path is returned, so a caller is never handed a
+//     path to a file that no longer exists.
+//   - On failure, the rollback rename is CHECKED, because a rollback that silently no-ops leaves
+//     the store with no tried.bloom at all — strictly worse than the write error alone.
+//
+// Neither can now be reached by a mis-sequenced call: the pre-flight excludes that cause. What is
+// left is a concurrent mutator — a second daemon, a stray rm, a scanner holding a handle — and for
+// a file this package promises cannot be lost, "that should be impossible" is the wrong thing to
+// print instead of an error.
 func ReplaceGenerational(p string, s Sketch, seq int) (backup string, err error) {
 	l, err := triedBloomLayout(p)
 	if err != nil {
 		return "", err
+	}
+	// Before the marshal, not after it: a mis-sequenced call is wrong about the call and not about
+	// the sketch, so it must report the same way whether or not the sketch happened to encode.
+	surviving, hasBackup, err := paths.HighestBloomBackupSeq(l)
+	if err != nil {
+		return "", fmt.Errorf("reading %s to check the surviving backup sequence: %w", l.Sketches, err)
+	}
+	if hasBackup && seq <= surviving {
+		return "", fmt.Errorf(
+			"%w: replacing %s with seq %d, which does not exceed the surviving backup %s: its own "+
+				"backup would be pruned the instant it was made, and a staging failure would then "+
+				"leave no %s at all",
+			ErrMalformed, p, seq,
+			filepath.Join(l.Sketches, fmt.Sprintf(triedBloomBackupFormat, surviving)), TriedBloomBase)
 	}
 	b, err := s.MarshalBinary()
 	if err != nil {
@@ -186,10 +216,10 @@ func ReplaceGenerational(p string, s Sketch, seq int) (backup string, err error)
 		if hadOld {
 			if rollbackErr := os.Rename(paths.Long(bak), paths.Long(p)); rollbackErr != nil {
 				return "", fmt.Errorf(
-					"%w: and the rollback failed too (%w), so %s no longer exists: seq %d did not "+
-						"exceed a surviving backup's sequence, so the backup this rollback needed was "+
-						"pruned as soon as it was made",
-					writeErr, rollbackErr, p, seq)
+					"%w: and the rollback failed too (%w), so %s no longer exists: %s was created "+
+						"by paths.ReplaceBloom and is not there now, which the seq %d pre-flight has "+
+						"already ruled out as a pruning — something outside this process moved it",
+					writeErr, rollbackErr, p, bak, seq)
 			}
 		}
 		return "", writeErr
@@ -200,9 +230,9 @@ func ReplaceGenerational(p string, s Sketch, seq int) (backup string, err error)
 	}
 	if _, err := os.Stat(paths.Long(bak)); err != nil {
 		return "", fmt.Errorf(
-			"%w: %s was replaced, but its backup %s is already gone (%v): seq %d did not exceed a "+
-				"surviving backup's sequence, so paths.pruneBloomBackups kept that one and deleted "+
-				"this one",
+			"%w: %s was replaced, but its backup %s is already gone (%v): seq %d exceeded every "+
+				"surviving backup when this call began, so pruning cannot account for it — something "+
+				"outside this process removed it",
 			ErrMalformed, p, bak, err, seq)
 	}
 	return bak, nil
@@ -232,6 +262,16 @@ func triedBloomLayout(p string) (paths.Layout, error) {
 // returns the new path (00-ARCHITECTURE.md §12.3). It assumes no directory layout, so it works on
 // any sketch file anywhere, and it creates nothing: the rename frees the original name for a
 // rebuild while keeping the damaged bytes on disk for an operator to look at.
+//
+// It calls os.Rename directly rather than going through paths, so Quarantine(<root>/.qompack/
+// sketches/tried.bloom) MOVES the file doc.go says only ReplaceGenerational may replace. That is a
+// deliberate, corruption-only exemption and not a hole in the §7.4 guard: §12.3's recovery is
+// "bloom load fails → quarantine the bytes → rebuild from records/eliminations.jsonl", and a file
+// whose CRC no longer verifies is not negative knowledge any more — refusing to move it would leave
+// the store permanently unable to rebuild, which is the opposite of what append-only protects. The
+// exemption is narrow by construction: the only caller that reaches it is one whose Load has
+// already failed, and a Quarantine of an intact filter would be a caller bug rather than something
+// this function can distinguish.
 //
 // This is the one place in the package that reads a clock, isolated here so that no marshalled byte
 // can ever depend on the time. It is deliberately not core.Clock-injected: nothing in this

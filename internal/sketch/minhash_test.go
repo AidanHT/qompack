@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"slices"
 	"strings"
 	"testing"
 
@@ -147,39 +148,51 @@ func mhRepeated(line string, n int) []byte {
 	return out[:n]
 }
 
-// mhSelection reports where the sampler's halving retry must land for data: the rate of the first
-// pass that keeps anything, the number of shingle POSITIONS kept at it, and the number of DISTINCT
-// shingles in the document — the count the initial rate is NOT derived from, which is the whole of
-// the bug this pins.
+// mhBottomK restates §5's selection rule the slow, obvious way: every DISTINCT shingle hash of
+// data, sorted ascending, truncated to MinHashSampleTarget. It returns that set and the document's
+// total distinct-shingle count.
 //
-// It restates §5's selection rule (keep iff fnv1a64(shingle) ≤ MaxUint64/rate, halve on an empty
-// pass) directly from the spec rather than calling minHashWithStats, so that it is an independent
-// statement of where the retry should stop and not an echo of where it does. An implementation that
-// jumped straight to rate 1 instead of halving would keep far more than this predicts and fail.
-func mhSelection(data []byte, w int) (rate, kept, distinct int) {
+// It is written from the specification rather than by calling minHashWithStats, so that the tests
+// below compare the implementation against an independent statement of what bottom-k means and not
+// against an echo of what the implementation does. The map-and-sort form is far too slow to ship —
+// TestMinHash_BottomKMatchesTheSlowDefinition is what ties the shipped selector to it — and that is
+// the point: a reference implementation should be the one whose correctness is obvious by reading.
+func mhBottomK(data []byte, w int) (sample []uint64, distinct int) {
 	nsh := len(data) - w + 1
-	hashes := make([]uint64, nsh)
-	seen := make(map[uint64]struct{})
-	for i := range hashes {
-		hashes[i] = fnv1a64(data[i : i+w])
-		seen[hashes[i]] = struct{}{}
+	if nsh <= 0 {
+		return nil, 0
 	}
-	for rate = (nsh + MinHashSampleTarget - 1) / MinHashSampleTarget; rate >= 1; rate /= 2 {
-		keep := uint64(math.MaxUint64)
-		if rate > 1 {
-			keep = math.MaxUint64 / uint64(rate)
-		}
-		kept = 0
-		for _, h := range hashes {
-			if h <= keep {
-				kept++
+	seen := make(map[uint64]struct{}, nsh)
+	for i := 0; i < nsh; i++ {
+		seen[fnv1a64(data[i:i+w])] = struct{}{}
+	}
+	all := make([]uint64, 0, len(seen))
+	for h := range seen {
+		all = append(all, h)
+	}
+	slices.Sort(all)
+	if len(all) > MinHashSampleTarget {
+		return all[:MinHashSampleTarget], len(all)
+	}
+	return all, len(all)
+}
+
+// mhSignatureOf returns the signature a permutation pass over sample produces, so a test can assert
+// that the shipped sampler kept exactly the set mhBottomK says it must — the sharpest available
+// statement, since two different kept sets almost always produce different minima.
+func mhSignatureOf(sample []uint64, perms int) Signature {
+	mins := make([]uint64, perms)
+	for i := range mins {
+		mins[i] = math.MaxUint64
+	}
+	for _, h := range sample {
+		for j := range mins {
+			if v := (splitmix64(uint64(2*j))|1)*h + splitmix64(uint64(2*j+1)); v < mins[j] {
+				mins[j] = v
 			}
 		}
-		if kept > 0 {
-			break
-		}
 	}
-	return rate, kept, len(seen)
+	return Signature{Perms: uint16(perms), Mins: mins}
 }
 
 // mhGoTestOutput returns a deterministic imitation of `go test -v` output: lines PASS lines whose
@@ -406,19 +419,17 @@ func TestMinHash_SubsamplingEngages(t *testing.T) {
 	t.Logf("1 MiB input: %d shingles, %d kept (1 in %.1f), target %d",
 		shingles, kept, float64(shingles)/float64(kept), MinHashSampleTarget)
 
-	require.LessOrEqual(t, kept, 2*MinHashSampleTarget, "the sampler must bound the work")
-	// The upper bound above is a property of the ALGORITHM; this lower bound is a property of THIS
-	// fixture, and the distinction matters. A pseudo-random megabyte has essentially no repeated
-	// 8-grams, so its distinct-shingle count is its position count and the rate lands where the
-	// arithmetic intends. A repetitive document keeps far fewer than half the target and is right to
-	// — TestMinHash_RepetitiveDocumentIsNotEmpty owns that case, and asserting the same floor there
-	// would be asserting something false.
-	require.GreaterOrEqual(t, kept, MinHashSampleTarget/2,
-		"a document whose shingles are all distinct must land near the target")
+	// Bottom-k makes this an EQUALITY rather than a bound: a document with at least
+	// MinHashSampleTarget distinct shingle hashes keeps exactly that many, whatever its length. The
+	// rate-based sampler this replaced could only promise "about" the target, because ⌈nsh/target⌉
+	// rounds the rate to a whole number and the kept count then fell anywhere in (target/2, target].
+	require.Equal(t, MinHashSampleTarget, kept, "the sampler must keep exactly the target")
 
 	t.Run("below the target every shingle is kept", func(t *testing.T) {
-		// rate <= 1 is the other branch: a document under MinHashSampleTarget shingles is measured
-		// in full, so a small document loses no accuracy to a sampler it never needed.
+		// The other branch: a document at or under MinHashSampleTarget shingles is measured in full,
+		// so a small document loses no accuracy to a selection it never needed — and the count is
+		// shingle POSITIONS there, since no selection runs and duplicates cost only a repeated
+		// minimum, which is idempotent.
 		small := mhDoc(mhSeedA, mhDocBytes)
 		_, keptSmall := minHashWithStats(small, mhOptions())
 		require.Equal(t, len(small)-mhShingleSize+1, keptSmall)
@@ -430,33 +441,38 @@ func TestMinHash_SubsamplingEngages(t *testing.T) {
 	})
 }
 
-// TestMinHash_RepetitiveDocumentIsNotEmpty is the case the sampler's halving retry exists for, and
-// it is a correction to the plan's algorithm rather than an elaboration of it.
+// TestMinHash_RepetitiveDocumentIsNotEmpty pins the property bottom-k selection makes STRUCTURAL
+// rather than merely handled: a document with at least one shingle always keeps at least one
+// shingle hash, so the empty-document signature is unreachable for a non-empty document.
 //
-// The rate is derived from nsh — shingle POSITIONS — but selection applies to distinct shingle
-// HASHES. A megabyte of one repeated line has over a million positions and therefore rate 128, but
-// only as many distinct shingles as the line is long, each surviving with probability 1/128. The
-// odds that none survives are better than even. When that happens every minimum stays MaxUint64,
-// which is BYTE-IDENTICAL to the canonical empty-document signature of step 4 — so the document
-// would report Jaccard 1 against an empty document, against "abc", and against any other document
-// that also sampled to nothing, and SP-06 would store a delta in place of the text.
+// The case exists because the rate-based sampler this replaced could not make that promise. Its
+// rate was derived from nsh — shingle POSITIONS — while selection applied to distinct shingle
+// HASHES, and on repetitive input the two diverge without limit: a megabyte of one repeated line
+// has over a million positions and therefore rate 128, but only as many distinct shingles as the
+// line is long, each surviving with probability 1/128, so better than even odds that NOTHING
+// survived. Every minimum then stayed MaxUint64 — byte-identical to the canonical empty-document
+// signature — and the document reported Jaccard 1 against an empty document, against "abc", and
+// against every other document that also sampled to nothing, with SP-06 storing a delta in place of
+// the text. Ruling MH1 answered that with a halving retry; bottom-k removes the case instead,
+// because "the smallest k distinct hashes" of a set with one element is that element.
 //
-// The fixture is chosen so that the naive single-pass rate really does keep nothing: that is
-// asserted first, so this test fails loudly if it ever stops exercising the retry.
+// The fixture is deliberately the same one the retry was written for: this document has ~58
+// distinct 8-shingles among 1 048 569 positions, which is exactly the divergence that broke the
+// rate-based rule.
 func TestMinHash_RepetitiveDocumentIsNotEmpty(t *testing.T) {
 	doc := mhRepeated(mhBuildLogLine, mhBigDocBytes)
 	nsh := len(doc) - mhShingleSize + 1
-	initialRate := (nsh + MinHashSampleTarget - 1) / MinHashSampleTarget
 
-	rate, wantKept, distinct := mhSelection(doc, mhShingleSize)
-	t.Logf("%d bytes of one %d-byte line: %d shingle positions but only %d distinct; "+
-		"initial rate %d keeps nothing, the retry lands on rate %d keeping %d positions",
-		len(doc), len(mhBuildLogLine), nsh, distinct, initialRate, rate, wantKept)
-	require.Less(t, rate, initialRate,
-		"fixture sanity: this document must be one the single-pass sampler throws away entirely")
+	wantSample, distinct := mhBottomK(doc, mhShingleSize)
+	t.Logf("%d bytes of one %d-byte line: %d shingle positions but only %d distinct; bottom-k keeps "+
+		"all %d of them, since the document has fewer than MinHashSampleTarget (%d)",
+		len(doc), len(mhBuildLogLine), nsh, distinct, len(wantSample), MinHashSampleTarget)
+	require.Less(t, distinct, MinHashSampleTarget,
+		"fixture sanity: this document must have fewer distinct shingles than the sample target, "+
+			"which is the divergence between positions and distinct hashes the case is about")
 
 	sig, kept := minHashWithStats(doc, mhOptions())
-	require.Equal(t, wantKept, kept, "the retry must halve, not jump straight to rate 1")
+	require.Equal(t, distinct, kept, "every distinct hash is kept when there are fewer than the target")
 	require.Positive(t, kept)
 
 	// The signature must not BE the empty-document signature.
@@ -517,6 +533,122 @@ func TestMinHash_SubsamplingStillShiftInvariant(t *testing.T) {
 		insertBytes, keptA, keptB, got)
 
 	require.GreaterOrEqual(t, got, 0.85)
+}
+
+// The straddle fixture. Together these walk a growing document across the first several multiples
+// of MinHashSampleTarget — the sizes at which the rate-based sampler this replaced changed its
+// keep-threshold by a whole integer step.
+const (
+	// mhStraddleMultiples is how many MinHashSampleTarget boundaries the case walks. Eight covers
+	// ~8 KB through ~66 KB, which is the whole size range of an ordinary tool result.
+	mhStraddleMultiples = 8
+	// mhStraddleBelow is how far below a boundary the smaller document's shingle count sits.
+	mhStraddleBelow = 50
+	// mhStraddleInsert is the size of the block spliced into the larger document. 150 bytes is what
+	// the cliff was reproduced with, and it is enough to carry the larger document past the boundary
+	// the smaller one sits below while leaving the two near-identical.
+	mhStraddleInsert = 150
+)
+
+// TestMinHash_StraddlingTheSampleTargetIsContinuous is the dimension whose absence let a
+// length-dependent sampler through eight task-scoped reviews: two near-identical documents whose
+// shingle counts fall on OPPOSITE sides of a multiple of MinHashSampleTarget.
+//
+// Every other case in this file compares documents the old sampler treated identically. The 4 KiB
+// cases and property_test.go's TestProp_MinHashJaccardAccuracy both keep their documents under the
+// target deliberately; TestMinHash_SubsamplingStillShiftInvariant uses 1 MiB against 1 MiB + 4 KiB,
+// where ⌈nsh/target⌉ differs by one part in 128. None of them can see the failure, and the failure
+// is not subtle: under the rate-based rule, A sampled at rate 1 and B at rate 2 kept sets of
+// different DENSITY, so for each permutation the two minima agreed with probability ≈ 1/2 however
+// similar the documents were — an estimate of ~0.41 against a true Jaccard of ~0.98, at every
+// boundary, for the one input shape §8.1 item 1 exists to detect (a document that grew by a line).
+//
+// Bottom-k removes the boundary rather than moving it: the effective threshold is the k-th smallest
+// distinct hash, which varies continuously with the document instead of stepping at multiples of
+// the target, so two documents of similar size get near-identical thresholds.
+func TestMinHash_StraddlingTheSampleTargetIsContinuous(t *testing.T) {
+	for m := 1; m <= mhStraddleMultiples; m++ {
+		t.Run(fmt.Sprintf("boundary at %d×MinHashSampleTarget", m), func(t *testing.T) {
+			// A sits mhStraddleBelow shingles under the boundary; B carries mhStraddleInsert more,
+			// so it sits above it. Both are the same document apart from one spliced block.
+			nshA := m*MinHashSampleTarget - mhStraddleBelow
+			a := mhDoc(mhSeedA, nshA+mhShingleSize-1)
+			b := mhInsert(a, mhDoc(mhSeedB, mhStraddleInsert), len(a)/2)
+			require.Len(t, b, len(a)+mhStraddleInsert)
+
+			sigA, keptA := minHashWithStats(a, mhOptions())
+			sigB, keptB := minHashWithStats(b, mhOptions())
+			exact := mhExactJaccard(a, b, mhShingleSize)
+			got := sigA.Jaccard(sigB)
+			t.Logf("len %d/%d  shingles %d/%d  kept %d/%d  exact %.4f  estimate %.4f  nearDup %v",
+				len(a), len(b), nshA, nshA+mhStraddleInsert, keptA, keptB, exact, got,
+				sigA.IsNearDup(sigB, mhNearDup))
+
+			require.Greater(t, nshA, (m-1)*MinHashSampleTarget,
+				"fixture sanity: the smaller document must sit below this boundary")
+			require.Less(t, nshA, m*MinHashSampleTarget)
+			require.Greater(t, nshA+mhStraddleInsert, m*MinHashSampleTarget,
+				"fixture sanity: the larger document must sit above it")
+			require.GreaterOrEqual(t, exact, mhNearDup,
+				"fixture sanity: the two documents must genuinely be near-duplicates")
+
+			require.InDelta(t, exact, got, 0.1,
+				"§15: the estimate must stay within 0.1 of exact across the boundary")
+			require.True(t, sigA.IsNearDup(sigB, mhNearDup),
+				"§8.1 item 1: a document that grew by one block must still read as a near-duplicate")
+		})
+	}
+}
+
+// TestMinHash_BottomKMatchesTheSlowDefinition ties the shipped selector to the specification.
+//
+// The selector is a seeded threshold, an open-addressed distinct set and a quickselect refinement,
+// none of which is obviously "the k smallest distinct hashes" from reading it. mhBottomK IS
+// obviously that, and comparing the two on documents that exercise every branch — under the target,
+// over it, over it with heavy repetition (the seeded threshold's fallback), and at a non-default
+// shingle width — is what makes the fast implementation's correctness a test rather than an
+// argument. Minima are compared rather than counts, because two different kept sets of the same
+// size almost always produce different minima and a count comparison would not notice.
+func TestMinHash_BottomKMatchesTheSlowDefinition(t *testing.T) {
+	thrice := func(b []byte) []byte {
+		return append(append(append([]byte(nil), b...), b...), b...)
+	}
+	for _, tc := range []struct {
+		name    string
+		data    []byte
+		shingle int
+	}{
+		{"under the target", mhDoc(mhSeedA, mhDocBytes), mhShingleSize},
+		{"one shingle under the target", mhDoc(mhSeedA, MinHashSampleTarget+mhShingleSize-2), mhShingleSize},
+		{"exactly the target", mhDoc(mhSeedA, MinHashSampleTarget+mhShingleSize-1), mhShingleSize},
+		{"one shingle over the target", mhDoc(mhSeedA, MinHashSampleTarget+mhShingleSize), mhShingleSize},
+		{"1 MiB, every shingle distinct", mhDoc(mhSeedBig, mhBigDocBytes), mhShingleSize},
+		{"every shingle repeated three times", thrice(mhDoc(mhSeedB, 70<<10)), mhShingleSize},
+		{"1 MiB of one repeated line", mhRepeated(mhBuildLogLine, mhBigDocBytes), mhShingleSize},
+		{"a 64-byte shingle width", mhDoc(mhSeedShift, 200<<10), maxShingleSize},
+		{"a 2-byte shingle width", mhDoc(mhSeedShift, 200<<10), minShingleSize},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := mhOptions()
+			o.ShingleSize = tc.shingle
+			got, kept := minHashWithStats(tc.data, o)
+
+			sample, distinct := mhBottomK(tc.data, tc.shingle)
+			t.Logf("%d bytes, %d-byte shingles: %d distinct, reference keeps %d, sampler kept %d",
+				len(tc.data), tc.shingle, distinct, len(sample), kept)
+
+			// A document at or under the target runs no selection at all, so it permutes every
+			// POSITION; the reference permutes the distinct SET. The minima agree either way,
+			// because a repeated minimum is idempotent — which is exactly why no selection is
+			// needed there.
+			require.Equal(t, mhSignatureOf(sample, mhPerms), got,
+				"the shipped sampler must keep the same set the slow definition does")
+			if len(tc.data)-tc.shingle+1 > MinHashSampleTarget {
+				require.Equal(t, len(sample), kept,
+					"above the target the sampler reports the number of DISTINCT hashes it kept")
+			}
+		})
+	}
 }
 
 // TestMinHash_Symmetric pins Jaccard's symmetry, including on the paths that return 0. Symmetry is

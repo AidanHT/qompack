@@ -59,8 +59,9 @@ const (
 	// few thousand structured entries".
 	benchRebuildKeys = 5000
 	// benchMinHash4KiB and benchMinHash100KiB are the two MinHash input sizes. The first is below
-	// MinHashSampleTarget and hashes every shingle; the second is above it and exercises the
-	// content-defined sampler, which is the reason the two rows have different budgets.
+	// MinHashSampleTarget and hashes every shingle with no selection at all; the second is above it
+	// and exercises the bottom-k selector, which is the reason the two rows have different budgets
+	// and the reason the second allocates where the first does not.
 	benchMinHash4KiB   = 4 << 10
 	benchMinHash100KiB = 100 << 10
 )
@@ -396,7 +397,10 @@ func TestL0SketchUpdate_ZeroAlloc(t *testing.T) {
 }
 
 // BenchmarkMinHash4KiB measures a 4 KiB document at 128 permutations: ≈ 4 089 shingles, below
-// MinHashSampleTarget, so every shingle is permuted and no subsampling happens.
+// MinHashSampleTarget, so every shingle is permuted and no selection runs. It is the row that pins
+// the small-document path at two allocations — the minima and the coefficient table, nothing else —
+// since the selector's structures are allocated only above the target and the hashing batch stays
+// on the stack.
 // Budget: ≤ 1.5 ms/op. This is a B-C measurement, not B-A — MinHash runs in the daemon's async
 // worker (l0_process, p99 < 50 ms, soft), never in the hook.
 func BenchmarkMinHash4KiB(b *testing.B) {
@@ -409,9 +413,15 @@ func BenchmarkMinHash4KiB(b *testing.B) {
 	}
 }
 
-// BenchmarkMinHash100KiB measures a 100 KiB document at 128 permutations. The content-defined
-// sampler keeps ≈ MinHashSampleTarget shingles, so the permutation work is flat in the document
-// size and only the FNV pass over the input grows. Budget: ≤ 2.5 ms/op, also under B-C.
+// BenchmarkMinHash100KiB measures a 100 KiB document at 128 permutations. Bottom-k keeps exactly
+// MinHashSampleTarget distinct hashes, so the permutation work is flat in the document size and only
+// the FNV pass over the input grows. Budget: ≤ 2.5 ms/op, also under B-C.
+//
+// Its allocation figure is flat in the document size too, and deliberately so: the selector's table
+// and buffer are sized from MinHashSampleTarget, so a 1 MiB input allocates the same ~396 KiB this
+// row reports. The row carries no allocation budget — testdata/bench-baseline.txt names the six
+// that do — but the number is worth watching for the same reason, since a size that tracked the
+// document would be a different algorithm.
 //
 // This row is the noisiest in the file: the identical body has been measured swinging between
 // 1.69 ms and 2.83 ms on the development host depending on machine load. Judge it with benchstat

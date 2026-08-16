@@ -5,9 +5,19 @@ import "errors"
 // The sentinel errors every decoder in this package returns. They are deliberately fine-grained:
 // a corrupt sketch and a truncated one call for different operator responses (bit rot on disk
 // versus an interrupted write), and 00-ARCHITECTURE.md §13 invariant 10 requires degradation to
-// be loud enough to tell them apart. Callers match with errors.Is; io.go maps every one of them
-// to core.ErrNotFound at the package boundary, because a sketch is a cache and a missing cache and
-// an unreadable cache are the same event to everything upstream (§13 invariant 3).
+// be loud enough to tell them apart. Callers match with errors.Is; Load and LoadWithLog map every
+// one of them to core.ErrNotFound at the package boundary, because a sketch is a cache and a
+// missing cache and an unreadable cache are the same event to everything upstream (§13
+// invariant 3).
+//
+// SAVE IS NOT THE SAME CONTRACT, and the asymmetry is deliberate rather than an omission. Load's
+// mapping exists because "missing" and "unreadable" both mean "start empty" to a caller; nothing
+// analogous is true of a write. Save refuses sketches/tried.bloom with core.ErrAppendOnly wrapping
+// ErrGenerational, which names the door to use instead, and passes a marshal failure's own sentinel
+// through unchanged, because those are two different bugs in the caller and collapsing them to
+// core.ErrNotFound would say that something was looked up and not found when nothing was. A
+// filesystem failure under paths.WriteAtomic reaches the caller as itself, since it is not this
+// package's to rename. sketchtest's requireLoadError and requireSaveError hold the two halves apart.
 //
 // Every rejection path in DecodeHeader returns one of these values BARE, never wrapped with
 // fmt.Errorf. That is not stylistic: wrapping allocates, and TestHeader_RejectLyingBodyLen holds
