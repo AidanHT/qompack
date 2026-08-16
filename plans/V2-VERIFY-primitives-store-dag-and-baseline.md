@@ -265,6 +265,30 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 
 ### 2.7 SP-07 — dependence DAG and slicing (`internal/dag`)
 
+> **Read `plans/V2-SP07-handoff.md` before executing this table.** Seven rows below, plus
+> V2-ALL-04, do not reconcile against a literal reading of their *Expected result* column. Two of
+> them repeat defects SP-02 already reported in §2.2 — see `plans/V2-SP02-handoff.md`; if the same
+> two flaws appear in two independently written sections, assume §2.3–§2.6 carry them too:
+>
+> - **V2-SP07-16 is wrong as written** (SP-02's V2-SP02-12 is the same defect). Its grep can never
+>   return nothing, and satisfying it literally means deleting Rule W-1's mandatory skip
+>   (`00-ARCHITECTURE.md` D9/§5.22), which an SP-01 test asserts must fire. Dag's own conformance
+>   run already has zero skips.
+> - **V2-SP07-20 passes vacuously** (same hole SP-02 closed for `internal/eval`). `devtool cover`
+>   never checks a non-SP-01 package's floor — it prints `exempt (stub, owned by SP-07)` without
+>   testing whether the package is still a stub, so the row would report success at 0 %. The fix is
+>   to add SP-07 to the `landedSubplans` list SP-02 introduced. Measured directly: 90.9 %.
+> - **V2-SP07-03, -02, -11, -12, -13** diverge because SP-01 froze `want/node_line.jsonl` and
+>   `want/edge_line.jsonl` before SP-07 was written (NodeID is 378 bytes not 376; kinds round-trip
+>   via `String()`/`Parse*` and must **not** gain `MarshalText`; the generation record is
+>   `"type":"generation"` not `g`; `thin-vs-full.json` carries no `ns_thin`/`ns_full`).
+> - **V2-SP07-05** runs 250 iterations, not 2 000, for a quadratic-cost reason recorded at the test.
+> - **V2-ALL-04** cannot run: this repository has no git remote.
+>
+> The handoff file gives evidence and a resolution for each, plus three carry-forward **ACTION**
+> items and an obligation SP-09 inherits. Note also that `go test -run` prints `ok` when its pattern
+> matches nothing — one row here was silently verifying only half of what it claimed.
+
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
 | V2-SP07-01 | Package green under race | `go test -race ./internal/dag/...` | exit 0 |
