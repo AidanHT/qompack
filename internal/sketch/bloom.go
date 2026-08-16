@@ -147,7 +147,18 @@ func bloomSizing(n int, p float64) (mRaw float64, k int, mBits uint64) {
 	// largest filter a constructor will build must still marshal to a frame under MaxFrameBytes.
 	mBits = (uint64(mRaw) + wordBits - 1) &^ wordMask
 	if mBits > MaxBloomBits {
+		// The cap changed m, so k is re-derived from the array actually allocated. k = (m/n)·ln 2 is
+		// the value that MINIMISES the false-positive rate at a given m; keeping the k that was
+		// optimal for the uncapped m over-probes a filter that is now much smaller, which raises the
+		// rate rather than lowering it. NewBloom(MaxBloomCapacity, 1e-6) is the reachable case:
+		// m/n lands at 16, where the optimal k is 11 and the k derived from the uncapped 2^33-bit
+		// array was 20 — nearly double the probes for a worse answer.
+		//
+		// Capacity() still reports the (n, p) it was constructed with, which the cap has now made
+		// unachievable; its doc comment says so, and EstimatedFPRate reports the truth from the bits
+		// actually set.
 		mBits = MaxBloomBits
+		k = clampInt(int(math.Round(float64(mBits)/float64(n)*math.Ln2)), 1, maxBloomHashes)
 	}
 	if mBits == 0 {
 		mBits = wordBits
@@ -255,6 +266,16 @@ func (b *Bloom) Bits() (m uint64, k uint8) { return b.mBits, b.k }
 // Capacity returns the entry count and false-positive rate b was constructed with, AFTER clamping.
 // Reporting the clamped pair rather than the arguments is what makes a silently corrected
 // configuration visible: a caller that asked for p = 0 can see it got minBloomFPRate.
+//
+// It surfaces two of the THREE clamps, and the third is worth naming because this is where a reader
+// looks for it. n and p are clamped here and reported here; the bit array is clamped separately, to
+// MaxBloomBits, by the ceiling rule in errors.go, and that clamp does not move n or p — so a filter
+// whose m was capped still reports the p it was asked for while being unable to deliver it. Above
+// capacity ≈ 9.34 M entries at p = 1e-6 the cap binds; bloomSizing re-derives k for the array it
+// actually allocated, so the filter is at least optimal at the size it got, and Bits reports that
+// size. EstimatedFPRate is the honest number either way: it is computed from the bits actually set
+// rather than from the configuration, which is also why §11.4 asks operators to watch it and not
+// this.
 func (b *Bloom) Capacity() (n int, fp float64) { return b.capacity, b.fpRate }
 
 // SetCreated stamps the construction time carried in the on-disk header. It is a setter rather

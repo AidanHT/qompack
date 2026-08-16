@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/bits"
 
 	"github.com/qompack/qompack/internal/core"
 )
@@ -22,11 +23,24 @@ const paramPerms = "perms"
 // score above the near-duplicate threshold.
 const DefaultShingleSize = 8
 
-// MinHashSampleTarget is the number of shingles the content-defined sampler aims to keep, whatever
-// the input size. It is the cost bound: without it a 1 MiB tool result would cost 1 048 569
-// shingles × 128 permutations ≈ 134 million multiply-compares on a hook path §8.1 budgets in
-// milliseconds. With it the work is flat in the document size, and the accuracy lost is the
-// accuracy of an 8 192-sample estimate — well inside §15's "within 0.1 of exact".
+// MinHashSampleTarget is the number of DISTINCT shingle hashes a signature is computed over: MinHash
+// keeps the MinHashSampleTarget smallest of them and permutes only those. It is the cost bound —
+// without it a 1 MiB tool result would cost 1 048 569 shingles × 128 permutations ≈ 134 million
+// multiply-compares on a path §8.1 budgets in milliseconds — and with it the permutation work is
+// flat in the document size, at the accuracy of an 8 192-sample estimate, well inside §15's "within
+// 0.1 of exact".
+//
+// It is a COUNT and not a sampling-rate target, and the distinction is the whole of Ruling MH2. The
+// sampler that shipped first derived a rate ⌈nsh/target⌉ from the shingle count and kept every
+// distinct hash below MaxUint64/rate. That made the keep-threshold a STEP function of document
+// length: two near-identical documents whose shingle counts straddled a multiple of this constant
+// were sampled at densities differing by a whole integer factor, so for each permutation their
+// minima agreed with probability ≈ 1/rate however similar the documents were — 0.45 estimated
+// against a true Jaccard of 0.98 at the first boundary, and a boundary every 8 KB thereafter, across
+// the whole size range of an ordinary tool result. Keeping the smallest target hashes instead makes
+// the effective threshold the target-th smallest distinct hash, which moves CONTINUOUSLY with the
+// document, so two documents of similar size get near-identical thresholds and their estimates are
+// comparable. TestMinHash_StraddlingTheSampleTargetIsContinuous walks the first eight boundaries.
 const MinHashSampleTarget = 8192
 
 // MinPermutations is the narrowest signature MinHash will produce. Below 16 permutations the
@@ -52,6 +66,45 @@ const (
 	minShingleSize = 2
 	// maxShingleSize is the widest shingle a caller can ask for.
 	maxShingleSize = 64
+)
+
+// The bottom-k selector's working sizes. All three are stated relative to MinHashSampleTarget rather
+// than as absolute numbers, so that the target is the single place a reader has to look to reason
+// about what the sampler costs.
+const (
+	// shingleChunk is how many shingle hashes are computed before any of them is looked at. The
+	// batch exists for one reason and it is worth a sentence, because it looks like pointless
+	// indirection: it puts the FNV loop in a function whose shingle width is a COMPILE-TIME constant
+	// on the common path (hashShingles), which lets the compiler unroll the eight-step multiply
+	// chain and overlap consecutive shingles. Measured on the development host, that is the
+	// difference between 580 µs and 323 µs for the 102 393 shingles of a 100 KiB document — a 257 µs
+	// saving against that row's committed 1.381 ms, so hashing is about a quarter of MinHash's cost
+	// once batched, not the largest share. permuteInto is (see its doc comment). Interleaving the two
+	// would serialise them, which is the second reason for the batch.
+	// 1 024 hashes is 8 KiB, small enough to stay in L1 between the two passes.
+	shingleChunk = 1 << 10
+	// sampleSeedSlack sets the selector's FIRST keep-threshold at slack×target/nsh of the hash
+	// range, instead of admitting everything and narrowing from there. fnv1a64's output is uniform,
+	// so a document whose shingles are mostly distinct admits about slack×target of them and is
+	// selected in one pass over a buffer that never grows. A slack of 2 tolerates an average shingle
+	// multiplicity of 2 — ordinary prose, code and log output — before the seed under-admits and
+	// bottomKShingles re-runs the general pass. See bottomKShingles for why that re-run cannot
+	// change the answer.
+	sampleSeedSlack = 2
+	// sampleBufferSlack sets the dense buffer at slack×target values. It matches sampleSeedSlack
+	// because the buffer's job is to hold what the seed admits — but note what that equality does
+	// NOT buy: the seed's expected yield on an all-distinct document is exactly slack×target, which
+	// is the capacity, so such a document overflows and trims about half the time rather than
+	// sailing through. That is a cost, not a bug: the trim is one selectKth over 16 384 values and
+	// cannot change the answer. Sizing the buffer above the seed's yield would buy those trims back
+	// at the price of the property that actually matters here — the buffer, and therefore MinHash's
+	// whole working set above the target, is bounded at 2 × 8 192 × 8 B = 128 KiB no matter how large
+	// the document is.
+	sampleBufferSlack = 2
+	// shingleHashBits is the width of a shingle hash, which is what a slot index is carved out of.
+	// It is named here rather than borrowed from hll.go's rankHashBits because the two are the same
+	// number about different things, and a future change to either must not silently move the other.
+	shingleHashBits = 64
 )
 
 // The compact form's field widths (see Signature.MarshalBinary for the layout).
@@ -110,11 +163,10 @@ type Signature struct {
 //  4. A document with no shingles returns P copies of math.MaxUint64 — the canonical
 //     empty-document signature, which compares as Jaccard 1 against another empty document because
 //     their shingle sets are both empty and therefore identical.
-//  5. Shingles are sampled by CONTENT: a shingle is kept iff fnv1a64(shingle) ≤ MaxUint64/rate,
-//     where rate is chosen to keep about MinHashSampleTarget of them. If a pass keeps nothing —
-//     which a repetitive document can do, because the rate is derived from the number of shingle
-//     positions and selection applies to the distinct shingles — the rate is halved and the pass
-//     runs again. See minHashWithStats for why that retry is a correction to the plan.
+//  5. Shingles are sampled by CONTENT, as bottom-k over their hashes: the MinHashSampleTarget
+//     SMALLEST DISTINCT values of fnv1a64(shingle) are kept, and a document with fewer distinct
+//     shingle hashes than that keeps all of them. A document at or under the target is measured in
+//     full and no selection runs at all.
 //  6. Each kept hash h is permuted as v = a[i]·h + b[i] in wrapping uint64 arithmetic, with
 //     a[i] = splitmix64(2i)|1 and b[i] = splitmix64(2i+1), and the running minimum is kept per i.
 //  7. The result is Signature{Perms: P, Mins: mins}.
@@ -127,6 +179,25 @@ type Signature struct {
 // unrelated — which is precisely the case §8.1 item 1 needs to detect. Selecting on the shingle's
 // own hash makes the decision a function of content alone: the unaffected shingles of an edited
 // document are sampled exactly as they were before the edit.
+//
+// # Why bottom-k, and why the empty signature is now structurally impossible
+//
+// Bottom-k is what makes the selection comparable ACROSS documents as well as invariant within one.
+// The effective keep-threshold is the target-th smallest distinct hash, which is a continuous
+// function of the document; the rate-based rule this replaced stepped that threshold by a whole
+// integer factor at every multiple of MinHashSampleTarget, and two near-identical documents
+// straddling such a boundary were then compared at incompatible sampling densities — see
+// MinHashSampleTarget for the measured size of that failure.
+//
+// It also removes a defensive case rather than handling it. Under the rate-based rule a repetitive
+// document — a megabyte of one repeated build-log line has ~58 distinct 8-shingles among 1 048 569
+// positions — could keep NOTHING, because the rate was derived from positions while selection
+// applied to distinct hashes; every minimum then stayed MaxUint64, byte-identical to the
+// empty-document signature of step 4, so the document reported Jaccard 1 against an empty one and
+// SP-06 would store a delta in place of the text. Ruling MH1 answered that by halving the rate and
+// retrying. Under bottom-k the case cannot arise: the smallest k distinct values of a non-empty set
+// are a non-empty set, so a document with at least one shingle always keeps at least one hash. The
+// retry is gone rather than left in place unreachable.
 //
 // # Why fnv1a64 and the coefficient derivation are frozen
 //
@@ -145,12 +216,18 @@ func MinHash(data []byte, o MinHashOptions) Signature {
 	return sig
 }
 
-// minHashWithStats is MinHash's body, plus the number of shingles the sampler actually kept.
+// minHashWithStats is MinHash's body, plus the number of shingle hashes it permuted.
 //
 // The count exists so TestMinHash_SubsamplingEngages can assert the cost bound DIRECTLY — a
 // statement about the algorithm — instead of inferring it from a wall-clock reading, which would be
 // a statement about the machine the suite happens to run on. It is unexported because it is a
 // testing affordance and not part of §5.7's surface.
+//
+// The count means what it says and the two branches differ, which is worth stating because it looks
+// like an inconsistency: above MinHashSampleTarget it is the number of DISTINCT hashes the selector
+// kept, and at or under the target it is the number of shingle POSITIONS, because no selection runs
+// there and a repeated minimum is idempotent. Both are "how many hashes went through the
+// permutation loop", which is the quantity the cost bound is about.
 func minHashWithStats(data []byte, o MinHashOptions) (Signature, int) {
 	if !o.Enabled {
 		return Signature{}, 0
@@ -185,73 +262,280 @@ func minHashWithStats(data []byte, o MinHashOptions) (Signature, int) {
 		a[i] = splitmix64(uint64(2*i)) | 1
 		b[i] = splitmix64(uint64(2*i + 1))
 	}
-	// a, b and mins are all exactly p long. Re-slicing the other two to len(a) here, once, is what
-	// lets the compiler drop the bounds checks from the innermost loop below — which runs
-	// MinHashSampleTarget × P times per call and is where essentially all of the cost is.
-	b, mins = b[:len(a)], mins[:len(a)]
 
-	// Step 5, with the plan's algorithm CORRECTED. keep is the inclusive ceiling a shingle's hash
-	// must fall under to be sampled; rate 1 leaves it at MaxUint64, so a document at or under the
-	// target is measured in full and loses nothing to a sampler it never needed. fnv1a64's output
-	// is uniform over uint64, so the ceiling keeps about 1/rate of the DISTINCT shingles.
-	//
-	// # Why the rate retries downward
-	//
-	// The rate is derived from nsh, the number of shingle POSITIONS, but selection applies to
-	// distinct shingle HASHES, and on repetitive input the two diverge without limit. A 1 MiB build
-	// log that is one 60-byte line repeated has nsh ≈ 1 048 569 and therefore rate 128, but only
-	// ~60 distinct shingles, each surviving with probability 1/128: better than even odds that
-	// NOTHING survives. The plan's algorithm (lines 918 and 943 of the subplan) never considers
-	// kept == 0 with nsh > 0, so this corrects it rather than deviating from it.
-	//
-	// The consequence is not inaccuracy, it is a wrong answer of the worst available kind: every
-	// minimum stays MaxUint64, which is byte-identical to the canonical empty-document signature of
-	// step 4. The document would then report Jaccard 1 against an empty document, against "abc",
-	// and against every other document that also sampled to nothing — and SP-06 uses exactly that
-	// answer to store a delta in place of the text. A build log of thousands of identical lines is
-	// an ordinary tool result, so this is reachable rather than theoretical.
-	//
-	// Halving and selecting again fixes it at negligible cost. The retry only ever fires when the
-	// distinct count is tiny relative to nsh, so the permutation work stays proportional to the
-	// distinct count — a handful of shingles × P — rather than to nsh; the price is at most
-	// log2(rate) extra FNV passes over the document at roughly 5 ns a shingle. Selection remains a
-	// pure function of content AT EVERY RATE: falling back to "keep the first N positions", or to
-	// any other positional rule, would trade this bug for a shift-invariance bug, which is the one
-	// failure this sampler exists to prevent.
-	//
-	// The loop is bounded by rate reaching 0 rather than by a claim about fnv1a64's range. In
-	// practice it cannot get that far — at rate 1 the ceiling is MaxUint64, every shingle passes
-	// and kept is nsh ≥ 1 — so the bound is a structural guarantee for a reader who should not have
-	// to re-derive that argument, not a case anything can reach.
-	kept := 0
-	for rate := (nsh + MinHashSampleTarget - 1) / MinHashSampleTarget; rate >= 1; rate /= 2 {
-		keep := uint64(math.MaxUint64)
-		if rate > 1 {
-			keep = math.MaxUint64 / uint64(rate)
+	// Step 5. Above the target the selector runs and only the surviving hashes are permuted; at or
+	// under it there is nothing to select, so the document is measured in full and loses no accuracy
+	// to a selection it never needed. Splitting the two is not just an optimisation: the small case
+	// is every golden fixture and every frozen expectation in this package, and keeping it a plain
+	// pass over every shingle is what makes "bottom-k changed nothing below the target" a property
+	// of the code rather than of an argument about it.
+	if nsh > MinHashSampleTarget {
+		sample := bottomKShingles(data, w, nsh)
+		permuteInto(mins, a, b, sample)
+		return Signature{Perms: uint16(p), Mins: mins}, len(sample)
+	}
+
+	var chunk [shingleChunk]uint64
+	for off := 0; off < nsh; off += shingleChunk {
+		batch := chunk[:min(shingleChunk, nsh-off)]
+		hashShingles(batch, data, off, w)
+		permuteInto(mins, a, b, batch)
+	}
+	return Signature{Perms: uint16(p), Mins: mins}, nsh
+}
+
+// permuteInto lowers each of mins to the smallest a[j]·h + b[j] seen over hashes — step 6.
+//
+// Wrapping arithmetic is the point, not an accident: a·h + b over the full uint64 ring is the
+// standard universal permutation family, and Go's defined wraparound is what makes it reproducible
+// on every architecture this ships to.
+//
+// a, b and mins are all exactly P long. Re-slicing the other two to len(a) here, once per batch, is
+// what lets the compiler drop the bounds checks from the inner loop — which runs up to
+// MinHashSampleTarget × P times per signature and is the single largest share of MinHash's cost:
+// about 0.81 ms of the 100 KiB row's committed 1.381 ms, against ~0.32 ms of shingle hashing and
+// ~0.25 ms of selection. Optimising this loop is worth roughly three times optimising either.
+func permuteInto(mins, a, b, hashes []uint64) {
+	b, mins = b[:len(a)], mins[:len(a)]
+	for _, h := range hashes {
+		for j, aj := range a {
+			if v := aj*h + b[j]; v < mins[j] {
+				mins[j] = v
+			}
 		}
-		for i := 0; i < nsh; i++ {
-			h := fnv1a64(data[i : i+w])
-			if h > keep {
+	}
+}
+
+// hashShingles fills dst with fnv1a64 of the w-byte shingle at each of data[off], data[off+1], …
+//
+// The default width is spelled as a CONSTANT in its own loop, and that is the whole reason this
+// function exists as a batch rather than as a call per shingle inside the sampler. At a constant
+// width the compiler knows the shingle is eight bytes long, unrolls FNV-1a's multiply chain and
+// overlaps consecutive shingles; at a variable width it emits a real loop whose iterations cannot
+// overlap. The two forms produce identical hashes — TestMinHash_BottomKMatchesTheSlowDefinition
+// checks the non-default widths against the same reference the default one is checked against — and
+// on the development host the constant-width form measures 323 µs against 580 µs for the 102 393
+// shingles of a 100 KiB document.
+func hashShingles(dst []uint64, data []byte, off, w int) {
+	if w == DefaultShingleSize {
+		for i := range dst {
+			dst[i] = fnv1a64(data[off+i : off+i+DefaultShingleSize])
+		}
+		return
+	}
+	for i := range dst {
+		dst[i] = fnv1a64(data[off+i : off+i+w])
+	}
+}
+
+// bottomKShingles returns the MinHashSampleTarget smallest DISTINCT shingle hashes of data, or every
+// distinct hash when the document has fewer than that. It is only called with nsh above the target.
+//
+// The mechanism is a threshold estimate with a refinement pass. fnv1a64's output is uniform over
+// uint64, so a keep-threshold of (sampleSeedSlack × target / nsh) of the range admits about
+// sampleSeedSlack × target shingle hashes — enough to contain the target smallest ones with room to
+// spare — and the selection then finishes inside a buffer that never has to grow. Starting instead
+// from "admit everything and narrow", which is the obvious way to write it, costs a run of
+// increasingly narrow trims over the whole document and measured 2.87 ms against a 2.5 ms budget for
+// the 100 KiB case.
+//
+// The seed is an OPTIMISATION and cannot change the answer, which is what separates this re-run from
+// the halving retry Ruling MH1 needed. If at least target distinct hashes fall below the seed, then
+// the target-th smallest distinct hash of the whole document is one of them and the pass is exact.
+// If fewer do — a document whose shingles repeat more than sampleSeedSlack times on average — the
+// general pass runs with no threshold at all and returns what it always would have. Both paths
+// return the same set; only the cost differs.
+func bottomKShingles(data []byte, w, nsh int) []uint64 {
+	keep := uint64(math.MaxUint64)
+	// (MaxUint64/nsh)×admit cannot overflow, because admit < nsh. It is integer arithmetic rather
+	// than a float ratio so the threshold is exactly reproducible on every platform this ships to:
+	// the sampler's output is persisted in an append-only index, and a rounding difference between
+	// two builds would move which shingles a document keeps.
+	if admit := sampleSeedSlack * MinHashSampleTarget; admit < nsh {
+		keep = math.MaxUint64 / uint64(nsh) * uint64(admit)
+	}
+	sample := distinctBelow(data, w, nsh, keep)
+	if len(sample) < MinHashSampleTarget && keep != math.MaxUint64 {
+		sample = distinctBelow(data, w, nsh, math.MaxUint64)
+	}
+	return sample
+}
+
+// distinctBelow returns the MinHashSampleTarget smallest distinct shingle hashes at or below keep,
+// or all of them when fewer than that many exist below it.
+//
+// One pass, three structures, and each earns its place. shingleSet rejects a hash already seen, so
+// the buffer only ever holds distinct values — without it a repetitive document would fill the
+// buffer with copies of its smallest hash and the "smallest k DISTINCT" rule would silently become
+// "smallest k positions", which for a build log of one repeated line degenerates to a single hash.
+// The dense buffer is what selectKth can work over. And keep is lowered to the target-th smallest
+// value whenever the buffer fills, which is what bounds the pass: each trim halves the admission
+// rate, so the buffer cannot fill more than log2(nsh/target) times however long the document is.
+//
+// Memory is bounded by the buffer rather than by the document: 128 KiB of values and 256 KiB of set
+// slots, for a 4 KiB tool result and a 64 MiB one alike.
+func distinctBelow(data []byte, w, nsh int, keep uint64) []uint64 {
+	const capacity = sampleBufferSlack * MinHashSampleTarget
+
+	seen := newShingleSet(capacity)
+	sample := make([]uint64, 0, capacity)
+	var chunk [shingleChunk]uint64
+
+	for off := 0; off < nsh; off += shingleChunk {
+		batch := chunk[:min(shingleChunk, nsh-off)]
+		hashShingles(batch, data, off, w)
+		for _, h := range batch {
+			if h > keep || !seen.add(h) {
 				continue
 			}
-			kept++
-			// Wrapping arithmetic is the point, not an accident: a·h + b over the full uint64 ring
-			// is the standard universal permutation family, and Go's defined wraparound is what
-			// makes it reproducible on every architecture this ships to.
-			for j, aj := range a {
-				if v := aj*h + b[j]; v < mins[j] {
-					mins[j] = v
-				}
+			sample = append(sample, h)
+			if len(sample) < capacity {
+				continue
+			}
+			keep = selectKth(sample, MinHashSampleTarget-1)
+			sample = sample[:MinHashSampleTarget]
+			seen.reset()
+			for _, v := range sample {
+				seen.add(v)
 			}
 		}
-		if kept > 0 {
-			break
-		}
-		// Nothing was kept, so no minimum was lowered: mins is still the all-MaxUint64 array step 4
-		// filled, and the next pass starts from exactly the state this one did. The retry is
-		// idempotent for that reason, and needs no reset.
 	}
-	return Signature{Perms: uint16(p), Mins: mins}, kept
+	// The buffer holds between MinHashSampleTarget and capacity values on any path that filled it,
+	// and fewer than MinHashSampleTarget on a document that never did; only the first needs a final
+	// trim, and the second is the "keep them all" case.
+	if len(sample) > MinHashSampleTarget {
+		selectKth(sample, MinHashSampleTarget-1)
+		sample = sample[:MinHashSampleTarget]
+	}
+	return sample
+}
+
+// selectKth partially orders a so that a[k] holds the (k+1)-th smallest value and every element
+// before it is no larger, and returns that value. It is quickselect with a median-of-three pivot:
+// linear in len(a) on average, against the n·log n a sort would cost for an ordering nothing here
+// needs. Sorting the 16 384-value buffer instead measured 8.2 ms for the 100 KiB case against a
+// 2.5 ms budget.
+//
+// Only the "everything before k is no larger" half of the postcondition is used — distinctBelow
+// truncates to a[:k+1] and never reads the order — but both halves are stated because a caller that
+// assumed a[:k+1] came out sorted would be wrong.
+func selectKth(a []uint64, k int) uint64 {
+	lo, hi := 0, len(a)-1
+	for lo < hi {
+		pivot := medianOfThree(a, lo, hi)
+		l, r := lo, hi
+		for l <= r {
+			for a[l] < pivot {
+				l++
+			}
+			for a[r] > pivot {
+				r--
+			}
+			if l <= r {
+				a[l], a[r] = a[r], a[l]
+				l++
+				r--
+			}
+		}
+		switch {
+		case k <= r:
+			hi = r
+		case k >= l:
+			lo = l
+		default:
+			// k landed between the two partitions, which happens only when a[k] already equals the
+			// pivot: every element before it is no larger and the search is over.
+			return a[k]
+		}
+	}
+	return a[k]
+}
+
+// medianOfThree returns the median of a[lo], a[hi] and the element between them. A middle-element
+// pivot alone is quadratic on an already-partitioned array, which is exactly what distinctBelow
+// hands this function on its second and later trims.
+func medianOfThree(a []uint64, lo, hi int) uint64 {
+	x, y, z := a[lo], a[lo+(hi-lo)/2], a[hi]
+	if x > y {
+		x, y = y, x
+	}
+	if y > z {
+		y = z
+	}
+	if x > y {
+		y = x
+	}
+	return y
+}
+
+// shingleSetMix is the multiplier that turns a shingle hash into a slot index (Fibonacci hashing:
+// 2^64/φ, rounded to an odd integer — the same constant splitmix64 opens with).
+//
+// The mix is not optional and the reason is specific to this caller. Every value the set holds is at
+// or below distinctBelow's keep threshold, so they all share a run of leading zero bits; indexing on
+// the high bits of the hash itself would pile every one of them into the same corner of the table.
+// Indexing on the LOW bits would be no better, since FNV-1a's final step is a multiply and its low
+// bits are the least mixed part of its output. Multiplying and taking the high bits of the product
+// makes every slot index depend on every bit of the hash.
+const shingleSetMix = 0x9E3779B97F4A7C15
+
+// shingleSet is an open-addressed set of shingle hashes with linear probing, sized once at
+// construction and never grown. It exists rather than a map[uint64]struct{} because it is probed
+// once per admitted shingle on a path budgeted in milliseconds: a Go map costs a hash, a bucket
+// walk and an interface-free but still indirect lookup, where this is one multiply and a load that
+// usually hits.
+//
+// It is NOT safe for concurrent use, and nothing shares one: distinctBelow builds one per call, on
+// the stack of a pure function.
+type shingleSet struct {
+	// slots holds the members, with 0 meaning empty.
+	slots []uint64
+	// shift turns a mixed hash into a slot index: 64 − log2(len(slots)).
+	shift uint
+	// zero records membership of the hash 0 itself, which the empty marker cannot represent. Using
+	// MaxUint64 as the marker instead would only move the problem — and would cost a fill of the
+	// whole table at construction and after every reset, where 0 lets make and clear do it.
+	zero bool
+}
+
+// newShingleSet returns a set that can hold n members with a load factor of at most one half, which
+// is what keeps linear probing's cluster lengths short enough that a lookup is one cache line in the
+// overwhelming majority of cases.
+func newShingleSet(n int) *shingleSet {
+	// bits.Len64 rather than bits.Len: uint is 32 bits on the 32-bit targets this cross-builds for,
+	// and a shift derived from a 32-bit width would index past the end of a 64-bit table.
+	width := bits.Len64(uint64(2*n - 1))
+	return &shingleSet{slots: make([]uint64, 1<<width), shift: uint(shingleHashBits - width)}
+}
+
+// add records h and reports whether it was NEW. A set that is full would loop forever here, which is
+// why newShingleSet sizes for the caller's whole capacity and distinctBelow never exceeds it.
+func (s *shingleSet) add(h uint64) bool {
+	if h == 0 {
+		if s.zero {
+			return false
+		}
+		s.zero = true
+		return true
+	}
+	i := (h * shingleSetMix) >> s.shift
+	for s.slots[i] != 0 {
+		if s.slots[i] == h {
+			return false
+		}
+		i++
+		if i == uint64(len(s.slots)) {
+			i = 0
+		}
+	}
+	s.slots[i] = h
+	return true
+}
+
+// reset empties the set without reallocating it, so a trim costs one clear rather than a new table.
+func (s *shingleSet) reset() {
+	clear(s.slots)
+	s.zero = false
 }
 
 // Jaccard estimates the Jaccard similarity of the two documents behind s and o, as the fraction of

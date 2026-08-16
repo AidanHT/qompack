@@ -476,6 +476,43 @@ func TestMG_MergeFrom(t *testing.T) {
 		m1.Total(), m1.MaxError(), len(merged), single.Total(), single.MaxError())
 }
 
+// TestMG_MergeSaturatesAtTheCeiling pins the one arithmetic this package performs on numbers it did
+// not itself compute: MergeFrom sums two counters that were each decoded from a frame.
+//
+// Add saturates, so this state is only reachable through two forged frames at the ceiling — or by
+// writing the map, which is what this does, because building a 2^61-count summary through the
+// exported surface would take longer than the whole suite. The reason it is not merely theoretical
+// is that maxMGCount is min(2^61, math.MaxInt): on the 64-bit targets §2.6 releases for the sum fits
+// an int comfortably, but the repo cross-builds, and on a 32-bit target the ceiling is math.MaxInt32
+// and the map's int is 32 bits wide, so a plain `+=` wraps. Top would then report a key as having
+// occurred a negative number of times — a broken guarantee in memory, visible to CMS.HeavyHitters
+// and to SP-14 — before MarshalBinary's range check got the chance to refuse it.
+//
+// The assertion is written in terms of maxMGCount rather than of a literal, so it is the same test
+// on every target: on a 32-bit build it is exactly the wrap it exists to prevent.
+func TestMG_MergeSaturatesAtTheCeiling(t *testing.T) {
+	dst, src := NewMisraGries(mgMergeK), NewMisraGries(mgMergeK)
+	dst.counters["hot"] = maxMGCount
+	src.counters["hot"] = maxMGCount
+
+	require.NoError(t, dst.MergeFrom(src))
+
+	top := dst.Top(0)
+	require.Equal(t, []Counted{{Key: "hot", Count: maxMGCount}}, top,
+		"two counters at the ceiling saturate at the ceiling rather than wrapping negative")
+	require.Positive(t, top[0].Count, "a count that wrapped would be a negative number of occurrences")
+
+	// Saturating also keeps the result ENCODABLE, which is the other half: MarshalBinary refuses a
+	// count outside [1, maxMGCount], so a wrap would have been reported as an unwritable summary at
+	// best and written as a 2^64-sized unsigned count at worst.
+	dst.total = maxMGCount
+	frame, err := dst.MarshalBinary()
+	require.NoError(t, err, "a saturated merge must still be writable")
+	got := NewMisraGries(mgMergeK)
+	require.NoError(t, got.UnmarshalBinary(frame))
+	require.Equal(t, top, got.Top(0))
+}
+
 // TestMG_MergeShapeMismatch asserts a merge across differing counter budgets is refused rather than
 // attempted. Two summaries built with different k carry different error bounds — err ≤ total/(k+1)
 // is a statement ABOUT k — so a pairwise sum of their counters would satisfy neither bound, and

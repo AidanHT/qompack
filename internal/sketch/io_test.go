@@ -491,14 +491,20 @@ func TestReplaceGenerational_RollsBackOnWriteFailure(t *testing.T) {
 	require.Empty(t, bloomBackups(t, l.Sketches), "a rolled-back replacement leaves no backup behind")
 }
 
-// TestReplaceGenerational_NonMonotonicSeqIsReported pins the seq precondition on the SUCCESS path.
+// TestReplaceGenerational_NonMonotonicSeqIsRefused pins the seq precondition as a REFUSAL: nothing
+// on disk moves at all.
 //
 // paths.pruneBloomBackups keeps the backup with the highest sequence, not the newest one, so a call
-// whose seq is below a surviving backup's has its own backup deleted the instant it is written.
-// Returning that path with err == nil would hand the caller a filename that reads as "the previous
-// generation is here" and is wrong. Sequence 1, then 9, then 3 is the smallest arrangement that
-// produces it: after seq 9 there is a 9.bak to survive, and seq 3's backup loses the comparison.
-func TestReplaceGenerational_NonMonotonicSeqIsReported(t *testing.T) {
+// whose seq is below a surviving backup's would have its own backup deleted the instant it was
+// written. Sequence 1, then 9, then 3 is the smallest arrangement that produces it: after seq 9
+// there is a 9.bak to survive, and seq 3's backup would lose the comparison.
+//
+// The earlier form of this test asserted that the replacement landed and only the backup was
+// pruned. That expectation moved deliberately, and it is the point of the fix: paths.ReplaceBloom
+// renames before it stages, so the same arrangement plus a staging failure destroys tried.bloom
+// outright — see TestReplaceGenerational_RefusalProtectsAgainstAStagingFailure. Detecting the
+// violation after the fact reported a data-loss path accurately; refusing the call removes it.
+func TestReplaceGenerational_NonMonotonicSeqIsRefused(t *testing.T) {
 	p := testutil.NewProject(t)
 	l := paths.Of(p.Root)
 	target := filepath.Join(l.Sketches, "tried.bloom")
@@ -509,29 +515,46 @@ func TestReplaceGenerational_NonMonotonicSeqIsReported(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(l.Sketches, "tried.bloom.9.bak"), backup)
 
-	backup, err = sketch.ReplaceGenerational(target, filledBloom(3), 3)
-	require.ErrorIs(t, err, sketch.ErrMalformed)
-	require.Empty(t, backup, "a path to a file that was just deleted must never be returned")
-	require.ErrorContains(t, err, "seq 3", "the failure must name the sequence that broke the rule")
+	for _, seq := range []int{3, 9} {
+		t.Run(fmt.Sprintf("seq %d against a surviving 9.bak", seq), func(t *testing.T) {
+			got, err := sketch.ReplaceGenerational(target, filledBloom(3), seq)
+			require.ErrorIs(t, err, sketch.ErrMalformed)
+			require.Empty(t, got, "a refused call returns no backup path")
+			require.ErrorContains(t, err, fmt.Sprintf("seq %d", seq),
+				"the failure must name the sequence that broke the rule")
+			require.ErrorContains(t, err, "tried.bloom.9.bak",
+				"and the surviving backup it did not exceed")
+			t.Logf("refused: %v", err)
 
-	// The replacement itself DID land — paths.ReplaceBloom succeeded — so the store is intact and
-	// only the caller's backup expectation was violated. Saying so here stops a future reader
-	// assuming this error means the write was rolled back.
-	current := sketch.NewBloom(testBloomCapacity, testBloomFPRate)
-	require.NoError(t, sketch.Load(target, current))
-	require.Equal(t, 3, current.Count(), "the seq-3 content is in place; only its backup was pruned")
-	require.Equal(t, []string{filepath.Join(l.Sketches, "tried.bloom.9.bak")}, bloomBackups(t, l.Sketches),
-		"the higher-sequenced backup is the one that survived")
+			// Nothing moved. The store still holds the seq-9 generation and its backup.
+			current := sketch.NewBloom(testBloomCapacity, testBloomFPRate)
+			require.NoError(t, sketch.Load(target, current))
+			require.Equal(t, 2, current.Count(), "the refused content must not have been written")
+			require.Equal(t, []string{filepath.Join(l.Sketches, "tried.bloom.9.bak")},
+				bloomBackups(t, l.Sketches), "and no backup generation may have been displaced")
+		})
+	}
+
+	// Equality is refused and one more is accepted, so the boundary is where the doc says it is:
+	// seq must STRICTLY exceed the survivor.
+	backup, err = sketch.ReplaceGenerational(target, filledBloom(4), 10)
+	require.NoError(t, err, "one above the surviving backup is the first legal sequence")
+	require.Equal(t, filepath.Join(l.Sketches, "tried.bloom.10.bak"), backup)
 }
 
-// TestReplaceGenerational_RollbackFailureIsReported pins the same precondition on the FAILURE path,
-// where it is considerably worse.
+// TestReplaceGenerational_RefusalProtectsAgainstAStagingFailure is the data-loss path the refusal
+// exists to close, asserted as the loss NOT happening.
 //
-// paths.ReplaceBloom moves the current file to its backup before staging, so when the staging write
-// fails AND the backup was pruned for being low-sequenced, there is nothing left to roll back and
-// the store is left with no tried.bloom at all. That is a strictly worse outcome than the write
-// error on its own, and reporting only the write error would hide it.
-func TestReplaceGenerational_RollbackFailureIsReported(t *testing.T) {
+// The arrangement is the one that used to destroy the file: a surviving 9.bak, a call at seq 3 whose
+// own backup the pruner would delete on sight, and a staging write that then fails. Under the old
+// code paths.ReplaceBloom had already renamed tried.bloom to tried.bloom.3.bak and the prune had
+// already deleted it, so the rollback found nothing to rename back and sketches/tried.bloom — the
+// append-only negative-knowledge file of §7.4 — no longer existed. The error said so at length,
+// which is not the same as preventing it.
+//
+// Now the call never reaches paths.ReplaceBloom, so the broken staging directory is never touched
+// and the filter is exactly where it was.
+func TestReplaceGenerational_RefusalProtectsAgainstAStagingFailure(t *testing.T) {
 	p := testutil.NewProject(t)
 	l := paths.Of(p.Root)
 	target := filepath.Join(l.Sketches, "tried.bloom")
@@ -541,29 +564,29 @@ func TestReplaceGenerational_RollbackFailureIsReported(t *testing.T) {
 	_, err = sketch.ReplaceGenerational(target, filledBloom(2), 9)
 	require.NoError(t, err)
 
-	// Break staging the same way TestReplaceGenerational_RollsBackOnWriteFailure does.
+	// Break staging the same way TestReplaceGenerational_RollsBackOnWriteFailure does: replace the
+	// .qompack/tmp DIRECTORY with a regular file, so os.MkdirAll fails identically on Windows and
+	// POSIX.
 	require.NoError(t, os.RemoveAll(l.Tmp))
 	require.NoError(t, os.WriteFile(l.Tmp, nil, 0o600))
 
 	backup, err := sketch.ReplaceGenerational(target, filledBloom(3), 3)
-	require.Error(t, err)
+	require.ErrorIs(t, err, sketch.ErrMalformed,
+		"the sequence is refused before the staging write is even attempted")
 	require.Empty(t, backup)
 
-	// Both underlying failures stay inspectable: the staging mkdir and the rollback rename.
+	// The failure is the SEQUENCE, not the staging directory: staging was never reached.
 	var pathErr *fs.PathError
-	require.ErrorAs(t, err, &pathErr)
-	require.Equal(t, "mkdir", pathErr.Op, "the first wrapped error is the staging write's")
-	var linkErr *os.LinkError
-	require.ErrorAs(t, err, &linkErr)
-	require.Equal(t, "rename", linkErr.Op, "the second is the rollback's")
-	require.ErrorContains(t, err, "the rollback failed too")
-	t.Logf("combined failure: %v", err)
+	require.NotErrorAs(t, err, &pathErr,
+		"a filesystem error here would mean the refusal fired too late to prevent anything")
 
-	// The state the message claims is real, and it is the bad one.
-	require.NoFileExists(t, target,
-		"this is exactly the state the error must announce: the store has no tried.bloom")
-	require.Equal(t, []string{filepath.Join(l.Sketches, "tried.bloom.9.bak")}, bloomBackups(t, l.Sketches),
-		"only the higher-sequenced backup remains, which is why the rollback had nothing to restore")
+	require.FileExists(t, target,
+		"the whole point: sketches/tried.bloom survives, where it used to be deleted outright")
+	survivor := sketch.NewBloom(testBloomCapacity, testBloomFPRate)
+	require.NoError(t, sketch.Load(target, survivor))
+	require.Equal(t, 2, survivor.Count(), "and it still holds the seq-9 generation")
+	require.Equal(t, []string{filepath.Join(l.Sketches, "tried.bloom.9.bak")},
+		bloomBackups(t, l.Sketches), "with its one backup generation untouched")
 }
 
 // TestReplaceGenerational_RejectsForeignBaseName asserts the guard that keeps this function from

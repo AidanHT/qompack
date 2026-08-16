@@ -60,6 +60,15 @@ func RunCMSSuite(t *testing.T, name string, factory func(t *testing.T) *sketch.C
 // over-count, from hash collisions with other keys, but never under-count — and that direction is
 // what makes the sketch safe to act on, since the scheduler treats a high estimate as evidence to
 // check while an under-count would let a hot file read as cold with nothing downstream able to tell.
+//
+// What this case does NOT cover, stated because it is weak by construction rather than by accident:
+// a max-estimator — one that returned math.MaxUint32 for every key — satisfies "Estimate ≥ true" and
+// would pass. The case is faithful to the guarantee it names; the guarantee it does not name is the
+// ε·N accuracy bound, and the test that holds an implementation to that (TestCMS_ErrorBoundHolds)
+// lives in internal/sketch rather than here. The consequence is worth writing down for whoever adds
+// the next factory: SP-16's warm-started Count-Min, held only to RunCMSSuite, would inherit the
+// safety property and not the accuracy one, so it needs its own accuracy test or this case needs
+// promoting to take an ε and an N.
 func runEstimateAtLeastTrueCountCase(t *testing.T, factory func(t *testing.T) *sketch.CMS) {
 	t.Helper()
 	c := factory(t)

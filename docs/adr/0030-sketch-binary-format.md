@@ -150,6 +150,31 @@ frame over `MaxFrameBytes` is `ErrTooLarge`, never a partial frame and never a p
 `MarshalBinary` implementations inherit the guard by construction instead of each re-implementing
 it.
 
+**The cap re-derives `k`, and does not surface in `Capacity()`.** `bloomSizing` computes
+`k = (m/n)·ln 2` from the *requested* `m` and then holds `m` itself inside `MaxBloomBits`. Where the
+cap binds — above capacity ≈ 9.34 M at `p = 1e-6`, which `NewBloom(MaxBloomCapacity, 1e-6)` reaches
+with legal configuration values — a `k` left over from the uncapped `m` is wrong in the expensive
+direction: `k = (m/n)·ln 2` minimises the false-positive rate *at a given m*, so over-probing an
+array eight times smaller raises the rate as well as the cost. At that pair `m/n` lands on 16, where
+the optimal `k` is 11 and the uncapped derivation gave 20. `k` is therefore re-derived from the
+capped `m`, and only on that path, so no filter whose `m` was never capped moves.
+
+`Capacity()` still reports the `(n, p)` it was constructed with, which the cap has now made
+unachievable. That is deliberate — it is the *configuration* accessor, and it already surfaces the
+`n` and `p` clamps — but it means the bit cap is a **third** clamp that `Capacity()` does not show.
+`Bits()` reports the array actually allocated and `EstimatedFPRate()` reports the rate implied by
+the bits actually set, which is the number §11.4 asks operators to watch. `Capacity()`'s doc comment
+names all three so a reader is not left inferring it.
+
+**The rule also runs downward.** Marshallable means *re-readable*, so the smallest sketch matters as
+much as the largest: `Bloom`, `CMS`, `HLL` and `MisraGries` all refuse to marshal an unsized (zero
+value) receiver, which would otherwise emit a structurally valid, correctly checksummed frame
+declaring zero dimensions that the same build's decoder then refuses forever — 94 bytes for `CMS`,
+54 for `HLL`. `SigSketch` is the legal exception, its zero value being the disabled signature, which
+round-trips exactly. `sketchtest.RunSketchSuite` states the contract as the disjunction that covers
+both ("refuse to marshal it, or decode what was written — never both"), so a future factory inherits
+it instead of re-asserting it per type.
+
 ## 8. Why the Count-Min width is 2 719 and Appendix A's "2718" is the same number
 
 Appendix A gives the formula `width = ⌈e/ε⌉` and then illustrates it: "ε = 0.001, δ = 0.01 → 2718 ×
@@ -170,7 +195,7 @@ The depth is `⌈ln(1/δ)⌉ = ⌈4.60517…⌉ = 5`, with no such ambiguity.
 Cost, and only cost. A 100 KiB tool result has ~102 393 shingle positions, every one of which is
 hashed to decide whether the content-defined sampler keeps it. FNV-1a over an 8-byte shingle is a
 handful of nanoseconds; `core.HashBytes` measures ~90 ns. The whole 100 KiB signature measures
-1.525 ms on the development host with FNV-1a; ~102 000 SHA-256 calls at 90 ns each would be 9.2 ms of
+1.381 ms on the development host with FNV-1a; ~102 000 SHA-256 calls at 90 ns each would be 9.2 ms of
 hashing on their own, on a per-tool-result path budgeted at 50 ms end to end.
 
 The security argument that would normally force SHA-256 does not apply: the shingle hash's output
@@ -185,15 +210,60 @@ signatures and `Jaccard` still returns a number. `TestMinHash_StableAcrossRuns`,
 `TestSplitMix64_Frozen` and `TestFNV1a64_Frozen` pin the constants against published reference
 vectors so that "frozen" is a test rather than a comment.
 
-One thing the frozen algorithm had to grow during implementation, and it is recorded here because it
-changes the on-wire result for a real class of input. The sampling rate is derived from the number of
-shingle POSITIONS, but selection applies to DISTINCT shingle hashes, so a repetitive document — a
-megabyte of one repeated build-log line has ~58 distinct 8-shingles — can sample to nothing. A
-sampled-to-nothing signature is byte-identical to the empty-document signature, which reports Jaccard
-1.0 against an empty document and would make SP-06 store a delta instead of the text. The sampler
-therefore halves its rate and re-runs the selection pass until something survives or the rate reaches
-1. Selection stays a pure function of content at every rate, and a first pass that keeps something
-runs byte-for-byte the original path, so no signature that was previously produced has moved.
+## 9a. Why the sampler keeps the smallest 8 192 distinct hashes rather than everything below a rate
+
+The selection rule is the second half of the frozen algorithm, and it changed once — after the
+whole-branch review, before any signature was written to a real index. It is recorded here in full,
+because a reader of `MinHash` should be able to see what the rule is *not*.
+
+**What shipped first.** A rate `⌈nsh / MinHashSampleTarget⌉` was derived from the shingle count and
+every distinct hash at or below `MaxUint64/rate` was kept. Selection was content-defined *within* one
+document, which bought shift invariance — but the threshold itself was a **step function of document
+length**. Two near-identical documents whose shingle counts straddled a multiple of 8 192 were
+sampled at densities differing by a whole integer factor, so for each permutation their minima agreed
+with probability ≈ 1/rate however similar the documents were. Measured on 8 149- and 8 299-byte
+documents with a true Jaccard of 0.980: an estimate of **0.453**, and `IsNearDup` false at the
+configured 0.9. The failure recurs at every boundary — ~8 KB, ~16 KB, ~25 KB and so on through
+~66 KB, the whole size range of an ordinary tool result — and it lands on a *growing* document, which
+is exactly the input §8.1 item 1 exists to detect. `TestMinHash_OneNewFailure` passed only because
+its fixture is 200 lines; at 210 the same test measures 0.414.
+
+**What ships now.** The `MinHashSampleTarget` smallest **distinct** shingle hashes are kept, and a
+document with fewer distinct hashes than that keeps all of them. The effective threshold is then the
+target-th smallest distinct hash, which moves continuously with the document instead of stepping, so
+two documents of similar size get near-identical thresholds. Across the same eight boundaries the
+estimates are 0.96–1.00 against true Jaccards of 0.980–0.998.
+
+`Signature{Perms uint16; Mins []uint64}`, its compact wire form and `Jaccard`'s body are unchanged:
+this is a change to which shingles are selected, not to the estimator over them, and 00-ARCHITECTURE
+§5.7 fixes that shape. A KMV/bottom-k *estimator* would have been a larger change to a fixed shape
+and is not needed to remove the cliff.
+
+**One defensive case disappears rather than being handled.** The old rate was derived from shingle
+POSITIONS while selection applied to DISTINCT hashes, so a repetitive document — a megabyte of one
+repeated build-log line has ~58 distinct 8-shingles among 1 048 569 positions — could sample to
+nothing, and a sampled-to-nothing signature is byte-identical to the empty-document signature, which
+reports Jaccard 1.0 against an empty document and would make SP-06 store a delta instead of the text.
+The rule then halved its rate and re-ran the pass until something survived. Under bottom-k the
+smallest *k* distinct values of a non-empty set are a non-empty set, so a document with at least one
+shingle always keeps at least one hash. The retry is deleted, not left unreachable.
+
+**Mechanism, and why it is not the obvious one.** Selection is a seeded threshold with a refinement
+pass: `fnv1a64`'s output is uniform, so admitting the low `2 × target / nsh` of the hash range yields
+about 2 × 8 192 candidates, which the pass narrows to exactly the target with an open-addressed
+distinct set and a quickselect. The seed cannot change the answer — if at least `target` distinct
+hashes fall below it, the target-th smallest of the whole document is among them; if fewer do, the
+general pass runs with no threshold and returns what it always would have — so unlike the halving
+retry it is an optimisation and not a rule. The obvious alternatives were measured on the 100 KiB
+benchmark against its 2.5 ms budget: admit-everything-and-narrow costs 2.87 ms, and
+sort-and-truncate 8.2 ms.
+
+**Only documents above the target moved.** At or under 8 192 shingles no selection runs at all and
+the code is a plain pass over every shingle, as before, which is why all five frozen fixtures under
+`testdata/golden/contracts/sketch/` are byte-identical: the MinHash fixture's document is 4 096 bytes
+(4 089 shingles). No signature has ever been persisted by a release, so nothing on disk is affected
+either way — but the window for that has closed with SP-04 and SP-06, which is why the change landed
+now.
 
 ## 10. Why mutable sketches are not goroutine-safe while `MinHash`/`Jaccard` are
 
@@ -257,12 +327,28 @@ them:
 - The backup filename is `paths`' own `tried.bloom.<seq>.bak` — `%d`, not the plan's zero-padded
   `%04d` — because `paths`' pruner is what parses it. `ReplaceGenerational` returns the path rather
   than expecting SP-09 to format its own.
-- `seq` **must increase monotonically**, and this is enforced rather than assumed. `pruneBloomBackups`
-  keeps the highest sequence, not the newest file, so a caller passing a lower `seq` would otherwise
-  receive a path to a backup that had already been pruned, with `err == nil`; and on the failure path
-  the rollback would silently no-op and leave the store with no `tried.bloom` at all, which is the
-  exact state the rollback exists to prevent. A backwards `seq` now returns `("", err)` wrapping
-  `ErrMalformed` and naming the path, the pruned backup and the offending sequence.
+- `seq` **must increase monotonically, and the call is refused before anything moves.**
+  `pruneBloomBackups` keeps the highest sequence, not the newest file, so a caller passing a lower
+  `seq` has its own backup deleted the instant it is created. Detecting that afterwards — which is
+  what the first implementation did, in two places and at length — left one path that destroys data:
+  `ReplaceBloom` renames the current file to its backup *before* it stages the new content, the prune
+  then deletes that backup for being low-sequenced, and a staging failure at that point finds nothing
+  to roll back, so `sketches/tried.bloom` simply no longer exists. Reporting that accurately is not
+  preventing it.
+
+  `ReplaceGenerational` therefore pre-flights against the new `paths.HighestBloomBackupSeq(l)`, and
+  a `seq` that does not strictly exceed the surviving backup returns `("", err)` wrapping
+  `ErrMalformed` — naming the path, the survivor and the offending sequence — with no filesystem
+  change at all. The two post-hoc checks remain as defence against a concurrent mutator, since a
+  rollback that silently no-ops must never be quiet, but neither can now be reached by a
+  mis-sequenced call.
+
+  The parsing lives in `internal/paths` for the reason this whole section gives: that package writes
+  the `tried.bloom.<seq>.bak` name and prunes by it, so a second parser in `internal/sketch` would be
+  a second definition of the same filename family. `HighestBloomBackupSeq` and `pruneBloomBackups`
+  share one. It is **exported** because SP-09 has the same question for a different reason: its
+  rebuild counter drives `seq`, and nothing else on disk tells a restarted daemon where that counter
+  had reached.
 
 ## Where this sits in the latency budget
 
@@ -271,8 +357,8 @@ one `CMS.Add`, one `HLL.Add` and one `Bloom.Test`. The budget for that triple is
 allocations — at 5 µs it is 0.03 % of the 15 ms B-A hook budget, which is the quantitative form of
 §8.1's "the rest is one append and a few hash lookups".
 
-`BenchmarkL0SketchUpdate` measures it at **499.5 ns ± 7 % with zero allocations** (benchstat median,
-ten samples, `testdata/bench-baseline.txt`) — 10.0× inside the latency budget, and 0.003 % of B-A
+`BenchmarkL0SketchUpdate` measures it at **494.3 ns ± 11 % with zero allocations** (benchstat median,
+ten samples, `testdata/bench-baseline.txt`) — 10.1× inside the latency budget, and 0.003 % of B-A
 rather than the 0.03 % allowed. Both halves of the budget are met.
 
 Its Bloom probe is a **hit**, against a filter pre-filled with the descriptors it probes. That is
@@ -300,17 +386,28 @@ exactly the class of error a budget model catches only if somebody measures it.
 **MinHash is deliberately not on B-A.** It is not part of §8.1 item 5, and no hook calls it. It runs
 in the daemon's async worker under budget **B-C** (`l0_process`, p99 < 50 ms, soft), which is why its
 budget rows are stated in milliseconds — 1.5 ms for 4 KiB, 2.5 ms for 100 KiB — while every hot-path
-row here is stated in microseconds. Measured at 367.5 µs and 1.525 ms, the 100 KiB case clears B-C by
-more than 30×. The `MinHashSampleTarget` cap of 8 192 shingles is what keeps that flat in document
-size; without it a 1 MiB tool result would cost ~134 million multiply-compares.
+row here is stated in microseconds. Measured at 287.1 µs and 1.381 ms, the 100 KiB case clears B-C by
+more than 35×. The `MinHashSampleTarget` bound of 8 192 distinct shingle hashes is what keeps that
+flat in document size; without it a 1 MiB tool result would cost ~134 million multiply-compares.
 
-The 100 KiB row is nonetheless the tightest in the file, and the baseline records why at length: an
-earlier recording under a loaded run put its median at 2.432 ms against the 2.5 ms budget with four
-of ten samples above it. MinHash hashes shingles with FNV-1a and never calls `core.HashBytes`, so the
-allocation fix did not move that row — a quieter machine did. The 2.5 ms figure is a Windows-laptop
-number to be re-derived on CI hardware at V2-VERIFY, and it must be judged with benchstat over
-repeated samples, never one run. None of that is a statement about B-C, which it clears by an order
-of magnitude.
+Both MinHash rows *improved* in the fix round that replaced the sampler (§9a), which is the opposite
+of what adding a selection pass would suggest: 367.5 µs → 287.1 µs and 1.525 ms → 1.381 ms, both at
+p = 0.000 over ten samples. Two restructurings paid for the selector and then some — shingle hashing
+moved into a batch helper whose default-width loop has a compile-time-constant length, so the
+compiler unrolls FNV-1a's multiply chain and overlaps consecutive shingles (323 µs against 580 µs
+for a 100 KiB document, measured in isolation), and hashing and permuting became two passes over a
+batch rather than one interleaved loop. The 100 KiB row's *allocation* moved the other way, from
+3 072 B / 2 allocs to 396 288 B / 4: the selector's table and buffer are sized from
+`MinHashSampleTarget` and not from the document, so a 1 MiB input allocates exactly the same. That
+row carries no allocation budget; the six rows that do are all still at zero.
+
+The 100 KiB row is nonetheless the tightest in the file, now at 1.8× headroom rather than 1.6×, and
+the baseline records the history at length: the first recording of it, under a loaded run, had a
+median of 2.432 ms against the 2.5 ms budget with four of ten samples above it. MinHash hashes
+shingles with FNV-1a and never calls `core.HashBytes`, so the allocation fix did not move that row —
+a quieter machine did. The 2.5 ms figure is a Windows-laptop number to be re-derived on CI hardware
+at V2-VERIFY, and it must be judged with benchstat over repeated samples, never one run. None of
+that is a statement about B-C, which it clears by an order of magnitude.
 
 Misra-Gries is likewise off B-A: §8.1 item 5 names Count-Min and HyperLogLog only, and the summary is
 fed daemon-side. Its ≤ 5 µs/op budget is explicitly *amortized*, which matters — a single decrement

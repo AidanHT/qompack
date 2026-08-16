@@ -311,9 +311,24 @@ func (c *CMS) Header() Header {
 //
 // A nil receiver reports ErrMalformed rather than dereferencing. §12.3: a hook that dies takes
 // observability down with it, so every entry point in this package fails by reporting.
+//
+// An UNSIZED table — the zero CMS, reachable as `var c sketch.CMS` from outside this package — is
+// refused for the reason bloom.go states: the ceiling rule in errors.go says every constructible
+// sketch must also be MARSHALLABLE, and marshallable means re-readable, not merely writable. A zero
+// CMS would otherwise emit a structurally valid, correctly checksummed 94-byte frame declaring
+// width = 0 and depth = 0, which decodeV1 then refuses forever as "param depth = 0 outside [1, 64]".
+// Writing a file this build's own decoder is guaranteed to reject is worse than refusing to write
+// it: the refusal is loud and recoverable at the call site, whereas the file is discovered dead on
+// the next restart — the one failure §6.2 exists to prevent, and the one doc.go promises cannot
+// happen. RunSketchSuite holds every sketch type to this, so SP-16's factories inherit it.
 func (c *CMS) MarshalBinary() ([]byte, error) {
 	if c == nil {
 		return nil, fmt.Errorf("%w: MarshalBinary on a nil *CMS", ErrMalformed)
+	}
+	if c.width < 1 || c.depth < 1 {
+		return nil, fmt.Errorf(
+			"%w: MarshalBinary on an unsized CMS (width=%d, depth=%d); construct it with NewCMS",
+			ErrMalformed, c.width, c.depth)
 	}
 	body := make([]byte, len(c.cells)*counterBytes)
 	for i, v := range c.cells {

@@ -234,9 +234,23 @@ func (h *HLL) Header() Header {
 //
 // A nil receiver reports ErrMalformed rather than dereferencing. §12.3: a hook that dies takes
 // observability down with it, so every entry point in this package fails by reporting.
+//
+// An UNSIZED sketch — the zero HLL, reachable as `var h sketch.HLL` from outside this package — is
+// refused for the reason bloom.go states: the ceiling rule in errors.go says every constructible
+// sketch must also be MARSHALLABLE, and marshallable means re-readable, not merely writable. A zero
+// HLL would otherwise emit a structurally valid, correctly checksummed 54-byte frame declaring
+// registers = 0, which decodeV1 then refuses forever as "param registers = 0 outside [64, 65536]".
+// Writing a file this build's own decoder is guaranteed to reject is worse than refusing to write
+// it: the refusal is loud and recoverable at the call site, whereas the file is discovered dead on
+// the next restart — the one failure §6.2 exists to prevent, and the one doc.go promises cannot
+// happen. RunSketchSuite holds every sketch type to this, so SP-16's factories inherit it.
 func (h *HLL) MarshalBinary() ([]byte, error) {
 	if h == nil {
 		return nil, fmt.Errorf("%w: MarshalBinary on a nil *HLL", ErrMalformed)
+	}
+	if len(h.regs) == 0 {
+		return nil, fmt.Errorf(
+			"%w: MarshalBinary on an unsized HLL (registers=0); construct it with NewHLL", ErrMalformed)
 	}
 	return EncodeHeader(h.Header(), h.regs)
 }

@@ -43,6 +43,15 @@
 // and then rejected by Load as ErrTooLarge — a sketch that cannot survive a restart, which is the
 // one failure this package exists to prevent.
 //
+// The rule runs in the other direction too, and there it is about the SMALLEST sketch rather than
+// the largest: marshallable means re-readable. Bloom, CMS, HLL and MisraGries all refuse to marshal
+// an UNSIZED receiver — the zero value, reachable as `var c sketch.CMS` from outside this package —
+// because each would otherwise emit a structurally valid, correctly checksummed frame declaring
+// zero dimensions that its own decoder then refuses forever. SigSketch is the exception and a legal
+// one: its zero value is the disabled signature, which round-trips exactly. sketchtest's
+// RunSketchSuite states the contract as the disjunction that covers both, so SP-16's future
+// factories inherit it rather than re-asserting it per type.
+//
 // The exception is Misra-Gries, and it is a real one rather than an oversight. A Bloom, a
 // Count-Min and a HyperLogLog have frame sizes fixed by their dimensions alone, so a bound on the
 // dimensions is a bound on the frame. A Misra-Gries frame's size depends on the KEY LENGTHS it has
