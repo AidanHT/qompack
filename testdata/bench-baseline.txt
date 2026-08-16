@@ -90,3 +90,301 @@ BenchmarkPathsWriteAtomic_4KB-22    	     238	   4747760 ns/op	   0.86 MB/s	   1
 BenchmarkPathsWriteAtomic_4KB-22    	     249	   4792694 ns/op	   0.85 MB/s	   15698 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     201	   5173678 ns/op	   0.79 MB/s	   15703 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   15691 B/op	     169 allocs/op
+#
+# ============================================================================================
+#
+# internal/sketch — recorded by SP-03, the sketch library (V2).
+#
+# Recorded at -count 10 rather than the subplan's -count 6, for the reason the header above
+# already gives: benchstat needs at least 6 samples to report a confidence interval, and this
+# host is noisy enough that 6 samples cannot separate a budget from a busy minute. That is not
+# an assumption. A -count 6 pass over an identical binary reported BenchmarkBloomAdd at
+# 491.5n ±256% and BenchmarkBloomTest at 1.417µ ±111% — three to seven times the -count 10
+# medians, from the same code, minutes apart. Every verdict here is a benchstat median over ten
+# samples; none is a single run, and every sample below comes from ONE recording.
+#
+#     go test ./internal/sketch -bench=. -benchmem -count 10 -run '^$'
+#
+# Host: Windows 11, Intel Core Ultra 7 155H. Unlike the V1 block above, nothing in this package
+# touches the filesystem, so none of these numbers are syscall-bound — they are CPU and cache,
+# and they should look better on the Linux CI runners rather than different in kind. The
+# allocation columns are again the platform-independent half of the recording.
+#
+# Coverage at this commit, measured with `go test ./internal/sketch/... -cover`:
+# internal/sketch 96.5–96.7%, internal/sketch/sketchtest 99.0%, against the 90% floor
+# (00-ARCHITECTURE §6.4). The sketch figure MOVES by a couple of tenths between runs and nothing
+# has regressed when it does: property_test.go draws fresh values from rapid on every run, so
+# which defensive branches get exercised differs run to run. Three consecutive runs gave 96.5,
+# 96.7, 96.7. sketchtest is deterministic and sits at 99.0 every time.
+#
+# Budgets from the SP-03 implementation spec's performance table (00-ARCHITECTURE §13
+# invariant 9), and how this recording compares.
+#
+# Latency:
+#
+#     BenchmarkBloomAdd            ≤ 1.0 µs/op        MET      170.2n ±15%   5.9× headroom
+#     BenchmarkBloomTest           ≤ 1.0 µs/op        MET      189.9n ±14%   5.3×
+#     BenchmarkCMSAdd              ≤ 1.0 µs/op        MET      179.0n ± 9%   5.6×
+#     BenchmarkCMSEstimate         ≤ 1.0 µs/op        MET      206.8n ± 8%   4.8×
+#     BenchmarkHLLAdd              ≤ 1.0 µs/op        MET      157.1n ±17%   6.4×
+#     BenchmarkHLLCardinality      ≤ 25 µs/op         MET      8.927µ ±25%   2.8×
+#     BenchmarkMisraGriesAdd       ≤ 5 µs/op amort.   MET      92.97n ±10%    54×
+#     BenchmarkL0SketchUpdate      ≤ 5 µs/op          MET      499.5n ± 7%  10.0×
+#     BenchmarkMinHash4KiB         ≤ 1.5 ms/op        MET      367.5µ ± 6%   4.1×
+#     BenchmarkMinHash100KiB       ≤ 2.5 ms/op        MET      1.525m ± 5%   1.6×
+#     BenchmarkBloomMarshal        ≤ 60 µs/op         MET      6.771µ ±11%   8.9×
+#     BenchmarkBloomUnmarshal      ≤ 60 µs/op         MET      4.233µ ±18%  14.2×
+#     BenchmarkCMSMarshal          ≤ 250 µs/op        MET      36.52µ ±27%   6.8×
+#     BenchmarkCMSUnmarshal        ≤ 250 µs/op        MET      27.06µ ±10%   9.2×
+#     BenchmarkRebuildBloom5000    ≤ 15 ms/op         MET      947.5µ ± 9%  15.8×
+#
+# Allocation — six rows carry an allocation budget, and all six meet it:
+#
+#     BenchmarkBloomAdd            0 allocs/op        MET      0 allocs/op, 0 B
+#     BenchmarkBloomTest           0 allocs/op        MET      0 allocs/op, 0 B
+#     BenchmarkCMSAdd              0 allocs/op        MET      0 allocs/op, 0 B
+#     BenchmarkCMSEstimate         0 allocs/op        MET      0 allocs/op, 0 B
+#     BenchmarkHLLAdd              0 allocs/op        MET      0 allocs/op, 0 B
+#     BenchmarkL0SketchUpdate      0 allocs/op        MET      0 allocs/op, 0 B
+#
+# Those six rows did NOT start out zero, and the provenance is the most useful thing in this
+# block. Read this before treating a future non-zero reading as a new defect:
+#
+#   The first recording of these benchmarks — the run that added them — measured every hashing
+#   row at exactly 1 alloc/op and 32 B/op, the composite at 3 and 96 B, and
+#   BenchmarkRebuildBloom5000 at 5 004 allocs/op and 172 400 B/op. Every latency budget was met
+#   throughout, which is the point: a nanosecond column cannot show an allocation, and nothing
+#   in the tree had measured one until these benchmarks existed. The plan's rationale column
+#   for those rows reads "one SHA-256 of a short key plus 7 bit tests" and did not anticipate
+#   that the shared helper allocated.
+#
+#   The cause was one line in core.HashBytes, not anything in internal/sketch: it ended
+#   `copy(out[:], h.Sum(nil))`, and h.Sum(nil) allocates the 32-byte digest slice it appends
+#   into. The two rows that hash nothing — HLLCardinality and MisraGriesAdd — were already flat
+#   at 0, which is what localised it. HashBytes now writes the digest into the returned array
+#   with `h.Sum(out[:0])`. A ONE-OFF A/B probe of the two forms (8 samples, not among the
+#   samples below) put them at 1 alloc/op / 104.1n ±2% and 0 alloc/op / 90.36n ±3% with
+#   byte-identical digests. TestHashBytes_DoesNotAllocate in internal/core/hash_test.go is the
+#   durable guard, placed where the function lives.
+#
+#     BenchmarkL0SketchUpdate      3 allocs, 96 B      → 0 allocs, 0 B
+#     BenchmarkRebuildBloom5000    5 004 allocs        → 4 allocs
+#                                  172 400 B           → 12 400 B  (exactly 5 000 × 32 B saved)
+#
+#   Those allocation deltas are exact and platform-independent. The LATENCY deltas across these
+#   recordings are not attributable to the fix: there have now been three full recordings on
+#   this host — pre-fix, post-fix, and this one after review — and each ran under different
+#   machine load, while the second and third also changed fixtures. Every row moved between
+#   them. Do not quote a percentage from row-to-row differences as a property of the one-line
+#   change; the allocation columns are the only half of the comparison that is clean.
+#
+# BenchmarkL0SketchUpdate's Bloom probe is a HIT, and that is a deliberate fixture choice:
+#
+#   sketches/tried.bloom holds negative-knowledge DESCRIPTORS (§8.3), never paths, so the
+#   composite gets its own filter pre-filled with the descriptors it probes. The first two
+#   recordings probed a filter built from path keys, which every descriptor missed by
+#   construction — not the production filter at all, and undisclosed at the call site.
+#
+#   In production most probes DO miss, since most descriptors have never been eliminated, and a
+#   miss returns at the first clear bit instead of reading all seven positions. This row
+#   therefore reports the less common case on purpose, because a budget-model input should be
+#   the conservative number. What the choice is worth was measured, in a one-off probe run
+#   (count=12, both variants side by side, not among the samples below): the composite is
+#   498.0n ±7% with a hit against 486.5n ±3% with a miss, and Bloom.Test alone 174.7n ±5%
+#   against 166.2n ±5%. The short-circuit is worth ~8–12 ns, about 2% of the composite, because
+#   Test is dominated by the one SHA-256 in hash128 rather than by the seven probes it guards.
+#
+#   That also rules something out. The pre-review recording's composite sat 20% BELOW the sum of
+#   its three component rows, which looked like the short-circuit and was not: at ~2% the
+#   short-circuit cannot account for it. It was run-to-run noise on this host. In this recording
+#   the composite is 499.5n against a component sum of 526.0n, a 5% gap, which is the ordinary
+#   effect of one loop amortising its overhead across three calls and keeping all three
+#   structures warm.
+#
+# BenchmarkMinHash100KiB remains the tightest row in this block:
+#
+#   It clears its budget here with 1.6× headroom and all ten samples land in 1.457m–1.621m. The
+#   FIRST recording did not: under a loaded run its median was 2.432m against the 2.5 ms budget
+#   — inside by 2.7% — with four of ten samples ABOVE budget and a ±43% interval, and it was
+#   recorded MARGINAL. MinHash does not call core.HashBytes (it hashes shingles with FNV-1a), so
+#   the allocation fix did not move this row; a quieter machine did. Task 5's implementer
+#   independently measured the identical body swinging 1.69m–2.83m under load.
+#
+#   So the 2.5 ms row is met, and it is met on a Windows laptop by a margin this host can spend
+#   in a busy minute. Re-deriving it on CI hardware is a V2-VERIFY task. Judge it with benchstat
+#   over repeated samples, never one run — a single reading of this row proves nothing in either
+#   direction.
+#
+#   It is also the row that least deserves alarm. MinHash is deliberately NOT on the hook path:
+#   it runs in the daemon's async worker under budget B-C (l0_process, p99 < 50 ms, soft), which
+#   it clears by more than 30×. The 2.5 ms figure is a cost bound on the sampler, not a latency
+#   guarantee to a caller.
+#
+# BenchmarkMisraGriesAdd's budget says "amortized" and the word is load-bearing. The k = 256
+# table is full only at the moment of a decrement pass: every counter holds 1, so one pass wipes
+# all 256, the next 256 Adds refill it down the has-room fast path, and about one iteration in
+# 257 pays the two O(k) map passes. That cycle is the algorithm's steady state under a
+# unit-weight stream, not a fixture artefact, and it is what the Misra-Gries potential bound
+# predicts. One decrement pass in isolation measured 7.9µ in a one-off probe — 1.6× the whole
+# row, and again not among the samples below. bench_test.go's benchSaturatedMG documents why a
+# fixture that suspends the bound measures a cost the code cannot be driven into.
+#
+# The composite line is what this subplan owes the L0 model. BenchmarkL0SketchUpdate is the
+# whole of §8.1 item 5's contribution to a PostToolUse — one CMS.Add, one HLL.Add, one
+# Bloom.Test — and at 499.5n ±7% with zero allocations it is 0.003% of the 15 ms B-A hook
+# budget, against the 0.03% the plan allowed for. Both halves of that budget are met.
+#
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBloomAdd-22            	 8572150	       164.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 6917749	       150.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 7685287	       145.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 8337362	       140.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 7828594	       149.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 7540221	       176.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 5248315	       194.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 5792438	       213.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 6564378	       183.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 5778606	       186.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 7347807	       199.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6541723	       186.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6064455	       182.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6244951	       195.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5713240	       220.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5786517	       199.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6465325	       193.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 7481166	       169.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6929517	       163.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 8040394	       156.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 7456903	       164.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6394293	       178.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 7504502	       173.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 7057100	       169.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6795847	       195.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 5826229	       189.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 7232810	       168.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 7380459	       179.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6620376	       184.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 5474174	       196.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5836694	       219.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6033069	       193.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6464799	       189.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6044553	       182.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6507726	       220.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5014798	       237.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5887345	       208.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5547495	       207.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5419057	       206.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5859262	       206.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8000863	       205.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8330769	       149.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8756688	       147.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7110187	       167.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7230692	       159.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7723026	       157.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8262960	       157.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8071708	       149.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8622392	       139.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 6993303	       184.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  100636	     12065 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  108478	     11168 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  159902	      7247 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  180915	      6899 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  169570	      6864 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  177510	      7751 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  199066	     10942 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  104467	     10800 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  103578	     10102 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  161328	      7468 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	15223963	        94.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	13961962	        96.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11836712	        95.98 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	12929710	       111.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	12888495	        92.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11635122	        91.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	12556320	        83.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	15640599	        81.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	15774549	        87.78 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	13327838	        93.68 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2204034	       519.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2450719	       478.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2534923	       469.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2129319	       565.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2391612	       535.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2740081	       465.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2492596	       483.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2173233	       518.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2424624	       490.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2403896	       508.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMinHash4KiB-22         	    3183	    365190 ns/op	    3073 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    4062	    346782 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3234	    371731 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3616	    366223 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3625	    361556 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3735	    386102 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3685	    368734 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3442	    344824 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    2788	    409787 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3246	    383528 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     727	   1565955 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     759	   1457146 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     807	   1537784 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     880	   1502368 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     776	   1521619 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     840	   1515682 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     800	   1607762 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     847	   1621426 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     769	   1467044 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     764	   1528204 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkBloomMarshal-22        	  212662	      6181 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  186870	      6334 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  172749	      6608 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  161523	      6710 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  188371	      6294 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  172448	      7499 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  159619	      6965 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  188890	      6832 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  153841	      7707 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  162686	      7458 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomUnmarshal-22      	  217447	      5783 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  325435	      4436 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  358736	      4174 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  279332	      4985 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  281140	      4517 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  304821	      4292 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  331672	      3752 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  290667	      4017 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  356191	      3915 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  351187	      3994 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkCMSMarshal-22          	   33561	     36805 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   29928	     46201 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   32785	     34944 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   40268	     33021 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   24208	     49568 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   29077	     36977 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   34892	     36237 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   26324	     40736 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   34777	     33767 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   41958	     33611 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSUnmarshal-22        	   31431	     35043 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   39721	     29646 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   45982	     27175 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   41613	     28395 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   48930	     26591 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   44367	     26953 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   52195	     22308 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   61754	     25081 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   51022	     28693 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   43430	     24598 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkRebuildBloom5000-22    	    1520	    902233 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1506	    939121 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1335	    862970 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1437	    867665 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1407	    840445 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1624	    988861 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1206	    955972 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1026	    980746 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1296	   1004959 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1183	    980330 ns/op	   12400 B/op	       4 allocs/op

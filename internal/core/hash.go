@@ -67,7 +67,16 @@ func HashBytes(domain string, b []byte) Hash {
 	_, _ = h.Write([]byte{0x00})
 	_, _ = h.Write(b)
 	var out Hash
-	copy(out[:], h.Sum(nil))
+	// Sum APPENDS to the slice it is given. out[:0] has length 0 and capacity sha256.Size, so the
+	// append lands in out's own array and the digest never reaches the heap; the obvious-looking
+	// copy(out[:], h.Sum(nil)) allocates a 32-byte slice on every call. That is not a micro-tuning
+	// preference. This function is on the L0 PostToolUse hot path (§8.1 item 5, budget B-A) and is
+	// called 5 000 times in a single Bloom rebuild, so the old form cost 5 000 allocations and exactly
+	// 160 000 B (156 KiB) of garbage per rebuild — which sketch's BenchmarkRebuildBloom5000 reproduces
+	// as a 172 400 → 12 400 B/op drop. A ONE-OFF A/B probe, not a committed benchmark, put the two
+	// forms at 1 alloc/op / 104.1n ± 2 % and 0 alloc/op / 90.36n ± 3 % over 8 samples, digests
+	// byte-identical. Do not "simplify" it back; TestHashBytes_DoesNotAllocate guards it.
+	h.Sum(out[:0])
 	return out
 }
 
