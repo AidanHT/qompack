@@ -16,7 +16,6 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
-	"github.com/qompack/qompack/internal/testutil"
 )
 
 // writeSpoolFile writes n NDJSON request lines to <root>/.qompack/spool/<name>, in the exact shape
@@ -65,7 +64,7 @@ func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 	writeSpoolFile(t, root, "client-1.ndjson", 2)
 	writeSpoolFile(t, root, "client-2.ndjson", 2)
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	var calls int
 	var sawFirstFileDoneOnDiskEarly bool
 	var dr *drainer
@@ -95,7 +94,7 @@ func TestDrainIsIdempotent(t *testing.T) {
 	writeSpoolFile(t, root, "client-1.ndjson", 10)
 
 	dispatch, count := countingDispatch()
-	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: dispatch})
 
 	n1, err := dr.Drain(context.Background())
 	require.NoError(t, err)
@@ -136,7 +135,7 @@ func TestDrainResumesAfterCancel(t *testing.T) {
 		return ipc.Response{OK: true}
 	}
 
-	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: dispatch})
 
 	n1, err := dr.Drain(ctx)
 	require.ErrorIs(t, err, context.Canceled)
@@ -184,7 +183,7 @@ func TestDrainResolvesBlobs(t *testing.T) {
 		got = r
 		return ipc.Response{OK: true}
 	}
-	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: dispatch})
 
 	n, err := dr.Drain(context.Background())
 	require.NoError(t, err)
@@ -225,7 +224,7 @@ func TestDrainSurvivesCorruptLine(t *testing.T) {
 	writeValid(4)
 	require.NoError(t, f.Close())
 
-	clk := testutil.NewFakeClock(testutil.Epoch)
+	clk := newFakeClock(epoch)
 	m := obs.New(clk)
 	dispatch, count := countingDispatch()
 	dr := newDrainer(DrainConfig{Root: root, Clock: clk, Metrics: m, Dispatch: dispatch})
@@ -250,7 +249,7 @@ func TestDrainKeepsLiveSessionWAL(t *testing.T) {
 
 	dispatch, count := countingDispatch()
 	dr := newDrainer(DrainConfig{
-		Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch,
+		Root: root, Clock: newFakeClock(epoch), Dispatch: dispatch,
 		IsLive: func(sess core.SessionID) bool { return sess == "sess-1" },
 	})
 

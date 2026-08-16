@@ -26,6 +26,8 @@ func All() []Cmd {
 		Cmd{Name: "version", Summary: "print the plugin version", Run: runVersion},
 		Cmd{Name: "config print", Summary: "print the effective configuration", Run: runConfigPrint},
 		Cmd{Name: "config schema", Summary: "print the configuration JSON Schema", Run: runConfigSchema},
+		Cmd{Name: "daemon", Summary: "run the resident per-project daemon", Run: runDaemon},
+		Cmd{Name: "self-test", Summary: "assert every host contract; the only command that may exit non-zero", Run: runSelfTest},
 	)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
@@ -37,7 +39,6 @@ func All() []Cmd {
 // data — rather than as absent entries — is what makes the dispatch table complete on day one.
 var notImplemented = []struct{ name, summary string }{
 	{"mcp", "run the MCP server over stdio (SP-13)"},
-	{"daemon", "run the resident per-project daemon (SP-05)"},
 	{"status", "mode, contracts, store, latency, last decision (SP-14)"},
 	{"recall", "search stored tool output and file versions (SP-14)"},
 	{"pin", "pin an invariant so it is never summarized away (SP-14)"},
@@ -47,7 +48,6 @@ var notImplemented = []struct{ name, summary string }{
 	{"fsck", "verify store and checkpoint integrity (SP-17)"},
 	{"doctor", "diagnose installation and host contract problems (SP-17)"},
 	{"bench", "run the hot-path latency harness (SP-05)"},
-	{"self-test", "assert every host contract; the only command that may exit non-zero (SP-05)"},
 }
 
 // notImplementedRun reports an unimplemented subcommand honestly: a clear message naming the

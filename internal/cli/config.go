@@ -76,6 +76,29 @@ func persistViolations(projectRoot string, violations []config.Violation, log lo
 	}
 }
 
+// homeDir resolves the user-global layer's home, preferring an explicitly injected value so tests
+// never touch the real home directory. Used by every composition-root entry point that loads
+// configuration (daemon.go, selftest.go, commands.go, hooks.go) — moved here from hookclient.go
+// (fix round 1, Minor M-10): it is never called from the hot path itself, and this file is
+// already where every other config-loading helper lives.
+func homeDir(env Env) string {
+	if env.HomeDir != "" {
+		return env.HomeDir
+	}
+	if env.Getenv != nil {
+		for _, k := range []string{"HOME", "USERPROFILE"} {
+			if v := env.Getenv(k); v != "" {
+				return v
+			}
+		}
+	}
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return h
+}
+
 // AttachLoudCounter wires logging's Loud channel to an obs counter.
 //
 // The two packages cannot import each other (§3.2 rejects logging -> obs), so the seam is a plain
