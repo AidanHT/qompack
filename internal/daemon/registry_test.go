@@ -116,6 +116,46 @@ func TestRegistryEnsureUpdatesSourceAndTranscript(t *testing.T) {
 	require.Equal(t, "/tmp/t.jsonl", s.TranscriptPath)
 }
 
+// TestSessionRegistry_IsLive pins the fix round 2 FR-1 seam: IsLive reads Live entirely under
+// the registry's own RLock, so a caller (drainer's IsLive callback in particular) never needs to
+// hold the shared *SessionState pointer Get returns — and therefore never races Ensure/Touch/End,
+// which mutate that same struct under the write lock.
+func TestSessionRegistry_IsLive(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	require.False(t, r.IsLive("unknown"), "an id Ensure has never seen must report not-live")
+
+	r.Ensure(&hookio.Event{SessionID: "sess-1"}, 100)
+	require.True(t, r.IsLive("sess-1"))
+
+	r.End("sess-1", 200)
+	require.False(t, r.IsLive("sess-1"), "IsLive must reflect End immediately")
+}
+
+// TestSessionRegistry_IsLiveConcurrentWithEndIsRaceFree exercises the exact interleaving FR-1
+// diagnosed: one goroutine calling IsLive (the drainer's role) while another concurrently mutates
+// the same session's Live field via End (a route ending a session mid-drain).
+func TestSessionRegistry_IsLiveConcurrentWithEndIsRaceFree(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	r.Ensure(&hookio.Event{SessionID: "sess-1"}, 0)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 500; i++ {
+			_ = r.IsLive("sess-1")
+		}
+	}()
+	for i := 0; i < 500; i++ {
+		r.End("sess-1", core.UnixMilli(i))
+		r.Ensure(&hookio.Event{SessionID: "sess-1"}, core.UnixMilli(i))
+	}
+	<-done
+}
+
 // TestRegistrySetMaxSessionsRejectsNonPositive pins that SetMaxSessions(n<=0) falls back to
 // defaultMaxSessions rather than evicting everything.
 func TestRegistrySetMaxSessionsRejectsNonPositive(t *testing.T) {

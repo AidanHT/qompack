@@ -4,13 +4,34 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/paths"
 )
+
+// runSpawnLockFileName mirrors ipc's own unexported spawnLockName ("spawn.lock"), the file a
+// client's lazySpawn takes inside <root>/.qompack/run to serialize concurrent detached-daemon
+// spawns. ipc's copy cannot be reached from this package (it is unexported and ipc may not import
+// daemon — §3.2), so the literal is respelled here for the one caller that needs it: Run, which
+// deletes it once the daemon it names has actually come up.
+const runSpawnLockFileName = "spawn.lock"
+
+// removeSpawnLockFile deletes <root>/.qompack/run/spawn.lock, if present (task-5-spec.md
+// daemon.go Run step 3: "delete run/spawn.lock after listen"). A client's own lazySpawn lock is
+// already self-clearing via staleness, so this is a courtesy cleanup, not a correctness
+// requirement — a missing file is not an error. paths.CreateNew leaves the file read-only
+// (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is cleared first;
+// harmless on POSIX, where permissions never gate an unlink.
+func removeSpawnLockFile(root string) {
+	p := filepath.Join(paths.Of(root).Run, runSpawnLockFileName)
+	_ = os.Chmod(paths.Long(p), 0o600)
+	_ = os.Remove(paths.Long(p))
+}
 
 // ensureRunningDialTimeout bounds EnsureRunning's own initial liveness dial (task-3-spec.md
 // spawn.go): "costs nothing", so it is short.

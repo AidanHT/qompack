@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
@@ -13,6 +14,12 @@ import (
 // drainBlobToolResponse is the field name a blob-externalized request's Raw carries (client.go's
 // own unexported blobField, respelled here since it is unreachable from package daemon).
 const drainBlobToolResponse = "e.tool_response"
+
+// blobFilePrefix is the shipped client's own naming scheme for a blob file (client.go's
+// unexported blobFilePrefix, respelled here for the same reason as drainBlobToolResponse above):
+// every legitimate descriptor names exactly one file matching it, directly inside spool/, never a
+// path with directory components.
+const blobFilePrefix = "blob-"
 
 // blobRef is the JSON shape a client-externalized request's Raw carries in place of the field it
 // stood in for (client.go's own unexported blobRef type, respelled here for the same reason).
@@ -50,6 +57,18 @@ func resolveBlob(root string, log logging.Logger, req ipc.Request) ipc.Request {
 		return req
 	}
 	if req.Event == nil {
+		return req
+	}
+	// A hostile or corrupt spool/WAL line can carry a Blob value containing "..", a separator, or
+	// an absolute path — resolveBlob reads (and, on success, deletes) whatever file it names, so a
+	// name that would escape spool/ must be refused before it is ever joined. The shipped client
+	// only ever writes blob-<pid>-<n>.bin (client.go's own externalize), so requiring
+	// filepath.Base(ref.Blob) == ref.Blob and the blob- prefix costs no legitimate case (fix
+	// round 2, FR-3).
+	if filepath.Base(ref.Blob) != ref.Blob || !strings.HasPrefix(ref.Blob, blobFilePrefix) {
+		if log != nil {
+			log.Warn("daemon: blob resolution refused an unsafe blob name", "blob", ref.Blob)
+		}
 		return req
 	}
 
