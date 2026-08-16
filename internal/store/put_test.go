@@ -179,7 +179,9 @@ func TestPutBytes_KeepRawStoresDeltaRoot(t *testing.T) {
 	require.NotEmpty(t, contentLine["deltas"], "the content line must point at its delta root")
 
 	// The delta root's own content round-trips back into canon.Delta values.
-	deltaRoot, err := core.ParseHash(contentLine["deltas"].(string))
+	deltasField, ok := contentLine["deltas"].(string)
+	require.True(t, ok, "the deltas field must be a JSON string, not %T", contentLine["deltas"])
+	deltaRoot, err := core.ParseHash(deltasField)
 	require.NoError(t, err)
 	rc, err := tp.Store.Open(ctx, deltaRoot)
 	require.NoError(t, err)

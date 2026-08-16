@@ -177,7 +177,7 @@ func TestOpenStore_LoadsIndex(t *testing.T) {
 
 	want := make(map[core.Hash]Root, 50)
 	for i := 0; i < 50; i++ {
-		res, err := tp.Store.PutBytes(ctx, []byte(bytes.Repeat([]byte{byte('a' + i%26)}, 300+i)),
+		res, err := tp.Store.PutBytes(ctx, bytes.Repeat([]byte{byte('a' + i%26)}, 300+i),
 			PutOptions{Tool: "FileRead", Path: "src/f.txt"})
 		require.NoError(t, err)
 		want[res.Root.Hash] = res.Root
@@ -203,7 +203,7 @@ func TestOpenStore_TruncatedFinalLine(t *testing.T) {
 
 	var kept []core.Hash
 	for i := 0; i < 3; i++ {
-		res, err := tp.Store.PutBytes(ctx, []byte(bytes.Repeat([]byte("line"), 50+i)), PutOptions{Path: "src/t.txt"})
+		res, err := tp.Store.PutBytes(ctx, bytes.Repeat([]byte("line"), 50+i), PutOptions{Path: "src/t.txt"})
 		require.NoError(t, err)
 		kept = append(kept, res.Root.Hash)
 	}
