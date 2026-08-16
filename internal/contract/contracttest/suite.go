@@ -13,9 +13,12 @@
 // core.ErrNotImplemented, or whose RunAll never executes what was registered) skips with the exact
 // Rule W-1 message, which suite_test.go demonstrates against a deliberately stubbed fake.
 //
-// contract.History has no implementation in this package at all — §5.19 gives it no constructor,
-// and SP-05 owns the persistent, cross-session one — so RunHistorySuite's behaviour block is the
-// ordinary Rule W-1 case and skips until a real History is handed to it.
+// contract shipped no History implementation at wave 0 — §5.19 gives it no constructor — so before
+// SP-05, RunHistorySuite's behaviour block was the ordinary Rule W-1 case: it skipped until a real
+// History was handed to it. SP-05 shipped that History, contract.SessionHistory (history.go), and
+// suite_test.go now runs the behaviour block against it directly, alongside the suite's own
+// throwaway memHistory. The Rule W-1 probe itself is unchanged and still correctly skips a
+// deliberately stubbed fakeStubHistory.
 //
 // A <pkg>test package may import only its own base package, testutil and core
 // (00-ARCHITECTURE.md §3.2), so this suite constructs contract.Env with a clock of its own and

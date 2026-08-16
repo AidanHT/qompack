@@ -76,6 +76,21 @@ type monitor struct {
 	since      core.UnixMilli
 	cleanRuns  int
 	last       []Result
+
+	// forcedMode overrides what Mode() and RunAll's return value report, without touching the
+	// natural degrade/restore state machine (mode/reason/cleanRuns) or its persistence: it exists
+	// for runtime.mode == "off"/"passive"/"full", the operator's own escape hatches (§12.1), none of
+	// which may be confused with a real Degrade/Restore transition recorded in state/contract.json.
+	// RunAll recomputes it on every call from e.Cfg.Runtime.Mode; nil means "not forced — report the
+	// natural mode".
+	//
+	// It is in-memory only, deliberately: a force is never written by persist/stateLocked, so
+	// between a process restart and the FIRST RunAll of the new process, Mode() reports whatever the
+	// natural state machine last persisted, not the force a previous process was applying. Every
+	// real caller runs RunAll at SessionStart before consulting Mode() for anything else, which
+	// closes this window in practice; a caller that reads Mode() before its first RunAll of a
+	// session does not.
+	forcedMode *Mode
 }
 
 // NewMonitor returns a Monitor persisting its state to statePath, which is
@@ -170,7 +185,28 @@ func (m *monitor) Register(a Assertion) error {
 	return nil
 }
 
+// panickedAssertionObserved is the Observed text a panicking Check's recovered Result carries.
+const panickedAssertionObserved = "assertion panicked"
+
 func (m *monitor) RunAll(ctx context.Context, e Env) ([]Result, Mode) {
+	// runtime.mode == "off" is an operator instruction to do nothing at all — a wave-2 escape
+	// hatch distinct from the persisted ModeOff state below, which the monitor's own history can
+	// carry independently. It returns immediately, before even the clock/log defaults: zero
+	// assertions execute (task-4-spec.md step 1). It forces ModeOff through the SAME forcedMode
+	// mechanism "passive"/"full" use below, rather than only returning it: Mode() and
+	// Mode().MayAct()/MayRecord() must agree with what this call just returned, so a daemon route
+	// that consults Mode() instead of RunAll's own return value never acts or records while the
+	// operator has switched Qompack off. The force is cleared like any other on the next RunAll
+	// whose runtime.mode is not "off" (the switch's default arm, below), which is what lets a
+	// return to "auto" resume the persisted state machine's mode.
+	if e.Cfg.Runtime.Mode == "off" {
+		m.mu.Lock()
+		off := ModeOff
+		m.forcedMode = &off
+		m.mu.Unlock()
+		return nil, ModeOff
+	}
+
 	// A nil clock would make every Check that timestamps its Result panic, including
 	// StandardAssertions'. Substituting the system clock keeps a half-filled Env — which is all a
 	// caller outside a hook has — usable, and is the monitor's business rather than each Check's.
@@ -188,7 +224,7 @@ func (m *monitor) RunAll(ctx context.Context, e Env) ([]Result, Mode) {
 	results := make([]Result, 0, len(assertions))
 	critical := false
 	for _, a := range assertions {
-		r := a.Check(ctx, e)
+		r := runAssertion(ctx, a, e)
 		results = append(results, r)
 		if !r.OK && r.Severity == SevCritical {
 			critical = true
@@ -221,12 +257,48 @@ func (m *monitor) RunAll(ctx context.Context, e Env) ([]Result, Mode) {
 		}
 	}
 
-	return results, m.Mode()
+	// runtime.mode == "passive"/"full" forces what Mode() reports without disturbing the natural
+	// state machine just computed above: an operator override, not a contract observation. "auto"
+	// (or an empty/unrecognized value) clears any previous force, restoring the natural mode.
+	m.mu.Lock()
+	switch e.Cfg.Runtime.Mode {
+	case "passive":
+		forced := ModeDegradedPassive
+		m.forcedMode = &forced
+	case "full":
+		forced := ModeFull
+		m.forcedMode = &forced
+	default:
+		m.forcedMode = nil
+	}
+	mode := m.mode
+	if m.forcedMode != nil {
+		mode = *m.forcedMode
+	}
+	m.mu.Unlock()
+
+	return results, mode
+}
+
+// runAssertion invokes a.Check, recovering from a panic so a bug in one assertion can never abort
+// RunAll or degrade the session it is trying to protect: a panicking Check is reported as
+// OK:false, SevWarn, Observed:"assertion panicked" — SevWarn, not the assertion's declared
+// severity, so an assertion bug can never itself trigger Degrade.
+func runAssertion(ctx context.Context, a Assertion, e Env) (r Result) {
+	defer func() {
+		if rec := recover(); rec != nil {
+			r = Result{ID: a.ID, OK: false, Severity: SevWarn, Observed: panickedAssertionObserved, TS: now(e)}
+		}
+	}()
+	return a.Check(ctx, e)
 }
 
 func (m *monitor) Mode() Mode {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.forcedMode != nil {
+		return *m.forcedMode
+	}
 	return m.mode
 }
 
