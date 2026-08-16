@@ -2,90 +2,51 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
-	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/dag"
-	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
-	"github.com/qompack/qompack/internal/scheduler"
-	"github.com/qompack/qompack/internal/store"
+	"github.com/qompack/qompack/internal/paths"
 )
 
-// Options is the late-bound dependency set (§5.4).
-//
-// Every service member may be nil, and every call site must tolerate that: waves 1–2 run with
-// Checkpoints and Sched absent. Treating nil as "not built yet" rather than as a programming
-// error is what lets the daemon start and serve `status` in a half-built tree, which is when
-// being able to ask it anything at all matters most.
-type Options struct {
-	ProjectRoot string
-	Cfg         config.Config
-	Log         logging.Logger
-	Metrics     obs.Registry
-	Clock       core.Clock
+// heartbeatInterval is the daemon's own lock-heartbeat cadence (§2.4 lock.go's staleAfter is
+// 90s; a 30s heartbeat leaves ample margin).
+const heartbeatInterval = 30 * time.Second
 
-	Store       store.Store
-	Ledger      negknow.Ledger
-	Sketches    *SketchSet
-	Graph       dag.Graph
-	Grammar     grammar.Sequitur
-	Sched       scheduler.Runtime
-	Checkpoints checkpoint.Writer
+// idleTickMax bounds the idle ticker: min(idleTickMax, idleExitSeconds/10), per task-5-spec.md's
+// daemon.go Run step 5.
+const idleTickMax = 30 * time.Second
 
-	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
-	// op by calling Handle at wiring time instead of editing a function in this package — the
-	// difference between four wave-3 subplans composing and four subplans conflicting.
-	handlers map[ipc.Op]ipc.Handler
-}
+// idleRunBudget is the wall-clock budget Run's own idle tick hands to RunOnce, distinct from the
+// larger drain-ring-on-stop bound.
+const idleRunBudget = 2 * time.Second
 
-// Handle registers h as the handler for op, replacing any previous registration.
-//
-// It is defined on Options rather than on Daemon so the table is complete before Run starts:
-// registering a handler against a running server would need locking on the hot path, and B-A has
-// no room for a contended mutex per request.
-func (o *Options) Handle(op ipc.Op, h ipc.Handler) {
-	if o.handlers == nil {
-		o.handlers = map[ipc.Op]ipc.Handler{}
-	}
-	o.handlers[op] = h
-}
+// adminIdleBudget is the budget admin.idle hands to RunOnce — generous, since an operator calling
+// it explicitly is not on any latency budget.
+const adminIdleBudget = 5 * time.Second
 
-// Handler returns the handler registered for op, if any.
-func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) {
-	h, ok := o.handlers[op]
-	return h, ok
-}
+// stopDrainBound is Stop's bound on draining the in-flight ring before giving up and shutting
+// down anyway.
+const stopDrainBound = 5 * time.Second
 
-// Ops returns every registered op. The order is unspecified.
-func (o *Options) Ops() []ipc.Op {
-	ops := make([]ipc.Op, 0, len(o.handlers))
-	for op := range o.handlers {
-		ops = append(ops, op)
-	}
-	return ops
-}
+// defaultIdleExitSeconds mirrors config.Defaults().Runtime.Daemon.IdleExitSeconds (1800). Not a
+// default source itself — a caller handing New a zero config.Config still gets a sane idle-exit
+// window instead of "exit immediately".
+const defaultIdleExitSeconds = 1800 //nomagic:allow mirrors config.Defaults(), not a new default (§6.1)
 
 // IdleController schedules the O3/O5 background work that may run only while the session is idle
-// (§8.4): compaction, GC, sketch persistence — everything whose cost is unacceptable on the hot
-// path but acceptable when nobody is waiting.
-type IdleController interface {
-	// Register adds work to run when idle. Lower prio runs first.
-	Register(name string, prio int, fn func(ctx context.Context) error)
-	// Notify records the timestamp of the most recent session activity.
-	Notify(lastActivity core.UnixMilli)
-	// IsIdle reports whether enough time has passed since the last activity.
-	IsIdle(now core.UnixMilli) bool
-	// RunOnce runs registered work until budget is exhausted, returning the names that ran.
-	RunOnce(ctx context.Context, budget time.Duration) (ran []string, err error)
-}
+// (§8.4). Declared in idle.go.
 
 // Daemon is the resident process (§5.4).
 type Daemon interface {
@@ -102,8 +63,77 @@ type Daemon interface {
 	Stop(ctx context.Context) error
 }
 
-// New returns a stub Daemon. Construction succeeds so a composition root can wire one today; every
-// operation reports core.ErrNotImplemented until SP-05 lands.
+// daemon is the real Daemon (task-5-spec.md daemon.go).
+type daemon struct {
+	root string
+	log  logging.Logger
+	m    obs.Registry
+	clk  core.Clock
+
+	cfgMu        sync.RWMutex
+	cfg          config.Config
+	cfgEnv       config.Env
+	lastCfgMTime time.Time
+	lastCfgSize  int64
+
+	svc      *Services
+	registry *SessionRegistry
+	idle     *idleController
+	monitor  contract.Monitor
+
+	ing   *ingest
+	drain *drainer
+
+	breach     *breachDetector
+	hotSamples chan time.Duration
+
+	histMu      sync.Mutex
+	lastBudgets []obs.BudgetBreach
+
+	// historyMu serializes every access to the SessionHistory value: it carries no lock of its
+	// own (contract.SessionHistory's own doc comment), and routes run concurrently.
+	historyMu sync.Mutex
+
+	// modeMu guards lastReportedMode, used both for the §12.1 SystemMessage-on-just-degraded
+	// check and for the contract_mode_change counter (ruling #26).
+	modeMu           sync.Mutex
+	lastReportedMode contract.Mode
+
+	lock   *Lock
+	server ipc.Server
+	addr   ipc.Addr
+
+	startTS core.UnixMilli
+
+	routes map[ipc.Op]ipc.Handler
+
+	// runCancel stops the context Run's worker pool, hot-path worker and server.Serve all run
+	// under. Stop calls it (if Run ever set it) so a caller that invokes Stop directly — the
+	// admin.shutdown route in particular, which runs on a request-handling goroutine entirely
+	// separate from Run's own select loop — actually unblocks Run rather than leaving its workers
+	// running forever underneath a daemon that believes itself stopped.
+	runCancelMu sync.Mutex
+	runCancel   context.CancelFunc
+
+	stopOnce sync.Once
+	// stopped closes near the START of Stop's cleanup sequence (before the actual work), so Run's
+	// own select loop can distinguish an intentional Stop-driven Serve return from a genuine
+	// transport failure (see the serveErrCh case below). It is NOT a "Stop has finished" signal —
+	// stopDone is.
+	stopped chan struct{}
+	// stopDone closes only once Stop's ENTIRE cleanup sequence has finished (drain, ingest
+	// close, sketches save, metrics persist, state removal, server close, lock release) — the
+	// signal a caller that invokes Stop asynchronously (admin.shutdown's `go func(){ Stop() }()`)
+	// needs to observe genuine completion. Run returning is not that signal: Run's own select
+	// loop returns as soon as runCancel() fires, which happens right after stopped closes, well
+	// before the rest of Stop's cleanup has run (shutdown-race fix: a metrics.Persist call still
+	// in flight after Run returned raced a test's own TempDir cleanup on .qompack/tmp/).
+	stopDone chan struct{}
+}
+
+// New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
+// defaults exactly as it would running through NewOptions, so construction never fails and every
+// seam is usable before Run is ever called.
 func New(o Options) (Daemon, error) {
 	if o.Log == nil {
 		o.Log = logging.Nop()
@@ -111,83 +141,471 @@ func New(o Options) (Daemon, error) {
 	if o.Clock == nil {
 		o.Clock = core.SystemClock()
 	}
-	return &stubDaemon{opts: o, registry: NewSessionRegistry()}, nil
-}
-
-// stubDaemon reports core.ErrNotImplemented for every operation.
-//
-// Registry and Idle return real, usable values rather than nil: they are the seams later waves
-// register against before the daemon itself runs, and handing back nil would make the extension
-// points unusable exactly when they are supposed to be wired.
-type stubDaemon struct {
-	opts     Options
-	registry *SessionRegistry
-	idle     stubIdle
-}
-
-func (d *stubDaemon) Run(context.Context) error {
-	return fmt.Errorf("%w: daemon.Run (SP-05)", core.ErrNotImplemented)
-}
-
-func (d *stubDaemon) Registry() *SessionRegistry { return d.registry }
-
-func (d *stubDaemon) Drain(context.Context) (int, error) {
-	return 0, fmt.Errorf("%w: daemon.Drain (SP-05)", core.ErrNotImplemented)
-}
-
-func (d *stubDaemon) Idle() IdleController { return &d.idle }
-
-func (d *stubDaemon) Stop(context.Context) error {
-	return fmt.Errorf("%w: daemon.Stop (SP-05)", core.ErrNotImplemented)
-}
-
-// stubIdle accepts registrations — so later waves can wire O3/O5 work today — but runs nothing.
-type stubIdle struct {
-	mu    sync.Mutex
-	work  []idleWork
-	last  core.UnixMilli
-	dirty bool
-}
-
-type idleWork struct {
-	name string
-	prio int
-	fn   func(ctx context.Context) error
-}
-
-func (i *stubIdle) Register(name string, prio int, fn func(ctx context.Context) error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.work = append(i.work, idleWork{name: name, prio: prio, fn: fn})
-}
-
-func (i *stubIdle) Notify(lastActivity core.UnixMilli) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	i.last = lastActivity
-	i.dirty = true
-}
-
-// IsIdle reports false unconditionally.
-//
-// This is the documented zero value, not an oversight: the real predicate compares now-last
-// against runtime.idle.afterMS, and answering "yes, idle" while nothing can actually run would
-// invite a caller to schedule work that silently never happens. False is the honest answer for a
-// daemon that does not run background work at all.
-func (i *stubIdle) IsIdle(core.UnixMilli) bool { return false }
-
-func (i *stubIdle) RunOnce(context.Context, time.Duration) ([]string, error) {
-	return nil, fmt.Errorf("%w: daemon.IdleController.RunOnce (SP-05)", core.ErrNotImplemented)
-}
-
-// Registered returns the names registered so far, so a wiring test can prove its work landed even
-// though nothing runs it yet.
-func (i *stubIdle) Registered() []string {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	names := make([]string, 0, len(i.work))
-	for _, w := range i.work {
-		names = append(names, w.name)
+	if o.Metrics == nil {
+		o.Metrics = obs.New(o.Clock)
 	}
-	return names
+	if o.Sketches == nil {
+		o.Sketches = NewSketchSet(o.Cfg)
+	}
+
+	svc := &Services{
+		Store:       o.Store,
+		Ledger:      o.Ledger,
+		Sketches:    o.Sketches,
+		Graph:       o.Graph,
+		Grammar:     o.Grammar,
+		Sched:       o.Sched,
+		Checkpoints: o.Checkpoints,
+	}
+	for _, bind := range o.binds {
+		bind(svc)
+	}
+	DeclareProducers(svc)
+
+	statePath := filepath.Join(paths.Of(o.ProjectRoot).State, "contract.json")
+	monitor := contract.NewMonitor(o.Log, o.Metrics, statePath)
+	for _, a := range contract.StandardAssertions() {
+		_ = monitor.Register(a)
+	}
+
+	d := &daemon{
+		root:     o.ProjectRoot,
+		log:      o.Log,
+		m:        o.Metrics,
+		clk:      o.Clock,
+		cfg:      o.Cfg,
+		cfgEnv:   config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
+		svc:      svc,
+		monitor:  monitor,
+		stopped:  make(chan struct{}),
+		stopDone: make(chan struct{}),
+	}
+	d.registry = NewSessionRegistry()
+	d.registry.SetLogger(o.Log)
+	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
+
+	d.idle = newIdleController(o.Cfg.Scheduler.Idle.DetectAfterSeconds, o.Clock, o.Log, o.Metrics, monitor.Mode)
+	d.idle.Register(idleTaskDrain, idlePrioDrain, d.idleDrain)
+	d.idle.Register(idleTaskSketches, idlePrioSketches, d.idleSaveSketches)
+	d.idle.Register(idleTaskMetrics, idlePrioMetrics, d.idleWriteMetrics)
+
+	need := o.Cfg.Runtime.HotPath.BreachWindows
+	limit := time.Duration(o.Cfg.Runtime.HotPath.BudgetMs) * time.Millisecond
+	d.breach = newBreachDetector(limit, need)
+	d.hotSamples = make(chan time.Duration, ringCapacity)
+
+	d.ing = newIngest(o.ProjectRoot, o.Cfg, o.Log, o.Metrics, o.Clock)
+
+	d.routes = buildRoutes(&o, d)
+
+	d.startTS = core.NowMilli(o.Clock)
+	d.lastReportedMode = monitor.Mode()
+
+	return d, nil
+}
+
+// idle task names and priorities (task-5-spec.md idle.go): SP-05 itself registers exactly three,
+// none carrying the act. prefix, since all three are recording/maintenance work that must keep
+// running in degraded-passive.
+const (
+	idleTaskDrain    = "drain"
+	idleTaskSketches = "sketches"
+	idleTaskMetrics  = "metrics"
+
+	idlePrioDrain    = 10
+	idlePrioSketches = 20
+	idlePrioMetrics  = 30
+)
+
+// buildRoutes composes the resolved op table: every op o already registered wins; every op it
+// did not register falls back to d's own default handler. o is read via its exported Ops/Handler
+// accessors only, so the daemon never reaches into Options' unexported map directly.
+func buildRoutes(o *Options, d *daemon) map[ipc.Op]ipc.Handler {
+	routes := make(map[ipc.Op]ipc.Handler, len(ipc.KnownOps()))
+	for _, op := range o.Ops() {
+		if h, ok := o.Handler(op); ok {
+			routes[op] = h
+		}
+	}
+	for op, h := range defaultRoutes(d) {
+		if _, exists := routes[op]; !exists {
+			routes[op] = h
+		}
+	}
+	return routes
+}
+
+func defaultRoutes(d *daemon) map[ipc.Op]ipc.Handler {
+	return map[ipc.Op]ipc.Handler{
+		ipc.OpObserveTool:   d.handleObserveTool,
+		ipc.OpObservePrompt: d.handleObservePrompt,
+		ipc.OpObserveStop:   d.handleObserveStop,
+		ipc.OpSessionStart:  d.handleSessionStart,
+		ipc.OpCheckpoint:    d.handleCheckpoint,
+		ipc.OpFlush:         d.handleFlush,
+		ipc.OpStatus:        d.handleStatus,
+		ipc.OpMCP:           d.handleMCP,
+		ipc.OpAdminPing:     d.handleAdminPing,
+		ipc.OpAdminDrain:    d.handleAdminDrain,
+		ipc.OpAdminReload:   d.handleAdminReload,
+		ipc.OpAdminIdle:     d.handleAdminIdle,
+		ipc.OpAdminShutdown: d.handleAdminShutdown,
+	}
+}
+
+func (d *daemon) Registry() *SessionRegistry { return d.registry }
+func (d *daemon) Idle() IdleController       { return d.idle }
+
+// currentCfg returns the daemon's live configuration, safe for concurrent readers against
+// reload.go's writer.
+func (d *daemon) currentCfg() config.Config {
+	d.cfgMu.RLock()
+	defer d.cfgMu.RUnlock()
+	return d.cfg
+}
+
+// currentState renders the daemon's current mode/hot/deadlines into an ipc.State, for WriteState
+// calls from the hot-path transition and the session.start route.
+func (d *daemon) currentState() ipc.State {
+	cfg := d.currentCfg()
+	return ipc.State{
+		Mode:              d.monitor.Mode(),
+		Hot:               d.registry.HotMode(),
+		ConnectDeadlineMs: clampU16(cfg.Runtime.Daemon.ConnectDeadlineMs),
+		AckDeadlineMs:     clampU16(cfg.Runtime.Daemon.AckDeadlineMs),
+		DaemonEnabled:     cfg.Runtime.Daemon.Enabled,
+		SpoolOnBreach:     cfg.Runtime.HotPath.SpoolOnBreach,
+		MaxPayloadBytes:   clampU32(cfg.Runtime.HotPath.MaxPayloadBytes),
+		DaemonPID:         clampU32(os.Getpid()),
+		Written:           core.NowMilli(d.clk),
+	}
+}
+
+func clampU16(v int) uint16 {
+	if v < 0 {
+		return 0
+	}
+	if v > math.MaxUint16 {
+		return math.MaxUint16
+	}
+	return uint16(v) //nolint:gosec // bounds-checked above
+}
+
+func clampU32(v int) uint32 {
+	if v < 0 {
+		return 0
+	}
+	if v > math.MaxUint32 {
+		return math.MaxUint32
+	}
+	return uint32(v) //nolint:gosec // bounds-checked above
+}
+
+// userHomeDir returns os.UserHomeDir()'s result, or "" on error — reload.go's config.Load call
+// treats an empty HomeDir exactly like config.Load's other callers do (no user-global file
+// found), never a fatal condition.
+func userHomeDir() string {
+	h, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return h
+}
+
+// Run implements the daemon lifecycle of task-5-spec.md's daemon.go section.
+func (d *daemon) Run(ctx context.Context) error {
+	addr, err := ipc.Resolve(d.root)
+	if err != nil {
+		if isAddrTooLong(err) {
+			d.log.Loud("daemon: resolved address too long — running spool-only", "root", d.root, "err", err)
+			return nil
+		}
+		return fmt.Errorf("daemon: run: resolve: %w", err)
+	}
+	d.addr = addr
+
+	lock, err := AcquireLock(d.root, addr, d.clk)
+	if err != nil {
+		if errors.Is(err, ErrLockHeld) {
+			return nil // another daemon owns this project: success, not failure.
+		}
+		return fmt.Errorf("daemon: run: acquire lock: %w", err)
+	}
+	d.lock = lock
+
+	if d.svc.Sketches != nil {
+		d.svc.Sketches.Load(d.root, d.log)
+	}
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	d.runCancelMu.Lock()
+	d.runCancel = cancel
+	d.runCancelMu.Unlock()
+
+	d.ing.Start(runCtx, 0, d.runIngested)
+	go d.hotPathWorker(runCtx)
+
+	d.drain = newDrainer(DrainConfig{
+		Root:     d.root,
+		Log:      d.log,
+		Metrics:  d.m,
+		Clock:    d.clk,
+		Dispatch: d.drainDispatch,
+		Seen:     d.ing.seen,
+		IsLive:   d.sessionIsLive,
+	})
+
+	server, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)
+	if err != nil {
+		// The deferred cancel() above already stops the ingest workers and the hot-path worker
+		// on this return, but nothing else releases the lock this Run call already holds — left
+		// unreleased, daemon.lock would keep naming this (now-dead) process's pid, and no
+		// replacement daemon could ever take the project while it lives (fix round 1, M-6).
+		if relErr := d.lock.Release(); relErr != nil {
+			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
+		}
+		return fmt.Errorf("daemon: run: listen: %w", err)
+	}
+	d.server = server
+
+	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
+		d.log.Warn("daemon: failed to write state.bin", "err", err)
+	}
+	removeSpawnLockFile(d.root)
+
+	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+		d.log.Warn("daemon: startup drain failed", "err", err)
+	}
+
+	hbTicker := time.NewTicker(heartbeatInterval)
+	defer hbTicker.Stop()
+
+	idleTick := idleTickMax
+	if secs := d.currentCfg().Runtime.Daemon.IdleExitSeconds; secs > 0 {
+		if candidate := time.Duration(secs) * time.Second / 10; candidate < idleTick {
+			idleTick = candidate
+		}
+	}
+	if idleTick <= 0 {
+		idleTick = idleTickMax
+	}
+	idleTicker := time.NewTicker(idleTick)
+	defer idleTicker.Stop()
+
+	serveErrCh := make(chan error, 1)
+	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
+
+	var zeroLiveSince time.Time
+	for {
+		select {
+		case <-ctx.Done():
+			cancel()
+			<-serveErrCh
+			// Stop, not a bare nil: without it, sketches are never saved, the ingest WAL handles
+			// are never flushed/closed, metrics/latency.json is never written, state.bin is left
+			// on disk (a client keeps dialling a dead endpoint until the connect itself fails),
+			// and daemon.lock stays held (fix round 1, I-7). context.Background(), deliberately —
+			// ctx is already Done here, so Stop's own bounded drain would be a no-op if it
+			// inherited it.
+			return d.Stop(context.Background())
+		case err := <-serveErrCh:
+			// A Serve return driven by Stop() (admin.shutdown, or the idle-exit path below, both
+			// of which close d.stopped before cancelling runCtx) is an intentional, successful
+			// shutdown — report nil, not the raw context.Canceled Serve's own contract returns for
+			// a cancellation-driven stop. A Serve return with d.stopped still open is a genuine,
+			// unexpected transport failure: this arm gets the same Stop the ctx.Done arm above
+			// does (fix round 2, FR-4) — without it, daemon.lock stays held until process death,
+			// state.bin keeps advertising a dead daemon, and the ingest WAL/sketches/metrics never
+			// flush. err is reported verbatim; Stop's own (expected-nil, in this ordinary case)
+			// error is deliberately not allowed to shadow the real failure that triggered this arm.
+			select {
+			case <-d.stopped:
+				return nil
+			default:
+				_ = d.Stop(context.Background())
+				return err
+			}
+		case <-hbTicker.C:
+			if d.lock != nil {
+				_ = d.lock.Heartbeat()
+			}
+		case <-idleTicker.C:
+			d.idle.Notify(d.registry.LastActivity())
+			now := core.NowMilli(d.clk)
+			if d.idle.IsIdle(now) {
+				_, _ = d.idle.RunOnce(runCtx, idleRunBudget)
+			}
+			d.maybeReloadConfig(runCtx, config.Env{})
+
+			if d.registry.Live() == 0 {
+				if zeroLiveSince.IsZero() {
+					zeroLiveSince = d.clk.Now()
+				}
+				exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
+				if exitAfter <= 0 {
+					exitAfter = defaultIdleExitSeconds
+				}
+				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
+					cancel()
+					<-serveErrCh
+					_ = d.Stop(ctx)
+					return nil
+				}
+			} else {
+				zeroLiveSince = time.Time{}
+			}
+		}
+	}
+}
+
+// sessionIsLive reports whether sess is still tracked as live, for drainer's IsLive callback (a
+// live session's WAL is offset-marked but kept, never deleted mid-session).
+func (d *daemon) sessionIsLive(sess core.SessionID) bool {
+	return d.registry.IsLive(sess)
+}
+
+// Drain replays every spool-tier file under root's spool directory. It is safe to call before Run
+// has fully started a drainer only in the sense that a nil drainer reports (0, nil) — Run always
+// constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
+// only ever run once Run has.
+func (d *daemon) Drain(ctx context.Context) (int, error) {
+	if d.drain == nil {
+		return 0, nil
+	}
+	return d.drain.Drain(ctx)
+}
+
+// runIngested is the ingest worker pool's dispatch callback: it resolves the event, routes to the
+// bound Services function when present, and — for observe.prompt — runs the off-reply-path
+// sentinel scan. It is also drainer.Dispatch's underlying function, wrapped as dispatchOp so a
+// drained line gets exactly the same handling a live request would.
+func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
+	ev := resolveEvent(req)
+	switch req.Op {
+	case ipc.OpObserveTool:
+		if d.svc.ObserveTool != nil {
+			if err := d.svc.ObserveTool(ctx, *ev); err != nil {
+				d.log.Warn("daemon: ObserveTool failed", "err", err)
+			}
+		} else if d.m != nil {
+			d.m.Counter(counterUnhandledObserveTool).Add(1)
+		}
+	case ipc.OpObserveStop:
+		subagent := decodeSubagent(req.Raw)
+		if d.svc.ObserveStop != nil {
+			if err := d.svc.ObserveStop(ctx, *ev, subagent); err != nil {
+				d.log.Warn("daemon: ObserveStop failed", "err", err)
+			}
+		} else if d.m != nil {
+			d.m.Counter(counterUnhandledObserveStop).Add(1)
+		}
+	case ipc.OpObservePrompt:
+		d.scanSentinelForPrompt(ev)
+	}
+}
+
+// drainDispatch is the drainer's DrainConfig.Dispatch function — an explicit, non-reentrant
+// allow-list per op family, not a blanket call into dispatchOp (fix round 1, Critical C-1).
+//
+// A hot-path op's line came FROM a durability record (a WAL segment or a client spool file) that
+// IS the drain's own source of truth, so replaying it must route straight to the same processing
+// a live worker-pool job gets (runIngested) rather than back through dispatchOp's ordinary route
+// handlers: dispatchOp's observe.* routes call ingest.Accept, which would re-WAL the line — for a
+// WAL-sourced line, that is a self-referential write into the very file being drained.
+//
+// flush is routed to flushRoute with drain=false: drainer.Drain holds a plain, non-reentrant
+// sync.Mutex (drain.go's dr.mu) for the WHOLE replay, so a drained flush line that called back
+// into d.Drain — as the ordinary flush route does — would deadlock this goroutine on a lock it is
+// already holding, permanently. That deadlock is not a rare interleaving: ipc.client.Send spools
+// EVERY op on EVERY connect failure (no hot-path filter), so a SessionEnd hook firing while the
+// daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Serve
+// has accepted a single connection — to trip over.
+//
+// admin.* is skipped entirely: an admin op replayed from a stale spool file has no operator
+// waiting on its reply, admin.drain would hit the identical re-entrancy hazard as flush, and
+// admin.shutdown's asynchronous Stop() also calls d.Drain — safe today only because it runs on a
+// separate goroutine that would simply block behind this one, but skipping it here removes the
+// question entirely rather than relying on that indirection.
+//
+// session.start, checkpoint, status and mcp all reach here only via a stale spooled Reply request
+// nobody is still waiting on; none of their handlers ever calls Drain, so routing them through the
+// full dispatchOp is safe and preserves their side effects (session bookkeeping, contract
+// observations, markers).
+func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
+	switch {
+	case req.Op.HotPath():
+		d.runIngested(ctx, req)
+		return ipc.Response{OK: true}
+	case req.Op == ipc.OpFlush:
+		return d.flushRoute(ctx, req, false)
+	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
+		return ipc.Response{OK: true}
+	default:
+		return d.dispatchOp(ctx, req)
+	}
+}
+
+// Stop shuts the daemon down cleanly and idempotently (sync.Once): stop accepting, drain the ring
+// with a bound, close the ingest WAL handles, save sketches, persist metrics, remove state.bin,
+// close the server, release the lock.
+func (d *daemon) Stop(ctx context.Context) error {
+	var stopErr error
+	d.stopOnce.Do(func() {
+		// Closed last, by the deferred call below, once every cleanup step in this closure has
+		// actually run — not to be confused with d.stopped, which closes next, before any of the
+		// cleanup itself (shutdown-race fix: a caller that invokes Stop asynchronously, as
+		// admin.shutdown does, needs a way to observe genuine completion; Run returning is not
+		// that signal).
+		defer close(d.stopDone)
+		close(d.stopped)
+
+		d.runCancelMu.Lock()
+		runCancel := d.runCancel
+		d.runCancelMu.Unlock()
+		if runCancel != nil {
+			runCancel() // unblocks Run's own select loop and stops the worker pool below.
+		}
+
+		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
+		_, _ = d.Drain(drainCtx)
+		cancel()
+
+		d.ing.Wait()
+		if err := d.ing.Close(); err != nil {
+			d.log.Warn("daemon: stop: closing ingest WAL handles", "err", err)
+		}
+
+		if d.svc.Sketches != nil {
+			d.svc.Sketches.Save(d.root, d.log)
+		}
+
+		if d.m != nil {
+			if err := d.m.Persist(paths.Of(d.root)); err != nil {
+				d.log.Warn("daemon: stop: persisting metrics", "err", err)
+			}
+		}
+
+		if err := ipc.RemoveState(d.root); err != nil {
+			d.log.Warn("daemon: stop: removing state.bin", "err", err)
+		}
+
+		if d.server != nil {
+			if err := d.server.Close(); err != nil {
+				stopErr = err
+			}
+		}
+
+		if d.lock != nil {
+			if err := d.lock.Release(); err != nil && stopErr == nil {
+				stopErr = err
+			}
+		}
+	})
+	return stopErr
+}
+
+// isAddrTooLong reports whether err wraps ipc.ErrAddrTooLong.
+func isAddrTooLong(err error) bool {
+	return errors.Is(err, ipc.ErrAddrTooLong)
 }

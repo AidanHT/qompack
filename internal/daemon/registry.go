@@ -108,6 +108,18 @@ func (r *SessionRegistry) Get(id core.SessionID) (*SessionState, bool) {
 	return s, ok
 }
 
+// IsLive reports whether id is currently tracked as live, reading SessionState.Live under the
+// registry's own RLock. Prefer this over Get+field-read for anything that only needs the
+// liveness bool: Get hands back the shared *SessionState pointer, and reading any of its fields
+// after the lock is dropped races Ensure/Touch/End, which mutate it under the write lock (fix
+// round 2, FR-1).
+func (r *SessionRegistry) IsLive(id core.SessionID) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	s, ok := r.sessions[id]
+	return ok && s.Live
+}
+
 // Len returns the number of tracked sessions (live and recently-ended).
 func (r *SessionRegistry) Len() int {
 	r.mu.RLock()
