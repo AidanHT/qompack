@@ -1,0 +1,11 @@
+{
+  "package": "sketch",
+  "owner": "SP-03",
+  "fixtures": [
+    { "name": "bloom_10000_0.01", "kind": "format", "state": "frozen", "input": "", "want": "bloom-10000-0.01.v1.bin", "note": "QPKS v1 Bloom frame; bytes=12072 sha256=ac0bb9e7b0b97820ec9b528c6c8a0893aea8c04bd2aa4cb3595d0b25bc28d99d" },
+    { "name": "cms_0.001_0.01", "kind": "format", "state": "frozen", "input": "", "want": "cms-0.001-0.01.v1.bin", "note": "QPKS v1 Count-Min frame; bytes=54474 sha256=6a2ceb3deeb775e08f4daf8afbff53288eba0e9c36b9d1a18661433eeaf4305a" },
+    { "name": "hll_2048", "kind": "format", "state": "frozen", "input": "", "want": "hll-2048.v1.bin", "note": "QPKS v1 HyperLogLog frame; bytes=2102 sha256=676ef0d5f9efd8e1ddb97fd30004083d85ef46498646d83b43529831ce1a111d" },
+    { "name": "mg_64", "kind": "format", "state": "frozen", "input": "", "want": "mg-64.v1.bin", "note": "QPKS v1 Misra-Gries frame; bytes=1811 sha256=822a4d63099d61aed1ec05c089bf490628268a850cfaeea5fb94930730227f3a" },
+    { "name": "minhash_128", "kind": "format", "state": "frozen", "input": "", "want": "minhash-128.v1.bin", "note": "QPKS v1 MinHash frame; bytes=1076 sha256=ea5bf9dffa6ef86b92d08a9e854dd2b19deb0d0ed9834ef6f7316a7b1beb7211" }
+  ]
+}

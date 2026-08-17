@@ -156,3 +156,13 @@ func TestRunHistorySuite_AgainstAnInMemoryHistory(t *testing.T) {
 		return newMemHistory()
 	})
 }
+
+// TestRunHistorySuite_AgainstSessionHistory runs the History conformance suite against
+// contract.SessionHistory, SP-05's real cross-session implementation: this is what flips Rule W-1's
+// skip off for good — the behaviour block now runs against the History every real caller uses,
+// not only against the suite's own throwaway memHistory.
+func TestRunHistorySuite_AgainstSessionHistory(t *testing.T) {
+	contracttest.RunHistorySuite(t, "contract.SessionHistory", func(t *testing.T) contract.History {
+		return &contract.SessionHistory{}
+	})
+}

@@ -31,11 +31,13 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pins"
+	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -182,6 +184,11 @@ func TestV1_AppendOnlyInvariantSurvivesRealHookRun(t *testing.T) {
 func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 	bin := v1BuildBinary(t)
 	p := testutil.NewProject(t, testutil.WithEnv(testutil.E2EBinaryEnv, bin))
+	// v1Session's SessionStart call, run against the real binary below, brings up a real detached
+	// daemon; shut it down before this test's own t.TempDir() cleanup runs, or a still-running
+	// daemon holding its own executable open can make that cleanup fail on Windows ("Access is
+	// denied" removing qompack.exe — open-running-executable semantics).
+	t.Cleanup(func() { v1ShutdownDaemonIfReachable(t, p.Root) })
 
 	osTemp := t.TempDir()
 	t.Setenv("TMP", osTemp)
@@ -193,6 +200,15 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 	for _, call := range v1Session(p.Root) {
 		p.RunHook(t, call.name, call.ev)
 	}
+
+	// Shut the daemon SessionStart brought up down explicitly, BEFORE snapshotTree walks the tree
+	// a second time — not only in t.Cleanup, which would run after every assertion below (fix
+	// round 1, Important I-9). A still-running daemon actively creating/renaming/deleting files
+	// under .qompack/ (WAL rotation, run/spawn.lock, tmp/ staging) races filepath.WalkDir and
+	// could fail this snapshot for reasons unrelated to the write-set invariant it exists to
+	// check. t.Cleanup's own call is now a fast, idempotent no-op belt-and-braces (the daemon is
+	// already gone by the time it runs).
+	v1ShutdownDaemonIfReachable(t, p.Root)
 
 	after := snapshotTree(t, p.Root, p.Home(), osTemp)
 
@@ -489,6 +505,16 @@ var v1FixtureType = map[string]func() any{
 	"paths/manifest_entry":       func() any { return new(paths.ManifestEntry) },
 	"checkpoint/checkpoint_v1":   func() any { return new(checkpoint.Checkpoint) },
 	"contract/result_set":        func() any { return new([]contract.Result) },
+	"ipc/observe_tool":           func() any { return new(ipc.Request) },
+	"ipc/response_reply":         func() any { return new(ipc.Response) },
+}
+
+// v1BinaryFixtureKeys names frozen format fixtures whose bytes are not JSON at all — a wire format
+// 00-ARCHITECTURE.md §2.4 specifies as a fixed-layout binary record, not a JSON document (SP-05's
+// 32-byte hot-path state record). v1RoundTrip only checks these are present and non-empty;
+// json.Unmarshal has nothing to parse in a CRC-terminated binary record.
+var v1BinaryFixtureKeys = map[string]bool{
+	"ipc/state_degraded": true,
 }
 
 // v1CheckpointTiers is §8.5's complete field set: tiers 1-3 plus metadata. Every one must be
@@ -500,7 +526,8 @@ var v1CheckpointTiers = []string{
 
 // TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes is §4 IT-9.
 //
-// Crosses testdata/golden/contracts/** -> hookio, checkpoint, pins, negknow, store, dag, paths.
+// Crosses testdata/golden/contracts/** -> hookio, checkpoint, pins, negknow, store, dag, paths,
+// sketch.
 //
 // Rule W-2 makes a frozen fixture byte-final for every wave: "a fixture the real implementation
 // cannot reproduce is a verification failure, not a fixture bug." That rule is only enforceable if
@@ -508,6 +535,13 @@ var v1CheckpointTiers = []string{
 // field its Go type does not model, the first wave-1 subplan to round-trip it silently drops that
 // field and the golden becomes unreproducible — at which point W-2 blames the implementation for a
 // fixture that was never valid.
+//
+// The corpus is not all JSON. SP-03's five §5.7 sketch fixtures are QPKS frames: a versioned,
+// checksummed byte layout whose entire reason for existing is that a sketch written by one plugin
+// version still decodes years later (§6.2 — tried.bloom is permanent memory and is never
+// regenerated). A JSON round-trip cannot express that property, so v1RoundTrip dispatches on the
+// declared want extension and checks each wire form with the assertion that form actually supports.
+// The dispatch is exhaustive by construction: an extension no arm claims fails the test.
 func TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes(t *testing.T) {
 	root := repoRoot(t)
 	dir := filepath.Join(root, "testdata", "golden", "contracts")
@@ -734,6 +768,58 @@ func v1BuildBinary(t *testing.T) string {
 	return out
 }
 
+// v1ProbeTimeout, v1RoundTripDeadline and v1ShutdownPollBound/Tick bound the raw ipc.Client
+// v1ShutdownDaemonIfReachable constructs to poke and then stop a real daemon this file's own
+// end-to-end hook runs may have started.
+const (
+	v1ProbeTimeout      = 200 * time.Millisecond
+	v1RoundTripDeadline = 5 * time.Second
+	v1ShutdownPollBound = 15 * time.Second
+	v1ShutdownPollTick  = 100 * time.Millisecond
+)
+
+// v1ShutdownDaemonIfReachable dials root's resolved address and, only if something answers, sends
+// admin.shutdown (retried, since Client.Send never propagates an error — a failed round trip just
+// spools the request instead of delivering it) and waits for the daemon to go away. It is a fast
+// no-op whenever no daemon ever came up.
+func v1ShutdownDaemonIfReachable(t *testing.T, root string) {
+	t.Helper()
+	addr, err := ipc.Resolve(root)
+	if err != nil {
+		return
+	}
+	if !ipc.Probe(addr, v1ProbeTimeout) {
+		return
+	}
+
+	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	defer func() { _ = c.Close() }()
+
+	// A ticker, not time.Sleep, per §6.1's wall-clock-sleep ban (devtool lint's sleepcheck
+	// sub-check, which exempts only test/bench/**).
+	ticker := time.NewTicker(v1ShutdownPollTick)
+	defer ticker.Stop()
+	timeout := time.NewTimer(v1ShutdownPollBound)
+	defer timeout.Stop()
+	for {
+		_, _ = c.Send(context.Background(), ipc.Request{
+			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		}, v1RoundTripDeadline)
+		if !ipc.Probe(addr, v1ProbeTimeout) {
+			return
+		}
+		select {
+		case <-ticker.C:
+		case <-timeout.C:
+			if ipc.Probe(addr, v1ProbeTimeout) {
+				t.Logf("v1ShutdownDaemonIfReachable: daemon at %s still reachable after %s of retried admin.shutdown; leaving it running", root, v1ShutdownPollBound)
+			}
+			return
+		}
+	}
+}
+
 // v1LoudLines counts the lines in <logs>/LOUD.log, which §12 makes the never-rotated record of
 // every degradation and restoration.
 func v1LoudLines(t *testing.T, l paths.Layout) int {
@@ -854,13 +940,52 @@ func v1ReadManifest(t *testing.T, path string) v1Manifest {
 	return m
 }
 
-// v1RoundTrip unmarshals a frozen artifact into its declared Go type and asserts the type can
-// reproduce it exactly.
+// v1RoundTrip asserts a frozen artifact is still readable by the declared decoder for its wire
+// form, and dispatches to the arm for that form.
+//
+// The dispatch is on the DECLARED extension of the manifest's want path, never on "try JSON and
+// fall back to binary". A fallback would let a corrupt JSON fixture pass as "probably binary",
+// which is precisely the rot this walker exists to catch. So every fixture is checked by exactly
+// one arm, and an extension with no arm is a hard failure rather than a silent skip: a new wire
+// form must arrive with its own assertion, not slip through as unchecked bytes.
 func v1RoundTrip(t *testing.T, key, path string) {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err, "%s: frozen fixture missing from disk", key)
+
+	if v1BinaryFixtureKeys[key] {
+		require.NotEmpty(t, raw, "%s: frozen fixture is empty", key)
+		return
+	}
 	require.NotEmpty(t, strings.TrimSpace(string(raw)), "%s: frozen fixture is empty", key)
+
+	switch {
+	case strings.HasSuffix(path, ".bin"):
+		v1RoundTripQPKS(t, key, raw)
+	case strings.HasSuffix(path, ".jsonc"), strings.HasSuffix(path, ".jsonl"),
+		strings.HasSuffix(path, ".ndjson"), strings.HasSuffix(path, ".json"):
+		v1RoundTripJSON(t, key, path, raw)
+	default:
+		t.Fatalf("%s: frozen fixture %s has an extension no round-trip arm claims. Every frozen "+
+			"artifact must be checked by exactly one arm; add one for this wire form rather than "+
+			"letting the fixture through unchecked (Rule W-2).", key, path)
+	}
+}
+
+// v1RoundTripJSON is the arm for every JSON-flavoured frozen artifact: .json, .jsonl, .ndjson and
+// .jsonc. It unmarshals into the declared Go type and asserts the type can reproduce the bytes
+// exactly.
+//
+// .ndjson is here because of the wave-1 merge, and the reason is worth keeping. SP-05 froze
+// ipc/observe_tool.ndjson and ipc/response_reply.ndjson against a v1RoundTrip that had no
+// extension dispatch at all — every non-binary fixture fell through to this JSON path, so .ndjson
+// worked without ever being named. SP-03 then made the dispatch exhaustive for its .bin QPKS
+// frames, with a fatal default. Each branch was right on its own and the composition rejected two
+// fixtures that had been passing: an arm the exhaustive switch never learned about. NDJSON is
+// line-delimited JSON and v1FirstLine already reads exactly one record, so it belongs with .jsonl
+// rather than in v1BinaryFixtureKeys, which would have downgraded the check to "file is non-empty".
+func v1RoundTripJSON(t *testing.T, key, path string, raw []byte) {
+	t.Helper()
 
 	// A .jsonc fixture carries comments, which no JSON decoder accepts. Stripping is the same step
 	// every real reader of these bytes performs — config.Load runs StripJSONC before parsing — so
@@ -882,6 +1007,55 @@ func v1RoundTrip(t *testing.T, key, path string) {
 	dec := json.NewDecoder(strings.NewReader(string(v1FirstLine(raw))))
 	require.NoError(t, dec.Decode(v), "%s does not unmarshal into its declared type", key)
 	v1RequireCanonicalEqual(t, key, v1FirstLine(raw), v)
+}
+
+// qpksFixedOverhead is the part of a QPKS frame that can never be body: the fixed 32-byte prefix
+// (magic, Ver, Kind, Reserved, Count, Created, ParamCount, BodyLen) plus the trailing 4-byte
+// CRC32C. It is spelled here rather than imported because internal/sketch keeps its frame layout
+// constants unexported, which is correct — the layout is that package's private business, and this
+// guard only needs the two boundaries §5.7 documents publicly.
+const qpksFixedOverhead = 32 + 4
+
+// v1RoundTripQPKS is the arm for a .bin frozen artifact: a QPKS sketch frame (§5.7).
+//
+// A binary fixture is legitimate here, and is not an exception carved out of the JSON rule. The
+// QPKS frame is a byte layout SP-03 specifies NORMATIVELY — magic, an explicit version, a kind, a
+// sorted params block, a body, and a trailing CRC32C over everything before it — and its whole
+// purpose is that a sketch written by one plugin version still decodes years later. §6.2 makes
+// these structures permanent memory: tried.bloom is never regenerated, so the oldest file on disk
+// has to keep decoding forever, and a decoder that quietly half-read it would be worse than one
+// that refused. That is a property a JSON round-trip cannot express at all — JSON has no version
+// field, no checksum, and says nothing about what an older reader must still accept. So this arm
+// makes the binary equivalent of the JSON arm's assertion, that the declared decoder can still
+// read what was frozen, in the terms the format actually has.
+//
+// CRC32C is asserted non-zero deliberately. sketch.Sketch documents that a LIVE sketch reports
+// CRC32C == 0, because the checksum covers the encoded body and cannot be known without
+// marshalling; only DecodeHeader populates it, from the frame's trailing four bytes. A non-zero
+// value here is therefore evidence the checksum was really read off disk and verified, rather than
+// defaulted by a decoder that skipped the check.
+func v1RoundTripQPKS(t *testing.T, key string, raw []byte) {
+	t.Helper()
+
+	h, body, err := sketch.DecodeHeader(raw)
+	require.NoError(t, err, "%s: frozen fixture is not a decodable QPKS frame", key)
+
+	require.Equal(t, sketch.HeaderMagic, h.Magic, "%s: the frame does not begin with QPKS", key)
+	require.Equal(t, sketch.FormatVersion, h.Ver,
+		"%s: a frozen v1 frame must still decode at the CURRENT FormatVersion. A layout change "+
+			"requires a version bump plus a new decoder case arm, keeping `case 1:` forever — never "+
+			"a rewritten fixture (Rule W-2).", key)
+	require.True(t, h.Kind.Valid(), "%s: kind %v is not one of the five defined sketch kinds", key, h.Kind)
+	require.NotZero(t, h.CRC32C,
+		"%s: DecodeHeader must report the checksum it read off disk; a zero here means the CRC was "+
+			"never taken from the frame", key)
+
+	// The body is a subslice of raw, so its length is the one number that proves the frame's
+	// declared BodyLen agreed with the bytes actually on disk rather than being taken on trust.
+	require.NotEmpty(t, body, "%s: a frozen sketch frame with an empty body carries no state", key)
+	require.LessOrEqual(t, len(body)+qpksFixedOverhead, len(raw),
+		"%s: DecodeHeader returned a %d-byte body, which cannot fit inside a %d-byte frame alongside "+
+			"the 32-byte prefix, the params block and the 4-byte CRC32C", key, len(body), len(raw))
 }
 
 // v1RequireCanonicalEqual asserts that re-marshalling v reproduces raw, comparing canonically so

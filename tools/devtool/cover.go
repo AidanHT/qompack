@@ -24,9 +24,16 @@ const coverProfileName = "coverage.out"
 // who OWNS a package and not whether it has been written yet, and the probe column cannot tell the
 // difference for a stub that returns a zero value rather than core.ErrNotImplemented. See taskCover
 // for the two packages that proved it.
+// Wave 1 merges in the plans/README.md order SP-05, SP-03, SP-04, SP-06, SP-07, SP-02, and each
+// merge adds its own entry here. The three below are the three that have landed at this point;
+// SP-06, SP-07 and SP-02 add themselves in turn. Adding one early binds a floor against a package
+// that is still a stub, and forgetting one leaves a shipped package exempt at any coverage — the
+// cross-check in taskCover catches the second case and is the reason it exists.
 var landedSubplans = map[string]bool{
 	"SP-01": true,
+	"SP-03": true,
 	"SP-04": true,
+	"SP-05": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,

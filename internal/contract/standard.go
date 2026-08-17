@@ -1,61 +1,33 @@
 package contract
 
-import (
-	"context"
-
-	"github.com/qompack/qompack/internal/core"
-)
-
 // notYetImplementedObserved is the exact Observed string §12.1 gives an assertion whose producer is
 // absent from the build. It is matched literally by test/guards' §12.1 assertion and by the
 // contract golden fixture, so it is a frozen string, not a message.
 const notYetImplementedObserved = "not-yet-implemented"
 
 // StandardAssertions returns the nine host-contract assertions of 00-ARCHITECTURE.md §5.19, in the
-// order §12.1's table lists them, each carrying its real DECLARED severity.
+// order §12.1's table lists them, each carrying its real DECLARED severity and gated behind
+// HasProducer via gated (producers.go, assertions.go): an assertion whose producer has not been
+// declared reports OK/SevInfo/not-yet-implemented and its real Check — checkSessionStartFires and
+// its eight siblings in assertions.go — never runs at all.
 //
-// Every Check here is notYetImplemented: the observations belong to SP-05 (and, for the four
-// assertions whose producer is a later wave's subsystem, to SP-10/SP-11/SP-13). Registering these
-// against a fresh monitor and calling RunAll therefore reports ModeFull, which is precisely what
-// §12.1 requires and what test/guards asserts.
+// The five SP-05 always declares from wave 1 (session_start.fires, session_start.source_compact,
+// hook.payload_shape, transcript.readable, plugin.root_resolves) therefore observe for real as soon
+// as a daemon calls DeclareProducer for them (the next task's job); the four §12.1 names as
+// later-wave (precompact.has_time_to_write, precompact.custom_instructions_accepted,
+// hook.additional_context_delivered, mcp.server_registered) stay not-yet-implemented until their
+// owning subplan (SP-10/SP-11/SP-13) binds its Services seam and declares its own producer — which
+// is exactly why a fresh, wave-1-only build still reports ModeFull.
 func StandardAssertions() []Assertion {
 	return []Assertion{
-		notYetImplemented(CSessionStartFires, SevCritical, "SessionStart hook fires"),
-		notYetImplemented(CSessionStartSourceCompact, SevCritical, "SessionStart arrives with source=compact after PreCompact"),
-		notYetImplemented(CAdditionalContext, SevCritical, "additionalContext reaches the transcript"),
-		notYetImplemented(CPreCompactTiming, SevWarn, "PreCompact has time to write"),
-		notYetImplemented(CPreCompactCustomInstr, SevWarn, "custom_instructions accepted"),
-		notYetImplemented(CHookPayloadShape, SevCritical, "hook payload shape matches hookio.Event"),
-		notYetImplemented(CMCPRegistered, SevInfo, "MCP server received initialize"),
-		notYetImplemented(CTranscriptReadable, SevWarn, "transcript_path exists and parses"),
-		notYetImplemented(CPluginRootResolves, SevWarn, "CLAUDE_PLUGIN_ROOT expands to an existing binary"),
-	}
-}
-
-// notYetImplemented builds an assertion that DECLARES severity `declared` but whose Check reports
-// OK with SevInfo.
-//
-// That asymmetry is the whole mechanism, and it is worth being explicit about because it looks like
-// a bug: the Assertion carries the severity an eventual real failure would have, while the Result
-// carries the severity of what was actually observed — and what was observed is "the subsystem that
-// would produce this signal is not in this build", which is information, not a degradation. RunAll
-// reads Result.Severity, never Assertion.Severity, so a fresh build reports ModeFull instead of
-// putting every wave-1 and wave-2 verification run into degraded-passive and silently disabling the
-// very paths those waves are testing (§12.1).
-//
-// Check reads e.Clock directly, exactly as §14.1 of the subplan spells it. RunAll substitutes a
-// system clock for a nil Env.Clock before invoking any Check, so a caller that omits the clock gets
-// a timestamped result rather than a nil dereference.
-func notYetImplemented(id ID, declared Severity, desc string) Assertion {
-	return Assertion{
-		ID: id, Severity: declared, Description: desc,
-		Check: func(ctx context.Context, e Env) Result {
-			// §12.1: an assertion whose PRODUCER is absent from the build reports
-			// OK/SevInfo, never a degradation. SP-05 replaces Check, not this rule.
-			return Result{
-				ID: id, OK: true, Severity: SevInfo,
-				Expected: desc, Observed: notYetImplementedObserved, TS: core.NowMilli(e.Clock),
-			}
-		},
+		gated(CSessionStartFires, SevCritical, "SessionStart hook fires", checkSessionStartFires),
+		gated(CSessionStartSourceCompact, SevCritical, "SessionStart arrives with source=compact after PreCompact", checkSessionStartSourceCompact),
+		gated(CAdditionalContext, SevCritical, "additionalContext reaches the transcript", checkAdditionalContextDelivered),
+		gated(CPreCompactTiming, SevWarn, "PreCompact has time to write", checkPreCompactTiming),
+		gated(CPreCompactCustomInstr, SevWarn, "custom_instructions accepted", checkPreCompactCustomInstr),
+		gated(CHookPayloadShape, SevCritical, "hook payload shape matches hookio.Event", checkHookPayloadShape),
+		gated(CMCPRegistered, SevInfo, "MCP server received initialize", checkMCPServerRegistered),
+		gated(CTranscriptReadable, SevWarn, "transcript_path exists and parses", checkTranscriptReadable),
+		gated(CPluginRootResolves, SevWarn, "CLAUDE_PLUGIN_ROOT expands to an existing binary", checkPluginRootResolves),
 	}
 }

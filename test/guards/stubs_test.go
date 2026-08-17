@@ -80,7 +80,13 @@ func stubRegistry() []stubPackage {
 		{pkg: "canon", build: func(*testing.T) any { return canon.NewRegistry() }},
 		{pkg: "symbols", build: func(*testing.T) any { return symbols.New() }, zeroValueOnly: true},
 		{pkg: "redact", build: func(*testing.T) any { return redact.New(config.Defaults()) }, zeroValueOnly: true},
-		{pkg: "sketch", build: func(*testing.T) any { return sketch.NewBloom(bloomCapacity, bloomFPRate) }},
+		// SP-03 landed the real sketch math (QPKS framing, Appendix A Bloom sizing), so none of
+		// this seam's methods reports ErrNotImplemented any more: UnmarshalBinary now answers with
+		// this package's own decode sentinels. It is registered for completeness only.
+		{
+			pkg: "sketch", build: func(*testing.T) any { return sketch.NewBloom(bloomCapacity, bloomFPRate) },
+			pureMethods: allMethodsAreReal,
+		},
 		{pkg: "store", build: func(t *testing.T) any {
 			s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{Log: logging.Nop()})
 			require.NoError(t, err)
