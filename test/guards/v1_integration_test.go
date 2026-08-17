@@ -31,6 +31,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
@@ -182,6 +183,11 @@ func TestV1_AppendOnlyInvariantSurvivesRealHookRun(t *testing.T) {
 func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 	bin := v1BuildBinary(t)
 	p := testutil.NewProject(t, testutil.WithEnv(testutil.E2EBinaryEnv, bin))
+	// v1Session's SessionStart call, run against the real binary below, brings up a real detached
+	// daemon; shut it down before this test's own t.TempDir() cleanup runs, or a still-running
+	// daemon holding its own executable open can make that cleanup fail on Windows ("Access is
+	// denied" removing qompack.exe — open-running-executable semantics).
+	t.Cleanup(func() { v1ShutdownDaemonIfReachable(t, p.Root) })
 
 	osTemp := t.TempDir()
 	t.Setenv("TMP", osTemp)
@@ -193,6 +199,15 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 	for _, call := range v1Session(p.Root) {
 		p.RunHook(t, call.name, call.ev)
 	}
+
+	// Shut the daemon SessionStart brought up down explicitly, BEFORE snapshotTree walks the tree
+	// a second time — not only in t.Cleanup, which would run after every assertion below (fix
+	// round 1, Important I-9). A still-running daemon actively creating/renaming/deleting files
+	// under .qompack/ (WAL rotation, run/spawn.lock, tmp/ staging) races filepath.WalkDir and
+	// could fail this snapshot for reasons unrelated to the write-set invariant it exists to
+	// check. t.Cleanup's own call is now a fast, idempotent no-op belt-and-braces (the daemon is
+	// already gone by the time it runs).
+	v1ShutdownDaemonIfReachable(t, p.Root)
 
 	after := snapshotTree(t, p.Root, p.Home(), osTemp)
 
@@ -489,6 +504,16 @@ var v1FixtureType = map[string]func() any{
 	"paths/manifest_entry":       func() any { return new(paths.ManifestEntry) },
 	"checkpoint/checkpoint_v1":   func() any { return new(checkpoint.Checkpoint) },
 	"contract/result_set":        func() any { return new([]contract.Result) },
+	"ipc/observe_tool":           func() any { return new(ipc.Request) },
+	"ipc/response_reply":         func() any { return new(ipc.Response) },
+}
+
+// v1BinaryFixtureKeys names frozen format fixtures whose bytes are not JSON at all — a wire format
+// 00-ARCHITECTURE.md §2.4 specifies as a fixed-layout binary record, not a JSON document (SP-05's
+// 32-byte hot-path state record). v1RoundTrip only checks these are present and non-empty;
+// json.Unmarshal has nothing to parse in a CRC-terminated binary record.
+var v1BinaryFixtureKeys = map[string]bool{
+	"ipc/state_degraded": true,
 }
 
 // v1CheckpointTiers is §8.5's complete field set: tiers 1-3 plus metadata. Every one must be
@@ -734,6 +759,58 @@ func v1BuildBinary(t *testing.T) string {
 	return out
 }
 
+// v1ProbeTimeout, v1RoundTripDeadline and v1ShutdownPollBound/Tick bound the raw ipc.Client
+// v1ShutdownDaemonIfReachable constructs to poke and then stop a real daemon this file's own
+// end-to-end hook runs may have started.
+const (
+	v1ProbeTimeout      = 200 * time.Millisecond
+	v1RoundTripDeadline = 5 * time.Second
+	v1ShutdownPollBound = 15 * time.Second
+	v1ShutdownPollTick  = 100 * time.Millisecond
+)
+
+// v1ShutdownDaemonIfReachable dials root's resolved address and, only if something answers, sends
+// admin.shutdown (retried, since Client.Send never propagates an error — a failed round trip just
+// spools the request instead of delivering it) and waits for the daemon to go away. It is a fast
+// no-op whenever no daemon ever came up.
+func v1ShutdownDaemonIfReachable(t *testing.T, root string) {
+	t.Helper()
+	addr, err := ipc.Resolve(root)
+	if err != nil {
+		return
+	}
+	if !ipc.Probe(addr, v1ProbeTimeout) {
+		return
+	}
+
+	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	defer func() { _ = c.Close() }()
+
+	// A ticker, not time.Sleep, per §6.1's wall-clock-sleep ban (devtool lint's sleepcheck
+	// sub-check, which exempts only test/bench/**).
+	ticker := time.NewTicker(v1ShutdownPollTick)
+	defer ticker.Stop()
+	timeout := time.NewTimer(v1ShutdownPollBound)
+	defer timeout.Stop()
+	for {
+		_, _ = c.Send(context.Background(), ipc.Request{
+			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		}, v1RoundTripDeadline)
+		if !ipc.Probe(addr, v1ProbeTimeout) {
+			return
+		}
+		select {
+		case <-ticker.C:
+		case <-timeout.C:
+			if ipc.Probe(addr, v1ProbeTimeout) {
+				t.Logf("v1ShutdownDaemonIfReachable: daemon at %s still reachable after %s of retried admin.shutdown; leaving it running", root, v1ShutdownPollBound)
+			}
+			return
+		}
+	}
+}
+
 // v1LoudLines counts the lines in <logs>/LOUD.log, which §12 makes the never-rotated record of
 // every degradation and restoration.
 func v1LoudLines(t *testing.T, l paths.Layout) int {
@@ -860,6 +937,11 @@ func v1RoundTrip(t *testing.T, key, path string) {
 	t.Helper()
 	raw, err := os.ReadFile(path)
 	require.NoError(t, err, "%s: frozen fixture missing from disk", key)
+
+	if v1BinaryFixtureKeys[key] {
+		require.NotEmpty(t, raw, "%s: frozen fixture is empty", key)
+		return
+	}
 	require.NotEmpty(t, strings.TrimSpace(string(raw)), "%s: frozen fixture is empty", key)
 
 	// A .jsonc fixture carries comments, which no JSON decoder accepts. Stripping is the same step

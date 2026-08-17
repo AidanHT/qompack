@@ -442,3 +442,30 @@ func TestMonitor_DegradeReasonNamesExpectedAndObserved(t *testing.T) {
 	require.True(t, strings.Contains(string(raw), "sentinel absent"),
 		"the persisted results must carry what was actually observed")
 }
+
+// TestDegradeIsIdempotent asserts SP-01's deliberate every-critical-run re-loud Degrade behaviour
+// (kept exactly as shipped, per this task's controller ruling): calling Degrade twice — with the
+// SAME reason, and again with a DIFFERENT one — logs a LOUD line every time, not only on a reason
+// change. §12.1's whole point is that a session that starts broken and stays broken says so every
+// time it is asked, and the persisted state stays consistent with whichever call happened last.
+func TestDegradeIsIdempotent(t *testing.T) {
+	m, _, statePath := newTestMonitor(t)
+	loud := captureLoud(t)
+
+	sameReasonResults := []contract.Result{{
+		ID: contract.CSessionStartFires, OK: false, Severity: contract.SevCritical,
+		Expected: "fires", Observed: "absent",
+	}}
+	m.Degrade("same reason", sameReasonResults)
+	m.Degrade("same reason", sameReasonResults)
+	require.Len(t, loud(), 2,
+		"§12.1: a session that starts broken and stays broken says so every time, even with an unchanged reason")
+	st := readState(t, statePath)
+	require.Equal(t, "degraded-passive", st["mode"])
+	require.Equal(t, "same reason", st["reason"])
+
+	m.Degrade("different reason", nil)
+	require.Len(t, loud(), 3, "a changed reason must also be LOUD")
+	st = readState(t, statePath)
+	require.Equal(t, "different reason", st["reason"], "the persisted state must reflect the most recent call")
+}

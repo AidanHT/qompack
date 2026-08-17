@@ -37,6 +37,14 @@ var resultSetClock = &fakeClock{now: time.UnixMilli(1767225510000).UTC()}
 // three are breaking changes to a file other components parse.
 func TestResultSet_MatchesFrozenGolden(t *testing.T) {
 	t.Parallel()
+	// This test is only correct while no producer is declared for any of the nine standard
+	// assertions — gated (assertions.go) short-circuits to not-yet-implemented in that case, which
+	// is exactly the frozen fixture below. That is true today only because ResetProducers is called
+	// with t.Cleanup by every OTHER test in this package that declares one, and Go defers parallel
+	// tests until every serial test has finished. Resetting explicitly here as well removes the
+	// dependence on that invariant (Minor M4): this test is self-contained regardless of what any
+	// other test in the binary does.
+	t.Cleanup(contract.ResetProducers)
 
 	m := contract.NewMonitor(logging.Nop(), obs.New(resultSetClock), filepath.Join(t.TempDir(), "contract.json"))
 	for _, a := range contract.StandardAssertions() {
