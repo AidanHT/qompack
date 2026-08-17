@@ -1,0 +1,2516 @@
+13c448f feat(ipc): thin client with spool fallback, spawn seam, and the server
+
+ internal/ipc/client.go              | 463 +++++++++++++++++++++++++++---
+ internal/ipc/client_test.go         | 541 ++++++++++++++++++++++++++++++++++++
+ internal/ipc/ipctest/suite_test.go  |  84 +++++-
+ internal/ipc/listen_unix.go         |  58 ++++
+ internal/ipc/listen_windows.go      |  57 ++++
+ internal/ipc/op.go                  |  35 ++-
+ internal/ipc/server.go              | 235 ++++++++++++++++
+ internal/ipc/server_test.go         | 223 +++++++++++++++
+ internal/ipc/server_unix_test.go    |  61 ++++
+ internal/ipc/server_windows_test.go |  44 +++
+ internal/ipc/spool.go               | 227 +++++++++++++++
+ internal/ipc/spool_test.go          | 172 ++++++++++++
+ internal/ipc/stub_test.go           |  79 ------
+ 13 files changed, 2145 insertions(+), 134 deletions(-)
+diff --git a/internal/ipc/client.go b/internal/ipc/client.go
+index 3914038..a21477f 100644
+--- a/internal/ipc/client.go
++++ b/internal/ipc/client.go
+@@ -1,19 +1,32 @@
+ package ipc
+ 
+ import (
+ 	"context"
++	"encoding/json"
++	"fmt"
++	"io"
++	"net"
++	"os"
++	"path/filepath"
++	"strconv"
++	"strings"
++	"sync"
++	"sync/atomic"
+ 	"time"
+ 
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // Client is the hook-side half of the transport (00-ARCHITECTURE.md §5.4). Every hook subcommand
+ // holds exactly one, uses it once, and exits.
+ type Client interface {
+ 	// Send is the hot path. It connects, writes, awaits ACK within deadline, and returns.
+ 	// On ANY failure it spools to disk and returns (Response{OK:false}, nil) — never an error
+ 	// that a hook would propagate.
+ 	Send(ctx context.Context, req Request, deadline time.Duration) (Response, error)
+ 	Close() error
+@@ -22,70 +35,446 @@ type Client interface {
+ // SpoolWriter is the durability fallback every failure path in Send lands on: an append to
+ // .qompack/spool/client-<pid>.ndjson, which the daemon drains on start and on every idle tick
+ // (00-ARCHITECTURE.md §2.4). Data is not lost when the daemon is unreachable; only freshness is.
+ type SpoolWriter interface {
+ 	Append(req Request) error
+ 	// Path returns the file Append writes to, so /qompack:status and the daemon's drain can name
+ 	// it. A SpoolWriter that has not created its file yet reports the path it will use.
+ 	Path() string
+ }
+ 
+-// Server is the daemon-side half (00-ARCHITECTURE.md §5.4). §5.4 gives it no constructor, and
+-// SP-01 deliberately does not invent one: the daemon builds and owns the listener, and adding a
+-// NewServer here would fix a shape SP-05 has to live with.
++// Server is the daemon-side half (00-ARCHITECTURE.md §5.4).
+ type Server interface {
+ 	// Serve accepts connections until ctx is cancelled or Close is called, dispatching each
+ 	// request to h. It returns nil on an orderly shutdown.
+ 	Serve(ctx context.Context, h Handler) error
+ 	Addr() Addr
+ 	Close() error
+ }
+ 
+ // Handler processes one request. It runs on the daemon's read path, so it must return promptly:
+ // §2.4 sends the ACK after the WAL append returns, not after the work finishes.
+ type Handler func(ctx context.Context, req Request) Response
+ 
+-// NewClient returns a stub Client. SP-05 owns the real one.
+-//
+-// Constructing always succeeds so a wave-0 composition root can wire a Client today; every
+-// operation reports core.ErrNotImplemented. Note that this deliberately contradicts the interface's
+-// own "never an error a hook would propagate" contract, and it has to: plans/OWNERS.tsv names Send
+-// as ipc's Rule W-1 probe, so a stub that already honoured the never-error rule would be
+-// indistinguishable from a working transport and every ipctest behaviour block would run against a
+-// Client that does nothing. The never-error contract is asserted in ipctest's behaviour block,
+-// which is exactly where SP-05's real implementation is graded on it.
++// The obs.Counter names Client.Send and the real SpoolWriter increment (repo underscore idiom;
++// Task-2 controller ruling respells §2.4's dotted prose into this package's actual convention).
++const (
++	counterL0Spooled      = "l0_spooled"
++	counterL0Dropped      = "l0_dropped"
++	counterL0Externalized = "l0_externalized"
++)
++
++// spawnLockName is the file lazySpawn takes inside <root>/.qompack/run to serialize detached
++// daemon spawns across concurrently-running hook clients.
++const spawnLockName = "spawn.lock"
++
++// spawnLockStaleAfter is how old an unclaimed spawn.lock has to be before a later client assumes
++// the spawn attempt it recorded never finished and retries.
++const spawnLockStaleAfter = 10 * time.Second
++
++// blobFilePrefix, blobFileExt and blobField name the client-side externalization scheme: an
++// oversized Event.ToolResponse is written to <spoolDir>/blob-<pid>-<n>.bin, and the request that
++// travels the wire in its place names that file, its size, and the field it stood in for.
++const (
++	blobFilePrefix = "blob-"
++	blobFileExt    = ".bin"
++	blobField      = "e.tool_response"
++)
++
++// ClientOptions configures NewClientWithOptions. Every field's zero value falls back to something
++// safe: ProjectRoot empty disables both ReadState and lazy spawn; Self empty or Spawn nil disables
++// lazy spawn; the two deadlines and MaxLine fall back to State's own values / MaxLineBytes; a nil
++// Clock falls back to core.SystemClock().
++type ClientOptions struct {
++	ProjectRoot string
++	// State supplies mode, hot, deadlines and limits when ProjectRoot is empty (so a caller that
++	// already has a State — the daemon's own admin client, tests — need not round-trip it through
++	// disk). When ProjectRoot is set, ReadState(ProjectRoot, config.Defaults()) is used instead and
++	// this field is ignored.
++	State State
++	// Self is the client's own executable path (os.Executable()); "" disables lazy spawn.
++	Self string
++	// Spawn is set by cli to daemon.SpawnDetached. ipc may not import daemon (§3.2), so this
++	// function-field seam is how NewClientWithOptions launches a detached daemon without ever
++	// naming the package that implements it. nil disables lazy spawn.
++	Spawn func(projectRoot, self string) error
++	// ConnectDeadline bounds dialling the daemon; 0 falls back to State.ConnectDeadlineMs.
++	ConnectDeadline time.Duration
++	// AckDeadline bounds writing the request and awaiting the one-byte ACK/NAK; 0 falls back to
++	// State.AckDeadlineMs.
++	AckDeadline time.Duration
++	// MaxLine bounds a Reply request's response line; 0 falls back to MaxLineBytes.
++	MaxLine int
++	// Clock is used only for the lazy-spawn lock's staleness math — never for connection deadlines,
++	// which are always real wall-clock time because that is what the OS network stack enforces
++	// regardless of what a test's injected Clock says. nil falls back to core.SystemClock().
++	Clock core.Clock
++}
++
++// client is the real Client (00-ARCHITECTURE.md §5.4, §7.1, §12.2, §12.3). Send never returns an
++// error a hook could propagate: every failure route ends in a spool append (or, if spooling itself
++// is unavailable, a counted drop) and (Response{OK:false}, nil).
++type client struct {
++	addr  Addr
++	spool SpoolWriter
++	log   logging.Logger
++	m     obs.Registry
++	o     ClientOptions
++
++	mode contract.Mode // read once at construction; a Response never changes it after that
++	// threshold is ExternalizeThreshold, precomputed at construction: min(State.MaxPayloadBytes, MaxLine).
++	threshold int
++
++	hotMu sync.Mutex
++	hot   HotPathMode // read once from state at construction; the NAK path may flip it to HotSpool
++
++	spawnOnce sync.Once
++	dropOnce  sync.Once
++
++	externalizeSeq int64
++}
++
++// NewClient returns the real Client, equivalent to
++// NewClientWithOptions(addr, spool, log, m, ClientOptions{}).
+ func NewClient(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry) Client {
+-	return stubClient{}
++	return NewClientWithOptions(addr, spool, log, m, ClientOptions{})
++}
++
++// NewClientWithOptions is NewClient with every knob exposed. When o.ProjectRoot is set,
++// ReadState populates mode, hot, both deadlines, daemonEnabled, spoolOnBreach and
++// maxPayloadBytes; otherwise o.State is used directly, falling back to
++// StateFromConfig(config.Defaults()) if it is the zero value, so a caller that supplies neither
++// still gets sane deadlines rather than a State that reads "daemon disabled, deadlines 0".
++func NewClientWithOptions(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry, o ClientOptions) Client {
++	if log == nil {
++		log = logging.Nop()
++	}
++	if o.Clock == nil {
++		o.Clock = core.SystemClock()
++	}
++
++	st := o.State
++	switch {
++	case o.ProjectRoot != "":
++		st = ReadState(o.ProjectRoot, config.Defaults())
++	case st == (State{}):
++		st = StateFromConfig(config.Defaults())
++	}
++	o.State = st
++
++	if o.ConnectDeadline <= 0 {
++		o.ConnectDeadline = time.Duration(st.ConnectDeadlineMs) * time.Millisecond
++	}
++	if o.AckDeadline <= 0 {
++		o.AckDeadline = time.Duration(st.AckDeadlineMs) * time.Millisecond
++	}
++	if o.MaxLine <= 0 {
++		o.MaxLine = MaxLineBytes
++	}
++
++	threshold := int(st.MaxPayloadBytes)
++	if threshold <= 0 || threshold > o.MaxLine {
++		threshold = o.MaxLine
++	}
++
++	return &client{
++		addr: addr, spool: spool, log: log, m: m, o: o,
++		mode: st.Mode, hot: st.Hot, threshold: threshold,
++	}
++}
++
++// Send implements Client.Send exactly per task-2-spec.md's eight-step algorithm.
++func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) (Response, error) {
++	// 1. A session in ModeOff does nothing at all: no dial, no spool write.
++	if c.mode == contract.ModeOff {
++		return Response{OK: true, Mode: contract.ModeOff, Hot: c.currentHot()}, nil
++	}
++	// 2. The operator has disabled the daemon outright.
++	if !c.o.State.DaemonEnabled {
++		return c.spoolAndReturn(req)
++	}
++	// 3. The session has already breached its hot-path budget for this op family: never connect.
++	if c.currentHot() == HotSpool && req.Op.HotPath() {
++		return c.spoolAndReturn(req)
++	}
++
++	// 4. Encode, externalizing an oversized Event.ToolResponse before it ever touches the wire.
++	line, err := EncodeRequest(req)
++	if err != nil {
++		req = c.externalize(req)
++		if line, err = EncodeRequest(req); err != nil {
++			return c.spoolAndReturn(req)
++		}
++	}
++	if len(line) >= c.threshold {
++		req = c.externalize(req)
++		if line, err = EncodeRequest(req); err != nil {
++			return c.spoolAndReturn(req)
++		}
++	}
++
++	// 5. Connect, bounded by ConnectDeadline (and by ctx, if it carries an earlier deadline).
++	conn, err := c.connect(ctx)
++	if err != nil {
++		c.lazySpawn()
++		return c.spoolAndReturn(req)
++	}
++	defer func() { _ = conn.Close() }()
++
++	// 6. Write the request line within AckDeadline.
++	if err := conn.SetWriteDeadline(time.Now().Add(c.o.AckDeadline)); err != nil {
++		return c.spoolAndReturn(req)
++	}
++	if _, err := conn.Write(line); err != nil {
++		return c.spoolAndReturn(req)
++	}
++
++	if !req.Reply {
++		return c.awaitACK(conn, req)
++	}
++	return c.awaitReply(conn, req, deadline)
+ }
+ 
+-// stubClient is the SP-01 placeholder Client. SP-05 owns the real implementation.
+-type stubClient struct{}
++// awaitACK is Send's step 7: the fire-and-forget path, which reads exactly one control byte
++// within AckDeadline.
++func (c *client) awaitACK(conn net.Conn, req Request) (Response, error) {
++	if err := conn.SetReadDeadline(time.Now().Add(c.o.AckDeadline)); err != nil {
++		return c.spoolAndReturn(req)
++	}
++	var b [1]byte
++	n, err := io.ReadFull(conn, b[:])
++	if err != nil || n != 1 {
++		return c.spoolAndReturn(req)
++	}
++	switch b[0] {
++	case ACK:
++		return Response{OK: true, Mode: c.mode, Hot: HotSync}, nil
++	case NAK:
++		// The daemon's in-band hint that it has degraded to spool submode (§12.2): the response
++		// this call returns still comes from spoolAndReturn, which now sees the updated hot value.
++		c.setHot(HotSpool)
++		return c.spoolAndReturn(req)
++	default:
++		return c.spoolAndReturn(req)
++	}
++}
++
++// awaitReply is Send's step 8: the Reply path, which reads one full NDJSON response line within
++// the caller-supplied deadline (e.g. 10 s for session.start).
++func (c *client) awaitReply(conn net.Conn, req Request, deadline time.Duration) (Response, error) {
++	if err := conn.SetReadDeadline(time.Now().Add(deadline)); err != nil {
++		return c.spoolAndReturn(req)
++	}
++	line, err := NewLineReader(conn, c.o.MaxLine).ReadLine()
++	if err != nil {
++		return c.spoolAndReturn(req)
++	}
++	resp, err := DecodeResponse(line)
++	if err != nil {
++		return c.spoolAndReturn(req)
++	}
++	if resp.Hot == HotSpool {
++		c.setHot(HotSpool)
++	}
++	return resp, nil
++}
++
++// connect dials c.addr, bounded by whichever is sooner: c.o.ConnectDeadline or ctx's own
++// deadline. It never blocks past an already-cancelled ctx — the dial primitive SP-01 shipped
++// takes a plain timeout, not a context, so a context that is already done is honoured here
++// instead of being handed down to a dial call that could not see it.
++func (c *client) connect(ctx context.Context) (net.Conn, error) {
++	if err := ctx.Err(); err != nil {
++		return nil, err
++	}
++	timeout := c.o.ConnectDeadline
++	if dl, ok := ctx.Deadline(); ok {
++		if remain := time.Until(dl); remain < timeout {
++			timeout = remain
++		}
++	}
++	if timeout <= 0 {
++		return nil, context.DeadlineExceeded
++	}
++	return dial(c.addr, timeout)
++}
++
++// currentHot and setHot guard the one field Send mutates after construction: a NAK response flips
++// the client into spool submode for the rest of the process.
++func (c *client) currentHot() HotPathMode {
++	c.hotMu.Lock()
++	defer c.hotMu.Unlock()
++	return c.hot
++}
++
++func (c *client) setHot(h HotPathMode) {
++	c.hotMu.Lock()
++	c.hot = h
++	c.hotMu.Unlock()
++}
++
++// spoolAndReturn is every failure path's landing point: append to the spool (or, if there is none,
++// take the drop path), count the event, and return an honourable, never-erroring response.
++func (c *client) spoolAndReturn(req Request) (Response, error) {
++	c.appendToSpool(req)
++	return Response{OK: false, Mode: c.mode, Hot: c.currentHot()}, nil
++}
++
++// appendToSpool is spoolAndReturn's side-effecting half. A nil SpoolWriter means "spool
++// unavailable" (the stubs guard constructs exactly this): the event is dropped, counted once as
++// dropped rather than spooled, and Loud'd at most once for this client's lifetime.
++func (c *client) appendToSpool(req Request) {
++	if c.spool == nil {
++		c.dropOnce.Do(func() {
++			if c.log != nil {
++				c.log.Loud("ipc: spool unavailable — event dropped", "op", string(req.Op))
++			}
++		})
++		if c.m != nil {
++			c.m.Counter(counterL0Dropped).Add(1)
++		}
++		return
++	}
++	// spool.Append never propagates a caller-facing failure for a well-formed line (§12.3: it
++	// drops, counts and Louds internally, returning nil); a non-nil error here can only be the
++	// size-refusal case, which this path never reaches because externalize() already keeps every
++	// line under threshold before Append is called.
++	_ = c.spool.Append(req)
++	if c.m != nil {
++		c.m.Counter(counterL0Spooled).Add(1)
++	}
++}
+ 
+-// Send always reports core.ErrNotImplemented; see NewClient for why the stub does not yet honour
+-// the never-error contract.
+-func (stubClient) Send(ctx context.Context, req Request, deadline time.Duration) (Response, error) {
+-	return Response{}, core.ErrNotImplemented
++// blobRef is the JSON shape a client-externalized request's Raw carries in place of the field it
++// stood in for (00-ARCHITECTURE.md task-2-spec.md's "Externalized payloads").
++type blobRef struct {
++	Blob  string `json:"blob"`
++	Bytes int    `json:"bytes"`
++	Field string `json:"field"`
+ }
+ 
+-// Close always reports core.ErrNotImplemented.
+-func (stubClient) Close() error { return core.ErrNotImplemented }
++// externalize moves req.Event.ToolResponse to a side blob file when it is present, returning a
++// request whose Raw names the blob instead and whose Event.ToolResponse is nulled. A request with
++// no Event (nothing captured under e.tool_response) or no spool (nowhere to write the blob) is
++// returned unchanged — the oversize-line case that results is still handled correctly, just one
++// layer up: the server's own MaxLineBytes NAK-and-discard (00-ARCHITECTURE.md §2.4).
++func (c *client) externalize(req Request) Request {
++	if req.Event == nil || len(req.Event.ToolResponse) == 0 || c.spool == nil {
++		return req
++	}
+ 
+-// NewSpool returns a stub SpoolWriter rooted at dir, which is <root>/.qompack/spool in every real
+-// caller.
+-//
+-// Constructing always succeeds and creates nothing: a stub that pre-created a spool file would
+-// leave an empty NDJSON file in every project that merely wired a client, and the daemon's drain
+-// would have to distinguish it from a real one.
+-func NewSpool(dir string) (SpoolWriter, error) {
+-	return stubSpool{}, nil
++	dir := filepath.Dir(c.spool.Path())
++	n := atomic.AddInt64(&c.externalizeSeq, 1)
++	name := fmt.Sprintf("%s%d-%d%s", blobFilePrefix, os.Getpid(), n, blobFileExt)
++
++	data := []byte(req.Event.ToolResponse)
++	if err := writeBlob(filepath.Join(dir, name), data); err != nil {
++		return req
++	}
++
++	ref, err := json.Marshal(blobRef{Blob: name, Bytes: len(data), Field: blobField})
++	if err != nil {
++		return req
++	}
++
++	out := req
++	ev := *req.Event
++	ev.ToolResponse = nil
++	out.Event = &ev
++	out.Raw = ref
++
++	if c.m != nil {
++		c.m.Counter(counterL0Externalized).Add(1)
++	}
++	return out
+ }
+ 
+-// stubSpool is the SP-01 placeholder SpoolWriter. SP-05 owns the real implementation.
+-type stubSpool struct{}
++// writeBlob creates dir (0700) if needed and writes data to p exclusively — the counter in the
++// blob's own filename already makes p unique per client process, so O_EXCL is a correctness
++// safeguard, not a name-collision workaround.
++func writeBlob(p string, data []byte) error {
++	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), spoolDirPerm); err != nil {
++		return fmt.Errorf("ipc: externalize: mkdir: %w", err)
++	}
++	f, err := paths.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
++	if err != nil {
++		return fmt.Errorf("ipc: externalize: open: %w", err)
++	}
++	defer func() { _ = f.Close() }()
++	if _, err := f.Write(data); err != nil {
++		return fmt.Errorf("ipc: externalize: write: %w", err)
++	}
++	return nil
++}
++
++// Close closes the spool file if one was opened, and is the only Client method that may return a
++// non-nil error (cli ignores it after logging). SpoolWriter's Close is on the concrete *spool type
++// rather than the interface (SP-01 shipped SpoolWriter without one), so it is reached through a
++// type assertion that is a safe no-op against a nil or Close-less SpoolWriter.
++func (c *client) Close() error {
++	if cl, ok := c.spool.(interface{ Close() error }); ok {
++		return cl.Close()
++	}
++	return nil
++}
+ 
+-// Append always reports core.ErrNotImplemented.
+-func (stubSpool) Append(req Request) error { return core.ErrNotImplemented }
++// lazySpawn launches a detached daemon at most once per client, and only when both Self and Spawn
++// are configured. It is guarded by <root>/.qompack/run/spawn.lock so concurrently-spawning
++// clients do not race: the first to create the lock file spawns; a second client within
++// spawnLockStaleAfter of that file's own recorded timestamp assumes a spawn is already underway
++// and does nothing; past that staleness window, the lock is presumed abandoned and reclaimed.
++// The spawning client never waits for the daemon it launched — this method itself is called only
++// from a failure path that is about to spool and return.
++func (c *client) lazySpawn() {
++	if c.o.Self == "" || c.o.Spawn == nil || c.o.ProjectRoot == "" {
++		return
++	}
++	c.spawnOnce.Do(func() {
++		runDir := paths.Of(c.o.ProjectRoot).Run
++		lockPath := filepath.Join(runDir, spawnLockName)
++		content := []byte(strconv.FormatInt(c.o.Clock.Now().UnixMilli(), 10))
+ 
+-// Path always returns the empty string. Path has no error return, and the empty string is the only
+-// honest answer a stub can give: reporting the path it WOULD write to would be plausible-looking
+-// data for a file that does not and will not exist.
+-func (stubSpool) Path() string { return "" }
++		// A client that reaches lazySpawn may be the very first process to ever touch this
++		// project's .qompack tree (a cold daemon means nothing has run session-start yet), so
++		// run/ cannot be assumed to exist the way it would once a daemon has started once.
++		if err := os.MkdirAll(paths.Long(runDir), dirPerm); err != nil {
++			return
++		}
++
++		if err := paths.CreateNew(lockPath, content); err != nil {
++			if !os.IsExist(err) {
++				return // could not take the lock for a reason other than contention: give up quietly
++			}
++			if !spawnLockIsStale(lockPath, c.o.Clock) {
++				return // another client is already spawning
++			}
++			removeSpawnLock(lockPath)
++			if err := paths.CreateNew(lockPath, content); err != nil {
++				return // lost the retry race; someone else is spawning now
++			}
++		}
++		_ = c.o.Spawn(c.o.ProjectRoot, c.o.Self)
++	})
++}
++
++// spawnLockIsStale reports whether the spawn.lock at lockPath was written more than
++// spawnLockStaleAfter ago. An unreadable or unparseable lock is treated as stale rather than
++// blocking lazy spawn forever on a file this process cannot make sense of.
++func spawnLockIsStale(lockPath string, clk core.Clock) bool {
++	b, err := os.ReadFile(paths.Long(lockPath))
++	if err != nil {
++		return true
++	}
++	ms, err := strconv.ParseInt(strings.TrimSpace(string(b)), 10, 64)
++	if err != nil {
++		return true
++	}
++	return clk.Now().Sub(time.UnixMilli(ms)) > spawnLockStaleAfter
++}
++
++// removeSpawnLock deletes a stale spawn.lock. paths.CreateNew marks its file read-only
++// (0o444/FILE_ATTRIBUTE_READONLY) once written, which on Windows blocks DeleteFile outright, so
++// the mode is cleared first — harmless on POSIX, where file permissions never gate an unlink.
++func removeSpawnLock(lockPath string) {
++	_ = os.Chmod(paths.Long(lockPath), 0o600)
++	_ = os.Remove(paths.Long(lockPath))
++}
+diff --git a/internal/ipc/client_test.go b/internal/ipc/client_test.go
+new file mode 100644
+index 0000000..d16230b
+--- /dev/null
++++ b/internal/ipc/client_test.go
+@@ -0,0 +1,541 @@
++package ipc
++
++import (
++	"context"
++	"encoding/json"
++	"flag"
++	"net"
++	"os"
++	"path/filepath"
++	"strconv"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++	"pgregory.net/rapid"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// This file is white-box (package ipc) so TestSendNeverReturnsError can reach the unexported
++// listen() to build raw, deliberately misbehaving listeners (§14's four adversarial behaviors) —
++// something ipc.NewServer's Handler-based API cannot express (it always tries to decode and
++// respond; some of these behaviors must never respond at all).
++
++// testDeadline is a short, uniform ConnectDeadline/AckDeadline used throughout this file so tests
++// run fast without flirting with real scheduling jitter.
++const testDeadline = 50 * time.Millisecond
++
++// newTestServer starts a real Server running h, cleaned up automatically, and returns the Addr a
++// Client can reach it at.
++func newTestServer(t *testing.T, h Handler) (Server, Addr) {
++	t.Helper()
++	addr, err := Resolve(t.TempDir())
++	require.NoError(t, err)
++
++	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	go func() { done <- srv.Serve(ctx, h) }()
++	t.Cleanup(func() {
++		cancel()
++		_ = srv.Close()
++		<-done
++	})
++	return srv, addr
++}
++
++// newTestClient builds a real Client against addr, with a short deadline pair and its own spool
++// under a fresh subdirectory of t.TempDir(). It is closed automatically.
++func newTestClient(t *testing.T, addr Addr, o ClientOptions) (Client, SpoolWriter) {
++	t.Helper()
++	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
++	require.NoError(t, err)
++
++	if o.ConnectDeadline <= 0 {
++		o.ConnectDeadline = testDeadline
++	}
++	if o.AckDeadline <= 0 {
++		o.AckDeadline = testDeadline
++	}
++	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), o)
++	t.Cleanup(func() { _ = c.Close() })
++	return c, spool
++}
++
++// readLines returns the non-empty lines of the file at p, or nil if it does not exist.
++func readLines(t *testing.T, p string) []string {
++	t.Helper()
++	b, err := os.ReadFile(p)
++	if os.IsNotExist(err) {
++		return nil
++	}
++	require.NoError(t, err)
++	var lines []string
++	for _, l := range strings.Split(string(b), "\n") {
++		if l != "" {
++			lines = append(lines, l)
++		}
++	}
++	return lines
++}
++
++func TestNewClient_ToleratesNilDependencies(t *testing.T) {
++	require.NotPanics(t, func() {
++		c := NewClient(Addr{}, nil, nil, nil)
++		require.NotNil(t, c)
++
++		res, err := c.Send(context.Background(), Request{}, 0)
++		require.NoError(t, err, "a client with no spool and no daemon must still never error")
++		require.False(t, res.OK)
++
++		require.NoError(t, c.Close())
++	})
++}
++
++// TestSendACKPath is the table's row: an in-process server that ACKs every request leaves the
++// spool untouched and reports OK/HotSync.
++func TestSendACKPath(t *testing.T) {
++	_, addr := newTestServer(t, func(context.Context, Request) Response {
++		return Response{OK: true}
++	})
++	c, spool := newTestClient(t, addr, ClientOptions{})
++
++	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.True(t, res.OK)
++	require.Equal(t, HotSync, res.Hot)
++
++	_, statErr := os.Stat(spool.Path())
++	require.True(t, os.IsNotExist(statErr), "spool file must not exist after a successful ACK")
++}
++
++// TestSendNAKSwitchesToSpool is the table's row: a refusing server flips the client into spool
++// submode; the request lands in the spool; and a second Send for a hot-path op never dials again.
++func TestSendNAKSwitchesToSpool(t *testing.T) {
++	var calls atomic.Int64
++	_, addr := newTestServer(t, func(context.Context, Request) Response {
++		calls.Add(1)
++		return Response{OK: false}
++	})
++	c, spool := newTestClient(t, addr, ClientOptions{})
++
++	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.False(t, res.OK)
++	require.Equal(t, HotSpool, res.Hot)
++	require.Len(t, readLines(t, spool.Path()), 1)
++	require.EqualValues(t, 1, calls.Load())
++
++	res2, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 2}, time.Second)
++	require.NoError(t, err)
++	require.False(t, res2.OK)
++	require.EqualValues(t, 1, calls.Load(), "a client already in spool submode must never dial again for a hot-path op")
++	require.Len(t, readLines(t, spool.Path()), 2)
++}
++
++// TestSendDaemonDownSpoolsAndReturnsNilError is the table's row: nothing listening at addr spools
++// the request, returns a nil error, and triggers exactly one lazy-spawn attempt.
++func TestSendDaemonDownSpoolsAndReturnsNilError(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root)
++	require.NoError(t, err)
++
++	var spawnCalls atomic.Int64
++	c, spool := newTestClient(t, addr, ClientOptions{
++		ProjectRoot: root,
++		Self:        "qompack-fake",
++		Spawn: func(string, string) error {
++			spawnCalls.Add(1)
++			return nil
++		},
++	})
++
++	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.False(t, res.OK)
++	require.Len(t, readLines(t, spool.Path()), 1)
++	require.EqualValues(t, 1, spawnCalls.Load())
++}
++
++// TestSendHotSpoolSkipsConnect is the table's row: State.Hot = HotSpool skips connecting entirely
++// for a hot-path op, but session.start (not hot-path) still connects.
++func TestSendHotSpoolSkipsConnect(t *testing.T) {
++	var calls atomic.Int64
++	_, addr := newTestServer(t, func(context.Context, Request) Response {
++		calls.Add(1)
++		return Response{OK: true}
++	})
++
++	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
++	require.NoError(t, err)
++	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
++		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++		State: State{Mode: contract.ModeFull, Hot: HotSpool, DaemonEnabled: true, MaxPayloadBytes: MaxLineBytes},
++	})
++	t.Cleanup(func() { _ = c.Close() })
++
++	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.False(t, res.OK)
++	require.EqualValues(t, 0, calls.Load(), "observe.tool is hot-path: HotSpool must skip the connect entirely")
++
++	res2, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 2, Reply: true}, time.Second)
++	require.NoError(t, err)
++	require.True(t, res2.OK)
++	require.EqualValues(t, 1, calls.Load(), "session.start is not hot-path: it must still connect even in HotSpool")
++}
++
++// TestSendModeOffDoesNothing is the table's row: ModeOff dials nothing and writes nothing.
++func TestSendModeOffDoesNothing(t *testing.T) {
++	addr := Addr{Kind: UnixSocket, Path: filepath.Join(t.TempDir(), "unreachable.sock")}
++	spoolPath := filepath.Join(t.TempDir(), "spool")
++	spool, err := NewSpool(spoolPath)
++	require.NoError(t, err)
++	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
++		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++		State: State{Mode: contract.ModeOff},
++	})
++	t.Cleanup(func() { _ = c.Close() })
++
++	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.True(t, res.OK)
++	require.Equal(t, contract.ModeOff, res.Mode)
++
++	_, statErr := os.Stat(spool.Path())
++	require.True(t, os.IsNotExist(statErr), "ModeOff must never write to the spool")
++}
++
++// TestSendReplyPath is the table's row: a Reply request returns the handler's response verbatim.
++func TestSendReplyPath(t *testing.T) {
++	const ctx = "hi"
++	_, addr := newTestServer(t, func(context.Context, Request) Response {
++		return Response{OK: true, Output: &hookio.Output{
++			HookSpecificOutput: &hookio.HSO{AdditionalContext: ctx},
++		}}
++	})
++	c, _ := newTestClient(t, addr, ClientOptions{})
++
++	res, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 1, Reply: true}, time.Second)
++	require.NoError(t, err)
++	require.True(t, res.OK)
++	require.NotNil(t, res.Output)
++	require.Equal(t, ctx, res.Output.HookSpecificOutput.AdditionalContext)
++}
++
++// TestSendOversizeExternalizes is the table's row: a 2 MiB Event.ToolResponse against a 1 MiB
++// MaxPayloadBytes never reaches the wire whole — the line the server actually receives is small
++// and carries a {"blob":...} reference, and the blob file on disk holds the full payload.
++func TestSendOversizeExternalizes(t *testing.T) {
++	const payloadSize = 2 << 20
++	payload, err := json.Marshal(strings.Repeat("x", payloadSize))
++	require.NoError(t, err)
++
++	seen := make(chan Request, 1)
++	_, addr := newTestServer(t, func(_ context.Context, req Request) Response {
++		seen <- req
++		return Response{OK: true}
++	})
++
++	spoolDir := filepath.Join(t.TempDir(), "spool")
++	spool, err := NewSpool(spoolDir)
++	require.NoError(t, err)
++	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
++		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++		State: State{Mode: contract.ModeFull, DaemonEnabled: true, MaxPayloadBytes: 1 << 20},
++	})
++	t.Cleanup(func() { _ = c.Close() })
++
++	req := Request{
++		Op: OpObserveTool, Session: "s", TS: 1,
++		Event: &hookio.Event{HookEventName: "PostToolUse", ToolResponse: json.RawMessage(payload)},
++	}
++	res, err := c.Send(context.Background(), req, time.Second)
++	require.NoError(t, err)
++	require.True(t, res.OK)
++
++	var got Request
++	select {
++	case got = <-seen:
++	case <-time.After(2 * time.Second):
++		t.Fatal("server never received the request")
++	}
++
++	line, err := EncodeRequest(got)
++	require.NoError(t, err)
++	require.Less(t, len(line), 4096, "the line on the wire must be small — the payload rides a side blob, not the socket")
++
++	var ref blobRef
++	require.NoError(t, json.Unmarshal(got.Raw, &ref))
++	require.Equal(t, blobField, ref.Field)
++	require.EqualValues(t, len(payload), ref.Bytes)
++
++	blobBytes, err := os.ReadFile(filepath.Join(spoolDir, ref.Blob))
++	require.NoError(t, err)
++	require.Equal(t, payload, blobBytes)
++
++	// A nulled json.RawMessage marshals as the literal `null` and decodes back as those four
++	// bytes, not as an empty/nil RawMessage — the same generic-decoder quirk frame_test.go
++	// documents via rawMessageNullIsNil. DecodeRequest has no hookio-specific knowledge to
++	// normalize it, so either shape here is the correct "nulled" outcome.
++	require.True(t, len(got.Event.ToolResponse) == 0 || string(got.Event.ToolResponse) == "null",
++		"the wire copy's ToolResponse must be nulled, got %q", got.Event.ToolResponse)
++}
++
++// TestClientClose_ClosesSpoolAndTolerantOfNilSpool asserts Close reaches the concrete spool's own
++// Close through the type assertion, and is a safe no-op against a nil SpoolWriter.
++func TestClientClose_ClosesSpoolAndTolerantOfNilSpool(t *testing.T) {
++	c := NewClient(Addr{}, nil, logging.Nop(), obs.New(core.SystemClock()))
++	require.NoError(t, c.Close())
++
++	spool, err := NewSpool(t.TempDir())
++	require.NoError(t, err)
++	c2 := NewClient(Addr{}, spool, logging.Nop(), obs.New(core.SystemClock()))
++	require.NoError(t, c2.Close())
++	require.NoError(t, c2.Close(), "Close must tolerate being called twice")
++}
++
++// TestLazySpawn_CalledOnceAcrossManyFailedSends asserts lazySpawn's per-client at-most-once
++// guarantee: many failed Sends against an unreachable daemon must still spawn only once.
++func TestLazySpawn_CalledOnceAcrossManyFailedSends(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root)
++	require.NoError(t, err)
++
++	var spawnCalls atomic.Int64
++	c, _ := newTestClient(t, addr, ClientOptions{
++		ProjectRoot: root,
++		Self:        "qompack-fake",
++		Spawn: func(string, string) error {
++			spawnCalls.Add(1)
++			return nil
++		},
++	})
++
++	for i := 0; i < 5; i++ {
++		_, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: core.UnixMilli(i)}, time.Second)
++		require.NoError(t, err)
++	}
++	require.EqualValues(t, 1, spawnCalls.Load())
++}
++
++// TestLazySpawn_SkippedWithoutSelfOrSpawn asserts lazySpawn does nothing — not even take the
++// lock file — when Self or Spawn is unset, which is how a caller opts out entirely.
++func TestLazySpawn_SkippedWithoutSelfOrSpawn(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root)
++	require.NoError(t, err)
++
++	c, _ := newTestClient(t, addr, ClientOptions{ProjectRoot: root}) // no Self, no Spawn
++	_, err = c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++
++	_, statErr := os.Stat(filepath.Join(root, ".qompack", "run", spawnLockName))
++	require.True(t, os.IsNotExist(statErr), "lazySpawn must not even take the lock when Spawn is nil")
++}
++
++// TestLazySpawn_StaleLockIsReclaimed asserts a spawn.lock older than spawnLockStaleAfter is
++// removed and retried rather than permanently blocking every future lazy spawn in this project.
++func TestLazySpawn_StaleLockIsReclaimed(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root)
++	require.NoError(t, err)
++
++	runDir := filepath.Join(root, ".qompack", "run")
++	require.NoError(t, os.MkdirAll(runDir, 0o700))
++	lockPath := filepath.Join(runDir, spawnLockName)
++
++	clk := &fakeSpawnClock{now: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
++	staleMS := clk.Now().Add(-spawnLockStaleAfter - time.Second).UnixMilli()
++	require.NoError(t, os.WriteFile(lockPath, []byte(strconv.FormatInt(staleMS, 10)), 0o600))
++
++	var spawnCalls atomic.Int64
++	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
++	require.NoError(t, err)
++	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
++		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++		ProjectRoot: root, Self: "qompack-fake", Clock: clk,
++		Spawn: func(string, string) error { spawnCalls.Add(1); return nil },
++	})
++	t.Cleanup(func() { _ = c.Close() })
++
++	_, err = c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.EqualValues(t, 1, spawnCalls.Load(), "a stale lock must be reclaimed, not treated as an in-flight spawn")
++}
++
++// TestLazySpawn_FreshLockFromAnotherClientIsHonoured asserts a spawn.lock younger than
++// spawnLockStaleAfter is left alone: another client is assumed to already be spawning.
++func TestLazySpawn_FreshLockFromAnotherClientIsHonoured(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root)
++	require.NoError(t, err)
++
++	runDir := filepath.Join(root, ".qompack", "run")
++	require.NoError(t, os.MkdirAll(runDir, 0o700))
++	lockPath := filepath.Join(runDir, spawnLockName)
++	require.NoError(t, os.WriteFile(lockPath, []byte(strconv.FormatInt(time.Now().UnixMilli(), 10)), 0o600))
++
++	var spawnCalls atomic.Int64
++	c, _ := newTestClient(t, addr, ClientOptions{
++		ProjectRoot: root, Self: "qompack-fake",
++		Spawn: func(string, string) error { spawnCalls.Add(1); return nil },
++	})
++
++	_, err = c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
++	require.NoError(t, err)
++	require.EqualValues(t, 0, spawnCalls.Load(), "a fresh lock means another client is already spawning")
++}
++
++// fakeSpawnClock is a minimal, independently-advanceable core.Clock for the lazySpawn staleness
++// tests: it needs to report a fixed "now" and support Add on that instant, which is a shape
++// testutil.FakeClock does not currently need to expose in a form Add-able like this without
++// importing testutil (an internal/testutil package that is itself a composition root ipc must not
++// depend on, per §3.2).
++type fakeSpawnClock struct {
++	mu  sync.Mutex
++	now time.Time
++}
++
++func (c *fakeSpawnClock) Now() time.Time {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return c.now
++}
++
++func (c *fakeSpawnClock) Since(t time.Time) time.Duration { return c.Now().Sub(t) }
++
++// --- TestSendNeverReturnsError: the rapid property test -------------------------------------
++
++// randomRequest draws a request across the whole KnownOps vocabulary, reusing
++// TestDecodeRequestRoundTrip's generator shape (frame_test.go) so this file does not invent a
++// second one.
++func randomRequest(rt *rapid.T) Request {
++	req := Request{
++		Op:      rapid.SampledFrom(KnownOps()).Draw(rt, "op"),
++		Session: core.SessionID(rapid.StringMatching(`[a-zA-Z0-9_-]{1,24}`).Draw(rt, "session")),
++		TS:      core.UnixMilli(rapid.Int64Range(0, 4102444800000).Draw(rt, "ts")),
++		Reply:   rapid.Bool().Draw(rt, "reply"),
++	}
++	if rapid.Bool().Draw(rt, "hasEvent") {
++		req.Event = &hookio.Event{
++			HookEventName: rapid.StringMatching(`[A-Za-z]{1,20}`).Draw(rt, "hookEventName"),
++			ToolName:      rapid.StringMatching(`[A-Za-z]{0,20}`).Draw(rt, "toolName"),
++		}
++	}
++	return req
++}
++
++// acceptedConns tracks connections a raw test listener has accepted, so misbehaving-listener
++// helpers can close them all at cleanup instead of leaking file/pipe handles across 200 iterations.
++type acceptedConns struct {
++	mu    sync.Mutex
++	conns []net.Conn
++}
++
++func (a *acceptedConns) add(c net.Conn) {
++	a.mu.Lock()
++	a.conns = append(a.conns, c)
++	a.mu.Unlock()
++}
++
++func (a *acceptedConns) closeAll() {
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	for _, c := range a.conns {
++		_ = c.Close()
++	}
++}
++
++// startMisbehavingListener binds addr and runs behavior against every accepted connection until
++// the listener is closed at test cleanup:
++//
++//   - "closes-immediately": the connection is closed the instant it is accepted, before reading
++//     or writing anything — the client may or may not get its write in before the reset.
++//   - "hangs": the connection is accepted and then left completely alone (no read, no write,
++//     no close) until cleanup — the client's own deadline is what has to end the call, not
++//     anything the server does.
++//   - "bogus-byte": whatever the client wrote is drained best-effort, then a single byte that is
++//     neither ACK nor NAK is written back.
++func startMisbehavingListener(t *testing.T, addr Addr, behavior string) {
++	t.Helper()
++	ln, err := listen(addr, logging.Nop(), MaxLineBytes)
++	require.NoError(t, err)
++
++	accepted := &acceptedConns{}
++	t.Cleanup(func() {
++		_ = ln.Close()
++		accepted.closeAll()
++	})
++
++	go func() {
++		for {
++			conn, err := ln.Accept()
++			if err != nil {
++				return
++			}
++			accepted.add(conn)
++			switch behavior {
++			case "closes-immediately":
++				_ = conn.Close()
++			case "hangs":
++				// deliberately do nothing: held open until accepted.closeAll() at cleanup.
++			case "bogus-byte":
++				go func(c net.Conn) {
++					buf := make([]byte, 4096)
++					_, _ = c.Read(buf)
++					_, _ = c.Write([]byte{0xFF})
++				}(conn)
++			}
++		}
++	}()
++}
++
++// TestSendNeverReturnsError is task-2-spec.md's rapid property test: 200 random requests spread
++// across 4 adversarial listener behaviors (50 checks each, set via the rapid.checks flag), none of
++// which may ever cause Send to return a non-nil error.
++func TestSendNeverReturnsError(t *testing.T) {
++	require.NoError(t, flag.Set("rapid.checks", "50"))
++
++	for _, behavior := range []string{"no-listener", "closes-immediately", "hangs", "bogus-byte"} {
++		t.Run(behavior, func(t *testing.T) {
++			rapid.Check(t, func(rt *rapid.T) {
++				root := t.TempDir()
++				addr, err := Resolve(root)
++				require.NoError(rt, err)
++
++				if behavior != "no-listener" {
++					startMisbehavingListener(t, addr, behavior)
++				}
++
++				spool, err := NewSpool(filepath.Join(root, "spool"))
++				require.NoError(rt, err)
++				c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
++					ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++				})
++				defer func() { _ = c.Close() }()
++
++				req := randomRequest(rt)
++
++				start := time.Now()
++				res, err := c.Send(context.Background(), req, testDeadline)
++				elapsed := time.Since(start)
++
++				require.NoError(rt, err, "Send must never return an error, whatever the listener does")
++				require.NotEqual(rt, "unknown", res.Mode.String())
++				require.LessOrEqual(rt, elapsed, 3*testDeadline+500*time.Millisecond,
++					"a single Send must not block far past its own deadlines")
++			})
++		})
++	}
++}
+diff --git a/internal/ipc/ipctest/suite_test.go b/internal/ipc/ipctest/suite_test.go
+index 77e232c..26040ba 100644
+--- a/internal/ipc/ipctest/suite_test.go
++++ b/internal/ipc/ipctest/suite_test.go
+@@ -82,38 +82,89 @@ func newWorkingSpool(t *testing.T) ipc.SpoolWriter {
+ 	return &workingSpool{path: filepath.Join(t.TempDir(), "client-0.ndjson")}
+ }
+ 
+ // clock is the core.Clock obs.New needs; a fixed instant keeps metric timestamps deterministic and
+ // keeps §6.1's ban on wall-clock dependence honest.
+ type clock struct{}
+ 
+ func (clock) Now() time.Time                  { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+ func (clock) Since(t time.Time) time.Duration { return clock{}.Now().Sub(t) }
+ 
+-// newQompackStubClient builds the Client SP-01 actually ships, wired the way a hook would wire it.
++// newQompackStubClient builds the real Client SP-05 ships, wired the way a hook would wire it —
++// against a temp project root with no daemon listening, so its behaviour block exercises the
++// spool-and-return failure path end to end. The name is unchanged from SP-01's placeholder so
++// this file's history stays legible in blame; what it builds is no longer a stub.
+ func newQompackStubClient(t *testing.T) ipc.Client {
+ 	t.Helper()
+ 	addr, err := ipc.Resolve(t.TempDir())
+ 	require.NoError(t, err)
+ 	spool, err := ipc.NewSpool(t.TempDir())
+ 	require.NoError(t, err)
+-	return ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
++	c := ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
++	// Close releases the spool's backing file handle: without this, TempDir's own cleanup cannot
++	// remove a file this process still has open (fails outright on Windows).
++	t.Cleanup(func() { _ = c.Close() })
++	return c
+ }
+ 
+-// newQompackStubSpool builds the SpoolWriter SP-01 actually ships.
++// newQompackStubSpool builds the real SpoolWriter SP-05 ships.
+ func newQompackStubSpool(t *testing.T) ipc.SpoolWriter {
+ 	t.Helper()
+ 	s, err := ipc.NewSpool(t.TempDir())
+ 	require.NoError(t, err)
++	t.Cleanup(func() {
++		if cl, ok := s.(interface{ Close() error }); ok {
++			_ = cl.Close()
++		}
++	})
+ 	return s
+ }
+ 
++// newQompackServer builds the real Server SP-05 ships, bound but not yet serving.
++func newQompackServer(t *testing.T) ipc.Server {
++	t.Helper()
++	addr, err := ipc.Resolve(t.TempDir())
++	require.NoError(t, err)
++	srv, err := ipc.NewServer(addr, logging.Nop(), obs.New(clock{}), ipc.MaxLineBytes)
++	require.NoError(t, err)
++	return srv
++}
++
++// newQompackTransport pairs the real Server (running h) with the real Client SP-05 ships. Serve
++// is started here, and cleanup order matters: the client's own Close (spool handle) first, then
++// cancelling ctx to stop Serve, then Close as a backstop in case cancellation alone left it
++// running (Close is idempotent, per server.go's own sync.Once).
++func newQompackTransport(t *testing.T, h ipc.Handler) ipctest.Transport {
++	t.Helper()
++	addr, err := ipc.Resolve(t.TempDir())
++	require.NoError(t, err)
++	srv, err := ipc.NewServer(addr, logging.Nop(), obs.New(clock{}), ipc.MaxLineBytes)
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	go func() { done <- srv.Serve(ctx, h) }()
++
++	spool, err := ipc.NewSpool(t.TempDir())
++	require.NoError(t, err)
++	c := ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
++
++	t.Cleanup(func() {
++		_ = c.Close()
++		cancel()
++		_ = srv.Close()
++		<-done
++	})
++
++	return ipctest.Transport{Client: c, Addr: addr}
++}
++
+ // TestIPCSuite_ShapePassesAgainstStub is the mandatory per-suite-package assertion: every suite's
+ // shape block passes against a deliberately stubbed implementation, and every behaviour block is
+ // skipped with the exact Rule W-1 message.
+ //
+ // Each suite runs inside its own subtest because Rule W-1's skip is a t.Skip on the calling test:
+ // invoking all four directly would let the first one's skip abort the rest before their shape
+ // blocks ever ran.
+ func TestIPCSuite_ShapePassesAgainstStub(t *testing.T) {
+ 	t.Run("client", func(t *testing.T) {
+ 		ipctest.RunClientSuite(t, "fake-stub-client", func(t *testing.T) ipc.Client {
+@@ -131,30 +182,47 @@ func TestIPCSuite_ShapePassesAgainstStub(t *testing.T) {
+ 		})
+ 	})
+ 	t.Run("transport", func(t *testing.T) {
+ 		ipctest.RunTransportSuite(t, "fake-stub-transport", func(t *testing.T, h ipc.Handler) ipctest.Transport {
+ 			return ipctest.Transport{Client: fakeStubClient{}}
+ 		})
+ 	})
+ }
+ 
+ // TestRunClientSuite_AgainstQompackStub exercises RunClientSuite against the real ipc.NewClient
+-// stub, end to end, so a change to its stub behaviour that breaks the conformance suite is caught
+-// here rather than only once SP-05 lands.
++// (SP-05 replaced the SP-01 stub this test originally targeted; the name is kept so history stays
++// legible), so a change to its behaviour that breaks the conformance suite is caught here. Because
++// ipc.NewClient is no longer a stub, this run exercises the full behaviour block too — Rule W-1's
++// skip no longer applies.
+ func TestRunClientSuite_AgainstQompackStub(t *testing.T) {
+-	ipctest.RunClientSuite(t, "ipc.NewClient-stub", newQompackStubClient)
++	ipctest.RunClientSuite(t, "ipc.NewClient", newQompackStubClient)
+ }
+ 
+ // TestRunSpoolWriterSuite_AgainstQompackStub is TestRunClientSuite_AgainstQompackStub's SpoolWriter
+-// sibling.
++// sibling, against the real ipc.NewSpool.
+ func TestRunSpoolWriterSuite_AgainstQompackStub(t *testing.T) {
+-	ipctest.RunSpoolWriterSuite(t, "ipc.NewSpool-stub", newQompackStubSpool)
++	ipctest.RunSpoolWriterSuite(t, "ipc.NewSpool", newQompackStubSpool)
++}
++
++// TestRunServerSuite_AgainstQompackServer exercises RunServerSuite against the real ipc.NewServer
++// — the fourth and last of the four factories this package's conformance suites require, wired to
++// a real implementation (see also the Client/SpoolWriter pair above and the Transport pairing
++// below).
++func TestRunServerSuite_AgainstQompackServer(t *testing.T) {
++	ipctest.RunServerSuite(t, "ipc.NewServer", newQompackServer)
++}
++
++// TestRunTransportSuite_AgainstQompackServer exercises RunTransportSuite against a real
++// ipc.NewServer paired with a real ipc.NewClient — the framing round-trip, the 1 MiB line limit,
++// and the ACK/NAK handshake, end to end over the real wire.
++func TestRunTransportSuite_AgainstQompackServer(t *testing.T) {
++	ipctest.RunTransportSuite(t, "ipc.NewServer+NewClient", newQompackTransport)
+ }
+ 
+ // TestRunSpoolWriterSuite_AgainstAWorkingSpool runs the SpoolWriter behaviour block against a
+ // minimal correct implementation, proving the framing and 1 MiB-limit specification SP-05 inherits
+ // is satisfiable rather than merely unrun.
+ func TestRunSpoolWriterSuite_AgainstAWorkingSpool(t *testing.T) {
+ 	ipctest.RunSpoolWriterSuite(t, "working-spool", newWorkingSpool)
+ }
+ 
+ // TestRunServerSuite_StubIsSkipped proves the Server suite's shape block passes against a stub and
+diff --git a/internal/ipc/listen_unix.go b/internal/ipc/listen_unix.go
+new file mode 100644
+index 0000000..c272911
+--- /dev/null
++++ b/internal/ipc/listen_unix.go
+@@ -0,0 +1,58 @@
++//go:build !windows
++
++package ipc
++
++import (
++	"errors"
++	"fmt"
++	"net"
++	"os"
++	"path/filepath"
++	"syscall"
++	"time"
++
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// posixListenProbeTimeout bounds the liveness probe listen makes before binding: a Unix socket
++// path left behind by a dead daemon has to be told apart from one a live daemon still owns, and
++// 2 ms is enough to detect a listener without meaningfully delaying startup.
++const posixListenProbeTimeout = 2 * time.Millisecond
++
++// listen binds the Unix domain socket a.Path names (00-ARCHITECTURE.md §2.4): the containing
++// directory at 0700, the socket itself at 0600. log is Loud'd on the rare path a caller needs to
++// know about (currently unused on POSIX — kept so this file and listen_windows.go share one
++// signature); maxLine is likewise unused here — it is enforced by LineReader in user space, not
++// at bind time.
++func listen(a Addr, log logging.Logger, maxLine int) (net.Listener, error) {
++	if err := os.MkdirAll(paths.Long(filepath.Dir(a.Path)), dirPerm); err != nil {
++		return nil, fmt.Errorf("ipc: listen: mkdir: %w", err)
++	}
++
++	if conn, err := dial(a, posixListenProbeTimeout); err == nil {
++		_ = conn.Close()
++		return nil, fmt.Errorf("ipc: listen: %s: a live daemon already owns this socket", a.Path)
++	} else if isStaleSocketError(err) {
++		_ = os.Remove(paths.Long(a.Path))
++	}
++
++	ln, err := net.Listen("unix", a.Path)
++	if err != nil {
++		return nil, fmt.Errorf("ipc: listen: %w", err)
++	}
++	if err := os.Chmod(paths.Long(a.Path), socketPerm); err != nil {
++		_ = ln.Close()
++		return nil, fmt.Errorf("ipc: listen: chmod: %w", err)
++	}
++	return ln, nil
++}
++
++// isStaleSocketError reports whether err is the shape a dial against an orphaned socket file
++// produces: nothing is listening (ECONNREFUSED) or the file is already gone (ENOENT) — the two
++// outcomes §2.4's stale-socket reclaim names explicitly. Anything else (permission denied, a probe
++// that timed out without resolving) is left alone: listen falls through to net.Listen, which fails
++// on its own terms rather than removing a socket this probe could not actually characterize.
++func isStaleSocketError(err error) bool {
++	return errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ENOENT) || errors.Is(err, os.ErrNotExist)
++}
+diff --git a/internal/ipc/listen_windows.go b/internal/ipc/listen_windows.go
+new file mode 100644
+index 0000000..190a824
+--- /dev/null
++++ b/internal/ipc/listen_windows.go
+@@ -0,0 +1,57 @@
++//go:build windows
++
++package ipc
++
++import (
++	"fmt"
++	"net"
++	"os/user"
++
++	winio "github.com/Microsoft/go-winio"
++
++	"github.com/qompack/qompack/internal/logging"
++)
++
++// pipeBufferBytes is the kernel-allocated buffer hint per pipe instance, not a message-size limit:
++// byte-mode streams a 1 MiB NDJSON line through a 64 KiB buffer without truncation, and maxLine is
++// enforced by LineReader in user space. Sizing the buffers at maxLine would pin ~2 MiB of
++// non-paged pool per concurrent pipe instance for no benefit, which is why maxLine is accepted
++// here only so this file and listen_unix.go share one signature.
++const pipeBufferBytes = 64 << 10
++
++// windowsFallbackSDDL is the creator-owner-only descriptor listen falls back to when the current
++// user's SID cannot be resolved. It is never more permissive than the per-user ACL: CO restricts
++// the pipe to whichever account created it, exactly as the per-SID ACE would have.
++const windowsFallbackSDDL = "D:P(A;;GA;;;CO)"
++
++// listen creates the named pipe a.Path names (00-ARCHITECTURE.md §2.4), ACL'd to the current
++// user's SID only via a protected DACL — "P" so no inherited ACE ever widens it.
++func listen(a Addr, log logging.Logger, maxLine int) (net.Listener, error) {
++	sddl, fellBack := windowsSDDL()
++	if fellBack && log != nil {
++		log.Loud("ipc: could not resolve the current user's SID — named pipe ACL'd to creator-owner only", "addr", a.Path)
++	}
++
++	ln, err := winio.ListenPipe(a.Path, &winio.PipeConfig{
++		SecurityDescriptor: sddl,
++		MessageMode:        false, // byte mode: NDJSON is a stream protocol
++		InputBufferSize:    pipeBufferBytes,
++		OutputBufferSize:   pipeBufferBytes,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("ipc: listen: %w", err)
++	}
++	return ln, nil
++}
++
++// windowsSDDL builds the per-user security descriptor a named pipe listener is created with:
++// GENERIC_ALL for the current user's SID only, in a protected (non-inheriting) DACL. fellBack is
++// true when the current user's SID could not be resolved and the creator-owner fallback was used
++// instead — never a more permissive descriptor than the per-user ACE would have granted.
++func windowsSDDL() (sddl string, fellBack bool) {
++	u, err := user.Current()
++	if err != nil {
++		return windowsFallbackSDDL, true
++	}
++	return "D:P(A;;GA;;;" + u.Uid + ")", false
++}
+diff --git a/internal/ipc/op.go b/internal/ipc/op.go
+index 7142385..1086320 100644
+--- a/internal/ipc/op.go
++++ b/internal/ipc/op.go
+@@ -6,42 +6,57 @@ import "sort"
+ // shipped OpAdminPrefix rather than a hand-respelled literal so the two can never drift apart.
+ // Routing them is a later task's job (daemon.Options' handler map); this package only names them.
+ const (
+ 	OpAdminPing     Op = OpAdminPrefix + "ping"
+ 	OpAdminDrain    Op = OpAdminPrefix + "drain"
+ 	OpAdminReload   Op = OpAdminPrefix + "reload"
+ 	OpAdminIdle     Op = OpAdminPrefix + "idle"
+ 	OpAdminShutdown Op = OpAdminPrefix + "shutdown"
+ )
+ 
+-// KnownOps returns every operation this build understands — the eight §5.4 operations plus the
+-// five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
+-// Op.Valid has a single source of truth to check against.
+-func KnownOps() []Op {
++// knownOps is KnownOps' backing array, sorted once at package init rather than on every call: a
++// router calls Op.Valid on the hot path (once per request), and re-sorting a 13-element slice on
++// every call was pure waste once there is a real caller instead of just self-test.
++var knownOps = func() []Op {
+ 	ops := []Op{
+ 		OpObserveTool, OpObservePrompt, OpObserveStop, OpSessionStart,
+ 		OpCheckpoint, OpFlush, OpStatus, OpMCP,
+ 		OpAdminPing, OpAdminDrain, OpAdminReload, OpAdminIdle, OpAdminShutdown,
+ 	}
+ 	sort.Slice(ops, func(i, j int) bool { return ops[i] < ops[j] })
+ 	return ops
++}()
++
++// knownOpSet is knownOps as a set, precomputed once so Op.Valid is a map lookup rather than a
++// linear scan re-derived from a fresh sort on every call.
++var knownOpSet = func() map[Op]bool {
++	set := make(map[Op]bool, len(knownOps))
++	for _, o := range knownOps {
++		set[o] = true
++	}
++	return set
++}()
++
++// KnownOps returns every operation this build understands — the eight §5.4 operations plus the
++// five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
++// Op.Valid has a single source of truth to check against. It returns a fresh copy every call so a
++// caller mutating the result cannot corrupt the package's own copy.
++func KnownOps() []Op {
++	ops := make([]Op, len(knownOps))
++	copy(ops, knownOps)
++	return ops
+ }
+ 
+ // Valid reports whether o is one of KnownOps — the check a router applies before dispatching, and
+ // self-test applies before trusting a spelling it did not itself produce.
+ func (o Op) Valid() bool {
+-	for _, k := range KnownOps() {
+-		if o == k {
+-			return true
+-		}
+-	}
+-	return false
++	return knownOpSet[o]
+ }
+ 
+ // HotPath reports whether o is one of the three operations that flow through §8.1/§12.2's hot-path
+ // budget and its spool-on-breach fallback: observe.tool, observe.prompt, observe.stop. Every other
+ // op — session.start, checkpoint, flush, status, mcp, and the admin.* namespace — is off the hot
+ // path and never consults HotPathMode.
+ func (o Op) HotPath() bool {
+ 	switch o {
+ 	case OpObserveTool, OpObservePrompt, OpObserveStop:
+ 		return true
+diff --git a/internal/ipc/server.go b/internal/ipc/server.go
+new file mode 100644
+index 0000000..d504d77
+--- /dev/null
++++ b/internal/ipc/server.go
+@@ -0,0 +1,235 @@
++package ipc
++
++import (
++	"context"
++	"errors"
++	"net"
++	"os"
++	"sync"
++	"sync/atomic"
++	"time"
++
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// counterIPCDecodeError and counterIPCHandlerPanic are the two server-side obs.Counter names
++// (repo underscore idiom, not §2.4's dotted prose spelling — Task-2 controller ruling, kept
++// consistent because later tasks assert these exact strings).
++const (
++	counterIPCDecodeError  = "ipc_decode_error"
++	counterIPCHandlerPanic = "ipc_handler_panic"
++)
++
++// acceptBackoffInitial and acceptBackoffMax bound the accept loop's retry delay after a temporary
++// Accept error (too many open files, etc.): start small, double, cap — driven by a timer inside a
++// select, never time.Sleep (§6.1).
++const (
++	acceptBackoffInitial = 5 * time.Millisecond
++	acceptBackoffMax     = 1 * time.Second
++)
++
++// serverCloseWait bounds how long Close waits for in-flight connections to finish before
++// returning anyway — an orderly shutdown should not hang the daemon's own stop sequence forever
++// on one slow client.
++const serverCloseWait = 2 * time.Second
++
++// server is the real Server (00-ARCHITECTURE.md §5.4): the daemon-side half of the transport.
++type server struct {
++	addr    Addr
++	ln      net.Listener
++	log     logging.Logger
++	m       obs.Registry
++	maxLine int
++
++	wg     sync.WaitGroup
++	closed atomic.Bool
++
++	closeOnce sync.Once
++	closeErr  error
++}
++
++// NewServer binds a.Path and returns a Server ready for Serve. maxLine <= 0 defaults to
++// MaxLineBytes.
++func NewServer(a Addr, log logging.Logger, m obs.Registry, maxLine int) (Server, error) {
++	if log == nil {
++		log = logging.Nop()
++	}
++	if maxLine <= 0 {
++		maxLine = MaxLineBytes
++	}
++	ln, err := listen(a, log, maxLine)
++	if err != nil {
++		return nil, err
++	}
++	return &server{addr: a, ln: ln, log: log, m: m, maxLine: maxLine}, nil
++}
++
++// Addr reports the endpoint this Server is bound to. It is stable for the Server's lifetime.
++func (s *server) Addr() Addr { return s.addr }
++
++// Serve runs the accept loop until ctx is cancelled or Close is called, dispatching every request
++// on every connection to h — a connection is read until EOF, so one long-lived caller (MCP-over-
++// daemon) can send many requests without reconnecting. It returns nil on an orderly shutdown
++// triggered by Close, or ctx's own error when the shutdown was triggered by cancellation.
++func (s *server) Serve(ctx context.Context, h Handler) error {
++	if h == nil {
++		h = func(context.Context, Request) Response { return Response{OK: false, Err: "ipc: no handler"} }
++	}
++
++	stop := context.AfterFunc(ctx, func() { _ = s.Close() })
++	defer stop()
++
++	backoff := acceptBackoffInitial
++	for {
++		conn, err := s.ln.Accept()
++		if err != nil {
++			if s.closed.Load() {
++				s.wg.Wait()
++				if ctx.Err() != nil {
++					return ctx.Err()
++				}
++				return nil
++			}
++
++			var ne net.Error
++			if errors.As(err, &ne) && ne.Temporary() { //nolint:staticcheck // SA1019: the documented accept-loop retry idiom this package's own spec calls for
++				if !s.waitBackoff(ctx, &backoff) {
++					s.wg.Wait()
++					return ctx.Err()
++				}
++				continue
++			}
++			s.wg.Wait()
++			return err
++		}
++		backoff = acceptBackoffInitial
++		s.wg.Add(1)
++		go s.handleConn(ctx, conn, h)
++	}
++}
++
++// waitBackoff waits for the current backoff duration (doubling it, capped at acceptBackoffMax)
++// or for ctx to end, whichever comes first. It reports whether the wait completed normally.
++func (s *server) waitBackoff(ctx context.Context, backoff *time.Duration) bool {
++	t := time.NewTimer(*backoff)
++	defer t.Stop()
++	select {
++	case <-t.C:
++		*backoff *= 2
++		if *backoff > acceptBackoffMax {
++			*backoff = acceptBackoffMax
++		}
++		return true
++	case <-ctx.Done():
++		return false
++	}
++}
++
++// handleConn reads NDJSON frames off conn until EOF or a fatal I/O error, dispatching each to h
++// and writing back the one-byte ACK/NAK or, for a Reply request, a full response line.
++func (s *server) handleConn(ctx context.Context, conn net.Conn, h Handler) {
++	defer s.wg.Done()
++	defer func() { _ = conn.Close() }()
++
++	lr := NewLineReader(conn, s.maxLine)
++	for {
++		line, err := lr.ReadLine()
++		if err != nil {
++			if errors.Is(err, ErrLineTooLong) {
++				// The oversize line was already discarded by ReadLine; NAK it and keep reading —
++				// it must never reach the handler.
++				if !s.writeByte(conn, NAK) {
++					return
++				}
++				continue
++			}
++			return // clean EOF or a real I/O error: this connection is done
++		}
++
++		req, decErr := DecodeRequest(line)
++		if decErr != nil {
++			if s.m != nil {
++				s.m.Counter(counterIPCDecodeError).Add(1)
++			}
++			if !s.writeByte(conn, NAK) {
++				return
++			}
++			continue
++		}
++
++		resp := s.dispatch(ctx, h, req)
++
++		if req.Reply {
++			out, encErr := EncodeResponse(resp)
++			if encErr != nil {
++				return
++			}
++			if _, werr := conn.Write(out); werr != nil {
++				return
++			}
++			continue
++		}
++
++		b := NAK
++		if resp.OK {
++			b = ACK
++		}
++		if !s.writeByte(conn, b) {
++			return
++		}
++	}
++}
++
++// dispatch calls h, containing a panic so one hostile or buggy handler invocation never brings
++// down the daemon's read loop: the connection gets a NAK and keeps serving, and the panic is
++// counted and logged Loud rather than silently swallowed.
++func (s *server) dispatch(ctx context.Context, h Handler, req Request) (resp Response) {
++	defer func() {
++		if r := recover(); r != nil {
++			if s.m != nil {
++				s.m.Counter(counterIPCHandlerPanic).Add(1)
++			}
++			if s.log != nil {
++				s.log.Loud("ipc: handler panicked — request refused", "op", string(req.Op), "recover", r)
++			}
++			resp = Response{OK: false, Err: "ipc: handler panic"}
++		}
++	}()
++	return h(ctx, req)
++}
++
++// writeByte writes a single control byte (ACK or NAK) and reports whether the write succeeded.
++func (s *server) writeByte(conn net.Conn, b byte) bool {
++	_, err := conn.Write([]byte{b})
++	return err == nil
++}
++
++// Close stops Serve (by closing the listener, which unblocks a pending Accept), waits up to
++// serverCloseWait for in-flight connections to finish, and — on POSIX — unlinks the socket path.
++// It is idempotent: a second call replays the first call's result rather than closing an
++// already-closed listener again.
++func (s *server) Close() error {
++	s.closeOnce.Do(func() {
++		s.closed.Store(true)
++		s.closeErr = s.ln.Close()
++
++		done := make(chan struct{})
++		go func() {
++			s.wg.Wait()
++			close(done)
++		}()
++		t := time.NewTimer(serverCloseWait)
++		defer t.Stop()
++		select {
++		case <-done:
++		case <-t.C:
++		}
++
++		if ua, ok := s.ln.Addr().(*net.UnixAddr); ok {
++			_ = os.Remove(paths.Long(ua.Name))
++		}
++	})
++	return s.closeErr
++}
+diff --git a/internal/ipc/server_test.go b/internal/ipc/server_test.go
+new file mode 100644
+index 0000000..f566901
+--- /dev/null
++++ b/internal/ipc/server_test.go
+@@ -0,0 +1,223 @@
++package ipc
++
++import (
++	"context"
++	"encoding/json"
++	"net"
++	"strconv"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/assert"
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// newRawClient dials addr directly, bypassing Client entirely — these tests exercise the wire
++// protocol and the accept loop, not the hot-path client's own failure handling.
++func newRawClient(t *testing.T, addr Addr) net.Conn {
++	t.Helper()
++	conn, err := dial(addr, time.Second)
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = conn.Close() })
++	return conn
++}
++
++func writeRequest(t *testing.T, conn net.Conn, req Request) {
++	t.Helper()
++	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(time.Second)))
++	line, err := EncodeRequest(req)
++	require.NoError(t, err)
++	_, err = conn.Write(line)
++	require.NoError(t, err)
++}
++
++func readByte(t *testing.T, conn net.Conn) byte {
++	t.Helper()
++	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
++	var b [1]byte
++	_, err := conn.Read(b[:])
++	require.NoError(t, err)
++	return b[0]
++}
++
++// TestServerRoutesAndACKs is the table's row: a Handler that answers admin.ping ACKs a
++// fire-and-forget request, and returns a full NDJSON line for a Reply:true request.
++func TestServerRoutesAndACKs(t *testing.T) {
++	_, addr := newTestServer(t, func(_ context.Context, req Request) Response {
++		if req.Op != OpAdminPing {
++			return Response{OK: false, Err: "unrecognized op"}
++		}
++		if req.Reply {
++			return Response{OK: true, Data: json.RawMessage(`{"pong":true}`)}
++		}
++		return Response{OK: true}
++	})
++	conn := newRawClient(t, addr)
++
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 1})
++	require.Equal(t, ACK, readByte(t, conn))
++
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 2, Reply: true})
++	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
++	line, err := NewLineReader(conn, MaxLineBytes).ReadLine()
++	require.NoError(t, err)
++	resp, err := DecodeResponse(line)
++	require.NoError(t, err)
++	require.True(t, resp.OK)
++	require.JSONEq(t, `{"pong":true}`, string(resp.Data))
++}
++
++// TestServerUnknownOpNAKs is the table's row (adapted: routing is a daemon concern now, so the
++// Handler itself refuses, not a Router): a refused request NAKs and the connection stays open —
++// a following valid request on the same connection still ACKs.
++func TestServerUnknownOpNAKs(t *testing.T) {
++	_, addr := newTestServer(t, func(_ context.Context, req Request) Response {
++		if req.Op == OpAdminPing {
++			return Response{OK: true}
++		}
++		return Response{OK: false, Err: "unrecognized op"}
++	})
++	conn := newRawClient(t, addr)
++
++	writeRequest(t, conn, Request{Op: Op("bogus.op"), Session: "s", TS: 1})
++	require.Equal(t, NAK, readByte(t, conn))
++
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 2})
++	require.Equal(t, ACK, readByte(t, conn), "the connection must stay open and keep serving after a NAK")
++}
++
++// TestServerHandlerPanicIsContained is the table's row: a panicking Handler NAKs the request that
++// triggered it, keeps serving, and counts the panic.
++func TestServerHandlerPanicIsContained(t *testing.T) {
++	reg := obs.New(core.SystemClock())
++	addr, err := Resolve(t.TempDir())
++	require.NoError(t, err)
++	srv, err := NewServer(addr, logging.Nop(), reg, MaxLineBytes)
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	var calls atomic.Int64
++	go func() {
++		done <- srv.Serve(ctx, func(context.Context, Request) Response {
++			calls.Add(1)
++			panic("boom")
++		})
++	}()
++	t.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
++
++	conn := newRawClient(t, addr)
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 1})
++	require.Equal(t, NAK, readByte(t, conn))
++
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 2})
++	require.Equal(t, NAK, readByte(t, conn), "the server must keep serving after a handler panic")
++
++	require.EqualValues(t, 2, calls.Load())
++	require.EqualValues(t, 2, reg.Counter(counterIPCHandlerPanic).Value())
++}
++
++// TestServerMultiplexesLines is the table's row: 3 requests on one connection produce 3 ACK bytes
++// in order.
++func TestServerMultiplexesLines(t *testing.T) {
++	_, addr := newTestServer(t, func(context.Context, Request) Response { return Response{OK: true} })
++	conn := newRawClient(t, addr)
++
++	for i := 0; i < 3; i++ {
++		writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: core.UnixMilli(i)})
++	}
++	for i := 0; i < 3; i++ {
++		require.Equal(t, ACK, readByte(t, conn), "byte %d", i)
++	}
++}
++
++// TestServerConcurrentClients is the table's row: 64 goroutines × 50 requests, under -race, must
++// produce exactly 3200 ACKs with no dropped request.
++func TestServerConcurrentClients(t *testing.T) {
++	const goroutines, perGoroutine = 64, 50
++
++	var handled atomic.Int64
++	_, addr := newTestServer(t, func(context.Context, Request) Response {
++		handled.Add(1)
++		return Response{OK: true}
++	})
++
++	var wg sync.WaitGroup
++	for g := 0; g < goroutines; g++ {
++		wg.Add(1)
++		go func(g int) {
++			defer wg.Done()
++			conn, err := dial(addr, 2*time.Second)
++			if !assert.NoError(t, err) {
++				return
++			}
++			defer func() { _ = conn.Close() }()
++
++			for i := 0; i < perGoroutine; i++ {
++				line, encErr := EncodeRequest(Request{Op: OpAdminPing, Session: core.SessionID(strconv.Itoa(g)), TS: core.UnixMilli(i)})
++				if !assert.NoError(t, encErr) {
++					return
++				}
++				if assert.NoError(t, conn.SetWriteDeadline(time.Now().Add(2*time.Second))) {
++					_, werr := conn.Write(line)
++					assert.NoError(t, werr)
++				}
++				if assert.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second))) {
++					var b [1]byte
++					_, rerr := conn.Read(b[:])
++					if assert.NoError(t, rerr) {
++						assert.Equal(t, ACK, b[0])
++					}
++				}
++			}
++		}(g)
++	}
++	wg.Wait()
++
++	require.EqualValues(t, goroutines*perGoroutine, handled.Load())
++}
++
++// BenchmarkServerRoundTrip measures the daemon-side portion of B-A against a warm in-process
++// server: budget is p99 < 2 ms.
++func BenchmarkServerRoundTrip(b *testing.B) {
++	addr, err := Resolve(b.TempDir())
++	if err != nil {
++		b.Fatal(err)
++	}
++	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
++	if err != nil {
++		b.Fatal(err)
++	}
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	go func() { done <- srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} }) }()
++	b.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
++
++	conn, err := dial(addr, 2*time.Second)
++	if err != nil {
++		b.Fatal(err)
++	}
++	b.Cleanup(func() { _ = conn.Close() })
++
++	line, err := EncodeRequest(Request{Op: OpAdminPing, Session: "bench", TS: 1})
++	if err != nil {
++		b.Fatal(err)
++	}
++
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		if _, err := conn.Write(line); err != nil {
++			b.Fatal(err)
++		}
++		var ack [1]byte
++		if _, err := conn.Read(ack[:]); err != nil {
++			b.Fatal(err)
++		}
++	}
++}
+diff --git a/internal/ipc/server_unix_test.go b/internal/ipc/server_unix_test.go
+new file mode 100644
+index 0000000..674f113
+--- /dev/null
++++ b/internal/ipc/server_unix_test.go
+@@ -0,0 +1,61 @@
++//go:build !windows
++
++package ipc
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// TestUnixSocketPermissions is the table's row: the bound socket is mode 0600 in a 0700
++// directory.
++func TestUnixSocketPermissions(t *testing.T) {
++	_, addr := newTestServer(t, func(context.Context, Request) Response { return Response{OK: true} })
++
++	fi, err := os.Stat(addr.Path)
++	require.NoError(t, err)
++	require.Equal(t, os.FileMode(0o600), fi.Mode().Perm())
++
++	dirFi, err := os.Stat(filepath.Dir(addr.Path))
++	require.NoError(t, err)
++	require.Equal(t, os.FileMode(0o700), dirFi.Mode().Perm())
++}
++
++// TestStaleUnixSocketReclaimed is the table's row: a socket file left behind with nothing
++// listening on it is removed and rebound successfully, rather than failing with "address already
++// in use".
++func TestStaleUnixSocketReclaimed(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root)
++	require.NoError(t, err)
++
++	require.NoError(t, os.MkdirAll(filepath.Dir(addr.Path), dirPerm))
++	// Bind and immediately close a real listener at addr.Path, leaving its socket file behind —
++	// exactly what a daemon that crashed without cleaning up its own lock would leave.
++	stale, err := listen(addr, logging.Nop(), MaxLineBytes)
++	require.NoError(t, err)
++	require.NoError(t, stale.Close())
++
++	_, err = os.Stat(addr.Path)
++	require.NoError(t, err, "the stale socket file must still exist before NewServer runs")
++
++	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
++	require.NoError(t, err, "NewServer must reclaim a stale socket rather than failing")
++
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	go func() { done <- srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} }) }()
++	t.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
++
++	conn := newRawClient(t, addr)
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 1})
++	require.Equal(t, byte(ACK), readByte(t, conn), "a client must be able to reach the rebound server")
++}
+diff --git a/internal/ipc/server_windows_test.go b/internal/ipc/server_windows_test.go
+new file mode 100644
+index 0000000..66a57eb
+--- /dev/null
++++ b/internal/ipc/server_windows_test.go
+@@ -0,0 +1,44 @@
++//go:build windows
++
++package ipc
++
++import (
++	"os"
++	"os/user"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++)
++
++// TestWindowsSDDL_Shape asserts the SDDL string shape unconditionally (cheap, no ACL probing
++// required): it begins "D:P" (a protected DACL, so no inherited ACE ever widens it) and, when the
++// current user's SID resolves, contains that SID.
++func TestWindowsSDDL_Shape(t *testing.T) {
++	sddl, fellBack := windowsSDDL()
++	require.True(t, strings.HasPrefix(sddl, "D:P"), "the DACL must be protected: got %q", sddl)
++
++	if !fellBack {
++		u, err := user.Current()
++		require.NoError(t, err)
++		require.Contains(t, sddl, u.Uid)
++	} else {
++		require.Equal(t, windowsFallbackSDDL, sddl)
++	}
++}
++
++// TestWindowsPipeACLRejectsOtherUser is the table's row. It is gated behind QOMPACK_TEST_ACL=1 in
++// both directions: unset, it is skipped outright ("runs only under QOMPACK_TEST_ACL=1"); set, it
++// is still skipped, because proving denial requires dialling as a genuinely different Windows
++// principal, which needs a second provisioned account this environment does not have — a fake
++// "different token" in the same process would not exercise the kernel's own ACL check at all.
++// TestWindowsSDDL_Shape above covers the unconditional, cheap half of this row: the SDDL this
++// package builds is well-formed and scoped to one SID. The env var still gates this test (rather
++// than deleting it) so a CI job that does provision a second principal has a named test to wire a
++// real cross-principal dial into.
++func TestWindowsPipeACLRejectsOtherUser(t *testing.T) {
++	if os.Getenv("QOMPACK_TEST_ACL") != "1" {
++		t.Skip("platform: requires QOMPACK_TEST_ACL=1 and a second Windows principal to dial as; unset here")
++	}
++	t.Skip("platform: QOMPACK_TEST_ACL=1 set, but no second Windows principal is provisioned in this environment")
++}
+diff --git a/internal/ipc/spool.go b/internal/ipc/spool.go
+new file mode 100644
+index 0000000..c927d90
+--- /dev/null
++++ b/internal/ipc/spool.go
+@@ -0,0 +1,227 @@
++package ipc
++
++import (
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++	"sync"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// spoolMaxBytes bounds one client process's own spool file (D4: "the queue-and-drain degradation
++// of §8.1 must exist below the daemon"). A daemon that never comes back must not let the spool
++// grow without bound and fill the user's disk — that would violate §7.1 directly. It matches
++// walRotateBytes so the two durability tiers share one growth ceiling.
++const spoolMaxBytes = 64 << 20 // 64 MiB per client file
++
++// ErrSpoolFull is returned by Append (and, internally, swallowed into the drop path exactly like
++// any other write failure) once a client's own spool file has reached spoolMaxBytes. The daemon
++// deletes drained files, so the cap is only ever reached when nothing is draining — exactly the
++// case where dropping is correct.
++var ErrSpoolFull = errors.New("qompack: spool file at cap")
++
++// spoolFilePrefix, spoolFileExt and walFilePrefix name the two families SpoolFiles distinguishes:
++// this client's own append-only queue (client-<pid>.ndjson) and the daemon's WAL segments
++// (wal-<session>.ndjson), which live in the same directory and drain together.
++const (
++	spoolFilePrefix = "client-"
++	spoolFileExt    = ".ndjson"
++	walFilePrefix   = "wal-"
++)
++
++// spoolDirPerm is the spool directory's permission, owner-only like every other directory under
++// .qompack/ (00-ARCHITECTURE.md §2.4).
++const spoolDirPerm = 0o700
++
++// spool is the real SpoolWriter (00-ARCHITECTURE.md §2.4, D4): the durability fallback every
++// failure path in Client.Send lands on. NewSpool records dir but opens nothing — a process that
++// never spools pays nothing — and Append lazily creates the directory and the file on first use,
++// keeping the handle for the process lifetime.
++type spool struct {
++	dir  string
++	path string
++	log  logging.Logger
++	m    obs.Registry
++
++	mu    sync.Mutex
++	f     *os.File
++	bytes int64
++	// err is sticky: once Append has failed once, every subsequent Append is a cheap no-op rather
++	// than repeating the failing write (§12.3 "spool write fails").
++	err error
++
++	loudOnce  sync.Once
++	closeOnce sync.Once
++	closeErr  error
++}
++
++// NewSpool returns a SpoolWriter rooted at dir, which is <root>/.qompack/spool in every real
++// caller. Constructing always succeeds and creates nothing.
++func NewSpool(dir string) (SpoolWriter, error) {
++	return newSpool(dir, logging.Nop(), nil), nil
++}
++
++// newSpool is NewSpool's body with the logger/registry a real Client already has to hand, so
++// §12.3's "drop the event ... Loud once" observability reaches the caller's own log/metrics
++// instead of a silently discarded Nop pair. NewClientWithOptions calls this directly; NewSpool
++// (SP-01's shipped two-argument constructor, used by every caller with no Logger/Registry handy)
++// wires Nop/nil.
++func newSpool(dir string, log logging.Logger, m obs.Registry) *spool {
++	if log == nil {
++		log = logging.Nop()
++	}
++	return &spool{
++		dir:  dir,
++		path: filepath.Join(dir, fmt.Sprintf("%s%d%s", spoolFilePrefix, os.Getpid(), spoolFileExt)),
++		log:  log,
++		m:    m,
++	}
++}
++
++// Path returns the file Append writes to, so /qompack:status and the daemon's drain can name it.
++// It is stable for the writer's lifetime, computed at construction, before any file is created.
++func (s *spool) Path() string { return s.path }
++
++// Append writes req as one NDJSON line (00-ARCHITECTURE.md §2.4). A line that would exceed
++// MaxLineBytes is refused outright with a wrapped core.ErrBudget, leaving the spool byte-identical
++// — this is the generic SpoolWriter contract ipctest's conformance suite grades, and it never
++// happens on Client.Send's own path because externalize() keeps every line the client hands to
++// Append under the threshold before Append is ever called.
++//
++// Everything else — permission denied, ENOSPC, ErrSpoolFull — is §12.3's "spool write fails":
++// dropped and counted every time (so l0_dropped reflects the true count of lost events even
++// though the write itself is only retried once), Loud exactly once for the life of this spool,
++// and reported back as nil so the hook that called Send still exits 0.
++func (s *spool) Append(req Request) error {
++	line, err := EncodeRequest(req)
++	if err != nil {
++		return fmt.Errorf("ipc: spool: encode: %w", err)
++	}
++	if len(line)+1 > MaxLineBytes {
++		return fmt.Errorf("%w: spool line of %d bytes exceeds the %d byte frame limit",
++			core.ErrBudget, len(line)+1, MaxLineBytes)
++	}
++
++	s.mu.Lock()
++	defer s.mu.Unlock()
++
++	if s.err != nil {
++		// Sticky: the write already failed once this process, so there is no point retrying the
++		// same failing I/O for every subsequent event — but each of those events is still a real
++		// drop, and l0_dropped must count every one of them, not just the first.
++		if s.m != nil {
++			s.m.Counter(counterL0Dropped).Add(1)
++		}
++		return nil
++	}
++	if wErr := s.writeLocked(line); wErr != nil {
++		s.err = wErr
++		s.loudOnce.Do(func() {
++			s.log.Loud("ipc: spool write failed — event dropped", "err", wErr, "path", s.path)
++		})
++		if s.m != nil {
++			s.m.Counter(counterL0Dropped).Add(1)
++		}
++		return nil
++	}
++	return nil
++}
++
++// writeLocked appends line plus its newline to the spool file, opening (and, on first use,
++// creating the directory for) the file if this is the first write. mu must be held.
++func (s *spool) writeLocked(line []byte) error {
++	if s.f == nil {
++		if err := os.MkdirAll(paths.Long(s.dir), spoolDirPerm); err != nil {
++			return fmt.Errorf("ipc: spool: mkdir: %w", err)
++		}
++		w, err := paths.AppendOnly(s.path)
++		if err != nil {
++			return fmt.Errorf("ipc: spool: open: %w", err)
++		}
++		f, ok := w.(*os.File)
++		if !ok {
++			// paths.AppendOnly always returns *os.File today. This branch exists so a future
++			// change to that contract fails loudly here rather than silently losing bytes.
++			return fmt.Errorf("ipc: spool: AppendOnly returned a non-*os.File writer")
++		}
++		s.f = f
++		if fi, statErr := f.Stat(); statErr == nil {
++			s.bytes = fi.Size() // resume the running byte count across process restarts
++		}
++	}
++
++	if s.bytes+int64(len(line))+1 > spoolMaxBytes {
++		return ErrSpoolFull
++	}
++	n, err := s.f.Write(append(line, '\n'))
++	if err != nil {
++		return err
++	}
++	s.bytes += int64(n)
++	return nil
++}
++
++// Close closes the spool's backing file handle, if one was ever opened. It is not part of the
++// SpoolWriter interface — SP-01 shipped that interface without a Close method — so a caller that
++// wants to release the handle (Client.Close) reaches it through a type assertion. It tolerates
++// being called more than once: the real close happens exactly once, guarded by sync.Once, and
++// every later call replays the first call's result.
++func (s *spool) Close() error {
++	s.closeOnce.Do(func() {
++		s.mu.Lock()
++		defer s.mu.Unlock()
++		if s.f != nil {
++			s.closeErr = s.f.Close()
++			s.f = nil
++		}
++	})
++	return s.closeErr
++}
++
++// ExternalizeThreshold reports the encoded-request size at or above which Client.Send moves the
++// oversized member to a side blob rather than writing it inline: the smaller of the operator's
++// configured accept limit and the protocol's own ceiling, so a lowered runtime.hotPath.maxPayloadBytes
++// only ever tightens the threshold, never loosens it past MaxLineBytes.
++func ExternalizeThreshold(cfg config.Config) int {
++	return min(cfg.Runtime.HotPath.MaxPayloadBytes, MaxLineBytes)
++}
++
++// SpoolFiles returns every spool-tier file in dir, sorted with the daemon's WAL segments
++// (wal-*.ndjson) first and this package's own client spools (client-*.ndjson) after — the order
++// the daemon's drain reads them in, oldest durability boundary first. A missing directory reports
++// an empty list rather than an error: a project that has never spooled anything has nothing to
++// drain.
++func SpoolFiles(dir string) ([]string, error) {
++	entries, err := os.ReadDir(paths.Long(dir))
++	if err != nil {
++		if os.IsNotExist(err) {
++			return nil, nil
++		}
++		return nil, fmt.Errorf("ipc: SpoolFiles: %w", err)
++	}
++
++	var wal, client []string
++	for _, e := range entries {
++		if e.IsDir() {
++			continue
++		}
++		name := e.Name()
++		switch {
++		case strings.HasPrefix(name, walFilePrefix) && strings.HasSuffix(name, spoolFileExt):
++			wal = append(wal, filepath.Join(dir, name))
++		case strings.HasPrefix(name, spoolFilePrefix) && strings.HasSuffix(name, spoolFileExt):
++			client = append(client, filepath.Join(dir, name))
++		}
++	}
++	sort.Strings(wal)
++	sort.Strings(client)
++	return append(wal, client...), nil
++}
+diff --git a/internal/ipc/spool_test.go b/internal/ipc/spool_test.go
+new file mode 100644
+index 0000000..e5453a8
+--- /dev/null
++++ b/internal/ipc/spool_test.go
+@@ -0,0 +1,172 @@
++package ipc
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++	"sync"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// This file is white-box (package ipc, not ipc_test) because
++// TestSpoolWriteFailureDropsAndLoudsOnce needs newSpool's log/metrics-wired constructor, which
++// NewSpool's shipped two-argument signature (dir only) has no way to expose to an external caller.
++
++// loudCountingLogger counts Loud calls; every other Logger method is a no-op. It exists so a
++// white-box test can assert "exactly one Loud line" without depending on logging's file-backed
++// sink.
++type loudCountingLogger struct {
++	mu sync.Mutex
++	n  int
++}
++
++func (l *loudCountingLogger) With(...any) logging.Logger { return l }
++func (l *loudCountingLogger) Debug(string, ...any)       {}
++func (l *loudCountingLogger) Info(string, ...any)        {}
++func (l *loudCountingLogger) Warn(string, ...any)        {}
++func (l *loudCountingLogger) Error(string, ...any)       {}
++
++func (l *loudCountingLogger) Loud(string, ...any) {
++	l.mu.Lock()
++	l.n++
++	l.mu.Unlock()
++}
++
++func (l *loudCountingLogger) count() int {
++	l.mu.Lock()
++	defer l.mu.Unlock()
++	return l.n
++}
++
++func TestNewSpool_ConstructsWithoutTouchingTheFilesystem(t *testing.T) {
++	dir := t.TempDir()
++
++	s, err := NewSpool(dir)
++	require.NoError(t, err)
++	require.NotNil(t, s)
++
++	entries, err := os.ReadDir(dir)
++	require.NoError(t, err)
++	require.Empty(t, entries, "constructing a spool must not create a file")
++}
++
++// TestSpoolAppendOnly is the table's row: pre-create the spool file with content, Append, and
++// assert the original bytes are intact with the new line appended after them — paths.AppendOnly
++// is the only opener this package's write path ever reaches, and it refuses O_TRUNC outright.
++func TestSpoolAppendOnly(t *testing.T) {
++	dir := t.TempDir()
++	s, err := NewSpool(dir)
++	require.NoError(t, err)
++	t.Cleanup(func() { closeSpool(t, s) })
++
++	preexisting := `{"op":"observe.tool","s":"pre","t":1}` + "\n"
++	require.NoError(t, os.MkdirAll(dir, spoolDirPerm))
++	require.NoError(t, os.WriteFile(s.Path(), []byte(preexisting), 0o600))
++
++	require.NoError(t, s.Append(Request{Op: OpObserveTool, Session: core.SessionID("new"), TS: 2}))
++
++	got, err := os.ReadFile(s.Path())
++	require.NoError(t, err)
++	require.True(t, len(got) > len(preexisting))
++	require.Equal(t, preexisting, string(got[:len(preexisting)]), "the pre-existing line must survive byte-identical")
++}
++
++// TestSpoolWriteFailureDropsAndLoudsOnce is the table's row: a spool whose backing file cannot be
++// written drops every event, counts every one of them as dropped, but Louds exactly once across
++// 10 failing Append calls.
++func TestSpoolWriteFailureDropsAndLoudsOnce(t *testing.T) {
++	dir := t.TempDir()
++	p := filepath.Join(dir, fmt.Sprintf("%s%d%s", spoolFilePrefix, os.Getpid(), spoolFileExt))
++	require.NoError(t, os.WriteFile(p, nil, 0o600))
++	require.NoError(t, os.Chmod(p, 0o400))
++	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
++
++	lg := &loudCountingLogger{}
++	reg := obs.New(core.SystemClock())
++	s := newSpool(dir, lg, reg)
++	t.Cleanup(func() { _ = s.Close() })
++
++	for i := 0; i < 10; i++ {
++		err := s.Append(Request{Op: OpObserveTool, Session: core.SessionID("s"), TS: core.UnixMilli(i)})
++		require.NoError(t, err, "a spool write failure must never propagate to the caller")
++	}
++
++	require.EqualValues(t, 10, reg.Counter(counterL0Dropped).Value())
++	require.Equal(t, 1, lg.count(), "exactly one Loud line for 10 dropped events")
++}
++
++// TestSpoolCap asserts Append refuses once the spool file would exceed spoolMaxBytes: the write
++// fails internally (counted as a drop, per the same §12.3 path as any other write failure) rather
++// than growing the file without bound.
++func TestSpoolCap(t *testing.T) {
++	dir := t.TempDir()
++	lg := &loudCountingLogger{}
++	reg := obs.New(core.SystemClock())
++	s := newSpool(dir, lg, reg)
++	t.Cleanup(func() { _ = s.Close() })
++
++	// One small write opens the real file, so the forced byte count below reflects a spool that
++	// legitimately grew to the cap through ordinary Appends rather than an untouched fresh file.
++	require.NoError(t, s.Append(Request{Op: OpObserveTool, Session: "s", TS: 0}))
++
++	s.mu.Lock()
++	s.bytes = spoolMaxBytes
++	s.mu.Unlock()
++
++	require.NoError(t, s.Append(Request{Op: OpObserveTool, Session: "s", TS: 1}))
++	require.EqualValues(t, 1, reg.Counter(counterL0Dropped).Value())
++	require.Equal(t, 1, lg.count())
++}
++
++// closeSpool releases s's backing file handle, if any, so TempDir's cleanup can remove it —
++// necessary on Windows, where an open file cannot be unlinked. SpoolWriter itself has no Close
++// method (SP-01 shipped it without one); the concrete *spool type does, reached here exactly as
++// Client.Close reaches it, through a type assertion.
++func closeSpool(t *testing.T, s SpoolWriter) {
++	t.Helper()
++	if cl, ok := s.(interface{ Close() error }); ok {
++		_ = cl.Close()
++	}
++}
++
++func TestExternalizeThreshold_IsTheSmallerOfMaxPayloadAndMaxLine(t *testing.T) {
++	cfg := config.Defaults()
++	cfg.Runtime.HotPath.MaxPayloadBytes = 4096
++	require.Equal(t, 4096, ExternalizeThreshold(cfg))
++
++	cfg.Runtime.HotPath.MaxPayloadBytes = MaxLineBytes * 2
++	require.Equal(t, MaxLineBytes, ExternalizeThreshold(cfg))
++}
++
++// TestSpoolFiles_SortsWALBeforeClient asserts the daemon's drain order: WAL segments first, this
++// package's own client spools after, each family lexically sorted.
++func TestSpoolFiles_SortsWALBeforeClient(t *testing.T) {
++	dir := t.TempDir()
++	for _, name := range []string{"client-200.ndjson", "wal-b.ndjson", "client-100.ndjson", "wal-a.ndjson", "ignored.txt"} {
++		require.NoError(t, os.WriteFile(filepath.Join(dir, name), nil, 0o600))
++	}
++
++	got, err := SpoolFiles(dir)
++	require.NoError(t, err)
++	require.Equal(t, []string{
++		filepath.Join(dir, "wal-a.ndjson"),
++		filepath.Join(dir, "wal-b.ndjson"),
++		filepath.Join(dir, "client-100.ndjson"),
++		filepath.Join(dir, "client-200.ndjson"),
++	}, got)
++}
++
++// TestSpoolFiles_MissingDirIsEmpty asserts a project that never spooled anything reports no files,
++// not an error.
++func TestSpoolFiles_MissingDirIsEmpty(t *testing.T) {
++	got, err := SpoolFiles(filepath.Join(t.TempDir(), "never-created"))
++	require.NoError(t, err)
++	require.Empty(t, got)
++}
+diff --git a/internal/ipc/stub_test.go b/internal/ipc/stub_test.go
+deleted file mode 100644
+index 8e30e00..0000000
+--- a/internal/ipc/stub_test.go
++++ /dev/null
+@@ -1,79 +0,0 @@
+-package ipc_test
+-
+-import (
+-	"context"
+-	"os"
+-	"testing"
+-	"time"
+-
+-	"github.com/qompack/qompack/internal/config"
+-	"github.com/qompack/qompack/internal/core"
+-	"github.com/qompack/qompack/internal/ipc"
+-	"github.com/qompack/qompack/internal/logging"
+-	"github.com/qompack/qompack/internal/obs"
+-	"github.com/stretchr/testify/require"
+-)
+-
+-// clock is the core.Clock obs.New needs. §6.1 bans wall-clock sleeps; a fixed clock also keeps
+-// metric timestamps deterministic.
+-type clock struct{}
+-
+-func (clock) Now() time.Time                  { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
+-func (clock) Since(t time.Time) time.Duration { return clock{}.Now().Sub(t) }
+-
+-// TestNewClient_ConstructsAndEveryOperationIsNotImplemented is the §14.1 stub contract for Client:
+-// constructing succeeds so a wave-0 composition root can wire one today, and every operation
+-// reports core.ErrNotImplemented rather than faking a delivery that never happened.
+-func TestNewClient_ConstructsAndEveryOperationIsNotImplemented(t *testing.T) {
+-	addr, err := ipc.Resolve(t.TempDir())
+-	require.NoError(t, err)
+-
+-	spool, err := ipc.NewSpool(t.TempDir())
+-	require.NoError(t, err)
+-
+-	c := ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
+-	require.NotNil(t, c)
+-
+-	deadline := time.Duration(config.Defaults().Runtime.Daemon.AckDeadlineMs) * time.Millisecond
+-	res, err := c.Send(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "s", TS: 1}, deadline)
+-	require.ErrorIs(t, err, core.ErrNotImplemented)
+-	require.False(t, res.OK, "a stub must not report a delivery it did not make")
+-
+-	require.ErrorIs(t, c.Close(), core.ErrNotImplemented)
+-}
+-
+-// TestNewClient_ToleratesNilDependencies asserts constructing is total. A hook that failed to build
+-// a spool or a metrics registry must still be able to build a Client and reach the spool-and-exit
+-// path, because §2.3's rule is that a hook always exits 0.
+-func TestNewClient_ToleratesNilDependencies(t *testing.T) {
+-	require.NotPanics(t, func() {
+-		c := ipc.NewClient(ipc.Addr{}, nil, nil, nil)
+-		require.NotNil(t, c)
+-	})
+-}
+-
+-// TestNewSpool_ConstructsWithoutTouchingTheFilesystem asserts the stub creates nothing. A stub that
+-// pre-created an empty client-<pid>.ndjson would leave one in every project that merely wired a
+-// client, and the daemon's drain would then have to distinguish an empty spool from a real one.
+-func TestNewSpool_ConstructsWithoutTouchingTheFilesystem(t *testing.T) {
+-	dir := t.TempDir()
+-
+-	s, err := ipc.NewSpool(dir)
+-	require.NoError(t, err)
+-	require.NotNil(t, s)
+-
+-	entries, err := os.ReadDir(dir)
+-	require.NoError(t, err)
+-	require.Empty(t, entries, "constructing a spool must not create a file")
+-}
+-
+-// TestNewSpool_EveryOperationIsNotImplemented is the §14.1 stub contract for SpoolWriter, including
+-// the honest empty Path: a stub reporting the path it WOULD write to would be plausible-looking
+-// data for a file that does not exist.
+-func TestNewSpool_EveryOperationIsNotImplemented(t *testing.T) {
+-	s, err := ipc.NewSpool(t.TempDir())
+-	require.NoError(t, err)
+-
+-	require.ErrorIs(t, s.Append(ipc.Request{Op: ipc.OpObserveTool}), core.ErrNotImplemented)
+-	require.Empty(t, s.Path())
+-}

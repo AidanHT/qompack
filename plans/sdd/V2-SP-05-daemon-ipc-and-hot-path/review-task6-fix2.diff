@@ -1,0 +1,369 @@
+# Fix-round-2 delta: bdc9585c -> 6fc27a3b
+
+ internal/cli/fault.go      | 23 ++++++++++++--------
+ internal/cli/fault_test.go | 34 ++++++++++++++++++++++++++++++
+ internal/cli/hookclient.go | 36 ++++++++++++++++++++++----------
+ internal/cli/hooks_test.go | 52 ++++++++++++++++++++++++++++++++++++++++++++++
+ internal/cli/selftest.go   |  7 +++++++
+ internal/ipc/client.go     | 12 +++++++----
+ 6 files changed, 140 insertions(+), 24 deletions(-)
+
+diff --git a/internal/cli/fault.go b/internal/cli/fault.go
+index fc8234a..15e5c6c 100644
+--- a/internal/cli/fault.go
++++ b/internal/cli/fault.go
+@@ -1,22 +1,27 @@
+ //go:build !noinject
+ 
+-// Package cli's fault-injection seam. QOMPACK_FAULT (the ONE non-test file this literal may appear
+-// in — the security CI job greps for exactly one hit) is a comma-separated list of
+-// "site[:arg]" tokens naming task-6-spec.md's eleven fault sites; faultActive(site) is checked at
+-// each named location in hookclient.go/sessionstart.go and reports whether that site is active and
+-// what argument (if any) it carries.
++// Package cli's fault-injection seam. QOMPACK_FAULT is a comma-separated list of "site[:arg]"
++// tokens naming task-6-spec.md's eleven fault sites; faultActive(site) is checked at each named
++// location in hookclient.go/sessionstart.go and reports whether that site is active and what
++// argument (if any) it carries.
+ //
+-// daemon.SpawnDetached already strips QOMPACK_FAULT from a spawned daemon's environment
+-// (internal/daemon/spawn.go's buildSpawnEnv) — a hook process testing its own fault paths must
+-// never make the daemon it lazily starts fault too, and this package never re-implements that
+-// stripping; it only ever reads the variable, never propagates it.
++// The grep-able literal "QOMPACK_FAULT" is deliberately confined to exactly two non-test files —
++// this one (fault.go, `const qompackFaultEnv`, where every fault check reads it) and
++// internal/daemon/spawn.go (`const qompackFaultEnv`, buildSpawnEnv, which strips it from a spawned
++// daemon's environment before exec — a hook process testing its own fault paths must never make
++// the daemon it lazily starts fault too). Fix round 1's fault_noinject.go (this package's
++// `noinject`-tagged twin) intentionally spells the same constant name without the literal string,
++// so `-tags noinject` compiles the whole seam out without also removing that grep's one legitimate
++// second hit. Every other occurrence — internal/daemon/spawn_test.go, test/e2e/faultinject_test.go
++// — is test code, which the security CI job's grep does not count. This package never
++// re-implements spawn.go's stripping; it only ever reads the variable, never propagates it.
+ package cli
+ 
+ import (
+ 	"context"
+ 	"crypto/rand"
+ 	"errors"
+ 	"io"
+ 	"os"
+ 	"path/filepath"
+ 	"strconv"
+diff --git a/internal/cli/fault_test.go b/internal/cli/fault_test.go
+index 264c914..c4f0042 100644
+--- a/internal/cli/fault_test.go
++++ b/internal/cli/fault_test.go
+@@ -203,20 +203,54 @@ func TestWrapFaultClient_PanicClientPanics(t *testing.T) {
+ 
+ func TestWrapFaultClient_InertWhenUnset(t *testing.T) {
+ 	resetFaultState(t)
+ 	t.Setenv(qompackFaultEnv, "")
+ 	c := wrapFaultClient(fakeClient{})
+ 	resp, err := c.Send(context.Background(), ipc.Request{}, time.Second)
+ 	require.NoError(t, err)
+ 	require.True(t, resp.OK)
+ }
+ 
++// TestFaultDaemonDownAddr_Inactive covers fix round 2's Minor N-4: faultDaemonDownAddr had no
++// direct unit test of its own, only the e2e/66-combo coverage of the site as a whole.
++func TestFaultDaemonDownAddr_Inactive(t *testing.T) {
++	resetFaultState(t)
++	t.Setenv(qompackFaultEnv, "")
++
++	in := ipc.Addr{Kind: ipc.UnixSocket, Path: "/tmp/qompack.sock"}
++	got := faultDaemonDownAddr(in)
++	require.Equal(t, in, got, "unset QOMPACK_FAULT must leave the address completely unchanged")
++}
++
++func TestFaultDaemonDownAddr_Active(t *testing.T) {
++	resetFaultState(t)
++	t.Setenv(qompackFaultEnv, faultDaemonDown)
++
++	in := ipc.Addr{Kind: ipc.UnixSocket, Path: "/tmp/qompack.sock"}
++	got := faultDaemonDownAddr(in)
++
++	require.Equal(t, in.Kind, got.Kind, "the fault mutates the path, never the address Kind")
++	require.Equal(t, in.Path+faultDaemonDownAddrSuffix, got.Path,
++		"the suffix is appended, not a wholesale replacement, so the result still looks like a "+
++			"plausible endpoint of the same kind rather than failing for an unrelated reason")
++	require.NotEqual(t, in.Path, got.Path, "the resulting address must differ from the real one")
++}
++
++func TestFaultDaemonDownAddr_ActiveAmongOtherSites(t *testing.T) {
++	resetFaultState(t)
++	t.Setenv(qompackFaultEnv, "stdin-eof,daemon-down,disk-full")
++
++	in := ipc.Addr{Kind: ipc.UnixSocket, Path: "/tmp/qompack.sock"}
++	got := faultDaemonDownAddr(in)
++	require.Equal(t, in.Path+faultDaemonDownAddrSuffix, got.Path)
++}
++
+ func TestFaultCorruptStateIfNeeded_OverwritesWithBadRecord(t *testing.T) {
+ 	resetFaultState(t)
+ 	dir := t.TempDir()
+ 	require.NoError(t, ipc.WriteState(dir, ipc.State{AckDeadlineMs: 5}))
+ 
+ 	before := ipc.ReadState(dir, config.Defaults())
+ 	require.EqualValues(t, 5, before.AckDeadlineMs)
+ 
+ 	t.Setenv(qompackFaultEnv, faultStateCorrupt)
+ 	faultCorruptStateIfNeeded(dir)
+diff --git a/internal/cli/hookclient.go b/internal/cli/hookclient.go
+index 7132412..ee8935d 100644
+--- a/internal/cli/hookclient.go
++++ b/internal/cli/hookclient.go
+@@ -108,24 +108,27 @@ func (l *hookLogger) Loud(msg string, kv ...any) {
+ 	l.materialize().Loud(msg, append(append([]any(nil), l.kv...), kv...)...)
+ }
+ 
+ // hookSendDeadlineFloor is the minimum deadline doHook ever hands to Client.Send. A fire-and-forget
+ // op's own deadline is derived from the hot-path state record's AckDeadlineMs field; a
+ // hand-crafted, corrupt, or otherwise zero-valued state.bin must never let that reach Send as
+ // literally 0, which is indistinguishable from "already timed out" (fix round 1, Minor M-6).
+ // //nomagic:allow mirrors config.Defaults()'s own AckDeadlineMs (8), not a new default (§6.1).
+ const hookSendDeadlineFloor = 8 * time.Millisecond
+ 
+-// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a Reply op that carries
+-// its own fixed spec.deadline (session-start, checkpoint, flush) — as opposed to a hot-path
+-// fire-and-forget op (observe.*), which keeps State.ConnectDeadlineMs's tight, tuned-for-a-warm-
+-// daemon budget untouched.
++// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a non-hot-path op that
++// carries its own fixed spec.deadline (session-start, checkpoint, flush) — as opposed to any
++// ipc.Op.HotPath() op (observe.tool, observe.prompt, observe.stop). observe.prompt also carries
++// its own fixed spec.deadline (promptReplyDeadline), so "carries a fixed deadline" alone is not
++// the test that selects a widened op — see doHook's own connectDeadline comment; observe.prompt
++// keeps State.ConnectDeadlineMs's tight, tuned-for-a-warm-daemon budget untouched, same as
++// observe.tool and observe.stop.
+ //
+ // Root-caused during fix round 1 by bisecting against the pre-fix-round commit: State.
+ // ConnectDeadlineMs (config.Defaults() ships 5ms — a budget sized for the hot path's own
+ // already-established connection cadence) is too tight for session-start's very first dial, which
+ // lands moments after preSend's own daemon.EnsureRunning call — a daemon that has JUST finished
+ // spawning or has JUST accepted-and-closed EnsureRunning's own liveness probe is not guaranteed to
+ // have its next ConnectNamedPipe/accept re-posted within 5ms on a loaded host; go-winio's
+ // DialPipe then legitimately times out and doHook falls back to spooling a request the daemon was,
+ // in fact, a few milliseconds away from accepting. Before I-1's fix (internal/ipc/client.go), this
+ // never surfaced: NewClientWithOptions unconditionally re-read state.bin for itself whenever
+@@ -134,20 +137,37 @@ const hookSendDeadlineFloor = 8 * time.Millisecond
+ // accident of the very double-read I-1 correctly removed, not a real guarantee. session-start,
+ // checkpoint and flush all carry their own generous, manifest-derived spec.deadline (10s/15s/15s)
+ // precisely because they are not expected to complete in hot-path time (§2.4), so widening only
+ // their dial budget — never observe.tool/prompt/stop's, which stays exactly what state.bin says —
+ // costs nothing in the steady-state (a genuinely absent daemon still fails the dial almost
+ // instantly: a nonexistent named pipe/socket is a fast connection-refused, not a wait for this
+ // timeout to elapse) while giving a freshly-spawned or momentarily-busy daemon real room to answer.
+ // //nomagic:allow: a deliberately-derived floor, not a config default (§6.1) — see the comment above.
+ const hookConnectDeadlineFloor = 250 * time.Millisecond
+ 
++// hookConnectDeadline computes the ConnectDeadline doHook hands to ipc.ClientOptions: State.
++// ConnectDeadlineMs as-is for every ipc.Op.HotPath() op (observe.tool, observe.prompt,
++// observe.stop), regardless of whether the op also happens to carry its own fixed spec.deadline
++// the way observe.prompt does (promptReplyDeadline); only a non-hot-path Reply op with a fixed
++// spec.deadline (session-start, checkpoint, flush) gets widened to at least
++// hookConnectDeadlineFloor. Fix round 2, Important N-2: the original predicate (spec.deadline > 0
++// alone) missed that observe.prompt also carries a fixed spec.deadline despite being squarely on
++// the hot path, and would have widened its connect budget along with it. Factored out of doHook so
++// it is directly unit-testable without a real client or connection.
++func hookConnectDeadline(spec hookSpec, st ipc.State) time.Duration {
++	connectDeadline := time.Duration(st.ConnectDeadlineMs) * time.Millisecond
++	if spec.deadline > 0 && !spec.op.HotPath() && connectDeadline < hookConnectDeadlineFloor {
++		connectDeadline = hookConnectDeadlineFloor
++	}
++	return connectDeadline
++}
++
+ // hookSpec is what differs between the six thin hook clients (task-6-spec.md's wiring table).
+ type hookSpec struct {
+ 	op    ipc.Op
+ 	reply bool
+ 	// deadline is the fixed reply deadline for a Reply request. Zero means "derive it from the
+ 	// hot-path state record's AckDeadlineMs" — observe.tool's and observe.stop's row in the wiring
+ 	// table, both fire-and-forget ops with no fixed deadline of their own.
+ 	deadline time.Duration
+ 	// preSend runs once, after the project root/state are final and before the client is
+ 	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
+@@ -240,27 +260,21 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
+ 			logQuiet(root, aerr, clk)
+ 			return hookio.WriteOutput(out, hookio.Empty())
+ 		}
+ 		addr = faultDaemonDownAddr(addr) // daemon-down: the resolved address itself must be unreachable.
+ 
+ 		spawn := daemon.SpawnDetached
+ 		if _, on := faultActive(faultDaemonDown); on {
+ 			spawn = noopSpawn
+ 		}
+ 
+-		// connectDeadline is State.ConnectDeadlineMs as-is for a hot-path fire-and-forget op
+-		// (spec.deadline == 0); a Reply op with its own fixed spec.deadline gets widened to at
+-		// least hookConnectDeadlineFloor — see that constant's own doc comment for why.
+-		connectDeadline := time.Duration(st.ConnectDeadlineMs) * time.Millisecond
+-		if spec.deadline > 0 && connectDeadline < hookConnectDeadlineFloor {
+-			connectDeadline = hookConnectDeadlineFloor
+-		}
++		connectDeadline := hookConnectDeadline(spec, st)
+ 
+ 		c := ipc.NewClientWithOptions(addr, sp, newHookLogger(root), newHookMetrics(clk), ipc.ClientOptions{
+ 			// State is already this hook's own single 32-byte read (st, above); NewClientWithOptions
+ 			// trusts a non-zero State outright and never re-reads it from disk even though
+ 			// ProjectRoot is also set (internal/ipc/client.go — fix round 1, Important I-1).
+ 			// ProjectRoot still matters on its own: lazySpawn's lock file and externalize()'s blob
+ 			// directory both need it independently of where State came from.
+ 			ProjectRoot: root, State: st, Self: env.Self, Clock: clk, Spawn: spawn,
+ 			ConnectDeadline: connectDeadline,
+ 		})
+diff --git a/internal/cli/hooks_test.go b/internal/cli/hooks_test.go
+index 1e1d243..4548243 100644
+--- a/internal/cli/hooks_test.go
++++ b/internal/cli/hooks_test.go
+@@ -1,19 +1,20 @@
+ package cli
+ 
+ import (
+ 	"bytes"
+ 	"context"
+ 	"encoding/json"
+ 	"os"
+ 	"path/filepath"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // SP-05 replaces the six hook bodies with thin ipc clients (hookclient.go); the tests that used to
+@@ -236,10 +237,61 @@ func onlySpooledRequest(t *testing.T, root string) ipc.Request {
+ 	require.NoError(t, err)
+ 	require.Len(t, entries, 1, "exactly one client spool file")
+ 
+ 	b, err := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+ 	require.NoError(t, err)
+ 
+ 	req, err := ipc.DecodeRequest(bytes.TrimSpace(b))
+ 	require.NoError(t, err)
+ 	return req
+ }
++
++// TestHookConnectDeadline pins fix round 2's Important N-2: only a non-hot-path op with its own
++// fixed spec.deadline (session-start, checkpoint, flush) gets widened to hookConnectDeadlineFloor.
++// observe.prompt is the case the original predicate (spec.deadline > 0 alone) got wrong — it
++// carries a fixed spec.deadline (promptReplyDeadline) despite being squarely on the hot path
++// (ipc.Op.HotPath()), and must keep State.ConnectDeadlineMs's own tight budget exactly like
++// observe.tool and observe.stop.
++func TestHookConnectDeadline(t *testing.T) {
++	tightState := ipc.State{ConnectDeadlineMs: 5} // config.Defaults()'s own hot-path value.
++
++	tests := []struct {
++		name string
++		spec hookSpec
++		want time.Duration
++	}{
++		{"observe.tool (hot path, no fixed deadline)", hookSpec{op: ipc.OpObserveTool, reply: false}, 5 * time.Millisecond},
++		{
++			"observe.prompt (hot path, DOES carry a fixed deadline)",
++			hookSpec{op: ipc.OpObservePrompt, reply: true, deadline: promptReplyDeadline},
++			5 * time.Millisecond, // must NOT be widened — this is the exact N-2 regression case.
++		},
++		{"observe.stop (hot path, no fixed deadline)", hookSpec{op: ipc.OpObserveStop, reply: false}, 5 * time.Millisecond},
++		{
++			"session-start (not hot path, fixed deadline)",
++			hookSpec{op: ipc.OpSessionStart, reply: true, deadline: sessionStartReplyDeadline},
++			hookConnectDeadlineFloor,
++		},
++		{
++			"checkpoint (not hot path, fixed deadline)",
++			hookSpec{op: ipc.OpCheckpoint, reply: true, deadline: checkpointReplyDeadline},
++			hookConnectDeadlineFloor,
++		},
++		{
++			"flush (not hot path, fixed deadline)",
++			hookSpec{op: ipc.OpFlush, reply: true, deadline: flushReplyDeadline},
++			hookConnectDeadlineFloor,
++		},
++	}
++
++	for _, tt := range tests {
++		t.Run(tt.name, func(t *testing.T) {
++			require.Equal(t, tt.want, hookConnectDeadline(tt.spec, tightState))
++		})
++	}
++
++	t.Run("a non-hot-path op's own State.ConnectDeadlineMs is kept when it already exceeds the floor", func(t *testing.T) {
++		roomy := ipc.State{ConnectDeadlineMs: 9000}
++		spec := hookSpec{op: ipc.OpFlush, reply: true, deadline: flushReplyDeadline}
++		require.Equal(t, 9000*time.Millisecond, hookConnectDeadline(spec, roomy))
++	})
++}
+diff --git a/internal/cli/selftest.go b/internal/cli/selftest.go
+index 504ff4f..1564b88 100644
+--- a/internal/cli/selftest.go
++++ b/internal/cli/selftest.go
+@@ -267,20 +267,27 @@ func selfTestDaemonReachable(root string, addr ipc.Addr, self string, clk core.C
+ 	return selfTestCheck{
+ 		ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
+ 		Expected: "the daemon is reachable or spawnable", Observed: observed,
+ 	}
+ }
+ 
+ func selfTestAdminPing(root string, addr ipc.Addr, clk core.Clock) selfTestCheck {
+ 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
+ 	c := ipc.NewClientWithOptions(addr, sp, newHookLogger(root), newHookMetrics(clk), ipc.ClientOptions{
+ 		ProjectRoot: root, Self: "", Clock: clk, // Self intentionally empty: self-test never spawns from here, selfTestDaemonReachable already tried.
++		// admin.ping is not a hot-path op (§2.4's tight, warm-daemon-tuned State.ConnectDeadlineMs
++		// budget is for observe.tool/prompt/stop only) and, like session-start/checkpoint/flush,
++		// its own dial can land moments after selfTestDaemonReachable's own daemon.EnsureRunning
++		// call — the same race hookConnectDeadlineFloor exists to cover (fix round 1's "New issue
++		// found and fixed", fix round 2's Minor N-3). selfTestPingDeadline (5s) already budgets for
++		// a slow round trip; only the dial step itself needed widening.
++		ConnectDeadline: hookConnectDeadlineFloor,
+ 	})
+ 	defer func() { _ = c.Close() }()
+ 
+ 	resp, _ := c.Send(context.Background(), ipc.Request{
+ 		Op: ipc.OpAdminPing, TS: core.NowMilli(clk), Reply: true,
+ 	}, selfTestPingDeadline)
+ 	if !resp.OK {
+ 		return selfTestCheck{
+ 			ID: "admin.ping", Severity: contract.SevWarn,
+ 			Expected: "admin.ping round trips OK:true", Observed: "no OK response (daemon not reachable, or refused)",
+diff --git a/internal/ipc/client.go b/internal/ipc/client.go
+index 18a0175..06b6943 100644
+--- a/internal/ipc/client.go
++++ b/internal/ipc/client.go
+@@ -80,24 +80,28 @@ const (
+ 	blobFileExt    = ".bin"
+ 	blobField      = "e.tool_response"
+ )
+ 
+ // ClientOptions configures NewClientWithOptions. Every field's zero value falls back to something
+ // safe: ProjectRoot empty disables both ReadState and lazy spawn; Self empty or Spawn nil disables
+ // lazy spawn; the two deadlines and MaxLine fall back to State's own values / MaxLineBytes; a nil
+ // Clock falls back to core.SystemClock().
+ type ClientOptions struct {
+ 	ProjectRoot string
+-	// State supplies mode, hot, deadlines and limits when ProjectRoot is empty (so a caller that
+-	// already has a State — the daemon's own admin client, tests — need not round-trip it through
+-	// disk). When ProjectRoot is set, ReadState(ProjectRoot, config.Defaults()) is used instead and
+-	// this field is ignored.
++	// State supplies mode, hot, deadlines and limits. A non-zero State always wins — trusted
++	// outright, never re-read from disk — even when ProjectRoot is also set (fix round 1, Important
++	// I-1: a caller that already has a State, e.g. the hot-path hook skeleton's own single 32-byte
++	// read, or the daemon's own admin client, must never pay for a second round trip through disk
++	// just because ProjectRoot happens to be set too). Only when State is the zero value does
++	// ProjectRoot matter for this field: ReadState(ProjectRoot, config.Defaults()) is used, falling
++	// back further to StateFromConfig(config.Defaults()) when ProjectRoot is also empty. See
++	// NewClientWithOptions's own doc comment for the precedence spelled out in full.
+ 	State State
+ 	// Self is the client's own executable path (os.Executable()); "" disables lazy spawn.
+ 	Self string
+ 	// Spawn is set by cli to daemon.SpawnDetached. ipc may not import daemon (§3.2), so this
+ 	// function-field seam is how NewClientWithOptions launches a detached daemon without ever
+ 	// naming the package that implements it. nil disables lazy spawn.
+ 	Spawn func(projectRoot, self string) error
+ 	// ConnectDeadline bounds dialling the daemon; 0 falls back to State.ConnectDeadlineMs.
+ 	ConnectDeadline time.Duration
+ 	// AckDeadline bounds writing the request and awaiting the one-byte ACK/NAK; 0 falls back to

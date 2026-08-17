@@ -1,5 +1,9 @@
 # SP-14: L6 slash commands: status, recall, pin, checkpoint, why, dropped, eval and the /qompack:status observability surface
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Explicitly "a frontend and nothing else" — every behaviour it exposes already has exactly one implementation elsewhere. The cheapest plan in the set to run well.
+
 **Branch:** `feat/sp14-slash-commands-and-observability` (cut from `develop`) | **Wave:** 4 | **Prerequisites:** the branches of SP-01, SP-02, SP-05, SP-06, SP-09, SP-10, SP-11, SP-12, SP-13 already merged into `develop` (post-V4 `develop`) | **Runs in parallel with:** SP-15 (`analyzer`, `grammar`, `checkpoint/grammar.go`) and SP-16 (`checkpoint/promote.go`, `sketch` warm start) — no file is shared with either | **Design sections:** §7.5 (commands), §8.7, §11 (surfaced metrics), §12 (status surfaces size) | **Gaps closed:** none exclusively. `/qompack:status` is the *surface* the §9 matrix names in the G8.1 row ("G8.1 no observability | L7 replay harness; `/qompack:status`") and `/qompack:eval` is the surface for the G8.3 row ("G8.3 no feedback | L7 fraction-of-OPT metric"); closure of both is credited to SP-02's L7 harness. SP-14 owns the presentation, not the measurement.
 
 ---

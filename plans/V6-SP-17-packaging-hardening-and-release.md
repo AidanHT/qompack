@@ -1,5 +1,9 @@
 # SP-17: Production: installable plugin packaging, cross-platform validation, security and error-handling audit, hardening, and the release pipeline
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Six-target cross-compilation, launcher shims, deterministic bundle assembly, security/fault/platform audits and a release pipeline. Broad and verification-heavy but mechanical — the judgment calls are already made in the plan.
+
 **Branch:** `feat/sp17-packaging-hardening-and-release` (cut from `develop`) | **Wave:** 5 | **Prerequisites:** the branches of SP-01, SP-05, SP-06, SP-10, SP-11, SP-12, SP-13, SP-14, SP-15, SP-16 already merged into `develop` (post-V5 `develop`; SP-02, SP-03, SP-04, SP-07, SP-08, SP-09 are transitively present because waves 1–4 all merged) | **Runs in parallel with:** sibling subplans of wave 5 — SP-18 (documentation + UAT). SP-18 merges **after** SP-17 so it documents the artifact that actually ships. No file is shared: SP-18 owns `README.md`, `docs/user-guide.md`, `docs/troubleshooting.md`, `docs/config-reference.md`, `docs/cannot-do.md`, `docs/upstream-issues.md`, `docs/uat.md`; SP-17 owns `CHANGELOG.md`, `docs/security.md`, `docs/release.md`, `docs/install.md`. | **Design sections:** §7.5, §9 (G9.2 row), §12 (all plugin-actionable hardening) | **Gaps closed:** G9.2
 
 ---

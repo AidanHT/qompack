@@ -1,10 +1,42 @@
 # V2 — Verification checkpoint: primitives, store, DAG, daemon, and the Phase-0 baseline
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Breadth re-verification plus first wiring of the bench-gate and replay-gate. Opus 5's bug-finding runs at high precision *and* high recall, and the cumulative surface is still only seven subplans — `xhigh` is enough.
+
 **This is a standalone prompt. Execute it exactly as written. Do not skim.**
 
 ---
 
-## When this runs
+## 0. Map of this document
+
+| § | What it is | Who runs it |
+|---|---|---|
+| **1** | When this checkpoint runs, what it is for, how to execute it | main session |
+| **2** | Cumulative functionality inventory — every row that must pass | §2.0 main session, then **seven parallel subagents** V-A…V-G |
+| **3** | Exit-criteria re-verification (the §10 phase gates) | main session |
+| **4** | New cross-component integration tests — seven permanent files | **seven parallel subagents**, §4.8 serial |
+| **5** | Performance budget validation | main session, one quiet machine |
+| **6** | Regression: prior checkpoints re-run, and the 2 % guardrail | main session |
+| **7** | Failure protocol — diagnose, fix, re-run, merge | §7.2a fans fixes out across **eight parallel agents** |
+| **8** | Completion report template | main session |
+
+**Read these five before dispatching anything.** They are the sections written *after* wave 1 shipped, and they contradict the row tables in places where the rows are wrong:
+
+| § | Written by | Why it changes what you do |
+|---|---|---|
+| **2.0** + **2.0a** | this checkpoint | twenty-one `V2-MERGE-*` rows and the ten-file collision map. Most of these gates fail **silently** |
+| **2.3a** | SP-03 | the MinHash sampler was rewritten; the coverage gate is dead; `benchstat` is never invoked |
+| **2.2a** | SP-02 | two §2.2 rows **exit 0 having run nothing**; one deletes working code if followed |
+| **2.5a** | SP-05 | its 30 rulings are **git-ignored**; POSIX code has never executed anywhere |
+| **2.6a** | SP-06 | ten expected results are wrong; ⑧ must run before anything else |
+| **2.7a** | SP-07 | seven §2.7 rows plus V2-ALL-04 do not reconcile; three carry-forward ACTIONs |
+
+Three defect classes recur across independently written sections, so assume every group carries them: a **`-run` pattern matching no test still exits 0**; a **`grep … t.Skip` row can never be satisfied** and deleting the skip violates Rule W-1; and a **coverage row measures nothing** until V2-MERGE-14 lands.
+
+---
+
+## 1. When this runs
 
 This checkpoint runs **after every wave-1 subplan branch has merged into `develop`, and before any wave-2 branch is cut.**
 
@@ -37,7 +69,7 @@ go run ./tools/devtool ci-local     # baseline; record the result before changin
 
 Every fix this checkpoint produces is committed to `verify/v2`. When the whole checkpoint is green, `verify/v2` merges back into `develop` with `--no-ff` and `develop` is tagged `v0.1.0` (`00-ARCHITECTURE.md` §9). **No wave-2 branch (`feat/sp08-observer-l0`, `feat/sp09-negative-knowledge`) may be cut until that merge has happened.**
 
-### What this checkpoint is
+### 1.1 What this checkpoint is
 
 It is **not** a smoke test. It is an exhaustive re-verification of *every functionality that exists in the codebase at this point*. Wave 1 built six packages in parallel against SP-01's `ErrNotImplemented` stubs and against `testdata/golden/contracts/**` fixtures (Rule W-2). This is the first moment those six real implementations have ever been compiled, run, benchmarked, and measured **together**. Three classes of defect can only surface here:
 
@@ -45,7 +77,7 @@ It is **not** a smoke test. It is an exhaustive re-verification of *every functi
 - **Budget composition.** SP-05 measured B-A p99 < 15 ms against a daemon holding *stub* sketches, a *stub* DAG and a *stub* store. The real ones are ~68 KB of sketches plus a 5 000-node graph plus a 2 000-root index. §8.1's budget is only proven when the daemon is warm with the real thing.
 - **Exit-criterion composition.** The §10 Phase 1 exit criterion (`≥ 4:1` dedup) needs SP-04's canonicalizers *and* SP-06's store. Neither branch could prove it alone.
 
-### Do not test forward
+### 1.2 Do not test forward
 
 Nothing from SP-08, SP-09, SP-10, SP-11, SP-12, SP-13, SP-14, SP-15, SP-16, SP-17 or SP-18 is in scope. `internal/observer`, `internal/negknow`, `internal/checkpoint`, `internal/pins`, `internal/rehydrate`, `internal/rules`, `internal/skills`, `internal/scheduler`, `internal/mcp`, `internal/commands`, `internal/analyzer`, `internal/grammar` are still `core.ErrNotImplemented` stubs. Their conformance suites must still report skipped behaviour blocks with the exact Rule W-1 message. Asserting anything else about them is a checkpoint failure, not a bonus.
 
@@ -55,7 +87,7 @@ Three specific consequences, so nobody "helpfully" over-tests:
 - Budget **B-E** (`checkpoint_finalize` p99 < 2 s) *is* in force — `qompack checkpoint` exists as a thin client (SP-05) — but it currently exercises the client + daemon + nil-`Services.PreCompact` path only. Record it honestly with that annotation.
 - `contract.Monitor` must report `ModeFull` with exactly **four** assertions at `OK:true, SevInfo, Observed:"not-yet-implemented"` (`00-ARCHITECTURE.md` §12.1). Five is a regression; three means someone wired a wave-3 producer early.
 
-### How to execute this checkpoint
+### 1.3 How to execute this checkpoint
 
 Fan the §2 inventory out across **seven parallel subagents, one per subplan group**, then run §4 in the main session.
 
@@ -73,16 +105,123 @@ Rules for the fan-out, which are the same rules the subplans used:
 
 - Every subagent runs **read-only verification commands**. A subagent that finds a failure **reports the failing command and its full output**; it does not edit source, does not weaken an assertion, does not add `//nolint`, `t.Skip`, or a `nomagic:allow`.
 - All fixes, all `git` operations and all commits happen in the **main session** (§7).
+- **§2.0 runs first, in the main session, before a single subagent is dispatched.** It is the only section that inspects the merge itself rather than the code, and several of its rows detect gates that have been silently switched off. Dispatching the fan-out first would have V-A…V-G report green against a tree whose guards no longer guard, and three of its rows (V2-MERGE-03, V2-MERGE-06, V2-MERGE-10) read state that §5 and §7 overwrite — once those have run, those questions can no longer be answered at all.
 - §4 (new integration tests), §5 (performance budgets) and §6 (regression) are **main-session only**. §4 authors permanent test files; §5 must be measured on one quiet machine so the numbers are comparable; §6 needs the whole picture.
 - Subagents run against a clean `verify/v2` working tree. Give each one this file, `00-ARCHITECTURE.md` §3.2/§5/§6/§7, and its own subplan file.
+- **Five of the seven groups carry an inbound section written by the session that shipped them, and a subagent that skips it will report defects that are not defects and pass rows that test nothing.** They are not optional context: §2.3a (SP-03) for V-C, **§2.2a** (SP-02) for V-B, **§2.5a** (SP-05) for V-E, **§2.6a** (SP-06) for V-F, **§2.7a** (SP-07) for V-G, and §2.4's carried-defects banner + §4a of the report for V-D. Two long-form documents back them: `plans/V2-SP02-handoff.md` and `plans/V2-SP07-handoff.md`. Hand each subagent its own section explicitly rather than trusting it to find it.
+- **V-E needs one thing the others do not: a copy of SP-05's rulings ledger.** It is the only subplan whose reconciliation is **not in git** — 30 numbered rulings under `.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/`, ignored by a `.gitignore` inside its own tree. §2.5a summarizes it, but a verifier that needs a ruling's full reasoning has to reach the worktree `…/qompack-sp05`. Secure it before cutting `verify/v2` — **V2-MERGE-20**.
+- **Two defect classes recur across independently written groups. Assume any group can carry them:** a `-run` pattern that matches no test still prints `ok` and exits 0 (found in §2.2 and §2.7 — check patterns with `go test -list`); and a `grep -rn "t.Skip" <pkg> returns nothing` row can never be satisfied and, followed literally, deletes Rule W-1's mandated machinery (found in §2.2, §2.6 and §2.7 — three of the five groups that were reviewed).
 
 ---
 
-## Cumulative functionality inventory
+## 2. Cumulative functionality inventory
 
 Every functionality that exists on `develop` at this point, grouped by the subplan that delivered it. Each row is a **checklist item with an exact command and an exact expected result**. Run every row. "Passes" means the command exits 0 *and* the stated observable holds.
 
 Unless stated otherwise, every command runs from the repository root `C:/Users/Quant/Documents/Programming/Projects/qompack`.
+
+### 2.0 Merge-integrity gates — main session, before the §2 fan-out
+
+These rows check for defects the **merge** produces rather than defects any branch contains. Every one of them is invisible on every individual branch: all six wave-1 branches can be green, each satisfying its own Done checklist and its own out-of-scope allowlist, and still compose a `develop` that fails this table. That is the direct consequence of the parallel-wave model — `00-ARCHITECTURE.md` §9 merges six branches that never saw each other's trees.
+
+Most of the rows below fail **silently**. They do not turn a CI job red; they turn a *gate* into a no-op. A dead gate reports nothing, so §2.1–§2.8, §5 and §6 then measure a tree whose guards have quietly stopped guarding and report green. **A silently disabled gate is a checkpoint failure of the same severity as a failing test** (`00-ARCHITECTURE.md` §13 invariant 10, "Degradation is loud" — a guard that stops guarding without saying so is the loudest possible violation of it).
+
+Run this table on `verify/v2` immediately after cutting it, **before** dispatching V-A…V-G and **before** §5. Three rows (V2-MERGE-03, V2-MERGE-06, V2-MERGE-10) read state that §5 and §7 overwrite; once those sections have run, the evidence is gone and the row can no longer be answered.
+
+Rows **V2-MERGE-14 … V2-MERGE-21** were added after the six branches were read side by side, and each names a state that already holds in the trees as they stand — see **Cross-branch collision inventory** below for the evidence. They are not hypotheses about what a merge might do. **Run V2-MERGE-20 before all of them**: it is the only row whose evidence lives outside git, so it is the only one the ordinary act of cutting a branch can destroy.
+
+| ID | Gate | Command | Expected result |
+|---|---|---|---|
+| V2-MERGE-01 | **Nightly fuzz matrix reconciles with the tree, in both directions.** `nightly.yml` is edited by SP-05 only; no other wave-1 subplan is permitted to touch `.github/`, so every fuzz target SP-03, SP-04 and SP-06 shipped arrives unregistered by construction | **(a)** what the matrix claims: `grep -oE 'pkg: [^,]+, *fn: [A-Za-z0-9_]+' .github/workflows/nightly.yml \| sort` — **(b)** what the tree ships: `for p in $(ls -d internal/*/ \| sed 's\|internal/\|\|;s\|/\|\|'); do go test -run '^$' -list '^Fuzz' ./internal/$p 2>/dev/null \| grep '^Fuzz' \| sed "s\|^\|pkg: ./internal/$p, fn: \|"; done \| sort` — then diff the two outputs (both are normalised to the same `pkg: X, fn: Y` shape) | The two lists agree as sets of `(pkg, fn)` pairs, with exactly one class of exception: a matrix entry whose package `plans/OWNERS.tsv` still assigns to SP-08…SP-18 may be absent from the tree. **Zero orphans in both directions.** A matrix entry naming a landed package but no existing function, and a shipped `Fuzz*` with no matrix row, are both failures. See **Known defects** below — **three orphan matrix rows and fifteen unregistered targets** were verified against the branch tips at authoring time and must be fixed here, not rediscovered |
+| V2-MERGE-02 | The matrix guard is green **and its arity assertion still matches the matrix** | `go test -v -run TestNightlyFuzzMatrix ./test/guards/` | Green, with one subtest per matrix entry. `test/guards/nightlyfuzz_test.go` asserts `require.Len(t, matches, 8)`; adding a row for `internal/symbols` (which has **no** matrix entry today despite SP-04 shipping `FuzzExtract`) or splitting `internal/sketch` into its five real targets changes that count, so the assertion must be updated in the same commit. A green run with a stale `8` means rows were renamed rather than added |
+| V2-MERGE-03 | **`testdata/bench-baseline.txt` survived five concurrent appends.** SP-02, SP-03, SP-05, SP-06 and SP-07 each append to this one file; merges 2–5 conflict on it by construction, and a `--ours` resolution drops a package's rows without any test noticing | `git show develop:testdata/bench-baseline.txt \| grep -oE '^pkg: .*' \| sort -u` | One `pkg:` block for **every** package that owns benchmarks at V2: `cli`, `config`, `obs`, `paths` (SP-01) plus `eval`, `sketch`, `chunk`, `canon`, `symbols`, `ipc`, `daemon`, `store`, `redact`, `tokens`, `dag`. A missing block means that branch's appended rows were lost in a merge; `benchstat` then has nothing to compare for that package and §5.3's >10 % warn / >25 % fail gate is **silently a no-op for it**. **Run before §5** — §5's regeneration overwrites the evidence and makes the loss permanently undetectable |
+| V2-MERGE-04 | **Both CI gate edits survived.** SP-02 (its §11 commit) and SP-05 (its bench commit) each edit `.github/workflows/ci.yml`, and `bench-gate` / `replay-gate` are adjacent blocks in that file | `git show develop:.github/workflows/ci.yml \| grep -nE '^  (bench-gate\|replay-gate):\|continue-on-error'` | Both jobs present; **neither carries `continue-on-error`**. This is the executable form of V2-ALL-04's prose. A merge that kept one branch's version of the region silently restores `continue-on-error: true` on the other gate, and a gate that cannot fail reports green forever |
+| V2-MERGE-05 | **`tools/devtool/importrules.go` covers every package wave 1 landed.** No V2 subplan declares ownership of this file, yet every branch that adds a real package needs a rule in it, and §4.8 of this checkpoint adds another | `go run ./tools/devtool lint` (`importgraph` sub-check) ; `grep -nE 'sketch\|chunk\|canon\|symbols\|store\|redact\|tokens\|dag\|ipc\|daemon\|contract\|eval\|test/replay\|test/dedup\|test/bench/hotpath' tools/devtool/importrules.go` | `importgraph` green, and a rule exists for each of the twelve packages **plus all three new composition roots** — `test/replay` (SP-02), `test/dedup` (SP-04), `test/bench/hotpath` (SP-05). All three branches edit this file and SP-05 re-indents the whole map, so a resolution that loses one root leaves that harness failing `lint --only=importgraph` (§2.0a). Specifically confirm the `internal/sketch` rule still restricts it to `{core, paths, logging}` — that rule is what enforces SP-03's "constructors take scalars, never `config`" invariant tree-wide, and `TestImports_FoundationOnly` only mirrors it in-package. A rule lost to a merge weakens §3.2 layering with no failing test |
+| V2-MERGE-06 | **Contract-fixture MANIFESTs match their bytes tree-wide.** Each subplan ships its own `testdata/golden/contracts/<pkg>/MANIFEST.json` with `{file, kind, bytes, sha256}`; nothing verifies them across packages after six merges | For every `testdata/golden/contracts/*/MANIFEST.json`, recompute `sha256` and `bytes` for each listed file and compare | Every entry matches. A merge that took one side of a fixture and the other side of its MANIFEST is internally inconsistent and will surface at wave 2 as an unexplained W-2 divergence rather than as a merge error. Run **before** any `-update` regeneration in §7 |
+| V2-MERGE-07 | **The sketch W-2 fixtures exist and are actually consumed.** `testdata/golden/contracts/sketch/` does **not** exist on `develop` before wave 1 — there are no SP-01 placeholders — and SP-03 creates it in its commit 6 of 8. SP-04 and SP-06 are told to test against it under Rule W-2, but could not have during wave 1 | `ls testdata/golden/contracts/sketch/` ; `grep -rn "contracts/sketch\|contracts.*sketch" internal/canon internal/store --include=*_test.go` | Five `.bin` fixtures plus `MANIFEST.json` present, **and** at least one test in `internal/canon` and one in `internal/store` actually reads them. V2-SP01-19 proves no `t.Skip` remains in those packages, but absence of a skip is not presence of a test — a W-2 obligation that was never written is indistinguishable from one that passes, and this is the row that separates them |
+| V2-MERGE-08 | **Every `00-ARCHITECTURE.md` §5.x signature exists verbatim after six parallel copies.** Each subplan copied its §5.x block "byte-identical" on its own branch; nothing checks the union | For each of §5.7 (`sketch`), §5.8–§5.10 (`chunk`/`canon`/`symbols`), §5.11 (`store`), §5.12 (`dag`), §5.13 (`ipc`/`daemon`): extract the declared signatures and confirm each appears in the package with the same name, receiver, parameter types and return types | Exact match for every entry. The compiler catches a shape change only where a consumer already exists; a renamed method or a widened parameter on a surface no wave-1 package calls yet stays invisible until SP-08…SP-16 try to call it, which is the most expensive possible time to find it |
+| V2-MERGE-09 | **`//nomagic:allow` inventory matches what the subplans authorized.** Each subplan permits a specific, named set; nothing enumerates the union | `grep -rn "nomagic:allow" --include=*.go .` | Every annotation is one a subplan explicitly declared, with its stated reason. SP-03 authorizes exactly one (`FPWarnRate` in `internal/sketch/bloom.go`). Any annotation not traceable to a subplan's Implementation spec was added to silence a lint failure rather than to record a decision, and is a failure of `00-ARCHITECTURE.md` §11.6 regardless of the build being green |
+| V2-MERGE-10 | **Each branch respected its own out-of-scope allowlist.** Every subplan's Done checklist asserts this against its own branch; nobody asserts it against the merged result, and a file touched by two branches shows in neither branch's self-check | For each branch, `git diff --name-only develop...feat/spNN-<name>` compared against that subplan's "Out-of-scope discipline" / "Out-of-scope respected" checklist line | Every changed path is on that subplan's allowlist. Files touched by **two** branches are listed explicitly in the completion report even when both were entitled to them — `testdata/bench-baseline.txt` (five branches) and `.github/workflows/ci.yml` (two) are known; `tools/devtool/importrules.go` is on no allowlist at all and must be accounted for by name |
+| V2-MERGE-11 | Design and plan documents unmodified by feature work | `git diff $(git rev-list --max-parents=0 HEAD) HEAD -- Qompack.md` ; `git diff origin/main..develop --name-only -- plans/` | `Qompack.md` empty (this is V2-ALL-05, restated here because it is a merge property). For `plans/`: any change is intentional and named in the completion report. Plan edits made on a feature branch ride into `develop` attributed to that subplan's merge and are invisible to sibling worktrees while the wave is in flight; they belong on `develop` directly |
+| V2-MERGE-12 | `plans/OWNERS.tsv` agrees with reality | `go run ./tools/devtool cover` ; `go test -run TestNightlyFuzzMatrix ./test/guards/` | `cover` fails if OWNERS.tsv claims an owner for a package still returning `ErrNotImplemented` (§3.1 item 2), and `TestNightlyFuzzMatrix` reads the same column to decide whether a missing fuzz target is waived. Both consumers must agree: a package that landed in wave 1 must no longer be treated as a waivable stub by either |
+| V2-MERGE-13 | **The §6.4 coverage floors actually run for the packages wave 1 landed.** On `develop`, `tools/devtool/cover.go` applies a floor only when a row's owner is `SP-01`; every other row prints `exempt (stub, owned by SP-NN)` and exits 0 at any coverage, including 0 %. Eleven packages with a non-SP-01 owner arrive from wave 1 with a declared floor that nothing checks — a gate that stops guarding without saying so, not a failing test | `go run ./tools/devtool cover 2>&1 \| grep -E '^(OK\|exempt \(stub).*(sketch\|chunk\|canon\|symbols\|store\|redact\|dag\|ipc\|daemon\|contract\|eval)'` ; then `go test -cover -count=1 ./internal/...` and compare each package against its `plans/OWNERS.tsv` floor by hand | `OK <pkg>: NN.N% >= floor NN%` for **all eleven** — `eval` 85, `sketch` 90, `chunk` 90, `canon` 90, `symbols` 75, `ipc` 75, `daemon` 75, `contract` 75, `store` 90, `redact` 75, `dag` 85 — with **no** `exempt (stub, …)` line naming any of them. Two branches already fixed this independently and incompatibly; **V2-MERGE-14 is the row that actually closes it**, and this row is the observable. Raised first by SP-03 (**§2.3a** item 2), again by SP-04 (**SP04-D4**), again by SP-02 (**§2.2 preamble** §4.1) and again by SP-07 (**§2.7 preamble**, ACTION 2) — four independent discoveries of one hole |
+| V2-MERGE-14 | **`tools/devtool/cover.go` was rewritten twice, differently, and the two rewrites do not compose by themselves.** SP-02 and SP-04 both replaced the `o.Owner != "SP-01"` skip. SP-02 added `landedSubplans = {SP-01, SP-02}` plus a `floorApplies(o, dir)` helper that prints every exemption reason. SP-04 added `landedSubplans = {SP-01, SP-04}` plus a `probeBlind` set and, inside the loop, a **failure** when an exempt package's probe no longer looks like a stub. Same function, same purpose, incompatible text — git will conflict, and either side taken whole loses the other's half | `grep -n 'landedSubplans\|probeBlind\|floorApplies' tools/devtool/cover.go` ; `go run ./tools/devtool cover` ; `go test ./tools/devtool/ -run TestLandedSubplans -v` | The merged file keeps **both** halves: `floorApplies` (SP-02) *and* `probeBlind` + the exempt-but-not-a-stub failure (SP-04), with `landedSubplans` listing **`SP-01, SP-02, SP-03, SP-04, SP-05, SP-06, SP-07`**. Taking either side alone leaves five to six subplans unlisted, and SP-04's exempt-but-not-a-stub check then fires for `sketch`, `ipc`, `daemon`, `store` and `dag` — which is the alarm working, not a reason to add them to `probeBlind`. **`probeBlind` must keep exactly its four entries** (`scheduler`, `grammar`, `contract`, `redact`); adding a landed wave-1 package to it is the wrong remedy and is called out by name in SP04-D4. Also rewrite `TestLandedSubplansMatchesTheBranch`, whose failure message still reads "SP-03 has not landed" and is backwards once the wave is in (SP-02's handoff §4.1) |
+| V2-MERGE-15 | **`internal/testutil/fixtures_test.go`'s frozen-fixture count is changed to `28` by two branches, for different reasons, and `28` is wrong for the merge.** SP-03 raises 23 → 28 for its five QPKS sketch frames. SP-05 raises 23 → 28 for its three `ipc` and two `contract` fixtures. The correct merged total is **33**, and no branch says so | `go test -run TestContractFixture_EveryManifestIsReadable ./internal/testutil/` ; `grep -n 'frozenCount\|pendingCount' internal/testutil/fixtures_test.go` | `require.Equal(t, 33, frozenCount)` — 21 SP-01 + 2 V1 + 5 SP-03 + 3 SP-05 task 1 + 2 SP-05 task 4 — with a comment naming all five groups, and `pendingCount` still 5. **If SP-07's ACTION 1 is taken (recording `backward_slice_scores`), the pair becomes 34 / 4 in the same commit.** This one fails loudly rather than silently, which is the only good news here: the trap is that both branches agree on the literal `28`, so a resolution that "takes the number both sides wanted" is wrong |
+| V2-MERGE-16 | **The wave-0 stub guards were edited by four branches each, in overlapping regions.** `test/guards/stubs_test.go` is touched by SP-02, SP-03, SP-06, SP-07 (each flipping its own package to `pureMethods: allMethodsAreReal`, and SP-07 also rewriting the shared `allMethodsAreReal` doc comment). `test/guards/v1_integration_test.go` is touched by SP-02, SP-03, SP-05, SP-06 — and SP-02's single hunk at `TestV1_StubGraphIsInertAndOwned` **overlaps SP-06's**, while SP-03's and SP-05's new imports land in the same import block | `go test ./test/guards/ -v` ; `grep -n 'allMethodsAreReal' test/guards/stubs_test.go` | Green, and `allMethodsAreReal` is set for **every** wave-1 package: `eval`, `sketch`, `chunk`, `canon`, `symbols`, `ipc`, `daemon`, `store`, `redact`, `dag` (plus `contract`, already real in wave 0). A package missing the marker asserts it is still a stub, which is now false; a package that has it but is *not* real is the opposite failure. `v1AssertZeroPayloads` and `TestV1_StubGraphIsInertAndOwned` must be probe-aware (SP-06's form) **and** still carry SP-02's edit |
+| V2-MERGE-17 | **`internal/cli/commands.go` is edited by two branches within two lines of each other.** SP-02 appends `evalCmds()` to `All()`; SP-05 adds `daemon` and `self-test` as real `Cmd` literals and deletes their two rows from `notImplemented` | `go run ./cmd/qompack --help` ; `go test -run 'TestAll_\|TestCommands_' ./internal/cli/` ; `grep -n 'notImplemented' -A 20 internal/cli/commands.go` | `eval`, `daemon` and `self-test` are all registered and all runnable; **neither `daemon` nor `self-test` remains in `notImplemented`**, and `eval` is not missing. A resolution that took one side leaves either the replay-gate driver unreachable from the CLI (breaking V2-SP02-15) or the daemon advertised as unimplemented while it is running (breaking §2.5 outright) |
+| V2-MERGE-18 | **`testdata/golden/contracts/**` contains files no MANIFEST declares.** V2-MERGE-06 checks MANIFEST → bytes. This is the other direction, and it already fails: SP-02 added `testdata/golden/contracts/store/stats-growth.json` and `testdata/golden/contracts/negknow/health.json` — directories owned by SP-06 and SP-09 — and neither file appears in its package's `MANIFEST.json`. Both are real fixtures, read by `internal/eval/growth_test.go` and `test/replay/growth.go`, and neither is on SP-02's own out-of-scope list | For every `testdata/golden/contracts/<pkg>/`, list the files on disk and subtract the paths its `MANIFEST.json` declares (`input` + `want`, plus `MANIFEST.json` itself) | Empty difference for every package, **or** each surplus file explicitly declared. Decide one of: declare them in the owning MANIFEST, or move them to a path SP-02 owns (`testdata/golden/eval/growth/…`) and update the two readers. Leaving them is the worst option — SP-09 records `three_way_answer` into `negknow/` in wave 3 and SP-06's `gen-contract-fixtures` regenerates `store/`, and an undeclared neighbour in either directory is the kind of thing an `-update` run deletes without comment |
+| V2-MERGE-19 | **`plans/CARRIED-DEFECTS.tsv` records one subplan's carried defects, not the wave's.** Six rows exist and all six are SP-04's. SP-02, SP-03, SP-05, SP-06 and SP-07 each shipped carried items of the same kind, recorded only in prose in this file and in the two handoff documents — so `TestCarriedDefects_WaveReportRequiresResolution`, the gate that refuses to let `plans/V2-report.md` be written over an open row, **cannot see any of them** | `go test ./test/guards/ -run TestCarriedDefects -v` ; `awk -F'\t' '!/^#/ && NF==6 {print $2}' plans/CARRIED-DEFECTS.tsv \| sort \| uniq -c` | Either every wave-1 carried item has a row, or the decision not to add them is recorded in the completion report by name. Note the mechanical obstacle before choosing: `test/guards/carrieddefects_test.go` hardcodes `carriedDefectsDoc = "plans/V2-SP-04-carried-defects.md"` and requires a `## <id>` section **in that one file**, so an `SP06-D1` row needs either a section in a document titled for SP-04 or a per-subplan doc lookup in the guard. Fix the guard, or say plainly that the wave's other carried items are governed by prose alone |
+| V2-MERGE-20 | **Untracked decision records are captured before `verify/v2` is cut — and one wave-1 subplan has 30 of them.** SP-05's rulings ledger, seven per-task reviews and seven review diffs live in `.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/`, ignored by a one-line `*` in **`.superpowers/sdd/.gitignore` — a file inside the ignored tree**, so `grep -i superpowers .gitignore` at the repo root finds nothing and `git status` is clean. Nothing in the merge carries it, and `git clean -fdx` destroys it | `git check-ignore -v .superpowers/sdd/*/` ; for each worktree in `git worktree list`, `ls .superpowers/sdd/` | Every subplan's decision record is either committed somewhere under `plans/` or `docs/`, or copied out before this checkpoint runs. **Verified at authoring time: only `qompack-sp05` holds one** (`qompack` and `qompack-sp03` have an empty `.superpowers/sdd/`; sp02, sp06 and sp07 have none) — but SP-05's is exactly the one whose subplan wrote no tracked handoff, so the wave's least-documented group is also the only one whose documentation is one `git clean` from gone. **Do this first**; it is the only row here whose evidence lives outside git entirely. See §2.5a A |
+| V2-MERGE-21 | **The plan set states two different wave-1 merge orders, and one of them is this file.** `plans/README.md` line 42 ("How to run a wave", step 3) prescribes **SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02**; §8's completion-report line in this document asserted **SP-02 → SP-03 → SP-04 → SP-05 → SP-06 → SP-07**. `plans/00-ARCHITECTURE.md` ("Branching") requires the wave's branches to merge "**in the stated order** (§ merge strategy in the subplan decomposition)" and its closing note delegates "the per-wave merge order" to that decomposition — which in this repository is `plans/README.md`, the only file that states an order as an instruction rather than as a confirmation. A checkpoint that confirms the order against its own drifted copy confirms nothing | `grep -n 'Wave 1: SP-' plans/README.md` ; `grep -n 'Wave-1 merge order' plans/V2-VERIFY-primitives-store-dag-and-baseline.md` ; `git log --first-parent --oneline develop` | Both statements read **SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02**, and `develop`'s first-parent history shows the six `--no-ff` merges in exactly that sequence. **Adjudicated at merge time in favour of `plans/README.md`** and this document's §8 line was corrected to match; the merges were executed in the README order. Two independent constraints agree with it and neither agrees with the numeric one: `V2-SP-06-content-addressed-store.md` line 1225 requires SP-06 to land *after* SP-03 and SP-04, and SP-02 is the one branch that writes fixtures into two other subplans' contract directories (V2-MERGE-18), so it belongs last. Also confirm the companion rule from the same paragraph: **conflicts were resolved on the incoming branch and re-merged, never hand-edited into the merge commit** — each `feat/sp*` tip therefore carries a `Merge branch 'develop' into …` commit, and every merge into `develop` is conflict-free by construction |
+
+**Known defects at authoring time.** These were verified against `develop` and against all six wave-1 branch tips (`git grep 'func Fuzz' <branch>` per branch, reconciled on the `(pkg, fn)` pair). They are listed so this checkpoint **fixes** them rather than spending a subagent rediscovering them. All of them are V2-MERGE-01 / V2-MERGE-02 failures:
+
+`nightly.yml` is edited by **SP-05 only** and SP-05 did **not** change the fuzz matrix — the eight rows on `develop` are byte-identical to the eight on `feat/sp05-…`. So every fuzz target SP-03, SP-04 and SP-06 shipped arrives unregistered by construction, and three matrix rows name functions that do not exist anywhere in the merged tree.
+
+| `nightly.yml` declares | Owner | What wave 1 actually ships | Consequence |
+|---|---|---|---|
+| `{pkg: ./internal/chunk, fn: FuzzSplit}` | SP-04 | `FuzzSplit` — **the name matches** | **Resolved on SP-04's branch, and must survive the merge.** The guard originally asserted `require.False(exists)` for any non-SP-01 package, so a target that had correctly landed read as a *stale waiver* and hard-failed. SP-04 inverted that clause: an existing target now satisfies the matrix whoever owns its package. Only SP-04 touches `test/guards/nightlyfuzz_test.go`, so nothing should conflict — but confirm the inverted clause is present, because on `develop`'s version this row is a red build |
+| `{pkg: ./internal/canon, fn: FuzzCanonicalize}` | SP-04 | `FuzzCanonicalize` — **the name matches** | **Not a defect.** Verified on the branch tip: `internal/canon` ships `FuzzCanonicalize` exactly. (An earlier draft of this section recorded it as `FuzzCanonicalizeRun`; that was wrong, and the four *other* canon targets below are the real gap) |
+| `{pkg: ./internal/sketch, fn: FuzzUnmarshalBinary}` | SP-03 | `FuzzBloomUnmarshalBinary`, `FuzzCMSUnmarshalBinary`, `FuzzHLLUnmarshalBinary`, `FuzzMisraGriesUnmarshalBinary`, `FuzzSignatureUnmarshalBinary` — five targets, none with that name | **Silent.** All five committed seed corpora under `testdata/corpora/sketch/**` are never exercised by CI. This is the package whose decoders are the entire fuzz rationale (SP-03: "every rejection path — which is the whole of the fuzz surface") |
+| `{pkg: ./internal/ipc, fn: FuzzFraming}` | SP-05 | `FuzzDecodeRequest` | **Silent.** The NDJSON framing decoder is never fuzzed |
+| `{pkg: ./internal/redact, fn: FuzzRedact}` | SP-06 | `FuzzRedactIdempotent`, `FuzzRedactPrefilterEquivalence` | **Silent, and actively misleading.** A function named exactly `FuzzRedact` *does* exist — in `internal/eval`, shipped by SP-02 — so a reconciliation done on function names alone concludes this row is satisfied. It is not: the matrix pins `(pkg, fn)` together, `internal/redact` has no `FuzzRedact`, and `internal/eval`'s has no matrix row. **Reconcile on the pair, never on the name.** `FuzzRedactPrefilterEquivalence` is the target that proves SP-06's mandatory-literal prefilter did not change what gets redacted (see §2.6a ②) — the one most worth fuzzing and the one least likely to be noticed missing |
+
+`{pkg: ./internal/checkpoint, fn: FuzzCheckpointJSON}` is the **only** legitimately waived row: `internal/checkpoint` belongs to SP-10, wave 4. `hookio`/`FuzzReadEvent` and `config`/`FuzzConfigLoad` are SP-01's and exist.
+
+**Fifteen targets ship in wave 1 with no matrix row at all**, not the eight an earlier draft counted:
+
+| package | unregistered targets | n |
+|---|---|---|
+| `internal/canon` | `FuzzRestore`, `FuzzNumericMatchesAgreeWithReference`, `FuzzPrefilterAgreesWithFullScan`, `FuzzTrailingWSAgreesWithReference` | 4 |
+| `internal/sketch` | all five (the matrix's sixth name matches none of them) | 5 |
+| `internal/redact` | `FuzzRedactIdempotent`, `FuzzRedactPrefilterEquivalence` | 2 |
+| `internal/chunk` | `FuzzSplitStream` | 1 |
+| `internal/symbols` | `FuzzExtract` — **the package has no matrix entry whatsoever** | 1 |
+| `internal/ipc` | `FuzzDecodeRequest` | 1 |
+| `internal/eval` | `FuzzRedact` | 1 |
+
+Three orphan matrix rows, fifteen unregistered targets, and two of the three orphans are the decoders the fuzzing exists for.
+
+The fix belongs here and nowhere else. `test/guards/nightlyfuzz_test.go` says so in its own doc comment: *"What this still cannot catch is a subplan landing its package without writing the target the matrix claims: that belongs to the subplan's own definition of done and **to the wave checkpoint, which re-runs this inventory**."* Repair `nightly.yml`, update the `require.Len(t, matches, 8)` arity to whatever the repaired matrix declares, and record the before/after matrix in the completion report.
+
+#### 2.0a Cross-branch collision inventory — the evidence behind V2-MERGE-10 and V2-MERGE-14 … 21
+
+Computed by diffing every wave-1 branch against `develop` and intersecting the path lists. **Ten files are touched by more than one branch.** This is the complete set; a file not on it was touched by at most one branch and cannot collide.
+
+| file | branches | how it merges | what to require |
+|---|---|---|---|
+| `testdata/bench-baseline.txt` | SP-02, SP-03, SP-05, SP-06, SP-07 | conflicts on every merge after the first | V2-MERGE-03. Union of `pkg:` blocks: SP-01's `cli`/`config`/`obs`/`paths` plus `eval`, `sketch`, `ipc`, `daemon`, `store`, `redact`, `tokens`, `dag`. **Note `chunk`, `canon` and `symbols` are absent from every branch** — SP-04 committed no `bench-baseline` rows at all, so §5.3's gate has never had a baseline for them; that is a gap to close here, not a merge loss to hunt for |
+| `test/guards/v1_integration_test.go` | SP-02, SP-03, SP-05, SP-06 | **SP-02's and SP-06's hunks overlap** inside `TestV1_StubGraphIsInertAndOwned`; SP-03's and SP-05's new imports land in the same import block | V2-MERGE-16 |
+| `test/guards/stubs_test.go` | SP-02, SP-03, SP-06, SP-07 | four additive edits in different rows, plus SP-07 rewriting the shared `allMethodsAreReal` doc comment | V2-MERGE-16 |
+| `tools/devtool/importrules.go` | SP-02, SP-04, SP-05 | SP-02 adds `test/replay`, SP-04 adds `test/dedup`, SP-05 adds `test/bench/hotpath` **and re-indents the whole map**, so the alignment change collides with both other additions | V2-MERGE-05. All three composition roots present after the merge; `go run ./tools/devtool lint` green |
+| `tools/devtool/cover.go` | SP-02, SP-04 | two incompatible rewrites of the same function | V2-MERGE-14 |
+| `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` | SP-04, SP-06, SP-07 | three additive edits in three different regions — merges **cleanly and silently** | §2.6a ⑧. This file. Its own detection greps are below |
+| `.github/workflows/ci.yml` | SP-02, SP-05 | adjacent job blocks | V2-MERGE-04. Verified state: on `feat/sp02-…`, `replay-gate` has lost `continue-on-error` and **`bench-gate` still has it**; on `feat/sp05-…`, exactly the reverse. Neither branch is correct on its own — only the union is |
+| `internal/cli/commands.go` | SP-02, SP-05 | SP-02 inserts at line 30, SP-05 at line 29 and deletes two `notImplemented` rows | V2-MERGE-17 |
+| `internal/testutil/fixtures_test.go` | SP-03, SP-05 | both rewrite the same `require.Equal` and its comment, both to `28` | V2-MERGE-15 |
+| `internal/testutil/project_test.go` | SP-05, SP-06 | different functions (`TestProject_StoreOpens` vs the hook-dispatch comment) — merges cleanly | Confirm both edits survived: SP-06's `PutBytes` no longer expects `ErrNotImplemented`, SP-05's six-hook comment reflects the thin-client behaviour |
+
+**Three files SP-03 flagged as cross-branch conflict candidates are, in fact, single-branch:** `internal/core/hash.go`, `internal/paths/appendonly.go` and `.gitignore` are touched by SP-03 alone. Its warning about `core.HashBytes` regressing to `h.Sum(nil)` if another branch's version wins the merge is therefore moot — no other branch has a version. `TestHashBytes_DoesNotAllocate` still belongs in the §2.1 re-run as the standing guard.
+
+**This file's own merge, verbatim from §2.6a ⑧** — run it before anything else, because it is the only check whose evidence the merge itself can destroy:
+
+```bash
+F=plans/V2-VERIFY-primitives-store-dag-and-baseline.md
+grep -c  '^#### 2.0a'   "$F"   # the collision inventory (this section)  → must be 1
+grep -c  '^#### 2.3a'   "$F"   # SP-03's half                            → must be 1
+grep -c  '^#### 2.2a'   "$F"   # SP-02's half                            → must be 1
+grep -c  '^#### 2.5a'   "$F"   # SP-05's half                            → must be 1
+grep -c  '^#### 2.6a'   "$F"   # SP-06's half                            → must be 1
+grep -c  '^#### 2.7a'   "$F"   # SP-07's half                            → must be 1
+grep -c  '^## 0. Map'   "$F"   # the document map                        → must be 1
+grep -cE 'V2-MERGE-(1[4-9]|2[01])' "$F"  # the eight post-review merge rows → must be > 0
+grep -c  '^> \*\*Recommended model' "$F"   # SP-04's header, 2nd witness → must be 1
+test "$(grep -c '^````' "$F")" -eq 2 && echo "report fence ok"   # must print
+```
+
+The last line is a **format** check rather than a merge check, and it is here because the failure it catches is invisible: §8's completion-report template is wrapped in a **four**-backtick fence precisely because it contains a three-backtick `bash` block. If someone "normalises" the outer fence back to three backticks, the template silently terminates at that inner block and the rest of the report renders as live document structure. It has happened once already.
+
+Every pattern is anchored to a **heading at start of line**, which is what makes it self-exclusive: the `grep` lines above are prose inside a fenced block and start with `grep`, not with `####`, so this check cannot satisfy itself. (Written the obvious way first — `grep -c "V2-SP07-16 is wrong as written"` — and it returned 2 on a file where the only two matches were the section it was testing for and *the grep line itself*, i.e. it would report success on a file that had lost the section entirely and kept only this warning. Do not "simplify" these back to prose matches.)
 
 ### 2.1 SP-01 — foundation, toolchain, contracts (wave 0, re-verified)
 
@@ -110,12 +249,54 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-SP01-20 | Build-order guards (closing note 1–4) | `go test ./test/guards/...` | green: `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection`, `TestGuard_O1FlagDefaults`, `TestGuard_FreshBuildReportsModeFull` |
 | V2-SP01-21 | No network, no telemetry, write set confined | `go test -run 'TestGuard_NoNetworkImports\|TestGuard_WriteSetConfinedToQompack' ./test/guards/` | green — `net/http`, `net/url`, `crypto/tls` absent; `net` only in `internal/ipc` |
 | V2-SP01-22 | e2e: all six hooks against the real binary | `go test -run TestE2E_AllSixHooksExitZero ./test/e2e/` | green — six exit codes 0, six hook-log lines |
-| V2-SP01-23 | `tokens` baseline behaviour preserved after SP-06's edit | `go test -run 'TestClassify_Table\|TestEstimate_ImageFromDimensions\|TestEstimate_ImageCappedAt1600\|TestEstimate_PDFPageCount\|TestEstimateRoot_SumsChunks\|TestCalibrate_ClampsAndPersists' ./internal/tokens/` | all six SP-01 tests still pass **unmodified** (SP-06 was allowed to rewrite only `TestEstimate_ProseVsCode`) |
+| V2-SP01-23 | `tokens` baseline behaviour preserved after SP-06's edit | `go test -run 'TestClassify_Table\|TestEstimate_ImageFromDimensions\|TestEstimate_ImageCappedAt1600\|TestEstimate_PDFPageCount\|TestEstimateRoot_SumsChunks\|TestCalibrate_ClampsAndPersists' ./internal/tokens/` | all six SP-01 tests still pass **unmodified**. ⚠ **The row's parenthetical is out of date: SP-06 rewrote *two* SP-01 tests, not one.** Besides `TestEstimate_ProseVsCode` (allowed, and now in `exact_test.go`), it replaced `TestEstimate_ImageDecodeFailureFallsBackToByteLength` with `TestEstimate_ImageDecodeFailureFallsBackToUnitScanner` — forced by SP-06's own spec ("Unparseable image → `(0, false)`, and `Estimate` falls back to the unit scanner"), where SP-01 flat-rated an undecodable image at `imageFallbackBytesPerToken = 1000`, making 2 500 bytes of opaque content cost **3 tokens** — the flat-rating `Qompack.md` §2.2 indicts and G10.2 exists to close. **Accept the second rewrite and record it**; the six above are the ones that must be untouched, and they are |
 | V2-SP01-24 | Pure functions SP-01 implemented rather than stubbed | `go test -run 'TestRootHash_Formula\|TestYoungDaly_Formula\|TestSkiRental_ComputedNotLiteral\|TestDescriptorKey_Stable\|TestStripInjections\|TestTombstone_MatchesDesignExample' ./internal/...` | green; `grep -R "12\.5" internal/ --include=*.go` outside `_test.go` returns nothing |
 | V2-SP01-25 | SP-01 benchmark budgets still met | `go test -bench 'BenchmarkHistogram_Observe\|BenchmarkConfigLoad_ColdNoFiles\|BenchmarkPathsWriteAtomic_4KB' -benchmem ./internal/obs ./internal/config ./internal/paths` | < 100 ns/op, < 2 ms/op, < 2 ms/op respectively |
 | V2-SP01-26 | Commit-message policy machinery | `go test -run TestCheckCommitMsg ./tools/devtool/` | green — rejects `Co-Authored-By`, `🤖`, over-length subjects, missing `Refs:` |
 
 ### 2.2 SP-02 — replay harness, Belady OPT, Phase-0 baseline (`internal/eval`, `test/replay`)
+
+#### 2.2a Inbound from SP-02 — read before executing the table
+
+> **`plans/V2-SP02-handoff.md` is the long form of this section**, written by the SP-02 session at the tip of `feat/sp02-replay-harness-belady-baseline` against the branch it actually shipped. Every claim in it was checked by running the command; nothing is inferred. This section reproduces it so the checkpoint is self-contained, and the rows in the table below have been corrected in place.
+
+§2.2 was written before `internal/eval` and `test/replay` existed, and **six of its twenty rows do not match what shipped**. Two of them *pass without testing anything* — they exit 0 having run nothing — and one would delete working code if followed literally.
+
+**① V2-SP02-15 passed vacuously: the `--` separator voided every flag.** `devtool replay` forwards its arguments verbatim, so the driver received `["--", "--corpus", …]`. Go's `flag` stops at a bare `--`, and every flag after it was discarded — the driver replayed the **default** corpus, **without** `--ci`, **without** `--phase 0`, and exited 0 with stdout byte-identical to a real run. **Fixed in the driver, not in the row:** unconsumed arguments are now refused with exit 2 (`replay: unexpected argument "--corpus": replay takes flags only, and a bare "--" stops flag parsing…`), covered by `TestReplayDriver_LeftoverArgumentsAreBadInput`. The row below has had the `--` removed.
+
+**② V2-SP02-17 passed vacuously: `-run TestImports` matched no test.** `go test -run TestImports ./internal/eval/` prints `ok … [no tests to run]` and exits 0. The test is `TestImportGraph_EvalIsFoundationOnly`. The row below now runs `-run TestImportGraph_`.
+
+**③ V2-SP02-12 would damage the code if followed literally.** `grep -rn "t.Skip" internal/eval` returns three hits and **all three must stay**: `synth_test.go:333` (the `QOMPACK_EVAL_WRITE_CORPUS=1` guard that stops CI rewriting the corpus it is measuring against), `evaltest/suite.go:102` (Rule W-1's skip machinery itself — dormant because `eval` is real, but it is the mechanism, and deleting it deletes SP-01's conformance-suite contract), and `evaltest/suite.go:97` (a comment describing the line above). **This is the same defect SP-07 reports as V2-SP07-16.** Two independently written sections carry it, so assume §2.3–§2.6 do too, and check every `grep … t.Skip` row in this document against `00-ARCHITECTURE.md` D9/§5.22 before satisfying it. The correct observable is `go run ./tools/devtool lint --only=stubskips`.
+
+**④ Four rows name tests that do not exist under those names.** The behaviours are covered; only the names drifted. `go test ./test/replay/...` and `go test ./internal/eval/...` are green.
+
+| row | plan says | actual |
+|---|---|---|
+| V2-SP02-13 | "all 19 `TestGate_*` rows" | **17** `TestGate_*`, plus 3 `TestPhase0_*`, plus 13 `TestReplayDriver_*` — 36 tests in `test/replay` |
+| V2-SP02-13 | `TestGate_Phase0ExitCriterion` | `TestPhase0_SessionCountFloor`, `TestPhase0_RequiresStock`, `TestPhase0_Reproducibility` |
+| V2-SP02-13 | `TestGate_PhaseChecksMayNotBeDisabledInCI` | `TestReplayDriver_PhaseChecksMayNotBeDisabledInCI` |
+| V2-SP02-06 | `TestReplay_OracleFewerRepairsThanStock` | `TestReplay_OracleNeedsNoRepairsWhenItFits` |
+| V2-SP02-14 | `--to <path>` | **no such flag.** Use `--write-baseline --baseline <path>`; `--out` is the *report*, not the baseline |
+
+Rows **02, 03, 04, 05, 07, 08, 09, 10, 11, 16, 18, 19, 20** are correct as written and pass. `-race` works on the Windows toolchain here, so V2-SP02-01 is fine.
+
+**⑤ Two things this checkpoint must *do*, not just check.**
+
+- **`landedSubplans` must gain SP-03 … SP-07.** `tools/devtool/cover.go` skips a package's §6.4 floor until its owner appears in that set. Before SP-02 the gate was `o.Owner != "SP-01"`, so a landed SP-02 would have shipped with **no floor at all** — `internal/eval` printed `exempt (stub, owned by SP-02)` and its 90.9 % was never compared to 85 %. The same hole is open for SP-03 … SP-07. `TestLandedSubplansMatchesTheBranch` fires when SP-03 lands, which forces someone to look, but **its assertion message still says "SP-03 has not landed", which reads backwards at that moment — rewrite it once the whole wave is in.** Inferring "landed" from the OWNERS.tsv probe was tried and is unsound: `probeStillStub` only recognises the `core.ErrNotImplemented` shape, but `chunk.Split` returns `nil` and `grammar.Append` returns nothing, so it gates code nobody has written and exempts code that shipped. The explicit set is deliberate. **This is V2-MERGE-14** — and note SP-04 rewrote the same function differently on its own branch, so this is a conflict resolution, not a one-line addition.
+- **`replay-gate` must become a *required* check.** `ci.yml` no longer carries `continue-on-error` on `replay-gate`, but "required" is a **branch-protection setting on `develop`** that cannot be set from the working tree. Until it is set, a red gate does not block a merge. `bench-gate` is SP-05's half — see V2-MERGE-04.
+
+**⑥ Standing facts about the Phase-0 numbers, so nobody reads a designed property as a defect.**
+
+- **`stock` and `null` report identical `rewrite_tokens` (16 891 126) and `pause_p95` (116 198).** By construction: a Full Compact rewrites the whole message array, so `p_min = 0` for both and §5.2's rewrite cost `w·(n − p_min)` collapses to `w·n`. Documented at `internal/eval/policy.go:259`. Consequence: **the 2 % rule cannot distinguish `stock` from `null` on those two metrics** until a partial-compaction policy exists. The primary metric separates them cleanly — `fraction_of_opt` 0.695164 vs 0.000000.
+- **All latency is modelled**, tagged `"latency": "modelled"` on every number. Changing `DefaultLatencyModel()` moves `pause_p95` by far more than 2 % and will read as a regression. It is not one — it is an instrument change, and the correct response is re-baselining per **ADR 0003**, *not* a `Sign-off:` trailer. The sign-off exists for deliberate trade-offs within one instrument.
+- **`retrieval_hit_rate` is 0.0 for all three policies, with `retrieval_actions: 0`.** No policy retrieves until SP-13. The driver prints a note beside it saying the zero is an absence of calls rather than a failure. Inert, not broken.
+- **Corpus staleness clock.** `CORPUS.json` carries `regeneratedAfterPhase: 0` and the gate fails at `--phase > 2`. Phase 3 requires regeneration — protocol in ADR 0003.
+- **The recorded tier is empty.** §6.3 tier 2 (recorded sessions) gates releases. The importer exists and is tested, but no recorded corpus has ever been collected, so release-gating on recorded sessions is **unproven**. Recorded transcripts are never committed, so SP-02 could not fix this. Carry it forward.
+- **Two SP-01 stub packages sat at 0.0 % coverage** when SP-02 wired the floor — `internal/canon` and `internal/symbols`. That was SP-04's starting point, not a wave-1 result.
+
+**⑦ Where SP-02 went outside its declared file list** (expect these under V2-MERGE-10, each mechanically necessary): `tools/devtool/replay.go` (SP-01 shipped the registered task here; modified in place rather than duplicated), `tools/devtool/importrules.go` (`test/replay` must be a composition root or `lint --only=importgraph` fails), `tools/devtool/cover.go` (see ⑤), `internal/cli/commands.go` (one line registering `evalCmds()`), `test/guards/stubs_test.go` and `test/guards/v1_integration_test.go` (Rule W-1 flips), `plans/OWNERS.tsv` (header comment only, describing the new `cover` rule; no row changed).
+
+**Not on SP-02's own list, and found by this checkpoint:** SP-02 also added `testdata/golden/contracts/store/stats-growth.json` and `testdata/golden/contracts/negknow/health.json` — two fixture files inside directories owned by **SP-06** and **SP-09**, declared in neither package's `MANIFEST.json`, and read by `internal/eval/growth_test.go` and `test/replay/growth.go`. **This is V2-MERGE-18.**
 
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
@@ -124,23 +305,50 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-SP02-03 | **Belady OPT** (§6.10) — knapsack DP, determinism, budget respect, p_min | `go test -run TestBelady_ ./internal/eval/` | green, incl. `TestBelady_UnitWeightsMatchesClassicBelady`, `TestBelady_KnapsackBeatsGreedyDensity`, `TestBelady_BudgetNeverExceeded`, `TestBelady_PMinIsEarliestDropped`, `TestBelady_FallbackWhenDPTooLarge` |
 | V2-SP02-04 | Breakpoint OPT (§5.6), permanently disclaimed | `go test -run TestBreakpointOPT_ ./internal/eval/` | green; `Plan.Note == NotPluginActionable` on every path |
 | V2-SP02-05 | Policy registry + the three built-ins | `go test -run 'TestStockPolicy_\|TestNullPolicy_\|TestRegisterPolicy_\|TestPolicyNames_' ./internal/eval/` | green; `PolicyNames() == ["null","oracle","stock"]` |
-| V2-SP02-06 | Counterfactual replay, deterministic mode | `go test -run TestReplay_ ./internal/eval/` | green, incl. `TestReplay_DeterministicAcrossRuns`, `TestReplay_OracleFewerRepairsThanStock`, `TestReplay_LiveModeRefusedWithoutEnv`, `TestReplay_HorizonRespected` |
+| V2-SP02-06 | Counterfactual replay, deterministic mode | `go test -run TestReplay_ ./internal/eval/` | green, incl. `TestReplay_DeterministicAcrossRuns`, **`TestReplay_OracleNeedsNoRepairsWhenItFits`** (the plan's `TestReplay_OracleFewerRepairsThanStock` does not exist — §2.2a ④), `TestReplay_LiveModeRefusedWithoutEnv`, `TestReplay_HorizonRespected` |
 | V2-SP02-07 | Divergence metrics — all five §4.2 bullets | `go test -run TestCompare_ ./internal/eval/` | green, incl. `TestCompare_IdenticalRuns`, `TestCompare_FirstDivergenceIsRelativeToCompaction`, `TestCompare_JaccardHalf`, `TestCompare_EditDistanceKnown` |
 | V2-SP02-08 | Fraction-of-OPT scoring + every §11.2 secondary metric | `go test -run 'TestScoreRun_\|TestMetricsOf_\|TestReport_' ./internal/eval/` | green, incl. `TestScoreRun_FractionIsMicroAveraged`, `TestScoreRun_RewriteTokensSection52TableA/B`, `TestScoreRun_NoHardcodedMultiplier`, `TestMetricsOf_CoversEveryDirection` |
 | V2-SP02-09 | Deterministic synthesizer + the committed 24-session corpus | `go test -run 'TestSynthesize_\|TestCorpus_' ./internal/eval/` | green, incl. `TestSynthesize_MatchesCommittedCorpus` (byte-identical), `TestSynthesize_EveryCompactionHasDemands`, `TestCorpus_ManifestHashesMatch` |
 | V2-SP02-10 | Redacting importer for recorded corpora | `go test -run 'TestImport_\|TestRedact_\|TestImportCommand_' ./internal/eval/` | green; `TestImport_RefusesDestinationInsideRepo` and `TestImportCommand_NoRedactRequiresEnv` pass |
 | V2-SP02-11 | Sublinear-growth checker (§11.3) | `go test -run TestCheckSublinearGrowth_ ./internal/eval/` | green — `Sublinear==true` at α≈0.62, false at α≈1.0, `Reason` set when inconclusive |
-| V2-SP02-12 | `evaltest` conformance suite, zero skips | `go test -run 'Suite' ./internal/eval/...` ; `grep -rn "t.Skip" internal/eval` | suite green; grep returns nothing |
-| V2-SP02-13 | **Replay gate driver** — 2 % rule, sign-off trailer, phase assertions | `go test ./test/replay/...` | green: all 19 `TestGate_*` rows, incl. `TestGate_TwoPercentBoundaryExclusive`, `TestGate_SignOffAllowsNamedMetricOnly`, `TestGate_Phase0ExitCriterion`, `TestGate_BloomFPCeiling`, `TestGate_GrowthInconclusiveFails`, `TestGate_PhaseChecksMayNotBeDisabledInCI` |
-| V2-SP02-14 | **Phase-0 baseline is reproducible** | `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline --to /tmp-out-a.json` then again `--to /tmp-out-b.json`; compare | byte-identical; both equal the committed `testdata/baseline/phase0.json` (write the two outputs into the scratch dir, never over the committed baseline) |
-| V2-SP02-15 | Replay gate runs end to end against the corpus | `go run ./tools/devtool replay -- --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --ci` | exit 0; report JSON parses; `policies.oracle.fraction_of_opt == 1.0`, `policies.null.fraction_of_opt == 0.0`, `policies.stock.fraction_of_opt` strictly between them on all 24 sessions |
+| V2-SP02-12 | `evaltest` conformance suite, zero **behaviour** skips | `go test -run 'Suite' ./internal/eval/... -v` ; `go run ./tools/devtool lint --only=stubskips` ; `go test -run TestRunHarnessSuite_AgainstEvalNew ./internal/eval/...` | Suite green with every `/behaviour` subtest reporting RUN and PASS rather than SKIP; `stubskips` lists **no** skips for `internal/eval/evaltest` and reports `internal/eval`'s single skip as `platform-gated`. **The plan's `grep -rn "t.Skip" internal/eval` returns nothing is wrong and must not be satisfied** — it returns three hits, all of which must stay, and deleting them deletes Rule W-1's machinery and the corpus write-guard. See §2.2a ③; the identical defect is V2-SP07-16 |
+| V2-SP02-13 | **Replay gate driver** — 2 % rule, sign-off trailer, phase assertions | `go test ./test/replay/... -v` | green: **36 tests — 17 `TestGate_*`, 3 `TestPhase0_*`, 13 `TestReplayDriver_*`** (the plan's "19 `TestGate_*`" is wrong; §2.2a ④). Incl. `TestGate_TwoPercentBoundaryExclusive`, `TestGate_SignOffAllowsNamedMetricOnly`, `TestGate_BloomFPCeiling`, `TestGate_GrowthInconclusiveFails`, **`TestPhase0_SessionCountFloor` / `TestPhase0_RequiresStock` / `TestPhase0_Reproducibility`** (for the plan's `TestGate_Phase0ExitCriterion`) and **`TestReplayDriver_PhaseChecksMayNotBeDisabledInCI`** (for the plan's `TestGate_…`) |
+| V2-SP02-14 | **Phase-0 baseline is reproducible** | `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline --baseline <scratch>/out-a.json` then again with `<scratch>/out-b.json`; compare | byte-identical; both equal the committed `testdata/baseline/phase0.json`. **There is no `--to` flag** — the plan's spelling is wrong (§2.2a ④). `--out` is the *report*, not the baseline. Write both outputs into the scratch dir, never over the committed baseline |
+| V2-SP02-15 | Replay gate runs end to end against the corpus | `go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --ci` | exit 0; report JSON parses; `policies.oracle.fraction_of_opt == 1.0`, `policies.null.fraction_of_opt == 0.0`, `policies.stock.fraction_of_opt` strictly between them on all 24 sessions. **The `--` in the plan's command voided every flag after it** and made this row exit 0 having replayed the default corpus with no phase check and no `--ci` (§2.2a ①). The driver now refuses leftover arguments with exit 2; re-running the *old* command and seeing exit 2 is the positive control that the fix is present |
 | V2-SP02-16 | Honesty tags in the report | inspect the report JSON from V2-SP02-15 | every latency value tagged `"latency":"modelled"`; breakpoint plan carries `NotPluginActionable`; `retrieval_hit_rate: 0.0` accompanied by `retrieval_actions: 0`; `forfeited_discount_tokens` reported separately from `rewrite_tokens`; `corpusTier: "synthetic"` |
-| V2-SP02-17 | `internal/eval` import purity | `go test -run TestImports ./internal/eval/` (`importgraph_test.go`) | `internal/eval` imports no `internal/` package outside `{core, paths, config, logging, obs}` |
+| V2-SP02-17 | `internal/eval` import purity | `go test -run TestImportGraph_ ./internal/eval/` (`importgraph_test.go`) | `internal/eval` imports no `internal/` package outside `{core, paths, config, logging, obs}`. **The plan's `-run TestImports` matches nothing and prints `ok … [no tests to run]`, exit 0** — the test is `TestImportGraph_EvalIsFoundationOnly` (§2.2a ②). Generalise the lesson: `go test -run` prints `ok` when its pattern matches nothing, so **any** row in this document whose pattern has drifted from the test names is a silent pass. SP-07 checked all of its own patterns against `go test -list` for this reason; the other groups' have not been |
 | V2-SP02-18 | Fuzz target | `go test -run=XXX -fuzz FuzzRedact -fuzztime 60s ./internal/eval/` | zero crashers |
 | V2-SP02-19 | SP-02 benchmark budgets E-1…E-5 | `go test -bench 'Belady\|Breakpoint\|Synthesize\|Compare' -benchmem ./internal/eval/` | E-2 ≤ 250 ms/op, E-3 ≤ 50 ms/op, E-4 ≤ 20 ms/op, E-5 ≤ 15 ms/op; E-1 (full corpus replay) < 120 s |
-| V2-SP02-20 | Coverage floor | `go run ./tools/devtool cover` | `internal/eval` ≥ **85 %** |
+| V2-SP02-20 | Coverage floor | `go run ./tools/devtool cover` **and** `go test -cover -count=1 ./internal/eval/...` | `internal/eval` ≥ **85 %** (it measured 90.9 % at SP-02's tip). Read the second command's number as well: this row is only non-vacuous once V2-MERGE-14 has landed and `SP-02` is in `landedSubplans` in the *merged* `cover.go` |
 
 ### 2.3 SP-03 — sketch library (`internal/sketch`)
+
+> **Read §2.3a below before executing this table.** Four rows (V2-SP03-11, -12, -13, -20) have been corrected in place against what the branch actually shipped, and §3.3's measurement procedure changed with them. The one that matters most: **`TestMinHash_OneNewFailure` passed throughout a defect that broke near-duplicate detection across the whole 8–66 KB range**, so a green result from it alone is not evidence about MinHash.
+
+#### 2.3a Inbound from SP-03 — items its branch could not close, and divergences you must not revert
+
+Written by the SP-03 session at the tip of `feat/sp03-sketch-library`, against the branch it actually shipped rather than against its plan. Items 1–3 are **work this checkpoint owns**; items 4–7 are things a verifier will otherwise "correct" back into defects. Every claim below was reproduced, not inferred; where a number appears, it was measured on the branch tip.
+
+**1. `internal/sketch`'s MinHash sampler was rewritten, and SP-03's plan text is now wrong about it.** A whole-branch review found that the plan's sampling rule (`plans/V2-SP-03-sketch-library.md` line 918: rate `= ⌈nsh / MinHashSampleTarget⌉`, keep `hash < MaxUint64/rate`) derives the keep-threshold from **document length**, so two near-identical documents whose shingle counts straddle a multiple of 8 192 are sampled at densities differing by a whole integer factor and their permutation minima then agree with probability ≈ 1/rate however similar they are. Reproduced on documents differing by 150 bytes with a true Jaccard of 0.98: **estimated 0.4062, `IsNearDup(0.9)` false**, recovering to 0.99 once both sat on the same side. It recurs at every boundary — ~8, 16, 25, 33, 41, 49, 57, 66 KB — i.e. the whole size range of an ordinary tool result, and it lands on *growing* documents, which is the one input `Qompack.md` §8.1 item 1 exists to detect.
+
+The sampler now keeps the `MinHashSampleTarget` **smallest distinct shingle hashes** (bottom-k), so the effective threshold moves continuously with the document. `Signature`, its compact wire form and `Jaccard`'s body are unchanged — 00-ARCHITECTURE §5.7's shape is untouched — and every frozen fixture is byte-identical because the 4 096-byte golden document sits below the target and runs no selection at all. ADR 0030 §9 is the record. **Do not reconcile the code back to the plan's line 918.** Correct the plan instead; the ruling is that `Qompack.md` specifies MinHash, 128 permutations and `nearDupThreshold` 0.9 but never specifies a sampler, so the sampler was the subplan's invention and the spec's behavioural requirement is what governs.
+
+**2. The §6.4 coverage floors are enforced for SP-01's packages only, and are a silently dead gate for every package wave 1 landed.** `tools/devtool/cover.go:39` skips any `plans/OWNERS.tsv` row whose owner is not `SP-01`, printing `exempt (stub, owned by SP-NN): <pkg>` and exiting 0 — so `sketch`, `chunk`, `canon`, `symbols`, `store`, `redact`, `tokens`, `dag`, `ipc`, `daemon`, `contract` and `eval` all have declared floors that nothing checks, at any coverage down to zero. The same `Owner != "SP-01"` skip also disables `probeStillStub` for them, which is the check V2-MERGE-12 relies on. OWNERS.tsv has no way to express "this owner has landed", so closing this needs a column or an equivalent in `cover.go` — a devtool change, which is why SP-03 could not make it. **This is a §2.0-class defect: a gate that stopped guarding without saying so.** Fix it here and re-run every wave-1 package's floor.
+
+**3. `benchstat` is the gate for `testdata/bench-baseline.txt` (00-ARCHITECTURE §7) and nothing ever runs it.** SP-03 reported this as "it is in no `go.mod`, no `tools/`, no CI step" and installed it by hand (`go install golang.org/x/perf/cmd/benchstat@latest`) to produce its rows. **Checked against `develop`, the first half is wrong and the conclusion is right, in a worse way:** `benchstat` *is* pinned — `tools/pinned/go.mod` requires it and `tools/pinned/tools.go` blank-imports it — and `tools/devtool/util.go:26` declares `benchstatPkg = "golang.org/x/perf/cmd/benchstat"`. **That constant has no callers.** No `devtool` task invokes benchstat, and the `bench-gate` CI job runs `bench-hotpath` only. So §7's ">10 % warn / >25 % fail" rule has **no executable form anywhere in the repository** — it exists as a pinned dependency, a dead constant, and a manual command in §5.3 of this document. That is worse than a missing tool, because the pin and the constant both read as though the gate is wired. Add a `devtool bench-compare` task (or a CI step) that actually calls it, and make `bench-gate` fail on the >25 % condition.
+
+**4. SP-03 shipped nine commits, not the eight its Done checklist names.** The ninth is the final-review fix round (`fix(sketch): length-invariant MinHash sampling and decode guards`). It was deliberately **not** back-dated into the commits that own the code, because doing so would have made commit 5 read as though it always had the correct sampler and erased the fact that a review caught it. Squash if the letter of the checklist matters; the reasoning is recorded here so the count is not reported as an unexplained anomaly under V2-MERGE-10.
+
+**5. SP-03 touched seven files outside its allowlist, each under a recorded ruling.** Expect these under V2-MERGE-10 and treat them as accounted for: `test/guards/stubs_test.go` and `test/guards/v1_integration_test.go` (guards whose purpose is to go red when a stub becomes real — leaving them red takes CI down); `internal/testutil/fixtures_test.go` (frozen-fixture count 23 → 28); `.gitignore` (`**/testdata/rapid/`, deliberately unrooted because six packages now use rapid and it writes beside whichever failed); `internal/core/hash.go` + `hash_test.go`; `internal/paths/appendonly.go` + `appendonly_test.go`. **The last two pairs are cross-branch conflict candidates** — `internal/core` is consumed by every wave-1 branch — so resolve them by inspection, not by `--ours`/`--theirs`:
+
+- `core.HashBytes` ended `copy(out[:], h.Sum(nil))`, where `h.Sum(nil)` heap-allocates the 32-byte digest: one allocation per hash, three per `PostToolUse`, **5 000 per Bloom rebuild**. It is now `h.Sum(out[:0])` — byte-identical digest, verified against nil, empty and 300 input lengths, guarded by `TestHashBytes_DoesNotAllocate`. Every `core.HashBytes` caller in the tree benefits; `BenchmarkRebuildBloom5000` went 5 004 → 4 allocs/op. If another branch's version of this function wins the merge, the L0 hot path silently regresses to 3 allocs and only that test will say so.
+- `internal/paths/appendonly.go` gains an exported `HighestBloomBackupSeq`, sharing the existing `bloomBackupSeq` parser with `pruneBloomBackups` rather than adding a second one. It is exported because **SP-09 otherwise has no way to re-derive its rebuild counter after a restart** from what is on disk.
+
+**6. Divergences from SP-03's plan text that are deliberate — reconcile the plan, not the code.** Beyond item 1: `ReplaceGenerational` delegates to `paths.ReplaceBloom` because the plan's own body calls `paths.WriteAtomic` on a path `paths.IsProtected` refuses outright, so the plan's code cannot run; the backup name is consequently `tried.bloom.<seq>.bak` with `%d`, not the plan's `%04d`, because `pruneBloomBackups` parses that family. `MisraGries.Add` saturates rather than using the plan's plain arithmetic. `Load`'s silence is narrower than the plan claims — see V2-SP03-12.
+
+**7. Two defects in SP-03's plan document itself, found while verifying the code against it.** Neither is an implementation fault and both will otherwise be rediscovered: (a) the plan's Produces block lists five `sketchtest` suite signatures that do not match the tree and **never did** — every one ships with a `name string` second parameter and `RunMinHashSuite` takes a plain `func([]byte, MinHashOptions) Signature`; `git show 7340536:internal/sketch/sketchtest/*.go` confirms SP-01 shipped them that way and SP-03 did not touch them, so V2-MERGE-08 should compare against 00-ARCHITECTURE §5.7 and the tree, not against that block. (b) The plan's §11.6 forbidden-literal list (line 138) omits `8000`, which `tools/lint/nomagic/literals.go:14` does forbid; `internal/sketch/doc.go` lists it correctly.
+
+**Carried forward, not blocking.** `sketchtest.RunCMSSuite`'s one-sided estimate case cannot distinguish a min-estimator from a max-estimator (a max-estimator satisfies the stated `Estimate ≥ true` guarantee), and the accuracy backstop `TestCMS_ErrorBoundHolds` lives in `internal/sketch` rather than in the reusable suite — so SP-16's warm-started CMS, held only to the suite, would inherit the safety property and not the ε·N accuracy one; a real discriminator has to force collisions via `Dims()`-derived load. `BenchmarkMinHash100KiB` is the tightest row on the branch and its 2.5 ms budget is a Windows-laptop number worth re-deriving on CI hardware under §5. `MinHash`'s selection uses a median-of-three quickselect over a 16 384-value buffer keyed by the unkeyed, invertible `fnv1a64`, so crafted input could in principle force quadratic behaviour — not exploitable in this threat model (the user's own tool output, on B-C, soft) and `fnv1a64` cannot be keyed because signatures persist in an append-only index, but worth recording once. `sketch.HeaderMagic` is an exported mutable `[4]byte`; a `const HeaderMagicString = "QPKS"` with the var derived from it would give the load-bearing value an immutable definition.
 
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
@@ -154,18 +362,22 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-SP03-08 | CMS merge / scale / heavy hitters (O4 groundwork) | `go test -run 'TestCMS_MergeFrom\|TestCMS_Scale\|TestCMS_HeavyHitters' ./internal/sketch/` | merge additive and exact; `Scale` decays; `HeavyHitters(mg,3)` returns `[{a,500},{b,300},{c,100}]`; `ErrShapeMismatch` on mismatch and on nil |
 | V2-SP03-09 | HLL sizing, error bounds, exact-union merge | `go test -run TestHLL_ ./internal/sketch/ -v` | 2 048 registers, 2 102-byte frame, ~2.3 % standard error; relative error ≤ 0.07 at n ∈ {1e3,1e4,1e5,1e6}; merged registers byte-identical to the union |
 | V2-SP03-10 | Misra-Gries: no false positives, frequent-item guarantee, mergeable | `go test -run TestMG_ ./internal/sketch/` | green, incl. `TestMG_NoFalsePositives`, `TestMG_FrequentItemGuarantee`, `TestMG_DeterministicUnderMapOrder`, `TestMG_MergeFrom` |
-| V2-SP03-11 | **MinHash** — the O2 near-dup signal | `go test -run TestMinHash_ ./internal/sketch/ -v` | green, incl. `TestMinHash_OneNewFailure` (Jaccard ≥ 0.9 for "same suite, one new failure"), `TestMinHash_ShiftInvariance` (≥ 0.9), `TestMinHash_DisjointInputs` (≤ 0.05), `TestMinHash_StableAcrossRuns` (frozen `Mins` constants) |
-| V2-SP03-12 | Persistence: atomic `Save`/`Load`, `LoadWithLog` is the loud path | `go test -run 'TestSave_\|TestLoad_\|TestLoadWithLog_\|TestQuarantine' ./internal/sketch/` | green; `Load` emits zero log records, `LoadWithLog` emits exactly one `Loud` on corruption; corrupt ⇒ `errors.Is(err, core.ErrNotFound) && errors.Is(err, ErrCorrupt)` |
-| V2-SP03-13 | **`tried.bloom` generational replacement** (§7.4 append-only) | `go test -run 'TestSave_RefusesTriedBloom\|TestReplaceGenerational_\|TestAppendOnly_TriedBloomNeverTruncated' ./internal/sketch/` | `Save` on `tried.bloom` ⇒ `ErrGenerational`, no file created; exactly one `.bak` generation kept; rollback restores the prior generation on write failure; `AssertAppendOnly` passes |
+| V2-SP03-11 | **MinHash** — the O2 near-dup signal | `go test -run TestMinHash_ ./internal/sketch/ -v` | green, incl. `TestMinHash_OneNewFailure` (Jaccard ≥ 0.9 for "same suite, one new failure"), `TestMinHash_ShiftInvariance` (≥ 0.9), `TestMinHash_DisjointInputs` (≤ 0.05), `TestMinHash_StableAcrossRuns` (frozen `Mins` constants). **Also required, and they are the rows that matter most:** `TestMinHash_StraddlingTheSampleTargetIsContinuous` and `TestMinHash_BottomKMatchesTheSlowDefinition`. See **Inbound from SP-03**, item 1 — `TestMinHash_OneNewFailure` alone passed throughout a defect that made near-dup detection fail across the whole 8–66 KB range, because its fixture happens to sit below the sampler's first boundary. A green `TestMinHash_OneNewFailure` is not evidence about MinHash; these two are |
+| V2-SP03-12 | Persistence: atomic `Save`/`Load`, `LoadWithLog` is the loud path | `go test -run 'TestSave_\|TestLoad_\|TestLoadWithLog_\|TestQuarantine' ./internal/sketch/` | green; `LoadWithLog` emits exactly one `Loud` on corruption; corrupt ⇒ `errors.Is(err, core.ErrNotFound) && errors.Is(err, ErrCorrupt)`. **This row's "`Load` emits zero log records" was too strong and has been corrected:** `Load` hands `LoadWithLog` a `logging.Nop`, which writes no log *line* anywhere — but `logging.Nop().Loud` still appends to the process-wide `logging.LastLoud` ring and still fires observers installed via `logging.AttachLoudObserver`. Assert "no log line", not "no record". ADR 0030 §11 states the narrow truth; do not "fix" the code to match the old wording |
+| V2-SP03-13 | **`tried.bloom` generational replacement** (§7.4 append-only) | `go test -run 'TestSave_RefusesTriedBloom\|TestReplaceGenerational_\|TestAppendOnly_TriedBloomNeverTruncated' ./internal/sketch/` | `Save` on `tried.bloom` ⇒ `ErrGenerational`, no file created; exactly one `.bak` generation kept; rollback restores the prior generation on write failure; `AssertAppendOnly` passes. **Changed by SP-03's final review:** a `seq` that does not strictly exceed the highest surviving `.bak` is now **refused before anything on disk moves** (`ErrMalformed`, naming both sequences), where it was previously allowed to proceed and reported afterwards. That ordering was a data-loss path — `paths.ReplaceBloom` renames the live file before it stages, so a low `seq` plus a staging failure left the store with **no `tried.bloom` at all**. Expect `TestReplaceGenerational_NonMonotonicSeqIsRefused` and `TestReplaceGenerational_RefusalProtectsAgainstAStagingFailure`; the old `..._IsReported` / `..._RollbackFailureIsReported` names are gone on purpose |
 | V2-SP03-14 | Property suite (12 properties) | `go test -run TestProp_ ./internal/sketch/` | green, incl. `TestProp_BloomRebuildEquivalence`, `TestProp_CMSMergeAdditive`, `TestProp_HLLMergeIsRegisterMax`, `TestProp_MarshalIdempotent`, `TestProp_UnmarshalNeverPanics`, `TestProp_MinHashJaccardAccuracy` |
 | V2-SP03-15 | Five fuzz targets | for each of `FuzzBloomUnmarshalBinary FuzzCMSUnmarshalBinary FuzzHLLUnmarshalBinary FuzzMisraGriesUnmarshalBinary FuzzSignatureUnmarshalBinary`: `go test -run=XXX -fuzz <T> -fuzztime 60s ./internal/sketch/` | zero crashers; every failure path returns a package sentinel |
 | V2-SP03-16 | **Frozen on-disk format** (W-2 contract for SP-04/SP-06) | `go test -run TestGolden ./internal/sketch/` (**without** `-update`) | the five `testdata/golden/contracts/sketch/*.v1.bin` reproduce byte-for-byte; `MANIFEST.json` hashes match; `TestGolden_V1StillDecodes` passes |
 | V2-SP03-17 | Import purity | `go test -run TestImports_FoundationOnly ./internal/sketch/` | imports exactly `{core, paths, logging}` |
 | V2-SP03-18 | **L0 sketch-update budget** (the §8.1 item-5 contribution to B-A) | `go test -bench BenchmarkL0SketchUpdate -benchmem ./internal/sketch/` and `go test -run TestL0SketchUpdate_ZeroAlloc ./internal/sketch/` | **≤ 5 µs/op and 0 allocs/op** |
 | V2-SP03-19 | Remaining sketch micro-budgets | `go test -bench . -benchmem ./internal/sketch/` | `Bloom.Add/Test`, `CMS.Add/Estimate`, `HLL.Add` ≤ 1.0 µs/op 0 allocs; `HLL.Cardinality` ≤ 25 µs; `MisraGries.Add` ≤ 5 µs; `MinHash` 4 KiB ≤ 1.5 ms, 100 KiB ≤ 2.5 ms; Bloom marshal/unmarshal ≤ 60 µs; CMS ≤ 250 µs |
-| V2-SP03-20 | Coverage floor | `go run ./tools/devtool cover` | `internal/sketch` ≥ **90 %** |
+| V2-SP03-20 | Coverage floor | `go run ./tools/devtool cover` **and** `go test -cover -count=1 ./internal/sketch/...` | `internal/sketch` ≥ **90 %** (it measured 96.5 % at SP-03's tip; `sketchtest` 99.5 %). **`devtool cover` does NOT check this today and will not fail if it is missed** — `tools/devtool/cover.go` enforces the §6.4 floors only for packages `plans/OWNERS.tsv` assigns to **SP-01**, so this row's command prints `exempt (stub, owned by SP-03): sketch` and exits 0 at any coverage whatsoever, including 0 %. That is a silently dead gate of exactly the class §2.0 exists to catch. Read the second command's number, and fix the gate — see **Inbound from SP-03**, item 2 |
 
 ### 2.4 SP-04 — chunking, canonicalization, symbols (`internal/chunk`, `internal/canon`, `internal/symbols`)
+
+> **SP-04 shipped six defects it knowingly did not fix, and this checkpoint owns every one of them.** They are recorded as data in `plans/CARRIED-DEFECTS.tsv`, with a diagnosis and acceptance criteria per row in `plans/V2-SP-04-carried-defects.md`, and `test/guards/carrieddefects_test.go` refuses to let `plans/V2-report.md` exist while any row owned by `V2-VERIFY` is still `open`. **The full table and the resolution rules are at §4a of the completion report (§8) — read it before running this section, not while filling the report in**, because two of the six change what this section should expect and one (SP04-D4, the `landedSubplans` gap that is now V2-MERGE-14) will interrupt the merge itself.
+>
+> Two further notes specific to this group. **`testdata/bench-baseline.txt` carries no `chunk`, `canon` or `symbols` rows** — SP-04 committed none, so §5.3's >10 %/>25 % gate has never had a baseline for the three packages this section covers (see §2.0a). And **SP04-D6** records `BenchmarkRun_Bash100KB` at ±33 % on the reference host, which a 25 % gate cannot distinguish from a regression; establish that baseline from a quiet machine at `-count 10` before treating any canon benchmark as a miss.
 
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
@@ -195,9 +407,65 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-SP04-24 | Symbols performance | `go test -bench . ./internal/symbols/` | `BenchmarkExtract_100KB` < 2 ms/op; `BenchmarkEnclosing_100KB` < 2 ms/op; `BenchmarkReferences_100KB_50Names` < 1 ms/op |
 | V2-SP04-25 | Conformance suites, zero skips | `go test -run 'TestCanonConformance\|TestSymbolsConformance' ./internal/canon ./internal/symbols` ; `grep -rn "t.Skip" internal/canon/canontest internal/symbols/symbolstest internal/chunk/chunktest` | suites green; grep returns nothing |
 | V2-SP04-26 | Corpus hygiene | `grep -rniE 'AKIA\|ghp_\|sk-ant\|BEGIN [A-Z ]*PRIVATE KEY\|@gmail\.com' testdata/corpora/toolout/` | no output — no credential, key, token or real email in the committed corpus |
-| V2-SP04-27 | Coverage floors | `go run ./tools/devtool cover` | `internal/chunk` ≥ **90 %**, `internal/canon` ≥ **90 %**, `internal/symbols` ≥ **75 %** |
+| V2-SP04-27 | Coverage floors | `go run ./tools/devtool cover` **and** `go test -cover -count=1 ./internal/chunk/ ./internal/canon/ ./internal/symbols/` | `internal/chunk` ≥ **90 %**, `internal/canon` ≥ **90 %**, `internal/symbols` ≥ **75 %**. Read the second command's numbers: `cover` is vacuous for all three until **V2-MERGE-14** lands (§2.7a A ②). SP-04 is the one subplan that added itself to `landedSubplans`, so its three packages are the *only* ones a naive merge might measure — which makes a green `cover` here especially misleading about the other eight |
 
 ### 2.5 SP-05 — daemon, IPC, hot path, contract monitor (`internal/ipc`, `internal/daemon`, `internal/contract`, `internal/cli`, `test/bench/hotpath`)
+
+#### 2.5a Inbound from SP-05 — the rulings ledger is **git-ignored**; read §A before dispatching V-E
+
+**A. The ledger exists, and a verifier will not see it.**
+
+SP-02, SP-03, SP-04, SP-06 and SP-07 each left their reconciliation somewhere git tracks. **SP-05's is untracked and invisible:** `git diff develop..feat/sp05-daemon-ipc-and-hot-path -- plans/ docs/` is empty, but the real record — **30 numbered rulings**, seven per-task review files, seven review diffs and a final review — lives in
+
+```
+.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md   (+ review-task*.diff, final-review.md)
+```
+
+which is ignored by **`.superpowers/sdd/.gitignore`, a one-line `*` that sits inside the ignored tree itself**. That is the part that makes this dangerous rather than merely inconvenient: `grep -i superpowers .gitignore` at the repo root finds **nothing**, `git status` is clean, and the only way to discover the rule is `git check-ignore -v` on a path you already suspect. A fresh clone, a different worktree, or one `git clean -fdx` and thirty sanctioned decisions are gone — and a verifier will then report a dozen of them as defects.
+
+> **Before dispatching V-E, do one of these.** Point it explicitly at the worktree `C:/Users/Quant/Documents/Programming/Projects/qompack-sp05` (confirmed present, working tree clean, HEAD `b57df25`); or inline the ledger into V-E's prompt; or copy the ledger somewhere committed. **If this checkpoint runs anywhere other than that worktree, the third option is the only safe one** — and it should happen before `verify/v2` is cut, not after.
+
+**B. Divergences most likely to be misread as bugs.** Every one is a recorded ruling, not a slip:
+
+- **Commits 4 and 5 are swapped** — `contract` lands before daemon composition (`98c4fef feat(contract): …` precedes `30a04e2 feat(daemon): …`). The plan's stated order references symbols that do not exist yet; **it literally cannot compile.** Verified against the branch.
+- **Commit subjects are not byte-identical to the plan's text** — they match the task briefs instead, trimmed to satisfy `tools/devtool/checkcommitmsg.go`'s `subjectRE`. Note what that limit actually is before calling a subject over-length: **64 characters of free text *after* `type(scope): `,** not 64 for the whole line. The seven subjects run 67–77 characters overall and 61–63 after the prefix — legal, and tighter than it looks.
+- **The B-A bench gate does not use the plan's method (ruling #29).** "Wall-clock hook spawn minus a constant floor" was replaced by the daemon's TS-anchored `hook_controlled` estimate, because B-A is defined in `obs/budgets.go` as `main()` entry → exit, which **excludes process creation** — and subtracting a constant removes the floor's *location* but none of its *dispersion*, contaminating exactly the p99 the gate reads. Wall-clock survives as `B-A_spawn_estimate` with `limit_ms`/`pass` null. **Under the plan's original method this branch fails B-A on every platform, including bare metal.** Do not "restore" the plan's method to make the row match the document.
+- **The ring-full spill was deleted (ruling #23)** even though the plan describes it: WAL-first ordering already makes every spilled line durable, and the spill rested on a byte-identity invariant that `hookio.Event.Extra` violates. The `l0_ring_full` counter is retained.
+- **Five smaller ones:** there is **no `ipc.Router`** (confirmed: no such type on the branch); **`internal/obs` is untouched**, so the plan's `obs/budgets.go` section is historical; `SessionHistory` persists to **`state/history.json`**, which is a *new* file beside the Monitor's pre-existing `state/contract.json` — both exist and they are not the same artifact; counters use the **underscore** idiom, not the plan's dotted names; and `contract.History` stays an **interface**, with `SessionHistory` as its first concrete implementation.
+
+**C. Code that has never executed anywhere.**
+
+`internal/ipc/listen_unix.go` and `internal/ipc/server_unix_test.go` have **never run on any machine** — no WSL and no Docker on this host, so they were desk-verified against `unixsock_posix.go` semantics and compile-checked via `GOOS=linux`/`GOOS=darwin` only. **The ubuntu and macos CI legs will be their first-ever execution.** Specifically unexercised: `TestStaleUnixSocketReclaimed` (which was self-defeating — unlink-on-close contradicted its own premise; fixed with `SetUnlinkOnClose(false)`) and `TestListenReturnsErrAddrInUse`'s live-listener probe. **Treat a red POSIX leg here as expected-possible, not as a regression** — diagnose it as a first run, not as something the merge broke.
+
+The bench gate has likewise **never run on a CI runner at all**, and its current warm-up shape (64-request hot tranche + `admin.ping` bulk, ruling #30) is newer still. `TestWindowsPipeACLRejectsOtherUser` **always skips** — it needs `QOMPACK_TEST_ACL=1` and a second Windows account; only the SDDL string-shape assertion runs today.
+
+**D. The most dangerous latent trap — worth an explicit check.**
+
+`contract.SessionHistory.LastSessionID` is **owned exclusively by `checkSessionStartFires`** (`internal/contract/assertions.go`; the only writes are at its lines 99/105/110). If any future daemon code writes it at session start, the `session_start.fires` assertion — **`SevCritical`** — is **permanently and silently disabled, and every test still passes.** Protection today is a doc comment plus one wedge test (`TestSessionStartFires_DaemonPreWriteOfLastSessionIDDoesNotWedgeFutureCounting`), nothing structural. Add a check that no package outside `internal/contract` writes that field, and carry the obligation into SP-08's checkpoint — L0 is exactly the code that will want to.
+
+**E. Known-deferred. Do not re-report these as new findings.**
+
+`go-winio v0.6.2`'s pipe-listener `Close` can hang 20 s+ racing a fresh `Accept` (observed 0–84 times per 100 iterations); bounded at our layer, but `TestServerCloseWithLiveConnection` **still flakes on Windows under load** — the real fix is a newer go-winio or a cancellable-`Accept` redesign. `paths.IsProtected` does not cover `spool/` (pre-existing; spool's append-only guarantee is structural, not access-controlled). `EnsureRunning`'s readiness contract is weak — `ipc.Probe` consumes the accept slot it uses as proof, which is why reply ops carry a **250 ms connect floor**. Drain cadence means a spooled line can wait until restart or an idle tick. Also: `hotPathSampleMaxAge` **discards** rather than clamps extreme samples; `connIdleTimeout` is unconfigurable; the FR-6 first-run window lets a config-disabled project spawn **exactly once** before `state.bin` exists; and async `Stop` can still be truncated by process exit one level up in `cli` (deferred to SP-17).
+
+**F. Things that look like violations and are not.**
+
+`contracttest` shows **4 SKIPs** — deliberate `*_StubIsSkipped` meta-tests, not Rule W-1 breaches (the same shape as §2.2a ③ and V2-SP07-16). `replay-gate` keeps its `continue-on-error` on this branch because **SP-02 owns removing it** — and `plans/V4-VERIFY-*.md:1152` will go on flagging it; leave it alone there. `bench-gate` is not a required check because that is a **GitHub branch-protection setting, not a repo file** — flip it only after the first three-platform green (same constraint as §2.2a ⑤). The lock file is `0o444`, forced by `paths.CreateNew`. **`QOMPACK_FAULT` appears in two non-test files** — `internal/cli/fault.go` and `internal/daemon/spawn.go`, which strips it from the child env — so a grep expecting exactly one will false-positive (both confirmed on the branch). `precompact.has_time_to_write` returns a `SevCritical` result under a `SevWarn` declared severity: documented design.
+
+**G. What "green" currently means on this branch.**
+
+All exit criteria pass, **but on Windows only for behaviour**. Coverage: `ipc` 84.2 %, `daemon` 82.0 %, `contract` 83.9 %, `cli` 81.5 %. Full suite and `-race` clean. Bench: **B-A 4.1 ms, B-B 0.7 ms, B-E 195 ms**. **POSIX is compile-verified only** (see §C). One item has **no dedicated test** by accepted adjudication: FR-4's `Serve`-failure arm, because a deterministic transport failure needs ipc-layer injection — a verifier can drive it directly with `server.Close()`, and that is the cheapest way to close the gap here.
+
+**H. Four merge facts established by reading the branch against its siblings.**
+
+**①** SP-05 removed `continue-on-error` from **`bench-gate` and not `replay-gate`**; SP-02's branch is the exact mirror. Neither is correct alone — **V2-MERGE-04**, and see §F for why that is right on each branch taken separately.
+
+**②** SP-05 **did not touch the nightly fuzz matrix**, even though it owns `.github/`. `nightly.yml`'s eight rows are byte-identical on `develop` and on `feat/sp05-…`. `internal/ipc` ships `FuzzDecodeRequest`; the matrix asks for `FuzzFraming`. **The NDJSON framing decoder — the one component that parses bytes arriving from outside the process — has never been fuzzed by CI**, and because `.github/` is SP-05-exclusive, no other branch could have registered SP-03's, SP-04's or SP-06's targets either. That is why V2-MERGE-01 is a *merge* row: the constraint that produced it is structural.
+
+**③** SP-05 raised `internal/testutil/fixtures_test.go`'s frozen count to **28** for five fixtures of its own (three `ipc`: `observe_tool`, `response_reply`, `state_degraded`; two `contract`: `history_degraded`, `transcript_with_sentinel`). SP-03 raised the same literal to 28 for five *different* fixtures. **The merged answer is 33** — V2-MERGE-15.
+
+**④** SP-05 **re-indented the whole composition-root map** in `tools/devtool/importrules.go` when adding `test/bench/hotpath`, so its diff collides with SP-02's `test/replay` and SP-04's `test/dedup` on lines none of the three meant to change — **V2-MERGE-05**.
+
+**Still open, and named here because nobody else will name it:** SP-05's B-A budget was measured against a daemon holding *stub* sketches, a *stub* DAG and a *stub* store. §4.6 and §5.1 are where that measurement is redone against the real thing, and they are the only place the 15 ms figure has ever been tested for what it actually claims. Branch state at handoff: **HEAD `b57df25`, 7 commits, not pushed, not merged.**
 
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
@@ -229,7 +497,7 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-SP05-26 | Daemon e2e against the real binary | `go test -run 'TestE2EHookRoundTrip\|TestE2ELazySpawn\|TestE2EIdleExit\|TestE2ESpoolSubmodeEndToEnd\|TestE2ESelfTest' ./test/e2e/` | 50 hooks ⇒ 50 WAL lines; lazy spawn listening within 1.5 s and the spool drained; idle exit removes lock and state; `self-test --json` exits 0 with `mode == "full"` |
 | V2-SP05-27 | **B-A / B-B / B-D / B-E hot-path harness** | `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-v2-baseline.json` | `B-A.pass == true` (p99 < 15 ms), `B-B.pass == true` (p99 < 2 ms), `B-E.pass == true` (p99 < 2 s); `b_a_method` and `spawn_floor_ms` present; B-D reported, never gated. **See §5 — this must be re-run warm with the real store/DAG/sketches** |
 | V2-SP05-28 | Security posture | `go run ./tools/devtool lint` + the CI `security` job on the branch | zero non-test imports of `net/http`, `net/url`, `crypto/tls`; `net` only in `internal/ipc` and only `unix`; `os/exec` only in `internal/daemon`, `internal/cli`, `tools/`; `govulncheck` clean |
-| V2-SP05-29 | Coverage floors | `go run ./tools/devtool cover` | `internal/ipc`, `internal/daemon`, `internal/contract` and SP-05's `internal/cli` files each ≥ **75 %** |
+| V2-SP05-29 | Coverage floors | `go run ./tools/devtool cover` **and** `go test -cover -count=1 ./internal/ipc/ ./internal/daemon/ ./internal/contract/ ./internal/cli/` | `internal/ipc`, `internal/daemon`, `internal/contract` and SP-05's `internal/cli` files each ≥ **75 %**. Measured at SP-05's tip: **ipc 84.2 %, daemon 82.0 %, contract 83.9 %, cli 81.5 % — on Windows only** (§2.5a G). Read the second command's numbers: `cover` is vacuous for `ipc`/`daemon`/`contract` until **V2-MERGE-14** lands, and `contract` additionally sits in `probeBlind`, so it is exempt from the stub cross-check by design and needs `landedSubplans` to bind at all |
 
 ### 2.6 SP-06 — content-addressed store, redaction, exact token accounting (`internal/store`, `internal/redact`, `internal/tokens`)
 
@@ -261,32 +529,127 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-SP06-24 | Store e2e | `go test -run 'TestE2E_StoreSurvivesProcessRestart\|TestE2E_SecretNeverLandsInObjects' ./test/e2e/` | 200 payloads survive restart with matching `Stats`; **no built-in secret literal appears in any decompressed object** |
 | V2-SP06-25 | Store/redact/tokens performance | `go test -bench . -benchmem ./internal/store ./internal/redact ./internal/tokens` | `PutBytes_100KB_Cold` ≤ 3 ms; `_Warm` ≤ 400 µs; `GetChunk` ≤ 60 µs; `OpenSpan_4KB_of_4MB` ≤ 150 µs; `OpenStore_50kRoots` ≤ 400 ms; `MarkEncoded_100` ≤ 1 ms; `Redact` 100 KB ≤ 2 ms |
 | V2-SP06-26 | Conformance suites, zero skips | `go test -run 'Suite' ./internal/store/... ./internal/redact/... ./internal/tokens/...` ; `grep -rn "t.Skip" internal/store/storetest internal/redact/redacttest internal/tokens/tokenstest` | `RunStoreSuite` and `RunSegmentLogSuite` green; grep returns nothing |
-| V2-SP06-27 | Coverage floors | `go run ./tools/devtool cover` | `internal/store` ≥ **90 %**; `internal/redact` ≥ **90 %** and `internal/tokens` ≥ **90 %** (SP-06's self-imposed override over the §6.4 75 % floor) |
+| V2-SP06-27 | Coverage floors | `go run ./tools/devtool cover` **and** `go test -cover -count=1 ./internal/store/... ./internal/redact/... ./internal/tokens/...` | `internal/store` ≥ **90 %**; `internal/redact` ≥ **90 %** and `internal/tokens` ≥ **90 %** (SP-06's self-imposed override over the §6.4 75 % floor). **`devtool cover` cannot check two of these three.** `plans/OWNERS.tsv` records `redact` at floor **75** and `tokens` at floor **75** (owner `SP-01`), so `cover` passes them anywhere in 75–89 % while this row claims 90. Read the second command's numbers; then either raise both OWNERS.tsv floors to 90 so the override is machine-checked, or restate the row at 75 and record the actual figures. A self-imposed floor that no tool enforces is a §2.0-class dead gate in miniature |
+
+#### 2.6a Carried forward from SP-06 — read before running §2.6
+
+Ten items below change what §2.6 should expect. Each was found during SP-06's implementation, is recorded in that subplan's own spec-resolutions table, and is reproduced here because **this checkpoint is where they surface**. None is a defect to re-open: ① is a real ordering constraint this checkpoint is the right place to settle, ⑦ is a regeneration the wave-1 merges legitimately force, ⑧ is a merge-hygiene check that must run **before** anything else in this document, and the rest are corrections to the expected result.
+
+> **⑧ first.** It is the only item here that can be destroyed by the merge it describes, and the only one whose evidence expires. If you read nothing else in this section, run its greps.
+
+**① `TestGuard_Phase0BeforeStore` fails on `feat/sp06-content-addressed-store` in isolation, and that is correct behaviour.**
+
+The guard fires when `internal/store` is real while `internal/eval` is still an SP-01 stub, citing closing note 1 — *"Phase 0. Without measurement, everything else is opinion."* `internal/eval` is **SP-02's**, so a branch containing only SP-06 structurally cannot satisfy it: store is real, eval is not.
+
+The guard was deliberately **left untouched**. It encodes a ship-order constraint about what reaches an integration branch, and neutralizing it to make one topic branch green would discard exactly the signal it exists to raise.
+
+- **Resolution at this checkpoint:** it clears by itself once SP-02 is merged into `develop`, because `evalProbe` then reports not-a-stub. §1's merge sequence already lands SP-02 before SP-06.
+- **What to verify here:** after the wave-1 merges, `go test -run TestGuard_Phase0BeforeStore ./test/guards/` must pass **without any change to `buildorder_test.go`**. If it still fails, the wave order was violated, not the guard.
+- **Do not** "fix" this by merging SP-06 ahead of SP-02, or by gating the guard on a branch name or environment variable.
+
+**② V2-SP06-25 — the `Redact` 100 KB ≤ 2 ms budget does not hold for two of three payload shapes.** After a mandatory-literal prefilter, the dominant no-secret case is **0.64 ms** (from 32.5 ms, 51×) and a warm `PutBytes_100KB` is **227 µs**. But a payload merely *containing* a keyword such as `key` or `token` costs **8.2 ms**, and one carrying real secrets **27.2 ms**. Measured per rule, every rule except `pem_private_key` costs ≥ 2 ms for a single 100 KB RE2 pass on its own, so the budget is unreachable whenever even one full scan is required — `pem_private_key` is 250× cheaper only because its literal prefix `-----BEGIN ` triggers Go's literal-prefix scanner, which a leading `\b` defeats. Collapsing the ten rules into one alternation was measured and is **0.53–0.67×, i.e. slower**. Expect the two over-budget figures; treat the 2 ms number as needing revision, and see SP-17 for the window-around-literal-hits option that was deliberately not taken (it changes `\b` and `(?m)^$` semantics at every window edge).
+
+**③ V2-SP06-26 — `grep -rn "t.Skip"` over the three conformance packages WILL return hits, and must.** Rule W-1 is implemented as a *runtime probe* (`skipIfStubStore`, `skipIfStub`), not as static skips, so the `t.Skip(ruleW1SkipMsg)` literal is permanently present in each suite and simply stops being reached once a real implementation lands. **Replace the grep with the assertion that actually matters:** run `go test -run 'Suite' ./internal/store/... ./internal/redact/... ./internal/tokens/... -v` and confirm every `/behaviour` subtest reports RUN and PASS rather than SKIP. As of SP-06 all six frozen store/segment behaviour cases execute (`put_get_round_trip`, `global_dedup_second_put_is_not_novel`, `changed_since_detects_a_hash_change`, `file_history_is_append_only_and_never_shrinks`, `mark_encoded_is_the_dpi_guard`, `range_never_loses_a_previously_returned_segment`). *(This is the third independent report of the same class of defect — see §2.2a ③ for `internal/eval` and V2-SP07-16 for `internal/dag`.)*
+
+**④ V2-SP06-09 — `Novel` is not strictly decreasing across all four fixture versions.** v4 rewrites 240 lines *and* grows the file 19 %, so it legitimately writes more chunks than v1. The ≤ 1.6× bound is scoped to v1–v3, the small-edit case §6.1 actually describes; v4 is covered by `TestPutBytes_LargeRewriteStillSharesChunks`.
+
+**⑤ V2-SP06-19 — `DedupRatio ≥ 4.0` holds, but the numbers are pre-canonicalization.** Measured **12.40** on four versions read four times each and **6.34** on the read-heavy corpus, both with `internal/canon` still an SP-01 stub. SP-04's O2 canonicalizers can only raise them, so re-measure here and expect an increase; a *decrease* after the wave-1 merges is a regression worth investigating.
+
+**⑥ V2-SP06-18 / -20 / -25 — several benchmarks were taken on Windows and miss on syscall cost, not algorithmically.** Text search 69.5 ms vs 25 ms, `GC_50kObjects` 2.42 s vs 2 s, `GetChunk` 154 µs vs 60 µs, `OpenStore_50kRoots` 404 ms vs 400 ms. A CPU profile is **90.9 % `runtime.cgocall`** with zstd decode at 1.4 %. These budgets are specified against the CI Linux runner, where `open()` is roughly 10× cheaper; **re-measure there before treating any of them as a real miss.** Note also that `BenchmarkGC_50kObjects` previously seeded only 4 000 objects while claiming 50 000 — it now genuinely builds ~50 k, so its number is not comparable to any figure recorded before SP-06.
+
+**⑦ The `testdata/golden/store/*` index goldens WILL need `-update` after the wave-1 merges, and that is expected rather than a regression.** They pin the on-disk shape of the five index files, recorded while `sketch`, `canon` and `chunk` were all still SP-01 stubs (Rule W-2). Three things change underneath them at this checkpoint: no `"sig"` key appears in any line today, because `sketch.Signature.MarshalBinary` reports `ErrNotImplemented` and both writers omit the key rather than fail the write — **once SP-03 lands, real signatures start being emitted**; `"canon"` currently always equals `"raw"`, because canonicalization is a no-op, and **SP-04 will make them diverge**; and the chunk arrays come from an injected content-defined chunker rather than the real one, so **SP-04's chunker changes the hashes and the boundaries**. The correct action here is: run `go test ./internal/store/ -run TestGolden_IndexFormats` first, and if it fails, confirm the diff is confined to those three axes before regenerating with `-update`. A diff touching key order, key names, or the `{"v":1,…}` record shape is **not** covered by this note and is a real regression. These goldens are SP-06's own artifacts under `testdata/golden/store/`; the frozen contract fixtures under `testdata/golden/contracts/store/` pin the Go types instead, are asserted by `fixture_test.go`, and must reproduce **unchanged** — if those move, something is genuinely wrong.
+
+**⑧ THIS FILE WAS EDITED ON THREE WAVE-1 BRANCHES AT ONCE. Verify every half survived the merge before running anything below.** SP-06 added §2.6a (this section). SP-04 independently added a recommended-model header and a **new §2.0 merge-inspection section with `V2-MERGE-*` rows**, which did not exist on `develop`. SP-07 independently added the §2.7 preamble. The three touch different regions, so git merges them **cleanly and silently** — which is the danger: nothing will conflict, and nothing will announce that a half went missing if a resolution took one side wholesale. Run the greps in **§2.0a** and require every one of them.
+
+Those patterns are deliberately **self-exclusive**: they match section headings and row IDs, not the prose of this warning, which names every half and would otherwise satisfy its own check. (Written the obvious way first — `grep -c "2.6a Carried forward from SP-06"` and `grep -c "V2-MERGE-"` — both returned a match on a file missing SP-04's half entirely, reporting success for exactly the state they exist to catch. Do not "simplify" them back.)
+
+If any is zero the merge lost content, and the missing half is **gates this checkpoint is supposed to run** — §2.0's own note says three of its rows read state that §5 and §7 later overwrite, so once the fan-out has started those questions can no longer be answered at all. Recover with `git show <branch>:plans/V2-VERIFY-primitives-store-dag-and-baseline.md` and re-apply. The correct resolution is a **union of every edit**; never `-X ours` / `-X theirs` on a plan file.
+
+**One caveat that made this urgent rather than routine, now closed.** When SP-06 landed, SP-04's half was **uncommitted in its worktree** (`C:\Users\Quant\Documents\Programming\Projects\qompack`, branch `feat/sp04-…`), so no branch carried it and `git show` could not have recovered it — a `checkout`, `reset` or `stash drop` there would have destroyed it with no conflict and no trace. That content is now in this file. The general lesson stands for wave 2: **a plan-file edit that lives only in a worktree is one `git checkout` from gone**, and `git worktree list` plus a per-worktree `git status` is the five-second check that finds it.
+
+**⑨ `TestConformance_BehaviourBlocksActuallyRun` shells out to `go test -json`.** It is the mechanized W-1 merge blocker (see ③) and spawns one subprocess per suite, so it requires the **`go` toolchain on `PATH`** in whatever environment runs it. On a sandboxed or toolchain-less runner it fails with "go test -json produced no test events", which is an environment fault and not a conformance failure — do not read it as the suites having stopped running. It also builds those three packages without `-race` even under `devtool test-race`; that is a cost, not a correctness issue.
+
+**⑩ Two couplings that will surface as loud, self-explaining failures rather than silent drift.** `test/e2e/store_test.go` hardcodes one literal per secret family and asserts each is present in its corpus fixture first, so regenerating `testdata/corpora/secrets/**` fails on a `fixture sanity` message naming the file — update the literal, do not weaken the assertion. Separately, **SP-06's commits 1–7 do not individually pass `golangci-lint`**: three `errcheck`/`unconvert` findings in commit 3 and 5's test files were fixed in commit 8, so only the branch tip is lint-clean. That is within the subplan's rule (per-commit gating is `devtool test`; `ci-local` is required at the final commit only), but a per-commit or bisecting lint run will report them.
+
+**⑪ Defects SP-06 found in its own code during integration, fixed on the branch, and worth re-asserting here.** Each was reachable only through the public API or only on a failure path, which is how they survived to commit 8; each now has a test, and each is a regression class wave 2 can reintroduce. `openFS` leaked every append-only handle it had already opened whenever a later step failed — and a failed `openFS` returns no store, so nothing in the process could ever close them (`FSStore.releaseWriters`; on Windows they also locked the index files against the next attempt). `parseRootLine` accepted records it could not interpret, so any future `v:2` or unknown `op` line in `roots.jsonl` would have been indexed as a **phantom root** that `Stats` counts and `Search` ranks. **Seven entry points took a `context.Context` and never read it** — including `Put`, `PutBytes`, `GetChunk`, `Open` and `GC`, i.e. the whole ingest hot path — which makes SP-05's B-C budget advisory rather than enforced; the exemption for in-memory readers is now explicit and swept by `TestContract_BlockingEntryPointsHonourCancellation` / `TestContract_InMemoryLookupsIgnoreCancellation`. `clampSpan` and `truncateRunes` each promised a bound they did not enforce. And `chunkSet`'s `int32` narrowing was unguarded on the read path, so one bad digit in one index line could turn every read of that chunk into a spurious integrity failure — or, landing on `-1`, into a *silently disabled* integrity check.
+
+**⑫ Two spec-level corrections SP-06 made that later waves inherit.** The `Redact` algorithm as written in `plans/V2-SP-06-content-addressed-store.md` appended `'»'` as a **rune constant**, which Go truncates to the single byte `0xBB` instead of the two-byte UTF-8 sequence — producing invalid UTF-8 and, worse, output that `placeholderRe` can never match, so the idempotence guard was **silently dead** and `Redact(Redact(x)) != Redact(x)`. And the guard `if rule.name != "pem_private_key" && s == 0 && e == len(in) { continue }` meant `Redact("@@SEC_AWS_AKID@@")` returned the key **unredacted**; the PEM carve-out reasoning applies verbatim to all ten families, so it is generalized rather than special-cased. Both are fixed in the code. **The buggy lines are still in the subplan document** — correct them there before any later subplan copies them.
+
+**⑬ Three deliberate departures from SP-06's own plan text that change observable behaviour.** Each was forced, each is recorded, and each will otherwise be read as a defect here. **(a) `putObject`'s per-object `Sync()` before the rename is gone.** Measured: one 100 KB result is tens to hundreds of chunks and serialized fsyncs cost **1.9 s** against a 3 ms budget. The rename still provides *atomicity* — no torn object is ever visible — and *durability* is batched into `Flush`, exactly how borg, restic and git commit a repository transaction. **A crash can now lose an object but can never corrupt one.** The reachable crash states are: neither object nor root line (clean); an object with no root line (an orphan, which GC collects); or **a root line without its object**, which `GetChunk`/`Open` report as `core.ErrNotFound` and `Has` catches by falling back to a stat. That last state is degraded-but-detected, and repairing it is `qompack fsck`'s job — **a residual SP-17 inherits**, and one of the few places where "loud degradation" currently means "an error at read time" rather than "a repair". **(b) The rename backoff is not the specified 1/2/4 ms sleep**, because §6.1 bans wall-clock sleeps outright, `devtool lint`'s `sleepcheck` enforces that with no annotation escape hatch, and 7 ms of backoff inside a 3 ms budget is precisely what the ban exists to prevent. Retries are separated by `runtime.Gosched()`; a lock that outlives them fails the Put, the caller degrades (§12.3), and the identical object is rewritten next attempt because the content address has not changed. **(c) SP-06 rewrote a second SP-01 `tokens` test** — see V2-SP01-23, where the row's "only `TestEstimate_ProseVsCode`" parenthetical is now wrong.
 
 ### 2.7 SP-07 — dependence DAG and slicing (`internal/dag`)
+
+#### 2.7a Inbound from SP-07 — read before executing the table
+
+> **`plans/V2-SP07-handoff.md` is the long form of this section**, written at the tip of `feat/sp07-dependence-dag-and-slicing`. Seven rows below, plus V2-ALL-04, do not reconcile against a literal reading of their *Expected result* column. Two of them repeat defects SP-02 already reported in §2.2a — **if the same two flaws appear in two independently written sections, assume §2.3–§2.6 carry them too.**
+
+**A. Rows whose expectation is wrong**
+
+**① V2-SP07-16 is wrong as written, and satisfying it literally deletes a mandated mechanism.** `grep -rn "t.Skip" internal/dag` can never return nothing: `internal/dag/dagtest/suite.go:124` calls `t.Skip(ruleW1SkipMsg)`, which is Rule W-1's mandatory mechanism (`00-ARCHITECTURE.md` D9, §5.22), and `dagtest/suite_test.go:42` (`TestRunGraphSuite_StubIsSkipped`) is an **SP-01 test that asserts the skip fires**. The bare string `t.Skip` also appears in four *comments* (`bench_test.go:63`, `dagtest/behaviour.go:237` and `:239`, `dagtest/suite.go:119`), each explaining why a skip is *not* used at that site — so the grep returns hits even with no skip present. **This is the same defect as V2-SP02-12.** The row's intent already holds: `go test -run Conformance ./internal/dag/ -v | grep -c -- "--- SKIP"` ⇒ `0`. Use that, or the scoped `grep -rnE "t\.Skip\(" internal/dag --include='*.go' | grep -v 'dagtest/suite\.go'` ⇒ empty.
+
+**② V2-SP07-20 passes vacuously** — the same hole SP-02 closed for `internal/eval`. `tools/devtool/cover.go` `continue`s on every package not owned by SP-01, printing `exempt (stub, owned by SP-07): dag` **without ever testing whether the package is still a stub**, so this row would report success at 0 % coverage just as readily. `plans/OWNERS.tsv:36` declares the floor (`dag SP-07 85 AddNode`), so the floor is registered and unenforced. Measured directly instead:
+
+```sh
+go test -coverprofile=<scratch>/dag.cover ./internal/dag/     # coverage: 90.9% of statements
+```
+
+**SP-07 could not fix this, and the reason matters for the merge:** SP-02's `landedSubplans` list *does not exist on `feat/sp07-…`*, because SP-07 was cut from `develop` **before** SP-02 merged — so `cover.go` there is still the unconditional version, and SP-07 had nothing to add itself to. The fix is **V2-MERGE-14**.
+
+> **The scope of this row is the whole document, not `internal/dag`.** The same hole currently exempts `chunk`, `canon`, `symbols`, `store`, `sketch`, `redact`, `ipc`, `daemon`, `contract` and `eval` as well — so **every coverage assertion anywhere in this file is vacuous until V2-MERGE-14 lands**, in §2.2 (V2-SP02-20), §2.3 (V2-SP03-20), §2.4 (V2-SP04-27), §2.5 (V2-SP05-29), §2.6 (V2-SP06-27), §2.7 (this row) **and in §3.1 item 2**, which asserts the same property against `develop` and is the one place a reader would reasonably expect the gate to be checked as a gate. Do the fix once, for every wave-1 package as it lands, not per-row as each subagent trips over it.
+
+**B. Deviations forced by SP-01's frozen fixtures — accept these, do not repair them**
+
+Rule W-2 froze `testdata/golden/contracts/dag/want/{node_line,edge_line}.jsonl` before SP-07 was written, and four of SP-07's own specifications conflict with those bytes. The frozen fixtures won; `docs/adr/0007-dag-slices-are-scores-not-drop-decisions.md` carries the full reasoning.
+
+- **V2-SP07-03 — the NodeID is 378 bytes, not 376.** The frozen node line pins `"id":"file:src/auth.ts"`, and `file:` is 5 bytes, so `5 + 360 (head) + 1 ("~") + 12 (Hash.Short) = 378`. The row's 376 assumes a 3-byte prefix. The long forms (`file:`, `tooluse:`, `toolresult:`, `assistant:`, `userprompt:`, `symbol:`, `decision:`, `elimination:`, `segment:`) are contractual. `TestNodeIDLongKeyHashSuffix` asserts 378 as a literal. **Read the row as 378.**
+- **V2-SP07-02 — kinds round-trip through `String()`/`Parse*`, not `encoding.TextMarshaler`.** `TestNodeKindTextRoundTrip` and `TestEdgeKindTextRoundTrip` cover every kind via `String()` + `ParseNodeKind`/`ParseEdgeKind`. **Adding the `TextMarshaler` pair was verified empirically to break both marshalling and unmarshalling of the frozen fixtures**, because the kinds are pinned as *integers* (`"kind":4` ⇒ `KindFile`) and `encoding/json` prefers `TextMarshaler` over the integer form. `doc.go` carries a standing warning against adding it. **The multiplier table, the kind count and the numbering this row also checks are all unaffected** — only the round-trip mechanism differs, so verify those three literally and read "text round-trips" as `String()`/`Parse*`. The same constraint is why `KindInvalid`/`EdgeInvalid` are **last** in their iota blocks: prepending a sentinel renumbers every kind and breaks `node_line.jsonl`.
+- **V2-SP07-12 / -13 — the generation record is `"type":"generation"`, not a `g` record.** SP-01's frozen line shape discriminates every line on a `"type"` field, so the four line types are `node`, `edge`, `tombstone`, `generation`. `gen:1` is literally present: `{"type":"generation","v":1,"gen":1,"ts":…,"nodes":12,"edges":10}`. Only the discriminator token differs. **Read `g` as `"type":"generation"`.**
+- **V2-SP07-11 — `thin-vs-full.json` carries no `ns_thin`/`ns_full` fields.** A golden containing nanosecond measurements differs on every run, so it would either be rewritten constantly or compared so loosely it asserts nothing. The `ns_thin ≤ ns_full` claim is asserted per seed in `TestThinVsFullComparison` and logged (`thin 253.31µs, full 720.53µs` — thin is 2.5–4× cheaper on every seed). The size/recall/precision fields *are* in the golden and reproduce within 2 %. **One caveat that bit this branch:** a single slice costs a few hundred microseconds, which is **not** safely above Go's monotonic-clock granularity on Windows (it falls back to roughly millisecond resolution when no process holds the system timer finer, and that can change mid-run). The original assertion compared two single-shot readings 8 µs apart and failed under `go test ./...` load. It now times a batch of 20 and divides — **if you touch this measurement, keep the batch.**
+- **V2-SP07-05 — the concurrency test runs 250 iterations, not 2 000.** `TestConcurrentMutationAndRead` uses 8 writers × 8 readers × **250**. Every reader iteration calls `CrossingEdges` and `NodesAfter` against an index a concurrent writer has almost certainly dirtied, so each pays a full O(N log N) rebuild — by design, that is the contended path the test exists to exercise. Cost grows as `iterations × N log N` *and* N grows with iterations: at 2 000 the graph reaches ~32 000 nodes and the run takes minutes. **Read the row as 250**, or move throughput-under-contention to a benchmark.
+
+**C. Carry-forward work items this checkpoint owns**
+
+- **ACTION 1 — `backward_slice_scores` is still unrecorded.** `testdata/golden/contracts/dag/MANIFEST.json` lists it as `record-by-owner` with SP-07 as owner, but recording it flips `internal/testutil/fixtures_test.go`'s guard from 23 recorded / 5 record-by-owner to 24 / 4 — **a different package's contract test**. SP-07 shipped the five fixtures its own plan names — `nodeid.json`, `graph-basic.jsonl`, `crossing.json`, `slice-backward.json`, `thin-vs-full.json` — and left this one visible rather than quietly editing another package's guard mid-wave. Either record it and update the guard in the same commit, or drop the manifest entry if `slice-backward.json` covers it. **Do not leave it as-is:** a permanently unrecorded `record-by-owner` entry trains people to ignore the manifest. Note the interaction with **V2-MERGE-15**: the merged counts are 33/5 before this action and **34/4** after it, so both edits belong in one commit.
+- **ACTION 2 — add SP-07 to `landedSubplans`.** Converges with §2.2a ⑤ and SP04-D4; the authoritative form is **V2-MERGE-14**, which must list all seven subplans, not just this one.
+- **ACTION 3 — V2-ALL-04 cannot run in this environment.** The row requires pushing `verify/v2` and confirming the CI matrix. **This repository has no git remote.** `ci-local` is the closest available equivalent and is green end to end. Either add a remote before the checkpoint, or record the row as **environment-blocked** — but **do not mark it passed on the strength of `ci-local`**, which does not run the cross-OS matrix, `crossbuild`, `security` or `docs`.
+- **INHERIT (SP-09) — the DAG is not acyclic, and the negative-knowledge detector must tolerate it.** D-7 forbids one specific cycle (an assistant consuming the result of the tool use it emitted). The **whole graph is not a DAG and cannot be**: the ordinary Read-then-Edit pattern closes a legitimate loop, because §8.1 item 4 directs a shared-file edge *into* a tool use that consumed a file and *out of* one that produced it — `tooluse:t1 → toolresult:t1 → assistant:2 → tooluse:t2 → file:a → tooluse:t1`. Every edge there is individually correct, and `TestReadThenWriteClosesALegitimateCycle` pins it so it cannot be assumed away. Slicing tolerates it by construction (scores strictly decrease along any path, each node finalizes once, the `minScore` floor bounds the walk). **SP-09 scans this same graph for the test-fail → revert → different-approach pattern and inherits the obligation: a naïve recursive descent will not terminate.** Stated in ADR 0007, repeated here because SP-09 is in a later wave and will not otherwise see it. **Carry this into `V3-VERIFY-observer-and-negative-knowledge.md` when this checkpoint closes.**
+- **NOTE — wall-clock gates are scaled, not skipped, under instrumentation.** `TestSliceLatencyBudget` and `TestCrossingLatencyBudget` assert §6.4's and §8.4's budgets on every `go test`, including `ci-local`'s uninstrumented `test` step — so the **real** budget is enforced in CI. They scale their ceiling when the binary carries instrumentation, because the same walk measures:
+
+  | build | backward slice | inflation |
+  |---|---|---|
+  | uninstrumented | 0.40 ms | — |
+  | `-covermode=atomic` (`devtool cover`) | 0.81–1.18 ms | ~3× |
+  | `-race` (`devtool test-race`) | 2.02 ms | ~5× |
+  | both | 9.23 ms | ~23× |
+
+  Factors are **4× for coverage and 8× for race, multiplied when both apply**, each above its measured inflation. They scale rather than skip because Rule W-1 bans `t.Skip` and a gate that evaporates under `-race` is one nobody notices has stopped running. All four modes still fail on the regression class the gates exist to catch (the `orderByScore` defect cost 5.4×). **If a slower CI box misses the uninstrumented 1 ms budget, that is a real signal about that host, not a reason to raise `sliceBudget`.**
+
+**D. What was already green on SP-07's branch, and one dead `-run` pattern.** Verified at the branch tip: `go test -race ./internal/dag/...` ok; `go test -race ./...` ok across the whole module; `go run ./tools/devtool ci-local` exit 0, all 8 steps; `Qompack.md` untouched; `devtool lint`'s `importgraph` confirms `internal/dag` imports only `core`, `paths`, `config`, `logging`; coverage 90.9 % ≥ 85 % measured directly. **Every §2.7 `-run` pattern was checked against `go test -list`**, which is how the next item was found — and is a check the other six groups have not had.
+
+**One dead `-run` pattern, already fixed, and the generalisation it earned.** V2-SP07-10 runs `-run 'TestSliceGolden|TestCrossingEdgesGolden'`, and the backward-slice golden test was named `TestBackwardSliceGolden` — which that pattern does **not** match, so the row verified `crossing.json` only and reported `ok` while never touching `slice-backward.json`. Renamed to `TestSliceGoldenBackward`. **`go test -run` prints `ok` when its pattern matches nothing**, so any row in this document whose pattern has drifted is a silent pass. All SP-07 patterns were checked against `go test -list`; the other groups' were not. Same lesson as §2.2a ②.
 
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
 | V2-SP07-01 | Package green under race | `go test -race ./internal/dag/...` | exit 0 |
-| V2-SP07-02 | Nine node kinds, eight edge kinds, multiplier table | `go test -run 'TestNodeKind\|TestEdgeKind' ./internal/dag/` | text round-trips for all kinds; multipliers exactly `1.00, 1.00, 1.00, 0.95, 0.88, 0.60, 0.50, 0.30`; `EdgeInvalid` ⇒ 0 |
-| V2-SP07-03 | Stable `NodeID` scheme | `go test -run 'TestNodeID\|TestParseNodeID' ./internal/dag/` | `testdata/golden/contracts/dag/nodeid.json` reproduces byte-for-byte; 500-byte key ⇒ exactly 376 bytes with hash suffix; control chars and invalid UTF-8 sanitized and round-trip through `Flush`/`Open` |
+| V2-SP07-02 | Nine node kinds, eight edge kinds, multiplier table | `go test -run 'TestNodeKind\|TestEdgeKind' ./internal/dag/` | text round-trips for all kinds **via `String()` + `ParseNodeKind`/`ParseEdgeKind`, NOT `encoding.TextMarshaler`** — adding the `TextMarshaler` pair breaks the frozen fixtures, which pin kinds as integers (§2.7a B); multipliers exactly `1.00, 1.00, 1.00, 0.95, 0.88, 0.60, 0.50, 0.30`; `EdgeInvalid` ⇒ 0; `KindInvalid`/`EdgeInvalid` are **last** in their iota blocks and must stay there |
+| V2-SP07-03 | Stable `NodeID` scheme | `go test -run 'TestNodeID\|TestParseNodeID' ./internal/dag/` | `testdata/golden/contracts/dag/nodeid.json` reproduces byte-for-byte; 500-byte key ⇒ exactly **378** bytes with hash suffix (`5 + 360 + 1 + 12`; the row's 376 assumed a 3-byte prefix the frozen fixture forbids — §2.7a B); control chars and invalid UTF-8 sanitized and round-trip through `Flush`/`Open` |
 | V2-SP07-04 | Graph mutation: validation, upsert, dedup, tombstones | `go test -run 'TestAddNode\|TestAddEdge\|TestTombstone\|TestOutInCopies\|TestAnchorNodePosIsEarliest\|TestClosedGraphRejects' ./internal/dag/` | invalid nodes/edges wrap `ErrInvalidNode`/`ErrInvalidEdge`; upsert merges; ephemeral is sticky; edge dedup keeps max weight and min turn; dangling endpoints tolerated and counted; anchor nodes keep the earliest `Pos` |
-| V2-SP07-05 | Concurrency | `go test -race -run TestConcurrentMutationAndRead ./internal/dag/` | 8 writers × 8 readers × 2 000 iterations: no race, no deadlock, no panic; final `Stats().Nodes` exact |
+| V2-SP07-05 | Concurrency | `go test -race -run TestConcurrentMutationAndRead ./internal/dag/` | 8 writers × 8 readers × **250** iterations: no race, no deadlock, no panic; final `Stats().Nodes` exact. **Read the row as 250, not 2 000** — cost is `iterations × N log N` with N growing in iterations, so 2 000 takes minutes and buys no coverage (§2.7a B) |
 | V2-SP07-06 | **`CrossingEdges` = `segment_coupling(p)`** (§8.4) | `go test -run 'TestCrossingEdges\|PropCrossingEdgesMatchesBruteForce' ./internal/dag/` ; `go test -bench BenchmarkCrossingEdges ./internal/dag/` and `go test -run TestCrossingLatencyBudget ./internal/dag/` | matches brute force on every rapid case and all twelve golden positions; the `lo < pos <= hi` rule asserted at both ends; dangling excluded; equal positions cross nothing; **< 5 µs median on 15 000 edges** |
 | V2-SP07-07 | `NodesAfter` total order | `go test -run 'TestNodesAfterOrdering\|PropNodesAfterMatchesFilter' ./internal/dag/` | live-only, freshly allocated, ordered by `(Pos, Turn, ID)` |
 | V2-SP07-08 | **Scored backward/forward slicing** (§6.4, §8.3) | `go test -run 'TestBackwardSlice\|TestForwardSlice\|TestSlice' ./internal/dag/` | exact decayed scores (`1, 0.85, 0.7225`); max-path not sum; `MaxNodes` truncation exact and the exact-fit case not marked truncated; `MaxDepth` respected; the `1e-4` floor is not a truncation; unknown criteria ⇒ empty with nil error; deterministic tie-break |
 | V2-SP07-09 | Thin slicing is the default and is a subset of full | `go test -run 'TestThinDropsControlOnly\|TestDefaultSliceOptionsFromConfig\|PropThinSliceIsSubsetOfFull\|PropScoresBoundedAndMonotone' ./internal/dag/` | `DefaultSliceOptions(config.Defaults()).Thin == true`; `Decay == 0.85`; `MaxNodes == 5000`; `Deadline == 5ms`; thin ⊆ full with `thin[id] ≤ full[id]` |
-| V2-SP07-10 | Slice goldens | `go test -run 'TestSliceGolden\|TestCrossingEdgesGolden' ./internal/dag/` (**no** `-update`) | `slice-backward.json` and `crossing.json` reproduce to 5 decimals / exactly |
-| V2-SP07-11 | **Thin-vs-full measurement** (the §6.4 tradeoff, quantified) | `go test -run TestThinVsFullComparison ./internal/dag/ -v` | across 8 seeds: mean `size_ratio ≤ 0.75`, mean `recall ≥ 0.85`, mean `precision ≥ precision_full`, `ns_thin ≤ ns_full`; `thin-vs-full.json` matches within 2 % |
-| V2-SP07-12 | Persistence: append-only `deps.jsonl`, torn tails, corrupt lines | `go test -run 'TestFlush\|TestOpen\|TestAutoFlushAt2000\|PropLogRoundTrip' ./internal/dag/` | `Flush` bytes equal `graph-basic.jsonl` (minus the `g` header); torn tail ⇒ `TruncatedTail == true`, `LoadErrors == 0`; corrupt line ⇒ `LoadErrors == 1` and exactly one `Loud`; auto-flush at 2 000 records; flush failure retains pending |
-| V2-SP07-13 | Idle-only `Compact` | `go test -run TestCompact ./internal/dag/` | drops tombstoned nodes, writes a `g` record with `gen:1`, no-op below the 25 % waste threshold, flushes pending first, preserves every slice answer, restores cleanly on cancel |
+| V2-SP07-10 | Slice goldens | `go test -run 'TestSliceGolden\|TestCrossingEdgesGolden' ./internal/dag/` (**no** `-update`) | `slice-backward.json` **and** `crossing.json` reproduce to 5 decimals / exactly. Confirm **both** ran: the backward-slice test was named `TestBackwardSliceGolden`, which this pattern does not match, so the row silently verified `crossing.json` alone and printed `ok`. It is renamed `TestSliceGoldenBackward` — verify with `go test -list 'TestSliceGolden\|TestCrossingEdgesGolden' ./internal/dag/` before trusting the result (§2.7a D) |
+| V2-SP07-11 | **Thin-vs-full measurement** (the §6.4 tradeoff, quantified) | `go test -run TestThinVsFullComparison ./internal/dag/ -v` | across 8 seeds: mean `size_ratio ≤ 0.75`, mean `recall ≥ 0.85`, mean `precision ≥ precision_full`; `thin-vs-full.json` matches within 2 %. **`ns_thin`/`ns_full` are asserted in the test and logged, not carried in the golden** — a golden holding nanoseconds differs on every run (§2.7a B). Expect `thin 253.31µs, full 720.53µs`-shaped log lines, 2.5–4× on every seed. The measurement times a **batch of 20** because a single slice is not safely above Go's clock granularity on Windows; keep the batch |
+| V2-SP07-12 | Persistence: append-only `deps.jsonl`, torn tails, corrupt lines | `go test -run 'TestFlush\|TestOpen\|TestAutoFlushAt2000\|PropLogRoundTrip' ./internal/dag/` | `Flush` bytes equal `graph-basic.jsonl` (minus the generation header); torn tail ⇒ `TruncatedTail == true`, `LoadErrors == 0`; corrupt line ⇒ `LoadErrors == 1` and exactly one `Loud`; auto-flush at 2 000 records; flush failure retains pending. **Read "the `g` header" as `{"type":"generation",…}`** — SP-01's frozen line shape discriminates on `"type"`, so the four line types are `node`, `edge`, `tombstone`, `generation` (§2.7a B) |
+| V2-SP07-13 | Idle-only `Compact` | `go test -run TestCompact ./internal/dag/` | drops tombstoned nodes, writes **`{"type":"generation","v":1,"gen":1,…}`** (the row's "a `g` record with `gen:1`" — `gen:1` is literally present, only the discriminator token differs), no-op below the 25 % waste threshold, flushes pending first, preserves every slice answer, restores cleanly on cancel |
 | V2-SP07-14 | **§8.1 item 4 edge builders, acyclic by construction** | `go test -run 'TestBuild\|TestBuilderOutputIsAcyclic' ./internal/dag/ -v` | the exact five-node/five-edge set for a read; consumes edge starts at the **previous** result; suppressed for parallel siblings (`PrevTurn == Turn`); future `PrevTurn` rejected; write direction reverses file/symbol edges; supersession edge scored `0.255`; **DFS over 200 built tool uses finds no cycle** |
 | V2-SP07-15 | **No selection authority** (closing note 3, mechanized) | `go test -run TestNoBooleanKeepAPI ./internal/dag/ -v` | no exported function returns `map[NodeID]bool` / `[]bool`; no exported identifier matches `keepset\|dropset\|^keep\|^drop\|evict`; `doc.go` still contains the literal `NO SELECTION AUTHORITY` |
-| V2-SP07-16 | `dagtest` conformance suite, zero skips | `go test -run 'Suite\|Conformance' ./internal/dag/...` ; `grep -rn "t.Skip" internal/dag` | `RunGraphSuite` green against the real `dag.Open`; grep returns nothing |
+| V2-SP07-16 | `dagtest` conformance suite, zero **behaviour** skips | `go test -run Conformance ./internal/dag/ -v \| grep -c -- "--- SKIP"` ; `grep -rnE "t\.Skip\(" internal/dag --include='*.go' \| grep -v 'dagtest/suite\.go'` | Skip count **0**; scoped grep empty; `RunGraphSuite` green against the real `dag.Open`. **The plan's `grep -rn "t.Skip" internal/dag` returns nothing is wrong and must not be satisfied** — it matches Rule W-1's mandatory skip at `dagtest/suite.go:124` (which `TestRunGraphSuite_StubIsSkipped`, an SP-01 test, asserts must fire) plus four explanatory *comments*. Deleting them violates `00-ARCHITECTURE.md` D9/§5.22. Identical to V2-SP02-12 (§2.7a A) |
 | V2-SP07-17 | Synthetic generator determinism | `go test ./internal/dag/dagtest/` | seed 7 produces an identical node/edge dump on two runs; the generated graph is acyclic |
 | V2-SP07-18 | **Slice latency** (§6.4 "sub-millisecond") | `go test -bench 'Slice' ./internal/dag/` and `go test -run TestSliceLatencyBudget ./internal/dag/` | `BenchmarkBackwardSlice5000` and `BenchmarkForwardSlice5000` **< 1 ms/op** median of 20 on a 5 000-node / ~15 000-edge graph; `BuildToolUse` < 3 µs |
 | V2-SP07-19 | Import purity | `go run ./tools/devtool lint` (`importgraph`) | `internal/dag` imports only `core`, `paths`, `config`, `logging` — in particular **not** `store`, **not** `symbols`, **not** `eval` |
-| V2-SP07-20 | Coverage floor | `go run ./tools/devtool cover` | `internal/dag` ≥ **85 %** |
+| V2-SP07-20 | Coverage floor | `go run ./tools/devtool cover` **and** `go test -cover -count=1 ./internal/dag/` | `internal/dag` ≥ **85 %** (measured 90.9 % at SP-07's tip). **`devtool cover` does not check this until V2-MERGE-14 lands** — it prints `exempt (stub, owned by SP-07): dag` and exits 0 at any coverage, including 0 %, without ever testing whether the package is a stub. Read the second command's number, and treat a green `cover` alone as evidence of nothing (§2.7a A ②) |
 
 ### 2.8 Whole-tree gates that must be green before §4 begins
 
@@ -295,12 +658,13 @@ Unless stated otherwise, every command runs from the repository root `C:/Users/Q
 | V2-ALL-01 | Full suite, race | `go test -race ./...` | exit 0 (ubuntu, macos) |
 | V2-ALL-02 | Full suite, Windows repeat | `go test -count=2 ./...` | exit 0 (windows dev machine and CI) |
 | V2-ALL-03 | Local CI | `go run ./tools/devtool ci-local` | exit 0 end to end |
-| V2-ALL-04 | CI on `verify/v2` | push the branch | `verify`, `test` (×3 OS), `cover`, `crossbuild`, `bench-gate`, `replay-gate`, `plugin-validate`, `security`, `docs` all green. `bench-gate` and `replay-gate` are **required checks from the end of wave 1 onward** (§8) — confirm the `continue-on-error` flag SP-01 left on them has been removed by SP-02/SP-05 |
+| V2-ALL-04 | CI on `verify/v2` | push the branch | `verify`, `test` (×3 OS), `cover`, `crossbuild`, `bench-gate`, `replay-gate`, `plugin-validate`, `security`, `docs` all green. `bench-gate` and `replay-gate` are **required checks from the end of wave 1 onward** (§8) — confirm the `continue-on-error` flag SP-01 left on them has been removed by SP-02/SP-05. Verify that removal mechanically via **V2-MERGE-04**, not from this job's colour: a job still carrying `continue-on-error: true` reports green unconditionally, so "all green" is evidence of nothing for exactly the two gates that matter most here. Note also that `nightly.yml` is **not** exercised by this push — its correctness is V2-MERGE-01/02 and nothing in the `verify/v2` CI run will reveal a broken fuzz matrix. **⚠ This row cannot run as written: the repository has no git remote** (SP-07 ACTION 3). Either add one before the checkpoint, or record the row as **environment-blocked** and say so in the completion report. Do **not** mark it passed on the strength of `ci-local` (V2-ALL-03), which runs neither the cross-OS matrix nor `crossbuild`, `security` or `docs`. Separately, "required check" is a **branch-protection setting on `develop`** that no working-tree edit can set — removing `continue-on-error` is necessary and not sufficient (§2.2a ⑤) |
 | V2-ALL-05 | `Qompack.md` untouched by the whole wave | `git diff $(git rev-list --max-parents=0 HEAD) HEAD -- Qompack.md` | empty |
+| V2-ALL-06 | **Plan documents reconciled with the code that shipped** | `git diff origin/main..develop --name-only -- plans/` ; then read each named file | Every wave-1 plan edit is intentional and listed by name in the completion report (V2-MERGE-11). At minimum these are known and owed a decision: `plans/V2-SP-03-sketch-library.md` line 918's sampler rule is now wrong (§2.3a item 1) and its §11.6 forbidden-literal list omits `8000`; `plans/V2-SP-02-replay-harness-belady-baseline.md` carries a handoff banner; `plans/V2-SP-06-content-addressed-store.md` still contains the `'»'` rune-constant bug and the whole-input `continue` guard (§2.6a ⑫); `plans/V2-SP-07-dependence-dag-and-slicing.md`'s D-2 short NodeID prefixes contradict the frozen fixture. **Correct the plans, not the code** — in every one of these cases the ruling already went the other way |
 
 ---
 
-## Exit-criteria re-verification
+## 3. Exit-criteria re-verification
 
 Each completed subplan's exit criteria, quoted, with the concrete measurement procedure to run **now, on the integrated `develop`**. A criterion that a subplan proved on its own branch against stubs is not proven here until it is re-measured against the real siblings.
 
@@ -318,8 +682,8 @@ Each completed subplan's exit criteria, quoted, with the concrete measurement pr
 **Measurement.** SP-01's obligation was to make these measurable; wave 1 is where they become *measured*. Verify the machinery still exists and is now wired to real producers:
 
 1. `go test -run TestBudgets_AllSixPresentAndConfigDriven ./internal/obs/` — B-A..B-F exist with config-driven limits (V2-SP01-13).
-2. `go run ./tools/devtool cover` prints `exempt (stub, owned by SP-NN)` for **exactly** the still-stubbed packages and no longer exempts `store`, `sketch`, `chunk`, `canon`, `dag`, `eval` — those six now have owners on `develop`, so their §6.4 floors bind. `cover` must fail if `plans/OWNERS.tsv` claims an owner for a package whose probe still returns `ErrNotImplemented`.
-3. `go run ./tools/devtool replay -- --phase 0 --ci` enforces the 2 % rule and the Phase-0 exit criterion (§3.2 below).
+2. `go run ./tools/devtool cover` prints `exempt (stub, owned by SP-NN)` for **exactly** the still-stubbed packages and no longer exempts **any of the eleven wave-1 packages** — `eval`, `sketch`, `chunk`, `canon`, `symbols`, `ipc`, `daemon`, `contract`, `store`, `redact`, `dag` — all of which now have landed owners on `develop`, so their §6.4 floors bind. `cover` must fail if `plans/OWNERS.tsv` claims an owner for a package whose probe still returns `ErrNotImplemented`. **⚠ This item is the document's own statement of the gate and it is vacuous until V2-MERGE-14 lands** — on `develop` today `cover` exempts all eleven and exits 0, so item 2 reads as a check while testing nothing. It also named only six of the eleven; `symbols`, `redact`, `ipc`, `daemon` and `contract` were missing. See §2.7a A ②, which is where the whole-document scope of this hole is set out.
+3. `go run ./tools/devtool replay --phase 0 --ci` enforces the 2 % rule and the Phase-0 exit criterion (§3.2 below). **Note the missing `--`:** the separator this line used to carry made Go's `flag` discard every argument after it, so the command replayed the default corpus with no phase check and no `--ci` and exited 0 (§2.2a ①). That defect appeared **twice** in this document — here and at V2-SP02-15 — and SP-02's handoff only corrected the other one. Any other `devtool replay --` in this file or in `.github/` is the same bug.
 4. `go run ./tools/devtool bench-hotpath …` enforces B-A and B-E (§3.5, §5).
 5. `go test -run TestDefaults_MatchesAppendixCVerbatim ./internal/config/` — Appendix C still byte-exact after six branches touched config consumers.
 
@@ -372,7 +736,7 @@ SP-03 owns no phase exit criterion. The two it must not obstruct, quoted:
 **Measurement procedure.**
 
 1. **Contribution to the 15 ms budget**: `go test -bench BenchmarkL0SketchUpdate -benchmem ./internal/sketch/` ⇒ ≤ 5 µs/op, 0 allocs; `go test -run TestL0SketchUpdate_ZeroAlloc ./internal/sketch/` green. Record the ratio to 15 ms (target ≈ 0.03 %).
-2. **Contribution to the 4:1 ratio**: `go test -run TestMinHash_OneNewFailure -v ./internal/sketch/` ⇒ Jaccard ≥ 0.9 on the "same test suite, one new failure" fixture; then §4.2's `TestIntegration_StoreNearDupUsesRealMinHash` proves the store actually consumes it.
+2. **Contribution to the 4:1 ratio**: `go test -run 'TestMinHash_OneNewFailure|TestMinHash_StraddlingTheSampleTargetIsContinuous|TestMinHash_BottomKMatchesTheSlowDefinition' -v ./internal/sketch/` ⇒ Jaccard ≥ 0.9 on the "same test suite, one new failure" fixture, **and** the estimate tracks the true Jaccard across the sample-target boundaries; then §4.2's `TestIntegration_StoreNearDupUsesRealMinHash` proves the store actually consumes it. **`TestMinHash_OneNewFailure` on its own is not evidence and must not be quoted as if it were.** It passed for the whole life of a defect that made near-duplicate detection fail across the entire 8–66 KB range, because its fixture is 200 lines and happens to sit below the sampler's first boundary; at 210 lines the same test measured 0.414. Whatever §4.2 builds, size its documents so at least one pair straddles a multiple of `MinHashSampleTarget` — a near-dup integration test whose inputs are all on one side of that boundary re-creates exactly the blind spot that hid this for eight reviews. See **Inbound from SP-03**, item 1.
 3. **Contribution to zero stale-block incidents** (Phase 2, not achieved here — only *not obstructed*): `go test -run 'TestBloom_Rebuild\|TestSave_RefusesTriedBloom\|TestReplaceGenerational_' ./internal/sketch/` ⇒ rebuild from an arbitrary iterator at a different capacity works and `tried.bloom` can only be replaced generationally. Do **not** assert anything about `negknow` — it is SP-09.
 4. **Format freeze**: `go test -run TestGolden ./internal/sketch/` without `-update`. Regenerating a fixture here to make it pass is the exact failure Rule W-2 forbids.
 
@@ -488,6 +852,12 @@ go test -count=1 ./internal/store/...
 
 Any SP-06 test that only passed against a placeholder fixture fails here. Per Rule W-2, **fix the test or the implementation — never the fixture** unless the fixture is provably the synthetic placeholder SP-01 shipped and the real owner (SP-03/SP-04/SP-07) has already replaced it on `develop`.
 
+**Three §2.6a items land directly on this procedure and will otherwise be mis-read:**
+
+- **The 4:1 numbers you are re-measuring were already 12.40 and 6.34 — pre-canonicalization** (§2.6a ⑤). SP-04's canonicalizers can only raise them. Expect an increase; a **decrease** after the wave-1 merges is a regression worth investigating, and "≥ 4.0, therefore pass" hides it.
+- **`testdata/golden/store/*` will need `-update`, and that is expected** (§2.6a ⑦) — real signatures start being emitted, `"canon"` stops always equalling `"raw"`, and the real chunker changes the hashes. Confirm the diff is confined to those three axes first. A diff touching key order, key names or the `{"v":1,…}` record shape is **not** covered and is a real regression. The frozen contract fixtures under `testdata/golden/contracts/store/` must reproduce **unchanged**.
+- **`BenchmarkPutBytes_100KB` warm is 227 µs against the 400 µs budget, but the redaction budget behind it is unreachable** (§2.6a ②). `Redact` over 100 KB is 0.64 ms with no secret, **8.2 ms** with a keyword that matches nothing, and **27.2 ms** with real secrets, against a stated 2 ms. Record all three; the 2 ms figure needs revising, not the code.
+
 ### 3.7 SP-07 — dependence DAG and slicing
 
 > This is graph reachability: BFS over a few thousand nodes, sub-millisecond.
@@ -526,7 +896,7 @@ go test -v -run 'TestGuard_SubmodularInertWithoutPSelection|TestGuard_SelectorRe
 
 ---
 
-## New cross-component integration tests
+## 4. New cross-component integration tests
 
 These tests **only make sense now**. Each exercises a seam that did not exist on any single wave-1 branch. They are authored during this checkpoint and **become part of the permanent suite** — they are committed to `verify/v2` and run in CI from here on.
 
@@ -670,7 +1040,7 @@ In the same commit that adds `test/integration/`:
 
 ---
 
-## Performance budget validation
+## 5. Performance budget validation
 
 Every latency/size budget **in force at this point**. Budgets whose component does not exist yet are marked N/A and must be reported as N/A, not as a pass. Measure on one quiet machine; append results to `testdata/bench-baseline.txt` and diff with `benchstat`.
 
@@ -684,6 +1054,10 @@ Every latency/size budget **in force at this point**. Budgets whose component do
 | **B-D** | `hook_wall`: includes host process creation | reported, never gated | same bench run; `spawn_floor_ms` and `b_a_method` present | **Reported.** Gating it would be dishonest — it is the host's cost |
 | **B-E** | `checkpoint_finalize`: `PreCompact` entry → exit | **p99 < 2 s** | same bench run, `--hook checkpoint` | **In force**, but currently exercises the client + daemon + nil-`Services.PreCompact` path. Annotate accordingly |
 | **B-F** | `mcp_tool_call`: request → response | p95 < 250 ms | — | **N/A at V2.** `internal/mcp` is a stub (SP-13, wave 3). Report N/A |
+
+> **B-A is not measured the way SP-05's plan document describes it, and restoring the plan's method fails this gate on every platform including bare metal.** Ruling #29 replaced "wall-clock hook spawn minus a constant floor" with the daemon's **TS-anchored `hook_controlled` estimate**, because B-A is defined in `obs/budgets.go` as `main()` entry → exit and therefore **excludes process creation** — and subtracting a constant removes the floor's *location* but none of its *dispersion*, contaminating exactly the p99 this row reads. Wall-clock survives as **`B-A_spawn_estimate`** with `limit_ms`/`pass` null, which is what B-D above reports. Confirm `b_a_method` in the JSON names the TS-anchored estimate; **a run whose `b_a_method` is the subtraction method is measuring the host's scheduler, not the hook** (§2.5a B).
+>
+> **This bench gate has never run on a CI runner.** SP-05 measured B-A 4.1 ms / B-B 0.7 ms / B-E 195 ms **on Windows only**, and the current warm-up shape (64-request hot tranche + `admin.ping` bulk, ruling #30) is newer than even those numbers. The three-platform requirement in the Status column is satisfied here for the first time — treat a first-run failure on ubuntu or macos as a first run, not as a regression the merge introduced, and see §2.5a C for the POSIX code paths that have **never executed on any machine**.
 
 ### 5.2 Size and ratio budgets (`Qompack.md` §10 Phase 1, §11.3)
 
@@ -748,9 +1122,21 @@ go run -modfile=tools/pinned/go.mod golang.org/x/perf/cmd/benchstat testdata/ben
 
 Any micro-benchmark >10 % worse than the committed baseline is a warning that must be explained in the completion report; >25 % worse fails the build (`00-ARCHITECTURE.md` §7). Update `testdata/bench-baseline.txt` in the final `verify/v2` commit so wave 2 has an integrated baseline rather than six per-branch ones.
 
+> **V2-MERGE-03 must already have passed before you run the two commands above.** Five wave-1 branches append to `testdata/bench-baseline.txt` and the merges conflict on it by construction; a resolution that dropped one branch's rows leaves `benchstat` with no baseline for that package, which it reports as *nothing at all* rather than as a regression. Regenerating the file here then bakes the loss in permanently: the >10 %/>25 % gate for that package becomes a silent no-op and stays one through every later checkpoint. Confirm the `pkg:` inventory first, then regenerate.
+
+> **Two facts about this table that the numbers above will not tell you.**
+>
+> **① `chunk`, `canon` and `symbols` have never had a baseline at all.** SP-04 committed no `testdata/bench-baseline.txt` rows, so eleven of the rows in this table — every `chunk`, `canon` and `symbols` budget — have nothing to `benchstat` against, and their >10 %/>25 % gate has been vacuous since the day it was written. This is not a merge loss to hunt for; there is nothing to lose. Measure them here and commit the rows.
+>
+> **② The comparison itself is not automated.** `benchstat` is pinned in `tools/pinned/` and named by a constant in `tools/devtool/util.go:26` that **nothing calls**; no `devtool` task and no CI job runs it, and `bench-gate` runs `bench-hotpath` only. `00-ARCHITECTURE.md` §7's rule therefore lives entirely in the two commands above, executed by hand, by whoever remembers. See **§2.3a item 3** — wiring it is work this checkpoint owns, not a note for later.
+>
+> **Known-noisy row:** `BenchmarkRun_Bash100KB` measures **±33 %** on the reference host (vs ±4 % for `RootHash_1000Chunks` and ±7 % for `References_100KB_50Names` in the same run), because it is one `bytes.Index` pass per rule over 100 KB and is memory-bandwidth bound. A ±33 % benchmark cannot be distinguished from a regression by a 25 % gate. Record its baseline from a quiet machine at `-count 10` or more, or exempt this one benchmark with the measured distribution as the justification — **do not tighten the code to chase the number** (SP04-D6).
+>
+> **Platform-sensitive rows:** several `store` budgets were measured on Windows and miss on syscall cost rather than algorithmically (`store.Search` 69.5 ms vs 25 ms, `GC_50kObjects` 2.42 s vs 2 s, `GetChunk` 154 µs vs 60 µs, `OpenStore_50kRoots` 404 ms vs 400 ms; the CPU profile is **90.9 % `runtime.cgocall`**). They are specified against the CI Linux runner — re-measure there before recording a miss (§2.6a ⑥). `MinHash` 100 KiB ≤ 2.5 ms is the tightest row on SP-03's branch and is likewise a Windows-laptop number (§2.3a, carried forward). `redact.Redact` 100 KB ≤ 2 ms is **unreachable by design** for two of three payload shapes (§2.6a ②).
+
 ---
 
-## Regression
+## 6. Regression
 
 ### 6.1 Re-run all prior verification checkpoints' inventories
 
@@ -785,7 +1171,11 @@ Enforcement at this checkpoint:
 
 ```bash
 # 1) the replay gate applies the rule to every metric in MetricsOf, per policy
-go run ./tools/devtool replay -- \
+#    NOTE: no "--" separator. It made Go's flag package discard every flag after
+#    it, so this command replayed the DEFAULT corpus with no phase check, no --ci
+#    and no baseline, and exited 0 with plausible-looking output. See 2.2a (1).
+#    The driver now refuses leftover arguments with exit 2.
+go run ./tools/devtool replay \
   --corpus testdata/sessions/synthetic \
   --baseline testdata/baseline/phase0.json \
   --phase 0 --ci --json v2-replay.json
@@ -807,7 +1197,7 @@ Rules for this checkpoint specifically:
 
 ---
 
-## Failure protocol
+## 7. Failure protocol
 
 Any failing row in §2, any unmet criterion in §3, any failing test in §4, any breached budget in §5, any regression in §6 triggers this protocol. There is no "note it and move on".
 
@@ -846,6 +1236,44 @@ Any failing row in §2, any unmet criterion in §3, any failing test in §4, any
   That rule is verbatim and absolute. It applies to every commit, merge commit, tag message and PR body on this branch. CI's `verify` job greps for `Co-Authored-By`, `Signed-off-by`, `Generated with` and `🤖` in the commit range and fails the build if any appear.
 
 - Each fix commit compiles and passes `go run ./tools/devtool test` for the packages it touches before it is made.
+
+### 7.2a Fan the fix work out — one agent per disjoint file set
+
+This checkpoint arrives with a **known inventory of work**, not just whatever §2 turns up: twenty `V2-MERGE-*` rows, six `SP04-D*` carried defects, SP-07's three ACTIONs, and the inbound items in §2.3a / §2.2a / §2.5a / §2.6a / §2.7a. Doing that serially wastes most of the wall clock, because the packages are independent — which is exactly why wave 1 could be built in parallel in the first place.
+
+**The constraint that makes this safe is file ownership, not topic.** §2.0a already computed which files more than one branch touched, and the same map says which fix agents may run at the same time: **two agents must never hold the same file.** Assign by path, not by subject; an agent that needs a file it does not own reports it and stops rather than editing it.
+
+**Serial prologue — main session, before any fan-out.** These cannot be parallelized and several destroy their own evidence if run late:
+
+1. **V2-MERGE-20** — secure SP-05's untracked ledger. Do this before `verify/v2` is even cut.
+2. **V2-MERGE-03, -06, -10** — record the bench-baseline inventory, the MANIFEST reconciliation and the per-branch allowlist audit. §5 and §7 overwrite all three.
+3. **V2-MERGE-14** — merge the two `tools/devtool/cover.go` rewrites and set `landedSubplans` to SP-01…SP-07. **Every coverage row in the document is vacuous until this lands** (§2.7a A ②), so doing it first turns eleven dead rows into live ones before any agent measures against them.
+   *The wave-1 merge performed this incrementally — each subplan added itself to `landedSubplans` in its own merge, so the set should already read SP-01…SP-07 when you arrive. Confirm it rather than assume it: run `go run ./tools/devtool cover` and require that **no** `exempt (stub, owned by SP-0[2-7])` line appears. If one does, the merge dropped a half and this step is still live work.*
+
+**Then fan out.** Each package below owns its files exclusively for the duration:
+
+| Agent | Owns (exclusive) | Closes |
+|---|---|---|
+| **F-1 toolchain & CI** | `tools/devtool/importrules.go`, `.github/workflows/ci.yml`, `.github/workflows/nightly.yml`, `test/guards/nightlyfuzz_test.go` | V2-MERGE-01, -02, -04, -05; §2.3a item 3 (wire `benchstat` into a `devtool` task and `bench-gate`) |
+| **F-2 guards & contract fixtures** | `test/guards/stubs_test.go`, `test/guards/v1_integration_test.go`, `test/guards/carrieddefects_test.go`, `internal/testutil/fixtures_test.go`, `testdata/golden/contracts/**` | V2-MERGE-07, -15, -16, -18, -19; SP-07 **ACTION 1** — which spans `contracts/dag/MANIFEST.json` *and* `fixtures_test.go` and **must be one commit**, which is why both files sit with one agent |
+| **F-3 chunk / canon / symbols** | `internal/chunk`, `internal/canon`, `internal/symbols`, `testdata/golden/canon/**`, `testdata/corpora/toolout/**` | SP04-D1, D2 (a decision, not a patch), D3, D5, D6 |
+| **F-4 store / redact / tokens** | `internal/store`, `internal/redact`, `internal/tokens`, `testdata/golden/store/**` | §2.6a ⑤ ⑦ (the `-update` confined to three axes), the `Redact` budget revision from ② |
+| **F-5 dag** | `internal/dag`, `docs/adr/0007-*.md` | §2.7a B row corrections; **not** `testdata/golden/contracts/dag/` — that is F-2's, per ACTION 1 |
+| **F-6 eval / replay** | `internal/eval`, `test/replay`, `testdata/sessions/**`, `testdata/baseline/**` | §2.2a corrections; the recorded-tier gap |
+| **F-7 daemon / ipc / contract** | `internal/ipc`, `internal/daemon`, `internal/contract`, `internal/cli` | §2.5a D (a structural guard so nothing outside `internal/contract` writes `LastSessionID`), §2.5a G's untested FR-4 `Serve`-failure arm |
+| **F-8 plan reconciliation** | `plans/V2-SP-03-*.md`, `plans/V2-SP-06-*.md`, `plans/V2-SP-07-*.md`, `plans/V2-SP-05-*.md` | **V2-ALL-06.** Documents only, no code — so it runs alongside everything else with zero contention |
+
+**Two conflicts are structural and are resolved above rather than left to discover:** F-1 and F-2 both work inside `test/guards/`, so ownership is stated **per file** — F-1 has `nightlyfuzz_test.go`, F-2 has the rest. And F-2 and F-5 both have a claim on the dag fixtures; ACTION 1 requires its two edits in one commit, so F-2 takes both and F-5 stays out.
+
+**§4's seven integration tests fan out the same way** — §4.1 … §4.7 author seven separate files under `test/integration/`, with only §4.8 (registration and CI wiring) serial at the end. Run them as seven agents, then do §4.8 in the main session.
+
+**Rules for fix agents**, which differ from the §2 verification rules because these agents *do* write:
+
+- An agent that needs to edit a file it does not own **stops and reports**. It does not edit it, and it does not "just add one line".
+- §7.1's classification still binds: no `//nolint`, no `t.Skip`, no `//nomagic:allow`, no lowered threshold, no golden regenerated to match broken output. An agent that believes a threshold is wrong reports it as class (d) — an architecture amendment — and stops.
+- Each agent commits its own work to `verify/v2` with its own conventional commits, and runs `go run ./tools/devtool test` for the packages it touched before each commit.
+- **Rebase, do not merge, between agents.** `verify/v2` stays linear; a fix branch per agent that merges back with `--no-ff` would make the §6 regression comparison harder to read for no benefit.
+- After the last agent lands, §7.3 applies: **re-run the whole checkpoint from §2 row 1**, not just the rows each agent touched.
 
 ### 7.3 Re-run the whole checkpoint from the top
 
@@ -889,20 +1317,58 @@ git checkout -b feat/sp08-observer-l0        # and, separately, feat/sp09-negati
 
 ---
 
-## Completion report template
+## 8. Completion report template
 
 Fill this in and paste it as the checkpoint's output. Every row gets a verdict. `N/A` is a legitimate verdict only where this document already marks it so; anything else must be `PASS` or `FAIL`.
 
-```markdown
+````markdown
 # V2 completion report
 
 - Branch: verify/v2 (cut from develop @ <sha>)
 - develop head at start: <sha>   | verify/v2 head at end: <sha>
-- Wave-1 merge order confirmed: SP-02 → SP-03 → SP-04 → SP-05 → SP-06 → SP-07  [ ]
+- Wave-1 merge order confirmed (`plans/README.md` step 3): SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02  [ ]
+- Conflicts resolved on the incoming branch, never in the merge commit (00-ARCHITECTURE "Branching")  [ ]
 - Full checkpoint passes required: <n>
 - Fix commits on verify/v2: <n>   (list below)
 - Platforms measured: ubuntu-latest / macos-latest / windows-11-dev
 - Date: <ISO 8601>
+
+## 0. Merge integrity (§2.0 — recorded before the fan-out ran)
+| ID | Gate | Verdict | Evidence / note |
+|---|---|---|---|
+| V2-MERGE-01 | Nightly fuzz matrix reconciles both directions | | orphan matrix entries: <n>; unregistered `Fuzz*` in tree: <n>; both must be 0 |
+| V2-MERGE-02 | `TestNightlyFuzzMatrix` green with matching arity | | matrix entry count before → after: <n> → <n>; `require.Len` updated: [ ] |
+| V2-MERGE-03 | bench-baseline `pkg:` blocks intact **(recorded before §5 regenerated the file)** | | packages present: <list>; missing: <list, must be empty> |
+| V2-MERGE-04 | `bench-gate` + `replay-gate` present, neither `continue-on-error` | | |
+| V2-MERGE-05 | `importrules.go` covers every landed package + all three new composition roots (`test/replay`, `test/dedup`, `test/bench/hotpath`); `internal/sketch` still `{core,paths,logging}` | | |
+| V2-MERGE-06 | Contract MANIFESTs match bytes tree-wide | | manifests checked: <n>; mismatches: <n> |
+| V2-MERGE-07 | Sketch W-2 fixtures exist **and** are consumed by canon + store | | consuming tests: <names> |
+| V2-MERGE-08 | Every §5.x signature verbatim after six parallel copies | | drifted signatures: <list, must be empty> |
+| V2-MERGE-09 | `//nomagic:allow` inventory traceable to a subplan | | annotations found: <n>; unauthorized: <n> |
+| V2-MERGE-10 | Per-branch out-of-scope allowlists respected | | files touched by >1 branch: <list> |
+| V2-MERGE-11 | `Qompack.md` untouched; `plans/` changes accounted for | | |
+| V2-MERGE-12 | `OWNERS.tsv` agrees with `cover` and the fuzz guard | | |
+| V2-MERGE-13 | §6.4 coverage floors run for all eleven non-SP-01 wave-1 packages | | per-package actual vs floor: |
+| V2-MERGE-14 | `cover.go` keeps **both** rewrites; `landedSubplans` = SP-01…SP-07; `probeBlind` still exactly 4 | | `TestLandedSubplansMatchesTheBranch` rewritten: [ ] |
+| V2-MERGE-15 | `fixtures_test.go` frozen count = **33** (34 if SP-07 ACTION 1 taken), pending 5 (or 4) | | value found before fix: <n> |
+| V2-MERGE-16 | `stubs_test.go` + `v1_integration_test.go`: every wave-1 package marked `allMethodsAreReal`; probe-aware assertions intact | | packages missing the marker: <list, must be empty> |
+| V2-MERGE-17 | `eval`, `daemon`, `self-test` all registered; neither `daemon` nor `self-test` left in `notImplemented` | | |
+| V2-MERGE-18 | No undeclared files under `testdata/golden/contracts/**` | | surplus files: <list>; disposition chosen: declare / relocate |
+| V2-MERGE-19 | `CARRIED-DEFECTS.tsv` covers the wave, or the decision not to is recorded | | rows by `opened_by`: <counts> |
+| V2-MERGE-20 | **(run first)** SP-05's untracked rulings ledger secured before `verify/v2` was cut | | where it was copied to: <path>; other untracked records found: <list> |
+| V2-MERGE-21 | `plans/README.md` and this file agree on the wave-1 merge order, and `develop` matches it | | first-parent order observed: <list>; incoming-branch resolution commits present: <n>/6 |
+
+**Coverage floors — before / after.** V2-MERGE-13 starts red by construction. Record each of the eleven wave-1 packages' measured coverage against its `plans/OWNERS.tsv` floor — `eval` 85, `sketch` 90, `chunk` 90, `canon` 90, `symbols` 75, `ipc` 75, `daemon` 75, `contract` 75, `store` 90, `redact` 75, `dag` 85 — and what `cover.go` was changed to. A green `devtool cover` that still prints `exempt (stub, …)` for any of them is the defect, not the fix. Record separately whether `redact` and `tokens` were raised to 90 in OWNERS.tsv or V2-SP06-27 was restated at 75 (their declared floors are 75 while §2.6 claims 90).
+
+**Nightly fuzz matrix — before / after.** Record the full `(pkg, fn)` table as it stood on `develop` and as it stands on `verify/v2`, which of the three orphan rows each fix closed, and which of the fifteen unregistered targets gained a row. A repair that renamed rows without adding one for `internal/symbols` is incomplete.
+
+**Cross-branch collisions — resolution log.** One line per file in §2.0a's ten-row table: which branches' halves are present in the merged result, and how you confirmed it. `--ours`/`--theirs` anywhere in this list is a finding, not a resolution.
+
+**Inbound items — disposition.** One line per numbered item in §2.3a (SP-03, 7 items + carried-forward), §2.2a (SP-02, 7 items), §2.5a (SP-05, 4 items), §2.6a (SP-06, 12 items) and §2.7a (SP-07, A/B/C/D). State for each: **fixed here**, **accepted as-is** (a divergence the code is right about), or **carried to <checkpoint>**. An item with no line is an item nobody decided about.
+
+**Silently-disabled gates found.** List every gate that was reporting green while not actually gating (dead fuzz targets, `continue-on-error` restored by a merge, a `benchstat` baseline with no rows for a package, an `importgraph` rule lost in a conflict, a coverage floor exempted for a landed package, a `-run` pattern matching no test, a `grep … t.Skip` row that can never be satisfied). This list is the single most valuable output of this checkpoint for wave 2: each entry is a guard that six branches trusted and none of them owned. **Four independent sessions found the coverage-floor hole and three found the `t.Skip` grep hole** — the pattern to carry forward is that a check nobody owns is a check nobody fixes.
+
+**Carried to wave 2 and beyond.** Explicitly restate, in `V3-VERIFY-observer-and-negative-knowledge.md` and wherever else they land: SP-07's **INHERIT** (the graph contains legitimate cycles; SP-09's detector must terminate on them), SP-02's **empty recorded corpus tier** (§6.3 tier 2 gates releases and has never been exercised), SP-03's **`RunCMSSuite` cannot discriminate a max-estimator** (SP-16 inherits a suite that would pass a wrong warm-start), and SP-06's **`fsck` residual** (a crash can leave a root line without its object; repair is SP-17's).
 
 ## 1. Inventory — SP-01 foundation
 | ID | Functionality | Verdict | Metric / note |
@@ -1013,7 +1479,7 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 | V2-SP04-26 | corpus hygiene | | |
 | V2-SP04-27 | coverage 90/90/75 | | actual: |
 
-### 4.8 SP-04 carried defects — resolve or re-defer every row
+### 4a. SP-04 carried defects — resolve or re-defer every row
 
 SP-04 shipped six defects it knowingly did not fix, recorded in `plans/CARRIED-DEFECTS.tsv` with the
 diagnosis and acceptance criteria for each in `plans/V2-SP-04-carried-defects.md`. They are listed
@@ -1024,7 +1490,7 @@ here because two of them change what this checkpoint must do, and one of them wi
 | SP04-D1 | JSON-escaped Windows temp paths are not canonicalized, so they fork the dedup space and carry user names into stored content | fix, or re-defer with a reason |
 | SP04-D2 | canonicalization is not idempotent when a deletion joins two fragments; §5.6 says it must be | a DECISION, not a patch — the complete fix changes the `canon.Delta` contract SP-06 stores against |
 | SP04-D3 | three timestamp/duration edges are wrong in the patterns and faithfully reproduced by the scanner | fix, or re-defer with a reason |
-| SP04-D4 | `devtool cover`'s `landedSubplans` does not list SP-02 or SP-03, so **their coverage floors are off on the merged `develop`** | add both at the merge; the `cover` run fails until you do |
+| SP04-D4 | `devtool cover`'s `landedSubplans` does not list SP-02 or SP-03, so **their coverage floors are off on the merged `develop`** | **Wider than the row says, and it is now V2-MERGE-14.** SP-02 rewrote the same function on its own branch with a different `landedSubplans` and a `floorApplies` helper, so this is a conflict resolution rather than a one-line addition. The merged set must list **SP-01 … SP-07** — SP-05, SP-06 and SP-07 are missing too. `cover` fails until you do, which is SP-04's exempt-but-not-a-stub check working; **do not silence it by adding a landed package to `probeBlind`** |
 | SP04-D5 | canonicalization cost is now dominated by per-rule prefilter scans, ~1 ms of headroom left | re-measure and record; open a successor row if the headroom has gone |
 | SP04-D6 | `BenchmarkRun_Bash100KB` measured ±33% on the reference host, which the 25% bench-gate cannot tell from a regression | record the baseline from a quiet machine at `-count 10`, or exempt this one benchmark with the distribution as justification |
 
@@ -1037,6 +1503,16 @@ row open is what the gate stops.
 go test ./test/guards/ -run TestCarriedDefects -v
 # Expect: three PASS. After V2-report.md is written, expect a failure naming every unresolved row.
 ```
+
+**The manifest covers SP-04 and nobody else — V2-MERGE-19.** All six rows are `opened_by SP-04`. SP-02,
+SP-03, SP-05, SP-06 and SP-07 each shipped carried items of exactly this kind (an empty recorded corpus
+tier, a `benchstat` that nothing installs, a `RunCMSSuite` that cannot discriminate a max-estimator, an
+unreachable `Redact` budget, an unrecorded `record-by-owner` fixture, a `fsck` residual), and **none of
+them is visible to this gate.** Note the obstacle before deciding: `carrieddefects_test.go` hardcodes
+`carriedDefectsDoc = "plans/V2-SP-04-carried-defects.md"` and requires a `## <id>` section in that one
+file, so an `SP06-D1` row needs either a section in a document titled for SP-04 or a per-subplan lookup
+in the guard. Fix the guard and add the rows, or record in the completion report that the wave's other
+carried items are governed by prose alone. Both are decisions; neither is reachable by doing nothing.
 
 ## 5. Inventory — SP-05 daemon / IPC / contract
 | ID | Functionality | Verdict | Metric / note |
@@ -1100,7 +1576,7 @@ go test ./test/guards/ -run TestCarriedDefects -v
 | V2-SP06-24 | store e2e incl. secret walk | | |
 | V2-SP06-25 | store/redact/tokens benchmarks | | |
 | V2-SP06-26 | conformance suites, zero skips | | |
-| V2-SP06-27 | coverage 90/90/90 | | actual: |
+| V2-SP06-27 | coverage 90/90/90 (OWNERS.tsv declares 90/75/75 — say which was changed) | | store: __ redact: __ tokens: __ |
 
 ## 7. Inventory — SP-07 DAG / slicing
 | ID | Functionality | Verdict | Metric / note |
@@ -1236,10 +1712,18 @@ go test ./test/guards/ -run TestCarriedDefects -v
 
 ## 14. Gate
 - [ ] Every row above is PASS (or a documented N/A this file authorises)
+- [ ] **V2-MERGE-20 was run *before* `verify/v2` was cut**: SP-05's untracked rulings ledger (`.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/`) is copied somewhere that survives `git clean -fdx`, and the destination is named in the report
+- [ ] **§0 is filled in, all twenty-one `V2-MERGE-*` rows** — including the collision-resolution log and the inbound-items disposition
+- [ ] **No `--ours` / `--theirs` / `-X ours` / `-X theirs` was used to resolve any of the ten files in §2.0a**, and each of the ten is confirmed to carry every branch's half
+- [ ] `go run ./tools/devtool cover` prints `OK <pkg>: NN.N% >= floor NN%` for all eleven wave-1 packages and `exempt (stub, …)` for none of them
+- [ ] `nightly.yml`'s fuzz matrix has zero orphans in both directions, and `require.Len` matches the repaired arity
 - [ ] Every row in `plans/CARRIED-DEFECTS.tsv` owned by `V2-VERIFY` is `fixed` or `deferred:<checkpoint>`; `go test ./test/guards/ -run TestCarriedDefects` passes with `plans/V2-report.md` in place
-- [ ] CI green on verify/v2: verify, test ×3, cover, crossbuild, bench-gate, replay-gate, plugin-validate, security, docs
-- [ ] `testdata/bench-baseline.txt` updated with integrated wave-1 numbers
+- [ ] The wave's other carried items are either rows in `CARRIED-DEFECTS.tsv` or a recorded decision (V2-MERGE-19)
+- [ ] The plan documents named in **V2-ALL-06** are reconciled with the code that shipped — plans corrected, code left alone
+- [ ] SP-07's **INHERIT** is written into `plans/V3-VERIFY-observer-and-negative-knowledge.md` before wave 2 is cut
+- [ ] CI green on verify/v2: verify, test ×3, cover, crossbuild, bench-gate, replay-gate, plugin-validate, security, docs — **or V2-ALL-04 recorded as environment-blocked with the reason** (no git remote)
+- [ ] `testdata/bench-baseline.txt` updated with integrated wave-1 numbers, **including `chunk`, `canon` and `symbols`, which have never had a baseline**
 - [ ] No `Co-Authored-By` / `Signed-off-by` / `Generated with` / 🤖 anywhere in `develop..verify/v2`
 - [ ] `verify/v2` merged into `develop` with `--no-ff`; `develop` tagged `v0.1.0`
 - [ ] **Only now**: `feat/sp08-observer-l0` and `feat/sp09-negative-knowledge` cut from the post-verification `develop`
-```
+````

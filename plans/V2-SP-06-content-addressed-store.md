@@ -1,5 +1,9 @@
 # SP-06: L1 store: sha256 two-level fanout zstd objects, redaction at ingest, Merkle roots, tool_use index, file version history, segment log with the encoded-once DPI guard, GC, and exact token accounting
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Large but conventional storage engineering — content addressing, zstd, Merkle roots, append-only indices, resumable mark-and-sweep GC — with the spec written out file by file. Volume, not novelty.
+
 **Branch:** `feat/sp06-content-addressed-store` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-02, SP-03, SP-04, SP-05, SP-07) | **Design sections:** §7.2 L1, §7.4, §8.2, §10 Phase 1 (store half), §12 (storage growth), §13 invariant 7 (redaction) | **Gaps closed:** G2.1, G3.1, G10.2
 
 ---

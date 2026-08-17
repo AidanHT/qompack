@@ -1,0 +1,13 @@
+b6181b7 test(sp05): hot-path bench harness, three-platform bench gate, and fixtures
+6fc27a3 feat(cli): session-start dispatch, thin hook clients, and self-test
+ef50515 feat(daemon): extension seams, idle controller, sync->spool fallback
+98c4fef feat(contract): G9.3 assertions, fail-loud degradation, two-clean-run restore
+d0e9f00 feat(daemon): singleton lock, session registry, WAL ingest queue, and drain
+4e91fca feat(ipc): thin client with spool fallback, spawn seam, and the server
+4dc422b feat(ipc): address resolution, NDJSON framing, and hot-path state record
+
+ tools/devtool/benchhotpath.go                      |   5 +-
+ tools/devtool/bindeps.go                           |  20 +-
+ tools/devtool/bindeps_test.go                      |  12 +-
+ tools/devtool/importrules.go                       |  21 +-
+ 130 files changed, 17678 insertions(+), 1048 deletions(-)

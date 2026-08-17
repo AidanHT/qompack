@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "sessions": 5,
+  "last_session_id": "sess-0004",
+  "last_marker_ts": 1767225400000,
+  "starts_without_marker": 2,
+  "last_precompact_ts": 1767225450000,
+  "last_precompact_session": "sess-0004",
+  "precompact_wall_ms": [
+    1200,
+    1800,
+    1950,
+    2000,
+    2100
+  ],
+  "precompact_timeout_ms": 2000,
+  "precompact_instr": "focus on the auth module and its recent regressions",
+  "awaiting_compact_start": false,
+  "sentinel": {
+    "token": "qompack-contract-060882683f62",
+    "session": "sess-0004",
+    "minted_at": 1767225400000,
+    "observed": false,
+    "chances": 2
+  },
+  "mcp_initialized": false,
+  "clean_runs": 0,
+  "mode": "degraded-passive",
+  "degraded_reason": "critical host-contract failure: session_start.fires (expected \"marker from a prior terminal hook\", observed \"no marker from a prior terminal hook across two consecutive sessions\")",
+  "degraded_since": 1767225450000,
+  "last": [
+    {
+      "id": "session_start.fires",
+      "ok": false,
+      "severity": 2,
+      "expected": "SessionStart hook fires",
+      "observed": "no marker from a prior terminal hook across two consecutive sessions",
+      "ts": 1767225450000
+    }
+  ],
+  "seen": {
+    "hook.payload_shape": 1767225450000,
+    "transcript.readable": 1767225450000
+  }
+}

@@ -1,0 +1,3480 @@
+115ba19 feat(daemon): extension seams, idle controller, sync->spool fallback
+
+ internal/daemon/budget.go       | 126 +++++++
+ internal/daemon/budget_test.go  |  94 ++++++
+ internal/daemon/daemon.go       | 602 +++++++++++++++++++++++++++-------
+ internal/daemon/daemon_test.go  | 705 +++++++++++++++++++++++++++++++++-------
+ internal/daemon/handlers.go     | 699 +++++++++++++++++++++++++++++++++++++++
+ internal/daemon/idle.go         | 196 +++++++++++
+ internal/daemon/idle_test.go    | 158 +++++++++
+ internal/daemon/metrics.go      |  87 ++++-
+ internal/daemon/options.go      | 214 ++++++++++++
+ internal/daemon/options_test.go | 136 ++++++++
+ internal/daemon/reload.go       | 175 ++++++++++
+ internal/daemon/spawn.go        |  21 ++
+ 12 files changed, 2978 insertions(+), 235 deletions(-)
+
+diff --git a/internal/daemon/budget.go b/internal/daemon/budget.go
+new file mode 100644
+index 0000000..8f64663
+--- /dev/null
++++ b/internal/daemon/budget.go
+@@ -0,0 +1,126 @@
++package daemon
++
++import (
++	"math"
++	"sort"
++	"sync"
++	"time"
++)
++
++// sampleWindow is §2.4's "rolling 512-sample HDR histogram per hook": the fixed ring size a
++// breachDetector closes a window over.
++const sampleWindow = 512 //nomagic:allow §2.4 "rolling 512-sample HDR histogram per hook"
++
++// hotPathTailAllowance is the documented, deliberately-over-counting estimate of the client tail
++// B-A's own clock cannot observe from the daemon side (ACK read + process exit): measured by the
++// bench harness on all three platforms to be under 0.4 ms, and fixed here at 1 ms so the fallback
++// fires early rather than late (§2.4). It is added to hook.controlled.observed (recvTS - req.TS)
++// to estimate hook.controlled, the value the breach detector actually consumes.
++const hotPathTailAllowance = 1 * time.Millisecond //nomagic:allow §2.4 estimated client tail, see doc comment
++
++// Transition is what a closed window decided, if anything.
++type Transition uint8
++
++const (
++	// NoTransition means the window closed without crossing either threshold.
++	NoTransition Transition = iota
++	// ToSpool means the hot path has breached its budget for `need` consecutive windows: the
++	// daemon should degrade to spool submode.
++	ToSpool
++	// ToSync means a spooling daemon has run `need` consecutive clean windows: it should revert
++	// to sync submode.
++	ToSync
++)
++
++// breachDetector is the §8.1/§2.4 hot-path breach detector: a fixed 512-sample ring: closing a
++// window computes its p99 by copy+sort (§2.4 does not ask for a true HDR/streaming percentile,
++// and a plain sort over 512 float64-sized samples is cheap enough to run off the ACK path
++// unconditionally), compares it to limit, and tracks consecutive breach/clean windows against
++// need. It has no notion of "which op" or "which session" — one detector covers every hot-path
++// request, matching the daemon-wide hot-path submode in SessionRegistry.
++type breachDetector struct {
++	mu sync.Mutex
++
++	window [sampleWindow]time.Duration
++	n      int
++
++	limit time.Duration // cfg.Runtime.HotPath.BudgetMs
++	need  int           // cfg.Runtime.HotPath.BreachWindows (default 3)
++
++	breaches int
++	clean    int
++}
++
++// newBreachDetector returns a breachDetector gating on limit with need consecutive windows
++// required for either transition. need <= 0 falls back to 1, so a misconfigured 0 cannot make
++// every single window transition (which dividing-by/comparing-against a need of 0 would).
++func newBreachDetector(limit time.Duration, need int) *breachDetector {
++	if need <= 0 {
++		need = 1
++	}
++	return &breachDetector{limit: limit, need: need}
++}
++
++// Observe pushes d into the ring. When the ring fills (every sampleWindow-th sample) it closes a
++// window: p99 >= limit counts as a breach (resetting the clean streak), otherwise it counts as
++// clean (resetting the breach streak). need consecutive breach windows transitions ToSpool; need
++// consecutive clean windows transitions ToSync. Both streaks are then reset, so a transition is
++// reported exactly once per need-window run, not on every window after the threshold is crossed.
++func (b *breachDetector) Observe(d time.Duration) Transition {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++
++	b.window[b.n] = d
++	b.n++
++	if b.n < sampleWindow {
++		return NoTransition
++	}
++	p99 := percentileDuration(b.window[:], 0.99)
++	b.n = 0
++
++	if p99 >= b.limit {
++		b.breaches++
++		b.clean = 0
++	} else {
++		b.clean++
++		b.breaches = 0
++	}
++
++	if b.breaches >= b.need {
++		b.breaches = 0
++		return ToSpool
++	}
++	if b.clean >= b.need {
++		b.clean = 0
++		return ToSync
++	}
++	return NoTransition
++}
++
++// Reset clears the ring and both streaks without changing limit/need — used when a new session
++// resets the daemon-wide hot-path submode (registry.Ensure's own reset, task-3) so stale samples
++// from a previous, unrelated session can never contribute to this session's first window.
++func (b *breachDetector) Reset() {
++	b.mu.Lock()
++	defer b.mu.Unlock()
++	b.n = 0
++	b.breaches = 0
++	b.clean = 0
++}
++
++// percentileDuration returns the p-th (0..1) percentile of window by copying and sorting it —
++// window itself is never mutated, so the caller's ring stays valid for the next fill. idx uses
++// the same ceiling nearest-rank rule task-5-spec.md's own pseudocode does:
++// int(math.Ceil(p*len))-1, clamped into range.
++func percentileDuration(window []time.Duration, p float64) time.Duration {
++	cp := append([]time.Duration(nil), window...)
++	sort.Slice(cp, func(i, j int) bool { return cp[i] < cp[j] })
++	idx := int(math.Ceil(p*float64(len(cp)))) - 1
++	if idx < 0 {
++		idx = 0
++	}
++	if idx >= len(cp) {
++		idx = len(cp) - 1
++	}
++	return cp[idx]
++}
+diff --git a/internal/daemon/budget_test.go b/internal/daemon/budget_test.go
+new file mode 100644
+index 0000000..aa901b3
+--- /dev/null
++++ b/internal/daemon/budget_test.go
+@@ -0,0 +1,94 @@
++package daemon
++
++import (
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++)
++
++// feedWindow pushes n samples of duration d into b, reporting the transition of the very last
++// sample (every window closes on its sampleWindow-th sample; a non-multiple n's tail contributes
++// to a not-yet-closed window and always reports NoTransition for its final sample).
++func feedWindow(b *breachDetector, n int, d time.Duration) Transition {
++	var last Transition
++	for i := 0; i < n; i++ {
++		last = b.Observe(d)
++	}
++	return last
++}
++
++// TestBreachDetectorTransitionsAfterThreeWindows: limit 15ms, need=3; three consecutive 512-sample
++// windows of 20ms each transition NoTransition, NoTransition, ToSpool.
++func TestBreachDetectorTransitionsAfterThreeWindows(t *testing.T) {
++	t.Parallel()
++
++	b := newBreachDetector(15*time.Millisecond, 3)
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 20*time.Millisecond))
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 20*time.Millisecond))
++	require.Equal(t, ToSpool, feedWindow(b, sampleWindow, 20*time.Millisecond))
++}
++
++// TestBreachDetectorResetsOnCleanWindow: a clean window in the middle resets the breach streak,
++// so two more breaching windows afterward never reach ToSpool.
++func TestBreachDetectorResetsOnCleanWindow(t *testing.T) {
++	t.Parallel()
++
++	b := newBreachDetector(15*time.Millisecond, 3)
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 20*time.Millisecond))
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 1*time.Millisecond)) // clean: resets breaches
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 20*time.Millisecond))
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 20*time.Millisecond))
++}
++
++// TestBreachDetectorRevertsAfterThreeCleanWindows: in spool mode (breaches already tripped),
++// three clean windows in a row transition ToSync on the third.
++func TestBreachDetectorRevertsAfterThreeCleanWindows(t *testing.T) {
++	t.Parallel()
++
++	b := newBreachDetector(15*time.Millisecond, 3)
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 1*time.Millisecond))
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow, 1*time.Millisecond))
++	require.Equal(t, ToSync, feedWindow(b, sampleWindow, 1*time.Millisecond))
++}
++
++// TestBreachDetectorPartialWindowNeverCloses: fewer than sampleWindow samples never closes a
++// window, so Observe always reports NoTransition.
++func TestBreachDetectorPartialWindowNeverCloses(t *testing.T) {
++	t.Parallel()
++
++	b := newBreachDetector(15*time.Millisecond, 1)
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow-1, 20*time.Millisecond))
++}
++
++// TestBreachDetectorReset clears the ring and both streaks without touching limit/need.
++func TestBreachDetectorReset(t *testing.T) {
++	t.Parallel()
++
++	b := newBreachDetector(15*time.Millisecond, 1)
++	require.Equal(t, ToSpool, feedWindow(b, sampleWindow, 20*time.Millisecond))
++	b.Reset()
++	// A fresh window after Reset needs a full sampleWindow of breaching samples again — a
++	// partial window right after Reset must not spuriously transition.
++	require.Equal(t, NoTransition, feedWindow(b, sampleWindow-1, 20*time.Millisecond))
++	require.Equal(t, ToSpool, b.Observe(20*time.Millisecond))
++}
++
++// TestPercentileDurationP99 pins the nearest-rank ceiling percentile math against a known
++// distribution: 512 samples, the top ~1% (samples 507..512, 1-indexed) at a high value, everything
++// else low. idx = ceil(0.99*512)-1 = 506 (0-indexed) = the 507th smallest sample.
++func TestPercentileDurationP99(t *testing.T) {
++	t.Parallel()
++
++	window := make([]time.Duration, sampleWindow)
++	for i := range window {
++		window[i] = time.Millisecond
++	}
++	// The 6 largest samples (indices 506..511 once sorted) are set high; idx 506 must land on one
++	// of them.
++	for i := len(window) - 6; i < len(window); i++ {
++		window[i] = 100 * time.Millisecond
++	}
++	got := percentileDuration(window, 0.99)
++	require.Equal(t, 100*time.Millisecond, got)
++}
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+index d754593..7be523d 100644
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -1,193 +1,549 @@
+ package daemon
+ 
+ import (
+ 	"context"
++	"errors"
+ 	"fmt"
++	"math"
++	"os"
++	"path/filepath"
+ 	"sync"
+ 	"time"
+ 
+-	"github.com/qompack/qompack/internal/checkpoint"
+ 	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/core"
+-	"github.com/qompack/qompack/internal/dag"
+-	"github.com/qompack/qompack/internal/grammar"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
+-	"github.com/qompack/qompack/internal/negknow"
+ 	"github.com/qompack/qompack/internal/obs"
+-	"github.com/qompack/qompack/internal/scheduler"
+-	"github.com/qompack/qompack/internal/store"
++	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+-// Options is the late-bound dependency set (§5.4).
+-//
+-// Every service member may be nil, and every call site must tolerate that: waves 1–2 run with
+-// Checkpoints and Sched absent. Treating nil as "not built yet" rather than as a programming
+-// error is what lets the daemon start and serve `status` in a half-built tree, which is when
+-// being able to ask it anything at all matters most.
+-type Options struct {
+-	ProjectRoot string
+-	Cfg         config.Config
+-	Log         logging.Logger
+-	Metrics     obs.Registry
+-	Clock       core.Clock
++// heartbeatInterval is the daemon's own lock-heartbeat cadence (§2.4 lock.go's staleAfter is
++// 90s; a 30s heartbeat leaves ample margin).
++const heartbeatInterval = 30 * time.Second
+ 
+-	Store       store.Store
+-	Ledger      negknow.Ledger
+-	Sketches    *SketchSet
+-	Graph       dag.Graph
+-	Grammar     grammar.Sequitur
+-	Sched       scheduler.Runtime
+-	Checkpoints checkpoint.Writer
++// idleTickMax bounds the idle ticker: min(idleTickMax, idleExitSeconds/10), per task-5-spec.md's
++// daemon.go Run step 5.
++const idleTickMax = 30 * time.Second
+ 
+-	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
+-	// op by calling Handle at wiring time instead of editing a function in this package — the
+-	// difference between four wave-3 subplans composing and four subplans conflicting.
+-	handlers map[ipc.Op]ipc.Handler
+-}
++// idleRunBudget is the wall-clock budget Run's own idle tick hands to RunOnce, distinct from the
++// larger drain-ring-on-stop bound.
++const idleRunBudget = 2 * time.Second
+ 
+-// Handle registers h as the handler for op, replacing any previous registration.
+-//
+-// It is defined on Options rather than on Daemon so the table is complete before Run starts:
+-// registering a handler against a running server would need locking on the hot path, and B-A has
+-// no room for a contended mutex per request.
+-func (o *Options) Handle(op ipc.Op, h ipc.Handler) {
+-	if o.handlers == nil {
+-		o.handlers = map[ipc.Op]ipc.Handler{}
+-	}
+-	o.handlers[op] = h
+-}
++// adminIdleBudget is the budget admin.idle hands to RunOnce — generous, since an operator calling
++// it explicitly is not on any latency budget.
++const adminIdleBudget = 5 * time.Second
+ 
+-// Handler returns the handler registered for op, if any.
+-func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) {
+-	h, ok := o.handlers[op]
+-	return h, ok
+-}
++// stopDrainBound is Stop's bound on draining the in-flight ring before giving up and shutting
++// down anyway.
++const stopDrainBound = 5 * time.Second
+ 
+-// Ops returns every registered op. The order is unspecified.
+-func (o *Options) Ops() []ipc.Op {
+-	ops := make([]ipc.Op, 0, len(o.handlers))
+-	for op := range o.handlers {
+-		ops = append(ops, op)
+-	}
+-	return ops
+-}
++// defaultIdleExitSeconds mirrors config.Defaults().Runtime.Daemon.IdleExitSeconds (1800). Not a
++// default source itself — a caller handing New a zero config.Config still gets a sane idle-exit
++// window instead of "exit immediately".
++const defaultIdleExitSeconds = 1800 //nomagic:allow mirrors config.Defaults(), not a new default (§6.1)
+ 
+ // IdleController schedules the O3/O5 background work that may run only while the session is idle
+-// (§8.4): compaction, GC, sketch persistence — everything whose cost is unacceptable on the hot
+-// path but acceptable when nobody is waiting.
+-type IdleController interface {
+-	// Register adds work to run when idle. Lower prio runs first.
+-	Register(name string, prio int, fn func(ctx context.Context) error)
+-	// Notify records the timestamp of the most recent session activity.
+-	Notify(lastActivity core.UnixMilli)
+-	// IsIdle reports whether enough time has passed since the last activity.
+-	IsIdle(now core.UnixMilli) bool
+-	// RunOnce runs registered work until budget is exhausted, returning the names that ran.
+-	RunOnce(ctx context.Context, budget time.Duration) (ran []string, err error)
+-}
++// (§8.4). Declared in idle.go.
+ 
+ // Daemon is the resident process (§5.4).
+ type Daemon interface {
+ 	// Run serves until ctx is cancelled.
+ 	Run(ctx context.Context) error
+ 	// Registry returns the live session registry.
+ 	Registry() *SessionRegistry
+ 	// Drain replays the spool and the WAL. It is idempotent, and returns how many entries it
+ 	// applied.
+ 	Drain(ctx context.Context) (int, error)
+ 	// Idle returns the controller for O3/O5 background work.
+ 	Idle() IdleController
+ 	// Stop shuts down cleanly.
+ 	Stop(ctx context.Context) error
+ }
+ 
+-// New returns a stub Daemon. Construction succeeds so a composition root can wire one today; every
+-// operation reports core.ErrNotImplemented until SP-05 lands.
++// daemon is the real Daemon (task-5-spec.md daemon.go).
++type daemon struct {
++	root string
++	log  logging.Logger
++	m    obs.Registry
++	clk  core.Clock
++
++	cfgMu        sync.RWMutex
++	cfg          config.Config
++	cfgEnv       config.Env
++	lastCfgMTime time.Time
++	lastCfgSize  int64
++
++	svc      *Services
++	registry *SessionRegistry
++	idle     *idleController
++	monitor  contract.Monitor
++
++	ing   *ingest
++	drain *drainer
++
++	breach     *breachDetector
++	hotSamples chan time.Duration
++
++	histMu      sync.Mutex
++	lastBudgets []obs.BudgetBreach
++
++	// historyMu serializes every access to the SessionHistory value: it carries no lock of its
++	// own (contract.SessionHistory's own doc comment), and routes run concurrently.
++	historyMu sync.Mutex
++
++	// modeMu guards lastReportedMode, used both for the §12.1 SystemMessage-on-just-degraded
++	// check and for the contract_mode_change counter (ruling #26).
++	modeMu           sync.Mutex
++	lastReportedMode contract.Mode
++
++	lock   *Lock
++	server ipc.Server
++	addr   ipc.Addr
++
++	startTS core.UnixMilli
++
++	routes map[ipc.Op]ipc.Handler
++
++	// runCancel stops the context Run's worker pool, hot-path worker and server.Serve all run
++	// under. Stop calls it (if Run ever set it) so a caller that invokes Stop directly — the
++	// admin.shutdown route in particular, which runs on a request-handling goroutine entirely
++	// separate from Run's own select loop — actually unblocks Run rather than leaving its workers
++	// running forever underneath a daemon that believes itself stopped.
++	runCancelMu sync.Mutex
++	runCancel   context.CancelFunc
++
++	stopOnce sync.Once
++	stopped  chan struct{}
++	wg       sync.WaitGroup
++}
++
++// New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
++// defaults exactly as it would running through NewOptions, so construction never fails and every
++// seam is usable before Run is ever called.
+ func New(o Options) (Daemon, error) {
+ 	if o.Log == nil {
+ 		o.Log = logging.Nop()
+ 	}
+ 	if o.Clock == nil {
+ 		o.Clock = core.SystemClock()
+ 	}
+-	return &stubDaemon{opts: o, registry: NewSessionRegistry()}, nil
++	if o.Metrics == nil {
++		o.Metrics = obs.New(o.Clock)
++	}
++	if o.Sketches == nil {
++		o.Sketches = NewSketchSet(o.Cfg)
++	}
++
++	svc := &Services{
++		Store:       o.Store,
++		Ledger:      o.Ledger,
++		Sketches:    o.Sketches,
++		Graph:       o.Graph,
++		Grammar:     o.Grammar,
++		Sched:       o.Sched,
++		Checkpoints: o.Checkpoints,
++	}
++	for _, bind := range o.binds {
++		bind(svc)
++	}
++	DeclareProducers(svc)
++
++	statePath := filepath.Join(paths.Of(o.ProjectRoot).State, "contract.json")
++	monitor := contract.NewMonitor(o.Log, o.Metrics, statePath)
++	for _, a := range contract.StandardAssertions() {
++		_ = monitor.Register(a)
++	}
++
++	d := &daemon{
++		root:    o.ProjectRoot,
++		log:     o.Log,
++		m:       o.Metrics,
++		clk:     o.Clock,
++		cfg:     o.Cfg,
++		cfgEnv:  config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
++		svc:     svc,
++		monitor: monitor,
++		stopped: make(chan struct{}),
++	}
++	d.registry = NewSessionRegistry()
++	d.registry.SetLogger(o.Log)
++	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
++
++	d.idle = newIdleController(o.Cfg.Scheduler.Idle.DetectAfterSeconds, o.Clock, o.Log, o.Metrics, monitor.Mode)
++	d.idle.Register(idleTaskDrain, idlePrioDrain, d.idleDrain)
++	d.idle.Register(idleTaskSketches, idlePrioSketches, d.idleSaveSketches)
++	d.idle.Register(idleTaskMetrics, idlePrioMetrics, d.idleWriteMetrics)
++
++	need := o.Cfg.Runtime.HotPath.BreachWindows
++	limit := time.Duration(o.Cfg.Runtime.HotPath.BudgetMs) * time.Millisecond
++	d.breach = newBreachDetector(limit, need)
++	d.hotSamples = make(chan time.Duration, ringCapacity)
++
++	d.ing = newIngest(o.ProjectRoot, o.Cfg, o.Log, o.Metrics, o.Clock)
++
++	d.routes = buildRoutes(&o, d)
++
++	d.startTS = core.NowMilli(o.Clock)
++	d.lastReportedMode = monitor.Mode()
++
++	return d, nil
+ }
+ 
+-// stubDaemon reports core.ErrNotImplemented for every operation.
+-//
+-// Registry and Idle return real, usable values rather than nil: they are the seams later waves
+-// register against before the daemon itself runs, and handing back nil would make the extension
+-// points unusable exactly when they are supposed to be wired.
+-type stubDaemon struct {
+-	opts     Options
+-	registry *SessionRegistry
+-	idle     stubIdle
++// idle task names and priorities (task-5-spec.md idle.go): SP-05 itself registers exactly three,
++// none carrying the act. prefix, since all three are recording/maintenance work that must keep
++// running in degraded-passive.
++const (
++	idleTaskDrain    = "drain"
++	idleTaskSketches = "sketches"
++	idleTaskMetrics  = "metrics"
++
++	idlePrioDrain    = 10
++	idlePrioSketches = 20
++	idlePrioMetrics  = 30
++)
++
++// buildRoutes composes the resolved op table: every op o already registered wins; every op it
++// did not register falls back to d's own default handler. o is read via its exported Ops/Handler
++// accessors only, so the daemon never reaches into Options' unexported map directly.
++func buildRoutes(o *Options, d *daemon) map[ipc.Op]ipc.Handler {
++	routes := make(map[ipc.Op]ipc.Handler, len(ipc.KnownOps()))
++	for _, op := range o.Ops() {
++		if h, ok := o.Handler(op); ok {
++			routes[op] = h
++		}
++	}
++	for op, h := range defaultRoutes(d) {
++		if _, exists := routes[op]; !exists {
++			routes[op] = h
++		}
++	}
++	return routes
+ }
+ 
+-func (d *stubDaemon) Run(context.Context) error {
+-	return fmt.Errorf("%w: daemon.Run (SP-05)", core.ErrNotImplemented)
++func defaultRoutes(d *daemon) map[ipc.Op]ipc.Handler {
++	return map[ipc.Op]ipc.Handler{
++		ipc.OpObserveTool:   d.handleObserveTool,
++		ipc.OpObservePrompt: d.handleObservePrompt,
++		ipc.OpObserveStop:   d.handleObserveStop,
++		ipc.OpSessionStart:  d.handleSessionStart,
++		ipc.OpCheckpoint:    d.handleCheckpoint,
++		ipc.OpFlush:         d.handleFlush,
++		ipc.OpStatus:        d.handleStatus,
++		ipc.OpMCP:           d.handleMCP,
++		ipc.OpAdminPing:     d.handleAdminPing,
++		ipc.OpAdminDrain:    d.handleAdminDrain,
++		ipc.OpAdminReload:   d.handleAdminReload,
++		ipc.OpAdminIdle:     d.handleAdminIdle,
++		ipc.OpAdminShutdown: d.handleAdminShutdown,
++	}
+ }
+ 
+-func (d *stubDaemon) Registry() *SessionRegistry { return d.registry }
++func (d *daemon) Registry() *SessionRegistry { return d.registry }
++func (d *daemon) Idle() IdleController       { return d.idle }
+ 
+-func (d *stubDaemon) Drain(context.Context) (int, error) {
+-	return 0, fmt.Errorf("%w: daemon.Drain (SP-05)", core.ErrNotImplemented)
++// currentCfg returns the daemon's live configuration, safe for concurrent readers against
++// reload.go's writer.
++func (d *daemon) currentCfg() config.Config {
++	d.cfgMu.RLock()
++	defer d.cfgMu.RUnlock()
++	return d.cfg
+ }
+ 
+-func (d *stubDaemon) Idle() IdleController { return &d.idle }
++// currentState renders the daemon's current mode/hot/deadlines into an ipc.State, for WriteState
++// calls from the hot-path transition and the session.start route.
++func (d *daemon) currentState() ipc.State {
++	cfg := d.currentCfg()
++	return ipc.State{
++		Mode:              d.monitor.Mode(),
++		Hot:               d.registry.HotMode(),
++		ConnectDeadlineMs: clampU16(cfg.Runtime.Daemon.ConnectDeadlineMs),
++		AckDeadlineMs:     clampU16(cfg.Runtime.Daemon.AckDeadlineMs),
++		DaemonEnabled:     cfg.Runtime.Daemon.Enabled,
++		SpoolOnBreach:     cfg.Runtime.HotPath.SpoolOnBreach,
++		MaxPayloadBytes:   clampU32(cfg.Runtime.HotPath.MaxPayloadBytes),
++		DaemonPID:         clampU32(os.Getpid()),
++		Written:           core.NowMilli(d.clk),
++	}
++}
+ 
+-func (d *stubDaemon) Stop(context.Context) error {
+-	return fmt.Errorf("%w: daemon.Stop (SP-05)", core.ErrNotImplemented)
++func clampU16(v int) uint16 {
++	if v < 0 {
++		return 0
++	}
++	if v > math.MaxUint16 {
++		return math.MaxUint16
++	}
++	return uint16(v) //nolint:gosec // bounds-checked above
+ }
+ 
+-// stubIdle accepts registrations — so later waves can wire O3/O5 work today — but runs nothing.
+-type stubIdle struct {
+-	mu    sync.Mutex
+-	work  []idleWork
+-	last  core.UnixMilli
+-	dirty bool
++func clampU32(v int) uint32 {
++	if v < 0 {
++		return 0
++	}
++	if v > math.MaxUint32 {
++		return math.MaxUint32
++	}
++	return uint32(v) //nolint:gosec // bounds-checked above
+ }
+ 
+-type idleWork struct {
+-	name string
+-	prio int
+-	fn   func(ctx context.Context) error
++// userHomeDir returns os.UserHomeDir()'s result, or "" on error — reload.go's config.Load call
++// treats an empty HomeDir exactly like config.Load's other callers do (no user-global file
++// found), never a fatal condition.
++func userHomeDir() string {
++	h, err := os.UserHomeDir()
++	if err != nil {
++		return ""
++	}
++	return h
+ }
+ 
+-func (i *stubIdle) Register(name string, prio int, fn func(ctx context.Context) error) {
+-	i.mu.Lock()
+-	defer i.mu.Unlock()
+-	i.work = append(i.work, idleWork{name: name, prio: prio, fn: fn})
++// Run implements the daemon lifecycle of task-5-spec.md's daemon.go section.
++func (d *daemon) Run(ctx context.Context) error {
++	addr, err := ipc.Resolve(d.root)
++	if err != nil {
++		if isAddrTooLong(err) {
++			d.log.Loud("daemon: resolved address too long — running spool-only", "root", d.root, "err", err)
++			return nil
++		}
++		return fmt.Errorf("daemon: run: resolve: %w", err)
++	}
++	d.addr = addr
++
++	lock, err := AcquireLock(d.root, addr, d.clk)
++	if err != nil {
++		if errors.Is(err, ErrLockHeld) {
++			return nil // another daemon owns this project: success, not failure.
++		}
++		return fmt.Errorf("daemon: run: acquire lock: %w", err)
++	}
++	d.lock = lock
++
++	if d.svc.Sketches != nil {
++		d.svc.Sketches.Load(d.root, d.log)
++	}
++
++	runCtx, cancel := context.WithCancel(ctx)
++	defer cancel()
++	d.runCancelMu.Lock()
++	d.runCancel = cancel
++	d.runCancelMu.Unlock()
++
++	d.ing.Start(runCtx, 0, d.runIngested)
++	go d.hotPathWorker(runCtx)
++
++	d.drain = newDrainer(DrainConfig{
++		Root:     d.root,
++		Log:      d.log,
++		Metrics:  d.m,
++		Clock:    d.clk,
++		Dispatch: d.drainDispatch,
++		Seen:     d.ing.seen,
++		IsLive:   d.sessionIsLive,
++	})
++
++	server, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)
++	if err != nil {
++		return fmt.Errorf("daemon: run: listen: %w", err)
++	}
++	d.server = server
++
++	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
++		d.log.Warn("daemon: failed to write state.bin", "err", err)
++	}
++	removeSpawnLockFile(d.root)
++
++	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
++		d.log.Warn("daemon: startup drain failed", "err", err)
++	}
++
++	hbTicker := time.NewTicker(heartbeatInterval)
++	defer hbTicker.Stop()
++
++	idleTick := idleTickMax
++	if secs := d.currentCfg().Runtime.Daemon.IdleExitSeconds; secs > 0 {
++		if candidate := time.Duration(secs) * time.Second / 10; candidate < idleTick {
++			idleTick = candidate
++		}
++	}
++	if idleTick <= 0 {
++		idleTick = idleTickMax
++	}
++	idleTicker := time.NewTicker(idleTick)
++	defer idleTicker.Stop()
++
++	serveErrCh := make(chan error, 1)
++	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
++
++	var zeroLiveSince time.Time
++	for {
++		select {
++		case <-ctx.Done():
++			cancel()
++			<-serveErrCh
++			return nil
++		case err := <-serveErrCh:
++			// A Serve return driven by Stop() (admin.shutdown, or the idle-exit path below, both
++			// of which close d.stopped before cancelling runCtx) is an intentional, successful
++			// shutdown — report nil, not the raw context.Canceled Serve's own contract returns for
++			// a cancellation-driven stop. A Serve return with d.stopped still open is a genuine,
++			// unexpected transport failure and is reported verbatim.
++			select {
++			case <-d.stopped:
++				return nil
++			default:
++				return err
++			}
++		case <-hbTicker.C:
++			if d.lock != nil {
++				_ = d.lock.Heartbeat()
++			}
++		case <-idleTicker.C:
++			d.idle.Notify(d.registry.LastActivity())
++			now := core.NowMilli(d.clk)
++			if d.idle.IsIdle(now) {
++				_, _ = d.idle.RunOnce(runCtx, idleRunBudget)
++			}
++			d.maybeReloadConfig(runCtx, config.Env{})
++
++			if d.registry.Live() == 0 {
++				if zeroLiveSince.IsZero() {
++					zeroLiveSince = d.clk.Now()
++				}
++				exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
++				if exitAfter <= 0 {
++					exitAfter = defaultIdleExitSeconds
++				}
++				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
++					cancel()
++					<-serveErrCh
++					_ = d.Stop(ctx)
++					return nil
++				}
++			} else {
++				zeroLiveSince = time.Time{}
++			}
++		}
++	}
+ }
+ 
+-func (i *stubIdle) Notify(lastActivity core.UnixMilli) {
+-	i.mu.Lock()
+-	defer i.mu.Unlock()
+-	i.last = lastActivity
+-	i.dirty = true
++// sessionIsLive reports whether sess is still tracked as live, for drainer's IsLive callback (a
++// live session's WAL is offset-marked but kept, never deleted mid-session).
++func (d *daemon) sessionIsLive(sess core.SessionID) bool {
++	s, ok := d.registry.Get(sess)
++	return ok && s.Live
+ }
+ 
+-// IsIdle reports false unconditionally.
+-//
+-// This is the documented zero value, not an oversight: the real predicate compares now-last
+-// against runtime.idle.afterMS, and answering "yes, idle" while nothing can actually run would
+-// invite a caller to schedule work that silently never happens. False is the honest answer for a
+-// daemon that does not run background work at all.
+-func (i *stubIdle) IsIdle(core.UnixMilli) bool { return false }
++// Drain replays every spool-tier file under root's spool directory. It is safe to call before Run
++// has fully started a drainer only in the sense that a nil drainer reports (0, nil) — Run always
++// constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
++// only ever run once Run has.
++func (d *daemon) Drain(ctx context.Context) (int, error) {
++	if d.drain == nil {
++		return 0, nil
++	}
++	return d.drain.Drain(ctx)
++}
+ 
+-func (i *stubIdle) RunOnce(context.Context, time.Duration) ([]string, error) {
+-	return nil, fmt.Errorf("%w: daemon.IdleController.RunOnce (SP-05)", core.ErrNotImplemented)
++// runIngested is the ingest worker pool's dispatch callback: it resolves the event, routes to the
++// bound Services function when present, and — for observe.prompt — runs the off-reply-path
++// sentinel scan. It is also drainer.Dispatch's underlying function, wrapped as dispatchOp so a
++// drained line gets exactly the same handling a live request would.
++func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
++	ev := resolveEvent(req)
++	switch req.Op {
++	case ipc.OpObserveTool:
++		if d.svc.ObserveTool != nil {
++			if err := d.svc.ObserveTool(ctx, *ev); err != nil {
++				d.log.Warn("daemon: ObserveTool failed", "err", err)
++			}
++		} else if d.m != nil {
++			d.m.Counter(counterUnhandledObserveTool).Add(1)
++		}
++	case ipc.OpObserveStop:
++		subagent := decodeSubagent(req.Raw)
++		if d.svc.ObserveStop != nil {
++			if err := d.svc.ObserveStop(ctx, *ev, subagent); err != nil {
++				d.log.Warn("daemon: ObserveStop failed", "err", err)
++			}
++		} else if d.m != nil {
++			d.m.Counter(counterUnhandledObserveStop).Add(1)
++		}
++	case ipc.OpObservePrompt:
++		d.scanSentinelForPrompt(ev)
++	}
+ }
+ 
+-// Registered returns the names registered so far, so a wiring test can prove its work landed even
+-// though nothing runs it yet.
+-func (i *stubIdle) Registered() []string {
+-	i.mu.Lock()
+-	defer i.mu.Unlock()
+-	names := make([]string, 0, len(i.work))
+-	for _, w := range i.work {
+-		names = append(names, w.name)
++// drainDispatch is the drainer's DrainConfig.Dispatch function. A hot-path op's line came FROM a
++// durability record (a WAL segment or a client spool file) that IS the drain's own source of
++// truth, so replaying it must route straight to the same processing a live worker-pool job gets
++// (runIngested) rather than back through dispatchOp's ordinary route handlers: dispatchOp's
++// observe.* routes call ingest.Accept, which would re-WAL the line — for a WAL-sourced line, that
++// is a self-referential write into the very file being drained. Every other op never touches the
++// WAL at all, so it replays through the full dispatchOp exactly as if freshly received.
++func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
++	if req.Op.HotPath() {
++		d.runIngested(ctx, req)
++		return ipc.Response{OK: true}
+ 	}
+-	return names
++	return d.dispatchOp(ctx, req)
++}
++
++// Stop shuts the daemon down cleanly and idempotently (sync.Once): stop accepting, drain the ring
++// with a bound, close the ingest WAL handles, save sketches, persist metrics, remove state.bin,
++// close the server, release the lock.
++func (d *daemon) Stop(ctx context.Context) error {
++	var stopErr error
++	d.stopOnce.Do(func() {
++		close(d.stopped)
++
++		d.runCancelMu.Lock()
++		runCancel := d.runCancel
++		d.runCancelMu.Unlock()
++		if runCancel != nil {
++			runCancel() // unblocks Run's own select loop and stops the worker pool below.
++		}
++
++		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
++		_, _ = d.Drain(drainCtx)
++		cancel()
++
++		d.ing.Wait()
++		if err := d.ing.Close(); err != nil {
++			d.log.Warn("daemon: stop: closing ingest WAL handles", "err", err)
++		}
++
++		if d.svc.Sketches != nil {
++			d.svc.Sketches.Save(d.root, d.log)
++		}
++
++		if d.m != nil {
++			if err := d.m.Persist(paths.Of(d.root)); err != nil {
++				d.log.Warn("daemon: stop: persisting metrics", "err", err)
++			}
++		}
++
++		if err := ipc.RemoveState(d.root); err != nil {
++			d.log.Warn("daemon: stop: removing state.bin", "err", err)
++		}
++
++		if d.server != nil {
++			if err := d.server.Close(); err != nil {
++				stopErr = err
++			}
++		}
++
++		if d.lock != nil {
++			if err := d.lock.Release(); err != nil && stopErr == nil {
++				stopErr = err
++			}
++		}
++	})
++	return stopErr
++}
++
++// isAddrTooLong reports whether err wraps ipc.ErrAddrTooLong.
++func isAddrTooLong(err error) bool {
++	return errors.Is(err, ipc.ErrAddrTooLong)
+ }
+diff --git a/internal/daemon/daemon_test.go b/internal/daemon/daemon_test.go
+index 71b8459..3f8222f 100644
+--- a/internal/daemon/daemon_test.go
++++ b/internal/daemon/daemon_test.go
+@@ -1,178 +1,663 @@
+-package daemon_test
++package daemon
+ 
+ import (
+ 	"context"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"runtime"
++	"strconv"
++	"sync"
+ 	"testing"
++	"time"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/core"
+-	"github.com/qompack/qompack/internal/daemon"
++	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
+ 	"github.com/qompack/qompack/internal/sketch"
+ )
+ 
+-// TestNew_SucceedsWithNoServices is the property waves 1–2 depend on: a daemon constructs from an
+-// Options whose service members are all nil. §5.4 says nil means "not built yet", so refusing to
+-// construct would make the daemon unusable during exactly the period it is most needed.
+-func TestNew_SucceedsWithNoServices(t *testing.T) {
+-	t.Parallel()
+-
+-	d, err := daemon.New(daemon.Options{ProjectRoot: t.TempDir()})
+-	require.NoError(t, err)
+-	require.NotNil(t, d)
+-
+-	// The two extension seams must be usable even before Run works, because they are what later
+-	// waves register against at wiring time.
+-	require.NotNil(t, d.Registry(), "Registry is an extension seam and must never be nil")
+-	require.NotNil(t, d.Idle(), "Idle is an extension seam and must never be nil")
++// testConfig returns config.Defaults(), the sane baseline every daemon-level test builds on.
++func testConfig() config.Config { return config.Defaults() }
++
++// uniqueTestAddr returns a QOMPACK_IPC_ADDR value naming an endpoint private to this test: a
++// per-test-uniquely-named pipe on Windows, a socket inside t.TempDir() on POSIX. Only tests that
++// actually call Daemon.Run need this — dispatchOp-driven tests never touch the transport.
++func uniqueTestAddr(t *testing.T) string {
++	t.Helper()
++	if runtime.GOOS == "windows" {
++		name := `\\.\pipe\qompack-test-` + strconv.FormatInt(time.Now().UnixNano(), 36)
++		return "pipe:" + name
++	}
++	return "unix:" + filepath.Join(t.TempDir(), "d.sock")
+ }
+ 
+-// TestStubOperationsReportNotImplemented pins the stub contract: every operation reports
+-// core.ErrNotImplemented, so a caller can branch on it rather than guessing from a zero value.
+-func TestStubOperationsReportNotImplemented(t *testing.T) {
++// TestNew_SucceedsWithNoServices is the property waves 1-2 depend on: a daemon constructs from an
++// Options whose service members are all nil.
++func TestNew_SucceedsWithNoServices(t *testing.T) {
+ 	t.Parallel()
+ 
+-	d, err := daemon.New(daemon.Options{ProjectRoot: t.TempDir()})
++	d, err := New(Options{ProjectRoot: t.TempDir()})
+ 	require.NoError(t, err)
+-	ctx := context.Background()
+-
+-	require.True(t, core.IsNotImplemented(d.Run(ctx)))
+-	require.True(t, core.IsNotImplemented(d.Stop(ctx)))
+-
+-	n, err := d.Drain(ctx)
+-	require.True(t, core.IsNotImplemented(err))
+-	require.Zero(t, n)
+-
+-	ran, err := d.Idle().RunOnce(ctx, 0)
+-	require.True(t, core.IsNotImplemented(err))
+-	require.Empty(t, ran)
++	require.NotNil(t, d)
++	require.NotNil(t, d.Registry())
++	require.NotNil(t, d.Idle())
+ }
+ 
+-// TestSketchSet_CarriesAllFourStructures pins the SP-01 §1341 spelling of SketchSet. The set had
+-// three fields, missing Top, and nothing caught it because no test ever constructed one.
+-//
+-// The omission is not cosmetic: sketch.CMS.HeavyHitters takes a *MisraGries, so a resident CMS
+-// with no resident top-k has no candidate set to estimate over and cannot answer the only question
+-// it exists to answer. Wiring the pair here is what makes that impossible to lose again.
++// TestSketchSet_CarriesAllFourStructures pins the SP-01 spelling of SketchSet and its
++// assignability into Options.
+ func TestSketchSet_CarriesAllFourStructures(t *testing.T) {
+ 	t.Parallel()
+ 
+-	s := &daemon.SketchSet{
++	s := &SketchSet{
+ 		Tried:   sketch.NewBloom(512, 0.01),
+ 		Touch:   sketch.NewCMS(0.001, 0.01),
+ 		Explore: sketch.NewHLL(14),
+ 		Top:     sketch.NewMisraGries(64),
+ 	}
+-
+ 	require.NotNil(t, s.Tried)
+ 	require.NotNil(t, s.Touch)
+ 	require.NotNil(t, s.Explore)
+-	require.NotNil(t, s.Top, "SP-01 §1341 spells Top; CMS.HeavyHitters is unusable without it")
++	require.NotNil(t, s.Top)
+ 
+-	// The set must survive being handed to Options, which is the only way it is ever consumed.
+-	d, err := daemon.New(daemon.Options{ProjectRoot: t.TempDir(), Sketches: s})
++	d, err := New(Options{ProjectRoot: t.TempDir(), Sketches: s})
+ 	require.NoError(t, err)
+ 	require.NotNil(t, d)
+ }
+ 
+-// TestHandle_RoutingTableIsData is the seam §5.4 calls out by name.
+-//
+-// The op-routing table has to be data rather than a switch, because otherwise every wave that
+-// adds an op edits the same function in this package — which is how four wave-3 subplans end up
+-// conflicting in one file. This test is what keeps it data.
+-func TestHandle_RoutingTableIsData(t *testing.T) {
++// allOps is the 13-route table TestServicesAllNil and friends drive.
++var allOps = []ipc.Op{
++	ipc.OpObserveTool, ipc.OpObservePrompt, ipc.OpObserveStop, ipc.OpSessionStart,
++	ipc.OpCheckpoint, ipc.OpFlush, ipc.OpStatus, ipc.OpMCP,
++	ipc.OpAdminPing, ipc.OpAdminDrain, ipc.OpAdminReload, ipc.OpAdminIdle, ipc.OpAdminShutdown,
++}
++
++// TestServicesAllNil drives every one of the 13 ops through the daemon with a fully nil Services
++// set: every response must be OK:true except mcp, which reports OK:false "mcp not built" — and no
++// call may panic.
++func TestServicesAllNil(t *testing.T) {
+ 	t.Parallel()
++	require.Len(t, allOps, 13)
+ 
+-	var o daemon.Options
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	for _, op := range allOps {
++		sess := core.SessionID("sess-" + string(op))
++		ev := &hookio.Event{HookEventName: "x", SessionID: sess, CWD: root, TranscriptPath: filepath.Join(root, "t.jsonl")}
++		req := ipc.Request{Op: op, Session: sess, Reply: true, Event: ev, TS: core.NowMilli(dd.clk)}
++
++		var resp ipc.Response
++		require.NotPanics(t, func() { resp = dd.dispatchOp(context.Background(), req) }, "op %s", op)
++
++		if op == ipc.OpMCP {
++			require.False(t, resp.OK, "op %s", op)
++			require.Equal(t, "mcp not built", resp.Err)
++			continue
++		}
++		require.True(t, resp.OK, "op %s must ACK even with nil Services: %+v", op, resp)
++	}
+ 
+-	_, ok := o.Handler("observe.tool")
+-	require.False(t, ok, "an unregistered op must not resolve")
++	// The WAL must hold every hot-path event even though no Services function ever ran.
++	for _, op := range []ipc.Op{ipc.OpObserveTool, ipc.OpObserveStop} {
++		sess := "sess-" + string(op)
++		walPath := filepath.Join(paths.Of(root).Spool, "wal-"+sess+".ndjson")
++		_, err := os.Stat(walPath)
++		require.NoError(t, err, "op %s must be WAL'd", op)
++	}
++}
+ 
+-	called := 0
+-	o.Handle("observe.tool", func(context.Context, ipc.Request) ipc.Response {
+-		called++
+-		return ipc.Response{OK: true}
++// TestObservePromptRepliesWithinDeadline: a bound ObservePrompt seam's Output reaches the caller.
++func TestObservePromptRepliesWithinDeadline(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{HookEventName: "UserPromptSubmit", AdditionalContext: "x"}}, nil
++		}
+ 	})
+-	o.Handle("checkpoint", func(context.Context, ipc.Request) ipc.Response {
+-		return ipc.Response{OK: true}
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-1", CWD: root}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObservePrompt, Session: "sess-1", Reply: true, Event: ev})
++	require.True(t, resp.OK)
++	require.NotNil(t, resp.Output)
++	require.NotNil(t, resp.Output.HookSpecificOutput)
++	require.Equal(t, "x", resp.Output.HookSpecificOutput.AdditionalContext)
++}
++
++// TestObservePromptBlockingVariantTimesOut: an ObservePrompt seam that ignores its context and
++// blocks past promptReplyDeadline still returns hookio.Empty() promptly — a prompt is never
++// blocked on the daemon.
++func TestObservePromptBlockingVariantTimesOut(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
++			block := make(chan struct{}) // never signaled: blocks forever, deliberately ignoring ctx
++			<-block
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{AdditionalContext: "late"}}, nil
++		}
+ 	})
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-2", CWD: root}
++	start := time.Now()
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObservePrompt, Session: "sess-2", Reply: true, Event: ev})
++	elapsed := time.Since(start)
+ 
+-	h, ok := o.Handler("observe.tool")
++	require.True(t, resp.OK)
++	require.NotNil(t, resp.Output)
++	require.Nil(t, resp.Output.HookSpecificOutput, "a timed-out ObservePrompt must fall back to hookio.Empty()")
++	require.Less(t, elapsed, time.Second, "the route must not block past promptReplyDeadline")
++}
++
++// TestDegradedPassiveSuppressesActingPaths: forced ModeDegradedPassive suppresses every acting
++// path (SessionStart/ObservePrompt/PreCompact output and act.-prefixed idle tasks) while leaving
++// every response OK.
++func TestDegradedPassiveSuppressesActingPaths(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	var sessionStartCalled, preCompactCalled bool
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.SessionStart = func(context.Context, hookio.Event) (hookio.Output, error) {
++			sessionStartCalled = true
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{HookEventName: "SessionStart", AdditionalContext: "ctx"}}, nil
++		}
++		s.PreCompact = func(context.Context, hookio.Event) (hookio.Output, error) {
++			preCompactCalled = true
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{HookEventName: "PreCompact", CustomInstructions: "instr"}}, nil
++		}
++		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{AdditionalContext: "prompt"}}, nil
++		}
++	})
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
+ 	require.True(t, ok)
+-	resp := h(context.Background(), ipc.Request{})
++	t.Cleanup(func() { _ = dd.ing.Close() })
++	dd.monitor.Degrade("forced for test", []contract.Result{
++		{ID: "x.forced", OK: false, Severity: contract.SevCritical, Expected: "e", Observed: "o"},
++	})
++
++	ev := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-1", CWD: root, Source: "startup"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpSessionStart, Session: "sess-1", Reply: true, Event: ev})
+ 	require.True(t, resp.OK)
+-	require.Equal(t, 1, called)
++	require.NotNil(t, resp.Output)
++	require.Nil(t, resp.Output.HookSpecificOutput, "no additionalContext under degraded-passive")
++	require.False(t, sessionStartCalled)
++
++	ev2 := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-1", CWD: root}
++	resp2 := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObservePrompt, Session: "sess-1", Reply: true, Event: ev2})
++	require.True(t, resp2.OK)
++	require.NotNil(t, resp2.Output)
++	require.Nil(t, resp2.Output.HookSpecificOutput)
++
++	ev3 := &hookio.Event{HookEventName: "PreCompact", SessionID: "sess-1", CWD: root}
++	resp3 := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpCheckpoint, Session: "sess-1", Reply: true, Event: ev3})
++	require.True(t, resp3.OK)
++	require.NotNil(t, resp3.Output)
++	require.Nil(t, resp3.Output.HookSpecificOutput, "no customInstructions under degraded-passive")
++	require.False(t, preCompactCalled)
++
++	dd.idle.Register("act.checkpoint", 10, func(context.Context) error { return nil })
++	ran, err := dd.idle.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.NotContains(t, ran, "act.checkpoint")
++}
++
++// TestDegradedPassiveStillRecords: L0/L1 recording keeps running under degraded-passive — 20
++// observe.tool events all WAL and all reach the bound ObserveTool seam — and SP-05's own idle
++// tasks (none act.-prefixed) all still run.
++func TestDegradedPassiveStillRecords(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	var mu sync.Mutex
++	calls := 0
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObserveTool = func(context.Context, hookio.Event) error {
++			mu.Lock()
++			calls++
++			mu.Unlock()
++			return nil
++		}
++	})
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++	dd.monitor.Degrade("forced for test", []contract.Result{
++		{ID: "x.forced", OK: false, Severity: contract.SevCritical},
++	})
++
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	dd.ing.Start(ctx, 2, dd.runIngested)
++
++	for i := 0; i < 20; i++ {
++		sess := core.SessionID(fmt.Sprintf("sess-%d", i))
++		ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: sess, CWD: root}
++		resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: sess, Event: ev, TS: core.NowMilli(dd.clk)})
++		require.True(t, resp.OK)
++	}
++
++	require.Eventually(t, func() bool {
++		mu.Lock()
++		defer mu.Unlock()
++		return calls == 20
++	}, 2*time.Second, 10*time.Millisecond, "all 20 events must reach ObserveTool")
++
++	ran, err := dd.idle.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.ElementsMatch(t, []string{"drain", "sketches", "metrics"}, ran)
++}
+ 
+-	require.ElementsMatch(t, []ipc.Op{"observe.tool", "checkpoint"}, o.Ops())
++// TestModeOffSkipsIngest: once the monitor reports ModeOff, observe.tool ACKs without ever
++// writing the WAL or calling the bound seam.
++func TestModeOffSkipsIngest(t *testing.T) {
++	t.Parallel()
+ 
+-	// Re-registering replaces rather than duplicating, so a later wave can override an earlier
+-	// wave's placeholder without the table growing two entries for one op.
+-	o.Handle("observe.tool", func(context.Context, ipc.Request) ipc.Response {
+-		return ipc.Response{OK: false}
++	root := t.TempDir()
++	called := false
++	cfg := testConfig()
++	cfg.Runtime.Mode = "off"
++	o := Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObserveTool = func(context.Context, hookio.Event) error { called = true; return nil }
+ 	})
+-	require.Len(t, o.Ops(), 2)
+-	h, _ = o.Handler("observe.tool")
+-	require.False(t, h(context.Background(), ipc.Request{}).OK)
+-	require.Equal(t, 1, called, "the replaced handler must not still be reachable")
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	ev := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-1", CWD: root, Source: "startup"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpSessionStart, Session: "sess-1", Reply: true, Event: ev})
++	require.True(t, resp.OK)
++	require.Equal(t, contract.ModeOff, dd.monitor.Mode())
++
++	ev2 := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
++	resp2 := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev2, TS: core.NowMilli(dd.clk)})
++	require.True(t, resp2.OK)
++	require.False(t, called)
++
++	walPath := filepath.Join(paths.Of(root).Spool, "wal-sess-1.ndjson")
++	_, statErr := os.Stat(walPath)
++	require.True(t, os.IsNotExist(statErr), "the WAL file must never be created under ModeOff")
+ }
+ 
+-// TestIdleController_AcceptsRegistrationsBeforeItCanRun proves the O3/O5 seam is wired now even
+-// though nothing executes yet: a wave that registers background work today must be able to see
+-// that its registration landed, or it cannot test its own wiring until SP-05 merges.
+-func TestIdleController_AcceptsRegistrationsBeforeItCanRun(t *testing.T) {
++// TestNAKDuplicateIsDedupedOnDrain: a request WAL'd and NAK'd under HotSpool, then duplicated by
++// the client's own spool, is dispatched exactly once when drained.
++func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
+ 	t.Parallel()
+ 
+-	d, err := daemon.New(daemon.Options{ProjectRoot: t.TempDir()})
++	root := t.TempDir()
++	var mu sync.Mutex
++	calls := 0
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObserveTool = func(context.Context, hookio.Event) error {
++			mu.Lock()
++			calls++
++			mu.Unlock()
++			return nil
++		}
++	})
++	d, err := New(o)
+ 	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++	dd.drain = newDrainer(DrainConfig{
++		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
++		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
++	})
++	dd.registry.SetHotMode(ipc.HotSpool, "test")
++
++	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
++	req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(dd.clk)}
++
++	resp := dd.dispatchOp(context.Background(), req)
++	require.False(t, resp.OK, "a fire-and-forget hot-path request must be NAK'd once spooling")
++
++	line, err := ipc.EncodeRequest(req)
++	require.NoError(t, err)
++	spoolPath := filepath.Join(paths.Of(root).Spool, "client-99999.ndjson")
++	require.NoError(t, os.MkdirAll(filepath.Dir(spoolPath), 0o700))
++	require.NoError(t, os.WriteFile(paths.Long(spoolPath), append(line, '\n'), 0o600))
++
++	n, err := dd.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 1, n, "exactly one of the two identical lines is actually dispatched")
++	require.Equal(t, 1, calls, "the handler must see the request exactly once")
++
++	_, statErr := os.Stat(paths.Long(spoolPath))
++	require.True(t, os.IsNotExist(statErr), "the client spool file must be consumed")
++}
++
++// TestSpoolOnBreachFalseDoesNotTransition: spoolOnBreach=false leaves the daemon in HotSync even
++// after a breaching window, while the WARN log and counter still fire.
++func TestSpoolOnBreachFalseDoesNotTransition(t *testing.T) {
++	t.Parallel()
+ 
+-	idle := d.Idle()
+-	idle.Register("gc", 10, func(context.Context) error { return nil })
+-	idle.Register("persist-sketches", 20, func(context.Context) error { return nil })
++	root := t.TempDir()
++	cfg := testConfig()
++	cfg.Runtime.HotPath.SpoolOnBreach = false
++	cfg.Runtime.HotPath.BudgetMs = 15
++	cfg.Runtime.HotPath.BreachWindows = 1
++	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
+ 
+-	reg, ok := idle.(interface{ Registered() []string })
+-	require.True(t, ok, "the stub controller must expose what was registered")
+-	require.ElementsMatch(t, []string{"gc", "persist-sketches"}, reg.Registered())
++	feedBreachingWindow(dd)
+ 
+-	// IsIdle is false unconditionally and that is the documented answer, not an oversight:
+-	// reporting idle while no work can run would invite a caller to schedule work that silently
+-	// never happens.
+-	idle.Notify(core.UnixMilli(0))
+-	require.False(t, idle.IsIdle(core.UnixMilli(1<<40)))
++	require.Equal(t, ipc.HotSync, dd.registry.HotMode())
++	require.Equal(t, int64(1), dd.m.Counter(counterHotpathDegraded).Value())
+ }
+ 
+-// TestSessionRegistry_EmptyAndSafe covers the registry's real behaviour. It is real rather than
+-// stubbed because it is touched by the accept loop and the idle loop concurrently by
+-// construction; shipping it unsynchronized would leave SP-05 a data race to find under -race
+-// instead of a correct skeleton to fill in.
+-func TestSessionRegistry_EmptyAndSafe(t *testing.T) {
++// TestHotModeTransitionWritesStateAndNAKs: a breaching window flips HotMode, persists it to
++// state.bin, and the very next observe.tool is NAK'd.
++func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
+ 	t.Parallel()
+ 
+-	r := daemon.NewSessionRegistry()
+-	require.Zero(t, r.Len())
++	root := t.TempDir()
++	cfg := testConfig()
++	cfg.Runtime.HotPath.BudgetMs = 15
++	cfg.Runtime.HotPath.BreachWindows = 1
++	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	feedBreachingWindow(dd)
++	require.Equal(t, ipc.HotSpool, dd.registry.HotMode())
++
++	st := ipc.ReadState(root, cfg)
++	require.Equal(t, ipc.HotSpool, st.Hot)
+ 
+-	_, ok := r.Get("nobody")
+-	require.False(t, ok)
++	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(dd.clk)})
++	require.False(t, resp.OK)
++	require.Equal(t, ipc.HotSpool, resp.Hot)
++}
++
++// feedBreachingWindow pushes one full sampleWindow of 20ms samples (over a 15ms budget) directly
++// through recordHotPathSample/breach.Observe/applyHotPathTransition — no worker goroutine is
++// running in these tests, so the window is closed synchronously by draining d.hotSamples inline.
++func feedBreachingWindow(dd *daemon) {
++	for i := 0; i < sampleWindow; i++ {
++		dd.recordHotPathSample(ipc.Request{Op: ipc.OpObserveTool, TS: 0}, core.UnixMilli(20))
++	}
++	for len(dd.hotSamples) > 0 {
++		s := <-dd.hotSamples
++		if tr := dd.breach.Observe(s); tr != NoTransition {
++			dd.applyHotPathTransition(tr)
++		}
++	}
+ }
+ 
+-// TestSessionRegistry_ConcurrentReadsAreRaceFree exercises the lock under -race.
+-func TestSessionRegistry_ConcurrentReadsAreRaceFree(t *testing.T) {
++// TestConfigReloadDefersChunkChange: a store.chunk.* change in config.json is picked up on
++// reload but deferred — the live config keeps the old chunk block, and the full new config is
++// recorded to state/config-pending.json.
++func TestConfigReloadDefersChunkChange(t *testing.T) {
+ 	t.Parallel()
+ 
+-	r := daemon.NewSessionRegistry()
+-	done := make(chan struct{})
+-	const readers = 8
++	root := t.TempDir()
++	cfg := testConfig()
++	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++	dd.cfgEnv = config.Env{ProjectRoot: root, HomeDir: t.TempDir(), Getenv: func(string) string { return "" }}
++
++	cfgPath := configJSONPath(root)
++	require.NoError(t, os.MkdirAll(filepath.Dir(cfgPath), 0o700))
++	body := []byte(`{"store":{"chunk":{"min":1024,"target":9999,"max":16384}},"runtime":{"logging":{"level":"debug"}}}`)
++	require.NoError(t, os.WriteFile(cfgPath, body, 0o600))
++
++	changed, err := dd.reloadConfig(context.Background(), dd.cfgEnv, false)
++	require.NoError(t, err)
++	require.NotEmpty(t, changed)
++	require.Equal(t, cfg.Store.Chunk, dd.currentCfg().Store.Chunk, "store.chunk.* must not apply mid-session")
++
++	b, err := os.ReadFile(paths.Long(configPendingPath(root)))
++	require.NoError(t, err)
++	var pending config.Config
++	require.NoError(t, json.Unmarshal(b, &pending))
++	require.Equal(t, 9999, pending.Store.Chunk.Target)
++}
++
++// TestIdleExitWithZeroSessions: with a 1-second idle-exit window and zero live sessions, Run
++// returns on its own, having removed state.bin and released the lock.
++func TestIdleExitWithZeroSessions(t *testing.T) {
++	root := t.TempDir()
++	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+ 
+-	for i := 0; i < readers; i++ {
+-		go func() {
+-			defer func() { done <- struct{}{} }()
+-			for j := 0; j < 100; j++ {
+-				_ = r.Len()
+-				_, _ = r.Get("s1")
+-			}
+-		}()
++	cfg := testConfig()
++	cfg.Runtime.Daemon.IdleExitSeconds = 1
++	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
++	defer cancel()
++
++	errCh := make(chan error, 1)
++	go func() { errCh <- d.Run(ctx) }()
++
++	select {
++	case err := <-errCh:
++		require.NoError(t, err)
++	case <-time.After(12 * time.Second):
++		t.Fatal("Run did not exit on its own after the idle-exit window")
+ 	}
+-	for i := 0; i < readers; i++ {
+-		<-done
++
++	_, statErr := os.Stat(paths.Long(ipc.StatePath(root)))
++	require.True(t, os.IsNotExist(statErr), "state.bin must be removed on idle exit")
++	_, lockErr := os.Stat(paths.Long(filepath.Join(paths.Of(root).Run, lockFileName)))
++	require.True(t, os.IsNotExist(lockErr), "daemon.lock must be released on idle exit")
++}
++
++// TestRunReturnsNilWhenLockHeld: a second daemon over the same project returns nil promptly,
++// exactly like a successful, quiet no-op.
++func TestRunReturnsNilWhenLockHeld(t *testing.T) {
++	root := t.TempDir()
++	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
++
++	cfg := testConfig()
++	dA, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
++	require.NoError(t, err)
++	ctxA, cancelA := context.WithCancel(context.Background())
++	defer cancelA()
++	errChA := make(chan error, 1)
++	go func() { errChA <- dA.Run(ctxA) }()
++
++	require.Eventually(t, func() bool {
++		_, ok := ReadLock(root)
++		return ok
++	}, 5*time.Second, 20*time.Millisecond, "daemon A must acquire the lock")
++
++	dB, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
++	require.NoError(t, err)
++	ctxB, cancelB := context.WithTimeout(context.Background(), 5*time.Second)
++	defer cancelB()
++
++	require.NoError(t, dB.Run(ctxB), "a second daemon over the same project must return nil, not an error")
++
++	cancelA()
++	select {
++	case <-errChA:
++	case <-time.After(5 * time.Second):
++		t.Fatal("daemon A did not shut down")
+ 	}
+ }
++
++// TestAdminShutdownStopsTheDaemon: the admin.shutdown route's asynchronous Stop() call must
++// actually unblock Run — it must cancel the same context the worker pool, hot-path worker and
++// server.Serve run under, or Stop's own d.ing.Wait() (and Run's own select loop) would hang
++// forever waiting for a shutdown nothing ever signals.
++func TestAdminShutdownStopsTheDaemon(t *testing.T) {
++	root := t.TempDir()
++	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
++
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++
++	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
++	defer cancel()
++	errCh := make(chan error, 1)
++	go func() { errCh <- d.Run(ctx) }()
++
++	require.Eventually(t, func() bool {
++		_, ok := ReadLock(root)
++		return ok
++	}, 5*time.Second, 20*time.Millisecond, "the daemon must acquire the lock before it can be asked to shut down")
++
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpAdminShutdown, Reply: true})
++	require.True(t, resp.OK)
++
++	select {
++	case err := <-errCh:
++		require.NoError(t, err)
++	case <-time.After(8 * time.Second):
++		t.Fatal("admin.shutdown did not stop the running daemon")
++	}
++}
++
++// TestMarkerIsWrittenByFlushAndCheckpointOnly is the daemon-route half of task-4-spec.md's
++// contract-side guarantee: session.start never writes run/marker.json; checkpoint and flush both
++// do.
++func TestMarkerIsWrittenByFlushAndCheckpointOnly(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	markerPath := contract.MarkerPath(root)
++	_, err = os.Stat(paths.Long(markerPath))
++	require.True(t, os.IsNotExist(err))
++
++	ev := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-1", CWD: root, Source: "startup"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpSessionStart, Session: "sess-1", Reply: true, Event: ev})
++	require.True(t, resp.OK)
++	_, err = os.Stat(paths.Long(markerPath))
++	require.True(t, os.IsNotExist(err), "session.start must never write the marker")
++
++	ev2 := &hookio.Event{HookEventName: "PreCompact", SessionID: "sess-1", CWD: root}
++	resp2 := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpCheckpoint, Session: "sess-1", Reply: true, Event: ev2})
++	require.True(t, resp2.OK)
++	_, err = os.Stat(paths.Long(markerPath))
++	require.NoError(t, err, "checkpoint must write the marker")
++
++	require.NoError(t, os.Remove(paths.Long(markerPath)))
++	ev3 := &hookio.Event{HookEventName: "SessionEnd", SessionID: "sess-1", CWD: root}
++	resp3 := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpFlush, Session: "sess-1", Reply: true, Event: ev3})
++	require.True(t, resp3.OK)
++	_, err = os.Stat(paths.Long(markerPath))
++	require.NoError(t, err, "flush must write the marker")
++}
++
++// TestAdminPingAlwaysAnswersOK pins Ruling #22/#1: admin.ping answers OK:true unconditionally —
++// the ACK path's liveness proof depends on Response.OK, so this cannot be allowed to ever refuse.
++func TestAdminPingAlwaysAnswersOK(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++	dd.monitor.Degrade("forced for test", []contract.Result{{ID: "x", OK: false, Severity: contract.SevCritical}})
++
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpAdminPing, Reply: true})
++	require.True(t, resp.OK, "admin.ping must answer OK:true even while degraded")
++	require.NotNil(t, resp.Data)
++
++	var data map[string]any
++	require.NoError(t, json.Unmarshal(resp.Data, &data))
++	require.Contains(t, data, "pid")
++	require.Contains(t, data, "version")
++	require.Contains(t, data, "uptime_seconds")
++}
++
++// TestUnknownOpIsRefusedNotPanicked pins the routing table's default case.
++func TestUnknownOpIsRefusedNotPanicked(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	var resp ipc.Response
++	require.NotPanics(t, func() {
++		resp = dd.dispatchOp(context.Background(), ipc.Request{Op: "bogus.op", Reply: true})
++	})
++	require.False(t, resp.OK)
++	require.Contains(t, resp.Err, "unknown op")
++}
++
++// TestHandlerPanicIsRecovered pins the belt-and-braces panic recovery around a route handler.
++func TestHandlerPanicIsRecovered(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Handle(ipc.OpStatus, func(context.Context, ipc.Request) ipc.Response {
++		panic("boom")
++	})
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	var resp ipc.Response
++	require.NotPanics(t, func() {
++		resp = dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpStatus, Reply: true})
++	})
++	require.False(t, resp.OK)
++	require.Contains(t, resp.Err, "panic")
++	require.Equal(t, int64(1), dd.m.Counter(counterHandlerPanic).Value())
++}
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+new file mode 100644
+index 0000000..a014fa6
+--- /dev/null
++++ b/internal/daemon/handlers.go
+@@ -0,0 +1,699 @@
++package daemon
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"os"
++	"time"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/qompack/qompack/internal/pluginmanifest"
++)
++
++// promptReplyDeadline bounds observe.prompt's synchronous ObservePrompt call — well inside the
++// manifest's UserPromptSubmit timeout. On timeout the daemon replies with an empty Output; a
++// prompt is never blocked on the daemon.
++const promptReplyDeadline = 250 * time.Millisecond
++
++// sentinelScanTailBytes bounds how much of the transcript's tail the off-reply-path sentinel scan
++// reads (task-5-spec.md handlers.go).
++const sentinelScanTailBytes = 256 << 10
++
++// hookEventNameSessionStart is the exact SessionStart HSO.HookEventName spelling
++// hookio.SessionStartOutput uses internally (unexported there); respelled here because the
++// session.start route must set it on an Output a Services seam already partially built, which
++// hookio's own constructor would overwrite rather than augment.
++const hookEventNameSessionStart = "SessionStart"
++
++// loudTailCount is §5.17's "the last five Loud messages", the count the status route and the
++// metrics idle task both request from loudTail.
++const loudTailCount = 5
++
++// The daemon's own obs.Counter names, beyond the ones already declared in ingest.go/drain.go.
++const (
++	// counterHandlerPanic reuses ipc's own "ipc_handler_panic" spelling deliberately (ruling: the
++	// ipc server's own recovery around this same composed Handler is belt-and-braces on top of
++	// this one — both increment the identical metric name rather than two names for one concept).
++	counterHandlerPanic = "ipc_handler_panic"
++
++	counterUnhandledObserveTool = "l0_unhandled_observe_tool"
++	counterUnhandledObserveStop = "l0_unhandled_observe_stop"
++
++	counterHotpathDegraded = "hotpath_degraded"
++
++	counterContractFailPrefix = "contract_fail_"
++	counterContractModeChange = "contract_mode_change"
++)
++
++// histHookControlledObserved is the daemon-owned histogram name for the strict lower bound on
++// B-A: recvTS - req.TS, before hotPathTailAllowance is added.
++const histHookControlledObserved = "hook_controlled_observed"
++
++// StatusSnapshot is the status route's Data payload (task-5-spec.md handlers.go). SP-05 produces
++// it; SP-14 renders it.
++type StatusSnapshot struct {
++	Mode       string                      `json:"mode"`
++	Contract   []contract.Result           `json:"contract"`
++	Hot        string                      `json:"hot"`
++	Sessions   []SessionState              `json:"sessions"`
++	Latency    map[string]obs.HistSnapshot `json:"latency"`
++	Budgets    []obs.BudgetBreach          `json:"budgets"`
++	Counters   map[string]int64            `json:"counters"`
++	SpoolFiles int                         `json:"spool_files"`
++	LoudTail   []string                    `json:"loud_tail"`
++	Extra      json.RawMessage             `json:"extra,omitempty"`
++}
++
++// hotModeString renders ipc.HotPathMode as the wire-stable "sync"/"spool" spelling — ipc ships no
++// String method on the type (its zero value, HotSync, is meant to be read via ==, not printed),
++// so /qompack:status's JSON needs its own rendering here.
++func hotModeString(h ipc.HotPathMode) string {
++	if h == ipc.HotSpool {
++		return "spool"
++	}
++	return "sync"
++}
++
++// resolveEvent returns req.Event, defensively defaulting its SessionID from req.Session, or a
++// bare Event carrying only req.Session when req.Event is nil (a malformed or synthetic request —
++// every real client always sets Event). It never returns nil, so every route can dereference
++// freely.
++func resolveEvent(req ipc.Request) *hookio.Event {
++	if req.Event != nil {
++		ev := *req.Event
++		if ev.SessionID == "" {
++			ev.SessionID = req.Session
++		}
++		return &ev
++	}
++	return &hookio.Event{SessionID: req.Session}
++}
++
++// decodeSubagent reads observe.stop's {"subagent":true} marker out of req.Raw. A missing or
++// unparseable Raw reports false — the ordinary, non-subagent Stop hook.
++func decodeSubagent(raw json.RawMessage) bool {
++	if len(raw) == 0 {
++		return false
++	}
++	var payload struct {
++		Subagent bool `json:"subagent"`
++	}
++	_ = json.Unmarshal(raw, &payload)
++	return payload.Subagent
++}
++
++// dispatchOp is the single ipc.Handler the daemon hands to ipc.NewServer — every request from
++// every connection passes through here. It injects the Services/Registry/Daemon context values
++// every route reads, looks up the op in the resolved route table (unknown op -> a refusal, never
++// a panic), records the hot-path latency estimate for the three ops that carry it, and forces a
++// NAK for a fire-and-forget hot-path request once the daemon has degraded to spool submode
++// (§12.2's NAK-with-hint: the request is already WAL'd by the route's own ingest.Accept call, so
++// refusing it here costs freshness, never data — the client's own spool absorbs the duplicate,
++// and Drain's seenSet collapses it back to one dispatch). It is also drainer.Dispatch's function:
++// a drained line gets identical handling to a live request, including this same NAK-forcing rule
++// (harmless there, since a drained line was never waiting on an ACK in the first place).
++func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
++	recvTS := core.NowMilli(d.clk)
++	ctx = withServices(ctx, d.svc)
++	ctx = withRegistry(ctx, d.registry)
++	ctx = withDaemon(ctx, d)
++
++	var resp ipc.Response
++	if h, ok := d.routes[req.Op]; ok {
++		resp = d.callHandler(ctx, h, req)
++	} else {
++		resp = ipc.Response{OK: false, Err: "unknown op: " + string(req.Op)}
++	}
++
++	if req.Op.HotPath() {
++		d.recordHotPathSample(req, recvTS)
++		if !req.Reply && d.registry.HotMode() == ipc.HotSpool {
++			resp.OK = false
++		}
++	}
++
++	resp.Mode = d.monitor.Mode()
++	resp.Hot = d.registry.HotMode()
++	return resp
++}
++
++// callHandler invokes h, recovering a panic into a refusal so one broken route can never bring
++// down the daemon's accept loop. The ipc server's own dispatch() wraps this same composed
++// Handler with an identical recovery, incrementing the identical counter name — belt and braces,
++// deliberately not deduplicated away.
++func (d *daemon) callHandler(ctx context.Context, h ipc.Handler, req ipc.Request) (resp ipc.Response) {
++	defer func() {
++		if r := recover(); r != nil {
++			if d.m != nil {
++				d.m.Counter(counterHandlerPanic).Add(1)
++			}
++			d.log.Loud("daemon: handler panicked — request refused", "op", string(req.Op), "recover", r)
++			resp = ipc.Response{OK: false, Err: fmt.Sprintf("panic: %v", r)}
++		}
++	}()
++	return h(ctx, req)
++}
++
++// recordHotPathSample computes hook.controlled.observed (a strict lower bound on B-A: recvTS -
++// req.TS) and hook.controlled (that value plus hotPathTailAllowance), records both into the
++// metrics registry, and hands the estimate to the breach-detector worker via a non-blocking send
++// — a full channel drops the sample rather than blocking the caller, which is this package's
++// standing rule for anything that would otherwise sit on the ACK path.
++func (d *daemon) recordHotPathSample(req ipc.Request, recvTS core.UnixMilli) {
++	observed := time.Duration(int64(recvTS)-int64(req.TS)) * time.Millisecond
++	if observed < 0 {
++		observed = 0
++	}
++	estimated := observed + hotPathTailAllowance
++
++	if d.m != nil {
++		d.m.Hist(histHookControlledObserved).Observe(observed)
++		d.m.Hist(histName(obs.BA)).Observe(estimated)
++	}
++
++	select {
++	case d.hotSamples <- estimated:
++	default:
++	}
++}
++
++// hotPathWorker drains d.hotSamples and feeds the breach detector — the "window closure runs on a
++// worker goroutine, not on the ACK path" rule. It also refreshes the cached CheckBudgets result
++// the status route serves, so /qompack:status is never more than one sample stale.
++func (d *daemon) hotPathWorker(ctx context.Context) {
++	for {
++		select {
++		case <-ctx.Done():
++			return
++		case sample := <-d.hotSamples:
++			if t := d.breach.Observe(sample); t != NoTransition {
++				d.applyHotPathTransition(t)
++			}
++			d.updateBudgetsCache()
++		}
++	}
++}
++
++// updateBudgetsCache calls obs.Registry.CheckBudgets and caches the result for the status route
++// (task-5-spec.md: "Budgets = the breaches from the most recent CheckBudgets result (cache it on
++// the daemon)").
++func (d *daemon) updateBudgetsCache() {
++	if d.m == nil {
++		return
++	}
++	breaches := d.m.CheckBudgets(d.currentCfg())
++	d.histMu.Lock()
++	d.lastBudgets = breaches
++	d.histMu.Unlock()
++}
++
++// applyHotPathTransition is §12.2's sync<->spool submode transition. Both directions log and
++// count regardless of spoolOnBreach; only the actual mode flip (registry.SetHotMode + WriteState)
++// is gated on it, so an operator who disabled the fallback still gets full visibility into every
++// window that would otherwise have tripped it (TestSpoolOnBreachFalseDoesNotTransition).
++func (d *daemon) applyHotPathTransition(t Transition) {
++	cfg := d.currentCfg()
++	switch t {
++	case ToSpool:
++		if d.m != nil {
++			d.m.Counter(counterHotpathDegraded).Add(1)
++		}
++		d.log.Warn("daemon: hot path degraded to spool submode",
++			"budget_ms", cfg.Runtime.HotPath.BudgetMs, "windows", cfg.Runtime.HotPath.BreachWindows)
++		d.log.Loud("daemon: hot path degraded to spool submode",
++			"budget_ms", cfg.Runtime.HotPath.BudgetMs, "windows", cfg.Runtime.HotPath.BreachWindows)
++		if !cfg.Runtime.HotPath.SpoolOnBreach {
++			return
++		}
++		d.registry.SetHotMode(ipc.HotSpool, "breach")
++		_ = ipc.WriteState(d.root, d.currentState())
++	case ToSync:
++		d.log.Info("daemon: hot path reverted to sync submode")
++		d.log.Loud("daemon: hot path reverted to sync submode")
++		d.registry.SetHotMode(ipc.HotSync, "")
++		_ = ipc.WriteState(d.root, d.currentState())
++	case NoTransition:
++	}
++}
++
++// handleObserveTool is the default observe.tool route: registry.Touch, then — unless the mode is
++// ModeOff — ingest.Accept, so the WAL holds it before anything else. The worker pool (runIngested)
++// calls svc.ObserveTool asynchronously.
++func (d *daemon) handleObserveTool(ctx context.Context, req ipc.Request) ipc.Response {
++	return d.acceptHotPathEvent(req)
++}
++
++// handleObserveStop is observe.stop's default route: identical shape to observe.tool. The
++// subagent flag travels in req.Raw and is decoded by runIngested, not here.
++func (d *daemon) handleObserveStop(ctx context.Context, req ipc.Request) ipc.Response {
++	return d.acceptHotPathEvent(req)
++}
++
++// acceptHotPathEvent is observe.tool's and observe.stop's shared body: registry.Touch, then
++// ingest.Accept gated on Mode.MayRecord() (ModeOff -> skipped entirely: ACK returned, nothing
++// written, per the mode-enforcement table's row 1).
++func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
++	ev := resolveEvent(req)
++	now := core.NowMilli(d.clk)
++	d.registry.Touch(ev.SessionID, now)
++
++	if !d.monitor.Mode().MayRecord() {
++		return ipc.Response{OK: true}
++	}
++
++	line, err := ipc.EncodeRequest(req)
++	if err != nil {
++		return ipc.Response{OK: false, Err: err.Error()}
++	}
++	if err := d.ing.Accept(req, line); err != nil {
++		return ipc.Response{OK: false, Err: err.Error()}
++	}
++	return ipc.Response{OK: true}
++}
++
++// handleObservePrompt is the default observe.prompt route: registry.Touch, ingest.Accept (WAL
++// first), then — synchronously and inside promptReplyDeadline — svc.ObservePrompt when non-nil
++// and the mode MayAct(). The result becomes Response.Output; a nil seam, a suppressed mode, an
++// error or a timeout all fall back to hookio.Empty(). The sentinel scan runs later, off this
++// reply path, in runIngested via the same ingest.Accept job.
++func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.Response {
++	ev := resolveEvent(req)
++	now := core.NowMilli(d.clk)
++	d.registry.Touch(ev.SessionID, now)
++
++	mode := d.monitor.Mode()
++	if !mode.MayRecord() {
++		empty := hookio.Empty()
++		return ipc.Response{OK: true, Output: &empty}
++	}
++
++	if line, err := ipc.EncodeRequest(req); err == nil {
++		_ = d.ing.Accept(req, line)
++	}
++
++	out := hookio.Empty()
++	if d.svc.ObservePrompt != nil && mode.MayAct() {
++		out = d.callObservePromptWithDeadline(ctx, ev)
++	}
++	return ipc.Response{OK: true, Output: &out}
++}
++
++// callObservePromptWithDeadline enforces promptReplyDeadline even against a callee that ignores
++// its own context: it races the call (in a goroutine, since a badly-behaved seam might not
++// respect cancellation) against the deadline and falls back to hookio.Empty() if the deadline
++// wins. The goroutine, if the callee never returns, is abandoned rather than leaked-and-blocked-
++// on — a prompt is never blocked on the daemon (task-5-spec.md handlers.go).
++func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event) hookio.Output {
++	rctx, cancel := context.WithTimeout(ctx, promptReplyDeadline)
++	defer cancel()
++
++	type result struct {
++		out hookio.Output
++		err error
++	}
++	ch := make(chan result, 1)
++	go func() {
++		o, err := d.svc.ObservePrompt(rctx, *ev)
++		ch <- result{o, err}
++	}()
++
++	select {
++	case r := <-ch:
++		if r.err == nil {
++			return r.out
++		}
++	case <-rctx.Done():
++	}
++	return hookio.Empty()
++}
++
++// scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
++// worker (never the reply path) scans the transcript tail for the sentinel SessionStart minted,
++// and records what it found. It is a no-op once the sentinel has already been observed, or if
++// none was ever minted this session (an act.-suppressed SessionStart, or a session that predates
++// this mechanism).
++func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
++	d.historyMu.Lock()
++	defer d.historyMu.Unlock()
++
++	h := contract.LoadHistory(contract.HistoryPath(d.root))
++	if h.Sentinel.Token == "" || h.Sentinel.Observed {
++		return
++	}
++	found, _ := contract.ScanTranscriptTail(ev.TranscriptPath, h.Sentinel.Token, sentinelScanTailBytes)
++	h.RecordSentinelScan(found)
++	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
++		d.log.Warn("daemon: failed to save history after sentinel scan", "err", err)
++	}
++}
++
++// handleSessionStart is the session.start warm path (task-5-spec.md handlers.go, normative
++// ordering): the contract monitor runs before any other work (§5.21), the sentinel is minted only
++// when the mode MayAct(), and the session_start.fires marker is deliberately never written here
++// — see contract.WriteMarker's own doc comment for why.
++func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Response {
++	ev := resolveEvent(req)
++	now := core.NowMilli(d.clk)
++
++	d.maybeReloadConfig(ctx, d.cfgEnv)
++	d.registry.Ensure(ev, now)
++	cfg := d.currentCfg()
++
++	d.historyMu.Lock()
++	defer d.historyMu.Unlock()
++
++	h := contract.LoadHistory(contract.HistoryPath(d.root))
++	env := contract.Env{
++		ProjectRoot: d.root,
++		Event:       *ev,
++		Cfg:         cfg,
++		Store:       d.svc.Store,
++		Log:         d.log,
++		Clock:       d.clk,
++		History:     h,
++	}
++	results, mode := d.monitor.RunAll(ctx, env)
++	justDegraded := d.recordContractObservability(results, mode)
++
++	_ = ipc.WriteState(d.root, d.currentState())
++
++	var out hookio.Output
++	if mode.MayAct() && d.svc.SessionStart != nil {
++		if o, err := d.svc.SessionStart(ctx, *ev); err == nil {
++			out = o
++		} else {
++			d.log.Warn("daemon: SessionStart failed", "err", err)
++			out = hookio.Empty()
++		}
++	} else {
++		out = hookio.Empty()
++	}
++
++	if mode.MayAct() {
++		s := contract.MintSentinel(ev.SessionID, now)
++		h.Sentinel = contract.SentinelState{Token: s.Token, Session: ev.SessionID, MintedAt: now}
++		if out.HookSpecificOutput == nil {
++			out.HookSpecificOutput = &hookio.HSO{HookEventName: hookEventNameSessionStart}
++		}
++		sentinelText := contract.RenderSentinel(s)
++		if out.HookSpecificOutput.AdditionalContext == "" {
++			out.HookSpecificOutput.AdditionalContext = sentinelText
++		} else {
++			out.HookSpecificOutput.AdditionalContext += "\n" + sentinelText
++		}
++	}
++
++	if justDegraded {
++		out.SystemMessage = degradeBanner(results)
++	}
++
++	h.SessionCount++
++	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
++		d.log.Warn("daemon: failed to save history", "err", err)
++	}
++
++	return ipc.Response{OK: true, Output: &out}
++}
++
++// recordContractObservability is ruling #26's obligation: a per-failing-assertion counter and a
++// mode-transition counter, both underscore-idiom. It returns whether THIS RunAll is the one that
++// transitioned into ModeDegradedPassive, which is what the session.start route's SystemMessage
++// banner and nothing else consults.
++func (d *daemon) recordContractObservability(results []contract.Result, mode contract.Mode) bool {
++	if d.m != nil {
++		for _, r := range results {
++			if !r.OK {
++				d.m.Counter(counterContractFailPrefix + toUnderscoreID(r.ID)).Add(1)
++			}
++		}
++	}
++
++	d.modeMu.Lock()
++	prev := d.lastReportedMode
++	changed := prev != mode
++	justDegraded := prev != contract.ModeDegradedPassive && mode == contract.ModeDegradedPassive
++	d.lastReportedMode = mode
++	d.modeMu.Unlock()
++
++	if changed && d.m != nil {
++		d.m.Counter(counterContractModeChange).Add(1)
++	}
++	return justDegraded
++}
++
++// toUnderscoreID respells a dotted contract.ID as the repo's underscore counter idiom:
++// "session_start.fires" -> "session_start_fires".
++func toUnderscoreID(id contract.ID) string {
++	out := make([]byte, len(id))
++	for i := 0; i < len(id); i++ {
++		c := id[i]
++		if c == '.' {
++			c = '_'
++		}
++		out[i] = c
++	}
++	return string(out)
++}
++
++// degradeBanner renders the §12.1 SystemMessage banner naming the first failing SevCritical
++// assertion, falling back to a generic banner in the (should-be-impossible) case RunAll reported
++// ModeDegradedPassive without any critical failure in this run's own results.
++func degradeBanner(results []contract.Result) string {
++	for _, r := range results {
++		if !r.OK && r.Severity == contract.SevCritical {
++			return fmt.Sprintf("Qompack: degraded to passive recording — %s expected %q, observed %q. See /qompack:status.",
++				r.ID, r.Expected, r.Observed)
++		}
++	}
++	return "Qompack: degraded to passive recording. See /qompack:status."
++}
++
++// handleCheckpoint is the checkpoint route: records the PreCompact observation into History,
++// writes the terminal-hook marker, then — when svc.PreCompact is bound and the mode MayAct() —
++// calls it timed into the B-E histogram, and captures any returned CustomInstructions.
++func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Response {
++	ev := resolveEvent(req)
++	now := core.NowMilli(d.clk)
++	routeStart := d.clk.Now()
++
++	d.historyMu.Lock()
++	defer d.historyMu.Unlock()
++
++	h := contract.LoadHistory(contract.HistoryPath(d.root))
++	h.LastPrecompactTS = now
++	h.LastPrecompactSession = ev.SessionID
++	h.AwaitingCompactStart = true
++	if h.PrecompactTimeoutMs == 0 {
++		h.PrecompactTimeoutMs = precompactTimeoutMs()
++	}
++
++	mode := d.monitor.Mode()
++	out := hookio.Empty()
++	if d.svc.PreCompact != nil && mode.MayAct() {
++		var callErr error
++		_ = obs.Timed(d.m.Hist(histName(obs.BE)), func() error {
++			o, err := d.svc.PreCompact(ctx, *ev)
++			callErr = err
++			if err == nil {
++				out = o
++			}
++			return err
++		})
++		if callErr != nil {
++			d.log.Warn("daemon: PreCompact failed", "err", callErr)
++		}
++	}
++
++	if out.HookSpecificOutput != nil && out.HookSpecificOutput.CustomInstructions != "" {
++		h.SetPrecompactInstr(out.HookSpecificOutput.CustomInstructions)
++	}
++
++	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
++		d.log.Warn("daemon: WriteMarker failed", "err", err)
++	}
++
++	h.AddPrecompactWallSample(d.clk.Now().Sub(routeStart).Milliseconds())
++
++	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
++		d.log.Warn("daemon: failed to save history", "err", err)
++	}
++
++	return ipc.Response{OK: true, Output: &out}
++}
++
++// precompactTimeoutMs reads the PreCompact hook's manifest timeout (internal/pluginmanifest),
++// converted to milliseconds. The manifest exposes it as a per-second integer on the one
++// HookEntry PreCompact's HookGroup carries; an unexpectedly empty manifest shape reports 0
++// (unknown) rather than guessing.
++func precompactTimeoutMs() int64 {
++	m := pluginmanifest.Default(core.Version)
++	groups, ok := m.Hooks.Hooks["PreCompact"]
++	if !ok || len(groups) == 0 || len(groups[0].Hooks) == 0 {
++		return 0
++	}
++	const msPerSecond = 1000
++	return int64(groups[0].Hooks[0].Timeout) * msPerSecond
++}
++
++// handleFlush is the flush (SessionEnd) route: registry.End, ingest.CloseSession, svc.SessionEnd
++// when bound and the mode MayRecord(), the terminal-hook marker, SketchSet.Save, then Drain.
++func (d *daemon) handleFlush(ctx context.Context, req ipc.Request) ipc.Response {
++	ev := resolveEvent(req)
++	now := core.NowMilli(d.clk)
++
++	d.registry.End(ev.SessionID, now)
++	_ = d.ing.CloseSession(ev.SessionID)
++
++	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
++		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
++			d.log.Warn("daemon: SessionEnd failed", "err", err)
++		}
++	}
++
++	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
++		d.log.Warn("daemon: WriteMarker failed", "err", err)
++	}
++
++	if d.svc.Sketches != nil {
++		d.svc.Sketches.Save(d.root, d.log)
++	}
++
++	n, err := d.Drain(ctx)
++	data, _ := json.Marshal(map[string]any{"drained": n})
++	if err != nil {
++		return ipc.Response{OK: false, Err: err.Error(), Data: data}
++	}
++	return ipc.Response{OK: true, Data: data}
++}
++
++// handleStatus assembles the StatusSnapshot payload. Nothing here mutates daemon state; every
++// field is read from something already maintained elsewhere (the metrics registry, the monitor,
++// the registry, the cached CheckBudgets result).
++func (d *daemon) handleStatus(ctx context.Context, req ipc.Request) ipc.Response {
++	snap := d.m.Snapshot()
++	latency := make(map[string]obs.HistSnapshot, len(obs.Budgets())+1)
++	for _, b := range obs.Budgets() {
++		if hs, ok := snap.Hists[b.Hist]; ok {
++			latency[b.Hist] = hs
++		}
++	}
++	if hs, ok := snap.Hists[histHookControlledObserved]; ok {
++		latency[histHookControlledObserved] = hs
++	}
++
++	d.histMu.Lock()
++	budgets := append([]obs.BudgetBreach(nil), d.lastBudgets...)
++	d.histMu.Unlock()
++
++	spoolFiles, _ := ipc.SpoolFiles(paths.Of(d.root).Spool)
++
++	var extra json.RawMessage
++	if d.svc.StatusExtra != nil {
++		if e, err := d.svc.StatusExtra(ctx); err == nil {
++			extra = e
++		}
++	}
++
++	snapshot := StatusSnapshot{
++		Mode:       d.monitor.Mode().String(),
++		Contract:   d.monitor.Report(),
++		Hot:        hotModeString(d.registry.HotMode()),
++		Sessions:   d.registry.Snapshot(),
++		Latency:    latency,
++		Budgets:    budgets,
++		Counters:   snap.Counters,
++		SpoolFiles: len(spoolFiles),
++		LoudTail:   loudTail(d.root, loudTailCount),
++		Extra:      extra,
++	}
++	data, err := json.Marshal(snapshot)
++	if err != nil {
++		return ipc.Response{OK: false, Err: err.Error()}
++	}
++	return ipc.Response{OK: true, Data: data}
++}
++
++// handleMCP is the mcp route's wave-1 placeholder: without an MCPInitialized seam bound, there is
++// no MCP server to talk to. SP-13 replaces this route entirely.
++func (d *daemon) handleMCP(ctx context.Context, req ipc.Request) ipc.Response {
++	if d.svc.MCPInitialized == nil {
++		return ipc.Response{OK: false, Err: "mcp not built"}
++	}
++	return ipc.Response{OK: true}
++}
++
++// handleAdminPing answers OK:true unconditionally — Ruling #22/#1: the ACK path's liveness proof
++// depends on Response.OK, and admin.ping's whole job is to be that proof over the reply channel.
++func (d *daemon) handleAdminPing(ctx context.Context, req ipc.Request) ipc.Response {
++	var uptime int64
++	if start := d.startTS.Time(); !start.IsZero() {
++		uptime = int64(d.clk.Now().Sub(start).Seconds())
++	}
++	data, _ := json.Marshal(map[string]any{
++		"pid": os.Getpid(), "version": core.Version, "uptime_seconds": uptime,
++	})
++	return ipc.Response{OK: true, Data: data}
++}
++
++// handleAdminDrain runs Drain synchronously and reports how many entries it applied.
++func (d *daemon) handleAdminDrain(ctx context.Context, req ipc.Request) ipc.Response {
++	n, err := d.Drain(ctx)
++	data, _ := json.Marshal(map[string]any{"drained": n})
++	if err != nil {
++		return ipc.Response{OK: false, Err: err.Error(), Data: data}
++	}
++	return ipc.Response{OK: true, Data: data}
++}
++
++// handleAdminReload forces a config reload regardless of config.json's mtime/size.
++func (d *daemon) handleAdminReload(ctx context.Context, req ipc.Request) ipc.Response {
++	changed, err := d.reloadConfig(ctx, d.cfgEnv, true)
++	data, _ := json.Marshal(map[string]any{"changed": changed})
++	if err != nil {
++		return ipc.Response{OK: false, Err: err.Error(), Data: data}
++	}
++	return ipc.Response{OK: true, Data: data}
++}
++
++// handleAdminIdle runs one idle pass on demand, with a generous operator-facing budget rather
++// than Run's own idle-tick budget.
++func (d *daemon) handleAdminIdle(ctx context.Context, req ipc.Request) ipc.Response {
++	ran, err := d.idle.RunOnce(ctx, adminIdleBudget)
++	data, _ := json.Marshal(map[string]any{"ran": ran})
++	if err != nil {
++		return ipc.Response{OK: false, Err: err.Error(), Data: data}
++	}
++	return ipc.Response{OK: true, Data: data}
++}
++
++// handleAdminShutdown replies first, then stops the daemon asynchronously so the reply write
++// itself is never racing the shutdown it announces.
++func (d *daemon) handleAdminShutdown(ctx context.Context, req ipc.Request) ipc.Response {
++	go func() { _ = d.Stop(context.Background()) }()
++	return ipc.Response{OK: true}
++}
++
++// idleDrain, idleSaveSketches and idleWriteMetrics are SP-05's own three idle tasks, registered by
++// New at priorities 10/20/30. None carries the act. prefix: all three are recording/maintenance
++// work that must keep running in degraded-passive.
++func (d *daemon) idleDrain(ctx context.Context) error {
++	_, err := d.Drain(ctx)
++	return err
++}
++
++func (d *daemon) idleSaveSketches(ctx context.Context) error {
++	if d.svc.Sketches != nil {
++		d.svc.Sketches.Save(d.root, d.log)
++	}
++	return nil
++}
++
++func (d *daemon) idleWriteMetrics(ctx context.Context) error {
++	return writeLatencyJSON(d.root, d.m, d.currentCfg())
++}
+diff --git a/internal/daemon/idle.go b/internal/daemon/idle.go
+new file mode 100644
+index 0000000..d72ee65
+--- /dev/null
++++ b/internal/daemon/idle.go
+@@ -0,0 +1,196 @@
++package daemon
++
++import (
++	"context"
++	"sort"
++	"strings"
++	"sync"
++	"time"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// actPrefix marks an idle task as an ACTING task (§12.1): RunOnce skips it when the current mode
++// does not MayAct(). Every other task name is recording/maintenance work and always runs.
++const actPrefix = "act."
++
++// counterIdleTaskPanic is the obs.Counter name incremented when a registered idle task panics.
++const counterIdleTaskPanic = "idle_task_panic"
++
++// histIdleTaskPrefix names the per-task histogram RunOnce times each run into: histIdleTaskPrefix
++// + task name.
++const histIdleTaskPrefix = "idle_task_"
++
++// IdleController schedules the O3/O5 background work that may run only while the session is idle
++// (§8.4): compaction, GC, sketch persistence — everything whose cost is unacceptable on the hot
++// path but acceptable when nobody is waiting.
++type IdleController interface {
++	// Register adds work to run when idle. Lower prio runs first. Registering a name that already
++	// exists replaces it in place, keeping its priority-sorted position current.
++	Register(name string, prio int, fn func(ctx context.Context) error)
++	// Notify records the timestamp of the most recent session activity.
++	Notify(lastActivity core.UnixMilli)
++	// IsIdle reports whether enough time has passed since the last activity.
++	IsIdle(now core.UnixMilli) bool
++	// RunOnce runs registered work until budget is exhausted, returning the names that ran.
++	RunOnce(ctx context.Context, budget time.Duration) (ran []string, err error)
++}
++
++// idleTask is one registration: a name (used for replace-in-place, dedup and the act. prefix
++// rule), a priority (ascending order = run order) and the function itself.
++type idleTask struct {
++	name string
++	prio int
++	fn   func(context.Context) error
++}
++
++// idleController is the real IdleController (task-5-spec.md idle.go).
++type idleController struct {
++	mu    sync.Mutex
++	tasks []idleTask
++
++	lastActivity core.UnixMilli
++	afterSeconds int // cfg.Scheduler.Idle.DetectAfterSeconds (Appendix C default 120)
++
++	clk  core.Clock
++	log  logging.Logger
++	m    obs.Registry
++	mode func() contract.Mode // RunOnce skips "act."-prefixed tasks when !mode().MayAct()
++}
++
++// newIdleController constructs an idleController. afterSeconds <= 0 falls back to
++// defaultIdleDetectAfterSeconds, mirroring config.Defaults() without itself being a default
++// source. A nil mode falls back to a function that always reports ModeFull, so a caller that has
++// not wired a monitor yet (a unit test exercising the controller alone) never skips an act. task
++// for a reason it never asked for.
++func newIdleController(afterSeconds int, clk core.Clock, log logging.Logger, m obs.Registry, mode func() contract.Mode) *idleController {
++	if afterSeconds <= 0 {
++		afterSeconds = defaultIdleDetectAfterSeconds
++	}
++	if clk == nil {
++		clk = core.SystemClock()
++	}
++	if log == nil {
++		log = logging.Nop()
++	}
++	if mode == nil {
++		mode = func() contract.Mode { return contract.ModeFull }
++	}
++	return &idleController{afterSeconds: afterSeconds, clk: clk, log: log, m: m, mode: mode}
++}
++
++// defaultIdleDetectAfterSeconds mirrors config.Defaults().Scheduler.Idle.DetectAfterSeconds
++// (120). It is not itself a default source (D11 lives in internal/config/defaults.go) — it exists
++// only so a caller that hands newIdleController a zero config.Config still gets a usable idle
++// window instead of "idle after zero seconds".
++const defaultIdleDetectAfterSeconds = 120 //nomagic:allow mirrors config.Defaults(), not a new default (§6.1)
++
++// Register adds fn to run when idle, replacing any existing task of the same name in place (its
++// priority is updated and the list re-sorted), or appending a new one. Lower prio runs first.
++func (c *idleController) Register(name string, prio int, fn func(ctx context.Context) error) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++
++	for i, t := range c.tasks {
++		if t.name == name {
++			c.tasks[i] = idleTask{name: name, prio: prio, fn: fn}
++			c.sortLocked()
++			return
++		}
++	}
++	c.tasks = append(c.tasks, idleTask{name: name, prio: prio, fn: fn})
++	c.sortLocked()
++}
++
++func (c *idleController) sortLocked() {
++	sort.SliceStable(c.tasks, func(i, j int) bool { return c.tasks[i].prio < c.tasks[j].prio })
++}
++
++// Registered returns the names registered so far, in run order — used by tests and by a status
++// route that wants to show what O3/O5 work is wired without running it.
++func (c *idleController) Registered() []string {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	names := make([]string, 0, len(c.tasks))
++	for _, t := range c.tasks {
++		names = append(names, t.name)
++	}
++	return names
++}
++
++// Notify records the newest activity timestamp; an older timestamp than what is already recorded
++// is ignored, so an out-of-order call can never rewind the idle clock.
++func (c *idleController) Notify(lastActivity core.UnixMilli) {
++	c.mu.Lock()
++	if lastActivity > c.lastActivity {
++		c.lastActivity = lastActivity
++	}
++	c.mu.Unlock()
++}
++
++// IsIdle reports now-lastActivity >= afterSeconds*1000 — keyed on activity, matching §8.4's idle
++// model.
++func (c *idleController) IsIdle(now core.UnixMilli) bool {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return int64(now-c.lastActivity) >= int64(c.afterSeconds)*1000
++}
++
++// RunOnce runs registered tasks in priority order until budget is spent, giving each task a
++// sub-context of budget-elapsed, recovering panics per task (which excludes that task from ran),
++// and skipping any "act."-prefixed task when the current mode does not MayAct(). Elapsed time is
++// measured through the injected Clock, not time.Now, so a test can simulate a task "consuming the
++// whole budget" by advancing a FakeClock inside the task's own function body rather than
++// sleeping.
++func (c *idleController) RunOnce(ctx context.Context, budget time.Duration) ([]string, error) {
++	c.mu.Lock()
++	tasks := append([]idleTask(nil), c.tasks...)
++	mayAct := c.mode().MayAct()
++	c.mu.Unlock()
++
++	deadline := c.clk.Now().Add(budget)
++	var ran []string
++	for _, t := range tasks {
++		if strings.HasPrefix(t.name, actPrefix) && !mayAct {
++			continue
++		}
++		remain := deadline.Sub(c.clk.Now())
++		if remain <= 0 {
++			break
++		}
++		tctx, cancel := context.WithTimeout(ctx, remain)
++		panicked, err := c.runTask(tctx, t)
++		cancel()
++		if panicked {
++			continue // isolated: a panicking task never counts as having run
++		}
++		if err != nil {
++			c.log.Warn("daemon: idle task returned an error", "name", t.name, "err", err)
++		}
++		ran = append(ran, t.name)
++	}
++	return ran, nil
++}
++
++// runTask invokes t.fn, recovering a panic so one broken task can never stop the rest of the
++// idle-time work from running, and times the call into this task's own histogram when a metrics
++// registry is available.
++func (c *idleController) runTask(ctx context.Context, t idleTask) (panicked bool, err error) {
++	defer func() {
++		if r := recover(); r != nil {
++			panicked = true
++			if c.m != nil {
++				c.m.Counter(counterIdleTaskPanic).Add(1)
++			}
++			c.log.Loud("daemon: idle task panicked", "name", t.name, "recover", r)
++		}
++	}()
++	run := func() error { return t.fn(ctx) }
++	if c.m != nil {
++		return false, obs.Timed(c.m.Hist(histIdleTaskPrefix+t.name), run)
++	}
++	return false, run()
++}
+diff --git a/internal/daemon/idle_test.go b/internal/daemon/idle_test.go
+new file mode 100644
+index 0000000..84f4a77
+--- /dev/null
++++ b/internal/daemon/idle_test.go
+@@ -0,0 +1,158 @@
++package daemon
++
++import (
++	"context"
++	"errors"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/testutil"
++)
++
++func fullMode() contract.Mode { return contract.ModeFull }
++
++// TestIdleRunsByPriority pins ascending-priority run order regardless of registration order.
++func TestIdleRunsByPriority(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
++
++	var ran []string
++	c.Register("c", 30, func(context.Context) error { ran = append(ran, "c"); return nil })
++	c.Register("a", 10, func(context.Context) error { ran = append(ran, "a"); return nil })
++	c.Register("b", 20, func(context.Context) error { ran = append(ran, "b"); return nil })
++
++	names, err := c.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.Equal(t, []string{"a", "b", "c"}, names)
++	require.Equal(t, []string{"a", "b", "c"}, ran)
++}
++
++// TestIdleRespectsBudget: task A consumes the whole budget (by advancing the FakeClock itself),
++// so B never runs, and RunOnce returns no error.
++func TestIdleRespectsBudget(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
++
++	budget := 100 * time.Millisecond
++	bRan := false
++	c.Register("a", 10, func(context.Context) error {
++		clk.Advance(budget) // consumes the entire RunOnce budget
++		return nil
++	})
++	c.Register("b", 20, func(context.Context) error {
++		bRan = true
++		return nil
++	})
++
++	names, err := c.RunOnce(context.Background(), budget)
++	require.NoError(t, err)
++	require.Equal(t, []string{"a"}, names)
++	require.False(t, bRan, "b must never run once the budget is exhausted")
++}
++
++// TestIdleTaskPanicIsolated: A panics, B does not; only b appears in ran, the panic counter fires
++// once, and RunOnce itself returns a nil error.
++func TestIdleTaskPanicIsolated(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	m := obs.New(clk)
++	c := newIdleController(120, clk, logging.Nop(), m, fullMode)
++
++	c.Register("a", 10, func(context.Context) error { panic("boom") })
++	c.Register("b", 20, func(context.Context) error { return nil })
++
++	names, err := c.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.Equal(t, []string{"b"}, names)
++	require.Equal(t, int64(1), m.Counter(counterIdleTaskPanic).Value())
++}
++
++// TestIdleTaskErrorIsNotFatal: a task returning an error is logged and does not stop the rest —
++// it still counts as having run.
++func TestIdleTaskErrorIsNotFatal(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
++
++	c.Register("a", 10, func(context.Context) error { return errors.New("boom") })
++	c.Register("b", 20, func(context.Context) error { return nil })
++
++	names, err := c.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.Equal(t, []string{"a", "b"}, names)
++}
++
++// TestIsIdleUsesDetectAfterSeconds: false at +119s, true at +120s.
++func TestIsIdleUsesDetectAfterSeconds(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
++	c.Notify(core.NowMilli(clk))
++
++	require.False(t, c.IsIdle(core.NowMilli(clk)+119*1000))
++	require.True(t, c.IsIdle(core.NowMilli(clk)+120*1000))
++}
++
++// TestIdleRegisterReplacesInPlace: registering an existing name again replaces its function and
++// priority rather than adding a second entry.
++func TestIdleRegisterReplacesInPlace(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
++
++	calls := 0
++	c.Register("a", 10, func(context.Context) error { calls++; return nil })
++	c.Register("a", 5, func(context.Context) error { calls += 10; return nil })
++
++	require.Equal(t, []string{"a"}, c.Registered())
++	names, err := c.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.Equal(t, []string{"a"}, names)
++	require.Equal(t, 10, calls, "the replaced function must run, not the original")
++}
++
++// TestIdleActPrefixSkippedWhenNotMayAct pins the mode-enforcement rule this package applies
++// exactly once, here: an "act."-prefixed task is skipped (and omitted from ran) when the current
++// mode does not MayAct(); every other task always runs.
++func TestIdleActPrefixSkippedWhenNotMayAct(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	degraded := func() contract.Mode { return contract.ModeDegradedPassive }
++	c := newIdleController(120, clk, logging.Nop(), nil, degraded)
++
++	c.Register("act.checkpoint", 10, func(context.Context) error { return nil })
++	c.Register("drain", 20, func(context.Context) error { return nil })
++
++	names, err := c.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.Equal(t, []string{"drain"}, names, "an act.-prefixed task must be skipped outside ModeFull")
++}
++
++// TestIdleActPrefixRunsWhenMayAct: the same act.-prefixed task runs normally under ModeFull.
++func TestIdleActPrefixRunsWhenMayAct(t *testing.T) {
++	t.Parallel()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	c := newIdleController(120, clk, logging.Nop(), nil, fullMode)
++
++	c.Register("act.checkpoint", 10, func(context.Context) error { return nil })
++
++	names, err := c.RunOnce(context.Background(), time.Second)
++	require.NoError(t, err)
++	require.Equal(t, []string{"act.checkpoint"}, names)
++}
+diff --git a/internal/daemon/metrics.go b/internal/daemon/metrics.go
+index 7cff3a4..e60bb02 100644
+--- a/internal/daemon/metrics.go
++++ b/internal/daemon/metrics.go
+@@ -1,23 +1,106 @@
+ package daemon
+ 
+-import "github.com/qompack/qompack/internal/obs"
++import (
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"time"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++)
+ 
+ // The obs.Counter names this package's own components increment (repo underscore idiom, not
+ // §2.4's dotted prose spelling). Collected in one place because ingest.go and drain.go both need
+-// them.
++// them. handlers.go and idle.go declare their own additions alongside their own call sites, but
++// this file remains the one every counter name is at least reachable from via histName/grep.
+ const (
+ 	counterL0RingFull     = "l0_ring_full"
+ 	counterL0WorkerPanic  = "l0_worker_panic"
+ 	counterDrainFileError = "drain_file_error"
+ )
+ 
++// latencyFileName is metrics/latency.json's basename, matching obs.Registry.Persist's own target
++// file for the *other* metrics artifact — this one is the budget table shape task-5-spec.md's
++// metrics.go section asks for, keyed by budget ID rather than by raw histogram name.
++const latencyFileName = "latency.json"
++
++// writeLatencyJSON renders {"generated":<unixMilli>,"budgets":[{id,metric,limit_ms,gated,p50,p95,
++// p99,p999,max,n}]} for every obs.Budgets() entry plus the daemon-owned observed-lower-bound
++// histogram, and writes it to .qompack/metrics/latency.json via paths.WriteAtomic. Called from
++// the "metrics" idle task and available to the status route.
++func writeLatencyJSON(root string, m obs.Registry, cfg config.Config) error {
++	if m == nil {
++		return nil
++	}
++	snap := m.Snapshot()
++
++	type budgetEntry struct {
++		ID      string `json:"id"`
++		Metric  string `json:"metric"`
++		LimitMs int64  `json:"limit_ms"`
++		Gated   bool   `json:"gated"`
++		P50     int64  `json:"p50"`
++		P95     int64  `json:"p95"`
++		P99     int64  `json:"p99"`
++		P999    int64  `json:"p999"`
++		Max     int64  `json:"max"`
++		N       int64  `json:"n"`
++	}
++
++	entryFor := func(id, metric string, limit time.Duration, gated bool) budgetEntry {
++		hs := snap.Hists[metric]
++		return budgetEntry{
++			ID: id, Metric: metric, LimitMs: limit.Milliseconds(), Gated: gated,
++			P50: hs.P50.Milliseconds(), P95: hs.P95.Milliseconds(), P99: hs.P99.Milliseconds(),
++			P999: hs.P999.Milliseconds(), Max: hs.Max.Milliseconds(), N: hs.N,
++		}
++	}
++
++	entries := make([]budgetEntry, 0, len(obs.Budgets())+1)
++	for _, b := range obs.Budgets() {
++		entries = append(entries, entryFor(string(b.ID), b.Hist, b.Limit(cfg), b.Gated))
++	}
++	entries = append(entries, entryFor("observed", histHookControlledObserved, 0, false))
++
++	payload := map[string]any{
++		"generated": time.Now().UnixMilli(),
++		"budgets":   entries,
++	}
++	b, err := json.Marshal(payload)
++	if err != nil {
++		return err
++	}
++
++	p := filepath.Join(paths.Of(root).Metrics, latencyFileName)
++	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
++		return err
++	}
++	return paths.WriteAtomic(p, b, 0o600)
++}
++
++// loudTail returns the last n non-empty Loud messages, via the shipped logging.LastLoud() ring
++// (§5.17 "the last five Loud messages") — never by tailing LOUD.log itself. root is accepted to
++// match task-5-spec.md's signature (a future caller may want a project-scoped ring); the shared
++// ring is process-wide today, so it is unused.
++func loudTail(root string, n int) []string {
++	_ = root
++	all := logging.LastLoud()
++	if n <= 0 || len(all) <= n {
++		return all
++	}
++	return append([]string(nil), all[len(all)-n:]...)
++}
++
+ // histName looks up the histogram name obs.Budgets() associates with id, so callers never
+ // hardcode "l0_ingest"/"l0_process" as string literals — the budget table is the single source of
+ // truth for which histogram a given budget reads. An id Budgets() does not recognize (should never
+ // happen for the two IDs this package uses) reports "", which obs.Registry.Hist treats as its own
+ // distinct, harmless series rather than panicking.
+ func histName(id obs.BudgetID) string {
+ 	for _, b := range obs.Budgets() {
+ 		if b.ID == id {
+ 			return b.Hist
+ 		}
+diff --git a/internal/daemon/options.go b/internal/daemon/options.go
+new file mode 100644
+index 0000000..0bc75b0
+--- /dev/null
++++ b/internal/daemon/options.go
+@@ -0,0 +1,214 @@
++package daemon
++
++import (
++	"context"
++	"encoding/json"
++
++	"github.com/qompack/qompack/internal/checkpoint"
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/grammar"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/negknow"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/scheduler"
++	"github.com/qompack/qompack/internal/store"
++)
++
++// Options is the late-bound dependency set (§5.4).
++//
++// Every service member may be nil, and every call site must tolerate that: waves 1–2 run with
++// Checkpoints and Sched absent. Treating nil as "not built yet" rather than as a programming
++// error is what lets the daemon start and serve `status` in a half-built tree, which is when
++// being able to ask it anything at all matters most.
++type Options struct {
++	ProjectRoot string
++	Cfg         config.Config
++	Log         logging.Logger
++	Metrics     obs.Registry
++	Clock       core.Clock
++
++	Store       store.Store
++	Ledger      negknow.Ledger
++	Sketches    *SketchSet
++	Graph       dag.Graph
++	Grammar     grammar.Sequitur
++	Sched       scheduler.Runtime
++	Checkpoints checkpoint.Writer
++
++	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
++	// op by calling Handle at wiring time instead of editing a function in this package — the
++	// difference between four wave-3 subplans composing and four subplans conflicting.
++	handlers map[ipc.Op]ipc.Handler
++
++	// binds is the ordered list of late-binding functions Bind registers. New applies every one,
++	// in registration order, to the Services it seeds from the fields above, before calling
++	// DeclareProducers.
++	binds []func(*Services)
++}
++
++// NewOptions returns an Options with every non-service field defaulted: a no-op logger, a fresh
++// metrics registry and system clock sharing one Clock instance, and a SketchSet sized from cfg.
++// It is a convenience constructor for a composition root that wants sane defaults; a bare
++// Options{} literal remains valid (New tolerates it) for tests and minimal wiring.
++func NewOptions(projectRoot string, cfg config.Config) Options {
++	clk := core.SystemClock()
++	return Options{
++		ProjectRoot: projectRoot,
++		Cfg:         cfg,
++		Log:         logging.Nop(),
++		Metrics:     obs.New(clk),
++		Clock:       clk,
++		Sketches:    NewSketchSet(cfg),
++	}
++}
++
++// Handle registers h as the handler for op, replacing any previous registration.
++//
++// It is defined on Options rather than on Daemon so the table is complete before Run starts:
++// registering a handler against a running server would need locking on the hot path, and B-A has
++// no room for a contended mutex per request.
++func (o *Options) Handle(op ipc.Op, h ipc.Handler) {
++	if o.handlers == nil {
++		o.handlers = map[ipc.Op]ipc.Handler{}
++	}
++	o.handlers[op] = h
++}
++
++// Handler returns the handler registered for op, if any.
++func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) {
++	h, ok := o.handlers[op]
++	return h, ok
++}
++
++// Ops returns every registered op. The order is unspecified.
++func (o *Options) Ops() []ipc.Op {
++	ops := make([]ipc.Op, 0, len(o.handlers))
++	for op := range o.handlers {
++		ops = append(ops, op)
++	}
++	return ops
++}
++
++// Bind registers fn to run once, in registration order, at daemon construction, against the
++// Services set New seeds from the Options fields above. This is the seam a wave-2/3 subplan uses
++// to attach its own function seams (ObserveTool, SessionStart, ...) without editing daemon
++// internals or colliding with a sibling subplan doing the same thing.
++func (o *Options) Bind(fn func(*Services)) {
++	o.binds = append(o.binds, fn)
++}
++
++// Services is the late-bound dependency set every op handler reads through ServicesFrom. Every
++// function-typed field is optional: New seeds the struct-typed fields from Options, applies every
++// Bind function in registration order, then calls DeclareProducers. A handler that finds a nil
++// seam still ACKs — the event is already durable in the WAL by the time any of these would run,
++// so an unbound seam costs freshness, never data.
++type Services struct {
++	Store       store.Store
++	Ledger      negknow.Ledger
++	Sketches    *SketchSet
++	Graph       dag.Graph
++	Grammar     grammar.Sequitur
++	Sched       scheduler.Runtime
++	Checkpoints checkpoint.Writer
++
++	// The nine nil-tolerant function seams (§5.21, out-of-scope table). None is called by SP-05
++	// except through the exact call sites handlers.go documents; every other subplan wires its own
++	// implementation in via Bind.
++	ObserveTool    func(ctx context.Context, e hookio.Event) error
++	ObservePrompt  func(ctx context.Context, e hookio.Event) (hookio.Output, error)
++	ObserveStop    func(ctx context.Context, e hookio.Event, subagent bool) error
++	SessionStart   func(ctx context.Context, e hookio.Event) (hookio.Output, error)
++	SessionEnd     func(ctx context.Context, e hookio.Event) error
++	PreCompact     func(ctx context.Context, e hookio.Event) (hookio.Output, error)
++	Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error)
++	MCPInitialized func(ctx context.Context) bool
++	StatusExtra    func(ctx context.Context) (json.RawMessage, error)
++}
++
++// DeclareProducers is the bridge from a daemon's wired Services to the §12.1 not-yet-implemented
++// mechanism: an assertion whose producer has never been declared reports OK/SevInfo/not-yet-
++// implemented and its real Check never runs (contract.gated). The five names SP-05 itself
++// produces are declared unconditionally — it observes every hook arrival, writes the
++// SessionEnd/PreCompact marker, and records the PreCompact -> SessionStart(source=compact)
++// sequence regardless of which later waves have landed. The four §12.1 names as later-wave —
++// exactly these four, no more and no fewer — are declared only once the seam that produces their
++// observable is bound.
++func DeclareProducers(s *Services) {
++	contract.DeclareProducer(contract.CSessionStartFires)
++	contract.DeclareProducer(contract.CSessionStartSourceCompact)
++	contract.DeclareProducer(contract.CHookPayloadShape)
++	contract.DeclareProducer(contract.CTranscriptReadable)
++	contract.DeclareProducer(contract.CPluginRootResolves)
++	if s.PreCompact != nil || s.Checkpoints != nil {
++		contract.DeclareProducer(contract.CPreCompactTiming)
++		contract.DeclareProducer(contract.CPreCompactCustomInstr)
++	}
++	if s.Rehydrate != nil {
++		contract.DeclareProducer(contract.CAdditionalContext)
++	}
++	if s.MCPInitialized != nil {
++		contract.DeclareProducer(contract.CMCPRegistered)
++	}
++}
++
++// ctxKey is the unexported type every context value this package injects is keyed by, so no
++// other package can collide with (or read) these keys.
++type ctxKey int
++
++const (
++	ctxServices ctxKey = iota
++	ctxRegistry
++	ctxDaemon
++)
++
++// emptyServices is handed out by ServicesFrom when a context carries no Services value (a handler
++// invoked outside the daemon's own dispatch — a test calling a route function directly, for
++// instance): every field is nil, which every call site already tolerates.
++var emptyServices = &Services{}
++
++// ServicesFrom returns the Services bound to ctx. It never returns nil: a context with nothing
++// bound (or a differently-typed value under the same key, which cannot happen through this
++// package's own API but is guarded against defensively) yields emptyServices, so a handler that
++// forgets the type assertion still nil-checks fields the ordinary way instead of panicking on a
++// nil *Services receiver.
++func ServicesFrom(ctx context.Context) *Services {
++	if v, ok := ctx.Value(ctxServices).(*Services); ok && v != nil {
++		return v
++	}
++	return emptyServices
++}
++
++// RegistryFrom returns the SessionRegistry bound to ctx, or nil if none was bound.
++func RegistryFrom(ctx context.Context) *SessionRegistry {
++	v, _ := ctx.Value(ctxRegistry).(*SessionRegistry)
++	return v
++}
++
++// DaemonFrom returns the Daemon bound to ctx, or nil if none was bound. The name is fixed by
++// task-5-spec.md's options.go section alongside ServicesFrom/RegistryFrom, so the package-prefix
++// stutter revive would otherwise flag is deliberate, not an oversight.
++//
++//nolint:revive // DaemonFrom is a pinned accessor name (task-5-spec.md options.go), matched to its siblings
++func DaemonFrom(ctx context.Context) Daemon {
++	v, _ := ctx.Value(ctxDaemon).(Daemon)
++	return v
++}
++
++// withServices, withRegistry and withDaemon are the injection half of the three accessors above,
++// called once per dispatched request by the daemon's composed ipc.Handler.
++func withServices(ctx context.Context, s *Services) context.Context {
++	return context.WithValue(ctx, ctxServices, s)
++}
++
++func withRegistry(ctx context.Context, r *SessionRegistry) context.Context {
++	return context.WithValue(ctx, ctxRegistry, r)
++}
++
++func withDaemon(ctx context.Context, d Daemon) context.Context {
++	return context.WithValue(ctx, ctxDaemon, d)
++}
+diff --git a/internal/daemon/options_test.go b/internal/daemon/options_test.go
+new file mode 100644
+index 0000000..e0928a2
+--- /dev/null
++++ b/internal/daemon/options_test.go
+@@ -0,0 +1,136 @@
++package daemon
++
++import (
++	"context"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// TestNewOptions_SeedsSaneDefaults pins NewOptions' seams: a working logger, metrics registry and
++// clock all sharing one Clock instance, and a SketchSet sized from cfg.
++func TestNewOptions_SeedsSaneDefaults(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	o := NewOptions(root, testConfig())
++	require.Equal(t, root, o.ProjectRoot)
++	require.NotNil(t, o.Log)
++	require.NotNil(t, o.Metrics)
++	require.NotNil(t, o.Clock)
++	require.NotNil(t, o.Sketches)
++}
++
++// TestHandleOnBareOptionsIsSafe: a bare Options{} literal never panics on Handle, and New still
++// succeeds against it (this package's seams are safe by construction — there is no
++// ErrOptionsUninitialized in this codebase's real shape, per the SP-05 realities that supersede
++// the historical spec text).
++func TestHandleOnBareOptionsIsSafe(t *testing.T) {
++	t.Parallel()
++
++	var o Options
++	require.NotPanics(t, func() {
++		o.Handle(ipc.OpStatus, func(context.Context, ipc.Request) ipc.Response {
++			return ipc.Response{OK: true}
++		})
++	})
++	h, ok := o.Handler(ipc.OpStatus)
++	require.True(t, ok)
++	require.True(t, h(context.Background(), ipc.Request{}).OK)
++
++	o.ProjectRoot = t.TempDir()
++	d, err := New(o)
++	require.NoError(t, err)
++	require.NotNil(t, d)
++}
++
++// TestHandleOverridesDefaultRoute: opts.Handle(OpStatus, custom) before New makes the custom
++// handler run instead of the default status route.
++func TestHandleOverridesDefaultRoute(t *testing.T) {
++	t.Parallel()
++
++	o := NewOptions(t.TempDir(), testConfig())
++	called := false
++	o.Handle(ipc.OpStatus, func(context.Context, ipc.Request) ipc.Response {
++		called = true
++		return ipc.Response{OK: true, Err: "custom"}
++	})
++
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpStatus, Reply: true})
++	require.True(t, called)
++	require.Equal(t, "custom", resp.Err)
++}
++
++// TestBindRunsInOrderAndDeclaresProducers: two Binds run in registration order, and binding
++// Rehydrate declares CAdditionalContext's producer (the four-of-nine gated seams).
++func TestBindRunsInOrderAndDeclaresProducers(t *testing.T) {
++	contract.ResetProducers()
++	t.Cleanup(contract.ResetProducers)
++
++	o := NewOptions(t.TempDir(), testConfig())
++	var order []string
++	o.Bind(func(s *Services) { order = append(order, "first") })
++	o.Bind(func(s *Services) {
++		order = append(order, "second")
++		s.Rehydrate = func(context.Context, hookio.Event) (hookio.Output, error) {
++			return hookio.Empty(), nil
++		}
++	})
++
++	_, err := New(o)
++	require.NoError(t, err)
++	require.Equal(t, []string{"first", "second"}, order)
++	require.True(t, contract.HasProducer(contract.CAdditionalContext))
++}
++
++// TestDeclaredProducerSetMatchesArchitecture pins the exact five-always/four-gated split
++// options.go's DeclareProducers implements (§12.1: "exactly these four, no more and no fewer").
++func TestDeclaredProducerSetMatchesArchitecture(t *testing.T) {
++	contract.ResetProducers()
++	t.Cleanup(contract.ResetProducers)
++
++	// Nothing bound: only the five always-declared producers exist.
++	DeclareProducers(&Services{})
++	require.True(t, contract.HasProducer(contract.CSessionStartFires))
++	require.True(t, contract.HasProducer(contract.CSessionStartSourceCompact))
++	require.True(t, contract.HasProducer(contract.CHookPayloadShape))
++	require.True(t, contract.HasProducer(contract.CTranscriptReadable))
++	require.True(t, contract.HasProducer(contract.CPluginRootResolves))
++	require.False(t, contract.HasProducer(contract.CPreCompactTiming))
++	require.False(t, contract.HasProducer(contract.CPreCompactCustomInstr))
++	require.False(t, contract.HasProducer(contract.CAdditionalContext))
++	require.False(t, contract.HasProducer(contract.CMCPRegistered))
++
++	contract.ResetProducers()
++	DeclareProducers(&Services{
++		PreCompact:     func(context.Context, hookio.Event) (hookio.Output, error) { return hookio.Output{}, nil },
++		Rehydrate:      func(context.Context, hookio.Event) (hookio.Output, error) { return hookio.Output{}, nil },
++		MCPInitialized: func(context.Context) bool { return true },
++	})
++	require.True(t, contract.HasProducer(contract.CPreCompactTiming))
++	require.True(t, contract.HasProducer(contract.CPreCompactCustomInstr))
++	require.True(t, contract.HasProducer(contract.CAdditionalContext))
++	require.True(t, contract.HasProducer(contract.CMCPRegistered))
++
++	// Checkpoints alone (no PreCompact seam) also gates the two PreCompact-timing assertions.
++	contract.ResetProducers()
++	DeclareProducers(&Services{Checkpoints: nil})
++	require.False(t, contract.HasProducer(contract.CPreCompactTiming))
++}
++
++// TestServicesFromNeverReturnsNil: a context with nothing bound still yields a usable *Services.
++func TestServicesFromNeverReturnsNil(t *testing.T) {
++	t.Parallel()
++	s := ServicesFrom(context.Background())
++	require.NotNil(t, s)
++	require.Nil(t, s.ObserveTool)
++}
+diff --git a/internal/daemon/reload.go b/internal/daemon/reload.go
+new file mode 100644
+index 0000000..0d2aa00
+--- /dev/null
++++ b/internal/daemon/reload.go
+@@ -0,0 +1,175 @@
++package daemon
++
++import (
++	"context"
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"reflect"
++	"sort"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// configPendingFileName is state/config-pending.json's basename: where a deferred store.chunk.*
++// change is recorded until the next SessionStart picks it up (§11.2: applying it mid-session
++// would fork the dedup space).
++const configPendingFileName = "config-pending.json"
++
++// configJSONPath and configPendingPath name the two files reload.go reads/writes, both derived
++// from paths.Of so they agree with every other package's own layout.
++func configJSONPath(root string) string {
++	return filepath.Join(paths.Of(root).Dot, "config.json")
++}
++
++func configPendingPath(root string) string {
++	return filepath.Join(paths.Of(root).State, configPendingFileName)
++}
++
++// maybeReloadConfig is reload.go's entry point from Run's idle tick and from the session.start
++// route: it stats config.json and reloads only if its mtime or size changed since the last load.
++// A missing config.json (no project config file at all) is not an error and not a reload — the
++// daemon keeps running on whatever it already has.
++func (d *daemon) maybeReloadConfig(ctx context.Context, env config.Env) {
++	_, _ = d.reloadConfig(ctx, env, false)
++}
++
++// reloadConfig is maybeReloadConfig's body, also reachable unconditionally (force=true) from
++// admin.reload. It returns the dotted keys that changed and were actually applied — a deferred
++// store.chunk.* change is reported via the Loud line and state/config-pending.json, not via this
++// return value, since it was NOT applied to the live config.
++func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) ([]string, error) {
++	if err := ctx.Err(); err != nil {
++		return nil, err
++	}
++	p := configJSONPath(d.root)
++	fi, statErr := os.Stat(paths.Long(p))
++
++	d.cfgMu.RLock()
++	prevMTime, prevSize := d.lastCfgMTime, d.lastCfgSize
++	d.cfgMu.RUnlock()
++
++	if statErr != nil {
++		if !force {
++			return nil, nil // no project config.json yet: nothing to reload.
++		}
++	} else if !force && fi.ModTime().Equal(prevMTime) && fi.Size() == prevSize {
++		return nil, nil // unchanged since the last load.
++	}
++
++	useEnv := env
++	if useEnv.ProjectRoot == "" {
++		useEnv = d.cfgEnv
++	}
++
++	newCfg, _, warns, err := config.Load(useEnv)
++	if err != nil {
++		return nil, err
++	}
++	for _, w := range warns {
++		d.log.Loud("daemon: config reload warning", "key", w.Key, "message", w.Message, "location", w.Location)
++	}
++
++	d.cfgMu.Lock()
++	oldCfg := d.cfg
++	finalCfg := newCfg
++	chunkChanged := !reflect.DeepEqual(oldCfg.Store.Chunk, newCfg.Store.Chunk)
++	if chunkChanged {
++		finalCfg.Store.Chunk = oldCfg.Store.Chunk // deferred: the live config keeps the OLD block.
++	}
++	d.cfg = finalCfg
++	if fi != nil {
++		d.lastCfgMTime = fi.ModTime()
++		d.lastCfgSize = fi.Size()
++	}
++	d.cfgMu.Unlock()
++
++	if chunkChanged {
++		d.log.Loud("daemon: store.chunk.* change deferred to next SessionStart",
++			"old", oldCfg.Store.Chunk, "new", newCfg.Store.Chunk)
++		if perr := d.writeConfigPending(newCfg); perr != nil {
++			d.log.Warn("daemon: failed to persist state/config-pending.json", "err", perr)
++		}
++	}
++
++	changed := diffDottedKeys(oldCfg, finalCfg)
++	if len(changed) > 0 {
++		d.log.Info("daemon: config reloaded", "changed", changed)
++	}
++	return changed, nil
++}
++
++// writeConfigPending persists cfg — the FULL reloaded config, including the deferred store.chunk.*
++// block — to state/config-pending.json, so the next SessionStart (or an operator running `qompack
++// doctor`) can see exactly what is waiting to take effect.
++func (d *daemon) writeConfigPending(cfg config.Config) error {
++	b, err := json.MarshalIndent(cfg, "", "  ")
++	if err != nil {
++		return err
++	}
++	p := configPendingPath(d.root)
++	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
++		return err
++	}
++	return paths.WriteAtomic(p, b, 0o600)
++}
++
++// diffDottedKeys is a best-effort JSON diff between two configs, rendering every leaf that
++// changed (or appeared/disappeared, which the schema never actually does, but a future or
++// hand-edited config could) as a dotted key, sorted for a stable log line.
++func diffDottedKeys(oldCfg, newCfg config.Config) []string {
++	oldFlat := flattenConfig(oldCfg)
++	newFlat := flattenConfig(newCfg)
++
++	keys := make(map[string]bool, len(newFlat))
++	for k, v := range newFlat {
++		if ov, ok := oldFlat[k]; !ok || ov != v {
++			keys[k] = true
++		}
++	}
++	for k := range oldFlat {
++		if _, ok := newFlat[k]; !ok {
++			keys[k] = true
++		}
++	}
++
++	out := make([]string, 0, len(keys))
++	for k := range keys {
++		out = append(out, k)
++	}
++	sort.Strings(out)
++	return out
++}
++
++// flattenConfig renders cfg as dotted-path -> JSON-encoded-leaf-value, via a plain JSON
++// marshal/unmarshal round trip — simple and correct for a diff that only needs to name what
++// changed, not typed access to the values.
++func flattenConfig(cfg config.Config) map[string]string {
++	b, err := json.Marshal(cfg)
++	if err != nil {
++		return nil
++	}
++	var raw map[string]any
++	if err := json.Unmarshal(b, &raw); err != nil {
++		return nil
++	}
++	out := map[string]string{}
++	flattenInto(raw, "", out)
++	return out
++}
++
++func flattenInto(v any, prefix string, out map[string]string) {
++	if m, ok := v.(map[string]any); ok {
++		for k, vv := range m {
++			key := k
++			if prefix != "" {
++				key = prefix + "." + k
++			}
++			flattenInto(vv, key, out)
++		}
++		return
++	}
++	b, _ := json.Marshal(v)
++	out[prefix] = string(b)
++}
+diff --git a/internal/daemon/spawn.go b/internal/daemon/spawn.go
+index da8c110..8bdccf8 100644
+--- a/internal/daemon/spawn.go
++++ b/internal/daemon/spawn.go
+@@ -1,24 +1,45 @@
+ package daemon
+ 
+ import (
+ 	"fmt"
+ 	"os"
+ 	"os/exec"
++	"path/filepath"
+ 	"strings"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
+ )
+ 
++// runSpawnLockFileName mirrors ipc's own unexported spawnLockName ("spawn.lock"), the file a
++// client's lazySpawn takes inside <root>/.qompack/run to serialize concurrent detached-daemon
++// spawns. ipc's copy cannot be reached from this package (it is unexported and ipc may not import
++// daemon — §3.2), so the literal is respelled here for the one caller that needs it: Run, which
++// deletes it once the daemon it names has actually come up.
++const runSpawnLockFileName = "spawn.lock"
++
++// removeSpawnLockFile deletes <root>/.qompack/run/spawn.lock, if present (task-5-spec.md
++// daemon.go Run step 3: "delete run/spawn.lock after listen"). A client's own lazySpawn lock is
++// already self-clearing via staleness, so this is a courtesy cleanup, not a correctness
++// requirement — a missing file is not an error. paths.CreateNew leaves the file read-only
++// (0o444/FILE_ATTRIBUTE_READONLY), which blocks deletion on Windows, so the mode is cleared first;
++// harmless on POSIX, where permissions never gate an unlink.
++func removeSpawnLockFile(root string) {
++	p := filepath.Join(paths.Of(root).Run, runSpawnLockFileName)
++	_ = os.Chmod(paths.Long(p), 0o600)
++	_ = os.Remove(paths.Long(p))
++}
++
+ // ensureRunningDialTimeout bounds EnsureRunning's own initial liveness dial (task-3-spec.md
+ // spawn.go): "costs nothing", so it is short.
+ const ensureRunningDialTimeout = 20 * time.Millisecond
+ 
+ // ensureRunningPollInterval and ensureRunningPollBound bound EnsureRunning's post-spawn poll: a
+ // ticker every 25ms for up to 1500ms total (task-3-spec.md spawn.go). Both are real wall-clock
+ // durations, like every other connection deadline in this codebase (ipc.ClientOptions.Clock's own
+ // doc comment: "never for connection deadlines ... because that is what the OS network stack
+ // enforces regardless of what a test's injected Clock says") — waiting for a real spawned OS
+ // process to come up cannot be faked by advancing a test clock.

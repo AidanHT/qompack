@@ -16,7 +16,7 @@ import (
 // and the next SessionStart both read; §5.19 does not fix them, so SP-01 does, once.
 //
 // Severity here is the OBSERVED severity, which is not necessarily the declaring Assertion's: see
-// Severity's own documentation, and notYetImplemented, for the case that distinction exists for.
+// Severity's own documentation, and gated (assertions.go), for the case that distinction exists for.
 type Result struct {
 	ID       ID       `json:"id"`
 	OK       bool     `json:"ok"`
@@ -32,7 +32,8 @@ type Result struct {
 // Assertion is one registered host-contract check (00-ARCHITECTURE.md §5.19).
 //
 // Severity is the assertion's DECLARED severity: how bad an observed failure would be. It is
-// deliberately not the severity Check has to report — see notYetImplemented.
+// deliberately not the severity Check has to report when the assertion's producer is absent from
+// the build — see gated (assertions.go).
 type Assertion struct {
 	ID          ID
 	Severity    Severity

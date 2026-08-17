@@ -1,5 +1,9 @@
 # SP-13: L6 retrieval: the stdio MCP server and all eight tools with ephemeral-at-birth results, minimal-span defaults, and expansion promotion counting
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Hand-rolled JSON-RPC 2.0 over stdio, eight handlers, a symbol-aware span resolver and ephemeral tagging. Protocol and plumbing work against a fully-specified contract.
+
 **Branch:** `feat/sp13-mcp-retrieval-layer` (cut from `develop`) | **Wave:** 3 | **Prerequisites:** the branches of `SP-01`, `SP-05`, `SP-06`, `SP-09` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 3 (SP-10 checkpointer, SP-11 rehydrator, SP-12 scheduler) | **Design sections:** §7.2 L6, §8.7, Appendix C `retrieval`, §12 (retrieval re-inflation row) | **Gaps closed:** G6.2
 
 ---

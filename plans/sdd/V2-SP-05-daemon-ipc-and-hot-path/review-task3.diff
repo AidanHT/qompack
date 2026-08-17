@@ -1,0 +1,2748 @@
+a73a238 feat(daemon): singleton lock, session registry, WAL ingest queue, and drain
+
+ internal/daemon/bench_test.go     |  35 ++++
+ internal/daemon/daemon.go         |  59 -------
+ internal/daemon/drain.go          | 359 ++++++++++++++++++++++++++++++++++++++
+ internal/daemon/drain_test.go     | 252 ++++++++++++++++++++++++++
+ internal/daemon/ingest.go         | 349 ++++++++++++++++++++++++++++++++++++
+ internal/daemon/ingest_test.go    | 166 ++++++++++++++++++
+ internal/daemon/lock.go           | 244 ++++++++++++++++++++++++++
+ internal/daemon/lock_test.go      | 167 ++++++++++++++++++
+ internal/daemon/lock_unix.go      |  25 +++
+ internal/daemon/lock_windows.go   |   9 +
+ internal/daemon/metrics.go        |  26 +++
+ internal/daemon/registry.go       | 260 +++++++++++++++++++++++++++
+ internal/daemon/registry_test.go  | 137 +++++++++++++++
+ internal/daemon/sketchset.go      | 148 ++++++++++++++++
+ internal/daemon/sketchset_test.go |  78 +++++++++
+ internal/daemon/spawn.go          | 129 ++++++++++++++
+ internal/daemon/spawn_test.go     |  93 ++++++++++
+ internal/daemon/spawn_unix.go     |  12 ++
+ internal/daemon/spawn_windows.go  |  20 +++
+ 19 files changed, 2509 insertions(+), 59 deletions(-)
+
+diff --git a/internal/daemon/bench_test.go b/internal/daemon/bench_test.go
+new file mode 100644
+index 0000000..60e5f48
+--- /dev/null
++++ b/internal/daemon/bench_test.go
+@@ -0,0 +1,35 @@
++package daemon
++
++import (
++	"testing"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++)
++
++// BenchmarkIngestAccept measures Accept against a warm WAL handle (task-3-spec.md's B-B row: p99 <
++// 2ms). It is a shape/regression check, not a CI gate — the real gate is
++// devtool bench-hotpath (SP-05's later commits).
++func BenchmarkIngestAccept(b *testing.B) {
++	root := b.TempDir()
++	clk := core.SystemClock()
++	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
++	b.Cleanup(func() { _ = ing.Close() })
++
++	req := ipc.Request{Op: ipc.OpObserveTool, Session: "bench-sess"}
++	line := []byte(`{"op":"observe.tool","s":"bench-sess","t":1}`)
++
++	// Warm the WAL handle before timing.
++	if err := ing.Accept(req, line); err != nil {
++		b.Fatal(err)
++	}
++
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		if err := ing.Accept(req, line); err != nil {
++			b.Fatal(err)
++		}
++	}
++}
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+index 0bdea07..d754593 100644
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -9,43 +9,23 @@ import (
+ 	"github.com/qompack/qompack/internal/checkpoint"
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/dag"
+ 	"github.com/qompack/qompack/internal/grammar"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/negknow"
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/scheduler"
+-	"github.com/qompack/qompack/internal/sketch"
+ 	"github.com/qompack/qompack/internal/store"
+ )
+ 
+-// SketchSet is the four probabilistic structures the daemon keeps resident (§3.3): the
+-// negative-knowledge Bloom filter, the touch Count-Min sketch, the exploration HyperLogLog and the
+-// Misra-Gries top-k counter.
+-//
+-// Tried is a pointer to the same Bloom the negknow ledger was opened over, not a copy. §7.4 makes
+-// tried.bloom append-only precisely because a rebuilt-from-summary Bloom would silently forget
+-// what has already been tried, so there must be exactly one of it in the process.
+-//
+-// Top is the companion to Touch, not an alternative to it: sketch.CMS.HeavyHitters takes a
+-// *MisraGries because a Count-Min sketch can estimate the count of a key it is handed but cannot
+-// enumerate which keys are heavy. Without Top resident there is no set of candidates to estimate,
+-// so the pair has to be wired together or the CMS answers a question nobody can ask.
+-type SketchSet struct {
+-	Tried   *sketch.Bloom
+-	Touch   *sketch.CMS
+-	Explore *sketch.HLL
+-	Top     *sketch.MisraGries
+-}
+-
+ // Options is the late-bound dependency set (§5.4).
+ //
+ // Every service member may be nil, and every call site must tolerate that: waves 1–2 run with
+ // Checkpoints and Sched absent. Treating nil as "not built yet" rather than as a programming
+ // error is what lets the daemon start and serve `status` in a half-built tree, which is when
+ // being able to ask it anything at all matters most.
+ type Options struct {
+ 	ProjectRoot string
+ 	Cfg         config.Config
+ 	Log         logging.Logger
+@@ -100,59 +80,20 @@ type IdleController interface {
+ 	// Register adds work to run when idle. Lower prio runs first.
+ 	Register(name string, prio int, fn func(ctx context.Context) error)
+ 	// Notify records the timestamp of the most recent session activity.
+ 	Notify(lastActivity core.UnixMilli)
+ 	// IsIdle reports whether enough time has passed since the last activity.
+ 	IsIdle(now core.UnixMilli) bool
+ 	// RunOnce runs registered work until budget is exhausted, returning the names that ran.
+ 	RunOnce(ctx context.Context, budget time.Duration) (ran []string, err error)
+ }
+ 
+-// SessionRegistry holds per-session live state: hot-path mode, counters, and the last activity
+-// timestamp the idle controller reads.
+-//
+-// The mutex is real even though the map operations are stubs. A registry is touched by the accept
+-// loop and the idle loop concurrently by construction, so shipping it without synchronization
+-// would leave a data race for SP-05 to discover under -race rather than a correct skeleton to
+-// fill in.
+-type SessionRegistry struct {
+-	mu       sync.RWMutex
+-	sessions map[core.SessionID]*SessionState
+-}
+-
+-// SessionState is one session's live state.
+-type SessionState struct {
+-	ID           core.SessionID
+-	Hot          ipc.HotPathMode
+-	LastActivity core.UnixMilli
+-}
+-
+-// NewSessionRegistry returns an empty registry.
+-func NewSessionRegistry() *SessionRegistry {
+-	return &SessionRegistry{sessions: map[core.SessionID]*SessionState{}}
+-}
+-
+-// Get returns the state for id, if the session is known.
+-func (r *SessionRegistry) Get(id core.SessionID) (*SessionState, bool) {
+-	r.mu.RLock()
+-	defer r.mu.RUnlock()
+-	s, ok := r.sessions[id]
+-	return s, ok
+-}
+-
+-// Len returns the number of live sessions.
+-func (r *SessionRegistry) Len() int {
+-	r.mu.RLock()
+-	defer r.mu.RUnlock()
+-	return len(r.sessions)
+-}
+-
+ // Daemon is the resident process (§5.4).
+ type Daemon interface {
+ 	// Run serves until ctx is cancelled.
+ 	Run(ctx context.Context) error
+ 	// Registry returns the live session registry.
+ 	Registry() *SessionRegistry
+ 	// Drain replays the spool and the WAL. It is idempotent, and returns how many entries it
+ 	// applied.
+ 	Drain(ctx context.Context) (int, error)
+ 	// Idle returns the controller for O3/O5 background work.
+diff --git a/internal/daemon/drain.go b/internal/daemon/drain.go
+new file mode 100644
+index 0000000..90d2cac
+--- /dev/null
++++ b/internal/daemon/drain.go
+@@ -0,0 +1,359 @@
++package daemon
++
++import (
++	"bufio"
++	"bytes"
++	"context"
++	"encoding/json"
++	"errors"
++	"io"
++	"os"
++	"path/filepath"
++	"strconv"
++	"strings"
++	"sync"
++	"time"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// drainLineDeadline bounds how long Drain waits for a single dispatched request to return
++// (task-3-spec.md drain.go: "a per-line context deadline of 5s").
++const drainLineDeadline = 5 * time.Second
++
++// drainReadBufferBytes sizes the buffered reader Drain scans each spool file with.
++const drainReadBufferBytes = 64 << 10 // 64 KiB
++
++// The two filename families Drain (via ipc.SpoolFiles) distinguishes, and the field name a
++// blob-externalized request's Raw carries (client.go's own blobField, respelled here because it
++// is unexported in package ipc).
++const (
++	drainWalPrefix        = "wal-"
++	drainFileExt          = ".ndjson"
++	drainBlobToolResponse = "e.tool_response"
++)
++
++// drainStateFile is state/drain.json's filename.
++const drainStateFile = "drain.json"
++
++// drainFileState is one spool file's persisted progress.
++type drainFileState struct {
++	Size   int64 `json:"size"`
++	Offset int64 `json:"offset"`
++	Done   bool  `json:"done"`
++}
++
++// drainState is state/drain.json's on-disk shape, keyed by spool file base name.
++type drainState map[string]*drainFileState
++
++// blobRef is the JSON shape a client-externalized request's Raw carries in place of the field it
++// stood in for (client.go's own type, respelled here for the same unexported-across-packages
++// reason as the constants above).
++type blobRef struct {
++	Blob  string          `json:"blob"`
++	Bytes int             `json:"bytes"`
++	Field string          `json:"field"`
++	X     json.RawMessage `json:"x,omitempty"`
++}
++
++// DrainConfig is drainer's dependency set.
++type DrainConfig struct {
++	Root    string
++	Log     logging.Logger
++	Metrics obs.Registry
++	Clock   core.Clock
++	// Dispatch is the same handler the worker pool uses to process a request.
++	Dispatch func(ctx context.Context, req ipc.Request) ipc.Response
++	// Seen, if non-nil, is consulted (and updated) before every dispatch, so a line already
++	// processed by the ingest worker pool this daemon lifetime — or by an earlier Drain call — is
++	// never dispatched twice. Sharing the same *seenSet the ingest queue uses is what makes a
++	// NAK-then-spooled duplicate line collapse to exactly one dispatch.
++	Seen *seenSet
++	// IsLive reports whether sess is still a live session; its WAL is kept (offset-marked, not
++	// deleted) rather than removed once fully drained. A nil IsLive treats every session as ended,
++	// so a bare drainer with no wired registry still deletes fully-drained files.
++	IsLive func(sess core.SessionID) bool
++}
++
++// drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
++// Daemon interface: Task 4 wires it into Daemon.Drain by constructing one from the running
++// daemon's own dependencies and dispatch function.
++type drainer struct {
++	cfg DrainConfig
++	mu  sync.Mutex // serializes concurrent Drain calls (idle tick vs. admin.drain) against one drain.json
++}
++
++// newDrainer returns a drainer over cfg, filling in nil-safe defaults.
++func newDrainer(cfg DrainConfig) *drainer {
++	if cfg.Log == nil {
++		cfg.Log = logging.Nop()
++	}
++	if cfg.Clock == nil {
++		cfg.Clock = core.SystemClock()
++	}
++	if cfg.Dispatch == nil {
++		cfg.Dispatch = func(context.Context, ipc.Request) ipc.Response { return ipc.Response{} }
++	}
++	if cfg.IsLive == nil {
++		cfg.IsLive = func(core.SessionID) bool { return false }
++	}
++	return &drainer{cfg: cfg}
++}
++
++// Drain replays every spool-tier file under root's spool directory (task-3-spec.md drain.go):
++// wal-* first, then client-*, each group lexically sorted (ipc.SpoolFiles already orders them).
++// It is idempotent (state/drain.json records consumed offsets) and resumable: a cancelled Drain
++// persists its progress and returns (n, ctx.Err()), so the next call picks up exactly where it
++// stopped. Per-file errors are logged, counted, and never abort the rest of the drain.
++func (dr *drainer) Drain(ctx context.Context) (int, error) {
++	dr.mu.Lock()
++	defer dr.mu.Unlock()
++
++	spoolDir := paths.Of(dr.cfg.Root).Spool
++	files, err := ipc.SpoolFiles(spoolDir)
++	if err != nil {
++		return 0, err
++	}
++
++	st := dr.loadState()
++	total := 0
++	var stopErr error
++
++	for _, path := range files {
++		if ctx.Err() != nil {
++			stopErr = ctx.Err()
++			break
++		}
++		n, ferr := dr.drainFile(ctx, path, st)
++		total += n
++		if ferr == nil {
++			continue
++		}
++		if errors.Is(ferr, context.Canceled) || errors.Is(ferr, context.DeadlineExceeded) {
++			stopErr = ferr
++			break
++		}
++		if dr.cfg.Metrics != nil {
++			dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
++		}
++		dr.cfg.Log.Warn("daemon: drain: file error", "path", path, "err", ferr)
++	}
++
++	if serr := dr.saveState(st); serr != nil {
++		dr.cfg.Log.Warn("daemon: drain: failed to persist state", "err", serr)
++	}
++	return total, stopErr
++}
++
++// drainFile drains one spool file, updating st in place. It returns the number of requests
++// dispatched and, if ctx was cancelled mid-file, ctx.Err() — otherwise nil, even when individual
++// corrupt lines were skipped (those are reported via the metrics/log side channel, not the
++// returned error, so one bad line never aborts the rest of the file).
++func (dr *drainer) drainFile(ctx context.Context, path string, st drainState) (int, error) {
++	base := filepath.Base(path)
++
++	fi, err := os.Stat(paths.Long(path))
++	if err != nil {
++		if os.IsNotExist(err) {
++			delete(st, base)
++			return 0, nil
++		}
++		return 0, err
++	}
++	size := fi.Size()
++
++	fs, ok := st[base]
++	if !ok {
++		fs = &drainFileState{}
++		st[base] = fs
++	}
++	if fs.Done && fs.Size == size {
++		return 0, nil
++	}
++
++	f, err := os.Open(paths.Long(path))
++	if err != nil {
++		return 0, err
++	}
++	// f is closed explicitly, below, before a possible os.Remove — not deferred to function
++	// return: on Windows, deleting a file with a still-open handle fails, and a deferred Close
++	// would not have run yet at the point this function calls os.Remove.
++
++	if fs.Offset > 0 {
++		if _, err := f.Seek(fs.Offset, io.SeekStart); err != nil {
++			_ = f.Close()
++			return 0, err
++		}
++	}
++
++	r := bufio.NewReaderSize(f, drainReadBufferBytes)
++	offset := fs.Offset
++	count := 0
++	canceled := false
++	var readErr error
++
++readLoop:
++	for {
++		select {
++		case <-ctx.Done():
++			canceled = true
++			break readLoop
++		default:
++		}
++
++		raw, err := r.ReadBytes('\n')
++		if err != nil {
++			if errors.Is(err, io.EOF) {
++				break readLoop // a trailing partial line, if any, is left unconsumed
++			}
++			readErr = err
++			break readLoop
++		}
++		offset += int64(len(raw))
++		fs.Offset = offset
++
++		line := bytes.TrimSuffix(raw, []byte{'\n'})
++		if len(bytes.TrimSpace(line)) == 0 {
++			continue // lenient to blank lines, though the writer never emits them
++		}
++
++		req, decErr := ipc.DecodeRequest(line)
++		if decErr != nil {
++			if dr.cfg.Metrics != nil {
++				dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
++			}
++			dr.cfg.Log.Warn("daemon: drain: corrupt line", "path", path, "err", decErr)
++			continue
++		}
++
++		key := core.HashBytes(walHashDomain, line)
++		if dr.cfg.Seen != nil && dr.cfg.Seen.SeenOrAdd(key) {
++			continue
++		}
++
++		req = dr.resolveBlob(req)
++		dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
++		dr.cfg.Dispatch(dctx, req)
++		cancel()
++		count++
++	}
++	_ = f.Close() // must happen before the delete-if-drained check below (Windows cannot remove an open file)
++
++	fs.Size = size
++	if canceled {
++		return count, ctx.Err()
++	}
++	if readErr != nil {
++		return count, readErr
++	}
++
++	fs.Done = true
++	if dr.shouldDelete(base) {
++		if err := os.Remove(paths.Long(path)); err != nil {
++			if !os.IsNotExist(err) {
++				dr.cfg.Log.Warn("daemon: drain: failed to remove drained file", "path", path, "err", err)
++			}
++		} else {
++			delete(st, base)
++		}
++	}
++	return count, nil
++}
++
++// shouldDelete reports whether a fully-drained file should be removed: a client-*.ndjson fallback
++// file always may be; a wal-<session>*.ndjson file may be only once IsLive reports the session is
++// no longer live.
++func (dr *drainer) shouldDelete(base string) bool {
++	if sess, ok := walSessionID(base); ok {
++		return !dr.cfg.IsLive(sess)
++	}
++	return true
++}
++
++// walSessionID extracts the session id from a wal-<session>.ndjson or
++// wal-<session>.<rotationSeq>.ndjson base name. ok is false for anything else (a client-*.ndjson
++// file, or an unrecognized name).
++func walSessionID(base string) (core.SessionID, bool) {
++	if !strings.HasPrefix(base, drainWalPrefix) || !strings.HasSuffix(base, drainFileExt) {
++		return "", false
++	}
++	mid := strings.TrimSuffix(strings.TrimPrefix(base, drainWalPrefix), drainFileExt)
++	if idx := strings.LastIndex(mid, "."); idx >= 0 {
++		if _, err := strconv.Atoi(mid[idx+1:]); err == nil {
++			mid = mid[:idx]
++		}
++	}
++	if mid == "" {
++		return "", false
++	}
++	return core.SessionID(mid), true
++}
++
++// resolveBlob restores req.Event.ToolResponse from a client-externalized blob file, if req.Raw
++// names one, and deletes the blob file afterward. A req whose Raw is not a blob descriptor (the
++// ordinary case) is returned unchanged.
++func (dr *drainer) resolveBlob(req ipc.Request) ipc.Request {
++	if len(req.Raw) == 0 {
++		return req
++	}
++	var ref blobRef
++	if err := json.Unmarshal(req.Raw, &ref); err != nil || ref.Blob == "" || ref.Field != drainBlobToolResponse {
++		return req
++	}
++
++	blobPath := filepath.Join(paths.Of(dr.cfg.Root).Spool, ref.Blob)
++	data, err := os.ReadFile(paths.Long(blobPath))
++	if err != nil {
++		dr.cfg.Log.Warn("daemon: drain: failed to resolve blob", "blob", ref.Blob, "err", err)
++		return req
++	}
++
++	if req.Event != nil {
++		ev := *req.Event
++		ev.ToolResponse = data
++		req.Event = &ev
++	}
++	req.Raw = ref.X
++	_ = os.Remove(paths.Long(blobPath))
++	return req
++}
++
++// drainStatePath returns <root>/.qompack/state/drain.json.
++func drainStatePath(root string) string {
++	return filepath.Join(paths.Of(root).State, drainStateFile)
++}
++
++// loadState reads state/drain.json, falling back to an empty state for a missing or corrupt file
++// — the first-ever drain, or a state file this build can no longer parse, both start clean rather
++// than error out.
++func (dr *drainer) loadState() drainState {
++	b, err := os.ReadFile(paths.Long(drainStatePath(dr.cfg.Root)))
++	if err != nil {
++		return drainState{}
++	}
++	var st drainState
++	if err := json.Unmarshal(b, &st); err != nil || st == nil {
++		return drainState{}
++	}
++	return st
++}
++
++// saveState persists st to state/drain.json via paths.WriteAtomic. WriteAtomic renames its temp
++// file onto the destination, which requires the destination's parent directory to already exist —
++// a fresh project that has never had .qompack/state/ created (paths.EnsureLayout not yet run)
++// would otherwise fail the rename silently on every call.
++func (dr *drainer) saveState(st drainState) error {
++	b, err := json.Marshal(st)
++	if err != nil {
++		return err
++	}
++	p := drainStatePath(dr.cfg.Root)
++	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
++		return err
++	}
++	return paths.WriteAtomic(p, b, 0o600)
++}
+diff --git a/internal/daemon/drain_test.go b/internal/daemon/drain_test.go
+new file mode 100644
+index 0000000..46ffd69
+--- /dev/null
++++ b/internal/daemon/drain_test.go
+@@ -0,0 +1,252 @@
++package daemon
++
++import (
++	"context"
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"sync"
++	"sync/atomic"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/qompack/qompack/internal/testutil"
++)
++
++// writeSpoolFile writes n NDJSON request lines to <root>/.qompack/spool/<name>, in the exact shape
++// ipc.EncodeRequest produces, and returns the full path.
++func writeSpoolFile(t *testing.T, root, name string, n int) string {
++	t.Helper()
++	dir := paths.Of(root).Spool
++	require.NoError(t, os.MkdirAll(dir, 0o700))
++	p := filepath.Join(dir, name)
++
++	f, err := os.Create(p) //nolint:gosec // test fixture, path built from t.TempDir()
++	require.NoError(t, err)
++	defer func() { _ = f.Close() }()
++
++	for i := 0; i < n; i++ {
++		line, err := ipc.EncodeRequest(ipc.Request{
++			Op: ipc.OpObserveTool, Session: "sess-1", TS: core.UnixMilli(i),
++		})
++		require.NoError(t, err)
++		_, err = f.Write(line)
++		require.NoError(t, err)
++	}
++	return p
++}
++
++// countingDispatch returns a Dispatch func that increments a counter for every call and records
++// every dispatched request's TS, so a test can assert both the count and (when relevant) ordering.
++func countingDispatch() (dispatch func(context.Context, ipc.Request) ipc.Response, count *int64) {
++	var n int64
++	return func(context.Context, ipc.Request) ipc.Response {
++		atomic.AddInt64(&n, 1)
++		return ipc.Response{OK: true}
++	}, &n
++}
++
++// TestDrainIsIdempotent pins that a fully-drained file is not re-processed by a second Drain call:
++// the file is deleted after the first pass, so SpoolFiles never offers it again.
++func TestDrainIsIdempotent(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	writeSpoolFile(t, root, "client-1.ndjson", 10)
++
++	dispatch, count := countingDispatch()
++	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
++
++	n1, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 10, n1)
++
++	files, err := ipc.SpoolFiles(paths.Of(root).Spool)
++	require.NoError(t, err)
++	require.Empty(t, files, "the drained file must be deleted after the first pass")
++
++	n2, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 0, n2)
++
++	require.EqualValues(t, 10, atomic.LoadInt64(count), "10 dispatches total, not 20")
++}
++
++// TestDrainResumesAfterCancel pins resumability: a Drain cancelled partway through persists its
++// offset, and a second call finishes the remainder — total dispatches across both calls equals the
++// line count exactly once.
++func TestDrainResumesAfterCancel(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	const total = 1000
++	const cutoff = 200
++	writeSpoolFile(t, root, "client-1.ndjson", total)
++
++	var n int64
++	var mu sync.Mutex
++	ctx, cancel := context.WithCancel(context.Background())
++	dispatch := func(context.Context, ipc.Request) ipc.Response {
++		mu.Lock()
++		n++
++		if n == cutoff {
++			cancel()
++		}
++		mu.Unlock()
++		return ipc.Response{OK: true}
++	}
++
++	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
++
++	n1, err := dr.Drain(ctx)
++	require.ErrorIs(t, err, context.Canceled)
++	require.Equal(t, cutoff, n1)
++
++	n2, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, total-cutoff, n2)
++
++	require.Equal(t, total, n1+n2)
++}
++
++// TestDrainResolvesBlobs pins blob restoration: a spooled line externalizing Event.ToolResponse
++// into a side blob file must reach the handler with the field restored, and the blob file must be
++// removed afterward.
++func TestDrainResolvesBlobs(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	dir := paths.Of(root).Spool
++	require.NoError(t, os.MkdirAll(dir, 0o700))
++
++	blobBytes := []byte(`{"huge":"tool output"}`)
++	blobName := "blob-1-1.bin"
++	require.NoError(t, os.WriteFile(filepath.Join(dir, blobName), blobBytes, 0o600))
++
++	ref, err := json.Marshal(struct {
++		Blob  string `json:"blob"`
++		Bytes int    `json:"bytes"`
++		Field string `json:"field"`
++	}{Blob: blobName, Bytes: len(blobBytes), Field: "e.tool_response"})
++	require.NoError(t, err)
++
++	req := ipc.Request{
++		Op: ipc.OpObserveTool, Session: "sess-1",
++		Event: &hookio.Event{ToolResponse: nil},
++		Raw:   ref,
++	}
++	line, err := ipc.EncodeRequest(req)
++	require.NoError(t, err)
++	require.NoError(t, os.WriteFile(filepath.Join(dir, "client-1.ndjson"), line, 0o600))
++
++	var got ipc.Request
++	dispatch := func(_ context.Context, r ipc.Request) ipc.Response {
++		got = r
++		return ipc.Response{OK: true}
++	}
++	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
++
++	n, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 1, n)
++
++	require.NotNil(t, got.Event)
++	require.JSONEq(t, string(blobBytes), string(got.Event.ToolResponse))
++	require.Empty(t, got.Raw, "the blob descriptor must be cleared once resolved")
++
++	_, statErr := os.Stat(filepath.Join(dir, blobName))
++	require.True(t, os.IsNotExist(statErr), "the blob file must be deleted once resolved")
++}
++
++// TestDrainSurvivesCorruptLine pins that one malformed line does not abort the file: every valid
++// line around it still dispatches, the corruption is counted, and the file is still deleted once
++// fully read.
++func TestDrainSurvivesCorruptLine(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	dir := paths.Of(root).Spool
++	require.NoError(t, os.MkdirAll(dir, 0o700))
++	p := filepath.Join(dir, "client-1.ndjson")
++
++	f, err := os.Create(p) //nolint:gosec // test fixture
++	require.NoError(t, err)
++	writeValid := func(ts int) {
++		line, eerr := ipc.EncodeRequest(ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", TS: core.UnixMilli(ts)})
++		require.NoError(t, eerr)
++		_, werr := f.Write(line)
++		require.NoError(t, werr)
++	}
++	writeValid(1)
++	writeValid(2)
++	writeValid(3)
++	_, err = f.WriteString("{{{\n")
++	require.NoError(t, err)
++	writeValid(4)
++	require.NoError(t, f.Close())
++
++	dispatch, count := countingDispatch()
++	dr := newDrainer(DrainConfig{Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch})
++
++	n, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 4, n)
++	require.EqualValues(t, 4, atomic.LoadInt64(count))
++
++	_, statErr := os.Stat(p)
++	require.True(t, os.IsNotExist(statErr), "the file must still be deleted despite the corrupt line")
++}
++
++// TestDrainKeepsLiveSessionWAL pins that a wal-<session>.ndjson file for a still-live session is
++// fully drained (offset-marked) but not deleted, and is skipped on a subsequent no-op Drain.
++func TestDrainKeepsLiveSessionWAL(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	p := writeSpoolFile(t, root, "wal-sess-1.ndjson", 3)
++
++	dispatch, count := countingDispatch()
++	dr := newDrainer(DrainConfig{
++		Root: root, Clock: testutil.NewFakeClock(testutil.Epoch), Dispatch: dispatch,
++		IsLive: func(sess core.SessionID) bool { return sess == "sess-1" },
++	})
++
++	n, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 3, n)
++	require.FileExists(t, p, "a live session's WAL must not be deleted")
++
++	// A second drain with nothing new appended must not re-dispatch anything (Done + size match).
++	n2, err := dr.Drain(context.Background())
++	require.NoError(t, err)
++	require.Equal(t, 0, n2)
++	require.EqualValues(t, 3, atomic.LoadInt64(count))
++}
++
++// TestWalSessionID pins the filename parser rotation-suffix handling.
++func TestWalSessionID(t *testing.T) {
++	t.Parallel()
++
++	cases := []struct {
++		base   string
++		wantID core.SessionID
++		wantOK bool
++	}{
++		{"wal-sess-1.ndjson", "sess-1", true},
++		{"wal-sess-1.3.ndjson", "sess-1", true},
++		{"client-123.ndjson", "", false},
++		{"wal-.ndjson", "", false},
++	}
++	for _, c := range cases {
++		id, ok := walSessionID(c.base)
++		require.Equal(t, c.wantOK, ok, c.base)
++		if c.wantOK {
++			require.Equal(t, c.wantID, id, c.base)
++		}
++	}
++}
+diff --git a/internal/daemon/ingest.go b/internal/daemon/ingest.go
+new file mode 100644
+index 0000000..1376ca9
+--- /dev/null
++++ b/internal/daemon/ingest.go
+@@ -0,0 +1,349 @@
++package daemon
++
++import (
++	"context"
++	"fmt"
++	"os"
++	"path/filepath"
++	"runtime"
++	"sync"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// ringCapacity is the in-memory queue depth between Accept and the worker pool: not a config
++// default, so it lives here rather than internal/config/defaults.go (§2.4 B-C backpressure).
++const ringCapacity = 4096 //nomagic:allow in-memory queue depth, not a config default (§2.4 B-C backpressure)
++
++// walRotateBytes bounds one WAL segment before Accept rolls over to wal-<session>.<n>.ndjson.
++const walRotateBytes = 64 << 20 // 64 MiB
++
++// seenCapacity bounds seenSet's FIFO dedup window.
++const seenCapacity = 65536
++
++// walHashDomain is the dedup key domain for WAL/spool lines (task-3-spec.md ingest.go): key =
++// core.HashBytes(walHashDomain, line).
++const walHashDomain = "qompack.wal.v1"
++
++// defaultWorkerCount is Start's fallback worker-pool size when the caller passes workers <= 0.
++func defaultWorkerCount() int {
++	n := runtime.NumCPU() / 2
++	if n < 2 {
++		n = 2
++	}
++	return n
++}
++
++// job is one accepted request queued for asynchronous (B-C) processing.
++type job struct {
++	req  ipc.Request
++	recv core.UnixMilli
++	key  core.Hash
++}
++
++// walFile is one session's cached WAL append handle plus its rotation bookkeeping.
++type walFile struct {
++	w     *os.File
++	bytes int64
++	seq   int
++}
++
++// ingest is the daemon's WAL-backed ingest queue (task-3-spec.md ingest.go): Accept is the B-B
++// path (WAL append, then a non-blocking ring enqueue), and the worker pool started by Start drains
++// the ring into run, timed into the B-C histogram.
++type ingest struct {
++	root string
++	cfg  config.Config
++	log  logging.Logger
++	m    obs.Registry
++	clk  core.Clock
++
++	spoolDir string
++
++	mu   sync.Mutex
++	wals map[core.SessionID]*walFile
++
++	ring chan job
++	seen *seenSet
++
++	// clientSpool is the ring-full spill target: a daemon-owned client-<pid>.ndjson file in the
++	// same spool directory the WAL lives in, so ipc.SpoolFiles picks it up on the next drain
++	// exactly like a hook client's own fallback spool.
++	clientSpool ipc.SpoolWriter
++
++	wg sync.WaitGroup
++}
++
++// newIngest constructs an ingest queue rooted at root. Construction touches no filesystem state
++// beyond what ipc.NewSpool itself touches (nothing, until first Append).
++func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registry, clk core.Clock) *ingest {
++	if log == nil {
++		log = logging.Nop()
++	}
++	if clk == nil {
++		clk = core.SystemClock()
++	}
++	spoolDir := paths.Of(root).Spool
++	sp, _ := ipc.NewSpool(spoolDir) // NewSpool's shipped signature never errors
++
++	return &ingest{
++		root:        root,
++		cfg:         cfg,
++		log:         log,
++		m:           m,
++		clk:         clk,
++		spoolDir:    spoolDir,
++		wals:        map[core.SessionID]*walFile{},
++		ring:        make(chan job, ringCapacity),
++		seen:        newSeenSet(seenCapacity),
++		clientSpool: sp,
++	}
++}
++
++// Accept is the B-B path (task-3-spec.md ingest.go): append line — the exact bytes received — to
++// the session's WAL, timed end to end into the B-B histogram, then enqueue a job for asynchronous
++// processing without ever blocking. A full ring spills the line to the client-spool directory
++// instead of blocking, so the daemon still has the data and will pick it up on the next drain.
++//
++// The caller (the server's registered ipc.Handler) writes the ACK only after Accept returns and
++// before any worker touches the job — that ordering is what makes the WAL the durability boundary
++// (§2.4): a daemon crash after this call costs freshness, never data.
++func (i *ingest) Accept(req ipc.Request, line []byte) error {
++	work := func() error { return i.appendWAL(req.Session, line) }
++
++	var err error
++	if i.m != nil {
++		err = obs.Timed(i.m.Hist(histName(obs.BB)), work)
++	} else {
++		err = work()
++	}
++	if err != nil {
++		return fmt.Errorf("daemon: ingest: accept: %w", err)
++	}
++
++	j := job{
++		req:  req,
++		recv: core.NowMilli(i.clk),
++		key:  core.HashBytes(walHashDomain, line),
++	}
++	select {
++	case i.ring <- j:
++	default:
++		if i.m != nil {
++			i.m.Counter(counterL0RingFull).Add(1)
++		}
++		i.spill(req)
++	}
++	return nil
++}
++
++// appendWAL writes line, plus exactly one trailing newline, to req's session WAL file, opening
++// (and caching) the handle on first use and rotating past walRotateBytes. No fsync (§2.4: "O_APPEND,
++// no fsync").
++func (i *ingest) appendWAL(sess core.SessionID, line []byte) error {
++	i.mu.Lock()
++	defer i.mu.Unlock()
++
++	wf, ok := i.wals[sess]
++	if !ok {
++		wf = &walFile{}
++		i.wals[sess] = wf
++	}
++	if wf.w == nil {
++		if err := i.openWALLocked(sess, wf); err != nil {
++			return err
++		}
++	}
++
++	buf := make([]byte, 0, len(line)+1)
++	buf = append(buf, line...)
++	buf = append(buf, '\n')
++
++	if wf.bytes > 0 && wf.bytes+int64(len(buf)) > walRotateBytes {
++		if err := wf.w.Close(); err != nil {
++			return err
++		}
++		wf.w = nil
++		wf.seq++
++		if err := i.openWALLocked(sess, wf); err != nil {
++			return err
++		}
++	}
++
++	n, err := wf.w.Write(buf)
++	if err != nil {
++		return err
++	}
++	wf.bytes += int64(n)
++	return nil
++}
++
++// openWALLocked opens (creating if needed) the WAL segment file for sess at wf's current
++// rotation sequence. mu must be held.
++func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
++	if err := os.MkdirAll(paths.Long(i.spoolDir), 0o700); err != nil {
++		return fmt.Errorf("daemon: ingest: mkdir spool: %w", err)
++	}
++	p := walPath(i.spoolDir, sess, wf.seq)
++	wc, err := paths.AppendOnly(p)
++	if err != nil {
++		return fmt.Errorf("daemon: ingest: open wal: %w", err)
++	}
++	f, ok := wc.(*os.File)
++	if !ok {
++		return fmt.Errorf("daemon: ingest: AppendOnly returned a non-*os.File writer")
++	}
++	wf.w = f
++	wf.bytes = 0
++	if fi, statErr := f.Stat(); statErr == nil {
++		wf.bytes = fi.Size() // resume the running byte count across daemon restarts
++	}
++	return nil
++}
++
++// walPath returns the WAL file path for sess at rotation seq: wal-<session>.ndjson for seq 0,
++// wal-<session>.<seq>.ndjson thereafter.
++func walPath(spoolDir string, sess core.SessionID, seq int) string {
++	if seq == 0 {
++		return filepath.Join(spoolDir, fmt.Sprintf("wal-%s.ndjson", sess))
++	}
++	return filepath.Join(spoolDir, fmt.Sprintf("wal-%s.%d.ndjson", sess, seq))
++}
++
++// spill appends req to the daemon-owned client spool: the ring-full fallback that keeps Accept
++// non-blocking. A spill failure is swallowed here — ipc's SpoolWriter.Append already counts and
++// Louds a real write failure on its own (§12.3) — so this is not double-counted.
++func (i *ingest) spill(req ipc.Request) {
++	if i.clientSpool == nil {
++		return
++	}
++	_ = i.clientSpool.Append(req)
++}
++
++// Start launches workers goroutines (or defaultWorkerCount() if workers <= 0), each pulling jobs
++// off the ring until ctx is done, deduplicating against seen, and dispatching to run, timed into
++// the B-C histogram. A panic inside run is recovered, counted and Loud'd — it never brings down
++// the worker.
++func (i *ingest) Start(ctx context.Context, workers int, run func(context.Context, ipc.Request)) {
++	if workers <= 0 {
++		workers = defaultWorkerCount()
++	}
++	for w := 0; w < workers; w++ {
++		i.wg.Add(1)
++		go i.worker(ctx, run)
++	}
++}
++
++func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Request)) {
++	defer i.wg.Done()
++	for {
++		select {
++		case <-ctx.Done():
++			return
++		case j, ok := <-i.ring:
++			if !ok {
++				return
++			}
++			i.dispatch(ctx, run, j)
++		}
++	}
++}
++
++func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request), j job) {
++	defer func() {
++		if r := recover(); r != nil {
++			if i.m != nil {
++				i.m.Counter(counterL0WorkerPanic).Add(1)
++			}
++			i.log.Loud("daemon: ingest worker panicked — job dropped", "op", string(j.req.Op), "recover", r)
++		}
++	}()
++
++	if i.seen.SeenOrAdd(j.key) {
++		return
++	}
++
++	work := func() error { run(ctx, j.req); return nil }
++	if i.m != nil {
++		_ = obs.Timed(i.m.Hist(histName(obs.BC)), work)
++	} else {
++		_ = work()
++	}
++}
++
++// CloseSession closes and forgets sess's cached WAL handle, releasing the file descriptor once a
++// session has ended. It is a no-op for a session that was never opened.
++func (i *ingest) CloseSession(sess core.SessionID) error {
++	i.mu.Lock()
++	defer i.mu.Unlock()
++	wf, ok := i.wals[sess]
++	if !ok {
++		return nil
++	}
++	delete(i.wals, sess)
++	if wf.w == nil {
++		return nil
++	}
++	return wf.w.Close()
++}
++
++// Close closes every cached WAL handle and the client spool's own handle, if one was opened. It
++// does not stop the worker pool — that is ctx's job, via Start.
++func (i *ingest) Close() error {
++	i.mu.Lock()
++	defer i.mu.Unlock()
++
++	var firstErr error
++	for sess, wf := range i.wals {
++		if wf.w != nil {
++			if err := wf.w.Close(); err != nil && firstErr == nil {
++				firstErr = err
++			}
++		}
++		delete(i.wals, sess)
++	}
++	if cl, ok := i.clientSpool.(interface{ Close() error }); ok {
++		if err := cl.Close(); err != nil && firstErr == nil {
++			firstErr = err
++		}
++	}
++	return firstErr
++}
++
++// seenSet is a capacity-bounded FIFO of dedup keys (task-3-spec.md ingest.go): it makes both the
++// worker pool and Drain idempotent within a daemon lifetime when the same instance is shared
++// between them.
++type seenSet struct {
++	mu       sync.Mutex
++	capacity int
++	set      map[core.Hash]struct{}
++	order    []core.Hash
++}
++
++// newSeenSet returns an empty seenSet bounded at capacity entries.
++func newSeenSet(capacity int) *seenSet {
++	return &seenSet{capacity: capacity, set: make(map[core.Hash]struct{}, capacity)}
++}
++
++// SeenOrAdd reports whether key has already been recorded; if not, it records it (evicting the
++// oldest entry first if the set is at capacity) and returns false.
++func (s *seenSet) SeenOrAdd(key core.Hash) bool {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if _, ok := s.set[key]; ok {
++		return true
++	}
++	if len(s.order) >= s.capacity {
++		oldest := s.order[0]
++		s.order = s.order[1:]
++		delete(s.set, oldest)
++	}
++	s.set[key] = struct{}{}
++	s.order = append(s.order, key)
++	return false
++}
+diff --git a/internal/daemon/ingest_test.go b/internal/daemon/ingest_test.go
+new file mode 100644
+index 0000000..2d5bbec
+--- /dev/null
++++ b/internal/daemon/ingest_test.go
+@@ -0,0 +1,166 @@
++package daemon
++
++import (
++	"bytes"
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/qompack/qompack/internal/testutil"
++)
++
++// TestIngestWALIsExactBytes pins the WAL durability contract: Accept writes the exact bytes it
++// received, single-newline-terminated.
++func TestIngestWALIsExactBytes(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
++	t.Cleanup(func() { _ = ing.Close() })
++
++	line := []byte(`{"op":"observe.tool","s":"sess-1","t":1}`)
++	req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1"}
++	require.NoError(t, ing.Accept(req, line))
++
++	walPath := filepath.Join(paths.Of(root).Spool, "wal-sess-1.ndjson")
++	got, err := os.ReadFile(walPath)
++	require.NoError(t, err)
++	require.Equal(t, string(line)+"\n", string(got), "the WAL must contain exactly the received bytes plus one newline")
++}
++
++// TestIngestRingFullSpillsToSpool pins the non-blocking overflow path: a full ring never blocks
++// Accept, and every overflowed request still lands durably — in the client spool instead of the
++// ring.
++func TestIngestRingFullSpillsToSpool(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	m := obs.New(clk)
++	ing := newIngest(root, config.Defaults(), logging.Nop(), m, clk)
++	t.Cleanup(func() { _ = ing.Close() })
++	ing.ring = make(chan job, 2) // override the 4096 default so this test can actually fill it
++
++	const n = 5
++	for i := 0; i < n; i++ {
++		line := []byte(`{"op":"observe.tool","s":"sess-1","t":` + string(rune('0'+i)) + `}`)
++		req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1"}
++
++		start := time.Now()
++		err := ing.Accept(req, line)
++		elapsed := time.Since(start)
++
++		require.NoError(t, err)
++		require.Less(t, elapsed, time.Second, "Accept must never block on a full ring")
++	}
++
++	// All 5 lines reached the WAL regardless of ring capacity.
++	walPath := filepath.Join(paths.Of(root).Spool, "wal-sess-1.ndjson")
++	walBytes, err := os.ReadFile(walPath)
++	require.NoError(t, err)
++	require.Equal(t, n, bytes.Count(walBytes, []byte("\n")), "every accepted line must reach the WAL")
++
++	// Exactly ring-capacity (2) landed in the ring; the remaining 3 spilled to the client spool.
++	require.Equal(t, int64(3), m.Counter(counterL0RingFull).Value())
++
++	files, err := ipc.SpoolFiles(paths.Of(root).Spool)
++	require.NoError(t, err)
++	var clientLines int
++	for _, f := range files {
++		if filepath.Base(f) == filepath.Base(walPath) {
++			continue
++		}
++		b, rerr := os.ReadFile(f)
++		require.NoError(t, rerr)
++		clientLines += bytes.Count(b, []byte("\n"))
++	}
++	require.Equal(t, 3, clientLines, "the 3 ring-full requests must have been spilled to the client spool")
++}
++
++// TestIngestACKPrecedesProcessing proves Accept returns — the point at which the server writes the
++// ACK — before any worker touches the job, which is what makes the WAL the durability boundary.
++func TestIngestACKPrecedesProcessing(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
++	t.Cleanup(func() { _ = ing.Close() })
++
++	release := make(chan struct{})
++	entered := make(chan struct{}, 1)
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	ing.Start(ctx, 1, func(context.Context, ipc.Request) {
++		entered <- struct{}{}
++		<-release
++	})
++
++	line := []byte(`{"op":"observe.tool","s":"sess-1","t":1}`)
++	req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1"}
++
++	done := make(chan struct{})
++	go func() {
++		require.NoError(t, ing.Accept(req, line))
++		close(done)
++	}()
++
++	// Accept must complete (the ACK point) before we ever release the worker.
++	select {
++	case <-done:
++	case <-time.After(2 * time.Second):
++		t.Fatal("Accept did not return promptly — it must never wait on worker processing")
++	}
++
++	// Now confirm the job really was queued (not dropped) by releasing the worker and observing
++	// it run.
++	select {
++	case <-entered:
++	case <-time.After(2 * time.Second):
++		t.Fatal("worker never received the queued job")
++	}
++	close(release)
++}
++
++// TestIngestWALRotates pins Accept's rotation behaviour past walRotateBytes, using a synthetic
++// near-limit walFile rather than actually writing 64 MiB.
++func TestIngestWALRotates(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
++	t.Cleanup(func() { _ = ing.Close() })
++
++	sess := core.SessionID("big")
++	wf := &walFile{}
++	require.NoError(t, ing.openWALLocked(sess, wf))
++	wf.bytes = walRotateBytes - 10 // close to the ceiling
++	ing.wals[sess] = wf
++
++	line := bytes.Repeat([]byte("x"), 64) // pushes the segment over the ceiling
++	require.NoError(t, ing.appendWAL(sess, line))
++
++	require.Equal(t, 1, ing.wals[sess].seq, "a write that would exceed walRotateBytes must roll to the next segment")
++
++	firstPath := walPath(paths.Of(root).Spool, sess, 0)
++	rotatedPath := walPath(paths.Of(root).Spool, sess, 1)
++	require.FileExists(t, firstPath)
++	require.FileExists(t, rotatedPath)
++
++	rotatedBytes, err := os.ReadFile(rotatedPath)
++	require.NoError(t, err)
++	require.Equal(t, string(line)+"\n", string(rotatedBytes), "the rotated line must land in the new segment, not the old one")
++}
+diff --git a/internal/daemon/lock.go b/internal/daemon/lock.go
+new file mode 100644
+index 0000000..62f9484
+--- /dev/null
++++ b/internal/daemon/lock.go
+@@ -0,0 +1,244 @@
++package daemon
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"time"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// staleAfter is §2.4's heartbeat staleness window (task-3-spec.md lock.go, staleness step 4):
++// once daemon.hb's mtime is older than this, and neither the dial probe nor the POSIX kill(0)
++// probe found a live process, the lock is reclaimed rather than blocking every future daemon start
++// forever.
++const staleAfter = 90 * time.Second
++
++// dialProbeTimeout bounds the liveness dial the staleness protocol tries first — "costs nothing"
++// per task-3-spec.md, so it is short.
++const dialProbeTimeout = 20 * time.Millisecond
++
++// The two files under .qompack/run/ the singleton protocol reads and writes.
++const (
++	lockFileName      = "daemon.lock"
++	heartbeatFileName = "daemon.hb"
++)
++
++// ErrLockHeld is returned by AcquireLock when a live daemon already owns projectRoot's singleton
++// lock: the liveness dial succeeded, or the POSIX kill(0)/heartbeat-staleness checks found the
++// recorded process still alive. A caller that goes on to bind the transport itself may also see
++// ipc.ErrAddrInUse well after AcquireLock returns successfully — a race where a second daemon won
++// the bind between this daemon reclaiming the lock and its own Serve call — and should wrap that
++// as ErrLockHeld too (ipc may not depend on daemon, so the wrapping happens on this side).
++var ErrLockHeld = errors.New("qompack: daemon lock already held")
++
++// LockInfo is daemon.lock's on-disk JSON shape (00-ARCHITECTURE.md §2.4).
++type LockInfo struct {
++	PID     int    `json:"pid"`
++	Started int64  `json:"started"`
++	Addr    string `json:"addr"`
++	Version string `json:"version"`
++}
++
++// Lock is a held per-project singleton lock (.qompack/run/daemon.lock).
++type Lock struct {
++	path string
++	hb   string
++	clk  core.Clock
++}
++
++// AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving
++// contention with the 5-step staleness protocol of task-3-spec.md: a dead process's lock is
++// reclaimed; a live one's is not.
++func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) {
++	if clk == nil {
++		clk = core.SystemClock()
++	}
++
++	runDir := paths.Of(projectRoot).Run
++	if err := os.MkdirAll(paths.Long(runDir), 0o700); err != nil {
++		return nil, fmt.Errorf("daemon: lock: mkdir: %w", err)
++	}
++	lockPath := filepath.Join(runDir, lockFileName)
++	hbPath := filepath.Join(runDir, heartbeatFileName)
++
++	body, err := json.Marshal(LockInfo{
++		PID:     os.Getpid(),
++		Started: clk.Now().UnixMilli(),
++		Addr:    a.Path,
++		Version: core.Version,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("daemon: lock: encode: %w", err)
++	}
++
++	if err := paths.CreateNew(lockPath, body); err != nil {
++		if !os.IsExist(err) {
++			return nil, fmt.Errorf("daemon: lock: create: %w", err)
++		}
++		if !lockIsStale(lockPath, hbPath, a, clk) {
++			return nil, ErrLockHeld
++		}
++		removeLockFiles(lockPath, hbPath)
++		if err := paths.CreateNew(lockPath, body); err != nil {
++			return nil, ErrLockHeld // lost the retry race: another daemon won it (step 5)
++		}
++	}
++
++	// A freshly (re)claimed lock counts as "recently alive" from the moment it exists, not only
++	// once the daemon's own 30s heartbeat ticker first fires — otherwise a second AcquireLock
++	// arriving inside that first 30s window would see no heartbeat file at all and misjudge a
++	// perfectly live daemon as stale.
++	if err := touchFile(hbPath, clk.Now()); err != nil {
++		return nil, fmt.Errorf("daemon: lock: initial heartbeat: %w", err)
++	}
++
++	return &Lock{path: lockPath, hb: hbPath, clk: clk}, nil
++}
++
++// ReadLock reads projectRoot's current daemon.lock without taking it — for /qompack:status and
++// diagnostics. ok is false when the file is missing or unparseable.
++func ReadLock(projectRoot string) (LockInfo, bool) {
++	lockPath := filepath.Join(paths.Of(projectRoot).Run, lockFileName)
++	return readLockFile(lockPath)
++}
++
++// lockIsStale runs the staleness protocol's steps 1-4 against an existing lock file, stopping at
++// the first decisive answer. hbPath is the heartbeat file recorded alongside the lock.
++func lockIsStale(lockPath, hbPath string, a ipc.Addr, clk core.Clock) bool {
++	info, ok := readLockFile(lockPath)
++	if !ok {
++		return true // step 1: unparseable lock file
++	}
++
++	// Step 2: the authoritative liveness dial. probeAlive performs a real connect-write-ACK round
++	// trip against the address the lock file recorded (falling back to the caller's own resolved
++	// address if the recorded one is empty), disabling lazy spawn so the probe itself never starts
++	// a daemon. A positive answer (a live peer actually ACKed) is decisive; anything else — no
++	// listener, a refusal, a timeout — is not proof of death on its own, so the protocol falls
++	// through to steps 3 and 4 rather than trusting a negative network result outright.
++	addr := a
++	if info.Addr != "" {
++		addr = ipc.Addr{Kind: a.Kind, Path: info.Addr}
++	}
++	if probeAlive(addr, dialProbeTimeout, clk) {
++		return false
++	}
++
++	// Step 3: POSIX kill(0, pid). known is false on Windows, which has no cheap equivalent.
++	if alive, known := pidAlive(info.PID); known {
++		return !alive
++	}
++
++	// Step 4: heartbeat mtime.
++	fi, err := os.Stat(paths.Long(hbPath))
++	if err != nil {
++		return true // no heartbeat at all: nothing to call "recently alive"
++	}
++	return clk.Now().Sub(fi.ModTime()) > staleAfter
++}
++
++// probeAlive dials addr as a real Client and reports whether a live peer ACKed within timeout. It
++// uses ipc.OpAdminPing — the reserved namespace's liveness op — fire-and-forget, so a live daemon
++// need only ACK, never compute anything, to answer this probe. Self is left empty so the probe
++// itself can never trigger a lazy spawn: AcquireLock is what decides whether to start a daemon,
++// not this liveness check.
++func probeAlive(addr ipc.Addr, timeout time.Duration, clk core.Clock) bool {
++	st := ipc.State{
++		Mode:            contract.ModeFull, // never ModeOff: that shape ACKs locally without dialling at all
++		Hot:             ipc.HotSync,
++		DaemonEnabled:   true,
++		MaxPayloadBytes: ipc.MaxLineBytes,
++	}
++	cl := ipc.NewClientWithOptions(addr, nil, logging.Nop(), nil, ipc.ClientOptions{
++		State:           st,
++		ConnectDeadline: timeout,
++		AckDeadline:     timeout,
++		Clock:           clk,
++	})
++	defer func() { _ = cl.Close() }()
++
++	req := ipc.Request{Op: ipc.OpAdminPing, TS: core.NowMilli(clk)}
++	resp, _ := cl.Send(context.Background(), req, timeout)
++	return resp.OK
++}
++
++// readLockFile reads and parses p, reporting ok=false for anything that is missing or does not
++// decode as LockInfo — step 1 of the staleness protocol treats both the same way.
++func readLockFile(p string) (LockInfo, bool) {
++	b, err := os.ReadFile(paths.Long(p))
++	if err != nil {
++		return LockInfo{}, false
++	}
++	var info LockInfo
++	if err := json.Unmarshal(b, &info); err != nil {
++		return LockInfo{}, false
++	}
++	return info, true
++}
++
++// removeLockFiles deletes a stale lock and its heartbeat (staleness protocol step 5).
++// paths.CreateNew leaves the lock file read-only (0o444/FILE_ATTRIBUTE_READONLY), which blocks
++// deletion on Windows, so its mode is cleared first — harmless on POSIX, where permissions never
++// gate an unlink.
++func removeLockFiles(lockPath, hbPath string) {
++	_ = os.Chmod(paths.Long(lockPath), 0o600)
++	_ = os.Remove(paths.Long(lockPath))
++	_ = os.Remove(paths.Long(hbPath))
++}
++
++// touchFile creates p if it does not exist and sets both its atime and mtime to t.
++func touchFile(p string, t time.Time) error {
++	if _, err := os.Stat(paths.Long(p)); err != nil {
++		if !os.IsNotExist(err) {
++			return err
++		}
++		f, cerr := os.OpenFile(paths.Long(p), os.O_CREATE|os.O_WRONLY, 0o600)
++		if cerr != nil {
++			return cerr
++		}
++		if cerr := f.Close(); cerr != nil {
++			return cerr
++		}
++	}
++	return os.Chtimes(paths.Long(p), t, t)
++}
++
++// Heartbeat updates daemon.hb's mtime to now, creating the file if it is somehow absent. The
++// daemon calls this on a 30s ticker (Task 4); AcquireLock also calls it once, immediately, so a
++// lock is never seen as stale before the first tick fires.
++func (l *Lock) Heartbeat() error {
++	if err := touchFile(l.hb, l.clk.Now()); err != nil {
++		return fmt.Errorf("daemon: lock: heartbeat: %w", err)
++	}
++	return nil
++}
++
++// Release removes the lock and its heartbeat. It is safe to call twice: a second call finds both
++// files already gone and returns nil.
++func (l *Lock) Release() error {
++	_ = os.Chmod(paths.Long(l.path), 0o600) // paths.CreateNew leaves the lock file read-only
++	err1 := os.Remove(paths.Long(l.path))
++	if err1 != nil && os.IsNotExist(err1) {
++		err1 = nil
++	}
++	err2 := os.Remove(paths.Long(l.hb))
++	if err2 != nil && os.IsNotExist(err2) {
++		err2 = nil
++	}
++	if err1 != nil {
++		return fmt.Errorf("daemon: lock: release: %w", err1)
++	}
++	if err2 != nil {
++		return fmt.Errorf("daemon: lock: release: %w", err2)
++	}
++	return nil
++}
+diff --git a/internal/daemon/lock_test.go b/internal/daemon/lock_test.go
+new file mode 100644
+index 0000000..ef2f67e
+--- /dev/null
++++ b/internal/daemon/lock_test.go
+@@ -0,0 +1,167 @@
++package daemon
++
++import (
++	"context"
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/qompack/qompack/internal/testutil"
++)
++
++// TestAcquireLockExclusive pins the singleton property: a second AcquireLock against the same
++// project, while the first is still held (by this very process — kill(0) on our own pid always
++// succeeds), returns ErrLockHeld.
++func TestAcquireLockExclusive(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	addr, err := ipc.Resolve(root)
++	require.NoError(t, err)
++	clk := testutil.NewFakeClock(testutil.Epoch)
++
++	l1, err := AcquireLock(root, addr, clk)
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = l1.Release() })
++
++	_, err = AcquireLock(root, addr, clk)
++	require.ErrorIs(t, err, ErrLockHeld)
++}
++
++// TestStaleLockReclaimed pins the staleness protocol's reclaim path: a lock file naming a dead
++// pid, no live listener, and a heartbeat well past staleAfter is reclaimed and rewritten to name
++// the reclaiming process.
++func TestStaleLockReclaimed(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	addr, err := ipc.Resolve(root)
++	require.NoError(t, err)
++	clk := testutil.NewFakeClock(testutil.Epoch)
++
++	writeCraftedLock(t, root, addr, 999999, clk.Now().Add(-10*time.Minute))
++
++	l, err := AcquireLock(root, addr, clk)
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = l.Release() })
++
++	info, ok := ReadLock(root)
++	require.True(t, ok)
++	require.Equal(t, os.Getpid(), info.PID, "the lock must be rewritten to record the reclaiming process")
++}
++
++// TestLiveLockNotReclaimed pins that the liveness dial wins over both a dead pid and a stale
++// heartbeat: a real listener at the recorded address makes AcquireLock report ErrLockHeld
++// regardless of what the rest of the lock file says.
++func TestLiveLockNotReclaimed(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	addr, err := ipc.Resolve(root)
++	require.NoError(t, err)
++	clk := testutil.NewFakeClock(testutil.Epoch)
++
++	srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
++	require.NoError(t, err)
++	ctx, cancel := context.WithCancel(context.Background())
++	t.Cleanup(func() {
++		cancel()
++		_ = srv.Close()
++	})
++	go func() {
++		_ = srv.Serve(ctx, func(context.Context, ipc.Request) ipc.Response {
++			return ipc.Response{OK: true}
++		})
++	}()
++
++	// A dead pid and a 10-minute-old heartbeat: on their own, both steps 3 and 4 would say stale.
++	writeCraftedLock(t, root, addr, 999999, clk.Now().Add(-10*time.Minute))
++
++	_, err = AcquireLock(root, addr, clk)
++	require.ErrorIs(t, err, ErrLockHeld, "a live listener must win even with a dead pid and a stale heartbeat")
++}
++
++// TestHeartbeatUpdatesMtime pins Heartbeat's contract: it advances daemon.hb's mtime to the
++// clock's current instant.
++func TestHeartbeatUpdatesMtime(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	addr, err := ipc.Resolve(root)
++	require.NoError(t, err)
++	clk := testutil.NewFakeClock(testutil.Epoch)
++
++	l, err := AcquireLock(root, addr, clk)
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = l.Release() })
++
++	hbPath := filepath.Join(paths.Of(root).Run, heartbeatFileName)
++	fi1, err := os.Stat(hbPath)
++	require.NoError(t, err)
++
++	clk.Advance(60 * time.Second)
++	require.NoError(t, l.Heartbeat())
++
++	fi2, err := os.Stat(hbPath)
++	require.NoError(t, err)
++	require.True(t, fi2.ModTime().After(fi1.ModTime()))
++	require.Equal(t, clk.Now().Unix(), fi2.ModTime().Unix())
++}
++
++// TestReleaseIsIdempotent pins that Release may be called twice without error.
++func TestReleaseIsIdempotent(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	addr, err := ipc.Resolve(root)
++	require.NoError(t, err)
++	clk := testutil.NewFakeClock(testutil.Epoch)
++
++	l, err := AcquireLock(root, addr, clk)
++	require.NoError(t, err)
++	require.NoError(t, l.Release())
++	require.NoError(t, l.Release())
++
++	_, ok := ReadLock(root)
++	require.False(t, ok, "Release must remove the lock file")
++}
++
++// TestReadLock_UnparseableFileReportsNotOK pins step 1 of the staleness protocol's own primitive:
++// a garbage lock file is reported as absent, never causing a panic or a decode error escaping.
++func TestReadLock_UnparseableFileReportsNotOK(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	runDir := paths.Of(root).Run
++	require.NoError(t, os.MkdirAll(runDir, 0o700))
++	require.NoError(t, paths.CreateNew(filepath.Join(runDir, lockFileName), []byte("not json")))
++
++	_, ok := ReadLock(root)
++	require.False(t, ok)
++}
++
++// writeCraftedLock writes a daemon.lock + daemon.hb pair by hand (bypassing AcquireLock), for
++// tests that need to control exactly what pid and heartbeat age a stale/live scenario starts from.
++func writeCraftedLock(t *testing.T, root string, addr ipc.Addr, pid int, hbTime time.Time) {
++	t.Helper()
++
++	runDir := paths.Of(root).Run
++	require.NoError(t, os.MkdirAll(runDir, 0o700))
++
++	lockPath := filepath.Join(runDir, lockFileName)
++	hbPath := filepath.Join(runDir, heartbeatFileName)
++
++	body, err := json.Marshal(LockInfo{PID: pid, Started: hbTime.UnixMilli(), Addr: addr.Path, Version: "0.0.0-test"})
++	require.NoError(t, err)
++	require.NoError(t, paths.CreateNew(lockPath, body))
++
++	require.NoError(t, os.WriteFile(hbPath, nil, 0o600))
++	require.NoError(t, os.Chtimes(hbPath, hbTime, hbTime))
++}
+diff --git a/internal/daemon/lock_unix.go b/internal/daemon/lock_unix.go
+new file mode 100644
+index 0000000..397afe1
+--- /dev/null
++++ b/internal/daemon/lock_unix.go
+@@ -0,0 +1,25 @@
++//go:build !windows
++
++package daemon
++
++import "syscall"
++
++// pidAlive answers the POSIX kill(pid, 0) probe (task-3-spec.md lock.go, staleness step 3): alive,
++// true means the process answered (still running); false, true means ESRCH (definitely gone).
++// POSIX always has an opinion, so known is always true on this platform.
++func pidAlive(pid int) (alive bool, known bool) {
++	if pid <= 0 {
++		return false, true
++	}
++	err := syscall.Kill(pid, 0)
++	if err == nil {
++		return true, true
++	}
++	if err == syscall.ESRCH { //nolint:errorlint // syscall.Errno comparison is the documented idiom for kill(2)'s result
++		return false, true
++	}
++	// EPERM (the process exists but is owned by someone else) or any other errno: treat as alive.
++	// A process this call cannot signal is still a process, and reclaiming a lock out from under a
++	// live daemon is a worse failure than waiting for the heartbeat to actually go stale.
++	return true, true
++}
+diff --git a/internal/daemon/lock_windows.go b/internal/daemon/lock_windows.go
+new file mode 100644
+index 0000000..ba0a9e4
+--- /dev/null
++++ b/internal/daemon/lock_windows.go
+@@ -0,0 +1,9 @@
++//go:build windows
++
++package daemon
++
++// pidAlive has no cheap, dependency-free equivalent to POSIX kill(pid, 0) on Windows —
++// os.FindProcess always succeeds there regardless of whether pid is actually running — so this
++// reports "no opinion", and the heartbeat-mtime check (task-3-spec.md lock.go, staleness step 4)
++// is what actually decides liveness on this platform.
++func pidAlive(int) (alive bool, known bool) { return false, false }
+diff --git a/internal/daemon/metrics.go b/internal/daemon/metrics.go
+new file mode 100644
+index 0000000..7cff3a4
+--- /dev/null
++++ b/internal/daemon/metrics.go
+@@ -0,0 +1,26 @@
++package daemon
++
++import "github.com/qompack/qompack/internal/obs"
++
++// The obs.Counter names this package's own components increment (repo underscore idiom, not
++// §2.4's dotted prose spelling). Collected in one place because ingest.go and drain.go both need
++// them.
++const (
++	counterL0RingFull     = "l0_ring_full"
++	counterL0WorkerPanic  = "l0_worker_panic"
++	counterDrainFileError = "drain_file_error"
++)
++
++// histName looks up the histogram name obs.Budgets() associates with id, so callers never
++// hardcode "l0_ingest"/"l0_process" as string literals — the budget table is the single source of
++// truth for which histogram a given budget reads. An id Budgets() does not recognize (should never
++// happen for the two IDs this package uses) reports "", which obs.Registry.Hist treats as its own
++// distinct, harmless series rather than panicking.
++func histName(id obs.BudgetID) string {
++	for _, b := range obs.Budgets() {
++		if b.ID == id {
++			return b.Hist
++		}
++	}
++	return ""
++}
+diff --git a/internal/daemon/registry.go b/internal/daemon/registry.go
+new file mode 100644
+index 0000000..5cc6f8b
+--- /dev/null
++++ b/internal/daemon/registry.go
+@@ -0,0 +1,260 @@
++package daemon
++
++import (
++	"sync"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++)
++
++// defaultMaxSessions mirrors config.Defaults().Runtime.Daemon.MaxSessions (8). It is not itself a
++// default source (D11 lives in internal/config/defaults.go) — it exists only so a caller that
++// hands Ensure a zero config.Config does not evict every session it has, which is what dividing by
++// a limit of 0 would do.
++const defaultMaxSessions = 8 //nomagic:allow mirrors config.Defaults(), not a new default (§6.1)
++
++// SessionState is one session's live state (00-ARCHITECTURE.md §5.4).
++type SessionState struct {
++	ID   core.SessionID
++	Hot  ipc.HotPathMode
++	Live bool
++
++	LastActivity core.UnixMilli
++	Events       int
++
++	StartedTS core.UnixMilli
++	EndedTS   core.UnixMilli
++
++	Source         string
++	TranscriptPath string
++}
++
++// SessionRegistry holds per-session live state behind a sync.RWMutex, plus the daemon-wide
++// hot-path submode §12.2's breach detector flips.
++//
++// The mutex is real even though the map operations were stubs in SP-01: a registry is touched by
++// the accept loop and the idle loop concurrently by construction, so shipping it without
++// synchronization would leave a data race for SP-05 to discover under -race rather than a correct
++// skeleton to fill in.
++type SessionRegistry struct {
++	mu       sync.RWMutex
++	sessions map[core.SessionID]*SessionState
++	log      logging.Logger
++
++	// hot and hotReason are the daemon-wide hot-path submode (§12.2): what the breach detector
++	// last decided, and why. It is registry-wide rather than per-session because a single rolling
++	// HDR histogram covers every hot-path request regardless of which session sent it (§2.4's "the
++	// daemon keeps a rolling 512-sample HDR histogram per hook"), and the NAK-with-hint that
++	// follows a breach applies to the very next ACK on ANY session, not just the one that tripped
++	// it.
++	hot       ipc.HotPathMode
++	hotReason string
++
++	// maxSessionsLoud latches true the first time evictLocked finds nothing evictable (every
++	// tracked session is live): §7.1 says refusing a session is never an option, so the daemon
++	// keeps all of them and this fires the required Loud line exactly once rather than on every
++	// subsequent Ensure.
++	maxSessionsLoud bool
++}
++
++// NewSessionRegistry returns an empty registry. Its zero-arg signature is unchanged from SP-01's
++// stub so daemon.New and every existing caller keep compiling; a logger is wired in later via
++// SetLogger.
++func NewSessionRegistry() *SessionRegistry {
++	return &SessionRegistry{sessions: map[core.SessionID]*SessionState{}, log: logging.Nop()}
++}
++
++// SetLogger installs the logger Ensure's hot-mode-reset and eviction-Loud lines are written
++// through. A nil log falls back to logging.Nop(), matching every other constructor in this
++// package.
++func (r *SessionRegistry) SetLogger(log logging.Logger) {
++	if log == nil {
++		log = logging.Nop()
++	}
++	r.mu.Lock()
++	r.log = log
++	r.mu.Unlock()
++}
++
++// Get returns the state for id, if the session is known.
++func (r *SessionRegistry) Get(id core.SessionID) (*SessionState, bool) {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	s, ok := r.sessions[id]
++	return s, ok
++}
++
++// Len returns the number of tracked sessions (live and recently-ended).
++func (r *SessionRegistry) Len() int {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	return len(r.sessions)
++}
++
++// HotMode returns the daemon-wide hot-path submode §12.2's breach detector maintains.
++func (r *SessionRegistry) HotMode() ipc.HotPathMode {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	return r.hot
++}
++
++// HotReason returns the reason recorded with the current hot-path submode, for /qompack:status.
++func (r *SessionRegistry) HotReason() string {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	return r.hotReason
++}
++
++// SetHotMode sets the daemon-wide hot-path submode and its transition reason. The budget-breach
++// detector (Task 4) is the production caller.
++func (r *SessionRegistry) SetHotMode(mode ipc.HotPathMode, reason string) {
++	r.mu.Lock()
++	r.hot = mode
++	r.hotReason = reason
++	r.mu.Unlock()
++}
++
++// Ensure returns the state for e.SessionID, creating it if this is the first time this session has
++// been seen. Source and TranscriptPath are updated from e when non-empty, and the session is
++// marked live.
++//
++// A brand-new session resets the daemon-wide hot-path submode to HotSync: §12.2 says the spool
++// submode "automatically reverts after 3 clean windows in a subsequent session", and the
++// controller ruling makes that deterministic — a session that has not itself sent a single request
++// yet cannot have breached anything, so it must not inherit a submode an unrelated, already-ended
++// session left behind. It re-degrades only if it breaches again. Re-Ensuring an already-known
++// session id — the ordinary per-event call — never touches the hot submode.
++func (r *SessionRegistry) Ensure(e *hookio.Event, now core.UnixMilli, cfg config.Config) *SessionState {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++
++	id := e.SessionID
++	s, ok := r.sessions[id]
++	if !ok {
++		if r.hot != ipc.HotSync {
++			prevMode, prevReason := r.hot, r.hotReason
++			r.hot = ipc.HotSync
++			r.hotReason = ""
++			r.log.Info("daemon: new session resets the hot-path submode to sync",
++				"session", string(id), "previousMode", prevMode, "previousReason", prevReason)
++		}
++		s = &SessionState{ID: id, Hot: r.hot, StartedTS: now}
++		r.sessions[id] = s
++	}
++
++	if e.Source != "" {
++		s.Source = e.Source
++	}
++	if e.TranscriptPath != "" {
++		s.TranscriptPath = e.TranscriptPath
++	}
++	s.Live = true
++	s.LastActivity = now
++
++	r.evictLocked(cfg)
++	return s
++}
++
++// Touch records activity on an existing session: advances LastActivity and increments Events. It
++// is a no-op for an id Ensure has never seen — the accept loop always calls Ensure first, so this
++// is a defensive guard rather than a path any real caller exercises.
++func (r *SessionRegistry) Touch(id core.SessionID, now core.UnixMilli) {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	s, ok := r.sessions[id]
++	if !ok {
++		return
++	}
++	s.LastActivity = now
++	s.Events++
++}
++
++// End marks id no longer live. It is a no-op for an id Ensure has never seen.
++func (r *SessionRegistry) End(id core.SessionID, now core.UnixMilli) {
++	r.mu.Lock()
++	defer r.mu.Unlock()
++	s, ok := r.sessions[id]
++	if !ok {
++		return
++	}
++	s.Live = false
++	s.EndedTS = now
++}
++
++// Live returns the number of currently-live sessions — the input to the idle-exit timer, which
++// starts counting down the instant this reaches zero.
++func (r *SessionRegistry) Live() int {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	n := 0
++	for _, s := range r.sessions {
++		if s.Live {
++			n++
++		}
++	}
++	return n
++}
++
++// Snapshot returns a defensive copy of every tracked session, for /qompack:status and tests.
++func (r *SessionRegistry) Snapshot() []SessionState {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	out := make([]SessionState, 0, len(r.sessions))
++	for _, s := range r.sessions {
++		out = append(out, *s)
++	}
++	return out
++}
++
++// LastActivity returns the most recent activity timestamp across every tracked session — the
++// input IdleController.Notify wants: the daemon is idle only once every session has been quiet
++// long enough.
++func (r *SessionRegistry) LastActivity() core.UnixMilli {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	var last core.UnixMilli
++	for _, s := range r.sessions {
++		if s.LastActivity > last {
++			last = s.LastActivity
++		}
++	}
++	return last
++}
++
++// evictLocked drops the ended session with the oldest EndedTS once the tracked count exceeds
++// cfg.Runtime.Daemon.MaxSessions. If every tracked session is live, nothing is evicted — refusing
++// a session is never an option (§7.1) — and a single Loud line fires once per registry lifetime.
++// mu must be held.
++func (r *SessionRegistry) evictLocked(cfg config.Config) {
++	limit := cfg.Runtime.Daemon.MaxSessions
++	if limit <= 0 {
++		limit = defaultMaxSessions
++	}
++	if len(r.sessions) <= limit {
++		return
++	}
++
++	var oldestID core.SessionID
++	var oldestEnded core.UnixMilli
++	found := false
++	for id, s := range r.sessions {
++		if s.Live {
++			continue
++		}
++		if !found || s.EndedTS < oldestEnded {
++			oldestID, oldestEnded, found = id, s.EndedTS, true
++		}
++	}
++	if !found {
++		if !r.maxSessionsLoud {
++			r.maxSessionsLoud = true
++			r.log.Loud("daemon: live sessions exceed runtime.daemon.maxSessions; keeping all of them",
++				"count", len(r.sessions), "max", limit)
++		}
++		return
++	}
++	delete(r.sessions, oldestID)
++}
+diff --git a/internal/daemon/registry_test.go b/internal/daemon/registry_test.go
+new file mode 100644
+index 0000000..d8b5c82
+--- /dev/null
++++ b/internal/daemon/registry_test.go
+@@ -0,0 +1,137 @@
++package daemon
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++)
++
++// TestRegistryNewSessionResetsHotMode pins the §12.2 determinism ruling: a brand-new session
++// always starts in sync, but re-Ensuring an already-known session never touches the hot submode.
++func TestRegistryNewSessionResetsHotMode(t *testing.T) {
++	t.Parallel()
++
++	r := NewSessionRegistry()
++	r.SetHotMode(ipc.HotSpool, "breach")
++	require.Equal(t, ipc.HotSpool, r.HotMode())
++
++	// A brand-new session resets the daemon-wide submode back to sync.
++	r.Ensure(&hookio.Event{SessionID: "sess-a"}, 1000, config.Defaults())
++	require.Equal(t, ipc.HotSync, r.HotMode())
++
++	// Force a fresh breach against this now-known session's traffic, then Ensure the SAME id
++	// again: the submode must be left exactly as it is.
++	r.SetHotMode(ipc.HotSpool, "breach again")
++	r.Ensure(&hookio.Event{SessionID: "sess-a"}, 2000, config.Defaults())
++	require.Equal(t, ipc.HotSpool, r.HotMode(), "re-Ensuring a known session must not reset the hot submode")
++}
++
++// TestRegistryEvictsEndedOverMax pins the eviction rule: over cfg.Runtime.Daemon.MaxSessions,
++// drop the ended session with the oldest EndedTS; live sessions are never touched.
++func TestRegistryEvictsEndedOverMax(t *testing.T) {
++	t.Parallel()
++
++	cfg := config.Defaults()
++	cfg.Runtime.Daemon.MaxSessions = 2
++
++	r := NewSessionRegistry()
++	r.Ensure(&hookio.Event{SessionID: "a"}, 100, cfg)
++	r.Ensure(&hookio.Event{SessionID: "b"}, 200, cfg)
++	r.End("a", 300)
++
++	// Ensuring a third session pushes the tracked count to 3, over the limit of 2: the ended
++	// session ("a") must be evicted, leaving the two live sessions.
++	r.Ensure(&hookio.Event{SessionID: "c"}, 400, cfg)
++
++	require.Equal(t, 2, r.Len())
++	_, ok := r.Get("a")
++	require.False(t, ok, "the ended session must be evicted")
++	_, ok = r.Get("b")
++	require.True(t, ok)
++	_, ok = r.Get("c")
++	require.True(t, ok)
++}
++
++// TestRegistryAllLiveOverMaxKeepsAll pins §7.1's "refusing a session is never an option": when
++// every tracked session is live, eviction keeps them all.
++func TestRegistryAllLiveOverMaxKeepsAll(t *testing.T) {
++	t.Parallel()
++
++	cfg := config.Defaults()
++	cfg.Runtime.Daemon.MaxSessions = 2
++
++	var loudLines []string
++	log := &captureLogger{loud: &loudLines}
++
++	r := NewSessionRegistry()
++	r.SetLogger(log)
++	r.Ensure(&hookio.Event{SessionID: "a"}, 100, cfg)
++	r.Ensure(&hookio.Event{SessionID: "b"}, 200, cfg)
++	r.Ensure(&hookio.Event{SessionID: "c"}, 300, cfg)
++
++	require.Equal(t, 3, r.Len(), "no live session may be evicted")
++	require.Len(t, loudLines, 1, "the over-max Loud line fires exactly once")
++
++	// A further Ensure over the limit must not fire a second Loud line.
++	r.Ensure(&hookio.Event{SessionID: "d"}, 400, cfg)
++	require.Equal(t, 4, r.Len())
++	require.Len(t, loudLines, 1)
++}
++
++// TestRegistryTouchAndEnd exercises the ordinary per-event lifecycle.
++func TestRegistryTouchAndEnd(t *testing.T) {
++	t.Parallel()
++
++	cfg := config.Defaults()
++	r := NewSessionRegistry()
++	r.Ensure(&hookio.Event{SessionID: "s1"}, 100, cfg)
++	require.Equal(t, 1, r.Live())
++
++	r.Touch("s1", 200)
++	s, ok := r.Get("s1")
++	require.True(t, ok)
++	require.Equal(t, core.UnixMilli(200), s.LastActivity)
++	require.Equal(t, 1, s.Events)
++
++	r.End("s1", 300)
++	require.Equal(t, 0, r.Live())
++	s, ok = r.Get("s1")
++	require.True(t, ok)
++	require.False(t, s.Live)
++	require.Equal(t, core.UnixMilli(300), s.EndedTS)
++}
++
++// TestRegistryEnsureUpdatesSourceAndTranscript pins that non-empty fields overwrite and empty
++// fields never blank out a previously-recorded value.
++func TestRegistryEnsureUpdatesSourceAndTranscript(t *testing.T) {
++	t.Parallel()
++
++	cfg := config.Defaults()
++	r := NewSessionRegistry()
++	r.Ensure(&hookio.Event{SessionID: "s1", Source: "startup", TranscriptPath: "/tmp/t.jsonl"}, 100, cfg)
++	r.Ensure(&hookio.Event{SessionID: "s1"}, 200, cfg) // no Source/TranscriptPath this time
++
++	s, ok := r.Get("s1")
++	require.True(t, ok)
++	require.Equal(t, "startup", s.Source, "an empty field on a later Ensure must not blank a prior value")
++	require.Equal(t, "/tmp/t.jsonl", s.TranscriptPath)
++}
++
++// captureLogger is a minimal logging.Logger that records Loud lines, for assertions that a Loud
++// line fired exactly once.
++type captureLogger struct {
++	loud *[]string
++}
++
++func (c *captureLogger) With(...any) logging.Logger { return c }
++func (c *captureLogger) Debug(string, ...any)       {}
++func (c *captureLogger) Info(string, ...any)        {}
++func (c *captureLogger) Warn(string, ...any)        {}
++func (c *captureLogger) Error(string, ...any)       {}
++func (c *captureLogger) Loud(msg string, kv ...any) { *c.loud = append(*c.loud, msg) }
+diff --git a/internal/daemon/sketchset.go b/internal/daemon/sketchset.go
+new file mode 100644
+index 0000000..3a1e5ff
+--- /dev/null
++++ b/internal/daemon/sketchset.go
+@@ -0,0 +1,148 @@
++package daemon
++
++import (
++	"errors"
++	"path/filepath"
++	"sync"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/qompack/qompack/internal/sketch"
++)
++
++// The three sketch filenames under paths.Layout.Sketches that Load/Save read and write.
++// tried.bloom is deliberately absent from this list: §3.3 makes it append-only, replaceable only
++// by negknow.RebuildBloom, and Save must never touch it.
++const (
++	touchSketchFile   = "touch.cms"
++	exploreSketchFile = "explore.hll"
++	triedSketchFile   = "tried.bloom"
++)
++
++// SketchSet is the four probabilistic structures the daemon keeps resident (§3.3): the
++// negative-knowledge Bloom filter, the touch Count-Min sketch, the exploration HyperLogLog and the
++// Misra-Gries top-k counter.
++//
++// Tried is a pointer to the same Bloom the negknow ledger was opened over, not a copy. §7.4 makes
++// tried.bloom append-only precisely because a rebuilt-from-summary Bloom would silently forget
++// what has already been tried, so there must be exactly one of it in the process.
++//
++// Top is the companion to Touch, not an alternative to it: sketch.CMS.HeavyHitters takes a
++// *MisraGries because a Count-Min sketch can estimate the count of a key it is handed but cannot
++// enumerate which keys are heavy. Without Top resident there is no set of candidates to estimate,
++// so the pair has to be wired together or the CMS answers a question nobody can ask.
++//
++// mu guards concurrent Read/Write access: the worker pool updates sketches from many goroutines,
++// and Save reads them back for persistence, both while the set is live.
++type SketchSet struct {
++	mu sync.RWMutex
++
++	Tried   *sketch.Bloom
++	Touch   *sketch.CMS
++	Explore *sketch.HLL
++	Top     *sketch.MisraGries
++
++	dirty bool
++}
++
++// NewSketchSet constructs a SketchSet sized from cfg.Sketches (Appendix A: bloom.capacity,
++// bloom.fpRate, cms.epsilon, cms.delta, hll.registers) plus a fixed-capacity Misra-Gries top-k
++// counter.
++const misraGriesK = 64 //nomagic:allow Appendix A top-k counter size, not a config default
++
++func NewSketchSet(cfg config.Config) *SketchSet {
++	return &SketchSet{
++		Tried:   sketch.NewBloom(cfg.Sketches.Bloom.Capacity, cfg.Sketches.Bloom.FPRate),
++		Touch:   sketch.NewCMS(cfg.Sketches.CMS.Epsilon, cfg.Sketches.CMS.Delta),
++		Explore: sketch.NewHLL(cfg.Sketches.HLL.Registers),
++		Top:     sketch.NewMisraGries(misraGriesK),
++	}
++}
++
++// Read runs fn with a read lock held, for a caller that only inspects the sketches (estimating a
++// count, checking membership) without mutating them.
++func (s *SketchSet) Read(fn func(*SketchSet)) {
++	s.mu.RLock()
++	defer s.mu.RUnlock()
++	fn(s)
++}
++
++// Write runs fn with a write lock held and marks the set dirty afterward, for a caller that
++// mutates one or more sketches (recording a touch, adding to the Bloom filter). Save is a no-op
++// until the set has been written to at least once since the last Save.
++func (s *SketchSet) Write(fn func(*SketchSet)) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	fn(s)
++	s.dirty = true
++}
++
++// Load reads sketches/touch.cms, sketches/explore.hll and sketches/tried.bloom from root into an
++// already-constructed set, replacing the in-memory sketch only on a successful decode.
++//
++// sketch.Load reports core.ErrNotImplemented until SP-03 lands its real encode/decode, and
++// core.ErrNotFound for a project that has never persisted a sketch yet — both are expected in
++// wave 1 and are logged at Debug rather than Loud: the daemon must run correctly with nothing but
++// SP-03's stub. Any other error (a corrupt file, a bad CRC) is Loud'd, and the in-memory sketch —
++// freshly constructed by NewSketchSet — is kept either way, so a load failure never leaves the
++// daemon without a usable sketch.
++func (s *SketchSet) Load(root string, log logging.Logger) {
++	if log == nil {
++		log = logging.Nop()
++	}
++	dir := paths.Of(root).Sketches
++
++	s.mu.Lock()
++	defer s.mu.Unlock()
++
++	loadOne := func(name string, target sketch.Sketch) {
++		p := filepath.Join(dir, name)
++		err := sketch.Load(p, target)
++		if err == nil {
++			return
++		}
++		if errors.Is(err, core.ErrNotFound) || errors.Is(err, core.ErrNotImplemented) {
++			log.Debug("daemon: sketch load skipped", "path", p, "err", err)
++			return
++		}
++		log.Loud("daemon: sketch load failed — keeping the in-memory sketch", "path", p, "err", err)
++	}
++
++	loadOne(touchSketchFile, s.Touch)
++	loadOne(exploreSketchFile, s.Explore)
++	loadOne(triedSketchFile, s.Tried)
++}
++
++// Save writes sketches/touch.cms and sketches/explore.hll back to root, and is a no-op when the
++// set has not been written to since the last Save. sketches/tried.bloom is never written here
++// (§3.3: it may be replaced only by negknow.RebuildBloom) — Save skips it unconditionally, on
++// every call, dirty or not.
++func (s *SketchSet) Save(root string, log logging.Logger) {
++	if log == nil {
++		log = logging.Nop()
++	}
++	dir := paths.Of(root).Sketches
++
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if !s.dirty {
++		return
++	}
++
++	saveOne := func(name string, src sketch.Sketch) {
++		p := filepath.Join(dir, name)
++		if err := sketch.Save(p, src); err != nil {
++			if errors.Is(err, core.ErrNotImplemented) {
++				log.Debug("daemon: sketch save skipped", "path", p, "err", err)
++				return
++			}
++			log.Loud("daemon: sketch save failed", "path", p, "err", err)
++		}
++	}
++
++	saveOne(touchSketchFile, s.Touch)
++	saveOne(exploreSketchFile, s.Explore)
++	s.dirty = false
++}
+diff --git a/internal/daemon/sketchset_test.go b/internal/daemon/sketchset_test.go
+new file mode 100644
+index 0000000..aac8065
+--- /dev/null
++++ b/internal/daemon/sketchset_test.go
+@@ -0,0 +1,78 @@
++package daemon
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// TestSketchSetNeverWritesTriedBloom pins §3.3: Save must never touch sketches/tried.bloom, which
++// may be replaced only by negknow.RebuildBloom.
++func TestSketchSetNeverWritesTriedBloom(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	l := paths.Of(root)
++	require.NoError(t, os.MkdirAll(l.Sketches, 0o700))
++
++	triedPath := filepath.Join(l.Sketches, triedSketchFile)
++	want := []byte("pre-existing tried.bloom bytes")
++	require.NoError(t, os.WriteFile(triedPath, want, 0o600))
++	fiBefore, err := os.Stat(triedPath)
++	require.NoError(t, err)
++
++	s := NewSketchSet(config.Defaults())
++	s.Write(func(s *SketchSet) { _ = s.Tried }) // mark dirty
++	s.Save(root, logging.Nop())
++
++	got, err := os.ReadFile(triedPath)
++	require.NoError(t, err)
++	require.Equal(t, want, got, "Save must never rewrite tried.bloom")
++
++	fiAfter, err := os.Stat(triedPath)
++	require.NoError(t, err)
++	require.Equal(t, fiBefore.ModTime(), fiAfter.ModTime(), "tried.bloom's mtime must be untouched")
++}
++
++// TestSketchSet_CarriesAllFourStructures (constructor variant) pins NewSketchSet produces all four
++// non-nil resident structures from config.
++func TestNewSketchSet_ConstructsAllFour(t *testing.T) {
++	t.Parallel()
++
++	s := NewSketchSet(config.Defaults())
++	require.NotNil(t, s.Tried)
++	require.NotNil(t, s.Touch)
++	require.NotNil(t, s.Explore)
++	require.NotNil(t, s.Top)
++}
++
++// TestSketchSetSaveIsNoopWhenNotDirty pins that Save does nothing (writes nothing) until Write has
++// been called at least once.
++func TestSketchSetSaveIsNoopWhenNotDirty(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	s := NewSketchSet(config.Defaults())
++	s.Save(root, logging.Nop()) // never written to: must be a no-op
++
++	_, err := os.Stat(filepath.Join(paths.Of(root).Sketches, touchSketchFile))
++	require.True(t, os.IsNotExist(err), "an untouched SketchSet must not create touch.cms")
++}
++
++// TestSketchSetLoadToleratesStubSketchPackage pins that Load never panics and keeps the
++// in-memory sketch when sketch.Load reports core.ErrNotImplemented (SP-03's current stub).
++func TestSketchSetLoadToleratesStubSketchPackage(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	s := NewSketchSet(config.Defaults())
++	before := s.Touch
++	require.NotPanics(t, func() { s.Load(root, logging.Nop()) })
++	require.Same(t, before, s.Touch, "a stubbed sketch.Load must not replace the in-memory sketch")
++}
+diff --git a/internal/daemon/spawn.go b/internal/daemon/spawn.go
+new file mode 100644
+index 0000000..5cc066c
+--- /dev/null
++++ b/internal/daemon/spawn.go
+@@ -0,0 +1,129 @@
++package daemon
++
++import (
++	"fmt"
++	"os"
++	"os/exec"
++	"strings"
++	"time"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++)
++
++// ensureRunningDialTimeout bounds EnsureRunning's own initial liveness dial (task-3-spec.md
++// spawn.go): "costs nothing", so it is short.
++const ensureRunningDialTimeout = 20 * time.Millisecond
++
++// ensureRunningPollInterval and ensureRunningPollBound bound EnsureRunning's post-spawn poll: a
++// ticker every 25ms for up to 1500ms total (task-3-spec.md spawn.go). Both are real wall-clock
++// durations, like every other connection deadline in this codebase (ipc.ClientOptions.Clock's own
++// doc comment: "never for connection deadlines ... because that is what the OS network stack
++// enforces regardless of what a test's injected Clock says") — waiting for a real spawned OS
++// process to come up cannot be faked by advancing a test clock.
++const (
++	ensureRunningPollInterval = 25 * time.Millisecond
++	ensureRunningPollBound    = 1500 * time.Millisecond
++)
++
++// qompackFaultEnv is the fault-injection environment variable a spawned daemon must never
++// inherit: a client testing its own fault paths must not accidentally make the daemon it spawns
++// fault too.
++const qompackFaultEnv = "QOMPACK_FAULT"
++
++// qompackProjectRootEnv is the variable SpawnDetached sets so the spawned process resolves the
++// same project root without re-walking for the nearest .git.
++const qompackProjectRootEnv = "QOMPACK_PROJECT_ROOT"
++
++// daemonSubcommand and projectFlag are SpawnDetached's fixed argv (task-3-spec.md spawn.go:
++// exec.Command(self, "daemon", "--project", projectRoot)).
++const (
++	daemonSubcommand = "daemon"
++	projectFlag      = "--project"
++)
++
++// EnsureRunning dials projectRoot's resolved address; on success it returns (false, nil) — a
++// daemon is already there. Otherwise it spawns one detached via SpawnDetached and polls the
++// address for up to ensureRunningPollBound, returning (true, nil) on the first successful dial, or
++// (true, core.ErrNotFound) if the daemon never came up. session-start treats the latter as "log,
++// spool, exit 0" — never a hook failure (§2.3).
++func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock) (spawned bool, err error) {
++	if log == nil {
++		log = logging.Nop()
++	}
++	if clk == nil {
++		clk = core.SystemClock()
++	}
++
++	addr, rerr := ipc.Resolve(projectRoot)
++	if rerr != nil {
++		return false, rerr
++	}
++	if probeAlive(addr, ensureRunningDialTimeout, clk) {
++		return false, nil
++	}
++
++	if serr := SpawnDetached(projectRoot, self); serr != nil {
++		log.Warn("daemon: spawn failed", "err", serr)
++		return true, serr
++	}
++
++	deadline := time.Now().Add(ensureRunningPollBound)
++	ticker := time.NewTicker(ensureRunningPollInterval)
++	defer ticker.Stop()
++	for {
++		if probeAlive(addr, ensureRunningDialTimeout, clk) {
++			return true, nil
++		}
++		if !time.Now().Before(deadline) {
++			return true, core.ErrNotFound
++		}
++		<-ticker.C
++	}
++}
++
++// SpawnDetached launches a daemon for projectRoot, fully detached from the calling process: no
++// window, its own session/process group (via the platform sysProcAttr), standard streams
++// redirected to the null device, and Process.Release()d immediately so the spawning client can
++// exit without leaving a zombie behind — the spawning client never waits for the daemon it just
++// started.
++func SpawnDetached(projectRoot, self string) error {
++	cmd := buildSpawnCommand(self, projectRoot, os.Environ())
++
++	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
++	if err != nil {
++		return fmt.Errorf("daemon: spawn: open devnull: %w", err)
++	}
++	defer func() { _ = devNull.Close() }()
++	cmd.Stdin, cmd.Stdout, cmd.Stderr = devNull, devNull, devNull
++
++	if err := cmd.Start(); err != nil {
++		return fmt.Errorf("daemon: spawn: %w", err)
++	}
++	return cmd.Process.Release()
++}
++
++// buildSpawnCommand assembles the *exec.Cmd SpawnDetached starts, apart from its I/O redirection
++// (kept in SpawnDetached itself, since that owns the devNull handle's lifetime). environ is
++// injected so the env-stripping/adding logic is testable without touching the real process
++// environment.
++func buildSpawnCommand(self, projectRoot string, environ []string) *exec.Cmd {
++	cmd := exec.Command(self, daemonSubcommand, projectFlag, projectRoot) //nolint:gosec // G204: self is the plugin's own executable path (os.Executable()), not attacker input
++	cmd.Env = buildSpawnEnv(environ, projectRoot)
++	cmd.SysProcAttr = sysProcAttr()
++	return cmd
++}
++
++// buildSpawnEnv is buildSpawnCommand's pure half: environ plus QOMPACK_PROJECT_ROOT=projectRoot,
++// with any QOMPACK_FAULT entry stripped.
++func buildSpawnEnv(environ []string, projectRoot string) []string {
++	out := make([]string, 0, len(environ)+1)
++	for _, kv := range environ {
++		if strings.HasPrefix(kv, qompackFaultEnv+"=") {
++			continue
++		}
++		out = append(out, kv)
++	}
++	return append(out, qompackProjectRootEnv+"="+projectRoot)
++}
+diff --git a/internal/daemon/spawn_test.go b/internal/daemon/spawn_test.go
+new file mode 100644
+index 0000000..b547eff
+--- /dev/null
++++ b/internal/daemon/spawn_test.go
+@@ -0,0 +1,93 @@
++package daemon
++
++import (
++	"context"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/testutil"
++)
++
++// TestBuildSpawnEnv_StripsFaultAddsProjectRoot pins SpawnDetached's environment contract: the
++// spawned daemon inherits the caller's environment, minus any QOMPACK_FAULT entry, plus
++// QOMPACK_PROJECT_ROOT.
++func TestBuildSpawnEnv_StripsFaultAddsProjectRoot(t *testing.T) {
++	t.Parallel()
++
++	in := []string{"PATH=/usr/bin", "QOMPACK_FAULT=network-timeout", "HOME=/home/x"}
++	out := buildSpawnEnv(in, "/proj")
++
++	require.Contains(t, out, "PATH=/usr/bin")
++	require.Contains(t, out, "HOME=/home/x")
++	require.Contains(t, out, "QOMPACK_PROJECT_ROOT=/proj")
++	for _, kv := range out {
++		require.NotContains(t, kv, "QOMPACK_FAULT", "the spawned daemon must never inherit fault injection")
++	}
++}
++
++// TestBuildSpawnEnv_NoFaultEntryIsUnaffected pins that an environment with no QOMPACK_FAULT entry
++// is passed through unchanged apart from the appended project root.
++func TestBuildSpawnEnv_NoFaultEntryIsUnaffected(t *testing.T) {
++	t.Parallel()
++
++	in := []string{"PATH=/usr/bin"}
++	out := buildSpawnEnv(in, "/proj")
++	require.Equal(t, []string{"PATH=/usr/bin", "QOMPACK_PROJECT_ROOT=/proj"}, out)
++}
++
++// TestBuildSpawnCommand_ShapesArgvAndSysProcAttr pins the fixed argv and that the platform
++// SysProcAttr is always set.
++func TestBuildSpawnCommand_ShapesArgvAndSysProcAttr(t *testing.T) {
++	t.Parallel()
++
++	cmd := buildSpawnCommand("/path/to/self", "/proj", []string{"PATH=/usr/bin"})
++	require.Equal(t, []string{"/path/to/self", "daemon", "--project", "/proj"}, cmd.Args)
++	require.NotNil(t, cmd.SysProcAttr)
++	require.Contains(t, cmd.Env, "QOMPACK_PROJECT_ROOT=/proj")
++}
++
++// TestEnsureRunning_AlreadyRunningNeverSpawns pins EnsureRunning's fast path: a live listener at
++// the resolved address means EnsureRunning returns (false, nil) without ever calling
++// SpawnDetached — proven here by handing it a self path that would fail loudly if exec.Command
++// ever tried to start it.
++func TestEnsureRunning_AlreadyRunningNeverSpawns(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	addr, err := ipc.Resolve(root)
++	require.NoError(t, err)
++
++	srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
++	require.NoError(t, err)
++	ctx, cancel := context.WithCancel(context.Background())
++	t.Cleanup(func() {
++		cancel()
++		_ = srv.Close()
++	})
++	go func() {
++		_ = srv.Serve(ctx, func(context.Context, ipc.Request) ipc.Response {
++			return ipc.Response{OK: true}
++		})
++	}()
++
++	clk := testutil.NewFakeClock(testutil.Epoch)
++	spawned, err := EnsureRunning(root, "/this/path/does/not/exist", logging.Nop(), clk)
++	require.NoError(t, err)
++	require.False(t, spawned, "a live daemon must never trigger a spawn")
++}
++
++// TestEnsureRunning_SpawnFailureReportsImmediately pins that a SpawnDetached failure (here, an
++// unexecutable self path) is surfaced promptly rather than spending the full poll budget.
++func TestEnsureRunning_SpawnFailureReportsImmediately(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	clk := testutil.NewFakeClock(testutil.Epoch)
++
++	spawned, err := EnsureRunning(root, "/this/path/does/not/exist", logging.Nop(), clk)
++	require.Error(t, err)
++	require.True(t, spawned, "spawned is true once EnsureRunning has attempted a spawn, even a failed one")
++}
+diff --git a/internal/daemon/spawn_unix.go b/internal/daemon/spawn_unix.go
+new file mode 100644
+index 0000000..a7120b2
+--- /dev/null
++++ b/internal/daemon/spawn_unix.go
+@@ -0,0 +1,12 @@
++//go:build !windows
++
++package daemon
++
++import "syscall"
++
++// sysProcAttr detaches the spawned daemon into its own session (task-3-spec.md spawn.go): Setsid
++// so it survives the spawning client's own process exiting and is not delivered signals meant for
++// the parent's process group.
++func sysProcAttr() *syscall.SysProcAttr {
++	return &syscall.SysProcAttr{Setsid: true}
++}
+diff --git a/internal/daemon/spawn_windows.go b/internal/daemon/spawn_windows.go
+new file mode 100644
+index 0000000..0f2cbd2
+--- /dev/null
++++ b/internal/daemon/spawn_windows.go
+@@ -0,0 +1,20 @@
++//go:build windows
++
++package daemon
++
++import "syscall"
++
++// createNoWindow and detachedProcess are declared locally rather than pulled from
++// golang.org/x/sys/windows, because §2.5 closes the runtime dependency list at
++// klauspost/compress/zstd and Microsoft/go-winio (task-3-spec.md spawn.go).
++const (
++	createNoWindow  = 0x08000000 // CREATE_NO_WINDOW
++	detachedProcess = 0x00000008 // DETACHED_PROCESS
++)
++
++// sysProcAttr detaches the spawned daemon from the spawning client's console (task-3-spec.md
++// spawn.go): no window is created, and the child is fully detached from the parent's process
++// tree.
++func sysProcAttr() *syscall.SysProcAttr {
++	return &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow | detachedProcess}
++}

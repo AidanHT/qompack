@@ -1,5 +1,9 @@
 # SP-09: Phase 2 / L2 negative knowledge: canonical descriptors, evidence-linked eliminations, staleness flip, bloom-as-cache rebuilt from records, and the three-way response
 
+> **Recommended model: Opus 5 · max effort**
+>
+> Elimination staleness is the one §12 risk rated **High**: a wrong `depends_on` flip inverts negative knowledge from the plugin's highest-value feature into a liability that blocks viable approaches. Descriptor canonicalization, the active/stale transition and bloom-rebuild-from-records all need to be right the first time.
+
 **Branch:** `feat/sp09-negative-knowledge` (cut from `develop`) | **Wave:** 2 | **Prerequisites:** the branches of `["SP-01","SP-03","SP-06","SP-07"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 2 (SP-08 observer L0) | **Design sections:** §6.2, §8.3 (negative knowledge + staleness), §10 Phase 2, §12 (stale negative knowledge row), Appendix C `eliminations` | **Gaps closed:** G6.1
 
 ---

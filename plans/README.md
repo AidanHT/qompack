@@ -87,3 +87,4 @@ Wave 0        Wave 1                       Wave 2         Wave 3                
 | `V6-SP-18-documentation-and-uat.md` | Wave 5 — user docs, config reference, cannot-do list, upstream issues, UAT-01..12 guide |
 | **`V6-VERIFY-production-readiness-and-uat.md`** | **Checkpoint gating group V6** (wave 5) — the release gate, including hand-executed UAT |
 | `TRACEABILITY.md` | Proof that every gap, phase, layer, tool, metric, risk mitigation, and revision item in `Qompack.md` is owned by a subplan and re-tested by a checkpoint |
+| `sdd/` | Session decision records — the rulings an implementing session had to make where its plan and the shipped code disagreed. Not design; the audit trail for the "fix the plan, don't improvise silently" rule above. See `sdd/README.md` |

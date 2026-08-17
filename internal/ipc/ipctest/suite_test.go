@@ -89,22 +89,73 @@ type clock struct{}
 func (clock) Now() time.Time                  { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
 func (clock) Since(t time.Time) time.Duration { return clock{}.Now().Sub(t) }
 
-// newQompackStubClient builds the Client SP-01 actually ships, wired the way a hook would wire it.
+// newQompackStubClient builds the real Client SP-05 ships, wired the way a hook would wire it —
+// against a temp project root with no daemon listening, so its behaviour block exercises the
+// spool-and-return failure path end to end. The name is unchanged from SP-01's placeholder so
+// this file's history stays legible in blame; what it builds is no longer a stub.
 func newQompackStubClient(t *testing.T) ipc.Client {
 	t.Helper()
 	addr, err := ipc.Resolve(t.TempDir())
 	require.NoError(t, err)
 	spool, err := ipc.NewSpool(t.TempDir())
 	require.NoError(t, err)
-	return ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
+	c := ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
+	// Close releases the spool's backing file handle: without this, TempDir's own cleanup cannot
+	// remove a file this process still has open (fails outright on Windows).
+	t.Cleanup(func() { _ = c.Close() })
+	return c
 }
 
-// newQompackStubSpool builds the SpoolWriter SP-01 actually ships.
+// newQompackStubSpool builds the real SpoolWriter SP-05 ships.
 func newQompackStubSpool(t *testing.T) ipc.SpoolWriter {
 	t.Helper()
 	s, err := ipc.NewSpool(t.TempDir())
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if cl, ok := s.(interface{ Close() error }); ok {
+			_ = cl.Close()
+		}
+	})
 	return s
+}
+
+// newQompackServer builds the real Server SP-05 ships, bound but not yet serving.
+func newQompackServer(t *testing.T) ipc.Server {
+	t.Helper()
+	addr, err := ipc.Resolve(t.TempDir())
+	require.NoError(t, err)
+	srv, err := ipc.NewServer(addr, logging.Nop(), obs.New(clock{}), ipc.MaxLineBytes)
+	require.NoError(t, err)
+	return srv
+}
+
+// newQompackTransport pairs the real Server (running h) with the real Client SP-05 ships. Serve
+// is started here, and cleanup order matters: the client's own Close (spool handle) first, then
+// cancelling ctx to stop Serve, then Close as a backstop in case cancellation alone left it
+// running (Close is idempotent, per server.go's own sync.Once).
+func newQompackTransport(t *testing.T, h ipc.Handler) ipctest.Transport {
+	t.Helper()
+	addr, err := ipc.Resolve(t.TempDir())
+	require.NoError(t, err)
+	srv, err := ipc.NewServer(addr, logging.Nop(), obs.New(clock{}), ipc.MaxLineBytes)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.Serve(ctx, h) }()
+
+	spool, err := ipc.NewSpool(t.TempDir())
+	require.NoError(t, err)
+	c := ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
+
+	t.Cleanup(func() {
+		_ = c.Close()
+		cancel()
+		_ = srv.Close()
+		<-done
+	})
+
+	return ipctest.Transport{Client: c, Addr: addr}
 }
 
 // TestIPCSuite_ShapePassesAgainstStub is the mandatory per-suite-package assertion: every suite's
@@ -138,16 +189,33 @@ func TestIPCSuite_ShapePassesAgainstStub(t *testing.T) {
 }
 
 // TestRunClientSuite_AgainstQompackStub exercises RunClientSuite against the real ipc.NewClient
-// stub, end to end, so a change to its stub behaviour that breaks the conformance suite is caught
-// here rather than only once SP-05 lands.
+// (SP-05 replaced the SP-01 stub this test originally targeted; the name is kept so history stays
+// legible), so a change to its behaviour that breaks the conformance suite is caught here. Because
+// ipc.NewClient is no longer a stub, this run exercises the full behaviour block too — Rule W-1's
+// skip no longer applies.
 func TestRunClientSuite_AgainstQompackStub(t *testing.T) {
-	ipctest.RunClientSuite(t, "ipc.NewClient-stub", newQompackStubClient)
+	ipctest.RunClientSuite(t, "ipc.NewClient", newQompackStubClient)
 }
 
 // TestRunSpoolWriterSuite_AgainstQompackStub is TestRunClientSuite_AgainstQompackStub's SpoolWriter
-// sibling.
+// sibling, against the real ipc.NewSpool.
 func TestRunSpoolWriterSuite_AgainstQompackStub(t *testing.T) {
-	ipctest.RunSpoolWriterSuite(t, "ipc.NewSpool-stub", newQompackStubSpool)
+	ipctest.RunSpoolWriterSuite(t, "ipc.NewSpool", newQompackStubSpool)
+}
+
+// TestRunServerSuite_AgainstQompackServer exercises RunServerSuite against the real ipc.NewServer
+// — the fourth and last of the four factories this package's conformance suites require, wired to
+// a real implementation (see also the Client/SpoolWriter pair above and the Transport pairing
+// below).
+func TestRunServerSuite_AgainstQompackServer(t *testing.T) {
+	ipctest.RunServerSuite(t, "ipc.NewServer", newQompackServer)
+}
+
+// TestRunTransportSuite_AgainstQompackServer exercises RunTransportSuite against a real
+// ipc.NewServer paired with a real ipc.NewClient — the framing round-trip, the 1 MiB line limit,
+// and the ACK/NAK handshake, end to end over the real wire.
+func TestRunTransportSuite_AgainstQompackServer(t *testing.T) {
+	ipctest.RunTransportSuite(t, "ipc.NewServer+NewClient", newQompackTransport)
 }
 
 // TestRunSpoolWriterSuite_AgainstAWorkingSpool runs the SpoolWriter behaviour block against a

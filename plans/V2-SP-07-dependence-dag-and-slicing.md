@@ -1,5 +1,9 @@
 # SP-07: Dependence DAG: edge model, persistence, backward and thin slicing, and segment coupling — landed in wave 1 because three later subplans consume it
 
+> **Recommended model: Opus 5 · max effort**
+>
+> Scored backward/forward slicing with thin-slicing defaults, position-indexed `CrossingEdges`, and sub-millisecond budgets: genuine graph-algorithm reasoning that rewards extra thinking. Only 1.3k lines, so `max` costs little and three later subplans consume these scores.
+
 **Branch:** `feat/sp07-dependence-dag-and-slicing` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-02 eval, SP-03 sketch, SP-04 chunk/canon/symbols, SP-05 ipc/daemon, SP-06 store) | **Design sections:** §6.4, §8.1 item 4, §8.3 (slicing), §8.4 (`segment_coupling`), Closing note item 3 | **Gaps closed:** none directly — the decomposition assigns SP-07 no gap IDs. §6.4 names slicing as the replacement for "keep the last 5", but the §9 matrix closes G5.3 in L4 (SP-10) and G3.3 in L5 (SP-11) *using the scores produced here*, and G1.1/G5.2 in L3 (SP-12) *using `CrossingEdges` produced here*.
 
 ---
