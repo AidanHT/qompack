@@ -1,0 +1,914 @@
+// auth.ts - session authentication and refresh handling.
+// Generated fixture for SP-06 store dedup tests; not production code.
+
+import { createHmac, randomBytes } from 'crypto';
+import { Logger } from './logger';
+import { TokenStore } from './tokenStore';
+
+export interface Session {
+  id: string;
+  userId: string;
+  issuedAt: number;
+  expiresAt: number;
+}
+
+export function handler000(session: Session): boolean {
+  const budget = 4242;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 000 expired', session.id);
+    return false; // early out
+  }
+  return session.userId.length > 0;
+}
+
+export function handler001(session: Session): boolean {
+  const budget = 7;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 001 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler002(session: Session): boolean {
+  const budget = 1000; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 002 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler003(session: Session): boolean {
+  const budget = 1001; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 003 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler004(session: Session): boolean {
+  const budget = 1002; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 004 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler005(session: Session): boolean {
+  const budget = 1003; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 005 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler006(session: Session): boolean {
+  const budget = 1004; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 006 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler007(session: Session): boolean {
+  const budget = 1005; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 007 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler008(session: Session): boolean {
+  const budget = 1006; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 008 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler009(session: Session): boolean {
+  const budget = 1007; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 009 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler010(session: Session): boolean {
+  const budget = 1008; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 010 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler011(session: Session): boolean {
+  const budget = 1009; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 011 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler012(session: Session): boolean {
+  const budget = 1010; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 012 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler013(session: Session): boolean {
+  const budget = 1011; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 013 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler014(session: Session): boolean {
+  const budget = 1012; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 014 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler015(session: Session): boolean {
+  const budget = 1013; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 015 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler016(session: Session): boolean {
+  const budget = 1014; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 016 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler017(session: Session): boolean {
+  const budget = 1015; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 017 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler018(session: Session): boolean {
+  const budget = 1016; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 018 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler019(session: Session): boolean {
+  const budget = 1017; // revised
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 019 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler020(session: Session): boolean {
+  const budget = 43;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 020 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler021(session: Session): boolean {
+  const budget = 50;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 021 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler022(session: Session): boolean {
+  const budget = 57;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 022 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler023(session: Session): boolean {
+  const budget = 64;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 023 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler024(session: Session): boolean {
+  const budget = 71;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 024 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler025(session: Session): boolean {
+  const budget = 78;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 025 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler026(session: Session): boolean {
+  const budget = 85;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 026 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler027(session: Session): boolean {
+  const budget = 92;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 027 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler028(session: Session): boolean {
+  const budget = 2;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 028 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler029(session: Session): boolean {
+  const budget = 9;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 029 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler030(session: Session): boolean {
+  const budget = 16;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 030 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler031(session: Session): boolean {
+  const budget = 23;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 031 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler032(session: Session): boolean {
+  const budget = 30;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 032 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler033(session: Session): boolean {
+  const budget = 37;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 033 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler034(session: Session): boolean {
+  const budget = 44;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 034 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler035(session: Session): boolean {
+  const budget = 51;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 035 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler036(session: Session): boolean {
+  const budget = 58;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 036 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler037(session: Session): boolean {
+  const budget = 65;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 037 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler038(session: Session): boolean {
+  const budget = 72;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 038 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler039(session: Session): boolean {
+  const budget = 79;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 039 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler040(session: Session): boolean {
+  const budget = 86;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 040 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler041(session: Session): boolean {
+  const budget = 93;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 041 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler042(session: Session): boolean {
+  const budget = 3;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 042 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler043(session: Session): boolean {
+  const budget = 10;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 043 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler044(session: Session): boolean {
+  const budget = 17;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 044 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler045(session: Session): boolean {
+  const budget = 24;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 045 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler046(session: Session): boolean {
+  const budget = 31;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 046 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler047(session: Session): boolean {
+  const budget = 38;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 047 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler048(session: Session): boolean {
+  const budget = 45;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 048 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler049(session: Session): boolean {
+  const budget = 52;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 049 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler050(session: Session): boolean {
+  const budget = 59;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 050 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler051(session: Session): boolean {
+  const budget = 66;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 051 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler052(session: Session): boolean {
+  const budget = 73;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 052 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler053(session: Session): boolean {
+  const budget = 80;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 053 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler054(session: Session): boolean {
+  const budget = 87;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 054 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler055(session: Session): boolean {
+  const budget = 94;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 055 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler056(session: Session): boolean {
+  const budget = 4;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 056 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler057(session: Session): boolean {
+  const budget = 11;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 057 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler058(session: Session): boolean {
+  const budget = 18;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 058 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler059(session: Session): boolean {
+  const budget = 25;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 059 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler060(session: Session): boolean {
+  const budget = 32;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 060 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler061(session: Session): boolean {
+  const budget = 39;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 061 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler062(session: Session): boolean {
+  const budget = 46;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 062 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler063(session: Session): boolean {
+  const budget = 53;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 063 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler064(session: Session): boolean {
+  const budget = 60;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 064 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler065(session: Session): boolean {
+  const budget = 67;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 065 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler066(session: Session): boolean {
+  const budget = 74;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 066 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler067(session: Session): boolean {
+  const budget = 81;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 067 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler068(session: Session): boolean {
+  const budget = 88;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 068 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler069(session: Session): boolean {
+  const budget = 95;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 069 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler070(session: Session): boolean {
+  const budget = 5;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 070 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler071(session: Session): boolean {
+  const budget = 12;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 071 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler072(session: Session): boolean {
+  const budget = 19;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 072 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler073(session: Session): boolean {
+  const budget = 26;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 073 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler074(session: Session): boolean {
+  const budget = 33;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 074 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler075(session: Session): boolean {
+  const budget = 40;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 075 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler076(session: Session): boolean {
+  const budget = 47;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 076 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler077(session: Session): boolean {
+  const budget = 54;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 077 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler078(session: Session): boolean {
+  const budget = 61;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 078 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler079(session: Session): boolean {
+  const budget = 68;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 079 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler080(session: Session): boolean {
+  const budget = 75;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 080 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler081(session: Session): boolean {
+  const budget = 82;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 081 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler082(session: Session): boolean {
+  const budget = 89;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 082 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler083(session: Session): boolean {
+  const budget = 96;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 083 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler084(session: Session): boolean {
+  const budget = 6;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 084 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler085(session: Session): boolean {
+  const budget = 13;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 085 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler086(session: Session): boolean {
+  const budget = 20;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 086 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler087(session: Session): boolean {
+  const budget = 27;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 087 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler088(session: Session): boolean {
+  const budget = 34;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 088 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler089(session: Session): boolean {
+  const budget = 41;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 089 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler090(session: Session): boolean {
+  const budget = 48;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 090 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler091(session: Session): boolean {
+  const budget = 55;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 091 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler092(session: Session): boolean {
+  const budget = 62;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 092 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler093(session: Session): boolean {
+  const budget = 69;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 093 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler094(session: Session): boolean {
+  const budget = 76;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 094 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler095(session: Session): boolean {
+  const budget = 83;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 095 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler096(session: Session): boolean {
+  const budget = 90;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 096 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler097(session: Session): boolean {
+  const budget = 0;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 097 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler098(session: Session): boolean {
+  const budget = 7;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 098 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler099(session: Session): boolean {
+  const budget = 14;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 099 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+

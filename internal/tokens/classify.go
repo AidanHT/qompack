@@ -57,6 +57,13 @@ func Classify(tool, path string, b []byte) Class {
 		return ClassProse
 	}
 
+	// Image magic bytes, before the PDF check. Store content frequently arrives with Path == "",
+	// where the extension switch above cannot fire, and without this a PNG would fall through to
+	// the binary sniff and be priced as opaque bytes rather than from its real dimensions (G10.2).
+	if looksImage(b) {
+		return ClassImage
+	}
+
 	if len(b) >= len(pdfMagic) && bytes.HasPrefix(b, pdfMagic) {
 		return ClassPDF
 	}
@@ -73,6 +80,12 @@ func Classify(tool, path string, b []byte) Class {
 		return ClassCode
 	}
 	return ClassProse
+}
+
+// looksImage reports whether b opens with the magic bytes of one of the four image formats the
+// host accepts. It is header-only: the dimensions themselves are read later, by media.go.
+func looksImage(b []byte) bool {
+	return isPNG(b) || isJPEG(b) || isGIF(b) || isWebP(b)
 }
 
 // looksBinary reports whether the first binarySniffWindow bytes of b look like opaque binary

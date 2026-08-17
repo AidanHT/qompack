@@ -41,6 +41,7 @@ var tasks = map[string]func(args []string) error{
 	"ci-local":              taskCILocal,
 	"gen-config-docs":       taskGenConfigDocs,
 	"gen-contract-fixtures": taskGenContractFixtures,
+	"gen-fixtures":          taskGenFixtures,
 	"install-hooks":         taskInstallHooks,
 	"check-commit-msg":      taskCheckCommitMsg,
 }

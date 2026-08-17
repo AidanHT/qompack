@@ -1,0 +1,29 @@
+[1m[92m   Compiling[0m scratchcrate v0.1.0 (C:\Users\alice\AppData\Local\Temp\claude\C--Users-alice-Documents-Programming-Projects-qompack\9ca304cd-aa51-4d71-8c50-de6e43bc96d8\scratchpad\rustproj)
+[1m[92m    Finished[0m ]8;;https://doc.rust-lang.org/cargo/reference/profiles.html#default-profiles\`test` profile [unoptimized + debuginfo]]8;;\ target(s) in 0.67s
+[1m[92m     Running[0m unittests src\lib.rs (target\debug\deps\scratchcrate-9e5ed9c0feed39ef.exe)
+
+running 6 tests
+test tests::base_fee_is_stable ... ok
+test tests::slugify_collapses_punctuation ... ok
+test tests::lookup_reports_unknown_key ... ok
+test tests::ledger_totals_entries ... ok
+test tests::lookup_reports_empty_ledger ... ok
+test tests::ledger_renders_sorted ... FAILED
+
+failures:
+
+---- tests::ledger_renders_sorted stdout ----
+
+thread 'tests::ledger_renders_sorted' (65360) panicked at src\lib.rs:93:9:
+assertion `left == right` failed
+  left: "alpha=3;beta=4"
+ right: "alpha=3;beta=5"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::ledger_renders_sorted
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+[1m[91merror[0m: test failed, to rerun pass `--lib`

@@ -27,15 +27,25 @@ var nightlyFuzzMatrixRE = regexp.MustCompile(`(?m)^\s*-\s*\{\s*pkg:\s*(\S+?),\s*
 //
 // The waiver is mechanical, not a judgement call, and reads from the same OWNERS.tsv column that
 // `devtool cover` and `gen-contract-fixtures` already use: a missing target is excused only while
-// its package belongs to a subplan other than SP-01. Two things follow, and both matter more than
-// the waiver itself:
+// its package belongs to a subplan other than SP-01. Two things follow:
 //
 //   - An SP-01 package must have every target the matrix claims for it, today.
-//   - A waived package whose target has since appeared fails as a stale waiver, so the list
-//     shrinks as owners land rather than being trimmed by someone remembering to.
+//   - A target that EXISTS satisfies the matrix whoever owns its package. The nightly leg will
+//     run it, which is the whole point; there is nothing left to waive.
 //
-// What this cannot catch is SP-04 landing internal/chunk without writing FuzzSplit; that belongs
-// to SP-04's own definition of done and to the V2 checkpoint, which re-runs this inventory.
+// That second clause was originally the reverse — a waived package whose target had appeared
+// failed as a stale waiver, on the theory that the waiver list would then shrink as owners landed.
+// SP-04 is what showed the theory was wrong. It landed internal/chunk with FuzzSplit and
+// internal/canon with FuzzCanonicalize, and the only remedies that rule offered were to move those
+// packages to SP-01 in OWNERS.tsv or to drop the targets from the matrix. Both are worse than the
+// problem. The owner column records who WROTE a package, and `devtool lint`'s stubskips sub-check
+// reads it to decide that a Rule W-1 behaviour skip is a merge blocker — so relabelling chunk as
+// SP-01-owned would turn chunktest's own deliberate stub-suite skip into a hard failure. And
+// dropping a target that now exists would stop the nightly leg fuzzing real code.
+//
+// What this still cannot catch is a subplan landing its package without writing the target the
+// matrix claims: that belongs to the subplan's own definition of done and to the wave checkpoint,
+// which re-runs this inventory.
 func TestNightlyFuzzMatrix(t *testing.T) {
 	t.Parallel()
 
@@ -58,20 +68,15 @@ func TestNightlyFuzzMatrix(t *testing.T) {
 			owner, known := owners[pkgName]
 			require.True(t, known, "nightly.yml fuzzes %s, which has no plans/OWNERS.tsv row", pkgPath)
 
-			exists := fuzzTargetExists(t, root, pkgPath, fn)
-
-			if owner == "SP-01" {
-				require.True(t, exists,
-					"nightly.yml declares fuzz target %s in %s, which SP-01 owns, but the target "+
-						"does not exist — the nightly leg would skip silently. Write %s, or drop "+
-						"it from the matrix.", fn, pkgPath, fn)
+			if fuzzTargetExists(t, root, pkgPath, fn) {
+				t.Logf("live: %s declares %s; the nightly leg fuzzes it for real", pkgPath, fn)
 				return
 			}
 
-			require.False(t, exists,
-				"%s now exists in %s, so the waiver that let the nightly matrix skip it is stale. "+
-					"Move %s to SP-01 ownership in plans/OWNERS.tsv, or reassign this target.",
-				fn, pkgPath, pkgName)
+			require.NotEqual(t, "SP-01", owner,
+				"nightly.yml declares fuzz target %s in %s, which SP-01 owns, but the target "+
+					"does not exist — the nightly leg would skip silently. Write %s, or drop "+
+					"it from the matrix.", fn, pkgPath, fn)
 
 			t.Logf("waived: %s is owned by %s and is still a stub; %s is owed when %s lands",
 				pkgName, owner, fn, owner)

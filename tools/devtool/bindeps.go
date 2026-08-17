@@ -19,8 +19,22 @@ var releaseTargets = []struct{ GOOS, GOARCH string }{
 }
 
 // allowedBinDep reports whether importPath is permitted to reach the shipped qompack binary
-// (00-ARCHITECTURE.md §2.5): the standard library, this module's own packages, klauspost/compress
-// and Microsoft/go-winio.
+// (00-ARCHITECTURE.md §2.5): the standard library, this module's own packages, klauspost/compress,
+// Microsoft/go-winio, and golang.org/x/sys/windows.
+//
+// golang.org/x/sys/windows was added in SP-05's task 6: it is go-winio's own transitive
+// dependency (`go mod why -m golang.org/x/sys` on a windows target resolves
+// internal/ipc -> github.com/Microsoft/go-winio -> golang.org/x/sys/windows), needed for the named
+// pipe's per-user SID ACL (00-ARCHITECTURE.md §2.4). It never reached the binary before task 6
+// because no earlier task's code was actually wired into cmd/qompack's own import graph — ipc and
+// daemon existed but nothing in internal/cli imported them yet, so go-winio's own transitive
+// dependency was invisible to this check until the hook bodies and `qompack daemon` started
+// importing internal/ipc / internal/daemon for real.
+//
+// The allow-list names the EXACT import path only, not a prefix (fix round 1, Minor M-14): only
+// golang.org/x/sys/windows itself is actually reached (verified via `go list -deps`); a prefix
+// match would additionally admit .../windows/registry, .../windows/svc, and every other
+// subpackage go-winio does not use, widening the allow-list beyond what is justified.
 func allowedBinDep(importPath string) bool {
 	if isStdlib(importPath) {
 		return true
@@ -31,6 +45,8 @@ func allowedBinDep(importPath string) bool {
 	case importPath == "github.com/klauspost/compress", strings.HasPrefix(importPath, "github.com/klauspost/compress/"):
 		return true
 	case importPath == "github.com/Microsoft/go-winio", strings.HasPrefix(importPath, "github.com/Microsoft/go-winio/"):
+		return true
+	case importPath == "golang.org/x/sys/windows":
 		return true
 	}
 	return false

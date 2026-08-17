@@ -1,0 +1,6 @@
+@@SEC_AWS_AKID@@ @@SEC_AWS_ASIA@@
+@@SEC_GH_PAT_ALPHA@@ @@SEC_GH_OAUTH@@
+github_pat_11ABCDEFG0abcdefghijKLMNOPqrstuvwxyz0123456789
+@@SEC_ANTHROPIC_ALPHA@@ sk-abcdefghijklmnopqrstuvwxyz01
+Authorization: Bearer abcdefghijklmnop0123456789
+@@SEC_JWT_SHORT@@

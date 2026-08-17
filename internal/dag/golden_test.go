@@ -13,7 +13,6 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -115,7 +114,7 @@ const (
 func buildGraphBasic(t *testing.T) *graph {
 	t.Helper()
 	g := newGraph(t.TempDir(), config.Defaults(), logging.Nop())
-	g.SetClock(testutil.NewFakeClock(time.UnixMilli(goldenClockMillis).UTC()))
+	g.SetClock(newFixedClock(time.UnixMilli(goldenClockMillis).UTC()))
 
 	ts := core.UnixMilli(goldenClockMillis)
 	add := func(id NodeID, kind NodeKind, turn core.TurnIndex, pos int, ref string, tokens core.Tokens) {

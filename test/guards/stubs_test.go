@@ -80,12 +80,23 @@ func stubRegistry() []stubPackage {
 		{pkg: "canon", build: func(*testing.T) any { return canon.NewRegistry() }},
 		{pkg: "symbols", build: func(*testing.T) any { return symbols.New() }, zeroValueOnly: true},
 		{pkg: "redact", build: func(*testing.T) any { return redact.New(config.Defaults()) }, zeroValueOnly: true},
-		{pkg: "sketch", build: func(*testing.T) any { return sketch.NewBloom(bloomCapacity, bloomFPRate) }},
+		// SP-03 landed the real sketch math (QPKS framing, Appendix A Bloom sizing), so none of
+		// this seam's methods reports ErrNotImplemented any more: UnmarshalBinary now answers with
+		// this package's own decode sentinels. It is registered for completeness only.
+		{
+			pkg: "sketch", build: func(*testing.T) any { return sketch.NewBloom(bloomCapacity, bloomFPRate) },
+			pureMethods: allMethodsAreReal,
+		},
+		// store's seam is REAL as of SP-06 (L1: content-addressed objects, the tool_use and
+		// file-version indices, the segment log, search and GC), so none of its methods is
+		// expected to report ErrNotImplemented any more. It stays in the registry for
+		// completeness, which is what TestStubRegistry_ListsEveryPackageOnDisk checks.
 		{pkg: "store", build: func(t *testing.T) any {
 			s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{Log: logging.Nop()})
 			require.NoError(t, err)
+			t.Cleanup(func() { _ = s.Close() })
 			return s
-		}},
+		}, pureMethods: allMethodsAreReal},
 		// dag's seam is REAL as of SP-07: Open returns the live dependence graph, so AddNode,
 		// AddEdge, BackwardSlice, ForwardSlice, Flush and Compact all do their own work and none
 		// of them reports ErrNotImplemented. It stays registered for the completeness check;
@@ -119,7 +130,14 @@ func stubRegistry() []stubPackage {
 		{pkg: "skills", build: func(*testing.T) any { return skills.New() }},
 		{pkg: "mcp", build: func(*testing.T) any { return mcp.NewServer("qompack", "0.1.0", logging.Nop()) }},
 		{pkg: "commands"},
-		{pkg: "eval", build: func(*testing.T) any { return eval.New(eval.Options{Cfg: config.Defaults()}) }},
+		// eval's seam is REAL from SP-02 (Phase 0 is the first thing built after the foundation),
+		// so none of its methods reports ErrNotImplemented any more: Load reports ErrNotFound on
+		// an empty corpus, which is the honest answer and not a stub's. It stays registered so
+		// the walk still proves its constructor builds and none of its methods panics on
+		// zero-valued arguments.
+		{pkg: "eval", build: func(*testing.T) any {
+			return eval.New(eval.Options{Cfg: config.Defaults()})
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "ipc", build: func(*testing.T) any {
 			return ipc.NewClient(ipc.Addr{}, nil, logging.Nop(), obs.New(core.SystemClock()))
 		}},

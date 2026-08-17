@@ -1,0 +1,9 @@
+{
+  "firstDivergenceTurn": 1,
+  "fileSetJaccard": 1,
+  "toolEditDistance": 4,
+  "sameDecision": true,
+  "decisionPreservation": 1,
+  "redundantReads": 4,
+  "reAttempts": 0
+}
