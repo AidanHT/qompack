@@ -405,6 +405,51 @@ func TestLazySpawn_CalledOnceAcrossManyFailedSends(t *testing.T) {
 	require.EqualValues(t, 1, spawnCalls.Load())
 }
 
+// TestLazySpawn_SpoolIsDurableBeforeSpawn asserts the ordering the daemon's startup drain depends
+// on: by the time Spawn is invoked, the spooled entry is already readable on disk.
+//
+// This is the invariant, not an implementation detail. daemon.Run drains the spool once at startup
+// and then only on an idle tick, which is up to idleTickMax (30s) away. A client that spawns first
+// and appends second lets the daemon scan an empty directory and miss the very entry that caused
+// the cold start — recorded durably, but invisible for half a minute. It fails only under load,
+// which is why it reached a full-suite run rather than this package.
+//
+// Asserting from inside Spawn is what makes it deterministic: it samples the exact instant the
+// daemon process would begin, with no timing bound to tune.
+func TestLazySpawn_SpoolIsDurableBeforeSpawn(t *testing.T) {
+	root := t.TempDir()
+	addr, err := Resolve(root)
+	require.NoError(t, err)
+
+	// spoolPath is filled in below, before the Send that triggers the closure.
+	var spoolPath, spoolAtSpawn string
+	var sawSpawn bool
+	c, spool := newTestClient(t, addr, ClientOptions{
+		ProjectRoot: root,
+		Self:        "qompack-fake",
+		Spawn: func(string, string) error {
+			sawSpawn = true
+			if b, readErr := os.ReadFile(spoolPath); readErr == nil {
+				spoolAtSpawn = string(b)
+			}
+			return nil
+		},
+	})
+	spoolPath = spool.Path()
+
+	_, err = c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
+	require.NoError(t, err)
+	require.True(t, sawSpawn, "the connect failure must have reached lazySpawn")
+
+	// Read through the SpoolWriter's own path so this cannot pass by reading some other file.
+	onDisk, readErr := os.ReadFile(spool.Path())
+	require.NoError(t, readErr, "the failed Send must have spooled")
+	require.NotEmpty(t, onDisk)
+	require.Equal(t, string(onDisk), spoolAtSpawn,
+		"the spooled entry must already be on disk when Spawn is called — the daemon it launches "+
+			"drains once at startup and then not again until an idle tick")
+}
+
 // TestLazySpawn_SkippedWithoutSelfOrSpawn asserts lazySpawn does nothing — not even take the
 // lock file — when Self or Spawn is unset, which is how a caller opts out entirely.
 func TestLazySpawn_SkippedWithoutSelfOrSpawn(t *testing.T) {

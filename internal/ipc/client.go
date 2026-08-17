@@ -226,8 +226,17 @@ func (c *client) Send(ctx context.Context, req Request, deadline time.Duration) 
 	// 5. Connect, bounded by ConnectDeadline (and by ctx, if it carries an earlier deadline).
 	conn, err := c.connect(ctx)
 	if err != nil {
+		// Spool BEFORE spawning, not after. The daemon this spawn launches runs a startup Drain
+		// (daemon.Run, before it serves), so a spool file written after the spawn call can be
+		// missed by the very drain the spawn exists to trigger — and the next drain is an idle
+		// tick up to idleTickMax (30s) away. The entry that causes a cold start is precisely the
+		// one at risk, and it loses this race exactly when the machine is loaded.
+		//
+		// Client latency is unchanged: both operations already happen before Send returns, so
+		// this only moves the daemon's start a file-append later.
+		resp, spoolErr := c.spoolAndReturn(req)
 		c.lazySpawn()
-		return c.spoolAndReturn(req)
+		return resp, spoolErr
 	}
 	defer func() { _ = conn.Close() }()
 
