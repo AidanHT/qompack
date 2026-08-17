@@ -1,0 +1,30 @@
+ FAIL  __tests__/cart.test.js
+  Cart
+    × sums a subtotal across line items (<d>)
+    √ applies tax to the running total
+    √ throws for a missing item (<d>)
+  slugify
+    √ normalizes mixed punctuation (<d>)
+
+  ● Cart › sums a subtotal across line items
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 24.5
+    Received: 25.5
+
+       6 |   test('sums a subtotal across line items', () => {
+       7 |     const cart = new Cart().add('widget', 10, 2).add('gizmo', 5.5);
+    >  8 |     expect(cart.subtotal()).toBe(24.5);
+         |                             ^
+       9 |   });
+      10 |
+      11 |   test('applies tax to the running total', () => {
+
+      at Object.toBe (__tests__/cart.test.js:8:29)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 3 passed, 4 total
+Snapshots:   0 total
+Time:        <d>, estimated <d>
+Ran all test suites.
