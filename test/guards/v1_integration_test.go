@@ -325,13 +325,27 @@ func TestV1_StubGraphIsInertAndOwned(t *testing.T) {
 
 	// 4. No probe returns a data payload alongside its error. A stub that answered
 	// (something, ErrNotImplemented) would be fabricating behaviour a caller might use.
+	// Only packages that are STILL stubbed are checked. A landed implementation returns a real
+	// payload and no error at all, so hard-coding "must still be a stub" would turn every
+	// subsequent wave's arrival into a spurious V1 failure — while dropping the sweep entirely
+	// would stop guarding the packages that have not landed yet.
 	//
-	// This list shrinks by one entry per wave-1 subplan as each lands: the assertion is that a
-	// package NOT YET implemented is still inert, so a package that has been implemented must
-	// leave rather than be asserted about. eval left with SP-02.
-	for _, pr := range []probe{storeProbe, negknowProbe, checkpointProbe, analyzerProbe} {
-		require.True(t, isStub(t, pr), "%s must still be a stub at V1", pr.pkg)
+	// SP-02 solved the same problem on its own branch by DELETING each entry as its subplan landed
+	// ("eval left with SP-02"). That is correct every time someone remembers; the probe is what
+	// makes it automatic, so the full list stays and the probe decides per run. The non-vacuity
+	// check below is the price of choosing the probe: a sweep in which every entry has landed
+	// asserts nothing at all, and would go on passing for the rest of the project without saying so.
+	stillStubbed := 0
+	for _, pr := range []probe{evalProbe, storeProbe, negknowProbe, checkpointProbe, analyzerProbe} {
+		if !isStub(t, pr) {
+			t.Logf("%s has landed since V1; its stub-inertness rows no longer apply", pr.pkg)
+			continue
+		}
+		stillStubbed++
 	}
+	require.Positive(t, stillStubbed,
+		"every package in the V1 stub sweep has landed, so this loop now asserts nothing — "+
+			"replace it with the current wave's own inventory rather than leaving it green and empty")
 	v1AssertZeroPayloads(t)
 }
 
@@ -902,22 +916,33 @@ func v1ReadOwners(t *testing.T, path string) []v1OwnerRow {
 // v1AssertZeroPayloads calls each build-order probe's seam and asserts the value returned beside
 // ErrNotImplemented is the zero value. A stub returning real-looking data alongside its error is
 // the failure mode §5.22's "no behaviour is faked" exists to prevent.
+//
+// Each package is checked only while it is STILL A STUB, tested through the same build-order probe
+// buildorder_test.go uses. That is deliberate rather than a weakening: "returns no payload beside
+// its error" is a promise about stubs, and a landed implementation returns a real payload and no
+// error at all. Hard-coding the assertion would turn every subsequent wave's arrival into a
+// spurious V1 failure, while dropping it would stop guarding the packages that are still stubbed.
 func v1AssertZeroPayloads(t *testing.T) {
 	t.Helper()
 	log, m, clk := probeDeps()
 
-	s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{Log: log, Metrics: m, Clock: clk})
-	require.NoError(t, err)
-	res, err := s.PutBytes(context.Background(), []byte("probe"), store.PutOptions{})
-	require.True(t, core.IsNotImplemented(err))
-	require.Equal(t, store.PutResult{}, res, "store.PutBytes returned a payload beside its error")
+	if isStub(t, storeProbe) {
+		s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{Log: log, Metrics: m, Clock: clk})
+		require.NoError(t, err)
+		res, err := s.PutBytes(context.Background(), []byte("probe"), store.PutOptions{})
+		require.True(t, core.IsNotImplemented(err))
+		require.Equal(t, store.PutResult{}, res, "store.PutBytes returned a payload beside its error")
+		require.NoError(t, s.Close())
+	}
 
-	led, err := negknow.Open(t.TempDir(), config.Defaults(), nil,
-		negknow.Deps{Log: log, Metrics: m, Clock: clk})
-	require.NoError(t, err)
-	ans, err := led.Query(context.Background(), "t", "a", negknow.ScopeProject)
-	require.True(t, core.IsNotImplemented(err))
-	require.Equal(t, negknow.Answer{}, ans, "negknow.Query returned an answer beside its error")
+	if isStub(t, negknowProbe) {
+		led, err := negknow.Open(t.TempDir(), config.Defaults(), nil,
+			negknow.Deps{Log: log, Metrics: m, Clock: clk})
+		require.NoError(t, err)
+		ans, err := led.Query(context.Background(), "t", "a", negknow.ScopeProject)
+		require.True(t, core.IsNotImplemented(err))
+		require.Equal(t, negknow.Answer{}, ans, "negknow.Query returned an answer beside its error")
+	}
 }
 
 // v1Manifest mirrors testdata/golden/contracts/*/MANIFEST.json.

@@ -1,0 +1,545 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"time"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// gcLiveDomain domain-separates the digest of the live chunk set.
+//
+// It is deliberately NOT one of core's five registered production domains: those key content the
+// store persists, and this digest keys nothing — it exists only so a resumed sweep can tell
+// whether the live set it just recomputed is the same one the interrupted pass was sweeping
+// against. The same reasoning internal/tokens/calibrate.go gives for calibKeyDomain applies here.
+const gcLiveDomain = "qompack.gclive.v1"
+
+// The two files a resumable GC keeps under .qompack/state.
+const (
+	gcStateFile = "gc.json"
+	gcLiveFile  = "gc-live.bin"
+)
+
+// gcCheckEvery is how many items pass between deadline and cancellation checks. Checking every
+// item would put a clock read in the inner loop of a 50 000-object walk; checking too rarely would
+// overshoot the deadline the idle scheduler granted.
+const gcCheckEvery = 256
+
+// hoursPerDay converts the retention window's days into a duration.
+const hoursPerDay = 24
+
+// gcRetentionDisabled is the resolved value for a retention axis a caller switched off.
+const gcRetentionDisabled = -1
+
+// hashToken matches any string that could be a hash reference.
+//
+// The "sha256:" prefix is OPTIONAL on purpose. core.Hash.String() is the canonical text form, but
+// nothing in a checkpoint, pin or elimination schema FORCES a producer to use it, and a hash
+// serialized bare would otherwise be invisible to the mark phase and its object silently deleted.
+// Treating every 64-hex string as a live hash is a conservative superset of "pointers, pins,
+// evidence and depends_on" — which is the right error direction for a collector: over-retention
+// costs disk, under-retention is data loss.
+var hashToken = regexp.MustCompile(`^(?:sha256:)?[0-9a-f]{64}$`)
+
+// gcState is the resumable cursor persisted at .qompack/state/gc.json.
+type gcState struct {
+	V          int            `json:"v"`
+	Phase      string         `json:"phase"`
+	Cursor     string         `json:"cursor"`
+	LiveDigest string         `json:"live_digest"`
+	Roots      int            `json:"roots"`
+	Scanned    int            `json:"scanned"`
+	Deleted    int            `json:"deleted"`
+	Freed      int64          `json:"freed"`
+	Started    core.UnixMilli `json:"started"`
+}
+
+// GC runs an authoritative mark-and-sweep collection (00-ARCHITECTURE.md §5.8 GC semantics).
+//
+// Two different clocks are in play, deliberately. The RETENTION cutoff reads the injected
+// core.Clock, so a test can age a root by moving the clock rather than by waiting. The DEADLINE and
+// GCReport.Duration read wall-clock time, because Deadline is a latency budget the idle scheduler
+// granted and a frozen logical clock must never make it un-expirable.
+func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
+	if err := s.use(); err != nil {
+		return GCReport{}, err
+	}
+	// GCPolicy.Deadline bounds how long a pass runs once it has started; ctx is how the CALLER
+	// cancels one. They are not the same lever, and honouring only the first would let a shutdown
+	// wait out a full sweep of objects/.
+	if err := ctx.Err(); err != nil {
+		return GCReport{}, err
+	}
+	started := time.Now()
+	var deadline time.Time
+	if p.Deadline > 0 {
+		deadline = started.Add(p.Deadline)
+	}
+
+	days, sessions := s.resolveRetention(p)
+	liveChunks, liveRoots := s.mark(days, sessions)
+
+	digest := liveDigest(liveChunks)
+	if err := s.writeLiveSet(liveChunks); err != nil {
+		s.log.Warn("store: could not persist the gc live set; this pass will not be resumable", "err", err)
+	}
+
+	rep := GCReport{LiveObjects: len(liveChunks), Roots: len(liveRoots)}
+	prior, resuming := s.loadGCState(digest)
+	if resuming {
+		rep.ScannedObjects, rep.DeletedObjects, rep.BytesFreed = prior.Scanned, prior.Deleted, prior.Freed
+	}
+
+	if !p.DryRun {
+		if err := s.tombstoneDeadRoots(ctx, liveRoots); err != nil {
+			return rep, err
+		}
+	}
+
+	cursor, truncated, err := s.sweep(ctx, sweepArgs{
+		live:     liveChunks,
+		dryRun:   p.DryRun,
+		deadline: deadline,
+		resume:   resumeCursor(prior, resuming),
+		rep:      &rep,
+	})
+	rep.Truncated = truncated
+	rep.Duration = time.Since(started)
+	if err != nil {
+		_ = s.saveGCState(digest, cursor, rep)
+		return rep, err
+	}
+
+	if truncated {
+		if serr := s.saveGCState(digest, cursor, rep); serr != nil {
+			s.log.Warn("store: could not persist the gc cursor", "err", serr)
+		}
+		return rep, nil
+	}
+	s.clearGCState()
+
+	s.mu.Lock()
+	s.statsDirty = true
+	if rep.BytesFreed > 0 {
+		s.bytesOnDisk -= rep.BytesFreed
+		if s.bytesOnDisk < 0 {
+			s.bytesOnDisk = 0
+		}
+	}
+	s.mu.Unlock()
+	return rep, nil
+}
+
+// resumeCursor returns the sweep cursor to continue from, or "" to sweep from the beginning.
+func resumeCursor(prior gcState, resuming bool) string {
+	if resuming && prior.Phase == "sweep" {
+		return prior.Cursor
+	}
+	return ""
+}
+
+// resolveRetention turns a GCPolicy's two tri-state axes into concrete windows.
+//
+// The tri-state is normative, because the ZERO GCPolicy is what a careless caller passes: 0
+// INHERITS store.retention from configuration (30 days / 10 sessions), so GC(ctx, GCPolicy{}) is a
+// safe default-retention run and never a mass deletion; a positive value overrides; and only a
+// NEGATIVE value disables an axis, which is what a test or `qompack fsck --gc-all` uses to force
+// collection.
+func (s *FSStore) resolveRetention(p GCPolicy) (days, sessions int) {
+	days, sessions = p.RetainDays, p.RetainSessions
+	if days == 0 {
+		days = s.cfg.Store.Retention.Days
+	}
+	if sessions == 0 {
+		sessions = s.cfg.Store.Retention.Sessions
+	}
+	if days < 0 {
+		days = gcRetentionDisabled
+	}
+	if sessions < 0 {
+		sessions = gcRetentionDisabled
+	}
+	return days, sessions
+}
+
+// mark computes the live chunk set and the live root set.
+//
+// "Whichever is longer" (Qompack.md §8.2) is implemented as a DISJUNCTION: an entry is in-window
+// when it is inside the day window OR its session is among the most recent ones. An EPHEMERAL root
+// is never in-window by the age clause — retrieval spam is reclaimable precisely because objects
+// are content-addressed, so a chunk it shares with a real tool result is still held alive by that
+// result (Qompack.md §8.7).
+func (s *FSStore) mark(days, sessions int) (map[core.Hash]struct{}, map[core.Hash]struct{}) {
+	harvested := s.harvestHashes()
+	recent := s.recentSessionSet(sessions)
+
+	var cutoff core.UnixMilli
+	if days >= 0 {
+		cutoff = core.UnixMilli(s.deps.Clock.Now().Add(-time.Duration(days) * hoursPerDay * time.Hour).UnixMilli())
+	}
+	inAgeWindow := func(ts core.UnixMilli) bool { return days >= 0 && ts >= cutoff }
+
+	liveRoots := make(map[core.Hash]struct{})
+	liveChunks := make(map[core.Hash]struct{}, len(harvested))
+	// A harvested hash may name a root OR a chunk; nothing in the schemas distinguishes them, so
+	// it is held live as both.
+	for h := range harvested {
+		liveChunks[h] = struct{}{}
+	}
+
+	s.mu.RLock()
+	for h, e := range s.rootIndex {
+		if _, ok := harvested[h]; ok {
+			liveRoots[h] = struct{}{}
+			continue
+		}
+		if !e.Eph && inAgeWindow(e.TS) {
+			liveRoots[h] = struct{}{}
+		}
+	}
+	for _, rec := range s.toolUse {
+		if rec.Root.IsZero() {
+			continue
+		}
+		if inAgeWindow(rec.TS) || (sessions >= 0 && recent[rec.Session]) {
+			liveRoots[rec.Root] = struct{}{}
+		}
+	}
+	for _, hist := range s.fileHist {
+		for _, v := range hist {
+			if inAgeWindow(v.TS) {
+				liveRoots[v.Root] = struct{}{}
+			}
+		}
+	}
+	for h := range liveRoots {
+		if e, ok := s.rootIndex[h]; ok {
+			for _, c := range e.Root.Chunks {
+				liveChunks[c.Hash] = struct{}{}
+			}
+		}
+	}
+	s.mu.RUnlock()
+
+	return liveChunks, liveRoots
+}
+
+// recentSessionSet returns the n most recent session IDs.
+//
+// It merges the sessions persisted in index/sessions.jsonl with the ones recomputed from the
+// in-memory tool_use index, because a session that has not been Flushed yet is still the CURRENT
+// session — collecting its content on the grounds that it has not been written down would be
+// exactly backwards.
+func (s *FSStore) recentSessionSet(n int) map[core.SessionID]bool {
+	out := map[core.SessionID]bool{}
+	if n < 0 {
+		return out
+	}
+
+	merged := map[core.SessionID]core.UnixMilli{}
+	s.mu.RLock()
+	for id, e := range s.sessions {
+		merged[id] = e.End
+	}
+	s.mu.RUnlock()
+	for id, e := range s.recomputeSessions() {
+		if end, ok := merged[id]; !ok || e.End > end {
+			merged[id] = e.End
+		}
+	}
+
+	type sess struct {
+		id  core.SessionID
+		end core.UnixMilli
+	}
+	all := make([]sess, 0, len(merged))
+	for id, end := range merged {
+		all = append(all, sess{id, end})
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if all[i].end != all[j].end {
+			return all[i].end > all[j].end
+		}
+		return all[i].id > all[j].id
+	})
+	if n < len(all) {
+		all = all[:n]
+	}
+	for _, e := range all {
+		out[e.id] = true
+	}
+	return out
+}
+
+// gcRootFiles returns every file whose hash references keep content alive.
+//
+// The files are read STRUCTURALLY rather than through internal/checkpoint, internal/pins or
+// internal/negknow: all three import store, so importing them back would be an import cycle
+// (00-ARCHITECTURE.md §3.2). A missing file is never an error — waves 3 to 5 have not shipped
+// these producers yet, and a store that refused to collect until they did would grow without bound.
+func (s *FSStore) gcRootFiles() []string {
+	out := []string{
+		filepath.Join(s.l.Pins, "invariants.jsonl"),
+		filepath.Join(s.l.Records, "eliminations.jsonl"),
+	}
+	entries, err := os.ReadDir(paths.Long(s.l.Checkpoints))
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		switch filepath.Ext(e.Name()) {
+		case ".json", ".jsonl":
+			out = append(out, filepath.Join(s.l.Checkpoints, e.Name()))
+		}
+	}
+	return out
+}
+
+// harvestHashes collects every hash-shaped string token from the GC root files.
+func (s *FSStore) harvestHashes() map[core.Hash]struct{} {
+	out := make(map[core.Hash]struct{})
+	for _, p := range s.gcRootFiles() {
+		s.harvestFile(p, out)
+	}
+	return out
+}
+
+// harvestFile walks one file's JSON tokens, adding every hash-shaped string it finds.
+//
+// json.Decoder.Token streams through CONCATENATED top-level values, so one decoder handles a
+// single-document .json and a many-document .jsonl identically. A decode error stops the walk but
+// keeps what was already collected: a half-written final line must not cost the whole file's
+// references.
+func (s *FSStore) harvestFile(p string, into map[core.Hash]struct{}) {
+	f, err := os.Open(paths.Long(p))
+	if err != nil {
+		return // missing is normal; see gcRootFiles
+	}
+	defer func() { _ = f.Close() }()
+
+	dec := json.NewDecoder(f)
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return
+		}
+		str, ok := tok.(string)
+		if !ok || !hashToken.MatchString(str) {
+			continue
+		}
+		if h, perr := core.ParseHash(str); perr == nil {
+			into[h] = struct{}{}
+		}
+	}
+}
+
+// liveDigest is the domain-separated digest of the sorted live chunk set.
+func liveDigest(live map[core.Hash]struct{}) string {
+	return core.HashBytes(gcLiveDomain, sortedLiveBytes(live)).String()
+}
+
+// sortedLiveBytes renders the live set as sorted, concatenated 32-byte hashes — the same form
+// writeLiveSet persists, so the digest and the file always agree.
+func sortedLiveBytes(live map[core.Hash]struct{}) []byte {
+	all := make([]core.Hash, 0, len(live))
+	for h := range live {
+		all = append(all, h)
+	}
+	sort.Slice(all, func(i, j int) bool {
+		for k := range all[i] {
+			if all[i][k] != all[j][k] {
+				return all[i][k] < all[j][k]
+			}
+		}
+		return false
+	})
+	buf := make([]byte, 0, len(all)*len(core.Hash{}))
+	for _, h := range all {
+		buf = append(buf, h[:]...)
+	}
+	return buf
+}
+
+// writeLiveSet persists the live chunk set so a resumed sweep can binary-search it without redoing
+// the mark.
+func (s *FSStore) writeLiveSet(live map[core.Hash]struct{}) error {
+	return paths.WriteAtomic(filepath.Join(s.l.State, gcLiveFile), sortedLiveBytes(live), 0o600)
+}
+
+// loadGCState reads the persisted cursor, reporting whether it may be resumed from.
+//
+// A pass resumes ONLY when the live digest it just computed matches the one the interrupted pass
+// recorded. Otherwise new roots have appeared since, and continuing from the old cursor would sweep
+// the tail of the object tree against a stale live set — the one way this collector could delete
+// something reachable.
+func (s *FSStore) loadGCState(digest string) (gcState, bool) {
+	b, err := os.ReadFile(paths.Long(filepath.Join(s.l.State, gcStateFile)))
+	if err != nil {
+		return gcState{}, false
+	}
+	var st gcState
+	if err := json.Unmarshal(b, &st); err != nil {
+		return gcState{}, false
+	}
+	if st.LiveDigest != digest {
+		s.log.Debug("store: gc live set changed since the interrupted pass; restarting the mark phase")
+		return gcState{}, false
+	}
+	return st, true
+}
+
+// saveGCState persists the cursor so the next pass can continue.
+func (s *FSStore) saveGCState(digest, cursor string, rep GCReport) error {
+	st := gcState{
+		V: indexRecordVersion, Phase: "sweep", Cursor: cursor, LiveDigest: digest,
+		Roots: rep.Roots, Scanned: rep.ScannedObjects, Deleted: rep.DeletedObjects,
+		Freed: rep.BytesFreed, Started: s.now(),
+	}
+	b, err := json.Marshal(st)
+	if err != nil {
+		return err
+	}
+	return paths.WriteAtomic(filepath.Join(s.l.State, gcStateFile), b, 0o600)
+}
+
+// clearGCState removes the cursor after a pass finishes.
+func (s *FSStore) clearGCState() {
+	_ = os.Remove(paths.Long(filepath.Join(s.l.State, gcStateFile)))
+}
+
+// tombstoneDeadRoots retires every root the mark phase did not reach.
+//
+// Retirement is an APPEND to index/roots.jsonl, never a rewrite of the line that created the root
+// (Qompack.md §7.4), so the file stays append-only and the original record remains readable.
+func (s *FSStore) tombstoneDeadRoots(ctx context.Context, live map[core.Hash]struct{}) error {
+	s.mu.RLock()
+	dead := make([]core.Hash, 0, len(s.rootIndex))
+	for h := range s.rootIndex {
+		if _, ok := live[h]; !ok {
+			dead = append(dead, h)
+		}
+	}
+	s.mu.RUnlock()
+
+	sort.Slice(dead, func(i, j int) bool { return dead[i].String() < dead[j].String() })
+	for i, h := range dead {
+		if i%gcCheckEvery == 0 {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
+		if err := s.appendGCTombstone(h); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// sweepArgs bundles one sweep's inputs, so the sweep signature stays readable.
+type sweepArgs struct {
+	live     map[core.Hash]struct{}
+	dryRun   bool
+	deadline time.Time
+	resume   string
+	rep      *GCReport
+}
+
+// sweep walks objects/ in lexicographic order and collects everything the live set does not hold.
+//
+// The walk order is what makes the pass resumable: a cursor is only meaningful if the next run
+// visits the same objects in the same sequence. Both this loop and the mark phase check the
+// deadline and the context every gcCheckEvery items, and an expired deadline returns a cursor
+// rather than an error — a truncated GC is a normal outcome of idle work, not a failure.
+func (s *FSStore) sweep(ctx context.Context, a sweepArgs) (cursor string, truncated bool, err error) {
+	base := paths.Long(s.l.Objects)
+	seen := 0
+	// lastDone is the last object this sweep FINISHED with, and it is what the cursor records.
+	//
+	// Recording the object the walk was about to start instead would lose exactly one object per
+	// resumption: the resume test skips everything at or before the cursor, so an object named as
+	// the stopping point but never processed would be skipped forever.
+	lastDone := ""
+
+	walkErr := filepath.WalkDir(base, func(p string, d fs.DirEntry, werr error) error {
+		if werr != nil || d.IsDir() {
+			return nil //nolint:nilerr // an unreadable subtree must not abort the whole sweep
+		}
+		rel, rerr := filepath.Rel(base, p)
+		if rerr != nil {
+			return nil
+		}
+		rel = filepath.ToSlash(rel)
+		if a.resume != "" && rel <= a.resume {
+			return nil
+		}
+
+		seen++
+		if seen%gcCheckEvery == 0 {
+			if cerr := ctx.Err(); cerr != nil {
+				cursor, err = lastDone, cerr
+				return filepath.SkipAll
+			}
+			if !a.deadline.IsZero() && time.Now().After(a.deadline) {
+				cursor, truncated = lastDone, true
+				return filepath.SkipAll
+			}
+		}
+
+		a.rep.ScannedObjects++
+		h, ok := objectHashOf(rel)
+		if !ok {
+			return nil
+		}
+		if _, live := a.live[h]; live {
+			lastDone = rel
+			return nil
+		}
+
+		size := int64(0)
+		if info, ierr := d.Info(); ierr == nil {
+			size = info.Size()
+		}
+		if !a.dryRun {
+			if rmErr := os.Remove(p); rmErr != nil {
+				// A Windows sharing violation loses one object this pass, never the session.
+				s.log.Debug("store: gc could not remove an object", "path", rel, "err", rmErr)
+				s.count("store.gc.skipped", 1)
+				return nil
+			}
+		}
+		a.rep.DeletedObjects++
+		a.rep.BytesFreed += size
+		lastDone = rel
+		return nil
+	})
+	if walkErr != nil && err == nil && !os.IsNotExist(walkErr) {
+		return cursor, truncated, fmt.Errorf("store: gc sweep: %w", walkErr)
+	}
+	return cursor, truncated, err
+}
+
+// objectHashOf recovers an object's hash from its path under objects/, tolerating both the
+// compressed and the bare filename.
+func objectHashOf(rel string) (core.Hash, bool) {
+	name := filepath.Base(rel)
+	if ext := filepath.Ext(name); ext == objectSuffix {
+		name = name[:len(name)-len(ext)]
+	}
+	h, err := core.ParseHash(name)
+	if err != nil {
+		return core.Hash{}, false
+	}
+	return h, true
+}

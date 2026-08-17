@@ -97,6 +97,21 @@
       "gain": 1
     },
     {
+      "group": "sp06",
+      "files": 4,
+      "raw_bytes": 98345,
+      "canon_bytes": 98345,
+      "chunks_without": 15,
+      "unique_chunks_without": 10,
+      "unique_bytes_without": 66225,
+      "chunks_with": 15,
+      "unique_chunks_with": 10,
+      "unique_bytes_with": 66225,
+      "ratio_without": 1.485,
+      "ratio_with": 1.485,
+      "gain": 1
+    },
+    {
       "group": "testrunner",
       "files": 9,
       "raw_bytes": 37411,
@@ -128,8 +143,8 @@
     }
   ],
   "overall": {
-    "ratio_without": 1.151,
-    "ratio_with": 1.1823,
-    "gain": 1.0272
+    "ratio_without": 1.1945,
+    "ratio_with": 1.2249,
+    "gain": 1.0254
   }
 }

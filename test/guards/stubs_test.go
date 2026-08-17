@@ -87,11 +87,16 @@ func stubRegistry() []stubPackage {
 			pkg: "sketch", build: func(*testing.T) any { return sketch.NewBloom(bloomCapacity, bloomFPRate) },
 			pureMethods: allMethodsAreReal,
 		},
+		// store's seam is REAL as of SP-06 (L1: content-addressed objects, the tool_use and
+		// file-version indices, the segment log, search and GC), so none of its methods is
+		// expected to report ErrNotImplemented any more. It stays in the registry for
+		// completeness, which is what TestStubRegistry_ListsEveryPackageOnDisk checks.
 		{pkg: "store", build: func(t *testing.T) any {
 			s, err := store.Open(t.TempDir(), config.Defaults(), store.Deps{Log: logging.Nop()})
 			require.NoError(t, err)
+			t.Cleanup(func() { _ = s.Close() })
 			return s
-		}},
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "dag", build: func(t *testing.T) any {
 			g, err := dag.Open(t.TempDir(), config.Defaults(), logging.Nop())
 			require.NoError(t, err)
