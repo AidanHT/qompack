@@ -1,0 +1,13 @@
+[0m[7m[1m[32m PASS [39m[22m[27m[0m [2m__tests__/[22m[1mcart.test.js[22m
+  Cart
+    [32m√[39m [2msums a subtotal across line items (4 ms)[22m
+    [32m√[39m [2mapplies tax to the running total[22m
+    [32m√[39m [2mthrows for a missing item (15 ms)[22m
+  slugify
+    [32m√[39m [2mnormalizes mixed punctuation (1 ms)[22m
+
+[1mTest Suites: [22m[1m[32m1 passed[39m[22m, 1 total
+[1mTests:       [22m[1m[32m4 passed[39m[22m, 4 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.432 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m

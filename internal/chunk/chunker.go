@@ -1,45 +1,37 @@
 package chunk
 
-import (
-	"io"
-
-	"github.com/qompack/qompack/internal/core"
-)
+import "io"
 
 // Chunker splits byte streams into content-defined Chunks (00-ARCHITECTURE.md §5.5).
+//
+// Implementations returned by New are immutable and safe for concurrent use: both methods derive
+// everything they need from their arguments and the frozen gear table, and neither writes to the
+// Chunker.
 type Chunker interface {
-	// Split is allocation-free apart from the returned slice, and safe for concurrent use.
+	// Split returns the chunks of data, in order. It is allocation-free apart from the returned
+	// slice and a single reused hasher, and safe for concurrent use.
 	Split(data []byte) []Chunk
 	// SplitStream streams the same boundaries Split would find, reading from r and calling fn once
-	// per chunk with the chunk's metadata and its bytes.
+	// per chunk with the chunk's metadata and its bytes. The bytes alias an internal buffer and are
+	// valid only for the duration of the call.
 	SplitStream(r io.Reader, fn func(Chunk, []byte) error) error
 }
 
-// New returns a Chunker configured by p. Constructing always succeeds, so wave-0 composition
-// roots can wire a chunk.Chunker today, but every operation is a stub until SP-04 lands the real
-// FastCDC implementation (00-ARCHITECTURE.md §5.5): Split — which has no error return — always
-// returns nil, and SplitStream always reports core.ErrNotImplemented.
+// ParamsReporter is implemented by Chunkers that can report the parameters they are actually
+// running with. New's Chunker implements it.
 //
-// New has no error return, matching every other "computational" constructor in this codebase
-// (symbols.New, grammar.New, redact.New): building a Chunker performs no I/O by itself, so there
-// is nothing for a stub constructor to fail at. New deliberately does not call p.Validate: SP-04's
-// real constructor is expected to, but a stub that rejected an unvalidated Params would make
-// composition roots fail before SP-04 exists to fix it, contradicting Rule 1 of the stub pattern
-// ("constructing must work").
-func New(p Params) Chunker {
-	return stubChunker{}
-}
-
-// stubChunker is the SP-01 placeholder Chunker. SP-04 owns the real FastCDC implementation.
-type stubChunker struct{}
-
-// Split always returns nil. Split has no error return (00-ARCHITECTURE.md §5.5), so nil — Rule 1's
-// documented zero value for a no-error-return stub method — is the only honest answer until SP-04
-// lands: a stub Chunker has performed no boundary detection at all, and any non-nil result would
-// be exactly the "plausible-looking fake data" Rule 2 forbids.
-func (stubChunker) Split(data []byte) []Chunk { return nil }
-
-// SplitStream always reports core.ErrNotImplemented.
-func (stubChunker) SplitStream(r io.Reader, fn func(Chunk, []byte) error) error {
-	return core.ErrNotImplemented
+// It is a separate, additive interface rather than a third method on Chunker because it answers a
+// different kind of question. Chunker is the seam every consumer codes against and every fake in
+// the tree has to satisfy (see chunktest.RunChunkerSuite); adding a method to it would break every
+// such implementation for the benefit of the handful of callers — `qompack doctor`, the store's
+// index sizing, this package's own tests — that need to know what New made of their config after
+// Params.Normalized clamped it. Those callers type-assert:
+//
+//	if reporter, ok := c.(chunk.ParamsReporter); ok {
+//		effective := reporter.Params()
+//	}
+type ParamsReporter interface {
+	// Params returns the effective, post-normalization parameters. They may differ from the Params
+	// New was called with; see Params.Normalized for exactly how and why.
+	Params() Params
 }

@@ -1,0 +1,39 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host go.dev:443 was resolved.
+* IPv6: 2001:4860:4802:36::15, 2001:4860:4802:32::15, 2001:4860:4802:34::15, 2001:4860:4802:38::15
+* IPv4: 216.239.34.21, 216.239.32.21, 216.239.38.21, 216.239.36.21
+*   Trying [2001:4860:4802:36::15]:443...
+* connect to 2001:4860:4802:36::15 port 443 from :: port 58097 failed: Network unreachable
+*   Trying [2001:4860:4802:32::15]:443...
+* connect to 2001:4860:4802:32::15 port 443 from :: port 58100 failed: Network unreachable
+*   Trying [2001:4860:4802:34::15]:443...
+* connect to 2001:4860:4802:34::15 port 443 from :: port 58101 failed: Network unreachable
+*   Trying [2001:4860:4802:38::15]:443...
+* connect to 2001:4860:4802:38::15 port 443 from :: port 58102 failed: Network unreachable
+*   Trying 216.239.34.21:443...
+* schannel: disabled automatic use of client certificate
+* Connected to go.dev (216.239.34.21) port 443
+* using HTTP/1.x
+> GET /robots.txt HTTP/1.1
+> Host: go.dev
+> User-Agent: curl/8.10.1
+> Accept: */*
+>
+* Request completely sent off
+< HTTP/1.1 200 OK
+< content-type: text/plain; charset=utf-8
+< vary: Accept-Encoding
+< accept-ranges: bytes
+< content-security-policy: connect-src 'self' www.google-analytics.com stats.g.doubleclick.net ; default-src 'self' ; font-src 'self' fonts.googleapis.com fonts.gstatic.com data: ; frame-ancestors 'self' ; frame-src 'self' www.google.com feedback.googleusercontent.com www.googletagmanager.com scone-pa.clients6.google.com www.youtube.com player.vimeo.com ; img-src 'self' www.google.com www.google-analytics.com ssl.gstatic.com www.gstatic.com gstatic.com data: * ; object-src 'none' ; script-src 'self' 'sha256-n6OdwTrm52KqKm6aHYgD0TFUdMgww4a0GQlIAVrMzck=' 'sha256-4ryYrf7Y5daLOBv0CpYtyBIcJPZkRD2eBPdfqsN3r1M=' 'sha256-sVKX08+SqOmnWhiySYk3xC7RDUgKyAkmbXV2GWts4fo=' www.google.com apis.google.com www.gstatic.com gstatic.com support.google.com www.googletagmanager.com www.google-analytics.com ssl.google-analytics.com tagmanager.google.com ; style-src 'self' 'unsafe-inline' fonts.googleapis.com feedback.googleusercontent.com www.gstatic.com gstatic.com tagmanager.google.com ;
+< strict-transport-security: max-age=31536000; includeSubDomains; preload
+< x-cloud-trace-context: d27c47415bcc286c35320d82be25fd77
+< date: <ts>
+< server: Google Frontend
+< Content-Length: 23
+<
+{ [23 bytes data]
+100    23  100    23    0     0    136      0 --:--:-- --:--:-- --:--:--   137User-agent: *
+Allow: /
+
+* Connection #0 to host go.dev left intact

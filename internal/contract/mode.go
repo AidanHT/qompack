@@ -31,15 +31,32 @@ func (m Mode) String() string {
 	return "unknown"
 }
 
-// parseMode is String's inverse, used only when reading state/contract.json back. It reports false
-// for anything it does not recognize — including "unknown" — so a corrupt or future-format state
-// file falls back to ModeFull (§12.3: everything else fails toward "do nothing") rather than
-// leaving the session in a mode nobody chose.
-func parseMode(s string) (Mode, bool) {
+// ParseMode is String's inverse, used when reading state/contract.json back (this package) or the
+// SP-05 hot-path state record (internal/ipc, which maps runtime.mode's own separate vocabulary
+// through it where the two happen to share a spelling). It reports false for anything it does not
+// recognize — including "unknown" — so a corrupt or future-format state file falls back to ModeFull
+// (§12.3: everything else fails toward "do nothing") rather than leaving the session in a mode
+// nobody chose.
+func ParseMode(s string) (Mode, bool) {
 	for _, m := range []Mode{ModeFull, ModeDegradedPassive, ModeOff} {
 		if m.String() == s {
 			return m, true
 		}
 	}
 	return ModeFull, false
+}
+
+// MayAct reports whether m permits Qompack to act on the session: inject additionalContext, emit
+// customInstructions, let the scheduler initiate a checkpoint, or produce a drop report (§12.1).
+// Only ModeFull may act — ModeDegradedPassive keeps L0/L1 recording but turns every acting path
+// off, and ModeOff is the operator's own instruction to do nothing at all.
+func (m Mode) MayAct() bool {
+	return m != ModeDegradedPassive && m != ModeOff
+}
+
+// MayRecord reports whether m permits Qompack to observe and record at all: chunk, store, update
+// sketches/DAG, capture verbatim (§12.1). ModeDegradedPassive still records — that is the entire
+// point of "passive recording" — so only ModeOff, the operator's explicit off switch, refuses it.
+func (m Mode) MayRecord() bool {
+	return m != ModeOff
 }

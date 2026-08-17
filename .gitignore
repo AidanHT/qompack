@@ -19,6 +19,11 @@ coverage.*
 /testdata/sessions/recorded/*
 !/testdata/sessions/recorded/.gitkeep
 
+# pgregory.net/rapid writes a *.fail replay file here when a property test fails, next to the
+# package that failed. It is a failure artifact, not a fixture: committing one would freeze a
+# counterexample into the tree where it reads like a seed corpus.
+**/testdata/rapid/
+
 # Tooling
 .idea/
 .vscode/*

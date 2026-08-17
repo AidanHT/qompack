@@ -87,9 +87,10 @@ jobs:
       - run: go run ./tools/devtool build-all
 
   bench-gate:
-    # NOT a required check until the end of wave 1 (§8): the hot-path harness is SP-05's.
-    # SP-05 removes this continue-on-error when test/bench/hotpath lands.
-    continue-on-error: true
+    # Required from the end of wave 1 onward (00-ARCH §8): test/bench/hotpath has landed (SP-05),
+    # so this is no longer continue-on-error. Marking it a required check on develop/main is a
+    # GitHub branch-protection setting, not a file in this repo — see task-7-report.md for the
+    # controller note.
     strategy:
       fail-fast: false
       matrix:
@@ -100,7 +101,9 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.x', cache: true }
-      - run: go run ./tools/devtool bench-hotpath --iterations 2000 --json bench.json
+      - run: go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
+      - uses: actions/upload-artifact@v4
+        with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
 
   replay-gate:
     # A REQUIRED check from the end of wave 1 (§8): SP-02 landed test/replay, so the

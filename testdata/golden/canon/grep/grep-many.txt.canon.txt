@@ -1,0 +1,653 @@
+internal/analyzer/analyzertest/behaviour.go:41:func legalBlocks() []analyzer.Block {
+internal/analyzer/analyzertest/behaviour.go:51:func legalDelta() map[string]float64 {
+internal/analyzer/analyzertest/behaviour.go:62:func coveringContinuation() analyzer.Continuation {
+internal/analyzer/analyzertest/behaviour.go:72:func emptyContinuation() analyzer.Continuation {
+internal/analyzer/analyzertest/behaviour.go:78:func blockIDs(blocks []analyzer.Block) []string {
+internal/analyzer/analyzertest/behaviour.go:87:func nodeIDs[T ~string](ids []T) []string {
+internal/analyzer/analyzertest/behaviour.go:96:func tokensOf(blocks []analyzer.Block, ids []string) core.Tokens {
+internal/analyzer/analyzertest/behaviour.go:110:func runPreconditionPosCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:125:func runGuardOrderCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:139:func runShipOrderGateCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:155:func runPosBoundaryCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:165:func mustSelector(t *testing.T, factory func(t *testing.T) NewSelectorFunc, blocks []analyzer.Block) analyzer.Selector {
+internal/analyzer/analyzertest/behaviour.go:176:func runBudgetCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:192:func runPartitionCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:209:func runNothingBeforePCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:228:func runZeroBudgetCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:243:func runSelectionDeterminismCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:258:func runItersCase(t *testing.T, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/behaviour.go:270:func runScoreRangeCase(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) {
+internal/analyzer/analyzertest/behaviour.go:288:func runScoreDeterminismCase(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) {
+internal/analyzer/analyzertest/behaviour.go:302:func runScoreEmptyCase(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) {
+internal/analyzer/analyzertest/behaviour.go:314:func runScoreCoverageCase(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) {
+internal/analyzer/analyzertest/behaviour.go:336:func runRedundancyEmptyCase(t *testing.T, factory func(t *testing.T) RedundancyFixture) {
+internal/analyzer/analyzertest/behaviour.go:349:func runRedundancySelfCase(t *testing.T, factory func(t *testing.T) RedundancyFixture) {
+internal/analyzer/analyzertest/behaviour.go:368:func runRedundancyDeterminismCase(t *testing.T, factory func(t *testing.T) RedundancyFixture) {
+internal/analyzer/analyzertest/suite.go:67:func RunSelectorSuite(t *testing.T, name string, factory func(t *testing.T) NewSelectorFunc) {
+internal/analyzer/analyzertest/suite.go:113:func RunDeltaScorerSuite(t *testing.T, name string, factory func(t *testing.T) analyzer.DeltaScorer) {
+internal/analyzer/analyzertest/suite.go:145:func RunRedundancySuite(t *testing.T, name string, factory func(t *testing.T) RedundancyFixture) {
+internal/analyzer/analyzertest/suite.go:170:func requireKnownError(t *testing.T, err error) {
+internal/analyzer/analyzertest/suite.go:189:func isStubSelector(t *testing.T, factory func(t *testing.T) NewSelectorFunc) bool {
+internal/analyzer/analyzertest/suite.go:201:func skipIfStubSelector(t *testing.T, factory func(t *testing.T) NewSelectorFunc) bool {
+internal/analyzer/analyzertest/suite.go:213:func isStubScorer(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) bool {
+internal/analyzer/analyzertest/suite.go:221:func skipIfStubScorer(t *testing.T, factory func(t *testing.T) analyzer.DeltaScorer) bool {
+internal/analyzer/analyzertest/suite.go:231:func isStubDetect(t *testing.T, factory func(t *testing.T) RedundancyFixture) bool {
+internal/analyzer/analyzertest/suite.go:240:func skipIfStubDetect(t *testing.T, factory func(t *testing.T) RedundancyFixture) bool {
+internal/analyzer/analyzertest/suite_test.go:17:func newSelectorFunc(t *testing.T) analyzertest.NewSelectorFunc {
+internal/analyzer/analyzertest/suite_test.go:33:func redundancyFixture(t *testing.T) analyzertest.RedundancyFixture {
+internal/analyzer/analyzertest/suite_test.go:53:func TestAnalyzerSuite_ShapePassesAgainstStub(t *testing.T) {
+internal/analyzer/delta.go:26:func NewCheapScorer(s store.Store) DeltaScorer { return stubScorer{} }
+internal/analyzer/delta.go:35:func (stubScorer) Mode() DeltaMode { return DeltaCheap }
+internal/analyzer/delta.go:38:func (stubScorer) Score(ctx context.Context, blocks []Block, continuation Continuation) (map[dag.NodeID]float64, error) {
+internal/analyzer/redundancy.go:17:func DetectRedundancy(ctx context.Context, s store.Store, sess core.SessionID) (RedundancyReport, error) {
+internal/analyzer/selector.go:42:func NewSelector(p int, blocks []Block, slice dag.Slice, delta map[dag.NodeID]float64,
+internal/analyzer/selector.go:66:func (s stubSelector) P() int { return s.p }
+internal/analyzer/selector.go:69:func (stubSelector) Select(ctx context.Context, budget core.Tokens) (Selection, error) {
+internal/analyzer/selector_test.go:31:func TestNewSelector_RefusesABlockBeforeP(t *testing.T) {
+internal/analyzer/selector_test.go:47:func TestNewSelector_PosCheckRunsBeforeTheShipOrderCheck(t *testing.T) {
+internal/analyzer/selector_test.go:62:func TestNewSelector_ShipOrderGateDecidesTheLegalCandidateSet(t *testing.T) {
+internal/analyzer/selector_test.go:85:func TestNewSelector_PosEqualToPIsLegal(t *testing.T) {
+internal/analyzer/selector_test.go:95:func TestNewSelector_EmptyCandidateSetStillConsultsTheShipOrderGate(t *testing.T) {
+internal/analyzer/selector_test.go:110:func TestStubSelector_SelectIsNotImplemented(t *testing.T) {
+internal/canon/apply.go:25:func splitCapped(in []byte) (head, tail []byte) {
+internal/canon/apply.go:40:func sortCandidates(cands []candidate) {
+internal/canon/apply.go:67:func acceptCandidates(cands []candidate, gate map[Class]bool) []candidate {
+internal/canon/apply.go:89:func applyMatches(in []byte, ms []candidate, keep bool) ([]byte, []Delta) {
+internal/canon/apply.go:114:func compose(in []byte, cands []candidate, o Options) (canonical []byte, deltas []Delta, accepted []candidate) {
+internal/canon/apply.go:129:func appliedNames(accepted []candidate) []string {
+internal/canon/apply.go:148:func reduced(inLen, outLen int) float64 {
+internal/canon/apply.go:162:func canonicalizeVia(m Matcher, name string, in []byte, o Options) (Result, error) {
+internal/canon/bench_test.go:22:func benchInput(b *testing.B, rel string, n int) []byte {
+internal/canon/bench_test.go:41:func BenchmarkRun_Bash100KB(b *testing.B) {
+internal/canon/bench_test.go:57:func BenchmarkRun_GoTest(b *testing.B) {
+internal/canon/bench_test.go:74:func BenchmarkRun_KeepDeltas(b *testing.B) {
+internal/canon/bench_test.go:91:func BenchmarkRestore_100KB(b *testing.B) {
+internal/canon/builtins.go:34:func builtins() []Canonicalizer {
+internal/canon/canontest/behaviour.go:29:func runIdempotenceCase(t *testing.T, factory func(t *testing.T) canon.Registry) {
+internal/canon/canontest/behaviour.go:45:func runRestoreRoundTripCase(t *testing.T, factory func(t *testing.T) canon.Registry) {
+internal/canon/canontest/behaviour.go:60:func runNeverGrowsCase(t *testing.T, factory func(t *testing.T) canon.Registry) {
+internal/canon/canontest/behaviour.go:77:func (c fakeRegistrationOrderCanonicalizer) Name() string                   { return c.name }
+internal/canon/canontest/behaviour.go:78:func (c fakeRegistrationOrderCanonicalizer) Applies(tool, path string) bool { return true }
+internal/canon/canontest/behaviour.go:79:func (c fakeRegistrationOrderCanonicalizer) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/canontest/behaviour.go:95:func runRegistrationOrderPreservedCase(t *testing.T, factory func(t *testing.T) canon.Registry) {
+internal/canon/canontest/behaviour.go:116:func requireInOrderSubsequence(t *testing.T, want, got []string, label string) {
+internal/canon/canontest/suite.go:25:func (shapeProbeCanonicalizer) Name() string                   { return "shape-probe" }
+internal/canon/canontest/suite.go:26:func (shapeProbeCanonicalizer) Applies(tool, path string) bool { return true }
+internal/canon/canontest/suite.go:27:func (shapeProbeCanonicalizer) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/canontest/suite.go:37:func RunRegistrySuite(t *testing.T, name string, factory func(t *testing.T) canon.Registry) {
+internal/canon/canontest/suite.go:72:func requireKnownError(t *testing.T, err error) {
+internal/canon/canontest/suite.go:89:func isStub(t *testing.T, factory func(t *testing.T) canon.Registry) bool {
+internal/canon/canontest/suite.go:97:func skipIfStub(t *testing.T, factory func(t *testing.T) canon.Registry) bool {
+internal/canon/canontest/suite_test.go:17:func (fakeStubRegistry) Register(c canon.Canonicalizer) error        { return core.ErrNotImplemented }
+internal/canon/canontest/suite_test.go:18:func (fakeStubRegistry) For(tool, path string) []canon.Canonicalizer { return nil }
+internal/canon/canontest/suite_test.go:19:func (fakeStubRegistry) Run(tool, path string, in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/canontest/suite_test.go:22:func (fakeStubRegistry) Names() []string { return nil }
+internal/canon/canontest/suite_test.go:27:func TestRunRegistrySuite_StubIsSkipped(t *testing.T) {
+internal/canon/canontest/suite_test.go:36:func TestRunRegistrySuite_AgainstQompackNewRegistryStub(t *testing.T) {
+internal/canon/canontest/suite_test.go:44:func TestRunRegistrySuite_AgainstQompackDefaultStub(t *testing.T) {
+internal/canon/classes.go:44:func KnownClasses() []Class {
+internal/canon/classes.go:53:func ParseClass(s string) (Class, bool) {
+internal/canon/classes.go:69:func gateSet(strip []Class) map[Class]bool {
+internal/canon/classes.go:93:func OptionsFrom(cfg config.CanonicalizeCfg, keepDeltas bool) Options {
+internal/canon/classes_test.go:13:func TestKnownClasses_RegistrationOrder(t *testing.T) {
+internal/canon/classes_test.go:30:func TestKnownClassesCoverConfigDefaults(t *testing.T) {
+internal/canon/classes_test.go:43:func TestParseClass_Table(t *testing.T) {
+internal/canon/classes_test.go:73:func TestOptionsFrom_MapsAppendixC(t *testing.T) {
+internal/canon/classes_test.go:98:func TestOptionsFrom_SkipsUnknownStripValues(t *testing.T) {
+internal/canon/classes_test.go:112:func TestOptionsFrom_StripIsNonNilWhenEmpty(t *testing.T) {
+internal/canon/dedup.go:20:func (s Strategy) String() string {
+internal/canon/dedup.go:53:func NearDup(a, b sketch.Signature, threshold float64) (bool, float64) {
+internal/canon/dedup.go:75:func Decide(jaccard float64, canonLen, priorLen int, threshold float64) DedupDecision {
+internal/canon/dedup_test.go:17:func threshold() float64 { return config.Defaults().Store.Canonicalize.MinHash.NearDupThreshold }
+internal/canon/dedup_test.go:20:func TestDecide_Table(t *testing.T) {
+internal/canon/dedup_test.go:62:func TestDecide_ThresholdIsInclusive(t *testing.T) {
+internal/canon/dedup_test.go:71:func TestStrategy_String(t *testing.T) {
+internal/canon/dedup_test.go:83:func TestNearDup_DelegatesToSignature(t *testing.T) {
+internal/canon/dedup_test.go:111:func TestDecide_GoldenFixture(t *testing.T) {
+internal/canon/default.go:19:func Default(cfg config.CanonicalizeCfg) Registry {
+internal/canon/default_test.go:23:func TestDefault_Names(t *testing.T) {
+internal/canon/default_test.go:36:func TestDefault_EveryBuiltinIsMatcher(t *testing.T) {
+internal/canon/default_test.go:57:func TestDefault_DisabledKeepsCRLF(t *testing.T) {
+internal/canon/default_test.go:78:func TestDefault_ForSelectsPerToolCanonicalizers(t *testing.T) {
+internal/canon/default_test.go:110:func TestDefault_AppliesIsCaseInsensitive(t *testing.T) {
+internal/canon/default_test.go:122:func namesOf(cs []canon.Canonicalizer) []string {
+internal/canon/default_test.go:134:func TestRegistrySuite_AgainstDefault(t *testing.T) {
+internal/canon/fuzz_test.go:22:func FuzzRestore(f *testing.F) {
+internal/canon/fuzz_test.go:49:func buildDeltas(n, off, length int, original string, canonLen int) []canon.Delta {
+internal/canon/fuzz_test.go:69:func totalDeltaLen(deltas []canon.Delta) int {
+internal/canon/generic.go:98:func appendRuleMatches(dst []Match, in []byte, rules []reRule) []Match {
+internal/canon/generic.go:121:func forEachLine(in []byte, fn func(start, end int)) {
+internal/canon/generic.go:147:func newCRLF() crlfCanon { return crlfCanon{} }
+internal/canon/generic.go:150:func (crlfCanon) Name() string { return "crlf" }
+internal/canon/generic.go:153:func (crlfCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:166:func (crlfCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:187:func (c crlfCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:229:func newANSI() ansiCanon { return ansiCanon{} }
+internal/canon/generic.go:232:func (ansiCanon) Name() string { return "ansi" }
+internal/canon/generic.go:235:func (ansiCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:238:func (ansiCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:243:func (c ansiCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:287:func newTimestamps() timestampsCanon { return timestampsCanon{} }
+internal/canon/generic.go:290:func (timestampsCanon) Name() string { return "timestamps" }
+internal/canon/generic.go:293:func (timestampsCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:296:func (timestampsCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:301:func (c timestampsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:343:func newDurations() durationsCanon { return durationsCanon{} }
+internal/canon/generic.go:346:func (durationsCanon) Name() string { return "durations" }
+internal/canon/generic.go:349:func (durationsCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:352:func (durationsCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:357:func (c durationsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:392:func newPIDs() pidsCanon { return pidsCanon{} }
+internal/canon/generic.go:395:func (pidsCanon) Name() string { return "pids" }
+internal/canon/generic.go:398:func (pidsCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:401:func (pidsCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:406:func (c pidsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:445:func newAddresses() addressesCanon { return addressesCanon{} }
+internal/canon/generic.go:448:func (addressesCanon) Name() string { return "addresses" }
+internal/canon/generic.go:451:func (addressesCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:454:func (addressesCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:459:func (c addressesCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/generic.go:505:func newTmpPaths() tmpPathsCanon { return tmpPathsCanon{} }
+internal/canon/generic.go:509:func (tmpPathsCanon) Name() string { return "tmpPaths" }
+internal/canon/generic.go:512:func (tmpPathsCanon) Applies(_, _ string) bool { return true }
+internal/canon/generic.go:515:func (tmpPathsCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/generic.go:520:func (c tmpPathsCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/golden_test.go:40:func loadCorpus(t *testing.T) []corpusFile {
+internal/canon/golden_test.go:79:func corpusOptions() canon.Options {
+internal/canon/golden_test.go:87:func TestGoldenCorpus_AllFiles(t *testing.T) {
+internal/canon/golden_test.go:107:func TestCorpus_StructuralProperties(t *testing.T) {
+internal/canon/golden_test.go:137:func TestCorpus_AppliedIsDeterministic(t *testing.T) {
+internal/canon/golden_test.go:161:func TestMatcherClassAssigned(t *testing.T) {
+internal/canon/golden_test.go:194:func FuzzCanonicalizeRun(f *testing.F) {
+internal/canon/golden_test.go:233:func fuzzSeeds(f *testing.F) []fuzzSeed {
+internal/canon/match.go:29:func (m Match) End() int { return m.Offset + m.Len }
+internal/canon/match.go:50:func MatchesOf(c Canonicalizer, in []byte, o Options) ([]Match, error) {
+internal/canon/registry.go:34:func NewRegistry() Registry { return &registry{} }
+internal/canon/registry.go:51:func (r *registry) Register(c Canonicalizer) error {
+internal/canon/registry.go:71:func (r *registry) For(tool, path string) []Canonicalizer {
+internal/canon/registry.go:85:func (r *registry) Names() []string {
+internal/canon/registry.go:109:func (r *registry) Run(tool, path string, in []byte, o Options) (Result, error) {
+internal/canon/registry.go:135:func (r *registry) collect(tool, path string, head []byte, o Options) []candidate {
+internal/canon/registry.go:161:func validateStrip(strip []Class) error {
+internal/canon/registry.go:171:func classNames() []string {
+internal/canon/registry_test.go:14:func allOn() canon.Options { return canon.Options{KeepDeltas: true} }
+internal/canon/registry_test.go:17:func TestRegistry_RegisterDuplicateName(t *testing.T) {
+internal/canon/registry_test.go:32:func TestRegistry_RegisterNil(t *testing.T) {
+internal/canon/registry_test.go:48:func TestRegistry_AcceptsNonMatcher(t *testing.T) {
+internal/canon/registry_test.go:63:func TestMatchesOf_ReportsErrNotMatcher(t *testing.T) {
+internal/canon/registry_test.go:77:func TestRegistry_ForDeterministicOrder(t *testing.T) {
+internal/canon/registry_test.go:105:func TestRun_UnknownStripClass(t *testing.T) {
+internal/canon/registry_test.go:117:func TestRun_EmptyInput(t *testing.T) {
+internal/canon/registry_test.go:133:func TestOverlapResolution_LongerAtSameOffsetWins(t *testing.T) {
+internal/canon/registry_test.go:149:func TestOverlapResolution_EarlierOffsetWins(t *testing.T) {
+internal/canon/registry_test.go:165:func TestOverlapResolution_RankBreaksTies(t *testing.T) {
+internal/canon/registry_test.go:182:func TestNonGrowingGuard_DropsGrowingMatch(t *testing.T) {
+internal/canon/registry_test.go:199:func TestAcceptLoop_DropsZeroLengthAndZeroClass(t *testing.T) {
+internal/canon/registry_test.go:216:func TestRun_StripGatesOptionalClasses(t *testing.T) {
+internal/canon/registry_test.go:244:func TestApplied_DeduplicatedRegistrationOrder(t *testing.T) {
+internal/canon/registry_test.go:262:func TestReduced_Value(t *testing.T) {
+internal/canon/registry_test.go:284:func TestSignature_OnlyWhenEnabled(t *testing.T) {
+internal/canon/registry_test.go:309:func TestRun_LargeInputTailIsVerbatim(t *testing.T) {
+internal/canon/registry_test.go:334:func TestRun_DeltasAreAscendingAndDisjoint(t *testing.T) {
+internal/canon/restore.go:22:func Restore(canonical []byte, deltas []Delta) ([]byte, error) {
+internal/canon/restore.go:61:func LineEndingClass(deltas []Delta, canonicalNewlines int) string {
+internal/canon/restore_test.go:13:func TestRestore_NoDeltas(t *testing.T) {
+internal/canon/restore_test.go:27:func TestRestore_RoundTrip(t *testing.T) {
+internal/canon/restore_test.go:44:func TestRestore_AdjacentDeltas(t *testing.T) {
+internal/canon/restore_test.go:57:func TestRestore_ZeroLengthDelta(t *testing.T) {
+internal/canon/restore_test.go:70:func TestRestore_Errors(t *testing.T) {
+internal/canon/restore_test.go:103:func TestLineEndingClass_Table(t *testing.T) {
+internal/canon/testdouble_test.go:18:func (f fakeCanon) Name() string { return f.name }
+internal/canon/testdouble_test.go:21:func (f fakeCanon) Applies(tool, path string) bool {
+internal/canon/testdouble_test.go:31:func (f fakeCanon) Matches(in []byte, o canon.Options) []canon.Match {
+internal/canon/testdouble_test.go:40:func (f fakeCanon) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/testdouble_test.go:50:func (p plainCanon) Name() string { return p.name }
+internal/canon/testdouble_test.go:53:func (p plainCanon) Applies(tool, path string) bool { return true }
+internal/canon/testdouble_test.go:56:func (p plainCanon) Canonicalize(in []byte, o canon.Options) (canon.Result, error) {
+internal/canon/testdouble_test.go:61:func mk(off, length int, token string, class canon.Class) canon.Match {
+internal/canon/tools.go:42:func toolIn(tool string, aliases []string) bool {
+internal/canon/tools.go:78:func newBash() bashCanon { return bashCanon{} }
+internal/canon/tools.go:81:func (bashCanon) Name() string { return "bash" }
+internal/canon/tools.go:85:func (bashCanon) Applies(tool, _ string) bool { return toolIn(tool, shellTools) }
+internal/canon/tools.go:88:func (bashCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:115:func bashProgressMatches(in []byte) []Match {
+internal/canon/tools.go:134:func (c bashCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:206:func newTestRunner() testRunnerCanon { return testRunnerCanon{} }
+internal/canon/tools.go:209:func (testRunnerCanon) Name() string { return "testrunner" }
+internal/canon/tools.go:212:func (testRunnerCanon) Applies(tool, _ string) bool { return toolIn(tool, shellTools) }
+internal/canon/tools.go:215:func (testRunnerCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:220:func (c testRunnerCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:232:func newGrep() grepCanon { return grepCanon{} }
+internal/canon/tools.go:235:func (grepCanon) Name() string { return "grep" }
+internal/canon/tools.go:238:func (grepCanon) Applies(tool, _ string) bool { return toolIn(tool, grepTools) }
+internal/canon/tools.go:241:func (grepCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:271:func grepPrefixMatches(in []byte) []Match {
+internal/canon/tools.go:294:func isASCIILetter(b byte) bool {
+internal/canon/tools.go:299:func isSep(b byte) bool { return b == '/' || b == '\\' }
+internal/canon/tools.go:303:func appendSeparatorMatches(dst []Match, in []byte, from, to int) []Match {
+internal/canon/tools.go:321:func pathLinePrefixEnd(in []byte, from, end int) int {
+internal/canon/tools.go:338:func (c grepCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:356:func newGlob() globCanon { return globCanon{} }
+internal/canon/tools.go:359:func (globCanon) Name() string { return "glob" }
+internal/canon/tools.go:362:func (globCanon) Applies(tool, _ string) bool { return toolIn(tool, globTools) }
+internal/canon/tools.go:366:func (globCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:371:func (c globCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:398:func newFileRead() fileReadCanon { return fileReadCanon{} }
+internal/canon/tools.go:401:func (fileReadCanon) Name() string { return "fileread" }
+internal/canon/tools.go:404:func (fileReadCanon) Applies(tool, _ string) bool { return toolIn(tool, fileTools) }
+internal/canon/tools.go:415:func (fileReadCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:428:func (c fileReadCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:477:func newWebFetch() webFetchCanon { return webFetchCanon{} }
+internal/canon/tools.go:480:func (webFetchCanon) Name() string { return "webfetch" }
+internal/canon/tools.go:483:func (webFetchCanon) Applies(tool, _ string) bool { return toolIn(tool, webTools) }
+internal/canon/tools.go:486:func (webFetchCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:491:func (c webFetchCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/canon/tools.go:535:func newGit() gitCanon { return gitCanon{} }
+internal/canon/tools.go:538:func (gitCanon) Name() string { return "git" }
+internal/canon/tools.go:543:func (gitCanon) Applies(tool, _ string) bool { return toolIn(tool, gitTools) }
+internal/canon/tools.go:546:func (gitCanon) Matches(in []byte, _ Options) []Match {
+internal/canon/tools.go:551:func (c gitCanon) Canonicalize(in []byte, o Options) (Result, error) {
+internal/checkpoint/checkpoint.go:58:func OpenWriter(root string, cfg config.Config, log logging.Logger, m obs.Registry, clk core.Clock) (Writer, error) {
+internal/checkpoint/checkpoint.go:64:func OpenReader(root string, log logging.Logger, m obs.Registry) (Reader, error) {
+internal/checkpoint/checkpoint.go:74:func (stubWriter) Begin(ctx context.Context, s core.SessionID, parent core.CheckpointSeq, src SourceSet) (*Draft, error) {
+internal/checkpoint/checkpoint.go:79:func (stubWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentID) (core.TurnIndex, error) {
+internal/checkpoint/checkpoint.go:84:func (stubWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens) (Ref, error) {
+internal/checkpoint/checkpoint.go:89:func (stubWriter) Abort(d *Draft) error { return core.ErrNotImplemented }
+internal/checkpoint/checkpoint.go:95:func (stubReader) Latest(ctx context.Context, s core.SessionID) (Checkpoint, Ref, error) {
+internal/checkpoint/checkpoint.go:100:func (stubReader) Get(ctx context.Context, seq core.CheckpointSeq) (Checkpoint, Ref, error) {
+internal/checkpoint/checkpoint.go:105:func (stubReader) List(ctx context.Context) ([]Ref, error) { return nil, core.ErrNotImplemented }
+internal/checkpoint/checkpoint.go:108:func (stubReader) Chain(ctx context.Context, seq core.CheckpointSeq) ([]Checkpoint, error) {
+internal/checkpoint/checkpoint.go:113:func (stubReader) Verify(ctx context.Context) ([]core.CheckpointSeq, error) {
+internal/checkpoint/checkpointtest/behaviour.go:42:func runWriterRoundTripCase(t *testing.T, factory func(t *testing.T) WriterFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:70:func runAdvanceDPIGuardCase(t *testing.T, factory func(t *testing.T) WriterFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:105:func runAbortCase(t *testing.T, factory func(t *testing.T) WriterFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:121:func runReaderSchemaRoundTripCase(t *testing.T, factory func(t *testing.T) ReaderFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:152:func runReaderListAndChainCase(t *testing.T, factory func(t *testing.T) ReaderFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:185:func runReaderVerifyCase(t *testing.T, factory func(t *testing.T) ReaderFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:196:func runReaderAbsentSeqCase(t *testing.T, factory func(t *testing.T) ReaderFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:209:func runReaderNoCodeBlocksCase(t *testing.T, factory func(t *testing.T) ReaderFixture) {
+internal/checkpoint/checkpointtest/behaviour.go:229:func runTruncateNoOpCase(t *testing.T, factory func(t *testing.T) TruncateFunc) {
+internal/checkpoint/checkpointtest/behaviour.go:241:func runTruncateTier1NeverCase(t *testing.T, factory func(t *testing.T) TruncateFunc) {
+internal/checkpoint/checkpointtest/behaviour.go:266:func runTruncateTierOrderCase(t *testing.T, factory func(t *testing.T) TruncateFunc) {
+internal/checkpoint/checkpointtest/behaviour.go:295:func runTruncateMonotoneCase(t *testing.T, factory func(t *testing.T) TruncateFunc) {
+internal/checkpoint/checkpointtest/behaviour.go:315:func runTruncatePurityCase(t *testing.T, factory func(t *testing.T) TruncateFunc) {
+internal/checkpoint/checkpointtest/behaviour.go:331:func unchanged(in, got checkpoint.Checkpoint) bool { return reflect.DeepEqual(in, got) }
+internal/checkpoint/checkpointtest/behaviour.go:335:func tier2Size(c checkpoint.Checkpoint) int {
+internal/checkpoint/checkpointtest/behaviour.go:345:func tier3Size(c checkpoint.Checkpoint) int {
+internal/checkpoint/checkpointtest/behaviour.go:360:func oversizedCheckpoint() checkpoint.Checkpoint {
+internal/checkpoint/checkpointtest/suite.go:79:func RunWriterSuite(t *testing.T, name string, factory func(t *testing.T) WriterFixture) {
+internal/checkpoint/checkpointtest/suite.go:115:func RunReaderSuite(t *testing.T, name string, factory func(t *testing.T) ReaderFixture) {
+internal/checkpoint/checkpointtest/suite.go:161:func RunTruncateSuite(t *testing.T, name string, factory func(t *testing.T) TruncateFunc) {
+internal/checkpoint/checkpointtest/suite.go:199:func requireKnownError(t *testing.T, err error) {
+internal/checkpoint/checkpointtest/suite.go:213:func isStubWriter(t *testing.T, factory func(t *testing.T) WriterFixture) bool {
+internal/checkpoint/checkpointtest/suite.go:222:func skipIfStubWriter(t *testing.T, factory func(t *testing.T) WriterFixture) bool {
+internal/checkpoint/checkpointtest/suite.go:235:func isStubReader(t *testing.T, factory func(t *testing.T) ReaderFixture) bool {
+internal/checkpoint/checkpointtest/suite.go:244:func skipIfStubReader(t *testing.T, factory func(t *testing.T) ReaderFixture) bool {
+internal/checkpoint/checkpointtest/suite.go:262:func isStubTruncate(t *testing.T, factory func(t *testing.T) TruncateFunc) bool {
+internal/checkpoint/checkpointtest/suite.go:272:func skipIfStubTruncate(t *testing.T, factory func(t *testing.T) TruncateFunc) bool {
+internal/checkpoint/checkpointtest/suite_test.go:22:func (fakeStubWriter) Begin(ctx context.Context, s core.SessionID, parent core.CheckpointSeq, src checkpoint.SourceSet) (*checkpoint.Draft, error) {
+internal/checkpoint/checkpointtest/suite_test.go:26:func (fakeStubWriter) Advance(ctx context.Context, d *checkpoint.Draft, segs []core.SegmentID) (core.TurnIndex, error) {
+internal/checkpoint/checkpointtest/suite_test.go:30:func (fakeStubWriter) Finalize(ctx context.Context, d *checkpoint.Draft, budget core.Tokens) (checkpoint.Ref, error) {
+internal/checkpoint/checkpointtest/suite_test.go:34:func (fakeStubWriter) Abort(d *checkpoint.Draft) error { return core.ErrNotImplemented }
+internal/checkpoint/checkpointtest/suite_test.go:39:func (fakeStubReader) Latest(ctx context.Context, s core.SessionID) (checkpoint.Checkpoint, checkpoint.Ref, error) {
+internal/checkpoint/checkpointtest/suite_test.go:43:func (fakeStubReader) Get(ctx context.Context, seq core.CheckpointSeq) (checkpoint.Checkpoint, checkpoint.Ref, error) {
+internal/checkpoint/checkpointtest/suite_test.go:47:func (fakeStubReader) List(ctx context.Context) ([]checkpoint.Ref, error) {
+internal/checkpoint/checkpointtest/suite_test.go:51:func (fakeStubReader) Chain(ctx context.Context, seq core.CheckpointSeq) ([]checkpoint.Checkpoint, error) {
+internal/checkpoint/checkpointtest/suite_test.go:55:func (fakeStubReader) Verify(ctx context.Context) ([]core.CheckpointSeq, error) {
+internal/checkpoint/checkpointtest/suite_test.go:62:func writerFixture(t *testing.T, w checkpoint.Writer) checkpointtest.WriterFixture {
+internal/checkpoint/checkpointtest/suite_test.go:74:func readerFixture(t *testing.T, r checkpoint.Reader) checkpointtest.ReaderFixture {
+internal/checkpoint/checkpointtest/suite_test.go:86:func truncateFunc(t *testing.T) checkpointtest.TruncateFunc {
+internal/checkpoint/checkpointtest/suite_test.go:104:func TestCheckpointSuite_ShapePassesAgainstStub(t *testing.T) {
+internal/checkpoint/fixture_test.go:24:func readCheckpointGolden(t *testing.T, name string) []byte {
+internal/checkpoint/fixture_test.go:37:func TestCheckpoint_DecodesFrozenFixture(t *testing.T) {
+internal/checkpoint/fixture_test.go:121:func TestCheckpoint_RoundTripsFrozenFixture(t *testing.T) {
+internal/checkpoint/fixture_test.go:147:func TestCheckpointGolden_ContainsNoCodeBlocks(t *testing.T) {
+internal/checkpoint/fixture_test.go:157:func TestCheckpointGolden_HasNoTrailingWhitespaceDrift(t *testing.T) {
+internal/checkpoint/focus.go:33:func FocusInstructions(c Checkpoint, ref Ref, o FocusOptions) string { return "" }
+internal/checkpoint/inject.go:48:func StripInjections(s string) string {
+internal/checkpoint/inject_test.go:15:func openTag(seq int) string {
+internal/checkpoint/inject_test.go:21:func TestStripInjections_RemovesWholeSpans(t *testing.T) {
+internal/checkpoint/inject_test.go:55:func TestStripInjections_IsNonGreedy(t *testing.T) {
+internal/checkpoint/inject_test.go:69:func TestStripInjections_MissingCloseTagDropsToEnd(t *testing.T) {
+internal/checkpoint/inject_test.go:90:func TestStripInjections_StrayCloseTagIsOrdinaryText(t *testing.T) {
+internal/checkpoint/inject_test.go:98:func TestStripInjections_RecognizesEverySeqAndVersion(t *testing.T) {
+internal/checkpoint/inject_test.go:108:func TestStripInjections_IsIdempotent(t *testing.T) {
+internal/checkpoint/inject_test.go:126:func TestInjectionTags_AreTheFrozenSpellings(t *testing.T) {
+internal/checkpoint/truncate.go:24:func Truncate(c Checkpoint, budget core.Tokens, t config.TiersCfg, est tokens.Estimator) (Checkpoint, []DropEntry) {
+internal/checkpoint/truncate.go:32:func ValidatePointers(ctx context.Context, root string, p Pointers) ([]DropEntry, error) {
+internal/checkpoint/truncate.go:44:func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
+internal/chunk/chunker.go:29:func New(p Params) Chunker {
+internal/chunk/chunker.go:40:func (stubChunker) Split(data []byte) []Chunk { return nil }
+internal/chunk/chunker.go:43:func (stubChunker) SplitStream(r io.Reader, fn func(Chunk, []byte) error) error {
+internal/chunk/chunktest/behaviour.go:31:func pseudoRandomBytes(seed byte, n int) []byte {
+internal/chunk/chunktest/behaviour.go:49:func runDeterminismCase(t *testing.T, factory func(t *testing.T) chunk.Chunker) {
+internal/chunk/chunktest/behaviour.go:64:func runSizeBoundsCase(t *testing.T, factory func(t *testing.T) chunk.Chunker) {
+internal/chunk/chunktest/behaviour.go:81:func runRootHashFormulaCase(t *testing.T, factory func(t *testing.T) chunk.Chunker) {
+internal/chunk/chunktest/behaviour.go:99:func runBoundaryStabilityCase(t *testing.T, factory func(t *testing.T) chunk.Chunker) {
+internal/chunk/chunktest/suite.go:29:func RunChunkerSuite(t *testing.T, name string, factory func(t *testing.T) chunk.Chunker) {
+internal/chunk/chunktest/suite.go:59:func requireKnownError(t *testing.T, err error) {
+internal/chunk/chunktest/suite.go:78:func isStub(t *testing.T, factory func(t *testing.T) chunk.Chunker) bool {
+internal/chunk/chunktest/suite.go:86:func skipIfStub(t *testing.T, factory func(t *testing.T) chunk.Chunker) bool {
+internal/chunk/chunktest/suite_test.go:17:func (fakeStubChunker) Split(data []byte) []chunk.Chunk { return nil }
+internal/chunk/chunktest/suite_test.go:19:func (fakeStubChunker) SplitStream(r io.Reader, fn func(chunk.Chunk, []byte) error) error {
+internal/chunk/chunktest/suite_test.go:26:func TestRunChunkerSuite_StubIsSkipped(t *testing.T) {
+internal/chunk/chunktest/suite_test.go:35:func TestRunChunkerSuite_AgainstQompackStub(t *testing.T) {
+internal/chunk/params.go:15:func (p Params) Validate() error {
+internal/chunk/params.go:37:func DefaultParams() Params {
+internal/chunk/params_test.go:14:func TestParamsValidate(t *testing.T) {
+internal/chunk/params_test.go:45:func TestDefaultParams_MatchesConfig(t *testing.T) {
+internal/chunk/roothash.go:14:func RootHash(chunks []Chunk) core.Hash {
+internal/chunk/roothash_test.go:15:func TestRootHash_Formula(t *testing.T) {
+internal/chunk/roothash_test.go:33:func TestRootHash_Empty(t *testing.T) {
+internal/chunk/roothash_test.go:39:func TestRootHash_OrderSensitive(t *testing.T) {
+internal/cli/bench_test.go:20:func BenchmarkHookNoop_InProcess(b *testing.B) {
+internal/cli/commands.go:23:func All() []Cmd {
+internal/cli/commands.go:55:func notImplementedRun(name string) func(context.Context, Env, []string, io.Writer, io.Writer) error {
+internal/cli/commands.go:63:func runVersion(_ context.Context, _ Env, _ []string, out, _ io.Writer) error {
+internal/cli/commands.go:70:func loadForCommand(env Env) (config.Config, config.Provenance, error) {
+internal/cli/commands.go:92:func runConfigPrint(_ context.Context, env Env, args []string, out, errw io.Writer) error {
+internal/cli/commands.go:118:func runConfigSchema(_ context.Context, env Env, _ []string, out, _ io.Writer) error {
+internal/cli/config.go:31:func LoadConfigAndReport(env config.Env, log logging.Logger, reg obs.Registry) (config.Config, config.Provenance, error) {
+internal/cli/config.go:62:func persistViolations(projectRoot string, violations []config.Violation, log logging.Logger) {
+internal/cli/config.go:84:func AttachLoudCounter(reg obs.Registry) {
+internal/cli/config_test.go:23:func writeProjectConfig(t *testing.T, root string, body string) string {
+internal/cli/config_test.go:34:func TestConfigPrint_Provenance(t *testing.T) {
+internal/cli/config_test.go:63:func TestConfigSchema_Emits(t *testing.T) {
+internal/cli/config_test.go:84:func TestSetFlagParsing(t *testing.T) {
+internal/cli/config_test.go:110:func TestSetFlagParsing_MalformedIsUsageErrorButHooksStillExitZero(t *testing.T) {
+internal/cli/config_test.go:138:func TestCLI_ConfigViolationsAreLoudAndPersisted(t *testing.T) {
+internal/cli/config_test.go:187:func TestLoud_CounterWiring(t *testing.T) {
+internal/cli/dispatch.go:63:func Dispatch(ctx context.Context, cmds []Cmd, argv []string, env Env, out, errw io.Writer) int {
+internal/cli/dispatch.go:122:func match(cmds []Cmd, args []string) (Cmd, []string, bool) {
+internal/cli/dispatch.go:142:func extractSetFlags(args []string) (rest []string, set map[string]string, err error) {
+internal/cli/dispatch.go:172:func writeUsage(cmds []Cmd, w io.Writer) {
+internal/cli/dispatch_test.go:27:func (f fakeClock) Now() time.Time                  { return f.t }
+internal/cli/dispatch_test.go:28:func (f fakeClock) Since(t time.Time) time.Duration { return f.t.Sub(t) }
+internal/cli/dispatch_test.go:30:func testClock() core.Clock {
+internal/cli/dispatch_test.go:37:func (errReader) Read([]byte) (int, error) { return 0, errors.New("stdin is unreadable") }
+internal/cli/dispatch_test.go:41:func noEnv(string) string { return "" }
+internal/cli/dispatch_test.go:44:func envWith(kv map[string]string) func(string) string {
+internal/cli/dispatch_test.go:59:func argvFor(name string, extra ...string) []string {
+internal/cli/dispatch_test.go:64:func validPayload(t *testing.T, dir string) io.Reader {
+internal/cli/dispatch_test.go:81:func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
+internal/cli/dispatch_test.go:194:func TestDispatch_NonHookErrorExitsOne(t *testing.T) {
+internal/cli/dispatch_test.go:207:func TestDispatch_UnknownCommandExitsTwo(t *testing.T) {
+internal/cli/dispatch_test.go:222:func TestDispatch_PanicRecovered(t *testing.T) {
+internal/cli/hooks.go:49:func runHook(name string, respond hookResponder) func(context.Context, Env, []string, io.Writer, io.Writer) error {
+internal/cli/hooks.go:84:func observe(root string, env Env, name string, ev hookio.Event, n int, truncated bool, readErr error, clock core.Clock) {
+internal/cli/hooks.go:135:func homeDir(env Env) string {
+internal/cli/hooks.go:157:func hookCmds() []Cmd {
+internal/cli/hooks_test.go:25:func TestHooks_WriteHookLog(t *testing.T) {
+internal/cli/hooks_test.go:95:func TestHooks_RefuseToCreateStoreUnderMissingRoot(t *testing.T) {
+internal/cli/hooks_test.go:121:func TestHooks_TruncatedPayloadIsRecordedNotFatal(t *testing.T) {
+internal/cli/osdir.go:9:func currentDir() (string, error) { return os.Getwd() }
+internal/cli/osdir.go:13:func isDir(p string) bool {
+internal/cli/recover.go:24:func runGuarded(ctx context.Context, cmd Cmd, env Env, args []string, out, errw io.Writer) (err error) {
+internal/cli/recover.go:66:func (c *countingWriter) Write(p []byte) (int, error) {
+internal/commands/commands.go:56:func All(d Deps) []Command {
+internal/commands/commands.go:66:func Names() []string {
+internal/commands/commands.go:78:func (c stubCommand) Name() string { return c.name }
+internal/commands/commands.go:80:func (c stubCommand) Run(_ context.Context, _ []string, _ io.Writer) error {
+internal/commands/commands_test.go:23:func TestAll_CoversEverySlashCommand(t *testing.T) {
+internal/commands/commands_test.go:39:func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
+internal/commands/commands_test.go:57:func TestNames_ReturnsACopy(t *testing.T) {
+internal/config/bench_test.go:12:func BenchmarkConfigLoad_ColdNoFiles(b *testing.B) {
+internal/config/config.go:216:func (o Origin) String() string {
+internal/config/config.go:280:func (c Config) Get(dotted string) (any, bool) {
+internal/config/config.go:338:func buildSchemaIndex() *schemaIndex {
+internal/config/config.go:353:func walkSchema(t reflect.Type, prefix string, index []int, idx *schemaIndex) {
+internal/config/config.go:406:func jsonLeafName(f reflect.StructField) (name string, skip bool) {
+internal/config/config_test.go:11:func TestGet_DottedLookup(t *testing.T) {
+internal/config/config_test.go:37:func TestGet_NullableLeaf(t *testing.T) {
+internal/config/config_test.go:52:func TestGet_UnknownPathIsFalseNotPanic(t *testing.T) {
+internal/config/defaults.go:9:func Defaults() Config {
+internal/config/defaults_test.go:17:func TestDefaults_MatchesAppendixCVerbatim(t *testing.T) {
+internal/config/defaults_test.go:39:func TestDefaults_RuntimeNamespace(t *testing.T) {
+internal/config/defaults_test.go:80:func TestDefaults_SubmodularEnabledDefaultsFalseAndHidden(t *testing.T) {
+internal/config/fuzz_test.go:15:func FuzzConfigLoad(f *testing.F) {
+internal/config/jsonc.go:11:func StripJSONC(b []byte) []byte {
+internal/config/jsonc.go:23:func blankComments(b []byte) {
+internal/config/jsonc.go:83:func blankTrailingCommas(b []byte) {
+internal/config/jsonc.go:116:func nextNonSpace(b []byte, from int) (int, bool) {
+internal/config/jsonc_test.go:14:func TestStripJSONC(t *testing.T) {
+internal/config/jsonc_test.go:55:func TestStripJSONC_NoComments(t *testing.T) {
+internal/config/jsonc_test.go:64:func TestStripJSONC_CRLF(t *testing.T) {
+internal/config/load.go:26:func Load(env Env) (Config, Provenance, []Warning, error) {
+internal/config/load.go:91:func deriveSubmodularEnabled(cfg *Config) {
+internal/config/load.go:99:func toMap(c Config) map[string]any {
+internal/config/load.go:116:func fromMap(m map[string]any) Config {
+internal/config/load.go:135:func deepMerge(dst, src map[string]any, prefix string, prov Provenance, origin Origin, loc string, lines map[string]int, warns *[]Warning) {
+internal/config/load.go:186:func fileLocation(loc string, lines map[string]int, path string) string {
+internal/config/load.go:200:func coerceLeafValue(li leafInfo, v any) (any, bool) {
+internal/config/load.go:240:func (k leafKind) kindName() string {
+internal/config/load.go:259:func (li leafInfo) kindName() string { return li.kind.kindName() }
+internal/config/load.go:266:func applyEnv(merged map[string]any, getenv func(string) string, prov Provenance, warns *[]Warning) {
+internal/config/load.go:295:func applyFlags(merged map[string]any, flags map[string]string, prov Provenance, warns *[]Warning) {
+internal/config/load.go:325:func envVarName(path string) string {
+internal/config/load.go:337:func parseLeafString(li leafInfo, raw string) (any, bool) {
+internal/config/load.go:381:func getPath(m map[string]any, path string) (any, bool) {
+internal/config/load.go:402:func setPath(m map[string]any, path string, v any) {
+internal/config/load.go:424:func locateKeys(stripped []byte) map[string]int {
+internal/config/load.go:431:func walkKeyPositions(dec *json.Decoder, prefix string, src []byte, lines map[string]int) {
+internal/config/load.go:468:func lineForOffset(b []byte, offset int64) int {
+internal/config/load_kinds_test.go:13:func TestLoad_EnvAllKinds(t *testing.T) {
+internal/config/load_kinds_test.go:56:func TestLoad_EnvInvalidValuesForEveryKind(t *testing.T) {
+internal/config/load_kinds_test.go:83:func TestLoad_FlagsAllKinds(t *testing.T) {
+internal/config/load_kinds_test.go:106:func TestLoad_FlagsInvalidValuesForEveryKind(t *testing.T) {
+internal/config/load_kinds_test.go:125:func TestLoad_SectionNotObjectWarns(t *testing.T) {
+internal/config/load_kinds_test.go:139:func TestLoad_WrongTypeForEveryKindViaFile(t *testing.T) {
+internal/config/load_test.go:18:func writeConfigFile(t *testing.T, root, content string) {
+internal/config/load_test.go:27:func baseEnv(t *testing.T) config.Env {
+internal/config/load_test.go:36:func TestLoad_PrecedenceFiveLayers(t *testing.T) {
+internal/config/load_test.go:59:func TestLoad_PrecedenceStopsAtHighestSetLayer(t *testing.T) {
+internal/config/load_test.go:70:func TestLoad_DeepMergePerLeaf(t *testing.T) {
+internal/config/load_test.go:84:func TestLoad_EnvKeyMapping(t *testing.T) {
+internal/config/load_test.go:101:func TestLoad_NullMeansMeasure(t *testing.T) {
+internal/config/load_test.go:115:func TestLoad_EnvFloatPtrNullLiteral(t *testing.T) {
+internal/config/load_test.go:132:func TestLoad_UnknownKeyWarnsNeverErrors(t *testing.T) {
+internal/config/load_test.go:146:func TestLoad_InvalidLeafFallsBackNotCrash(t *testing.T) {
+internal/config/load_test.go:171:func TestLoad_WrongTypeFallsBackWithWarning(t *testing.T) {
+internal/config/load_test.go:183:func TestLoad_UnparseableFileWarns(t *testing.T) {
+internal/config/load_test.go:194:func TestLoad_ProvenanceLocationHasLine(t *testing.T) {
+internal/config/load_test.go:212:func TestLoad_ProvenanceLocationHasLine_WithLeadingComment(t *testing.T) {
+internal/config/load_test.go:227:func TestSubmodularEnabled_DerivedFromRuntime(t *testing.T) {
+internal/config/load_test.go:242:func TestLoad_FlagsUnknownKeyAndStringSlice(t *testing.T) {
+internal/config/load_test.go:257:func TestLoad_EnvBoolAndInvalidValueSkipped(t *testing.T) {
+internal/config/load_test.go:278:func TestLoad_EmptyProjectRootErrors(t *testing.T) {
+internal/config/load_test.go:286:func TestLoad_MissingFilesAreNotErrors(t *testing.T) {
+internal/config/load_test.go:294:func TestLoad_NilGetenvAndFlagsAreSafe(t *testing.T) {
+internal/config/load_test.go:303:func TestLoad_ArraysReplaceWholesale(t *testing.T) {
+internal/config/load_test.go:313:func warningKeys(ws []config.Warning) []string {
+internal/config/provenance.go:21:func (p Provenance) Render(cfg Config, w io.Writer) error {
+internal/config/provenance.go:32:func (p Provenance) renderValue(w *bufio.Writer, v any, path string, indent int) error {
+internal/config/provenance.go:44:func (p Provenance) renderObject(w *bufio.Writer, m map[string]any, path string, indent int) error {
+internal/config/provenance_test.go:16:func TestProvenanceRender_AnnotatesLeaves(t *testing.T) {
+internal/config/provenance_test.go:43:func TestProvenanceRender_DefaultOrigin(t *testing.T) {
+internal/config/provenance_test.go:57:func (alwaysFailWriter) Write([]byte) (int, error) { return 0, errors.New("simulated write failure") }
+internal/config/provenance_test.go:59:func TestProvenanceRender_WriterErrorPropagates(t *testing.T) {
+internal/config/provenance_test.go:65:func TestOrigin_String(t *testing.T) {
+internal/config/schema.go:27:func (c Config) JSONSchema() []byte {
+internal/config/schema.go:41:func schemaNodeFor(t reflect.Type, path string) map[string]any {
+internal/config/schema.go:72:func leafSchemaNode(path string) map[string]any {
+internal/config/schema.go:112:func defaultLeafJSON(path string) any {
+internal/config/schema_test.go:26:// It returns a func because an already-registered flag exposes its value through flag.Value.
+internal/config/schema_test.go:27:func registerUpdateFlag() func() bool {
+internal/config/schema_test.go:37:func TestJSONSchema_Golden(t *testing.T) {
+internal/config/schema_test.go:61:func assertLeavesHaveMetadata(t *testing.T, node map[string]any, path string) {
+internal/config/schema_test.go:85:func TestJSONSchema_EnumsPresentWhereExpected(t *testing.T) {
+internal/config/schema_test.go:108:func schemaNodeAt(t *testing.T, schema map[string]any, dotted string) map[string]any {
+internal/config/schema_test.go:127:func splitDotted(s string) []string {
+internal/config/validate.go:53:func (c Config) Validate() []Violation {
+internal/config/validate.go:323:func isOneOf(v string, allowed ...string) bool {
+internal/config/validate.go:333:func allKnown(vals []string, allowed map[string]bool) bool {
+internal/config/validate.go:343:func isPowerOfTwo(n int) bool { return n > 0 && n&(n-1) == 0 }
+internal/config/validate.go:347:func tierOverlap(t TiersCfg) []string {
+internal/config/validate.go:363:func tierGaps(t TiersCfg, known map[string]bool) []string {
+internal/config/validate.go:381:func sortedKeys(m map[string]bool) []string {
+internal/config/validate.go:400:func ViolationsFromWarnings(ws []Warning) []Violation {
+internal/config/validate_test.go:179:func TestValidate_EveryRule(t *testing.T) {
+internal/config/validate_test.go:195:func TestValidate_DefaultsAreValid(t *testing.T) {
+internal/config/validate_test.go:234:func TestValidate_RuleTableIsComplete(t *testing.T) {
+internal/config/validate_test.go:273:func TestValidate_TiersPartition(t *testing.T) {
+internal/config/validate_test.go:286:func TestValidate_TelemetryMustBeFalse(t *testing.T) {
+internal/config/validate_test.go:294:func hasViolation(vs []config.Violation, key, message string) bool {
+internal/config/validate_test.go:308:func allLeafPaths(t *testing.T) map[string]bool {
+internal/contract/contracttest/behaviour.go:27:func runNotYetImplementedNeverDegradesCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:52:func runCriticalFailureDegradesCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:84:func runWarnFailureDoesNotDegradeCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:101:func runTwoCleanRunsRestoreCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:136:func runRegistrationOrderCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:161:func runReportReflectsLastRunCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:183:func runRegisterRefusesUnusableCase(t *testing.T, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/behaviour.go:199:func runHistoryRecordThenSawCase(t *testing.T, factory func(t *testing.T) contract.History) {
+internal/contract/contracttest/behaviour.go:214:func runHistoryLastSeenCase(t *testing.T, factory func(t *testing.T) contract.History) {
+internal/contract/contracttest/behaviour.go:236:func runHistoryUnknownIDCase(t *testing.T, factory func(t *testing.T) contract.History) {
+internal/contract/contracttest/behaviour.go:250:func runHistorySessionsMonotoneCase(t *testing.T, factory func(t *testing.T) contract.History) {
+internal/contract/contracttest/suite.go:62:func (suiteClock) Now() time.Time                  { return suiteInstant }
+internal/contract/contracttest/suite.go:63:func (suiteClock) Since(t time.Time) time.Duration { return suiteInstant.Sub(t) }
+internal/contract/contracttest/suite.go:66:func suiteEnv() contract.Env { return contract.Env{Clock: suiteClock{}} }
+internal/contract/contracttest/suite.go:72:func RunMonitorSuite(t *testing.T, name string, factory func(t *testing.T) contract.Monitor) {
+internal/contract/contracttest/suite.go:138:func RunHistorySuite(t *testing.T, name string, factory func(t *testing.T) contract.History) {
+internal/contract/contracttest/suite.go:169:func alwaysAssertion(id contract.ID, ok bool, sev contract.Severity) contract.Assertion {
+internal/contract/contracttest/suite.go:185:func notYetImplementedAssertion(id contract.ID) contract.Assertion {
+internal/contract/contracttest/suite.go:200:func flippableAssertion(id contract.ID) (contract.Assertion, func(ok bool)) {
+internal/contract/contracttest/suite.go:225:func requireKnownError(t *testing.T, err error) {
+internal/contract/contracttest/suite.go:240:func requireKnownMode(t *testing.T, m contract.Mode) {
+internal/contract/contracttest/suite.go:250:func requireKnownSeverity(t *testing.T, s contract.Severity) {
+internal/contract/contracttest/suite.go:264:func isStubMonitor(t *testing.T, factory func(t *testing.T) contract.Monitor) bool {
+internal/contract/contracttest/suite.go:282:func skipIfStubMonitor(t *testing.T, factory func(t *testing.T) contract.Monitor) bool {
+internal/contract/contracttest/suite.go:295:func isStubHistory(t *testing.T, factory func(t *testing.T) contract.History) bool {
+internal/contract/contracttest/suite.go:304:func skipIfStubHistory(t *testing.T, factory func(t *testing.T) contract.History) bool {
+internal/contract/contracttest/suite_test.go:24:func (fakeStubMonitor) Register(a contract.Assertion) error { return core.ErrNotImplemented }
+internal/contract/contracttest/suite_test.go:26:func (fakeStubMonitor) RunAll(ctx context.Context, e contract.Env) ([]contract.Result, contract.Mode) {
+internal/contract/contracttest/suite_test.go:29:func (fakeStubMonitor) Mode() contract.Mode                              { return contract.ModeFull }
+internal/contract/contracttest/suite_test.go:30:func (fakeStubMonitor) Degrade(reason string, results []contract.Result) {}
+internal/contract/contracttest/suite_test.go:31:func (fakeStubMonitor) Restore(reason string)                            {}
+internal/contract/contracttest/suite_test.go:32:func (fakeStubMonitor) Report() []contract.Result                        { return nil }
+internal/contract/contracttest/suite_test.go:38:func (fakeStubHistory) Saw(id contract.ID) bool                        { return false }
+internal/contract/contracttest/suite_test.go:39:func (fakeStubHistory) LastSeen(id contract.ID) (core.UnixMilli, bool) { return 0, false }
+internal/contract/contracttest/suite_test.go:40:func (fakeStubHistory) Record(id contract.ID, at core.UnixMilli)       {}
+internal/contract/contracttest/suite_test.go:41:func (fakeStubHistory) Sessions() int                                  { return 0 }
+internal/contract/contracttest/suite_test.go:54:func newMemHistory() *memHistory {
+internal/contract/contracttest/suite_test.go:58:func (h *memHistory) Saw(id contract.ID) bool {
+internal/contract/contracttest/suite_test.go:65:func (h *memHistory) LastSeen(id contract.ID) (core.UnixMilli, bool) {
+internal/contract/contracttest/suite_test.go:72:func (h *memHistory) Record(id contract.ID, at core.UnixMilli) {
+internal/contract/contracttest/suite_test.go:80:func (h *memHistory) Sessions() int {
+internal/contract/contracttest/suite_test.go:90:func (c fakeClock) Now() time.Time                  { return c.now }
+internal/contract/contracttest/suite_test.go:91:func (c fakeClock) Since(t time.Time) time.Duration { return c.now.Sub(t) }
+internal/contract/contracttest/suite_test.go:93:func newFakeClock() fakeClock {
+internal/contract/contracttest/suite_test.go:100:func newRealMonitor(t *testing.T) contract.Monitor {
+internal/contract/contracttest/suite_test.go:113:func TestContractSuite_ShapePassesAgainstStub(t *testing.T) {
+internal/contract/contracttest/suite_test.go:129:func TestRunMonitorSuite_StubIsSkipped(t *testing.T) {
+internal/contract/contracttest/suite_test.go:139:func TestRunMonitorSuite_AgainstQompackMonitor(t *testing.T) {
+internal/contract/contracttest/suite_test.go:145:func TestRunHistorySuite_StubIsSkipped(t *testing.T) {
+internal/contract/contracttest/suite_test.go:154:func TestRunHistorySuite_AgainstAnInMemoryHistory(t *testing.T) {
+internal/contract/golden_test.go:38:func TestResultSet_MatchesFrozenGolden(t *testing.T) {
+internal/contract/golden_test.go:73:func TestResultSet_GoldenRoundTripsLosslessly(t *testing.T) {
+internal/contract/internal_test.go:13:func TestParseMode_RoundTripsEveryMode(t *testing.T) {
+internal/contract/internal_test.go:24:func TestParseMode_RejectsUnrecognizedValues(t *testing.T) {
+internal/contract/internal_test.go:34:func TestSeverity_Label(t *testing.T) {
+internal/contract/internal_test.go:44:func TestDegradeReason_IsOrderIndependent(t *testing.T) {
+internal/contract/internal_test.go:59:func TestDegradeReason_IgnoresPassingAndNonCriticalResults(t *testing.T) {
+internal/contract/internal_test.go:70:func TestFailedSummary_ListsEveryFailureWithItsSeverity(t *testing.T) {
+internal/contract/internal_test.go:81:func TestLatestTS_ReturnsTheNewestStamp(t *testing.T) {
+internal/contract/mode.go:22:func (m Mode) String() string {
+internal/contract/mode.go:38:func parseMode(s string) (Mode, bool) {
+internal/contract/mode_test.go:13:func TestMode_StringIsFrozen(t *testing.T) {
+internal/contract/mode_test.go:22:func TestMode_StringOfUnknownValue(t *testing.T) {
+internal/contract/mode_test.go:29:func TestSeverity_ValuesAreOrdered(t *testing.T) {
+internal/contract/monitor.go:93:func NewMonitor(log logging.Logger, m obs.Registry, statePath string) Monitor {
+internal/contract/monitor.go:106:func (m *monitor) load() {
+internal/contract/monitor.go:132:func (m *monitor) persist(st state) error {
+internal/contract/monitor.go:150:func (m *monitor) stateLocked(mode Mode) state {
+internal/contract/monitor.go:160:func (m *monitor) Register(a Assertion) error {
+internal/contract/monitor.go:173:func (m *monitor) RunAll(ctx context.Context, e Env) ([]Result, Mode) {
+internal/contract/monitor.go:227:func (m *monitor) Mode() Mode {
+internal/contract/monitor.go:233:func (m *monitor) Degrade(reason string, results []Result) {
+internal/contract/monitor.go:259:func (m *monitor) Restore(reason string) {
+internal/contract/monitor.go:277:func (m *monitor) Report() []Result {
+internal/contract/monitor.go:285:func (m *monitor) record(counter string, mode Mode) {
+internal/contract/monitor.go:297:func degradeReason(results []Result) string {
+internal/contract/monitor.go:315:func failedSummary(results []Result) string {
+internal/contract/monitor.go:332:func latestTS(results []Result) core.UnixMilli {
+internal/contract/monitor_test.go:25:func (c *fakeClock) Now() time.Time                  { return c.now }
+internal/contract/monitor_test.go:26:func (c *fakeClock) Since(t time.Time) time.Duration { return c.now.Sub(t) }
+internal/contract/monitor_test.go:29:func newFakeClock() *fakeClock {
+internal/contract/monitor_test.go:36:func statePathIn(dir string) string {
+internal/contract/monitor_test.go:42:func newTestMonitor(t *testing.T) (contract.Monitor, obs.Registry, string) {
+internal/contract/monitor_test.go:50:func registerAll(t *testing.T, m contract.Monitor, as []contract.Assertion) {
+internal/contract/monitor_test.go:59:func fixedResult(id contract.ID, ok bool, sev contract.Severity) contract.Assertion {
+internal/contract/monitor_test.go:74:func flippable(id contract.ID) (contract.Assertion, func(ok bool)) {
+internal/contract/monitor_test.go:100:func captureLoud(t *testing.T) func() []string {
+internal/contract/monitor_test.go:118:func readState(t *testing.T, statePath string) map[string]any {
+internal/contract/monitor_test.go:132:func TestMonitor_StandardAssertionsReportModeFull(t *testing.T) {
+internal/contract/monitor_test.go:153:func TestMonitor_FlippedCriticalAssertionDegrades(t *testing.T) {
+internal/contract/monitor_test.go:186:func TestMonitor_WarnFailureDoesNotDegrade(t *testing.T) {
+internal/contract/monitor_test.go:204:func TestMonitor_TwoConsecutiveCleanRunsRestore(t *testing.T) {
+internal/contract/monitor_test.go:235:func TestMonitor_CleanRunStreakResetsOnAFurtherFailure(t *testing.T) {
+internal/contract/monitor_test.go:257:func TestMonitor_DegradationSurvivesIntoTheNextSession(t *testing.T) {
+internal/contract/monitor_test.go:279:func TestMonitor_CorruptStateFileFallsBackToModeFull(t *testing.T) {
+internal/contract/monitor_test.go:294:func TestMonitor_DegradeWritesLoudLog(t *testing.T) {
+internal/contract/monitor_test.go:315:func TestMonitor_DegradeIsLoudWithoutAStatePath(t *testing.T) {
+internal/contract/monitor_test.go:328:func TestMonitor_NilLoggerAndRegistryAreTolerated(t *testing.T) {
+internal/contract/monitor_test.go:339:func TestMonitor_RunAllToleratesANilClock(t *testing.T) {
+internal/contract/monitor_test.go:358:func TestMonitor_RegisterRejectsUnusableAssertions(t *testing.T) {
+internal/contract/monitor_test.go:373:func TestMonitor_RunAllPreservesRegistrationOrder(t *testing.T) {
+internal/contract/monitor_test.go:391:func TestMonitor_ReportIsACopy(t *testing.T) {
+internal/contract/monitor_test.go:408:func TestMonitor_ModeOffIsNeverEnteredOrLeftAutomatically(t *testing.T) {
+internal/contract/monitor_test.go:429:func TestMonitor_DegradeReasonNamesExpectedAndObserved(t *testing.T) {
+internal/contract/severity.go:25:func (s Severity) label() string {
+internal/contract/standard.go:21:func StandardAssertions() []Assertion {
+internal/contract/standard.go:49:func notYetImplemented(id ID, declared Severity, desc string) Assertion {
+internal/contract/standard_test.go:17:func TestStandardAssertions_MatchTheNormativeTable(t *testing.T) {
+internal/contract/standard_test.go:47:func TestStandardAssertions_IDsAreUnique(t *testing.T) {
+internal/contract/standard_test.go:66:func TestStandardAssertions_EveryCheckReportsNotYetImplemented(t *testing.T) {
+internal/contract/standard_test.go:87:func TestStandardAssertions_DeclaredSeveritiesAreNotFlattened(t *testing.T) {
+internal/core/clock.go:15:func (systemClock) Now() time.Time                  { return time.Now() }
+internal/core/clock.go:16:func (systemClock) Since(t time.Time) time.Duration { return time.Since(t) }
+internal/core/clock.go:19:func SystemClock() Clock { return systemClock{} }
+internal/core/clock.go:22:func NowMilli(c Clock) UnixMilli { return UnixMilli(c.Now().UnixMilli()) }
+internal/core/clock.go:25:func (t UnixMilli) Time() time.Time { return time.UnixMilli(int64(t)).UTC() }
+internal/core/errors.go:30:func IsNotImplemented(err error) bool { return errors.Is(err, ErrNotImplemented) }
+internal/core/errors_test.go:13:func TestSentinels_AreDistinct(t *testing.T) {
+internal/core/errors_test.go:36:func TestIsNotImplemented_UnwrapsWrapping(t *testing.T) {
+internal/core/errors_test.go:48:func TestVersion_IsSet(t *testing.T) {
+internal/core/hash.go:57:func HashBytes(domain string, b []byte) Hash {
+internal/core/hash.go:68:func (h Hash) String() string { return hashTextPrefix + hex.EncodeToString(h[:]) }
+internal/core/hash.go:72:func (h Hash) Short() string { return hex.EncodeToString(h[:])[:12] }
+internal/core/hash.go:76:func (h Hash) IsZero() bool { return h == Hash{} }
+internal/core/hash.go:81:func ParseHash(s string) (Hash, error) {
+internal/core/hash.go:97:func (h Hash) MarshalJSON() ([]byte, error) { return json.Marshal(h.String()) }
+internal/core/hash.go:100:func (h *Hash) UnmarshalJSON(b []byte) error {
+internal/core/hash_test.go:17:func TestHashBytes_DomainSeparation(t *testing.T) {
+internal/core/hash_test.go:25:func TestHashBytes_KnownVector(t *testing.T) {
+internal/core/hash_test.go:31:func TestHash_StringShortParse_RoundTrip(t *testing.T) {
+internal/core/hash_test.go:55:func TestParseHash_Rejects(t *testing.T) {
+internal/core/hash_test.go:71:func TestHash_JSONRoundTrip(t *testing.T) {
+internal/core/hash_test.go:85:func TestHash_UnmarshalJSON_Rejects(t *testing.T) {
+internal/core/hash_test.go:94:func TestDomainRegistry_Distinct(t *testing.T) {
+internal/core/ids.go:54:func NewDecisionID(seed []byte) DecisionID {
+internal/core/ids_test.go:13:func TestNewDecisionID_Format(t *testing.T) {
+internal/core/ids_test.go:22:func TestUnixMilli_TimeRoundTrip(t *testing.T) {
+internal/core/ids_test.go:28:func TestNowMilli_UsesClock(t *testing.T) {
+internal/core/ids_test.go:35:func (c fixedClock) Now() time.Time                  { return c.t }
+internal/core/ids_test.go:36:func (c fixedClock) Since(u time.Time) time.Duration { return c.t.Sub(u) }
+internal/core/ids_test.go:38:func TestChunkRefAndDep_AreValueTypes(t *testing.T) {
+internal/daemon/daemon.go:74:func (o *Options) Handle(op ipc.Op, h ipc.Handler) {
+internal/daemon/daemon.go:82:func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) {
+internal/daemon/daemon.go:88:func (o *Options) Ops() []ipc.Op {
+internal/daemon/daemon.go:130:func NewSessionRegistry() *SessionRegistry {
+internal/daemon/daemon.go:135:func (r *SessionRegistry) Get(id core.SessionID) (*SessionState, bool) {
+internal/daemon/daemon.go:143:func (r *SessionRegistry) Len() int {
+internal/daemon/daemon.go:166:func New(o Options) (Daemon, error) {
+internal/daemon/daemon.go:187:func (d *stubDaemon) Run(context.Context) error {
+internal/daemon/daemon.go:191:func (d *stubDaemon) Registry() *SessionRegistry { return d.registry }
+internal/daemon/daemon.go:193:func (d *stubDaemon) Drain(context.Context) (int, error) {
+internal/daemon/daemon.go:197:func (d *stubDaemon) Idle() IdleController { return &d.idle }
+internal/daemon/daemon.go:199:func (d *stubDaemon) Stop(context.Context) error {
+internal/daemon/daemon.go:217:func (i *stubIdle) Register(name string, prio int, fn func(ctx context.Context) error) {
+internal/daemon/daemon.go:223:func (i *stubIdle) Notify(lastActivity core.UnixMilli) {
+internal/daemon/daemon.go:236:func (i *stubIdle) IsIdle(core.UnixMilli) bool { return false }
+internal/daemon/daemon.go:238:func (i *stubIdle) RunOnce(context.Context, time.Duration) ([]string, error) {
+internal/daemon/daemon.go:244:func (i *stubIdle) Registered() []string {
+internal/daemon/daemon_test.go:18:func TestNew_Succeed

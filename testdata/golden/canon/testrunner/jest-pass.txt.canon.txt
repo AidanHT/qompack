@@ -1,0 +1,13 @@
+ PASS  __tests__/cart.test.js
+  Cart
+    √ sums a subtotal across line items (<d>)
+    √ applies tax to the running total
+    √ throws for a missing item (<d>)
+  slugify
+    √ normalizes mixed punctuation (<d>)
+
+Test Suites: 1 passed, 1 total
+Tests:       4 passed, 4 total
+Snapshots:   0 total
+Time:        <d>, estimated <d>
+Ran all test suites.
