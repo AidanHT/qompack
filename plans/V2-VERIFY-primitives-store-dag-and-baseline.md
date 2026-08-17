@@ -55,10 +55,11 @@ Before you begin, confirm the wave actually landed. **This repository has no rem
 
 ```bash
 git checkout develop
-git log --first-parent --oneline main..develop | head -12
-# Expect these six merges, newest first, interleaved with two docs commits:
-#   1b66239 feat(sp07): …   018fd5a feat(sp06): …   25f0335 feat(sp02): …
-#   996f65c feat(sp04): …   7f7ca59 feat(sp03): …   adff200 feat(sp05): …
+git log --first-parent --oneline main..develop | grep -E 'feat\(sp0[2-7]\)'
+# Expect exactly these six, newest first — the relative order is the assertion:
+#   1b66239 feat(sp07)   018fd5a feat(sp06)   25f0335 feat(sp02)
+#   996f65c feat(sp04)   7f7ca59 feat(sp03)   adff200 feat(sp05)
+# Docs commits sit above and between them; they are not part of the check.
 git log --format=%B main..develop | grep -Ei 'co-authored-by|signed-off-by|generated with|🤖'
 # Expect: no output. (CI's verify job runs this; a match fails the build.)
 ```
