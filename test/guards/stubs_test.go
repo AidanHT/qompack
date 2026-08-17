@@ -97,11 +97,15 @@ func stubRegistry() []stubPackage {
 			t.Cleanup(func() { _ = s.Close() })
 			return s
 		}, pureMethods: allMethodsAreReal},
+		// dag's seam is REAL as of SP-07: Open returns the live dependence graph, so AddNode,
+		// AddEdge, BackwardSlice, ForwardSlice, Flush and Compact all do their own work and none
+		// of them reports ErrNotImplemented. It stays registered for the completeness check;
+		// dropping the marker would assert dag is still a stub, which it is not.
 		{pkg: "dag", build: func(t *testing.T) any {
 			g, err := dag.Open(t.TempDir(), config.Defaults(), logging.Nop())
 			require.NoError(t, err)
 			return g
-		}},
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "grammar", build: func(*testing.T) any { return grammar.New() }},
 		{pkg: "negknow", build: func(t *testing.T) any {
 			l, err := negknow.Open(t.TempDir(), config.Defaults(), nil, negknow.Deps{Log: logging.Nop()})
@@ -152,7 +156,10 @@ func stubRegistry() []stubPackage {
 	}
 }
 
-// allMethodsAreReal marks a package whose seam is implemented in wave 0.
+// allMethodsAreReal marks a package whose seam is implemented rather than stubbed: contract
+// because its monitor mechanics are real in wave 0 (§12.1), dag because SP-07 landed the real
+// dependence graph. Each subplan that replaces a stub adds its package here, which is the point —
+// "this package is finished" is a claim someone has to make on purpose.
 var allMethodsAreReal = map[string]bool{"*": true}
 
 // Arbitrary well-formed constructor inputs. None duplicates a configuration default; they exist

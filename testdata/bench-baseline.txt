@@ -90,6 +90,120 @@ BenchmarkPathsWriteAtomic_4KB-22    	     238	   4747760 ns/op	   0.86 MB/s	   1
 BenchmarkPathsWriteAtomic_4KB-22    	     249	   4792694 ns/op	   0.85 MB/s	   15698 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     201	   5173678 ns/op	   0.79 MB/s	   15703 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   15691 B/op	     169 allocs/op
+# --- SP-07 (internal/dag), appended by the dependence-DAG subplan ---
+#
+# Recorded with a bounded iteration count rather than the default wall-clock benchtime:
+#
+#     go test -run '^$' -bench . -benchmem -benchtime 20x -count 10 -p 1 ./internal/dag/
+#
+# BenchmarkCompact20k and BenchmarkOpen20k each rebuild a ~19,500-record log per operation, so
+# letting Go calibrate b.N against a 1s target would spend minutes on those two alone for no extra
+# signal. Every sample below is therefore 20 iterations; benchstat compares like with like as long
+# as the same flags are used on both sides.
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-22        	      20	    580820 ns/op	  132310 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    432460 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    466995 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    445545 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    388205 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    374350 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    416795 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    360550 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    381770 ns/op	  132067 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	      20	    301850 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    866725 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    892955 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    872720 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    961700 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    851365 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    880070 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    866220 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    811240 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    836500 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	      20	    831555 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     36055 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     13390 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     12435 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     12460 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     12175 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     12165 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     10690 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     17840 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     12165 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	      20	     16355 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkCrossingEdges-22            	      20	       235.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       200.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       205.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       180.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       155.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       180.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       175.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       150.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       155.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	      20	       140.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNodesAfter-22               	      20	    255155 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    226280 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    226160 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    255220 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    288815 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    258485 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    323270 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    532880 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    333430 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	      20	    249610 ns/op	  532070 B/op	       1 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3853545 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   4309085 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   4024820 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3876915 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3685995 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3852740 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   4003040 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3716580 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3677230 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	      20	   3932290 ns/op	      56 B/op	       2 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      2150 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1495 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1775 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      2505 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1420 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1820 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1505 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      2370 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1445 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddNodeEdgePair-22          	      20	      1615 ns/op	    2430 B/op	       7 allocs/op
+BenchmarkAddToolUse-22               	      20	      7230 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      9380 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      9990 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      9235 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      5795 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      8940 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      6395 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      8355 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      7615 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkAddToolUse-22               	      20	      6290 ns/op	   10984 B/op	      37 allocs/op
+BenchmarkOpen20k-22                  	      20	  85308980 ns/op	22742397 B/op	  291977 allocs/op
+BenchmarkOpen20k-22                  	      20	  94166130 ns/op	22656686 B/op	  291974 allocs/op
+BenchmarkOpen20k-22                  	      20	  86425230 ns/op	22720958 B/op	  291977 allocs/op
+BenchmarkOpen20k-22                  	      20	  83769795 ns/op	22680743 B/op	  291974 allocs/op
+BenchmarkOpen20k-22                  	      20	  85542580 ns/op	22687460 B/op	  291975 allocs/op
+BenchmarkOpen20k-22                  	      20	  85740625 ns/op	22723242 B/op	  291976 allocs/op
+BenchmarkOpen20k-22                  	      20	  83884605 ns/op	22715332 B/op	  291976 allocs/op
+BenchmarkOpen20k-22                  	      20	  81587900 ns/op	22728772 B/op	  291977 allocs/op
+BenchmarkOpen20k-22                  	      20	  85763275 ns/op	22698972 B/op	  291976 allocs/op
+BenchmarkOpen20k-22                  	      20	  83923730 ns/op	22649779 B/op	  291974 allocs/op
+BenchmarkCompact20k-22               	      20	  37808865 ns/op	12868878 B/op	   82372 allocs/op
+BenchmarkCompact20k-22               	      20	  37494080 ns/op	12868522 B/op	   82373 allocs/op
+BenchmarkCompact20k-22               	      20	  39323260 ns/op	12868098 B/op	   82369 allocs/op
+BenchmarkCompact20k-22               	      20	  49728050 ns/op	12868259 B/op	   82370 allocs/op
+BenchmarkCompact20k-22               	      20	  40888310 ns/op	12869265 B/op	   82375 allocs/op
+BenchmarkCompact20k-22               	      20	  42718220 ns/op	12867273 B/op	   82367 allocs/op
+BenchmarkCompact20k-22               	      20	  43304720 ns/op	12867858 B/op	   82371 allocs/op
+BenchmarkCompact20k-22               	      20	  38323690 ns/op	12868753 B/op	   82374 allocs/op
+BenchmarkCompact20k-22               	      20	  49204915 ns/op	12865850 B/op	   82361 allocs/op
+BenchmarkCompact20k-22               	      20	  48523700 ns/op	12867188 B/op	   82367 allocs/op
 
 
 ################################################################################

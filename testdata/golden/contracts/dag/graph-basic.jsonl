@@ -1,0 +1,24 @@
+{"type":"generation","v":1,"gen":1,"ts":1730000000000,"nodes":12,"edges":10}
+{"type":"node","id":"userprompt:1","kind":3,"turn":1,"ts":1730000000000,"pos":100,"ref":"add token refresh","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":40,"ephemeral":false}
+{"type":"node","id":"assistant:1","kind":2,"turn":1,"ts":1730000000000,"pos":200,"ref":"","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"tooluse:toolu_01ABCdef","kind":0,"turn":1,"ts":1730000000000,"pos":300,"ref":"Read","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"file:src/auth.ts","kind":4,"turn":1,"ts":1730000000000,"pos":350,"ref":"src/auth.ts","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"symbol:src/auth.ts#refreshToken","kind":5,"turn":1,"ts":1730000000000,"pos":360,"ref":"refreshToken","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"toolresult:toolu_01ABCdef","kind":1,"turn":1,"ts":1730000000000,"pos":400,"ref":"toolu_01ABCdef","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":512,"ephemeral":false}
+{"type":"node","id":"assistant:2","kind":2,"turn":2,"ts":1730000000000,"pos":500,"ref":"","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"tooluse:toolu_02GHIjkl","kind":0,"turn":2,"ts":1730000000000,"pos":600,"ref":"Edit","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"toolresult:toolu_02GHIjkl","kind":1,"turn":2,"ts":1730000000000,"pos":700,"ref":"toolu_02GHIjkl","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":128,"ephemeral":false}
+{"type":"node","id":"decision:dec_9f86d081884c","kind":6,"turn":2,"ts":1730000000000,"pos":800,"ref":"use a refresh token","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":24,"ephemeral":false}
+{"type":"node","id":"elimination:elim_2f1c","kind":7,"turn":2,"ts":1730000000000,"pos":900,"ref":"src/auth.ts","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":0,"ephemeral":false}
+{"type":"node","id":"segment:1","kind":8,"turn":1,"ts":1730000000000,"pos":100,"ref":"1-2","root":"sha256:0000000000000000000000000000000000000000000000000000000000000000","tokens":1204,"ephemeral":false}
+{"type":"edge","from":"userprompt:1","to":"assistant:1","kind":2,"weight":1,"turn":1}
+{"type":"edge","from":"assistant:1","to":"tooluse:toolu_01ABCdef","kind":7,"weight":1,"turn":1}
+{"type":"edge","from":"tooluse:toolu_01ABCdef","to":"toolresult:toolu_01ABCdef","kind":1,"weight":1,"turn":1}
+{"type":"edge","from":"file:src/auth.ts","to":"tooluse:toolu_01ABCdef","kind":3,"weight":1,"turn":1}
+{"type":"edge","from":"symbol:src/auth.ts#refreshToken","to":"tooluse:toolu_01ABCdef","kind":4,"weight":1,"turn":1}
+{"type":"edge","from":"toolresult:toolu_01ABCdef","to":"assistant:2","kind":2,"weight":1,"turn":2}
+{"type":"edge","from":"assistant:2","to":"tooluse:toolu_02GHIjkl","kind":0,"weight":1,"turn":2}
+{"type":"edge","from":"tooluse:toolu_02GHIjkl","to":"toolresult:toolu_02GHIjkl","kind":1,"weight":1,"turn":2}
+{"type":"edge","from":"tooluse:toolu_01ABCdef","to":"tooluse:toolu_02GHIjkl","kind":5,"weight":1,"turn":2}
+{"type":"edge","from":"toolresult:toolu_02GHIjkl","to":"decision:dec_9f86d081884c","kind":6,"weight":1,"turn":2}
+{"type":"tombstone","id":"elimination:elim_2f1c","ts":1730000000000}

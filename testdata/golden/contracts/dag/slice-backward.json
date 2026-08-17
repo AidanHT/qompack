@@ -1,0 +1,60 @@
+[
+  {
+    "thin": true,
+    "decay": 0.85,
+    "criteria": [
+      "decision:dec_9f86d081884c"
+    ],
+    "order": [
+      "decision:dec_9f86d081884c",
+      "toolresult:toolu_02GHIjkl",
+      "tooluse:toolu_02GHIjkl",
+      "assistant:2",
+      "toolresult:toolu_01ABCdef",
+      "tooluse:toolu_01ABCdef",
+      "symbol:src/auth.ts#refreshToken",
+      "file:src/auth.ts"
+    ],
+    "scores": {
+      "assistant:2": "0.36848",
+      "decision:dec_9f86d081884c": "1.00000",
+      "file:src/auth.ts": "0.19913",
+      "symbol:src/auth.ts#refreshToken": "0.21498",
+      "toolresult:toolu_01ABCdef": "0.31320",
+      "toolresult:toolu_02GHIjkl": "0.85000",
+      "tooluse:toolu_01ABCdef": "0.26622",
+      "tooluse:toolu_02GHIjkl": "0.72250"
+    }
+  },
+  {
+    "thin": false,
+    "decay": 0.85,
+    "criteria": [
+      "decision:dec_9f86d081884c"
+    ],
+    "order": [
+      "decision:dec_9f86d081884c",
+      "toolresult:toolu_02GHIjkl",
+      "tooluse:toolu_02GHIjkl",
+      "assistant:2",
+      "toolresult:toolu_01ABCdef",
+      "tooluse:toolu_01ABCdef",
+      "symbol:src/auth.ts#refreshToken",
+      "file:src/auth.ts",
+      "assistant:1",
+      "userprompt:1"
+    ],
+    "scores": {
+      "assistant:1": "0.11314",
+      "assistant:2": "0.36848",
+      "decision:dec_9f86d081884c": "1.00000",
+      "file:src/auth.ts": "0.19913",
+      "symbol:src/auth.ts#refreshToken": "0.21498",
+      "toolresult:toolu_01ABCdef": "0.31320",
+      "toolresult:toolu_02GHIjkl": "0.85000",
+      "tooluse:toolu_01ABCdef": "0.26622",
+      "tooluse:toolu_02GHIjkl": "0.72250",
+      "userprompt:1": "0.09617"
+    }
+  }
+]
