@@ -168,7 +168,6 @@ func TestSplit_Concurrent(t *testing.T) {
 	for g := 0; g < goroutines; g++ {
 		require.Equal(t, want[g%len(inputs)], got[g], "goroutine %d diverged", g)
 	}
-
 }
 
 // TestSplit_MeanChunkSize asserts the normalized-chunking mask pair actually delivers the chunk
