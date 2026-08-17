@@ -3,6 +3,7 @@ package paths
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -136,6 +137,61 @@ const (
 	bloomBackupSuffix = ".bak"
 )
 
+// bloomBackupSeq reports the sequence encoded in a tried.bloom.<seq>.bak filename, and whether name
+// is one at all. It is the ONE parser for that family: this package writes the name in ReplaceBloom,
+// prunes by it in pruneBloomBackups and reports it through HighestBloomBackupSeq, and a second
+// spelling anywhere would produce backups one of the three cannot see.
+func bloomBackupSeq(name string) (seq int, ok bool) {
+	if !strings.HasPrefix(name, bloomBackupPrefix) || !strings.HasSuffix(name, bloomBackupSuffix) {
+		return 0, false
+	}
+	mid := strings.TrimSuffix(strings.TrimPrefix(name, bloomBackupPrefix), bloomBackupSuffix)
+	seq, err := strconv.Atoi(mid)
+	if err != nil {
+		return 0, false
+	}
+	return seq, true
+}
+
+// HighestBloomBackupSeq reports the highest sequence among the surviving
+// sketches/tried.bloom.<n>.bak files in l.Sketches, and whether there is one at all. A missing
+// sketches directory is "no backups" rather than an error, because that is the ordinary state of a
+// project whose first session has not written a filter yet; anything else that stops the directory
+// being read is returned, since a caller must not read an unreadable directory as an empty one.
+//
+// It is exported for two callers with the same underlying need.
+//
+// sketch.ReplaceGenerational pre-flights against it. pruneBloomBackups keeps the HIGHEST sequence
+// rather than the most recently written file, so a replacement whose seq does not exceed every
+// survivor has its own backup deleted the instant it is created — and if the staging write then
+// fails there is no backup left to roll back, leaving the store with no tried.bloom at all. That is
+// the append-only negative-knowledge file gone (§3.3, §7.4), so the call is refused before anything
+// moves rather than reported afterwards.
+//
+// SP-09 needs it for the other half: its rebuild counter drives seq, and nothing on disk otherwise
+// tells a restarted daemon where that counter had got to. This is the answer — the counter resumes
+// above the highest surviving backup — which is why the function is exported rather than kept
+// unexported beside the pruner.
+func HighestBloomBackupSeq(l Layout) (seq int, ok bool, err error) {
+	entries, err := os.ReadDir(Long(l.Sketches))
+	if errors.Is(err, fs.ErrNotExist) {
+		return 0, false, nil
+	}
+	if err != nil {
+		return 0, false, err
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		n, isBackup := bloomBackupSeq(e.Name())
+		if isBackup && (!ok || n > seq) {
+			seq, ok = n, true
+		}
+	}
+	return seq, ok, nil
+}
+
 // pruneBloomBackups keeps only the keep newest tried.bloom.<seq>.bak generations in l.Sketches
 // and removes the rest. ReplaceBloom calls it with keep=1, so exactly one prior generation
 // survives each rebuild (§3.3).
@@ -153,16 +209,11 @@ func pruneBloomBackups(l Layout, keep int) {
 		if e.IsDir() {
 			continue
 		}
-		name := e.Name()
-		if !strings.HasPrefix(name, bloomBackupPrefix) || !strings.HasSuffix(name, bloomBackupSuffix) {
+		seq, ok := bloomBackupSeq(e.Name())
+		if !ok {
 			continue
 		}
-		mid := strings.TrimSuffix(strings.TrimPrefix(name, bloomBackupPrefix), bloomBackupSuffix)
-		seq, convErr := strconv.Atoi(mid)
-		if convErr != nil {
-			continue
-		}
-		backups = append(backups, backup{name: name, seq: seq})
+		backups = append(backups, backup{name: e.Name(), seq: seq})
 	}
 	if len(backups) <= keep {
 		return
