@@ -56,6 +56,13 @@ type PutResult struct {
 	// NearDup is set when a prior version of this content falls within the configured
 	// near-duplicate Jaccard threshold; nil otherwise.
 	NearDup *NearDupInfo
+	// Truncated reports that the input exceeded MaxPutBytes and its tail was discarded. Put
+	// truncates rather than failing, because every producer of a Put is a hook and §2.3 permits a
+	// hook no exit code but 0.
+	Truncated bool
+	// Redacted is the number of redact.Match spans replaced on the way in (00-ARCHITECTURE.md
+	// §5.22a), so a caller can tell "nothing was secret" from "we scrubbed nine things".
+	Redacted int
 }
 
 // NearDupInfo describes a near-duplicate relationship a Put/PutBytes call detected against a

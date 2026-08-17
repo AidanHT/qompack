@@ -251,7 +251,7 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 	// is still a stub" — which was right while it was a tripwire and reads backwards the moment the
 	// wave lands. SP-02's handoff §4.1 asked for it to be rewritten here rather than deleted,
 	// because the set still has to keep agreeing with the branch for waves 2 through 6.
-	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05"} {
+	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06"} {
 		if !landedSubplans[id] {
 			t.Errorf("%s has landed on develop but is missing from landedSubplans, so every "+
 				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)

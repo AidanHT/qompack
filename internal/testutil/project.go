@@ -261,8 +261,12 @@ func (p *Project) Getenv(k string) string {
 func (p *Project) Home() string { return p.home }
 
 // Store opens the project's content-addressed store with the project's own configuration, logger
-// and clock. Until SP-06 lands, every operation on it reports core.ErrNotImplemented — which is
-// exactly what a conformance suite's shape block needs in wave 0.
+// and clock, and closes it when the test ends.
+//
+// The close is registered here rather than left to callers because as of SP-06 this is a real
+// store holding open append-only handles on index/*.jsonl: on Windows an unreleased handle makes
+// the t.TempDir cleanup fail, which surfaces as a confusing post-test error in whichever test
+// happened to open a store.
 func (p *Project) Store(t *testing.T) store.Store {
 	t.Helper()
 	s, err := store.Open(p.Root, p.Cfg, store.Deps{
@@ -272,6 +276,7 @@ func (p *Project) Store(t *testing.T) store.Store {
 	if err != nil {
 		t.Fatalf("testutil: store.Open(%s): %v", p.Root, err)
 	}
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 

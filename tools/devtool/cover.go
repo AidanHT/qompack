@@ -43,6 +43,7 @@ var landedSubplans = map[string]bool{
 	"SP-03": true,
 	"SP-04": true,
 	"SP-05": true,
+	"SP-06": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,

@@ -91,6 +91,128 @@ BenchmarkPathsWriteAtomic_4KB-22    	     249	   4792694 ns/op	   0.85 MB/s	   1
 BenchmarkPathsWriteAtomic_4KB-22    	     201	   5173678 ns/op	   0.79 MB/s	   15703 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   15691 B/op	     169 allocs/op
 
+
+################################################################################
+# SP-06 — content-addressed store, redaction, exact token accounting (V2).
+#
+# Recorded with the same command shape as the SP-01 block above, but at -count 6
+# rather than -count 10 (benchstat's minimum for a confidence interval) and
+# restricted to the benchmarks that complete in seconds:
+#
+#     go test -run '^$' -bench <subset> -benchmem -count 6 -p 1 ./internal/store ./internal/redact ./internal/tokens
+#
+# Host: Windows 11, Intel Core Ultra 7 155H, NTFS — the same machine as the
+# SP-01 block, and the same caveat applies with more force. SP-06's budgets are
+# specified against the CI LINUX RUNNER. A CPU profile of the store's misses
+# attributes 90.9% of the time to runtime.cgocall (i.e. raw syscall cost, with
+# zstd decode at 1.4%), and open() is roughly 10x cheaper on Linux, so the
+# I/O-bound rows below are platform measurements rather than algorithmic ones.
+# RE-MEASURE ON LINUX BEFORE TREATING ANY OF THEM AS A REAL MISS.
+#
+# These numbers are also load-sensitive to an unusual degree. An earlier run of
+# the same benchmarks on a busy machine reported every figure 3-4x worse
+# (Redact_100KB_NoSecrets at 2.6 ms rather than 0.61 ms). The block below was
+# taken on a quiet machine; a wildly different reading is a statement about the
+# host, not the code.
+#
+# Measured medians against the subplan's budget table:
+#
+#     BenchmarkEstimateRoot_64Cached              <= 5 us      MET      2.2 us
+#     BenchmarkUnits_100KB                        <= 500 us    MET      163 us
+#     BenchmarkOpenSpan_4KB_of_4MB                <= 150 us    MET      91 us
+#     BenchmarkMarkEncoded_100                    <= 1 ms      MET      519 us
+#     BenchmarkRedact_100KB_NoSecrets             <= 2 ms      MET      607 us
+#     BenchmarkGetChunk                           <= 60 us     MISSED   304 us
+#     BenchmarkRedact_100KB_NoSecretsButKeyword   <= 2 ms      MISSED   10.21 ms
+#     BenchmarkRedact_100KB_WithSecrets           <= 2 ms      MISSED   37.50 ms
+#
+# The two redaction misses are NOT platform effects and must not be read as
+# such. Each of the ten built-in rules costs >= 2 ms for a single RE2 pass over
+# 100 KB on its own, so the 2 ms budget is unreachable for any payload that
+# requires even one full scan. The mandatory-literal prefilter is what makes the
+# dominant no-secret case 0.6 ms instead of 32 ms, but it can only buy speed by
+# SKIPPING, so it buys nothing once a rule genuinely has to run. Collapsing the
+# ten rules into one alternation was measured and is 0.53-0.67x — slower, since
+# the merged NFA costs more per byte than the passes it saves. See the SP-06
+# subplan's spec-resolutions table (D19) and V2-VERIFY §2.6a ②.
+#
+# NOT RECORDED HERE, because each takes minutes on this host and would dominate
+# the run. Figures measured separately during implementation, same machine:
+#
+#     BenchmarkPutBytes_100KB_Cold      <= 3 ms     22.9 ms  (syscall-bound)
+#     BenchmarkPutBytes_100KB_Warm      <= 400 us   227 us with an inert
+#                                                   redactor; ~1 ms as shipped
+#     BenchmarkOpenStore_50kRoots       <= 400 ms   404 ms
+#     BenchmarkSearch_1000Roots         <= 25 ms    69.5 ms (text query; a
+#                                                   path/tool/symbol query is
+#                                                   0.44 ms)
+#     BenchmarkGC_50kObjects            <= 2 s      2.42 s
+#
+# Note BenchmarkGC_50kObjects previously seeded only 4,000 objects while naming
+# 50k; it now genuinely builds ~50k, so its figure is not comparable to anything
+# recorded before SP-06.
+################################################################################
+
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkGetChunk-22               	    6333	    300486 ns/op	   22080 B/op	      18 allocs/op
+BenchmarkGetChunk-22               	    4663	    221637 ns/op	   21838 B/op	      18 allocs/op
+BenchmarkGetChunk-22               	    3711	    296737 ns/op	   21734 B/op	      18 allocs/op
+BenchmarkGetChunk-22               	    6676	    310080 ns/op	   21940 B/op	      18 allocs/op
+BenchmarkGetChunk-22               	    4414	    306717 ns/op	   21922 B/op	      18 allocs/op
+BenchmarkGetChunk-22               	    5460	    356502 ns/op	   21746 B/op	      18 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    7106	    217715 ns/op	   21987 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	    6348	    240433 ns/op	   22050 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	   12760	     90877 ns/op	   22720 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	   16710	     69325 ns/op	   22622 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	   19011	     75992 ns/op	   22504 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22    	   12508	     91279 ns/op	   22455 B/op	      19 allocs/op
+BenchmarkMarkEncoded_100-22        	    2944	    581781 ns/op	   16899 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22        	    2918	    398989 ns/op	   16898 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22        	    2596	    485361 ns/op	   16898 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22        	    2210	    552044 ns/op	   16900 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22        	    2917	    502932 ns/op	   16899 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22        	    2740	    535540 ns/op	   16898 B/op	     301 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/redact
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRedact_100KB_NoSecrets-22              	    2336	    628828 ns/op	 162.84 MB/s	  106870 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    2036	    620727 ns/op	 164.97 MB/s	  106872 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    2049	    625409 ns/op	 163.73 MB/s	  106894 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1984	    593036 ns/op	 172.67 MB/s	  106889 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    2236	    537402 ns/op	 190.55 MB/s	  106885 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    2019	    592430 ns/op	 172.85 MB/s	  106904 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     146	   9677039 ns/op	  10.58 MB/s	  108849 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     139	  10739045 ns/op	   9.54 MB/s	  107843 B/op	       2 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	      84	  14839704 ns/op	   6.90 MB/s	  108001 B/op	       2 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	      87	  12521237 ns/op	   8.18 MB/s	  108298 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     133	   8664780 ns/op	  11.82 MB/s	  108265 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     145	   8018546 ns/op	  12.77 MB/s	  108280 B/op	       2 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      45	  26727776 ns/op	   3.83 MB/s	  456684 B/op	    1070 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      44	  26089059 ns/op	   3.93 MB/s	  455176 B/op	    1069 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      46	  34637011 ns/op	   2.96 MB/s	  456920 B/op	    1070 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      28	  40369107 ns/op	   2.54 MB/s	  455861 B/op	    1071 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      25	  43067160 ns/op	   2.38 MB/s	  454946 B/op	    1068 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      26	  44454712 ns/op	   2.30 MB/s	  455237 B/op	    1068 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/tokens
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEstimateRoot_64Cached-22    	  509906	      2135 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  622444	      2386 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  464888	      2453 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  538857	      2246 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  522458	      2114 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  639498	      1858 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7898	    164419 ns/op	 622.80 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7560	    160330 ns/op	 638.68 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7077	    177684 ns/op	 576.30 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8438	    164701 ns/op	 621.73 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7492	    160789 ns/op	 636.86 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7567	    153884 ns/op	 665.44 MB/s	       0 B/op	       0 allocs/op
 # ── SP-02 (L7 replay harness) ────────────────────────────────────────────────────────────────
 #
 # Recorded with the same command and on the same host as the SP-01 block above:
