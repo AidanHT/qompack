@@ -1,5 +1,9 @@
 # SP-15: Phases 5 and 6 / L2 analyzer: delta-scoring, redundancy, suffix-constrained submodular greedy, Sequitur grammar compression, and thrash warnings
 
+> **Recommended model: Fable 5 · high effort**
+>
+> **Second-hardest.** Sequitur's two invariants (digram uniqueness, rule utility) are famously easy to break under recursive rule elimination, and the lazy-greedy selector must satisfy the `coverage(S) − λ·redundancy(S)` identity to 1e-12 under a property test while keeping the `(1 − 1/e)` guarantee and the structural pre-`p` refusal. `high` rather than `xhigh` because the plan already writes the algorithms out.
+
 **Branch:** `feat/sp15-analyzer-selection-and-grammar` (cut from `develop`) | **Wave:** 4 | **Prerequisites:** the branches of `SP-01`, `SP-06`, `SP-07`, `SP-08`, `SP-10`, `SP-12` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 4 (SP-14 slash commands, SP-16 Phase 7 refinements) | **Design sections:** §6.3, §6.5, §7.2 L2, §8.1 item 6, §8.3 (delta-scoring, slicing, submodular), §10 Phase 5, §10 Phase 6, Closing note item 3 | **Gaps closed:** G6.3
 
 ---

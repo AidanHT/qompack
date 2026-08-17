@@ -1,5 +1,9 @@
 # SP-12: L3 scheduler: composite trigger, p-selection with the cache term, BOCD changepoints, Young-Daly cadence, sliding-TTL idle model, idle background work, and frontier advancement
 
+> **Recommended model: Fable 5 · xhigh effort**
+>
+> **The hardest plan in the set — do not economize.** Adams–MacKay run-length posterior with Normal-Inverse-Gamma conjugates and Student-t predictives (pruned, log-gamma tabulated), Young–Daly cadence, ski rental, and a cache-aware `reclaimable·r − rewrite − λ·coupling` argmax — 2,900 lines closing nine gaps, and it gates SP-15 via `PSelectionAvailable()`. Numerical-stability bugs here fail silently rather than loudly.
+
 **Branch:** `feat/sp12-scheduler-l3` (cut from `develop`) | **Wave:** 3 | **Prerequisites:** the branches of SP-01, SP-05, SP-06, SP-07, SP-08 already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 3 (SP-10 checkpointer, SP-11 rehydrator, SP-13 MCP retrieval) | **Design sections:** §5.3, §5.4, §6.6, §6.7, §7.2 L3, §8.4, §8.5 (O5 amortization), §10 Phase 4 | **Gaps closed:** G1.1, G1.2, G1.3, G1.4, G5.1, G5.2, G7.1, G7.6, G8.2
 
 ---

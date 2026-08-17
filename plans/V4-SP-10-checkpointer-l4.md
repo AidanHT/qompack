@@ -1,5 +1,9 @@
 # SP-10: L4 checkpointer: the versioned importance-ordered checkpoint schema, decision extraction, PreCompact hook, pins, focus instructions with the O1 incremental span, and store-only regeneration
 
+> **Recommended model: Opus 5 · max effort**
+>
+> Nine gaps close here, and the checkpoint is the durable artifact every other Qompack claim rests on: the `MarkEncoded` DPI guard, §6.9 importance-ordered truncation, git-backed pointer validation, and the O1 span instruction. Reasoning-dense at moderate volume — a good `max` candidate.
+
 **Branch:** `feat/sp10-checkpointer-l4` (cut from `develop`) | **Wave:** 3 | **Prerequisites:** the branches of `["SP-01","SP-06","SP-07","SP-08","SP-09"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 3 (SP-11 rehydrator, SP-12 scheduler, SP-13 MCP) | **Design sections:** §6.9, §7.2 L4, §7.3 (PreCompact), §8.5, §12 (PreCompact timeout, summarizer-ignores-instruction rows) | **Gaps closed:** G2.2, G2.4, G2.5, G2.6, G3.4, G4.3, G5.3, G7.4, G9.1
 
 ---

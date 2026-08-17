@@ -1,5 +1,9 @@
 # SP-03: Sketch library: Bloom, Count-Min, HyperLogLog, Misra-Gries, MinHash with versioned serialization, resize and merge
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Appendix A supplies every sizing formula verbatim; the work is careful bit-level implementation, a frozen CRC-checked binary format, and fuzz/property coverage. Fully-decided numerics + heavy test authoring is Opus 5's sweet spot — no need for a stronger tier.
+
 **Branch:** `feat/sp03-sketch-library` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-02, SP-04, SP-05, SP-06, SP-07) | **Design sections:** §6.2, §8.1 item 5, Appendix A (bloom/CMS sizing), §11.4, §12 (bloom saturation) | **Gaps closed:** none directly. This slice supplies the §6.2 primitives through which SP-09 closes G6.1, G6.2, G6.3 and G2.2, and it owns the §12 "Bloom saturation" mitigation end to end.
 
 ---
