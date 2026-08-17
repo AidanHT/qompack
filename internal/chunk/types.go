@@ -25,3 +25,27 @@ type Chunk struct {
 	// Hash is core.HashBytes(core.DomainChunk, <chunk bytes>).
 	Hash core.Hash
 }
+
+// Ref returns the core.ChunkRef naming this chunk: its content hash and its length.
+//
+// Offset is deliberately dropped. A ChunkRef is what goes into index/roots.jsonl, and a root is an
+// ORDERED list of refs — the offset of the n-th chunk is the sum of the lengths before it, so
+// storing it as well would be a second, independently corruptible copy of the same fact. Length
+// does survive, because store needs it to size a read without first fetching the chunk.
+func (c Chunk) Ref() core.ChunkRef {
+	return core.ChunkRef{Hash: c.Hash, Len: c.Len}
+}
+
+// Refs projects a chunk list onto the core.ChunkRef list a root record is made of, preserving
+// order. It returns nil for an empty input, matching Split's own "no chunks means nil" convention
+// so that a root over nothing serializes as a JSON null rather than an empty array.
+func Refs(chunks []Chunk) []core.ChunkRef {
+	if len(chunks) == 0 {
+		return nil
+	}
+	refs := make([]core.ChunkRef, len(chunks))
+	for i, c := range chunks {
+		refs[i] = c.Ref()
+	}
+	return refs
+}

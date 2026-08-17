@@ -1,0 +1,2012 @@
+4dc422b feat(ipc): address resolution, NDJSON framing, and hot-path state record
+
+ internal/contract/internal_test.go                 |  10 +-
+ internal/contract/mode.go                          |  27 ++-
+ internal/contract/mode_test.go                     |  18 ++
+ internal/contract/monitor.go                       |   2 +-
+ internal/ipc/bench_test.go                         |  54 +++++
+ internal/ipc/frame.go                              | 147 ++++++++++++
+ internal/ipc/frame_test.go                         | 231 ++++++++++++++++++
+ internal/ipc/fuzz_test.go                          |  37 +++
+ internal/ipc/op.go                                 |  51 ++++
+ internal/ipc/op_test.go                            |  76 ++++++
+ internal/ipc/resolve.go                            | 140 +++++++++--
+ internal/ipc/resolve_test.go                       | 155 ++++++++++---
+ internal/ipc/state.go                              | 257 +++++++++++++++++++++
+ internal/ipc/state_test.go                         | 217 +++++++++++++++++
+ internal/testutil/fixtures_test.go                 |   8 +-
+ test/guards/v1_integration_test.go                 |  16 ++
+ testdata/corpora/ipcframe/empty.bin                |   0
+ testdata/corpora/ipcframe/empty_object.json        |   1 +
+ .../corpora/ipcframe/golden_observe_tool.ndjson    |   1 +
+ testdata/corpora/ipcframe/invalid_utf8.bin         | Bin 0 -> 24 bytes
+ testdata/corpora/ipcframe/one_mib_of_a.txt         |   1 +
+ testdata/golden/contracts/ipc/MANIFEST.json        |   9 +
+ testdata/golden/contracts/ipc/observe_tool.ndjson  |   1 +
+ .../golden/contracts/ipc/response_reply.ndjson     |   1 +
+ testdata/golden/contracts/ipc/state_degraded.bin   | Bin 0 -> 32 bytes
+ 25 files changed, 1396 insertions(+), 64 deletions(-)
+
+diff --git a/internal/contract/internal_test.go b/internal/contract/internal_test.go
+index 46df9fd..1acc7a8 100644
+--- a/internal/contract/internal_test.go
++++ b/internal/contract/internal_test.go
+@@ -1,37 +1,37 @@
+ package contract
+ 
+ import (
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+-// TestParseMode_RoundTripsEveryMode asserts parseMode is String's exact inverse for all three
++// TestParseMode_RoundTripsEveryMode asserts ParseMode is String's exact inverse for all three
+ // modes: state/contract.json persists the string spelling, so a mode that cannot be read back is a
+ // degradation that silently disappears on the next SessionStart — the precise failure §12.1 exists
+ // to prevent.
+ func TestParseMode_RoundTripsEveryMode(t *testing.T) {
+ 	for _, m := range []Mode{ModeFull, ModeDegradedPassive, ModeOff} {
+-		got, ok := parseMode(m.String())
+-		require.True(t, ok, "parseMode must recognize %q", m.String())
++		got, ok := ParseMode(m.String())
++		require.True(t, ok, "ParseMode must recognize %q", m.String())
+ 		require.Equal(t, m, got)
+ 	}
+ }
+ 
+ // TestParseMode_RejectsUnrecognizedValues asserts an unreadable persisted mode falls back to
+ // ModeFull with ok == false, so NewMonitor's loader can tell "no state" from "corrupt state" and
+ // treat both as §12.3's "fail toward do nothing".
+ func TestParseMode_RejectsUnrecognizedValues(t *testing.T) {
+ 	for _, s := range []string{"", "unknown", "FULL", "degraded", "passive"} {
+-		got, ok := parseMode(s)
+-		require.False(t, ok, "parseMode must reject %q", s)
++		got, ok := ParseMode(s)
++		require.False(t, ok, "ParseMode must reject %q", s)
+ 		require.Equal(t, ModeFull, got)
+ 	}
+ }
+ 
+ // TestSeverity_Label asserts the log-line spelling of every severity, including the out-of-range
+ // case, so a LOUD line can never carry a blank severity.
+ func TestSeverity_Label(t *testing.T) {
+ 	require.Equal(t, "info", SevInfo.label())
+ 	require.Equal(t, "warn", SevWarn.label())
+ 	require.Equal(t, "critical", SevCritical.label())
+diff --git a/internal/contract/mode.go b/internal/contract/mode.go
+index f4963e9..4b3e4a8 100644
+--- a/internal/contract/mode.go
++++ b/internal/contract/mode.go
+@@ -24,22 +24,39 @@ func (m Mode) String() string {
+ 	case ModeFull:
+ 		return "full"
+ 	case ModeDegradedPassive:
+ 		return "degraded-passive"
+ 	case ModeOff:
+ 		return "off"
+ 	}
+ 	return "unknown"
+ }
+ 
+-// parseMode is String's inverse, used only when reading state/contract.json back. It reports false
+-// for anything it does not recognize — including "unknown" — so a corrupt or future-format state
+-// file falls back to ModeFull (§12.3: everything else fails toward "do nothing") rather than
+-// leaving the session in a mode nobody chose.
+-func parseMode(s string) (Mode, bool) {
++// ParseMode is String's inverse, used when reading state/contract.json back (this package) or the
++// SP-05 hot-path state record (internal/ipc, which maps runtime.mode's own separate vocabulary
++// through it where the two happen to share a spelling). It reports false for anything it does not
++// recognize — including "unknown" — so a corrupt or future-format state file falls back to ModeFull
++// (§12.3: everything else fails toward "do nothing") rather than leaving the session in a mode
++// nobody chose.
++func ParseMode(s string) (Mode, bool) {
+ 	for _, m := range []Mode{ModeFull, ModeDegradedPassive, ModeOff} {
+ 		if m.String() == s {
+ 			return m, true
+ 		}
+ 	}
+ 	return ModeFull, false
+ }
++
++// MayAct reports whether m permits Qompack to act on the session: inject additionalContext, emit
++// customInstructions, let the scheduler initiate a checkpoint, or produce a drop report (§12.1).
++// Only ModeFull may act — ModeDegradedPassive keeps L0/L1 recording but turns every acting path
++// off, and ModeOff is the operator's own instruction to do nothing at all.
++func (m Mode) MayAct() bool {
++	return m != ModeDegradedPassive && m != ModeOff
++}
++
++// MayRecord reports whether m permits Qompack to observe and record at all: chunk, store, update
++// sketches/DAG, capture verbatim (§12.1). ModeDegradedPassive still records — that is the entire
++// point of "passive recording" — so only ModeOff, the operator's explicit off switch, refuses it.
++func (m Mode) MayRecord() bool {
++	return m != ModeOff
++}
+diff --git a/internal/contract/mode_test.go b/internal/contract/mode_test.go
+index 2f4390e..b29e586 100644
+--- a/internal/contract/mode_test.go
++++ b/internal/contract/mode_test.go
+@@ -16,17 +16,35 @@ func TestMode_StringIsFrozen(t *testing.T) {
+ 	require.Equal(t, "off", contract.ModeOff.String())
+ }
+ 
+ // TestMode_StringOfUnknownValue asserts Mode.String is total: an out-of-range Mode renders
+ // "unknown" rather than an empty string, so a corrupt persisted value can never produce a log line
+ // or status banner with a blank mode in it.
+ func TestMode_StringOfUnknownValue(t *testing.T) {
+ 	require.Equal(t, "unknown", contract.Mode(99).String())
+ }
+ 
++// TestMode_MayAct pins §12.1: only ModeFull may act (additionalContext, customInstructions,
++// scheduler-initiated checkpoints, the drop report). ModeDegradedPassive and ModeOff both refuse,
++// for different reasons — one is a contract failure, the other an operator instruction — but the
++// caller-facing answer is the same.
++func TestMode_MayAct(t *testing.T) {
++	require.True(t, contract.ModeFull.MayAct())
++	require.False(t, contract.ModeDegradedPassive.MayAct())
++	require.False(t, contract.ModeOff.MayAct())
++}
++
++// TestMode_MayRecord pins §12.1: ModeDegradedPassive still records — L0/L1 keep running, only the
++// acting paths turn off — so only ModeOff refuses recording.
++func TestMode_MayRecord(t *testing.T) {
++	require.True(t, contract.ModeFull.MayRecord())
++	require.True(t, contract.ModeDegradedPassive.MayRecord())
++	require.False(t, contract.ModeOff.MayRecord())
++}
++
+ // TestSeverity_ValuesAreOrdered asserts the three severities keep their declared order. RunAll
+ // compares Result.Severity against SevCritical by equality, but /qompack:status and future
+ // filtering read them as a ranking, so a reordering would be a silent behaviour change.
+ func TestSeverity_ValuesAreOrdered(t *testing.T) {
+ 	require.Less(t, contract.SevInfo, contract.SevWarn)
+ 	require.Less(t, contract.SevWarn, contract.SevCritical)
+ }
+diff --git a/internal/contract/monitor.go b/internal/contract/monitor.go
+index 8af05e1..b695a69 100644
+--- a/internal/contract/monitor.go
++++ b/internal/contract/monitor.go
+@@ -108,21 +108,21 @@ func (m *monitor) load() {
+ 		return
+ 	}
+ 	b, err := os.ReadFile(paths.Long(m.statePath))
+ 	if err != nil {
+ 		return
+ 	}
+ 	var st state
+ 	if err := json.Unmarshal(b, &st); err != nil {
+ 		return
+ 	}
+-	mode, ok := parseMode(st.Mode)
++	mode, ok := ParseMode(st.Mode)
+ 	if !ok {
+ 		return
+ 	}
+ 	m.mode = mode
+ 	m.reason = st.Reason
+ 	m.since = st.Since
+ 	m.cleanRuns = st.CleanRuns
+ 	m.last = st.Results
+ }
+ 
+diff --git a/internal/ipc/bench_test.go b/internal/ipc/bench_test.go
+new file mode 100644
+index 0000000..2b92f39
+--- /dev/null
++++ b/internal/ipc/bench_test.go
+@@ -0,0 +1,54 @@
++package ipc_test
++
++import (
++	"testing"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// BenchmarkReadState is the hot-path budget check from task-1-spec: ReadState is the only I/O a
++// client performs before deciding whether to dial at all, and must stay well under 100 microseconds
++// per operation on a warm file cache.
++func BenchmarkReadState(b *testing.B) {
++	root := b.TempDir()
++	fallback := config.Defaults()
++	if err := ipc.WriteState(root, ipc.State{
++		Mode: contract.ModeFull, Hot: ipc.HotSync,
++		ConnectDeadlineMs: 5, AckDeadlineMs: 8, DaemonEnabled: true,
++		MaxPayloadBytes: 1048576, DaemonPID: 4242, Written: core.UnixMilli(1730000000000),
++	}); err != nil {
++		b.Fatal(err)
++	}
++
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		_ = ipc.ReadState(root, fallback)
++	}
++}
++
++// BenchmarkEncodeRequest measures the pooled-buffer encode path a hook client exercises once per
++// tool call.
++func BenchmarkEncodeRequest(b *testing.B) {
++	req := ipc.Request{
++		Op:      ipc.OpObserveTool,
++		Session: core.SessionID("sess-01"),
++		TS:      core.UnixMilli(1730000000000),
++		Event: &hookio.Event{
++			HookEventName: "PostToolUse",
++			ToolName:      "Read",
++			ToolUseID:     core.ToolUseID("tu_1"),
++			ToolInput:     []byte(`{"file_path":"src/auth.ts"}`),
++		},
++	}
++
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		if _, err := ipc.EncodeRequest(req); err != nil {
++			b.Fatal(err)
++		}
++	}
++}
+diff --git a/internal/ipc/frame.go b/internal/ipc/frame.go
+new file mode 100644
+index 0000000..ee11ee9
+--- /dev/null
++++ b/internal/ipc/frame.go
+@@ -0,0 +1,147 @@
++package ipc
++
++import (
++	"bufio"
++	"bytes"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io"
++	"sync"
++)
++
++// ErrLineTooLong is returned by LineReader.ReadLine when a line exceeds the reader's maxLine
++// (00-ARCHITECTURE.md §2.4's "1 MiB max line", or a tighter limit a caller configured). The reader
++// has already discarded the oversize line by the time this returns, so the next ReadLine call
++// starts at the next real frame boundary.
++var ErrLineTooLong = errors.New("qompack: ipc line exceeds max")
++
++// newline is the NDJSON frame terminator (00-ARCHITECTURE.md §2.4: "one request per line ...
++// \n-terminated").
++const newline = '\n'
++
++// encodeBufPool pools the *bytes.Buffer EncodeRequest/EncodeResponse write into, so the hot path —
++// one encode per tool call — allocates a fresh buffer only on pool-miss rather than on every call.
++var encodeBufPool = sync.Pool{
++	New: func() any { return new(bytes.Buffer) },
++}
++
++// encodeLine marshals v as compact JSON with HTML escaping disabled (a captured prompt or tool
++// result may legitimately contain "<", "&", ">", none of which are HTML in this context) through a
++// pooled buffer, and returns a copy the caller owns outright — the pooled buffer is reset and
++// returned to the pool before encodeLine returns, so nothing survives past that point except the
++// copy. json.Encoder.Encode already appends exactly one '\n'; nothing here adds a second.
++func encodeLine(v any) ([]byte, error) {
++	buf, _ := encodeBufPool.Get().(*bytes.Buffer)
++	buf.Reset()
++	defer encodeBufPool.Put(buf)
++
++	enc := json.NewEncoder(buf)
++	enc.SetEscapeHTML(false)
++	if err := enc.Encode(v); err != nil {
++		return nil, fmt.Errorf("ipc: encode: %w", err)
++	}
++	return bytes.Clone(buf.Bytes()), nil
++}
++
++// EncodeRequest renders req as one NDJSON line: compact JSON, HTML escaping disabled, exactly one
++// trailing '\n' (00-ARCHITECTURE.md §2.4).
++func EncodeRequest(req Request) ([]byte, error) {
++	b, err := encodeLine(req)
++	if err != nil {
++		return nil, fmt.Errorf("ipc: EncodeRequest: %w", err)
++	}
++	return b, nil
++}
++
++// DecodeRequest parses line (with or without its trailing '\n' — encoding/json tolerates trailing
++// whitespace after the value) as a Request. It never panics: arbitrary or malformed bytes produce
++// an error, which is what FuzzDecodeRequest asserts for a corrupted spool line or a hostile peer.
++func DecodeRequest(line []byte) (Request, error) {
++	var req Request
++	if err := json.Unmarshal(line, &req); err != nil {
++		return Request{}, fmt.Errorf("ipc: DecodeRequest: %w", err)
++	}
++	return req, nil
++}
++
++// EncodeResponse renders resp the same way EncodeRequest renders a Request.
++func EncodeResponse(resp Response) ([]byte, error) {
++	b, err := encodeLine(resp)
++	if err != nil {
++		return nil, fmt.Errorf("ipc: EncodeResponse: %w", err)
++	}
++	return b, nil
++}
++
++// DecodeResponse is DecodeRequest's counterpart for Response.
++func DecodeResponse(line []byte) (Response, error) {
++	var resp Response
++	if err := json.Unmarshal(line, &resp); err != nil {
++		return Response{}, fmt.Errorf("ipc: DecodeResponse: %w", err)
++	}
++	return resp, nil
++}
++
++// LineReader reads NDJSON frames one line at a time off a stream, enforcing maxLine. It wraps
++// bufio.Reader's own ReadSlice rather than ReadBytes/bufio.Scanner specifically so an oversize line
++// is caught while it is still being accumulated — bounding memory rather than allocating the whole
++// hostile line first — and so the stream can be resynchronized afterwards by discarding through the
++// next '\n', leaving the following ReadLine call at a real frame boundary.
++type LineReader struct {
++	r       *bufio.Reader
++	maxLine int
++}
++
++// NewLineReader returns a LineReader over r. maxLine <= 0 defaults to MaxLineBytes, §2.4's protocol
++// ceiling — a caller that forgets to set it gets the normal limit, not a reader that rejects every
++// line.
++func NewLineReader(r io.Reader, maxLine int) *LineReader {
++	if maxLine <= 0 {
++		maxLine = MaxLineBytes
++	}
++	return &LineReader{r: bufio.NewReader(r), maxLine: maxLine}
++}
++
++// ReadLine returns the next line, without its trailing '\n'. It returns ErrLineTooLong for a line
++// exceeding maxLine — having already discarded it — or the underlying reader's own error (typically
++// io.EOF) at a clean stream end or on a real I/O failure.
++func (lr *LineReader) ReadLine() ([]byte, error) {
++	var line []byte
++	for {
++		chunk, err := lr.r.ReadSlice(newline)
++		if len(chunk) > 0 {
++			line = append(line, chunk...)
++		}
++		if err == nil {
++			break // chunk ended in '\n': the frame is complete.
++		}
++		if errors.Is(err, bufio.ErrBufferFull) {
++			if len(line) > lr.maxLine {
++				lr.discardToNewline()
++				return nil, ErrLineTooLong
++			}
++			continue // still under budget: keep accumulating across bufio's internal fills.
++		}
++		// A real reader error (io.EOF or worse): whatever was accumulated is not a complete frame.
++		return nil, err
++	}
++	if len(line) > lr.maxLine {
++		// The line fit inside one or more ReadSlice calls but still exceeds maxLine once the
++		// trailing '\n' arrived; already fully consumed, so no resync is needed.
++		return nil, ErrLineTooLong
++	}
++	return bytes.TrimSuffix(line, []byte{newline}), nil
++}
++
++// discardToNewline consumes and drops bytes until the next '\n' (or the stream ends), so the
++// oversize line ReadLine just rejected does not leave its tail to be misread as the start of the
++// following frame.
++func (lr *LineReader) discardToNewline() {
++	for {
++		_, err := lr.r.ReadSlice(newline)
++		if err == nil || !errors.Is(err, bufio.ErrBufferFull) {
++			return
++		}
++	}
++}
+diff --git a/internal/ipc/frame_test.go b/internal/ipc/frame_test.go
+new file mode 100644
+index 0000000..11fbc10
+--- /dev/null
++++ b/internal/ipc/frame_test.go
+@@ -0,0 +1,231 @@
++package ipc_test
++
++import (
++	"bytes"
++	"encoding/json"
++	"os"
++	"strings"
++	"testing"
++
++	"github.com/google/go-cmp/cmp"
++	"github.com/stretchr/testify/require"
++	"pgregory.net/rapid"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// observeToolGolden and responseReplyGolden are the two frame fixtures this commit creates. Both
++// pin REALITY — the exact bytes EncodeRequest/EncodeResponse produce over the shipped Request/
++// Response/hookio.Event/hookio.Output types — not an illustrative shorthand. hookio.Event carries
++// no omitempty on any field (internal/hookio/event.go, SP-01-owned, out of this package's reach),
++// so a Request whose Event sets only four fields still serializes with all twelve of Event's keys.
++// If hookio's owner ever adds omitempty to Event, this fixture is what documents the resulting
++// wire-format change — it is not something internal/ipc gets to decide unilaterally.
++const (
++	observeToolGolden   = "../../testdata/golden/contracts/ipc/observe_tool.ndjson"
++	responseReplyGolden = "../../testdata/golden/contracts/ipc/response_reply.ndjson"
++)
++
++// fixedObserveToolRequest is the exact Request task-1-spec.md names: Op observe.tool, Session
++// "sess-01", TS 1730000000000, and an Event with only HookEventName/SessionID/ToolName/ToolUseID
++// set — everything else at Event's zero value.
++func fixedObserveToolRequest() ipc.Request {
++	return ipc.Request{
++		Op:      ipc.OpObserveTool,
++		Session: core.SessionID("sess-01"),
++		TS:      core.UnixMilli(1730000000000),
++		Event: &hookio.Event{
++			HookEventName: "PostToolUse",
++			SessionID:     core.SessionID("sess-01"),
++			ToolName:      "Read",
++			ToolUseID:     core.ToolUseID("tu_1"),
++		},
++	}
++}
++
++// TestEncodeRequestByteExact pins EncodeRequest's output against the golden fixture this commit
++// creates: compact JSON, the short Request keys (op/s/t with omitempty r/e/x), SetEscapeHTML(false),
++// and exactly one trailing '\n'. The Event sub-object's own shape (all twelve keys, not just the
++// four set here) is inherited from hookio.Event's tag set, not chosen by this test — see the
++// comment on observeToolGolden above.
++func TestEncodeRequestByteExact(t *testing.T) {
++	want, err := os.ReadFile(observeToolGolden)
++	require.NoError(t, err, "golden fixture missing: %s", observeToolGolden)
++
++	got, err := ipc.EncodeRequest(fixedObserveToolRequest())
++	require.NoError(t, err)
++
++	require.Equal(t, string(want), string(got))
++	require.Equal(t, 1, bytes.Count(got, []byte("\n")), "exactly one trailing newline, never two")
++	require.True(t, bytes.HasSuffix(got, []byte("\n")))
++}
++
++// TestEncodeResponseByteExact pins EncodeResponse the same way, against a Reply response carrying
++// an Output — the shape a UserPromptSubmit/status reply actually returns.
++func TestEncodeResponseByteExact(t *testing.T) {
++	want, err := os.ReadFile(responseReplyGolden)
++	require.NoError(t, err, "golden fixture missing: %s", responseReplyGolden)
++
++	got, err := ipc.EncodeResponse(fixedReplyResponse())
++	require.NoError(t, err)
++
++	require.Equal(t, string(want), string(got))
++	require.Equal(t, 1, bytes.Count(got, []byte("\n")))
++}
++
++func fixedReplyResponse() ipc.Response {
++	return ipc.Response{
++		OK: true,
++		Output: &hookio.Output{
++			HookSpecificOutput: &hookio.HSO{
++				HookEventName:     "SessionStart",
++				AdditionalContext: "sentinel-token-abc",
++			},
++		},
++	}
++}
++
++// TestEncodeRequest_DoesNotEscapeHTML asserts SetEscapeHTML(false) actually took effect: a naive
++// json.Marshal would turn "<" into "<" inside Event.Prompt, which would corrupt a captured
++// prompt or tool result containing a code snippet.
++func TestEncodeRequest_DoesNotEscapeHTML(t *testing.T) {
++	req := ipc.Request{
++		Op:      ipc.OpObservePrompt,
++		Session: core.SessionID("s"),
++		TS:      1,
++		Event:   &hookio.Event{Prompt: `<script>alert(1)&2</script>`},
++	}
++	got, err := ipc.EncodeRequest(req)
++	require.NoError(t, err)
++	require.Contains(t, string(got), `<script>alert(1)&2</script>`,
++		"SetEscapeHTML(false) must leave HTML metacharacters literal, never \\u003c-style escapes")
++}
++
++// rawMessageNullIsNil is a cmp.Comparer for json.RawMessage that treats a nil RawMessage and the
++// literal 4-byte "null" as equal. This is not laxness in the test — it documents a real,
++// hookio-owned quirk: hookio.Event's ToolInput/ToolResponse have no omitempty (event.go), so a nil
++// value encodes as the JSON literal null, and encoding/json's RawMessage.UnmarshalJSON stores that
++// literal back verbatim rather than nil (hookio's own ReadEvent normalizes this via an unexported
++// normalizeRawNull, for exactly this reason). DecodeRequest is a generic decoder with no
++// Event-specific knowledge, so it does not — and should not — apply that normalization itself.
++var rawMessageNullIsNil = cmp.Comparer(func(a, b json.RawMessage) bool {
++	isNil := func(m json.RawMessage) bool { return len(m) == 0 || string(m) == "null" }
++	if isNil(a) && isNil(b) {
++		return true
++	}
++	return bytes.Equal(a, b)
++})
++
++// TestDecodeRequestRoundTrip asserts DecodeRequest(EncodeRequest(r)) reproduces r exactly, over a
++// wide range of generated requests including the optional Event.
++func TestDecodeRequestRoundTrip(t *testing.T) {
++	rapid.Check(t, func(rt *rapid.T) {
++		req := ipc.Request{
++			Op:      rapid.SampledFrom(ipc.KnownOps()).Draw(rt, "op"),
++			Session: core.SessionID(rapid.StringMatching(`[a-zA-Z0-9_-]{1,24}`).Draw(rt, "session")),
++			TS:      core.UnixMilli(rapid.Int64Range(0, 4102444800000).Draw(rt, "ts")),
++			Reply:   rapid.Bool().Draw(rt, "reply"),
++		}
++		if rapid.Bool().Draw(rt, "hasEvent") {
++			req.Event = &hookio.Event{
++				HookEventName:  rapid.StringMatching(`[A-Za-z]{1,20}`).Draw(rt, "hookEventName"),
++				SessionID:      req.Session,
++				ToolName:       rapid.StringMatching(`[A-Za-z]{0,20}`).Draw(rt, "toolName"),
++				StopHookActive: rapid.Bool().Draw(rt, "stopHookActive"),
++			}
++		}
++
++		encoded, err := ipc.EncodeRequest(req)
++		require.NoError(rt, err)
++
++		decoded, err := ipc.DecodeRequest(encoded)
++		require.NoError(rt, err)
++
++		if diff := cmp.Diff(req, decoded, rawMessageNullIsNil); diff != "" {
++			rt.Fatalf("round trip mismatch (-want +got):\n%s", diff)
++		}
++	})
++}
++
++// TestDecodeResponseRoundTrip is DecodeRequest's counterpart for Response.
++func TestDecodeResponseRoundTrip(t *testing.T) {
++	want := ipc.Response{
++		OK:  false,
++		Err: "contract: session_start.fires",
++		Output: &hookio.Output{
++			SystemMessage: "degraded",
++		},
++	}
++	encoded, err := ipc.EncodeResponse(want)
++	require.NoError(t, err)
++
++	got, err := ipc.DecodeResponse(encoded)
++	require.NoError(t, err)
++	require.Equal(t, want, got)
++}
++
++// TestDecodeRequest_RejectsMalformedJSON asserts a decode failure is an ordinary error, never a
++// panic, for input a fuzzer or a corrupted spool line might produce.
++func TestDecodeRequest_RejectsMalformedJSON(t *testing.T) {
++	_, err := ipc.DecodeRequest([]byte(`{not json`))
++	require.Error(t, err)
++}
++
++// TestLineReaderRejectsOversize is task-1-spec's table row verbatim: a 100-byte line against a
++// 64-byte maxLine fails with ErrLineTooLong, and the reader resynchronizes so the following
++// 10-byte line still reads correctly.
++func TestLineReaderRejectsOversize(t *testing.T) {
++	long := strings.Repeat("a", 100) + "\n"
++	short := strings.Repeat("b", 10) + "\n"
++	lr := ipc.NewLineReader(strings.NewReader(long+short), 64)
++
++	_, err := lr.ReadLine()
++	require.ErrorIs(t, err, ipc.ErrLineTooLong)
++
++	line, err := lr.ReadLine()
++	require.NoError(t, err)
++	require.Equal(t, strings.Repeat("b", 10), string(line))
++}
++
++// TestLineReader_AcceptsLineAtExactLimit asserts the boundary itself is not rejected: maxLine is
++// an inclusive ceiling, not an exclusive one.
++func TestLineReader_AcceptsLineAtExactLimit(t *testing.T) {
++	payload := strings.Repeat("c", 20)
++	lr := ipc.NewLineReader(strings.NewReader(payload+"\n"), len(payload)+1)
++
++	line, err := lr.ReadLine()
++	require.NoError(t, err)
++	require.Equal(t, payload, string(line))
++}
++
++// TestLineReader_HandlesLineLargerThanTheInternalBuffer proves the ReadSlice-based growth loop
++// actually accumulates across multiple internal bufio fills rather than only handling a line that
++// fits in one read.
++func TestLineReader_HandlesLineLargerThanTheInternalBuffer(t *testing.T) {
++	payload := strings.Repeat("d", 10000)
++	lr := ipc.NewLineReader(strings.NewReader(payload+"\n"), 20000)
++
++	line, err := lr.ReadLine()
++	require.NoError(t, err)
++	require.Equal(t, payload, string(line))
++}
++
++// TestLineReader_ZeroMaxLineDefaultsToMaxLineBytes asserts a caller that forgets to set maxLine
++// gets the protocol ceiling rather than a reader that rejects every line.
++func TestLineReader_ZeroMaxLineDefaultsToMaxLineBytes(t *testing.T) {
++	lr := ipc.NewLineReader(strings.NewReader("hi\n"), 0)
++	line, err := lr.ReadLine()
++	require.NoError(t, err)
++	require.Equal(t, "hi", string(line))
++}
++
++// TestLineReader_EOFAtStreamEnd asserts a clean stream end is reported as an ordinary error (io.EOF
++// or a wrap of it), never a panic and never ErrLineTooLong.
++func TestLineReader_EOFAtStreamEnd(t *testing.T) {
++	lr := ipc.NewLineReader(strings.NewReader(""), 64)
++	_, err := lr.ReadLine()
++	require.Error(t, err)
++	require.NotErrorIs(t, err, ipc.ErrLineTooLong)
++}
+diff --git a/internal/ipc/fuzz_test.go b/internal/ipc/fuzz_test.go
+new file mode 100644
+index 0000000..9fd7091
+--- /dev/null
++++ b/internal/ipc/fuzz_test.go
+@@ -0,0 +1,37 @@
++package ipc_test
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// ipcFrameCorpusDir is the seed corpus this commit creates: the golden request line, an empty JSON
++// object, an empty file, a 1 MiB line of 'a', and a chunk of invalid UTF-8 — the shapes DecodeRequest
++// must survive without panicking, per task-1-spec's fuzz row.
++const ipcFrameCorpusDir = "../../testdata/corpora/ipcframe"
++
++// FuzzDecodeRequest asserts DecodeRequest never panics on arbitrary bytes: it returns a Request or
++// an error, and nothing else, for any input a corrupted spool line or a hostile peer could produce.
++func FuzzDecodeRequest(f *testing.F) {
++	entries, err := os.ReadDir(ipcFrameCorpusDir)
++	if err != nil {
++		f.Fatalf("reading fuzz seed corpus %s: %v", ipcFrameCorpusDir, err)
++	}
++	for _, e := range entries {
++		if e.IsDir() {
++			continue
++		}
++		b, err := os.ReadFile(filepath.Join(ipcFrameCorpusDir, e.Name()))
++		if err != nil {
++			f.Fatalf("reading fuzz seed %s: %v", e.Name(), err)
++		}
++		f.Add(b)
++	}
++
++	f.Fuzz(func(t *testing.T, data []byte) {
++		_, _ = ipc.DecodeRequest(data)
++	})
++}
+diff --git a/internal/ipc/op.go b/internal/ipc/op.go
+new file mode 100644
+index 0000000..7142385
+--- /dev/null
++++ b/internal/ipc/op.go
+@@ -0,0 +1,51 @@
++package ipc
++
++import "sort"
++
++// The five admin.* operations (00-ARCHITECTURE.md §5.4's reserved admin namespace), built from the
++// shipped OpAdminPrefix rather than a hand-respelled literal so the two can never drift apart.
++// Routing them is a later task's job (daemon.Options' handler map); this package only names them.
++const (
++	OpAdminPing     Op = OpAdminPrefix + "ping"
++	OpAdminDrain    Op = OpAdminPrefix + "drain"
++	OpAdminReload   Op = OpAdminPrefix + "reload"
++	OpAdminIdle     Op = OpAdminPrefix + "idle"
++	OpAdminShutdown Op = OpAdminPrefix + "shutdown"
++)
++
++// KnownOps returns every operation this build understands — the eight §5.4 operations plus the
++// five admin.* ones above — sorted, so `self-test` and `/qompack:status` render a stable list and
++// Op.Valid has a single source of truth to check against.
++func KnownOps() []Op {
++	ops := []Op{
++		OpObserveTool, OpObservePrompt, OpObserveStop, OpSessionStart,
++		OpCheckpoint, OpFlush, OpStatus, OpMCP,
++		OpAdminPing, OpAdminDrain, OpAdminReload, OpAdminIdle, OpAdminShutdown,
++	}
++	sort.Slice(ops, func(i, j int) bool { return ops[i] < ops[j] })
++	return ops
++}
++
++// Valid reports whether o is one of KnownOps — the check a router applies before dispatching, and
++// self-test applies before trusting a spelling it did not itself produce.
++func (o Op) Valid() bool {
++	for _, k := range KnownOps() {
++		if o == k {
++			return true
++		}
++	}
++	return false
++}
++
++// HotPath reports whether o is one of the three operations that flow through §8.1/§12.2's hot-path
++// budget and its spool-on-breach fallback: observe.tool, observe.prompt, observe.stop. Every other
++// op — session.start, checkpoint, flush, status, mcp, and the admin.* namespace — is off the hot
++// path and never consults HotPathMode.
++func (o Op) HotPath() bool {
++	switch o {
++	case OpObserveTool, OpObservePrompt, OpObserveStop:
++		return true
++	default:
++		return false
++	}
++}
+diff --git a/internal/ipc/op_test.go b/internal/ipc/op_test.go
+new file mode 100644
+index 0000000..057ea99
+--- /dev/null
++++ b/internal/ipc/op_test.go
+@@ -0,0 +1,76 @@
++package ipc_test
++
++import (
++	"sort"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// wantOps is every op KnownOps must report: the eight §5.4 operations plus the five admin.*
++// operations this commit adds.
++var wantOps = []ipc.Op{
++	ipc.OpObserveTool, ipc.OpObservePrompt, ipc.OpObserveStop, ipc.OpSessionStart,
++	ipc.OpCheckpoint, ipc.OpFlush, ipc.OpStatus, ipc.OpMCP,
++	ipc.OpAdminPing, ipc.OpAdminDrain, ipc.OpAdminReload, ipc.OpAdminIdle, ipc.OpAdminShutdown,
++}
++
++// TestKnownOps_ListsAllThirteenSorted asserts KnownOps is the complete, sorted vocabulary — the set
++// self-test and status render against.
++func TestKnownOps_ListsAllThirteenSorted(t *testing.T) {
++	ops := ipc.KnownOps()
++	require.Len(t, ops, 13)
++	require.True(t, sort.SliceIsSorted(ops, func(i, j int) bool { return ops[i] < ops[j] }))
++	for _, o := range wantOps {
++		require.Contains(t, ops, o)
++	}
++}
++
++// TestKnownOps_ReturnsAFreshSlice asserts a caller mutating the returned slice cannot corrupt a
++// later call's result.
++func TestKnownOps_ReturnsAFreshSlice(t *testing.T) {
++	ops := ipc.KnownOps()
++	ops[0] = ipc.Op("tampered")
++	require.NotEqual(t, ipc.Op("tampered"), ipc.KnownOps()[0])
++}
++
++// TestAdminOps_SpellingsAreConsistentWithThePrefix pins the five admin.* wire spellings and asserts
++// each is built from OpAdminPrefix rather than a hand-respelled literal.
++func TestAdminOps_SpellingsAreConsistentWithThePrefix(t *testing.T) {
++	require.Equal(t, ipc.Op("admin.ping"), ipc.OpAdminPing)
++	require.Equal(t, ipc.Op("admin.drain"), ipc.OpAdminDrain)
++	require.Equal(t, ipc.Op("admin.reload"), ipc.OpAdminReload)
++	require.Equal(t, ipc.Op("admin.idle"), ipc.OpAdminIdle)
++	require.Equal(t, ipc.Op("admin.shutdown"), ipc.OpAdminShutdown)
++
++	admin := []ipc.Op{ipc.OpAdminPing, ipc.OpAdminDrain, ipc.OpAdminReload, ipc.OpAdminIdle, ipc.OpAdminShutdown}
++	for _, o := range admin {
++		require.True(t, strings.HasPrefix(string(o), ipc.OpAdminPrefix), "%s must start with %q", o, ipc.OpAdminPrefix)
++	}
++}
++
++// TestOp_Valid asserts every KnownOps entry validates and an arbitrary/empty Op does not.
++func TestOp_Valid(t *testing.T) {
++	for _, o := range ipc.KnownOps() {
++		require.True(t, o.Valid(), "%s must be valid", o)
++	}
++	require.False(t, ipc.Op("bogus").Valid())
++	require.False(t, ipc.Op("").Valid())
++	require.False(t, ipc.Op(ipc.OpAdminPrefix).Valid(), "the bare prefix is not itself an op")
++}
++
++// TestOp_HotPath pins §8.1's three hot-path ops — the ones that flow through the spool submode —
++// and asserts every other known op is not one of them.
++func TestOp_HotPath(t *testing.T) {
++	hot := map[ipc.Op]bool{
++		ipc.OpObserveTool:   true,
++		ipc.OpObservePrompt: true,
++		ipc.OpObserveStop:   true,
++	}
++	for _, o := range ipc.KnownOps() {
++		require.Equal(t, hot[o], o.HotPath(), "%s", o)
++	}
++}
+diff --git a/internal/ipc/resolve.go b/internal/ipc/resolve.go
+index a122819..96fcfa5 100644
+--- a/internal/ipc/resolve.go
++++ b/internal/ipc/resolve.go
+@@ -6,23 +6,27 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"os"
+ 	"path"
+ 	"path/filepath"
+ 	"runtime"
+ 	"strconv"
+ 	"strings"
+ )
+ 
+-// goosWindows is runtime.GOOS's spelling for Windows, named so resolveFor's platform branch reads
+-// as a decision rather than as a magic string.
+-const goosWindows = "windows"
++// goosWindows and goosDarwin are runtime.GOOS's spellings for Windows and macOS, named so
++// resolveFor's platform branch and normalizeRoot's case-fold decision read as decisions rather than
++// magic strings.
++const (
++	goosWindows = "windows"
++	goosDarwin  = "darwin"
++)
+ 
+ // windowsPipePrefix and pipeName build \\.\pipe\qompack.<hash12> (00-ARCHITECTURE.md §2.4).
+ const (
+ 	windowsPipePrefix = `\\.\pipe\`
+ 	pipeName          = "qompack."
+ )
+ 
+ // The POSIX socket path components of §2.4: $XDG_RUNTIME_DIR/qompack/<hash12>.sock, then
+ // <os.TempDir()>/qompack-<uid>/<hash12>.sock, then <os.TempDir()>/qp-<hash8>.sock.
+ const (
+@@ -38,86 +42,184 @@ const (
+ // both, and so a path that fits here fits everywhere Qompack runs.
+ const sunPathMax = 100
+ 
+ // hash12Len and hash8Len are the two prefix lengths §2.4 names: 12 hex chars for the ordinary
+ // endpoint name, 8 for the short fallback that has to fit inside sunPathMax.
+ const (
+ 	hash12Len = 12
+ 	hash8Len  = 8
+ )
+ 
++// qompackIPCAddrEnv is the operator/test escape hatch that overrides §2.4's resolution entirely: a
++// caller who sets it gets exactly the address it names, never a hashed one. Tests, CI and the bench
++// harness use it to keep sockets inside a temp directory that Resolve's own hashing would not
++// otherwise reach; production leaves it unset.
++const qompackIPCAddrEnv = "QOMPACK_IPC_ADDR"
++
++// The two schemes qompackIPCAddrEnv accepts: "pipe:<name>" names a Windows named pipe verbatim,
++// "unix:<path>" names a Unix socket path, still subject to sunPathMax. Anything else — including an
++// unset or empty value — is not an override at all, and resolution falls through to the normal
++// chain; the hot path must never fail because of a malformed environment variable.
++const (
++	ipcAddrPipeScheme = "pipe:"
++	ipcAddrUnixScheme = "unix:"
++)
++
+ // ErrUnresolvedRoot is returned by Resolve for an empty project root. It is a programming error
+ // rather than a runtime condition — paths.Resolve produces the root, and it never returns an empty
+ // one — so it is reported rather than papered over with a default endpoint that two different
+ // projects would then share.
+ var ErrUnresolvedRoot = errors.New("ipc: project root must not be empty")
+ 
++// ErrAddrTooLong is returned when even §2.4's short fallback (<os.TempDir()>/qp-<hash8>.sock)
++// exceeds sunPathMax: nothing left in the resolution chain can produce a bindable path. Callers
++// (NewClient) treat it as "spool-only for this process", never as a hook failure.
++var ErrAddrTooLong = errors.New("qompack: ipc address exceeds sun_path limit")
++
+ // Resolve returns the local endpoint for projectRoot, exactly as 00-ARCHITECTURE.md §2.4 specifies
+-// it.
++// it, unless QOMPACK_IPC_ADDR overrides it.
+ //
+ // On Windows the answer is always the named pipe \\.\pipe\qompack.<hash12>. On POSIX the candidates
+ // are tried in §2.4's order — $XDG_RUNTIME_DIR/qompack/<hash12>.sock, then
+ // <os.TempDir()>/qompack-<uid>/<hash12>.sock — and the first whose full path fits in sunPathMax
+ // wins; if neither does, the short fallback <os.TempDir()>/qp-<hash8>.sock is used.
+ //
+ // Resolve is a pure function of its inputs: it creates no directory and no socket, and it does not
+ // stat anything. Binding the endpoint — with the directory at 0700 and the socket at 0600, per
+ // §2.4 — belongs to the Server, so that resolving an address for a status query can never leave a
+ // directory behind in a project that is not otherwise using Qompack.
+ func Resolve(projectRoot string) (Addr, error) {
+ 	return resolveFor(runtime.GOOS, os.Getenv, os.TempDir(), os.Getuid(), projectRoot)
+ }
+ 
+-// resolveFor is Resolve with every environmental input injected, so both platform branches and all
+-// three POSIX candidates are testable on any host. Resolve itself is the one-line binding of the
+-// real environment to this function.
++// resolveFor is Resolve with every environmental input injected, so both platform branches, all
++// three POSIX candidates, and the QOMPACK_IPC_ADDR override are testable on any host. Resolve
++// itself is the one-line binding of the real environment to this function.
+ //
+ // POSIX paths are joined with path.Join rather than filepath.Join deliberately: a Unix socket path
+ // is always slash-separated, and using the host's separator would produce backslashes when this
+ // branch is exercised from a Windows test.
+ func resolveFor(goos string, getenv func(string) string, tempDir string, uid int, projectRoot string) (Addr, error) {
++	if a, ok := parseIPCAddrOverride(getenv(qompackIPCAddrEnv)); ok {
++		return a, nil
++	}
+ 	if strings.TrimSpace(projectRoot) == "" {
+ 		return Addr{}, ErrUnresolvedRoot
+ 	}
+-	hash12, hash8 := endpointHash(projectRoot)
++	hash12, hash8 := projectHashFor(goos, projectRoot)
+ 
+ 	if goos == goosWindows {
+ 		// A named pipe name has no length problem worth guarding: the whole path is 9 + 8 + 12
+ 		// bytes, and the pipe namespace is flat rather than filesystem-backed.
+ 		return Addr{Kind: NamedPipe, Path: windowsPipePrefix + pipeName + hash12}, nil
+ 	}
+ 
+ 	tmp := filepath.ToSlash(tempDir)
+ 	var candidates []string
+-	if xdg := getenv(xdgRuntimeDirEnv); strings.TrimSpace(xdg) != "" {
+-		candidates = append(candidates, path.Join(filepath.ToSlash(xdg), sockDirName, hash12+sockExt))
++	if xdg := strings.TrimSpace(getenv(xdgRuntimeDirEnv)); xdg != "" && strings.HasPrefix(xdg, "/") {
++		candidates = append(candidates, path.Join(xdg, sockDirName, hash12+sockExt))
+ 	}
+ 	candidates = append(candidates, path.Join(tmp, sockDirPrefix+strconv.Itoa(uid), hash12+sockExt))
+ 
+ 	for _, c := range candidates {
+ 		if len(c) <= sunPathMax {
+ 			return Addr{Kind: UnixSocket, Path: c}, nil
+ 		}
+ 	}
+ 
+ 	// §2.4's last resort. It can itself exceed sunPathMax only if os.TempDir() alone is longer
+ 	// than the budget, which no caller can fix from here — reporting that is more useful than
+ 	// returning an address the bind would reject with a bare EINVAL.
+ 	short := path.Join(tmp, shortSockPrefix+hash8+sockExt)
+ 	if len(short) > sunPathMax {
+-		return Addr{}, fmt.Errorf("ipc: Resolve: no socket path for %s fits in %d bytes (shortest candidate %q is %d)",
+-			projectRoot, sunPathMax, short, len(short))
++		return Addr{}, fmt.Errorf("%w: no socket path for %s fits in %d bytes (shortest candidate %q is %d)",
++			ErrAddrTooLong, projectRoot, sunPathMax, short, len(short))
+ 	}
+ 	return Addr{Kind: UnixSocket, Path: short}, nil
+ }
+ 
+-// endpointHash derives the endpoint name from the project root, exactly as §2.4 words it: hash12 is
+-// the first 12 hex chars of sha256(normalizedAbsProjectRoot), hash8 the first 8.
++// parseIPCAddrOverride parses QOMPACK_IPC_ADDR's raw value: "pipe:<name>" or "unix:<path>", the
++// latter still subject to sunPathMax. ok is false for an unset, empty, or malformed value — the hot
++// path never fails on an environment variable, it just ignores one it cannot use.
++func parseIPCAddrOverride(raw string) (Addr, bool) {
++	switch {
++	case strings.HasPrefix(raw, ipcAddrPipeScheme):
++		name := strings.TrimPrefix(raw, ipcAddrPipeScheme)
++		if name == "" {
++			return Addr{}, false
++		}
++		return Addr{Kind: NamedPipe, Path: name}, true
++	case strings.HasPrefix(raw, ipcAddrUnixScheme):
++		p := strings.TrimPrefix(raw, ipcAddrUnixScheme)
++		if p == "" || len(p) > sunPathMax {
++			return Addr{}, false
++		}
++		return Addr{Kind: UnixSocket, Path: p}, true
++	default:
++		return Addr{}, false
++	}
++}
++
++// normalizeRoot canonicalizes a project root before it is hashed, mirroring paths.Key's semantics
++// (paths.DefaultFold/KeyFold) so two spellings of one project resolve to one daemon: filepath.Abs,
++// then filepath.Clean, then forward slashes, then a trailing slash is stripped (except a bare
++// root — POSIX "/" or a Windows drive root like "C:/", either of which would change meaning if
++// shortened further), then lowercased iff goos is windows or darwin, whose default filesystems are
++// case-insensitive. On any filepath.Abs error, normalization continues from the raw (uncleaned)
++// input rather than failing — a hot-path caller must still get a deterministic, if degraded,
++// endpoint name.
+ //
+-// Undomained on purpose — see the domain registry note in core/hash.go. This hash names a socket,
+-// it does not address content, so it deliberately does not share the domain-separated construction
+-// core.HashBytes applies to everything that ends up in the store.
+-func endpointHash(projectRoot string) (hash12, hash8 string) {
+-	sum := sha256.Sum256([]byte(filepath.ToSlash(filepath.Clean(projectRoot))))
++// goos is injected, not read from runtime.GOOS, purely so the case-fold decision is testable
++// cross-platform; the filesystem calls (Abs/Clean) always run against the host's own semantics.
++func normalizeRoot(goos, root string) string {
++	abs, err := filepath.Abs(root)
++	if err != nil {
++		abs = root
++	}
++	slashed := stripTrailingSlash(filepath.ToSlash(filepath.Clean(abs)))
++	if goos == goosWindows || goos == goosDarwin {
++		slashed = strings.ToLower(slashed)
++	}
++	return slashed
++}
++
++// stripTrailingSlash removes a trailing "/" from an already forward-slashed path, except when the
++// result would be a bare root: POSIX "/" itself, or a Windows drive root such as "C:/" whose volume
++// name is the entire remaining string once the slash is gone — stripping that would turn an
++// absolute path into a different, drive-relative one.
++func stripTrailingSlash(p string) string {
++	if !strings.HasSuffix(p, "/") || p == "/" {
++		return p
++	}
++	if vol := filepath.VolumeName(p); vol != "" && len(p) == len(vol)+1 {
++		return p
++	}
++	return strings.TrimSuffix(p, "/")
++}
++
++// projectHashFor is ProjectHash12/ProjectHash8's shared body, and resolveFor's own hash source, with
++// goos injected so the normalization it depends on is testable cross-platform. hash12 is the first
++// 12 hex chars of sha256(normalizeRoot(goos, root)), hash8 the first 8 — both prefixes of one
++// digest, per §2.4.
++//
++// Deliberately plain sha256, not core.HashBytes: this hash names a socket, it does not address
++// content, so it deliberately does not share the domain-separated construction core.HashBytes
++// applies to everything that ends up in the store.
++func projectHashFor(goos, root string) (hash12, hash8 string) {
++	sum := sha256.Sum256([]byte(normalizeRoot(goos, root)))
+ 	h := hex.EncodeToString(sum[:])
+ 	return h[:hash12Len], h[:hash8Len]
+ }
++
++// ProjectHash12 returns the 12-hex-char endpoint name §2.4 hashes the (normalized) project root
++// into: \\.\pipe\qompack.<hash12> on Windows, <dir>/<hash12>.sock on POSIX.
++func ProjectHash12(projectRoot string) string {
++	h, _ := projectHashFor(runtime.GOOS, projectRoot)
++	return h
++}
++
++// ProjectHash8 returns the 8-hex-char short form §2.4 falls back to when the ordinary socket path
++// would exceed sunPathMax.
++func ProjectHash8(projectRoot string) string {
++	_, h := projectHashFor(runtime.GOOS, projectRoot)
++	return h
++}
+diff --git a/internal/ipc/resolve_test.go b/internal/ipc/resolve_test.go
+index 46d9937..ed8234e 100644
+--- a/internal/ipc/resolve_test.go
++++ b/internal/ipc/resolve_test.go
+@@ -3,169 +3,262 @@ package ipc
+ import (
+ 	"encoding/hex"
+ 	"path"
+ 	"strconv"
+ 	"strings"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+-// noEnv is the getenv every case that must not see XDG_RUNTIME_DIR passes to resolveFor.
++// noEnv is the getenv every case that must not see any environment variable passes to resolveFor.
+ func noEnv(string) string { return "" }
+ 
+ // envWith returns a getenv reporting v for key and nothing for anything else.
+ func envWith(key, v string) func(string) string {
+ 	return func(k string) string {
+ 		if k == key {
+ 			return v
+ 		}
+ 		return ""
+ 	}
+ }
+ 
++// envMap returns a getenv serving kv and nothing for any key kv does not name — used by the
++// override tests, which need both XDG_RUNTIME_DIR and QOMPACK_IPC_ADDR available at once.
++func envMap(kv map[string]string) func(string) string {
++	return func(k string) string { return kv[k] }
++}
++
+ const (
+ 	testRoot = "C:/Users/dev/proj"
+ 	testUID  = 1000
+ )
+ 
+ // TestResolveFor_WindowsIsAlwaysANamedPipe asserts §2.4's Windows answer: \\.\pipe\qompack.<hash12>,
+ // regardless of XDG_RUNTIME_DIR, the temp directory or the uid — none of which mean anything on
+ // Windows, and all of which would silently produce a Unix socket path if the branch were wrong.
+ func TestResolveFor_WindowsIsAlwaysANamedPipe(t *testing.T) {
+-	a, err := resolveFor("windows", envWith(xdgRuntimeDirEnv, "/run/user/1000"), "/tmp", testUID, testRoot)
++	a, err := resolveFor(goosWindows, envWith(xdgRuntimeDirEnv, "/run/user/1000"), "/tmp", testUID, testRoot)
+ 	require.NoError(t, err)
+ 	require.Equal(t, NamedPipe, a.Kind)
+ 
+-	hash12, _ := endpointHash(testRoot)
++	hash12, _ := projectHashFor(goosWindows, testRoot)
+ 	require.Equal(t, `\\.\pipe\qompack.`+hash12, a.Path)
+ }
+ 
+ // TestResolveFor_PosixPrefersXDGRuntimeDir asserts candidate 1 of §2.4's resolution order.
+ func TestResolveFor_PosixPrefersXDGRuntimeDir(t *testing.T) {
+ 	a, err := resolveFor("linux", envWith(xdgRuntimeDirEnv, "/run/user/1000"), "/tmp", testUID, testRoot)
+ 	require.NoError(t, err)
+ 	require.Equal(t, UnixSocket, a.Kind)
+ 
+-	hash12, _ := endpointHash(testRoot)
++	hash12, _ := projectHashFor("linux", testRoot)
+ 	require.Equal(t, "/run/user/1000/qompack/"+hash12+".sock", a.Path)
+ }
+ 
+ // TestResolveFor_PosixFallsBackToTempDir asserts candidate 2: with XDG_RUNTIME_DIR unset — the
+ // normal case on macOS and inside many containers — the socket lives in a per-uid directory under
+ // the temp dir, which is what keeps two users on one host from colliding.
+ func TestResolveFor_PosixFallsBackToTempDir(t *testing.T) {
+-	a, err := resolveFor("darwin", noEnv, "/tmp", testUID, testRoot)
++	a, err := resolveFor(goosDarwin, noEnv, "/tmp", testUID, testRoot)
+ 	require.NoError(t, err)
+ 	require.Equal(t, UnixSocket, a.Kind)
+ 
+-	hash12, _ := endpointHash(testRoot)
++	hash12, _ := projectHashFor(goosDarwin, testRoot)
+ 	require.Equal(t, "/tmp/qompack-"+strconv.Itoa(testUID)+"/"+hash12+".sock", a.Path)
+ }
+ 
+ // TestResolveFor_BlankXDGIsTreatedAsUnset asserts a whitespace-only XDG_RUNTIME_DIR does not
+ // produce a socket path rooted at the current directory. An empty environment variable is a common
+ // artefact of a partially populated container environment, and joining it would silently yield a
+ // relative path that two different projects could share.
+ func TestResolveFor_BlankXDGIsTreatedAsUnset(t *testing.T) {
+ 	a, err := resolveFor("linux", envWith(xdgRuntimeDirEnv, "   "), "/tmp", testUID, testRoot)
+ 	require.NoError(t, err)
+ 	require.True(t, strings.HasPrefix(a.Path, "/tmp/"), "got %q", a.Path)
+ }
+ 
++// TestResolveFor_RelativeXDGIsIgnored asserts the added absoluteness guard: XDG_RUNTIME_DIR must be
++// a POSIX-style absolute path (starts with "/") or it is treated exactly like unset, falling
++// through to candidate 2 rather than joining a relative path onto an unknown current directory.
++func TestResolveFor_RelativeXDGIsIgnored(t *testing.T) {
++	a, err := resolveFor("linux", envWith(xdgRuntimeDirEnv, "run/user/1000"), "/tmp", testUID, testRoot)
++	require.NoError(t, err)
++
++	hash12, _ := projectHashFor("linux", testRoot)
++	require.Equal(t, "/tmp/qompack-"+strconv.Itoa(testUID)+"/"+hash12+".sock", a.Path)
++}
++
+ // TestResolveFor_OverlongXDGSkipsToTheNextCandidate asserts the length budget is applied per
+ // candidate, in order: an XDG_RUNTIME_DIR long enough to push candidate 1 past sunPathMax is
+ // skipped in favour of candidate 2, rather than jumping straight to the short fallback.
+ func TestResolveFor_OverlongXDGSkipsToTheNextCandidate(t *testing.T) {
+ 	longXDG := "/run/" + strings.Repeat("d", sunPathMax)
+ 	a, err := resolveFor("linux", envWith(xdgRuntimeDirEnv, longXDG), "/tmp", testUID, testRoot)
+ 	require.NoError(t, err)
+ 
+-	hash12, _ := endpointHash(testRoot)
++	hash12, _ := projectHashFor("linux", testRoot)
+ 	require.Equal(t, "/tmp/qompack-"+strconv.Itoa(testUID)+"/"+hash12+".sock", a.Path)
+ 	require.LessOrEqual(t, len(a.Path), sunPathMax)
+ }
+ 
+ // TestResolveFor_ShortFallbackWhenNoCandidateFits is §2.4's sun_path escape hatch: when neither
+ // candidate fits in 100 bytes, the endpoint becomes <tmp>/qp-<hash8>.sock. macOS's sun_path is 104
+ // bytes, so without this a deeply nested temp directory would make the daemon unreachable with an
+ // error message about an invalid argument.
+ func TestResolveFor_ShortFallbackWhenNoCandidateFits(t *testing.T) {
+ 	longTmp := "/var/folders/" + strings.Repeat("t", 60)
+-	a, err := resolveFor("darwin", noEnv, longTmp, testUID, testRoot)
++	a, err := resolveFor(goosDarwin, noEnv, longTmp, testUID, testRoot)
+ 	require.NoError(t, err)
+ 
+-	_, hash8 := endpointHash(testRoot)
++	_, hash8 := projectHashFor(goosDarwin, testRoot)
+ 	require.Equal(t, path.Join(longTmp, "qp-"+hash8+".sock"), a.Path)
+ 	require.LessOrEqual(t, len(a.Path), sunPathMax)
+ }
+ 
+ // TestResolveFor_ReportsWhenEvenTheShortFallbackIsTooLong asserts the one case nothing can fix is
+-// reported rather than silently returning an address the bind would reject with a bare EINVAL.
++// reported — as the exported ErrAddrTooLong sentinel — rather than silently returning an address
++// the bind would reject with a bare EINVAL.
+ func TestResolveFor_ReportsWhenEvenTheShortFallbackIsTooLong(t *testing.T) {
+ 	_, err := resolveFor("linux", noEnv, "/"+strings.Repeat("t", sunPathMax), testUID, testRoot)
+-	require.Error(t, err)
+-	require.Contains(t, err.Error(), "fits in")
++	require.ErrorIs(t, err, ErrAddrTooLong)
+ }
+ 
+ // TestResolve_RejectsAnEmptyProjectRoot asserts an unresolved root is refused rather than
+ // defaulted: two different projects sharing one endpoint would cross-contaminate their stores,
+ // which is the worst failure mode this package has.
+ func TestResolve_RejectsAnEmptyProjectRoot(t *testing.T) {
+ 	for _, root := range []string{"", "   ", "\t"} {
+ 		_, err := Resolve(root)
+ 		require.ErrorIs(t, err, ErrUnresolvedRoot, "root %q must be refused", root)
+ 	}
+ }
+ 
+ // TestResolve_UsesTheHostPlatform asserts the exported entry point actually reaches the same
+ // resolution the injected form does, so the testable seam cannot drift from what production calls.
+ func TestResolve_UsesTheHostPlatform(t *testing.T) {
+ 	a, err := Resolve(testRoot)
+ 	require.NoError(t, err)
+ 	require.Contains(t, []AddrKind{NamedPipe, UnixSocket}, a.Kind)
+ 	require.NotEmpty(t, a.Path)
+ 
+-	hash12, _ := endpointHash(testRoot)
++	hash12 := ProjectHash12(testRoot)
+ 	require.Contains(t, a.Path, hash12)
+ }
+ 
+-// TestEndpointHash_IsDeterministicAndNormalized asserts §2.4's endpoint naming: the same project
+-// root always produces the same endpoint, and three spellings of one root produce one endpoint.
++// TestProjectHash12_IsDeterministicAndNormalized asserts §2.4's endpoint naming: the same project
++// root always produces the same endpoint, and several spellings of one root produce one endpoint.
+ // Without the normalization a client invoked with a trailing slash would dial a different daemon
+ // than one invoked without it.
+-func TestEndpointHash_IsDeterministicAndNormalized(t *testing.T) {
+-	want12, want8 := endpointHash(testRoot)
++func TestProjectHash12_IsDeterministicAndNormalized(t *testing.T) {
++	want := ProjectHash12(testRoot)
+ 
+ 	for _, spelling := range []string{testRoot, testRoot + "/", "C:/Users/dev/./proj", "C:/Users/dev/x/../proj"} {
+-		got12, got8 := endpointHash(spelling)
+-		require.Equal(t, want12, got12, "spelling %q must resolve to the same endpoint", spelling)
+-		require.Equal(t, want8, got8)
++		require.Equal(t, want, ProjectHash12(spelling), "spelling %q must resolve to the same endpoint", spelling)
+ 	}
+ }
+ 
+-// TestEndpointHash_SeparatesDistinctRoots asserts two different projects never share an endpoint.
+-func TestEndpointHash_SeparatesDistinctRoots(t *testing.T) {
+-	a12, _ := endpointHash("C:/Users/dev/proj-a")
+-	b12, _ := endpointHash("C:/Users/dev/proj-b")
+-	require.NotEqual(t, a12, b12)
++// TestProjectHash8_IsAPrefixOfProjectHash12 asserts hash8 and hash12 are two prefixes of one
++// sha256, not two different digests.
++func TestProjectHash8_IsAPrefixOfProjectHash12(t *testing.T) {
++	h12 := ProjectHash12(testRoot)
++	h8 := ProjectHash8(testRoot)
++	require.True(t, strings.HasPrefix(h12, h8))
++	require.Len(t, h8, hash8Len)
++}
++
++// TestProjectHash12_SeparatesDistinctRoots asserts two different projects never share an endpoint.
++func TestProjectHash12_SeparatesDistinctRoots(t *testing.T) {
++	require.NotEqual(t, ProjectHash12("C:/Users/dev/proj-a"), ProjectHash12("C:/Users/dev/proj-b"))
+ }
+ 
+-// TestEndpointHash_ShapeIsLowercaseHexOfTheStatedLengths pins the two prefix lengths §2.4 names and
+-// asserts hash8 is a prefix of hash12 — both are prefixes of one sha256, not two different digests.
+-func TestEndpointHash_ShapeIsLowercaseHexOfTheStatedLengths(t *testing.T) {
+-	h12, h8 := endpointHash(testRoot)
++// TestProjectHash12_ShapeIsLowercaseHexOfTheStatedLength pins the 12-hex-char prefix §2.4 names.
++func TestProjectHash12_ShapeIsLowercaseHexOfTheStatedLength(t *testing.T) {
++	h12 := ProjectHash12(testRoot)
+ 	require.Len(t, h12, hash12Len)
+-	require.Len(t, h8, hash8Len)
+-	require.True(t, strings.HasPrefix(h12, h8))
+ 
+ 	_, err := hex.DecodeString(h12)
+ 	require.NoError(t, err, "the endpoint name must be hex")
+ 	require.Equal(t, strings.ToLower(h12), h12, "the endpoint name must be lowercase hex")
+ }
+ 
++// TestNormalizeRoot_CaseFoldsOnlyOnWindowsAndDarwin asserts the case-fold decision mirrors
++// paths.DefaultFold: two spellings differing only in case hash identically on windows/darwin, and
++// differently everywhere else — using the injected goos so this is testable on any host.
++func TestNormalizeRoot_CaseFoldsOnlyOnWindowsAndDarwin(t *testing.T) {
++	lower := normalizeRoot("linux", "/proj/foo")
++	upper := normalizeRoot("linux", "/PROJ/FOO")
++	require.NotEqual(t, lower, upper, "linux must not fold case")
++
++	for _, goos := range []string{goosWindows, goosDarwin} {
++		require.Equal(t, normalizeRoot(goos, "/proj/foo"), normalizeRoot(goos, "/PROJ/FOO"), "%s must fold case", goos)
++	}
++}
++
++// TestNormalizeRoot_StripsTrailingSlashExceptBareRoot asserts the trailing-slash rule: a plain
++// POSIX root and a Windows drive root both keep their single separator rather than being stripped
++// down to an empty string or a bare drive letter, either of which would change the path's meaning.
++func TestNormalizeRoot_StripsTrailingSlashExceptBareRoot(t *testing.T) {
++	require.Equal(t, "/", stripTrailingSlash("/"))
++	require.Equal(t, "C:/", stripTrailingSlash("C:/"))
++	require.Equal(t, "/proj/foo", stripTrailingSlash("/proj/foo/"))
++	require.Equal(t, "/proj/foo", stripTrailingSlash("/proj/foo"))
++}
++
++// TestResolveFor_QompackIPCAddrOverridesEverything asserts QOMPACK_IPC_ADDR wins over both the
++// normal resolution AND an unresolvable (empty) project root — it is the escape hatch tests and CI
++// use to keep sockets inside a temp directory, and it must never depend on hashing a real root.
++func TestResolveFor_QompackIPCAddrOverridesEverything(t *testing.T) {
++	getenv := envMap(map[string]string{qompackIPCAddrEnv: "unix:/tmp/qompack-test/x.sock"})
++
++	a, err := resolveFor("linux", getenv, "/tmp", testUID, testRoot)
++	require.NoError(t, err)
++	require.Equal(t, Addr{Kind: UnixSocket, Path: "/tmp/qompack-test/x.sock"}, a)
++
++	// It overrides even an otherwise-refused empty root.
++	a, err = resolveFor("linux", getenv, "/tmp", testUID, "")
++	require.NoError(t, err)
++	require.Equal(t, Addr{Kind: UnixSocket, Path: "/tmp/qompack-test/x.sock"}, a)
++}
++
++// TestResolveFor_QompackIPCAddrPipeScheme asserts the pipe: scheme is honoured on any goos — a test
++// harness may want a fixed pipe name regardless of platform.
++func TestResolveFor_QompackIPCAddrPipeScheme(t *testing.T) {
++	getenv := envWith(qompackIPCAddrEnv, `pipe:\\.\pipe\qompack-test`)
++	a, err := resolveFor("linux", getenv, "/tmp", testUID, testRoot)
++	require.NoError(t, err)
++	require.Equal(t, Addr{Kind: NamedPipe, Path: `\\.\pipe\qompack-test`}, a)
++}
++
++// TestResolveFor_QompackIPCAddrStillGuardsSunPath asserts the override's unix: form is still
++// subject to the 100-byte sun_path budget — it is a convenience, not a way to bypass the guard.
++func TestResolveFor_QompackIPCAddrStillGuardsSunPath(t *testing.T) {
++	over := "unix:/" + strings.Repeat("t", sunPathMax)
++	getenv := envWith(qompackIPCAddrEnv, over)
++
++	// Malformed/refused override falls through to normal resolution rather than failing the hot
++	// path on a bad environment variable.
++	a, err := resolveFor("linux", getenv, "/tmp", testUID, testRoot)
++	require.NoError(t, err)
++	require.Equal(t, UnixSocket, a.Kind)
++	hash12, _ := projectHashFor("linux", testRoot)
++	require.Contains(t, a.Path, hash12, "an overlong override must be ignored, not honoured truncated")
++}
++
++// TestResolveFor_QompackIPCAddrMalformedIsIgnored asserts an unparseable override never fails the
++// hot path: resolution falls through to the normal chain silently.
++func TestResolveFor_QompackIPCAddrMalformedIsIgnored(t *testing.T) {
++	for _, bad := range []string{"bogus", "pipe:", "unix:", "tcp:127.0.0.1:1234"} {
++		getenv := envWith(qompackIPCAddrEnv, bad)
++		a, err := resolveFor("linux", getenv, "/tmp", testUID, testRoot)
++		require.NoError(t, err, "override %q must not error", bad)
++		require.Equal(t, UnixSocket, a.Kind, "override %q must fall through to normal resolution", bad)
++	}
++}
++
+ // TestSocketPermissionsMatchTheDesign pins §2.4's two modes so a future bind cannot widen them: a
+ // world-writable socket would let any local user inject tool results into another user's store.
+ func TestSocketPermissionsMatchTheDesign(t *testing.T) {
+ 	require.Equal(t, 0o700, dirPerm)
+ 	require.Equal(t, 0o600, socketPerm)
+ }
+diff --git a/internal/ipc/state.go b/internal/ipc/state.go
+new file mode 100644
+index 0000000..381ae93
+--- /dev/null
++++ b/internal/ipc/state.go
+@@ -0,0 +1,257 @@
++package ipc
++
++import (
++	"bytes"
++	"encoding/binary"
++	"errors"
++	"hash/crc32"
++	"math"
++	"os"
++	"path/filepath"
++	"runtime"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// The hot-path state record's layout (SP-05 task-1-spec, "the 32-byte hot-path state record"):
++// little-endian, magic 'Q','P','S','1', a CRC32C over everything before it. It exists so a client
++// pays one 32-byte os.ReadFile before deciding whether and how to connect, instead of a full
++// config.Load (two file opens plus an environment scan) or several stats.
++const (
++	stateSize = 32 // total record size, bytes
++
++	stateOffMagic             = 0  // 4 bytes: 'Q','P','S','1'
++	stateOffMode              = 4  // 1 byte:  contract.Mode (0 full, 1 degraded-passive, 2 off)
++	stateOffHot               = 5  // 1 byte:  HotPathMode (0 sync, 1 spool)
++	stateOffConnectDeadlineMs = 6  // 2 bytes: uint16
++	stateOffAckDeadlineMs     = 8  // 2 bytes: uint16
++	stateOffFlags             = 10 // 2 bytes: uint16, bit 0 daemonEnabled, bit 1 spoolOnBreach
++	stateOffMaxPayloadBytes   = 12 // 4 bytes: uint32
++	stateOffDaemonPID         = 16 // 4 bytes: uint32
++	stateOffWritten           = 20 // 8 bytes: int64 unix milliseconds
++	stateOffCRC               = 28 // 4 bytes: crc32.Castagnoli over [0:stateOffCRC]
++)
++
++// stateMagic is the record's 4-byte identifier: 'Q'ompack 'P'rocess 'S'tate v'1'. Checked before
++// anything else so a file written by a future, incompatible layout is recognized as "not this
++// format" — and falls back like any other unreadable state file — rather than partially decoded.
++var stateMagic = [4]byte{'Q', 'P', 'S', '1'}
++
++// The two flags packed into the 16-bit flags field at stateOffFlags.
++const (
++	stateFlagDaemonEnabled uint16 = 1 << 0
++	stateFlagSpoolOnBreach uint16 = 1 << 1
++)
++
++// crc32cTable is computed once: decodeState/encodeState both hash on every call (decodeState on
++// every ReadState, which is the hot path this record exists to make cheap), so recomputing the
++// table per call would undermine the very budget BenchmarkReadState checks.
++var crc32cTable = crc32.MakeTable(crc32.Castagnoli)
++
++// statePerm is state.bin's on-disk permission: owner-only, like every other file under .qompack/.
++const statePerm = 0o600
++
++// stateFileName is state.bin's name within paths.Layout.Run.
++const stateFileName = "state.bin"
++
++// State is the daemon's hot-path summary of everything a client needs before it decides whether and
++// how to connect: the contract mode (§12.1), the hot-path submode (§12.2), the two connection
++// deadlines, the daemon's own liveness knobs, and when it was last written.
++type State struct {
++	Mode              contract.Mode
++	Hot               HotPathMode
++	ConnectDeadlineMs uint16
++	AckDeadlineMs     uint16
++	DaemonEnabled     bool
++	SpoolOnBreach     bool
++	MaxPayloadBytes   uint32
++	DaemonPID         uint32
++	Written           core.UnixMilli
++}
++
++// StatePath returns <projectRoot>/.qompack/run/state.bin, the file ReadState/WriteState/RemoveState
++// operate on.
++func StatePath(projectRoot string) string {
++	return filepath.Join(paths.Of(projectRoot).Run, stateFileName)
++}
++
++// encodeState renders s into the exact 32-byte wire layout, computing and appending the trailing
++// CRC32C over everything before it.
++func encodeState(s State) [stateSize]byte {
++	var buf [stateSize]byte
++	copy(buf[stateOffMagic:], stateMagic[:])
++	buf[stateOffMode] = byte(s.Mode)
++	buf[stateOffHot] = byte(s.Hot)
++	binary.LittleEndian.PutUint16(buf[stateOffConnectDeadlineMs:], s.ConnectDeadlineMs)
++	binary.LittleEndian.PutUint16(buf[stateOffAckDeadlineMs:], s.AckDeadlineMs)
++
++	var flags uint16
++	if s.DaemonEnabled {
++		flags |= stateFlagDaemonEnabled
++	}
++	if s.SpoolOnBreach {
++		flags |= stateFlagSpoolOnBreach
++	}
++	binary.LittleEndian.PutUint16(buf[stateOffFlags:], flags)
++
++	binary.LittleEndian.PutUint32(buf[stateOffMaxPayloadBytes:], s.MaxPayloadBytes)
++	binary.LittleEndian.PutUint32(buf[stateOffDaemonPID:], s.DaemonPID)
++	binary.LittleEndian.PutUint64(buf[stateOffWritten:], uint64(s.Written)) //nolint:gosec // wire layout is a fixed-width int64 field
++
++	crc := crc32.Checksum(buf[:stateOffCRC], crc32cTable)
++	binary.LittleEndian.PutUint32(buf[stateOffCRC:], crc)
++	return buf
++}
++
++// decodeState is encodeState's inverse. ok is false for anything that is not a well-formed,
++// CRC-valid record of exactly stateSize bytes with the correct magic — the three ways ReadState's
++// contract promises to fall back silently: missing (never reaches here), short, bad magic, bad CRC.
++func decodeState(buf []byte) (s State, ok bool) {
++	if len(buf) != stateSize {
++		return State{}, false
++	}
++	if !bytes.Equal(buf[stateOffMagic:stateOffMagic+len(stateMagic)], stateMagic[:]) {
++		return State{}, false
++	}
++	wantCRC := binary.LittleEndian.Uint32(buf[stateOffCRC:])
++	if gotCRC := crc32.Checksum(buf[:stateOffCRC], crc32cTable); gotCRC != wantCRC {
++		return State{}, false
++	}
++
++	flags := binary.LittleEndian.Uint16(buf[stateOffFlags:])
++	return State{
++		Mode:              contract.Mode(buf[stateOffMode]),
++		Hot:               HotPathMode(buf[stateOffHot]),
++		ConnectDeadlineMs: binary.LittleEndian.Uint16(buf[stateOffConnectDeadlineMs:]),
++		AckDeadlineMs:     binary.LittleEndian.Uint16(buf[stateOffAckDeadlineMs:]),
++		DaemonEnabled:     flags&stateFlagDaemonEnabled != 0,
++		SpoolOnBreach:     flags&stateFlagSpoolOnBreach != 0,
++		MaxPayloadBytes:   binary.LittleEndian.Uint32(buf[stateOffMaxPayloadBytes:]),
++		DaemonPID:         binary.LittleEndian.Uint32(buf[stateOffDaemonPID:]),
++		Written:           core.UnixMilli(int64(binary.LittleEndian.Uint64(buf[stateOffWritten:]))), //nolint:gosec // inverse of encodeState's own PutUint64(uint64(int64))
++	}, true
++}
++
++// ReadState reads projectRoot's state.bin. Any failure to produce a valid record — the file is
++// missing (the ordinary first-run case), too short, carries the wrong magic, or fails its own CRC —
++// falls back to StateFromConfig(fallback) without logging: a hot-path client cannot afford to
++// treat "no state yet" as an error, and a corrupt state file is exactly the kind of thing §12.3
++// says should fail toward doing nothing rather than toward a crash.
++func ReadState(projectRoot string, fallback config.Config) State {
++	buf, err := os.ReadFile(paths.Long(StatePath(projectRoot)))
++	if err != nil {
++		return StateFromConfig(fallback)
++	}
++	if s, ok := decodeState(buf); ok {
++		return s
++	}
++	return StateFromConfig(fallback)
++}
++
++// writeStateMaxAttempts bounds WriteState's retry of a transient rename failure: on Windows,
++// paths.WriteAtomic's finishing rename can fail with ERROR_ACCESS_DENIED when a concurrent
++// ReadState (in any process — a hook client, /qompack:status, another daemon worker) briefly holds
++// the destination open at the exact instant of the rename. This is a liveness hiccup, not a
++// correctness one — decodeState's CRC guard already means a reader can never observe a torn record
++// either way — and a small bounded immediate retry (no time.Sleep; runtime.Gosched yields instead
++// of a wall-clock wait) is enough to ride out the ordinary case: one writer (the daemon) against
++// many short-lived readers, never many writers racing each other for the same destination.
++const writeStateMaxAttempts = 64
++
++// WriteState writes s to projectRoot's state.bin through paths.WriteAtomic, so a client reading
++// concurrently with a daemon write never observes a torn 32-byte record.
++func WriteState(projectRoot string, s State) error {
++	buf := encodeState(s)
++	p := StatePath(projectRoot)
++
++	var err error
++	for attempt := 0; attempt < writeStateMaxAttempts; attempt++ {
++		if err = paths.WriteAtomic(p, buf[:], statePerm); err == nil {
++			return nil
++		}
++		if !os.IsPermission(err) {
++			return err
++		}
++		runtime.Gosched()
++	}
++	return err
++}
++
++// RemoveState deletes projectRoot's state.bin. It is idempotent: removing a state file that does
++// not exist (a daemon that never got as far as writing one, or a second clean-stop call) is not an
++// error.
++func RemoveState(projectRoot string) error {
++	err := os.Remove(paths.Long(StatePath(projectRoot)))
++	if err != nil && !errors.Is(err, os.ErrNotExist) {
++		return err
++	}
++	return nil
++}
++
++// StateFromConfig projects cfg into a State: the fallback ReadState returns when no daemon has
++// written one yet, and the daemon's own starting point before its first real transition.
++//
++// runtime.mode's operator vocabulary (auto|full|passive|off) is not contract.Mode.String()'s
++// on-disk vocabulary (full|degraded-passive|off) — they are different readers of different
++// spellings that happen to share two of them. contract.ParseMode handles the two shared spellings
++// ("full", "off"); "passive" is runtime.mode's own word for ModeDegradedPassive, and "auto" (the
++// default) together with any unrecognized value fails toward ModeFull — not because §12.3's
++// "fail toward do nothing" applies here (ModeFull is the do-something mode), but because "auto"
++// means "let the contract monitor decide", and the monitor only ever decides by degrading FROM
++// full, never by starting anywhere else.
++func StateFromConfig(cfg config.Config) State {
++	return State{
++		Mode:              modeFromRuntimeString(cfg.Runtime.Mode),
++		Hot:               HotSync,
++		ConnectDeadlineMs: clampUint16(cfg.Runtime.Daemon.ConnectDeadlineMs),
++		AckDeadlineMs:     clampUint16(cfg.Runtime.Daemon.AckDeadlineMs),
++		DaemonEnabled:     cfg.Runtime.Daemon.Enabled,
++		SpoolOnBreach:     cfg.Runtime.HotPath.SpoolOnBreach,
++		MaxPayloadBytes:   clampUint32(cfg.Runtime.HotPath.MaxPayloadBytes),
++	}
++}
++
++// runtimeModePassive is runtime.mode's own spelling for ModeDegradedPassive — distinct from
++// contract.Mode.String()'s "degraded-passive", which is why this is not just a contract.ParseMode
++// call.
++const runtimeModePassive = "passive"
++
++// modeFromRuntimeString maps runtime.mode's value (enum "auto|full|passive|off",
++// internal/config/runtime.go) onto contract.Mode.
++func modeFromRuntimeString(mode string) contract.Mode {
++	if mode == runtimeModePassive {
++		return contract.ModeDegradedPassive
++	}
++	if m, ok := contract.ParseMode(mode); ok {
++		return m // matches "full" or "off" verbatim.
++	}
++	return contract.ModeFull // "auto", and anything unrecognized.
++}
++
++// clampUint16 and clampUint32 protect the fixed-width wire fields from an operator config value
++// that does not fit — the schema's rng tags keep this from happening in practice, but a state
++// record must never silently wrap a huge value into a tiny, wrong one.
++func clampUint16(v int) uint16 {
++	switch {
++	case v < 0:
++		return 0
++	case v > math.MaxUint16:
++		return math.MaxUint16
++	default:
++		return uint16(v)
++	}
++}
++
++func clampUint32(v int) uint32 {
++	switch {
++	case v < 0:
++		return 0
++	case v > math.MaxUint32:
++		return math.MaxUint32
++	default:
++		return uint32(v)
++	}
++}
+diff --git a/internal/ipc/state_test.go b/internal/ipc/state_test.go
+new file mode 100644
+index 0000000..b593501
+--- /dev/null
++++ b/internal/ipc/state_test.go
+@@ -0,0 +1,217 @@
++package ipc_test
++
++import (
++	"os"
++	"path/filepath"
++	"sync"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// TestStateRoundTrip is task-1-spec's table row: every field of a fully populated State survives a
++// WriteState/ReadState round trip, and the file is exactly 32 bytes.
++func TestStateRoundTrip(t *testing.T) {
++	root := t.TempDir()
++	want := ipc.State{
++		Mode:              contract.ModeDegradedPassive,
++		Hot:               ipc.HotSpool,
++		ConnectDeadlineMs: 5,
++		AckDeadlineMs:     8,
++		DaemonEnabled:     true,
++		SpoolOnBreach:     true,
++		MaxPayloadBytes:   1048576,
++		DaemonPID:         4242,
++		Written:           core.UnixMilli(1730000000000),
++	}
++
++	require.NoError(t, ipc.WriteState(root, want))
++
++	got := ipc.ReadState(root, config.Defaults())
++	require.Equal(t, want, got)
++
++	fi, err := os.Stat(ipc.StatePath(root))
++	require.NoError(t, err)
++	require.EqualValues(t, 32, fi.Size())
++}
++
++// TestStateMissingFallsBackToDefaults asserts the normal first-run case: no state file at all
++// falls back to StateFromConfig(fallback), silently.
++func TestStateMissingFallsBackToDefaults(t *testing.T) {
++	root := t.TempDir()
++	got := ipc.ReadState(root, config.Defaults())
++	require.Equal(t, contract.ModeFull, got.Mode)
++	require.Equal(t, ipc.HotSync, got.Hot)
++	require.EqualValues(t, 8, got.AckDeadlineMs)
++	require.EqualValues(t, 5, got.ConnectDeadlineMs)
++}
++
++// TestStateBadCRCFallsBack asserts a state file that has been corrupted in place (bytes correct
++// length and magic, but the payload no longer matches its own CRC) falls back exactly like a
++// missing file, rather than surfacing garbage.
++func TestStateBadCRCFallsBack(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, ipc.WriteState(root, ipc.State{
++		Mode: contract.ModeDegradedPassive, Hot: ipc.HotSpool,
++		ConnectDeadlineMs: 5, AckDeadlineMs: 8, DaemonEnabled: true,
++		MaxPayloadBytes: 1048576, DaemonPID: 1, Written: 1,
++	}))
++
++	b, err := os.ReadFile(ipc.StatePath(root))
++	require.NoError(t, err)
++	b[12] ^= 0xFF // inside maxPayloadBytes, before the CRC field
++	require.NoError(t, os.WriteFile(ipc.StatePath(root), b, 0o600))
++
++	fallback := config.Defaults()
++	require.Equal(t, ipc.StateFromConfig(fallback), ipc.ReadState(root, fallback))
++}
++
++// TestStateShortFileFallsBack asserts a truncated (17-byte) state file falls back rather than
++// panicking on an out-of-range slice access.
++func TestStateShortFileFallsBack(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.StatePath(root)), 0o700))
++	require.NoError(t, os.WriteFile(ipc.StatePath(root), make([]byte, 17), 0o600))
++
++	fallback := config.Defaults()
++	require.Equal(t, ipc.StateFromConfig(fallback), ipc.ReadState(root, fallback))
++}
++
++// TestStateBadMagicFallsBack asserts a 32-byte file that simply isn't a state record (wrong magic)
++// falls back rather than being decoded as garbage.
++func TestStateBadMagicFallsBack(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.StatePath(root)), 0o700))
++	require.NoError(t, os.WriteFile(ipc.StatePath(root), make([]byte, 32), 0o600)) // all zero bytes
++
++	fallback := config.Defaults()
++	require.Equal(t, ipc.StateFromConfig(fallback), ipc.ReadState(root, fallback))
++}
++
++// TestStateWriteIsAtomic runs 500 WriteState calls from the single writer that ever exists in
++// practice (the daemon itself never has two goroutines writing state.bin at once), each one
++// overlapped with a burst of one-shot readers — modelling reality exactly: every hook invocation
++// calls ReadState exactly once and exits, it never polls in a tight loop — under -race. Every read
++// must land on a fully valid record: decodeState's own CRC check rules out anything torn, so
++// DaemonPID must always be a value the writer actually wrote, never a mix of two writes' bytes.
++func TestStateWriteIsAtomic(t *testing.T) {
++	root := t.TempDir()
++	const (
++		writes          = 500
++		readersPerWrite = 2
++	)
++	fallback := config.Defaults()
++	valid := map[uint32]bool{0: true} // 0: StateFromConfig's DaemonPID, possible before the first write lands
++	for i := uint32(1); i <= writes; i++ {
++		valid[i] = true
++	}
++
++	var readerWG sync.WaitGroup
++	badReads := make(chan uint32, writes*readersPerWrite)
++	for i := uint32(1); i <= writes; i++ {
++		for r := 0; r < readersPerWrite; r++ {
++			readerWG.Add(1)
++			go func() {
++				defer readerWG.Done()
++				if s := ipc.ReadState(root, fallback); !valid[s.DaemonPID] {
++					badReads <- s.DaemonPID
++				}
++			}()
++		}
++
++		require.NoError(t, ipc.WriteState(root, ipc.State{
++			Mode: contract.ModeFull, Hot: ipc.HotSync,
++			ConnectDeadlineMs: 5, AckDeadlineMs: 8, DaemonEnabled: true,
++			MaxPayloadBytes: 1048576, DaemonPID: i, Written: core.UnixMilli(i),
++		}))
++	}
++	readerWG.Wait()
++	close(badReads)
++
++	for pid := range badReads {
++		t.Errorf("read DaemonPID %d, which the writer never produced — a torn or corrupted record", pid)
++	}
++
++	final := ipc.ReadState(root, fallback)
++	require.True(t, valid[final.DaemonPID])
++}
++
++// stateDegradedGolden is the 32-byte fixture this commit creates: mode=1 (degraded-passive),
++// hot=1 (spool).
++const stateDegradedGolden = "../../testdata/golden/contracts/ipc/state_degraded.bin"
++
++// TestState_DegradedGoldenFixtureDecodes asserts the committed fixture is a well-formed record
++// that ReadState decodes to the mode/hot values its name promises, rather than silently falling
++// back — the fixture is worthless if it does not actually exercise the degraded/spool path.
++func TestState_DegradedGoldenFixtureDecodes(t *testing.T) {
++	b, err := os.ReadFile(stateDegradedGolden)
++	require.NoError(t, err, "golden fixture missing: %s", stateDegradedGolden)
++	require.Len(t, b, 32)
++
++	root := t.TempDir()
++	require.NoError(t, os.MkdirAll(filepath.Dir(ipc.StatePath(root)), 0o700))
++	require.NoError(t, os.WriteFile(ipc.StatePath(root), b, 0o600))
++
++	got := ipc.ReadState(root, config.Defaults())
++	require.Equal(t, contract.ModeDegradedPassive, got.Mode)
++	require.Equal(t, ipc.HotSpool, got.Hot)
++}
++
++// TestStatePath asserts the exact §2.4-adjacent location: <root>/.qompack/run/state.bin.
++func TestStatePath(t *testing.T) {
++	root := filepath.FromSlash("/proj")
++	require.Equal(t, filepath.Join(root, ".qompack", "run", "state.bin"), ipc.StatePath(root))
++}
++
++// TestRemoveState_IsIdempotent asserts removing a state file that does not exist is not an error —
++// the daemon calls RemoveState on clean stop regardless of whether it ever wrote one.
++func TestRemoveState_IsIdempotent(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, ipc.RemoveState(root))
++
++	require.NoError(t, ipc.WriteState(root, ipc.State{Mode: contract.ModeFull}))
++	require.NoError(t, ipc.RemoveState(root))
++	_, err := os.Stat(ipc.StatePath(root))
++	require.True(t, os.IsNotExist(err))
++
++	require.NoError(t, ipc.RemoveState(root))
++}
++
++// TestStateFromConfig_MapsRuntimeModeVocabulary pins the runtime.mode -> contract.Mode mapping:
++// "off" -> ModeOff, "passive" -> ModeDegradedPassive, anything else ("auto", "full", or an
++// unrecognized value) -> ModeFull.
++func TestStateFromConfig_MapsRuntimeModeVocabulary(t *testing.T) {
++	cases := map[string]contract.Mode{
++		"off":     contract.ModeOff,
++		"passive": contract.ModeDegradedPassive,
++		"full":    contract.ModeFull,
++		"auto":    contract.ModeFull,
++		"":        contract.ModeFull,
++		"bogus":   contract.ModeFull,
++	}
++	for runtimeMode, want := range cases {
++		cfg := config.Defaults()
++		cfg.Runtime.Mode = runtimeMode
++		got := ipc.StateFromConfig(cfg)
++		require.Equal(t, want, got.Mode, "runtime.mode=%q", runtimeMode)
++	}
++}
++
++// TestStateFromConfig_CarriesTheDaemonAndHotPathKnobs asserts every non-Mode field of State comes
++// straight from the corresponding runtime.* config leaf, using the shipped field spellings.
++func TestStateFromConfig_CarriesTheDaemonAndHotPathKnobs(t *testing.T) {
++	cfg := config.Defaults()
++	got := ipc.StateFromConfig(cfg)
++
++	require.Equal(t, ipc.HotSync, got.Hot, "a fresh config always starts in the sync submode")
++	require.EqualValues(t, cfg.Runtime.Daemon.ConnectDeadlineMs, got.ConnectDeadlineMs)
++	require.EqualValues(t, cfg.Runtime.Daemon.AckDeadlineMs, got.AckDeadlineMs)
++	require.Equal(t, cfg.Runtime.Daemon.Enabled, got.DaemonEnabled)
++	require.Equal(t, cfg.Runtime.HotPath.SpoolOnBreach, got.SpoolOnBreach)
++	require.EqualValues(t, cfg.Runtime.HotPath.MaxPayloadBytes, got.MaxPayloadBytes)
++}
+diff --git a/internal/testutil/fixtures_test.go b/internal/testutil/fixtures_test.go
+index 366564f..17d231c 100644
+--- a/internal/testutil/fixtures_test.go
++++ b/internal/testutil/fixtures_test.go
+@@ -69,24 +69,26 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
+ 				if fx.Want != "" {
+ 					require.NotEmpty(t, want, "a frozen fixture naming a want file must have bytes in it")
+ 				}
+ 				continue
+ 			}
+ 			pendingCount++
+ 			require.Equal(t, "behaviour", fx.Kind, "only a behaviour fixture may still be record-by-owner")
+ 		}
+ 	}
+ 
+-	// 23, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
++	// 26, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
+ 	// declared — contract/result_set (the nine §5.19 assertions as RunAll reports them) and
+-	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives).
+-	require.Equal(t, 23, frozenCount, "SP-01 froze 21 format fixtures and V1 added 2; adding or losing one is a contract change")
++	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives) — and
++	// SP-05 task 1 added three more: ipc/observe_tool, ipc/response_reply, ipc/state_degraded
++	// (00-ARCHITECTURE §2.4's NDJSON framing and 32-byte hot-path state record).
++	require.Equal(t, 26, frozenCount, "21 SP-01 + 2 V1 + 3 SP-05 task 1; adding or losing one is a contract change")
+ 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
+ }
+ 
+ // allContractManifests returns every package directory under testdata/golden/contracts/ and the
+ // MANIFEST.json each one carries, in directory order.
+ func allContractManifests(t *testing.T, root string) (pkgs []string, manifests []contractManifest) {
+ 	t.Helper()
+ 	dir := filepath.Join(root, filepath.FromSlash(contractsDir))
+ 	entries, err := os.ReadDir(dir)
+ 	require.NoError(t, err)
+diff --git a/test/guards/v1_integration_test.go b/test/guards/v1_integration_test.go
+index 8335f81..9b42822 100644
+--- a/test/guards/v1_integration_test.go
++++ b/test/guards/v1_integration_test.go
+@@ -24,20 +24,21 @@ import (
+ 	"testing"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/checkpoint"
+ 	"github.com/qompack/qompack/internal/cli"
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/dag"
+ 	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/negknow"
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/paths"
+ 	"github.com/qompack/qompack/internal/pins"
+ 	"github.com/qompack/qompack/internal/store"
+ 	"github.com/qompack/qompack/internal/testutil"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+@@ -482,20 +483,30 @@ func TestV1_ObsBudgetsAreConfigDrivenEndToEnd(t *testing.T) {
+ var v1FixtureType = map[string]func() any{
+ 	"store/tool_use_line":        func() any { return new(store.ToolUseRecord) },
+ 	"store/roots_line":           func() any { return new(store.Root) },
+ 	"store/segments_line":        func() any { return new(store.Segment) },
+ 	"dag/node_line":              func() any { return new(dag.Node) },
+ 	"dag/edge_line":              func() any { return new(dag.Edge) },
+ 	"negknow/elimination_record": func() any { return new(negknow.Record) },
+ 	"paths/manifest_entry":       func() any { return new(paths.ManifestEntry) },
+ 	"checkpoint/checkpoint_v1":   func() any { return new(checkpoint.Checkpoint) },
+ 	"contract/result_set":        func() any { return new([]contract.Result) },
++	"ipc/observe_tool":           func() any { return new(ipc.Request) },
++	"ipc/response_reply":         func() any { return new(ipc.Response) },
++}
++
++// v1BinaryFixtureKeys names frozen format fixtures whose bytes are not JSON at all — a wire format
++// 00-ARCHITECTURE.md §2.4 specifies as a fixed-layout binary record, not a JSON document (SP-05's
++// 32-byte hot-path state record). v1RoundTrip only checks these are present and non-empty;
++// json.Unmarshal has nothing to parse in a CRC-terminated binary record.
++var v1BinaryFixtureKeys = map[string]bool{
++	"ipc/state_degraded": true,
+ }
+ 
+ // v1CheckpointTiers is §8.5's complete field set: tiers 1-3 plus metadata. Every one must be
+ // populated in the frozen artifact, or the fixture is not the worked example §16 promises.
+ var v1CheckpointTiers = []string{
+ 	"invariants", "user_intent", "eliminated", "decisions", "open_questions",
+ 	"current_work", "pointers", "narrative", "sketch_refs", "dropped", "cache",
+ }
+ 
+ // TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes is §4 IT-9.
+@@ -853,20 +864,25 @@ func v1ReadManifest(t *testing.T, path string) v1Manifest {
+ 	require.NoError(t, json.Unmarshal(b, &m), "parsing %s", path)
+ 	return m
+ }
+ 
+ // v1RoundTrip unmarshals a frozen artifact into its declared Go type and asserts the type can
+ // reproduce it exactly.
+ func v1RoundTrip(t *testing.T, key, path string) {
+ 	t.Helper()
+ 	raw, err := os.ReadFile(path)
+ 	require.NoError(t, err, "%s: frozen fixture missing from disk", key)
++
++	if v1BinaryFixtureKeys[key] {
++		require.NotEmpty(t, raw, "%s: frozen fixture is empty", key)
++		return
++	}
+ 	require.NotEmpty(t, strings.TrimSpace(string(raw)), "%s: frozen fixture is empty", key)
+ 
+ 	// A .jsonc fixture carries comments, which no JSON decoder accepts. Stripping is the same step
+ 	// every real reader of these bytes performs — config.Load runs StripJSONC before parsing — so
+ 	// doing it here keeps the walker honest rather than special-casing the file out of the check.
+ 	if strings.HasSuffix(path, ".jsonc") {
+ 		raw = config.StripJSONC(raw)
+ 	}
+ 
+ 	newValue, ok := v1FixtureType[key]
+diff --git a/testdata/corpora/ipcframe/empty.bin b/testdata/corpora/ipcframe/empty.bin
+new file mode 100644
+index 0000000..e69de29
+diff --git a/testdata/corpora/ipcframe/empty_object.json b/testdata/corpora/ipcframe/empty_object.json
+new file mode 100644
+index 0000000..9e26dfe
+--- /dev/null
++++ b/testdata/corpora/ipcframe/empty_object.json
+@@ -0,0 +1 @@
++{}
+\ No newline at end of file
+diff --git a/testdata/corpora/ipcframe/golden_observe_tool.ndjson b/testdata/corpora/ipcframe/golden_observe_tool.ndjson
+new file mode 100644
+index 0000000..4435c1b
+--- /dev/null
++++ b/testdata/corpora/ipcframe/golden_observe_tool.ndjson
+@@ -0,0 +1 @@
++{"op":"observe.tool","s":"sess-01","t":1730000000000,"e":{"hook_event_name":"PostToolUse","session_id":"sess-01","transcript_path":"","cwd":"","source":"","trigger":"","tool_name":"Read","tool_use_id":"tu_1","tool_input":null,"tool_response":null,"prompt":"","stop_hook_active":false}}
+diff --git a/testdata/golden/contracts/ipc/MANIFEST.json b/testdata/golden/contracts/ipc/MANIFEST.json
+new file mode 100644
+index 0000000..52663dd
+--- /dev/null
++++ b/testdata/golden/contracts/ipc/MANIFEST.json
+@@ -0,0 +1,9 @@
++{
++  "package": "ipc",
++  "owner": "SP-05",
++  "fixtures": [
++    { "name": "observe_tool", "kind": "format", "state": "frozen", "input": "", "want": "observe_tool.ndjson", "note": "EncodeRequest's byte-exact output for the fixed observe.tool Request (00-ARCHITECTURE §2.4 framing)" },
++    { "name": "response_reply", "kind": "format", "state": "frozen", "input": "", "want": "response_reply.ndjson", "note": "EncodeResponse's byte-exact output for a Reply response carrying an Output" },
++    { "name": "state_degraded", "kind": "format", "state": "frozen", "input": "", "want": "state_degraded.bin", "note": "the 32-byte hot-path state record, mode=1 (degraded-passive) hot=1 (spool)" }
++  ]
++}
+diff --git a/testdata/golden/contracts/ipc/observe_tool.ndjson b/testdata/golden/contracts/ipc/observe_tool.ndjson
+new file mode 100644
+index 0000000..4435c1b
+--- /dev/null
++++ b/testdata/golden/contracts/ipc/observe_tool.ndjson
+@@ -0,0 +1 @@
++{"op":"observe.tool","s":"sess-01","t":1730000000000,"e":{"hook_event_name":"PostToolUse","session_id":"sess-01","transcript_path":"","cwd":"","source":"","trigger":"","tool_name":"Read","tool_use_id":"tu_1","tool_input":null,"tool_response":null,"prompt":"","stop_hook_active":false}}
+diff --git a/testdata/golden/contracts/ipc/response_reply.ndjson b/testdata/golden/contracts/ipc/response_reply.ndjson
+new file mode 100644
+index 0000000..8daf493
+--- /dev/null
++++ b/testdata/golden/contracts/ipc/response_reply.ndjson
+@@ -0,0 +1 @@
++{"ok":true,"mode":0,"hot":0,"out":{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"sentinel-token-abc"}}}
+diff --git a/testdata/golden/contracts/ipc/state_degraded.bin b/testdata/golden/contracts/ipc/state_degraded.bin
+new file mode 100644
+index 0000000..8a57742
+Binary files /dev/null and b/testdata/golden/contracts/ipc/state_degraded.bin differ

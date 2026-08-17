@@ -1,5 +1,9 @@
 # SP-08: L0 observer: PostToolUse, UserPromptSubmit, Stop/SubagentStop, SessionStart/SessionEnd entry points, addressable tombstones, supersession, verbatim capture, and the Phase 1 exit criterion
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Five hook entry points and a lot of wiring on top of primitives that already exist and are already tested. Wide, not deep — the Phase 1 exit criterion (≥4:1 dedup, p99 < 15 ms) is measured against machinery SP-04/05/06 already built.
+
 **Branch:** `feat/sp08-observer-l0` (cut from `develop`) | **Wave:** 2 | **Prerequisites:** the branches of `["SP-01","SP-03","SP-04","SP-05","SP-06","SP-07"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 2 (SP-09 negative knowledge) | **Design sections:** §7.2 L0, §7.3 (PostToolUse, UserPromptSubmit, Stop/SubagentStop, SessionStart startup/resume, SessionEnd), §8.1 items 2,3,4,5,7,8, §10 Phase 1 (exit criterion) | **Gaps closed:** G1.5, G2.3, G3.2, G10.1
 
 ---

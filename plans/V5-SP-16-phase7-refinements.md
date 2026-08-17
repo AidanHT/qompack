@@ -1,5 +1,9 @@
 # SP-16: Phase 7 refinements: cross-session warm start, demand-driven promotion, per-segment blooms, ski-rental write policy, and progressive truncation tuning
 
+> **Recommended model: Opus 5 · max effort**
+>
+> Five small deliverables that each carry real math — ski-rental threshold computed as `w/r` (literal forbidden by lint), BOCD per-feature prior seeding, exponentially-decayed CMS merge, and tier reserves set to the argmax of a *measured* truncation curve — layered onto seven live subsystems at once.
+
 **Branch:** `feat/sp16-phase7-refinements` (cut from `develop`) | **Wave:** 4 | **Prerequisites:** the branches of SP-01, SP-03, SP-06, SP-09, SP-10, SP-12, SP-13 already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 4 (SP-14 slash commands, SP-15 analyzer + grammar) | **Design sections:** §5.6 (ski rental), §6.8 (per-level blooms), §6.9 (progressive truncation), §8.7 (demand-driven promotion), §10 Phase 7, Appendix A (ski-rental threshold) | **Gaps closed:** none newly — Phase 7 is refinement on gaps already closed. It measurably improves G3.3 (eager restoration → demand-driven pointer promotion), G6.1/G6.2 (project-scope elimination carry-forward), G4.3/G7.3 (progressive truncation ordering), and G3.3/G7.6 (segment-level answerability without expansion).
 
 ---

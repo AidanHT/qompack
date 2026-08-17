@@ -1,5 +1,9 @@
 # V4 — Verification checkpoint after wave 3 (checkpointer, rehydrator, scheduler, retrieval)
 
+> **Recommended model: Opus 5 · max effort**
+>
+> The core-loop gate: thirteen merged subplans, the O5 amortization claim tested directly, and real cross-component failure diagnosis across four brand-new subsystems. Run Opus 5's bug-finding at `max` rather than escalating to a second model tier.
+
 **This file is a standalone prompt.** Read it end to end before running anything. You do not need any
 other plan file to execute it, though `plans/00-ARCHITECTURE.md` and `Qompack.md` are the normative
 references if a command below disagrees with the code.

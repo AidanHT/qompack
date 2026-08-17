@@ -1,0 +1,785 @@
+# Fix-round-1 delta: ab088f4f -> be911428
+
+ test/bench/hotpath/main.go        | 51 ++++++++++++++++++++------
+ test/bench/hotpath/measure.go     | 34 +++++++++++-------
+ test/bench/hotpath/payload.go     | 11 ------
+ test/bench/hotpath/process.go     | 75 +++++++++++++++++++++++++++++++++++++--
+ test/bench/hotpath/report.go      | 54 +++++++++++++++++++++++++---
+ test/bench/hotpath/report_test.go | 48 +++++++++++++++++++------
+ tools/devtool/benchhotpath.go     |  5 +--
+ 7 files changed, 226 insertions(+), 52 deletions(-)
+
+diff --git a/test/bench/hotpath/main.go b/test/bench/hotpath/main.go
+index b6fd25f..d77d90c 100644
+--- a/test/bench/hotpath/main.go
++++ b/test/bench/hotpath/main.go
+@@ -28,20 +28,27 @@ const (
+ 
+ // The fixed iteration counts task-7-spec.md itself names for the two auxiliary measurements: the
+ // spawn floor (step 4: "spawn qompack version 200 times") and B-E (step 7: "spawn qompack
+ // checkpoint 50 times").
+ const (
+ 	spawnFloorIterations = 200
+ 	checkpointIterations = 50
+ 	warmIterations       = 2000
+ )
+ 
++// defaultIterations is --iterations's own default. FIX ROUND 1, M-3: this used to alias
++// warmIterations, which meant changing the warm-up count would silently change the default
++// measurement count too — two unrelated quantities that happened to share one value. They are
++// still both 2000 today (task-7-spec.md's own default), but as two independently-named constants
++// a future change to one can no longer silently move the other.
++const defaultIterations = 2000
++
+ // The bounds this harness polls/waits against. daemonUpBound is generous relative to
+ // test/e2e/daemon_e2e_test.go's own e2eDaemonUpBound (10s) because a bench run's daemon has to
+ // come up on a host that may already be under load from the very spawns this program is about to
+ // issue.
+ const (
+ 	daemonUpBound   = 20 * time.Second
+ 	daemonUpTick    = 20 * time.Millisecond
+ 	daemonDownBound = 10 * time.Second
+ )
+ 
+@@ -54,21 +61,21 @@ type flags struct {
+ 	jsonPath   string
+ 	project    string
+ }
+ 
+ // parseFlags parses args into a flags value. flag.ErrHelp is returned verbatim so main can treat
+ // -h/--help as a clean exit rather than a usage error.
+ func parseFlags(args []string, errw io.Writer) (flags, error) {
+ 	fs := flag.NewFlagSet("bench-hotpath", flag.ContinueOnError)
+ 	fs.SetOutput(errw)
+ 	f := flags{}
+-	fs.IntVar(&f.iterations, "iterations", warmIterations, "number of B-A/B-D spawn samples")
++	fs.IntVar(&f.iterations, "iterations", defaultIterations, "number of B-A/B-D spawn samples")
+ 	fs.StringVar(&f.hook, "hook", "observe-tool", "hook subcommand to spawn for B-A/B-D (only observe-tool is supported today)")
+ 	fs.BoolVar(&f.warmDaemon, "warm-daemon", false, "pre-populate the daemon with 2000 observe.tool requests before measuring")
+ 	fs.StringVar(&f.jsonPath, "json", "", "write the out.json artifact to this path (omit to skip)")
+ 	fs.StringVar(&f.project, "project", "", "use this directory as the temp project instead of creating one")
+ 	if err := fs.Parse(args); err != nil {
+ 		return flags{}, err
+ 	}
+ 	if f.iterations <= 0 {
+ 		return flags{}, fmt.Errorf("--iterations must be > 0, got %d", f.iterations)
+ 	}
+@@ -102,21 +109,21 @@ func runMain(args []string, stdout, stderr io.Writer) int {
+ 		if err == flag.ErrHelp {
+ 			return 0
+ 		}
+ 		fmt.Fprintln(stderr, "hotpath:", err)
+ 		return 2
+ 	}
+ 
+ 	ctx, cancel := context.WithCancel(context.Background())
+ 	defer cancel()
+ 
+-	report, err := runHarness(ctx, f, stdout)
++	report, err := runHarness(ctx, f, stdout, stderr)
+ 	if err != nil {
+ 		fmt.Fprintln(stderr, "hotpath:", err)
+ 		return 1
+ 	}
+ 
+ 	if f.jsonPath != "" {
+ 		if err := writeJSON(f.jsonPath, report); err != nil {
+ 			fmt.Fprintln(stderr, "hotpath: writing json artifact:", err)
+ 			return 1
+ 		}
+@@ -125,22 +132,24 @@ func runMain(args []string, stdout, stderr io.Writer) int {
+ 
+ 	if report.GateFailed() {
+ 		fmt.Fprintln(stderr, "hotpath: a gated budget breached its limit — see the summary above")
+ 		return 1
+ 	}
+ 	return 0
+ }
+ 
+ // runHarness is the ten-step body task-7-spec.md lays out end to end: build the real binary,
+ // start a real daemon child process, optionally warm it, measure the spawn floor, B-A/B-D, B-E,
+-// read B-B off the daemon's own status op, and assemble the Report.
+-func runHarness(ctx context.Context, f flags, stdout io.Writer) (Report, error) {
++// read B-B (and, per FIX ROUND 1's controller ruling #29, the gated B-A) off the daemon's own
++// status op, and assemble the Report. stderr is threaded through only for stopDaemon's own
++// teardown diagnostics (M-5, I-3) — nothing on the measured path writes to it.
++func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report, error) {
+ 	moduleRoot, err := findModuleRoot()
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
+ 
+ 	projectRoot, cleanupProject, err := resolveProjectDir(f.project)
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
+ 	defer cleanupProject()
+@@ -201,21 +210,21 @@ func runHarness(ctx context.Context, f flags, stdout io.Writer) (Report, error)
+ 	spool, err := ipc.NewSpool(paths.Of(projectRoot).Spool)
+ 	if err != nil {
+ 		return Report{}, fmt.Errorf("hotpath: creating spool: %w", err)
+ 	}
+ 
+ 	fmt.Fprintf(stdout, "hotpath: starting daemon (%s)...\n", addr.Path)
+ 	dp, err := startDaemon(binPath, projectRoot, childEnv)
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
+-	defer stopDaemon(dp, addr, spool)
++	defer stopDaemon(dp, addr, spool, stderr)
+ 
+ 	if err := waitForDaemon(ctx, addr, spool, daemonUpBound, daemonUpTick); err != nil {
+ 		return Report{}, fmt.Errorf("%w (daemon stderr:\n%s)", err, dp.stderrString())
+ 	}
+ 	fmt.Fprintln(stdout, "hotpath: daemon is reachable")
+ 
+ 	if f.warmDaemon {
+ 		fmt.Fprintf(stdout, "hotpath: warming daemon with %d observe.tool requests...\n", warmIterations)
+ 		bytesSent, werr := warmDaemon(ctx, addr, spool, projectRoot, warmIterations)
+ 		if werr != nil {
+@@ -247,39 +256,61 @@ func runHarness(ctx context.Context, f flags, stdout io.Writer) (Report, error)
+ 	fmt.Fprintf(stdout, "hotpath: measuring B-E (%d x qompack checkpoint)...\n", checkpointIterations)
+ 	beSamples, err := measureSpawns(ctx, binPath, []string{"checkpoint"}, checkpointIterations, childEnv, func(seq int) []byte {
+ 		return checkpointPayload(beSessionID, projectRoot, seq)
+ 	})
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
+ 
+ 	snap, err := fetchStatus(ctx, addr, spool)
+ 	if err != nil {
+-		return Report{}, fmt.Errorf("hotpath: reading B-B off the daemon's status op: %w", err)
++		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+ 	}
+ 
+-	cfg := config.Defaults()
++	// FIX ROUND 1, I-2: assert delivery integrity before trusting anything the status op reported.
++	// internal/ipc/client.go's Send degrades silently to the spool on a connect timeout, a write
++	// failure, DaemonEnabled==false, or a HotSpool breach — every one of those paths makes the
++	// SPAWNED hook exit FASTER than a delivered one, which would bias a wall-clock B-A estimate
++	// downward and could pass a gate that is actually measuring the degraded path. l0_ingest's own
++	// count is the daemon's ground truth for "how many observe.tool requests actually arrived":
++	// every one of them (warm-up and the B-A/B-D loop alike) reaches acceptHotPathEvent ->
++	// ing.Accept, and nothing else (B-E's checkpoint spawns, the spawn floor) touches it.
+ 	bbSnap := snap.Latency[budgetHistName(obs.BB)]
++	if err := checkDeliveryIntegrity(bbSnap.N, f.iterations, f.warmDaemon); err != nil {
++		return Report{}, err
++	}
++
++	cfg := config.Defaults()
++	// FIX ROUND 1, I-1 / controller ruling #29 (spec step 6 amended): B-A is now gated on the
++	// daemon's own hook_controlled histogram (TS-anchored: recvTS - reqTS + hotPathTailAllowance),
++	// fetched via status — the same series internal/daemon's breach detector consumes — rather than
++	// the wall-clock, floor-subtracted spawn estimate. See bAMethod's doc comment (report.go) for
++	// why: a constant subtracted per sample removes the floor's location but none of its
++	// dispersion, contaminating exactly the percentile the gate reads.
++	baSnap := snap.Latency[budgetHistName(obs.BA)]
+ 
+ 	report := Report{
+ 		Platform: runtime.GOOS + "/" + runtime.GOARCH,
+ 		N:        f.iterations,
+ 		BAMethod: bAMethod,
+ 		SpawnFloorMs: SpawnFloor{
+ 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
+ 		},
+-		Notes: buildNotes(snap),
++		Notes: buildNotes(snap, f.warmDaemon),
+ 		Budgets: []BudgetRow{
+-			buildBudgetRow(string(obs.BA), baSamples, budgetLimit(cfg, obs.BA), true),
++			buildBudgetRowFromSnapshot(string(obs.BA), baSnap, budgetLimit(cfg, obs.BA), true),
+ 			buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true),
+ 			buildBudgetRow(string(obs.BD), bdSamples, 0, false),
+ 			buildBudgetRow(string(obs.BE), beSamples, budgetLimit(cfg, obs.BE), true),
++			// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
++			// budgetIDBASpawnEstimate's own doc comment (report.go).
++			buildBudgetRow(budgetIDBASpawnEstimate, baSamples, 0, false),
+ 		},
+ 	}
+ 	return report, nil
+ }
+ 
+ // shortPIDTag is a short, human-legible discriminator (this process's own pid) folded into the
+ // bench run's QOMPACK_IPC_ADDR override — not for uniqueness (randomHex already guarantees that)
+ // but so a stray pipe/socket left behind by a killed run is identifiable in an `ls`/pipe list.
+ func shortPIDTag() string {
+ 	return fmt.Sprintf("%d", os.Getpid())
+@@ -309,21 +340,21 @@ func printSummary(w io.Writer, r Report) {
+ 		if b.Pass != nil {
+ 			status = "FAIL"
+ 			if *b.Pass {
+ 				status = "PASS"
+ 			}
+ 		}
+ 		limit := "n/a"
+ 		if b.LimitMs != nil {
+ 			limit = fmt.Sprintf("%.3fms", *b.LimitMs)
+ 		}
+-		fmt.Fprintf(w, "  %-4s n=%-5d p50=%8.3fms p95=%8.3fms p99=%8.3fms p999=%8.3fms max=%9.3fms limit=%-10s [%s]\n",
++		fmt.Fprintf(w, "  %-19s n=%-5d p50=%8.3fms p95=%8.3fms p99=%8.3fms p999=%8.3fms max=%9.3fms limit=%-10s [%s]\n",
+ 			b.BudgetID, b.N, b.P50, b.P95, b.P99, b.P999, b.Max, limit, status)
+ 	}
+ 	if len(r.Notes) > 0 {
+ 		fmt.Fprintln(w)
+ 		for _, n := range r.Notes {
+ 			fmt.Fprintf(w, "  note: %s\n", n)
+ 		}
+ 	}
+ 	fmt.Fprintln(w)
+ }
+diff --git a/test/bench/hotpath/measure.go b/test/bench/hotpath/measure.go
+index 48a3d74..87e21c4 100644
+--- a/test/bench/hotpath/measure.go
++++ b/test/bench/hotpath/measure.go
+@@ -15,23 +15,32 @@ import (
+ // warmConnectDeadline and warmAckDeadline bound each individual request warmDaemon issues. See
+ // newProbeClient's doc comment (transport.go) for why this is a per-request ipc.Client.Send
+ // rather than one held connection.
+ const (
+ 	warmConnectDeadline = 2 * time.Second
+ 	warmAckDeadline     = 2 * time.Second
+ )
+ 
+ // warmDaemon sends n deterministic observe.tool requests to addr (task-7-spec.md step 3), so the
+ // WAL, registry and ring are warm before the measured phases begin. It returns the total
+-// ToolResponse bytes sent, purely for the human summary — never load-bearing for the gate. An
+-// occasional refused request (e.g. a transient breach-window transition) does not abort the
+-// warm-up; Client.Send itself never returns a propagating error.
++// ToolResponse bytes sent, purely for the human summary — never load-bearing for the gate.
++//
++// FIX ROUND 1, M-2: by internal/ipc/client.go's own Client.Send contract, Send NEVER returns a
++// propagating error — every failure (a connect timeout, a write failure, DaemonEnabled==false, a
++// HotSpool breach) is swallowed into a spool append and (Response{OK:false}, nil). The `if _, err
++// := c.Send(...); err != nil` branch below is therefore near-dead code, kept only because Client
++// is an interface and a future/alternate implementation could legitimately violate that contract.
++// This loop deliberately does NOT check resp.OK either: a per-request refusal is not itself
++// caught here. The actual delivery-integrity guard lives one layer up, in runHarness (main.go,
++// FIX ROUND 1 I-2): after the run, the daemon's own l0_ingest count is asserted to equal exactly
++// warm-up + iterations, which catches a degraded run (partial or total) that this loop's own
++// return values cannot.
+ func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n int) (int64, error) {
+ 	c := newProbeClient(addr, spool, warmConnectDeadline)
+ 	defer func() { _ = c.Close() }()
+ 
+ 	gen := newPayloadGen(1) // seed 1, task-7-spec.md step 3.
+ 	var total int64
+ 	for i := 0; i < n; i++ {
+ 		if err := ctx.Err(); err != nil {
+ 			return total, err
+ 		}
+@@ -41,21 +50,22 @@ func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, proje
+ 			Op: ipc.OpObserveTool, Session: warmSessionID, TS: core.NowMilli(core.SystemClock()), Event: &ev,
+ 		}
+ 		if _, err := c.Send(ctx, req, warmAckDeadline); err != nil {
+ 			return total, fmt.Errorf("hotpath: warm-up request #%d: %w", i, err)
+ 		}
+ 	}
+ 	return total, nil
+ }
+ 
+ // fetchStatus round-trips a Reply status request against addr and decodes its
+-// daemon.StatusSnapshot payload — the harness's only source for B-B (task-7-spec.md step 8).
++// daemon.StatusSnapshot payload — the harness's only source for B-B, and, per FIX ROUND 1's
++// controller ruling #29, for the gated B-A row too (task-7-spec.md step 8).
+ func fetchStatus(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter) (daemon.StatusSnapshot, error) {
+ 	c := newProbeClient(addr, spool, probeConnectDeadline)
+ 	defer func() { _ = c.Close() }()
+ 
+ 	req := ipc.Request{
+ 		Op: ipc.OpStatus, Session: statusSessionID, TS: core.NowMilli(core.SystemClock()), Reply: true,
+ 	}
+ 	resp, err := c.Send(ctx, req, replyRoundTripDeadline)
+ 	if err != nil {
+ 		return daemon.StatusSnapshot{}, fmt.Errorf("hotpath: status round trip: %w", err)
+@@ -70,27 +80,27 @@ func fetchStatus(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter) (dae
+ 	return snap, nil
+ }
+ 
+ // histHookControlledObservedName mirrors internal/daemon/handlers.go's own unexported
+ // histHookControlledObserved constant ("hook_controlled_observed"): the daemon-owned strict
+ // lower-bound histogram this harness reports informationally (task-7-spec.md step 8's "observed/
+ // estimated hook.controlled pair"), never gated.
+ const histHookControlledObservedName = "hook_controlled_observed"
+ 
+ // buildNotes assembles the out.json "notes" array: the wave-1 B-C disclaimer task-7-spec.md step
+-// 3 requires, plus — when present in snap — the daemon-observed/estimated hook_controlled pair,
+-// reported for cross-checking B-A against the daemon's own strict lower bound, never gating
+-// anything.
+-func buildNotes(snap daemon.StatusSnapshot) []string {
++// 3 requires, the daemon's own strict-lower-bound cross-check against the now-gated B-A row (FIX
++// ROUND 1, controller ruling #29), and — when warm-up ran — a note explaining why B-B's own n
++// includes it (M-4).
++func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool) []string {
+ 	notes := []string{"B-C not measured in wave 1: the processing seams are stubs"}
+ 	if hs, ok := snap.Latency[histHookControlledObservedName]; ok && hs.N > 0 {
+ 		notes = append(notes, fmt.Sprintf(
+-			"daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound): p50=%.3fms p99=%.3fms n=%d — informational, not gated",
++			"daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=%.3fms p99=%.3fms n=%d — informational cross-check against the gated B-A row above, which adds the tail allowance",
+ 			msf(hs.P50), msf(hs.P99), hs.N))
+ 	}
+-	if hs, ok := snap.Latency[budgetHistName(obs.BA)]; ok && hs.N > 0 {
++	if warmDaemonRan {
+ 		notes = append(notes, fmt.Sprintf(
+-			"daemon-estimated hook_controlled (observed + tail allowance): p50=%.3fms p99=%.3fms n=%d — cross-check only, B-A above is what gates",
+-			msf(hs.P50), msf(hs.P99), hs.N))
++			"B-B's n includes the %d warm-up observe.tool requests, not just the B-A/B-D measurement loop — the daemon's own %s count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload)",
++			warmIterations, budgetHistName(obs.BB)))
+ 	}
+ 	return notes
+ }
+diff --git a/test/bench/hotpath/payload.go b/test/bench/hotpath/payload.go
+index 4fe1125..7afac18 100644
+--- a/test/bench/hotpath/payload.go
++++ b/test/bench/hotpath/payload.go
+@@ -1,16 +1,15 @@
+ package main
+ 
+ import (
+ 	"encoding/json"
+ 	"fmt"
+-	"math"
+ 	"math/rand"
+ 
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/hookio"
+ )
+ 
+ // warmToolKinds are round-robined across the warm-up mix, deterministically, per task-7-spec.md
+ // step 3: "mixing Read, Bash, Grep, Edit payloads of 4KB-256KB".
+ var warmToolKinds = [...]string{"Read", "Bash", "Grep", "Edit"}
+ 
+@@ -134,20 +133,10 @@ func checkpointPayload(sessionID core.SessionID, cwd string, seq int) []byte {
+ 		CWD:           cwd,
+ 		Trigger:       "manual",
+ 	}
+ 	_ = seq // reserved: every checkpoint spawn currently shares one session id, matching handleCheckpoint's per-session history record.
+ 	b, err := json.Marshal(ev)
+ 	if err != nil {
+ 		return []byte(`{}`)
+ 	}
+ 	return b
+ }
+-
+-// warmupTotalBytes is a rough accounting helper: the sum of every ToolResponse body size a full
+-// warm-up run of n events is expected to produce, given payloadGen's own distribution — informational
+-// only (main.go logs it), never load-bearing for the gate.
+-func warmupTotalBytes(n int) int64 {
+-	// warmPayloadMeanBytes is the exponential's mean; the floor and clamp both pull the true
+-	// average slightly upward, so this is reported as an order-of-magnitude estimate, not an
+-	// exact prediction.
+-	return int64(math.Round(float64(n) * float64(minWarmPayloadBytes+warmPayloadMeanBytes)))
+-}
+diff --git a/test/bench/hotpath/process.go b/test/bench/hotpath/process.go
+index e9ac6ac..15f6aff 100644
+--- a/test/bench/hotpath/process.go
++++ b/test/bench/hotpath/process.go
+@@ -1,23 +1,25 @@
+ package main
+ 
+ import (
+ 	"bytes"
+ 	"context"
+ 	"fmt"
++	"io"
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
+ 	"runtime"
+ 	"strings"
+ 	"time"
+ 
++	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/ipc"
+ )
+ 
+ // exeSuffix returns ".exe" on Windows, matching tools/devtool/util.go's own helper — this package
+ // cannot import that one (it is package main of a different program), so it carries its own copy.
+ func exeSuffix() string {
+ 	if runtime.GOOS == "windows" {
+ 		return ".exe"
+ 	}
+ 	return ""
+@@ -126,42 +128,109 @@ func startDaemon(binPath, projectRoot string, env []string) (*daemonProcess, err
+ // stderrString returns whatever the daemon has written to stderr so far — used only to enrich a
+ // "daemon never came up" error.
+ func (d *daemonProcess) stderrString() string {
+ 	if d == nil || d.stderr == nil {
+ 		return ""
+ 	}
+ 	return d.stderr.String()
+ }
+ 
+ // stopDaemon asks the daemon to shut down (admin.shutdown, best-effort) and waits up to
+-// daemonDownBound for the real process to exit, killing it outright past that bound.
++// daemonDownBound for the real process to exit, killing it outright past that bound. Once this
++// program's OWN daemon child is confirmed dead (by a real os.Process.Wait, not a guess), it probes
++// once more for an ORPHANED second daemon (FIX ROUND 1, I-3) and asks it to stop too, so teardown
++// leaves zero qompack processes behind rather than just the one this program spawned itself.
+ //
+ // task-7-brief.md's realities #2 (binding): go-winio's pipe listener Close can race a fresh
+ // Accept and run long on Windows. This teardown tolerates a slow daemon exit rather than treating
+-// it as a bench failure — the measurement is already complete by the time this runs.
+-func stopDaemon(d *daemonProcess, addr ipc.Addr, spool ipc.SpoolWriter) {
++// it as a bench failure — the measurement is already complete by the time this runs. errw carries
++// only teardown diagnostics (M-5's "silent Kill" fix and I-3's orphan warning); nothing on the
++// measured path writes to it.
++func stopDaemon(d *daemonProcess, addr ipc.Addr, spool ipc.SpoolWriter, errw io.Writer) {
+ 	if d == nil || d.cmd == nil || d.cmd.Process == nil {
+ 		return
+ 	}
+ 	shutdownDaemon(addr, spool)
+ 
+ 	done := make(chan error, 1)
+ 	go func() { done <- d.cmd.Wait() }()
+ 
+ 	t := time.NewTimer(daemonDownBound)
+ 	defer t.Stop()
+ 	select {
+ 	case <-done:
+ 	case <-t.C:
++		// FIX ROUND 1, M-5: this used to Kill silently. go-winio's own documented Close/Accept
++		// race (realities #2) is tolerated here — a slow-but-eventually-clean exit is normal on
++		// this platform — but a bound actually being HIT is worth one line so the signal is not
++		// thrown away; it costs nothing and never fails the bench.
++		fmt.Fprintf(errw, "hotpath: daemon did not exit within %s of admin.shutdown — killing it\n", daemonDownBound)
+ 		_ = d.cmd.Process.Kill()
+ 		<-done
+ 	}
++
++	detectAndStopOrphan(addr, spool, errw)
++}
++
++// orphanCheckDeadline and orphanCheckTick bound how long detectAndStopOrphan waits for an
++// orphaned daemon to actually stop once asked, after this program's own daemon child is already
++// confirmed gone.
++const (
++	orphanCheckDeadline = 5 * time.Second
++	orphanCheckTick     = 100 * time.Millisecond
++)
++
++// detectAndStopOrphan is FIX ROUND 1's I-3 fix. It runs only after this program's own daemon
++// child has already exited (a real os.Process.Wait, per stopDaemon above) — so anything still
++// answering admin.ping at addr at this point cannot be OUR child; it can only be a SECOND daemon.
++//
++// The one way that can happen: observe.tool runs on state.bin's tight ConnectDeadlineMs (5ms
++// default), and on a host with the process-creation dispersion this harness itself documents, a
++// dial can plausibly time out during a measured spawn. internal/ipc/client.go's Send then calls
++// lazySpawn on that failure path, which launches a DETACHED daemon
++// (internal/daemon.SpawnDetached, wired in by internal/cli/hookclient.go) inheriting the same
++// QOMPACK_IPC_ADDR/QOMPACK_PROJECT_ROOT this harness set for every child. Ordinarily that detached
++// process finds the project's own daemon.lock already held by OUR daemon and exits immediately
++// (internal/cli/daemon.go: errors.Is(runErr, daemon.ErrLockHeld) -> nil), but a narrow race
++// remains if the lazy spawn happens to land after our own daemon has already released the lock
++// (e.g. right as this program's own teardown begins) — in which case the detached process can
++// legitimately win the lock and keep running past this program's own exit.
++//
++// This is best-effort, not a hard failure: the measurement itself is already complete and correct
++// by the time this runs (I-2's delivery-integrity check already caught any degraded-run scenario
++// that would have triggered lazySpawn in the first place), so an orphan that refuses to stop is
++// reported loudly rather than failing the whole bench run over a teardown hygiene issue.
++func detectAndStopOrphan(addr ipc.Addr, spool ipc.SpoolWriter, errw io.Writer) {
++	c := newProbeClient(addr, spool, probeConnectDeadline)
++	defer func() { _ = c.Close() }()
++
++	req := ipc.Request{Op: ipc.OpAdminPing, Session: adminPingSessionID, TS: core.NowMilli(core.SystemClock())}
++	resp, _ := c.Send(context.Background(), req, probeAckDeadline)
++	if !resp.OK {
++		return // nothing else answering: teardown is clean.
++	}
++
++	fmt.Fprintln(errw, "hotpath: WARNING: a second daemon is still reachable after this program's own daemon exited "+
++		"(likely internal/cli/hookclient.go's lazySpawn, triggered by a dial timeout during a measured spawn) — asking it to shut down")
++	shutdownDaemon(addr, spool)
++
++	deadline := time.Now().Add(orphanCheckDeadline)
++	for time.Now().Before(deadline) {
++		resp2, _ := c.Send(context.Background(), req, probeAckDeadline)
++		if !resp2.OK {
++			fmt.Fprintln(errw, "hotpath: orphaned daemon stopped")
++			return
++		}
++		time.Sleep(orphanCheckTick)
++	}
++	fmt.Fprintln(errw, "hotpath: WARNING: the orphaned daemon did not stop within the bound — it may still be running "+
++		"and holding the project's daemon.lock/named-pipe or socket")
+ }
+ 
+ // measureSpawns spawns binPath with args exactly n times, one at a time, timing wall-clock around
+ // each cmd.Run() call (task-7-spec.md step 5: "timing each spawn with time.Now() around
+ // cmd.Run()"). payloadFn(i) is fed to the child's stdin. A non-nil error from any single spawn
+ // aborts the whole measurement — a hook subcommand's own §2.3 contract is to always exit 0, so a
+ // non-zero exit here is a real failure worth stopping the run over, not a sample to discard.
+ func measureSpawns(ctx context.Context, binPath string, args []string, n int, env []string, payloadFn func(seq int) []byte) ([]time.Duration, error) {
+ 	samples := make([]time.Duration, 0, n)
+ 	for i := 0; i < n; i++ {
+diff --git a/test/bench/hotpath/report.go b/test/bench/hotpath/report.go
+index 467eca8..4141476 100644
+--- a/test/bench/hotpath/report.go
++++ b/test/bench/hotpath/report.go
+@@ -1,13 +1,14 @@
+ package main
+ 
+ import (
++	"fmt"
+ 	"math"
+ 	"sort"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/obs"
+ )
+ 
+ // BudgetRow is one row of the out.json "budgets" array (task-7-spec.md's exact shape). LimitMs
+ // and Pass are pointers so an ungated budget (B-D) marshals its own null/null rather than a
+@@ -35,24 +36,47 @@ type SpawnFloor struct {
+ // Report is the harness's out.json shape, verbatim per task-7-spec.md step 9.
+ type Report struct {
+ 	Platform     string      `json:"platform"`
+ 	N            int         `json:"n"`
+ 	BAMethod     string      `json:"b_a_method"`
+ 	SpawnFloorMs SpawnFloor  `json:"spawn_floor_ms"`
+ 	Notes        []string    `json:"notes"`
+ 	Budgets      []BudgetRow `json:"budgets"`
+ }
+ 
+-// bAMethod is the exact artifact string task-7-spec.md step 6 requires: percentile-from-
+-// percentile subtraction is statistically meaningless (p99(X-Y) != p99(X) - p99(Y)), so B-A is
+-// derived per sample and the derivation itself is stated in the artifact.
+-const bAMethod = "per-sample subtraction of spawn_floor_ms.p50"
++// bAMethod is the artifact's own explanation of how the gated "B-A" row is now produced.
++//
++// FIX ROUND 1 / controller ruling #29 amends task-7-spec.md step 6: B-A (internal/obs/budgets.go:
++// "hook_controlled — client main() entry to exit") is defined to EXCLUDE OS process creation, but
++// this harness can only measure real process spawns (task-7-spec.md step 5), so the wall-clock
++// sample always carries fork/exec + image load on top of the number B-A actually names. Per-sample
++// subtraction of a CONSTANT floor (spawn_floor_ms.p50) removes that constant's location but none
++// of its dispersion, so the estimator is unbiased at p50 and dispersion-contaminated at p99 —
++// exactly the statistic the gate reads. The gated "B-A" row below is therefore now sourced from
++// the daemon's own TS-anchored estimate instead: hook_controlled (recvTS - reqTS, plus
++// hotPathTailAllowance), the same series internal/daemon's breach detector itself consumes,
++// fetched via the status op after the run. It is real, honestly-measured daemon-side data — not a
++// wall-clock estimate — and it excludes process creation by construction, matching B-A's own
++// definition exactly. The wall-clock, floor-subtracted number is NOT discarded: it survives as the
++// "B-A_spawn_estimate" row (budgetIDBASpawnEstimate below), always informational, never gated —
++// see its own doc comment for the caveat this constant explains.
++const bAMethod = "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit; " +
++	"see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)"
++
++// budgetIDBASpawnEstimate is the renamed budget_id the wall-clock, per-sample-floor-subtracted
++// number now reports under (FIX ROUND 1, controller ruling #29: "rename their keys so nothing
++// reads them as B-A"). It is always informational (LimitMs/Pass nil), like B-D: subtracting a
++// constant floor removes the floor distribution's location but none of its dispersion, so this
++// estimator is a good, unbiased read of the MEDIAN hot-path cost above the floor, but its own p99
++// is contaminated by host process-creation jitter and must never be read as if it were B-A's own
++// p99. See bAMethod's doc comment for the full derivation.
++const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
+ 
+ // GateFailed reports whether any GATED budget (a non-nil Pass) reports false. B-D's Pass is
+ // always nil and can never fail the run (task-7-spec.md step 10).
+ func (r Report) GateFailed() bool {
+ 	for _, b := range r.Budgets {
+ 		if b.Pass != nil && !*b.Pass {
+ 			return true
+ 		}
+ 	}
+ 	return false
+@@ -164,10 +188,32 @@ func budgetLimit(cfg config.Config, id obs.BudgetID) time.Duration {
+ // budgetHistName looks up id's histogram name from obs.Budgets(), the same indirection
+ // budgetLimit uses — the harness never spells a histogram name as its own literal.
+ func budgetHistName(id obs.BudgetID) string {
+ 	for _, b := range obs.Budgets() {
+ 		if b.ID == id {
+ 			return b.Hist
+ 		}
+ 	}
+ 	return ""
+ }
++
++// checkDeliveryIntegrity is FIX ROUND 1's I-2 guard: gotN (the daemon's own l0_ingest
++// obs.HistSnapshot.N, read via the status op) must equal exactly iterations, plus warmIterations
++// when warm-up ran — every observe.tool request this harness sent, and nothing else, touches
++// l0_ingest. A shortfall means some hook spawns degraded to the spool path
++// (internal/ipc/client.go's Send: a connect timeout, a write failure, DaemonEnabled==false, or a
++// HotSpool breach all swallow the failure and return quickly) instead of reaching the daemon —
++// which would bias a wall-clock estimate DOWNWARD (a spooled hook exits faster than a delivered
++// one) and could pass a gate that is actually measuring the degraded path. Fails loudly rather
++// than silently reporting on partial data.
++func checkDeliveryIntegrity(gotN int64, iterations int, warmDaemonRan bool) error {
++	want := int64(iterations)
++	if warmDaemonRan {
++		want += warmIterations
++	}
++	if gotN == want {
++		return nil
++	}
++	return fmt.Errorf(
++		"hotpath: delivery integrity check failed: the daemon's own l0_ingest histogram observed %d requests, want exactly %d (warm=%v x %d + iterations=%d) — some hook spawns degraded to the spool path instead of reaching the daemon, which would bias every derived number; refusing to report a Report rather than silently passing a gate on partial data",
++		gotN, want, warmDaemonRan, warmIterations, iterations)
++}
+diff --git a/test/bench/hotpath/report_test.go b/test/bench/hotpath/report_test.go
+index dcc067c..129bce2 100644
+--- a/test/bench/hotpath/report_test.go
++++ b/test/bench/hotpath/report_test.go
+@@ -1,14 +1,15 @@
+ package main
+ 
+ import (
+ 	"encoding/json"
++	"fmt"
+ 	"testing"
+ 	"time"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/obs"
+ )
+ 
+ // fixture512 is a hand-checkable 512-sample fixture: the durations 1ms..512ms, deliberately fed
+@@ -86,62 +87,78 @@ func TestBuildBudgetRow_GatedPassAndFail(t *testing.T) {
+ 
+ 	fail := buildBudgetRow("B-A", samples, 1*time.Microsecond, true)
+ 	require.NotNil(t, fail.Pass)
+ 	require.False(t, *fail.Pass)
+ 
+ 	reported := buildBudgetRow("B-D", samples, 0, false)
+ 	require.Nil(t, reported.Pass)
+ 	require.Nil(t, reported.LimitMs)
+ }
+ 
+-// wantGoldenJSON is task-7-spec.md's own out.json example, verbatim — the golden this test pins.
+-// It exercises the shape (every key, including b_a_method, spawn_floor_ms, notes, and the four
+-// budget rows) rather than any particular timing, per the commit-7 checklist's own instruction.
+-const wantGoldenJSON = `{
++// wantGoldenJSON is the out.json shape's golden. FIX ROUND 1 / controller ruling #29 amends
++// task-7-spec.md's own example: the gated "B-A" row is now sourced from the daemon's own
++// hook_controlled histogram (status op), never a wall-clock spawn estimate, and that wall-clock,
++// floor-subtracted number survives as a fifth, renamed, ALWAYS-ungated diagnostic row
++// ("B-A_spawn_estimate") instead of gating anything itself. b_a_method's own text is injected
++// from the bAMethod constant (report.go) so this fixture can never silently drift from what the
++// harness actually emits. It exercises the shape — every key, including b_a_method,
++// spawn_floor_ms, notes, and all five budget rows' limit_ms/pass null-vs-set shape — rather than
++// any particular timing, per the commit-7 checklist's own instruction.
++var wantGoldenJSON = fmt.Sprintf(`{
+   "platform": "windows/amd64",
+   "n": 2000,
+-  "b_a_method": "per-sample subtraction of spawn_floor_ms.p50",
++  "b_a_method": %q,
+   "spawn_floor_ms": {"n": 200, "p50": 6.1, "p99": 11.4},
+   "notes": ["B-C not measured in wave 1: the processing seams are stubs"],
+   "budgets": [
+-    {"budget_id": "B-A", "n": 2000, "p50": 2.1, "p95": 4.0, "p99": 6.8, "p999": 9.9, "max": 14.2, "limit_ms": 15, "pass": true},
++    {"budget_id": "B-A", "n": 2000, "p50": 0.4, "p95": 1.2, "p99": 2.0, "p999": 3.1, "max": 4.5, "limit_ms": 15, "pass": true},
+     {"budget_id": "B-B", "n": 2000, "p50": 0.10, "p95": 0.31, "p99": 0.62, "p999": 1.1, "max": 1.9, "limit_ms": 2, "pass": true},
+     {"budget_id": "B-D", "n": 2000, "p50": 8.2, "p95": 13.9, "p99": 18.1, "p999": 24.0, "max": 31.5, "limit_ms": null, "pass": null},
+-    {"budget_id": "B-E", "n": 50, "p50": 14.0, "p95": 22.5, "p99": 31.0, "p999": 31.0, "max": 31.0, "limit_ms": 2000, "pass": true}
++    {"budget_id": "B-E", "n": 50, "p50": 14.0, "p95": 22.5, "p99": 31.0, "p999": 31.0, "max": 31.0, "limit_ms": 2000, "pass": true},
++    {"budget_id": "B-A_spawn_estimate", "n": 2000, "p50": 2.1, "p95": 60.4, "p99": 78.0, "p999": 90.0, "max": 115.2, "limit_ms": null, "pass": null}
+   ]
+-}`
++}`, bAMethod)
+ 
+ func floatPtr(f float64) *float64 { return &f }
+ func boolPtr(b bool) *bool        { return &b }
+ 
+ func TestReport_MatchesGoldenShape(t *testing.T) {
+ 	r := Report{
+ 		Platform: "windows/amd64",
+ 		N:        2000,
+-		BAMethod: "per-sample subtraction of spawn_floor_ms.p50",
++		BAMethod: bAMethod,
+ 		SpawnFloorMs: SpawnFloor{
+ 			N: 200, P50: 6.1, P99: 11.4,
+ 		},
+ 		Notes: []string{"B-C not measured in wave 1: the processing seams are stubs"},
+ 		Budgets: []BudgetRow{
+-			{BudgetID: "B-A", N: 2000, P50: 2.1, P95: 4.0, P99: 6.8, P999: 9.9, Max: 14.2, LimitMs: floatPtr(15), Pass: boolPtr(true)},
++			{BudgetID: "B-A", N: 2000, P50: 0.4, P95: 1.2, P99: 2.0, P999: 3.1, Max: 4.5, LimitMs: floatPtr(15), Pass: boolPtr(true)},
+ 			{BudgetID: "B-B", N: 2000, P50: 0.10, P95: 0.31, P99: 0.62, P999: 1.1, Max: 1.9, LimitMs: floatPtr(2), Pass: boolPtr(true)},
+ 			{BudgetID: "B-D", N: 2000, P50: 8.2, P95: 13.9, P99: 18.1, P999: 24.0, Max: 31.5, LimitMs: nil, Pass: nil},
+ 			{BudgetID: "B-E", N: 50, P50: 14.0, P95: 22.5, P99: 31.0, P999: 31.0, Max: 31.0, LimitMs: floatPtr(2000), Pass: boolPtr(true)},
++			{BudgetID: budgetIDBASpawnEstimate, N: 2000, P50: 2.1, P95: 60.4, P99: 78.0, P999: 90.0, Max: 115.2, LimitMs: nil, Pass: nil},
+ 		},
+ 	}
+ 
+ 	got, err := json.Marshal(r)
+ 	require.NoError(t, err)
+ 	require.JSONEq(t, wantGoldenJSON, string(got))
+ }
+ 
++// TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A pins the FIX ROUND 1 rename (I-1 / controller
++// ruling #29: "rename their keys so nothing reads them as B-A") at the constant level, not just in
++// the golden fixture above.
++func TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A(t *testing.T) {
++	require.NotEqual(t, string(obs.BA), budgetIDBASpawnEstimate)
++	require.Equal(t, "B-A_spawn_estimate", budgetIDBASpawnEstimate)
++}
++
+ // TestBuildBudgetRowFromSnapshot pins B-B's own construction path: unlike buildBudgetRow, there
+ // are no raw samples — the daemon's own obs.HistSnapshot IS the source of truth, reported
+ // verbatim.
+ func TestBuildBudgetRowFromSnapshot(t *testing.T) {
+ 	snap := obs.HistSnapshot{
+ 		N:   2000,
+ 		P50: 100 * time.Microsecond, P95: 310 * time.Microsecond, P99: 620 * time.Microsecond,
+ 		P999: 1100 * time.Microsecond, Max: 1900 * time.Microsecond,
+ 	}
+ 	row := buildBudgetRowFromSnapshot("B-B", snap, 2*time.Millisecond, true)
+@@ -158,20 +175,31 @@ func TestBudgetLimit_ReadsFromConfigDefaults(t *testing.T) {
+ 	cfg := config.Defaults()
+ 	require.Equal(t, 15*time.Millisecond, budgetLimit(cfg, obs.BA))
+ 	require.Equal(t, 2*time.Millisecond, budgetLimit(cfg, obs.BB))
+ 	require.Equal(t, 2000*time.Millisecond, budgetLimit(cfg, obs.BE))
+ }
+ 
+ func TestBudgetHistName_MatchesBudgetsTable(t *testing.T) {
+ 	require.Equal(t, "l0_ingest", budgetHistName(obs.BB))
+ }
+ 
++// TestCheckDeliveryIntegrity pins FIX ROUND 1's I-2 guard: gotN must equal iterations (+
++// warmIterations when warm-up ran), exactly — no tolerance either direction.
++func TestCheckDeliveryIntegrity(t *testing.T) {
++	require.NoError(t, checkDeliveryIntegrity(2000, 2000, false), "no warm-up: exact match passes")
++	require.NoError(t, checkDeliveryIntegrity(int64(warmIterations+2000), 2000, true), "warm-up: exact match passes")
++
++	require.Error(t, checkDeliveryIntegrity(1999, 2000, false), "one short must fail loudly")
++	require.Error(t, checkDeliveryIntegrity(2001, 2000, false), "one over must also fail — not just a floor check")
++	require.Error(t, checkDeliveryIntegrity(2000, 2000, true), "warm-up ran but l0_ingest only saw the loop's own count")
++}
++
+ // TestReport_ExitNonZeroOnAnyGatedFailure pins GateFailed's decision rule: any gated (non-nil
+ // Pass) budget reporting false fails the run; B-D's nil Pass never can.
+ func TestReport_ExitNonZeroOnAnyGatedFailure(t *testing.T) {
+ 	okReport := Report{Budgets: []BudgetRow{
+ 		{BudgetID: "B-A", Pass: boolPtr(true)},
+ 		{BudgetID: "B-D", Pass: nil},
+ 	}}
+ 	require.False(t, okReport.GateFailed())
+ 
+ 	badReport := Report{Budgets: []BudgetRow{
+diff --git a/tools/devtool/benchhotpath.go b/tools/devtool/benchhotpath.go
+index 3cf6967..eea1d48 100644
+--- a/tools/devtool/benchhotpath.go
++++ b/tools/devtool/benchhotpath.go
+@@ -1,19 +1,20 @@
+ package main
+ 
+ import (
+ 	"fmt"
+ 	"path/filepath"
+ )
+ 
+ // taskBenchHotpath runs the real-process-spawn hot-path harness, `go run ./test/bench/hotpath`,
+-// forwarding args, if that harness exists. SP-05 owns it; before SP-05 lands this degrades to a
+-// zero-exit no-op, exactly as the implementation spec's task table requires.
++// forwarding args. SP-05 (task 7) has landed test/bench/hotpath, so dirHasGoFiles is now
++// permanently true in this tree; the fallback below is kept only as the documented degrade path
++// the implementation spec's task table requires for a build that predates it (e.g. a bisect).
+ func taskBenchHotpath(args []string) error {
+ 	dir := filepath.Join(root, "test", "bench", "hotpath")
+ 	if !dirHasGoFiles(dir) {
+ 		fmt.Println("bench-hotpath: harness not present (owned by SP-05)")
+ 		return nil
+ 	}
+ 	runArgs := append([]string{"run", "./test/bench/hotpath"}, args...)
+ 	return goInherit(runArgs...)
+ }

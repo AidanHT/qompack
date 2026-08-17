@@ -1,0 +1,30 @@
+[0m[7m[1m[31m FAIL [39m[22m[27m[0m [2m__tests__/[22m[1mcart.test.js[22m
+  Cart
+    [31m×[39m [2msums a subtotal across line items (8 ms)[22m
+    [32m√[39m [2mapplies tax to the running total[22m
+    [32m√[39m [2mthrows for a missing item (3 ms)[22m
+  slugify
+    [32m√[39m [2mnormalizes mixed punctuation (1 ms)[22m
+
+[1m[31m  [1m● [22m[1mCart › sums a subtotal across line items[39m[22m
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m24.5[39m
+    Received: [31m25.5[39m
+[2m[22m
+[2m    [0m [90m  6 |[39m   test([32m'sums a subtotal across line items'[39m[33m,[39m () [33m=>[39m {[22m
+[2m     [90m  7 |[39m     [36mconst[39m cart [33m=[39m [36mnew[39m [33mCart[39m()[33m.[39madd([32m'widget'[39m[33m,[39m [35m10[39m[33m,[39m [35m2[39m)[33m.[39madd([32m'gizmo'[39m[33m,[39m [35m5.5[39m)[33m;[39m[22m
+[2m    [31m[1m>[22m[2m[39m[90m  8 |[39m     expect(cart[33m.[39msubtotal())[33m.[39mtoBe([35m24.5[39m)[33m;[39m[22m
+[2m     [90m    |[39m                             [31m[1m^[22m[2m[39m[22m
+[2m     [90m  9 |[39m   })[33m;[39m[22m
+[2m     [90m 10 |[39m[22m
+[2m     [90m 11 |[39m   test([32m'applies tax to the running total'[39m[33m,[39m () [33m=>[39m {[0m[22m
+[2m[22m
+[2m      [2mat Object.toBe ([22m[2m[0m[36m__tests__/cart.test.js[39m[0m[2m:8:29)[22m[2m[22m
+
+[1mTest Suites: [22m[1m[31m1 failed[39m[22m, 1 total
+[1mTests:       [22m[1m[31m1 failed[39m[22m, [1m[32m3 passed[39m[22m, 4 total
+[1mSnapshots:   [22m0 total
+[1mTime:[22m        0.569 s, estimated 1 s
+[2mRan all test suites[22m[2m.[22m

@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"hello"}}
+{"type":"nonsense","payload":{"whatever":1}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}],"usage":{"output_tokens":5}}}

@@ -1,0 +1,172 @@
+# Fix-round-2 delta: e4dbd3b9 -> dd2f5e2
+
+ internal/ipc/server.go           | 11 +++++++----
+ internal/ipc/server_test.go      | 11 +++++++----
+ internal/ipc/server_unix_test.go | 14 +++++++++++---
+ internal/ipc/spool.go            |  9 ++++++---
+ 4 files changed, 31 insertions(+), 14 deletions(-)
+
+diff --git a/internal/ipc/server.go b/internal/ipc/server.go
+index 2dbf462..46039e0 100644
+--- a/internal/ipc/server.go
++++ b/internal/ipc/server.go
+@@ -119,24 +119,27 @@ func (s *server) Serve(ctx context.Context, h Handler) error {
+ 		}
+ 		backoff = acceptBackoffInitial
+ 		s.trackConn(conn, true)
+ 		s.wg.Add(1)
+ 		go s.handleConn(ctx, conn, h)
+ 	}
+ }
+ 
+ // waitForConns waits for every in-flight handleConn goroutine to finish, bounded by
+ // serverCloseWait — the same bound Close itself uses — so neither Serve nor Close can hang the
+-// daemon's stop sequence forever on a single wedged connection. It is safe to call from both:
+-// sync.WaitGroup.Wait may be called by multiple goroutines concurrently as long as none of them
+-// is also calling Add, and by the time either caller reaches this point the accept loop that
+-// calls Add has already stopped.
++// daemon's stop sequence forever on a single wedged connection. Serve's own shutdown paths and an
++// independently-invoked Close can both reach this concurrently, which sync.WaitGroup permits: per
++// its documentation, an Add that takes the counter from zero to positive may race with a Wait —
++// what it forbids is calling Add again after a Wait has already observed zero and returned, which
++// cannot happen here because every s.wg.Add lives inside the accept loop, and that loop's own
++// Accept calls only ever fail once the listener this Close (or the ctx cancellation that triggers
++// it) has closed — no Add can start a fresh cycle after the final Wait of a shutdown exits.
+ func (s *server) waitForConns() {
+ 	done := make(chan struct{})
+ 	go func() {
+ 		s.wg.Wait()
+ 		close(done)
+ 	}()
+ 	t := time.NewTimer(serverCloseWait)
+ 	defer t.Stop()
+ 	select {
+ 	case <-done:
+diff --git a/internal/ipc/server_test.go b/internal/ipc/server_test.go
+index 5a51e76..043f420 100644
+--- a/internal/ipc/server_test.go
++++ b/internal/ipc/server_test.go
+@@ -210,24 +210,27 @@ func TestServerConcurrentClients(t *testing.T) {
+ 					}
+ 				}
+ 			}
+ 		}(g)
+ 	}
+ 	wg.Wait()
+ 
+ 	require.EqualValues(t, goroutines*perGoroutine, handled.Load())
+ }
+ 
+-// shutdownTestBound is how long TestServerCloseWithLiveConnection gives Close/Serve to return —
+-// generous compared to serverCloseWait itself, so a genuine regression (an unbounded wait) fails
+-// this test in seconds rather than hanging it for the package's whole -timeout.
+-const shutdownTestBound = 5 * time.Second
++// shutdownTestBound is how long TestServerCloseWithLiveConnection gives Close/Serve to return.
++// It must stay below 2×serverCloseWait: Close's own waitForConns call and Serve's subsequent one
++// are each independently bounded by serverCloseWait, so a regression that silently dropped
++// closeTrackedConns (the actual fix under test) would still return within roughly two lots of
++// serverCloseWait, just by falling through to that fallback timeout twice — a bound at or above
++// 2×serverCloseWait would let exactly that regression pass. N-2 (fix round 2).
++const shutdownTestBound = 3 * serverCloseWait / 2
+ 
+ // TestServerCloseWithLiveConnection is I-4: a connection that is accepted but never sends
+ // anything and never closes must not prevent Close — or a cancellation-driven Serve — from
+ // returning. Close must close every accepted connection itself (unblocking handleConn's pending
+ // read) rather than waiting out connIdleTimeout or hanging forever.
+ func TestServerCloseWithLiveConnection(t *testing.T) {
+ 	addr, err := Resolve(t.TempDir())
+ 	require.NoError(t, err)
+ 	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
+ 	require.NoError(t, err)
+diff --git a/internal/ipc/server_unix_test.go b/internal/ipc/server_unix_test.go
+index 7f5cf2b..678b9c7 100644
+--- a/internal/ipc/server_unix_test.go
++++ b/internal/ipc/server_unix_test.go
+@@ -1,16 +1,17 @@
+ //go:build !windows
+ 
+ package ipc
+ 
+ import (
+ 	"context"
++	"net"
+ 	"os"
+ 	"path/filepath"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+ )
+@@ -31,25 +32,32 @@ func TestUnixSocketPermissions(t *testing.T) {
+ 
+ // TestStaleUnixSocketReclaimed is the table's row: a socket file left behind with nothing
+ // listening on it is removed and rebound successfully, rather than failing with "address already
+ // in use".
+ func TestStaleUnixSocketReclaimed(t *testing.T) {
+ 	root := t.TempDir()
+ 	addr, err := Resolve(root)
+ 	require.NoError(t, err)
+ 
+ 	require.NoError(t, os.MkdirAll(filepath.Dir(addr.Path), dirPerm))
+-	// Bind and immediately close a real listener at addr.Path, leaving its socket file behind —
+-	// exactly what a daemon that crashed without cleaning up its own lock would leave.
++	// Bind and close a real listener at addr.Path, leaving its socket file behind — exactly what a
++	// daemon that crashed (SIGKILL, panic before cleanup) would leave. *net.UnixListener unlinks
++	// its own socket on an ordinary Close (net/unixsock_posix.go), which would make the file
++	// vanish before NewServer ever ran and defeat the point of this test — SetUnlinkOnClose(false)
++	// is the documented way to simulate an unclean shutdown instead of a clean one (N-3, fix
++	// round 2).
+ 	stale, err := listen(addr, logging.Nop(), MaxLineBytes)
+ 	require.NoError(t, err)
+-	require.NoError(t, stale.Close())
++	staleUnix, ok := stale.(*net.UnixListener)
++	require.True(t, ok, "listen must return a *net.UnixListener on POSIX")
++	staleUnix.SetUnlinkOnClose(false)
++	require.NoError(t, staleUnix.Close())
+ 
+ 	_, err = os.Stat(addr.Path)
+ 	require.NoError(t, err, "the stale socket file must still exist before NewServer runs")
+ 
+ 	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
+ 	require.NoError(t, err, "NewServer must reclaim a stale socket rather than failing")
+ 
+ 	ctx, cancel := context.WithCancel(context.Background())
+ 	done := make(chan error, 1)
+ 	go func() { done <- srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} }) }()
+diff --git a/internal/ipc/spool.go b/internal/ipc/spool.go
+index 7752aa3..82edaa9 100644
+--- a/internal/ipc/spool.go
++++ b/internal/ipc/spool.go
+@@ -83,23 +83,26 @@ func newSpool(dir string, log logging.Logger, m obs.Registry) *spool {
+ 		m:    m,
+ 	}
+ }
+ 
+ // Path returns the file Append writes to, so /qompack:status and the daemon's drain can name it.
+ // It is stable for the writer's lifetime, computed at construction, before any file is created.
+ func (s *spool) Path() string { return s.path }
+ 
+ // Append writes req as one NDJSON line (00-ARCHITECTURE.md §2.4). A line that would exceed
+ // MaxLineBytes is refused outright with a wrapped core.ErrBudget, leaving the spool byte-identical
+-// — this is the generic SpoolWriter contract ipctest's conformance suite grades, and it never
+-// happens on Client.Send's own path because externalize() keeps every line the client hands to
+-// Append under the threshold before Append is ever called.
++// — this is the generic SpoolWriter contract ipctest's conformance suite grades. Client.Send's own
++// externalize() reduces how often this triggers (it moves an oversized Event.ToolResponse to a
++// side blob before Append is reached) but cannot prevent it in general — a request whose bulk
++// lives in Raw rather than Event.ToolResponse still reaches Append at full size — so the caller
++// must treat a non-nil return here as a real, counted drop (see client.go's appendToSpool), never
++// as the size-refusal case being unreachable.
+ //
+ // Everything else — permission denied, ENOSPC, ErrSpoolFull — is §12.3's "spool write fails":
+ // dropped and counted every time (so l0_dropped reflects the true count of lost events even
+ // though the write itself is only retried once), Loud exactly once for the life of this spool,
+ // and reported back as nil so the hook that called Send still exits 0.
+ func (s *spool) Append(req Request) error {
+ 	// EncodeRequest already returns a line terminated by exactly one '\n' (frame.go's encodeLine
+ 	// uses json.Encoder.Encode, which appends one); line's own length already counts it, so no
+ 	// caller here may add a second newline or double-count it against MaxLineBytes.
+ 	line, err := EncodeRequest(req)

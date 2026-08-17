@@ -1,5 +1,9 @@
 # SP-18: Production: README, user guide, troubleshooting, config reference, the cannot-do list, upstream issues, and the user acceptance testing guide
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> The config reference is *generated* from `config.Defaults()`, the cannot-do list is asserted byte-for-byte against `Qompack.md`, and every other claim is checked against a machine-readable source. Almost nothing here is invented.
+
 **Branch:** `feat/sp18-documentation-and-uat` (cut from `develop`) | **Wave:** 5 | **Prerequisites:** the branches of SP-01, SP-02, SP-06, SP-09, SP-10, SP-11, SP-12, SP-13, SP-14, SP-15, SP-16 already merged into `develop` (post-V5 `develop`) | **Runs in parallel with:** sibling subplans of wave 5 (SP-17 packaging/hardening/release) | **Design sections:** §9 (not-closeable note), §12 (cannot do, upstream issues), Appendix C (reference), §11 (metrics explained) | **Gaps closed:** G7.2
 
 ---

@@ -1,0 +1,28 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-9.1.1, pluggy-1.6.0 -- <tmp>
+cachedir: .pytest_cache
+rootdir: <tmp>
+collecting ... collected 5 items
+
+test_shipping.py::test_quote_single_parcel PASSED                        [ 20%]
+test_shipping.py::test_quote_rejects_zero_weight PASSED                  [ 40%]
+test_shipping.py::test_bulk_quote_sums_parcels FAILED                    [ 60%]
+test_shipping.py::test_normalize_destination_collapses_whitespace PASSED [ 80%]
+test_shipping.py::test_is_heavy_threshold PASSED                         [100%]
+
+================================== FAILURES ===================================
+________________________ test_bulk_quote_sums_parcels _________________________
+
+    def test_bulk_quote_sums_parcels():
+        parcels = [
+            Parcel(destination="Boston", weight_kg=4.0),
+            Parcel(destination="Reno", weight_kg=2.0),
+        ]
+>       assert bulk_quote(parcels) == 18.4
+E       AssertionError: assert 17.4 == 18.4
+E        +  where 17.4 = bulk_quote([Parcel(destination='Boston', weight_kg=4.0, tags=[]), Parcel(destination='Reno', weight_kg=2.0, tags=[])])
+
+test_shipping.py:22: AssertionError
+=========================== short test summary info ===========================
+FAILED test_shipping.py::test_bulk_quote_sums_parcels - AssertionError: assert 17.4 == 18.4
+========================= 1 failed, 4 passed in <d> =========================

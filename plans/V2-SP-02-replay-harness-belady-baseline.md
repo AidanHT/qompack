@@ -1,6 +1,17 @@
 # SP-02: Phase 0 / L7: replay harness, counterfactual divergence metrics, Belady OPT, stock baseline, and the full evaluation methodology
 
+> **Recommended model: Opus 5 · max effort**
+>
+> Belady-OPT under an equal *token* budget is a knapsack, not plain furthest-in-future, and every later wave is graded against the number this package emits — a subtly wrong harness silently poisons all six checkpoints, so correctness outranks cost here. Volume is moderate (1.5k lines), so `max` is affordable.
+
 **Branch:** `feat/sp02-replay-harness-belady-baseline` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-03 sketches, SP-04 chunking/canon/symbols, SP-05 daemon/IPC, SP-06 store, SP-07 dag) | **Design sections:** §4.2, §5.6 (Belady breakpoint extension), §6.10, §8.8, §10 Phase 0, §11.1, §11.2, §11.3, §11.4 | **Gaps closed:** G8.1, G8.3
+
+> **This subplan has shipped. Before verifying it, read [`V2-SP02-handoff.md`](V2-SP02-handoff.md).**
+>
+> Six of `V2-VERIFY` §2.2's twenty SP-02 rows do not match what shipped. Two of them **exit 0 having
+> run nothing** (V2-SP02-15, V2-SP02-17) and one (V2-SP02-12) would delete working code if followed
+> literally. The handoff gives the corrected command for each, plus the wave-1 coverage-floor action
+> in its §4.1 that silently unmeasures SP-03 … SP-07 if it is missed.
 
 ---
 

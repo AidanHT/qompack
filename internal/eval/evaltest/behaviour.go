@@ -2,6 +2,7 @@ package evaltest
 
 import (
 	"context"
+	"encoding/json"
 	"sort"
 	"testing"
 
@@ -97,6 +98,15 @@ type beladyItem struct {
 // runBeladySixItemCase).
 const beladyFixtureBudget = 250
 
+// beladyScale expresses the fixture's weights and budget in tokens rather than in slots.
+//
+// A real Harness quantizes weights before solving, so an instance stated in units of 1 token
+// collapses to a zero-capacity knapsack and every item is dropped. Scaling both the weights and
+// the budget by the same factor leaves the instance — and its hand-verified unique optimum
+// {a, d, f} — arithmetically identical, while making it expressible in the units a Harness
+// actually reasons about. bruteForceOptimalIDs stays in the readable unscaled units.
+const beladyScale = 256
+
 // beladyFixtureItems is the six-item instance: a, b, d and f are read again after the
 // compaction point (so a Belady-optimal policy wants to keep them); c and e are not (e is also
 // too large to ever fit the budget on its own, which is deliberate — it must never be chosen
@@ -150,25 +160,47 @@ func bruteForceOptimalIDs(items []beladyItem, budget core.Tokens) []string {
 	return bestIDs
 }
 
-// beladyFixtureSession renders beladyFixtureItems() into a Session: one producer turn per item
-// (indices 0..5, each with a single ToolCall touching a unique path and Turn.Tokens set to the
-// item's weight), followed by one consumer turn per reused item that re-touches the same path —
-// the observable "used again" signal a real Belady implementation would key off. CompactionAt
-// names the turn index right after the six producer turns.
+// beladyFixturePath is the path item id occupies, and therefore the file a consumer turn
+// re-touches to signal "used again".
+func beladyFixturePath(id string) string { return "file_" + id + ".go" }
+
+// beladyFixtureSession renders beladyFixtureItems() into a Session.
+//
+// Layout: one producer turn per item (indices 0..5), each a single Read of a unique path whose
+// result carries the item's weight; then the compaction turn itself; then one consumer turn per
+// reused item that re-touches the same path.
+//
+// Two details are load-bearing rather than incidental. The weight rides on the tool RESULT, not on
+// Turn.Tokens, because what a keep-set pays for is the content a tool call put into the
+// transcript — a producer turn with an empty result costs nothing to keep, and a budget that binds
+// on nothing cannot discriminate between keep-sets. And the consumer turns begin AFTER the
+// compaction turn, not at it, because the compaction turn is the boundary: a turn at the boundary
+// is neither before it nor after it, so an item re-touched exactly there would be invisible as a
+// demand and the fixture would silently be a five-item instance.
 func beladyFixtureSession() eval.Session {
 	items := beladyFixtureItems()
-	turns := make([]eval.Turn, 0, len(items))
+	turns := make([]eval.Turn, 0, 2*len(items)+1)
 	for i, it := range items {
+		result, err := json.Marshal(map[string]int{"tokens": int(it.tokens) * beladyScale})
+		if err != nil {
+			panic("evaltest: marshalling the belady fixture result: " + err.Error())
+		}
 		turns = append(turns, eval.Turn{
-			Index:     core.TurnIndex(i),
-			Role:      "assistant",
-			Tokens:    it.tokens,
-			ToolCalls: []eval.ToolCall{{ID: core.ToolUseID(it.id), Name: "Read", Paths: []string{"file_" + it.id + ".go"}}},
+			Index: core.TurnIndex(i),
+			Role:  "assistant",
+			ToolCalls: []eval.ToolCall{{
+				ID:     core.ToolUseID(it.id),
+				Name:   "Read",
+				Paths:  []string{beladyFixturePath(it.id)},
+				Result: result,
+			}},
 		})
 	}
 
 	at := core.TurnIndex(len(items))
-	next := len(items)
+	turns = append(turns, eval.Turn{Index: at, Role: "assistant"})
+
+	next := int(at) + 1
 	for _, it := range items {
 		if !it.reused {
 			continue
@@ -176,7 +208,7 @@ func beladyFixtureSession() eval.Session {
 		turns = append(turns, eval.Turn{
 			Index:     core.TurnIndex(next),
 			Role:      "assistant",
-			ToolCalls: []eval.ToolCall{{ID: core.ToolUseID("reuse-" + it.id), Name: "Read", Paths: []string{"file_" + it.id + ".go"}}},
+			ToolCalls: []eval.ToolCall{{ID: core.ToolUseID("reuse-" + it.id), Name: "Read", Paths: []string{beladyFixturePath(it.id)}}},
 		})
 		next++
 	}
@@ -201,11 +233,25 @@ func runBeladySixItemCase(t *testing.T, factory func(t *testing.T) eval.Harness)
 	// weights above changed and this comment needs updating, not the Harness under test.
 	require.Equal(t, []string{"a", "d", "f"}, want)
 
-	got, err := h.Belady(ctx, session, at, core.Tokens(beladyFixtureBudget))
+	budget := core.Tokens(beladyFixtureBudget * beladyScale)
+	got, err := h.Belady(ctx, session, at, budget)
 	require.NoError(t, err)
-	require.LessOrEqual(t, got.Tokens, core.Tokens(beladyFixtureBudget))
+	require.LessOrEqual(t, got.Tokens, budget)
+
+	// A Harness identifies what it keeps by block, not by tool-use id, so the brute-forced answer
+	// is translated into the same vocabulary before comparison. The instance and its optimum are
+	// unchanged; only the names are.
+	//
+	// The path is spelled literally rather than through paths.Key: evaltest's allow-set does not
+	// include paths (§3.2), and beladyFixturePath is already lowercase ASCII, so the two agree on
+	// every platform — case folding applies on Windows and macOS and is the identity here.
+	wantIDs := make([]string, 0, len(want))
+	for _, id := range want {
+		wantIDs = append(wantIDs, "file:"+beladyFixturePath(id))
+	}
+	sort.Strings(wantIDs)
 
 	gotIDs := append([]string(nil), got.IDs...)
 	sort.Strings(gotIDs)
-	require.Equal(t, want, gotIDs, "Belady must return the optimal keep-set on this brute-forceable instance")
+	require.Equal(t, wantIDs, gotIDs, "Belady must return the optimal keep-set on this brute-forceable instance")
 }

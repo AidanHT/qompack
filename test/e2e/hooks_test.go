@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/qompack/qompack/internal/config"
@@ -17,7 +16,7 @@ import (
 
 // TestMain removes the directory Build compiled into. It lives here rather than in a file of its
 // own because it is three lines of process lifecycle, and the binary it cleans up is only ever
-// used by the tests in this file.
+// used by the tests in this package.
 func TestMain(m *testing.M) {
 	code := m.Run()
 	removeBuild()
@@ -38,15 +37,28 @@ var hookSubcommands = []struct {
 	{"SessionEnd", []string{"flush"}},
 }
 
-// TestE2E_AllSixHooksExitZero is the wave-0 end-to-end case: the real binary, all six hook
-// subcommands, a real temp project, representative payloads.
+// TestE2E_AllSixHooksExitZero is the wave-0 end-to-end case, RESTORED UNDER ITS ORIGINAL NAME
+// after fix round 1's Critical C-1: five downstream VERIFY plan documents name this test BY NAME
+// as a verification command (plans/V1-SP-01-foundation-toolchain-and-contracts.md,
+// V1/V2/V3/V4/V5/V6-VERIFY-*.md), and a build where `go test -run TestE2E_AllSixHooksExitZero
+// ./test/e2e/` reports "[no tests to run]" (exit 0) makes every one of those checkpoints pass
+// vacuously — the worst failure mode a verification gate can have.
 //
-// Every hook must exit 0 — §2.3 permits a hook no other outcome, because a non-zero hook exit
-// surfaces noise to the user and for some hooks blocks the turn — every stdout must parse as a
-// hookio.Output, and the six runs together must leave exactly six lines in the observation log.
+// The real binary, all six hook subcommands, a real temp project, representative payloads, every
+// exit code 0, every stdout parses as a hookio.Output — SP-05 makes this property MORE true, not
+// obsolete, so it is still fully assertable. What is gone is wave-0's own artifact: the
+// hooks-*.jsonl observation log SP-05 replaces with the real transport (hookLogLines), and the
+// unconditional SessionStart/PreCompact hookSpecificOutput switch, which — now that a live daemon
+// answers session-start with a real §12.1 sentinel and PreCompact answers only once an SP-10
+// PreCompact seam exists (absent from a wave-1-only build; see IT-1's own comment in
+// v1_integration_test.go) — only SessionStart can still assert positively without a later
+// subplan's own seam being present.
 func TestE2E_AllSixHooksExitZero(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t)
+	// session-start, among the six, brings up a real detached daemon; shut it down before this
+	// test's own t.TempDir() cleanup runs (see e2eShutdownIfReachable's own doc comment).
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
 
 	for _, hook := range hookSubcommands {
 		t.Run(hook.event, func(t *testing.T) {
@@ -66,20 +78,13 @@ func TestE2E_AllSixHooksExitZero(t *testing.T) {
 			require.NoError(t, json.Unmarshal(stdout, &out),
 				"a hook's stdout must always be a valid hookio.Output, got:\n%s", stdout)
 
-			switch hook.event {
-			case "SessionStart", "PreCompact":
+			if hook.event == "SessionStart" {
 				require.NotNil(t, out.HookSpecificOutput,
 					"%s answers through hookSpecificOutput", hook.event)
 				require.Equal(t, hook.event, out.HookSpecificOutput.HookEventName)
-			default:
-				require.Equal(t, "{}\n", string(stdout),
-					"%s has nothing to say and must write the minimal response", hook.event)
 			}
 		})
 	}
-
-	require.Len(t, hookLogLines(t, p.Root), len(hookSubcommands),
-		"six hook runs must append exactly six lines to .qompack/logs/hooks-*.jsonl")
 }
 
 // TestE2E_ConfigPrintFromRealBinary asserts `qompack config print --json`, run as a real process
@@ -107,16 +112,19 @@ func TestE2E_ConfigPrintFromRealBinary(t *testing.T) {
 
 // TestE2E_RunHookRealBinaryMode asserts the OTHER half of §6.2's two-mode requirement: the same
 // (*Project).RunHook that unit tests drive in process spawns the real binary when
-// QOMPACK_E2E_BINARY names one, and produces the same observations.
+// QOMPACK_E2E_BINARY names one, and every one of the six hooks still exits 0 with a parseable
+// response — the same property TestProject_RunHookInProcess pins for the in-process mode.
 func TestE2E_RunHookRealBinaryMode(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t, testutil.WithEnv(testutil.E2EBinaryEnv, bin))
+	// session-start, among the six, brings up a real detached daemon; shut it down before this
+	// test's own t.TempDir() cleanup runs, or a still-open log file handle can make that cleanup
+	// fail on Windows (open-file delete semantics).
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
 
 	for _, name := range testutil.HookNames() {
 		p.RunHook(t, name, eventFor(name, p.Root))
 	}
-
-	require.Len(t, hookLogLines(t, p.Root), len(testutil.HookNames()))
 }
 
 // TestE2E_UnknownCommandExitsTwo asserts the other side of the §2.3 exit-code policy through the
@@ -169,25 +177,4 @@ func eventFor(event, cwd string) hookio.Event {
 		e.StopHookActive = true
 	}
 	return e
-}
-
-// hookLogLines returns every non-empty line of every .qompack/logs/hooks-*.jsonl in the project.
-// The filename carries the day stamp of whichever clock wrote it — the system clock, for a real
-// spawned binary — so the glob is what makes the count independent of the date the suite runs on.
-func hookLogLines(t *testing.T, root string) []string {
-	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "hooks-*.jsonl"))
-	require.NoError(t, err)
-
-	var lines []string
-	for _, m := range matches {
-		b, readErr := os.ReadFile(m)
-		require.NoError(t, readErr)
-		for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
-			if strings.TrimSpace(line) != "" {
-				lines = append(lines, line)
-			}
-		}
-	}
-	return lines
 }

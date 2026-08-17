@@ -1,0 +1,241 @@
+=== RUN   TestSentinels_AreDistinct
+--- PASS: TestSentinels_AreDistinct (0.00s)
+=== RUN   TestIsNotImplemented_UnwrapsWrapping
+--- PASS: TestIsNotImplemented_UnwrapsWrapping (0.00s)
+=== RUN   TestVersion_IsSet
+--- PASS: TestVersion_IsSet (0.00s)
+=== RUN   TestHashBytes_DomainSeparation
+--- PASS: TestHashBytes_DomainSeparation (0.00s)
+=== RUN   TestHashBytes_KnownVector
+--- PASS: TestHashBytes_KnownVector (0.00s)
+=== RUN   TestHash_StringShortParse_RoundTrip
+--- PASS: TestHash_StringShortParse_RoundTrip (0.00s)
+=== RUN   TestParseHash_Rejects
+=== RUN   TestParseHash_Rejects/empty
+=== RUN   TestParseHash_Rejects/prefix_only
+=== RUN   TestParseHash_Rejects/63_hex
+=== RUN   TestParseHash_Rejects/65_hex
+=== RUN   TestParseHash_Rejects/non-hex
+--- PASS: TestParseHash_Rejects (0.00s)
+    --- PASS: TestParseHash_Rejects/empty (0.00s)
+    --- PASS: TestParseHash_Rejects/prefix_only (0.00s)
+    --- PASS: TestParseHash_Rejects/63_hex (0.00s)
+    --- PASS: TestParseHash_Rejects/65_hex (0.00s)
+    --- PASS: TestParseHash_Rejects/non-hex (0.00s)
+=== RUN   TestHash_JSONRoundTrip
+--- PASS: TestHash_JSONRoundTrip (0.00s)
+=== RUN   TestHash_UnmarshalJSON_Rejects
+--- PASS: TestHash_UnmarshalJSON_Rejects (0.00s)
+=== RUN   TestDomainRegistry_Distinct
+--- PASS: TestDomainRegistry_Distinct (0.00s)
+=== RUN   TestNewDecisionID_Format
+    ids_test.go:16: 
+        	Error Trace:	C:/Users/alice/AppData/Local/Temp/claude/C--Users-alice-Documents-Programming-Projects-qompack/9ca304cd-aa51-4d71-8c50-de6e43bc96d8/scratchpad/gorerun/internal/core/ids_test.go:16
+        	Error:      	Should be true
+        	Test:       	TestNewDecisionID_Format
+        	Messages:   	got "dec_151b4569522d"
+--- FAIL: TestNewDecisionID_Format (0.00s)
+=== RUN   TestUnixMilli_TimeRoundTrip
+--- PASS: TestUnixMilli_TimeRoundTrip (0.00s)
+=== RUN   TestNowMilli_UsesClock
+--- PASS: TestNowMilli_UsesClock (0.00s)
+=== RUN   TestChunkRefAndDep_AreValueTypes
+--- PASS: TestChunkRefAndDep_AreValueTypes (0.00s)
+FAIL
+FAIL	github.com/qompack/qompack/internal/core	1.361s
+=== RUN   TestLogger_LevelFiltering
+--- PASS: TestLogger_LevelFiltering (0.02s)
+=== RUN   TestLoud_ThreeDestinations
+--- PASS: TestLoud_ThreeDestinations (0.02s)
+=== RUN   TestLoud_NopStillRecordsRingAndObserver
+--- PASS: TestLoud_NopStillRecordsRingAndObserver (0.00s)
+=== RUN   TestLoud_AttachNilClears
+--- PASS: TestLoud_AttachNilClears (0.00s)
+=== RUN   TestLogger_Rotation
+--- PASS: TestLogger_Rotation (0.05s)
+=== RUN   TestLogger_With_AccumulatesFields
+--- PASS: TestLogger_With_AccumulatesFields (0.02s)
+=== RUN   TestLogger_ValueQuoting
+--- PASS: TestLogger_ValueQuoting (0.03s)
+=== RUN   TestLogger_New_RejectsEmptyDir
+--- PASS: TestLogger_New_RejectsEmptyDir (0.00s)
+=== RUN   TestLevel_StringAndParse
+--- PASS: TestLevel_StringAndParse (0.00s)
+=== RUN   TestLogger_DayLogFileName
+--- PASS: TestLogger_DayLogFileName (0.00s)
+=== RUN   TestLogger_ConcurrentWritesDoNotRace
+--- PASS: TestLogger_ConcurrentWritesDoNotRace (0.01s)
+=== RUN   TestLogger_LoudBypassesMinLevel
+--- PASS: TestLogger_LoudBypassesMinLevel (0.02s)
+PASS
+ok  	github.com/qompack/qompack/internal/logging	1.445s
+=== RUN   TestIsProtected_Table
+=== RUN   TestIsProtected_Table/the_live_bloom_file
+=== RUN   TestIsProtected_Table/a_bloom_backup_is_not_the_live_file
+=== RUN   TestIsProtected_Table/a_checkpoint_artifact
+=== RUN   TestIsProtected_Table/the_checkpoint_manifest
+=== RUN   TestIsProtected_Table/pins_invariants_log
+=== RUN   TestIsProtected_Table/an_unrelated_state_file
+=== RUN   TestIsProtected_Table/outside_.qompack_entirely
+--- PASS: TestIsProtected_Table (0.04s)
+    --- PASS: TestIsProtected_Table/the_live_bloom_file (0.00s)
+    --- PASS: TestIsProtected_Table/a_bloom_backup_is_not_the_live_file (0.00s)
+    --- PASS: TestIsProtected_Table/a_checkpoint_artifact (0.00s)
+    --- PASS: TestIsProtected_Table/the_checkpoint_manifest (0.00s)
+    --- PASS: TestIsProtected_Table/pins_invariants_log (0.00s)
+    --- PASS: TestIsProtected_Table/an_unrelated_state_file (0.00s)
+    --- PASS: TestIsProtected_Table/outside_.qompack_entirely (0.00s)
+=== RUN   TestAppendOnlyGuard
+=== RUN   TestAppendOnlyGuard/a_trunc_on_checkpoint
+=== RUN   TestAppendOnlyGuard/b_nonappend_write_on_pins
+=== RUN   TestAppendOnlyGuard/c_writeatomic_on_bloom
+=== RUN   TestAppendOnlyGuard/d_createnew_twice
+=== RUN   TestAppendOnlyGuard/e_appendonly_wrong_extension
+--- PASS: TestAppendOnlyGuard (0.06s)
+    --- PASS: TestAppendOnlyGuard/a_trunc_on_checkpoint (0.00s)
+    --- PASS: TestAppendOnlyGuard/b_nonappend_write_on_pins (0.00s)
+    --- PASS: TestAppendOnlyGuard/c_writeatomic_on_bloom (0.00s)
+    --- PASS: TestAppendOnlyGuard/d_createnew_twice (0.00s)
+    --- PASS: TestAppendOnlyGuard/e_appendonly_wrong_extension (0.00s)
+=== RUN   TestOpenFile_HandlesUnresolvableRootGracefully
+--- PASS: TestOpenFile_HandlesUnresolvableRootGracefully (0.00s)
+=== RUN   TestAppendOnly_ExtensionAllowlist
+--- PASS: TestAppendOnly_ExtensionAllowlist (0.04s)
+=== RUN   TestAppendJSONL_OneLinePerRecord
+--- PASS: TestAppendJSONL_OneLinePerRecord (0.03s)
+=== RUN   TestAppendJSONL_PropagatesEncodeError
+--- PASS: TestAppendJSONL_PropagatesEncodeError (0.03s)
+=== RUN   TestAppendJSONL_PropagatesAppendOnlyExtensionError
+--- PASS: TestAppendJSONL_PropagatesAppendOnlyExtensionError (0.02s)
+=== RUN   TestAppendJSONL_CompactsEmbeddedRawMessageWhitespace
+--- PASS: TestAppendJSONL_CompactsEmbeddedRawMessageWhitespace (0.03s)
+=== RUN   TestAppendJSONL_DisablesHTMLEscaping
+--- PASS: TestAppendJSONL_DisablesHTMLEscaping (0.03s)
+=== RUN   TestCreateNew_SetsReadOnly
+--- PASS: TestCreateNew_SetsReadOnly (0.04s)
+=== RUN   TestReplaceBloom_KeepsOneBackup
+--- PASS: TestReplaceBloom_KeepsOneBackup (0.03s)
+=== RUN   TestReplaceBloom_FirstCallWithNoPriorFile
+--- PASS: TestReplaceBloom_FirstCallWithNoPriorFile (0.03s)
+=== RUN   TestReplaceBloom_IsTheOnlyWayToReplaceIt
+--- PASS: TestReplaceBloom_IsTheOnlyWayToReplaceIt (0.03s)
+=== RUN   TestReplaceBloom_IgnoresUnrelatedAndMalformedSketchFiles
+--- PASS: TestReplaceBloom_IgnoresUnrelatedAndMalformedSketchFiles (0.04s)
+=== RUN   TestReplaceBloom_PruneSurvivesUnreadableSketchesDir
+--- PASS: TestReplaceBloom_PruneSurvivesUnreadableSketchesDir (0.10s)
+=== RUN   TestReplaceBloom_RenameToBackupFails
+--- PASS: TestReplaceBloom_RenameToBackupFails (0.03s)
+=== RUN   TestReplaceBloom_MkdirTmpFails
+--- PASS: TestReplaceBloom_MkdirTmpFails (0.03s)
+=== RUN   TestReplaceBloom_WriteStagingFileFails
+--- PASS: TestReplaceBloom_WriteStagingFileFails (0.03s)
+=== RUN   TestWriteAtomic_ReplacesAndSyncs
+--- PASS: TestWriteAtomic_ReplacesAndSyncs (0.03s)
+=== RUN   TestWriteAtomic_CreatesWhenAbsent
+--- PASS: TestWriteAtomic_CreatesWhenAbsent (0.04s)
+=== RUN   TestWriteAtomic_RefusesProtected
+--- PASS: TestWriteAtomic_RefusesProtected (0.03s)
+=== RUN   TestWriteAtomic_OutsideProjectFallsBackToDirLocalTmp
+--- PASS: TestWriteAtomic_OutsideProjectFallsBackToDirLocalTmp (0.01s)
+=== RUN   TestWriteAtomic_RetriesOnReadOnlyTarget
+--- PASS: TestWriteAtomic_RetriesOnReadOnlyTarget (0.01s)
+=== RUN   TestWriteAtomic_MkdirAllFails
+--- PASS: TestWriteAtomic_MkdirAllFails (0.00s)
+=== RUN   TestWriteAtomic_TargetIsExistingDirectory
+--- PASS: TestWriteAtomic_TargetIsExistingDirectory (0.01s)
+=== RUN   TestWriteAtomic_DestinationParentMissing
+--- PASS: TestWriteAtomic_DestinationParentMissing (0.03s)
+=== RUN   TestEnsureLayout_CreatesAllDirsAndSelfIgnore
+--- PASS: TestEnsureLayout_CreatesAllDirsAndSelfIgnore (0.04s)
+=== RUN   TestEnsureLayout_IdempotentAndNeverRewritesGitignore
+--- PASS: TestEnsureLayout_IdempotentAndNeverRewritesGitignore (0.02s)
+=== RUN   TestEnsureLayout_MkdirFailsWhenPathIsAFile
+--- PASS: TestEnsureLayout_MkdirFailsWhenPathIsAFile (0.00s)
+=== RUN   TestEnsureLayout_WriteAtomicFailureIsPropagated
+--- PASS: TestEnsureLayout_WriteAtomicFailureIsPropagated (0.13s)
+=== RUN   TestOf_FieldsAreUnderDot
+--- PASS: TestOf_FieldsAreUnderDot (0.00s)
+=== RUN   TestLongPath_Over260
+--- PASS: TestLongPath_Over260 (0.03s)
+=== RUN   TestLong_IdentityBelowThreshold
+--- PASS: TestLong_IdentityBelowThreshold (0.00s)
+=== RUN   TestLong_IdentityWhenAbsFails
+--- PASS: TestLong_IdentityWhenAbsFails (0.00s)
+=== RUN   TestLong_EmptyStringIsIdentity
+--- PASS: TestLong_EmptyStringIsIdentity (0.00s)
+=== RUN   TestLong_PrefixesOverThreshold
+--- PASS: TestLong_PrefixesOverThreshold (0.00s)
+=== RUN   TestLong_IdempotentOnAlreadyPrefixed
+--- PASS: TestLong_IdempotentOnAlreadyPrefixed (0.00s)
+=== RUN   TestLong_UNCGetsUNCPrefix
+--- PASS: TestLong_UNCGetsUNCPrefix (0.00s)
+=== RUN   TestCheckpointPath_Format
+--- PASS: TestCheckpointPath_Format (0.02s)
+=== RUN   TestManifestPath_LivesUnderCheckpointsAndIsProtected
+--- PASS: TestManifestPath_LivesUnderCheckpointsAndIsProtected (0.02s)
+=== RUN   TestManifest_AppendAndRead
+--- PASS: TestManifest_AppendAndRead (0.02s)
+=== RUN   TestManifest_ReadMissingReturnsEmptyNotError
+--- PASS: TestManifest_ReadMissingReturnsEmptyNotError (0.02s)
+=== RUN   TestManifest_OnlyAppendManifestCanWriteIt
+--- PASS: TestManifest_OnlyAppendManifestCanWriteIt (0.02s)
+=== RUN   TestManifest_SkipsBlankLines
+--- PASS: TestManifest_SkipsBlankLines (0.09s)
+=== RUN   TestManifest_ReadCorruptLineErrors
+--- PASS: TestManifest_ReadCorruptLineErrors (0.02s)
+=== RUN   TestManifest_ReadOversizedLineErrors
+--- PASS: TestManifest_ReadOversizedLineErrors (0.05s)
+=== RUN   TestManifest_ReadPropagatesNonNotExistOpenError
+--- PASS: TestManifest_ReadPropagatesNonNotExistOpenError (0.00s)
+=== RUN   TestNorm_RejectsEscape
+=== RUN   TestNorm_RejectsEscape/leading_dotdot
+=== RUN   TestNorm_RejectsEscape/dotdot_inside_an_abs
+--- PASS: TestNorm_RejectsEscape (0.00s)
+    --- PASS: TestNorm_RejectsEscape/leading_dotdot (0.00s)
+    --- PASS: TestNorm_RejectsEscape/dotdot_inside_an_abs (0.00s)
+=== RUN   TestNorm_RejectsExistingPathOutsideRoot
+--- PASS: TestNorm_RejectsExistingPathOutsideRoot (0.00s)
+=== RUN   TestNorm_EmptyProjectRoot
+--- PASS: TestNorm_EmptyProjectRoot (0.00s)
+=== RUN   TestNorm_RootItself
+--- PASS: TestNorm_RootItself (0.00s)
+=== RUN   TestNorm_RejectsDifferentVolume
+--- PASS: TestNorm_RejectsDifferentVolume (0.00s)
+=== RUN   TestNorm_LeavesUNCVolumeMismatchUnresolved
+--- PASS: TestNorm_LeavesUNCVolumeMismatchUnresolved (0.03s)
+=== RUN   TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved
+--- PASS: TestNorm_LeavesLongPathPrefixVolumeMismatchUnresolved (0.00s)
+=== RUN   TestNorm_ForwardSlashRelative
+--- PASS: TestNorm_ForwardSlashRelative (0.00s)
+=== RUN   TestNorm_ResolvesExistingPathInsideRoot
+--- PASS: TestNorm_ResolvesExistingPathInsideRoot (0.01s)
+=== RUN   TestNorm_ResolvesSymlinkInsideRoot
+    norm_test.go:133: platform: symlinks unavailable in this environment: symlink C:\Users\alice\AppData\Local\Temp\TestNorm_ResolvesSymlinkInsideRoot3002491414\001\real C:\Users\alice\AppData\Local\Temp\TestNorm_ResolvesSymlinkInsideRoot3002491414\001\link: A required privilege is not held by the client.
+--- SKIP: TestNorm_ResolvesSymlinkInsideRoot (0.00s)
+=== RUN   TestNorm_LeavesSymlinkOutsideRootUnresolved
+    norm_test.go:148: platform: symlinks unavailable in this environment: symlink C:\Users\alice\AppData\Local\Temp\TestNorm_LeavesSymlinkOutsideRootUnresolved2714204272\002\real C:\Users\alice\AppData\Local\Temp\TestNorm_LeavesSymlinkOutsideRootUnresolved2714204272\001\link: A required privilege is not held by the client.
+--- SKIP: TestNorm_LeavesSymlinkOutsideRootUnresolved (0.00s)
+=== RUN   TestKeyFold
+--- PASS: TestKeyFold (0.00s)
+=== RUN   TestKey_UsesDefaultFold
+--- PASS: TestKey_UsesDefaultFold (0.00s)
+=== RUN   TestNorm_Property
+    norm_test.go:171: [rapid] OK, passed 100 tests (46.0809ms)
+--- PASS: TestNorm_Property (0.05s)
+=== RUN   TestResolve_EnvWins
+--- PASS: TestResolve_EnvWins (0.00s)
+=== RUN   TestResolve_WalksToGitDir
+--- PASS: TestResolve_WalksToGitDir (0.00s)
+=== RUN   TestResolve_GitFileWorktree
+--- PASS: TestResolve_GitFileWorktree (0.00s)
+=== RUN   TestResolve_FallsBackToCWD
+--- PASS: TestResolve_FallsBackToCWD (0.00s)
+=== RUN   TestResolve_EmptyCWDWithNoEnv
+--- PASS: TestResolve_EmptyCWDWithNoEnv (0.00s)
+=== RUN   TestResolve_PropagatesAbsFailure
+--- PASS: TestResolve_PropagatesAbsFailure (0.00s)
+=== RUN   TestGlobal_JoinsHomeAndDotDir
+--- PASS: TestGlobal_JoinsHomeAndDotDir (0.00s)
+PASS
+ok  	github.com/qompack/qompack/internal/paths	3.180s
+FAIL
