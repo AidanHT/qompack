@@ -1,0 +1,2015 @@
+# Fix-round-1 delta: 8c84cf9 -> bdc9585c
+
+ cmd/qompack/main.go                   |   5 +
+ internal/cli/config.go                |  23 ++++
+ internal/cli/daemon.go                |   6 +
+ internal/cli/dispatch.go              |  12 ++
+ internal/cli/dispatch_test.go         |  27 +++--
+ internal/cli/fault.go                 |  49 +++++++-
+ internal/cli/fault_lockdir_unix.go    |   6 +-
+ internal/cli/fault_lockdir_windows.go |   8 +-
+ internal/cli/fault_noinject.go        |   2 +
+ internal/cli/fault_test.go            |  50 ++++++++
+ internal/cli/hookclient.go            | 210 +++++++++++++++++++++++-----------
+ internal/cli/hooks_test.go            |  59 +++++++++-
+ internal/cli/selftest.go              |  47 ++++++--
+ internal/cli/sessionstart.go          |  13 +--
+ internal/ipc/client.go                |  18 ++-
+ test/e2e/daemon_e2e_test.go           |  48 ++++++--
+ test/e2e/faultinject_test.go          |  22 +++-
+ test/e2e/hooks_test.go                |  50 ++++++++
+ test/e2e/v1_integration_test.go       | 149 ++++++++++++++++++++----
+ test/guards/v1_integration_test.go    |  35 +++---
+ tools/devtool/bindeps.go              |   7 +-
+ tools/devtool/bindeps_test.go         |   7 +-
+ 22 files changed, 689 insertions(+), 164 deletions(-)
+
+diff --git a/cmd/qompack/main.go b/cmd/qompack/main.go
+index 24a14b6..6e87f7e 100644
+--- a/cmd/qompack/main.go
++++ b/cmd/qompack/main.go
+@@ -9,17 +9,22 @@ package main
+ 
+ import (
+ 	"context"
+ 	"os"
+ 
+ 	"github.com/qompack/qompack/internal/cli"
+ 	"github.com/qompack/qompack/internal/core"
+ )
+ 
+ func main() {
++	// Best-effort: an error here means "cannot self-locate", which cli.Env.Self's own contract
++	// already treats as "disable lazy spawn" rather than a fatal condition.
++	self, _ := os.Executable()
++
+ 	env := cli.Env{
+ 		Getenv: os.Getenv,
+ 		Stdin:  os.Stdin,
+ 		Clock:  core.SystemClock(),
++		Self:   self,
+ 	}
+ 	os.Exit(cli.Dispatch(context.Background(), cli.All(), os.Args, env, os.Stdout, os.Stderr))
+ }
+diff --git a/internal/cli/config.go b/internal/cli/config.go
+index 62c78dc..a7ee83e 100644
+--- a/internal/cli/config.go
++++ b/internal/cli/config.go
+@@ -69,20 +69,43 @@ func persistViolations(projectRoot string, violations []config.Violation, log lo
+ 	if err != nil {
+ 		log.Warn("could not encode config violations", "err", err.Error())
+ 		return
+ 	}
+ 	p := filepath.Join(l.State, configViolationsFile)
+ 	if err := paths.WriteAtomic(p, append(b, '\n'), 0o600); err != nil {
+ 		log.Warn("could not persist config violations", "path", p, "err", err.Error())
+ 	}
+ }
+ 
++// homeDir resolves the user-global layer's home, preferring an explicitly injected value so tests
++// never touch the real home directory. Used by every composition-root entry point that loads
++// configuration (daemon.go, selftest.go, commands.go, hooks.go) — moved here from hookclient.go
++// (fix round 1, Minor M-10): it is never called from the hot path itself, and this file is
++// already where every other config-loading helper lives.
++func homeDir(env Env) string {
++	if env.HomeDir != "" {
++		return env.HomeDir
++	}
++	if env.Getenv != nil {
++		for _, k := range []string{"HOME", "USERPROFILE"} {
++			if v := env.Getenv(k); v != "" {
++				return v
++			}
++		}
++	}
++	h, err := os.UserHomeDir()
++	if err != nil {
++		return ""
++	}
++	return h
++}
++
+ // AttachLoudCounter wires logging's Loud channel to an obs counter.
+ //
+ // The two packages cannot import each other (§3.2 rejects logging -> obs), so the seam is a plain
+ // function and a composition root closes it. Calling this once at start-up is what makes
+ // loud.total observable in /qompack:status.
+ func AttachLoudCounter(reg obs.Registry) {
+ 	if reg == nil {
+ 		logging.AttachLoudObserver(nil)
+ 		return
+ 	}
+diff --git a/internal/cli/daemon.go b/internal/cli/daemon.go
+index 6d9ddcc..a406624 100644
+--- a/internal/cli/daemon.go
++++ b/internal/cli/daemon.go
+@@ -57,20 +57,26 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
+ 		defer func() { _ = closer.Close() }()
+ 	}
+ 
+ 	clk := env.Clock
+ 	if clk == nil {
+ 		clk = core.SystemClock()
+ 	}
+ 	reg := obs.New(clk)
+ 	AttachLoudCounter(reg)
+ 
++	// config-corrupt fault site (fix round 1, Minor M-12): inert for every hook subcommand
++	// (hookclient.go never calls config.Load on the hot path), but `qompack daemon` DOES load
++	// config, so this is where the site actually engages for real — the per-leaf fallback +
++	// Loud line task-6-spec.md's fault table names for it.
++	faultCorruptConfigIfNeeded(root)
++
+ 	cfg, _, cfgErr := LoadConfigAndReport(config.Env{
+ 		ProjectRoot: root, HomeDir: homeDir(env), Getenv: env.Getenv, Flags: env.Set,
+ 	}, log, reg)
+ 	if cfgErr != nil {
+ 		cfg = config.Defaults()
+ 		log.Loud("daemon: could not load configuration, using defaults", "err", cfgErr.Error())
+ 	}
+ 
+ 	opts := daemon.NewOptions(root, cfg)
+ 	opts.Log = log
+diff --git a/internal/cli/dispatch.go b/internal/cli/dispatch.go
+index 67f88ee..bcfe0cd 100644
+--- a/internal/cli/dispatch.go
++++ b/internal/cli/dispatch.go
+@@ -47,20 +47,32 @@ type Cmd struct {
+ // Env is everything a subcommand needs from the process, injected rather than read from globals so
+ // that every command is testable in-process without touching the real environment (§6.2).
+ type Env struct {
+ 	Getenv func(string) string
+ 	Stdin  io.Reader
+ 	// Set accumulates --set dotted.key=value flags, the highest-precedence config layer (§11.2).
+ 	Set   map[string]string
+ 	Clock core.Clock
+ 	// HomeDir is the user-global layer's root. Empty means "resolve from the environment".
+ 	HomeDir string
++	// Self is the running executable's own path (os.Executable()), used by the hook bodies and
++	// self-test to launch a detached daemon (internal/daemon.SpawnDetached/EnsureRunning). Only
++	// cmd/qompack/main.go — the real production entry point — ever sets it; every Env built by a
++	// test (or any other composition root, e.g. test/guards' in-process write-set guard,
++	// internal/testutil's RunHook) leaves it at its zero value "", which disables lazy spawn
++	// entirely rather than failing (ipc.ClientOptions.Self's own documented contract). This is an
++	// injected-dependency field, not a branch on "am I under test" (fix round 1, Important I-7):
++	// the previous design read os.Executable() unconditionally and gated it on
++	// testing.Testing(), which linked the stdlib testing/runtime/trace packages into the shipped
++	// binary for no functional benefit — verify with
++	// `go list -deps ./cmd/qompack | grep -c '^testing$'` == 0.
++	Self string
+ }
+ 
+ // Dispatch routes argv to a command and returns the process exit code.
+ //
+ // argv is the raw os.Args, including argv[0]. Two-word subcommands ("observe tool", "config print")
+ // are matched before one-word ones, so `observe` alone is a usage error rather than a silent no-op.
+ func Dispatch(ctx context.Context, cmds []Cmd, argv []string, env Env, out, errw io.Writer) int {
+ 	if len(argv) < 2 {
+ 		writeUsage(cmds, out)
+ 		return ExitOK
+diff --git a/internal/cli/dispatch_test.go b/internal/cli/dispatch_test.go
+index 4f10db1..895f0f6 100644
+--- a/internal/cli/dispatch_test.go
++++ b/internal/cli/dispatch_test.go
+@@ -101,32 +101,37 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
+ 				dir := t.TempDir()
+ 				return Env{
+ 					Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
+ 					Stdin:   strings.NewReader(`{"session_id": "s1", "cwd": ` + "\x00" + ` not json`),
+ 					Clock:   testClock(),
+ 					HomeDir: t.TempDir(),
+ 				}, nil
+ 			},
+ 		},
+ 		{
+-			name: "unresolvable project root",
++			// Named for what it actually exercises (fix round 1, Minor M-13): with
++			// QOMPACK_PROJECT_ROOT pinned, paths.Resolve always succeeds outright (§3.3 step 1) —
++			// "unresolvable" is no longer reachable through the new hook body at all. What this
++			// case actually provokes is doHook's own isDir(root) refuse-to-conjure-a-store guard.
++			name: "project root that does not exist",
+ 			setup: func(t *testing.T, _ string) (Env, []Cmd) {
+-				// No QOMPACK_PROJECT_ROOT and no cwd in the payload: resolveProjectRoot's own
+-				// pre-stdin guess (hookclient.go) falls back to the process's own cwd, which — run
+-				// under `go test` from inside this checkout — is a REAL, EXISTING directory that
+-				// resolveProjectRoot then walks upward from to the checkout's own .git. Pinning
+-				// QOMPACK_PROJECT_ROOT to a path that does not exist is what turns "unresolvable"
+-				// into a fault this test can actually provoke without writing into the checkout
+-				// itself: paths.Resolve honours the env override outright (§3.3 step 1), so every
+-				// hook resolves to this exact, nonexistent, isolated path, and the
+-				// refuse-to-create-a-store-under-a-missing-root guard (hookclient.go's isDir
+-				// check) takes it from there.
++				// A payload with no cwd, and no QOMPACK_PROJECT_ROOT override, would make
++				// resolveProjectRoot's pre-stdin guess (hookclient.go) fall back to the process's
++				// own cwd — which, run under `go test ./internal/cli/...` from inside this
++				// checkout, is a REAL, EXISTING directory that resolveProjectRoot then walks
++				// upward from to the checkout's own .git, resolving to the checkout root itself.
++				// (This was a real, confirmed hazard during task 6's own development: with no
++				// override here, a hook's spool append landed inside the actual repository.)
++				// Pinning QOMPACK_PROJECT_ROOT to a path that deliberately does not exist avoids
++				// that entirely — paths.Resolve honours the env override outright (§3.3 step 1),
++				// so every hook resolves to this exact, nonexistent, isolated path — and exercises
++				// doHook's own isDir(root) refuse-to-create-a-store-under-a-missing-root guard.
+ 				missing := filepath.Join(t.TempDir(), "does-not-exist")
+ 				return Env{
+ 					Getenv: envWith(map[string]string{"QOMPACK_PROJECT_ROOT": missing}),
+ 					Stdin:  strings.NewReader(`{"session_id":"s1"}`),
+ 					Clock:  testClock(),
+ 				}, nil
+ 			},
+ 		},
+ 		{
+ 			name: "unwritable store",
+diff --git a/internal/cli/fault.go b/internal/cli/fault.go
+index 7b0bce1..fc8234a 100644
+--- a/internal/cli/fault.go
++++ b/internal/cli/fault.go
+@@ -139,20 +139,30 @@ func faultInflateToolResponse(ev *hookio.Event) {
+ 		}
+ 		big[len(big)-1] = '"'
+ 		ev.ToolResponse = big
+ 	}
+ }
+ 
+ // errFaultDiskFull is the disk-full injection's error, standing in for the platform's real ENOSPC
+ // (syscall.ENOSPC is POSIX-only; Go's syscall package carries no equivalent constant on Windows,
+ // so a portable fault site cannot reference it directly and instead reports the same condition
+ // through an ordinary wrapped error).
++//
++// Scope note (fix round 1, Minor M-4): the spec's row names three write sites —
++// "spool.Append, logQuiet and ipc.WriteState return syscall.ENOSPC from their first write". Only
++// spool.Append is wrapped here. ipc.WriteState is genuinely moot for this site: no hook subcommand
++// ever calls it (only the daemon does, on its own Run/Stop lifecycle, outside cli's file scope).
++// logQuiet is reachable from the hook path (a ReadEvent or ErrAddrTooLong failure both call it)
++// but is deliberately NOT wrapped: it already swallows every write error unconditionally
++// (paths.AppendJSONL's return value is discarded) — an injected ENOSPC there would be
++// observationally identical to the disk already being full for real, which the underlying
++// filesystem call, not a fault seam, already exercises just as faithfully.
+ var errFaultDiskFull = errors.New("qompack: fault disk-full: no space left on device")
+ 
+ // defaultFaultSpoolAllowance is spool-full's "faultArg (default 1)": how many Append calls succeed
+ // before every subsequent one starts failing, when QOMPACK_FAULT names the site with no explicit
+ // argument.
+ const defaultFaultSpoolAllowance = 1
+ 
+ // wrapFaultSpool wraps sp to simulate the spool-full and disk-full sites: both fail Append (never
+ // Path), spool-full after allowing the configured number of successful writes, disk-full from the
+ // very first one.
+@@ -214,41 +224,49 @@ func (f *faultClient) Send(_ context.Context, _ ipc.Request, _ time.Duration) (i
+ 
+ // faultCorruptStateBytes matches ipc's own state.bin record size (internal/ipc/state.go's
+ // stateSize): 32 bytes of random data can never satisfy that format's magic-and-CRC check, so
+ // ReadState is guaranteed to fall back exactly the way task-6-spec.md's "state-corrupt" row
+ // requires. //nomagic:allow mirrors ipc's own stateSize, not a config default (§11.6 exemption).
+ const faultCorruptStateBytes = 32
+ 
+ // faultCorruptStateIfNeeded is the state-corrupt injection: it overwrites run/state.bin with
+ // faultCorruptStateBytes random bytes BEFORE the caller's next ipc.ReadState, so that call is
+ // guaranteed to see a bad-CRC record and fall back to config.Defaults() silently, per the fault
+-// table. It is a no-op for an empty root (nothing resolved yet).
++// table. It is a no-op for an empty root (nothing resolved yet) AND for a root that does not
++// exist as a directory: MkdirAll-ing run/ under a nonexistent root would conjure a store for a
++// project that does not exist, exactly what hookclient.go's own isDir(root) guard exists to
++// refuse — checking here too (fix round 1, Minor M-7) means the guard can never be undermined by
++// a fault call that happens to run before it (state-corrupt's own two call sites, one of them
++// BEFORE hookclient.go's root-existence check has a chance to run at all).
+ func faultCorruptStateIfNeeded(root string) {
+-	if root == "" {
++	if root == "" || !isDir(root) {
+ 		return
+ 	}
+ 	if _, on := faultActive(faultStateCorrupt); on {
+ 		p := ipc.StatePath(root)
+ 		_ = os.MkdirAll(paths.Long(filepath.Dir(p)), dirPermFault)
+ 		buf := make([]byte, faultCorruptStateBytes)
+ 		_, _ = rand.Read(buf)
+ 		_ = os.WriteFile(paths.Long(p), buf, filePermFault)
+ 	}
+ }
+ 
+ // faultCorruptConfigIfNeeded is the config-corrupt injection: it replaces .qompack/config.json
+ // with truncated, unparseable JSON. The hot path never parses config.json (hookclient.go reads
+ // only the 32-byte state record), so this is deliberately inert for the six hook subcommands and
+-// is exercised for real by `qompack daemon` and `qompack self-test`, both of which do call
+-// config.Load — exactly as the fault table's own row says.
++// is exercised for real by `qompack daemon` (daemon.go) and `qompack self-test` (selftest.go),
++// both of which call this function themselves, early, before their own config.Load — exactly as
++// the fault table's own row says. Like faultCorruptStateIfNeeded, it never MkdirAlls under a root
++// that does not exist as a directory (fix round 1, Minor M-7) — safe to call unconditionally from
++// any of its three call sites regardless of ordering relative to a caller's own existence guard.
+ func faultCorruptConfigIfNeeded(root string) {
+-	if root == "" {
++	if root == "" || !isDir(root) {
+ 		return
+ 	}
+ 	if _, on := faultActive(faultConfigCorrupt); on {
+ 		dot := paths.Of(root).Dot
+ 		_ = os.MkdirAll(paths.Long(dot), dirPermFault)
+ 		p := filepath.Join(dot, "config.json")
+ 		_ = os.WriteFile(paths.Long(p), []byte(`{"store":{"chunk":{"min":`), filePermFault)
+ 	}
+ }
+ 
+@@ -258,10 +276,31 @@ func faultCorruptConfigIfNeeded(root string) {
+ // level rather than through a wrapped decorator. Best-effort: a failure to lock the directory
+ // (an unsupported filesystem, insufficient privilege) is swallowed, not propagated — the hook must
+ // still behave correctly either way, and the worst case is simply that this one site's OS-level
+ // mechanism did not engage on this host.
+ func faultLockSpoolDirIfNeeded(spoolDir string) {
+ 	if _, on := faultActive(faultSpoolReadonly); on {
+ 		_ = os.MkdirAll(paths.Long(spoolDir), dirPermFault)
+ 		_ = denyWriteDir(paths.Long(spoolDir))
+ 	}
+ }
++
++// faultDaemonDownAddrSuffix is appended to the resolved address's own path to guarantee it names
++// something nothing is listening on. It is a suffix, not a wholesale replacement, so the result
++// stays a plausible-looking endpoint of the same Kind (a named pipe path on Windows, a socket path
++// on POSIX) rather than an empty or malformed Addr that might fail for a different, misleading
++// reason.
++const faultDaemonDownAddrSuffix = ".qompack-fault-daemon-down"
++
++// faultDaemonDownAddr is the daemon-down injection's address half. task-6-spec.md's row requires
++// BOTH "ipc.Resolve returns an address nothing is listening on" AND "ClientOptions.Spawn is set to
++// a no-op" — hookclient.go's own spawn-side no-op (noopSpawn) satisfies only the second half on
++// its own. Without this, the site would be inert against a daemon that happens to already be
++// listening at the ordinarily-resolved address (e.g. a project a prior, non-faulted hook already
++// brought a daemon up for) — fix round 1, Important I-3. Called AFTER ipc.Resolve succeeds, so the
++// ErrAddrTooLong path is never affected by it.
++func faultDaemonDownAddr(addr ipc.Addr) ipc.Addr {
++	if _, on := faultActive(faultDaemonDown); on {
++		addr.Path += faultDaemonDownAddrSuffix
++	}
++	return addr
++}
+diff --git a/internal/cli/fault_lockdir_unix.go b/internal/cli/fault_lockdir_unix.go
+index 44af36f..51ddc57 100644
+--- a/internal/cli/fault_lockdir_unix.go
++++ b/internal/cli/fault_lockdir_unix.go
+@@ -1,12 +1,16 @@
+-//go:build !windows
++//go:build !windows && !noinject
+ 
+ package cli
+ 
+ import "os"
+ 
+ // denyWriteDir makes dir non-writable for the spool-readonly fault site: POSIX permission bits
+ // alone are sufficient here — a directory without the write bit refuses to let its owner create
+ // new files inside it, which is exactly the condition the spool-readonly site exists to provoke.
++//
++// Gated !noinject alongside !windows (fix round 1, Minor M-11, applied symmetrically with this
++// file's Windows counterpart): the only caller, faultLockSpoolDirIfNeeded in fault.go, is itself
++// !noinject-only, so a -tags noinject build never references this function either.
+ func denyWriteDir(dir string) error {
+ 	return os.Chmod(dir, 0o500)
+ }
+diff --git a/internal/cli/fault_lockdir_windows.go b/internal/cli/fault_lockdir_windows.go
+index 2506f27..328d0c7 100644
+--- a/internal/cli/fault_lockdir_windows.go
++++ b/internal/cli/fault_lockdir_windows.go
+@@ -1,27 +1,33 @@
+-//go:build windows
++//go:build windows && !noinject
+ 
+ package cli
+ 
+ import (
+ 	"fmt"
+ 	"os/exec"
+ 	"os/user"
+ )
+ 
+ // denyWriteDir makes dir non-writable for the spool-readonly fault site on Windows. Plain
+ // os.Chmod's FILE_ATTRIBUTE_READONLY bit is close to a no-op for a DIRECTORY on modern Windows —
+ // it does not stop new files from being created inside one — so this instead adds a real deny-ACE
+ // for the current user via icacls (os/exec is permitted in cli per §3.2's import discipline), the
+ // same mechanism 00-ARCHITECTURE.md's own Windows notes for this fault site name. Best-effort: the
+ // caller (fault.go's faultLockSpoolDirIfNeeded) swallows any error this returns, so an icacls
+ // failure on an unusual host degrades to "this one fault site's OS mechanism did not engage" rather
+ // than to a hook failure.
++//
++// Gated !noinject as well as windows (fix round 1, Minor M-11): the only caller
++// (faultLockSpoolDirIfNeeded, fault.go) is itself !noinject-only, so a -tags noinject build has no
++// reference to this function at all — keeping it out of that build too means the hardened variant
++// never contains a code path that shells out to icacls, and golangci-lint's unused check (were it
++// ever run against that tag) would have nothing to flag.
+ func denyWriteDir(dir string) error {
+ 	u, err := user.Current()
+ 	if err != nil {
+ 		return fmt.Errorf("cli: fault: spool-readonly: resolving current user: %w", err)
+ 	}
+ 	// (OI)(CI)W: inherit onto objects and containers, deny Write.
+ 	cmd := exec.Command("icacls", dir, "/deny", u.Username+":(OI)(CI)W") //nolint:gosec // G204: fixed subcommand, dir/username are not external input
+ 	return cmd.Run()
+ }
+diff --git a/internal/cli/fault_noinject.go b/internal/cli/fault_noinject.go
+index b5540d6..789cf46 100644
+--- a/internal/cli/fault_noinject.go
++++ b/internal/cli/fault_noinject.go
+@@ -29,10 +29,12 @@ func faultInflateToolResponse(*hookio.Event) {}
+ 
+ func wrapFaultSpool(sp ipc.SpoolWriter) ipc.SpoolWriter { return sp }
+ 
+ func wrapFaultClient(c ipc.Client) ipc.Client { return c }
+ 
+ func faultCorruptStateIfNeeded(string) {}
+ 
+ func faultCorruptConfigIfNeeded(string) {}
+ 
+ func faultLockSpoolDirIfNeeded(string) {}
++
++func faultDaemonDownAddr(addr ipc.Addr) ipc.Addr { return addr }
+diff --git a/internal/cli/fault_test.go b/internal/cli/fault_test.go
+index 9e18199..264c914 100644
+--- a/internal/cli/fault_test.go
++++ b/internal/cli/fault_test.go
+@@ -1,29 +1,31 @@
+ //go:build !noinject
+ 
+ package cli
+ 
+ import (
++	"bytes"
+ 	"context"
+ 	"encoding/json"
+ 	"errors"
+ 	"io"
+ 	"os"
+ 	"path/filepath"
+ 	"strings"
+ 	"sync"
+ 	"testing"
+ 	"time"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // resetFaultState clears fault.go's memoized parse so each test gets an independent read of
+ // QOMPACK_FAULT via t.Setenv.
+ func resetFaultState(t *testing.T) {
+ 	t.Helper()
+ 	faultOnce = sync.Once{}
+@@ -234,10 +236,58 @@ func TestFaultCorruptConfigIfNeeded_WritesUnparseableJSON(t *testing.T) {
+ 	t.Setenv(qompackFaultEnv, faultConfigCorrupt)
+ 
+ 	faultCorruptConfigIfNeeded(dir)
+ 
+ 	p := filepath.Join(paths.Of(dir).Dot, "config.json")
+ 	b, err := os.ReadFile(p)
+ 	require.NoError(t, err)
+ 	var v any
+ 	require.Error(t, json.Unmarshal(b, &v), "the written config.json must not parse")
+ }
++
++// TestFaultCorruptConfigIfNeeded_NeverConjuresAMissingRoot pins fix round 1's Minor M-7: a root
++// that does not exist as a directory must never have .qompack/ created under it by a fault
++// injection, undermining hookclient.go's own isDir(root) refuse-to-conjure-a-store guard.
++func TestFaultCorruptConfigIfNeeded_NeverConjuresAMissingRoot(t *testing.T) {
++	resetFaultState(t)
++	parent := t.TempDir()
++	missing := filepath.Join(parent, "no-such-project")
++	t.Setenv(qompackFaultEnv, faultConfigCorrupt)
++
++	faultCorruptConfigIfNeeded(missing)
++
++	_, err := os.Stat(missing)
++	require.True(t, os.IsNotExist(err), "faultCorruptConfigIfNeeded must not create a root that does not exist")
++}
++
++// TestSelfTest_ConfigCorruptFallsBackAndExitsZero exercises the config-corrupt fault site for
++// real, against the one subcommand task-6-spec.md's fault table names for it (fix round 1, Minor
++// M-12: the site was previously inert for every hook subcommand, and nothing pinned it against
++// either qompack daemon or self-test). self-test itself now calls faultCorruptConfigIfNeeded
++// before its own config.Load (selftest.go), so QOMPACK_FAULT=config-corrupt genuinely replaces
++// the project's config.json with truncated JSON here — config.Load's own per-leaf
++// fallback-not-crash contract (§11.3) means this must still exit 0, never a critical config.load
++// check.
++func TestSelfTest_ConfigCorruptFallsBackAndExitsZero(t *testing.T) {
++	resetFaultState(t)
++	t.Setenv(qompackFaultEnv, faultConfigCorrupt)
++
++	dir := t.TempDir()
++	t.Cleanup(contract.ResetProducers)
++
++	var out, errw bytes.Buffer
++	code := Dispatch(context.Background(), []Cmd{{Name: "self-test", Run: runSelfTest}},
++		[]string{"qompack", "self-test", "--json"}, Env{
++			Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
++			Stdin:   bytes.NewReader(nil),
++			Clock:   testClock(),
++			HomeDir: t.TempDir(),
++		}, &out, &errw)
++
++	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
++
++	// The fault genuinely fired: the project's config.json is the exact truncated bytes fault.go
++	// writes, not something config.Load or self-test itself produced.
++	b, err := os.ReadFile(filepath.Join(paths.Of(dir).Dot, "config.json"))
++	require.NoError(t, err)
++	require.Equal(t, `{"store":{"chunk":{"min":`, string(b))
++}
+diff --git a/internal/cli/hookclient.go b/internal/cli/hookclient.go
+index 3cafb36..7132412 100644
+--- a/internal/cli/hookclient.go
++++ b/internal/cli/hookclient.go
+@@ -1,19 +1,18 @@
+ package cli
+ 
+ import (
+ 	"context"
+ 	"encoding/json"
+ 	"io"
+-	"os"
+ 	"path/filepath"
+-	"testing"
++	"sync"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/daemon"
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+@@ -29,44 +28,140 @@ const (
+ 	// comment: change one, change the other. §2.4/§12.
+ 	promptReplyDeadline = 250 * time.Millisecond
+ 	// sessionStartReplyDeadline is session.start's reply deadline (manifest hook timeout 15s). §2.4.
+ 	sessionStartReplyDeadline = 10 * time.Second
+ 	// checkpointReplyDeadline is checkpoint's reply deadline (manifest hook timeout 20s). §2.4.
+ 	checkpointReplyDeadline = 15 * time.Second
+ 	// flushReplyDeadline is flush's reply deadline (manifest hook timeout 20s). §2.4.
+ 	flushReplyDeadline = 15 * time.Second
+ )
+ 
+-// cliLog and cliMetrics are the values every hook body's ipc.Client is constructed with.
+-// logging.Nop() is a zero-allocation value (a struct literal wrapping a nil sink) that still
+-// records Loud calls into the process-wide ring (internal/logging's LastLoud), and a nil
+-// obs.Registry is tolerated by every ipc/daemon read site — so a hook that never fails allocates
+-// neither a real file-backed logger nor a metrics registry. A short-lived, once-per-hook-call
+-// process has nowhere to persist a Registry's Snapshot anyway; only the resident daemon's own
+-// Registry (internal/daemon/metrics.go) is ever Persist-ed.
+-var (
+-	cliLog     logging.Logger = logging.Nop()
+-	cliMetrics obs.Registry
+-)
++// newHookMetrics returns the obs.Registry every hook body's ipc.Client is constructed with: a
++// real, freshly-constructed SP-01 registry (obs.New), per task-6-spec.md's own skeleton comment
++// naming "metrics" alongside "log" as a real value, not the nil this package shipped in fix
++// round 0. A short-lived, once-per-hook-call process never Persists it (only the resident daemon's
++// own Registry, internal/daemon/metrics.go, does that) — its whole job here is to make
++// ipc.Client's l0_spooled/l0_dropped increments land somewhere real instead of a nil-guarded no-op,
++// so a caller with the client in hand (a unit test, a future in-process caller) can actually read
++// them back.
++func newHookMetrics(clk core.Clock) obs.Registry { return obs.New(clk) }
++
++// hookLogger is the logging.Logger every hook body's ipc.Client is constructed with. It defers
++// opening a real, file-backed sink until the FIRST Warn/Error/Loud call, and even then only if
++// root's .qompack/logs directory already exists — the identical rule logQuiet follows, so a hook
++// on a project that has never been touched still never creates a directory on its own error path.
++// Debug/Info are permanent no-ops: nothing on the hot path logs at those levels through this
++// seam, so there is no reason to ever materialize for them. A hook run with nothing to report
++// therefore allocates nothing beyond this thin wrapper — the same "zero-failure path allocates
++// nothing" property fix round 0's nil log/metrics aimed for, but achieved without also making
++// every failure path invisible (fix round 1, Critical/Important C-2/I-2): a spool-readonly,
++// spool-full or disk-full drop now reaches both the process-wide Loud ring AND, when the project
++// has a logs directory, a durable LOUD.log line and the day log — exactly what the fault table's
++// "one Loud" expectation requires.
++type hookLogger struct {
++	root string
++	mu   sync.Mutex
++	real logging.Logger
++	kv   []any
++}
++
++// newHookLogger returns a hookLogger rooted at root. Constructing one never touches the
++// filesystem; only Warn/Error/Loud does, and only on first use.
++func newHookLogger(root string) logging.Logger {
++	return &hookLogger{root: root}
++}
++
++// materialize returns the real logger, constructing it under lock exactly once.
++func (l *hookLogger) materialize() logging.Logger {
++	l.mu.Lock()
++	defer l.mu.Unlock()
++	if l.real != nil {
++		return l.real
++	}
++	if isDir(paths.Of(l.root).Logs) {
++		if log, _, err := logging.New(paths.Of(l.root).Logs, logging.Warn); err == nil {
++			l.real = log
++			return l.real
++		}
++	}
++	// No logs directory yet, or logging.New itself failed: fall back to Nop, which still records
++	// Loud calls into the process-wide ring (internal/logging's LastLoud) even with no file sink.
++	l.real = logging.Nop()
++	return l.real
++}
++
++func (l *hookLogger) With(kv ...any) logging.Logger {
++	return &hookLogger{root: l.root, kv: append(append([]any(nil), l.kv...), kv...)}
++}
++
++func (l *hookLogger) Debug(string, ...any) {}
++func (l *hookLogger) Info(string, ...any)  {}
++
++func (l *hookLogger) Warn(msg string, kv ...any) {
++	l.materialize().Warn(msg, append(append([]any(nil), l.kv...), kv...)...)
++}
++
++func (l *hookLogger) Error(msg string, kv ...any) {
++	l.materialize().Error(msg, append(append([]any(nil), l.kv...), kv...)...)
++}
++
++func (l *hookLogger) Loud(msg string, kv ...any) {
++	l.materialize().Loud(msg, append(append([]any(nil), l.kv...), kv...)...)
++}
++
++// hookSendDeadlineFloor is the minimum deadline doHook ever hands to Client.Send. A fire-and-forget
++// op's own deadline is derived from the hot-path state record's AckDeadlineMs field; a
++// hand-crafted, corrupt, or otherwise zero-valued state.bin must never let that reach Send as
++// literally 0, which is indistinguishable from "already timed out" (fix round 1, Minor M-6).
++// //nomagic:allow mirrors config.Defaults()'s own AckDeadlineMs (8), not a new default (§6.1).
++const hookSendDeadlineFloor = 8 * time.Millisecond
++
++// hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a Reply op that carries
++// its own fixed spec.deadline (session-start, checkpoint, flush) — as opposed to a hot-path
++// fire-and-forget op (observe.*), which keeps State.ConnectDeadlineMs's tight, tuned-for-a-warm-
++// daemon budget untouched.
++//
++// Root-caused during fix round 1 by bisecting against the pre-fix-round commit: State.
++// ConnectDeadlineMs (config.Defaults() ships 5ms — a budget sized for the hot path's own
++// already-established connection cadence) is too tight for session-start's very first dial, which
++// lands moments after preSend's own daemon.EnsureRunning call — a daemon that has JUST finished
++// spawning or has JUST accepted-and-closed EnsureRunning's own liveness probe is not guaranteed to
++// have its next ConnectNamedPipe/accept re-posted within 5ms on a loaded host; go-winio's
++// DialPipe then legitimately times out and doHook falls back to spooling a request the daemon was,
++// in fact, a few milliseconds away from accepting. Before I-1's fix (internal/ipc/client.go), this
++// never surfaced: NewClientWithOptions unconditionally re-read state.bin for itself whenever
++// ProjectRoot was set, and that incidental extra disk round trip happened to burn just enough wall
++// clock between EnsureRunning's return and the real dial to dodge the race in practice — an
++// accident of the very double-read I-1 correctly removed, not a real guarantee. session-start,
++// checkpoint and flush all carry their own generous, manifest-derived spec.deadline (10s/15s/15s)
++// precisely because they are not expected to complete in hot-path time (§2.4), so widening only
++// their dial budget — never observe.tool/prompt/stop's, which stays exactly what state.bin says —
++// costs nothing in the steady-state (a genuinely absent daemon still fails the dial almost
++// instantly: a nonexistent named pipe/socket is a fast connection-refused, not a wait for this
++// timeout to elapse) while giving a freshly-spawned or momentarily-busy daemon real room to answer.
++// //nomagic:allow: a deliberately-derived floor, not a config default (§6.1) — see the comment above.
++const hookConnectDeadlineFloor = 250 * time.Millisecond
+ 
+ // hookSpec is what differs between the six thin hook clients (task-6-spec.md's wiring table).
+ type hookSpec struct {
+ 	op    ipc.Op
+ 	reply bool
+ 	// deadline is the fixed reply deadline for a Reply request. Zero means "derive it from the
+ 	// hot-path state record's AckDeadlineMs" — observe.tool's and observe.stop's row in the wiring
+ 	// table, both fire-and-forget ops with no fixed deadline of their own.
+ 	deadline time.Duration
+ 	// preSend runs once, after the project root/state are final and before the client is
+ 	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
+-	// the designated daemon starter, off the hot path, with a generous hook timeout).
+-	preSend func(root string, clk core.Clock)
++	// the designated daemon starter, off the hot path, with a generous hook timeout). self is
++	// env.Self threaded through explicitly (see cli.Env.Self's own doc comment) rather than read
++	// from a package-level seam.
++	preSend func(root, self string, clk core.Clock)
+ }
+ 
+ // doHook returns the Cmd.Run body for one hook subcommand, following task-6-spec.md's skeleton
+ // exactly: stamp TS first, resolve the root cheaply pre-stdin, read the 32-byte state record (never
+ // config.Load on the hot path), honour ModeOff, read the event under the state's own payload limit,
+ // re-resolve against the payload if it disagrees, spool, resolve the transport address, connect,
+ // send, and always answer with valid JSON. Every fault site (fault.go) hooks into this same
+ // sequence at the point task-6-spec.md's table names.
+ //
+ // The shipped panic-recovery framework (dispatch.go's Dispatch -> recover.go's runGuarded) already
+@@ -84,21 +179,21 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
+ 		root := resolveProjectRoot(env, nil)
+ 		faultCorruptStateIfNeeded(root)
+ 		st := ipc.ReadState(root, config.Defaults())
+ 		if st.Mode == contract.ModeOff {
+ 			return hookio.WriteOutput(out, hookio.Empty())
+ 		}
+ 
+ 		stdin := faultStdin(env.Stdin)
+ 		ev, _, err := hookio.ReadEvent(stdin, int64(st.MaxPayloadBytes)*4)
+ 		if err != nil {
+-			logQuiet(root, err)
++			logQuiet(root, err, clk)
+ 			return hookio.WriteOutput(out, hookio.Empty())
+ 		}
+ 
+ 		maybePanicHook() // panic:hook: "runHook panics immediately after ReadEvent" (fault table).
+ 
+ 		// The payload is authoritative for the project root, and it only arrives now. If it
+ 		// disagrees with the pre-stdin guess, redo the two cheap resolutions against it.
+ 		if r2 := resolveProjectRoot(env, &ev); r2 != root {
+ 			root = r2
+ 			faultCorruptStateIfNeeded(root)
+@@ -129,81 +224,73 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
+ 		faultLockSpoolDirIfNeeded(spoolDir)
+ 		sp, _ := ipc.NewSpool(spoolDir)
+ 		sp = wrapFaultSpool(sp)
+ 		defer func() {
+ 			if cl, ok := sp.(interface{ Close() error }); ok {
+ 				_ = cl.Close()
+ 			}
+ 		}()
+ 
+ 		if spec.preSend != nil {
+-			spec.preSend(root, clk)
++			spec.preSend(root, env.Self, clk)
+ 		}
+ 
+ 		addr, aerr := ipc.Resolve(root)
+ 		if aerr != nil {
+ 			_ = sp.Append(req)
+-			logQuiet(root, aerr)
++			logQuiet(root, aerr, clk)
+ 			return hookio.WriteOutput(out, hookio.Empty())
+ 		}
++		addr = faultDaemonDownAddr(addr) // daemon-down: the resolved address itself must be unreachable.
+ 
+ 		spawn := daemon.SpawnDetached
+ 		if _, on := faultActive(faultDaemonDown); on {
+ 			spawn = noopSpawn
+ 		}
+ 
+-		c := ipc.NewClientWithOptions(addr, sp, cliLog, cliMetrics, ipc.ClientOptions{
+-			ProjectRoot: root, State: st, Self: selfPath(), Clock: clk, Spawn: spawn,
++		// connectDeadline is State.ConnectDeadlineMs as-is for a hot-path fire-and-forget op
++		// (spec.deadline == 0); a Reply op with its own fixed spec.deadline gets widened to at
++		// least hookConnectDeadlineFloor — see that constant's own doc comment for why.
++		connectDeadline := time.Duration(st.ConnectDeadlineMs) * time.Millisecond
++		if spec.deadline > 0 && connectDeadline < hookConnectDeadlineFloor {
++			connectDeadline = hookConnectDeadlineFloor
++		}
++
++		c := ipc.NewClientWithOptions(addr, sp, newHookLogger(root), newHookMetrics(clk), ipc.ClientOptions{
++			// State is already this hook's own single 32-byte read (st, above); NewClientWithOptions
++			// trusts a non-zero State outright and never re-reads it from disk even though
++			// ProjectRoot is also set (internal/ipc/client.go — fix round 1, Important I-1).
++			// ProjectRoot still matters on its own: lazySpawn's lock file and externalize()'s blob
++			// directory both need it independently of where State came from.
++			ProjectRoot: root, State: st, Self: env.Self, Clock: clk, Spawn: spawn,
++			ConnectDeadline: connectDeadline,
+ 		})
+ 		c = wrapFaultClient(c)
+ 		defer func() { _ = c.Close() }()
+ 
+ 		deadline := spec.deadline
+ 		if deadline <= 0 {
+ 			deadline = time.Duration(st.AckDeadlineMs) * time.Millisecond
+ 		}
++		if deadline <= 0 {
++			deadline = hookSendDeadlineFloor
++		}
+ 
+ 		resp, _ := c.Send(ctx, req, deadline)
+ 		respOut := hookio.Empty()
+ 		if resp.Output != nil {
+ 			respOut = *resp.Output
+ 		}
+ 		return hookio.WriteOutput(out, respOut)
+ 	}
+ }
+ 
+-// selfPath returns the running executable's own path, for daemon.SpawnDetached/EnsureRunning; ""
+-// disables lazy spawn entirely rather than failing.
+-//
+-// It also returns "" whenever this process IS a `go test` binary (testing.Testing(), stdlib since
+-// Go 1.21). os.Executable() from inside a test binary returns that COMPILED TEST BINARY's own
+-// path — every internal/cli test, test/guards, and test/e2e's own in-process RunHook mode all run
+-// hooks this way — and handing it to SpawnDetached would exec that binary with
+-// argv ["daemon", "--project", root]. Go's flag package stops parsing at the first non-flag
+-// argument without erroring, so the testing runtime happily accepts that argv as ordinary
+-// positional arguments and responds by running the ENTIRE test binary's default test set again, as
+-// a detached background process — which itself dispatches this same hook body again. That is an
+-// unbounded process-spawning storm, not a hypothetical: it would trip on the very first in-process
+-// session-start or lazy-spawn test run. Real end-to-end tests (test/e2e) exercise the actual
+-// compiled qompack binary as a child process, where testing.Testing() is false, so lazy spawn there
+-// is unaffected.
+-func selfPath() string {
+-	if testing.Testing() {
+-		return ""
+-	}
+-	p, err := os.Executable()
+-	if err != nil {
+-		return ""
+-	}
+-	return p
+-}
+-
+ // resolveProjectRoot is §3.3's resolution order, called twice per hook (task-6-spec.md): once
+ // before stdin is read (ev == nil, so the process's own cwd stands in for a payload cwd), and once
+ // after (ev's own CWD). paths.Resolve already implements "QOMPACK_PROJECT_ROOT env override, else
+ // walk the given cwd up to the nearest .git, else that cwd itself" — this wrapper only supplies the
+ // cwd paths.Resolve needs and falls back to that same cwd on the one error paths.Resolve can return
+ // (an empty cwd with no env override, which cannot happen once currentDir() has succeeded).
+ func resolveProjectRoot(env Env, ev *hookio.Event) string {
+ 	cwd := ""
+ 	if ev != nil {
+ 		cwd = ev.CWD
+@@ -222,30 +309,35 @@ func resolveProjectRoot(env Env, ev *hookio.Event) string {
+ 
+ // quietLogLine is logQuiet's one JSONL record shape.
+ type quietLogLine struct {
+ 	TS  string `json:"ts"`
+ 	Err string `json:"err"`
+ }
+ 
+ // logQuiet appends err to .qompack/logs/hook-quiet-YYYYMMDD.jsonl, but ONLY if that directory
+ // already exists — a hook must never create directories on a failing project's error path (a
+ // payload naming a root that does not exist, or one whose .qompack/logs has never been created by
+-// anything else, must stay exactly as untouched as it was before this call).
+-func logQuiet(root string, err error) {
++// anything else, must stay exactly as untouched as it was before this call). clk stamps the
++// record and names the day file, per the repo-wide "every time-taking component takes a
++// core.Clock" rule (fix round 1, Minor M-3) — never time.Now() directly.
++func logQuiet(root string, err error, clk core.Clock) {
+ 	if err == nil || root == "" {
+ 		return
+ 	}
+ 	logs := paths.Of(root).Logs
+ 	if !isDir(logs) {
+ 		return
+ 	}
+-	now := time.Now().UTC()
++	if clk == nil {
++		clk = core.SystemClock()
++	}
++	now := clk.Now().UTC()
+ 	p := filepath.Join(logs, "hook-quiet-"+now.Format("20060102")+".jsonl")
+ 	_ = paths.AppendJSONL(p, quietLogLine{TS: now.Format(time.RFC3339Nano), Err: err.Error()})
+ }
+ 
+ // rawExtras builds Request.Raw for the two hook subcommands that carry dispatch data beyond the
+ // parsed Event: {"subagent":true} for `observe stop --subagent` (the flag the plugin manifest's
+ // SubagentStop entry actually passes — internal/pluginmanifest's hookSpecs), and
+ // {"trigger":"<manual|auto>"} for checkpoint. checkpoint's trigger comes from the EVENT's own
+ // Trigger field, not a CLI flag: the manifest invokes `checkpoint` with no flags at all (PreCompact
+ // carries its manual/auto discriminator in the hook payload itself, per hookio.Event.Trigger's own
+@@ -268,30 +360,10 @@ func rawExtras(op ipc.Op, args []string, ev hookio.Event) json.RawMessage {
+ 
+ // hasFlag reports whether flag appears verbatim among args.
+ func hasFlag(args []string, flag string) bool {
+ 	for _, a := range args {
+ 		if a == flag {
+ 			return true
+ 		}
+ 	}
+ 	return false
+ }
+-
+-// homeDir resolves the user-global layer's home, preferring an explicitly injected value so tests
+-// never touch the real home directory.
+-func homeDir(env Env) string {
+-	if env.HomeDir != "" {
+-		return env.HomeDir
+-	}
+-	if env.Getenv != nil {
+-		for _, k := range []string{"HOME", "USERPROFILE"} {
+-			if v := env.Getenv(k); v != "" {
+-				return v
+-			}
+-		}
+-	}
+-	h, err := os.UserHomeDir()
+-	if err != nil {
+-		return ""
+-	}
+-	return h
+-}
+diff --git a/internal/cli/hooks_test.go b/internal/cli/hooks_test.go
+index 628b8a5..1e1d243 100644
+--- a/internal/cli/hooks_test.go
++++ b/internal/cli/hooks_test.go
+@@ -14,22 +14,23 @@ import (
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // SP-05 replaces the six hook bodies with thin ipc clients (hookclient.go); the tests that used to
+ // live here exercised the old no-op observation logger (hooks-*.jsonl) that body no longer writes.
+ // These replace them.
+ 
+ // TestHooks_AllSixExitZeroWithValidJSON runs every hook against a real project with no daemon
+-// reachable — the ordinary in-process-test condition (selfPath() disables lazy spawn entirely, see
+-// its own doc comment) — and checks every one exits 0 and answers with parseable JSON.
++// reachable — the ordinary in-process-test condition (none of these Env values sets Self, so lazy
++// spawn is disabled entirely; see cli.Env.Self's own doc comment) — and checks every one exits 0
++// and answers with parseable JSON.
+ func TestHooks_AllSixExitZeroWithValidJSON(t *testing.T) {
+ 	dir := t.TempDir()
+ 	home := t.TempDir()
+ 
+ 	payload, err := json.Marshal(map[string]any{
+ 		"session_id": "s-hooks",
+ 		"cwd":        dir,
+ 		"tool_name":  "FileRead",
+ 		"source":     "startup",
+ 		"trigger":    "auto",
+@@ -165,20 +166,74 @@ func TestHooks_CheckpointTriggerReachesRaw(t *testing.T) {
+ 		Stdin:   bytes.NewReader(payload),
+ 		Clock:   testClock(),
+ 		HomeDir: t.TempDir(),
+ 	}, &out, &errw)
+ 	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+ 
+ 	req := onlySpooledRequest(t, dir)
+ 	require.JSONEq(t, `{"trigger":"manual"}`, string(req.Raw))
+ }
+ 
++// TestHooks_LogQuietWritesWhenLogsDirExists pins logQuiet's positive case (fix round 1, Important
++// I-8): a hook whose stdin cannot be read at all (errReader{}, so hookio.ReadEvent fails) still
++// records that failure to .qompack/logs/hook-quiet-YYYYMMDD.jsonl, PROVIDED that directory already
++// exists.
++func TestHooks_LogQuietWritesWhenLogsDirExists(t *testing.T) {
++	dir := t.TempDir()
++	require.NoError(t, paths.EnsureLayout(paths.Of(dir)))
++
++	var out, errw bytes.Buffer
++	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{
++		Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
++		Stdin:   errReader{},
++		Clock:   testClock(),
++		HomeDir: t.TempDir(),
++	}, &out, &errw)
++	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
++
++	matches, err := filepath.Glob(filepath.Join(paths.Of(dir).Logs, "hook-quiet-*.jsonl"))
++	require.NoError(t, err)
++	require.Len(t, matches, 1, "logQuiet must write exactly one hook-quiet-*.jsonl line when the logs directory already exists")
++
++	b, err := os.ReadFile(matches[0])
++	require.NoError(t, err)
++	var rec quietLogLine
++	require.NoError(t, json.Unmarshal(bytes.TrimSpace(b), &rec))
++	require.NotEmpty(t, rec.TS)
++	require.Contains(t, rec.Err, "stdin is unreadable")
++}
++
++// TestHooks_LogQuietNeverCreatesLogsDir pins logQuiet's negative case (fix round 1, Important
++// I-8): on a project whose .qompack/logs has never been created by anything else, the exact same
++// failure must leave the project untouched — a hook must never create a directory on its own
++// error path.
++func TestHooks_LogQuietNeverCreatesLogsDir(t *testing.T) {
++	dir := t.TempDir()
++	require.NoError(t, os.MkdirAll(dir, 0o700)) // the project root itself exists; nothing under it does.
++
++	var out, errw bytes.Buffer
++	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{
++		Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
++		Stdin:   errReader{},
++		Clock:   testClock(),
++		HomeDir: t.TempDir(),
++	}, &out, &errw)
++	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
++
++	_, statErr := os.Stat(paths.Of(dir).Logs)
++	require.True(t, os.IsNotExist(statErr),
++		"logQuiet must never create .qompack/logs itself, got stat error %v", statErr)
++	_, statErr = os.Stat(paths.Of(dir).Dot)
++	require.True(t, os.IsNotExist(statErr),
++		"a hook whose only failure is an unreadable stdin must not conjure .qompack/ at all, got stat error %v", statErr)
++}
++
+ // onlySpooledRequest reads the one spool file a single hook invocation with no reachable daemon
+ // must have produced under root, and decodes its one NDJSON line as an ipc.Request.
+ func onlySpooledRequest(t *testing.T, root string) ipc.Request {
+ 	t.Helper()
+ 	dir := paths.Of(root).Spool
+ 	entries, err := os.ReadDir(dir)
+ 	require.NoError(t, err)
+ 	require.Len(t, entries, 1, "exactly one client spool file")
+ 
+ 	b, err := os.ReadFile(filepath.Join(dir, entries[0].Name()))
+diff --git a/internal/cli/selftest.go b/internal/cli/selftest.go
+index 021778b..504ff4f 100644
+--- a/internal/cli/selftest.go
++++ b/internal/cli/selftest.go
+@@ -64,20 +64,25 @@ func runSelfTest(ctx context.Context, env Env, args []string, out, errw io.Write
+ 	if err := fs.Parse(args); err != nil {
+ 		return err
+ 	}
+ 
+ 	root := resolveProjectRoot(env, nil)
+ 	clk := env.Clock
+ 	if clk == nil {
+ 		clk = core.SystemClock()
+ 	}
+ 
++	// config-corrupt fault site (fix round 1, Minor M-12): inert for every hook subcommand, but
++	// self-test DOES call config.Load (selfTestConfigLoad, below) — this is where the site
++	// actually engages for real, before that call, exactly as task-6-spec.md's fault table says.
++	faultCorruptConfigIfNeeded(root)
++
+ 	checks, mode := runSelfTestChecks(ctx, root, env, clk)
+ 
+ 	critical := false
+ 	for _, c := range checks {
+ 		if !c.OK && c.Severity == contract.SevCritical {
+ 			critical = true
+ 		}
+ 	}
+ 	exit := ExitOK
+ 	if critical {
+@@ -108,21 +113,21 @@ func runSelfTestChecks(ctx context.Context, root string, env Env, clk core.Clock
+ 	var checks []selfTestCheck
+ 
+ 	cfg, cfgCheck := selfTestConfigLoad(env, root)
+ 	checks = append(checks, cfgCheck)
+ 	checks = append(checks, selfTestWritable(root))
+ 	checks = append(checks, selfTestAppendOnlyGuard(root))
+ 
+ 	addr, addrCheck := selfTestResolve(root)
+ 	checks = append(checks, addrCheck)
+ 
+-	reachable := selfTestDaemonReachable(root, addr, clk)
++	reachable := selfTestDaemonReachable(root, addr, env.Self, clk)
+ 	checks = append(checks, reachable)
+ 
+ 	checks = append(checks, selfTestAdminPing(root, addr, clk))
+ 	checks = append(checks, selfTestOpsCoverage())
+ 
+ 	assertionChecks, mode := selfTestContractAssertions(ctx, root, cfg, clk)
+ 	checks = append(checks, assertionChecks...)
+ 
+ 	return checks, mode
+ }
+@@ -161,32 +166,53 @@ func selfTestWritable(root string) selfTestCheck {
+ 			Expected: ".qompack/ is writable", Observed: "write failed", Detail: err.Error(),
+ 		}
+ 	}
+ 	_ = os.Remove(paths.Long(p))
+ 	return selfTestCheck{
+ 		ID: "qompack.writable", OK: true, Severity: contract.SevInfo,
+ 		Expected: ".qompack/ is writable", Observed: "writable",
+ 	}
+ }
+ 
++// selfTestCheckpointProbeSeq is a reserved, deliberately out-of-range checkpoint sequence number:
++// real checkpoints start small and increment by one, so this can never collide with one a real
++// session ever wrote. selfTestAppendOnlyGuard uses it to probe the append-only guard without ever
++// aiming a destructive syscall at real data (fix round 1, Critical C-2 — the previous version
++// probed seq 0, a real sequence number, and left a permanent read-only artifact in checkpoints/,
++// the immutable tier §7.4 exists to protect, unlisted in checkpoints/MANIFEST.jsonl).
++const selfTestCheckpointProbeSeq = core.CheckpointSeq(999999999)
++
+ // selfTestAppendOnlyGuard proves paths.OpenFile's §7.4 refusal actually holds for this project by
+-// seeding one checkpoint file and attempting a truncating rewrite of it — the same shape
+-// testutil.Project.AssertAppendOnly exercises, reduced to the one check self-test has room for.
++// seeding one checkpoint-shaped probe file at selfTestCheckpointProbeSeq and attempting a
++// truncating rewrite of it — the same shape testutil.Project.AssertAppendOnly exercises, reduced
++// to the one check self-test has room for. The probe file is ALWAYS removed before this function
++// returns (clearing paths.CreateNew's own read-only bit first, exactly as
++// internal/daemon/spawn.go's removeSpawnLockFile already does), regardless of the guard's outcome
++// or of the create itself failing — a diagnostic command must leave the project exactly as it
++// found it.
+ func selfTestAppendOnlyGuard(root string) selfTestCheck {
+ 	l := paths.Of(root)
+-	p := paths.CheckpointPath(l, core.CheckpointSeq(0))
+-	if err := paths.CreateNew(p, []byte("{}\n")); err != nil && !os.IsExist(err) {
++	p := paths.CheckpointPath(l, selfTestCheckpointProbeSeq)
++	cleanup := func() {
++		_ = os.Chmod(paths.Long(p), 0o600)
++		_ = os.Remove(paths.Long(p))
++	}
++
++	if err := paths.CreateNew(p, []byte("{}\n")); err != nil {
++		cleanup() // in case CreateNew wrote the file and failed after (e.g. the trailing Sync/Chmod).
+ 		return selfTestCheck{
+ 			ID: "paths.guard", Severity: contract.SevWarn,
+ 			Expected: "the append-only guard refuses a truncating rewrite", Observed: "could not seed a probe file", Detail: err.Error(),
+ 		}
+ 	}
++	defer cleanup()
++
+ 	f, err := paths.OpenFile(p, os.O_WRONLY|os.O_TRUNC, 0o600)
+ 	if f != nil {
+ 		_ = f.Close()
+ 	}
+ 	if err == nil {
+ 		return selfTestCheck{
+ 			ID: "paths.guard", Severity: contract.SevCritical,
+ 			Expected: "the append-only guard refuses a truncating rewrite", Observed: "the rewrite was ALLOWED",
+ 		}
+ 	}
+@@ -204,57 +230,56 @@ func selfTestResolve(root string) (ipc.Addr, selfTestCheck) {
+ 			Expected: "a local transport endpoint resolves", Observed: "failed", Detail: err.Error(),
+ 		}
+ 	}
+ 	return addr, selfTestCheck{
+ 		ID: "ipc.resolve", OK: true, Severity: contract.SevInfo,
+ 		Expected: "a local transport endpoint resolves", Observed: addr.Path,
+ 	}
+ }
+ 
+ // selfTestDaemonReachable checks for a live daemon first (cheap dial), and — only if none is
+-// found and this process is able to spawn one at all (selfPath() non-empty; see its own doc
+-// comment for why that is "" under go test) — attempts daemon.EnsureRunning, so the check reports
++// found and this process was handed a Self path at all (cli.Env.Self; see its own doc comment for
++// why every Env a test builds leaves it "") — attempts daemon.EnsureRunning, so the check reports
+ // "spawnable" rather than failing self-test purely because no daemon happened to be running yet.
+-func selfTestDaemonReachable(root string, addr ipc.Addr, clk core.Clock) selfTestCheck {
++func selfTestDaemonReachable(root string, addr ipc.Addr, self string, clk core.Clock) selfTestCheck {
+ 	if ipc.Probe(addr, selfTestProbeTimeout) {
+ 		return selfTestCheck{
+ 			ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
+ 			Expected: "the daemon is reachable or spawnable", Observed: "reachable",
+ 		}
+ 	}
+-	self := selfPath()
+ 	if self == "" {
+ 		return selfTestCheck{
+ 			ID: "daemon.reachable", Severity: contract.SevWarn,
+ 			Expected: "the daemon is reachable or spawnable", Observed: "not reachable, and this process cannot self-locate to spawn one",
+ 		}
+ 	}
+-	spawned, err := daemon.EnsureRunning(root, self, cliLog, clk)
++	spawned, err := daemon.EnsureRunning(root, self, newHookLogger(root), clk)
+ 	if err != nil {
+ 		return selfTestCheck{
+ 			ID: "daemon.reachable", Severity: contract.SevWarn,
+ 			Expected: "the daemon is reachable or spawnable", Observed: "spawn attempted but the daemon did not come up in time", Detail: err.Error(),
+ 		}
+ 	}
+ 	observed := "reachable"
+ 	if spawned {
+ 		observed = "was not running; spawned and reachable now"
+ 	}
+ 	return selfTestCheck{
+ 		ID: "daemon.reachable", OK: true, Severity: contract.SevInfo,
+ 		Expected: "the daemon is reachable or spawnable", Observed: observed,
+ 	}
+ }
+ 
+ func selfTestAdminPing(root string, addr ipc.Addr, clk core.Clock) selfTestCheck {
+ 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
+-	c := ipc.NewClientWithOptions(addr, sp, cliLog, cliMetrics, ipc.ClientOptions{
++	c := ipc.NewClientWithOptions(addr, sp, newHookLogger(root), newHookMetrics(clk), ipc.ClientOptions{
+ 		ProjectRoot: root, Self: "", Clock: clk, // Self intentionally empty: self-test never spawns from here, selfTestDaemonReachable already tried.
+ 	})
+ 	defer func() { _ = c.Close() }()
+ 
+ 	resp, _ := c.Send(context.Background(), ipc.Request{
+ 		Op: ipc.OpAdminPing, TS: core.NowMilli(clk), Reply: true,
+ 	}, selfTestPingDeadline)
+ 	if !resp.OK {
+ 		return selfTestCheck{
+ 			ID: "admin.ping", Severity: contract.SevWarn,
+diff --git a/internal/cli/sessionstart.go b/internal/cli/sessionstart.go
+index e899869..1f1565f 100644
+--- a/internal/cli/sessionstart.go
++++ b/internal/cli/sessionstart.go
+@@ -20,24 +20,23 @@ import (
+ func runSessionStart(ctx context.Context, env Env, args []string, out, errw io.Writer) error {
+ 	return doHook(hookSpec{
+ 		op: ipc.OpSessionStart, reply: true, deadline: sessionStartReplyDeadline,
+ 		preSend: ensureDaemonRunning,
+ 	})(ctx, env, args, out, errw)
+ }
+ 
+ // ensureDaemonRunning calls daemon.EnsureRunning for session-start's preSend seam.
+ //
+ // It is a no-op under the daemon-down fault site (task-6-spec.md's table: that site's whole point
+-// is that nothing is listening AND nothing may be spawned in response) and whenever selfPath()
+-// reports "" — every in-process test (selfPath's own doc comment explains why) and any host
+-// environment where os.Executable() itself failed, neither of which should pay for a real network
+-// dial attempt it can never act on.
+-func ensureDaemonRunning(root string, clk core.Clock) {
++// is that nothing is listening AND nothing may be spawned in response) and whenever self is ""
++// (cli.Env.Self's own doc comment: every Env a test builds leaves it at the zero value, and any
++// host environment where os.Executable() itself failed does too), neither of which should pay for
++// a real network dial attempt it can never act on.
++func ensureDaemonRunning(root, self string, clk core.Clock) {
+ 	if _, on := faultActive(faultDaemonDown); on {
+ 		return
+ 	}
+-	self := selfPath()
+ 	if self == "" {
+ 		return
+ 	}
+-	_, _ = daemon.EnsureRunning(root, self, cliLog, clk)
++	_, _ = daemon.EnsureRunning(root, self, newHookLogger(root), clk)
+ }
+diff --git a/internal/ipc/client.go b/internal/ipc/client.go
+index 6cf0f2d..18a0175 100644
+--- a/internal/ipc/client.go
++++ b/internal/ipc/client.go
+@@ -133,38 +133,44 @@ type client struct {
+ 
+ 	externalizeSeq int64
+ }
+ 
+ // NewClient returns the real Client, equivalent to
+ // NewClientWithOptions(addr, spool, log, m, ClientOptions{}).
+ func NewClient(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry) Client {
+ 	return NewClientWithOptions(addr, spool, log, m, ClientOptions{})
+ }
+ 
+-// NewClientWithOptions is NewClient with every knob exposed. When o.ProjectRoot is set,
+-// ReadState populates mode, hot, both deadlines, daemonEnabled, spoolOnBreach and
+-// maxPayloadBytes; otherwise o.State is used directly, falling back to
+-// StateFromConfig(config.Defaults()) if it is the zero value, so a caller that supplies neither
+-// still gets sane deadlines rather than a State that reads "daemon disabled, deadlines 0".
++// NewClientWithOptions is NewClient with every knob exposed. A caller that already has a State —
++// because it just read it itself, e.g. the hot-path hook skeleton's own single 32-byte read
++// (task-6-spec.md: "one 32-byte read; no config.Load") — should never pay for a second one: a
++// non-zero o.State always wins, even when o.ProjectRoot is also set (ProjectRoot still matters for
++// lazySpawn's lock path and externalize()'s blob directory, both of which need it independently of
++// where State came from). Only when o.State is the zero value does this constructor read for
++// itself: ReadState(o.ProjectRoot, config.Defaults()) when a root is given, else
++// StateFromConfig(config.Defaults()), so a caller that supplies neither still gets sane deadlines
++// rather than a State that reads "daemon disabled, deadlines 0".
+ func NewClientWithOptions(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry, o ClientOptions) Client {
+ 	if log == nil {
+ 		log = logging.Nop()
+ 	}
+ 	if o.Clock == nil {
+ 		o.Clock = core.SystemClock()
+ 	}
+ 
+ 	st := o.State
+ 	switch {
++	case st != (State{}):
++		// Trust the caller's own already-read State; never re-read from disk.
+ 	case o.ProjectRoot != "":
+ 		st = ReadState(o.ProjectRoot, config.Defaults())
+-	case st == (State{}):
++	default:
+ 		st = StateFromConfig(config.Defaults())
+ 	}
+ 	o.State = st
+ 
+ 	if o.ConnectDeadline <= 0 {
+ 		o.ConnectDeadline = time.Duration(st.ConnectDeadlineMs) * time.Millisecond
+ 	}
+ 	if o.AckDeadline <= 0 {
+ 		o.AckDeadline = time.Duration(st.AckDeadlineMs) * time.Millisecond
+ 	}
+diff --git a/test/e2e/daemon_e2e_test.go b/test/e2e/daemon_e2e_test.go
+index 2774e5c..f3523a8 100644
+--- a/test/e2e/daemon_e2e_test.go
++++ b/test/e2e/daemon_e2e_test.go
+@@ -26,24 +26,30 @@ import (
+ // live daemon for facts a hook's own stdout cannot report — its live session count, whether it is
+ // reachable at all.
+ const (
+ 	e2eProbeTimeout      = 200 * time.Millisecond
+ 	e2eRoundTripDeadline = 5 * time.Second
+ 	e2eDaemonUpBound     = 10 * time.Second
+ 	e2eDaemonUpTick      = 20 * time.Millisecond
+ 	e2eDaemonDownBound   = 15 * time.Second
+ 	e2eDaemonDownTick    = 100 * time.Millisecond
+ 	// e2eHistoryConvergeBound is generous relative to e2eDaemonUpBound: it bounds waiting for a
+-	// history.json mutation from a session-start that is not the FIRST one in a project — observed
+-	// occasionally slower than a bare reachability probe under heavy sibling-test load (many real
+-	// daemon processes started and stopped earlier in the same run), not a logic issue (the same
+-	// wait passes quickly every time run in isolation).
++	// history.json mutation from a session-start that is not the FIRST one in a project, or for a
++	// daemon's own idle-exit to complete. What actually made this flaky earlier in fix round 1 was
++	// a real bug, not host load: hookConnectDeadlineFloor's own doc comment
++	// (internal/cli/hookclient.go) explains it in full — Important I-1's removal of
++	// NewClientWithOptions's double state.bin read (correctly required; see that fix's own comment)
++	// also removed an incidental few-ms buffer that had been quietly carrying a Reply op's very
++	// first post-daemon-start dial across a too-tight State.ConnectDeadlineMs (5ms, sized for the
++	// hot path's already-warm cadence). With that dial budget now widened for session-start/
++	// checkpoint/flush specifically, this bound is generous headroom for real sibling-test load,
++	// not compensation for a race.
+ 	e2eHistoryConvergeBound = 20 * time.Second
+ 	e2eSpoolDrainBound      = 10 * time.Second
+ 	e2eSpoolDrainTick       = 100 * time.Millisecond
+ 	idleExitSecondsEnvKey   = "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS"
+ )
+ 
+ // e2eSession is the fixed session id every daemon_e2e_test.go case uses.
+ const e2eSession = core.SessionID("sess-e2e-daemon")
+ 
+ // e2eEnv is the base environment every real-binary invocation in this file runs with.
+@@ -192,21 +198,21 @@ func TestE2EIdleExit(t *testing.T) {
+ 	stdout, stderr, code = Run(t, bin, []string{"flush"}, sessionEndPayload(t, p.Root), env)
+ 	require.Equal(t, 0, code, "stderr:\n%s", stderr)
+ 	requireParsesAsOutput(t, stdout)
+ 
+ 	lockPath := filepath.Join(paths.Of(p.Root).Run, "daemon.lock")
+ 	statePath := filepath.Join(paths.Of(p.Root).Run, "state.bin")
+ 	require.Eventually(t, func() bool {
+ 		_, lockErr := os.Stat(lockPath)
+ 		_, stateErr := os.Stat(statePath)
+ 		return os.IsNotExist(lockErr) && os.IsNotExist(stateErr)
+-	}, e2eDaemonDownBound, e2eDaemonDownTick,
++	}, e2eHistoryConvergeBound, e2eDaemonDownTick,
+ 		"the daemon must idle-exit and remove both run/daemon.lock and run/state.bin")
+ }
+ 
+ // TestE2ESelfTestExitsZeroOnHealthy is task-6-spec.md's e2e table row: a healthy, freshly-created
+ // project's `qompack self-test --json` exits 0 with mode "full".
+ func TestE2ESelfTestExitsZeroOnHealthy(t *testing.T) {
+ 	bin := Build(t)
+ 	p := testutil.NewProject(t)
+ 	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
+ 
+@@ -291,43 +297,67 @@ func TestE2ESpoolSubmodeEndToEnd(t *testing.T) {
+ 	bin := Build(t)
+ 	p := testutil.NewProject(t)
+ 	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
+ 	env := e2eEnv(p)
+ 
+ 	stdout, stderr, code := Run(t, bin, []string{"session-start"}, sessionStartPayload(t, p.Root), env)
+ 	require.Equal(t, 0, code, "stderr:\n%s", stderr)
+ 	requireParsesAsOutput(t, stdout)
+ 	e2eWaitDaemonUp(t, p.Root)
+ 
+-	before := e2eStatus(t, p.Root)
++	// The session's own WAL segment is what actually distinguishes "never connected" from
++	// "connected" (fix round 1, Important I-6: the previous assertion pinned
++	// Counters["ipc_decode_error"], which increments only on a malformed frame — unchanged on
++	// both a successful connect AND no connect at all, so it could never fail either way).
++	// observe.tool is a hot-path op: a NORMALLY-accepted request is WAL-appended by
++	// ingest.Accept before the daemon ever ACKs it (§2.4's own durability-boundary ordering), so
++	// if the spool-submode client below had connected despite Hot==HotSpool, this session's WAL
++	// would gain a line. Session-start itself is not a hot-path op and never touches the WAL, so
++	// the line count is 0 both before and after a genuinely spooled call.
++	walPath := filepath.Join(paths.Of(p.Root).Spool, "wal-"+string(e2eSession)+".ndjson")
++	walLinesBefore := e2eCountFileLines(t, walPath)
+ 
+ 	st := ipc.ReadState(p.Root, config.Defaults())
+ 	st.Hot = ipc.HotSpool
+ 	require.NoError(t, ipc.WriteState(p.Root, st))
+ 
+ 	stdout, stderr, code = Run(t, bin, []string{"observe", "tool"}, observeToolPayload(t, p.Root), env)
+ 	require.Equal(t, 0, code, "stderr:\n%s", stderr)
+ 	requireParsesAsOutput(t, stdout)
+ 
+ 	spoolFiles, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
+ 	require.NoError(t, err)
+ 	foundClientSpool := false
+ 	for _, f := range spoolFiles {
+ 		if filepath.Base(f) != "wal-"+string(e2eSession)+".ndjson" {
+ 			foundClientSpool = true
+ 		}
+ 	}
+ 	require.True(t, foundClientSpool, "a spool-submode client must append to its own spool file, never the daemon's WAL")
+ 
+-	after := e2eStatus(t, p.Root)
+-	require.Equal(t, before.Counters["ipc_decode_error"], after.Counters["ipc_decode_error"],
+-		"a spool-submode client must never have connected at all")
++	walLinesAfter := e2eCountFileLines(t, walPath)
++	require.Equal(t, walLinesBefore, walLinesAfter,
++		"a spool-submode client must never have connected — the session's WAL must gain no lines from this call")
++}
++
++// e2eCountFileLines counts non-empty lines in the file at p, reporting 0 for a file that does not
++// exist yet (the ordinary case before any WAL segment has been created for a session).
++func e2eCountFileLines(t *testing.T, p string) int {
++	t.Helper()
++	b, err := os.ReadFile(p)
++	if err != nil {
++		if os.IsNotExist(err) {
++			return 0
++		}
++		require.NoError(t, err)
++	}
++	return countNonEmptyLines(string(b))
+ }
+ 
+ // sessionStartPayload, sessionEndPayload and observeToolPayload build minimal, valid payloads
+ // rooted at root for this file's own session id.
+ func sessionStartPayload(t *testing.T, root string) []byte {
+ 	return sessionStartFor(t, root, e2eSession)
+ }
+ 
+ func sessionStartFor(t *testing.T, root string, sess core.SessionID) []byte {
+ 	t.Helper()
+diff --git a/test/e2e/faultinject_test.go b/test/e2e/faultinject_test.go
+index fe51c69..9a2bd0e 100644
+--- a/test/e2e/faultinject_test.go
++++ b/test/e2e/faultinject_test.go
+@@ -24,23 +24,29 @@ import (
+ 
+ // qompackFaultEnvKey is faultinject_test.go's own copy of the fault-injection variable name.
+ // internal/cli/fault.go is the ONE non-test file allowed to carry this literal; every test file
+ // that needs it (this one included) is explicitly exempted from that grep.
+ const qompackFaultEnvKey = "QOMPACK_FAULT"
+ 
+ // The eleven fault sites of task-6-spec.md's table, spelled out here rather than imported: cli's
+ // own copies (internal/cli/faultsites.go) are unexported, and re-typing eleven short strings once,
+ // in the file that has to enumerate exactly that table, is cheaper than exporting a seam whose only
+ // consumer would be this test.
++//
++// "spool-full:0" — not the bare site name — because the site's own default allowance is 1 (per
++// the spec's literal wording, "faultArg (default 1)"), and a single hook process makes at most one
++// spool.Append call: with the default, that one call always SUCCEEDS, so the site does nothing
++// observable in a one-shot combo (fix round 1, Minor M-5). Passing an explicit 0 makes the very
++// first Append fail, which is what this matrix actually needs to exercise the site at all.
+ var e2eFaultSites = []string{
+ 	"stdin-eof", "stdin-garbage", "oversize", "daemon-down", "spool-readonly",
+-	"spool-full", "disk-full", "state-corrupt", "config-corrupt", "panic:hook", "panic:client",
++	"spool-full:0", "disk-full", "state-corrupt", "config-corrupt", "panic:hook", "panic:client",
+ }
+ 
+ // e2eIdleExitFast keeps every daemon a fault-matrix sub-test's own lazy spawn might start
+ // short-lived: with QOMPACK_FAULT unset for anything other than daemon-down, a real daemon still
+ // comes up in the background exactly as production does, and without this it would sit around for
+ // config.Defaults()'s 1800s idle-exit window as an orphaned process for the rest of the test run.
+ var e2eIdleExitFastEnv = map[string]string{idleExitSecondsEnvKey: "1"}
+ 
+ // TestHooksExitZeroUnderFaults is task-6-spec.md's 66-combination table: every one of the six hook
+ // subcommands, under every one of the eleven fault sites, must exit 0 and write valid (possibly
+@@ -240,27 +246,39 @@ func buildNoInject(t *testing.T) string {
+ 			_ = os.RemoveAll(buildNoInjectDir)
+ 		}
+ 	})
+ 	return builtNoInjectBin
+ }
+ 
+ // TestFaultSitesInertWhenUnset is task-6-spec.md's e2e table row: with QOMPACK_FAULT unset, a hook
+ // run against the default build must be byte-identical to the same run against a -tags noinject
+ // build — the compile-time guarantee that fault injection adds no observable behaviour when it is
+ // not asked for.
++//
++// This is the second of the row's own two halves (fix round 1, Minor M-9): "faultActive false for
++// all eleven sites with the variable unset" is pinned at the unit level, in
++// internal/cli/fault_test.go's TestFaultActive_UnsetIsInertForAllElevenSites — the e2e package
++// cannot see that unexported function to assert it directly. This test covers the other half, the
++// one only a real build comparison can prove.
+ func TestFaultSitesInertWhenUnset(t *testing.T) {
+ 	bin := Build(t)
+ 	noinjectBin := buildNoInject(t)
+ 
+ 	dir := t.TempDir()
+ 	t.Cleanup(func() { e2eShutdownIfReachable(t, dir) })
+-	env := map[string]string{"QOMPACK_PROJECT_ROOT": dir, "HOME": t.TempDir()}
++	env := map[string]string{
++		"QOMPACK_PROJECT_ROOT": dir, "HOME": t.TempDir(),
++		// Explicitly cleared, not merely omitted (fix round 1, Minor M-9): Run's own harness
++		// inherits os.Environ(), so a developer running this locally with QOMPACK_FAULT already
++		// set in their shell would otherwise get a silently meaningless pass.
++		qompackFaultEnvKey: "",
++	}
+ 	payload := payloadFor(t, "PostToolUse", dir)
+ 
+ 	stdoutDefault, _, codeDefault := Run(t, bin, []string{"observe", "tool"}, payload, env)
+ 	require.Equal(t, 0, codeDefault)
+ 
+ 	stdoutNoinject, _, codeNoinject := Run(t, noinjectBin, []string{"observe", "tool"}, payload, env)
+ 	require.Equal(t, 0, codeNoinject)
+ 
+ 	require.Equal(t, string(stdoutDefault), string(stdoutNoinject),
+ 		"a hook's stdout with QOMPACK_FAULT unset must be byte-identical between the default build and a -tags noinject build")
+diff --git a/test/e2e/hooks_test.go b/test/e2e/hooks_test.go
+index 777cc4b..432eeee 100644
+--- a/test/e2e/hooks_test.go
++++ b/test/e2e/hooks_test.go
+@@ -30,20 +30,70 @@ var hookSubcommands = []struct {
+ 	argv  []string
+ }{
+ 	{"PostToolUse", []string{"observe", "tool"}},
+ 	{"UserPromptSubmit", []string{"observe", "prompt"}},
+ 	{"Stop", []string{"observe", "stop"}},
+ 	{"SessionStart", []string{"session-start"}},
+ 	{"PreCompact", []string{"checkpoint"}},
+ 	{"SessionEnd", []string{"flush"}},
+ }
+ 
++// TestE2E_AllSixHooksExitZero is the wave-0 end-to-end case, RESTORED UNDER ITS ORIGINAL NAME
++// after fix round 1's Critical C-1: five downstream VERIFY plan documents name this test BY NAME
++// as a verification command (plans/V1-SP-01-foundation-toolchain-and-contracts.md,
++// V1/V2/V3/V4/V5/V6-VERIFY-*.md), and a build where `go test -run TestE2E_AllSixHooksExitZero
++// ./test/e2e/` reports "[no tests to run]" (exit 0) makes every one of those checkpoints pass
++// vacuously — the worst failure mode a verification gate can have.
++//
++// The real binary, all six hook subcommands, a real temp project, representative payloads, every
++// exit code 0, every stdout parses as a hookio.Output — SP-05 makes this property MORE true, not
++// obsolete, so it is still fully assertable. What is gone is wave-0's own artifact: the
++// hooks-*.jsonl observation log SP-05 replaces with the real transport (hookLogLines), and the
++// unconditional SessionStart/PreCompact hookSpecificOutput switch, which — now that a live daemon
++// answers session-start with a real §12.1 sentinel and PreCompact answers only once an SP-10
++// PreCompact seam exists (absent from a wave-1-only build; see IT-1's own comment in
++// v1_integration_test.go) — only SessionStart can still assert positively without a later
++// subplan's own seam being present.
++func TestE2E_AllSixHooksExitZero(t *testing.T) {
++	bin := Build(t)
++	p := testutil.NewProject(t)
++	// session-start, among the six, brings up a real detached daemon; shut it down before this
++	// test's own t.TempDir() cleanup runs (see e2eShutdownIfReachable's own doc comment).
++	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
++
++	for _, hook := range hookSubcommands {
++		t.Run(hook.event, func(t *testing.T) {
++			payload := payloadFor(t, hook.event, p.Root)
++
++			stdout, stderr, code := Run(t, bin, hook.argv, payload, map[string]string{
++				"QOMPACK_PROJECT_ROOT": p.Root,
++				"HOME":                 p.Home(),
++				"USERPROFILE":          p.Home(),
++			})
++
++			require.Equal(t, 0, code,
++				"§2.3: a hook subcommand must exit 0 no matter what happens inside it\nstdout:\n%s\nstderr:\n%s",
++				stdout, stderr)
++
++			var out hookio.Output
++			require.NoError(t, json.Unmarshal(stdout, &out),
++				"a hook's stdout must always be a valid hookio.Output, got:\n%s", stdout)
++
++			if hook.event == "SessionStart" {
++				require.NotNil(t, out.HookSpecificOutput,
++					"%s answers through hookSpecificOutput", hook.event)
++				require.Equal(t, hook.event, out.HookSpecificOutput.HookEventName)
++			}
++		})
++	}
++}
++
+ // TestE2E_ConfigPrintFromRealBinary asserts `qompack config print --json`, run as a real process
+ // against a project with no config file, emits exactly the built-in defaults. It is the end-to-end
+ // proof that the five-layer load pipeline contributes nothing when no layer above defaults exists.
+ func TestE2E_ConfigPrintFromRealBinary(t *testing.T) {
+ 	bin := Build(t)
+ 	p := testutil.NewProject(t)
+ 
+ 	require.NoFileExists(t, filepath.Join(paths.Of(p.Root).Dot, "config.json"))
+ 	require.NoFileExists(t, filepath.Join(paths.Global(p.Home()), "config.json"))
+ 
+diff --git a/test/e2e/v1_integration_test.go b/test/e2e/v1_integration_test.go
+index 64dce3e..3675028 100644
+--- a/test/e2e/v1_integration_test.go
++++ b/test/e2e/v1_integration_test.go
+@@ -10,96 +10,138 @@
+ // the hook wire format -> CLI dispatch -> config load -> layout -> hook log (IT-1), the five-layer
+ // config precedence reaching observable hook behaviour (IT-2), and the plugin manifest driving the
+ // real binary (IT-5). The round-trip test belongs to V2, when the store lands.
+ package e2e
+ 
+ import (
+ 	"bytes"
+ 	"encoding/json"
+ 	"errors"
+ 	"io"
++	"io/fs"
+ 	"os"
+ 	"path/filepath"
+ 	"strings"
+ 	"testing"
+ 	"time"
+ 
++	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/paths"
+ 	"github.com/qompack/qompack/internal/testutil"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ // contractsHookioInput is the frozen hookio payload corpus, relative to this package's directory.
+ // These are the SAME bytes internal/hookio parses in its own unit tests; feeding them to a real
+ // process is what makes IT-1 an integration test rather than a second copy of I1.
+ const contractsHookioInput = "../../testdata/golden/contracts/hookio/input"
+ 
+ // v1Call is one invocation in IT-1's lifecycle sequence.
+ type v1Call struct {
+ 	// argv is the subcommand as the plugin manifest spells it.
+ 	argv []string
+ 	// fixture is the basename under contractsHookioInput, or "" when the payload is derived.
+ 	fixture string
+ 	// derive, when non-nil, mutates the decoded fixture before it is fed in. It exists for the
+ 	// second PostToolUse call, which §4 IT-1 requires to be a Bash tool use and for which no
+ 	// frozen fixture exists.
+ 	derive func(map[string]any)
+-	// logHook is the value the observation line's "hook" field must carry.
+-	//
+-	// It is the HOST EVENT NAME, not the subcommand: internal/cli/hooks.go registers each entry
+-	// point with runHook("<EventName>", ...). Note that `observe stop --subagent` therefore logs
+-	// "Stop" as well — SP-01 maps both stop events onto one subcommand (see the Summary string on
+-	// the "observe stop" command), and distinguishing them is SP-08's job when it gives these
+-	// hooks real bodies.
++	// logHook is the HOST EVENT NAME this call answers (SessionStart, PostToolUse, ...) — not the
++	// subcommand. `observe stop --subagent` and `observe stop` both carry "Stop" here (the two
++	// host events share one subcommand; SP-08 owns distinguishing them at the observer layer).
+ 	logHook string
+-	// wantStdout is the exact response the host must receive, trailing newline included.
++	// wantStdout is the exact response the host must receive, trailing newline included. Compared
++	// exactly for every call except SessionStart, whose additionalContext carries a live §12.1
++	// sentinel token that varies run to run (checked separately, via
++	// hookSpecificOutput.HookEventName — fix round 1, Minor M-2).
+ 	wantStdout string
+ }
+ 
+ // v1Lifecycle is IT-1's eight invocations in the order a real session produces them.
+ //
+ // The order is not cosmetic. SessionStart precedes everything, PreCompact arrives after work has
+ // happened, and SessionEnd closes. A hook that only works when run first — because it depends on a
+ // layout another hook created — would pass a six-independent-runs test and fail this one.
+ var v1Lifecycle = []v1Call{
+ 	{
+ 		argv: []string{"session-start"}, fixture: "session_start_startup", logHook: "SessionStart",
+ 		wantStdout: `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}` + "\n",
+ 	},
+ 	{argv: []string{"observe", "prompt"}, fixture: "user_prompt_submit", logHook: "UserPromptSubmit", wantStdout: "{}\n"},
+ 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", logHook: "PostToolUse", wantStdout: "{}\n"},
+ 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
+ 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
+ 	{
+-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact",
+-		wantStdout: `{"hookSpecificOutput":{"hookEventName":"PreCompact"}}` + "\n",
++		// PreCompact's hookSpecificOutput is populated only by an actual svc.PreCompact seam
++		// (SP-10), absent from a wave-1-only build, so checkpoint answers the minimal response —
++		// same as every other fire-and-forget/no-seam-yet call in this lifecycle.
++		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
+ 	},
+ 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
+ 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
+ }
+ 
+ // bashCommand is the command string the derived Bash tool use carries. It is asserted absent from
+-// the hook log, so it has to be a string that could not appear there by coincidence.
++// the project's logs (v1Secrets, below), so it has to be a string that could not appear there by
++// coincidence.
+ const bashCommand = "go test ./internal/auth/... -run TestRefreshRejectsExpired"
+ 
+ // asBashToolUse turns the frozen FileRead payload into a Bash one. §4 IT-1 asks for two PostToolUse
+ // calls with different tools; only the FileRead shape is frozen, so the Bash variant is derived
+ // from it rather than invented, which keeps every field except the four that must differ identical
+ // to the frozen fixture.
+ func asBashToolUse(m map[string]any) {
+ 	m["tool_name"] = "Bash"
+ 	m["tool_use_id"] = "toolu_09Z8Y7X6W5V4U3T2S1R0Q9P8"
+ 	m["tool_input"] = map[string]any{"command": bashCommand}
+ 	m["tool_response"] = map[string]any{"stdout": "ok  \tgithub.com/qompack/qompack/internal/auth\t0.21s\n"}
+ }
+ 
++// v1Secrets is every substring that MUST NOT reach .qompack/logs/** — the day log, LOUD.log, and
++// hook-quiet-*.jsonl (internal/cli/hookclient.go's logQuiet). This is IT-1's own self-described
++// "load-bearing half" (restored, fix round 1, Important I-4, after being deleted with no
++// replacement when the observation log it originally targeted, hooks-*.jsonl, was removed): none
++// of the surviving log files is a content store, so a regression that started writing payload text
++// into any of them would otherwise be invisible to this suite. The WAL under spool/ is deliberately
++// EXCLUDED — it is the durable content store the whole system exists to build, and Requests
++// legitimately carry Event.Prompt/ToolInput/ToolResponse verbatim.
++var v1Secrets = []string{
++	"Fix the intermittent 500s on POST /api/session/refresh.", // the prompt, verbatim
++	"src/auth.ts", // a file path from tool_input
++	"numLines",    // a key from the FileRead tool_response body
++	bashCommand,   // the derived Bash command
++	"github.com/qompack/qompack/internal/auth", // the derived Bash tool_response body
++	"/home/u/.claude/projects/proj/sess.jsonl", // transcript_path
++	"/home/u/proj", // the payload cwd
++}
++
++// v1LogsCorpus returns the concatenated contents of every file under root's .qompack/logs/ — the
++// day log(s), LOUD.log, and any hook-quiet-*.jsonl — for the payload-leak assertion below.
++func v1LogsCorpus(t *testing.T, root string) string {
++	t.Helper()
++	logsDir := paths.Of(root).Logs
++	var sb strings.Builder
++	_ = filepath.WalkDir(logsDir, func(p string, d fs.DirEntry, err error) error {
++		if err != nil || d.IsDir() {
++			return nil
++		}
++		b, readErr := os.ReadFile(p)
++		require.NoError(t, readErr, "reading %s", p)
++		sb.Write(b)
++		sb.WriteByte('\n')
++		return nil
++	})
++	return sb.String()
++}
++
+ // TestV1_HookLifecycleThroughRealBinary is §4 IT-1.
+ //
+ // Crosses pluginmanifest -> cmd/qompack -> cli -> hookio -> config -> paths -> logging: the frozen
+ // wire payloads go in on stdin, a real process handles them, and the assertions are on what the
+ // host saw (exit code, stdout) and on what the process left behind (.qompack/).
+ //
+ // The payloads are fed VERBATIM — their cwd is the frozen "/home/u/proj", which does not exist on
+ // this machine. That is deliberate: QOMPACK_PROJECT_ROOT is §3.3's first resolution step and must
+ // beat the payload cwd, so if root resolution ever regressed to preferring the payload the hook
+ // log would not appear in the temp project at all and every assertion below would fail loudly.
+@@ -138,23 +180,32 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
+ 		require.Equal(t, 0, code,
+ 			"call %d (%v): §2.3 permits a hook no outcome but exit 0\nstdout:\n%s\nstderr:\n%s",
+ 			i+1, call.argv, stdout, stderr)
+ 		requireLoneOutput(t, stdout)
+ 
+ 		var out hookio.Output
+ 		require.NoError(t, json.Unmarshal(stdout, &out), "call %d (%v): stdout:\n%s", i+1, call.argv, stdout)
+ 		if call.logHook == "SessionStart" {
+ 			require.NotNil(t, out.HookSpecificOutput, "call %d (%v) answers through hookSpecificOutput", i+1, call.argv)
+ 			require.Equal(t, call.logHook, out.HookSpecificOutput.HookEventName)
++		} else {
++			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
+ 		}
+ 	}
+ 
++	// No payload content anywhere in the project's logs (fix round 1, Important I-4).
++	corpus := v1LogsCorpus(t, p.Root)
++	for _, secret := range v1Secrets {
++		require.NotContains(t, corpus, secret,
++			"the project's logs are an observability record, not a content store (§7.4): %q leaked", secret)
++	}
++
+ 	// The layout self-ignores, so a project that commits its working tree cannot commit the store.
+ 	gitignore, err := os.ReadFile(filepath.Join(paths.Of(p.Root).Dot, ".gitignore"))
+ 	require.NoError(t, err)
+ 	require.Equal(t, "*\n", string(gitignore), ".qompack/.gitignore must self-ignore (§3.3)")
+ }
+ 
+ // TestV1_ConfigPrecedenceReachesHookBehaviour is §4 IT-2, updated for SP-05's architecture.
+ //
+ // Crosses config's five layers -> `config print --provenance`. IT-2 originally also crossed into a
+ // bare hook subcommand's own read-limit decision, because wave-0's hook body called config.Load
+@@ -202,38 +253,90 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
+ 				env[k] = v
+ 			}
+ 
+ 			out, perr, pcode := Run(t, bin, append([]string{"config", "print", "--provenance"}, tc.extraArgs...), nil, env)
+ 			require.Equal(t, 0, pcode, "stderr:\n%s", perr)
+ 			require.Contains(t, v1ProvenanceLine(t, string(out), "maxPayloadBytes"), tc.wantOrigin)
+ 		})
+ 	}
+ 
+ 	// A bare hook invocation against a project no daemon has ever touched must read under
+-	// config.Defaults() alone: this is the new hot-path invariant task-6-spec.md's skeleton
+-	// mandates, proven end to end through the real binary rather than only at the ipc package's
+-	// own unit-test level.
+-	t.Run("bare_hook_never_reads_project_config_before_a_daemon_has_run", func(t *testing.T) {
++	// config.Defaults() alone, never the project's own maxPayloadBytes: this is the new hot-path
++	// invariant task-6-spec.md's skeleton mandates (hookclient.go: "ipc.ReadState(root,
++	// config.Defaults()) — one 32-byte read, never config.Load"), proven end to end through the
++	// real binary. Fix round 1, Important I-5 replaced a tautological, racy sub-test here (it
++	// asserted run/state.bin's absence — which does not establish where the read-limit decision
++	// came from, and races the very lazy-spawn the same hook triggers on its own connect failure)
++	// with two payloads sized relative to the DEFAULT limit's own *4 read margin
++	// (hookio.ReadEvent(stdin, int64(st.MaxPayloadBytes)*4)): if the project's own, much smaller
++	// projectLimit (8192) were still being consulted, BOTH payloads below — sized around
++	// ~4 MiB — would fail to parse identically, so the "just under" case passing is what actually
++	// distinguishes "reads the default" from "reads the project config", not merely "exits 0".
++	readLimitBoundary := config.Defaults().Runtime.HotPath.MaxPayloadBytes * 4
++
++	t.Run("bare_hook_spools_a_payload_just_under_the_default_read_limit", func(t *testing.T) {
++		p := v1LimitProject(t, projectLimit, userLimit)
++		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary-256)
++
++		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, payload, v1BaseEnv(p))
++		require.Equal(t, 0, code, "stderr:\n%s", stderr)
++		require.Equal(t, "{}\n", string(stdout))
++
++		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
++		require.NoError(t, err)
++		require.Len(t, files, 1,
++			"a payload just under the DEFAULT read limit must parse and reach the spool step (no daemon reachable)")
++		require.Equal(t, 1, v1CountSpoolLines(t, files[0]), "exactly one request must have been spooled")
++	})
++
++	t.Run("bare_hook_rejects_a_payload_just_over_the_default_read_limit", func(t *testing.T) {
+ 		p := v1LimitProject(t, projectLimit, userLimit)
+-		require.NoFileExists(t, filepath.Join(paths.Of(p.Root).Run, "state.bin"))
++		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary+256)
+ 
+-		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"},
+-			v1PayloadOfSize(t, p.Root, 512), v1BaseEnv(p))
++		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, payload, v1BaseEnv(p))
+ 		require.Equal(t, 0, code, "stderr:\n%s", stderr)
+ 		require.Equal(t, "{}\n", string(stdout))
+ 
+-		// The hook must not have consulted (or created) the project's own config in order to
+-		// answer — proving the read-limit decision came from config.Defaults(), not from
+-		// project.config.json's projectLimit.
+-		require.NoFileExists(t, filepath.Join(paths.Of(p.Root).Run, "state.bin"),
+-			"a bare hook must not synthesize state.bin — only a daemon writes one")
++		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
++		require.NoError(t, err)
++		require.Empty(t, files,
++			"a payload over the DEFAULT read limit must never reach the spool step at all")
+ 	})
++
++	// Restores the original bootstrap-clamp property in its new shape (fix round 1, Important
++	// I-5): a payload far larger than any real limit in play must still never crash, never hang,
++	// and always exit 0 — the same "clamp before doing anything expensive" guarantee the deleted
++	// 2 MiB sub-test pinned, recalibrated to the new, larger effective boundary (~4 MiB, not
++	// ~1 MiB: the *4 read margin above did not exist in the wave-0 body this test originally
++	// targeted).
++	t.Run("bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload", func(t *testing.T) {
++		p := v1LimitProject(t, projectLimit, userLimit)
++		huge := v1PayloadOfSize(t, p.Root, readLimitBoundary*2)
++
++		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, huge, v1BaseEnv(p))
++		require.Equal(t, 0, code, "stderr:\n%s", stderr)
++		require.Equal(t, "{}\n", string(stdout))
++	})
++}
++
++// v1CountSpoolLines counts non-empty NDJSON lines in the spool file at p.
++func v1CountSpoolLines(t *testing.T, p string) int {
++	t.Helper()
++	b, err := os.ReadFile(p)
++	require.NoError(t, err)
++	n := 0
++	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
++		if strings.TrimSpace(line) != "" {
++			n++
++		}
++	}
++	return n
+ }
+ 
+ // hooksManifest is the shape of plugin/hooks/hooks.json this test reads. It is declared here rather
+ // than imported from internal/pluginmanifest on purpose: IT-5 must read the COMMITTED bundle the
+ // way Claude Code reads it, so sharing the generator's types would let a change to both sides pass
+ // unnoticed.
+ type hooksManifest struct {
+ 	Hooks map[string][]struct {
+ 		Matcher string `json:"matcher"`
+ 		Hooks   []struct {
+diff --git a/test/guards/v1_integration_test.go b/test/guards/v1_integration_test.go
+index dbc9de7..09af748 100644
+--- a/test/guards/v1_integration_test.go
++++ b/test/guards/v1_integration_test.go
+@@ -193,20 +193,29 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
+ 	t.Setenv("TMP", osTemp)
+ 	t.Setenv("TEMP", osTemp)
+ 	t.Setenv("TMPDIR", osTemp)
+ 
+ 	before := snapshotTree(t, p.Root, p.Home(), osTemp)
+ 
+ 	for _, call := range v1Session(p.Root) {
+ 		p.RunHook(t, call.name, call.ev)
+ 	}
+ 
++	// Shut the daemon SessionStart brought up down explicitly, BEFORE snapshotTree walks the tree
++	// a second time — not only in t.Cleanup, which would run after every assertion below (fix
++	// round 1, Important I-9). A still-running daemon actively creating/renaming/deleting files
++	// under .qompack/ (WAL rotation, run/spawn.lock, tmp/ staging) races filepath.WalkDir and
++	// could fail this snapshot for reasons unrelated to the write-set invariant it exists to
++	// check. t.Cleanup's own call is now a fast, idempotent no-op belt-and-braces (the daemon is
++	// already gone by the time it runs).
++	v1ShutdownDaemonIfReachable(t, p.Root)
++
+ 	after := snapshotTree(t, p.Root, p.Home(), osTemp)
+ 
+ 	allowed := []string{
+ 		filepath.Join(p.Root, dotQompack) + string(os.PathSeparator),
+ 		filepath.Join(p.Home(), dotQompack) + string(os.PathSeparator),
+ 	}
+ 
+ 	var offenders []string
+ 	touchedStore := false
+ 	for path, sum := range after {
+@@ -730,20 +739,33 @@ func v1Digests(t *testing.T, files ...string) map[string]string {
+ 		require.NoError(t, err, "digesting %s", f)
+ 		sum := sha256.Sum256(b)
+ 		got[f] = hex.EncodeToString(sum[:])
+ 	}
+ 	return got
+ }
+ 
+ // v1BuildBinary compiles cmd/qompack into a temp directory. test/guards may not import test/e2e —
+ // §3.2 makes both composition roots and forbids anything importing them — so the build is repeated
+ // here rather than shared.
++func v1BuildBinary(t *testing.T) string {
++	t.Helper()
++	out := filepath.Join(t.TempDir(), "qompack")
++	if runtime.GOOS == "windows" {
++		out += ".exe"
++	}
++	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", out, "./cmd/qompack")
++	cmd.Dir = repoRoot(t)
++	combined, err := cmd.CombinedOutput()
++	require.NoError(t, err, "building ./cmd/qompack:\n%s", combined)
++	return out
++}
++
+ // v1ProbeTimeout, v1RoundTripDeadline and v1ShutdownPollBound/Tick bound the raw ipc.Client
+ // v1ShutdownDaemonIfReachable constructs to poke and then stop a real daemon this file's own
+ // end-to-end hook runs may have started.
+ const (
+ 	v1ProbeTimeout      = 200 * time.Millisecond
+ 	v1RoundTripDeadline = 5 * time.Second
+ 	v1ShutdownPollBound = 15 * time.Second
+ 	v1ShutdownPollTick  = 100 * time.Millisecond
+ )
+ 
+@@ -782,33 +804,20 @@ func v1ShutdownDaemonIfReachable(t *testing.T, root string) {
+ 		case <-ticker.C:
+ 		case <-timeout.C:
+ 			if ipc.Probe(addr, v1ProbeTimeout) {
+ 				t.Logf("v1ShutdownDaemonIfReachable: daemon at %s still reachable after %s of retried admin.shutdown; leaving it running", root, v1ShutdownPollBound)
+ 			}
+ 			return
+ 		}
+ 	}
+ }
+ 
+-func v1BuildBinary(t *testing.T) string {
+-	t.Helper()
+-	out := filepath.Join(t.TempDir(), "qompack")
+-	if runtime.GOOS == "windows" {
+-		out += ".exe"
+-	}
+-	cmd := exec.CommandContext(context.Background(), "go", "build", "-o", out, "./cmd/qompack")
+-	cmd.Dir = repoRoot(t)
+-	combined, err := cmd.CombinedOutput()
+-	require.NoError(t, err, "building ./cmd/qompack:\n%s", combined)
+-	return out
+-}
+-
+ // v1LoudLines counts the lines in <logs>/LOUD.log, which §12 makes the never-rotated record of
+ // every degradation and restoration.
+ func v1LoudLines(t *testing.T, l paths.Layout) int {
+ 	t.Helper()
+ 	b, err := os.ReadFile(filepath.Join(l.Logs, "LOUD.log"))
+ 	if os.IsNotExist(err) {
+ 		entries, _ := os.ReadDir(l.Logs)
+ 		names := make([]string, 0, len(entries))
+ 		for _, e := range entries {
+ 			names = append(names, e.Name())
+diff --git a/tools/devtool/bindeps.go b/tools/devtool/bindeps.go
+index 6315c80..40600b0 100644
+--- a/tools/devtool/bindeps.go
++++ b/tools/devtool/bindeps.go
+@@ -23,32 +23,37 @@ var releaseTargets = []struct{ GOOS, GOARCH string }{
+ // Microsoft/go-winio, and golang.org/x/sys/windows.
+ //
+ // golang.org/x/sys/windows was added in SP-05's task 6: it is go-winio's own transitive
+ // dependency (`go mod why -m golang.org/x/sys` on a windows target resolves
+ // internal/ipc -> github.com/Microsoft/go-winio -> golang.org/x/sys/windows), needed for the named
+ // pipe's per-user SID ACL (00-ARCHITECTURE.md §2.4). It never reached the binary before task 6
+ // because no earlier task's code was actually wired into cmd/qompack's own import graph — ipc and
+ // daemon existed but nothing in internal/cli imported them yet, so go-winio's own transitive
+ // dependency was invisible to this check until the hook bodies and `qompack daemon` started
+ // importing internal/ipc / internal/daemon for real.
++//
++// The allow-list names the EXACT import path only, not a prefix (fix round 1, Minor M-14): only
++// golang.org/x/sys/windows itself is actually reached (verified via `go list -deps`); a prefix
++// match would additionally admit .../windows/registry, .../windows/svc, and every other
++// subpackage go-winio does not use, widening the allow-list beyond what is justified.
+ func allowedBinDep(importPath string) bool {
+ 	if isStdlib(importPath) {
+ 		return true
+ 	}
+ 	switch {
+ 	case importPath == modulePath, strings.HasPrefix(importPath, modulePath+"/"):
+ 		return true
+ 	case importPath == "github.com/klauspost/compress", strings.HasPrefix(importPath, "github.com/klauspost/compress/"):
+ 		return true
+ 	case importPath == "github.com/Microsoft/go-winio", strings.HasPrefix(importPath, "github.com/Microsoft/go-winio/"):
+ 		return true
+-	case importPath == "golang.org/x/sys/windows", strings.HasPrefix(importPath, "golang.org/x/sys/windows/"):
++	case importPath == "golang.org/x/sys/windows":
+ 		return true
+ 	}
+ 	return false
+ }
+ 
+ // isStdlib applies the conventional Go heuristic: a standard-library import path's first slash-
+ // separated component never contains a dot, while every module path does (github.com/…,
+ // golang.org/…, gopkg.in/…, …).
+ func isStdlib(importPath string) bool {
+ 	first := importPath
+diff --git a/tools/devtool/bindeps_test.go b/tools/devtool/bindeps_test.go
+index de21feb..59b117b 100644
+--- a/tools/devtool/bindeps_test.go
++++ b/tools/devtool/bindeps_test.go
+@@ -15,24 +15,25 @@ func TestAllowedBinDep(t *testing.T) {
+ 		{"github.com/klauspost/compress/zstd", true},
+ 		{"github.com/Microsoft/go-winio", true},
+ 		{"golang.org/x/tools/go/analysis", false},
+ 		{"github.com/stretchr/testify/require", false},
+ 		{"pgregory.net/rapid", false},
+ 		// golang.org/x/sys/windows is go-winio's own transitive dependency (`go mod why -m
+ 		// golang.org/x/sys` on a windows target: internal/ipc -> github.com/Microsoft/go-winio ->
+ 		// golang.org/x/sys/windows), needed for the named pipe's per-user SID ACL
+ 		// (00-ARCHITECTURE.md §2.4). Added to the allow-list in SP-05's task 6, the first task to
+ 		// actually wire internal/ipc/internal/daemon into cmd/qompack's own import graph. The
+-		// allow-list stays scoped to exactly that subpackage — a different x/sys subpackage with no
+-		// such justification remains disallowed.
++		// allow-list names the EXACT path only (fix round 1, Minor M-14) — a subpackage
++		// (.../registry) or a different x/sys subpackage entirely (x/sys/unix), neither of which
++		// is actually reached, both remain disallowed.
+ 		{"golang.org/x/sys/windows", true},
+-		{"golang.org/x/sys/windows/registry", true},
++		{"golang.org/x/sys/windows/registry", false},
+ 		{"golang.org/x/sys/unix", false},
+ 	}
+ 	for _, c := range cases {
+ 		if got := allowedBinDep(c.path); got != c.want {
+ 			t.Errorf("allowedBinDep(%q) = %v, want %v", c.path, got, c.want)
+ 		}
+ 	}
+ }
+ 
+ func TestIsStdlib(t *testing.T) {

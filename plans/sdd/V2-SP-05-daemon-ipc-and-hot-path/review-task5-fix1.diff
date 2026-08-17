@@ -1,0 +1,1386 @@
+# Fix-round-1 delta: 04f3c81f -> ef50515f
+
+ internal/daemon/budget.go      |  25 +++-
+ internal/daemon/budget_test.go |  22 +++-
+ internal/daemon/daemon.go      |  61 ++++++++--
+ internal/daemon/daemon_test.go | 269 ++++++++++++++++++++++++++++++++++++++++-
+ internal/daemon/handlers.go    | 188 +++++++++++++++++++++++-----
+ internal/daemon/metrics.go     |  68 ++---------
+ internal/daemon/reload.go      |   8 ++
+ 7 files changed, 527 insertions(+), 114 deletions(-)
+
+diff --git a/internal/daemon/budget.go b/internal/daemon/budget.go
+index 8f64663..bcb644e 100644
+--- a/internal/daemon/budget.go
++++ b/internal/daemon/budget.go
+@@ -54,54 +54,69 @@ type breachDetector struct {
+ // newBreachDetector returns a breachDetector gating on limit with need consecutive windows
+ // required for either transition. need <= 0 falls back to 1, so a misconfigured 0 cannot make
+ // every single window transition (which dividing-by/comparing-against a need of 0 would).
+ func newBreachDetector(limit time.Duration, need int) *breachDetector {
+ 	if need <= 0 {
+ 		need = 1
+ 	}
+ 	return &breachDetector{limit: limit, need: need}
+ }
+ 
++// Config reports the limit/need this detector actually gates on. limit and need are set once at
++// construction and never mutated afterward (a config reload does not currently re-apply them —
++// fix round 1, M-5), so reading them needs no lock; the accessor exists so a caller that logs a
++// transition (applyHotPathTransition) reports what the detector actually holds rather than
++// whatever the live config currently says, which can have drifted since construction.
++func (b *breachDetector) Config() (limit time.Duration, need int) {
++	return b.limit, b.need
++}
++
+ // Observe pushes d into the ring. When the ring fills (every sampleWindow-th sample) it closes a
+ // window: p99 >= limit counts as a breach (resetting the clean streak), otherwise it counts as
+ // clean (resetting the breach streak). need consecutive breach windows transitions ToSpool; need
+ // consecutive clean windows transitions ToSync. Both streaks are then reset, so a transition is
+ // reported exactly once per need-window run, not on every window after the threshold is crossed.
+-func (b *breachDetector) Observe(d time.Duration) Transition {
++//
++// closed reports whether THIS call was the one that closed a window (every sampleWindow-th call)
++// — the caller's signal for anything that must run once per window rather than once per sample,
++// such as refreshing a cached obs.Registry.CheckBudgets result (fix round 1, I-3: CheckBudgets
++// itself is stateful per-call, so calling it on every sample rather than every closed window
++// inflated its Windows count by up to sampleWindow times).
++func (b *breachDetector) Observe(d time.Duration) (t Transition, closed bool) {
+ 	b.mu.Lock()
+ 	defer b.mu.Unlock()
+ 
+ 	b.window[b.n] = d
+ 	b.n++
+ 	if b.n < sampleWindow {
+-		return NoTransition
++		return NoTransition, false
+ 	}
+ 	p99 := percentileDuration(b.window[:], 0.99)
+ 	b.n = 0
+ 
+ 	if p99 >= b.limit {
+ 		b.breaches++
+ 		b.clean = 0
+ 	} else {
+ 		b.clean++
+ 		b.breaches = 0
+ 	}
+ 
+ 	if b.breaches >= b.need {
+ 		b.breaches = 0
+-		return ToSpool
++		return ToSpool, true
+ 	}
+ 	if b.clean >= b.need {
+ 		b.clean = 0
+-		return ToSync
++		return ToSync, true
+ 	}
+-	return NoTransition
++	return NoTransition, true
+ }
+ 
+ // Reset clears the ring and both streaks without changing limit/need — used when a new session
+ // resets the daemon-wide hot-path submode (registry.Ensure's own reset, task-3) so stale samples
+ // from a previous, unrelated session can never contribute to this session's first window.
+ func (b *breachDetector) Reset() {
+ 	b.mu.Lock()
+ 	defer b.mu.Unlock()
+ 	b.n = 0
+ 	b.breaches = 0
+diff --git a/internal/daemon/budget_test.go b/internal/daemon/budget_test.go
+index aa901b3..f45e8a7 100644
+--- a/internal/daemon/budget_test.go
++++ b/internal/daemon/budget_test.go
+@@ -6,21 +6,21 @@ import (
+ 
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ // feedWindow pushes n samples of duration d into b, reporting the transition of the very last
+ // sample (every window closes on its sampleWindow-th sample; a non-multiple n's tail contributes
+ // to a not-yet-closed window and always reports NoTransition for its final sample).
+ func feedWindow(b *breachDetector, n int, d time.Duration) Transition {
+ 	var last Transition
+ 	for i := 0; i < n; i++ {
+-		last = b.Observe(d)
++		last, _ = b.Observe(d)
+ 	}
+ 	return last
+ }
+ 
+ // TestBreachDetectorTransitionsAfterThreeWindows: limit 15ms, need=3; three consecutive 512-sample
+ // windows of 20ms each transition NoTransition, NoTransition, ToSpool.
+ func TestBreachDetectorTransitionsAfterThreeWindows(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	b := newBreachDetector(15*time.Millisecond, 3)
+@@ -64,21 +64,39 @@ func TestBreachDetectorPartialWindowNeverCloses(t *testing.T) {
+ // TestBreachDetectorReset clears the ring and both streaks without touching limit/need.
+ func TestBreachDetectorReset(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	b := newBreachDetector(15*time.Millisecond, 1)
+ 	require.Equal(t, ToSpool, feedWindow(b, sampleWindow, 20*time.Millisecond))
+ 	b.Reset()
+ 	// A fresh window after Reset needs a full sampleWindow of breaching samples again — a
+ 	// partial window right after Reset must not spuriously transition.
+ 	require.Equal(t, NoTransition, feedWindow(b, sampleWindow-1, 20*time.Millisecond))
+-	require.Equal(t, ToSpool, b.Observe(20*time.Millisecond))
++	tr, closed := b.Observe(20 * time.Millisecond)
++	require.Equal(t, ToSpool, tr)
++	require.True(t, closed)
++}
++
++// TestBreachDetectorObserveReportsClosedOnlyOnTheWindowBoundary pins fix round 1's I-3 contract:
++// Observe's second return value is true only on the sampleWindow-th call, never on any of the
++// preceding ones — the caller (hotPathWorker) uses this to gate CheckBudgets so it runs once per
++// closed window, not once per sample.
++func TestBreachDetectorObserveReportsClosedOnlyOnTheWindowBoundary(t *testing.T) {
++	t.Parallel()
++
++	b := newBreachDetector(15*time.Millisecond, 3)
++	for i := 0; i < sampleWindow-1; i++ {
++		_, closed := b.Observe(time.Millisecond)
++		require.False(t, closed, "sample %d must not close a window", i)
++	}
++	_, closed := b.Observe(time.Millisecond)
++	require.True(t, closed, "the sampleWindow-th sample must close the window")
+ }
+ 
+ // TestPercentileDurationP99 pins the nearest-rank ceiling percentile math against a known
+ // distribution: 512 samples, the top ~1% (samples 507..512, 1-indexed) at a high value, everything
+ // else low. idx = ceil(0.99*512)-1 = 506 (0-indexed) = the 507th smallest sample.
+ func TestPercentileDurationP99(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	window := make([]time.Duration, sampleWindow)
+ 	for i := range window {
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+index 7be523d..87024ab 100644
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -1,19 +1,20 @@
+ package daemon
+ 
+ import (
+ 	"context"
+ 	"errors"
+ 	"fmt"
+ 	"math"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"sync"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/contract"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/paths"
+@@ -109,21 +110,20 @@ type daemon struct {
+ 	// runCancel stops the context Run's worker pool, hot-path worker and server.Serve all run
+ 	// under. Stop calls it (if Run ever set it) so a caller that invokes Stop directly — the
+ 	// admin.shutdown route in particular, which runs on a request-handling goroutine entirely
+ 	// separate from Run's own select loop — actually unblocks Run rather than leaving its workers
+ 	// running forever underneath a daemon that believes itself stopped.
+ 	runCancelMu sync.Mutex
+ 	runCancel   context.CancelFunc
+ 
+ 	stopOnce sync.Once
+ 	stopped  chan struct{}
+-	wg       sync.WaitGroup
+ }
+ 
+ // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
+ // defaults exactly as it would running through NewOptions, so construction never fails and every
+ // seam is usable before Run is ever called.
+ func New(o Options) (Daemon, error) {
+ 	if o.Log == nil {
+ 		o.Log = logging.Nop()
+ 	}
+ 	if o.Clock == nil {
+@@ -338,20 +338,27 @@ func (d *daemon) Run(ctx context.Context) error {
+ 		Log:      d.log,
+ 		Metrics:  d.m,
+ 		Clock:    d.clk,
+ 		Dispatch: d.drainDispatch,
+ 		Seen:     d.ing.seen,
+ 		IsLive:   d.sessionIsLive,
+ 	})
+ 
+ 	server, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)
+ 	if err != nil {
++		// The deferred cancel() above already stops the ingest workers and the hot-path worker
++		// on this return, but nothing else releases the lock this Run call already holds — left
++		// unreleased, daemon.lock would keep naming this (now-dead) process's pid, and no
++		// replacement daemon could ever take the project while it lives (fix round 1, M-6).
++		if relErr := d.lock.Release(); relErr != nil {
++			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
++		}
+ 		return fmt.Errorf("daemon: run: listen: %w", err)
+ 	}
+ 	d.server = server
+ 
+ 	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
+ 		d.log.Warn("daemon: failed to write state.bin", "err", err)
+ 	}
+ 	removeSpawnLockFile(d.root)
+ 
+ 	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
+@@ -375,21 +382,27 @@ func (d *daemon) Run(ctx context.Context) error {
+ 
+ 	serveErrCh := make(chan error, 1)
+ 	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
+ 
+ 	var zeroLiveSince time.Time
+ 	for {
+ 		select {
+ 		case <-ctx.Done():
+ 			cancel()
+ 			<-serveErrCh
+-			return nil
++			// Stop, not a bare nil: without it, sketches are never saved, the ingest WAL handles
++			// are never flushed/closed, metrics/latency.json is never written, state.bin is left
++			// on disk (a client keeps dialling a dead endpoint until the connect itself fails),
++			// and daemon.lock stays held (fix round 1, I-7). context.Background(), deliberately —
++			// ctx is already Done here, so Stop's own bounded drain would be a no-op if it
++			// inherited it.
++			return d.Stop(context.Background())
+ 		case err := <-serveErrCh:
+ 			// A Serve return driven by Stop() (admin.shutdown, or the idle-exit path below, both
+ 			// of which close d.stopped before cancelling runCtx) is an intentional, successful
+ 			// shutdown — report nil, not the raw context.Canceled Serve's own contract returns for
+ 			// a cancellation-driven stop. A Serve return with d.stopped still open is a genuine,
+ 			// unexpected transport failure and is reported verbatim.
+ 			select {
+ 			case <-d.stopped:
+ 				return nil
+ 			default:
+@@ -468,33 +481,59 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
+ 				d.log.Warn("daemon: ObserveStop failed", "err", err)
+ 			}
+ 		} else if d.m != nil {
+ 			d.m.Counter(counterUnhandledObserveStop).Add(1)
+ 		}
+ 	case ipc.OpObservePrompt:
+ 		d.scanSentinelForPrompt(ev)
+ 	}
+ }
+ 
+-// drainDispatch is the drainer's DrainConfig.Dispatch function. A hot-path op's line came FROM a
+-// durability record (a WAL segment or a client spool file) that IS the drain's own source of
+-// truth, so replaying it must route straight to the same processing a live worker-pool job gets
+-// (runIngested) rather than back through dispatchOp's ordinary route handlers: dispatchOp's
+-// observe.* routes call ingest.Accept, which would re-WAL the line — for a WAL-sourced line, that
+-// is a self-referential write into the very file being drained. Every other op never touches the
+-// WAL at all, so it replays through the full dispatchOp exactly as if freshly received.
++// drainDispatch is the drainer's DrainConfig.Dispatch function — an explicit, non-reentrant
++// allow-list per op family, not a blanket call into dispatchOp (fix round 1, Critical C-1).
++//
++// A hot-path op's line came FROM a durability record (a WAL segment or a client spool file) that
++// IS the drain's own source of truth, so replaying it must route straight to the same processing
++// a live worker-pool job gets (runIngested) rather than back through dispatchOp's ordinary route
++// handlers: dispatchOp's observe.* routes call ingest.Accept, which would re-WAL the line — for a
++// WAL-sourced line, that is a self-referential write into the very file being drained.
++//
++// flush is routed to flushRoute with drain=false: drainer.Drain holds a plain, non-reentrant
++// sync.Mutex (drain.go's dr.mu) for the WHOLE replay, so a drained flush line that called back
++// into d.Drain — as the ordinary flush route does — would deadlock this goroutine on a lock it is
++// already holding, permanently. That deadlock is not a rare interleaving: ipc.client.Send spools
++// EVERY op on EVERY connect failure (no hot-path filter), so a SessionEnd hook firing while the
++// daemon is down leaves exactly this line for the very next daemon's STARTUP drain — before Serve
++// has accepted a single connection — to trip over.
++//
++// admin.* is skipped entirely: an admin op replayed from a stale spool file has no operator
++// waiting on its reply, admin.drain would hit the identical re-entrancy hazard as flush, and
++// admin.shutdown's asynchronous Stop() also calls d.Drain — safe today only because it runs on a
++// separate goroutine that would simply block behind this one, but skipping it here removes the
++// question entirely rather than relying on that indirection.
++//
++// session.start, checkpoint, status and mcp all reach here only via a stale spooled Reply request
++// nobody is still waiting on; none of their handlers ever calls Drain, so routing them through the
++// full dispatchOp is safe and preserves their side effects (session bookkeeping, contract
++// observations, markers).
+ func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
+-	if req.Op.HotPath() {
++	switch {
++	case req.Op.HotPath():
+ 		d.runIngested(ctx, req)
+ 		return ipc.Response{OK: true}
++	case req.Op == ipc.OpFlush:
++		return d.flushRoute(ctx, req, false)
++	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
++		return ipc.Response{OK: true}
++	default:
++		return d.dispatchOp(ctx, req)
+ 	}
+-	return d.dispatchOp(ctx, req)
+ }
+ 
+ // Stop shuts the daemon down cleanly and idempotently (sync.Once): stop accepting, drain the ring
+ // with a bound, close the ingest WAL handles, save sketches, persist metrics, remove state.bin,
+ // close the server, release the lock.
+ func (d *daemon) Stop(ctx context.Context) error {
+ 	var stopErr error
+ 	d.stopOnce.Do(func() {
+ 		close(d.stopped)
+ 
+diff --git a/internal/daemon/daemon_test.go b/internal/daemon/daemon_test.go
+index 3f8222f..2a05bfa 100644
+--- a/internal/daemon/daemon_test.go
++++ b/internal/daemon/daemon_test.go
+@@ -84,40 +84,46 @@ var allOps = []ipc.Op{
+ // call may panic.
+ func TestServicesAllNil(t *testing.T) {
+ 	t.Parallel()
+ 	require.Len(t, allOps, 13)
+ 
+ 	root := t.TempDir()
+ 	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
+ 	require.NoError(t, err)
+ 	dd, ok := d.(*daemon)
+ 	require.True(t, ok)
+-	t.Cleanup(func() { _ = dd.ing.Close() })
++	// dd.Stop is idempotent (sync.Once) and synchronous, so calling it here — rather than the
++	// bare dd.ing.Close() an earlier revision used — deterministically waits out admin.shutdown's
++	// own asynchronous Stop() goroutine (dispatched below) instead of racing it (fix round 1,
++	// M-10): sync.Once.Do blocks every caller, including this one, until whichever call actually
++	// runs the body has finished.
++	t.Cleanup(func() { _ = dd.Stop(context.Background()) })
+ 
+ 	for _, op := range allOps {
+ 		sess := core.SessionID("sess-" + string(op))
+ 		ev := &hookio.Event{HookEventName: "x", SessionID: sess, CWD: root, TranscriptPath: filepath.Join(root, "t.jsonl")}
+ 		req := ipc.Request{Op: op, Session: sess, Reply: true, Event: ev, TS: core.NowMilli(dd.clk)}
+ 
+ 		var resp ipc.Response
+ 		require.NotPanics(t, func() { resp = dd.dispatchOp(context.Background(), req) }, "op %s", op)
+ 
+ 		if op == ipc.OpMCP {
+ 			require.False(t, resp.OK, "op %s", op)
+ 			require.Equal(t, "mcp not built", resp.Err)
+ 			continue
+ 		}
+ 		require.True(t, resp.OK, "op %s must ACK even with nil Services: %+v", op, resp)
+ 	}
+ 
+-	// The WAL must hold every hot-path event even though no Services function ever ran.
+-	for _, op := range []ipc.Op{ipc.OpObserveTool, ipc.OpObserveStop} {
++	// The WAL must hold every hot-path event even though no Services function ever ran (fix
++	// round 1, M-9: observe.prompt was missing from this check).
++	for _, op := range []ipc.Op{ipc.OpObserveTool, ipc.OpObserveStop, ipc.OpObservePrompt} {
+ 		sess := "sess-" + string(op)
+ 		walPath := filepath.Join(paths.Of(root).Spool, "wal-"+sess+".ndjson")
+ 		_, err := os.Stat(walPath)
+ 		require.NoError(t, err, "op %s must be WAL'd", op)
+ 	}
+ }
+ 
+ // TestObservePromptRepliesWithinDeadline: a bound ObservePrompt seam's Output reaches the caller.
+ func TestObservePromptRepliesWithinDeadline(t *testing.T) {
+ 	t.Parallel()
+@@ -357,20 +363,123 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
+ 
+ 	n, err := dd.Drain(context.Background())
+ 	require.NoError(t, err)
+ 	require.Equal(t, 1, n, "exactly one of the two identical lines is actually dispatched")
+ 	require.Equal(t, 1, calls, "the handler must see the request exactly once")
+ 
+ 	_, statErr := os.Stat(paths.Long(spoolPath))
+ 	require.True(t, os.IsNotExist(statErr), "the client spool file must be consumed")
+ }
+ 
++// drainDeadlockGuard bounds how long a Drain call under test is allowed to take before it is
++// presumed permanently wedged — generous relative to the sub-second work these tests actually do,
++// tight enough that a genuine self-deadlock (fix round 1, Critical C-1) fails the test instead of
++// hanging the whole suite (and, under `go test`, eventually the test binary's own timeout).
++const drainDeadlockGuard = 10 * time.Second
++
++// TestDrainOfSpooledFlushLineDoesNotDeadlock is the Critical C-1 regression: a flush line
++// (Op:"flush", Reply:true — exactly what a SessionEnd hook firing while the daemon is down
++// leaves behind, since ipc.client.Send spools every op on every connect failure, not just the
++// hot-path ones) sitting in a client spool file must drain without the drain goroutine calling
++// back into Daemon.Drain on itself. Before the round-1 fix, this test hung forever on
++// drainer.Drain's own non-reentrant mutex — exactly the trap the startup drain (Run, before Serve
++// ever accepts a connection) and Stop's own bounded drain both sit in.
++func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++	dd.drain = newDrainer(DrainConfig{
++		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
++		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
++	})
++
++	flushReq := ipc.Request{
++		Op: ipc.OpFlush, Session: "sess-1", Reply: true,
++		Event: &hookio.Event{HookEventName: "SessionEnd", SessionID: "sess-1", CWD: root},
++	}
++	line, err := ipc.EncodeRequest(flushReq)
++	require.NoError(t, err)
++	spoolPath := filepath.Join(paths.Of(root).Spool, "client-88888.ndjson")
++	require.NoError(t, os.MkdirAll(filepath.Dir(spoolPath), 0o700))
++	require.NoError(t, os.WriteFile(paths.Long(spoolPath), append(line, '\n'), 0o600))
++
++	type result struct {
++		n   int
++		err error
++	}
++	done := make(chan result, 1)
++	go func() {
++		n, derr := dd.Drain(context.Background())
++		done <- result{n, derr}
++	}()
++
++	select {
++	case r := <-done:
++		require.NoError(t, r.err)
++		require.Equal(t, 1, r.n)
++	case <-time.After(drainDeadlockGuard):
++		t.Fatal("Drain of a spooled flush line did not return — self-deadlock on drainer.Drain's own mutex")
++	}
++
++	_, statErr := os.Stat(paths.Long(spoolPath))
++	require.True(t, os.IsNotExist(statErr), "the spooled flush line must be consumed")
++}
++
++// TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun is Critical C-1's end-to-end shape: a flush
++// line spooled while the daemon was down must not wedge Run's OWN startup drain (which runs
++// before Serve ever accepts a connection) — a daemon.lock held forever by a process that never
++// listens is worse than the deadlock alone, since every client then fails to connect too.
++func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
++	root := t.TempDir()
++	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
++
++	flushReq := ipc.Request{
++		Op: ipc.OpFlush, Session: "sess-1", Reply: true,
++		Event: &hookio.Event{HookEventName: "SessionEnd", SessionID: "sess-1", CWD: root},
++	}
++	line, err := ipc.EncodeRequest(flushReq)
++	require.NoError(t, err)
++	spoolPath := filepath.Join(paths.Of(root).Spool, "client-77777.ndjson")
++	require.NoError(t, os.MkdirAll(filepath.Dir(spoolPath), 0o700))
++	require.NoError(t, os.WriteFile(paths.Long(spoolPath), append(line, '\n'), 0o600))
++
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
++	defer cancel()
++	errCh := make(chan error, 1)
++	go func() { errCh <- d.Run(ctx) }()
++
++	// Run must reach Serve and accept a connection — the very thing a wedged startup drain
++	// prevents, since Run never reaches `go server.Serve(...)` until Drain has returned.
++	require.Eventually(t, func() bool {
++		addr, rerr := ipc.Resolve(root)
++		if rerr != nil {
++			return false
++		}
++		return ipc.Probe(addr, 100*time.Millisecond)
++	}, drainDeadlockGuard, 50*time.Millisecond, "Run never started accepting connections — startup drain is likely wedged")
++
++	cancel()
++	select {
++	case <-errCh:
++	case <-time.After(drainDeadlockGuard):
++		t.Fatal("Run did not shut down after cancellation")
++	}
++}
++
+ // TestSpoolOnBreachFalseDoesNotTransition: spoolOnBreach=false leaves the daemon in HotSync even
+ // after a breaching window, while the WARN log and counter still fire.
+ func TestSpoolOnBreachFalseDoesNotTransition(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	root := t.TempDir()
+ 	cfg := testConfig()
+ 	cfg.Runtime.HotPath.SpoolOnBreach = false
+ 	cfg.Runtime.HotPath.BudgetMs = 15
+ 	cfg.Runtime.HotPath.BreachWindows = 1
+@@ -409,62 +518,76 @@ func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
+ 
+ 	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
+ 	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(dd.clk)})
+ 	require.False(t, resp.OK)
+ 	require.Equal(t, ipc.HotSpool, resp.Hot)
+ }
+ 
+ // feedBreachingWindow pushes one full sampleWindow of 20ms samples (over a 15ms budget) directly
+ // through recordHotPathSample/breach.Observe/applyHotPathTransition — no worker goroutine is
+ // running in these tests, so the window is closed synchronously by draining d.hotSamples inline.
++// TS=1/recvTS=21 (rather than TS=0) keeps the sample valid under validHotPathTS's ts<=0 rejection
++// while still producing the intended 20ms "observed" latency.
+ func feedBreachingWindow(dd *daemon) {
+ 	for i := 0; i < sampleWindow; i++ {
+-		dd.recordHotPathSample(ipc.Request{Op: ipc.OpObserveTool, TS: 0}, core.UnixMilli(20))
++		dd.recordHotPathSample(ipc.Request{Op: ipc.OpObserveTool, TS: 1}, core.UnixMilli(21))
+ 	}
+ 	for len(dd.hotSamples) > 0 {
+ 		s := <-dd.hotSamples
+-		if tr := dd.breach.Observe(s); tr != NoTransition {
++		if tr, _ := dd.breach.Observe(s); tr != NoTransition {
+ 			dd.applyHotPathTransition(tr)
+ 		}
+ 	}
+ }
+ 
+ // TestConfigReloadDefersChunkChange: a store.chunk.* change in config.json is picked up on
+ // reload but deferred — the live config keeps the old chunk block, and the full new config is
+ // recorded to state/config-pending.json.
+ func TestConfigReloadDefersChunkChange(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	root := t.TempDir()
+ 	cfg := testConfig()
+ 	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
+ 	require.NoError(t, err)
+ 	dd, ok := d.(*daemon)
+ 	require.True(t, ok)
+ 	t.Cleanup(func() { _ = dd.ing.Close() })
+ 	dd.cfgEnv = config.Env{ProjectRoot: root, HomeDir: t.TempDir(), Getenv: func(string) string { return "" }}
+ 
++	// In production, .qompack/run/ always exists by the time reload can fire — every real call
++	// site (Run's idle tick, session.start, admin.reload) runs only after AcquireLock has already
++	// created it. This test drives reloadConfig directly, without Run, so it recreates that
++	// precondition explicitly rather than asserting on an unrealistic one.
++	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).Run), 0o700))
++
+ 	cfgPath := configJSONPath(root)
+ 	require.NoError(t, os.MkdirAll(filepath.Dir(cfgPath), 0o700))
+-	body := []byte(`{"store":{"chunk":{"min":1024,"target":9999,"max":16384}},"runtime":{"logging":{"level":"debug"}}}`)
++	body := []byte(`{"store":{"chunk":{"min":1024,"target":9999,"max":16384}},` +
++		`"runtime":{"logging":{"level":"debug"},"daemon":{"ackDeadlineMs":99}}}`)
+ 	require.NoError(t, os.WriteFile(cfgPath, body, 0o600))
+ 
+ 	changed, err := dd.reloadConfig(context.Background(), dd.cfgEnv, false)
+ 	require.NoError(t, err)
+ 	require.NotEmpty(t, changed)
+ 	require.Equal(t, cfg.Store.Chunk, dd.currentCfg().Store.Chunk, "store.chunk.* must not apply mid-session")
+ 
+ 	b, err := os.ReadFile(paths.Long(configPendingPath(root)))
+ 	require.NoError(t, err)
+ 	var pending config.Config
+ 	require.NoError(t, json.Unmarshal(b, &pending))
+ 	require.Equal(t, 9999, pending.Store.Chunk.Target)
++
++	// fix round 1, I-4: reload must rewrite state.bin, since it is the one thing every client
++	// reads at construction — a reloaded runtime.daemon.ackDeadlineMs must reach it.
++	st := ipc.ReadState(root, cfg)
++	require.EqualValues(t, 99, st.AckDeadlineMs, "state.bin must reflect the reloaded config")
+ }
+ 
+ // TestIdleExitWithZeroSessions: with a 1-second idle-exit window and zero live sessions, Run
+ // returns on its own, having removed state.bin and released the lock.
+ func TestIdleExitWithZeroSessions(t *testing.T) {
+ 	root := t.TempDir()
+ 	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+ 
+ 	cfg := testConfig()
+ 	cfg.Runtime.Daemon.IdleExitSeconds = 1
+@@ -588,20 +711,154 @@ func TestMarkerIsWrittenByFlushAndCheckpointOnly(t *testing.T) {
+ 	require.NoError(t, err, "checkpoint must write the marker")
+ 
+ 	require.NoError(t, os.Remove(paths.Long(markerPath)))
+ 	ev3 := &hookio.Event{HookEventName: "SessionEnd", SessionID: "sess-1", CWD: root}
+ 	resp3 := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpFlush, Session: "sess-1", Reply: true, Event: ev3})
+ 	require.True(t, resp3.OK)
+ 	_, err = os.Stat(paths.Long(markerPath))
+ 	require.NoError(t, err, "flush must write the marker")
+ }
+ 
++// TestSessionStartNeverWipesSentinelObserved is the fix round 1 I-2 regression:
++// SentinelState.Observed is documented (contract/history.go) as "never resets to false" once a
++// scan has proven the mechanism works, and RecordSentinelScan is careful never to clear it. A
++// session.start that mints a fresh token must respect that — assigning the whole SentinelState
++// struct, as an earlier revision did, silently wiped it on every session that may act.
++func TestSessionStartNeverWipesSentinelObserved(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	// Seed history as if a prior session's sentinel scan had already proven the mechanism works.
++	h := contract.LoadHistory(contract.HistoryPath(root))
++	h.Sentinel = contract.SentinelState{Token: "qompack-contract-old", Session: "sess-0", Observed: true, Chances: 1}
++	require.NoError(t, contract.SaveHistory(contract.HistoryPath(root), h))
++
++	ev := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-1", CWD: root, Source: "startup"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpSessionStart, Session: "sess-1", Reply: true, Event: ev})
++	require.True(t, resp.OK)
++
++	after := contract.LoadHistory(contract.HistoryPath(root))
++	require.True(t, after.Sentinel.Observed, "Observed must never reset to false")
++	require.NotEqual(t, "qompack-contract-old", after.Sentinel.Token, "a fresh token is still minted")
++	require.Equal(t, core.SessionID("sess-1"), after.Sentinel.Session)
++	require.Equal(t, 0, after.Sentinel.Chances, "a freshly minted token starts its own Chances count")
++}
++
++// TestSessionStartResetsBreachDetectorForNewSession is the fix round 1 I-7/I-8 regression:
++// breachDetector.Reset() must actually be called somewhere, or a partially-filled breaching
++// window from a previous, unrelated session closes on a brand-new session's very first request.
++func TestSessionStartResetsBreachDetectorForNewSession(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	cfg := testConfig()
++	cfg.Runtime.HotPath.BudgetMs = 15
++	cfg.Runtime.HotPath.BreachWindows = 1
++	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	// Fill the ring most of the way with breaching samples — NOT a full window, so nothing has
++	// transitioned yet — leaving dd.breach.n == sampleWindow-1, dirty.
++	for i := 0; i < sampleWindow-1; i++ {
++		tr, closed := dd.breach.Observe(20 * time.Millisecond)
++		require.Equal(t, NoTransition, tr)
++		require.False(t, closed)
++	}
++
++	// A brand-new session's session.start must reset the detector before its own traffic can
++	// close a window on the previous session's leftover backlog.
++	ev := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-new", CWD: root, Source: "startup"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpSessionStart, Session: "sess-new", Reply: true, Event: ev})
++	require.True(t, resp.OK)
++
++	// One more sample after the reset must NOT close a window — it would have, had the
++	// pre-existing sampleWindow-1 backlog survived the reset.
++	tr, closed := dd.breach.Observe(20 * time.Millisecond)
++	require.Equal(t, NoTransition, tr)
++	require.False(t, closed, "session.start must have reset the ring; one sample alone must never close a window")
++}
++
++// TestRecordHotPathSampleRejectsInvalidTS is the fix round 1 I-6 regression: ipc.DecodeRequest
++// performs no validation of its own, so an absent or zero "t" must never be allowed to feed the
++// B-A histograms or the breach detector as if it were a real, ~55-year-old sample.
++func TestRecordHotPathSampleRejectsInvalidTS(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	cases := []struct {
++		name string
++		ts   core.UnixMilli
++	}{
++		{"zero", 0},
++		{"negative", -1000},
++		{"absurd-past", 1}, // recvTS - 1 is ~55 years given a realistic recvTS below
++	}
++	recvTS := core.NowMilli(dd.clk)
++	for _, c := range cases {
++		dd.recordHotPathSample(ipc.Request{Op: ipc.OpObserveTool, TS: c.ts}, recvTS)
++	}
++	require.Empty(t, dd.hotSamples, "no invalid sample may reach the breach-detector channel")
++	require.Equal(t, int64(len(cases)), dd.m.Counter(counterHotpathSampleInvalid).Value())
++
++	// A genuinely valid, recent TS is still accepted.
++	dd.recordHotPathSample(ipc.Request{Op: ipc.OpObserveTool, TS: recvTS - 5}, recvTS)
++	require.Len(t, dd.hotSamples, 1)
++}
++
++// TestRunCtxDoneGoesThroughStop is the fix round 1 I-7 regression: cancelling the caller's OWN
++// ctx (as opposed to the idle-exit path, which already called Stop) must still flush sketches,
++// close the WAL, persist metrics, remove state.bin and release the lock — not return a bare nil.
++func TestRunCtxDoneGoesThroughStop(t *testing.T) {
++	root := t.TempDir()
++	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
++
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithCancel(context.Background())
++	errCh := make(chan error, 1)
++	go func() { errCh <- d.Run(ctx) }()
++
++	require.Eventually(t, func() bool {
++		_, ok := ReadLock(root)
++		return ok
++	}, 5*time.Second, 20*time.Millisecond, "the daemon must acquire the lock before it can be cancelled")
++
++	cancel()
++	select {
++	case err := <-errCh:
++		require.NoError(t, err)
++	case <-time.After(8 * time.Second):
++		t.Fatal("Run did not return after ctx cancellation")
++	}
++
++	_, statErr := os.Stat(paths.Long(ipc.StatePath(root)))
++	require.True(t, os.IsNotExist(statErr), "ctx.Done must go through Stop, which removes state.bin")
++	_, lockErr := os.Stat(paths.Long(filepath.Join(paths.Of(root).Run, lockFileName)))
++	require.True(t, os.IsNotExist(lockErr), "ctx.Done must go through Stop, which releases daemon.lock")
++}
++
+ // TestAdminPingAlwaysAnswersOK pins Ruling #22/#1: admin.ping answers OK:true unconditionally —
+ // the ACK path's liveness proof depends on Response.OK, so this cannot be allowed to ever refuse.
+ func TestAdminPingAlwaysAnswersOK(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	root := t.TempDir()
+ 	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
+ 	require.NoError(t, err)
+ 	dd, ok := d.(*daemon)
+ 	require.True(t, ok)
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+index a014fa6..e4f3cd3 100644
+--- a/internal/daemon/handlers.go
++++ b/internal/daemon/handlers.go
+@@ -40,20 +40,24 @@ const (
+ 	// counterHandlerPanic reuses ipc's own "ipc_handler_panic" spelling deliberately (ruling: the
+ 	// ipc server's own recovery around this same composed Handler is belt-and-braces on top of
+ 	// this one — both increment the identical metric name rather than two names for one concept).
+ 	counterHandlerPanic = "ipc_handler_panic"
+ 
+ 	counterUnhandledObserveTool = "l0_unhandled_observe_tool"
+ 	counterUnhandledObserveStop = "l0_unhandled_observe_stop"
+ 
+ 	counterHotpathDegraded = "hotpath_degraded"
+ 
++	// counterHotpathSampleInvalid counts a hot-path sample rejected by validHotPathTS (an absent,
++	// zero, or implausible req.TS) before it ever reaches a histogram or the breach detector.
++	counterHotpathSampleInvalid = "hotpath_sample_invalid"
++
+ 	counterContractFailPrefix = "contract_fail_"
+ 	counterContractModeChange = "contract_mode_change"
+ )
+ 
+ // histHookControlledObserved is the daemon-owned histogram name for the strict lower bound on
+ // B-A: recvTS - req.TS, before hotPathTailAllowance is added.
+ const histHookControlledObserved = "hook_controlled_observed"
+ 
+ // StatusSnapshot is the status route's Data payload (task-5-spec.md handlers.go). SP-05 produces
+ // it; SP-14 renders it.
+@@ -101,30 +105,35 @@ func decodeSubagent(raw json.RawMessage) bool {
+ 	if len(raw) == 0 {
+ 		return false
+ 	}
+ 	var payload struct {
+ 		Subagent bool `json:"subagent"`
+ 	}
+ 	_ = json.Unmarshal(raw, &payload)
+ 	return payload.Subagent
+ }
+ 
+-// dispatchOp is the single ipc.Handler the daemon hands to ipc.NewServer — every request from
+-// every connection passes through here. It injects the Services/Registry/Daemon context values
+-// every route reads, looks up the op in the resolved route table (unknown op -> a refusal, never
+-// a panic), records the hot-path latency estimate for the three ops that carry it, and forces a
+-// NAK for a fire-and-forget hot-path request once the daemon has degraded to spool submode
+-// (§12.2's NAK-with-hint: the request is already WAL'd by the route's own ingest.Accept call, so
+-// refusing it here costs freshness, never data — the client's own spool absorbs the duplicate,
+-// and Drain's seenSet collapses it back to one dispatch). It is also drainer.Dispatch's function:
+-// a drained line gets identical handling to a live request, including this same NAK-forcing rule
+-// (harmless there, since a drained line was never waiting on an ACK in the first place).
++// dispatchOp is the single ipc.Handler the daemon hands to ipc.NewServer — every LIVE request
++// from every connection passes through here. It injects the Services/Registry/Daemon context
++// values every route reads, looks up the op in the resolved route table (unknown op -> a
++// refusal, never a panic), records the hot-path latency estimate for the three ops that carry it,
++// and forces a NAK for a fire-and-forget hot-path request once the daemon has degraded to spool
++// submode (§12.2's NAK-with-hint: the request is already WAL'd by the route's own ingest.Accept
++// call, so refusing it here costs freshness, never data — the client's own spool absorbs the
++// duplicate, and Drain's seenSet collapses it back to one dispatch).
++//
++// It is NOT drainer.Dispatch's function — drainDispatch (daemon.go) is, and deliberately routes
++// only session.start/checkpoint/status/mcp through this function; hot-path ops go straight to
++// runIngested and flush/admin.* are special-cased or skipped entirely, because a drained flush or
++// admin.drain line reaching this function's own routes would call back into Drain on the same
++// goroutine that is already holding drainer.Drain's non-reentrant mutex (fix round 1, Critical
++// C-1 — see drainDispatch's doc comment for the full rationale).
+ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
+ 	recvTS := core.NowMilli(d.clk)
+ 	ctx = withServices(ctx, d.svc)
+ 	ctx = withRegistry(ctx, d.registry)
+ 	ctx = withDaemon(ctx, d)
+ 
+ 	var resp ipc.Response
+ 	if h, ok := d.routes[req.Op]; ok {
+ 		resp = d.callHandler(ctx, h, req)
+ 	} else {
+@@ -159,50 +168,85 @@ func (d *daemon) callHandler(ctx context.Context, h ipc.Handler, req ipc.Request
+ 	}()
+ 	return h(ctx, req)
+ }
+ 
+ // recordHotPathSample computes hook.controlled.observed (a strict lower bound on B-A: recvTS -
+ // req.TS) and hook.controlled (that value plus hotPathTailAllowance), records both into the
+ // metrics registry, and hands the estimate to the breach-detector worker via a non-blocking send
+ // — a full channel drops the sample rather than blocking the caller, which is this package's
+ // standing rule for anything that would otherwise sit on the ACK path.
+ func (d *daemon) recordHotPathSample(req ipc.Request, recvTS core.UnixMilli) {
+-	observed := time.Duration(int64(recvTS)-int64(req.TS)) * time.Millisecond
+-	if observed < 0 {
+-		observed = 0
++	if !validHotPathTS(req.TS, recvTS) {
++		if d.m != nil {
++			d.m.Counter(counterHotpathSampleInvalid).Add(1)
++		}
++		return
+ 	}
++
++	observed := time.Duration(int64(recvTS)-int64(req.TS)) * time.Millisecond
+ 	estimated := observed + hotPathTailAllowance
+ 
+ 	if d.m != nil {
+ 		d.m.Hist(histHookControlledObserved).Observe(observed)
+ 		d.m.Hist(histName(obs.BA)).Observe(estimated)
+ 	}
+ 
+ 	select {
+ 	case d.hotSamples <- estimated:
+ 	default:
+ 	}
+ }
+ 
++// hotPathSampleMaxAge bounds how stale a live request's TS may be before its observed latency is
++// treated as garbage rather than a real B-A sample: a genuine hot-path request is milliseconds
++// old by the time the daemon reads it, so any age beyond a generous multi-second ceiling can only
++// be a missing/corrupt TS, never a real measurement worth degrading the hot path over (fix
++// round 1, I-6).
++const hotPathSampleMaxAge = 10 * time.Second //nomagic:allow sanity ceiling on an untrusted wire timestamp, not a budget
++
++// hotPathSampleFutureSlop tolerates ordinary clock imprecision between a request's stamped TS and
++// the daemon's own recvTS without rejecting the sample outright.
++const hotPathSampleFutureSlop = 250 * time.Millisecond //nomagic:allow clock-skew tolerance, not a budget
++
++// validHotPathTS reports whether ts is fit to feed the B-A histograms and the breach detector:
++// present (ipc.DecodeRequest performs no validation of its own, so an absent or zero "t" would
++// otherwise read as an ~55-year-old sample), not implausibly ahead of recvTS, and not implausibly
++// stale.
++func validHotPathTS(ts, recvTS core.UnixMilli) bool {
++	if ts <= 0 {
++		return false
++	}
++	if ts > recvTS+core.UnixMilli(hotPathSampleFutureSlop.Milliseconds()) {
++		return false
++	}
++	if recvTS-ts > core.UnixMilli(hotPathSampleMaxAge.Milliseconds()) {
++		return false
++	}
++	return true
++}
++
+ // hotPathWorker drains d.hotSamples and feeds the breach detector — the "window closure runs on a
+ // worker goroutine, not on the ACK path" rule. It also refreshes the cached CheckBudgets result
+ // the status route serves, so /qompack:status is never more than one sample stale.
+ func (d *daemon) hotPathWorker(ctx context.Context) {
+ 	for {
+ 		select {
+ 		case <-ctx.Done():
+ 			return
+ 		case sample := <-d.hotSamples:
+-			if t := d.breach.Observe(sample); t != NoTransition {
++			t, closed := d.breach.Observe(sample)
++			if t != NoTransition {
+ 				d.applyHotPathTransition(t)
+ 			}
+-			d.updateBudgetsCache()
++			if closed {
++				d.updateBudgetsCache()
++			}
+ 		}
+ 	}
+ }
+ 
+ // updateBudgetsCache calls obs.Registry.CheckBudgets and caches the result for the status route
+ // (task-5-spec.md: "Budgets = the breaches from the most recent CheckBudgets result (cache it on
+ // the daemon)").
+ func (d *daemon) updateBudgetsCache() {
+ 	if d.m == nil {
+ 		return
+@@ -212,29 +256,35 @@ func (d *daemon) updateBudgetsCache() {
+ 	d.lastBudgets = breaches
+ 	d.histMu.Unlock()
+ }
+ 
+ // applyHotPathTransition is §12.2's sync<->spool submode transition. Both directions log and
+ // count regardless of spoolOnBreach; only the actual mode flip (registry.SetHotMode + WriteState)
+ // is gated on it, so an operator who disabled the fallback still gets full visibility into every
+ // window that would otherwise have tripped it (TestSpoolOnBreachFalseDoesNotTransition).
+ func (d *daemon) applyHotPathTransition(t Transition) {
+ 	cfg := d.currentCfg()
++	// A config reload does not currently re-apply cfg.Runtime.HotPath.BudgetMs/BreachWindows to
++	// the already-constructed breachDetector (M-5), so the log reports the detector's own actual
++	// limit/need — what it just gated the transition on — rather than cfg's current (possibly
++	// since-reloaded and therefore different) values, which would otherwise be actively
++	// misleading.
++	limit, need := d.breach.Config()
+ 	switch t {
+ 	case ToSpool:
+ 		if d.m != nil {
+ 			d.m.Counter(counterHotpathDegraded).Add(1)
+ 		}
+ 		d.log.Warn("daemon: hot path degraded to spool submode",
+-			"budget_ms", cfg.Runtime.HotPath.BudgetMs, "windows", cfg.Runtime.HotPath.BreachWindows)
++			"budget_ms", limit.Milliseconds(), "windows", need)
+ 		d.log.Loud("daemon: hot path degraded to spool submode",
+-			"budget_ms", cfg.Runtime.HotPath.BudgetMs, "windows", cfg.Runtime.HotPath.BreachWindows)
++			"budget_ms", limit.Milliseconds(), "windows", need)
+ 		if !cfg.Runtime.HotPath.SpoolOnBreach {
+ 			return
+ 		}
+ 		d.registry.SetHotMode(ipc.HotSpool, "breach")
+ 		_ = ipc.WriteState(d.root, d.currentState())
+ 	case ToSync:
+ 		d.log.Info("daemon: hot path reverted to sync submode")
+ 		d.log.Loud("daemon: hot path reverted to sync submode")
+ 		d.registry.SetHotMode(ipc.HotSync, "")
+ 		_ = ipc.WriteState(d.root, d.currentState())
+@@ -254,20 +304,25 @@ func (d *daemon) handleObserveTool(ctx context.Context, req ipc.Request) ipc.Res
+ func (d *daemon) handleObserveStop(ctx context.Context, req ipc.Request) ipc.Response {
+ 	return d.acceptHotPathEvent(req)
+ }
+ 
+ // acceptHotPathEvent is observe.tool's and observe.stop's shared body: registry.Touch, then
+ // ingest.Accept gated on Mode.MayRecord() (ModeOff -> skipped entirely: ACK returned, nothing
+ // written, per the mode-enforcement table's row 1).
+ func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
+ 	ev := resolveEvent(req)
+ 	now := core.NowMilli(d.clk)
++	// Deliberately unconditional: the mode-enforcement table groups registry.Touch with
++	// ingest.Accept as "skipped" under ModeOff, but liveness tracking (LastActivity/Live, which
++	// the idle-exit timer reads) is cheap, in-memory, and arguably worth keeping even while
++	// ModeOff suppresses recording — a session that is still sending traffic should not look idle
++	// to Run's own idle-exit tick just because the operator turned recording off (M-2).
+ 	d.registry.Touch(ev.SessionID, now)
+ 
+ 	if !d.monitor.Mode().MayRecord() {
+ 		return ipc.Response{OK: true}
+ 	}
+ 
+ 	line, err := ipc.EncodeRequest(req)
+ 	if err != nil {
+ 		return ipc.Response{OK: false, Err: err.Error()}
+ 	}
+@@ -355,56 +410,93 @@ func (d *daemon) scanSentinelForPrompt(ev *hookio.Event) {
+ 
+ // handleSessionStart is the session.start warm path (task-5-spec.md handlers.go, normative
+ // ordering): the contract monitor runs before any other work (§5.21), the sentinel is minted only
+ // when the mode MayAct(), and the session_start.fires marker is deliberately never written here
+ // — see contract.WriteMarker's own doc comment for why.
+ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Response {
+ 	ev := resolveEvent(req)
+ 	now := core.NowMilli(d.clk)
+ 
+ 	d.maybeReloadConfig(ctx, d.cfgEnv)
++
++	// A brand-new session id resets the breach detector's ring and streaks, mirroring
++	// registry.Ensure's own reset of the hot-path submode to HotSync (task-3, registry.go): a
++	// partially-filled window carrying breaching samples from a previous, unrelated session must
++	// never close on this session's very first request (fix round 1, I-7/I-8). The existence
++	// check happens BEFORE Ensure so "new" means what registry.Ensure itself means.
++	_, existedBefore := d.registry.Get(ev.SessionID)
+ 	d.registry.Ensure(ev, now)
++	if !existedBefore {
++		d.breach.Reset()
++	}
+ 	cfg := d.currentCfg()
+ 
++	// Phase 1 (locked): RunAll and its own history mutations. RunAll is this package's own
++	// bounded work (StandardAssertions' Checks) rather than a third-party seam, so serializing it
++	// behind historyMu is safe and keeps its history reads/writes atomic with respect to any
++	// concurrent route. Saved and unlocked immediately after — never held across the seam call
++	// below (fix round 1, I-5).
+ 	d.historyMu.Lock()
+-	defer d.historyMu.Unlock()
+-
+ 	h := contract.LoadHistory(contract.HistoryPath(d.root))
+ 	env := contract.Env{
+ 		ProjectRoot: d.root,
+ 		Event:       *ev,
+ 		Cfg:         cfg,
+ 		Store:       d.svc.Store,
+ 		Log:         d.log,
+ 		Clock:       d.clk,
+ 		History:     h,
+ 	}
+ 	results, mode := d.monitor.RunAll(ctx, env)
+ 	justDegraded := d.recordContractObservability(results, mode)
+-
+ 	_ = ipc.WriteState(d.root, d.currentState())
++	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
++		d.log.Warn("daemon: failed to save history after RunAll", "err", err)
++	}
++	d.historyMu.Unlock()
+ 
++	// Phase 2 (unlocked): the wave-3 seam call. A seam's own budget (B-E is 2s) or, in principle,
++	// a re-entrant call back into the daemon via DaemonFrom(ctx) must never be serialized behind
++	// historyMu — every other history-touching route (checkpoint, the observe.prompt sentinel
++	// scan) would otherwise queue behind one slow or misbehaving seam, and a re-entrant call would
++	// self-deadlock on a non-reentrant mutex (fix round 1, I-5).
+ 	var out hookio.Output
+ 	if mode.MayAct() && d.svc.SessionStart != nil {
+ 		if o, err := d.svc.SessionStart(ctx, *ev); err == nil {
+ 			out = o
+ 		} else {
+ 			d.log.Warn("daemon: SessionStart failed", "err", err)
+ 			out = hookio.Empty()
+ 		}
+ 	} else {
+ 		out = hookio.Empty()
+ 	}
+ 
++	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
++	// phase 2 ran unlocked — then apply this route's remaining mutations on top of the fresh copy
++	// and save.
++	d.historyMu.Lock()
++	defer d.historyMu.Unlock()
++	h = contract.LoadHistory(contract.HistoryPath(d.root))
++
+ 	if mode.MayAct() {
+ 		s := contract.MintSentinel(ev.SessionID, now)
+-		h.Sentinel = contract.SentinelState{Token: s.Token, Session: ev.SessionID, MintedAt: now}
++		// Only the token's own identifying fields are assigned — never the whole struct.
++		// SentinelState.Observed is documented as "never resets to false" once the mechanism has
++		// proven itself (contract/history.go), so a session.start that mints a fresh token must
++		// leave it exactly as RecordSentinelScan last left it (fix round 1, I-2). Chances DOES
++		// reset to 0 here, deliberately: it counts consecutive scans that missed THIS token, and a
++		// freshly minted token has had zero chances to be found yet.
++		h.Sentinel.Token = s.Token
++		h.Sentinel.Session = ev.SessionID
++		h.Sentinel.MintedAt = now
++		h.Sentinel.Chances = 0
+ 		if out.HookSpecificOutput == nil {
+ 			out.HookSpecificOutput = &hookio.HSO{HookEventName: hookEventNameSessionStart}
+ 		}
+ 		sentinelText := contract.RenderSentinel(s)
+ 		if out.HookSpecificOutput.AdditionalContext == "" {
+ 			out.HookSpecificOutput.AdditionalContext = sentinelText
+ 		} else {
+ 			out.HookSpecificOutput.AdditionalContext += "\n" + sentinelText
+ 		}
+ 	}
+@@ -475,56 +567,74 @@ func degradeBanner(results []contract.Result) string {
+ }
+ 
+ // handleCheckpoint is the checkpoint route: records the PreCompact observation into History,
+ // writes the terminal-hook marker, then — when svc.PreCompact is bound and the mode MayAct() —
+ // calls it timed into the B-E histogram, and captures any returned CustomInstructions.
+ func (d *daemon) handleCheckpoint(ctx context.Context, req ipc.Request) ipc.Response {
+ 	ev := resolveEvent(req)
+ 	now := core.NowMilli(d.clk)
+ 	routeStart := d.clk.Now()
+ 
++	// Phase 1 (locked): record the PreCompact observation — this package's own file I/O only,
++	// no seam call — and save immediately, matching the spec's own ordering (history observation,
++	// then the marker, then the seam call).
+ 	d.historyMu.Lock()
+-	defer d.historyMu.Unlock()
+-
+ 	h := contract.LoadHistory(contract.HistoryPath(d.root))
+ 	h.LastPrecompactTS = now
+ 	h.LastPrecompactSession = ev.SessionID
+ 	h.AwaitingCompactStart = true
+ 	if h.PrecompactTimeoutMs == 0 {
+ 		h.PrecompactTimeoutMs = precompactTimeoutMs()
+ 	}
+-
+ 	mode := d.monitor.Mode()
++	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
++		d.log.Warn("daemon: failed to save history", "err", err)
++	}
++	d.historyMu.Unlock()
++
++	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
++		d.log.Warn("daemon: WriteMarker failed", "err", err)
++	}
++
++	// Phase 2 (unlocked): the wave-3 seam call, timed into B-E — its own budget is 2s, which must
++	// never be spent holding historyMu (fix round 1, I-5): every other history-touching route
++	// would queue behind it for the duration.
+ 	out := hookio.Empty()
+ 	if d.svc.PreCompact != nil && mode.MayAct() {
+ 		var callErr error
++		// d.m is dereferenced unguarded here and in handleStatus (M-12): New always seeds it
++		// (obs.New(o.Clock) when o.Metrics is nil), so it is never nil for a *daemon reached
++		// through New — unlike the ingest/drain layer's defensive "if i.m != nil" checks, which
++		// exist because those types are also constructible directly by tests without going
++		// through New.
+ 		_ = obs.Timed(d.m.Hist(histName(obs.BE)), func() error {
+ 			o, err := d.svc.PreCompact(ctx, *ev)
+ 			callErr = err
+ 			if err == nil {
+ 				out = o
+ 			}
+ 			return err
+ 		})
+ 		if callErr != nil {
+ 			d.log.Warn("daemon: PreCompact failed", "err", callErr)
+ 		}
+ 	}
+ 
++	// Phase 3 (re-locked): re-load — a concurrent route may have saved its own changes while
++	// phase 2 ran unlocked — then apply this route's remaining mutations and save.
++	d.historyMu.Lock()
++	defer d.historyMu.Unlock()
++	h = contract.LoadHistory(contract.HistoryPath(d.root))
++
+ 	if out.HookSpecificOutput != nil && out.HookSpecificOutput.CustomInstructions != "" {
+ 		h.SetPrecompactInstr(out.HookSpecificOutput.CustomInstructions)
+ 	}
+-
+-	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
+-		d.log.Warn("daemon: WriteMarker failed", "err", err)
+-	}
+-
+ 	h.AddPrecompactWallSample(d.clk.Now().Sub(routeStart).Milliseconds())
+ 
+ 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
+ 		d.log.Warn("daemon: failed to save history", "err", err)
+ 	}
+ 
+ 	return ipc.Response{OK: true, Output: &out}
+ }
+ 
+ // precompactTimeoutMs reads the PreCompact hook's manifest timeout (internal/pluginmanifest),
+@@ -537,40 +647,58 @@ func precompactTimeoutMs() int64 {
+ 	if !ok || len(groups) == 0 || len(groups[0].Hooks) == 0 {
+ 		return 0
+ 	}
+ 	const msPerSecond = 1000
+ 	return int64(groups[0].Hooks[0].Timeout) * msPerSecond
+ }
+ 
+ // handleFlush is the flush (SessionEnd) route: registry.End, ingest.CloseSession, svc.SessionEnd
+ // when bound and the mode MayRecord(), the terminal-hook marker, SketchSet.Save, then Drain.
+ func (d *daemon) handleFlush(ctx context.Context, req ipc.Request) ipc.Response {
++	return d.flushRoute(ctx, req, true)
++}
++
++// flushRoute is handleFlush's body, with the trailing Drain call made optional. drainDispatch
++// passes false: a flush line replayed BY Drain must never call back into Drain on the same
++// goroutine — drainer.Drain holds a plain, non-reentrant sync.Mutex for the whole replay
++// (drain.go's dr.mu), so a re-entrant call would deadlock the daemon permanently on the very
++// first drained flush line, including the startup drain that runs before Serve ever accepts a
++// connection (Critical C-1, fix round 1).
++func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ipc.Response {
+ 	ev := resolveEvent(req)
+ 	now := core.NowMilli(d.clk)
+ 
+ 	d.registry.End(ev.SessionID, now)
+ 	_ = d.ing.CloseSession(ev.SessionID)
+ 
++	// MayRecord() is an extra mode-check site beyond the normative table's list — defensible
++	// because SessionEnd is SP-08's L1 flush semantics (store.Flush and friends), which is
++	// recording work, not acting work, so it belongs behind the same predicate row 1's
++	// ingest.Accept uses, not behind MayAct() (M-3).
+ 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
+ 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
+ 			d.log.Warn("daemon: SessionEnd failed", "err", err)
+ 		}
+ 	}
+ 
+ 	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
+ 		d.log.Warn("daemon: WriteMarker failed", "err", err)
+ 	}
+ 
+ 	if d.svc.Sketches != nil {
+ 		d.svc.Sketches.Save(d.root, d.log)
+ 	}
+ 
++	if !drain {
++		return ipc.Response{OK: true}
++	}
++
+ 	n, err := d.Drain(ctx)
+ 	data, _ := json.Marshal(map[string]any{"drained": n})
+ 	if err != nil {
+ 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
+ 	}
+ 	return ipc.Response{OK: true, Data: data}
+ }
+ 
+ // handleStatus assembles the StatusSnapshot payload. Nothing here mutates daemon state; every
+ // field is read from something already maintained elsewhere (the metrics registry, the monitor,
+@@ -688,12 +816,12 @@ func (d *daemon) idleDrain(ctx context.Context) error {
+ }
+ 
+ func (d *daemon) idleSaveSketches(ctx context.Context) error {
+ 	if d.svc.Sketches != nil {
+ 		d.svc.Sketches.Save(d.root, d.log)
+ 	}
+ 	return nil
+ }
+ 
+ func (d *daemon) idleWriteMetrics(ctx context.Context) error {
+-	return writeLatencyJSON(d.root, d.m, d.currentCfg())
++	return writeMetricsSnapshot(d.root, d.m)
+ }
+diff --git a/internal/daemon/metrics.go b/internal/daemon/metrics.go
+index e60bb02..12e3787 100644
+--- a/internal/daemon/metrics.go
++++ b/internal/daemon/metrics.go
+@@ -1,91 +1,39 @@
+ package daemon
+ 
+ import (
+-	"encoding/json"
+-	"os"
+-	"path/filepath"
+-	"time"
+-
+-	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // The obs.Counter names this package's own components increment (repo underscore idiom, not
+ // §2.4's dotted prose spelling). Collected in one place because ingest.go and drain.go both need
+ // them. handlers.go and idle.go declare their own additions alongside their own call sites, but
+ // this file remains the one every counter name is at least reachable from via histName/grep.
+ const (
+ 	counterL0RingFull     = "l0_ring_full"
+ 	counterL0WorkerPanic  = "l0_worker_panic"
+ 	counterDrainFileError = "drain_file_error"
+ )
+ 
+-// latencyFileName is metrics/latency.json's basename, matching obs.Registry.Persist's own target
+-// file for the *other* metrics artifact — this one is the budget table shape task-5-spec.md's
+-// metrics.go section asks for, keyed by budget ID rather than by raw histogram name.
+-const latencyFileName = "latency.json"
+-
+-// writeLatencyJSON renders {"generated":<unixMilli>,"budgets":[{id,metric,limit_ms,gated,p50,p95,
+-// p99,p999,max,n}]} for every obs.Budgets() entry plus the daemon-owned observed-lower-bound
+-// histogram, and writes it to .qompack/metrics/latency.json via paths.WriteAtomic. Called from
+-// the "metrics" idle task and available to the status route.
+-func writeLatencyJSON(root string, m obs.Registry, cfg config.Config) error {
++// writeMetricsSnapshot persists the metrics registry's current Snapshot to
++// .qompack/metrics/latency.json via the shipped obs.Registry.Persist — the ONE writer of that
++// file (ruling #20). A prior revision of this function wrote a second, differently-shaped
++// "writeLatencyJSON" to the same path; two writers racing on one file with two different JSON
++// schemas made metrics/latency.json's shape nondeterministic for SP-14/`/qompack:status` to parse
++// (fix round 1, I-1) — deleted rather than kept alongside Persist.
++func writeMetricsSnapshot(root string, m obs.Registry) error {
+ 	if m == nil {
+ 		return nil
+ 	}
+-	snap := m.Snapshot()
+-
+-	type budgetEntry struct {
+-		ID      string `json:"id"`
+-		Metric  string `json:"metric"`
+-		LimitMs int64  `json:"limit_ms"`
+-		Gated   bool   `json:"gated"`
+-		P50     int64  `json:"p50"`
+-		P95     int64  `json:"p95"`
+-		P99     int64  `json:"p99"`
+-		P999    int64  `json:"p999"`
+-		Max     int64  `json:"max"`
+-		N       int64  `json:"n"`
+-	}
+-
+-	entryFor := func(id, metric string, limit time.Duration, gated bool) budgetEntry {
+-		hs := snap.Hists[metric]
+-		return budgetEntry{
+-			ID: id, Metric: metric, LimitMs: limit.Milliseconds(), Gated: gated,
+-			P50: hs.P50.Milliseconds(), P95: hs.P95.Milliseconds(), P99: hs.P99.Milliseconds(),
+-			P999: hs.P999.Milliseconds(), Max: hs.Max.Milliseconds(), N: hs.N,
+-		}
+-	}
+-
+-	entries := make([]budgetEntry, 0, len(obs.Budgets())+1)
+-	for _, b := range obs.Budgets() {
+-		entries = append(entries, entryFor(string(b.ID), b.Hist, b.Limit(cfg), b.Gated))
+-	}
+-	entries = append(entries, entryFor("observed", histHookControlledObserved, 0, false))
+-
+-	payload := map[string]any{
+-		"generated": time.Now().UnixMilli(),
+-		"budgets":   entries,
+-	}
+-	b, err := json.Marshal(payload)
+-	if err != nil {
+-		return err
+-	}
+-
+-	p := filepath.Join(paths.Of(root).Metrics, latencyFileName)
+-	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
+-		return err
+-	}
+-	return paths.WriteAtomic(p, b, 0o600)
++	return m.Persist(paths.Of(root))
+ }
+ 
+ // loudTail returns the last n non-empty Loud messages, via the shipped logging.LastLoud() ring
+ // (§5.17 "the last five Loud messages") — never by tailing LOUD.log itself. root is accepted to
+ // match task-5-spec.md's signature (a future caller may want a project-scoped ring); the shared
+ // ring is process-wide today, so it is unused.
+ func loudTail(root string, n int) []string {
+ 	_ = root
+ 	all := logging.LastLoud()
+ 	if n <= 0 || len(all) <= n {
+diff --git a/internal/daemon/reload.go b/internal/daemon/reload.go
+index 0d2aa00..45b5f4b 100644
+--- a/internal/daemon/reload.go
++++ b/internal/daemon/reload.go
+@@ -2,20 +2,21 @@ package daemon
+ 
+ import (
+ 	"context"
+ 	"encoding/json"
+ 	"os"
+ 	"path/filepath"
+ 	"reflect"
+ 	"sort"
+ 
+ 	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // configPendingFileName is state/config-pending.json's basename: where a deferred store.chunk.*
+ // change is recorded until the next SessionStart picks it up (§11.2: applying it mid-session
+ // would fork the dedup space).
+ const configPendingFileName = "config-pending.json"
+ 
+ // configJSONPath and configPendingPath name the two files reload.go reads/writes, both derived
+ // from paths.Of so they agree with every other package's own layout.
+@@ -89,20 +90,27 @@ func (d *daemon) reloadConfig(ctx context.Context, env config.Env, force bool) (
+ 		d.log.Loud("daemon: store.chunk.* change deferred to next SessionStart",
+ 			"old", oldCfg.Store.Chunk, "new", newCfg.Store.Chunk)
+ 		if perr := d.writeConfigPending(newCfg); perr != nil {
+ 			d.log.Warn("daemon: failed to persist state/config-pending.json", "err", perr)
+ 		}
+ 	}
+ 
+ 	changed := diffDottedKeys(oldCfg, finalCfg)
+ 	if len(changed) > 0 {
+ 		d.log.Info("daemon: config reloaded", "changed", changed)
++		// state.bin carries ConnectDeadlineMs/AckDeadlineMs/MaxPayloadBytes/SpoolOnBreach/
++		// DaemonEnabled — every client reads it at construction, so a reload of any of those
++		// keys is invisible until this is rewritten (fix round 1, I-4). The idle-tick reload
++		// path has no other opportunity to propagate a change at all.
++		if err := ipc.WriteState(d.root, d.currentState()); err != nil {
++			d.log.Warn("daemon: failed to rewrite state.bin after reload", "err", err)
++		}
+ 	}
+ 	return changed, nil
+ }
+ 
+ // writeConfigPending persists cfg — the FULL reloaded config, including the deferred store.chunk.*
+ // block — to state/config-pending.json, so the next SessionStart (or an operator running `qompack
+ // doctor`) can see exactly what is waiting to take effect.
+ func (d *daemon) writeConfigPending(cfg config.Config) error {
+ 	b, err := json.MarshalIndent(cfg, "", "  ")
+ 	if err != nil {
