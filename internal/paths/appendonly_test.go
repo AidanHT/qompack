@@ -385,3 +385,116 @@ func TestReplaceBloom_WriteStagingFileFails(t *testing.T) {
 	err := paths.ReplaceBloom(l, []byte("v1"), 1)
 	require.Error(t, err)
 }
+
+// TestHighestBloomBackupSeq_Table pins the scan two callers depend on: sketch.ReplaceGenerational
+// pre-flights against it so a low sequence is refused before pruning can delete the backup a
+// rollback would need, and SP-09 resumes its rebuild counter from it after a restart.
+//
+// The rows that matter most are the ones that must NOT count. It shares its parser with
+// pruneBloomBackups precisely so that "what the pruner will delete" and "what this reports" cannot
+// drift, and a name only one of the two recognised would put the two out of step in the direction
+// that loses a file.
+func TestHighestBloomBackupSeq_Table(t *testing.T) {
+	t.Run("a sketches directory that does not exist is not an error", func(t *testing.T) {
+		// The ordinary state of a project whose first session has not written a filter yet. An
+		// error here would make a cold start indistinguishable from an unreadable store.
+		l := paths.Of(filepath.Join(t.TempDir(), "no-such-project"))
+		seq, ok, err := paths.HighestBloomBackupSeq(l)
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Zero(t, seq)
+	})
+
+	t.Run("an empty sketches directory reports no backup", func(t *testing.T) {
+		l := newLayout(t)
+		seq, ok, err := paths.HighestBloomBackupSeq(l)
+		require.NoError(t, err)
+		require.False(t, ok)
+		require.Zero(t, seq)
+	})
+
+	t.Run("the live file alone is not a backup", func(t *testing.T) {
+		l := newLayout(t)
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "tried.bloom"), []byte("v0"), 0o600))
+		_, ok, err := paths.HighestBloomBackupSeq(l)
+		require.NoError(t, err)
+		require.False(t, ok, "tried.bloom itself carries no sequence")
+	})
+
+	t.Run("the highest sequence wins, not the newest file", func(t *testing.T) {
+		l := newLayout(t)
+		// Written in ascending order and then a lower one last, because the whole reason this
+		// function exists is that pruneBloomBackups keeps the highest rather than the newest.
+		for _, n := range []string{"2", "10", "9", "3"} {
+			require.NoError(t, os.WriteFile(
+				filepath.Join(l.Sketches, "tried.bloom."+n+".bak"), []byte("v"+n), 0o600))
+		}
+		seq, ok, err := paths.HighestBloomBackupSeq(l)
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, 10, seq, "10 beats 9 numerically; a lexical comparison would answer 9")
+	})
+
+	t.Run("unrelated, malformed and directory entries are ignored", func(t *testing.T) {
+		l := newLayout(t)
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "tried.bloom.4.bak"), []byte("v4"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "touch.cms"), []byte("cms"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "segment-12.bloom"), []byte("seg"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "tried.bloom.notanumber.bak"), []byte("x"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "tried.bloom.99.bak.old"), []byte("x"), 0o600))
+		// A directory whose name IS backup-shaped: skipped like the pruner skips it, since a
+		// directory is not a generation and must not raise the floor a caller's seq has to clear.
+		require.NoError(t, os.MkdirAll(filepath.Join(l.Sketches, "tried.bloom.999.bak"), 0o700))
+
+		seq, ok, err := paths.HighestBloomBackupSeq(l)
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, 4, seq)
+	})
+
+	t.Run("what ReplaceBloom leaves behind is what this reports", func(t *testing.T) {
+		// The two must agree by construction, which is why they share bloomBackupSeq: this is the
+		// arrangement sketch.ReplaceGenerational pre-flights against.
+		l := newLayout(t)
+		require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "tried.bloom"), []byte("v0"), 0o600))
+		require.NoError(t, paths.ReplaceBloom(l, []byte("v1"), 1))
+		require.NoError(t, paths.ReplaceBloom(l, []byte("v2"), 9))
+
+		seq, ok, err := paths.HighestBloomBackupSeq(l)
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, 9, seq, "pruning kept 9.bak, so 9 is the sequence a caller must exceed")
+	})
+}
+
+// TestHighestBloomBackupSeq_UnreadableDirIsAnError is the other half of the missing-directory rule:
+// a directory that exists but cannot be listed must NOT read as "no backups". Answering false there
+// would tell sketch.ReplaceGenerational that any sequence is safe, which is exactly the state the
+// pre-flight exists to refuse.
+//
+// It uses icacls for the same reason TestReplaceBloom_PruneSurvivesUnreadableSketchesDir does: a
+// chmod is a no-op for an administrator on Windows and would make the assertion vacuous.
+func TestHighestBloomBackupSeq_UnreadableDirIsAnError(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("platform: icacls is windows-specific")
+	}
+	u, err := user.Current()
+	if err != nil {
+		t.Skipf("platform: could not determine current user: %v", err)
+	}
+
+	l := newLayout(t)
+	require.NoError(t, os.WriteFile(filepath.Join(l.Sketches, "tried.bloom.7.bak"), []byte("v7"), 0o600))
+
+	if out, denyErr := exec.Command("icacls", l.Sketches, "/deny", u.Username+":(RD)").CombinedOutput(); denyErr != nil {
+		t.Skipf("platform: icacls deny unavailable in this environment: %v: %s", denyErr, out)
+	}
+	t.Cleanup(func() {
+		_, _ = exec.Command("icacls", l.Sketches, "/remove:d", u.Username).CombinedOutput()
+	})
+
+	seq, ok, err := paths.HighestBloomBackupSeq(l)
+	require.Error(t, err, "an unreadable directory must not be reported as an empty one")
+	require.False(t, ok)
+	require.Zero(t, seq)
+}

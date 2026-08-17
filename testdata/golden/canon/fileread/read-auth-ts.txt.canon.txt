@@ -1,0 +1,171 @@
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
+import { Redis } from 'ioredis';
+
+import { logger } from '../lib/logger';
+import { config } from '../config';
+import { UserRepository } from '../repositories/user-repository';
+import { AuditLog } from '../services/audit-log';
+import { RateLimiter } from '../services/rate-limiter';
+
+const ACCESS_TOKEN_TTL_SECONDS = 900;
+const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
+const SESSION_KEY_PREFIX = 'sess:';
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+
+export type AuthErrorCode =
+  | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_LOCKED'
+  | 'TOKEN_EXPIRED'
+  | 'TOKEN_MALFORMED'
+  | 'SESSION_REVOKED';
+
+export class AuthError extends Error {
+  readonly code: AuthErrorCode;
+
+  constructor(code: AuthErrorCode, message: string) {
+    super(message);
+    this.name = 'AuthError';
+    this.code = code;
+  }
+}
+
+export interface Session {
+  readonly id: string;
+  readonly userId: string;
+  readonly issuedAt: number;
+  readonly expiresAt: number;
+  readonly scopes: readonly string[];
+  readonly userAgent?: string;
+}
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface AuthServiceDeps {
+  users: UserRepository;
+  redis: Redis;
+  audit: AuditLog;
+  limiter: RateLimiter;
+}
+
+function constantTimeCompare(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'utf8');
+  const right = Buffer.from(b, 'utf8');
+  if (left.length !== right.length) {
+    return false;
+  }
+  return timingSafeEqual(left, right);
+}
+
+function hashRefreshToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+export class AuthService {
+  private readonly users: UserRepository;
+  private readonly redis: Redis;
+  private readonly audit: AuditLog;
+  private readonly limiter: RateLimiter;
+  private readonly secret: Uint8Array;
+
+  constructor(deps: AuthServiceDeps) {
+    this.users = deps.users;
+    this.redis = deps.redis;
+    this.audit = deps.audit;
+    this.limiter = deps.limiter;
+    this.secret = new TextEncoder().encode(config.auth.signingSecret);
+  }
+
+  async login(email: string, password: string, userAgent?: string): Promise<TokenPair> {
+    const normalized = email.trim().toLowerCase();
+    const allowed = await this.limiter.consume(`login:${normalized}`, MAX_FAILED_ATTEMPTS, LOCKOUT_WINDOW_MS);
+    if (!allowed) {
+      await this.audit.record('auth.login.locked', { email: normalized });
+      throw new AuthError('ACCOUNT_LOCKED', 'too many failed attempts, try again later');
+    }
+
+    const user = await this.users.findByEmail(normalized);
+    if (!user) {
+      logger.warn({ email: normalized }, 'login attempt for unknown account');
+      throw new AuthError('INVALID_CREDENTIALS', 'email or password is incorrect');
+    }
+
+    const derived = createHash('sha256').update(`${user.salt}:${password}`).digest('hex');
+    if (!constantTimeCompare(derived, user.passwordHash)) {
+      await this.audit.record('auth.login.failed', { userId: user.id });
+      throw new AuthError('INVALID_CREDENTIALS', 'email or password is incorrect');
+    }
+
+    await this.limiter.reset(`login:${normalized}`);
+    return this.issueTokens(user.id, user.scopes, userAgent);
+  }
+
+  async issueTokens(userId: string, scopes: readonly string[], userAgent?: string): Promise<TokenPair> {
+    const now = Math.floor(Date.now() / 1000);
+    const sessionId = randomBytes(18).toString('base64url');
+
+    const accessToken = await new SignJWT({ sub: userId, scopes: [...scopes], sid: sessionId })
+      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+      .setIssuedAt(now)
+      .setIssuer(config.auth.issuer)
+      .setAudience(config.auth.audience)
+      .setExpirationTime(now + ACCESS_TOKEN_TTL_SECONDS)
+      .sign(this.secret);
+
+    const refreshToken = randomBytes(32).toString('base64url');
+    const session: Session = {
+      id: sessionId,
+      userId,
+      issuedAt: now,
+      expiresAt: now + REFRESH_TOKEN_TTL_SECONDS,
+      scopes: [...scopes],
+      userAgent,
+    };
+
+    await this.redis.set(
+      `${SESSION_KEY_PREFIX}${sessionId}`,
+      JSON.stringify({ ...session, refreshHash: hashRefreshToken(refreshToken) }),
+      'EX',
+      REFRESH_TOKEN_TTL_SECONDS,
+    );
+
+    await this.audit.record('auth.token.issued', { userId, sessionId });
+    return { accessToken, refreshToken, expiresIn: ACCESS_TOKEN_TTL_SECONDS };
+  }
+
+  async verify(accessToken: string): Promise<JWTPayload> {
+    try {
+      const { payload } = await jwtVerify(accessToken, this.secret, {
+        issuer: config.auth.issuer,
+        audience: config.auth.audience,
+      });
+
+      const sessionId = typeof payload.sid === 'string' ? payload.sid : '';
+      const raw = await this.redis.get(`${SESSION_KEY_PREFIX}${sessionId}`);
+      if (!raw) {
+        throw new AuthError('SESSION_REVOKED', 'session is no longer active');
+      }
+      return payload;
+    } catch (err) {
+      if (err instanceof AuthError) {
+        throw err;
+      }
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('exp')) {
+        throw new AuthError('TOKEN_EXPIRED', 'access token has expired');
+      }
+      throw new AuthError('TOKEN_MALFORMED', `could not verify token: ${message}`);
+    }
+  }
+
+  async revoke(sessionId: string): Promise<void> {
+    const removed = await this.redis.del(`${SESSION_KEY_PREFIX}${sessionId}`);
+    logger.info({ sessionId, removed }, 'session revoked');
+    await this.audit.record('auth.session.revoked', { sessionId });
+  }
+}

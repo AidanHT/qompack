@@ -1,0 +1,8 @@
+token: @@SEC_GH_PAT_ALPHA@@
+api_key = sk-abcdefghijklmnopqrstuvwxyz01
+secret:Bearer abcdefghijklmnop0123456789
+PASSWORD   :   /home/dave/.aws/credentials
+@@SEC_PEM_SSH_BEGIN@@
+b3BlbnNzaC1rZXktdjEAAAAA
+@@SEC_PEM_SSH_END@@
+password: hunter2

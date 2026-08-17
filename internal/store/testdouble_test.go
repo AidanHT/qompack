@@ -380,10 +380,26 @@ func withSymbols(e symbols.Extractor) storeOpt {
 	return func(_ *config.Config, d *Deps) { d.Symbols = e }
 }
 
-// withStubChunker restores the SP-01 stub chunker, so a test can prove splitChecked's data-loss
-// guard actually fires.
+// silentChunker returns nothing for any input, which is what splitChecked's data-loss guard exists
+// to survive.
+//
+// This used to be `chunk.New(chunk.DefaultParams())`, under the name withStubChunker, because the
+// SP-01 stub chunker returned no chunks and borrowing it was cheaper than writing a double. SP-04
+// landed the real FastCDC chunker in the same wave, so that call started splitting properly, the
+// degraded path stopped being taken, and TestPutBytes_ChunkerDegradedGuard began asserting nothing
+// — its `require.Len(res.Root.Chunks, 1)` went on passing for an entirely different reason, and only
+// the counter assertion failed. A test double that depends on another package being unimplemented
+// has an expiry date nobody writes down; this one has none.
+type silentChunker struct{}
+
+func (silentChunker) Split([]byte) []chunk.Chunk { return nil }
+
+func (silentChunker) SplitStream(io.Reader, func(chunk.Chunk, []byte) error) error { return nil }
+
+// withStubChunker injects a chunker that refuses to split, so a test can prove splitChecked's
+// data-loss guard actually fires.
 func withStubChunker() storeOpt {
-	return func(_ *config.Config, d *Deps) { d.Chunker = chunk.New(chunk.DefaultParams()) }
+	return func(_ *config.Config, d *Deps) { d.Chunker = silentChunker{} }
 }
 
 // withCompressionNone turns object compression off.

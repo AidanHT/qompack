@@ -1,0 +1,59 @@
+On branch develop
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	[31mmodified:   internal/canon/canonicalizer.go[m
+	[31mmodified:   internal/canon/doc.go[m
+	[31mmodified:   internal/canon/registry.go[m
+	[31mmodified:   internal/canon/restore.go[m
+	[31mmodified:   plans/V2-SP-02-replay-harness-belady-baseline.md[m
+	[31mmodified:   plans/V2-SP-03-sketch-library.md[m
+	[31mmodified:   plans/V2-SP-04-chunking-canonicalization-and-symbols.md[m
+	[31mmodified:   plans/V2-SP-05-daemon-ipc-and-hot-path.md[m
+	[31mmodified:   plans/V2-SP-06-content-addressed-store.md[m
+	[31mmodified:   plans/V2-SP-07-dependence-dag-and-slicing.md[m
+	[31mmodified:   plans/V2-VERIFY-primitives-store-dag-and-baseline.md[m
+	[31mmodified:   plans/V3-SP-08-observer-l0.md[m
+	[31mmodified:   plans/V3-SP-09-negative-knowledge.md[m
+	[31mmodified:   plans/V3-VERIFY-observer-and-negative-knowledge.md[m
+	[31mmodified:   plans/V4-SP-10-checkpointer-l4.md[m
+	[31mmodified:   plans/V4-SP-11-rehydrator-l5.md[m
+	[31mmodified:   plans/V4-SP-12-scheduler-l3.md[m
+	[31mmodified:   plans/V4-SP-13-mcp-retrieval-layer.md[m
+	[31mmodified:   plans/V4-VERIFY-checkpoint-rehydrate-schedule-retrieval.md[m
+	[31mmodified:   plans/V5-SP-14-slash-commands-and-observability.md[m
+	[31mmodified:   plans/V5-SP-15-analyzer-selection-and-grammar.md[m
+	[31mmodified:   plans/V5-SP-16-phase7-refinements.md[m
+	[31mmodified:   plans/V5-VERIFY-commands-selection-grammar-and-refinements.md[m
+	[31mmodified:   plans/V6-SP-17-packaging-hardening-and-release.md[m
+	[31mmodified:   plans/V6-SP-18-documentation-and-uat.md[m
+	[31mmodified:   plans/V6-VERIFY-production-readiness-and-uat.md[m
+	[31mmodified:   tools/devtool/importrules.go[m
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	[31minternal/canon/apply.go[m
+	[31minternal/canon/bench_test.go[m
+	[31minternal/canon/builtins.go[m
+	[31minternal/canon/classes.go[m
+	[31minternal/canon/classes_test.go[m
+	[31minternal/canon/dedup.go[m
+	[31minternal/canon/dedup_test.go[m
+	[31minternal/canon/default.go[m
+	[31minternal/canon/default_test.go[m
+	[31minternal/canon/errors.go[m
+	[31minternal/canon/fuzz_test.go[m
+	[31minternal/canon/generic.go[m
+	[31minternal/canon/golden_test.go[m
+	[31minternal/canon/match.go[m
+	[31minternal/canon/registry_test.go[m
+	[31minternal/canon/restore_test.go[m
+	[31minternal/canon/testdouble_test.go[m
+	[31minternal/canon/tools.go[m
+	[31minternal/symbols/extract_test.go[m
+	[31mtest/dedup/[m
+	[31mtestdata/corpora/symbols/[m
+	[31mtestdata/corpora/toolout/[m
+	[31mtestdata/golden/canon/[m
+
+no changes added to commit (use "git add" and/or "git commit -a")

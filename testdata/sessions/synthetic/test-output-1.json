@@ -1,0 +1,3428 @@
+{
+  "id": "test-output-heavy-1011",
+  "turns": [
+    {
+      "index": 0,
+      "role": "user",
+      "ts": 1735689600000,
+      "text": "next: step 0",
+      "toolCalls": null,
+      "tokens": 157
+    },
+    {
+      "index": 1,
+      "role": "assistant",
+      "ts": 1735689645000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0001",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 646
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 793
+    },
+    {
+      "index": 2,
+      "role": "assistant",
+      "ts": 1735689690000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0002",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 653
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 561
+    },
+    {
+      "index": 3,
+      "role": "assistant",
+      "ts": 1735689735000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0003",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 298
+          },
+          "paths": [
+            "src/pkg0/file1.go"
+          ]
+        }
+      ],
+      "tokens": 647
+    },
+    {
+      "index": 4,
+      "role": "assistant",
+      "ts": 1735689780000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0004",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 15541
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 728
+    },
+    {
+      "index": 5,
+      "role": "assistant",
+      "ts": 1735689825000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0005",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 293
+          },
+          "paths": [
+            "src/pkg0/file1.go"
+          ]
+        }
+      ],
+      "tokens": 454
+    },
+    {
+      "index": 6,
+      "role": "user",
+      "ts": 1735689870000,
+      "text": "next: step 6",
+      "toolCalls": null,
+      "tokens": 159
+    },
+    {
+      "index": 7,
+      "role": "assistant",
+      "ts": 1735689915000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0007",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1513
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 578
+    },
+    {
+      "index": 8,
+      "role": "assistant",
+      "ts": 1735689960000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0008",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3945
+          },
+          "paths": [
+            "src/pkg0/file2.go"
+          ]
+        }
+      ],
+      "tokens": 418
+    },
+    {
+      "index": 9,
+      "role": "assistant",
+      "ts": 1735690005000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0009",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1775
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 610
+    },
+    {
+      "index": 10,
+      "role": "assistant",
+      "ts": 1735690050000,
+      "text": "settled the approach [decision:dec_20304ad5134c]",
+      "toolCalls": [
+        {
+          "id": "tu_0010",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 6233
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 663
+    },
+    {
+      "index": 11,
+      "role": "assistant",
+      "ts": 1735690095000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0011",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1167
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 761
+    },
+    {
+      "index": 12,
+      "role": "user",
+      "ts": 1735690140000,
+      "text": "next: step 12",
+      "toolCalls": null,
+      "tokens": 72
+    },
+    {
+      "index": 13,
+      "role": "assistant",
+      "ts": 1735690185000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0013",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12576
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 744
+    },
+    {
+      "index": 14,
+      "role": "assistant",
+      "ts": 1735690230000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0014",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14169
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 644
+    },
+    {
+      "index": 15,
+      "role": "assistant",
+      "ts": 1735690275000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0015",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1764
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 711
+    },
+    {
+      "index": 16,
+      "role": "assistant",
+      "ts": 1735690320000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0016",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3515
+          },
+          "paths": [
+            "src/pkg0/file3.go"
+          ]
+        }
+      ],
+      "tokens": 549
+    },
+    {
+      "index": 17,
+      "role": "assistant",
+      "ts": 1735690365000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0017",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1956
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 631
+    },
+    {
+      "index": 18,
+      "role": "user",
+      "ts": 1735690410000,
+      "text": "next: step 18",
+      "toolCalls": null,
+      "tokens": 127
+    },
+    {
+      "index": 19,
+      "role": "assistant",
+      "ts": 1735690455000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0019",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 6379
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 449
+    },
+    {
+      "index": 20,
+      "role": "assistant",
+      "ts": 1735690500000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0020",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1257
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 503
+    },
+    {
+      "index": 21,
+      "role": "assistant",
+      "ts": 1735690545000,
+      "text": "settled the approach [decision:dec_c569bbcd7a09]",
+      "toolCalls": [
+        {
+          "id": "tu_0021",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 253
+          },
+          "paths": [
+            "src/pkg0/file4.go"
+          ]
+        }
+      ],
+      "tokens": 617
+    },
+    {
+      "index": 22,
+      "role": "assistant",
+      "ts": 1735690590000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0022",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12353
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 525
+    },
+    {
+      "index": 23,
+      "role": "assistant",
+      "ts": 1735690635000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0023",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 6735
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 776
+    },
+    {
+      "index": 24,
+      "role": "user",
+      "ts": 1735690680000,
+      "text": "next: step 24",
+      "toolCalls": null,
+      "tokens": 156
+    },
+    {
+      "index": 25,
+      "role": "assistant",
+      "ts": 1735690725000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0025",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2907
+          },
+          "paths": [
+            "src/pkg0/file5.go"
+          ]
+        }
+      ],
+      "tokens": 497
+    },
+    {
+      "index": 26,
+      "role": "assistant",
+      "ts": 1735690770000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0026",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 509
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 608
+    },
+    {
+      "index": 27,
+      "role": "assistant",
+      "ts": 1735690815000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0027",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 4649
+          },
+          "paths": [
+            "src/pkg0/file6.go"
+          ]
+        }
+      ],
+      "tokens": 562
+    },
+    {
+      "index": 28,
+      "role": "assistant",
+      "ts": 1735690860000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0028",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 187
+          },
+          "paths": [
+            "src/pkg0/file1.go"
+          ]
+        }
+      ],
+      "tokens": 614
+    },
+    {
+      "index": 29,
+      "role": "assistant",
+      "ts": 1735690905000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0029",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 680
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 549
+    },
+    {
+      "index": 30,
+      "role": "assistant",
+      "ts": 1735690950000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0030",
+          "name": "record_eliminated",
+          "args": {
+            "approach": "retry with backoff",
+            "reason": "retry with backoff fails under the pinned dependency constraint",
+            "target": "src/pkg0/file1.go"
+          },
+          "result": {
+            "tokens": 64
+          },
+          "paths": [
+            "src/pkg0/file1.go"
+          ]
+        }
+      ],
+      "tokens": 429
+    },
+    {
+      "index": 31,
+      "role": "assistant",
+      "ts": 1735690995000,
+      "text": "settled the approach [decision:dec_77954b8b30fb]",
+      "toolCalls": [
+        {
+          "id": "tu_0031",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4584
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 636
+    },
+    {
+      "index": 32,
+      "role": "assistant",
+      "ts": 1735691040000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0032",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2770
+          },
+          "paths": [
+            "src/pkg0/file7.go"
+          ]
+        }
+      ],
+      "tokens": 563
+    },
+    {
+      "index": 33,
+      "role": "assistant",
+      "ts": 1735691085000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0033",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 727
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 474
+    },
+    {
+      "index": 34,
+      "role": "assistant",
+      "ts": 1735691130000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0034",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 7030
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 543
+    },
+    {
+      "index": 35,
+      "role": "assistant",
+      "ts": 1735691175000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0035",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 350
+          },
+          "paths": [
+            "src/pkg0/file8.go"
+          ]
+        }
+      ],
+      "tokens": 523
+    },
+    {
+      "index": 36,
+      "role": "user",
+      "ts": 1735691220000,
+      "text": "next: step 36",
+      "toolCalls": null,
+      "tokens": 188
+    },
+    {
+      "index": 37,
+      "role": "assistant",
+      "ts": 1735691265000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0037",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 13087
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 579
+    },
+    {
+      "index": 38,
+      "role": "assistant",
+      "ts": 1735691310000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0038",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12351
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 435
+    },
+    {
+      "index": 39,
+      "role": "assistant",
+      "ts": 1735691355000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0039",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1732
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 545
+    },
+    {
+      "index": 40,
+      "role": "assistant",
+      "ts": 1735694955000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0040",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12198
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 698
+    },
+    {
+      "index": 41,
+      "role": "assistant",
+      "ts": 1735695000000,
+      "text": "settled the approach [decision:dec_9bad3adb9234]",
+      "toolCalls": [
+        {
+          "id": "tu_0041",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 8555
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 551
+    },
+    {
+      "index": 42,
+      "role": "user",
+      "ts": 1735695045000,
+      "text": "next: step 42",
+      "toolCalls": null,
+      "tokens": 188
+    },
+    {
+      "index": 43,
+      "role": "assistant",
+      "ts": 1735695090000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0043",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2506
+          },
+          "paths": [
+            "src/pkg1/file9.go"
+          ]
+        }
+      ],
+      "tokens": 579
+    },
+    {
+      "index": 44,
+      "role": "assistant",
+      "ts": 1735695135000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0044",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14760
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 483
+    },
+    {
+      "index": 45,
+      "role": "assistant",
+      "ts": 1735695180000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0045",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 897
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 570
+    },
+    {
+      "index": 46,
+      "role": "assistant",
+      "ts": 1735695225000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0046",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 392
+          },
+          "paths": [
+            "src/pkg1/file9.go"
+          ]
+        }
+      ],
+      "tokens": 415
+    },
+    {
+      "index": 47,
+      "role": "assistant",
+      "ts": 1735695270000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0047",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 10744
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 617
+    },
+    {
+      "index": 48,
+      "role": "user",
+      "ts": 1735695315000,
+      "text": "next: step 48",
+      "toolCalls": null,
+      "tokens": 166
+    },
+    {
+      "index": 49,
+      "role": "assistant",
+      "ts": 1735695360000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0049",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12715
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 577
+    },
+    {
+      "index": 50,
+      "role": "assistant",
+      "ts": 1735695405000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0050",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1778
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 446
+    },
+    {
+      "index": 51,
+      "role": "assistant",
+      "ts": 1735695450000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0051",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 5603
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 526
+    },
+    {
+      "index": 52,
+      "role": "assistant",
+      "ts": 1735695495000,
+      "text": "settled the approach [decision:dec_443e20e6d447]",
+      "toolCalls": [
+        {
+          "id": "tu_0052",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 9437
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 624
+    },
+    {
+      "index": 53,
+      "role": "assistant",
+      "ts": 1735695540000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0053",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1982
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 432
+    },
+    {
+      "index": 54,
+      "role": "user",
+      "ts": 1735695585000,
+      "text": "next: step 54",
+      "toolCalls": null,
+      "tokens": 120
+    },
+    {
+      "index": 55,
+      "role": "assistant",
+      "ts": 1735695630000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0055",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 191
+          },
+          "paths": [
+            "src/pkg1/file10.go"
+          ]
+        }
+      ],
+      "tokens": 655
+    },
+    {
+      "index": 56,
+      "role": "assistant",
+      "ts": 1735695675000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0056",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 326
+          },
+          "paths": [
+            "src/pkg1/file11.go"
+          ]
+        }
+      ],
+      "tokens": 417
+    },
+    {
+      "index": 57,
+      "role": "assistant",
+      "ts": 1735695720000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0057",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 166
+          },
+          "paths": [
+            "src/pkg1/file12.go"
+          ]
+        }
+      ],
+      "tokens": 487
+    },
+    {
+      "index": 58,
+      "role": "assistant",
+      "ts": 1735695765000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0058",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3018
+          },
+          "paths": [
+            "src/pkg0/file1.go"
+          ]
+        }
+      ],
+      "tokens": 671
+    },
+    {
+      "index": 59,
+      "role": "assistant",
+      "ts": 1735695810000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0059",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 6606
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 738
+    },
+    {
+      "index": 60,
+      "role": "assistant",
+      "ts": 1735695855000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0060",
+          "name": "record_eliminated",
+          "args": {
+            "approach": "bump connection limit",
+            "reason": "bump connection limit fails under the pinned dependency constraint",
+            "target": "src/pkg0/file1.go"
+          },
+          "result": {
+            "tokens": 64
+          },
+          "paths": [
+            "src/pkg0/file1.go"
+          ]
+        }
+      ],
+      "tokens": 772
+    },
+    {
+      "index": 61,
+      "role": "assistant",
+      "ts": 1735695900000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0061",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 8204
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 790
+    },
+    {
+      "index": 62,
+      "role": "assistant",
+      "ts": 1735695945000,
+      "text": "settled the approach [decision:dec_ee7ea89a2706]",
+      "toolCalls": [
+        {
+          "id": "tu_0062",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 8946
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 437
+    },
+    {
+      "index": 63,
+      "role": "assistant",
+      "ts": 1735695990000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0063",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14477
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 489
+    },
+    {
+      "index": 64,
+      "role": "assistant",
+      "ts": 1735696035000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0064",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 316
+          },
+          "paths": [
+            "src/pkg1/file13.go"
+          ]
+        }
+      ],
+      "tokens": 667
+    },
+    {
+      "index": 65,
+      "role": "assistant",
+      "ts": 1735696080000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0065",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3639
+          },
+          "paths": [
+            "src/pkg1/file14.go"
+          ]
+        }
+      ],
+      "tokens": 560
+    },
+    {
+      "index": 66,
+      "role": "user",
+      "ts": 1735696125000,
+      "text": "next: step 66",
+      "toolCalls": null,
+      "tokens": 79
+    },
+    {
+      "index": 67,
+      "role": "assistant",
+      "ts": 1735696170000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0067",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2840
+          },
+          "paths": [
+            "src/pkg1/file15.go"
+          ]
+        }
+      ],
+      "tokens": 483
+    },
+    {
+      "index": 68,
+      "role": "assistant",
+      "ts": 1735696215000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0068",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 3772
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 666
+    },
+    {
+      "index": 69,
+      "role": "assistant",
+      "ts": 1735696260000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0069",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 200
+          },
+          "paths": [
+            "src/pkg1/file16.go"
+          ]
+        }
+      ],
+      "tokens": 594
+    },
+    {
+      "index": 70,
+      "role": "assistant",
+      "ts": 1735696305000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0070",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 11354
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 766
+    },
+    {
+      "index": 71,
+      "role": "assistant",
+      "ts": 1735696350000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0071",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 9257
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 706
+    },
+    {
+      "index": 72,
+      "role": "user",
+      "ts": 1735696395000,
+      "text": "next: step 72",
+      "toolCalls": null,
+      "tokens": 139
+    },
+    {
+      "index": 73,
+      "role": "assistant",
+      "ts": 1735696440000,
+      "text": "settled the approach [decision:dec_f38f539f76f3]",
+      "toolCalls": [
+        {
+          "id": "tu_0073",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 277
+          },
+          "paths": [
+            "src/pkg1/file17.go"
+          ]
+        }
+      ],
+      "tokens": 539
+    },
+    {
+      "index": 74,
+      "role": "assistant",
+      "ts": 1735696485000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0074",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 203
+          },
+          "paths": [
+            "src/pkg1/file18.go"
+          ]
+        }
+      ],
+      "tokens": 750
+    },
+    {
+      "index": 75,
+      "role": "assistant",
+      "ts": 1735696530000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0075",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 10045
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 464
+    },
+    {
+      "index": 76,
+      "role": "assistant",
+      "ts": 1735696575000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0076",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1420
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 538
+    },
+    {
+      "index": 77,
+      "role": "assistant",
+      "ts": 1735696620000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0077",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 7180
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 735
+    },
+    {
+      "index": 78,
+      "role": "user",
+      "ts": 1735696665000,
+      "text": "next: step 78",
+      "toolCalls": null,
+      "tokens": 138
+    },
+    {
+      "index": 79,
+      "role": "assistant",
+      "ts": 1735696710000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0079",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 289
+          },
+          "paths": [
+            "src/pkg1/file19.go"
+          ]
+        }
+      ],
+      "tokens": 573
+    },
+    {
+      "index": 80,
+      "role": "assistant",
+      "ts": 1735700310000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0080",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1815
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 616
+    },
+    {
+      "index": 81,
+      "role": "assistant",
+      "ts": 1735700355000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0081",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 3673
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 543
+    },
+    {
+      "index": 82,
+      "role": "assistant",
+      "ts": 1735700400000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0082",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 258
+          },
+          "paths": [
+            "src/pkg2/file20.go"
+          ]
+        }
+      ],
+      "tokens": 792
+    },
+    {
+      "index": 83,
+      "role": "assistant",
+      "ts": 1735700445000,
+      "text": "settled the approach [decision:dec_752eb9b431a1]",
+      "toolCalls": [
+        {
+          "id": "tu_0083",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3564
+          },
+          "paths": [
+            "src/pkg2/file21.go"
+          ]
+        }
+      ],
+      "tokens": 666
+    },
+    {
+      "index": 84,
+      "role": "user",
+      "ts": 1735700490000,
+      "text": "next: step 84",
+      "toolCalls": null,
+      "tokens": 67
+    },
+    {
+      "index": 85,
+      "role": "assistant",
+      "ts": 1735700535000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0085",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 16054
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 669
+    },
+    {
+      "index": 86,
+      "role": "assistant",
+      "ts": 1735700580000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0086",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 827
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 538
+    },
+    {
+      "index": 87,
+      "role": "assistant",
+      "ts": 1735700625000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0087",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 15498
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 433
+    },
+    {
+      "index": 88,
+      "role": "assistant",
+      "ts": 1735700670000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0088",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 391
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 468
+    },
+    {
+      "index": 89,
+      "role": "assistant",
+      "ts": 1735700715000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0089",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 9804
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 450
+    },
+    {
+      "index": 90,
+      "role": "assistant",
+      "ts": 1735700760000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0090",
+          "name": "record_eliminated",
+          "args": {
+            "approach": "cache the lookup",
+            "reason": "cache the lookup fails under the pinned dependency constraint",
+            "target": "src/pkg0/file7.go"
+          },
+          "result": {
+            "tokens": 64
+          },
+          "paths": [
+            "src/pkg0/file7.go"
+          ]
+        }
+      ],
+      "tokens": 483
+    },
+    {
+      "index": 91,
+      "role": "assistant",
+      "ts": 1735700805000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0091",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 9970
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 513
+    },
+    {
+      "index": 92,
+      "role": "assistant",
+      "ts": 1735700850000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0092",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4845
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 431
+    },
+    {
+      "index": 93,
+      "role": "assistant",
+      "ts": 1735700895000,
+      "text": "settled the approach [decision:dec_bd10e6af0e68]",
+      "toolCalls": [
+        {
+          "id": "tu_0093",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 948
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 688
+    },
+    {
+      "index": 94,
+      "role": "assistant",
+      "ts": 1735700940000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0094",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 271
+          },
+          "paths": [
+            "src/pkg2/file22.go"
+          ]
+        }
+      ],
+      "tokens": 669
+    },
+    {
+      "index": 95,
+      "role": "assistant",
+      "ts": 1735700985000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0095",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 339
+          },
+          "paths": [
+            "src/pkg2/file23.go"
+          ]
+        }
+      ],
+      "tokens": 570
+    },
+    {
+      "index": 96,
+      "role": "user",
+      "ts": 1735701030000,
+      "text": "next: step 96",
+      "toolCalls": null,
+      "tokens": 175
+    },
+    {
+      "index": 97,
+      "role": "assistant",
+      "ts": 1735701075000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0097",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 5389
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 730
+    },
+    {
+      "index": 98,
+      "role": "assistant",
+      "ts": 1735701120000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0098",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 1948
+          },
+          "paths": [
+            "src/pkg2/file24.go"
+          ]
+        }
+      ],
+      "tokens": 536
+    },
+    {
+      "index": 99,
+      "role": "assistant",
+      "ts": 1735701165000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0099",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 10540
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 790
+    },
+    {
+      "index": 100,
+      "role": "assistant",
+      "ts": 1735701210000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0100",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 233
+          },
+          "paths": [
+            "src/pkg2/file25.go"
+          ]
+        }
+      ],
+      "tokens": 568
+    },
+    {
+      "index": 101,
+      "role": "assistant",
+      "ts": 1735701255000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0101",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2218
+          },
+          "paths": [
+            "src/pkg2/file24.go"
+          ]
+        }
+      ],
+      "tokens": 560
+    },
+    {
+      "index": 102,
+      "role": "user",
+      "ts": 1735701300000,
+      "text": "next: step 102",
+      "toolCalls": null,
+      "tokens": 179
+    },
+    {
+      "index": 103,
+      "role": "assistant",
+      "ts": 1735701345000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0103",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 13339
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 751
+    },
+    {
+      "index": 104,
+      "role": "assistant",
+      "ts": 1735701390000,
+      "text": "settled the approach [decision:dec_dcebfe6f8de7]",
+      "toolCalls": [
+        {
+          "id": "tu_0104",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1125
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 765
+    },
+    {
+      "index": 105,
+      "role": "assistant",
+      "ts": 1735701435000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0105",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 395
+          },
+          "paths": [
+            "src/pkg2/file26.go"
+          ]
+        }
+      ],
+      "tokens": 644
+    },
+    {
+      "index": 106,
+      "role": "assistant",
+      "ts": 1735701480000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0106",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 7308
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 520
+    },
+    {
+      "index": 107,
+      "role": "assistant",
+      "ts": 1735701525000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0107",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1956
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 462
+    },
+    {
+      "index": 108,
+      "role": "user",
+      "ts": 1735701570000,
+      "text": "next: step 108",
+      "toolCalls": null,
+      "tokens": 187
+    },
+    {
+      "index": 109,
+      "role": "assistant",
+      "ts": 1735701615000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0109",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 5527
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 481
+    },
+    {
+      "index": 110,
+      "role": "assistant",
+      "ts": 1735701660000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0110",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2845
+          },
+          "paths": [
+            "src/pkg2/file27.go"
+          ]
+        }
+      ],
+      "tokens": 770
+    },
+    {
+      "index": 111,
+      "role": "assistant",
+      "ts": 1735701705000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0111",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 6316
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 798
+    },
+    {
+      "index": 112,
+      "role": "assistant",
+      "ts": 1735701750000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0112",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 10593
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 635
+    },
+    {
+      "index": 113,
+      "role": "assistant",
+      "ts": 1735701795000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0113",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 15559
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 513
+    },
+    {
+      "index": 114,
+      "role": "user",
+      "ts": 1735701840000,
+      "text": "next: step 114",
+      "toolCalls": null,
+      "tokens": 176
+    },
+    {
+      "index": 115,
+      "role": "assistant",
+      "ts": 1735701885000,
+      "text": "settled the approach [decision:dec_ba6e2134a7de]",
+      "toolCalls": [
+        {
+          "id": "tu_0115",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1846
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 445
+    },
+    {
+      "index": 116,
+      "role": "assistant",
+      "ts": 1735701930000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0116",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12099
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 613
+    },
+    {
+      "index": 117,
+      "role": "assistant",
+      "ts": 1735701975000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0117",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1375
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 745
+    },
+    {
+      "index": 118,
+      "role": "assistant",
+      "ts": 1735702020000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0118",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1448
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 621
+    },
+    {
+      "index": 119,
+      "role": "assistant",
+      "ts": 1735702065000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0119",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 8521
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 416
+    },
+    {
+      "index": 120,
+      "role": "user",
+      "ts": 1735705665000,
+      "text": "next: step 120",
+      "toolCalls": null,
+      "tokens": 142
+    },
+    {
+      "index": 121,
+      "role": "assistant",
+      "ts": 1735705710000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0121",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 1771
+          },
+          "paths": [
+            "src/pkg3/file28.go"
+          ]
+        }
+      ],
+      "tokens": 525
+    },
+    {
+      "index": 122,
+      "role": "assistant",
+      "ts": 1735705755000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0122",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12967
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 513
+    },
+    {
+      "index": 123,
+      "role": "assistant",
+      "ts": 1735705800000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0123",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 516
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 607
+    },
+    {
+      "index": 124,
+      "role": "assistant",
+      "ts": 1735705845000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0124",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3158
+          },
+          "paths": [
+            "src/pkg3/file29.go"
+          ]
+        }
+      ],
+      "tokens": 435
+    },
+    {
+      "index": 125,
+      "role": "assistant",
+      "ts": 1735705890000,
+      "text": "settled the approach [decision:dec_b2f3c1ae31d0]",
+      "toolCalls": [
+        {
+          "id": "tu_0125",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 8168
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 678
+    },
+    {
+      "index": 126,
+      "role": "user",
+      "ts": 1735705935000,
+      "text": "next: step 126",
+      "toolCalls": null,
+      "tokens": 173
+    },
+    {
+      "index": 127,
+      "role": "assistant",
+      "ts": 1735705980000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0127",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3610
+          },
+          "paths": [
+            "src/pkg3/file30.go"
+          ]
+        }
+      ],
+      "tokens": 741
+    },
+    {
+      "index": 128,
+      "role": "assistant",
+      "ts": 1735706025000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0128",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4280
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 552
+    },
+    {
+      "index": 129,
+      "role": "assistant",
+      "ts": 1735706070000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0129",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4851
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 494
+    },
+    {
+      "index": 130,
+      "role": "assistant",
+      "ts": 1735706115000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0130",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 5527
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 439
+    },
+    {
+      "index": 131,
+      "role": "assistant",
+      "ts": 1735706160000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0131",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14088
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 495
+    },
+    {
+      "index": 132,
+      "role": "user",
+      "ts": 1735706205000,
+      "text": "next: step 132",
+      "toolCalls": null,
+      "tokens": 121
+    },
+    {
+      "index": 133,
+      "role": "assistant",
+      "ts": 1735706250000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0133",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 15478
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 407
+    },
+    {
+      "index": 134,
+      "role": "assistant",
+      "ts": 1735706295000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0134",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14319
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 537
+    },
+    {
+      "index": 135,
+      "role": "assistant",
+      "ts": 1735706340000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0135",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 217
+          },
+          "paths": [
+            "src/pkg3/file31.go"
+          ]
+        }
+      ],
+      "tokens": 753
+    },
+    {
+      "index": 136,
+      "role": "assistant",
+      "ts": 1735706385000,
+      "text": "settled the approach [decision:dec_3700a1128749]",
+      "toolCalls": [
+        {
+          "id": "tu_0136",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 16169
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 674
+    },
+    {
+      "index": 137,
+      "role": "assistant",
+      "ts": 1735706430000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0137",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 235
+          },
+          "paths": [
+            "src/pkg3/file32.go"
+          ]
+        }
+      ],
+      "tokens": 766
+    },
+    {
+      "index": 138,
+      "role": "user",
+      "ts": 1735706475000,
+      "text": "next: step 138",
+      "toolCalls": null,
+      "tokens": 105
+    },
+    {
+      "index": 139,
+      "role": "assistant",
+      "ts": 1735706520000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0139",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 271
+          },
+          "paths": [
+            "src/pkg3/file33.go"
+          ]
+        }
+      ],
+      "tokens": 462
+    },
+    {
+      "index": 140,
+      "role": "assistant",
+      "ts": 1735706565000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0140",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 165
+          },
+          "paths": [
+            "src/pkg3/file34.go"
+          ]
+        }
+      ],
+      "tokens": 494
+    },
+    {
+      "index": 141,
+      "role": "assistant",
+      "ts": 1735706610000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0141",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1525
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 756
+    },
+    {
+      "index": 142,
+      "role": "assistant",
+      "ts": 1735706655000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0142",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 343
+          },
+          "paths": [
+            "src/pkg3/file35.go"
+          ]
+        }
+      ],
+      "tokens": 775
+    },
+    {
+      "index": 143,
+      "role": "assistant",
+      "ts": 1735706700000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0143",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1748
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 704
+    },
+    {
+      "index": 144,
+      "role": "user",
+      "ts": 1735706745000,
+      "text": "next: step 144",
+      "toolCalls": null,
+      "tokens": 153
+    },
+    {
+      "index": 145,
+      "role": "assistant",
+      "ts": 1735706790000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0145",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 11631
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 477
+    },
+    {
+      "index": 146,
+      "role": "assistant",
+      "ts": 1735706835000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0146",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 9198
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 595
+    },
+    {
+      "index": 147,
+      "role": "assistant",
+      "ts": 1735706880000,
+      "text": "settled the approach [decision:dec_e8b9a5c55f59]",
+      "toolCalls": [
+        {
+          "id": "tu_0147",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 7873
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 593
+    },
+    {
+      "index": 148,
+      "role": "assistant",
+      "ts": 1735706925000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0148",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3979
+          },
+          "paths": [
+            "src/pkg3/file36.go"
+          ]
+        }
+      ],
+      "tokens": 574
+    },
+    {
+      "index": 149,
+      "role": "assistant",
+      "ts": 1735706970000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0149",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1765
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 421
+    },
+    {
+      "index": 150,
+      "role": "user",
+      "ts": 1735707015000,
+      "text": "next: step 150",
+      "toolCalls": null,
+      "tokens": 98
+    },
+    {
+      "index": 151,
+      "role": "assistant",
+      "ts": 1735707060000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0151",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 180
+          },
+          "paths": [
+            "src/pkg3/file37.go"
+          ]
+        }
+      ],
+      "tokens": 718
+    },
+    {
+      "index": 152,
+      "role": "assistant",
+      "ts": 1735707105000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0152",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 10945
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 616
+    },
+    {
+      "index": 153,
+      "role": "assistant",
+      "ts": 1735707150000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0153",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 159
+          },
+          "paths": [
+            "src/pkg3/file36.go"
+          ]
+        }
+      ],
+      "tokens": 787
+    },
+    {
+      "index": 154,
+      "role": "assistant",
+      "ts": 1735707195000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0154",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 8191
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 798
+    },
+    {
+      "index": 155,
+      "role": "assistant",
+      "ts": 1735707240000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0155",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 323
+          },
+          "paths": [
+            "src/pkg3/file38.go"
+          ]
+        }
+      ],
+      "tokens": 794
+    },
+    {
+      "index": 156,
+      "role": "user",
+      "ts": 1735707285000,
+      "text": "next: step 156",
+      "toolCalls": null,
+      "tokens": 131
+    },
+    {
+      "index": 157,
+      "role": "assistant",
+      "ts": 1735707330000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0157",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 161
+          },
+          "paths": [
+            "src/pkg3/file39.go"
+          ]
+        }
+      ],
+      "tokens": 491
+    },
+    {
+      "index": 158,
+      "role": "assistant",
+      "ts": 1735707375000,
+      "text": "settled the approach [decision:dec_82f6ee5678d7]",
+      "toolCalls": [
+        {
+          "id": "tu_0158",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 345
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 642
+    },
+    {
+      "index": 159,
+      "role": "assistant",
+      "ts": 1735707420000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0159",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 13915
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 549
+    },
+    {
+      "index": 160,
+      "role": "assistant",
+      "ts": 1735711020000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0160",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1588
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 752
+    },
+    {
+      "index": 161,
+      "role": "assistant",
+      "ts": 1735711065000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0161",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14061
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 519
+    },
+    {
+      "index": 162,
+      "role": "user",
+      "ts": 1735711110000,
+      "text": "next: step 162",
+      "toolCalls": null,
+      "tokens": 142
+    },
+    {
+      "index": 163,
+      "role": "assistant",
+      "ts": 1735711155000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0163",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2015
+          },
+          "paths": [
+            "src/pkg3/file35.go"
+          ]
+        }
+      ],
+      "tokens": 581
+    },
+    {
+      "index": 164,
+      "role": "assistant",
+      "ts": 1735711200000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0164",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14967
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 464
+    },
+    {
+      "index": 165,
+      "role": "assistant",
+      "ts": 1735711245000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0165",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1209
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 793
+    },
+    {
+      "index": 166,
+      "role": "assistant",
+      "ts": 1735711290000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0166",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 270
+          },
+          "paths": [
+            "src/pkg4/file40.go"
+          ]
+        }
+      ],
+      "tokens": 427
+    },
+    {
+      "index": 167,
+      "role": "assistant",
+      "ts": 1735711335000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0167",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 331
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 669
+    },
+    {
+      "index": 168,
+      "role": "user",
+      "ts": 1735711380000,
+      "text": "next: step 168",
+      "toolCalls": null,
+      "tokens": 183
+    },
+    {
+      "index": 169,
+      "role": "assistant",
+      "ts": 1735711425000,
+      "text": "settled the approach [decision:dec_570686569c48]",
+      "toolCalls": [
+        {
+          "id": "tu_0169",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 374
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 658
+    },
+    {
+      "index": 170,
+      "role": "assistant",
+      "ts": 1735711470000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0170",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 603
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 702
+    },
+    {
+      "index": 171,
+      "role": "assistant",
+      "ts": 1735711515000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0171",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4780
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 526
+    },
+    {
+      "index": 172,
+      "role": "assistant",
+      "ts": 1735711560000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0172",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4503
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 418
+    },
+    {
+      "index": 173,
+      "role": "assistant",
+      "ts": 1735711605000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0173",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 6618
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 755
+    },
+    {
+      "index": 174,
+      "role": "user",
+      "ts": 1735711650000,
+      "text": "next: step 174",
+      "toolCalls": null,
+      "tokens": 94
+    },
+    {
+      "index": 175,
+      "role": "assistant",
+      "ts": 1735711695000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0175",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 11572
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 517
+    },
+    {
+      "index": 176,
+      "role": "assistant",
+      "ts": 1735711740000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0176",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2631
+          },
+          "paths": [
+            "src/pkg4/file41.go"
+          ]
+        }
+      ],
+      "tokens": 427
+    },
+    {
+      "index": 177,
+      "role": "assistant",
+      "ts": 1735711785000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0177",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14909
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 775
+    },
+    {
+      "index": 178,
+      "role": "assistant",
+      "ts": 1735711830000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0178",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 186
+          },
+          "paths": [
+            "src/pkg4/file42.go"
+          ]
+        }
+      ],
+      "tokens": 779
+    },
+    {
+      "index": 179,
+      "role": "assistant",
+      "ts": 1735711875000,
+      "text": "settled the approach [decision:dec_f21202345266]",
+      "toolCalls": [
+        {
+          "id": "tu_0179",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12421
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 588
+    },
+    {
+      "index": 180,
+      "role": "user",
+      "ts": 1735711920000,
+      "text": "next: step 180",
+      "toolCalls": null,
+      "tokens": 126
+    },
+    {
+      "index": 181,
+      "role": "assistant",
+      "ts": 1735711965000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0181",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 12146
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 492
+    },
+    {
+      "index": 182,
+      "role": "assistant",
+      "ts": 1735712010000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0182",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1121
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 417
+    },
+    {
+      "index": 183,
+      "role": "assistant",
+      "ts": 1735712055000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0183",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 2417
+          },
+          "paths": [
+            "src/pkg4/file43.go"
+          ]
+        }
+      ],
+      "tokens": 584
+    },
+    {
+      "index": 184,
+      "role": "assistant",
+      "ts": 1735712100000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0184",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1774
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 746
+    },
+    {
+      "index": 185,
+      "role": "assistant",
+      "ts": 1735712145000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0185",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 1291
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 635
+    },
+    {
+      "index": 186,
+      "role": "user",
+      "ts": 1735712190000,
+      "text": "next: step 186",
+      "toolCalls": null,
+      "tokens": 90
+    },
+    {
+      "index": 187,
+      "role": "assistant",
+      "ts": 1735712235000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0187",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 5151
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 627
+    },
+    {
+      "index": 188,
+      "role": "assistant",
+      "ts": 1735712280000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0188",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 5158
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 426
+    },
+    {
+      "index": 189,
+      "role": "assistant",
+      "ts": 1735712325000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0189",
+          "name": "Edit",
+          "args": null,
+          "result": {
+            "tokens": 315
+          },
+          "paths": [
+            "src/pkg4/file44.go"
+          ]
+        }
+      ],
+      "tokens": 514
+    },
+    {
+      "index": 190,
+      "role": "assistant",
+      "ts": 1735712370000,
+      "text": "settled the approach [decision:dec_db1e22785327]",
+      "toolCalls": [
+        {
+          "id": "tu_0190",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 13134
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 700
+    },
+    {
+      "index": 191,
+      "role": "assistant",
+      "ts": 1735712415000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0191",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 13986
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 778
+    },
+    {
+      "index": 192,
+      "role": "user",
+      "ts": 1735712460000,
+      "text": "next: step 192",
+      "toolCalls": null,
+      "tokens": 176
+    },
+    {
+      "index": 193,
+      "role": "assistant",
+      "ts": 1735712505000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0193",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 14504
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 691
+    },
+    {
+      "index": 194,
+      "role": "assistant",
+      "ts": 1735712550000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0194",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 9043
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 531
+    },
+    {
+      "index": 195,
+      "role": "assistant",
+      "ts": 1735712595000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0195",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 4505
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 456
+    },
+    {
+      "index": 196,
+      "role": "assistant",
+      "ts": 1735712640000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0196",
+          "name": "Test",
+          "args": null,
+          "result": {
+            "tokens": 7344
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 437
+    },
+    {
+      "index": 197,
+      "role": "assistant",
+      "ts": 1735712685000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0197",
+          "name": "FileRead",
+          "args": null,
+          "result": {
+            "tokens": 3689
+          },
+          "paths": [
+            "src/pkg4/file45.go"
+          ]
+        }
+      ],
+      "tokens": 651
+    },
+    {
+      "index": 198,
+      "role": "user",
+      "ts": 1735712730000,
+      "text": "next: step 198",
+      "toolCalls": null,
+      "tokens": 178
+    },
+    {
+      "index": 199,
+      "role": "assistant",
+      "ts": 1735712775000,
+      "text": "",
+      "toolCalls": [
+        {
+          "id": "tu_0199",
+          "name": "Bash",
+          "args": null,
+          "result": {
+            "tokens": 688
+          },
+          "paths": null
+        }
+      ],
+      "tokens": 545
+    }
+  ],
+  "compactionAt": [
+    100
+  ],
+  "meta": {
+    "changepoints": "40,80,120,160",
+    "generator": "eval.Synthesize/1",
+    "seed": "1011",
+    "shape": "test-output-heavy",
+    "spec": "{\"Turns\":200,\"ToolMix\":{\"Bash\":0.25,\"Edit\":0.18,\"FileRead\":0.12,\"Test\":0.45},\"FileRereadRate\":0.2,\"TestOutputNoise\":0.8,\"Changepoints\":4,\"Eliminations\":3,\"SubagentCalls\":0,\"DependencyChangeAt\":null,\"CompactionAt\":[100]}"
+  },
+  "synthetic": true
+}

@@ -1,0 +1,27 @@
+      PID    PPID    PGID     WINPID   TTY         UID    STIME COMMAND
+    47945       1   47945       8900  ?         197609 15:20:31 /usr/bin/bash
+    13368   13366   13366      69416  ?         197609   Aug 11 /usr/bin/tail
+    13369   13366   13366      14984  ?         197609   Aug 11 /usr/bin/grep
+      975     965     962      26824  ?         197609   Jul 27 /c/Program Files/nodejs/node
+    13656   13653   13653      54448  ?         197609   Aug 11 /usr/bin/grep
+    38380       1   38368      52888  ?         197609   Jul 31 /c/Program Files/nodejs/node
+    14222   14219   14219      32368  ?         197609   Aug 11 /usr/bin/grep
+    47947   47945   47945      43644  ?         197609 15:20:31 /usr/bin/ps
+     3732    3729    3729      70032  ?         197609   Aug  9 /usr/bin/grep
+    13655   13653   13653       6488  ?         197609   Aug 11 /usr/bin/tail
+    14117   14115   14115       3108  ?         197609   Aug 11 /usr/bin/tail
+    13257   13254   13254       5404  ?         197609   Aug 11 /usr/bin/grep
+    14221   14219   14219      23372  ?         197609   Aug 11 /usr/bin/tail
+    30084   30082   30082      58524  ?         197609   Aug 12 /usr/bin/tail
+     3731    3729    3729      16516  ?         197609   Aug  9 /usr/bin/tail
+    13328   13325   13325      32968  ?         197609   Aug 11 /usr/bin/grep
+    13256   13254   13254      18156  ?         197609   Aug 11 /usr/bin/tail
+      965       1     962      41636  ?         197609   Jul 27 /usr/bin/bash
+    14118   14115   14115      17992  ?         197609   Aug 11 /usr/bin/grep
+    13597   13595   13595      66944  ?         197609   Aug 11 /usr/bin/tail
+    13598   13595   13595      56708  ?         197609   Aug 11 /usr/bin/grep
+    13409   13406   13406      48192  ?         197609   Aug 11 /usr/bin/grep
+    14013   14010   14010      24152  ?         197609   Aug 11 /usr/bin/grep
+    13327   13325   13325      71084  ?         197609   Aug 11 /usr/bin/tail
+    14012   14010   14010      59700  ?         197609   Aug 11 /usr/bin/tail
+    13408   13406   13406      69352  ?         197609   Aug 11 /usr/bin/tail

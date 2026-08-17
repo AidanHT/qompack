@@ -16,10 +16,15 @@ import (
 )
 
 func main() {
+	// Best-effort: an error here means "cannot self-locate", which cli.Env.Self's own contract
+	// already treats as "disable lazy spawn" rather than a fatal condition.
+	self, _ := os.Executable()
+
 	env := cli.Env{
 		Getenv: os.Getenv,
 		Stdin:  os.Stdin,
 		Clock:  core.SystemClock(),
+		Self:   self,
 	}
 	os.Exit(cli.Dispatch(context.Background(), cli.All(), os.Args, env, os.Stdout, os.Stderr))
 }
