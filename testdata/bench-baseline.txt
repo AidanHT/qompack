@@ -90,6 +90,84 @@ BenchmarkPathsWriteAtomic_4KB-22    	     238	   4747760 ns/op	   0.86 MB/s	   1
 BenchmarkPathsWriteAtomic_4KB-22    	     249	   4792694 ns/op	   0.85 MB/s	   15698 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     201	   5173678 ns/op	   0.79 MB/s	   15703 B/op	     169 allocs/op
 BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   15691 B/op	     169 allocs/op
+
+# ── SP-02 (L7 replay harness) ────────────────────────────────────────────────────────────────
+#
+# Recorded with the same command and on the same host as the SP-01 block above:
+#
+#     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
+#
+# Budgets from plans/V2-SP-02-replay-harness-belady-baseline.md §14, and how this recording
+# compares. All of these are algorithmic rather than I/O-bound, so unlike the two SP-01 misses
+# they should hold on the Linux CI runners too:
+#
+#     BenchmarkBeladyDetail_400Turns        <= 250 ms/op   MET   ~1.6 ms/op, 0.68 MB/op (E-2)
+#     BenchmarkSynthesize_320Turns          <=  50 ms/op   MET   ~0.5 ms/op, 0.26 MB/op (E-3)
+#     BenchmarkCompare_400Actions           <=  20 ms/op   MET   ~2.0 ms/op, 0.19 MB/op (E-4)
+#     BenchmarkBreakpointOPT_256Candidates  <=  15 ms/op   MET   ~1.1 ms/op             (E-5)
+#
+# E-2's allocation budget is 96 MB; the measured 0.68 MB/op is two orders of magnitude under it,
+# because pruning every never-demanded block leaves the DP a few hundred candidates rather than
+# the few thousand blocks a 400-turn session actually holds.
+
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-22          	     692	   1702779 ns/op	  682947 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     658	   1561033 ns/op	  682922 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	    1176	   1432955 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     732	   1624266 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     763	   1956107 ns/op	  682923 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     594	   1692700 ns/op	  682918 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     804	   1425751 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	    1058	   1329514 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	    1090	   1312063 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     706	   1498702 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1646	    770073 ns/op	  778596 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1306	    960839 ns/op	  778596 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	     988	   1026511 ns/op	  778600 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1140	    997135 ns/op	  778594 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1620	    839879 ns/op	  778595 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1503	    898267 ns/op	  778596 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1384	    931027 ns/op	  778597 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1734	    798731 ns/op	  778596 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1722	    862446 ns/op	  778595 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1603	    982321 ns/op	  778594 B/op	    5750 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/eval	27.498s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkCompare_400Actions-22    	     883	   1986727 ns/op	  186920 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     672	   2128505 ns/op	  186913 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     736	   1494951 ns/op	  186914 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     812	   2195298 ns/op	  186914 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     470	   2573539 ns/op	  186916 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     613	   1872845 ns/op	  186913 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     957	   1369827 ns/op	  186913 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     787	   1374582 ns/op	  186915 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	    1004	   1257093 ns/op	  186914 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22    	     928	   1202938 ns/op	  186913 B/op	      48 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/eval	15.248s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSynthesize_320Turns-22    	    2635	    449655 ns/op	  257850 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    2349	    497991 ns/op	  257835 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    2808	    466747 ns/op	  257848 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    1951	    685678 ns/op	  257848 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    1906	    621687 ns/op	  257863 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    1786	    635883 ns/op	  257859 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    2024	    621085 ns/op	  257859 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    1998	    554742 ns/op	  257837 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    2108	    487525 ns/op	  257828 B/op	    2856 allocs/op
+BenchmarkSynthesize_320Turns-22    	    3014	    529713 ns/op	  257846 B/op	    2856 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/eval	14.543s
 #
 # ============================================================================================
 #
