@@ -25,7 +25,7 @@
 
 | § | Written by | Why it changes what you do |
 |---|---|---|
-| **2.0** + **2.0a** + **2.0b** | this checkpoint | twenty-four `V2-MERGE-*` rows and the ten-file collision map. Most of these gates fail **silently**. **§2.0b is the one to read first**: six defects the wave-1 merge already found and fixed, four of which git reported as clean merges |
+| **2.0** + **2.0a** + **2.0b** | this checkpoint | twenty-five `V2-MERGE-*` rows and the ten-file collision map. Most of these gates fail **silently**. **§2.0b is the one to read first**: six defects the wave-1 merge already found and fixed, four of which git reported as clean merges |
 | **2.3a** | SP-03 | the MinHash sampler was rewritten; the coverage gate is dead; `benchstat` is never invoked |
 | **2.2a** | SP-02 | two §2.2 rows **exit 0 having run nothing**; one deletes working code if followed |
 | **2.5a** | SP-05 | its 30 rulings are **git-ignored**; POSIX code has never executed anywhere |
@@ -164,6 +164,8 @@ Rows **V2-MERGE-14 … V2-MERGE-23** were added after the six branches were read
 | V2-MERGE-23 | **`TestCarriedDefects_OpenRowsHaveLivingEvidence` reports "no such test exists" when the module merely fails to build — and tells you to close the row.** Observed during the wave-1 merge: while `internal/dag` did not compile, the guard failed for **SP04-D1, D2 and D3**, whose evidence tests are in `internal/canon`, a package that built fine. It discovers tests by listing them across the module, got nothing usable from a module that would not build, and read "not found" as "does not exist" | Break any package deliberately (add `var _ = undefinedSymbol` to a scratch file in `internal/dag`), run `go test ./test/guards/ -run TestCarriedDefects`, then revert | The guard fails with a message naming the **build failure**, not one naming a defect ID. As written its advice is actively wrong in this state — *"If the defect was fixed, set SP04-D1's status to `fixed` in plans/CARRIED-DEFECTS.tsv"* — so following it closes three open rows on the strength of an unrelated compile error. Fail loudly and separately when the listing command errors, instead of treating an empty result as absence. Owner: §7.2a agent **F-2**, which holds `test/guards/carrieddefects_test.go` |
 | V2-MERGE-24 | **`ci-local`'s `fmt-check` is stricter than `gofmt`, and SP-04's branch tip failed it — its own exit criterion — with nothing in the wave noticing.** `tools/devtool/fmt.go` runs the pinned **`gofumpt -l`**; `gofmt -l` is clean on the same tree. `internal/chunk/fastcdc_test.go` carried a blank line before a closing brace from SP-04's first chunk commit `53b839e` through every later commit and the merge. Per-commit gating is `devtool test`, which does not include `fmt-check`, so only the final-commit `ci-local` could have caught it and evidently was not run — or was run before the last commit. Walked all six tips: **SP-04 alone is red**; SP-02, SP-03, SP-05, SP-06 and SP-07 are green | `go run ./tools/devtool fmt-check` — and at each tip: `for t in wave1/sp0{2,3,4,5,6,7}-shipped; do git checkout -q --detach $t && go run ./tools/devtool fmt-check; done` in a throwaway worktree | Already fixed on `develop` — confirm `fmt-check` exits 0 and that the fix was the file conforming, not the check relaxing. **The row is the class, not the blank line.** Two things it exposes: a subplan's final-commit `ci-local` requirement has no enforcement, so "SP-0N's tip was green" is an unverified claim for every branch until walked; and any verification that substitutes `gofmt` for `devtool fmt-check` silently passes a tree CI would reject. Decide whether `devtool test` should include `fmt-check` — it is the cheapest step in the pipeline and it is the one that halts `ci-local` before anything informative runs |
 
+| V2-MERGE-25 | **A cold-start entry could be durably spooled and yet invisible to the daemon for 30 seconds — and the only thing that ever caught it was a loaded machine.** `internal/ipc/client.go`'s connect-failure path called `c.lazySpawn()` **before** `c.spoolAndReturn(req)`. `daemon.Run` drains the spool once at startup (before `server.Serve`) and then only on an idle tick, `idleTickMax` = **30 s**. So the spawned daemon could scan the spool directory before the entry that *caused* the spawn had been written, and miss it. Data was never lost — §5.4's never-error contract held — but freshness was, for up to half a minute, exactly when the machine is busy. Surfaced as `TestE2ELazySpawn` failing on `the spool the first call left behind was never drained` in a full `ci-local`, while passing 5/5 in isolation and passing when `test/e2e` ran as the only package | `go test ./internal/ipc/ -run TestLazySpawn_SpoolIsDurableBeforeSpawn` — new, deterministic, and it fails on the old ordering rather than merely passing on the new one. To see the race directly, put a `time.Sleep` between the two calls in the old order: `TestE2ELazySpawn` then fails 3/3; reverse the order with the same sleep and it passes 3/3 | **Already fixed on `develop`**: spool first, spawn second — client latency is unchanged, since both already happened before `Send` returned. Two things are left for this checkpoint. **① The bound is still wrong-way-round.** `e2eSpoolDrainBound` is 10 s and the fallback it is racing is 30 s, so the test can only ever pass via the *startup* drain; any future path that misses it fails as a timeout with no indication that the real answer is "in 20 more seconds". Decide whether the daemon should re-drain more eagerly — after `Serve` is up, or on first ingest — so that correctness stops depending on client-side ordering at all. **② The class, not the instance.** Three distinct `internal/ipc` failures appeared under load in one session and none reproduces in isolation: this one, `TestServerCloseWithLiveConnection` (`shutdownTestBound` 1 s), and the `ipctest` transport flake in §2.0b. Tight absolute wall-clock bounds in this package family are a standing source of red CI. Audit them together rather than one at a time. Owner: §7.2a agent **F-7** |
+
 **Known defects at authoring time.** These were verified against `develop` and against all six wave-1 branch tips (`git grep 'func Fuzz' <branch>` per branch, reconciled on the `(pkg, fn)` pair). They are listed so this checkpoint **fixes** them rather than spending a subagent rediscovering them. All of them are V2-MERGE-01 / V2-MERGE-02 failures:
 
 `nightly.yml` is edited by **SP-05 only** and SP-05 did **not** change the fuzz matrix — the eight rows on `develop` are byte-identical to the eight on `feat/sp05-…`. So every fuzz target SP-03, SP-04 and SP-06 shipped arrives unregistered by construction, and three matrix rows name functions that do not exist anywhere in the merged tree.
@@ -194,7 +196,7 @@ Three orphan matrix rows, fifteen unregistered targets, and two of the three orp
 
 The fix belongs here and nowhere else. `test/guards/nightlyfuzz_test.go` says so in its own doc comment: *"What this still cannot catch is a subplan landing its package without writing the target the matrix claims: that belongs to the subplan's own definition of done and **to the wave checkpoint, which re-runs this inventory**."* Repair `nightly.yml`, update the `require.Len(t, matches, 8)` arity to whatever the repaired matrix declares, and record the before/after matrix in the completion report.
 
-#### 2.0a Cross-branch collision inventory — the evidence behind V2-MERGE-10 and V2-MERGE-14 … 24
+#### 2.0a Cross-branch collision inventory — the evidence behind V2-MERGE-10 and V2-MERGE-14 … 25
 
 Computed by diffing every wave-1 branch against `develop` and intersecting the path lists. **Ten files are touched by more than one branch.** This is the complete set; a file not on it was touched by at most one branch and cannot collide.
 
@@ -224,7 +226,7 @@ grep -c  '^#### 2.5a'   "$F"   # SP-05's half                            → mus
 grep -c  '^#### 2.6a'   "$F"   # SP-06's half                            → must be 1
 grep -c  '^#### 2.7a'   "$F"   # SP-07's half                            → must be 1
 grep -c  '^## 0. Map'   "$F"   # the document map                        → must be 1
-grep -cE 'V2-MERGE-(1[4-9]|2[0-4])' "$F"  # the eleven post-review merge rows → must be > 0
+grep -cE 'V2-MERGE-(1[4-9]|2[0-5])' "$F"  # the twelve post-review merge rows → must be > 0
 grep -c  '^#### 2.0b'   "$F"   # what the merge itself found      → must be 1
 grep -c  '^> \*\*Recommended model' "$F"   # SP-04's header, 2nd witness → must be 1
 test "$(grep -c '^````' "$F")" -eq 2 && echo "report fence ok"   # must print
@@ -1288,7 +1290,7 @@ Any failing row in §2, any unmet criterion in §3, any failing test in §4, any
 
 ### 7.2a Fan the fix work out — one agent per disjoint file set
 
-This checkpoint arrives with a **known inventory of work**, not just whatever §2 turns up: twenty-four `V2-MERGE-*` rows, six `SP04-D*` carried defects, SP-07's three ACTIONs, and the inbound items in §2.3a / §2.2a / §2.5a / §2.6a / §2.7a. Doing that serially wastes most of the wall clock, because the packages are independent — which is exactly why wave 1 could be built in parallel in the first place.
+This checkpoint arrives with a **known inventory of work**, not just whatever §2 turns up: twenty-five `V2-MERGE-*` rows, six `SP04-D*` carried defects, SP-07's three ACTIONs, and the inbound items in §2.3a / §2.2a / §2.5a / §2.6a / §2.7a. Doing that serially wastes most of the wall clock, because the packages are independent — which is exactly why wave 1 could be built in parallel in the first place.
 
 **The constraint that makes this safe is file ownership, not topic.** §2.0a already computed which files more than one branch touched, and the same map says which fix agents may run at the same time: **two agents must never hold the same file.** Assign by path, not by subject; an agent that needs a file it does not own reports it and stops rather than editing it.
 
@@ -1310,7 +1312,7 @@ This checkpoint arrives with a **known inventory of work**, not just whatever §
 | **F-4 store / redact / tokens** | `internal/store`, `internal/redact`, `internal/tokens`, `testdata/golden/store/**` | §2.6a ⑤ ⑦ (the `-update` confined to three axes), the `Redact` budget revision from ② |
 | **F-5 dag** | `internal/dag`, `docs/adr/0007-*.md` | §2.7a B row corrections; **not** `testdata/golden/contracts/dag/` — that is F-2's, per ACTION 1 |
 | **F-6 eval / replay** | `internal/eval`, `test/replay`, `testdata/sessions/**`, `testdata/baseline/**` | §2.2a corrections; the recorded-tier gap |
-| **F-7 daemon / ipc / contract** | `internal/ipc`, `internal/daemon`, `internal/contract`, `internal/cli` | §2.5a D (a structural guard so nothing outside `internal/contract` writes `LastSessionID`), §2.5a G's untested FR-4 `Serve`-failure arm |
+| **F-7 daemon / ipc / contract** | `internal/ipc`, `internal/daemon`, `internal/contract`, `internal/cli` | **V2-MERGE-25** (the drain bound vs the 30 s idle-tick fallback, and the ipc wall-clock-bound audit); §2.0b's recorded-not-fixed `ipctest` flake (carry `res.Err` in those assertion messages); §2.5a D (a structural guard so nothing outside `internal/contract` writes `LastSessionID`), §2.5a G's untested FR-4 `Serve`-failure arm |
 | **F-8 plan reconciliation** | `plans/V2-SP-03-*.md`, `plans/V2-SP-06-*.md`, `plans/V2-SP-07-*.md`, `plans/V2-SP-05-*.md` | **V2-ALL-06.** Documents only, no code — so it runs alongside everything else with zero contention |
 
 **Three conflicts are structural and are resolved above rather than left to discover:** F-1 and F-2 both work inside `test/guards/`, so ownership is stated **per file** — F-1 has `nightlyfuzz_test.go`, F-2 has the rest. F-2 and F-5 both have a claim on the dag fixtures; ACTION 1 requires its two edits in one commit, so F-2 takes both and F-5 stays out. And F-1 holds five files in `tools/devtool/` but **not** `cover.go`, which the serial prologue settles before any agent starts — F-1 arrives after that and must not revisit it.
@@ -1378,7 +1380,8 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 - develop head at start: <sha>   | verify/v2 head at end: <sha>
 - Wave-1 merge order confirmed (`plans/README.md` step 3): SP-05 → SP-03 → SP-04 → SP-02 → SP-06 → SP-07  [ ]
 - `TestGuard_Phase0BeforeStore` green at **every** wave-1 merge commit, not only the last: <n>/11 first-parent commits PASS (green at the merge; re-confirm, and say so if the number moved)  [ ]
-- Conflicts resolved on the incoming branch, never in the merge commit (00-ARCHITECTURE "Branching")  [ ]
+- Conflicts resolved on the incoming branch, never in the merge commit (00-ARCHITECTURE "Branching"): <n>/6 second parents are a `chore(spNN): merge develop …` commit  [ ]
+- `ci-local` baseline at start (§1, before any change): pass / fail at step <name> — it was green at the cut; a failure here is a regression, not a starting condition
 - Full checkpoint passes required: <n>
 - Fix commits on verify/v2: <n>   (list below)
 - Platforms measured: ubuntu-latest / macos-latest / windows-11-dev
@@ -1411,6 +1414,7 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 | V2-MERGE-22 | No non-root package's `_test.go` imports a composition root; `importgraph` now checks it | | packages still importing one: <list>; importgraph extended: [ ] |
 | V2-MERGE-23 | The carried-defects guard distinguishes "listing failed" from "test absent" | | verified by breaking a package deliberately: [ ] |
 | V2-MERGE-24 | `devtool fmt-check` (gofumpt, not gofmt) exits 0; all six wave-1 tips walked | | tips red at their final commit: <list, SP-04 known>; `fmt-check` added to `devtool test`: yes / no + why |
+| V2-MERGE-25 | The spool is on disk before the spawn; the drain bound is no longer smaller than the idle-tick fallback; the ipc wall-clock bounds are audited as a set | | `TestLazySpawn_SpoolIsDurableBeforeSpawn` present and failing on the old order: [ ]; eager re-drain decision: <what>; ipc timing bounds reviewed: <list> |
 
 **Coverage floors — before / after.** V2-MERGE-13 starts red by construction. Record each of the eleven wave-1 packages' measured coverage against its `plans/OWNERS.tsv` floor — `eval` 85, `sketch` 90, `chunk` 90, `canon` 90, `symbols` 75, `ipc` 75, `daemon` 75, `contract` 75, `store` 90, `redact` 75, `dag` 85 — and what `cover.go` was changed to. A green `devtool cover` that still prints `exempt (stub, …)` for any of them is the defect, not the fix. Record separately whether `redact` and `tokens` were raised to 90 in OWNERS.tsv or V2-SP06-27 was restated at 75 (their declared floors are 75 while §2.6 claims 90).
 
@@ -1767,7 +1771,7 @@ carried items are governed by prose alone. Both are decisions; neither is reacha
 ## 14. Gate
 - [ ] Every row above is PASS (or a documented N/A this file authorises)
 - [ ] **V2-MERGE-20 was run *before* `verify/v2` was cut**: SP-05's untracked rulings ledger (`.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/`) is copied somewhere that survives `git clean -fdx`, and the destination is named in the report
-- [ ] **§0 is filled in, all twenty-four `V2-MERGE-*` rows** — including the collision-resolution log and the inbound-items disposition
+- [ ] **§0 is filled in, all twenty-five `V2-MERGE-*` rows** — including the collision-resolution log and the inbound-items disposition
 - [ ] **No `--ours` / `--theirs` / `-X ours` / `-X theirs` was used to resolve any of the ten files in §2.0a**, and each of the ten is confirmed to carry every branch's half
 - [ ] `go run ./tools/devtool cover` prints `OK <pkg>: NN.N% >= floor NN%` for all eleven wave-1 packages and `exempt (stub, …)` for none of them
 - [ ] `nightly.yml`'s fuzz matrix has zero orphans in both directions, and `require.Len` matches the repaired arity
