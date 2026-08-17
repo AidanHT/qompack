@@ -1,5 +1,9 @@
 # V6 — Verification checkpoint: production readiness and UAT
 
+> **Recommended model: Opus 5 · max effort**
+>
+> The release gate: full-tree re-verification of all eighteen subplans, hand-executed UAT-01..12, security review, and **zero permitted sign-offs**. Last chance to catch anything before `main` — run at `max`.
+
 **Type:** verification checkpoint (not a subplan). **Wave verified:** 5. **Branch:** `verify/v6`, cut from `develop`.
 
 ---

@@ -1,5 +1,9 @@
 # SP-05: L0 substrate: resident daemon, IPC transport, thin hook client, the <15ms p99 budget, async queue-and-drain, and the contract monitor
 
+> **Recommended model: Fable 5 · high effort**
+>
+> **Pay up here.** Resident daemon, WAL-backed ingest queue, worker pool, spool fallback, idle controller and a Windows-named-pipe/Unix-socket transport split, all under a hard 15 ms p99 — concurrency and cross-platform faults are precisely the failure class that passes tests and breaks in production. `high` (not `xhigh`) because the plan is exhaustively specified; you are buying judgment, not extra exploration.
+
 **Branch:** `feat/sp05-daemon-ipc-and-hot-path` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-02, SP-03, SP-04, SP-06, SP-07) | **Design sections:** §7.1, §8.1 (performance budget), §9 (G9.3 row), §12 (contract monitor, hook latency rows) | **Gaps closed:** G9.3
 
 ---
