@@ -6,14 +6,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseMode_RoundTripsEveryMode asserts parseMode is String's exact inverse for all three
+// TestParseMode_RoundTripsEveryMode asserts ParseMode is String's exact inverse for all three
 // modes: state/contract.json persists the string spelling, so a mode that cannot be read back is a
 // degradation that silently disappears on the next SessionStart — the precise failure §12.1 exists
 // to prevent.
 func TestParseMode_RoundTripsEveryMode(t *testing.T) {
 	for _, m := range []Mode{ModeFull, ModeDegradedPassive, ModeOff} {
-		got, ok := parseMode(m.String())
-		require.True(t, ok, "parseMode must recognize %q", m.String())
+		got, ok := ParseMode(m.String())
+		require.True(t, ok, "ParseMode must recognize %q", m.String())
 		require.Equal(t, m, got)
 	}
 }
@@ -23,8 +23,8 @@ func TestParseMode_RoundTripsEveryMode(t *testing.T) {
 // treat both as §12.3's "fail toward do nothing".
 func TestParseMode_RejectsUnrecognizedValues(t *testing.T) {
 	for _, s := range []string{"", "unknown", "FULL", "degraded", "passive"} {
-		got, ok := parseMode(s)
-		require.False(t, ok, "parseMode must reject %q", s)
+		got, ok := ParseMode(s)
+		require.False(t, ok, "ParseMode must reject %q", s)
 		require.Equal(t, ModeFull, got)
 	}
 }

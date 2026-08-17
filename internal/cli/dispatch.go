@@ -54,6 +54,18 @@ type Env struct {
 	Clock core.Clock
 	// HomeDir is the user-global layer's root. Empty means "resolve from the environment".
 	HomeDir string
+	// Self is the running executable's own path (os.Executable()), used by the hook bodies and
+	// self-test to launch a detached daemon (internal/daemon.SpawnDetached/EnsureRunning). Only
+	// cmd/qompack/main.go — the real production entry point — ever sets it; every Env built by a
+	// test (or any other composition root, e.g. test/guards' in-process write-set guard,
+	// internal/testutil's RunHook) leaves it at its zero value "", which disables lazy spawn
+	// entirely rather than failing (ipc.ClientOptions.Self's own documented contract). This is an
+	// injected-dependency field, not a branch on "am I under test" (fix round 1, Important I-7):
+	// the previous design read os.Executable() unconditionally and gated it on
+	// testing.Testing(), which linked the stdlib testing/runtime/trace packages into the shipped
+	// binary for no functional benefit — verify with
+	// `go list -deps ./cmd/qompack | grep -c '^testing$'` == 0.
+	Self string
 }
 
 // Dispatch routes argv to a command and returns the process exit code.

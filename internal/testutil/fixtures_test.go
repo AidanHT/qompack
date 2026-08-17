@@ -76,7 +76,10 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 		}
 	}
 
-	// 28 = SP-01's 21 + V1's 2 + SP-03's 5, and each group is worth being able to point at.
+	// 33 = SP-01's 21 + V1's 2 + SP-03's 5 + SP-05's 5, and each group is worth being able to
+	// point at. SP-03 and SP-05 both raised this literal to 28 on their own branches, for five
+	// fixtures each and neither seeing the other; 28 is therefore the one number that is wrong
+	// for the merge even though both sides wrote it. Count the groups, do not take a side.
 	//
 	// V1 added the two §16 fixtures that had never been declared: contract/result_set (the nine
 	// §5.19 assertions as RunAll reports them) and config/appendix_c_defaults (the Appendix C
@@ -86,8 +89,13 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 	// first BINARY fixtures in the corpus; test/guards' IT-9 walker dispatches on the .bin
 	// extension to check them, since a JSON round-trip cannot express a versioned, checksummed
 	// byte layout.
-	require.Equal(t, 28, frozenCount,
-		"SP-01 froze 21 format fixtures, V1 added 2 and SP-03 added 5 sketch frames; "+
+	//
+	// SP-05 task 1 added three: ipc/observe_tool, ipc/response_reply, ipc/state_degraded
+	// (00-ARCHITECTURE §2.4's NDJSON framing and 32-byte hot-path state record). SP-05 task 4
+	// added two: contract/history_degraded (the state/history.json shape) and
+	// contract/transcript_with_sentinel (a transcript tail containing a rendered sentinel).
+	require.Equal(t, 33, frozenCount,
+		"21 SP-01 + 2 V1 + 5 SP-03 sketch frames + 3 SP-05 task 1 + 2 SP-05 task 4; "+
 			"adding or losing one is a contract change")
 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
 }
