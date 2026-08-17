@@ -1,0 +1,60 @@
+7340536 chore(verify): V1 — foundation and contracts verified
+Sat Aug 15 14:48:31 2026 -0400
+
+f2ed308 docs(verify): V1 completion report
+Sat Aug 15 14:46:13 2026 -0400
+
+198c299 test(testutil): raise the frozen-fixture count to 23
+Sat Aug 15 14:38:10 2026 -0400
+
+5b08b00 docs(verify): correct 17 defective rows in the V1 checkpoint
+Sat Aug 15 14:36:25 2026 -0400
+
+19322a2 test(contracts): freeze the two §16 fixtures that were never declared
+Sat Aug 15 14:20:57 2026 -0400
+
+36130c8 fix(pluginmanifest): fail rather than skip when the bundle is absent
+Sat Aug 15 14:15:09 2026 -0400
+
+7413b24 ci: reject commit subjects ending in a period
+Sat Aug 15 14:15:08 2026 -0400
+
+bf5351d ci(nightly): skip unwritten fuzz targets loudly instead of failing
+Sat Aug 15 14:13:50 2026 -0400
+
+13f8ba7 fix(daemon): add the missing SketchSet.Top Misra-Gries counter
+Sat Aug 15 14:09:39 2026 -0400
+
+ba19760 fix(devtool): give the host build its .exe suffix on Windows
+Sat Aug 15 14:08:41 2026 -0400
+
+06ea4ca fix(devtool): exempt composition-root main packages from the cover floor
+Sat Aug 15 14:07:26 2026 -0400
+
+e401694 test(e2e,guards): V1 cross-component integration tests IT-1..IT-10
+Sat Aug 15 14:06:13 2026 -0400
+
+bb1d01e chore(arch): merge daemon Options.Handle pointer receiver
+Sat Aug 15 14:05:41 2026 -0400
+
+853eda8 docs(arch): give daemon Options.Handle a pointer receiver in §5.4
+Sat Aug 15 14:05:38 2026 -0400
+
+1d2f522 chore(arch): merge composition-root coverage exemption
+Sat Aug 15 14:05:21 2026 -0400
+
+ec1eaf4 docs(arch): exempt composition-root main packages from §6.4 floors
+Sat Aug 15 14:05:12 2026 -0400
+
+2b09043 feat(sp01): merge wave-0 foundation, toolchain and contracts
+Sat Aug 15 13:09:22 2026 -0400
+
+14abe48 test(ci): testutil, e2e harness, contract fixtures, CI, build guards
+Wed Aug 12 17:51:56 2026 -0400
+
+d639f14 feat(contracts): ErrNotImplemented stubs and conformance suites for every seam
+Wed Aug 12 17:42:04 2026 -0400
+
+bfb08e0 feat(cli,pluginmanifest): binary dispatch, no-op hooks, generated plugin bundle
+Wed Aug 12 17:41:16 2026 -0400
+

@@ -1,0 +1,80 @@
+=== RUN   TestLedger_AddAndTotal
+--- PASS: TestLedger_AddAndTotal (<d>)
+=== RUN   TestLedger_Render
+    calc_test.go:25: Render() mismatch
+          got:  "alpha=3;beta=4;"
+          want: "alpha=3;beta=5;"
+--- FAIL: TestLedger_Render (<d>)
+=== RUN   TestLedger_LookupMissing
+    calc_test.go:35: observed error: scratchfail: unknown key "nope"
+--- PASS: TestLedger_LookupMissing (<d>)
+=== RUN   TestLedger_SlowPath
+--- PASS: TestLedger_SlowPath (<d>)
+=== RUN   TestDivide_PanicsWithGoroutines
+    calc_test.go:70: dividing 10 by zero denominator
+--- FAIL: TestDivide_PanicsWithGoroutines (<d>)
+panic: runtime error: integer divide by zero [recovered, repanicked]
+
+goroutine 11 [running]:
+testing.tRunner.func1.2({<addr>, <addr>})
+	C:/Program Files/Go/src/testing/testing.go:1974 +0x239
+testing.tRunner.func1()
+	C:/Program Files/Go/src/testing/testing.go:1977 +0x349
+panic({<addr>?, <addr>?})
+	C:/Program Files/Go/src/runtime/panic.go:860 +0x13a
+example.com/scratchfail.Divide(...)
+	<tmp>
+example.com/scratchfail.TestDivide_PanicsWithGoroutines(<addr>)
+	<tmp> +0x145
+testing.tRunner(<addr>, <addr>)
+	C:/Program Files/Go/src/testing/testing.go:2036 +0xc3
+created by testing.(*T).Run in goroutine 1
+	C:/Program Files/Go/src/testing/testing.go:2101 +0x4a9
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(<addr>, {<addr>?, <addr>?}, <addr>)
+	C:/Program Files/Go/src/testing/testing.go:2109 +0x4c7
+testing.runTests.func1(<addr>)
+	C:/Program Files/Go/src/testing/testing.go:2585 +0x3e
+testing.tRunner(<addr>, <addr>)
+	C:/Program Files/Go/src/testing/testing.go:2036 +0xc3
+testing.runTests({<addr>, 0x17}, {<addr>, 0x17}, <addr>, {<addr>, 0x5, 0x5}, {<addr>, <addr>, ...})
+	C:/Program Files/Go/src/testing/testing.go:2583 +0x4f0
+testing.(*M).Run(<addr>)
+	C:/Program Files/Go/src/testing/testing.go:2443 +0x6ac
+main.main()
+	_testmain.go:54 +0x9b
+
+goroutine 12 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	<tmp> +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	<tmp> +0x54
+
+goroutine 13 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	<tmp> +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	<tmp> +0x54
+
+goroutine 14 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	<tmp> +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	<tmp> +0x54
+
+goroutine 15 [select]:
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func1(0x0?)
+	<tmp> +0x9d
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	<tmp> +0x54
+
+goroutine 16 [sleep]:
+time.Sleep(<addr>)
+	C:/Program Files/Go/src/runtime/time.go:363 +0x167
+example.com/scratchfail.TestDivide_PanicsWithGoroutines.func2()
+	<tmp> +0x85
+created by example.com/scratchfail.TestDivide_PanicsWithGoroutines in goroutine 11
+	<tmp> +0x114
+exit status 2
+FAIL	example.com/scratchfail	<d>
