@@ -1,0 +1,2111 @@
+506baa0 feat(contract): G9.3 assertions, fail-loud degradation, two-clean-run restore
+
+ internal/contract/assertions.go                    | 376 ++++++++++++++++++++
+ internal/contract/assertions_test.go               | 381 +++++++++++++++++++++
+ internal/contract/contracttest/suite_test.go       |  10 +
+ internal/contract/gated_test.go                    |  93 +++++
+ internal/contract/history.go                       | 232 +++++++++++++
+ internal/contract/history_test.go                  | 143 ++++++++
+ internal/contract/marker.go                        |  67 ++++
+ internal/contract/marker_test.go                   |  93 +++++
+ internal/contract/monitor.go                       |  59 +++-
+ internal/contract/monitor_test.go                  |  27 ++
+ internal/contract/producers.go                     |  44 +++
+ internal/contract/producers_test.go                |  27 ++
+ internal/contract/sentinel.go                      |  77 +++++
+ internal/contract/sentinel_test.go                 |  74 ++++
+ internal/contract/standard.go                      |  68 ++--
+ internal/testutil/fixtures_test.go                 |  10 +-
+ testdata/golden/contracts/contract/MANIFEST.json   |   4 +-
+ .../contract/input/transcript_with_sentinel.jsonl  |   3 +
+ .../contracts/contract/want/history_degraded.json  |  45 +++
+ 19 files changed, 1778 insertions(+), 55 deletions(-)
+
+diff --git a/internal/contract/assertions.go b/internal/contract/assertions.go
+new file mode 100644
+index 0000000..a0d954c
+--- /dev/null
++++ b/internal/contract/assertions.go
+@@ -0,0 +1,376 @@
++package contract
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"os"
++	"path/filepath"
++	"reflect"
++	"sort"
++	"strconv"
++	"strings"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// now reads e.Clock, substituting the system clock when it is nil. RunAll always fills in
++// e.Clock before invoking any Check (monitor.go), but an assertion's Check may also be called
++// directly — by a test, or by self-test synthesizing an Env from persisted History
++// (task-4-spec.md's nil-tolerance note) — so every Check in this file reads the clock through here
++// rather than assuming RunAll's guarantee holds.
++func now(e Env) core.UnixMilli {
++	if e.Clock == nil {
++		return core.NowMilli(core.SystemClock())
++	}
++	return core.NowMilli(e.Clock)
++}
++
++// gated is the §12.1 not-yet-implemented mechanism, implemented exactly once: an assertion whose
++// producer is absent from the build reports OK/SevInfo/not-yet-implemented and check never runs at
++// all — not "runs and is ignored", never runs — so a wave-1 build cannot degrade itself into
++// passivity over a subsystem a later wave has not shipped yet. Every one of the nine standard
++// assertions is constructed through this wrapper.
++func gated(id ID, sev Severity, desc string, check func(context.Context, Env) Result) Assertion {
++	return Assertion{
++		ID: id, Severity: sev, Description: desc,
++		Check: func(ctx context.Context, e Env) Result {
++			if !HasProducer(id) {
++				return Result{
++					ID: id, OK: true, Severity: SevInfo,
++					Expected: desc, Observed: notYetImplementedObserved, TS: now(e),
++				}
++			}
++			r := check(ctx, e)
++			r.ID = id
++			if r.Severity == 0 && !r.OK {
++				r.Severity = sev
++			}
++			return r
++		},
++	}
++}
++
++// noObservationYet is what every real Check reports when it cannot form an opinion at all: no
++// SessionHistory to read (e.Env.History is nil or some other History implementation — see
++// task-4-spec.md's Env.History type-assertion note), or an Env too half-filled to observe anything
++// from. It is OK, never a failure: absence of evidence is not evidence of a broken contract.
++func noObservationYet(id ID, desc string, e Env) Result {
++	return Result{ID: id, OK: true, Expected: desc, Observed: "no observation yet", TS: now(e)}
++}
++
++// historyOf type-asserts e.History to *SessionHistory, the only History implementation this
++// package ships. A caller supplying a different implementation (or none) is legitimate — Env's own
++// doc comment says every field is optional — so a failed assertion is reported by the caller as
++// noObservationYet, never a panic.
++func historyOf(e Env) (*SessionHistory, bool) {
++	h, ok := e.History.(*SessionHistory)
++	return h, ok && h != nil
++}
++
++// checkSessionStartFires is CSessionStartFires's real observation (task-4-spec.md's table):
++// run/marker.json exists and names a session different from the current one -> OK. Absent (or
++// naming THIS session, which is the same absence of proof) -> StartsWithoutMarker++, failing only
++// once that reaches 2 ("absence across two sessions"). The very first session a project has ever
++// seen has no prior terminal hook to have left a marker, so it reports OK regardless.
++func checkSessionStartFires(ctx context.Context, e Env) Result {
++	const desc = "SessionStart hook fires"
++	h, ok := historyOf(e)
++	if !ok {
++		return noObservationYet(CSessionStartFires, desc, e)
++	}
++	if h.Sessions() == 0 {
++		return Result{OK: true, Expected: desc, Observed: "first-session", TS: now(e)}
++	}
++	rec, err := readMarker(e.ProjectRoot)
++	if err == nil && rec.Session != "" && rec.Session != e.Event.SessionID {
++		h.StartsWithoutMarker = 0
++		return Result{OK: true, Expected: desc, Observed: "marker-found", TS: now(e)}
++	}
++	h.StartsWithoutMarker++
++	if h.StartsWithoutMarker >= 2 {
++		return Result{
++			OK: false, Expected: desc,
++			Observed: "no marker from a prior terminal hook across two consecutive sessions",
++			TS:       now(e),
++		}
++	}
++	return Result{OK: true, Expected: desc, Observed: "marker-absent-once", TS: now(e)}
++}
++
++// checkSessionStartSourceCompact is CSessionStartSourceCompact's real observation: when a
++// PreCompact was observed for this session (History.AwaitingCompactStart), the FOLLOWING
++// SessionStart must arrive with source=="compact". The flag is cleared either way, because it is
++// only ever evaluated once, on the next start.
++func checkSessionStartSourceCompact(ctx context.Context, e Env) Result {
++	const desc = "SessionStart arrives with source=compact after PreCompact"
++	h, ok := historyOf(e)
++	if !ok {
++		return noObservationYet(CSessionStartSourceCompact, desc, e)
++	}
++	if !h.AwaitingCompactStart {
++		return Result{OK: true, Expected: desc, Observed: "no-precompact-pending", TS: now(e)}
++	}
++	h.AwaitingCompactStart = false
++	if e.Event.Source == "compact" {
++		return Result{OK: true, Expected: "compact", Observed: e.Event.Source, TS: now(e)}
++	}
++	return Result{OK: false, Expected: "compact", Observed: e.Event.Source, TS: now(e)}
++}
++
++// checkAdditionalContextDelivered is CAdditionalContext's real observation: it only ever READS
++// History.Sentinel. Chances tracking belongs to the daemon's UserPromptSubmit scan
++// (SessionHistory.RecordSentinelScan), never to this Check — see SentinelState's doc comment for
++// why.
++func checkAdditionalContextDelivered(ctx context.Context, e Env) Result {
++	const desc = "additionalContext reaches the transcript"
++	h, ok := historyOf(e)
++	if !ok {
++		return noObservationYet(CAdditionalContext, desc, e)
++	}
++	if h.Sentinel.Observed {
++		return Result{OK: true, Expected: desc, Observed: "sentinel-observed", TS: now(e)}
++	}
++	if h.Sentinel.Chances < 2 {
++		return Result{OK: true, Expected: desc, Observed: "not-yet-observed", TS: now(e)}
++	}
++	return Result{OK: false, Expected: desc, Observed: "sentinel not found after two chances", TS: now(e)}
++}
++
++// precompactWarnThreshold is §12.1's "p99 > 60% of timeout ⇒ warn" threshold.
++const precompactWarnThreshold = 0.6
++
++// precompactFailThreshold is §12.1's "timeout hit ⇒ fail" threshold: p99 at or beyond the timeout
++// itself.
++const precompactFailThreshold = 1.0
++
++// checkPreCompactTiming is CPreCompactTiming's real observation: the p99 of the 64 newest
++// PreCompact wall-time samples against the manifest timeout.
++func checkPreCompactTiming(ctx context.Context, e Env) Result {
++	const desc = "PreCompact has time to write"
++	h, ok := historyOf(e)
++	if !ok {
++		return noObservationYet(CPreCompactTiming, desc, e)
++	}
++	if h.PrecompactTimeoutMs <= 0 {
++		return Result{OK: true, Expected: desc, Observed: "timeout-unknown", TS: now(e)}
++	}
++	if len(h.PrecompactWallMs) == 0 {
++		return Result{OK: true, Expected: desc, Observed: "no-samples", TS: now(e)}
++	}
++	p99 := percentileMs(h.PrecompactWallMs, 99)
++	ratio := float64(p99) / float64(h.PrecompactTimeoutMs)
++	observed := "p99=" + formatMs(p99) + " timeout=" + formatMs(h.PrecompactTimeoutMs)
++	switch {
++	case ratio >= precompactFailThreshold:
++		return Result{OK: false, Severity: SevCritical, Expected: desc, Observed: observed, TS: now(e)}
++	case ratio > precompactWarnThreshold:
++		return Result{OK: false, Severity: SevWarn, Expected: desc, Observed: observed, TS: now(e)}
++	default:
++		return Result{OK: true, Expected: desc, Observed: observed, TS: now(e)}
++	}
++}
++
++// customInstrScanTailBytes bounds how much of the transcript's tail
++// precompact.custom_instructions_accepted scans for the probe phrase (task-4-spec.md: 256<<10).
++const customInstrScanTailBytes = 256 << 10
++
++// customInstrMinPhraseChars is the minimum length task-4-spec.md expects the emitted instruction's
++// first line to have, so the probe phrase is specific enough not to false-positive against
++// unrelated transcript text.
++const customInstrMinPhraseChars = 24
++
++// checkPreCompactCustomInstr is CPreCompactCustomInstr's real observation: the emitted
++// custom_instructions' first line, searched for in the transcript tail. Advisory by design (§8.5):
++// its declared severity is SevWarn, never SevCritical.
++func checkPreCompactCustomInstr(ctx context.Context, e Env) Result {
++	const desc = "custom_instructions accepted"
++	h, ok := historyOf(e)
++	if !ok {
++		return noObservationYet(CPreCompactCustomInstr, desc, e)
++	}
++	if h.PrecompactInstr == "" {
++		return Result{OK: true, Expected: desc, Observed: "no-instructions-emitted", TS: now(e)}
++	}
++	if e.Event.TranscriptPath == "" {
++		return Result{OK: true, Expected: desc, Observed: "no-transcript-path", TS: now(e)}
++	}
++	phrase := firstLine(h.PrecompactInstr)
++	found, err := ScanTranscriptTail(e.Event.TranscriptPath, phrase, customInstrScanTailBytes)
++	if err != nil {
++		// An unreadable transcript proves nothing about whether the phrase was ever written —
++		// sentinel.go's own doc comment states this rule and every caller in this package follows
++		// it.
++		return Result{OK: true, Expected: desc, Observed: "transcript unreadable, no observation yet", TS: now(e)}
++	}
++	if !found {
++		return Result{OK: false, Expected: desc, Observed: "instruction phrase not found in transcript tail", TS: now(e)}
++	}
++	return Result{OK: true, Expected: desc, Observed: "instruction phrase found in transcript tail", TS: now(e)}
++}
++
++// hookEventKnownFields is the set of JSON keys hookio.Event's own struct tags claim, built once by
++// reflection directly against hookio.Event so this set can never silently drift from
++// hookio/event.go's own claimedKeys: any key in this set has ALREADY been routed to its typed
++// field by hookio.ReadEvent, so its appearance in Event.Extra as well means something upstream
++// duplicated it — the collision task-4-spec.md's hook.payload_shape row checks for.
++var hookEventKnownFields = buildHookEventKnownFields()
++
++func buildHookEventKnownFields() map[string]bool {
++	t := reflect.TypeOf(hookio.Event{})
++	keys := make(map[string]bool, t.NumField())
++	for i := 0; i < t.NumField(); i++ {
++		tag := t.Field(i).Tag.Get("json")
++		if tag == "" || tag == "-" {
++			continue
++		}
++		if idx := strings.IndexByte(tag, ','); idx >= 0 {
++			tag = tag[:idx]
++		}
++		if tag != "" {
++			keys[tag] = true
++		}
++	}
++	return keys
++}
++
++// checkHookPayloadShape is CHookPayloadShape's real observation: the required fields
++// hookio.ReadEvent's own contract promises are present, and no unclaimed key duplicates a claimed
++// one.
++func checkHookPayloadShape(ctx context.Context, e Env) Result {
++	const desc = "hook payload shape matches hookio.Event"
++	if e.Event.HookEventName == "" {
++		return Result{OK: false, Expected: desc, Observed: "missing hook_event_name", TS: now(e)}
++	}
++	if e.Event.SessionID == "" {
++		return Result{OK: false, Expected: desc, Observed: "missing session_id", TS: now(e)}
++	}
++	if e.Event.CWD == "" && e.Event.TranscriptPath == "" {
++		return Result{OK: false, Expected: desc, Observed: "missing both cwd and transcript_path", TS: now(e)}
++	}
++	keys := make([]string, 0, len(e.Event.Extra))
++	for k := range e.Event.Extra {
++		keys = append(keys, k)
++	}
++	sort.Strings(keys)
++	for _, k := range keys {
++		if hookEventKnownFields[k] {
++			return Result{OK: false, Expected: desc, Observed: "extra field collides with known field " + k, TS: now(e)}
++		}
++	}
++	return Result{OK: true, Expected: desc, Observed: "payload shape valid", TS: now(e)}
++}
++
++// checkMCPServerRegistered is CMCPRegistered's real observation: whether the MCP server has
++// received initialize at least once this session. Its declared severity is SevInfo (shipped by
++// SP-01's StandardAssertions and pinned by standard_test.go), so a failure here is surfaced but
++// never degrades a session on its own.
++func checkMCPServerRegistered(ctx context.Context, e Env) Result {
++	const desc = "MCP server received initialize"
++	h, ok := historyOf(e)
++	if !ok {
++		return noObservationYet(CMCPRegistered, desc, e)
++	}
++	if h.MCPInitialized {
++		return Result{OK: true, Expected: desc, Observed: "initialize-received", TS: now(e)}
++	}
++	return Result{OK: false, Expected: desc, Observed: "initialize-not-received", TS: now(e)}
++}
++
++// transcriptReadableTailBytes bounds how much of transcript_path the transcript.readable assertion
++// reads for its last-line probe, so a multi-gigabyte transcript does not turn a SessionStart
++// assertion into an unbounded read.
++const transcriptReadableTailBytes = 64 << 10
++
++// checkTranscriptReadable is CTranscriptReadable's real observation: transcript_path exists and
++// its last non-empty line parses as JSON.
++func checkTranscriptReadable(ctx context.Context, e Env) Result {
++	const desc = "transcript_path exists and parses"
++	path := e.Event.TranscriptPath
++	if path == "" {
++		return Result{OK: true, Expected: desc, Observed: "no-transcript-path", TS: now(e)}
++	}
++	if _, err := os.Stat(paths.Long(path)); err != nil {
++		return Result{OK: false, Expected: desc, Observed: "transcript_path does not exist", TS: now(e)}
++	}
++	line, err := lastNonEmptyLine(path)
++	if err != nil {
++		return Result{OK: false, Expected: desc, Observed: "transcript_path has no readable content", TS: now(e)}
++	}
++	if !json.Valid([]byte(line)) {
++		return Result{OK: false, Expected: desc, Observed: "last transcript line is not valid JSON", TS: now(e)}
++	}
++	return Result{OK: true, Expected: desc, Observed: "transcript readable", TS: now(e)}
++}
++
++// pluginRootBinaries are the platform-specific binary names plugin.root_resolves accepts under
++// CLAUDE_PLUGIN_ROOT/bin/.
++var pluginRootBinaries = []string{"bin/qompack", "bin/qompack.exe"}
++
++// checkPluginRootResolves is CPluginRootResolves's real observation: CLAUDE_PLUGIN_ROOT, when set,
++// must expand to a directory containing the plugin binary.
++func checkPluginRootResolves(ctx context.Context, e Env) Result {
++	const desc = "CLAUDE_PLUGIN_ROOT expands to an existing binary"
++	root := os.Getenv("CLAUDE_PLUGIN_ROOT")
++	if root == "" {
++		return Result{OK: true, Expected: desc, Observed: "unset", TS: now(e)}
++	}
++	for _, rel := range pluginRootBinaries {
++		fi, err := os.Stat(paths.Long(filepath.Join(root, rel)))
++		if err == nil && !fi.IsDir() {
++			return Result{OK: true, Expected: desc, Observed: "resolved", TS: now(e)}
++		}
++	}
++	return Result{OK: false, Expected: desc, Observed: "CLAUDE_PLUGIN_ROOT set but no plugin binary found beneath it", TS: now(e)}
++}
++
++// firstLine returns s up to its first newline, or the whole of s if it contains none. It is used to
++// derive the probe phrase precompact.custom_instructions_accepted scans the transcript for.
++func firstLine(s string) string {
++	if i := strings.IndexByte(s, '\n'); i >= 0 {
++		return s[:i]
++	}
++	return s
++}
++
++// lastNonEmptyLine returns the last non-blank line within the final transcriptReadableTailBytes of
++// path.
++func lastNonEmptyLine(path string) (string, error) {
++	b, err := readTail(path, transcriptReadableTailBytes)
++	if err != nil {
++		return "", err
++	}
++	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
++	for i := len(lines) - 1; i >= 0; i-- {
++		line := strings.TrimSpace(lines[i])
++		if line != "" {
++			return line, nil
++		}
++	}
++	return "", errors.New("contract: no non-empty line in transcript tail")
++}
++
++// percentileMs returns the p-th percentile (1-100) of samples, nearest-rank, without mutating
++// samples.
++func percentileMs(samples []int64, p int) int64 {
++	if len(samples) == 0 {
++		return 0
++	}
++	sorted := append([]int64(nil), samples...)
++	sort.Slice(sorted, func(i, j int) bool { return sorted[i] < sorted[j] })
++	idx := (p*len(sorted) + 99) / 100 // nearest-rank, ceiling
++	if idx < 1 {
++		idx = 1
++	}
++	if idx > len(sorted) {
++		idx = len(sorted)
++	}
++	return sorted[idx-1]
++}
++
++// formatMs renders a millisecond count as "<n>ms" for a Result's Observed text.
++func formatMs(ms int64) string {
++	return strconv.FormatInt(ms, 10) + "ms"
++}
+diff --git a/internal/contract/assertions_test.go b/internal/contract/assertions_test.go
+new file mode 100644
+index 0000000..320b646
+--- /dev/null
++++ b/internal/contract/assertions_test.go
+@@ -0,0 +1,381 @@
++package contract_test
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// wave1Producers are the five §12.1 assertions SP-05 always declares from wave 1 (task-4-spec.md):
++// their producer exists in this build regardless of which later wave's subsystem has landed.
++var wave1Producers = []contract.ID{
++	contract.CSessionStartFires,
++	contract.CSessionStartSourceCompact,
++	contract.CHookPayloadShape,
++	contract.CTranscriptReadable,
++	contract.CPluginRootResolves,
++}
++
++// laterWaveIDs are the four §12.1 names as a later wave's subsystem: SP-10 (precompact.*), SP-11
++// (hook.additional_context_delivered) and SP-13 (mcp.server_registered). None of them has a
++// producer declared anywhere in this package's tests unless a specific test declares it itself
++// (and cleans up with t.Cleanup(contract.ResetProducers)).
++var laterWaveIDs = map[contract.ID]bool{
++	contract.CPreCompactTiming:      true,
++	contract.CPreCompactCustomInstr: true,
++	contract.CAdditionalContext:     true,
++	contract.CMCPRegistered:         true,
++}
++
++// declareWave1 declares exactly the five wave-1 producers, cleaning up with t.Cleanup so no test
++// leaks a declared producer into another — including golden_test.go's frozen fixture, which depends
++// on the process-wide producer set being empty.
++func declareWave1(t *testing.T) {
++	t.Helper()
++	for _, id := range wave1Producers {
++		contract.DeclareProducer(id)
++	}
++	t.Cleanup(contract.ResetProducers)
++}
++
++// assertionByID returns the StandardAssertions() entry with the given ID, failing the test if none
++// matches. Tests that exercise one assertion's Check directly use this rather than an index, so a
++// reordering of StandardAssertions() (which TestStandardAssertions_MatchTheNormativeTable would
++// also catch) cannot silently point this test at the wrong assertion.
++func assertionByID(t *testing.T, id contract.ID) contract.Assertion {
++	t.Helper()
++	for _, a := range contract.StandardAssertions() {
++		if a.ID == id {
++			return a
++		}
++	}
++	t.Fatalf("no standard assertion %s", id)
++	return contract.Assertion{}
++}
++
++// TestFreshBuildReportsModeFull is the CI test §12.1 explicitly demands (task-4-spec.md): with the
++// five wave-1 producers declared (simulating what the daemon's startup will do, the next task) and
++// a well-formed Event against an empty History, a fresh build reports ModeFull, and the four
++// later-wave assertions still report OK/SevInfo/not-yet-implemented because their producer stays
++// undeclared.
++func TestFreshBuildReportsModeFull(t *testing.T) {
++	declareWave1(t)
++	t.Setenv("CLAUDE_PLUGIN_ROOT", "")
++
++	m, _, _ := newTestMonitor(t)
++	registerAll(t, m, contract.StandardAssertions())
++
++	env := contract.Env{
++		Clock:   newFakeClock(),
++		History: &contract.SessionHistory{},
++		Event: hookio.Event{
++			HookEventName: "SessionStart", SessionID: "sess-1", CWD: "/tmp/project", Source: "startup",
++		},
++	}
++
++	results, mode := m.RunAll(context.Background(), env)
++
++	require.Equal(t, contract.ModeFull, mode, "a freshly built develop must report ModeFull (§12.1)")
++	require.Len(t, results, 9)
++	for _, r := range results {
++		if !laterWaveIDs[r.ID] {
++			continue
++		}
++		require.True(t, r.OK, "%s: a later-wave assertion with no declared producer must report OK", r.ID)
++		require.Equal(t, contract.SevInfo, r.Severity, "%s: must OBSERVE SevInfo", r.ID)
++		require.Equal(t, "not-yet-implemented", r.Observed, "%s", r.ID)
++	}
++}
++
++// TestCriticalFailureDegrades asserts a real, gated, producer-declared assertion drives the same
++// §12.1 degradation the mechanics test with synthetic fixedResult assertions: PreCompactWallMs'
++// p99 landing at 100% of the timeout is a SevCritical fail even though CPreCompactTiming DECLARES
++// SevWarn (task-4-spec.md's table).
++func TestCriticalFailureDegrades(t *testing.T) {
++	contract.DeclareProducer(contract.CPreCompactTiming)
++	t.Cleanup(contract.ResetProducers)
++
++	m, _, statePath := newTestMonitor(t)
++	require.NoError(t, m.Register(assertionByID(t, contract.CPreCompactTiming)))
++	loud := captureLoud(t)
++
++	h := &contract.SessionHistory{PrecompactTimeoutMs: 2000, PrecompactWallMs: []int64{2000, 2000, 2000, 2000}}
++	env := contract.Env{Clock: newFakeClock(), History: h}
++
++	results, mode := m.RunAll(context.Background(), env)
++
++	require.Equal(t, contract.ModeDegradedPassive, mode)
++	require.Len(t, results, 1)
++	require.Equal(t, contract.SevCritical, results[0].Severity,
++		"p99 at 100%% of the timeout observes SevCritical even though the assertion DECLARES SevWarn")
++	require.Len(t, loud(), 1)
++
++	st := readState(t, statePath)
++	require.Contains(t, st["reason"], string(contract.CPreCompactTiming))
++	require.NotZero(t, st["since"])
++}
++
++// TestTwoCleanRunsRestore and TestOneCleanRunDoesNotRestore restate §12.1's recovery rule under the
++// exact names task-4-spec.md's test table gives them; monitor_test.go's
++// TestMonitor_TwoConsecutiveCleanRunsRestore already covers the mechanics in more depth, so these
++// stay minimal.
++func TestTwoCleanRunsRestore(t *testing.T) {
++	m, _, _ := newTestMonitor(t)
++	a, set := flippable(contract.CHookPayloadShape)
++	require.NoError(t, m.Register(a))
++	env := contract.Env{Clock: newFakeClock()}
++
++	set(false)
++	_, mode := m.RunAll(context.Background(), env)
++	require.Equal(t, contract.ModeDegradedPassive, mode)
++
++	set(true)
++	loud := captureLoud(t)
++	_, mode = m.RunAll(context.Background(), env)
++	require.Equal(t, contract.ModeDegradedPassive, mode, "run 1: one clean run must not restore")
++
++	_, mode = m.RunAll(context.Background(), env)
++	require.Equal(t, contract.ModeFull, mode, "run 2: two consecutive clean runs must restore")
++	require.Len(t, loud(), 1, "the restore itself must be Loud")
++}
++
++func TestOneCleanRunDoesNotRestore(t *testing.T) {
++	m, _, _ := newTestMonitor(t)
++	a, set := flippable(contract.CTranscriptReadable)
++	require.NoError(t, m.Register(a))
++	env := contract.Env{Clock: newFakeClock()}
++
++	set(false)
++	_, _ = m.RunAll(context.Background(), env)
++	set(true)
++	_, mode := m.RunAll(context.Background(), env)
++	require.Equal(t, contract.ModeDegradedPassive, mode)
++}
++
++// TestRuntimeModeOffShortCircuits asserts runtime.mode == "off" returns (nil, ModeOff) without
++// running a single registered assertion (task-4-spec.md step 1) — proved with a counting Check.
++func TestRuntimeModeOffShortCircuits(t *testing.T) {
++	m, _, _ := newTestMonitor(t)
++	var calls int
++	require.NoError(t, m.Register(contract.Assertion{
++		ID: contract.CSessionStartFires, Severity: contract.SevCritical, Description: "x",
++		Check: func(ctx context.Context, e contract.Env) contract.Result {
++			calls++
++			return contract.Result{ID: contract.CSessionStartFires, OK: true}
++		},
++	}))
++
++	env := contract.Env{Clock: newFakeClock(), Cfg: config.Config{Runtime: config.RuntimeCfg{Mode: "off"}}}
++	results, mode := m.RunAll(context.Background(), env)
++
++	require.Nil(t, results)
++	require.Equal(t, contract.ModeOff, mode)
++	require.Zero(t, calls, "zero assertions must execute when runtime.mode = off")
++}
++
++// TestRuntimeModePassiveForces asserts runtime.mode == "passive" forces ModeDegradedPassive even
++// when every registered assertion is clean, and that the results are still populated (they are
++// "for reporting", per task-4-spec.md step 2).
++func TestRuntimeModePassiveForces(t *testing.T) {
++	m, _, _ := newTestMonitor(t)
++	require.NoError(t, m.Register(fixedResult(contract.CSessionStartFires, true, contract.SevInfo)))
++
++	env := contract.Env{Clock: newFakeClock(), Cfg: config.Config{Runtime: config.RuntimeCfg{Mode: "passive"}}}
++	results, mode := m.RunAll(context.Background(), env)
++
++	require.Equal(t, contract.ModeDegradedPassive, mode)
++	require.Len(t, results, 1)
++	require.True(t, results[0].OK, "a forced mode does not fabricate a failing result")
++	require.Equal(t, contract.ModeDegradedPassive, m.Mode(), "Mode() must reflect the forced override too")
++}
++
++// TestRuntimeModeFullForces is the symmetric escape hatch: runtime.mode == "full" forces ModeFull
++// even over a naturally degraded run (task-4-spec.md step 3: "an escape hatch for a user whose host
++// build breaks our detection").
++func TestRuntimeModeFullForces(t *testing.T) {
++	m, _, _ := newTestMonitor(t)
++	require.NoError(t, m.Register(fixedResult(contract.CSessionStartFires, false, contract.SevCritical)))
++
++	env := contract.Env{Clock: newFakeClock(), Cfg: config.Config{Runtime: config.RuntimeCfg{Mode: "full"}}}
++	results, mode := m.RunAll(context.Background(), env)
++
++	require.Equal(t, contract.ModeFull, mode)
++	require.Len(t, results, 1)
++	require.False(t, results[0].OK, "the underlying failure is still reported")
++	require.Equal(t, contract.ModeFull, m.Mode())
++}
++
++// TestPanickingAssertionDoesNotDegrade asserts a panicking Check is recovered into
++// OK:false/SevWarn/"assertion panicked" and never degrades the session (task-4-spec.md step 4).
++func TestPanickingAssertionDoesNotDegrade(t *testing.T) {
++	m, _, _ := newTestMonitor(t)
++	require.NoError(t, m.Register(contract.Assertion{
++		ID: contract.CSessionStartFires, Severity: contract.SevCritical, Description: "x",
++		Check: func(ctx context.Context, e contract.Env) contract.Result {
++			panic("boom")
++		},
++	}))
++
++	results, mode := m.RunAll(context.Background(), contract.Env{Clock: newFakeClock()})
++
++	require.Equal(t, contract.ModeFull, mode, "a panicking assertion must never degrade the session")
++	require.Len(t, results, 1)
++	require.False(t, results[0].OK)
++	require.Equal(t, contract.SevWarn, results[0].Severity)
++	require.Equal(t, "assertion panicked", results[0].Observed)
++}
++
++// TestSessionStartFiresNeedsTwoMisses drives the real checkSessionStartFires observation through
++// two consecutive RunAll calls with no marker ever written: the first miss reports OK
++// (StartsWithoutMarker == 1), and only the second consecutive miss fails.
++func TestSessionStartFiresNeedsTwoMisses(t *testing.T) {
++	contract.DeclareProducer(contract.CSessionStartFires)
++	t.Cleanup(contract.ResetProducers)
++
++	m, _, _ := newTestMonitor(t)
++	require.NoError(t, m.Register(assertionByID(t, contract.CSessionStartFires)))
++
++	h := &contract.SessionHistory{SessionCount: 1}
++	env := contract.Env{
++		Clock: newFakeClock(), ProjectRoot: t.TempDir(), History: h,
++		Event: hookio.Event{SessionID: "sess-a"},
++	}
++
++	results, mode := m.RunAll(context.Background(), env)
++	require.Equal(t, contract.ModeFull, mode)
++	require.True(t, results[0].OK)
++	require.Equal(t, 1, h.StartsWithoutMarker)
++
++	h.SessionCount = 2
++	results, mode = m.RunAll(context.Background(), env)
++	require.Equal(t, contract.ModeDegradedPassive, mode)
++	require.False(t, results[0].OK)
++	require.Equal(t, contract.SevCritical, results[0].Severity)
++	require.Equal(t, 2, h.StartsWithoutMarker)
++}
++
++// TestSourceCompactEvaluatedOnFollowingStart calls checkSessionStartSourceCompact directly (via
++// StandardAssertions()) with History.AwaitingCompactStart set and Event.Source == "startup": the
++// assertion must fail naming what it expected and what it saw, and clear the flag regardless.
++func TestSourceCompactEvaluatedOnFollowingStart(t *testing.T) {
++	contract.DeclareProducer(contract.CSessionStartSourceCompact)
++	t.Cleanup(contract.ResetProducers)
++
++	h := &contract.SessionHistory{AwaitingCompactStart: true}
++	env := contract.Env{Clock: newFakeClock(), History: h, Event: hookio.Event{Source: "startup"}}
++
++	r := assertionByID(t, contract.CSessionStartSourceCompact).Check(context.Background(), env)
++
++	require.False(t, r.OK)
++	require.Equal(t, "compact", r.Expected)
++	require.Equal(t, "startup", r.Observed)
++	require.False(t, h.AwaitingCompactStart, "the flag must be cleared whichever way the check resolves")
++}
++
++// TestPreCompactTimeoutUnknownIsOK asserts a never-observed timeout (PrecompactTimeoutMs == 0)
++// reports OK/"timeout-unknown" rather than a division against zero or a fabricated failure.
++func TestPreCompactTimeoutUnknownIsOK(t *testing.T) {
++	contract.DeclareProducer(contract.CPreCompactTiming)
++	t.Cleanup(contract.ResetProducers)
++
++	h := &contract.SessionHistory{}
++	r := assertionByID(t, contract.CPreCompactTiming).Check(context.Background(),
++		contract.Env{Clock: newFakeClock(), History: h})
++
++	require.True(t, r.OK)
++	require.Equal(t, "timeout-unknown", r.Observed)
++}
++
++// TestCustomInstructionsProbePhrase asserts the custom_instructions probe: a transcript whose tail
++// contains the emitted instruction's first line reports OK; one that does not reports a SevWarn
++// failure (advisory by design, §8.5).
++func TestCustomInstructionsProbePhrase(t *testing.T) {
++	contract.DeclareProducer(contract.CPreCompactCustomInstr)
++	t.Cleanup(contract.ResetProducers)
++
++	const phrase = "this is a forty-char probe phrase for the scan"
++	require.GreaterOrEqual(t, len(phrase), 24)
++
++	dir := t.TempDir()
++	found := filepath.Join(dir, "found.jsonl")
++	require.NoError(t, os.WriteFile(found, []byte("irrelevant line\n"+phrase+"\nmore text\n"), 0o600))
++	absent := filepath.Join(dir, "absent.jsonl")
++	require.NoError(t, os.WriteFile(absent, []byte("nothing here matches at all\n"), 0o600))
++
++	h := &contract.SessionHistory{}
++	h.SetPrecompactInstr(phrase)
++	a := assertionByID(t, contract.CPreCompactCustomInstr)
++
++	r := a.Check(context.Background(), contract.Env{
++		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: found},
++	})
++	require.True(t, r.OK, "the phrase is present in the transcript tail")
++
++	r = a.Check(context.Background(), contract.Env{
++		Clock: newFakeClock(), History: h, Event: hookio.Event{TranscriptPath: absent},
++	})
++	require.False(t, r.OK)
++	require.Equal(t, contract.SevWarn, r.Severity, "custom_instructions is advisory by design (§8.5)")
++}
++
++// TestHookPayloadShapeRejectsEmptySession asserts a payload missing session_id fails and names the
++// missing field in Observed.
++func TestHookPayloadShapeRejectsEmptySession(t *testing.T) {
++	contract.DeclareProducer(contract.CHookPayloadShape)
++	t.Cleanup(contract.ResetProducers)
++
++	r := assertionByID(t, contract.CHookPayloadShape).Check(context.Background(), contract.Env{
++		Clock: newFakeClock(), Event: hookio.Event{HookEventName: "PostToolUse"},
++	})
++
++	require.False(t, r.OK)
++	require.Contains(t, r.Observed, "session_id")
++}
++
++// TestPluginRootUnsetIsOK asserts an unset CLAUDE_PLUGIN_ROOT reports OK/"unset" rather than a
++// failure: most hosts never set it, and that is not evidence of anything broken.
++func TestPluginRootUnsetIsOK(t *testing.T) {
++	contract.DeclareProducer(contract.CPluginRootResolves)
++	t.Cleanup(contract.ResetProducers)
++	t.Setenv("CLAUDE_PLUGIN_ROOT", "")
++
++	r := assertionByID(t, contract.CPluginRootResolves).Check(context.Background(),
++		contract.Env{Clock: newFakeClock()})
++
++	require.True(t, r.OK)
++	require.Equal(t, "unset", r.Observed)
++}
++
++// TestHistoryPersistsAcrossMonitors asserts both persisted records survive into the next
++// SessionStart: the Monitor's own degrade/restore state (state/contract.json, unchanged mechanic)
++// and the cross-session SessionHistory (state/history.json, this task's new one).
++func TestHistoryPersistsAcrossMonitors(t *testing.T) {
++	root := t.TempDir()
++	statePath := statePathIn(root)
++	historyPath := contract.HistoryPath(root)
++
++	h := contract.LoadHistory(historyPath)
++	h.SessionCount = 1
++
++	first := contract.NewMonitor(logging.Nop(), obs.New(newFakeClock()), statePath)
++	require.NoError(t, first.Register(fixedResult(contract.CHookPayloadShape, false, contract.SevCritical)))
++	_, mode := first.RunAll(context.Background(), contract.Env{Clock: newFakeClock(), History: h})
++	require.Equal(t, contract.ModeDegradedPassive, mode)
++	require.NoError(t, contract.SaveHistory(historyPath, h))
++
++	reloaded := contract.LoadHistory(historyPath)
++	require.Equal(t, 1, reloaded.SessionCount, "the cross-session record must round-trip")
++
++	second := contract.NewMonitor(logging.Nop(), obs.New(newFakeClock()), statePath)
++	require.Equal(t, contract.ModeDegradedPassive, second.Mode(),
++		"the next SessionStart must surface the degradation, not start clean")
++}
+diff --git a/internal/contract/contracttest/suite_test.go b/internal/contract/contracttest/suite_test.go
+index c945cdc..7311ad7 100644
+--- a/internal/contract/contracttest/suite_test.go
++++ b/internal/contract/contracttest/suite_test.go
+@@ -149,10 +149,20 @@ func TestRunHistorySuite_StubIsSkipped(t *testing.T) {
+ }
+ 
+ // TestRunHistorySuite_AgainstAnInMemoryHistory runs the History behaviour block against a minimal
+ // correct implementation, proving the specification SP-05 inherits is satisfiable rather than
+ // merely unrun.
+ func TestRunHistorySuite_AgainstAnInMemoryHistory(t *testing.T) {
+ 	contracttest.RunHistorySuite(t, "in-memory", func(t *testing.T) contract.History {
+ 		return newMemHistory()
+ 	})
+ }
++
++// TestRunHistorySuite_AgainstSessionHistory runs the History conformance suite against
++// contract.SessionHistory, SP-05's real cross-session implementation: this is what flips Rule W-1's
++// skip off for good — the behaviour block now runs against the History every real caller uses,
++// not only against the suite's own throwaway memHistory.
++func TestRunHistorySuite_AgainstSessionHistory(t *testing.T) {
++	contracttest.RunHistorySuite(t, "contract.SessionHistory", func(t *testing.T) contract.History {
++		return &contract.SessionHistory{}
++	})
++}
+diff --git a/internal/contract/gated_test.go b/internal/contract/gated_test.go
+new file mode 100644
+index 0000000..79843ea
+--- /dev/null
++++ b/internal/contract/gated_test.go
+@@ -0,0 +1,93 @@
++package contract
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++)
++
++// gatedTestClock is this file's own fixed core.Clock: it lives in package contract (white-box, to
++// reach the unexported gated), so it cannot use contract_test's newFakeClock.
++type gatedTestClock struct{}
++
++func (gatedTestClock) Now() time.Time                  { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) }
++func (gatedTestClock) Since(t time.Time) time.Duration { return gatedTestClock{}.Now().Sub(t) }
++
++// TestGated_ShortCircuitsBeforeCheckRuns is §12.1's central mechanism, tested against the wrapper
++// itself rather than against any one assertion: with no producer declared, gated must never invoke
++// the check function at all — not "invoke it and discard the result", never invoke it — which a
++// counting closure is the only way to prove.
++func TestGated_ShortCircuitsBeforeCheckRuns(t *testing.T) {
++	const id ID = "test.gated_probe"
++	t.Cleanup(ResetProducers)
++
++	var calls int
++	a := gated(id, SevCritical, "probe", func(ctx context.Context, e Env) Result {
++		calls++
++		return Result{OK: false, Severity: SevCritical}
++	})
++
++	r := a.Check(context.Background(), Env{Clock: gatedTestClock{}})
++
++	require.Zero(t, calls, "the check body must never run while the producer is undeclared")
++	require.True(t, r.OK)
++	require.Equal(t, SevInfo, r.Severity)
++	require.Equal(t, notYetImplementedObserved, r.Observed)
++	require.Equal(t, "probe", r.Expected)
++
++	DeclareProducer(id)
++	r = a.Check(context.Background(), Env{Clock: gatedTestClock{}})
++	require.Equal(t, 1, calls, "declaring the producer must let the check body run exactly once per call")
++	require.False(t, r.OK)
++	require.Equal(t, SevCritical, r.Severity)
++}
++
++// TestAdditionalContextGatedUntilRehydrator is task-4-spec.md's named pin for the CAdditionalContext
++// case specifically: without DeclareProducer(CAdditionalContext), the check body never executes and
++// the result is OK/SevInfo/not-yet-implemented; with it declared, the real check runs and can
++// observe at SevCritical (its declared severity).
++func TestAdditionalContextGatedUntilRehydrator(t *testing.T) {
++	t.Cleanup(ResetProducers)
++
++	var calls int
++	a := gated(CAdditionalContext, SevCritical, "additionalContext reaches the transcript",
++		func(ctx context.Context, e Env) Result {
++			calls++
++			return Result{OK: false}
++		})
++
++	r := a.Check(context.Background(), Env{Clock: gatedTestClock{}})
++	require.Zero(t, calls, "the check body must never execute while SP-11 has not declared its producer")
++	require.True(t, r.OK)
++	require.Equal(t, SevInfo, r.Severity)
++	require.Equal(t, notYetImplementedObserved, r.Observed)
++
++	DeclareProducer(CAdditionalContext)
++	r = a.Check(context.Background(), Env{Clock: gatedTestClock{}})
++	require.Equal(t, 1, calls, "declaring the producer must let the real check run")
++	require.False(t, r.OK)
++	require.Equal(t, SevCritical, r.Severity, "an unset Severity on failure falls back to the DECLARED severity")
++}
++
++// TestPercentileMs pins the p99 arithmetic precompact.has_time_to_write depends on: nearest-rank,
++// non-mutating, and well-defined at the boundaries.
++func TestPercentileMs(t *testing.T) {
++	require.EqualValues(t, 0, percentileMs(nil, 99))
++
++	samples := []int64{100, 200, 300, 400, 500}
++	orig := append([]int64(nil), samples...)
++	got := percentileMs(samples, 99)
++	require.Equal(t, orig, samples, "percentileMs must not mutate its input")
++	require.Equal(t, int64(500), got, "p99 of 5 samples is the maximum by nearest-rank")
++
++	require.Equal(t, int64(300), percentileMs([]int64{500, 100, 300, 200, 400}, 50))
++}
++
++// TestFirstLine pins the probe-phrase extraction precompact.custom_instructions_accepted uses.
++func TestFirstLine(t *testing.T) {
++	require.Equal(t, "one line only", firstLine("one line only"))
++	require.Equal(t, "first", firstLine("first\nsecond\nthird"))
++	require.Equal(t, "", firstLine(""))
++}
+diff --git a/internal/contract/history.go b/internal/contract/history.go
+new file mode 100644
+index 0000000..9353c5e
+--- /dev/null
++++ b/internal/contract/history.go
+@@ -0,0 +1,232 @@
++package contract
++
++import (
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// historyVersion is the current on-disk schema version of state/history.json.
++const historyVersion = 1
++
++// historyPerm is the permission history.json is written with: owner-only, like every other file
++// under .qompack/.
++const historyPerm = 0o600
++
++// maxPrecompactWallSamples caps History.PrecompactWallMs at its newest samples, per task-4-spec.md
++// ("the 64 newest") — enough for a meaningful p99 without the file growing without bound across a
++// long-lived project.
++const maxPrecompactWallSamples = 64
++
++// maxPrecompactInstrChars caps the persisted custom_instructions probe phrase.
++const maxPrecompactInstrChars = 256
++
++// maxLastResults caps History.Last at one entry per §5.19 assertion.
++const maxLastResults = 9
++
++// SentinelState is the cross-session record of the hook.additional_context_delivered probe
++// (§12.1): SessionStart mints and emits a token, and the daemon's UserPromptSubmit route scans the
++// transcript tail for it and calls RecordSentinelScan with what it found. The CAdditionalContext
++// assertion only ever READS this — Chances tracking belongs to the scan, not the assertion, so
++// that "two chances" means two actual scans, not two evaluations of the same scan.
++type SentinelState struct {
++	// Token is the most recently minted token, kept so a caller can re-render or re-scan for it
++	// without re-deriving it from Session/MintedAt.
++	Token string `json:"token,omitempty"`
++	// Session is the id of the session the current Token was minted for.
++	Session core.SessionID `json:"session,omitempty"`
++	// MintedAt is when Token was minted.
++	MintedAt core.UnixMilli `json:"minted_at,omitempty"`
++	// Observed is true once a scan has ever found Token (or a predecessor) in a transcript tail.
++	// It never resets to false: once §12.1's mechanism is proven to work, it stays proven.
++	Observed bool `json:"observed"`
++	// Chances counts consecutive scans that did NOT find the sentinel since it was last observed.
++	// The CAdditionalContext assertion fails once this reaches 2 ("not found ⇒ fail" after two
++	// chances) and is never itself incremented by that assertion's Check.
++	Chances int `json:"chances"`
++}
++
++// SessionHistory is the first real implementation of History (00-ARCHITECTURE.md §5.19): the
++// persistent, cross-session record every §12.1 assertion phrased "across two sessions" or
++// "evaluated on the FOLLOWING start" needs. It is loaded once at SessionStart (LoadHistory),
++// mutated in place by the assertions that run against it, and saved back by the daemon after
++// RunAll (the next task's job — this package only mutates the in-memory record).
++type SessionHistory struct {
++	Version int `json:"version"`
++
++	// SessionCount is the Go field backing the History interface's Sessions() method. It is
++	// spelled differently from its "sessions" JSON tag only to avoid colliding with the method of
++	// the same name on this type.
++	SessionCount int `json:"sessions"`
++
++	LastSessionID core.SessionID `json:"last_session_id"`
++	LastMarkerTS  core.UnixMilli `json:"last_marker_ts"`
++
++	// StartsWithoutMarker counts consecutive SessionStarts that found no marker left by a prior
++	// terminal hook. session_start.fires fails once this reaches 2 ("absence across two sessions").
++	StartsWithoutMarker int `json:"starts_without_marker"`
++
++	LastPrecompactTS      core.UnixMilli `json:"last_precompact_ts"`
++	LastPrecompactSession core.SessionID `json:"last_precompact_session"`
++
++	// PrecompactWallMs holds the 64 newest PreCompact wall-time samples, newest last, that
++	// precompact.has_time_to_write computes a p99 over.
++	PrecompactWallMs    []int64 `json:"precompact_wall_ms"`
++	PrecompactTimeoutMs int64   `json:"precompact_timeout_ms"`
++	// PrecompactInstr is the most recently emitted custom_instructions text, truncated to
++	// maxPrecompactInstrChars, that precompact.custom_instructions_accepted probes for.
++	PrecompactInstr string `json:"precompact_instr"`
++	// AwaitingCompactStart is set when a PreCompact has been observed for the current session id
++	// and cleared by session_start.source_compact on the FOLLOWING SessionStart, whichever way
++	// that assertion resolves.
++	AwaitingCompactStart bool `json:"awaiting_compact_start"`
++
++	Sentinel SentinelState `json:"sentinel"`
++
++	MCPInitialized bool `json:"mcp_initialized"`
++
++	// CleanRuns mirrors the monitor's own clean-run streak into the cross-session record so a
++	// caller inspecting History alone (e.g. self-test synthesizing an Env, per task-4-spec.md's
++	// nil-tolerance note) can see it without a live Monitor.
++	CleanRuns      int            `json:"clean_runs"`
++	Mode           string         `json:"mode"`
++	DegradedReason string         `json:"degraded_reason,omitempty"`
++	DegradedSince  core.UnixMilli `json:"degraded_since,omitempty"`
++
++	// Last holds the most recent RunAll's results, capped at maxLastResults (one per §5.19
++	// assertion).
++	Last []Result `json:"last,omitempty"`
++
++	// Seen backs the History interface: Saw/LastSeen read it, Record writes it.
++	Seen map[ID]core.UnixMilli `json:"seen,omitempty"`
++}
++
++// var assertion: *SessionHistory implements History.
++var _ History = (*SessionHistory)(nil)
++
++func (h *SessionHistory) Saw(id ID) bool {
++	if h == nil || h.Seen == nil {
++		return false
++	}
++	_, ok := h.Seen[id]
++	return ok
++}
++
++func (h *SessionHistory) LastSeen(id ID) (core.UnixMilli, bool) {
++	if h == nil || h.Seen == nil {
++		return 0, false
++	}
++	ts, ok := h.Seen[id]
++	return ts, ok
++}
++
++func (h *SessionHistory) Record(id ID, at core.UnixMilli) {
++	if h == nil {
++		return
++	}
++	if h.Seen == nil {
++		h.Seen = make(map[ID]core.UnixMilli)
++	}
++	if prev, ok := h.Seen[id]; !ok || at > prev {
++		h.Seen[id] = at
++	}
++}
++
++func (h *SessionHistory) Sessions() int {
++	if h == nil {
++		return 0
++	}
++	return h.SessionCount
++}
++
++// AddPrecompactWallSample appends ms to PrecompactWallMs, keeping only the maxPrecompactWallSamples
++// newest.
++func (h *SessionHistory) AddPrecompactWallSample(ms int64) {
++	h.PrecompactWallMs = append(h.PrecompactWallMs, ms)
++	if len(h.PrecompactWallMs) > maxPrecompactWallSamples {
++		h.PrecompactWallMs = h.PrecompactWallMs[len(h.PrecompactWallMs)-maxPrecompactWallSamples:]
++	}
++}
++
++// SetPrecompactInstr truncates instr to maxPrecompactInstrChars before storing it.
++func (h *SessionHistory) SetPrecompactInstr(instr string) {
++	if len(instr) > maxPrecompactInstrChars {
++		instr = instr[:maxPrecompactInstrChars]
++	}
++	h.PrecompactInstr = instr
++}
++
++// RecordLast replaces Last with a copy of results, capped at maxLastResults (the newest entries
++// kept when results itself somehow exceeds that many).
++func (h *SessionHistory) RecordLast(results []Result) {
++	last := append([]Result(nil), results...)
++	if len(last) > maxLastResults {
++		last = last[len(last)-maxLastResults:]
++	}
++	h.Last = last
++}
++
++// RecordSentinelScan updates h.Sentinel after a transcript scan for the current sentinel token:
++// found marks it Observed for good (it never resets to false); not found spends one more Chance.
++// It is called by the daemon's UserPromptSubmit route (SP-05's next task) after
++// ScanTranscriptTail, and directly by this package's own tests to drive the two-chances state
++// machine the CAdditionalContext assertion reads — deliberately never by the assertion's Check
++// itself (see SentinelState's doc comment).
++func (h *SessionHistory) RecordSentinelScan(found bool) {
++	if found {
++		h.Sentinel.Observed = true
++		h.Sentinel.Chances = 0
++		return
++	}
++	h.Sentinel.Chances++
++}
++
++// HistoryPath returns <projectRoot>/.qompack/state/history.json — deliberately NOT
++// state/contract.json, which remains the Monitor's own persisted mode/reason/results: two distinct
++// schemas sharing one path would corrupt each other the first time both were written.
++func HistoryPath(projectRoot string) string {
++	return filepath.Join(paths.Of(projectRoot).State, "history.json")
++}
++
++// LoadHistory reads path and returns the decoded SessionHistory. Any error — a missing file (the
++// ordinary first-run case), a permission failure, or corrupt JSON — returns a zero SessionHistory
++// with Version 1 rather than propagating: §12.3's "everything else fails toward do nothing" applies
++// to the monitor's cross-session memory exactly as it does to state/contract.json itself.
++func LoadHistory(path string) *SessionHistory {
++	zero := &SessionHistory{Version: historyVersion}
++	b, err := os.ReadFile(paths.Long(path))
++	if err != nil {
++		return zero
++	}
++	var h SessionHistory
++	if err := json.Unmarshal(b, &h); err != nil {
++		return zero
++	}
++	if h.Version == 0 {
++		h.Version = historyVersion
++	}
++	return &h
++}
++
++// SaveHistory writes h to path through paths.WriteAtomic, creating the containing directory if
++// needed. A nil h is treated as a fresh, empty history rather than an error.
++func SaveHistory(path string, h *SessionHistory) error {
++	if h == nil {
++		h = &SessionHistory{Version: historyVersion}
++	}
++	b, err := json.Marshal(h)
++	if err != nil {
++		return fmt.Errorf("contract: marshalling %s: %w", path, err)
++	}
++	if err := os.MkdirAll(paths.Long(filepath.Dir(path)), 0o700); err != nil {
++		return fmt.Errorf("contract: mkdir for %s: %w", path, err)
++	}
++	if err := paths.WriteAtomic(path, b, historyPerm); err != nil {
++		return fmt.Errorf("contract: writing %s: %w", path, err)
++	}
++	return nil
++}
+diff --git a/internal/contract/history_test.go b/internal/contract/history_test.go
+new file mode 100644
+index 0000000..6f7a222
+--- /dev/null
++++ b/internal/contract/history_test.go
+@@ -0,0 +1,143 @@
++package contract_test
++
++import (
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++)
++
++// historyDegradedGolden is the frozen fixture added by this task: a degraded SessionHistory in its
++// on-disk state/history.json shape, located the way golden_test.go locates result_set.json.
++const historyDegradedGolden = "../../testdata/golden/contracts/contract/want/history_degraded.json"
++
++// TestHistoryPath_IsStateHistoryJSON pins HistoryPath's location: state/history.json, deliberately
++// distinct from state/contract.json (the Monitor's own persisted mode/reason/results) — two
++// schemas sharing one path would corrupt each other.
++func TestHistoryPath_IsStateHistoryJSON(t *testing.T) {
++	root := t.TempDir()
++	want := filepath.Join(root, ".qompack", "state", "history.json")
++	require.Equal(t, want, contract.HistoryPath(root))
++}
++
++// TestLoadHistory_MissingFileIsFirstRun asserts a project with no history.json yet returns a zero
++// SessionHistory at Version 1 rather than an error: a missing file IS the first-run case.
++func TestLoadHistory_MissingFileIsFirstRun(t *testing.T) {
++	h := contract.LoadHistory(contract.HistoryPath(t.TempDir()))
++	require.NotNil(t, h)
++	require.Equal(t, 1, h.Version)
++	require.Equal(t, 0, h.SessionCount)
++}
++
++// TestLoadHistory_CorruptFileFallsBackToZero asserts corrupt JSON falls back exactly like a
++// missing file, mirroring the Monitor's own §12.3 "fail toward do nothing" for state/contract.json.
++func TestLoadHistory_CorruptFileFallsBackToZero(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "history.json")
++	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
++	require.NoError(t, os.WriteFile(path, []byte("{not json"), 0o600))
++
++	h := contract.LoadHistory(path)
++	require.Equal(t, 1, h.Version)
++}
++
++// TestSaveHistory_RoundTripsThroughLoadHistory asserts SaveHistory/LoadHistory agree on the wire
++// shape for every field this task adds, including the map-backed Seen the History interface reads.
++func TestSaveHistory_RoundTripsThroughLoadHistory(t *testing.T) {
++	path := contract.HistoryPath(t.TempDir())
++
++	h := &contract.SessionHistory{Version: 1, SessionCount: 3}
++	h.Record(contract.CHookPayloadShape, core.UnixMilli(1000))
++	h.AddPrecompactWallSample(500)
++	h.SetPrecompactInstr("an emitted focus instruction")
++	h.RecordSentinelScan(false)
++
++	require.NoError(t, contract.SaveHistory(path, h))
++
++	got := contract.LoadHistory(path)
++	require.Equal(t, 3, got.SessionCount)
++	require.True(t, got.Saw(contract.CHookPayloadShape))
++	ts, ok := got.LastSeen(contract.CHookPayloadShape)
++	require.True(t, ok)
++	require.Equal(t, core.UnixMilli(1000), ts)
++	require.Equal(t, []int64{500}, got.PrecompactWallMs)
++	require.Equal(t, "an emitted focus instruction", got.PrecompactInstr)
++	require.Equal(t, 1, got.Sentinel.Chances)
++}
++
++// TestSaveHistory_CreatesTheStateDirectory asserts SaveHistory creates state/ if it does not exist
++// yet, mirroring monitor.persist's own behaviour for state/contract.json.
++func TestSaveHistory_CreatesTheStateDirectory(t *testing.T) {
++	root := t.TempDir()
++	path := contract.HistoryPath(root)
++	_, err := os.Stat(filepath.Dir(path))
++	require.True(t, os.IsNotExist(err), "fixture sanity: state/ must not already exist")
++
++	require.NoError(t, contract.SaveHistory(path, &contract.SessionHistory{Version: 1}))
++	_, err = os.Stat(path)
++	require.NoError(t, err)
++}
++
++// TestAddPrecompactWallSample_CapsAtTheNewest64 asserts the ring keeps only the 64 newest samples
++// (task-4-spec.md: "the 64 newest"), so precompact.has_time_to_write's p99 is always computed over
++// a bounded window.
++func TestAddPrecompactWallSample_CapsAtTheNewest64(t *testing.T) {
++	h := &contract.SessionHistory{}
++	for i := int64(0); i < 70; i++ {
++		h.AddPrecompactWallSample(i)
++	}
++	require.Len(t, h.PrecompactWallMs, 64)
++	require.Equal(t, int64(6), h.PrecompactWallMs[0], "the OLDEST 6 samples must have been evicted")
++	require.Equal(t, int64(69), h.PrecompactWallMs[len(h.PrecompactWallMs)-1], "the newest sample must survive")
++}
++
++// TestSetPrecompactInstr_CapsAt256Chars asserts the persisted probe phrase never exceeds
++// task-4-spec.md's 256-character cap.
++func TestSetPrecompactInstr_CapsAt256Chars(t *testing.T) {
++	h := &contract.SessionHistory{}
++	long := make([]byte, 300)
++	for i := range long {
++		long[i] = 'x'
++	}
++	h.SetPrecompactInstr(string(long))
++	require.Len(t, h.PrecompactInstr, 256)
++}
++
++// TestRecordLast_CapsAt9Results asserts History.Last never exceeds one entry per §5.19 assertion.
++func TestRecordLast_CapsAt9Results(t *testing.T) {
++	h := &contract.SessionHistory{}
++	var results []contract.Result
++	for i := 0; i < 12; i++ {
++		results = append(results, contract.Result{ID: contract.ID(string(rune('a' + i)))})
++	}
++	h.RecordLast(results)
++	require.Len(t, h.Last, 9)
++	require.Equal(t, results[len(results)-9:], h.Last, "the newest 9 must survive")
++}
++
++// TestHistoryDegradedGolden_Decodes asserts the frozen fixture this task adds decodes into
++// SessionHistory and round-trips losslessly, exactly like golden_test.go's result_set pattern.
++func TestHistoryDegradedGolden_Decodes(t *testing.T) {
++	raw, err := os.ReadFile(historyDegradedGolden)
++	require.NoError(t, err, "the frozen history_degraded fixture is missing")
++
++	var h contract.SessionHistory
++	require.NoError(t, json.Unmarshal(raw, &h))
++
++	require.Equal(t, "degraded-passive", h.Mode)
++	require.Equal(t, 2, h.StartsWithoutMarker)
++	require.Equal(t, 2, h.Sentinel.Chances)
++	require.False(t, h.Sentinel.Observed)
++	require.Len(t, h.PrecompactWallMs, 5)
++	require.Len(t, h.Last, 1)
++	require.Equal(t, contract.CSessionStartFires, h.Last[0].ID)
++
++	round, err := json.MarshalIndent(&h, "", "  ")
++	require.NoError(t, err)
++	require.Equal(t, string(raw), string(round)+"\n",
++		"the fixture must round-trip losslessly through SessionHistory (Rule W-2)")
++}
+diff --git a/internal/contract/marker.go b/internal/contract/marker.go
+new file mode 100644
+index 0000000..69e9d4f
+--- /dev/null
++++ b/internal/contract/marker.go
+@@ -0,0 +1,67 @@
++package contract
++
++import (
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// markerPerm is the permission run/marker.json is written with: owner-only, like every other file
++// under .qompack/.
++const markerPerm = 0o600
++
++// markerRecord is the on-disk shape of run/marker.json (task-4-spec.md's marker.go section):
++// {"session":"<id>","ts":<unixMilli>}.
++type markerRecord struct {
++	Session core.SessionID `json:"session"`
++	TS      core.UnixMilli `json:"ts"`
++}
++
++// MarkerPath returns <projectRoot>/.qompack/run/marker.json.
++func MarkerPath(projectRoot string) string {
++	return filepath.Join(paths.Of(projectRoot).Run, "marker.json")
++}
++
++// WriteMarker writes {"session": sess, "ts": now} to MarkerPath(projectRoot) via paths.WriteAtomic.
++//
++// It is a mutable one-record view, not an append-only artifact, so WriteAtomic is the correct
++// primitive and .qompack/run/ is outside the §3.3 append-only set. It is called by the daemon's
++// flush and checkpoint routes only — SessionEnd and PreCompact, the two terminal hooks — and by
++// nothing else in this codebase; the session_start.fires assertion reads it and never clears it,
++// because it is overwritten by the next terminal hook and the assertion only ever compares its
++// recorded session id against the current one.
++func WriteMarker(projectRoot string, sess core.SessionID, now core.UnixMilli) error {
++	b, err := json.Marshal(markerRecord{Session: sess, TS: now})
++	if err != nil {
++		return fmt.Errorf("contract: marshalling marker: %w", err)
++	}
++	p := MarkerPath(projectRoot)
++	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
++		return fmt.Errorf("contract: mkdir for %s: %w", p, err)
++	}
++	if err := paths.WriteAtomic(p, b, markerPerm); err != nil {
++		return fmt.Errorf("contract: writing %s: %w", p, err)
++	}
++	return nil
++}
++
++// readMarker reads and parses MarkerPath(projectRoot). Any error — a missing file (the ordinary
++// "no marker observed yet" case), a permission failure, or corrupt JSON — is reported to the
++// caller, which treats every one of them as "no observation yet", never as a failure: a marker file
++// is evidence of a PAST terminal hook firing, and its absence proves nothing about whether the host
++// contract itself is broken until it has been absent across two sessions (§12.1).
++func readMarker(projectRoot string) (markerRecord, error) {
++	b, err := os.ReadFile(paths.Long(MarkerPath(projectRoot)))
++	if err != nil {
++		return markerRecord{}, err
++	}
++	var rec markerRecord
++	if err := json.Unmarshal(b, &rec); err != nil {
++		return markerRecord{}, err
++	}
++	return rec, nil
++}
+diff --git a/internal/contract/marker_test.go b/internal/contract/marker_test.go
+new file mode 100644
+index 0000000..0232667
+--- /dev/null
++++ b/internal/contract/marker_test.go
+@@ -0,0 +1,93 @@
++package contract
++
++import (
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/stretchr/testify/require"
++)
++
++// TestMarkerPath_IsRunMarkerJSON pins MarkerPath's exact location: task-4-spec.md fixes
++// <projectRoot>/.qompack/run/marker.json, which .qompack/run/ leaves outside the §3.3 append-only
++// set precisely because a marker is a mutable one-record view, not an append-only artifact.
++func TestMarkerPath_IsRunMarkerJSON(t *testing.T) {
++	root := t.TempDir()
++	want := filepath.Join(root, ".qompack", "run", "marker.json")
++	require.Equal(t, want, MarkerPath(root))
++}
++
++// TestWriteMarker_RoundTripsThroughReadMarker asserts WriteMarker and readMarker agree on the
++// on-disk shape: {"session":"<id>","ts":<unixMilli>}.
++func TestWriteMarker_RoundTripsThroughReadMarker(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, WriteMarker(root, core.SessionID("sess-1"), core.UnixMilli(1000)))
++
++	rec, err := readMarker(root)
++	require.NoError(t, err)
++	require.Equal(t, core.SessionID("sess-1"), rec.Session)
++	require.Equal(t, core.UnixMilli(1000), rec.TS)
++
++	b, err := os.ReadFile(MarkerPath(root))
++	require.NoError(t, err)
++	require.Contains(t, string(b), `"session":"sess-1"`)
++	require.Contains(t, string(b), `"ts":1000`)
++}
++
++// TestReadMarker_MissingFileIsAnError asserts a project with no marker.json yet — the ordinary
++// first-terminal-hook-not-fired-yet case — reports an error, which every caller in this package
++// treats as "no observation yet", never as a panic or a fabricated record.
++func TestReadMarker_MissingFileIsAnError(t *testing.T) {
++	_, err := readMarker(t.TempDir())
++	require.Error(t, err)
++}
++
++// TestWriteMarker_OverwritesRatherThanAppends asserts the second write replaces the first: a
++// marker is a mutable one-record view (task-4-spec.md), and WriteAtomic is the reason it can be.
++func TestWriteMarker_OverwritesRatherThanAppends(t *testing.T) {
++	root := t.TempDir()
++	require.NoError(t, WriteMarker(root, core.SessionID("sess-1"), core.UnixMilli(1000)))
++	require.NoError(t, WriteMarker(root, core.SessionID("sess-2"), core.UnixMilli(2000)))
++
++	rec, err := readMarker(root)
++	require.NoError(t, err)
++	require.Equal(t, core.SessionID("sess-2"), rec.Session)
++	require.Equal(t, core.UnixMilli(2000), rec.TS)
++}
++
++// TestWriteMarker_IsTheOnlyMarkerWriterInContract is the contract-side half of task-4-spec.md's
++// TestMarkerIsWrittenByFlushAndCheckpointOnly — the daemon-route half (driving session.start/
++// flush/checkpoint and asserting marker.json's presence) belongs to the NEXT task, which wires
++// WriteMarker into the daemon's flush and checkpoint routes. What THIS package must guarantee on
++// its own is narrower but just as load-bearing: nothing inside internal/contract itself ever CALLS
++// WriteMarker except tests — in particular, no Assertion.Check may write the very marker
++// session_start.fires reads, which would let an assertion "observe" its own side effect.
++func TestWriteMarker_IsTheOnlyMarkerWriterInContract(t *testing.T) {
++	files, err := filepath.Glob("*.go")
++	require.NoError(t, err)
++
++	var callSites []string
++	for _, f := range files {
++		if strings.HasSuffix(f, "_test.go") {
++			continue
++		}
++		b, err := os.ReadFile(f)
++		require.NoError(t, err)
++		for _, line := range strings.Split(string(b), "\n") {
++			trimmed := strings.TrimSpace(line)
++			if !strings.Contains(trimmed, "WriteMarker(") {
++				continue
++			}
++			if strings.HasPrefix(trimmed, "func WriteMarker(") || strings.HasPrefix(trimmed, "// ") {
++				continue // the definition itself and its doc comment are not call sites
++			}
++			callSites = append(callSites, f+": "+trimmed)
++		}
++	}
++
++	require.Empty(t, callSites,
++		"WriteMarker must be called only by the daemon's flush and checkpoint routes (SP-05's next "+
++			"task), never from within internal/contract's own production code; found: %v", callSites)
++}
+diff --git a/internal/contract/monitor.go b/internal/contract/monitor.go
+index b695a69..f73115d 100644
+--- a/internal/contract/monitor.go
++++ b/internal/contract/monitor.go
+@@ -69,20 +69,28 @@ type monitor struct {
+ 	metrics   obs.Registry
+ 	statePath string
+ 
+ 	mu         sync.Mutex
+ 	assertions []Assertion
+ 	mode       Mode
+ 	reason     string
+ 	since      core.UnixMilli
+ 	cleanRuns  int
+ 	last       []Result
++
++	// forcedMode overrides what Mode() and RunAll's return value report, without touching the
++	// natural degrade/restore state machine (mode/reason/cleanRuns) or its persistence: it exists
++	// only for runtime.mode == "passive"/"full", the operator's own escape hatch (§12.1), which
++	// must never be confused with a real Degrade/Restore transition recorded in
++	// state/contract.json. RunAll recomputes it on every call from e.Cfg.Runtime.Mode; nil means
++	// "not forced — report the natural mode".
++	forcedMode *Mode
+ }
+ 
+ // NewMonitor returns a Monitor persisting its state to statePath, which is
+ // <root>/.qompack/state/contract.json in every real caller. An empty statePath disables
+ // persistence entirely (the mode still changes, and Degrade is still LOUD) — that is the honest
+ // behaviour for a caller with no project layout, not an error worth refusing to construct over.
+ //
+ // A nil log is replaced by logging.Nop, whose Loud calls still reach the process-wide ring
+ // logging.LastLoud reads; a nil metrics registry is simply not recorded to. Neither turns a
+ // degradation into a silent one.
+@@ -163,39 +171,50 @@ func (m *monitor) Register(a Assertion) error {
+ 	}
+ 	if a.Check == nil {
+ 		return fmt.Errorf("contract: Register: assertion %s has no Check", a.ID)
+ 	}
+ 	m.mu.Lock()
+ 	defer m.mu.Unlock()
+ 	m.assertions = append(m.assertions, a)
+ 	return nil
+ }
+ 
++// panickedAssertionObserved is the Observed text a panicking Check's recovered Result carries.
++const panickedAssertionObserved = "assertion panicked"
++
+ func (m *monitor) RunAll(ctx context.Context, e Env) ([]Result, Mode) {
++	// runtime.mode == "off" is an operator instruction to do nothing at all — a wave-2 escape
++	// hatch distinct from the persisted ModeOff state below, which the monitor's own history can
++	// carry independently. It returns immediately, before even the clock/log defaults: zero
++	// assertions execute (task-4-spec.md step 1).
++	if e.Cfg.Runtime.Mode == "off" {
++		return nil, ModeOff
++	}
++
+ 	// A nil clock would make every Check that timestamps its Result panic, including
+ 	// StandardAssertions'. Substituting the system clock keeps a half-filled Env — which is all a
+ 	// caller outside a hook has — usable, and is the monitor's business rather than each Check's.
+ 	if e.Clock == nil {
+ 		e.Clock = core.SystemClock()
+ 	}
+ 	if e.Log == nil {
+ 		e.Log = m.log
+ 	}
+ 
+ 	m.mu.Lock()
+ 	assertions := append([]Assertion(nil), m.assertions...)
+ 	m.mu.Unlock()
+ 
+ 	results := make([]Result, 0, len(assertions))
+ 	critical := false
+ 	for _, a := range assertions {
+-		r := a.Check(ctx, e)
++		r := runAssertion(ctx, a, e)
+ 		results = append(results, r)
+ 		if !r.OK && r.Severity == SevCritical {
+ 			critical = true
+ 		}
+ 	}
+ 
+ 	m.mu.Lock()
+ 	m.last = results
+ 	prev := m.mode
+ 	if critical {
+@@ -214,26 +233,62 @@ func (m *monitor) RunAll(ctx context.Context, e Env) ([]Result, Mode) {
+ 		case critical:
+ 			// Called on EVERY critical run, not only on the transition into degraded: §12.1's
+ 			// whole point is that a broken host contract is never silent, so a session that
+ 			// starts broken and stays broken says so every time.
+ 			m.Degrade(degradeReason(results), results)
+ 		case prev == ModeDegradedPassive && cleanRuns >= cleanRunsToRestore:
+ 			m.Restore(fmt.Sprintf("%d consecutive clean contract runs", cleanRuns))
+ 		}
+ 	}
+ 
+-	return results, m.Mode()
++	// runtime.mode == "passive"/"full" forces what Mode() reports without disturbing the natural
++	// state machine just computed above: an operator override, not a contract observation. "auto"
++	// (or an empty/unrecognized value) clears any previous force, restoring the natural mode.
++	m.mu.Lock()
++	switch e.Cfg.Runtime.Mode {
++	case "passive":
++		forced := ModeDegradedPassive
++		m.forcedMode = &forced
++	case "full":
++		forced := ModeFull
++		m.forcedMode = &forced
++	default:
++		m.forcedMode = nil
++	}
++	mode := m.mode
++	if m.forcedMode != nil {
++		mode = *m.forcedMode
++	}
++	m.mu.Unlock()
++
++	return results, mode
++}
++
++// runAssertion invokes a.Check, recovering from a panic so a bug in one assertion can never abort
++// RunAll or degrade the session it is trying to protect: a panicking Check is reported as
++// OK:false, SevWarn, Observed:"assertion panicked" — SevWarn, not the assertion's declared
++// severity, so an assertion bug can never itself trigger Degrade.
++func runAssertion(ctx context.Context, a Assertion, e Env) (r Result) {
++	defer func() {
++		if rec := recover(); rec != nil {
++			r = Result{ID: a.ID, OK: false, Severity: SevWarn, Observed: panickedAssertionObserved, TS: now(e)}
++		}
++	}()
++	return a.Check(ctx, e)
+ }
+ 
+ func (m *monitor) Mode() Mode {
+ 	m.mu.Lock()
+ 	defer m.mu.Unlock()
++	if m.forcedMode != nil {
++		return *m.forcedMode
++	}
+ 	return m.mode
+ }
+ 
+ func (m *monitor) Degrade(reason string, results []Result) {
+ 	// §12.1's order: LOUD first, so the degradation is on the record even if persisting it fails.
+ 	m.log.Loud("contract: degrading to passive recording",
+ 		"mode", ModeDegradedPassive.String(), "reason", reason, "failed", failedSummary(results))
+ 
+ 	m.mu.Lock()
+ 	m.reason = reason
+diff --git a/internal/contract/monitor_test.go b/internal/contract/monitor_test.go
+index bc3dc6b..4f7fafd 100644
+--- a/internal/contract/monitor_test.go
++++ b/internal/contract/monitor_test.go
+@@ -435,10 +435,37 @@ func TestMonitor_DegradeReasonNamesExpectedAndObserved(t *testing.T) {
+ 
+ 	require.Equal(t, contract.ModeDegradedPassive, m.Mode())
+ 	st := readState(t, statePath)
+ 	require.Equal(t, "critical host-contract failure", st["reason"])
+ 
+ 	raw, err := os.ReadFile(statePath)
+ 	require.NoError(t, err)
+ 	require.True(t, strings.Contains(string(raw), "sentinel absent"),
+ 		"the persisted results must carry what was actually observed")
+ }
++
++// TestDegradeIsIdempotent asserts SP-01's deliberate every-critical-run re-loud Degrade behaviour
++// (kept exactly as shipped, per this task's controller ruling): calling Degrade twice — with the
++// SAME reason, and again with a DIFFERENT one — logs a LOUD line every time, not only on a reason
++// change. §12.1's whole point is that a session that starts broken and stays broken says so every
++// time it is asked, and the persisted state stays consistent with whichever call happened last.
++func TestDegradeIsIdempotent(t *testing.T) {
++	m, _, statePath := newTestMonitor(t)
++	loud := captureLoud(t)
++
++	sameReasonResults := []contract.Result{{
++		ID: contract.CSessionStartFires, OK: false, Severity: contract.SevCritical,
++		Expected: "fires", Observed: "absent",
++	}}
++	m.Degrade("same reason", sameReasonResults)
++	m.Degrade("same reason", sameReasonResults)
++	require.Len(t, loud(), 2,
++		"§12.1: a session that starts broken and stays broken says so every time, even with an unchanged reason")
++	st := readState(t, statePath)
++	require.Equal(t, "degraded-passive", st["mode"])
++	require.Equal(t, "same reason", st["reason"])
++
++	m.Degrade("different reason", nil)
++	require.Len(t, loud(), 3, "a changed reason must also be LOUD")
++	st = readState(t, statePath)
++	require.Equal(t, "different reason", st["reason"], "the persisted state must reflect the most recent call")
++}
+diff --git a/internal/contract/producers.go b/internal/contract/producers.go
+new file mode 100644
+index 0000000..b3b2750
+--- /dev/null
++++ b/internal/contract/producers.go
+@@ -0,0 +1,44 @@
++package contract
++
++import "sync"
++
++// producersMu guards producers. It is a package-level map, not a monitor field, because the set of
++// producers a build carries is a property of the BINARY (which subplans' code linked in and called
++// DeclareProducer from their init or composition root), not of any one Monitor instance — exactly
++// mirroring how HasProducer is read from inside gated without an Env or Monitor in scope.
++var producersMu sync.Mutex
++
++// producers is the set of assertion IDs whose producer is present in this build. A nil map behaves
++// exactly like an empty one for every read in this file, so ResetProducers can restore it to nil
++// rather than allocating.
++var producers map[ID]bool
++
++// DeclareProducer marks id's producer as present in this build (00-ARCHITECTURE.md §12.1). It is
++// idempotent: declaring the same id twice is a no-op, not an error, so a composition root can call
++// it unconditionally during startup without tracking what it already declared.
++func DeclareProducer(id ID) {
++	producersMu.Lock()
++	defer producersMu.Unlock()
++	if producers == nil {
++		producers = make(map[ID]bool)
++	}
++	producers[id] = true
++}
++
++// HasProducer reports whether id's producer has been declared present in this build. gated calls
++// this, and only this, to decide whether an assertion's real Check runs at all.
++func HasProducer(id ID) bool {
++	producersMu.Lock()
++	defer producersMu.Unlock()
++	return producers[id]
++}
++
++// ResetProducers clears every declared producer. Tests only: the set is process-wide, so any test
++// that calls DeclareProducer must undo it with t.Cleanup(contract.ResetProducers), or it leaks into
++// every other test sharing the binary — including the frozen golden fixture in golden_test.go, which
++// asserts every one of the nine standard assertions is not-yet-implemented on an undeclared build.
++func ResetProducers() {
++	producersMu.Lock()
++	defer producersMu.Unlock()
++	producers = nil
++}
+diff --git a/internal/contract/producers_test.go b/internal/contract/producers_test.go
+new file mode 100644
+index 0000000..689bb6f
+--- /dev/null
++++ b/internal/contract/producers_test.go
+@@ -0,0 +1,27 @@
++package contract_test
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/contract"
++)
++
++// TestDeclareProducer_IsIdempotentAndScoped asserts DeclareProducer can be called any number of
++// times for the same ID without error, that HasProducer answers only for what was actually
++// declared, and that ResetProducers clears it back to the fresh-build state.
++func TestDeclareProducer_IsIdempotentAndScoped(t *testing.T) {
++	t.Cleanup(contract.ResetProducers)
++
++	require.False(t, contract.HasProducer(contract.CMCPRegistered))
++
++	contract.DeclareProducer(contract.CMCPRegistered)
++	contract.DeclareProducer(contract.CMCPRegistered) // idempotent: must not panic or error
++	require.True(t, contract.HasProducer(contract.CMCPRegistered))
++	require.False(t, contract.HasProducer(contract.CAdditionalContext),
++		"declaring one producer must not mark every ID as declared")
++
++	contract.ResetProducers()
++	require.False(t, contract.HasProducer(contract.CMCPRegistered), "ResetProducers must clear every declaration")
++}
+diff --git a/internal/contract/sentinel.go b/internal/contract/sentinel.go
+new file mode 100644
+index 0000000..365a258
+--- /dev/null
++++ b/internal/contract/sentinel.go
+@@ -0,0 +1,77 @@
++package contract
++
++import (
++	"bytes"
++	"io"
++	"os"
++	"strconv"
++
++	"github.com/qompack/qompack/internal/core"
++)
++
++// sentinelDomain domain-separates the sentinel token digest from every other hash the process
++// produces (00-ARCHITECTURE.md §5.19's hook.additional_context_delivered mechanism).
++const sentinelDomain = "qompack.sentinel.v1"
++
++// sentinelPrefix is the fixed prefix of every minted sentinel token.
++const sentinelPrefix = "qompack-contract-"
++
++// Sentinel is a one-shot probe token SessionStart mints and emits inside additionalContext; the
++// following UserPromptSubmit scans the transcript tail for it to prove additionalContext actually
++// reached the transcript rather than being silently dropped by the host (§12.1's
++// hook.additional_context_delivered).
++type Sentinel struct {
++	Token string
++}
++
++// MintSentinel derives a 12-hex-char token from sess and now, domain-separated so it can never
++// collide with any other digest the process produces:
++// "qompack-contract-" + core.HashBytes(sentinelDomain, sess+ts).Short().
++func MintSentinel(sess core.SessionID, now core.UnixMilli) Sentinel {
++	seed := string(sess) + strconv.FormatInt(int64(now), 10)
++	h := core.HashBytes(sentinelDomain, []byte(seed))
++	return Sentinel{Token: sentinelPrefix + h.Short()}
++}
++
++// RenderSentinel renders s as an inert HTML comment, on its own line, so it is invisible in any
++// rendering path and unmistakable when grepped out of a transcript.
++func RenderSentinel(s Sentinel) string {
++	return "<!-- qompack-contract-probe " + s.Token + " -->"
++}
++
++// ScanTranscriptTail opens path, seeks to max(0, size-tailBytes), reads to EOF, and reports whether
++// token appears in that tail. A missing or unreadable file returns (false, err); every caller in
++// this package treats that as "no observation yet", never as a failure — a transcript that cannot
++// be read proves nothing about whether the sentinel was ever emitted.
++func ScanTranscriptTail(path, token string, tailBytes int64) (bool, error) {
++	tail, err := readTail(path, tailBytes)
++	if err != nil {
++		return false, err
++	}
++	return bytes.Contains(tail, []byte(token)), nil
++}
++
++// readTail reads the last n bytes of the file at path (the whole file if it is smaller than n).
++// Shared by ScanTranscriptTail and the transcript.readable assertion's last-line probe, so both
++// read transcripts the same bounded way rather than loading an arbitrarily large file into memory
++// on every SessionStart.
++func readTail(path string, n int64) ([]byte, error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return nil, err
++	}
++	defer func() { _ = f.Close() }()
++
++	info, err := f.Stat()
++	if err != nil {
++		return nil, err
++	}
++	start := info.Size() - n
++	if start < 0 {
++		start = 0
++	}
++	if _, err := f.Seek(start, io.SeekStart); err != nil {
++		return nil, err
++	}
++	return io.ReadAll(f)
++}
+diff --git a/internal/contract/sentinel_test.go b/internal/contract/sentinel_test.go
+new file mode 100644
+index 0000000..d00ff25
+--- /dev/null
++++ b/internal/contract/sentinel_test.go
+@@ -0,0 +1,74 @@
++package contract_test
++
++import (
++	"context"
++	"regexp"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/contract"
++	"github.com/qompack/qompack/internal/core"
++)
++
++// sentinelTranscriptFixture is the golden transcript whose tail contains the rendered sentinel for
++// MintSentinel("sess-fixture-01", 1767225500000), following the convention golden_test.go uses:
++// a direct relative path from the package directory into testdata/golden/contracts/contract/.
++const sentinelTranscriptFixture = "../../testdata/golden/contracts/contract/input/transcript_with_sentinel.jsonl"
++
++// TestSentinelRoundTrip proves the mechanism end to end: mint, render (implicitly, since the golden
++// fixture already contains a rendered sentinel for this exact sess/now pair), and scan.
++func TestSentinelRoundTrip(t *testing.T) {
++	sess := core.SessionID("sess-fixture-01")
++	ts := core.UnixMilli(1767225500000)
++	s := contract.MintSentinel(sess, ts)
++
++	found, err := contract.ScanTranscriptTail(sentinelTranscriptFixture, s.Token, 64<<10)
++	require.NoError(t, err)
++	require.True(t, found, "the golden fixture's tail must contain the rendered sentinel for this token")
++}
++
++// TestSentinelNotObservedGivesTwoChances asserts the CAdditionalContext assertion's real Check
++// reads History.Sentinel.Chances rather than tracking it itself (RecordSentinelScan does that, per
++// the ruling that Chances tracking belongs to the daemon's scan): one spent chance still reports OK,
++// a second spent chance fails at SevCritical.
++func TestSentinelNotObservedGivesTwoChances(t *testing.T) {
++	contract.DeclareProducer(contract.CAdditionalContext)
++	t.Cleanup(contract.ResetProducers)
++
++	h := &contract.SessionHistory{}
++	a := assertionByID(t, contract.CAdditionalContext)
++	env := contract.Env{Clock: newFakeClock(), History: h}
++
++	h.RecordSentinelScan(false)
++	require.Equal(t, 1, h.Sentinel.Chances)
++	r := a.Check(context.Background(), env)
++	require.True(t, r.OK, "one spent chance is not yet a failure")
++
++	h.RecordSentinelScan(false)
++	require.Equal(t, 2, h.Sentinel.Chances)
++	r = a.Check(context.Background(), env)
++	require.False(t, r.OK, "two spent chances without ever observing the sentinel must fail")
++	require.Equal(t, contract.SevCritical, r.Severity)
++}
++
++// TestSentinelRenderIsAnInertComment pins the exact rendered shape: an HTML comment, on its own
++// line, with a 12-lowercase-hex-char token.
++func TestSentinelRenderIsAnInertComment(t *testing.T) {
++	s := contract.MintSentinel(core.SessionID("sess-x"), core.UnixMilli(42))
++
++	require.Regexp(t, regexp.MustCompile(`^[a-f0-9]{12}$`), tokenSuffix(t, s.Token),
++		"the token must be exactly 12 lowercase hex characters")
++
++	rendered := contract.RenderSentinel(s)
++	require.Equal(t, "<!-- qompack-contract-probe "+s.Token+" -->", rendered)
++}
++
++// tokenSuffix strips the "qompack-contract-" prefix from a minted token, failing the test if it is
++// not present.
++func tokenSuffix(t *testing.T, token string) string {
++	t.Helper()
++	const prefix = "qompack-contract-"
++	require.True(t, len(token) > len(prefix) && token[:len(prefix)] == prefix, "token %q must start with %q", token, prefix)
++	return token[len(prefix):]
++}
+diff --git a/internal/contract/standard.go b/internal/contract/standard.go
+index c8a8996..5a2ef62 100644
+--- a/internal/contract/standard.go
++++ b/internal/contract/standard.go
+@@ -1,61 +1,33 @@
+ package contract
+ 
+-import (
+-	"context"
+-
+-	"github.com/qompack/qompack/internal/core"
+-)
+-
+ // notYetImplementedObserved is the exact Observed string §12.1 gives an assertion whose producer is
+ // absent from the build. It is matched literally by test/guards' §12.1 assertion and by the
+ // contract golden fixture, so it is a frozen string, not a message.
+ const notYetImplementedObserved = "not-yet-implemented"
+ 
+ // StandardAssertions returns the nine host-contract assertions of 00-ARCHITECTURE.md §5.19, in the
+-// order §12.1's table lists them, each carrying its real DECLARED severity.
++// order §12.1's table lists them, each carrying its real DECLARED severity and gated behind
++// HasProducer via gated (producers.go, assertions.go): an assertion whose producer has not been
++// declared reports OK/SevInfo/not-yet-implemented and its real Check — checkSessionStartFires and
++// its eight siblings in assertions.go — never runs at all.
+ //
+-// Every Check here is notYetImplemented: the observations belong to SP-05 (and, for the four
+-// assertions whose producer is a later wave's subsystem, to SP-10/SP-11/SP-13). Registering these
+-// against a fresh monitor and calling RunAll therefore reports ModeFull, which is precisely what
+-// §12.1 requires and what test/guards asserts.
++// The five SP-05 always declares from wave 1 (session_start.fires, session_start.source_compact,
++// hook.payload_shape, transcript.readable, plugin.root_resolves) therefore observe for real as soon
++// as a daemon calls DeclareProducer for them (the next task's job); the four §12.1 names as
++// later-wave (precompact.has_time_to_write, precompact.custom_instructions_accepted,
++// hook.additional_context_delivered, mcp.server_registered) stay not-yet-implemented until their
++// owning subplan (SP-10/SP-11/SP-13) binds its Services seam and declares its own producer — which
++// is exactly why a fresh, wave-1-only build still reports ModeFull.
+ func StandardAssertions() []Assertion {
+ 	return []Assertion{
+-		notYetImplemented(CSessionStartFires, SevCritical, "SessionStart hook fires"),
+-		notYetImplemented(CSessionStartSourceCompact, SevCritical, "SessionStart arrives with source=compact after PreCompact"),
+-		notYetImplemented(CAdditionalContext, SevCritical, "additionalContext reaches the transcript"),
+-		notYetImplemented(CPreCompactTiming, SevWarn, "PreCompact has time to write"),
+-		notYetImplemented(CPreCompactCustomInstr, SevWarn, "custom_instructions accepted"),
+-		notYetImplemented(CHookPayloadShape, SevCritical, "hook payload shape matches hookio.Event"),
+-		notYetImplemented(CMCPRegistered, SevInfo, "MCP server received initialize"),
+-		notYetImplemented(CTranscriptReadable, SevWarn, "transcript_path exists and parses"),
+-		notYetImplemented(CPluginRootResolves, SevWarn, "CLAUDE_PLUGIN_ROOT expands to an existing binary"),
+-	}
+-}
+-
+-// notYetImplemented builds an assertion that DECLARES severity `declared` but whose Check reports
+-// OK with SevInfo.
+-//
+-// That asymmetry is the whole mechanism, and it is worth being explicit about because it looks like
+-// a bug: the Assertion carries the severity an eventual real failure would have, while the Result
+-// carries the severity of what was actually observed — and what was observed is "the subsystem that
+-// would produce this signal is not in this build", which is information, not a degradation. RunAll
+-// reads Result.Severity, never Assertion.Severity, so a fresh build reports ModeFull instead of
+-// putting every wave-1 and wave-2 verification run into degraded-passive and silently disabling the
+-// very paths those waves are testing (§12.1).
+-//
+-// Check reads e.Clock directly, exactly as §14.1 of the subplan spells it. RunAll substitutes a
+-// system clock for a nil Env.Clock before invoking any Check, so a caller that omits the clock gets
+-// a timestamped result rather than a nil dereference.
+-func notYetImplemented(id ID, declared Severity, desc string) Assertion {
+-	return Assertion{
+-		ID: id, Severity: declared, Description: desc,
+-		Check: func(ctx context.Context, e Env) Result {
+-			// §12.1: an assertion whose PRODUCER is absent from the build reports
+-			// OK/SevInfo, never a degradation. SP-05 replaces Check, not this rule.
+-			return Result{
+-				ID: id, OK: true, Severity: SevInfo,
+-				Expected: desc, Observed: notYetImplementedObserved, TS: core.NowMilli(e.Clock),
+-			}
+-		},
++		gated(CSessionStartFires, SevCritical, "SessionStart hook fires", checkSessionStartFires),
++		gated(CSessionStartSourceCompact, SevCritical, "SessionStart arrives with source=compact after PreCompact", checkSessionStartSourceCompact),
++		gated(CAdditionalContext, SevCritical, "additionalContext reaches the transcript", checkAdditionalContextDelivered),
++		gated(CPreCompactTiming, SevWarn, "PreCompact has time to write", checkPreCompactTiming),
++		gated(CPreCompactCustomInstr, SevWarn, "custom_instructions accepted", checkPreCompactCustomInstr),
++		gated(CHookPayloadShape, SevCritical, "hook payload shape matches hookio.Event", checkHookPayloadShape),
++		gated(CMCPRegistered, SevInfo, "MCP server received initialize", checkMCPServerRegistered),
++		gated(CTranscriptReadable, SevWarn, "transcript_path exists and parses", checkTranscriptReadable),
++		gated(CPluginRootResolves, SevWarn, "CLAUDE_PLUGIN_ROOT expands to an existing binary", checkPluginRootResolves),
+ 	}
+ }
+diff --git a/internal/testutil/fixtures_test.go b/internal/testutil/fixtures_test.go
+index 17d231c..c95a506 100644
+--- a/internal/testutil/fixtures_test.go
++++ b/internal/testutil/fixtures_test.go
+@@ -69,26 +69,28 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
+ 				if fx.Want != "" {
+ 					require.NotEmpty(t, want, "a frozen fixture naming a want file must have bytes in it")
+ 				}
+ 				continue
+ 			}
+ 			pendingCount++
+ 			require.Equal(t, "behaviour", fx.Kind, "only a behaviour fixture may still be record-by-owner")
+ 		}
+ 	}
+ 
+-	// 26, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
++	// 28, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
+ 	// declared — contract/result_set (the nine §5.19 assertions as RunAll reports them) and
+-	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives) — and
++	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives) —
+ 	// SP-05 task 1 added three more: ipc/observe_tool, ipc/response_reply, ipc/state_degraded
+-	// (00-ARCHITECTURE §2.4's NDJSON framing and 32-byte hot-path state record).
+-	require.Equal(t, 26, frozenCount, "21 SP-01 + 2 V1 + 3 SP-05 task 1; adding or losing one is a contract change")
++	// (00-ARCHITECTURE §2.4's NDJSON framing and 32-byte hot-path state record) — and SP-05 task 4
++	// added two more: contract/history_degraded (the state/history.json shape) and
++	// contract/transcript_with_sentinel (a transcript tail containing a rendered sentinel).
++	require.Equal(t, 28, frozenCount, "21 SP-01 + 2 V1 + 3 SP-05 task 1 + 2 SP-05 task 4; adding or losing one is a contract change")
+ 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
+ }
+ 
+ // allContractManifests returns every package directory under testdata/golden/contracts/ and the
+ // MANIFEST.json each one carries, in directory order.
+ func allContractManifests(t *testing.T, root string) (pkgs []string, manifests []contractManifest) {
+ 	t.Helper()
+ 	dir := filepath.Join(root, filepath.FromSlash(contractsDir))
+ 	entries, err := os.ReadDir(dir)
+ 	require.NoError(t, err)
+diff --git a/testdata/golden/contracts/contract/MANIFEST.json b/testdata/golden/contracts/contract/MANIFEST.json
+index 48edfd8..1f62123 100644
+--- a/testdata/golden/contracts/contract/MANIFEST.json
++++ b/testdata/golden/contracts/contract/MANIFEST.json
+@@ -1,8 +1,10 @@
+ {
+   "package": "contract",
+   "owner": "SP-05",
+   "fixtures": [
+     { "name": "result_set", "kind": "format", "state": "frozen", "input": "", "want": "want/result_set.json", "note": "the nine §5.19 assertions as RunAll reports them on a build where every producer is absent: OK/SevInfo, mode full" },
+-    { "name": "not_yet_implemented_is_info", "kind": "behaviour", "state": "record-by-owner", "input": "", "want": "", "note": "an assertion whose producer is absent reports OK:true SevInfo (§12.1)" }
++    { "name": "not_yet_implemented_is_info", "kind": "behaviour", "state": "record-by-owner", "input": "", "want": "", "note": "an assertion whose producer is absent reports OK:true SevInfo (§12.1)" },
++    { "name": "history_degraded", "kind": "format", "state": "frozen", "input": "", "want": "want/history_degraded.json", "note": "a degraded SessionHistory (state/history.json shape): two misses on session_start.fires, two unspent sentinel chances, a persisted degrade reason" },
++    { "name": "transcript_with_sentinel", "kind": "format", "state": "frozen", "input": "input/transcript_with_sentinel.jsonl", "want": "", "note": "a transcript whose tail contains the rendered sentinel for token qompack-contract-060882683f62 (MintSentinel(\"sess-fixture-01\", 1767225500000)); TestSentinelRoundTrip scans it" }
+   ]
+ }
+diff --git a/testdata/golden/contracts/contract/input/transcript_with_sentinel.jsonl b/testdata/golden/contracts/contract/input/transcript_with_sentinel.jsonl
+new file mode 100644
+index 0000000..f66198a
+--- /dev/null
++++ b/testdata/golden/contracts/contract/input/transcript_with_sentinel.jsonl
+@@ -0,0 +1,3 @@
++{"type":"user","content":"please help me with X"}
++{"type":"assistant","content":"Sure. <!-- qompack-contract-probe qompack-contract-060882683f62 -->"}
++{"type":"user","content":"thanks"}
+diff --git a/testdata/golden/contracts/contract/want/history_degraded.json b/testdata/golden/contracts/contract/want/history_degraded.json
+new file mode 100644
+index 0000000..b956741
+--- /dev/null
++++ b/testdata/golden/contracts/contract/want/history_degraded.json
+@@ -0,0 +1,45 @@
++{
++  "version": 1,
++  "sessions": 5,
++  "last_session_id": "sess-0004",
++  "last_marker_ts": 1767225400000,
++  "starts_without_marker": 2,
++  "last_precompact_ts": 1767225450000,
++  "last_precompact_session": "sess-0004",
++  "precompact_wall_ms": [
++    1200,
++    1800,
++    1950,
++    2000,
++    2100
++  ],
++  "precompact_timeout_ms": 2000,
++  "precompact_instr": "focus on the auth module and its recent regressions",
++  "awaiting_compact_start": false,
++  "sentinel": {
++    "token": "qompack-contract-060882683f62",
++    "session": "sess-0004",
++    "minted_at": 1767225400000,
++    "observed": false,
++    "chances": 2
++  },
++  "mcp_initialized": false,
++  "clean_runs": 0,
++  "mode": "degraded-passive",
++  "degraded_reason": "critical host-contract failure: session_start.fires (expected \"marker from a prior terminal hook\", observed \"no marker from a prior terminal hook across two consecutive sessions\")",
++  "degraded_since": 1767225450000,
++  "last": [
++    {
++      "id": "session_start.fires",
++      "ok": false,
++      "severity": 2,
++      "expected": "SessionStart hook fires",
++      "observed": "no marker from a prior terminal hook across two consecutive sessions",
++      "ts": 1767225450000
++    }
++  ],
++  "seen": {
++    "hook.payload_shape": 1767225450000,
++    "transcript.readable": 1767225450000
++  }
++}

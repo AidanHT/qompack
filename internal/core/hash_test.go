@@ -28,6 +28,23 @@ func TestHashBytes_KnownVector(t *testing.T) {
 	require.Equal(t, core.Hash(want), got)
 }
 
+// sinkHash keeps the digest below live so the compiler cannot delete the call being measured.
+// testing.AllocsPerRun carries no equivalent of testing.B.Loop's "the loop body is not optimised
+// away" guarantee, and an eliminated call would report zero allocations and pass vacuously.
+var sinkHash core.Hash
+
+func TestHashBytes_DoesNotAllocate(t *testing.T) {
+	// HashBytes is on the L0 PostToolUse hot path (§8.1 item 5) and runs 5 000 times in one Bloom
+	// rebuild, so an allocation here is multiplied by every caller in the tree. It cost exactly one
+	// 32-byte allocation per call until HashBytes stopped routing the digest through h.Sum(nil),
+	// and a nanosecond count hid it: the sketch benchmarks met their latency budgets throughout.
+	// This assertion is the durable guard, because the fix is a one-line detail a later refactor
+	// would revert without noticing.
+	key := []byte("src/internal/pkg001/service_0042.go")
+	got := testing.AllocsPerRun(1000, func() { sinkHash = core.HashBytes(core.DomainChunk, key) })
+	require.Zero(t, got, "HashBytes must not allocate")
+}
+
 func TestHash_StringShortParse_RoundTrip(t *testing.T) {
 	lower := regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	for i := 0; i < 100; i++ {

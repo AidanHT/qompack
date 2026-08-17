@@ -1,5 +1,9 @@
 # V3 — Verification checkpoint after wave 2 (L0 observer + negative knowledge)
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> Re-tests nine subplans and grades the Phase 1 + Phase 2 exit criteria. Mostly running, reading and diagnosing well-specified assertions — Opus 5 at `xhigh` is the cost-efficient fit.
+
 **This file is a standalone prompt.** Read it end to end before running anything. You do not need
 any other plan file to execute it, though `plans/00-ARCHITECTURE.md` and `Qompack.md` are the
 normative references if a command below disagrees with the code.

@@ -1,0 +1,3 @@
+{"v":1,"op":"open","id":1,"s":"sess_golden_sp06","st":40,"sts":1718269866000}
+{"v":1,"op":"close","id":1,"et":57,"ets":1718269866250,"tok":18402,"feat":{"gap_seconds":0.03,"path_jaccard":0.42,"todo_transition":1,"tool_shift":0.19}}
+{"v":1,"op":"encode","id":1,"seq":7,"ts":1718269866500}

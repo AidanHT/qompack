@@ -60,6 +60,9 @@ var storeProbe = probe{pkg: "store", isStub: func(t *testing.T) bool {
 		// A constructor that refuses to build cannot be a working implementation.
 		return true
 	}
+	// A landed store holds open append-only handles; releasing them here keeps the probe from
+	// making its caller's t.TempDir cleanup fail on Windows.
+	defer func() { _ = s.Close() }()
 	_, err = s.PutBytes(context.Background(), []byte("probe"), store.PutOptions{})
 	return core.IsNotImplemented(err)
 }}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/testutil"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +32,7 @@ func compactFileID(i int) NodeID { return NodeID(fmt.Sprintf("file:src/f%05d.ts"
 func compactFixture(t *testing.T, root string, log logging.Logger) *graph {
 	t.Helper()
 	g := logOpen(t, root, log)
-	g.SetClock(testutil.NewFakeClock(testutil.Epoch))
+	g.SetClock(newFixedClock(testEpoch))
 
 	for i := range compactPairs {
 		use, file := compactToolID(i), compactFileID(i)
@@ -194,7 +193,7 @@ func TestCompactPreservesSliceAnswers(t *testing.T) {
 
 	root := t.TempDir()
 	g := logOpen(t, root, logging.Nop())
-	g.SetClock(testutil.NewFakeClock(testutil.Epoch))
+	g.SetClock(newFixedClock(testEpoch))
 
 	for i := range nodes {
 		require.NoError(t, g.AddNode(Node{

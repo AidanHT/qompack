@@ -5,6 +5,7 @@ import (
 	"context"
 	"image"
 	"image/png"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,13 +16,11 @@ import (
 	"github.com/qompack/qompack/internal/tokens"
 )
 
-func TestEstimate_ProseVsCode(t *testing.T) {
-	est := tokens.New(config.Defaults(), "")
-	payload := bytes.Repeat([]byte("a"), 4000)
-
-	require.Equal(t, core.Tokens(1000), est.Estimate(payload, tokens.ClassProse), "ceil(4000/4.0)")
-	require.Equal(t, core.Tokens(1112), est.Estimate(payload, tokens.ClassCode), "ceil(4000/3.6)")
-}
+// TestEstimate_ProseVsCode now lives in exact_test.go: the byte-ratio numbers this test used to
+// assert (ceil(4000/4.0) and ceil(4000/3.6)) are exactly what SP-06's unit scanner replaces, so
+// restating them here would pin the baseline the exact estimator exists to supersede. The
+// rewritten test asserts the properties that survive — code prices above prose, and both stay in a
+// plausible band relative to raw length — rather than two specific divisors.
 
 func encodePNG(t *testing.T, w, h int) []byte {
 	t.Helper()
@@ -46,10 +45,19 @@ func TestEstimate_ImageCappedAt1600(t *testing.T) {
 	require.Equal(t, core.Tokens(1600), est.Estimate(png4000, tokens.ClassImage))
 }
 
-func TestEstimate_ImageDecodeFailureFallsBackToByteLength(t *testing.T) {
+// TestEstimate_ImageDecodeFailureFallsBackToUnitScanner replaces this test's original assertion.
+//
+// SP-01 priced an unparseable image at a flat bytes-per-token rate (ceil(2500/1000) == 3 tokens),
+// which is the same flat-rating §2.2 indicts and G10.2 closes — 2 500 bytes of opaque content is
+// not three tokens. The exact estimator instead falls back to the unit scanner at the BINARY unit
+// weight, so undecodable media is priced exactly like any other opaque bytes.
+func TestEstimate_ImageDecodeFailureFallsBackToUnitScanner(t *testing.T) {
 	est := tokens.New(config.Defaults(), "")
-	payload := bytes.Repeat([]byte{0xAB}, 2500) // not a decodable image of any registered format
-	require.Equal(t, core.Tokens(3), est.Estimate(payload, tokens.ClassImage), "ceil(2500/1000)")
+	payload := bytes.Repeat([]byte{0xAB}, 2500) // not a decodable image of any format
+
+	want := core.Tokens(math.Round(float64(tokens.Units(payload)) * tokens.UnitWeight(tokens.ClassBinary)))
+	require.Equal(t, want, est.Estimate(payload, tokens.ClassImage))
+	require.Greater(t, int(want), 100, "opaque bytes must not be flat-rated into near-nothing")
 }
 
 func TestEstimate_PDFPageCount(t *testing.T) {

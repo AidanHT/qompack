@@ -39,12 +39,14 @@ Wave 0        Wave 1                       Wave 2         Wave 3                
 1. **Cut branches.** For every subplan in the wave, cut its branch from the current (verified) `develop`: branch names are in each subplan's header (`feat/sp<NN>-<slug>`). Same-wave branches never merge into or branch from each other.
 2. **Run the subplans in parallel.** Open one AI-editor session per subplan and point it at the subplan file (e.g. "Implement plans/V2-SP-06-content-addressed-store.md exactly as written"). Heavy subplans contain a Subagent strategy section telling the session how to fan out its own subagents.
 3. **Merge in order.** When all sessions finish, merge the wave's branches into `develop` with `--no-ff`, in this order:
-   - Wave 1: SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02
+   - Wave 1: SP-05 → SP-03 → SP-04 → SP-02 → SP-06 → SP-07
    - Wave 2: SP-09 → SP-08
    - Wave 3: SP-10 → SP-11 → SP-12 → SP-13
    - Wave 4: SP-15 → SP-16 → SP-14
    - Wave 5: SP-17 → SP-18
    Conflicts are resolved on the incoming branch and re-merged, never hand-edited into the merge commit.
+
+   These orders are not arbitrary and are not free to reorder. Each one satisfies build-order constraints that `test/guards/buildorder_test.go` enforces as tests, so a wave merged in the wrong order leaves `develop` failing at an intermediate commit even though every branch is individually green. Wave 1's binding constraints are that **SP-06 lands after SP-03 and SP-04** (`V2-SP-06-content-addressed-store.md`, exit criteria) and that **SP-02 lands before SP-06** — `TestGuard_Phase0BeforeStore` fails while `internal/store` is real and `internal/eval` is still a stub, because closing note 1 of `Qompack.md` says a store that ships before its baseline can never be measured against one. Wave 1's row was corrected during that wave's merge, which is when the second constraint was discovered; see `V2-VERIFY-primitives-store-dag-and-baseline.md`'s `V2-MERGE-21`.
 4. **Verify.** Run that group's `V<K>-VERIFY-*.md` file in a fresh session on branch `verify/v<K>` cut from `develop`. It re-tests the cumulative functionality inventory, re-verifies every exit criterion so far, authors this wave's new integration tests, re-validates all performance budgets, and re-runs all prior checkpoints' inventories under the 2% no-regression rule. Fixes land on the verify branch; the checkpoint re-runs from the top until green.
 5. **Gate.** Only when the checkpoint is fully green: merge `verify/v<K>` into `develop` (`--no-ff`), tag per `00-ARCHITECTURE.md` (e.g. `v0.1.0` after V2), and only then cut the next wave's branches. At V6, `develop` merges into `main` with the release semver — the project is production-ready for user testing.
 
@@ -87,3 +89,4 @@ Wave 0        Wave 1                       Wave 2         Wave 3                
 | `V6-SP-18-documentation-and-uat.md` | Wave 5 — user docs, config reference, cannot-do list, upstream issues, UAT-01..12 guide |
 | **`V6-VERIFY-production-readiness-and-uat.md`** | **Checkpoint gating group V6** (wave 5) — the release gate, including hand-executed UAT |
 | `TRACEABILITY.md` | Proof that every gap, phase, layer, tool, metric, risk mitigation, and revision item in `Qompack.md` is owned by a subplan and re-tested by a checkpoint |
+| `sdd/` | Session decision records — the rulings an implementing session had to make where its plan and the shipped code disagreed. Not design; the audit trail for the "fix the plan, don't improvise silently" rule above. See `sdd/README.md` |

@@ -1,0 +1,1078 @@
+# Fix-round-1 delta: old task commit 13c448f9 -> amended commit e4dbd3b9
+
+ internal/ipc/client.go           |  60 ++++++++++++++-------
+ internal/ipc/client_test.go      |  83 +++++++++++++++++++++++++++++
+ internal/ipc/listen_unix.go      |   2 +-
+ internal/ipc/listen_windows.go   |   7 +++
+ internal/ipc/resolve.go          |   9 ++++
+ internal/ipc/server.go           | 112 +++++++++++++++++++++++++++++----------
+ internal/ipc/server_test.go      |  79 +++++++++++++++++++++++++++
+ internal/ipc/server_unix_test.go |  13 ++++-
+ internal/ipc/spool.go            |  32 +++++------
+ internal/ipc/spool_test.go       |  24 ++++++++-
+ 10 files changed, 357 insertions(+), 64 deletions(-)
+
+diff --git a/internal/ipc/client.go b/internal/ipc/client.go
+index a21477f..6cf0f2d 100644
+--- a/internal/ipc/client.go
++++ b/internal/ipc/client.go
+@@ -38,21 +38,22 @@ type Client interface {
+ type SpoolWriter interface {
+ 	Append(req Request) error
+ 	// Path returns the file Append writes to, so /qompack:status and the daemon's drain can name
+ 	// it. A SpoolWriter that has not created its file yet reports the path it will use.
+ 	Path() string
+ }
+ 
+ // Server is the daemon-side half (00-ARCHITECTURE.md §5.4).
+ type Server interface {
+ 	// Serve accepts connections until ctx is cancelled or Close is called, dispatching each
+-	// request to h. It returns nil on an orderly shutdown.
++	// request to h. It returns nil on a shutdown driven by Close, or ctx's own error (typically
++	// context.Canceled) when the shutdown was driven by cancellation instead.
+ 	Serve(ctx context.Context, h Handler) error
+ 	Addr() Addr
+ 	Close() error
+ }
+ 
+ // Handler processes one request. It runs on the daemon's read path, so it must return promptly:
+ // §2.4 sends the ACK after the WAL append returns, not after the work finishes.
+ type Handler func(ctx context.Context, req Request) Response
+ 
+ // The obs.Counter names Client.Send and the real SpoolWriter increment (repo underscore idiom;
+@@ -315,91 +316,113 @@ func (c *client) setHot(h HotPathMode) {
+ // spoolAndReturn is every failure path's landing point: append to the spool (or, if there is none,
+ // take the drop path), count the event, and return an honourable, never-erroring response.
+ func (c *client) spoolAndReturn(req Request) (Response, error) {
+ 	c.appendToSpool(req)
+ 	return Response{OK: false, Mode: c.mode, Hot: c.currentHot()}, nil
+ }
+ 
+ // appendToSpool is spoolAndReturn's side-effecting half. A nil SpoolWriter means "spool
+ // unavailable" (the stubs guard constructs exactly this): the event is dropped, counted once as
+ // dropped rather than spooled, and Loud'd at most once for this client's lifetime.
++//
++// spool.Append itself already drops-counts-and-Louds internally for an ordinary write failure
++// (§12.3), always returning nil for that case — but it still returns a real, non-nil error for
++// the size-refusal case (a line that would exceed MaxLineBytes), which externalize() cannot
++// always prevent: a request whose bulk lives in Raw rather than Event.ToolResponse reaches Append
++// at full size. That error must be treated exactly like the nil-spool case — counted as a drop,
++// never miscounted as a successful spool — or the event is lost while l0_spooled claims it was
++// durably enqueued.
+ func (c *client) appendToSpool(req Request) {
+ 	if c.spool == nil {
+ 		c.dropOnce.Do(func() {
+ 			if c.log != nil {
+ 				c.log.Loud("ipc: spool unavailable — event dropped", "op", string(req.Op))
+ 			}
+ 		})
+ 		if c.m != nil {
+ 			c.m.Counter(counterL0Dropped).Add(1)
+ 		}
+ 		return
+ 	}
+-	// spool.Append never propagates a caller-facing failure for a well-formed line (§12.3: it
+-	// drops, counts and Louds internally, returning nil); a non-nil error here can only be the
+-	// size-refusal case, which this path never reaches because externalize() already keeps every
+-	// line under threshold before Append is called.
+-	_ = c.spool.Append(req)
++	if err := c.spool.Append(req); err != nil {
++		c.dropOnce.Do(func() {
++			if c.log != nil {
++				c.log.Loud("ipc: spool append refused — event dropped", "op", string(req.Op), "err", err)
++			}
++		})
++		if c.m != nil {
++			c.m.Counter(counterL0Dropped).Add(1)
++		}
++		return
++	}
+ 	if c.m != nil {
+ 		c.m.Counter(counterL0Spooled).Add(1)
+ 	}
+ }
+ 
+ // blobRef is the JSON shape a client-externalized request's Raw carries in place of the field it
+-// stood in for (00-ARCHITECTURE.md task-2-spec.md's "Externalized payloads").
++// stood in for (00-ARCHITECTURE.md task-2-spec.md's "Externalized payloads"). X preserves a
++// pre-existing Request.Raw that externalize would otherwise silently overwrite: the wire struct
++// (wire.go) allows Event and Raw to be set simultaneously, and a request that legitimately used
++// both must not lose the Raw half just because its Event.ToolResponse also happened to be huge.
+ type blobRef struct {
+-	Blob  string `json:"blob"`
+-	Bytes int    `json:"bytes"`
+-	Field string `json:"field"`
++	Blob  string          `json:"blob"`
++	Bytes int             `json:"bytes"`
++	Field string          `json:"field"`
++	X     json.RawMessage `json:"x,omitempty"`
+ }
+ 
+ // externalize moves req.Event.ToolResponse to a side blob file when it is present, returning a
+-// request whose Raw names the blob instead and whose Event.ToolResponse is nulled. A request with
+-// no Event (nothing captured under e.tool_response) or no spool (nowhere to write the blob) is
+-// returned unchanged — the oversize-line case that results is still handled correctly, just one
+-// layer up: the server's own MaxLineBytes NAK-and-discard (00-ARCHITECTURE.md §2.4).
++// request whose Raw names the blob instead and whose Event.ToolResponse is nulled. A pre-existing
++// Request.Raw is preserved, nested under the blob descriptor's own "x" key, rather than
++// overwritten — task-2-spec.md's "Raw replaced by {...}" does not contemplate a request that
++// already used the field, and losing it silently would be worse than the line-size problem
++// externalize exists to solve. A request with no Event (nothing captured under e.tool_response) or
++// no spool (nowhere to write the blob) is returned unchanged — the oversize-line case that results
++// is still handled correctly, just one layer up: the server's own MaxLineBytes NAK-and-discard
++// (00-ARCHITECTURE.md §2.4).
+ func (c *client) externalize(req Request) Request {
+ 	if req.Event == nil || len(req.Event.ToolResponse) == 0 || c.spool == nil {
+ 		return req
+ 	}
+ 
+ 	dir := filepath.Dir(c.spool.Path())
+ 	n := atomic.AddInt64(&c.externalizeSeq, 1)
+ 	name := fmt.Sprintf("%s%d-%d%s", blobFilePrefix, os.Getpid(), n, blobFileExt)
+ 
+ 	data := []byte(req.Event.ToolResponse)
+ 	if err := writeBlob(filepath.Join(dir, name), data); err != nil {
+ 		return req
+ 	}
+ 
+-	ref, err := json.Marshal(blobRef{Blob: name, Bytes: len(data), Field: blobField})
++	ref, err := json.Marshal(blobRef{Blob: name, Bytes: len(data), Field: blobField, X: req.Raw})
+ 	if err != nil {
+ 		return req
+ 	}
+ 
+ 	out := req
+ 	ev := *req.Event
+ 	ev.ToolResponse = nil
+ 	out.Event = &ev
+ 	out.Raw = ref
+ 
+ 	if c.m != nil {
+ 		c.m.Counter(counterL0Externalized).Add(1)
+ 	}
+ 	return out
+ }
+ 
+ // writeBlob creates dir (0700) if needed and writes data to p exclusively — the counter in the
+ // blob's own filename already makes p unique per client process, so O_EXCL is a correctness
+ // safeguard, not a name-collision workaround.
+ func writeBlob(p string, data []byte) error {
+-	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), spoolDirPerm); err != nil {
++	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), dirPerm); err != nil {
+ 		return fmt.Errorf("ipc: externalize: mkdir: %w", err)
+ 	}
+ 	f, err := paths.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+ 	if err != nil {
+ 		return fmt.Errorf("ipc: externalize: open: %w", err)
+ 	}
+ 	defer func() { _ = f.Close() }()
+ 	if _, err := f.Write(data); err != nil {
+ 		return fmt.Errorf("ipc: externalize: write: %w", err)
+ 	}
+@@ -410,22 +433,23 @@ func writeBlob(p string, data []byte) error {
+ // non-nil error (cli ignores it after logging). SpoolWriter's Close is on the concrete *spool type
+ // rather than the interface (SP-01 shipped SpoolWriter without one), so it is reached through a
+ // type assertion that is a safe no-op against a nil or Close-less SpoolWriter.
+ func (c *client) Close() error {
+ 	if cl, ok := c.spool.(interface{ Close() error }); ok {
+ 		return cl.Close()
+ 	}
+ 	return nil
+ }
+ 
+-// lazySpawn launches a detached daemon at most once per client, and only when both Self and Spawn
+-// are configured. It is guarded by <root>/.qompack/run/spawn.lock so concurrently-spawning
++// lazySpawn launches a detached daemon at most once per client, and only when Self and Spawn are
++// both configured and ProjectRoot is non-empty (the lock path is derived from it, so there is
++// nowhere to take the lock without it). It is guarded by <root>/.qompack/run/spawn.lock so concurrently-spawning
+ // clients do not race: the first to create the lock file spawns; a second client within
+ // spawnLockStaleAfter of that file's own recorded timestamp assumes a spawn is already underway
+ // and does nothing; past that staleness window, the lock is presumed abandoned and reclaimed.
+ // The spawning client never waits for the daemon it launched — this method itself is called only
+ // from a failure path that is about to spool and return.
+ func (c *client) lazySpawn() {
+ 	if c.o.Self == "" || c.o.Spawn == nil || c.o.ProjectRoot == "" {
+ 		return
+ 	}
+ 	c.spawnOnce.Do(func() {
+diff --git a/internal/ipc/client_test.go b/internal/ipc/client_test.go
+index d16230b..3510b3d 100644
+--- a/internal/ipc/client_test.go
++++ b/internal/ipc/client_test.go
+@@ -160,20 +160,49 @@ func TestSendDaemonDownSpoolsAndReturnsNilError(t *testing.T) {
+ 		},
+ 	})
+ 
+ 	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
+ 	require.NoError(t, err)
+ 	require.False(t, res.OK)
+ 	require.Len(t, readLines(t, spool.Path()), 1)
+ 	require.EqualValues(t, 1, spawnCalls.Load())
+ }
+ 
++// TestSendFailedSpoolAppendCountsAsDropped is I-2: a request whose Raw payload alone (no Event,
++// so externalize is a no-op) exceeds MaxLineBytes reaches spool.Append intact, which refuses it —
++// that refusal must be counted as l0_dropped, never as l0_spooled, or the event is lost while the
++// metrics claim it was durably enqueued.
++func TestSendFailedSpoolAppendCountsAsDropped(t *testing.T) {
++	root := t.TempDir()
++	addr, err := Resolve(root) // nothing listening: Send reaches spoolAndReturn via the connect failure path
++	require.NoError(t, err)
++
++	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
++	require.NoError(t, err)
++	reg := obs.New(core.SystemClock())
++	c := NewClientWithOptions(addr, spool, logging.Nop(), reg, ClientOptions{
++		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++	})
++	t.Cleanup(func() { _ = c.Close() })
++
++	oversizeRaw := json.RawMessage(`"` + strings.Repeat("x", MaxLineBytes) + `"`)
++	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1, Raw: oversizeRaw}, time.Second)
++	require.NoError(t, err, "a refused spool append must never surface as an error a hook would propagate")
++	require.False(t, res.OK)
++
++	require.EqualValues(t, 1, reg.Counter(counterL0Dropped).Value(), "a refused Append must count as dropped")
++	require.EqualValues(t, 0, reg.Counter(counterL0Spooled).Value(), "a refused Append must never be counted as spooled")
++
++	_, statErr := os.Stat(spool.Path())
++	require.True(t, os.IsNotExist(statErr), "a refused Append must leave no spool file behind")
++}
++
+ // TestSendHotSpoolSkipsConnect is the table's row: State.Hot = HotSpool skips connecting entirely
+ // for a hot-path op, but session.start (not hot-path) still connects.
+ func TestSendHotSpoolSkipsConnect(t *testing.T) {
+ 	var calls atomic.Int64
+ 	_, addr := newTestServer(t, func(context.Context, Request) Response {
+ 		calls.Add(1)
+ 		return Response{OK: true}
+ 	})
+ 
+ 	spool, err := NewSpool(filepath.Join(t.TempDir(), "spool"))
+@@ -285,20 +314,67 @@ func TestSendOversizeExternalizes(t *testing.T) {
+ 	require.Equal(t, payload, blobBytes)
+ 
+ 	// A nulled json.RawMessage marshals as the literal `null` and decodes back as those four
+ 	// bytes, not as an empty/nil RawMessage — the same generic-decoder quirk frame_test.go
+ 	// documents via rawMessageNullIsNil. DecodeRequest has no hookio-specific knowledge to
+ 	// normalize it, so either shape here is the correct "nulled" outcome.
+ 	require.True(t, len(got.Event.ToolResponse) == 0 || string(got.Event.ToolResponse) == "null",
+ 		"the wire copy's ToolResponse must be nulled, got %q", got.Event.ToolResponse)
+ }
+ 
++// TestSendOversizeExternalizePreservesExistingRaw is I-3: a request that legitimately carries
++// both a non-empty Raw and an oversized Event.ToolResponse must not have Raw silently destroyed
++// by externalization — wire.go allows both fields simultaneously, and externalize only ever
++// intends to move ToolResponse.
++func TestSendOversizeExternalizePreservesExistingRaw(t *testing.T) {
++	const payloadSize = 2 << 20
++	payload, err := json.Marshal(strings.Repeat("x", payloadSize))
++	require.NoError(t, err)
++	const originalRaw = `{"pre-existing":true}`
++
++	seen := make(chan Request, 1)
++	_, addr := newTestServer(t, func(_ context.Context, req Request) Response {
++		seen <- req
++		return Response{OK: true}
++	})
++
++	spoolDir := filepath.Join(t.TempDir(), "spool")
++	spool, err := NewSpool(spoolDir)
++	require.NoError(t, err)
++	c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
++		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
++		State: State{Mode: contract.ModeFull, DaemonEnabled: true, MaxPayloadBytes: 1 << 20},
++	})
++	t.Cleanup(func() { _ = c.Close() })
++
++	req := Request{
++		Op: OpObserveTool, Session: "s", TS: 1,
++		Event: &hookio.Event{HookEventName: "PostToolUse", ToolResponse: json.RawMessage(payload)},
++		Raw:   json.RawMessage(originalRaw),
++	}
++	res, err := c.Send(context.Background(), req, time.Second)
++	require.NoError(t, err)
++	require.True(t, res.OK)
++
++	var got Request
++	select {
++	case got = <-seen:
++	case <-time.After(2 * time.Second):
++		t.Fatal("server never received the request")
++	}
++
++	var ref blobRef
++	require.NoError(t, json.Unmarshal(got.Raw, &ref))
++	require.Equal(t, blobField, ref.Field)
++	require.JSONEq(t, originalRaw, string(ref.X), "the pre-existing Raw payload must survive under the blob descriptor's own key")
++}
++
+ // TestClientClose_ClosesSpoolAndTolerantOfNilSpool asserts Close reaches the concrete spool's own
+ // Close through the type assertion, and is a safe no-op against a nil SpoolWriter.
+ func TestClientClose_ClosesSpoolAndTolerantOfNilSpool(t *testing.T) {
+ 	c := NewClient(Addr{}, nil, logging.Nop(), obs.New(core.SystemClock()))
+ 	require.NoError(t, c.Close())
+ 
+ 	spool, err := NewSpool(t.TempDir())
+ 	require.NoError(t, err)
+ 	c2 := NewClient(Addr{}, spool, logging.Nop(), obs.New(core.SystemClock()))
+ 	require.NoError(t, c2.Close())
+@@ -498,21 +574,28 @@ func startMisbehavingListener(t *testing.T, addr Addr, behavior string) {
+ 				}(conn)
+ 			}
+ 		}
+ 	}()
+ }
+ 
+ // TestSendNeverReturnsError is task-2-spec.md's rapid property test: 200 random requests spread
+ // across 4 adversarial listener behaviors (50 checks each, set via the rapid.checks flag), none of
+ // which may ever cause Send to return a non-nil error.
+ func TestSendNeverReturnsError(t *testing.T) {
++	// rapid.checks is a process-wide flag: left mutated, it would silently halve the rigor of
++	// every other rapid.Check in this package (e.g. frame_test.go's request/response round trip),
++	// since Go runs a package's tests in one process. Save and restore it around this test only.
++	checksFlag := flag.Lookup("rapid.checks")
++	require.NotNil(t, checksFlag, "pgregory.net/rapid must have registered its -rapid.checks flag")
++	original := checksFlag.Value.String()
+ 	require.NoError(t, flag.Set("rapid.checks", "50"))
++	t.Cleanup(func() { _ = flag.Set("rapid.checks", original) })
+ 
+ 	for _, behavior := range []string{"no-listener", "closes-immediately", "hangs", "bogus-byte"} {
+ 		t.Run(behavior, func(t *testing.T) {
+ 			rapid.Check(t, func(rt *rapid.T) {
+ 				root := t.TempDir()
+ 				addr, err := Resolve(root)
+ 				require.NoError(rt, err)
+ 
+ 				if behavior != "no-listener" {
+ 					startMisbehavingListener(t, addr, behavior)
+diff --git a/internal/ipc/listen_unix.go b/internal/ipc/listen_unix.go
+index c272911..45503ac 100644
+--- a/internal/ipc/listen_unix.go
++++ b/internal/ipc/listen_unix.go
+@@ -25,21 +25,21 @@ const posixListenProbeTimeout = 2 * time.Millisecond
+ // know about (currently unused on POSIX — kept so this file and listen_windows.go share one
+ // signature); maxLine is likewise unused here — it is enforced by LineReader in user space, not
+ // at bind time.
+ func listen(a Addr, log logging.Logger, maxLine int) (net.Listener, error) {
+ 	if err := os.MkdirAll(paths.Long(filepath.Dir(a.Path)), dirPerm); err != nil {
+ 		return nil, fmt.Errorf("ipc: listen: mkdir: %w", err)
+ 	}
+ 
+ 	if conn, err := dial(a, posixListenProbeTimeout); err == nil {
+ 		_ = conn.Close()
+-		return nil, fmt.Errorf("ipc: listen: %s: a live daemon already owns this socket", a.Path)
++		return nil, fmt.Errorf("%w: %s", ErrAddrInUse, a.Path)
+ 	} else if isStaleSocketError(err) {
+ 		_ = os.Remove(paths.Long(a.Path))
+ 	}
+ 
+ 	ln, err := net.Listen("unix", a.Path)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("ipc: listen: %w", err)
+ 	}
+ 	if err := os.Chmod(paths.Long(a.Path), socketPerm); err != nil {
+ 		_ = ln.Close()
+diff --git a/internal/ipc/listen_windows.go b/internal/ipc/listen_windows.go
+index 190a824..43f942f 100644
+--- a/internal/ipc/listen_windows.go
++++ b/internal/ipc/listen_windows.go
+@@ -19,20 +19,27 @@ import (
+ // here only so this file and listen_unix.go share one signature.
+ const pipeBufferBytes = 64 << 10
+ 
+ // windowsFallbackSDDL is the creator-owner-only descriptor listen falls back to when the current
+ // user's SID cannot be resolved. It is never more permissive than the per-user ACL: CO restricts
+ // the pipe to whichever account created it, exactly as the per-SID ACE would have.
+ const windowsFallbackSDDL = "D:P(A;;GA;;;CO)"
+ 
+ // listen creates the named pipe a.Path names (00-ARCHITECTURE.md §2.4), ACL'd to the current
+ // user's SID only via a protected DACL — "P" so no inherited ACE ever widens it.
++//
++// Unlike listen_unix.go's dial-probe-then-reclaim, this function has no equivalent liveness check
++// and cannot return ErrAddrInUse: winio.ListenPipe happily creates another instance of an
++// already-existing pipe name (named pipes are multi-instance by design), so two daemons could in
++// principle bind the same pipe name and silently round-robin connections between them. The real
++// defence against that is the daemon-level singleton lock (daemon.AcquireLock, Task 3+), not
++// anything this transport layer can detect on its own on this platform.
+ func listen(a Addr, log logging.Logger, maxLine int) (net.Listener, error) {
+ 	sddl, fellBack := windowsSDDL()
+ 	if fellBack && log != nil {
+ 		log.Loud("ipc: could not resolve the current user's SID — named pipe ACL'd to creator-owner only", "addr", a.Path)
+ 	}
+ 
+ 	ln, err := winio.ListenPipe(a.Path, &winio.PipeConfig{
+ 		SecurityDescriptor: sddl,
+ 		MessageMode:        false, // byte mode: NDJSON is a stream protocol
+ 		InputBufferSize:    pipeBufferBytes,
+diff --git a/internal/ipc/resolve.go b/internal/ipc/resolve.go
+index 96fcfa5..56bb5e0 100644
+--- a/internal/ipc/resolve.go
++++ b/internal/ipc/resolve.go
+@@ -68,20 +68,29 @@ const (
+ // rather than a runtime condition — paths.Resolve produces the root, and it never returns an empty
+ // one — so it is reported rather than papered over with a default endpoint that two different
+ // projects would then share.
+ var ErrUnresolvedRoot = errors.New("ipc: project root must not be empty")
+ 
+ // ErrAddrTooLong is returned when even §2.4's short fallback (<os.TempDir()>/qp-<hash8>.sock)
+ // exceeds sunPathMax: nothing left in the resolution chain can produce a bindable path. Callers
+ // (NewClient) treat it as "spool-only for this process", never as a hook failure.
+ var ErrAddrTooLong = errors.New("qompack: ipc address exceeds sun_path limit")
+ 
++// ErrAddrInUse is returned by listen (POSIX today; Windows cannot detect this case — see
++// listen_windows.go) when a live listener already owns the endpoint. This is the daemon-singleton
++// check's transport-level signal (00-ARCHITECTURE.md §2.4): ipc may not import daemon (§3.2), so
++// daemon.AcquireLock — which owns the actual singleton decision and daemon.ErrLockHeld, the
++// caller-facing sentinel — wraps this one rather than ipc wrapping daemon's (controller ruling
++// #21). Declared here, alongside ErrAddrTooLong, so both of listen's address-outcome sentinels
++// live in one place.
++var ErrAddrInUse = errors.New("qompack: ipc endpoint already owned by a live listener")
++
+ // Resolve returns the local endpoint for projectRoot, exactly as 00-ARCHITECTURE.md §2.4 specifies
+ // it, unless QOMPACK_IPC_ADDR overrides it.
+ //
+ // On Windows the answer is always the named pipe \\.\pipe\qompack.<hash12>. On POSIX the candidates
+ // are tried in §2.4's order — $XDG_RUNTIME_DIR/qompack/<hash12>.sock, then
+ // <os.TempDir()>/qompack-<uid>/<hash12>.sock — and the first whose full path fits in sunPathMax
+ // wins; if neither does, the short fallback <os.TempDir()>/qp-<hash8>.sock is used.
+ //
+ // Resolve is a pure function of its inputs: it creates no directory and no socket, and it does not
+ // stat anything. Binding the endpoint — with the directory at 0700 and the socket at 0600, per
+diff --git a/internal/ipc/server.go b/internal/ipc/server.go
+index d504d77..2dbf462 100644
+--- a/internal/ipc/server.go
++++ b/internal/ipc/server.go
+@@ -1,76 +1,89 @@
+ package ipc
+ 
+ import (
+ 	"context"
+ 	"errors"
+ 	"net"
+-	"os"
+ 	"sync"
+ 	"sync/atomic"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+-	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // counterIPCDecodeError and counterIPCHandlerPanic are the two server-side obs.Counter names
+ // (repo underscore idiom, not §2.4's dotted prose spelling — Task-2 controller ruling, kept
+ // consistent because later tasks assert these exact strings).
+ const (
+ 	counterIPCDecodeError  = "ipc_decode_error"
+ 	counterIPCHandlerPanic = "ipc_handler_panic"
+ )
+ 
+ // acceptBackoffInitial and acceptBackoffMax bound the accept loop's retry delay after a temporary
+ // Accept error (too many open files, etc.): start small, double, cap — driven by a timer inside a
+ // select, never time.Sleep (§6.1).
+ const (
+ 	acceptBackoffInitial = 5 * time.Millisecond
+ 	acceptBackoffMax     = 1 * time.Second
+ )
+ 
+-// serverCloseWait bounds how long Close waits for in-flight connections to finish before
+-// returning anyway — an orderly shutdown should not hang the daemon's own stop sequence forever
+-// on one slow client.
++// serverCloseWait bounds how long Close (and a cancellation-driven Serve return) waits for
++// in-flight connections to finish before giving up anyway — an orderly shutdown should not hang
++// the daemon's own stop sequence forever on one slow or wedged client.
+ const serverCloseWait = 2 * time.Second
+ 
++// connIdleTimeout bounds how long handleConn will block in one ReadLine call with no data from
++// the peer. It is a backstop against a connection that never sends and never closes — Close
++// itself closes every tracked connection outright, which is the primary defence, but a read
++// deadline means a single idle peer cannot wedge its own goroutine indefinitely even absent a
++// Close call. It is generous enough not to disrupt a legitimately idle long-lived connection
++// (MCP-over-daemon multiplexing, per this file's own handleConn doc comment).
++const connIdleTimeout = 10 * time.Minute
++
+ // server is the real Server (00-ARCHITECTURE.md §5.4): the daemon-side half of the transport.
+ type server struct {
+ 	addr    Addr
+ 	ln      net.Listener
+ 	log     logging.Logger
+ 	m       obs.Registry
+ 	maxLine int
+ 
+ 	wg     sync.WaitGroup
+ 	closed atomic.Bool
+ 
++	// connsMu guards conns, the set of currently-accepted connections. Close closes every one of
++	// them after closing the listener, so a handleConn goroutine blocked in ReadLine on a peer
++	// that never sends and never disconnects cannot hold Serve's shutdown open indefinitely — the
++	// listener's own Close only unblocks a pending Accept, never an already-accepted connection.
++	connsMu sync.Mutex
++	conns   map[net.Conn]struct{}
++
+ 	closeOnce sync.Once
+ 	closeErr  error
+ }
+ 
+ // NewServer binds a.Path and returns a Server ready for Serve. maxLine <= 0 defaults to
+ // MaxLineBytes.
+ func NewServer(a Addr, log logging.Logger, m obs.Registry, maxLine int) (Server, error) {
+ 	if log == nil {
+ 		log = logging.Nop()
+ 	}
+ 	if maxLine <= 0 {
+ 		maxLine = MaxLineBytes
+ 	}
+ 	ln, err := listen(a, log, maxLine)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	return &server{addr: a, ln: ln, log: log, m: m, maxLine: maxLine}, nil
++	return &server{addr: a, ln: ln, log: log, m: m, maxLine: maxLine, conns: make(map[net.Conn]struct{})}, nil
+ }
+ 
+ // Addr reports the endpoint this Server is bound to. It is stable for the Server's lifetime.
+ func (s *server) Addr() Addr { return s.addr }
+ 
+ // Serve runs the accept loop until ctx is cancelled or Close is called, dispatching every request
+ // on every connection to h — a connection is read until EOF, so one long-lived caller (MCP-over-
+ // daemon) can send many requests without reconnecting. It returns nil on an orderly shutdown
+ // triggered by Close, or ctx's own error when the shutdown was triggered by cancellation.
+ func (s *server) Serve(ctx context.Context, h Handler) error {
+@@ -79,44 +92,65 @@ func (s *server) Serve(ctx context.Context, h Handler) error {
+ 	}
+ 
+ 	stop := context.AfterFunc(ctx, func() { _ = s.Close() })
+ 	defer stop()
+ 
+ 	backoff := acceptBackoffInitial
+ 	for {
+ 		conn, err := s.ln.Accept()
+ 		if err != nil {
+ 			if s.closed.Load() {
+-				s.wg.Wait()
++				s.waitForConns()
+ 				if ctx.Err() != nil {
+ 					return ctx.Err()
+ 				}
+ 				return nil
+ 			}
+ 
+ 			var ne net.Error
+ 			if errors.As(err, &ne) && ne.Temporary() { //nolint:staticcheck // SA1019: the documented accept-loop retry idiom this package's own spec calls for
+ 				if !s.waitBackoff(ctx, &backoff) {
+-					s.wg.Wait()
++					s.waitForConns()
+ 					return ctx.Err()
+ 				}
+ 				continue
+ 			}
+-			s.wg.Wait()
++			s.waitForConns()
+ 			return err
+ 		}
+ 		backoff = acceptBackoffInitial
++		s.trackConn(conn, true)
+ 		s.wg.Add(1)
+ 		go s.handleConn(ctx, conn, h)
+ 	}
+ }
+ 
++// waitForConns waits for every in-flight handleConn goroutine to finish, bounded by
++// serverCloseWait — the same bound Close itself uses — so neither Serve nor Close can hang the
++// daemon's stop sequence forever on a single wedged connection. It is safe to call from both:
++// sync.WaitGroup.Wait may be called by multiple goroutines concurrently as long as none of them
++// is also calling Add, and by the time either caller reaches this point the accept loop that
++// calls Add has already stopped.
++func (s *server) waitForConns() {
++	done := make(chan struct{})
++	go func() {
++		s.wg.Wait()
++		close(done)
++	}()
++	t := time.NewTimer(serverCloseWait)
++	defer t.Stop()
++	select {
++	case <-done:
++	case <-t.C:
++	}
++}
++
+ // waitBackoff waits for the current backoff duration (doubling it, capped at acceptBackoffMax)
+ // or for ctx to end, whichever comes first. It reports whether the wait completed normally.
+ func (s *server) waitBackoff(ctx context.Context, backoff *time.Duration) bool {
+ 	t := time.NewTimer(*backoff)
+ 	defer t.Stop()
+ 	select {
+ 	case <-t.C:
+ 		*backoff *= 2
+ 		if *backoff > acceptBackoffMax {
+ 			*backoff = acceptBackoffMax
+@@ -124,24 +158,31 @@ func (s *server) waitBackoff(ctx context.Context, backoff *time.Duration) bool {
+ 		return true
+ 	case <-ctx.Done():
+ 		return false
+ 	}
+ }
+ 
+ // handleConn reads NDJSON frames off conn until EOF or a fatal I/O error, dispatching each to h
+ // and writing back the one-byte ACK/NAK or, for a Reply request, a full response line.
+ func (s *server) handleConn(ctx context.Context, conn net.Conn, h Handler) {
+ 	defer s.wg.Done()
++	defer s.trackConn(conn, false)
+ 	defer func() { _ = conn.Close() }()
+ 
+ 	lr := NewLineReader(conn, s.maxLine)
+ 	for {
++		// Reset before every read: a connIdleTimeout budget per frame, not for the connection's
++		// whole lifetime, so a long-lived multiplexed connection that is merely quiet between
++		// requests is never penalised for the traffic it already sent.
++		if err := conn.SetReadDeadline(time.Now().Add(connIdleTimeout)); err != nil {
++			return
++		}
+ 		line, err := lr.ReadLine()
+ 		if err != nil {
+ 			if errors.Is(err, ErrLineTooLong) {
+ 				// The oversize line was already discarded by ReadLine; NAK it and keep reading —
+ 				// it must never reach the handler.
+ 				if !s.writeByte(conn, NAK) {
+ 					return
+ 				}
+ 				continue
+ 			}
+@@ -199,37 +240,52 @@ func (s *server) dispatch(ctx context.Context, h Handler, req Request) (resp Res
+ 	}()
+ 	return h(ctx, req)
+ }
+ 
+ // writeByte writes a single control byte (ACK or NAK) and reports whether the write succeeded.
+ func (s *server) writeByte(conn net.Conn, b byte) bool {
+ 	_, err := conn.Write([]byte{b})
+ 	return err == nil
+ }
+ 
+-// Close stops Serve (by closing the listener, which unblocks a pending Accept), waits up to
+-// serverCloseWait for in-flight connections to finish, and — on POSIX — unlinks the socket path.
+-// It is idempotent: a second call replays the first call's result rather than closing an
++// trackConn adds or removes conn from the accepted-connections set Close closes on shutdown.
++func (s *server) trackConn(conn net.Conn, add bool) {
++	s.connsMu.Lock()
++	defer s.connsMu.Unlock()
++	if add {
++		s.conns[conn] = struct{}{}
++	} else {
++		delete(s.conns, conn)
++	}
++}
++
++// closeTrackedConns closes every currently-accepted connection. Closing a net.Conn unblocks
++// whatever it is doing — a blocked Read in particular — so this is what actually lets a
++// handleConn goroutine reading from a peer that never sends and never disconnects notice the
++// shutdown, rather than waiting out its own connIdleTimeout.
++func (s *server) closeTrackedConns() {
++	s.connsMu.Lock()
++	defer s.connsMu.Unlock()
++	for conn := range s.conns {
++		_ = conn.Close()
++	}
++}
++
++// Close stops Serve (by closing the listener, which unblocks a pending Accept), closes every
++// accepted connection (which unblocks any handleConn goroutine blocked reading from a peer that
++// never sends and never disconnects), and waits up to serverCloseWait for those goroutines to
++// finish. It is idempotent: a second call replays the first call's result rather than closing an
+ // already-closed listener again.
++//
++// It does not unlink the POSIX socket path itself: net.UnixListener.Close already does that as
++// part of closing the listener, and doing it again here — potentially up to serverCloseWait later
++// — risks unlinking a *different*, newly-bound socket if a replacement daemon started in the
++// window between this Close beginning and finishing.
+ func (s *server) Close() error {
+ 	s.closeOnce.Do(func() {
+ 		s.closed.Store(true)
+ 		s.closeErr = s.ln.Close()
+-
+-		done := make(chan struct{})
+-		go func() {
+-			s.wg.Wait()
+-			close(done)
+-		}()
+-		t := time.NewTimer(serverCloseWait)
+-		defer t.Stop()
+-		select {
+-		case <-done:
+-		case <-t.C:
+-		}
+-
+-		if ua, ok := s.ln.Addr().(*net.UnixAddr); ok {
+-			_ = os.Remove(paths.Long(ua.Name))
+-		}
++		s.closeTrackedConns()
++		s.waitForConns()
+ 	})
+ 	return s.closeErr
+ }
+diff --git a/internal/ipc/server_test.go b/internal/ipc/server_test.go
+index f566901..5a51e76 100644
+--- a/internal/ipc/server_test.go
++++ b/internal/ipc/server_test.go
+@@ -85,20 +85,54 @@ func TestServerUnknownOpNAKs(t *testing.T) {
+ 	})
+ 	conn := newRawClient(t, addr)
+ 
+ 	writeRequest(t, conn, Request{Op: Op("bogus.op"), Session: "s", TS: 1})
+ 	require.Equal(t, NAK, readByte(t, conn))
+ 
+ 	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 2})
+ 	require.Equal(t, ACK, readByte(t, conn), "the connection must stay open and keep serving after a NAK")
+ }
+ 
++// TestServerDecodeErrorNAKsAndCounts is I-8: malformed JSON — as opposed to well-formed JSON
++// naming an op the Handler happens to refuse — never reaches the Handler at all, NAKs, increments
++// ipc_decode_error, and leaves the connection open for a following valid request.
++func TestServerDecodeErrorNAKsAndCounts(t *testing.T) {
++	var handlerCalls atomic.Int64
++	reg := obs.New(core.SystemClock())
++	addr, err := Resolve(t.TempDir())
++	require.NoError(t, err)
++	srv, err := NewServer(addr, logging.Nop(), reg, MaxLineBytes)
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithCancel(context.Background())
++	done := make(chan error, 1)
++	go func() {
++		done <- srv.Serve(ctx, func(context.Context, Request) Response {
++			handlerCalls.Add(1)
++			return Response{OK: true}
++		})
++	}()
++	t.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
++
++	conn := newRawClient(t, addr)
++	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(time.Second)))
++	_, err = conn.Write([]byte("{not json\n"))
++	require.NoError(t, err)
++	require.Equal(t, NAK, readByte(t, conn))
++	require.EqualValues(t, 1, reg.Counter(counterIPCDecodeError).Value())
++	require.EqualValues(t, 0, handlerCalls.Load(), "malformed JSON must never reach the handler")
++
++	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 1})
++	require.Equal(t, ACK, readByte(t, conn), "the connection must stay open and keep serving after a decode error")
++	require.EqualValues(t, 1, handlerCalls.Load())
++}
++
+ // TestServerHandlerPanicIsContained is the table's row: a panicking Handler NAKs the request that
+ // triggered it, keeps serving, and counts the panic.
+ func TestServerHandlerPanicIsContained(t *testing.T) {
+ 	reg := obs.New(core.SystemClock())
+ 	addr, err := Resolve(t.TempDir())
+ 	require.NoError(t, err)
+ 	srv, err := NewServer(addr, logging.Nop(), reg, MaxLineBytes)
+ 	require.NoError(t, err)
+ 
+ 	ctx, cancel := context.WithCancel(context.Background())
+@@ -176,20 +210,65 @@ func TestServerConcurrentClients(t *testing.T) {
+ 					}
+ 				}
+ 			}
+ 		}(g)
+ 	}
+ 	wg.Wait()
+ 
+ 	require.EqualValues(t, goroutines*perGoroutine, handled.Load())
+ }
+ 
++// shutdownTestBound is how long TestServerCloseWithLiveConnection gives Close/Serve to return —
++// generous compared to serverCloseWait itself, so a genuine regression (an unbounded wait) fails
++// this test in seconds rather than hanging it for the package's whole -timeout.
++const shutdownTestBound = 5 * time.Second
++
++// TestServerCloseWithLiveConnection is I-4: a connection that is accepted but never sends
++// anything and never closes must not prevent Close — or a cancellation-driven Serve — from
++// returning. Close must close every accepted connection itself (unblocking handleConn's pending
++// read) rather than waiting out connIdleTimeout or hanging forever.
++func TestServerCloseWithLiveConnection(t *testing.T) {
++	addr, err := Resolve(t.TempDir())
++	require.NoError(t, err)
++	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
++	require.NoError(t, err)
++
++	ctx, cancel := context.WithCancel(context.Background())
++	t.Cleanup(cancel)
++	serveDone := make(chan error, 1)
++	go func() {
++		serveDone <- srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} })
++	}()
++
++	// Connect and deliberately write nothing: handleConn is now blocked in ReadLine, exactly the
++	// "peer that never sends and never disconnects" case I-4 describes.
++	conn := newRawClient(t, addr)
++	t.Cleanup(func() { _ = conn.Close() })
++
++	closeDone := make(chan error, 1)
++	go func() { closeDone <- srv.Close() }()
++
++	select {
++	case err := <-closeDone:
++		require.NoError(t, err)
++	case <-time.After(shutdownTestBound):
++		t.Fatalf("Close did not return within %s with a live, silent connection open", shutdownTestBound)
++	}
++
++	select {
++	case err := <-serveDone:
++		require.NoError(t, err, "Serve must return cleanly once Close has finished")
++	case <-time.After(shutdownTestBound):
++		t.Fatalf("Serve did not return within %s after Close, with a live, silent connection open", shutdownTestBound)
++	}
++}
++
+ // BenchmarkServerRoundTrip measures the daemon-side portion of B-A against a warm in-process
+ // server: budget is p99 < 2 ms.
+ func BenchmarkServerRoundTrip(b *testing.B) {
+ 	addr, err := Resolve(b.TempDir())
+ 	if err != nil {
+ 		b.Fatal(err)
+ 	}
+ 	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
+ 	if err != nil {
+ 		b.Fatal(err)
+diff --git a/internal/ipc/server_unix_test.go b/internal/ipc/server_unix_test.go
+index 674f113..7f5cf2b 100644
+--- a/internal/ipc/server_unix_test.go
++++ b/internal/ipc/server_unix_test.go
+@@ -50,12 +50,23 @@ func TestStaleUnixSocketReclaimed(t *testing.T) {
+ 	srv, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
+ 	require.NoError(t, err, "NewServer must reclaim a stale socket rather than failing")
+ 
+ 	ctx, cancel := context.WithCancel(context.Background())
+ 	done := make(chan error, 1)
+ 	go func() { done <- srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} }) }()
+ 	t.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
+ 
+ 	conn := newRawClient(t, addr)
+ 	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 1})
+-	require.Equal(t, byte(ACK), readByte(t, conn), "a client must be able to reach the rebound server")
++	require.Equal(t, ACK, readByte(t, conn), "a client must be able to reach the rebound server")
++}
++
++// TestListenReturnsErrAddrInUse is the CONTROLLER RULING #21 row: a still-live listener at the
++// same address is reported through an ipc-local sentinel (errors.Is-able), not a bare string —
++// daemon.AcquireLock (Task 3+) maps this into its own ErrLockHeld without ipc ever importing
++// daemon.
++func TestListenReturnsErrAddrInUse(t *testing.T) {
++	_, addr := newTestServer(t, func(context.Context, Request) Response { return Response{OK: true} })
++
++	_, err := NewServer(addr, logging.Nop(), obs.New(core.SystemClock()), MaxLineBytes)
++	require.ErrorIs(t, err, ErrAddrInUse)
+ }
+diff --git a/internal/ipc/spool.go b/internal/ipc/spool.go
+index c927d90..7752aa3 100644
+--- a/internal/ipc/spool.go
++++ b/internal/ipc/spool.go
+@@ -15,39 +15,37 @@ import (
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // spoolMaxBytes bounds one client process's own spool file (D4: "the queue-and-drain degradation
+ // of §8.1 must exist below the daemon"). A daemon that never comes back must not let the spool
+ // grow without bound and fill the user's disk — that would violate §7.1 directly. It matches
+ // walRotateBytes so the two durability tiers share one growth ceiling.
+ const spoolMaxBytes = 64 << 20 // 64 MiB per client file
+ 
+-// ErrSpoolFull is returned by Append (and, internally, swallowed into the drop path exactly like
+-// any other write failure) once a client's own spool file has reached spoolMaxBytes. The daemon
+-// deletes drained files, so the cap is only ever reached when nothing is draining — exactly the
+-// case where dropping is correct.
++// ErrSpoolFull is writeLocked's internal signal that a client's own spool file has reached
++// spoolMaxBytes. It is exported because it names a real, documented condition (§12.3), but no
++// caller ever observes it directly: Append swallows it into the drop path exactly like any other
++// write failure and always returns nil, per §12.3's "spool write fails" rule. The daemon deletes
++// drained files, so the cap is only ever reached when nothing is draining — exactly the case
++// where dropping is correct.
+ var ErrSpoolFull = errors.New("qompack: spool file at cap")
+ 
+ // spoolFilePrefix, spoolFileExt and walFilePrefix name the two families SpoolFiles distinguishes:
+ // this client's own append-only queue (client-<pid>.ndjson) and the daemon's WAL segments
+ // (wal-<session>.ndjson), which live in the same directory and drain together.
+ const (
+ 	spoolFilePrefix = "client-"
+ 	spoolFileExt    = ".ndjson"
+ 	walFilePrefix   = "wal-"
+ )
+ 
+-// spoolDirPerm is the spool directory's permission, owner-only like every other directory under
+-// .qompack/ (00-ARCHITECTURE.md §2.4).
+-const spoolDirPerm = 0o700
+-
+ // spool is the real SpoolWriter (00-ARCHITECTURE.md §2.4, D4): the durability fallback every
+ // failure path in Client.Send lands on. NewSpool records dir but opens nothing — a process that
+ // never spools pays nothing — and Append lazily creates the directory and the file on first use,
+ // keeping the handle for the process lifetime.
+ type spool struct {
+ 	dir  string
+ 	path string
+ 	log  logging.Logger
+ 	m    obs.Registry
+ 
+@@ -94,27 +92,30 @@ func (s *spool) Path() string { return s.path }
+ // MaxLineBytes is refused outright with a wrapped core.ErrBudget, leaving the spool byte-identical
+ // — this is the generic SpoolWriter contract ipctest's conformance suite grades, and it never
+ // happens on Client.Send's own path because externalize() keeps every line the client hands to
+ // Append under the threshold before Append is ever called.
+ //
+ // Everything else — permission denied, ENOSPC, ErrSpoolFull — is §12.3's "spool write fails":
+ // dropped and counted every time (so l0_dropped reflects the true count of lost events even
+ // though the write itself is only retried once), Loud exactly once for the life of this spool,
+ // and reported back as nil so the hook that called Send still exits 0.
+ func (s *spool) Append(req Request) error {
++	// EncodeRequest already returns a line terminated by exactly one '\n' (frame.go's encodeLine
++	// uses json.Encoder.Encode, which appends one); line's own length already counts it, so no
++	// caller here may add a second newline or double-count it against MaxLineBytes.
+ 	line, err := EncodeRequest(req)
+ 	if err != nil {
+ 		return fmt.Errorf("ipc: spool: encode: %w", err)
+ 	}
+-	if len(line)+1 > MaxLineBytes {
++	if len(line) > MaxLineBytes {
+ 		return fmt.Errorf("%w: spool line of %d bytes exceeds the %d byte frame limit",
+-			core.ErrBudget, len(line)+1, MaxLineBytes)
++			core.ErrBudget, len(line), MaxLineBytes)
+ 	}
+ 
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 
+ 	if s.err != nil {
+ 		// Sticky: the write already failed once this process, so there is no point retrying the
+ 		// same failing I/O for every subsequent event — but each of those events is still a real
+ 		// drop, and l0_dropped must count every one of them, not just the first.
+ 		if s.m != nil {
+@@ -128,47 +129,48 @@ func (s *spool) Append(req Request) error {
+ 			s.log.Loud("ipc: spool write failed — event dropped", "err", wErr, "path", s.path)
+ 		})
+ 		if s.m != nil {
+ 			s.m.Counter(counterL0Dropped).Add(1)
+ 		}
+ 		return nil
+ 	}
+ 	return nil
+ }
+ 
+-// writeLocked appends line plus its newline to the spool file, opening (and, on first use,
+-// creating the directory for) the file if this is the first write. mu must be held.
++// writeLocked appends line — already '\n'-terminated by EncodeRequest — to the spool file,
++// opening (and, on first use, creating the directory for) the file if this is the first write.
++// mu must be held.
+ func (s *spool) writeLocked(line []byte) error {
+ 	if s.f == nil {
+-		if err := os.MkdirAll(paths.Long(s.dir), spoolDirPerm); err != nil {
++		if err := os.MkdirAll(paths.Long(s.dir), dirPerm); err != nil {
+ 			return fmt.Errorf("ipc: spool: mkdir: %w", err)
+ 		}
+ 		w, err := paths.AppendOnly(s.path)
+ 		if err != nil {
+ 			return fmt.Errorf("ipc: spool: open: %w", err)
+ 		}
+ 		f, ok := w.(*os.File)
+ 		if !ok {
+ 			// paths.AppendOnly always returns *os.File today. This branch exists so a future
+ 			// change to that contract fails loudly here rather than silently losing bytes.
+ 			return fmt.Errorf("ipc: spool: AppendOnly returned a non-*os.File writer")
+ 		}
+ 		s.f = f
+ 		if fi, statErr := f.Stat(); statErr == nil {
+ 			s.bytes = fi.Size() // resume the running byte count across process restarts
+ 		}
+ 	}
+ 
+-	if s.bytes+int64(len(line))+1 > spoolMaxBytes {
++	if s.bytes+int64(len(line)) > spoolMaxBytes {
+ 		return ErrSpoolFull
+ 	}
+-	n, err := s.f.Write(append(line, '\n'))
++	n, err := s.f.Write(line)
+ 	if err != nil {
+ 		return err
+ 	}
+ 	s.bytes += int64(n)
+ 	return nil
+ }
+ 
+ // Close closes the spool's backing file handle, if one was ever opened. It is not part of the
+ // SpoolWriter interface — SP-01 shipped that interface without a Close method — so a caller that
+ // wants to release the handle (Client.Close) reaches it through a type assertion. It tolerates
+diff --git a/internal/ipc/spool_test.go b/internal/ipc/spool_test.go
+index e5453a8..6154377 100644
+--- a/internal/ipc/spool_test.go
++++ b/internal/ipc/spool_test.go
+@@ -1,13 +1,14 @@
+ package ipc
+ 
+ import (
++	"bytes"
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
+ 	"sync"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
+@@ -60,31 +61,52 @@ func TestNewSpool_ConstructsWithoutTouchingTheFilesystem(t *testing.T) {
+ // TestSpoolAppendOnly is the table's row: pre-create the spool file with content, Append, and
+ // assert the original bytes are intact with the new line appended after them — paths.AppendOnly
+ // is the only opener this package's write path ever reaches, and it refuses O_TRUNC outright.
+ func TestSpoolAppendOnly(t *testing.T) {
+ 	dir := t.TempDir()
+ 	s, err := NewSpool(dir)
+ 	require.NoError(t, err)
+ 	t.Cleanup(func() { closeSpool(t, s) })
+ 
+ 	preexisting := `{"op":"observe.tool","s":"pre","t":1}` + "\n"
+-	require.NoError(t, os.MkdirAll(dir, spoolDirPerm))
++	require.NoError(t, os.MkdirAll(dir, dirPerm))
+ 	require.NoError(t, os.WriteFile(s.Path(), []byte(preexisting), 0o600))
+ 
+ 	require.NoError(t, s.Append(Request{Op: OpObserveTool, Session: core.SessionID("new"), TS: 2}))
+ 
+ 	got, err := os.ReadFile(s.Path())
+ 	require.NoError(t, err)
+ 	require.True(t, len(got) > len(preexisting))
+ 	require.Equal(t, preexisting, string(got[:len(preexisting)]), "the pre-existing line must survive byte-identical")
+ }
+ 
++// TestSpoolAppend_WritesExactlyOneNewlinePerRecord is the C-1 regression test: EncodeRequest
++// already returns a '\n'-terminated line, so writeLocked must write it as-is. A test that strips
++// empty lines before counting (as ipctest's own readers do) would never catch a doubled newline,
++// so this one counts raw bytes.
++func TestSpoolAppend_WritesExactlyOneNewlinePerRecord(t *testing.T) {
++	dir := t.TempDir()
++	s, err := NewSpool(dir)
++	require.NoError(t, err)
++	t.Cleanup(func() { closeSpool(t, s) })
++
++	const n = 5
++	for i := 0; i < n; i++ {
++		require.NoError(t, s.Append(Request{Op: OpObserveTool, Session: "s", TS: core.UnixMilli(i)}))
++	}
++
++	raw, err := os.ReadFile(s.Path())
++	require.NoError(t, err)
++	require.Equal(t, n, bytes.Count(raw, []byte("\n")), "exactly one newline per record — no blank lines")
++	require.NotContains(t, string(raw), "\n\n", "a spooled file must never contain a blank line")
++}
++
+ // TestSpoolWriteFailureDropsAndLoudsOnce is the table's row: a spool whose backing file cannot be
+ // written drops every event, counts every one of them as dropped, but Louds exactly once across
+ // 10 failing Append calls.
+ func TestSpoolWriteFailureDropsAndLoudsOnce(t *testing.T) {
+ 	dir := t.TempDir()
+ 	p := filepath.Join(dir, fmt.Sprintf("%s%d%s", spoolFilePrefix, os.Getpid(), spoolFileExt))
+ 	require.NoError(t, os.WriteFile(p, nil, 0o600))
+ 	require.NoError(t, os.Chmod(p, 0o400))
+ 	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
+ 

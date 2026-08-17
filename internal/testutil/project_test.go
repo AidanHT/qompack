@@ -130,16 +130,18 @@ func TestProject_Options(t *testing.T) {
 }
 
 // TestProject_StoreOpens asserts (*Project).Store hands back a usable store.Store wired to this
-// project's own config, logger and clock. Until SP-06 lands, every operation on it reports
-// core.ErrNotImplemented — which is exactly what a wave-0 conformance suite needs.
+// project's own config, logger and clock.
+//
+// SP-06 landed the real store, so this now asserts that a Put actually stores: the wave-0 form of
+// this test required core.ErrNotImplemented, which a working store no longer returns.
 func TestProject_StoreOpens(t *testing.T) {
 	p := NewProject(t)
 	s := p.Store(t)
 	require.NotNil(t, s)
 
-	_, err := s.PutBytes(t.Context(), []byte("hello"), store.PutOptions{})
-	require.ErrorIs(t, err, core.ErrNotImplemented,
-		"SP-06 owns the real store; wave 0 only has to hand back a constructed one")
+	res, err := s.PutBytes(t.Context(), []byte("hello"), store.PutOptions{})
+	require.NoError(t, err)
+	require.False(t, res.Root.Hash.IsZero(), "a real store must report a content root for what it stored")
 }
 
 // recorder captures what an assertion reports, so a test can assert that the assertion FAILED
@@ -210,37 +212,22 @@ func TestProject_AssertAppendOnly(t *testing.T) {
 }
 
 // TestProject_RunHookInProcess asserts the default, in-process half of §6.2's two-mode
-// requirement: all six hooks run through cli.Dispatch, every one exits 0, every response parses,
-// and the observation log gains exactly six lines. test/e2e asserts the same six against the real
-// binary.
+// requirement: all six hooks run through cli.Dispatch and every one exits 0 with a parseable
+// response.
+//
+// SP-05 (this repo's own next subplan after SP-01) replaces the six hook bodies with thin ipc
+// clients: SessionStart's and PreCompact's hookSpecificOutput now comes from a live daemon's
+// Response, not from a CLI-side stub, so with no daemon reachable (the case here — an in-process
+// dispatch never spawns one; see internal/cli's selfPath) every hook's response is the minimal
+// "{}" shape. test/e2e's daemon_e2e_test.go asserts the round trip against a real, running daemon.
 func TestProject_RunHookInProcess(t *testing.T) {
 	p := NewProject(t)
 
 	for _, name := range HookNames() {
 		out := p.RunHook(t, name, eventFor(name, p.Root))
-		switch name {
-		case "SessionStart":
-			require.NotNil(t, out.HookSpecificOutput)
-			require.Equal(t, "SessionStart", out.HookSpecificOutput.HookEventName)
-		case "PreCompact":
-			require.NotNil(t, out.HookSpecificOutput)
-			require.Equal(t, "PreCompact", out.HookSpecificOutput.HookEventName)
-		default:
-			require.Nil(t, out.HookSpecificOutput, "%s answers with the minimal response", name)
-		}
+		require.Nil(t, out.HookSpecificOutput,
+			"%s: with no daemon reachable, the thin client answers with the minimal response", name)
 	}
-
-	lines := hookLogLines(t, p.Root)
-	require.Len(t, lines, len(HookNames()),
-		"six hooks must produce exactly six observation lines in .qompack/logs/hooks-*.jsonl")
-
-	var rec struct {
-		Hook  string `json:"hook"`
-		Bytes int    `json:"bytes"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(lines[0]), &rec))
-	require.Equal(t, "PostToolUse", rec.Hook)
-	require.Positive(t, rec.Bytes)
 }
 
 // TestProject_RunHookAcceptsSubcommandSpelling asserts the subcommand spelling reaches the same
@@ -250,7 +237,6 @@ func TestProject_RunHookAcceptsSubcommandSpelling(t *testing.T) {
 	p := NewProject(t)
 	p.RunHook(t, "observe tool", eventFor("PostToolUse", p.Root))
 	p.RunHook(t, "session-start", eventFor("SessionStart", p.Root))
-	require.Len(t, hookLogLines(t, p.Root), 2)
 }
 
 // eventFor builds a representative payload for one hook: the fields §5.3 says that hook populates,
@@ -279,24 +265,4 @@ func eventFor(name, cwd string) hookio.Event {
 		e.StopHookActive = true
 	}
 	return e
-}
-
-// hookLogLines returns every line of every .qompack/logs/hooks-*.jsonl in the project, so a test
-// can count observations without knowing which day-stamped file they landed in.
-func hookLogLines(t *testing.T, root string) []string {
-	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "hooks-*.jsonl"))
-	require.NoError(t, err)
-
-	var lines []string
-	for _, m := range matches {
-		b, readErr := os.ReadFile(m)
-		require.NoError(t, readErr)
-		for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
-			if strings.TrimSpace(line) != "" {
-				lines = append(lines, line)
-			}
-		}
-	}
-	return lines
 }

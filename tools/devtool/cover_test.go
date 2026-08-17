@@ -167,6 +167,106 @@ func main() {
 	})
 }
 
+// TestFloorApplies pins the rule that decides whether a §6.4 coverage floor is live: a package is
+// measured once its owning subplan has landed, and exempt before that because a stub's coverage
+// number measures nothing.
+func TestFloorApplies(t *testing.T) {
+	t.Run("absent package is not yet present", func(t *testing.T) {
+		row := ownerRow{Package: "eval", Owner: "SP-02", Floor: 85, Probe: "Load"}
+		applies, why := floorApplies(row, filepath.Join(t.TempDir(), "no-such-dir"))
+		if applies {
+			t.Error("a package that does not exist yet cannot be below its floor")
+		}
+		if want := "not yet present: eval"; why != want {
+			t.Errorf("reason = %q, want %q", why, want)
+		}
+	})
+
+	t.Run("composition root is exempt", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "main.go"), "package main\n\nfunc main() {}\n")
+		row := ownerRow{Package: "cmd/qompack", Owner: "SP-01", Floor: 75, Probe: "-"}
+		applies, why := floorApplies(row, dir)
+		if applies {
+			t.Error("§6.4 exempts a composition root")
+		}
+		if want := "exempt (composition root, §6.4): cmd/qompack"; why != want {
+			t.Errorf("reason = %q, want %q", why, want)
+		}
+	})
+
+	// negknow is SP-09's and stays a stub until wave 2. This case used SP-03/sketch while SP-03 was
+	// unlanded, which asserted an exemption that stopped existing the moment wave 1 merged. Any
+	// still-unlanded owner works — the subject here is the reason string, not the package — but it
+	// has to be one that is still a stub, or the case passes for the wrong reason.
+	t.Run("an unlanded owner is exempt and the log names it", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "negknow.go"), "package negknow\n\nfunc New() {}\n")
+		row := ownerRow{Package: "negknow", Owner: "SP-09", Floor: 90, Probe: "Query"}
+		applies, why := floorApplies(row, dir)
+		if applies {
+			t.Error("a stub's coverage number measures nothing, so its floor cannot bind yet")
+		}
+		if want := "exempt (stub, owned by SP-09): negknow"; why != want {
+			t.Errorf("reason = %q, want %q", why, want)
+		}
+	})
+
+	t.Run("a landed owner is on the floor", func(t *testing.T) {
+		dir := t.TempDir()
+		mustWrite(t, filepath.Join(dir, "eval.go"), "package eval\n\nfunc Load() {}\n")
+		row := ownerRow{Package: "eval", Owner: "SP-02", Floor: 85, Probe: "Load"}
+		applies, why := floorApplies(row, dir)
+		if !applies {
+			t.Errorf("SP-02 has landed, so internal/eval is measured; got exemption %q", why)
+		}
+		if why != "" {
+			t.Errorf("an applicable floor has no exemption reason, got %q", why)
+		}
+	})
+}
+
+// TestLandedSubplansMatchesTheBranch keeps the landed set honest. Every subplan that has landed
+// owns at least one package that is no longer a stub, so a set that drifts ahead of the branch
+// gates a package nobody has written yet — and one that drifts behind silently unmeasures a
+// package that shipped.
+func TestLandedSubplansMatchesTheBranch(t *testing.T) {
+	owners, err := loadOwners(filepath.Join(testModuleRoot(t), "plans", "OWNERS.tsv"))
+	if err != nil {
+		t.Fatalf("loadOwners: %v", err)
+	}
+	known := map[string]bool{}
+	for _, o := range owners {
+		known[o.Owner] = true
+	}
+	for id := range landedSubplans {
+		if !known[id] {
+			t.Errorf("landedSubplans names %s, which owns nothing in plans/OWNERS.tsv", id)
+		}
+	}
+	// The missing-entry half. Wave 0 plus every wave-1 subplan merged so far must be listed, or the
+	// §6.4 floor of every package it owns is exempt at any coverage, including 0%.
+	//
+	// This assertion used to read the other way for SP-03 — "SP-03 has not landed; internal/sketch
+	// is still a stub" — which was right while it was a tripwire and reads backwards the moment the
+	// wave lands. SP-02's handoff §4.1 asked for it to be rewritten here rather than deleted,
+	// because the set still has to keep agreeing with the branch for waves 2 through 6.
+	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07"} {
+		if !landedSubplans[id] {
+			t.Errorf("%s has landed on develop but is missing from landedSubplans, so every "+
+				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)
+		}
+	}
+	// The tripwire half, kept in the same breath as the half above. SP-06 and SP-07 add themselves
+	// in their own merge commits, so listing one early binds a floor against code that is still a
+	// stub; SP-08 and SP-09 are wave 2 and cannot have landed at all.
+	for _, id := range []string{"SP-08", "SP-09"} {
+		if landedSubplans[id] {
+			t.Errorf("%s is listed as landed, but wave 2 has not been cut yet", id)
+		}
+	}
+}
+
 func TestIsBareNotImplementedStub_WrappedError(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "wrapped.go")

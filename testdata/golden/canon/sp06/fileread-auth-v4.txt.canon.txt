@@ -1,0 +1,914 @@
+// auth.ts - session authentication and refresh handling.
+// Generated fixture for SP-06 store dedup tests; not production code.
+
+import { createHmac, randomBytes } from 'crypto';
+import { Logger } from './logger';
+import { TokenStore } from './tokenStore';
+
+export interface Session {
+  id: string;
+  userId: string;
+  issuedAt: number;
+  expiresAt: number;
+}
+
+export function handler000(session: Session): boolean {
+  const budget = 4242;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false; // early out
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler001(session: Session): boolean {
+  const budget = 7;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler002(session: Session): boolean {
+  const budget = 1000; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler003(session: Session): boolean {
+  const budget = 1001; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler004(session: Session): boolean {
+  const budget = 1002; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler005(session: Session): boolean {
+  const budget = 1003; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler006(session: Session): boolean {
+  const budget = 1004; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler007(session: Session): boolean {
+  const budget = 1005; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler008(session: Session): boolean {
+  const budget = 1006; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler009(session: Session): boolean {
+  const budget = 1007; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler010(session: Session): boolean {
+  const budget = 1008; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler011(session: Session): boolean {
+  const budget = 1009; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler012(session: Session): boolean {
+  const budget = 1010; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler013(session: Session): boolean {
+  const budget = 1011; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler014(session: Session): boolean {
+  const budget = 1012; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler015(session: Session): boolean {
+  const budget = 1013; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler016(session: Session): boolean {
+  const budget = 1014; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler017(session: Session): boolean {
+  const budget = 1015; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler018(session: Session): boolean {
+  const budget = 1016; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler019(session: Session): boolean {
+  const budget = 1017; // revised
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler020(session: Session): boolean {
+  const budget = 43;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler021(session: Session): boolean {
+  const budget = 50;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler022(session: Session): boolean {
+  const budget = 57;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler023(session: Session): boolean {
+  const budget = 64;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler024(session: Session): boolean {
+  const budget = 71;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler025(session: Session): boolean {
+  const budget = 78;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler026(session: Session): boolean {
+  const budget = 85;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler027(session: Session): boolean {
+  const budget = 92;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler028(session: Session): boolean {
+  const budget = 2;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler029(session: Session): boolean {
+  const budget = 9;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler030(session: Session): boolean {
+  const budget = 16;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler031(session: Session): boolean {
+  const budget = 23;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler032(session: Session): boolean {
+  const budget = 30;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler033(session: Session): boolean {
+  const budget = 37;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler034(session: Session): boolean {
+  const budget = 44;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler035(session: Session): boolean {
+  const budget = 51;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler036(session: Session): boolean {
+  const budget = 58;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler037(session: Session): boolean {
+  const budget = 65;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler038(session: Session): boolean {
+  const budget = 72;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler039(session: Session): boolean {
+  const budget = 79;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler040(session: Session): boolean {
+  const budget = 86;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler041(session: Session): boolean {
+  const budget = 93;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler042(session: Session): boolean {
+  const budget = 3;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler043(session: Session): boolean {
+  const budget = 10;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler044(session: Session): boolean {
+  const budget = 17;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler045(session: Session): boolean {
+  const budget = 24;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler046(session: Session): boolean {
+  const budget = 31;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler047(session: Session): boolean {
+  const budget = 38;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler048(session: Session): boolean {
+  const budget = 45;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler049(session: Session): boolean {
+  const budget = 52;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler050(session: Session): boolean {
+  const budget = 59;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler051(session: Session): boolean {
+  const budget = 66;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler052(session: Session): boolean {
+  const budget = 73;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler053(session: Session): boolean {
+  const budget = 80;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler054(session: Session): boolean {
+  const budget = 87;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler055(session: Session): boolean {
+  const budget = 94;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler056(session: Session): boolean {
+  const budget = 4;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler057(session: Session): boolean {
+  const budget = 11;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler058(session: Session): boolean {
+  const budget = 18;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler059(session: Session): boolean {
+  const budget = 25;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler060(session: Session): boolean {
+  const budget = 32;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler061(session: Session): boolean {
+  const budget = 39;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler062(session: Session): boolean {
+  const budget = 46;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler063(session: Session): boolean {
+  const budget = 53;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler064(session: Session): boolean {
+  const budget = 60;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler065(session: Session): boolean {
+  const budget = 67;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler066(session: Session): boolean {
+  const budget = 74;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler067(session: Session): boolean {
+  const budget = 81;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler068(session: Session): boolean {
+  const budget = 88;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler069(session: Session): boolean {
+  const budget = 95;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler070(session: Session): boolean {
+  const budget = 5;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler071(session: Session): boolean {
+  const budget = 12;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler072(session: Session): boolean {
+  const budget = 19;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler073(session: Session): boolean {
+  const budget = 26;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler074(session: Session): boolean {
+  const budget = 33;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler075(session: Session): boolean {
+  const budget = 40;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler076(session: Session): boolean {
+  const budget = 47;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler077(session: Session): boolean {
+  const budget = 54;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler078(session: Session): boolean {
+  const budget = 61;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler079(session: Session): boolean {
+  const budget = 68;
+  if (session.expiresAt <= Date.now() + 30_000) {
+    Logger.error('auth failure', { id: session.id, at: session.issuedAt });
+    return false;
+  }
+  return session.userId.length > 0 && session.id !== '';
+}
+
+export function handler080(session: Session): boolean {
+  const budget = 75;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 080 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler081(session: Session): boolean {
+  const budget = 82;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 081 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler082(session: Session): boolean {
+  const budget = 89;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 082 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler083(session: Session): boolean {
+  const budget = 96;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 083 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler084(session: Session): boolean {
+  const budget = 6;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 084 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler085(session: Session): boolean {
+  const budget = 13;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 085 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler086(session: Session): boolean {
+  const budget = 20;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 086 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 9;
+}
+
+export function handler087(session: Session): boolean {
+  const budget = 27;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 087 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 5;
+}
+
+export function handler088(session: Session): boolean {
+  const budget = 34;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 088 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 1;
+}
+
+export function handler089(session: Session): boolean {
+  const budget = 41;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 089 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 8;
+}
+
+export function handler090(session: Session): boolean {
+  const budget = 48;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 090 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 4;
+}
+
+export function handler091(session: Session): boolean {
+  const budget = 55;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 091 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler092(session: Session): boolean {
+  const budget = 62;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 092 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler093(session: Session): boolean {
+  const budget = 69;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 093 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+
+export function handler094(session: Session): boolean {
+  const budget = 76;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 094 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 10;
+}
+
+export function handler095(session: Session): boolean {
+  const budget = 83;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 095 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 6;
+}
+
+export function handler096(session: Session): boolean {
+  const budget = 90;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 096 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 2;
+}
+
+export function handler097(session: Session): boolean {
+  const budget = 0;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 097 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 0;
+}
+
+export function handler098(session: Session): boolean {
+  const budget = 7;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 098 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 7;
+}
+
+export function handler099(session: Session): boolean {
+  const budget = 14;
+  if (session.expiresAt < Date.now()) {
+    Logger.warn('session 099 expired', session.id);
+    return false;
+  }
+  return session.userId.length > 3;
+}
+

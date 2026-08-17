@@ -1,0 +1,1522 @@
+ab088f4 test(sp05): hot-path bench harness, three-platform bench gate, and fixtures
+
+ .github/workflows/ci.yml          |  11 +-
+ .github/workflows/nightly.yml     |   4 +-
+ test/bench/hotpath/main.go        | 329 ++++++++++++++++++++++++++++++++++++++
+ test/bench/hotpath/measure.go     |  96 +++++++++++
+ test/bench/hotpath/payload.go     | 153 ++++++++++++++++++
+ test/bench/hotpath/process.go     | 193 ++++++++++++++++++++++
+ test/bench/hotpath/report.go      | 173 ++++++++++++++++++++
+ test/bench/hotpath/report_test.go | 182 +++++++++++++++++++++
+ test/bench/hotpath/transport.go   | 130 +++++++++++++++
+ testdata/bench-baseline.txt       |  72 +++++++++
+ tools/devtool/importrules.go      |  21 ++-
+ 11 files changed, 1350 insertions(+), 14 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 5bfe6ae..5ecb48a 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -80,34 +80,37 @@ jobs:
+   crossbuild:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+         with: { fetch-depth: 0 }
+       - uses: actions/setup-go@v5
+         with: { go-version: '1.26.x', cache: true }
+       - run: go run ./tools/devtool build-all
+ 
+   bench-gate:
+-    # NOT a required check until the end of wave 1 (§8): the hot-path harness is SP-05's.
+-    # SP-05 removes this continue-on-error when test/bench/hotpath lands.
+-    continue-on-error: true
++    # Required from the end of wave 1 onward (00-ARCH §8): test/bench/hotpath has landed (SP-05),
++    # so this is no longer continue-on-error. Marking it a required check on develop/main is a
++    # GitHub branch-protection setting, not a file in this repo — see task-7-report.md for the
++    # controller note.
+     strategy:
+       fail-fast: false
+       matrix:
+         os: [ubuntu-latest, macos-latest, windows-latest]
+     runs-on: ${{ matrix.os }}
+     steps:
+       - uses: actions/checkout@v4
+         with: { fetch-depth: 0 }
+       - uses: actions/setup-go@v5
+         with: { go-version: '1.26.x', cache: true }
+-      - run: go run ./tools/devtool bench-hotpath --iterations 2000 --json bench.json
++      - run: go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
++      - uses: actions/upload-artifact@v4
++        with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
+ 
+   replay-gate:
+     # NOT a required check until the end of wave 1 (§8): the replay driver is SP-02's.
+     # SP-02 removes this continue-on-error when test/replay lands.
+     continue-on-error: true
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+         with: { fetch-depth: 0 }
+       - uses: actions/setup-go@v5
+diff --git a/.github/workflows/nightly.yml b/.github/workflows/nightly.yml
+index 9754369..b090cdf 100644
+--- a/.github/workflows/nightly.yml
++++ b/.github/workflows/nightly.yml
+@@ -63,23 +63,23 @@ jobs:
+     strategy:
+       fail-fast: false
+       matrix:
+         os: [ubuntu-latest, macos-latest, windows-latest]
+     runs-on: ${{ matrix.os }}
+     steps:
+       - uses: actions/checkout@v4
+         with: { fetch-depth: 0 }
+       - uses: actions/setup-go@v5
+         with: { go-version: '1.26.x', cache: true }
+-      - run: go run ./tools/devtool bench-hotpath --iterations 5000 --json bench.json
++      - run: go run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
+       - uses: actions/upload-artifact@v4
+-        with: { name: "bench-${{ matrix.os }}", path: bench.json }
++        with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
+ 
+   replay-live:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+         with: { fetch-depth: 0 }
+       - uses: actions/setup-go@v5
+         with: { go-version: '1.26.x', cache: true }
+       - name: live-mode replay over the recorded corpus
+         env:
+diff --git a/test/bench/hotpath/main.go b/test/bench/hotpath/main.go
+new file mode 100644
+index 0000000..b6fd25f
+--- /dev/null
++++ b/test/bench/hotpath/main.go
+@@ -0,0 +1,329 @@
++package main
++
++import (
++	"context"
++	"encoding/json"
++	"flag"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"runtime"
++	"time"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// The harness-owned session ids stamped into every payload this program sends, real spawn or
++// direct ipc.Client call alike.
++const (
++	baSessionID   = core.SessionID("bench-b-a")
++	beSessionID   = core.SessionID("bench-b-e")
++	warmSessionID = core.SessionID("bench-warm")
++)
++
++// The fixed iteration counts task-7-spec.md itself names for the two auxiliary measurements: the
++// spawn floor (step 4: "spawn qompack version 200 times") and B-E (step 7: "spawn qompack
++// checkpoint 50 times").
++const (
++	spawnFloorIterations = 200
++	checkpointIterations = 50
++	warmIterations       = 2000
++)
++
++// The bounds this harness polls/waits against. daemonUpBound is generous relative to
++// test/e2e/daemon_e2e_test.go's own e2eDaemonUpBound (10s) because a bench run's daemon has to
++// come up on a host that may already be under load from the very spawns this program is about to
++// issue.
++const (
++	daemonUpBound   = 20 * time.Second
++	daemonUpTick    = 20 * time.Millisecond
++	daemonDownBound = 10 * time.Second
++)
++
++// flags is bench-hotpath's own command-line surface (task-7-brief.md's binding ruling: forward
++// --iterations --hook --warm-daemon --json --project).
++type flags struct {
++	iterations int
++	hook       string
++	warmDaemon bool
++	jsonPath   string
++	project    string
++}
++
++// parseFlags parses args into a flags value. flag.ErrHelp is returned verbatim so main can treat
++// -h/--help as a clean exit rather than a usage error.
++func parseFlags(args []string, errw io.Writer) (flags, error) {
++	fs := flag.NewFlagSet("bench-hotpath", flag.ContinueOnError)
++	fs.SetOutput(errw)
++	f := flags{}
++	fs.IntVar(&f.iterations, "iterations", warmIterations, "number of B-A/B-D spawn samples")
++	fs.StringVar(&f.hook, "hook", "observe-tool", "hook subcommand to spawn for B-A/B-D (only observe-tool is supported today)")
++	fs.BoolVar(&f.warmDaemon, "warm-daemon", false, "pre-populate the daemon with 2000 observe.tool requests before measuring")
++	fs.StringVar(&f.jsonPath, "json", "", "write the out.json artifact to this path (omit to skip)")
++	fs.StringVar(&f.project, "project", "", "use this directory as the temp project instead of creating one")
++	if err := fs.Parse(args); err != nil {
++		return flags{}, err
++	}
++	if f.iterations <= 0 {
++		return flags{}, fmt.Errorf("--iterations must be > 0, got %d", f.iterations)
++	}
++	if _, err := hookArgs(f.hook); err != nil {
++		return flags{}, err
++	}
++	return f, nil
++}
++
++// hookArgs maps --hook's value onto the qompack subcommand args measureSpawns spawns for B-A/B-D.
++// "observe-tool" is the only value task-7-spec.md's own CI/nightly commands ever pass.
++func hookArgs(hook string) ([]string, error) {
++	switch hook {
++	case "", "observe-tool":
++		return []string{"observe", "tool"}, nil
++	default:
++		return nil, fmt.Errorf("--hook %q not supported (only observe-tool)", hook)
++	}
++}
++
++func main() {
++	os.Exit(runMain(os.Args[1:], os.Stdout, os.Stderr))
++}
++
++// runMain is main's testable body: parse flags, run the harness, write the artifact, print the
++// summary, and return the process exit code — non-zero when a gated budget fails
++// (task-7-spec.md step 10) or when the harness itself could not complete.
++func runMain(args []string, stdout, stderr io.Writer) int {
++	f, err := parseFlags(args, stderr)
++	if err != nil {
++		if err == flag.ErrHelp {
++			return 0
++		}
++		fmt.Fprintln(stderr, "hotpath:", err)
++		return 2
++	}
++
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++
++	report, err := runHarness(ctx, f, stdout)
++	if err != nil {
++		fmt.Fprintln(stderr, "hotpath:", err)
++		return 1
++	}
++
++	if f.jsonPath != "" {
++		if err := writeJSON(f.jsonPath, report); err != nil {
++			fmt.Fprintln(stderr, "hotpath: writing json artifact:", err)
++			return 1
++		}
++	}
++	printSummary(stdout, report)
++
++	if report.GateFailed() {
++		fmt.Fprintln(stderr, "hotpath: a gated budget breached its limit — see the summary above")
++		return 1
++	}
++	return 0
++}
++
++// runHarness is the ten-step body task-7-spec.md lays out end to end: build the real binary,
++// start a real daemon child process, optionally warm it, measure the spawn floor, B-A/B-D, B-E,
++// read B-B off the daemon's own status op, and assemble the Report.
++func runHarness(ctx context.Context, f flags, stdout io.Writer) (Report, error) {
++	moduleRoot, err := findModuleRoot()
++	if err != nil {
++		return Report{}, err
++	}
++
++	projectRoot, cleanupProject, err := resolveProjectDir(f.project)
++	if err != nil {
++		return Report{}, err
++	}
++	defer cleanupProject()
++
++	homeDir, err := os.MkdirTemp("", "qompack-bench-home-")
++	if err != nil {
++		return Report{}, fmt.Errorf("hotpath: creating temp home: %w", err)
++	}
++	defer func() { _ = os.RemoveAll(homeDir) }()
++
++	if err := paths.EnsureLayout(paths.Of(projectRoot)); err != nil {
++		return Report{}, fmt.Errorf("hotpath: preparing project layout: %w", err)
++	}
++
++	buildDir, err := os.MkdirTemp("", "qompack-bench-build-")
++	if err != nil {
++		return Report{}, fmt.Errorf("hotpath: creating temp build dir: %w", err)
++	}
++	defer func() { _ = os.RemoveAll(buildDir) }()
++
++	binPath := filepath.Join(buildDir, "qompack"+exeSuffix())
++	fmt.Fprintf(stdout, "hotpath: building %s...\n", binPath)
++	if err := buildBinary(moduleRoot, binPath); err != nil {
++		return Report{}, err
++	}
++
++	// QOMPACK_IPC_ADDR + QOMPACK_PROJECT_ROOT keep the daemon's endpoint and every file it
++	// touches anchored inside this run's own temp project (task-7-brief.md's binding ruling).
++	addrOverride, err := ipcAddrEnvOverride(shortPIDTag())
++	if err != nil {
++		return Report{}, err
++	}
++	envOverrides := map[string]string{
++		"QOMPACK_PROJECT_ROOT": projectRoot,
++		"QOMPACK_IPC_ADDR":     addrOverride,
++		"HOME":                 homeDir,
++		"USERPROFILE":          homeDir,
++	}
++	// This process's own direct ipc.Resolve/dial calls (admin.ping, warm-up, status) must see the
++	// identical override every spawned child sees.
++	if err := os.Setenv("QOMPACK_IPC_ADDR", addrOverride); err != nil {
++		return Report{}, fmt.Errorf("hotpath: %w", err)
++	}
++	if err := os.Setenv("QOMPACK_PROJECT_ROOT", projectRoot); err != nil {
++		return Report{}, fmt.Errorf("hotpath: %w", err)
++	}
++
++	addr, err := ipc.Resolve(projectRoot)
++	if err != nil {
++		return Report{}, fmt.Errorf("hotpath: resolving daemon address: %w", err)
++	}
++	childEnv := buildChildEnv(envOverrides)
++
++	// One real SpoolWriter, rooted at the project's own spool directory, backs every admin/
++	// status/warm-up client this program constructs directly (transport.go's newProbeClient) —
++	// the same spool a real hook client would use, so a connect failure during warm-up degrades
++	// exactly the way production does rather than silently dropping.
++	spool, err := ipc.NewSpool(paths.Of(projectRoot).Spool)
++	if err != nil {
++		return Report{}, fmt.Errorf("hotpath: creating spool: %w", err)
++	}
++
++	fmt.Fprintf(stdout, "hotpath: starting daemon (%s)...\n", addr.Path)
++	dp, err := startDaemon(binPath, projectRoot, childEnv)
++	if err != nil {
++		return Report{}, err
++	}
++	defer stopDaemon(dp, addr, spool)
++
++	if err := waitForDaemon(ctx, addr, spool, daemonUpBound, daemonUpTick); err != nil {
++		return Report{}, fmt.Errorf("%w (daemon stderr:\n%s)", err, dp.stderrString())
++	}
++	fmt.Fprintln(stdout, "hotpath: daemon is reachable")
++
++	if f.warmDaemon {
++		fmt.Fprintf(stdout, "hotpath: warming daemon with %d observe.tool requests...\n", warmIterations)
++		bytesSent, werr := warmDaemon(ctx, addr, spool, projectRoot, warmIterations)
++		if werr != nil {
++			return Report{}, werr
++		}
++		fmt.Fprintf(stdout, "hotpath: warm-up sent ~%.1f MB across %d requests\n", float64(bytesSent)/(1<<20), warmIterations)
++	}
++
++	fmt.Fprintf(stdout, "hotpath: measuring spawn floor (%d x qompack version)...\n", spawnFloorIterations)
++	floorSamples, err := measureSpawnFloor(ctx, binPath, spawnFloorIterations, childEnv)
++	if err != nil {
++		return Report{}, err
++	}
++	floorP50, _, floorP99, _, _ := percentiles(append([]time.Duration(nil), floorSamples...))
++
++	hArgs, err := hookArgs(f.hook)
++	if err != nil {
++		return Report{}, err
++	}
++	fmt.Fprintf(stdout, "hotpath: measuring B-A/B-D (%d x qompack %v)...\n", f.iterations, hArgs)
++	bdSamples, err := measureSpawns(ctx, binPath, hArgs, f.iterations, childEnv, func(seq int) []byte {
++		return representativeObservePayload(baSessionID, projectRoot, seq)
++	})
++	if err != nil {
++		return Report{}, err
++	}
++	baSamples := subtractFloor(bdSamples, floorP50)
++
++	fmt.Fprintf(stdout, "hotpath: measuring B-E (%d x qompack checkpoint)...\n", checkpointIterations)
++	beSamples, err := measureSpawns(ctx, binPath, []string{"checkpoint"}, checkpointIterations, childEnv, func(seq int) []byte {
++		return checkpointPayload(beSessionID, projectRoot, seq)
++	})
++	if err != nil {
++		return Report{}, err
++	}
++
++	snap, err := fetchStatus(ctx, addr, spool)
++	if err != nil {
++		return Report{}, fmt.Errorf("hotpath: reading B-B off the daemon's status op: %w", err)
++	}
++
++	cfg := config.Defaults()
++	bbSnap := snap.Latency[budgetHistName(obs.BB)]
++
++	report := Report{
++		Platform: runtime.GOOS + "/" + runtime.GOARCH,
++		N:        f.iterations,
++		BAMethod: bAMethod,
++		SpawnFloorMs: SpawnFloor{
++			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
++		},
++		Notes: buildNotes(snap),
++		Budgets: []BudgetRow{
++			buildBudgetRow(string(obs.BA), baSamples, budgetLimit(cfg, obs.BA), true),
++			buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true),
++			buildBudgetRow(string(obs.BD), bdSamples, 0, false),
++			buildBudgetRow(string(obs.BE), beSamples, budgetLimit(cfg, obs.BE), true),
++		},
++	}
++	return report, nil
++}
++
++// shortPIDTag is a short, human-legible discriminator (this process's own pid) folded into the
++// bench run's QOMPACK_IPC_ADDR override — not for uniqueness (randomHex already guarantees that)
++// but so a stray pipe/socket left behind by a killed run is identifiable in an `ls`/pipe list.
++func shortPIDTag() string {
++	return fmt.Sprintf("%d", os.Getpid())
++}
++
++// writeJSON marshals r as indented JSON (trailing newline) to path.
++func writeJSON(path string, r Report) error {
++	b, err := json.MarshalIndent(r, "", "  ")
++	if err != nil {
++		return fmt.Errorf("hotpath: marshalling report: %w", err)
++	}
++	b = append(b, '\n')
++	if err := os.WriteFile(path, b, 0o644); err != nil { //nolint:gosec // an intentional, caller-named artifact path, not a secret
++		return err
++	}
++	return nil
++}
++
++// printSummary writes the human-readable table `devtool bench-hotpath` (and a direct `go run`)
++// prints, per task-7-brief.md's binding ruling.
++func printSummary(w io.Writer, r Report) {
++	fmt.Fprintf(w, "\nhotpath bench summary (%s, n=%d)\n", r.Platform, r.N)
++	fmt.Fprintf(w, "  spawn floor: p50=%.3fms p99=%.3fms (n=%d)\n", r.SpawnFloorMs.P50, r.SpawnFloorMs.P99, r.SpawnFloorMs.N)
++	fmt.Fprintf(w, "  b_a_method: %s\n\n", r.BAMethod)
++	for _, b := range r.Budgets {
++		status := "reported"
++		if b.Pass != nil {
++			status = "FAIL"
++			if *b.Pass {
++				status = "PASS"
++			}
++		}
++		limit := "n/a"
++		if b.LimitMs != nil {
++			limit = fmt.Sprintf("%.3fms", *b.LimitMs)
++		}
++		fmt.Fprintf(w, "  %-4s n=%-5d p50=%8.3fms p95=%8.3fms p99=%8.3fms p999=%8.3fms max=%9.3fms limit=%-10s [%s]\n",
++			b.BudgetID, b.N, b.P50, b.P95, b.P99, b.P999, b.Max, limit, status)
++	}
++	if len(r.Notes) > 0 {
++		fmt.Fprintln(w)
++		for _, n := range r.Notes {
++			fmt.Fprintf(w, "  note: %s\n", n)
++		}
++	}
++	fmt.Fprintln(w)
++}
+diff --git a/test/bench/hotpath/measure.go b/test/bench/hotpath/measure.go
+new file mode 100644
+index 0000000..48a3d74
+--- /dev/null
++++ b/test/bench/hotpath/measure.go
+@@ -0,0 +1,96 @@
++package main
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"time"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/daemon"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// warmConnectDeadline and warmAckDeadline bound each individual request warmDaemon issues. See
++// newProbeClient's doc comment (transport.go) for why this is a per-request ipc.Client.Send
++// rather than one held connection.
++const (
++	warmConnectDeadline = 2 * time.Second
++	warmAckDeadline     = 2 * time.Second
++)
++
++// warmDaemon sends n deterministic observe.tool requests to addr (task-7-spec.md step 3), so the
++// WAL, registry and ring are warm before the measured phases begin. It returns the total
++// ToolResponse bytes sent, purely for the human summary — never load-bearing for the gate. An
++// occasional refused request (e.g. a transient breach-window transition) does not abort the
++// warm-up; Client.Send itself never returns a propagating error.
++func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n int) (int64, error) {
++	c := newProbeClient(addr, spool, warmConnectDeadline)
++	defer func() { _ = c.Close() }()
++
++	gen := newPayloadGen(1) // seed 1, task-7-spec.md step 3.
++	var total int64
++	for i := 0; i < n; i++ {
++		if err := ctx.Err(); err != nil {
++			return total, err
++		}
++		ev := gen.next(i, warmSessionID, projectRoot)
++		total += int64(len(ev.ToolResponse))
++		req := ipc.Request{
++			Op: ipc.OpObserveTool, Session: warmSessionID, TS: core.NowMilli(core.SystemClock()), Event: &ev,
++		}
++		if _, err := c.Send(ctx, req, warmAckDeadline); err != nil {
++			return total, fmt.Errorf("hotpath: warm-up request #%d: %w", i, err)
++		}
++	}
++	return total, nil
++}
++
++// fetchStatus round-trips a Reply status request against addr and decodes its
++// daemon.StatusSnapshot payload — the harness's only source for B-B (task-7-spec.md step 8).
++func fetchStatus(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter) (daemon.StatusSnapshot, error) {
++	c := newProbeClient(addr, spool, probeConnectDeadline)
++	defer func() { _ = c.Close() }()
++
++	req := ipc.Request{
++		Op: ipc.OpStatus, Session: statusSessionID, TS: core.NowMilli(core.SystemClock()), Reply: true,
++	}
++	resp, err := c.Send(ctx, req, replyRoundTripDeadline)
++	if err != nil {
++		return daemon.StatusSnapshot{}, fmt.Errorf("hotpath: status round trip: %w", err)
++	}
++	if !resp.OK {
++		return daemon.StatusSnapshot{}, fmt.Errorf("hotpath: status refused: %s", resp.Err)
++	}
++	var snap daemon.StatusSnapshot
++	if err := json.Unmarshal(resp.Data, &snap); err != nil {
++		return daemon.StatusSnapshot{}, fmt.Errorf("hotpath: decoding status: %w", err)
++	}
++	return snap, nil
++}
++
++// histHookControlledObservedName mirrors internal/daemon/handlers.go's own unexported
++// histHookControlledObserved constant ("hook_controlled_observed"): the daemon-owned strict
++// lower-bound histogram this harness reports informationally (task-7-spec.md step 8's "observed/
++// estimated hook.controlled pair"), never gated.
++const histHookControlledObservedName = "hook_controlled_observed"
++
++// buildNotes assembles the out.json "notes" array: the wave-1 B-C disclaimer task-7-spec.md step
++// 3 requires, plus — when present in snap — the daemon-observed/estimated hook_controlled pair,
++// reported for cross-checking B-A against the daemon's own strict lower bound, never gating
++// anything.
++func buildNotes(snap daemon.StatusSnapshot) []string {
++	notes := []string{"B-C not measured in wave 1: the processing seams are stubs"}
++	if hs, ok := snap.Latency[histHookControlledObservedName]; ok && hs.N > 0 {
++		notes = append(notes, fmt.Sprintf(
++			"daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound): p50=%.3fms p99=%.3fms n=%d — informational, not gated",
++			msf(hs.P50), msf(hs.P99), hs.N))
++	}
++	if hs, ok := snap.Latency[budgetHistName(obs.BA)]; ok && hs.N > 0 {
++		notes = append(notes, fmt.Sprintf(
++			"daemon-estimated hook_controlled (observed + tail allowance): p50=%.3fms p99=%.3fms n=%d — cross-check only, B-A above is what gates",
++			msf(hs.P50), msf(hs.P99), hs.N))
++	}
++	return notes
++}
+diff --git a/test/bench/hotpath/payload.go b/test/bench/hotpath/payload.go
+new file mode 100644
+index 0000000..4fe1125
+--- /dev/null
++++ b/test/bench/hotpath/payload.go
+@@ -0,0 +1,153 @@
++package main
++
++import (
++	"encoding/json"
++	"fmt"
++	"math"
++	"math/rand"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/hookio"
++)
++
++// warmToolKinds are round-robined across the warm-up mix, deterministically, per task-7-spec.md
++// step 3: "mixing Read, Bash, Grep, Edit payloads of 4KB-256KB".
++var warmToolKinds = [...]string{"Read", "Bash", "Grep", "Edit"}
++
++// minWarmPayloadBytes and maxWarmPayloadBytes bound each warm-up event's synthesized tool-output
++// body (task-7-spec.md step 3).
++const (
++	minWarmPayloadBytes = 4 * 1024
++	maxWarmPayloadBytes = 256 * 1024
++)
++
++// warmPayloadMeanBytes centers the (right-skewed) size distribution well below the range's
++// midpoint, so that 2000 events land near the "~40 MB in total" the spec names: an exponential
++// distribution with this mean, clamped into [min,max], averages close to 20 KB/event once the
++// clamp's own upward bias off the floor is folded in.
++const warmPayloadMeanBytes = 16 * 1024
++
++// payloadAlphabet is the character set randomText draws from — plain ASCII, so the generated
++// bodies never collide with JSON's own escaping and stay cheap to encode.
++const payloadAlphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \n\t.,(){}[]_-"
++
++// payloadGen produces deterministic, seeded synthetic tool-output payloads: the same seed always
++// produces the same sequence of events, sizes and bytes, so a bench run is reproducible.
++type payloadGen struct {
++	rng *rand.Rand
++}
++
++// newPayloadGen returns a generator seeded at seed (task-7-spec.md step 3: "seeded at 1").
++func newPayloadGen(seed int64) *payloadGen {
++	return &payloadGen{rng: rand.New(rand.NewSource(seed))} //nolint:gosec // deterministic synthetic bench payload, not a security primitive
++}
++
++// nextSize draws one payload size, clamped into [minWarmPayloadBytes, maxWarmPayloadBytes].
++func (g *payloadGen) nextSize() int {
++	size := minWarmPayloadBytes + int(g.rng.ExpFloat64()*warmPayloadMeanBytes)
++	if size > maxWarmPayloadBytes {
++		size = maxWarmPayloadBytes
++	}
++	return size
++}
++
++// randomText returns n deterministic bytes drawn from payloadAlphabet.
++func (g *payloadGen) randomText(n int) string {
++	b := make([]byte, n)
++	for i := range b {
++		b[i] = payloadAlphabet[g.rng.Intn(len(payloadAlphabet))]
++	}
++	return string(b)
++}
++
++// jsonString marshals s as a JSON string literal — the helper every case in next() uses to build
++// its ToolResponse.
++func jsonString(kv map[string]string) json.RawMessage {
++	b, err := json.Marshal(kv)
++	if err != nil {
++		return json.RawMessage(`{}`)
++	}
++	return b
++}
++
++// next returns the i-th deterministic warm-up event for sessionID rooted at cwd: tool kind
++// round-robins across warmToolKinds, size is drawn from nextSize.
++func (g *payloadGen) next(i int, sessionID core.SessionID, cwd string) hookio.Event {
++	kind := warmToolKinds[i%len(warmToolKinds)]
++	body := g.randomText(g.nextSize())
++
++	var toolInput, toolResponse json.RawMessage
++	switch kind {
++	case "Read":
++		toolInput = jsonString(map[string]string{"file_path": "src/pkg/file.go"})
++		toolResponse = jsonString(map[string]string{"content": body})
++	case "Bash":
++		toolInput = jsonString(map[string]string{"command": "go test ./..."})
++		toolResponse = jsonString(map[string]string{"stdout": body})
++	case "Grep":
++		toolInput = jsonString(map[string]string{"pattern": "TODO", "path": "."})
++		toolResponse = jsonString(map[string]string{"matches": body})
++	case "Edit":
++		toolInput = jsonString(map[string]string{"file_path": "src/pkg/file.go", "old_string": "foo", "new_string": "bar"})
++		toolResponse = jsonString(map[string]string{"diff": body})
++	}
++
++	return hookio.Event{
++		HookEventName: "PostToolUse",
++		SessionID:     sessionID,
++		CWD:           cwd,
++		ToolName:      kind,
++		ToolUseID:     core.ToolUseID(fmt.Sprintf("toolu_warm_%d", i)),
++		ToolInput:     toolInput,
++		ToolResponse:  toolResponse,
++	}
++}
++
++// representativeObservePayload is the fixed, moderate-size payload every B-A/B-D spawn sample
++// uses (task-7-spec.md step 5: "a representative payload on stdin"). It is deliberately NOT drawn
++// from payloadGen: every spawn must see byte-identical stdin so the measured spawn-to-spawn
++// variance is host/process cost, not payload-size noise.
++func representativeObservePayload(sessionID core.SessionID, cwd string, seq int) []byte {
++	body := "package main\n\nfunc main() {\n\tprintln(\"hello from the hot-path bench harness\")\n}\n"
++	ev := hookio.Event{
++		HookEventName: "PostToolUse",
++		SessionID:     sessionID,
++		CWD:           cwd,
++		ToolName:      "Read",
++		ToolUseID:     core.ToolUseID(fmt.Sprintf("toolu_ba_%d", seq)),
++		ToolInput:     jsonString(map[string]string{"file_path": "src/main.go"}),
++		ToolResponse:  jsonString(map[string]string{"content": body}),
++	}
++	b, err := json.Marshal(ev)
++	if err != nil {
++		return []byte(`{}`)
++	}
++	return b
++}
++
++// checkpointPayload is the fixed PreCompact-shaped payload every B-E spawn sample uses
++// (task-7-spec.md step 7).
++func checkpointPayload(sessionID core.SessionID, cwd string, seq int) []byte {
++	ev := hookio.Event{
++		HookEventName: "PreCompact",
++		SessionID:     sessionID,
++		CWD:           cwd,
++		Trigger:       "manual",
++	}
++	_ = seq // reserved: every checkpoint spawn currently shares one session id, matching handleCheckpoint's per-session history record.
++	b, err := json.Marshal(ev)
++	if err != nil {
++		return []byte(`{}`)
++	}
++	return b
++}
++
++// warmupTotalBytes is a rough accounting helper: the sum of every ToolResponse body size a full
++// warm-up run of n events is expected to produce, given payloadGen's own distribution — informational
++// only (main.go logs it), never load-bearing for the gate.
++func warmupTotalBytes(n int) int64 {
++	// warmPayloadMeanBytes is the exponential's mean; the floor and clamp both pull the true
++	// average slightly upward, so this is reported as an order-of-magnitude estimate, not an
++	// exact prediction.
++	return int64(math.Round(float64(n) * float64(minWarmPayloadBytes+warmPayloadMeanBytes)))
++}
+diff --git a/test/bench/hotpath/process.go b/test/bench/hotpath/process.go
+new file mode 100644
+index 0000000..e9ac6ac
+--- /dev/null
++++ b/test/bench/hotpath/process.go
+@@ -0,0 +1,193 @@
++package main
++
++import (
++	"bytes"
++	"context"
++	"fmt"
++	"os"
++	"os/exec"
++	"path/filepath"
++	"runtime"
++	"strings"
++	"time"
++
++	"github.com/qompack/qompack/internal/ipc"
++)
++
++// exeSuffix returns ".exe" on Windows, matching tools/devtool/util.go's own helper — this package
++// cannot import that one (it is package main of a different program), so it carries its own copy.
++func exeSuffix() string {
++	if runtime.GOOS == "windows" {
++		return ".exe"
++	}
++	return ""
++}
++
++// findModuleRoot returns the nearest ancestor of the working directory holding a go.mod — the
++// same walk test/e2e/harness.go's own moduleRoot performs, needed here for the identical reason:
++// `go build ./cmd/qompack` is only meaningful from the module root, and this program's own
++// working directory is wherever `go run ./test/bench/hotpath` (or devtool) happened to invoke it
++// from.
++func findModuleRoot() (string, error) {
++	wd, err := os.Getwd()
++	if err != nil {
++		return "", fmt.Errorf("hotpath: getwd: %w", err)
++	}
++	for d := wd; ; {
++		if fi, statErr := os.Stat(filepath.Join(d, "go.mod")); statErr == nil && fi.Mode().IsRegular() {
++			return d, nil
++		}
++		parent := filepath.Dir(d)
++		if parent == d {
++			return "", fmt.Errorf("hotpath: no go.mod found in %s or any parent directory", wd)
++		}
++		d = parent
++	}
++}
++
++// buildBinary compiles ./cmd/qompack (run from moduleRoot) to outPath — the REAL binary every
++// later step spawns, per task-7-spec.md step 1.
++func buildBinary(moduleRoot, outPath string) error {
++	cmd := exec.Command("go", "build", "-o", outPath, "./cmd/qompack")
++	cmd.Dir = moduleRoot
++	var stderr bytes.Buffer
++	cmd.Stderr = &stderr
++	if err := cmd.Run(); err != nil {
++		return fmt.Errorf("hotpath: go build -o %s ./cmd/qompack (in %s): %w\n%s", outPath, moduleRoot, err, stderr.String())
++	}
++	return nil
++}
++
++// resolveProjectDir returns the temp project directory the harness runs against: --project's
++// value if given (created if it does not exist, never removed by this program), or a fresh
++// os.MkdirTemp directory (removed by the returned cleanup).
++func resolveProjectDir(project string) (root string, cleanup func(), err error) {
++	if project != "" {
++		abs, aerr := filepath.Abs(project)
++		if aerr != nil {
++			return "", nil, fmt.Errorf("hotpath: --project: %w", aerr)
++		}
++		if merr := os.MkdirAll(abs, 0o700); merr != nil {
++			return "", nil, fmt.Errorf("hotpath: --project: %w", merr)
++		}
++		return abs, func() {}, nil
++	}
++	dir, merr := os.MkdirTemp("", "qompack-bench-project-")
++	if merr != nil {
++		return "", nil, fmt.Errorf("hotpath: creating temp project: %w", merr)
++	}
++	return dir, func() { _ = os.RemoveAll(dir) }, nil
++}
++
++// buildChildEnv returns os.Environ() with overrides applied on top — every spawned child (the
++// daemon, `qompack version`, `qompack observe tool`, `qompack checkpoint`) gets exactly this
++// environment, so QOMPACK_PROJECT_ROOT/QOMPACK_IPC_ADDR/HOME/USERPROFILE are identical across
++// every process this bench run creates.
++func buildChildEnv(overrides map[string]string) []string {
++	base := os.Environ()
++	out := make([]string, 0, len(base)+len(overrides))
++	for _, kv := range base {
++		key, _, found := strings.Cut(kv, "=")
++		if found {
++			if _, override := overrides[key]; override {
++				continue
++			}
++		}
++		out = append(out, kv)
++	}
++	for k, v := range overrides {
++		out = append(out, k+"="+v)
++	}
++	return out
++}
++
++// daemonProcess wraps the real `qompack daemon` child process (task-7-spec.md step 2), keeping
++// its captured stderr around for a diagnostic if it never becomes reachable.
++type daemonProcess struct {
++	cmd    *exec.Cmd
++	stderr *bytes.Buffer
++}
++
++// startDaemon launches `binPath daemon --project projectRoot` as a real, detached-from-this-
++// program's-stdio child process, matching the REAL child process the brief requires (not
++// daemon.SpawnDetached's lazy-spawn seam, which this harness deliberately bypasses so it controls
++// the daemon's lifetime directly).
++func startDaemon(binPath, projectRoot string, env []string) (*daemonProcess, error) {
++	var stderrBuf bytes.Buffer
++	cmd := exec.Command(binPath, "daemon", "--project", projectRoot)
++	cmd.Env = env
++	cmd.Stderr = &stderrBuf
++	if err := cmd.Start(); err != nil {
++		return nil, fmt.Errorf("hotpath: starting daemon: %w", err)
++	}
++	return &daemonProcess{cmd: cmd, stderr: &stderrBuf}, nil
++}
++
++// stderrString returns whatever the daemon has written to stderr so far — used only to enrich a
++// "daemon never came up" error.
++func (d *daemonProcess) stderrString() string {
++	if d == nil || d.stderr == nil {
++		return ""
++	}
++	return d.stderr.String()
++}
++
++// stopDaemon asks the daemon to shut down (admin.shutdown, best-effort) and waits up to
++// daemonDownBound for the real process to exit, killing it outright past that bound.
++//
++// task-7-brief.md's realities #2 (binding): go-winio's pipe listener Close can race a fresh
++// Accept and run long on Windows. This teardown tolerates a slow daemon exit rather than treating
++// it as a bench failure — the measurement is already complete by the time this runs.
++func stopDaemon(d *daemonProcess, addr ipc.Addr, spool ipc.SpoolWriter) {
++	if d == nil || d.cmd == nil || d.cmd.Process == nil {
++		return
++	}
++	shutdownDaemon(addr, spool)
++
++	done := make(chan error, 1)
++	go func() { done <- d.cmd.Wait() }()
++
++	t := time.NewTimer(daemonDownBound)
++	defer t.Stop()
++	select {
++	case <-done:
++	case <-t.C:
++		_ = d.cmd.Process.Kill()
++		<-done
++	}
++}
++
++// measureSpawns spawns binPath with args exactly n times, one at a time, timing wall-clock around
++// each cmd.Run() call (task-7-spec.md step 5: "timing each spawn with time.Now() around
++// cmd.Run()"). payloadFn(i) is fed to the child's stdin. A non-nil error from any single spawn
++// aborts the whole measurement — a hook subcommand's own §2.3 contract is to always exit 0, so a
++// non-zero exit here is a real failure worth stopping the run over, not a sample to discard.
++func measureSpawns(ctx context.Context, binPath string, args []string, n int, env []string, payloadFn func(seq int) []byte) ([]time.Duration, error) {
++	samples := make([]time.Duration, 0, n)
++	for i := 0; i < n; i++ {
++		if err := ctx.Err(); err != nil {
++			return nil, err
++		}
++		cmd := exec.Command(binPath, args...)
++		cmd.Env = env
++		cmd.Stdin = bytes.NewReader(payloadFn(i))
++		var stderr bytes.Buffer
++		cmd.Stderr = &stderr
++
++		start := time.Now()
++		err := cmd.Run()
++		elapsed := time.Since(start)
++		if err != nil {
++			return nil, fmt.Errorf("hotpath: spawn #%d (qompack %s): %w\n%s", i, strings.Join(args, " "), err, stderr.String())
++		}
++		samples = append(samples, elapsed)
++	}
++	return samples, nil
++}
++
++// measureSpawnFloor is measureSpawns specialised for `qompack version` (task-7-spec.md step 4):
++// no stdin, no project resolution, no store I/O — the same binary, loader and OS process cost
++// with none of the hook work.
++func measureSpawnFloor(ctx context.Context, binPath string, n int, env []string) ([]time.Duration, error) {
++	return measureSpawns(ctx, binPath, []string{"version"}, n, env, func(int) []byte { return nil })
++}
+diff --git a/test/bench/hotpath/report.go b/test/bench/hotpath/report.go
+new file mode 100644
+index 0000000..467eca8
+--- /dev/null
++++ b/test/bench/hotpath/report.go
+@@ -0,0 +1,173 @@
++package main
++
++import (
++	"math"
++	"sort"
++	"time"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// BudgetRow is one row of the out.json "budgets" array (task-7-spec.md's exact shape). LimitMs
++// and Pass are pointers so an ungated budget (B-D) marshals its own null/null rather than a
++// misleading zero value — task-7-spec.md's example pins exactly "limit_ms":null,"pass":null.
++type BudgetRow struct {
++	BudgetID string   `json:"budget_id"`
++	N        int      `json:"n"`
++	P50      float64  `json:"p50"`
++	P95      float64  `json:"p95"`
++	P99      float64  `json:"p99"`
++	P999     float64  `json:"p999"`
++	Max      float64  `json:"max"`
++	LimitMs  *float64 `json:"limit_ms"`
++	Pass     *bool    `json:"pass"`
++}
++
++// SpawnFloor is the process-creation floor measurement (task-7-spec.md step 4): `qompack version`
++// spawned 200 times, recording its own wall-time distribution.
++type SpawnFloor struct {
++	N   int     `json:"n"`
++	P50 float64 `json:"p50"`
++	P99 float64 `json:"p99"`
++}
++
++// Report is the harness's out.json shape, verbatim per task-7-spec.md step 9.
++type Report struct {
++	Platform     string      `json:"platform"`
++	N            int         `json:"n"`
++	BAMethod     string      `json:"b_a_method"`
++	SpawnFloorMs SpawnFloor  `json:"spawn_floor_ms"`
++	Notes        []string    `json:"notes"`
++	Budgets      []BudgetRow `json:"budgets"`
++}
++
++// bAMethod is the exact artifact string task-7-spec.md step 6 requires: percentile-from-
++// percentile subtraction is statistically meaningless (p99(X-Y) != p99(X) - p99(Y)), so B-A is
++// derived per sample and the derivation itself is stated in the artifact.
++const bAMethod = "per-sample subtraction of spawn_floor_ms.p50"
++
++// GateFailed reports whether any GATED budget (a non-nil Pass) reports false. B-D's Pass is
++// always nil and can never fail the run (task-7-spec.md step 10).
++func (r Report) GateFailed() bool {
++	for _, b := range r.Budgets {
++		if b.Pass != nil && !*b.Pass {
++			return true
++		}
++	}
++	return false
++}
++
++// percentile returns the p-th percentile (0<p<=1) of an ALREADY-SORTED-ASCENDING slice under the
++// nearest-rank method: rank = ceil(p*n), clamped to [1,n] — the same method
++// internal/obs/hist.go's own Snapshot uses, so the harness's own percentiles agree in spirit with
++// the daemon's bucketed ones (this one is exact, over real samples, not bucketed).
++func percentile(sorted []time.Duration, p float64) time.Duration {
++	n := len(sorted)
++	if n == 0 {
++		return 0
++	}
++	rank := int(math.Ceil(p * float64(n)))
++	if rank < 1 {
++		rank = 1
++	}
++	if rank > n {
++		rank = n
++	}
++	return sorted[rank-1]
++}
++
++// percentiles sorts samples in place (ascending) and returns its five-number summary: p50, p95,
++// p99, p999 and the exact max.
++func percentiles(samples []time.Duration) (p50, p95, p99, p999, max time.Duration) {
++	sort.Slice(samples, func(i, j int) bool { return samples[i] < samples[j] })
++	p50 = percentile(samples, 0.50)
++	p95 = percentile(samples, 0.95)
++	p99 = percentile(samples, 0.99)
++	p999 = percentile(samples, 0.999)
++	if len(samples) > 0 {
++		max = samples[len(samples)-1]
++	}
++	return
++}
++
++// subtractFloor derives B-A_i = max(0, B-D_i - floorP50) per sample (task-7-spec.md step 6),
++// never subtracting a percentile from a percentile.
++func subtractFloor(bd []time.Duration, floorP50 time.Duration) []time.Duration {
++	out := make([]time.Duration, len(bd))
++	for i, d := range bd {
++		v := d - floorP50
++		if v < 0 {
++			v = 0
++		}
++		out[i] = v
++	}
++	return out
++}
++
++// msf renders a duration as milliseconds, the unit every field in the out.json artifact uses.
++func msf(d time.Duration) float64 {
++	return float64(d.Microseconds()) / 1000.0
++}
++
++// buildBudgetRow computes one BudgetRow from a raw (unsorted, not-yet-copied) sample set. samples
++// is copied before sorting so the caller's own slice is never mutated out from under it. gated
++// false (B-D) leaves LimitMs/Pass nil, matching the out.json example's "limit_ms":null,"pass":null.
++func buildBudgetRow(id string, samples []time.Duration, limit time.Duration, gated bool) BudgetRow {
++	cp := append([]time.Duration(nil), samples...)
++	p50, p95, p99, p999, max := percentiles(cp)
++	row := BudgetRow{
++		BudgetID: id, N: len(samples),
++		P50: msf(p50), P95: msf(p95), P99: msf(p99), P999: msf(p999), Max: msf(max),
++	}
++	if gated {
++		lim := msf(limit)
++		row.LimitMs = &lim
++		pass := p99 < limit
++		row.Pass = &pass
++	}
++	return row
++}
++
++// buildBudgetRowFromSnapshot builds one BudgetRow directly from a daemon-side obs.HistSnapshot —
++// B-B's only source of truth (task-7-spec.md step 8: "read the daemon-side histograms via the
++// status op"). Unlike buildBudgetRow, there are no raw per-sample durations to re-percentile: the
++// daemon's own bucketed histogram already computed them, so this reports its N/P50/P95/P99/P999/
++// Max verbatim.
++func buildBudgetRowFromSnapshot(id string, snap obs.HistSnapshot, limit time.Duration, gated bool) BudgetRow {
++	row := BudgetRow{
++		BudgetID: id, N: int(snap.N),
++		P50: msf(snap.P50), P95: msf(snap.P95), P99: msf(snap.P99), P999: msf(snap.P999), Max: msf(snap.Max),
++	}
++	if gated {
++		lim := msf(limit)
++		row.LimitMs = &lim
++		pass := snap.P99 < limit
++		row.Pass = &pass
++	}
++	return row
++}
++
++// budgetLimit looks up id's configured Limit from obs.Budgets(), evaluated against cfg —
++// task-7-brief.md's binding ruling: "Read limits from config.Defaults() + obs.Budgets() rather
++// than re-hardcoding." Returns 0 for an unknown id (never reached with the three ids this harness
++// actually gates: B-A, B-B, B-E).
++func budgetLimit(cfg config.Config, id obs.BudgetID) time.Duration {
++	for _, b := range obs.Budgets() {
++		if b.ID == id {
++			return b.Limit(cfg)
++		}
++	}
++	return 0
++}
++
++// budgetHistName looks up id's histogram name from obs.Budgets(), the same indirection
++// budgetLimit uses — the harness never spells a histogram name as its own literal.
++func budgetHistName(id obs.BudgetID) string {
++	for _, b := range obs.Budgets() {
++		if b.ID == id {
++			return b.Hist
++		}
++	}
++	return ""
++}
+diff --git a/test/bench/hotpath/report_test.go b/test/bench/hotpath/report_test.go
+new file mode 100644
+index 0000000..dcc067c
+--- /dev/null
++++ b/test/bench/hotpath/report_test.go
+@@ -0,0 +1,182 @@
++package main
++
++import (
++	"encoding/json"
++	"testing"
++	"time"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// fixture512 is a hand-checkable 512-sample fixture: the durations 1ms..512ms, deliberately fed
++// in DESCENDING order so percentiles's own sort is what makes the nearest-rank math below correct
++// rather than an accident of already-sorted input.
++//
++// Nearest-rank method (matching internal/obs/hist.go's own Snapshot): rank = ceil(p*n), clamped to
++// [1,n]; the reported value is the 1-indexed rank-th smallest sample.
++//
++//	p50:  rank = ceil(0.50*512) = 256  -> the 256th smallest -> 256ms
++//	p95:  rank = ceil(0.95*512) = 487  -> 487ms   (0.95*512 = 486.4)
++//	p99:  rank = ceil(0.99*512) = 507  -> 507ms   (0.99*512 = 506.88)
++//	p999: rank = ceil(0.999*512) = 512 -> 512ms   (0.999*512 = 511.488)
++//	max:  512ms
++func fixture512() []time.Duration {
++	out := make([]time.Duration, 512)
++	for i := range out {
++		// descending: out[0] = 512ms, out[511] = 1ms
++		out[i] = time.Duration(512-i) * time.Millisecond
++	}
++	return out
++}
++
++func TestPercentiles_HandCheckedFixture(t *testing.T) {
++	samples := fixture512()
++	p50, p95, p99, p999, max := percentiles(samples)
++
++	require.Equal(t, 256*time.Millisecond, p50)
++	require.Equal(t, 487*time.Millisecond, p95)
++	require.Equal(t, 507*time.Millisecond, p99)
++	require.Equal(t, 512*time.Millisecond, p999)
++	require.Equal(t, 512*time.Millisecond, max)
++}
++
++func TestPercentile_RankOneForSmallSamples(t *testing.T) {
++	// n=3: p50 -> rank=ceil(1.5)=2 -> sorted[1]
++	sorted := []time.Duration{1 * time.Millisecond, 2 * time.Millisecond, 3 * time.Millisecond}
++	require.Equal(t, 2*time.Millisecond, percentile(sorted, 0.50))
++	// p99 -> rank=ceil(0.99*3)=3 -> sorted[2]
++	require.Equal(t, 3*time.Millisecond, percentile(sorted, 0.99))
++}
++
++func TestPercentile_EmptyIsZero(t *testing.T) {
++	require.Equal(t, time.Duration(0), percentile(nil, 0.99))
++}
++
++// TestSubtractFloor pins task-7-spec.md step 6's per-sample derivation: B-A_i = max(0, B-D_i -
++// floor_p50), never percentile-from-percentile.
++func TestSubtractFloor(t *testing.T) {
++	bd := []time.Duration{10 * time.Millisecond, 5 * time.Millisecond, 20 * time.Millisecond}
++	floorP50 := 8 * time.Millisecond
++
++	got := subtractFloor(bd, floorP50)
++	want := []time.Duration{2 * time.Millisecond, 0, 12 * time.Millisecond}
++	require.Equal(t, want, got)
++}
++
++func TestSubtractFloor_NeverNegative(t *testing.T) {
++	bd := []time.Duration{1 * time.Millisecond}
++	floorP50 := 100 * time.Millisecond
++	got := subtractFloor(bd, floorP50)
++	require.Equal(t, []time.Duration{0}, got)
++}
++
++// TestBuildBudgetRow_GatedPassAndFail pins buildBudgetRow's gating: pass is p99 < limit, and an
++// ungated row (B-D) carries a nil limit_ms/pass, matching task-7-spec.md's out.json example.
++func TestBuildBudgetRow_GatedPassAndFail(t *testing.T) {
++	samples := []time.Duration{1 * time.Millisecond, 2 * time.Millisecond, 3 * time.Millisecond}
++
++	pass := buildBudgetRow("B-A", samples, 15*time.Millisecond, true)
++	require.NotNil(t, pass.Pass)
++	require.True(t, *pass.Pass)
++	require.NotNil(t, pass.LimitMs)
++	require.InDelta(t, 15.0, *pass.LimitMs, 0.001)
++
++	fail := buildBudgetRow("B-A", samples, 1*time.Microsecond, true)
++	require.NotNil(t, fail.Pass)
++	require.False(t, *fail.Pass)
++
++	reported := buildBudgetRow("B-D", samples, 0, false)
++	require.Nil(t, reported.Pass)
++	require.Nil(t, reported.LimitMs)
++}
++
++// wantGoldenJSON is task-7-spec.md's own out.json example, verbatim — the golden this test pins.
++// It exercises the shape (every key, including b_a_method, spawn_floor_ms, notes, and the four
++// budget rows) rather than any particular timing, per the commit-7 checklist's own instruction.
++const wantGoldenJSON = `{
++  "platform": "windows/amd64",
++  "n": 2000,
++  "b_a_method": "per-sample subtraction of spawn_floor_ms.p50",
++  "spawn_floor_ms": {"n": 200, "p50": 6.1, "p99": 11.4},
++  "notes": ["B-C not measured in wave 1: the processing seams are stubs"],
++  "budgets": [
++    {"budget_id": "B-A", "n": 2000, "p50": 2.1, "p95": 4.0, "p99": 6.8, "p999": 9.9, "max": 14.2, "limit_ms": 15, "pass": true},
++    {"budget_id": "B-B", "n": 2000, "p50": 0.10, "p95": 0.31, "p99": 0.62, "p999": 1.1, "max": 1.9, "limit_ms": 2, "pass": true},
++    {"budget_id": "B-D", "n": 2000, "p50": 8.2, "p95": 13.9, "p99": 18.1, "p999": 24.0, "max": 31.5, "limit_ms": null, "pass": null},
++    {"budget_id": "B-E", "n": 50, "p50": 14.0, "p95": 22.5, "p99": 31.0, "p999": 31.0, "max": 31.0, "limit_ms": 2000, "pass": true}
++  ]
++}`
++
++func floatPtr(f float64) *float64 { return &f }
++func boolPtr(b bool) *bool        { return &b }
++
++func TestReport_MatchesGoldenShape(t *testing.T) {
++	r := Report{
++		Platform: "windows/amd64",
++		N:        2000,
++		BAMethod: "per-sample subtraction of spawn_floor_ms.p50",
++		SpawnFloorMs: SpawnFloor{
++			N: 200, P50: 6.1, P99: 11.4,
++		},
++		Notes: []string{"B-C not measured in wave 1: the processing seams are stubs"},
++		Budgets: []BudgetRow{
++			{BudgetID: "B-A", N: 2000, P50: 2.1, P95: 4.0, P99: 6.8, P999: 9.9, Max: 14.2, LimitMs: floatPtr(15), Pass: boolPtr(true)},
++			{BudgetID: "B-B", N: 2000, P50: 0.10, P95: 0.31, P99: 0.62, P999: 1.1, Max: 1.9, LimitMs: floatPtr(2), Pass: boolPtr(true)},
++			{BudgetID: "B-D", N: 2000, P50: 8.2, P95: 13.9, P99: 18.1, P999: 24.0, Max: 31.5, LimitMs: nil, Pass: nil},
++			{BudgetID: "B-E", N: 50, P50: 14.0, P95: 22.5, P99: 31.0, P999: 31.0, Max: 31.0, LimitMs: floatPtr(2000), Pass: boolPtr(true)},
++		},
++	}
++
++	got, err := json.Marshal(r)
++	require.NoError(t, err)
++	require.JSONEq(t, wantGoldenJSON, string(got))
++}
++
++// TestBuildBudgetRowFromSnapshot pins B-B's own construction path: unlike buildBudgetRow, there
++// are no raw samples — the daemon's own obs.HistSnapshot IS the source of truth, reported
++// verbatim.
++func TestBuildBudgetRowFromSnapshot(t *testing.T) {
++	snap := obs.HistSnapshot{
++		N:   2000,
++		P50: 100 * time.Microsecond, P95: 310 * time.Microsecond, P99: 620 * time.Microsecond,
++		P999: 1100 * time.Microsecond, Max: 1900 * time.Microsecond,
++	}
++	row := buildBudgetRowFromSnapshot("B-B", snap, 2*time.Millisecond, true)
++	require.Equal(t, 2000, row.N)
++	require.InDelta(t, 0.62, row.P99, 0.001)
++	require.NotNil(t, row.Pass)
++	require.True(t, *row.Pass)
++}
++
++// TestBudgetLimit_ReadsFromConfigDefaults pins that the harness never re-hardcodes a budget limit
++// (task-7-brief.md's binding ruling): B-A/B-B/B-E must come from config.Defaults() +
++// obs.Budgets(), which SP-01 already pins at 15ms/2ms/2000ms.
++func TestBudgetLimit_ReadsFromConfigDefaults(t *testing.T) {
++	cfg := config.Defaults()
++	require.Equal(t, 15*time.Millisecond, budgetLimit(cfg, obs.BA))
++	require.Equal(t, 2*time.Millisecond, budgetLimit(cfg, obs.BB))
++	require.Equal(t, 2000*time.Millisecond, budgetLimit(cfg, obs.BE))
++}
++
++func TestBudgetHistName_MatchesBudgetsTable(t *testing.T) {
++	require.Equal(t, "l0_ingest", budgetHistName(obs.BB))
++}
++
++// TestReport_ExitNonZeroOnAnyGatedFailure pins GateFailed's decision rule: any gated (non-nil
++// Pass) budget reporting false fails the run; B-D's nil Pass never can.
++func TestReport_ExitNonZeroOnAnyGatedFailure(t *testing.T) {
++	okReport := Report{Budgets: []BudgetRow{
++		{BudgetID: "B-A", Pass: boolPtr(true)},
++		{BudgetID: "B-D", Pass: nil},
++	}}
++	require.False(t, okReport.GateFailed())
++
++	badReport := Report{Budgets: []BudgetRow{
++		{BudgetID: "B-A", Pass: boolPtr(true)},
++		{BudgetID: "B-E", Pass: boolPtr(false)},
++	}}
++	require.True(t, badReport.GateFailed())
++}
+diff --git a/test/bench/hotpath/transport.go b/test/bench/hotpath/transport.go
+new file mode 100644
+index 0000000..fed5c50
+--- /dev/null
++++ b/test/bench/hotpath/transport.go
+@@ -0,0 +1,130 @@
++// Package main is the standalone hot-path bench harness (task-7-spec.md): it measures B-A/B-B/
++// B-D/B-E against a REAL daemon child process and REAL spawned `qompack` binaries — the only
++// honest way to measure B-A, since anything else hides the host's own process-creation cost
++// inside a number the design document names as the headline budget.
++package main
++
++import (
++	"context"
++	"crypto/rand"
++	"encoding/hex"
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"runtime"
++	"time"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/ipc"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++)
++
++// adminPingSessionID and statusSessionID are fixed, harness-owned session ids for the admin/
++// status probes this file issues directly (bypassing the hook subcommand surface entirely, the
++// same pattern test/e2e's e2eStatus/e2eWaitDaemonUp use).
++const (
++	adminPingSessionID = core.SessionID("bench-admin-ping")
++	statusSessionID    = core.SessionID("bench-status")
++)
++
++// probeConnectDeadline and probeAckDeadline bound one admin/status round trip against the
++// harness's own client. They are deliberately generous relative to the production hot-path
++// deadlines (State.ConnectDeadlineMs's 5ms default): this traffic is never gated, and a tight
++// deadline here would only make the harness itself flaky under host load.
++const (
++	probeConnectDeadline   = 2 * time.Second
++	probeAckDeadline       = 2 * time.Second
++	replyRoundTripDeadline = 5 * time.Second
++)
++
++// ipcAddrEnvOverride computes a QOMPACK_IPC_ADDR value that keeps the daemon's endpoint anchored
++// to this bench run rather than whatever internal/ipc.Resolve would hash the temp project root
++// into — task-7-brief.md's binding ruling: "Use QOMPACK_IPC_ADDR + QOMPACK_PROJECT_ROOT to keep
++// everything inside the temp project." tag distinguishes concurrent bench runs (a random suffix,
++// not derived from the project path, so it never has to worry about the Unix sun_path length
++// guard the way a path-derived name would).
++func ipcAddrEnvOverride(tag string) (string, error) {
++	suffix, err := randomHex(8)
++	if err != nil {
++		return "", err
++	}
++	name := "qompack-bench-" + tag + "-" + suffix
++	if runtime.GOOS == "windows" {
++		return `pipe:\\.\pipe\` + name, nil
++	}
++	// os.TempDir() + this short, path-independent name comfortably fits inside the 100-byte
++	// sun_path guard on every platform this harness runs on.
++	return "unix:" + tempSocketPath(name), nil
++}
++
++// tempSocketPath builds a short, deterministic-length Unix socket path under os.TempDir() — kept
++// independent of the (potentially long) temp project root specifically so it stays comfortably
++// under the sun_path guard internal/ipc.parseIPCAddrOverride itself enforces on any unix: value.
++func tempSocketPath(name string) string {
++	return filepath.Join(os.TempDir(), name+".sock")
++}
++
++// randomHex returns n random bytes, hex-encoded — used only to keep concurrent bench runs (e.g.
++// a local run alongside CI) from colliding on one named pipe or socket path.
++func randomHex(n int) (string, error) {
++	b := make([]byte, n)
++	if _, err := rand.Read(b); err != nil {
++		return "", fmt.Errorf("hotpath: random suffix: %w", err)
++	}
++	return hex.EncodeToString(b), nil
++}
++
++// newProbeClient returns a real ipc.Client configured for the harness's own out-of-band admin/
++// status/warm-up traffic. It deliberately reuses internal/ipc's own production Client rather than
++// this package dialing the transport itself: 00-ARCHITECTURE.md §3.2/D10 permits importing "net"
++// only inside internal/ipc, mechanically enforced repo-wide by
++// test/guards.TestGuard_NoNetworkImports, and this harness — scoped to test/bench, devtool and CI
++// only — must not touch internal/ipc's shipped surface to work around that. Every call this
++// client makes therefore reconnects per request rather than holding one socket open, which is
++// arguably the MORE faithful shape anyway: every real hook invocation is its own fresh process
++// making exactly one connection, and that is what this same client type does in production.
++func newProbeClient(addr ipc.Addr, spool ipc.SpoolWriter, connectDeadline time.Duration) ipc.Client {
++	return ipc.NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ipc.ClientOptions{
++		ConnectDeadline: connectDeadline,
++		AckDeadline:     probeAckDeadline,
++	})
++}
++
++// errDaemonNeverCameUp is waitForDaemon's error when no admin.ping ever ACKed within bound.
++var errDaemonNeverCameUp = errors.New("hotpath: daemon never became reachable")
++
++// waitForDaemon polls addr with a real admin.ping round trip (task-7-spec.md step 2: "wait for
++// admin.ping") until one ACKs or ctx/bound expires. time.Sleep between attempts is permitted in
++// this directory only (devtool lint's test/bench exemption).
++func waitForDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, bound, tick time.Duration) error {
++	c := newProbeClient(addr, spool, probeConnectDeadline)
++	defer func() { _ = c.Close() }()
++
++	deadline := time.Now().Add(bound)
++	for {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		req := ipc.Request{Op: ipc.OpAdminPing, Session: adminPingSessionID, TS: core.NowMilli(core.SystemClock())}
++		resp, _ := c.Send(ctx, req, probeAckDeadline) // Client.Send never returns a propagating error.
++		if resp.OK {
++			return nil
++		}
++		if time.Now().After(deadline) {
++			return errDaemonNeverCameUp
++		}
++		time.Sleep(tick)
++	}
++}
++
++// shutdownDaemon best-effort asks the daemon to stop (admin.shutdown, fire-and-forget). A failure
++// here is not fatal to the bench run: process.go's own teardown falls back to killing the child
++// process outright after a bounded wait.
++func shutdownDaemon(addr ipc.Addr, spool ipc.SpoolWriter) {
++	c := newProbeClient(addr, spool, probeConnectDeadline)
++	defer func() { _ = c.Close() }()
++	req := ipc.Request{Op: ipc.OpAdminShutdown, Session: adminPingSessionID, TS: core.NowMilli(core.SystemClock())}
++	_, _ = c.Send(context.Background(), req, probeAckDeadline)
++}
+diff --git a/testdata/bench-baseline.txt b/testdata/bench-baseline.txt
+index 8214a6f..c36dd19 100644
+--- a/testdata/bench-baseline.txt
++++ b/testdata/bench-baseline.txt
+@@ -83,10 +83,82 @@ cpu: Intel(R) Core(TM) Ultra 7 155H
+ BenchmarkPathsWriteAtomic_4KB-22    	     282	   3967764 ns/op	   1.03 MB/s	   15690 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     250	   4740545 ns/op	   0.86 MB/s	   15699 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     261	   4388982 ns/op	   0.93 MB/s	   15708 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     276	   4384899 ns/op	   0.93 MB/s	   15691 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     258	   5083247 ns/op	   0.81 MB/s	   15697 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     254	   4665022 ns/op	   0.88 MB/s	   15697 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     238	   4747760 ns/op	   0.86 MB/s	   15682 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     249	   4792694 ns/op	   0.85 MB/s	   15698 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     201	   5173678 ns/op	   0.79 MB/s	   15703 B/op	     169 allocs/op
+ BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   15691 B/op	     169 allocs/op
++
++# --- SP-05 additions (V2, task 7 — hot-path bench harness, three-platform bench gate) -----------
++#
++# Recorded with the same command as above:
++#
++#     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
++#
++# on the same Windows 11 / Intel Core Ultra 7 155H / NTFS host. Each is tied to a named budget
++# (task-7-spec.md's "Benchmarks tied to a named budget" table):
++#
++#     BenchmarkReadState         < 100 us/op (hot-path prelude)      MET   ~52-60 us/op
++#     BenchmarkEncodeRequest     < 5 us/op (4 KB payload)            MET   ~1.1-1.5 us/op
++#     BenchmarkIngestAccept      B-B (l0_ingest, p99 < 2ms)          MET   ~3.3-3.7 us/op
++#     BenchmarkServerRoundTrip   daemon-side B-A portion, p99 < 2ms  MET   ~42-63 us/op
++#
++# BenchmarkReadState is filesystem-bound (one os.ReadFile of a 32-byte record) rather than
++# algorithmic, same caveat this file's own header gives BenchmarkPathsWriteAtomic_4KB above: this
++# host's per-syscall latency is high, and Linux CI runners will likely report a lower number. It
++# is still comfortably under its own 100us budget here.
++#
++# BenchmarkServerRoundTrip drives a real listener (named pipe on this host) end to end per
++# iteration — connect, write, ACK, close — so it is the closest in-repo proxy for B-A's own
++# daemon-side portion (excluding process spawn, which only a real-process harness can measure; see
++# test/bench/hotpath and task-7-report.md for that measurement).
++goos: windows
++goarch: amd64
++pkg: github.com/qompack/qompack/internal/ipc
++cpu: Intel(R) Core(TM) Ultra 7 155H
++BenchmarkReadState-22        	   21087	     60002 ns/op	    4478 B/op	      35 allocs/op
++BenchmarkReadState-22        	   20068	     55477 ns/op	    3997 B/op	      32 allocs/op
++BenchmarkReadState-22        	   22635	     54665 ns/op	    4478 B/op	      35 allocs/op
++BenchmarkReadState-22        	   19105	     55696 ns/op	    4478 B/op	      35 allocs/op
++BenchmarkReadState-22        	   20754	     56305 ns/op	    3997 B/op	      32 allocs/op
++BenchmarkReadState-22        	   22284	     57596 ns/op	    4478 B/op	      35 allocs/op
++BenchmarkReadState-22        	   22369	     54062 ns/op	    4478 B/op	      35 allocs/op
++BenchmarkReadState-22        	   21859	     56388 ns/op	    4478 B/op	      35 allocs/op
++BenchmarkReadState-22        	   20185	     52882 ns/op	    3997 B/op	      32 allocs/op
++BenchmarkReadState-22        	   20136	     53201 ns/op	    3997 B/op	      32 allocs/op
++BenchmarkEncodeRequest-22    	 1004616	      1187 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1328 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	  924220	      1237 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1197 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1173 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1194 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1189 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1201 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	 1000000	      1136 ns/op	     405 B/op	       3 allocs/op
++BenchmarkEncodeRequest-22    	  972958	      1536 ns/op	     405 B/op	       3 allocs/op
++BenchmarkServerRoundTrip-22    	   31206	     47201 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   25767	     46084 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   29274	     47463 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   25815	     42527 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   26826	     50188 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   28106	     49838 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   20084	     53011 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   21657	     61424 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   20344	     57301 ns/op	    1136 B/op	      20 allocs/op
++BenchmarkServerRoundTrip-22    	   23620	     62814 ns/op	    1136 B/op	      20 allocs/op
++goos: windows
++goarch: amd64
++pkg: github.com/qompack/qompack/internal/daemon
++cpu: Intel(R) Core(TM) Ultra 7 155H
++BenchmarkIngestAccept-22    	  298790	      3505 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  364821	      3429 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  326236	      3257 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  383278	      3656 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  322202	      3389 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  348835	      3528 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  366517	      3532 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  302526	      3653 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  346728	      3333 ns/op	      80 B/op	       2 allocs/op
++BenchmarkIngestAccept-22    	  309596	      3464 ns/op	      80 B/op	       2 allocs/op
+diff --git a/tools/devtool/importrules.go b/tools/devtool/importrules.go
+index 01a5849..3313560 100644
+--- a/tools/devtool/importrules.go
++++ b/tools/devtool/importrules.go
+@@ -1,28 +1,33 @@
+ package main
+ 
+ // foundation is the five cross-cutting packages of 00-ARCHITECTURE.md §3.2. Every non-foundation
+ // package may additionally import all of these; the foundation packages themselves get only what
+ // they are explicitly listed with below (they are not auto-unioned with the rest of foundation).
+ var foundation = []string{"core", "paths", "config", "logging", "obs"}
+ 
+ // compositionRoots may import anything; nothing may import them. The first five entries are
+ // §3.2's own list; test/e2e and test/guards are added by SP-01 because they import the whole tree
+-// and must be subject to the same "nothing may import them" half of the rule.
++// and must be subject to the same "nothing may import them" half of the rule. test/bench/hotpath
++// is added by SP-05 (task 7): the hot-path bench harness spawns the real binary and talks to a
++// real daemon child process directly, so — like test/e2e — it needs the whole tree (daemon for
++// StatusSnapshot, ipc for the Client it drives its own admin/status/warm-up traffic through, cli
++// only transitively via the binary it spawns) and nothing may import it back.
+ var compositionRoots = map[string]bool{
+-	"daemon":      true,
+-	"cli":         true,
+-	"commands":    true,
+-	"testutil":    true,
+-	"cmd/qompack": true,
+-	"test/e2e":    true,
+-	"test/guards": true,
++	"daemon":             true,
++	"cli":                true,
++	"commands":           true,
++	"testutil":           true,
++	"cmd/qompack":        true,
++	"test/e2e":           true,
++	"test/guards":        true,
++	"test/bench/hotpath": true,
+ }
+ 
+ // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
+ // additionally gets foundation appended at check time (see effectiveAllow). A package that exists
+ // on disk but is absent from both allow and compositionRoots is an error: new packages must be
+ // declared here, which forces an architecture amendment.
+ var allow = map[string][]string{
+ 	"core":   {},
+ 	"paths":  {"core"},
+ 	"config": {"core"},

@@ -81,114 +81,30 @@ type Deps struct {
 	Clock   core.Clock
 }
 
-// Open returns a Store rooted at root. Constructing always succeeds, so wave-0 composition roots
-// can wire a store.Store today, but every operation is a stub until SP-06 lands the real
-// content-addressed store (00-ARCHITECTURE.md §5.8): every method with an error return reports
-// core.ErrNotImplemented, and Has and Segments — which have no error return — report the
-// documented zero value (false) and a usable stub SegmentLog respectively.
+// Open returns the Store rooted at root.
+//
+// root is the PROJECT root, never <root>/.qompack, matching dag.Open and negknow.Open; every path
+// the store touches is derived from paths.Of(root) and nothing hand-joins ".qompack".
+//
+// Every nil member of deps is filled with a working default. Deps.Redact is the one whose default
+// is load-bearing: a nil Redact becomes redact.New(cfg) and NEVER redact.Nop(), because a nil
+// redactor must not quietly mean "no redaction" — objects/ is content-addressed and immutable, so
+// a secret that reaches it cannot be removed without breaking every root referencing its chunk
+// (§13 invariant 7, 00-ARCHITECTURE.md §5.22a).
 func Open(root string, cfg config.Config, deps Deps) (Store, error) {
-	return stubStore{}, nil
+	// Assigned through an explicit nil rather than "return openFS(...)": openFS reports
+	// (*FSStore)(nil) alongside its error, and returning that directly would hand the caller a
+	// NON-nil Store interface wrapping a nil pointer.
+	s, err := openFS(root, cfg, deps)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
-// stubStore is the SP-01 placeholder Store. SP-06 owns the real implementation.
-type stubStore struct{}
-
-// Put always reports core.ErrNotImplemented.
-func (stubStore) Put(ctx context.Context, r io.Reader, o PutOptions) (PutResult, error) {
-	return PutResult{}, core.ErrNotImplemented
-}
-
-// PutBytes always reports core.ErrNotImplemented.
-func (stubStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResult, error) {
-	return PutResult{}, core.ErrNotImplemented
-}
-
-// GetChunk always reports core.ErrNotImplemented.
-func (stubStore) GetChunk(ctx context.Context, h core.Hash) ([]byte, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// GetRoot always reports core.ErrNotImplemented.
-func (stubStore) GetRoot(ctx context.Context, root core.Hash) (Root, error) {
-	return Root{}, core.ErrNotImplemented
-}
-
-// Open always reports core.ErrNotImplemented.
-func (stubStore) Open(ctx context.Context, root core.Hash) (io.ReadCloser, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// OpenSpan always reports core.ErrNotImplemented.
-func (stubStore) OpenSpan(ctx context.Context, root core.Hash, off, n int64) (io.ReadCloser, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// Has always returns false. Has has no error return, so false — Rule 1's documented zero value —
-// is the only honest answer: a stub store has nothing stored.
-func (stubStore) Has(h core.Hash) bool { return false }
-
-// RecordToolUse always reports core.ErrNotImplemented.
-func (stubStore) RecordToolUse(ctx context.Context, rec ToolUseRecord) error {
-	return core.ErrNotImplemented
-}
-
-// ToolUse always reports core.ErrNotImplemented.
-func (stubStore) ToolUse(ctx context.Context, id core.ToolUseID) (ToolUseRecord, error) {
-	return ToolUseRecord{}, core.ErrNotImplemented
-}
-
-// ToolUsesByPath always reports core.ErrNotImplemented.
-func (stubStore) ToolUsesByPath(ctx context.Context, path string, limit int) ([]ToolUseRecord, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// MarkSuperseded always reports core.ErrNotImplemented.
-func (stubStore) MarkSuperseded(ctx context.Context, older core.ToolUseID, by core.ToolUseID) error {
-	return core.ErrNotImplemented
-}
-
-// AppendFileVersion always reports core.ErrNotImplemented.
-func (stubStore) AppendFileVersion(ctx context.Context, path string, v FileVersion) error {
-	return core.ErrNotImplemented
-}
-
-// FileHistory always reports core.ErrNotImplemented.
-func (stubStore) FileHistory(ctx context.Context, path string) ([]FileVersion, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// FileAt always reports core.ErrNotImplemented.
-func (stubStore) FileAt(ctx context.Context, path string, at time.Time) (FileVersion, error) {
-	return FileVersion{}, core.ErrNotImplemented
-}
-
-// ChangedSince always reports core.ErrNotImplemented.
-func (stubStore) ChangedSince(ctx context.Context, deps []core.Dep) ([]core.Dep, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// Search always reports core.ErrNotImplemented.
-func (stubStore) Search(ctx context.Context, q Query) ([]Hit, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// Segments always returns a usable stub SegmentLog. Segments has no error return: constructing a
-// sub-object accessor is not itself an "operation" under Rule 1, so — like Open returning a
-// usable stub Store — it returns a legal, non-nil value whose own methods are the ones that fail.
-func (stubStore) Segments() SegmentLog { return stubSegmentLog{} }
-
-// Stats always reports core.ErrNotImplemented.
-func (stubStore) Stats(ctx context.Context) (Stats, error) {
-	return Stats{}, core.ErrNotImplemented
-}
-
-// GC always reports core.ErrNotImplemented.
-func (stubStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
-	return GCReport{}, core.ErrNotImplemented
-}
-
-// Flush always reports core.ErrNotImplemented.
-func (stubStore) Flush(ctx context.Context) error { return core.ErrNotImplemented }
-
-// Close always reports core.ErrNotImplemented.
-func (stubStore) Close() error { return core.ErrNotImplemented }
+// The seams every consumer of this package reaches the filesystem store through.
+var (
+	_ Store      = (*FSStore)(nil)
+	_ RefCounter = (*FSStore)(nil)
+	_ SegmentLog = (*segLog)(nil)
+)

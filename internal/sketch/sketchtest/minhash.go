@@ -1,6 +1,7 @@
 package sketchtest
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"testing"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mhChunkSize is the size, in bytes, of each pseudo-random "chunk" mhFixture concatenates.
+// mhChunkSize is the size, in bytes, of each pseudo-random "chunk" mhConcat concatenates.
 // mhPermutations and mhShingleSize are the MinHashOptions the suite probes and tests with.
 const (
 	mhChunkSize    = 500
@@ -49,72 +50,64 @@ func mhConcat(seeds []byte) []byte {
 	return out
 }
 
+// mhOptions returns the option set every case here uses: enabled, Appendix C's 128 permutations and
+// the default 8-byte shingle.
+func mhOptions() sketch.MinHashOptions {
+	return sketch.MinHashOptions{
+		Enabled:      true,
+		Permutations: mhPermutations,
+		ShingleSize:  mhShingleSize,
+	}
+}
+
 // RunMinHashSuite is the conformance suite for the package-level sketch.MinHash function and the
-// Signature it returns. Unlike every other suite in this package, MinHash has no constructible
-// type behind it, so the suite takes the function itself rather than a factory.
+// Signature it returns. Unlike every other suite in this package, MinHash has no constructible type
+// behind it, so the suite takes the function itself rather than a factory.
 func RunMinHashSuite(t *testing.T, name string, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
 	t.Helper()
-	opts := sketch.MinHashOptions{Enabled: true, Permutations: mhPermutations, ShingleSize: mhShingleSize}
+	opts := mhOptions()
 
 	t.Run(name+"/shape", func(t *testing.T) {
 		sig := minHash([]byte("shape probe"), opts)
-		// MinHash, Jaccard, IsNearDup and MarshalBinary all have no error return except
-		// MarshalBinary/UnmarshalBinary; any Signature MinHash produces, including the zero
-		// value, is shape-valid.
+		// MinHash, Jaccard and IsNearDup have no error return; any Signature MinHash produces,
+		// including the zero value, is shape-valid.
 		_ = sig.Jaccard(sig)
 		_ = sig.IsNearDup(sig, mhJaccardTolerance)
 
 		_, err := sig.MarshalBinary()
-		requireKnownError(t, err)
+		require.NoError(t, err, "a Signature MinHash produced must be encodable")
 		var sig2 sketch.Signature
-		requireKnownError(t, sig2.UnmarshalBinary(nil))
+		require.ErrorIs(t, sig2.UnmarshalBinary(nil), sketch.ErrTruncated,
+			"a zero-length buffer is a lost signature field, never a disabled one")
 	})
-
-	if skipIfStubMinHash(t, minHash) {
-		return
-	}
 
 	t.Run(name+"/behaviour", func(t *testing.T) {
 		t.Run("jaccard_within_tolerance_of_exact", func(t *testing.T) {
 			runJaccardWithinToleranceCase(t, minHash)
 		})
+		t.Run("self_similarity_is_one", func(t *testing.T) { runSelfSimilarityCase(t, minHash) })
+		t.Run("jaccard_is_symmetric", func(t *testing.T) { runSymmetryCase(t, minHash) })
+		t.Run("disabled_options_yield_the_zero_signature", func(t *testing.T) {
+			runDisabledOptionsCase(t, minHash)
+		})
+		t.Run("the_zero_signature_compares_zero", func(t *testing.T) { runZeroSignatureCase(t, minHash) })
+		t.Run("compact_round_trip_is_byte_identical", func(t *testing.T) {
+			runCompactRoundTripCase(t, minHash)
+		})
 	})
 }
 
-// isStubMinHash reports whether minHash is still a stub. MinHash has no error return (§5.7), so —
-// like chunk, symbols, redact and grammar's suites — this cannot check core.IsNotImplemented and
-// instead relies on Rule 1's documented stub contract directly: the SP-01 stub always returns the
-// zero Signature (Mins == nil), and any real k-permutation implementation asked for
-// mhPermutations permutations over non-empty data must return exactly that many minimum hashes.
-func isStubMinHash(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) bool {
-	t.Helper()
-	opts := sketch.MinHashOptions{Enabled: true, Permutations: mhPermutations, ShingleSize: mhShingleSize}
-	sig := minHash(mhChunk(0), opts)
-	return len(sig.Mins) == 0
-}
-
-// skipIfStubMinHash calls t.Skip with the exact Rule W-1 message when minHash is still a stub,
-// and reports whether it did.
-func skipIfStubMinHash(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) bool {
-	t.Helper()
-	if isStubMinHash(t, minHash) {
-		t.Skip(ruleW1SkipMsg)
-		return true
-	}
-	return false
-}
-
-// runJaccardWithinToleranceCase builds two byte strings out of a shared pool of 9 distinct,
-// large, pseudo-random chunks: A is chunks {0..5}, B is chunks {3..8}, so they share exactly 3
-// chunks out of a 9-chunk union — a known, approximate set Jaccard of 3/9 = 1/3. Because each
-// chunk is far larger than mhShingleSize and internally non-repetitive, the true shingle-level
-// Jaccard of A and B is very close to that chunk-level ratio (the only discrepancy comes from the
-// handful of shingles straddling a chunk boundary), so this fixture does not depend on knowing
-// MinHash's exact shingling convention (byte-level vs. token-level) — only that shingles are
-// local, which any reasonable w-shingling scheme satisfies.
+// runJaccardWithinToleranceCase builds two byte strings out of a shared pool of 9 distinct, large,
+// pseudo-random chunks: A is chunks {0..5}, B is chunks {3..8}, so they share exactly 3 chunks out
+// of a 9-chunk union — a known, approximate set Jaccard of 3/9 = 1/3. Because each chunk is far
+// larger than mhShingleSize and internally non-repetitive, the true shingle-level Jaccard of A and B
+// is very close to that chunk-level ratio (the only discrepancy comes from the handful of shingles
+// straddling a chunk boundary), so this fixture does not depend on knowing MinHash's exact shingling
+// convention (byte-level vs. token-level) — only that shingles are local, which any reasonable
+// w-shingling scheme satisfies.
 func runJaccardWithinToleranceCase(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
 	t.Helper()
-	opts := sketch.MinHashOptions{Enabled: true, Permutations: mhPermutations, ShingleSize: mhShingleSize}
+	opts := mhOptions()
 
 	a := minHash(mhConcat([]byte{0, 1, 2, 3, 4, 5}), opts)
 	b := minHash(mhConcat([]byte{3, 4, 5, 6, 7, 8}), opts)
@@ -125,4 +118,85 @@ func runJaccardWithinToleranceCase(t *testing.T, minHash func(data []byte, o ske
 	got := a.Jaccard(b)
 	require.InDelta(t, exact, got, mhJaccardTolerance,
 		"MinHash Jaccard (%v) must be within %v of the exact set Jaccard (%v)", got, mhJaccardTolerance, exact)
+}
+
+// runSelfSimilarityCase asserts a signature is a perfect match for itself, and that IsNearDup agrees
+// at the strictest possible threshold. Every consumer relies on it: SP-06 stores a delta against the
+// prior version when two results are near-duplicates, so a signature that failed to match itself
+// would make the identical re-run of a tool look like new content.
+func runSelfSimilarityCase(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
+	t.Helper()
+	s := minHash(mhConcat([]byte{0, 1, 2}), mhOptions())
+
+	require.Equal(t, 1.0, s.Jaccard(s), "a signature must be a perfect Jaccard match for itself")
+	require.True(t, s.IsNearDup(s, 1.0), "a signature must be a near-duplicate of itself at 1.0")
+}
+
+// runSymmetryCase asserts Jaccard(a,b) == Jaccard(b,a) exactly. It is a set similarity, so asymmetry
+// would mean the answer depended on which document the caller happened to hold — and the comparison
+// is a position-by-position agreement count, so the equality is exact rather than approximate.
+func runSymmetryCase(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
+	t.Helper()
+	opts := mhOptions()
+	a := minHash(mhConcat([]byte{0, 1, 2, 3}), opts)
+	b := minHash(mhConcat([]byte{2, 3, 4, 5}), opts)
+
+	require.Equal(t, a.Jaccard(b), b.Jaccard(a), "Jaccard must be symmetric")
+	require.Equal(t, a.IsNearDup(b, mhJaccardTolerance), b.IsNearDup(a, mhJaccardTolerance),
+		"IsNearDup must be symmetric")
+}
+
+// runDisabledOptionsCase asserts a disabled option set produces the ZERO signature and nothing else
+// — no work done, no minima computed. The zero signature means "MinHash was disabled", which is
+// deliberately a different value from the empty-document signature (P copies of math.MaxUint64):
+// one says nothing was measured, the other says nothing was found, and a consumer deciding whether
+// it holds a comparable value has to be able to tell them apart.
+func runDisabledOptionsCase(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
+	t.Helper()
+	opts := mhOptions()
+	opts.Enabled = false
+
+	sig := minHash(mhConcat([]byte{0, 1, 2}), opts)
+	require.Equal(t, sketch.Signature{}, sig, "disabled MinHash must return the zero Signature")
+	require.Zero(t, sig.Perms)
+	require.Nil(t, sig.Mins)
+}
+
+// runZeroSignatureCase asserts the zero signature compares 0 against everything, including itself,
+// and is a near-duplicate of nothing at any threshold. Without that, a configured threshold of 0
+// would make a document whose MinHash was disabled a duplicate of the first thing it was ever
+// compared against — and it would be dropped as one.
+func runZeroSignatureCase(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
+	t.Helper()
+	var zero sketch.Signature
+	measured := minHash(mhConcat([]byte{0, 1, 2}), mhOptions())
+
+	require.Zero(t, zero.Jaccard(zero), "the zero signature must compare 0 against itself")
+	require.Zero(t, zero.Jaccard(measured), "the zero signature must compare 0 against a real one")
+	require.Zero(t, measured.Jaccard(zero), "a real signature must compare 0 against the zero one")
+	require.False(t, zero.IsNearDup(zero, 0), "the zero signature is a near-duplicate of nothing")
+	require.False(t, zero.IsNearDup(measured, 0))
+	require.False(t, measured.IsNearDup(zero, 0))
+}
+
+// runCompactRoundTripCase asserts the unframed compact form round-trips byte for byte. That form
+// carries no checksum of its own — the store record line holding it is checksummed instead — so its
+// only guarantee is that Perms and Mins fully determine the bytes and the bytes fully determine
+// Perms and Mins. A re-encoding that differed would make two records holding the same signature
+// hash differently in the content-addressed store.
+func runCompactRoundTripCase(t *testing.T, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature) {
+	t.Helper()
+	s := minHash(mhConcat([]byte{0, 1, 2}), mhOptions())
+
+	encoded, err := s.MarshalBinary()
+	require.NoError(t, err)
+	require.NotEmpty(t, encoded)
+
+	var round sketch.Signature
+	require.NoError(t, round.UnmarshalBinary(encoded))
+	require.Equal(t, s, round, "the decoded signature must equal the encoded one")
+
+	again, err := round.MarshalBinary()
+	require.NoError(t, err)
+	require.True(t, bytes.Equal(encoded, again), "the compact form must re-encode byte-identically")
 }
