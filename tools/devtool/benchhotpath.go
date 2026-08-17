@@ -6,8 +6,9 @@ import (
 )
 
 // taskBenchHotpath runs the real-process-spawn hot-path harness, `go run ./test/bench/hotpath`,
-// forwarding args, if that harness exists. SP-05 owns it; before SP-05 lands this degrades to a
-// zero-exit no-op, exactly as the implementation spec's task table requires.
+// forwarding args. SP-05 (task 7) has landed test/bench/hotpath, so dirHasGoFiles is now
+// permanently true in this tree; the fallback below is kept only as the documented degrade path
+// the implementation spec's task table requires for a build that predates it (e.g. a bisect).
 func taskBenchHotpath(args []string) error {
 	dir := filepath.Join(root, "test", "bench", "hotpath")
 	if !dirHasGoFiles(dir) {

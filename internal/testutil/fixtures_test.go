@@ -76,10 +76,14 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 		}
 	}
 
-	// 23, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
+	// 28, not the 21 SP-01 originally froze: V1 added the two §16 fixtures that were never
 	// declared — contract/result_set (the nine §5.19 assertions as RunAll reports them) and
-	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives).
-	require.Equal(t, 23, frozenCount, "SP-01 froze 21 format fixtures and V1 added 2; adding or losing one is a contract change")
+	// config/appendix_c_defaults (the Appendix C golden, declared where it already lives) —
+	// SP-05 task 1 added three more: ipc/observe_tool, ipc/response_reply, ipc/state_degraded
+	// (00-ARCHITECTURE §2.4's NDJSON framing and 32-byte hot-path state record) — and SP-05 task 4
+	// added two more: contract/history_degraded (the state/history.json shape) and
+	// contract/transcript_with_sentinel (a transcript tail containing a rendered sentinel).
+	require.Equal(t, 28, frozenCount, "21 SP-01 + 2 V1 + 3 SP-05 task 1 + 2 SP-05 task 4; adding or losing one is a contract change")
 	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
 }
 

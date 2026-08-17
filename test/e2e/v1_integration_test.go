@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,8 @@ import (
 	"time"
 
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -44,15 +47,14 @@ type v1Call struct {
 	// second PostToolUse call, which §4 IT-1 requires to be a Bash tool use and for which no
 	// frozen fixture exists.
 	derive func(map[string]any)
-	// logHook is the value the observation line's "hook" field must carry.
-	//
-	// It is the HOST EVENT NAME, not the subcommand: internal/cli/hooks.go registers each entry
-	// point with runHook("<EventName>", ...). Note that `observe stop --subagent` therefore logs
-	// "Stop" as well — SP-01 maps both stop events onto one subcommand (see the Summary string on
-	// the "observe stop" command), and distinguishing them is SP-08's job when it gives these
-	// hooks real bodies.
+	// logHook is the HOST EVENT NAME this call answers (SessionStart, PostToolUse, ...) — not the
+	// subcommand. `observe stop --subagent` and `observe stop` both carry "Stop" here (the two
+	// host events share one subcommand; SP-08 owns distinguishing them at the observer layer).
 	logHook string
-	// wantStdout is the exact response the host must receive, trailing newline included.
+	// wantStdout is the exact response the host must receive, trailing newline included. Compared
+	// exactly for every call except SessionStart, whose additionalContext carries a live §12.1
+	// sentinel token that varies run to run (checked separately, via
+	// hookSpecificOutput.HookEventName — fix round 1, Minor M-2).
 	wantStdout string
 }
 
@@ -71,15 +73,18 @@ var v1Lifecycle = []v1Call{
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
 	{
-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact",
-		wantStdout: `{"hookSpecificOutput":{"hookEventName":"PreCompact"}}` + "\n",
+		// PreCompact's hookSpecificOutput is populated only by an actual svc.PreCompact seam
+		// (SP-10), absent from a wave-1-only build, so checkpoint answers the minimal response —
+		// same as every other fire-and-forget/no-seam-yet call in this lifecycle.
+		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
 	},
 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
 }
 
 // bashCommand is the command string the derived Bash tool use carries. It is asserted absent from
-// the hook log, so it has to be a string that could not appear there by coincidence.
+// the project's logs (v1Secrets, below), so it has to be a string that could not appear there by
+// coincidence.
 const bashCommand = "go test ./internal/auth/... -run TestRefreshRejectsExpired"
 
 // asBashToolUse turns the frozen FileRead payload into a Bash one. §4 IT-1 asks for two PostToolUse
@@ -93,13 +98,14 @@ func asBashToolUse(m map[string]any) {
 	m["tool_response"] = map[string]any{"stdout": "ok  \tgithub.com/qompack/qompack/internal/auth\t0.21s\n"}
 }
 
-// v1Secrets is every substring that MUST NOT reach .qompack/logs/hooks-*.jsonl.
-//
-// This is the load-bearing half of IT-1. §7.4 makes the hook log an observability record, not a
-// content store: it carries the shape of what happened (which hook, which session, how many bytes)
-// and nothing a user typed or a tool returned. A regression that started logging payload text
-// would be invisible to every unit test in internal/cli — which asserts on a log IT wrote — and
-// would leak prompts and file contents into a file nobody thinks of as sensitive.
+// v1Secrets is every substring that MUST NOT reach .qompack/logs/** — the day log, LOUD.log, and
+// hook-quiet-*.jsonl (internal/cli/hookclient.go's logQuiet). This is IT-1's own self-described
+// "load-bearing half" (restored, fix round 1, Important I-4, after being deleted with no
+// replacement when the observation log it originally targeted, hooks-*.jsonl, was removed): none
+// of the surviving log files is a content store, so a regression that started writing payload text
+// into any of them would otherwise be invisible to this suite. The WAL under spool/ is deliberately
+// EXCLUDED — it is the durable content store the whole system exists to build, and Requests
+// legitimately carry Event.Prompt/ToolInput/ToolResponse verbatim.
 var v1Secrets = []string{
 	"Fix the intermittent 500s on POST /api/session/refresh.", // the prompt, verbatim
 	"src/auth.ts", // a file path from tool_input
@@ -108,6 +114,25 @@ var v1Secrets = []string{
 	"github.com/qompack/qompack/internal/auth", // the derived Bash tool_response body
 	"/home/u/.claude/projects/proj/sess.jsonl", // transcript_path
 	"/home/u/proj", // the payload cwd
+}
+
+// v1LogsCorpus returns the concatenated contents of every file under root's .qompack/logs/ — the
+// day log(s), LOUD.log, and any hook-quiet-*.jsonl — for the payload-leak assertion below.
+func v1LogsCorpus(t *testing.T, root string) string {
+	t.Helper()
+	logsDir := paths.Of(root).Logs
+	var sb strings.Builder
+	_ = filepath.WalkDir(logsDir, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		b, readErr := os.ReadFile(p)
+		require.NoError(t, readErr, "reading %s", p)
+		sb.Write(b)
+		sb.WriteByte('\n')
+		return nil
+	})
+	return sb.String()
 }
 
 // TestV1_HookLifecycleThroughRealBinary is §4 IT-1.
@@ -123,6 +148,10 @@ var v1Secrets = []string{
 func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t, testutil.WithGit(), testutil.WithClock(testutil.Epoch))
+	// session-start, below, brings up a real detached daemon; shut it down before this test's own
+	// t.TempDir() cleanup runs, or a still-open log file handle can make that cleanup fail on
+	// Windows (open-file delete semantics) — see faultinject_test.go's e2eShutdownIfReachable.
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
 
 	env := map[string]string{
 		"QOMPACK_PROJECT_ROOT": p.Root,
@@ -130,6 +159,19 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 		"USERPROFILE":          p.Home(),
 	}
 
+	// SP-05 replaces the six hook bodies with thin ipc clients (internal/cli/hookclient.go):
+	// session-start is now the designated daemon starter (§2.4/§5.21), so the FIRST call below
+	// brings up a real, resident daemon that every later call in this sequence talks to. That
+	// means the exact response bytes are no longer a CLI-side constant: SessionStart's
+	// additionalContext now carries a live §12.1 sentinel token the daemon mints unconditionally
+	// (handleSessionStart mints and emits it whenever the mode may act, with no wave-3 seam
+	// required). PreCompact's hookSpecificOutput, by contrast, is populated only by an actual
+	// svc.PreCompact seam (SP-10) — absent from a wave-1-only build — so a bare `checkpoint` call
+	// here answers with the minimal "{}" response, exactly like every fire-and-forget hook. What
+	// stays true, and what this loop still proves end to end across pluginmanifest -> cmd/qompack
+	// -> cli -> ipc -> daemon -> hookio, is that every call in the lifecycle exits 0 with exactly
+	// one well-formed hookio.Output, and that SessionStart specifically still answers through
+	// hookSpecificOutput naming itself.
 	for i, call := range v1Lifecycle {
 		payload := v1Payload(t, call)
 
@@ -138,38 +180,23 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 		require.Equal(t, 0, code,
 			"call %d (%v): §2.3 permits a hook no outcome but exit 0\nstdout:\n%s\nstderr:\n%s",
 			i+1, call.argv, stdout, stderr)
-		require.Equal(t, call.wantStdout, string(stdout),
-			"call %d (%v): exact response shape", i+1, call.argv)
 		requireLoneOutput(t, stdout)
-	}
 
-	// Exactly one observation line per invocation, in call order.
-	lines := v1HookLogLines(t, p.Root)
-	require.Len(t, lines, len(v1Lifecycle),
-		"eight hook invocations must append exactly eight observation lines")
-
-	for i, call := range v1Lifecycle {
-		var rec struct {
-			TS        int64  `json:"ts"`
-			Hook      string `json:"hook"`
-			SessionID string `json:"session_id"`
-			Bytes     int    `json:"bytes"`
-			Truncated bool   `json:"truncated"`
+		var out hookio.Output
+		require.NoError(t, json.Unmarshal(stdout, &out), "call %d (%v): stdout:\n%s", i+1, call.argv, stdout)
+		if call.logHook == "SessionStart" {
+			require.NotNil(t, out.HookSpecificOutput, "call %d (%v) answers through hookSpecificOutput", i+1, call.argv)
+			require.Equal(t, call.logHook, out.HookSpecificOutput.HookEventName)
+		} else {
+			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
 		}
-		require.NoError(t, json.Unmarshal([]byte(lines[i]), &rec), "line %d: %s", i+1, lines[i])
-
-		require.Equal(t, call.logHook, rec.Hook, "line %d records the host event name", i+1)
-		require.Equal(t, "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A", rec.SessionID,
-			"line %d echoes the session id the payload carried", i+1)
-		require.Positive(t, rec.Bytes, "line %d must record the payload size", i+1)
-		require.False(t, rec.Truncated, "line %d: none of these payloads is near the 1 MiB limit", i+1)
 	}
 
-	// No payload content anywhere in the log.
-	joined := strings.Join(lines, "\n")
+	// No payload content anywhere in the project's logs (fix round 1, Important I-4).
+	corpus := v1LogsCorpus(t, p.Root)
 	for _, secret := range v1Secrets {
-		require.NotContains(t, joined, secret,
-			"the hook log is an observability record, not a content store (§7.4): %q leaked", secret)
+		require.NotContains(t, corpus, secret,
+			"the project's logs are an observability record, not a content store (§7.4): %q leaked", secret)
 	}
 
 	// The layout self-ignores, so a project that commits its working tree cannot commit the store.
@@ -178,12 +205,18 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	require.Equal(t, "*\n", string(gitignore), ".qompack/.gitignore must self-ignore (§3.3)")
 }
 
-// TestV1_ConfigPrecedenceReachesHookBehaviour is §4 IT-2.
+// TestV1_ConfigPrecedenceReachesHookBehaviour is §4 IT-2, updated for SP-05's architecture.
 //
-// Crosses config's five layers -> cli's bootstrap ordering -> hookio's limit -> logging. The point
-// is not that config.Load resolves precedence — E4 proves that in isolation — but that the value
-// it resolves actually reaches a decision a real process makes about a real payload, and that the
-// bootstrap read happens under the DEFAULT limit before any config file is consulted.
+// Crosses config's five layers -> `config print --provenance`. IT-2 originally also crossed into a
+// bare hook subcommand's own read-limit decision, because wave-0's hook body called config.Load
+// directly. SP-05 deliberately removes that seam from the hot path (task-6-spec.md's hookclient.go
+// skeleton: "ipc.ReadState(root, config.Defaults()) — never config.Load on the hot path"): a bare
+// hook invocation against a project no daemon has ever touched reads under config.Defaults()
+// alone, precedence or no precedence, until a daemon has actually run and written run/state.bin.
+// The first sub-test below still proves the five-layer precedence chain resolves correctly and
+// reaches the tool an operator actually runs (`config print --provenance`); the second proves the
+// new seam directly: config precedence now reaches the hot path THROUGH a live daemon's state.bin,
+// not through a hook's own config.Load.
 func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 	bin := Build(t)
 
@@ -191,18 +224,15 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 		userLimit    = 4096  // ~/.qompack/config.json
 		projectLimit = 8192  // <root>/.qompack/config.json — must win over the user layer
 		envLimit     = 16384 // QOMPACK_RUNTIME__HOTPATH__MAXPAYLOADBYTES — must win over the project file
-		flagLimit    = 32768 // --set — must win over everything
-		payloadBytes = 12288 // 12 KiB: above the project limit, below the env and flag limits
 	)
 
 	cases := []struct {
-		name          string
-		extraEnv      map[string]string
-		extraArgs     []string
-		wantTruncated bool
-		wantOrigin    string // provenance origin for runtime.hotPath.maxPayloadBytes
+		name       string
+		extraEnv   map[string]string
+		extraArgs  []string
+		wantOrigin string // provenance origin for runtime.hotPath.maxPayloadBytes
 	}{
-		{name: "project_file_wins_over_user_file", wantTruncated: true, wantOrigin: "project"},
+		{name: "project_file_wins_over_user_file", wantOrigin: "project"},
 		{
 			name:       "env_beats_both_files",
 			extraEnv:   map[string]string{"QOMPACK_RUNTIME__HOTPATH__MAXPAYLOADBYTES": "16384"},
@@ -223,56 +253,83 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 				env[k] = v
 			}
 
-			argv := append([]string{"observe", "tool"}, tc.extraArgs...)
-			stdout, stderr, code := Run(t, bin, argv, v1PayloadOfSize(t, p.Root, payloadBytes), env)
-
-			require.Equal(t, 0, code, "stderr:\n%s", stderr)
-			require.Equal(t, "{}\n", string(stdout))
-
-			lines := v1HookLogLines(t, p.Root)
-			require.Len(t, lines, 1)
-			require.Equal(t, tc.wantTruncated, v1Truncated(t, lines[0]),
-				"effective limit must decide whether a %d-byte payload is over budget", payloadBytes)
-
-			// §12: an over-budget payload is never silent.
-			warned := strings.Contains(v1DayLog(t, p.Root), "hook payload exceeds the configured limit")
-			require.Equal(t, tc.wantTruncated, warned,
-				"a truncation must be logged at warn level, and a non-truncation must not be")
-
-			// The same layer that decided the behaviour must be the one provenance names.
 			out, perr, pcode := Run(t, bin, append([]string{"config", "print", "--provenance"}, tc.extraArgs...), nil, env)
 			require.Equal(t, 0, pcode, "stderr:\n%s", perr)
 			require.Contains(t, v1ProvenanceLine(t, string(out), "maxPayloadBytes"), tc.wantOrigin)
 		})
 	}
 
-	// Fourth sub-case: the bootstrap read. §2.3's ordering problem is that the payload size limit
-	// is a config key, config lives under the project root, and the project root comes out of the
-	// payload that has not been read yet. cli breaks the cycle by reading stdin under the DEFAULT
-	// limit first. A 2 MiB payload must therefore be clamped at 1 MiB and reported — never crash,
-	// never hang, never exit non-zero.
-	t.Run("bootstrap_limit_applies_before_any_config_file", func(t *testing.T) {
-		p := v1LimitProject(t, projectLimit, userLimit)
-		bootstrap := config.Defaults().Runtime.HotPath.MaxPayloadBytes
-		huge := 2 << 20
+	// A bare hook invocation against a project no daemon has ever touched must read under
+	// config.Defaults() alone, never the project's own maxPayloadBytes: this is the new hot-path
+	// invariant task-6-spec.md's skeleton mandates (hookclient.go: "ipc.ReadState(root,
+	// config.Defaults()) — one 32-byte read, never config.Load"), proven end to end through the
+	// real binary. Fix round 1, Important I-5 replaced a tautological, racy sub-test here (it
+	// asserted run/state.bin's absence — which does not establish where the read-limit decision
+	// came from, and races the very lazy-spawn the same hook triggers on its own connect failure)
+	// with two payloads sized relative to the DEFAULT limit's own *4 read margin
+	// (hookio.ReadEvent(stdin, int64(st.MaxPayloadBytes)*4)): if the project's own, much smaller
+	// projectLimit (8192) were still being consulted, BOTH payloads below — sized around
+	// ~4 MiB — would fail to parse identically, so the "just under" case passing is what actually
+	// distinguishes "reads the default" from "reads the project config", not merely "exits 0".
+	readLimitBoundary := config.Defaults().Runtime.HotPath.MaxPayloadBytes * 4
 
-		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, v1PayloadOfSize(t, p.Root, huge), v1BaseEnv(p))
+	t.Run("bare_hook_spools_a_payload_just_under_the_default_read_limit", func(t *testing.T) {
+		p := v1LimitProject(t, projectLimit, userLimit)
+		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary-256)
+
+		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, payload, v1BaseEnv(p))
 		require.Equal(t, 0, code, "stderr:\n%s", stderr)
 		require.Equal(t, "{}\n", string(stdout))
 
-		lines := v1HookLogLines(t, p.Root)
-		require.Len(t, lines, 1)
-
-		var rec struct {
-			Bytes     int  `json:"bytes"`
-			Truncated bool `json:"truncated"`
-		}
-		require.NoError(t, json.Unmarshal([]byte(lines[0]), &rec))
-		require.True(t, rec.Truncated, "a payload over the bootstrap limit is truncated")
-		require.Equal(t, bootstrap, rec.Bytes,
-			"stdin is read under the DEFAULT %d-byte limit, not the configured one", bootstrap)
-		require.Less(t, rec.Bytes, huge, "the recorded size must be the clamp, not the payload")
+		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
+		require.NoError(t, err)
+		require.Len(t, files, 1,
+			"a payload just under the DEFAULT read limit must parse and reach the spool step (no daemon reachable)")
+		require.Equal(t, 1, v1CountSpoolLines(t, files[0]), "exactly one request must have been spooled")
 	})
+
+	t.Run("bare_hook_rejects_a_payload_just_over_the_default_read_limit", func(t *testing.T) {
+		p := v1LimitProject(t, projectLimit, userLimit)
+		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary+256)
+
+		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, payload, v1BaseEnv(p))
+		require.Equal(t, 0, code, "stderr:\n%s", stderr)
+		require.Equal(t, "{}\n", string(stdout))
+
+		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
+		require.NoError(t, err)
+		require.Empty(t, files,
+			"a payload over the DEFAULT read limit must never reach the spool step at all")
+	})
+
+	// Restores the original bootstrap-clamp property in its new shape (fix round 1, Important
+	// I-5): a payload far larger than any real limit in play must still never crash, never hang,
+	// and always exit 0 — the same "clamp before doing anything expensive" guarantee the deleted
+	// 2 MiB sub-test pinned, recalibrated to the new, larger effective boundary (~4 MiB, not
+	// ~1 MiB: the *4 read margin above did not exist in the wave-0 body this test originally
+	// targeted).
+	t.Run("bare_hook_never_hangs_or_crashes_on_a_grossly_oversized_payload", func(t *testing.T) {
+		p := v1LimitProject(t, projectLimit, userLimit)
+		huge := v1PayloadOfSize(t, p.Root, readLimitBoundary*2)
+
+		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, huge, v1BaseEnv(p))
+		require.Equal(t, 0, code, "stderr:\n%s", stderr)
+		require.Equal(t, "{}\n", string(stdout))
+	})
+}
+
+// v1CountSpoolLines counts non-empty NDJSON lines in the spool file at p.
+func v1CountSpoolLines(t *testing.T, p string) int {
+	t.Helper()
+	b, err := os.ReadFile(p)
+	require.NoError(t, err)
+	n := 0
+	for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
+		if strings.TrimSpace(line) != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // hooksManifest is the shape of plugin/hooks/hooks.json this test reads. It is declared here rather
@@ -327,6 +384,11 @@ func TestV1_PluginManifestCommandsExecuteAgainstRealBinary(t *testing.T) {
 
 	registered := v1RegisteredSubcommands(t, bin)
 	p := testutil.NewProject(t)
+	// SessionStart, among the seven manifest events below, brings up a real detached daemon whose
+	// self-spawn path is the STAGED binary — Windows refuses to delete a running process's own
+	// executable, which would otherwise make this test's own t.TempDir() cleanup of pluginRoot
+	// fail with "Access is denied". Shut it down first.
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
 
 	for event, entries := range m.Hooks {
 		t.Run(event, func(t *testing.T) {
@@ -414,6 +476,10 @@ func v1ReadFixture(t *testing.T, name string) []byte {
 func v1LimitProject(t *testing.T, project, user int) *testutil.Project {
 	t.Helper()
 	p := testutil.NewProject(t, testutil.WithConfig(v1LimitJSON(project)))
+	// A bare `observe tool` call lazily spawns a detached daemon (fire-and-forget — it never
+	// waits for it); shutting it down before this project's own t.TempDir() cleanup runs avoids
+	// racing a still-starting-up daemon against directory removal.
+	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
 
 	globalDir := paths.Global(p.Home())
 	require.NoError(t, os.MkdirAll(globalDir, 0o755))
@@ -460,50 +526,6 @@ func v1PayloadOfSize(t *testing.T, cwd string, n int) []byte {
 	out := build(n - base)
 	require.Len(t, out, n)
 	return out
-}
-
-// v1HookLogLines returns every observation line in the project, in file order.
-func v1HookLogLines(t *testing.T, root string) []string {
-	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "hooks-*.jsonl"))
-	require.NoError(t, err)
-
-	var lines []string
-	for _, m := range matches {
-		b, readErr := os.ReadFile(m)
-		require.NoError(t, readErr)
-		for _, line := range strings.Split(strings.TrimRight(string(b), "\n"), "\n") {
-			if strings.TrimSpace(line) != "" {
-				lines = append(lines, line)
-			}
-		}
-	}
-	return lines
-}
-
-// v1DayLog returns the concatenated contents of every rotating day log in the project.
-func v1DayLog(t *testing.T, root string) string {
-	t.Helper()
-	matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
-	require.NoError(t, err)
-
-	var sb strings.Builder
-	for _, m := range matches {
-		b, readErr := os.ReadFile(m)
-		require.NoError(t, readErr)
-		sb.Write(b)
-	}
-	return sb.String()
-}
-
-// v1Truncated reports one observation line's truncated flag.
-func v1Truncated(t *testing.T, line string) bool {
-	t.Helper()
-	var rec struct {
-		Truncated bool `json:"truncated"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(line), &rec), "line: %s", line)
-	return rec.Truncated
 }
 
 // v1ProvenanceLine returns the single `config print --provenance` line mentioning key.
