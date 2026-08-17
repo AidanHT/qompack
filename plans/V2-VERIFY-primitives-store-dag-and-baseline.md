@@ -25,7 +25,7 @@
 
 | § | Written by | Why it changes what you do |
 |---|---|---|
-| **2.0** + **2.0a** | this checkpoint | twenty `V2-MERGE-*` rows and the ten-file collision map. Most of these gates fail **silently** |
+| **2.0** + **2.0a** | this checkpoint | twenty-one `V2-MERGE-*` rows and the ten-file collision map. Most of these gates fail **silently** |
 | **2.3a** | SP-03 | the MinHash sampler was rewritten; the coverage gate is dead; `benchstat` is never invoked |
 | **2.2a** | SP-02 | two §2.2 rows **exit 0 having run nothing**; one deletes working code if followed |
 | **2.5a** | SP-05 | its 30 rulings are **git-ignored**; POSIX code has never executed anywhere |
@@ -128,7 +128,7 @@ Most of the rows below fail **silently**. They do not turn a CI job red; they tu
 
 Run this table on `verify/v2` immediately after cutting it, **before** dispatching V-A…V-G and **before** §5. Three rows (V2-MERGE-03, V2-MERGE-06, V2-MERGE-10) read state that §5 and §7 overwrite; once those sections have run, the evidence is gone and the row can no longer be answered.
 
-Rows **V2-MERGE-14 … V2-MERGE-20** were added after the six branches were read side by side, and each names a state that already holds in the trees as they stand — see **Cross-branch collision inventory** below for the evidence. They are not hypotheses about what a merge might do. **Run V2-MERGE-20 before all of them**: it is the only row whose evidence lives outside git, so it is the only one the ordinary act of cutting a branch can destroy.
+Rows **V2-MERGE-14 … V2-MERGE-21** were added after the six branches were read side by side, and each names a state that already holds in the trees as they stand — see **Cross-branch collision inventory** below for the evidence. They are not hypotheses about what a merge might do. **Run V2-MERGE-20 before all of them**: it is the only row whose evidence lives outside git, so it is the only one the ordinary act of cutting a branch can destroy.
 
 | ID | Gate | Command | Expected result |
 |---|---|---|---|
@@ -152,6 +152,7 @@ Rows **V2-MERGE-14 … V2-MERGE-20** were added after the six branches were read
 | V2-MERGE-18 | **`testdata/golden/contracts/**` contains files no MANIFEST declares.** V2-MERGE-06 checks MANIFEST → bytes. This is the other direction, and it already fails: SP-02 added `testdata/golden/contracts/store/stats-growth.json` and `testdata/golden/contracts/negknow/health.json` — directories owned by SP-06 and SP-09 — and neither file appears in its package's `MANIFEST.json`. Both are real fixtures, read by `internal/eval/growth_test.go` and `test/replay/growth.go`, and neither is on SP-02's own out-of-scope list | For every `testdata/golden/contracts/<pkg>/`, list the files on disk and subtract the paths its `MANIFEST.json` declares (`input` + `want`, plus `MANIFEST.json` itself) | Empty difference for every package, **or** each surplus file explicitly declared. Decide one of: declare them in the owning MANIFEST, or move them to a path SP-02 owns (`testdata/golden/eval/growth/…`) and update the two readers. Leaving them is the worst option — SP-09 records `three_way_answer` into `negknow/` in wave 3 and SP-06's `gen-contract-fixtures` regenerates `store/`, and an undeclared neighbour in either directory is the kind of thing an `-update` run deletes without comment |
 | V2-MERGE-19 | **`plans/CARRIED-DEFECTS.tsv` records one subplan's carried defects, not the wave's.** Six rows exist and all six are SP-04's. SP-02, SP-03, SP-05, SP-06 and SP-07 each shipped carried items of the same kind, recorded only in prose in this file and in the two handoff documents — so `TestCarriedDefects_WaveReportRequiresResolution`, the gate that refuses to let `plans/V2-report.md` be written over an open row, **cannot see any of them** | `go test ./test/guards/ -run TestCarriedDefects -v` ; `awk -F'\t' '!/^#/ && NF==6 {print $2}' plans/CARRIED-DEFECTS.tsv \| sort \| uniq -c` | Either every wave-1 carried item has a row, or the decision not to add them is recorded in the completion report by name. Note the mechanical obstacle before choosing: `test/guards/carrieddefects_test.go` hardcodes `carriedDefectsDoc = "plans/V2-SP-04-carried-defects.md"` and requires a `## <id>` section **in that one file**, so an `SP06-D1` row needs either a section in a document titled for SP-04 or a per-subplan doc lookup in the guard. Fix the guard, or say plainly that the wave's other carried items are governed by prose alone |
 | V2-MERGE-20 | **Untracked decision records are captured before `verify/v2` is cut — and one wave-1 subplan has 30 of them.** SP-05's rulings ledger, seven per-task reviews and seven review diffs live in `.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/`, ignored by a one-line `*` in **`.superpowers/sdd/.gitignore` — a file inside the ignored tree**, so `grep -i superpowers .gitignore` at the repo root finds nothing and `git status` is clean. Nothing in the merge carries it, and `git clean -fdx` destroys it | `git check-ignore -v .superpowers/sdd/*/` ; for each worktree in `git worktree list`, `ls .superpowers/sdd/` | Every subplan's decision record is either committed somewhere under `plans/` or `docs/`, or copied out before this checkpoint runs. **Verified at authoring time: only `qompack-sp05` holds one** (`qompack` and `qompack-sp03` have an empty `.superpowers/sdd/`; sp02, sp06 and sp07 have none) — but SP-05's is exactly the one whose subplan wrote no tracked handoff, so the wave's least-documented group is also the only one whose documentation is one `git clean` from gone. **Do this first**; it is the only row here whose evidence lives outside git entirely. See §2.5a A |
+| V2-MERGE-21 | **The plan set states two different wave-1 merge orders, and one of them is this file.** `plans/README.md` line 42 ("How to run a wave", step 3) prescribes **SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02**; §8's completion-report line in this document asserted **SP-02 → SP-03 → SP-04 → SP-05 → SP-06 → SP-07**. `plans/00-ARCHITECTURE.md` ("Branching") requires the wave's branches to merge "**in the stated order** (§ merge strategy in the subplan decomposition)" and its closing note delegates "the per-wave merge order" to that decomposition — which in this repository is `plans/README.md`, the only file that states an order as an instruction rather than as a confirmation. A checkpoint that confirms the order against its own drifted copy confirms nothing | `grep -n 'Wave 1: SP-' plans/README.md` ; `grep -n 'Wave-1 merge order' plans/V2-VERIFY-primitives-store-dag-and-baseline.md` ; `git log --first-parent --oneline develop` | Both statements read **SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02**, and `develop`'s first-parent history shows the six `--no-ff` merges in exactly that sequence. **Adjudicated at merge time in favour of `plans/README.md`** and this document's §8 line was corrected to match; the merges were executed in the README order. Two independent constraints agree with it and neither agrees with the numeric one: `V2-SP-06-content-addressed-store.md` line 1225 requires SP-06 to land *after* SP-03 and SP-04, and SP-02 is the one branch that writes fixtures into two other subplans' contract directories (V2-MERGE-18), so it belongs last. Also confirm the companion rule from the same paragraph: **conflicts were resolved on the incoming branch and re-merged, never hand-edited into the merge commit** — each `feat/sp*` tip therefore carries a `Merge branch 'develop' into …` commit, and every merge into `develop` is conflict-free by construction |
 
 **Known defects at authoring time.** These were verified against `develop` and against all six wave-1 branch tips (`git grep 'func Fuzz' <branch>` per branch, reconciled on the `(pkg, fn)` pair). They are listed so this checkpoint **fixes** them rather than spending a subagent rediscovering them. All of them are V2-MERGE-01 / V2-MERGE-02 failures:
 
@@ -183,7 +184,7 @@ Three orphan matrix rows, fifteen unregistered targets, and two of the three orp
 
 The fix belongs here and nowhere else. `test/guards/nightlyfuzz_test.go` says so in its own doc comment: *"What this still cannot catch is a subplan landing its package without writing the target the matrix claims: that belongs to the subplan's own definition of done and **to the wave checkpoint, which re-runs this inventory**."* Repair `nightly.yml`, update the `require.Len(t, matches, 8)` arity to whatever the repaired matrix declares, and record the before/after matrix in the completion report.
 
-#### 2.0a Cross-branch collision inventory — the evidence behind V2-MERGE-10 and V2-MERGE-14 … 20
+#### 2.0a Cross-branch collision inventory — the evidence behind V2-MERGE-10 and V2-MERGE-14 … 21
 
 Computed by diffing every wave-1 branch against `develop` and intersecting the path lists. **Ten files are touched by more than one branch.** This is the complete set; a file not on it was touched by at most one branch and cannot collide.
 
@@ -213,7 +214,7 @@ grep -c  '^#### 2.5a'   "$F"   # SP-05's half                            → mus
 grep -c  '^#### 2.6a'   "$F"   # SP-06's half                            → must be 1
 grep -c  '^#### 2.7a'   "$F"   # SP-07's half                            → must be 1
 grep -c  '^## 0. Map'   "$F"   # the document map                        → must be 1
-grep -cE 'V2-MERGE-(1[4-9]|20)' "$F"  # the seven post-review merge rows → must be > 0
+grep -cE 'V2-MERGE-(1[4-9]|2[01])' "$F"  # the eight post-review merge rows → must be > 0
 grep -c  '^> \*\*Recommended model' "$F"   # SP-04's header, 2nd witness → must be 1
 test "$(grep -c '^````' "$F")" -eq 2 && echo "report fence ok"   # must print
 ```
@@ -1247,6 +1248,7 @@ This checkpoint arrives with a **known inventory of work**, not just whatever §
 1. **V2-MERGE-20** — secure SP-05's untracked ledger. Do this before `verify/v2` is even cut.
 2. **V2-MERGE-03, -06, -10** — record the bench-baseline inventory, the MANIFEST reconciliation and the per-branch allowlist audit. §5 and §7 overwrite all three.
 3. **V2-MERGE-14** — merge the two `tools/devtool/cover.go` rewrites and set `landedSubplans` to SP-01…SP-07. **Every coverage row in the document is vacuous until this lands** (§2.7a A ②), so doing it first turns eleven dead rows into live ones before any agent measures against them.
+   *The wave-1 merge performed this incrementally — each subplan added itself to `landedSubplans` in its own merge, so the set should already read SP-01…SP-07 when you arrive. Confirm it rather than assume it: run `go run ./tools/devtool cover` and require that **no** `exempt (stub, owned by SP-0[2-7])` line appears. If one does, the merge dropped a half and this step is still live work.*
 
 **Then fan out.** Each package below owns its files exclusively for the duration:
 
@@ -1324,7 +1326,8 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 
 - Branch: verify/v2 (cut from develop @ <sha>)
 - develop head at start: <sha>   | verify/v2 head at end: <sha>
-- Wave-1 merge order confirmed: SP-02 → SP-03 → SP-04 → SP-05 → SP-06 → SP-07  [ ]
+- Wave-1 merge order confirmed (`plans/README.md` step 3): SP-05 → SP-03 → SP-04 → SP-06 → SP-07 → SP-02  [ ]
+- Conflicts resolved on the incoming branch, never in the merge commit (00-ARCHITECTURE "Branching")  [ ]
 - Full checkpoint passes required: <n>
 - Fix commits on verify/v2: <n>   (list below)
 - Platforms measured: ubuntu-latest / macos-latest / windows-11-dev
@@ -1353,6 +1356,7 @@ Fill this in and paste it as the checkpoint's output. Every row gets a verdict. 
 | V2-MERGE-18 | No undeclared files under `testdata/golden/contracts/**` | | surplus files: <list>; disposition chosen: declare / relocate |
 | V2-MERGE-19 | `CARRIED-DEFECTS.tsv` covers the wave, or the decision not to is recorded | | rows by `opened_by`: <counts> |
 | V2-MERGE-20 | **(run first)** SP-05's untracked rulings ledger secured before `verify/v2` was cut | | where it was copied to: <path>; other untracked records found: <list> |
+| V2-MERGE-21 | `plans/README.md` and this file agree on the wave-1 merge order, and `develop` matches it | | first-parent order observed: <list>; incoming-branch resolution commits present: <n>/6 |
 
 **Coverage floors — before / after.** V2-MERGE-13 starts red by construction. Record each of the eleven wave-1 packages' measured coverage against its `plans/OWNERS.tsv` floor — `eval` 85, `sketch` 90, `chunk` 90, `canon` 90, `symbols` 75, `ipc` 75, `daemon` 75, `contract` 75, `store` 90, `redact` 75, `dag` 85 — and what `cover.go` was changed to. A green `devtool cover` that still prints `exempt (stub, …)` for any of them is the defect, not the fix. Record separately whether `redact` and `tokens` were raised to 90 in OWNERS.tsv or V2-SP06-27 was restated at 75 (their declared floors are 75 while §2.6 claims 90).
 
@@ -1709,7 +1713,7 @@ carried items are governed by prose alone. Both are decisions; neither is reacha
 ## 14. Gate
 - [ ] Every row above is PASS (or a documented N/A this file authorises)
 - [ ] **V2-MERGE-20 was run *before* `verify/v2` was cut**: SP-05's untracked rulings ledger (`.superpowers/sdd/V2-SP-05-daemon-ipc-and-hot-path/`) is copied somewhere that survives `git clean -fdx`, and the destination is named in the report
-- [ ] **§0 is filled in, all twenty `V2-MERGE-*` rows** — including the collision-resolution log and the inbound-items disposition
+- [ ] **§0 is filled in, all twenty-one `V2-MERGE-*` rows** — including the collision-resolution log and the inbound-items disposition
 - [ ] **No `--ours` / `--theirs` / `-X ours` / `-X theirs` was used to resolve any of the ten files in §2.0a**, and each of the ten is confirmed to carry every branch's half
 - [ ] `go run ./tools/devtool cover` prints `OK <pkg>: NN.N% >= floor NN%` for all eleven wave-1 packages and `exempt (stub, …)` for none of them
 - [ ] `nightly.yml`'s fuzz matrix has zero orphans in both directions, and `require.Len` matches the repaired arity
