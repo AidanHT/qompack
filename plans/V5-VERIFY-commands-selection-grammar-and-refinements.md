@@ -1,5 +1,9 @@
 # V5 — Verification checkpoint: commands, selection, grammar, and Phase-7 refinements
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> The smallest checkpoint (1.2k lines), over subsystems that are frontends or refinements rather than new substrate.
+
 **When this runs.** Immediately after every wave-4 branch has merged into `develop`, in the merge
 order fixed by `00-ARCHITECTURE.md` §9 (`--no-ff`, conflicts resolved on the *incoming* branch and
 re-merged, never with a hand-edited merge commit):

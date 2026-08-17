@@ -3,6 +3,8 @@
   "owner": "SP-05",
   "fixtures": [
     { "name": "result_set", "kind": "format", "state": "frozen", "input": "", "want": "want/result_set.json", "note": "the nine §5.19 assertions as RunAll reports them on a build where every producer is absent: OK/SevInfo, mode full" },
-    { "name": "not_yet_implemented_is_info", "kind": "behaviour", "state": "record-by-owner", "input": "", "want": "", "note": "an assertion whose producer is absent reports OK:true SevInfo (§12.1)" }
+    { "name": "not_yet_implemented_is_info", "kind": "behaviour", "state": "record-by-owner", "input": "", "want": "", "note": "an assertion whose producer is absent reports OK:true SevInfo (§12.1)" },
+    { "name": "history_degraded", "kind": "format", "state": "frozen", "input": "", "want": "want/history_degraded.json", "note": "a degraded SessionHistory (state/history.json shape): two misses on session_start.fires, two unspent sentinel chances, a persisted degrade reason" },
+    { "name": "transcript_with_sentinel", "kind": "format", "state": "frozen", "input": "input/transcript_with_sentinel.jsonl", "want": "", "note": "a transcript whose tail contains the rendered sentinel for token qompack-contract-060882683f62 (MintSentinel(\"sess-fixture-01\", 1767225500000)); TestSentinelRoundTrip scans it" }
   ]
 }

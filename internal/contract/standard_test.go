@@ -81,9 +81,10 @@ func TestStandardAssertions_EveryCheckReportsNotYetImplemented(t *testing.T) {
 
 // TestStandardAssertions_DeclaredSeveritiesAreNotFlattened is the other half of the previous test,
 // and the reason both exist: the DECLARED severities must survive on the Assertion even though
-// every Result currently reports SevInfo. If a future edit "simplified" notYetImplemented by
-// declaring SevInfo too, the not-yet-implemented rule would still hold and this repository would
-// have quietly lost the record of which contracts actually matter.
+// every Result currently reports SevInfo (because no producer is declared in this test binary — see
+// gated in assertions.go). If a future edit "simplified" gated by declaring SevInfo too, the
+// not-yet-implemented rule would still hold and this repository would have quietly lost the record
+// of which contracts actually matter.
 func TestStandardAssertions_DeclaredSeveritiesAreNotFlattened(t *testing.T) {
 	var critical, warn, info int
 	for _, a := range contract.StandardAssertions() {

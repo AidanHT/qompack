@@ -409,3 +409,75 @@ BenchmarkRebuildBloom5000-22    	    1327	    892535 ns/op	   12400 B/op	       
 BenchmarkRebuildBloom5000-22    	    1326	    946050 ns/op	   12400 B/op	       4 allocs/op
 BenchmarkRebuildBloom5000-22    	    1470	    872306 ns/op	   12400 B/op	       4 allocs/op
 BenchmarkRebuildBloom5000-22    	    1370	    840517 ns/op	   12400 B/op	       4 allocs/op
+
+# --- SP-05 additions (V2, task 7 — hot-path bench harness, three-platform bench gate) -----------
+#
+# Recorded with the same command as above:
+#
+#     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
+#
+# on the same Windows 11 / Intel Core Ultra 7 155H / NTFS host. Each is tied to a named budget
+# (task-7-spec.md's "Benchmarks tied to a named budget" table):
+#
+#     BenchmarkReadState         < 100 us/op (hot-path prelude)      MET   ~52-60 us/op
+#     BenchmarkEncodeRequest     < 5 us/op (4 KB payload)            MET   ~1.1-1.5 us/op
+#     BenchmarkIngestAccept      B-B (l0_ingest, p99 < 2ms)          MET   ~3.3-3.7 us/op
+#     BenchmarkServerRoundTrip   daemon-side B-A portion, p99 < 2ms  MET   ~42-63 us/op
+#
+# BenchmarkReadState is filesystem-bound (one os.ReadFile of a 32-byte record) rather than
+# algorithmic, same caveat this file's own header gives BenchmarkPathsWriteAtomic_4KB above: this
+# host's per-syscall latency is high, and Linux CI runners will likely report a lower number. It
+# is still comfortably under its own 100us budget here.
+#
+# BenchmarkServerRoundTrip drives a real listener (named pipe on this host) end to end per
+# iteration — connect, write, ACK, close — so it is the closest in-repo proxy for B-A's own
+# daemon-side portion (excluding process spawn, which only a real-process harness can measure; see
+# test/bench/hotpath and task-7-report.md for that measurement).
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/ipc
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkReadState-22        	   21087	     60002 ns/op	    4478 B/op	      35 allocs/op
+BenchmarkReadState-22        	   20068	     55477 ns/op	    3997 B/op	      32 allocs/op
+BenchmarkReadState-22        	   22635	     54665 ns/op	    4478 B/op	      35 allocs/op
+BenchmarkReadState-22        	   19105	     55696 ns/op	    4478 B/op	      35 allocs/op
+BenchmarkReadState-22        	   20754	     56305 ns/op	    3997 B/op	      32 allocs/op
+BenchmarkReadState-22        	   22284	     57596 ns/op	    4478 B/op	      35 allocs/op
+BenchmarkReadState-22        	   22369	     54062 ns/op	    4478 B/op	      35 allocs/op
+BenchmarkReadState-22        	   21859	     56388 ns/op	    4478 B/op	      35 allocs/op
+BenchmarkReadState-22        	   20185	     52882 ns/op	    3997 B/op	      32 allocs/op
+BenchmarkReadState-22        	   20136	     53201 ns/op	    3997 B/op	      32 allocs/op
+BenchmarkEncodeRequest-22    	 1004616	      1187 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1328 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	  924220	      1237 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1197 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1173 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1194 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1189 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1201 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	 1000000	      1136 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22    	  972958	      1536 ns/op	     405 B/op	       3 allocs/op
+BenchmarkServerRoundTrip-22    	   31206	     47201 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   25767	     46084 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   29274	     47463 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   25815	     42527 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   26826	     50188 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   28106	     49838 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   20084	     53011 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   21657	     61424 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   20344	     57301 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   23620	     62814 ns/op	    1136 B/op	      20 allocs/op
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkIngestAccept-22    	  298790	      3505 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  364821	      3429 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  326236	      3257 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  383278	      3656 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  322202	      3389 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  348835	      3528 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  366517	      3532 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  302526	      3653 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  346728	      3333 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  309596	      3464 ns/op	      80 B/op	       2 allocs/op

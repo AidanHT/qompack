@@ -1,5 +1,9 @@
 # SP-11: L5 rehydrator: SessionStart compact branching, the eight-item importance-ordered injection, instruction restoration, skill index, drop report, and the 8-12K budget
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> The eight-item ordering, `**`-aware glob matching, frontmatter scanning and the 8–12K budget fill are fiddly but entirely decided in the plan — including the rendered output verbatim. Execution fidelity, not invention.
+
 **Branch:** `feat/sp11-rehydrator-l5` (cut from `develop`) | **Wave:** 3 | **Prerequisites:** the branches of `["SP-01","SP-06","SP-07","SP-09"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 3 (SP-10 checkpointer, SP-12 scheduler, SP-13 MCP retrieval) | **Design sections:** §7.2 L5, §7.3 (SessionStart source=compact), §8.6, §8.7 design note (standing instruction), §10 Phase 3 (exit criterion), §12 (rehydration budget cap) | **Gaps closed:** G3.3, G4.1, G4.2, G4.4, G4.5, G7.3, G7.5
 
 ---

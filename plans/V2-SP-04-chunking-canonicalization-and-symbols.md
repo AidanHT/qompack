@@ -1,5 +1,9 @@
 # SP-04: FastCDC chunker, the per-tool canonicalizer registry with MinHash near-dedup (O2), and the shared symbol extractor
 
+> **Recommended model: Opus 5 · xhigh effort**
+>
+> FastCDC and the canonicalizer registry are written out in the plan; the only real trap is the byte-exact `Restore` inverse and single-pass match composition, which `xhigh` handles. Pure libraries, no concurrency, no I/O.
+
 **Branch:** feat/sp04-chunking-canonicalization-and-symbols (cut from develop) | **Wave:** 1 | **Prerequisites:** SP-01 (its branch already merged into develop) | **Runs in parallel with:** sibling subplans of wave 1 (SP-02, SP-03, SP-05, SP-06, SP-07) | **Design sections:** §6.1, §8.1 item 1, §8.7 (minimal-span symbol resolution), §10 Phase 1 (chunker + canonicalizers), Appendix C store.chunk / store.canonicalize | **Gaps closed:** none assigned directly — SP-04 is a pure-library slice; the §6.1 gaps G3.1, G3.2 and G2.1 are closed on top of it by SP-06 (store) and SP-08 (observer), and G10.2's exact chunk-level accounting is sized from `chunk.Chunk` by SP-06.
 
 ---
