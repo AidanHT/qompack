@@ -1,0 +1,224 @@
+# Fix-round-2 delta: 35a1901b -> 29585ce1
+
+ internal/contract/assertions.go      | 12 +++++---
+ internal/contract/assertions_test.go | 59 ++++++++++++++++++++++++++++++++++--
+ internal/contract/history.go         | 18 +++++++++++
+ 3 files changed, 81 insertions(+), 8 deletions(-)
+
+diff --git a/internal/contract/assertions.go b/internal/contract/assertions.go
+index 28f7e36..74efc7c 100644
+--- a/internal/contract/assertions.go
++++ b/internal/contract/assertions.go
+@@ -3,20 +3,21 @@ package contract
+ import (
+ 	"context"
+ 	"encoding/json"
+ 	"errors"
+ 	"os"
+ 	"path/filepath"
+ 	"reflect"
+ 	"sort"
+ 	"strconv"
+ 	"strings"
++	"unicode/utf8"
+ 
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // now reads e.Clock, substituting the system clock when it is nil. RunAll always fills in
+ // e.Clock before invoking any Check (monitor.go), but an assertion's Check may also be called
+ // directly — by a test, or by self-test synthesizing an Env from persisted History
+ // (task-4-spec.md's nil-tolerance note) — so every Check in this file reads the clock through here
+@@ -359,27 +360,28 @@ func checkPluginRootResolves(ctx context.Context, e Env) Result {
+ 
+ // firstLine returns s up to its first newline, or the whole of s if it contains none.
+ func firstLine(s string) string {
+ 	if i := strings.IndexByte(s, '\n'); i >= 0 {
+ 		return s[:i]
+ 	}
+ 	return s
+ }
+ 
+ // probePhrase selects instr's probe phrase for precompact.custom_instructions_accepted: its first
+-// line, but only when that line is at least customInstrMinPhraseChars long (task-4-spec.md: "first
+-// line of >= 24 characters"). ok is false when no qualifying phrase exists — a short or empty first
+-// line — so the caller can report "no probe possible" instead of scanning for a phrase too generic
+-// (or empty) to mean anything.
++// line, but only when that line is at least customInstrMinPhraseChars RUNES long (task-4-spec.md:
++// "first line of >= 24 characters" — a character count, matching SetPrecompactInstr's own 256-char
++// cap, which is likewise measured in runes, not bytes). ok is false when no qualifying phrase
++// exists — a short or empty first line — so the caller can report "no probe possible" instead of
++// scanning for a phrase too generic (or empty) to mean anything.
+ func probePhrase(instr string) (phrase string, ok bool) {
+ 	line := firstLine(instr)
+-	if len(line) < customInstrMinPhraseChars {
++	if utf8.RuneCountInString(line) < customInstrMinPhraseChars {
+ 		return "", false
+ 	}
+ 	return line, true
+ }
+ 
+ // lastNonEmptyLine returns the last non-blank line within the final transcriptReadableTailBytes of
+ // path.
+ func lastNonEmptyLine(path string) (string, error) {
+ 	b, err := readTail(path, transcriptReadableTailBytes)
+ 	if err != nil {
+diff --git a/internal/contract/assertions_test.go b/internal/contract/assertions_test.go
+index a1ddc28..5a4c716 100644
+--- a/internal/contract/assertions_test.go
++++ b/internal/contract/assertions_test.go
+@@ -338,24 +338,29 @@ func TestSessionStartFires_ConsecutiveAbsenceIsPerSession(t *testing.T) {
+ 	require.Equal(t, 1, h.StartsWithoutMarker)
+ 
+ 	// Marker present (left by session "a"'s terminal hook), session "b" observes it: resets to 0.
+ 	require.NoError(t, contract.WriteMarker(root, "sess-a", 1))
+ 	_, mode = m.RunAll(context.Background(), contract.Env{
+ 		Clock: newFakeClock(), ProjectRoot: root, History: h, Event: hookio.Event{SessionID: "sess-b"},
+ 	})
+ 	require.Equal(t, contract.ModeFull, mode)
+ 	require.Equal(t, 0, h.StartsWithoutMarker)
+ 
+-	// Miss again: session "c", the stale marker from "a" still names a different (but now stale)
+-	// session, so this is read as absent again.
++	// Miss again: session "c", genuinely distinct from "a" and "b" — no coincidental id reuse, so
++	// this run's "absent" reading cannot be attributed to the marker HAPPENING to name the current
++	// session rather than to no marker existing at all. The marker file itself is removed first:
++	// under checkSessionStartFires's own rule ("marker exists AND names a session DIFFERENT from
++	// the current one -> OK"), a marker naming any id other than "c" would itself read as
++	// marker-found here, which is not the scenario this test is pinning.
++	require.NoError(t, os.Remove(contract.MarkerPath(root)))
+ 	_, mode = m.RunAll(context.Background(), contract.Env{
+-		Clock: newFakeClock(), ProjectRoot: root, History: h, Event: hookio.Event{SessionID: "sess-a"},
++		Clock: newFakeClock(), ProjectRoot: root, History: h, Event: hookio.Event{SessionID: "sess-c"},
+ 	})
+ 	require.Equal(t, contract.ModeFull, mode, "one fresh miss must not degrade")
+ 	require.Equal(t, 1, h.StartsWithoutMarker, "the streak must be 1, not 2 — the marker-present run reset it")
+ }
+ 
+ // TestSessionStartFires_EmptyProjectRootIsNoObservation (Important I2) asserts a half-filled Env —
+ // exactly what a self-test synthesizing an Env from persisted History might hand this Check — is
+ // read as "no observation yet", never as a failure, and mutates nothing: task-4-spec.md's nil
+ // tolerance paragraph is explicit that an omitted field must never fail, and must certainly never
+ // leave a persistent side effect behind.
+@@ -367,20 +372,68 @@ func TestSessionStartFires_EmptyProjectRootIsNoObservation(t *testing.T) {
+ 	r := assertionByID(t, contract.CSessionStartFires).Check(context.Background(), contract.Env{
+ 		Clock: newFakeClock(), History: h, Event: hookio.Event{SessionID: "sess-a"},
+ 	})
+ 
+ 	require.True(t, r.OK)
+ 	require.Equal(t, "no observation yet", r.Observed)
+ 	require.Zero(t, h.StartsWithoutMarker, "an empty ProjectRoot must mutate nothing")
+ 	require.Empty(t, h.LastSessionID)
+ }
+ 
++// TestSessionStartFires_DaemonPreWriteOfLastSessionIDDoesNotWedgeFutureCounting is fix round 2's
++// NEW-1 regression test. LastSessionID (history.go) is now documented as OWNED exclusively by
++// checkSessionStartFires — the daemon must never write it, and in particular must never pre-set it
++// to the INCOMING session's own id before RunAll. This test simulates that exact ownership
++// violation and proves two things: (1) the violation does suppress THIS session's miss — the check
++// cannot distinguish "already counted this session" from "a caller wrote this field behind my
++// back", which is precisely why the field is documented as off-limits — and (2) the violation does
++// NOT permanently wedge the mechanism: consecutive-absence counting resumes correctly for every
++// genuinely new session id afterward. A broken fix for I1 (e.g. one that stopped updating
++// LastSessionID at all once it had ever been set, or that could never again tell two different
++// sessions apart) would fail the second half of this test.
++func TestSessionStartFires_DaemonPreWriteOfLastSessionIDDoesNotWedgeFutureCounting(t *testing.T) {
++	contract.DeclareProducer(contract.CSessionStartFires)
++	t.Cleanup(contract.ResetProducers)
++
++	root := t.TempDir()
++	h := &contract.SessionHistory{SessionCount: 3}
++	a := assertionByID(t, contract.CSessionStartFires)
++
++	// The forbidden daemon-style pre-write: LastSessionID set to the INCOMING session's own id
++	// before the Check ever runs.
++	h.LastSessionID = "sess-a"
++
++	r := a.Check(context.Background(), contract.Env{
++		Clock: newFakeClock(), ProjectRoot: root, History: h, Event: hookio.Event{SessionID: "sess-a"},
++	})
++	require.True(t, r.OK)
++	require.Equal(t, 0, h.StartsWithoutMarker,
++		"the pre-write makes this session's miss look already-counted — this is exactly the hazard LastSessionID's doc comment forbids the daemon from causing")
++
++	// A genuinely NEW session id, still no marker: counting must still work correctly and must not
++	// be permanently wedged by the earlier ownership violation.
++	r = a.Check(context.Background(), contract.Env{
++		Clock: newFakeClock(), ProjectRoot: root, History: h, Event: hookio.Event{SessionID: "sess-b"},
++	})
++	require.True(t, r.OK)
++	require.Equal(t, 1, h.StartsWithoutMarker, "a genuinely new session id must still count correctly")
++
++	// And a second consecutive real miss, a third distinct session, must still degrade normally —
++	// the mechanism must have fully recovered, not merely limped along at a reduced count.
++	r = a.Check(context.Background(), contract.Env{
++		Clock: newFakeClock(), ProjectRoot: root, History: h, Event: hookio.Event{SessionID: "sess-c"},
++	})
++	require.False(t, r.OK, "the mechanism must have fully recovered: two real consecutive misses must still degrade")
++	require.Equal(t, contract.SevCritical, r.Severity)
++	require.Equal(t, 2, h.StartsWithoutMarker)
++}
++
+ // TestSourceCompactEvaluatedOnFollowingStart calls checkSessionStartSourceCompact directly (via
+ // StandardAssertions()) with History.AwaitingCompactStart set and Event.Source == "startup": the
+ // assertion must fail naming what it expected and what it saw, and clear the flag regardless.
+ func TestSourceCompactEvaluatedOnFollowingStart(t *testing.T) {
+ 	contract.DeclareProducer(contract.CSessionStartSourceCompact)
+ 	t.Cleanup(contract.ResetProducers)
+ 
+ 	h := &contract.SessionHistory{AwaitingCompactStart: true}
+ 	env := contract.Env{Clock: newFakeClock(), History: h, Event: hookio.Event{Source: "startup"}}
+ 
+diff --git a/internal/contract/history.go b/internal/contract/history.go
+index 606f9ae..dcec5df 100644
+--- a/internal/contract/history.go
++++ b/internal/contract/history.go
+@@ -61,28 +61,46 @@ type SentinelState struct {
+ // directly, with no synchronization, and Seen is a bare Go map. A concurrent Record/Saw pair, or two
+ // goroutines racing to increment StartsWithoutMarker or call RecordSentinelScan, is not a benign
+ // data race — a concurrent map read and write on Seen is a hard, unrecoverable
+ // "fatal error: concurrent map read and map write" that crashes the process, not something the race
+ // detector merely flags. A single *SessionHistory value must be owned by exactly one goroutine at a
+ // time for its entire lifetime — load, every assertion Check that touches it, every daemon route
+ // that calls RecordSentinelScan or sets MCPInitialized/PrecompactTimeoutMs/etc., and the eventual
+ // SaveHistory. The daemon (this task's next one) is expected to enforce this with a single mutex
+ // around the session's History value; LoadHistory/SaveHistory themselves do no locking and assume
+ // the caller already has exclusive access.
++//
++// Wire shape is FROZEN, separately from the concurrency contract above. The testdata/golden/
++// contracts/contract/want/history_degraded.json fixture is declared "frozen" in that package's
++// MANIFEST.json, and TestHistoryDegradedGolden_Decodes compares json.MarshalIndent(this type)
++// byte-for-byte against it. Adding, removing, or renaming any non-omitempty field on
++// SessionHistory or SentinelState breaks that fixture under Rule W-2 (a verification failure, not a
++// fixture bug) and needs controller sign-off plus a fixture re-freeze — it is not something a later
++// task may adjust on its own. A new field must carry `omitempty` and be absent or zero in the
++// fixture's own scenario to avoid touching it at all.
+ type SessionHistory struct {
+ 	Version int `json:"version"`
+ 
+ 	// SessionCount is the Go field backing the History interface's Sessions() method. It is
+ 	// spelled differently from its "sessions" JSON tag only to avoid colliding with the method of
+ 	// the same name on this type.
+ 	SessionCount int `json:"sessions"`
+ 
++	// LastSessionID is OWNED by the session_start.fires Check (checkSessionStartFires,
++	// assertions.go) and by nothing else. It is the session id that last advanced
++	// StartsWithoutMarker, and it is how that Check tells "a second RunAll inside the session
++	// already counted" from "a genuinely new session, count it too" (Important I1's fix). The
++	// daemon (this task's next one) MUST NEVER write this field itself — in particular, never
++	// pre-set it to the incoming session's id at SessionStart before RunAll runs. Doing so would
++	// make checkSessionStartFires see "already counted this session" on the very first RunAll of
++	// every session, permanently suppressing the increment and disabling the SevCritical assertion
++	// for good. Only checkSessionStartFires may assign to this field.
+ 	LastSessionID core.SessionID `json:"last_session_id"`
+ 	LastMarkerTS  core.UnixMilli `json:"last_marker_ts"`
+ 
+ 	// StartsWithoutMarker counts consecutive SessionStarts that found no marker left by a prior
+ 	// terminal hook. session_start.fires fails once this reaches 2 ("absence across two sessions").
+ 	StartsWithoutMarker int `json:"starts_without_marker"`
+ 
+ 	LastPrecompactTS      core.UnixMilli `json:"last_precompact_ts"`
+ 	LastPrecompactSession core.SessionID `json:"last_precompact_session"`
+ 

@@ -1,0 +1,736 @@
+# Final fix-wave delta: old HEAD b6181b7a -> new HEAD 93f71262 (all 7 items)
+
+ internal/cli/fault_noinject.go     |  8 ++++--
+ internal/cli/hookclient.go         |  7 ++---
+ internal/cli/hooks_test.go         | 54 +++++++++++++++++++++++++++++++++++++
+ internal/cli/sessionstart.go       | 16 ++++++++---
+ internal/daemon/blob.go            | 19 +++++++++++++
+ internal/daemon/blob_test.go       | 42 +++++++++++++++++++++++++++++
+ internal/daemon/daemon.go          | 10 ++++---
+ internal/daemon/daemon_test.go     | 31 +++++++++++++++++++++
+ internal/daemon/handlers.go        | 23 ++++++++++++++--
+ internal/daemon/registry.go        | 12 +++++++++
+ internal/daemon/registry_test.go   | 40 +++++++++++++++++++++++++++
+ test/bench/hotpath/measure.go      | 16 +++++++----
+ test/bench/hotpath/measure_test.go | 55 ++++++++++++++++++++++++++++++++++++++
+ 13 files changed, 314 insertions(+), 19 deletions(-)
+
+diff --git a/internal/cli/fault_noinject.go b/internal/cli/fault_noinject.go
+index 789cf46..254dde7 100644
+--- a/internal/cli/fault_noinject.go
++++ b/internal/cli/fault_noinject.go
+@@ -1,22 +1,26 @@
+ //go:build noinject
+ 
+ // The -tags noinject build variant: every fault site compiles to an unconditional no-op, so
+ // faultActive is always false regardless of the fault-injection environment variable's value — a
+ // compile-time guarantee rather than a runtime check. TestFaultSitesInertWhenUnset compares this
+ // build's hook output byte-for-byte against the default build's output with that variable unset,
+ // which is exactly what proves fault injection adds no observable behaviour when it is not asked
+ // for.
+ //
+ // This file deliberately never reads (or even spells) that variable's name: the security CI job's
+-// grep for its literal string must find it in exactly one non-test file, fault.go, and this file's
+-// whole point is to not need it at all — including in its own comments.
++// grep for its literal string finds it in exactly two non-test files — fault.go, which reads it,
++// and internal/daemon/spawn.go, which strips it from a spawned daemon's environment so fault
++// injection can never leak into a detached process — and this file's whole point is to not need
++// it at all — including in its own comments (fix round 2, N-6: this comment previously claimed
++// "exactly one non-test file", which flatly contradicted fault.go's own two-file contract and
++// would have misdirected whoever next maintains the security grep).
+ package cli
+ 
+ import (
+ 	"io"
+ 
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/ipc"
+ )
+ 
+ func faultActive(string) (string, bool) { return "", false }
+diff --git a/internal/cli/hookclient.go b/internal/cli/hookclient.go
+index ee8935d..b10e495 100644
+--- a/internal/cli/hookclient.go
++++ b/internal/cli/hookclient.go
+@@ -166,22 +166,23 @@ type hookSpec struct {
+ 	op    ipc.Op
+ 	reply bool
+ 	// deadline is the fixed reply deadline for a Reply request. Zero means "derive it from the
+ 	// hot-path state record's AckDeadlineMs" — observe.tool's and observe.stop's row in the wiring
+ 	// table, both fire-and-forget ops with no fixed deadline of their own.
+ 	deadline time.Duration
+ 	// preSend runs once, after the project root/state are final and before the client is
+ 	// constructed. Only session-start uses it, to call daemon.EnsureRunning (§2.4: session-start is
+ 	// the designated daemon starter, off the hot path, with a generous hook timeout). self is
+ 	// env.Self threaded through explicitly (see cli.Env.Self's own doc comment) rather than read
+-	// from a package-level seam.
+-	preSend func(root, self string, clk core.Clock)
++	// from a package-level seam. st is the same 32-byte state record doHook already read, so
++	// preSend can honour runtime.daemon.enabled without a second disk read (fix round 2, FR-6).
++	preSend func(root, self string, st ipc.State, clk core.Clock)
+ }
+ 
+ // doHook returns the Cmd.Run body for one hook subcommand, following task-6-spec.md's skeleton
+ // exactly: stamp TS first, resolve the root cheaply pre-stdin, read the 32-byte state record (never
+ // config.Load on the hot path), honour ModeOff, read the event under the state's own payload limit,
+ // re-resolve against the payload if it disagrees, spool, resolve the transport address, connect,
+ // send, and always answer with valid JSON. Every fault site (fault.go) hooks into this same
+ // sequence at the point task-6-spec.md's table names.
+ //
+ // The shipped panic-recovery framework (dispatch.go's Dispatch -> recover.go's runGuarded) already
+@@ -244,21 +245,21 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
+ 		faultLockSpoolDirIfNeeded(spoolDir)
+ 		sp, _ := ipc.NewSpool(spoolDir)
+ 		sp = wrapFaultSpool(sp)
+ 		defer func() {
+ 			if cl, ok := sp.(interface{ Close() error }); ok {
+ 				_ = cl.Close()
+ 			}
+ 		}()
+ 
+ 		if spec.preSend != nil {
+-			spec.preSend(root, env.Self, clk)
++			spec.preSend(root, env.Self, st, clk)
+ 		}
+ 
+ 		addr, aerr := ipc.Resolve(root)
+ 		if aerr != nil {
+ 			_ = sp.Append(req)
+ 			logQuiet(root, aerr, clk)
+ 			return hookio.WriteOutput(out, hookio.Empty())
+ 		}
+ 		addr = faultDaemonDownAddr(addr) // daemon-down: the resolved address itself must be unreachable.
+ 
+diff --git a/internal/cli/hooks_test.go b/internal/cli/hooks_test.go
+index 4548243..d94fdc7 100644
+--- a/internal/cli/hooks_test.go
++++ b/internal/cli/hooks_test.go
+@@ -288,10 +288,64 @@ func TestHookConnectDeadline(t *testing.T) {
+ 			require.Equal(t, tt.want, hookConnectDeadline(tt.spec, tightState))
+ 		})
+ 	}
+ 
+ 	t.Run("a non-hot-path op's own State.ConnectDeadlineMs is kept when it already exceeds the floor", func(t *testing.T) {
+ 		roomy := ipc.State{ConnectDeadlineMs: 9000}
+ 		spec := hookSpec{op: ipc.OpFlush, reply: true, deadline: flushReplyDeadline}
+ 		require.Equal(t, 9000*time.Millisecond, hookConnectDeadline(spec, roomy))
+ 	})
+ }
++
++// TestEnsureDaemonRunning_GatedOnDaemonEnabled pins fix round 2's FR-6: session-start's preSend
++// seam must not attempt daemon.EnsureRunning at all when runtime.daemon.enabled is false — before
++// this fix, an operator who disabled the daemon still got a resident process spawned at every
++// session start. self names a path that does not exist, so if EnsureRunning IS attempted it
++// reaches SpawnDetached, which fails fast (no process is ever actually started) and logs
++// "daemon: spawn failed" via Warn — an observable, deterministic proxy for "EnsureRunning ran"
++// that needs no real daemon process on either side of the assertion.
++func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
++	// hookLogger.materialize() never closes the *os.File logging.New hands back (a hook process
++	// is short-lived and the OS reclaims it at exit) — harmless in production, but it means a
++	// t.TempDir() root exercising the real Warn-logging path here would fail its own automatic
++	// cleanup on Windows ("used by another process"). A manually-managed, best-effort-removed
++	// directory sidesteps that without weakening the assertions.
++	newRoot := func(t *testing.T) string {
++		t.Helper()
++		root, err := os.MkdirTemp("", "qompack-ensurerunning-*")
++		require.NoError(t, err)
++		t.Cleanup(func() { _ = os.RemoveAll(root) })
++		require.NoError(t, paths.EnsureLayout(paths.Of(root)))
++		return root
++	}
++	selfPath := filepath.Join(t.TempDir(), "does-not-exist")
++
++	t.Run("disabled: EnsureRunning is never attempted", func(t *testing.T) {
++		root := newRoot(t)
++
++		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: false}, testClock())
++
++		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
++		require.NoError(t, err)
++		for _, m := range matches {
++			b, rerr := os.ReadFile(m)
++			require.NoError(t, rerr)
++			require.NotContains(t, string(b), "spawn failed",
++				"runtime.daemon.enabled=false must never reach daemon.EnsureRunning/SpawnDetached")
++		}
++	})
++
++	t.Run("enabled: EnsureRunning is attempted", func(t *testing.T) {
++		root := newRoot(t)
++
++		ensureDaemonRunning(root, selfPath, ipc.State{DaemonEnabled: true}, testClock())
++
++		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
++		require.NoError(t, err)
++		require.NotEmpty(t, matches, "runtime.daemon.enabled=true must still let EnsureRunning run")
++
++		b, err := os.ReadFile(matches[0])
++		require.NoError(t, err)
++		require.Contains(t, string(b), "spawn failed",
++			"EnsureRunning must have reached SpawnDetached, which fails fast against a nonexistent self")
++	})
++}
+diff --git a/internal/cli/sessionstart.go b/internal/cli/sessionstart.go
+index 1f1565f..4c0c122 100644
+--- a/internal/cli/sessionstart.go
++++ b/internal/cli/sessionstart.go
+@@ -20,23 +20,31 @@ import (
+ func runSessionStart(ctx context.Context, env Env, args []string, out, errw io.Writer) error {
+ 	return doHook(hookSpec{
+ 		op: ipc.OpSessionStart, reply: true, deadline: sessionStartReplyDeadline,
+ 		preSend: ensureDaemonRunning,
+ 	})(ctx, env, args, out, errw)
+ }
+ 
+ // ensureDaemonRunning calls daemon.EnsureRunning for session-start's preSend seam.
+ //
+ // It is a no-op under the daemon-down fault site (task-6-spec.md's table: that site's whole point
+-// is that nothing is listening AND nothing may be spawned in response) and whenever self is ""
++// is that nothing is listening AND nothing may be spawned in response), whenever self is ""
+ // (cli.Env.Self's own doc comment: every Env a test builds leaves it at the zero value, and any
+-// host environment where os.Executable() itself failed does too), neither of which should pay for
+-// a real network dial attempt it can never act on.
+-func ensureDaemonRunning(root, self string, clk core.Clock) {
++// host environment where os.Executable() itself failed does too), and whenever
++// runtime.daemon.enabled is false (fix round 2, FR-6): an operator who disabled the daemon still
++// got a resident process spawned at every session start before this check existed — it served
++// nothing (every client spools under DaemonEnabled=false, per ipc.Client.Send's own step 2), but
++// its idle drain quietly processed the spool anyway, which an operator who typed "disabled" does
++// not expect. None of the three conditions above should pay for a real spawn/dial attempt whose
++// daemon can never do anything useful in response.
++func ensureDaemonRunning(root, self string, st ipc.State, clk core.Clock) {
+ 	if _, on := faultActive(faultDaemonDown); on {
+ 		return
+ 	}
+ 	if self == "" {
+ 		return
+ 	}
++	if !st.DaemonEnabled {
++		return
++	}
+ 	_, _ = daemon.EnsureRunning(root, self, newHookLogger(root), clk)
+ }
+diff --git a/internal/daemon/blob.go b/internal/daemon/blob.go
+index 39cc00b..96735e4 100644
+--- a/internal/daemon/blob.go
++++ b/internal/daemon/blob.go
+@@ -1,26 +1,33 @@
+ package daemon
+ 
+ import (
+ 	"encoding/json"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 
+ 	"github.com/qompack/qompack/internal/ipc"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/paths"
+ )
+ 
+ // drainBlobToolResponse is the field name a blob-externalized request's Raw carries (client.go's
+ // own unexported blobField, respelled here since it is unreachable from package daemon).
+ const drainBlobToolResponse = "e.tool_response"
+ 
++// blobFilePrefix is the shipped client's own naming scheme for a blob file (client.go's
++// unexported blobFilePrefix, respelled here for the same reason as drainBlobToolResponse above):
++// every legitimate descriptor names exactly one file matching it, directly inside spool/, never a
++// path with directory components.
++const blobFilePrefix = "blob-"
++
+ // blobRef is the JSON shape a client-externalized request's Raw carries in place of the field it
+ // stood in for (client.go's own unexported blobRef type, respelled here for the same reason).
+ type blobRef struct {
+ 	Blob  string          `json:"blob"`
+ 	Bytes int             `json:"bytes"`
+ 	Field string          `json:"field"`
+ 	X     json.RawMessage `json:"x,omitempty"`
+ }
+ 
+ // resolveBlob restores req.Event.ToolResponse from a client-externalized blob file, if req.Raw
+@@ -45,20 +52,32 @@ func resolveBlob(root string, log logging.Logger, req ipc.Request) ipc.Request {
+ 	if len(req.Raw) == 0 {
+ 		return req
+ 	}
+ 	var ref blobRef
+ 	if err := json.Unmarshal(req.Raw, &ref); err != nil || ref.Blob == "" || ref.Field != drainBlobToolResponse {
+ 		return req
+ 	}
+ 	if req.Event == nil {
+ 		return req
+ 	}
++	// A hostile or corrupt spool/WAL line can carry a Blob value containing "..", a separator, or
++	// an absolute path — resolveBlob reads (and, on success, deletes) whatever file it names, so a
++	// name that would escape spool/ must be refused before it is ever joined. The shipped client
++	// only ever writes blob-<pid>-<n>.bin (client.go's own externalize), so requiring
++	// filepath.Base(ref.Blob) == ref.Blob and the blob- prefix costs no legitimate case (fix
++	// round 2, FR-3).
++	if filepath.Base(ref.Blob) != ref.Blob || !strings.HasPrefix(ref.Blob, blobFilePrefix) {
++		if log != nil {
++			log.Warn("daemon: blob resolution refused an unsafe blob name", "blob", ref.Blob)
++		}
++		return req
++	}
+ 
+ 	blobPath := filepath.Join(paths.Of(root).Spool, ref.Blob)
+ 	data, err := os.ReadFile(paths.Long(blobPath))
+ 	if err != nil {
+ 		log.Warn("daemon: blob resolution failed", "blob", ref.Blob, "err", err)
+ 		return req
+ 	}
+ 
+ 	ev := *req.Event
+ 	ev.ToolResponse = data
+diff --git a/internal/daemon/blob_test.go b/internal/daemon/blob_test.go
+index 474b3ad..3882195 100644
+--- a/internal/daemon/blob_test.go
++++ b/internal/daemon/blob_test.go
+@@ -40,20 +40,62 @@ func TestResolveBlob_NilEventLeavesBlobFileUntouched(t *testing.T) {
+ // JSON (not a blob descriptor) passes through unchanged.
+ func TestResolveBlob_NonBlobRawIsUntouched(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	root := t.TempDir()
+ 	req := ipc.Request{Op: ipc.OpStatus, Raw: json.RawMessage(`{"unrelated":true}`)}
+ 	got := resolveBlob(root, logging.Nop(), req)
+ 	require.Equal(t, req.Raw, got.Raw)
+ }
+ 
++// TestResolveBlob_RefusesPathTraversal is the fix round 2 FR-3 regression: a hostile or corrupt
++// spool/WAL line naming a Blob outside spool/ (or lacking the shipped client's blob- prefix) must
++// never be joined and read — resolveBlob would otherwise happily read (and, on success, delete)
++// whatever file the descriptor names.
++func TestResolveBlob_RefusesPathTraversal(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	dir := paths.Of(root).Spool
++	require.NoError(t, os.MkdirAll(dir, 0o700))
++
++	// A file OUTSIDE spool/ that a successful traversal would read and delete.
++	secretPath := filepath.Join(root, "secret.txt")
++	require.NoError(t, os.WriteFile(secretPath, []byte("do not touch"), 0o600))
++
++	cases := []struct {
++		name string
++		blob string
++	}{
++		{"parent-traversal", "../secret.txt"},
++		{"nested-traversal", "blob-1-1/../../secret.txt"},
++		{"absolute-path", filepath.ToSlash(secretPath)},
++		{"missing-prefix", "not-a-blob-1-1.bin"},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			ref, err := json.Marshal(blobRef{Blob: c.blob, Bytes: 4, Field: drainBlobToolResponse})
++			require.NoError(t, err)
++
++			req := ipc.Request{Op: ipc.OpObserveTool, Event: &hookio.Event{}, Raw: ref}
++			got := resolveBlob(root, logging.Nop(), req)
++
++			require.Equal(t, ref, []byte(got.Raw), "an unsafe descriptor must be left in place, not resolved")
++			require.Nil(t, got.Event.ToolResponse, "the traversal target's content must never be read into ToolResponse")
++		})
++	}
++
++	b, err := os.ReadFile(secretPath)
++	require.NoError(t, err)
++	require.Equal(t, "do not touch", string(b), "the traversal target must survive untouched and undeleted")
++}
++
+ // TestResolveBlob_RestoresAndDeletes pins the ordinary success path directly against the shared
+ // helper (independent of the ingest/drain end-to-end tests, which exercise the same code through
+ // their own callers).
+ func TestResolveBlob_RestoresAndDeletes(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	root := t.TempDir()
+ 	dir := paths.Of(root).Spool
+ 	require.NoError(t, os.MkdirAll(dir, 0o700))
+ 	blobPath := filepath.Join(dir, "blob-1-1.bin")
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+index 87024ab..881db3d 100644
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -394,25 +394,30 @@ func (d *daemon) Run(ctx context.Context) error {
+ 			// on disk (a client keeps dialling a dead endpoint until the connect itself fails),
+ 			// and daemon.lock stays held (fix round 1, I-7). context.Background(), deliberately —
+ 			// ctx is already Done here, so Stop's own bounded drain would be a no-op if it
+ 			// inherited it.
+ 			return d.Stop(context.Background())
+ 		case err := <-serveErrCh:
+ 			// A Serve return driven by Stop() (admin.shutdown, or the idle-exit path below, both
+ 			// of which close d.stopped before cancelling runCtx) is an intentional, successful
+ 			// shutdown — report nil, not the raw context.Canceled Serve's own contract returns for
+ 			// a cancellation-driven stop. A Serve return with d.stopped still open is a genuine,
+-			// unexpected transport failure and is reported verbatim.
++			// unexpected transport failure: this arm gets the same Stop the ctx.Done arm above
++			// does (fix round 2, FR-4) — without it, daemon.lock stays held until process death,
++			// state.bin keeps advertising a dead daemon, and the ingest WAL/sketches/metrics never
++			// flush. err is reported verbatim; Stop's own (expected-nil, in this ordinary case)
++			// error is deliberately not allowed to shadow the real failure that triggered this arm.
+ 			select {
+ 			case <-d.stopped:
+ 				return nil
+ 			default:
++				_ = d.Stop(context.Background())
+ 				return err
+ 			}
+ 		case <-hbTicker.C:
+ 			if d.lock != nil {
+ 				_ = d.lock.Heartbeat()
+ 			}
+ 		case <-idleTicker.C:
+ 			d.idle.Notify(d.registry.LastActivity())
+ 			now := core.NowMilli(d.clk)
+ 			if d.idle.IsIdle(now) {
+@@ -437,22 +442,21 @@ func (d *daemon) Run(ctx context.Context) error {
+ 			} else {
+ 				zeroLiveSince = time.Time{}
+ 			}
+ 		}
+ 	}
+ }
+ 
+ // sessionIsLive reports whether sess is still tracked as live, for drainer's IsLive callback (a
+ // live session's WAL is offset-marked but kept, never deleted mid-session).
+ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
+-	s, ok := d.registry.Get(sess)
+-	return ok && s.Live
++	return d.registry.IsLive(sess)
+ }
+ 
+ // Drain replays every spool-tier file under root's spool directory. It is safe to call before Run
+ // has fully started a drainer only in the sense that a nil drainer reports (0, nil) — Run always
+ // constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
+ // only ever run once Run has.
+ func (d *daemon) Drain(ctx context.Context) (int, error) {
+ 	if d.drain == nil {
+ 		return 0, nil
+ 	}
+diff --git a/internal/daemon/daemon_test.go b/internal/daemon/daemon_test.go
+index 2a05bfa..d932d86 100644
+--- a/internal/daemon/daemon_test.go
++++ b/internal/daemon/daemon_test.go
+@@ -174,20 +174,51 @@ func TestObservePromptBlockingVariantTimesOut(t *testing.T) {
+ 	start := time.Now()
+ 	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObservePrompt, Session: "sess-2", Reply: true, Event: ev})
+ 	elapsed := time.Since(start)
+ 
+ 	require.True(t, resp.OK)
+ 	require.NotNil(t, resp.Output)
+ 	require.Nil(t, resp.Output.HookSpecificOutput, "a timed-out ObservePrompt must fall back to hookio.Empty()")
+ 	require.Less(t, elapsed, time.Second, "the route must not block past promptReplyDeadline")
+ }
+ 
++// TestObservePromptWALFailureIsObservable is the fix round 2 FR-2 regression: unlike
++// observe.tool/stop, whose failure paths return OK:false (NAK, which the client answers by
++// spooling — the event stays durable either way), observe.prompt always ACKs, so a WAL-append
++// failure was the one hot-path event that could previously vanish with zero observability. It
++// must now log a Warn and increment counterL0AcceptError.
++func TestObservePromptWALFailureIsObservable(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	// Force ingest.Accept's own os.MkdirAll(spoolDir) to fail: a regular file sits where
++	// .qompack must be a directory, so no path beneath it — spool/ included — can ever be
++	// created. This is deterministic and cross-platform, unlike simulating a real disk-full or
++	// permission error.
++	require.NoError(t, os.WriteFile(filepath.Join(root, ".qompack"), []byte("not a directory"), 0o600))
++
++	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()})
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-1", CWD: root}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObservePrompt, Session: "sess-1", Reply: true, Event: ev})
++
++	// The reply flow is unaffected: observe.prompt still ACKs even though its WAL append failed
++	// — a prompt is never blocked or refused because of it.
++	require.True(t, resp.OK)
++	require.Equal(t, int64(1), dd.m.Counter(counterL0AcceptError).Value(),
++		"a failed WAL append must be observable via the counter")
++}
++
+ // TestDegradedPassiveSuppressesActingPaths: forced ModeDegradedPassive suppresses every acting
+ // path (SessionStart/ObservePrompt/PreCompact output and act.-prefixed idle tasks) while leaving
+ // every response OK.
+ func TestDegradedPassiveSuppressesActingPaths(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	root := t.TempDir()
+ 	var sessionStartCalled, preCompactCalled bool
+ 	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
+ 	o.Bind(func(s *Services) {
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+index e4f3cd3..f422578 100644
+--- a/internal/daemon/handlers.go
++++ b/internal/daemon/handlers.go
+@@ -38,20 +38,25 @@ const loudTailCount = 5
+ // The daemon's own obs.Counter names, beyond the ones already declared in ingest.go/drain.go.
+ const (
+ 	// counterHandlerPanic reuses ipc's own "ipc_handler_panic" spelling deliberately (ruling: the
+ 	// ipc server's own recovery around this same composed Handler is belt-and-braces on top of
+ 	// this one — both increment the identical metric name rather than two names for one concept).
+ 	counterHandlerPanic = "ipc_handler_panic"
+ 
+ 	counterUnhandledObserveTool = "l0_unhandled_observe_tool"
+ 	counterUnhandledObserveStop = "l0_unhandled_observe_stop"
+ 
++	// counterL0AcceptError counts an observe.prompt request whose WAL append could not be made
++	// durable (an EncodeRequest or ingest.Accept failure) — the one hot-path event with no NAK
++	// fallback to fall back on, so this is its only observability (fix round 2, FR-2).
++	counterL0AcceptError = "l0_accept_error"
++
+ 	counterHotpathDegraded = "hotpath_degraded"
+ 
+ 	// counterHotpathSampleInvalid counts a hot-path sample rejected by validHotPathTS (an absent,
+ 	// zero, or implausible req.TS) before it ever reaches a histogram or the breach detector.
+ 	counterHotpathSampleInvalid = "hotpath_sample_invalid"
+ 
+ 	counterContractFailPrefix = "contract_fail_"
+ 	counterContractModeChange = "contract_mode_change"
+ )
+ 
+@@ -341,22 +346,36 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
+ 	ev := resolveEvent(req)
+ 	now := core.NowMilli(d.clk)
+ 	d.registry.Touch(ev.SessionID, now)
+ 
+ 	mode := d.monitor.Mode()
+ 	if !mode.MayRecord() {
+ 		empty := hookio.Empty()
+ 		return ipc.Response{OK: true, Output: &empty}
+ 	}
+ 
+-	if line, err := ipc.EncodeRequest(req); err == nil {
+-		_ = d.ing.Accept(req, line)
++	// observe.tool/stop's own failure paths return OK:false (a NAK the client answers by
++	// spooling), so the event stays durable either way. observe.prompt has no such fallback here
++	// — it always ACKs — so a silently-swallowed EncodeRequest/Accept error was the one hot-path
++	// event that could vanish with zero observability (fix round 2, FR-2): §12.1's "nothing fails
++	// silently" applies to this WAL append exactly as it does to a contract degradation.
++	line, err := ipc.EncodeRequest(req)
++	if err != nil {
++		d.log.Warn("daemon: observe.prompt: failed to encode request for the WAL", "err", err)
++		if d.m != nil {
++			d.m.Counter(counterL0AcceptError).Add(1)
++		}
++	} else if err := d.ing.Accept(req, line); err != nil {
++		d.log.Warn("daemon: observe.prompt: WAL append failed", "err", err)
++		if d.m != nil {
++			d.m.Counter(counterL0AcceptError).Add(1)
++		}
+ 	}
+ 
+ 	out := hookio.Empty()
+ 	if d.svc.ObservePrompt != nil && mode.MayAct() {
+ 		out = d.callObservePromptWithDeadline(ctx, ev)
+ 	}
+ 	return ipc.Response{OK: true, Output: &out}
+ }
+ 
+ // callObservePromptWithDeadline enforces promptReplyDeadline even against a callee that ignores
+diff --git a/internal/daemon/registry.go b/internal/daemon/registry.go
+index 84b1b36..590585b 100644
+--- a/internal/daemon/registry.go
++++ b/internal/daemon/registry.go
+@@ -101,20 +101,32 @@ func (r *SessionRegistry) SetMaxSessions(n int) {
+ }
+ 
+ // Get returns the state for id, if the session is known.
+ func (r *SessionRegistry) Get(id core.SessionID) (*SessionState, bool) {
+ 	r.mu.RLock()
+ 	defer r.mu.RUnlock()
+ 	s, ok := r.sessions[id]
+ 	return s, ok
+ }
+ 
++// IsLive reports whether id is currently tracked as live, reading SessionState.Live under the
++// registry's own RLock. Prefer this over Get+field-read for anything that only needs the
++// liveness bool: Get hands back the shared *SessionState pointer, and reading any of its fields
++// after the lock is dropped races Ensure/Touch/End, which mutate it under the write lock (fix
++// round 2, FR-1).
++func (r *SessionRegistry) IsLive(id core.SessionID) bool {
++	r.mu.RLock()
++	defer r.mu.RUnlock()
++	s, ok := r.sessions[id]
++	return ok && s.Live
++}
++
+ // Len returns the number of tracked sessions (live and recently-ended).
+ func (r *SessionRegistry) Len() int {
+ 	r.mu.RLock()
+ 	defer r.mu.RUnlock()
+ 	return len(r.sessions)
+ }
+ 
+ // HotMode returns the daemon-wide hot-path submode §12.2's breach detector maintains.
+ func (r *SessionRegistry) HotMode() ipc.HotPathMode {
+ 	r.mu.RLock()
+diff --git a/internal/daemon/registry_test.go b/internal/daemon/registry_test.go
+index 9d76273..168b18e 100644
+--- a/internal/daemon/registry_test.go
++++ b/internal/daemon/registry_test.go
+@@ -109,20 +109,60 @@ func TestRegistryEnsureUpdatesSourceAndTranscript(t *testing.T) {
+ 	r := NewSessionRegistry()
+ 	r.Ensure(&hookio.Event{SessionID: "s1", Source: "startup", TranscriptPath: "/tmp/t.jsonl"}, 100)
+ 	r.Ensure(&hookio.Event{SessionID: "s1"}, 200) // no Source/TranscriptPath this time
+ 
+ 	s, ok := r.Get("s1")
+ 	require.True(t, ok)
+ 	require.Equal(t, "startup", s.Source, "an empty field on a later Ensure must not blank a prior value")
+ 	require.Equal(t, "/tmp/t.jsonl", s.TranscriptPath)
+ }
+ 
++// TestSessionRegistry_IsLive pins the fix round 2 FR-1 seam: IsLive reads Live entirely under
++// the registry's own RLock, so a caller (drainer's IsLive callback in particular) never needs to
++// hold the shared *SessionState pointer Get returns — and therefore never races Ensure/Touch/End,
++// which mutate that same struct under the write lock.
++func TestSessionRegistry_IsLive(t *testing.T) {
++	t.Parallel()
++
++	r := NewSessionRegistry()
++	require.False(t, r.IsLive("unknown"), "an id Ensure has never seen must report not-live")
++
++	r.Ensure(&hookio.Event{SessionID: "sess-1"}, 100)
++	require.True(t, r.IsLive("sess-1"))
++
++	r.End("sess-1", 200)
++	require.False(t, r.IsLive("sess-1"), "IsLive must reflect End immediately")
++}
++
++// TestSessionRegistry_IsLiveConcurrentWithEndIsRaceFree exercises the exact interleaving FR-1
++// diagnosed: one goroutine calling IsLive (the drainer's role) while another concurrently mutates
++// the same session's Live field via End (a route ending a session mid-drain).
++func TestSessionRegistry_IsLiveConcurrentWithEndIsRaceFree(t *testing.T) {
++	t.Parallel()
++
++	r := NewSessionRegistry()
++	r.Ensure(&hookio.Event{SessionID: "sess-1"}, 0)
++
++	done := make(chan struct{})
++	go func() {
++		defer close(done)
++		for i := 0; i < 500; i++ {
++			_ = r.IsLive("sess-1")
++		}
++	}()
++	for i := 0; i < 500; i++ {
++		r.End("sess-1", core.UnixMilli(i))
++		r.Ensure(&hookio.Event{SessionID: "sess-1"}, core.UnixMilli(i))
++	}
++	<-done
++}
++
+ // TestRegistrySetMaxSessionsRejectsNonPositive pins that SetMaxSessions(n<=0) falls back to
+ // defaultMaxSessions rather than evicting everything.
+ func TestRegistrySetMaxSessionsRejectsNonPositive(t *testing.T) {
+ 	t.Parallel()
+ 
+ 	r := NewSessionRegistry()
+ 	r.SetMaxSessions(0)
+ 	for i := 0; i < defaultMaxSessions+1; i++ {
+ 		id := core.SessionID(string(rune('a' + i)))
+ 		r.Ensure(&hookio.Event{SessionID: id}, core.UnixMilli(i))
+diff --git a/test/bench/hotpath/measure.go b/test/bench/hotpath/measure.go
+index 2feada9..1cd1f55 100644
+--- a/test/bench/hotpath/measure.go
++++ b/test/bench/hotpath/measure.go
+@@ -117,22 +117,28 @@ func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool, iterations int)
+ 	notes := []string{"B-C not measured in wave 1: the processing seams are stubs"}
+ 	if hs, ok := snap.Latency[histHookControlledObservedName]; ok && hs.N > 0 {
+ 		notes = append(notes, fmt.Sprintf(
+ 			"daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=%.3fms p99=%.3fms n=%d — informational cross-check against the gated B-A row above, which adds the tail allowance",
+ 			msf(hs.P50), msf(hs.P99), hs.N))
+ 	}
+ 	if warmDaemonRan {
+ 		// FIX ROUND 2, N-1: the gated B-A row's own population composition, stated explicitly —
+ 		// the re-review's minimum ask. warmHotTranche in-process client Sends (stamped at Send
+ 		// time, not a spawned process's main() entry) plus `iterations` real hook spawns from the
+-		// B-A/B-D loop; the tranche is deliberately small so the gated percentile stays
+-		// hook-spawn-dominated, but it is not zero, so the composition is disclosed rather than
+-		// asserted away.
++		// B-A/B-D loop; the tranche is deliberately small, but it is not zero, so the composition
++		// is disclosed rather than asserted away.
++		//
++		// FIX ROUND 3, R2-2: the disclosure now PRINTS the computed warm-up proportion instead of
++		// asserting the unconditional "stays hook-spawn-dominated" — at n=2000 that claim happens
++		// to hold (64/2064 ≈ 3.1%), but a caller running this harness with a small --iterations
++		// value could see the warm-up tranche dominate instead, and an honesty-of-measurement
++		// harness should never assert a proportion it has not actually computed for this run.
++		warmPct := 100 * float64(warmHotTranche) / float64(iterations+warmHotTranche)
+ 		notes = append(notes, fmt.Sprintf(
+-			"B-A's gated n=%d includes %d in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside %d real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche is a small, fixed constant (warmHotTranche) chosen so the gated population stays hook-spawn-dominated; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
+-			iterations+warmHotTranche, warmHotTranche, iterations))
++			"B-A's gated n=%d includes %d in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside %d real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche (warmHotTranche=%d, a small, fixed constant) is %.1f%% of the gated population for this run; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
++			iterations+warmHotTranche, warmHotTranche, iterations, warmHotTranche, warmPct))
+ 		notes = append(notes, fmt.Sprintf(
+ 			"B-B's n includes the %d warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own %s count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other %d warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)",
+ 			warmHotTranche, budgetHistName(obs.BB), warmIterations-warmHotTranche))
+ 	}
+ 	return notes
+ }
+diff --git a/test/bench/hotpath/measure_test.go b/test/bench/hotpath/measure_test.go
+new file mode 100644
+index 0000000..f6651dc
+--- /dev/null
++++ b/test/bench/hotpath/measure_test.go
+@@ -0,0 +1,55 @@
++package main
++
++import (
++	"fmt"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/daemon"
++)
++
++// TestBuildNotes_WarmUpProportionIsComputedNotAsserted is the fix round 3, R2-2 regression: the
++// warm-up disclosure note must print the ACTUAL computed warmHotTranche/(iterations+
++// warmHotTranche) proportion for whatever iterations value this run used, never the unconditional
++// "stays hook-spawn-dominated" claim a small --iterations run could falsify.
++func TestBuildNotes_WarmUpProportionIsComputedNotAsserted(t *testing.T) {
++	snap := daemon.StatusSnapshot{}
++
++	cases := []struct {
++		iterations int
++		wantPctStr string // the exact "%.1f%%" this iterations value must produce
++	}{
++		{2000, fmt.Sprintf("%.1f%%", 100*float64(warmHotTranche)/float64(2000+warmHotTranche))},
++		// A small iterations value makes the warm-up tranche a LARGE share of the gated
++		// population — the exact case the old unconditional sentence could not honestly cover.
++		{10, fmt.Sprintf("%.1f%%", 100*float64(warmHotTranche)/float64(10+warmHotTranche))},
++	}
++
++	for _, c := range cases {
++		t.Run(fmt.Sprintf("iterations=%d", c.iterations), func(t *testing.T) {
++			notes := buildNotes(snap, true, c.iterations)
++			var warmupNote string
++			for _, n := range notes {
++				if strings.Contains(n, "warm-up hot-path tranche") {
++					warmupNote = n
++				}
++			}
++			require.NotEmpty(t, warmupNote, "expected a warm-up composition note when warmDaemonRan is true")
++			require.NotContains(t, warmupNote, "stays hook-spawn-dominated",
++				"the unconditional dominance claim must be replaced by a computed proportion")
++			require.Contains(t, warmupNote, c.wantPctStr,
++				"the note must print the proportion actually computed for THIS run's iterations value")
++		})
++	}
++}
++
++// TestBuildNotes_NoWarmUpOmitsTheProportionNote pins the unchanged negative case: no warm-up run,
++// no composition note to compute a proportion for.
++func TestBuildNotes_NoWarmUpOmitsTheProportionNote(t *testing.T) {
++	notes := buildNotes(daemon.StatusSnapshot{}, false, 2000)
++	for _, n := range notes {
++		require.NotContains(t, n, "warm-up hot-path tranche")
++	}
++}

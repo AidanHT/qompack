@@ -108,13 +108,26 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 			},
 		},
 		{
-			name: "unresolvable project root",
+			// Named for what it actually exercises (fix round 1, Minor M-13): with
+			// QOMPACK_PROJECT_ROOT pinned, paths.Resolve always succeeds outright (§3.3 step 1) —
+			// "unresolvable" is no longer reachable through the new hook body at all. What this
+			// case actually provokes is doHook's own isDir(root) refuse-to-conjure-a-store guard.
+			name: "project root that does not exist",
 			setup: func(t *testing.T, _ string) (Env, []Cmd) {
-				// No QOMPACK_PROJECT_ROOT and no cwd in the payload: paths.Resolve has nothing to
-				// work from and returns ErrNotFound. There is nowhere to observe, and the host is
-				// still owed a response.
+				// A payload with no cwd, and no QOMPACK_PROJECT_ROOT override, would make
+				// resolveProjectRoot's pre-stdin guess (hookclient.go) fall back to the process's
+				// own cwd — which, run under `go test ./internal/cli/...` from inside this
+				// checkout, is a REAL, EXISTING directory that resolveProjectRoot then walks
+				// upward from to the checkout's own .git, resolving to the checkout root itself.
+				// (This was a real, confirmed hazard during task 6's own development: with no
+				// override here, a hook's spool append landed inside the actual repository.)
+				// Pinning QOMPACK_PROJECT_ROOT to a path that deliberately does not exist avoids
+				// that entirely — paths.Resolve honours the env override outright (§3.3 step 1),
+				// so every hook resolves to this exact, nonexistent, isolated path — and exercises
+				// doHook's own isDir(root) refuse-to-create-a-store-under-a-missing-root guard.
+				missing := filepath.Join(t.TempDir(), "does-not-exist")
 				return Env{
-					Getenv: noEnv,
+					Getenv: envWith(map[string]string{"QOMPACK_PROJECT_ROOT": missing}),
 					Stdin:  strings.NewReader(`{"session_id":"s1"}`),
 					Clock:  testClock(),
 				}, nil

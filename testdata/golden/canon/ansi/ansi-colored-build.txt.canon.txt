@@ -1,0 +1,67 @@
+   Compiling ansicrate v0.2.0 (<tmp>
+warning: unused variable: `unused_capacity`
+  --> src\lib.rs:13:13
+   |
+13 |         let unused_capacity = 64;
+   |             ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_unused_capacity`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+  --> src\lib.rs:26:13
+   |
+26 |         let mut candidate = path;
+   |             ----^^^^^^^^^
+   |             |
+   |             help: remove this `mut`
+   |
+   = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `candidate`
+  --> src\lib.rs:26:13
+   |
+26 |         let mut candidate = path;
+   |             ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_candidate`
+
+warning: unused variable: `unread`
+  --> src\lib.rs:27:13
+   |
+27 |         let unread = self.fallback.len();
+   |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_unread`
+
+warning: unused variable: `scratch`
+  --> src\lib.rs:37:9
+   |
+37 |     let scratch: Vec<i32> = Vec::new();
+   |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_scratch`
+
+warning: unused variable: `suffix`
+  --> src\lib.rs:50:9
+   |
+50 |     let suffix = "!";
+   |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_suffix`
+
+warning: function `helper_never_used` is never used
+  --> src\lib.rs:44:4
+   |
+44 | fn helper_never_used(x: u32) -> u32 {
+   |    ^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable `Normalized` should have a snake case name
+  --> src\lib.rs:21:13
+   |
+21 |         let Normalized = path.trim_end_matches('/').to_string();
+   |             ^^^^^^^^^^ help: convert the identifier to snake case: `normalized`
+   |
+   = note: `#[warn(non_snake_case)]` (part of `#[warn(nonstandard_style)]`) on by default
+
+warning: function `Compute_Total` should have a snake case name
+  --> src\lib.rs:35:8
+   |
+35 | pub fn Compute_Total(values: &[i32]) -> i32 {
+   |        ^^^^^^^^^^^^^ help: convert the identifier to snake case: `compute_total`
+
+warning: `ansicrate` (lib) generated 9 warnings (run `cargo fix --lib -p ansicrate` to apply 6 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in <d>

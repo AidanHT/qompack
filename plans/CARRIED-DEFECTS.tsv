@@ -1,0 +1,33 @@
+# Defects a subplan knowingly shipped, and the checkpoint that owns resolving them.
+#
+# Read by test/guards/carrieddefects_test.go. A subplan that finds a defect it may not fix — because
+# fixing it would change another subplan's frozen contract, or would exceed its own scope — records
+# it here instead of in a commit body, where nothing enforces it. The guard makes the row load-
+# bearing three ways:
+#
+#   - Every open row must name a live evidence test, so the defect cannot be silently fixed and
+#     left recorded as broken, nor recorded and left unpinned.
+#   - Every id must have a section in the detail document, so "what is this" always has an answer.
+#   - No row owned by a checkpoint may still be `open` once that checkpoint has written its
+#     completion report. That is the gate: the wave cannot be signed off with unresolved rows.
+#
+# Columns are TAB separated.
+#
+#   id        stable identifier, <subplan>-D<n>, referenced from code comments and tests
+#   opened_by the subplan that shipped the defect
+#   owner     the checkpoint that must resolve or consciously re-defer it
+#   status    open | fixed | deferred:<checkpoint> | wontfix
+#   evidence  test that pins the current behaviour, or "-" for rows with no runtime symptom
+#   summary   one line, present tense, describing what is wrong
+#
+# Resolving a row means EITHER fixing the defect and setting status to `fixed`, OR setting it to
+# `deferred:<later-checkpoint>` and adding the reason to the detail document. Both are conscious
+# acts recorded in git history; neither can be reached by doing nothing.
+#
+id	opened_by	owner	status	evidence	summary
+SP04-D1	SP-04	V2-VERIFY	open	TestCarriedDefect_SP04D1_EscapedTempPathIsNotStripped	JSON-escaped Windows temp paths are not canonicalized, so they fork the dedup space and carry user names into stored content
+SP04-D2	SP-04	V2-VERIFY	open	TestKnownDeletionMediatedLimit	canonicalization is not idempotent when a deletion joins two fragments into a value neither half contained
+SP04-D3	SP-04	V2-VERIFY	open	TestCarriedDefect_SP04D3_TimestampAndDurationEdges	three timestamp and duration edge cases are wrong in the rule patterns and faithfully reproduced by the scanner
+SP04-D4	SP-04	V2-VERIFY	open	-	devtool cover's landedSubplans must gain SP-02 and SP-03 at the wave-1 merge or their coverage floors stay off
+SP04-D5	SP-04	V2-VERIFY	open	-	canonicalization cost is now dominated by per-rule prefilter scans, so each new rule spends the hot-path budget linearly
+SP04-D6	SP-04	V2-VERIFY	open	-	BenchmarkRun_Bash100KB measured +-33% run to run on the reference host, which the 25% bench-gate cannot distinguish from a regression

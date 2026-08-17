@@ -1,0 +1,384 @@
+# Fix-round-2 delta: be911428 -> b6181b7a
+
+ test/bench/hotpath/main.go        | 44 +++++++++++++++++++----
+ test/bench/hotpath/measure.go     | 76 +++++++++++++++++++++++++++------------
+ test/bench/hotpath/report.go      | 18 +++++++---
+ test/bench/hotpath/report_test.go |  5 +--
+ 4 files changed, 107 insertions(+), 36 deletions(-)
+
+diff --git a/test/bench/hotpath/main.go b/test/bench/hotpath/main.go
+index d77d90c..06f2248 100644
+--- a/test/bench/hotpath/main.go
++++ b/test/bench/hotpath/main.go
+@@ -28,20 +28,47 @@ const (
+ 
+ // The fixed iteration counts task-7-spec.md itself names for the two auxiliary measurements: the
+ // spawn floor (step 4: "spawn qompack version 200 times") and B-E (step 7: "spawn qompack
+ // checkpoint 50 times").
+ const (
+ 	spawnFloorIterations = 200
+ 	checkpointIterations = 50
+ 	warmIterations       = 2000
+ )
+ 
++// warmHotTranche is FIX ROUND 2's own fix for N-1 (Important): the daemon's hook_controlled
++// histogram — the exact series ruling #29 made the gated "B-A" row — is written by EVERY
++// req.Op.HotPath() request the daemon dispatches (internal/daemon/handlers.go's dispatchOp), with
++// no way to filter it by session or by "came from a real process" through the status op. Sending
++// all warmIterations observe.tool requests as hot-path traffic (FIX ROUND 1's shape) therefore put
++// 2000 in-process, sub-millisecond samples into the very population the 15ms gate reads — at
++// n=2000 they can outnumber the real hook-spawn population from the B-A/B-D loop outright,
++// pulling the gated p99 down to roughly the real population's own p98 (worse at smaller
++// --iterations) and its p50 to a warm-up number, not a hook number. Optimistic bias in a hard
++// gate, however sound the numbers happen to look.
++//
++// The fix: only warmHotTranche observe.tool requests (still real, still deterministic,
++// task-7-spec.md step 3's own seed-1 mixed payloads) are sent as genuine hot-path traffic — just
++// enough to prime the WAL/ingest/registry paths and give the daemon's own JIT/caches something to
++// warm on before the REAL measurement begins. The rest of warmIterations is sent as admin.ping
++// round trips (measure.go's warmDaemon) — real traffic that exercises the accept/connection loop
++// exactly as before, but admin.ping is not req.Op.HotPath() (internal/ipc/op.go), so it never
++// touches hook_controlled or l0_ingest at all. With --iterations at its 2000 default, the gated
++// B-A population is now iterations + warmHotTranche = 2064, i.e. ~97% real hook spawns — a world
++// away from FIX ROUND 1's 50/50 split at n=2000.
++//
++// 64 is not tuned to any particular budget; it is simply small relative to any --iterations value
++// task-7-spec.md's own CI/nightly commands use (2000/5000) while still being enough real hot-path
++// traffic to exercise the WAL append path, the session registry and the breach detector's
++// rolling-512-sample ring more than a single sample would.
++const warmHotTranche = 64
++
+ // defaultIterations is --iterations's own default. FIX ROUND 1, M-3: this used to alias
+ // warmIterations, which meant changing the warm-up count would silently change the default
+ // measurement count too — two unrelated quantities that happened to share one value. They are
+ // still both 2000 today (task-7-spec.md's own default), but as two independently-named constants
+ // a future change to one can no longer silently move the other.
+ const defaultIterations = 2000
+ 
+ // The bounds this harness polls/waits against. daemonUpBound is generous relative to
+ // test/e2e/daemon_e2e_test.go's own e2eDaemonUpBound (10s) because a bench run's daemon has to
+ // come up on a host that may already be under load from the very spawns this program is about to
+@@ -63,21 +90,21 @@ type flags struct {
+ }
+ 
+ // parseFlags parses args into a flags value. flag.ErrHelp is returned verbatim so main can treat
+ // -h/--help as a clean exit rather than a usage error.
+ func parseFlags(args []string, errw io.Writer) (flags, error) {
+ 	fs := flag.NewFlagSet("bench-hotpath", flag.ContinueOnError)
+ 	fs.SetOutput(errw)
+ 	f := flags{}
+ 	fs.IntVar(&f.iterations, "iterations", defaultIterations, "number of B-A/B-D spawn samples")
+ 	fs.StringVar(&f.hook, "hook", "observe-tool", "hook subcommand to spawn for B-A/B-D (only observe-tool is supported today)")
+-	fs.BoolVar(&f.warmDaemon, "warm-daemon", false, "pre-populate the daemon with 2000 observe.tool requests before measuring")
++	fs.BoolVar(&f.warmDaemon, "warm-daemon", false, "pre-populate the daemon before measuring: a small hot-path observe.tool tranche plus admin.ping traffic for the rest (FIX ROUND 2, N-1)")
+ 	fs.StringVar(&f.jsonPath, "json", "", "write the out.json artifact to this path (omit to skip)")
+ 	fs.StringVar(&f.project, "project", "", "use this directory as the temp project instead of creating one")
+ 	if err := fs.Parse(args); err != nil {
+ 		return flags{}, err
+ 	}
+ 	if f.iterations <= 0 {
+ 		return flags{}, fmt.Errorf("--iterations must be > 0, got %d", f.iterations)
+ 	}
+ 	if _, err := hookArgs(f.hook); err != nil {
+ 		return flags{}, err
+@@ -218,26 +245,28 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 		return Report{}, err
+ 	}
+ 	defer stopDaemon(dp, addr, spool, stderr)
+ 
+ 	if err := waitForDaemon(ctx, addr, spool, daemonUpBound, daemonUpTick); err != nil {
+ 		return Report{}, fmt.Errorf("%w (daemon stderr:\n%s)", err, dp.stderrString())
+ 	}
+ 	fmt.Fprintln(stdout, "hotpath: daemon is reachable")
+ 
+ 	if f.warmDaemon {
+-		fmt.Fprintf(stdout, "hotpath: warming daemon with %d observe.tool requests...\n", warmIterations)
+-		bytesSent, werr := warmDaemon(ctx, addr, spool, projectRoot, warmIterations)
++		fmt.Fprintf(stdout, "hotpath: warming daemon (%d hot-path observe.tool + %d admin.ping)...\n",
++			warmHotTranche, warmIterations-warmHotTranche)
++		bytesSent, werr := warmDaemon(ctx, addr, spool, projectRoot, warmIterations, warmHotTranche)
+ 		if werr != nil {
+ 			return Report{}, werr
+ 		}
+-		fmt.Fprintf(stdout, "hotpath: warm-up sent ~%.1f MB across %d requests\n", float64(bytesSent)/(1<<20), warmIterations)
++		fmt.Fprintf(stdout, "hotpath: warm-up sent ~%.1f MB across %d hot-path requests (plus %d admin.ping round trips)\n",
++			float64(bytesSent)/(1<<20), warmHotTranche, warmIterations-warmHotTranche)
+ 	}
+ 
+ 	fmt.Fprintf(stdout, "hotpath: measuring spawn floor (%d x qompack version)...\n", spawnFloorIterations)
+ 	floorSamples, err := measureSpawnFloor(ctx, binPath, spawnFloorIterations, childEnv)
+ 	if err != nil {
+ 		return Report{}, err
+ 	}
+ 	floorP50, _, floorP99, _, _ := percentiles(append([]time.Duration(nil), floorSamples...))
+ 
+ 	hArgs, err := hookArgs(f.hook)
+@@ -265,22 +294,23 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	if err != nil {
+ 		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+ 	}
+ 
+ 	// FIX ROUND 1, I-2: assert delivery integrity before trusting anything the status op reported.
+ 	// internal/ipc/client.go's Send degrades silently to the spool on a connect timeout, a write
+ 	// failure, DaemonEnabled==false, or a HotSpool breach — every one of those paths makes the
+ 	// SPAWNED hook exit FASTER than a delivered one, which would bias a wall-clock B-A estimate
+ 	// downward and could pass a gate that is actually measuring the degraded path. l0_ingest's own
+ 	// count is the daemon's ground truth for "how many observe.tool requests actually arrived":
+-	// every one of them (warm-up and the B-A/B-D loop alike) reaches acceptHotPathEvent ->
+-	// ing.Accept, and nothing else (B-E's checkpoint spawns, the spawn floor) touches it.
++	// every one of them (the warm-up's own HOT TRANCHE and the B-A/B-D loop alike) reaches
++	// acceptHotPathEvent -> ing.Accept, and nothing else — B-E's checkpoint spawns, the spawn
++	// floor, and (FIX ROUND 2) the warm-up's own admin.ping bulk — touches it.
+ 	bbSnap := snap.Latency[budgetHistName(obs.BB)]
+ 	if err := checkDeliveryIntegrity(bbSnap.N, f.iterations, f.warmDaemon); err != nil {
+ 		return Report{}, err
+ 	}
+ 
+ 	cfg := config.Defaults()
+ 	// FIX ROUND 1, I-1 / controller ruling #29 (spec step 6 amended): B-A is now gated on the
+ 	// daemon's own hook_controlled histogram (TS-anchored: recvTS - reqTS + hotPathTailAllowance),
+ 	// fetched via status — the same series internal/daemon's breach detector consumes — rather than
+ 	// the wall-clock, floor-subtracted spawn estimate. See bAMethod's doc comment (report.go) for
+@@ -288,21 +318,21 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
+ 	// dispersion, contaminating exactly the percentile the gate reads.
+ 	baSnap := snap.Latency[budgetHistName(obs.BA)]
+ 
+ 	report := Report{
+ 		Platform: runtime.GOOS + "/" + runtime.GOARCH,
+ 		N:        f.iterations,
+ 		BAMethod: bAMethod,
+ 		SpawnFloorMs: SpawnFloor{
+ 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
+ 		},
+-		Notes: buildNotes(snap, f.warmDaemon),
++		Notes: buildNotes(snap, f.warmDaemon, f.iterations),
+ 		Budgets: []BudgetRow{
+ 			buildBudgetRowFromSnapshot(string(obs.BA), baSnap, budgetLimit(cfg, obs.BA), true),
+ 			buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true),
+ 			buildBudgetRow(string(obs.BD), bdSamples, 0, false),
+ 			buildBudgetRow(string(obs.BE), beSamples, budgetLimit(cfg, obs.BE), true),
+ 			// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
+ 			// budgetIDBASpawnEstimate's own doc comment (report.go).
+ 			buildBudgetRow(budgetIDBASpawnEstimate, baSamples, 0, false),
+ 		},
+ 	}
+diff --git a/test/bench/hotpath/measure.go b/test/bench/hotpath/measure.go
+index 87e21c4..2feada9 100644
+--- a/test/bench/hotpath/measure.go
++++ b/test/bench/hotpath/measure.go
+@@ -13,54 +13,77 @@ import (
+ )
+ 
+ // warmConnectDeadline and warmAckDeadline bound each individual request warmDaemon issues. See
+ // newProbeClient's doc comment (transport.go) for why this is a per-request ipc.Client.Send
+ // rather than one held connection.
+ const (
+ 	warmConnectDeadline = 2 * time.Second
+ 	warmAckDeadline     = 2 * time.Second
+ )
+ 
+-// warmDaemon sends n deterministic observe.tool requests to addr (task-7-spec.md step 3), so the
+-// WAL, registry and ring are warm before the measured phases begin. It returns the total
+-// ToolResponse bytes sent, purely for the human summary — never load-bearing for the gate.
++// warmDaemon sends n total warm-up requests to addr, so the WAL, registry and ring are warm
++// before the measured phases begin. It returns the total ToolResponse bytes sent by the hot-path
++// tranche, purely for the human summary — never load-bearing for the gate.
++//
++// FIX ROUND 2, N-1: only the first hotTranche requests are genuine hot-path traffic —
++// task-7-spec.md step 3's own deterministic, seed-1, mixed-shape observe.tool payloads. The
++// review's independent re-run showed that sending ALL n as observe.tool (FIX ROUND 1's shape) put
++// n in-process, sub-millisecond samples into the daemon's hook_controlled histogram — the exact
++// series ruling #29 made the gated "B-A" row — where they could outnumber the real hook-spawn
++// population from the B-A/B-D loop and pull the gated percentile toward a warm-up number instead
++// of a hook number. The remaining n-hotTranche requests are sent as admin.ping round trips
++// instead: real traffic that still exercises the daemon's accept/connection loop exactly as
++// before, but admin.ping is not req.Op.HotPath() (internal/ipc/op.go), so it can never touch
++// hook_controlled or l0_ingest.
+ //
+ // FIX ROUND 1, M-2: by internal/ipc/client.go's own Client.Send contract, Send NEVER returns a
+ // propagating error — every failure (a connect timeout, a write failure, DaemonEnabled==false, a
+ // HotSpool breach) is swallowed into a spool append and (Response{OK:false}, nil). The `if _, err
+-// := c.Send(...); err != nil` branch below is therefore near-dead code, kept only because Client
+-// is an interface and a future/alternate implementation could legitimately violate that contract.
+-// This loop deliberately does NOT check resp.OK either: a per-request refusal is not itself
+-// caught here. The actual delivery-integrity guard lives one layer up, in runHarness (main.go,
+-// FIX ROUND 1 I-2): after the run, the daemon's own l0_ingest count is asserted to equal exactly
+-// warm-up + iterations, which catches a degraded run (partial or total) that this loop's own
+-// return values cannot.
+-func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n int) (int64, error) {
++// := c.Send(...); err != nil` branches below are therefore near-dead code, kept only because
++// Client is an interface and a future/alternate implementation could legitimately violate that
++// contract. Neither loop checks resp.OK either: a per-request refusal is not itself caught here.
++// The actual delivery-integrity guard lives one layer up, in runHarness (main.go, FIX ROUND 1
++// I-2): after the run, the daemon's own l0_ingest count is asserted to equal exactly
++// iterations + hotTranche (FIX ROUND 2 moved this from + n), which catches a degraded run
++// (partial or total) that this loop's own return values cannot.
++func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n, hotTranche int) (int64, error) {
+ 	c := newProbeClient(addr, spool, warmConnectDeadline)
+ 	defer func() { _ = c.Close() }()
+ 
+ 	gen := newPayloadGen(1) // seed 1, task-7-spec.md step 3.
+-	var total int64
+-	for i := 0; i < n; i++ {
++	var hotBytes int64
++	for i := 0; i < hotTranche; i++ {
+ 		if err := ctx.Err(); err != nil {
+-			return total, err
++			return hotBytes, err
+ 		}
+ 		ev := gen.next(i, warmSessionID, projectRoot)
+-		total += int64(len(ev.ToolResponse))
++		hotBytes += int64(len(ev.ToolResponse))
+ 		req := ipc.Request{
+ 			Op: ipc.OpObserveTool, Session: warmSessionID, TS: core.NowMilli(core.SystemClock()), Event: &ev,
+ 		}
+ 		if _, err := c.Send(ctx, req, warmAckDeadline); err != nil {
+-			return total, fmt.Errorf("hotpath: warm-up request #%d: %w", i, err)
++			return hotBytes, fmt.Errorf("hotpath: warm-up hot-path request #%d: %w", i, err)
++		}
++	}
++
++	for i := hotTranche; i < n; i++ {
++		if err := ctx.Err(); err != nil {
++			return hotBytes, err
++		}
++		req := ipc.Request{
++			Op: ipc.OpAdminPing, Session: warmSessionID, TS: core.NowMilli(core.SystemClock()),
++		}
++		if _, err := c.Send(ctx, req, warmAckDeadline); err != nil {
++			return hotBytes, fmt.Errorf("hotpath: warm-up admin.ping #%d: %w", i, err)
+ 		}
+ 	}
+-	return total, nil
++	return hotBytes, nil
+ }
+ 
+ // fetchStatus round-trips a Reply status request against addr and decodes its
+ // daemon.StatusSnapshot payload — the harness's only source for B-B, and, per FIX ROUND 1's
+ // controller ruling #29, for the gated B-A row too (task-7-spec.md step 8).
+ func fetchStatus(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter) (daemon.StatusSnapshot, error) {
+ 	c := newProbeClient(addr, spool, probeConnectDeadline)
+ 	defer func() { _ = c.Close() }()
+ 
+ 	req := ipc.Request{
+@@ -81,26 +104,35 @@ func fetchStatus(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter) (dae
+ }
+ 
+ // histHookControlledObservedName mirrors internal/daemon/handlers.go's own unexported
+ // histHookControlledObserved constant ("hook_controlled_observed"): the daemon-owned strict
+ // lower-bound histogram this harness reports informationally (task-7-spec.md step 8's "observed/
+ // estimated hook.controlled pair"), never gated.
+ const histHookControlledObservedName = "hook_controlled_observed"
+ 
+ // buildNotes assembles the out.json "notes" array: the wave-1 B-C disclaimer task-7-spec.md step
+ // 3 requires, the daemon's own strict-lower-bound cross-check against the now-gated B-A row (FIX
+-// ROUND 1, controller ruling #29), and — when warm-up ran — a note explaining why B-B's own n
+-// includes it (M-4).
+-func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool) []string {
++// ROUND 1, controller ruling #29), and — when warm-up ran — notes explaining exactly what B-A's
++// and B-B's own n each include (M-4, and FIX ROUND 2's N-1 fix for B-A).
++func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool, iterations int) []string {
+ 	notes := []string{"B-C not measured in wave 1: the processing seams are stubs"}
+ 	if hs, ok := snap.Latency[histHookControlledObservedName]; ok && hs.N > 0 {
+ 		notes = append(notes, fmt.Sprintf(
+ 			"daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=%.3fms p99=%.3fms n=%d — informational cross-check against the gated B-A row above, which adds the tail allowance",
+ 			msf(hs.P50), msf(hs.P99), hs.N))
+ 	}
+ 	if warmDaemonRan {
++		// FIX ROUND 2, N-1: the gated B-A row's own population composition, stated explicitly —
++		// the re-review's minimum ask. warmHotTranche in-process client Sends (stamped at Send
++		// time, not a spawned process's main() entry) plus `iterations` real hook spawns from the
++		// B-A/B-D loop; the tranche is deliberately small so the gated percentile stays
++		// hook-spawn-dominated, but it is not zero, so the composition is disclosed rather than
++		// asserted away.
++		notes = append(notes, fmt.Sprintf(
++			"B-A's gated n=%d includes %d in-process warm-up observe.tool requests (Send-time TS, not a spawned process's main() entry) alongside %d real hook spawns from the B-A/B-D loop — the warm-up hot-path tranche is a small, fixed constant (warmHotTranche) chosen so the gated population stays hook-spawn-dominated; see B-A_spawn_estimate for the wall-clock diagnostic derived purely from real spawns",
++			iterations+warmHotTranche, warmHotTranche, iterations))
+ 		notes = append(notes, fmt.Sprintf(
+-			"B-B's n includes the %d warm-up observe.tool requests, not just the B-A/B-D measurement loop — the daemon's own %s count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload)",
+-			warmIterations, budgetHistName(obs.BB)))
++			"B-B's n includes the %d warm-up hot-path (observe.tool) requests, not just the B-A/B-D measurement loop — the daemon's own %s count, reported verbatim (conservative for B-B: warm-up payloads run 4KB-256KB, larger than B-A/B-D's fixed representative payload). The other %d warm-up requests are admin.ping round trips and never reach l0_ingest at all (FIX ROUND 2, N-1)",
++			warmHotTranche, budgetHistName(obs.BB), warmIterations-warmHotTranche))
+ 	}
+ 	return notes
+ }
+diff --git a/test/bench/hotpath/report.go b/test/bench/hotpath/report.go
+index 4141476..6be2994 100644
+--- a/test/bench/hotpath/report.go
++++ b/test/bench/hotpath/report.go
+@@ -190,30 +190,38 @@ func budgetLimit(cfg config.Config, id obs.BudgetID) time.Duration {
+ func budgetHistName(id obs.BudgetID) string {
+ 	for _, b := range obs.Budgets() {
+ 		if b.ID == id {
+ 			return b.Hist
+ 		}
+ 	}
+ 	return ""
+ }
+ 
+ // checkDeliveryIntegrity is FIX ROUND 1's I-2 guard: gotN (the daemon's own l0_ingest
+-// obs.HistSnapshot.N, read via the status op) must equal exactly iterations, plus warmIterations
++// obs.HistSnapshot.N, read via the status op) must equal exactly iterations, plus warmHotTranche
+ // when warm-up ran — every observe.tool request this harness sent, and nothing else, touches
+-// l0_ingest. A shortfall means some hook spawns degraded to the spool path
++// l0_ingest.
++//
++// FIX ROUND 2, N-1: warm-up's own bulk is admin.ping traffic (measure.go's warmDaemon), which is
++// not req.Op.HotPath() and never reaches ing.Accept — only the warm-up's small hot-path tranche
++// (warmHotTranche observe.tool requests) does. This check's expected count moved from
++// "iterations + warmIterations" to "iterations + warmHotTranche" for exactly that reason: the
++// bulk of warmIterations is deliberately NOT expected to touch l0_ingest any more.
++//
++// A shortfall means some hook spawns (or the hot tranche itself) degraded to the spool path
+ // (internal/ipc/client.go's Send: a connect timeout, a write failure, DaemonEnabled==false, or a
+ // HotSpool breach all swallow the failure and return quickly) instead of reaching the daemon —
+ // which would bias a wall-clock estimate DOWNWARD (a spooled hook exits faster than a delivered
+ // one) and could pass a gate that is actually measuring the degraded path. Fails loudly rather
+ // than silently reporting on partial data.
+ func checkDeliveryIntegrity(gotN int64, iterations int, warmDaemonRan bool) error {
+ 	want := int64(iterations)
+ 	if warmDaemonRan {
+-		want += warmIterations
++		want += warmHotTranche
+ 	}
+ 	if gotN == want {
+ 		return nil
+ 	}
+ 	return fmt.Errorf(
+-		"hotpath: delivery integrity check failed: the daemon's own l0_ingest histogram observed %d requests, want exactly %d (warm=%v x %d + iterations=%d) — some hook spawns degraded to the spool path instead of reaching the daemon, which would bias every derived number; refusing to report a Report rather than silently passing a gate on partial data",
+-		gotN, want, warmDaemonRan, warmIterations, iterations)
++		"hotpath: delivery integrity check failed: the daemon's own l0_ingest histogram observed %d requests, want exactly %d (warm=%v x %d hot-path tranche + iterations=%d) — some hook spawns degraded to the spool path instead of reaching the daemon, which would bias every derived number; refusing to report a Report rather than silently passing a gate on partial data",
++		gotN, want, warmDaemonRan, warmHotTranche, iterations)
+ }
+diff --git a/test/bench/hotpath/report_test.go b/test/bench/hotpath/report_test.go
+index 129bce2..fb08439 100644
+--- a/test/bench/hotpath/report_test.go
++++ b/test/bench/hotpath/report_test.go
+@@ -176,24 +176,25 @@ func TestBudgetLimit_ReadsFromConfigDefaults(t *testing.T) {
+ 	require.Equal(t, 15*time.Millisecond, budgetLimit(cfg, obs.BA))
+ 	require.Equal(t, 2*time.Millisecond, budgetLimit(cfg, obs.BB))
+ 	require.Equal(t, 2000*time.Millisecond, budgetLimit(cfg, obs.BE))
+ }
+ 
+ func TestBudgetHistName_MatchesBudgetsTable(t *testing.T) {
+ 	require.Equal(t, "l0_ingest", budgetHistName(obs.BB))
+ }
+ 
+ // TestCheckDeliveryIntegrity pins FIX ROUND 1's I-2 guard: gotN must equal iterations (+
+-// warmIterations when warm-up ran), exactly — no tolerance either direction.
++// warmHotTranche when warm-up ran — FIX ROUND 2, N-1: only the warm-up's small hot-path tranche
++// touches l0_ingest; the rest is admin.ping traffic), exactly — no tolerance either direction.
+ func TestCheckDeliveryIntegrity(t *testing.T) {
+ 	require.NoError(t, checkDeliveryIntegrity(2000, 2000, false), "no warm-up: exact match passes")
+-	require.NoError(t, checkDeliveryIntegrity(int64(warmIterations+2000), 2000, true), "warm-up: exact match passes")
++	require.NoError(t, checkDeliveryIntegrity(int64(warmHotTranche+2000), 2000, true), "warm-up: exact match passes")
+ 
+ 	require.Error(t, checkDeliveryIntegrity(1999, 2000, false), "one short must fail loudly")
+ 	require.Error(t, checkDeliveryIntegrity(2001, 2000, false), "one over must also fail — not just a floor check")
+ 	require.Error(t, checkDeliveryIntegrity(2000, 2000, true), "warm-up ran but l0_ingest only saw the loop's own count")
+ }
+ 
+ // TestReport_ExitNonZeroOnAnyGatedFailure pins GateFailed's decision rule: any gated (non-nil
+ // Pass) budget reporting false fails the run; B-D's nil Pass never can.
+ func TestReport_ExitNonZeroOnAnyGatedFailure(t *testing.T) {
+ 	okReport := Report{Budgets: []BudgetRow{

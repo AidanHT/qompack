@@ -14,11 +14,18 @@ import (
 // digest minted for one purpose can never collide with one minted for another. The complete set
 // of domains in use, and who owns each:
 //
-//	qompack.chunk.v1     chunk content hashes            (SP-04)
-//	qompack.root.v1      Merkle root over chunk hashes   (SP-04/06)
-//	qompack.neg.v1       negative-knowledge bloom key    (SP-09)
-//	qompack.decision     decision IDs                    (SP-10)
-//	qompack.args.v1      tool-arg digests                (SP-06)
+//	qompack.chunk.v1          chunk content hashes            (SP-04)
+//	qompack.root.v1           Merkle root over chunk hashes   (SP-04/06)
+//	qompack.neg.v1            negative-knowledge bloom key    (SP-09)
+//	qompack.decision          decision IDs                    (SP-10)
+//	qompack.args.v1           tool-arg digests                (SP-06)
+//	qompack.sketch.bloom.v1   Bloom bit indices               (SP-03)
+//	qompack.sketch.cms.v1     Count-Min cell indices          (SP-03)
+//	qompack.sketch.hll.v1     HyperLogLog register selection  (SP-03)
+//
+// The three qompack.sketch.* domains are declared as unexported constants in
+// internal/sketch/hash.go rather than here, because nothing outside that package may mint a sketch
+// index; they are listed above so this registry keeps its claim to completeness.
 //
 // Changing one of these strings re-keys every derived value already on disk. Treat them as a
 // wire format, not as identifiers.
@@ -60,7 +67,16 @@ func HashBytes(domain string, b []byte) Hash {
 	_, _ = h.Write([]byte{0x00})
 	_, _ = h.Write(b)
 	var out Hash
-	copy(out[:], h.Sum(nil))
+	// Sum APPENDS to the slice it is given. out[:0] has length 0 and capacity sha256.Size, so the
+	// append lands in out's own array and the digest never reaches the heap; the obvious-looking
+	// copy(out[:], h.Sum(nil)) allocates a 32-byte slice on every call. That is not a micro-tuning
+	// preference. This function is on the L0 PostToolUse hot path (§8.1 item 5, budget B-A) and is
+	// called 5 000 times in a single Bloom rebuild, so the old form cost 5 000 allocations and exactly
+	// 160 000 B (156 KiB) of garbage per rebuild — which sketch's BenchmarkRebuildBloom5000 reproduces
+	// as a 172 400 → 12 400 B/op drop. A ONE-OFF A/B probe, not a committed benchmark, put the two
+	// forms at 1 alloc/op / 104.1n ± 2 % and 0 alloc/op / 90.36n ± 3 % over 8 samples, digests
+	// byte-identical. Do not "simplify" it back; TestHashBytes_DoesNotAllocate guards it.
+	h.Sum(out[:0])
 	return out
 }
 

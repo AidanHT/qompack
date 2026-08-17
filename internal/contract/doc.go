@@ -25,7 +25,17 @@
 //   - StandardAssertions, whose nine entries carry their real, DECLARED severities but whose Check
 //     functions all report the not-yet-implemented result §12.1 mandates.
 //
-// What SP-05 owns is the assertion *observations*: replacing each Assertion.Check with a real
-// measurement against the host. SP-05 replaces Check, never the OK/SevInfo rule for an assertion
-// whose producer is still absent, and never the mechanics above.
+// # What SP-05 replaced
+//
+// SP-05 owns the assertion *observations*: every Assertion.Check in StandardAssertions is now a
+// real measurement against the host (producers.go, marker.go, sentinel.go, history.go,
+// assertions.go) — session_start.fires reads run/marker.json, hook.payload_shape inspects the
+// actual Event, precompact.has_time_to_write computes a p99 against the manifest timeout, and so
+// on. What SP-05 did NOT replace is §12.1's not-yet-implemented rule itself: every Check is wrapped
+// in gated (assertions.go), which still reports OK/SevInfo/"not-yet-implemented" — never running the
+// real Check at all — for any assertion whose producer has not called DeclareProducer
+// (producers.go). SP-05 also ships the package's first History implementation, SessionHistory
+// (history.go): the cross-session, persistent record several of these Checks read and mutate. Its
+// wire shape (state/history.json) is frozen by the history_degraded golden fixture; see
+// SessionHistory's own doc comment for what that means for a future change.
 package contract

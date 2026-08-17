@@ -4,9 +4,16 @@ package canon
 // (00-ARCHITECTURE.md §5.6). Canonicalize MUST be idempotent:
 // Canonicalize(Canonicalize(x).Canonical, o) == Canonicalize(x, o).
 //
-// This package declares the interface only: the twelve concrete canonicalizers §5.6 names (crlf,
-// ansi, timestamps, durations, pids, addresses, tmpPaths, then per-tool bash, testrunner, grep,
-// glob, fileread, webfetch, git) are SP-04's implementation, not SP-01's stub.
+// Idempotence is achieved structurally rather than by convention: every built-in replaces a span
+// with a token built from '<' and '>', characters that appear in no pattern, so no token can ever
+// match a rule on a second pass. A canonicalizer added later must uphold the same property.
+//
+// Every built-in ALSO implements Matcher, which is what Registry.Run composes over; Canonicalize
+// is the standalone path, and each built-in implements it by delegating to the same sort/accept/
+// apply pass Run uses, so a canonicalizer behaves identically alone and inside the registry.
+// Result.Signature is left zero by a standalone Canonicalize: only Run sees the fully
+// canonicalized bytes, and a near-duplicate score for a partially canonicalized document would be
+// a score for something that never gets stored.
 type Canonicalizer interface {
 	// Name identifies this canonicalizer; Registry.Register errors on a duplicate Name.
 	Name() string

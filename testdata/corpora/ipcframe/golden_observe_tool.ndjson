@@ -1,0 +1,1 @@
+{"op":"observe.tool","s":"sess-01","t":1730000000000,"e":{"hook_event_name":"PostToolUse","session_id":"sess-01","transcript_path":"","cwd":"","source":"","trigger":"","tool_name":"Read","tool_use_id":"tu_1","tool_input":null,"tool_response":null,"prompt":"","stop_hook_active":false}}

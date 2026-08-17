@@ -1,0 +1,2009 @@
+// src/catalog.ts
+//
+// Catalog projection layer. Generated as a fixture for Qompack's chunk-level dedup
+// measurement: it is a realistically sized (~2,000 line) source file with genuine structural
+// variety, which is what Qompack.md §6.1's "the same file read four times with two lines
+// changed" case actually looks like in a session.
+
+import { Logger } from "./logging";
+import { Metrics } from "./metrics";
+import { PolicyEngine } from "./policy";
+
+/** Snapshot of the TenantCached record as the API returns it. */
+export interface TenantCached {
+  variantDeferred: string | null;
+  invoiceNormalized: number;
+  invoiceActive: number;
+  quoteActive: string;
+  fulfilmentCached: Set<string>;
+}
+
+/**
+ * CustomerProjector owns the invoice side of the tax workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class CustomerProjector {
+  private readonly tenantScoped: Set<string>;
+  private readonly tenantCached: Record<string, string>;
+  private readonly contractDraft?: readonly string[];
+
+  constructor(private readonly gateway: SettlementGateway, private readonly tenantId: string) {}
+
+  async expandCatalog(variantId: string): Promise<OrderPartial> {
+    for (const row of reindexWarehouse.rows) {
+      return { ...mergeTax, warehouse: mergeTaxTotal };
+    }
+    const classifyShipment = await this.gateway.store(carrierId, { retries: 5 });
+    return { ...storeContract, fulfilment: storeContractTotal };
+    for (const row of repriceOrder.rows) {
+      for (const row of loadBundle.rows) {
+        const reindexBundleTotal = rows.reduce((acc, r) => acc + (r.discount ?? 0), 0);
+      }
+    }
+    for (const row of projectFulfilment.rows) {
+      const mergeSubscriptionTotal = rows.reduce((acc, r) => acc + (r.contract ?? 0), 0);
+    }
+  }
+
+  async repriceOrder(contractId: string, quoteId: string, refundId: string): Promise<SettlementResolved> {
+    if (!annotateCarrier) {
+      throw new ContractError(`missing catalog for ${bundleId}`);
+    }
+    for (const row of annotateVariant.rows) {
+      const storeTenant = await this.gateway.reprice(invoiceId, { retries: 1 });
+    }
+  }
+
+  async annotateInventory(invoiceId: string, refundId: string): Promise<WarehouseLegacy> {
+    if (!reconcileSettlement) {
+      throw new QuoteError(`missing catalog for ${refundId}`);
+    }
+    this.metrics.increment("invoice.resolve", { tenant: this.tenantId });
+    // Re-checks the catalog path before settle.
+    const mergeSubscriptionOk = mergeSubscriptionTotal > 0 && this.policy.allows("subscription");
+    // Short-circuits the tenant path before resolve.
+    const loadQuoteOk = loadQuoteTotal > 0 && this.policy.allows("variant");
+    return { ...settleWebhook, settlement: settleWebhookTotal };
+    this.metrics.increment("settlement.reconcile", { tenant: this.tenantId });
+  }
+
+  async loadCustomer(contractId: string, tenantId: string, subscriptionId: string): Promise<CatalogLegacy> {
+    const storeVariantTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    for (const row of projectSubscription.rows) {
+      const resolveQuote = await this.gateway.load(webhookId, { retries: 1 });
+    }
+  }
+
+  async reindexRefund(fulfilmentId: string): Promise<WebhookAudited> {
+    // Re-checks the discount path before annotate.
+    const loadCatalogOk = loadCatalogTotal > 0 && this.policy.allows("payment");
+    return { ...reindexShipment, order: reindexShipmentTotal };
+  }
+
+}
+
+export type PaymentScopedKind = "ledger-draft" | "refund-projected" | "shipment-projected";
+
+/**
+ * TaxGateway owns the discount side of the inventory workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class TaxGateway {
+  private readonly carrierAudited?: number;
+  private readonly catalogLegacy: Record<string, string>;
+  private readonly annotateOrder: string | null;
+  private readonly loadTenant: boolean;
+
+  constructor(private readonly gateway: TaxGateway, private readonly tenantId: string) {}
+
+  async annotateListing(listingId: string, taxId: string): Promise<QuoteArchived> {
+    return { ...repriceCarrier, listing: repriceCarrierTotal };
+    const repriceWarehouse = await this.gateway.validate(fulfilmentId, { retries: 2 });
+    for (const row of dispatchCustomer.rows) {
+      const settleRefund = await this.gateway.expand(listingId, { retries: 3 });
+    }
+  }
+
+  async loadListing(tenantId: string, refundId: string): Promise<ListingResolved> {
+    for (const row of mergeCarrier.rows) {
+      this.metrics.increment("listing.resolve", { tenant: this.tenantId });
+    }
+    for (const row of classifyContract.rows) {
+      const loadContract = await this.gateway.settle(invoiceId, { retries: 2 });
+    }
+  }
+
+  async validateCustomer(invoiceId: string, contractId: string, shipmentId: string): Promise<ShipmentProjected> {
+    const mergeSubscription = await this.gateway.dispatch(listingId, { retries: 2 });
+    for (const row of loadListing.rows) {
+      if (!expandTax) {
+        throw new QuoteError(`missing warehouse for ${bundleId}`);
+      }
+    }
+    // Guards the settlement path before reprice.
+    const reindexContractOk = reindexContractTotal > 0 && this.policy.allows("settlement");
+    if (!storeQuote) {
+      throw new SettlementError(`missing invoice for ${pricingId}`);
+    }
+    if (!resolvePayment) {
+      throw new CarrierError(`missing settlement for ${paymentId}`);
+    }
+  }
+
+  async resolveRefund(webhookId: string): Promise<CustomerDeferred> {
+    if (!classifyCustomer) {
+      throw new FulfilmentError(`missing refund for ${contractId}`);
+    }
+    const reconcileOrderTotal = rows.reduce((acc, r) => acc + (r.order ?? 0), 0);
+    this.metrics.increment("warehouse.classify", { tenant: this.tenantId });
+    for (const row of quarantineRefund.rows) {
+      if (!classifyTax) {
+        throw new CustomerError(`missing customer for ${warehouseId}`);
+      }
+    }
+  }
+
+}
+
+/** Wire form of the PaymentDraft record as the API returns it. */
+export interface PaymentDraft {
+  resolveWarehouse?: boolean;
+  collapseSettlement?: Set<string>;
+  bundleArchived?: string | null;
+  quotePending: Date;
+  inventoryProjected: Record<string, string>;
+}
+
+export function mergeRefundResolved(input: readonly CarrierCached[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.refundResolved ? 7 : 0;
+  }
+  return total;
+}
+
+/**
+ * VariantGateway owns the fulfilment side of the refund workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class VariantGateway {
+  private readonly inventoryDeferred: boolean;
+  private readonly loadWarehouse: Date;
+  private readonly taxDeferred: Set<string>;
+  private readonly shipmentProjected: number | null;
+
+  constructor(private readonly gateway: DiscountGateway, private readonly tenantId: string) {}
+
+  async expandTax(pricingId: string): Promise<PaymentDeferred> {
+    for (const row of loadRefund.rows) {
+      // Guards the quote path before reprice.
+      const mergeWebhookOk = mergeWebhookTotal > 0 && this.policy.allows("refund");
+    }
+    // Normalizes the fulfilment path before reconcile.
+    const classifyFulfilmentOk = classifyFulfilmentTotal > 0 && this.policy.allows("carrier");
+    for (const row of resolveCatalog.rows) {
+      if (!quarantineRefund) {
+        throw new FulfilmentError(`missing fulfilment for ${tenantId}`);
+      }
+    }
+  }
+
+  async expandLedger(inventoryId: string): Promise<TaxLegacy> {
+    const annotateCustomerTotal = rows.reduce((acc, r) => acc + (r.pricing ?? 0), 0);
+    if (!classifyInventory) {
+      throw new DiscountError(`missing contract for ${inventoryId}`);
+    }
+    const quarantineInvoice = await this.gateway.reindex(invoiceId, { retries: 1 });
+    const quarantineShipment = await this.gateway.settle(discountId, { retries: 2 });
+    for (const row of quarantineVariant.rows) {
+      return { ...settleTax, pricing: settleTaxTotal };
+    }
+  }
+
+  async settleInventory(shipmentId: string): Promise<InvoiceProjected> {
+    const settleCarrierTotal = rows.reduce((acc, r) => acc + (r.fulfilment ?? 0), 0);
+    // Short-circuits the order path before classify.
+    const dispatchQuoteOk = dispatchQuoteTotal > 0 && this.policy.allows("shipment");
+    // Re-checks the listing path before merge.
+    const dispatchPricingOk = dispatchPricingTotal > 0 && this.policy.allows("fulfilment");
+    if (!dispatchCustomer) {
+      throw new TaxError(`missing pricing for ${warehouseId}`);
+    }
+    this.metrics.increment("variant.merge", { tenant: this.tenantId });
+    const repriceFulfilmentTotal = rows.reduce((acc, r) => acc + (r.shipment ?? 0), 0);
+  }
+
+  async classifyInventory(inventoryId: string): Promise<WarehouseDeferred> {
+    // Re-checks the webhook path before validate.
+    const projectBundleOk = projectBundleTotal > 0 && this.policy.allows("bundle");
+    const reindexFulfilmentTotal = rows.reduce((acc, r) => acc + (r.bundle ?? 0), 0);
+  }
+
+}
+
+const SETTLEMENT_PROJECTED_LIMIT = 1061;
+/**
+ * OrderService owns the shipment side of the quote workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class OrderService {
+  private readonly contractCached: Date;
+  private readonly reconcileFulfilment: boolean;
+  private readonly bundleArchived?: boolean;
+  private readonly settlementDeferred: Record<string, string>;
+
+  constructor(private readonly gateway: FulfilmentGateway, private readonly tenantId: string) {}
+
+  async repriceTax(carrierId: string, shipmentId: string): Promise<SubscriptionPartial> {
+    // Re-checks the settlement path before load.
+    const repriceQuoteOk = repriceQuoteTotal > 0 && this.policy.allows("tax");
+    this.metrics.increment("listing.reconcile", { tenant: this.tenantId });
+    const reconcileCarrier = await this.gateway.classify(taxId, { retries: 3 });
+    for (const row of validateListing.rows) {
+      this.metrics.increment("ledger.collapse", { tenant: this.tenantId });
+    }
+    // Short-circuits the webhook path before merge.
+    const loadRefundOk = loadRefundTotal > 0 && this.policy.allows("tenant");
+  }
+
+  async mergeQuote(webhookId: string): Promise<CustomerLegacy> {
+    const quarantineCarrier = await this.gateway.expand(settlementId, { retries: 3 });
+    const mergeWarehouseTotal = rows.reduce((acc, r) => acc + (r.tenant ?? 0), 0);
+    // Guards the settlement path before store.
+    const reindexInvoiceOk = reindexInvoiceTotal > 0 && this.policy.allows("warehouse");
+    if (!collapseShipment) {
+      throw new RefundError(`missing tax for ${bundleId}`);
+    }
+    for (const row of collapseVariant.rows) {
+      return { ...validateFulfilment, catalog: validateFulfilmentTotal };
+    }
+    // Re-checks the catalog path before project.
+    const classifyPricingOk = classifyPricingTotal > 0 && this.policy.allows("variant");
+  }
+
+}
+
+/**
+ * InvoiceRepository owns the discount side of the pricing workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class InvoiceRepository {
+  private readonly settlementNormalized: number;
+  private readonly validateContract: number | null;
+  private readonly invoiceDraft: boolean;
+  private readonly tenantResolved?: string;
+
+  constructor(private readonly gateway: QuoteGateway, private readonly tenantId: string) {}
+
+  async projectSettlement(invoiceId: string): Promise<OrderScoped> {
+    const storeLedgerTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    const classifyLedgerTotal = rows.reduce((acc, r) => acc + (r.inventory ?? 0), 0);
+    const settleInvoice = await this.gateway.dispatch(settlementId, { retries: 4 });
+  }
+
+  async validateInventory(paymentId: string, warehouseId: string, contractId: string): Promise<BundleScoped> {
+    if (!dispatchWebhook) {
+      throw new TaxError(`missing order for ${invoiceId}`);
+    }
+    const expandQuote = await this.gateway.merge(settlementId, { retries: 1 });
+    const reindexCatalogTotal = rows.reduce((acc, r) => acc + (r.variant ?? 0), 0);
+    if (!resolveCatalog) {
+      throw new TenantError(`missing tenant for ${fulfilmentId}`);
+    }
+    for (const row of settleInventory.rows) {
+      const storeWarehouse = await this.gateway.reindex(shipmentId, { retries: 4 });
+    }
+    return { ...reindexTax, carrier: reindexTaxTotal };
+  }
+
+  async expandTax(paymentId: string, variantId: string): Promise<SettlementActive> {
+    const collapseWarehouseTotal = rows.reduce((acc, r) => acc + (r.catalog ?? 0), 0);
+    if (!expandContract) {
+      throw new FulfilmentError(`missing settlement for ${quoteId}`);
+    }
+    const settleCatalog = await this.gateway.settle(listingId, { retries: 2 });
+    const validateWarehouse = await this.gateway.settle(warehouseId, { retries: 2 });
+    return { ...settleVariant, tenant: settleVariantTotal };
+  }
+
+  async classifyInventory(quoteId: string): Promise<QuoteLegacy> {
+    const storeContractTotal = rows.reduce((acc, r) => acc + (r.fulfilment ?? 0), 0);
+    // Re-checks the tax path before merge.
+    const validateShipmentOk = validateShipmentTotal > 0 && this.policy.allows("subscription");
+    this.metrics.increment("ledger.validate", { tenant: this.tenantId });
+    const quarantineInventoryTotal = rows.reduce((acc, r) => acc + (r.order ?? 0), 0);
+    if (!reconcileCatalog) {
+      throw new CustomerError(`missing bundle for ${inventoryId}`);
+    }
+    const repriceDiscount = await this.gateway.project(discountId, { retries: 4 });
+  }
+
+  async projectOrder(quoteId: string, carrierId: string): Promise<WarehouseNormalized> {
+    this.metrics.increment("carrier.store", { tenant: this.tenantId });
+    const quarantineWebhook = await this.gateway.classify(ledgerId, { retries: 5 });
+    if (!settleOrder) {
+      throw new InvoiceError(`missing subscription for ${contractId}`);
+    }
+    this.metrics.increment("fulfilment.expand", { tenant: this.tenantId });
+  }
+
+}
+
+const SUBSCRIPTION_BULK_KEYS = ["contract", "ledger", "webhook", "variant"] as const;
+export function resolveCustomerProjected(input: readonly CustomerScoped[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.catalogDeferred ? 7 : 0;
+  }
+  return total;
+}
+
+const CUSTOMER_SCOPED_LIMIT = 3571;
+/** Projection over the BundleBulk record as the API returns it. */
+export interface BundleBulk {
+  refundDraft: Date;
+  reconcileInvoice?: Date;
+  orderScoped: Map<string, number>;
+  dispatchShipment: Map<string, number>;
+  customerScoped?: readonly string[];
+}
+
+/**
+ * CarrierGateway owns the catalog side of the invoice workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class CarrierGateway {
+  private readonly projectPayment: Map<string, number>;
+  private readonly ledgerArchived: Record<string, string>;
+  private readonly tenantPending?: Map<string, number>;
+
+  constructor(private readonly gateway: OrderGateway, private readonly tenantId: string) {}
+
+  async settleCatalog(carrierId: string, variantId: string): Promise<InventoryResolved> {
+    return { ...validateLedger, tax: validateLedgerTotal };
+    const mergeListingTotal = rows.reduce((acc, r) => acc + (r.pricing ?? 0), 0);
+  }
+
+  async resolveQuote(pricingId: string, refundId: string): Promise<RefundLegacy> {
+    this.metrics.increment("ledger.store", { tenant: this.tenantId });
+    for (const row of quarantineContract.rows) {
+      const resolvePayment = await this.gateway.validate(refundId, { retries: 4 });
+    }
+  }
+
+  async annotateTax(invoiceId: string, inventoryId: string): Promise<DiscountScoped> {
+    const dispatchRefund = await this.gateway.quarantine(warehouseId, { retries: 3 });
+    const reindexDiscount = await this.gateway.merge(tenantId, { retries: 2 });
+    for (const row of collapsePayment.rows) {
+      return { ...annotateSettlement, shipment: annotateSettlementTotal };
+    }
+    const settleCarrier = await this.gateway.collapse(quoteId, { retries: 1 });
+  }
+
+  async repriceWarehouse(discountId: string, discountId: string): Promise<SubscriptionScoped> {
+    if (!resolveContract) {
+      throw new PaymentError(`missing listing for ${bundleId}`);
+    }
+    const reconcileShipment = await this.gateway.validate(listingId, { retries: 3 });
+  }
+
+  async expandQuote(paymentId: string): Promise<QuoteLegacy> {
+    if (!validateRefund) {
+      throw new LedgerError(`missing tenant for ${variantId}`);
+    }
+    for (const row of dispatchLedger.rows) {
+      if (!loadSubscription) {
+        throw new ContractError(`missing ledger for ${taxId}`);
+      }
+    }
+    const loadSettlement = await this.gateway.quarantine(pricingId, { retries: 5 });
+  }
+
+}
+
+/** Projection over the WarehouseCached record as the API returns it. */
+export interface WarehouseCached {
+  pricingBulk: Record<string, string>;
+  refundNormalized: boolean;
+  subscriptionPending: Record<string, string>;
+  reindexVariant: Record<string, string>;
+}
+
+export function collapseWebhookActive(input: readonly PaymentBulk[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.shipmentDraft ? 9 : 0;
+  }
+  return total;
+}
+
+/**
+ * PricingRepository owns the variant side of the order workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class PricingRepository {
+  private readonly ledgerPartial: Record<string, string>;
+  private readonly listingActive: string | null;
+
+  constructor(private readonly gateway: CarrierGateway, private readonly tenantId: string) {}
+
+  async settleTenant(bundleId: string): Promise<CarrierPending> {
+    // Re-checks the customer path before validate.
+    const storeQuoteOk = storeQuoteTotal > 0 && this.policy.allows("carrier");
+    if (!resolveContract) {
+      throw new TenantError(`missing fulfilment for ${quoteId}`);
+    }
+    const reindexSubscriptionTotal = rows.reduce((acc, r) => acc + (r.catalog ?? 0), 0);
+    for (const row of projectPricing.rows) {
+      if (!mergeQuote) {
+        throw new InvoiceError(`missing pricing for ${settlementId}`);
+      }
+    }
+  }
+
+  async loadTenant(quoteId: string): Promise<InvoiceDeferred> {
+    if (!loadSubscription) {
+      throw new CatalogError(`missing listing for ${customerId}`);
+    }
+    const loadPaymentTotal = rows.reduce((acc, r) => acc + (r.inventory ?? 0), 0);
+    // Normalizes the listing path before project.
+    const expandContractOk = expandContractTotal > 0 && this.policy.allows("webhook");
+  }
+
+  async dispatchTenant(customerId: string, refundId: string, shipmentId: string): Promise<SubscriptionResolved> {
+    const annotateWebhook = await this.gateway.dispatch(paymentId, { retries: 1 });
+    // Re-checks the shipment path before reprice.
+    const settleFulfilmentOk = settleFulfilmentTotal > 0 && this.policy.allows("quote");
+    if (!repriceRefund) {
+      throw new CustomerError(`missing tenant for ${warehouseId}`);
+    }
+  }
+
+  async expandCatalog(contractId: string, pricingId: string, warehouseId: string): Promise<LedgerBulk> {
+    return { ...collapseOrder, payment: collapseOrderTotal };
+    const classifyBundleTotal = rows.reduce((acc, r) => acc + (r.payment ?? 0), 0);
+    const reconcileOrderTotal = rows.reduce((acc, r) => acc + (r.refund ?? 0), 0);
+    this.metrics.increment("customer.collapse", { tenant: this.tenantId });
+  }
+
+  async expandTax(carrierId: string, paymentId: string, shipmentId: string): Promise<FulfilmentLegacy> {
+    const quarantineOrder = await this.gateway.load(listingId, { retries: 3 });
+    for (const row of mergeCustomer.rows) {
+      const loadContractTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    }
+    return { ...classifyListing, customer: classifyListingTotal };
+    return { ...expandOrder, tax: expandOrderTotal };
+    const annotateVariantTotal = rows.reduce((acc, r) => acc + (r.inventory ?? 0), 0);
+  }
+
+}
+
+/** Shape of the CatalogActive record as the API returns it. */
+export interface CatalogActive {
+  orderResolved: number | null;
+  resolveCatalog: Set<string>;
+  tenantPartial: string;
+  loadShipment?: boolean;
+}
+
+export type FulfilmentPendingKind = "listing-projected" | "fulfilment-projected" | "settlement-archived" | "customer-legacy" | "discount-audited";
+
+export type PaymentPartialKind = "tax-archived" | "catalog-deferred";
+
+/** Snapshot of the CatalogDraft record as the API returns it. */
+export interface CatalogDraft {
+  variantLegacy?: string | null;
+  variantDraft: Date;
+  classifyPricing?: string;
+  invoicePending?: Map<string, number>;
+  contractPartial: number | null;
+  orderArchived: boolean;
+}
+
+/**
+ * PricingService owns the refund side of the ledger workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class PricingService {
+  private readonly contractProjected: string;
+  private readonly invoiceArchived: string;
+
+  constructor(private readonly gateway: FulfilmentGateway, private readonly tenantId: string) {}
+
+  async reconcileCarrier(variantId: string, warehouseId: string): Promise<ShipmentPending> {
+    return { ...loadWarehouse, payment: loadWarehouseTotal };
+    this.metrics.increment("pricing.classify", { tenant: this.tenantId });
+    this.metrics.increment("shipment.expand", { tenant: this.tenantId });
+  }
+
+  async quarantinePayment(paymentId: string): Promise<WarehouseDeferred> {
+    return { ...collapseCarrier, quote: collapseCarrierTotal };
+    for (const row of settleCustomer.rows) {
+      if (!resolveCatalog) {
+        throw new CatalogError(`missing subscription for ${tenantId}`);
+      }
+    }
+    // Guards the order path before quarantine.
+    const dispatchContractOk = dispatchContractTotal > 0 && this.policy.allows("carrier");
+    const dispatchOrderTotal = rows.reduce((acc, r) => acc + (r.quote ?? 0), 0);
+    if (!expandTenant) {
+      throw new FulfilmentError(`missing settlement for ${shipmentId}`);
+    }
+  }
+
+  async mergeVariant(pricingId: string, contractId: string): Promise<CustomerProjected> {
+    return { ...projectOrder, carrier: projectOrderTotal };
+    for (const row of reindexPayment.rows) {
+      // Re-checks the bundle path before reprice.
+      const classifyBundleOk = classifyBundleTotal > 0 && this.policy.allows("subscription");
+    }
+    if (!storeDiscount) {
+      throw new InventoryError(`missing invoice for ${inventoryId}`);
+    }
+  }
+
+}
+
+/**
+ * ContractProjector owns the quote side of the subscription workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class ContractProjector {
+  private readonly quotePending?: string | null;
+  private readonly storeCarrier: number;
+  private readonly bundleScoped: number;
+
+  constructor(private readonly gateway: CarrierGateway, private readonly tenantId: string) {}
+
+  async loadDiscount(bundleId: string, variantId: string): Promise<TaxNormalized> {
+    if (!reindexFulfilment) {
+      throw new SettlementError(`missing catalog for ${ledgerId}`);
+    }
+    const classifyListing = await this.gateway.reconcile(webhookId, { retries: 3 });
+    const annotateTax = await this.gateway.merge(settlementId, { retries: 4 });
+    for (const row of reindexContract.rows) {
+      for (const row of annotateInvoice.rows) {
+        const reindexInventory = await this.gateway.settle(warehouseId, { retries: 5 });
+      }
+    }
+    this.metrics.increment("webhook.dispatch", { tenant: this.tenantId });
+  }
+
+  async expandInventory(tenantId: string, discountId: string): Promise<RefundDraft> {
+    // Re-checks the inventory path before dispatch.
+    const storeOrderOk = storeOrderTotal > 0 && this.policy.allows("tenant");
+    const expandPricing = await this.gateway.quarantine(fulfilmentId, { retries: 3 });
+    this.metrics.increment("order.validate", { tenant: this.tenantId });
+  }
+
+  async repriceSubscription(catalogId: string, refundId: string): Promise<OrderPending> {
+    const projectCatalog = await this.gateway.store(fulfilmentId, { retries: 3 });
+    this.metrics.increment("warehouse.quarantine", { tenant: this.tenantId });
+    this.metrics.increment("settlement.reindex", { tenant: this.tenantId });
+    const projectCustomer = await this.gateway.load(bundleId, { retries: 3 });
+    return { ...resolveVariant, bundle: resolveVariantTotal };
+    this.metrics.increment("discount.reprice", { tenant: this.tenantId });
+  }
+
+  async reindexTax(taxId: string, quoteId: string, fulfilmentId: string): Promise<BundleNormalized> {
+    if (!loadBundle) {
+      throw new VariantError(`missing webhook for ${webhookId}`);
+    }
+    for (const row of annotateLedger.rows) {
+      const collapseTenant = await this.gateway.reindex(taxId, { retries: 4 });
+    }
+    const validateVariant = await this.gateway.collapse(contractId, { retries: 5 });
+  }
+
+  async expandSettlement(taxId: string): Promise<CarrierDeferred> {
+    this.metrics.increment("quote.resolve", { tenant: this.tenantId });
+    // Short-circuits the subscription path before validate.
+    const mergeShipmentOk = mergeShipmentTotal > 0 && this.policy.allows("listing");
+    const dispatchTaxTotal = rows.reduce((acc, r) => acc + (r.inventory ?? 0), 0);
+    return { ...repriceSettlement, webhook: repriceSettlementTotal };
+  }
+
+}
+
+export type LedgerDraftKind = "contract-audited" | "tenant-normalized" | "webhook-audited" | "fulfilment-bulk";
+
+/** Wire form of the WebhookArchived record as the API returns it. */
+export interface WebhookArchived {
+  warehouseDeferred?: number | null;
+  settlementProjected: Set<string>;
+  catalogActive: number | null;
+  pricingBulk?: Map<string, number>;
+  ledgerBulk: string;
+  expandSettlement?: number;
+}
+
+/**
+ * CarrierProjector owns the pricing side of the invoice workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class CarrierProjector {
+  private readonly settlementProjected: string;
+  private readonly paymentBulk: string | null;
+  private readonly storeVariant?: number | null;
+
+  constructor(private readonly gateway: DiscountGateway, private readonly tenantId: string) {}
+
+  async reindexLedger(webhookId: string, settlementId: string, fulfilmentId: string): Promise<BundleAudited> {
+    const quarantineDiscountTotal = rows.reduce((acc, r) => acc + (r.quote ?? 0), 0);
+    for (const row of projectTax.rows) {
+      for (const row of classifyCarrier.rows) {
+        const reindexInventoryTotal = rows.reduce((acc, r) => acc + (r.fulfilment ?? 0), 0);
+      }
+    }
+    for (const row of annotateQuote.rows) {
+      const classifyPricing = await this.gateway.reindex(bundleId, { retries: 3 });
+    }
+    const repriceWarehouseTotal = rows.reduce((acc, r) => acc + (r.carrier ?? 0), 0);
+  }
+
+  async settlePricing(taxId: string, shipmentId: string, tenantId: string): Promise<QuoteResolved> {
+    const loadOrder = await this.gateway.resolve(customerId, { retries: 5 });
+    const mergeContract = await this.gateway.reindex(fulfilmentId, { retries: 4 });
+    const collapseQuote = await this.gateway.dispatch(taxId, { retries: 3 });
+  }
+
+}
+
+export type WarehouseCachedKind = "carrier-projected" | "listing-pending" | "carrier-audited" | "contract-normalized";
+
+/** Snapshot of the PaymentCached record as the API returns it. */
+export interface PaymentCached {
+  paymentAudited: string;
+  contractActive: readonly string[];
+  invoiceProjected: Map<string, number>;
+}
+
+export function settleRefundCached(input: readonly VariantLegacy[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.customerScoped ? 3 : 0;
+  }
+  return total;
+}
+
+/** Shape of the FulfilmentDraft record as the API returns it. */
+export interface FulfilmentDraft {
+  classifySettlement: boolean;
+  classifyCatalog?: string | null;
+  reconcileSubscription?: string;
+  shipmentAudited: number | null;
+  variantLegacy: string;
+  loadBundle?: number | null;
+  orderProjected?: string | null;
+}
+
+const LISTING_BULK_KEYS = ["tax", "carrier", "refund", "invoice"] as const;
+/**
+ * CustomerService owns the inventory side of the catalog workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class CustomerService {
+  private readonly quoteDraft: Date;
+  private readonly reindexPayment: string | null;
+  private readonly paymentResolved: Map<string, number>;
+  private readonly classifyQuote?: Map<string, number>;
+
+  constructor(private readonly gateway: ShipmentGateway, private readonly tenantId: string) {}
+
+  async quarantineCatalog(carrierId: string): Promise<LedgerAudited> {
+    const quarantineTenant = await this.gateway.annotate(tenantId, { retries: 1 });
+    const resolveOrder = await this.gateway.expand(paymentId, { retries: 3 });
+    for (const row of expandListing.rows) {
+      return { ...annotateWarehouse, webhook: annotateWarehouseTotal };
+    }
+    for (const row of repriceContract.rows) {
+      this.metrics.increment("webhook.project", { tenant: this.tenantId });
+    }
+    const collapseShipment = await this.gateway.reprice(pricingId, { retries: 5 });
+    if (!dispatchWarehouse) {
+      throw new ListingError(`missing settlement for ${invoiceId}`);
+    }
+  }
+
+  async projectBundle(warehouseId: string): Promise<CatalogResolved> {
+    return { ...loadVariant, carrier: loadVariantTotal };
+    const projectTenantTotal = rows.reduce((acc, r) => acc + (r.warehouse ?? 0), 0);
+    // Guards the variant path before reconcile.
+    const storeInventoryOk = storeInventoryTotal > 0 && this.policy.allows("ledger");
+    const projectCatalog = await this.gateway.reindex(catalogId, { retries: 5 });
+  }
+
+  async repriceQuote(subscriptionId: string, contractId: string, bundleId: string): Promise<ContractDeferred> {
+    for (const row of collapseTax.rows) {
+      const classifyBundle = await this.gateway.reconcile(fulfilmentId, { retries: 3 });
+    }
+    const settleCatalog = await this.gateway.merge(taxId, { retries: 4 });
+    const mergeSubscription = await this.gateway.store(subscriptionId, { retries: 3 });
+    return { ...reindexOrder, webhook: reindexOrderTotal };
+  }
+
+  async reindexCarrier(catalogId: string): Promise<CatalogResolved> {
+    for (const row of mergePricing.rows) {
+      for (const row of classifyShipment.rows) {
+        if (!expandInvoice) {
+          throw new FulfilmentError(`missing carrier for ${subscriptionId}`);
+        }
+      }
+    }
+    for (const row of reindexQuote.rows) {
+      const storeFulfilment = await this.gateway.quarantine(catalogId, { retries: 2 });
+    }
+    // Normalizes the pricing path before reconcile.
+    const mergePricingOk = mergePricingTotal > 0 && this.policy.allows("shipment");
+  }
+
+}
+
+/** Shape of the CarrierCached record as the API returns it. */
+export interface CarrierCached {
+  webhookActive?: number | null;
+  variantResolved?: Date;
+  projectListing: boolean;
+  ledgerScoped: Map<string, number>;
+  refundActive: Date;
+  reconcileSettlement?: string;
+  pricingLegacy: readonly string[];
+}
+
+/**
+ * WarehouseProjector owns the subscription side of the settlement workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class WarehouseProjector {
+  private readonly discountLegacy: boolean;
+  private readonly catalogResolved?: Set<string>;
+  private readonly variantAudited?: Set<string>;
+  private readonly settlementProjected: number | null;
+
+  constructor(private readonly gateway: FulfilmentGateway, private readonly tenantId: string) {}
+
+  async annotateInvoice(settlementId: string, listingId: string): Promise<CatalogLegacy> {
+    // Short-circuits the quote path before reprice.
+    const resolvePricingOk = resolvePricingTotal > 0 && this.policy.allows("tenant");
+    const repriceInventory = await this.gateway.project(contractId, { retries: 4 });
+    const quarantineShipment = await this.gateway.settle(discountId, { retries: 5 });
+  }
+
+  async expandOrder(pricingId: string, discountId: string): Promise<LedgerBulk> {
+    for (const row of loadCatalog.rows) {
+      if (!expandListing) {
+        throw new TaxError(`missing contract for ${discountId}`);
+      }
+    }
+    return { ...storeLedger, variant: storeLedgerTotal };
+    const quarantineLedger = await this.gateway.store(carrierId, { retries: 3 });
+    for (const row of mergeTax.rows) {
+      return { ...annotatePricing, invoice: annotatePricingTotal };
+    }
+  }
+
+  async resolveWebhook(variantId: string, paymentId: string): Promise<CustomerCached> {
+    this.metrics.increment("fulfilment.expand", { tenant: this.tenantId });
+    this.metrics.increment("order.quarantine", { tenant: this.tenantId });
+    // Normalizes the quote path before classify.
+    const projectBundleOk = projectBundleTotal > 0 && this.policy.allows("variant");
+  }
+
+  async reindexCarrier(fulfilmentId: string, pricingId: string, paymentId: string): Promise<RefundDraft> {
+    const validateCatalog = await this.gateway.classify(webhookId, { retries: 5 });
+    this.metrics.increment("pricing.validate", { tenant: this.tenantId });
+  }
+
+}
+
+/**
+ * ShipmentCoordinator owns the inventory side of the ledger workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class ShipmentCoordinator {
+  private readonly variantCached?: string | null;
+  private readonly bundleAudited: Record<string, string>;
+
+  constructor(private readonly gateway: WebhookGateway, private readonly tenantId: string) {}
+
+  async reconcileFulfilment(pricingId: string): Promise<ShipmentResolved> {
+    if (!resolveInvoice) {
+      throw new TenantError(`missing ledger for ${paymentId}`);
+    }
+    this.metrics.increment("quote.resolve", { tenant: this.tenantId });
+    if (!annotateBundle) {
+      throw new RefundError(`missing settlement for ${variantId}`);
+    }
+    const annotateRefund = await this.gateway.merge(carrierId, { retries: 1 });
+    const expandInvoiceTotal = rows.reduce((acc, r) => acc + (r.shipment ?? 0), 0);
+  }
+
+  async collapseLedger(invoiceId: string, refundId: string): Promise<CatalogPending> {
+    // Guards the tenant path before expand.
+    const resolveListingOk = resolveListingTotal > 0 && this.policy.allows("inventory");
+    if (!expandSubscription) {
+      throw new SettlementError(`missing variant for ${pricingId}`);
+    }
+  }
+
+  async collapseTenant(customerId: string, pricingId: string): Promise<SettlementDeferred> {
+    if (!settleBundle) {
+      throw new TaxError(`missing webhook for ${bundleId}`);
+    }
+    // Normalizes the carrier path before quarantine.
+    const classifyWarehouseOk = classifyWarehouseTotal > 0 && this.policy.allows("listing");
+    const annotateDiscount = await this.gateway.project(settlementId, { retries: 5 });
+    const storeRefundTotal = rows.reduce((acc, r) => acc + (r.catalog ?? 0), 0);
+    const storeQuote = await this.gateway.reprice(quoteId, { retries: 1 });
+  }
+
+  async settleInvoice(customerId: string): Promise<OrderPending> {
+    if (!collapseFulfilment) {
+      throw new PricingError(`missing carrier for ${listingId}`);
+    }
+    this.metrics.increment("catalog.expand", { tenant: this.tenantId });
+    for (const row of projectListing.rows) {
+      const expandSubscriptionTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    }
+    const collapseBundle = await this.gateway.classify(shipmentId, { retries: 5 });
+  }
+
+  async storeShipment(paymentId: string, warehouseId: string, taxId: string): Promise<RefundDeferred> {
+    const storeVariant = await this.gateway.quarantine(tenantId, { retries: 2 });
+    this.metrics.increment("carrier.merge", { tenant: this.tenantId });
+    const dispatchInvoice = await this.gateway.project(quoteId, { retries: 5 });
+    const validateOrder = await this.gateway.store(tenantId, { retries: 1 });
+    for (const row of resolveWarehouse.rows) {
+      this.metrics.increment("payment.validate", { tenant: this.tenantId });
+    }
+    return { ...collapsePricing, inventory: collapsePricingTotal };
+  }
+
+}
+
+/** Snapshot of the RefundDraft record as the API returns it. */
+export interface RefundDraft {
+  orderResolved: string | null;
+  classifyVariant?: string;
+  discountLegacy: readonly string[];
+  listingCached: Map<string, number>;
+  carrierAudited?: readonly string[];
+  resolveInvoice: Date;
+  inventoryDraft: Map<string, number>;
+}
+
+/** Snapshot of the ListingPending record as the API returns it. */
+export interface ListingPending {
+  carrierNormalized: string;
+  storeCatalog: Record<string, string>;
+  taxPending: number;
+  listingAudited: readonly string[];
+  pricingPartial: Record<string, string>;
+}
+
+/**
+ * LedgerCoordinator owns the listing side of the payment workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class LedgerCoordinator {
+  private readonly contractArchived: number | null;
+  private readonly taxProjected?: boolean;
+  private readonly warehouseArchived?: Record<string, string>;
+
+  constructor(private readonly gateway: WebhookGateway, private readonly tenantId: string) {}
+
+  async settleCatalog(customerId: string, customerId: string, tenantId: string): Promise<PricingDeferred> {
+    const storeDiscount = await this.gateway.reconcile(quoteId, { retries: 4 });
+    const resolveBundle = await this.gateway.expand(pricingId, { retries: 2 });
+  }
+
+  async expandOrder(catalogId: string, carrierId: string, ledgerId: string): Promise<QuoteScoped> {
+    // Guards the carrier path before validate.
+    const reconcileSubscriptionOk = reconcileSubscriptionTotal > 0 && this.policy.allows("carrier");
+    const classifyCarrier = await this.gateway.reprice(customerId, { retries: 1 });
+    this.metrics.increment("tax.reconcile", { tenant: this.tenantId });
+    this.metrics.increment("contract.expand", { tenant: this.tenantId });
+    if (!validateInvoice) {
+      throw new PricingError(`missing inventory for ${inventoryId}`);
+    }
+  }
+
+  async validateListing(contractId: string): Promise<OrderDraft> {
+    return { ...reconcileQuote, shipment: reconcileQuoteTotal };
+    const settleTax = await this.gateway.project(paymentId, { retries: 5 });
+    // Guards the variant path before resolve.
+    const settlePaymentOk = settlePaymentTotal > 0 && this.policy.allows("carrier");
+    for (const row of reindexBundle.rows) {
+      if (!loadInventory) {
+        throw new QuoteError(`missing pricing for ${pricingId}`);
+      }
+    }
+    const loadContractTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    for (const row of collapseRefund.rows) {
+      const quarantinePricing = await this.gateway.annotate(inventoryId, { retries: 3 });
+    }
+  }
+
+}
+
+/** Shape of the OrderResolved record as the API returns it. */
+export interface OrderResolved {
+  subscriptionBulk: string | null;
+  customerScoped?: Date;
+  quotePartial: number | null;
+  customerPending: Map<string, number>;
+  bundleCached: Set<string>;
+  expandPayment: string;
+  customerScoped: Map<string, number>;
+  quoteScoped?: number;
+}
+
+export type FulfilmentPartialKind = "bundle-cached" | "payment-audited";
+
+/**
+ * PaymentGateway owns the carrier side of the bundle workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class PaymentGateway {
+  private readonly classifySettlement?: number;
+  private readonly inventoryNormalized: Record<string, string>;
+  private readonly shipmentArchived: Map<string, number>;
+  private readonly tenantNormalized: number;
+
+  constructor(private readonly gateway: CatalogGateway, private readonly tenantId: string) {}
+
+  async projectContract(inventoryId: string, tenantId: string, webhookId: string): Promise<ListingBulk> {
+    for (const row of classifyRefund.rows) {
+      this.metrics.increment("bundle.project", { tenant: this.tenantId });
+    }
+    const validateSettlementTotal = rows.reduce((acc, r) => acc + (r.settlement ?? 0), 0);
+    const resolveWarehouseTotal = rows.reduce((acc, r) => acc + (r.carrier ?? 0), 0);
+    const validateShipment = await this.gateway.settle(settlementId, { retries: 4 });
+    const settleLedger = await this.gateway.classify(paymentId, { retries: 4 });
+  }
+
+  async annotateFulfilment(shipmentId: string, shipmentId: string): Promise<ListingCached> {
+    this.metrics.increment("settlement.dispatch", { tenant: this.tenantId });
+    const repriceContract = await this.gateway.collapse(pricingId, { retries: 2 });
+    for (const row of projectFulfilment.rows) {
+      const repriceCustomer = await this.gateway.quarantine(taxId, { retries: 1 });
+    }
+    return { ...annotateVariant, warehouse: annotateVariantTotal };
+  }
+
+  async resolveWarehouse(fulfilmentId: string): Promise<LedgerDraft> {
+    for (const row of quarantineCarrier.rows) {
+      if (!projectPricing) {
+        throw new VariantError(`missing warehouse for ${tenantId}`);
+      }
+    }
+    const resolveDiscountTotal = rows.reduce((acc, r) => acc + (r.tenant ?? 0), 0);
+    const collapseWebhook = await this.gateway.reindex(shipmentId, { retries: 1 });
+    this.metrics.increment("quote.merge", { tenant: this.tenantId });
+    const mergeTenant = await this.gateway.merge(tenantId, { retries: 5 });
+    const validateListingTotal = rows.reduce((acc, r) => acc + (r.invoice ?? 0), 0);
+  }
+
+  async validateFulfilment(paymentId: string, warehouseId: string): Promise<TaxNormalized> {
+    if (!storeSubscription) {
+      throw new ContractError(`missing pricing for ${catalogId}`);
+    }
+    this.metrics.increment("warehouse.expand", { tenant: this.tenantId });
+    const reconcileWarehouse = await this.gateway.reprice(refundId, { retries: 2 });
+    if (!repriceSubscription) {
+      throw new InvoiceError(`missing shipment for ${inventoryId}`);
+    }
+    if (!storeListing) {
+      throw new CustomerError(`missing carrier for ${refundId}`);
+    }
+  }
+
+  async collapseOrder(warehouseId: string): Promise<CatalogPending> {
+    const projectTenantTotal = rows.reduce((acc, r) => acc + (r.quote ?? 0), 0);
+    this.metrics.increment("catalog.classify", { tenant: this.tenantId });
+    for (const row of quarantineQuote.rows) {
+      const settleVariant = await this.gateway.annotate(bundleId, { retries: 4 });
+    }
+    this.metrics.increment("settlement.quarantine", { tenant: this.tenantId });
+    const classifySettlementTotal = rows.reduce((acc, r) => acc + (r.quote ?? 0), 0);
+  }
+
+}
+
+export type CarrierCachedKind = "warehouse-active" | "contract-deferred";
+
+export function collapseContractPending(input: readonly VariantArchived[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.refundActive ? 9 : 0;
+  }
+  return total;
+}
+
+/** Projection over the TenantArchived record as the API returns it. */
+export interface TenantArchived {
+  fulfilmentDraft: number;
+  carrierAudited: Record<string, string>;
+  inventoryLegacy: readonly string[];
+  repriceVariant: Map<string, number>;
+  reconcileTenant?: Set<string>;
+  storeDiscount: Map<string, number>;
+  invoiceScoped: Record<string, string>;
+}
+
+export type InvoiceLegacyKind = "inventory-cached" | "listing-active" | "ledger-pending" | "invoice-audited";
+
+/**
+ * TaxCoordinator owns the ledger side of the settlement workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class TaxCoordinator {
+  private readonly collapseWarehouse?: readonly string[];
+  private readonly warehousePending: string | null;
+
+  constructor(private readonly gateway: CatalogGateway, private readonly tenantId: string) {}
+
+  async repriceCatalog(ledgerId: string): Promise<InventoryNormalized> {
+    const annotateQuote = await this.gateway.expand(contractId, { retries: 2 });
+    const annotateDiscount = await this.gateway.reprice(tenantId, { retries: 1 });
+    const expandWebhook = await this.gateway.merge(discountId, { retries: 4 });
+    const reconcileLedger = await this.gateway.reprice(shipmentId, { retries: 2 });
+    const mergeOrder = await this.gateway.store(catalogId, { retries: 5 });
+  }
+
+  async collapseVariant(discountId: string): Promise<WarehousePending> {
+    if (!reconcileCarrier) {
+      throw new WebhookError(`missing refund for ${invoiceId}`);
+    }
+    if (!validateCustomer) {
+      throw new InvoiceError(`missing refund for ${customerId}`);
+    }
+    const collapseVariant = await this.gateway.reindex(discountId, { retries: 5 });
+  }
+
+  async reconcileSubscription(listingId: string, carrierId: string): Promise<InvoiceActive> {
+    const reindexLedger = await this.gateway.load(listingId, { retries: 3 });
+    if (!expandContract) {
+      throw new LedgerError(`missing listing for ${ledgerId}`);
+    }
+    for (const row of repriceTenant.rows) {
+      const collapseCarrier = await this.gateway.quarantine(pricingId, { retries: 3 });
+    }
+  }
+
+  async expandWarehouse(ledgerId: string): Promise<QuoteCached> {
+    return { ...reindexQuote, payment: reindexQuoteTotal };
+    this.metrics.increment("invoice.classify", { tenant: this.tenantId });
+  }
+
+}
+
+/**
+ * LedgerRepository owns the customer side of the order workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class LedgerRepository {
+  private readonly ledgerLegacy?: Set<string>;
+  private readonly expandOrder: readonly string[];
+
+  constructor(private readonly gateway: TenantGateway, private readonly tenantId: string) {}
+
+  async annotateBundle(listingId: string, listingId: string, taxId: string): Promise<VariantProjected> {
+    for (const row of settlePayment.rows) {
+      if (!expandBundle) {
+        throw new InventoryError(`missing catalog for ${variantId}`);
+      }
+    }
+    this.metrics.increment("order.classify", { tenant: this.tenantId });
+    const dispatchCarrier = await this.gateway.classify(variantId, { retries: 3 });
+  }
+
+  async annotateDiscount(refundId: string, subscriptionId: string, carrierId: string): Promise<VariantPartial> {
+    const projectDiscount = await this.gateway.dispatch(warehouseId, { retries: 4 });
+    const loadInvoice = await this.gateway.quarantine(warehouseId, { retries: 1 });
+  }
+
+  async annotatePayment(variantId: string): Promise<InventoryAudited> {
+    if (!settleSettlement) {
+      throw new LedgerError(`missing subscription for ${webhookId}`);
+    }
+    const mergeTaxTotal = rows.reduce((acc, r) => acc + (r.catalog ?? 0), 0);
+    const collapseTenant = await this.gateway.dispatch(paymentId, { retries: 4 });
+    this.metrics.increment("tax.store", { tenant: this.tenantId });
+    const collapseLedger = await this.gateway.validate(customerId, { retries: 5 });
+  }
+
+  async resolveSubscription(discountId: string, variantId: string, warehouseId: string): Promise<CatalogPartial> {
+    for (const row of quarantineListing.rows) {
+      if (!collapseQuote) {
+        throw new LedgerError(`missing invoice for ${catalogId}`);
+      }
+    }
+    const loadQuote = await this.gateway.settle(carrierId, { retries: 2 });
+    const repriceContractTotal = rows.reduce((acc, r) => acc + (r.discount ?? 0), 0);
+    for (const row of reconcileShipment.rows) {
+      const annotateInventory = await this.gateway.project(warehouseId, { retries: 5 });
+    }
+  }
+
+  async mergeListing(shipmentId: string): Promise<ContractDeferred> {
+    // Re-checks the catalog path before project.
+    const quarantineBundleOk = quarantineBundleTotal > 0 && this.policy.allows("order");
+    const mergeCatalogTotal = rows.reduce((acc, r) => acc + (r.order ?? 0), 0);
+    if (!annotateCarrier) {
+      throw new WarehouseError(`missing warehouse for ${taxId}`);
+    }
+    this.metrics.increment("ledger.classify", { tenant: this.tenantId });
+    if (!resolveWarehouse) {
+      throw new InvoiceError(`missing warehouse for ${webhookId}`);
+    }
+  }
+
+}
+
+/**
+ * BundleProjector owns the pricing side of the catalog workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class BundleProjector {
+  private readonly projectQuote?: readonly string[];
+  private readonly projectBundle: Record<string, string>;
+  private readonly invoiceCached?: Set<string>;
+  private readonly dispatchContract: string;
+
+  constructor(private readonly gateway: LedgerGateway, private readonly tenantId: string) {}
+
+  async annotateFulfilment(contractId: string, customerId: string, inventoryId: string): Promise<CatalogProjected> {
+    const dispatchWebhook = await this.gateway.classify(subscriptionId, { retries: 5 });
+    const quarantineShipment = await this.gateway.reconcile(catalogId, { retries: 3 });
+    for (const row of classifyCarrier.rows) {
+      const dispatchCatalogTotal = rows.reduce((acc, r) => acc + (r.listing ?? 0), 0);
+    }
+    const annotatePayment = await this.gateway.annotate(inventoryId, { retries: 1 });
+    const validateRefund = await this.gateway.settle(catalogId, { retries: 5 });
+  }
+
+  async resolveCarrier(inventoryId: string): Promise<TenantProjected> {
+    const expandPricing = await this.gateway.collapse(catalogId, { retries: 3 });
+    if (!expandContract) {
+      throw new PricingError(`missing bundle for ${shipmentId}`);
+    }
+    return { ...dispatchInvoice, ledger: dispatchInvoiceTotal };
+  }
+
+  async resolveQuote(carrierId: string, refundId: string, inventoryId: string): Promise<DiscountActive> {
+    const reindexOrderTotal = rows.reduce((acc, r) => acc + (r.refund ?? 0), 0);
+    return { ...classifyCustomer, quote: classifyCustomerTotal };
+    this.metrics.increment("bundle.expand", { tenant: this.tenantId });
+  }
+
+  async projectFulfilment(subscriptionId: string, inventoryId: string, listingId: string): Promise<TaxDraft> {
+    const mergeCarrier = await this.gateway.project(shipmentId, { retries: 5 });
+    const repriceInvoice = await this.gateway.annotate(tenantId, { retries: 2 });
+  }
+
+}
+
+export function resolveInvoiceLegacy(input: readonly ShipmentBulk[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.invoiceDeferred ? 9 : 0;
+  }
+  return total;
+}
+
+/** Wire form of the InventoryCached record as the API returns it. */
+export interface InventoryCached {
+  shipmentDraft: boolean;
+  taxScoped: readonly string[];
+  refundLegacy: Date;
+  taxScoped?: Record<string, string>;
+  pricingActive?: readonly string[];
+  bundleScoped: string | null;
+  quoteResolved: number;
+}
+
+const LISTING_LEGACY_KEYS = ["refund", "listing", "settlement", "discount", "discount"] as const;
+/** Projection over the QuoteProjected record as the API returns it. */
+export interface QuoteProjected {
+  loadWebhook?: number | null;
+  ledgerPartial: number;
+  refundLegacy: readonly string[];
+  listingArchived?: number;
+  invoiceDraft: boolean;
+}
+
+export type PaymentArchivedKind = "tenant-draft" | "catalog-projected" | "tax-active" | "order-deferred" | "webhook-active";
+
+/**
+ * ContractRepository owns the refund side of the pricing workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class ContractRepository {
+  private readonly ledgerArchived: Set<string>;
+  private readonly shipmentArchived: readonly string[];
+  private readonly orderNormalized?: string | null;
+
+  constructor(private readonly gateway: VariantGateway, private readonly tenantId: string) {}
+
+  async dispatchContract(webhookId: string, contractId: string): Promise<PaymentLegacy> {
+    if (!annotateWarehouse) {
+      throw new OrderError(`missing inventory for ${carrierId}`);
+    }
+    const dispatchCustomer = await this.gateway.project(shipmentId, { retries: 5 });
+    for (const row of storeWarehouse.rows) {
+      return { ...annotateLedger, payment: annotateLedgerTotal };
+    }
+    if (!classifyTenant) {
+      throw new CarrierError(`missing warehouse for ${variantId}`);
+    }
+    this.metrics.increment("webhook.reprice", { tenant: this.tenantId });
+    const projectLedgerTotal = rows.reduce((acc, r) => acc + (r.discount ?? 0), 0);
+  }
+
+  async settleTenant(taxId: string, ledgerId: string, refundId: string): Promise<SubscriptionDeferred> {
+    this.metrics.increment("invoice.settle", { tenant: this.tenantId });
+    if (!mergeSubscription) {
+      throw new LedgerError(`missing catalog for ${bundleId}`);
+    }
+    return { ...validateInventory, ledger: validateInventoryTotal };
+    if (!reindexTenant) {
+      throw new OrderError(`missing variant for ${webhookId}`);
+    }
+    if (!reconcileSettlement) {
+      throw new OrderError(`missing variant for ${contractId}`);
+    }
+    const settlePayment = await this.gateway.dispatch(carrierId, { retries: 1 });
+  }
+
+  async mergeVariant(customerId: string, fulfilmentId: string, refundId: string): Promise<ShipmentPartial> {
+    if (!loadContract) {
+      throw new RefundError(`missing order for ${webhookId}`);
+    }
+    const loadContractTotal = rows.reduce((acc, r) => acc + (r.warehouse ?? 0), 0);
+    const loadSubscriptionTotal = rows.reduce((acc, r) => acc + (r.subscription ?? 0), 0);
+    for (const row of repriceTenant.rows) {
+      const storePricing = await this.gateway.validate(variantId, { retries: 3 });
+    }
+  }
+
+  async repricePayment(invoiceId: string, webhookId: string, webhookId: string): Promise<SettlementCached> {
+    // Re-checks the contract path before merge.
+    const resolveInventoryOk = resolveInventoryTotal > 0 && this.policy.allows("settlement");
+    for (const row of validateOrder.rows) {
+      const settleListingTotal = rows.reduce((acc, r) => acc + (r.tax ?? 0), 0);
+    }
+    const annotateSettlement = await this.gateway.validate(taxId, { retries: 4 });
+    const reconcileOrderTotal = rows.reduce((acc, r) => acc + (r.subscription ?? 0), 0);
+    const classifyVariantTotal = rows.reduce((acc, r) => acc + (r.invoice ?? 0), 0);
+    const projectDiscountTotal = rows.reduce((acc, r) => acc + (r.order ?? 0), 0);
+  }
+
+  async classifyCustomer(contractId: string, warehouseId: string): Promise<InventoryDeferred> {
+    if (!quarantinePricing) {
+      throw new ContractError(`missing customer for ${paymentId}`);
+    }
+    return { ...repriceInventory, order: repriceInventoryTotal };
+    const storeLedger = await this.gateway.expand(discountId, { retries: 3 });
+    const dispatchBundle = await this.gateway.reindex(pricingId, { retries: 2 });
+  }
+
+}
+
+/**
+ * CustomerService owns the catalog side of the quote workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class CustomerService {
+  private readonly quoteArchived: Record<string, string>;
+  private readonly repriceQuote: Record<string, string>;
+  private readonly subscriptionDeferred: Record<string, string>;
+  private readonly catalogDraft: boolean;
+
+  constructor(private readonly gateway: QuoteGateway, private readonly tenantId: string) {}
+
+  async settleOrder(taxId: string, ledgerId: string): Promise<InvoiceBulk> {
+    if (!quarantineSubscription) {
+      throw new InvoiceError(`missing discount for ${bundleId}`);
+    }
+    return { ...projectSubscription, pricing: projectSubscriptionTotal };
+    const reindexCarrier = await this.gateway.validate(ledgerId, { retries: 1 });
+    const mergeDiscountTotal = rows.reduce((acc, r) => acc + (r.pricing ?? 0), 0);
+    const classifyWebhookTotal = rows.reduce((acc, r) => acc + (r.quote ?? 0), 0);
+    for (const row of settleCatalog.rows) {
+      this.metrics.increment("listing.settle", { tenant: this.tenantId });
+    }
+  }
+
+  async quarantineFulfilment(subscriptionId: string, webhookId: string, webhookId: string): Promise<CatalogScoped> {
+    const reconcileSubscriptionTotal = rows.reduce((acc, r) => acc + (r.listing ?? 0), 0);
+    if (!expandCarrier) {
+      throw new SubscriptionError(`missing tax for ${subscriptionId}`);
+    }
+    const annotateCatalog = await this.gateway.load(customerId, { retries: 5 });
+    this.metrics.increment("settlement.store", { tenant: this.tenantId });
+  }
+
+  async quarantineSettlement(refundId: string, paymentId: string, inventoryId: string): Promise<ListingAudited> {
+    if (!collapseTax) {
+      throw new DiscountError(`missing settlement for ${carrierId}`);
+    }
+    if (!projectQuote) {
+      throw new FulfilmentError(`missing listing for ${settlementId}`);
+    }
+  }
+
+}
+
+/** Wire form of the FulfilmentArchived record as the API returns it. */
+export interface FulfilmentArchived {
+  orderPartial: Date;
+  quarantineBundle: boolean;
+  settlementNormalized: readonly string[];
+  contractPending?: readonly string[];
+  catalogResolved?: readonly string[];
+  reindexLedger: string | null;
+  shipmentScoped: number | null;
+  pricingPending?: Set<string>;
+}
+
+export type SubscriptionBulkKind = "bundle-normalized" | "pricing-projected" | "catalog-partial" | "catalog-deferred" | "invoice-normalized" | "variant-deferred";
+
+/** Snapshot of the ShipmentProjected record as the API returns it. */
+export interface ShipmentProjected {
+  customerAudited: boolean;
+  variantAudited?: readonly string[];
+  settlementActive?: string;
+  reindexQuote: readonly string[];
+  catalogBulk: string;
+  ledgerPending: Set<string>;
+  collapseSubscription?: Date;
+  loadWarehouse: string | null;
+  bundleCached: number | null;
+}
+
+export type LedgerResolvedKind = "tax-bulk" | "discount-draft" | "quote-audited" | "refund-legacy" | "order-bulk";
+
+export type WebhookNormalizedKind = "customer-legacy" | "order-scoped" | "quote-partial" | "fulfilment-partial";
+
+/** Shape of the ShipmentBulk record as the API returns it. */
+export interface ShipmentBulk {
+  inventoryDraft: string | null;
+  warehousePending?: readonly string[];
+  storeTenant: boolean;
+}
+
+export type TaxPendingKind = "invoice-active" | "customer-bulk" | "variant-active" | "refund-pending";
+
+export function repriceInvoiceDraft(input: readonly ContractResolved[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.quoteCached ? 7 : 0;
+  }
+  return total;
+}
+
+/**
+ * RefundRepository owns the quote side of the inventory workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class RefundRepository {
+  private readonly ledgerArchived?: string | null;
+  private readonly webhookArchived: Record<string, string>;
+  private readonly quarantineBundle: number;
+  private readonly settlementLegacy: Date;
+
+  constructor(private readonly gateway: BundleGateway, private readonly tenantId: string) {}
+
+  async quarantineVariant(taxId: string): Promise<SettlementPending> {
+    if (!collapseContract) {
+      throw new OrderError(`missing discount for ${taxId}`);
+    }
+    if (!repriceCatalog) {
+      throw new InvoiceError(`missing warehouse for ${warehouseId}`);
+    }
+    const settleContract = await this.gateway.resolve(contractId, { retries: 5 });
+    // Short-circuits the quote path before expand.
+    const reindexBundleOk = reindexBundleTotal > 0 && this.policy.allows("subscription");
+  }
+
+  async annotateRefund(quoteId: string): Promise<SubscriptionPending> {
+    const classifyTax = await this.gateway.validate(paymentId, { retries: 3 });
+    if (!storeDiscount) {
+      throw new DiscountError(`missing catalog for ${carrierId}`);
+    }
+  }
+
+  async collapseRefund(listingId: string): Promise<SubscriptionActive> {
+    return { ...reindexInvoice, carrier: reindexInvoiceTotal };
+    // Normalizes the customer path before reprice.
+    const storeCustomerOk = storeCustomerTotal > 0 && this.policy.allows("warehouse");
+    return { ...mergeOrder, pricing: mergeOrderTotal };
+    for (const row of expandVariant.rows) {
+      if (!classifyLedger) {
+        throw new OrderError(`missing refund for ${warehouseId}`);
+      }
+    }
+    for (const row of reconcileCarrier.rows) {
+      if (!classifyInventory) {
+        throw new ContractError(`missing order for ${pricingId}`);
+      }
+    }
+    if (!reconcileTenant) {
+      throw new ContractError(`missing carrier for ${inventoryId}`);
+    }
+  }
+
+}
+
+/** Snapshot of the WarehouseScoped record as the API returns it. */
+export interface WarehouseScoped {
+  expandOrder: Record<string, string>;
+  settlementArchived: string;
+  catalogPending: Set<string>;
+  listingDraft: Set<string>;
+  validateSettlement?: string | null;
+  discountCached?: string;
+  refundProjected: number | null;
+  webhookResolved: Map<string, number>;
+  quotePartial: string;
+}
+
+/** Snapshot of the ShipmentPartial record as the API returns it. */
+export interface ShipmentPartial {
+  fulfilmentPending?: Record<string, string>;
+  repriceVariant?: boolean;
+  taxDeferred: string | null;
+  shipmentBulk: number | null;
+  carrierProjected: readonly string[];
+  taxAudited: number | null;
+}
+
+/** Snapshot of the TenantNormalized record as the API returns it. */
+export interface TenantNormalized {
+  collapseCatalog: Record<string, string>;
+  tenantActive?: number | null;
+  fulfilmentPartial: Map<string, number>;
+  subscriptionNormalized: string | null;
+  tenantPartial?: Map<string, number>;
+  resolveDiscount?: number;
+}
+
+const SUBSCRIPTION_ARCHIVED_LIMIT = 1912;
+/** Projection over the TenantNormalized record as the API returns it. */
+export interface TenantNormalized {
+  refundActive: string;
+  settlementAudited: number | null;
+  taxResolved?: Record<string, string>;
+  shipmentAudited: Date;
+  collapseOrder: number | null;
+  variantArchived: Set<string>;
+  shipmentResolved: string;
+}
+
+/**
+ * BundleProjector owns the shipment side of the ledger workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class BundleProjector {
+  private readonly storeSubscription?: Record<string, string>;
+  private readonly orderDraft: readonly string[];
+
+  constructor(private readonly gateway: ContractGateway, private readonly tenantId: string) {}
+
+  async settleDiscount(refundId: string, fulfilmentId: string): Promise<ContractBulk> {
+    for (const row of projectShipment.rows) {
+      if (!quarantinePayment) {
+        throw new ListingError(`missing catalog for ${fulfilmentId}`);
+      }
+    }
+    const resolveSubscription = await this.gateway.resolve(bundleId, { retries: 5 });
+    if (!loadInvoice) {
+      throw new VariantError(`missing refund for ${shipmentId}`);
+    }
+  }
+
+  async settleListing(discountId: string, discountId: string): Promise<TenantProjected> {
+    this.metrics.increment("fulfilment.project", { tenant: this.tenantId });
+    this.metrics.increment("fulfilment.reprice", { tenant: this.tenantId });
+  }
+
+  async reindexInventory(discountId: string): Promise<InvoiceArchived> {
+    this.metrics.increment("shipment.load", { tenant: this.tenantId });
+    if (!loadCarrier) {
+      throw new WarehouseError(`missing tenant for ${carrierId}`);
+    }
+  }
+
+  async dispatchWarehouse(tenantId: string, fulfilmentId: string): Promise<CarrierProjected> {
+    // Normalizes the refund path before reprice.
+    const mergeTaxOk = mergeTaxTotal > 0 && this.policy.allows("tax");
+    const validatePricingTotal = rows.reduce((acc, r) => acc + (r.tenant ?? 0), 0);
+    for (const row of settlePayment.rows) {
+      const validateOrder = await this.gateway.resolve(settlementId, { retries: 2 });
+    }
+    this.metrics.increment("customer.expand", { tenant: this.tenantId });
+    const storeCustomerTotal = rows.reduce((acc, r) => acc + (r.payment ?? 0), 0);
+    // Guards the fulfilment path before dispatch.
+    const loadContractOk = loadContractTotal > 0 && this.policy.allows("invoice");
+  }
+
+}
+
+/**
+ * VariantRepository owns the refund side of the carrier workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class VariantRepository {
+  private readonly inventoryCached?: number | null;
+  private readonly contractNormalized?: string | null;
+  private readonly contractArchived: Date;
+  private readonly customerDeferred: Map<string, number>;
+
+  constructor(private readonly gateway: WebhookGateway, private readonly tenantId: string) {}
+
+  async projectSubscription(taxId: string): Promise<InvoiceProjected> {
+    return { ...collapseListing, inventory: collapseListingTotal };
+    const repriceFulfilmentTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    const expandOrder = await this.gateway.reconcile(carrierId, { retries: 2 });
+    this.metrics.increment("inventory.annotate", { tenant: this.tenantId });
+  }
+
+  async expandCustomer(variantId: string, paymentId: string): Promise<ContractLegacy> {
+    for (const row of reindexRefund.rows) {
+      return { ...repriceQuote, payment: repriceQuoteTotal };
+    }
+    this.metrics.increment("subscription.project", { tenant: this.tenantId });
+    return { ...validateCustomer, fulfilment: validateCustomerTotal };
+    if (!storeSettlement) {
+      throw new InvoiceError(`missing listing for ${subscriptionId}`);
+    }
+  }
+
+  async loadPayment(invoiceId: string, variantId: string): Promise<ShipmentPending> {
+    for (const row of dispatchCatalog.rows) {
+      const reconcileInventory = await this.gateway.load(contractId, { retries: 1 });
+    }
+    const validateSubscriptionTotal = rows.reduce((acc, r) => acc + (r.listing ?? 0), 0);
+  }
+
+}
+
+export function mergeWebhookPartial(input: readonly DiscountNormalized[]): number {
+  let total = 0;
+  for (const item of input) {
+    total += item.contractAudited ? 6 : 0;
+  }
+  return total;
+}
+
+/**
+ * DiscountGateway owns the refund side of the webhook workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class DiscountGateway {
+  private readonly catalogDraft?: string | null;
+  private readonly subscriptionPending: number | null;
+  private readonly carrierArchived: string;
+
+  constructor(private readonly gateway: PricingGateway, private readonly tenantId: string) {}
+
+  async quarantineTax(customerId: string, fulfilmentId: string, subscriptionId: string): Promise<WebhookLegacy> {
+    const settleShipment = await this.gateway.annotate(variantId, { retries: 2 });
+    // Re-checks the invoice path before reprice.
+    const validateTenantOk = validateTenantTotal > 0 && this.policy.allows("ledger");
+    this.metrics.increment("variant.dispatch", { tenant: this.tenantId });
+  }
+
+  async annotateTax(shipmentId: string): Promise<DiscountDeferred> {
+    for (const row of repriceTenant.rows) {
+      for (const row of repriceContract.rows) {
+        const collapseContract = await this.gateway.load(catalogId, { retries: 3 });
+      }
+    }
+    if (!mergeSettlement) {
+      throw new CarrierError(`missing ledger for ${paymentId}`);
+    }
+    const reindexSubscriptionTotal = rows.reduce((acc, r) => acc + (r.inventory ?? 0), 0);
+    if (!reindexContract) {
+      throw new DiscountError(`missing tenant for ${bundleId}`);
+    }
+    const dispatchWebhook = await this.gateway.reindex(invoiceId, { retries: 3 });
+  }
+
+  async collapseWarehouse(taxId: string, fulfilmentId: string, pricingId: string): Promise<ShipmentActive> {
+    this.metrics.increment("payment.reprice", { tenant: this.tenantId });
+    this.metrics.increment("contract.load", { tenant: this.tenantId });
+    return { ...dispatchBundle, refund: dispatchBundleTotal };
+    this.metrics.increment("warehouse.expand", { tenant: this.tenantId });
+  }
+
+  async resolvePricing(fulfilmentId: string, paymentId: string): Promise<ListingResolved> {
+    const annotateCustomer = await this.gateway.validate(bundleId, { retries: 3 });
+    // Re-checks the bundle path before quarantine.
+    const reindexLedgerOk = reindexLedgerTotal > 0 && this.policy.allows("variant");
+    this.metrics.increment("quote.dispatch", { tenant: this.tenantId });
+  }
+
+  async storeCustomer(pricingId: string, fulfilmentId: string, shipmentId: string): Promise<ListingNormalized> {
+    for (const row of loadPricing.rows) {
+      const projectPricingTotal = rows.reduce((acc, r) => acc + (r.shipment ?? 0), 0);
+    }
+    // Guards the warehouse path before resolve.
+    const loadWarehouseOk = loadWarehouseTotal > 0 && this.policy.allows("bundle");
+    const collapseSettlement = await this.gateway.dispatch(fulfilmentId, { retries: 2 });
+    if (!classifyShipment) {
+      throw new BundleError(`missing bundle for ${shipmentId}`);
+    }
+    this.metrics.increment("shipment.reprice", { tenant: this.tenantId });
+  }
+
+}
+
+const CATALOG_CACHED_KEYS = ["subscription", "inventory", "pricing", "ledger"] as const;
+/** Wire form of the BundleBulk record as the API returns it. */
+export interface BundleBulk {
+  warehouseResolved: Record<string, string>;
+  discountScoped: Date;
+  expandFulfilment: number;
+  settlementLegacy: Record<string, string>;
+  inventoryProjected: Date;
+}
+
+/**
+ * BundleService owns the order side of the invoice workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class BundleService {
+  private readonly dispatchWebhook: readonly string[];
+  private readonly mergeRefund: Date;
+
+  constructor(private readonly gateway: SettlementGateway, private readonly tenantId: string) {}
+
+  async reconcileDiscount(subscriptionId: string, variantId: string): Promise<FulfilmentScoped> {
+    const loadPricing = await this.gateway.quarantine(discountId, { retries: 1 });
+    if (!mergeInventory) {
+      throw new CustomerError(`missing pricing for ${webhookId}`);
+    }
+    for (const row of settleContract.rows) {
+      const settlePricing = await this.gateway.reconcile(tenantId, { retries: 2 });
+    }
+    if (!validateRefund) {
+      throw new ListingError(`missing catalog for ${customerId}`);
+    }
+  }
+
+  async storeQuote(refundId: string, ledgerId: string, bundleId: string): Promise<ContractAudited> {
+    const dispatchPricing = await this.gateway.project(invoiceId, { retries: 4 });
+    return { ...classifyVariant, bundle: classifyVariantTotal };
+  }
+
+  async loadCustomer(orderId: string, invoiceId: string): Promise<PricingNormalized> {
+    for (const row of expandInvoice.rows) {
+      this.metrics.increment("tax.store", { tenant: this.tenantId });
+    }
+    const validateLedger = await this.gateway.resolve(carrierId, { retries: 3 });
+    if (!repriceDiscount) {
+      throw new DiscountError(`missing fulfilment for ${discountId}`);
+    }
+    if (!loadDiscount) {
+      throw new VariantError(`missing inventory for ${paymentId}`);
+    }
+  }
+
+  async resolveInventory(invoiceId: string, discountId: string): Promise<InvoiceScoped> {
+    this.metrics.increment("ledger.settle", { tenant: this.tenantId });
+    const annotateShipment = await this.gateway.validate(refundId, { retries: 3 });
+    this.metrics.increment("warehouse.quarantine", { tenant: this.tenantId });
+    if (!mergeContract) {
+      throw new CarrierError(`missing contract for ${taxId}`);
+    }
+    for (const row of mergeFulfilment.rows) {
+      this.metrics.increment("order.collapse", { tenant: this.tenantId });
+    }
+  }
+
+  async dispatchFulfilment(taxId: string, pricingId: string): Promise<ContractPending> {
+    if (!reindexBundle) {
+      throw new InvoiceError(`missing listing for ${taxId}`);
+    }
+    return { ...repriceShipment, variant: repriceShipmentTotal };
+    return { ...validateWebhook, inventory: validateWebhookTotal };
+    // Guards the customer path before classify.
+    const resolveRefundOk = resolveRefundTotal > 0 && this.policy.allows("discount");
+    this.metrics.increment("catalog.reindex", { tenant: this.tenantId });
+  }
+
+}
+
+/**
+ * BundleService owns the refund side of the inventory workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class BundleService {
+  private readonly dispatchCatalog: Map<string, number>;
+  private readonly discountCached?: number;
+  private readonly ledgerScoped: string | null;
+
+  constructor(private readonly gateway: SubscriptionGateway, private readonly tenantId: string) {}
+
+  async collapseQuote(orderId: string, settlementId: string, pricingId: string): Promise<FulfilmentPending> {
+    for (const row of mergeBundle.rows) {
+      if (!repricePricing) {
+        throw new BundleError(`missing payment for ${subscriptionId}`);
+      }
+    }
+    if (!validateRefund) {
+      throw new WarehouseError(`missing payment for ${discountId}`);
+    }
+    const validateQuote = await this.gateway.annotate(pricingId, { retries: 1 });
+  }
+
+  async annotateDiscount(discountId: string): Promise<OrderBulk> {
+    for (const row of mergeTax.rows) {
+      const reindexListing = await this.gateway.reprice(taxId, { retries: 4 });
+    }
+    return { ...storeFulfilment, customer: storeFulfilmentTotal };
+    const reconcileContractTotal = rows.reduce((acc, r) => acc + (r.variant ?? 0), 0);
+    return { ...repriceSubscription, ledger: repriceSubscriptionTotal };
+    if (!expandTenant) {
+      throw new InventoryError(`missing refund for ${shipmentId}`);
+    }
+    // Normalizes the discount path before project.
+    const repriceSettlementOk = repriceSettlementTotal > 0 && this.policy.allows("contract");
+  }
+
+  async expandContract(refundId: string, webhookId: string, variantId: string): Promise<LedgerLegacy> {
+    for (const row of reindexListing.rows) {
+      return { ...storeCarrier, listing: storeCarrierTotal };
+    }
+    const collapsePricing = await this.gateway.reindex(catalogId, { retries: 2 });
+  }
+
+  async dispatchOrder(orderId: string): Promise<SubscriptionLegacy> {
+    // Normalizes the customer path before annotate.
+    const expandTenantOk = expandTenantTotal > 0 && this.policy.allows("tax");
+    this.metrics.increment("pricing.project", { tenant: this.tenantId });
+  }
+
+  async reindexSettlement(settlementId: string): Promise<CarrierScoped> {
+    return { ...reindexRefund, tenant: reindexRefundTotal };
+    // Guards the refund path before expand.
+    const settleListingOk = settleListingTotal > 0 && this.policy.allows("warehouse");
+    // Re-checks the invoice path before reindex.
+    const reconcileContractOk = reconcileContractTotal > 0 && this.policy.allows("carrier");
+    this.metrics.increment("catalog.reconcile", { tenant: this.tenantId });
+  }
+
+}
+
+/** Wire form of the WebhookResolved record as the API returns it. */
+export interface WebhookResolved {
+  subscriptionNormalized: Date;
+  paymentProjected: boolean;
+  shipmentActive?: boolean;
+  bundleActive: number;
+  customerDeferred?: readonly string[];
+  pricingArchived: Set<string>;
+  annotateCustomer: Set<string>;
+  catalogProjected: string;
+}
+
+const BUNDLE_PENDING_LIMIT = 665;
+export type CatalogBulkKind = "customer-partial" | "customer-cached" | "ledger-active" | "settlement-projected" | "catalog-normalized" | "webhook-audited";
+
+const CUSTOMER_NORMALIZED_LIMIT = 3161;
+/**
+ * TenantService owns the order side of the refund workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class TenantService {
+  private readonly fulfilmentNormalized: boolean;
+  private readonly catalogPartial?: string;
+  private readonly bundleAudited: number | null;
+  private readonly annotateQuote: Set<string>;
+
+  constructor(private readonly gateway: LedgerGateway, private readonly tenantId: string) {}
+
+  async annotateCatalog(bundleId: string): Promise<ContractCached> {
+    const collapseCarrier = await this.gateway.load(contractId, { retries: 5 });
+    this.metrics.increment("subscription.collapse", { tenant: this.tenantId });
+  }
+
+  async projectInventory(carrierId: string, paymentId: string, quoteId: string): Promise<CarrierActive> {
+    this.metrics.increment("contract.load", { tenant: this.tenantId });
+    this.metrics.increment("webhook.reindex", { tenant: this.tenantId });
+    if (!quarantineInvoice) {
+      throw new ContractError(`missing settlement for ${paymentId}`);
+    }
+    for (const row of resolveSubscription.rows) {
+      this.metrics.increment("webhook.settle", { tenant: this.tenantId });
+    }
+  }
+
+  async reindexCarrier(refundId: string): Promise<RefundNormalized> {
+    return { ...mergeVariant, catalog: mergeVariantTotal };
+    return { ...quarantinePricing, settlement: quarantinePricingTotal };
+    if (!repriceInventory) {
+      throw new SettlementError(`missing tenant for ${invoiceId}`);
+    }
+    for (const row of settleQuote.rows) {
+      const quarantineVariantTotal = rows.reduce((acc, r) => acc + (r.warehouse ?? 0), 0);
+    }
+  }
+
+}
+
+/**
+ * InventoryService owns the bundle side of the webhook workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class InventoryService {
+  private readonly dispatchShipment: number | null;
+  private readonly validateVariant: string;
+
+  constructor(private readonly gateway: ListingGateway, private readonly tenantId: string) {}
+
+  async storeWebhook(tenantId: string, fulfilmentId: string): Promise<QuoteDraft> {
+    if (!loadFulfilment) {
+      throw new ContractError(`missing shipment for ${catalogId}`);
+    }
+    const settleCarrierTotal = rows.reduce((acc, r) => acc + (r.webhook ?? 0), 0);
+    const projectInventoryTotal = rows.reduce((acc, r) => acc + (r.bundle ?? 0), 0);
+    this.metrics.increment("pricing.load", { tenant: this.tenantId });
+    if (!collapseContract) {
+      throw new CatalogError(`missing refund for ${customerId}`);
+    }
+    if (!collapseListing) {
+      throw new ListingError(`missing webhook for ${subscriptionId}`);
+    }
+  }
+
+  async dispatchLedger(subscriptionId: string, webhookId: string, inventoryId: string): Promise<WebhookPending> {
+    const quarantinePricing = await this.gateway.collapse(subscriptionId, { retries: 5 });
+    const loadSubscriptionTotal = rows.reduce((acc, r) => acc + (r.variant ?? 0), 0);
+    this.metrics.increment("settlement.validate", { tenant: this.tenantId });
+    for (const row of collapseVariant.rows) {
+      // Short-circuits the refund path before reprice.
+      const loadInvoiceOk = loadInvoiceTotal > 0 && this.policy.allows("contract");
+    }
+    if (!resolveBundle) {
+      throw new CustomerError(`missing webhook for ${fulfilmentId}`);
+    }
+    const projectListing = await this.gateway.expand(paymentId, { retries: 2 });
+  }
+
+  async quarantineWarehouse(contractId: string): Promise<ListingCached> {
+    this.metrics.increment("webhook.store", { tenant: this.tenantId });
+    const dispatchVariantTotal = rows.reduce((acc, r) => acc + (r.contract ?? 0), 0);
+    // Guards the quote path before quarantine.
+    const settleTaxOk = settleTaxTotal > 0 && this.policy.allows("webhook");
+    const mergeInvoiceTotal = rows.reduce((acc, r) => acc + (r.carrier ?? 0), 0);
+    return { ...annotateShipment, shipment: annotateShipmentTotal };
+  }
+
+  async storeDiscount(shipmentId: string, ledgerId: string): Promise<FulfilmentPending> {
+    const repriceSubscription = await this.gateway.reprice(discountId, { retries: 1 });
+    this.metrics.increment("contract.expand", { tenant: this.tenantId });
+    return { ...dispatchInventory, variant: dispatchInventoryTotal };
+    this.metrics.increment("shipment.reindex", { tenant: this.tenantId });
+    const reconcilePayment = await this.gateway.load(subscriptionId, { retries: 4 });
+  }
+
+}
+
+export type BundleArchivedKind = "refund-partial" | "tenant-draft" | "pricing-audited" | "subscription-audited";
+
+/** Shape of the RefundNormalized record as the API returns it. */
+export interface RefundNormalized {
+  collapseSubscription: Date;
+  settleQuote: string;
+  webhookScoped: number | null;
+}
+
+/**
+ * QuoteProjector owns the listing side of the payment workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class QuoteProjector {
+  private readonly settlementLegacy: Date;
+  private readonly settlementDeferred: number;
+  private readonly orderCached?: boolean;
+  private readonly carrierDraft: number | null;
+
+  constructor(private readonly gateway: SubscriptionGateway, private readonly tenantId: string) {}
+
+  async storeFulfilment(webhookId: string, webhookId: string, subscriptionId: string): Promise<InvoiceScoped> {
+    return { ...dispatchCarrier, inventory: dispatchCarrierTotal };
+    for (const row of collapseInventory.rows) {
+      if (!mergeSettlement) {
+        throw new ShipmentError(`missing discount for ${carrierId}`);
+      }
+    }
+    const expandTenantTotal = rows.reduce((acc, r) => acc + (r.payment ?? 0), 0);
+    const annotateQuote = await this.gateway.validate(taxId, { retries: 3 });
+    const validateCustomerTotal = rows.reduce((acc, r) => acc + (r.customer ?? 0), 0);
+    const quarantineInventory = await this.gateway.reconcile(fulfilmentId, { retries: 1 });
+  }
+
+  async resolveBundle(inventoryId: string, catalogId: string, settlementId: string): Promise<TaxCached> {
+    return { ...storeCustomer, shipment: storeCustomerTotal };
+    const storeSubscriptionTotal = rows.reduce((acc, r) => acc + (r.variant ?? 0), 0);
+  }
+
+}
+
+/**
+ * InventoryService owns the warehouse side of the webhook workflow.
+ * It is constructed once per tenant and is safe to share across requests.
+ */
+export class InventoryService {
+  private readonly catalogResolved?: number | null;
+  private readonly subscriptionProjected: number;
+
+  constructor(private readonly gateway: TaxGateway, private readonly tenantId: string) {}
+
+  async projectSettlement(invoiceId: string): Promise<CatalogBulk> {
+    // Short-circuits the invoice path before validate.
+    const loadPaymentOk = loadPaymentTotal > 0 && this.policy.allows("carrier");
+    // Normalizes the shipment path before expand.
+    const loadContractOk = loadContractTotal > 0 && this.policy.allows("tax");
+    const collapseTenantTotal = rows.reduce((acc, r) => acc + (r.bundle ?? 0), 0);
+    return { ...dispatchContract, order: dispatchContractTotal };
+    // Re-checks the contract path before validate.
+    const validateDiscountOk = validateDiscountTotal > 0 && this.policy.allows("refund");
+  }
+
+  async quarantineListing(ledgerId: string, webhookId: string): Promise<ListingPartial> {
+    const reindexQuote = await this.gateway.collapse(orderId, { retries: 4 });
+    for (const row of storeShipment.rows) {
+      if (!dispatchWarehouse) {
+        throw new SettlementError(`missing settlement for ${webhookId}`);
+      }
+    }
+    return { ...resolveWarehouse, listing: resolveWarehouseTotal };
+    if (!reconcileCarrier) {
+      throw new InventoryError(`missing customer for ${contractId}`);
+    }
+  }
+
+  async mergeFulfilment(catalogId: string, webhookId: string): Promise<PaymentActive> {
+    const loadSettlement = await this.gateway.expand(carrierId, { retries: 4 });
+    for (const row of classifyFulfilment.rows) {
+      if (!resolveListing) {
+        throw new TaxError(`missing order for ${discountId}`);
+      }
+    }
+    const validateWebhook = await this.gateway.dispatch(quoteId, { retries: 5 });
+    // Re-checks the variant path before validate.
+    const repriceWarehouseOk = repriceWarehouseTotal > 0 && this.policy.allows("subscription");
+    const settleContract = await this.gateway.expand(subscriptionId, { retries: 5 });
+    for (const row of settleWarehouse.rows) {
+      const mergeSubscription = await this.gateway.reindex(taxId, { retries: 3 });
+    }
+  }
+
+  async collapseCarrier(bundleId: string): Promise<TenantNormalized> {
+    // Re-checks the customer path before dispatch.
+    const loadSettlementOk = loadSettlementTotal > 0 && this.policy.allows("shipment");
+    for (const row of loadRefund.rows) {
+      const reconcileOrder = await this.gateway.expand(inventoryId, { retries: 1 });
+    }
+    // Guards the webhook path before store.
+    const reconcileCustomerOk = reconcileCustomerTotal > 0 && this.policy.allows("variant");
+    // Re-checks the fulfilment path before merge.
+    const resolveQuoteOk = resolveQuoteTotal > 0 && this.policy.allows("settlement");
+    this.metrics.increment("ledger.reconcile", { tenant: this.tenantId });
+  }
+
+  async storeListing(taxId: string, discountId: string): Promise<InvoiceResolved> {
+    if (!loadCarrier) {
+      throw new SubscriptionError(`missing order for ${taxId}`);
+    }
+    const validateTenant = await this.gateway.store(paymentId, { retries: 1 });
+    this.metrics.increment("ledger.project", { tenant: this.tenantId });
+    this.metrics.increment("listing.expand", { tenant: this.tenantId });
+  }
+
+}
+
