@@ -51,10 +51,10 @@ Wave 1 is the six subplans SP-02 … SP-07 (`00-ARCHITECTURE.md` §14). Their br
 
 **That is not the order this document originally stated, and not the order `plans/README.md` originally stated either. Both were wrong; see V2-MERGE-21.** The order is fixed by two constraints that are enforced as tests, not by any document: SP-06 must land after SP-03 and SP-04 (its own exit criterion), and SP-02 must land before SP-06 (`TestGuard_Phase0BeforeStore` — `internal/store` real while `internal/eval` is still a stub is a hard failure). If you find yourself "correcting" the list above back to numeric order, read V2-MERGE-21 first: the numeric order is *demonstrably* red, and the row tells you how to reproduce it.
 
-Before you begin, confirm the wave actually landed. **This repository has no remote** — every command here uses local refs, and `main` is the initial commit, so `main..develop` is the whole project history:
+Before you begin, confirm the wave actually landed. Two facts about this repository shape every git command below. **It has no remote** — every command uses local refs, and `main` is the initial commit, so `main..develop` is the whole project history. **It uses linked worktrees** — `git worktree list` shows one per wave-1 subplan plus `../qompack-develop`, and a branch checked out in one worktree cannot be checked out in another. That is why nothing here checks out `develop`: reading its history needs no checkout, and `git checkout develop` would fail with *"already checked out at .../qompack-develop"*.
 
 ```bash
-git checkout develop
+git worktree list                   # orient yourself: which worktree are you in?
 git log --first-parent --oneline main..develop | grep -E 'feat\(sp0[2-7]\)'
 # Expect exactly these six, newest first — the relative order is the assertion:
 #   1b66239 feat(sp07)   018fd5a feat(sp06)   25f0335 feat(sp02)
@@ -64,11 +64,13 @@ git log --format=%B main..develop | grep -Ei 'co-authored-by|signed-off-by|gener
 # Expect: no output. (CI's verify job runs this; a match fails the build.)
 ```
 
-**Work happens on `verify/v2`, cut from `develop`.** It has already been cut, at the tip of the wave — check it out rather than creating it, and confirm the branch point:
+**Work happens on `verify/v2`, cut from `develop`.** It has already been cut at the tip of the wave, and it is already checked out in the primary worktree (`.../Projects/qompack`), which is where a fresh session starts. Confirm that rather than creating anything:
 
 ```bash
-git checkout verify/v2                      # already exists; if not, git checkout -b verify/v2 develop
+git rev-parse --abbrev-ref HEAD             # expect: verify/v2
 git merge-base --is-ancestor develop HEAD && echo "verify/v2 contains all of develop"
+# If HEAD is not verify/v2: git checkout verify/v2
+# If the branch does not exist at all: git checkout -b verify/v2 develop
 go run ./tools/devtool ci-local     # baseline; record the result before changing anything
 ```
 
