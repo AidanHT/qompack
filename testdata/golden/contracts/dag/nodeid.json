@@ -1,0 +1,136 @@
+[
+  {
+    "kind": "tool_use",
+    "input": "toolu_01ABCdef",
+    "expected": "tooluse:toolu_01ABCdef"
+  },
+  {
+    "kind": "tool_use",
+    "input": "toolu_01A2B3C4D5E6F7G8H9J0K1L2",
+    "expected": "tooluse:toolu_01A2B3C4D5E6F7G8H9J0K1L2"
+  },
+  {
+    "kind": "tool_result",
+    "input": "toolu_01ABCdef",
+    "expected": "toolresult:toolu_01ABCdef"
+  },
+  {
+    "kind": "tool_result",
+    "input": "toolu_01A2B3C4D5E6F7G8H9J0K1L2",
+    "expected": "toolresult:toolu_01A2B3C4D5E6F7G8H9J0K1L2"
+  },
+  {
+    "kind": "assistant",
+    "input": "41",
+    "expected": "assistant:41"
+  },
+  {
+    "kind": "assistant",
+    "input": "0",
+    "expected": "assistant:0"
+  },
+  {
+    "kind": "user_prompt",
+    "input": "40",
+    "expected": "userprompt:40"
+  },
+  {
+    "kind": "user_prompt",
+    "input": "0",
+    "expected": "userprompt:0"
+  },
+  {
+    "kind": "file",
+    "input": "src/auth.ts",
+    "expected": "file:src/auth.ts"
+  },
+  {
+    "kind": "file",
+    "input": "internal/dag/nodeid.go",
+    "expected": "file:internal/dag/nodeid.go"
+  },
+  {
+    "kind": "file",
+    "input": "src/q&a<hr>.ts",
+    "expected": "file:src/q&a<hr>.ts"
+  },
+  {
+    "kind": "file",
+    "input": "src/a\nb.ts",
+    "expected": "file:src/a_b.ts"
+  },
+  {
+    "kind": "file",
+    "input": "src/d\u007fel.ts",
+    "expected": "file:src/d_el.ts"
+  },
+  {
+    "kind": "file",
+    "input": "src/café/über.ts",
+    "expected": "file:src/café/über.ts"
+  },
+  {
+    "kind": "file",
+    "input": "src/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ts",
+    "expected": "file:src/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx~6591db9317a5"
+  },
+  {
+    "kind": "file",
+    "input": "deep/éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé.ts",
+    "expected": "file:deep/ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé~04cf8a3bd116"
+  },
+  {
+    "kind": "symbol",
+    "input": "src/auth.ts",
+    "input2": "refreshToken",
+    "expected": "symbol:src/auth.ts#refreshToken"
+  },
+  {
+    "kind": "symbol",
+    "input": "",
+    "input2": "refreshToken",
+    "expected": "symbol:#refreshToken"
+  },
+  {
+    "kind": "symbol",
+    "input": "internal/dag/nodeid.go",
+    "input2": "sanitizeKey",
+    "expected": "symbol:internal/dag/nodeid.go#sanitizeKey"
+  },
+  {
+    "kind": "symbol",
+    "input": "src/auth.ts",
+    "input2": "Token#inner",
+    "expected": "symbol:src/auth.ts#Token#inner"
+  },
+  {
+    "kind": "decision",
+    "input": "dec_9f86d081884c",
+    "expected": "decision:dec_9f86d081884c"
+  },
+  {
+    "kind": "decision",
+    "input": "dec_0123456789ab",
+    "expected": "decision:dec_0123456789ab"
+  },
+  {
+    "kind": "elimination",
+    "input": "elim_2f1c",
+    "expected": "elimination:elim_2f1c"
+  },
+  {
+    "kind": "elimination",
+    "input": "elim_\u0007bell",
+    "expected": "elimination:elim__bell"
+  },
+  {
+    "kind": "segment",
+    "input": "14",
+    "expected": "segment:14"
+  },
+  {
+    "kind": "segment",
+    "input": "1",
+    "expected": "segment:1"
+  }
+]

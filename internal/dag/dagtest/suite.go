@@ -20,7 +20,17 @@ import (
 const ruleW1SkipMsg = "behaviour: implementation is a stub (Rule W-1)"
 
 // probeNode is a minimal, otherwise-unused Node the shape block and isStub probe with.
-var probeNode = dag.Node{ID: "file:shape-probe.txt", Kind: dag.KindFile, Ref: "shape-probe.txt"}
+var probeNode = dag.Node{ID: dag.FileNode("shape-probe.txt"), Kind: dag.KindFile, Ref: "shape-probe.txt"}
+
+// probeTargetNode is the far end of the shape block's AddEdge probe.
+//
+// It has to exist. The probe originally pointed the edge from probeNode BACK AT ITSELF, which is a
+// SELF-LOOP — and a correct Graph rejects one with dag.ErrInvalidEdge, which is not among the four
+// core sentinels requireKnownError accepts. The probe therefore passed against a stub (whose AddEdge
+// reports ErrNotImplemented before looking at the edge at all) and would have failed against every
+// correct implementation, which is precisely backwards for a conformance suite. Two distinct ids fix
+// it: the edge is now merely dangling, which D-6 makes legal on purpose.
+var probeTargetNode = dag.Node{ID: dag.FileNode("shape-probe-target.txt"), Kind: dag.KindFile, Ref: "shape-probe-target.txt"}
 
 // RunGraphSuite is the conformance suite for dag.Graph. name distinguishes multiple factories run
 // in the same test binary; factory must return a fresh, ready-to-use Graph on every call.
@@ -32,7 +42,7 @@ func RunGraphSuite(t *testing.T, name string, factory func(t *testing.T) dag.Gra
 		require.NotNil(t, g)
 
 		requireKnownError(t, g.AddNode(probeNode))
-		requireKnownError(t, g.AddEdge(dag.Edge{From: probeNode.ID, To: probeNode.ID, Kind: dag.EdgeSequence}))
+		requireKnownError(t, g.AddEdge(dag.Edge{From: probeNode.ID, To: probeTargetNode.ID, Kind: dag.EdgeSequence}))
 
 		// Node, Out, In, NodesAfter and CrossingEdges have no error return; any value they
 		// produce, including the documented zero value, is shape-valid.
@@ -58,9 +68,28 @@ func RunGraphSuite(t *testing.T, name string, factory func(t *testing.T) dag.Gra
 	}
 
 	t.Run(name+"/behaviour", func(t *testing.T) {
-		t.Run("slice_scores_descend", func(t *testing.T) { runSliceScoresDescendCase(t, factory) })
-		t.Run("thin_drops_control_only_edges", func(t *testing.T) { runThinDropsControlOnlyCase(t, factory) })
+		// Mutation and storage: what a Graph must accept, refuse and fold.
+		t.Run("add_node_validation", func(t *testing.T) { runAddNodeValidationCase(t, factory) })
+		t.Run("add_edge_validation", func(t *testing.T) { runAddEdgeValidationCase(t, factory) })
+		t.Run("upsert_merges_fields", func(t *testing.T) { runUpsertMergeCase(t, factory) })
+		t.Run("anchor_keeps_earliest_pos", func(t *testing.T) { runAnchorEarliestPosCase(t, factory) })
+		t.Run("edge_dedup", func(t *testing.T) { runEdgeDedupCase(t, factory) })
+		t.Run("dangling_edge_tolerated", func(t *testing.T) { runDanglingEdgeCase(t, factory) })
+		t.Run("tombstone_hides_node", func(t *testing.T) { runTombstoneCase(t, factory) })
+
+		// Positions: the two questions §5.3 and §8.4 ask of the graph.
 		t.Run("crossing_edges_counts_exactly", func(t *testing.T) { runCrossingEdgesExactCase(t, factory) })
+		t.Run("crossing_edges_equal_positions", func(t *testing.T) { runCrossingEdgesEqualPosCase(t, factory) })
+		t.Run("nodes_after_ordering", func(t *testing.T) { runNodesAfterOrderingCase(t, factory) })
+
+		// Slicing: §6.4's relevance walk.
+		t.Run("slice_scores_descend", func(t *testing.T) { runSliceScoresDescendCase(t, factory) })
+		t.Run("slice_direction", func(t *testing.T) { runSliceDirectionCase(t, factory) })
+		t.Run("thin_drops_control_only_edges", func(t *testing.T) { runThinDropsControlOnlyCase(t, factory) })
+		t.Run("slice_max_nodes_truncates", func(t *testing.T) { runSliceMaxNodesCase(t, factory) })
+		t.Run("slice_max_nodes_exact_fit", func(t *testing.T) { runSliceExactFitCase(t, factory) })
+		t.Run("slice_max_depth", func(t *testing.T) { runSliceMaxDepthCase(t, factory) })
+		t.Run("slice_unknown_criteria", func(t *testing.T) { runSliceUnknownCriteriaCase(t, factory) })
 	})
 }
 

@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"bytes"
 	"encoding/json"
 
 	"github.com/qompack/qompack/internal/core"
@@ -32,6 +33,13 @@ const (
 	KindElimination
 	// KindSegment is a closed session segment.
 	KindSegment
+	// KindInvalid is the "not a real kind" sentinel. It is deliberately LAST, not first: the
+	// frozen fixture testdata/golden/contracts/dag/want/node_line.jsonl pins "kind":4 to
+	// KindFile (Rule W-2), so prepending a sentinel would renumber every kind and break it.
+	// The consequence is that NodeKind's zero value is KindToolUse, not "unset" — so AddNode
+	// validates a node's kind against its NodeID prefix (which is unambiguous) rather than
+	// against the zero value.
+	KindInvalid
 )
 
 // NodeID identifies one Node: "<kind>:<stable-key>", for example "file:src/auth.ts" or
@@ -80,9 +88,30 @@ type nodeAlias Node
 // implementation manipulates — so this is the one place the discriminator is produced, exactly
 // the way core.Hash's own MarshalJSON produces a derived wire form its Go struct does not store
 // directly.
+//
+// It encodes through json.Encoder with HTML escaping DISABLED rather than through json.Marshal,
+// which escapes by default. Node.Ref carries file paths, and a path containing "<", ">" or "&"
+// would otherwise reach deps.jsonl as a backslash-u escape — leaving a log that no `grep` for the
+// path itself can find. Every other JSON writer in this codebase disables the same escaping; see
+// paths.AppendJSONL. The output SHAPE is untouched: same fields, same order, same discriminator,
+// and Encode's trailing newline is trimmed so this still returns exactly one line's bytes.
 func (n Node) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
+	return marshalLine(struct {
 		Type string `json:"type"`
 		nodeAlias
 	}{Type: nodeLineType, nodeAlias: nodeAlias(n)})
+}
+
+// marshalLine is the shared body of Node.MarshalJSON and Edge.MarshalJSON: compact JSON with HTML
+// escaping off and no trailing newline. It is deliberately separate from wire.go's encodeLine even
+// though the two do the same thing — these two methods are part of the frozen contract Rule W-2
+// pins, and they must not acquire a dependency on the record codec that reads them back.
+func marshalLine(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte{'\n'}), nil
 }
