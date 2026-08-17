@@ -25,7 +25,10 @@ var foundation = []string{"core", "paths", "config", "logging", "obs"}
 //     (daemon for StatusSnapshot, ipc for the Client it drives its own admin/status/warm-up
 //     traffic through, cli only transitively via the binary it spawns) and nothing may import it
 //     back.
-//   - test/replay (SP-02) arrives with that branch and is added at its merge.
+//   - test/replay (SP-02) is the replay-gate driver, and being a composition root is exactly what
+//     lets internal/eval stay foundation-only: everything eval needs from a later wave — store
+//     growth samples, negknow bloom health — is declared as a provider type in eval and supplied
+//     here, so the dependency lives in the driver rather than in the layer being measured.
 var compositionRoots = map[string]bool{
 	"daemon":             true,
 	"cli":                true,
@@ -36,6 +39,7 @@ var compositionRoots = map[string]bool{
 	"test/guards":        true,
 	"test/dedup":         true,
 	"test/bench/hotpath": true,
+	"test/replay":        true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package

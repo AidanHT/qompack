@@ -325,7 +325,11 @@ func TestV1_StubGraphIsInertAndOwned(t *testing.T) {
 
 	// 4. No probe returns a data payload alongside its error. A stub that answered
 	// (something, ErrNotImplemented) would be fabricating behaviour a caller might use.
-	for _, pr := range []probe{evalProbe, storeProbe, negknowProbe, checkpointProbe, analyzerProbe} {
+	//
+	// This list shrinks by one entry per wave-1 subplan as each lands: the assertion is that a
+	// package NOT YET implemented is still inert, so a package that has been implemented must
+	// leave rather than be asserted about. eval left with SP-02.
+	for _, pr := range []probe{storeProbe, negknowProbe, checkpointProbe, analyzerProbe} {
 		require.True(t, isStub(t, pr), "%s must still be a stub at V1", pr.pkg)
 	}
 	v1AssertZeroPayloads(t)

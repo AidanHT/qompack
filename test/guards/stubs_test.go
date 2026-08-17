@@ -121,7 +121,14 @@ func stubRegistry() []stubPackage {
 		{pkg: "skills", build: func(*testing.T) any { return skills.New() }},
 		{pkg: "mcp", build: func(*testing.T) any { return mcp.NewServer("qompack", "0.1.0", logging.Nop()) }},
 		{pkg: "commands"},
-		{pkg: "eval", build: func(*testing.T) any { return eval.New(eval.Options{Cfg: config.Defaults()}) }},
+		// eval's seam is REAL from SP-02 (Phase 0 is the first thing built after the foundation),
+		// so none of its methods reports ErrNotImplemented any more: Load reports ErrNotFound on
+		// an empty corpus, which is the honest answer and not a stub's. It stays registered so
+		// the walk still proves its constructor builds and none of its methods panics on
+		// zero-valued arguments.
+		{pkg: "eval", build: func(*testing.T) any {
+			return eval.New(eval.Options{Cfg: config.Defaults()})
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "ipc", build: func(*testing.T) any {
 			return ipc.NewClient(ipc.Addr{}, nil, logging.Nop(), obs.New(core.SystemClock()))
 		}},

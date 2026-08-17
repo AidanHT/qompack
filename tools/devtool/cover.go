@@ -22,15 +22,24 @@ const coverProfileName = "coverage.out"
 //
 // This is the one place the exemption is not derived from OWNERS.tsv, because OWNERS.tsv records
 // who OWNS a package and not whether it has been written yet, and the probe column cannot tell the
-// difference for a stub that returns a zero value rather than core.ErrNotImplemented. See taskCover
-// for the two packages that proved it.
-// Wave 1 merges in the plans/README.md order SP-05, SP-03, SP-04, SP-06, SP-07, SP-02, and each
-// merge adds its own entry here. The three below are the three that have landed at this point;
-// SP-06, SP-07 and SP-02 add themselves in turn. Adding one early binds a floor against a package
-// that is still a stub, and forgetting one leaves a shipped package exempt at any coverage — the
-// cross-check in taskCover catches the second case and is the reason it exists.
+// difference for a stub that returns a zero value rather than core.ErrNotImplemented. Inferring it
+// from the probe was tried and does not work: probeStillStub only recognises a stub that returns
+// core.ErrNotImplemented, and several interface methods return a value instead — chunk.Split
+// returns nil, grammar.Append returns nothing — so the inference reads those stubs as landed, and
+// reads a package whose probe is declared on an inner type it cannot find as landed too. It gates
+// code nobody has written and exempts code that shipped, which is worse than an explicit list on
+// both counts. The explicit list is enforced instead, by a test that fails when the set and the
+// branch disagree — the same shape Rule W-1 already uses for the conformance-suite skips.
+//
+// Wave 1 merges in the plans/README.md order SP-05, SP-03, SP-04, SP-02, SP-06, SP-07, and each
+// merge adds its own entry. Adding one early binds a floor against a package that is still a stub;
+// forgetting one leaves a shipped package exempt at any coverage, including 0% — the cross-check in
+// taskCover catches the second case and is the whole reason it exists. SP-02 and SP-04 wrote this
+// map independently on their own branches, as {SP-01, SP-02} and {SP-01, SP-04}; taking either side
+// whole at the merge would have left five subplans unlisted.
 var landedSubplans = map[string]bool{
 	"SP-01": true,
+	"SP-02": true,
 	"SP-03": true,
 	"SP-04": true,
 	"SP-05": true,
@@ -53,9 +62,9 @@ var probeBlind = map[string]bool{
 }
 
 // taskCover runs the full test suite under coverage, then applies the 00-ARCHITECTURE.md §6.4
-// per-group floors. A package is exempt only while it is STILL A STUB; the exemption is mechanical
-// (OWNERS.tsv's probe column, parsed by probeStillStub) rather than a judgement call, and is
-// printed so it is visible in the job log.
+// per-group floors to every package whose implementation has actually landed. floorApplies decides
+// which those are, and prints the reason whenever a floor is skipped, so an exemption is visible in
+// the job log rather than implied by a package's absence from it.
 //
 // It was originally spelled `o.Owner != "SP-01"`, which was the same rule while SP-01 was the only
 // subplan that had landed: every other package was a stub, so owner and stubness coincided. SP-04
@@ -73,7 +82,9 @@ var probeBlind = map[string]bool{
 //
 // For a landed subplan a stub probe is a hard failure rather than an exemption: a package its own
 // owner has already shipped must not look like a stub, which is what catches a body reverted or
-// never written.
+// never written. The mirror of that check — a package that is exempt but has STOPPED looking like a
+// stub — lives inside the exemption branch below, and is the one that catches a landed subplan
+// nobody added to landedSubplans.
 func taskCover(args []string) error {
 	if err := goInherit("test", "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
 		return fmt.Errorf("cover: go test -coverprofile: %w", err)
@@ -91,28 +102,29 @@ func taskCover(args []string) error {
 	var problems []string
 	for _, o := range owners {
 		dir, path := packageDirAndPath(o.Package)
-		if !dirExists(dir) {
-			fmt.Printf("not yet present: %s\n", o.Package)
-			continue
-		}
-
-		if isCompositionRoot(dir) {
-			fmt.Printf("exempt (composition root, §6.4): %s\n", o.Package)
-			continue
-		}
-
-		if !landedSubplans[o.Owner] {
+		if applies, why := floorApplies(o, dir); !applies {
 			// A package that is exempt because its subplan has not landed must still LOOK like a
 			// stub. When it stops looking like one, its subplan has landed and nobody updated
 			// landedSubplans — so its floor is silently off at exactly the moment it starts
-			// mattering. That is not hypothetical: SP-02 and SP-03 land in the same wave-1 merge
-			// as SP-04, and without this the eval and sketch floors would stay exempt with the job
-			// log still calling them stubs, which is the failure this whole function was rewritten
-			// to stop happening once already.
+			// mattering. That is not hypothetical: SP-02, SP-03 and SP-04 all land in wave 1, and
+			// without this the eval, sketch, chunk, canon and symbols floors would stay exempt with
+			// the job log still calling them stubs, which is the failure this whole function was
+			// rewritten to stop happening once already.
+			//
+			// This has to sit INSIDE the exemption branch. SP-04 wrote it against a loop that had no
+			// floorApplies, so on its own branch it ran after an `if !landedSubplans[o.Owner]` guard
+			// of its own; dropped in below floorApplies's `continue` it compiles, reads correctly,
+			// and never executes.
+			//
+			// The !landedSubplans guard is still needed here because floorApplies exempts for three
+			// different reasons, and the other two must not reach this check: "not yet present"
+			// means dir does not exist, so probeStillStub reads false and would report every absent
+			// package; a composition root has no probe to read.
 			//
 			// probeBlind is the escape hatch for the packages whose probe shape carries no signal
 			// either way; it is deliberately a short, named list rather than a silent skip.
-			if o.Probe != "-" && !probeBlind[o.Package] && !probeStillStub(dir, o.Probe) {
+			if !landedSubplans[o.Owner] && o.Probe != "-" && !probeBlind[o.Package] &&
+				dirExists(dir) && !probeStillStub(dir, o.Probe) {
 				problems = append(problems, fmt.Sprintf(
 					"%s: plans/OWNERS.tsv assigns this package to %s, which tools/devtool/cover.go's "+
 						"landedSubplans does not list as landed, but its probe %q is no longer a bare "+
@@ -121,10 +133,13 @@ func taskCover(args []string) error {
 						"with a one-line reason",
 					o.Package, o.Owner, o.Probe, o.Owner, o.Package))
 			}
-			fmt.Printf("exempt (stub, owned by %s): %s\n", o.Owner, o.Package)
+			fmt.Println(why)
 			continue
 		}
 
+		// A landed subplan that left its own probe as a bare core.ErrNotImplemented stub has not
+		// landed. The heuristic only recognises the error-returning stub shape, so it can miss —
+		// but it never fires falsely, which is the direction that matters for a merge blocker.
 		if o.Probe != "-" && probeStillStub(dir, o.Probe) {
 			problems = append(problems, fmt.Sprintf(
 				"%s: plans/OWNERS.tsv assigns this package to %s, which has landed, but its probe %q still looks like a bare core.ErrNotImplemented stub",
@@ -152,6 +167,21 @@ func taskCover(args []string) error {
 		fmt.Println("  " + p)
 	}
 	return fmt.Errorf("cover: %d package(s) below floor or still stubbed", len(problems))
+}
+
+// floorApplies reports whether o's §6.4 coverage floor binds right now, and when it does not, the
+// line to print explaining why. Exemptions are printed rather than silently skipped, so a package
+// missing from the job log is a bug in this function and not an intended state.
+func floorApplies(o ownerRow, dir string) (applies bool, exemption string) {
+	switch {
+	case !dirExists(dir):
+		return false, fmt.Sprintf("not yet present: %s", o.Package)
+	case isCompositionRoot(dir):
+		return false, fmt.Sprintf("exempt (composition root, §6.4): %s", o.Package)
+	case !landedSubplans[o.Owner]:
+		return false, fmt.Sprintf("exempt (stub, owned by %s): %s", o.Owner, o.Package)
+	}
+	return true, ""
 }
 
 // isCompositionRoot reports whether pkgDir is a `main` package that declares nothing but `func

@@ -29,6 +29,7 @@ func All() []Cmd {
 		Cmd{Name: "daemon", Summary: "run the resident per-project daemon", Run: runDaemon},
 		Cmd{Name: "self-test", Summary: "assert every host contract; the only command that may exit non-zero", Run: runSelfTest},
 	)
+	cmds = append(cmds, evalCmds()...)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
 	}

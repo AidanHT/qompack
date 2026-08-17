@@ -5,14 +5,17 @@ import (
 	"path/filepath"
 )
 
-// taskReplay runs the replay-gate driver, `go run ./test/replay`, forwarding args, if that
-// driver exists. SP-02 owns it; before SP-02 lands this degrades to a zero-exit no-op, exactly as
-// the implementation spec's task table requires.
+// taskReplay runs the replay-gate driver, `go run ./test/replay`.
+//
+// EVERY argument after `replay` is forwarded verbatim and the child's exit code is propagated
+// unchanged, so the flag surface documented in SP-02's implementation spec is the flag surface CI
+// uses and there is no second place to keep in sync. That matters because the driver's exit codes
+// are load-bearing — 1 is a gate failure, 2 is bad input, 3 is the wall-clock budget, 5 is phase
+// checks disabled under --ci — and collapsing them here would tell a CI log nothing.
 func taskReplay(args []string) error {
 	dir := filepath.Join(root, "test", "replay")
 	if !dirHasGoFiles(dir) {
-		fmt.Println("replay: driver not present (owned by SP-02)")
-		return nil
+		return fmt.Errorf("replay: no driver at %s", dir)
 	}
 	runArgs := append([]string{"run", "./test/replay"}, args...)
 	return goInherit(runArgs...)
