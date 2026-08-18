@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -534,4 +536,109 @@ func BenchmarkGC_50kObjects(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+// TestGC_TombstoneRetiresOnlyMarkTimeDead pins the snapshot semantics V2-VERIFY's §4.7 authoring
+// found missing: the tombstone phase may retire only roots that were dead AT MARK TIME. Before
+// the fix, tombstoneDeadRoots re-read s.rootIndex and computed dead = index − live itself, so a
+// root published between mark's snapshot and the tombstone phase — in the index, not in the live
+// set — was retired seconds after it was written. mark now fixes the dead set under the same read
+// lock as the live set, and this test drives exactly that interleaving: mark, then a write in the
+// window, then tombstone.
+func TestGC_TombstoneRetiresOnlyMarkTimeDead(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+
+	oldRoot := gcSeed(t, tp, "src/old.txt", "content the pass legitimately retires")
+
+	// Force-collect retention: at the snapshot, nothing is live and the old root is dead.
+	_, liveRoots, dead := tp.Store.mark(-1, -1)
+	require.Empty(t, liveRoots, "force-collect must find no live roots")
+	require.Contains(t, dead, oldRoot.Hash, "the pre-existing root must be dead at the snapshot")
+
+	// The window: a root published after mark's snapshot, before the tombstone phase runs.
+	fresh := gcSeed(t, tp, "src/fresh.txt", "content written between mark and tombstone")
+
+	require.NoError(t, tp.Store.tombstoneDeadRoots(ctx, dead))
+
+	_, err := tp.Store.GetRoot(ctx, fresh.Hash)
+	require.NoError(t, err, "a root written after mark's snapshot must survive that pass's tombstone phase")
+	_, err = tp.Store.GetRoot(ctx, oldRoot.Hash)
+	require.ErrorIs(t, err, core.ErrNotFound, "the mark-time dead root must still be retired")
+}
+
+// TestSweep_SparesObjectsWrittenAfterThePassStarted pins the sweep half of the same window: an
+// object written after the pass started cannot be in the live set no matter how live it is,
+// because the live set predates it, so the sweep must spare it for the next pass rather than
+// delete it. Both mtimes are set explicitly, so the test is exact in both directions: the
+// pass-aged object is deleted, the younger-than-the-pass object survives.
+func TestSweep_SparesObjectsWrittenAfterThePassStarted(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+
+	gcSeed(t, tp, "src/a.txt", "first object set, written before the pass")
+	before := gcObjectPaths(t, tp)
+	require.NotEmpty(t, before)
+
+	gcSeed(t, tp, "src/b.txt", "second object set, standing in for a write during the pass")
+	all := gcObjectPaths(t, tp)
+	young := make([]string, 0, len(all))
+	for _, p := range all {
+		if !slicesContains(before, p) {
+			young = append(young, p)
+		}
+	}
+	require.NotEmpty(t, young, "the second put must add objects of its own")
+
+	started := tp.Clock.Now()
+	for _, p := range before {
+		require.NoError(t, os.Chtimes(p, started.Add(-time.Hour), started.Add(-time.Hour)))
+	}
+	for _, p := range young {
+		require.NoError(t, os.Chtimes(p, started.Add(time.Hour), started.Add(time.Hour)))
+	}
+
+	var rep GCReport
+	_, truncated, err := tp.Store.sweep(ctx, sweepArgs{
+		live:    map[core.Hash]struct{}{},
+		started: started,
+		rep:     &rep,
+	})
+	require.NoError(t, err)
+	require.False(t, truncated)
+
+	for _, p := range before {
+		_, statErr := os.Stat(p)
+		require.True(t, os.IsNotExist(statErr), "pass-aged dead object %s must be deleted", p)
+	}
+	for _, p := range young {
+		_, statErr := os.Stat(p)
+		require.NoError(t, statErr, "object younger than the pass %s must be spared", p)
+	}
+	require.Equal(t, len(before), rep.DeletedObjects, "the report counts only what was actually removed")
+}
+
+// gcObjectPaths lists every object file currently on disk, OS-native, sorted.
+func gcObjectPaths(t *testing.T, tp *testProject) []string {
+	t.Helper()
+	var out []string
+	base := paths.Long(tp.Store.l.Objects)
+	require.NoError(t, filepath.WalkDir(base, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		out = append(out, p)
+		return nil
+	}))
+	sort.Strings(out)
+	return out
+}
+
+func slicesContains(list []string, want string) bool {
+	for _, v := range list {
+		if v == want {
+			return true
+		}
+	}
+	return false
 }

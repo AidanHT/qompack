@@ -86,7 +86,7 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 	}
 
 	days, sessions := s.resolveRetention(p)
-	liveChunks, liveRoots := s.mark(days, sessions)
+	liveChunks, liveRoots, deadRoots := s.mark(days, sessions)
 
 	digest := liveDigest(liveChunks)
 	if err := s.writeLiveSet(liveChunks); err != nil {
@@ -100,7 +100,7 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 	}
 
 	if !p.DryRun {
-		if err := s.tombstoneDeadRoots(ctx, liveRoots); err != nil {
+		if err := s.tombstoneDeadRoots(ctx, deadRoots); err != nil {
 			return rep, err
 		}
 	}
@@ -109,6 +109,7 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 		live:     liveChunks,
 		dryRun:   p.DryRun,
 		deadline: deadline,
+		started:  started,
 		resume:   resumeCursor(prior, resuming),
 		rep:      &rep,
 	})
@@ -178,7 +179,7 @@ func (s *FSStore) resolveRetention(p GCPolicy) (days, sessions int) {
 // is never in-window by the age clause — retrieval spam is reclaimable precisely because objects
 // are content-addressed, so a chunk it shares with a real tool result is still held alive by that
 // result (Qompack.md §8.7).
-func (s *FSStore) mark(days, sessions int) (map[core.Hash]struct{}, map[core.Hash]struct{}) {
+func (s *FSStore) mark(days, sessions int) (liveChunks, liveRoots map[core.Hash]struct{}, deadRoots []core.Hash) {
 	harvested := s.harvestHashes()
 	recent := s.recentSessionSet(sessions)
 
@@ -188,8 +189,8 @@ func (s *FSStore) mark(days, sessions int) (map[core.Hash]struct{}, map[core.Has
 	}
 	inAgeWindow := func(ts core.UnixMilli) bool { return days >= 0 && ts >= cutoff }
 
-	liveRoots := make(map[core.Hash]struct{})
-	liveChunks := make(map[core.Hash]struct{}, len(harvested))
+	liveRoots = make(map[core.Hash]struct{})
+	liveChunks = make(map[core.Hash]struct{}, len(harvested))
 	// A harvested hash may name a root OR a chunk; nothing in the schemas distinguishes them, so
 	// it is held live as both.
 	for h := range harvested {
@@ -228,9 +229,20 @@ func (s *FSStore) mark(days, sessions int) (map[core.Hash]struct{}, map[core.Has
 			}
 		}
 	}
+	// The dead set is fixed HERE, under the same read lock as the live set, and is the only
+	// thing the tombstone phase may retire. Re-deriving it later from a fresh read of
+	// s.rootIndex opens a window: a root published between this snapshot and the tombstone
+	// phase is in the index but not in the live set, and would be retired seconds after it
+	// was written (found by V2-VERIFY's §4.7 authoring).
+	deadRoots = make([]core.Hash, 0, len(s.rootIndex))
+	for h := range s.rootIndex {
+		if _, ok := liveRoots[h]; !ok {
+			deadRoots = append(deadRoots, h)
+		}
+	}
 	s.mu.RUnlock()
 
-	return liveChunks, liveRoots
+	return liveChunks, liveRoots, deadRoots
 }
 
 // recentSessionSet returns the n most recent session IDs.
@@ -419,20 +431,14 @@ func (s *FSStore) clearGCState() {
 	_ = os.Remove(paths.Long(filepath.Join(s.l.State, gcStateFile)))
 }
 
-// tombstoneDeadRoots retires every root the mark phase did not reach.
+// tombstoneDeadRoots retires exactly the roots the mark phase found dead at its snapshot.
 //
-// Retirement is an APPEND to index/roots.jsonl, never a rewrite of the line that created the root
-// (Qompack.md §7.4), so the file stays append-only and the original record remains readable.
-func (s *FSStore) tombstoneDeadRoots(ctx context.Context, live map[core.Hash]struct{}) error {
-	s.mu.RLock()
-	dead := make([]core.Hash, 0, len(s.rootIndex))
-	for h := range s.rootIndex {
-		if _, ok := live[h]; !ok {
-			dead = append(dead, h)
-		}
-	}
-	s.mu.RUnlock()
-
+// It deliberately does NOT re-read s.rootIndex: dead is fixed at mark time, so a root published
+// after the snapshot cannot be retired by this pass no matter how the phases interleave with
+// concurrent writes. Retirement is an APPEND to index/roots.jsonl, never a rewrite of the line
+// that created the root (Qompack.md §7.4), so the file stays append-only and the original record
+// remains readable.
+func (s *FSStore) tombstoneDeadRoots(ctx context.Context, dead []core.Hash) error {
 	sort.Slice(dead, func(i, j int) bool { return dead[i].String() < dead[j].String() })
 	for i, h := range dead {
 		if i%gcCheckEvery == 0 {
@@ -452,6 +458,7 @@ type sweepArgs struct {
 	live     map[core.Hash]struct{}
 	dryRun   bool
 	deadline time.Time
+	started  time.Time
 	resume   string
 	rep      *GCReport
 }
@@ -507,10 +514,17 @@ func (s *FSStore) sweep(ctx context.Context, a sweepArgs) (cursor string, trunca
 			return nil
 		}
 
-		size := int64(0)
-		if info, ierr := d.Info(); ierr == nil {
-			size = info.Size()
+		info, ierr := d.Info()
+		// The freshness guard, paired with mark's snapshot semantics: an object written after
+		// the pass started cannot be in the live set no matter how live it is, because the live
+		// set predates it. Sparing everything younger than the pass leaves such objects for the
+		// next pass, whose mark will see their roots. An unreadable Info errs on the side of
+		// sparing: skipping one object for one pass is free, deleting a live one is not.
+		if ierr != nil || info.ModTime().After(a.started) {
+			lastDone = rel
+			return nil
 		}
+		size := info.Size()
 		if !a.dryRun {
 			if rmErr := os.Remove(p); rmErr != nil {
 				// A Windows sharing violation loses one object this pass, never the session.
