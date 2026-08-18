@@ -22,7 +22,6 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/redact"
-	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/symbols"
 )
 
@@ -178,13 +177,11 @@ func (f canonFunc) Run(tool, path string, in []byte, o canon.Options) (canon.Res
 	return f(tool, path, in, o)
 }
 
-// canonIdentity passes content through unchanged — the "canonicalization ran and did nothing"
-// baseline, as distinct from the SP-01 stub, which fails.
-func canonIdentity() canon.Registry {
-	return canonFunc(func(_, _ string, in []byte, _ canon.Options) (canon.Result, error) {
-		return canon.Result{Canonical: in}, nil
-	})
-}
+// canonIdentity, the "canonicalization ran and did nothing" double, is deliberately GONE. It was
+// what openOver installed everywhere, and the only thing left for it to do after that stopped was
+// to hide the real canonicalizers from a test that had not thought about them. A test that needs a
+// specific canonicalization states it (canonUpper, canonStripTimestamp, canonFailing); a test that
+// needs none disables the passes through configuration, which is a real deployment.
 
 // canonUpper uppercases content, so a test can prove the bytes that were CHUNKED are the
 // canonicalized ones and not the input.
@@ -226,17 +223,6 @@ func canonStripTimestamp() canon.Registry {
 			out.WriteString(line)
 		}
 		return canon.Result{Canonical: out.Bytes(), Deltas: deltas}, nil
-	})
-}
-
-// canonWithSignature returns content unchanged but attaches an EXACT signature, so a test can state
-// the two operands of a near-duplicate comparison instead of depending on what real MinHash happens
-// to score for a particular fixture pair. The real signature path is covered by
-// TestPutBytes_NearDupWithRealMinHashSignatures and by the sketch-contract test in
-// sketchcontract_test.go.
-func canonWithSignature(sig sketch.Signature) canon.Registry {
-	return canonFunc(func(_, _ string, in []byte, _ canon.Options) (canon.Result, error) {
-		return canon.Result{Canonical: in, Signature: sig}, nil
 	})
 }
 
