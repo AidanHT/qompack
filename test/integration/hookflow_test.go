@@ -814,6 +814,14 @@ func TestIntegration_HookEventThroughDaemonToStore(t *testing.T) {
 			"delayed (pipeline errors: %v)",
 		hp.uniqueObservedCount(), hookflowEventTotal, hp.takeErrs())
 	require.Empty(t, hp.takeErrs(), "no event may fail inside the binding")
+	// On this branch the 871f574 fix is in the base, so the strong form of the spec's
+	// expectation holds directly: the binding ran exactly once per event -- the raw invocation
+	// count equals the distinct count, meaning Drain re-dispatched nothing the live path had
+	// already processed. Before the fix this read 2x (the doubling this file first surfaced);
+	// the replay-tolerant binding above is kept because SP-08's real observer needs the same
+	// tolerance, not because this assertion permits a replay.
+	require.Equal(t, hookflowEventTotal, hp.observedCount(),
+		"exactly-once: every WAL line is dispatched by the live path or by Drain, never both")
 
 	stats, err := hp.store.Stats(ctx)
 	require.NoError(t, err)
