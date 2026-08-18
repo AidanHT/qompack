@@ -16,28 +16,49 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - { pkg: ./internal/chunk,      fn: FuzzSplit }
           - { pkg: ./internal/canon,      fn: FuzzCanonicalize }
-          - { pkg: ./internal/sketch,     fn: FuzzUnmarshalBinary }
-          - { pkg: ./internal/hookio,     fn: FuzzReadEvent }
-          - { pkg: ./internal/ipc,        fn: FuzzFraming }
-          - { pkg: ./internal/config,     fn: FuzzConfigLoad }
+          - { pkg: ./internal/canon,      fn: FuzzNumericMatchesAgreeWithReference }
+          - { pkg: ./internal/canon,      fn: FuzzPrefilterAgreesWithFullScan }
+          - { pkg: ./internal/canon,      fn: FuzzRestore }
+          - { pkg: ./internal/canon,      fn: FuzzTrailingWSAgreesWithReference }
           - { pkg: ./internal/checkpoint, fn: FuzzCheckpointJSON }
-          - { pkg: ./internal/redact,     fn: FuzzRedact }
+          - { pkg: ./internal/chunk,      fn: FuzzSplit }
+          - { pkg: ./internal/chunk,      fn: FuzzSplitStream }
+          - { pkg: ./internal/config,     fn: FuzzConfigLoad }
+          - { pkg: ./internal/eval,       fn: FuzzRedact }
+          - { pkg: ./internal/hookio,     fn: FuzzReadEvent }
+          - { pkg: ./internal/ipc,        fn: FuzzDecodeRequest }
+          - { pkg: ./internal/redact,     fn: FuzzRedactIdempotent }
+          - { pkg: ./internal/redact,     fn: FuzzRedactPrefilterEquivalence }
+          - { pkg: ./internal/sketch,     fn: FuzzBloomUnmarshalBinary }
+          - { pkg: ./internal/sketch,     fn: FuzzCMSUnmarshalBinary }
+          - { pkg: ./internal/sketch,     fn: FuzzHLLUnmarshalBinary }
+          - { pkg: ./internal/sketch,     fn: FuzzMisraGriesUnmarshalBinary }
+          - { pkg: ./internal/sketch,     fn: FuzzSignatureUnmarshalBinary }
+          - { pkg: ./internal/symbols,    fn: FuzzExtract }
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.x', cache: true }
       # The matrix names every fuzz target the finished tree will carry, including ones whose
-      # package is still an SP-01 stub. `go test -fuzz` on a target that does not exist yet fails
-      # the job, so at V1 six of these eight legs would fail on the first scheduled run — for the
-      # correct reason that nobody has written them, which is not a signal worth waking up to.
+      # package is still a stub owned by a later subplan. `go test -fuzz` on a target that does not
+      # exist yet fails the job, for the correct reason that nobody has written it — which is not a
+      # signal worth waking up to.
       #
       # A missing target is therefore reported and skipped rather than failing, and the skip is
       # loud (§13 invariant 10). It is not silent forever either: TestNightlyFuzzMatrix in
-      # test/guards fails as soon as a package stops being a stub while its declared target is
-      # still absent, so the leg is owed the moment the owner lands and not before.
+      # test/guards fails as soon as its owning subplan lands while the declared target is still
+      # absent, so the leg is owed the moment the owner lands and not before.
+      #
+      # Twenty rows at V2, of which NINETEEN exist today and run for real. The single skip is
+      # internal/checkpoint's FuzzCheckpointJSON — SP-10, wave 4. The wave-1 reconciliation
+      # (V2-VERIFY §2.0 V2-MERGE-01) replaced three rows that named functions existing nowhere in
+      # the tree — ipc/FuzzFraming, redact/FuzzRedact and sketch/FuzzUnmarshalBinary — and added
+      # the fifteen targets SP-03, SP-04, SP-05 and SP-06 shipped with no row at all. nightly.yml
+      # is SP-05-owned, so every other wave-1 branch's targets arrived unregistered by
+      # construction; the matrix is reconciled on the (pkg, fn) PAIR, never on the name, because
+      # `FuzzRedact` exists in internal/eval and not in internal/redact.
       - name: fuzz ${{ matrix.target.fn }}
         run: |
           if ! go test -run '^$' -list '^${{ matrix.target.fn }}$' ${{ matrix.target.pkg }} 2>/dev/null | grep -q '^${{ matrix.target.fn }}$'; then
