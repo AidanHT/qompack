@@ -79,39 +79,64 @@ func TestCarriedDefect_SP04D1_EscapedTempPathIsStripped(t *testing.T) {
 		"a user name must not survive canonicalization into stored content")
 }
 
-// TestCarriedDefect_SP04D3_TimestampAndDurationEdges pins SP04-D3, three edge behaviours the
-// hand-written numeric scanner reproduces faithfully from the regexes it replaced.
+// TestCarriedDefect_SP04D3_TimestampAndDurationEdges pins SP04-D3: three edge behaviours the
+// hand-written numeric scanner reproduced faithfully from the regexes it replaced. Two of them
+// were the patterns being wrong about the world and are now corrected; the third is not a pattern
+// bug at all, and the assertion that still pins it says why.
 //
-// All three are the scanner being CORRECT about the patterns and the patterns being wrong about
-// the world, so none of them can be fixed in numeric.go alone: the reference regexes in
-// numeric_test.go are the oracle, and changing one without the other breaks the agreement tests
-// that make the scanner trustworthy. Fix the pattern and the scanner together, in that order.
+// The scanner is never fixed alone: the reference regexes in numeric_test.go are the oracle for
+// the agreement tests that make it trustworthy, so pattern and scanner move together, pattern
+// first.
 func TestCarriedDefect_SP04D3_TimestampAndDurationEdges(t *testing.T) {
-	t.Run("duration spans a line break", func(t *testing.T) {
-		// `\s?` between the magnitude and the unit admits '\n', so a number ending one line pairs
-		// with a unit beginning the next. Go's \s also excludes the vertical tab, so "5\fms" is a
-		// duration and "5\vms" is not — an inconsistency inherited from the class, not chosen.
-		require.Equal(t, "in <d>", runDefect(t, "in 5\nms"),
-			"SP04-D3(a): should be left alone; a duration may not cross a newline")
+	t.Run("a duration may not cross a line break", func(t *testing.T) {
+		// FIXED. The separator between the magnitude and the unit was `\s?`, which admits '\n', so
+		// a number ending one line paired with a unit beginning the next. It is horizontal
+		// whitespace now, which is what a separator inside one value can be.
+		require.Equal(t, "in 5\nms", runDefect(t, "in 5\nms"),
+			"SP04-D3(a): a value on one line and a unit on the next are not one duration")
+
+		require.Equal(t, "in <d>", runDefect(t, "in 5 ms"),
+			"the same phrase on one line is still a duration, which is the contrast that shows "+
+				"(a) was about the line break and not about the space")
 	})
 
 	t.Run("rfc3339 followed by a word byte strips nothing", func(t *testing.T) {
-		// 'T' is a word byte, so the bare-clock rule's leading boundary cannot fire inside an
-		// RFC-3339 string; when the ISO rule then fails its own trailing boundary there is no
-		// fallback, and the whole timestamp survives.
+		// NOT FIXED, and not fixable while composition is one pass — this row is SP04-D2 wearing
+		// different clothes, not an independent pattern bug.
+		//
+		// Producing "<ts>x" means dropping the ISO rule's trailing \b. That boundary is not
+		// decoration: it is the word-boundary invariant documented above reRule in generic.go, and
+		// the counter-example that put it there is "0000-00-00 00:00:00Zpid 0000". Without the \b
+		// the first pass yields "<ts>pid 0000" — and the token's '>' is a NON-word byte, so `\bpid`
+		// acquires on pass 2 the boundary it was denied on pass 1, and the second pass differs
+		// from the first. The demonstration below is that step, run on today's rules.
+		//
+		// Stripping only the clock inside the timestamp fails identically and for the same reason:
+		// its span would end immediately before the word byte 'Z', so "2024-01-15T10:32:07pid 1234"
+		// would canonicalize to "2024-01-15T<ts>pid 1234" and then to "…<ts>pid <n>".
+		//
+		// Both readings are legal the moment composition runs to a FIXED POINT, because a
+		// second-pass match is then folded into the same answer — which is the decision SP04-D2
+		// records, and the reason this edge is deferred with it rather than separately.
 		require.Equal(t, "2024-01-15T10:32:07Zx", runDefect(t, "2024-01-15T10:32:07Zx"),
-			"SP04-D3(b): should be <ts>x, or at minimum the clock inside it should be stripped")
+			"SP04-D3(b): unchanged, because <ts>x is not reachable in one pass")
 
 		require.Equal(t, "<ts> ok", runDefect(t, "2024-01-15T10:32:07Z ok"),
 			"the same timestamp followed by a non-word byte is stripped, which is the contrast "+
 				"that shows (b) is about the boundary and not about the timestamp")
+
+		require.Equal(t, "<ts>pid <n>", runDefect(t, "<ts>pid 0000"),
+			"THE OBSTACLE: this is what a rule dropping its trailing \\b would produce on the "+
+				"SECOND pass over its own first-pass output. Canonicalize(Canonicalize(x)) would "+
+				"stop equalling Canonicalize(x), which §5.6 forbids")
 	})
 
-	t.Run("over-long fraction is re-matched as an epoch", func(t *testing.T) {
-		// The ISO rule caps the fraction at nine digits, so a ten-digit one is left outside the
-		// match — and the bare 10-to-13-digit epoch rule then claims those digits.
-		require.Equal(t, "<ts>.<ts>", runDefect(t, "2024-01-02T03:04:05.1234567890"),
-			"SP04-D3(c): should be a single <ts>")
+	t.Run("an over-long fraction stays part of the timestamp", func(t *testing.T) {
+		// FIXED. The ISO rule capped its fraction at nine digits, so a ten-digit one was left
+		// outside the match and the bare 10-to-13-digit epoch rule claimed those digits. The cap
+		// is gone; the two spans now overlap and acceptCandidates keeps the longer.
+		require.Equal(t, "<ts>", runDefect(t, "2024-01-02T03:04:05.1234567890"),
+			"SP04-D3(c): one timestamp is one token")
 	})
 }
 
