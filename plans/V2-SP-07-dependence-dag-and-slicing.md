@@ -392,15 +392,21 @@ All paths are repo-relative to `C:/Users/Quant/Documents/Programming/Projects/qo
 
 | Kind | Text name (wire) | Prefix | Stable key | Example |
 |---|---|---|---|---|
-| `KindToolUse` | `tool_use` | `tu` | `core.ToolUseID` verbatim | `tu:toolu_01ABCdef` |
-| `KindToolResult` | `tool_result` | `tr` | the same `ToolUseID` | `tr:toolu_01ABCdef` |
-| `KindAssistant` | `assistant` | `as` | decimal `TurnIndex` | `as:41` |
-| `KindUserPrompt` | `user_prompt` | `up` | decimal `TurnIndex` | `up:40` |
-| `KindFile` | `file` | `fi` | `paths.Key` form | `fi:src/auth.ts` |
-| `KindSymbol` | `symbol` | `sy` | `<pathKey>#<name>`; `#name` when no path | `sy:src/auth.ts#refreshToken` |
-| `KindDecision` | `decision` | `de` | `core.DecisionID` verbatim | `de:dec_9f86d081884c` |
-| `KindElimination` | `elimination` | `el` | `negknow.Record.ID` (plain string here) | `el:elim_2f1c…` |
-| `KindSegment` | `segment` | `sg` | decimal `SegmentID` | `sg:14` |
+| `KindToolUse` | `tool_use` | `tooluse` | `core.ToolUseID` verbatim | `tooluse:toolu_01ABCdef` |
+| `KindToolResult` | `tool_result` | `toolresult` | the same `ToolUseID` | `toolresult:toolu_01ABCdef` |
+| `KindAssistant` | `assistant` | `assistant` | decimal `TurnIndex` | `assistant:41` |
+| `KindUserPrompt` | `user_prompt` | `userprompt` | decimal `TurnIndex` | `userprompt:40` |
+| `KindFile` | `file` | `file` | `paths.Key` form | `file:src/auth.ts` |
+| `KindSymbol` | `symbol` | `symbol` | `<pathKey>#<name>`; `#name` when no path | `symbol:src/auth.ts#refreshToken` |
+| `KindDecision` | `decision` | `decision` | `core.DecisionID` verbatim | `decision:dec_9f86d081884c` |
+| `KindElimination` | `elimination` | `elimination` | `negknow.Record.ID` (plain string here) | `elimination:elim_2f1c…` |
+| `KindSegment` | `segment` | `segment` | decimal `SegmentID` | `segment:14` |
+
+> **V2 reconciliation — the prefixes are the LONG forms, and this table used to give the short ones.** The two-letter prefixes (`tu`, `tr`, `as`, `up`, `fi`, `sy`, `de`, `el`, `sg`) **contradict the frozen contract fixtures**, which Rule W-2 fixed before SP-07 was written and which therefore win. `testdata/golden/contracts/dag/want/node_line.jsonl` pins `{"type":"node","id":"file:src/auth.ts",…}` and `want/edge_line.jsonl` pins `{"type":"edge","from":"tooluse:toolu_01A2B3C4D5E6F7G8H9J0K1L2","to":"file:src/auth.ts",…}`; `internal/analyzer` and `internal/dag/dagtest` construct the same long forms by hand. **The nine long prefixes above — `tooluse:`, `toolresult:`, `assistant:`, `userprompt:`, `file:`, `symbol:`, `decision:`, `elimination:`, `segment:` — are contractual**, and `internal/dag/nodeid.go`'s `nodeKindPrefixes` is their single definition (its inverse map is derived in `init`, so a tenth kind cannot desynchronize the two).
+>
+> **One consequence changes a number: the `NodeID` cap is 378 bytes, not 376.** The over-length form is `prefix + ":" + 360 head + "~" + 12 hex`, and the reference case is the longest prefix in play for a path key: `5 ("file:") + 360 + 1 + 12 = 378`. The old 376 assumed a 3-byte `"fi:"`. `TestNodeIDLongKeyHashSuffix` asserts 378 as a literal, and test row 6 below has been corrected to match. `maxKeyBytes = 384` and `keyHeadBytes = 360` are unchanged — they bound the *key*, not the whole ID.
+>
+> **Read every `tu:` / `tr:` / `as:` / `up:` / `fi:` / `sy:` / `de:` / `el:` / `sg:` elsewhere in this document as shorthand for its long form.** The short spellings survive in the prose, sample lines and test tables below because rewriting them would touch dozens of rows for no gain in meaning; only this table is normative about the prefix, and only it and the 378-byte row have been changed. `docs/adr/0007-dag-slices-are-scores-not-drop-decisions.md` carries the frozen-fixtures-win reasoning; see also `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.7a B and row V2-SP07-03 (**V2-ALL-06**).
 
 Key sanitization, applied by every constructor: bytes `< 0x20` and `0x7F` are replaced with `_`; invalid UTF-8 byte sequences are replaced with `_` (`strings.ToValidUTF8`), because a `NodeID` that is not valid UTF-8 would be rewritten by `encoding/json` as U+FFFD and would then fail to round-trip through `deps.jsonl`; a key longer than **384 bytes** is replaced by `head + "~" + first 12 hex of core.HashBytes("qompack.dag.nodeid", []byte(key))`, where `head` is `key[:360]` backed off to the nearest UTF-8 rune boundary (so an all-ASCII key yields exactly 360 bytes of head). Sanitization is idempotent, so `FileNode(FileNode(x) key)` is stable. `ParseNodeID` returns `ok=false` for an empty key, an unknown prefix, or a missing colon.
 
@@ -968,7 +974,7 @@ The `testdata/golden/contracts/dag/` files replace SP-01's placeholders and are 
 | 3 | `TestEdgeKindMultiplierTable` | each kind | exact values `1.00, 1.00, 1.00, 0.95, 0.88, 0.60, 0.50, 0.30`; `EdgeInvalid` → `0` |
 | 4 | `TestNodeKindTablesAligned` | reflection over the prefix/name tables | both tables have exactly 10 entries and `kindOfPrefix(prefixOf(k)) == k` for all nine |
 | 5 | `TestNodeIDConstructors` | `nodeid.json` golden | every row matches byte-for-byte, e.g. `FileNode("src/auth.ts") == "fi:src/auth.ts"`, `SymbolNode("", "refreshToken") == "sy:#refreshToken"`, `SegmentNode(14) == "sg:14"` |
-| 6 | `TestNodeIDLongKeyHashSuffix` | 500-byte all-ASCII path key | result is exactly **376** bytes: `"fi:"` (3) + 360 head + `"~"` (1) + 12 hex; calling the constructor on the same input twice is identical |
+| 6 | `TestNodeIDLongKeyHashSuffix` | 500-byte all-ASCII path key | result is exactly **378** bytes: `"file:"` (5) + 360 head + `"~"` (1) + 12 hex; calling the constructor on the same input twice is identical. *(V2 reconciliation: was 376 with a 3-byte `"fi:"` — see D-2.)* |
 | 7 | `TestNodeIDControlCharsSanitized` | `"src/a\nb.ts"`, and a key containing the invalid UTF-8 byte `0xFF` | `"fi:src/a_b.ts"` and `"fi:…_…"`; the encoded line contains no raw newline, and `Open` after `Flush` returns the identical `NodeID` (the invalid-UTF-8 round-trip that `strings.ToValidUTF8` protects) |
 | 8 | `TestParseNodeID` | `"tu:x"`, `"sy:p#n"`, `"zz:x"`, `"nocolon"`, `"tu:"` | `(KindToolUse,"x",true)`, `(KindSymbol,"p#n",true)`, `(_,_,false)`, `(_,_,false)`, `(_,_,false)` |
 
