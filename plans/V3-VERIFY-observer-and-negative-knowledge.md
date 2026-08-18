@@ -10,6 +10,51 @@ normative references if a command below disagrees with the code.
 
 ---
 
+## 0a. Inbound from V2 — carried obligations this checkpoint must not lose
+
+Written by the V2 checkpoint session at wave-1 sign-off (see `plans/V2-report.md` §0's
+"Carried to wave 2 and beyond"). Four items land here; none is derivable from the code alone.
+
+1. **INHERIT (SP-07 → SP-09): the dependence graph contains legitimate cycles, and the
+   negative-knowledge detector must terminate on them.** D-7 forbids only one specific cycle. The
+   ordinary Read-then-Edit pattern closes a legal loop — `tooluse:t1 → toolresult:t1 →
+   assistant:2 → tooluse:t2 → file:a → tooluse:t1` — pinned by
+   `TestReadThenWriteClosesALegitimateCycle` so it cannot be assumed away. SP-09 scans this same
+   graph for the test-fail → revert → different-approach pattern: **a naive recursive descent
+   will not terminate.** Slicing survives by construction (scores strictly decrease along any
+   path, one finalization per node, the `minScore` floor bounds the walk) — SP-09's detector
+   needs an equivalent argument, and this checkpoint must verify it against a cyclic fixture,
+   not only against the acyclic synthetic generator. ADR 0007 is the record.
+
+2. **Ownership guard (SP-05 → SP-08): nothing outside `internal/contract` may write
+   `SessionHistory.LastSessionID`.** The `session_start.fires` assertion (SevCritical) is
+   silently and permanently disabled if daemon/observer code pre-writes it. V2 added a
+   structural guard scoped to non-test files; SP-08's L0 is exactly the code that will want to
+   write it. If the guard fires on an SP-08 branch, the fix is to not write the field — never to
+   widen the guard.
+
+3. **The recorded corpus tier is still empty (SP-02).** §6.3 tier 2 (recorded sessions) gates
+   releases and has never been exercised; the committed Phase-0 numbers are synthetic-tier, per
+   `docs/adr/0002-replay-methodology.md` (which names the command and the operator). Wave 2 adds
+   the observer — the component that would make recorded sessions worth re-baselining — so this
+   checkpoint should re-state the gap rather than let it fossilize.
+
+4. **⚠ The wave-2 merge order is stated differently by two documents — the exact V2-MERGE-21
+   class.** `plans/README.md` step 3 says **SP-09 → SP-08**; §0 below says **SP-08 → SP-09**.
+   V2 proved documentary authority settles nothing: reconcile against the actual constraints
+   (`internal/observer` imports `internal/negknow`, so an observer landing while negknow is a
+   stub must keep every intermediate `develop` commit green — check the build-order guards per
+   first-parent commit, as V2-MERGE-21 did) and fix the losing document BEFORE the first wave-2
+   merge, not after.
+
+Two more distant carries for later checkpoints, restated so they survive: `sketchtest.RunCMSSuite`
+cannot discriminate a max-estimator from a min-estimator (SP-16 / V5 inherits a suite that would
+pass a wrong warm-start — force collisions via `Dims()`-derived load to close it), and a store
+crash can leave a root line without its object — degraded-but-detected, repaired by `qompack
+fsck`, which is SP-17's (V6).
+
+---
+
 ## 0. When this runs, and where
 
 **Trigger.** This checkpoint runs on `develop` immediately after **both** wave-2 branches have
