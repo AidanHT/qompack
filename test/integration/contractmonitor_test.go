@@ -410,12 +410,13 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 	}
 
 	// Three more of §7.3's hooks. SessionEnd (flush) is deliberately NOT among them yet: its
-	// route runs Drain, which replays the session's WAL, and on the current merged tree a
-	// replayed line is re-dispatched rather than deduplicated (ingest.Accept keys the seen-set
-	// over the encoded line WITH its trailing newline; drainFile keys the same line with the
-	// newline trimmed, so the two can never match). Exactly-once across a drain is §4.2's
-	// dedup-rule territory, not §4.3's; sequencing flush after the read-backs below keeps this
-	// test pinned to §4.3's own claims — every event lands, nothing acts — independent of it.
+	// route runs Drain, which replays the session's WAL, and exactly-once across a drain is
+	// §4.2's dedup-rule territory, not §4.3's — sequencing flush after the read-backs below
+	// keeps this test pinned to §4.3's own claims (every event lands, nothing acts)
+	// independent of it. Authoring this test found that dedup broken — Accept keyed the
+	// seen-set over the terminator-carrying line while drainFile keyed the trimmed one —
+	// which ingest.Accept's trim now fixes, pinned by
+	// TestLiveDispatchedLineIsNotRedispatchedByDrain in internal/daemon.
 	hookOutputs["UserPromptSubmit"] = p.RunHook(t, "UserPromptSubmit", hookio.Event{
 		HookEventName: "UserPromptSubmit", SessionID: degradedSession, CWD: p.Root,
 		TranscriptPath: transcript, Prompt: "keep going",

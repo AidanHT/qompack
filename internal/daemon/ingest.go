@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -116,6 +117,14 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 // before any worker touches the job — that ordering is what makes the WAL the durability boundary
 // (§2.4): a daemon crash after this call costs freshness, never data.
 func (i *ingest) Accept(req ipc.Request, line []byte) error {
+	// The wire path hands over ipc.EncodeRequest's output, which json.Encoder has already
+	// terminated with '\n'; appendWAL adds the one terminator the WAL owns. Trimming here rather
+	// than trusting the caller keeps two invariants at once: the WAL holds no blank separator
+	// lines, and the dedup key below is computed over exactly the bytes Drain will hash when it
+	// reads the line back out (drainFile trims the terminator before hashing). Before this trim,
+	// the two sides hashed different bytes and every live-dispatched line was re-dispatched by
+	// the SessionEnd flush drain.
+	line = bytes.TrimSuffix(line, []byte{'\n'})
 	work := func() error {
 		if err := i.appendWAL(req.Session, line); err != nil {
 			return err
@@ -253,7 +262,7 @@ func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Reque
 // on the live wire path (client.go's Send), not only the spool fallback, so any request whose
 // encoded line reached ExternalizeThreshold arrives here still carrying a {"blob":...} descriptor
 // in place of Event.ToolResponse. The dedup key (j.key) was computed in Accept from the WAL line
-// exactly as received, before any resolution — the same bytes Drain hashes when it later reads the
+// with its terminator trimmed, before any resolution — the same bytes Drain hashes when it later reads the
 // same line back out of the WAL — so a request resolved here and the identical (still-descriptor)
 // bytes Drain might independently see cannot double-dispatch: whichever side's SeenOrAdd runs
 // first wins, and only one of them ever reaches run.
