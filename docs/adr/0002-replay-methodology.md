@@ -266,8 +266,8 @@ composition root — supplies it:
 
 | Type | Wave-1 source | Later source |
 |---|---|---|
-| `eval.StatsSample` | `testdata/golden/contracts/store/stats-growth.json` | SP-06's `store.Stats` |
-| `eval.SketchHealth` | `testdata/golden/contracts/negknow/health.json` | SP-09's bloom health |
+| `eval.StatsSample` | `testdata/golden/eval/growth/stats-growth.json` | SP-06's `store.Stats` |
+| `eval.SketchHealth` | `testdata/golden/eval/growth/health.json` | SP-09's bloom health |
 
 Both fixtures are Rule W-2 contracts: the wave-2 verification re-runs these same checks against
 the real implementations, and a fixture the real implementation cannot reproduce is a verification
