@@ -207,7 +207,7 @@ func TestWrapFaultClient_InertWhenUnset(t *testing.T) {
 	c := wrapFaultClient(fakeClient{})
 	resp, err := c.Send(context.Background(), ipc.Request{}, time.Second)
 	require.NoError(t, err)
-	require.True(t, resp.OK)
+	require.True(t, resp.OK, "an unset QOMPACK_FAULT must leave the wrapped Send untouched; resp.Err=%q", resp.Err)
 }
 
 // TestFaultDaemonDownAddr_Inactive covers fix round 2's Minor N-4: faultDaemonDownAddr had no

@@ -136,7 +136,7 @@ func e2eStatus(t *testing.T, root string) daemon.StatusSnapshot {
 		Op: ipc.OpStatus, Session: e2eSession, TS: core.NowMilli(core.SystemClock()), Reply: true,
 	}, e2eRoundTripDeadline)
 	require.NoError(t, err)
-	require.True(t, resp.OK, "status round trip must succeed against a reachable daemon")
+	require.True(t, resp.OK, "status round trip must succeed against a reachable daemon; resp.Err=%q", resp.Err)
 
 	var snap daemon.StatusSnapshot
 	require.NoError(t, json.Unmarshal(resp.Data, &snap))

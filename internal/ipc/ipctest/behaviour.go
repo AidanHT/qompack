@@ -18,6 +18,14 @@ import (
 // and the ACK/NAK handshake in the form a caller observes it. All are authored now, gated behind
 // the same Rule W-1 stub probe as the rest of the suite, so SP-05 inherits them rather than writing
 // its own grader.
+//
+// Every assertion on Response.OK here carries res.Err in its message, and that is not decoration.
+// §5.4's never-error rule turns an unreachable or misbehaving daemon into (Response{OK:false},
+// nil), so a transport failure arrives at require.True as a bare "Should be true" with the actual
+// reason sitting unread in res.Err. That is precisely what made this suite's one recorded flake
+// undiagnosable — it failed once under load on a tree byte-identical to develop's and passed 3/3
+// in isolation, and the report said nothing about why (§2.0b). Carrying the field costs nothing
+// and is the difference between a flake and a diagnosis.
 
 // oversizeRequest returns a Request whose encoded NDJSON line is guaranteed to exceed §2.4's 1 MiB
 // frame. It is built from Raw rather than from an Event so it stays a valid Request that a correct
@@ -265,7 +273,7 @@ func runFireAndForgetFramingCase(t *testing.T, factory func(t *testing.T, h ipc.
 
 	res, err := tr.Client.Send(context.Background(), want, suiteDeadline)
 	require.NoError(t, err)
-	require.True(t, res.OK, "an acknowledged request must report OK — this is the \\x06 ACK a caller observes")
+	require.True(t, res.OK, "an acknowledged request must report OK — this is the \\x06 ACK a caller observes; res.Err=%q", res.Err)
 
 	got := receiveRequest(t, seen)
 	require.Equal(t, want.Op, got.Op)
@@ -293,7 +301,7 @@ func runReplyRoundTripCase(t *testing.T, factory func(t *testing.T, h ipc.Handle
 
 	res, err := tr.Client.Send(context.Background(), req, suiteDeadline)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "the handler above answers OK unconditionally, so a false here is the transport, not the handler; res.Err=%q", res.Err)
 	require.JSONEq(t, detail, string(res.Data), "a reply request must return the handler's data")
 	requireHonourableResponse(t, res)
 }
