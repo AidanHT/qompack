@@ -20,8 +20,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/qompack/qompack/internal/canon"
-	"github.com/qompack/qompack/internal/chunk"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
@@ -29,11 +27,8 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
-	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
-	"github.com/qompack/qompack/internal/symbols"
 	"github.com/qompack/qompack/internal/testutil"
-	"github.com/qompack/qompack/internal/tokens"
 )
 
 const (
@@ -89,24 +84,6 @@ const (
 // dependency set (chunk.New(chunk.FromConfig), canon.Default, symbols.New, tokens.NewExact,
 // redact.New), none nil, none faked — rather than store.Open's nil-filled defaults, so the test
 // states explicitly that nothing behind the Store seam is a double.
-func openRealStore(t *testing.T, p *testutil.Project) store.Store {
-	t.Helper()
-	l := paths.Of(p.Root)
-	s, err := store.Open(p.Root, p.Cfg, store.Deps{
-		Chunker: chunk.New(chunk.FromConfig(p.Cfg)),
-		Canon:   canon.Default(p.Cfg.Store.Canonicalize),
-		Symbols: symbols.New(),
-		Tokens:  tokens.NewExact(p.Cfg, tokens.DefaultCalibPath(), filepath.Join(l.State, "chunktokens.bin")),
-		Redact:  redact.New(p.Cfg),
-		Log:     p.Log,
-		Metrics: obs.New(p.Clock),
-		Clock:   p.Clock,
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, s.Close()) })
-	return s
-}
-
 // writeRealTranscript writes a real JSONL transcript whose last non-empty line is valid JSON —
 // what transcript.readable actually probes — and returns its path.
 func writeRealTranscript(t *testing.T, p *testutil.Project) string {

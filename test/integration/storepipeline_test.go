@@ -28,22 +28,13 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
-	"github.com/qompack/qompack/internal/symbols"
 	"github.com/qompack/qompack/internal/testutil"
-	"github.com/qompack/qompack/internal/tokens"
 )
 
 // corpusRel locates the committed tool-output corpus from this package's directory. The fixtures
 // are shared with internal/canon's goldens and test/dedup's harness, which is deliberate: the
 // bytes these tests push through the real store are the same bytes those suites measured.
 const corpusRel = "../../testdata/corpora/toolout"
-
-// chunkCacheName mirrors internal/store's own filename for the exact token estimator's
-// per-project chunk cache under <root>/.qompack/state (G10.2). It is duplicated here because
-// openRealStore constructs every dependency itself — using the store's defaultDeps would defeat
-// the "none nil, none faked" point of §4.1 — and tokens.NewExact needs the same path the store
-// would have chosen.
-const chunkCacheName = "chunktokens.bin"
 
 // specChunkMin and specChunkMax are the chunk-length window §4.1 pins: "every chunk length in
 // [1024, 16384] except the last". They must equal the loaded store.chunk configuration — asserted
@@ -84,27 +75,6 @@ func corpus(t *testing.T, group, name string) []byte {
 	b, err := os.ReadFile(filepath.Join(corpusRel, group, name))
 	require.NoError(t, err, "corpus fixture missing: %s/%s", group, name)
 	return b
-}
-
-// openRealStore opens the project's store with EVERY §5.8 dependency real — none nil, none faked.
-// This is §4.1's whole point: store.Open's defaultDeps would fill the same members itself, but
-// relying on it would leave this file green even if defaultDeps quietly swapped a member for a
-// stub, so each collaborator is constructed here exactly as the architecture wires it.
-func openRealStore(t *testing.T, p *testutil.Project) store.Store {
-	t.Helper()
-	s, err := store.Open(p.Root, p.Cfg, store.Deps{
-		Chunker: chunk.New(chunk.FromConfig(p.Cfg)),
-		Canon:   canon.Default(p.Cfg.Store.Canonicalize),
-		Symbols: symbols.New(),
-		Tokens: tokens.NewExact(p.Cfg, tokens.DefaultCalibPath(),
-			filepath.Join(paths.Of(p.Root).State, chunkCacheName)),
-		Redact: redact.New(p.Cfg),
-		Log:    p.Log,
-		Clock:  p.Clock,
-	})
-	require.NoError(t, err, "store.Open(%s) with all-real deps", p.Root)
-	t.Cleanup(func() { _ = s.Close() })
-	return s
 }
 
 // readRoot re-materializes root's full content through the store's own read path.
