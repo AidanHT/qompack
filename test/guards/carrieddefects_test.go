@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -40,11 +41,68 @@ type carriedDefect struct {
 // open reports whether this row still needs work from its owning checkpoint.
 func (d carriedDefect) open() bool { return d.status == "open" }
 
-// carriedDefectsPath and carriedDefectsDoc are the manifest and the document that explains it.
-const (
-	carriedDefectsPath = "plans/CARRIED-DEFECTS.tsv"
-	carriedDefectsDoc  = "plans/V2-SP-04-carried-defects.md"
-)
+// carriedDefectsPath is the manifest every carried defect lives in.
+const carriedDefectsPath = "plans/CARRIED-DEFECTS.tsv"
+
+// carriedDefectsWave is the wave prefix plans/ spells its documents with. CARRIED-DEFECTS.tsv is
+// V2's record — every row in it is owned by a V2 checkpoint — so every detail document it points
+// at is a V2-* document. A later wave keeping its own manifest changes this one constant.
+const carriedDefectsWave = "V2"
+
+// The document explaining a row is DERIVED FROM THE ROW'S ID, never hardcoded. This guard used to
+// name plans/V2-SP-04-carried-defects.md and nothing else, which held only while SP-04 was the one
+// subplan with rows; wave 1 carried items from six, and an SP06-D1 row could then be explained only
+// in a file titled for SP-04 (V2-MERGE-19). The scheme, in full:
+//
+//	 1. An id is <SPNN>-D<n>. Its subplan is that prefix with the hyphen plans/ spells and the id
+//	    elides: SP04-D1 -> SP-04, SP06-D2 -> SP-06.
+//	 2. If plans/V2-<subplan>-carried-defects.md is on disk, the `## <id>` section MUST be there.
+//	    That is the name SP-04's document already has, generalized rather than special-cased.
+//	 3. Otherwise the section MUST be in the wave-wide document, plans/V2-WAVE1-carried-defects.md
+//	    — one file for the subplans that carried too little to deserve one each.
+//
+// Exactly one document is therefore correct for any given row, which is what lets the failure
+// message name a single path rather than offering a choice. Adding the per-subplan document is what
+// moves its rows: create plans/V2-SP-06-carried-defects.md and SP06-* sections must move into it.
+
+// carriedDefectsSubplanRE matches the subplan prefix of an id — SP04, SP07 — and nothing else, so
+// an id that is not <SPNN>-D<n> fails here rather than deriving a nonsense document path.
+var carriedDefectsSubplanRE = regexp.MustCompile(`^SP[0-9]{2}$`)
+
+// carriedDefectsWaveDoc is the fallback of rule 3, spelled once.
+var carriedDefectsWaveDoc = "plans/" + carriedDefectsWave + "-WAVE1-carried-defects.md"
+
+// carriedDefectsDocFor returns the repo-relative path of the ONE document that must carry id's
+// section, applying rules 1-3 above.
+func carriedDefectsDocFor(t *testing.T, root, id string) string {
+	t.Helper()
+
+	prefix, rest, ok := strings.Cut(id, "-")
+	require.True(t, ok && rest != "" && carriedDefectsSubplanRE.MatchString(prefix),
+		"%s: id %q is not <SPNN>-D<n> (SP04-D1, SP07-D2), so no detail document can be derived "+
+			"from it and no reader can find out what the row means", carriedDefectsPath, id)
+
+	perSubplan := "plans/" + carriedDefectsWave + "-SP-" + strings.TrimPrefix(prefix, "SP") + "-carried-defects.md"
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(perSubplan))); err == nil {
+		return perSubplan
+	}
+	return carriedDefectsWaveDoc
+}
+
+// carriedDefectsDetail returns the document carriedDefectsDocFor named and its contents, failing
+// with the exact path a row author has to create when it is not there.
+func carriedDefectsDetail(t *testing.T, root, id string) (path, body string) {
+	t.Helper()
+
+	path = carriedDefectsDocFor(t, root, id)
+	b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
+	require.NoError(t, err,
+		"%s's `## %s` section must live in %s, and that file does not exist. Either create it, or "+
+			"create this row's own plans/%s-SP-NN-carried-defects.md — the guard prefers the "+
+			"per-subplan document whenever it is on disk, and falls back to %s only when it is not",
+		id, id, path, carriedDefectsWave, carriedDefectsWaveDoc)
+	return path, string(b)
+}
 
 // loadCarriedDefects parses the manifest, failing on anything it cannot read as a row rather than
 // skipping it — a malformed line in a file whose whole purpose is to be honest about known problems
@@ -79,7 +137,8 @@ func loadCarriedDefects(t *testing.T, root string) []carriedDefect {
 }
 
 // TestCarriedDefects_ManifestIsWellFormed checks the shape of every row: unique ids, a recognized
-// status, an owning checkpoint that exists as a plan document, and a section in the detail document.
+// status, an owning checkpoint that exists as a plan document, and a section in the detail document
+// the row's own id selects.
 //
 // The detail requirement is the one that does real work. An id with no section is a row someone can
 // read but not act on, and "what does SP04-D3 actually mean" is precisely the question a checkpoint
@@ -88,8 +147,6 @@ func TestCarriedDefects_ManifestIsWellFormed(t *testing.T) {
 	t.Parallel()
 
 	root := repoRoot(t)
-	detail, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(carriedDefectsDoc)))
-	require.NoError(t, err, "%s is missing", carriedDefectsDoc)
 
 	seen := map[string]bool{}
 	for _, d := range loadCarriedDefects(t, root) {
@@ -104,9 +161,13 @@ func TestCarriedDefects_ManifestIsWellFormed(t *testing.T) {
 				"%s:%d: status %q must be open, fixed, wontfix or deferred:<checkpoint>",
 				carriedDefectsPath, d.line, d.status)
 
-			require.Contains(t, string(detail), "## "+d.id,
-				"%s has no `## %s` section in %s; a row nobody can act on is worse than no row",
-				d.id, d.id, carriedDefectsDoc)
+			doc, detail := carriedDefectsDetail(t, root, d.id)
+			require.Contains(t, detail, "## "+d.id,
+				"%s has no `## %s` section in %s; a row nobody can act on is worse than no row. "+
+					"That file is where this row's section must live: the guard uses "+
+					"plans/%s-SP-NN-carried-defects.md when the subplan has one on disk, and %s "+
+					"otherwise",
+				d.id, d.id, doc, carriedDefectsWave, carriedDefectsWaveDoc)
 
 			matches, gerr := filepath.Glob(filepath.Join(root, "plans", d.owner+"-*.md"))
 			require.NoError(t, gerr)
@@ -139,7 +200,7 @@ func TestCarriedDefects_OpenRowsHaveLivingEvidence(t *testing.T) {
 				"%s is open and names evidence %q, but no such test exists. If the defect was "+
 					"fixed, set %s's status to `fixed` in %s and say so in %s; if the test was "+
 					"renamed, update the row",
-				d.id, d.evidence, d.id, carriedDefectsPath, carriedDefectsDoc)
+				d.id, d.evidence, d.id, carriedDefectsPath, carriedDefectsDocFor(t, root, d.id))
 		})
 	}
 }
@@ -176,7 +237,7 @@ func TestCarriedDefects_WaveReportRequiresResolution(t *testing.T) {
 				"with an unresolved defect it owns.\n\n  %s\n\nResolve it one of two ways: fix it "+
 				"and set the status to `fixed`, or set the status to `deferred:<checkpoint>` and "+
 				"add the reason to %s. Both are fine; leaving the row open is not.",
-			d.id, carriedDefectsPath, wave, d.owner, d.summary, carriedDefectsDoc)
+			d.id, carriedDefectsPath, wave, d.owner, d.summary, carriedDefectsDocFor(t, root, d.id))
 	}
 }
 
