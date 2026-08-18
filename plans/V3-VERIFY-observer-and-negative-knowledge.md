@@ -47,13 +47,16 @@ Written by the V2 checkpoint session at wave-1 sign-off (see `plans/V2-report.md
    first-parent commit, as V2-MERGE-21 did) and fix the losing document BEFORE the first wave-2
    merge, not after.
 
-5. **Five carried-defect rows are `deferred:V3-VERIFY` in `plans/CARRIED-DEFECTS.tsv`, and the
+5. **Six carried-defect rows are `deferred:V3-VERIFY` in `plans/CARRIED-DEFECTS.tsv`, and the
    guard makes ignoring them fail.** SP04-D2 (fixed-point composition / Delta-rebase — V2
    evaluated and rejected the ANSI pre-pass because a BOM deletion reproduces the class with no
    escape involved), SP04-D3 (its one remaining edge is D2 in disguise), SP04-D5 (re-judge the
    canon rule budget against the V2 §5 quiet-pass number), SP04-D6 (quiet-host distribution for
    `BenchmarkRun_Bash100KB`, then confirm or exempt), SP06-D1 (`GCPolicy.Deadline` starts after
-   the tombstone phase; bounding it needs a phase-aware resume cursor). Reasons live in
+   the tombstone phase; bounding it needs a phase-aware resume cursor), and SP05-D1 (a drain
+   aborted by idle-budget expiry consumes the line it interrupted — offset and seen-set are
+   committed before dispatch — losing the event; fixing it means re-adjudicating the
+   poison-line consume rule). Reasons live in
    `plans/V2-SP-04-carried-defects.md` and `plans/V2-WAVE1-carried-defects.md`. Fix or
    consciously re-defer each; `test/guards/carrieddefects_test.go` blocks `plans/V3-report.md`
    on any row left `open` — and re-deferring without updating the detail document is the one
