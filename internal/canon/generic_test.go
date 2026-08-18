@@ -254,7 +254,7 @@ func TestTmpPaths_Table(t *testing.T) {
 			// Two separate spans is the answer, and it is what a per-path tail delivers.
 			name: "two json-escaped paths on one line",
 			in: `{"a":"C:\\Users\\quant\\AppData\\Local\\Temp\\one",` +
-				`"b":"D:\\Users\\other\\AppData\\Local\\Temp\\two"}`,
+				`"b":"D:\\Users\\bob\\AppData\\Local\\Temp\\two"}`,
 			want: `{"a":"<tmp>","b":"<tmp>"}`, deltas: 2,
 		},
 		{
