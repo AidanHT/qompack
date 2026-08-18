@@ -18,11 +18,29 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 )
 
+// rawDialBound and rawIOBound are the budgets this file's own hand-rolled wire client uses for a
+// dial and for a single write/read against an already-accepted local connection. Both were bare
+// literals repeated at nine call sites (V2-MERGE-25 ②); naming them is what lets the relationship
+// below be stated rather than assumed.
+//
+// Their basis is the server's own read budget: handleConn resets a connIdleTimeout (10 minutes)
+// before every read, so the server will wait far longer than either of these. That is the right
+// way round — a test bound that outlived the server's own patience could not fail a wedged read,
+// it would just hang. Against the microsecond-scale real cost of a local pipe or socket round
+// trip, both are several orders of magnitude of headroom, so neither can flake on scheduling
+// jitter alone. rawIOBound is expressed as a multiple of rawDialBound because a completed dial is
+// strictly the cheaper of the two operations.
+
+const (
+	rawDialBound = time.Second
+	rawIOBound   = 2 * rawDialBound
+)
+
 // newRawClient dials addr directly, bypassing Client entirely — these tests exercise the wire
 // protocol and the accept loop, not the hot-path client's own failure handling.
 func newRawClient(t *testing.T, addr Addr) net.Conn {
 	t.Helper()
-	conn, err := dial(addr, time.Second)
+	conn, err := dial(addr, rawDialBound)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 	return conn
@@ -30,7 +48,7 @@ func newRawClient(t *testing.T, addr Addr) net.Conn {
 
 func writeRequest(t *testing.T, conn net.Conn, req Request) {
 	t.Helper()
-	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(time.Second)))
+	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(rawDialBound)))
 	line, err := EncodeRequest(req)
 	require.NoError(t, err)
 	_, err = conn.Write(line)
@@ -39,7 +57,7 @@ func writeRequest(t *testing.T, conn net.Conn, req Request) {
 
 func readByte(t *testing.T, conn net.Conn) byte {
 	t.Helper()
-	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(rawIOBound)))
 	var b [1]byte
 	_, err := conn.Read(b[:])
 	require.NoError(t, err)
@@ -64,7 +82,7 @@ func TestServerRoutesAndACKs(t *testing.T) {
 	require.Equal(t, ACK, readByte(t, conn))
 
 	writeRequest(t, conn, Request{Op: OpAdminPing, Session: "s", TS: 2, Reply: true})
-	require.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second)))
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(rawIOBound)))
 	line, err := NewLineReader(conn, MaxLineBytes).ReadLine()
 	require.NoError(t, err)
 	resp, err := DecodeResponse(line)
@@ -114,7 +132,7 @@ func TestServerDecodeErrorNAKsAndCounts(t *testing.T) {
 	t.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
 
 	conn := newRawClient(t, addr)
-	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(time.Second)))
+	require.NoError(t, conn.SetWriteDeadline(time.Now().Add(rawDialBound)))
 	_, err = conn.Write([]byte("{not json\n"))
 	require.NoError(t, err)
 	require.Equal(t, NAK, readByte(t, conn))
@@ -187,7 +205,7 @@ func TestServerConcurrentClients(t *testing.T) {
 		wg.Add(1)
 		go func(g int) {
 			defer wg.Done()
-			conn, err := dial(addr, 2*time.Second)
+			conn, err := dial(addr, rawIOBound)
 			if !assert.NoError(t, err) {
 				return
 			}
@@ -198,11 +216,11 @@ func TestServerConcurrentClients(t *testing.T) {
 				if !assert.NoError(t, encErr) {
 					return
 				}
-				if assert.NoError(t, conn.SetWriteDeadline(time.Now().Add(2*time.Second))) {
+				if assert.NoError(t, conn.SetWriteDeadline(time.Now().Add(rawIOBound))) {
 					_, werr := conn.Write(line)
 					assert.NoError(t, werr)
 				}
-				if assert.NoError(t, conn.SetReadDeadline(time.Now().Add(2*time.Second))) {
+				if assert.NoError(t, conn.SetReadDeadline(time.Now().Add(rawIOBound))) {
 					var b [1]byte
 					_, rerr := conn.Read(b[:])
 					if assert.NoError(t, rerr) {
@@ -224,6 +242,16 @@ func TestServerConcurrentClients(t *testing.T) {
 // multiple of it: a regression that fell back to waitForConns' own internal serverCloseWait timer
 // (because closing tracked connections had silently stopped happening) would blow straight through
 // this bound and fail loudly, rather than sneaking under a looser one. N-2b (fix round 3).
+//
+// It is therefore the one bound in this file that is deliberately SMALLER than the thing it waits
+// for — Close is internally capped at serverCloseWait for closeListenerBounded and again for
+// waitForConns — and that is stated here rather than left to be rediscovered (V2-MERGE-25 ②). The
+// cost is real and known: on Windows under load, go-winio v0.6.2's own listener Close can consume
+// most of closeListenerBounded's cap on its own (see that method's doc comment), and this test
+// flakes when it does. Loosening the bound would not distinguish that from the regression it
+// exists to catch — both land at roughly serverCloseWait — so the honest fix is a newer go-winio
+// or a cancellable-Accept redesign, and it is carried as known-deferred (§2.5a E), not papered
+// over here.
 const shutdownTestBound = serverCloseWait / 2
 
 // TestServerCloseWithLiveConnection is I-4: a connection that is accepted but never sends
@@ -386,7 +414,7 @@ func BenchmarkServerRoundTrip(b *testing.B) {
 	go func() { done <- srv.Serve(ctx, func(context.Context, Request) Response { return Response{OK: true} }) }()
 	b.Cleanup(func() { cancel(); _ = srv.Close(); <-done })
 
-	conn, err := dial(addr, 2*time.Second)
+	conn, err := dial(addr, rawIOBound)
 	if err != nil {
 		b.Fatal(err)
 	}
