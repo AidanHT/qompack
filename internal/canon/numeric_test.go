@@ -26,13 +26,13 @@ var numericReferenceRules = []struct {
 	token string
 	re    *regexp.Regexp
 }{
-	{ClassTimestamps, tokenTimestamp, regexp.MustCompile(wordEdge + `(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?)\b`)},
+	{ClassTimestamps, tokenTimestamp, regexp.MustCompile(wordEdge + `(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\b`)},
 	{ClassTimestamps, tokenTimestamp, regexp.MustCompile(wordEdge + `(\d{10,13})\b`)},
 	{ClassTimestamps, tokenTimestamp, regexp.MustCompile(wordEdge + `(\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?)\b`)},
 	{ClassDurations, tokenDuration, regexp.MustCompile(wordEdge + `(\d+h\d+m\d+(?:\.\d+)?s)\b`)},
 	{ClassDurations, tokenDuration, regexp.MustCompile(wordEdge + `(\d+m\d+(?:\.\d+)?s)\b`)},
-	{ClassDurations, tokenDuration, regexp.MustCompile(wordEdge + `(\d+(?:\.\d+)?\s?(?:ns|µs|us|ms|s|m|h))\b`)},
-	{ClassDurations, tokenDuration, regexp.MustCompile(wordEdge + `in (\d+(?:\.\d+)?\s?(?:ms|s))\b`)},
+	{ClassDurations, tokenDuration, regexp.MustCompile(wordEdge + `(\d+(?:\.\d+)?[^\S\n]?(?:ns|µs|us|ms|s|m|h))\b`)},
+	{ClassDurations, tokenDuration, regexp.MustCompile(wordEdge + `in (\d+(?:\.\d+)?[^\S\n]?(?:ms|s))\b`)},
 }
 
 // referenceNumericMatches is what numericMatches has to reproduce: each rule of the class scanned
@@ -186,11 +186,18 @@ func TestNumericMatches_Table(t *testing.T) {
 		{name: "optional space before the unit", in: "took 5 ms", wantD: []string{"5 ms"}},
 		{name: "only one space", in: "0.5 h 0.5  h", wantD: []string{"0.5 h"}},
 		{
-			// LATENT: Go's `\s` includes '\n', so a magnitude at the end of one line pairs with
-			// a unit at the start of the next. It excludes the vertical tab, so the second half
-			// of this row does not match. Both are reproduced deliberately.
-			name: "perl space spans a newline but not a vertical tab", in: "in 5\nms 5\vms",
-			wantD: []string{"5\nms", "5\nms"},
+			// SP04-D3(a). The separator between a magnitude and its unit is horizontal whitespace,
+			// so neither half of this row is a duration: a value ending one line does not pair
+			// with a unit beginning the next, and the vertical tab was never in Go's `\s` at all.
+			// The rule this replaced spelled the separator `\s?`, which admitted '\n' — inherited
+			// from the class rather than chosen, and wrong about the world either way.
+			name: "a duration may not cross a line break", in: "in 5\nms 5\vms",
+		},
+		{
+			// The horizontal members of the class are unchanged, which is what keeps the fix a
+			// narrowing of one byte rather than a redefinition of the separator.
+			name: "the other space bytes still separate", in: "5 ms 5\tms 5\fms 5\rms",
+			wantD: []string{"5 ms", "5\tms", "5\fms", "5\rms"},
 		},
 
 		// ---- the \d{10,13} boundary --------------------------------------------------------
@@ -215,9 +222,22 @@ func TestNumericMatches_Table(t *testing.T) {
 			wantTS: []string{"12:34:56"},
 		},
 		{
-			name:   "ten fraction digits fall back to the bare iso form",
+			// SP04-D3(c). The fraction is unbounded, so a ten-digit one is part of the timestamp
+			// rather than left outside it for the epoch rule to claim. The epoch rule still
+			// reports the digit run — the two spans overlap and acceptCandidates keeps the
+			// earlier, longer one — which is why the canonical form is a single <ts> and not
+			// "<ts>.<ts>". A capped fraction is what made those two spans DISJOINT.
+			name:   "an over-long fraction stays part of the timestamp",
 			in:     "2024-01-02T03:04:05.1234567890 ",
-			wantTS: []string{"2024-01-02T03:04:05", "1234567890"},
+			wantTS: []string{"2024-01-02T03:04:05.1234567890", "1234567890"},
+		},
+		{
+			// The fraction is greedy and the trailing \b still rejects a reading that ends on a
+			// digit, so a word byte after the fraction drops the fraction whole rather than
+			// truncating it — the same fallback the capped spelling had, reached differently.
+			name:   "a fraction followed by a word byte is dropped whole",
+			in:     "2024-01-02T03:04:05.1234567890x ",
+			wantTS: []string{"2024-01-02T03:04:05"},
 		},
 
 		// ---- the zone ----------------------------------------------------------------------

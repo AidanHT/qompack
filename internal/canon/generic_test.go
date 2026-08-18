@@ -134,6 +134,14 @@ func TestTimestamps_Table(t *testing.T) {
 			want: "<ts> <ts>", deltas: 2,
 		},
 		{name: "bare clock", in: "12:34:56 ready", want: "<ts> ready", deltas: 1},
+		{
+			// SP04-D3(c). The ISO fraction is unbounded, so a ten-digit one is part of the
+			// timestamp rather than left outside it for the epoch rule to claim as a second token.
+			// Capped at nine this was "<ts>.<ts>", which spelled one instant two ways depending on
+			// how much precision the writer printed.
+			name: "over-long fraction is one timestamp", in: "2024-01-02T03:04:05.1234567890",
+			want: "<ts>", deltas: 1,
+		},
 		{name: "digits inside a longer run are not a clock", in: "id17000000000001x", want: "id17000000000001x"},
 		{name: "no timestamp", in: "nothing here", want: "nothing here"},
 	})
@@ -148,6 +156,13 @@ func TestDurations_Table(t *testing.T) {
 		{name: "millis", in: "took 12ms", want: "took <d>", deltas: 1},
 		{name: "fractional seconds", in: "took 0.02s", want: "took <d>", deltas: 1},
 		{name: "space before unit", in: "took 5 s", want: "took <d>", deltas: 1},
+		{
+			// SP04-D3(a). The separator is horizontal whitespace, so a magnitude ending one line
+			// does not pair with a unit beginning the next — which is what a wrapped log line
+			// looks like, and never what one duration looks like.
+			name: "a line break does not separate a magnitude from a unit", in: "in 5\nms",
+			want: "in 5\nms",
+		},
 		{name: "nanos", in: "3ns", want: "<d>", deltas: 1},
 		{
 			// The phrase rule and the simple rule report the identical span here; overlap
