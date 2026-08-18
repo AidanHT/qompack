@@ -245,11 +245,12 @@ non-`_test.go` files; CI enforces with an import-graph check.
 | Typecheck | `go build ./... && go vet ./...` + `staticcheck` | CI job `verify` |
 | Task runner | `go run ./tools/devtool <task>` | one Go program, identical on PowerShell / bash / zsh. **No Makefile-only workflow** — the dev machine is Windows |
 | Release | `goreleaser` | `.goreleaser.yaml`, 6 targets: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} |
-| Benchmark diffing | `benchstat` | CI `bench-gate` |
+| Benchmark diffing | `benchstat` | `devtool bench-compare`, run locally against `testdata/bench-baseline.txt` (V2 ruling: the baseline is single-host; `bench-gate` gains the comparison only once per-OS baselines are recorded on the runners) |
 
 `tools/devtool` tasks (canonical names used by CI and by every subplan's local loop):
 `fmt`, `lint`, `vet`, `build`, `build-all`, `test`, `test-race`, `cover`, `bench`,
-`bench-hotpath`, `replay`, `plugin-validate`, `fsck`, `ci-local`, `gen-config-docs`.
+`bench-hotpath`, `bench-compare`, `replay`, `plugin-validate`, `fsck`, `ci-local`, `gen-config-docs`,
+`fmt-check`, `gen-contract-fixtures`, `gen-fixtures`, `install-hooks`, `check-commit-msg`.
 
 ---
 
@@ -2002,9 +2003,12 @@ never a gate — that is the honest treatment of a cost we do not own.
 
 Micro-benchmarks (`go test -bench=. ./...`) cover FastCDC throughput (MB/s), canonicalizer
 throughput, sketch op cost, `BackwardSlice` on 5 000 nodes, `scheduler.Evaluate`, and
-`checkpoint.Finalize`. `benchstat` compares against the `develop` baseline stored in
-`testdata/bench-baseline.txt`; a >10% regression on any micro-benchmark posts a warning, a >25%
-regression fails.
+`checkpoint.Finalize`. `devtool bench-compare` runs `benchstat` against the `develop` baseline
+stored in `testdata/bench-baseline.txt`; a >10% regression on any micro-benchmark posts a warning,
+a >25% regression fails. It runs locally on the baseline's own machine (V2 ruling recorded in
+ci.yml's bench-gate comment): the committed baseline is single-host, and cross-machine deltas on
+the I/O-bound rows would make a CI comparison fail constantly and then get switched off. Per-OS
+baselines recorded on the runners are the stated precondition for wiring it into `bench-gate`.
 
 ---
 
