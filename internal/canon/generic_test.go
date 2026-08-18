@@ -223,6 +223,32 @@ func TestTmpPaths_Table(t *testing.T) {
 			name: "windows appdata temp forward slash",
 			in:   "C:/Users/quant/AppData/Local/Temp/qompack1", want: "<tmp>", deltas: 1,
 		},
+		{
+			// SP04-D1. The same path once a tool has embedded it in a JSON payload, which is how
+			// every hook transcript and every docker/go-build log carries a Windows path. The
+			// doubled separators are matched by a rule of their own; the first rule's `[^\\]+`
+			// user-name segment cannot cross one, which is exactly why it is a second rule.
+			name: "windows appdata temp json-escaped",
+			in:   `{"cwd":"C:\\Users\\quant\\AppData\\Local\\Temp\\qompack1"}`,
+			want: `{"cwd":"<tmp>"}`, deltas: 1,
+		},
+		{
+			// The case the fix had to be shaped around: widening the user-name class to admit a
+			// doubled backslash would let ONE match run from the first path to the end of the
+			// second, replacing the comma and the JSON structure between them along with it.
+			// Two separate spans is the answer, and it is what a per-path tail delivers.
+			name: "two json-escaped paths on one line",
+			in: `{"a":"C:\\Users\\quant\\AppData\\Local\\Temp\\one",` +
+				`"b":"D:\\Users\\other\\AppData\\Local\\Temp\\two"}`,
+			want: `{"a":"<tmp>","b":"<tmp>"}`, deltas: 2,
+		},
+		{
+			// A doubled separator in the TAIL is ordinary content for both rules: the tail class is
+			// a complement, so it admits backslashes and stops at the quote either way.
+			name: "escaped tail keeps its own separators",
+			in:   `"C:\\Users\\quant\\AppData\\Local\\Temp\\a\\b\\c" done`,
+			want: `"<tmp>" done`, deltas: 1,
+		},
 		{name: "unexpanded tmpdir", in: "$TMPDIR/qompack.sock", want: "<tmp>", deltas: 1},
 		{name: "tmpfs is not tmp", in: "/tmpfs/x", want: "/tmpfs/x"},
 		{name: "no temp path", in: "/usr/local/bin/qompack", want: "/usr/local/bin/qompack"},
