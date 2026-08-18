@@ -16,6 +16,7 @@ import (
 
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -130,8 +131,13 @@ func resetPermissionsForCleanup(dir string) {
 // non-session-start hook's own client (internal/ipc/client.go's lazySpawn) never waits for the
 // daemon it starts, so "not reachable yet" and "never coming up at all" are indistinguishable at
 // the instant Run returns — only a short poll tells them apart.
+//
+// Basis: daemon.SpawnPollBound is the same question asked from the other side — the window
+// EnsureRunning polls a spawn it made before declaring it never arrived. Waiting exactly that long
+// (V2-MERGE-25 ②; it was a copied 1500ms literal) means this helper concludes "none is coming" at
+// precisely the moment the spawning side would have, and moves with it if that window ever changes.
 const (
-	e2eLazySpawnSettleBound = 1500 * time.Millisecond
+	e2eLazySpawnSettleBound = daemon.SpawnPollBound
 	e2eLazySpawnSettleTick  = 25 * time.Millisecond
 )
 

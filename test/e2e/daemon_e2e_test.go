@@ -21,32 +21,90 @@ import (
 	"github.com/qompack/qompack/internal/testutil"
 )
 
-// e2eProbeTimeout and e2eRoundTripDeadline bound the raw ipc.Client this file constructs directly
-// (a test-only admin/status client, distinct from the real hook subcommands under test) to poke a
-// live daemon for facts a hook's own stdout cannot report — its live session count, whether it is
-// reachable at all.
+// The wall-clock bounds this package waits under, and the raw ipc.Client budgets it constructs
+// directly (a test-only admin/status client, distinct from the real hook subcommands under test)
+// to poke a live daemon for facts a hook's own stdout cannot report — its live session count,
+// whether it is reachable at all.
+//
+// Every bound below names the mechanism it is waiting on and derives its value from that mechanism
+// rather than from a round number (V2-MERGE-25 ②). The rule the block exists to keep is: no bound
+// may be smaller than the thing it waits for. A bound that is smaller cannot tell a broken
+// mechanism from a slow one — which is exactly how e2eSpoolDrainBound (10s) came to be racing a
+// 30s idle-tick fallback it could never win, and failing as an unexplained timeout when it lost.
+//
+// The *Tick constants are poll cadences, not bounds. Each samples its bound on the order of a
+// hundred times: tight enough that a passing run finishes promptly, loose enough not to spend the
+// test's own CPU re-dialling.
 const (
-	e2eProbeTimeout      = 200 * time.Millisecond
+	// e2eProbeTimeout is the dial budget of a bare liveness probe — ipc.Probe writes nothing and
+	// reads nothing, so this bounds the connect alone. Basis: internal/cli's
+	// hookConnectDeadlineFloor, the 250ms dial budget a real reply-op hook gives its FIRST
+	// post-spawn connect and the smallest budget in this tree documented as sufficient for a cold
+	// endpoint. config.Defaults().Runtime.Daemon.ConnectDeadlineMs (5ms) is deliberately not the
+	// basis: it is tuned for an already-warm daemon on the hot path, and a probe using it would
+	// report "no daemon" for a daemon that is merely busy.
+	e2eProbeTimeout = 250 * time.Millisecond
+
+	// e2eRoundTripDeadline is the Send deadline for this file's admin/status round trips against a
+	// daemon already known to be reachable. Basis: internal/cli's own reply budgets for real hooks
+	// span promptReplyDeadline (250ms) to flushReplyDeadline (15s); this sits between them, three
+	// orders of magnitude above the sub-millisecond cost of a local round trip.
 	e2eRoundTripDeadline = 5 * time.Second
-	e2eDaemonUpBound     = 10 * time.Second
-	e2eDaemonUpTick      = 20 * time.Millisecond
-	e2eDaemonDownBound   = 15 * time.Second
-	e2eDaemonDownTick    = 100 * time.Millisecond
-	// e2eHistoryConvergeBound is generous relative to e2eDaemonUpBound: it bounds waiting for a
-	// history.json mutation from a session-start that is not the FIRST one in a project, or for a
-	// daemon's own idle-exit to complete. What actually made this flaky earlier in fix round 1 was
-	// a real bug, not host load: hookConnectDeadlineFloor's own doc comment
-	// (internal/cli/hookclient.go) explains it in full — Important I-1's removal of
-	// NewClientWithOptions's double state.bin read (correctly required; see that fix's own comment)
-	// also removed an incidental few-ms buffer that had been quietly carrying a Reply op's very
-	// first post-daemon-start dial across a too-tight State.ConnectDeadlineMs (5ms, sized for the
-	// hot path's already-warm cadence). With that dial budget now widened for session-start/
-	// checkpoint/flush specifically, this bound is generous headroom for real sibling-test load,
-	// not compensation for a race.
-	e2eHistoryConvergeBound = 20 * time.Second
-	e2eSpoolDrainBound      = 10 * time.Second
-	e2eSpoolDrainTick       = 100 * time.Millisecond
-	idleExitSecondsEnvKey   = "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS"
+
+	// e2eDaemonUpBound waits for a lazily spawned daemon to become reachable. Basis:
+	// daemon.SpawnPollBound — the window EnsureRunning itself polls before concluding that a spawn
+	// never came up. The multiplier is headroom for OS process creation on a loaded host, the one
+	// part of a cold start that no in-process bound models; it is not padding over a hang, because
+	// past daemon.SpawnPollBound the spawning side has already given up, so nothing waited for
+	// here is still legitimately in progress.
+	e2eDaemonUpBound = 8 * daemon.SpawnPollBound
+	e2eDaemonUpTick  = 20 * time.Millisecond
+
+	// e2eDaemonDownBound waits for a daemon to take admin.shutdown and go away. Basis:
+	// daemon.StopDrainBound, the longest single step of Stop's cleanup sequence; the server close
+	// that follows is separately capped inside internal/ipc by its own serverCloseWait. Three
+	// times the drain bound covers both with headroom.
+	e2eDaemonDownBound = 3 * daemon.StopDrainBound
+	e2eDaemonDownTick  = 100 * time.Millisecond
+
+	// e2eHistoryConvergeBound bounds waiting for a history.json mutation from a session-start that
+	// is not the FIRST one in a project, or for a daemon's own idle-exit to complete. Basis: those
+	// are the only two things it waits for, so it is a full daemon start-up plus a full daemon
+	// shutdown — e2eDaemonUpBound + e2eDaemonDownBound — and nothing else.
+	//
+	// What actually made this flaky earlier in fix round 1 was a real bug, not host load:
+	// hookConnectDeadlineFloor's own doc comment (internal/cli/hookclient.go) explains it in full —
+	// Important I-1's removal of NewClientWithOptions's double state.bin read (correctly required;
+	// see that fix's own comment) also removed an incidental few-ms buffer that had been quietly
+	// carrying a Reply op's very first post-daemon-start dial across a too-tight
+	// State.ConnectDeadlineMs (5ms, sized for the hot path's already-warm cadence). With that dial
+	// budget now widened for session-start/checkpoint/flush specifically, this bound is headroom
+	// for real sibling-test load, not compensation for a race.
+	e2eHistoryConvergeBound = e2eDaemonUpBound + e2eDaemonDownBound
+
+	// e2eSpoolDrainBound waits for the daemon to drain a client spool file. Its basis is the
+	// mechanism the tests actually exercise, not the one they used to fall back on: the daemon
+	// re-drains the spool the first time it serves a request (internal/daemon/daemon.go,
+	// redrainOnceServing), so by the time the hook call that kicked it has exited, the drain is
+	// already running and all that is left to wait for is one pass over a handful of lines — each
+	// dispatched under daemon.DrainLineDeadline, which is therefore the unit this is built from.
+	//
+	// It is deliberately NOT sized from daemon.IdleTickMax (30s). That idle tick is the backstop; a
+	// bound large enough to pass via it would leave these tests unable to tell the prompt path from
+	// the slow one, which is the defect V2-MERGE-25 recorded in the other direction. Each use below
+	// names the fallback in its failure message instead, so a timeout here reads as "the re-drain
+	// did not fire", never as "the machine was slow".
+	e2eSpoolDrainBound = 2 * daemon.DrainLineDeadline
+	e2eSpoolDrainTick  = 100 * time.Millisecond
+
+	// e2eWALVisibleBound waits for WAL lines whose writes have ALREADY happened: ingest.Accept
+	// appends to the session WAL before the ACK that lets the hook process exit, so once every hook
+	// call has returned the bytes are on disk and this bounds only another process's writes
+	// becoming visible to this one. Basis: one daemon.DrainLineDeadline, the smallest bound in the
+	// daemon that is unambiguously longer than a local filesystem round trip.
+	e2eWALVisibleBound = daemon.DrainLineDeadline
+
+	idleExitSecondsEnvKey = "QOMPACK_RUNTIME__DAEMON__IDLEEXITSECONDS"
 )
 
 // e2eSession is the fixed session id every daemon_e2e_test.go case uses.
@@ -125,7 +183,7 @@ func TestE2EHookRoundTrip(t *testing.T) {
 		}
 		lines = countNonEmptyLines(string(b))
 		return lines >= n
-	}, e2eSpoolDrainBound, e2eSpoolDrainTick, "wal-%s.ndjson never reached %d lines (last seen %d) at %s", e2eSession, n, lines, walPath)
+	}, e2eWALVisibleBound, e2eSpoolDrainTick, "wal-%s.ndjson never reached %d lines (last seen %d) at %s", e2eSession, n, lines, walPath)
 
 	snap := e2eStatus(t, p.Root)
 	live := 0
@@ -164,8 +222,21 @@ func TestE2ELazySpawn(t *testing.T) {
 	require.Equal(t, 0, code, "stderr:\n%s", stderr)
 	requireParsesAsOutput(t, stdout)
 
-	// The now-live daemon drains the spool the first call left behind (on start, and on its own
-	// idle tick) — eventually every client-*.ndjson spool file is gone.
+	// The second call must genuinely have REACHED the daemon, not spooled like the first. Its own
+	// exit code cannot say so — every hook exits 0 either way (§5.4) — but the session's WAL can:
+	// observe.tool is a hot-path op, and ingest.Accept appends to the WAL before the daemon ACKs.
+	//
+	// This is also the precondition for the drain bound below. The daemon re-drains the spool on
+	// the first request it serves, so a second call that never connected would leave the drain
+	// waiting on the idle tick instead — and asserting that here makes the difference a named
+	// failure rather than an unexplained timeout twenty lines further down.
+	walPath := filepath.Join(paths.Of(p.Root).Spool, "wal-"+string(e2eSession)+".ndjson")
+	require.Eventually(t, func() bool { return e2eCountFileLines(t, walPath) >= 1 },
+		e2eWALVisibleBound, e2eSpoolDrainTick,
+		"the second observe-tool call never reached the daemon — no line landed in %s", walPath)
+
+	// With a request served, the daemon has already kicked its spool re-drain: every
+	// client-*.ndjson file the first call left behind goes away without waiting for an idle tick.
 	require.Eventually(t, func() bool {
 		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
 		if err != nil {
@@ -178,7 +249,9 @@ func TestE2ELazySpawn(t *testing.T) {
 			}
 		}
 		return true
-	}, e2eSpoolDrainBound, e2eSpoolDrainTick, "the spool the first call left behind was never drained")
+	}, e2eSpoolDrainBound, e2eSpoolDrainTick,
+		"the spool the first call left behind was not drained within %s of a served request; only the %s idle-tick fallback would still take it",
+		e2eSpoolDrainBound, daemon.IdleTickMax)
 }
 
 // TestE2EIdleExit is task-6-spec.md's e2e table row: with a fast idle-exit configured, the daemon
