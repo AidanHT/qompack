@@ -504,6 +504,141 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	}
 }
 
+// redrainTestBound is how long TestRedrainOnFirstServedRequest gives the re-drain, and it is the
+// whole point of the test: it is SIX TIMES SMALLER than idleTickMax (30s), which is the only other
+// mechanism in the daemon that could drain a spool file written after the startup drain has
+// already scanned the directory. A pass inside this bound therefore cannot be the idle tick in
+// disguise (V2-MERGE-25 ①), and a failure at this bound means the re-drain did not fire, not that
+// the host was slow.
+const (
+	redrainTestBound = idleTickMax / 6
+	redrainTestTick  = 25 * time.Millisecond
+	// redrainDialBound is the connect/ACK budget for this test's own admin client. It is wide
+	// relative to config.Defaults()'s ConnectDeadlineMs (5ms, tuned for an already-warm daemon)
+	// because the very first dial into a daemon that has just started is exactly the case that
+	// budget is NOT sized for — the same reason internal/cli carries hookConnectDeadlineFloor.
+	redrainDialBound = 500 * time.Millisecond
+)
+
+// writeClientSpoolLine writes req as a one-line client-*.ndjson spool file under root's spool
+// directory, the way a client that could not reach the daemon would have left it, and returns the
+// path. The drainer deletes a client-* file once it has fully consumed it, so the path's absence
+// is the observable "this entry was drained".
+func writeClientSpoolLine(t *testing.T, root, name string, req ipc.Request) string {
+	t.Helper()
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	p := filepath.Join(paths.Of(root).Spool, name)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(p), line, 0o600))
+	return p
+}
+
+// spooledObserveTool returns the request a hook's own client would have spooled for sess.
+func spooledObserveTool(root string, sess core.SessionID) ipc.Request {
+	return ipc.Request{
+		Op: ipc.OpObserveTool, Session: sess, TS: 1,
+		Event: &hookio.Event{HookEventName: "PostToolUse", SessionID: sess, CWD: root, ToolName: "Read"},
+	}
+}
+
+// TestRedrainOnFirstServedRequest is V2-MERGE-25 ①'s regression test: an entry spooled AFTER the
+// startup drain has already scanned the spool directory must not have to wait for an idle tick.
+//
+// The two spool files are what make this deterministic rather than merely probable. The first is
+// written before Run and is consumed by Run's own startup Drain; its disappearance is proof that
+// the startup drain has finished its (already snapshotted) file list, so the second file — written
+// only after that — provably cannot be seen by it. Nothing then drains the second file except the
+// re-drain that the single served admin.ping releases (daemon.go, redrainOnceServing), and the
+// bound this test waits under is far below the 30s idle-tick fallback that would otherwise be the
+// answer.
+//
+// Before the fix the second file sat undrained until that idle tick, which is exactly how
+// TestE2ELazySpawn came to fail only on a loaded machine.
+func TestRedrainOnFirstServedRequest(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	observed := make(chan core.SessionID, 4)
+	var o Options
+	o.ProjectRoot = root
+	o.Cfg = testConfig()
+	o.Log = logging.Nop()
+	o.Clock = core.SystemClock()
+	o.Bind(func(s *Services) {
+		s.ObserveTool = func(_ context.Context, e hookio.Event) error {
+			observed <- e.SessionID
+			return nil
+		}
+	})
+
+	const startupSess = core.SessionID("sess-startup-drain")
+	const redrainSess = core.SessionID("sess-re-drain")
+	startupPath := writeClientSpoolLine(t, root, "client-11111.ndjson", spooledObserveTool(root, startupSess))
+
+	d, err := New(o)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	require.Eventually(t, func() bool {
+		_, statErr := os.Stat(paths.Long(startupPath))
+		return os.IsNotExist(statErr)
+	}, drainDeadlockGuard, redrainTestTick, "Run's startup drain never consumed the pre-existing spool file")
+
+	// Written only now: strictly after the startup drain's own file list was taken, which is the
+	// window V2-MERGE-25 describes and the one the idle tick used to own alone.
+	redrainPath := writeClientSpoolLine(t, root, "client-22222.ndjson", spooledObserveTool(root, redrainSess))
+
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	c := ipc.NewClientWithOptions(addr, nil, logging.Nop(), nil, ipc.ClientOptions{
+		State:           ipc.State{Mode: contract.ModeFull, DaemonEnabled: true},
+		ConnectDeadline: redrainDialBound,
+		AckDeadline:     redrainDialBound,
+	})
+	defer func() { _ = c.Close() }()
+
+	// A nil SpoolWriter is deliberate: a Send that cannot reach the daemon yet must DROP rather
+	// than spool, or the retries below would litter the very directory this test is watching.
+	// The first Send that comes back OK is, by construction, the first request the daemon served.
+	require.Eventually(t, func() bool {
+		resp, sendErr := c.Send(context.Background(), ipc.Request{
+			Op: ipc.OpAdminPing, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		}, redrainTestBound)
+		return sendErr == nil && resp.OK
+	}, drainDeadlockGuard, redrainTestTick, "the daemon never answered admin.ping, so nothing ever proved Serve was up")
+
+	require.Eventually(t, func() bool {
+		_, statErr := os.Stat(paths.Long(redrainPath))
+		return os.IsNotExist(statErr)
+	}, redrainTestBound, redrainTestTick,
+		"a spool entry written after the startup drain was not re-drained within %s — only the %s idle tick would have taken it",
+		redrainTestBound, idleTickMax)
+
+	var got []core.SessionID
+	for len(got) < 2 {
+		select {
+		case s := <-observed:
+			got = append(got, s)
+		case <-time.After(drainDeadlockGuard):
+			t.Fatalf("only %d of the 2 spooled observe.tool events were ever dispatched: %v", len(got), got)
+		}
+	}
+	require.ElementsMatch(t, []core.SessionID{startupSess, redrainSess}, got,
+		"both drains must dispatch their line, not merely delete the file")
+
+	cancel()
+	select {
+	case <-errCh:
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("Run did not shut down after cancellation")
+	}
+}
+
 // TestSpoolOnBreachFalseDoesNotTransition: spoolOnBreach=false leaves the daemon in HotSync even
 // after a breaching window, while the WARN log and counter still fire.
 func TestSpoolOnBreachFalseDoesNotTransition(t *testing.T) {
