@@ -51,25 +51,32 @@ func runDefect(t *testing.T, in string) string {
 	return string(res.Canonical)
 }
 
-// TestCarriedDefect_SP04D1_EscapedTempPathIsNotStripped pins SP04-D1.
+// TestCarriedDefect_SP04D1_EscapedTempPathIsStripped pins SP04-D1, now FIXED.
 //
-// tmpPathRules matches a Windows temp path with SINGLE separators. Its `[^\\]+` user-name segment
-// cannot cross a doubled backslash, so the JSON-escaped spelling — what any tool produces once it
-// has embedded a Windows path in a JSON payload — is passed through untouched. Two costs: the
-// volatile path forks the dedup space exactly as an unescaped one would, and a real user name
-// reaches stored content. The second is why testdata/corpora/toolout had to be sanitized.
+// tmpPathRules used to recognize a Windows temp path with SINGLE separators only. Its `[^\\]+`
+// user-name segment cannot cross a doubled backslash, so the JSON-escaped spelling — what any tool
+// produces once it has embedded a Windows path in a JSON payload — was passed through untouched.
+// That cost twice over: the volatile path forked the dedup space exactly as an unescaped one would,
+// and a real user name reached stored content, which is why testdata/corpora/toolout had to be
+// sanitized before it could be committed.
 //
-// When fixed, the escaped input canonicalizes to the same <tmp> the plain input already does.
-func TestCarriedDefect_SP04D1_EscapedTempPathIsNotStripped(t *testing.T) {
+// The escaped spelling now canonicalizes to the same <tmp> the plain one always did, through a
+// SECOND rule rather than a looser first one — see tmpPathRules for why widening the user-name
+// class was the wrong shape of fix. Both spellings are asserted in one test, because the defect was
+// precisely that the two disagreed.
+func TestCarriedDefect_SP04D1_EscapedTempPathIsStripped(t *testing.T) {
 	plain := `C:\Users\alice\AppData\Local\Temp\build\x`
 	require.Equal(t, "<tmp>", runDefect(t, plain),
-		"the single-separator spelling is stripped today and must keep being stripped")
+		"the single-separator spelling was always stripped and must keep being stripped")
 
 	escaped := `{"cwd":"C:\\Users\\alice\\AppData\\Local\\Temp\\build\\x"}`
-	require.Equal(t, escaped, runDefect(t, escaped),
-		"SP04-D1: the escaped spelling is NOT stripped today. If this now fails because the "+
-			"canonical form is `{\"cwd\":\"<tmp>\"}`, the defect is fixed — mark SP04-D1 fixed in "+
-			"plans/CARRIED-DEFECTS.tsv and replace this assertion with the corrected output")
+	require.Equal(t, `{"cwd":"<tmp>"}`, runDefect(t, escaped),
+		"SP04-D1: the JSON-escaped spelling strips to the same token as the plain one")
+
+	// The user name is what made this a hygiene defect and not only a dedup one, so its absence
+	// from the canonical text is asserted directly rather than inferred from the token.
+	require.NotContains(t, runDefect(t, escaped), "alice",
+		"a user name must not survive canonicalization into stored content")
 }
 
 // TestCarriedDefect_SP04D3_TimestampAndDurationEdges pins SP04-D3, three edge behaviours the
