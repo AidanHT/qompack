@@ -76,10 +76,11 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 		}
 	}
 
-	// 33 = SP-01's 21 + V1's 2 + SP-03's 5 + SP-05's 5, and each group is worth being able to
-	// point at. SP-03 and SP-05 both raised this literal to 28 on their own branches, for five
-	// fixtures each and neither seeing the other; 28 is therefore the one number that is wrong
-	// for the merge even though both sides wrote it. Count the groups, do not take a side.
+	// 38 = SP-01's 21 + V1's 2 + SP-03's 5 + SP-05's 3 ipc + SP-05's 2 contract + SP-07's 5 dag,
+	// and each group is worth being able to point at. SP-03 and SP-05 both raised this literal to
+	// 28 on their own branches, for five fixtures each and neither seeing the other; 28 is
+	// therefore the one number that is wrong for the merge even though both sides wrote it. Count
+	// the groups, do not take a side.
 	//
 	// V1 added the two §16 fixtures that had never been declared: contract/result_set (the nine
 	// §5.19 assertions as RunAll reports them) and config/appendix_c_defaults (the Appendix C
@@ -94,10 +95,16 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 	// (00-ARCHITECTURE §2.4's NDJSON framing and 32-byte hot-path state record). SP-05 task 4
 	// added two: contract/history_degraded (the state/history.json shape) and
 	// contract/transcript_with_sentinel (a transcript tail containing a rendered sentinel).
-	require.Equal(t, 33, frozenCount,
-		"21 SP-01 + 2 V1 + 5 SP-03 sketch frames + 3 SP-05 task 1 + 2 SP-05 task 4; "+
+	//
+	// SP-07 shipped five dag goldens as committed files its own tests read — nodeid, graph_basic,
+	// crossing, slice_backward, thin_vs_full — and declared none of them, so this count could not
+	// see them (V2-MERGE-18). They are declared now. The same commit drops dag's
+	// backward_slice_scores, whose behaviour slice_backward and TestThinDropsControlOnly already
+	// pin, which is why pendingCount falls to 4 as frozenCount rises by five.
+	require.Equal(t, 38, frozenCount,
+		"21 SP-01 + 2 V1 + 5 SP-03 sketch frames + 3 SP-05 ipc + 2 SP-05 contract + 5 SP-07 dag; "+
 			"adding or losing one is a contract change")
-	require.Equal(t, 5, pendingCount, "5 behaviour fixtures await their owning subplan")
+	require.Equal(t, 4, pendingCount, "4 behaviour fixtures await their owning subplan")
 }
 
 // allContractManifests returns every package directory under testdata/golden/contracts/ and the
