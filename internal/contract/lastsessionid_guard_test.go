@@ -185,8 +185,17 @@ func lastSessionIDWrites(fset *token.FileSet, f *ast.File) []string {
 // skipGuardDir reports whether a directory is outside the scan: version-control and dependency
 // trees hold no Qompack source, and testdata holds fixtures rather than code that runs.
 func skipGuardDir(name string) bool {
+	// The go tool ignores directories whose names begin with "." or "_"
+	// (go help packages), so nothing under them is part of this module's
+	// build -- .claude/worktrees in particular can hold entire nested
+	// checkouts of this repo whose owned writes would otherwise be
+	// reported at non-owner paths. vendor and node_modules are dependency
+	// trees; testdata is the same toolchain convention by name.
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		return true
+	}
 	switch name {
-	case ".git", ".github", "vendor", "node_modules", "testdata":
+	case "vendor", "node_modules", "testdata":
 		return true
 	}
 	return false
