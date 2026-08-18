@@ -53,12 +53,20 @@ func TestIngestWALIsExactBytes(t *testing.T) {
 // parallel tests contending for scheduler time, for reasons unrelated to Accept's own cost.
 const ingestAcceptBudget = 500 * time.Millisecond
 
-// TestIngestRingFullSpillsToSpool pins the non-blocking overflow path: a full ring never blocks
-// Accept. Every accepted line reaches the WAL regardless of ring capacity — the WAL append always
-// happens first — and a ring-full request is simply dropped from the ring (counted via
-// l0_ring_full), never written a second time anywhere: the WAL copy is already durable and is what
-// Drain reads.
-func TestIngestRingFullSpillsToSpool(t *testing.T) {
+// TestIngestRingFullWALsEveryLineAndNeverSpills pins the non-blocking overflow path: a full ring
+// never blocks Accept. Every accepted line reaches the WAL regardless of ring capacity — the WAL
+// append always happens first — and a ring-full request is simply dropped from the ring (counted
+// via l0_ring_full), never written a second time anywhere: the WAL copy is already durable and is
+// what Drain reads.
+//
+// It was called TestIngestRingFullSpillsToSpool, which asserted the opposite of what it checks.
+// Ruling #23 DELETED the ring-full spill the plan describes — WAL-first ordering already makes
+// every line durable, and the spill rested on a byte-identity invariant hookio.Event.Extra
+// violates — keeping only the l0_ring_full counter. The final assertion below has required the
+// spool directory to hold nothing but the WAL ever since, so the old name told a reader looking
+// for the spill's coverage that it was here, and told a reader auditing ruling #23 that the
+// deletion had not landed. Both wrong, from a test that passes.
+func TestIngestRingFullWALsEveryLineAndNeverSpills(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
 	m := obs.New(clk)
@@ -94,8 +102,8 @@ func TestIngestRingFullSpillsToSpool(t *testing.T) {
 
 // ingestACKWait bounds this test's two channel waits generously (matching this codebase's own
 // suiteWait convention in internal/ipc/ipctest) — not run under t.Parallel(), so it is not
-// contending with other tests' goroutines for scheduler time the way TestIngestRingFullSpillsToSpool
-// was observed to under -race.
+// contending with other tests' goroutines for scheduler time the way the ring-full test above was
+// observed to under -race.
 const ingestACKWait = 10 * time.Second
 
 // TestIngestACKPrecedesProcessing proves Accept returns — the point at which the server writes the
