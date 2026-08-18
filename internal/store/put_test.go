@@ -15,7 +15,6 @@ import (
 	"github.com/qompack/qompack/internal/canon"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/sketch"
 )
 
 // awsExampleKey is AWS's own long-standing documentation example access key ID. It is a redaction
@@ -507,74 +506,68 @@ func (r *cyclicReader) Read(p []byte) (int, error) {
 }
 
 // TestPutBytes_NearDup asserts near-duplicate detection reports the prior root, its similarity and
-// the size delta, for two versions of one path.
+// the size delta, for two versions of one path — against REAL MinHash signatures.
+//
+// All three near-dup tests used to inject a canonicalizer carrying a hand-built four-minima
+// signature and swap a package-level signatureJaccard variable for a constant, because
+// sketch.Signature.Jaccard reported a flat 0 while sketch was an SP-01 stub. Between them the
+// similarity, the signatures and the comparison were all fabricated, so what was left to assert
+// was that PutResult copied three fields out of a value the test had supplied. The seam is gone
+// with the stub that needed it: nearDup calls prior.Sig.Jaccard directly, and canon computes the
+// signatures from the fixtures. Measured here, v1 to v2 scores 0.9922 against the configured 0.9
+// threshold, with a 16-byte canonical delta.
 func TestPutBytes_NearDup(t *testing.T) {
-	sig := sketch.Signature{Perms: 128, Mins: []uint64{1, 2, 3, 4}}
-	tp := newTestStore(t, withCanon(canonWithSignature(sig)), withMinHash(true, 0.9))
+	tp := newTestStore(t, withMinHash(true, 0.9))
 	ctx := context.Background()
-
-	restore := stubJaccard(0.95)
-	defer restore()
 
 	v1, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v1.txt"), PutOptions{Path: "src/auth.ts"})
 	require.NoError(t, err)
 	require.Nil(t, v1.NearDup, "the first version has no prior to be a near-duplicate of")
+	require.NotZero(t, v1.Signature.Perms, "fixture sanity: MinHash must actually have run")
 
 	v2, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v2.txt"), PutOptions{Path: "src/auth.ts"})
 	require.NoError(t, err)
 	require.NotNil(t, v2.NearDup, "v2 differs from v1 by two lines and must register as a near-duplicate")
 	require.Equal(t, v1.Root.Hash, v2.NearDup.PriorRoot)
 	require.GreaterOrEqual(t, v2.NearDup.Jaccard, 0.9)
+	require.Less(t, v2.NearDup.Jaccard, 1.0, "two different files must not score as identical")
 	require.Positive(t, v2.NearDup.DeltaBytes)
 }
 
-// TestPutBytes_NoNearDupForDistinctPaths asserts near-duplicate detection is scoped to one path:
-// two unrelated payloads on different paths are never near-duplicates of each other.
+// TestPutBytes_NoNearDupForDistinctPaths asserts near-duplicate detection is scoped to one path.
+//
+// The two payloads are the SAME near-duplicate pair TestPutBytes_NearDup uses, put on DIFFERENT
+// paths. That is the whole strength of the test: their real similarity is 0.99, comfortably over
+// the threshold, so a nil result can only come from the path scoping. Two unrelated payloads —
+// which is what this test used to compare, under a stubbed similarity of 0.99 — would report nil
+// under real MinHash whether the scoping existed or not.
 func TestPutBytes_NoNearDupForDistinctPaths(t *testing.T) {
-	sig := sketch.Signature{Perms: 128, Mins: []uint64{1, 2, 3, 4}}
-	tp := newTestStore(t, withCanon(canonWithSignature(sig)), withMinHash(true, 0.9))
+	tp := newTestStore(t, withMinHash(true, 0.9))
 	ctx := context.Background()
 
-	restore := stubJaccard(0.99)
-	defer restore()
-
-	_, err := tp.Store.PutBytes(ctx, []byte("alpha content"), PutOptions{Path: "src/alpha.txt"})
+	_, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v1.txt"), PutOptions{Path: "src/alpha.ts"})
 	require.NoError(t, err)
-	res, err := tp.Store.PutBytes(ctx, []byte("beta content"), PutOptions{Path: "src/beta.txt"})
+	res, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v2.txt"), PutOptions{Path: "src/beta.ts"})
 	require.NoError(t, err)
 	require.Nil(t, res.NearDup, "near-duplicate detection must be scoped to a single path")
 }
 
-// TestPutBytes_NoNearDupWhenMinHashDisabled asserts the feature honours its config switch.
+// TestPutBytes_NoNearDupWhenMinHashDisabled asserts the feature honours its config switch, on the
+// pair that would otherwise score 0.99.
 func TestPutBytes_NoNearDupWhenMinHashDisabled(t *testing.T) {
-	sig := sketch.Signature{Perms: 128, Mins: []uint64{1, 2, 3, 4}}
-	tp := newTestStore(t, withCanon(canonWithSignature(sig)), withMinHash(false, 0.9))
+	tp := newTestStore(t, withMinHash(false, 0.9))
 	ctx := context.Background()
 
-	restore := stubJaccard(0.99)
-	defer restore()
-
-	_, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v1.txt"), PutOptions{Path: "src/auth.ts"})
+	first, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v1.txt"), PutOptions{Path: "src/auth.ts"})
 	require.NoError(t, err)
+	require.Zero(t, first.Signature.Perms, "a disabled MinHash must compute no signature at all")
 	res, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v2.txt"), PutOptions{Path: "src/auth.ts"})
 	require.NoError(t, err)
 	require.Nil(t, res.NearDup)
 }
 
-// stubJaccard swaps the near-duplicate similarity seam and returns a restore func.
-//
-// The seam exists only because internal/sketch is still an SP-01 stub whose Jaccard reports a flat
-// 0 (Rule W-2), which would otherwise make near-duplicate detection untestable until SP-03 merges
-// later in this same wave.
-func stubJaccard(v float64) func() {
-	prev := signatureJaccard
-	signatureJaccard = func(a, b sketch.Signature) float64 { return v }
-	return func() { signatureJaccard = prev }
-}
-
 // TestPutBytes_ChunkerDegradedGuard asserts splitChecked's data-loss guard: a chunker that returns
-// nothing for non-empty input (which the SP-01 stub does) must still store the content, as one
-// chunk, and must say so.
+// nothing for non-empty input must still store the content, as one chunk, and must say so.
 func TestPutBytes_ChunkerDegradedGuard(t *testing.T) {
 	tp := newTestStore(t, withStubChunker())
 	input := []byte("content the stub chunker refuses to split")

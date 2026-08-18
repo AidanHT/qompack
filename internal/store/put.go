@@ -251,14 +251,6 @@ func (s *FSStore) canonOptions(o PutOptions) canon.Options {
 	return opts
 }
 
-// signatureJaccard is the near-duplicate similarity seam.
-//
-// Production always routes through sketch.Signature.Jaccard. It is a variable rather than a direct
-// call solely because internal/sketch is still an SP-01 stub on this branch whose Jaccard reports
-// a flat 0 (Rule W-2), which would make near-duplicate detection untestable until SP-03 merges
-// later in this same wave. Tests swap it; nothing else does.
-var signatureJaccard = func(a, b sketch.Signature) float64 { return a.Jaccard(b) }
-
 // nearDup reports whether sig is a near-duplicate of the most recent prior root stored for path.
 //
 // This is §8.1's "same test suite, one new failure" detector: content that still differs after
@@ -278,7 +270,7 @@ func (s *FSStore) nearDup(path string, root core.Hash, canonBytes int64, sig ske
 		if !ok || prior.Root.Hash == root {
 			continue
 		}
-		j := signatureJaccard(prior.Sig, sig)
+		j := prior.Sig.Jaccard(sig)
 		if j < cc.MinHash.NearDupThreshold {
 			return nil
 		}
