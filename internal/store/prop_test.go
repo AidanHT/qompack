@@ -21,17 +21,38 @@ import (
 //
 // The expected value is the canonicalized-and-redacted form rather than the raw input, because
 // those two passes are part of what Put promises to store — the invariant is "Open returns what
-// was STORED", not "Open returns what was handed in".
+// was STORED", not "Open returns what was handed in". The comment said so before this checkpoint
+// while the code compared against the raw input, which was indistinguishable only because
+// internal/canon was a no-op double: the real canonicalizers strip trailing horizontal whitespace
+// unconditionally (it is ClassCRLF), so a drawn payload of a single tab stores zero bytes.
+//
+// Recomputing the expected value through the store's own Redact and Canon is not circular. Those
+// two are other packages' contracts, tested there; what is under test here is everything AFTER
+// them — chunk, compress, write, read back, concatenate — which must not lose or alter a byte of
+// whatever the pipeline handed it. Root.CanonBytes is asserted alongside so the store's own
+// accounting of that length is pinned to the same value.
 func TestPropPutGetRoundtrip(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
+	opts := PutOptions{Tool: "Bash", Path: "src/prop.txt"}
+	canonOpts := tp.Store.canonOptions(opts)
 
 	rapid.Check(t, func(rt *rapid.T) {
 		payload := rapid.SliceOfN(rapid.Byte(), 0, 64*1024).Draw(rt, "payload")
 
-		res, err := tp.Store.PutBytes(ctx, payload, PutOptions{Tool: "Bash", Path: "src/prop.txt"})
+		redacted, _ := tp.Store.deps.Redact.Redact(payload)
+		cr, err := tp.Store.deps.Canon.Run(opts.Tool, opts.Path, redacted, canonOpts)
+		if err != nil {
+			rt.Fatalf("Canon.Run: %v", err)
+		}
+		want := cr.Canonical
+
+		res, err := tp.Store.PutBytes(ctx, payload, opts)
 		if err != nil {
 			rt.Fatalf("PutBytes: %v", err)
+		}
+		if res.Root.CanonBytes != int64(len(want)) {
+			rt.Fatalf("CanonBytes is %d, but the pipeline produced %d bytes", res.Root.CanonBytes, len(want))
 		}
 
 		rc, err := tp.Store.Open(ctx, res.Root.Hash)
@@ -43,8 +64,8 @@ func TestPropPutGetRoundtrip(t *testing.T) {
 		if err != nil {
 			rt.Fatalf("ReadAll: %v", err)
 		}
-		if string(got) != string(payload) {
-			rt.Fatalf("round-trip lost bytes: stored %d, read back %d", len(payload), len(got))
+		if string(got) != string(want) {
+			rt.Fatalf("round-trip lost bytes: stored %d, read back %d", len(want), len(got))
 		}
 	})
 }
@@ -114,10 +135,10 @@ func TestPropDedupMonotone(t *testing.T) {
 		if err := os.MkdirAll(paths.Long(root), 0o700); err != nil {
 			rt.Fatalf("mkdir: %v", err)
 		}
-		s, err := openFS(root, config.Defaults(), Deps{
-			Chunker: newFixedChunker(), Canon: canonIdentity(),
-			Log: logging.Nop(), Clock: newFakeClock(),
-		})
+		// Chunker and Canon are left nil so defaultDeps installs the real FastCDC chunker and the
+		// real canonicalizers: dedup monotonicity is a property of the PRODUCTION pipeline, and
+		// asserting it against an injected chunker would prove it of the double instead.
+		s, err := openFS(root, config.Defaults(), Deps{Log: logging.Nop(), Clock: newFakeClock()})
 		if err != nil {
 			rt.Fatalf("openFS: %v", err)
 		}

@@ -30,60 +30,195 @@ func withChunkSize(n int) storeOpt {
 	return func(_ *config.Config, d *Deps) { d.Chunker = fixedChunker{size: n} }
 }
 
-// TestPutBytes_GlobalDedup asserts an edited file costs only its edit.
+// TestPutBytes_GlobalDedup asserts an edited file costs only its edit, against the REAL FastCDC
+// chunker and the REAL canonicalizers.
 //
-// The bound is scoped to v1..v3 deliberately. Those are small edits — 2 and 18 lines — which is
-// the case Qompack.md §6.1's "four reads of a 2,000-line file collapse to one chunk set plus three
-// near-empty reference lists" is actually about. v4 is a 240-line rewrite that also grows the file
-// by 19 %, so it legitimately writes MORE chunks than v1 did; asserting otherwise would be
-// asserting that content-defined chunking dedups content that genuinely is not there.
-// TestPutBytes_LargeRewriteStillSharesChunks covers v4 on its own terms.
+// Measured at the V2 checkpoint, production chunk parameters (1 KiB / 4 KiB / 16 KiB):
+//
+//	version  chunks  split as               changed bytes   chunks it spans  novel  reused
+//	v1        4      4422/5752/7714/5470    (whole file)     4                4      0
+//	v2        4      4438/5752/7714/5470    [435, 563)       1                1      3
+//	v3        4      4648/5778/7714/5470    [910, 5057)      2                2      2
+//
+// Objects on disk: 4 after v1, 7 after v3.
+//
+// # Why the previous two bounds are gone
+//
+// They were "novel[i] < novel[0]/4" and "total < 1.6 x the objects v1 left", and both were
+// calibrated against the ~256-byte-average chunker this package injected while internal/chunk was
+// an SP-01 stub. There v1 is 65 chunks, so one novel chunk is 1.5 % of a first read and both
+// bounds have room. At production parameters v1 is FOUR chunks: one novel chunk is 25 %, v2's
+// single perturbed chunk fails "< novel[0]/4" outright, and v3 leaves 1.75x v1's objects. Neither
+// figure was ever a statement about deduplication — both are arithmetic about how finely this
+// fixture happens to be cut, and a bound that moves with the chunk size is not a bound on dedup.
+//
+// # What is asserted instead, quoting §6.1
+//
+//	"Content-defined chunking cuts at boundaries determined by a rolling hash of a sliding
+//	 window, so an insertion perturbs one chunk and the rest realign. […] Four reads of a
+//	 2,000-line file collapse to one chunk set plus three near-empty reference lists."
+//
+// Two claims, now asserted directly rather than through a chunk-count proxy. "The rest realign"
+// becomes: an edit may rewrite ONLY the chunks whose byte range it overlaps, where the range comes
+// from diffing the two fixtures — a bound no chunker can satisfy merely by cutting more coarsely.
+// "Three near-empty reference lists" becomes: the two edits together cost less than one more read
+// of the file. Both hold exactly, with no slack, on the numbers above.
+//
+// v4 is a 240-line rewrite that also grows the file 19 %, so it is not the small-edit case §6.1
+// describes; TestPutBytes_LargeRewriteStillSharesChunks covers it and explains what it costs.
 func TestPutBytes_GlobalDedup(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
 
+	names := []string{"fileread-auth-v1.txt", "fileread-auth-v2.txt", "fileread-auth-v3.txt"}
 	var roots []core.Hash
-	var novel []int
+	var results []PutResult
 	var afterV1 int
-	for i, name := range []string{"fileread-auth-v1.txt", "fileread-auth-v2.txt", "fileread-auth-v3.txt"} {
+	for i, name := range names {
 		res, err := tp.Store.PutBytes(ctx, fixture(t, name), PutOptions{Tool: "FileRead", Path: "src/auth.ts"})
 		require.NoError(t, err)
 		roots = append(roots, res.Root.Hash)
-		novel = append(novel, res.Novel)
+		results = append(results, res)
 		if i == 0 {
 			afterV1 = len(tp.objectPaths(t))
 		}
 	}
 
 	require.Len(t, uniqueHashes(roots), 3, "three different versions must produce three different roots")
-	require.Positive(t, novel[0], "the first read of new content must write novel chunks")
-	for i := 1; i < len(novel); i++ {
-		require.Less(t, novel[i], novel[0]/4,
-			"a small edit must cost far less than a first read; version %d wrote %d novel chunks vs %d",
-			i+1, novel[i], novel[0])
+	require.Equal(t, len(results[0].Root.Chunks), results[0].Novel,
+		"the first read of new content must write every chunk it produced")
+	require.Equal(t, results[0].Novel, afterV1, "fixture sanity: v1's chunks are the only objects on disk")
+
+	for i := 1; i < len(results); i++ {
+		res := results[i]
+		require.Equal(t, len(res.Root.Chunks), res.Novel+res.Reused,
+			"every chunk of version %d must be accounted for as novel or reused", i+1)
+		require.Less(t, res.Novel, results[0].Novel,
+			"a small edit must cost strictly less than a first read; version %d wrote %d novel chunks vs %d",
+			i+1, res.Novel, results[0].Novel)
+
+		lo, hi := changedSpan(fixture(t, names[i-1]), fixture(t, names[i]))
+		spanned := chunksSpanning(res.Root.Chunks, lo, hi)
+		require.LessOrEqual(t, res.Novel, spanned,
+			"§6.1: an edit perturbs the chunks it overlaps and the rest realign. Version %d changed "+
+				"bytes [%d,%d), which its own chunking covers with %d chunks, but %d were rewritten",
+			i+1, lo, hi, spanned, res.Novel)
 	}
 
 	total := len(tp.objectPaths(t))
-	require.Less(t, total, int(1.6*float64(afterV1)),
-		"three versions must cost well under 1.6x one version's objects; got %d vs %d for v1 alone", total, afterV1)
+	require.Less(t, total-afterV1, afterV1,
+		"§6.1's near-empty reference lists: the two small edits together must cost less than one more "+
+			"read of the file; they added %d objects against %d for the file itself", total-afterV1, afterV1)
 }
 
-// TestPutBytes_LargeRewriteStillSharesChunks asserts that even a 240-line rewrite reuses a
-// substantial part of the prior version's chunk set, rather than degenerating into a full second
-// copy the way a fixed-size splitter would.
+// changedSpan returns the half-open byte range of b that differs from a: everything between the
+// two versions' common prefix and their common suffix. It is a conservative OVER-estimate of what
+// an edit touched — a coincidental match inside the edit only widens it — which is the safe
+// direction for a bound stated as "at most the chunks this span covers".
+func changedSpan(a, b []byte) (lo, hi int64) {
+	p := 0
+	for p < len(a) && p < len(b) && a[p] == b[p] {
+		p++
+	}
+	s := 0
+	for s < len(a)-p && s < len(b)-p && a[len(a)-1-s] == b[len(b)-1-s] {
+		s++
+	}
+	return int64(p), int64(len(b) - s)
+}
+
+// chunksSpanning counts how many of chunks overlap the half-open byte range [lo, hi). Offsets are
+// accumulated from the lengths, which is exactly how a root's chunk list tiles its content.
+func chunksSpanning(chunks []core.ChunkRef, lo, hi int64) int {
+	n, off := 0, int64(0)
+	for _, c := range chunks {
+		end := off + int64(c.Len)
+		if off < hi && lo < end {
+			n++
+		}
+		off = end
+	}
+	return n
+}
+
+// TestPutBytes_LargeRewriteStillSharesChunks asserts a large rewrite reuses the chunks it did not
+// touch rather than degenerating into a second full copy the way a fixed-size splitter would — and
+// pins the one condition, measured here, under which it provably cannot.
+//
+// # Arm 1, the claim
+//
+// It needs a file with enough chunks for the question to be about resynchronization at all. ~97 KB
+// of source-shaped text is 25 chunks at production parameters; rewriting 240 contiguous lines in
+// the middle costs 4 novel chunks and reuses 21. That is §6.1's promise, at the scale §6.1 states
+// it ("a 2,000-line file").
+//
+// # Arm 2, the SP-06 fixture's v3 to v4, which reuses nothing
+//
+// Measured at this checkpoint: the 23 KB fixture is only four chunks — v3 splits
+// 4648/5778/7714/5470 — and v4's rewrite removes every rolling-hash cut point from its first
+// 16 KB, so the chunker falls back to its MAX-size clamp and v4 splits 16384/7674/3945. A max-size
+// cut is positional by definition, so every boundary after it shifts and nothing downstream can
+// realign. §6.1 promises that "an insertion perturbs one chunk and the rest realign", which is a
+// claim about a rolling-hash cut; a region that no longer has one is outside it, and asserting
+// reuse there would be asserting something the design does not promise.
+//
+// So arm 2 pins the MECHANISM rather than the outcome: the clamped first chunk, and the fact that
+// every chunk is still accounted for. If SP-04's chunker ever stops clamping here, the first
+// assertion fails and this comment is what the next reader needs.
 func TestPutBytes_LargeRewriteStillSharesChunks(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
+
+	const lines, rewriteFrom, rewrittenLines = 2000, 1000, 240
+	before := rewritableSource(lines, -1, -1)
+	after := rewritableSource(lines, rewriteFrom, rewriteFrom+rewrittenLines)
+
+	base, err := tp.Store.PutBytes(ctx, before, PutOptions{Tool: "FileRead", Path: "src/wide.ts"})
+	require.NoError(t, err)
+	require.Greater(t, len(base.Root.Chunks), 20,
+		"fixture sanity: the claim is only about resynchronization when there are cut points to resync on")
+
+	rewritten, err := tp.Store.PutBytes(ctx, after, PutOptions{Tool: "FileRead", Path: "src/wide.ts"})
+	require.NoError(t, err)
+	require.NotEqual(t, base.Root.Hash, rewritten.Root.Hash)
+	require.Greater(t, rewritten.Reused, rewritten.Novel,
+		"a 240-line rewrite must reuse MORE chunks than it rewrites; got %d reused against %d novel",
+		rewritten.Reused, rewritten.Novel)
 
 	v3, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v3.txt"), PutOptions{Tool: "FileRead", Path: "src/auth.ts"})
 	require.NoError(t, err)
 	v4, err := tp.Store.PutBytes(ctx, fixture(t, "fileread-auth-v4.txt"), PutOptions{Tool: "FileRead", Path: "src/auth.ts"})
 	require.NoError(t, err)
-
 	require.NotEqual(t, v3.Root.Hash, v4.Root.Hash)
-	require.Positive(t, v4.Reused, "a large rewrite must still reuse the chunks it did not touch")
-	require.Less(t, v4.Novel, len(v4.Root.Chunks),
-		"a rewrite that reuses nothing at all would mean boundary stability is broken")
+	require.Equal(t, len(v4.Root.Chunks), v4.Novel+v4.Reused, "every chunk must be accounted for")
+	require.Equal(t, tp.Cfg.Store.Chunk.Max, v4.Root.Chunks[0].Len,
+		"v4 reuses nothing because its first chunk is MAX-clamped, not because boundary stability "+
+			"is broken; if the clamp no longer fires, re-derive this test's second arm")
+}
+
+// rewritableSource builds `lines` lines of deterministic source-shaped text, rewriting the
+// half-open line range [from, to) when from is non-negative. ~97 KB at 2 000 lines, which is 25
+// chunks at production parameters — the scale §6.1's "2,000-line file" describes, and enough for
+// an edit's boundary shift to have somewhere to resynchronize.
+func rewritableSource(lines, from, to int) []byte {
+	var b strings.Builder
+	for i := 0; i < lines; i++ {
+		if from >= 0 && i >= from && i < to {
+			fmt.Fprintf(&b, "  const patched_%04d = refreshToken(%d, \"rev1\");\n", i, i*7)
+			continue
+		}
+		switch i % 4 {
+		case 0:
+			fmt.Fprintf(&b, "export function handler_%04d(req: Session): Token {\n", i)
+		case 1:
+			fmt.Fprintf(&b, "  const scope = resolveScope(req, %d, \"m/%04d\");\n", i*13, i)
+		case 2:
+			fmt.Fprintf(&b, "  if (!scope.valid) throw new AuthError(\"m:%04d denied\");\n", i)
+		default:
+			fmt.Fprintf(&b, "  return issue(scope, %d);\n}\n\n", i*31)
+		}
+	}
+	return []byte(b.String())
 }
 
 // uniqueHashes reduces hs to its distinct members.

@@ -356,9 +356,12 @@ func TestGC_ClosedStoreDegrades(t *testing.T) {
 // BenchmarkGC_50kObjects measures a full mark-and-sweep against the ≤2 s idle-work budget.
 //
 // The 50 000 objects are built from a THOUSAND large puts rather than fifty thousand small ones:
-// the test chunker averages ~256 B, so a 13 KB payload yields ~50 chunks and the object count is
-// reached in a thousandth of the ingest time. What is being measured is the mark-and-sweep walk
-// over the object tree, which cares about how many object FILES exist, not how they got there.
+// the granular chunker averages ~256 B, so a 13 KB payload yields ~50 chunks and the object count
+// is reached in a thousandth of the ingest time. What is being measured is the mark-and-sweep walk
+// over the object tree, which cares about how many object FILES exist, not how they got there —
+// which is why this is one of the two places still entitled to a chunker double. Reaching 50 000
+// objects through the real 4 KiB-average chunker would mean ingesting ~200 MB of unique content per
+// benchmark setup, measuring the ingest path rather than the collector.
 func BenchmarkGC_50kObjects(b *testing.B) {
 	const (
 		roots         = 1000
@@ -366,7 +369,7 @@ func BenchmarkGC_50kObjects(b *testing.B) {
 		wantMinObject = 40000
 	)
 	t := &testing.T{}
-	tp := newTestStore(t)
+	tp := newTestStore(t, withGranularChunker())
 	ctx := context.Background()
 
 	for i := 0; i < roots; i++ {
