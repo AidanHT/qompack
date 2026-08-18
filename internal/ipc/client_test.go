@@ -123,7 +123,7 @@ func TestSendACKPath(t *testing.T) {
 
 	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.Equal(t, HotSync, res.Hot)
 
 	_, statErr := os.Stat(spool.Path())
@@ -249,7 +249,7 @@ func TestSendModeOffDoesNothing(t *testing.T) {
 
 	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.Equal(t, contract.ModeOff, res.Mode)
 
 	_, statErr := os.Stat(spool.Path())
@@ -268,7 +268,7 @@ func TestSendReplyPath(t *testing.T) {
 
 	res, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 1, Reply: true}, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.NotNil(t, res.Output)
 	require.Equal(t, ctx, res.Output.HookSpecificOutput.AdditionalContext)
 }
@@ -302,7 +302,7 @@ func TestSendOversizeExternalizes(t *testing.T) {
 	}
 	res, err := c.Send(context.Background(), req, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 
 	var got Request
 	select {
@@ -364,7 +364,7 @@ func TestSendOversizeExternalizePreservesExistingRaw(t *testing.T) {
 	}
 	res, err := c.Send(context.Background(), req, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 
 	var got Request
 	select {
