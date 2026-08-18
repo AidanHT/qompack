@@ -860,6 +860,77 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	}
 }
 
+// TestServeFailureTakesTheStopPath closes FR-4's one untested arm (§2.5a G).
+//
+// Run's select has two ways out of `case err := <-serveErrCh`. A Serve return with d.stopped
+// already closed is an intentional shutdown and reports nil. A Serve return with d.stopped still
+// OPEN is a transport failure nobody asked for, and it must get the same Stop the ctx.Done arm
+// gets: without it daemon.lock stays held until process death, state.bin goes on advertising a
+// dead daemon, and the ingest WAL, sketches and metrics never flush.
+//
+// SP-05 shipped that arm with no dedicated test by accepted adjudication — a deterministic
+// transport failure needs ipc-layer injection — and recorded that a verifier can drive it directly
+// with server.Close(). This is that, from inside the package: nothing calls Stop, nothing cancels
+// the context, the server is simply closed out from under the running daemon.
+//
+// Run's own return value is nil here, and that is the arm behaving correctly rather than a weak
+// assertion. ipc.Server.Serve returns nil on a Close-driven shutdown by its own documented
+// contract, and this arm reports whatever Serve returned VERBATIM rather than inventing an error
+// of its own — deliberately, so a real failure is never shadowed. What proves the arm ran is the
+// cleanup: Stop finished, and it finished without anyone having called it.
+func TestServeFailureTakesTheStopPath(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+
+	// Deliberately NOT cancelled on the happy path: a cancelled context would let Run leave via
+	// the ctx.Done arm instead, which is a different arm that already has its own tests.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Both artifacts must exist before they can meaningfully be asserted gone, and dd.server must
+	// be set before it can be closed — Run assigns it, writes state.bin and takes the lock in that
+	// order, so the lock is the last of the three to appear.
+	statePath := paths.Long(ipc.StatePath(root))
+	lockPath := paths.Long(filepath.Join(paths.Of(root).Run, lockFileName))
+	require.Eventually(t, func() bool {
+		if _, lockOK := ReadLock(root); !lockOK {
+			return false
+		}
+		_, statErr := os.Stat(statePath)
+		return statErr == nil && dd.server != nil
+	}, drainDeadlockGuard, redrainTestTick, "the daemon never finished starting, so there was nothing to fail")
+
+	// The transport dies under a daemon that believes itself healthy.
+	require.NoError(t, dd.server.Close())
+
+	select {
+	case runErr := <-errCh:
+		require.NoError(t, runErr, "a Close-driven Serve return is nil by ipc.Server's contract, and this arm reports it verbatim")
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("Run never returned after its server was closed out from under it — the FR-4 arm is missing or wedged")
+	}
+
+	select {
+	case <-dd.stopDone:
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("Run returned but Stop's cleanup never finished — the arm returned without taking the Stop path")
+	}
+
+	_, statErr := os.Stat(statePath)
+	require.True(t, os.IsNotExist(statErr),
+		"state.bin must be removed: left behind, every client keeps dialling an endpoint no daemon is on")
+	_, lockErr := os.Stat(lockPath)
+	require.True(t, os.IsNotExist(lockErr),
+		"daemon.lock must be released: held by a dead daemon, no replacement can ever take this project")
+}
+
 // TestMarkerIsWrittenByFlushAndCheckpointOnly is the daemon-route half of task-4-spec.md's
 // contract-side guarantee: session.start never writes run/marker.json; checkpoint and flush both
 // do.
