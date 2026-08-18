@@ -2,6 +2,7 @@ package guards
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -182,6 +183,17 @@ func TestCarriedDefects_WaveReportRequiresResolution(t *testing.T) {
 // testExistsAnywhere asks the toolchain whether any package declares a test or fuzz target named
 // fn, using the same `go test -list` probe the nightly fuzz guard uses so the two cannot disagree
 // about what "exists" means.
+//
+// A listing that FAILED is not an answer. `go test -list ./...` exits non-zero when ANY package in
+// the module does not build, and the empty stdout that comes back with it means "the toolchain
+// never got far enough to look", not "no such test". Reading the second as the first is the whole
+// of V2-MERGE-23: while internal/dag would not compile, three rows whose evidence tests live in
+// internal/canon — a package that built fine — were reported as having no evidence test at all,
+// under a message advising the reader to mark them `fixed`. Following that advice would have closed
+// three open defects on the strength of an unrelated compile error.
+//
+// So a listing error is fatal here, and says in those words that it is not evidence of anything
+// about the defect. Absence is only ever reported from a listing that actually ran.
 func testExistsAnywhere(t *testing.T, root, fn string) bool {
 	t.Helper()
 
@@ -189,7 +201,19 @@ func testExistsAnywhere(t *testing.T, root, fn string) bool {
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {
-		return false
+		var stderr string
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			stderr = strings.TrimSpace(string(exit.Stderr))
+		}
+		t.Fatalf("listing the module's tests failed, so this guard cannot say whether %s exists.\n\n"+
+			"  cd %s && go test -run '^$' -list '^%s$' ./...\n  %v\n\n%s\n\n"+
+			"This is a BUILD/LISTING failure. It is NOT evidence that %s is absent, and it is NOT "+
+			"evidence that the defect naming it was fixed: one package that does not compile makes "+
+			"`go test -list ./...` exit non-zero with nothing usable on stdout, whatever the state "+
+			"of the package the test actually lives in. Fix the build and run this guard again — do "+
+			"not change any row in %s on the strength of this failure.",
+			fn, root, fn, err, stderr, fn, carriedDefectsPath)
 	}
 	for _, line := range strings.Split(string(out), "\n") {
 		if strings.TrimSpace(line) == fn {
