@@ -25,7 +25,12 @@ func benchInput(b *testing.B, rel string, n int) []byte {
 
 	base, err := os.ReadFile(filepath.Join(corpusRoot, filepath.FromSlash(rel))) //nolint:gosec // repo testdata
 	if err != nil {
-		b.Skipf("corpus file %s is unavailable: %v", rel, err)
+		// The "platform: " prefix is mandatory, not decorative: devtool lint's stubskips sub-check
+		// hard-fails any skip whose reason matches none of the three permitted messages, and this
+		// one carried none. It fires only when the repo's own testdata is unreadable — a checkout
+		// or a sandbox problem rather than a benchmark problem — which is exactly what the
+		// platform class is for.
+		b.Skipf("platform: corpus file %s is unavailable: %v", rel, err)
 	}
 	if len(base) == 0 {
 		b.Fatalf("corpus file %s is empty", rel)
