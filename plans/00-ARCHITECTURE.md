@@ -1960,7 +1960,7 @@ byte-identical session, so replay numbers are comparable across commits.
 
 | Package group | Line coverage floor |
 |---|---|
-| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `paths` | **90%** |
+| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `paths`, `redact`, `tokens` | **90%** |
 | `scheduler`, `dag`, `analyzer`, `rehydrate`, `eval`, `mcp` | **85%** |
 | everything else | **75%** |
 
