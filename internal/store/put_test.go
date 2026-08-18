@@ -471,7 +471,11 @@ func TestPutBytes_CanonFailureFallsBack(t *testing.T) {
 // the producer is a hook, and §2.3 permits a hook no exit code but 0.
 func TestPut_ReaderTruncation(t *testing.T) {
 	if testing.Short() {
-		t.Skip("moves 64 MiB; skipped under -short")
+		// "platform: " is the one prefix devtool's stubskips check permits for a skip that hides no
+		// missing work (tools/devtool/stubskips.go). Any other reason is a hard lint failure, and
+		// this skip is only ever reached under -short — which the default `devtool test` does not
+		// pass, so it has never fired and the non-conformant message was never noticed.
+		t.Skip("platform: moves 64 MiB, skipped under -short")
 	}
 	// Large chunks and no compression keep this to a few dozen hashes instead of ~16k.
 	tp := newTestStore(t, withChunkSize(4<<20), withCompressionNone())

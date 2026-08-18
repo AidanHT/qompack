@@ -21,9 +21,11 @@ import (
 // every store ever opened in this process for the process's lifetime, and the set of project roots
 // a single process sees is bounded by the number of projects it serves.
 //
-// The fallback itself is not exceptional on this branch: internal/canon is still an SP-01 stub
-// whose Run reports core.ErrNotImplemented on every call (Rule W-2), so without the gate every
-// single Put would emit an identical Warn line for the whole wave.
+// The gate was added because internal/canon was an SP-01 stub reporting core.ErrNotImplemented on
+// every call, so without it every single Put emitted an identical Warn line. SP-04's real registry
+// does not fail, which makes the fallback genuinely exceptional again — and that is exactly when
+// once-per-store matters most: a canonicalizer that starts failing mid-session is one operator
+// signal, not one per tool result, and the counter store.canon.fallback carries the rate.
 var canonFallbackWarned sync.Map
 
 // putBufPool recycles the read buffer Put fills from an io.Reader, so a hot path that streams tool

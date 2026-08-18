@@ -271,8 +271,13 @@ func (s *FSStore) count(name string, n int64) {
 // [0, len(data)) contiguously from zero, cannot be allowed to silently truncate content. Either
 // failure falls back to a single chunk covering the whole input and is reported.
 //
-// It also keeps this branch honest under Rule W-2: internal/chunk is still an SP-01 stub here
-// whose Split returns nil, and a store that quietly wrote nothing would look like it worked.
+// The guard outlives the reason it was written for. It went in while internal/chunk was an SP-01
+// stub whose Split returned nil, where a store that quietly wrote nothing would have looked like
+// it worked; SP-04's real chunker tiles correctly, so the fallback is no longer routinely taken.
+// It stays because Chunker is an INJECTED interface (§5.8) — the store cannot verify what it is
+// handed, only what came back — and because "the chunks did not tile the input" is silent data
+// loss, the one failure mode that must never be discovered from a short read months later.
+// TestPutBytes_ChunkerDegradedGuard keeps it exercised with an explicit silentChunker.
 func (s *FSStore) splitChecked(data []byte) []chunk.Chunk {
 	if len(data) == 0 {
 		return nil

@@ -24,9 +24,9 @@ import (
 // timestamp written here reads the same as one written anywhere else in the tree.
 //
 // These tests live in `package store` rather than `package store_test` because they exercise
-// openFS directly: store.Open still returns the SP-01 stub until the integration commit flips it,
-// and internal/testutil imports internal/store, so an internal test file cannot reach testutil
-// without an import cycle. Hence the small local clock below instead of testutil.FakeClock.
+// openFS directly and assert on the unexported in-memory index, and internal/testutil imports
+// internal/store, so an internal test file cannot reach testutil without an import cycle. Hence
+// the small local clock below instead of testutil.FakeClock.
 var idxEpoch = time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 // idxClock is a core.Clock that only moves when a test moves it.
