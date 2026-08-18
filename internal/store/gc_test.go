@@ -247,30 +247,171 @@ func TestGC_DryRun(t *testing.T) {
 		"a dry run must not tombstone anything either")
 }
 
-// TestGC_DeadlineTruncatesAndResumes asserts a deadline-bounded pass reports Truncated, persists a
-// cursor, and that a second unbounded pass finishes the job.
-func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
+// gcResumeSeeds is how many roots the resume tests plant. It must exceed gcCheckEvery, or the
+// sweep never reaches a deadline check and truncation cannot happen at all — which is exactly the
+// hole the old version of TestGC_DeadlineTruncatesAndResumes had, having guarded everything it
+// wanted to prove behind `if first.Truncated`.
+const gcResumeSeeds = 700
+
+// gcResumeKept is how many of those roots a checkpoint holds live, so that "the two passes collect
+// the same set as one pass" is a statement about a SET rather than about "everything".
+const gcResumeKept = 50
+
+// seedGCCorpus plants gcResumeSeeds deterministic roots and pins the first gcResumeKept of them
+// with a checkpoint. Two calls produce byte-identical object trees, which is what lets one be
+// collected in two bounded passes and the other in one unbounded pass and the results compared.
+func seedGCCorpus(t *testing.T) *testProject {
+	t.Helper()
 	tp := newTestStore(t)
+	refs := make([]string, 0, gcResumeKept)
+	for i := 0; i < gcResumeSeeds; i++ {
+		r := gcSeed(t, tp, fmt.Sprintf("src/f%04d.ts", i), fmt.Sprintf("resumable body %d, unique\n", i))
+		if i < gcResumeKept {
+			refs = append(refs, r.Hash.String())
+		}
+	}
+	writeCheckpointJSON(t, tp, "0001.json", refs...)
+	return tp
+}
+
+// TestGC_DeadlineTruncatesAndResumes asserts a deadline-bounded pass really truncates, persists a
+// cursor, stops at the first deadline check, and that resuming from that cursor collects exactly
+// the set one unbounded pass collects.
+//
+// It used to guard the truncation half behind `if first.Truncated` and close with
+// `first.Deleted+second.Deleted >= total-first.Deleted`, which is satisfied by
+// `0 >= 0`: a GC that truncated nothing and deleted nothing passed it. Truncation is now forced
+// structurally rather than hoped for — gcResumeSeeds exceeds gcCheckEvery, so an already-expired
+// deadline is guaranteed to be seen — and the resume property is checked against a CONTROL store
+// carrying the identical corpus, collected in one pass.
+func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 	ctx := context.Background()
-	for i := 0; i < 700; i++ {
-		gcSeed(t, tp, fmt.Sprintf("src/f%04d.ts", i), fmt.Sprintf("resumable body %d, unique\n", i))
-	}
-	total := objectCount(t, tp)
-	require.Positive(t, total)
+	resumed, control := seedGCCorpus(t), seedGCCorpus(t)
 
-	first, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond})
+	before := resumed.objectPaths(t)
+	require.Equal(t, before, control.objectPaths(t),
+		"fixture sanity: the two corpora must be identical, or comparing their outcomes proves nothing")
+	require.Greater(t, len(before), gcCheckEvery,
+		"fixture sanity: the sweep must walk past at least one deadline check for truncation to be reachable")
+
+	cursor := filepath.Join(paths.Of(resumed.Root).State, gcStateFile)
+
+	first, err := resumed.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond})
 	require.NoError(t, err, "an expired deadline is a normal outcome, never an error")
-	if first.Truncated {
-		require.FileExists(t, filepath.Join(paths.Of(tp.Root).State, gcStateFile))
-	}
+	require.True(t, first.Truncated,
+		"a deadline that has already expired, over %d objects, must truncate", len(before))
+	require.FileExists(t, cursor, "a truncated pass must leave a cursor to resume from")
+	require.Positive(t, first.DeletedObjects, "a truncated pass must still have done real work")
+	require.Less(t, first.ScannedObjects, gcCheckEvery,
+		"an already-expired deadline must stop the sweep at its FIRST check, not one interval later")
+	require.Less(t, len(resumed.objectPaths(t)), len(before), "objects must actually have been removed")
+	require.Greater(t, len(resumed.objectPaths(t)), gcResumeKept, "and work must remain for the resumed pass")
 
-	second, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1})
+	second, err := resumed.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1})
 	require.NoError(t, err)
 	require.False(t, second.Truncated)
-	require.Equal(t, 0, objectCount(t, tp), "the resumed pass must finish collecting everything")
-	require.NoFileExists(t, filepath.Join(paths.Of(tp.Root).State, gcStateFile),
-		"a completed pass must clear its cursor")
-	require.GreaterOrEqual(t, first.DeletedObjects+second.DeletedObjects, total-first.DeletedObjects)
+	require.NoFileExists(t, cursor, "a completed pass must clear its cursor")
+
+	one, err := control.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1})
+	require.NoError(t, err)
+	require.False(t, one.Truncated)
+
+	// The union property, on the three quantities that can differ: the surviving object SET, the
+	// cumulative report, and the roots the checkpoint holds. A resumed report is cumulative — GC
+	// seeds it from the persisted cursor's counters — so the two-pass totals are directly
+	// comparable with the one-pass ones, and an object swept twice or missed once breaks them.
+	require.Equal(t, control.objectPaths(t), resumed.objectPaths(t),
+		"two bounded passes must leave exactly the object set one unbounded pass leaves")
+	require.Len(t, resumed.objectPaths(t), gcResumeKept, "and the checkpoint-held roots must be what survives")
+	require.Equal(t, one.DeletedObjects, second.DeletedObjects,
+		"the resumed pass's cumulative deletion count must equal the unbounded pass's")
+	require.Equal(t, one.ScannedObjects, second.ScannedObjects,
+		"and so must the cumulative scan count: an object swept twice would show up here")
+	require.Equal(t, one.BytesFreed, second.BytesFreed)
+
+	for i := 0; i < gcResumeKept; i++ {
+		res, perr := resumed.Store.PutBytes(ctx, []byte(fmt.Sprintf("resumable body %d, unique\n", i)),
+			PutOptions{Tool: "FileRead", Path: fmt.Sprintf("src/f%04d.ts", i)})
+		require.NoError(t, perr)
+		require.Zero(t, res.Novel, "a checkpoint-held root's chunks must have survived both passes intact")
+	}
+}
+
+// gcDeadlineOvershoot is how far past its deadline a truncating sweep may run.
+//
+// V2-SP06-20 states "deadline honoured ±50 ms". The bound is not a wall-clock guess: the sweep
+// consults the deadline once every gcCheckEvery objects, so the overshoot is the cost of finishing
+// the batch in progress plus persisting the cursor, and nothing else. Measured over eight trials
+// on an idle Windows development host, 1 500 objects: 6.1, 9.5, 12.3, 16.7, 18.5, 18.9, 20.7 and
+// 24.4 ms, against a full unbounded sweep of 116–146 ms. The CI Linux runner's open() is roughly
+// ten times cheaper (§2.6a ⑥), so this is the pessimistic platform.
+const gcDeadlineOvershoot = 50 * time.Millisecond
+
+// gcOvershootCeiling is the point past which no amount of host slowness excuses the overshoot.
+//
+// The assertion below relaxes gcDeadlineOvershoot on a slow host, because the overshoot is one
+// check interval and a check interval costs what 256 object visits cost there — the SAME 1 500
+// objects swept while the rest of this package's suite was running measured 31.3 ms against 6–24
+// on an idle machine, and a wall-clock bound that fails for that reason is a bound nobody trusts.
+// The relaxation is capped so it cannot swallow a real regression: if two check intervals cost
+// more than this, gcCheckEvery is too coarse for the 2 s idle budget the deadline exists to fit
+// inside, and the constant needs revisiting rather than the assertion.
+const gcOvershootCeiling = 250 * time.Millisecond
+
+// gcOvershootSeeds is large enough that half of a full sweep lands well inside the sweep rather
+// than inside the mark phase, which is what makes the measurement below one of check granularity
+// rather than one of setup cost.
+const gcOvershootSeeds = 1500
+
+// TestGC_DeadlineOvershootIsBoundedByTheCheckInterval asserts V2-SP06-20's ±50 ms.
+//
+// The deadline is CALIBRATED rather than fixed: an unbounded dry run over the same tree is timed
+// first and half of that becomes the budget. A fixed short deadline would expire before the sweep
+// began, and the overshoot would then measure the mark phase, not the check interval. It runs dry
+// on purpose for the same reason — GCPolicy.Deadline is consulted only inside sweep, so a pass
+// that also tombstones several hundred dead roots spends unbounded time before the first check,
+// and folding that in would measure a different thing. (That tombstoning is unbounded by the
+// deadline is a real, separate gap; it is recorded rather than papered over here.)
+func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	for i := 0; i < gcOvershootSeeds; i++ {
+		gcSeed(t, tp, fmt.Sprintf("src/f%04d.ts", i), fmt.Sprintf("overshoot body %d, unique\n", i))
+	}
+	require.Greater(t, objectCount(t, tp), gcCheckEvery*4,
+		"fixture sanity: the sweep must cross several deadline checks")
+
+	full, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true})
+	require.NoError(t, err)
+	require.False(t, full.Truncated, "the calibration pass must complete")
+	require.Positive(t, full.ScannedObjects)
+	budget := full.Duration / 2
+
+	start := time.Now()
+	rep, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true, Deadline: budget})
+	overshoot := time.Since(start) - budget
+	require.NoError(t, err)
+	require.True(t, rep.Truncated, "half of a measured full sweep must not be enough to finish it")
+	require.Greater(t, rep.ScannedObjects, gcCheckEvery,
+		"calibration check: the deadline must expire INSIDE the sweep, or this measures the mark phase")
+
+	// One check interval, priced on THIS host from the calibration pass. The limit is the §2.6 row's
+	// 50 ms, or two intervals when a single interval is already close to it — see gcOvershootCeiling.
+	interval := full.Duration / time.Duration(full.ScannedObjects) * gcCheckEvery
+	limit := gcDeadlineOvershoot
+	if twoIntervals := 2 * interval; twoIntervals > limit {
+		limit = twoIntervals
+	}
+	t.Logf("full sweep %v over %d objects; check interval %v; budget %v; overshoot %v after %d objects; limit %v",
+		full.Duration, full.ScannedObjects, interval, budget, overshoot, rep.ScannedObjects, limit)
+
+	require.LessOrEqual(t, limit, gcOvershootCeiling,
+		"two deadline checks cost %v on this host, so gcCheckEvery (%d) is too coarse to honour a "+
+			"deadline inside the 2 s idle budget; revisit the constant, not this assertion", 2*interval, gcCheckEvery)
+	require.LessOrEqual(t, overshoot, limit,
+		"V2-SP06-20: a truncating sweep must return within %v of its deadline; it ran %v over after "+
+			"scanning %d objects at a check interval of %d (%v)",
+		limit, overshoot, rep.ScannedObjects, gcCheckEvery, interval)
 }
 
 // TestGC_LiveDigestMismatchRestartsMark asserts a root created between two passes is never
