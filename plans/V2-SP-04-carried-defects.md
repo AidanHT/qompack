@@ -45,6 +45,18 @@ necessary literal or it will scan every buffer.
 in text that contains several escaped paths on one line. Prefer a second rule over a looser first
 one, and add a row to `TestTmpPaths_Table` for the multiple-paths-per-line case.
 
+**Disposition (V2-VERIFY, 2026-08-17): fixed.** A second `tmpPathRules` entry for the
+JSON-escaped spelling (`(?i)`, `wordEdge`, `need: \\appdata\\`, `needFold`, `perLine`) rather than a
+widened `[^\\]+` — exactly the "Watch out for" hazard above, and the new `TestTmpPaths_Table` row
+"two json-escaped paths on one line" pins the rejection. One golden moved
+(`testdata/golden/canon/bash/docker-build.txt.canon.txt`, 51 586 → 19 161 bytes), verified
+byte-by-byte as exactly 171 escaped-path → `<tmp>` replacements and nothing else, with
+`C:\\Program Files\\Go\\...` untouched as the control; "alice" went from 75 lines of that golden
+to 0. Restore exactness, the property fixtures and `FuzzCanonicalize` (30 s) stay green;
+`testdata/canon-dedup-report.json` regenerated (`ratio_with` 1.2249 → 1.2416, `gain` 1.0254 →
+1.0394; every V2-SP04-19 threshold passes on the new numbers). Evidence test renamed to
+`TestCarriedDefect_SP04D1_EscapedTempPathIsStripped`, which now pins the fixed behaviour.
+
 ---
 
 ## SP04-D2 — canonicalization is not idempotent when a deletion joins two fragments
@@ -86,6 +98,19 @@ hard-fails any non-idempotence a deletion cannot explain, so the carve-out is na
 reached in one pass, or the row is re-deferred with the decision recorded — naming which of the two
 options above was chosen and why.
 
+**Disposition (V2-VERIFY, 2026-08-17): deferred to V3-VERIFY.** The checkpoint evaluated the
+obvious half-fix — an ANSI pre-pass before rule application — and rejected it on a new fact:
+escapes are not the only mediator of the class. `"\xEF\xBB\xBF[12345] boot"` canonicalizes to
+`"[<n>] boot"` only on the second pass with no escape anywhere — the BOM run is deleted as
+`ClassPaths` (always on) and its removal lets the `(?m)^`-anchored bracketed-pid rule reach a `[`
+it could not see, because `lineLead` admits CR, escapes and indentation but no BOM. That is now the
+third row of `TestKnownDeletionMediatedLimit`. So the pre-pass closes both ESC reproducers yet
+cannot buy this row's acceptance criterion (removing `FuzzCanonicalize`'s deletion exception),
+while costing golden rewrites, `Delta.Class`/`Result.Applied` misattribution that SP-06/SP-08
+read, and a `ClassANSI` gate condition. The real fix is fixed-point composition or Delta-rebase —
+a design decision, cheapest taken at V3 before more `Delta` records accumulate. `internal/canon/doc.go`
+carries the paragraph.
+
 ---
 
 ## SP04-D3 — three timestamp and duration edges are wrong in the patterns
@@ -113,6 +138,19 @@ digits and the 10-to-13-digit epoch rule then claiming the digits left outside t
 (`TestNumericMatchesAgreeWithReference`, the rapid property, `FuzzNumericMatchesAgreeWithReference`)
 green, goldens regenerated.
 
+**Disposition (V2-VERIFY, 2026-08-17): (a) and (c) fixed, (b) deferred to V3-VERIFY with SP04-D2.**
+Patterns first, scanner second, per this section's own rule. (a) `\s?` became `[^\S\n]?`
+(`numIsPerlSpace` → `numIsInlineSpace`); as a side effect the non-ANSI deletion joiner `"5  \nms"`
+is now stable. (c) the ISO fraction cap `\d{1,9}` became `\d+`, so the epoch rule's span overlaps
+instead of abutting and `acceptCandidates` keeps the longer. Agreement tests, the rapid property
+and `FuzzNumericMatchesAgreeWithReference` (25 s) green; no golden changed — the corpus contains
+neither edge. (b) is not fixable in one pass: `"…Zx" → "<ts>x"` requires dropping the ISO rule's
+trailing `\b`, which is the word-boundary invariant itself — pass 1 gives `"<ts>pid 0000"` and
+pass 2 `"<ts>pid <n>"` — and stripping only the inner clock fails identically
+(`"2024-01-15T10:32:07pid 1234"`). Both spellings become legal only under fixed-point composition,
+i.e. (b) **is** SP04-D2 and travels with it. The evidence test now demonstrates the obstacle
+(canonicalizes `"<ts>pid 0000"`) instead of asserting the old behaviour.
+
 ---
 
 ## SP04-D4 — `landedSubplans` must gain SP-02 and SP-03 at the wave-1 merge
@@ -137,6 +175,14 @@ edit is highest, and the quickest edit — adding the package to `probeBlind` �
 reports real percentages for `eval` and `sketch` against their floors; no wave-1 package is described
 as a stub in the job log.
 
+**Disposition (V2-VERIFY, 2026-08-17): fixed.** `landedSubplans` = SP-01…SP-07 on the merged
+`develop` (verified as V2-MERGE-14), `probeBlind` exactly {scheduler, grammar, contract, redact},
+and `cover` reports real percentages for `eval` and `sketch` against their floors. The checkpoint
+also closed the fail-open transcription this row warned about from the other side:
+`test/guards/nightlyfuzz_test.go` now keys its waiver on a transcribed landed-subplans set, and
+`TestNightlyFuzz_LandedSubplansMirrorsCoverGo` parses `cover.go`'s literal so the two cannot drift
+silently.
+
 ---
 
 ## SP04-D5 — canonicalization cost is now dominated by prefilter scans
@@ -160,6 +206,14 @@ machinery would have been speculative.
 **Acceptance.** None required at V2. Re-measure at the checkpoint and record the number; open a
 successor row if the headroom has gone.
 
+**Disposition (V2-VERIFY, 2026-08-17): deferred to V3-VERIFY.** Re-measured at 42 rules — the
+SP04-D1 fix added one (35 regex + 7 numeric-scanner) — so headroom is ~19 rules by this section's
+own ~52 µs model. The loaded reference host cannot judge the 3 ms budget: at the wave-1 merge base
+the benchmark already misses it (p50 4.70 ms, 10/10 samples over), and in a paired
+`-benchtime=200x -count=10` run the fixed HEAD is *faster* than base (p50 4.10 ms, sd 12 %), so
+the +1 rule is invisible under the noise. The authoritative number is the V2 §5 quiet-machine
+pass's; the successor-row decision belongs to V3 with that number in hand.
+
 ---
 
 ## SP04-D6 — `BenchmarkRun_Bash100KB` is noisy enough to confuse the bench gate
@@ -177,3 +231,12 @@ note about this host's I/O latency applies to its scheduling too.
 `-count 10` or more, and either confirm the spread is narrower there or exempt this one benchmark
 from the 25% gate with the measured distribution as the justification. Do not tighten the code to
 chase the number: the budget is met at the median and at every sample below the 90th percentile.
+
+**Disposition (V2-VERIFY, 2026-08-17): deferred to V3-VERIFY.** Ten paired samples at the merge
+base and at the fixed tree give max/min 2.4–2.65× on a loaded host — corroborating and worsening
+the recorded ±33 %. Separately, V2 ruled that the 25 % comparison runs locally as
+`devtool bench-compare` rather than in CI (`ci.yml`'s bench-gate comment records why: the
+committed baseline is single-host), so the confusion this row predicts moved gates but did not
+shrink. The acceptance stands as written: record the quiet-host distribution at `-count 10` or
+more, then either confirm the spread narrows or exempt this one benchmark with the measured
+distribution as justification.

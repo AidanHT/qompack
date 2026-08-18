@@ -13,7 +13,7 @@ normative references if a command below disagrees with the code.
 ## 0a. Inbound from V2 — carried obligations this checkpoint must not lose
 
 Written by the V2 checkpoint session at wave-1 sign-off (see `plans/V2-report.md` §0's
-"Carried to wave 2 and beyond"). Four items land here; none is derivable from the code alone.
+"Carried to wave 2 and beyond"). Five items land here; none is derivable from the code alone.
 
 1. **INHERIT (SP-07 → SP-09): the dependence graph contains legitimate cycles, and the
    negative-knowledge detector must terminate on them.** D-7 forbids only one specific cycle. The
@@ -46,6 +46,18 @@ Written by the V2 checkpoint session at wave-1 sign-off (see `plans/V2-report.md
    stub must keep every intermediate `develop` commit green — check the build-order guards per
    first-parent commit, as V2-MERGE-21 did) and fix the losing document BEFORE the first wave-2
    merge, not after.
+
+5. **Five carried-defect rows are `deferred:V3-VERIFY` in `plans/CARRIED-DEFECTS.tsv`, and the
+   guard makes ignoring them fail.** SP04-D2 (fixed-point composition / Delta-rebase — V2
+   evaluated and rejected the ANSI pre-pass because a BOM deletion reproduces the class with no
+   escape involved), SP04-D3 (its one remaining edge is D2 in disguise), SP04-D5 (re-judge the
+   canon rule budget against the V2 §5 quiet-pass number), SP04-D6 (quiet-host distribution for
+   `BenchmarkRun_Bash100KB`, then confirm or exempt), SP06-D1 (`GCPolicy.Deadline` starts after
+   the tombstone phase; bounding it needs a phase-aware resume cursor). Reasons live in
+   `plans/V2-SP-04-carried-defects.md` and `plans/V2-WAVE1-carried-defects.md`. Fix or
+   consciously re-defer each; `test/guards/carrieddefects_test.go` blocks `plans/V3-report.md`
+   on any row left `open` — and re-deferring without updating the detail document is the one
+   escape it cannot catch, so do not use it.
 
 Two more distant carries for later checkpoints, restated so they survive: `sketchtest.RunCMSSuite`
 cannot discriminate a max-estimator from a min-estimator (SP-16 / V5 inherits a suite that would

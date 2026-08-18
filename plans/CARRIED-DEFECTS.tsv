@@ -25,9 +25,10 @@
 # acts recorded in git history; neither can be reached by doing nothing.
 #
 id	opened_by	owner	status	evidence	summary
-SP04-D1	SP-04	V2-VERIFY	open	TestCarriedDefect_SP04D1_EscapedTempPathIsNotStripped	JSON-escaped Windows temp paths are not canonicalized, so they fork the dedup space and carry user names into stored content
-SP04-D2	SP-04	V2-VERIFY	open	TestKnownDeletionMediatedLimit	canonicalization is not idempotent when a deletion joins two fragments into a value neither half contained
-SP04-D3	SP-04	V2-VERIFY	open	TestCarriedDefect_SP04D3_TimestampAndDurationEdges	three timestamp and duration edge cases are wrong in the rule patterns and faithfully reproduced by the scanner
-SP04-D4	SP-04	V2-VERIFY	open	-	devtool cover's landedSubplans must gain SP-02 and SP-03 at the wave-1 merge or their coverage floors stay off
-SP04-D5	SP-04	V2-VERIFY	open	-	canonicalization cost is now dominated by per-rule prefilter scans, so each new rule spends the hot-path budget linearly
-SP04-D6	SP-04	V2-VERIFY	open	-	BenchmarkRun_Bash100KB measured +-33% run to run on the reference host, which the 25% bench-gate cannot distinguish from a regression
+SP04-D1	SP-04	V2-VERIFY	fixed	TestCarriedDefect_SP04D1_EscapedTempPathIsStripped	JSON-escaped Windows temp paths are not canonicalized, so they fork the dedup space and carry user names into stored content
+SP04-D2	SP-04	V2-VERIFY	deferred:V3-VERIFY	TestKnownDeletionMediatedLimit	canonicalization is not idempotent when a deletion joins two fragments into a value neither half contained
+SP04-D3	SP-04	V2-VERIFY	deferred:V3-VERIFY	TestCarriedDefect_SP04D3_TimestampAndDurationEdges	one timestamp edge remains of the original three: a word byte after an ISO timestamp defeats the rule, and fixing it is legal only under fixed-point composition, so it travels with SP04-D2
+SP04-D4	SP-04	V2-VERIFY	fixed	TestNightlyFuzz_LandedSubplansMirrorsCoverGo	devtool cover's landedSubplans must gain SP-02 and SP-03 at the wave-1 merge or their coverage floors stay off
+SP04-D5	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	canonicalization cost is now dominated by per-rule prefilter scans, so each new rule spends the hot-path budget linearly
+SP04-D6	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	BenchmarkRun_Bash100KB measured +-33% run to run on the reference host, which the 25% bench-compare threshold cannot distinguish from a regression
+SP06-D1	SP-06	V2-VERIFY	deferred:V3-VERIFY	-	GCPolicy.Deadline bounds only the sweep; tombstoneDeadRoots answers only to ctx, so GCReport.Duration can overshoot the deadline by the whole tombstone phase (100-260 ms measured at 650 dead roots)
