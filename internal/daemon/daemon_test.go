@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -661,31 +662,88 @@ func TestSpoolOnBreachFalseDoesNotTransition(t *testing.T) {
 	require.Equal(t, int64(1), dd.m.Counter(counterHotpathDegraded).Value())
 }
 
-// TestHotModeTransitionWritesStateAndNAKs: a breaching window flips HotMode, persists it to
-// state.bin, and the very next observe.tool is NAK'd.
+// TestHotModeTransitionWritesStateAndNAKs is V2-SP05-15's four-way visibility requirement in full:
+// a breaching window must make the sync -> spool transition visible in state.bin, in the NAK frame,
+// in the WARN/LOUD log AND in status. It asserted only the first two, so a regression that flipped
+// the mode without telling anyone — the operator reading logs, /qompack:status reading the
+// snapshot — passed. §8.1 calls this fallback "observable"; two of the four channels were not
+// being checked.
+//
+// The logger here is a real one rather than logging.Nop precisely because the log line is one of
+// the four things under test.
 func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
+	logDir := paths.Of(root).Logs
+	log, closer, err := logging.New(logDir, logging.Warn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, closer.Close()) })
+
 	cfg := testConfig()
 	cfg.Runtime.HotPath.BudgetMs = 15
 	cfg.Runtime.HotPath.BreachWindows = 1
-	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: log})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
 
+	// In production run/ always exists before any state.bin write — AcquireLock creates it during
+	// Run's startup, long before a hot-path sample can be taken. This test drives the transition
+	// directly, so it states that precondition rather than leaning on the accident that used to
+	// supply it: with no .qompack/ on disk at all, paths.WriteAtomic cannot resolve a project root
+	// and stages into the destination's OWN directory, creating run/ as a side effect. The moment
+	// anything else creates .qompack/ first — logging.New, below, makes .qompack/logs — WriteAtomic
+	// resolves the root properly and stages into .qompack/tmp/ instead, and nothing creates run/.
+	// TestConfigReloadDefersChunkChange states the same precondition for the same reason.
+	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).Run), 0o700))
+
 	feedBreachingWindow(dd)
 	require.Equal(t, ipc.HotSpool, dd.registry.HotMode())
 
+	// 1. state.bin — what every client reads before it decides whether to dial at all.
 	st := ipc.ReadState(root, cfg)
 	require.Equal(t, ipc.HotSpool, st.Hot)
 
+	// 2. the NAK frame — the in-band hint that flips an already-running client to spool submode.
 	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
 	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(dd.clk)})
 	require.False(t, resp.OK)
 	require.Equal(t, ipc.HotSpool, resp.Hot)
+
+	// 3. the log — the only channel that survives the process, and so the only one an operator can
+	// read after the fact. applyHotPathTransition emits both a Warn and a Loud; LOUD.log is
+	// append-only and never rotated, which is what makes it the durable half.
+	loud, readErr := os.ReadFile(filepath.Join(logDir, "LOUD.log"))
+	require.NoError(t, readErr, "the transition must reach LOUD.log")
+	require.Contains(t, string(loud), "hot path degraded to spool submode")
+	require.Contains(t, readDayLogs(t, logDir), "hot path degraded to spool submode",
+		"the transition must also reach the day log, at WARN")
+
+	// 4. status — what /qompack:status renders, and the only channel a user can query on demand.
+	statusResp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpStatus, Session: "sess-1", Reply: true, TS: core.NowMilli(dd.clk)})
+	require.True(t, statusResp.OK, "status must answer while degraded; statusResp.Err=%q", statusResp.Err)
+	var snap StatusSnapshot
+	require.NoError(t, json.Unmarshal(statusResp.Data, &snap))
+	require.Equal(t, "spool", snap.Hot, "StatusSnapshot.Hot must report the transition, not the submode the daemon started in")
+}
+
+// readDayLogs returns the concatenated contents of every qompack-<day>.log in dir. The day log's
+// name carries a date, so a test that wants to read what it just wrote globs rather than
+// reconstructing the filename from a clock it does not control.
+func readDayLogs(t *testing.T, dir string) string {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(dir, "qompack-*.log"))
+	require.NoError(t, err)
+	require.NotEmpty(t, paths, "no day log was written in %s", dir)
+	var all strings.Builder
+	for _, p := range paths {
+		b, readErr := os.ReadFile(p)
+		require.NoError(t, readErr)
+		all.Write(b)
+	}
+	return all.String()
 }
 
 // feedBreachingWindow pushes one full sampleWindow of 20ms samples (over a 15ms budget) directly
