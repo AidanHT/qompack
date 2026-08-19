@@ -397,9 +397,23 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 	require.Greater(t, rep.ScannedObjects, gcCheckEvery,
 		"calibration check: the deadline must expire INSIDE the sweep, or this measures the mark phase")
 
-	// One check interval, priced on THIS host from the calibration pass. The limit is the §2.6 row's
-	// 50 ms, or two intervals when a single interval is already close to it — see gcOvershootCeiling.
+	// One check interval, priced on THIS host — from BOTH passes, and the slower rate wins. The
+	// limit is the §2.6 row's 50 ms, or two intervals when a single interval is already close to
+	// it — see gcOvershootCeiling.
+	//
+	// Calibration alone under-prices the interval whenever load rises between the two passes,
+	// and that is not hypothetical: V2-VERIFY's final whole-tree cover run measured the
+	// calibration pass at 41.5 ms/interval and the truncating pass — minutes of co-scheduled
+	// coverage-instrumented packages later — at 68.8 ms/interval, so a sweep that stopped
+	// correctly at the very next check still overshot the stale 83.0 ms limit by 1.5 ms. Pricing
+	// the interval from the judged pass too keeps the assertion about check GRANULARITY (the
+	// §2.6 row's actual subject) rather than about scheduler weather between two measurements;
+	// the fixed gcOvershootCeiling above still caps the total relaxation, so a genuinely
+	// too-coarse gcCheckEvery fails regardless of which pass priced it.
 	interval := full.Duration / time.Duration(full.ScannedObjects) * gcCheckEvery
+	if measured := (budget + overshoot) / time.Duration(rep.ScannedObjects) * gcCheckEvery; measured > interval {
+		interval = measured
+	}
 	limit := gcDeadlineOvershoot
 	if twoIntervals := 2 * interval; twoIntervals > limit {
 		limit = twoIntervals
