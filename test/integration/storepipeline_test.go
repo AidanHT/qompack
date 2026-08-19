@@ -390,7 +390,7 @@ const plantedPEM = `-----BEGIN RSA PRIV` + `ATE KEY-----
 MIIEowIBAAKCAQEAvXjRmqLbQzWkcPnHhFuYdGxJsVeMNpBaZqRoCtDwEfUgIhLj
 XrSyOBvAkTmHcQnZePldRsWuGxJfRbNvMYtCqLzDhoAiEVpSbXcWmDdQzRfLgNvJ
 uHtEeYwRrTqPpOoIiKkLlZzXxCcVvBbNnMmQqWwEeRrTtYyUuIiOoPpAaSsDdFfG
-@@SEC_PEM_RSA_END@@`
+-----END RSA PRIV` + `ATE KEY-----`
 
 // secretSeeds returns one planted instance of each of the ten built-in redact rule families, in
 // internal/redact's own §5.22a rule order. Every secret is longer than secretRunLimit bytes (so

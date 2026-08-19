@@ -22,6 +22,8 @@ import "bytes"
 var secretTokens = map[string]string{
 	"@@SEC_AWS_AKID@@":        "AKIA" + "IOSFODNN7EXAMPLE",
 	"@@SEC_AWS_AKID_ALPHA@@":  "AKIA" + "ABCDEFGHIJKLMNOP",
+	"@@SEC_AWS_ASIA@@":        "ASIA" + "IOSFODNN7EXAMPLE",
+	"@@SEC_ANTHROPIC_AB@@":    "sk-ant-api03-" + "AAAABBBBCCCCDDDD",
 	"@@SEC_GH_PAT@@":          "ghp_" + "1234567890abcdefghijklmnopqrstuvwxyz12",
 	"@@SEC_GH_PAT_ALPHA@@":    "ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789",
 	"@@SEC_GH_OAUTH@@":        "gho_" + "zyxwvutsrqponmlkjihgfedcba9876543210",

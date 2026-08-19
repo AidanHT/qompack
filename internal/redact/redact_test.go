@@ -541,7 +541,7 @@ var literalProbes = map[string]string{
 }
 
 // pemProbe is a minimal but structurally complete private-key block.
-const pemProbe = "-----BEGIN RSA PRIV" + "ATE KEY-----\nMIIBOgIBAAJBAKj34GkxFhD9\n@@SEC_PEM_RSA_END@@"
+const pemProbe = "-----BEGIN RSA PRIV" + "ATE KEY-----\nMIIBOgIBAAJBAKj34GkxFhD9\n-----END RSA PRIV" + "ATE KEY-----"
 
 // TestPrefilter_EveryLiteralIsMandatory asserts each probe really does carry a secret the rules
 // must catch, on BOTH paths. Combined with the isolation property described on literalProbes, this
