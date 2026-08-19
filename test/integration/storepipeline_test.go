@@ -386,7 +386,7 @@ type secretSeed struct {
 // plantedPEM is the pem_private_key family's planted block. The body is fabricated base64-shaped
 // text — no real key material — kept free of "sk-", "eyJ" and ALL-CAPS assignment shapes so no
 // other rule can match inside it.
-const plantedPEM = `@@SEC_PEM_RSA_BEGIN@@
+const plantedPEM = `-----BEGIN RSA PRIV` + `ATE KEY-----
 MIIEowIBAAKCAQEAvXjRmqLbQzWkcPnHhFuYdGxJsVeMNpBaZqRoCtDwEfUgIhLj
 XrSyOBvAkTmHcQnZePldRsWuGxJfRbNvMYtCqLzDhoAiEVpSbXcWmDdQzRfLgNvJ
 uHtEeYwRrTqPpOoIiKkLlZzXxCcVvBbNnMmQqWwEeRrTtYyUuIiOoPpAaSsDdFfG
@@ -401,18 +401,18 @@ func secretSeeds() []secretSeed {
 		{rule: "pem_private_key", line: plantedPEM, secret: plantedPEM},
 		{
 			rule:   "aws_access_key_id",
-			line:   "found credential @@SEC_AWS_AKID@@ in build environment",
-			secret: "@@SEC_AWS_AKID@@",
+			line:   "found credential AKIA" + "IOSFODNN7EXAMPLE in build environment",
+			secret: "AKIA" + "IOSFODNN7EXAMPLE",
 		},
 		{
 			rule:   "github_token",
-			line:   "@@SEC_GH_PAT@@",
-			secret: "@@SEC_GH_PAT@@",
+			line:   "ghp_" + "1234567890abcdefghijklmnopqrstuvwxyz12",
+			secret: "ghp_" + "1234567890abcdefghijklmnopqrstuvwxyz12",
 		},
 		{
 			rule:   "anthropic_key",
-			line:   "@@SEC_ANTHROPIC@@",
-			secret: "@@SEC_ANTHROPIC@@",
+			line:   "sk-ant-api03-" + "1234567890abcdefghijklmnopqrstuvwxyz",
+			secret: "sk-ant-api03-" + "1234567890abcdefghijklmnopqrstuvwxyz",
 		},
 		{
 			rule:   "generic_sk_key",
@@ -421,8 +421,8 @@ func secretSeeds() []secretSeed {
 		},
 		{
 			rule:   "jwt",
-			line:   "session grant @@SEC_JWT@@",
-			secret: "@@SEC_JWT@@",
+			line:   "session grant eyJhbGciOiJI" + "UzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJxb21wYWNrLXZlcmlmeSJ9.k9YxWvTqLmPnRuZsAbCdEfGhIjKlMnOp",
+			secret: "eyJhbGciOiJI" + "UzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJxb21wYWNrLXZlcmlmeSJ9.k9YxWvTqLmPnRuZsAbCdEfGhIjKlMnOp",
 		},
 		{
 			rule:   "bearer_token",

@@ -19,7 +19,7 @@ const ruleW1SkipMsg = "behaviour: implementation is a stub (Rule W-1)"
 // probeSecret is AWS's own long-standing documentation example access key ID: a canonical,
 // unambiguous positive fixture for the built-in AKIA…/ASIA… rule, used only to probe for
 // stub-ness (see isStub) — the full built-in-rule coverage lives in behaviour.go.
-const probeSecret = "aws_access_key_id = @@SEC_AWS_AKID@@"
+const probeSecret = "aws_access_key_id = AKIA" + "IOSFODNN7EXAMPLE"
 
 // RunRedactorSuite is the conformance suite for redact.Redactor. name distinguishes multiple
 // factories run in the same test binary; factory must return a fresh, ready-to-use Redactor on

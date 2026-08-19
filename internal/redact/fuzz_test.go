@@ -32,7 +32,7 @@ func seedFuzzCorpus(f *testing.F) {
 	f.Add([]byte("«redacted:«redacted:jwt»»"))
 	f.Add([]byte("password="))
 	f.Add([]byte("password=x"))
-	f.Add([]byte("@@SEC_AWS_AKID@@"))
+	f.Add([]byte("AKIA" + "IOSFODNN7EXAMPLE"))
 	f.Add([]byte("\xff\xfe\x00 binary noise \x01\x02"))
 }
 

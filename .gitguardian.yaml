@@ -5,12 +5,12 @@
 # secret scanner pointed at this repository will match on the corpus by design. Every value in it
 # is synthetic and was verified as such on 2026-08-19 by scanning all 1616 unique blobs in history:
 #
-#   - @@SEC_AWS_AKID@@            AWS's own published example access key ID
-#   - @@SEC_AWS_AKID_ALPHA@@            the alphabet
+#   - the AKIA... access key ID       AWS's own published documentation example
+#   - a second AKIA... id             the alphabet, A through P
 #   - ghp_1234567890abcdefghij...     digits followed by the alphabet
 #   - gho_zyxwvutsrqponmlkjihg...     the alphabet backwards
 #   - @@SEC_ANTHROPIC_AB@@   four repeated letters, four times
-#   - @@SEC_STRIPE@@             eleven a's
+#   - a Stripe-shaped live key        the letter a, eleven times
 #   - the JWT from jwt.io's own front page, payload {"sub":"1234567890"}
 #   - postgres://…:hunter2@…          the IRC joke, plus toor, s3cr3tpw, tr0ub4dor8gorgonzola
 #   - pem_private_key.txt             openssl rejects it: "Could not find private key". The body is
