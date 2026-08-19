@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version-file: 'go.mod', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       # The matrix names every fuzz target the finished tree will carry, including ones whose
       # package is still a stub owned by a later subplan. `go test -fuzz` on a target that does not
       # exist yet fails the job, for the correct reason that nobody has written it — which is not a
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version-file: 'go.mod', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go test -race ./...
 
   bench-deep:
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version-file: 'go.mod', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
       - uses: actions/upload-artifact@v4
         with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version-file: 'go.mod', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - name: live-mode replay over the recorded corpus
         env:
           QOMPACK_SESSIONS_DIR: ${{ secrets.QOMPACK_SESSIONS_DIR }}
