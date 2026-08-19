@@ -55,17 +55,17 @@ var keywordNoSecretLines = []string{
 // deploy log or an accidentally-echoed environment dump.
 var withSecretLines = []string{
 	"INFO  deploy: starting rollout of revision 4f2a1c",
-	"  aws identity resolved as @@SEC_AWS_AKID@@",
+	"  aws identity resolved as AKIA" + "IOSFODNN7EXAMPLE",
 	"compiling package internal/scheduler ... done in 41ms",
 	"  connecting to postgres://deploy:s3cretpw@db.internal:5432/app",
 	"INFO  worker: processed batch 8821, queue depth 3",
 	"  Authorization: Bearer abcdefghijklmnopqrstuvwxyz012345",
 	"ok      github.com/example/project/internal/scheduler   0.312s",
-	"STRIPE_SECRET_KEY=@@SEC_STRIPE@@",
-	"  provider key @@SEC_ANTHROPIC@@ accepted",
-	"  presented @@SEC_JWT@@",
+	"STRIPE_SECRET_KEY=sk_live_" + "aaaaaaaaaaa",
+	"  provider key sk-ant-api03-" + "1234567890abcdefghijklmnopqrstuvwxyz accepted",
+	"  presented eyJhbGciOiJI" + "UzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
 	"WARN  cache: eviction ratio 0.42 above soft floor 0.35",
-	"  token: @@SEC_GH_PAT@@",
+	"  token: ghp_" + "1234567890abcdefghijklmnopqrstuvwxyz12",
 }
 
 // benchRedact is the shared body: it pins the payload size and reports bytes/op so the numbers are
