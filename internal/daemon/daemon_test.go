@@ -375,10 +375,10 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
-	dd.drain = newDrainer(DrainConfig{
+	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
 		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
-	})
+	}))
 	dd.registry.SetHotMode(ipc.HotSpool, "test")
 
 	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
@@ -424,10 +424,10 @@ func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
-	dd.drain = newDrainer(DrainConfig{
+	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
 		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
-	})
+	}))
 
 	flushReq := ipc.Request{
 		Op: ipc.OpFlush, Session: "sess-1", Reply: true,

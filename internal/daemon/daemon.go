@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/config"
@@ -81,8 +82,16 @@ type daemon struct {
 	idle     *idleController
 	monitor  contract.Monitor
 
-	ing   *ingest
-	drain *drainer
+	ing *ingest
+
+	// drain is written by Run and read by Drain, which callers reach from other goroutines: the
+	// admin.drain route, the flush and idle routes, and tests that drive a daemon they started.
+	// A plain field made that a data race — the first CI run to actually execute `go test -race`
+	// reported it between Run's assignment and Drain's read. The old nil check did not make it
+	// safe: under the Go memory model an unsynchronised read concurrent with a write has no
+	// guarantee of observing either the old value or the new one, so "nil means not ready yet"
+	// was never a promise the race could keep.
+	drain atomic.Pointer[drainer]
 
 	breach     *breachDetector
 	hotSamples chan time.Duration
@@ -354,7 +363,7 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.ing.Start(runCtx, 0, d.runIngested)
 	go d.hotPathWorker(runCtx)
 
-	d.drain = newDrainer(DrainConfig{
+	d.drain.Store(newDrainer(DrainConfig{
 		Root:     d.root,
 		Log:      d.log,
 		Metrics:  d.m,
@@ -362,7 +371,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		Dispatch: d.drainDispatch,
 		Seen:     d.ing.seen,
 		IsLive:   d.sessionIsLive,
-	})
+	}))
 
 	server, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)
 	if err != nil {
@@ -531,10 +540,11 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
 // only ever run once Run has.
 func (d *daemon) Drain(ctx context.Context) (int, error) {
-	if d.drain == nil {
+	dr := d.drain.Load()
+	if dr == nil {
 		return 0, nil
 	}
-	return d.drain.Drain(ctx)
+	return dr.Drain(ctx)
 }
 
 // runIngested is the ingest worker pool's dispatch callback: it resolves the event, routes to the
