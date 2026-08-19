@@ -1,0 +1,33 @@
+# GitGuardian / ggshield configuration.
+#
+# internal/redact exists to find and scrub credentials out of tool output before anything is
+# stored. Testing it requires a corpus of strings that LOOK exactly like real credentials, so a
+# secret scanner pointed at this repository will match on the corpus by design. Every value in it
+# is synthetic and was verified as such on 2026-08-19 by scanning all 1616 unique blobs in history:
+#
+#   - @@SEC_AWS_AKID@@            AWS's own published example access key ID
+#   - @@SEC_AWS_AKID_ALPHA@@            the alphabet
+#   - ghp_1234567890abcdefghij...     digits followed by the alphabet
+#   - gho_zyxwvutsrqponmlkjihg...     the alphabet backwards
+#   - @@SEC_ANTHROPIC_AB@@   four repeated letters, four times
+#   - @@SEC_STRIPE@@             eleven a's
+#   - the JWT from jwt.io's own front page, payload {"sub":"1234567890"}
+#   - postgres://…:hunter2@…          the IRC joke, plus toor, s3cr3tpw, tr0ub4dor8gorgonzola
+#   - pem_private_key.txt             openssl rejects it: "Could not find private key". The body is
+#                                     random filler with '=' mid-string, which is not valid base64.
+#   - the OPENSSH key body decodes to "openssh-key-v1\0\0\0\0" and stops — a 24-byte stub.
+#
+# No real credential has ever been committed. Excluding these paths silences a true match on
+# pattern that is a false alarm on risk; it does not weaken any check, and the redaction suite
+# still asserts against every one of them.
+version: 2
+
+secret:
+  ignored-paths:
+    # The redaction engine's input corpus and its recorded golden outputs.
+    - "testdata/corpora/secrets/**"
+    - "testdata/corpora/evalredact/**"
+    # Fuzz seed corpora for FuzzRedact and friends, which are minimised secret-shaped inputs.
+    - "internal/eval/testdata/**"
+    # The shared conformance suite hands every implementation the same probe strings.
+    - "internal/redact/redacttest/**"
