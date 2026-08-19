@@ -217,6 +217,8 @@ var (
 
 // buildNoInject compiles ./cmd/qompack with -tags noinject into its own temp directory, so
 // TestFaultSitesInertWhenUnset can compare its output against the default build's byte for byte.
+// The directory is created with os.MkdirTemp rather than t.TempDir and is removed by
+// removeNoInjectBuild from TestMain, not by a t.Cleanup, for the same reason as doBuild's.
 func buildNoInject(t *testing.T) string {
 	t.Helper()
 	buildNoInjectOnce.Do(func() {
@@ -247,12 +249,19 @@ func buildNoInject(t *testing.T) string {
 	if buildNoInjectErr != nil {
 		t.Fatalf("e2e: building the -tags noinject ./cmd/qompack: %v", buildNoInjectErr)
 	}
-	t.Cleanup(func() {
-		if buildNoInjectDir != "" {
-			_ = os.RemoveAll(buildNoInjectDir)
-		}
-	})
 	return builtNoInjectBin
+}
+
+// removeNoInjectBuild deletes the directory buildNoInject created. TestMain calls it after the
+// last test, mirroring harness.go's Build/removeBuild pair: the once-cached binary has to outlive
+// the test that triggered the build — under `go test -count=2` one process runs every test twice
+// against a single fired sync.Once, and the per-test t.Cleanup that used to live here handed the
+// second execution a cached path whose directory was already gone (found at V2-VERIFY, gate
+// V2-ALL-02).
+func removeNoInjectBuild() {
+	if buildNoInjectDir != "" {
+		_ = os.RemoveAll(buildNoInjectDir)
+	}
 }
 
 // TestFaultSitesInertWhenUnset is task-6-spec.md's e2e table row: with QOMPACK_FAULT unset, a hook
