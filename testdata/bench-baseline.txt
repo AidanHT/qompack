@@ -1,797 +1,836 @@
-# qompack micro-benchmark baseline — recorded by SP-01, the first checkpoint (V1).
-#
-# Recorded with the command V1-VERIFY §7 P-13 uses for comparison, but at -count 10 rather than
-# -count 5: benchstat needs at least 6 samples to report a confidence interval, so a 5-sample
-# baseline can only ever be compared point-to-point.
-#
-#     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
-#
-# Host: Windows 11, Intel Core Ultra 7 155H, NTFS. This host has high per-syscall filesystem
-# latency — an isolated fsync measures ~2.1 ms and a create+write+close ~0.65 ms. The two
-# I/O-bound entries below are dominated by that, and will look very different on the Linux CI
-# runners. Treat a large improvement there as a change of machine, not a change of code; the
-# allocation columns are the platform-independent half of this file.
-#
-# Budgets from SP-01's Definition of Done item 16, and how this recording compares:
-#
-#     BenchmarkHistogram_Observe        < 100 ns/op    MET      19.09n ±13%
-#     BenchmarkConfigLoad_ColdNoFiles   < 2 ms/op      MET      950.5µ ± 6%
-#     BenchmarkHookNoop_InProcess       < 3 ms/op      MISSED   5.322m ± 4%
-#     BenchmarkPathsWriteAtomic_4KB     < 2 ms/op      MISSED   4.718m ± 8%
-#
-# Both misses are filesystem-bound on this host rather than algorithmic, and both are recorded
-# honestly rather than restated to fit:
-#
-#   - PathsWriteAtomic_4KB cannot reach 2 ms here by construction. §4.6 requires an fsync of the
-#     staged file before the rename, and a bare fsync alone costs ~2.1 ms on this machine — more
-#     than the whole budget, before WriteAtomic does any work of its own.
-#
-#   - HookNoop_InProcess spends its time on syscalls the wave-0 hook repeats on every single
-#     invocation: EnsureLayout's directory creation, a fresh logger open, and the observation
-#     append. Allocations are flat at 2300/op across every sample, so this is I/O, not garbage.
-#     SP-05's resident daemon is what removes it — caching the layout and the logger is precisely
-#     the work budget B-A (hook p99 < 15 ms) assumes has already been done. This number is the
-#     headroom measurement the benchmark exists to provide, and it says the no-op path currently
-#     consumes about a third of B-A before SP-08 observes anything at all.
-#
+?   	github.com/qompack/qompack/cmd/qompack	[no test files]
+PASS
+ok  	github.com/qompack/qompack/internal/analyzer	0.480s
+PASS
+ok  	github.com/qompack/qompack/internal/analyzer/analyzertest	0.448s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/canon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRun_Bash100KB-22     	     468	   2709864 ns/op	  37.79 MB/s	 1062685 B/op	      34 allocs/op
+BenchmarkRun_Bash100KB-22     	     420	   2611775 ns/op	  39.21 MB/s	 1062676 B/op	      34 allocs/op
+BenchmarkRun_Bash100KB-22     	     328	   4366997 ns/op	  23.45 MB/s	 1064002 B/op	      35 allocs/op
+BenchmarkRun_Bash100KB-22     	     289	   5063735 ns/op	  20.22 MB/s	 1068779 B/op	      37 allocs/op
+BenchmarkRun_Bash100KB-22     	     272	   5103352 ns/op	  20.07 MB/s	 1063303 B/op	      34 allocs/op
+BenchmarkRun_Bash100KB-22     	     267	   4542911 ns/op	  22.54 MB/s	 1064962 B/op	      35 allocs/op
+BenchmarkRun_Bash100KB-22     	     255	   4515461 ns/op	  22.68 MB/s	 1064506 B/op	      35 allocs/op
+BenchmarkRun_Bash100KB-22     	     234	   4764144 ns/op	  21.50 MB/s	 1065806 B/op	      35 allocs/op
+BenchmarkRun_Bash100KB-22     	     338	   4692004 ns/op	  21.83 MB/s	 1065460 B/op	      35 allocs/op
+BenchmarkRun_Bash100KB-22     	     285	   4207079 ns/op	  24.34 MB/s	 1066336 B/op	      36 allocs/op
+BenchmarkRun_GoTest-22        	     901	   1373553 ns/op	   8.68 MB/s	  545830 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     969	   1266615 ns/op	   9.42 MB/s	  546179 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	    1012	   1294321 ns/op	   9.21 MB/s	  546077 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     910	   1360439 ns/op	   8.77 MB/s	  545896 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     904	   1349528 ns/op	   8.84 MB/s	  545963 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     820	   1449701 ns/op	   8.23 MB/s	  546607 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     811	   1303274 ns/op	   9.15 MB/s	  545280 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     867	   1326828 ns/op	   8.99 MB/s	  546248 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     920	   1422414 ns/op	   8.39 MB/s	  546075 B/op	     285 allocs/op
+BenchmarkRun_GoTest-22        	     783	   1318672 ns/op	   9.04 MB/s	  546065 B/op	     285 allocs/op
+BenchmarkRun_KeepDeltas-22    	     268	   4131044 ns/op	  24.79 MB/s	 1064665 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     272	   4813949 ns/op	  21.27 MB/s	 1064116 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     272	   4029668 ns/op	  25.41 MB/s	 1066207 B/op	      36 allocs/op
+BenchmarkRun_KeepDeltas-22    	     286	   4465035 ns/op	  22.94 MB/s	 1065045 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     266	   4677604 ns/op	  21.89 MB/s	 1064983 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     295	   4148650 ns/op	  24.68 MB/s	 1065130 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     252	   4441595 ns/op	  23.06 MB/s	 1065373 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     271	   4438087 ns/op	  23.07 MB/s	 1068926 B/op	      37 allocs/op
+BenchmarkRun_KeepDeltas-22    	     302	   4694264 ns/op	  21.82 MB/s	 1063762 B/op	      35 allocs/op
+BenchmarkRun_KeepDeltas-22    	     312	   4059967 ns/op	  25.22 MB/s	 1066493 B/op	      36 allocs/op
+BenchmarkRestore_100KB-22     	   30752	     52175 ns/op	1962.76 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   31066	     51473 ns/op	1989.54 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   24999	     56552 ns/op	1810.86 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   21385	     47613 ns/op	2150.85 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   26637	     48931 ns/op	2092.89 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   32175	     44638 ns/op	2294.20 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   26407	     55435 ns/op	1847.36 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   26995	     44941 ns/op	2278.70 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   29233	     46753 ns/op	2190.39 MB/s	  106496 B/op	       1 allocs/op
+BenchmarkRestore_100KB-22     	   30895	     44276 ns/op	2312.95 MB/s	  106496 B/op	       1 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/canon	68.160s
+PASS
+ok  	github.com/qompack/qompack/internal/canon/canontest	0.549s
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint	0.514s
+PASS
+ok  	github.com/qompack/qompack/internal/checkpoint/checkpointtest	0.495s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/chunk
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkSplit_100KB-22            	   12476	     95470 ns/op	1072.59 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	   12110	    140258 ns/op	 730.08 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	    9762	    143659 ns/op	 712.80 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	   10000	    137389 ns/op	 745.33 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	    8102	    141217 ns/op	 725.12 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	    8056	    124179 ns/op	 824.61 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	   10000	    137161 ns/op	 746.57 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	    8185	    147128 ns/op	 695.99 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	   10000	    145106 ns/op	 705.69 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkSplit_100KB-22            	    9531	    131189 ns/op	 780.55 MB/s	    4992 B/op	       2 allocs/op
+BenchmarkGearScan_1MiB-22          	    1395	    789618 ns/op	1327.95 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    2244	    700001 ns/op	1497.96 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    1722	    756692 ns/op	1385.74 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    1600	    680886 ns/op	1540.02 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    1794	    690030 ns/op	1519.61 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    1944	    756710 ns/op	1385.70 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    1456	    699405 ns/op	1499.24 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    2233	    719786 ns/op	1456.79 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    1504	    715671 ns/op	1465.16 MB/s	       0 B/op	       0 allocs/op
+BenchmarkGearScan_1MiB-22          	    2481	    684487 ns/op	1531.91 MB/s	       0 B/op	       0 allocs/op
+BenchmarkSplit_1MiB-22             	     739	   1469882 ns/op	 713.37 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     774	   1590165 ns/op	 659.41 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     903	   1583609 ns/op	 662.14 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     714	   1471248 ns/op	 712.71 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     843	   1544902 ns/op	 678.73 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     691	   1507741 ns/op	 695.46 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     712	   1657169 ns/op	 632.75 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     902	   1528272 ns/op	 686.12 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	     867	   1440327 ns/op	 728.01 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplit_1MiB-22             	    1096	   1389000 ns/op	 754.91 MB/s	   57472 B/op	       2 allocs/op
+BenchmarkSplitStream_4MiB-22       	     183	   7391415 ns/op	 567.46 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     166	   7234052 ns/op	 579.80 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     175	   6739310 ns/op	 622.36 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     182	   6394049 ns/op	 655.97 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     190	   6664142 ns/op	 629.38 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     169	   6834990 ns/op	 613.65 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     172	   7093849 ns/op	 591.26 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     177	   7195786 ns/op	 582.88 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     163	   7318779 ns/op	 573.09 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkSplitStream_4MiB-22       	     164	   6591516 ns/op	 636.32 MB/s	   33000 B/op	       6 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   35038	     31151 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   43870	     34162 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   36373	     29756 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   41871	     32088 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   39652	     32736 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   39669	     30620 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   37868	     31345 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   36075	     30392 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   40120	     30165 ns/op	      32 B/op	       1 allocs/op
+BenchmarkRootHash_1000Chunks-22    	   37698	     27061 ns/op	      32 B/op	       1 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/chunk	80.641s
+PASS
+ok  	github.com/qompack/qompack/internal/chunk/chunktest	0.483s
 goos: windows
 goarch: amd64
 pkg: github.com/qompack/qompack/internal/cli
 cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkHookNoop_InProcess-22    	     229	   5135371 ns/op	  136157 B/op	    2300 allocs/op
-BenchmarkHookNoop_InProcess-22    	     211	   5406308 ns/op	  136288 B/op	    2301 allocs/op
-BenchmarkHookNoop_InProcess-22    	     199	   5142482 ns/op	  136346 B/op	    2301 allocs/op
-BenchmarkHookNoop_InProcess-22    	     181	   5656927 ns/op	  136194 B/op	    2301 allocs/op
-BenchmarkHookNoop_InProcess-22    	     238	   5429323 ns/op	  136231 B/op	    2300 allocs/op
-BenchmarkHookNoop_InProcess-22    	     244	   5360962 ns/op	  135976 B/op	    2300 allocs/op
-BenchmarkHookNoop_InProcess-22    	     235	   5040038 ns/op	  136066 B/op	    2300 allocs/op
-BenchmarkHookNoop_InProcess-22    	     219	   5252800 ns/op	  136135 B/op	    2300 allocs/op
-BenchmarkHookNoop_InProcess-22    	     190	   5510489 ns/op	  136542 B/op	    2301 allocs/op
-BenchmarkHookNoop_InProcess-22    	     219	   5282928 ns/op	  136093 B/op	    2301 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1690	    627806 ns/op	   33057 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1670	    652582 ns/op	   33056 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1942	    791702 ns/op	   33108 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1318	    930069 ns/op	   33085 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1225	   1048233 ns/op	   33092 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	     950	   1241510 ns/op	   33094 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	     985	   1052091 ns/op	   33067 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1224	    921663 ns/op	   33088 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1204	   1039366 ns/op	   33062 B/op	     321 allocs/op
+BenchmarkHookNoop_InProcess-22    	    1246	    905046 ns/op	   33110 B/op	     321 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/cli	13.589s
+PASS
+ok  	github.com/qompack/qompack/internal/commands	0.501s
 goos: windows
 goarch: amd64
 pkg: github.com/qompack/qompack/internal/config
 cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkConfigLoad_ColdNoFiles-22    	    1155	    976996 ns/op	   95826 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1149	   1005682 ns/op	   95812 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1221	    991112 ns/op	   95806 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1173	    957035 ns/op	   95815 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1227	    948731 ns/op	   95878 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1401	    952206 ns/op	   95783 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1797	    927815 ns/op	   95813 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1164	    889399 ns/op	   95782 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1536	    917467 ns/op	   95854 B/op	    1965 allocs/op
-BenchmarkConfigLoad_ColdNoFiles-22    	    1156	    875046 ns/op	   95828 B/op	    1965 allocs/op
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/obs
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkHistogram_Observe-22    	64702557	        18.86 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	59913424	        19.56 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	69235695	        19.74 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	72564112	        18.58 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	67173452	        24.54 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	51065785	        20.40 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	71745876	        19.32 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	86488356	        18.79 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	62699272	        16.53 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHistogram_Observe-22    	100000000	        10.71 ns/op	       0 B/op	       0 allocs/op
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/paths
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkPathsWriteAtomic_4KB-22    	     282	   3967764 ns/op	   1.03 MB/s	   15690 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     250	   4740545 ns/op	   0.86 MB/s	   15699 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     261	   4388982 ns/op	   0.93 MB/s	   15708 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     276	   4384899 ns/op	   0.93 MB/s	   15691 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     258	   5083247 ns/op	   0.81 MB/s	   15697 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     254	   4665022 ns/op	   0.88 MB/s	   15697 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     238	   4747760 ns/op	   0.86 MB/s	   15682 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     249	   4792694 ns/op	   0.85 MB/s	   15698 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     201	   5173678 ns/op	   0.79 MB/s	   15703 B/op	     169 allocs/op
-BenchmarkPathsWriteAtomic_4KB-22    	     264	   4694805 ns/op	   0.87 MB/s	   15691 B/op	     169 allocs/op
-# --- SP-07 (internal/dag), appended by the dependence-DAG subplan ---
-#
-# Recorded with a bounded iteration count rather than the default wall-clock benchtime:
-#
-#     go test -run '^$' -bench . -benchmem -benchtime 20x -count 10 -p 1 ./internal/dag/
-#
-# BenchmarkCompact20k and BenchmarkOpen20k each rebuild a ~19,500-record log per operation, so
-# letting Go calibrate b.N against a 1s target would spend minutes on those two alone for no extra
-# signal. Every sample below is therefore 20 iterations; benchstat compares like with like as long
-# as the same flags are used on both sides.
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/dag
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkBackwardSlice5000-22        	      20	    580820 ns/op	  132310 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    432460 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    466995 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    445545 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    388205 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    374350 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    416795 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    360550 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    381770 ns/op	  132067 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000-22        	      20	    301850 ns/op	  132056 B/op	    1435 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    866725 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    892955 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    872720 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    961700 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    851365 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    880070 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    866220 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    811240 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    836500 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkBackwardSlice5000Full-22    	      20	    831555 ns/op	  297512 B/op	    2912 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     36055 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     13390 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     12435 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     12460 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     12175 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     12165 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     10690 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     17840 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     12165 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkForwardSlice5000-22         	      20	     16355 ns/op	   31160 B/op	      56 allocs/op
-BenchmarkCrossingEdges-22            	      20	       235.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       200.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       205.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       180.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       155.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       180.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       175.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       150.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       155.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCrossingEdges-22            	      20	       140.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkNodesAfter-22               	      20	    255155 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    226280 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    226160 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    255220 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    288815 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    258485 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    323270 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    532880 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    333430 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkNodesAfter-22               	      20	    249610 ns/op	  532070 B/op	       1 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3853545 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   4309085 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   4024820 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3876915 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3685995 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3852740 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   4003040 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3716580 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3677230 ns/op	      56 B/op	       2 allocs/op
-BenchmarkRebuildIndex-22             	      20	   3932290 ns/op	      56 B/op	       2 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      2150 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1495 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1775 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      2505 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1420 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1820 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1505 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      2370 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1445 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddNodeEdgePair-22          	      20	      1615 ns/op	    2430 B/op	       7 allocs/op
-BenchmarkAddToolUse-22               	      20	      7230 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      9380 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      9990 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      9235 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      5795 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      8940 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      6395 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      8355 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      7615 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkAddToolUse-22               	      20	      6290 ns/op	   10984 B/op	      37 allocs/op
-BenchmarkOpen20k-22                  	      20	  85308980 ns/op	22742397 B/op	  291977 allocs/op
-BenchmarkOpen20k-22                  	      20	  94166130 ns/op	22656686 B/op	  291974 allocs/op
-BenchmarkOpen20k-22                  	      20	  86425230 ns/op	22720958 B/op	  291977 allocs/op
-BenchmarkOpen20k-22                  	      20	  83769795 ns/op	22680743 B/op	  291974 allocs/op
-BenchmarkOpen20k-22                  	      20	  85542580 ns/op	22687460 B/op	  291975 allocs/op
-BenchmarkOpen20k-22                  	      20	  85740625 ns/op	22723242 B/op	  291976 allocs/op
-BenchmarkOpen20k-22                  	      20	  83884605 ns/op	22715332 B/op	  291976 allocs/op
-BenchmarkOpen20k-22                  	      20	  81587900 ns/op	22728772 B/op	  291977 allocs/op
-BenchmarkOpen20k-22                  	      20	  85763275 ns/op	22698972 B/op	  291976 allocs/op
-BenchmarkOpen20k-22                  	      20	  83923730 ns/op	22649779 B/op	  291974 allocs/op
-BenchmarkCompact20k-22               	      20	  37808865 ns/op	12868878 B/op	   82372 allocs/op
-BenchmarkCompact20k-22               	      20	  37494080 ns/op	12868522 B/op	   82373 allocs/op
-BenchmarkCompact20k-22               	      20	  39323260 ns/op	12868098 B/op	   82369 allocs/op
-BenchmarkCompact20k-22               	      20	  49728050 ns/op	12868259 B/op	   82370 allocs/op
-BenchmarkCompact20k-22               	      20	  40888310 ns/op	12869265 B/op	   82375 allocs/op
-BenchmarkCompact20k-22               	      20	  42718220 ns/op	12867273 B/op	   82367 allocs/op
-BenchmarkCompact20k-22               	      20	  43304720 ns/op	12867858 B/op	   82371 allocs/op
-BenchmarkCompact20k-22               	      20	  38323690 ns/op	12868753 B/op	   82374 allocs/op
-BenchmarkCompact20k-22               	      20	  49204915 ns/op	12865850 B/op	   82361 allocs/op
-BenchmarkCompact20k-22               	      20	  48523700 ns/op	12867188 B/op	   82367 allocs/op
-
-
-################################################################################
-# SP-06 — content-addressed store, redaction, exact token accounting (V2).
-#
-# Recorded with the same command shape as the SP-01 block above, but at -count 6
-# rather than -count 10 (benchstat's minimum for a confidence interval) and
-# restricted to the benchmarks that complete in seconds:
-#
-#     go test -run '^$' -bench <subset> -benchmem -count 6 -p 1 ./internal/store ./internal/redact ./internal/tokens
-#
-# Host: Windows 11, Intel Core Ultra 7 155H, NTFS — the same machine as the
-# SP-01 block, and the same caveat applies with more force. SP-06's budgets are
-# specified against the CI LINUX RUNNER. A CPU profile of the store's misses
-# attributes 90.9% of the time to runtime.cgocall (i.e. raw syscall cost, with
-# zstd decode at 1.4%), and open() is roughly 10x cheaper on Linux, so the
-# I/O-bound rows below are platform measurements rather than algorithmic ones.
-# RE-MEASURE ON LINUX BEFORE TREATING ANY OF THEM AS A REAL MISS.
-#
-# These numbers are also load-sensitive to an unusual degree. An earlier run of
-# the same benchmarks on a busy machine reported every figure 3-4x worse
-# (Redact_100KB_NoSecrets at 2.6 ms rather than 0.61 ms). The block below was
-# taken on a quiet machine; a wildly different reading is a statement about the
-# host, not the code.
-#
-# Measured medians against the subplan's budget table:
-#
-#     BenchmarkEstimateRoot_64Cached              <= 5 us      MET      2.2 us
-#     BenchmarkUnits_100KB                        <= 500 us    MET      163 us
-#     BenchmarkOpenSpan_4KB_of_4MB                <= 150 us    MET      91 us
-#     BenchmarkMarkEncoded_100                    <= 1 ms      MET      519 us
-#     BenchmarkRedact_100KB_NoSecrets             <= 2 ms      MET      607 us
-#     BenchmarkGetChunk                           <= 60 us     MISSED   304 us
-#     BenchmarkRedact_100KB_NoSecretsButKeyword   <= 2 ms      MISSED   10.21 ms
-#     BenchmarkRedact_100KB_WithSecrets           <= 2 ms      MISSED   37.50 ms
-#
-# The two redaction misses are NOT platform effects and must not be read as
-# such. Each of the ten built-in rules costs >= 2 ms for a single RE2 pass over
-# 100 KB on its own, so the 2 ms budget is unreachable for any payload that
-# requires even one full scan. The mandatory-literal prefilter is what makes the
-# dominant no-secret case 0.6 ms instead of 32 ms, but it can only buy speed by
-# SKIPPING, so it buys nothing once a rule genuinely has to run. Collapsing the
-# ten rules into one alternation was measured and is 0.53-0.67x — slower, since
-# the merged NFA costs more per byte than the passes it saves. See the SP-06
-# subplan's spec-resolutions table (D19) and V2-VERIFY §2.6a ②.
-#
-# NOT RECORDED HERE, because each takes minutes on this host and would dominate
-# the run. Figures measured separately during implementation, same machine:
-#
-#     BenchmarkPutBytes_100KB_Cold      <= 3 ms     22.9 ms  (syscall-bound)
-#     BenchmarkPutBytes_100KB_Warm      <= 400 us   227 us with an inert
-#                                                   redactor; ~1 ms as shipped
-#     BenchmarkOpenStore_50kRoots       <= 400 ms   404 ms
-#     BenchmarkSearch_1000Roots         <= 25 ms    69.5 ms (text query; a
-#                                                   path/tool/symbol query is
-#                                                   0.44 ms)
-#     BenchmarkGC_50kObjects            <= 2 s      2.42 s
-#
-# Note BenchmarkGC_50kObjects previously seeded only 4,000 objects while naming
-# 50k; it now genuinely builds ~50k, so its figure is not comparable to anything
-# recorded before SP-06.
-################################################################################
-
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/store
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkGetChunk-22               	    6333	    300486 ns/op	   22080 B/op	      18 allocs/op
-BenchmarkGetChunk-22               	    4663	    221637 ns/op	   21838 B/op	      18 allocs/op
-BenchmarkGetChunk-22               	    3711	    296737 ns/op	   21734 B/op	      18 allocs/op
-BenchmarkGetChunk-22               	    6676	    310080 ns/op	   21940 B/op	      18 allocs/op
-BenchmarkGetChunk-22               	    4414	    306717 ns/op	   21922 B/op	      18 allocs/op
-BenchmarkGetChunk-22               	    5460	    356502 ns/op	   21746 B/op	      18 allocs/op
-BenchmarkOpenSpan_4KB_of_4MB-22    	    7106	    217715 ns/op	   21987 B/op	      19 allocs/op
-BenchmarkOpenSpan_4KB_of_4MB-22    	    6348	    240433 ns/op	   22050 B/op	      19 allocs/op
-BenchmarkOpenSpan_4KB_of_4MB-22    	   12760	     90877 ns/op	   22720 B/op	      19 allocs/op
-BenchmarkOpenSpan_4KB_of_4MB-22    	   16710	     69325 ns/op	   22622 B/op	      19 allocs/op
-BenchmarkOpenSpan_4KB_of_4MB-22    	   19011	     75992 ns/op	   22504 B/op	      19 allocs/op
-BenchmarkOpenSpan_4KB_of_4MB-22    	   12508	     91279 ns/op	   22455 B/op	      19 allocs/op
-BenchmarkMarkEncoded_100-22        	    2944	    581781 ns/op	   16899 B/op	     301 allocs/op
-BenchmarkMarkEncoded_100-22        	    2918	    398989 ns/op	   16898 B/op	     301 allocs/op
-BenchmarkMarkEncoded_100-22        	    2596	    485361 ns/op	   16898 B/op	     301 allocs/op
-BenchmarkMarkEncoded_100-22        	    2210	    552044 ns/op	   16900 B/op	     301 allocs/op
-BenchmarkMarkEncoded_100-22        	    2917	    502932 ns/op	   16899 B/op	     301 allocs/op
-BenchmarkMarkEncoded_100-22        	    2740	    535540 ns/op	   16898 B/op	     301 allocs/op
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/redact
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkRedact_100KB_NoSecrets-22              	    2336	    628828 ns/op	 162.84 MB/s	  106870 B/op	       1 allocs/op
-BenchmarkRedact_100KB_NoSecrets-22              	    2036	    620727 ns/op	 164.97 MB/s	  106872 B/op	       1 allocs/op
-BenchmarkRedact_100KB_NoSecrets-22              	    2049	    625409 ns/op	 163.73 MB/s	  106894 B/op	       1 allocs/op
-BenchmarkRedact_100KB_NoSecrets-22              	    1984	    593036 ns/op	 172.67 MB/s	  106889 B/op	       1 allocs/op
-BenchmarkRedact_100KB_NoSecrets-22              	    2236	    537402 ns/op	 190.55 MB/s	  106885 B/op	       1 allocs/op
-BenchmarkRedact_100KB_NoSecrets-22              	    2019	    592430 ns/op	 172.85 MB/s	  106904 B/op	       1 allocs/op
-BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     146	   9677039 ns/op	  10.58 MB/s	  108849 B/op	       3 allocs/op
-BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     139	  10739045 ns/op	   9.54 MB/s	  107843 B/op	       2 allocs/op
-BenchmarkRedact_100KB_NoSecretsButKeyword-22    	      84	  14839704 ns/op	   6.90 MB/s	  108001 B/op	       2 allocs/op
-BenchmarkRedact_100KB_NoSecretsButKeyword-22    	      87	  12521237 ns/op	   8.18 MB/s	  108298 B/op	       3 allocs/op
-BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     133	   8664780 ns/op	  11.82 MB/s	  108265 B/op	       3 allocs/op
-BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     145	   8018546 ns/op	  12.77 MB/s	  108280 B/op	       2 allocs/op
-BenchmarkRedact_100KB_WithSecrets-22            	      45	  26727776 ns/op	   3.83 MB/s	  456684 B/op	    1070 allocs/op
-BenchmarkRedact_100KB_WithSecrets-22            	      44	  26089059 ns/op	   3.93 MB/s	  455176 B/op	    1069 allocs/op
-BenchmarkRedact_100KB_WithSecrets-22            	      46	  34637011 ns/op	   2.96 MB/s	  456920 B/op	    1070 allocs/op
-BenchmarkRedact_100KB_WithSecrets-22            	      28	  40369107 ns/op	   2.54 MB/s	  455861 B/op	    1071 allocs/op
-BenchmarkRedact_100KB_WithSecrets-22            	      25	  43067160 ns/op	   2.38 MB/s	  454946 B/op	    1068 allocs/op
-BenchmarkRedact_100KB_WithSecrets-22            	      26	  44454712 ns/op	   2.30 MB/s	  455237 B/op	    1068 allocs/op
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/tokens
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkEstimateRoot_64Cached-22    	  509906	      2135 ns/op	       0 B/op	       0 allocs/op
-BenchmarkEstimateRoot_64Cached-22    	  622444	      2386 ns/op	       0 B/op	       0 allocs/op
-BenchmarkEstimateRoot_64Cached-22    	  464888	      2453 ns/op	       0 B/op	       0 allocs/op
-BenchmarkEstimateRoot_64Cached-22    	  538857	      2246 ns/op	       0 B/op	       0 allocs/op
-BenchmarkEstimateRoot_64Cached-22    	  522458	      2114 ns/op	       0 B/op	       0 allocs/op
-BenchmarkEstimateRoot_64Cached-22    	  639498	      1858 ns/op	       0 B/op	       0 allocs/op
-BenchmarkUnits_100KB-22              	    7898	    164419 ns/op	 622.80 MB/s	       0 B/op	       0 allocs/op
-BenchmarkUnits_100KB-22              	    7560	    160330 ns/op	 638.68 MB/s	       0 B/op	       0 allocs/op
-BenchmarkUnits_100KB-22              	    7077	    177684 ns/op	 576.30 MB/s	       0 B/op	       0 allocs/op
-BenchmarkUnits_100KB-22              	    8438	    164701 ns/op	 621.73 MB/s	       0 B/op	       0 allocs/op
-BenchmarkUnits_100KB-22              	    7492	    160789 ns/op	 636.86 MB/s	       0 B/op	       0 allocs/op
-BenchmarkUnits_100KB-22              	    7567	    153884 ns/op	 665.44 MB/s	       0 B/op	       0 allocs/op
-# ── SP-02 (L7 replay harness) ────────────────────────────────────────────────────────────────
-#
-# Recorded with the same command and on the same host as the SP-01 block above:
-#
-#     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
-#
-# Budgets from plans/V2-SP-02-replay-harness-belady-baseline.md §14, and how this recording
-# compares. All of these are algorithmic rather than I/O-bound, so unlike the two SP-01 misses
-# they should hold on the Linux CI runners too:
-#
-#     BenchmarkBeladyDetail_400Turns        <= 250 ms/op   MET   ~1.6 ms/op, 0.68 MB/op (E-2)
-#     BenchmarkSynthesize_320Turns          <=  50 ms/op   MET   ~0.5 ms/op, 0.26 MB/op (E-3)
-#     BenchmarkCompare_400Actions           <=  20 ms/op   MET   ~2.0 ms/op, 0.19 MB/op (E-4)
-#     BenchmarkBreakpointOPT_256Candidates  <=  15 ms/op   MET   ~1.1 ms/op             (E-5)
-#
-# E-2's allocation budget is 96 MB; the measured 0.68 MB/op is two orders of magnitude under it,
-# because pruning every never-demanded block leaves the DP a few hundred candidates rather than
-# the few thousand blocks a 400-turn session actually holds.
-
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/eval
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkBeladyDetail_400Turns-22          	     692	   1702779 ns/op	  682947 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	     658	   1561033 ns/op	  682922 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	    1176	   1432955 ns/op	  682916 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	     732	   1624266 ns/op	  682916 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	     763	   1956107 ns/op	  682923 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	     594	   1692700 ns/op	  682918 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	     804	   1425751 ns/op	  682916 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	    1058	   1329514 ns/op	  682915 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	    1090	   1312063 ns/op	  682916 B/op	    7598 allocs/op
-BenchmarkBeladyDetail_400Turns-22          	     706	   1498702 ns/op	  682916 B/op	    7598 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1646	    770073 ns/op	  778596 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1306	    960839 ns/op	  778596 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	     988	   1026511 ns/op	  778600 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1140	    997135 ns/op	  778594 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1620	    839879 ns/op	  778595 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1503	    898267 ns/op	  778596 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1384	    931027 ns/op	  778597 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1734	    798731 ns/op	  778596 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1722	    862446 ns/op	  778595 B/op	    5750 allocs/op
-BenchmarkBreakpointOPT_256Candidates-22    	    1603	    982321 ns/op	  778594 B/op	    5750 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    4354	    278510 ns/op	   95733 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    4765	    279040 ns/op	   95728 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    4275	    376403 ns/op	   95739 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    2313	    469236 ns/op	   95750 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    2965	    424874 ns/op	   95731 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    2776	    428439 ns/op	   95743 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    2294	    473706 ns/op	   95787 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    2779	    458905 ns/op	   95762 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    2312	    460460 ns/op	   95767 B/op	    1965 allocs/op
+BenchmarkConfigLoad_ColdNoFiles-22    	    3216	    454980 ns/op	   95767 B/op	    1965 allocs/op
 PASS
-ok  	github.com/qompack/qompack/internal/eval	27.498s
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/eval
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkCompare_400Actions-22    	     883	   1986727 ns/op	  186920 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     672	   2128505 ns/op	  186913 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     736	   1494951 ns/op	  186914 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     812	   2195298 ns/op	  186914 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     470	   2573539 ns/op	  186916 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     613	   1872845 ns/op	  186913 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     957	   1369827 ns/op	  186913 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     787	   1374582 ns/op	  186915 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	    1004	   1257093 ns/op	  186914 B/op	      48 allocs/op
-BenchmarkCompare_400Actions-22    	     928	   1202938 ns/op	  186913 B/op	      48 allocs/op
+ok  	github.com/qompack/qompack/internal/config	13.627s
 PASS
-ok  	github.com/qompack/qompack/internal/eval	15.248s
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/eval
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkSynthesize_320Turns-22    	    2635	    449655 ns/op	  257850 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    2349	    497991 ns/op	  257835 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    2808	    466747 ns/op	  257848 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    1951	    685678 ns/op	  257848 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    1906	    621687 ns/op	  257863 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    1786	    635883 ns/op	  257859 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    2024	    621085 ns/op	  257859 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    1998	    554742 ns/op	  257837 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    2108	    487525 ns/op	  257828 B/op	    2856 allocs/op
-BenchmarkSynthesize_320Turns-22    	    3014	    529713 ns/op	  257846 B/op	    2856 allocs/op
+ok  	github.com/qompack/qompack/internal/contract	0.496s
 PASS
-ok  	github.com/qompack/qompack/internal/eval	14.543s
-#
-# ============================================================================================
-#
-# internal/sketch — recorded by SP-03, the sketch library (V2).
-#
-# RE-RECORDED IN FULL after the whole-branch review's fix round. The MinHash sampler was replaced
-# (bottom-k over distinct shingle hashes; see ADR 0030 §9a), so its two rows had to move — and
-# because six other rows moved by 10.8–23.6 % at p < 0.05 between the two recordings, this block is
-# ONE fresh run rather than two rows spliced into the old samples. Those six — BloomTest, CMSAdd,
-# CMSEstimate, HLLAdd and HLLCardinality down, MisraGriesAdd up — are hashing paths this round did
-# not touch, and the earlier recording carried ±8–25 % intervals against this one's ±1–13 %, so what
-# moved is the machine's noise floor rather than the code. Mixing runs to avoid re-recording has
-# already cost this branch one review finding; the whole block is replaced instead.
-#
-# Recorded at -count 10 rather than the subplan's -count 6, for the reason the header above
-# already gives: benchstat needs at least 6 samples to report a confidence interval, and this
-# host is noisy enough that 6 samples cannot separate a budget from a busy minute. That is not
-# an assumption. A -count 6 pass over an identical binary reported BenchmarkBloomAdd at
-# 491.5n ±256% and BenchmarkBloomTest at 1.417µ ±111% — three to seven times the -count 10
-# medians, from the same code, minutes apart. Every verdict here is a benchstat median over ten
-# samples; none is a single run, and every sample below comes from ONE recording.
-#
-#     go test ./internal/sketch -bench=. -benchmem -count 10 -run '^$'
-#
-# Host: Windows 11, Intel Core Ultra 7 155H. Unlike the V1 block above, nothing in this package
-# touches the filesystem, so none of these numbers are syscall-bound — they are CPU and cache,
-# and they should look better on the Linux CI runners rather than different in kind. The
-# allocation columns are again the platform-independent half of the recording.
-#
-# Coverage at this commit, measured with `go test ./internal/sketch/... -cover`:
-# internal/sketch 96.5%, internal/sketch/sketchtest 99.5%, against the 90% floor
-# (00-ARCHITECTURE §6.4). The sketch figure MOVES by a couple of tenths between runs and nothing
-# has regressed when it does: property_test.go draws fresh values from rapid on every run, so
-# which defensive branches get exercised differs run to run.
-#
-# Budgets from the SP-03 implementation spec's performance table (00-ARCHITECTURE §13
-# invariant 9), and how this recording compares.
-#
-# Latency:
-#
-#     BenchmarkBloomAdd            ≤ 1.0 µs/op        MET      157.9n ± 3%   6.3× headroom
-#     BenchmarkBloomTest           ≤ 1.0 µs/op        MET      161.9n ± 3%   6.2×
-#     BenchmarkCMSAdd              ≤ 1.0 µs/op        MET      159.7n ± 1%   6.3×
-#     BenchmarkCMSEstimate         ≤ 1.0 µs/op        MET      160.8n ±13%   6.2×
-#     BenchmarkHLLAdd              ≤ 1.0 µs/op        MET      132.2n ± 5%   7.6×
-#     BenchmarkHLLCardinality      ≤ 25 µs/op         MET      6.819µ ± 7%   3.7×
-#     BenchmarkMisraGriesAdd       ≤ 5 µs/op amort.   MET      103.8n ± 6%    48×
-#     BenchmarkL0SketchUpdate      ≤ 5 µs/op          MET      494.3n ±11%  10.1×
-#     BenchmarkMinHash4KiB         ≤ 1.5 ms/op        MET      287.1µ ± 7%   5.2×
-#     BenchmarkMinHash100KiB       ≤ 2.5 ms/op        MET      1.381m ± 5%   1.8×
-#     BenchmarkBloomMarshal        ≤ 60 µs/op         MET      6.111µ ±27%   9.8×
-#     BenchmarkBloomUnmarshal      ≤ 60 µs/op         MET      4.539µ ± 6%  13.2×
-#     BenchmarkCMSMarshal          ≤ 250 µs/op        MET      37.70µ ±23%   6.6×
-#     BenchmarkCMSUnmarshal        ≤ 250 µs/op        MET      32.80µ ±30%   7.6×
-#     BenchmarkRebuildBloom5000    ≤ 15 ms/op         MET      931.2µ ±12%  16.1×
-#
-# Allocation — six rows carry an allocation budget, and all six meet it:
-#
-#     BenchmarkBloomAdd            0 allocs/op        MET      0 allocs/op, 0 B
-#     BenchmarkBloomTest           0 allocs/op        MET      0 allocs/op, 0 B
-#     BenchmarkCMSAdd              0 allocs/op        MET      0 allocs/op, 0 B
-#     BenchmarkCMSEstimate         0 allocs/op        MET      0 allocs/op, 0 B
-#     BenchmarkHLLAdd              0 allocs/op        MET      0 allocs/op, 0 B
-#     BenchmarkL0SketchUpdate      0 allocs/op        MET      0 allocs/op, 0 B
-#
-# Those six rows did NOT start out zero, and the provenance is the most useful thing in this
-# block. Read this before treating a future non-zero reading as a new defect:
-#
-#   The first recording of these benchmarks — the run that added them — measured every hashing
-#   row at exactly 1 alloc/op and 32 B/op, the composite at 3 and 96 B, and
-#   BenchmarkRebuildBloom5000 at 5 004 allocs/op and 172 400 B/op. Every latency budget was met
-#   throughout, which is the point: a nanosecond column cannot show an allocation, and nothing
-#   in the tree had measured one until these benchmarks existed. The plan's rationale column
-#   for those rows reads "one SHA-256 of a short key plus 7 bit tests" and did not anticipate
-#   that the shared helper allocated.
-#
-#   The cause was one line in core.HashBytes, not anything in internal/sketch: it ended
-#   `copy(out[:], h.Sum(nil))`, and h.Sum(nil) allocates the 32-byte digest slice it appends
-#   into. The two rows that hash nothing — HLLCardinality and MisraGriesAdd — were already flat
-#   at 0, which is what localised it. HashBytes now writes the digest into the returned array
-#   with `h.Sum(out[:0])`. A ONE-OFF A/B probe of the two forms (8 samples, not among the
-#   samples below) put them at 1 alloc/op / 104.1n ±2% and 0 alloc/op / 90.36n ±3% with
-#   byte-identical digests. TestHashBytes_DoesNotAllocate in internal/core/hash_test.go is the
-#   durable guard, placed where the function lives.
-#
-#     BenchmarkL0SketchUpdate      3 allocs, 96 B      → 0 allocs, 0 B
-#     BenchmarkRebuildBloom5000    5 004 allocs        → 4 allocs
-#                                  172 400 B           → 12 400 B  (exactly 5 000 × 32 B saved)
-#
-#   Those allocation deltas are exact and platform-independent. The LATENCY deltas across these
-#   recordings are not attributable to the fix: there have now been four full recordings on this
-#   host — pre-fix, post-fix, post-review and this one — and each ran under different machine
-#   load, while three of them also changed fixtures. Do not quote a percentage from row-to-row
-#   differences as a property of any one change; the allocation columns are the only half of the
-#   comparison that is clean.
-#
-# BenchmarkL0SketchUpdate's Bloom probe is a HIT, and that is a deliberate fixture choice:
-#
-#   sketches/tried.bloom holds negative-knowledge DESCRIPTORS (§8.3), never paths, so the
-#   composite gets its own filter pre-filled with the descriptors it probes. The first two
-#   recordings probed a filter built from path keys, which every descriptor missed by
-#   construction — not the production filter at all, and undisclosed at the call site.
-#
-#   In production most probes DO miss, since most descriptors have never been eliminated, and a
-#   miss returns at the first clear bit instead of reading all seven positions. This row
-#   therefore reports the less common case on purpose, because a budget-model input should be
-#   the conservative number. What the choice is worth was measured, in a one-off probe run
-#   (count=12, both variants side by side, not among the samples below): the composite is
-#   498.0n ±7% with a hit against 486.5n ±3% with a miss, and Bloom.Test alone 174.7n ±5%
-#   against 166.2n ±5%. The short-circuit is worth ~8–12 ns, about 2% of the composite, because
-#   Test is dominated by the one SHA-256 in hash128 rather than by the seven probes it guards.
-#
-# The two MinHash rows are the ones this recording exists for, and both IMPROVED:
-#
-#     BenchmarkMinHash4KiB     367.5µ ± 6%  →  287.1µ ± 7%   (-21.9%, p=0.000, n=10)
-#     BenchmarkMinHash100KiB   1.525m ± 5%  →  1.381m ± 5%   ( -9.4%, p=0.000, n=10)
-#
-#   That direction is not obvious and is worth explaining, because the change ADDED work: the
-#   sampler now selects the 8 192 smallest DISTINCT shingle hashes (an open-addressed set, a
-#   quickselect refinement) where it used to keep everything below a rate-derived threshold. Two
-#   restructurings paid for it and then some. Shingle hashing moved into a batch helper whose
-#   default-width loop has a compile-time-constant shingle length, so the compiler unrolls FNV-1a's
-#   multiply chain and overlaps consecutive shingles — 323 µs against 580 µs for the 102 393
-#   shingles of a 100 KiB document, measured in isolation. And hashing and permuting are now two
-#   passes over a batch rather than one interleaved loop, which is worth a further ~90 µs at 4 KiB.
-#   The selection machinery itself costs ~0.25 ms at 100 KiB; the two restructurings return ~0.4 ms.
-#
-#   The straightforward implementations of the same rule do NOT fit: admit-everything-and-narrow
-#   measured 2.87 ms against the 2.5 ms budget, and sort-and-truncate 8.2 ms. Those figures come
-#   from a standalone A/B harness, not from this run, and are recorded because "we chose the fast
-#   one" is worth nothing without the numbers that made the others unusable.
-#
-#   BenchmarkMinHash100KiB's ALLOCATION moved and the row does not carry an allocation budget:
-#   3 072 B / 2 allocs → 396 288 B / 4 allocs. The selector's two structures are the whole of it —
-#   a 32 768-slot table (256 KiB) and a 16 384-value buffer (128 KiB) — and they are sized from
-#   MinHashSampleTarget rather than from the document, so a 1 MiB input allocates exactly the same
-#   396 KiB as a 100 KiB one. BenchmarkMinHash4KiB is unchanged at 3 072 B / 2 allocs: at or under
-#   the target no selection runs and the batch buffer stays on the stack.
-#
-#   The 100 KiB row was the tightest in this file and still is, now at 1.8× headroom rather than
-#   1.6×. The history is worth keeping: the FIRST recording of it, under a loaded run, had a median
-#   of 2.432m against the 2.5 ms budget with four of ten samples ABOVE budget and a ±43% interval,
-#   and was recorded MARGINAL. A quieter machine, not a code change, is what moved it then. Re-
-#   deriving these numbers on CI hardware is a V2-VERIFY task, and this row must be judged with
-#   benchstat over repeated samples, never one run.
-#
-#   It is also the row that least deserves alarm. MinHash is deliberately NOT on the hook path: it
-#   runs in the daemon's async worker under budget B-C (l0_process, p99 < 50 ms, soft), which it
-#   clears by more than 35×. The 2.5 ms figure is a cost bound on the sampler, not a latency
-#   guarantee to a caller.
-#
-# BenchmarkMisraGriesAdd's budget says "amortized" and the word is load-bearing. The k = 256
-# table is full only at the moment of a decrement pass: every counter holds 1, so one pass wipes
-# all 256, the next 256 Adds refill it down the has-room fast path, and about one iteration in
-# 257 pays the two O(k) map passes. That cycle is the algorithm's steady state under a
-# unit-weight stream, not a fixture artefact, and it is what the Misra-Gries potential bound
-# predicts. One decrement pass in isolation measured 7.9µ in a one-off probe — 1.6× the whole
-# row, and again not among the samples below. bench_test.go's benchSaturatedMG documents why a
-# fixture that suspends the bound measures a cost the code cannot be driven into.
-#
-# The composite line is what this subplan owes the L0 model. BenchmarkL0SketchUpdate is the
-# whole of §8.1 item 5's contribution to a PostToolUse — one CMS.Add, one HLL.Add, one
-# Bloom.Test — and at 494.3n ±11% with zero allocations it is 0.003% of the 15 ms B-A hook
-# budget, against the 0.03% the plan allowed for. Both halves of that budget are met.
-#
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/sketch
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkBloomAdd-22            	 6899342	       167.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7253827	       159.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7972002	       153.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7987395	       149.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7375396	       155.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7756116	       154.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7654891	       156.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7407328	       162.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7449880	       161.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomAdd-22            	 7808254	       162.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 6840544	       162.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7391337	       162.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7329675	       160.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7517341	       159.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7461094	       167.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7423964	       161.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 6962778	       158.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7285850	       162.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7564815	       156.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkBloomTest-22           	 7526194	       167.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7622004	       160.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7366590	       157.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7442773	       160.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7715870	       166.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7601671	       160.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7579857	       158.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7731315	       161.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 8016417	       153.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7384483	       158.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSAdd-22              	 7580049	       158.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7772629	       154.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7833276	       159.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7130259	       166.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 6477421	       182.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 6692827	       160.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7373172	       155.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7810933	       160.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 6365287	       184.3 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7250378	       168.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkCMSEstimate-22         	 7053292	       161.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9081834	       132.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 8216228	       138.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9119115	       132.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 8937548	       133.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9105946	       140.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 8957724	       131.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9255766	       129.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9382174	       131.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9619654	       130.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLAdd-22              	 9243745	       131.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  167728	      6706 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  175143	      6589 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  186621	      6660 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  176833	      6939 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  186974	      6578 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  180304	      6509 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  189202	      6932 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  164445	      7312 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  169699	      7075 ns/op	       0 B/op	       0 allocs/op
-BenchmarkHLLCardinality-22      	  149214	      7498 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	11597004	        98.60 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	12048846	       111.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	10803793	       102.1 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	10088696	       102.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	14262350	        99.44 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	11696100	        98.64 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	11892774	       104.8 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	13829998	       104.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	12102288	       104.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMisraGriesAdd-22       	10985268	       110.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2448408	       503.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2360817	       500.6 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2326934	       531.9 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2289091	       516.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2515692	       473.7 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2532564	       495.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2458778	       483.5 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2492998	       493.2 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2763592	       442.0 ns/op	       0 B/op	       0 allocs/op
-BenchmarkL0SketchUpdate-22      	 2722952	       430.4 ns/op	       0 B/op	       0 allocs/op
-BenchmarkMinHash4KiB-22         	    4566	    258322 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    4860	    265750 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    4129	    272291 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    4250	    279381 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    4186	    285741 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    3840	    288499 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    3874	    294412 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    3888	    293461 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    3880	    297091 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash4KiB-22         	    4108	    292697 ns/op	    3072 B/op	       2 allocs/op
-BenchmarkMinHash100KiB-22       	     914	   1350461 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     874	   1367249 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     835	   1449996 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     860	   1472308 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     738	   1402336 ns/op	  396295 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     903	   1328657 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     908	   1331518 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     890	   1351027 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     765	   1395190 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkMinHash100KiB-22       	     860	   1411195 ns/op	  396288 B/op	       4 allocs/op
-BenchmarkBloomMarshal-22        	  179002	      5804 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  213840	      7776 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  147120	      8100 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  196478	      5957 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  230002	      5416 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  236067	      5593 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  166605	      6612 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  204619	      5934 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  179088	      6344 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomMarshal-22        	  246469	      6264 ns/op	   24640 B/op	       3 allocs/op
-BenchmarkBloomUnmarshal-22      	  306414	      4602 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  258847	      4895 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  333957	      4652 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  300775	      4712 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  286038	      4476 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  299352	      4290 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  273602	      4366 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  270291	      4807 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  340516	      4265 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkBloomUnmarshal-22      	  373638	      3860 ns/op	   12560 B/op	       5 allocs/op
-BenchmarkCMSMarshal-22          	   44978	     29226 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   31585	     41302 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   23433	     46368 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   21607	     50311 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   28231	     37509 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   42386	     31977 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   41688	     30845 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   38323	     28119 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   37849	     37899 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSMarshal-22          	   28881	     42689 ns/op	  114752 B/op	       3 allocs/op
-BenchmarkCMSUnmarshal-22        	   44155	     31850 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   47853	     24200 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   48681	     22862 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   60228	     23111 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   56422	     36185 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   47242	     37352 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   25134	     50274 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   37816	     32647 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   36192	     35305 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkCMSUnmarshal-22        	   41755	     32956 ns/op	   57632 B/op	       7 allocs/op
-BenchmarkRebuildBloom5000-22    	    1164	   1033355 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1215	   1234895 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1000	   1044538 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1180	    937157 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1330	    925210 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1437	    886489 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1327	    892535 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1326	    946050 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1470	    872306 ns/op	   12400 B/op	       4 allocs/op
-BenchmarkRebuildBloom5000-22    	    1370	    840517 ns/op	   12400 B/op	       4 allocs/op
-
-# --- SP-05 additions (V2, task 7 — hot-path bench harness, three-platform bench gate) -----------
-#
-# Recorded with the same command as above:
-#
-#     go test -run '^$' -bench . -benchmem -count 10 -p 1 ./...
-#
-# on the same Windows 11 / Intel Core Ultra 7 155H / NTFS host. Each is tied to a named budget
-# (task-7-spec.md's "Benchmarks tied to a named budget" table):
-#
-#     BenchmarkReadState         < 100 us/op (hot-path prelude)      MET   ~52-60 us/op
-#     BenchmarkEncodeRequest     < 5 us/op (4 KB payload)            MET   ~1.1-1.5 us/op
-#     BenchmarkIngestAccept      B-B (l0_ingest, p99 < 2ms)          MET   ~3.3-3.7 us/op
-#     BenchmarkServerRoundTrip   daemon-side B-A portion, p99 < 2ms  MET   ~42-63 us/op
-#
-# BenchmarkReadState is filesystem-bound (one os.ReadFile of a 32-byte record) rather than
-# algorithmic, same caveat this file's own header gives BenchmarkPathsWriteAtomic_4KB above: this
-# host's per-syscall latency is high, and Linux CI runners will likely report a lower number. It
-# is still comfortably under its own 100us budget here.
-#
-# BenchmarkServerRoundTrip drives a real listener (named pipe on this host) end to end per
-# iteration — connect, write, ACK, close — so it is the closest in-repo proxy for B-A's own
-# daemon-side portion (excluding process spawn, which only a real-process harness can measure; see
-# test/bench/hotpath and task-7-report.md for that measurement).
-goos: windows
-goarch: amd64
-pkg: github.com/qompack/qompack/internal/ipc
-cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkReadState-22        	   21087	     60002 ns/op	    4478 B/op	      35 allocs/op
-BenchmarkReadState-22        	   20068	     55477 ns/op	    3997 B/op	      32 allocs/op
-BenchmarkReadState-22        	   22635	     54665 ns/op	    4478 B/op	      35 allocs/op
-BenchmarkReadState-22        	   19105	     55696 ns/op	    4478 B/op	      35 allocs/op
-BenchmarkReadState-22        	   20754	     56305 ns/op	    3997 B/op	      32 allocs/op
-BenchmarkReadState-22        	   22284	     57596 ns/op	    4478 B/op	      35 allocs/op
-BenchmarkReadState-22        	   22369	     54062 ns/op	    4478 B/op	      35 allocs/op
-BenchmarkReadState-22        	   21859	     56388 ns/op	    4478 B/op	      35 allocs/op
-BenchmarkReadState-22        	   20185	     52882 ns/op	    3997 B/op	      32 allocs/op
-BenchmarkReadState-22        	   20136	     53201 ns/op	    3997 B/op	      32 allocs/op
-BenchmarkEncodeRequest-22    	 1004616	      1187 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1328 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	  924220	      1237 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1197 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1173 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1194 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1189 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1201 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	 1000000	      1136 ns/op	     405 B/op	       3 allocs/op
-BenchmarkEncodeRequest-22    	  972958	      1536 ns/op	     405 B/op	       3 allocs/op
-BenchmarkServerRoundTrip-22    	   31206	     47201 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   25767	     46084 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   29274	     47463 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   25815	     42527 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   26826	     50188 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   28106	     49838 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   20084	     53011 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   21657	     61424 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   20344	     57301 ns/op	    1136 B/op	      20 allocs/op
-BenchmarkServerRoundTrip-22    	   23620	     62814 ns/op	    1136 B/op	      20 allocs/op
+ok  	github.com/qompack/qompack/internal/contract/contracttest	0.504s
+PASS
+ok  	github.com/qompack/qompack/internal/core	0.443s
 goos: windows
 goarch: amd64
 pkg: github.com/qompack/qompack/internal/daemon
 cpu: Intel(R) Core(TM) Ultra 7 155H
-BenchmarkIngestAccept-22    	  298790	      3505 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  364821	      3429 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  326236	      3257 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  383278	      3656 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  322202	      3389 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  348835	      3528 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  366517	      3532 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  302526	      3653 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  346728	      3333 ns/op	      80 B/op	       2 allocs/op
-BenchmarkIngestAccept-22    	  309596	      3464 ns/op	      80 B/op	       2 allocs/op
+BenchmarkIngestAccept-22    	  481540	      2609 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  500659	      2982 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  317917	      4263 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  276140	      4255 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  326967	      4471 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  253539	      4177 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  276206	      4467 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  271756	      4763 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  277509	      4288 ns/op	      48 B/op	       1 allocs/op
+BenchmarkIngestAccept-22    	  348828	      3792 ns/op	      48 B/op	       1 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	16.844s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/dag
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBackwardSlice5000-22        	    4089	    277071 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    4665	    282911 ns/op	  132057 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2336	    479988 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2425	    490273 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2374	    485320 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2360	    431951 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2337	    482831 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2673	    436218 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    2682	    535379 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000-22        	    3853	    452156 ns/op	  132056 B/op	    1435 allocs/op
+BenchmarkBackwardSlice5000Full-22    	    1038	   1180653 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	    1153	   1124640 ns/op	  297516 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	     964	   1210124 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	    1112	   1325007 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	     981	   1137031 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	     913	   1187317 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	     973	   1176378 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	    1160	   1146154 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	    1231	   1233522 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkBackwardSlice5000Full-22    	     968	   1251065 ns/op	  297512 B/op	    2912 allocs/op
+BenchmarkForwardSlice5000-22         	   68859	     16941 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   68978	     16819 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   65186	     17403 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   61024	     16931 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   70872	     19391 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   66314	     16928 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   58839	     18817 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   58620	     18993 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   60084	     17023 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkForwardSlice5000-22         	   77449	     16563 ns/op	   31160 B/op	      56 allocs/op
+BenchmarkCrossingEdges-22            	 7646769	       163.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 7412490	       165.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 8290476	       139.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 7951032	       156.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 8448668	       158.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 8036716	       166.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 7931654	       148.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 9107571	       137.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 7710392	       153.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCrossingEdges-22            	 7139232	       158.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNodesAfter-22               	    8116	    157434 ns/op	  271552 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    8124	    163364 ns/op	  271807 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    8251	    178176 ns/op	  275017 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    7430	    144269 ns/op	  273264 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    8036	    176975 ns/op	  273414 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    6513	    166008 ns/op	  275438 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    7810	    162306 ns/op	  277353 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    8724	    148051 ns/op	  274339 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    7923	    162379 ns/op	  275942 B/op	       1 allocs/op
+BenchmarkNodesAfter-22               	    7004	    170710 ns/op	  278334 B/op	       1 allocs/op
+BenchmarkRebuildIndex-22             	     260	   5310680 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     241	   5421405 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     237	   4873496 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     247	   5624441 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     244	   6080320 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     244	   5588821 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     226	   5821724 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     247	   6024413 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     205	   5624005 ns/op	      56 B/op	       2 allocs/op
+BenchmarkRebuildIndex-22             	     196	   6123105 ns/op	      56 B/op	       2 allocs/op
+BenchmarkAddNodeEdgePair-22          	  554253	      3707 ns/op	    1451 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  658681	      3652 ns/op	    1291 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  551378	      3745 ns/op	    1458 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  653167	      3576 ns/op	    1301 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  633582	      3862 ns/op	    1338 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  577914	      3657 ns/op	    1456 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  452902	      3401 ns/op	    1253 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  797341	      3376 ns/op	    1140 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  514632	      3926 ns/op	    1554 B/op	       8 allocs/op
+BenchmarkAddNodeEdgePair-22          	  564432	      3822 ns/op	    1426 B/op	       8 allocs/op
+BenchmarkAddToolUse-22               	   21506	     60263 ns/op	   18906 B/op	     122 allocs/op
+BenchmarkAddToolUse-22               	   20440	     64565 ns/op	   19107 B/op	     122 allocs/op
+BenchmarkAddToolUse-22               	   19194	     56995 ns/op	   18348 B/op	     121 allocs/op
+BenchmarkAddToolUse-22               	   23972	     66900 ns/op	   18882 B/op	     121 allocs/op
+BenchmarkAddToolUse-22               	   21979	     61849 ns/op	   18804 B/op	     121 allocs/op
+BenchmarkAddToolUse-22               	   22617	     62675 ns/op	   18903 B/op	     122 allocs/op
+BenchmarkAddToolUse-22               	   17833	     57724 ns/op	   17936 B/op	     122 allocs/op
+BenchmarkAddToolUse-22               	   20940	     58587 ns/op	   18970 B/op	     121 allocs/op
+BenchmarkAddToolUse-22               	   20340	     66404 ns/op	   19089 B/op	     121 allocs/op
+BenchmarkAddToolUse-22               	   21918	     61226 ns/op	   18844 B/op	     122 allocs/op
+BenchmarkOpen20k-22                  	      12	 111506183 ns/op	22748386 B/op	  291978 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 102165550 ns/op	22773856 B/op	  291975 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 107973740 ns/op	22657054 B/op	  291975 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 104335940 ns/op	22758129 B/op	  291979 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 100495400 ns/op	22688336 B/op	  291976 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      12	 106380883 ns/op	22656930 B/op	  291971 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 106967380 ns/op	22718507 B/op	  291972 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 101502440 ns/op	22738756 B/op	  291973 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	      10	 106721160 ns/op	22801024 B/op	  291980 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkOpen20k-22                  	       9	 113754122 ns/op	22680472 B/op	  291975 allocs/op
+--- BENCH: BenchmarkOpen20k-22
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+    bench_test.go:393: log holds 19482 records
+BenchmarkCompact20k-22               	      25	  42579252 ns/op	12867671 B/op	   82369 allocs/op
+BenchmarkCompact20k-22               	      25	  41603816 ns/op	12867430 B/op	   82367 allocs/op
+BenchmarkCompact20k-22               	      28	  41888621 ns/op	12866747 B/op	   82364 allocs/op
+BenchmarkCompact20k-22               	      30	  41177057 ns/op	12868149 B/op	   82372 allocs/op
+BenchmarkCompact20k-22               	      28	  44111007 ns/op	12867922 B/op	   82371 allocs/op
+BenchmarkCompact20k-22               	      28	  42375771 ns/op	12868686 B/op	   82372 allocs/op
+BenchmarkCompact20k-22               	      28	  41355521 ns/op	12867863 B/op	   82370 allocs/op
+BenchmarkCompact20k-22               	      31	  40205265 ns/op	12867787 B/op	   82370 allocs/op
+BenchmarkCompact20k-22               	      25	  40044656 ns/op	12868310 B/op	   82373 allocs/op
+BenchmarkCompact20k-22               	      27	  44329381 ns/op	12868034 B/op	   82370 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/dag	309.215s
+PASS
+ok  	github.com/qompack/qompack/internal/dag/dagtest	0.486s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/eval
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBeladyDetail_400Turns-22          	    1288	    801682 ns/op	  682928 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	    1280	    910995 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	    1633	   1016872 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     728	   1568358 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     788	   1444356 ns/op	  682922 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     796	   1465197 ns/op	  682916 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     830	   1605349 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     891	   1331433 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	     901	   1336521 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBeladyDetail_400Turns-22          	    1059	   1546363 ns/op	  682915 B/op	    7598 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1377	   1093929 ns/op	  778594 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	     814	   1276857 ns/op	  778595 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	     996	   1270002 ns/op	  778595 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1095	   1082832 ns/op	  778594 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1272	   1067055 ns/op	  778595 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1281	   1075437 ns/op	  778594 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1144	   1016512 ns/op	  778593 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1136	   1138928 ns/op	  778593 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	     898	   1149546 ns/op	  778595 B/op	    5750 allocs/op
+BenchmarkBreakpointOPT_256Candidates-22    	    1243	   1090577 ns/op	  778594 B/op	    5750 allocs/op
+BenchmarkCompare_400Actions-22             	    1341	    874891 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1087	    943950 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1546	    914371 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1276	    921344 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1316	    898516 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1246	    926840 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1147	    913948 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1200	    937061 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1353	    876279 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkCompare_400Actions-22             	    1290	    920132 ns/op	  186912 B/op	      48 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2913	    477712 ns/op	  256818 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    3685	    485619 ns/op	  256817 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2426	    479814 ns/op	  256832 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2304	    513798 ns/op	  256818 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2144	    494112 ns/op	  256821 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2488	    498685 ns/op	  256810 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2410	    486075 ns/op	  256820 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2995	    461020 ns/op	  256813 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2506	    514246 ns/op	  256807 B/op	    2827 allocs/op
+BenchmarkSynthesize_320Turns-22            	    2472	    466627 ns/op	  256812 B/op	    2827 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/eval	50.528s
+PASS
+ok  	github.com/qompack/qompack/internal/eval/evaltest	0.534s
+PASS
+ok  	github.com/qompack/qompack/internal/grammar	0.409s
+PASS
+ok  	github.com/qompack/qompack/internal/grammar/grammartest	0.390s
+PASS
+ok  	github.com/qompack/qompack/internal/hookio	0.489s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/ipc
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkServerRoundTrip-22    	   38140	     32190 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   37639	     30947 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   30739	     43743 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   28996	     45657 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   35461	     40406 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   31280	     39583 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   40872	     34621 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   28600	     37876 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   32326	     35660 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkServerRoundTrip-22    	   39866	     36132 ns/op	    1136 B/op	      20 allocs/op
+BenchmarkReadState-22          	   15940	     79621 ns/op	    3996 B/op	      32 allocs/op
+BenchmarkReadState-22          	   19867	     63592 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   20575	     73026 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   22081	     65844 ns/op	    4076 B/op	      33 allocs/op
+BenchmarkReadState-22          	   20660	     62812 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   19626	     63259 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   19808	     57055 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   19262	     59202 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   16348	     66179 ns/op	    4477 B/op	      35 allocs/op
+BenchmarkReadState-22          	   16778	     61834 ns/op	    3996 B/op	      32 allocs/op
+BenchmarkEncodeRequest-22      	 1000000	      1296 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	  893588	      1379 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	  972832	      1268 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	 1000000	      1403 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	  907744	      1347 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	 1000000	      1358 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	  944606	      1333 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	 1000000	      1314 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	 1000000	      1565 ns/op	     405 B/op	       3 allocs/op
+BenchmarkEncodeRequest-22      	 1000000	      1275 ns/op	     405 B/op	       3 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/ipc	52.247s
+PASS
+ok  	github.com/qompack/qompack/internal/ipc/ipctest	0.468s
+PASS
+ok  	github.com/qompack/qompack/internal/logging	0.442s
+?   	github.com/qompack/qompack/internal/mcp	[no test files]
+PASS
+ok  	github.com/qompack/qompack/internal/mcp/mcptest	0.465s
+PASS
+ok  	github.com/qompack/qompack/internal/negknow	0.486s
+PASS
+ok  	github.com/qompack/qompack/internal/negknow/negknowtest	0.476s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/obs
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkHistogram_Observe-22    	200932460	         6.756 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	198692701	         8.279 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	144828080	         8.270 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	153472879	         7.763 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	144775329	         8.442 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	153366882	         9.678 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	100000000	        10.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	184437756	         9.599 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	130803477	         8.822 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHistogram_Observe-22    	132038547	         9.816 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/obs	20.967s
+PASS
+ok  	github.com/qompack/qompack/internal/observer	0.463s
+PASS
+ok  	github.com/qompack/qompack/internal/observer/observertest	0.426s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/paths
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPathsWriteAtomic_4KB-22    	     338	   3500919 ns/op	   1.17 MB/s	   15730 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     352	   4008272 ns/op	   1.02 MB/s	   15700 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     260	   4450658 ns/op	   0.92 MB/s	   15710 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     258	   4554046 ns/op	   0.90 MB/s	   15710 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     271	   4468167 ns/op	   0.92 MB/s	   15710 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     270	   4367601 ns/op	   0.94 MB/s	   15709 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     274	   4937885 ns/op	   0.83 MB/s	   15709 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     274	   4132507 ns/op	   0.99 MB/s	   15711 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     259	   4343946 ns/op	   0.94 MB/s	   15711 B/op	     169 allocs/op
+BenchmarkPathsWriteAtomic_4KB-22    	     256	   4518050 ns/op	   0.91 MB/s	   15711 B/op	     169 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/paths	17.180s
+?   	github.com/qompack/qompack/internal/pins	[no test files]
+PASS
+ok  	github.com/qompack/qompack/internal/pins/pinstest	0.384s
+PASS
+ok  	github.com/qompack/qompack/internal/pluginmanifest	0.451s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/redact
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkRedact_100KB_NoSecrets-22              	    2577	    459203 ns/op	 223.00 MB/s	  106881 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    2581	    526956 ns/op	 194.32 MB/s	  106877 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1869	    631756 ns/op	 162.09 MB/s	  106896 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1485	    695335 ns/op	 147.27 MB/s	  106877 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1572	    714484 ns/op	 143.32 MB/s	  106882 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1974	    695038 ns/op	 147.33 MB/s	  106876 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1766	    671591 ns/op	 152.47 MB/s	  106879 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1741	    651331 ns/op	 157.22 MB/s	  106879 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    1987	    612309 ns/op	 167.24 MB/s	  106918 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecrets-22              	    2067	    692239 ns/op	 147.93 MB/s	  106871 B/op	       1 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     152	   9158307 ns/op	  11.18 MB/s	  108398 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     100	  11423503 ns/op	   8.96 MB/s	  108304 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     100	  10906557 ns/op	   9.39 MB/s	  108363 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     136	  10571714 ns/op	   9.69 MB/s	  108449 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     100	  10113777 ns/op	  10.12 MB/s	  108306 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     124	   9136093 ns/op	  11.21 MB/s	  108196 B/op	       2 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     122	  10926114 ns/op	   9.37 MB/s	  108422 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     100	  10541371 ns/op	   9.71 MB/s	  108297 B/op	       2 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     122	   8683562 ns/op	  11.79 MB/s	  108324 B/op	       3 allocs/op
+BenchmarkRedact_100KB_NoSecretsButKeyword-22    	     100	  10711455 ns/op	   9.56 MB/s	  108724 B/op	       3 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      36	  34447508 ns/op	   2.97 MB/s	  454770 B/op	    1067 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      34	  34290600 ns/op	   2.99 MB/s	  454853 B/op	    1067 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      43	  31933791 ns/op	   3.21 MB/s	  453387 B/op	    1065 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      57	  32625523 ns/op	   3.14 MB/s	  454145 B/op	    1068 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      38	  33777974 ns/op	   3.03 MB/s	  454458 B/op	    1064 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      32	  35859531 ns/op	   2.86 MB/s	  454900 B/op	    1066 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      36	  28039861 ns/op	   3.65 MB/s	  456313 B/op	    1070 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      43	  35369191 ns/op	   2.90 MB/s	  455772 B/op	    1071 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      49	  33071702 ns/op	   3.10 MB/s	  455805 B/op	    1069 allocs/op
+BenchmarkRedact_100KB_WithSecrets-22            	      38	  29677987 ns/op	   3.45 MB/s	  453549 B/op	    1068 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/redact	48.486s
+PASS
+ok  	github.com/qompack/qompack/internal/redact/redacttest	0.443s
+PASS
+ok  	github.com/qompack/qompack/internal/rehydrate	0.439s
+PASS
+ok  	github.com/qompack/qompack/internal/rehydrate/rehydratetest	0.514s
+?   	github.com/qompack/qompack/internal/rules	[no test files]
+PASS
+ok  	github.com/qompack/qompack/internal/rules/rulestest	0.467s
+PASS
+ok  	github.com/qompack/qompack/internal/scheduler	0.468s
+PASS
+ok  	github.com/qompack/qompack/internal/scheduler/schedulertest	0.432s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/sketch
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkBloomAdd-22            	 8014784	       138.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 8763991	       136.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 8737528	       160.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 7241732	       179.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 6680004	       182.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 6511065	       182.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 6355234	       205.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 6654993	       204.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 5019895	       200.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomAdd-22            	 5513757	       217.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5615205	       184.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5912800	       201.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5253703	       206.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 7020261	       208.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5968975	       209.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 7318844	       204.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6668637	       187.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5384862	       191.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 6812235	       183.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBloomTest-22           	 5197630	       210.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6664507	       184.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 5354611	       207.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 5603119	       220.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 5372646	       187.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6223843	       205.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6155300	       188.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6562885	       184.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 7250053	       172.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 8398555	       171.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSAdd-22              	 6669734	       198.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6417934	       164.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 8679714	       172.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 7586019	       185.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 7775449	       172.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6907630	       177.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 7429452	       188.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 5968779	       181.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6453756	       176.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6557928	       182.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCMSEstimate-22         	 6984804	       180.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 9139353	       147.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7787584	       158.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7289120	       147.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 5877154	       184.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7335837	       149.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7185004	       146.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 6642763	       168.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 8316007	       151.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7631494	       144.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLAdd-22              	 7412527	       170.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  149869	      8990 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  141741	      7169 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  140032	      7166 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  210350	      6445 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  206464	      8401 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  186658	      7395 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  199836	      8643 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  160142	      7351 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  141084	      9258 ns/op	       0 B/op	       0 allocs/op
+BenchmarkHLLCardinality-22      	  138903	      7851 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11941332	       108.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	12531711	       101.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11077008	       106.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11692213	        94.74 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	15074902	        88.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	15800241	        98.61 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	10438948	       123.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	 7975928	       125.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11712036	        91.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMisraGriesAdd-22       	11782155	       101.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2405688	       518.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 1979292	       548.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2423673	       481.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2091102	       588.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2061116	       563.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2136346	       580.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2882419	       499.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2131852	       563.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2387320	       493.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkL0SketchUpdate-22      	 2558641	       547.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMinHash4KiB-22         	    4766	    340370 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3740	    349614 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3524	    304172 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    4292	    379393 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    4185	    294903 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    2360	    460602 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    4076	    381421 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3694	    352075 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3948	    326932 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash4KiB-22         	    3096	    331363 ns/op	    3072 B/op	       2 allocs/op
+BenchmarkMinHash100KiB-22       	     768	   1843951 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     493	   2132860 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     682	   1809772 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     739	   1660866 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     597	   2021008 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     729	   1658933 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     505	   2116500 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     906	   1570867 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     639	   1688565 ns/op	  396288 B/op	       4 allocs/op
+BenchmarkMinHash100KiB-22       	     679	   1514902 ns/op	  396295 B/op	       4 allocs/op
+BenchmarkBloomMarshal-22        	  123502	      9738 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  160311	      8807 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  134355	      8907 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  162973	      9251 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  163627	     11030 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  155620	      8715 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  167959	      9131 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  159818	      9105 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  140935	      9106 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomMarshal-22        	  154039	      9354 ns/op	   24640 B/op	       3 allocs/op
+BenchmarkBloomUnmarshal-22      	  262012	      6014 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  193320	      6206 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  185130	      6013 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  246225	      6455 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  195408	      5651 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  178522	      6489 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  218176	      6615 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  256459	      6337 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  237108	      6330 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkBloomUnmarshal-22      	  203583	      5965 ns/op	   12560 B/op	       5 allocs/op
+BenchmarkCMSMarshal-22          	   21789	     54256 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   23162	     49965 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   22032	     50902 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   18686	     57870 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   22382	     52895 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   21009	     55870 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   22279	     51234 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   20317	     56066 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   22688	     53821 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSMarshal-22          	   23166	     51744 ns/op	  114752 B/op	       3 allocs/op
+BenchmarkCMSUnmarshal-22        	   30061	     37977 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   33910	     37531 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   27738	     39374 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   26266	     42983 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   37863	     35501 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   33423	     34994 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   28820	     40626 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   35751	     37066 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   23227	     45863 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkCMSUnmarshal-22        	   31944	     38375 ns/op	   57632 B/op	       7 allocs/op
+BenchmarkRebuildBloom5000-22    	    1292	    928206 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	     975	   1162299 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	     933	   1156782 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1101	   1184825 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	     973	   1086600 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1138	   1128979 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1161	   1040700 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1234	   1067759 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	     952	   1068133 ns/op	   12400 B/op	       4 allocs/op
+BenchmarkRebuildBloom5000-22    	    1125	   1166103 ns/op	   12400 B/op	       4 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/sketch	188.091s
+PASS
+ok  	github.com/qompack/qompack/internal/sketch/sketchtest	0.434s
+?   	github.com/qompack/qompack/internal/skills	[no test files]
+PASS
+ok  	github.com/qompack/qompack/internal/skills/skillstest	0.416s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/store
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     238	   4943629 ns/op	  20.71 MB/s	  909315 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     230	   7279930 ns/op	  14.07 MB/s	  910534 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     165	   7947201 ns/op	  12.89 MB/s	  911518 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     199	   7423844 ns/op	  13.79 MB/s	  910845 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     140	   7207951 ns/op	  14.21 MB/s	  909851 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     176	   7663415 ns/op	  13.36 MB/s	  909941 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     162	   7579978 ns/op	  13.51 MB/s	  908618 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     148	   7100105 ns/op	  14.42 MB/s	  910014 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     169	   7658602 ns/op	  13.37 MB/s	  910357 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Warm_NoRedact-22    	     158	   7104750 ns/op	  14.41 MB/s	  909546 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      45	  27705220 ns/op	   3.70 MB/s	 6466405 B/op	     882 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      46	  26062187 ns/op	   3.93 MB/s	 5056454 B/op	     868 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      48	  27467440 ns/op	   3.73 MB/s	 5994381 B/op	     859 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      46	  26615528 ns/op	   3.85 MB/s	 6817032 B/op	     860 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      45	  27098916 ns/op	   3.78 MB/s	 9161605 B/op	     892 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      40	  26270462 ns/op	   3.90 MB/s	 2911636 B/op	     830 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      50	  26273276 ns/op	   3.90 MB/s	11141992 B/op	     925 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      43	  26874679 ns/op	   3.81 MB/s	 9750110 B/op	     910 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      52	  29353540 ns/op	   3.49 MB/s	 6945402 B/op	     873 allocs/op
+BenchmarkPutBytes_100KB_Cold_NoRedact-22    	      46	  25120620 ns/op	   4.08 MB/s	 5426075 B/op	     848 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      51	  25509329 ns/op	   4.01 MB/s	 3414393 B/op	     908 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      43	  26605528 ns/op	   3.85 MB/s	 6700466 B/op	     932 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      37	  30555073 ns/op	   3.35 MB/s	 6623404 B/op	     928 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      49	  28388231 ns/op	   3.61 MB/s	 7699472 B/op	     955 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      39	  26770549 ns/op	   3.83 MB/s	 3225745 B/op	     854 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      51	  26647106 ns/op	   3.84 MB/s	 6664256 B/op	     950 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      38	  29463058 ns/op	   3.48 MB/s	 1402837 B/op	     884 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      42	  26210921 ns/op	   3.91 MB/s	 8422632 B/op	     955 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      46	  26438491 ns/op	   3.87 MB/s	 6348141 B/op	     928 allocs/op
+BenchmarkPutBytes_100KB_Cold-22             	      38	  27568376 ns/op	   3.71 MB/s	 4769929 B/op	     912 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     151	   7719135 ns/op	  13.27 MB/s	 1014298 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     147	   8771888 ns/op	  11.67 MB/s	 1014136 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     150	   8565974 ns/op	  11.95 MB/s	 1012371 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     164	   8456810 ns/op	  12.11 MB/s	 1013902 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     160	   8044012 ns/op	  12.73 MB/s	 1014014 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     163	   7974487 ns/op	  12.84 MB/s	 1014660 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     163	   7913012 ns/op	  12.94 MB/s	 1014622 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     140	   8585721 ns/op	  11.93 MB/s	 1014714 B/op	      18 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     159	   8423704 ns/op	  12.16 MB/s	 1014444 B/op	      17 allocs/op
+BenchmarkPutBytes_100KB_Warm-22             	     151	   7522989 ns/op	  13.61 MB/s	 1013647 B/op	      17 allocs/op
+BenchmarkGetChunk-22                        	   12728	     83215 ns/op	   22093 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   13866	     93397 ns/op	   22102 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   13917	     96101 ns/op	   22168 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   13682	     77020 ns/op	   22111 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   12798	     81286 ns/op	   22126 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   12622	     87288 ns/op	   22175 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   12616	     79987 ns/op	   22065 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   14842	     78739 ns/op	   22139 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   14680	     89791 ns/op	   22136 B/op	      18 allocs/op
+BenchmarkGetChunk-22                        	   13378	     88016 ns/op	   22063 B/op	      18 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	    8898	    112690 ns/op	   22240 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   10000	    102378 ns/op	   22415 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   12836	     83239 ns/op	   22235 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   13242	     82375 ns/op	   22368 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   12228	     86962 ns/op	   22393 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   13352	     83325 ns/op	   22320 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   13155	     96232 ns/op	   22268 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   14511	     86724 ns/op	   22272 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   14685	     81714 ns/op	   22334 B/op	      19 allocs/op
+BenchmarkOpenSpan_4KB_of_4MB-22             	   12864	     86604 ns/op	   22346 B/op	      19 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 453269967 ns/op	91049962 B/op	 1062755 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 421699333 ns/op	91051898 B/op	 1062755 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 415294600 ns/op	91049856 B/op	 1062753 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 411695500 ns/op	91049813 B/op	 1062753 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 423838533 ns/op	91049941 B/op	 1062754 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 414105100 ns/op	91044197 B/op	 1062727 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 422806267 ns/op	91047824 B/op	 1062752 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 406453900 ns/op	91048701 B/op	 1062752 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 438843867 ns/op	91043144 B/op	 1062726 allocs/op
+BenchmarkOpenStore_50kRoots-22              	       3	 426964300 ns/op	91076978 B/op	 1062755 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	2300238400 ns/op	58833344 B/op	  560539 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1953870900 ns/op	58767240 B/op	  560531 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1943318600 ns/op	58767784 B/op	  560537 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1584730200 ns/op	58899120 B/op	  560543 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1609705000 ns/op	58767096 B/op	  560557 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1658215400 ns/op	58764168 B/op	  560529 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1510207700 ns/op	58767480 B/op	  560534 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	2041474000 ns/op	58767624 B/op	  560535 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1514730500 ns/op	58832992 B/op	  560535 allocs/op
+BenchmarkGC_50kObjects-22                   	       1	1525302100 ns/op	58770376 B/op	  560561 allocs/op
+BenchmarkSearch_1000Roots-22                	      16	  68633481 ns/op	18148862 B/op	   30347 allocs/op
+BenchmarkSearch_1000Roots-22                	      18	  63800022 ns/op	18109107 B/op	   30324 allocs/op
+BenchmarkSearch_1000Roots-22                	      19	  65256474 ns/op	18093738 B/op	   30323 allocs/op
+BenchmarkSearch_1000Roots-22                	      18	  71025311 ns/op	18048273 B/op	   30295 allocs/op
+BenchmarkSearch_1000Roots-22                	      16	  66482319 ns/op	18059079 B/op	   30299 allocs/op
+BenchmarkSearch_1000Roots-22                	      15	  67977427 ns/op	18187017 B/op	   30359 allocs/op
+BenchmarkSearch_1000Roots-22                	      18	  61537450 ns/op	18053444 B/op	   30298 allocs/op
+BenchmarkSearch_1000Roots-22                	      18	  59573900 ns/op	18087045 B/op	   30311 allocs/op
+BenchmarkSearch_1000Roots-22                	      18	  61187589 ns/op	18128339 B/op	   30338 allocs/op
+BenchmarkSearch_1000Roots-22                	      18	  68542933 ns/op	18082613 B/op	   30313 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3075	    326093 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3814	    316425 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3610	    321030 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3506	    319031 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3699	    322588 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3566	    309300 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    4018	    313980 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3910	    322681 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3830	    310906 ns/op	   16896 B/op	     301 allocs/op
+BenchmarkMarkEncoded_100-22                 	    3290	    314717 ns/op	   16896 B/op	     301 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/store	1583.853s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/symbols
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkExtract_100KB-22               	    1156	   1025230 ns/op	 100.26 MB/s	  313555 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1254	   1036189 ns/op	  99.20 MB/s	  313866 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1054	   1026005 ns/op	 100.18 MB/s	  314346 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1032	   1048343 ns/op	  98.05 MB/s	  313329 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1202	   1057943 ns/op	  97.16 MB/s	  313906 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1185	    988487 ns/op	 103.99 MB/s	  313590 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1184	    996366 ns/op	 103.16 MB/s	  313872 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1222	   1011584 ns/op	 101.61 MB/s	  313632 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1208	   1110740 ns/op	  92.54 MB/s	  313396 B/op	    2325 allocs/op
+BenchmarkExtract_100KB-22               	    1200	    992135 ns/op	 103.60 MB/s	  313978 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1244	    990641 ns/op	 103.76 MB/s	  314043 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1196	    992230 ns/op	 103.59 MB/s	  314018 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1248	    973612 ns/op	 105.57 MB/s	  313766 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1222	    996664 ns/op	 103.13 MB/s	  313877 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1198	   1108707 ns/op	  92.71 MB/s	  313704 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1239	    984833 ns/op	 104.37 MB/s	  313639 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1228	   1060351 ns/op	  96.94 MB/s	  313796 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1159	   1031882 ns/op	  99.61 MB/s	  313796 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1197	   1016879 ns/op	 101.08 MB/s	  313644 B/op	    2325 allocs/op
+BenchmarkEnclosing_100KB-22             	    1220	   1057477 ns/op	  97.20 MB/s	  314216 B/op	    2325 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6933	    180588 ns/op	 569.19 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6949	    185075 ns/op	 555.39 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6526	    181522 ns/op	 566.26 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6904	    186540 ns/op	 551.02 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6622	    186423 ns/op	 551.37 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6128	    183573 ns/op	 559.93 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6943	    187513 ns/op	 548.17 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6520	    193438 ns/op	 531.37 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6771	    182749 ns/op	 562.45 MB/s	    4128 B/op	       8 allocs/op
+BenchmarkReferences_100KB_50Names-22    	    6402	    188639 ns/op	 544.89 MB/s	    4128 B/op	       8 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/symbols	40.874s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/tokens
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEstimateRoot_64Cached-22    	  705769	      1680 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  731024	      1738 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  712791	      1706 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  677862	      1706 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  679382	      1707 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  730038	      1691 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  589891	      1808 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  709280	      1711 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  730792	      1682 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEstimateRoot_64Cached-22    	  701241	      1798 ns/op	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8695	    140639 ns/op	 728.10 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8918	    141426 ns/op	 724.05 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8635	    138670 ns/op	 738.44 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8653	    138817 ns/op	 737.66 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8028	    144518 ns/op	 708.56 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7940	    142854 ns/op	 716.81 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8785	    143322 ns/op	 714.48 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8433	    143499 ns/op	 713.59 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    7647	    163436 ns/op	 626.55 MB/s	       0 B/op	       0 allocs/op
+BenchmarkUnits_100KB-22              	    8318	    148912 ns/op	 687.66 MB/s	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/tokens	26.281s
