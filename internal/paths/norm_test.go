@@ -153,6 +153,51 @@ func TestNorm_LeavesSymlinkOutsideRootUnresolved(t *testing.T) {
 	require.Equal(t, "link", got, "a symlink pointing outside root must not be followed")
 }
 
+// TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink pins the case the first CI run found on
+// macOS and Windows while every local pass skipped it.
+//
+// EvalSymlinks canonicalises its whole argument, so if the project root is reached through a link,
+// a resolved target under it shares no prefix with the root as spelled — and a symlink that really
+// is inside the project used to be left unresolved. macOS reaches this by default: TempDir sits
+// under /var, which is a link to /private/var. The bug matters beyond the string returned, because
+// the same file would key two ways depending on how its root was spelled.
+func TestNorm_ResolvesSymlinkWhenRootPathIsItselfASymlink(t *testing.T) {
+	base := t.TempDir()
+	realRoot := filepath.Join(base, "realroot")
+	require.NoError(t, os.MkdirAll(filepath.Join(realRoot, "real"), 0o755))
+
+	linkedRoot := filepath.Join(base, "linkroot")
+	if err := os.Symlink(realRoot, linkedRoot); err != nil {
+		t.Skipf("platform: symlinks unavailable in this environment: %v", err)
+	}
+	require.NoError(t, os.Symlink(filepath.Join(realRoot, "real"), filepath.Join(realRoot, "link")))
+
+	got, err := paths.Norm(linkedRoot, "link")
+	require.NoError(t, err)
+	require.Equal(t, "real", got,
+		"a symlink inside the root must resolve even when the root is reached through a symlink")
+}
+
+// TestNorm_SymlinkedRootStillRefusesEscape is the other half: resolving the root must not turn
+// into a way out of it.
+func TestNorm_SymlinkedRootStillRefusesEscape(t *testing.T) {
+	base := t.TempDir()
+	realRoot := filepath.Join(base, "realroot")
+	outside := filepath.Join(base, "outside")
+	require.NoError(t, os.MkdirAll(realRoot, 0o755))
+	require.NoError(t, os.MkdirAll(outside, 0o755))
+
+	linkedRoot := filepath.Join(base, "linkroot")
+	if err := os.Symlink(realRoot, linkedRoot); err != nil {
+		t.Skipf("platform: symlinks unavailable in this environment: %v", err)
+	}
+	require.NoError(t, os.Symlink(outside, filepath.Join(realRoot, "link")))
+
+	got, err := paths.Norm(linkedRoot, "link")
+	require.NoError(t, err)
+	require.Equal(t, "link", got, "a symlink pointing outside a symlinked root must not be followed")
+}
+
 func TestKeyFold(t *testing.T) {
 	require.Equal(t, "src/foo.ts", paths.KeyFold("Src/Foo.TS", true))
 	require.Equal(t, "Src/Foo.TS", paths.KeyFold("Src/Foo.TS", false))
