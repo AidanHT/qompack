@@ -30,7 +30,7 @@ import (
 const pemPositive = `-----BEGIN RSA PRIV` + `ATE KEY-----
 MIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu
 KUpRKfFLfRYC9AIKjbJTWit+CqvjWYzvQwECAwEAAQ==
-@@SEC_PEM_RSA_END@@`
+-----END RSA PRIV` + `ATE KEY-----`
 
 // ruleFixture is one built-in rule's positive (must produce a match) and negative (must not
 // produce a match) example text.
