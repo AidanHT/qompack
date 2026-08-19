@@ -545,7 +545,7 @@ Phase 7 has no exit criterion of its own; it is governed by §11.3 plus its stat
 
 > **Cross-session warm start (O4).** The store outlives the session; use it. Warm-start Count-Min with the project's historical hot-file distribution, carry `scope: "project"` eliminations forward, and seed the changepoint model's feature priors from past sessions. First-compaction quality in a fresh session should benefit from every session before it.
 
-**Procedure.** `go test ./test/replay/ -run 'TestPhase7WarmStartDelta\|TestPhase7NoRegressionBeyondTwoPercent\|TestPhase7StoreGrowthStillSublinear' -v`.
+**Procedure.** `go test ./test/replay/ -run 'TestPhase7WarmStartDelta|TestPhase7NoRegressionBeyondTwoPercent|TestPhase7StoreGrowthStillSublinear' -v`.
 Record both signed deltas from `testdata/phase7/warmstart-delta.json`; both must be `≥ 0`.
 
 ### 3.9 The §11.3 guardrails (every phase gate)

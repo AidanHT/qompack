@@ -47,6 +47,7 @@ go run ./tools/devtool replay --corpus testdata/sessions/synthetic \
 
 ### V2-SP02-17 — `-run TestImports` matches no test
 
+<!-- runpatterns: the transcript below demonstrates the unsatisfiable command this section reports -->
 ```
 $ go test -run TestImports ./internal/eval/
 ok  github.com/qompack/qompack/internal/eval  1.763s [no tests to run]
