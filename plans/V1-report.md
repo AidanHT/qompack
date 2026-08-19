@@ -1,8 +1,8 @@
 # V1 completion report — foundation and contracts
 
-Branch: verify/v1 (from develop @ 2b09043, rebased onto bb1d01e)   Date: 2026-08-15
+Branch: verify/v1 (from develop @ 690ceda, rebased onto d5d40dc)   Date: 2026-08-15
 Machine: windows/amd64, Intel Core Ultra 7 155H, NTFS   Go: go1.26.4 windows/amd64
-Merged wave-0 branch: feat/sp01-foundation-toolchain-and-contracts @ 14abe48
+Merged wave-0 branch: feat/sp01-foundation-toolchain-and-contracts @ 8f20b18
 
 **Verdict: PASS.** Every §1 inventory row, all 18 Definition-of-Done items and all ten §13
 invariants are green, with one BLOCKED row (Q8, no git remote configured) that no local work can
@@ -10,7 +10,7 @@ clear. Wave 1 may be cut.
 
 **Precondition note.** §0 requires that `feat/sp01-…` already be merged `--no-ff` into `develop`.
 It was not — `develop` sat at the root commit — so this checkpoint stopped as §0 instructs and the
-merge was authorised before proceeding. `develop` @ 2b09043 has parents 454b94a (root) and 14abe48
+merge was authorised before proceeding. `develop` @ 690ceda has parents d361f06 (root) and 8f20b18
 (SP-01 tip), with 7 non-merge commits beyond root.
 
 ---
@@ -178,18 +178,18 @@ bound is the live half of this check at V1.
 
 | Commit | Subject | Inventory item | Bucket |
 |---|---|---|---|
-| ec1eaf4 | docs(arch): exempt composition-root main packages from §6.4 floors | B14 | **d** (on `arch/`, merged to develop) |
-| 853eda8 | docs(arch): give daemon Options.Handle a pointer receiver in §5.4 | J-daemon | **d** (on `arch/`, merged to develop) |
-| e401694 | test(e2e,guards): V1 cross-component integration tests IT-1..IT-10 | IT-1..IT-10 | — (§4 deliverable) |
-| 06ea4ca | fix(devtool): exempt composition-root main packages from the cover floor | B14, B17, L19, R5 | a |
-| ba19760 | fix(devtool): give the host build its .exe suffix on Windows | B2 | a |
-| 13f8ba7 | fix(daemon): add the missing SketchSet.Top Misra-Gries counter | J-daemon | a |
-| bf5351d | ci(nightly): skip unwritten fuzz targets loudly instead of failing | N5, N6 | a |
-| 7413b24 | ci: reject commit subjects ending in a period | Q5 | a |
-| 36130c8 | fix(pluginmanifest): fail rather than skip when the bundle is absent | M2, R1 | a |
-| 19322a2 | test(contracts): freeze the two §16 fixtures that were never declared | N2, IT-6 | b |
-| 5b08b00 | docs(verify): correct 17 defective rows in the V1 checkpoint | 21 rows | c |
-| 198c299 | test(testutil): raise the frozen-fixture count to 23 | N2, IT-6 | b |
+| 1f93df0 | docs(arch): exempt composition-root main packages from §6.4 floors | B14 | **d** (on `arch/`, merged to develop) |
+| e4fe3f7 | docs(arch): give daemon Options.Handle a pointer receiver in §5.4 | J-daemon | **d** (on `arch/`, merged to develop) |
+| 399f2c3 | test(e2e,guards): V1 cross-component integration tests IT-1..IT-10 | IT-1..IT-10 | — (§4 deliverable) |
+| 48f0995 | fix(devtool): exempt composition-root main packages from the cover floor | B14, B17, L19, R5 | a |
+| 894c519 | fix(devtool): give the host build its .exe suffix on Windows | B2 | a |
+| 18c4f93 | fix(daemon): add the missing SketchSet.Top Misra-Gries counter | J-daemon | a |
+| 5d5dcdd | ci(nightly): skip unwritten fuzz targets loudly instead of failing | N5, N6 | a |
+| 5762e34 | ci: reject commit subjects ending in a period | Q5 | a |
+| 2f88251 | fix(pluginmanifest): fail rather than skip when the bundle is absent | M2, R1 | a |
+| 19aa83c | test(contracts): freeze the two §16 fixtures that were never declared | N2, IT-6 | b |
+| a8306f6 | docs(verify): correct 17 defective rows in the V1 checkpoint | 21 rows | c |
+| fa57b00 | test(testutil): raise the frozen-fixture count to 23 | N2, IT-6 | b |
 
 The two `arch/` commits are listed for traceability but do not live on `verify/v1`: §7.1 bucket (d)
 requires an architecture amendment to land on `develop` first, so each was committed on its own

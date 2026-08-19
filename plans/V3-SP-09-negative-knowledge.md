@@ -194,7 +194,7 @@ them. What follows is not background reading. Each item is a constraint on what 
    by decision rather than by oversight: the complete fix changes the `canon.Delta` contract that
    SP-06's content-addressed store stores against, and it is legal only under fixed-point composition,
    so D3 travels with D2. The evidence test is `TestKnownDeletionMediatedLimit`, whose third row is the
-   BOM counterexample (commit 260dbab). **The constraint on SP-09:** anything this subplan persists or
+   BOM counterexample (commit 666b120). **The constraint on SP-09:** anything this subplan persists or
    content-addresses must stay re-derivable, or explicitly versioned, across a canonicalization change,
    and no canonical-form hash may be baked into a durable identity, an equality check, or a descriptor
    key it cannot recompute once V3-VERIFY lands the fix. Two fields are exactly that shape and neither

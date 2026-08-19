@@ -267,8 +267,8 @@ seven items landed; no cherry-pick conflicts.
 - `git cherry-pick b6181b7a` (clean, no conflicts) → applied item 7 → `go test ./test/bench/... -race`
   green → `commit --amend --no-edit` → **commit 7'' = `93f712622202050d0a9de0e936ba5a4b30fdefc0`**
 - `git branch -f feat/sp05-daemon-ipc-and-hot-path HEAD && git checkout feat/sp05-daemon-ipc-and-hot-path`
-- Verified: exactly 7 commits on `develop..HEAD`; commits 1-4 (`4dc422b`, `4e91fca`, `d0e9f00`,
-  `98c4fef`) byte-identical (unchanged SHAs); commits 5''/6''/7'' carry their original subjects and
+- Verified: exactly 7 commits on `develop..HEAD`; commits 1-4 (`71f50ba`, `fe73ad1`, `e9a5453`,
+  `6bd2dff`) byte-identical (unchanged SHAs); commits 5''/6''/7'' carry their original subjects and
   bodies verbatim (diffed against the pre-wave commit messages), no attribution trailers on any of
   the three.
 
@@ -333,10 +333,10 @@ shape the rest of the file already uses — no `time.Sleep`, no polling.
   clean
 
 **Replay.** `git checkout --detach 3bd35994` (commit 5 as it stood after fix round 1) → applied the
-fix → verified → `commit --amend --no-edit` → **commit 5''' = `30a04e20b175cbd735dea28660aef75c975ccda6`**
+fix → verified → `commit --amend --no-edit` → **commit 5''' = `3cd8719ad5afa9bc5bc0cff40765997ec6c3cd0b`**
 → `git cherry-pick d040fc07` (clean, no conflicts, no changes needed this round) →
-**commit 6''' = `5288c2e96776cbc1596f583e9fac0d16a0fe5a13`** → `git cherry-pick 93f71262` (clean, no
-conflicts, no changes needed this round) → **commit 7''' = `b57df25e85c43e9fdfe011adf8b5183edbaa87ce`**
+**commit 6''' = `b69d7f37a2ae9463b5664998678a3425f07a0b17`** → `git cherry-pick 93f71262` (clean, no
+conflicts, no changes needed this round) → **commit 7''' = `10ca6fcf5c25ee33dee8b4ee13835b9e68e161c3`**
 → `git branch -f feat/sp05-daemon-ipc-and-hot-path HEAD && git checkout
 feat/sp05-daemon-ipc-and-hot-path`. Verified: exactly 7 commits on `develop..HEAD`; commits 1-4
 unchanged; commits 5'''/6'''/7''' carry their original subjects/bodies verbatim, no attribution

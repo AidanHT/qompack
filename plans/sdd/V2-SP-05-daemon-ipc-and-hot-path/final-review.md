@@ -261,7 +261,7 @@ two CI conditions observed, this branch is mergeable.
 # Re-review (fix wave)
 
 Scoped re-review of review-fixwave.diff (old HEAD b6181b7a → new HEAD 93f71262). Verified on the
-new HEAD: exactly 7 commits, C1–C4 SHAs unchanged (4dc422b5/4e91fcac/d0e9f006/98c4fef7), replayed
+new HEAD: exactly 7 commits, C1–C4 SHAs unchanged (71f50ba1/fe73ad1d/e9a54530/6bd2dff9), replayed
 C5''=3bd35994, C6''=d040fc07, C7''=93f71262 with subjects byte-identical to the pre-wave branch;
 `git log --format=%B develop..HEAD` carries zero attribution trailers. `go build ./...` clean;
 `go test -race -count=1` green on internal/daemon, internal/cli, test/bench/hotpath;
@@ -314,8 +314,8 @@ bench-gate green on all three platforms before flipping branch protection) still
 
 # Re-review (shutdown fix)
 
-Scoped re-review of `git diff 3bd35994..30a04e20` (stopDone completion signal), replayed as
-C5'''=30a04e20, C6'''=5288c2e9, C7'''=b57df25e, HEAD=b57df25e.
+Scoped re-review of `git diff 3bd35994..3cd8719a` (stopDone completion signal), replayed as
+C5'''=3cd8719a, C6'''=b69d7f37, C7'''=10ca6fcf, HEAD=10ca6fcf.
 
 **(1) Ordering correct for all exit arms.** `stopDone` is closed by a `defer` INSIDE the
 `stopOnce.Do` closure — so it fires after every cleanup step (and even if one panics), exactly

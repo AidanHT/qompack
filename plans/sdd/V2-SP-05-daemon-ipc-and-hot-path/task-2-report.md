@@ -195,7 +195,7 @@ go test ./...
 
 Review verdict: 1 Critical, 7 Important, 13 Minor. Amended commit
 `e4dbd3b9266d844d9b60b7866ee6e36b785eae31` (subject/body unchanged, no attribution trailers) —
-still exactly one commit ahead of `4dc422b5`.
+still exactly one commit ahead of `71f50ba1`.
 
 ### Critical
 
@@ -345,7 +345,7 @@ frame_test.go:124: [rapid] OK, passed 100 tests (1.6358ms)   # TestDecodeRequest
 Re-review confirmed all 8 fix-round-1 findings landed correctly, and surfaced one new Important
 (N-3) plus two trivial Minors (N-1, N-2). Amended commit
 `dd2f5e2` (subject/body unchanged, no attribution trailers) — still exactly one commit ahead of
-`4dc422b5`.
+`71f50ba1`.
 
 ### N-3 (Important) — `TestStaleUnixSocketReclaimed` would fail on real POSIX
 
@@ -568,19 +568,19 @@ at `-count=3`.
 2. git checkout --detach dd2f5e22                                                    — done
 3. Implemented the fix + TestServerConcurrentDialVsClose; go test ./internal/ipc/... -race -count=2 green
 4. git add -A && git commit --amend --no-edit
-   → C2' = 4e91fcac7063eb70ebae6ee2739b3709edb559fd
+   → C2' = fe73ad1dcf7be3f94fd937752a2fad5c135c71e3
      "feat(ipc): thin client with spool fallback, spawn seam, and the server" (unchanged)
 5. git cherry-pick eeca0651 29585ce1 115ba19d — zero conflicts
-     → C3' = d0e9f006d27beb5e5f490d07830df97ed60c56ee
+     → C3' = e9a54530dd4d5a873d8f78170259b543105e50ba
        "feat(daemon): singleton lock, session registry, WAL ingest queue, and drain"
-     → C4' = 98c4fef756a14b7bf37d341c330a4c8573a55e14
+     → C4' = 6bd2dff9651074e0d9673f8f720cfda62cdbf15f
        "feat(contract): G9.3 assertions, fail-loud degradation, two-clean-run restore"
      → C5' = 04f3c81fd76b0b884bcf34f140467f28dcf59440
        "feat(daemon): extension seams, idle controller, sync->spool fallback"
 6. Reproducer + full verification (below) — all green
 7. git branch -f feat/sp05-daemon-ipc-and-hot-path HEAD && git checkout feat/sp05-daemon-ipc-and-hot-path
 8. git log --oneline develop..HEAD — exactly 5 commits, subjects unchanged (verified against
-   the original 4dc422b/dd2f5e22-as-4e91fca/eeca0651/29585ce1/115ba19d sequence)
+   the original 71f50ba/dd2f5e22-as-fe73ad1/eeca0651/29585ce1/115ba19d sequence)
 ```
 
 ### Verification (step 6, all clean)

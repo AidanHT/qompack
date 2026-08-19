@@ -1,6 +1,6 @@
 # Task 2 review — ipc thin client, spool fallback, spawn seam, and the server
 
-Commit reviewed: `13c448f9` (`4dc422b5..13c448f9`, exactly one commit).
+Commit reviewed: `13c448f9` (`71f50ba1..13c448f9`, exactly one commit).
 Reviewer verification run locally in the worktree:
 
 ```
@@ -239,7 +239,7 @@ Worth recording, because it is load-bearing for the next tasks: the eight-step a
 Scope: verification only of the 1 Critical + 7 Important findings above, plus a sanity check of the
 fix delta. Minors deliberately left (M-1/M-2/M-3/M-5/M-8/M-12/M-13) are not re-flagged.
 
-Amended commit `e4dbd3b9` — still exactly one commit ahead of `4dc422b5`, subject and body
+Amended commit `e4dbd3b9` — still exactly one commit ahead of `71f50ba1`, subject and body
 unchanged, no attribution trailers. Re-verified locally:
 
 ```
@@ -355,7 +355,7 @@ on two of three target platforms would not be honest.
 ## Re-review (fix round 2)
 
 Scope: N-3, N-1, N-2 only, plus a sanity check of the delta and a closure call on desk-verification.
-Amended commit `dd2f5e2` — still exactly one commit ahead of `4dc422b5`, subject/body unchanged, no
+Amended commit `dd2f5e2` — still exactly one commit ahead of `71f50ba1`, subject/body unchanged, no
 trailers. Re-verified locally: `GOOS=linux go vet ./internal/ipc/...`, `GOOS=darwin go vet
 ./internal/ipc/...`, `go test ./internal/ipc/... -race -count=1` — all clean.
 
