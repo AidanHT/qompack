@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -184,3 +185,32 @@ func (c *captureLogger) Info(string, ...any)        {}
 func (c *captureLogger) Warn(string, ...any)        {}
 func (c *captureLogger) Error(string, ...any)       {}
 func (c *captureLogger) Loud(msg string, kv ...any) { *c.loud = append(*c.loud, msg) }
+
+// TestEndAbandonedEndsOnlySilentLiveSessions pins the sweep the idle tick runs before reading
+// Live(): a live session silent for at least maxSilence is ended, a live session with recent
+// activity is kept, and an already-ended session is left untouched (its EndedTS must not move,
+// or evictLocked's oldest-ended ordering would churn).
+func TestEndAbandonedEndsOnlySilentLiveSessions(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	r.Ensure(&hookio.Event{SessionID: "sess-fresh"}, 1000)
+	r.Ensure(&hookio.Event{SessionID: "sess-silent"}, 1000)
+	r.Ensure(&hookio.Event{SessionID: "sess-ended"}, 1000)
+	r.End("sess-ended", 2000)
+	r.Touch("sess-fresh", 61_000)
+
+	// One minute of allowed silence, measured at t=62s: sess-silent (last activity t=1s) is
+	// abandoned, sess-fresh (t=61s) is inside the window, sess-ended was not live to begin with.
+	require.Equal(t, 1, r.EndAbandoned(62_000, time.Minute))
+
+	require.Equal(t, 1, r.Live(), "only the fresh session may still be live")
+	require.True(t, r.IsLive("sess-fresh"))
+	require.False(t, r.IsLive("sess-silent"))
+	ended, ok := r.Get("sess-ended")
+	require.True(t, ok)
+	require.EqualValues(t, 2000, ended.EndedTS, "an already-ended session must keep its EndedTS")
+
+	// Idempotent: a second sweep at the same instant finds nothing left to end.
+	require.Equal(t, 0, r.EndAbandoned(62_000, time.Minute))
+}
