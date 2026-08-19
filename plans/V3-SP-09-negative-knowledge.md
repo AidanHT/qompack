@@ -175,6 +175,62 @@ Validation rules for these keys, from 00-ARCHITECTURE §11.3: `bloom.capacity �
 
 > **The bloom filter is a cache, never the source of truth (§8.3).** Every membership answer is backed by a record lookup or explicitly flagged `BloomOnly`.
 
+### Inherited constraints from wave 1 (rows of `plans/CARRIED-DEFECTS.tsv` still `deferred:V3-VERIFY` — binding on this subplan, **not** quoted from Qompack.md)
+
+Two of the wave-1 rows deferred to V3-VERIFY compound as this ledger is built on top of them, because
+both bear on the two hashes a `Record` does **not** mint itself — `Evidence` and every
+`DependsOn[].Hash` — and on the staleness flip that decides whether an elimination still blocks. The
+authoritative status of each is its row in `plans/CARRIED-DEFECTS.tsv` — not this file — with the
+diagnosis and acceptance criteria in `plans/V2-SP-04-carried-defects.md` and
+`plans/V2-WAVE1-carried-defects.md`; V3-VERIFY §0a item 5 owns resolving or consciously re-deferring
+them. What follows is not background reading. Each item is a constraint on what this subplan may do.
+(The third compounding row, SP04-D5, is a canonicalization-rule budget on SP-08's L0 hot path;
+`negknow` adds no `canon` rule and does not import `canon`, so it does not bind here.)
+
+1. **SP04-D2 + SP04-D3 — canonicalization is not a stable contract yet, and the hashes this ledger
+   records against it are append-only.** SP04-D2: canonicalization is not idempotent when a deletion
+   joins two fragments into a value neither half contained. SP04-D3: one timestamp edge remains of the
+   original three — a word byte immediately after an ISO timestamp defeats the rule. Both are deferred
+   by decision rather than by oversight: the complete fix changes the `canon.Delta` contract that
+   SP-06's content-addressed store stores against, and it is legal only under fixed-point composition,
+   so D3 travels with D2. The evidence test is `TestKnownDeletionMediatedLimit`, whose third row is the
+   BOM counterexample (commit 260dbab). **The constraint on SP-09:** anything this subplan persists or
+   content-addresses must stay re-derivable, or explicitly versioned, across a canonicalization change,
+   and no canonical-form hash may be baked into a durable identity, an equality check, or a descriptor
+   key it cannot recompute once V3-VERIFY lands the fix. Two fields are exactly that shape and neither
+   is minted here: `Evidence`, the root of the reason text `IngestMCP` puts through `store.PutBytes`,
+   and every `DependsOn[].Hash`, which `resolveDeps` takes from the newest `store.FileHistory` entry —
+   both addresses over the *canonical* bytes, written into an append-only log (§7.4) that outlives the
+   canonicalizer that produced them. The equality check is the sharp end: `store.ChangedSince` is
+   exactly hash inequality against the newest recorded version, so once canonicalization changes, the
+   first version appended for a dependency after the fix re-derives a different root from identical
+   bytes and `RefreshStaleness` flips an active record stale on evidence that did not change. Either
+   the dep baseline stays re-derivable, or the record carries the canonicalizer generation it was minted
+   under and the staleness comparison declines to flip on that axis alone. `Descriptor.Key()` and
+   `MatchKey()` are not affected — they hash this package's own canonicalization (`ApproachClass`,
+   `reasonHash`) and the bloom is rebuilt from records regardless — and that is not a licence to treat
+   the store's hashes as equally stable.
+
+2. **SP05-D1 — the IPC drain is not lossless on abort, so the file-version history this ledger reads
+   may be missing an edit.** A drain aborted by idle-budget expiry consumes the line it interrupted:
+   the file offset is advanced and the seen-set committed before the binding completed, so the event is
+   lost. The deliberate poison-line-consume rule cannot distinguish a dying drain from a refusing
+   handler, and separating them needs seen-set rollback, or post-dispatch commit plus a retry cap — a
+   re-adjudication of an adjudicated rule rather than a surgical fix. **The constraint on SP-09:** the
+   staleness path may not be written as though it sees every change. `AppendFileVersion` has exactly one
+   caller in the finished system — SP-08's observer, on the far side of that drain — and
+   `store.ChangedSince` skips a path with no history at all, counting it rather than reporting it. A
+   lost `PostToolUse` therefore does not manufacture a false flip; it produces a **missed** one, leaving
+   an elimination `active` whose evidence has in fact changed. That is the §12 High-severity direction —
+   "stale negative knowledge blocks a now-viable approach" — and it is the one case this subplan may not
+   file under "false positives are the safe direction," because §8.3 scopes that claim to *while
+   evidence is current*. Concretely: `RefreshStaleness` must stay re-runnable and idempotent over the
+   same deps, so a later window can catch what an earlier one could not see (its re-flip semantics
+   already are — do not optimize them into a checked-once cache); a record's `depends_on` baseline must
+   remain re-checkable in a later session rather than only at record time; and the Phase 2 exit
+   criterion's "zero stale-block incidents" is a statement about the ledger given the events it
+   received, which the replay assertion in `test/replay/` should say rather than imply.
+
 ---
 
 ## Out of scope

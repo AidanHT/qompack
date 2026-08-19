@@ -187,6 +187,61 @@ FileRead, Bash/PowerShell, Grep, Glob, WebSearch, WebFetch, FileEdit, FileWrite
 
 > | any hook panic | recovered in `cli`, logged, `exit 0` with empty output |
 
+### Inherited constraints from wave 1 (rows of `plans/CARRIED-DEFECTS.tsv` still `deferred:V3-VERIFY` — binding on this subplan, **not** quoted from `Qompack.md`)
+
+Three of the wave-1 rows deferred to V3-VERIFY do not merely sit still while wave 2 is built on top
+of them: they compound with everything SP-08 persists and with every exactness it asserts. The
+authoritative status of each is its row in `plans/CARRIED-DEFECTS.tsv` — not this file — with the
+diagnosis and acceptance criteria in `plans/V2-SP-04-carried-defects.md` and
+`plans/V2-WAVE1-carried-defects.md`; V3-VERIFY §0a item 5 owns resolving or consciously re-deferring
+them. What follows is not background reading. Each item is a constraint on what this subplan may do.
+
+1. **SP04-D2 + SP04-D3 — canonicalization is not a stable contract yet, so no durable identity SP-08
+   mints may assume that it is.** SP04-D2: canonicalization is not idempotent when a deletion joins
+   two fragments into a value neither half contained. SP04-D3: one timestamp edge remains of the
+   original three — a word byte immediately after an ISO timestamp defeats the rule. Both are
+   deferred by decision rather than by oversight: the complete fix changes the `canon.Delta` contract
+   that SP-06's content-addressed store stores against, and it is legal only under fixed-point
+   composition, so D3 travels with D2. The evidence test is `TestKnownDeletionMediatedLimit`, whose
+   third row is the BOM counterexample (commit 260dbab). **The constraint on SP-08:** everything this
+   subplan persists or content-addresses must stay re-derivable, or explicitly versioned, across a
+   canonicalization change. A canonical-form hash may not be baked into a durable identity, an
+   equality check, or a key that SP-08 cannot recompute once V3-VERIFY lands the fix. That reaches the
+   `Root` written into every `ToolUseRecord`, the `(TS, Root)` pairs `AppendFileVersion` appends,
+   `Node.Root` on every DAG node, the `Signature`/`NearDup` comparison supersession turns on, and the
+   short hash the tombstone prints — every one of them an address over the *canonical* bytes, not the
+   raw ones. Re-derivability is the cheap answer: let the store's own `Root` be the only identity, and
+   mint no second one on top of it that only this package can read.
+
+2. **SP04-D5 — the canonicalization rule count is hot-path budget, and there is none left to spend
+   quietly.** Cost is now dominated by per-rule prefilter scans, so each new rule spends the budget
+   linearly. Re-measured on a quiet machine at V2-VERIFY: `BenchmarkRun_GoTest` at 786.5 µs against
+   its 1 ms budget row (21% headroom), and `BenchmarkRun_Bash100KB` at 2.612–5.103 ms, straddling its
+   3 ms budget row. The deferral was confirmed by measurement, not assumed. **The constraint on
+   SP-08:** this subplan may not add a canonicalization rule without re-measuring both benchmarks
+   against their budget rows in the same change. The temptation is specific enough to name: the
+   Phase 1 exit criterion is a dedup ratio measured with and without canonicalization, and a new strip
+   class is the obvious way to buy ratio on test output. If a rule is genuinely required, the per-rule
+   prefilter restructure has to come first — and since the canonicalizer registry and its strip
+   classes are SP-04's under **Out of scope**, "add a rule" is a cross-subplan request, never a local
+   edit.
+
+3. **SP05-D1 — the drain is not lossless on abort, so the observer may not assume it is fed
+   everything.** A drain aborted by idle-budget expiry consumes the line it interrupted: the file
+   offset is advanced and the seen-set committed before the binding completed, so the event is lost.
+   The deliberate poison-line-consume rule cannot distinguish a dying drain from a refusing handler,
+   and separating them needs seen-set rollback, or post-dispatch commit plus a retry cap — a
+   re-adjudication of an adjudicated rule rather than a surgical fix, which is why it is a
+   checkpoint's and not SP-05's. **The constraint on SP-08:** "the drain delivers everything" is not
+   an available assumption. Any counter, ledger or invariant this subplan needs to be *exact* either
+   gets its own reconciliation path, or is documented as best-effort at the point it is declared. It
+   lands on `state.Turn` and `state.PrefixTokens` — resolved decisions 4 and 5 make both monotone
+   counters of events *observed*, not of events that happened — on the `ToolUses` ring and the
+   `SubagentSince` cursor `OnStop` slices from, on supersession (a read the observer never saw cannot
+   supersede an earlier one), and on the Phase 1 exit criterion itself, whose ≥ 4:1
+   `Stats().DedupRatio` is a ratio over what arrived. `doc.go` names which of these are best-effort;
+   none of them may claim an exactness the transport does not provide.
+
 ---
 
 ## Out of scope
