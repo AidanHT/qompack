@@ -18,7 +18,6 @@ import (
 	"github.com/qompack/qompack/internal/chunk"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
-	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/symbols"
 )
 
@@ -1403,8 +1402,7 @@ func TestStats_RefusesAClosedStoreAndACancelledContext(t *testing.T) {
 // signature near-duplicate detection reads, so that is what is reported — a count, not a fabricated
 // byte total for files this package does not own.
 func TestStats_SketchesCountsRootsCarryingASignature(t *testing.T) {
-	sig := sketch.Signature{Perms: 4, Mins: []uint64{11, 22, 33, 44}}
-	tp := newTestStore(t, withCanon(canonWithSignature(sig)))
+	tp := newTestStore(t)
 	ctx := context.Background()
 
 	st, err := tp.Store.Stats(ctx)
@@ -1425,8 +1423,12 @@ func TestStats_SketchesCountsRootsCarryingASignature(t *testing.T) {
 
 // TestStats_SketchesIsZeroWithoutSignatures asserts a root with no MinHash signature is not
 // counted, so the number above is a real count rather than a root count wearing a different name.
+//
+// MinHash is switched OFF through configuration rather than by injecting a canonicalizer that
+// attaches nothing: store.canonicalize.minhash.enabled is a real, supported deployment, and it is
+// the only state in which the production pipeline legitimately produces a signature-free root.
 func TestStats_SketchesIsZeroWithoutSignatures(t *testing.T) {
-	tp := newTestStore(t) // canonIdentity attaches no signature
+	tp := newTestStore(t, withMinHash(false, 0.9))
 	ctx := context.Background()
 
 	_, err := tp.Store.PutBytes(ctx, []byte("a root with no signature\n"), PutOptions{Path: "src/a.ts"})

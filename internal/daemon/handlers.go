@@ -134,6 +134,8 @@ func decodeSubagent(raw json.RawMessage) bool {
 // C-1 — see drainDispatch's doc comment for the full rationale).
 func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	recvTS := core.NowMilli(d.clk)
+	// The daemon is provably serving — release Run's spool re-drain (daemon.go, redrainOnceServing).
+	d.noteServed()
 	ctx = withServices(ctx, d.svc)
 	ctx = withRegistry(ctx, d.registry)
 	ctx = withDaemon(ctx, d)

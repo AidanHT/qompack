@@ -62,9 +62,9 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: '${{ matrix.go }}', cache: true }
       - if: runner.os != 'Windows'
-        run: go test -race ./...
+        run: go test -race -timeout=30m ./...
       - if: runner.os == 'Windows'
-        run: go test -count=2 ./...
+        run: go test -count=2 -timeout=30m ./...
 
   cover:
     runs-on: ubuntu-latest
@@ -91,6 +91,29 @@ jobs:
     # so this is no longer continue-on-error. Marking it a required check on develop/main is a
     # GitHub branch-protection setting, not a file in this repo — see task-7-report.md for the
     # controller note.
+    #
+    # This job gates the HOT-PATH budgets (B-A / B-E) only. §7's other half — the >10% warn /
+    # >25% fail comparison of every micro-benchmark against testdata/bench-baseline.txt — is
+    # `devtool bench-compare`, and the V2 checkpoint's decision is that it runs LOCALLY, on a
+    # quiet machine, as part of §5.3's baseline discipline:
+    #
+    #     go run ./tools/devtool bench > v2-bench.txt
+    #     go run ./tools/devtool bench-compare v2-bench.txt
+    #
+    # It is deliberately NOT a step here, and the reason is the baseline rather than the cost.
+    # testdata/bench-baseline.txt was recorded on one Windows host whose own header records an
+    # isolated fsync at ~2.1 ms, and §5.3 says in as many words that the I/O-bound rows "will look
+    # very different on the Linux CI runners" and that a large improvement there is a change of
+    # machine, not a change of code. A 25% threshold fed cross-machine deltas fails constantly and
+    # then gets switched off, which is a worse outcome than running it by hand — a gate that
+    # cannot be trusted is the dead-gate failure mode this checkpoint exists to catch, arrived at
+    # from the opposite direction. §5.3 also records BenchmarkRun_Bash100KB at ±33% run-to-run on
+    # the reference host, which a 25% gate cannot distinguish from a regression even on the same
+    # machine (SP04-D6).
+    #
+    # What would make it meaningful here: a per-OS baseline (bench-baseline-<os>.txt) recorded on
+    # the runners themselves, so the comparison is like-for-like. Then this becomes one `run:`
+    # line — the task, the thresholds and the unit-direction handling are already written.
     strategy:
       fail-fast: false
       matrix:
@@ -126,8 +149,8 @@ jobs:
           --corpus testdata/sessions/synthetic
           --baseline testdata/baseline/phase0.json
           --phase 0
-          --growth testdata/golden/contracts/store/stats-growth.json
-          --sketch testdata/golden/contracts/negknow/health.json
+          --growth testdata/golden/eval/growth/stats-growth.json
+          --sketch testdata/golden/eval/growth/health.json
           --signoff "$RUNNER_TEMP/pr-body.md"
           --max-wall 2m
           --ci

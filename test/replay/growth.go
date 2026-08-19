@@ -10,11 +10,16 @@ import (
 
 // loadGrowthSamples reads the store-growth samples the §11.3 guardrail runs over.
 //
-// In wave 1 they come from testdata/golden/contracts/store/stats-growth.json, the W-2 contract
+// In wave 1 they come from testdata/golden/eval/growth/stats-growth.json, the W-2 contract
 // fixture: internal/eval is foundation-only and cannot import store, so the shape is fixed here
 // and SP-06 swaps in a provider that walks a replayed session through the real store.Stats. The
 // fixture stays afterwards as the shape contract, and the wave-2 verification re-runs this same
 // check against the real implementation.
+//
+// It lives under testdata/golden/eval/ rather than testdata/golden/contracts/store/ because the
+// contracts directories are their owning subplan's to regenerate (V2-MERGE-18): SP-06's
+// gen-contract-fixtures rewrites store/ and SP-09 records into negknow/, and neither MANIFEST
+// declared this file, so it would have been deleted by the first -update run that noticed it.
 func loadGrowthSamples(path string) ([]eval.StatsSample, error) {
 	if path == "" {
 		return nil, nil

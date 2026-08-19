@@ -31,11 +31,12 @@ func benchStore(b *testing.B, opts ...storeOpt) *FSStore {
 	b.Setenv("USERPROFILE", home)
 
 	cfg := config.Defaults()
+	// Chunker and Canon are left nil so defaultDeps installs the production chunk.New and
+	// canon.Default. V2-SP06-25's budgets are stated against the real pipeline, so measuring an
+	// injected chunker and a no-op canonicalizer would report a number for code that never ships.
 	deps := Deps{
-		Chunker: newProdChunker(),
-		Canon:   canonIdentity(),
-		Log:     logging.Nop(),
-		Clock:   newFakeClock(),
+		Log:   logging.Nop(),
+		Clock: newFakeClock(),
 	}
 	for _, o := range opts {
 		o(&cfg, &deps)
@@ -237,10 +238,7 @@ func BenchmarkOpenStore_50kRoots(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		s, err := openFS(root, config.Defaults(), Deps{
-			Chunker: newFixedChunker(), Canon: canonIdentity(),
-			Log: logging.Nop(), Clock: newFakeClock(),
-		})
+		s, err := openFS(root, config.Defaults(), Deps{Log: logging.Nop(), Clock: newFakeClock()})
 		if err != nil {
 			b.Fatal(err)
 		}

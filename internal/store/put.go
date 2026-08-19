@@ -21,9 +21,11 @@ import (
 // every store ever opened in this process for the process's lifetime, and the set of project roots
 // a single process sees is bounded by the number of projects it serves.
 //
-// The fallback itself is not exceptional on this branch: internal/canon is still an SP-01 stub
-// whose Run reports core.ErrNotImplemented on every call (Rule W-2), so without the gate every
-// single Put would emit an identical Warn line for the whole wave.
+// The gate was added because internal/canon was an SP-01 stub reporting core.ErrNotImplemented on
+// every call, so without it every single Put emitted an identical Warn line. SP-04's real registry
+// does not fail, which makes the fallback genuinely exceptional again — and that is exactly when
+// once-per-store matters most: a canonicalizer that starts failing mid-session is one operator
+// signal, not one per tool result, and the counter store.canon.fallback carries the rate.
 var canonFallbackWarned sync.Map
 
 // putBufPool recycles the read buffer Put fills from an io.Reader, so a hot path that streams tool
@@ -251,14 +253,6 @@ func (s *FSStore) canonOptions(o PutOptions) canon.Options {
 	return opts
 }
 
-// signatureJaccard is the near-duplicate similarity seam.
-//
-// Production always routes through sketch.Signature.Jaccard. It is a variable rather than a direct
-// call solely because internal/sketch is still an SP-01 stub on this branch whose Jaccard reports
-// a flat 0 (Rule W-2), which would make near-duplicate detection untestable until SP-03 merges
-// later in this same wave. Tests swap it; nothing else does.
-var signatureJaccard = func(a, b sketch.Signature) float64 { return a.Jaccard(b) }
-
 // nearDup reports whether sig is a near-duplicate of the most recent prior root stored for path.
 //
 // This is §8.1's "same test suite, one new failure" detector: content that still differs after
@@ -278,7 +272,7 @@ func (s *FSStore) nearDup(path string, root core.Hash, canonBytes int64, sig ske
 		if !ok || prior.Root.Hash == root {
 			continue
 		}
-		j := signatureJaccard(prior.Sig, sig)
+		j := prior.Sig.Jaccard(sig)
 		if j < cc.MinHash.NearDupThreshold {
 			return nil
 		}

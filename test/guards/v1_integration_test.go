@@ -257,6 +257,10 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 var v1CoverageFloors = map[string]int{
 	"config": 90, "store": 90, "sketch": 90, "chunk": 90,
 	"canon": 90, "negknow": 90, "checkpoint": 90, "paths": 90,
+	// redact and tokens were raised from the §6.4 default at V2: SP-06 imposed 90 on itself
+	// (V2-SP06-27) and the merged tree measures 96.4% / 93.5%, so the override is now the
+	// architecture's floor rather than unenforced prose. Refs: V2, SP-06.
+	"redact": 90, "tokens": 90,
 
 	"scheduler": 85, "dag": 85, "analyzer": 85, "rehydrate": 85, "eval": 85, "mcp": 85,
 }

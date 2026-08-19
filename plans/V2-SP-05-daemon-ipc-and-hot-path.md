@@ -6,6 +6,18 @@
 
 **Branch:** `feat/sp05-daemon-ipc-and-hot-path` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-02, SP-03, SP-04, SP-06, SP-07) | **Design sections:** §7.1, §8.1 (performance budget), §9 (G9.3 row), §12 (contract monitor, hook latency rows) | **Gaps closed:** G9.3
 
+> **V2 reconciliation — five places where this document is now HISTORICAL, and the branch is right.**
+>
+> `feat/sp05-daemon-ipc-and-hot-path` shipped under **30 numbered rulings**. Five of them contradict text below, and a reader who "fixes" the code back to this plan re-opens a defect in every case. Each site carries its own **V2 reconciliation** note; this is the index.
+>
+> 1. **There is no `ipc.Router`.** The op-routing table is a map on `daemon.Options`, reached through `Handle`/`Handler`/`Ops`, exactly as 00-ARCHITECTURE §5.4 specifies (*"the op-routing table is data, not a switch"*, with `func (*Options) Handle(op ipc.Op, h ipc.Handler)`). The plan's `Router` type was the outlier against the normative document, not an addition to it. → *Interface contract → Produces* (both the `ipc` and the `daemon` blocks) and *Implementation spec → `internal/ipc/op.go`*.
+> 2. **Commits 4 and 5 are swapped:** `contract` lands before daemon composition. The plan's order references symbols that do not exist yet and **literally cannot compile**. → *Commit plan*.
+> 3. **The B-A gate does not use the plan's subtract-a-constant method (ruling #29).** It consumes the daemon's TS-anchored `hook_controlled` estimate; wall-clock survives only as the informational `B-A_spawn_estimate` row. Under the plan's method this branch **fails B-A on every platform, including bare metal**. → *Implementation spec → `test/bench/hotpath/main.go`*.
+> 4. **The ring-full spill was deleted (ruling #23).** WAL-first ordering already made every such line durable; the `l0_ring_full` counter is retained. → *Implementation spec → `internal/daemon/ingest.go`*.
+> 5. **`SessionHistory` persists to `state/history.json`**, a *new* file beside the Monitor's pre-existing `state/contract.json`; `contract.History` stays an **interface** with `SessionHistory` as its first concrete implementation; and counters use the **underscore** idiom (`l0_ring_full`, `contract_fail_<id>`, `contract_mode_change`), not this plan's dotted names. → *Interface contract → Produces* and *Implementation spec → `internal/contract/*`*.
+>
+> The ruling record is `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md` — 30 rulings, seven per-task reviews, the review diffs and the final review. Two further facts it carries: **`internal/obs` was never touched**, so this plan's `obs/budgets.go` section is historical in the same sense; and the seven commit subjects match the task briefs rather than this document's text, trimmed to `subjectRE`'s **64 characters of free text after `type(scope): `** — they run 61–63 there, which is legal. Summarized at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
+
 ---
 
 ## Mission
@@ -404,6 +416,9 @@ func NewLineReader(r io.Reader, maxLine int) *LineReader
 func (lr *LineReader) ReadLine() ([]byte, error)
 
 type Handler func(ctx context.Context, req Request) Response
+// V2 reconciliation: the six Router declarations below did NOT ship, and ipc exports no such
+// type. The routing table is a map on daemon.Options (00-ARCHITECTURE §5.4); the panic
+// recovery moved to (*server).dispatch. See Implementation spec -> internal/ipc/op.go.
 type Router struct{ /* … */ }
 func NewRouter() *Router
 func (r *Router) Handle(op Op, h Handler)
@@ -450,12 +465,15 @@ type Options struct {
     Store store.Store; Ledger negknow.Ledger; Sketches *SketchSet
     Graph dag.Graph; Grammar grammar.Sequitur; Sched scheduler.Runtime
     Checkpoints checkpoint.Writer
-    Routes *ipc.Router
+    Routes *ipc.Router                              // V2 reconciliation: did NOT ship; the table
+                                                    // is an unexported handlers map on Options
     binds  []func(*Services)
 }
 func NewOptions(projectRoot string, cfg config.Config) Options
 func New(o Options) (Daemon, error)
-func (Options) Handle(op ipc.Op, h ipc.Handler)     // normative §5.4
+func (*Options) Handle(op ipc.Op, h ipc.Handler)    // normative §5.4; POINTER receiver
+func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) // shipped: the read side of the table
+func (o *Options) Ops() []ipc.Op                         // shipped: every registered op
 func (o *Options) Bind(fn func(*Services))          // late binding for waves 2–3
 var ErrOptionsUninitialized = errors.New("qompack: daemon.Options not built with NewOptions")
 
@@ -580,6 +598,9 @@ type Monitor interface {
 func NewMonitor(log logging.Logger, m obs.Registry, statePath string) Monitor
 func StandardAssertions() []Assertion
 
+// V2 reconciliation: this struct shipped as SessionHistory and persists to state/history.json,
+// a new file beside the Monitor's state/contract.json. contract.History is an INTERFACE
+// (Saw/LastSeen/Record/Sessions). See Implementation spec -> internal/contract/*.
 type History struct {
     Version               int              `json:"version"`
     Sessions              int              `json:"sessions"`
@@ -731,6 +752,15 @@ Fire-and-forget exchange: client writes the line; server writes exactly one byte
 ### `internal/ipc/op.go`
 
 **Responsibility.** The op vocabulary and the **op-routing table**, which is data rather than a `switch` so wave-3 subplans register handlers instead of editing daemon internals.
+
+> **V2 reconciliation — no `ipc.Router` type shipped, and the `Router` block below is historical.** The *responsibility* above is exactly what shipped; the *type* is not. 00-ARCHITECTURE §5.4 is normative here and specifies the seam as a method on the daemon's own options — *"Handle registers an Op handler; the op-routing table is data, not a switch"*, `func (*Options) Handle(op ipc.Op, h ipc.Handler)` — with no `Router` anywhere in the document. This plan's `Router` was the outlier, so the ruling went to 00-ARCHITECTURE. What shipped:
+>
+> - `internal/ipc` exports `Handler`, `Op`, `KnownOps()` and `Op.HotPath()`; it exports **no `Router`, `NewRouter`, `Route`, `SetFallback` or `Ops`**. Confirmed on the branch: no such type exists.
+> - `internal/daemon/options.go` holds the table as an unexported `handlers map[ipc.Op]ipc.Handler`, written by `(*Options).Handle` and read by `(*Options).Handler` / `(*Options).Ops`. `Handle` takes a **pointer** receiver, as 00-ARCHITECTURE says explicitly: the map is allocated on first use, so a value receiver would mutate a copy and register nothing.
+> - `daemon.buildRoutes` composes the resolved table at construction — every op a later wave registered wins, every op it did not falls back to `defaultRoutes`. Composition happens **once, before `Run`**, which is why `Handle` lives on `Options` and not on a running `Daemon`: registering against a live server would need a lock on the hot path, and B-A has no room for one.
+> - **The panic recovery moved with it and still exists.** `(*server).dispatch` in `internal/ipc/server.go` wraps every handler call in a `recover`, counts `ipc_handler_panic`, logs `Loud`, and answers `Response{OK:false, Err:"ipc: handler panic"}`. §12.3's *"MCP tool panic → recovered at the handler boundary, never kills the server"* holds unchanged; only the file it lives in differs. **Do not re-add `Router` to restore it.**
+>
+> `Op.HotPath()` and the op vocabulary below are unaffected. Ruling record: `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md`; summary at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
 
 ```go
 type Router struct {
@@ -1119,6 +1149,10 @@ func (i *ingest) Close() error
 
    If the ring is full, do **not** block: increment `obs.Counter("l0.ring_full")`, append the line to the client spool directory instead, and return — the daemon has the data and will drain it. This is the B-C "overrun → sampling + backpressure, never blocking" clause.
 
+   > **V2 reconciliation — the ring-full spill was DELETED (ruling #23); the counter was kept.** The non-blocking, never-back-pressure half of the clause above is exactly what shipped. The *spill* half did not, because it is **redundant by construction**: step 2 has already appended the exact received bytes to the session WAL two lines earlier, and the WAL is what `Drain` reads on the next idle tick — so a second copy in the client spool protects against losing nothing, and there is no ordering in which the spool holds a line the WAL does not. It also rested on a byte-identity invariant that `hookio.Event.Extra` violates. A full ring therefore **drops the job and returns immediately**, incrementing `l0_ring_full` (underscore idiom, `internal/daemon/metrics.go`); the line stays durable, the request stays non-blocking, and the cost is freshness, never data.
+   >
+   > Two spellings in this section drifted with it: counters ship as **underscores** (`l0_ring_full`, `l0_worker_panic`), not this plan's dotted names, and the B-B timing wraps the **whole `Accept` path** — all three steps — not the WAL append alone, which is the other half of ruling #23. Ruling record: `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md`; summary at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
+
 The ACK is written by the server **after `Accept` returns and before any worker touches the job** — §2.4's "ACK is sent after the WAL append returns, before any indexing work."
 
 The worker pool is `max(2, runtime.NumCPU()/2)` goroutines, each pulling from `ring`, timing the handler into `obs.MetricL0Process` (B-C), recovering panics into `obs.Counter("l0.worker_panic")` plus a `Loud` line, and never re-panicking.
@@ -1379,6 +1413,14 @@ func Budgets(cfg config.Config) []Budget {
 
 **`history.go`.** `LoadHistory(statePath)` reads `.qompack/state/contract.json`, returning a zero `History` with `Version: 1` on any error (a missing file is the first-run case). `SaveHistory` uses `paths.WriteAtomic`. `History.Last` is capped at the 9 most recent `Result`s.
 
+> **V2 reconciliation — the cross-session record is `SessionHistory`, it persists to `state/history.json`, and `contract.History` is an interface.** Three recorded rulings:
+>
+> - **`contract.History` stays an `interface`** (`Saw`, `LastSeen`, `Record`, `Sessions`) — the shape SP-01 decided and `Env.History` is typed against. The struct this plan calls `History` shipped as **`SessionHistory`**, its first concrete implementation. A later subplan needing different backing storage implements the interface rather than editing the struct.
+> - **It persists to `<projectRoot>/.qompack/state/history.json`, a NEW file**, produced by `contract.HistoryPath`. It is deliberately **not** `state/contract.json`, which remains the Monitor's own persisted mode / reason / results: two distinct schemas sharing one path would corrupt each other the first time both were written. **Both files exist and they are not the same artifact** — a verifier expecting one will report the other as a stray. `LoadHistory` still fails toward a zero value (§12.3) and now also re-clamps every bounded field, so a hand-edited or future-schema file cannot smuggle an unbounded one past the call. The wire shape is frozen by the `history_degraded` golden; changing it is a new-version migration, not an edit.
+> - **Concurrency is external** (ruling #25): `SessionHistory` is a plain data record and the daemon owns a single mutex over it. No internal locking was added.
+>
+> The counters in `monitor.go`'s step 5 drifted with it: the **daemon** — not `contract`, which stays metrics-free (ruling #26) — increments **`contract_fail_<id>`** and **`contract_mode_change`** after `RunAll`, in the underscore idiom, rather than this plan's `obs.Counter("contract.fail."+id)` / `obs.Gauge("contract.mode")`. Ruling record: `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md`; summary at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
+
 **`marker.go`.** `MarkerPath(projectRoot)` = `<projectRoot>/.qompack/run/marker.json`. `WriteMarker(projectRoot, sess, now)` writes `{"session":"<id>","ts":<unixMilli>}` with `paths.WriteAtomic` (it is a mutable one-record view, not an append-only artifact, so `WriteAtomic` is the correct primitive and `.qompack/run/` is outside the §3.3 append-only set). It is called by the daemon's `flush` and `checkpoint` routes — the SessionEnd and PreCompact terminal hooks — and by nothing else. The `session_start.fires` assertion reads it; it is never cleared, because it is overwritten by the next terminal hook and the assertion only ever compares its recorded session id against the current one.
 
 **`sentinel.go`.**
@@ -1570,6 +1612,12 @@ devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json
 10. Exit non-zero if any `Gated` budget with a non-null `limit_ms` fails — B-A, B-B and B-E. B-D has `limit_ms: null` and can never fail the run. `time.Sleep` is permitted in this directory only (`devtool lint` exempts `test/bench`).
 
 `tools/devtool/task_benchhotpath.go` adds the `bench-hotpath` task (SP-01 declared the name; SP-05 implements it), forwarding flags and printing a human summary.
+
+> **V2 reconciliation — step 6's B-A derivation was replaced (ruling #29), and restoring it fails the gate everywhere.** The plan gates B-A on wall-clock minus a constant floor: `B-A_i = max(0, B-D_i − floor_p50)`. That is honest about *location* and silently wrong about *dispersion*. **B-A is defined in the §2.4 budget table as client `main()` entry → exit, which excludes process creation entirely**, and subtracting a constant removes the floor's median while leaving all of its variance inside the adjusted samples — contaminating exactly the p99 the gate reads. On every shared runner, and measurably on bare metal too, **this branch fails B-A under the plan's method**, for host jitter B-A is defined not to contain.
+>
+> What shipped: the gated **B-A** row consumes the daemon's own **TS-anchored `hook_controlled` estimate** (observed + `hotPathTailAllowance` — the same series the breach detector consumes), fetched over the `status` op, and gates its p99 against 15 ms. The wall-clock derivation survives in full as a separate, **always-informational** row, **`B-A_spawn_estimate`**, with `limit_ms` and `pass` both `null` and the unremovable-dispersion caveat stated in `b_a_method`. `spawn_floor_ms` is still measured and still reported. The one residual the gate cannot see — an in-hook regression between ACK and process exit, i.e. microseconds of output-writing — is covered by `hotPathTailAllowance`'s documented margin and named in the artifact rather than left implicit.
+>
+> The warm-up in step 3 changed with it (**ruling #30**): `warmHotTranche(64)` hot-path requests plus a bulk `admin.ping` tranche, which warms the accept loop without polluting the gated histogram, in place of the flat 2 000 `observe.tool` / ~40 MB figure. **Do not "restore" step 6 to make a row match this document.** Ruling record: `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md`; summary at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
 
 ---
 
@@ -1775,6 +1823,10 @@ Uses SP-01's `testutil.Project` and the real built binary.
 Exactly **7 commits**, in this order, each on `feat/sp05-daemon-ipc-and-hot-path`. Every commit compiles and passes `go run ./tools/devtool test` for the packages it touches, plus `gofumpt -l` empty and `golangci-lint run` clean.
 
 **Do not add Co-Authored-By lines or any attribution trailers to any commit message.**
+
+> **V2 reconciliation — commits 4 and 5 shipped SWAPPED, and the order below cannot compile.** `contract` lands **before** daemon composition on the branch: `98c4fef feat(contract): …` precedes `30a04e2 feat(daemon): …`. The reason is mechanical rather than stylistic. Commit 4 as written adds `internal/daemon/handlers.go` and `daemon.go`, whose session-start and checkpoint routes construct `contract.Env`, call `contract.LoadHistory`, `contract.WriteMarker` and `Monitor.RunAll`, and read `Mode.MayAct()` — none of which exists until commit 5 creates `internal/contract`. **Commit 4 therefore does not build**, and the per-commit `devtool test` gate this section requires could never have passed in the stated order. Read the two blocks below as 5-then-4; their contents are otherwise unchanged.
+>
+> Two related facts a reviewer will otherwise flag. **The seven commit subjects are not byte-identical to the text below** — they match the task briefs, trimmed to `tools/devtool/checkcommitmsg.go`'s `subjectRE`. Note what that limit is before calling one over-length: **64 characters of free text *after* `type(scope): `**, not 64 for the whole line. The seven run 67–77 characters overall and **61–63 after the prefix**: legal, and tighter than they look. And **`internal/obs` was never touched**, so commit 4's `internal/obs/budgets.go` step is historical too. Ruling record: `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md`; summary at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
 
 ### Commit 1
 

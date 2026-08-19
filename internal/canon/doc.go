@@ -51,6 +51,12 @@
 // captured corpus. FuzzCanonicalize hard-fails any non-idempotence a deletion cannot explain, and
 // TestKnownDeletionMediatedLimit pins the ones it can.
 //
+// The escape is the usual mediator and not the only one: deleting a BOM run lets a (?m)^-anchored
+// rule reach a line start it could not see before, because lineLead admits carriage returns,
+// escapes and indentation but no BOM. That is why stripping escapes as a pre-pass FOR MATCHING —
+// the cheap option evaluated at V2 — would close the reproducers everyone has hit without closing
+// the class, and so cannot buy the removal of FuzzCanonicalize's exception.
+//
 // # Import surface
 //
 // canon may additionally import sketch (00-ARCHITECTURE.md §3.2: canon's allow-set is sketch, plus

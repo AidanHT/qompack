@@ -215,6 +215,7 @@ func KnownClasses() []Class                        // additive
 func ParseClass(s string) (Class, bool)            // additive
 type Delta struct{ Offset, Len int; Original string; Class Class }
 type MinHashOptions = sketch.MinHashOptions        // additive alias
+const DefaultShingleSize = 5                       // additive: the width OptionsFrom asks for
 type Result struct {
     Canonical []byte
     Deltas    []Delta
@@ -230,7 +231,9 @@ type Canonicalizer interface {
     Canonicalize(in []byte, o Options) (Result, error)
 }
 type Match struct{ Offset, Len int; Token []byte; Class Class }         // additive
+func (m Match) End() int                                                // additive: Offset+Len
 type Matcher interface{ Matches(in []byte, o Options) []Match }         // additive
+func MatchesOf(c Canonicalizer, in []byte, o Options) ([]Match, error)  // additive: ErrNotMatcher
 type Registry interface {
     Register(c Canonicalizer) error
     For(tool, path string) []Canonicalizer
@@ -243,6 +246,7 @@ func Restore(canonical []byte, deltas []Delta) ([]byte, error)
 func LineEndingClass(deltas []Delta, canonicalNewlines int) string  // additive: "lf"|"crlf"|"mixed"
 type Strategy uint8                                // additive
 const (StrategyFull Strategy = iota; StrategyDelta)
+func (s Strategy) String() string                  // additive: for logs and metrics
 type DedupDecision struct {                        // additive — consumed by SP-06
     NearDup       bool
     Jaccard       float64
@@ -251,6 +255,7 @@ type DedupDecision struct {                        // additive — consumed by S
 }
 func Decide(jaccard float64, canonLen, priorLen int, threshold float64) DedupDecision  // additive
 func NearDup(a, b sketch.Signature, threshold float64) (bool, float64)                 // additive
+const MaxInputBytes = 8 << 20                      // additive: 8 MiB canonicalization cap
 var ErrUnknownClass, ErrNotMatcher, ErrDuplicateName, ErrDeltaRange, ErrDeltaOrder error
 
 // package symbols — §5.22b of 00-ARCHITECTURE, verbatim
@@ -264,6 +269,10 @@ func New() Extractor
 const MaxExtractBytes = 4 << 20                    // additive
 const MaxSymbols      = 20000                      // additive //nomagic:allow symbol-count cap, not a config value
 ```
+
+> **V2 reconciliation:** the `canon` half of this block was **incomplete** — it omitted five exported symbols `internal/canon` actually ships, so a later subplan reading only this list would not know they exist and this branch's own §11.6 completeness check (*"every signature in Produces matches … and no §5 signature was changed or removed"*) could pass over a surface it never enumerated. The five, now listed above: `MaxInputBytes` (`apply.go`, 8 MiB — the largest prefix canonicalization examines; the tail is passed through untouched), `DefaultShingleSize` (`classes.go`), `MatchesOf` (`match.go`), `Match.End()` (`match.go`) and `Strategy.String()` (`dedup.go`). No code changes: the symbols shipped, the list did not name them. See `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.4 and **V2-ALL-06**.
+>
+> **`canon.DefaultShingleSize` is 5 and `sketch.DefaultShingleSize` is 8, and that difference is deliberate — do not "unify" them.** They measure different things over different units. `sketch.DefaultShingleSize = 8` is a width in **bytes**, chosen so a shingle is a distinctive fragment of a line rather than a syllable every document contains. `canon.DefaultShingleSize = 5` is the value `OptionsFrom` supplies for `MinHashOptions.ShingleSize` because Appendix C's `store.canonicalize.minhash` block has **no shingle key** — it configures only `enabled`, `permutations` and `nearDupThreshold` — so canon chooses it rather than reading it from config, at the usual near-duplicate width for canonicalized tool output. Either package may retune its own without touching the other; a shared constant would couple two decisions that are not the same decision.
 
 **Consumer map for the produced symbols** (why they cannot move after this branch merges): `chunk.New`/`Split`/`RootHash`/`Refs` → `store.Put` (SP-06) and `observer.OnToolUse` (SP-08). `canon.Default`/`Run`/`Restore`/`Decide` → `store.Deps.Canon` (SP-06), `observer` (SP-08). `symbols.New` → `store.Deps.Symbols` and `store.Query.Symbol` (SP-06), `dag` `EdgeSharedSymbol` (SP-07), `analyzer.NewCheapScorer` (SP-15), `mcp` span widener (SP-13).
 

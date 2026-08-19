@@ -10,6 +10,66 @@ normative references if a command below disagrees with the code.
 
 ---
 
+## 0a. Inbound from V2 — carried obligations this checkpoint must not lose
+
+Written by the V2 checkpoint session at wave-1 sign-off (see `plans/V2-report.md` §0's
+"Carried to wave 2 and beyond"). Five items land here; none is derivable from the code alone.
+
+1. **INHERIT (SP-07 → SP-09): the dependence graph contains legitimate cycles, and the
+   negative-knowledge detector must terminate on them.** D-7 forbids only one specific cycle. The
+   ordinary Read-then-Edit pattern closes a legal loop — `tooluse:t1 → toolresult:t1 →
+   assistant:2 → tooluse:t2 → file:a → tooluse:t1` — pinned by
+   `TestReadThenWriteClosesALegitimateCycle` so it cannot be assumed away. SP-09 scans this same
+   graph for the test-fail → revert → different-approach pattern: **a naive recursive descent
+   will not terminate.** Slicing survives by construction (scores strictly decrease along any
+   path, one finalization per node, the `minScore` floor bounds the walk) — SP-09's detector
+   needs an equivalent argument, and this checkpoint must verify it against a cyclic fixture,
+   not only against the acyclic synthetic generator. ADR 0007 is the record.
+
+2. **Ownership guard (SP-05 → SP-08): nothing outside `internal/contract` may write
+   `SessionHistory.LastSessionID`.** The `session_start.fires` assertion (SevCritical) is
+   silently and permanently disabled if daemon/observer code pre-writes it. V2 added a
+   structural guard scoped to non-test files; SP-08's L0 is exactly the code that will want to
+   write it. If the guard fires on an SP-08 branch, the fix is to not write the field — never to
+   widen the guard.
+
+3. **The recorded corpus tier is still empty (SP-02).** §6.3 tier 2 (recorded sessions) gates
+   releases and has never been exercised; the committed Phase-0 numbers are synthetic-tier, per
+   `docs/adr/0002-replay-methodology.md` (which names the command and the operator). Wave 2 adds
+   the observer — the component that would make recorded sessions worth re-baselining — so this
+   checkpoint should re-state the gap rather than let it fossilize.
+
+4. **⚠ The wave-2 merge order is stated differently by two documents — the exact V2-MERGE-21
+   class.** `plans/README.md` step 3 says **SP-09 → SP-08**; §0 below says **SP-08 → SP-09**.
+   V2 proved documentary authority settles nothing: reconcile against the actual constraints
+   (`internal/observer` imports `internal/negknow`, so an observer landing while negknow is a
+   stub must keep every intermediate `develop` commit green — check the build-order guards per
+   first-parent commit, as V2-MERGE-21 did) and fix the losing document BEFORE the first wave-2
+   merge, not after.
+
+5. **Six carried-defect rows are `deferred:V3-VERIFY` in `plans/CARRIED-DEFECTS.tsv`, and the
+   guard makes ignoring them fail.** SP04-D2 (fixed-point composition / Delta-rebase — V2
+   evaluated and rejected the ANSI pre-pass because a BOM deletion reproduces the class with no
+   escape involved), SP04-D3 (its one remaining edge is D2 in disguise), SP04-D5 (re-judge the
+   canon rule budget against the V2 §5 quiet-pass number), SP04-D6 (quiet-host distribution for
+   `BenchmarkRun_Bash100KB`, then confirm or exempt), SP06-D1 (`GCPolicy.Deadline` starts after
+   the tombstone phase; bounding it needs a phase-aware resume cursor), and SP05-D1 (a drain
+   aborted by idle-budget expiry consumes the line it interrupted — offset and seen-set are
+   committed before dispatch — losing the event; fixing it means re-adjudicating the
+   poison-line consume rule). Reasons live in
+   `plans/V2-SP-04-carried-defects.md` and `plans/V2-WAVE1-carried-defects.md`. Fix or
+   consciously re-defer each; `test/guards/carrieddefects_test.go` blocks `plans/V3-report.md`
+   on any row left `open` — and re-deferring without updating the detail document is the one
+   escape it cannot catch, so do not use it.
+
+Two more distant carries for later checkpoints, restated so they survive: `sketchtest.RunCMSSuite`
+cannot discriminate a max-estimator from a min-estimator (SP-16 / V5 inherits a suite that would
+pass a wrong warm-start — force collisions via `Dims()`-derived load to close it), and a store
+crash can leave a root line without its object — degraded-but-detected, repaired by `qompack
+fsck`, which is SP-17's (V6).
+
+---
+
 ## 0. When this runs, and where
 
 **Trigger.** This checkpoint runs on `develop` immediately after **both** wave-2 branches have

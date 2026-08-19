@@ -18,7 +18,7 @@ paths	SP-01	90	-
 config	SP-01	90	-
 logging	SP-01	75	-
 obs	SP-01	75	-
-tokens	SP-01	75	-
+tokens	SP-01	90	-
 hookio	SP-01	75	-
 cli	SP-01	75	-
 pluginmanifest	SP-01	75	-
@@ -33,7 +33,7 @@ ipc	SP-05	75	Send
 daemon	SP-05	75	Run
 contract	SP-05	75	RunAll
 store	SP-06	90	PutBytes
-redact	SP-06	75	Redact
+redact	SP-06	90	Redact
 dag	SP-07	85	AddNode
 observer	SP-08	75	OnToolUse
 negknow	SP-09	90	Query

@@ -55,8 +55,8 @@ func TestReplayDriver_EndToEnd(t *testing.T) {
 		"--corpus", "testdata/sessions/synthetic",
 		"--baseline", "testdata/baseline/phase0.json",
 		"--phase", "0",
-		"--growth", "testdata/golden/contracts/store/stats-growth.json",
-		"--sketch", "testdata/golden/contracts/negknow/health.json",
+		"--growth", "testdata/golden/eval/growth/stats-growth.json",
+		"--sketch", "testdata/golden/eval/growth/health.json",
 		"--out", out,
 	)
 	require.Equal(t, exitOK, code, "stderr:\n%s", stderr)

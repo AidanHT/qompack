@@ -139,9 +139,11 @@ Everything below is quoted exactly. Nothing in this subplan requires opening the
 
 ### 00-ARCHITECTURE §11.6 — the no-hardcoding rule that binds this package
 
-> The in-repo `nomagic` analysis pass fails the build on any float literal in `{0.1, 1.25, 12.5, 0.55, 0.004, 0.9, 0.4}` or integer literal in `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}` appearing outside `internal/config/defaults.go`, `*_test.go`, and explicitly annotated `//nomagic:allow <reason>` lines.
+> The in-repo `nomagic` analysis pass fails the build on any float literal in `{0.1, 1.25, 12.5, 0.55, 0.004, 0.9, 0.4}` or integer literal in `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}` appearing outside `internal/config/defaults.go`, `*_test.go`, and explicitly annotated `//nomagic:allow <reason>` lines. … `450` is in that set … **the set is extended with `{8000, 12000}` when §11.5's `rehydrate` keys land in SP-01.**
 
-**Consequence, binding on every file in this subplan:** `10000`, `2048`, `4096`, `1024`, `0.9` and `0.1` must never appear as literals in non-test code under `internal/sketch`. Every constructor takes its sizing as a parameter; the caller supplies it from `config`. The one deliberate exception is `FPWarnRate` in `bloom.go`, which carries an explicit `//nomagic:allow` annotation (§ Implementation spec, `bloom.go`).
+> **V2 reconciliation:** the sentence in bold above was missing from this quote, and with it the literal `8000`. SP-01 landed the §11.5 `rehydrate` keys, so the extension is in force: `tools/lint/nomagic/literals.go` ships `forbiddenInts = {20000, 12000, 10000, 8000, 2048, 1024, 4096, 16384, 300, 120, 450}` — eleven values, not ten — and `internal/sketch/doc.go` already lists it correctly. See `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.3a item 7(b) (**V2-ALL-06**). Nothing in `internal/sketch` spells `8000`, so no code changed; the omission was in this document only.
+
+**Consequence, binding on every file in this subplan:** `10000`, `8000`, `2048`, `4096`, `1024`, `0.9` and `0.1` must never appear as literals in non-test code under `internal/sketch`. Every constructor takes its sizing as a parameter; the caller supplies it from `config`. The one deliberate exception is `FPWarnRate` in `bloom.go`, which carries an explicit `//nomagic:allow` annotation (§ Implementation spec, `bloom.go`).
 
 ---
 
@@ -342,14 +344,18 @@ func (s *SigSketch) Header() Header
 func (s *SigSketch) MarshalBinary() ([]byte, error)
 func (s *SigSketch) UnmarshalBinary([]byte) error
 
-// package sketchtest — conformance suites (D9, Rule W-1)
+// package sketchtest — conformance suites (D9, Rule W-1). SIX suites; every one takes a
+// name string as its second parameter, and RunMinHashSuite takes a plain function rather
+// than a *testing.T-taking factory. See the V2 reconciliation note below.
 func RunSketchSuite(t *testing.T, name string, factory func(t *testing.T) sketch.Sketch)
-func RunBloomSuite(t *testing.T, factory func(t *testing.T) *sketch.Bloom)
-func RunCMSSuite(t *testing.T, factory func(t *testing.T) *sketch.CMS)
-func RunHLLSuite(t *testing.T, factory func(t *testing.T) *sketch.HLL)
-func RunMisraGriesSuite(t *testing.T, factory func(t *testing.T) *sketch.MisraGries)
-func RunMinHashSuite(t *testing.T, mk func(t *testing.T, data []byte, o sketch.MinHashOptions) sketch.Signature)
+func RunBloomSuite(t *testing.T, name string, factory func(t *testing.T) *sketch.Bloom)
+func RunCMSSuite(t *testing.T, name string, factory func(t *testing.T) *sketch.CMS)
+func RunHLLSuite(t *testing.T, name string, factory func(t *testing.T) *sketch.HLL)
+func RunMisraGriesSuite(t *testing.T, name string, factory func(t *testing.T) *sketch.MisraGries)
+func RunMinHashSuite(t *testing.T, name string, minHash func(data []byte, o sketch.MinHashOptions) sketch.Signature)
 ```
+
+> **V2 reconciliation:** the five `Run*Suite` signatures other than `RunSketchSuite` were wrong in this block and **never matched the tree** — a defect in this plan document, not a divergence SP-03 introduced. Every suite ships with a `name string` second parameter, and `RunMinHashSuite` takes `func([]byte, sketch.MinHashOptions) sketch.Signature`, not a factory. `git show 7340536:internal/sketch/sketchtest/*.go` confirms **SP-01 shipped them that way** and SP-03 never touched those declarations. The six live declarations are in `sketchtest/{suite,bloom,cms,hll,misragries,minhash}.go`. Consequence for the checkpoint: **V2-MERGE-08 must compare against 00-ARCHITECTURE §5.7 and the tree, not against this block.** See `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.3a item 7(a) (**V2-ALL-06**).
 
 **Consumers and what they rely on:** SP-04 (`canon`) constructs `MinHashOptions` and calls `MinHash`, embedding `Signature` in `canon.Result`. SP-06 (`store`) embeds `Signature` in `PutResult` and `ToolUseRecord` and calls `Jaccard`/`IsNearDup`. SP-08 (`observer`) calls `CMS.Add` and `HLL.Add`. SP-09 (`negknow`) calls `NewBloom`, `Add`, `Test`, `RebuildBloom`, `ResizeTarget`, `Stats`, `ReplaceGenerational`, `LoadWithLog`. SP-14 reads `BloomStats`. SP-16 calls `CMS.MergeFrom`, `CMS.Scale`, `HLL.MergeFrom`, `MisraGries.MergeFrom`.
 
@@ -919,7 +925,11 @@ const (
 2. `w := o.ShingleSize; if w <= 0 { w = DefaultShingleSize }; w = clampInt(w, 2, 64)`.
 3. `P := clampInt(o.Permutations, MinPermutations, MaxPermutations)` — the same `[16, 512]` bound 00-ARCHITECTURE §11.3 makes `config.Validate` enforce, applied here so a hand-edited config still cannot allocate an absurd signature. Note this is `clampInt`, not `clamp`: `Permutations` is an `int` and must not round-trip through `float64`.
 4. `nsh := len(data) - w + 1`. If `nsh <= 0`, return `Signature{Perms: uint16(P), Mins: <P copies of math.MaxUint64>}` — the canonical "empty document" signature.
-5. **Content-defined subsampling.** `rate := (nsh + MinHashSampleTarget - 1) / MinHashSampleTarget`. If `rate <= 1`, every shingle is kept; otherwise a shingle is kept iff `h <= math.MaxUint64/uint64(rate)`, where `h = fnv1a64(data[i:i+w])`. Selection is a function of *content*, never of position, so it is shift-invariant: inserting a line into a document does not resample the unaffected shingles. This is what keeps the estimator honest while bounding cost at ≈ 8 192 shingles regardless of input size.
+5. **Content-defined subsampling — bottom-k.** Keep the `MinHashSampleTarget` **smallest distinct** shingle hashes, where `h = fnv1a64(data[i:i+w])`; a document with fewer distinct shingle hashes than the target keeps all of them and runs no selection at all. Selection is a function of *content*, never of position, so it is shift-invariant: inserting a line into a document does not resample the unaffected shingles. The effective keep-threshold is the **target-th smallest distinct hash**, which moves *continuously* with the document, so two documents of similar size are measured at near-identical sampling densities and their estimates stay comparable. This is what keeps the estimator honest while bounding cost at ≈ 8 192 shingles regardless of input size.
+
+   > **V2 reconciliation:** step 5 replaces this plan's original rule, which was **wrong** and shipped as a defect until the branch's final review caught it. The original read: `rate := (nsh + MinHashSampleTarget - 1) / MinHashSampleTarget`; if `rate <= 1` keep every shingle, otherwise keep iff `h <= math.MaxUint64/uint64(rate)`. That derives the keep-threshold from **document length**, making it a *step* function — two near-identical documents whose shingle counts straddle a multiple of 8 192 are sampled at densities differing by a whole integer factor, and their permutation minima then agree with probability ≈ 1/rate however similar the documents are. Reproduced on documents differing by 150 bytes with a true Jaccard of 0.98: **estimated 0.4062, `IsNearDup(0.9)` false**, recovering to 0.99 once both sat on the same side of a boundary. It recurs at every boundary — ~8, 16, 25, 33, 41, 49, 57 and 66 KB, i.e. the whole size range of an ordinary tool result — and it lands on *growing* documents, which is the one input §8.1 item 1 exists to detect. `TestMinHash_OneNewFailure` passed throughout, because its fixture sits below the first boundary; the tests that actually pin this are `TestMinHash_StraddlingTheSampleTargetIsContinuous` and `TestMinHash_BottomKMatchesTheSlowDefinition`.
+   >
+   > `docs/adr/0030-sketch-binary-format.md` **§9a** is the ruling record (§9 covers the FNV-1a shingle hash the rule is layered on). `Signature`, its compact wire form and `Jaccard`'s body are **unchanged** — 00-ARCHITECTURE §5.7's shape is untouched and every frozen fixture is byte-identical, because the 4 096-byte golden document sits below the target and runs no selection at all. Bottom-k also retires Ruling MH1's halve-the-rate retry as *unreachable* rather than leaving it in place: the smallest k distinct values of a non-empty set are a non-empty set, so a highly repetitive document can no longer keep nothing and masquerade as the empty-document signature of step 4. **The shipped code is correct; do not reconcile it back to the rate-based rule.** See `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.3a item 1 (**V2-ALL-06**).
 6. For each kept shingle hash `h` and each permutation `i`, `v := a[i]*h + b[i]` (wrapping uint64 arithmetic), where `a[i] = splitmix64(uint64(2*i)) | 1` and `b[i] = splitmix64(uint64(2*i + 1))`. Keep the running minimum per `i`. The coefficient tables are computed once per call into a `P`-length scratch slice; for `P ≤ 512` that is a single 8 KB allocation.
 7. Return `Signature{Perms: uint16(P), Mins: mins}`.
 
@@ -1029,6 +1039,14 @@ func ReplaceGenerational(p string, s Sketch, seq int) (string, error) {
 // (00-ARCHITECTURE §12.3 quarantine behaviour). Returns the new path.
 func Quarantine(p string) (string, error)   // → p + ".corrupt." + strconv.FormatInt(unixmilli,10)
 ```
+
+> **V2 reconciliation — the `ReplaceGenerational` body above cannot run, and the shipped one differs from it in three observable ways.** `sketches/tried.bloom` is append-only (00-ARCHITECTURE §3.3, §7.4) and **`paths.WriteAtomic` refuses that exact path outright** through `paths.IsProtected`, returning `core.ErrAppendOnly`; `paths.ReplaceBloom(l, b, seq)` is the single sanctioned exception. The sample body therefore fails on its own `paths.WriteAtomic` call for every input. What shipped:
+>
+> - **The mechanics stay in `internal/paths`.** `ReplaceGenerational` delegates to `paths.ReplaceBloom`, which renames the current file to its backup, stages and swaps the new content, and prunes to exactly one generation. `internal/sketch` adds only marshalling, rollback and returning the backup path. Re-implementing the rename here would mean two writers of one filename pattern and a guard with a hole in it.
+> - **The backup name is `tried.bloom.<seq>.bak` — `%d`, not this plan's zero-padded `%04d`** — because `paths.pruneBloomBackups` is what parses that filename family, and it parses the unpadded form. A `%04d` name is invisible to the pruner.
+> - **A `seq` that does not strictly exceed the highest surviving `.bak` is refused before anything on disk moves** (`ErrMalformed`, naming both sequences), pre-flighted against the exported `paths.HighestBloomBackupSeq`. The plan's ordering — proceed, then report — was a data-loss path: `ReplaceBloom` renames the live file to its backup *before* it stages, the prune then deletes that backup for being low-sequenced, and a staging failure at that point leaves the store with **no `tried.bloom` at all**.
+>
+> `docs/adr/0030-sketch-binary-format.md` §12 carries the full reasoning; see also `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.3a item 6 and row V2-SP03-13 (**V2-ALL-06**). **Correct the plan, not the code.**
 
 `Quarantine` takes the timestamp from `time.Now()` only here — the one place in the package that touches the clock, isolated so that no marshalled byte ever depends on it. It is deliberately not `core.Clock`-injected: nothing in this package's output or in any test assertion depends on the value, only on the shape `<p>.corrupt.<digits>`, and threading a `Clock` through a two-line rename helper would buy nothing.
 
@@ -1197,6 +1215,8 @@ Every test below is written before the implementation it covers, inside the comm
 
 ### `internal/sketch/io_test.go` (`package sketch_test`; every case starts from `testutil.NewProject(t)` — see the `io.go` directory contract)
 
+> **V2 reconciliation:** the two backup-path literals in the table below read `tried.bloom.0003.bak` / `tried.bloom.0007.bak` and are now `tried.bloom.3.bak` / `tried.bloom.7.bak`, following the `%d` naming `paths.ReplaceBloom` and `paths.pruneBloomBackups` actually use (see the `ReplaceGenerational` note above). Nothing else in these rows changes. The shipped file also carries `TestReplaceGenerational_NonMonotonicSeqIsRefused` and `TestReplaceGenerational_RefusalProtectsAgainstAStagingFailure`, which this table predates.
+
 | Test | Setup / input | Expected |
 |---|---|---|
 | `TestSave_Load_RoundTrip` | project root from `testutil.NewProject(t)`, target `.qompack/sketches/touch.cms` | file exists; `Load` into a fresh `CMS` reproduces every estimate |
@@ -1208,9 +1228,9 @@ Every test below is written before the implementation it covers, inside the comm
 | `TestLoadWithLog_LoudOnCorrupt` | as above with a recording `logging.Logger` | exactly one `Loud` call, whose kv pairs include `path` and `err` |
 | `TestLoad_OversizeFileRejected` | a `MaxFrameBytes+1` byte file created with `os.Truncate` (sparse, so the test costs no disk) | `errors.Is(err, ErrTooLarge)` and `errors.Is(err, core.ErrNotFound)`; rejection comes from the `os.Stat` size check, so `os.ReadFile` is never reached |
 | `TestReplaceGenerational_FirstWrite` | no existing `tried.bloom` | returns `("", nil)`; file exists; no `.bak` present |
-| `TestReplaceGenerational_KeepsOneGeneration` | write seq 1, seq 2, seq 3 | after seq 3 the directory holds exactly `tried.bloom` and `tried.bloom.0003.bak`; the `.bak` decodes to the seq-2 content |
+| `TestReplaceGenerational_KeepsOneGeneration` | write seq 1, seq 2, seq 3 | after seq 3 the directory holds exactly `tried.bloom` and `tried.bloom.3.bak`; the `.bak` decodes to the seq-2 content |
 | `TestReplaceGenerational_RollsBackOnWriteFailure` | after a successful seq-1 write, `os.RemoveAll(root + "/.qompack/tmp")` and then `os.WriteFile(root + "/.qompack/tmp", nil, 0o600)` — i.e. replace the staging **directory with a regular file**, so `paths.WriteAtomic`'s `os.CreateTemp` fails identically on Windows and POSIX. This is chosen over `chmod 0500`, which is a no-op for an administrator on Windows and therefore silently turns the test into a tautology | error returned; original `tried.bloom` still present and decodable to the seq-1 content; no `*.bak` left in the directory |
-| `TestReplaceGenerational_BackupDecodes` | seq 7 replacement | backup path is `tried.bloom.0007.bak`; `Load` on it succeeds |
+| `TestReplaceGenerational_BackupDecodes` | seq 7 replacement | backup path is `tried.bloom.7.bak`; `Load` on it succeeds |
 | `TestQuarantine` | corrupt file | renamed to `<p>.corrupt.<digits>`; original path gone; returned path exists |
 | `TestAppendOnly_TriedBloomNeverTruncated` | `p.AssertAppendOnly(t)` from `testutil` after a `ReplaceGenerational` cycle | passes (the file is replaced by rename, never opened `O_TRUNC`) |
 

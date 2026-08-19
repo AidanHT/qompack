@@ -31,9 +31,10 @@ package canon
 //     "\x1b[12:34:56~01:02:03" the clock rule reports "01:02:03" and never sees the "12:34:56"
 //     sitting inside the CSI sequence's parameter bytes. The scan below is therefore driven by
 //     candidate MATCH starts and not by candidate span starts.
-//   - FIRST, not longest, among alternatives, with backtracking. `(?:\.\d{1,9})?` tries nine
-//     fraction digits before eight, and the trailing \b is what rejects them; `(?:ns|µs|us|ms|s|
-//     m|h)` tries "ns" before "s" because leftmost-first would otherwise stop "12ms" at "12m".
+//   - FIRST, not longest, among alternatives, with backtracking. `(?:\.\d+)?` tries the whole
+//     fraction before every shorter prefix of it, and the trailing \b is what rejects them;
+//     `(?:ns|µs|us|ms|s|m|h)` tries "ns" before "s" because leftmost-first would otherwise stop
+//     "12ms" at "12m".
 //   - GREEDY repetition inside wordEdge itself. `(?:escAny)+` prefers one more escape sequence to
 //     stopping, and escAny prefers CSI, then OSC, then the two-byte form, then the bare ESC — so
 //     the run is a depth-first walk in that order and NOT simply "the longest run".
@@ -48,7 +49,7 @@ package canon
 // The seven rules, named. Each index selects a resume cursor in numScan.next and one bit in
 // numScan.dead, so numRuleCount must stay at or below eight.
 const (
-	// numISO is `\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?`.
+	// numISO is `\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?`.
 	numISO = iota
 	// numEpoch is `\d{10,13}`.
 	numEpoch
@@ -58,9 +59,9 @@ const (
 	numHourMinSec
 	// numMinSec is `\d+m\d+(?:\.\d+)?s`.
 	numMinSec
-	// numMagnitude is `\d+(?:\.\d+)?\s?(?:ns|µs|us|ms|s|m|h)`.
+	// numMagnitude is `\d+(?:\.\d+)?[^\S\n]?(?:ns|µs|us|ms|s|m|h)`.
 	numMagnitude
-	// numInPhrase is `in (\d+(?:\.\d+)?\s?(?:ms|s))`, the only one whose SPAN is not the whole
+	// numInPhrase is `in (\d+(?:\.\d+)?[^\S\n]?(?:ms|s))`, the only one whose SPAN is not the whole
 	// body: "in " is context that stays in the canonical text.
 	numInPhrase
 	// numRuleCount sizes numScan.next.
@@ -428,7 +429,7 @@ func numEscAltEnds(in []byte, s int, ends *[numEscAlts]int) int {
 // The seven bodies
 // ---------------------------------------------------------------------------------------------
 
-// numISOEnd matches `\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?\b`
+// numISOEnd matches `\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b`
 // at i and returns its end, or -1.
 func numISOEnd(in []byte, i int) int {
 	// isoBase is YYYY-MM-DDThh:mm:ss, the shortest form the rule accepts. Every index below is
@@ -452,18 +453,22 @@ func numISOEnd(in []byte, i int) int {
 	}
 
 	sec := i + isoBase
-	// `(?:\.\d{1,9})?` is greedy and so is `\d{1,9}`: the longest fraction the input offers,
-	// capped at nine digits, is tried first and every shorter one after it, because only the
-	// trailing \b — reached past the zone — can reject a fraction that parsed. Ten fraction
-	// digits are what makes the fallbacks observable: all nine cappings then end on a digit, the
-	// zone cannot start on one either, and the match settles for the bare 19-byte form.
+	// `(?:\.\d+)?` is greedy and so is `\d+`: the whole fraction the input offers is tried first
+	// and every shorter one after it, because only the trailing \b — reached past the zone — can
+	// reject a fraction that parsed.
+	//
+	// The fraction is UNBOUNDED, which is SP04-D3(c). Capped at nine digits it left a ten-digit
+	// one outside the match, where the bare 10-to-13-digit epoch rule then claimed it, and
+	// "2024-01-02T03:04:05.1234567890" canonicalized to "<ts>.<ts>" — two tokens for one
+	// timestamp, and two DIFFERENT canonical forms for the same instant depending on how many
+	// digits of precision the writer happened to print. Uncapped the two spans overlap instead of
+	// abutting, and acceptCandidates keeps the longer.
+	//
+	// The fallbacks are still reachable and still matter: a word byte after the fraction rejects
+	// every reading that ends on a digit, so the match settles for the bare 19-byte form and hands
+	// the fraction back — see the "a fraction followed by a word byte is dropped whole" row.
 	if sec < len(in) && in[sec] == '.' {
-		const maxFrac = 9
-		n := numDigitRun(in, sec+1)
-		if n > maxFrac {
-			n = maxFrac
-		}
-		for ; n >= 1; n-- {
+		for n := numDigitRun(in, sec+1); n >= 1; n-- {
 			if e := numISOZoneEnd(in, sec+1+n); e >= 0 {
 				return e
 			}
@@ -608,7 +613,7 @@ func numFracSecEnd(in []byte, p int) int {
 	return p + 1
 }
 
-// numMagnitudeEnd matches `\d+(?:\.\d+)?\s?(?:ns|µs|us|ms|s|m|h)\b` at i and returns its end, or
+// numMagnitudeEnd matches `\d+(?:\.\d+)?[^\S\n]?(?:ns|µs|us|ms|s|m|h)\b` at i and returns its end,
 // -1.
 func numMagnitudeEnd(in []byte, i int) int {
 	n := numDigitRun(in, i)
@@ -618,7 +623,7 @@ func numMagnitudeEnd(in []byte, i int) int {
 	return numUnitTail(in, i+n, false)
 }
 
-// numInPhraseEnd matches `in (\d+(?:\.\d+)?\s?(?:ms|s))\b` at i and returns its end, or -1. The
+// numInPhraseEnd matches `in (\d+(?:\.\d+)?[^\S\n]?(?:ms|s))\b` at i and returns its end, or -1.
 // SPAN starts numInPhraseLead bytes later; emit applies that offset.
 func numInPhraseEnd(in []byte, i int) int {
 	if i+numInPhraseLead > len(in) || in[i] != 'i' || in[i+1] != 'n' || in[i+2] != ' ' {
@@ -631,7 +636,7 @@ func numInPhraseEnd(in []byte, i int) int {
 	return numUnitTail(in, i+numInPhraseLead+n, true)
 }
 
-// numUnitTail matches `(?:\.\d+)?\s?(unit)\b` at p, the tail the two unit-suffixed rules share.
+// numUnitTail matches `(?:\.\d+)?[^\S\n]?(unit)\b` at p, the tail the two unit-suffixed rules share.
 // phrase selects numInPhrase's shorter unit alternation.
 func numUnitTail(in []byte, p int, phrase bool) int {
 	if p < len(in) && in[p] == '.' {
@@ -651,9 +656,9 @@ func numUnitTail(in []byte, p int, phrase bool) int {
 	return numSpaceUnit(in, p, phrase)
 }
 
-// numSpaceUnit matches `\s?(unit)\b` at p.
+// numSpaceUnit matches `[^\S\n]?(unit)\b` at p.
 func numSpaceUnit(in []byte, p int, phrase bool) int {
-	if p < len(in) && numIsPerlSpace(in[p]) {
+	if p < len(in) && numIsInlineSpace(in[p]) {
 		if e := numUnitAt(in, p+1, phrase); e >= 0 {
 			return e
 		}
@@ -743,14 +748,20 @@ func numWordBreak(in []byte, e int) bool {
 	return e >= len(in) || !numWordByte[in[e]]
 }
 
-// numIsPerlSpace reports whether b is one of the bytes Go's regexp `\s` accepts.
+// numIsInlineSpace reports whether b is one of the bytes `[^\S\n]` accepts: Go's regexp `\s` class
+// without the line break.
 //
-// It is neither unicode.IsSpace nor "any control byte below 0x20": Go's Perl class is exactly
-// {'\t', '\n', '\f', '\r', ' '} and it pointedly excludes the vertical tab 0x0B. That "5\fms" is a
-// duration and "5\vms" is not is not a distinction worth having, but it IS the distinction the
-// rule this replaces drew, and reproducing it is the whole point of this file.
-func numIsPerlSpace(b byte) bool {
-	return b == '\t' || b == '\n' || b == '\f' || b == '\r' || b == ' '
+// The class is neither unicode.IsSpace nor "any control byte below 0x20". Go's Perl class is
+// exactly {'\t', '\n', '\f', '\r', ' '} and it pointedly excludes the vertical tab 0x0B, so
+// "5\fms" is a duration and "5\vms" is not — a distinction inherited from the class rather than
+// chosen, and kept because the rules this file replaced drew it.
+//
+// The '\n' is EXCLUDED, which is SP04-D3(a). Spelled `\s?` the separator let a magnitude ending one
+// line pair with a unit beginning the next, so "in 5\nms" — a wrapped log line, two unrelated
+// values — canonicalized to "in <d>". A separator inside one value is horizontal by definition;
+// the rules this replaces were faithful to a class, not to a duration.
+func numIsInlineSpace(b byte) bool {
+	return b == '\t' || b == '\f' || b == '\r' || b == ' '
 }
 
 // numDigitRun returns how many ASCII digits run from p, which is 0 when p is past the end.

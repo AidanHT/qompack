@@ -14,7 +14,14 @@ import (
 // bigPayload builds a deterministic multi-megabyte payload whose every offset is identifiable, so
 // a span assertion can point at exactly which bytes came back wrong.
 func bigPayload(n int) []byte {
-	block := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=[]{};':,./<>?|~` \n")
+	// The block deliberately ends "~`\n" and NOT "~` \n". Trailing horizontal whitespace is
+	// ClassCRLF in canon, which makes it always-on and not gateable, so a block ending in a space
+	// would be canonicalized away — and every test below compares Open's or OpenSpan's output
+	// against this slice, i.e. against the INPUT. Their subject is the read path, not
+	// canonicalization; content the canonicalizers do not touch is what keeps the two separate.
+	// TestOpen_StreamsFullRoot asserts CanonBytes == RawBytes so this cannot rot silently, and
+	// TestPropPutGetRoundtrip covers the case where canonicalization does rewrite the input.
+	block := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=[]{};':,./<>?|~`\n")
 	out := make([]byte, 0, n+len(block))
 	for len(out) < n {
 		out = append(out, block...)
@@ -30,6 +37,9 @@ func TestOpen_StreamsFullRoot(t *testing.T) {
 	res, err := tp.Store.PutBytes(context.Background(), payload, PutOptions{Tool: "FileRead", Path: "src/big.txt"})
 	require.NoError(t, err)
 	require.Greater(t, len(res.Root.Chunks), 100, "fixture sanity: a 4 MB root must span many chunks")
+	require.Equal(t, res.Root.RawBytes, res.Root.CanonBytes,
+		"fixture sanity: bigPayload must survive canonicalization unchanged, or the comparison below "+
+			"is against bytes that were never stored")
 
 	rc, err := tp.Store.Open(context.Background(), res.Root.Hash)
 	require.NoError(t, err)
