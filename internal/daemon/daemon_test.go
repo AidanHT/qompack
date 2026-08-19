@@ -1226,3 +1226,38 @@ func TestHandlerPanicIsRecovered(t *testing.T) {
 	require.Contains(t, resp.Err, "panic")
 	require.Equal(t, int64(1), dd.m.Counter(counterHandlerPanic).Value())
 }
+
+// TestIdleExitEndsAbandonedSessions: a client that dies without ever sending SessionEnd must not
+// hold the daemon open forever. Before the abandonment sweep, this exact shape -- one session
+// Ensured and then silent -- kept Live() at 1 indefinitely, the zero-live countdown never
+// started, and the daemon outlived its project until process death (V2-VERIFY's ci-local run
+// left three such orphans holding their temp dirs for hours). With the sweep, the session is
+// abandoned after one idle-exit window of silence and the daemon exits after one more.
+func TestIdleExitEndsAbandonedSessions(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	cfg := testConfig()
+	cfg.Runtime.Daemon.IdleExitSeconds = 1
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+
+	// The abandoned session: registered the way an accepted hook registers it, never ended.
+	d.Registry().Ensure(&hookio.Event{SessionID: "sess-vanished"}, core.NowMilli(core.SystemClock()))
+	require.Equal(t, 1, d.Registry().Live())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(12 * time.Second):
+		t.Fatal("Run did not exit on its own: the abandoned session still counts as live")
+	}
+
+	require.Zero(t, d.Registry().Live(), "the vanished session must have been ended, not kept live")
+}

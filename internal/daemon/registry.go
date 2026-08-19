@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"sync"
+	"time"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
@@ -215,6 +216,35 @@ func (r *SessionRegistry) End(id core.SessionID, now core.UnixMilli) {
 	}
 	s.Live = false
 	s.EndedTS = now
+}
+
+// EndAbandoned ends every live session whose LastActivity is older than now-maxSilence and
+// returns how many it ended. A client that dies without its SessionEnd hook -- a killed
+// terminal, a crashed test harness, a hard-stopped CI job -- leaves its session Live forever,
+// because End's only caller is the session-end op that client can no longer send. Live() then
+// never reaches zero, the idle-exit countdown never starts, and the daemon outlives its project
+// until process death (V2-VERIFY's ci-local run left three such daemons holding their temp
+// directories for hours). The idle tick calls this with the idle-exit window itself as the
+// silence bound: a session silent for a whole window is idle by the same definition the daemon
+// exits under, so an orphaned daemon now lives at most two windows -- one to abandon the
+// session, one of zero-live countdown. Ending here is registry bookkeeping only: no marker is
+// written (flush and checkpoint stay the only marker writers) and no observer seam fires.
+func (r *SessionRegistry) EndAbandoned(now core.UnixMilli, maxSilence time.Duration) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	cutoff := now - core.UnixMilli(maxSilence.Milliseconds())
+	n := 0
+	for id, s := range r.sessions {
+		if !s.Live || s.LastActivity > cutoff {
+			continue
+		}
+		s.Live = false
+		s.EndedTS = now
+		n++
+		r.log.Warn("daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window",
+			"session", string(id), "silentMs", int64(now-s.LastActivity))
+	}
+	return n
 }
 
 // Live returns the number of currently-live sessions — the input to the idle-exit timer, which

@@ -447,13 +447,18 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 			d.maybeReloadConfig(runCtx, config.Env{})
 
+			exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
+			if exitAfter <= 0 {
+				exitAfter = defaultIdleExitSeconds
+			}
+			// A session whose client vanished without SessionEnd would hold Live() above zero
+			// forever and make the countdown below unreachable; sweep those out first, with the
+			// idle-exit window itself as the silence bound (see SessionRegistry.EndAbandoned).
+			d.registry.EndAbandoned(now, time.Duration(exitAfter)*time.Second)
+
 			if d.registry.Live() == 0 {
 				if zeroLiveSince.IsZero() {
 					zeroLiveSince = d.clk.Now()
-				}
-				exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
-				if exitAfter <= 0 {
-					exitAfter = defaultIdleExitSeconds
 				}
 				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
 					cancel()
