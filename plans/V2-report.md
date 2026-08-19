@@ -44,9 +44,9 @@
 
 **Nightly fuzz matrix — before / after.** Before (develop): 8 rows, 3 of them orphans naming functions that no longer exist (ipc/FuzzFraming, redact/FuzzRedact, sketch/FuzzUnmarshalBinary), and 15 in-tree targets unregistered. After (verify/v2, d9abae8): 20 rows = 19 live `(pkg, fn)` targets — canon×5, chunk×2, config×1, eval/FuzzRedact, hookio×1, ipc/FuzzDecodeRequest, redact×2, sketch×5, symbols/FuzzExtract — plus the checkpoint-waived row asserted waived by the guard. `internal/symbols` gained its row; each orphan was replaced by the live target that superseded it.
 
-**Cross-branch collisions — resolution log.** <COLLISION-LOG — one line per §2.0a row; evidence scratchpad/merge-files-sp0{2..7}.txt>
+**Cross-branch collisions — resolution log.** Recorded in full below, one line per §2.0a row.
 
-**Inbound items — disposition.** <INBOUND-DISPOSITIONS — §2.3a, §2.2a, §2.5a, §2.6a, §2.7a>
+**Inbound items — disposition.** Recorded in full below, every numbered item in §2.2a, §2.3a, §2.5a, §2.6a and §2.7a.
 
 **Silently-disabled gates found.**
 1. `devtool cover` exempted all eleven wave-1 packages as stubs until `landedSubplans` was confirmed merged (V2-MERGE-14 / §2.7a A ②) — the coverage gate the whole document leans on was vacuous on develop.
@@ -259,7 +259,7 @@
 |---|---|---|
 | SP04-D1 | **fixed** (F-3 4402876) | second tmpPaths rule strips JSON-escaped Windows temp paths; golden regeneration verified as exactly 171 replacements |
 | SP04-D2 | **deferred:V3-VERIFY** | a DECISION as required: the complete fix changes the canon.Delta contract SP-06 stores against; BOM counterexample added as a third TestKnownDeletionMediatedLimit row (260dbab) |
-| SP04-D3 | **fixed** (F-3 32d9d05) | edges (a) and (c) corrected; (b) was correct as shipped |
+| SP04-D3 | **deferred:V3-VERIFY** | edges (a) and (c) corrected by F-3 32d9d05; one of the original three remains — a word byte immediately after an ISO timestamp defeats the rule — and fixing it is legal only under fixed-point composition, so it travels with SP04-D2. Evidence test: TestCarriedDefect_SP04D3_TimestampAndDurationEdges |
 | SP04-D4 | **fixed** | closed by V2-MERGE-14 (landedSubplans = SP-01…SP-07); TSV flipped |
 | SP04-D5 | **deferred:V3-VERIFY** | headroom re-measured on the quiet machine: Run_GoTest 786.5 µs vs its 1 ms row (21 % headroom); Run_Bash100KB 2.612–5.103 ms straddling its 3 ms row (the SP04-D6 shape) — the linear-in-rules prefilter cost structure stands, headroom thin-to-negative on the worst shape, so the deferral is confirmed by measurement, not assumed; successor context recorded in the detail doc |
 | SP04-D6 | **deferred:V3-VERIFY** | ±34 % dispersion reproduced; baseline recorded from the quiet machine at -count 10 with the distribution as justification (§5 known-noisy row) |
@@ -538,7 +538,7 @@ Serial prologue: 9595875 (floors), 84ccbfa, ee4ed33 (plan silent-pass fixes + V3
 - [x] No --ours/--theirs/-X used on any of the ten §2.0a files; each confirmed to carry every branch's half
 - [x] devtool cover prints OK for all eleven wave-1 packages, exempt for none of them — PASS at 44c1423 (stub exemptions confined to SP-08…SP-15 future-wave packages)
 - [x] nightly.yml zero orphans both directions; require.Len matches arity 20
-- [x] Every V2-VERIFY carried row fixed or deferred (2 fixed, 5 deferred:V3-VERIFY, 1 wontfix; zero open); TestCarriedDefects passes WITH plans/V2-report.md in place — verified: the full test/guards package passes with this file present (28.8 s, exit 0)
+- [x] Every V2-VERIFY carried row fixed or deferred (2 fixed, 6 deferred:V3-VERIFY, no wontfix rows; zero open — the gate); TestCarriedDefects passes WITH plans/V2-report.md in place — verified: the full test/guards package passes with this file present (28.8 s, exit 0)
 - [x] The wave's other carried items are rows or recorded decisions (V2-MERGE-19)
 - [x] V2-ALL-06 plan documents reconciled — plans corrected, code left alone (F-8)
 - [x] SP-07's INHERIT written into V3-VERIFY before wave 2 is cut (ee4ed33)
@@ -547,3 +547,38 @@ Serial prologue: 9595875 (floors), 84ccbfa, ee4ed33 (plan silent-pass fixes + V3
 - [x] No attribution trailers anywhere in develop..verify/v2 — clean: zero matches for co-authored/signed-off/generated-with/robot-emoji over all 64 commit bodies through 44c1423 (59 Refs: footers in the same bodies prove the grep read real content); re-run clean over the report commit before the merge
 - [x] verify/v2 merged into develop with --no-ff; develop tagged v0.1.0 — performed immediately after this report's commit: verify/v2 → develop with --no-ff from ../qompack-develop, tag v0.1.0. A report committed before the merge cannot name the merge SHA; the merge and tag objects carry it
 - [x] Only now: wave-2 branches cut — deliberately NOT done here; cutting them is wave 2's own first act
+
+## 15. Corrections applied after v0.1.0 was tagged
+
+This report was committed at 4e906ba and merged as c5125de before the three defects below were
+found — in the report itself, not in the tree it describes. They are recorded here rather than
+quietly rewritten: the tag stands, and the corrections land on top of it. No measurement, test
+result or gate verdict changes.
+
+| # | What was wrong | Corrected to |
+|---|---|---|
+| 1 | §4a marked SP04-D3 **fixed** (F-3 32d9d05). `plans/CARRIED-DEFECTS.tsv` — the file `test/guards/carrieddefects_test.go` actually reads — records it `deferred:V3-VERIFY`, and §0's own carry list names it among the six deferred rows. Only §4a disagreed, and it disagreed in the direction that reads as more work done than was done. | §4a now records **deferred:V3-VERIFY**, with the remaining edge and the reason it travels with SP04-D2. |
+| 2 | §14 tallied the carried rows as "2 fixed, 5 deferred:V3-VERIFY, 1 wontfix". The TSV holds 2 fixed and 6 deferred and has never carried a `wontfix` row at all. | "2 fixed, 6 deferred:V3-VERIFY, no wontfix rows; zero open". |
+| 3 | Two unfilled placeholders — a COLLISION-LOG marker and an INBOUND-DISPOSITIONS marker — survived into §0 of the committed report. Both sections exist in full further down, so no content was missing; the markers were a superseded outline nobody deleted. The assembly script's own marker assertion could not see them because its pattern required the closing bracket immediately after the capitals, and both carried a descriptive tail. That is finding #9's shape — a check that reads as green because its pattern matches nothing — landing on the gate meant to catch exactly that. | Replaced with pointers to the full sections. |
+
+**Both mechanical classes are now gates rather than findings.** `devtool lint` gained two sub-checks,
+each with unit tests and each wired into `ci-local` and `ci.yml` by virtue of living in `lint`:
+
+- `runpatterns` — every `-run` pattern in a plan document must match at least one test in its target
+  package, and a backslash-escaped pipe outside a markdown table row is an error. Scope is derived
+  from `landedSubplans`, so a wave's plans come under the check the moment that wave lands and there
+  is no second list to maintain. A test excluded by a build constraint on the running host is
+  distinguished from a missing one by reading the declarations out of the source, and is reported
+  rather than silently passed. A document that needs to quote a broken command — a handoff note
+  demonstrating a defect — waives it with a mandatory reason that is printed on every run.
+- `docmarkers` — no unfilled placeholder may survive in a specification document.
+
+On introduction the pair found two live defects that five verification passes had not: a
+backslash-escaped pipe inside a non-table `-run` pattern in
+`plans/V5-VERIFY-commands-selection-grammar-and-refinements.md`, armed to pass silently whenever
+wave 5 runs its checkpoint; and V2-MERGE-17's `TestAll_`/`TestCommands_` pattern, which matched no
+test in `./internal/cli` and was recorded under silently-disabled gates in §0 but never corrected in
+the row itself. That row now names `TestSelfTest_RegisteredInAll` and `TestDispatch_`, both of which
+exist. The current tree reports 1327 patterns parsed, 299 resolved against 49 packages, one
+platform-excluded and two waived.
+
