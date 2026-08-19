@@ -31,6 +31,11 @@ coverage.*
 .DS_Store
 Thumbs.db
 
+# Agent worktrees. `git worktree add` under .claude/ leaves a full checkout per agent — the
+# verification fan-out left 19 of them, 327 MB — and nothing here belongs in history. Narrower than
+# ignoring .claude/ outright so committed tooling config stays possible.
+.claude/worktrees/
+
 # >>> private-files-block
 # Maintainer-only records (planning and verification documents, the design spec of record,
 # session handoffs and verification run logs) are kept outside this repository.
