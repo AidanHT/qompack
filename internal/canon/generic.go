@@ -36,7 +36,7 @@ const (
 	tokenAddress = "<addr>"
 	// tokenPort replaces the port of a loopback address. Three bytes against a 4-digit minimum.
 	tokenPort = "<p>"
-	// tokenTmpPath replaces a temp-directory path in any of the five layouts tmpPathRules covers.
+	// tokenTmpPath replaces a temp-directory path in any of the six spellings tmpPathRules covers.
 	tokenTmpPath = "<tmp>"
 )
 
@@ -843,9 +843,11 @@ func (c addressesCanon) Canonicalize(in []byte, o Options) (Result, error) {
 // All five layouts are covered because Qompack is cross-platform by construction
 // (00-ARCHITECTURE.md §4): a Linux CI run and a Windows developer run of the same suite must
 // canonicalize to the same bytes, which they cannot do if only one platform's temp root is
-// recognized. The Windows layout is spelled twice — once with backslashes, once with forward
-// slashes — because Go's os.TempDir, the shell and most tooling disagree about which they print,
-// and the alternation is cheaper than depending on glob/grep having normalized separators first.
+// recognized. The Windows layout is spelled three times — with backslashes, with forward slashes,
+// and with the backslashes doubled — because Go's os.TempDir, the shell and most tooling disagree
+// about which they print, and JSON doubles whichever of them ends up inside a payload. Separate
+// rules are cheaper than depending on glob/grep having normalized separators first, and the
+// escaped spelling has to be one of them rather than a widening: see SP04-D1 at the rule itself.
 //
 // The greedy tails are what make this idempotent even though the Windows and $TMPDIR patterns
 // admit '<' and '>' in their tails: a token can only appear in the output where a whole path was
@@ -870,6 +872,24 @@ var tmpPathRules = []reRule{
 	// assertion — its class is a complement that admits every word byte, so whatever stops it is
 	// non-word.
 	{re: regexp.MustCompile(`(?i)` + wordEdge + `([A-Za-z]:\\Users\\[^\\]+\\AppData\\Local\\Temp\\[^\s"']*)`), spans: firstGroup, token: []byte(tokenTmpPath), class: ClassTmpPaths, need: []string{`\appdata\`}, needFold: true, perLine: true},
+	// The same layout with its separators JSON-escaped, which is what the rule above sees once a
+	// tool has embedded the path in a payload — a hook transcript, a `docker build` log, anything
+	// that quotes a Windows path into JSON. It is a SEPARATE rule and not a widening of the one
+	// above, because the only widening that would work is letting the user-name segment cross a
+	// doubled backslash, and `[^\\]+` relaxed that far runs from the first path on a line to the
+	// end of the last one, swallowing the JSON structure between them (TestTmpPaths_Table's
+	// "two json-escaped paths on one line" is that case). Two rules keep each path its own span.
+	//
+	// The tail is the same complement class, which admits backslashes and stops at the quote that
+	// closes the JSON string — so an escaped path's own doubled separators need no special care,
+	// and the word-boundary invariant still holds at both edges: the span starts at a drive letter
+	// behind wordEdge, and ends where a non-word byte stopped a class containing every word byte.
+	//
+	// The prefilter literal is the doubled form. It has to be its own: `\appdata\` is a substring
+	// of `\\appdata\\`, so the rule above is already triggered by escaped input — which is exactly
+	// the shape of the defect, a rule that scans and cannot match — and reusing it here would leave
+	// this rule scanning every buffer that mentions a plain Windows temp path (SP04-D1).
+	{re: regexp.MustCompile(`(?i)` + wordEdge + `([A-Za-z]:\\\\Users\\\\[^\\]+\\\\AppData\\\\Local\\\\Temp\\\\[^\s"']*)`), spans: firstGroup, token: []byte(tokenTmpPath), class: ClassTmpPaths, need: []string{`\\appdata\\`}, needFold: true, perLine: true},
 	// Windows %LOCALAPPDATA%\Temp, forward-slash form (Git Bash, MSYS, Go's own path printing).
 	{re: regexp.MustCompile(`(?i)` + wordEdge + `([A-Za-z]:/Users/[^/]+/AppData/Local/Temp/[^\s"']*)`), spans: firstGroup, token: []byte(tokenTmpPath), class: ClassTmpPaths, need: []string{"/appdata/"}, needFold: true, perLine: true},
 	// An unexpanded $TMPDIR reference, which shell transcripts carry verbatim. '$' is non-word, so

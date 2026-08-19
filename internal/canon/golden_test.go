@@ -217,7 +217,9 @@ func TestMatcherClassAssigned(t *testing.T) {
 //
 // Real tool output does not exhibit it. TestCorpus_StructuralProperties asserts unconditional
 // idempotence over every captured file and passes, because colourizers wrap whole tokens instead of
-// splitting values. TestKnownDeletionMediatedLimit pins the two reproducers exactly.
+// splitting values. TestKnownDeletionMediatedLimit pins the three reproducers exactly — and the
+// third of them deletes a BOM rather than an escape, which is the evidence that the class is about
+// DELETION and not about ANSI.
 func FuzzCanonicalize(f *testing.F) {
 	for _, seed := range fuzzSeeds(f) {
 		f.Add(seed.tool, seed.path, seed.body)
@@ -293,8 +295,15 @@ func requireFixedPoint(t *testing.T, r canon.Registry, tool, path string, cur []
 // TestKnownDeletionMediatedLimit pins the behaviour FuzzCanonicalize's deletion branch exists for,
 // so the limit is recorded evidence rather than a hole in an assertion.
 //
-// Both rows are ANSI stripping joining two fragments into a value neither half contained. What the
-// rows assert is that the cost is confined to WHICH canonical form is reached — never to
+// The first two rows are ANSI stripping joining two fragments into a value neither half contained.
+// The THIRD is not ANSI at all, and it is here because it is what decides SP04-D2: a BOM run is
+// deleted by fileread as ClassPaths — always on, never gated — and its removal is what lets the
+// line-anchored bracketed-pid rule reach the '[' it could not see on the first pass, because
+// lineLead admits carriage returns, escapes and indentation but no BOM. Any strategy that closes
+// this class by pre-stripping ESCAPES for matching therefore closes two thirds of the reproducers
+// and leaves this one, which is why the row's presence is an argument and not a curiosity.
+//
+// What every row asserts is that the cost is confined to WHICH canonical form is reached — never to
 // correctness: Restore is byte-exact at every step, so a second-pass rewrite costs a store lookup
 // that misses, not content that cannot be recovered.
 func TestKnownDeletionMediatedLimit(t *testing.T) {
@@ -303,42 +312,54 @@ func TestKnownDeletionMediatedLimit(t *testing.T) {
 
 	for _, tc := range []struct {
 		name         string
+		tool, path   string
 		in           []byte
 		first, final string
 	}{
 		{
-			name:  "esc split inside a duration",
+			name: "esc split inside a duration",
+			tool: "0", path: "0",
 			in:    []byte("000\x1b0s"),
 			first: "0000s",
 			final: "<d>",
 		},
 		{
-			name:  "esc split inside an epoch-millis timestamp",
+			name: "esc split inside an epoch-millis timestamp",
+			tool: "0", path: "0",
 			in:    []byte("000\x1b0000000"),
 			first: "0000000000",
 			final: "<ts>",
 		},
+		{
+			// No escape anywhere. The BOM is deleted on the first pass and the anchored pid rule
+			// fires on the second, once the '[' has reached the start of the line.
+			name: "bom deletion unblocks a line anchor",
+			tool: "Read", path: "a.txt",
+			in:    []byte("\xef\xbb\xbf[12345] boot"),
+			first: "[12345] boot",
+			final: "[<n>] boot",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			res, err := r.Run("0", "0", tc.in, o)
+			res, err := r.Run(tc.tool, tc.path, tc.in, o)
 			require.NoError(t, err)
 			require.Equal(t, tc.first, string(res.Canonical),
-				"the first pass sees the ESC and cannot match across it")
+				"the first pass cannot match across the bytes the deletion has yet to remove")
 
 			restored, err := canon.Restore(res.Canonical, res.Deltas)
 			require.NoError(t, err)
 			require.Equal(t, tc.in, restored, "Restore stays byte-exact through the limit")
 
-			second, err := r.Run("0", "0", res.Canonical, o)
+			second, err := r.Run(tc.tool, tc.path, res.Canonical, o)
 			require.NoError(t, err)
 			require.Equal(t, tc.final, string(second.Canonical),
-				"the second pass matches the value the deletion joined")
+				"the second pass matches what the deletion made reachable")
 
 			restored, err = canon.Restore(second.Canonical, second.Deltas)
 			require.NoError(t, err)
 			require.Equal(t, res.Canonical, restored)
 
-			third, err := r.Run("0", "0", second.Canonical, o)
+			third, err := r.Run(tc.tool, tc.path, second.Canonical, o)
 			require.NoError(t, err)
 			require.Equal(t, tc.final, string(third.Canonical), "and then it settles")
 		})

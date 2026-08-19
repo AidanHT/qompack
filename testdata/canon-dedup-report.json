@@ -25,13 +25,13 @@
       "group": "bash",
       "files": 5,
       "raw_bytes": 72674,
-      "canon_bytes": 58426,
+      "canon_bytes": 26001,
       "chunks_without": 17,
       "unique_chunks_without": 17,
       "unique_bytes_without": 72674,
-      "chunks_with": 15,
-      "unique_chunks_with": 15,
-      "unique_bytes_with": 58426,
+      "chunks_with": 7,
+      "unique_chunks_with": 7,
+      "unique_bytes_with": 26001,
       "ratio_without": 1,
       "ratio_with": 1,
       "gain": 1
@@ -144,7 +144,7 @@
   ],
   "overall": {
     "ratio_without": 1.1945,
-    "ratio_with": 1.2249,
-    "gain": 1.0254
+    "ratio_with": 1.2416,
+    "gain": 1.0394
   }
 }

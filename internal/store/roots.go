@@ -215,10 +215,14 @@ func marshalRootLine(rl rootEntry) []byte {
 // encodeSignature renders sig's binary form as standard base64, reporting false when there is no
 // signature to record.
 //
-// A MarshalBinary failure is deliberately NOT an error here: internal/sketch is still an SP-01
-// stub whose MarshalBinary reports core.ErrNotImplemented on every call (Rule W-2), and a Put
-// must not fail because near-duplicate detection is not available yet. The field is simply
-// omitted, which is exactly what "no signature was computed" already means.
+// A MarshalBinary failure is deliberately NOT an error here. It used to be the ordinary case —
+// internal/sketch was an SP-01 stub reporting core.ErrNotImplemented on every call — and it is now
+// the malformed one: sketch refuses a Signature whose Perms and Mins disagree, or whose width is
+// past MaxPermutations, neither of which MinHash can produce but both of which are constructible
+// by hand and decodable from a forged record field. Either way a Put must not fail because
+// near-duplicate detection could not be recorded; the field is simply omitted, which is exactly
+// what "no signature was computed" already means. TestEncodeSignature_EmitsValidOmitsUnmarshalable
+// pins both halves, so "omitted" can never quietly become "always omitted" again.
 func encodeSignature(sig sketch.Signature) (string, bool) {
 	if sig.Perms == 0 && len(sig.Mins) == 0 {
 		return "", false
@@ -467,8 +471,12 @@ func parseRootLine(line []byte) (rl rootEntry, tombstone bool, root core.Hash, e
 }
 
 // decodeSignature rebuilds a MinHash signature from its wire form. A signature that fails to
-// decode — which every signature does while internal/sketch is still a stub — degrades to the
-// permutation count alone rather than failing the whole line.
+// decode degrades to the permutation count alone rather than failing the whole line: a damaged
+// "m" costs near-duplicate detection for that one root, never the root itself.
+//
+// This was the ordinary path while internal/sketch was an SP-01 stub and is now the damage path,
+// so the degradation is no longer self-evidently exercised — the sketch contract test asserts the
+// intact case round-trips through a reopen, which is what keeps the two distinguishable.
 func decodeSignature(w signatureOnWire) sketch.Signature {
 	sig := sketch.Signature{Perms: w.P}
 	raw, err := base64.StdEncoding.DecodeString(w.M)

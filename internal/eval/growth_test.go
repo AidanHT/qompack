@@ -11,13 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// growthFixturePath resolves one of this package's W-2 provider-seam fixtures.
+//
+// They sat under testdata/golden/contracts/{store,negknow}/ until V2-MERGE-18. Those directories
+// belong to SP-06 and SP-09, neither package's MANIFEST.json declared these two files, and SP-06's
+// gen-contract-fixtures regenerates one directory while SP-09 records into the other in wave 3 —
+// so an undeclared neighbour in either was one -update run away from being deleted without
+// comment. testdata/golden/eval/ is SP-02's own, alongside the divergence fixtures.
+func growthFixturePath(t *testing.T, name string) string {
+	t.Helper()
+	return filepath.Join(moduleRoot(t), "testdata", "golden", "eval", "growth", name)
+}
+
 // growthFixture is the W-2 contract fixture SP-06 later replaces with a real store.Stats walk.
 // Until then it is the shape contract, and the wave-2 verification re-runs this same check
 // against the real store.
 func growthFixture(t *testing.T) []eval.StatsSample {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(moduleRoot(t),
-		"testdata", "golden", "contracts", "store", "stats-growth.json"))
+	raw, err := os.ReadFile(growthFixturePath(t, "stats-growth.json"))
 	require.NoError(t, err)
 	var out []eval.StatsSample
 	require.NoError(t, json.Unmarshal(raw, &out))
@@ -122,8 +133,7 @@ func TestCheckSublinearGrowth_Empty(t *testing.T) {
 // TestSketchHealth_FixtureShape pins the §11.4 watch-for fixture SP-09 later replaces with real
 // negknow health, so the provider seam has a shape contract before the provider exists.
 func TestSketchHealth_FixtureShape(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join(moduleRoot(t),
-		"testdata", "golden", "contracts", "negknow", "health.json"))
+	raw, err := os.ReadFile(growthFixturePath(t, "health.json"))
 	require.NoError(t, err)
 
 	var got eval.SketchHealth

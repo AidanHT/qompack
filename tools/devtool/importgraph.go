@@ -10,17 +10,26 @@ import (
 )
 
 // pkgInfo is the minimal shape importgraph and testdeps need from `go list -json`: a package's
-// own import path and its direct, non-test imports.
+// own import path, its direct non-test imports, and its two test-only import lists.
+//
+// TestImports and XTestImports are kept as separate fields rather than folded into Imports because
+// different rules apply to each (see checkTestImportRoots) and because testdeps deliberately reads
+// Imports alone: its question is whether PRODUCTION source depends on a test-only module, and a
+// test importing a test-only module is the normal case rather than a violation.
 type pkgInfo struct {
-	ImportPath string
-	Imports    []string
+	ImportPath   string
+	Imports      []string
+	TestImports  []string
+	XTestImports []string
 }
 
 // goListPkg mirrors the fields of `go list -json` output that pkgInfo is built from; every other
 // field `go list` prints is simply ignored by encoding/json.
 type goListPkg struct {
-	ImportPath string   `json:"ImportPath"`
-	Imports    []string `json:"Imports"`
+	ImportPath   string   `json:"ImportPath"`
+	Imports      []string `json:"Imports"`
+	TestImports  []string `json:"TestImports"`
+	XTestImports []string `json:"XTestImports"`
 }
 
 // goListJSON runs `go list -json <patterns...>` from root and decodes the resulting stream of
@@ -193,9 +202,73 @@ func checkImportGraph(pkgs []pkgInfo) []string {
 				"%s imports %s, which is not in %s's allow-set (00-ARCHITECTURE.md §3.2)",
 				p.ImportPath, imp, c.key))
 		}
+
+		violations = append(violations, checkTestImportRoots(p.ImportPath, p.TestImports, class, false)...)
+		violations = append(violations, checkTestImportRoots(p.ImportPath, p.XTestImports, class, true)...)
 	}
 
 	sort.Strings(violations)
+	return violations
+}
+
+// testSupportRoot is the one composition root an EXTERNAL test package may import: internal/
+// testutil, whose entire reason for existing is to be imported by tests (00-ARCHITECTURE.md §6.2).
+const testSupportRoot = "testutil"
+
+// checkTestImportRoots applies the second half of §3.2's composition-root rule — "nothing may
+// import them" — to a package's test-only imports. external distinguishes .XTestImports (an
+// `x_test` package, compiled separately) from .TestImports (files in the package under test).
+//
+// This exists because `go list`'s .Imports excludes test-only imports entirely, so for as long as
+// importgraph read only that field a _test.go file could import a composition root and the rule
+// that forbids it went unenforced. That is not hypothetical: internal/dag's IN-PACKAGE tests
+// imported internal/testutil for one clock helper and it compiled for as long as nothing on
+// testutil's side reached back. SP-05 then gave internal/daemon a dependency on internal/dag in
+// the same wave and the tree stopped building — dag -> testutil -> cli -> daemon -> dag. It was
+// found by a build failure two branches apart rather than by the lint that owns the rule, and
+// every other package's tests were unchecked (V2-VERIFY §2.0, V2-MERGE-22).
+//
+// THE ONE CARVE-OUT: an x_test package may import internal/testutil.
+//
+// An x_test package is `package foo_test`, a separate package that the package under test does not
+// import, so the edge it adds runs only into the test binary and can never close a cycle back
+// through foo. testutil is the designed test-support root — it composes config, paths, store and
+// the real binary so a test does not have to — and forbidding x_test files to use it would leave
+// the root with no legal consumer at all. canon, chunk, eval, sketch and store all rely on this,
+// and all five name testutil in XTestImports only.
+//
+// In-package .TestImports get NO carve-out, testutil included. Those files are compiled INTO the
+// package under test, so an import there is an edge out of the package itself in everything but
+// name — exactly the dag case above. A helper that needs testutil belongs in an x_test file, or
+// belongs locally: dag's fix was a two-method core.Clock double in internal/dag/clock_test.go, and
+// the goldens still reproduce, which is the evidence that the local epoch matches testutil.Epoch.
+func checkTestImportRoots(importPath string, imports []string, class map[string]classification, external bool) []string {
+	var violations []string
+	for _, imp := range imports {
+		if imp != modulePath && !strings.HasPrefix(imp, modulePath+"/") {
+			continue // stdlib or an external dependency: out of scope for the §3.2 DAG
+		}
+		target, ok := class[imp]
+		if !ok || !target.isRoot {
+			// Not in the scanned set, or not a composition root. The §3.2 LAYER table is
+			// deliberately not applied to test imports — a test may reach across layers to build a
+			// fixture — but the composition-root half is absolute.
+			continue
+		}
+		if external && target.key == testSupportRoot {
+			continue // the carve-out: x_test may import the test-support root
+		}
+		field, kind := ".TestImports", "in-package test files"
+		remedy := "move the helper into an external test file (package <pkg>_test), or write a local double"
+		if external {
+			field, kind = ".XTestImports", "external test files"
+			remedy = "only " + modulePath + "/internal/" + testSupportRoot + " is permitted here"
+		}
+		violations = append(violations, fmt.Sprintf(
+			"%s's %s (%s) import %s, a composition root — nothing may import a composition root, "+
+				"and a test import is still an import (00-ARCHITECTURE.md §3.2): %s",
+			importPath, field, kind, imp, remedy))
+	}
 	return violations
 }
 

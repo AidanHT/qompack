@@ -23,6 +23,13 @@ var fixtureVersions = []string{
 // TestStats_DedupRatio asserts the four fixture versions, each read four times, deduplicate to at
 // least 4:1 — and that RawBytes counts EVERY put, including the exact duplicates, which is what
 // makes the ratio a deduplication ratio rather than a compression ratio.
+//
+// WAVE-1 RECORD. Measured at the V2 checkpoint against the REAL chunker and the REAL
+// canonicalizers: 81.11 (raw 393 380 B, on disk 4 850 B, 10 objects). SP-06 recorded 12.40 here
+// with internal/chunk and internal/canon still SP-01 stubs (§2.6a ⑤); §2.6a predicted an increase
+// and got one — 6.5x. The floor stays at 4.0 because that is Qompack.md §10's Phase 1 exit
+// criterion, not a description of this corpus: a number this far above it would turn any future
+// regression into a still-passing test if the assertion tracked the measurement.
 func TestStats_DedupRatio(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -39,6 +46,8 @@ func TestStats_DedupRatio(t *testing.T) {
 
 	st, err := tp.Store.Stats(ctx)
 	require.NoError(t, err)
+	t.Logf("four versions x four reads: DedupRatio=%.2f raw=%d bytes=%d objects=%d",
+		st.DedupRatio, st.RawBytes, st.Bytes, st.Objects)
 	require.Equal(t, wantRaw, st.RawBytes,
 		"RawBytes must count every put, including the twelve exact duplicates")
 	require.Positive(t, st.Bytes)
@@ -63,6 +72,11 @@ func TestStats_DedupRatio(t *testing.T) {
 // near-identical files would measure cross-file deduplication, which is not what this criterion is
 // about and which inflates the ratio by roughly an order of magnitude; the number that has to clear
 // 4:1 is the one produced by re-reading and editing a set of unrelated files.
+//
+// WAVE-1 RECORD. Measured at the V2 checkpoint against the REAL chunker and the REAL
+// canonicalizers: 24.52 (raw 878 852 B, on disk 35 842 B, 78 objects), against SP-06's
+// pre-canonicalization 6.34 (§2.6a ⑤). An increase, which is what §3.6 says to expect; a DECREASE
+// would have been the regression to investigate. The 4.0 floor is the criterion and stays.
 func TestPhase1ExitCriterion_ReadHeavy(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -86,6 +100,8 @@ func TestPhase1ExitCriterion_ReadHeavy(t *testing.T) {
 
 	st, err := tp.Store.Stats(ctx)
 	require.NoError(t, err)
+	t.Logf("read-heavy corpus: DedupRatio=%.2f raw=%d bytes=%d objects=%d",
+		st.DedupRatio, st.RawBytes, st.Bytes, st.Objects)
 	require.Equal(t, rawTotal, st.RawBytes)
 	require.GreaterOrEqual(t, st.DedupRatio, 4.0,
 		"Phase 1 exit criterion: store size vs. raw transcript ratio must be >= 4:1 on a "+
@@ -128,6 +144,9 @@ func syntheticSource(module, revision int) []byte {
 // TestStats_SublinearGrowth asserts Qompack.md §11.3's "store growth sublinear in session length
 // after dedup": a long run of puts of a slowly mutating payload must not cost twenty-five times
 // what the first eight did.
+//
+// WAVE-1 RECORD. Measured at the V2 checkpoint against the real pipeline: 6 642 B after 8 puts and
+// 41 976 B after 120, a factor of 6.32 for fifteen times the puts.
 func TestStats_SublinearGrowth(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -160,6 +179,7 @@ func TestStats_SublinearGrowth(t *testing.T) {
 	st, err := tp.Store.Stats(ctx)
 	require.NoError(t, err)
 	require.Positive(t, after8)
+	t.Logf("sublinear growth: 8 puts=%d B, 120 puts=%d B, factor %.2f", after8, st.Bytes, float64(st.Bytes)/float64(after8))
 	require.Less(t, st.Bytes, 25*after8,
 		"store growth must be sublinear in session length after dedup (8 puts=%d, 120 puts=%d)",
 		after8, st.Bytes)

@@ -22,7 +22,6 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/redact"
-	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/symbols"
 )
 
@@ -31,14 +30,14 @@ import (
 // internal/testutil: testutil imports internal/store, so importing it back would be an import
 // cycle. The project helper below is the minimum replacement.
 
-// The test chunker's boundary parameters.
+// The granular chunker's boundary parameters.
 //
 // They are deliberately an order of magnitude smaller than config's production defaults
-// (1 KiB/4 KiB/16 KiB). A 23 KB fixture chunked at a 4 KiB average is only ~5 chunks, and a
-// content-defined splitter needs MANY chunks before an edit's boundary shift reliably
-// resynchronizes — with five chunks it usually does not, so the dedup these tests exist to
-// measure would be invisible. Smaller chunks make resynchronization observable on a fixture small
-// enough to keep in the repository.
+// (1 KiB/4 KiB/16 KiB), which is why nothing whose SUBJECT is pipeline behaviour may use them any
+// more: a 23 KB fixture chunked at a 4 KiB average is ~4 chunks, and this splitter turns it into
+// ~65. Only a test whose subject is the number of object FILES on disk — BenchmarkGC_50kObjects,
+// which walks the object tree and does not care how the tree got there — still asks for it, and
+// says so at the call site.
 const (
 	testChunkMin = 64
 	// mixConstant/mixShift define the cut probability: the gear value is multiplied by a
@@ -74,13 +73,14 @@ var gearTable = func() [256]uint64 {
 // Rotate-and-XOR looks equivalent but never forgets: XOR does not decay, so every byte since the
 // last cut keeps contributing and two streams knocked out of phase by an insertion never realign.
 //
-// It has to be content-defined rather than fixed-size, and that is the whole point. internal/chunk
-// is still an SP-01 stub whose Split returns nil (Rule W-2), so these tests must inject their own
-// chunker — but a FIXED-size splitter shifts every subsequent boundary when a single byte is
-// inserted, so it cannot dedup two versions of one file at all. Testing the store's dedup
-// bookkeeping against such a chunker would assert the opposite of the behaviour §6.1 promises.
-// This is not a reimplementation of SP-04's FastCDC and makes no claim to match its boundaries; it
-// only supplies the boundary-stability property the store's own logic is being tested against.
+// It has to be content-defined rather than fixed-size, and that is the whole point: a FIXED-size
+// splitter shifts every subsequent boundary when a single byte is inserted, so it cannot dedup two
+// versions of one file at all.
+//
+// It exists ONLY to reach a high object count cheaply now that SP-04's real FastCDC chunker is what
+// every pipeline test runs against. It is not a reimplementation of that chunker and makes no claim
+// to match its boundaries; a test that asserts anything about chunking, dedup, novelty or the
+// goldens must use the real one, which openOver now installs by default.
 type cdcChunker struct {
 	min, max int
 	shift    uint
@@ -121,17 +121,14 @@ func (c cdcChunker) SplitStream(r io.Reader, fn func(chunk.Chunk, []byte) error)
 	return core.ErrNotImplemented
 }
 
-// newFixedChunker returns the default content-defined test chunker, tuned fine so dedup is
-// observable on a repository-sized fixture.
-func newFixedChunker() chunk.Chunker { return cdcChunker{} }
-
-// newProdChunker returns a chunker at config's PRODUCTION boundary parameters (1 KiB / ~4 KiB /
-// 16 KiB). The benchmarks use it because the latency budgets are stated against production chunk
-// sizes: the fine-grained default splits 100 KB into ~390 objects rather than ~25, and on Windows
-// the per-object create+rename syscalls dominate, so benchmarking with it would measure the test
-// double's granularity rather than the store.
-func newProdChunker() chunk.Chunker {
-	return cdcChunker{min: 1024, max: 16384, shift: 52}
+// withGranularChunker injects the fine-grained content-defined chunker above, so a test that needs
+// tens of thousands of object FILES can reach them from a handful of megabytes.
+//
+// It is the one remaining chunker double, and the only legitimate reason to reach for it is object
+// COUNT. Anything asserting a chunk boundary, a hash, a novelty count, a dedup ratio or a golden
+// must run against the real chunker openOver installs by default.
+func withGranularChunker() storeOpt {
+	return func(_ *config.Config, d *Deps) { d.Chunker = cdcChunker{} }
 }
 
 // fixedChunker splits data into equal-size chunks. Only the MaxPutBytes truncation test uses it,
@@ -180,13 +177,11 @@ func (f canonFunc) Run(tool, path string, in []byte, o canon.Options) (canon.Res
 	return f(tool, path, in, o)
 }
 
-// canonIdentity passes content through unchanged — the "canonicalization ran and did nothing"
-// baseline, as distinct from the SP-01 stub, which fails.
-func canonIdentity() canon.Registry {
-	return canonFunc(func(_, _ string, in []byte, _ canon.Options) (canon.Result, error) {
-		return canon.Result{Canonical: in}, nil
-	})
-}
+// canonIdentity, the "canonicalization ran and did nothing" double, is deliberately GONE. It was
+// what openOver installed everywhere, and the only thing left for it to do after that stopped was
+// to hide the real canonicalizers from a test that had not thought about them. A test that needs a
+// specific canonicalization states it (canonUpper, canonStripTimestamp, canonFailing); a test that
+// needs none disables the passes through configuration, which is a real deployment.
 
 // canonUpper uppercases content, so a test can prove the bytes that were CHUNKED are the
 // canonicalized ones and not the input.
@@ -231,14 +226,6 @@ func canonStripTimestamp() canon.Registry {
 	})
 }
 
-// canonWithSignature returns content unchanged but attaches sig, so near-duplicate detection can
-// be exercised while internal/sketch is still a stub.
-func canonWithSignature(sig sketch.Signature) canon.Registry {
-	return canonFunc(func(_, _ string, in []byte, _ canon.Options) (canon.Result, error) {
-		return canon.Result{Canonical: in, Signature: sig}, nil
-	})
-}
-
 // ── redact double ────────────────────────────────────────────────────────────────────────────
 
 // fixedRedactor replaces every occurrence of one literal, so the ingest-order tests do not depend
@@ -270,8 +257,9 @@ func (r fixedRedactor) Rules() []string { return []string{"testdouble"} }
 
 // ── symbols double ───────────────────────────────────────────────────────────────────────────
 
-// fakeSymbols reports a fixed symbol table, so the symbol-aware paths can be exercised while
-// internal/symbols is still an SP-01 stub.
+// fakeSymbols reports a fixed symbol table, so a test can state exactly which spans the search
+// widener is supposed to see. The double is the point here: the assertion is about what the store
+// DOES with a symbol table, not about which symbols SP-04's extractor finds in a given fixture.
 type fakeSymbols struct {
 	syms []symbols.Symbol
 	refs map[string]int
@@ -422,7 +410,8 @@ type testProject struct {
 	Metrics obs.Registry
 }
 
-// newTestStore builds a project and opens a real FSStore over it, with a working chunker injected.
+// newTestStore builds a project and opens a real FSStore over it, wired to the PRODUCTION
+// dependencies. See openOver for why nothing is injected by default.
 func newTestStore(t *testing.T, opts ...storeOpt) *testProject {
 	t.Helper()
 	return openOver(t, newProject(t), opts...)
@@ -435,9 +424,18 @@ func openOver(t *testing.T, p *project, opts ...storeOpt) *testProject {
 
 	cfg := p.Cfg
 	m := obs.New(p.Clock)
+	// Chunker, Canon, Symbols, Tokens and Redact are LEFT NIL on purpose, so openFS's defaultDeps
+	// installs the production chunk.New / canon.Default / symbols.New / tokens.NewExact /
+	// redact.New. Every test in this package therefore exercises the real §8.1 item-1 pipeline.
+	//
+	// It used to inject Chunker: newFixedChunker() and Canon: canonIdentity() unconditionally,
+	// which was right while chunk, canon, symbols and sketch were all SP-01 stubs and is exactly
+	// wrong now that they are not: the whole package would have gone on measuring the DOUBLES'
+	// behaviour — their chunk boundaries, their no-op canonicalization, their absent signatures —
+	// under test names claiming to be about the store's. That is Rule W-2's failure mode, and this
+	// checkpoint is where it is repaired. A test that genuinely needs a double now asks for one
+	// explicitly (withStubChunker, withCanon, withGranularChunker) and says why.
 	deps := Deps{
-		Chunker: newFixedChunker(),
-		Canon:   canonIdentity(),
 		Log:     p.Log,
 		Metrics: m,
 		Clock:   p.Clock,

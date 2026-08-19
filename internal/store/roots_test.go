@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -195,13 +196,55 @@ func TestLoadRoots_UnknownClassDegradesToProse(t *testing.T) {
 	require.Equal(t, uint8(tokens.ClassProse), entry.Class)
 }
 
-// TestEncodeSignature_OmittedWhileSketchIsAStub asserts an unmarshalable signature is omitted
-// rather than failing the Put. internal/sketch's MarshalBinary reports ErrNotImplemented on this
-// branch (Rule W-2), and near-duplicate detection being unavailable must never block ingest.
-func TestEncodeSignature_OmittedWhileSketchIsAStub(t *testing.T) {
-	_, ok := encodeSignature(sketch.Signature{})
+// TestEncodeSignature_EmitsValidOmitsUnmarshalable states encodeSignature's real contract, now
+// that internal/sketch is real.
+//
+// This test used to be called TestEncodeSignature_OmittedWhileSketchIsAStub, and it went on
+// passing for an entirely different reason once SP-03 landed. Its second case is
+// Signature{Perms: 128, Mins: {1,2,3}} — a value MinHash cannot produce, because it declares 128
+// permutations and carries three minima. While MarshalBinary reported ErrNotImplemented for
+// everything, that case proved the stub was a stub; against the real codec it proves that a
+// MALFORMED signature is refused, which is a different and better assertion — but the name said
+// the opposite, so nothing recorded that the interesting half had gone missing.
+//
+// The interesting half is the one restored first: a VALID signature is emitted. Without it,
+// "encodeSignature omits" is compatible with an implementation that omits everything, which is
+// precisely the state SP-06 shipped in and could not distinguish.
+func TestEncodeSignature_EmitsValidOmitsUnmarshalable(t *testing.T) {
+	valid := sketch.MinHash([]byte("content long enough to shingle at the default width"),
+		sketch.MinHashOptions{Enabled: true, Permutations: 128})
+	require.Equal(t, uint16(128), valid.Perms, "fixture sanity: the real MinHash must produce a signature")
+
+	enc, ok := encodeSignature(valid)
+	require.True(t, ok, "a signature the real MinHash produced must be RECORDED, not omitted")
+	raw, err := base64.StdEncoding.DecodeString(enc)
+	require.NoError(t, err)
+	var back sketch.Signature
+	require.NoError(t, back.UnmarshalBinary(raw))
+	require.Equal(t, valid, back, "what is written must be exactly what reads back")
+
+	_, ok = encodeSignature(sketch.Signature{})
 	require.False(t, ok, "an empty signature has nothing to record")
 
+	// Perms and Mins disagreeing is not producible by MinHash but is constructible by hand and
+	// decodable from a forged record field. It must cost the KEY, never the write: a Put whose
+	// near-duplicate metadata cannot be serialized still has content to store (§12.3).
 	_, ok = encodeSignature(sketch.Signature{Perms: 128, Mins: []uint64{1, 2, 3}})
-	require.False(t, ok, "while sketch.MarshalBinary is a stub, the signature is simply omitted")
+	require.False(t, ok, "a signature sketch's own codec refuses must be omitted rather than written")
+}
+
+// TestAppendRoot_MalformedSignatureCostsTheKeyNotTheWrite is the same contract one level up: the
+// omission has to be invisible to the caller, because a failed Put would mean a tool result was
+// lost over an optimization that did not apply.
+func TestAppendRoot_MalformedSignatureCostsTheKeyNotTheWrite(t *testing.T) {
+	tp := newTestStore(t)
+
+	line := marshalRootLine(rootEntry{
+		Root: Root{Hash: core.HashBytes(core.DomainRoot, []byte("malformed sig")), CanonBytes: 4, RawBytes: 4},
+		TS:   tp.Store.now(), Tool: "FileRead", Path: "src/a.ts",
+		Sig: sketch.Signature{Perms: 128, Mins: []uint64{1, 2, 3}},
+	})
+	require.NotContains(t, string(line), `"sig"`,
+		"an unserializable signature must drop the key, leaving a well-formed record")
+	require.Contains(t, string(line), `"root"`, "and the rest of the line must be written normally")
 }

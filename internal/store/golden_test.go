@@ -26,19 +26,29 @@ import (
 // index/roots.jsonl is a compact {"v":1,…} record carrying attribution and near-dup metadata that
 // the Root struct does not have, while the contract fixture is the struct itself.
 //
-// WHAT IS MISSING FROM THESE GOLDENS, AND WHY (read before regenerating):
+// WHAT THESE GOLDENS PIN, AND WHAT MOVED AT THE V2 CHECKPOINT (read before regenerating):
 //
-// No "sig" key appears in any roots.jsonl or tool_use.jsonl line. internal/sketch is still an
-// SP-01 stub on this branch (Rule W-2): sketch.Signature.MarshalBinary reports
-// core.ErrNotImplemented, and both writers treat a marshal failure as "no signature" and omit the
-// key rather than failing the write. When SP-03 lands at the V2 checkpoint, real signatures will
-// start being emitted and THESE GOLDENS WILL LEGITIMATELY NEED REGENERATING with -update. That is
-// expected, not a regression — but a reviewer must be able to tell that from this comment rather
-// than rediscovering it from a diff.
+// They were first recorded while internal/sketch, internal/canon and internal/chunk were all
+// SP-01 stubs, so they pinned the shape of an index written by test doubles (Rule W-2). They were
+// regenerated once, at V2, after openOver stopped injecting a chunker and a canonicalizer — the
+// single regeneration §2.6a ⑦ sanctions. The diff was confined to the three axes that note names,
+// and was verified to be so before -update was run:
 //
-// Likewise internal/canon is a stub, so canonicalization is a no-op here and "canon" always equals
-// "raw"; and internal/chunk is a stub, so the chunker is injected (cdcChunker) to produce a
-// realistic multi-chunk array instead of splitChecked's single whole-input fallback.
+//  1. "sig" now appears on every roots.jsonl line. sketch.Signature.MarshalBinary used to report
+//     core.ErrNotImplemented and both writers omit the key rather than fail the write; SP-03's
+//     real MinHash emits a 128-permutation signature instead. tool_use.jsonl lines carry no "sig"
+//     because the scripted session below supplies no Signature to RecordToolUse, which is the
+//     writer's documented "absent" case; sketchcontract_test.go pins that writer's sig encoding.
+//  2. "canon" no longer always equals "raw". The Bash line canonicalizes 81 raw bytes to 78. The
+//     two FileRead lines still show canon == raw, because the auth fixture carries nothing
+//     volatile — that is the fixture, not a no-op canonicalizer.
+//  3. Chunk hashes and boundaries changed, and everything derived from them with it: the auth
+//     fixture is 4 chunks under the real FastCDC chunker against the injected chunker's 65, so
+//     root hashes, token counts and sessions.jsonl's object count all move.
+//
+// Key ORDER, key NAMES and the {"v":1,…} record shape did not change on any line, and
+// segments.jsonl is byte-identical. A future diff that touches any of those is NOT covered by this
+// note and is a real regression — diagnose it rather than regenerating.
 
 // goldenUpdate reads the repository-wide -update flag, registering it if this test binary has not
 // already. internal/testutil owns the canonical registration, but package store's in-package tests
@@ -110,9 +120,10 @@ const goldenTick = 250 * time.Millisecond
 //
 // Everything that reaches an index line is deterministic by construction: timestamps come from the
 // package's fakeClock (frozen at testEpoch and advanced explicitly), hashes come from real content
-// through an injected content-defined chunker, and the ids above are literals. Nothing reads a wall
-// clock or a random source — the only randomness in the write path is the object staging filename,
-// which is renamed away and never appears in an index.
+// through the production chunker and canonicalizers, signatures come from sketch.MinHash — which is
+// pure — and the ids above are literals. Nothing reads a wall clock or a random source; the only
+// randomness in the write path is the object staging filename, which is renamed away and never
+// appears in an index.
 func TestGolden_IndexFormats(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()

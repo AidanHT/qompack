@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -504,6 +505,141 @@ func TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun(t *testing.T) {
 	}
 }
 
+// redrainTestBound is how long TestRedrainOnFirstServedRequest gives the re-drain, and it is the
+// whole point of the test: it is SIX TIMES SMALLER than idleTickMax (30s), which is the only other
+// mechanism in the daemon that could drain a spool file written after the startup drain has
+// already scanned the directory. A pass inside this bound therefore cannot be the idle tick in
+// disguise (V2-MERGE-25 ①), and a failure at this bound means the re-drain did not fire, not that
+// the host was slow.
+const (
+	redrainTestBound = idleTickMax / 6
+	redrainTestTick  = 25 * time.Millisecond
+	// redrainDialBound is the connect/ACK budget for this test's own admin client. It is wide
+	// relative to config.Defaults()'s ConnectDeadlineMs (5ms, tuned for an already-warm daemon)
+	// because the very first dial into a daemon that has just started is exactly the case that
+	// budget is NOT sized for — the same reason internal/cli carries hookConnectDeadlineFloor.
+	redrainDialBound = 500 * time.Millisecond
+)
+
+// writeClientSpoolLine writes req as a one-line client-*.ndjson spool file under root's spool
+// directory, the way a client that could not reach the daemon would have left it, and returns the
+// path. The drainer deletes a client-* file once it has fully consumed it, so the path's absence
+// is the observable "this entry was drained".
+func writeClientSpoolLine(t *testing.T, root, name string, req ipc.Request) string {
+	t.Helper()
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	p := filepath.Join(paths.Of(root).Spool, name)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(p), line, 0o600))
+	return p
+}
+
+// spooledObserveTool returns the request a hook's own client would have spooled for sess.
+func spooledObserveTool(root string, sess core.SessionID) ipc.Request {
+	return ipc.Request{
+		Op: ipc.OpObserveTool, Session: sess, TS: 1,
+		Event: &hookio.Event{HookEventName: "PostToolUse", SessionID: sess, CWD: root, ToolName: "Read"},
+	}
+}
+
+// TestRedrainOnFirstServedRequest is V2-MERGE-25 ①'s regression test: an entry spooled AFTER the
+// startup drain has already scanned the spool directory must not have to wait for an idle tick.
+//
+// The two spool files are what make this deterministic rather than merely probable. The first is
+// written before Run and is consumed by Run's own startup Drain; its disappearance is proof that
+// the startup drain has finished its (already snapshotted) file list, so the second file — written
+// only after that — provably cannot be seen by it. Nothing then drains the second file except the
+// re-drain that the single served admin.ping releases (daemon.go, redrainOnceServing), and the
+// bound this test waits under is far below the 30s idle-tick fallback that would otherwise be the
+// answer.
+//
+// Before the fix the second file sat undrained until that idle tick, which is exactly how
+// TestE2ELazySpawn came to fail only on a loaded machine.
+func TestRedrainOnFirstServedRequest(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	observed := make(chan core.SessionID, 4)
+	var o Options
+	o.ProjectRoot = root
+	o.Cfg = testConfig()
+	o.Log = logging.Nop()
+	o.Clock = core.SystemClock()
+	o.Bind(func(s *Services) {
+		s.ObserveTool = func(_ context.Context, e hookio.Event) error {
+			observed <- e.SessionID
+			return nil
+		}
+	})
+
+	const startupSess = core.SessionID("sess-startup-drain")
+	const redrainSess = core.SessionID("sess-re-drain")
+	startupPath := writeClientSpoolLine(t, root, "client-11111.ndjson", spooledObserveTool(root, startupSess))
+
+	d, err := New(o)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	require.Eventually(t, func() bool {
+		_, statErr := os.Stat(paths.Long(startupPath))
+		return os.IsNotExist(statErr)
+	}, drainDeadlockGuard, redrainTestTick, "Run's startup drain never consumed the pre-existing spool file")
+
+	// Written only now: strictly after the startup drain's own file list was taken, which is the
+	// window V2-MERGE-25 describes and the one the idle tick used to own alone.
+	redrainPath := writeClientSpoolLine(t, root, "client-22222.ndjson", spooledObserveTool(root, redrainSess))
+
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+	c := ipc.NewClientWithOptions(addr, nil, logging.Nop(), nil, ipc.ClientOptions{
+		State:           ipc.State{Mode: contract.ModeFull, DaemonEnabled: true},
+		ConnectDeadline: redrainDialBound,
+		AckDeadline:     redrainDialBound,
+	})
+	defer func() { _ = c.Close() }()
+
+	// A nil SpoolWriter is deliberate: a Send that cannot reach the daemon yet must DROP rather
+	// than spool, or the retries below would litter the very directory this test is watching.
+	// The first Send that comes back OK is, by construction, the first request the daemon served.
+	require.Eventually(t, func() bool {
+		resp, sendErr := c.Send(context.Background(), ipc.Request{
+			Op: ipc.OpAdminPing, TS: core.NowMilli(core.SystemClock()), Reply: true,
+		}, redrainTestBound)
+		return sendErr == nil && resp.OK
+	}, drainDeadlockGuard, redrainTestTick, "the daemon never answered admin.ping, so nothing ever proved Serve was up")
+
+	require.Eventually(t, func() bool {
+		_, statErr := os.Stat(paths.Long(redrainPath))
+		return os.IsNotExist(statErr)
+	}, redrainTestBound, redrainTestTick,
+		"a spool entry written after the startup drain was not re-drained within %s — only the %s idle tick would have taken it",
+		redrainTestBound, idleTickMax)
+
+	var got []core.SessionID
+	for len(got) < 2 {
+		select {
+		case s := <-observed:
+			got = append(got, s)
+		case <-time.After(drainDeadlockGuard):
+			t.Fatalf("only %d of the 2 spooled observe.tool events were ever dispatched: %v", len(got), got)
+		}
+	}
+	require.ElementsMatch(t, []core.SessionID{startupSess, redrainSess}, got,
+		"both drains must dispatch their line, not merely delete the file")
+
+	cancel()
+	select {
+	case <-errCh:
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("Run did not shut down after cancellation")
+	}
+}
+
 // TestSpoolOnBreachFalseDoesNotTransition: spoolOnBreach=false leaves the daemon in HotSync even
 // after a breaching window, while the WARN log and counter still fire.
 func TestSpoolOnBreachFalseDoesNotTransition(t *testing.T) {
@@ -526,31 +662,88 @@ func TestSpoolOnBreachFalseDoesNotTransition(t *testing.T) {
 	require.Equal(t, int64(1), dd.m.Counter(counterHotpathDegraded).Value())
 }
 
-// TestHotModeTransitionWritesStateAndNAKs: a breaching window flips HotMode, persists it to
-// state.bin, and the very next observe.tool is NAK'd.
+// TestHotModeTransitionWritesStateAndNAKs is V2-SP05-15's four-way visibility requirement in full:
+// a breaching window must make the sync -> spool transition visible in state.bin, in the NAK frame,
+// in the WARN/LOUD log AND in status. It asserted only the first two, so a regression that flipped
+// the mode without telling anyone — the operator reading logs, /qompack:status reading the
+// snapshot — passed. §8.1 calls this fallback "observable"; two of the four channels were not
+// being checked.
+//
+// The logger here is a real one rather than logging.Nop precisely because the log line is one of
+// the four things under test.
 func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
+	logDir := paths.Of(root).Logs
+	log, closer, err := logging.New(logDir, logging.Warn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, closer.Close()) })
+
 	cfg := testConfig()
 	cfg.Runtime.HotPath.BudgetMs = 15
 	cfg.Runtime.HotPath.BreachWindows = 1
-	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: log})
 	require.NoError(t, err)
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
 
+	// In production run/ always exists before any state.bin write — AcquireLock creates it during
+	// Run's startup, long before a hot-path sample can be taken. This test drives the transition
+	// directly, so it states that precondition rather than leaning on the accident that used to
+	// supply it: with no .qompack/ on disk at all, paths.WriteAtomic cannot resolve a project root
+	// and stages into the destination's OWN directory, creating run/ as a side effect. The moment
+	// anything else creates .qompack/ first — logging.New, below, makes .qompack/logs — WriteAtomic
+	// resolves the root properly and stages into .qompack/tmp/ instead, and nothing creates run/.
+	// TestConfigReloadDefersChunkChange states the same precondition for the same reason.
+	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).Run), 0o700))
+
 	feedBreachingWindow(dd)
 	require.Equal(t, ipc.HotSpool, dd.registry.HotMode())
 
+	// 1. state.bin — what every client reads before it decides whether to dial at all.
 	st := ipc.ReadState(root, cfg)
 	require.Equal(t, ipc.HotSpool, st.Hot)
 
+	// 2. the NAK frame — the in-band hint that flips an already-running client to spool submode.
 	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
 	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(dd.clk)})
 	require.False(t, resp.OK)
 	require.Equal(t, ipc.HotSpool, resp.Hot)
+
+	// 3. the log — the only channel that survives the process, and so the only one an operator can
+	// read after the fact. applyHotPathTransition emits both a Warn and a Loud; LOUD.log is
+	// append-only and never rotated, which is what makes it the durable half.
+	loud, readErr := os.ReadFile(filepath.Join(logDir, "LOUD.log"))
+	require.NoError(t, readErr, "the transition must reach LOUD.log")
+	require.Contains(t, string(loud), "hot path degraded to spool submode")
+	require.Contains(t, readDayLogs(t, logDir), "hot path degraded to spool submode",
+		"the transition must also reach the day log, at WARN")
+
+	// 4. status — what /qompack:status renders, and the only channel a user can query on demand.
+	statusResp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpStatus, Session: "sess-1", Reply: true, TS: core.NowMilli(dd.clk)})
+	require.True(t, statusResp.OK, "status must answer while degraded; statusResp.Err=%q", statusResp.Err)
+	var snap StatusSnapshot
+	require.NoError(t, json.Unmarshal(statusResp.Data, &snap))
+	require.Equal(t, "spool", snap.Hot, "StatusSnapshot.Hot must report the transition, not the submode the daemon started in")
+}
+
+// readDayLogs returns the concatenated contents of every qompack-<day>.log in dir. The day log's
+// name carries a date, so a test that wants to read what it just wrote globs rather than
+// reconstructing the filename from a clock it does not control.
+func readDayLogs(t *testing.T, dir string) string {
+	t.Helper()
+	paths, err := filepath.Glob(filepath.Join(dir, "qompack-*.log"))
+	require.NoError(t, err)
+	require.NotEmpty(t, paths, "no day log was written in %s", dir)
+	var all strings.Builder
+	for _, p := range paths {
+		b, readErr := os.ReadFile(p)
+		require.NoError(t, readErr)
+		all.Write(b)
+	}
+	return all.String()
 }
 
 // feedBreachingWindow pushes one full sampleWindow of 20ms samples (over a 15ms budget) directly
@@ -723,6 +916,77 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	case <-time.After(8 * time.Second):
 		t.Fatal("Stop's cleanup did not finish")
 	}
+}
+
+// TestServeFailureTakesTheStopPath closes FR-4's one untested arm (§2.5a G).
+//
+// Run's select has two ways out of `case err := <-serveErrCh`. A Serve return with d.stopped
+// already closed is an intentional shutdown and reports nil. A Serve return with d.stopped still
+// OPEN is a transport failure nobody asked for, and it must get the same Stop the ctx.Done arm
+// gets: without it daemon.lock stays held until process death, state.bin goes on advertising a
+// dead daemon, and the ingest WAL, sketches and metrics never flush.
+//
+// SP-05 shipped that arm with no dedicated test by accepted adjudication — a deterministic
+// transport failure needs ipc-layer injection — and recorded that a verifier can drive it directly
+// with server.Close(). This is that, from inside the package: nothing calls Stop, nothing cancels
+// the context, the server is simply closed out from under the running daemon.
+//
+// Run's own return value is nil here, and that is the arm behaving correctly rather than a weak
+// assertion. ipc.Server.Serve returns nil on a Close-driven shutdown by its own documented
+// contract, and this arm reports whatever Serve returned VERBATIM rather than inventing an error
+// of its own — deliberately, so a real failure is never shadowed. What proves the arm ran is the
+// cleanup: Stop finished, and it finished without anyone having called it.
+func TestServeFailureTakesTheStopPath(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+
+	// Deliberately NOT cancelled on the happy path: a cancelled context would let Run leave via
+	// the ctx.Done arm instead, which is a different arm that already has its own tests.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Both artifacts must exist before they can meaningfully be asserted gone, and dd.server must
+	// be set before it can be closed — Run assigns it, writes state.bin and takes the lock in that
+	// order, so the lock is the last of the three to appear.
+	statePath := paths.Long(ipc.StatePath(root))
+	lockPath := paths.Long(filepath.Join(paths.Of(root).Run, lockFileName))
+	require.Eventually(t, func() bool {
+		if _, lockOK := ReadLock(root); !lockOK {
+			return false
+		}
+		_, statErr := os.Stat(statePath)
+		return statErr == nil && dd.server != nil
+	}, drainDeadlockGuard, redrainTestTick, "the daemon never finished starting, so there was nothing to fail")
+
+	// The transport dies under a daemon that believes itself healthy.
+	require.NoError(t, dd.server.Close())
+
+	select {
+	case runErr := <-errCh:
+		require.NoError(t, runErr, "a Close-driven Serve return is nil by ipc.Server's contract, and this arm reports it verbatim")
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("Run never returned after its server was closed out from under it — the FR-4 arm is missing or wedged")
+	}
+
+	select {
+	case <-dd.stopDone:
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("Run returned but Stop's cleanup never finished — the arm returned without taking the Stop path")
+	}
+
+	_, statErr := os.Stat(statePath)
+	require.True(t, os.IsNotExist(statErr),
+		"state.bin must be removed: left behind, every client keeps dialling an endpoint no daemon is on")
+	_, lockErr := os.Stat(lockPath)
+	require.True(t, os.IsNotExist(lockErr),
+		"daemon.lock must be released: held by a dead daemon, no replacement can ever take this project")
 }
 
 // TestMarkerIsWrittenByFlushAndCheckpointOnly is the daemon-route half of task-4-spec.md's
@@ -961,4 +1225,39 @@ func TestHandlerPanicIsRecovered(t *testing.T) {
 	require.False(t, resp.OK)
 	require.Contains(t, resp.Err, "panic")
 	require.Equal(t, int64(1), dd.m.Counter(counterHandlerPanic).Value())
+}
+
+// TestIdleExitEndsAbandonedSessions: a client that dies without ever sending SessionEnd must not
+// hold the daemon open forever. Before the abandonment sweep, this exact shape -- one session
+// Ensured and then silent -- kept Live() at 1 indefinitely, the zero-live countdown never
+// started, and the daemon outlived its project until process death (V2-VERIFY's ci-local run
+// left three such orphans holding their temp dirs for hours). With the sweep, the session is
+// abandoned after one idle-exit window of silence and the daemon exits after one more.
+func TestIdleExitEndsAbandonedSessions(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	cfg := testConfig()
+	cfg.Runtime.Daemon.IdleExitSeconds = 1
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+
+	// The abandoned session: registered the way an accepted hook registers it, never ended.
+	d.Registry().Ensure(&hookio.Event{SessionID: "sess-vanished"}, core.NowMilli(core.SystemClock()))
+	require.Equal(t, 1, d.Registry().Live())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(12 * time.Second):
+		t.Fatal("Run did not exit on its own: the abandoned session still counts as live")
+	}
+
+	require.Zero(t, d.Registry().Live(), "the vanished session must have been ended, not kept live")
 }

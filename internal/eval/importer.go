@@ -385,9 +385,23 @@ type redactRule struct {
 // The specific token formats run before the generic "password: <anything>" rule, so a known
 // credential is labelled as what it is rather than swallowed by the catch-all.
 //
-// Every rule is idempotent — its own replacement never matches it again — which is what lets a
-// session be redacted twice without being mangled, and is asserted by both a unit test and a fuzz
-// target.
+// Every rule is idempotent, and idempotence here means more than "a rule's own replacement never
+// matches it again": the table is applied as a whole, so a rule must not match ANOTHER rule's
+// replacement either. Every marker this table writes is angle-bracketed (<HOME>, <REDACTED>,
+// <TOKEN>, <EMAIL>, <KEY>, <JWT>), so the convention that keeps the whole table idempotent is:
+//
+//	wherever a rule consumes arbitrary user text — that is, in every negated character class —
+//	it excludes < and >.
+//
+// Two separate non-idempotencies came from breaking that convention, so it is enforced
+// mechanically by TestRedactRules_NegatedClassesRejectMarkerBrackets rather than left to review,
+// with the FuzzRedact target as the behavioural backstop.
+//
+// The one rule that consumes free text without a negated class is the catch-all below, whose \S+
+// deliberately swallows everything up to whitespace: narrowing it to exclude brackets would end
+// the match at the first "<" and leave the tail of the secret in the transcript. It is safe
+// because its replacement is a fixed point — "password=<REDACTED>" re-matches it and re-produces
+// itself unchanged.
 var redactRules = []redactRule{
 	// The trailing character class excludes < and > so that the rule's own <HOME> replacement can
 	// never be re-consumed as a username on a second pass. Without that, "A:\Users\A:\Users\bob"
@@ -395,7 +409,11 @@ var redactRules = []redactRule{
 	// found, and the reason the seed corpus carries an already-redacted case.
 	{regexp.MustCompile(`(?i)[A-Za-z]:\\Users\\[^\\/"'\s<>]+`), "<HOME>"},
 	{regexp.MustCompile(`/(?:Users|home)/[^/\s"'<>]+`), "<HOME>"},
-	{regexp.MustCompile(`\b([a-z][a-z0-9+.-]*)://[^/\s:@]+:[^/\s@]+@`), "${1}://<REDACTED>@"},
+	// Both halves of the credential exclude < and > for the same reason, and this one needed a
+	// second rule's marker to expose it: the e-mail rule runs later but can leave "<EMAIL>" where
+	// a username sits, so "a://0@0.0:0@" redacted to "a://<EMAIL>:0@" and then, once this rule
+	// accepted that marker as a username, to "a://<REDACTED>@".
+	{regexp.MustCompile(`\b([a-z][a-z0-9+.-]*)://[^/\s:@<>]+:[^/\s@<>]+@`), "${1}://<REDACTED>@"},
 	{regexp.MustCompile(`(?s)-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----`), "<KEY>"},
 	{regexp.MustCompile(`\b(?:AKIA|ASIA)[0-9A-Z]{16}\b`), "<TOKEN>"},
 	{regexp.MustCompile(`\bgithub_pat_[A-Za-z0-9_]{22,}`), "<TOKEN>"},

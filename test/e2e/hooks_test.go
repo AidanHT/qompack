@@ -14,12 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMain removes the directory Build compiled into. It lives here rather than in a file of its
-// own because it is three lines of process lifecycle, and the binary it cleans up is only ever
-// used by the tests in this package.
+// TestMain removes the directories Build and buildNoInject compiled into. It lives here rather
+// than in a file of its own because it is a few lines of process lifecycle, and the binaries it
+// cleans up are only ever used by the tests in this package.
 func TestMain(m *testing.M) {
 	code := m.Run()
 	removeBuild()
+	removeNoInjectBuild()
 	os.Exit(code)
 }
 

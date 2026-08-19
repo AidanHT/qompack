@@ -2,7 +2,7 @@ module github.com/qompack/qompack
 
 go 1.26
 
-toolchain go1.26.4
+toolchain go1.26.6
 
 require (
 	github.com/Microsoft/go-winio v0.6.2

@@ -442,9 +442,7 @@ func TestRecovery_OpenFailsCleanlyWhenAnIndexIsUnusable(t *testing.T) {
 			require.NoError(t, os.MkdirAll(
 				paths.Long(filepath.Join(paths.Of(p.Root).Index, name)), 0o700))
 
-			s, err := openFS(p.Root, p.Cfg, Deps{
-				Log: p.Log, Clock: p.Clock, Chunker: newFixedChunker(), Canon: canonIdentity(),
-			})
+			s, err := openFS(p.Root, p.Cfg, Deps{Log: p.Log, Clock: p.Clock})
 			require.Error(t, err, "%s occupied by a directory must fail the open, not be ignored", name)
 			require.Nil(t, s)
 			require.Contains(t, err.Error(), "store: open",

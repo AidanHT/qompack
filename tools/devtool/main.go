@@ -34,6 +34,7 @@ var tasks = map[string]func(args []string) error{
 	"test-race":             taskTestRace,
 	"cover":                 taskCover,
 	"bench":                 taskBench,
+	"bench-compare":         taskBenchCompare,
 	"bench-hotpath":         taskBenchHotpath,
 	"replay":                taskReplay,
 	"plugin-validate":       taskPluginValidate,

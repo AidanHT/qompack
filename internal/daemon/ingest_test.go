@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,12 +54,20 @@ func TestIngestWALIsExactBytes(t *testing.T) {
 // parallel tests contending for scheduler time, for reasons unrelated to Accept's own cost.
 const ingestAcceptBudget = 500 * time.Millisecond
 
-// TestIngestRingFullSpillsToSpool pins the non-blocking overflow path: a full ring never blocks
-// Accept. Every accepted line reaches the WAL regardless of ring capacity — the WAL append always
-// happens first — and a ring-full request is simply dropped from the ring (counted via
-// l0_ring_full), never written a second time anywhere: the WAL copy is already durable and is what
-// Drain reads.
-func TestIngestRingFullSpillsToSpool(t *testing.T) {
+// TestIngestRingFullWALsEveryLineAndNeverSpills pins the non-blocking overflow path: a full ring
+// never blocks Accept. Every accepted line reaches the WAL regardless of ring capacity — the WAL
+// append always happens first — and a ring-full request is simply dropped from the ring (counted
+// via l0_ring_full), never written a second time anywhere: the WAL copy is already durable and is
+// what Drain reads.
+//
+// It was called TestIngestRingFullSpillsToSpool, which asserted the opposite of what it checks.
+// Ruling #23 DELETED the ring-full spill the plan describes — WAL-first ordering already makes
+// every line durable, and the spill rested on a byte-identity invariant hookio.Event.Extra
+// violates — keeping only the l0_ring_full counter. The final assertion below has required the
+// spool directory to hold nothing but the WAL ever since, so the old name told a reader looking
+// for the spill's coverage that it was here, and told a reader auditing ruling #23 that the
+// deletion had not landed. Both wrong, from a test that passes.
+func TestIngestRingFullWALsEveryLineAndNeverSpills(t *testing.T) {
 	root := t.TempDir()
 	clk := newFakeClock(epoch)
 	m := obs.New(clk)
@@ -94,8 +103,8 @@ func TestIngestRingFullSpillsToSpool(t *testing.T) {
 
 // ingestACKWait bounds this test's two channel waits generously (matching this codebase's own
 // suiteWait convention in internal/ipc/ipctest) — not run under t.Parallel(), so it is not
-// contending with other tests' goroutines for scheduler time the way TestIngestRingFullSpillsToSpool
-// was observed to under -race.
+// contending with other tests' goroutines for scheduler time the way the ring-full test above was
+// observed to under -race.
 const ingestACKWait = 10 * time.Second
 
 // TestIngestACKPrecedesProcessing proves Accept returns — the point at which the server writes the
@@ -253,4 +262,93 @@ func TestIngestResolvesBlobsEndToEnd(t *testing.T) {
 	for _, e := range entries {
 		require.False(t, strings.HasPrefix(e.Name(), "blob-"), "the blob file must be deleted once resolved: %s", e.Name())
 	}
+}
+
+// TestAcceptWireLineWALsExactlyOneTerminator pins Accept against the bytes the wire path actually
+// feeds it. handlers.go hands Accept ipc.EncodeRequest's output, and json.Encoder.Encode
+// terminates that with '\n' already — so an Accept that blindly appends its own terminator writes
+// a blank separator line after every record. Drain tolerates the blanks (and its comment claims
+// the writer never emits them), which is how the doubled terminator stayed invisible while it
+// silently broke live-vs-drain dedup: the live key was hashed over the terminated line, the drain
+// key over the trimmed one. TestIngestWALIsExactBytes keeps the exact-bytes contract for a caller
+// that supplies an unterminated line; this is the same contract for the terminated caller.
+func TestAcceptWireLineWALsExactlyOneTerminator(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	clk := newFakeClock(epoch)
+	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
+	t.Cleanup(func() { _ = ing.Close() })
+
+	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
+	req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(clk)}
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	require.True(t, bytes.HasSuffix(line, []byte{'\n'}),
+		"precondition: the encoder terminates the line; if this ever changes, "+
+			"TestIngestWALIsExactBytes covers the unterminated shape")
+
+	require.NoError(t, ing.Accept(req, line))
+
+	got, err := os.ReadFile(filepath.Join(paths.Of(root).Spool, "wal-sess-1.ndjson"))
+	require.NoError(t, err)
+	require.Equal(t, string(bytes.TrimSuffix(line, []byte{'\n'}))+"\n", string(got),
+		"one record, one terminator: the WAL must hold no blank separator lines")
+}
+
+// TestLiveDispatchedLineIsNotRedispatchedByDrain pins live-vs-drain exactly-once. A line accepted
+// and dispatched on the live path (WAL append -> ring -> worker, which records the dedup key in
+// the seen-set) must be skipped when a later Drain — the SessionEnd flush route, a restart, an
+// idle tick — re-reads the same WAL file. The two sides can only agree if they hash the same
+// bytes: Accept receives the encoder-terminated line while Drain reads the line back trimmed, so
+// the key must be computed over the trimmed bytes on both sides. IsLive answers false here
+// because that is the flush-route shape — a live session's WAL is skipped wholesale, which is
+// exactly what kept this class invisible to the idle-tick tests.
+func TestLiveDispatchedLineIsNotRedispatchedByDrain(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	clk := newFakeClock(epoch)
+	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, clk)
+	t.Cleanup(func() { _ = ing.Close() })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	var mu sync.Mutex
+	liveRuns := 0
+	ing.Start(ctx, 1, func(context.Context, ipc.Request) {
+		mu.Lock()
+		liveRuns++
+		mu.Unlock()
+	})
+
+	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
+	req := ipc.Request{Op: ipc.OpObserveTool, Session: "sess-1", Event: ev, TS: core.NowMilli(clk)}
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	require.NoError(t, ing.Accept(req, line))
+
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return liveRuns == 1
+	}, 2*time.Second, 10*time.Millisecond, "the live path must dispatch the accepted line once")
+
+	drainRuns := 0
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: logging.Nop(), Clock: clk, Seen: ing.seen,
+		IsLive: func(core.SessionID) bool { return false },
+		Dispatch: func(context.Context, ipc.Request) ipc.Response {
+			drainRuns++
+			return ipc.Response{OK: true}
+		},
+	})
+	n, err := dr.Drain(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, n, "Drain must dedup the line the live path already dispatched")
+	require.Zero(t, drainRuns, "the drain dispatch function must never see an already-dispatched line")
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 1, liveRuns, "the live count must not move during Drain")
 }

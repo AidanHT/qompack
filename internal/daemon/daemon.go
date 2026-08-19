@@ -115,6 +115,13 @@ type daemon struct {
 	runCancelMu sync.Mutex
 	runCancel   context.CancelFunc
 
+	// firstServed closes the first time this daemon dispatches a request that arrived over the
+	// transport — the earliest instant it can PROVE server.Serve is accepting. Run watches it to
+	// re-drain the spool; see noteServed and redrainOnceServing for why that instant, and not any
+	// point inside Run's own startup sequence, is the one that closes V2-MERGE-25's window.
+	firstServedOnce sync.Once
+	firstServed     chan struct{}
+
 	stopOnce sync.Once
 	// stopped closes near the START of Stop's cleanup sequence (before the actual work), so Run's
 	// own select loop can distinguish an intentional Stop-driven Serve return from a genuine
@@ -169,16 +176,17 @@ func New(o Options) (Daemon, error) {
 	}
 
 	d := &daemon{
-		root:     o.ProjectRoot,
-		log:      o.Log,
-		m:        o.Metrics,
-		clk:      o.Clock,
-		cfg:      o.Cfg,
-		cfgEnv:   config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
-		svc:      svc,
-		monitor:  monitor,
-		stopped:  make(chan struct{}),
-		stopDone: make(chan struct{}),
+		root:        o.ProjectRoot,
+		log:         o.Log,
+		m:           o.Metrics,
+		clk:         o.Clock,
+		cfg:         o.Cfg,
+		cfgEnv:      config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
+		svc:         svc,
+		monitor:     monitor,
+		firstServed: make(chan struct{}),
+		stopped:     make(chan struct{}),
+		stopDone:    make(chan struct{}),
 	}
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
@@ -395,6 +403,7 @@ func (d *daemon) Run(ctx context.Context) error {
 
 	serveErrCh := make(chan error, 1)
 	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
+	go d.redrainOnceServing(runCtx)
 
 	var zeroLiveSince time.Time
 	for {
@@ -438,13 +447,18 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 			d.maybeReloadConfig(runCtx, config.Env{})
 
+			exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
+			if exitAfter <= 0 {
+				exitAfter = defaultIdleExitSeconds
+			}
+			// A session whose client vanished without SessionEnd would hold Live() above zero
+			// forever and make the countdown below unreachable; sweep those out first, with the
+			// idle-exit window itself as the silence bound (see SessionRegistry.EndAbandoned).
+			d.registry.EndAbandoned(now, time.Duration(exitAfter)*time.Second)
+
 			if d.registry.Live() == 0 {
 				if zeroLiveSince.IsZero() {
 					zeroLiveSince = d.clk.Now()
-				}
-				exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
-				if exitAfter <= 0 {
-					exitAfter = defaultIdleExitSeconds
 				}
 				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
 					cancel()
@@ -456,6 +470,53 @@ func (d *daemon) Run(ctx context.Context) error {
 				zeroLiveSince = time.Time{}
 			}
 		}
+	}
+}
+
+// noteServed records that this daemon has dispatched a request, releasing redrainOnceServing. It
+// is called from dispatchOp, which is the function Run hands to server.Serve — so it fires only
+// once a connection has been accepted, a full frame read, and a request decoded.
+//
+// It costs one already-completed sync.Once check per request (an atomic load) and never touches
+// the filesystem, so it is safe to leave on the B-A/B-B path.
+func (d *daemon) noteServed() {
+	d.firstServedOnce.Do(func() { close(d.firstServed) })
+}
+
+// redrainOnceServing replays the spool a second time, once the daemon is provably serving.
+//
+// Run's own startup Drain runs BEFORE `go server.Serve(...)`, and after it the next drain is an
+// idle tick away — idleTickMax, 30s (V2-MERGE-25). Anything a client spools inside that window is
+// durable but invisible for up to half a minute, and on a cold start that window is precisely
+// where the spawn-causing entry lives. internal/ipc/client.go now spools before it spawns, which
+// keeps the ordinary cold start ahead of the startup drain, but that is a property of the CLIENT:
+// a second client dialling the not-yet-accepting daemon in the same window still times out and
+// spools with nothing left to notice it. This closes that from the daemon's own side, so
+// freshness stops depending on client-side ordering at all.
+//
+// The trigger is the FIRST SERVED REQUEST rather than a second Drain call placed after
+// `go server.Serve(...)` in Run, and that choice is the whole of the fix:
+//
+//   - `go` orders nothing. A Drain written on the line after it can still run before the accept
+//     loop has started, which leaves exactly the window it was meant to close, just narrower and
+//     by an unbounded amount. A served request is the earliest fact the daemon can observe that
+//     PROVES Serve is accepting.
+//   - It is the only trigger with a happens-before edge to the thing being drained. A client that
+//     failed to reach this daemon appended to the spool before it gave up, and it gave up before
+//     any later client could be served — so every spool entry from the cold-start window is
+//     already on disk by the time this fires. A timer-based re-drain proves nothing of the kind.
+//
+// The idle tick remains the backstop for anything spooled later (a NAK-driven hot-spool submode
+// client, an ack timeout against a healthy daemon) — that cadence is §2.5a E's known-deferred
+// item and is deliberately not changed here.
+func (d *daemon) redrainOnceServing(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	case <-d.firstServed:
+	}
+	if _, err := d.Drain(ctx); err != nil && !errors.Is(err, context.Canceled) {
+		d.log.Warn("daemon: re-drain after first served request failed", "err", err)
 	}
 }
 

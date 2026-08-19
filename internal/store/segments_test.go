@@ -491,10 +491,10 @@ func BenchmarkMarkEncoded_100(b *testing.B) {
 // TestSegment_MirrorsFrozenDPIGuardCase replays storetest.runMarkEncodedDPIGuardCase's exact
 // sequence against the real segLog.
 //
-// The conformance suite itself cannot reach this implementation until the integration commit
-// flips store.Open off the SP-01 stub, and storetest imports store so an internal test cannot run
-// it. Mirroring the case here means the frozen assertions are already proven green rather than
-// discovered at integration time.
+// The mirroring is still worth its cost now that store.Open is real and the suite does reach this
+// implementation: storetest imports store, so an in-package test can never invoke the suite
+// directly, and this is the only place the frozen DPI sequence can be run against the unexported
+// segLog rather than through the Store interface.
 func TestSegment_MirrorsFrozenDPIGuardCase(t *testing.T) {
 	f := newIdxStore(t)
 	sl := f.s.Segments()

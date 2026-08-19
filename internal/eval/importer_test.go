@@ -279,6 +279,37 @@ func TestRedact_Idempotent(t *testing.T) {
 	require.Equal(t, once, twice)
 }
 
+// redactText runs one string through Redact and returns the scrubbed text and the span count, so
+// a rule-level case does not have to build a transcript fixture to state what it means.
+func redactText(t *testing.T, in string) (string, int) {
+	t.Helper()
+	out, n := eval.Redact(eval.Session{
+		ID:    "redact-text",
+		Turns: []eval.Turn{{Index: 0, Role: "user", Text: in, Tokens: 1}},
+	})
+	return out.Turns[0].Text, n
+}
+
+// TestRedact_URLCredentialsRejectsAMarkerUsername pins the minimized input from fuzz seed
+// 4ca9f371d73b9950, where two rules interacted: the e-mail rule leaves "<EMAIL>" exactly where a
+// URL user name sits, and the URL-credentials rule used to accept that marker as a user name, so
+// a second pass rewrote "a://<EMAIL>:0@" into "a://<REDACTED>@".
+//
+// It pins the output rather than only re-asserting idempotency, because both spellings are stable
+// on their own — the bug was which of the two this string settles on, and a rule change that
+// silently swapped them would still redact, just not as the ordering above intends.
+func TestRedact_URLCredentialsRejectsAMarkerUsername(t *testing.T) {
+	const input = "a://0@0.0:0@"
+
+	once, first := redactText(t, input)
+	require.Equal(t, "a://<EMAIL>:0@", once)
+	require.Equal(t, 1, first, "one span: the e-mail rule, and nothing after it")
+
+	twice, second := redactText(t, once)
+	require.Equal(t, once, twice)
+	require.Zero(t, second, "an already-redacted string has no spans left to replace")
+}
+
 // TestRedact_PreservesTurnCountAndTokens: redaction changes what a session says, never its shape,
 // because the shape is what the replay numbers are computed from.
 func TestRedact_PreservesTurnCountAndTokens(t *testing.T) {

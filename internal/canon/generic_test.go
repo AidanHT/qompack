@@ -134,6 +134,14 @@ func TestTimestamps_Table(t *testing.T) {
 			want: "<ts> <ts>", deltas: 2,
 		},
 		{name: "bare clock", in: "12:34:56 ready", want: "<ts> ready", deltas: 1},
+		{
+			// SP04-D3(c). The ISO fraction is unbounded, so a ten-digit one is part of the
+			// timestamp rather than left outside it for the epoch rule to claim as a second token.
+			// Capped at nine this was "<ts>.<ts>", which spelled one instant two ways depending on
+			// how much precision the writer printed.
+			name: "over-long fraction is one timestamp", in: "2024-01-02T03:04:05.1234567890",
+			want: "<ts>", deltas: 1,
+		},
 		{name: "digits inside a longer run are not a clock", in: "id17000000000001x", want: "id17000000000001x"},
 		{name: "no timestamp", in: "nothing here", want: "nothing here"},
 	})
@@ -148,6 +156,13 @@ func TestDurations_Table(t *testing.T) {
 		{name: "millis", in: "took 12ms", want: "took <d>", deltas: 1},
 		{name: "fractional seconds", in: "took 0.02s", want: "took <d>", deltas: 1},
 		{name: "space before unit", in: "took 5 s", want: "took <d>", deltas: 1},
+		{
+			// SP04-D3(a). The separator is horizontal whitespace, so a magnitude ending one line
+			// does not pair with a unit beginning the next — which is what a wrapped log line
+			// looks like, and never what one duration looks like.
+			name: "a line break does not separate a magnitude from a unit", in: "in 5\nms",
+			want: "in 5\nms",
+		},
 		{name: "nanos", in: "3ns", want: "<d>", deltas: 1},
 		{
 			// The phrase rule and the simple rule report the identical span here; overlap
@@ -222,6 +237,32 @@ func TestTmpPaths_Table(t *testing.T) {
 		{
 			name: "windows appdata temp forward slash",
 			in:   "C:/Users/quant/AppData/Local/Temp/qompack1", want: "<tmp>", deltas: 1,
+		},
+		{
+			// SP04-D1. The same path once a tool has embedded it in a JSON payload, which is how
+			// every hook transcript and every docker/go-build log carries a Windows path. The
+			// doubled separators are matched by a rule of their own; the first rule's `[^\\]+`
+			// user-name segment cannot cross one, which is exactly why it is a second rule.
+			name: "windows appdata temp json-escaped",
+			in:   `{"cwd":"C:\\Users\\quant\\AppData\\Local\\Temp\\qompack1"}`,
+			want: `{"cwd":"<tmp>"}`, deltas: 1,
+		},
+		{
+			// The case the fix had to be shaped around: widening the user-name class to admit a
+			// doubled backslash would let ONE match run from the first path to the end of the
+			// second, replacing the comma and the JSON structure between them along with it.
+			// Two separate spans is the answer, and it is what a per-path tail delivers.
+			name: "two json-escaped paths on one line",
+			in: `{"a":"C:\\Users\\quant\\AppData\\Local\\Temp\\one",` +
+				`"b":"D:\\Users\\bob\\AppData\\Local\\Temp\\two"}`,
+			want: `{"a":"<tmp>","b":"<tmp>"}`, deltas: 2,
+		},
+		{
+			// A doubled separator in the TAIL is ordinary content for both rules: the tail class is
+			// a complement, so it admits backslashes and stops at the quote either way.
+			name: "escaped tail keeps its own separators",
+			in:   `"C:\\Users\\quant\\AppData\\Local\\Temp\\a\\b\\c" done`,
+			want: `"<tmp>" done`, deltas: 1,
 		},
 		{name: "unexpanded tmpdir", in: "$TMPDIR/qompack.sock", want: "<tmp>", deltas: 1},
 		{name: "tmpfs is not tmp", in: "/tmpfs/x", want: "/tmpfs/x"},

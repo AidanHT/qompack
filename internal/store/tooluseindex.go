@@ -103,9 +103,11 @@ type opProbe struct {
 }
 
 // tuSignature frames rec's MinHash signature for a tool_use line, reusing roots.go's
-// encodeSignature so both index files agree on the wire form byte for byte. A signature that
-// cannot be serialized — which is every signature while internal/sketch is an SP-01 stub — is
-// simply omitted, because near-duplicate detection is an optimization and must never fail a write.
+// encodeSignature so both index files agree on the wire form byte for byte — which
+// TestSketchContract_ToolUseLineCarriesTheSameWireForm now checks against SP-03's frozen QPKS
+// frame, because sharing a helper is not the same as staying in agreement. A signature that cannot
+// be serialized is omitted, because near-duplicate detection is an optimization and must never
+// fail a write; see encodeSignature for which signatures those are now that sketch is real.
 func tuSignature(sig sketch.Signature) *signatureOnWire {
 	m, ok := encodeSignature(sig)
 	if !ok {

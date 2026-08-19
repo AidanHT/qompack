@@ -33,6 +33,17 @@ import (
 // run fast without flirting with real scheduling jitter.
 const testDeadline = 50 * time.Millisecond
 
+// handlerSeenWait bounds taking a request the server handler has ALREADY received. Send does not
+// return until the ACK arrives (§2.4) and the handler pushes onto a buffered channel before
+// returning the response that produces that ACK, so by the time Send returns the value is already
+// queued and the receive cannot block. The bound exists only so a regression that stopped the
+// handler running fails as a named assertion instead of as a package-wide test timeout — the same
+// role, and now the same value, as internal/ipc/ipctest's suiteWait and internal/daemon's
+// ingestACKWait. It was a bare 2s literal, smaller than either of those for no stated reason
+// (V2-MERGE-25 ②), which under load meant a wait whose whole premise is "this cannot block" could
+// nevertheless time out.
+const handlerSeenWait = 10 * time.Second
+
 // newTestServer starts a real Server running h, cleaned up automatically, and returns the Addr a
 // Client can reach it at.
 func newTestServer(t *testing.T, h Handler) (Server, Addr) {
@@ -112,7 +123,7 @@ func TestSendACKPath(t *testing.T) {
 
 	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.Equal(t, HotSync, res.Hot)
 
 	_, statErr := os.Stat(spool.Path())
@@ -238,7 +249,7 @@ func TestSendModeOffDoesNothing(t *testing.T) {
 
 	res, err := c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.Equal(t, contract.ModeOff, res.Mode)
 
 	_, statErr := os.Stat(spool.Path())
@@ -257,7 +268,7 @@ func TestSendReplyPath(t *testing.T) {
 
 	res, err := c.Send(context.Background(), Request{Op: OpSessionStart, Session: "s", TS: 1, Reply: true}, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 	require.NotNil(t, res.Output)
 	require.Equal(t, ctx, res.Output.HookSpecificOutput.AdditionalContext)
 }
@@ -291,12 +302,12 @@ func TestSendOversizeExternalizes(t *testing.T) {
 	}
 	res, err := c.Send(context.Background(), req, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 
 	var got Request
 	select {
 	case got = <-seen:
-	case <-time.After(2 * time.Second):
+	case <-time.After(handlerSeenWait):
 		t.Fatal("server never received the request")
 	}
 
@@ -353,12 +364,12 @@ func TestSendOversizeExternalizePreservesExistingRaw(t *testing.T) {
 	}
 	res, err := c.Send(context.Background(), req, time.Second)
 	require.NoError(t, err)
-	require.True(t, res.OK)
+	require.True(t, res.OK, "Send never propagates a transport failure as an error (§5.4) — it arrives here as OK:false with the reason in res.Err=%q", res.Err)
 
 	var got Request
 	select {
 	case got = <-seen:
-	case <-time.After(2 * time.Second):
+	case <-time.After(handlerSeenWait):
 		t.Fatal("server never received the request")
 	}
 

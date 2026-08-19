@@ -29,6 +29,9 @@ var foundation = []string{"core", "paths", "config", "logging", "obs"}
 //     lets internal/eval stay foundation-only: everything eval needs from a later wave — store
 //     growth samples, negknow bloom health — is declared as a provider type in eval and supplied
 //     here, so the dependency lives in the driver rather than in the layer being measured.
+//   - test/integration (V2-VERIFY section 4) exercises cross-component seams that exist only on
+//     the merged tree -- chunk + canon + store + dag + eval in one file -- which is precisely
+//     what no internal package's allow-set permits and a composition root exists to hold.
 var compositionRoots = map[string]bool{
 	"daemon":             true,
 	"cli":                true,
@@ -40,6 +43,7 @@ var compositionRoots = map[string]bool{
 	"test/dedup":         true,
 	"test/bench/hotpath": true,
 	"test/replay":        true,
+	"test/integration":   true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
