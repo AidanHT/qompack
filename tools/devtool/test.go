@@ -23,10 +23,20 @@ func taskTest(args []string) error {
 	if err := taskFmtCheck(nil); err != nil {
 		return err
 	}
-	return goInherit("test", "./...")
+	return goInherit("test", "-timeout="+wholeTreeTestTimeout, "./...")
 }
+
+// wholeTreeTestTimeout provisions every whole-tree `go test` for test/integration, whose two
+// hot-path suites legitimately spend ~3 quiet minutes spawning real processes (2 000 measured
+// spawns plus the degradation state machine). Under `go test ./...` the packages run in
+// parallel, so on a loaded or small box that wall time inflates well past go's default 10m
+// per-binary timeout -- V2's quiet ci-local watched every test pass isolated in 180s and still
+// die at the default kill when sharing the machine with the store/e2e/guards suites. This is
+// headroom for contention, not a slackened check: every budget the suite enforces is asserted
+// in-test and unchanged.
+const wholeTreeTestTimeout = "30m"
 
 // taskTestRace runs `go test -race ./...`.
 func taskTestRace(args []string) error {
-	return goInherit("test", "-race", "./...")
+	return goInherit("test", "-race", "-timeout="+wholeTreeTestTimeout, "./...")
 }
