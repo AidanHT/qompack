@@ -235,16 +235,22 @@ func TestE2ELazySpawn(t *testing.T) {
 		e2eWALVisibleBound, e2eSpoolDrainTick,
 		"the second observe-tool call never reached the daemon — no line landed in %s", walPath)
 
-	// With a request served, the daemon has already kicked its spool re-drain: every
-	// client-*.ndjson file the first call left behind goes away without waiting for an idle tick.
+	// With a request served, the daemon has already kicked its spool re-drain: every spool file
+	// the first call left behind goes away without waiting for an idle tick.
+	//
+	// The wait names call 1's exact files (spoolFiles, captured above) rather than asserting the
+	// directory holds no client-*.ndjson at all, because the SECOND call can legitimately add one
+	// after the re-drain's single directory snapshot: under heavy co-load its ACK wait can expire
+	// against a healthy daemon that already ingested the request — the WAL assertion above still
+	// passes — and that late file is redrainOnceServing's documented idle-tick territory (§2.5a
+	// E, deliberately deferred), not a drain failure. The blanket form failed V2-VERIFY's
+	// whole-tree `-count=2` gate on exactly that state (V2-MERGE-25 ②'s bound class, resurfaced);
+	// the targeted form pins the same contract with no sensitivity lost — a re-drain that never
+	// fires, or that misses any of call 1's files, still fails here.
 	require.Eventually(t, func() bool {
-		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
-		if err != nil {
-			return false
-		}
-		for _, f := range files {
-			if filepath.Base(f) != "wal-"+string(e2eSession)+".ndjson" && filepath.Ext(f) == ".ndjson" {
-				// any remaining client-*.ndjson spool file means drain hasn't finished
+		for _, f := range spoolFiles {
+			if _, statErr := os.Stat(f); !os.IsNotExist(statErr) {
+				// a surviving call-1 spool file means the served-request re-drain missed it
 				return false
 			}
 		}
