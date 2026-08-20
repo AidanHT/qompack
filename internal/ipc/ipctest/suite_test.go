@@ -129,10 +129,65 @@ func newQompackServer(t *testing.T) ipc.Server {
 	return srv
 }
 
+// transportTestPatience is the connect and ACK budget the Client this factory hands back is built
+// with. It is the suite's own patience, deliberately NOT the production hot-path budget, and it
+// mirrors what RunTransportSuite's own doc comment says about suiteDeadline: "these are UPPER
+// BOUNDS on a test's patience rather than the deadline a hot-path client should use ... The
+// production deadline is the caller's, and it is passed to Send as a parameter precisely so it can
+// differ here."
+//
+// It has to be set explicitly, because the parameter the suite passes to Send only bounds a Reply
+// request's response line (client.go's awaitReply). The connect and the one-byte ACK are bounded by
+// the Client's OWN ConnectDeadline/AckDeadline, and ipc.NewClient inherits those from
+// config.Defaults() — runtime.daemon.connectDeadlineMs = 5 and ackDeadlineMs = 8. Building this
+// factory's client with ipc.NewClient therefore graded the wire format against a 5 ms production
+// connect budget, which is exactly the coupling that comment exists to forbid, and it is why this
+// suite failed on windows-latest with res.OK false and res.Err empty: that pair is
+// client.spoolAndReturn's signature, i.e. "never reached the server", not "the server refused".
+//
+// The 5 ms figure is not merely tight on Windows, it is unusable there. go-winio's dial retries the
+// ERROR_PIPE_BUSY that a listener with no free pipe instance returns on a hard-coded
+// time.Sleep(10 * time.Millisecond) (pipe.go's tryDialPipe), so any budget under 10 ms buys exactly
+// one CreateFile attempt and no retry at all.
+//
+// The production budget itself is unchanged and still graded where it belongs: config's own
+// defaults test pins 5/8, and the B-A/B-B latency budgets grade the hot path.
+const transportTestPatience = 5 * time.Second
+
+// transportWarmUpSession and transportWarmUpTS identify the readiness handshake's own probe below.
+// The Session exists so the wrapped handler can recognise the factory's own request and answer it
+// itself; no suite case ever sends this Session, so h never sees a request the suite did not ask
+// for. The TS matches the suite's own probeTS, which this external test package cannot name.
+const (
+	transportWarmUpSession = core.SessionID("ipctest-transport-warmup")
+	transportWarmUpTS      = core.UnixMilli(1767225600000)
+)
+
 // newQompackTransport pairs the real Server (running h) with the real Client SP-05 ships. Serve
 // is started here, and cleanup order matters: the client's own Close (spool handle) first, then
 // cancelling ctx to stop Serve, then Close as a backstop in case cancellation alone left it
 // running (Close is idempotent, per server.go's own sync.Once).
+//
+// # Why this factory performs a readiness handshake before returning
+//
+// RunTransportSuite's contract puts start-up synchronisation here on purpose — "the alternative —
+// the suite starting Serve in a goroutine and hoping — is exactly the kind of wall-clock race §6.1
+// bans sleeps to prevent". This factory used to be that alternative: it started Serve in a
+// goroutine and handed the Client straight back.
+//
+// A bound Server is not a reachable one. On Windows winio.ListenPipe creates only its firstHandle,
+// which is deliberately un-connectable — go-winio's own words: "By not asking for read or write
+// access, the named pipe file system will put this pipe into an initially disconnected state,
+// blocking client connections until the next call with first == false" (pipe.go's
+// makeServerPipeHandle). The connectable instance is created by makeServerPipe inside
+// listenerRoutine, and listenerRoutine only creates one when Accept asks for it. So between
+// ipc.NewServer returning and the accept loop reaching its first Accept, the endpoint refuses every
+// dial — measured here as a 300 ms dial failing outright against a bound, never-Accepting listener.
+// The suite then graded a Client that had never connected, and the two cases that assert
+// require.False(res.OK) passed while it did.
+//
+// The handshake below is a bounded wait on an observable condition, not a sleep: one probe request
+// the wrapped handler answers itself, which cannot return OK until the accept loop has accepted it.
 func newQompackTransport(t *testing.T, h ipc.Handler) ipctest.Transport {
 	t.Helper()
 	addr, err := ipc.Resolve(t.TempDir())
@@ -140,13 +195,25 @@ func newQompackTransport(t *testing.T, h ipc.Handler) ipctest.Transport {
 	srv, err := ipc.NewServer(addr, logging.Nop(), obs.New(clock{}), ipc.MaxLineBytes)
 	require.NoError(t, err)
 
+	// gate answers the readiness probe itself and forwards everything else verbatim, so the
+	// handler the suite supplied observes exactly the requests the suite sent and no others.
+	gate := func(ctx context.Context, req ipc.Request) ipc.Response {
+		if req.Session == transportWarmUpSession {
+			return ipc.Response{OK: true}
+		}
+		return h(ctx, req)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- srv.Serve(ctx, h) }()
+	go func() { done <- srv.Serve(ctx, gate) }()
 
 	spool, err := ipc.NewSpool(t.TempDir())
 	require.NoError(t, err)
-	c := ipc.NewClient(addr, spool, logging.Nop(), obs.New(clock{}))
+	c := ipc.NewClientWithOptions(addr, spool, logging.Nop(), obs.New(clock{}), ipc.ClientOptions{
+		ConnectDeadline: transportTestPatience,
+		AckDeadline:     transportTestPatience,
+	})
 
 	t.Cleanup(func() {
 		_ = c.Close()
@@ -154,6 +221,16 @@ func newQompackTransport(t *testing.T, h ipc.Handler) ipctest.Transport {
 		_ = srv.Close()
 		<-done
 	})
+
+	warm, err := c.Send(context.Background(), ipc.Request{
+		Op:      ipc.OpObserveTool,
+		Session: transportWarmUpSession,
+		TS:      transportWarmUpTS,
+	}, transportTestPatience)
+	require.NoError(t, err)
+	require.True(t, warm.OK,
+		"the Server was still not accepting %s after Serve started, so the suite would have graded a Client that never connected; warm.Err=%q",
+		transportTestPatience, warm.Err)
 
 	return ipctest.Transport{Client: c, Addr: addr}
 }

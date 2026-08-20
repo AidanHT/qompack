@@ -314,13 +314,25 @@ func runNakIsNotAnErrorCase(t *testing.T, factory func(t *testing.T, h ipc.Handl
 	t.Helper()
 
 	const reason = "ipctest: refused by the handler"
+	seen := make(chan ipc.Request, 1)
 	tr := factory(t, func(ctx context.Context, req ipc.Request) ipc.Response {
+		seen <- req
 		return ipc.Response{OK: false, Err: reason}
 	})
 
 	res, err := tr.Client.Send(context.Background(), probeRequest(), suiteDeadline)
 	require.NoError(t, err, "a refused request must not become an error a hook would propagate")
 	require.False(t, res.OK, "a refused request must report OK: false — this is the \\x15 NAK a caller observes")
+
+	// A refusal and a daemon that was never reached produce the SAME Response — OK: false with an
+	// empty Err — because §5.4's never-error rule routes both through the client's spool-and-return.
+	// Asserting only OK: false therefore passes just as happily when nothing ever crossed the wire,
+	// which is how a real transport failure sat behind a green run of this very case (§2.0b: the
+	// two cases asserting require.False(res.OK) passed while the two asserting require.True failed).
+	// The handler having actually run is the independent observation that tells the two apart, and
+	// it is the same evidence runFireAndForgetFramingCase already relies on.
+	got := receiveRequest(t, seen)
+	require.Equal(t, probeRequest().Op, got.Op, "the refused request must have reached the handler as itself")
 	requireHonourableResponse(t, res)
 }
 
@@ -337,7 +349,26 @@ func runOversizeFrameCase(t *testing.T, factory func(t *testing.T, h ipc.Handler
 		return ipc.Response{OK: true}
 	})
 
-	res, err := tr.Client.Send(context.Background(), oversizeRequest(), suiteDeadline)
+	// Both halves below — "not reported as delivered" and "never reached the handler" — are also
+	// what a client that never connected produces, because §5.4's never-error rule gives an
+	// unreachable daemon the same OK: false with an empty Err that a size refusal gets. So the
+	// case first establishes that this transport is live, with an ordinary request that must be
+	// delivered AND must arrive at the handler. Without it the two assertions below are satisfied
+	// by a transport that was down the whole time, which is exactly how a real Windows transport
+	// failure sat behind a green run of this case (§2.0b).
+	//
+	// The liveness probe goes FIRST, not after: a NAK is the daemon's in-band hint that it has
+	// degraded to spool submode, and §12.2 has the client honour that for the rest of its life —
+	// so a hot-path request sent AFTER the oversize refusal is spooled without ever dialling, and
+	// would report a transport failure that is really the client obeying the NAK it was just sent.
+	live := requestAt(probeTS + 1)
+	res, err := tr.Client.Send(context.Background(), live, suiteDeadline)
+	require.NoError(t, err, "an ordinary request must not become an error a hook would propagate")
+	require.True(t, res.OK,
+		"the transport must deliver an ordinary request — a false here means the oversize assertions below would be vacuous; res.Err=%q", res.Err)
+	require.Equal(t, live.TS, receiveRequest(t, seen).TS, "the ordinary request must have reached the handler")
+
+	res, err = tr.Client.Send(context.Background(), oversizeRequest(), suiteDeadline)
 	require.NoError(t, err, "an oversize request must not become an error a hook would propagate")
 	require.False(t, res.OK, "an oversize request must not be reported as delivered")
 
