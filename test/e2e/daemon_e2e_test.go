@@ -17,6 +17,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/testutil"
 )
@@ -143,6 +144,68 @@ func e2eStatus(t *testing.T, root string) daemon.StatusSnapshot {
 	return snap
 }
 
+// e2eIngestHistName is obs.Budgets()'s own name for the B-B (L0 ingest) histogram, looked up
+// rather than spelled as a literal — exactly as internal/daemon's histName does it, so the budget
+// table stays the single source of truth for which series ingest.Accept feeds.
+func e2eIngestHistName(t *testing.T) string {
+	t.Helper()
+	for _, b := range obs.Budgets() {
+		if b.ID == obs.BB {
+			return b.Hist
+		}
+	}
+	require.FailNow(t, "obs.Budgets() no longer declares a B-B (L0 ingest) budget")
+	return ""
+}
+
+// e2eLiveIngestSamples reports how many hot-path requests the daemon at root has ACCEPTED over
+// the transport: the sample count of the B-B histogram in its own status snapshot.
+//
+// It is this file's proof that a hook call REACHED a running daemon rather than spooling. Only
+// ingest.Accept records into that histogram, and every one of Accept's callers is a live observe.*
+// wire route: acceptHotPathEvent (internal/daemon/handlers.go:336, observe.tool and observe.stop)
+// and handleObservePrompt (handlers.go:369). No replay path reaches it — drainDispatch hands a
+// hot-path line straight to runIngested precisely so that a drained line is not re-WAL'd
+// (internal/daemon/daemon.go). So a sample here can only have come from a request that arrived
+// over the wire — and unlike the spool tier itself, nothing takes it back: no drain, no replay and
+// no idle tick edits a histogram.
+func e2eLiveIngestSamples(t *testing.T, root string) int64 {
+	t.Helper()
+	return e2eStatus(t, root).Latency[e2eIngestHistName(t)].N
+}
+
+// e2eLiveIngestSamplesOrUnknown is e2eLiveIngestSamples for use inside a require.Eventually
+// condition, returning -1 instead of failing when the daemon cannot be reached or its reply cannot
+// be decoded.
+//
+// It exists because testify runs an Eventually condition on its own goroutine, where require.*'s
+// FailNow is invalid — t.FailNow must be called from the goroutine running the test. A condition
+// that used the fatal reader would turn a transient status miss into a runtime complaint instead
+// of another poll. -1 is never a real sample count, so a caller comparing against a positive
+// threshold treats "could not ask" and "asked, and the answer was too low" identically: keep
+// polling, and fail with the surrounding message if the bound expires.
+func e2eLiveIngestSamplesOrUnknown(root, histName string) int64 {
+	addr, err := ipc.Resolve(root)
+	if err != nil {
+		return -1
+	}
+	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	defer func() { _ = c.Close() }()
+
+	resp, err := c.Send(context.Background(), ipc.Request{
+		Op: ipc.OpStatus, Session: e2eSession, TS: core.NowMilli(core.SystemClock()), Reply: true,
+	}, e2eRoundTripDeadline)
+	if err != nil || !resp.OK {
+		return -1
+	}
+	var snap daemon.StatusSnapshot
+	if json.Unmarshal(resp.Data, &snap) != nil {
+		return -1
+	}
+	return snap.Latency[histName].N
+}
+
 // e2eWaitDaemonUp polls until a daemon answers at root's resolved address.
 func e2eWaitDaemonUp(t *testing.T, root string) {
 	t.Helper()
@@ -197,7 +260,11 @@ func TestE2EHookRoundTrip(t *testing.T) {
 
 // TestE2ELazySpawn is task-6-spec.md's e2e table row: with no daemon running, one observe-tool call
 // spools and exits 0; within the bound below a daemon comes up on its own (lazySpawn); a second
-// observe-tool call ACKs it and the spool drains into the WAL.
+// observe-tool call ACKs it and the spool the first call left behind drains.
+//
+// "Drains" and not "drains into the WAL": a replayed hot-path line goes straight to runIngested
+// (internal/daemon/daemon.go, drainDispatch) and is deliberately never re-WAL'd, so the WAL is
+// where a LIVE call's bytes land, never a drained one's.
 func TestE2ELazySpawn(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t)
@@ -223,17 +290,47 @@ func TestE2ELazySpawn(t *testing.T) {
 	requireParsesAsOutput(t, stdout)
 
 	// The second call must genuinely have REACHED the daemon, not spooled like the first. Its own
-	// exit code cannot say so — every hook exits 0 either way (§5.4) — but the session's WAL can:
-	// observe.tool is a hot-path op, and ingest.Accept appends to the WAL before the daemon ACKs.
+	// exit code cannot say so — every hook exits 0 either way (§5.4) — so ask the daemon: one live
+	// B-B ingest sample can only have come from a request that arrived over the transport
+	// (e2eLiveIngestSamples), and only from call 2, since call 1 provably spooled (asserted above)
+	// and this test sends no other hot-path op.
 	//
-	// This is also the precondition for the drain bound below. The daemon re-drains the spool on
-	// the first request it serves, so a second call that never connected would leave the drain
-	// waiting on the idle tick instead — and asserting that here makes the difference a named
-	// failure rather than an unexplained timeout twenty lines further down.
-	walPath := filepath.Join(paths.Of(p.Root).Spool, "wal-"+string(e2eSession)+".ndjson")
-	require.Eventually(t, func() bool { return e2eCountFileLines(t, walPath) >= 1 },
+	// It is bounded, and the bound covers exactly one window: the hook can exit BEFORE the daemon
+	// finishes counting it. A hot-path send waits AckDeadline (8 ms, config/defaults.go) and on
+	// expiry the client spools and the hook exits 0 anyway, while a healthy daemon that already
+	// took the request goes on to finish Accept — the same "ACK wait expires against a daemon that
+	// already ingested it" case the drain assertion below is written around. So this waits on
+	// e2eWALVisibleBound, the bound this file already uses for writes that have ALREADY happened
+	// becoming visible, rather than assuming the ACK proves the count has landed.
+	//
+	// It deliberately does NOT read spool/wal-<session>.ndjson, which is what it used to do. That
+	// WAL line is real — Accept appends it before the ACK — but the FILE is transient by design,
+	// and what removes it is the very re-drain asserted below: a fully drained WAL is deleted
+	// unless its session is still live (internal/daemon/drain.go, shouldDelete), and here it never
+	// is, because no session.start runs and observe.tool only Touches the registry — a documented
+	// no-op for an id Ensure has never seen (registry.go). The old assertion therefore raced its
+	// own evidence, and lost wherever unlink is not blocked by the ingest's still-open handle: CI
+	// run 32296920486 failed it on ubuntu, macos and cover while windows passed. No bound is the
+	// answer to that; nothing brings a deleted file back.
+	//
+	// Sensitivity is kept where it counts. This still fails on every state the WAL check failed
+	// on: a second call that spooled instead of connecting, or was lost outright, records no
+	// sample at all, and a daemon that died between the two calls fails e2eStatus's own round
+	// trip. The one state it no longer fails on is the state the WAL check could not tell apart
+	// from those — an event accepted, WAL'd, ACK'd and then drained. That Accept really writes the
+	// WAL stays asserted where the file is durable: TestE2EHookRoundTrip's session IS live
+	// (session-start ran first), so its WAL is never deletable and its 50-line wait still fails
+	// the moment a hot-path accept stops appending.
+	//
+	// It remains the precondition for the drain bound below: the daemon re-drains the spool on the
+	// first request it serves, so a second call that never connected would leave that drain
+	// waiting on the idle tick instead, and naming it here makes the difference a named failure
+	// rather than an unexplained timeout twenty lines further down.
+	histName := e2eIngestHistName(t)
+	require.Eventually(t, func() bool { return e2eLiveIngestSamplesOrUnknown(p.Root, histName) >= 1 },
 		e2eWALVisibleBound, e2eSpoolDrainTick,
-		"the second observe-tool call never reached the daemon — no line landed in %s", walPath)
+		"the second observe-tool call never reached the daemon: it left no live %s sample, so it spooled (or was lost) instead of being accepted over the transport",
+		histName)
 
 	// With a request served, the daemon has already kicked its spool re-drain: every spool file
 	// the first call left behind goes away without waiting for an idle tick.
@@ -241,9 +338,9 @@ func TestE2ELazySpawn(t *testing.T) {
 	// The wait names call 1's exact files (spoolFiles, captured above) rather than asserting the
 	// directory holds no client-*.ndjson at all, because the SECOND call can legitimately add one
 	// after the re-drain's single directory snapshot: under heavy co-load its ACK wait can expire
-	// against a healthy daemon that already ingested the request — the WAL assertion above still
-	// passes — and that late file is redrainOnceServing's documented idle-tick territory (§2.5a
-	// E, deliberately deferred), not a drain failure. The blanket form failed V2-VERIFY's
+	// against a healthy daemon that already ingested the request — the ingest-sample assertion
+	// above still passes — and that late file is redrainOnceServing's documented idle-tick
+	// territory (§2.5a E, deliberately deferred), not a drain failure. The blanket form failed V2-VERIFY's
 	// whole-tree `-count=2` gate on exactly that state (V2-MERGE-25 ②'s bound class, resurfaced);
 	// the targeted form pins the same contract with no sensitivity lost — a re-drain that never
 	// fires, or that misses any of call 1's files, still fails here.
