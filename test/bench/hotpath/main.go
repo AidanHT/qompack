@@ -88,13 +88,16 @@ const (
 )
 
 // flags is bench-hotpath's own command-line surface (task-7-brief.md's binding ruling: forward
-// --iterations --hook --warm-daemon --json --project).
+// --iterations --hook --warm-daemon --json --project). --under-coload is an addition to that list
+// rather than one of its five: see its own comment in parseFlags for what it declares and why the
+// brief's five could not express it.
 type flags struct {
-	iterations int
-	hook       string
-	warmDaemon bool
-	jsonPath   string
-	project    string
+	iterations  int
+	hook        string
+	warmDaemon  bool
+	jsonPath    string
+	project     string
+	underCoload bool
 }
 
 // parseFlags parses args into a flags value. flag.ErrHelp is returned verbatim so main can treat
@@ -108,6 +111,18 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	fs.BoolVar(&f.warmDaemon, "warm-daemon", false, "pre-populate the daemon before measuring: a small hot-path observe.tool tranche plus admin.ping traffic for the rest (FIX ROUND 2, N-1)")
 	fs.StringVar(&f.jsonPath, "json", "", "write the out.json artifact to this path (omit to skip)")
 	fs.StringVar(&f.project, "project", "", "use this directory as the temp project instead of creating one")
+	// --under-coload is a statement about the RUN'S ENVIRONMENT, not a switch on a gate, and it is
+	// spelled that way on purpose: the caller declares a fact only the caller knows (this harness
+	// is sharing its host with unrelated concurrent work), and the harness derives the one
+	// consequence that fact has — the wall-clock B-E row becomes a measurement rather than a
+	// judgement, disclosed in the artifact by beWallWaivedNote. Nothing else changes: the
+	// CPU-time B-E gate (budgetIDBECPU), B-A and B-B are all still hard, and every invocation that
+	// does not pass it — bench-gate's and nightly's `devtool bench-hotpath` lines, and a bare local
+	// run — keeps the wall-clock gate it has always had, byte for byte. Default false so that
+	// forgetting it can only ever make a run STRICTER.
+	fs.BoolVar(&f.underCoload, "under-coload", false,
+		"declare that this run shares its host with unrelated concurrent work (e.g. the whole-tree `go test ./...`), "+
+			"so the wall-clock B-E row is reported instead of gated; the CPU-time B-E gate is unaffected")
 	if err := fs.Parse(args); err != nil {
 		return flags{}, err
 	}
@@ -275,7 +290,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	if err != nil {
 		return Report{}, err
 	}
-	floorP50, _, floorP99, _, _ := percentiles(append([]time.Duration(nil), floorSamples...))
+	floorP50, _, floorP99, _, _ := percentiles(append([]time.Duration(nil), floorSamples.Wall...))
 
 	hArgs, err := hookArgs(f.hook)
 	if err != nil {
@@ -288,7 +303,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	if err != nil {
 		return Report{}, err
 	}
-	baSamples := subtractFloor(bdSamples, floorP50)
+	baSamples := subtractFloor(bdSamples.Wall, floorP50)
 
 	fmt.Fprintf(stdout, "hotpath: measuring B-E (%d x qompack checkpoint)...\n", checkpointIterations)
 	beSamples, err := measureSpawns(ctx, binPath, []string{"checkpoint"}, checkpointIterations, childEnv, func(seq int) []byte {
@@ -364,6 +379,15 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, budgetLimit(cfg, obs.BA), true, baMissing)
 	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true, ledger.Undelivered())
 
+	// One limit, read once from obs.Budgets() + config.Defaults() (task-7-brief.md's binding
+	// ruling), and applied to BOTH B-E rows: the wall-clock one and the CPU-time one are two
+	// measurements of the same §2.4 budget, so they must never be able to drift to two numbers.
+	beLimit := budgetLimit(cfg, obs.BE)
+	beWallNote := ""
+	if f.underCoload {
+		beWallNote = beWallWaivedNote(beLimit)
+	}
+
 	report := Report{
 		Platform: runtime.GOOS + "/" + runtime.GOARCH,
 		N:        f.iterations,
@@ -371,12 +395,18 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		SpawnFloorMs: SpawnFloor{
 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
 		},
-		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger, baNote, bbNote),
+		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger, baNote, bbNote, beWallNote),
 		Budgets: []BudgetRow{
 			baRow,
 			bbRow,
-			buildBudgetRow(string(obs.BD), bdSamples, 0, false),
-			buildBudgetRow(string(obs.BE), beSamples, budgetLimit(cfg, obs.BE), true),
+			buildBudgetRow(string(obs.BD), bdSamples.Wall, 0, false),
+			buildBudgetRow(string(obs.BE), beSamples.Wall, beLimit, !f.underCoload),
+			// The co-load-immune half of B-E, gated on the same limit and gated ALWAYS: the same
+			// children's own user+system CPU time, which a shared runner does not move. See
+			// budgetIDBECPU's doc comment (report.go) for the measurements behind that claim, for
+			// why the wall-clock row above cannot be priced from the spawn floor instead, and for
+			// the one thing a CPU clock cannot see.
+			buildBudgetRow(budgetIDBECPU, beSamples.CPU, beLimit, true),
 			// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
 			// budgetIDBASpawnEstimate's own doc comment (report.go).
 			buildBudgetRow(budgetIDBASpawnEstimate, baSamples, 0, false),

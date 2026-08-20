@@ -226,16 +226,51 @@ func detectAndStopOrphan(addr ipc.Addr, spool ipc.SpoolWriter, errw io.Writer) {
 		"and holding the project's daemon.lock/named-pipe or socket")
 }
 
-// measureSpawns spawns binPath with args exactly n times, one at a time, timing wall-clock around
-// each cmd.Run() call (task-7-spec.md step 5: "timing each spawn with time.Now() around
-// cmd.Run()"). payloadFn(i) is fed to the child's stdin. A non-nil error from any single spawn
-// aborts the whole measurement — a hook subcommand's own §2.3 contract is to always exit 0, so a
-// non-zero exit here is a real failure worth stopping the run over, not a sample to discard.
-func measureSpawns(ctx context.Context, binPath string, args []string, n int, env []string, payloadFn func(seq int) []byte) ([]time.Duration, error) {
-	samples := make([]time.Duration, 0, n)
+// spawnSamples is one measured spawn population in BOTH of the clocks a parent can read off a
+// child process. Wall[i] is the wall time around cmd.Run() (task-7-spec.md step 5: "timing each
+// spawn with time.Now() around cmd.Run()"); CPU[i] is the SAME child's own user+system CPU time,
+// read from cmd.ProcessState after it has exited. The two slices are index-aligned and always the
+// same length.
+//
+// The second clock exists because the first one is not a property of the product once the harness
+// shares its host. `go test -race ./...` / `-count=2 ./...` runs ~20 package binaries at once on a
+// 2-core GitHub runner, and every wall-clock sample a child produces under that co-load measures
+// how much of the host the scheduler happened to hand it, not what the child cost to run. Measured
+// here, byte-identical product, 50 `qompack checkpoint` spawns per run on a 22-core Windows host,
+// quiet versus 88 busy threads pinning every core:
+//
+//	                         quiet    co-loaded  factor
+//	B-E wall p50           138.847     3219.066   23.2x
+//	B-E wall p99          1600.832     5411.257    3.4x
+//	B-E child CPU p50       15.625       15.625    1.00x
+//	B-E child CPU p99       46.875       46.875    1.00x
+//
+// (all in ms; a second quiet/co-loaded pair moved the same wall p99 from 208.587 to 25868.665.)
+//
+// The CPU column does not move at all, and that is the point: a starved process waits longer, it
+// does not execute more. See report.go's budgetIDBECPU doc comment for what the harness does with
+// that — and for what this clock cannot see, which is stated there rather than left implicit.
+//
+// Resolution: these times come from getrusage on unix and from GetProcessTimes on Windows, and the
+// Windows one is quantised to the 15.625 ms scheduler tick — visible in the numbers above, where
+// every CPU value is a whole number of ticks. Against B-E's 2000 ms limit one tick is 0.8%, so the
+// quantisation cannot decide that gate; it would decide a millisecond-scale one, which is why B-A
+// and B-B do not read this clock (they have a daemon-side TS-anchored series instead, ruling #29).
+type spawnSamples struct {
+	Wall []time.Duration
+	CPU  []time.Duration
+}
+
+// measureSpawns spawns binPath with args exactly n times, one at a time, recording both clocks
+// spawnSamples describes. payloadFn(i) is fed to the child's stdin. A non-nil error from any
+// single spawn aborts the whole measurement — a hook subcommand's own §2.3 contract is to always
+// exit 0, so a non-zero exit here is a real failure worth stopping the run over, not a sample to
+// discard.
+func measureSpawns(ctx context.Context, binPath string, args []string, n int, env []string, payloadFn func(seq int) []byte) (spawnSamples, error) {
+	out := spawnSamples{Wall: make([]time.Duration, 0, n), CPU: make([]time.Duration, 0, n)}
 	for i := 0; i < n; i++ {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return spawnSamples{}, err
 		}
 		cmd := exec.Command(binPath, args...)
 		cmd.Env = env
@@ -247,16 +282,25 @@ func measureSpawns(ctx context.Context, binPath string, args []string, n int, en
 		err := cmd.Run()
 		elapsed := time.Since(start)
 		if err != nil {
-			return nil, fmt.Errorf("hotpath: spawn #%d (qompack %s): %w\n%s", i, strings.Join(args, " "), err, stderr.String())
+			return spawnSamples{}, fmt.Errorf("hotpath: spawn #%d (qompack %s): %w\n%s", i, strings.Join(args, " "), err, stderr.String())
 		}
-		samples = append(samples, elapsed)
+		// cmd.Run() has already waited, so a child that exited zero above always has a populated
+		// ProcessState. The guard is not defensive padding: a nil one would otherwise be read as a
+		// zero-duration CPU sample, which is the one value that can only ever make a CPU-time gate
+		// pass, so it is refused outright rather than measured.
+		if cmd.ProcessState == nil {
+			return spawnSamples{}, fmt.Errorf("hotpath: spawn #%d (qompack %s) exited without a ProcessState, so its CPU time cannot be read",
+				i, strings.Join(args, " "))
+		}
+		out.Wall = append(out.Wall, elapsed)
+		out.CPU = append(out.CPU, cmd.ProcessState.UserTime()+cmd.ProcessState.SystemTime())
 	}
-	return samples, nil
+	return out, nil
 }
 
 // measureSpawnFloor is measureSpawns specialised for `qompack version` (task-7-spec.md step 4):
 // no stdin, no project resolution, no store I/O — the same binary, loader and OS process cost
 // with none of the hook work.
-func measureSpawnFloor(ctx context.Context, binPath string, n int, env []string) ([]time.Duration, error) {
+func measureSpawnFloor(ctx context.Context, binPath string, n int, env []string) (spawnSamples, error) {
 	return measureSpawns(ctx, binPath, []string{"version"}, n, env, func(int) []byte { return nil })
 }

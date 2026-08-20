@@ -98,10 +98,13 @@ func TestBuildBudgetRow_GatedPassAndFail(t *testing.T) {
 // task-7-spec.md's own example: the gated "B-A" row is now sourced from the daemon's own
 // hook_controlled histogram (status op), never a wall-clock spawn estimate, and that wall-clock,
 // floor-subtracted number survives as a fifth, renamed, ALWAYS-ungated diagnostic row
-// ("B-A_spawn_estimate") instead of gating anything itself. b_a_method's own text is injected
-// from the bAMethod constant (report.go) so this fixture can never silently drift from what the
-// harness actually emits. It exercises the shape — every key, including b_a_method,
-// spawn_floor_ms, notes, and all five budget rows' limit_ms/pass null-vs-set shape — rather than
+// ("B-A_spawn_estimate") instead of gating anything itself. The sixth row, "B-E_cpu", is B-E's
+// co-load-immune arm (budgetIDBECPU, report.go): the same 50 checkpoint children measured in the
+// CPU time they consumed rather than the wall time they waited, gated on the SAME limit — so a
+// gated B-E pair, both limit_ms 2000, is the shape this fixture pins. b_a_method's own text is
+// injected from the bAMethod constant (report.go) so this fixture can never silently drift from
+// what the harness actually emits. It exercises the shape — every key, including b_a_method,
+// spawn_floor_ms, notes, and all six budget rows' limit_ms/pass null-vs-set shape — rather than
 // any particular timing, per the commit-7 checklist's own instruction.
 var wantGoldenJSON = fmt.Sprintf(`{
   "platform": "windows/amd64",
@@ -114,6 +117,7 @@ var wantGoldenJSON = fmt.Sprintf(`{
     {"budget_id": "B-B", "n": 2000, "p50": 0.10, "p95": 0.31, "p99": 0.62, "p999": 1.1, "max": 1.9, "limit_ms": 2, "pass": true},
     {"budget_id": "B-D", "n": 2000, "p50": 8.2, "p95": 13.9, "p99": 18.1, "p999": 24.0, "max": 31.5, "limit_ms": null, "pass": null},
     {"budget_id": "B-E", "n": 50, "p50": 14.0, "p95": 22.5, "p99": 31.0, "p999": 31.0, "max": 31.0, "limit_ms": 2000, "pass": true},
+    {"budget_id": "B-E_cpu", "n": 50, "p50": 4.7, "p95": 9.4, "p99": 15.6, "p999": 15.6, "max": 15.6, "limit_ms": 2000, "pass": true},
     {"budget_id": "B-A_spawn_estimate", "n": 2000, "p50": 2.1, "p95": 60.4, "p99": 78.0, "p999": 90.0, "max": 115.2, "limit_ms": null, "pass": null}
   ]
 }`, bAMethod)
@@ -135,6 +139,7 @@ func TestReport_MatchesGoldenShape(t *testing.T) {
 			{BudgetID: "B-B", N: 2000, P50: 0.10, P95: 0.31, P99: 0.62, P999: 1.1, Max: 1.9, LimitMs: floatPtr(2), Pass: boolPtr(true)},
 			{BudgetID: "B-D", N: 2000, P50: 8.2, P95: 13.9, P99: 18.1, P999: 24.0, Max: 31.5, LimitMs: nil, Pass: nil},
 			{BudgetID: "B-E", N: 50, P50: 14.0, P95: 22.5, P99: 31.0, P999: 31.0, Max: 31.0, LimitMs: floatPtr(2000), Pass: boolPtr(true)},
+			{BudgetID: budgetIDBECPU, N: 50, P50: 4.7, P95: 9.4, P99: 15.6, P999: 15.6, Max: 15.6, LimitMs: floatPtr(2000), Pass: boolPtr(true)},
 			{BudgetID: budgetIDBASpawnEstimate, N: 2000, P50: 2.1, P95: 60.4, P99: 78.0, P999: 90.0, Max: 115.2, LimitMs: nil, Pass: nil},
 		},
 	}
@@ -150,6 +155,37 @@ func TestReport_MatchesGoldenShape(t *testing.T) {
 func TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A(t *testing.T) {
 	require.NotEqual(t, string(obs.BA), budgetIDBASpawnEstimate)
 	require.Equal(t, "B-A_spawn_estimate", budgetIDBASpawnEstimate)
+}
+
+// TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun pins the co-load-immune B-E arm at the
+// constant level and, more importantly, pins that it is a REAL gate: --under-coload nulls the
+// wall-clock row's own Pass, and this test is what stops that from quietly becoming "B-E is not
+// judged under co-load at all". A run in exactly that shape — wall row reported, CPU row over its
+// limit — must still exit non-zero.
+func TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun(t *testing.T) {
+	require.NotEqual(t, string(obs.BE), budgetIDBECPU)
+	require.Equal(t, "B-E_cpu", budgetIDBECPU)
+
+	underCoload := Report{Budgets: []BudgetRow{
+		{BudgetID: string(obs.BE), LimitMs: nil, Pass: nil},
+		{BudgetID: budgetIDBECPU, LimitMs: floatPtr(2000), Pass: boolPtr(false)},
+	}}
+	require.True(t, underCoload.GateFailed(),
+		"a co-loaded run whose checkpoint burnt more CPU than its budget must still fail: the wall-clock "+
+			"row is waived by --under-coload, the CPU-time row never is")
+}
+
+// TestBEWallWaivedNote_NamesTheLimitItDidNotApply pins the disclosure itself. A null in the
+// artifact's pass field is not an explanation, and a reader of a --under-coload run must be able
+// to see, from the artifact alone, which limit went unjudged on which row and where it is still
+// judged. The note is assembled from the same beLimit runHarness gives both rows, so it can never
+// quote a number the rows were not built from.
+func TestBEWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
+	note := beWallWaivedNote(budgetLimit(config.Defaults(), obs.BE))
+	require.Contains(t, note, string(obs.BE))
+	require.Contains(t, note, budgetIDBECPU)
+	require.Contains(t, note, "2000ms", "the waived limit must be named, not implied by a null")
+	require.Contains(t, note, "--under-coload")
 }
 
 // TestBuildBudgetRowFromSnapshot pins B-B's own construction path: unlike buildBudgetRow, there

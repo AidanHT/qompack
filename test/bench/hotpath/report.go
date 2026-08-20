@@ -71,6 +71,65 @@ const bAMethod = "daemon status hook_controlled (observed + hotPathTailAllowance
 // p99. See bAMethod's doc comment for the full derivation.
 const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
 
+// budgetIDBECPU is the co-load-immune half of B-E: the same 50 `qompack checkpoint` children the
+// "B-E" row above times on the wall, measured instead in the CPU time they actually consumed
+// (user+system, off cmd.ProcessState — see process.go's spawnSamples), gated on p99 against the
+// SAME obs.Budgets() B-E limit. It is a hard gate everywhere, --under-coload included.
+//
+// It is also the same number on every job, which the wall-clock row is not: buildBinary compiles
+// the child with a plain `go build` (process.go), so what this row measures is the uninstrumented
+// product's own cost whether the parent test binary was built with -race, with coverage, or with
+// neither.
+//
+// Why it exists. B-E is the only budget this harness gates on a whole real process measured from
+// outside, so its sample is host process creation plus scheduling weather plus the checkpoint's
+// own cost — and 00-ARCHITECTURE.md §2.4 has already ruled on the first of those: B-D "includes
+// host process creation. Reported only, never gated", because it "reports the host's
+// process-creation cost, which no plugin architecture can budget away" (internal/obs/budgets.go's
+// BD Limit comment). Ruling #29 applied that same reasoning to B-A and re-pointed the gated row at
+// a measurement that excludes process creation by construction, leaving the wall-clock number as
+// the always-informational B-A_spawn_estimate row. B-E kept its wall-clock gate only because 2000
+// ms is large next to a spawn floor — until the whole-tree `go test` job put it on a shared runner
+// and the gap stopped being large.
+//
+// What that costs, measured. CI run on windows-latest: bench-gate, which runs this harness alone
+// on its own runner, reported B-E p99 = 67.2 ms (ubuntu 232.1, macos 21.3) against the 2000 ms
+// limit; the `test (windows-latest)` job, same commit, same runner class, minutes later, running
+// this harness from test/integration under ~20 concurrent package binaries on 2 cores, reported
+// 4302 ms — a 64x move with the product byte-identical. Reproduced locally (process.go's
+// spawnSamples table): wall p50 138.8 → 3219.1 ms while the same children's CPU p50/p99 stayed at
+// 15.625/46.875 ms in both runs, unchanged to the tick. The wall row was measuring the runner's
+// spare capacity; this row measures the checkpoint.
+//
+// Why not price the wall limit from the spawn floor instead — the wave-1 calibration pattern
+// (internal/store/gc_test.go's gcCalibratedSweep, plans/V2-report.md §0 item 25). Tried first, and
+// the measurement rejects it: under one identical co-load the spawn floor's own p50 inflated 4.4x
+// (57.2 → 249.9 ms, and 52.0 → 231.5 ms in a second pair) while B-E's wall p50 inflated 23x and
+// B-D's 6-8x. Inflation scales with how much work the child needs, so `qompack version` is not a
+// baseline for `qompack checkpoint`: a limit priced off it under-scales by roughly 5x and would
+// still fail on a correct product. A calibration baseline has to be the same shape of work as the
+// thing it prices, and the only sample of that shape here is B-E itself.
+//
+// What this clock cannot see, stated rather than papered over: time a child spends BLOCKED —
+// waiting on disk, on a lock, on the daemon — costs no CPU, so a regression that stalls the
+// checkpoint on I/O without executing more instructions passes this gate. Quiet, roughly half of a
+// B-E wall sample is exactly that (wall p50 138.8 ms against 57.2 ms of spawn floor and 15.6 ms of
+// CPU). That is why the wall-clock "B-E" row keeps its own hard gate at the same limit and is
+// waived ONLY for a run that has declared itself co-loaded (--under-coload, main.go): bench-gate
+// and nightly still judge it, in the isolation where a wall-clock SLO is judgeable at all, and the
+// whole-tree run — where it never was — judges the CPU one.
+const budgetIDBECPU = "B-E_cpu"
+
+// beWallWaivedNote is the artifact's own disclosure for a --under-coload run: the wall-clock B-E
+// row in it is a MEASUREMENT and not a judgement, and a reader must not have to infer that from a
+// null. It names the limit that was not applied and where it still is applied, so a passing
+// artifact can never be read as the wall-clock budget having been met.
+func beWallWaivedNote(limit time.Duration) string {
+	return fmt.Sprintf(
+		"%s's wall-clock row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and a wall-clock sample taken under co-load measures the host's spare capacity rather than the checkpoint (bench-gate measured this same row at 67.2ms on windows-latest in isolation and the whole-tree job at 4302ms on the same runner class minutes later, product unchanged). The %.0fms limit is still enforced on that wall-clock row by every run that does NOT pass --under-coload — bench-gate and nightly — and the %s row below enforces the same %.0fms limit on these children's own CPU time, which co-load does not move; see budgetIDBECPU (report.go)",
+		obs.BE, msf(limit), budgetIDBECPU, msf(limit))
+}
+
 // GateFailed reports whether any GATED budget (a non-nil Pass) reports false. B-D's Pass is
 // always nil and can never fail the run (task-7-spec.md step 10).
 func (r Report) GateFailed() bool {
