@@ -145,13 +145,33 @@ const (
 // fire-and-forget lazy spawn may still be in flight — and, only if something answers, sends
 // admin.shutdown and waits for it to go away. It is a fast no-op whenever no daemon ever comes up
 // at all (every daemon-down row, and most panic:hook rows, which fault before any spawn attempt).
+//
+// "Gone" is the daemon's LOCK disappearing, not its address going unreachable, and the difference
+// is the whole point of this helper. ipc.Probe stops answering at Stop's FIRST act — the listener
+// closing — while the process goes on to drain, flush and release, every step of which writes
+// under .qompack/. Callers use this from t.Cleanup, immediately before t.TempDir's RemoveAll, so a
+// helper that returns at listener-close hands the directory to RemoveAll with a live writer still
+// in it: on Linux that surfaced as "TempDir RemoveAll cleanup: directory not empty" across most of
+// this file's rows once daemon.Run began waiting for Stop's cleanup to finish. The lock is
+// released last, so its absence is the only signal that means the process is done.
+//
+// Watched with os.Stat and never with daemon.ReadLock, for the reason v1StopDaemonAndWaitGone
+// documents at length: ReadLock opens the file without FILE_SHARE_DELETE, so a poller holding it
+// open makes the daemon's own os.Remove fail on Windows and CAUSES the abandoned lock it is
+// waiting on. os.Stat takes no handle.
 func e2eShutdownIfReachable(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
 	if err != nil {
 		return
 	}
+	lockPath := daemon.LockPath(root)
 
+	// Reachability, and not the lock, still decides whether there is anything to shut down. A
+	// fault row that kills a daemon outright can leave the lock behind with nothing listening, and
+	// keying the early-out on the lock would make every such row spin out the full bound below
+	// waiting for a file no live process will ever remove. The lock's job starts after a daemon
+	// has answered: it is what "gone" means, not what "present" means.
 	reachable := ipc.Probe(addr, e2eProbeTimeout)
 	if !reachable {
 		ticker := time.NewTicker(e2eLazySpawnSettleTick)
@@ -197,18 +217,27 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		_, _ = c.Send(context.Background(), ipc.Request{
 			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		}, e2eRoundTripDeadline)
-		if !ipc.Probe(addr, e2eProbeTimeout) {
+		if !e2eFileExists(lockPath) {
 			return
 		}
 		select {
 		case <-ticker.C:
 		case <-timeout.C:
-			if ipc.Probe(addr, e2eProbeTimeout) {
-				t.Logf("e2eShutdownIfReachable: daemon at %s was still reachable after %s of retried admin.shutdown; leaving it running", root, e2eDaemonDownBound)
+			if e2eFileExists(lockPath) {
+				t.Logf("e2eShutdownIfReachable: a daemon still held %s after %s of retried admin.shutdown; "+
+					"the caller's t.TempDir cleanup is about to remove a tree it may still be writing to",
+					lockPath, e2eDaemonDownBound)
 			}
 			return
 		}
 	}
+}
+
+// e2eFileExists reports whether p is present, without opening it — see e2eShutdownIfReachable on
+// why a handle would be self-defeating here.
+func e2eFileExists(p string) bool {
+	_, err := os.Stat(paths.Long(p))
+	return err == nil
 }
 
 // buildNoInjectOnce guards the single -tags noinject build TestFaultSitesInertWhenUnset performs.
