@@ -264,8 +264,33 @@ func (d *daemon) updateBudgetsCache() {
 	d.histMu.Unlock()
 }
 
+// persistHotMode writes state.bin carrying hot, and is called BEFORE registry.SetHotMode publishes
+// the same value in memory. That order is the point of the function.
+//
+// registry.SetHotMode is the moment the transition becomes visible to anything outside the
+// transition's own goroutine: dispatchOp reads registry.HotMode() to decide §12.2's NAK-with-hint,
+// and Registry().HotMode() is what any other observer polls. A state.bin write ordered AFTER that
+// flip leaves a window one whole paths.WriteAtomic wide — stage into .qompack/tmp, fsync, chmod,
+// rename, measured on a Windows host at an 8.5 ms mean with nothing else touching the file and a
+// 0.52 s worst case with concurrent readers on it — in which the registry says spool, the daemon
+// NAKs, and the 32-byte record every newly constructed client reads still says sync. A client born
+// in that window dials a daemon that has already stopped accepting, which is precisely the connect
+// the spec's own rationale for this write ("so the next client process skips the connect entirely")
+// says it exists to prevent. Persisting first closes it: the record can lead the registry, never
+// trail it.
+//
+// The error is logged rather than discarded. daemon.Run and reloadConfig both log theirs, and this
+// was the one WriteState call site that did not — yet it is the one whose failure makes §12.2's
+// fallback invisible to every process except this one.
+func (d *daemon) persistHotMode(hot ipc.HotPathMode) {
+	if err := ipc.WriteState(d.root, d.stateWithHot(hot)); err != nil {
+		d.log.Warn("daemon: failed to write state.bin for the hot-path transition",
+			"hot", hotModeString(hot), "err", err)
+	}
+}
+
 // applyHotPathTransition is §12.2's sync<->spool submode transition. Both directions log and
-// count regardless of spoolOnBreach; only the actual mode flip (registry.SetHotMode + WriteState)
+// count regardless of spoolOnBreach; only the actual mode flip (WriteState + registry.SetHotMode)
 // is gated on it, so an operator who disabled the fallback still gets full visibility into every
 // window that would otherwise have tripped it (TestSpoolOnBreachFalseDoesNotTransition).
 func (d *daemon) applyHotPathTransition(t Transition) {
@@ -288,13 +313,13 @@ func (d *daemon) applyHotPathTransition(t Transition) {
 		if !cfg.Runtime.HotPath.SpoolOnBreach {
 			return
 		}
+		d.persistHotMode(ipc.HotSpool)
 		d.registry.SetHotMode(ipc.HotSpool, "breach")
-		_ = ipc.WriteState(d.root, d.currentState())
 	case ToSync:
 		d.log.Info("daemon: hot path reverted to sync submode")
 		d.log.Loud("daemon: hot path reverted to sync submode")
+		d.persistHotMode(ipc.HotSync)
 		d.registry.SetHotMode(ipc.HotSync, "")
-		_ = ipc.WriteState(d.root, d.currentState())
 	case NoTransition:
 	}
 }

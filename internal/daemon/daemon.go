@@ -307,12 +307,20 @@ func (d *daemon) currentCfg() config.Config {
 }
 
 // currentState renders the daemon's current mode/hot/deadlines into an ipc.State, for WriteState
-// calls from the hot-path transition and the session.start route.
-func (d *daemon) currentState() ipc.State {
+// calls from the session.start route, Run's startup and reloadConfig.
+func (d *daemon) currentState() ipc.State { return d.stateWithHot(d.registry.HotMode()) }
+
+// stateWithHot is currentState with the hot-path submode supplied explicitly rather than read back
+// from the registry. applyHotPathTransition needs exactly this: §12.2's transition must be on disk
+// BEFORE the registry publishes it (see persistHotMode), and at that instant the registry still
+// reports the OLD submode by construction — reading it back would persist the very value the
+// transition is replacing. It also keeps the write off the registry's lock entirely, which is what
+// TestHotModeTransitionPersistsBeforeItIsAnnounced turns into a proof of the ordering.
+func (d *daemon) stateWithHot(hot ipc.HotPathMode) ipc.State {
 	cfg := d.currentCfg()
 	return ipc.State{
 		Mode:              d.monitor.Mode(),
-		Hot:               d.registry.HotMode(),
+		Hot:               hot,
 		ConnectDeadlineMs: clampU16(cfg.Runtime.Daemon.ConnectDeadlineMs),
 		AckDeadlineMs:     clampU16(cfg.Runtime.Daemon.AckDeadlineMs),
 		DaemonEnabled:     cfg.Runtime.Daemon.Enabled,
