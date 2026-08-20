@@ -700,3 +700,37 @@ measurement, test result or gate verdict changes.
   reaches it on Windows — and CI runs `devtool lint` in the ubuntu-only `verify` job. cc48ec6 fixed
   the three offending skips; the structural gap, that this linter is red locally and green in CI,
   is not fixed.
+
+### 16.5 The second CI round
+
+§16.1 covers the first CI runs. Fixing those made the matrix run far enough to expose a second
+layer, which took eight more commits. Three of the six defects below were found not by CI but by
+adversarial review agents auditing patches that did not touch the code they reported.
+
+| # | Defect | Platform | Fix |
+|---|---|---|---|
+| 14 | A Windows reader could not merely race the writer of `state.bin`, it could stop it. `os.Open` takes a handle without `FILE_SHARE_DELETE`, and `MoveFileEx` will not replace a destination anyone holds open at any share mode, so `ReadState`'s poll could exhaust `WriteState`'s 64-attempt budget — five runs out of six under four spinning readers at GOMAXPROCS=2 — and leave §12.2's transition unpublished. Fixed with delete-shared reads plus a `FILE_RENAME_POSIX_SEMANTICS` replace; both halves are load-bearing and neither works alone. | windows | bbd8905 |
+| 15 | `TestSendNeverReturnsError` bounded a whole `Send` at `3*testDeadline + 500ms` and failed on a different subtest each run. It budgeted three deadlines for a path that spends four (go-winio's 10 ms `ERROR_PIPE_BUSY` sleep is re-checked against the caller's deadline only on the next iteration), and it folded in the spool append, which has no deadline at all — making the assertion a statement about disk speed. Measured failing 24 times in 240 under disk co-load, with the append dominant in every overrun. | windows | bc44d2a |
+| 16 | The GC overshoot bracket priced one budget from calibration passes that ran before the pass being judged, as a two-sided constraint tolerating 6.02x slower but only 2.00x faster. Both ends have now failed CI once each. Worse, a failed measurement PRECONDITION was reported with a message blaming the host while failing the build as if the collector had broken its bound — proved with a product mutation where the old test misdiagnosed a real collector defect as a slow host. | windows, linux | 077b759 |
+| 17 | B-E gated a wall-clock timing of 50 whole process spawns. `obs/budgets.go:21` already rules that quantity ungateable for B-D — "includes host process creation. Reported only, never gated" — and ruling #29 made the same correction for B-A; B-E is the row that escaped it. Under co-load the wall p99 moved 1600→5411 ms while the same children's CPU stayed 46.875 ms to the tick. | windows | 1aa1589 |
+| 18 | `e2eShutdownIfReachable` knew two states where there are three. A daemon that is ALIVE but has not listened yet — `Run` takes the lock and opens its day log well before `server.Serve` — is a live process holding a log handle with nothing on the pipe, and the early-out left it there for `t.TempDir`'s `RemoveAll` to lose to. Keyed on the lock naming a live PID, so an abandoned lock still returns at once (measured 1.503 s) and e785891's stall does not return. | windows | 30a8c14 |
+| 19 | Two more defects on the graceful-shutdown path, both from `handleAdminShutdown` running `Stop` on its own goroutine. `Run` published `lock`, `server` and `addr` as plain fields read behind `!= nil` checks — the very checks 2a5c31c's comment says are not a fix, on three fields that commit missed. Separately, and with no memory race involved, `Stop` read `runCancel` while still nil, so nothing cancelled `runCtx` and `Run` waited forever with `stopOnce` spent. | linux | a3c77fd |
+
+Two further findings carry no CI signature because no CI job could produce one.
+
+`devtool lint` had been red since 96ccfcb and no job noticed: its `stubskips` rule greps the output
+of a real test run rather than reading source, so a `runtime.GOOS == "windows"` skip only reaches
+it on Windows, and CI runs that linter in the ubuntu-only `verify` job. Three review agents
+reported it independently while auditing unrelated patches (cc48ec6).
+
+`gcSweepModel` asserted that a truncated pass's cursor write is inside the measured elapsed time.
+`GC` takes `rep.Duration` at `gcrun.go:117` and calls `saveGCState` at `:124`, so it is inside the
+attempt loop's wall clock and outside the `GCReport.Duration` calibration reads. The model came out
+about 12% narrower than the host it models — conservative, so no soundness bug, and a comment fix
+rather than a behaviour one (58be806).
+
+Item 19's race is the second the detector has found in `internal/daemon`, after item 3, and item 19
+is the third defect on that package's shutdown path, after items 3 and 8 — item 8 being an ordering
+defect rather than a memory race. All three share one shape: state published by `Run` and consumed
+by a goroutine `Run` did not create. Item 16 brings the wall-clock genus of §0 items 18/22/25 to six instances,
+and item 17 to seven — of which seven sites remain unaudited (§16.4).
