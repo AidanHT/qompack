@@ -70,7 +70,10 @@ const (
 	storeSettleWait = 30 * time.Second
 	storeSettleTick = 25 * time.Millisecond
 
-	// statusReplyDeadline bounds the status round trip this file's own ipc.Client performs.
+	// statusReplyDeadline bounds the status round trip this file's own ipc.Client performs —
+	// every step of it, not only the reply read: statusMode hands it to ClientOptions.
+	// ConnectDeadline and ClientOptions.AckDeadline as well as to Send. See statusMode's own
+	// comment for why leaving the dial on state.bin's budget was a real, Windows-only failure.
 	statusReplyDeadline = 5 * time.Second
 )
 
@@ -263,20 +266,50 @@ func degradedPayloadMarker(i int) string { return fmt.Sprintf("degraded-payload-
 
 // statusMode asks the running daemon for its StatusSnapshot over the real ipc.Client and returns
 // the contract mode it reports.
+//
+// status is NOT an ipc.Op.HotPath() op, so its client must not run on the hot path's budgets.
+// Leaving ConnectDeadline/AckDeadline at zero makes NewClientWithOptions fall back to state.bin's
+// own ConnectDeadlineMs/AckDeadlineMs — 5ms/8ms out of config.Defaults(), sized for observe.tool/
+// prompt/stop against an already-warm daemon — and on Windows a 5ms dial budget is not merely
+// tight, it is unsatisfiable for the dial this helper actually performs: it lands moments after
+// the caller's own ipc.Probe accepted-and-closed a connection, and go-winio's listenerRoutine
+// only creates the next pipe instance when its accept loop asks for one (pipe.go
+// listenerRoutine), so a dial landing in that gap gets ERROR_PIPE_BUSY — which go-winio retries
+// on a hard-coded 10ms sleep (pipe.go tryDialPipe), twice the whole budget. Measured on Windows
+// 11 / go-winio v0.6.2: 197 of 200 dials issued straight after a Probe failed at a 5ms budget
+// (worst elapsed 12.1ms — the 10ms sleep), 0 of 200 failed at 250ms. The client then spools and
+// returns Response{OK:false} with an empty Err (ipc client.go spoolAndReturn), which reads
+// exactly like a daemon refusal but is not one: the daemon was accepting the whole time.
+//
+// This is the same condition internal/cli covers with hookConnectDeadlineFloor for every
+// non-hot-path reply op (hookclient.go) and explicitly for admin.ping (selftest.go), and that
+// this tree's other reply-op client constructors already widen for themselves: hotpathNewClient
+// (hotpath_test.go), hookflow_test.go, appendonly_test.go. statusReplyDeadline is this file's own
+// declared budget for the whole round trip, so every step of the round trip gets it.
 func statusMode(t *testing.T, ctx context.Context, p *testutil.Project) string {
 	t.Helper()
 	addr, err := ipc.Resolve(p.Root)
 	require.NoError(t, err)
 	sp, err := ipc.NewSpool(paths.Of(p.Root).Spool)
 	require.NoError(t, err)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: p.Root})
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     p.Root,
+		ConnectDeadline: statusReplyDeadline,
+		AckDeadline:     statusReplyDeadline,
+	})
 	defer func() { _ = c.Close() }()
 
 	resp, err := c.Send(ctx, ipc.Request{
 		Op: ipc.OpStatus, Session: degradedSession, Reply: true, TS: core.NowMilli(p.Clock),
 	}, statusReplyDeadline)
 	require.NoError(t, err)
-	require.True(t, resp.OK, "status must answer: %+v", resp)
+	// Every daemon-side OK:false a status Reply can produce carries a reason — handleStatus's
+	// marshal failure, dispatchOp's unknown-op arm, callHandler's/ipc dispatch's panic arms all
+	// set Err — so an OK:false with an EMPTY Err is the ipc client's own spoolAndReturn: the
+	// request never reached the daemon at all. Name that here so the next reader of this failure
+	// does not have to re-derive it from the transport.
+	require.True(t, resp.OK,
+		"status must answer (empty Err = the client never reached the daemon and spooled instead): %+v", resp)
 	var snap daemon.StatusSnapshot
 	require.NoError(t, json.Unmarshal(resp.Data, &snap))
 	return snap.Mode
