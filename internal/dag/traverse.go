@@ -220,6 +220,14 @@ func (g *graph) slice(criteria []NodeID, o SliceOptions, backward bool) (Slice, 
 			if o.Thin && e.Kind == EdgeControlOnly {
 				continue
 			}
+			// Counted AFTER the thin filter and before any other test, so EdgesVisited is exactly
+			// the set of edges this walk followed: for a thin walk the non-control-only edges of
+			// its finalized nodes, for a full walk every edge of its own. A thin walk finalizes a
+			// subset of the nodes a full walk does — it only ever removes edges, so every thin
+			// path is also a full path and every full score is at least the thin one, which is
+			// what keeps the minScore floor from reversing the containment — so its edge set is
+			// a subset too. slice_compare_test.go asserts both halves of that.
+			out.EdgesVisited++
 			next := e.To
 			if backward {
 				next = e.From
