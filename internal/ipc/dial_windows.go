@@ -23,3 +23,23 @@ import (
 func dial(a Addr, timeout time.Duration) (net.Conn, error) {
 	return winio.DialPipe(a.Path, &timeout)
 }
+
+// dialBusyRetryQuantum is how far past the timeout it was given a dial can return on this
+// platform, and the smallest connect budget that buys more than one attempt.
+//
+// ERROR_PIPE_BUSY is what CreateFile returns when the pipe NAME exists but every instance of it is
+// already claimed — the state a listener is in between accepting one connection and creating the
+// next instance. go-winio's tryDialPipe answers that with a hard-coded `time.Sleep(10 *
+// time.Millisecond)` (go-winio@v0.6.2/pipe.go:227-229, "Wait 10 msec and try again") and re-checks
+// the caller's deadline only at the top of the next iteration (same file, 208-211), so:
+//
+//   - a dial can return up to one quantum after its nominal timeout, because the sleep that
+//     straddles the deadline still runs to completion before the deadline is next looked at; and
+//   - a timeout below one quantum buys exactly one CreateFile attempt, since the first retry
+//     already outlives it.
+//
+// It is declared here, beside the call it describes, rather than copied into whichever test has to
+// bound a connect: a bound derived from this constant moves if the platform's dial ever changes,
+// and a copy of "10ms" does not (internal/daemon/timing.go states the same rule for the daemon's
+// own timing).
+const dialBusyRetryQuantum = 10 * time.Millisecond
