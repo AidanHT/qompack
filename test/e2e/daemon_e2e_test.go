@@ -61,11 +61,17 @@ const (
 	e2eDaemonUpBound = 8 * daemon.SpawnPollBound
 	e2eDaemonUpTick  = 20 * time.Millisecond
 
-	// e2eDaemonDownBound waits for a daemon to take admin.shutdown and go away. Basis:
-	// daemon.StopDrainBound, the longest single step of Stop's cleanup sequence; the server close
-	// that follows is separately capped inside internal/ipc by its own serverCloseWait. Three
-	// times the drain bound covers both with headroom.
-	e2eDaemonDownBound = 3 * daemon.StopDrainBound
+	// e2eDaemonDownBound waits for a daemon to take admin.shutdown and be GONE — its lock released,
+	// not merely its listener closed. Basis: daemon.StopCleanupBound, the daemon's own worst case
+	// for finishing a shutdown, plus margin for a loaded CI runner. Same rule as
+	// v1ShutdownPollBound, and the same rule this block opens with: no bound may be smaller than
+	// the thing it waits for.
+	//
+	// It used to be 3 x daemon.StopDrainBound, which is numerically StopCleanupBound exactly and so
+	// left no margin at all once daemon.Run began waiting for Stop's cleanup before returning. A
+	// wait that expires at the same instant the mechanism does cannot tell a wedged daemon from a
+	// slow one.
+	e2eDaemonDownBound = daemon.StopCleanupBound + 5*time.Second
 	e2eDaemonDownTick  = 100 * time.Millisecond
 
 	// e2eHistoryConvergeBound bounds waiting for a history.json mutation from a session-start that
