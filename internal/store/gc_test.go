@@ -584,7 +584,17 @@ func (w gcSweepWindow) next(elapsed time.Duration, stoppedAtFirstCheck bool) gcS
 // the jth check reports j*gcCheckEvery-1 scanned objects, and a pass whose fixture is a whole
 // number of intervals has its last check on its last object. Prefix is everything the pass does
 // before its first object (mark, live-set write); Save is the cursor write a truncated pass ends
-// with, which is inside the measured elapsed time but outside the sweep.
+// with, which is outside the sweep and inside exactly ONE of the two clocks this file reads.
+//
+// GC takes rep.Duration = time.Since(started) at gcrun.go:117 and calls saveGCState only
+// afterwards, at :124, so GCReport.Duration -- what the calibration passes below read --
+// EXCLUDES Save, while the wall-clock time.Since(start) the attempt loop wraps around the whole
+// GC call includes it. run() models the second. A window priced from this model is therefore
+// narrower than the one calibration actually measures on the same host: 9.29x against 10.55x
+// with the constants below. That error is conservative in the only direction that matters --
+// the model claims LESS room than the host has, so a schedule it accepts is one the host also
+// accepts -- but it is why the two elapsed times are not interchangeable, and why a future
+// change here must say which clock it means.
 type gcSweepModel struct {
 	Prefix, Rate, Save time.Duration
 	Objects            int
