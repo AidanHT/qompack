@@ -1114,9 +1114,11 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
 
-	// Both artifacts must exist before they can meaningfully be asserted gone, and dd.server must
+	// Both artifacts must exist before they can meaningfully be asserted gone, and the server must
 	// be set before it can be closed — Run assigns it, writes state.bin and takes the lock in that
-	// order, so the lock is the last of the three to appear.
+	// order, so the lock is the last of the three to appear. Through currentServer, not the field:
+	// this goroutine is not Run's, so a bare dd.server read here is the same unsynchronised read
+	// of a field Run writes that startMu exists to stop (CI run 32391116227).
 	statePath := paths.Long(ipc.StatePath(root))
 	lockPath := paths.Long(filepath.Join(paths.Of(root).Run, lockFileName))
 	require.Eventually(t, func() bool {
@@ -1124,11 +1126,11 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 			return false
 		}
 		_, statErr := os.Stat(statePath)
-		return statErr == nil && dd.server != nil
+		return statErr == nil && dd.currentServer() != nil
 	}, drainDeadlockGuard, redrainTestTick, "the daemon never finished starting, so there was nothing to fail")
 
 	// The transport dies under a daemon that believes itself healthy.
-	require.NoError(t, dd.server.Close())
+	require.NoError(t, dd.currentServer().Close())
 
 	select {
 	case runErr := <-errCh:

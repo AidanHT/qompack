@@ -204,7 +204,7 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		// The third case, and the one that returned too early. "Not reachable after the settle
 		// poll" is two different worlds: nothing was ever spawned, and a daemon that IS running
 		// but has not listened yet. daemon.Run takes the lock and opens its day log through
-		// paths.AppendOnly long before server.Serve (internal/daemon/daemon.go:377 vs :462), so a
+		// paths.AppendOnly long before server.Serve (internal/daemon/daemon.go:469 vs :568), so a
 		// spawn that merely lost a race with e2eLazySpawnSettleBound — 66 subtests deep into a
 		// -count=2 run on a loaded runner — is a live process with an open handle on
 		// <root>/.qompack/logs/qompack-YYYYMMDD.log and nothing on the pipe.
