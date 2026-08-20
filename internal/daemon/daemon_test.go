@@ -729,6 +729,84 @@ func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
 	require.Equal(t, "spool", snap.Hot, "StatusSnapshot.Hot must report the transition, not the submode the daemon started in")
 }
 
+// hotStatePersistBound and hotStatePersistTick bound
+// TestHotModeTransitionPersistsBeforeItIsAnnounced's wait for state.bin to carry the transition.
+// What is being bounded is ONE paths.WriteAtomic of 32 bytes — stage into .qompack/tmp, fsync,
+// chmod, rename — measured on the Windows host this was written against at an 8.5 ms mean with
+// nothing else touching the file, and a 0.52 s worst case with concurrent readers on it.
+// drainLineDeadline is the ceiling this package already uses for "one bounded step, however slow
+// the host": aliasing it rather than copying a fresh literal is the same discipline timing.go's
+// exported aliases exist to enforce, and it makes a timeout here mean "the write never happened",
+// not "the write was slower than a number someone picked".
+const (
+	hotStatePersistBound = drainLineDeadline
+	hotStatePersistTick  = time.Millisecond
+)
+
+// TestHotModeTransitionPersistsBeforeItIsAnnounced pins the ORDER of §12.2's transition effects,
+// which TestHotModeTransitionWritesStateAndNAKs cannot see because it drives the transition
+// synchronously and only looks once everything has finished.
+//
+// registry.SetHotMode is the moment the transition becomes visible outside this goroutine:
+// dispatchOp reads registry.HotMode() to decide the NAK-with-hint, and Registry().HotMode() is
+// what an out-of-process observer polls. If state.bin is written AFTER that flip, there is a
+// window — one whole paths.WriteAtomic wide — in which the registry says spool, the daemon NAKs,
+// and the 32-byte record every newly constructed client reads still says sync. A client born in
+// that window dials a daemon that has already stopped accepting, which is exactly the connect
+// §12.2's spool submode exists to prevent, and a test that reads state.bin the instant it sees the
+// registry flip observes hot=0. That is the shape of the windows-latest failure in run
+// 32298432254.
+//
+// The proof carries no timing of its own. The test holds the registry's own write lock for the
+// whole assertion, so SetHotMode provably cannot complete while it is held: if the write is
+// ordered after the flip, no interleaving exists in which state.bin changes at all, and the wait
+// below can only time out. If the write is ordered first, it needs no lock and lands immediately.
+func TestHotModeTransitionPersistsBeforeItIsAnnounced(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := testConfig()
+	cfg.Runtime.HotPath.BudgetMs = 15
+	cfg.Runtime.HotPath.BreachWindows = 1
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	t.Cleanup(func() { _ = dd.ing.Close() })
+
+	// Same precondition TestHotModeTransitionWritesStateAndNAKs states, for the same reason: in
+	// production AcquireLock creates run/ during Run's startup, long before a sample can breach.
+	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).Run), 0o700))
+	require.Equal(t, ipc.HotSync, ipc.ReadState(root, cfg).Hot,
+		"guard: nothing may have written a spool record before the transition under test")
+
+	// Block the publication half of the transition. SetHotMode takes this lock; the write half
+	// must not need it.
+	dd.registry.mu.Lock()
+	var unlockOnce sync.Once
+	unlock := func() { unlockOnce.Do(dd.registry.mu.Unlock) }
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		dd.applyHotPathTransition(ToSpool)
+	}()
+	// Release the transition and wait for it whatever the assertion below decides: a goroutine
+	// still writing into t.TempDir() after the test returns races the directory's own removal.
+	t.Cleanup(func() { unlock(); <-done })
+
+	require.Eventually(t, func() bool { return ipc.ReadState(root, cfg).Hot == ipc.HotSpool },
+		hotStatePersistBound, hotStatePersistTick,
+		"state.bin still reports the sync submode while registry.SetHotMode is blocked: the "+
+			"transition is persisted AFTER it is announced, so every observer that learns of it "+
+			"from the registry or from a NAK can read a state.bin that still says sync (§12.2)")
+
+	unlock()
+	<-done
+	require.Equal(t, ipc.HotSpool, dd.registry.HotMode(), "the transition must still complete")
+	require.Equal(t, ipc.HotSpool, ipc.ReadState(root, cfg).Hot)
+}
+
 // readDayLogs returns the concatenated contents of every qompack-<day>.log in dir. The day log's
 // name carries a date, so a test that wants to read what it just wrote globs rather than
 // reconstructing the filename from a clock it does not control.
