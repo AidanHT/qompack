@@ -918,6 +918,90 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	}
 }
 
+// TestRunReturnsOnlyAfterAsyncStopHasFinished is the shutdown-debris regression.
+//
+// cmd/qompack/main.go is `os.Exit(cli.Dispatch(...))`, and internal/cli's runDaemon returns as
+// soon as Daemon.Run does, so the instant Run returns the daemon PROCESS dies. admin.shutdown runs
+// Stop on its own goroutine (handlers.go handleAdminShutdown), and Stop's very first acts —
+// close(d.stopped) and runCancel() — are also exactly what make Serve return and Run's own select
+// take its `case <-d.stopped: return nil` arm. Run returning is therefore not evidence that Stop
+// finished; without an explicit wait it is evidence of the opposite, and every step of Stop AFTER
+// that cancel (the bounded drain and its state/drain.json write, the ingest WAL close, the sketch
+// saves, the metrics.Persist onto metrics/latency.json, the state.bin removal, the server close,
+// the lock release) is racing os.Exit.
+//
+// Three of those steps write through paths.WriteAtomic, which stages into .qompack/tmp/ under the
+// "wa-" prefix and removes the staging file in a deferred call. A process that dies between the
+// os.CreateTemp and that deferred os.Remove leaves the staging file behind PERMANENTLY — the exact
+// debris test/guards' TestV1_WriteSetConfinedAcrossFullHookSequence reports as "WriteAtomic left
+// staging files in .qompack/tmp/", and the exact debris internal/paths' own atomic_test.go forbids.
+//
+// The assertions below are about ORDERING, not about timing: everything Stop does must already be
+// on disk (or already gone from it) at the instant Run hands control back, because in the shipped
+// binary there is no later instant. daemon.lock is the sharpest of the three — Lock.Release is the
+// LAST statement of Stop's cleanup, so a lock file still present when Run returns proves the
+// cleanup was still in flight. TestAdminShutdownStopsTheDaemon above cannot see any of this: it
+// waits on dd.stopDone itself, and that wait is precisely the wait the daemon does not perform.
+func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Readiness is a successful DIAL, not the appearance of daemon.lock. Run takes the lock second,
+	// long before it writes state.bin, starts its own goroutines or accepts anything, so a shutdown
+	// sent at lock-time races Run's remaining startup — Run would go on to (re)write the very
+	// state.bin Stop had already removed, and would start goroutines after Stop's join had passed.
+	// The shipped daemon cannot be asked to stop before it is accepting; neither should this be.
+	require.Eventually(t, func() bool {
+		return ipc.Probe(addr, dialProbeTimeout)
+	}, drainDeadlockGuard, redrainTestTick,
+		"the daemon never started accepting, so there was nothing to shut down")
+
+	// The asynchronous route, deliberately: Stop called straight from this goroutine is
+	// synchronous and could never exhibit the race the shipped binary actually runs into.
+	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpAdminShutdown, Reply: true})
+	require.True(t, resp.OK)
+
+	select {
+	case runErr := <-errCh:
+		require.NoError(t, runErr)
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("admin.shutdown did not stop the running daemon")
+	}
+
+	// Nothing waits from here on: this is the state the real process exits in.
+	_, lockErr := os.Stat(paths.Long(filepath.Join(paths.Of(root).Run, lockFileName)))
+	require.True(t, os.IsNotExist(lockErr),
+		"Run returned while Stop was still running: releasing daemon.lock is Stop's last act, so a "+
+			"lock file still on disk here means the shipped binary's os.Exit is racing the rest of "+
+			"the cleanup — including three paths.WriteAtomic calls that leave .qompack/tmp/ debris "+
+			"when they are killed between os.CreateTemp and their deferred os.Remove")
+
+	_, stateErr := os.Stat(paths.Long(ipc.StatePath(root)))
+	require.True(t, os.IsNotExist(stateErr),
+		"state.bin must already be removed when Run returns: left behind by a process that exited "+
+			"mid-cleanup, every later client keeps dialling an endpoint no daemon is on")
+
+	entries, readErr := os.ReadDir(paths.Of(root).Tmp)
+	require.NoError(t, readErr)
+	require.Empty(t, entries,
+		"a WriteAtomic staging file was still in .qompack/tmp/ when Run returned; in the shipped "+
+			"binary that write is killed mid-flight and the file outlives the daemon")
+}
+
 // TestServeFailureTakesTheStopPath closes FR-4's one untested arm (§2.5a G).
 //
 // Run's select has two ways out of `case err := <-serveErrCh`. A Serve return with d.stopped

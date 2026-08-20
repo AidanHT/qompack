@@ -32,6 +32,13 @@ const (
 	// StopDrainBound is Stop's bound on draining the in-flight ring — the longest single step of a
 	// clean shutdown, and therefore the basis for any bound on a daemon going away.
 	StopDrainBound = stopDrainBound
+
+	// StopCleanupBound is how long Run waits for an asynchronously-invoked Stop (admin.shutdown) to
+	// finish its ENTIRE cleanup before returning — and so, since internal/cli's runDaemon returns
+	// with Run and cmd/qompack is os.Exit(cli.Dispatch(...)), the daemon process's own worst case
+	// for going away after being asked to. Any out-of-package wait for "the daemon is gone" has to
+	// outlast this, or its timeout cannot tell a wedged daemon from one still finishing.
+	StopCleanupBound = stopCleanupBound
 )
 
 // compile-time proof the aliases above really are durations, so a future edit that retyped one of
@@ -41,4 +48,5 @@ var (
 	_ time.Duration = DrainLineDeadline
 	_ time.Duration = IdleTickMax
 	_ time.Duration = StopDrainBound
+	_ time.Duration = StopCleanupBound
 )

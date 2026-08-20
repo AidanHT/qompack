@@ -29,6 +29,7 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
@@ -188,7 +189,7 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 	// daemon; shut it down before this test's own t.TempDir() cleanup runs, or a still-running
 	// daemon holding its own executable open can make that cleanup fail on Windows ("Access is
 	// denied" removing qompack.exe — open-running-executable semantics).
-	t.Cleanup(func() { v1ShutdownDaemonIfReachable(t, p.Root) })
+	t.Cleanup(func() { v1StopDaemonAndWaitGone(t, p.Root) })
 
 	osTemp := t.TempDir()
 	t.Setenv("TMP", osTemp)
@@ -208,7 +209,12 @@ func TestV1_WriteSetConfinedAcrossFullHookSequence(t *testing.T) {
 	// could fail this snapshot for reasons unrelated to the write-set invariant it exists to
 	// check. t.Cleanup's own call is now a fast, idempotent no-op belt-and-braces (the daemon is
 	// already gone by the time it runs).
-	v1ShutdownDaemonIfReachable(t, p.Root)
+	//
+	// This call RETURNS ONLY ONCE THE DAEMON HAS FINISHED, not once it has stopped answering: see
+	// v1StopDaemonAndWaitGone. That distinction is what makes every assertion below — and the
+	// .qompack/tmp/ assertion at the end in particular — a statement about what the run LEAKED
+	// rather than a statement about what it happened to have in flight.
+	v1StopDaemonAndWaitGone(t, p.Root)
 
 	after := snapshotTree(t, p.Root, p.Home(), osTemp)
 
@@ -791,27 +797,68 @@ func v1BuildBinary(t *testing.T) string {
 }
 
 // v1ProbeTimeout, v1RoundTripDeadline and v1ShutdownPollBound/Tick bound the raw ipc.Client
-// v1ShutdownDaemonIfReachable constructs to poke and then stop a real daemon this file's own
+// v1StopDaemonAndWaitGone constructs to poke and then stop a real daemon this file's own
 // end-to-end hook runs may have started.
+//
+// v1ShutdownPollBound is expressed relative to daemon.StopCleanupBound rather than as a round
+// number, for the reason internal/daemon/timing.go states about every other derived bound in this
+// repository: a bound smaller than the mechanism it waits on cannot tell "wedged" from "the answer
+// is a few more seconds". StopCleanupBound is the daemon's own worst case for finishing a
+// shutdown, so the wait for it to finish has to outlast it, with margin for a loaded CI runner.
 const (
 	v1ProbeTimeout      = 200 * time.Millisecond
 	v1RoundTripDeadline = 5 * time.Second
-	v1ShutdownPollBound = 15 * time.Second
+	v1ShutdownPollBound = daemon.StopCleanupBound + 5*time.Second
 	v1ShutdownPollTick  = 100 * time.Millisecond
 )
 
-// v1ShutdownDaemonIfReachable dials root's resolved address and, only if something answers, sends
-// admin.shutdown (retried, since Client.Send never propagates an error — a failed round trip just
-// spools the request instead of delivering it) and waits for the daemon to go away. It is a fast
-// no-op whenever no daemon ever came up.
-func v1ShutdownDaemonIfReachable(t *testing.T, root string) {
+// v1StopDaemonAndWaitGone stops the detached daemon this file's end-to-end hook runs may have
+// started, and does not return until that daemon is GONE. It is a fast no-op whenever no daemon
+// ever came up.
+//
+// "Gone" is deliberately keyed on <root>/.qompack/run/daemon.lock disappearing, not on the endpoint
+// going quiet, and the difference is the whole point of this helper.
+//
+// ipc.Server.Serve arms `context.AfterFunc(ctx, s.Close)`, so the listener is torn down the instant
+// daemon.Stop cancels the run context — which is Stop's FIRST act, before its bounded drain, before
+// the ingest WAL close, before the sketch saves, before metrics.Persist, before the state.bin
+// removal. An unreachable endpoint therefore marks the BEGINNING of a shutdown. Treating it as the
+// end (as this helper used to) hands control back to a caller that is about to walk .qompack/ while
+// three paths.WriteAtomic calls are still staging files into .qompack/tmp/, which is exactly how
+// TestV1_WriteSetConfinedAcrossFullHookSequence's "WriteAtomic left staging files" assertion fires
+// on a run where nothing actually leaked. Releasing daemon.lock is Stop's LAST act, so its absence
+// is the daemon's own published record that every one of those steps has finished.
+//
+// Keying on the lock also fixes the case the probe silently skipped: a daemon still COMING UP.
+// daemon.Run takes the lock before it listens, so a daemon that has not started accepting yet is
+// invisible to ipc.Probe but plainly visible here — and it is precisely that daemon, arriving late
+// under load and then replaying the spool, that is still writing when the guard reads the tree.
+// admin.shutdown is retried on a ticker (Client.Send never propagates an error — a failed round
+// trip just spools the request), so the retry loop simply keeps knocking until it comes up.
+//
+// A daemon that is still holding the lock when the bound expires fails the test rather than being
+// logged and left running: with daemon.Run now waiting on Stop's full cleanup before it returns,
+// the only ways to reach that state are a daemon that cannot be stopped or one that died without
+// releasing — and both of those leave exactly the debris the caller is about to assert against.
+//
+// The lock is watched with os.Stat, never with daemon.ReadLock, and that is not interchangeable.
+// Go's os.Open/os.ReadFile — ReadLock's own implementation — open a Windows file with
+// FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a poller holding daemon.lock open
+// makes the daemon's own os.Remove of it fail with ERROR_SHARING_VIOLATION. Polled that way this
+// helper CAUSES the very abandoned lock it is watching for, roughly once in twenty runs (observed:
+// the daemon exits with daemon.hb removed and daemon.lock still there, since Lock.Release attempts
+// both removes and only the second one is unobstructed). os.Stat answers the same question through
+// GetFileAttributesEx and takes no handle. ReadLock is used only once the wait has already failed,
+// to name the pid and address in the message.
+func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
 	if err != nil {
 		return
 	}
-	if !ipc.Probe(addr, v1ProbeTimeout) {
-		return
+	lockPath := daemon.LockPath(root)
+	if !v1FileExists(lockPath) && !ipc.Probe(addr, v1ProbeTimeout) {
+		return // no daemon ever took this project.
 	}
 
 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
@@ -828,18 +875,31 @@ func v1ShutdownDaemonIfReachable(t *testing.T, root string) {
 		_, _ = c.Send(context.Background(), ipc.Request{
 			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		}, v1RoundTripDeadline)
-		if !ipc.Probe(addr, v1ProbeTimeout) {
+		if !v1FileExists(lockPath) {
 			return
 		}
 		select {
 		case <-ticker.C:
 		case <-timeout.C:
-			if ipc.Probe(addr, v1ProbeTimeout) {
-				t.Logf("v1ShutdownDaemonIfReachable: daemon at %s still reachable after %s of retried admin.shutdown; leaving it running", root, v1ShutdownPollBound)
+			if !v1FileExists(lockPath) {
+				return
 			}
+			info, _ := daemon.ReadLock(root)
+			t.Errorf("a daemon (pid %d, addr %s) still held %s after %s of retried admin.shutdown. "+
+				"Every assertion the caller is about to make walks a tree this process may still be "+
+				"writing to, and a daemon that exits without releasing its lock is itself the failure: "+
+				"it is the shape that leaves a half-finished paths.WriteAtomic staging file behind in "+
+				".qompack/tmp/", info.PID, info.Addr, lockPath, v1ShutdownPollBound)
 			return
 		}
 	}
+}
+
+// v1FileExists reports whether p is present, without opening it — see v1StopDaemonAndWaitGone's
+// comment for why "without opening it" is the load-bearing half of that sentence.
+func v1FileExists(p string) bool {
+	_, err := os.Stat(paths.Long(p))
+	return err == nil
 }
 
 // v1LoudLines counts the lines in <logs>/LOUD.log, which §12 makes the never-rotated record of
