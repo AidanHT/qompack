@@ -54,15 +54,23 @@ func tmpDirFor(p string) string {
 // place, so the retry exists for the paths WriteAtomic is actually allowed to touch, not as a
 // way around the guard. If the retry itself fails, the ORIGINAL error is returned, never the
 // retry's, so the caller sees the failure that actually explains what happened.
+//
+// The rename itself goes through replace (replace_windows.go / replace_other.go) rather than
+// straight to os.Rename. That is what makes the OTHER Windows failure — a concurrent reader
+// holding the destination open — survivable rather than merely retryable: os.Rename's
+// MoveFileEx cannot replace a destination anyone has open, at any share mode, so a read of the
+// file being replaced could stall a writer indefinitely. The read-only-destination retry below
+// is unchanged and still needed: measured on this host, neither rename flavour will replace a
+// read-only destination (both return ERROR_ACCESS_DENIED), so this fix removes no check.
 func renameWithRetry(tmp, p string) error {
-	first := os.Rename(tmp, p)
+	first := replace(tmp, p)
 	if first == nil {
 		return nil
 	}
 	if err := os.Chmod(p, 0o600); err != nil {
 		return first
 	}
-	if err := os.Rename(tmp, p); err != nil {
+	if err := replace(tmp, p); err != nil {
 		return first
 	}
 	return nil
@@ -72,7 +80,10 @@ func renameWithRetry(tmp, p string) error {
 // barrier WriteAtomic promises. Without it, a crash between the rename and the next unrelated
 // metadata flush can lose the rename on some POSIX filesystems even though the renamed file's
 // own data was already synced. Windows needs no equivalent: MoveFileEx's NTFS transaction is
-// durable on its own, so fsyncDir is a no-op there.
+// durable on its own, so fsyncDir is a no-op there — and that still holds now that the rename may
+// be replace_windows.go's FileRenameInfoEx instead, because the two differ only in the
+// FILE_RENAME_* flags handed to the same NTFS FileRenameInformation path, not in how the metadata
+// change is journalled.
 func fsyncDir(dir string) error {
 	if runtime.GOOS == "windows" {
 		return nil
