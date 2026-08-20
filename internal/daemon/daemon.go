@@ -118,9 +118,40 @@ type daemon struct {
 	modeMu           sync.Mutex
 	lastReportedMode contract.Mode
 
-	lock   *Lock
-	server ipc.Server
-	addr   ipc.Addr
+	// startMu guards the three fields Run publishes while starting up and another goroutine reads:
+	// lock, server and addr. The admin.shutdown route answers the client and then runs the whole
+	// shutdown on a goroutine of its own (handlers.go handleAdminShutdown, `go func(){ Stop() }()`),
+	// so Stop is genuinely concurrent with Run — and Stop's stopOnce orders Stop against Stop only,
+	// never against Run. CI run 32391116227 (test (ubuntu-latest), TestAdminShutdownStopsTheDaemon)
+	// reported two of these: Run's `d.lock = lock` against Stop's `if d.lock != nil`, and — because
+	// an unsynchronised read of a pointer publishes nothing about the value it points at either —
+	// AcquireLock's own &Lock{path: ...} (lock.go) against Lock.owned's read of l.path underneath
+	// Stop's Release. Reproducing it locally (the test's readiness gate is daemon.lock APPEARING ON
+	// DISK, so widening the remainder of AcquireLock makes it fire every run) turned up the third
+	// of the set, which CI had not got to naming: `d.server = server` against `if d.server != nil`.
+	//
+	// The nil checks Stop performed were never the fix, for the reason already written above
+	// d.drain when 2a5c31c made that field atomic: under the Go memory model an unsynchronised
+	// read concurrent with a write has no guarantee of observing either the old value or the new
+	// one, so "nil means Run has not built it yet" was never a promise the race could keep. drain
+	// was fixed then; these three were missed, and -race found them the moment a test asked for a
+	// shutdown before startup had finished.
+	//
+	// One mutex rather than three mechanisms: lock is a pointer and would fit atomic.Pointer[Lock]
+	// exactly as drain does, but server is an interface and addr is a struct and neither does, and
+	// this struct already reaches for a narrow mutex in precisely this situation (cfgMu, histMu,
+	// historyMu, modeMu). Foreign readers take the value out under startMu and act on it OUTSIDE:
+	// Stop's server.Close() and Lock.Release() both block on I/O and neither may run with this
+	// held. Run itself reads neither through the mutex — it keeps the local `server` and `lock`
+	// variables it published from, which cannot race by construction.
+	//
+	// addr has no reader anywhere today (the only occurrence of d.addr in the package is Run's own
+	// write), so it is not racing on its own account; it is published through the same mutex as
+	// its two siblings so that adding the first reader cannot silently re-open the defect.
+	startMu sync.Mutex
+	lock    *Lock
+	server  ipc.Server
+	addr    ipc.Addr
 
 	startTS core.UnixMilli
 
@@ -362,8 +393,69 @@ func userHomeDir() string {
 	return h
 }
 
+// setAddr, setLock and setServer are Run's three publications; currentLock and currentServer are
+// how a goroutine that is not Run reads them back. See the comment on startMu for why they exist
+// and why neither getter may be called with anything blocking still to do under the mutex.
+func (d *daemon) setAddr(a ipc.Addr) {
+	d.startMu.Lock()
+	d.addr = a
+	d.startMu.Unlock()
+}
+
+func (d *daemon) setLock(l *Lock) {
+	d.startMu.Lock()
+	d.lock = l
+	d.startMu.Unlock()
+}
+
+func (d *daemon) currentLock() *Lock {
+	d.startMu.Lock()
+	defer d.startMu.Unlock()
+	return d.lock
+}
+
+func (d *daemon) setServer(s ipc.Server) {
+	d.startMu.Lock()
+	d.server = s
+	d.startMu.Unlock()
+}
+
+func (d *daemon) currentServer() ipc.Server {
+	d.startMu.Lock()
+	defer d.startMu.Unlock()
+	return d.server
+}
+
+// stopBegun reports whether Stop has ENTERED its cleanup: d.stopped closes as the first act of
+// stopOnce's closure, well before any of the work. It is deliberately not "Stop has finished" —
+// that is stopDone — because the only thing Run needs to know mid-startup is that the daemon it is
+// still assembling has already been told to stop.
+func (d *daemon) stopBegun() bool {
+	select {
+	case <-d.stopped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Run implements the daemon lifecycle of task-5-spec.md's daemon.go section.
 func (d *daemon) Run(ctx context.Context) error {
+	// The run context is created and PUBLISHED first — ahead of the address resolve, the lock and
+	// everything it actually cancels. Stop reads d.runCancel under runCancelMu and calls it only
+	// if it is non-nil, so a Stop that reads it while it is still nil cancels nothing at all; Run
+	// then reaches the select loop below and waits forever for a shutdown that nobody will ever
+	// signal, with stopOnce already spent so no second admin.shutdown can reach the cleanup either.
+	// That is not hypothetical. It is the 8.03s "admin.shutdown did not stop the running daemon"
+	// failure in CI run 32391116227: TestAdminShutdownStopsTheDaemon gates on daemon.lock
+	// APPEARING ON DISK, which is paths.CreateNew inside AcquireLock — one filesystem write and
+	// several statements before Run used to reach this publication down at the old position.
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	d.runCancelMu.Lock()
+	d.runCancel = cancel
+	d.runCancelMu.Unlock()
+
 	addr, err := ipc.Resolve(d.root)
 	if err != nil {
 		if isAddrTooLong(err) {
@@ -372,7 +464,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		}
 		return fmt.Errorf("daemon: run: resolve: %w", err)
 	}
-	d.addr = addr
+	d.setAddr(addr)
 
 	lock, err := AcquireLock(d.root, addr, d.clk)
 	if err != nil {
@@ -381,17 +473,31 @@ func (d *daemon) Run(ctx context.Context) error {
 		}
 		return fmt.Errorf("daemon: run: acquire lock: %w", err)
 	}
-	d.lock = lock
+	d.setLock(lock)
+
+	// Publishing runCancel above lets a concurrent Stop cancel this startup, but a cancellation is
+	// a request, not a rollback. A Stop that ran to completion before d.lock existed read nil and
+	// released nothing, so a Run that simply carried on from here would hold daemon.lock until the
+	// process died — and while it is held no replacement daemon can ever take this project, the
+	// same M-6 failure the listen-error path below exists to prevent. Nothing else is published
+	// yet: no ingest workers, no runWG member, no drainer, no server, no state.bin. So the whole
+	// of the abort is handing the lock back.
+	//
+	// The check is sound against every interleaving, not merely the likely one. runCancelMu
+	// totally orders Run's store of d.runCancel against Stop's read of it. If Stop's read came
+	// first it observed nil, which means close(d.stopped) — Stop's preceding statement — is
+	// ordered before Run's store and therefore before this line, so stopBegun sees it. If Run's
+	// store came first, Stop observed a non-nil cancel and the select loop below unwinds normally.
+	if d.stopBegun() {
+		if relErr := lock.Release(); relErr != nil {
+			d.log.Warn("daemon: run: releasing lock after a shutdown that arrived mid-startup", "err", relErr)
+		}
+		return nil
+	}
 
 	if d.svc.Sketches != nil {
 		d.svc.Sketches.Load(d.root, d.log)
 	}
-
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	d.runCancelMu.Lock()
-	d.runCancel = cancel
-	d.runCancelMu.Unlock()
 
 	d.ing.Start(runCtx, 0, d.runIngested)
 	d.goRun(func() { d.hotPathWorker(runCtx) })
@@ -427,12 +533,12 @@ func (d *daemon) Run(ctx context.Context) error {
 		// invariant is "every exit from Run joins them", not "every exit that looked risky".
 		cancel()
 		d.runWG.Wait()
-		if relErr := d.lock.Release(); relErr != nil {
+		if relErr := lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
 		}
 		return fmt.Errorf("daemon: run: listen: %w", err)
 	}
-	d.server = server
+	d.setServer(server)
 
 	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
 		d.log.Warn("daemon: failed to write state.bin", "err", err)
@@ -498,8 +604,11 @@ func (d *daemon) Run(ctx context.Context) error {
 				return err
 			}
 		case <-hbTicker.C:
-			if d.lock != nil {
-				_ = d.lock.Heartbeat()
+			// The local, not d.lock: this is Run's own goroutine reading the value Run itself
+			// published, which needs no synchronisation and cannot be nil here (every path that
+			// reaches the select loop has already returned from AcquireLock successfully).
+			if lock != nil {
+				_ = lock.Heartbeat()
 			}
 		case <-idleTicker.C:
 			d.idle.Notify(d.registry.LastActivity())
@@ -720,14 +829,20 @@ func (d *daemon) Stop(ctx context.Context) error {
 			d.log.Warn("daemon: stop: removing state.bin", "err", err)
 		}
 
-		if d.server != nil {
-			if err := d.server.Close(); err != nil {
+		// Read out under startMu, acted on outside it. Both fields are Run's, published from a
+		// goroutine this one has no ordering with (see startMu), and both calls below block on
+		// I/O — Close waits out the in-flight connection handlers, Release does three filesystem
+		// syscalls — so holding the mutex across either would put Run's startup behind them for
+		// no reason. A nil here is now a real observation, not the coin-flip the plain field's
+		// `!= nil` check was: it means Run genuinely had not published yet.
+		if srv := d.currentServer(); srv != nil {
+			if err := srv.Close(); err != nil {
 				stopErr = err
 			}
 		}
 
-		if d.lock != nil {
-			if err := d.lock.Release(); err != nil && stopErr == nil {
+		if lk := d.currentLock(); lk != nil {
+			if err := lk.Release(); err != nil && stopErr == nil {
 				stopErr = err
 			}
 		}
