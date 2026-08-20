@@ -661,7 +661,42 @@ measurement, test result or gate verdict changes.
   merged past.
 - **`main` and the six wave-1 branches are local only**, and no tag has been pushed. Pushing
   `v0.1.0` cuts a real GitHub Release, which is a decision rather than a chore.
-- **V2-MERGE-13's coverage floors are still unconfirmed on Linux.** The `cover` job runs the whole
-  suite before printing floor verdicts and had been aborting in that step, so no floor verdict has
-  yet been produced on a non-Windows host. The per-package figures it did reach agree with the
-  Windows numbers to within a point.
+- ~~**V2-MERGE-13's coverage floors are still unconfirmed on Linux.**~~ **Resolved.** The `cover`
+  job now completes and every floor is verified on Linux, for the first time, as of run
+  32320326160. Closing it required covering `internal/paths`' unexpected-error branches: the
+  package had never met its own 90% floor on a POSIX host (89.1%), because the floor had only ever
+  been evaluated on Windows. Linux is now 90.4%.
+- **`config.Defaults().Runtime.Daemon.ConnectDeadlineMs` is 5 ms, below the Windows dial retry
+  quantum.** go-winio answers `ERROR_PIPE_BUSY` with a hard-coded 10 ms sleep and re-checks the
+  caller's deadline only afterwards, so on Windows the production hot-path connect budget buys
+  exactly one `CreateFile` attempt and actually costs about 10 ms — two thirds of the entire 15 ms
+  B-A budget. `internal/ipc/ipctest/suite_test.go:148-151` already says this in prose ("not merely
+  tight on Windows, it is unusable there") and nothing enforces or measures it.
+  `dialBusyRetryQuantum` (added in bc44d2a) now at least gives the constant one name to derive
+  from. This is a product question, not a test one.
+- **The degraded path has no budget and nothing measures one.** Whenever the daemon is unreachable
+  a hook pays a synchronous spool append inside `Send`, measured under `-race` and co-load at p50
+  75 ms / p99 282 ms / max 541 ms over 300 calls — 5-36x the 15 ms B-A hot-path budget. That is
+  inherent to writing durably before exiting and is not a contract violation, but no budget or
+  benchmark covers the degraded path at all, and bc44d2a's narrowing means no test bounds it
+  either.
+- **Four production readers can still stall their writer on Windows.** `daemon/lock.go:167`
+  (`readLockFile`, via `ReadLock`), `ipc/client.go:506` (`spawnLockIsStale`),
+  `contract/monitor.go:125` and `contract/history.go:276` read with `os.ReadFile`, which takes a
+  handle without `FILE_SHARE_DELETE`. `paths.OpenShared`/`ReadFileShared` (bbd8905) now exist to
+  remove that hazard rather than route around it, as `test/guards/v1_integration_test.go:843-851`
+  currently does by polling with `os.Stat`. Note the POSIX-semantics replace does **not** help
+  here: `os.Remove` still needs the reader to have granted delete sharing.
+- **The V2-MERGE-25 wall-clock audit is still not finished.** 1aa1589 fixed the B-E row and 077b759
+  the GC bracket, but seven sites still bound a wall-clock duration measured under whole-tree
+  co-load: `internal/dag/bench_test.go:292`, `internal/dag/slice_test.go:558`,
+  `internal/daemon/ingest_test.go:85`, `internal/daemon/daemon_test.go:182`,
+  `internal/ipc/probe_test.go:69`, `test/e2e/v1_integration_test.go:428`,
+  `test/integration/appendonly_test.go:581`. Line numbers are as of cc48ec6 and every one was
+  re-checked against the tree; an eighth, `internal/ipc/client_test.go`, appeared in the survey but
+  is the site bc44d2a had already hardened, so it is excluded rather than counted twice.
+- **`devtool lint`'s `stubskips` rule is unenforceable on the platform it governs.** It greps the
+  output of a real test run rather than reading source, so a `runtime.GOOS == "windows"` skip only
+  reaches it on Windows — and CI runs `devtool lint` in the ubuntu-only `verify` job. cc48ec6 fixed
+  the three offending skips; the structural gap, that this linter is red locally and green in CI,
+  is not fixed.
