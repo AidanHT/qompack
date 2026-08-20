@@ -195,6 +195,15 @@ func isStateFileContention(err error) bool {
 // so exhausting it means the record has been continuously unopenable for the best part of a second,
 // which is a real failure rather than the rename hiccup this rides out — and that case still lands
 // on StateFromConfig, as §12.3 says it must.
+//
+// Those measurements predate paths.ReadFileShared and paths.WriteAtomic's POSIX-semantics replace,
+// which together remove the rename window this rides out rather than merely shortening it: the
+// destination is re-pointed in one step and an open handle keeps reading the record it opened, so
+// a state.bin read by THIS code no longer collides with a state.bin write by THIS code at all.
+// The budget stays because the two ends are not the only participants — a virus scanner, an
+// editor, `type state.bin`, or any tool holding the file without FILE_SHARE_DELETE puts the
+// classic MoveFileEx path back in play, as does a volume whose filesystem does not implement
+// FileRenameInfoEx. It is a fallback for the cases the fix cannot reach, not the fix.
 const readStateMaxAttempts = 8 * writeStateMaxAttempts
 
 // ReadState reads projectRoot's state.bin. Any failure to produce a valid record — the file is
@@ -210,10 +219,18 @@ const readStateMaxAttempts = 8 * writeStateMaxAttempts
 // healthy and dials a daemon that has already degraded to spool submode — exactly the connect
 // §12.2 exists to avoid — with default deadlines rather than the operator's. So a contended read
 // is retried; only a genuinely missing, unreadable or malformed record falls back.
+//
+// The read goes through paths.ReadFileShared, not os.ReadFile, and that is a correctness
+// requirement rather than a preference. os.ReadFile takes a Windows handle with no
+// FILE_SHARE_DELETE, and a destination anyone holds that way cannot be replaced at all — so a
+// client polling state.bin does not merely race the daemon's WriteState, it can make it fail
+// outright and leave §12.2's transition unpublished. ReadFileShared consents to the replace, and
+// paths.WriteAtomic's POSIX-semantics rename then lands underneath this read while it keeps
+// returning the record it opened.
 func ReadState(projectRoot string, fallback config.Config) State {
-	p := paths.Long(StatePath(projectRoot))
+	p := StatePath(projectRoot)
 	for attempt := 0; attempt < readStateMaxAttempts; attempt++ {
-		buf, err := os.ReadFile(p)
+		buf, err := paths.ReadFileShared(p)
 		switch {
 		case err == nil:
 			if s, ok := decodeState(buf); ok {
@@ -237,6 +254,14 @@ func ReadState(projectRoot string, fallback config.Config) State {
 // immediate retry (no time.Sleep; runtime.Gosched yields instead of a wall-clock wait) is enough to
 // ride out the ordinary case: one writer (the daemon) against many short-lived readers, never many
 // writers racing each other for the same destination.
+//
+// "Enough" was not true while the reader was a Go os.ReadFile and the writer a Go os.Rename: a
+// MoveFileEx replace cannot land on a destination anyone holds open, at any share mode, so under
+// four spinning readers this budget was exhausted five runs out of six (GOMAXPROCS=2, the shape
+// TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk drives). The fix for that is in
+// internal/paths — the read consents to the replace and the replace uses POSIX semantics — and it
+// is what makes this budget sufficient rather than optimistic. See readStateMaxAttempts for why
+// both budgets nonetheless stay.
 const writeStateMaxAttempts = 64
 
 // isRetryableStateWrite is WriteState's retry predicate: the Windows contention isStateFileContention

@@ -213,6 +213,15 @@ to it requires an amendment to this section.
 |---|---|---|
 | `github.com/klauspost/compress/zstd` | object compression (§7.4 "zstd-compressed") | no stdlib zstd; pure Go, no cgo |
 | `github.com/Microsoft/go-winio` | Windows named pipes (build-tagged `windows`) | no stdlib named-pipe support |
+| `golang.org/x/sys/windows` | go-winio's own dependency for the named pipe above; also imported directly by `internal/paths` for its POSIX-semantics file replace (build-tagged `windows`) | stdlib keeps `SetFileInformationByHandle` unexported (`syscall.setFileInformationByHandle`) |
+
+`golang.org/x/sys/windows` is listed rather than added: it has shipped in the Windows binary
+since SP-05 task 6 as go-winio's transitive dependency, and `tools/devtool/bindeps.go`'s
+`allowedBinDep` has named it explicitly ever since. What changed is only that this module now
+also imports it directly — from one `//go:build windows` file,
+`internal/paths/replace_windows.go`, for `FileRenameInfoEx`/`FILE_RENAME_POSIX_SEMANTICS`, the
+rename a concurrent reader cannot block. Nothing new enters the binary, on Windows or anywhere
+else; naming it here makes the closed list match the check that already enforces it.
 
 That is the entire runtime dependency list. Everything else — SHA-256, JSON, JSON-RPC, HDR
 histograms (we use a fixed-bucket log histogram), CLI parsing, glob matching, atomic file
