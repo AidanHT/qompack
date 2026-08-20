@@ -486,6 +486,30 @@ type hotpathBenchReport struct {
 // "rename their keys so nothing reads them as B-A").
 const hotpathSpawnEstimateID = "B-A_spawn_estimate"
 
+// hotpathBECPURowID mirrors test/bench/hotpath's own budgetIDBECPU: B-E measured in the CPU time
+// the 50 `qompack checkpoint` children consumed rather than the wall time they waited. The harness
+// is package main and cannot be imported, so this file carries the literal — the same reason
+// hotpathSpawnEstimateID above carries its own.
+const hotpathBECPURowID = "B-E_cpu"
+
+// hotpathCheckpointSamples mirrors the harness's own checkpointIterations — task-7-spec.md step
+// 7's "spawn qompack checkpoint 50 times", the population BOTH B-E rows are built from. Asserting
+// it is what keeps "the CPU row passed" from being satisfiable by a row built from a handful of
+// samples: the two rows must cover the same 50 children, in two clocks.
+const hotpathCheckpointSamples = 50
+
+// hotpathNotesMention reports whether any note in the artifact mentions sub — used to assert that
+// a disclosure the harness owes the reader was actually emitted, without this file re-spelling the
+// harness's prose (which would then have to be kept in sync with it).
+func hotpathNotesMention(rep hotpathBenchReport, sub string) bool {
+	for _, n := range rep.Notes {
+		if strings.Contains(n, sub) {
+			return true
+		}
+	}
+	return false
+}
+
 // hotpathRow returns the report row for id, failing the test if the artifact does not carry it.
 func hotpathRow(t *testing.T, rep hotpathBenchReport, id string) hotpathBudgetRow {
 	t.Helper()
@@ -539,8 +563,10 @@ func hotpathBuildBenchBinary(t *testing.T) string {
 // §4.2 ObserveTool, and the harness then runs its 2,000 real process spawns of the real hook
 // binary against a real daemon started over that project (see the file comment for the wave-1
 // composition). B-A p99 < 15ms and B-B p99 < 2ms are asserted from the JSON artifact; b_a_method
-// must name the TS-anchored hook_controlled estimate (ruling #29); spawn_floor_ms must be
-// present; and the daemon must never transition to spool during the run.
+// must name the TS-anchored hook_controlled estimate (ruling #29); B-E is asserted at the same
+// 2000ms on the one clock this test can honestly read — the checkpoint children's own CPU time,
+// see the --under-coload comment below the harness invocation; spawn_floor_ms must be present; and
+// the daemon must never transition to spool during the run.
 func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	ctx := context.Background()
 	p := testutil.NewProject(t)
@@ -612,12 +638,33 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		}
 	}()
 
+	// --under-coload is a statement of fact about THIS caller, and only this caller can make it:
+	// a Go test binary is one of ~20 the whole-tree `go test -race ./...` / `-count=2 ./...` job
+	// runs concurrently on a 2-core GitHub runner, and it spawns 2,250 more processes of its own
+	// on top. Under that, a wall-clock sample stops being a measurement of the product. The
+	// evidence is CI's own: on windows-latest the bench-gate job, which runs this same harness
+	// alone on its own runner, reported B-E's wall p99 at 67.2 ms against the 2000 ms limit
+	// (ubuntu 232.1, macos 21.3), and minutes later, same commit and same runner class, this test
+	// reported 4302 ms — a 64x move with the product byte-identical. That was item 18/22/25's
+	// genus one more time (plans/V2-report.md §0), and the audit V2-MERGE-25 asked for and never
+	// got: a wall-clock bound failing on a correct product because it is priced against a host
+	// that is no longer there.
+	//
+	// The flag does not remove the bound. It moves the JUDGEMENT to the clock that survives
+	// co-load: the harness's B-E_cpu row (budgetIDBECPU, test/bench/hotpath/report.go) gates the
+	// same 50 checkpoint children's own user+system CPU time against the same 2000 ms limit, and
+	// that clock did not move at all across a quiet/co-loaded pair whose wall p50 moved 23x. The
+	// wall-clock row is still gated at 2000 ms by every run that does NOT pass this flag —
+	// bench-gate's and nightly's `devtool bench-hotpath` lines are untouched — and this test
+	// asserts below that the harness reported it as waived rather than passed, so the waiver can
+	// never be mistaken for a measurement that met its budget.
 	hctx, hcancel := context.WithTimeout(ctx, hotpathHarnessBound)
 	defer hcancel()
 	cmd := exec.CommandContext(hctx, bench,
 		"--iterations", strconv.Itoa(hotpathBenchIterations),
 		"--hook", "observe-tool",
 		"--warm-daemon",
+		"--under-coload",
 		"--json", jsonPath,
 		"--project", p.Root,
 	)
@@ -635,10 +682,11 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"bench-hotpath exited non-zero: either a gated budget (B-A p99<%.0fms, B-B p99<%.0fms, B-E) "+
-			"breached against the real resident state, or the harness itself failed (its own "+
+		"bench-hotpath exited non-zero: either a gated budget (B-A p99<%.0fms, B-B p99<%.0fms, B-E_cpu "+
+			"p99<%.0fms) breached against the real resident state, or the harness itself failed (its own "+
 			"delivery-integrity guard included)\nstderr:\n%s",
-		hotpathBudgetLimitMs(t, p, obs.BA), hotpathBudgetLimitMs(t, p, obs.BB), stderr.String())
+		hotpathBudgetLimitMs(t, p, obs.BA), hotpathBudgetLimitMs(t, p, obs.BB),
+		hotpathBudgetLimitMs(t, p, obs.BE), stderr.String())
 
 	raw, err := os.ReadFile(jsonPath)
 	require.NoError(t, err, "the harness must write the --json artifact")
@@ -686,6 +734,48 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		"the gated B-A row must be sourced from the daemon's hook_controlled histogram (spawn loop "+
 			"plus warm-up hot tranche), not from the %d wall-clock spawn samples", bd.N)
 
+	// §4.6's B-E, asserted on the clock that survives this test's own co-load. B-E is the one
+	// budget the harness can only observe from OUTSIDE a whole real process, so its wall-clock
+	// sample is host process creation plus scheduling weather plus the checkpoint — and §2.4 has
+	// already ruled that the first of those must never be gated (B-D's "includes host process
+	// creation. Reported only, never gated"). Ruling #29 made exactly this move for B-A. Here it
+	// is made for B-E: the gated row for a co-loaded run is the same 50 children's own user+system
+	// CPU time, which co-load does not inflate — measured at p50/p99 = 15.625/46.875 ms in BOTH
+	// halves of a quiet/co-loaded pair whose wall p50 moved 138.8 → 3219.1 ms (see
+	// test/bench/hotpath/process.go's spawnSamples table). The limit is the same §2.4 number the
+	// wall-clock row is gated on everywhere else, read from obs.Budgets() rather than restated.
+	beLimit := hotpathBudgetLimitMs(t, p, obs.BE)
+	beCPU := hotpathRow(t, rep, hotpathBECPURowID)
+	require.Equal(t, hotpathCheckpointSamples, beCPU.N,
+		"the B-E CPU row must cover every checkpoint spawn the harness made")
+	require.NotNil(t, beCPU.LimitMs, "B-E_cpu is a hard gate under co-load and must carry its limit")
+	require.InDelta(t, beLimit, *beCPU.LimitMs, 0.001,
+		"both B-E rows read one limit from obs.Budgets(); a second number here would mean the harness "+
+			"had grown a private copy of the budget")
+	require.NotNil(t, beCPU.Pass)
+	require.True(t, *beCPU.Pass, "B-E_cpu gate must pass against the real resident state (p99=%.3fms)", beCPU.P99)
+	require.Less(t, beCPU.P99, beLimit,
+		"§4.6: the checkpoint's own cost — the CPU its process actually consumed — must stay under "+
+			"%.0fms with the real store/DAG/sketches resident", beLimit)
+
+	// And the waiver is asserted, not assumed: the wall-clock row must come back REPORTED for this
+	// run (limit_ms/pass both null, exactly B-D's shape), with the harness's own disclosure in the
+	// notes naming the limit it did not apply and where it still applies. A run that came back with
+	// pass=true here would mean --under-coload had stopped taking effect and the wall-clock gate
+	// was silently back, judging the runner's spare capacity again; a run with pass=false would
+	// mean the same thing having already failed. Both are caught.
+	beWall := hotpathRow(t, rep, string(obs.BE))
+	require.Equal(t, hotpathCheckpointSamples, beWall.N)
+	require.Nil(t, beWall.LimitMs,
+		"--under-coload must leave B-E's wall-clock row ungated in this run's artifact; it is still "+
+			"gated at %.0fms by bench-gate, which measures it in isolation", beLimit)
+	require.Nil(t, beWall.Pass)
+	require.True(t, hotpathNotesMention(rep, "--under-coload") && hotpathNotesMention(rep, hotpathBECPURowID),
+		"the artifact must disclose the wall-clock waiver in its notes, naming both the flag that "+
+			"caused it and the row that still enforces the limit — a null pass field is not an "+
+			"explanation, and a reader must be able to see from the artifact alone which limit went "+
+			"unjudged on which row and where it is still judged; notes present: %q", rep.Notes)
+
 	// spawn_floor_ms present, and recorded for the completion report alongside B-D.
 	require.Positive(t, rep.SpawnFloorMs.N, "spawn_floor_ms must be present")
 	require.Positive(t, rep.SpawnFloorMs.P50)
@@ -713,10 +803,15 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 			"a state.bin that survived the harness's teardown must still report hot=0 (sync)")
 	}
 
+	// The waived wall-clock B-E row is logged alongside the gated CPU one on purpose: the pair is
+	// the evidence for the co-load argument above, and a future reader chasing a B-E question wants
+	// to see both numbers from the same run, not just the one that was judged.
 	t.Logf("§4.6 measured (platform %s, n=%d): B-A p99=%.3fms (limit %.0fms, n=%d) | B-B p99=%.3fms "+
-		"(limit %.0fms, n=%d) | B-D p50=%.3fms p99=%.3fms max=%.3fms | spawn_floor p50=%.3fms p99=%.3fms "+
-		"(n=%d) | B-A_spawn_estimate p50=%.3fms p99=%.3fms | b_a_method=%q",
+		"(limit %.0fms, n=%d) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+
+		"(reported, not gated: --under-coload) | B-D p50=%.3fms p99=%.3fms max=%.3fms | spawn_floor "+
+		"p50=%.3fms p99=%.3fms (n=%d) | B-A_spawn_estimate p50=%.3fms p99=%.3fms | b_a_method=%q",
 		rep.Platform, rep.N, ba.P99, baLimit, ba.N, bb.P99, bbLimit, bb.N,
+		beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99,
 		bd.P50, bd.P99, bd.Max, rep.SpawnFloorMs.P50, rep.SpawnFloorMs.P99, rep.SpawnFloorMs.N,
 		spawnEst.P50, spawnEst.P99, rep.BAMethod)
 	for _, note := range rep.Notes {
