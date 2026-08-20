@@ -47,7 +47,7 @@ func TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError(t *testing.T) {
 	// this package's, and the branch it makes unreachable on Windows is reachable on the two
 	// platforms that matter for it.
 	if runtime.GOOS == "windows" {
-		t.Skip("notice: os.ReadDir on a regular file returns an empty listing rather than ENOTDIR on " +
+		t.Skip("platform: os.ReadDir on a regular file returns an empty listing rather than ENOTDIR on " +
 			"Windows, so the unexpected-error branch cannot be provoked here")
 	}
 	notADir := filepath.Join(dir, "sketches-is-a-file")
@@ -65,7 +65,7 @@ func TestHighestBloomBackupSeq_ReportsAnUnexpectedReadDirError(t *testing.T) {
 // Collapsing the two would make `qompack fsck` report a clean tree for one it could not read.
 func TestReadManifest_ReportsAnUnexpectedOpenError(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("notice: Windows maps a traversal through a non-directory to ERROR_PATH_NOT_FOUND, " +
+		t.Skip("platform: Windows maps a traversal through a non-directory to ERROR_PATH_NOT_FOUND, " +
 			"which os.IsNotExist reports as absent — the branch under test is POSIX's ENOTDIR")
 	}
 	dir := t.TempDir()
@@ -93,7 +93,7 @@ func TestReadManifest_ReportsAnUnexpectedOpenError(t *testing.T) {
 // guarantee that the store never lands in a caller's git index rests on that file existing.
 func TestEnsureLayout_ReportsAnUnexpectedStatError(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("notice: creating a symlink needs a privilege ordinary Windows processes lack, so the " +
+		t.Skip("platform: creating a symlink needs a privilege ordinary Windows processes lack, so the " +
 			"ELOOP this case turns on cannot be staged here")
 	}
 	dir := t.TempDir()
