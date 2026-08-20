@@ -153,23 +153,168 @@ func buildBudgetRow(id string, samples []time.Duration, limit time.Duration, gat
 	return row
 }
 
+// The nearest-rank percentile ranks tailAdjustedP99 reasons about — the same two internal/obs/
+// hist.go's own Snapshot computes, so a rank derived here means what the daemon's reported value
+// means.
+const (
+	rank99  = 0.99
+	rank999 = 0.999
+)
+
+// The bases tailAdjustedP99 can report its value on. They name WHICH order statistic of the
+// DELIVERED sample set was used to bound the full population's p99, so the artifact's own note
+// can say it out loud instead of presenting a bound as if it were a measurement.
+const (
+	basisDeliveredP99  = "p99"
+	basisDeliveredP999 = "p999"
+	basisDeliveredMax  = "max"
+	basisUncertifiable = "uncertifiable"
+)
+
+// ceilRank is the nearest-rank rank of the p-th percentile over n samples: ceil(p*n), clamped to
+// [1,n] — internal/obs/hist.go's percentileOf and this package's own percentile use the identical
+// rule, so ranks computed here line up with the values the daemon reports.
+func ceilRank(p float64, n int64) int64 {
+	if n <= 0 {
+		return 0
+	}
+	r := int64(math.Ceil(p * float64(n)))
+	if r < 1 {
+		r = 1
+	}
+	if r > n {
+		r = n
+	}
+	return r
+}
+
+// tailAdjustedP99 answers the question a shortfall actually poses: with `missing` of the planned
+// samples absent from snap's population, what can still honestly be said about the FULL
+// population's p99?
+//
+// The missing samples are not missing at random, and that is the whole point — every route out of
+// the population selects the SLOW end of the distribution:
+//
+//   - a request deferred to the spool got there only after internal/ipc/client.go's Send had
+//     burnt its entire connect/ACK budget waiting. For B-A that is not merely "slow": ruling #29
+//     gates B-A on the TS-anchored (recvTS - reqTS), and a deferred request's recvTS is the
+//     daemon's NEXT DRAIN — seconds away, not milliseconds. It is an over-budget sample by the
+//     gated series' own definition.
+//   - for B-B (l0_ingest, the daemon's read-to-WAL-append cost) the same request contributes no
+//     sample at all, and the omission is still not random: a client's connect or ACK deadline
+//     expires when the daemon's accept loop is momentarily too busy to answer, which is the same
+//     host-and-process pressure that makes its ingest slow. The missing B-B samples correlate
+//     with B-B's own upper tail, so dropping them is optimistic in exactly the same direction.
+//     Counting them as over-budget is the conservative reading of a correlation whose sign is
+//     known and whose magnitude is not.
+//   - a sample the daemon received but validHotPathTS refused to time (internal/daemon/
+//     handlers.go, counted as hotpath_sample_invalid) was discarded because recvTS - reqTS had
+//     already exceeded hotPathSampleMaxAge — a 10-second observation, thrown away.
+//
+// So the surviving sample set is not merely smaller, it is TRUNCATED AT THE TOP, and its p99 is a
+// strict under-estimate of the full population's. Reporting it as the gated number would let a
+// run pass B-A precisely because the slowest hooks failed to be measured. These `missing` samples
+// are therefore counted back in, as over-budget samples sitting above every delivered one, and
+// the p99 is re-derived over the whole population of observed+missing under the same nearest-rank
+// rule internal/obs/hist.go itself uses — rank = ceil(0.99 * (observed + missing)):
+//
+//   - rank > observed — the p99 itself falls inside the un-delivered block. There is no honest
+//     number to report and the gate cannot pass: ok is false.
+//   - rank <= ceil(0.99*observed) — the ceiling absorbed the shift; the daemon's own p99 already
+//     sits at or above the required rank and is exact.
+//   - otherwise the required rank sits between two order statistics the daemon reports, so the
+//     next one it DOES report (p999, else the exact max) is returned as a sound upper bound.
+//     Bucketed histograms cannot be re-ranked from a five-number summary, so an upper bound is
+//     the tightest honest answer available — and a bound is the correct direction for a gate:
+//     it can refuse to certify a run it cannot prove good, never certify one it cannot.
+func tailAdjustedP99(snap obs.HistSnapshot, missing int64) (value time.Duration, basis string, ok bool) {
+	observed := snap.N
+	if observed <= 0 {
+		return 0, basisUncertifiable, false
+	}
+	if missing <= 0 {
+		return snap.P99, basisDeliveredP99, true
+	}
+
+	want := ceilRank(rank99, observed+missing)
+	switch {
+	case want > observed:
+		return snap.P99, basisUncertifiable, false
+	case want <= ceilRank(rank99, observed):
+		return snap.P99, basisDeliveredP99, true
+	case want <= ceilRank(rank999, observed):
+		return snap.P999, basisDeliveredP999, true
+	default:
+		return snap.Max, basisDeliveredMax, true
+	}
+}
+
 // buildBudgetRowFromSnapshot builds one BudgetRow directly from a daemon-side obs.HistSnapshot —
-// B-B's only source of truth (task-7-spec.md step 8: "read the daemon-side histograms via the
-// status op"). Unlike buildBudgetRow, there are no raw per-sample durations to re-percentile: the
-// daemon's own bucketed histogram already computed them, so this reports its N/P50/P95/P99/P999/
-// Max verbatim.
-func buildBudgetRowFromSnapshot(id string, snap obs.HistSnapshot, limit time.Duration, gated bool) BudgetRow {
+// B-B's only source of truth, and (ruling #29) the gated B-A row's too (task-7-spec.md step 8:
+// "read the daemon-side histograms via the status op"). Unlike buildBudgetRow, there are no raw
+// per-sample durations to re-percentile: the daemon's own bucketed histogram already computed
+// them, so N/P50/P95/P999/Max are reported verbatim over the samples that were actually observed.
+//
+// P99 is the one field that is not verbatim, and only when missing > 0: it carries
+// tailAdjustedP99's value over the FULL planned population (see that function for why the
+// survivors' own p99 would understate it), and the gate reads that number. The returned string is
+// the disclosure note for the artifact — empty when nothing was missing, so a clean run's output
+// is byte-identical to what this harness has always produced.
+func buildBudgetRowFromSnapshot(id string, snap obs.HistSnapshot, limit time.Duration, gated bool, missing int64) (BudgetRow, string) {
+	p99, basis, certifiable := tailAdjustedP99(snap, missing)
 	row := BudgetRow{
 		BudgetID: id, N: int(snap.N),
-		P50: msf(snap.P50), P95: msf(snap.P95), P99: msf(snap.P99), P999: msf(snap.P999), Max: msf(snap.Max),
+		P50: msf(snap.P50), P95: msf(snap.P95), P99: msf(p99), P999: msf(snap.P999), Max: msf(snap.Max),
 	}
 	if gated {
 		lim := msf(limit)
 		row.LimitMs = &lim
-		pass := snap.P99 < limit
+		pass := certifiable && p99 < limit
 		row.Pass = &pass
 	}
-	return row
+	if missing <= 0 {
+		return row, ""
+	}
+	return row, tailAdjustmentNote(id, snap, missing, basis, certifiable)
+}
+
+// tailAdjustmentNote spells out, for the artifact's own notes array, exactly what was done to a
+// row whose population came up short: how many samples are missing, what they were counted as,
+// which rank the full population's p99 needs, and which order statistic of the delivered set was
+// reported in its place. Nothing about the adjustment is left implicit — the number in the p99
+// field is not a measurement, and a reader must not have to guess that.
+func tailAdjustmentNote(id string, snap obs.HistSnapshot, missing int64, basis string, certifiable bool) string {
+	total := snap.N + missing
+	want := ceilRank(rank99, total)
+	have := ceilRank(rank99, snap.N)
+
+	switch {
+	case !certifiable:
+		return fmt.Sprintf(
+			"%s's p99 CANNOT be certified and its gate is failed on that ground: %d of the %d planned samples never reached the daemon's histogram and are counted as over-budget samples, which puts the full population's nearest-rank p99 at rank %d of %d — inside the un-delivered block, since only %d samples were observed. The p99 field reports the DELIVERED set's own p99 for diagnosis only; it is a lower bound on the real one, never the gated number",
+			id, missing, total, want, total, snap.N)
+	case want <= have:
+		return fmt.Sprintf(
+			"%s: %d of the %d planned samples never reached the daemon's histogram and are counted back in as over-budget samples, but the full population's nearest-rank p99 still lands at rank %d — at or below the rank the delivered set's own p99 already reports (%d of %d) — so the p99 in this row is exact and needed no adjustment",
+			id, missing, total, want, have, snap.N)
+	default:
+		return fmt.Sprintf(
+			"%s's p99 is reported over the full planned population of %d, not the %d samples the daemon actually observed: the %d missing sample(s) are counted back in as over-budget samples (they are the SLOW ones — see tailAdjustedP99), which moves the nearest-rank p99 from rank %d to rank %d. That rank is not one the delivered p99 covers, so the delivered set's %s (%.3fms) is reported instead as a sound upper bound, and the gate is decided on it. n=%d and the other percentiles in this row are the delivered set's own",
+			id, total, snap.N, missing, have, want, basis, msf(percentileOfBasis(snap, basis)), snap.N)
+	}
+}
+
+// percentileOfBasis returns the snapshot field basis names — the inverse of tailAdjustedP99's own
+// choice, used only to print the value inside the disclosure note.
+func percentileOfBasis(snap obs.HistSnapshot, basis string) time.Duration {
+	switch basis {
+	case basisDeliveredP999:
+		return snap.P999
+	case basisDeliveredMax:
+		return snap.Max
+	default:
+		return snap.P99
+	}
 }
 
 // budgetLimit looks up id's configured Limit from obs.Budgets(), evaluated against cfg —
@@ -196,32 +341,10 @@ func budgetHistName(id obs.BudgetID) string {
 	return ""
 }
 
-// checkDeliveryIntegrity is FIX ROUND 1's I-2 guard: gotN (the daemon's own l0_ingest
-// obs.HistSnapshot.N, read via the status op) must equal exactly iterations, plus warmHotTranche
-// when warm-up ran — every observe.tool request this harness sent, and nothing else, touches
-// l0_ingest.
-//
-// FIX ROUND 2, N-1: warm-up's own bulk is admin.ping traffic (measure.go's warmDaemon), which is
-// not req.Op.HotPath() and never reaches ing.Accept — only the warm-up's small hot-path tranche
-// (warmHotTranche observe.tool requests) does. This check's expected count moved from
-// "iterations + warmIterations" to "iterations + warmHotTranche" for exactly that reason: the
-// bulk of warmIterations is deliberately NOT expected to touch l0_ingest any more.
-//
-// A shortfall means some hook spawns (or the hot tranche itself) degraded to the spool path
-// (internal/ipc/client.go's Send: a connect timeout, a write failure, DaemonEnabled==false, or a
-// HotSpool breach all swallow the failure and return quickly) instead of reaching the daemon —
-// which would bias a wall-clock estimate DOWNWARD (a spooled hook exits faster than a delivered
-// one) and could pass a gate that is actually measuring the degraded path. Fails loudly rather
-// than silently reporting on partial data.
-func checkDeliveryIntegrity(gotN int64, iterations int, warmDaemonRan bool) error {
-	want := int64(iterations)
-	if warmDaemonRan {
-		want += warmHotTranche
-	}
-	if gotN == want {
-		return nil
-	}
-	return fmt.Errorf(
-		"hotpath: delivery integrity check failed: the daemon's own l0_ingest histogram observed %d requests, want exactly %d (warm=%v x %d hot-path tranche + iterations=%d) — some hook spawns degraded to the spool path instead of reaching the daemon, which would bias every derived number; refusing to report a Report rather than silently passing a gate on partial data",
-		gotN, want, warmDaemonRan, warmHotTranche, iterations)
-}
+// The delivery guard FIX ROUND 1's I-2 introduced as checkDeliveryIntegrity now lives in
+// delivery.go, as reconcileDelivery + hookControlledShortfall. Its reason for existing is
+// unchanged and unrelaxed — a Report must never be produced over partial data — but it now
+// establishes whether a shortfall is a DEFERRAL (durable in the spool; §8.1/§12.2's documented
+// degrade-rather-than-block path) or a LOSS before deciding, and hands the deferrals to
+// tailAdjustedP99 above so they are counted back into the gated population as over-budget samples
+// rather than quietly dropped out of it.

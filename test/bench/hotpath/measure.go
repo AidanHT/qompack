@@ -111,10 +111,25 @@ const histHookControlledObservedName = "hook_controlled_observed"
 
 // buildNotes assembles the out.json "notes" array: the wave-1 B-C disclaimer task-7-spec.md step
 // 3 requires, the daemon's own strict-lower-bound cross-check against the now-gated B-A row (FIX
-// ROUND 1, controller ruling #29), and — when warm-up ran — notes explaining exactly what B-A's
-// and B-B's own n each include (M-4, and FIX ROUND 2's N-1 fix for B-A).
-func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool, iterations int) []string {
+// ROUND 1, controller ruling #29), the notes explaining exactly what B-A's and B-B's own n each
+// include when warm-up ran (M-4, and FIX ROUND 2's N-1 fix for B-A), and — whenever this run
+// deferred anything to the spool — the delivery ledger plus each gated row's own tail-adjustment
+// disclosure (rowNotes, empty strings skipped).
+//
+// A run that delivered everything adds nothing: the deferral note is emitted only when the ledger
+// actually recorded one, so a clean run's artifact is exactly what it has always been.
+func buildNotes(snap daemon.StatusSnapshot, warmDaemonRan bool, iterations int, ledger deliveryLedger, rowNotes ...string) []string {
 	notes := []string{"B-C not measured in wave 1: the processing seams are stubs"}
+	if ledger.Deferred > 0 {
+		notes = append(notes, fmt.Sprintf(
+			"delivery ledger: %d hot-path requests sent, %d delivered live to the daemon, %d DEFERRED to the client spool and 0 lost. A deferral is §8.1/§12.2's documented degrade-rather-than-block path (internal/ipc/client.go's Send spools and returns instead of waiting), so the event is durable and the daemon replays it on its next drain — but it is still a sample missing from the top of every gated daemon-side population, so it is counted back in as an over-budget sample rather than dropped",
+			ledger.Sent, ledger.Delivered, ledger.Deferred))
+	}
+	for _, n := range rowNotes {
+		if n != "" {
+			notes = append(notes, n)
+		}
+	}
 	if hs, ok := snap.Latency[histHookControlledObservedName]; ok && hs.N > 0 {
 		notes = append(notes, fmt.Sprintf(
 			"daemon-observed hook_controlled_observed (recvTS-reqTS, strict lower bound, no hotPathTailAllowance): p50=%.3fms p99=%.3fms n=%d — informational cross-check against the gated B-A row above, which adds the tail allowance",
