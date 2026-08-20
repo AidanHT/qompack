@@ -101,11 +101,23 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 	return &Lock{path: lockPath, hb: hbPath, clk: clk}, nil
 }
 
+// LockPath returns the path ReadLock reads: <projectRoot>/.qompack/run/daemon.lock.
+//
+// It exists for the caller that wants to observe whether the lock is PRESENT rather than what it
+// says, and that distinction is a real one on Windows. Go's os.Open/os.ReadFile — and so ReadLock —
+// open with FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE (syscall/syscall_windows.go),
+// so for as long as a reader holds the file open, another process's os.Remove of it fails with
+// ERROR_SHARING_VIOLATION. Lock.Release does exactly that os.Remove, so a caller polling ReadLock
+// to watch for a shutdown can itself be what stops the shutdown from completing. os.Stat on this
+// path answers the same question via GetFileAttributesEx, which takes no handle at all.
+func LockPath(projectRoot string) string {
+	return filepath.Join(paths.Of(projectRoot).Run, lockFileName)
+}
+
 // ReadLock reads projectRoot's current daemon.lock without taking it — for /qompack:status and
 // diagnostics. ok is false when the file is missing or unparseable.
 func ReadLock(projectRoot string) (LockInfo, bool) {
-	lockPath := filepath.Join(paths.Of(projectRoot).Run, lockFileName)
-	return readLockFile(lockPath)
+	return readLockFile(LockPath(projectRoot))
 }
 
 // lockIsStale runs the staleness protocol's steps 1-4 against an existing lock file, stopping at

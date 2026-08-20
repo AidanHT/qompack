@@ -41,6 +41,16 @@ const adminIdleBudget = 5 * time.Second
 // down anyway.
 const stopDrainBound = 5 * time.Second
 
+// stopCleanupBound bounds how long Run waits for an ASYNCHRONOUSLY invoked Stop — admin.shutdown's
+// `go func(){ Stop() }()` — to finish its cleanup before returning anyway.
+//
+// It is expressed as a multiple of stopDrainBound rather than as an independent number because
+// Stop's bounded drain is its longest single step; every later step (ingest close, sketch saves,
+// metrics persist, state removal, server close, lock release) is either fast or separately bounded
+// by ipc's own serverCloseWait. Three times the longest step is therefore a generous ceiling that
+// still guarantees Run cannot be wedged forever by a cleanup step that never returns.
+const stopCleanupBound = 3 * stopDrainBound
+
 // defaultIdleExitSeconds mirrors config.Defaults().Runtime.Daemon.IdleExitSeconds (1800). Not a
 // default source itself — a caller handing New a zero config.Config still gets a sane idle-exit
 // window instead of "exit immediately".
@@ -130,6 +140,21 @@ type daemon struct {
 	// point inside Run's own startup sequence, is the one that closes V2-MERGE-25's window.
 	firstServedOnce sync.Once
 	firstServed     chan struct{}
+
+	// runWG tracks the goroutines Run starts DIRECTLY: the hot-path worker and the serving
+	// re-drain. Cancelling runCtx tells them to stop; it does not wait for them to have stopped,
+	// and both can be inside a paths.WriteAtomic at that moment — hotPathWorker through
+	// applyHotPathTransition's ipc.WriteState, redrainOnceServing through drainer.saveState. A
+	// staging file under .qompack/tmp/ only survives if the process dies between the os.CreateTemp
+	// and the deferred os.Remove, so "the daemon has stopped" has to mean these are joined, not
+	// merely signalled. The ingest worker pool has its own join (ing.Wait) and the connection
+	// handlers have theirs (ipc.Server.Close); this is the group nothing else covered.
+	//
+	// Every goRun call sits in Run's startup, ahead of the ipc.NewServer that binds the endpoint,
+	// and every way Stop can be reached — admin.shutdown, Run's ctx.Done arm, its idle-exit arm,
+	// its serveErrCh arm — is downstream of that endpoint existing or of Run's own select loop. So
+	// a goRun can never add to this group after Stop's join has already passed it.
+	runWG sync.WaitGroup
 
 	stopOnce sync.Once
 	// stopped closes near the START of Stop's cleanup sequence (before the actual work), so Run's
@@ -361,7 +386,7 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.runCancelMu.Unlock()
 
 	d.ing.Start(runCtx, 0, d.runIngested)
-	go d.hotPathWorker(runCtx)
+	d.goRun(func() { d.hotPathWorker(runCtx) })
 
 	d.drain.Store(newDrainer(DrainConfig{
 		Root:     d.root,
@@ -373,12 +398,27 @@ func (d *daemon) Run(ctx context.Context) error {
 		IsLive:   d.sessionIsLive,
 	}))
 
+	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
+	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
+	// only dispatchOp can close and only an accepted request can reach — and it buys the ordering
+	// runWG's join depends on: every goRun in this function precedes the existence of the endpoint,
+	// so no route into Stop can run before this group is fully populated.
+	d.goRun(func() { d.redrainOnceServing(runCtx) })
+
 	server, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)
 	if err != nil {
 		// The deferred cancel() above already stops the ingest workers and the hot-path worker
 		// on this return, but nothing else releases the lock this Run call already holds — left
 		// unreleased, daemon.lock would keep naming this (now-dead) process's pid, and no
 		// replacement daemon could ever take the project while it lives (fix round 1, M-6).
+		//
+		// Stop never runs on this path (it needs a server), so the goRun join Stop would have done
+		// is done here instead, for the same reason: Run returning is the process exiting, and
+		// signalling a goroutine is not waiting for it. Neither of the two can be mid-write here —
+		// nothing has served, so no hot-path sample and no re-drain exists to write — but the
+		// invariant is "every exit from Run joins them", not "every exit that looked risky".
+		cancel()
+		d.runWG.Wait()
 		if relErr := d.lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
 		}
@@ -412,7 +452,6 @@ func (d *daemon) Run(ctx context.Context) error {
 
 	serveErrCh := make(chan error, 1)
 	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
-	go d.redrainOnceServing(runCtx)
 
 	var zeroLiveSince time.Time
 	for {
@@ -439,6 +478,12 @@ func (d *daemon) Run(ctx context.Context) error {
 			// error is deliberately not allowed to shadow the real failure that triggered this arm.
 			select {
 			case <-d.stopped:
+				// d.stopped closes at the START of Stop, before a single cleanup step has run, so
+				// returning here would hand control back to internal/cli's runDaemon — and thence
+				// to cmd/qompack's os.Exit — while the rest of the cleanup is still in flight on
+				// admin.shutdown's own goroutine. awaitStopCleanup is what makes "Run returned"
+				// mean "the daemon has finished"; see its doc comment.
+				d.awaitStopCleanup()
 				return nil
 			default:
 				_ = d.Stop(context.Background())
@@ -638,6 +683,12 @@ func (d *daemon) Stop(ctx context.Context) error {
 			runCancel() // unblocks Run's own select loop and stops the worker pool below.
 		}
 
+		// Cancelling is a request, not an acknowledgement. Join Run's own goroutines here, before
+		// anything below writes, so that no later step of this cleanup — and no caller who waits
+		// for this cleanup — can be racing a paths.WriteAtomic that the hot-path worker or the
+		// serving re-drain still has open under .qompack/tmp/. See runWG.
+		d.runWG.Wait()
+
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
 		cancel()
@@ -674,6 +725,54 @@ func (d *daemon) Stop(ctx context.Context) error {
 		}
 	})
 	return stopErr
+}
+
+// goRun starts one of Run's own goroutines inside runWG, so Stop can join it rather than merely
+// cancel it. Every `go` in Run whose body can still touch the filesystem after the run context is
+// cancelled belongs here.
+//
+// server.Serve deliberately does NOT: Run joins it itself, by reading serveErrCh, and its own
+// connection handlers are joined by ipc.Server.Close's bounded wait.
+func (d *daemon) goRun(fn func()) {
+	d.runWG.Add(1)
+	go func() {
+		defer d.runWG.Done()
+		fn()
+	}()
+}
+
+// awaitStopCleanup blocks until an asynchronously-invoked Stop has finished its ENTIRE cleanup
+// sequence, bounded by stopCleanupBound.
+//
+// It exists because of what "Run returned" means to the only production caller there is. internal/
+// cli's runDaemon returns the moment Run does, and cmd/qompack is `os.Exit(cli.Dispatch(...))` —
+// so Run's return is the daemon process's death, not a step before it. admin.shutdown deliberately
+// answers the client first and stops the daemon on a separate goroutine (handlers.go
+// handleAdminShutdown), and the first two things that goroutine does — close(d.stopped) and
+// runCancel() — are precisely what unblock Run. Left unwaited, the process therefore exits with the
+// drain, the ingest WAL close, the sketch saves, metrics.Persist, the state.bin removal, the server
+// close and the lock release all still to run.
+//
+// Three of those steps write through paths.WriteAtomic, which stages under .qompack/tmp/ as
+// "wa-<random>" and unlinks the staging file in a deferred call. os.Exit lands between the
+// os.CreateTemp and that defer often enough to matter, and what it leaves is not transient: the
+// staging file outlives every process that knew about it. That is the debris test/guards'
+// TestV1_WriteSetConfinedAcrossFullHookSequence sees, and it comes with an unreleased daemon.lock
+// (no replacement daemon can take the project until it goes stale, 90s) and a state.bin still
+// advertising a dead endpoint.
+//
+// The wait is bounded rather than open-ended so a cleanup step that never returns degrades to the
+// old behaviour — an exit with debris — instead of a daemon that will not die, and it says so out
+// loud rather than silently (§13 invariant 10).
+func (d *daemon) awaitStopCleanup() {
+	t := time.NewTimer(stopCleanupBound)
+	defer t.Stop()
+	select {
+	case <-d.stopDone:
+	case <-t.C:
+		d.log.Loud("daemon: shutdown cleanup did not finish within its bound; exiting with it still in flight",
+			"bound", stopCleanupBound.String())
+	}
 }
 
 // isAddrTooLong reports whether err wraps ipc.ErrAddrTooLong.
