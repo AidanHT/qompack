@@ -360,42 +360,214 @@ const gcDeadlineOvershoot = 50 * time.Millisecond
 // inside, and the constant needs revisiting rather than the assertion.
 const gcOvershootCeiling = 250 * time.Millisecond
 
-// gcOvershootSeeds is large enough that half of a full sweep lands well inside the sweep rather
-// than inside the mark phase, which is what makes the measurement below one of check granularity
-// rather than one of setup cost.
-const gcOvershootSeeds = 1500
+// gcOvershootSeeds is the fixture size, and it is a whole number of gcCheckEvery intervals on
+// purpose.
+//
+// Two things must be true for the calibrated budget below to land where the measurement needs it:
+// after the sweep's FIRST deadline check, or the overshoot measures the mark phase, and before its
+// LAST, or the sweep finishes and never truncates at all. The checks fall at objects 256, 512, …,
+// so in units of the judged sweep those two points are gcCheckEvery/N and
+// floor(N/gcCheckEvery)*gcCheckEvery/N. A budget of half a calibrated sweep therefore tolerates
+// the judged pass running up to N/(2*gcCheckEvery) times SLOWER than calibration, and up to
+// N/(2*floor(N/gcCheckEvery)*gcCheckEvery) — 2x, once N is a whole number of intervals — FASTER.
+//
+// 1 500 was neither large enough nor a whole number of intervals: its last 220 objects (14.7 % of
+// the sweep) fell past the final check, which cut the fast-side tolerance from 2x to 1.71x, and the
+// slow side stood at 2.93x. Twelve whole intervals buy 2x fast and 6x slow instead, and both ends
+// widen on EVERY draw even after the estimator change below, which lowers the number they are
+// multiples of. Eight consecutive unbounded passes over the identical tree, three trials on a
+// Windows development host, put the fastest of four at 0.74x, 0.88x and 0.95x of the first, so 2x
+// of the fastest is at most 0.5x of the single first sample the shipped test priced from (against
+// its 0.586x), and 6x of the fastest is at least 4.4x of it (against its 2.93x) — the slow bracket
+// widens by half again even in the draw where the first sample was the slowest one going. Eight
+// intervals would only have broken even there, which is why this is twelve.
+//
+// The size is worth its cost only because BOTH ends get used. Quiet, the same three trials put the
+// judged pass between 0.81x and 1.31x of the fastest-of-four calibration — nowhere near either
+// bracket. Busy, the ratio leaves the band at both ends, and neither end is hypothetical. The fast
+// end is the CI failure, and it reproduces off CI: five runs of the SHIPPED test on a Windows host
+// whose sweep had slowed fourfold over a working session failed twice, both times on "half of a
+// measured full sweep must not be enough to finish it", while nineteen runs of the fastest-of-four
+// rule on that same host, at this fixture size and at 2 048, never once reached it. The slow end
+// is the same estimator seen from the other side, and it showed up under an I/O
+// co-load storm spanning both passes: two of five runs of the SHIPPED test truncated at the very
+// first check instead, 255 objects, its 2.93x bracket. Seeding is linear in the fixture — the same
+// per-object cost at 1 500, 1 536, 2 048 and 3 072 seeds, measured, with no penalty for the larger
+// tree — so the whole price of the wider band is 1 572 more seeds.
+const gcOvershootSeeds = 12 * gcCheckEvery
+
+// gcCalibrationPasses is how many unbounded sweeps price the budget below, of which the FASTEST
+// wins.
+//
+// One sample is not a measurement of this host; it is a measurement of this host's next few tens
+// of milliseconds. A sweep can only be pushed SLOWER than what the machine costs — by the
+// co-scheduled package binaries `devtool cover` runs, by the first walk of a tree the seeding loop
+// has only just finished writing, by one scheduler slice lost to another runnable goroutine —
+// never faster, so the minimum over several samples is the closest estimate of what the judged
+// pass will cost and every slower sample is noise of known sign. That is the same estimator change
+// item 18 of plans/V2-report.md §0 made to TestSliceLatencyBudget (median-of-20 to fastest-of-20,
+// c18edb0), for the same reason and in the same direction.
+const gcCalibrationPasses = 4
+
+// gcCalibratedSweep is the deadline budget's estimator: of the unbounded passes measured over the
+// tree, the FASTEST one prices the budget. See gcCalibrationPasses for why the minimum, and
+// TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass for the arithmetic it has to
+// satisfy, asserted without a clock.
+func gcCalibratedSweep(passes []GCReport) GCReport {
+	fastest := passes[0]
+	for _, p := range passes[1:] {
+		if p.Duration < fastest.Duration {
+			fastest = p
+		}
+	}
+	return fastest
+}
+
+// TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass is the host-independent half of the
+// overshoot test below: the same estimator and the same check-schedule arithmetic, over pass
+// durations supplied rather than measured, so the property is asserted on a host too fast, too
+// slow or too loaded to demonstrate it with a clock.
+//
+// CI run 32298432254 (ubuntu, cover job, 2a5c31c) failed the overshoot test at its PRECONDITION —
+// "half of a measured full sweep must not be enough to finish it" — with the whole test, 1 500
+// seeds included, taking 0.70 s. It left no timings behind, because the shipped test logged them
+// only after the assertion it failed on. What it does establish is the shape: the judged pass
+// swept the whole tree inside a budget of half the one calibration sample, so that sample was
+// worth more than twice the sweep it priced. This test fixes that shape in numbers, asserts the
+// shipped rule fails on it, and asserts the estimator and the fixture absorb it — including how
+// far wrong the estimate may be in EACH direction, which is what the fixture size buys.
+func TestGC_DeadlineBudgetSurvivesATransientlySlowCalibrationPass(t *testing.T) {
+	require.Zero(t, gcOvershootSeeds%gcCheckEvery,
+		"the fixture must be a whole number of check intervals, or its tail is swept unchecked; "+
+			"see gcOvershootSeeds")
+
+	// A quiet fast host's sweep, and one sample a transient stretched past twice it. The outlier
+	// is first because that is where the shipped rule read its only sample.
+	const sweep = 15 * time.Millisecond
+	const inflated = 40 * time.Millisecond
+	passes := []GCReport{{Duration: inflated, ScannedObjects: gcOvershootSeeds}}
+	for i := 0; i < gcCalibrationPasses-1; i++ {
+		passes = append(passes, GCReport{
+			Duration:       sweep + time.Duration(i)*time.Millisecond,
+			ScannedObjects: gcOvershootSeeds,
+		})
+	}
+	require.Len(t, passes, gcCalibrationPasses)
+
+	budget := gcCalibratedSweep(passes).Duration / 2
+
+	// checks returns where a judged sweep costing d consults its deadline: the earliest point a
+	// budget may expire at without measuring the mark phase instead of check granularity, and the
+	// latest point it may expire at and still truncate anything. sweep consults the deadline after
+	// every gcCheckEvery objects, so those are the (gcCheckEvery-1)th and the last object.
+	checks := func(d time.Duration) (first, last time.Duration) {
+		return d * (gcCheckEvery - 1) / gcOvershootSeeds, d * (gcOvershootSeeds - 1) / gcOvershootSeeds
+	}
+
+	_, shippedLast := checks(sweep)
+	require.Greater(t, passes[0].Duration/2, shippedLast,
+		"premise: half the transient-inflated sample outlasts the whole judged sweep, which is the "+
+			"shape CI run 32298432254 failed on — if this stops holding, the numbers above no "+
+			"longer reproduce the defect and this test is asserting nothing")
+
+	// How far the estimate may be wrong in either direction before a bracket fails. The slow side
+	// is gcOvershootSeeds/(2*gcCheckEvery) and the fast side is 2x, and both come from the fixture
+	// being twelve whole check intervals rather than 1 500 objects.
+	for _, tc := range []struct {
+		name   string
+		judged time.Duration
+	}{
+		{"judged pass as fast as the fastest calibration", sweep},
+		{"judged pass twice as slow", 2 * sweep},
+		{"judged pass at the slow bracket", sweep * (gcOvershootSeeds / gcCheckEvery) / 2},
+		{"judged pass nearly twice as fast", sweep * 55 / 100},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first, last := checks(tc.judged)
+			require.Greater(t, budget, first,
+				"the deadline would be gone by the sweep's first check, so the overshoot would "+
+					"measure the mark phase")
+			require.Less(t, budget, last,
+				"the sweep would outlive the deadline's last check, so nothing would truncate and "+
+					"the deadline would go unasserted")
+		})
+	}
+}
 
 // TestGC_DeadlineOvershootIsBoundedByTheCheckInterval asserts V2-SP06-20's ±50 ms.
 //
-// The deadline is CALIBRATED rather than fixed: an unbounded dry run over the same tree is timed
-// first and half of that becomes the budget. A fixed short deadline would expire before the sweep
-// began, and the overshoot would then measure the mark phase, not the check interval. It runs dry
-// on purpose for the same reason — GCPolicy.Deadline is consulted only inside sweep, so a pass
-// that also tombstones several hundred dead roots spends unbounded time before the first check,
-// and folding that in would measure a different thing. (That tombstoning is unbounded by the
-// deadline is a real, separate gap; it is recorded rather than papered over here.)
+// The deadline is CALIBRATED rather than fixed: unbounded dry runs over the same tree are timed
+// first and half of the fastest becomes the budget. A fixed short deadline would expire before the
+// sweep began, and the overshoot would then measure the mark phase, not the check interval. They
+// run dry on purpose for the same reason — GCPolicy.Deadline is consulted only inside sweep, so a
+// pass that also tombstones several hundred dead roots spends unbounded time before the first
+// check, and folding that in would measure a different thing. (That tombstoning is unbounded by
+// the deadline is a real, separate gap; it is recorded rather than papered over here.)
+//
+// Calibrating from ONE pass is what CI run 32298432254 failed on, at the precondition rather than
+// at the bound: the ubuntu cover job priced a budget from a calibration pass that cost more than
+// twice what the pass it bounded cost, so the judged sweep finished inside its deadline and
+// "half of a measured full sweep must not be enough to finish it" failed on a correct product.
+// That is item 25's defect seen from the other side. There, load ROSE between the two passes and
+// the judged pass overshot an allowance priced when the host was quicker (33e82b5, which prices
+// the allowance from whichever pass ran slower — kept below, and untouched). Here the host was
+// quicker for the pass being JUDGED than for the one doing the pricing, and the same single-sample
+// estimator under-delivered in the mirror direction. Both are the genus items 18, 22 and 25 name:
+// a self-scaling wall-clock check whose scaling under-delivers its documented intent. The budget
+// is now priced from the fastest of gcCalibrationPasses samples, which is unbiased by transient
+// load, and the fixture is sized so that a mispricing has to be far larger than any ratio measured
+// on this fixture before either bracket around the budget can fail.
 func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
 	for i := 0; i < gcOvershootSeeds; i++ {
 		gcSeed(t, tp, fmt.Sprintf("src/f%04d.ts", i), fmt.Sprintf("overshoot body %d, unique\n", i))
 	}
-	require.Greater(t, objectCount(t, tp), gcCheckEvery*4,
+	objects := objectCount(t, tp)
+	require.Greater(t, objects, gcCheckEvery*4,
 		"fixture sanity: the sweep must cross several deadline checks")
+	require.Zero(t, objects%gcCheckEvery,
+		"fixture sanity: %d objects is %d whole check intervals plus %d objects, and that remainder "+
+			"is swept with NO deadline check at all — see gcOvershootSeeds",
+		objects, objects/gcCheckEvery, objects%gcCheckEvery)
 
-	full, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true})
-	require.NoError(t, err)
-	require.False(t, full.Truncated, "the calibration pass must complete")
-	require.Positive(t, full.ScannedObjects)
-	budget := full.Duration / 2
+	// The fastest of several passes over the identical tree, not the first one: see
+	// gcCalibrationPasses. The discarded passes are not waste — the first walk of a freshly
+	// written tree is exactly the sample a single-pass calibration is stuck with.
+	var passes []GCReport
+	var slowest time.Duration
+	for i := 0; i < gcCalibrationPasses; i++ {
+		pass, perr := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true})
+		require.NoError(t, perr)
+		require.False(t, pass.Truncated, "the calibration pass must complete")
+		require.Equal(t, objects, pass.ScannedObjects,
+			"every calibration pass must sweep the whole tree, or it prices a different sweep")
+		passes = append(passes, pass)
+		if pass.Duration > slowest {
+			slowest = pass.Duration
+		}
+	}
+	fastest := gcCalibratedSweep(passes)
+	budget := fastest.Duration / 2
+	require.Positive(t, budget,
+		"a zero budget is not a deadline: GC arms one only for a POSITIVE GCPolicy.Deadline, so a "+
+			"calibration too short to measure would leave the sweep below unbounded and truncating "+
+			"for no reason — %d objects swept in %v", objects, fastest.Duration)
 
 	start := time.Now()
 	rep, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true, Deadline: budget})
 	overshoot := time.Since(start) - budget
 	require.NoError(t, err)
-	require.True(t, rep.Truncated, "half of a measured full sweep must not be enough to finish it")
+	require.True(t, rep.Truncated,
+		"half of a measured full sweep must not be enough to finish it: the judged pass swept all "+
+			"%d objects inside a %v budget, so it ran more than twice as fast as the fastest of %d "+
+			"calibration passes (%v…%v) over the same tree moments earlier",
+		objects, budget, gcCalibrationPasses, fastest.Duration, slowest)
 	require.Greater(t, rep.ScannedObjects, gcCheckEvery,
-		"calibration check: the deadline must expire INSIDE the sweep, or this measures the mark phase")
+		"calibration check: the deadline must expire INSIDE the sweep, or this measures the mark "+
+			"phase; the %v budget was gone by the sweep's first check, so the judged pass ran more "+
+			"than %dx slower than the fastest of %d calibration passes (%v…%v)",
+		budget, objects/(2*gcCheckEvery), gcCalibrationPasses, fastest.Duration, slowest)
 
 	// One check interval, priced on THIS host — from BOTH passes, and the slower rate wins. The
 	// limit is the §2.6 row's 50 ms, or two intervals when a single interval is already close to
@@ -410,7 +582,13 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 	// §2.6 row's actual subject) rather than about scheduler weather between two measurements;
 	// the fixed gcOvershootCeiling above still caps the total relaxation, so a genuinely
 	// too-coarse gcCheckEvery fails regardless of which pass priced it.
-	interval := full.Duration / time.Duration(full.ScannedObjects) * gcCheckEvery
+	//
+	// The calibration side of that maximum is now the FASTEST calibration pass rather than the
+	// first one, which can only lower it: the allowance is at most what it was before this test
+	// grew its extra calibration passes, never more. Item 25's protection is the judged-pass term,
+	// and that is untouched — a pass slowed by co-load still prices its own interval and still
+	// wins the maximum.
+	interval := fastest.Duration / time.Duration(fastest.ScannedObjects) * gcCheckEvery
 	if measured := (budget + overshoot) / time.Duration(rep.ScannedObjects) * gcCheckEvery; measured > interval {
 		interval = measured
 	}
@@ -418,8 +596,10 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 	if twoIntervals := 2 * interval; twoIntervals > limit {
 		limit = twoIntervals
 	}
-	t.Logf("full sweep %v over %d objects; check interval %v; budget %v; overshoot %v after %d objects; limit %v",
-		full.Duration, full.ScannedObjects, interval, budget, overshoot, rep.ScannedObjects, limit)
+	t.Logf("calibration %v…%v over %d objects (fastest of %d); check interval %v; budget %v; "+
+		"overshoot %v after %d objects; limit %v",
+		fastest.Duration, slowest, fastest.ScannedObjects, gcCalibrationPasses, interval, budget,
+		overshoot, rep.ScannedObjects, limit)
 
 	require.LessOrEqual(t, limit, gcOvershootCeiling,
 		"two deadline checks cost %v on this host, so gcCheckEvery (%d) is too coarse to honour a "+
