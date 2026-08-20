@@ -176,7 +176,11 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 	}
 
 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     root,
+		ConnectDeadline: e2eRoundTripDeadline,
+		AckDeadline:     e2eRoundTripDeadline,
+	})
 	defer func() { _ = c.Close() }()
 
 	// Client.Send never propagates an error — a failed connect/write/ACK round trip just spools
