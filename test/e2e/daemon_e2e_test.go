@@ -130,7 +130,11 @@ func e2eStatus(t *testing.T, root string) daemon.StatusSnapshot {
 	require.NoError(t, err)
 
 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     root,
+		ConnectDeadline: e2eRoundTripDeadline,
+		AckDeadline:     e2eRoundTripDeadline,
+	})
 	defer func() { _ = c.Close() }()
 
 	resp, err := c.Send(context.Background(), ipc.Request{
@@ -190,7 +194,11 @@ func e2eLiveIngestSamplesOrUnknown(root, histName string) int64 {
 		return -1
 	}
 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     root,
+		ConnectDeadline: e2eRoundTripDeadline,
+		AckDeadline:     e2eRoundTripDeadline,
+	})
 	defer func() { _ = c.Close() }()
 
 	resp, err := c.Send(context.Background(), ipc.Request{

@@ -862,7 +862,11 @@ func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 	}
 
 	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
-	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{ProjectRoot: root})
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     root,
+		ConnectDeadline: v1RoundTripDeadline,
+		AckDeadline:     v1RoundTripDeadline,
+	})
 	defer func() { _ = c.Close() }()
 
 	// A ticker, not time.Sleep, per §6.1's wall-clock-sleep ban (devtool lint's sleepcheck
