@@ -687,14 +687,35 @@ measurement, test result or gate verdict changes.
   remove that hazard rather than route around it, as `test/guards/v1_integration_test.go:843-851`
   currently does by polling with `os.Stat`. Note the POSIX-semantics replace does **not** help
   here: `os.Remove` still needs the reader to have granted delete sharing.
-- **The V2-MERGE-25 wall-clock audit is still not finished.** 1aa1589 fixed the B-E row and 077b759
-  the GC bracket, but seven sites still bound a wall-clock duration measured under whole-tree
-  co-load: `internal/dag/bench_test.go:292`, `internal/dag/slice_test.go:558`,
-  `internal/daemon/ingest_test.go:85`, `internal/daemon/daemon_test.go:182`,
-  `internal/ipc/probe_test.go:69`, `test/e2e/v1_integration_test.go:428`,
-  `test/integration/appendonly_test.go:581`. Line numbers are as of cc48ec6 and every one was
-  re-checked against the tree; an eighth, `internal/ipc/client_test.go`, appeared in the survey but
-  is the site bc44d2a had already hardened, so it is excluded rather than counted twice.
+- **The V2-MERGE-25 wall-clock audit is now done, and the earlier list in this section was wrong.**
+  It named seven remaining sites. That list was built from a survey of the packages already under
+  suspicion rather than of the tree, and it was wrong in both directions: it omitted at least five
+  real gates — including `internal/dag/slice_compare_test.go:210`, which then failed CI on windows
+  in run 32397340626 — and it listed several that a proper audit judges co-load-safe. The full
+  inventory of every wall-clock gate in the tree, with its judgement:
+
+  | site | gates | co-load-safe |
+  |---|---|---|
+  | `dag/slice_compare_test.go:210` | thin elapsed ≤ full elapsed | **No** — fixed in f1ca613, now an edge/node subset count |
+  | `dag/bench_test.go:292` | 10k-batch `CrossingEdges`/call < 5 µs | **No** — batching fixes granularity, not co-load |
+  | `integration/hotpath_test.go:712`, `:719` | B-A / B-B p99 < §4.6's 15 ms | **No** — a real SLO, but timestamp-anchored rather than spawn-timed |
+  | `test/replay/main.go:274`, `:317` | whole replay run < `maxWall` | **No** — a harness CI gate, not a `go test` assertion |
+  | `dag/bench_test.go:266` | fastest-of-20 slice < 1 ms | Partly — the min-of-N sample mitigates it |
+  | `e2e/v1_integration_test.go:428` | hook wall < its manifest timeout | Mostly — seconds-scale, and B-D is reported not gated |
+  | `dag/slice_test.go:558` | 1 µs-deadline slice returns < 50 ms | Yes — four orders of headroom; a liveness bound |
+  | `daemon/daemon_test.go:182` | blocked `dispatchOp` < 1 s | Yes — bounds a hang, not a cost |
+  | `daemon/ingest_test.go:85` | five ring-full `Accept`s < 500 ms | Yes — constant already raised after `-race` flakes |
+  | `ipc/probe_test.go:69` | `Probe` returns inside its own 2 s dial budget | Yes — the failure mode takes ≥ 2 s |
+  | `integration/appendonly_test.go:581` | writers finish in 2×`IdleTickMax` | Yes — a watchdog on a loop the test drives |
+  | `store/gc_test.go:1083`, `:1109` | overshoot ≤ host-calibrated limit | Yes — calibrated per host (077b759) |
+  | `ipc/client_test.go:747`, `:919`, `:925`, `:929` | elapsed − `inAppend` ≤ transport bound | Yes — spool append subtracted (bc44d2a) |
+  | `integration/hotpath_test.go:757` | `B-E_cpu` p99 < limit | Yes — CPU time, not wall (1aa1589) |
+
+  Four rows remain unsafe and unfixed. `hotpath_test.go:712`/`:719` are the most consequential:
+  they gate the two headline §4.6 budgets, they have always passed with wide margin (windows B-A
+  p99 3.072 ms against 15 ms), and they are anchored on daemon-observed timestamps rather than on a
+  spawn's wall clock — but they are still wall-clock gates on a shared runner and they belong on
+  this list rather than in a footnote.
 - **`devtool lint`'s `stubskips` rule is unenforceable on the platform it governs.** It greps the
   output of a real test run rather than reading source, so a `runtime.GOOS == "windows"` skip only
   reaches it on Windows — and CI runs `devtool lint` in the ubuntu-only `verify` job. cc48ec6 fixed
