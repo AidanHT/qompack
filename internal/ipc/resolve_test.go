@@ -205,6 +205,73 @@ func TestNormalizeRoot_StripsTrailingSlashExceptBareRoot(t *testing.T) {
 	require.Equal(t, "/proj/foo", stripTrailingSlash("/proj/foo"))
 }
 
+// TestStripTrailingSlash_EveryVolumeRootShapeIsHostIndependent widens the case above to the rest of
+// the volume-root spellings Windows' own filepath.Clean can emit with a trailing separator — a UNC
+// share root, the two device-path roots, and a UNC path spelled as a device — because the decision
+// used to come from filepath.VolumeName, which is compiled per-GOOS and reports no volume at all
+// for any of these on linux and macOS. That is what made the drive-root case above fail on those
+// two platforms, and every shape here fails the same way for the same reason. It matters beyond the
+// test: this string is hashed into the name of an IPC endpoint (§2.4), so a per-host answer is a
+// per-host socket name for one project.
+//
+// The second table is the other half of the same contract — a volume root keeps its separator and
+// nothing else does, including the three near misses: "//host/" names a host with no share, "//?/"
+// a device prefix with no component behind it, and "proj/foo/" carries no volume at all.
+func TestStripTrailingSlash_EveryVolumeRootShapeIsHostIndependent(t *testing.T) {
+	for _, root := range []string{
+		"/", "C:/", "c:/", "D:/",
+		"//host/share/",
+		"//?/C:/", "//./pipe/",
+		"//./UNC/host/share/",
+	} {
+		require.Equal(t, root, stripTrailingSlash(root), "%q is a bare root: its separator must survive", root)
+	}
+
+	for _, tc := range []struct{ in, want string }{
+		{"C:/proj/", "C:/proj"},
+		{"//host/share/proj/", "//host/share/proj"},
+		{"//?/C:/proj/", "//?/C:/proj"},
+		{"//./UNC/host/share/proj/", "//./UNC/host/share/proj"},
+		{"//host/", "//host"},
+		{"//?/", "//?"},
+		{"/proj/foo/", "/proj/foo"},
+		{"proj/foo/", "proj/foo"},
+	} {
+		require.Equal(t, tc.want, stripTrailingSlash(tc.in), "%q is not a bare root: its separator must go", tc.in)
+	}
+}
+
+// TestWindowsVolumeLen_MatchesWindowsOnEveryHost pins the volume grammar stripTrailingSlash decides
+// from. Every want here is the length filepath.VolumeName reports for that path on a Windows build,
+// so the table doubles as the proof that replacing that call changed no Windows answer — it is
+// asserted on every platform because that is the whole point of not calling filepath.VolumeName.
+//
+// "//./UNC" is the boundary case: it matches the `\\.\UNC` prefix with nothing behind it, so the
+// host scan starts one byte past the end of the string and must find nothing rather than run off it.
+func TestWindowsVolumeLen_MatchesWindowsOnEveryHost(t *testing.T) {
+	for _, tc := range []struct {
+		p    string
+		want int
+	}{
+		{"", 0},
+		{"proj", 0},
+		{"proj/foo", 0},
+		{"/", 0},
+		{"/proj/foo", 0},
+		{"//", 2},
+		{"C:", 2},
+		{"C:/proj", 2},
+		{"//host/share", 12},
+		{"//host/share/proj", 12},
+		{"//?/C:", 6},
+		{"//?/C:/proj", 6},
+		{"//./UNC", 7},
+		{"//./UNC/host/share/proj", 18},
+	} {
+		require.Equal(t, tc.want, windowsVolumeLen(tc.p), "volume name of %q", tc.p)
+	}
+}
+
 // TestResolveFor_QompackIPCAddrOverridesEverything asserts QOMPACK_IPC_ADDR wins over both the
 // normal resolution AND an unresolvable (empty) project root — it is the escape hatch tests and CI
 // use to keep sockets inside a temp directory, and it must never depend on hashing a real root.
