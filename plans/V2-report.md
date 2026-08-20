@@ -582,3 +582,86 @@ the row itself. That row now names `TestSelfTest_RegisteredInAll` and `TestDispa
 exist. The current tree reports 1327 patterns parsed, 299 resolved against 49 packages, one
 platform-excluded and two waived.
 
+## 16. What the first CI runs found
+
+V2-ALL-04 was recorded **environment-blocked** because the repository had no git remote. One now
+exists, and `ci.yml`'s nine jobs run on ubuntu-latest, macos-latest and windows-latest. That
+retires the escape clause §14 invoked, and with it three of this report's own disclosed
+limitations: §2.5a C's never-executed POSIX paths, §9.1's windows-only platform note, and
+V2-SP04-04's environment-blocked three-OS assertion.
+
+**Every one of the three was hiding a defect.** Five verification passes could not have found them,
+because the code paths they cover had never been executed. That is the honest reading of this
+section: the checkpoint's verdicts were sound for the platform it could measure, and it said so in
+as many words — the gap it recorded is exactly where the defects were.
+
+### 16.1 Defects the CI matrix found
+
+| # | Defect | Platform | Fix |
+|---|---|---|---|
+| 1 | `-race` had never run in CI. `ci.yml` sets `CGO_ENABLED: 0` globally and the race detector requires cgo, so `go test -race` refused and exited 2 rather than degrading. `nightly.yml` already carried the override with a comment explaining exactly this; it was never applied here. | CI only | 8d8de62 |
+| 2 | CI installed go1.26.5 against a `toolchain go1.26.6` directive, so it built on a Go still carrying the four advisories V2-SP05-28 records as fixed. `GOTOOLCHAIN=local` enforces only the `go` directive and ignores `toolchain`; `go-version-file` reads the `go` directive too. Only the literal patch version works, and a guard test now pins it to go.mod. | CI only | bd371bb |
+| 3 | Data race on the daemon's drainer pointer: `Run` assigns it while `Drain` reads it from other goroutines. The field carried a comment asserting the read was safe "because a nil drainer reports (0, nil)" — not a property an unsynchronized read has. The detector reported it twice; one field. | linux, macos | 2a5c31c |
+| 4 | `paths.Norm` compared a fully symlink-resolved target against an unresolved root, so a project reached through a symlink left internal symlinks unresolved and forked the dedup space of a content-addressed store. Its tests skip on a Windows dev box for want of the symlink privilege. | linux, macos | f350586 |
+| 5 | `stripTrailingSlash` asked `filepath.VolumeName` whether a path was a drive root. That function is selected at compile time by GOOS: the unix build returns the empty string for every input, so a drive root was stripped to a bare drive letter. | linux, macos | 3f7a024 |
+| 6 | The shared transport conformance suite built its client with production hot-path budgets (connect 5 ms, ACK 8 ms). Under go-winio a budget below 10 ms buys one CreateFile attempt and no ERROR_PIPE_BUSY retry, so the dial could not survive the listener's instance-repost gap. It surfaced as OK false with an empty Err — the client's spool-and-return signature, meaning it never reached the server at all. | windows | c5ca859 |
+| 7 | Same class, four more clients: the integration status probe and three test helpers built with a project root and nothing else, which makes the client fall back to state.bin's hot-path budgets. `daemon_e2e_test.go` argues this exact point in `e2eProbeTimeout`'s doc comment, four functions above a status client that inherited the 5 ms default anyway. | windows | e0c6dd3, 4d27b78 |
+| 8 | Graceful shutdown could exit mid-write: the handler answers `admin.shutdown` first and runs `Stop` on another goroutine, so `Run` could return — and the process exit — while that shutdown was still inside `paths.WriteAtomic`, leaving the staging file it was mid-rename on. A product defect on the graceful path, not a test artifact. | all three | d80ec8d |
+| 9 | The hot-path mode was persisted to state.bin *after* the registry flip that makes the transition observable, leaving a window one whole `WriteAtomic` wide in which the daemon NAKs and the record still says sync. Separately, `ReadState` swallowed every read error and returned a zero value whose hot-path field is exactly the healthy one — and on Windows that read fails with a sharing violation for the instant `os.Rename` replaces the file. A hook reading then concludes the hot path is healthy and dials an already-degraded daemon. | windows | 309af2d |
+| 10 | The hot-path bench harness failed when 2063 of 2064 requests reached the daemon: one had degraded to the spool path, which is documented, intended behaviour, and the guard could not tell it from an event that vanished. It now accounts for every request and fails only on a genuine shortfall — and, because a spooled request is precisely a slow one, counts it as an over-budget sample rather than dropping it and truncating the tail p99 lives in. | macos | 45739ed |
+| 11 | The GC overshoot test priced its budget from a single unbounded sweep and bounded a second pass with half of it. A sweep can only be pushed slower than its true cost, never faster, so that sample is biased upward and the judged pass finished inside the budget. The mirror image of §0 item 25 — same estimator, opposite sign. The fixture was also not a whole number of check intervals, cutting the fast-side tolerance from 2x to 1.71x. | linux | 70f91bf |
+| 12 | The lazy-spawn e2e test waited for a line in a spool WAL to prove the second call reached the daemon. The line is written — and then deleted, correctly, by the very re-drain the next assertion is about. The test raced its own evidence and lost wherever unlink is not blocked by an open handle. | linux, macos | 0745912 |
+| 13 | Regression from item 8, predicted in review before CI confirmed it: with the daemon now outliving the moment it stops answering, the e2e cleanup helper's probe-based "gone" returned at listener-close and handed the tree to `t.TempDir`'s RemoveAll with a live writer still inside. Nine tests failed with "directory not empty"; Windows did not, because an open handle blocks the unlink there instead. | linux, macos | e785891 |
+
+Items 6, 7 and 9 are one finding seen three ways: a budget or a read tuned for the hot path,
+applied where the hot path's assumptions do not hold. Items 11 and 12 belong to the genus §0 items
+18, 22 and 25 already name — a self-scaling wall-clock check whose scaling under-delivers its
+documented intent — bringing that class to five instances.
+
+### 16.2 B-A, B-B and B-E on three platforms
+
+§9.1's platform note recorded the B-A row's three-platform requirement as environment-blocked.
+`bench-gate` runs the hot-path harness natively on each runner, so it no longer is. Measured on the
+CI runners, all three green:
+
+| Budget | Threshold | linux/amd64 | darwin/arm64 | windows/amd64 |
+|---|---|---|---|---|
+| B-A `hook_controlled` p99 | < 15 ms | **2.048 ms** | **2.048 ms** | **3.072 ms** |
+| B-B `l0_ingest` p99 | < 2 ms | **0.060 ms** | **0.088 ms** | **0.640 ms** |
+| B-E `checkpoint_finalize` p99 | < 2 s | **232.1 ms** | **21.3 ms** | **67.2 ms** |
+| spawn floor p50 (diagnostic, not gated) | — | 3.238 ms | 5.263 ms | 14.758 ms |
+
+The windows/amd64 B-A p99 of 3.072 ms reproduces §9.1's recorded figure exactly, on different
+hardware — the only available cross-check that the original number was a property of the code
+rather than of the machine.
+
+`devtool bench-compare` remains local-only and deliberately so: `testdata/bench-baseline.txt` is one
+Windows host's numbers, and §5.3 says in as many words that the I/O-bound rows will look very
+different on Linux runners. Per-OS baselines recorded on the runners themselves are still the
+precondition, and are now newly practical.
+
+### 16.3 Further corrections to this report
+
+Numbering continues §15's. As there, the tag stands and the corrections land on top of it; no
+measurement, test result or gate verdict changes.
+
+| # | What was wrong | Corrected to |
+|---|---|---|
+| 4 | §0 recorded "63 total" fix commits before this report's commit. The range from the cut to the content-final tip holds 64, and §13a's own list is a perfect set match with that range — no commit missing, none extra. | 64. The "20 `fix`-type" count on the same line is correct. |
+| 5 | §13a's heading said the inventory held 55 commits while listing 64. | 64. |
+| 6 | V2-MERGE-05 called `test/integration` "the eighth root" and §12 said "eight composition roots". `importrules.go` declares eleven, and the same V2-MERGE-05 sentence names three of the others as already present at the cut. | eleventh, and eleven. |
+
+### 16.4 Still open
+
+- **Branch protection is not configured.** §2.2a ⑤ recorded "replay-gate as a required check" as
+  environment-blocked because there was no remote. Half of that is resolved: the remote exists, and
+  replay-gate runs and passes on every push. Making it *required* is a repository setting nobody has
+  set — `develop` is unprotected — so the item moves from environment-blocked to open and
+  actionable, and it is the last thing standing between this checkpoint and a gate that cannot be
+  merged past.
+- **`main` and the six wave-1 branches are local only**, and no tag has been pushed. Pushing
+  `v0.1.0` cuts a real GitHub Release, which is a decision rather than a chore.
+- **V2-MERGE-13's coverage floors are still unconfirmed on Linux.** The `cover` job runs the whole
+  suite before printing floor verdicts and had been aborting in that step, so no floor verdict has
+  yet been produced on a non-Windows host. The per-package figures it did reach agree with the
+  Windows numbers to within a point.
