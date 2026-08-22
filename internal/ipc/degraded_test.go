@@ -21,20 +21,25 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// This file gates budget B-G (internal/obs/budgets.go): the synchronous spool append a hook pays
-// inside Client.Send when the daemon cannot take the event. It is white-box (package ipc) because
-// the calibration below has to perform the same filesystem work the spool does with the same
-// permission constant, and dirPerm is unexported.
+// This file is what enforces budget B-G (internal/obs/budgets.go): the synchronous spool append a
+// hook pays inside Client.Send when the daemon cannot take the event. B-G itself is reported only
+// — no production evaluator can ever see one of its samples, for the structural reason its
+// Budgets() entry gives — so this gate is the only thing standing on that path, not a second
+// opinion beside a runtime check. It is white-box (package ipc) because the calibration below has
+// to perform the same filesystem work the spool does with the same permission constant, and
+// dirPerm is unexported.
 //
 // Why the gate is rate-graded rather than wall-clock. What this path costs is a cold
 // create-and-append, so it is the host's disk that is being timed, not this package. Measured
-// quiet on this repo's own Windows host (NTFS), the same 32 appends ran 0.65 ms each in one batch
-// and 9.28 ms each in another minutes later with the product byte-identical; bc44d2a measured the
-// same call at p99 282 ms and max 541 ms on a co-loaded runner. Any fixed millisecond bound tight
-// enough to catch a regression there is a bound the runner decides. So the platform's own cost is
-// priced in the SAME run, against the SAME volume, and the product is graded as a multiple of it
-// — the pattern internal/store/gc_test.go's gcCalibratedSweep established (077b759) and the
-// reasoning test/bench/hotpath/report.go's budgetIDBECPU applies to B-E.
+// quiet on this repo's own Windows host (NTFS), at exactly the settings below, one run's batches
+// ran 1.58 ms per append in the fastest and 7.45 ms in the slowest with the product byte-identical,
+// and across a 20-run session of 200 batches the figure spanned 0.75 ms to 1.92 ms — the same code
+// on the same disk, hours apart; bc44d2a measured the same call at p99 282 ms and max 541 ms on a
+// co-loaded runner, and a busy loop on this host drove per-append wall clock to 26 ms. Any fixed
+// millisecond bound tight enough to catch a regression there is a bound the runner decides. So the
+// platform's own cost is priced in the SAME run, against the SAME volume, and the product is graded
+// as a multiple of it — the pattern internal/store/gc_test.go's gcCalibratedSweep established
+// (077b759) and the reasoning test/bench/hotpath/report.go's budgetIDBECPU applies to B-E.
 //
 // CPU time, the other co-load-immune clock in this repo, is the wrong instrument here: the work is
 // disk-bound, and time spent waiting on the filesystem burns no CPU at all, so a regression that
@@ -54,30 +59,48 @@ const degradedGateBatch = 64
 // while intermittent load leaves at least one quiet trial on each side. A minimum is also the one
 // statistic a real regression cannot dodge — extra work per call inflates the fastest sample
 // exactly as much as the slowest.
-const degradedGateTrials = 6
+//
+// 10 rather than 6, and the difference was measured rather than guessed. The two minima are taken
+// independently, so the reduced ratio is inflated whenever the calibration side happens on a lull
+// the product side does not get, and under a busy loop pegging all 22 cores that happens often
+// enough to matter: twelve runs at 6 trials reached 3.382x, twelve at 10 trials reached 2.590x.
+// Four extra trials cost about 0.9 s per run and buy back most of the co-load tail.
+const degradedGateTrials = 10
 
 // degradedAppendFactor is how many times the platform's own cost the degraded append may take.
 //
 // The product side legitimately does a little more than the calibration — it JSON-encodes the
 // request, takes the spool's mutex, stats the file to resume its byte count, records the B-G
 // sample, and builds the client around all of it — so the honest nominal sits just over 1x.
-// Measured at these settings on three deliberately different hosts:
+// Measured at exactly these settings — degradedGateBatch=64, degradedGateTrials=10 — on four
+// deliberately different environments:
 //
-//	Windows, NTFS, quiet        0.91x - 1.18x   over 20 runs (~0.6-1.5 ms per append)
-//	Windows, NTFS, `-race`      1.09x - 1.25x   over 3 runs  (~1.8-2.6 ms per append)
-//	Linux, tmpfs                1.14x - 1.36x   over 5 runs  (~12-19 us per append)
+//	Windows, NTFS, quiet        0.890x - 1.143x   over 20 runs (0.75-1.92 ms per append)
+//	Windows, NTFS, `-race`       1.058x - 1.237x  over  5 runs (1.07-1.27 ms per append)
+//	Linux, tmpfs                1.135x - 1.252x   over  5 runs (16.0-17.5 us per append)
+//	Windows, all 22 cores busy  0.550x - 2.590x   over 12 runs
 //
-// The tmpfs row is the adversarial one and the reason it was measured: the faster the filesystem,
-// the larger a share of the ratio the product's own CPU work becomes, and tmpfs is as fast as a
-// filesystem gets. 1.36x is the worst any of them produced.
+// The tmpfs row is adversarial by design: the faster the filesystem, the larger a share of the
+// ratio the product's own CPU work becomes, and tmpfs is as fast as a filesystem gets. The co-load
+// row is where the noise actually lives, and it is the row that sets this constant — 2.590x is the
+// worst any environment produced, so 6x leaves 2.3x of headroom over it.
 //
-// 6x leaves 4.4x of headroom over that worst case — far too loose to be decided by a disk, or by a
-// runner that has taken the cores away, since co-load moves both spans. What it catches: an added
-// fsync PER BYTE, a quadratic re-encode, a lock convoy, all of which are tens of times over. Even
-// the mildest regression of this shape that can be constructed — a single added f.Sync() per
-// append — graded 6.4x-7.8x on the Windows host, so it fails this band, though only just; on any
-// journalled filesystem it is an order of magnitude clear of it.
-// TestDegradedAppendGrade_JudgesARegressionAndSparesASlowDisk holds both edges of the claim
+// What this band does and does not catch, measured at these settings rather than assumed. The
+// grade is a ratio, so a regression is caught in proportion to how much it multiplies the work the
+// calibration already does — and the calibration is dominated by creating a directory and a file,
+// about 1 ms of NTFS, against which a few extra syscalls barely register:
+//
+//	4 extra f.Sync() per append   8.611x  9.327x  13.775x   FAILS, 3 of 3 — this is the target
+//	1 extra f.Sync() per append   4.910x  4.585x   5.211x   passes: missed
+//	1 write syscall per byte      4.205x  3.897x   3.776x   passes: missed
+//
+// So the honest claim is a band, not a floor: the gate reliably catches a regression that costs
+// several times the whole cold append — an fsync loop, an fsync per byte on a journalled
+// filesystem, a quadratic re-encode, a lock convoy — and does not catch one that adds a single
+// constant-cost syscall. Tightening past about 3x would catch those too and would also have failed
+// on this very host under co-load, where a correct product graded 3.382x at 6 trials. That
+// trade-off is the reason the number is 6 and the reason this table is here.
+// TestDegradedAppendGrade_JudgesARegressionAndSparesASlowDisk holds both edges of the arithmetic
 // without needing a host to demonstrate either.
 const degradedAppendFactor = 6
 
@@ -85,7 +108,7 @@ const degradedAppendFactor = 6
 // must cover before it may be graded. It is the premise the batch above exists to satisfy, checked
 // rather than assumed: a span measured near the clock's resolution carries a quantisation error
 // comparable to the quantity itself, and a ratio of two such spans is noise. 32 caps that error at
-// roughly 3%, which is nothing beside an 8x band.
+// roughly 3%, which is nothing beside a 6x band.
 const degradedGateClockTicks = 32
 
 // degradedGateRequest is the representative event every append in this file writes: an ordinary
