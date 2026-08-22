@@ -502,8 +502,17 @@ func (c *client) lazySpawn() {
 // spawnLockIsStale reports whether the spawn.lock at lockPath was written more than
 // spawnLockStaleAfter ago. An unreadable or unparseable lock is treated as stale rather than
 // blocking lazy spawn forever on a file this process cannot make sense of.
+//
+// The read goes through paths.ReadFileShared, not os.ReadFile, because spawn.lock has a deleter in
+// ANOTHER process: the daemon a client spawned removes run/spawn.lock as soon as it is listening
+// (daemon.removeSpawnLockFile, task-5-spec.md Run step 3), and removeSpawnLock below does the same
+// from a competing client. An os.ReadFile handle carries no FILE_SHARE_DELETE, so on Windows a
+// client sitting in this staleness check makes that delete fail with ERROR_SHARING_VIOLATION —
+// leaving behind a spawn.lock that suppresses every later lazySpawn until it ages out of
+// spawnLockStaleAfter. ReadFileShared grants delete sharing, so the daemon's cleanup lands. Its
+// errors keep os.ReadFile's shape, and this function collapses all of them to "stale" regardless.
 func spawnLockIsStale(lockPath string, clk core.Clock) bool {
-	b, err := os.ReadFile(paths.Long(lockPath))
+	b, err := paths.ReadFileShared(lockPath)
 	if err != nil {
 		return true
 	}
