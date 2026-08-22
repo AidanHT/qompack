@@ -515,9 +515,11 @@ const (
 	redrainTestBound = idleTickMax / 6
 	redrainTestTick  = 25 * time.Millisecond
 	// redrainDialBound is the connect/ACK budget for this test's own admin client. It is wide
-	// relative to config.Defaults()'s ConnectDeadlineMs (5ms, tuned for an already-warm daemon)
-	// because the very first dial into a daemon that has just started is exactly the case that
-	// budget is NOT sized for — the same reason internal/cli carries hookConnectDeadlineFloor.
+	// relative to config.Defaults()'s ConnectDeadlineMs (5ms, or 25ms on Windows where it also has
+	// to clear the named-pipe dial's retry quantum — internal/config/deadlines.go; either way tuned
+	// for an already-warm daemon) because the very first dial into a daemon that has just started is
+	// exactly the case that budget is NOT sized for — the same reason internal/cli carries
+	// hookConnectDeadlineFloor.
 	redrainDialBound = 500 * time.Millisecond
 )
 
