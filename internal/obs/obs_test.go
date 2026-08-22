@@ -142,9 +142,16 @@ func TestRegistry_SnapshotTimestamp(t *testing.T) {
 	require.Equal(t, core.NowMilli(clock), snap.TS)
 }
 
+// TestBudgets_AllSixPresentAndConfigDriven grades 00-ARCHITECTURE.md §2.4's own six budgets,
+// B-A..B-F: every one present, gated as §2.4 says, and reading its limit from configuration. The
+// name is §2.4's count and stays that way even though Budgets() now returns seven — B-G is not a
+// §2.4 budget and has its own test below — because plans/ cite this test by name and
+// `devtool lint`'s planchecks fails a plan row whose -run pattern matches nothing.
 func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 	budgets := obs.Budgets()
-	require.Len(t, budgets, 6)
+	// §2.4's six, plus B-G. Still a closed-world count: a seventh §2.4-shaped budget appearing
+	// without a test of its own fails here.
+	require.Len(t, budgets, 7)
 
 	ids := make(map[obs.BudgetID]obs.Budget, len(budgets))
 	for _, b := range budgets {
@@ -182,6 +189,66 @@ func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 	}
 	// B-D is the sole, documented exception.
 	require.Equal(t, ids[obs.BD].Limit(cfg), ids[obs.BD].Limit(mutated))
+}
+
+// TestBudgets_BGCoversTheDegradedSpoolAppend pins B-G: the budget for the synchronous spool append
+// a hook pays inside ipc.Client.Send when the daemon cannot take the event. Before it, that path
+// had no budget at all — B-A's gated population is the daemon's own hook_controlled series, which
+// has no sample for a request that never reached the daemon, and bc44d2a deliberately subtracted
+// the append from the one test that incidentally bounded it (correctly: that assertion was
+// measuring disk speed).
+//
+// B-G is gated, so a breach is visible to CheckBudgets, and it is config-driven without a key of
+// its own: it is a fixed multiple of B-A's, so an operator who moves runtime.hotPath.budgetMs
+// moves this with it. The multiple is asserted here rather than restated, so this test fails if
+// the limit ever stops tracking B-A.
+func TestBudgets_BGCoversTheDegradedSpoolAppend(t *testing.T) {
+	var bg obs.Budget
+	var found bool
+	for _, b := range obs.Budgets() {
+		if b.ID == obs.BG {
+			bg, found = b, true
+		}
+	}
+	require.True(t, found, "obs.Budgets() must declare B-G")
+
+	require.Equal(t, obs.BudgetID("B-G"), bg.ID)
+	require.Equal(t, "hook_degraded", bg.Hist, "B-G's clock is the degraded path's own histogram")
+	require.Equal(t, 99, bg.Pct, "B-G gates at p99, like B-A")
+	require.True(t, bg.Gated, "the degraded path is gated; leaving it ungated is what B-G fixes")
+
+	// Generous by construction, and generous in the direction that matters: B-G's limit must be
+	// far above B-A's, because the degraded path substitutes a filesystem create-and-append for a
+	// daemon round trip and can never meet the budget for one.
+	cfg := config.Defaults()
+	ba := 15 * time.Millisecond
+	require.Equal(t, ba, budgetByID(t, obs.BA).Limit(cfg), "premise: B-A's default is 15 ms")
+	require.Greater(t, bg.Limit(cfg), ba, "B-G must be looser than B-A, not tighter")
+	require.Equal(t, 960*time.Millisecond, bg.Limit(cfg),
+		"B-G's default is degradedSpoolBudgetFactor (64) x B-A's 15 ms")
+
+	// Config-driven, with no key of its own: moving B-A's key moves B-G by the same multiple.
+	mutated := config.Defaults()
+	mutated.Runtime.HotPath.BudgetMs = 3
+	require.Equal(t, 64*3*time.Millisecond, bg.Limit(mutated),
+		"B-G must track runtime.hotPath.budgetMs, never a literal of its own")
+
+	// And it really gates: a population over the limit surfaces as a breach.
+	reg := obs.New(core.SystemClock())
+	reg.Hist(bg.Hist).Observe(bg.Limit(cfg) * 2)
+	require.Equal(t, string(obs.BG), findBreach(t, reg.CheckBudgets(cfg), obs.BG).Budget)
+}
+
+// budgetByID returns the Budget obs.Budgets() declares for id, failing the test if there is none.
+func budgetByID(t *testing.T, id obs.BudgetID) obs.Budget {
+	t.Helper()
+	for _, b := range obs.Budgets() {
+		if b.ID == id {
+			return b
+		}
+	}
+	t.Fatalf("obs.Budgets() does not declare %s", id)
+	return obs.Budget{}
 }
 
 func TestCheckBudgets_CountsConsecutiveWindows(t *testing.T) {
