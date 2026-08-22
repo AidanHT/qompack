@@ -27,6 +27,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 )
 
 // Exit codes. Each names a distinct failure so a CI log says what happened without being read.
@@ -34,7 +35,7 @@ const (
 	exitOK          = 0
 	exitGateFailed  = 1
 	exitBadInput    = 2
-	exitMaxWall     = 3
+	exitMaxCPU      = 3
 	exitPhaseNoSkip = 5
 )
 
@@ -44,15 +45,48 @@ const (
 	defaultBaselinePath = "testdata/baseline/phase0.json"
 	defaultOutPath      = "testdata/bench-replay.json"
 	defaultPolicies     = "stock,null,oracle"
-	defaultMaxWall      = 2 * time.Minute
+	defaultMaxCPU       = 2 * time.Minute
 )
+
+// deprecatedMaxCPUAlias is the name this budget's flag used to have, kept working because it is
+// written into several committed command lines (ci.yml and the V3/V4/V6 verification plans). It
+// sets the same budget the new name does, which is now CPU time, so a run that uses it is told so
+// rather than left to assume the old meaning still holds.
+const deprecatedMaxCPUAlias = "max-wall"
 
 // noDemandCorpusLimit is how much of a corpus may demand nothing before the corpus stops measuring
 // anything. Σo = 0 scores every policy 1.0, so a corpus made mostly of those cases would report a
 // perfect number for a policy that keeps nothing at all.
 const noDemandCorpusLimit = 0.25
 
-var errMaxWall = errors.New("replay: wall-clock budget exceeded")
+// errMaxCPU is the budget this driver gates its own cost on. It reads a CPU clock and not a wall
+// clock, and the distinction is the difference between a gate and a coin toss.
+//
+// The budget exists to catch a replay that has become far more expensive than the corpus justifies
+// — the quadratic scorer, the accidental O(n^2) over sessions. Wall clock cannot see that on a
+// shared runner, because it also reports how much of the host this process was given: replaying
+// the committed corpus is about 3 s of work, and test/bench/hotpath/process.go has the same
+// machine inflating a child's wall time 23x (p50) and 124x on one pair under co-load, while the
+// same child's CPU time did not move at all. The whole-tree `go test ./...` job drives this driver
+// through test/integration/replaygrowth_test.go beside about twenty other package binaries, which
+// is exactly that runner.
+//
+// It is not a weaker bound. The number is unchanged at 2 minutes and CPU time can EXCEED wall time
+// on a multi-core host, since it sums every thread, so on the cost dimension this budget is at
+// least as strict as the one it replaces.
+//
+// Neither this check nor the one it replaced is a watchdog: both sample between sessions and after
+// the run, so a call that never returns is invisible to both and always was. What is gated is the
+// aggregate, and for this driver the aggregate is CPU — internal/eval starts no goroutine, opens no
+// socket and holds only a registry mutex, so a replay that stops finishing is a replay that is
+// still executing. A deliberate sleep is the one shape a wall clock would see and this one will
+// not, and devtool's sleepcheck sub-check already refuses time.Sleep everywhere but test/bench.
+//
+// The remaining blind spot is named rather than left to be discovered: loadBaseline shells out to
+// git when --baseline is a ref (gate.go), and a child's CPU is charged to the child. That step is
+// outside the session loop and does not scale with the corpus, and the check it used to sit under
+// could not have caught a git that hung either — it runs after loadBaseline returns.
+var errMaxCPU = errors.New("replay: CPU budget exceeded")
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
@@ -63,7 +97,7 @@ type options struct {
 	growth, sketch             string
 	phase                      int
 	regenCorpus, writeBaseline bool
-	maxWall                    time.Duration
+	maxCPU                     time.Duration
 	ci                         bool
 }
 
@@ -82,11 +116,25 @@ func parseFlags(args []string, errw io.Writer) (options, error) {
 	fs.IntVar(&o.phase, "phase", 0, "highest merged phase whose exit criterion must hold")
 	fs.BoolVar(&o.regenCorpus, "regen-corpus", false, "regenerate the synthetic corpus and exit")
 	fs.BoolVar(&o.writeBaseline, "write-baseline", false, "write --baseline from this run and exit")
-	fs.DurationVar(&o.maxWall, "max-wall", defaultMaxWall, "wall-clock budget for the whole replay")
+	// Both names write the same budget, so an old command line keeps working and a run that uses
+	// it is told what changed. If both are given, the later one on the command line wins — which is
+	// what the flag package does for any single flag repeated, so it is the least surprising rule
+	// available here.
+	fs.DurationVar(&o.maxCPU, "max-cpu", defaultMaxCPU,
+		"CPU-time budget (user+system) for the whole replay; exceeded → exit 3")
+	fs.DurationVar(&o.maxCPU, deprecatedMaxCPUAlias, defaultMaxCPU,
+		"former name of -max-cpu, still accepted; the budget is CPU time now, not wall clock")
 	fs.BoolVar(&o.ci, "ci", false, "CI mode: phase checks may not be disabled by configuration")
 	if err := fs.Parse(args); err != nil {
 		return o, err
 	}
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == deprecatedMaxCPUAlias {
+			fmt.Fprintf(errw,
+				"LOUD: -%s is the former name of -max-cpu and now sets a CPU-TIME budget of %s, "+
+					"not a wall-clock one\n", deprecatedMaxCPUAlias, o.maxCPU)
+		}
+	})
 
 	// The driver takes no positional arguments, so anything left over means flag parsing stopped
 	// early — in practice at a bare `--`, which every argument-forwarding wrapper invites somebody
@@ -105,8 +153,29 @@ func parseFlags(args []string, errw io.Writer) (options, error) {
 	return o, nil
 }
 
+// cpuUsedSince returns the CPU this process has burned since an obs.ProcessCPU reading taken
+// earlier. A clock that cannot be read is an error and never a zero: a budget that silently stops
+// being measured is worse than one that fails.
+func cpuUsedSince(start time.Duration) (time.Duration, error) {
+	now, err := obs.ProcessCPU()
+	if err != nil {
+		return 0, fmt.Errorf("replay: the CPU clock this run's budget is graded on is unreadable: %w", err)
+	}
+	return now - start, nil
+}
+
 func run(args []string, out, errw io.Writer) int {
+	// Both clocks start before anything else does. startCPU is what the budget is graded on;
+	// started is kept because the wall time is still worth PRINTING beside it — a run whose two
+	// clocks have diverged tenfold is telling the reader the host was busy, which is information
+	// and not a defect.
 	started := time.Now()
+	startCPU, err := cpuUsedSince(0)
+	if err != nil {
+		fmt.Fprintf(errw, "%v\n", err)
+		return exitBadInput
+	}
+
 	o, err := parseFlags(args, errw)
 	if err != nil {
 		return exitBadInput
@@ -138,22 +207,22 @@ func run(args []string, out, errw io.Writer) int {
 	}
 	policyNames := splitPolicies(o.policies)
 
-	first, err := replayCorpus(ctx, cfg, sessions, policyNames, o.maxWall, started, out)
+	first, err := replayCorpus(ctx, cfg, sessions, policyNames, o.maxCPU, startCPU, out)
 	if err != nil {
 		fmt.Fprintf(errw, "%v\n", err)
-		if errors.Is(err, errMaxWall) {
-			return exitMaxWall
+		if errors.Is(err, errMaxCPU) {
+			return exitMaxCPU
 		}
 		return exitBadInput
 	}
 	// A SECOND full replay with a freshly constructed harness. Reusing the loaded sessions but not
 	// the harness is deliberate: a stateful bug in the percentile pool shows up here as a diff
 	// rather than hiding behind an accumulated-but-consistent number.
-	second, err := replayCorpus(ctx, cfg, sessions, policyNames, o.maxWall, started, io.Discard)
+	second, err := replayCorpus(ctx, cfg, sessions, policyNames, o.maxCPU, startCPU, io.Discard)
 	if err != nil {
 		fmt.Fprintf(errw, "%v\n", err)
-		if errors.Is(err, errMaxWall) {
-			return exitMaxWall
+		if errors.Is(err, errMaxCPU) {
+			return exitMaxCPU
 		}
 		return exitBadInput
 	}
@@ -271,9 +340,15 @@ func run(args []string, out, errw io.Writer) int {
 		fmt.Fprintf(errw, "%v\n", err)
 		return exitBadInput
 	}
-	if elapsed := time.Since(started); elapsed > o.maxWall {
-		fmt.Fprintf(errw, "FAIL replay took %s, over the %s budget\n", elapsed, o.maxWall)
-		return exitMaxWall
+	used, err := cpuUsedSince(startCPU)
+	if err != nil {
+		fmt.Fprintf(errw, "%v\n", err)
+		return exitBadInput
+	}
+	if used > o.maxCPU {
+		fmt.Fprintf(errw, "FAIL %v: the whole replay burned %s of CPU against the %s budget (%s of wall clock)\n",
+			errMaxCPU, used, o.maxCPU, time.Since(started))
+		return exitMaxCPU
 	}
 	if failed {
 		return exitGateFailed
@@ -301,7 +376,7 @@ type runResult struct {
 // Divergence is composed here rather than inside ScoreRun: §5.18 splits Compare and ScoreRun into
 // separate operations, and joining them is a composition root's job.
 func replayCorpus(ctx context.Context, cfg config.Config, sessions []eval.Session,
-	policyNames []string, maxWall time.Duration, started time.Time, out io.Writer,
+	policyNames []string, maxCPU, startCPU time.Duration, out io.Writer,
 ) (runResult, error) {
 	h := eval.New(eval.Options{Cfg: cfg, Log: logging.Nop()})
 	res := runResult{
@@ -314,9 +389,13 @@ func replayCorpus(ctx context.Context, cfg config.Config, sessions []eval.Sessio
 	opts := eval.ReplayOptions{Deterministic: true, K: eval.DefaultHorizonK, Budget: eval.DefaultKeepBudget}
 
 	for _, s := range sessions {
-		if elapsed := time.Since(started); elapsed > maxWall {
-			return res, fmt.Errorf("%w: %s elapsed at session %s, budget %s",
-				errMaxWall, elapsed, s.ID, maxWall)
+		used, err := cpuUsedSince(startCPU)
+		if err != nil {
+			return res, err
+		}
+		if used > maxCPU {
+			return res, fmt.Errorf("%w: %s of CPU burned by session %s, budget %s",
+				errMaxCPU, used, s.ID, maxCPU)
 		}
 
 		opt, optValue, inexact, err := optimalKeepSets(ctx, s)
