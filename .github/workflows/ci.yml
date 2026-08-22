@@ -49,6 +49,41 @@ jobs:
           done < <(git log --format=%s "$base..HEAD")
           exit $bad
 
+  lint-windows:
+    # `devtool lint` ran on ubuntu only, and parts of it are blind there by construction.
+    #
+    #   - stubskips greps the output of a REAL `go test -json` run rather than reading source, so a
+    #     t.Skip behind `runtime.GOOS == "windows"` never reaches it on Linux. That is not
+    #     hypothetical: the three skips in internal/paths/errorpaths_test.go opened with "notice: "
+    #     from 96ccfcb to cc48ec6 and made `devtool lint` red for a day, with no CI job on any
+    #     platform able to see it. A run of this job on Windows lists nine platform-gated skips —
+    #     including internal/ipc's TestWindowsPipeACLRejectsOtherUser, which lives in a
+    #     //go:build windows file and therefore does not exist at all on a Linux runner.
+    #   - golangci-lint, nomagic, importgraph and testdeps all load packages through the HOST's
+    #     build constraints, so the nine //go:build windows files (internal/ipc/listen_windows.go,
+    #     internal/daemon/lock_windows.go, internal/paths/long_windows.go, …) are linted nowhere.
+    #
+    # This runs the whole lint rather than `--only=` a subset, deliberately. An allowlist of "the
+    # GOOS-sensitive sub-checks" is a second list to keep in sync with lintSubchecks, and its
+    # failure mode when it goes stale — a new sub-check silently not running on Windows — is the
+    # exact invisibility this job exists to remove. The sub-checks an allowlist would drop are also
+    # the cheap ones (bindeps iterates its own GOOS matrix, sleepcheck parses every file regardless
+    # of build tags, runpatterns and docmarkers read Markdown), so it would buy no minutes worth the
+    # risk. The cost that matters is stubskips' single `go test` pass over internal/, cmd/ and
+    # test/, and that is not removable: the check IS a test run.
+    #
+    # It is a separate job rather than a Windows leg of `verify` because nothing else in verify —
+    # fmt-check, go vet, go build, the two git-history greps — is platform-sensitive, and paying for
+    # those twice buys nothing. It also keeps `devtool ci-local`, which already runs the full lint,
+    # honest about what CI checks.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.6', cache: true }
+      - run: go run ./tools/devtool lint
+
   test:
     # Every setup-go step pins the exact patch go.mod's toolchain line names, and
     # TestWorkflowGoVersionMatchesToolchain fails the build if the two ever disagree.
