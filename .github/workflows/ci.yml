@@ -77,6 +77,12 @@ jobs:
     # those twice buys nothing. It also keeps `devtool ci-local`, which already runs the full lint,
     # honest about what CI checks.
     runs-on: windows-latest
+    # The backstop for plausibly the longest job in the matrix: the stubskips sub-check runs a real
+    # `go test` over internal/, cmd/ and test/ at the repository's own -timeout=30m, on the slowest
+    # runner OS. Go's timeout is per test binary, so a job that wedges outside one — a hung child
+    # process, a stalled runner — would sit until GitHub's 360-minute platform default. 45 leaves
+    # that pass its whole 30-minute budget plus checkout, toolchain setup and the other sub-checks.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
