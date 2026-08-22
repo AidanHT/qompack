@@ -163,10 +163,11 @@ const (
 // e2eDaemonHoldingLock is what sees it. e785891's rule that an abandoned lock must not be waited
 // on survives untouched, because an abandoned lock names a dead pid.
 //
-// Watched with os.Stat and never with daemon.ReadLock, for the reason v1StopDaemonAndWaitGone
-// documents at length: ReadLock opens the file without FILE_SHARE_DELETE, so a poller holding it
-// open makes the daemon's own os.Remove fail on Windows and CAUSES the abandoned lock it is
-// waiting on. os.Stat takes no handle; the one read of the lock's CONTENTS goes through
+// Watched with os.Stat rather than daemon.ReadLock, for the reason v1StopDaemonAndWaitGone
+// documents at length: ReadLock used to open the file without FILE_SHARE_DELETE, so a poller
+// holding it open made the daemon's own os.Remove fail on Windows and CAUSED the abandoned lock it
+// was waiting on. readLockFile reads through paths.ReadFileShared now, but os.Stat stays: a
+// presence question needs no handle at all. The one read of the lock's CONTENTS goes through
 // paths.ReadFileShared, which takes a handle that cannot block a delete (see e2eDaemonHoldingLock).
 func e2eShutdownIfReachable(t *testing.T, root string) {
 	t.Helper()
@@ -288,14 +289,16 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 // log open, nothing listening — apart from a lock abandoned by a process that is already gone;
 // neither ipc.Probe nor os.Stat can see the difference, and e2eShutdownIfReachable has to.
 //
-// The lock is read with paths.ReadFileShared and never with daemon.ReadLock, and the two are not
-// interchangeable. ReadLock is os.ReadFile (internal/daemon/lock.go's readLockFile), which on
-// Windows takes a handle with FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a
-// caller polling it makes Lock.Release's own os.Remove fail with ERROR_SHARING_VIOLATION — it
-// would CAUSE the abandoned lock it is checking for, the failure v1StopDaemonAndWaitGone measured
-// at roughly one run in twenty. paths.OpenShared adds FILE_SHARE_DELETE to the share mask
-// (bbd8905, "stop readers blocking the writer they watch"), which is what makes reading this file
-// at all safe here.
+// The lock is read with paths.ReadFileShared directly rather than with daemon.ReadLock. When this
+// helper was written the two were not interchangeable: ReadLock was os.ReadFile
+// (internal/daemon/lock.go's readLockFile), which on Windows takes a handle with
+// FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a caller polling it made
+// Lock.Release's own os.Remove fail with ERROR_SHARING_VIOLATION — it would CAUSE the abandoned
+// lock it was checking for, the failure v1StopDaemonAndWaitGone measured at roughly one run in
+// twenty. readLockFile reads through paths.ReadFileShared now, so ReadLock is safe to poll and the
+// difference is down to what this helper needs from the bytes rather than to the share mask.
+// paths.OpenShared adds FILE_SHARE_DELETE to that mask (bbd8905, "stop readers blocking the writer
+// they watch"), which is what makes reading this file at all safe — here and in ReadLock alike.
 //
 // A lock file that exists but does not parse counts as held. paths.CreateNew creates the file and
 // only then writes the body into it (internal/paths/appendonly.go), so an empty or truncated
