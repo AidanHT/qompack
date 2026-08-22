@@ -650,43 +650,92 @@ measurement, test result or gate verdict changes.
 | 4 | §0 recorded "63 total" fix commits before this report's commit. The range from the cut to the content-final tip holds 64, and §13a's own list is a perfect set match with that range — no commit missing, none extra. | 64. The "20 `fix`-type" count on the same line is correct. |
 | 5 | §13a's heading said the inventory held 55 commits while listing 64. | 64. |
 | 6 | V2-MERGE-05 called `test/integration` "the eighth root" and §12 said "eight composition roots". `importrules.go` declares eleven, and the same V2-MERGE-05 sentence names three of the others as already present at the cut. | eleventh, and eleven. |
+| 7 | §16.5's closing sentence said seven wall-clock sites "remain unaudited". That was true of the list §16.4 carried when the sentence was written; e86dbb9 replaced that list with the full audited inventory two commits later, in the very section the sentence points at, and did not revisit the sentence. Nothing is unaudited — the inventory covers every wall-clock gate in the tree — and the number that matters is how many are still judged unsafe, which was never seven. | A pointer to §16.4's inventory and to the rows still judged co-load-unsafe, which §16.4 states outright. |
+| 8 | The same inventory's summary said "Four rows remain unsafe and unfixed". Four rows carried a **No**, but one of them (`dag/slice_compare_test.go`) records its own fix in that very cell, so three were unfixed — five sites across them. The overcount ran in the direction that reads as more debt than existed, which is the safer direction to be wrong in and still wrong. | Restated in §16.4 against what is left after §16.6's round: one row, two sites, accepted by decision. |
 
 ### 16.4 Still open
 
+- **CI cannot allocate a runner.** Every job of nightly run 32549698806 (2026-08-22) completed
+  `failure` in six seconds with no runner assigned and zero steps executed, as did every job of run
+  32444829137 the day before; the last run that executed anything is 32397469663, on 2026-08-20.
+  This is an account-level quota wall and not a code problem, and it is why §16.6's five fixes
+  carry no CI signature and no Linux or macOS evidence at all. Every item below that is ordered
+  behind CI is ordered behind this one.
 - **Branch protection is not configured.** §2.2a ⑤ recorded "replay-gate as a required check" as
   environment-blocked because there was no remote. Half of that is resolved: the remote exists, and
   replay-gate runs and passes on every push. Making it *required* is a repository setting nobody has
   set — `develop` is unprotected — so the item moves from environment-blocked to open and
   actionable, and it is the last thing standing between this checkpoint and a gate that cannot be
-  merged past.
+  merged past. Re-checked 2026-08-22: `repos/AidanHT/qompack/branches/develop/protection` still
+  answers 404. It is now ordered *after* the `develop` merge and after the quota returns, and the
+  reason is the bullet above — a required check that no runner can report on would block the merge
+  on a job that never starts, which is a worse state than an unprotected branch.
 - **`main` and the six wave-1 branches are local only**, and no tag has been pushed. Pushing
-  `v0.1.0` cuts a real GitHub Release, which is a decision rather than a chore.
+  `v0.1.0` cuts a real GitHub Release, which is a decision rather than a chore. Re-verified
+  2026-08-22: `git ls-remote --tags origin` returns nothing, and `origin` carries two branches
+  (`develop` and `chore/post-v2-hardening`).
 - ~~**V2-MERGE-13's coverage floors are still unconfirmed on Linux.**~~ **Resolved.** The `cover`
   job now completes and every floor is verified on Linux, for the first time, as of run
   32320326160. Closing it required covering `internal/paths`' unexpected-error branches: the
   package had never met its own 90% floor on a POSIX host (89.1%), because the floor had only ever
   been evaluated on Windows. Linux is now 90.4%.
-- **`config.Defaults().Runtime.Daemon.ConnectDeadlineMs` is 5 ms, below the Windows dial retry
-  quantum.** go-winio answers `ERROR_PIPE_BUSY` with a hard-coded 10 ms sleep and re-checks the
-  caller's deadline only afterwards, so on Windows the production hot-path connect budget buys
-  exactly one `CreateFile` attempt and actually costs about 10 ms — two thirds of the entire 15 ms
-  B-A budget. `internal/ipc/ipctest/suite_test.go:148-151` already says this in prose ("not merely
-  tight on Windows, it is unusable there") and nothing enforces or measures it.
-  `dialBusyRetryQuantum` (added in bc44d2a) now at least gives the constant one name to derive
-  from. This is a product question, not a test one.
-- **The degraded path has no budget and nothing measures one.** Whenever the daemon is unreachable
-  a hook pays a synchronous spool append inside `Send`, measured under `-race` and co-load at p50
-  75 ms / p99 282 ms / max 541 ms over 300 calls — 5-36x the 15 ms B-A hot-path budget. That is
-  inherent to writing durably before exiting and is not a contract violation, but no budget or
-  benchmark covers the degraded path at all, and bc44d2a's narrowing means no test bounds it
-  either.
-- **Four production readers can still stall their writer on Windows.** `daemon/lock.go:167`
-  (`readLockFile`, via `ReadLock`), `ipc/client.go:506` (`spawnLockIsStale`),
-  `contract/monitor.go:125` and `contract/history.go:276` read with `os.ReadFile`, which takes a
-  handle without `FILE_SHARE_DELETE`. `paths.OpenShared`/`ReadFileShared` (bbd8905) now exist to
-  remove that hazard rather than route around it, as `test/guards/v1_integration_test.go:843-851`
-  currently does by polling with `os.Stat`. Note the POSIX-semantics replace does **not** help
-  here: `os.Remove` still needs the reader to have granted delete sharing.
+- ~~**`config.Defaults().Runtime.Daemon.ConnectDeadlineMs` is 5 ms, below the Windows dial retry
+  quantum.**~~ **Resolved** (§16.6 item 23): the built-in default is now platform-selected, 25 ms
+  on Windows and 5 ms elsewhere, with `internal/ipc/connectdeadline_test.go` holding it above
+  `2 × dialBusyRetryQuantum`. The prose this bullet cited has been reconciled with the shipped
+  numbers (`internal/ipc/ipctest/suite_test.go:149-155`).
+  **Residual, carried as a product decision:** a configuration that sets `connectDeadlineMs`
+  explicitly still gets exactly what it asks for, including 5 on Windows — `Config.Validate` has no
+  rule on that leaf, and grep confirms the key appears nowhere in `internal/config/validate.go`.
+  Only the *default* moved. The right shape, if one is wanted, is a §11.3 validation rule on the
+  leaf reported through Loud, and specifically **not** a silent clamp: a clamp would make the
+  effective value differ from the configured one with nothing saying so, which is the failure mode
+  the Loud channel exists to prevent. Whether an operator may ask for a deadline the platform
+  cannot honour is a product question about configuration authority, so it is carried rather than
+  answered by the agent that found it.
+- ~~**The degraded path has no budget and nothing measures one.**~~ **Resolved** (§16.6 item 24):
+  the append is now B-G `hook_degraded`, reported against `runtime.budgets.hookDegradedMs`, and
+  bounded by the rate-graded gate in `internal/ipc/degraded_test.go`. This bullet's own numbers
+  were also wrong in the direction that reads as worse than it is: the p50 75 / p99 282 / max
+  541 ms it quoted are bc44d2a's co-loaded-runner figures, and the same append re-measured quiet
+  on this host is 0.75–1.92 ms, 1.07–1.27 ms under `-race`, and 16–18 µs on Linux tmpfs.
+  **Four residuals, each carried with its reason:**
+  - **B-G cannot be evaluated in production, and will not be until wave 2.** It ships
+    `Gated:false` because no evaluator can currently see it, not because the budget is soft:
+    `CheckBudgets`' only production caller is the resident daemon's own registry, `hook_degraded`
+    is written only by a hook process's per-process registry, and a B-G sample exists only when
+    the daemon is unreachable — a sample and an evaluator can never coexist. Carrying the
+    observation to something that can judge it in production is observer-wave work
+    (`plans/V3-VERIFY-observer-and-negative-knowledge.md`), not `internal/obs`' to invent.
+  - **`externalize` → `writeBlob` is an uncapped synchronous cost inside `Send`, and it is on the
+    success path too.** It fires at step 4, before any dial, when a line reaches
+    `min(State.MaxPayloadBytes, MaxLineBytes)`, and what it writes is the *uncapped*
+    `Event.ToolResponse` — so it is paid inside B-A's nominal 15 ms with nothing bounding its
+    size. Budgeting it means first deciding what the product does about an oversized payload,
+    which is a design question A2 was not scoped to answer.
+  - **`lazySpawn`'s two costs are unbudgeted.** `paths.CreateNew(spawn.lock)` does a real
+    `f.Sync()` and `daemon.SpawnDetached` calls `cmd.Start()`, both synchronously inside `Send`.
+    §2.4 rules the *hook's own* process creation B-D's, "reported only, never gated", but this is
+    a **child** process the hook creates and no budget names it. Deciding whether a child process
+    is the hook's cost at all is the same class of product question as the row above. Mitigating:
+    `spawnOnce` plus the on-disk lock mean only the hook that triggers the cold start pays it.
+  - **B-D (`hook_wall`) has no production observer.** `hook_wall` is written nowhere outside
+    `test/bench/hotpath`, so the one clock that would have seen all three costs above is unwired
+    even in its reported-only form. Same wave-2 owner as the first residual.
+
+  The three measurements behind those rows are **agent-measured, not tree-reproducible**: they come
+  from a throwaway harness the A2 implementer wrote and deleted (50 / 100 / 20 samples), and they
+  are recorded with that provenance rather than promoted to the standing of a benchmark. On this
+  host: `externalize` of a 1 MiB blob p50 1.067 ms; `paths.CreateNew(spawn.lock)` p50 4.509 ms
+  (max 7.674); `cmd.Start()` p50 2.205 ms with a 717.225 ms max.
+- ~~**Four production readers can still stall their writer on Windows.**~~ **Resolved** (§16.6
+  item 20): all four read through `paths.ReadFileShared`, and an AST guard over a five-row
+  inventory keeps them there. `test/guards/v1_integration_test.go:844-858` still polls with
+  `os.Stat` and now says why that outlives the fix — it asks a presence question that
+  `GetFileAttributesEx` answers without taking a handle at all, and it does not depend on the
+  reader in `internal/daemon` staying shared. The note this bullet ended on stands and is worth
+  keeping: the POSIX-semantics replace does **not** help here, because `os.Remove` still needs the
+  reader to have granted delete sharing.
 - **The V2-MERGE-25 wall-clock audit is now done, and the earlier list in this section was wrong.**
   It named seven remaining sites. That list was built from a survey of the packages already under
   suspicion rather than of the tree, and it was wrong in both directions: it omitted at least five
@@ -696,11 +745,11 @@ measurement, test result or gate verdict changes.
 
   | site | gates | co-load-safe |
   |---|---|---|
-  | `dag/slice_compare_test.go:210` | thin elapsed ≤ full elapsed | **No** — fixed in f1ca613, now an edge/node subset count |
-  | `dag/bench_test.go:292` | 10k-batch `CrossingEdges`/call < 5 µs | **No** — batching fixes granularity, not co-load |
-  | `integration/hotpath_test.go:712`, `:719` | B-A / B-B p99 < §4.6's 15 ms | **No** — a real SLO, but timestamp-anchored rather than spawn-timed |
-  | `test/replay/main.go:274`, `:317` | whole replay run < `maxWall` | **No** — a harness CI gate, not a `go test` assertion |
-  | `dag/bench_test.go:266` | fastest-of-20 slice < 1 ms | Partly — the min-of-N sample mitigates it |
+  | `dag/slice_compare_test.go:260` | thin `EdgesVisited` ≤ full `EdgesVisited` | **Fixed** (f1ca613) — was an elapsed-vs-elapsed comparison at the former `:210` |
+  | `dag/bench_test.go:341` | `CrossingEdges`/call < 5 µs over a 1 M-call batch | **Fixed** (a757b4a, §16.6) — graded on `obs.ProcessCPU`; the wall clock is still measured and logged, and nothing is gated on it |
+  | `integration/hotpath_test.go:712`, `:719` | B-A / B-B p99 < §4.6's 15 ms | **No** — a real SLO, but timestamp-anchored rather than spawn-timed. Accepted as-is by decision of 2026-08-22; see below |
+  | `test/replay/main.go:368`, `:417` | whole replay run < `--max-cpu` (cost) **and** < `--max-wall` (liveness) | **Fixed** (7ece639 + fc36bc0, §16.6) — cost graded on `obs.ProcessCPU`; the wall bound is kept deliberately, as the liveness half a CPU clock cannot see |
+  | `dag/bench_test.go:267` | fastest-of-20 slice < 1 ms | Partly — the min-of-N sample mitigates it |
   | `e2e/v1_integration_test.go:428` | hook wall < its manifest timeout | Mostly — seconds-scale, and B-D is reported not gated |
   | `dag/slice_test.go:558` | 1 µs-deadline slice returns < 50 ms | Yes — four orders of headroom; a liveness bound |
   | `daemon/daemon_test.go:182` | blocked `dispatchOp` < 1 s | Yes — bounds a hang, not a cost |
@@ -711,16 +760,34 @@ measurement, test result or gate verdict changes.
   | `ipc/client_test.go:747`, `:919`, `:925`, `:929` | elapsed − `inAppend` ≤ transport bound | Yes — spool append subtracted (bc44d2a) |
   | `integration/hotpath_test.go:757` | `B-E_cpu` p99 < limit | Yes — CPU time, not wall (1aa1589) |
 
-  Four rows remain unsafe and unfixed. `hotpath_test.go:712`/`:719` are the most consequential:
-  they gate the two headline §4.6 budgets, they have always passed with wide margin (windows B-A
-  p99 3.072 ms against 15 ms), and they are anchored on daemon-observed timestamps rather than on a
-  spawn's wall clock — but they are still wall-clock gates on a shared runner and they belong on
-  this list rather than in a footnote.
-- **`devtool lint`'s `stubskips` rule is unenforceable on the platform it governs.** It greps the
-  output of a real test run rather than reading source, so a `runtime.GOOS == "windows"` skip only
-  reaches it on Windows — and CI runs `devtool lint` in the ubuntu-only `verify` job. cc48ec6 fixed
-  the three offending skips; the structural gap, that this linter is red locally and green in CI,
-  is not fixed.
+  **One row now remains unsafe, and it stays that way by decision rather than by omission.**
+  Two of the three the inventory listed as unfixed were closed this round (§16.6 item 22), which
+  leaves `hotpath_test.go:712`/`:719`. They gate the two headline §4.6 budgets, they are anchored
+  on daemon-observed timestamps rather than on a spawn's wall clock, and they have always passed
+  with wide margin: windows B-A p99 **3.072 ms against 15 ms**, the same figure §9.1 records from
+  this host and §16.2 records from the CI runner.
+
+  **User decision, 2026-08-22: left as-is, deliberately.** The 15 ms IS the product promise — §5.1
+  states B-A as an elapsed span, client `main()` entry to `exit` — so re-expressing it in CPU time
+  would change what the gate claims and not merely how it measures it, and there is no other clock
+  in which the promise is true. That makes this row different in kind from every gate this genus's
+  other repairs closed (077b759, 1aa1589, f1ca613, a757b4a, 7ece639), each of which re-expressed a
+  gate whose subject was a *cost*. The residual — a runner loaded enough to move a
+  timestamp-anchored p99 by nearly 5× — is accepted, and monitored through §16.2's per-runner B-A
+  row, which `bench-gate` records natively on all three platforms every run. It belongs on this
+  list rather than in a footnote precisely because it was accepted rather than closed.
+- ~~**`devtool lint`'s `stubskips` rule is unenforceable on the platform it governs.**~~
+  **Resolved** (§16.6 item 21): a `lint-windows` job runs the whole lint on `windows-latest`, so
+  the linter is no longer red locally and green in CI. It has not yet run — see the quota bullet —
+  and the fix's own author records the likely first redness on a real runner as `.golangci.yml`'s
+  5-minute `run.timeout`.
+- **The daemon's `Stop`-after-`stopBegun` window is left open by design.** A `Stop` landing after
+  the checkpoint at `internal/daemon/daemon.go:491` can still let `Run` bind a listener and rewrite
+  the `state.bin` that `Stop` removed. It cannot wedge — `runCancel` is published by then — and the
+  process is exiting regardless, which is why this is a residual hazard and not a defect. Closing
+  it needs `Run` to hold `startMu` (`:151`) across its whole publication phase, which is a refactor
+  of the startup sequence rather than a fix to it; a3c77fd's message records the same judgement at
+  the point of the change, so the decision is not only in this document.
 
 ### 16.5 The second CI round
 
@@ -754,4 +821,60 @@ Item 19's race is the second the detector has found in `internal/daemon`, after 
 is the third defect on that package's shutdown path, after items 3 and 8 — item 8 being an ordering
 defect rather than a memory race. All three share one shape: state published by `Run` and consumed
 by a goroutine `Run` did not create. Item 16 brings the wall-clock genus of §0 items 18/22/25 to six instances,
-and item 17 to seven — of which seven sites remain unaudited (§16.4).
+and item 17 to seven; every site of that genus in the tree is now inventoried in §16.4, with the
+one row still judged co-load-unsafe named there.
+
+### 16.6 The closing round
+
+§16.1 and §16.5 record what CI found. This round records what happened when someone worked §16.4's
+list instead of waiting for a runner: five of its items fixed on `chore/post-v2-hardening` behind
+five `--no-ff` merges, one of its wall-clock rows accepted by decision rather than closed, and
+every residual the five left behind written back into §16.4 with the reason it is a residual.
+
+**None of the five carries a CI signature.** GitHub stopped allocating runners on 2026-08-21, so
+every verdict below is local, on windows/amd64, and the Linux and macOS legs of what changed have
+not been executed at all. That is precisely the gap §16 opens by describing — the checkpoint's
+verdicts were sound for the platform it could measure — and it is recorded here rather than left
+for the next reader to find. Three of the five were also changed materially after review found
+something the implementer had not, and each is noted in its row.
+
+| # | Defect | Platform | Fix |
+|---|---|---|---|
+| 20 | The four production readers §16.4 named. All four now read through `paths.ReadFileShared`, extending §16.5 item 14's mechanism from `ReadState` to every reader that watches a file someone else replaces or deletes: `readLockFile` (`daemon/lock.go:179`), `spawnLockIsStale` (`ipc/client.go:553`), `monitor.load` (`contract/monitor.go:134`), `LoadHistory` (`contract/history.go:282`). No behavioural test can see WHICH open a reader performs — measured, not assumed: reverting `readLockFile` to `os.ReadFile` leaves `go test ./internal/daemon/` green — so the wiring is pinned structurally by an AST guard over a five-row inventory, `test/guards/sharedreaders_test.go`, which carries its own non-vacuity self-test because a classifier that saw nothing would make every row pass forever. | windows | 784db45 (5ac9b06…8d1938e) |
+| 21 | `devtool lint` ran on ubuntu only, and parts of it are blind there by construction: `stubskips` greps a real `go test -json` run rather than reading source, so a `runtime.GOOS == "windows"` skip never reaches it on Linux, and the four package-loading sub-checks never lint the nine `//go:build windows` files. A `lint-windows` job now runs the whole lint on `windows-latest` — the whole lint, not an allowlist of GOOS-sensitive sub-checks, because such a list is a second thing to keep in sync whose failure mode is the exact invisibility the job exists to remove. **Review found the same blindness one layer down:** `stubskips` was the only whole-tree `go test` in the tool without `-timeout`, and it discards the exit status on purpose, so a package killed at go's 10-minute default stops emitting events and its unreached skips read as compliant — `stubskips: OK` for a run that inspected part of the tree. It now passes `-timeout=30m` like its three siblings and reports a killed package as a problem. Verified with a temporary `-timeout=1ms`: 48 packages reported killed, where the old code would have printed OK. | CI only | ed50cdf (1e48214, 0b1247b) |
+| 22 | Two of §16.4's wall-clock rows measured the runner rather than the product. `TestCrossingLatencyBudget` timed a 10,000-call batch; it now reads `obs.ProcessCPU` over a 1,000,000-call batch, and the batch is sized by the clock rather than by the operation — Windows credits `GetProcessTimes` on the 15.625 ms scheduler tick, and 10,000 calls is 1.8 ms of work, two orders of magnitude below one tick, so a CPU reading over the old batch would round to zero, the single value that can only ever make a budget pass. `test/replay`'s whole-run budget moved to the same clock. **Review then found that move had taken the liveness bound with it:** a CPU clock cannot see a run that is blocked rather than expensive, and `--baseline <ref>` shells out to git, whose CPU is charged to the child. Both bounds now exist and neither substitutes for the other — `--max-cpu 2m` for cost, `--max-wall 15m` for liveness — with `timeout-minutes: 20` on `replay-gate` as the backstop for the one case neither can see, a single call that never returns, because both sample between sessions and after the run. | all three | 685c47c (260cdc5…fc36bc0) |
+| 23 | `runtime.daemon.connectDeadlineMs` defaulted to 5 ms everywhere. go-winio answers `ERROR_PIPE_BUSY` with a hard-coded 10 ms sleep and re-reads the caller's deadline only at the top of the next loop iteration, so on Windows that budget bought exactly one `CreateFile` attempt, no retry at all, and cost about 10 ms doing it — a client meeting a momentarily-busy listener spooled rather than retried. The default is now selected from `runtime.GOOS` in `internal/config/deadlines.go`: 25 ms on Windows, which is 2.5 quanta so that two retries fit strictly inside with half a quantum of headroom, and 5 ms elsewhere, where the dial enforces the timeout itself. §3.2 gives `internal/config` only `internal/core`, so config can never import `internal/ipc` and derive the number; the derivation is instead enforced where both constants are in scope, `internal/ipc/connectdeadline_test.go`, which fails if the default drops below `2 × dialBusyRetryQuantum` or if the quantum grows past it. Both directions mutation-checked. | windows | 4a31dfa (80b03c8…b33dc91) |
+| 24 | The synchronous spool append a hook pays inside `ipc.Client.Send` when the daemon cannot take the event had no budget and nothing measuring it. It is now B-G `hook_degraded`, p99, against its own key `runtime.budgets.hookDegradedMs` at 1000 ms. **Review changed two things about the shape:** the limit first rode `runtime.hotPath.budgetMs` at 64×, which is a quotient reaching an absolute target through someone else's key and would have let an operator tightening their hot-path tolerance silently tighten a filesystem bound with it; and it first declared `Gated:true`, a claim nothing backs. | all three | 58174a1 (cacc18a…ea56c76) |
+
+**B-G is reported only, and structurally so rather than softly.** B-C and B-D are ungated because
+§2.4 says so; B-G is ungated because no evaluator can currently see it. `CheckBudgets`' only
+production caller is the resident daemon's own registry, `hook_degraded` is written only by a hook
+process's per-process registry, and a B-G sample exists ONLY when the daemon is unreachable — so a
+sample and an evaluator can never coexist in one process. The 1000 ms limit is not an SLO on
+filesystem latency, for the reason §2.4 gives about B-D: no plugin architecture can budget a
+stranger's disk. It is roughly 500× the quiet figure and near twice the worst this append has ever
+been recorded at anywhere, i.e. the number a reader compares a reported p99 against to decide
+whether they are looking at a slow disk or a broken one.
+
+**What enforces B-G today is a rate-graded test gate, and its reach is stated rather than
+implied.** `internal/ipc/degraded_test.go` grades the degraded append against a same-pass
+calibration of the platform's own create-and-append, at 6×. That factor is set by measurement on
+four deliberately different environments — quiet NTFS 0.890–1.143×, NTFS under `-race`
+1.058–1.237×, Linux tmpfs 1.135–1.252× (adversarial by design: the faster the filesystem, the
+larger the share of the ratio the product's own CPU work becomes), and all 22 cores busy
+0.550–2.590× — so 6× leaves 2.3× over the worst any of them produced. The honest claim is a band
+and not a floor: four extra `f.Sync()` per append grades 8.611× / 9.327× / 13.775× and **fails 3 of
+3**, which is the target, while ONE extra `f.Sync()` grades 4.910× / 4.585× / 5.211× and **passes**.
+The gate catches a regression costing several times the whole cold append — an fsync loop, an fsync
+per byte, a lock convoy — and does not catch one that adds a single constant-cost syscall.
+Tightening past about 3× would catch those and would also have failed on this very host under
+co-load, where a correct product graded 3.382×.
+
+Item 20 is item 14's finding applied to the readers that commit left behind, bringing that class to
+five sites. It is not closed by construction and does not claim to be: "reads a file some other
+process replaces or deletes while this one is live" is a judgement about a file and there is no
+syntax that carries it, so the guard's list is an inventory a person adds to, and what the guard
+buys is that the answer cannot silently revert. Item 22 closes two of the three unfixed rows in
+§16.4's wall-clock inventory; the third is `hotpath_test.go`'s pair, which §16.4 records as
+accepted by decision rather than fixed, and that pair is the whole remainder of the genus §0
+items 18/22/25 named.
