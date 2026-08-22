@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool fmt-check
       - run: go run ./tools/devtool lint
       - run: go vet ./...
@@ -49,19 +49,77 @@ jobs:
           done < <(git log --format=%s "$base..HEAD")
           exit $bad
 
+  lint-windows:
+    # `devtool lint` ran on ubuntu only, and parts of it are blind there by construction.
+    #
+    #   - stubskips greps the output of a REAL `go test -json` run rather than reading source, so a
+    #     t.Skip behind `runtime.GOOS == "windows"` never reaches it on Linux. That is not
+    #     hypothetical: the three skips in internal/paths/errorpaths_test.go opened with "notice: "
+    #     from 96ccfcb to cc48ec6 and made `devtool lint` red for a day, with no CI job on any
+    #     platform able to see it. A run of this job on Windows lists nine platform-gated skips —
+    #     including internal/ipc's TestWindowsPipeACLRejectsOtherUser, which lives in a
+    #     //go:build windows file and therefore does not exist at all on a Linux runner.
+    #   - golangci-lint, nomagic, importgraph and testdeps all load packages through the HOST's
+    #     build constraints, so the nine //go:build windows files (internal/ipc/listen_windows.go,
+    #     internal/daemon/lock_windows.go, internal/paths/long_windows.go, …) are linted nowhere.
+    #
+    # This runs the whole lint rather than `--only=` a subset, deliberately. An allowlist of "the
+    # GOOS-sensitive sub-checks" is a second list to keep in sync with lintSubchecks, and its
+    # failure mode when it goes stale — a new sub-check silently not running on Windows — is the
+    # exact invisibility this job exists to remove. The sub-checks an allowlist would drop are also
+    # the cheap ones (bindeps iterates its own GOOS matrix, sleepcheck parses every file regardless
+    # of build tags, runpatterns and docmarkers read Markdown), so it would buy no minutes worth the
+    # risk. The cost that matters is stubskips' single `go test` pass over internal/, cmd/ and
+    # test/, and that is not removable: the check IS a test run.
+    #
+    # It is a separate job rather than a Windows leg of `verify` because nothing else in verify —
+    # fmt-check, go vet, go build, the two git-history greps — is platform-sensitive, and paying for
+    # those twice buys nothing. It also keeps `devtool ci-local`, which already runs the full lint,
+    # honest about what CI checks.
+    runs-on: windows-latest
+    # The backstop for plausibly the longest job in the matrix: the stubskips sub-check runs a real
+    # `go test` over internal/, cmd/ and test/ at the repository's own -timeout=30m, on the slowest
+    # runner OS. Go's timeout is per test binary, so a job that wedges outside one — a hung child
+    # process, a stalled runner — would sit until GitHub's 360-minute platform default. 45 leaves
+    # that pass its whole 30-minute budget plus checkout, toolchain setup and the other sub-checks.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.26.6', cache: true }
+      - run: go run ./tools/devtool lint
+
   test:
+    # Every setup-go step pins the exact patch go.mod's toolchain line names, and
+    # TestWorkflowGoVersionMatchesToolchain fails the build if the two ever disagree.
+    #
+    # Two weaker spellings were tried first and both silently ran the wrong Go. A range ('1.26.x')
+    # installed go1.26.5 against a go.mod pinning toolchain go1.26.6, and GOTOOLCHAIN=local IGNORES
+    # the toolchain directive rather than enforcing it, so nothing failed — the build just ran on a
+    # Go still carrying four stdlib advisories (GO-2026-5972, -6090, -6091, -6218), which the
+    # security job reported as four vulnerabilities the code calls. go-version-file: go.mod is no
+    # better: setup-go reads the `go 1.26` directive out of it, not `toolchain`, and resolves the
+    # same 1.26.5. Only the exact version works, and only a guard keeps it honest.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ['1.26.x']
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '${{ matrix.go }}', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - if: runner.os != 'Windows'
+        # CGO is required for -race, so this step deliberately overrides the workflow-level
+        # CGO_ENABLED=0 the same way nightly.yml's race-windows job does. Without it `go test
+        # -race` does not run the suite under the detector and fall back to a plain run — it
+        # refuses outright with "-race requires cgo" and exits 2, which is how this job failed
+        # on the very first CI run this repository ever had. The shipped binaries are still
+        # built with CGO off; see crossbuild.
+        env:
+          CGO_ENABLED: '1'
         run: go test -race -timeout=30m ./...
       - if: runner.os == 'Windows'
         run: go test -count=2 -timeout=30m ./...
@@ -72,7 +130,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool cover
       - uses: actions/upload-artifact@v4
         with: { name: coverage, path: coverage.out }
@@ -83,7 +141,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool build-all
 
   bench-gate:
@@ -123,7 +181,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
       - uses: actions/upload-artifact@v4
         with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
@@ -132,11 +190,17 @@ jobs:
     # A REQUIRED check from the end of wave 1 (§8): SP-02 landed test/replay, so the
     # continue-on-error placeholder is gone and a regression here blocks the merge.
     runs-on: ubuntu-latest
+    # The backstop under the driver's own --max-wall ceiling, for the one case that ceiling cannot
+    # see: both of its checks sample between sessions and after the run, so a single call that
+    # never returns at all would sit here until GitHub's 360-minute platform default. This is a
+    # deadlock bound and not a performance one — the driver's 15-minute ceiling fails first on
+    # anything slower than it should be, and this only fires when the driver has stopped checking.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       # The pull-request body is where a §11.3 sign-off trailer lives. On a push event there is no
       # body, so the file is empty and NO regression can be signed off on a direct push — which is
       # correct: a trade-off nobody reviewed is not a trade-off anybody agreed to.
@@ -152,7 +216,7 @@ jobs:
           --growth testdata/golden/eval/growth/stats-growth.json
           --sketch testdata/golden/eval/growth/health.json
           --signoff "$RUNNER_TEMP/pr-body.md"
-          --max-wall 2m
+          --max-cpu 2m
           --ci
 
   plugin-validate:
@@ -161,7 +225,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool plugin-validate
       - run: git diff --exit-code -- plugin/
 
@@ -171,7 +235,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...
       - run: go run ./tools/devtool lint --only=importgraph,testdeps,bindeps
       - name: import allowlist (§8, D10)
@@ -192,5 +256,5 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
-        with: { go-version: '1.26.x', cache: true }
+        with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool gen-config-docs --check

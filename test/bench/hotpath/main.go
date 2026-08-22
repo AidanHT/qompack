@@ -13,6 +13,7 @@ import (
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
@@ -73,20 +74,30 @@ const defaultIterations = 2000
 // test/e2e/daemon_e2e_test.go's own e2eDaemonUpBound (10s) because a bench run's daemon has to
 // come up on a host that may already be under load from the very spawns this program is about to
 // issue.
+//
+// daemonDownBound is derived from the daemon's OWN exit bound rather than picked, because past it
+// this harness SIGKILLs the process (process.go). A bare 10s was shorter than daemon.Stop's
+// documented 15s cleanup window, so the harness could kill a daemon that was still finishing
+// legitimately — and a daemon killed mid-WriteAtomic leaves a staging file behind, which is
+// precisely the leak TestV1_WriteSetConfinedAcrossFullHookSequence catches. Deriving it means the
+// SIGKILL can only ever land on a daemon that has already blown its own bound.
 const (
 	daemonUpBound   = 20 * time.Second
 	daemonUpTick    = 20 * time.Millisecond
-	daemonDownBound = 10 * time.Second
+	daemonDownBound = daemon.StopCleanupBound + 5*time.Second
 )
 
 // flags is bench-hotpath's own command-line surface (task-7-brief.md's binding ruling: forward
-// --iterations --hook --warm-daemon --json --project).
+// --iterations --hook --warm-daemon --json --project). --under-coload is an addition to that list
+// rather than one of its five: see its own comment in parseFlags for what it declares and why the
+// brief's five could not express it.
 type flags struct {
-	iterations int
-	hook       string
-	warmDaemon bool
-	jsonPath   string
-	project    string
+	iterations  int
+	hook        string
+	warmDaemon  bool
+	jsonPath    string
+	project     string
+	underCoload bool
 }
 
 // parseFlags parses args into a flags value. flag.ErrHelp is returned verbatim so main can treat
@@ -100,6 +111,18 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	fs.BoolVar(&f.warmDaemon, "warm-daemon", false, "pre-populate the daemon before measuring: a small hot-path observe.tool tranche plus admin.ping traffic for the rest (FIX ROUND 2, N-1)")
 	fs.StringVar(&f.jsonPath, "json", "", "write the out.json artifact to this path (omit to skip)")
 	fs.StringVar(&f.project, "project", "", "use this directory as the temp project instead of creating one")
+	// --under-coload is a statement about the RUN'S ENVIRONMENT, not a switch on a gate, and it is
+	// spelled that way on purpose: the caller declares a fact only the caller knows (this harness
+	// is sharing its host with unrelated concurrent work), and the harness derives the one
+	// consequence that fact has — the wall-clock B-E row becomes a measurement rather than a
+	// judgement, disclosed in the artifact by beWallWaivedNote. Nothing else changes: the
+	// CPU-time B-E gate (budgetIDBECPU), B-A and B-B are all still hard, and every invocation that
+	// does not pass it — bench-gate's and nightly's `devtool bench-hotpath` lines, and a bare local
+	// run — keeps the wall-clock gate it has always had, byte for byte. Default false so that
+	// forgetting it can only ever make a run STRICTER.
+	fs.BoolVar(&f.underCoload, "under-coload", false,
+		"declare that this run shares its host with unrelated concurrent work (e.g. the whole-tree `go test ./...`), "+
+			"so the wall-clock B-E row is reported instead of gated; the CPU-time B-E gate is unaffected")
 	if err := fs.Parse(args); err != nil {
 		return flags{}, err
 	}
@@ -267,7 +290,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	if err != nil {
 		return Report{}, err
 	}
-	floorP50, _, floorP99, _, _ := percentiles(append([]time.Duration(nil), floorSamples...))
+	floorP50, _, floorP99, _, _ := percentiles(append([]time.Duration(nil), floorSamples.Wall...))
 
 	hArgs, err := hookArgs(f.hook)
 	if err != nil {
@@ -280,7 +303,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	if err != nil {
 		return Report{}, err
 	}
-	baSamples := subtractFloor(bdSamples, floorP50)
+	baSamples := subtractFloor(bdSamples.Wall, floorP50)
 
 	fmt.Fprintf(stdout, "hotpath: measuring B-E (%d x qompack checkpoint)...\n", checkpointIterations)
 	beSamples, err := measureSpawns(ctx, binPath, []string{"checkpoint"}, checkpointIterations, childEnv, func(seq int) []byte {
@@ -290,12 +313,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		return Report{}, err
 	}
 
-	snap, err := fetchStatus(ctx, addr, spool)
-	if err != nil {
-		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
-	}
-
-	// FIX ROUND 1, I-2: assert delivery integrity before trusting anything the status op reported.
+	// FIX ROUND 1, I-2: reconcile delivery before trusting anything the status op reports.
 	// internal/ipc/client.go's Send degrades silently to the spool on a connect timeout, a write
 	// failure, DaemonEnabled==false, or a HotSpool breach — every one of those paths makes the
 	// SPAWNED hook exit FASTER than a delivered one, which would bias a wall-clock B-A estimate
@@ -304,8 +322,39 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// every one of them (the warm-up's own HOT TRANCHE and the B-A/B-D loop alike) reaches
 	// acceptHotPathEvent -> ing.Accept, and nothing else — B-E's checkpoint spawns, the spawn
 	// floor, and (FIX ROUND 2) the warm-up's own admin.ping bulk — touches it.
+	//
+	// The shortfall that count can show is not one condition but two, and only one of them is a
+	// defect: a request DEFERRED to the spool is durable and replayable (§8.1/§12.2's documented
+	// degrade-rather-than-block behaviour, the same path
+	// TestIntegration_HotPathDegradesRatherThanBlocks pins), while a request LOST is neither. The
+	// census below is what tells them apart — it reads the same spool tier the client wrote to —
+	// and the deferrals it finds are carried into the budget rows as over-budget samples, never
+	// dropped from the population (report.go's tailAdjustedP99).
+	//
+	// The census runs BEFORE the status read, and that order is deliberate. l0_ingest is frozen
+	// by this point: the last measured spawn has returned, nothing this program sends afterwards
+	// is a hot-path op, and internal/daemon/daemon.go's drainDispatch routes a REPLAYED hot-path
+	// line straight to runIngested — never back through ing.Accept — so a drain can never raise
+	// the delivered count. The spool census, by contrast, can only ever SHRINK (a drain deletes a
+	// client file it has consumed). Reading the shrinking side first is what keeps a drain that
+	// fires mid-teardown from turning a deferral into a false "lost". No drain is expected here at
+	// all — nothing on this path sends flush or admin.drain, and the idle-tick drain is gated on
+	// cfg.Scheduler.Idle.DetectAfterSeconds (120s) of registry silence that a continuous spawn
+	// loop never reaches — but the ordering costs nothing and removes the question.
+	sent := expectedHotPathSends(f.iterations, f.warmDaemon)
+	census, err := censusClientSpool(paths.Of(projectRoot).Spool, spool.Path(), harnessHotPathSessions())
+	if err != nil {
+		return Report{}, err
+	}
+
+	snap, err := fetchStatus(ctx, addr, spool)
+	if err != nil {
+		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+	}
+
 	bbSnap := snap.Latency[budgetHistName(obs.BB)]
-	if err := checkDeliveryIntegrity(bbSnap.N, f.iterations, f.warmDaemon); err != nil {
+	ledger, err := reconcileDelivery(sent, bbSnap.N, census)
+	if err != nil {
 		return Report{}, err
 	}
 
@@ -318,6 +367,27 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// dispersion, contaminating exactly the percentile the gate reads.
 	baSnap := snap.Latency[budgetHistName(obs.BA)]
 
+	// B-A's own population can be shorter than B-B's even with every request delivered: a
+	// received request whose wire timestamp validHotPathTS rejects reaches ing.Accept but never
+	// hook_controlled. hookControlledShortfall refuses to return a shortfall it cannot account
+	// for out of the ledger's deferrals plus the daemon's own hotpath_sample_invalid count.
+	baMissing, err := hookControlledShortfall(ledger, baSnap.N, snap.Counters)
+	if err != nil {
+		return Report{}, err
+	}
+
+	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, budgetLimit(cfg, obs.BA), true, baMissing)
+	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true, ledger.Undelivered())
+
+	// One limit, read once from obs.Budgets() + config.Defaults() (task-7-brief.md's binding
+	// ruling), and applied to BOTH B-E rows: the wall-clock one and the CPU-time one are two
+	// measurements of the same §2.4 budget, so they must never be able to drift to two numbers.
+	beLimit := budgetLimit(cfg, obs.BE)
+	beWallNote := ""
+	if f.underCoload {
+		beWallNote = beWallWaivedNote(beLimit)
+	}
+
 	report := Report{
 		Platform: runtime.GOOS + "/" + runtime.GOARCH,
 		N:        f.iterations,
@@ -325,12 +395,18 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		SpawnFloorMs: SpawnFloor{
 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
 		},
-		Notes: buildNotes(snap, f.warmDaemon, f.iterations),
+		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger, baNote, bbNote, beWallNote),
 		Budgets: []BudgetRow{
-			buildBudgetRowFromSnapshot(string(obs.BA), baSnap, budgetLimit(cfg, obs.BA), true),
-			buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true),
-			buildBudgetRow(string(obs.BD), bdSamples, 0, false),
-			buildBudgetRow(string(obs.BE), beSamples, budgetLimit(cfg, obs.BE), true),
+			baRow,
+			bbRow,
+			buildBudgetRow(string(obs.BD), bdSamples.Wall, 0, false),
+			buildBudgetRow(string(obs.BE), beSamples.Wall, beLimit, !f.underCoload),
+			// The co-load-immune half of B-E, gated on the same limit and gated ALWAYS: the same
+			// children's own user+system CPU time, which a shared runner does not move. See
+			// budgetIDBECPU's doc comment (report.go) for the measurements behind that claim, for
+			// why the wall-clock row above cannot be priced from the spawn floor instead, and for
+			// the one thing a CPU clock cannot see.
+			buildBudgetRow(budgetIDBECPU, beSamples.CPU, beLimit, true),
 			// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
 			// budgetIDBASpawnEstimate's own doc comment (report.go).
 			buildBudgetRow(budgetIDBASpawnEstimate, baSamples, 0, false),

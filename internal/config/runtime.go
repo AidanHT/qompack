@@ -74,14 +74,22 @@ type MCPCfg struct {
 	MaxResponseBytes int `json:"maxResponseBytes" doc:"maximum bytes an MCP tool response may return" rng:"[4096,∞)" sec:"§8.7"`
 }
 
-// BudgetsCfg gives the §11.3/§2.4 latency budgets B-B through B-F config keys. B-A already has a
-// key at hotPath.budgetMs; duplicating it here would create two sources of truth for the number
-// §11.3 names. B-D is reported, never gated, so it has no key.
+// BudgetsCfg gives the §11.3/§2.4 latency budgets B-B through B-F config keys, plus B-G's. B-A
+// already has a key at hotPath.budgetMs; duplicating it here would create two sources of truth for
+// the number §11.3 names. B-D is reported, never gated, and reports the host's process-creation
+// cost, which no configuration can bound, so it has no key.
+//
+// hookDegradedMs is B-G's, and B-G is not one of §2.4's budgets: it bounds the synchronous spool
+// append a hook pays when the daemon is unreachable (internal/obs/budgets.go's BG entry). It gets
+// its own key rather than being derived from hotPath.budgetMs precisely because the two must move
+// independently — a tightened hot-path budget is a statement about a daemon round trip and must
+// not silently tighten a bound on the filesystem.
 type BudgetsCfg struct {
 	L0IngestMs           int `json:"l0IngestMs"           doc:"B-B latency budget: daemon read to WAL append returned"                      rng:"(0,∞)" sec:"00-ARCH §2.4"`
 	L0ProcessMs          int `json:"l0ProcessMs"          doc:"B-C latency budget: WAL to fully chunked, stored, DAG/sketches updated"       rng:"(0,∞)" sec:"00-ARCH §2.4"`
 	CheckpointFinalizeMs int `json:"checkpointFinalizeMs" doc:"B-E latency budget: PreCompact entry to exit"                                 rng:"(0,∞)" sec:"00-ARCH §2.4"`
 	MCPToolCallMs        int `json:"mcpToolCallMs"        doc:"B-F latency budget: MCP request to response"                                  rng:"(0,∞)" sec:"00-ARCH §2.4"`
+	HookDegradedMs       int `json:"hookDegradedMs"       doc:"B-G latency budget: the spool append a hook pays when the daemon is unreachable" rng:"(0,∞)" sec:"00-ARCH §12.3"`
 }
 
 // RSelectionCfg carries the closing-note-3 ship-order gate: submodular selection must not ship

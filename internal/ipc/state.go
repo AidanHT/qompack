@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
@@ -135,31 +136,142 @@ func decodeState(buf []byte) (s State, ok bool) {
 	}, true
 }
 
+// Windows system error numbers a state.bin operation hits transiently while the other half of
+// paths.WriteAtomic's finishing rename is in flight. They are named here rather than pulled from
+// golang.org/x/sys/windows so this file needs no build tag and no new dependency — the same
+// reasoning internal/store/objects.go records for its own copy, which cannot be shared because
+// §3.2 forbids ipc importing store. Both lookups are gated on runtime.GOOS == "windows", so their
+// unrelated POSIX meanings (32 is EPIPE) never apply.
+const (
+	winErrAccessDenied     = syscall.Errno(5)
+	winErrSharingViolation = syscall.Errno(32)
+)
+
+// isStateFileContention reports whether err is one of the transient Windows failures a state.bin
+// read or write hits because the other side of the file is mid-rename: the writer's os.Rename onto
+// a destination some other handle still holds, and — the case that actually bites — a READER's
+// os.Open landing in the instant the replace makes the destination inaccessible, which Windows
+// reports as ERROR_SHARING_VIOLATION, "The process cannot access the file because it is being used
+// by another process".
+//
+// os.IsPermission is deliberately NOT this predicate. Go maps only ERROR_ACCESS_DENIED, EACCES and
+// EPERM onto fs.ErrPermission (syscall.Errno.Is, GOROOT/src/syscall/syscall_windows.go) and never
+// ERROR_SHARING_VIOLATION, so a retry gated on os.IsPermission declines to retry the very failure
+// this contention actually raises — which is what writeStateMaxAttempts' loop did before this, and
+// what TestWriteStateRetryPredicateCoversTheSharingViolation now pins.
+func isStateFileContention(err error) bool {
+	if runtime.GOOS != "windows" || err == nil {
+		return false
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		return errno == winErrAccessDenied || errno == winErrSharingViolation
+	}
+	return errors.Is(err, os.ErrPermission)
+}
+
+// readStateMaxAttempts bounds ReadState's retry of a transient open failure. It is the read-side
+// twin of writeStateMaxAttempts and exists for the same Windows reason seen from the other end:
+// while the daemon's WriteAtomic replaces state.bin, a client's os.ReadFile of it fails with
+// ERROR_SHARING_VIOLATION. Measured on a Windows host, that is ~1% of reads taken against a busy
+// writer (TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk). Like the write side there is no
+// wall-clock backoff — §6.1 bans sleeps and this is the one I/O on the hot path before dial — so
+// each attempt is a fresh os.ReadFile with a runtime.Gosched between, which is a yield rather than
+// a wait.
+//
+// It is expressed as a multiple of the write side's budget rather than as its own number, because
+// that is the quantity it actually has to cover: what a reader waits out is ONE WriteState, and a
+// single WriteState may itself retry its rename up to writeStateMaxAttempts times, each attempt a
+// full stage/fsync/chmod/rename cycle against the same contended destination. A read budget below
+// the write budget could not ride out even one write by construction. Tying the two together also
+// means a change to one moves the other, which a second hand-picked literal could not do.
+//
+// The multiplier is measured, not guessed. Under a load far harsher than production can produce —
+// a writer rewriting state.bin in a tight loop against four readers doing the same, where
+// production has one writer that touches the file on start, on a transition and on a reload — the
+// worst run needed 134 attempts, so equalling the write budget (64, tried first) still left tens
+// of fail-open reads per run. This is not a CPU spin budget either: a contended open is itself a
+// blocking syscall (~0.6 ms per attempt, from a worst-case loop that spent 84 ms over 134 of them),
+// so exhausting it means the record has been continuously unopenable for the best part of a second,
+// which is a real failure rather than the rename hiccup this rides out — and that case still lands
+// on StateFromConfig, as §12.3 says it must.
+//
+// Those measurements predate paths.ReadFileShared and paths.WriteAtomic's POSIX-semantics replace,
+// which together remove the rename window this rides out rather than merely shortening it: the
+// destination is re-pointed in one step and an open handle keeps reading the record it opened, so
+// a state.bin read by THIS code no longer collides with a state.bin write by THIS code at all.
+// The budget stays because the two ends are not the only participants — a virus scanner, an
+// editor, `type state.bin`, or any tool holding the file without FILE_SHARE_DELETE puts the
+// classic MoveFileEx path back in play, as does a volume whose filesystem does not implement
+// FileRenameInfoEx. It is a fallback for the cases the fix cannot reach, not the fix.
+const readStateMaxAttempts = 8 * writeStateMaxAttempts
+
 // ReadState reads projectRoot's state.bin. Any failure to produce a valid record — the file is
 // missing (the ordinary first-run case), too short, carries the wrong magic, or fails its own CRC —
 // falls back to StateFromConfig(fallback) without logging: a hot-path client cannot afford to
 // treat "no state yet" as an error, and a corrupt state file is exactly the kind of thing §12.3
 // says should fail toward doing nothing rather than toward a crash.
+//
+// Those four are the WHOLE fallback contract, and a Windows sharing violation against a record
+// that is present and valid is none of them. Falling back there is a fail-open read with real
+// consequences: StateFromConfig reports Hot HotSync and DaemonEnabled from the DEFAULT config, so
+// a hook client that reads state.bin in the instant the daemon rewrites it decides the hot path is
+// healthy and dials a daemon that has already degraded to spool submode — exactly the connect
+// §12.2 exists to avoid — with default deadlines rather than the operator's. So a contended read
+// is retried; only a genuinely missing, unreadable or malformed record falls back.
+//
+// The read goes through paths.ReadFileShared, not os.ReadFile, and that is a correctness
+// requirement rather than a preference. os.ReadFile takes a Windows handle with no
+// FILE_SHARE_DELETE, and a destination anyone holds that way cannot be replaced at all — so a
+// client polling state.bin does not merely race the daemon's WriteState, it can make it fail
+// outright and leave §12.2's transition unpublished. ReadFileShared consents to the replace, and
+// paths.WriteAtomic's POSIX-semantics rename then lands underneath this read while it keeps
+// returning the record it opened.
 func ReadState(projectRoot string, fallback config.Config) State {
-	buf, err := os.ReadFile(paths.Long(StatePath(projectRoot)))
-	if err != nil {
-		return StateFromConfig(fallback)
-	}
-	if s, ok := decodeState(buf); ok {
-		return s
+	p := StatePath(projectRoot)
+	for attempt := 0; attempt < readStateMaxAttempts; attempt++ {
+		buf, err := paths.ReadFileShared(p)
+		switch {
+		case err == nil:
+			if s, ok := decodeState(buf); ok {
+				return s
+			}
+			return StateFromConfig(fallback) // short, bad magic or bad CRC: three of the four.
+		case !isStateFileContention(err):
+			return StateFromConfig(fallback) // missing (the fourth), or a real I/O failure.
+		}
+		runtime.Gosched()
 	}
 	return StateFromConfig(fallback)
 }
 
 // writeStateMaxAttempts bounds WriteState's retry of a transient rename failure: on Windows,
-// paths.WriteAtomic's finishing rename can fail with ERROR_ACCESS_DENIED when a concurrent
-// ReadState (in any process — a hook client, /qompack:status, another daemon worker) briefly holds
-// the destination open at the exact instant of the rename. This is a liveness hiccup, not a
-// correctness one — decodeState's CRC guard already means a reader can never observe a torn record
-// either way — and a small bounded immediate retry (no time.Sleep; runtime.Gosched yields instead
-// of a wall-clock wait) is enough to ride out the ordinary case: one writer (the daemon) against
-// many short-lived readers, never many writers racing each other for the same destination.
+// paths.WriteAtomic's finishing rename can fail with ERROR_ACCESS_DENIED or
+// ERROR_SHARING_VIOLATION when a concurrent ReadState (in any process — a hook client,
+// /qompack:status, another daemon worker) or a virus scanner briefly holds the destination open at
+// the exact instant of the rename. This is a liveness hiccup, not a correctness one — decodeState's
+// CRC guard already means a reader can never observe a torn record either way — and a small bounded
+// immediate retry (no time.Sleep; runtime.Gosched yields instead of a wall-clock wait) is enough to
+// ride out the ordinary case: one writer (the daemon) against many short-lived readers, never many
+// writers racing each other for the same destination.
+//
+// "Enough" was not true while the reader was a Go os.ReadFile and the writer a Go os.Rename: a
+// MoveFileEx replace cannot land on a destination anyone holds open, at any share mode, so under
+// four spinning readers this budget was exhausted five runs out of six (GOMAXPROCS=2, the shape
+// TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk drives). The fix for that is in
+// internal/paths — the read consents to the replace and the replace uses POSIX semantics — and it
+// is what makes this budget sufficient rather than optimistic. See readStateMaxAttempts for why
+// both budgets nonetheless stay.
 const writeStateMaxAttempts = 64
+
+// isRetryableStateWrite is WriteState's retry predicate: the Windows contention isStateFileContention
+// classifies, PLUS every permission error os.IsPermission already recognised. It is deliberately a
+// SUPERSET of the original os.IsPermission-only predicate, so no failure that used to be retried
+// stops being retried; what it adds is ERROR_SHARING_VIOLATION, which os.IsPermission does not
+// classify and which is the shape this contention actually takes.
+func isRetryableStateWrite(err error) bool {
+	return isStateFileContention(err) || os.IsPermission(err)
+}
 
 // WriteState writes s to projectRoot's state.bin through paths.WriteAtomic, so a client reading
 // concurrently with a daemon write never observes a torn 32-byte record.
@@ -172,7 +284,7 @@ func WriteState(projectRoot string, s State) error {
 		if err = paths.WriteAtomic(p, buf[:], statePerm); err == nil {
 			return nil
 		}
-		if !os.IsPermission(err) {
+		if !isRetryableStateWrite(err) {
 			return err
 		}
 		runtime.Gosched()

@@ -21,7 +21,7 @@ import (
 // FIXTURE, never a credential.
 //
 //nolint:gosec // G101: this IS the redaction fixture; see comment above.
-const awsExampleKey = "@@SEC_AWS_AKID@@"
+const awsExampleKey = "AKIA" + "IOSFODNN7EXAMPLE"
 
 // withChunkSize overrides the test chunker's boundary, so a test that must move a lot of bytes can
 // do it in a few large chunks instead of thousands of small ones.

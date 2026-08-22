@@ -293,6 +293,9 @@ func (c Config) Validate() []Violation {
 	if c.Runtime.Budgets.MCPToolCallMs <= 0 {
 		add("runtime.budgets.mcpToolCallMs", "must be greater than 0", c.Runtime.Budgets.MCPToolCallMs, "> 0")
 	}
+	if c.Runtime.Budgets.HookDegradedMs <= 0 {
+		add("runtime.budgets.hookDegradedMs", "must be greater than 0", c.Runtime.Budgets.HookDegradedMs, "> 0")
+	}
 
 	// runtime.telemetry.enabled must be false — hardwired; a true value is a Violation
 	if c.Runtime.Telemetry.Enabled {

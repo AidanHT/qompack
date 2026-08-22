@@ -6,6 +6,11 @@ package config
 // constant duplicating one, so this is precisely the one place they are allowed to appear as Go
 // literals. TestDefaults_MatchesAppendixCVerbatim asserts json.Marshal of this value, with the
 // "runtime" key removed, deep-equals testdata/golden/config/appendix-c.jsonc byte-for-byte.
+//
+// One default is deliberately not a literal here: runtime.daemon.connectDeadlineMs is
+// platform-specific, because on Windows the portable value sits below the named-pipe dial's own
+// busy-retry quantum and buys no retry at all. Its two values, and the arithmetic behind them,
+// live in deadlines.go.
 func Defaults() Config {
 	return Config{
 		Store: StoreCfg{
@@ -111,7 +116,7 @@ func Defaults() Config {
 				IdleExitSeconds:   1800,
 				MaxSessions:       8,
 				AckDeadlineMs:     8,
-				ConnectDeadlineMs: 5,
+				ConnectDeadlineMs: connectDeadlineMsDefault(),
 			},
 			HotPath: HotPathCfg{
 				BudgetMs:        15,
@@ -146,6 +151,7 @@ func Defaults() Config {
 				L0ProcessMs:          50,
 				CheckpointFinalizeMs: 2000,
 				MCPToolCallMs:        250,
+				HookDegradedMs:       1000,
 			},
 			Selection: RSelectionCfg{
 				SubmodularEnabled: false,

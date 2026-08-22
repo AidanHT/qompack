@@ -375,10 +375,10 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
-	dd.drain = newDrainer(DrainConfig{
+	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
 		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
-	})
+	}))
 	dd.registry.SetHotMode(ipc.HotSpool, "test")
 
 	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
@@ -424,10 +424,10 @@ func TestDrainOfSpooledFlushLineDoesNotDeadlock(t *testing.T) {
 	dd, ok := d.(*daemon)
 	require.True(t, ok)
 	t.Cleanup(func() { _ = dd.ing.Close() })
-	dd.drain = newDrainer(DrainConfig{
+	dd.drain.Store(newDrainer(DrainConfig{
 		Root: root, Log: logging.Nop(), Metrics: dd.m, Clock: dd.clk,
 		Dispatch: dd.drainDispatch, Seen: dd.ing.seen, IsLive: dd.sessionIsLive,
-	})
+	}))
 
 	flushReq := ipc.Request{
 		Op: ipc.OpFlush, Session: "sess-1", Reply: true,
@@ -515,9 +515,11 @@ const (
 	redrainTestBound = idleTickMax / 6
 	redrainTestTick  = 25 * time.Millisecond
 	// redrainDialBound is the connect/ACK budget for this test's own admin client. It is wide
-	// relative to config.Defaults()'s ConnectDeadlineMs (5ms, tuned for an already-warm daemon)
-	// because the very first dial into a daemon that has just started is exactly the case that
-	// budget is NOT sized for — the same reason internal/cli carries hookConnectDeadlineFloor.
+	// relative to config.Defaults()'s ConnectDeadlineMs (5ms, or 25ms on Windows where it also has
+	// to clear the named-pipe dial's retry quantum — internal/config/deadlines.go; either way tuned
+	// for an already-warm daemon) because the very first dial into a daemon that has just started is
+	// exactly the case that budget is NOT sized for — the same reason internal/cli carries
+	// hookConnectDeadlineFloor.
 	redrainDialBound = 500 * time.Millisecond
 )
 
@@ -729,6 +731,84 @@ func TestHotModeTransitionWritesStateAndNAKs(t *testing.T) {
 	require.Equal(t, "spool", snap.Hot, "StatusSnapshot.Hot must report the transition, not the submode the daemon started in")
 }
 
+// hotStatePersistBound and hotStatePersistTick bound
+// TestHotModeTransitionPersistsBeforeItIsAnnounced's wait for state.bin to carry the transition.
+// What is being bounded is ONE paths.WriteAtomic of 32 bytes — stage into .qompack/tmp, fsync,
+// chmod, rename — measured on the Windows host this was written against at an 8.5 ms mean with
+// nothing else touching the file, and a 0.52 s worst case with concurrent readers on it.
+// drainLineDeadline is the ceiling this package already uses for "one bounded step, however slow
+// the host": aliasing it rather than copying a fresh literal is the same discipline timing.go's
+// exported aliases exist to enforce, and it makes a timeout here mean "the write never happened",
+// not "the write was slower than a number someone picked".
+const (
+	hotStatePersistBound = drainLineDeadline
+	hotStatePersistTick  = time.Millisecond
+)
+
+// TestHotModeTransitionPersistsBeforeItIsAnnounced pins the ORDER of §12.2's transition effects,
+// which TestHotModeTransitionWritesStateAndNAKs cannot see because it drives the transition
+// synchronously and only looks once everything has finished.
+//
+// registry.SetHotMode is the moment the transition becomes visible outside this goroutine:
+// dispatchOp reads registry.HotMode() to decide the NAK-with-hint, and Registry().HotMode() is
+// what an out-of-process observer polls. If state.bin is written AFTER that flip, there is a
+// window — one whole paths.WriteAtomic wide — in which the registry says spool, the daemon NAKs,
+// and the 32-byte record every newly constructed client reads still says sync. A client born in
+// that window dials a daemon that has already stopped accepting, which is exactly the connect
+// §12.2's spool submode exists to prevent, and a test that reads state.bin the instant it sees the
+// registry flip observes hot=0. That is the shape of the windows-latest failure in run
+// 32298432254.
+//
+// The proof carries no timing of its own. The test holds the registry's own write lock for the
+// whole assertion, so SetHotMode provably cannot complete while it is held: if the write is
+// ordered after the flip, no interleaving exists in which state.bin changes at all, and the wait
+// below can only time out. If the write is ordered first, it needs no lock and lands immediately.
+func TestHotModeTransitionPersistsBeforeItIsAnnounced(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := testConfig()
+	cfg.Runtime.HotPath.BudgetMs = 15
+	cfg.Runtime.HotPath.BreachWindows = 1
+	d, err := New(Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()})
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	t.Cleanup(func() { _ = dd.ing.Close() })
+
+	// Same precondition TestHotModeTransitionWritesStateAndNAKs states, for the same reason: in
+	// production AcquireLock creates run/ during Run's startup, long before a sample can breach.
+	require.NoError(t, os.MkdirAll(paths.Long(paths.Of(root).Run), 0o700))
+	require.Equal(t, ipc.HotSync, ipc.ReadState(root, cfg).Hot,
+		"guard: nothing may have written a spool record before the transition under test")
+
+	// Block the publication half of the transition. SetHotMode takes this lock; the write half
+	// must not need it.
+	dd.registry.mu.Lock()
+	var unlockOnce sync.Once
+	unlock := func() { unlockOnce.Do(dd.registry.mu.Unlock) }
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		dd.applyHotPathTransition(ToSpool)
+	}()
+	// Release the transition and wait for it whatever the assertion below decides: a goroutine
+	// still writing into t.TempDir() after the test returns races the directory's own removal.
+	t.Cleanup(func() { unlock(); <-done })
+
+	require.Eventually(t, func() bool { return ipc.ReadState(root, cfg).Hot == ipc.HotSpool },
+		hotStatePersistBound, hotStatePersistTick,
+		"state.bin still reports the sync submode while registry.SetHotMode is blocked: the "+
+			"transition is persisted AFTER it is announced, so every observer that learns of it "+
+			"from the registry or from a NAK can read a state.bin that still says sync (§12.2)")
+
+	unlock()
+	<-done
+	require.Equal(t, ipc.HotSpool, dd.registry.HotMode(), "the transition must still complete")
+	require.Equal(t, ipc.HotSpool, ipc.ReadState(root, cfg).Hot)
+}
+
 // readDayLogs returns the concatenated contents of every qompack-<day>.log in dir. The day log's
 // name carries a date, so a test that wants to read what it just wrote globs rather than
 // reconstructing the filename from a clock it does not control.
@@ -918,6 +998,90 @@ func TestAdminShutdownStopsTheDaemon(t *testing.T) {
 	}
 }
 
+// TestRunReturnsOnlyAfterAsyncStopHasFinished is the shutdown-debris regression.
+//
+// cmd/qompack/main.go is `os.Exit(cli.Dispatch(...))`, and internal/cli's runDaemon returns as
+// soon as Daemon.Run does, so the instant Run returns the daemon PROCESS dies. admin.shutdown runs
+// Stop on its own goroutine (handlers.go handleAdminShutdown), and Stop's very first acts —
+// close(d.stopped) and runCancel() — are also exactly what make Serve return and Run's own select
+// take its `case <-d.stopped: return nil` arm. Run returning is therefore not evidence that Stop
+// finished; without an explicit wait it is evidence of the opposite, and every step of Stop AFTER
+// that cancel (the bounded drain and its state/drain.json write, the ingest WAL close, the sketch
+// saves, the metrics.Persist onto metrics/latency.json, the state.bin removal, the server close,
+// the lock release) is racing os.Exit.
+//
+// Three of those steps write through paths.WriteAtomic, which stages into .qompack/tmp/ under the
+// "wa-" prefix and removes the staging file in a deferred call. A process that dies between the
+// os.CreateTemp and that deferred os.Remove leaves the staging file behind PERMANENTLY — the exact
+// debris test/guards' TestV1_WriteSetConfinedAcrossFullHookSequence reports as "WriteAtomic left
+// staging files in .qompack/tmp/", and the exact debris internal/paths' own atomic_test.go forbids.
+//
+// The assertions below are about ORDERING, not about timing: everything Stop does must already be
+// on disk (or already gone from it) at the instant Run hands control back, because in the shipped
+// binary there is no later instant. daemon.lock is the sharpest of the three — Lock.Release is the
+// LAST statement of Stop's cleanup, so a lock file still present when Run returns proves the
+// cleanup was still in flight. TestAdminShutdownStopsTheDaemon above cannot see any of this: it
+// waits on dd.stopDone itself, and that wait is precisely the wait the daemon does not perform.
+func TestRunReturnsOnlyAfterAsyncStopHasFinished(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("QOMPACK_IPC_ADDR", uniqueTestAddr(t))
+
+	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop(), Clock: core.SystemClock()})
+	require.NoError(t, err)
+
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+
+	addr, err := ipc.Resolve(root)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), drainDeadlockGuard)
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() { errCh <- d.Run(ctx) }()
+
+	// Readiness is a successful DIAL, not the appearance of daemon.lock. Run takes the lock second,
+	// long before it writes state.bin, starts its own goroutines or accepts anything, so a shutdown
+	// sent at lock-time races Run's remaining startup — Run would go on to (re)write the very
+	// state.bin Stop had already removed, and would start goroutines after Stop's join had passed.
+	// The shipped daemon cannot be asked to stop before it is accepting; neither should this be.
+	require.Eventually(t, func() bool {
+		return ipc.Probe(addr, dialProbeTimeout)
+	}, drainDeadlockGuard, redrainTestTick,
+		"the daemon never started accepting, so there was nothing to shut down")
+
+	// The asynchronous route, deliberately: Stop called straight from this goroutine is
+	// synchronous and could never exhibit the race the shipped binary actually runs into.
+	resp := dd.dispatchOp(context.Background(), ipc.Request{Op: ipc.OpAdminShutdown, Reply: true})
+	require.True(t, resp.OK)
+
+	select {
+	case runErr := <-errCh:
+		require.NoError(t, runErr)
+	case <-time.After(drainDeadlockGuard):
+		t.Fatal("admin.shutdown did not stop the running daemon")
+	}
+
+	// Nothing waits from here on: this is the state the real process exits in.
+	_, lockErr := os.Stat(paths.Long(filepath.Join(paths.Of(root).Run, lockFileName)))
+	require.True(t, os.IsNotExist(lockErr),
+		"Run returned while Stop was still running: releasing daemon.lock is Stop's last act, so a "+
+			"lock file still on disk here means the shipped binary's os.Exit is racing the rest of "+
+			"the cleanup — including three paths.WriteAtomic calls that leave .qompack/tmp/ debris "+
+			"when they are killed between os.CreateTemp and their deferred os.Remove")
+
+	_, stateErr := os.Stat(paths.Long(ipc.StatePath(root)))
+	require.True(t, os.IsNotExist(stateErr),
+		"state.bin must already be removed when Run returns: left behind by a process that exited "+
+			"mid-cleanup, every later client keeps dialling an endpoint no daemon is on")
+
+	entries, readErr := os.ReadDir(paths.Of(root).Tmp)
+	require.NoError(t, readErr)
+	require.Empty(t, entries,
+		"a WriteAtomic staging file was still in .qompack/tmp/ when Run returned; in the shipped "+
+			"binary that write is killed mid-flight and the file outlives the daemon")
+}
+
 // TestServeFailureTakesTheStopPath closes FR-4's one untested arm (§2.5a G).
 //
 // Run's select has two ways out of `case err := <-serveErrCh`. A Serve return with d.stopped
@@ -952,9 +1116,11 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 	errCh := make(chan error, 1)
 	go func() { errCh <- d.Run(ctx) }()
 
-	// Both artifacts must exist before they can meaningfully be asserted gone, and dd.server must
+	// Both artifacts must exist before they can meaningfully be asserted gone, and the server must
 	// be set before it can be closed — Run assigns it, writes state.bin and takes the lock in that
-	// order, so the lock is the last of the three to appear.
+	// order, so the lock is the last of the three to appear. Through currentServer, not the field:
+	// this goroutine is not Run's, so a bare dd.server read here is the same unsynchronised read
+	// of a field Run writes that startMu exists to stop (CI run 32391116227).
 	statePath := paths.Long(ipc.StatePath(root))
 	lockPath := paths.Long(filepath.Join(paths.Of(root).Run, lockFileName))
 	require.Eventually(t, func() bool {
@@ -962,11 +1128,11 @@ func TestServeFailureTakesTheStopPath(t *testing.T) {
 			return false
 		}
 		_, statErr := os.Stat(statePath)
-		return statErr == nil && dd.server != nil
+		return statErr == nil && dd.currentServer() != nil
 	}, drainDeadlockGuard, redrainTestTick, "the daemon never finished starting, so there was nothing to fail")
 
 	// The transport dies under a daemon that believes itself healthy.
-	require.NoError(t, dd.server.Close())
+	require.NoError(t, dd.currentServer().Close())
 
 	select {
 	case runErr := <-errCh:

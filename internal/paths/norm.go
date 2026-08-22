@@ -25,12 +25,28 @@ func Norm(projectRoot, p string) (string, error) {
 		abs = filepath.Join(projectRoot, p)
 	}
 	abs = filepath.Clean(abs)
-	if r, err := filepath.EvalSymlinks(abs); err == nil { // resolve only when it stays inside root
-		if inside(projectRoot, r) {
-			abs = r
-		}
+	root := filepath.Clean(projectRoot)
+
+	// The root has to be resolved before it can be compared against a resolved target.
+	// EvalSymlinks canonicalises its WHOLE argument, so when the project's own path contains a
+	// symlink the resolved target and the unresolved root share no prefix at all: inside() says
+	// no, and a symlink that genuinely lives inside the project is silently left unresolved. That
+	// is not hypothetical — macOS puts every TempDir under /var, which is itself a link to
+	// /private/var, and it is how this failed on the first CI run this repository ever had, on
+	// macOS and Windows both. The consequence in production is worse than a wrong string: the
+	// same file keys two different ways depending on how its root was spelled, which forks the
+	// dedup space of a content-addressed store.
+	//
+	// When the resolved target is adopted, the resolved root is adopted with it, so the Rel below
+	// measures both against the same base.
+	resolvedRoot := root
+	if rr, err := filepath.EvalSymlinks(root); err == nil {
+		resolvedRoot = rr
 	}
-	rel, err := filepath.Rel(filepath.Clean(projectRoot), abs)
+	if r, err := filepath.EvalSymlinks(abs); err == nil && inside(resolvedRoot, r) {
+		abs, root = r, resolvedRoot
+	}
+	rel, err := filepath.Rel(root, abs)
 	if err != nil {
 		return "", err
 	}

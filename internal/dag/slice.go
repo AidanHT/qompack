@@ -32,6 +32,22 @@ type Slice struct {
 	Truncated bool
 	// Visited is the total number of nodes the walk visited.
 	Visited int
+	// EdgesVisited is the number of edges the walk FOLLOWED out of the nodes it finalized: one
+	// per adjacency entry it read an endpoint and a score from. An entry a thin walk drops for
+	// being control-only (§6.4) was looked at but not followed, and is not counted.
+	//
+	// It exists because §6.4's cost claim — thin slicing is the cheaper walk — has to be testable
+	// on a shared CI runner, and a wall-clock reading is not. slice_compare_test.go used to
+	// compare two sub-millisecond time.Since readings taken inside `go test -count=2 ./...`, and
+	// measured the scheduler instead of the walk: CI run 32397340626 read thin 3.99988ms against
+	// full 1.82256ms on seed 3, while seed 2 in the same loop read thin 441.63µs against full
+	// 4.36204ms doing comparable work. This counter is exactly reproducible, is unaffected by
+	// whatever else the runner is doing, and states the claim more strongly than a stopwatch can:
+	// thin follows a SUBSET of the edges full follows, and a subset relation cannot hold by luck.
+	//
+	// It is one increment in the traversal's inner loop and allocates nothing; no production
+	// caller reads it, and the walk behaves identically whether or not anyone does.
+	EdgesVisited int
 }
 
 // The slicing defaults of SP-07. None of these values duplicates a configuration default, so the

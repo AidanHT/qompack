@@ -192,17 +192,154 @@ func normalizeRoot(goos, root string) string {
 }
 
 // stripTrailingSlash removes a trailing "/" from an already forward-slashed path, except when the
-// result would be a bare root: POSIX "/" itself, or a Windows drive root such as "C:/" whose volume
-// name is the entire remaining string once the slash is gone — stripping that would turn an
-// absolute path into a different, drive-relative one.
+// result would be a bare root: POSIX "/" itself, or a Windows volume root such as "C:/" or
+// "//host/share/" whose volume name is the entire remaining string once the slash is gone —
+// stripping that would turn an absolute path into a different, drive-relative one.
+//
+// The volume is recognised by windowsVolumeLen rather than by filepath.VolumeName, so that this
+// function answers from the path's own shape instead of from the host that happens to be running
+// it; see windowsVolumeLen for why that distinction is not cosmetic here.
 func stripTrailingSlash(p string) string {
 	if !strings.HasSuffix(p, "/") || p == "/" {
 		return p
 	}
-	if vol := filepath.VolumeName(p); vol != "" && len(p) == len(vol)+1 {
+	if windowsVolumeLen(p) == len(p)-1 {
 		return p
 	}
 	return strings.TrimSuffix(p, "/")
+}
+
+// pathSeparators are the two characters Windows accepts interchangeably inside a volume name.
+// normalizeRoot only ever passes forward slashes, but recognising both is what makes
+// windowsVolumeLen a drop-in for the filepath.VolumeName call it replaced, on any input.
+const pathSeparators = `/\`
+
+// The literal prefixes Windows recognises after a leading pair of separators. `\\.\UNC\` is a UNC
+// path spelled as a local device, so its host AND share belong to the volume exactly as they do in
+// a plain UNC path; `\\.`, `\\?` and `\??` introduce a device path whose single following component
+// belongs to the volume. They are written with backslashes because that is how Windows spells them
+// — hasVolumePrefix matches either separator.
+const (
+	deviceUNCPrefix   = `\\.\UNC`
+	localDevicePrefix = `\\.`
+	rootDevicePrefix  = `\\?`
+	ntObjectPrefix    = `\??`
+)
+
+// The offsets windowsVolumeLen scans from, each one past the separator that closes its prefix:
+// driveLen is the whole of a "C:" volume, uncHostAt the start of the host in "//host/share",
+// deviceCompAt the start of the single component in `\\?\C:`, and deviceUNCHostAt the start of the
+// host in `\\.\UNC\host\share`. bareDeviceLen is the degenerate `\\.` with nothing following it,
+// which is entirely volume.
+const (
+	driveLen        = 2
+	uncHostAt       = 2
+	bareDeviceLen   = 3
+	deviceCompAt    = 4
+	deviceUNCHostAt = len(deviceUNCPrefix) + 1
+)
+
+// windowsVolumeLen reports the length of p's leading Windows volume name — "C:" in "C:/proj",
+// "//host/share" in "//host/share/proj", "//?/C:" in "//?/C:/proj" — and 0 when p carries none, as
+// every POSIX path does.
+//
+// It reimplements what filepath.VolumeName does on a Windows build instead of calling it, because
+// filepath.VolumeName is selected at compile time by GOOS: the standard library's volumeNameLen is
+// `return 0` for every unix build, so filepath.VolumeName("C:/") is "C:" on Windows and "" on Linux
+// and macOS. That makes it the wrong tool for this particular caller. stripTrailingSlash feeds
+// projectHashFor, and that hash names an IPC endpoint (§2.4); an endpoint name has to be a function
+// of the project root alone, so a decision that changes with the host deciding it is a socket name
+// that changes with the host — and, in the test suite, an assertion that can only hold on one
+// platform. Parsing the shape directly is what makes normalizeRoot mean one thing everywhere.
+//
+// The grammar mirrors the standard library's own, including its deliberate refusal to require the
+// drive letter to be in A-Z, so that this returns the identical answer to filepath.VolumeName for
+// every input on a Windows host.
+func windowsVolumeLen(p string) int {
+	switch {
+	case len(p) >= driveLen && p[1] == ':':
+		// A drive letter. Windows' own APIs do not consistently enforce A-Z here and neither does
+		// the standard library, so neither does this.
+		return driveLen
+
+	case len(p) == 0 || !isPathSeparator(p[0]):
+		// Relative, or a POSIX absolute path: no volume component at all.
+		return 0
+
+	case hasVolumePrefix(p, deviceUNCPrefix):
+		return uncVolumeLen(p, deviceUNCHostAt)
+
+	case hasVolumePrefix(p, localDevicePrefix),
+		hasVolumePrefix(p, rootDevicePrefix),
+		hasVolumePrefix(p, ntObjectPrefix):
+		// The component after the prefix is part of the volume, which is precisely why
+		// filepath.Clean(`\\?\C:\`) keeps its trailing separator instead of yielding `\\?\C:`.
+		if len(p) == bareDeviceLen {
+			return bareDeviceLen
+		}
+		if i := strings.IndexAny(p[deviceCompAt:], pathSeparators); i >= 0 {
+			return deviceCompAt + i
+		}
+		return len(p)
+
+	case len(p) >= uncHostAt && isPathSeparator(p[1]):
+		return uncVolumeLen(p, uncHostAt)
+	}
+	return 0
+}
+
+// uncVolumeLen returns the end of the "host/share" pair that starts at start: the index of the
+// second separator at or after start — the one closing the share — or len(p) when p runs out before
+// two are seen, in which case the whole of p is still inside the volume name.
+//
+// Written as a scan from an index rather than as two slice-and-search steps so that a start past
+// the end of p (`\\.\UNC` with nothing after it is 7 bytes, and its host would start at 8) simply
+// finds nothing instead of panicking on the slice bound.
+func uncVolumeLen(p string, start int) int {
+	seen := 0
+	for i := start; i < len(p); i++ {
+		if !isPathSeparator(p[i]) {
+			continue
+		}
+		seen++
+		if seen == 2 {
+			return i
+		}
+	}
+	return len(p)
+}
+
+// hasVolumePrefix reports whether p begins with prefix, comparing ASCII case-insensitively and
+// treating the two path separators as one character. Whatever follows the prefix must itself be a
+// separator, so that "//?x" is not mistaken for the `\\?\` device form.
+func hasVolumePrefix(p, prefix string) bool {
+	if len(p) < len(prefix) {
+		return false
+	}
+	for i := 0; i < len(prefix); i++ {
+		if isPathSeparator(prefix[i]) {
+			if !isPathSeparator(p[i]) {
+				return false
+			}
+			continue
+		}
+		if upperASCII(prefix[i]) != upperASCII(p[i]) {
+			return false
+		}
+	}
+	return len(p) == len(prefix) || isPathSeparator(p[len(prefix)])
+}
+
+// isPathSeparator reports whether c separates components in a Windows path.
+func isPathSeparator(c byte) bool { return c == '/' || c == '\\' }
+
+// upperASCII folds one ASCII letter to upper case. Deliberately ASCII-only: the only strings it is
+// ever asked to compare are the four literal volume prefixes above.
+func upperASCII(c byte) byte {
+	if 'a' <= c && c <= 'z' {
+		return c - ('a' - 'A')
+	}
+	return c
 }
 
 // projectHashFor is ProjectHash12/ProjectHash8's shared body, and resolveFor's own hash source, with

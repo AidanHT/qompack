@@ -23,3 +23,10 @@ func dial(a Addr, timeout time.Duration) (net.Conn, error) {
 	d := net.Dialer{Timeout: timeout}
 	return d.Dial("unix", a.Path)
 }
+
+// dialBusyRetryQuantum is the platform's counterpart to dial_windows.go's constant of the same
+// name — see there for what it is for. It is zero here: connect(2) on an AF_UNIX socket either
+// succeeds, or fails outright with ECONNREFUSED/ENOENT, or blocks until the listen backlog drains,
+// and net.Dialer enforces Timeout across all three itself. There is no busy-retry sleep between
+// attempts to overshoot the caller's budget, because there are no repeated attempts.
+const dialBusyRetryQuantum time.Duration = 0
