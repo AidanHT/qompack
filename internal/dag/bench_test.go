@@ -12,6 +12,7 @@ import (
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/dag/dagtest"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/stretchr/testify/require"
 )
 
@@ -270,27 +271,75 @@ func TestSliceLatencyBudget(t *testing.T) {
 	}
 }
 
+// crossingBatch is how many CrossingEdges calls TestCrossingLatencyBudget spans, and it is sized
+// by the clock the budget is now graded on rather than by the operation.
+//
+// obs.ProcessCPU reads GetProcessTimes on Windows, which is credited on the 15.625 ms scheduler
+// tick. The batch has to be long enough that one tick is a small fraction of the LIMIT, because
+// quantisation is what decides whether a passing measurement can be rounded into a failing one.
+// At a million calls the §8.4 ceiling is 5 s of CPU and one tick is 0.3% of it, so it cannot; the
+// measurement itself is around 180 ms here, about a dozen ticks, coarse enough to read as a
+// diagnostic and far too fine to matter against the ceiling. The batch costs about 0.2 s.
+//
+// It was 10,000 while this gate read a wall clock, which is 1.8 ms of work: two orders of
+// magnitude below one tick, so a CPU reading over it would round to zero — the single value that
+// can only ever make a CPU budget pass.
+const crossingBatch = 1_000_000
+
 // TestCrossingLatencyBudget is the paired gate for BenchmarkCrossingEdges.
 //
-// It times a batch and divides, rather than timing one call: a single CrossingEdges is a few
-// microseconds, which is close enough to the clock's own resolution that a per-call measurement
-// would be mostly noise. A batch of 10,000 is comfortably above it.
+// It measures CPU TIME, not wall-clock time, and that is the whole point of it. §8.4's budget is a
+// claim about what CrossingEdges costs to execute; a wall clock over a batch on a shared runner
+// reports how much of the host this process got instead. This repository has the two clocks
+// measured side by side on the same work — test/bench/hotpath/process.go, quiet versus 88 busy
+// threads on 22 cores — and the wall column moved 23x while the CPU column did not move at all.
+// This package's own tests are one of the things doing the co-loading: `go test ./...` puts about
+// twenty package binaries on the runner at once, and the sibling TestSliceLatencyBudget above
+// already had to be rewritten once for the same reason.
+//
+// A batch is still timed and divided rather than one call being timed, for the reason that always
+// applied and now applies far more strongly: a single CrossingEdges is around 180 ns, and the CPU
+// clock's granularity is five orders of magnitude coarser than that. See crossingBatch.
+//
+// What this clock cannot see is a regression that makes the operation WAIT rather than work — a
+// sleep, a lock it now blocks on, an I/O call. CrossingEdges takes an RWMutex and does two binary
+// searches over two int slices; there is nothing in it to wait for, and a slicing regression that
+// somehow added something to wait for would fail the goldens and TestConcurrentMutationAndRead
+// long before it reached a budget. The wall clock is still measured and still logged, so the
+// number stays readable; nothing is gated on it.
 func TestCrossingLatencyBudget(t *testing.T) {
 	g, _ := benchGraph(t)
 	warm(g)
 	maxPos := g.Stats().MaxPos
 	require.Positive(t, maxPos, "fixture sanity: the synthetic graph must span a prefix")
 
-	const batch = 10000
-	start := time.Now()
-	for i := range batch {
+	startCPU, err := obs.ProcessCPU()
+	require.NoError(t, err, "the CPU clock §8.4's budget is graded on must be readable")
+
+	startWall := time.Now()
+	for i := range crossingBatch {
 		_ = g.CrossingEdges((i * 977) % maxPos)
 	}
-	per := time.Since(start) / batch
+	wall := time.Since(startWall)
 
+	endCPU, err := obs.ProcessCPU()
+	require.NoError(t, err, "the CPU clock §8.4's budget is graded on must be readable")
+
+	// A zero reading is refused rather than measured, the same rule test/bench/hotpath applies to
+	// a missing ProcessState: zero CPU over a million calls means the clock told us nothing, and
+	// it is the one value that can only ever make this gate pass.
+	cpu := endCPU - startCPU
+	require.Positive(t, cpu,
+		"CrossingEdges x%d reported no CPU time at all; the budget cannot be graded on a clock that did not move",
+		crossingBatch)
+
+	per := cpu / crossingBatch
 	ceiling := budgetFor(crossingBudget)
+	t.Logf("CrossingEdges x%d over %d edges: %v CPU (%v per call) against a %v ceiling%s; %v wall (not gated)",
+		crossingBatch, g.Stats().Edges, cpu, per, ceiling, budgetNote(), wall)
+
 	require.Less(t, per, ceiling,
-		"CrossingEdges over %d edges: %v per call exceeds %v, the ceiling for §8.4's budget%s",
+		"CrossingEdges over %d edges: %v of CPU per call exceeds %v, the ceiling for §8.4's budget%s",
 		g.Stats().Edges, per, ceiling, budgetNote())
 }
 
