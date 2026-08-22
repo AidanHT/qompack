@@ -27,14 +27,20 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 )
 
 // Exit codes. Each names a distinct failure so a CI log says what happened without being read.
+//
+// exitBudget covers both of the driver's self-imposed limits, the CPU cost budget and the wall
+// clock liveness ceiling, because SP-02's spec and the V3/V4/V6 verification tables all document
+// "--max-wall exceeded → exit 3" and splitting the code would falsify them. The two failures print
+// different sentences, so the log still says which one fired.
 const (
 	exitOK          = 0
 	exitGateFailed  = 1
 	exitBadInput    = 2
-	exitMaxWall     = 3
+	exitBudget      = 3
 	exitPhaseNoSkip = 5
 )
 
@@ -44,7 +50,8 @@ const (
 	defaultBaselinePath = "testdata/baseline/phase0.json"
 	defaultOutPath      = "testdata/bench-replay.json"
 	defaultPolicies     = "stock,null,oracle"
-	defaultMaxWall      = 2 * time.Minute
+	defaultMaxCPU       = 2 * time.Minute
+	defaultMaxWall      = 15 * time.Minute
 )
 
 // noDemandCorpusLimit is how much of a corpus may demand nothing before the corpus stops measuring
@@ -52,7 +59,72 @@ const (
 // perfect number for a policy that keeps nothing at all.
 const noDemandCorpusLimit = 0.25
 
-var errMaxWall = errors.New("replay: wall-clock budget exceeded")
+// The driver holds itself to two limits, because it has two failure modes and one clock cannot see
+// both. They are separate on purpose and neither substitutes for the other.
+//
+// errMaxCPU bounds COST: how much work the replay does. It reads a CPU clock, because a wall clock
+// on a shared runner reports how much of the host this process was given instead. Replaying the
+// committed corpus is about 220 ms of work, and 1024 busy threads on 22 cores stretched that to
+// 187.5 s of wall while the CPU it spent stayed at 671.9 ms — 279x apart, on a binary with no
+// defect in it. The whole-tree `go test ./...` job drives this driver through
+// test/integration/replaygrowth_test.go beside about twenty other package binaries, which is
+// exactly that runner, so a cost budget read off a wall clock there is a coin toss.
+//
+// errMaxWall bounds LIVENESS: how long the run may take, however slowly it gets there. A CPU clock
+// cannot see this one at all, because everything that makes a process wait rather than work is
+// invisible to it — a corpus on a slow filesystem, a blocking read added to the session loop, and
+// concretely today the git child loadBaseline shells out to for a `--baseline <ref>` (gate.go),
+// whose CPU is charged to the child, so a git that takes twenty minutes and returns costs this
+// process nothing measurable. V3-VERIFY and V4-VERIFY both invoke the driver that way.
+//
+// Together they say: this replay may not get more expensive than defaultMaxCPU, and it may not take
+// longer than defaultMaxWall no matter what the host is doing. Dropping either one leaves a whole
+// family of failures with nothing watching it, which is what an earlier revision of this file did
+// to the second.
+//
+// defaultMaxWall is generous BECAUSE it is a liveness bound and not a performance one: it exists to
+// turn an hour of grinding into a failure in minutes, not to have an opinion about a slow host. The
+// worst wall time measured across nine deliberately co-loaded runs was 187.5 s, so 15 minutes clears
+// the worst observed weather by about 5x and still fails a driver that has stopped making progress
+// long before anyone notices. The replay-gate job also carries timeout-minutes, which is the
+// backstop for the one case neither check can see: both of these sample between sessions and after
+// the run, so a single call that never returns at all is caught by the job timeout rather than here.
+var (
+	errMaxCPU  = errors.New("replay: CPU budget exceeded")
+	errMaxWall = errors.New("replay: wall-clock ceiling exceeded")
+)
+
+// budgets is the pair of limits one run is held to, with the two readings it measures against.
+type budgets struct {
+	maxCPU, maxWall time.Duration
+	startCPU        time.Duration
+	started         time.Time
+}
+
+// spent returns what this run has used so far on both clocks. An unreadable CPU clock is an error
+// and never a zero: a budget that silently stops being measured is worse than one that fails.
+func (b budgets) spent() (cpu, wall time.Duration, err error) {
+	now, err := obs.ProcessCPU()
+	if err != nil {
+		return 0, 0, fmt.Errorf("replay: the CPU clock this run's budget is graded on is unreadable: %w", err)
+	}
+	return now - b.startCPU, time.Since(b.started), nil
+}
+
+// breach reports which limit, if either, the readings have passed. Cost is tested first: when a run
+// is both expensive and slow, the expense is the finding and the duration is its consequence.
+func (b budgets) breach(cpu, wall time.Duration) error {
+	switch {
+	case cpu > b.maxCPU:
+		return fmt.Errorf("%w: %s of CPU against the %s budget (%s of wall clock)",
+			errMaxCPU, cpu, b.maxCPU, wall)
+	case wall > b.maxWall:
+		return fmt.Errorf("%w: %s of wall clock against the %s ceiling (only %s of CPU, so this run is "+
+			"blocked or starved rather than expensive)", errMaxWall, wall, b.maxWall, cpu)
+	default:
+		return nil
+	}
+}
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
@@ -63,7 +135,7 @@ type options struct {
 	growth, sketch             string
 	phase                      int
 	regenCorpus, writeBaseline bool
-	maxWall                    time.Duration
+	maxCPU, maxWall            time.Duration
 	ci                         bool
 }
 
@@ -82,7 +154,14 @@ func parseFlags(args []string, errw io.Writer) (options, error) {
 	fs.IntVar(&o.phase, "phase", 0, "highest merged phase whose exit criterion must hold")
 	fs.BoolVar(&o.regenCorpus, "regen-corpus", false, "regenerate the synthetic corpus and exit")
 	fs.BoolVar(&o.writeBaseline, "write-baseline", false, "write --baseline from this run and exit")
-	fs.DurationVar(&o.maxWall, "max-wall", defaultMaxWall, "wall-clock budget for the whole replay")
+	// Two flags for the two properties. -max-wall keeps the meaning it has always had — a bound on
+	// how long the run may take — so a committed command line that says `--max-wall 3m` still gets
+	// the duration bound its author wrote it for. -max-cpu is the new one, and it is the one that
+	// bounds cost.
+	fs.DurationVar(&o.maxCPU, "max-cpu", defaultMaxCPU,
+		"CPU-time budget (user+system) for the whole replay — the COST bound; exceeded → exit 3")
+	fs.DurationVar(&o.maxWall, "max-wall", defaultMaxWall,
+		"wall-clock ceiling for the whole replay — the LIVENESS bound; exceeded → exit 3")
 	fs.BoolVar(&o.ci, "ci", false, "CI mode: phase checks may not be disabled by configuration")
 	if err := fs.Parse(args); err != nil {
 		return o, err
@@ -106,11 +185,21 @@ func parseFlags(args []string, errw io.Writer) (options, error) {
 }
 
 func run(args []string, out, errw io.Writer) int {
-	started := time.Now()
+	// Both clocks start before anything else does, so both limits cover the whole run and not just
+	// the part after the flags parsed.
+	b := budgets{started: time.Now()}
+	startCPU, err := obs.ProcessCPU()
+	if err != nil {
+		fmt.Fprintf(errw, "replay: the CPU clock this run's budget is graded on is unreadable: %v\n", err)
+		return exitBadInput
+	}
+	b.startCPU = startCPU
+
 	o, err := parseFlags(args, errw)
 	if err != nil {
 		return exitBadInput
 	}
+	b.maxCPU, b.maxWall = o.maxCPU, o.maxWall
 
 	root, err := repoRoot()
 	if err != nil {
@@ -138,22 +227,22 @@ func run(args []string, out, errw io.Writer) int {
 	}
 	policyNames := splitPolicies(o.policies)
 
-	first, err := replayCorpus(ctx, cfg, sessions, policyNames, o.maxWall, started, out)
+	first, err := replayCorpus(ctx, cfg, sessions, policyNames, b, out)
 	if err != nil {
 		fmt.Fprintf(errw, "%v\n", err)
-		if errors.Is(err, errMaxWall) {
-			return exitMaxWall
+		if errors.Is(err, errMaxCPU) || errors.Is(err, errMaxWall) {
+			return exitBudget
 		}
 		return exitBadInput
 	}
 	// A SECOND full replay with a freshly constructed harness. Reusing the loaded sessions but not
 	// the harness is deliberate: a stateful bug in the percentile pool shows up here as a diff
 	// rather than hiding behind an accumulated-but-consistent number.
-	second, err := replayCorpus(ctx, cfg, sessions, policyNames, o.maxWall, started, io.Discard)
+	second, err := replayCorpus(ctx, cfg, sessions, policyNames, b, io.Discard)
 	if err != nil {
 		fmt.Fprintf(errw, "%v\n", err)
-		if errors.Is(err, errMaxWall) {
-			return exitMaxWall
+		if errors.Is(err, errMaxCPU) || errors.Is(err, errMaxWall) {
+			return exitBudget
 		}
 		return exitBadInput
 	}
@@ -271,9 +360,14 @@ func run(args []string, out, errw io.Writer) int {
 		fmt.Fprintf(errw, "%v\n", err)
 		return exitBadInput
 	}
-	if elapsed := time.Since(started); elapsed > o.maxWall {
-		fmt.Fprintf(errw, "FAIL replay took %s, over the %s budget\n", elapsed, o.maxWall)
-		return exitMaxWall
+	cpu, wall, err := b.spent()
+	if err != nil {
+		fmt.Fprintf(errw, "%v\n", err)
+		return exitBadInput
+	}
+	if breach := b.breach(cpu, wall); breach != nil {
+		fmt.Fprintf(errw, "FAIL over the whole replay, %v\n", breach)
+		return exitBudget
 	}
 	if failed {
 		return exitGateFailed
@@ -301,7 +395,7 @@ type runResult struct {
 // Divergence is composed here rather than inside ScoreRun: §5.18 splits Compare and ScoreRun into
 // separate operations, and joining them is a composition root's job.
 func replayCorpus(ctx context.Context, cfg config.Config, sessions []eval.Session,
-	policyNames []string, maxWall time.Duration, started time.Time, out io.Writer,
+	policyNames []string, b budgets, out io.Writer,
 ) (runResult, error) {
 	h := eval.New(eval.Options{Cfg: cfg, Log: logging.Nop()})
 	res := runResult{
@@ -314,9 +408,14 @@ func replayCorpus(ctx context.Context, cfg config.Config, sessions []eval.Sessio
 	opts := eval.ReplayOptions{Deterministic: true, K: eval.DefaultHorizonK, Budget: eval.DefaultKeepBudget}
 
 	for _, s := range sessions {
-		if elapsed := time.Since(started); elapsed > maxWall {
-			return res, fmt.Errorf("%w: %s elapsed at session %s, budget %s",
-				errMaxWall, elapsed, s.ID, maxWall)
+		// Both limits are re-read before every session, so a run that has become too expensive and
+		// a run that has stopped making progress are each caught partway rather than at the end.
+		cpu, wall, err := b.spent()
+		if err != nil {
+			return res, err
+		}
+		if breach := b.breach(cpu, wall); breach != nil {
+			return res, fmt.Errorf("at session %s, %w", s.ID, breach)
 		}
 
 		opt, optValue, inexact, err := optimalKeepSets(ctx, s)
