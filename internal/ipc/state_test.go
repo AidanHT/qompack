@@ -49,7 +49,11 @@ func TestStateMissingFallsBackToDefaults(t *testing.T) {
 	require.Equal(t, contract.ModeFull, got.Mode)
 	require.Equal(t, ipc.HotSync, got.Hot)
 	require.EqualValues(t, 8, got.AckDeadlineMs)
-	require.EqualValues(t, 5, got.ConnectDeadlineMs)
+	// connectDeadlineMs's default is platform-specific (internal/config/deadlines.go: on Windows
+	// it has to clear the named-pipe dial's busy-retry quantum), so what this row asserts is that
+	// the fallback carried the CONFIG's value through, not a second spelling of the number.
+	// config's own TestDefaults_RuntimeNamespace is where the value itself is pinned.
+	require.EqualValues(t, config.Defaults().Runtime.Daemon.ConnectDeadlineMs, got.ConnectDeadlineMs)
 }
 
 // TestStateBadCRCFallsBack asserts a state file that has been corrupted in place (bytes correct
