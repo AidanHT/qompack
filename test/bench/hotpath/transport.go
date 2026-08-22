@@ -31,8 +31,8 @@ const (
 
 // probeConnectDeadline and probeAckDeadline bound one admin/status round trip against the
 // harness's own client. They are deliberately generous relative to the production hot-path
-// deadlines (State.ConnectDeadlineMs's 5ms default): this traffic is never gated, and a tight
-// deadline here would only make the harness itself flaky under host load.
+// deadlines (State.ConnectDeadlineMs's default is 5ms, or 25ms on Windows): this traffic is never
+// gated, and a tight deadline here would only make the harness itself flaky under host load.
 const (
 	probeConnectDeadline   = 2 * time.Second
 	probeAckDeadline       = 2 * time.Second

@@ -41,9 +41,9 @@ const (
 	// reads nothing, so this bounds the connect alone. Basis: internal/cli's
 	// hookConnectDeadlineFloor, the 250ms dial budget a real reply-op hook gives its FIRST
 	// post-spawn connect and the smallest budget in this tree documented as sufficient for a cold
-	// endpoint. config.Defaults().Runtime.Daemon.ConnectDeadlineMs (5ms) is deliberately not the
-	// basis: it is tuned for an already-warm daemon on the hot path, and a probe using it would
-	// report "no daemon" for a daemon that is merely busy.
+	// endpoint. config.Defaults().Runtime.Daemon.ConnectDeadlineMs (5ms, 25ms on Windows) is
+	// deliberately not the basis: it is tuned for an already-warm daemon on the hot path, and a
+	// probe using it would report "no daemon" for a daemon that is merely busy.
 	e2eProbeTimeout = 250 * time.Millisecond
 
 	// e2eRoundTripDeadline is the Send deadline for this file's admin/status round trips against a
@@ -84,7 +84,8 @@ const (
 	// Important I-1's removal of NewClientWithOptions's double state.bin read (correctly required;
 	// see that fix's own comment) also removed an incidental few-ms buffer that had been quietly
 	// carrying a Reply op's very first post-daemon-start dial across a too-tight
-	// State.ConnectDeadlineMs (5ms, sized for the hot path's already-warm cadence). With that dial
+	// State.ConnectDeadlineMs (5ms then, sized for the hot path's already-warm cadence; Windows now
+	// ships 25ms, still a warm-daemon budget). With that dial
 	// budget now widened for session-start/checkpoint/flush specifically, this bound is headroom
 	// for real sibling-test load, not compensation for a race.
 	e2eHistoryConvergeBound = e2eDaemonUpBound + e2eDaemonDownBound
