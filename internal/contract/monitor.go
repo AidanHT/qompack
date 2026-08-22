@@ -118,11 +118,20 @@ func NewMonitor(log logging.Logger, m obs.Registry, statePath string) Monitor {
 // followed by ModeFull: §12.3's "everything else fails toward do nothing" applies to the monitor's
 // own state file too, and a monitor that refused to start because its state file was corrupt would
 // be a worse outcome than one that starts clean and re-degrades on the next failed assertion.
+//
+// The read goes through paths.ReadFileShared rather than os.ReadFile so that it cannot stall
+// persist's writer. state/contract.json is written by paths.WriteAtomic, whose finishing replace
+// cannot land on Windows while anyone holds the destination open without FILE_SHARE_DELETE — and
+// os.ReadFile's handle is exactly that (internal/paths/shared.go, and
+// TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader for the measured behaviour). A construction
+// here overlapping a Degrade/Restore persist elsewhere would otherwise fail the persist and leave
+// §12.1's degradation unrecorded across sessions. ReadFileShared's errors keep os.ReadFile's
+// shapes, which costs nothing here because every one of them returns silently.
 func (m *monitor) load() {
 	if m.statePath == "" {
 		return
 	}
-	b, err := os.ReadFile(paths.Long(m.statePath))
+	b, err := paths.ReadFileShared(m.statePath)
 	if err != nil {
 		return
 	}
