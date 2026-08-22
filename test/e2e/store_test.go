@@ -161,15 +161,15 @@ type secretLiteral struct {
 func e2eSecretLiterals() []secretLiteral {
 	return []secretLiteral{
 		{"pem_private_key", "pem_private_key.txt", "zSkiT7eDbUFdzwFiq467cZP31mAkEy0m11KPIeNZq1k=z3NP1YYk6MyU0qpAh+Fh"},
-		{"aws_access_key_id", "aws_access_key_id.txt", "@@SEC_AWS_AKID@@"},
-		{"github_token", "github_token.txt", "@@SEC_GH_PAT@@"},
-		{"anthropic_key", "anthropic_key.txt", "@@SEC_ANTHROPIC@@"},
-		{"generic_sk_key", "generic_sk_key.txt", "@@SEC_GENERIC_SK@@"},
-		{"jwt", "jwt.txt", "@@SEC_JWT@@"},
+		{"aws_access_key_id", "aws_access_key_id.txt", "AKIA" + "IOSFODNN7EXAMPLE"},
+		{"github_token", "github_token.txt", "ghp_" + "1234567890abcdefghijklmnopqrstuvwxyz12"},
+		{"anthropic_key", "anthropic_key.txt", "sk-ant-api03-" + "1234567890abcdefghijklmnopqrstuvwxyz"},
+		{"generic_sk_key", "generic_sk_key.txt", "sk-" + "1234567890abcdefghijklmnopqrstuvwxyz"},
+		{"jwt", "jwt.txt", "eyJhbGciOiJI" + "UzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"},
 		{"bearer_token", "bearer_token.txt", "abcdefghijklmnopqrstuvwxyz012345"},
 		{"credentialed_uri", "credentialed_uri.txt", "h4nter2"},
 		{"assignment_secret", "assignment_secret.txt", "swordfishswordfish"},
-		{"dotenv_value", "dotenv_value.txt", "@@SEC_STRIPE@@"},
+		{"dotenv_value", "dotenv_value.txt", "sk_live_" + "aaaaaaaaaaa"},
 	}
 }
 
@@ -292,5 +292,5 @@ func readSecretFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "corpora", "secrets", name))
 	require.NoError(t, err, "secret corpus fixture missing: %s", name)
-	return b
+	return testutil.ExpandSecretTokens(b)
 }

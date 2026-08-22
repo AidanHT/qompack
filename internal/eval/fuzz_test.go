@@ -7,6 +7,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
+	"github.com/qompack/qompack/internal/testutil"
 )
 
 // redactCorpusDir is testdata/corpora/evalredact/, the seed corpus this subplan owns: one file per
@@ -29,7 +30,7 @@ func FuzzRedact(f *testing.F) {
 				continue
 			}
 			if b, readErr := os.ReadFile(filepath.Join(redactCorpusDir, e.Name())); readErr == nil {
-				f.Add(string(b))
+				f.Add(string(testutil.ExpandSecretTokens(b)))
 			}
 		}
 	}

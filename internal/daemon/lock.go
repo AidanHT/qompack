@@ -101,11 +101,25 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 	return &Lock{path: lockPath, hb: hbPath, clk: clk}, nil
 }
 
+// LockPath returns the path ReadLock reads: <projectRoot>/.qompack/run/daemon.lock.
+//
+// It exists for the caller that wants to observe whether the lock is PRESENT rather than what it
+// says. That used to be a correctness distinction on Windows and is now only a cost one: ReadLock
+// read the file with os.ReadFile, whose handle carries FILE_SHARE_READ|FILE_SHARE_WRITE and no
+// FILE_SHARE_DELETE (syscall/syscall_windows.go), so a caller polling ReadLock to watch for a
+// shutdown made Lock.Release's os.Remove fail with ERROR_SHARING_VIOLATION and became the very
+// thing that stopped the shutdown from completing. readLockFile now reads through
+// paths.ReadFileShared, which grants delete sharing, so polling ReadLock no longer obstructs a
+// release. os.Stat on this path is still the cheaper way to ask a presence question — it takes no
+// handle at all, via GetFileAttributesEx — and remains what test/guards' shutdown wait uses.
+func LockPath(projectRoot string) string {
+	return filepath.Join(paths.Of(projectRoot).Run, lockFileName)
+}
+
 // ReadLock reads projectRoot's current daemon.lock without taking it — for /qompack:status and
 // diagnostics. ok is false when the file is missing or unparseable.
 func ReadLock(projectRoot string) (LockInfo, bool) {
-	lockPath := filepath.Join(paths.Of(projectRoot).Run, lockFileName)
-	return readLockFile(lockPath)
+	return readLockFile(LockPath(projectRoot))
 }
 
 // lockIsStale runs the staleness protocol's steps 1-4 against an existing lock file, stopping at
@@ -151,8 +165,18 @@ func lockIsStale(lockPath, hbPath string, a ipc.Addr, clk core.Clock) bool {
 
 // readLockFile reads and parses p, reporting ok=false for anything that is missing or does not
 // decode as LockInfo — step 1 of the staleness protocol treats both the same way.
+//
+// The read goes through paths.ReadFileShared rather than os.ReadFile, and on Windows that is the
+// difference between observing the lock and obstructing it. Go's os.ReadFile takes a handle with
+// FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so for as long as this read is in
+// flight the owning daemon's own os.Remove of the same file — Lock.Release below, and
+// removeLockFiles' reclaim of a stale lock — fails with ERROR_SHARING_VIOLATION. A reader deciding
+// whether the lock is stale could therefore CREATE the abandoned lock it is looking at.
+// ReadFileShared adds FILE_SHARE_DELETE, so the release lands while this read is open and the
+// reader still sees the bytes it opened, exactly as on POSIX. The error shapes are os.ReadFile's
+// (paths.OpenShared preserves the *os.PathError), and this function discards the error anyway.
 func readLockFile(p string) (LockInfo, bool) {
-	b, err := os.ReadFile(paths.Long(p))
+	b, err := paths.ReadFileShared(p)
 	if err != nil {
 		return LockInfo{}, false
 	}

@@ -27,10 +27,10 @@ import (
 // not a real credential.
 //
 //nolint:gosec // G101: this IS the redaction-rule fixture; see comment above.
-const pemPositive = `@@SEC_PEM_RSA_BEGIN@@
+const pemPositive = `-----BEGIN RSA PRIV` + `ATE KEY-----
 MIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu
 KUpRKfFLfRYC9AIKjbJTWit+CqvjWYzvQwECAwEAAQ==
-@@SEC_PEM_RSA_END@@`
+-----END RSA PRIV` + `ATE KEY-----`
 
 // ruleFixture is one built-in rule's positive (must produce a match) and negative (must not
 // produce a match) example text.
@@ -50,22 +50,22 @@ func ruleFixtures() []ruleFixture {
 		},
 		{
 			name:     "aws_access_key",
-			positive: probeSecret, // @@SEC_AWS_AKID@@ — AWS's own documentation example
+			positive: probeSecret, // AWS's own documentation example access key ID
 			negative: "The word AKIA alone is not a key.",
 		},
 		{
 			name:     "github_token",
-			positive: "token: @@SEC_GH_PAT@@",
+			positive: "token: ghp_" + "1234567890abcdefghijklmnopqrstuvwxyz12",
 			negative: "token: ghz_1234567890abcdefghijklmnopqrstuvwxyz12",
 		},
 		{
 			name:     "sk_style_api_key",
-			positive: "ANTHROPIC_API_KEY=@@SEC_ANTHROPIC@@",
+			positive: "ANTHROPIC_API_KEY=sk-ant-api03-" + "1234567890abcdefghijklmnopqrstuvwxyz",
 			negative: `color_scheme = "skyblue"`,
 		},
 		{
 			name:     "bearer_token",
-			positive: "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc123def456",
+			positive: "Authorization: Bearer eyJhbGciOiJI" + "UzI1NiIsInR5cCI6IkpXVCJ9.abc123def456",
 			negative: "Authorization: Basic dXNlcjpwYXNz",
 		},
 		{
@@ -80,7 +80,7 @@ func ruleFixtures() []ruleFixture {
 		},
 		{
 			name:     "jwt",
-			positive: "@@SEC_JWT@@",
+			positive: "eyJhbGciOiJI" + "UzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U",
 			negative: "eyJhbGciOiJIUzI1NiJ9",
 		},
 		{

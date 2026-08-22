@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -48,7 +49,11 @@ func TestStateMissingFallsBackToDefaults(t *testing.T) {
 	require.Equal(t, contract.ModeFull, got.Mode)
 	require.Equal(t, ipc.HotSync, got.Hot)
 	require.EqualValues(t, 8, got.AckDeadlineMs)
-	require.EqualValues(t, 5, got.ConnectDeadlineMs)
+	// connectDeadlineMs's default is platform-specific (internal/config/deadlines.go: on Windows
+	// it has to clear the named-pipe dial's busy-retry quantum), so what this row asserts is that
+	// the fallback carried the CONFIG's value through, not a second spelling of the number.
+	// config's own TestDefaults_RuntimeNamespace is where the value itself is pinned.
+	require.EqualValues(t, config.Defaults().Runtime.Daemon.ConnectDeadlineMs, got.ConnectDeadlineMs)
 }
 
 // TestStateBadCRCFallsBack asserts a state file that has been corrupted in place (bytes correct
@@ -214,4 +219,101 @@ func TestStateFromConfig_CarriesTheDaemonAndHotPathKnobs(t *testing.T) {
 	require.Equal(t, cfg.Runtime.Daemon.Enabled, got.DaemonEnabled)
 	require.Equal(t, cfg.Runtime.HotPath.SpoolOnBreach, got.SpoolOnBreach)
 	require.EqualValues(t, cfg.Runtime.HotPath.MaxPayloadBytes, got.MaxPayloadBytes)
+}
+
+// stateContentionWrites and stateContentionReaders shape
+// TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk's load. They are not a duration and not a
+// timeout: the test ends when the writer has finished its writes, whatever that costs on the host.
+// The numbers are chosen so a collision is not a rare event that a lucky run can miss — on the
+// Windows host this was written against, 50 writes against 4 spinning readers produce tens of
+// thousands of reads, of which thousands hit the rename window before the fix.
+const (
+	stateContentionWrites  = 50
+	stateContentionReaders = 4
+)
+
+// TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk pins the half of ReadState's contract that
+// its own doc comment states and that TestStateWriteIsAtomic structurally cannot see: the fallback
+// exists for a record that is MISSING, short, bad-magic or bad-CRC — four cases, the same four
+// SP-05 §"state.bin" lists — and a transient refusal by the OS to open a file that is present and
+// valid is none of them.
+//
+// The failure it guards against is Windows-only and was measured, not theorised. paths.WriteAtomic
+// finishes with os.Rename onto the destination; for the instant of that replace a concurrent
+// os.Open of state.bin fails with ERROR_SHARING_VIOLATION ("The process cannot access the file
+// because it is being used by another process"). Swallowed, that error becomes
+// StateFromConfig(fallback): Hot HotSync, Mode ModeFull, DaemonPID 0. A hook client that reads
+// state.bin in that instant therefore concludes the daemon is healthy and in sync submode, and
+// dials it — which is precisely the connect §12.2's spool submode exists to stop it making — and
+// it does so using default deadlines rather than the operator's.
+//
+// TestStateWriteIsAtomic cannot catch this because it admits DaemonPID 0 as a valid answer
+// ("possible before the first write lands"), so every fail-open read there counts as a pass. This
+// test writes a full record before any reader starts, so no field's fallback value is ever a
+// legitimate answer afterwards.
+//
+// On POSIX there is no such contention and this test passes with or without the fix; it is a
+// Windows guard that costs a second elsewhere.
+func TestStateReadNeverFallsBackWhileAValidRecordIsOnDisk(t *testing.T) {
+	root := t.TempDir()
+	fallback := config.Defaults()
+
+	// Every field below differs from what StateFromConfig(config.Defaults()) would produce, so a
+	// fallback read is detectable on any of them rather than only on the one under investigation.
+	rec := func(pid uint32) ipc.State {
+		return ipc.State{
+			Mode: contract.ModeDegradedPassive, Hot: ipc.HotSpool,
+			ConnectDeadlineMs: 5, AckDeadlineMs: 8, DaemonEnabled: true, SpoolOnBreach: true,
+			MaxPayloadBytes: 1048576, DaemonPID: pid, Written: core.UnixMilli(pid),
+		}
+	}
+	require.NoError(t, ipc.WriteState(root, rec(1)),
+		"the record every reader below must see has to be on disk before any of them starts")
+
+	var reads, fellBackHot, fellBackMode, fellBackPID atomic.Int64
+	stop := make(chan struct{})
+	var stopOnce sync.Once
+	closeStop := func() { stopOnce.Do(func() { close(stop) }) }
+	t.Cleanup(closeStop) // releases the readers even if the writer loop below fails the test
+
+	var wg sync.WaitGroup
+	for r := 0; r < stateContentionReaders; r++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				got := ipc.ReadState(root, fallback)
+				reads.Add(1)
+				if got.Hot != ipc.HotSpool {
+					fellBackHot.Add(1)
+				}
+				if got.Mode != contract.ModeDegradedPassive {
+					fellBackMode.Add(1)
+				}
+				if got.DaemonPID == 0 {
+					fellBackPID.Add(1)
+				}
+			}
+		}()
+	}
+
+	for i := uint32(2); i <= stateContentionWrites+1; i++ {
+		require.NoError(t, ipc.WriteState(root, rec(i)))
+	}
+	closeStop()
+	wg.Wait()
+
+	require.Positive(t, reads.Load(), "no reader ever ran, so this test proved nothing")
+	const why = "%d of %d ReadState calls returned StateFromConfig's %s while a valid record was " +
+		"on disk the whole time: a transient open failure is not one of ReadState's four " +
+		"documented fallbacks, and swallowing it makes a hook client dial a daemon that has " +
+		"already degraded (§12.2)"
+	require.Zero(t, fellBackHot.Load(), why, fellBackHot.Load(), reads.Load(), "Hot=sync")
+	require.Zero(t, fellBackMode.Load(), why, fellBackMode.Load(), reads.Load(), "Mode=full")
+	require.Zero(t, fellBackPID.Load(), why, fellBackPID.Load(), reads.Load(), "DaemonPID=0")
 }

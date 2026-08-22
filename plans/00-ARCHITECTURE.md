@@ -213,6 +213,15 @@ to it requires an amendment to this section.
 |---|---|---|
 | `github.com/klauspost/compress/zstd` | object compression (§7.4 "zstd-compressed") | no stdlib zstd; pure Go, no cgo |
 | `github.com/Microsoft/go-winio` | Windows named pipes (build-tagged `windows`) | no stdlib named-pipe support |
+| `golang.org/x/sys/windows` | go-winio's own dependency for the named pipe above; also imported directly by `internal/paths` for its POSIX-semantics file replace (build-tagged `windows`) | stdlib keeps `SetFileInformationByHandle` unexported (`syscall.setFileInformationByHandle`) |
+
+`golang.org/x/sys/windows` is listed rather than added: it has shipped in the Windows binary
+since SP-05 task 6 as go-winio's transitive dependency, and `tools/devtool/bindeps.go`'s
+`allowedBinDep` has named it explicitly ever since. What changed is only that this module now
+also imports it directly — from one `//go:build windows` file,
+`internal/paths/replace_windows.go`, for `FileRenameInfoEx`/`FILE_RENAME_POSIX_SEMANTICS`, the
+rename a concurrent reader cannot block. Nothing new enters the binary, on Windows or anywhere
+else; naming it here makes the closed list match the check that already enforces it.
 
 That is the entire runtime dependency list. Everything else — SHA-256, JSON, JSON-RPC, HDR
 histograms (we use a fixed-bucket log histogram), CLI parsing, glob matching, atomic file
@@ -2020,6 +2029,7 @@ baselines recorded on the runners are the stated precondition for wiring it into
 | Job | Runs on | Steps |
 |---|---|---|
 | `verify` | ubuntu | `gofumpt -l` (must be empty) · `golangci-lint run` · `go vet` · custom `nomagic` pass · import-graph layer check · test-only-dep check · `go build ./...` |
+| `lint-windows` | windows | the same `devtool lint`, again on Windows. `stubskips` greps a real test run, so a `runtime.GOOS == "windows"` skip only reaches it on Windows; and `golangci-lint`, `nomagic`, `importgraph` and `testdeps` load packages through the host's build constraints, so the `//go:build windows` files are linted on no other runner |
 | `test` | ubuntu, macos, windows × go 1.26.x | `go test ./...` ; `-race` on ubuntu+macos, `-count=2` on windows (race nightly) |
 | `cover` | ubuntu | merged profile, per-group floors (§6.4), artifact upload |
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |

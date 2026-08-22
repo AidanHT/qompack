@@ -3,6 +3,7 @@ package config_test
 import (
 	"encoding/json"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -41,8 +42,20 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 
 	require.Equal(t, "auto", rt.Mode)
 
+	// connectDeadlineMs is the one default that differs by platform: on Windows it has to clear
+	// the named-pipe dial's 10 ms ERROR_PIPE_BUSY retry quantum, which the portable 5 ms does not
+	// (internal/config/deadlines.go carries the arithmetic; internal/ipc's
+	// TestConnectDeadlineDefaultClearsTheBusyRetryQuantum guards it against the quantum itself).
+	// Both expectations are spelled out here as literals, not read back from the constants they
+	// pin, so this stays the place the numbers are actually decided.
+	wantConnectDeadlineMs := 5
+	if runtime.GOOS == "windows" {
+		wantConnectDeadlineMs = 25
+	}
+
 	require.Equal(t, config.DaemonCfg{
-		Enabled: true, IdleExitSeconds: 1800, MaxSessions: 8, AckDeadlineMs: 8, ConnectDeadlineMs: 5,
+		Enabled: true, IdleExitSeconds: 1800, MaxSessions: 8, AckDeadlineMs: 8,
+		ConnectDeadlineMs: wantConnectDeadlineMs,
 	}, rt.Daemon)
 
 	require.Equal(t, config.HotPathCfg{
@@ -64,6 +77,7 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	// SP-01 additions beyond the §11.5 document reproduced in 00-ARCHITECTURE.md.
 	require.Equal(t, config.BudgetsCfg{
 		L0IngestMs: 2, L0ProcessMs: 50, CheckpointFinalizeMs: 2000, MCPToolCallMs: 250,
+		HookDegradedMs: 1000,
 	}, rt.Budgets)
 	require.Equal(t, config.RSelectionCfg{SubmodularEnabled: false}, rt.Selection)
 	require.Equal(t, config.RTokensCfg{

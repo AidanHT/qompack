@@ -142,9 +142,16 @@ func TestRegistry_SnapshotTimestamp(t *testing.T) {
 	require.Equal(t, core.NowMilli(clock), snap.TS)
 }
 
+// TestBudgets_AllSixPresentAndConfigDriven grades 00-ARCHITECTURE.md §2.4's own six budgets,
+// B-A..B-F: every one present, gated as §2.4 says, and reading its limit from configuration. The
+// name is §2.4's count and stays that way even though Budgets() now returns seven — B-G is not a
+// §2.4 budget and has its own test below — because plans/ cite this test by name and
+// `devtool lint`'s planchecks fails a plan row whose -run pattern matches nothing.
 func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 	budgets := obs.Budgets()
-	require.Len(t, budgets, 6)
+	// §2.4's six, plus B-G. Still a closed-world count: a seventh §2.4-shaped budget appearing
+	// without a test of its own fails here.
+	require.Len(t, budgets, 7)
 
 	ids := make(map[obs.BudgetID]obs.Budget, len(budgets))
 	for _, b := range budgets {
@@ -166,7 +173,7 @@ func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 	require.Equal(t, 15*time.Millisecond, ids[obs.BA].Limit(cfg), "B-A reads runtime.hotPath.budgetMs")
 	require.Equal(t, time.Duration(0), ids[obs.BD].Limit(cfg), "B-D always reports 0, never a config key")
 
-	// Changing configuration must change every config-driven limit (all but B-D).
+	// Changing configuration must change every config-driven limit (all but B-D and B-G).
 	mutated := config.Defaults()
 	mutated.Runtime.HotPath.BudgetMs = 999
 	mutated.Runtime.Budgets.L0IngestMs = 999
@@ -180,8 +187,96 @@ func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 		require.NotEqual(t, before, after, "budget %s must be config-driven", id)
 		require.Equal(t, 999*time.Millisecond, after)
 	}
-	// B-D is the sole, documented exception.
+	// B-D is the sole budget whose limit no config key drives; B-G's does, and its own test below
+	// grades it.
 	require.Equal(t, ids[obs.BD].Limit(cfg), ids[obs.BD].Limit(mutated))
+}
+
+// TestBudgets_BGCoversTheDegradedSpoolAppend pins B-G: the budget for the synchronous spool append
+// a hook pays inside ipc.Client.Send when the daemon cannot take the event. Before it, that path
+// had no budget at all — B-A's gated population is the daemon's own hook_controlled series, which
+// has no sample for a request that never reached the daemon, and bc44d2a deliberately subtracted
+// the append from the one test that incidentally bounded it (correctly: that assertion was
+// measuring disk speed).
+//
+// B-G is REPORTED ONLY, and that is asserted here rather than left to be inferred. The reason is
+// structural, not soft: CheckBudgets' only production caller is the resident daemon's Registry,
+// hook_degraded is written only by a hook process's own Registry, and a B-G sample exists only
+// when the daemon is unreachable — a sample and an evaluator can never coexist. What enforces the
+// budget today is internal/ipc's rate-graded gate.
+//
+// Its limit reads a key of its own, runtime.budgets.hookDegradedMs, and this test pins that it is
+// NOT derived from any other budget's key: a hot-path budget an operator tightens to test their
+// own setup must not drag a filesystem bound down with it.
+func TestBudgets_BGCoversTheDegradedSpoolAppend(t *testing.T) {
+	bg := budgetByID(t, obs.BG)
+
+	require.Equal(t, obs.BudgetID("B-G"), bg.ID)
+	require.Equal(t, "hook_degraded", bg.Hist, "B-G's clock is the degraded path's own histogram")
+	require.Equal(t, 99, bg.Pct, "B-G is stated at p99, like B-A")
+	require.False(t, bg.Gated,
+		"B-G is reported only: no production evaluator can ever see a hook_degraded sample")
+
+	// Generous in the direction that matters: B-G's limit must be far above B-A's, because the
+	// degraded path substitutes a filesystem create-and-append for a daemon round trip and can
+	// never meet the budget for one.
+	cfg := config.Defaults()
+	ba := 15 * time.Millisecond
+	require.Equal(t, ba, budgetByID(t, obs.BA).Limit(cfg), "premise: B-A's default is 15 ms")
+	require.Greater(t, bg.Limit(cfg), ba, "B-G must be looser than B-A, not tighter")
+	require.Equal(t, time.Second, bg.Limit(cfg), "B-G's default is runtime.budgets.hookDegradedMs")
+
+	// Config-driven through its own key.
+	own := config.Defaults()
+	own.Runtime.Budgets.HookDegradedMs = 333
+	require.Equal(t, 333*time.Millisecond, bg.Limit(own),
+		"B-G must read runtime.budgets.hookDegradedMs, never a literal of its own")
+
+	// And decoupled from every other budget's key. Riding runtime.hotPath.budgetMs was the first
+	// shape this took and it was wrong: at budgetMs=1 — which test/guards' own end-to-end config
+	// test sets — a 64x multiple would put the degraded ceiling at 64 ms, below figures this
+	// append has already been measured at on a loaded runner.
+	elsewhere := config.Defaults()
+	elsewhere.Runtime.HotPath.BudgetMs = 1
+	elsewhere.Runtime.Budgets.L0IngestMs = 999
+	elsewhere.Runtime.Budgets.L0ProcessMs = 999
+	elsewhere.Runtime.Budgets.CheckpointFinalizeMs = 999
+	elsewhere.Runtime.Budgets.MCPToolCallMs = 999
+	require.Equal(t, bg.Limit(cfg), bg.Limit(elsewhere),
+		"no other budget's key may move B-G's limit")
+}
+
+// TestCheckBudgets_NeverReportsBG pins the reported-only half at the evaluator, not just in the
+// table: however far over its limit the degraded path's histogram runs, CheckBudgets must not
+// return it. A future wave that wires a production evaluator has to change this test deliberately.
+func TestCheckBudgets_NeverReportsBG(t *testing.T) {
+	cfg := config.Defaults()
+	bg := budgetByID(t, obs.BG)
+
+	reg := obs.New(core.SystemClock())
+	for i := 0; i < 8; i++ {
+		reg.Hist(bg.Hist).Observe(time.Hour)
+	}
+	require.EqualValues(t, 8, reg.Snapshot().Hists[bg.Hist].N, "premise: the samples were recorded")
+
+	for i := 1; i <= 3; i++ {
+		for _, b := range reg.CheckBudgets(cfg) {
+			require.NotEqual(t, string(obs.BG), b.Budget,
+				"call %d: B-G is reported only and must never surface as a breach", i)
+		}
+	}
+}
+
+// budgetByID returns the Budget obs.Budgets() declares for id, failing the test if there is none.
+func budgetByID(t *testing.T, id obs.BudgetID) obs.Budget {
+	t.Helper()
+	for _, b := range obs.Budgets() {
+		if b.ID == id {
+			return b
+		}
+	}
+	t.Fatalf("obs.Budgets() does not declare %s", id)
+	return obs.Budget{}
 }
 
 func TestCheckBudgets_CountsConsecutiveWindows(t *testing.T) {

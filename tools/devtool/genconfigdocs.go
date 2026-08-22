@@ -131,6 +131,7 @@ func renderConfigDoc() ([]byte, error) {
 	b.WriteString("An invalid value is never fatal: the offending leaf falls back to its default, the violation is\n")
 	b.WriteString("reported through the `Loud` channel and recorded in `.qompack/state/config-violations.json`,\n")
 	b.WriteString("and loading continues (§11.3). Unknown keys produce a warning, never an error.\n\n")
+	b.WriteString("A default that differs by platform names every value in its Default cell, portable one first.\n\n")
 	b.WriteString("Run `qompack config print --provenance` to see the effective value of every key and where it came from.\n\n")
 
 	sections := make([]string, 0, len(schema.Properties))
@@ -160,8 +161,8 @@ func renderConfigDoc() ([]byte, error) {
 			if section == "" {
 				section = "—"
 			}
-			fmt.Fprintf(&b, "| `%s` | %s | `%s` | %s | %s | %s |\n",
-				r.Key, r.Type, r.Default, rng, section, r.Description)
+			fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s |\n",
+				r.Key, r.Type, defaultCell(r), rng, section, r.Description)
 		}
 		b.WriteString("\n")
 	}
@@ -192,6 +193,31 @@ func collectRows(prefix string, n schemaNode, out *[]configRow) {
 		Section:     n.Section,
 		Description: escapePipes(n.Description),
 	})
+}
+
+// platformDefaultCells overrides the rendered Default cell of every leaf whose built-in default
+// differs by platform, naming the portable value first and each platform that departs from it.
+//
+// It exists because this page is generated once and checked in, and the schema it is rendered
+// from carries one number per leaf — whichever one the generating host ships. A cell left to
+// render straight from config.Defaults() would therefore document only the platform it happened
+// to be generated on, and would make `gen-config-docs --check` (the CI docs job, on ubuntu) fail
+// for any contributor who regenerated the page on Windows. Both values are read from config, so
+// this table can drift from the defaults only by a leaf being added to config and not here —
+// which shows up as a Default cell that is silently platform-dependent again, not as a wrong
+// number.
+var platformDefaultCells = map[string]string{
+	"runtime.daemon.connectDeadlineMs": fmt.Sprintf("`%d` (`%d` on Windows)",
+		config.ConnectDeadlineMsPortable, config.ConnectDeadlineMsWindows),
+}
+
+// defaultCell renders r's Default column: its own value in code span, unless the key is one of
+// the platform-specific defaults platformDefaultCells spells out in full.
+func defaultCell(r configRow) string {
+	if cell, ok := platformDefaultCells[r.Key]; ok {
+		return cell
+	}
+	return "`" + r.Default + "`"
 }
 
 // renderJSONValue renders a default compactly: `null` stays null (it is meaningful on

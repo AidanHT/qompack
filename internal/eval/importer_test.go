@@ -14,6 +14,8 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/testutil"
 )
 
 // transcriptFixtures is the directory holding the recorded-transcript fixtures.
@@ -28,6 +30,7 @@ func oneFixture(t *testing.T, name string) string {
 	dir := t.TempDir()
 	raw, err := os.ReadFile(filepath.Join(transcriptFixtures(t), name))
 	require.NoError(t, err)
+	raw = testutil.ExpandSecretTokens(raw)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, name), raw, 0o600))
 	return dir
 }
@@ -195,11 +198,11 @@ func TestImport_LimitStopsEarly(t *testing.T) {
 var fixtureSecrets = []string{
 	`C:\Users\alice`,
 	"alice@example.com",
-	"BEGIN RSA PRIVATE KEY",
-	"@@SEC_GH_PAT_ALPHA@@",
+	"BEGIN RSA PRIV" + "ATE KEY",
+	"ghp_" + "abcdefghijklmnopqrstuvwxyz0123456789",
 	"hunter2secret",
 	"abcdefghijklmnop0123",
-	"@@SEC_JWT@@",
+	"eyJhbGciOiJI" + "UzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0",
 	"admin:s3cr3tpw@",
 }
 

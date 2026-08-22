@@ -29,7 +29,7 @@ func TestBuildNotes_WarmUpProportionIsComputedNotAsserted(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("iterations=%d", c.iterations), func(t *testing.T) {
-			notes := buildNotes(snap, true, c.iterations)
+			notes := buildNotes(snap, true, c.iterations, deliveryLedger{})
 			var warmupNote string
 			for _, n := range notes {
 				if strings.Contains(n, "warm-up hot-path tranche") {
@@ -48,8 +48,31 @@ func TestBuildNotes_WarmUpProportionIsComputedNotAsserted(t *testing.T) {
 // TestBuildNotes_NoWarmUpOmitsTheProportionNote pins the unchanged negative case: no warm-up run,
 // no composition note to compute a proportion for.
 func TestBuildNotes_NoWarmUpOmitsTheProportionNote(t *testing.T) {
-	notes := buildNotes(daemon.StatusSnapshot{}, false, 2000)
+	notes := buildNotes(daemon.StatusSnapshot{}, false, 2000, deliveryLedger{})
 	for _, n := range notes {
 		require.NotContains(t, n, "warm-up hot-path tranche")
 	}
+}
+
+// TestBuildNotes_CleanRunSaysNothingAboutDelivery pins that a run which delivered every request
+// adds no delivery note at all — the artifact of a healthy run is unchanged by this accounting.
+func TestBuildNotes_CleanRunSaysNothingAboutDelivery(t *testing.T) {
+	clean := deliveryLedger{Sent: 2064, Delivered: 2064}
+	notes := buildNotes(daemon.StatusSnapshot{}, false, 2000, clean, "", "")
+	for _, n := range notes {
+		require.NotContains(t, n, "delivery ledger")
+	}
+}
+
+// TestBuildNotes_DeferralIsDisclosed pins the opposite: a run that deferred anything says so, in
+// the artifact, with the counts spelled out — and carries each gated row's own disclosure through.
+func TestBuildNotes_DeferralIsDisclosed(t *testing.T) {
+	ledger := deliveryLedger{Sent: 2064, Delivered: 2063, Deferred: 1}
+	notes := buildNotes(daemon.StatusSnapshot{}, false, 2000, ledger, "B-A row note", "")
+
+	joined := strings.Join(notes, "\n")
+	require.Contains(t, joined, "delivery ledger: 2064 hot-path requests sent, 2063 delivered live")
+	require.Contains(t, joined, "1 DEFERRED to the client spool and 0 lost")
+	require.Contains(t, joined, "B-A row note")
+	require.NotContains(t, joined, "\n\n", "an empty row note must be skipped, not emitted as a blank note")
 }

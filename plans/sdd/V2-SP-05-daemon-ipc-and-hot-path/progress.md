@@ -1,7 +1,7 @@
 # SDD ledger — plan: plans/V2-SP-05-daemon-ipc-and-hot-path.md
 
 Worktree: C:/Users/Quant/Documents/Programming/Projects/qompack-sp05
-Branch: feat/sp05-daemon-ipc-and-hot-path (cut from develop @ 7340536)
+Branch: feat/sp05-daemon-ipc-and-hot-path (cut from develop @ 4f98314)
 Spec authority: plans/00-ARCHITECTURE.md (+ standing amendment branch arch/daemon-options-pointer-receiver: §5.4 Options.Handle has a POINTER receiver) and Qompack.md. The SP-05 plan is the argument; 00-ARCH + shipped SP-01 code win on conflict.
 
 ## Task map (plan's 7 commits = 7 tasks, sequential)
@@ -49,10 +49,10 @@ Spec authority: plans/00-ARCHITECTURE.md (+ standing amendment branch arch/daemo
 
 ## Task log
 
-Task 1: implemented (commit 4dc422b5, DONE_WITH_CONCERNS: subject trimmed for 64-char hook; WriteState Gosched retry for Windows rename contention; frozen-fixture count bump in testutil/guards). Review dispatched.
+Task 1: implemented (commit 71f50ba1, DONE_WITH_CONCERNS: subject trimmed for 64-char hook; WriteState Gosched retry for Windows rename contention; frozen-fixture count bump in testutil/guards). Review dispatched.
 Task 1: minor (deferred): WriteState permission-retry not gated to GOOS==windows (state.go); LineReader doc overclaims memory bound for maxLine < bufio default (frame.go); decodeState doesn't range-check the mode byte (fails open to MayAct for unknown values); Op.Valid() re-sorts KnownOps per call — precompute before any per-frame use (op.go).
 Task 1: ⚠️ resolutions: commit body/Refs/no-trailers verified by controller via git show (clean); fmt/lint/vet claims re-covered by each later task's pre-commit runs.
-Task 1: complete (commits 7340536..4dc422b5, review clean — Approved, 0 Critical/Important)
+Task 1: complete (commits 4f98314..71f50ba1, review clean — Approved, 0 Critical/Important)
 - Hook subcommands ALWAYS exit 0 (§2.3); self-test is the only non-zero-permitted subcommand.
 - TDD: tests written first per commit, must fail for the stated reason before implementation.
 - Commit messages: Conventional Commits + Refs footer, NO Co-Authored-By/attribution trailers. Exactly 7 commits total.
@@ -99,7 +99,7 @@ Task 5 review: Needs fixes (1 Critical: drained flush/admin.drain line re-enters
 ipc race DIAGNOSED: N-2a manifesting exactly — Close→wg.Wait races Serve's wg.Add in the window after Accept returned a conn but before Add; listener close only unblocks a PENDING Accept; same window leaks a conn past closeTrackedConns. Reproduced 2/2 via daemon lock/spawn tests -count=10.
 Ruling #27: N-2a promoted deferred-minor → fix-now. Fix authored by the Task 2 implementer agent IN THE TASK 2 COMMIT via history surgery (branch unpushed, sanctioned): detach at dd2f5e22, fix server.go (wg.Add inside connsMu behind a closing flag set by Close under the same lock; conns accepted after closing are refused+closed), amend, cherry-pick eeca0651/29585ce1/115ba19d, re-point branch. Fold in deferred N-2b (bound → serverCloseWait/2) and the N-2a comment fix while there. THEN Task 5 fix round runs on the new HEAD. Costs if wrong: cherry-pick conflicts — none expected (no later commit touches server.go).
 
-Ruling #27 executed: N-2a + N-2b fixed in the Task 2 commit; history replayed with zero conflicts. NEW SHA MAP: C2'=4e91fcac (ipc), C3'=d0e9f006 (daemon blocks), C4'=98c4fef7 (contract), C5'=04f3c81f (daemon composition). Reproducer 10/10 clean. NEW DEFERRED (final review + follow-up ticket): go-winio v0.6.2 win32PipeListener.Close can hang 20s+ racing a fresh Accept (observed 0-84/100 iterations); our Close now bounded via closeListenerBounded, but Serve's goroutine can linger past serverCloseWait pending go-winio Accept unblocking — Windows-only, needs newer go-winio or cancellable-Accept redesign; NOT fixable at server.go level.
+Ruling #27 executed: N-2a + N-2b fixed in the Task 2 commit; history replayed with zero conflicts. NEW SHA MAP: C2'=fe73ad1d (ipc), C3'=e9a54530 (daemon blocks), C4'=6bd2dff9 (contract), C5'=04f3c81f (daemon composition). Reproducer 10/10 clean. NEW DEFERRED (final review + follow-up ticket): go-winio v0.6.2 win32PipeListener.Close can hang 20s+ racing a fresh Accept (observed 0-84/100 iterations); our Close now bounded via closeListenerBounded, but Serve's goroutine can linger past serverCloseWait pending go-winio Accept unblocking — Windows-only, needs newer go-winio or cancellable-Accept redesign; NOT fixable at server.go level.
 Task 5 fix round 1: resume implementer a1dedd92 on HEAD=04f3c81f.
 
 Task 5: complete (commit ef50515f after 1 fix round on replayed history, review Approved). Deferred to final review: hotPathSampleMaxAge discards (not clamps) genuinely extreme live samples — the case the fallback exists for; ctx.Done propagates Stop error while idle-exit arm ignores it; M-8 (SP-13 replaces route), M-11 (architectural "consider"), M-9 Loud-line half. ipc reproducer clean 3/3 — N-2a closed at daemon level.
@@ -126,12 +126,12 @@ Escalations recorded for branch finish (user-facing): (1) mark bench-gate requir
 Task 7 fix round 1: resume implementer ab750467.
 
 Task 7: complete (commit b6181b7a after 2 fix rounds, review Approved). Ruling #30 (formalizing R2-1): the brief's binding warm-up ruling ("2000 observe.tool / ~40MB") is AMENDED alongside #29 — warm-up = warmHotTranche(64) hot-path requests + bulk admin.ping (accept-loop warming without polluting the gated histogram); the exact-rank property holds at k=2000/5000, residual small-n bias is conservative (spurious FAIL never spurious PASS). Deferred minors: R2-2 (unconditional "hook-spawn-dominated" note sentence — make proportional/conditional), R2-3 (optional small-n percentile-collapse warning), p999>max snapshot observation (pre-existing, deliberate).
-ALL 7 TASKS COMPLETE. Branch develop..HEAD: 4dc422b5, 4e91fcac, d0e9f006, 98c4fef7, ef50515f, 6fc27a3b, b6181b7a (=7 commits, plan-mandated count met).
+ALL 7 TASKS COMPLETE. Branch develop..HEAD: 71f50ba1, fe73ad1d, e9a54530, 6bd2dff9, ef50515f, 6fc27a3b, b6181b7a (=7 commits, plan-mandated count met).
 Dispatching FINAL whole-branch review (most capable model) with the ledger's deferred-minors list.
 
 FINAL REVIEW: Needs fixes (0 Critical, 2 Important FR-1 registry read outside mutex / FR-2 silent observe.prompt WAL-append failure; 5 fix-now minors FR-3 blobRef path traversal guard, FR-4 Serve-failure arm skips Stop, FR-6 DaemonEnabled gate on preSend, N-6 fault_noinject doc, R2-2 proportional note; ~22 accepted/resolved). ALL EXIT CRITERIA PASS (coverage ipc 84.2/daemon 82.0/contract 83.9/cli 81.5; W-1 zero; 7 commits byte-match; trailers clean). Bench gate CONDITIONAL on first 3-platform CI green (pre-merge condition stands).
 Fix wave (ONE dispatch, Task 5 implementer): fold daemon items (FR-1..FR-4) into commit 5, cli items (FR-6, N-6) into commit 6, bench item (R2-2) into commit 7, via sequential detach-amend-cherry-pick replay.
 
-FIX WAVE COMPLETE + FINAL REVIEW APPROVED at HEAD 93f71262. Branch: 4dc422b5, 4e91fcac, d0e9f006, 98c4fef7, 3bd35994, d040fc07, 93f71262 (7 commits). All exit criteria PASS. Residual (documented, accepted): FR-6 first-run window (first session-start on a never-daemon'd config-disabled project spawns once — unavoidable under no-config.Load-on-hot-path). Pre-merge conditions: (1) ubuntu+macos CI legs must be observed green (first-ever execution of listen_unix.go/server_unix_test.go); (2) bench-gate green on all 3 platforms BEFORE flipping branch protection; (3) replay-gate continue-on-error is SP-02-owned — leave it. SDD execution complete.
+FIX WAVE COMPLETE + FINAL REVIEW APPROVED at HEAD 93f71262. Branch: 71f50ba1, fe73ad1d, e9a54530, 6bd2dff9, 3bd35994, d040fc07, 93f71262 (7 commits). All exit criteria PASS. Residual (documented, accepted): FR-6 first-run window (first session-start on a never-daemon'd config-disabled project spawns once — unavoidable under no-config.Load-on-hot-path). Pre-merge conditions: (1) ubuntu+macos CI legs must be observed green (first-ever execution of listen_unix.go/server_unix_test.go); (2) bench-gate green on all 3 platforms BEFORE flipping branch protection; (3) replay-gate continue-on-error is SP-02-owned — leave it. SDD execution complete.
 
 Pre-merge full-suite gate caught: TestAdminShutdownStopsTheDaemon intermittent Windows failure — TempDir RemoveAll races something still writing/holding .qompack/tmp after admin.shutdown's async Stop. Dispatched daemon implementer for root-cause fix folded into commit 5 (replay); menu deferred until suite is green.

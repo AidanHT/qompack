@@ -69,11 +69,17 @@ var growthSampleTurns = map[int]bool{8: true, 16: true, 32: true, 64: true, 128:
 //
 // replayExitGateFailed is the driver's exit 1 — "the gate ran and found something" — and asserting
 // it exactly rather than "non-zero" is what keeps a truncated growth file from passing this test
-// by failing for some unrelated reason (exit 2 bad input, 3 wall clock, 5 phase checks disabled).
+// by failing for some unrelated reason (exit 2 bad input, 3 either replay limit — the --max-cpu
+// cost budget or the --max-wall liveness ceiling — 5 phase checks disabled).
+//
+// replayMaxCPU is a CPU-time budget and not a wall-clock one, which matters most in exactly this
+// file: `go test ./...` runs this test beside about twenty other package binaries, and a wall
+// budget here would be measuring the runner's load rather than the driver's cost. Same number,
+// clock the co-load cannot move.
 const (
 	replayExitOK         = 0
 	replayExitGateFailed = 1
-	replayMaxWall        = 2 * time.Minute
+	replayMaxCPU         = 2 * time.Minute
 )
 
 // bloomCeilingSentence is 00-ARCHITECTURE.md §11.4 verbatim, as test/replay prints it when the
@@ -402,7 +408,7 @@ func runReplayGate(t *testing.T, bin string, extra ...string) (code int, stdout,
 		"--baseline", "testdata/baseline/phase0.json",
 		"--phase", "0",
 		"--out", filepath.Join(dir, "report.json"),
-		"--max-wall", replayMaxWall.String(),
+		"--max-cpu", replayMaxCPU.String(),
 		"--ci",
 	}, extra...)
 

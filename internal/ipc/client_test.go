@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -633,6 +634,67 @@ func startMisbehavingListener(t *testing.T, addr Addr, behavior string) {
 	}()
 }
 
+// sendDeadlineBudget is the wall clock one Client.Send may legitimately spend on the work its own
+// deadlines govern, against a listener that never answers. Every term names a step of Send's
+// algorithm and is derived from what that step was configured with — nothing here is a chosen
+// number:
+//
+//	connect            connect + dialBusyRetryQuantum   Send step 5 -> client.connect -> dial.
+//	                                                    The quantum is the platform's own dial
+//	                                                    overshoot; see dial_windows.go.
+//	write              ack                              Send step 6, under SetWriteDeadline.
+//	ACK / reply read   max(ack, reply)                  Send step 7 reads one byte under
+//	                                                    AckDeadline; step 8 reads a line under the
+//	                                                    caller's Send deadline. A random request
+//	                                                    takes whichever branch its Reply flag
+//	                                                    selects, so the bound has to cover both.
+//
+// Nothing else in Send waits on anything: encoding is CPU-bound, and the spool append every
+// failure path ends on is a filesystem write with no deadline at all — see sendTransportBound for
+// why that one is measured and subtracted rather than budgeted.
+func sendDeadlineBudget(connect, ack, reply time.Duration) time.Duration {
+	return connect + dialBusyRetryQuantum + ack + max(ack, reply)
+}
+
+// sendSchedulingHeadroom multiplies sendDeadlineBudget to get sendTransportBound.
+//
+// Every deadline in that budget is enforced by a timer whose expiry is only observed once the
+// goroutine waiting on it is next scheduled, so each can be several timer ticks late on a loaded
+// runner. That is the one part of this bound no in-process quantity models, and it is what the
+// multiplier is for. Sized from measurement, not taste: on this repo's own Windows host, running
+// the same "hangs" listener under `go test -race` with GOMAXPROCS=2 and a whole-tree
+// `go test -race ./...` alongside, the deadline-governed part of 300 Sends came in at p50 70ms,
+// p99 133ms and max 282ms against a 160ms budget — a worst case of 1.8x.
+//
+// It is headroom, not padding over a hang. Past the sum of the client's own deadlines nothing Send
+// waits on is still legitimately in progress, and the regression this bound exists to catch — a
+// deadline that stopped being set — does not overshoot by a factor: against the "hangs" listener,
+// which holds the connection open until test cleanup, such a Send never returns at all.
+const sendSchedulingHeadroom = 4
+
+// sendTransportBound is the ceiling on the DEADLINE-GOVERNED part of one Send: elapsed wall clock
+// minus the time spent inside the spool append.
+//
+// The append is subtracted rather than covered by a slack term because Client.Send does not bound
+// it and cannot: appendToSpool calls SpoolWriter.Append, which on its first use does MkdirAll +
+// CreateFile + Write against a cold directory, and no deadline is passed to any of them (§12.3
+// bounds what happens when that write FAILS, never how long it may take). This bound used to be
+// `3*testDeadline + 500*time.Millisecond`, whose "3x" modelled the three deadline-governed steps
+// correctly and whose "+500ms" was an unexplained literal silently doing the real work: absorbing
+// that filesystem call. Measured on this repo's own Windows host with `-race`, GOMAXPROCS=2 and a
+// whole-tree `go test -race ./...` running alongside, one cold spool append took p50 75ms, p99
+// 282ms and max 541ms across 300 Sends, and that run's slowest Send was 612ms against the 650ms
+// bound with 541ms of it inside Append — 38ms to spare. So the old bound was a bet on filesystem
+// latency, and windows-latest lost that bet in CI run 32319171399.
+//
+// Keeping a wall-clock statement about the filesystem out of this bound does not drop the coverage
+// it used to carry: TestSendNeverReturnsError now also asserts that each adversarial behaviour
+// lands on EXACTLY ONE spool append, which is what makes the subtracted quantity a single
+// well-defined call rather than an unbounded number of them.
+func sendTransportBound(connect, ack, reply time.Duration) time.Duration {
+	return sendSchedulingHeadroom * sendDeadlineBudget(connect, ack, reply)
+}
+
 // TestSendNeverReturnsError is task-2-spec.md's rapid property test: 200 random requests spread
 // across 4 adversarial listener behaviors (50 checks each, set via the rapid.checks flag), none of
 // which may ever cause Send to return a non-nil error.
@@ -657,8 +719,9 @@ func TestSendNeverReturnsError(t *testing.T) {
 					startMisbehavingListener(t, addr, behavior)
 				}
 
-				spool, err := NewSpool(filepath.Join(root, "spool"))
+				raw, err := NewSpool(filepath.Join(root, "spool"))
 				require.NoError(rt, err)
+				spool := &timedSpool{SpoolWriter: raw}
 				c := NewClientWithOptions(addr, spool, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
 					ConnectDeadline: testDeadline, AckDeadline: testDeadline,
 				})
@@ -669,12 +732,201 @@ func TestSendNeverReturnsError(t *testing.T) {
 				start := time.Now()
 				res, err := c.Send(context.Background(), req, testDeadline)
 				elapsed := time.Since(start)
+				appends, inAppend := spool.observed()
 
 				require.NoError(rt, err, "Send must never return an error, whatever the listener does")
 				require.NotEqual(rt, "unknown", res.Mode.String())
-				require.LessOrEqual(rt, elapsed, 3*testDeadline+500*time.Millisecond,
-					"a single Send must not block far past its own deadlines")
+
+				// None of these four behaviors ever produces an ACK, so every one of them has to
+				// land on the durability fallback exactly once (client.go's spoolAndReturn). This
+				// is what makes inAppend below one well-defined call rather than a sum over an
+				// unknown number of them.
+				require.EqualValues(rt, 1, appends,
+					"every adversarial behaviour must spool exactly once")
+
+				require.LessOrEqual(rt, elapsed-inAppend,
+					sendTransportBound(testDeadline, testDeadline, testDeadline),
+					"a single Send must not block past the deadlines it set itself "+
+						"(total %v, of which %v was the spool append it does not bound)",
+					elapsed, inAppend)
 			})
 		})
 	}
+}
+
+// timedSpool wraps a SpoolWriter and records how long Client.Send spent inside Append, so a test
+// can bound the part of Send its own deadlines govern separately from the filesystem write they do
+// not — see sendTransportBound.
+type timedSpool struct {
+	SpoolWriter
+	ns    atomic.Int64
+	calls atomic.Int64
+}
+
+func (s *timedSpool) Append(req Request) error {
+	t := time.Now()
+	err := s.SpoolWriter.Append(req)
+	s.ns.Add(int64(time.Since(t)))
+	s.calls.Add(1)
+	return err
+}
+
+// Close forwards to the wrapped writer. Client.Close reaches the spool's file handle through an
+// `interface{ Close() error }` assertion, and a decorator that does not forward would silently
+// turn every Client.Close into a no-op and leak the handle.
+func (s *timedSpool) Close() error {
+	if c, ok := s.SpoolWriter.(interface{ Close() error }); ok {
+		return c.Close()
+	}
+	return nil
+}
+
+func (s *timedSpool) observed() (calls int64, inAppend time.Duration) {
+	return s.calls.Load(), time.Duration(s.ns.Load())
+}
+
+// gatedSpool parks Client.Send inside SpoolWriter.Append until release is called, so a test can
+// decide exactly how long the one unbounded step of Send's failure path takes. entered closes at
+// the instant Append is reached, which is also the instant every deadline-governed step of Send has
+// finished — the boundary sendTransportBound is drawn at.
+//
+// Parking on a channel rather than sleeping is not a technicality: §6.1 bans wall-clock sleeps
+// outside test/bench (devtool lint's sleepcheck sub-check), and a fixture that hopes a duration is
+// long enough is the same class of mistake as the bound this file replaced.
+type gatedSpool struct {
+	SpoolWriter
+	entered   chan struct{}
+	gate      chan struct{}
+	enterOnce sync.Once
+	openOnce  sync.Once
+}
+
+func newGatedSpool(w SpoolWriter) *gatedSpool {
+	return &gatedSpool{SpoolWriter: w, entered: make(chan struct{}), gate: make(chan struct{})}
+}
+
+func (s *gatedSpool) Append(req Request) error {
+	s.enterOnce.Do(func() { close(s.entered) })
+	<-s.gate
+	return s.SpoolWriter.Append(req)
+}
+
+// release lets a parked Append proceed. It is idempotent so the test's cleanup can call it on
+// every path, including the ones a t.Fatalf takes.
+func (s *gatedSpool) release() { s.openOnce.Do(func() { close(s.gate) }) }
+
+// Close forwards for the same reason timedSpool.Close does: without it the real spool's handle
+// stays open and t.TempDir's own cleanup fails on Windows with a sharing violation.
+func (s *gatedSpool) Close() error {
+	if c, ok := s.SpoolWriter.(interface{ Close() error }); ok {
+		return c.Close()
+	}
+	return nil
+}
+
+// blockOnHungListener returns how long one read against a listener that never answers takes. The
+// "hangs" behaviour neither writes nor closes, so the read cannot return before the deadline
+// expires: this is a wait whose FLOOR the OS guarantees, which is what makes it usable as a delay
+// without a sleep (§6.1). It is how TestSendTimeBudgetIsItsOwnDeadlinesNotTheSpool holds a spool
+// append open for a known-large time.
+func blockOnHungListener(t *testing.T, addr Addr, d time.Duration) time.Duration {
+	t.Helper()
+	conn, err := dial(addr, d)
+	require.NoError(t, err)
+	defer func() { _ = conn.Close() }()
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(d)))
+
+	start := time.Now()
+	var b [1]byte
+	_, err = io.ReadFull(conn, b[:])
+	require.Error(t, err, "a listener that never answers cannot produce a byte")
+	return time.Since(start)
+}
+
+// TestSendTimeBudgetIsItsOwnDeadlinesNotTheSpool pins the decomposition TestSendNeverReturnsError's
+// wall-clock bound is built on, on every platform and without needing a loaded host to produce it
+// by accident: how long Client.Send takes is (the deadlines it set itself) + (a spool append it
+// does not bound), and only the first term says anything about this package.
+//
+// It is also the standing red for the bound it replaced. With the spool append held open for one
+// OS-enforced read deadline, total Send time blows `3*testDeadline + 500*time.Millisecond` — the
+// old bound — while Send's own deadline-governed work finishes well inside its budget. That is the
+// failure windows-latest hit in CI run 32319171399, reproduced deliberately instead of waited for:
+// V2-SP05-05 signed this test off as "load flake cleared 5+ green in isolation", and repetition is
+// exactly what cannot tell a slow filesystem from a broken deadline.
+func TestSendTimeBudgetIsItsOwnDeadlinesNotTheSpool(t *testing.T) {
+	root := t.TempDir()
+	addr, err := Resolve(root)
+	require.NoError(t, err)
+	startMisbehavingListener(t, addr, "hangs")
+
+	bound := sendTransportBound(testDeadline, testDeadline, testDeadline)
+	replacedBound := 3*testDeadline + 500*time.Millisecond
+
+	raw, err := NewSpool(filepath.Join(root, "spool"))
+	require.NoError(t, err)
+	gate := newGatedSpool(raw)
+	sp := &timedSpool{SpoolWriter: gate}
+
+	c := NewClientWithOptions(addr, sp, logging.Nop(), obs.New(core.SystemClock()), ClientOptions{
+		ConnectDeadline: testDeadline, AckDeadline: testDeadline,
+	})
+	defer func() { _ = c.Close() }()
+
+	var res Response
+	var sendErr error
+	var elapsed time.Duration
+	finished := make(chan struct{})
+	start := time.Now()
+	go func() {
+		defer close(finished)
+		res, sendErr = c.Send(context.Background(), Request{Op: OpObserveTool, Session: "s", TS: 1}, testDeadline)
+		elapsed = time.Since(start)
+	}()
+	// Registered after the Close above, so it runs BEFORE it: no path may close the spool's file
+	// while a parked Append is still holding it.
+	defer func() { gate.release(); <-finished }()
+
+	// Longer than EITHER bound this test compares against, so both comparisons stay decided by the
+	// fixture rather than by the host — and stay decided by it if the terms sendTransportBound is
+	// derived from ever change.
+	past := 2 * max(bound, replacedBound)
+
+	// Append is the first thing Send does that none of its deadlines govern, so the instant it is
+	// entered is the instant all of them are done with. Measuring there needs no subtraction and no
+	// assumption about the filesystem at all. The timer is only a hang guard — it is deliberately
+	// looser than the bound below, so a Send that is merely slow is graded by that bound, with its
+	// real measurement in the message, instead of dying here with no number at all.
+	guard := time.NewTimer(past)
+	defer guard.Stop()
+	select {
+	case <-gate.entered:
+	case <-guard.C:
+		t.Fatalf("Send never reached its spool append: %s is well past its whole deadline budget of %s",
+			past, sendDeadlineBudget(testDeadline, testDeadline, testDeadline))
+	}
+	transport := time.Since(start)
+
+	held := blockOnHungListener(t, addr, past)
+	gate.release()
+	<-finished
+	appends, inAppend := sp.observed()
+
+	require.NoError(t, sendErr, "Send must never return an error, however slow the spool is")
+	require.False(t, res.OK, "a listener that never ACKs cannot produce an OK response")
+	require.EqualValues(t, 1, appends, "the hung listener must land on exactly one spool append")
+
+	require.LessOrEqual(t, transport, bound,
+		"every deadline-governed step of Send had finished by the time it reached the spool, "+
+			"so %v is Send's own cost and it must fit its own budgets", transport)
+
+	require.GreaterOrEqual(t, inAppend, held,
+		"the append was parked across a %s read, so the fixture must show up in the measurement", held)
+	require.Greater(t, elapsed, replacedBound,
+		"the same Send blows the bound this one replaced (%s) on the strength of the spool alone, "+
+			"which is what made that bound a statement about the filesystem", replacedBound)
+
+	require.LessOrEqual(t, elapsed-inAppend, bound,
+		"the quantity TestSendNeverReturnsError bounds must agree with the direct measurement "+
+			"(total %v, of which %v was the spool append)", elapsed, inAppend)
 }

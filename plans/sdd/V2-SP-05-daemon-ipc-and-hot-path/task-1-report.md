@@ -335,7 +335,7 @@ message" was an explicit instruction I could not fully honor against another exp
 constraint (don't skip hooks); this is the one place the commit's text differs from the brief's
 literal string.
 
-## Files changed (final commit `4dc422b`)
+## Files changed (final commit `71f50ba`)
 
 New:
 - `internal/ipc/frame.go`, `internal/ipc/op.go`, `internal/ipc/state.go`

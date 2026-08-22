@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -59,8 +60,9 @@ const (
 
 // compareRow is one seed's measurement. Wall-clock timings are deliberately NOT recorded here:
 // this struct is committed as a golden, and a golden containing nanosecond timings is a golden that
-// differs on every run and therefore tells nobody anything. The timing claim is asserted directly
-// instead — thin must not be slower than full — and logged for whoever is reading the run.
+// differs on every run and therefore tells nobody anything. The cost half of §6.4's claim is
+// asserted from Slice.EdgesVisited instead — thin must not follow more edges than full — and the
+// timings are logged for whoever is reading the run, with nothing gating on them.
 type compareRow struct {
 	Seed          int64   `json:"seed"`
 	Nodes         int     `json:"nodes"`
@@ -114,12 +116,20 @@ const compareTolerance = 0.02
 //
 // Timing a batch and dividing puts the measured span two orders of magnitude above the coarse
 // granularity, which is the same reasoning TestCrossingLatencyBudget already applies to a
-// microsecond-scale operation. At 20 runs the thin batch is ~10ms against the full batch's ~30ms:
-// a 3x gap no plausible scheduling noise inverts.
+// microsecond-scale operation. At 20 runs the thin batch is ~10ms against the full batch's ~30ms.
+//
+// That last sentence used to end "a 3x gap no plausible scheduling noise inverts", and CI run
+// 32397340626 disproved it: on a two-core windows-latest runner running ~20 package binaries in
+// parallel under `go test -count=2 -timeout=30m ./...`, seed 3 read thin 3.99988ms against full
+// 1.82256ms while seed 2 in the same loop read thin 441.63µs against full 4.36204ms. Batching
+// fixes the clock's granularity; it cannot fix co-load, because co-load scales the whole batch.
+// Nothing is gated on these timings any more — the loop below asserts on Slice.EdgesVisited — and
+// the batch survives only so that the number it LOGS is a cost and not a clock tick.
 const batchRuns = 20
 
-// sliceOnce runs one slice and returns its scores with the per-slice cost of computing it.
-func sliceOnce(tb testing.TB, g dag.Graph, criteria []dag.NodeID, thin bool) (map[dag.NodeID]float32, time.Duration) {
+// sliceOnce runs one slice and returns it whole — the caller needs its EdgesVisited count as well
+// as its scores — alongside the per-slice wall-clock cost, which is a diagnostic and nothing more.
+func sliceOnce(tb testing.TB, g dag.Graph, criteria []dag.NodeID, thin bool) (dag.Slice, time.Duration) {
 	tb.Helper()
 	o := dag.DefaultSliceOptions(config.Defaults())
 	o.Thin = thin
@@ -142,7 +152,7 @@ func sliceOnce(tb testing.TB, g dag.Graph, criteria []dag.NodeID, thin bool) (ma
 	elapsed := time.Since(start)
 	require.NoError(tb, batchErr)
 
-	return sl.Scores, elapsed / batchRuns
+	return sl, elapsed / batchRuns
 }
 
 // overlap returns how many of truth's members appear in scores.
@@ -165,6 +175,26 @@ func ratio(num, den int) float64 {
 	return float64(num) / float64(den)
 }
 
+// missingSample caps how many offending node ids a broken subset relation prints. A thin walk that
+// has stopped being a subset misses hundreds of nodes at this corpus size — the mutation used to
+// check this assertion has teeth reported 678 of them on seed 1 — and a message that dumps all of
+// them is a message nobody reads. The count printed beside the sample is the number that matters.
+const missingSample = 5
+
+// notReachedByFull returns every node the thin slice scored that the full slice did not, sorted so
+// that a failure names the same node on every run rather than whichever one the map happened to
+// yield first.
+func notReachedByFull(thin, full map[dag.NodeID]float32) []dag.NodeID {
+	var missing []dag.NodeID
+	for id := range thin {
+		if _, ok := full[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	slices.Sort(missing)
+	return missing
+}
+
 // TestThinVsFullComparison measures thin slicing against full slicing over eight seeded graphs,
 // publishes the table, and asserts the tradeoff still holds.
 func TestThinVsFullComparison(t *testing.T) {
@@ -180,20 +210,20 @@ func TestThinVsFullComparison(t *testing.T) {
 		require.NoError(t, err)
 		dagtest.Load(t, g, nodes, edges)
 
-		thinScores, thinNS := sliceOnce(t, g, criteria, true)
-		fullScores, fullNS := sliceOnce(t, g, criteria, false)
+		thin, thinNS := sliceOnce(t, g, criteria, true)
+		full, fullNS := sliceOnce(t, g, criteria, false)
 
 		row := compareRow{
 			Seed:          seed,
 			Nodes:         len(nodes),
 			Edges:         len(edges),
-			ThinSize:      len(thinScores),
-			FullSize:      len(fullScores),
-			SizeRatio:     ratio(len(thinScores), len(fullScores)),
-			Recall:        ratio(overlap(thinScores, truth), len(truth)),
-			Precision:     ratio(overlap(thinScores, truth), len(thinScores)),
-			RecallFull:    ratio(overlap(fullScores, truth), len(truth)),
-			PrecisionFull: ratio(overlap(fullScores, truth), len(fullScores)),
+			ThinSize:      len(thin.Scores),
+			FullSize:      len(full.Scores),
+			SizeRatio:     ratio(len(thin.Scores), len(full.Scores)),
+			Recall:        ratio(overlap(thin.Scores, truth), len(truth)),
+			Precision:     ratio(overlap(thin.Scores, truth), len(thin.Scores)),
+			RecallFull:    ratio(overlap(full.Scores, truth), len(truth)),
+			PrecisionFull: ratio(overlap(full.Scores, truth), len(full.Scores)),
 		}
 		table.Rows = append(table.Rows, row)
 		sumRatio += row.SizeRatio
@@ -201,14 +231,40 @@ func TestThinVsFullComparison(t *testing.T) {
 		sumPrecision += row.Precision
 		sumPrecisionFull += row.PrecisionFull
 
-		t.Logf("seed %d: nodes=%d edges=%d thin=%d full=%d ratio=%.3f recall=%.3f precision=%.3f  (thin %v, full %v)",
-			seed, len(nodes), len(edges), len(thinScores), len(fullScores),
-			row.SizeRatio, row.Recall, row.Precision, thinNS, fullNS)
+		t.Logf("seed %d: nodes=%d edges=%d thin=%d full=%d ratio=%.3f recall=%.3f precision=%.3f"+
+			"  (edges walked: thin %d, full %d; wall clock: thin %v, full %v)",
+			seed, len(nodes), len(edges), len(thin.Scores), len(full.Scores),
+			row.SizeRatio, row.Recall, row.Precision,
+			thin.EdgesVisited, full.EdgesVisited, thinNS, fullNS)
 
 		// §6.4's other claim: thin slicing is the CHEAPER walk. It visits a subset of the edges
 		// full slicing does, so anything else would mean the thin path is doing extra work.
-		require.LessOrEqual(t, thinNS, fullNS,
-			"seed %d: thin slicing must not be slower than full slicing", seed)
+		//
+		// That subset is what is asserted, in edges and in nodes. It was asserted as thinNS <=
+		// fullNS until CI run 32397340626, and a stopwatch cannot carry the claim: these are
+		// single sub-millisecond spans measured inside `go test -count=2 -timeout=30m ./...`, ~20
+		// package binaries deep on a two-core runner, so they report how busy the machine was and
+		// not what the walk cost. That run failed seed 3 at thin 3.99988ms against full 1.82256ms
+		// while seed 2, doing comparable work in the same loop, read thin 441.63µs against full
+		// 4.36204ms — `full` alone swinging 10x between seeds is the measurement disqualifying
+		// itself, and no threshold or best-of-N repair fixes a quantity that is mostly noise.
+		//
+		// A count is the same claim made stronger. Slice.EdgesVisited is exactly reproducible,
+		// co-load cannot move it, and a subset relation — unlike a timing win — cannot come out
+		// right by luck. The node check is the reason the edge check holds: thin only ever REMOVES
+		// edges, so every thin path is also a full path and every full score is at least the thin
+		// one (which is what stops the minScore floor from reversing the containment), so the thin
+		// walk finalizes a subset of the nodes whose adjacency lists the full walk expands. A thin
+		// slice reaching a node the full slice missed would break that argument, so it is checked
+		// here rather than assumed.
+		require.LessOrEqualf(t, thin.EdgesVisited, full.EdgesVisited,
+			"seed %d: thin slicing must not follow more edges than full slicing (§6.4)", seed)
+		missing := notReachedByFull(thin.Scores, full.Scores)
+		require.Zerof(t, len(missing),
+			"seed %d: the thin slice reached %d node(s) the full slice did not, starting %v; thin "+
+				"only ever removes edges, so every node it reaches must also be reachable with "+
+				"those edges still in place",
+			seed, len(missing), missing[:min(len(missing), missingSample)])
 	}
 
 	n := float64(len(compareSeeds))

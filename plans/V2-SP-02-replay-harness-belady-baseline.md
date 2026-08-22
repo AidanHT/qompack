@@ -965,7 +965,7 @@ test/replay [flags]
   --sketch     file     SketchHealth JSON for the bloom FP-rate watch-for
   --regen-corpus        regenerate testdata/sessions/synthetic + CORPUS.json and exit
   --write-baseline      write --baseline from this run and exit
-  --max-wall   dur      default 2m; exceeded → exit 3
+  --max-wall   dur      default 15m; exceeded → exit 3
   --ci                  CI mode: phase checks may not be disabled by config (see below)
 ```
 

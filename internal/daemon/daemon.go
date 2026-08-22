@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/config"
@@ -39,6 +40,16 @@ const adminIdleBudget = 5 * time.Second
 // stopDrainBound is Stop's bound on draining the in-flight ring before giving up and shutting
 // down anyway.
 const stopDrainBound = 5 * time.Second
+
+// stopCleanupBound bounds how long Run waits for an ASYNCHRONOUSLY invoked Stop — admin.shutdown's
+// `go func(){ Stop() }()` — to finish its cleanup before returning anyway.
+//
+// It is expressed as a multiple of stopDrainBound rather than as an independent number because
+// Stop's bounded drain is its longest single step; every later step (ingest close, sketch saves,
+// metrics persist, state removal, server close, lock release) is either fast or separately bounded
+// by ipc's own serverCloseWait. Three times the longest step is therefore a generous ceiling that
+// still guarantees Run cannot be wedged forever by a cleanup step that never returns.
+const stopCleanupBound = 3 * stopDrainBound
 
 // defaultIdleExitSeconds mirrors config.Defaults().Runtime.Daemon.IdleExitSeconds (1800). Not a
 // default source itself — a caller handing New a zero config.Config still gets a sane idle-exit
@@ -81,8 +92,16 @@ type daemon struct {
 	idle     *idleController
 	monitor  contract.Monitor
 
-	ing   *ingest
-	drain *drainer
+	ing *ingest
+
+	// drain is written by Run and read by Drain, which callers reach from other goroutines: the
+	// admin.drain route, the flush and idle routes, and tests that drive a daemon they started.
+	// A plain field made that a data race — the first CI run to actually execute `go test -race`
+	// reported it between Run's assignment and Drain's read. The old nil check did not make it
+	// safe: under the Go memory model an unsynchronised read concurrent with a write has no
+	// guarantee of observing either the old value or the new one, so "nil means not ready yet"
+	// was never a promise the race could keep.
+	drain atomic.Pointer[drainer]
 
 	breach     *breachDetector
 	hotSamples chan time.Duration
@@ -99,9 +118,40 @@ type daemon struct {
 	modeMu           sync.Mutex
 	lastReportedMode contract.Mode
 
-	lock   *Lock
-	server ipc.Server
-	addr   ipc.Addr
+	// startMu guards the three fields Run publishes while starting up and another goroutine reads:
+	// lock, server and addr. The admin.shutdown route answers the client and then runs the whole
+	// shutdown on a goroutine of its own (handlers.go handleAdminShutdown, `go func(){ Stop() }()`),
+	// so Stop is genuinely concurrent with Run — and Stop's stopOnce orders Stop against Stop only,
+	// never against Run. CI run 32391116227 (test (ubuntu-latest), TestAdminShutdownStopsTheDaemon)
+	// reported two of these: Run's `d.lock = lock` against Stop's `if d.lock != nil`, and — because
+	// an unsynchronised read of a pointer publishes nothing about the value it points at either —
+	// AcquireLock's own &Lock{path: ...} (lock.go) against Lock.owned's read of l.path underneath
+	// Stop's Release. Reproducing it locally (the test's readiness gate is daemon.lock APPEARING ON
+	// DISK, so widening the remainder of AcquireLock makes it fire every run) turned up the third
+	// of the set, which CI had not got to naming: `d.server = server` against `if d.server != nil`.
+	//
+	// The nil checks Stop performed were never the fix, for the reason already written above
+	// d.drain when 2a5c31c made that field atomic: under the Go memory model an unsynchronised
+	// read concurrent with a write has no guarantee of observing either the old value or the new
+	// one, so "nil means Run has not built it yet" was never a promise the race could keep. drain
+	// was fixed then; these three were missed, and -race found them the moment a test asked for a
+	// shutdown before startup had finished.
+	//
+	// One mutex rather than three mechanisms: lock is a pointer and would fit atomic.Pointer[Lock]
+	// exactly as drain does, but server is an interface and addr is a struct and neither does, and
+	// this struct already reaches for a narrow mutex in precisely this situation (cfgMu, histMu,
+	// historyMu, modeMu). Foreign readers take the value out under startMu and act on it OUTSIDE:
+	// Stop's server.Close() and Lock.Release() both block on I/O and neither may run with this
+	// held. Run itself reads neither through the mutex — it keeps the local `server` and `lock`
+	// variables it published from, which cannot race by construction.
+	//
+	// addr has no reader anywhere today (the only occurrence of d.addr in the package is Run's own
+	// write), so it is not racing on its own account; it is published through the same mutex as
+	// its two siblings so that adding the first reader cannot silently re-open the defect.
+	startMu sync.Mutex
+	lock    *Lock
+	server  ipc.Server
+	addr    ipc.Addr
 
 	startTS core.UnixMilli
 
@@ -121,6 +171,21 @@ type daemon struct {
 	// point inside Run's own startup sequence, is the one that closes V2-MERGE-25's window.
 	firstServedOnce sync.Once
 	firstServed     chan struct{}
+
+	// runWG tracks the goroutines Run starts DIRECTLY: the hot-path worker and the serving
+	// re-drain. Cancelling runCtx tells them to stop; it does not wait for them to have stopped,
+	// and both can be inside a paths.WriteAtomic at that moment — hotPathWorker through
+	// applyHotPathTransition's ipc.WriteState, redrainOnceServing through drainer.saveState. A
+	// staging file under .qompack/tmp/ only survives if the process dies between the os.CreateTemp
+	// and the deferred os.Remove, so "the daemon has stopped" has to mean these are joined, not
+	// merely signalled. The ingest worker pool has its own join (ing.Wait) and the connection
+	// handlers have theirs (ipc.Server.Close); this is the group nothing else covered.
+	//
+	// Every goRun call sits in Run's startup, ahead of the ipc.NewServer that binds the endpoint,
+	// and every way Stop can be reached — admin.shutdown, Run's ctx.Done arm, its idle-exit arm,
+	// its serveErrCh arm — is downstream of that endpoint existing or of Run's own select loop. So
+	// a goRun can never add to this group after Stop's join has already passed it.
+	runWG sync.WaitGroup
 
 	stopOnce sync.Once
 	// stopped closes near the START of Stop's cleanup sequence (before the actual work), so Run's
@@ -273,12 +338,20 @@ func (d *daemon) currentCfg() config.Config {
 }
 
 // currentState renders the daemon's current mode/hot/deadlines into an ipc.State, for WriteState
-// calls from the hot-path transition and the session.start route.
-func (d *daemon) currentState() ipc.State {
+// calls from the session.start route, Run's startup and reloadConfig.
+func (d *daemon) currentState() ipc.State { return d.stateWithHot(d.registry.HotMode()) }
+
+// stateWithHot is currentState with the hot-path submode supplied explicitly rather than read back
+// from the registry. applyHotPathTransition needs exactly this: §12.2's transition must be on disk
+// BEFORE the registry publishes it (see persistHotMode), and at that instant the registry still
+// reports the OLD submode by construction — reading it back would persist the very value the
+// transition is replacing. It also keeps the write off the registry's lock entirely, which is what
+// TestHotModeTransitionPersistsBeforeItIsAnnounced turns into a proof of the ordering.
+func (d *daemon) stateWithHot(hot ipc.HotPathMode) ipc.State {
 	cfg := d.currentCfg()
 	return ipc.State{
 		Mode:              d.monitor.Mode(),
-		Hot:               d.registry.HotMode(),
+		Hot:               hot,
 		ConnectDeadlineMs: clampU16(cfg.Runtime.Daemon.ConnectDeadlineMs),
 		AckDeadlineMs:     clampU16(cfg.Runtime.Daemon.AckDeadlineMs),
 		DaemonEnabled:     cfg.Runtime.Daemon.Enabled,
@@ -320,8 +393,69 @@ func userHomeDir() string {
 	return h
 }
 
+// setAddr, setLock and setServer are Run's three publications; currentLock and currentServer are
+// how a goroutine that is not Run reads them back. See the comment on startMu for why they exist
+// and why neither getter may be called with anything blocking still to do under the mutex.
+func (d *daemon) setAddr(a ipc.Addr) {
+	d.startMu.Lock()
+	d.addr = a
+	d.startMu.Unlock()
+}
+
+func (d *daemon) setLock(l *Lock) {
+	d.startMu.Lock()
+	d.lock = l
+	d.startMu.Unlock()
+}
+
+func (d *daemon) currentLock() *Lock {
+	d.startMu.Lock()
+	defer d.startMu.Unlock()
+	return d.lock
+}
+
+func (d *daemon) setServer(s ipc.Server) {
+	d.startMu.Lock()
+	d.server = s
+	d.startMu.Unlock()
+}
+
+func (d *daemon) currentServer() ipc.Server {
+	d.startMu.Lock()
+	defer d.startMu.Unlock()
+	return d.server
+}
+
+// stopBegun reports whether Stop has ENTERED its cleanup: d.stopped closes as the first act of
+// stopOnce's closure, well before any of the work. It is deliberately not "Stop has finished" —
+// that is stopDone — because the only thing Run needs to know mid-startup is that the daemon it is
+// still assembling has already been told to stop.
+func (d *daemon) stopBegun() bool {
+	select {
+	case <-d.stopped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Run implements the daemon lifecycle of task-5-spec.md's daemon.go section.
 func (d *daemon) Run(ctx context.Context) error {
+	// The run context is created and PUBLISHED first — ahead of the address resolve, the lock and
+	// everything it actually cancels. Stop reads d.runCancel under runCancelMu and calls it only
+	// if it is non-nil, so a Stop that reads it while it is still nil cancels nothing at all; Run
+	// then reaches the select loop below and waits forever for a shutdown that nobody will ever
+	// signal, with stopOnce already spent so no second admin.shutdown can reach the cleanup either.
+	// That is not hypothetical. It is the 8.03s "admin.shutdown did not stop the running daemon"
+	// failure in CI run 32391116227: TestAdminShutdownStopsTheDaemon gates on daemon.lock
+	// APPEARING ON DISK, which is paths.CreateNew inside AcquireLock — one filesystem write and
+	// several statements before Run used to reach this publication down at the old position.
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	d.runCancelMu.Lock()
+	d.runCancel = cancel
+	d.runCancelMu.Unlock()
+
 	addr, err := ipc.Resolve(d.root)
 	if err != nil {
 		if isAddrTooLong(err) {
@@ -330,7 +464,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		}
 		return fmt.Errorf("daemon: run: resolve: %w", err)
 	}
-	d.addr = addr
+	d.setAddr(addr)
 
 	lock, err := AcquireLock(d.root, addr, d.clk)
 	if err != nil {
@@ -339,22 +473,36 @@ func (d *daemon) Run(ctx context.Context) error {
 		}
 		return fmt.Errorf("daemon: run: acquire lock: %w", err)
 	}
-	d.lock = lock
+	d.setLock(lock)
+
+	// Publishing runCancel above lets a concurrent Stop cancel this startup, but a cancellation is
+	// a request, not a rollback. A Stop that ran to completion before d.lock existed read nil and
+	// released nothing, so a Run that simply carried on from here would hold daemon.lock until the
+	// process died — and while it is held no replacement daemon can ever take this project, the
+	// same M-6 failure the listen-error path below exists to prevent. Nothing else is published
+	// yet: no ingest workers, no runWG member, no drainer, no server, no state.bin. So the whole
+	// of the abort is handing the lock back.
+	//
+	// The check is sound against every interleaving, not merely the likely one. runCancelMu
+	// totally orders Run's store of d.runCancel against Stop's read of it. If Stop's read came
+	// first it observed nil, which means close(d.stopped) — Stop's preceding statement — is
+	// ordered before Run's store and therefore before this line, so stopBegun sees it. If Run's
+	// store came first, Stop observed a non-nil cancel and the select loop below unwinds normally.
+	if d.stopBegun() {
+		if relErr := lock.Release(); relErr != nil {
+			d.log.Warn("daemon: run: releasing lock after a shutdown that arrived mid-startup", "err", relErr)
+		}
+		return nil
+	}
 
 	if d.svc.Sketches != nil {
 		d.svc.Sketches.Load(d.root, d.log)
 	}
 
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	d.runCancelMu.Lock()
-	d.runCancel = cancel
-	d.runCancelMu.Unlock()
-
 	d.ing.Start(runCtx, 0, d.runIngested)
-	go d.hotPathWorker(runCtx)
+	d.goRun(func() { d.hotPathWorker(runCtx) })
 
-	d.drain = newDrainer(DrainConfig{
+	d.drain.Store(newDrainer(DrainConfig{
 		Root:     d.root,
 		Log:      d.log,
 		Metrics:  d.m,
@@ -362,7 +510,14 @@ func (d *daemon) Run(ctx context.Context) error {
 		Dispatch: d.drainDispatch,
 		Seen:     d.ing.seen,
 		IsLive:   d.sessionIsLive,
-	})
+	}))
+
+	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
+	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
+	// only dispatchOp can close and only an accepted request can reach — and it buys the ordering
+	// runWG's join depends on: every goRun in this function precedes the existence of the endpoint,
+	// so no route into Stop can run before this group is fully populated.
+	d.goRun(func() { d.redrainOnceServing(runCtx) })
 
 	server, err := ipc.NewServer(addr, d.log, d.m, ipc.MaxLineBytes)
 	if err != nil {
@@ -370,12 +525,20 @@ func (d *daemon) Run(ctx context.Context) error {
 		// on this return, but nothing else releases the lock this Run call already holds — left
 		// unreleased, daemon.lock would keep naming this (now-dead) process's pid, and no
 		// replacement daemon could ever take the project while it lives (fix round 1, M-6).
-		if relErr := d.lock.Release(); relErr != nil {
+		//
+		// Stop never runs on this path (it needs a server), so the goRun join Stop would have done
+		// is done here instead, for the same reason: Run returning is the process exiting, and
+		// signalling a goroutine is not waiting for it. Neither of the two can be mid-write here —
+		// nothing has served, so no hot-path sample and no re-drain exists to write — but the
+		// invariant is "every exit from Run joins them", not "every exit that looked risky".
+		cancel()
+		d.runWG.Wait()
+		if relErr := lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
 		}
 		return fmt.Errorf("daemon: run: listen: %w", err)
 	}
-	d.server = server
+	d.setServer(server)
 
 	if err := ipc.WriteState(d.root, d.currentState()); err != nil {
 		d.log.Warn("daemon: failed to write state.bin", "err", err)
@@ -403,7 +566,6 @@ func (d *daemon) Run(ctx context.Context) error {
 
 	serveErrCh := make(chan error, 1)
 	go func() { serveErrCh <- server.Serve(runCtx, d.dispatchOp) }()
-	go d.redrainOnceServing(runCtx)
 
 	var zeroLiveSince time.Time
 	for {
@@ -430,14 +592,23 @@ func (d *daemon) Run(ctx context.Context) error {
 			// error is deliberately not allowed to shadow the real failure that triggered this arm.
 			select {
 			case <-d.stopped:
+				// d.stopped closes at the START of Stop, before a single cleanup step has run, so
+				// returning here would hand control back to internal/cli's runDaemon — and thence
+				// to cmd/qompack's os.Exit — while the rest of the cleanup is still in flight on
+				// admin.shutdown's own goroutine. awaitStopCleanup is what makes "Run returned"
+				// mean "the daemon has finished"; see its doc comment.
+				d.awaitStopCleanup()
 				return nil
 			default:
 				_ = d.Stop(context.Background())
 				return err
 			}
 		case <-hbTicker.C:
-			if d.lock != nil {
-				_ = d.lock.Heartbeat()
+			// The local, not d.lock: this is Run's own goroutine reading the value Run itself
+			// published, which needs no synchronisation and cannot be nil here (every path that
+			// reaches the select loop has already returned from AcquireLock successfully).
+			if lock != nil {
+				_ = lock.Heartbeat()
 			}
 		case <-idleTicker.C:
 			d.idle.Notify(d.registry.LastActivity())
@@ -531,10 +702,11 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // constructs one before its own startup Drain call, and admin.drain / the flush and idle routes
 // only ever run once Run has.
 func (d *daemon) Drain(ctx context.Context) (int, error) {
-	if d.drain == nil {
+	dr := d.drain.Load()
+	if dr == nil {
 		return 0, nil
 	}
-	return d.drain.Drain(ctx)
+	return dr.Drain(ctx)
 }
 
 // runIngested is the ingest worker pool's dispatch callback: it resolves the event, routes to the
@@ -628,6 +800,12 @@ func (d *daemon) Stop(ctx context.Context) error {
 			runCancel() // unblocks Run's own select loop and stops the worker pool below.
 		}
 
+		// Cancelling is a request, not an acknowledgement. Join Run's own goroutines here, before
+		// anything below writes, so that no later step of this cleanup — and no caller who waits
+		// for this cleanup — can be racing a paths.WriteAtomic that the hot-path worker or the
+		// serving re-drain still has open under .qompack/tmp/. See runWG.
+		d.runWG.Wait()
+
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
 		cancel()
@@ -651,19 +829,73 @@ func (d *daemon) Stop(ctx context.Context) error {
 			d.log.Warn("daemon: stop: removing state.bin", "err", err)
 		}
 
-		if d.server != nil {
-			if err := d.server.Close(); err != nil {
+		// Read out under startMu, acted on outside it. Both fields are Run's, published from a
+		// goroutine this one has no ordering with (see startMu), and both calls below block on
+		// I/O — Close waits out the in-flight connection handlers, Release does three filesystem
+		// syscalls — so holding the mutex across either would put Run's startup behind them for
+		// no reason. A nil here is now a real observation, not the coin-flip the plain field's
+		// `!= nil` check was: it means Run genuinely had not published yet.
+		if srv := d.currentServer(); srv != nil {
+			if err := srv.Close(); err != nil {
 				stopErr = err
 			}
 		}
 
-		if d.lock != nil {
-			if err := d.lock.Release(); err != nil && stopErr == nil {
+		if lk := d.currentLock(); lk != nil {
+			if err := lk.Release(); err != nil && stopErr == nil {
 				stopErr = err
 			}
 		}
 	})
 	return stopErr
+}
+
+// goRun starts one of Run's own goroutines inside runWG, so Stop can join it rather than merely
+// cancel it. Every `go` in Run whose body can still touch the filesystem after the run context is
+// cancelled belongs here.
+//
+// server.Serve deliberately does NOT: Run joins it itself, by reading serveErrCh, and its own
+// connection handlers are joined by ipc.Server.Close's bounded wait.
+func (d *daemon) goRun(fn func()) {
+	d.runWG.Add(1)
+	go func() {
+		defer d.runWG.Done()
+		fn()
+	}()
+}
+
+// awaitStopCleanup blocks until an asynchronously-invoked Stop has finished its ENTIRE cleanup
+// sequence, bounded by stopCleanupBound.
+//
+// It exists because of what "Run returned" means to the only production caller there is. internal/
+// cli's runDaemon returns the moment Run does, and cmd/qompack is `os.Exit(cli.Dispatch(...))` —
+// so Run's return is the daemon process's death, not a step before it. admin.shutdown deliberately
+// answers the client first and stops the daemon on a separate goroutine (handlers.go
+// handleAdminShutdown), and the first two things that goroutine does — close(d.stopped) and
+// runCancel() — are precisely what unblock Run. Left unwaited, the process therefore exits with the
+// drain, the ingest WAL close, the sketch saves, metrics.Persist, the state.bin removal, the server
+// close and the lock release all still to run.
+//
+// Three of those steps write through paths.WriteAtomic, which stages under .qompack/tmp/ as
+// "wa-<random>" and unlinks the staging file in a deferred call. os.Exit lands between the
+// os.CreateTemp and that defer often enough to matter, and what it leaves is not transient: the
+// staging file outlives every process that knew about it. That is the debris test/guards'
+// TestV1_WriteSetConfinedAcrossFullHookSequence sees, and it comes with an unreleased daemon.lock
+// (no replacement daemon can take the project until it goes stale, 90s) and a state.bin still
+// advertising a dead endpoint.
+//
+// The wait is bounded rather than open-ended so a cleanup step that never returns degrades to the
+// old behaviour — an exit with debris — instead of a daemon that will not die, and it says so out
+// loud rather than silently (§13 invariant 10).
+func (d *daemon) awaitStopCleanup() {
+	t := time.NewTimer(stopCleanupBound)
+	defer t.Stop()
+	select {
+	case <-d.stopDone:
+	case <-t.C:
+		d.log.Loud("daemon: shutdown cleanup did not finish within its bound; exiting with it still in flight",
+			"bound", stopCleanupBound.String())
+	}
 }
 
 // isAddrTooLong reports whether err wraps ipc.ErrAddrTooLong.

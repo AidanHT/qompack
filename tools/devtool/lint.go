@@ -14,7 +14,10 @@ type lintSubcheck struct {
 }
 
 // lintSubchecks runs in exactly this order (implementation spec §3): golangci-lint, then the four
-// in-repo checks against the import/dependency graph, then the two source-scanning checks.
+// in-repo checks against the import/dependency graph, then the two source-scanning checks, then the
+// two specification-document checks. The last pair run last because they are the only ones that
+// build test binaries, and a document defect is not worth waiting on a compile to hear about when
+// something earlier already failed.
 var lintSubchecks = []lintSubcheck{
 	{"golangci-lint", runGolangciLintCheck},
 	{"nomagic", runNomagicCheck},
@@ -23,6 +26,8 @@ var lintSubchecks = []lintSubcheck{
 	{"bindeps", runBinDeps},
 	{"sleepcheck", runSleepCheck},
 	{"stubskips", runStubSkips},
+	{"runpatterns", runPlanRunPatterns},
+	{"docmarkers", runPlanMarkers},
 }
 
 // runGolangciLintCheck runs the pinned golangci-lint with the committed .golangci.yml.

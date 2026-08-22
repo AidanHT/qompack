@@ -907,7 +907,7 @@ Every test below is written and run (failing) before the implementation in its c
 | Test | Setup / input | Expected |
 |---|---|---|
 | `TestRedact_PEMBlock` | a 1 674-byte RSA PEM block embedded between two prose paragraphs | exactly one `Match{Rule:"pem_private_key"}`; output contains `«redacted:pem_private_key»` and neither `BEGIN RSA` nor `END RSA` |
-| `TestRedact_AWSKeys` | `@@SEC_AWS_AKID@@` and `@@SEC_AWS_ASIA@@` in one line | 2 matches, rule `aws_access_key_id`; surrounding text byte-identical |
+| `TestRedact_AWSKeys` | `@@SEC_AWS_AKID@@` and `ASIA-example-key-id` in one line | 2 matches, rule `aws_access_key_id`; surrounding text byte-identical |
 | `TestRedact_GitHubTokens` | `ghp_` + 36 chars, `gho_` + 36, `github_pat_` + 30 | 3 matches, rule `github_token` |
 | `TestRedact_AnthropicBeforeGeneric` | `@@SEC_ANTHROPIC_AB@@` | 1 match with rule `anthropic_key`, **not** `generic_sk_key` |
 | `TestRedact_JWT` | a three-part `eyJ…` token | 1 match, rule `jwt` |
