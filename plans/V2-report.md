@@ -650,6 +650,8 @@ measurement, test result or gate verdict changes.
 | 4 | §0 recorded "63 total" fix commits before this report's commit. The range from the cut to the content-final tip holds 64, and §13a's own list is a perfect set match with that range — no commit missing, none extra. | 64. The "20 `fix`-type" count on the same line is correct. |
 | 5 | §13a's heading said the inventory held 55 commits while listing 64. | 64. |
 | 6 | V2-MERGE-05 called `test/integration` "the eighth root" and §12 said "eight composition roots". `importrules.go` declares eleven, and the same V2-MERGE-05 sentence names three of the others as already present at the cut. | eleventh, and eleven. |
+| 7 | §16.5's closing sentence said seven wall-clock sites "remain unaudited". That was true of the list §16.4 carried when the sentence was written; e86dbb9 replaced that list with the full audited inventory two commits later, in the very section the sentence points at, and did not revisit the sentence. Nothing is unaudited — the inventory covers every wall-clock gate in the tree — and the number that matters is how many are still judged unsafe, which was never seven. | A pointer to §16.4's inventory and to the rows still judged co-load-unsafe, which §16.4 states outright. |
+| 8 | The same inventory's summary said "Four rows remain unsafe and unfixed". Four rows carried a **No**, but one of them (`dag/slice_compare_test.go`) records its own fix in that very cell, so three were unfixed — five sites across them. The overcount ran in the direction that reads as more debt than existed, which is the safer direction to be wrong in and still wrong. | Restated in §16.4 against what is left after §16.6's round: one row, two sites, accepted by decision. |
 
 ### 16.4 Still open
 
@@ -819,7 +821,8 @@ Item 19's race is the second the detector has found in `internal/daemon`, after 
 is the third defect on that package's shutdown path, after items 3 and 8 — item 8 being an ordering
 defect rather than a memory race. All three share one shape: state published by `Run` and consumed
 by a goroutine `Run` did not create. Item 16 brings the wall-clock genus of §0 items 18/22/25 to six instances,
-and item 17 to seven — of which seven sites remain unaudited (§16.4).
+and item 17 to seven; every site of that genus in the tree is now inventoried in §16.4, with the
+one row still judged co-load-unsafe named there.
 
 ### 16.6 The closing round
 
