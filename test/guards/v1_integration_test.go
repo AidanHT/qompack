@@ -841,15 +841,21 @@ const (
 // the only ways to reach that state are a daemon that cannot be stopped or one that died without
 // releasing — and both of those leave exactly the debris the caller is about to assert against.
 //
-// The lock is watched with os.Stat, never with daemon.ReadLock, and that is not interchangeable.
-// Go's os.Open/os.ReadFile — ReadLock's own implementation — open a Windows file with
-// FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a poller holding daemon.lock open
-// makes the daemon's own os.Remove of it fail with ERROR_SHARING_VIOLATION. Polled that way this
-// helper CAUSES the very abandoned lock it is watching for, roughly once in twenty runs (observed:
-// the daemon exits with daemon.hb removed and daemon.lock still there, since Lock.Release attempts
-// both removes and only the second one is unobstructed). os.Stat answers the same question through
-// GetFileAttributesEx and takes no handle. ReadLock is used only once the wait has already failed,
-// to name the pid and address in the message.
+// The lock is watched with os.Stat rather than daemon.ReadLock. That used to be a correctness
+// requirement and is now a cost one, and the history matters because the mechanism has not gone
+// anywhere. Go's os.Open/os.ReadFile — which readLockFile, and so ReadLock, used to be — open a
+// Windows file with FILE_SHARE_READ|FILE_SHARE_WRITE and no FILE_SHARE_DELETE, so a poller holding
+// daemon.lock open made the daemon's own os.Remove of it fail with ERROR_SHARING_VIOLATION. Polled
+// that way this helper CAUSED the very abandoned lock it was watching for, roughly once in twenty
+// runs (observed: the daemon exits with daemon.hb removed and daemon.lock still there, since
+// Lock.Release attempts both removes and only the second one is unobstructed).
+//
+// readLockFile now reads through paths.ReadFileShared, so polling ReadLock would no longer obstruct
+// a release. The wait still uses os.Stat, for two reasons that outlive that fix: it asks a presence
+// question, and GetFileAttributesEx answers it without taking a handle at all; and it does not
+// depend on the reader in internal/daemon staying shared. What keeps THAT from reverting is
+// TestGuard_HotFilesAreReadWithDeleteSharing (sharedreaders_test.go), not this helper. ReadLock is
+// used only once the wait has already failed, to name the pid and address in the message.
 func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 	t.Helper()
 	addr, err := ipc.Resolve(root)
