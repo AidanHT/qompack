@@ -146,6 +146,7 @@ func Defaults() Config {
 				L0ProcessMs:          50,
 				CheckpointFinalizeMs: 2000,
 				MCPToolCallMs:        250,
+				HookDegradedMs:       1000,
 			},
 			Selection: RSelectionCfg{
 				SubmodularEnabled: false,

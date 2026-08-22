@@ -6,8 +6,9 @@ import (
 	"github.com/qompack/qompack/internal/config"
 )
 
-// BudgetID names one of the latency budgets this package gates: 00-ARCHITECTURE.md §2.4's six,
-// B-A through B-F, plus B-G, which names the one synchronous cost §2.4 leaves unbudgeted.
+// BudgetID names one of the latency budgets this package describes: 00-ARCHITECTURE.md §2.4's
+// six, B-A through B-F, plus B-G, which names the one synchronous cost §2.4 leaves unbudgeted.
+// Naming a budget is not the same as gating it — see Budget.Gated.
 type BudgetID string
 
 // The budgets. B-A is the design document's own headline number (Qompack.md §8.1); B-B through
@@ -27,13 +28,8 @@ const (
 	// BF is mcp_tool_call: request to response.
 	BF BudgetID = "B-F"
 	// BG is hook_degraded: the synchronous spool append a hook pays inside ipc.Client.Send when
-	// the daemon cannot take the event (internal/ipc/client.go's appendToSpool, which calls
-	// SpoolWriter.Append). It is the only step of Send no deadline governs — §12.3 bounds what
-	// happens when that write FAILS, never how long it may take — and B-A cannot cover it: the
-	// gated B-A population is the daemon's own TS-anchored hook_controlled series (recvTS-reqTS),
-	// which by construction has no sample for a request that never reached the daemon. So the
-	// degraded path is exactly the path B-A stops measuring, and until B-G it had no budget of
-	// its own.
+	// the daemon cannot take the event. Reported only, never gated — for a structural reason,
+	// not a soft one; see its Budgets() entry.
 	BG BudgetID = "B-G"
 )
 
@@ -53,29 +49,6 @@ const (
 	histHookDegraded       = "hook_degraded"
 )
 
-// degradedSpoolBudgetFactor scales B-A's own hot-path budget into B-G's, so that B-G stays
-// config-driven like every other gated budget (D11/§11.6) without inventing a second config key
-// for a number no operator should have to tune. An operator who tightens runtime.hotPath.budgetMs
-// — their statement of how much latency a hook may add to a tool call — tightens the degraded
-// ceiling with it.
-//
-// Why 64x, and why so far above the measurement. What the degraded path actually costs, measured
-// on this repo's own Windows host (NTFS) with nothing else running, is one cold create-and-append:
-// 0.65-0.94 ms per append in the fastest of six 32-append batches across eight runs, and up to
-// 9.28 ms per append in the slowest batch of a run that was otherwise quiet — a 6x swing with the
-// product byte-identical. Under `-race` the fastest batch runs 1.81-2.63 ms per append. Under
-// co-load, bc44d2a measured this same append at p99 282 ms and max 541 ms.
-//
-// 64 x B-A's 15 ms default is 960 ms: roughly 1000x the quiet per-append cost, ~100x the worst
-// quiet batch, and still comfortably above the worst figure ever recorded for it on a fully
-// co-loaded runner. That is deliberate. B-G is not an SLO on filesystem latency — no plugin
-// architecture can budget a stranger's disk, which is the same reasoning §2.4 applies to B-D — it
-// is a pathology detector: an fsync per byte, a quadratic re-encode, a lock convoy. The gate that
-// actually judges this path against its own host is rate-graded rather than wall-clock, and lives
-// with the code it measures (internal/ipc/degraded_test.go); this limit is the outer ceiling
-// CheckBudgets applies wherever no baseline can be measured.
-const degradedSpoolBudgetFactor = 64
-
 // The two percentiles a budget may be gated on.
 const (
 	pctP95 = 95
@@ -83,10 +56,10 @@ const (
 )
 
 // Budget describes one latency budget as data: which histogram it reads, which percentile it
-// gates on, whether it is gated at all (B-C is soft and B-D is reported-only per §2.4), and how to
-// compute its limit from configuration. Limit is a function, never a stored duration, so that
-// D11/§11.6 holds even for the budget table itself: nothing here duplicates a config default as a
-// literal.
+// gates on, whether it is gated at all (B-C is soft and B-D is reported-only per §2.4; B-G is
+// reported-only because nothing in the product can currently evaluate it), and how to compute its
+// limit from configuration. Limit is a function, never a stored duration, so that D11/§11.6 holds
+// even for the budget table itself: nothing here duplicates a config default as a literal.
 type Budget struct {
 	ID    BudgetID
 	Hist  string
@@ -138,13 +111,49 @@ func Budgets() []Budget {
 			},
 		},
 		{
-			ID: BG, Hist: histHookDegraded, Pct: pctP99, Gated: true,
-			// B-G has no config key of its own: it is a multiple of B-A's, so an operator who
-			// moves runtime.hotPath.budgetMs moves this with it. See
-			// degradedSpoolBudgetFactor for the derivation of the multiple.
+			ID: BG, Hist: histHookDegraded, Pct: pctP99, Gated: false,
+			// What B-G names: the synchronous spool append a hook pays inside ipc.Client.Send
+			// when the daemon cannot take the event (internal/ipc/client.go's appendToSpool,
+			// which calls SpoolWriter.Append). It is the only step of Send no deadline governs —
+			// §12.3 bounds what happens when that write FAILS, never how long it may take — and
+			// B-A cannot cover it: B-A's population is the daemon's own TS-anchored
+			// hook_controlled series (recvTS-reqTS), which by construction has no sample for a
+			// request that never reached the daemon. The degraded path is exactly the path B-A
+			// stops measuring.
+			//
+			// Why it is reported only, and why that is structural rather than soft. B-C and B-D
+			// are ungated because §2.4 says so. B-G is ungated because no evaluator can currently
+			// see it: CheckBudgets' only production caller is the resident daemon's own Registry,
+			// hook_degraded is written only by a hook process's per-process Registry (which
+			// internal/cli's newHookMetrics never Persists), and a B-G sample exists ONLY when the
+			// daemon is unreachable. A sample and an evaluator can therefore never coexist.
+			// Declaring Gated:true would be a claim nothing backs. What enforces this budget today
+			// is the rate-graded test gate that lives with the code it measures,
+			// internal/ipc/degraded_test.go; carrying the observation to something that can judge
+			// it in production is observer-wave work (plans/V3-VERIFY-observer-and-negative-
+			// knowledge.md), not this package's to invent.
+			//
+			// The limit is its own config key, runtime.budgets.hookDegradedMs, rather than a
+			// multiple of another budget's. Riding runtime.hotPath.budgetMs was the first shape
+			// this took and it was wrong twice over: 64x is a quotient chosen to reach an absolute
+			// target through someone else's key, not a derivation, and an operator tightening
+			// their hot-path tolerance would silently tighten a filesystem bound with it — at
+			// budgetMs=1, which test/guards' own end-to-end config test sets, the degraded ceiling
+			// would have landed at 64 ms, below figures this very append has already been measured
+			// at on a loaded runner.
+			//
+			// Why the 1000 ms default. What the degraded path costs, measured on this repo's
+			// Windows host (NTFS) with nothing else running, is one cold create-and-append:
+			// 0.75-1.92 ms per append across 200 batches, 1.07-1.27 ms under `-race`, 16-18 us on
+			// Linux tmpfs. bc44d2a measured the same call at p99 282 ms and max 541 ms on a
+			// co-loaded runner, and a busy loop on this host drove it to 26 ms per append. One
+			// second is roughly 500x the quiet figure and near twice the worst ever recorded for
+			// it anywhere, which is the intent: B-G is not an SLO on filesystem latency — no plugin
+			// architecture can budget a stranger's disk, the same reasoning §2.4 applies to B-D —
+			// it is the number a reader compares a reported p99 against to decide whether what they
+			// are looking at is a slow disk or a broken one.
 			Limit: func(c config.Config) time.Duration {
-				return degradedSpoolBudgetFactor *
-					time.Duration(c.Runtime.HotPath.BudgetMs) * time.Millisecond
+				return time.Duration(c.Runtime.Budgets.HookDegradedMs) * time.Millisecond
 			},
 		},
 	}

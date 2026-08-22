@@ -1,6 +1,7 @@
 // Package obs provides counters, gauges, fixed-bucket log histograms, and the latency budgets
-// (§2.4's B-A..B-F, plus B-G for the degraded spool append §2.4 leaves unbudgeted) that
-// CheckBudgets gates against configuration — never against a literal.
+// (§2.4's B-A..B-F, plus B-G for the degraded spool append §2.4 leaves unbudgeted). Every limit
+// is read from configuration — never from a literal — and CheckBudgets evaluates the gated
+// subset; B-C, B-D and B-G are reported only, each for its own stated reason.
 //
 // obs is foundation-layer (§3.2): it imports internal/core, internal/paths and internal/config
 // only. It does not import internal/logging (the reverse edge, logging -> obs, is the one that
