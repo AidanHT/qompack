@@ -125,6 +125,46 @@ func classifySkips(events []testEvent, owners []ownerRow) (problems, notices []s
 	return problems, notices, counts
 }
 
+// testTimeoutMarkers are the two ways `go test` reports that a test binary was killed for running
+// past -timeout: the binary's own panic, and the message `go test` prints when it has to send the
+// quit signal itself. Neither string can be produced by an ordinarily failing test — no test under
+// internal/, cmd/ or test/ prints either — so matching them does not conflate a timeout with a red
+// suite, which stubskips must continue to ignore.
+var testTimeoutMarkers = []string{
+	"panic: test timed out after ",
+	"*** Test killed with quit: ran too long",
+}
+
+// timedOutPackages returns, sorted and deduplicated, every package whose output shows its test
+// binary was killed for running past -timeout.
+//
+// This is the one kind of `go test` failure stubskips cannot afford to discard. A package that
+// dies at the wall stops emitting events, so every skip it had not yet reached is simply absent
+// from the stream — and absent skips look exactly like compliant ones to classifySkips, which
+// would then print "stubskips: OK" for a run that inspected part of the tree. A red suite is
+// different in kind: a failing test still reports every skip around it, which is why the exit
+// status stays deliberately ignored.
+func timedOutPackages(events []testEvent) []string {
+	seen := make(map[string]bool)
+	for _, e := range events {
+		if e.Action != "output" {
+			continue
+		}
+		for _, marker := range testTimeoutMarkers {
+			if strings.Contains(e.Output, marker) {
+				seen[e.Package] = true
+				break
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for pkg := range seen {
+		out = append(out, pkg)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // hasReasonedPlatformSkip reports whether text contains a platform skip carrying a non-empty
 // reason. A bare "platform:" with nothing after it is not accepted: the reason is the entire
 // point, because it is what tells a reader whether the coverage gap matters on their host.
@@ -157,18 +197,38 @@ func runStubSkips() error {
 		return fmt.Errorf("stubskips: %w", err)
 	}
 
-	args := append([]string{"test", "-json"}, patterns...)
+	// -timeout=wholeTreeTestTimeout for the same reason taskTest, taskTestRace and cover all pass
+	// it: go's 10-minute per-binary default is not enough for test/integration's hot-path suites
+	// when the whole tree runs in parallel on a shared machine. stubskips ran without it, which
+	// made it the one whole-tree `go test` in this tool that could be killed at the default wall —
+	// and, unlike the others, it would not have said so, because it ignores the exit status. A CI
+	// runner is exactly the loaded, small box the constant's own comment describes.
+	args := append([]string{"test", "-json", "-timeout=" + wholeTreeTestTimeout}, patterns...)
 	// The exit status of this `go test` run is deliberately not inspected here: a package that
 	// fails to build, or whose non-skip tests fail, is already reported by the `test` task.
-	// stubskips only cares about the text of whatever skip reasons this run does produce.
-	stdout, _, _ := runCapture(nil, "go", args...)
+	// stubskips only cares about the text of whatever skip reasons this run does produce. The two
+	// cases where that reasoning breaks down — a run that produced nothing at all to inspect, and
+	// a run killed at the wall part-way through the tree — are caught explicitly below, because in
+	// both of them a missing skip event carries no information and silence would read as
+	// compliance.
+	stdout, stderr, runErr := runCapture(nil, "go", args...)
 
 	events, err := parseTestEvents(stdout)
 	if err != nil {
 		return fmt.Errorf("stubskips: parsing `go test -json` output: %w", err)
 	}
+	if runErr != nil && len(events) == 0 {
+		return fmt.Errorf("stubskips: `go test -json` produced no events to inspect: %w\n%s", runErr, stderr)
+	}
 
 	problems, notices, counts := classifySkips(events, owners)
+	for _, pkg := range timedOutPackages(events) {
+		problems = append(problems, fmt.Sprintf(
+			"%s: test binary killed for running past -timeout=%s, so every skip it had not yet "+
+				"reached is missing from this run — the tree was only partly inspected",
+			pkg, wholeTreeTestTimeout))
+	}
+	sort.Strings(problems)
 
 	pkgNames := make([]string, 0, len(counts))
 	for pkg := range counts {

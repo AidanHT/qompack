@@ -2029,6 +2029,7 @@ baselines recorded on the runners are the stated precondition for wiring it into
 | Job | Runs on | Steps |
 |---|---|---|
 | `verify` | ubuntu | `gofumpt -l` (must be empty) · `golangci-lint run` · `go vet` · custom `nomagic` pass · import-graph layer check · test-only-dep check · `go build ./...` |
+| `lint-windows` | windows | the same `devtool lint`, again on Windows. `stubskips` greps a real test run, so a `runtime.GOOS == "windows"` skip only reaches it on Windows; and `golangci-lint`, `nomagic`, `importgraph` and `testdeps` load packages through the host's build constraints, so the `//go:build windows` files are linted on no other runner |
 | `test` | ubuntu, macos, windows × go 1.26.x | `go test ./...` ; `-race` on ubuntu+macos, `-count=2` on windows (race nightly) |
 | `cover` | ubuntu | merged profile, per-group floors (§6.4), artifact upload |
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
