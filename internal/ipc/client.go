@@ -401,8 +401,14 @@ func (c *client) appendToSpool(req Request) {
 // only step of Send no deadline governs. It is measured on both outcomes — obs.Timed observes
 // whether or not f errors — because a refused append is a real cost the hook paid too.
 //
+// The sample is an observation, not a gate. B-G is reported only (internal/obs/budgets.go's BG
+// entry states why), and this Registry is a hook process's own: internal/cli's newHookMetrics
+// never Persists it and nothing calls CheckBudgets on it. What the series buys today is a real,
+// correctly-named measurement for whatever reads a hook's instruments — the same standing the
+// l0_spooled and l0_dropped counters beside it already have.
+//
 // A client with no Registry (c.m nil — the stubs guard and several tests construct one) skips the
-// measurement rather than observing into nothing, exactly as the counters above do.
+// measurement rather than observing into nothing, exactly as those counters do.
 func (c *client) timedAppend(req Request) error {
 	if c.m == nil {
 		return c.spool.Append(req)
