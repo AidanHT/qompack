@@ -69,7 +69,8 @@ var growthSampleTurns = map[int]bool{8: true, 16: true, 32: true, 64: true, 128:
 //
 // replayExitGateFailed is the driver's exit 1 — "the gate ran and found something" — and asserting
 // it exactly rather than "non-zero" is what keeps a truncated growth file from passing this test
-// by failing for some unrelated reason (exit 2 bad input, 3 CPU budget, 5 phase checks disabled).
+// by failing for some unrelated reason (exit 2 bad input, 3 either replay limit — the --max-cpu
+// cost budget or the --max-wall liveness ceiling — 5 phase checks disabled).
 //
 // replayMaxCPU is a CPU-time budget and not a wall-clock one, which matters most in exactly this
 // file: `go test ./...` runs this test beside about twenty other package binaries, and a wall

@@ -310,8 +310,9 @@ func TestDegradedSpoolAppendIsRateGradedAgainstThePlatform(t *testing.T) {
 
 // TestDegradedSendRecordsIntoBGsHistogram pins the wiring B-G needs to be a budget rather than a
 // name: every degraded Send must leave a sample in the histogram obs.Budgets() says B-G reads, so
-// CheckBudgets has something to check. It asserts the series by looking the name up from the budget
-// table, never by respelling it, and it does not time anything — the population is exact.
+// the series a future evaluator would read is populated. It asserts the series by looking the name
+// up from the budget table, never by respelling it, and it does not time anything — the population
+// is exact.
 func TestDegradedSendRecordsIntoBGsHistogram(t *testing.T) {
 	const sends = 5
 	root := t.TempDir()
