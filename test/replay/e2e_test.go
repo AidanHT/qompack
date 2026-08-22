@@ -137,27 +137,49 @@ func TestReplayDriver_BreakpointDisclaimerPrinted(t *testing.T) {
 	require.Less(t, disclaimer, number, "the disclaimer is printed above the number, always")
 }
 
-// TestReplayDriver_MaxCPUExceeded: a replay that will not finish inside the budget fails loudly
-// rather than hanging a CI job.
+// TestReplayDriver_MaxCPUExceeded: a replay that costs more than its budget allows fails loudly.
 //
-// 1ns is below the resolution of every clock ProcessCPU reads, so which of the driver's two checks
-// fires is not fixed: on a host whose CPU clock is credited on a 15.625 ms tick the first
+// 1ns is below the resolution of every clock ProcessCPU reads, so which of the driver's two check
+// points fires is not fixed: on a host whose CPU clock is credited on a 15.625 ms tick the first
 // per-session check can still read zero, and the whole-run check catches it instead. Both carry
 // errMaxCPU's sentence and both exit 3, so the assertions name those and not a line number.
+//
+// -max-wall is left at its default here on purpose. The two limits are independent, and a test for
+// one of them that could be satisfied by the other would not be a test for either.
 func TestReplayDriver_MaxCPUExceeded(t *testing.T) {
 	code, _, errw := driverRun(t, "--max-cpu", "1ns", "--baseline", "", "--out", "")
-	require.Equal(t, exitMaxCPU, code, errw)
+	require.Equal(t, exitBudget, code, errw)
 	require.Contains(t, errw, "CPU budget exceeded")
+	require.NotContains(t, errw, "wall-clock ceiling exceeded",
+		"the CPU budget is what was breached; naming the wall ceiling too would misdirect the reader")
 }
 
-// TestReplayDriver_MaxWallAliasStillSetsTheCPUBudget: -max-wall is the name several committed
-// command lines still use, so it has to keep working AND has to say that what it now bounds is CPU
-// time. A silent alias would let a reader keep believing the budget means what it used to.
-func TestReplayDriver_MaxWallAliasStillSetsTheCPUBudget(t *testing.T) {
+// TestReplayDriver_MaxWallExceeded: a replay that takes longer than its ceiling allows fails loudly
+// rather than hanging a CI job, however little CPU it spent getting there.
+//
+// This is the liveness half, and it is the half no CPU clock can see: everything that makes this
+// process WAIT rather than work — a slow filesystem, a blocking read in the session loop, the git
+// child loadBaseline shells out to for a --baseline ref — costs wall time and no CPU at all. The
+// budget flag is left at its 2 minute default so nothing but the wall ceiling can produce this
+// failure.
+func TestReplayDriver_MaxWallExceeded(t *testing.T) {
 	code, _, errw := driverRun(t, "--max-wall", "1ns", "--baseline", "", "--out", "")
-	require.Equal(t, exitMaxCPU, code, errw)
-	require.Contains(t, errw, "CPU budget exceeded")
-	require.Contains(t, errw, "LOUD: -max-wall is the former name of -max-cpu")
+	require.Equal(t, exitBudget, code, errw)
+	require.Contains(t, errw, "wall-clock ceiling exceeded")
+	require.Contains(t, errw, "blocked or starved rather than expensive")
+}
+
+// TestReplayDriver_BothLimitsHoldOnTheCommittedCorpus is the pass-side companion to the two above:
+// a healthy run of the real corpus must clear BOTH limits at their real defaults, so neither
+// failure test is passing merely because its limit is unreachably tight in normal use.
+func TestReplayDriver_BothLimitsHoldOnTheCommittedCorpus(t *testing.T) {
+	code, _, errw := driverRun(t,
+		"--corpus", "testdata/sessions/synthetic",
+		"--baseline", "",
+		"--out", filepath.Join(t.TempDir(), "report.json"))
+	require.Equal(t, exitOK, code, errw)
+	require.NotContains(t, errw, "CPU budget exceeded")
+	require.NotContains(t, errw, "wall-clock ceiling exceeded")
 }
 
 // TestReplayDriver_SessionFloorFails builds a 19-session corpus and asserts the phase-0 criterion
