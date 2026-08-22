@@ -137,12 +137,27 @@ func TestReplayDriver_BreakpointDisclaimerPrinted(t *testing.T) {
 	require.Less(t, disclaimer, number, "the disclaimer is printed above the number, always")
 }
 
-// TestReplayDriver_MaxWallExceeded: a replay that will not finish inside the budget fails loudly
+// TestReplayDriver_MaxCPUExceeded: a replay that will not finish inside the budget fails loudly
 // rather than hanging a CI job.
-func TestReplayDriver_MaxWallExceeded(t *testing.T) {
+//
+// 1ns is below the resolution of every clock ProcessCPU reads, so which of the driver's two checks
+// fires is not fixed: on a host whose CPU clock is credited on a 15.625 ms tick the first
+// per-session check can still read zero, and the whole-run check catches it instead. Both carry
+// errMaxCPU's sentence and both exit 3, so the assertions name those and not a line number.
+func TestReplayDriver_MaxCPUExceeded(t *testing.T) {
+	code, _, errw := driverRun(t, "--max-cpu", "1ns", "--baseline", "", "--out", "")
+	require.Equal(t, exitMaxCPU, code, errw)
+	require.Contains(t, errw, "CPU budget exceeded")
+}
+
+// TestReplayDriver_MaxWallAliasStillSetsTheCPUBudget: -max-wall is the name several committed
+// command lines still use, so it has to keep working AND has to say that what it now bounds is CPU
+// time. A silent alias would let a reader keep believing the budget means what it used to.
+func TestReplayDriver_MaxWallAliasStillSetsTheCPUBudget(t *testing.T) {
 	code, _, errw := driverRun(t, "--max-wall", "1ns", "--baseline", "", "--out", "")
-	require.Equal(t, exitMaxWall, code)
-	require.Contains(t, errw, "wall-clock budget exceeded")
+	require.Equal(t, exitMaxCPU, code, errw)
+	require.Contains(t, errw, "CPU budget exceeded")
+	require.Contains(t, errw, "LOUD: -max-wall is the former name of -max-cpu")
 }
 
 // TestReplayDriver_SessionFloorFails builds a 19-session corpus and asserts the phase-0 criterion
