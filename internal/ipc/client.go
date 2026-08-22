@@ -64,6 +64,24 @@ const (
 	counterL0Externalized = "l0_externalized"
 )
 
+// histDegraded is obs.Budgets()' own histogram name for B-G, the budget covering the synchronous
+// spool append this package pays when the daemon cannot take the event. It is resolved once at
+// package initialisation rather than per call — Budgets() builds a fresh slice every time — and
+// looked up rather than respelled, so the budget table stays the single source of truth for which
+// series a budget reads (internal/daemon/metrics.go's histName does the same for B-B and B-C).
+var histDegraded = budgetHistName(obs.BG)
+
+// budgetHistName reports the histogram obs.Budgets() associates with id, or "" for an id it does
+// not declare — which obs.Registry.Hist treats as its own harmless series rather than panicking.
+func budgetHistName(id obs.BudgetID) string {
+	for _, b := range obs.Budgets() {
+		if b.ID == id {
+			return b.Hist
+		}
+	}
+	return ""
+}
+
 // spawnLockName is the file lazySpawn takes inside <root>/.qompack/run to serialize detached
 // daemon spawns across concurrently-running hook clients.
 const spawnLockName = "spawn.lock"
@@ -362,7 +380,7 @@ func (c *client) appendToSpool(req Request) {
 		}
 		return
 	}
-	if err := c.spool.Append(req); err != nil {
+	if err := c.timedAppend(req); err != nil {
 		c.dropOnce.Do(func() {
 			if c.log != nil {
 				c.log.Loud("ipc: spool append refused — event dropped", "op", string(req.Op), "err", err)
@@ -376,6 +394,20 @@ func (c *client) appendToSpool(req Request) {
 	if c.m != nil {
 		c.m.Counter(counterL0Spooled).Add(1)
 	}
+}
+
+// timedAppend calls the spool's Append and records how long it took into B-G's histogram, which
+// is what gives that budget a clock: this call is the whole of the degraded path's cost and the
+// only step of Send no deadline governs. It is measured on both outcomes — obs.Timed observes
+// whether or not f errors — because a refused append is a real cost the hook paid too.
+//
+// A client with no Registry (c.m nil — the stubs guard and several tests construct one) skips the
+// measurement rather than observing into nothing, exactly as the counters above do.
+func (c *client) timedAppend(req Request) error {
+	if c.m == nil {
+		return c.spool.Append(req)
+	}
+	return obs.Timed(c.m.Hist(histDegraded), func() error { return c.spool.Append(req) })
 }
 
 // blobRef is the JSON shape a client-externalized request's Raw carries in place of the field it
