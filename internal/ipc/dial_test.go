@@ -32,6 +32,10 @@ func TestDial_SignatureIsIdenticalOnEveryPlatform(t *testing.T) {
 // The timeout comes from runtime.daemon.connectDeadlineMs rather than a literal, per D11: this is
 // the same deadline a real hot-path client would use, so if that default is ever raised to
 // something that would make this test slow, it is the config change that has to justify itself.
+// The Windows default is 25ms for exactly that reason (internal/config/deadlines.go) and this test
+// does not pay it: an endpoint no daemon ever created answers CreateFile with
+// ERROR_FILE_NOT_FOUND, not ERROR_PIPE_BUSY, so tryDialPipe returns on its first attempt without
+// ever reaching the retry sleep the budget is sized for.
 func TestDial_AbsentEndpointFailsWithoutAConnection(t *testing.T) {
 	addr, err := Resolve(t.TempDir())
 	require.NoError(t, err)

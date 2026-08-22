@@ -252,7 +252,11 @@ func onlySpooledRequest(t *testing.T, root string) ipc.Request {
 // (ipc.Op.HotPath()), and must keep State.ConnectDeadlineMs's own tight budget exactly like
 // observe.tool and observe.stop.
 func TestHookConnectDeadline(t *testing.T) {
-	tightState := ipc.State{ConnectDeadlineMs: 5} // config.Defaults()'s own hot-path value.
+	// A hot-path-sized connect budget, well under hookConnectDeadlineFloor: the point of every row
+	// below is which ops get widened past it, so the number is written here rather than read from
+	// config.Defaults() (whose own value is platform-specific — internal/config/deadlines.go — and
+	// would make "was it widened?" depend on the host running the test).
+	tightState := ipc.State{ConnectDeadlineMs: 5}
 
 	tests := []struct {
 		name string
