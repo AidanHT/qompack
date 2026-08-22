@@ -184,6 +184,12 @@ jobs:
     # A REQUIRED check from the end of wave 1 (§8): SP-02 landed test/replay, so the
     # continue-on-error placeholder is gone and a regression here blocks the merge.
     runs-on: ubuntu-latest
+    # The backstop under the driver's own --max-wall ceiling, for the one case that ceiling cannot
+    # see: both of its checks sample between sessions and after the run, so a single call that
+    # never returns at all would sit here until GitHub's 360-minute platform default. This is a
+    # deadlock bound and not a performance one — the driver's 15-minute ceiling fails first on
+    # anything slower than it should be, and this only fires when the driver has stopped checking.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -204,7 +210,7 @@ jobs:
           --growth testdata/golden/eval/growth/stats-growth.json
           --sketch testdata/golden/eval/growth/health.json
           --signoff "$RUNNER_TEMP/pr-body.md"
-          --max-wall 2m
+          --max-cpu 2m
           --ci
 
   plugin-validate:
