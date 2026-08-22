@@ -12,6 +12,8 @@ An invalid value is never fatal: the offending leaf falls back to its default, t
 reported through the `Loud` channel and recorded in `.qompack/state/config-violations.json`,
 and loading continues (§11.3). Unknown keys produce a warning, never an error.
 
+A default that differs by platform names every value in its Default cell, portable one first.
+
 Run `qompack config print --provenance` to see the effective value of every key and where it came from.
 
 ## `checkpoint`
@@ -59,7 +61,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.budgets.l0ProcessMs` | integer | `50` | (0,∞) | 00-ARCH §2.4 | B-C latency budget: WAL to fully chunked, stored, DAG/sketches updated |
 | `runtime.budgets.mcpToolCallMs` | integer | `250` | (0,∞) | 00-ARCH §2.4 | B-F latency budget: MCP request to response |
 | `runtime.daemon.ackDeadlineMs` | integer | `8` | — | 00-ARCH §2.4 | deadline for the daemon's one-byte ACK on the hot path |
-| `runtime.daemon.connectDeadlineMs` | integer | `5` | — | 00-ARCH §2.4 | deadline for a hot-path client to connect to the daemon |
+| `runtime.daemon.connectDeadlineMs` | integer | `5` (`25` on Windows) | — | 00-ARCH §2.4 | deadline for a hot-path client to connect to the daemon |
 | `runtime.daemon.enabled` | boolean | `true` | — | 00-ARCH §2.4 | run the resident per-project daemon |
 | `runtime.daemon.idleExitSeconds` | integer | `1800` | — | 00-ARCH §2.4 | seconds with zero live sessions before the daemon exits |
 | `runtime.daemon.maxSessions` | integer | `8` | — | 00-ARCH §2.4 | maximum concurrent sessions the daemon tracks |
