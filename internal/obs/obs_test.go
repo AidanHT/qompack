@@ -173,7 +173,7 @@ func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 	require.Equal(t, 15*time.Millisecond, ids[obs.BA].Limit(cfg), "B-A reads runtime.hotPath.budgetMs")
 	require.Equal(t, time.Duration(0), ids[obs.BD].Limit(cfg), "B-D always reports 0, never a config key")
 
-	// Changing configuration must change every config-driven limit (all but B-D).
+	// Changing configuration must change every config-driven limit (all but B-D and B-G).
 	mutated := config.Defaults()
 	mutated.Runtime.HotPath.BudgetMs = 999
 	mutated.Runtime.Budgets.L0IngestMs = 999
@@ -187,7 +187,8 @@ func TestBudgets_AllSixPresentAndConfigDriven(t *testing.T) {
 		require.NotEqual(t, before, after, "budget %s must be config-driven", id)
 		require.Equal(t, 999*time.Millisecond, after)
 	}
-	// B-D is the sole, documented exception.
+	// B-D is the sole budget whose limit no config key drives; B-G's does, and its own test below
+	// grades it.
 	require.Equal(t, ids[obs.BD].Limit(cfg), ids[obs.BD].Limit(mutated))
 }
 

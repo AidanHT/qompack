@@ -29,11 +29,14 @@ const goosWindows = "windows"
 //	25 ms    3          ~30 ms       t=10 and t=20 are both inside
 //
 // 5 ms is not merely tight on Windows, it buys exactly one attempt and costs ~10 ms doing it, so
-// a client that met a momentarily-busy listener spooled rather than retried. 25 ms is 2.5 quanta:
-// it clears the two-attempt floor the retry exists to provide, with half a quantum of headroom so
-// the default does not sit exactly on the boundary it has to clear — at exactly 20 ms the budget
-// expires at the same instant the second attempt's sleep ends, and any scheduling delay inside
-// that window costs the retry the number was raised to buy.
+// a client that met a momentarily-busy listener spooled rather than retried. Two boundaries then
+// sit above it, and 25 ms is chosen against both. 20 ms — two quanta — is the floor the anti-drift
+// guard below enforces, the least budget that can buy a second attempt at all; it is a minimum, not
+// a target, because it buys that attempt with nothing to spare. 25 ms is 2.5 quanta: it buys a
+// third attempt outright (t=10 and t=20 are both inside the budget), and the half quantum over the
+// guard floor is what lets a sleep that overshoots its 10 ms absorb the delay and still retry. At
+// exactly 20 ms it could not: a first sleep that ran long would put the next deadline check at or
+// past the budget, collapsing the dial to the single attempt the retry was raised to prevent.
 //
 // TestConnectDeadlineDefaultClearsTheBusyRetryQuantum (internal/ipc) is the anti-drift guard
 // between the two constants: internal/config may not import internal/ipc (§3.2 gives config only
