@@ -270,10 +270,16 @@ func HistoryPath(projectRoot string) string {
 // or future-schema file cannot smuggle an unbounded field past this call.
 //
 // LoadHistory does no locking of its own — see SessionHistory's doc comment for the ownership
-// contract every caller must honour.
+// contract every caller must honour. The one thing it does guarantee is that it will not obstruct
+// SaveHistory: the read goes through paths.ReadFileShared, not os.ReadFile, so the WriteAtomic
+// replace SaveHistory finishes with can land while this read is in flight. An os.ReadFile handle
+// grants no FILE_SHARE_DELETE, and on Windows that is enough to make the replace fail outright
+// (internal/paths/shared.go) — turning a lock-free load/save pair into one that can lose a whole
+// session's history to a read that happened to overlap it. ReadFileShared reports a missing file
+// as os.ReadFile does, which is the ordinary first-run case this function already folds into zero.
 func LoadHistory(path string) *SessionHistory {
 	zero := &SessionHistory{Version: historyVersion}
-	b, err := os.ReadFile(paths.Long(path))
+	b, err := paths.ReadFileShared(path)
 	if err != nil {
 		return zero
 	}
