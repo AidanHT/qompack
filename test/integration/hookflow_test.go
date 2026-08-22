@@ -76,7 +76,7 @@ const (
 	// hookflowClientBudget is the connect/ACK budget the in-test ipc.Client runs with, and the
 	// Send deadline it passes. Basis: daemon.DrainLineDeadline — the daemon's own one-line worst
 	// case, the smallest exported daemon bound unambiguously larger than a local round trip. The
-	// production defaults (5ms connect / 8ms ACK) are warm-daemon budgets; against a
+	// production defaults (5ms connect, 25ms on Windows / 8ms ACK) are warm-daemon budgets; against a
 	// race-instrumented in-process daemon on a loaded CI machine they would be an implicit latency
 	// assertion, which §4's conventions forbid — this test asserts ACK counts, not speed.
 	hookflowClientBudget = daemon.DrainLineDeadline

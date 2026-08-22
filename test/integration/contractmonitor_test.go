@@ -269,17 +269,23 @@ func degradedPayloadMarker(i int) string { return fmt.Sprintf("degraded-payload-
 //
 // status is NOT an ipc.Op.HotPath() op, so its client must not run on the hot path's budgets.
 // Leaving ConnectDeadline/AckDeadline at zero makes NewClientWithOptions fall back to state.bin's
-// own ConnectDeadlineMs/AckDeadlineMs — 5ms/8ms out of config.Defaults(), sized for observe.tool/
-// prompt/stop against an already-warm daemon — and on Windows a 5ms dial budget is not merely
-// tight, it is unsatisfiable for the dial this helper actually performs: it lands moments after
-// the caller's own ipc.Probe accepted-and-closed a connection, and go-winio's listenerRoutine
-// only creates the next pipe instance when its accept loop asks for one (pipe.go
-// listenerRoutine), so a dial landing in that gap gets ERROR_PIPE_BUSY — which go-winio retries
-// on a hard-coded 10ms sleep (pipe.go tryDialPipe), twice the whole budget. Measured on Windows
-// 11 / go-winio v0.6.2: 197 of 200 dials issued straight after a Probe failed at a 5ms budget
-// (worst elapsed 12.1ms — the 10ms sleep), 0 of 200 failed at 250ms. The client then spools and
-// returns Response{OK:false} with an empty Err (ipc client.go spoolAndReturn), which reads
-// exactly like a daemon refusal but is not one: the daemon was accepting the whole time.
+// own ConnectDeadlineMs/AckDeadlineMs out of config.Defaults() — 8ms for the ACK, and a connect
+// budget sized for observe.tool/prompt/stop against an already-warm daemon — and the dial this
+// helper actually performs is not that dial: it lands moments after the caller's own ipc.Probe
+// accepted-and-closed a connection, and go-winio's listenerRoutine only creates the next pipe
+// instance when its accept loop asks for one (pipe.go listenerRoutine), so a dial landing in that
+// gap gets ERROR_PIPE_BUSY — which go-winio retries on a hard-coded 10ms sleep (pipe.go
+// tryDialPipe). Measured on Windows 11 / go-winio v0.6.2: 197 of 200 dials issued straight after a
+// Probe failed at a 5ms budget (worst elapsed 12.1ms — the 10ms sleep), 0 of 200 failed at 250ms.
+// The client then spools and returns Response{OK:false} with an empty Err (ipc client.go
+// spoolAndReturn), which reads exactly like a daemon refusal but is not one: the daemon was
+// accepting the whole time.
+//
+// The 5ms in that measurement is the old Windows default; config now ships 25ms there, above the
+// 12.1ms worst case it recorded (internal/config/deadlines.go). That closes the gap between "the
+// hot-path budget" and "one busy-retry", but it does not make the hot-path budget the right one
+// for this helper, which is off the hot path by construction and should not inherit a budget tuned
+// for a warm daemon at all.
 //
 // This is the same condition internal/cli covers with hookConnectDeadlineFloor for every
 // non-hot-path reply op (hookclient.go) and explicitly for admin.ping (selftest.go), and that

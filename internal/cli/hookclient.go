@@ -124,13 +124,15 @@ const hookSendDeadlineFloor = 8 * time.Millisecond
 // observe.tool and observe.stop.
 //
 // Root-caused during fix round 1 by bisecting against the pre-fix-round commit: State.
-// ConnectDeadlineMs (config.Defaults() ships 5ms — a budget sized for the hot path's own
-// already-established connection cadence) is too tight for session-start's very first dial, which
-// lands moments after preSend's own daemon.EnsureRunning call — a daemon that has JUST finished
-// spawning or has JUST accepted-and-closed EnsureRunning's own liveness probe is not guaranteed to
-// have its next ConnectNamedPipe/accept re-posted within 5ms on a loaded host; go-winio's
-// DialPipe then legitimately times out and doHook falls back to spooling a request the daemon was,
-// in fact, a few milliseconds away from accepting. Before I-1's fix (internal/ipc/client.go), this
+// ConnectDeadlineMs (config.Defaults() ships a budget sized for the hot path's own
+// already-established connection cadence — 5ms, or 25ms on Windows, where it also has to clear the
+// named-pipe dial's own retry quantum; see internal/config/deadlines.go) is too tight for
+// session-start's very first dial, which lands moments after preSend's own daemon.EnsureRunning
+// call — a daemon that has JUST finished spawning or has JUST accepted-and-closed EnsureRunning's
+// own liveness probe is not guaranteed to have its next ConnectNamedPipe/accept re-posted inside a
+// hot-path budget on a loaded host; go-winio's DialPipe then legitimately times out and doHook
+// falls back to spooling a request the daemon was, in fact, a few milliseconds away from
+// accepting. Before I-1's fix (internal/ipc/client.go), this
 // never surfaced: NewClientWithOptions unconditionally re-read state.bin for itself whenever
 // ProjectRoot was set, and that incidental extra disk round trip happened to burn just enough wall
 // clock between EnsureRunning's return and the real dial to dodge the race in practice — an

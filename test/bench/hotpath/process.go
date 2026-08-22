@@ -183,9 +183,10 @@ const (
 // child has already exited (a real os.Process.Wait, per stopDaemon above) — so anything still
 // answering admin.ping at addr at this point cannot be OUR child; it can only be a SECOND daemon.
 //
-// The one way that can happen: observe.tool runs on state.bin's tight ConnectDeadlineMs (5ms
-// default), and on a host with the process-creation dispersion this harness itself documents, a
-// dial can plausibly time out during a measured spawn. internal/ipc/client.go's Send then calls
+// The one way that can happen: observe.tool runs on state.bin's tight ConnectDeadlineMs (5ms by
+// default, 25ms on Windows), and on a host with the process-creation dispersion this harness
+// itself documents, a dial can plausibly time out during a measured spawn.
+// internal/ipc/client.go's Send then calls
 // lazySpawn on that failure path, which launches a DETACHED daemon
 // (internal/daemon.SpawnDetached, wired in by internal/cli/hookclient.go) inheriting the same
 // QOMPACK_IPC_ADDR/QOMPACK_PROJECT_ROOT this harness set for every child. Ordinarily that detached
