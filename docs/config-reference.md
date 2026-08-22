@@ -55,6 +55,7 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | Key | Type | Default | Valid range | Section | Description |
 |---|---|---|---|---|---|
 | `runtime.budgets.checkpointFinalizeMs` | integer | `2000` | (0,∞) | 00-ARCH §2.4 | B-E latency budget: PreCompact entry to exit |
+| `runtime.budgets.hookDegradedMs` | integer | `1000` | (0,∞) | 00-ARCH §12.3 | B-G latency budget: the spool append a hook pays when the daemon is unreachable |
 | `runtime.budgets.l0IngestMs` | integer | `2` | (0,∞) | 00-ARCH §2.4 | B-B latency budget: daemon read to WAL append returned |
 | `runtime.budgets.l0ProcessMs` | integer | `50` | (0,∞) | 00-ARCH §2.4 | B-C latency budget: WAL to fully chunked, stored, DAG/sketches updated |
 | `runtime.budgets.mcpToolCallMs` | integer | `250` | (0,∞) | 00-ARCH §2.4 | B-F latency budget: MCP request to response |

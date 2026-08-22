@@ -239,6 +239,13 @@
               "x-qompack-range": "(0,∞)",
               "x-qompack-section": "00-ARCH §2.4"
             },
+            "hookDegradedMs": {
+              "default": 1000,
+              "description": "B-G latency budget: the spool append a hook pays when the daemon is unreachable",
+              "type": "integer",
+              "x-qompack-range": "(0,∞)",
+              "x-qompack-section": "00-ARCH §12.3"
+            },
             "l0IngestMs": {
               "default": 2,
               "description": "B-B latency budget: daemon read to WAL append returned",
@@ -263,6 +270,7 @@
           },
           "required": [
             "checkpointFinalizeMs",
+            "hookDegradedMs",
             "l0IngestMs",
             "l0ProcessMs",
             "mcpToolCallMs"

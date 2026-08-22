@@ -64,6 +64,7 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	// SP-01 additions beyond the §11.5 document reproduced in 00-ARCHITECTURE.md.
 	require.Equal(t, config.BudgetsCfg{
 		L0IngestMs: 2, L0ProcessMs: 50, CheckpointFinalizeMs: 2000, MCPToolCallMs: 250,
+		HookDegradedMs: 1000,
 	}, rt.Budgets)
 	require.Equal(t, config.RSelectionCfg{SubmodularEnabled: false}, rt.Selection)
 	require.Equal(t, config.RTokensCfg{

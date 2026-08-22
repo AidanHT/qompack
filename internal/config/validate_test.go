@@ -171,6 +171,7 @@ var ruleCases = []ruleCase{
 	{"budgets.l0ProcessMs at 0", func(c *config.Config) { c.Runtime.Budgets.L0ProcessMs = 0 }, "runtime.budgets.l0ProcessMs"},
 	{"budgets.checkpointFinalizeMs at 0", func(c *config.Config) { c.Runtime.Budgets.CheckpointFinalizeMs = 0 }, "runtime.budgets.checkpointFinalizeMs"},
 	{"budgets.mcpToolCallMs at 0", func(c *config.Config) { c.Runtime.Budgets.MCPToolCallMs = 0 }, "runtime.budgets.mcpToolCallMs"},
+	{"budgets.hookDegradedMs at 0", func(c *config.Config) { c.Runtime.Budgets.HookDegradedMs = 0 }, "runtime.budgets.hookDegradedMs"},
 
 	// runtime.telemetry.enabled must be false
 	{"telemetry.enabled true", func(c *config.Config) { c.Runtime.Telemetry.Enabled = true }, "runtime.telemetry.enabled"},
