@@ -937,7 +937,7 @@ mutation test that was observed failing against the pre-fix code.
 | A1 | `runpatterns` could not resolve any `./pkg/...` package argument — 128 plan lines — and counted them as checked. The lint written to stop a gate reporting success while checking nothing was doing exactly that | `namesFor` unions the packages under a wildcard prefix; an unresolvable package is a reported problem; the summary prints resolved-of-checkable. Mutation-tested with a dead test name under `./tools/...` |
 | A2 | `session_start.source_compact` read only `AwaitingCompactStart`, so a PreCompact in one session was resolved against whatever session started next. `LastPrecompactSession` was written by the daemon and read by nothing | the check consults it; a foreign session drops the pending flag and reports `precompact-pending-for-another-session` |
 | A3 | `SketchSet.Load` used the silent `sketch.Load` and classified on `core.ErrNotFound`, which `LoadWithLog` returns for every failure — so a corrupt sketch was filed under "expected, Debug" with no durable line | `LoadWithLog`, classification on `fs.ErrNotExist`, an absent-file sentinel that unwraps to both, and a `test/guards` case forbidding `sketch.Load` outside its own package |
-| A4 | the GC mark phase took neither `ctx` nor the deadline, on a phase whose cost is the project's whole history — while the sweep's comment claimed both phases checked both | one `gcBudget` for both phases; a truncated mark ends the pass with nothing collected and no cursor, because an incomplete live set cannot be swept against |
+| A4 | the GC mark phase took neither `ctx` nor the deadline, on a phase whose cost is the project's whole history — while the sweep's comment claimed both phases checked both | one `gcBudget` shared by both phases, with the split §16.8.1 records: `ctx` on every loop, the deadline on the two disk-proportional ones. A truncated harvest ends the pass with nothing collected and no cursor, because an incomplete live set cannot be swept against |
 | A5 | the ephemeral age exclusion was honoured on the root path and not on the tool_use path, which is the path every retrieval result takes | the exclusion applies on both; the test records a tool_use for each root, which is what production does |
 | A6 | the sublinear-growth gate bound growth at 25× where linear for its fixture is 15×, so a store that deduplicated nothing passed with 40 % to spare | the gate binds at half of linear, derived from the put counts; `TestStats_GrowthGateFailsWithoutDedup` measures 14.95× against it |
 | A7 | the carried-defects guard read `deferred:` as resolved, so its evidence check and its sign-off gate both covered zero of the manifest's rows | a deferral is unresolved until its TARGET checkpoint disposes of it; deferral targets must name an existing checkpoint document |
@@ -968,8 +968,40 @@ in this section would not.
   been measured on the reference platform. §2.6a ②'s "revised" claim covered only the Redact half,
   which is what §16.3 item 10 re-opened.
 
+#### 16.8.1 Two integration tests the round broke, and what that decided
+
+The per-item work above was verified package by package. The whole-tree `-race` run afterwards
+failed twice, both times in `test/integration` and both times because a fix had changed a contract an
+integration test held — which is what a whole-tree gate is for. Neither assertion was relaxed to make
+the tree green; each disagreement was resolved on its merits and the resolution is pinned by a test.
+
+**A4 versus `TestIntegration_GCNeverCollectsALiveRootUnderIngest`.** The brief asked for the deadline
+on the harvest **and** the index walks. With it on both, the fixture's already-expired deadline stops
+the pass 256 items into a 2 400-item mark, so no pass reaches the sweep: the test's cursor, phase and
+`DeletedObjects` assertions all fail, and — the part that matters beyond the test — a store whose
+granted budget is smaller than its mark can never collect anything, while every pass dutifully
+reports `Truncated`. The walks are map iteration over indexes the store already holds; truncating
+them discards a harvest already paid for to save microseconds. So the deadline was narrowed to the
+two loops that are paid to the disk and grow with history — the harvest and the sweep — and the walks
+answer to `ctx` alone. §GC in `V2-SP-06` now states that split rather than "both phases", and
+`TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline` fails if it is reverted (observed).
+`TestGC_MarkPhaseHonoursTheDeadline` was re-fixtured onto a 256-reference checkpoint so its
+truncation is structural rather than a race with the host's clock granularity, and its two
+conditional branches collapsed into one unconditional set of assertions.
+
+**A8.7 versus `TestIntegration_RealBloomHealthFeedsTheFPCeiling`.** Once the watch-fors became ratio
+metrics, that test's real `sketch.Bloom` at full capacity (fill 0.5189, estimated fp 0.0101) was
+judged against the baseline's golden health fixture, a filter at about a fifth of its capacity
+(0.18 / 0.006), and blocked at +188 % and +69 %. The gate is right and so is the filter: §11.4's
+ceiling is absolute and the 2 % rule is relative, and a full filter is not a regression against a
+near-empty one. Both runs in that test now pass `--baseline ""`, so the verdict each asserts is the
+ceiling's alone — which also makes the second run's failure attributable to the sentence it checks
+for rather than to two independent causes. The 2 % rule over the watch-fors keeps its own coverage in
+`TestGate_WatchForsAreJudgedAsRatios`.
+
 **Unchanged by this round, and still true:** no commit here carries a CI signature. The Actions
 quota has blocked every job since 2026-08-22, so the whole round is verified locally on Windows —
-`go build`, `go vet`, `gofumpt`, `devtool lint` and the affected packages under `-count=1`, plus the
-mutation tests named above. The Linux and macOS halves of every claim in this section are unverified
-for the same reason §16.4's first bullet gives.
+`go build`, `go vet`, `gofumpt`, `devtool lint`, the affected packages under `-count=1` and a
+whole-tree `CGO_ENABLED=1 go test -race -timeout=40m ./...`, plus the mutation tests named above. The
+Linux and macOS halves of every claim in this section are unverified for the same reason §16.4's
+first bullet gives.
