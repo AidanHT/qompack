@@ -162,14 +162,14 @@ func TestStats_SublinearGrowth(t *testing.T) {
 	mutateLen := len(payload) / 100 // 1 %
 
 	var after8 int64
-	for i := 0; i < 120; i++ {
+	for i := 0; i < growthTotalPuts; i++ {
 		body := append([]byte{}, payload...)
 		copy(body[mutateAt:mutateAt+mutateLen],
 			bytes.Repeat([]byte(fmt.Sprintf("~edit %04d~", i)), mutateLen))
 		_, err := tp.Store.PutBytes(ctx, body, PutOptions{Tool: "FileRead", Path: "src/big.ts"})
 		require.NoError(t, err)
 
-		if i == 7 {
+		if i == growthSnapshotPuts-1 {
 			st, serr := tp.Store.Stats(ctx)
 			require.NoError(t, serr)
 			after8 = st.Bytes
@@ -179,10 +179,87 @@ func TestStats_SublinearGrowth(t *testing.T) {
 	st, err := tp.Store.Stats(ctx)
 	require.NoError(t, err)
 	require.Positive(t, after8)
-	t.Logf("sublinear growth: 8 puts=%d B, 120 puts=%d B, factor %.2f", after8, st.Bytes, float64(st.Bytes)/float64(after8))
-	require.Less(t, st.Bytes, 25*after8,
-		"store growth must be sublinear in session length after dedup (8 puts=%d, 120 puts=%d)",
-		after8, st.Bytes)
+	t.Logf("sublinear growth: %d puts=%d B, %d puts=%d B, factor %.2f (linear would be %d, gate at %.2f)",
+		growthSnapshotPuts, after8, growthTotalPuts, st.Bytes, float64(st.Bytes)/float64(after8),
+		growthLinearFactor, float64(growthLinearFactor)/growthGateDivisor)
+	requireGrowthUnderGate(t, after8, st.Bytes)
+}
+
+// The growth fixture's two put counts, named because the gate below is derived from their ratio
+// rather than from a literal.
+const (
+	growthSnapshotPuts = 8
+	growthTotalPuts    = 120
+
+	// growthLinearFactor is what this fixture would grow by with NO deduplication at all: 120 puts
+	// of the same ~100 KB payload cost 15 times what the first 8 cost.
+	growthLinearFactor = growthTotalPuts / growthSnapshotPuts
+
+	// growthGateDivisor puts the gate at half of linear. The shipped store measures 6.32x against a
+	// linear 15x, so half — 7.5x — leaves about 16 % headroom over what dedup actually achieves
+	// while staying decisively below the number that means dedup stopped working.
+	//
+	// The bound this replaces was `Bytes < 25*after8`, which is ABOVE linear: a store that
+	// deduplicated nothing at all passed it with 40 % to spare, so the assertion could not fail for
+	// the reason it exists. TestStats_GrowthGateFailsWithoutDedup is the proof that this one can.
+	growthGateDivisor = 2.0
+)
+
+// requireGrowthUnderGate is the §11.4 sublinear-growth assertion, in one place so the gate and its
+// own mutation test cannot drift apart.
+func requireGrowthUnderGate(t *testing.T, snapshot, total int64) {
+	t.Helper()
+	limit := int64(float64(growthLinearFactor) / growthGateDivisor * float64(snapshot))
+	require.Less(t, total, limit,
+		"store growth must be sublinear in session length after dedup: %d puts=%d B, %d puts=%d B "+
+			"(factor %.2f); linear for this fixture is %dx and the gate binds at %.2fx",
+		growthSnapshotPuts, snapshot, growthTotalPuts, total, float64(total)/float64(snapshot),
+		growthLinearFactor, float64(growthLinearFactor)/growthGateDivisor)
+}
+
+// TestStats_GrowthGateFailsWithoutDedup is the mutation test for the gate above, and it is not
+// optional: a growth bound that no achievable growth can exceed reports success while measuring
+// nothing, which is what the 25x bound did for all of wave 1.
+//
+// Dedup is "disabled" the only way a content-addressed store allows — by storing content that
+// shares no chunk with what came before. Every put is an independently generated payload, so the
+// store grows linearly by construction, and the gate must reject it.
+func TestStats_GrowthGateFailsWithoutDedup(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+
+	var after8 int64
+	for i := 0; i < growthTotalPuts; i++ {
+		// Every LINE carries the put index, so no window of this payload can equal a window of any
+		// other put's — which is what makes the content share no chunk, deterministically and
+		// without a random source.
+		var b strings.Builder
+		for n := 0; b.Len() < 100<<10; n++ {
+			fmt.Fprintf(&b, "put %04d line %05d: the quick brown fox of put %04d\n", i, n, i)
+		}
+		_, err := tp.Store.PutBytes(ctx, []byte(b.String()),
+			PutOptions{Tool: "FileRead", Path: fmt.Sprintf("src/uniq%04d.ts", i)})
+		require.NoError(t, err)
+
+		if i == growthSnapshotPuts-1 {
+			st, serr := tp.Store.Stats(ctx)
+			require.NoError(t, serr)
+			after8 = st.Bytes
+		}
+	}
+
+	st, err := tp.Store.Stats(ctx)
+	require.NoError(t, err)
+	require.Positive(t, after8)
+
+	limit := int64(float64(growthLinearFactor) / growthGateDivisor * float64(after8))
+	require.GreaterOrEqual(t, st.Bytes, limit,
+		"undeduplicated growth measured %.2fx, which is under the %.2fx gate — the gate is too loose "+
+			"to detect dedup failing at all (%d puts=%d B, %d puts=%d B)",
+		float64(st.Bytes)/float64(after8), float64(growthLinearFactor)/growthGateDivisor,
+		growthSnapshotPuts, after8, growthTotalPuts, st.Bytes)
+	t.Logf("without dedup: factor %.2f against a %.2fx gate", float64(st.Bytes)/float64(after8),
+		float64(growthLinearFactor)/growthGateDivisor)
 }
 
 // TestStats_CountsIndexCardinalities asserts the non-size fields report what they claim to.
