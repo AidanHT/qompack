@@ -16,7 +16,7 @@ It also owns the policy that keeps the affordance from becoming the disease. §8
 
 **What exists when you start.** `develop` carries SP-01 (the whole foundation: `core`, `paths`, `config` with the full Appendix C schema plus the §11.5 `runtime` namespace, `logging`, `obs`, `tokens`, `hookio`, `cli` dispatch, `testutil`, the `test/e2e` harness, `testdata/golden/contracts/**`, and a compiling `internal/mcp` stub returning `core.ErrNotImplemented` with an `mcptest.RunMCPSuite` conformance suite whose behaviour tests are `t.Skip`ped), SP-05 (`internal/ipc` transport and client, `internal/daemon` with its op-routing table / `IdleController` / late-bound `Services`, `internal/contract` with the `mcp.server_registered` assertion reporting `not-yet-implemented`), SP-06 (a real `store.Store`: `Search`, `OpenSpan`, `GetRoot`, `ToolUse`, `FileHistory`, `FileAt`, `SegmentLog`), and SP-09 (a real `negknow.Ledger` with the three-way `Answer`). `checkpoint.Reader` and `rehydrate.DropReporter` are still SP-01 stubs — SP-10 and SP-11 are same-wave siblings — so `why` is developed against the SP-01 fixtures in `testdata/golden/contracts/checkpoint/` and `dropped` against an in-test fake seeded from the same fixtures (there is no `contracts/rehydrate/` fixture and SP-13 does not create one), both under Rule W-2 and both re-verified against the real `checkpoint.OpenReader` and `rehydrate.NewReporter` at the wave-3 merge.
 
-**What exists when you finish.** `internal/mcp` is complete: a panic-isolated JSON-RPC 2.0 stdio server handling `initialize`, `notifications/initialized`, `tools/list`, `tools/call` and `ping`; eight tools with published JSON input schemas and an in-repo schema validator that gates both runtime arguments and the conformance suite; a deterministic minimal-span resolver; the ephemeral tagging path; the Promoter with persisted per-session counts. `qompack mcp` runs the server as a thin transcoder that forwards `tools/call` to the daemon, where the handlers actually execute against live state. The `mcp.server_registered` observable is produced through SP-05's own seam — `InstallMCPOp` binds `daemon.Services.MCPInitialized` (which is what makes `contract.DeclareProducers` declare the producer instead of reporting `not-yet-implemented`) and the daemon sets `contract.History.MCPInitialized` in `state/contract.json` on the first `initialize`; `.qompack/state/mcp.json` is written alongside it as the human-readable handshake record used by `/qompack:status` and the e2e suite. `docs/mcp-tools.md` is generated from the tool table and diffed in CI, and budget **B-F** (`mcp_tool_call` p95 < 250 ms at `minimal` span) is benchmarked and gated.
+**What exists when you finish.** `internal/mcp` is complete: a panic-isolated JSON-RPC 2.0 stdio server handling `initialize`, `notifications/initialized`, `tools/list`, `tools/call` and `ping`; eight tools with published JSON input schemas and an in-repo schema validator that gates both runtime arguments and the conformance suite; a deterministic minimal-span resolver; the ephemeral tagging path; the Promoter with persisted per-session counts. `qompack mcp` runs the server as a thin transcoder that forwards `tools/call` to the daemon, where the handlers actually execute against live state. The `mcp.server_registered` observable is produced through SP-05's own seam — `InstallMCPOp` binds `daemon.Services.MCPInitialized` (which is what makes `contract.DeclareProducers` declare the producer instead of reporting `not-yet-implemented`) and the daemon sets `contract.SessionHistory.MCPInitialized` in `state/history.json` — the path `contract.HistoryPath(root)` returns, never `state/contract.json`, which is the Monitor's own persisted mode/reason/results — on the first `initialize`; `.qompack/state/mcp.json` is written alongside it as the human-readable handshake record used by `/qompack:status` and the e2e suite. `docs/mcp-tools.md` is generated from the tool table and diffed in CI, and budget **B-F** (`mcp_tool_call` p95 < 250 ms at `minimal` span) is benchmarked and gated.
 
 ---
 
@@ -275,7 +275,7 @@ func ReadState(projectRoot string, fallback config.Config) State
 // DeclareProducers(svc) after applying every Bind.
 func (Options) Handle(op ipc.Op, h ipc.Handler)
 func (o *Options) Bind(fn func(*Services))
-type Services struct{ /* … */ MCPInitialized func() bool /* SP-13 binds this */ }
+type Services struct{ /* … */ MCPInitialized func(ctx context.Context) bool /* SP-13 binds this */ }
 func ServicesFrom(ctx context.Context) *Services
 func RegistryFrom(ctx context.Context) *SessionRegistry
 func (r *SessionRegistry) Snapshot() []SessionState        // session resolution, see spec §10
@@ -284,10 +284,15 @@ type SessionState struct{ ID core.SessionID; Source, TranscriptPath string
                           Events, Dropped, Externalized int64; Hot ipc.HotPathMode; Live bool }
 func SpawnDetached(projectRoot, self string) error
 
-// §5.19 internal/contract (SP-05) — the mcp.server_registered observable is History.MCPInitialized
-type History struct{ /* … */ MCPInitialized bool `json:"mcp_initialized"` /* … */ }
-func LoadHistory(statePath string) History
-func SaveHistory(statePath string, h History) error
+// §5.19 internal/contract (SP-05) — the mcp.server_registered observable is
+// SessionHistory.MCPInitialized, read and written at HistoryPath (state/history.json) and NEVER at
+// state/contract.json, which is the Monitor's own persisted mode/reason/results file: two distinct
+// schemas sharing one path corrupt each other the first time both are written
+// (internal/contract/history.go's HistoryPath comment says exactly this).
+type SessionHistory struct{ /* … */ MCPInitialized bool `json:"mcp_initialized"` /* … */ }
+func HistoryPath(projectRoot string) string
+func LoadHistory(path string) *SessionHistory
+func SaveHistory(path string, h *SessionHistory) error
 
 // wave-3 siblings, wired only at the post-merge rebase (spec §11)
 func checkpoint.OpenReader(root string, log logging.Logger, m obs.Registry) (checkpoint.Reader, error) // SP-10
@@ -830,7 +835,7 @@ func WriteInitializedObservable(projectRoot string, o Observable) error
 ```
 Writes `<projectRoot>/.qompack/state/mcp.json` via `paths.WriteAtomic`, `json.MarshalIndent(o, "", "  ")` + `"\n"`. Field order is the struct order given in the Interface contract. Directory is created with `0700` if missing. Together with `state/promotions.json` (spec §7) these are the only two files `internal/mcp` writes; everything else it stores goes through `store.PutBytes`.
 
-**This file is not the contract observable.** SP-05 already fixed that mechanism and SP-13 must use it rather than invent a second one: the `mcp.server_registered` assertion (`SevWarn`) reads `contract.History.MCPInitialized` out of `state/contract.json`, and `contract.DeclareProducers` declares the producer only when `daemon.Services.MCPInitialized != nil`. `mcp.json` is the *human-readable* record — what protocol version was negotiated, by which client, at what time, in which process — which `/qompack:status` and `test/e2e` read, and which is also what a user is told to look at in a "the tools aren't showing up" triage. The two are written from the same place (spec §10, `kind == "initialized"`), so they cannot disagree.
+**This file is not the contract observable.** SP-05 already fixed that mechanism and SP-13 must use it rather than invent a second one: the `mcp.server_registered` assertion reads `contract.SessionHistory.MCPInitialized` out of `state/history.json` — `contract.HistoryPath(projectRoot)`, which is deliberately **not** `state/contract.json`, the Monitor's own persisted mode/reason/results — and `contract.DeclareProducers` declares the producer only when `daemon.Services.MCPInitialized != nil`. The assertion's declared severity is **`SevInfo`** (`gated(CMCPRegistered, SevInfo, …)` in SP-01's `StandardAssertions`, pinned by `standard_test.go`), so a missing MCP handshake is surfaced and can never degrade a session on its own — which is why the write below is allowed to fail softly, and why SP-13 must not "strengthen" it. `mcp.json` is the *human-readable* record — what protocol version was negotiated, by which client, at what time, in which process — which `/qompack:status` and `test/e2e` read, and which is also what a user is told to look at in a "the tools aren't showing up" triage. The two are written from the same place (spec §10, `kind == "initialized"`), so they cannot disagree.
 
 ### 10. `internal/daemon/mcpop.go` (new file, package `daemon`, SP-13-owned)
 
@@ -855,11 +860,11 @@ func InstallMCPOp(o *Options, d mcp.ToolDeps) error
 
 1. builds an in-process `mcp.Server` (`mcp.NewServerWithOptions(mcp.ServerOptions{Name: "qompack", Version: version, Log: o.Log, MaxLine: o.Cfg.Runtime.HotPath.MaxPayloadBytes})` + `mcp.RegisterAll(s, d)`) and holds it in a closure alongside an `initialized atomic.Bool`;
 2. `o.Handle(ipc.OpMCP, handler)`;
-3. `o.Bind(func(s *daemon.Services) { s.MCPInitialized = func() bool { return initialized.Load() } })` — **this is the line that makes `contract.DeclareProducers` declare `CMCPRegistered`**, so the assertion stops reporting `not-yet-implemented` and starts reporting a real observation.
+3. `o.Bind(func(s *daemon.Services) { s.MCPInitialized = func(context.Context) bool { return initialized.Load() } })` — the seam's shipped type is `func(ctx context.Context) bool` (`internal/daemon/options.go`), and **this is the line that makes `contract.DeclareProducers` declare `CMCPRegistered`**, so the assertion stops reporting `not-yet-implemented` and starts reporting a real observation.
 
 The handler unmarshals `req.Raw` into `mcpOpRequest`:
 
-- `kind == "initialized"` → `initialized.Store(true)`; write the contract observable read-modify-write style, `h := contract.LoadHistory(statePath); if !h.MCPInitialized { h.MCPInitialized = true; _ = contract.SaveHistory(statePath, h) }` where `statePath = filepath.Join(o.ProjectRoot, ".qompack", "state", "contract.json")` (the same path SP-05's `session.start` path uses); then return `ipc.Response{OK:true}`. A `SaveHistory` error is logged at `Warn` and swallowed — a failed observable must never fail a retrieval session.
+- `kind == "initialized"` → `initialized.Store(true)`; write the contract observable read-modify-write style, `p := contract.HistoryPath(o.ProjectRoot); h := contract.LoadHistory(p); if !h.MCPInitialized { h.MCPInitialized = true; _ = contract.SaveHistory(p, h) }` — `LoadHistory` returns a `*contract.SessionHistory` and `SaveHistory` takes that pointer, so nothing is copied by value, and the path is `HistoryPath`'s `state/history.json`, never `state/contract.json` (writing a `SessionHistory` over the Monitor's own file is the corruption `internal/contract/history.go` warns about, and the assertion reads `HistoryPath` anyway, so a write to the wrong file would leave `mcp.server_registered` observing `initialize-not-received` for ever); then return `ipc.Response{OK:true}`. A `SaveHistory` error is logged at `Warn` and swallowed — a failed observable must never fail a retrieval session.
 - `kind == "call"` → resolve session and turn (below), build `mcp.Request`, call `mcp.Dispatch`, marshal `mcpOpResponse` into `ipc.Response.Data`. `ErrToolNotFound` → `OK:true` with an `IsError` payload, never `ipc.Response{OK:false}` (the transport is healthy; the tool name was not).
 
 **Session resolution — the MCP process has no session identity.** Claude Code launches a stdio MCP server once per client, hands it no `session_id`, and `initialize` carries only `clientInfo`. `ipc.Request.Session` therefore arrives empty and the *daemon* resolves it, which is the only place that can: take `RegistryFrom(ctx).Snapshot()`, prefer the entry with `Live == true` and the greatest `LastActivityTS`; if none is live, take the greatest `LastActivityTS` overall; if the registry is empty, use `core.SessionID("")`. The resolved id goes into `mcp.Request.Session`. Handlers degrade cleanly on the empty id: the ephemeral `ToolUseRecord` is written with an empty `Session` (it is still addressable by hash and `tool_use_id`), `timeline` falls back to `math.MaxInt32` for an empty `to`, and `dropped` returns `{"drops":[],"count":0,"available":false,"reason":"no live session"}`.
@@ -917,11 +922,45 @@ func (nopSpool) Append(ipc.Request) error { return nil }
 func (nopSpool) Path() string             { return "" }
 ```
 
-The daemon bootstrap — `internal/cli/daemon.go`, SP-05's `qompack daemon` subcommand, which is the composition root that builds `daemon.Options` — gains exactly one line, inserted after the store and ledger are opened and **before `daemon.New(o)`**:
+**The daemon bootstrap, and what SP-13 actually has to add to it.** `internal/cli/daemon.go` is SP-05's `qompack daemon` subcommand and the composition root that builds `daemon.Options`, but on `develop` it opens **no store, no ledger and no graph**: between `LoadConfigAndReport` and `daemon.New` it does exactly `opts := daemon.NewOptions(root, cfg)` plus `opts.Log`, `opts.Metrics` and `opts.Clock`, and `NewOptions` fills only `ProjectRoot`, `Cfg`, `Log`, `Metrics`, `Clock` and `Sketches`. So `st`, `ledger`, `syms` and `promoter` do not exist at that point and there is no one line to add. **SP-13 owns opening them**, in `internal/cli/daemon.go`, after the config load and **before `daemon.New(opts)`** — this whole block, not a line:
 
 ```go
-if err := daemon.InstallMCPOp(&o, NewToolDeps(root, cfg, st, ledger, ckptReader, dropReporter, promoter, syms, log, metrics, clk)); err != nil { log.Loud("mcp op registration failed", "err", err) }
+syms := symbols.New()
+st, err := store.Open(root, cfg, store.Deps{Symbols: syms, Log: log, Metrics: reg, Clock: clk})
+if err != nil {
+    log.Loud("daemon: store unavailable; retrieval and L3 are disabled for this daemon", "err", err.Error())
+} else {
+    defer func() { _ = st.Close() }()
+    opts.Store = st
+}
+if g, err := dag.Open(root, cfg, log); err != nil {
+    log.Loud("daemon: dag unavailable", "err", err.Error())
+} else {
+    opts.Graph = g
+}
+if opts.Store != nil {
+    ledger, err := negknow.Open(root, cfg, opts.Sketches.Tried, negknow.Deps{
+        Store: opts.Store, Graph: opts.Graph, Log: log, Metrics: reg, Clock: clk,
+    })
+    if err != nil {
+        log.Loud("daemon: elimination ledger unavailable", "err", err.Error())
+    } else {
+        defer func() { _ = ledger.Close() }()
+        opts.Ledger = ledger
+    }
+}
+promoter, err := mcp.NewPromoter(filepath.Join(paths.Of(root).State, "promotions.json"),
+    cfg.Retrieval.PromoteAfterExpansions, clk)
+if err != nil {
+    log.Loud("mcp: promoter unavailable; expansion counting is off", "err", err.Error())
+}
+if err := daemon.InstallMCPOp(&opts, NewToolDeps(root, cfg, opts.Store, opts.Ledger,
+    ckptReader, dropReporter, promoter, syms, log, reg, clk)); err != nil {
+    log.Loud("mcp op registration failed", "err", err.Error())
+}
 ```
+
+Three properties of that block are load-bearing and a reviewer must check each. (a) **Every failure degrades, never exits** — `runDaemon`'s whole contract is that it returns nil however badly things go (a hook's `lazySpawn` has already exited 0), so each constructor logs `Loud` and leaves its `Options` field nil; every MCP handler already tolerates a nil `Store`/`Ledger` and says `available:false`. (b) **`InstallMCPOp` is last**, because it must run after `opts.Store`/`opts.Graph`/`opts.Ledger` are assigned and before `daemon.New(opts)` — `New` seeds `Services` from those fields, registers its own fallback `mcp` route only for ops not already registered, and calls `DeclareProducers` after applying every `Bind`. (c) **This wiring is shared, and SP-13 is its single owner.** SP-12's L3 bootstrap reads the same `opts.Store`, `opts.Graph` and `opts.Ledger` for `daemon.SchedulerRuntimeOptions`, and SP-12's plan is corrected to say so rather than to open a second store: until this block lands, `NewSchedulerRuntime` reports its missing deps by name and L3 stays disabled. SP-13 merges last in wave 3 (§14), so the wave closes with one store, one ledger and one graph in the daemon process — if a reviewer finds a second `store.Open` in `internal/cli`, that is the defect.
 
 `ckptReader` and `dropReporter` are **not** `daemon.Services` members — `Services` carries a `checkpoint.Writer` and a `Rehydrate` function, neither of which is what `why` and `dropped` need. They are constructed here, in the composition root, from the wave-3 siblings' own constructors:
 
@@ -949,7 +988,22 @@ CI's `docs` job runs it and `git diff --exit-code`. CI's `plugin-validate` job a
 | **B-F** | `mcp_tool_call` — `Dispatch` entry → `Response` returned | **p95 < 250 ms** at `defaultSpan: "minimal"` | `TestBudgetBF` in `internal/mcp`, 200 calls over the 2 000-tool-use / 40 MB fixture, `obs.Histogram` percentiles |
 | B-F (e2e) | full stdio round trip through the real binary + daemon | reported, not gated (it inherits B-D process cost) | `test/e2e/mcp_e2e_test.go`, posted as a bench artifact |
 
-**Metric plumbing (SP-01 already owns it — do not invent a parallel one).** SP-01 ships `obs.BF BudgetID = "B-F" // mcp_tool_call: request → response`, gated on the **p95** of the histogram it names, with the limit read from `runtime.budgets.mcpToolCallMs` (default 250). The `run` preamble therefore observes into *that* histogram — `obs.Timed(reg.Hist(obs.MetricFor(obs.BF)), …)` — and additionally into a per-tool `mcp.tool.<name>` histogram for `/qompack:status` breakdowns. `TestBudgetBF` asserts against `cfg.Runtime.Budgets.MCPToolCallMs` converted to a `time.Duration`, never against a literal, so a budget change in `config.Defaults()` moves the gate rather than silently disagreeing with it. `Registry.CheckBudgets(cfg)` consequently reports a `BudgetBreach{Budget:"B-F"}` in production too, not only in the test.
+**Metric plumbing (SP-01 already owns it — do not invent a parallel one).** SP-01 ships `obs.BF BudgetID = "B-F" // mcp_tool_call: request → response`, gated on the **p95** of the histogram it names, with the limit read from `runtime.budgets.mcpToolCallMs` (default 250). The `run` preamble therefore observes into *that* histogram, and it must reach the name the way the budget table itself does, because `internal/obs` exports **no** `MetricFor`-style lookup and the histogram name is an unexported constant: the only exported accessor is `func Budgets() []Budget`, so the preamble resolves the row once at construction —
+
+```go
+// resolved once, in the handlers constructor; ok == false only if a build's table lost B-F,
+// in which case the per-tool histogram is still recorded and the B-F one is skipped.
+func bfHistName() (string, bool) {
+    for _, b := range obs.Budgets() {
+        if b.ID == obs.BF { return b.Hist, true }
+    }
+    return "", false
+}
+…
+err := obs.Timed(h.metrics.Hist(h.bfHist), func() error { resp, err := fn(ctx, r, args); out = resp; return err })
+```
+
+— and additionally observes a per-tool `mcp.tool.<name>` histogram for `/qompack:status` breakdowns. **SP-13 adds no export to `internal/obs`**: the done checklist forbids editing outside SP-13's enumerated files, and `Budgets()` already answers the question. `TestBudgetBF` asserts against `cfg.Runtime.Budgets.MCPToolCallMs` converted to a `time.Duration`, never against a literal, so a budget change in `config.Defaults()` moves the gate rather than silently disagreeing with it. `Registry.CheckBudgets(cfg)` consequently reports a `BudgetBreach{Budget:"B-F"}` in production too, not only in the test.
 
 **Bounded I/O — the honest worst case.** A single `expand`/`re_read` call reads at most: one anchor probe of `MaxResponse` (only when a symbol or line anchor was given), one widening probe of `2 × MaxSpan`, and the body of at most `MaxResponse` — `262144 + 32768 + 262144 = 557 056` bytes, and in the common anchorless minimal-span case just `16384 + 32768 = 49 152`. Nothing scales with object size; that bound, not the 250 ms itself, is what makes B-F achievable on a 40 MB store.
 
@@ -1133,9 +1187,9 @@ Fixture object: `src/auth.ts`, 200 000 canonical bytes, chunked by the real Fast
 | `TestWriteInitializedObservable` | `.qompack/state/mcp.json` exists, unmarshals, `Initialized == true`, `Tools == 8` |
 | `TestObservableOverwrittenOnSecondInitialize` | second call updates `TS`, file stays valid JSON |
 | `TestInstallMCPOpRegistersOp` | spy `Options.Handle` recorded `ipc.OpMCP`, and `Options.Bind` recorded a func that sets `Services.MCPInitialized` to a non-nil value |
-| `TestMCPInitializedSeamFlipsAfterInitialize` | `Services.MCPInitialized()` is `false` before any `kind:"initialized"` and `true` after; `contract.DeclareProducers` with that `Services` declares `CMCPRegistered` (`contract.HasProducer` true) |
-| `TestInitializedWritesContractHistory` | after `kind:"initialized"`, `contract.LoadHistory(state/contract.json).MCPInitialized == true`; a second call is idempotent and does not rewrite the file |
-| `TestInitializedSurvivesHistoryWriteFailure` | `state/` made unwritable | handler still returns `OK:true`, one `Warn`, `MCPInitialized()` still true |
+| `TestMCPInitializedSeamFlipsAfterInitialize` | `Services.MCPInitialized(ctx)` is `false` before any `kind:"initialized"` and `true` after; `contract.DeclareProducers` with that `Services` declares `CMCPRegistered` (`contract.HasProducer` true) |
+| `TestInitializedWritesContractHistory` | after `kind:"initialized"`, `contract.LoadHistory(contract.HistoryPath(root)).MCPInitialized == true` — and `state/contract.json`, if it exists, is untouched; a second call is idempotent and does not rewrite `state/history.json` |
+| `TestInitializedSurvivesHistoryWriteFailure` | `state/` made unwritable | handler still returns `OK:true`, one `Warn`, `MCPInitialized(ctx)` still true |
 | `TestDaemonMCPOpDispatchesToolCall` | `mcpOpRequest{Kind:"call",Name:"recall",…}` through the handler | `ipc.Response.OK == true`, `Data` unmarshals to `mcpOpResponse` with hits |
 | `TestDaemonMCPOpUnknownToolIsPayloadError` | `Name:"nope"` | `OK:true`, `Data.is_error == true` |
 | `TestDaemonMCPOpResolvesSessionFromRegistry` | empty `ipc.Request.Session`; registry holds one ended session and one live session with the greater `LastActivityTS` | the ephemeral record's `Session` is the live one |
@@ -1218,7 +1272,7 @@ Work happens on `feat/sp13-mcp-retrieval-layer`, cut from `develop` with SP-01, 
 
 - [ ] Write **failing** tests: `internal/mcp/observable_test.go` (2 cases), `internal/daemon/mcpop_test.go` (9 cases), `internal/cli/cmd_mcp_test.go` (5 cases)
 - [ ] `go test ./internal/mcp/... ./internal/daemon/... ./internal/cli/...` → red
-- [ ] Add `internal/mcp/observable.go`, `internal/daemon/mcpop.go`, `internal/cli/mcpwire.go`; replace SP-01's `internal/cli/cmd_mcp.go` stub; add the single `daemon.InstallMCPOp(&o, NewToolDeps(…))` line to SP-05's daemon bootstrap in `internal/cli/daemon.go`, before `daemon.New(o)`, passing typed-nil `ckptReader`/`dropReporter`
+- [ ] Add `internal/mcp/observable.go`, `internal/daemon/mcpop.go`, `internal/cli/mcpwire.go`; replace SP-01's `internal/cli/cmd_mcp.go` stub; add the resident-set block of spec §11 to SP-05's daemon bootstrap in `internal/cli/daemon.go` — `symbols.New()`, `store.Open`, `dag.Open`, `negknow.Open`, `mcp.NewPromoter`, the `opts.Store`/`opts.Graph`/`opts.Ledger` assignments, then `daemon.InstallMCPOp(&opts, NewToolDeps(…))`, all before `daemon.New(opts)` and each failure logged `Loud` and degraded — passing typed-nil `ckptReader`/`dropReporter`
 - [ ] `go test ./... -race` → green; `go run ./tools/devtool build && ./bin/qompack mcp < testdata/corpora/mcp/initialize.ndjson` returns a valid `initialize` result
 - Body: why handlers execute daemon-side (single writer, warm state) and the client process is a transcoder. Footer: `Refs: SP-13, 00-ARCHITECTURE §2.4, §12.1 mcp.server_registered`
 
@@ -1259,7 +1313,7 @@ Rules for the partition:
 - Subagents **A and B may start immediately** after the main session lands `types.go` + schemas. **C** may start at the same time (it depends only on `types.go` and the fixtures). **D** must wait for A (it registers on a real `Server`) and for the `recordEphemeral` call sites that B and C create — dispatch D once A is green and B/C have their handler signatures fixed, and have D stub the call sites behind a one-line `h.recordEphemeral(...)` that B and C already invoke.
 - **File-level exclusivity is absolute.** Handlers are split across `handlers.go` (C) and `handlers_span.go` (B) precisely so two subagents never edit one file. The `handlers` struct and the shared `run` preamble live in `handlers_common.go`, written by the main session and read-only to every subagent.
 - Each subagent returns a **diff plus its own `go test ./internal/... -race` output**; the main session re-runs the full suite before every commit and is the only actor that runs `git commit`.
-- The one-line daemon-bootstrap edit is made by the **main session**, never a subagent, because it is the only cross-subplan file touched and it must be re-checked after the wave-3 rebase.
+- The daemon-bootstrap edit (spec §11's resident-set block: `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `mcp.NewPromoter`, the three `Options` assignments and `InstallMCPOp`) is made by the **main session**, never a subagent, because it is the only cross-subplan file touched, SP-12 depends on the same three assignments, and it must be re-checked after the wave-3 rebase.
 
 ---
 
@@ -1296,7 +1350,7 @@ SP-13's contribution to it is the surface, and it is verified locally as: `alrea
 - [ ] Default `expand`/`re_read` responses are chunk-boundary aligned and ≤ `store.chunk.max` (16384) bytes before widening; `full=true` returns the whole object up to `runtime.mcp.maxResponseBytes` (262144); the paging property test reconstructs objects exactly.
 - [ ] `already_tried` renders all three states — `absent`, `active`, `stale` — with the ledger's note verbatim, honours `eliminations.staleResponse`, and returns `absent` (never `active`) on any ledger failure or `BloomOnly` hit.
 - [ ] `NoteExpansion` fires `promoted == true` at exactly `retrieval.promoteAfterExpansions`; `Promoted()` returns a deduplicated, promotion-ordered `[]core.Hash` that survives a process restart.
-- [ ] `Services.MCPInitialized` is bound by `InstallMCPOp`, so `contract.DeclareProducers` declares `CMCPRegistered` and SP-05's assertion reports a real observation rather than `not-yet-implemented`; the first `initialize` sets `contract.History.MCPInitialized` in `state/contract.json` and writes `.qompack/state/mcp.json` as the human-readable handshake record. `qompack self-test` on a session that has used the MCP server reports `mcp.server_registered` OK.
+- [ ] `Services.MCPInitialized` is bound by `InstallMCPOp`, so `contract.DeclareProducers` declares `CMCPRegistered` and SP-05's assertion reports a real observation rather than `not-yet-implemented`; the first `initialize` sets `contract.SessionHistory.MCPInitialized` in `state/history.json` (`contract.HistoryPath(root)` — `state/contract.json` is the Monitor's own file and stays untouched) and writes `.qompack/state/mcp.json` as the human-readable handshake record. `qompack self-test` on a session that has used the MCP server reports `mcp.server_registered` OK.
 - [ ] `TestBudgetBF` green on ubuntu, macos and windows: p95 < 250 ms over 200 calls against the 2 000-tool-use / 40 MB fixture.
 - [ ] Handler panics, malformed lines, oversized lines and unknown methods never terminate `Serve`; the fuzz target finds no crashers in 30 s locally and 10 min nightly.
 - [ ] `internal/mcp` line coverage ≥ **85%** (§6.4).
@@ -1316,6 +1370,6 @@ SP-13's contribution to it is the surface, and it is verified locally as: `alrea
 - [ ] **Spec coverage self-review**: walk the "Design context" section top to bottom and point at the code or test that implements each quoted item — the §8.7 tool table (all eight), the three ephemeral bullets, the Appendix C `retrieval` block (all three keys), the `runtime.mcp` keys, the §8.3 three-way response and `scope`, the §12 re-inflation row, the §12.1 `mcp.server_registered` observable, the §12.3 bloom-failure and panic rows, and budget B-F.
 - [ ] **Placeholder scan**: `grep -rn -E 'TODO|TBD|FIXME|XXX|not implemented|unimplemented' internal/mcp internal/daemon/mcpop.go internal/cli/cmd_mcp.go internal/cli/mcpwire.go tools/devtool/genmcpdocs.go docs/mcp-tools.md` returns nothing (`core.ErrNotImplemented` must no longer appear in `internal/mcp`).
 - [ ] **Type consistency with the Interface contract**: every §5.16 name, field and signature is present and unchanged; the five additive fields (`Request.Turn`, `ToolDeps.Widener/ProjectRoot/Clock/Log/Metrics`) are additions only; no method was added to another subplan's interface (Rule W-3).
-- [ ] Out-of-scope discipline: no file under `internal/checkpoint`, `internal/rehydrate`, `internal/negknow`, `internal/store`, `internal/symbols`, `internal/scheduler`, `internal/commands` or `internal/analyzer` was modified. The only edits outside SP-13's own files are: the `t.Skip` removals in SP-01's `mcptest`, the replacement of SP-01's `internal/cli/cmd_mcp.go` stub, **one** added line in SP-05's `internal/cli/daemon.go`, the `gen-mcp-docs` entry in `tools/devtool`, and the two CI job additions (`docs`, `plugin-validate`). `git diff --stat develop` is checked against exactly that list.
+- [ ] Out-of-scope discipline: no file under `internal/checkpoint`, `internal/rehydrate`, `internal/negknow`, `internal/store`, `internal/symbols`, `internal/scheduler`, `internal/commands` or `internal/analyzer` was modified. The only edits outside SP-13's own files are: the `t.Skip` removals in SP-01's `mcptest`, the replacement of SP-01's `internal/cli/cmd_mcp.go` stub, the **resident-set block** added to SP-05's `internal/cli/daemon.go` (spec §11: `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `mcp.NewPromoter`, the `opts.Store`/`opts.Graph`/`opts.Ledger` assignments and the `InstallMCPOp` call, plus their `Loud`-and-degrade error paths and the two `defer Close`s — and nothing else in that file), the `gen-mcp-docs` entry in `tools/devtool`, and the two CI job additions (`docs`, `plugin-validate`). `git diff --stat develop` is checked against exactly that list.
 - [ ] `Qompack.md` is untouched at the repository root.
 - [ ] Commit count verified in `5–8`; wave-3 merge performed last, with `--no-ff`, after SP-10, SP-11 and SP-12.
