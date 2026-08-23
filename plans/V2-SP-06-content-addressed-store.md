@@ -1060,7 +1060,8 @@ Every test below is written and run (failing) before the implementation in its c
 | `BenchmarkSearch_1000Roots` | 1 000 roots / 8 MB | **≤ 25 ms/op** |
 | `TestStats_DedupRatio` | the four fixture versions each read 4 times (16 puts) | `RawBytes` = 16 × file size; `DedupRatio ≥ 4.0` |
 | **`TestPhase1ExitCriterion_ReadHeavy`** | the read-heavy corpus: 40 reads across 10 files with edits between | `Stats.DedupRatio ≥ 4.0` — §10 Phase 1, quoted verbatim in the test doc comment |
-| `TestStats_SublinearGrowth` | 200 puts of a 100 KB payload mutated 1 % each time | `Bytes` after 200 puts < 25 × `Bytes` after 8 puts (§11.3 sublinear guardrail) |
+| `TestStats_SublinearGrowth` | **120** puts of a 100 KB payload mutated 1 % each time | `Bytes` after 120 puts < **7.5 ×** `Bytes` after 8 puts (§11.3 sublinear guardrail) — half of this fixture's linear growth, which is 120/8 = **15 ×**. Both numbers are derived from the two put counts in `stats_test.go`, never written as literals |
+| `TestStats_GrowthGateFailsWithoutDedup` | the same 120 puts, each payload sharing no chunk with any other | growth **≥ 7.5 ×** — the mutation test that proves the row above can fail; it measures 14.95 × against the gate's 7.5 × |
 | `TestGC_CollectsUnreferenced` | 10 roots, 2 referenced by a fake checkpoint JSON, `GCPolicy{RetainDays:-1, RetainSessions:-1}` | the other 8 roots' exclusive chunks deleted; the 2 survive |
 | `TestGC_ZeroPolicyInheritsConfigAndDeletesNothing` | the same 10 roots written "now", `GCPolicy{}` | `DeletedObjects == 0` — the zero policy is default retention (30/10), never a mass deletion |
 | `TestGC_RetentionIsWhicheverIsLonger` | a root 60 days old but in the most recent session, `RetainDays:30, RetainSessions:10` | retained |
@@ -1217,7 +1218,7 @@ This subplan is **heavy**: three packages, roughly 5 500 lines including tests. 
 
 > - Store growth sublinear in session length after dedup
 
-Asserted by `TestStats_SublinearGrowth`; the replay-gate wiring of the same guardrail is SP-02's.
+Asserted by `TestStats_SublinearGrowth`, and asserted to be *assertable* by `TestStats_GrowthGateFailsWithoutDedup` — the bound must sit below this fixture's linear growth or it passes on a store that deduplicates nothing, which is what the original 25 × bound did (post-V2 correction). The replay-gate wiring of the same guardrail is SP-02's.
 
 **From `Qompack.md` §8.2, verbatim:**
 
