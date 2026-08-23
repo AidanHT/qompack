@@ -1,16 +1,23 @@
 # Package ownership, coverage floors and stub probes.
 #
-# Read by three devtool lint sub-checks:
-#   stubskips              — a Rule W-1 behaviour skip is a merge blocker only for the owning subplan
-#   cover                  — a package is exempt from its floor until its owner lands; the landed
-#                            subplans are listed in tools/devtool/cover.go's landedSubplans
-#   gen-contract-fixtures  — refuses to record a behaviour fixture while the owner's impl is a stub
+# Read by three devtool readers — one lint sub-check and two tasks:
+#   stubskips              — lint sub-check: a Rule W-1 behaviour skip is a merge blocker only for
+#                            the owning subplan
+#   cover                  — task: a package is exempt from its floor until its owner lands; the
+#                            landed subplans are listed in tools/devtool/cover.go's landedSubplans
+#   gen-contract-fixtures  — task: refuses to record a behaviour fixture while the owner's impl is
+#                            a stub
 #
 # floor is the §6.4 line-coverage floor. probe names the method isStub() calls to decide whether
 # the package is still a stub; "-" means the package has no stub phase (SP-01 implements it now).
 #
-# devtool lint fails if a package exists on disk but is absent from this file: a new package
-# cannot appear without an ownership decision.
+# A package that exists on disk but is absent from this file fails
+# `go test ./test/guards -run TestV1_StubGraphIsInertAndOwned` (the ci.yml `test` job): a new
+# package cannot appear without an ownership decision. The enforcer is that TEST, not devtool lint
+# — no lint sub-check checks disk correspondence, and stubskips deliberately ignores the exit
+# status of the `go test` run it greps, so a failure there would leave `devtool lint` green.
+# Adding a package therefore means: a row here, an entry in tools/devtool/importrules.go (§3.2),
+# and a green test job.
 #
 # package	owner	floor	probe
 core	SP-01	75	-
