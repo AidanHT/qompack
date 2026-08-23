@@ -32,7 +32,12 @@ func (s Strategy) String() string {
 const deltaFrameBytes = 64
 
 // DedupDecision is what Decide concludes about storing a canonical payload that has a
-// near-duplicate prior version. SP-06 consumes it to populate store.NearDupInfo.
+// near-duplicate prior version.
+//
+// Nothing consumes it. SP-06 was expected to and does not: FSStore.nearDup (internal/store/put.go)
+// computes its own Jaccard, compares its own threshold and builds its own NearDupInfo. Decide is an
+// unconsumed decision surface reserved for Qompack.md §8.1's delta-vs-full storage write, which no
+// subplan implements. See plans/V2-SP-04-chunking-canonicalization-and-symbols.md §9.
 type DedupDecision struct {
 	// NearDup reports whether the two payloads passed the Jaccard threshold.
 	NearDup bool
@@ -47,9 +52,10 @@ type DedupDecision struct {
 // NearDup reports whether a and b are near-duplicates at threshold, and the estimated Jaccard
 // similarity behind that answer.
 //
-// It returns both because the boolean alone is not enough for SP-06: store.NearDupInfo records the
-// score so a later dedup-ratio investigation can tell "just under the threshold" from "nothing
-// like it", and Decide needs the score anyway to size the delta.
+// It returns both because the boolean alone is not enough for the caller that records a near
+// duplicate: the score is what tells "just under the threshold" from "nothing like it" in a later
+// dedup-ratio investigation, and Decide needs it anyway to size the delta. SP-06 records that score
+// too, and reaches it through sketch.Signature.Jaccard directly rather than through this helper.
 func NearDup(a, b sketch.Signature, threshold float64) (bool, float64) {
 	return a.IsNearDup(b, threshold), a.Jaccard(b)
 }

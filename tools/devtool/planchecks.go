@@ -375,15 +375,92 @@ func listTests(pkgs []string) (map[string][]string, error) {
 	return byPkg, nil
 }
 
+// pkgDirRel converts a ./-relative package argument to a tree-relative directory, dropping a
+// trailing `/...` wildcard and reporting that it did.
+//
+// Both callers need the distinction. The directory is what decides whether the package has landed
+// in the tree yet, and `internal/cli/...` is not a directory — asking the filesystem about it is
+// how ~130 plan commands used to be classified as "package not in tree yet" or, on a host whose
+// path normalization swallows the trailing dots, as checkable-but-unresolvable.
+func pkgDirRel(pkg string) (dir string, wildcard bool) {
+	p := strings.TrimPrefix(pkg, "./")
+	switch {
+	case p == "..." || p == "":
+		return ".", p == "..."
+	case strings.HasSuffix(p, "/..."):
+		return strings.TrimSuffix(p, "/..."), true
+	default:
+		return p, false
+	}
+}
+
 // namesFor finds the listed names for a ./-relative package path among import-path-keyed results.
 //
 // The join is exact rather than a suffix match on purpose: matching ./internal/cli against any
 // import path ENDING in /internal/cli would let Go's map iteration order decide which package's
 // test list was read, and a check that silently inspects the wrong package is the precise failure
 // this file exists to make impossible.
+//
+// A `/...` argument is the one case where several packages answer to one spelling, and it is
+// unioned rather than looked up: `go test -run X ./tools/...` is satisfied when ANY package under
+// tools declares a matching test, so the pattern is unsatisfiable only when none of them does.
+// Before this was handled the lookup key carried the literal "/..." and could never hit any
+// import path, so every wildcard command was dropped by the `!ok` branch below AFTER being counted
+// as checked — a gate reporting success while checking nothing, which is the exact class this file
+// exists to prevent.
 func namesFor(byPkg map[string][]string, pkg string) ([]string, bool) {
-	names, ok := byPkg[modulePath+strings.TrimPrefix(pkg, ".")]
-	return names, ok
+	dir, wildcard := pkgDirRel(pkg)
+	key := modulePath
+	if dir != "." {
+		key += "/" + dir
+	}
+	if !wildcard {
+		names, ok := byPkg[key]
+		return names, ok
+	}
+	var names []string
+	found := false
+	for k, v := range byPkg {
+		if k != key && !strings.HasPrefix(k, key+"/") {
+			continue
+		}
+		found = true
+		names = append(names, v...)
+	}
+	sort.Strings(names)
+	return names, found
+}
+
+// declaredTestFuncsUnder returns every declared test name in dir, and — when the plan command named
+// a `/...` wildcard — in every directory beneath it, so the build-constraint fallback below reads
+// the same package set the pattern itself selects.
+func declaredTestFuncsUnder(dir string, recursive bool) ([]string, error) {
+	if !recursive {
+		return declaredTestFuncs(dir)
+	}
+	var names []string
+	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if base := filepath.Base(p); p != dir && (base == "testdata" || strings.HasPrefix(base, ".")) {
+			return filepath.SkipDir
+		}
+		found, declErr := declaredTestFuncs(p)
+		if declErr != nil {
+			return declErr
+		}
+		names = append(names, found...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 // declaredTestFuncs returns every test, benchmark, fuzz and example function DECLARED in a package
@@ -465,7 +542,7 @@ func runPlanRunPatterns() error {
 			waived = append(waived, fmt.Sprintf("%s:%d: %q — %s", p.file, p.line, p.pattern, p.waiver))
 			continue
 		}
-		if !dirExists(filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(p.pkg, "./")))) {
+		if dir, _ := pkgDirRel(p.pkg); !dirExists(filepath.Join(root, filepath.FromSlash(dir))) {
 			skippedUnlanded++
 			continue
 		}
@@ -483,12 +560,21 @@ func runPlanRunPatterns() error {
 	if err != nil {
 		return err
 	}
-	platformExcluded := 0
+	platformExcluded, resolved := 0, 0
 	for _, p := range checkable {
 		names, ok := namesFor(byPkg, p.pkg)
 		if !ok {
+			// Not a silent skip. Reaching here means the pattern survived every filter above —
+			// in scope, package on disk, no waiver — and then found no `go test -list` status
+			// line to check against, so counting it as verified would be the silent pass this
+			// check exists to prevent.
+			problems = append(problems, fmt.Sprintf(
+				"%s:%d: -run %q names package %s, which `go test -list` produced no status line for, "+
+					"so this pattern was counted as checked while nothing checked it.",
+				p.file, p.line, p.pattern, p.pkg))
 			continue
 		}
+		resolved++
 		empty, matchErr := matchesNoTest(p.pattern, names)
 		if matchErr != nil {
 			problems = append(problems, fmt.Sprintf("%s:%d: %v", p.file, p.line, matchErr))
@@ -499,7 +585,8 @@ func runPlanRunPatterns() error {
 		}
 		// Nothing listed. Before failing, ask whether the test is merely excluded by a build
 		// constraint on this host rather than absent from the tree.
-		declared, declErr := declaredTestFuncs(filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(p.pkg, "./"))))
+		dir, wildcard := pkgDirRel(p.pkg)
+		declared, declErr := declaredTestFuncsUnder(filepath.Join(root, filepath.FromSlash(dir)), wildcard)
 		if declErr != nil {
 			return declErr
 		}
@@ -515,8 +602,11 @@ func runPlanRunPatterns() error {
 			p.file, p.line, p.pattern, p.pkg))
 	}
 
-	fmt.Printf("runpatterns: %d -run patterns parsed, %d resolved against %d packages, %d skipped (package not in tree yet), %d platform-excluded, %d waived\n",
-		len(patterns), len(checkable), len(pkgs), skippedUnlanded, platformExcluded, len(waived))
+	// The resolved count is the number of patterns that actually reached a test list, not the number
+	// that entered the loop: those differed by every wildcard command before namesFor learned to
+	// expand one, and the summary line reporting the larger number is what made the hole invisible.
+	fmt.Printf("runpatterns: %d -run patterns parsed, %d of %d checkable resolved against %d packages, %d skipped (package not in tree yet), %d platform-excluded, %d waived\n",
+		len(patterns), resolved, len(checkable), len(pkgs), skippedUnlanded, platformExcluded, len(waived))
 	if len(waived) > 0 {
 		sort.Strings(waived)
 		fmt.Printf("runpatterns: waivers in force:\n  %s\n", strings.Join(waived, "\n  "))

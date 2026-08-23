@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"errors"
+	"io/fs"
 	"path/filepath"
 	"sync"
 
@@ -84,12 +85,22 @@ func (s *SketchSet) Write(fn func(*SketchSet)) {
 // Load reads sketches/touch.cms, sketches/explore.hll and sketches/tried.bloom from root into an
 // already-constructed set, replacing the in-memory sketch only on a successful decode.
 //
-// sketch.Load reports core.ErrNotImplemented until SP-03 lands its real encode/decode, and
-// core.ErrNotFound for a project that has never persisted a sketch yet — both are expected in
-// wave 1 and are logged at Debug rather than Loud: the daemon must run correctly with nothing but
-// SP-03's stub. Any other error (a corrupt file, a bad CRC) is Loud'd, and the in-memory sketch —
-// freshly constructed by NewSketchSet — is kept either way, so a load failure never leaves the
-// daemon without a usable sketch.
+// It calls sketch.LoadWithLog, never sketch.Load. That is SP-03's stated contract for a
+// composition root (internal/sketch/doc.go, io.go's Load doc): Load hands LoadWithLog a
+// logging.Nop, so a corrupt file reaches the process-wide Loud ring but no durable log line is
+// ever written — and the durable line is what an operator reads after the fact.
+//
+// The classification underneath it matters just as much. LoadWithLog reports EVERY failure as
+// core.ErrNotFound (§13 invariant 3), so the obvious `errors.Is(err, core.ErrNotFound)` branch
+// files a CRC-failed sketch under "expected" alongside a project that has simply never persisted
+// one. Only two things are genuinely expected here: a file that is not there (fs.ErrNotExist,
+// carried by LoadWithLog's absent branch) and core.ErrNotImplemented, which a sketch
+// implementation returns while its package is still a stub. Everything else — corrupt, truncated,
+// oversize, bad magic, unsupported version, kind mismatch, or a file that could not be read — is
+// degradation and is Loud per §13 invariant 10.
+//
+// The in-memory sketch, freshly constructed by NewSketchSet, is kept whichever way a load
+// resolves, so a load failure never leaves the daemon without a usable sketch.
 func (s *SketchSet) Load(root string, log logging.Logger) {
 	if log == nil {
 		log = logging.Nop()
@@ -101,11 +112,11 @@ func (s *SketchSet) Load(root string, log logging.Logger) {
 
 	loadOne := func(name string, target sketch.Sketch) {
 		p := filepath.Join(dir, name)
-		err := sketch.Load(p, target)
+		err := sketch.LoadWithLog(p, target, log)
 		if err == nil {
 			return
 		}
-		if errors.Is(err, core.ErrNotFound) || errors.Is(err, core.ErrNotImplemented) {
+		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, core.ErrNotImplemented) {
 			log.Debug("daemon: sketch load skipped", "path", p, "err", err)
 			return
 		}

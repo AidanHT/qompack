@@ -19,10 +19,15 @@ import (
 // rots and the next reader distrusts the whole file.
 //
 // plans/CARRIED-DEFECTS.tsv plus the three tests below close both. The manifest is data rather than
-// narrative, every open row must point at a test that still passes, and — the gate that matters —
-// no row may still be open once its owning checkpoint has written its completion report. Resolving
-// a row therefore requires either a fix or an explicit re-deferral; nothing is reachable by doing
-// nothing, which is the only failure mode a note in a commit body actually has.
+// narrative, every unresolved row must point at a test that still passes, and — the gate that
+// matters — no unresolved row may survive the completion report of the checkpoint responsible for
+// it. Resolving a row therefore requires either a fix or an explicit re-deferral to a later,
+// existing checkpoint; nothing is reachable by doing nothing, which is the only failure mode a note
+// in a commit body actually has.
+//
+// "Unresolved" includes `deferred:<X>`, and the responsible checkpoint is then X rather than the
+// row's owner. Reading a deferral as a resolution is what left this guard checking nothing at all
+// through wave 1 — see carriedDefect.unresolved.
 //
 // This is the same shape as TestNightlyFuzzMatrix and TestStubRegistry_ListsEveryPackageOnDisk: a
 // list that has to keep agreeing with the tree, checked mechanically.
@@ -38,8 +43,31 @@ type carriedDefect struct {
 	line     int
 }
 
-// open reports whether this row still needs work from its owning checkpoint.
-func (d carriedDefect) open() bool { return d.status == "open" }
+// unresolved reports whether this row still needs work from SOME checkpoint.
+//
+// `deferred:<X>` counts, and that is the whole point of the distinction. Until the 2026-08-22 audit
+// this was `status == "open"` alone, and every row in the shipped manifest is `fixed` or
+// `deferred:V3-VERIFY` — so the evidence-liveness check below covered zero rows, the sign-off gate
+// covered zero rows, and the header's three-way "load-bearing" claim was one-third true. A deferral
+// is a promise to a named later checkpoint, not a resolution.
+func (d carriedDefect) unresolved() bool {
+	return d.status == "open" || strings.HasPrefix(d.status, deferredPrefix)
+}
+
+// deferredPrefix marks a status that names the checkpoint a row was deferred to.
+const deferredPrefix = "deferred:"
+
+// resolver is the checkpoint that must dispose of this row before it writes its report: the owner
+// for an open row, and the DEFERRAL TARGET for a deferred one.
+//
+// Keying the gate off owner alone is what let six rows sit deferred to V3-VERIFY while the gate
+// asked only whether V2-report.md existed — a question whose answer had already stopped changing.
+func (d carriedDefect) resolver() string {
+	if target, ok := strings.CutPrefix(d.status, deferredPrefix); ok {
+		return strings.TrimSpace(target)
+	}
+	return d.owner
+}
 
 // carriedDefectsPath is the manifest every carried defect lives in.
 const carriedDefectsPath = "plans/CARRIED-DEFECTS.tsv"
@@ -174,11 +202,32 @@ func TestCarriedDefects_ManifestIsWellFormed(t *testing.T) {
 			require.NotEmpty(t, matches,
 				"%s names owner %q, which matches no plans/%s-*.md checkpoint document",
 				d.id, d.owner, d.owner)
+
+			// A deferral target is held to the owner's standard. `deferred:V9-VERIFY` reads like a
+			// decision and is a way of never being asked again: nothing would ever write
+			// plans/V9-report.md, so the sign-off gate could never fire on it.
+			target, deferred := strings.CutPrefix(d.status, deferredPrefix)
+			if !deferred {
+				return
+			}
+			target = strings.TrimSpace(target)
+			require.NotEmpty(t, target, "%s: `deferred:` must name the checkpoint it defers to", d.id)
+			require.NotEqual(t, d.owner, target,
+				"%s defers to %s, the checkpoint that already owns it — a deferral must move the row "+
+					"forward to a LATER checkpoint", d.id, target)
+			deferMatches, dgerr := filepath.Glob(filepath.Join(root, "plans", target+"-*.md"))
+			require.NoError(t, dgerr)
+			require.NotEmpty(t, deferMatches,
+				"%s defers to %q, which matches no plans/%s-*.md checkpoint document. A deferral to "+
+					"a checkpoint that does not exist is a row nothing will ever resolve",
+				d.id, target, target)
 		})
 	}
 }
 
-// TestCarriedDefects_OpenRowsHaveLivingEvidence asserts every open row's evidence test still exists.
+// TestCarriedDefects_OpenRowsHaveLivingEvidence asserts every UNRESOLVED row's evidence test still
+// exists — `open` rows and `deferred:<X>` rows alike. The name predates that distinction and is kept
+// because plans/V2-VERIFY-primitives-store-dag-and-baseline.md's V2-MERGE-23 row names it.
 //
 // It is what stops a defect being fixed and left recorded as broken: the characterization tests pin
 // the WRONG behaviour on purpose, so fixing the defect makes them fail, and the only way to get back
@@ -192,15 +241,15 @@ func TestCarriedDefects_OpenRowsHaveLivingEvidence(t *testing.T) {
 
 	root := repoRoot(t)
 	for _, d := range loadCarriedDefects(t, root) {
-		if !d.open() || d.evidence == "-" {
+		if !d.unresolved() || d.evidence == "-" {
 			continue
 		}
 		t.Run(d.id, func(t *testing.T) {
 			require.True(t, testExistsAnywhere(t, root, d.evidence),
-				"%s is open and names evidence %q, but no such test exists. If the defect was "+
+				"%s is %s and names evidence %q, but no such test exists. If the defect was "+
 					"fixed, set %s's status to `fixed` in %s and say so in %s; if the test was "+
 					"renamed, update the row",
-				d.id, d.evidence, d.id, carriedDefectsPath, carriedDefectsDocFor(t, root, d.id))
+				d.id, d.status, d.evidence, d.id, carriedDefectsPath, carriedDefectsDocFor(t, root, d.id))
 		})
 	}
 }
@@ -220,24 +269,28 @@ func TestCarriedDefects_WaveReportRequiresResolution(t *testing.T) {
 
 	root := repoRoot(t)
 	for _, d := range loadCarriedDefects(t, root) {
-		if !d.open() {
+		if !d.unresolved() {
 			continue
 		}
-		// V2-VERIFY owns rows resolved before plans/V2-report.md is written; the checkpoint name
-		// and the report name share the wave prefix, which is the convention V1 established.
-		wave, _, ok := strings.Cut(d.owner, "-")
-		require.True(t, ok, "%s: owner %q is not <wave>-<kind>", d.id, d.owner)
+		// The checkpoint that must dispose of the row is its RESOLVER, not always its owner: an
+		// open row is its owner's, a `deferred:<X>` row is X's. The checkpoint name and the report
+		// name share the wave prefix, which is the convention V1 established.
+		resolver := d.resolver()
+		wave, _, ok := strings.Cut(resolver, "-")
+		require.True(t, ok, "%s: resolver %q is not <wave>-<kind>", d.id, resolver)
 
 		report := filepath.Join(root, "plans", wave+"-report.md")
 		if _, err := os.Stat(report); err != nil {
 			continue
 		}
-		require.Failf(t, "carried defect left open at wave sign-off",
-			"%s is still `open` in %s, but plans/%s-report.md exists — %s has been signed off "+
-				"with an unresolved defect it owns.\n\n  %s\n\nResolve it one of two ways: fix it "+
-				"and set the status to `fixed`, or set the status to `deferred:<checkpoint>` and "+
-				"add the reason to %s. Both are fine; leaving the row open is not.",
-			d.id, carriedDefectsPath, wave, d.owner, d.summary, carriedDefectsDocFor(t, root, d.id))
+		require.Failf(t, "carried defect left unresolved at wave sign-off",
+			"%s is still `%s` in %s, but plans/%s-report.md exists — %s has been signed off with a "+
+				"defect it was responsible for resolving.\n\n  %s\n\nResolve it one of two ways: "+
+				"fix it and set the status to `fixed`, or set the status to `deferred:<a later "+
+				"checkpoint>` and add the reason to %s. Both are fine; leaving it for this "+
+				"checkpoint is not.",
+			d.id, d.status, carriedDefectsPath, wave, resolver, d.summary,
+			carriedDefectsDocFor(t, root, d.id))
 	}
 }
 

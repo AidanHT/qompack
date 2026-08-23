@@ -272,9 +272,9 @@ func (g *graph) ForwardSlice(criteria []NodeID, o SliceOptions) (Slice, error) {
 // first, ties broken by the LOWER Turn, remaining ties by NodeID ascending.
 //
 // The comparator is a total order — NodeID is unique within the map — so the result does not depend
-// on the (randomized) order the keys were materialized in. sort.SliceStable rather than sort.Slice
-// is belt and braces on top of that: the goldens pin this sequence byte-for-byte, and a slice
-// order that varied by platform or Go version would make them unreproducible.
+// on the (randomized) order the keys were materialized in, and that total order is what makes the
+// sequence the goldens pin byte-reproducible across platforms and Go versions. The sort itself is
+// sort.Slice; the reasoning for choosing it over sort.SliceStable is at the call site below.
 func orderByScore(scores map[NodeID]float32, nodes map[NodeID]Node) []NodeID {
 	if len(scores) == 0 {
 		return nil

@@ -207,13 +207,28 @@ func TestReplayDriver_SessionFloorFails(t *testing.T) {
 }
 
 // TestReplayDriver_MissingBaselineWarnsButStillChecksPhase: a missing baseline disables comparison
-// and says so; it does not disable the phase criterion, which does not need one.
+// and says so; it does not disable the phase criterion, which does not need one. The run then exits
+// 2, not 0.
+//
+// The plan's error table has always said so — "exit 0 only when `--baseline \"\"` was explicit, else
+// exit 2" — and the shipped driver exited 0, with this test pinning that. A green run whose 2 % rule
+// compared nothing is the silently-disabled gate this driver exists to catch, one level up: the
+// path is easy to mistype in a workflow, and nothing else would ever have said so.
 func TestReplayDriver_MissingBaselineWarnsButStillChecksPhase(t *testing.T) {
 	missing := filepath.Join(t.TempDir(), "nope.json")
 
 	code, _, errw := driverRun(t, "--baseline", missing, "--out", "", "--phase", "0")
+	require.Equal(t, exitBadInput, code, errw)
+	require.Contains(t, errw, "no baseline", "the WARN must still name the path that was not there")
+	require.Contains(t, errw, "compared nothing", "and the failure must say what the run did not do")
+}
+
+// TestReplayDriver_ExplicitlyNoBaselineIsOK is the other half of that rule, and the reason it is a
+// rule rather than a blanket failure: asking for no comparison is a legitimate local loop.
+func TestReplayDriver_ExplicitlyNoBaselineIsOK(t *testing.T) {
+	code, _, errw := driverRun(t, "--baseline", "", "--out", "", "--phase", "0")
 	require.Equal(t, exitOK, code, errw)
-	require.Contains(t, errw, "no baseline")
+	require.NotContains(t, errw, "compared nothing")
 }
 
 // TestReplayDriver_EmptyCorpusIsBadInput distinguishes "the corpus is wrong" from "the gate found
@@ -318,4 +333,35 @@ func TestReplayDriver_RegenCorpusIsByteIdentical(t *testing.T) {
 			strings.ReplaceAll(string(want), "\r\n", "\n"),
 			strings.ReplaceAll(string(got), "\r\n", "\n"), n.File)
 	}
+}
+
+// TestReplayDriver_RefusesACrossTierBaseline pins the check the corpusTier key exists for and
+// nothing performed until the 2026-08-22 audit.
+//
+// §6.3's two corpora are different populations — 24 generated sessions against whatever a real
+// user recorded — so a percentage change between them measures the corpora, not the policy. The
+// nightly job replayed the RECORDED corpus against `--baseline develop`, which resolves to the
+// committed SYNTHETIC baseline, and the 2 % rule reported on that difference all the same.
+func TestReplayDriver_RefusesACrossTierBaseline(t *testing.T) {
+	// A baseline identical to the committed one except for its tier: same corpus, same policies, so
+	// the ONLY thing that can fail the run is the tier check itself.
+	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0.json"))
+	require.NoError(t, err)
+	var base map[string]any
+	require.NoError(t, json.Unmarshal(raw, &base))
+	require.Equal(t, "synthetic", base["corpusTier"], "fixture sanity: the committed baseline is the synthetic one")
+	base["corpusTier"] = "recorded"
+
+	retiered := filepath.Join(t.TempDir(), "recorded-baseline.json")
+	patched, err := json.Marshal(base)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(retiered, patched, 0o600))
+
+	code, _, errw := driverRun(t, "--baseline", retiered, "--out", "", "--phase", "0")
+
+	require.Equal(t, exitBadInput, code, errw)
+	require.Contains(t, errw, "recorded")
+	require.Contains(t, errw, "synthetic")
+	require.Contains(t, errw, "SAME population",
+		"the failure must say why a cross-tier comparison is meaningless, not merely that it refused")
 }
