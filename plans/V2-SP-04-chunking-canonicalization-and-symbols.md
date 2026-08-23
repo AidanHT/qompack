@@ -16,7 +16,7 @@ It exists because `Qompack.md` §6.1 identifies content-defined chunking as the 
 
 **What exists when you start.** SP-01 has merged into `develop`. The repository is initialized (`main`, `develop`), the Go 1.26 module `github.com/qompack/qompack` builds, `gofumpt`/`golangci-lint`/the in-repo `nomagic` pass/the import-graph check/`tools/devtool` all run, and CI's `verify`, `test`, `cover`, `crossbuild`, `plugin-validate`, `security` and `docs` jobs are green. `internal/core` provides `Hash`, `HashBytes`, `ParseHash`, `ChunkRef`, `Dep`, `Clock`, and the sentinel errors. `internal/config` provides `Defaults()`, `Load`, `Validate` and the full Appendix C schema plus the §11.5 `runtime` namespace. `internal/paths`, `internal/logging`, `internal/obs`, `internal/testutil` exist. Critically, SP-01 has already shipped **compiling stubs returning `core.ErrNotImplemented`** for `internal/chunk`, `internal/canon`, `internal/symbols`, and `internal/sketch`, together with the conformance suites `internal/canon/canontest` and `internal/symbols/symbolstest` whose behaviour tests are `t.Skip`ped, and `testdata/golden/contracts/{canon,symbols}/` fixture directories.
 
-**What exists when you finish.** `internal/chunk` implements FastCDC with normalized chunking at `min 1024 / target 4096 / max 16384`, a deterministic gear table pinned by a golden digest, `Split`, `SplitStream`, `Params.Validate`, and the domain-separated Merkle `RootHash`. `internal/canon` implements a deterministic registry with fourteen canonicalizers — seven generic classes and seven per-tool rule sets — every one idempotent and structurally non-growing, every one keeping its volatile substrings as `canon.Delta` side records so `canon.Restore` is a byte-exact inverse, and every `Registry.Run` result carrying a MinHash signature plus a delta-versus-full dedup decision for SP-06 to act on. `internal/symbols` implements `Extract`, the `Enclosing` minimal-sufficient-span resolver of §8.7, and `References`. The `canontest` and `symbolstest` suites have their skips removed and their behaviour bodies implemented. `testdata/corpora/toolout/` holds a committed golden corpus of real bash, test-runner, grep, glob, file-read, webfetch and git output with before/after fixtures, and `testdata/canon-dedup-report.json` holds a measured with-versus-without-canonicalization dedup comparison that SP-08 consumes for the Phase 1 exit criterion. Every latency and throughput budget in this document has a committed benchmark.
+**What exists when you finish.** `internal/chunk` implements FastCDC with normalized chunking at level 1 (`maskWidthDelta = 1`, the measured choice — see §3) and `min 1024 / target 4096 / max 16384`, a deterministic gear table pinned by a golden digest, `Split`, `SplitStream`, `Params.Validate`, and the domain-separated Merkle `RootHash`. `internal/canon` implements a deterministic registry with fourteen canonicalizers — seven generic classes and seven per-tool rule sets — every one idempotent and structurally non-growing, every one keeping its volatile substrings as `canon.Delta` side records so `canon.Restore` is a byte-exact inverse, and every `Registry.Run` result carrying a MinHash signature. Alongside it, `canon.Decide` ships as the pure delta-versus-full dedup decision function — the reserved decision surface for `Qompack.md` §8.1's delta write, which no subplan implements in wave 1 (see §9). `internal/symbols` implements `Extract`, the `Enclosing` minimal-sufficient-span resolver of §8.7, and `References`. The `canontest` and `symbolstest` suites have their skips removed and their behaviour bodies implemented. `testdata/corpora/toolout/` holds a committed golden corpus of real bash, test-runner, grep, glob, file-read, webfetch and git output with before/after fixtures, and `testdata/canon-dedup-report.json` holds a measured with-versus-without-canonicalization dedup comparison that SP-08 consumes for the Phase 1 exit criterion. Every latency and throughput budget in this document has a committed benchmark.
 
 ---
 
@@ -110,7 +110,8 @@ Sublinear growth is exactly what a chunker without canonicalizers in front of it
 | Item | Owner |
 |---|---|
 | Content-addressed object files `objects/ab/cd/<sha256>.zst`, zstd compression, `index/roots.jsonl`, `index/tool_use.jsonl`, `index/files.json`, GC, `store.Stats.DedupRatio` | **SP-06** |
-| `store.PutResult.NearDup` / `NearDupInfo` population and the actual delta-vs-full storage write | **SP-06** (SP-04 supplies the pure decision function it calls) |
+| `store.PutResult.NearDup` / `NearDupInfo` population | **SP-06** — and SP-06 computes it **inline** (`FSStore.nearDup` in `internal/store/put.go`: its own `Sig.Jaccard`, its own threshold comparison, `DeltaBytes = \|CanonBytes(new) − CanonBytes(prior)\|`), *not* by calling `canon.Decide`. See §9 |
+| The actual delta-vs-full storage write (`Qompack.md` §8.1) | **Unowned after wave 1.** SP-04 supplies `canon.Decide` as the decision surface for it; no subplan implements the write. See §9 |
 | `internal/redact` and its application at `store.Put`/`PutBytes` before canonicalization | **SP-06** |
 | `sketch.MinHash`, `Signature.Jaccard`, `Signature.IsNearDup`, shingling, Bloom/CMS/HLL/Misra-Gries, sketch serialization | **SP-03** |
 | `PostToolUse` wiring, addressable tombstones, supersession/redundancy detection, and the Phase 1 exit-criterion measurement itself (≥ 4:1, hook p99 < 15 ms) | **SP-08** |
@@ -169,7 +170,7 @@ func (s Signature) Jaccard(o Signature) float64
 func (s Signature) IsNearDup(o Signature, threshold float64) bool
 ```
 
-**Rule W-2 compliance for the `sketch` dependency.** `sketch` is a same-wave sibling. `canon` therefore never depends on `sketch` behaviour for its own correctness: the only calls are `sketch.MinHash` (pass-through into `Result.Signature`) and, inside the one-line helper `canon.NearDup`, `Signature.Jaccard`. Every decision this slice makes about near-duplicates is expressed by the pure function `canon.Decide(jaccard float64, …)`, which is fully unit-testable with hand-written Jaccard values against the stub. Golden fixtures for `canon.Decide` live at `testdata/golden/contracts/canon/dedup-decisions.json` and are re-run against the real `sketch.MinHash` at the V2 verification checkpoint.
+**Rule W-2 compliance for the `sketch` dependency.** `sketch` is a same-wave sibling. `canon` therefore never depends on `sketch` behaviour for its own correctness: the only calls are `sketch.MinHash` (pass-through into `Result.Signature`) and, inside the one-line helper `canon.NearDup`, `Signature.Jaccard`. Every decision this slice makes about near-duplicates is expressed by the pure function `canon.Decide(jaccard float64, …)`, which is fully unit-testable with hand-written Jaccard values against the stub. Golden fixtures for `canon.Decide` live at `testdata/golden/canon/dedup-decisions.json` and are re-run against the real `sketch.MinHash` at the V2 verification checkpoint.
 
 **If SP-01's `config.CanonicalizeCfg` field names differ from the shapes above**, adapt only `internal/canon/default.go` and `internal/chunk/params.go`. Never edit `internal/config`; that is SP-01's package and a change there requires an `arch/` amendment (§0 of 00-ARCHITECTURE).
 
@@ -274,7 +275,7 @@ const MaxSymbols      = 20000                      // additive //nomagic:allow s
 >
 > **`canon.DefaultShingleSize` is 5 and `sketch.DefaultShingleSize` is 8, and that difference is deliberate — do not "unify" them.** They measure different things over different units. `sketch.DefaultShingleSize = 8` is a width in **bytes**, chosen so a shingle is a distinctive fragment of a line rather than a syllable every document contains. `canon.DefaultShingleSize = 5` is the value `OptionsFrom` supplies for `MinHashOptions.ShingleSize` because Appendix C's `store.canonicalize.minhash` block has **no shingle key** — it configures only `enabled`, `permutations` and `nearDupThreshold` — so canon chooses it rather than reading it from config, at the usual near-duplicate width for canonicalized tool output. Either package may retune its own without touching the other; a shared constant would couple two decisions that are not the same decision.
 
-**Consumer map for the produced symbols** (why they cannot move after this branch merges): `chunk.New`/`Split`/`RootHash`/`Refs` → `store.Put` (SP-06) and `observer.OnToolUse` (SP-08). `canon.Default`/`Run`/`Restore`/`Decide` → `store.Deps.Canon` (SP-06), `observer` (SP-08). `symbols.New` → `store.Deps.Symbols` and `store.Query.Symbol` (SP-06), `dag` `EdgeSharedSymbol` (SP-07), `analyzer.NewCheapScorer` (SP-15), `mcp` span widener (SP-13).
+**Consumer map for the produced symbols** (why they cannot move after this branch merges): `chunk.New`/`Split`/`RootHash`/`Refs` → `store.Put` (SP-06) and `observer.OnToolUse` (SP-08). `canon.Default`/`Run`/`Restore` → `store.Deps.Canon` (SP-06), `observer` (SP-08). `canon.Decide` (with `NearDup`, `DedupDecision`, `Strategy`, `StrategyFull`/`StrategyDelta`, `Strategy.String`) is **exported but unconsumed** — it is the reserved decision surface for the §8.1 delta-vs-full write, which nothing implements; see §9. It still cannot move after this branch merges, for the same reason its golden is frozen: the fix session that implements that write is expected to call it as-is. `symbols.New` → `store.Deps.Symbols` and `store.Query.Symbol` (SP-06), `dag` `EdgeSharedSymbol` (SP-07), `analyzer.NewCheapScorer` (SP-15), `mcp` span widener (SP-13).
 
 ---
 
@@ -327,19 +328,19 @@ func FromConfig(c config.Config) Params {
 }
 ```
 
-`Validate()` returns a non-nil error, wrapping a package sentinel, for each of:
+**`Validate()` is the CONFIG gate, and SP-01 owns it — SP-04 does not touch it.** It implements exactly the §5.5 ordering rule `0 < Min < Target < Max` in three checks, in this order, each returning a plain `fmt.Errorf` (**no package sentinel, and nothing for a caller to `errors.Is` against**):
 
 | Rule | Error text |
 |---|---|
-| `Target` is not a power of two | `chunk: target 5000 is not a power of two` |
-| `Target < 256` or `Target > 1<<20` | `chunk: target 128 outside [256, 1048576]` |
-| `Min < GearWindow` (64) | `chunk: min 32 below gear window 64` |
-| `Min < Target/8` | `chunk: min 256 below target/8 = 512` |
-| `Min >= Target` | `chunk: min 4096 must be < target 4096` |
-| `Max < 2*Target` | `chunk: max 6000 below 2*target = 8192` |
-| `Max > 16*Target` | `chunk: max 200000 above 16*target = 65536` |
+| `Min <= 0` | `chunk: Params.Validate: min must be positive, got 0` |
+| `Target <= Min` | `chunk: Params.Validate: target (2) must be greater than min (2)` |
+| `Max <= Target` | `chunk: Params.Validate: max (2) must be greater than target (5)` |
 
-Defaults satisfy every rule: `1024 ≥ 64`, `1024 ≥ 4096/8 = 512`, `1024 < 4096`, `16384 = 4×4096 ∈ [8192, 65536]`, `4096 = 2^12`.
+That is deliberately the weakest useful check, because it must accept every triple a valid `qompack.json` can express: `internal/config`'s `ChunkCfg` tags `store.chunk.{min,target,max}` with only `rng:"(0,target)"` / `(min,max)` / `(target,∞)`, so a gate stricter than the schema would reject working configurations. Defaults satisfy it: `0 < 1024 < 4096 < 16384`. So does `{Min: 1, Target: 2, Max: 3}` — `TestParamsValidate` pins that case explicitly, and the shape recovery for it belongs to `Normalized`, below, not to `Validate`.
+
+> **V2 reconciliation — the seven-row strict table this section originally carried was never implemented, and must not be resurrected here.** The table specified power-of-two `Target`, a `[256, 1048576]` range, `Min ≥ GearWindow`, `Min ≥ Target/8`, `Min < Target`, and `Max ∈ [2*Target, 16*Target]`, each wrapping a package sentinel. `internal/chunk/params.go:60-71` implements the three ordering checks above and nothing else, and `params.go:100-127` explains the split that shipped: **`Validate` is the config gate (ordering only, must not out-strict `internal/config`'s range tags), `Normalized` is the algorithm gate** (power-of-two `Target`, the `GearWindow`/`Target/8` floor on `Min`, the `[2*Target, 16*Target]` band on `Max`). Every rule in the deleted table survives — as a clamp in `Normalized`, not as an error. `Validate` was implemented by SP-01, before SP-04 opened, and is under the §0 amendment rule: widening it would mean moving `internal/config`'s `rng` tags in the same change, which is SP-01's surface, not this subplan's.
+>
+> **The consequence a later subplan must know about.** `internal/store/open.go` gates on `if p.Validate() != nil { return chunk.DefaultParams() }`, so a config of `{min:1, target:2, max:3}` passes both `internal/config` and `Validate`, never reaches the `DefaultParams` fallback, and is silently renormalized by `Normalized` to `{64, 256, 512}` — a 256-byte target instead of Appendix C's 4096 — with nothing logged. That gap is real and is recorded for the fix session; **it is not SP-04's to close**, because closing it means either a new `ValidateStrict` plus a `store` call-site change (SP-06's file) or widened `rng` tags (SP-01's). See `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` and **V2-ALL-06**.
 
 `Normalized()` applies deterministic clamping, in this exact order, and is what `New` uses so that `New` can keep its no-error signature (§5.5):
 
@@ -347,20 +348,26 @@ Defaults satisfy every rule: `1024 ≥ 64`, `1024 ≥ 4096/8 = 512`, `1024 < 409
 2. `Min` → `max(Min, GearWindow, Target/8)`; if `Min ≥ Target`, `Min = Target/4`.
 3. `Max` → if `Max ≤ 0`, `Max = 4*Target` (the Appendix C `16384 / 4096` ratio, so a zero value reproduces the default shape rather than collapsing to the floor); otherwise clamped into `[2*Target, 16*Target]`.
 
-`New(p Params) Chunker` stores `p.Normalized()` and precomputes `maskS`, `maskL`. The returned `*chunker` implements the additive `ParamsReporter` interface (`Params() Params`) so `store` can log the effective parameters and detect that a bad config was clamped; callers reach it with `c.(chunk.ParamsReporter)`.
+`New(p Params) Chunker` stores `p.Normalized()` and precomputes `maskS`, `maskL`. The returned `*chunker` implements the additive `ParamsReporter` interface (`Params() Params`) so that what `New` normalized to is readable back; callers reach it with `c.(chunk.ParamsReporter)`. **SP-04 ships the seam, not a consumer of it:** `ParamsReporter` is referenced only inside `internal/chunk` and its tests, so no clamp is surfaced anywhere today. Having `store.Open` log `deps.Chunker.(chunk.ParamsReporter).Params()` when it differs from the configured triple is the natural fix for the `Validate` gap noted above, and it is SP-06's call site to change — recorded here so the next session finds it, not scheduled here.
 
 ### 3. `internal/chunk/fastcdc.go` — the boundary algorithm
 
 Masks are derived from `Target`, never written as literals:
 
 ```go
-bits    := bits.TrailingZeros64(uint64(p.Target))  // 12 for Target=4096
-maskS   := topBits(bits + 2)                       // 14 bits → 0xFFFC000000000000
-maskL   := topBits(bits - 2)                       // 10 bits → 0xFFC0000000000000
+const maskWidthDelta = 1                                       // the normalization level, NC=1
+
+bits    := bits.TrailingZeros64(uint64(p.Target))              // 12 for Target=4096
+maskS   := topBits(bits + maskWidthDelta)                      // 13 bits → 0xFFF8000000000000
+maskL   := topBits(bits - maskWidthDelta)                      // 11 bits → 0xFFE0000000000000
 func topBits(n int) uint64 { return ^uint64(0) << (64 - n) }
 ```
 
-This is FastCDC normalized chunking at level 2 (Xia et al. 2016, Appendix B): the harder mask applies below `Target` so short chunks are rare, the easier mask applies above `Target` so long chunks are rare; the two regimes together put the expected chunk length at `Target`.
+This is FastCDC normalized chunking (Xia et al. 2016, Appendix B) **at level 1, not the level 2 the paper recommends**: the harder mask applies below `Target` so short chunks are rare, the easier mask applies above `Target` so long chunks are rare; the two regimes together put the expected chunk length at `Target`. The level is a single constant, `maskWidthDelta` (`internal/chunk/fastcdc.go`), and **NC=1 is the measured choice**, recorded at `internal/chunk/stability_test.go:49-71`: NC=2 missed the §5.5 boundary-stability gate — 90.4% within 2 and 95.0% within 3 novel chunks on insertion over 20 000 trials, against a required 95% within 3, i.e. the gate sat exactly on the distribution's mean — while NC=1 gives 97.1% within 2 and 99.4% within 3. An edit shifts the bytes after it across the `Target` line where the mask changes width, and a boundary that fired under the lenient post-`Target` mask can land in the strict pre-`Target` region and stop firing; the wider the gap between the two masks, the more often that cascade happens. The tighter size distribution NC=2 is supposed to buy does not exist on this workload — NC=0 through NC=3 all give the same 1 novel chunk out of 40 on a single-line insertion over `testdata/corpora/toolout`, dedup ratios differ by under 0.3%, and the mean chunk size on real text is in fact *closer* to `Target` at NC=1 (4333 B) than at NC=2 (3980 B). So the requirement was kept and the implementation fixed, not the reverse.
+
+**`maskWidthDelta` is frozen wire format, exactly like `gearSeed`.** Changing it moves every boundary: every chunk hash in the CAS changes and every root in `index/roots.jsonl` stops resolving, with no migration short of re-ingesting every session. `TestSplit_GoldenBoundaries` is the tripwire.
+
+> **V2 reconciliation:** this section originally specified `topBits(bits + 2)` / `topBits(bits - 2)` and called the algorithm "normalized chunking at level 2". NC=2 was implemented first, exactly as written, and was replaced by NC=1 during SP-04 because it failed the boundary-stability requirement this plan itself sets in §5.5 — the reasoning above is the shipped `internal/chunk/stability_test.go:49-71` and `fastcdc.go:47-68`. The mask lines, the level, the mean-size figure in the `TestSplit_MeanChunkSize` row and the reference distribution in the `TestPropBoundaryStability_*` row have all been corrected to the shipped, measured values. **Correct the plan, not the code:** the level is frozen wire format and the code is right.
 
 **Rolling hash.** `fp = (fp << 1) ^ gear[b]` — **XOR, not addition**. With XOR, bit *j* of `fp` is exactly the XOR of bit `j-t` of `gear[b_{i-t}]` for `t = 0..j`, so bit *j* depends on exactly the last `j+1` bytes with no carry leakage. Both masks live in bits 50..63, so the boundary decision at absolute position *i* is a pure function of `data[i-63 : i+1]`. That is what makes boundary stability a content property rather than a chunk-start property, and it is the reason `Validate` requires `Min ≥ GearWindow`: the 64-byte priming window `[s+Min-64, s+Min)` always lies inside the current chunk, so `SplitStream` needs no cross-chunk carry buffer.
 
@@ -564,7 +571,13 @@ func applyMatches(in []byte, ms []candidate, keep bool) ([]byte, []Delta) {
 
 `Applied` lists the names of canonicalizers that contributed at least one **accepted** match, deduplicated, in registration order. §5.6 calls this field "canonicalizer names, in application order"; because composition is a single pass over the original input rather than a transform chain, *application order is defined to be registration order* — there is no other order in which the canonicalizers can be said to have been applied. `TestApplied_DeduplicatedRegistrationOrder` pins it. Deterministic by construction.
 
-`Register(c Canonicalizer) error` returns `ErrDuplicateName` on a repeated `Name()` and `ErrNotMatcher` if `c` does not implement `Matcher` — the registry has no fallback path, which is what keeps composition single-pass and delta coordinates unambiguous. `For(tool, path)` returns the applicable canonicalizers in registration order. `Names()` returns all registered names in registration order.
+`Register(c Canonicalizer) error` returns `ErrDuplicateName` on a repeated `Name()`, and **accepts any `Canonicalizer`, `Matcher` or not**. `ErrNotMatcher` is reported by **`MatchesOf`**, and `Registry.Run`'s collect loop treats it as a `continue`: a non-`Matcher` contributes nothing and never appears in `Result.Applied`. The registry still has no fallback path — nothing is ever chained — which is what keeps composition single-pass and delta coordinates unambiguous; a non-`Matcher` is skipped, not adapted.
+
+The reason it is a skip and not a registration error is **Rule W-3**: SP-01's frozen `canontest` suite registers a plain `Canonicalizer` (`shapeProbeCanonicalizer`) and requires `Register` to succeed, then calls `Run` on that same registry and tolerates only `core`'s four sentinels. Refusing at registration, or failing `Run` because a non-`Matcher` is present, would break that suite. The safety net is `TestDefault_EveryBuiltinIsMatcher`, which pins that every canonicalizer `Default` registers **is** a `Matcher`, so the skip path can never silently swallow a built-in.
+
+`For(tool, path)` returns the applicable canonicalizers in registration order. `Names()` returns all registered names in registration order.
+
+> **V2 reconciliation:** this paragraph originally said `Register` returns `ErrNotMatcher` for a non-`Matcher`. It does not, and could not — see `internal/canon/errors.go:16-23`, which states the inversion in the sentinel's own doc comment, and `internal/canon/registry.go`'s collect loop, which `continue`s on `errors.Is(err, ErrNotMatcher)` from `MatchesOf`. The shipped tests are `TestRegistry_AcceptsNonMatcher` and `TestMatchesOf_ReportsErrNotMatcher`; `TestRegistry_RegisterNonMatcher` was never written. The test row in the §`internal/canon` table has been corrected to match. **Correct the plan, not the code:** the suite SP-01 froze is what decided this.
 
 **Large-input policy.** Inputs above `MaxInputBytes = 8 << 20` are canonicalized over the first 8 MiB only and the remainder is appended verbatim. Deterministic, and delta offsets remain valid because the tail is appended after `applyMatches` returns.
 
@@ -672,7 +685,11 @@ func Decide(jaccard float64, canonLen, priorLen int, threshold float64) DedupDec
 }
 ```
 
-Rationale for `EstDeltaBytes*2 < canonLen`: a delta is only worth storing when it is under half the size of storing the canonical text outright, otherwise the chunk-level dedup that FastCDC already provides is cheaper and simpler. `threshold` is `store.canonicalize.minhash.nearDupThreshold` from config (Appendix C default `0.9`) and is **never written as a literal** in this package (§11.6 forbids `0.9`). SP-06 calls `Decide` and populates `store.NearDupInfo{PriorRoot, Jaccard, DeltaBytes}` from it.
+Rationale for `EstDeltaBytes*2 < canonLen`: a delta is only worth storing when it is under half the size of storing the canonical text outright, otherwise the chunk-level dedup that FastCDC already provides is cheaper and simpler. `threshold` is `store.canonicalize.minhash.nearDupThreshold` from config (Appendix C default `0.9`) and is **never written as a literal** in this package (§11.6 forbids `0.9`).
+
+> **V2 reconciliation — `Decide` has no production caller, and this section previously said SP-06 was it.** What SP-06 shipped is `FSStore.nearDup` (`internal/store/put.go`), which computes `j := prior.Sig.Jaccard(sig)` itself, compares it against `cc.MinHash.NearDupThreshold` itself, and returns `&NearDupInfo{PriorRoot, Jaccard: j, DeltaBytes: |canonBytes − prior.Root.CanonBytes|}`. That is a *measured size difference*, not `Decide`'s `EstDeltaBytes = round((1−j)·max(canonLen, priorLen)) + 64`, and `plans/V2-SP-06-content-addressed-store.md` specifies exactly the inline computation and never mentions `Decide`. So `Decide`, `NearDup`, `DedupDecision`, `Strategy`, `StrategyFull`/`StrategyDelta`, `Strategy.String` and `deltaFrameBytes` have **zero production callers**; `StrategyDelta` is never selected outside `internal/canon`'s own tests.
+>
+> **What that means, stated as fact rather than as a question.** `canon.Decide` is an **unconsumed decision surface reserved for the `Qompack.md` §8.1 delta-vs-full storage write** — "stores the delta against the prior version instead of the full text", the second half of O2, which `plans/TRACEABILITY.md` assigns to SP-04. That write **is not implemented anywhere after wave 1, and no subplan owns it.** SP-04 ships the decision function and its frozen golden; SP-06 ships the near-dup *report* (`NearDupInfo`) but not the write. Which side becomes authoritative — `store.nearDup` calling `canon.Decide` and populating `DeltaBytes` from `EstDeltaBytes`, or `Decide` being retired in favour of SP-06's measured difference — is an **open decision recorded for the fix session** that implements §8.1, together with the ownership of the write itself. Neither is SP-04's to settle: both change `internal/store/put.go`. `Decide` and its golden must not be deleted or re-shaped in the meantime, because doing so would remove the only frozen record of the intended size model. See **V2-ALL-06** and the wave-1 carry list.
 
 ### 10. `internal/symbols/extract.go` — the language-agnostic extractor
 
@@ -716,21 +733,26 @@ Leading-whitespace width counts a tab as 4 columns.
 `internal/canon/canontest/canontest.go` — replace the `t.Skip` bodies SP-01 shipped:
 
 ```go
-func RunCanonSuite(t *testing.T, name string, factory func(t *testing.T) canon.Registry)
-func RunCanonicalizerSuite(t *testing.T, name string, factory func(t *testing.T) canon.Canonicalizer)
+func RunRegistrySuite(t *testing.T, name string, factory func(t *testing.T) canon.Registry)
 ```
 
-`RunCanonSuite` asserts, for every corpus file under `testdata/corpora/toolout/`: idempotence (`Run(Run(x)) == Run(x)`), non-growth (`len(canonical) ≤ len(input)`), `Restore(canonical, deltas) == input` with `KeepDeltas: true`, deterministic `Applied` ordering across 10 repeats, `ErrUnknownClass` on a bogus `Strip` entry, `ErrDuplicateName` on double registration, and `ErrNotMatcher` on a `Canonicalizer` that is not a `Matcher`.
+`RunRegistrySuite` is a **registry-shaped** suite and it runs against a synthetic probe input, not against the corpus. Its `shape` block calls `Register`, `For`, `Names` and `Run` on a fresh registry and requires every returned error to be one of the four §5.22 sentinels. Its `behaviour` block — which `skipIfStub` gates on `Run` returning `core.ErrNotImplemented`, so SP-04's job is to make the guard stop firing — asserts exactly four cases: `idempotent`, `restore_after_canonicalize_is_identity_with_keep_deltas`, `never_grows_input`, and `registration_order_preserved`. It must accept a registry that is **not** empty to begin with, which is why `TestCanonConformance` drives it with both `canon.NewRegistry` and `canon.Default`.
 
-`internal/symbols/symbolstest/symbolstest.go`:
+The corpus-wide and error-case assertions are real and required, but they live as ordinary package tests in `internal/canon`, not inside the reusable suite: `TestGoldenCorpus_AllFiles` and `TestCorpus_StructuralProperties` (idempotence and non-growth over every file under `testdata/corpora/toolout/`), `TestCorpus_AppliedIsDeterministic` (`Applied` ordering across repeats), `TestRun_UnknownStripClass` (`ErrUnknownClass` on a bogus `Strip` entry) and `TestRegistry_RegisterDuplicateName` (`ErrDuplicateName` on double registration). Keep them there — the suite is exported to SP-16 and to third-party registries that have no corpus.
+
+There is **no per-`Canonicalizer` conformance suite**, and SP-04 must not invent one: the built-ins are covered package-locally by `TestEveryCanonicalizer_Idempotent`, `TestEveryCanonicalizer_NeverGrows`, `TestEveryCanonicalizer_MatchesCarryKnownClass`, `TestEveryCanonicalizer_MatchesInBounds`, `TestEveryCanonicalizer_AppliesIsPure` and `TestEveryCanonicalizer_NameIsStable`.
+
+`internal/symbols/symbolstest/suite.go`:
 
 ```go
-func RunSymbolsSuite(t *testing.T, factory func(t *testing.T) symbols.Extractor)
+func RunExtractorSuite(t *testing.T, name string, factory func(t *testing.T) symbols.Extractor)
 ```
 
-Asserts span well-formedness, sort order, `Enclosing` smallest-span selection, `Enclosing` false on out-of-range offsets, `References` word-boundary correctness and zero-fill, and no panic on 4 MiB of random bytes.
+Its `shape` block asserts that `Extract`, `Enclosing` and `References` do not panic on a minimal fixture (none of the three has an error return, §5.22b). Its `behaviour` block, past the same stub guard, asserts `enclosing_returns_smallest_span` and `extract_stable_under_crlf`. Span well-formedness, sort order, `Enclosing` on out-of-range offsets, `References` word-boundary correctness and zero-fill, and the no-panic-on-4-MiB property are package tests in `internal/symbols`, for the same reason.
 
-**If SP-01 named these functions differently, keep SP-01's names** and fill in the bodies; renaming a conformance entry point is a W-3 violation.
+**These are SP-01's names and SP-01's shapes; keep both** and fill in the bodies. Renaming a conformance entry point is a W-3 violation.
+
+> **V2 reconciliation:** this section originally named `RunCanonSuite` / `RunCanonicalizerSuite` / `RunSymbolsSuite` and credited the registry suite with the corpus sweep, the 10-repeat `Applied` determinism check and three error cases. SP-01 shipped `canontest.RunRegistrySuite` and `symbolstest.RunExtractorSuite` — the rename was pre-authorised by the "keep SP-01's names" rule above — and shipped them as small, probe-driven suites; `RunCanonicalizerSuite` was never written and nothing in the tree references it. The assertions the plan attributed to the suite all exist, as the package tests named above. This section now describes what the suites actually assert and where the rest lives, so a verifier reading it does not go looking for a corpus sweep inside `canontest`.
 
 ---
 
@@ -742,7 +764,7 @@ Every test below is written and run **failing** before the implementation in its
 
 | Test | Setup / input | Expected |
 |---|---|---|
-| `TestParamsValidate_Table` | 8 cases: defaults; `Target=5000`; `Target=128`; `Min=32`; `Min=256,Target=4096`; `Min=4096,Target=4096`; `Max=6000,Target=4096`; `Max=200000,Target=4096` | defaults `nil`; the other 7 return the exact error strings in the §3 table |
+| `TestParamsValidate` (SP-01's, runs unconditionally — never Rule W-1 skipped; SP-04 must leave it passing unchanged) | 8 cases: `defaults_are_valid`; `ordered_ok` `{1,2,3}`; `min_zero`; `min_negative`; `target_equals_min`; `target_less_than_min`; `max_equals_target`; `max_less_than_target` | the first two `nil`; the other 6 non-nil. Ordering only — `{1,2,3}` is accepted on purpose, per §2 |
 | `TestParamsNormalized_Table` | `{0,5000,0}`, `{32,4096,1000}`, `{8192,4096,16384}` | `{512,4096,16384}`, `{512,4096,8192}`, `{1024,4096,16384}` |
 | `TestNewClampsInvalidParams` | `New(Params{32,5000,10})` then `Params()` | `{512,4096,8192}`, and `Split` still honours those bounds |
 | `TestGearTableGolden` | sha256 over the 256 gear values little-endian encoded | equals `testdata/golden/chunk/gear-table.sha256` (created once with `-update`) |
@@ -754,7 +776,7 @@ Every test below is written and run **failing** before the implementation in its
 | `TestSplit_AllZeros_HitsMaxOnly` | 1 MiB of `0x00` | every chunk except the last has `Len == 16384`. A constant byte stream drives `fp` to the fixed point `F = ⊕_{t=0..63}(gear[b] << t)` after the 64-byte priming and holds it there, so the mask test gives the same answer at every position. For the frozen seed this was computed ahead of implementation: `gear[0x00] = 0xc08cf3d020100c0b`, `F = 0xbf84514fe00ffbf9`, and `F & maskL != 0`, so no cut fires and every chunk runs to `Max`. `gear[0xFF]` gives `F = 0x14d0009bc868f5be`, also non-zero under both masks. **If this test ever fails, the gear seed — not the assertion — is what changed; pick a new `gearSeed`, re-run `TestGearTableGolden -update`, and re-verify both constants** |
 | `TestSplit_Determinism` | same buffer, 100 repeats, plus a second `Chunker` instance | identical `[]Chunk` every time |
 | `TestSplit_GoldenBoundaries` | 1 MiB seed-7 buffer | offsets equal `testdata/golden/chunk/boundaries-1mib.json` (`-update` to create) |
-| `TestSplit_MeanChunkSize` | 8 MiB seed-11 buffer | mean chunk length ∈ `[3200, 5200]`. Normalized chunking at NC=2 centres slightly above `Target=4096` because the `Min=1024` floor suppresses the short tail; the reference simulation of this parameterisation measures ≈ 4 730 bytes on incompressible input, so the band is centred on the real value, not on `Target` |
+| `TestSplit_MeanChunkSize` | 8 MiB seed-11 buffer | mean chunk length ∈ `[3200, 5200]`. Normalized chunking at NC=1 (§3) centres slightly above `Target=4096` because the `Min=1024` floor suppresses the short tail; the measured mean of this parameterisation on real text is ≈ 4 333 bytes (`internal/chunk/fastcdc.go`, the `maskWidthDelta` rationale — NC=2 would give ≈ 3 980), so the band is centred on the real value, not on `Target` |
 | `TestChunkHashMatchesCoreHashBytes` | 1 000 random payloads 1 B–20 KB | `Split` chunk hash == `core.HashBytes(ChunkDomain, payload)` for single-chunk inputs |
 | `TestRootHash_Empty` | `RootHash(nil)` | equals `core.HashBytes(RootDomain, nil)`, non-zero |
 | `TestRootHash_DomainSeparation` | one chunk | `RootHash([]Chunk{c}) != c.Hash` |
@@ -764,7 +786,7 @@ Every test below is written and run **failing** before the implementation in its
 | `TestSplitStream_CallbackError` | callback returns `errBoom` on chunk 3 | `SplitStream` returns `errBoom` unwrapped; callback not called again |
 | `TestSplitStream_ReadError` | reader returning `errRead` after 5 KB | returns `errRead` |
 | `TestSplitStream_BufferAliasingDocumented` | callback copies each slice | copies concatenate to the original input |
-| `TestPropBoundaryStability_Insertion` | seeded 512 trials (fixed seed 21, so the outcome is deterministic, not flaky): 256 KB buffer, insert 1–500 bytes at a random offset `k` | Novelty is measured as "chunks of the mutated stream whose bytes appear in no chunk of the original" — the dedup-relevant notion. Four assertions: (1) chunks entirely before `k` are byte-identical (**hard, per trial**); (2) a realignment index `m` exists after which every chunk is byte-identical to a chunk of the original tail (**hard, per trial**); (3) novel-chunk count `≤ 12` in every trial (**hard, per trial**); (4) `≤ 2` in `≥ 85%` of trials and `≤ 3` in `≥ 95%` of trials (**hard aggregate**). The test `t.Log`s the full novelty histogram so drift is visible in CI output. **These thresholds are measured, not aspirational:** a reference simulation of this exact algorithm at `min 1024 / target 4096 / max 16384` over 150 trials of this shape gave 84% at 1 novel chunk, 93.3% at `≤ 2`, 97.3% at `≤ 3`, max 6. §5.5's "perturbs at most 2 chunks" is the modal behaviour of a content-defined boundary rule, not a deterministic guarantee — a cut suppressed inside the `Min` region of a shifted chunk start cascades, and no CDC parameterisation removes that tail. Asserting `≤ 2` per trial would fail on a correct implementation, which is why it is stated as a distribution |
+| `TestPropBoundaryStability_Insertion` | seeded 512 trials (fixed seed 21, so the outcome is deterministic, not flaky): 256 KB buffer, insert 1–500 bytes at a random offset `k` | Novelty is measured as "chunks of the mutated stream whose bytes appear in no chunk of the original" — the dedup-relevant notion. Four assertions: (1) chunks entirely before `k` are byte-identical (**hard, per trial**); (2) a realignment index `m` exists after which every chunk is byte-identical to a chunk of the original tail (**hard, per trial**); (3) novel-chunk count `≤ 12` in every trial (**hard, per trial**); (4) `≤ 2` in `≥ 85%` of trials and `≤ 3` in `≥ 95%` of trials (**hard aggregate**). The test `t.Log`s the full novelty histogram so drift is visible in CI output. **These thresholds are requirements, not observations, and they are what selected the normalization level (§3).** Measured at `min 1024 / target 4096 / max 16384` over 20 000 trials of this shape, with only `maskWidthDelta` varied (`internal/chunk/stability_test.go:49-71`): NC=2 gives 78.8% at 1 novel chunk, 90.4% within 2, 95.0% within 3, max 17 — it sits exactly on the `≤ 3` gate and so was a coin flip rather than a guard; NC=1, which ships, gives 87.5% at 1, 97.1% within 2, 99.4% within 3, max 7. The resolution was to fix the implementation and leave these thresholds exactly as specified, because §5.5 names boundary stability as the normative property. **Do not relax them to accommodate a future change to the scan.** §5.5's "perturbs at most 2 chunks" is the modal behaviour of a content-defined boundary rule, not a deterministic guarantee — a cut suppressed inside the `Min` region of a shifted chunk start cascades, and no CDC parameterisation removes that tail. Asserting `≤ 2` per trial would fail on a correct implementation, which is why it is stated as a distribution |
 | `TestPropBoundaryStability_Deletion` | same shape and seed, delete 1–500 bytes | the same four assertions with the same thresholds |
 | `TestPropSizeBounds` (rapid) | arbitrary `[]byte` up to 200 KB | all-but-last within `[Min, Max]` |
 | `TestPropAllBytesCovered` (rapid) | arbitrary `[]byte` | concatenating `data[c.Offset:c.Offset+c.Len]` reproduces the input exactly |
@@ -782,7 +804,9 @@ Every test below is written and run **failing** before the implementation in its
 | `TestKnownClassesCoverConfigDefaults` | `config.Defaults().Store.Canonicalize.Strip` | every entry parses through `ParseClass` (guards the §11.3 validation rule "strip values are known canon.Classes" across the package boundary) |
 | `TestParseClass_Table` | `"tmpPaths"`, `"tmppaths"`, `"crlf"`, `"bogus"` | `(ClassTmpPaths,true)`, `("",false)`, `(ClassCRLF,true)`, `("",false)` |
 | `TestRegistry_RegisterDuplicateName` | register `crlf` twice | second returns `ErrDuplicateName` |
-| `TestRegistry_RegisterNonMatcher` | a `Canonicalizer` without `Matches` | `ErrNotMatcher` |
+| `TestRegistry_AcceptsNonMatcher` | register a `Canonicalizer` without `Matches`, then `Run` | `Register` returns nil; the name is visible through `Names()` and `For()`; `res.Applied` is empty (§5) |
+| `TestMatchesOf_ReportsErrNotMatcher` | `MatchesOf` on that same non-`Matcher` | `ErrNotMatcher` — this is the only surface that reports it |
+| `TestDefault_EveryBuiltinIsMatcher` | every canonicalizer in `Default(defaults)` | each asserts to `Matcher`; the guard that makes `Run`'s non-`Matcher` skip safe |
 | `TestRegistry_ForDeterministicOrder` | `Default(defaults)`, `For("Bash","")` | `[crlf ansi timestamps durations pids addresses tmpPaths bash testrunner git]` in that exact order, 100 repeats identical |
 | `TestRegistry_NamesFromDoubles` | a registry with three test doubles registered in a known order | `Names()` returns them in registration order; written in commit 3, where no real canonicalizer exists yet |
 | `TestRegistry_Names` | `Default(defaults)` | the 14 names in registration order (commit 5 — `default.go` does not exist before it) |
@@ -828,11 +852,11 @@ Every test below is written and run **failing** before the implementation in its
 | `TestRestore_NegativeLen` | `Delta{Offset:0, Len:-1}` | `ErrDeltaRange` |
 | `TestLineEndingClass_Table` | 0 deltas / 3 newlines; 3 deltas / 3 newlines; 1 delta / 3 newlines | `"lf"`, `"crlf"`, `"mixed"` |
 | `TestDecide_Table` | 6 rows: `(j=0.95, canon=10000, prior=10200, th=0.9)`; `(0.89,…)`; `(0.95, canon=200, prior=10000)`; `(1.0, 10000, 10000)`; `(0.9, 0, 100)`; `(0.5, 1000, 1000)` | `Delta`; `Full` + `NearDup false`; `Full` (delta bigger than half of 200); `Delta` with `EstDeltaBytes == 64`; `Full` with zero-length guard; `Full` |
-| `TestDecide_GoldenFixture` | `testdata/golden/contracts/canon/dedup-decisions.json` | every row reproduced |
+| `TestDecide_GoldenFixture` | `testdata/golden/canon/dedup-decisions.json` (written through `testutil.GoldenJSON`, so it lands beside the other `canon` goldens, not under `contracts/` — `contracts/canon/` is SP-01's to regenerate) | every row reproduced |
 | `TestDefault_DisabledKeepsCRLF` | `Default(CanonicalizeCfg{Enabled:false})` | `Names() == ["crlf"]` |
 | `TestOptionsFrom_MapsAppendixC` | `config.Defaults().Store.Canonicalize` | `Strip` has the 6 Appendix C classes; `MinHash.Permutations == 128`; `NearDupThreshold == 0.9`; `ShingleSize == 5` |
 | `TestGoldenCorpus_AllFiles` | every file under `testdata/corpora/toolout/` with its `.meta.json` | canonical output equals `testdata/golden/canon/<rel>.canon.txt` (`-update` regenerates) |
-| `TestCanonConformance` | `canontest.RunCanonSuite(t, "default", …)` | passes with zero skips |
+| `TestCanonConformance` | `canontest.RunRegistrySuite` against **both** `canon.NewRegistry` (starts empty) and `canon.Default(config.Defaults().Store.Canonicalize)` (arrives with the fourteen built-ins) | passes with zero skips in both shapes |
 | `FuzzCanonicalizeRun` | seeds from the toolout corpus | never panics; idempotent; non-growing; `Restore` exact |
 | `FuzzRestore` | arbitrary canonical bytes + arbitrary delta lists | never panics; returns an error or a valid byte slice |
 | `BenchmarkRun_Bash100KB` | 100 KB of `bash/npm-install.txt` repeated | **< 3 ms/op** |
@@ -870,7 +894,7 @@ Every test below is written and run **failing** before the implementation in its
 | `TestReferences_DedupAndCaps` | duplicate names, a 300-byte name, an empty name | duplicates collapse; over-long and empty names absent |
 | `TestPropSpansWellFormed` (rapid) | arbitrary bytes with random extensions | every span within bounds, `Len > 0`, sorted |
 | `FuzzExtract` | seeds from `testdata/corpora/symbols/*` | never panics; spans in bounds |
-| `TestSymbolsConformance` | `symbolstest.RunSymbolsSuite` | passes with zero skips |
+| `TestSymbolsConformance` | `symbolstest.RunExtractorSuite(t, "symbols.New", …)` | passes with zero skips |
 | `BenchmarkExtract_100KB` | a 100 KB TypeScript file | **< 2 ms/op** |
 | `BenchmarkEnclosing_100KB` | | **< 2 ms/op** |
 | `BenchmarkReferences_100KB_50Names` | | **< 1 ms/op** |
@@ -934,7 +958,7 @@ Report schema (committed at `testdata/canon-dedup-report.json`, consumed by SP-0
 - `testdata/golden/chunk/{gear-table.sha256,boundaries-1mib.json}`
 - `testdata/corpora/chunk/*.bin` — 6 fuzz seeds: all-zeros 64 KB, all-`0xFF` 64 KB, incompressible seed-3 64 KB, a 200 KB UTF-8 source file, a 4 KB file, a 1-byte file
 - `testdata/corpora/symbols/` — one file per dialect, copied from the extractor unit-test inputs
-- `testdata/golden/contracts/canon/dedup-decisions.json`, regenerated in commit 7
+- `testdata/golden/canon/dedup-decisions.json`, regenerated in commit 7 (`testutil.GoldenJSON` places it under `testdata/golden/canon/`; `testdata/golden/contracts/canon/` is SP-01's directory and its `MANIFEST.json` does not declare this file)
 - `testdata/canon-dedup-report.json`
 
 **Capture procedure for the corpus (do this, do not synthesize by hand):** run each command in a scratch clone of this repository and a scratch Node/Python/Rust project, redirect combined stdout+stderr to the target file, cap each file at 64 KB (`head -c 65536`), and visually confirm no credential, token, email address or absolute home path of a real user beyond what the `tmpPaths` rules cover appears in the bytes. Commands: `npm install --no-audit`, `docker build .`, `ls -la`, `curl -v https://example.com`, `ps aux`, `go test ./... -v`, `npx jest`, `pytest -v`, `cargo test`, `grep -rn "Canonicalize" internal/`, `find . -name '*.ts'`, `git status`, `git diff HEAD~1`, `git log -n 20`. ANSI output requires forcing colour (`--color=always`, `FORCE_COLOR=1`). Commit the raw bytes unmodified.
@@ -967,7 +991,7 @@ Exactly 7 commits, within the mandated 5–8 (§10 of 00-ARCHITECTURE). Subjects
 ### Commit 1 — `feat(chunk): implement FastCDC gear hash, Split and RootHash`
 
 - [ ] Add `internal/chunk/gear.go`, `internal/chunk/params.go`, `internal/chunk/fastcdc.go`, `internal/chunk/doc.go`; replace the SP-01 stub bodies in `internal/chunk/chunk.go` with real implementations, keeping the §5.5 signatures byte-identical.
-- [ ] Write first (must fail): `TestParamsValidate_Table`, `TestParamsNormalized_Table`, `TestNewClampsInvalidParams`, `TestGearTableGolden`, `TestSplit_Empty`, `TestSplit_ShorterThanMin`, `TestSplit_ExactlyMin`, `TestSplit_SizeBounds`, `TestSplit_Contiguity`, `TestSplit_AllZeros_HitsMaxOnly`, `TestSplit_Determinism`, `TestSplit_MeanChunkSize`, `TestChunkHashMatchesCoreHashBytes`, `TestRootHash_Empty`, `TestRootHash_DomainSeparation`, `TestRootHash_OrderSensitive`, `TestRefs_RoundTrip`.
+- [ ] Write first (must fail): `TestParamsNormalized_Table`, `TestNewClampsInvalidParams`, `TestGearTableGolden`, `TestSplit_Empty`, `TestSplit_ShorterThanMin`, `TestSplit_ExactlyMin`, `TestSplit_SizeBounds`, `TestSplit_Contiguity`, `TestSplit_AllZeros_HitsMaxOnly`, `TestSplit_Determinism`, `TestSplit_MeanChunkSize`, `TestChunkHashMatchesCoreHashBytes`, `TestRootHash_Empty`, `TestRootHash_DomainSeparation`, `TestRootHash_OrderSensitive`, `TestRefs_RoundTrip`. (`TestParamsValidate` is **not** in this list: `Params.Validate` is SP-01's, already real and already passing — see §2 — so it cannot be observed failing first. Leave it and its file alone; `go test ./internal/chunk -run 'TestParamsValidate|TestDefaultParams_MatchesConfig'` must stay green from the first commit to the last.)
 - [ ] Create `testdata/golden/chunk/gear-table.sha256`: `go test ./internal/chunk -run TestGearTableGolden -update`. (`boundaries-1mib.json` is generated in commit 2, where `TestSplit_GoldenBoundaries` lives.)
 - [ ] Run: `go run ./tools/devtool fmt lint test` and `go test -race ./internal/chunk`.
 - [ ] Body explains why XOR replaces the classic FastCDC addition (exact 64-byte window ⇒ content-defined boundaries independent of chunk start) and why the gear seed is frozen. Footer: `Refs: SP-04, §6.1, §8.1 item 1, Appendix C store.chunk`.
@@ -983,7 +1007,7 @@ Exactly 7 commits, within the mandated 5–8 (§10 of 00-ARCHITECTURE). Subjects
 ### Commit 3 — `feat(canon): add registry, match composition and byte-exact Restore`
 
 - [ ] Add `internal/canon/types.go`, `internal/canon/registry.go`, `internal/canon/apply.go`, `internal/canon/restore.go`, `internal/canon/errors.go`; replace the SP-01 stub bodies keeping §5.6 signatures byte-identical.
-- [ ] Write first (must fail): `TestKnownClassesCoverConfigDefaults`, `TestParseClass_Table`, `TestOptionsFrom_MapsAppendixC`, `TestRegistry_RegisterDuplicateName`, `TestRegistry_RegisterNonMatcher`, `TestRegistry_NamesFromDoubles`, `TestRun_UnknownStripClass`, `TestRun_EmptyInput`, `TestSignature_OnlyWhenEnabled`, `TestOverlapResolution_LongerAtSameOffsetWins`, `TestOverlapResolution_EarlierOffsetWins`, `TestOverlapResolution_RankBreaksTies`, `TestNonGrowingGuard_DropsGrowingMatch`, `TestApplied_DeduplicatedRegistrationOrder`, `TestReduced_Value`, `TestRestore_NoDeltas`, `TestRestore_OutOfRange`, `TestRestore_Unordered`, `TestRestore_NegativeLen`, `FuzzRestore`. (`OptionsFrom`, `Run`'s `Strip` gate and the `Signature` pass-through all land in this commit, so their tests belong here — a test written in commit 5 against commit-3 code could not be observed failing first.)
+- [ ] Write first (must fail): `TestKnownClassesCoverConfigDefaults`, `TestParseClass_Table`, `TestOptionsFrom_MapsAppendixC`, `TestRegistry_RegisterDuplicateName`, `TestRegistry_AcceptsNonMatcher`, `TestMatchesOf_ReportsErrNotMatcher`, `TestRegistry_NamesFromDoubles`, `TestRun_UnknownStripClass`, `TestRun_EmptyInput`, `TestSignature_OnlyWhenEnabled`, `TestOverlapResolution_LongerAtSameOffsetWins`, `TestOverlapResolution_EarlierOffsetWins`, `TestOverlapResolution_RankBreaksTies`, `TestNonGrowingGuard_DropsGrowingMatch`, `TestApplied_DeduplicatedRegistrationOrder`, `TestReduced_Value`, `TestRestore_NoDeltas`, `TestRestore_OutOfRange`, `TestRestore_Unordered`, `TestRestore_NegativeLen`, `FuzzRestore`. (`OptionsFrom`, `Run`'s `Strip` gate and the `Signature` pass-through all land in this commit, so their tests belong here — a test written in commit 5 against commit-3 code could not be observed failing first.)
 - [ ] Overlap tests use a test-only two-rule canonicalizer defined in `internal/canon/testdouble_test.go`; no real canonicalizer exists yet in this commit.
 - [ ] Run: `go run ./tools/devtool fmt lint test`, `go test -race ./internal/canon`, `go test -fuzz=FuzzRestore -fuzztime=120s ./internal/canon` (120 s, matching the Definition of Done; nightly CI then runs 10 min/target per §6.1 of 00-ARCHITECTURE).
 - [ ] Body explains why composition is single-pass over the original input rather than a transform chain (unambiguous delta coordinates; `Restore` is order-independent; non-growth becomes structural). Footer: `Refs: SP-04, §8.1 item 1 (O2), 00-ARCHITECTURE §5.6`.
@@ -1015,7 +1039,7 @@ Exactly 7 commits, within the mandated 5–8 (§10 of 00-ARCHITECTURE). Subjects
 
 - [ ] Capture and commit `testdata/corpora/toolout/**` (24 raw files + their `.meta.json`) per the capture procedure; append `testdata/corpora/** -text` to `.gitattributes`.
 - [ ] Add `internal/canon/golden_test.go`, `internal/canon/fuzz_test.go` (`FuzzCanonicalizeRun`), `internal/canon/bench_test.go`, `test/dedup/dedup_test.go`, `test/dedup/report.go`.
-- [ ] Implement the behaviour bodies and remove every `t.Skip` in `internal/canon/canontest/canontest.go` and `internal/symbols/symbolstest/symbolstest.go`; add `TestCanonConformance` and `TestSymbolsConformance` in the owning packages.
+- [ ] Implement the behaviour bodies in `internal/canon/canontest/` (`suite.go`, `behaviour.go`) and `internal/symbols/symbolstest/` (`suite.go`, `behaviour.go`) so the `skipIfStub` guards stop firing; add `TestCanonConformance` and `TestSymbolsConformance` in the owning packages.
 - [ ] Write first (must fail): `TestGoldenCorpus_AllFiles`, `TestDedupRatio_WithVsWithout`, `TestDedupReport_Written`, `FuzzCanonicalizeRun`, `BenchmarkRun_Bash100KB`, `BenchmarkRun_GoTest`, `BenchmarkRestore_100KB`.
 - [ ] Extend `TestMatcherClassAssigned` from unit inputs to every corpus file.
 - [ ] Generate goldens: `go test ./internal/canon -run TestGoldenCorpus_AllFiles -update`; generate and commit `testdata/canon-dedup-report.json` via `go test ./test/dedup -run TestDedupRatio_WithVsWithout -args -write-report`, then re-run the package **without** the flag and confirm `TestDedupReport_Written` is green against the committed bytes.
@@ -1099,7 +1123,7 @@ SP-04 owns **"measure with and without canonicalization"** and delivers it as `t
 - [ ] `BenchmarkExtract_100KB` < 2 ms/op; `BenchmarkEnclosing_100KB` < 2 ms/op; `BenchmarkReferences_100KB_50Names` < 1 ms/op.
 - [ ] `benchstat` against `testdata/bench-baseline.txt` shows no micro-benchmark regression > 25%.
 - [ ] `FuzzSplit`, `FuzzCanonicalizeRun`, `FuzzRestore`, `FuzzExtract` each run 120 s with zero crashers; seed corpora committed.
-- [ ] `canontest.RunCanonSuite` and `symbolstest.RunSymbolsSuite` contain zero `t.Skip` calls (W-1 merge blocker).
+- [ ] `canontest.RunRegistrySuite` and `symbolstest.RunExtractorSuite` reach their `behaviour` blocks — i.e. their `skipIfStub` guards no longer fire, so neither suite emits the Rule W-1 skip `behaviour: implementation is a stub (Rule W-1)` (W-1 merge blocker; `go run ./tools/devtool lint`'s `stubskips` sub-check greps for that exact literal).
 - [ ] `testdata/canon-dedup-report.json` is committed and `TestDedupReport_Written` reproduces it byte-for-byte; the `testrunner` group shows `gain ≥ 1.25`.
 - [ ] `TestDedupRatio_WithVsWithout` shows overall `gain ≥ 1.0` — canonicalization is never worse than raw.
 - [ ] `git log --format=%B origin/develop..HEAD` contains no `Co-Authored-By`, `Signed-off-by`, `Generated with`, or `🤖`.
