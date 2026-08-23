@@ -94,6 +94,21 @@ func Save(p string, s Sketch) error {
 // forbids, which is why LoadWithLog is named here rather than only in the package doc.
 func Load(p string, s Sketch) error { return LoadWithLog(p, s, logging.Nop()) }
 
+// absentSketch is the one failure LoadWithLog reports for a file that simply is not there yet.
+//
+// Its message is exactly "<core.ErrNotFound>: <path>" — TestLoad_MissingFile pins that string,
+// because an OS error appended to it would mean the stat failed for some other reason and the
+// wrong branch ran — while it unwraps to BOTH core.ErrNotFound and fs.ErrNotExist. The second
+// sentinel is what a composition root needs: every other failure in LoadWithLog is also
+// core.ErrNotFound (§13 invariant 3 — a sketch is a cache, so unreadable and missing are the same
+// event upstream), so without it a caller cannot tell a cold start from bit rot. internal/daemon's
+// SketchSet.Load filed corrupt sketches under "expected, Debug" for exactly that reason.
+type absentSketch struct{ path string }
+
+func (e *absentSketch) Error() string { return fmt.Sprintf("%v: %s", core.ErrNotFound, e.path) }
+
+func (e *absentSketch) Unwrap() []error { return []error{core.ErrNotFound, fs.ErrNotExist} }
+
 // LoadWithLog is Load plus the Loud report: it is the form every composition root must call.
 //
 // Every failure — absent, unstattable, oversize, unreadable, corrupt — is reported as
@@ -114,7 +129,7 @@ func Load(p string, s Sketch) error { return LoadWithLog(p, s, logging.Nop()) }
 func LoadWithLog(p string, s Sketch, log logging.Logger) error {
 	st, err := os.Stat(paths.Long(p))
 	if errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("%w: %s", core.ErrNotFound, p)
+		return &absentSketch{path: p}
 	}
 	if err != nil {
 		return fmt.Errorf("%w: %s: %v", core.ErrNotFound, p, err)
