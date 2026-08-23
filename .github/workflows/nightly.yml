@@ -95,19 +95,32 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
 
-  replay-live:
+  # Deterministic replay over the RECORDED corpus (§6.3 tier 2). The corpus is what makes this run
+  # different from ci.yml's replay-gate — not the mode. Live mode (§6.3 tier 3) is run by no
+  # workflow at all: eval.LiveRunner is nil in every shipped build and wiring it is SP-17's
+  # deliverable, so the old `replay-live` name described something that has never existed here.
+  replay-recorded:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
-      - name: live-mode replay over the recorded corpus
+      - name: deterministic replay over the recorded corpus
         env:
           QOMPACK_SESSIONS_DIR: ${{ secrets.QOMPACK_SESSIONS_DIR }}
         run: |
           if [ -z "$QOMPACK_SESSIONS_DIR" ]; then
-            echo "no recorded corpus configured; skipping live replay (§6.3 tier 2)"
+            echo "no recorded corpus configured; skipping the recorded replay (§6.3 tier 2)"
             exit 0
           fi
-          go run ./tools/devtool replay --corpus "$QOMPACK_SESSIONS_DIR" --baseline develop
+          # --baseline "" is deliberate and is the only honest setting today. This job used to pass
+          # `--baseline develop`, which resolves to the committed SYNTHETIC baseline, so the 2% rule
+          # was comparing a recorded corpus against a generated one — the cross-tier comparison the
+          # corpusTier key exists to prevent, and which the driver now refuses outright. No recorded
+          # baseline is committed (the corpus lives in a secret directory and is not ours to commit),
+          # so this run MEASURES rather than compares, and uploads the numbers it measured.
+          go run ./tools/devtool replay --corpus "$QOMPACK_SESSIONS_DIR" --baseline "" --out replay-recorded.json
+      - uses: actions/upload-artifact@v4
+        if: ${{ hashFiles('replay-recorded.json') != '' }}
+        with: { name: replay-recorded, path: replay-recorded.json }
