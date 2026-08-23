@@ -887,7 +887,7 @@ func Open(root string, cfg config.Config, deps Deps) (Store, error) {
 | What | Budget | Rationale |
 |---|---|---|
 | `PutBytes` of 100 KB into an **empty** store, stub canon (`BenchmarkPutBytes_100KB_Cold`) | **≤ 3 ms** | B-C `l0_process` p99 < 50 ms with headroom for canon+chunk+DAG |
-| `PutBytes` of 100 KB, all chunks already present (`BenchmarkPutBytes_100KB_Warm`) | **≤ 400 µs** | the four-reads-of-one-file case of §8.2 |
+| `PutBytes` of 100 KB, all chunks already present (`BenchmarkPutBytes_100KB_Warm`) | **≤ 400 µs** — **unmet and unverified; carried as SP06-D2** | the four-reads-of-one-file case of §8.2. Measured 7.68 ms on Windows (2026-08-23, median of five × 50), 19× over; both figures were set for the CI Linux runner and no Linux measurement of either exists |
 | `GetChunk` warm | **≤ 60 µs** | `expand` inside B-F p95 < 250 ms |
 | `OpenSpan` 4 KB out of a 4 MB root | **≤ 150 µs** | minimal-span default of §8.7 |
 | `Search` over 1 000 roots / 8 MB | **≤ 25 ms** | `recall` inside B-F |
@@ -994,8 +994,8 @@ Every test below is written and run (failing) before the implementation in its c
 | `TestOpenStore_TruncatedFinalLine` | append half a JSON line to `roots.jsonl`, reopen | opens successfully; `store.index.badline == 1`; all prior roots present |
 | `TestClosedStoreErrors` | `Close` then every method | all return `core.ErrDegraded`; second `Close` is nil |
 | `TestConcurrentPut` (`-race`) | 8 goroutines × 50 `PutBytes` with 20 % overlapping payloads | no race; total distinct objects equals the single-threaded result |
-| `BenchmarkPutBytes_100KB_Cold` | 100 KB, empty store | **≤ 3 ms/op** |
-| `BenchmarkPutBytes_100KB_Warm` | same payload repeated | **≤ 400 µs/op** |
+| `BenchmarkPutBytes_100KB_Cold` | 100 KB, empty store | **≤ 3 ms/op** — see SP06-D2 (27.2 ms on Windows; D16 puts 93 % of the residual in syscall cost, 10–40× cheaper on Linux) |
+| `BenchmarkPutBytes_100KB_Warm` | same payload repeated | **≤ 400 µs/op** — see SP06-D2 |
 | `BenchmarkGetChunk` | 4 KB chunk | **≤ 60 µs/op** |
 | `BenchmarkOpenSpan_4KB_of_4MB` | — | **≤ 150 µs/op** |
 | `BenchmarkOpenStore_50kRoots` | pre-built index | **≤ 400 ms/op** |

@@ -1,6 +1,7 @@
 # SP-04 — carried defects
 
-Six things SP-04 knowingly shipped. Each has a row in `plans/CARRIED-DEFECTS.tsv`, and
+Seven things SP-04 knowingly shipped (six at the merge; SP04-D7 was established by the 2026-08-22
+plan audit and added afterwards). Each has a row in `plans/CARRIED-DEFECTS.tsv`, and
 `test/guards/carrieddefects_test.go` will not let `V2-VERIFY` write `plans/V2-report.md` while any
 of them is still `open`.
 
@@ -241,3 +242,31 @@ committed baseline is single-host), so the confusion this row predicts moved gat
 shrink. The acceptance stands as written: record the quiet-host distribution at `-count 10` or
 more, then either confirm the spread narrows or exempt this one benchmark with the measured
 distribution as justification.
+
+---
+
+## SP04-D7 — `canon.Decide` has no consumer, and §8.1's delta write has no owner
+
+**Symptom.** `canon.Decide`, `DedupDecision`, `Strategy`, `StrategyFull` and `StrategyDelta` are
+exported, tested and reachable from nothing. SP-06 was expected to consume them and does not:
+`FSStore.nearDup` (`internal/store/put.go`) computes its own Jaccard, compares its own threshold and
+builds its own `NearDupInfo`. A grep over `internal/` finds no call to `canon.Decide` outside
+`internal/canon` and its tests.
+
+**What that leaves unimplemented.** `Qompack.md` §8.1's second half — "stores the delta against the
+prior version instead of the full text", the second half of O2, which `plans/TRACEABILITY.md` assigns
+to SP-04 — is implemented nowhere after wave 1 and is owned by no later subplan. `Decide` is the
+decision surface for a write that does not exist.
+
+**Why it was not settled in the fix round.** The three answers are a product decision, not a repair.
+Chunk-level dedup already captures most of what delta storage would: the store measures a 6.32x
+growth factor against a linear 15x on the growth fixture, so the marginal gain is unmeasured and may
+be small. The options are (a) give the write an owner — SP-16's phase-7 refinements is the natural
+home, since it is already the subplan that revisits storage; (b) amend the store instead, making
+`nearDup` call `Decide` and adding the delta path there; or (c) `wontfix`, deleting the unconsumed
+surface and recording in `TRACEABILITY.md` that O2's second half is deliberately not shipped.
+
+**Acceptance (V3).** One of the three, written down with its reason. If (c), the exported symbols go
+with it — an unconsumed decision surface that nobody has decided to keep is how a reader concludes
+the feature exists.
+
