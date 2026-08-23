@@ -5,11 +5,15 @@
 # it here instead of in a commit body, where nothing enforces it. The guard makes the row load-
 # bearing three ways:
 #
-#   - Every open row must name a live evidence test, so the defect cannot be silently fixed and
-#     left recorded as broken, nor recorded and left unpinned.
+#   - Every UNRESOLVED row must name a live evidence test, so the defect cannot be silently fixed
+#     and left recorded as broken, nor recorded and left unpinned.
 #   - Every id must have a section in the detail document, so "what is this" always has an answer.
-#   - No row owned by a checkpoint may still be `open` once that checkpoint has written its
-#     completion report. That is the gate: the wave cannot be signed off with unresolved rows.
+#   - No unresolved row may survive its RESOLVER's completion report. That is the gate: a wave
+#     cannot be signed off with rows it was responsible for.
+#
+# `open` and `deferred:<checkpoint>` are both unresolved; only `fixed` and `wontfix` are not. A
+# deferral names the LATER checkpoint that must dispose of the row, that checkpoint must have a
+# plans/<checkpoint>-*.md document, and the row then blocks ITS report rather than its owner's.
 #
 # Columns are TAB separated.
 #

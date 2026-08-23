@@ -19,10 +19,15 @@ import (
 // rots and the next reader distrusts the whole file.
 //
 // plans/CARRIED-DEFECTS.tsv plus the three tests below close both. The manifest is data rather than
-// narrative, every open row must point at a test that still passes, and — the gate that matters —
-// no row may still be open once its owning checkpoint has written its completion report. Resolving
-// a row therefore requires either a fix or an explicit re-deferral; nothing is reachable by doing
-// nothing, which is the only failure mode a note in a commit body actually has.
+// narrative, every unresolved row must point at a test that still passes, and — the gate that
+// matters — no unresolved row may survive the completion report of the checkpoint responsible for
+// it. Resolving a row therefore requires either a fix or an explicit re-deferral to a later,
+// existing checkpoint; nothing is reachable by doing nothing, which is the only failure mode a note
+// in a commit body actually has.
+//
+// "Unresolved" includes `deferred:<X>`, and the responsible checkpoint is then X rather than the
+// row's owner. Reading a deferral as a resolution is what left this guard checking nothing at all
+// through wave 1 — see carriedDefect.unresolved.
 //
 // This is the same shape as TestNightlyFuzzMatrix and TestStubRegistry_ListsEveryPackageOnDisk: a
 // list that has to keep agreeing with the tree, checked mechanically.
