@@ -999,6 +999,31 @@ ceiling's alone — which also makes the second run's failure attributable to th
 for rather than to two independent causes. The 2 % rule over the watch-fors keeps its own coverage in
 `TestGate_WatchForsAreJudgedAsRatios`.
 
+#### 16.8.2 Replaying CI by hand, and the gate that was hiding a failure
+
+With the Actions quota still blocking every job, each `ci.yml` job that does not need a runner was
+replayed locally on 2026-08-23 before declaring the round done: `fmt-check`, `lint`, `go vet`,
+`go build`, `crossbuild` (`build-all`), `plugin-validate` with `git diff --exit-code -- plugin/`,
+`gen-config-docs --check`, `govulncheck`, the §8/D10 import allowlist, the attribution-trailer grep
+and conventional-commit scan over all 51 unpushed subjects, `replay-gate` and `bench-gate`. All pass.
+`bench-gate` reports B-A p99 at 2.048 ms against its 15 ms limit and B-B at 0.576 ms against 2 ms on
+an idle Windows host, with the delivery ledger clean at n=2064.
+
+One of them did not pass at first, and the reason is worth more than the fix. `devtool fmt-check`
+failed on `tools/devtool/stubskips_test.go`, which had been gofumpt-dirty since `0b1247b` — three
+composite literals keeping their opening brace on the first field's line, which `gofmt -l` accepts
+and `gofumpt` does not. Neither the whole-tree race suite, nor `go vet`, nor `gofmt -l` can see it,
+and CI has not run since 2026-08-20.
+
+What kept it invisible locally is that both fmt tasks pointed gofumpt at `"."`, and gofumpt walks
+`.claude/worktrees/` — a full agent checkout per directory. `fmt-check` therefore listed a stale copy
+of the file once per worktree: four offenders, three of them phantom. Output nobody can act on reads
+as noise, and a gate whose output is noise is a gate nobody reads, which is §15's dead-gate genus
+arrived at from a third direction — not a check that cannot fail, but one whose failures cannot be
+told apart from its own artefacts. `devtool fmt` was the sharper edge of the same bug: it runs
+gofumpt with `-w`, so a task documented as never failing was rewriting files inside checkouts it does
+not own. Both now enumerate the module root and skip `.git` and `.claude` at the top level only.
+
 **Unchanged by this round, and still true:** no commit here carries a CI signature. The Actions
 quota has blocked every job since 2026-08-22, so the whole round is verified locally on Windows —
 `go build`, `go vet`, `gofumpt`, `devtool lint`, the affected packages under `-count=1` and a
