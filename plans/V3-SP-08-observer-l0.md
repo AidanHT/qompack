@@ -41,19 +41,27 @@ scaffolding, the plugin manifest, CI, and a compiling `ErrNotImplemented` stub p
 real `internal/chunk`, `internal/canon`, `internal/symbols`; SP-05's real `internal/ipc` and
 `internal/daemon` with its op-routing table, `IdleController`, late-bound `Services`, hot-path
 budget machinery and `internal/contract`; SP-06's real `internal/store` and `internal/redact`;
-SP-07's real `internal/dag`. `internal/observer` exists as SP-01's stub: the five `Observer`
-methods, `Tombstone`, `Signals`, and `ExtractSignals` all compile and return
-`core.ErrNotImplemented` or zero values, and `observertest`-style behaviour tests are `t.Skip`ped.
-`internal/grammar` is still an SP-01 stub (SP-15, wave 4) and `internal/negknow` is being built by
-SP-09 in this same wave — the observer must tolerate both being inert.
+SP-07's real `internal/dag`. `internal/observer` is a stub only **in part**: the five `Observer`
+methods return `core.ErrNotImplemented` and `ExtractSignals` returns the zero `Signals`, but
+`Tombstone` and its `humanBytes` helper **ship real and tested** — §8.1 item 2 fully specifies the
+rendered form, so SP-01 implemented it rather than stubbing it (`internal/observer/tombstone.go`
+and `tombstone_test.go`, four passing tests including the GB tier). `internal/observer/observertest`
+also ships, with `RunObserverSuite(t, name, factory)` and a `/behaviour` block guarded by
+`skipIfStub`, so that guard lifts by itself the moment `observer.New` stops returning
+`core.ErrNotImplemented`. `internal/grammar` is still an SP-01 stub (SP-15, wave 4) and
+`internal/negknow` is being built by SP-09 in this same wave — the observer must tolerate both
+being inert.
 
 **What exists when you finish.** `internal/observer` is real and is the sole writer of that
-package. The daemon routes `observe.tool`, `observe.prompt`, `observe.stop`, `session.start` and
-`flush` into it through `internal/daemon/observer_ops.go` (the one file SP-08 owns outside its own
-package, exactly as SP-12 later owns `scheduler_runtime.go` there). A read-heavy session drives a
-store whose `Stats().DedupRatio` is at or above 4:1, measured with and without canonicalization,
-and the hot-path bench-gate still passes B-A p99 < 15 ms on all three platforms with the observer
-wired in. Every `t.Skip` in the observer conformance suite is off. Phase 1 is closed.
+package. SP-05's existing `observe.tool`, `observe.prompt`, `observe.stop`, `session.start` and
+`flush` routes — WAL append, ACK ordering, spool submode and terminal marker intact — now find the
+five `Services` seams bound, through `internal/daemon/observer_ops.go` (the one file SP-08 adds
+outside its own package, exactly as SP-12 later adds `scheduler_runtime.go` there; the two
+pre-step edits below live on a separate `arch/` branch). A read-heavy session drives a store whose
+`Stats().DedupRatio` is at or above 4:1, measured with and without canonicalization, and the
+hot-path bench-gate still passes B-A p99 < 15 ms on all three platforms with the observer wired in.
+The `observertest` conformance suite's `/behaviour` block runs instead of skipping. Phase 1 is
+closed.
 
 ---
 
@@ -255,7 +263,7 @@ Each item names the sibling subplan that owns it. Do not implement any of these.
 | `internal/symbols` — symbol extraction itself (SP-08 consumes it through an adapter) | SP-04 |
 | Bloom / CMS / HLL / Misra-Gries / MinHash implementations, sizing formulas, serialization, `ResizeTarget`, `RebuildBloom` | SP-03 |
 | Object layout, zstd, redaction at ingest, `roots.jsonl`, `tool_use.jsonl` and `files.json` **mechanics**, `SegmentLog` implementation, `MarkEncoded`, GC **mechanics**, `Stats`, `tokens.EstimateRoot` | SP-06 |
-| The DAG's storage, `BackwardSlice`/`ForwardSlice`, `CrossingEdges`, `Compact` | SP-07 |
+| The DAG's storage, `BackwardSlice`/`ForwardSlice`, `CrossingEdges`, `Compact`, the §8.1 item 4 builders (`BuildToolUse`, `BuildUserPrompt`, `BuildSegment`) and the D-2 NodeID constructors — SP-08 **calls** all of these and re-implements none of them | SP-07 |
 | The thin hook client, IPC transport, framing, ACK, spool fallback, the B-A budget histogram, the sync→spool submode transition, `qompack session-start` dispatch, daemon start, `contract.Monitor.RunAll` at session start, `test/bench/hotpath` | SP-05 |
 | Writing to `tried.bloom`, the elimination ledger, canonical descriptors, staleness, the three-way `already_tried` answer, heuristic elimination detection over the DAG | SP-09 |
 | `SessionStart(source=compact)` and `source=clear` **semantics** — SP-08 owns only the `source` switch and delegates through the `observer.Rehydrator` seam declared here | SP-11 |
@@ -264,7 +272,7 @@ Each item names the sibling subplan that owns it. Do not implement any of these.
 | Sequitur's algorithm, the two grammar invariants, thrash-warning **policy** and high-multiplicity detection (SP-08 only appends symbols and forwards whatever `Thrash` returns) | SP-15 |
 | MCP tools, ephemeral-at-birth tagging on the retrieval side, `Promoter` | SP-13 |
 | `/qompack:status` rendering | SP-14 |
-| `eval.Synthesize`, the 24-session synthetic corpus, the replay gate, Belady OPT, divergence metrics | SP-02 |
+| `eval.Synthesize`, `eval.SynthSpec` (SP-08 consumes it and adds no field to it), the 24-session synthetic corpus, the replay gate, Belady OPT, divergence metrics | SP-02 |
 | Cross-platform packaging, the security audit, `fsck`/`doctor` | SP-17 |
 
 ---
@@ -311,6 +319,9 @@ RecordToolUse(ctx context.Context, rec ToolUseRecord) error
 ToolUse(ctx context.Context, id core.ToolUseID) (ToolUseRecord, error)
 ToolUsesByPath(ctx context.Context, path string, limit int) ([]ToolUseRecord, error)
 MarkSuperseded(ctx context.Context, older core.ToolUseID, by core.ToolUseID) error
+ArgsDigest(raw json.RawMessage) (core.Hash, string)   // §5.8: "SP-08 calls this; nothing else may
+                                                      // re-derive it" — canonical-JSON digest under
+                                                      // core.DomainArgs + the ≤120-byte preview
 AppendFileVersion(ctx context.Context, path string, v FileVersion) error
 FileHistory(ctx context.Context, path string) ([]FileVersion, error)
 Segments() SegmentLog
@@ -340,6 +351,46 @@ Flush(ctx context.Context) error
 //           KindDecision KindElimination KindSegment
 // EdgeKind: EdgeSequence EdgeProduces EdgeConsumes EdgeSharedFile EdgeSharedSymbol
 //           EdgeSupersedes EdgeExplains EdgeControlOnly
+
+// internal/dag builders (§8.1 item 4) — SP-07. builders.go: "the one place in the repository that
+// turns an observation of the transcript into nodes and edges", and ObservedTool's own doc names
+// "observer (§5.7)" as its only production caller. SP-08 emits the item-4 chain ONLY through these.
+func BuildToolUse(g Graph, o ObservedTool) error
+func BuildUserPrompt(g Graph, o ObservedPrompt) error
+func BuildSegment(g Graph, s SegmentSpec) error
+type ObservedTool struct {
+    ToolUseID, PrevToolUseID, Supersedes core.ToolUseID
+    PrevTurn, Turn core.TurnIndex
+    TS core.UnixMilli
+    Pos, ResultPos int
+    Tool, PathKey  string
+    Writes         bool
+    Symbols        []string          // resolved by the CALLER; BuildToolUse sorts and dedupes
+    Root           core.Hash
+    Tokens         core.Tokens
+    Ephemeral      bool
+}
+type ObservedPrompt struct{ Turn core.TurnIndex; TS core.UnixMilli; Pos int; Tokens core.Tokens; Ref string }
+type SegmentSpec struct {
+    ID, PrevID core.SegmentID
+    StartTurn, EndTurn core.TurnIndex
+    TS core.UnixMilli
+    StartPos int
+    Tokens core.Tokens
+    Members []NodeID
+}
+
+// internal/dag NodeID constructors (D-2) — SP-07. nodeid.go: "Every consumer builds IDs through
+// the constructors below rather than concatenating strings … One component spelling a file node
+// differently from another does not fail loudly — it silently produces two disconnected halves of
+// the same graph." internal/observer NEVER assembles a NodeID from a string.
+func ToolUseNode(id core.ToolUseID) NodeID      // "tooluse:<id>"
+func ToolResultNode(id core.ToolUseID) NodeID   // "toolresult:<id>"
+func AssistantNode(t core.TurnIndex) NodeID     // "assistant:<decimal turn>" — NO session component
+func UserPromptNode(t core.TurnIndex) NodeID    // "userprompt:<decimal turn>" — NO session component
+func FileNode(pathKey string) NodeID            // "file:<pathKey>"; does NOT re-fold through paths.Key
+func SymbolNode(pathKey, name string) NodeID    // "symbol:<pathKey>#<name>"
+func SegmentNode(id core.SegmentID) NodeID      // "segment:<decimal id>"
 
 // internal/sketch (§5.7) — SP-03
 func (c *CMS) Add(key []byte, n uint32)
@@ -462,15 +513,84 @@ func New(o Options) (Observer, error)
 type Persister interface{ Persist(ctx context.Context) error }
 ```
 
-**Import discipline (§3.2).** `observer` may import `hookio store chunk canon sketch dag grammar
-negknow tokens` plus the foundation. It **does not** import `symbols` (hence `SymbolLister`), does
-not import `scheduler` or `checkpoint` (hence `Signals`/`FeatureSample` and the callbacks), does
-not import `contract` (hence `observer.Mode`), and deliberately does not import `negknow` at all —
-because §8.1 item 5 forbids L0 from touching the Bloom filter.
+**Import discipline (§3.2).** The §3.2 allow-table *permits* `observer` to import
+`hookio store chunk canon sketch dag grammar negknow tokens` plus the foundation, but a permission
+is a ceiling rather than an instruction: SP-08 declines two of them — `chunk`, because the observer
+never chunks by hand (resolved decision 1), and `negknow`, because §8.1 item 5 forbids L0 from
+touching the Bloom filter — and it never had `symbols` (hence `SymbolLister`), `scheduler` or
+`checkpoint` (hence `Signals`/`FeatureSample` and the callbacks), or `contract` (hence
+`observer.Mode`). The **binding** statement is the exit criterion at the end of this document: the
+realized import set is exactly `core paths config logging obs hookio store canon sketch dag grammar
+tokens` plus stdlib.
 
 ---
 
 ## Implementation spec
+
+### Pre-step: the `arch/sp08-observer-seams` amendment (lands on `develop` before this branch)
+
+Two shipped behaviours block SP-08 as written, and §0's amendment rule is explicit that the response
+is a branch against the architecture rather than a local workaround: *"If an interface in §5 is
+wrong, you do not work around it. You open a branch `arch/<short-reason>` off `develop`, change §5,
+get it merged, and rebase."* Cut `arch/sp08-observer-seams` off `develop`, land it, then cut
+`feat/sp08-observer-l0` from the result. It is small, and every part is spelled out here so the
+implementer does not have to improvise.
+
+**(a) `store.PutOptions.Canon` must be able to say "no optional classes".** Today
+`FSStore.canonOptions` (`internal/store/put.go`) honours the caller's strip list only when it is
+non-empty — `if len(o.Canon.Strip) > 0 { opts.Strip = o.Canon.Strip }` — and never reads
+`o.Canon.MinHash` or `o.Canon.KeepDeltas` at all, so a caller asking for "nothing optional" silently
+inherits the store's configured six classes *and* the store's MinHash setting. `internal/canon`
+already draws exactly the distinction the store is dropping: `gateSet` treats a **nil** `Strip` as
+"every class" and a **non-nil but empty** `Strip` as "exactly these — i.e. none — plus the always-on
+structural ones" (`internal/canon/classes.go`). The amendment makes the store agree:
+
+- change the override test to `if o.Canon.Strip != nil { opts.Strip = o.Canon.Strip }`, so an empty
+  non-nil slice means "no optional class" and a nil slice still means "use the store's config";
+- honour a caller-supplied opt-out on MinHash: when `o.Canon.MinHash.Enabled` is false, the returned
+  options carry `MinHash.Enabled = false` regardless of `store.canonicalize.minhash.enabled`. The
+  reverse direction stays config-wins — a caller may turn the signature *off* for one Put, never on,
+  because the permutation count and threshold are configuration the caller does not own;
+- add the matching note to `plans/00-ARCHITECTURE.md` §5.8 under `PutOptions`: a nil `Canon.Strip`
+  means "the store's configured classes", an empty non-nil `Canon.Strip` means "no optional class",
+  `Canon.MinHash.Enabled == false` disables the signature for that one Put, and `Canon.KeepDeltas`
+  remains derived from `PutOptions.KeepRaw` rather than read from `Canon`;
+- add `TestCanonOptions_EmptyStripMeansNoOptionalClasses` in `internal/store`: a body carrying a
+  timestamp and an ANSI escape, Put once with
+  `Canon: canon.Options{Strip: []canon.Class{}, MinHash: sketch.MinHashOptions{Enabled: false}}` and
+  once with `Canon: canon.Options{}`, against a store whose config has the six classes enabled. The
+  first must come back with a zero `PutResult.Signature` and a `Root.CanonBytes` equal to the input
+  length after CRLF/path normalization only; the second must not.
+
+**(b) the subagent's name must survive the IPC boundary.** `hookio.Event.Extra` is
+`map[string]json.RawMessage` tagged `json:"-"`: `hookio.ReadEvent` fills it in the *hook client*
+process and `ipc.EncodeRequest` then drops it, so a daemon-side reader of `e.Extra` sees an empty
+map in production and every subagent capture would be named `"subagent"`. Two edits fix it:
+
+- `internal/cli/hookclient.go`'s `rawExtras` already builds `{"subagent":true}` for
+  `observe stop --subagent`. Extend it to resolve the agent's name **client-side**, where `Extra` is
+  real — the first of `Extra["subagent_type"]`, `Extra["agent_name"]`, `Extra["agent"]` that
+  `json.Unmarshal`s into a non-empty string — and emit `{"subagent":true,"agent":"<name>"}`. A
+  numeric or object value falls through to the next key; all three missing emits the existing
+  `{"subagent":true}` byte-for-byte, so the wire format stays backward-compatible and
+  `decodeSubagent` is untouched.
+- `internal/daemon/handlers.go`'s `resolveEvent` re-populates `Event.Extra` from `req.Raw` when
+  `req.Raw` decodes as a JSON object, so what the client parsed reaches every bound `Services` seam.
+  This is a restoration rather than a new channel: `Extra` is already §5.3's documented home for a
+  hook payload's unclaimed keys, and it is the only field of `hookio.Event` the transport silently
+  empties.
+- add `TestResolveEvent_RestoresRawExtras` in `internal/daemon`, and extend `internal/ipc`'s
+  `TestDecodeRequestRoundTrip` with a request whose `Raw` carries the agent name.
+
+**Why an amendment rather than a workaround.** (a) cannot be worked around at all — nothing outside
+`internal/store` can reach `FSStore.canonOptions` — and working (b) around by registering a `Handle`
+route would replace SP-05's WAL-before-ACK path outright (see `internal/daemon/observer_ops.go`
+below). Both are exactly the "an interface in §5 is wrong" case §0 names.
+
+The amendment is a separate branch and a separate merge; it does **not** count against SP-08's own
+5–8 commit band, and `git rev-list --count develop..feat/sp08-observer-l0` is still 7 afterwards.
+
+---
 
 ### Resolved decisions (read these before writing code; no decision below is open)
 
@@ -491,11 +611,15 @@ because §8.1 item 5 forbids L0 from touching the Bloom filter.
 3. **§8.1 item 7's destination.** The design names `index/segments.jsonl`. In this architecture the
    segment log is `store.SegmentLog` (SP-06) and carries no per-turn payload field, and W-3 forbids
    adding one. The verbatim requirement is met with three durable artifacts, none of which is ever
-   regenerated from a summary: (a) the prompt bytes stored **uncanonicalized** as a
-   content-addressed object via `store.PutBytes`; (b) an append-only `tool_use.jsonl` entry with
-   `Tool: "UserPromptSubmit"` and `ID: VerbatimPromptID(...)`; (c) a `KindUserPrompt` DAG node
-   anchored to the currently open segment by an `EdgeSequence` from `segment:<id>`. This is what
-   closes G2.3: the bytes are content-addressed, immutable, and reachable by hash forever.
+   regenerated from a summary: (a) the prompt bytes stored as a content-addressed object via
+   `store.PutBytes` with **no optional canonicalization class and no MinHash** (pre-step (a) above
+   is what makes that request reach the store at all — see `prompt.go` for exactly how far
+   "verbatim" reaches); (b) an append-only `tool_use.jsonl` entry with `Tool: "UserPromptSubmit"`
+   and `ID: VerbatimPromptID(...)`; (c) a `KindUserPrompt` DAG node built by `dag.BuildUserPrompt`
+   and enrolled in the currently open segment by an `EdgeSequence` running
+   `userprompt:<turn> → segment:<id>` — members point **into** the segment, per SP-07 D-1 and
+   `dag.BuildSegment`. This is what closes G2.3: the bytes are content-addressed, immutable, and
+   reachable by hash forever.
 4. **Turn accounting.** `state.Turn` starts at 0. `OnUserPrompt` records at `Turn` then increments.
    `OnToolUse` records at the current `Turn` without incrementing. `OnStop` increments in **both**
    directions — `subagent=false` because the assistant turn has ended, `subagent=true` because the
@@ -553,7 +677,7 @@ because §8.1 item 5 forbids L0 from touching the Bloom filter.
 
 ---
 
-### `internal/observer/doc.go` (new)
+### `internal/observer/doc.go` (exists — SP-01's package doc; SP-08 rewrites it)
 
 Package documentation stating layer L0, the §8.1 responsibility list, the sole-writer rule from
 §5.21 ("No subplan other than SP-08 writes code in `internal/observer`"), and resolved decisions
@@ -561,10 +685,12 @@ Package documentation stating layer L0, the §8.1 responsibility list, the sole-
 
 ---
 
-### `internal/observer/observer.go` (new)
+### `internal/observer/observer.go` (exists — SP-01's `Observer`/`Options`/`New`/`stubObserver`)
 
 **Responsibility.** `Options`, `New`, the concrete type, per-session state map, mode gating, error
-policy, metric names, `Persist`.
+policy, metric names, `Persist`. SP-01's `Event`/`Output` aliases and the `Observer` interface are
+unchanged (Rule W-3); `Options` is *widened* with the fields below rather than renamed, and
+`stubObserver` is replaced by the real type.
 
 ```go
 type observer struct {
@@ -598,9 +724,12 @@ type sessionState struct {
     Turn          core.TurnIndex
     PrefixTokens  int
     Segment       core.SegmentID
+    PrevSegment   core.SegmentID // the segment before Segment, or 0 — dag.SegmentSpec.PrevID
+    SegStartTurn  core.TurnIndex // dag.SegmentSpec.StartTurn
+    SegStartPos   int            // PrefixTokens when Segment opened — dag.SegmentSpec.StartPos
     LastTS        core.UnixMilli // TS of the PREVIOUS event; updated last, after features() runs
-    LastToolUse   dag.NodeID     // "" before the first tool use
-    LastResult    dag.NodeID
+    LastToolUseID core.ToolUseID  // "" before the first tool use — dag.ObservedTool.PrevToolUseID
+    LastToolUseTurn core.TurnIndex // its turn — dag.ObservedTool.PrevTurn
     LastPromptTurn core.TurnIndex
     SubagentSince int            // index into ToolUses at the last SubagentStop/user prompt
     Recent        []recentEvent  // ring, cap 2*featureWindow
@@ -616,6 +745,14 @@ type toolUseLite struct{ ID core.ToolUseID; Root core.Hash; Tool, Path string; B
 `SubagentSince` indexes `ToolUses`, which is front-evicted at `subagentWindowCap`. Every eviction of
 `k` entries therefore does `st.SubagentSince = max(0, st.SubagentSince-k)` in the same statement —
 otherwise a long subagent run would slice past the end of the ring.
+
+`LastToolUseID` and `LastToolUseTurn` are carried as the raw `core.ToolUseID` and turn rather than
+as `dag.NodeID`s, because they are handed to `dag.BuildToolUse` as
+`ObservedTool.PrevToolUseID`/`PrevTurn` and the builder mints the NodeIDs itself. Keeping the pair
+— rather than a single "previous node" — is what lets the builder apply its `PrevTurn < Turn` guard,
+which is the whole defence against the parallel-sibling cycle (see `graph.go`). The three `Seg*`
+fields exist for the same reason on the segment side: `dag.SegmentSpec` needs `PrevID`, `StartTurn`
+and `StartPos` at *close* time, and none of them is recoverable from `store.Segment`.
 
 Constants (all annotated because §11.6's `nomagic` pass is on):
 
@@ -641,10 +778,11 @@ when `Metrics != nil`.
 
 ---
 
-### `internal/observer/tombstone.go` (new)
+### `internal/observer/tombstone.go` (exists — SP-01 shipped `Tombstone` and `humanBytes`)
 
 **Responsibility.** §8.1 item 2 in its exact rendered form, plus tool-name normalization and the
-compactable-tool-set predicate of §2.2.
+compactable-tool-set predicate of §2.2. The renderer is not written from scratch: SP-08 extends the
+one SP-01 already shipped, and leaves `humanBytes` alone.
 
 **Grammar of the marker.** Rendered from `store.ToolUseRecord` with no I/O:
 
@@ -656,15 +794,37 @@ compactable-tool-set predicate of §2.2.
 - ellipsis is `…`;
 - `<12 hex>` is `rec.Root.Short()` (§4: first 12 hex chars); the design's `a3f2…` is an elision in
   prose, 12 hex is the architecture's canonical short form and is what the golden file records;
-- `<size>` is `humanBytes(rec.Bytes)`: `< kib` → `"%dB"`; `< kib*kib` → `"%.1fKB"` (round half to
-  even via `strconv.FormatFloat(v,'f',1,64)`); else `"%.1fMB"`. `const kib = 1024 //nomagic:allow
-  byte-unit divisor, not a config value`. 2458 bytes renders `2.4KB`, matching the design example;
+- `<size>` is `humanBytes(rec.Bytes)`, which **already ships and is not changed by SP-08**:
+  `const bytesPerKB = 1024 //nomagic:allow binary byte-unit divisor for size rendering, not
+  store.chunk.min`, `var sizeUnits = [...]string{"KB", "MB", "GB"}`, sizes below the divisor
+  rendered as `"%dB"` and everything above it as `"%.1f%s"` scaled through KB → MB → **GB**. The GB
+  tier is load-bearing: `TestHumanBytes_UsesTheBinaryDivisor` pins `1.0GB` and `3.0GB`, and SP-08
+  may not narrow the renderer to B/KB/MB. 2458 bytes renders `2.4KB`, matching the design example;
 - `<ToolDisplay>` is `NormalizeToolName(rec.Tool)`;
 - `<subject>` is `rec.Path` when non-empty, else `rec.ArgsPreview` truncated to 48 runes with `…`;
   when both are empty the ` <subject>` group and its leading space are omitted entirely;
 - when `rec.Status == store.StatusSuperseded`, ` · superseded` is inserted immediately before
   ` · re-expandable`;
 - when `rec.Ephemeral`, ` · ephemeral` is inserted in the same position, before any `superseded`.
+
+**What commit 1 actually changes.** `internal/observer/tombstone.go` already renders
+`fmt.Sprintf("[cleared: sha256:%s · %s · %s %s · re-expandable]", rec.Root.Short(),
+humanBytes(rec.Bytes), rec.Tool, rec.Path)`. SP-08 adds, to that existing function: the `…` after
+the short hash; `NormalizeToolName(rec.Tool)` in place of the raw `rec.Tool`; the `ArgsPreview`
+fallback subject and the no-subject elision (which removes today's double space on a pathless
+record); and the ` · ephemeral` / ` · superseded` segments. `humanBytes` is untouched.
+
+Two shipped tests are therefore *updated*, not written:
+
+- `TestTombstone_RendersTheSection81Form` — its pinned string gains the ellipsis and becomes
+  `[cleared: sha256:a3f2c9e14b70… · 2.4KB · FileRead src/auth.ts · re-expandable]`. `FileRead`
+  already survives `NormalizeToolName` unchanged, so the ellipsis is the only delta.
+- `TestHumanBytes_UsesTheBinaryDivisor` — **left exactly as it is**, GB rows and negative-size row
+  included. If a change to `tombstone.go` makes it fail, the change is wrong.
+
+`TestTombstone_IsAddressable` and `TestTombstone_HandlesAnEmptyRecord` also already ship and keep
+passing; `TestTombstone_NoSubject` in the test plan below is the tightened successor to the latter
+and replaces it.
 
 ```go
 func Tombstone(rec store.ToolUseRecord) string
@@ -718,7 +878,7 @@ everything else.
 
 ---
 
-### `internal/observer/signals.go` (new)
+### `internal/observer/signals.go` (exists as SP-01's stub — `Signals` and a zero-returning `ExtractSignals`)
 
 **Responsibility.** G1.5. Pure functions of `hookio.Event` — no clock, no state, no I/O — so they
 are trivially testable and reusable by the daemon.
@@ -800,7 +960,6 @@ decision 1.
 ```go
 func (o *observer) OnToolUse(ctx context.Context, e hookio.Event) (hookio.Output, error)
 func (o *observer) canonOptions() canon.Options
-func (o *observer) argsDigestAndPreview(e hookio.Event) (core.Hash, string)
 func (o *observer) rememberToolUse(st *sessionState, rec store.ToolUseRecord)
 func normalizedPaths(projectRoot string, raw []string) []string
 ```
@@ -834,7 +993,7 @@ Algorithm, exactly:
     if tok == 0 && o.opt.Tokens != nil {
         tok = o.opt.Tokens.EstimateRoot(ctx, res.Root.Chunks, tokens.Classify(display, pathKey, body))
     }
-    digest, preview := o.argsDigestAndPreview(e)
+    digest, preview := store.ArgsDigest(e.ToolInput)   // §5.8 owns this; never re-derived here
     rec := store.ToolUseRecord{ ID: e.ToolUseID, Session: e.SessionID, Turn: st.Turn,
         TS: now, Tool: display, ArgsDigest: digest, ArgsPreview: preview,
         Root: res.Root.Hash, Path: pathKey, Bytes: res.Root.RawBytes, Tokens: tok,
@@ -846,10 +1005,10 @@ Algorithm, exactly:
         Store.AppendFileVersion(ctx, pathKey, store.FileVersion{TS: now, Root: res.Root.Hash,
             Turn: st.Turn, Bytes: res.Root.RawBytes})          // §8.2 file version history
     }
-8.  prevOnPath := core.ToolUseID("")
-    if !empty { _, prevOnPath = o.detectSupersession(ctx, st, rec, res) }  // §8.1 item 3 — supersede.go
+8.  var superseded []core.ToolUseID
+    if !empty { superseded = o.detectSupersession(ctx, st, rec, res) }  // §8.1 item 3 — supersede.go
 9.  o.feedSketches(rec)                                       // §8.1 item 5 — sketches.go
-10. o.emitToolGraph(ctx, st, rec, body, prevOnPath)           // §8.1 item 4 — graph.go
+10. o.emitToolGraph(ctx, st, rec, body, superseded)           // §8.1 item 4 — graph.go
 11. if o.opt.Grammar != nil {                                 // §8.1 item 6 producer side
         o.opt.Grammar.Append(grammar.Symbol(display))
         switch ExtractTestOutcome(e) {
@@ -906,14 +1065,26 @@ return canon.Options{
 }
 ```
 
-`argsDigestAndPreview`:
-- digest: `core.HashBytes("qompack.args.v1", compact)` where `compact` is `json.Compact` of
-  `e.ToolInput`, or the raw bytes when compaction fails;
-- preview, per display name: FileRead/FileEdit/FileWrite → `file_path`; Grep → `pattern + " in " +
-  path` (path omitted with the `" in "` when absent); Glob → `pattern`; Bash/PowerShell →
-  `command`; WebFetch → `url`; WebSearch → `query`; default → the compacted JSON;
-- truncated to `argsPreviewMax` runes, appending `…` when cut:
-  `const argsPreviewMax = 120 //nomagic:allow §5.8 caps ToolUseRecord.ArgsPreview at 120 chars`.
+**`store.ArgsDigest` is not re-implemented here, and there is no local `argsPreviewMax`.** §5.8
+ships `ArgsDigest(raw json.RawMessage) (core.Hash, string)` and names its caller in the function's
+own doc comment: *"SP-08 calls this; nothing else may re-derive it, so that two subplans can never
+disagree about what 'the same tool arguments' means."* It canonicalizes the `tool_input` document —
+object keys sorted recursively, array order preserved, every number re-emitted **verbatim** as its
+`json.Number` literal — digests the canonical bytes under `core.DomainArgs` (`"qompack.args.v1"`),
+and returns the ≤120-**byte** preview built from `file_path`, `path`, `pattern`, `command`, `url` in
+that order, falling back to the canonical JSON when the document has none of them. Whitespace runs
+are collapsed, control bytes dropped, and a truncated preview ends in `…`.
+
+A local `json.Compact` digest would be key-order-dependent and would defeat
+`TestArgsDigest_KeyOrderInvariant` (`internal/store/tooluse_test.go`) at the single production call
+site, so `internal/observer` declares no `argsDigestAndPreview`, no preview key table and no
+`argsPreviewMax` of its own. The two records SP-08 writes that carry no `tool_input` — the verbatim
+prompt and the subagent capture — go through the *same* function over a synthesized one-key
+arguments document, so the ≤120-byte cap, the whitespace collapsing and the control-byte stripping
+live in exactly one place (`prompt.go` step 4 and `stop.go` step 6). The cost is that those two
+previews show their JSON wrapper (`{"prompt":"fix the pool bypass…"}`); that is the honest rendering
+of what those records' "arguments" are, and it is worth more than a second truncator that could
+drift from §5.8's.
 
 **Failure modes.** `PutBytes` error → `soft("put")`, return empty, no index entry (never a dangling
 record). `RecordToolUse` error → `soft("index")`, continue with sketches/DAG (the object is stored
@@ -934,26 +1105,25 @@ prior read of the same path, mark the earlier one `SUPERSEDED` in the DAG. Super
 first candidates for eviction and should never appear in a summary."*
 
 ```go
-// Returns the ids it marked SUPERSEDED and, as a by-product of the same index read, the id of the
-// most recent prior non-ephemeral tool use on the same path — which graph.go needs for the
-// EdgeSharedFile edge and which would otherwise cost a second ToolUsesByPath call on the hot path.
+// Returns the ids it marked SUPERSEDED, most recent first. It writes to the STORE only and emits no
+// DAG edges: EdgeSupersedes is part of the §8.1 item 4 edge set dag.BuildToolUse owns, and graph.go
+// hands marked[0] to it as ObservedTool.Supersedes (see `graph.go` below).
 func (o *observer) detectSupersession(ctx context.Context, st *sessionState,
-    rec store.ToolUseRecord, res store.PutResult) (marked []core.ToolUseID, prevOnPath core.ToolUseID)
+    rec store.ToolUseRecord, res store.PutResult) (marked []core.ToolUseID)
 func isSuperset(newer, older []core.ChunkRef) bool
 ```
 
 Algorithm:
 
 ```
-if rec.Path == "" || rec.Ephemeral || supersedableClass(rec.Tool) == "" { return nil, "" }
+if rec.Path == "" || rec.Ephemeral || supersedableClass(rec.Tool) == "" { return nil }
 prior, err := Store.ToolUsesByPath(ctx, rec.Path, supersessionLookback)
-if err != nil { o.soft("supersede.list", err); return nil, "" }
+if err != nil { o.soft("supersede.list", err); return nil }
 newSet := set of res.Root.Chunks[i].Hash
 thr := o.opt.Cfg.Store.Canonicalize.MinHash.NearDupThreshold
 for _, p := range prior {            // ToolUsesByPath returns most-recent-first (§5.8)
     superseded := false
     if p.ID == rec.ID { continue }
-    if prevOnPath == "" && !p.Ephemeral && p.TS <= rec.TS { prevOnPath = p.ID }
     if p.Status == store.StatusSuperseded { continue }      // already handled
     if p.TS > rec.TS { continue }                            // only ever mark EARLIER reads
     if p.Ephemeral { continue }                              // ephemeral results are already first-evicted
@@ -966,31 +1136,42 @@ for _, p := range prior {            // ToolUsesByPath returns most-recent-first
     }
     if !superseded { continue }
     if err := Store.MarkSuperseded(ctx, p.ID, rec.ID); err != nil { o.soft("supersede.mark", err); continue }
-    o.opt.Graph.AddEdge(dag.Edge{From: toolUseNode(rec.ID), To: toolUseNode(p.ID),
-        Kind: dag.EdgeSupersedes, Weight: 1, Turn: rec.Turn})
     o.count("observer.superseded")
-    marked = append(marked, p.ID)
+    marked = append(marked, p.ID)                            // no AddEdge here — see graph.go
 }
 if res.NearDup != nil { o.count("observer.neardup") }
-return marked, prevOnPath
+return marked
 ```
 
 **`ToolUsesByPath` ordering.** §5.8 does not state an order in the signature, so this file states the
 contract it relies on: SP-06's `tool_use.jsonl` is append-only and `ToolUsesByPath(path, limit)`
-returns the **most recent `limit` records, newest first**. `prevOnPath` therefore falls out of the
-first eligible iteration. If SP-06 shipped oldest-first, the only change needed here is to take the
-*last* eligible element instead of the first; the supersession loop itself is order-independent
-because every candidate is filtered by `p.TS <= rec.TS`. A test
-(`TestSupersede_PrevOnPathIsMostRecent`) pins the behaviour against the real store so a drift is
-caught in wave 2, not wave 3.
+returns the **most recent `limit` records, newest first** (`FSStore.ToolUsesByPath` walks its
+per-path id list backwards). `marked` therefore comes back newest-first too, which is what makes
+`marked[0]` the right value for `ObservedTool.Supersedes`. The loop itself is order-independent —
+every candidate is filtered by `p.TS <= rec.TS` — so an oldest-first store would change only which
+end of `marked` graph.go reads. `TestSupersede_ToolUsesByPathIsMostRecentFirst` pins the order
+against the real store so a drift is caught in wave 2, not wave 3.
 
 `isSuperset(newer, older)` returns `false` when `len(older) == 0`, otherwise `true` iff every hash
 in `older` is present in the `newer` set. Multiplicity is ignored (a chunk-hash set, per the design's
 "chunk set"), so a file read twice in one result does not defeat it.
 
-**Direction of `EdgeSupersedes`** is From = the *superseding* (newer) node, To = the *superseded*
-(older) node. This is stated here because both SP-12 (eviction ranking) and SP-15 (redundancy)
-traverse it.
+**Direction of `EdgeSupersedes`** is fixed by SP-07 D-1 and SP-08 does not get a vote: *"every edge
+points from earlier/producer to later/consumer. There is no exception. `EdgeSupersedes` runs
+superseded → superseding"* (`internal/dag/builders.go`). So From = the **superseded (older)** node,
+To = the **superseding (newer)** node — `tooluse:<older> → tooluse:<newer>` — which is what
+`BuildToolUse` emits from `ObservedTool.Supersedes`, what `builders_test.go` pins in both
+directions, and what the frozen contract fixture `testdata/golden/contracts/dag/graph-basic.jsonl`
+carries as `{"from":"tooluse:toolu_01ABCdef","to":"tooluse:toolu_02GHIjkl","kind":5}` — the bytes
+its `MANIFEST.json` declares that "SP-08, SP-09 and SP-12 assert against".
+
+Getting this backwards is not cosmetic: `EdgeSupersedes` carries the 0.30 multiplier of
+`internal/dag/kinds.go`, so in the correct direction a backward slice from the current read reaches
+the superseded one at a heavily discounted score — §8.1 item 3's "first candidate for eviction,
+never summarized". Reversed, the superseded read becomes an *upstream* source of full-strength
+relevance for everything the new read explains, which is the opposite of the intended ranking.
+
+This is stated here because both SP-12 (eviction ranking) and SP-15 (redundancy) traverse it.
 
 **"Should never appear in a summary"** is enforced structurally rather than by an observer-side
 predicate, because `checkpoint` does not import `observer` (§3.2): the fact lives on
@@ -1033,47 +1214,121 @@ assertion greps the package source for the identifier `Bloom` and requires zero 
 ### `internal/observer/graph.go` (new)
 
 **Responsibility.** §8.1 item 4: *"Record `tool_use → tool_result → assistant_turn → next_tool_use`,
-plus shared-state edges keyed on file path and symbol name."*
+plus shared-state edges keyed on file path and symbol name."* — expressed **entirely** as a call to
+`dag.BuildToolUse`. This file translates a `store.ToolUseRecord` into a `dag.ObservedTool`; it does
+not decide a single node id, edge direction or edge kind for the item-4 chain.
 
 ```go
-func toolUseNode(id core.ToolUseID) dag.NodeID  // "tooluse:" + string(id)
-func resultNode(id core.ToolUseID) dag.NodeID   // "toolresult:" + string(id)
-func assistantNode(s core.SessionID, t core.TurnIndex) dag.NodeID // "assistant:<s>:<t>"
-func promptNode(s core.SessionID, t core.TurnIndex) dag.NodeID    // "userprompt:<s>:<t>"
-func fileNode(pathKey string) dag.NodeID        // "file:" + pathKey
-func symbolNode(name string) dag.NodeID         // "symbol:" + name
-func segmentNode(id core.SegmentID) dag.NodeID  // "segment:" + itoa
 func (o *observer) emitToolGraph(ctx context.Context, st *sessionState, rec store.ToolUseRecord,
-    body []byte, prevOnPath core.ToolUseID)
+    body []byte, superseded []core.ToolUseID)
+func (o *observer) symbolNames(rec store.ToolUseRecord, body []byte) []string
+func (o *observer) enrol(st *sessionState, n dag.NodeID)   // one segment-membership edge
 func (o *observer) advancePos(st *sessionState, tok core.Tokens) int
 ```
 
-`emitToolGraph` emits, in order:
+**No NodeID constructors live in this package.** `internal/dag/nodeid.go` is explicit about why:
+*"Every consumer builds IDs through the constructors below rather than concatenating strings …
+One component spelling a file node differently from another does not fail loudly — it silently
+produces two disconnected halves of the same graph."* And the divergence really is silent —
+`ParseNodeID` splits on the FIRST colon, so a hand-rolled `assistant:<session>:<turn>` is accepted
+by `AddNode` as a `KindAssistant` node whose key is `<session>:<turn>`, disjoint from every
+`dag.AssistantNode(turn)` the rest of the system emits and from the frozen
+`testdata/golden/contracts/dag/graph-basic.jsonl`, which carries `"id":"assistant:1"` and
+`"id":"symbol:src/auth.ts#refreshToken"`. SP-08 therefore calls `dag.ToolUseNode`,
+`dag.ToolResultNode`, `dag.AssistantNode(turn)`, `dag.UserPromptNode(turn)`, `dag.FileNode`,
+`dag.SymbolNode(pathKey, name)` and `dag.SegmentNode` — turn-keyed with **no session component**,
+symbols keyed `"<pathKey>#<name>"` — and nothing else. Per-session assistant ids, if anyone ever
+wants them, are an amendment to SP-07's D-2 table and to the frozen golden, not a private
+redefinition here.
 
-1. `AddNode{ID: toolUseNode(rec.ID), Kind: KindToolUse, Turn, TS, Pos: advancePos(st, 0), Ref: string(rec.ID), Tokens: 0, Ephemeral: rec.Ephemeral}`
-2. `AddNode{ID: resultNode(rec.ID), Kind: KindToolResult, Turn, TS, Pos: advancePos(st, rec.Tokens), Ref: string(rec.ID), Root: rec.Root, Tokens: rec.Tokens, Ephemeral: rec.Ephemeral}`
-3. `AddEdge{toolUse → result, EdgeProduces, 1, Turn}`
-4. the §8.1 chain, when `st.LastResult != ""`:
-   `AddNode{assistantNode(sess, rec.Turn), KindAssistant, Pos: current, Tokens: 0}`,
-   `AddEdge{st.LastResult → assistant, EdgeSequence, 1, Turn}`,
-   `AddEdge{assistant → toolUse, EdgeSequence, 1, Turn}`
-5. file edges, when `rec.Path != ""`:
-   `AddNode{fileNode(rec.Path), KindFile, Ref: rec.Path}`;
-   `AddEdge{toolUse → file, EdgeConsumes}` for every class except `FileEdit`/`FileWrite`
-   (i.e. `FileRead`, `search`, `exec`, `web`); `AddEdge{toolUse → file, EdgeProduces}` for
-   `FileEdit`/`FileWrite`;
-   plus the shared-state edge, when `prevOnPath != ""`:
-   `AddEdge{toolUse → toolUseNode(prevOnPath), EdgeSharedFile}`. `prevOnPath` is the second return
-   value of `detectSupersession` (step 8 of `OnToolUse`), so this costs no second index read; it is
-   `""` for ephemeral results, for empty results, and for the first touch of a path, and the edge is
-   simply not emitted in those cases.
-6. symbol edges, when `o.opt.Symbols != nil`, `rec.Path != ""`, `supersedableClass == "filecontent"`
-   and `len(body) <= symbolScanCap`: for the first `maxSymbolsPerResult` unique names returned by
-   `o.opt.Symbols.Names(rec.Path, body)`, `AddNode{symbolNode(n), KindSymbol, Ref: n}` and
-   `AddEdge{toolUse → symbol, EdgeSharedSymbol}`.
-7. segment anchoring, when `st.Segment != 0`: `AddEdge{segmentNode(st.Segment) → toolUse, EdgeSequence}`.
+`emitToolGraph`:
 
-Then `st.LastToolUse = toolUseNode(rec.ID)`, `st.LastResult = resultNode(rec.ID)`.
+```
+pos       := o.advancePos(st, 0)            // the tool_use block's start position
+resultPos := o.advancePos(st, rec.Tokens)   // the tool_result block's — decision 5
+sup       := core.ToolUseID("")
+if len(superseded) > 0 { sup = superseded[0] }   // most recent first, per supersede.go
+
+err := dag.BuildToolUse(o.opt.Graph, dag.ObservedTool{
+    ToolUseID:     rec.ID,
+    PrevToolUseID: st.LastToolUseID,
+    PrevTurn:      st.LastToolUseTurn,
+    Supersedes:    sup,
+    Turn:          rec.Turn,
+    TS:            rec.TS,
+    Pos:           pos,
+    ResultPos:     resultPos,
+    Tool:          rec.Tool,                 // display name; becomes the tool-use node's Ref
+    PathKey:       rec.Path,                 // already paths.Key form; dag never re-folds it
+    Writes:        rec.Tool == "FileEdit" || rec.Tool == "FileWrite",
+    Symbols:       o.symbolNames(rec, body),
+    Root:          rec.Root,
+    Tokens:        rec.Tokens,
+    Ephemeral:     rec.Ephemeral,
+})
+if err != nil { o.soft("dag", err) }
+
+// Any FURTHER read this one superseded — BuildToolUse carries exactly one — in the same D-1
+// direction the builder uses, superseded → superseding:
+for _, older := range superseded[1:] {
+    o.opt.Graph.AddEdge(dag.Edge{From: dag.ToolUseNode(older), To: dag.ToolUseNode(rec.ID),
+        Kind: dag.EdgeSupersedes, Weight: 1, Turn: rec.Turn})
+}
+
+o.enrol(st, dag.ToolUseNode(rec.ID))
+o.enrol(st, dag.ToolResultNode(rec.ID))
+st.LastToolUseID, st.LastToolUseTurn = rec.ID, rec.Turn
+```
+
+That one call emits, in the builder's own order: the tool-use node; the tool-result node;
+`tooluse → toolresult` `EdgeProduces`; the assistant node for `rec.Turn`; `toolresult:<prev> →
+assistant` `EdgeConsumes` **only when the predecessor is in an earlier turn**;
+`assistant → tooluse` as `EdgeSequence` or `EdgeControlOnly`; the file node and its `EdgeSharedFile`
+edge oriented by `Writes`; one symbol node and `EdgeSharedSymbol` edge per distinct name, in
+ascending order; and the `EdgeSupersedes` edge.
+
+Four consequences are worth stating explicitly, because each one is a bug this plan previously had:
+
+- **Thin slicing finally has something to drop.** `dag.turnLinkKind` makes the assistant → tool_use
+  link an `EdgeSequence` when the call touches the same file or symbol as its predecessor and an
+  `EdgeControlOnly` when it shares nothing. `EdgeControlOnly` has exactly one producer in the
+  repository — that function — and `internal/dag/traverse.go`'s thin branch drops
+  `EdgeControlOnly` **and nothing else**. SP-08 is the sole production emitter of transcript edges,
+  so a hand-rolled emitter that always wrote `EdgeSequence` would make `DefaultSliceOptions(...).
+  Thin == true` a no-op on every real graph, and ADR 0007's "43% the size, 88% of the relevant set,
+  2.2× more precise" a property of `dagtest.Synth`'s `ControlOnlyFraction: 0.35` rather than of
+  production traffic. Going through the builder is what makes that number true of real sessions.
+- **No parallel-sibling cycle.** Resolved decision 4 keeps `Turn` fixed across the tool uses of one
+  assistant message, so parallel tool calls share a turn index. `BuildToolUse` emits the consumes
+  edge only under `o.PrevToolUseID != "" && o.PrevTurn < o.Turn`; emitting
+  `toolresult:<prev> → assistant:<Turn>` for a same-turn sibling would close the three-node cycle
+  `tooluse → toolresult → assistant → tooluse` that SP-07 D-7 names, which *"would make every
+  backward slice from a tool use swallow that tool use's own forward chain, corrupting both the
+  relevance scores of §8.3 and the segment_coupling counts of §8.4."* The guard comes free with the
+  builder; carrying `st.LastToolUseTurn` is the only thing SP-08 has to do to feed it.
+- **Shared state is anchored on the file, not on the previous tool use.** The builder runs
+  `file → tooluse` for a read and `tooluse → file` for a write, both `EdgeSharedFile` (D-1: a read
+  consumes the anchor, a write produces it). Two calls that touch one path are therefore coupled
+  through the shared `file:` node, and `dag.sharesState` reads exactly those edges to decide the
+  turn link. A `tooluse → tooluse` `EdgeSharedFile` edge is not part of the scheme and is not
+  emitted, which is why `detectSupersession` no longer returns a `prevOnPath` and why `OnToolUse`
+  needs no second index read for the graph.
+- **The supersedes edge runs older → newer.** See `supersede.go`'s direction note; the builder is
+  where that is enforced, and the loop above matches it for the tail of `marked`.
+
+`symbolNames(rec, body)` returns `nil` unless `o.opt.Symbols != nil`, `rec.Path != ""`,
+`supersedableClass(rec.Tool) == "filecontent"` and `len(body) <= symbolScanCap`; otherwise it takes
+the first `maxSymbolsPerResult` unique names from `o.opt.Symbols.Names(rec.Path, body)` and hands
+them over unsorted — `BuildToolUse` sorts and deduplicates, precisely so `dag/deps.jsonl`'s edge
+order does not depend on how the extractor walked the file.
+
+`enrol(st, n)` is segment membership and is a single edge, `AddEdge{n → dag.SegmentNode(st.Segment),
+EdgeSequence, 1, st.Turn}`, skipped entirely when `st.Segment == 0`. The direction is the builder's:
+`dag.BuildSegment` emits `member → segment` because members are the earlier end under D-1, and
+`session.go` calls `BuildSegment` with `Members: nil` at close time to mint the segment node and the
+`previous → current` chain edge. Emitting the membership edges incrementally rather than in that one
+call is legal by D-6 — *"an edge may legally precede its endpoints"* — and is what keeps SP-08 from
+holding a whole segment's node list in memory.
 
 `advancePos(st, tok)` returns the pre-increment `st.PrefixTokens` and adds `int(tok)` to it —
 resolved decision 5.
@@ -1133,6 +1388,8 @@ All five values are finite; `NaN`/`Inf` are impossible because every divisor is 
 ```go
 func (o *observer) OnUserPrompt(ctx context.Context, e hookio.Event) (hookio.Output, error)
 func VerbatimPromptID(s core.SessionID, t core.TurnIndex) core.ToolUseID
+func verbatimOptions() canon.Options                        // the "no optional class" Put options
+func promptArgs(prompt string) json.RawMessage              // {"prompt":<text>} for store.ArgsDigest
 func (o *observer) collectThrash(st *sessionState)          // called from OnToolUse step 11
 func (o *observer) pendingThrashLines(st *sessionState) []string
 ```
@@ -1146,24 +1403,27 @@ Algorithm:
 2.  body := []byte(e.Prompt)
 3.  res, err := Store.PutBytes(ctx, body, store.PutOptions{
         Tool: "UserPromptSubmit", Path: "",
-        Canon: canon.Options{Strip: nil, KeepDeltas: false,
-                             MinHash: sketch.MinHashOptions{Enabled: false}},
+        Canon: verbatimOptions(),
         KeepRaw: true, Ephemeral: false })
-    // NO canonicalization, NO minhash: "verbatim and immutably" (§7.3, §8.1 item 7).
+    // verbatimOptions() is canon.Options{Strip: []canon.Class{}, MinHash: sketch.MinHashOptions{
+    //     Enabled: false}} — an EMPTY, NON-NIL Strip: "no optional class", not "every class".
+    // Pre-step (a) is what makes the store honour both fields; see the note below for exactly how
+    // far "verbatim and immutably" (§7.3, §8.1 item 7) reaches.
     on err: o.soft("prompt.put", err) and continue to step 6 with a zero root
 4.  id := VerbatimPromptID(e.SessionID, st.Turn)
     tok := res.Root.Tokens; if tok == 0 && Tokens != nil { tok = Tokens.EstimateString(e.Prompt, tokens.ClassProse) }
+    digest, preview := store.ArgsDigest(promptArgs(e.Prompt))   // §5.8 owns the ≤120-byte cap
     Store.RecordToolUse(ctx, store.ToolUseRecord{ID: id, Session: e.SessionID, Turn: st.Turn,
         TS: now, Tool: "UserPromptSubmit",
-        ArgsDigest: core.HashBytes("qompack.args.v1", body),
-        ArgsPreview: truncateRunes(e.Prompt, argsPreviewMax),
+        ArgsDigest: digest, ArgsPreview: preview,
         Root: res.Root.Hash, Bytes: int64(len(body)), Tokens: tok,
         Status: store.StatusOK})
-5.  Graph.AddNode(dag.Node{ID: promptNode(e.SessionID, st.Turn), Kind: dag.KindUserPrompt,
-        Turn: st.Turn, TS: now, Pos: o.advancePos(st, tok), Ref: string(id),
-        Root: res.Root.Hash, Tokens: tok})
-    if st.Segment != 0 { Graph.AddEdge(segmentNode(st.Segment) → promptNode, EdgeSequence) }
-    if st.LastResult != "" { Graph.AddEdge(st.LastResult → promptNode, EdgeSequence) }
+5.  dag.BuildUserPrompt(o.opt.Graph, dag.ObservedPrompt{Turn: st.Turn, TS: now,
+        Pos: o.advancePos(st, tok), Tokens: tok, Ref: string(id)})
+    // emits userprompt:<turn> and userprompt:<turn> --consumes--> assistant:<turn>: the prompt is
+    // the producer end (D-1), and §4.4 makes this the ONLY path by which a backward slice from a
+    // tool use deep in a session reaches the request that set it off.
+    o.enrol(st, dag.UserPromptNode(st.Turn))          // segment membership, graph.go
 6.  if Grammar != nil { Grammar.Append(grammar.Symbol("user")) }
 7.  st.LastPromptTurn = st.Turn; st.SubagentSince = len(st.ToolUses); st.Turn++
 8.  o.recordRecent(st, "user", nil, body, now)
@@ -1179,13 +1439,34 @@ Algorithm:
     return out, nil
 ```
 
-**The one deliberate exception to resolved decision 2.** The prompt is stored with `Strip: nil`,
-i.e. *without* even the unconditional `crlf` class. §8.1 item 7 and §7.3 both say "verbatim and
-immutably", and a user prompt is not file content read on two platforms, so there is no dedup space
-to fork and nothing to gain from normalization — while a single normalized byte would make the
-stored object no longer the thing the user typed. This is written down here so a later reviewer does
-not "fix" the inconsistency with `tooluse.go`. `stop.go`'s capture blob takes the same treatment for
-the same reason: it is JSON this package generated, not host content.
+**The one deliberate exception to resolved decision 2, and exactly how far it reaches.** The prompt
+is stored with an **empty, non-nil** `Strip`, which `canon.gateSet` reads as "exactly these classes
+— i.e. none — plus the always-on structural ones", and with MinHash off. §8.1 item 7 and §7.3 both
+say "verbatim and immutably", and a user prompt is not file content read on two platforms, so there
+is no dedup space to fork and nothing to gain from stripping timestamps, ANSI, PIDs, addresses,
+tmp paths or durations out of the thing the user typed. This is written down here so a later
+reviewer does not "fix" the inconsistency with `tooluse.go`.
+
+Three things it does **not** mean, all of them structural and none of them optional:
+
+- `Strip: nil` would be the *opposite* request. `internal/canon/classes.go`: *"A nil Strip means
+  'every class' — the documented meaning of the zero Options."* An earlier draft of this plan asked
+  for `Strip: nil` and got the strongest canonicalization available.
+- `crlf` and `paths` still run. `canon.alwaysOn = {ClassCRLF, ClassPaths}` is *"applied regardless
+  of Options.Strip"*, and Appendix C cannot disable either, because §4 makes CRLF→LF normalization a
+  precondition of cross-platform dedup. "Without even the unconditional `crlf` class" is impossible
+  by construction, and the plan does not claim it.
+- Redaction still runs. `store.PutBytes` is REDACT → canonicalize → chunk (§5.22a, §13 invariant 7),
+  and no caller may opt out: a credential pasted into a prompt must not reach `objects/` in the
+  clear, where content-addressing makes it undeletable.
+
+What "verbatim" therefore guarantees is precise and testable: the stored object is the user's bytes
+with nothing removed but secrets and line-ending/separator normalization, no near-duplicate
+signature, no delta-against-prior encoding, and no rewrite ever. `KeepRaw: true` means the store
+keeps the canonicalizer's deltas, so `canon.Restore` reconstructs the pre-normalization bytes
+exactly; between that and the immutable `tool_use.jsonl` entry, nothing the user typed is lost.
+`stop.go`'s capture blob takes the same `verbatimOptions()` treatment for the same reason: it is
+JSON this package generated, not host content.
 
 **Never regenerated.** Nothing in `internal/observer` ever rewrites a prompt object, a prompt
 `tool_use` entry, or a prompt DAG node. `store.PutBytes` is content-addressed and
@@ -1210,6 +1491,7 @@ Repeats: r.Uses, Message: "repeated action cycle detected", Turns: nil})`. With 
 func (o *observer) OnStop(ctx context.Context, e hookio.Event, subagent bool) (hookio.Output, error)
 func SubagentCaptureID(s core.SessionID, t core.TurnIndex) core.ToolUseID
 func subagentName(e hookio.Event) string
+func subagentArgs(agent, summary string) json.RawMessage   // {"agent":…,"summary":…} for ArgsDigest
 func subagentSummary(e hookio.Event) string
 func tailAssistantText(path string, maxBytes int64) string
 ```
@@ -1226,10 +1508,16 @@ Code's transcript already holds it.
 **SubagentStop (`subagent == true`).**
 
 ```
-1.  agent := subagentName(e)          // Extra["subagent_type"] → Extra["agent_name"] → Extra["agent"] → "subagent"
-    // Extra values are raw JSON: each candidate is json.Unmarshal'ed into a string and skipped
-    // unless that succeeds and yields a non-empty value, so a numeric or object value falls
-    // through to the next key rather than rendering as its JSON text.
+1.  agent := subagentName(e)          // e.Extra["agent"], else "subagent"
+    // The three-way host-name resolution (subagent_type → agent_name → agent) happens in the HOOK
+    // CLIENT, not here: hookio.Event.Extra is tagged `json:"-"`, so it is populated by
+    // hookio.ReadEvent in the client process and dropped by ipc.EncodeRequest. Pre-step (b) is what
+    // puts one resolved key back — rawExtras sends {"subagent":true,"agent":"<name>"} and
+    // resolveEvent restores it into Extra daemon-side — so this function reads ONE key and falls
+    // back to the literal "subagent" when it is absent, malformed, or not a non-empty JSON string.
+    // Without pre-step (b) every production capture would be named "subagent"; the unit test alone
+    // would never have caught it, which is why an end-to-end row asserts the name through the real
+    // daemon (test plan, `stop_test.go` and `observer_e2e_test.go`).
 2.  summary := subagentSummary(e)
     // (a) responseText(e) when e.ToolResponse is non-empty;
     // (b) else tailAssistantText(e.TranscriptPath, 512<<10);
@@ -1244,23 +1532,28 @@ Code's transcript already holds it.
     blob, err := json.Marshal(capture)   // struct field order ⇒ deterministic bytes
     if err != nil { o.soft("stop.marshal", err); return hookio.Empty(), nil }
 5.  res, err := Store.PutBytes(ctx, blob, store.PutOptions{Tool: "SubagentStop", Path: "",
-        Canon: canon.Options{Strip: nil, KeepDeltas: false,
-                             MinHash: sketch.MinHashOptions{Enabled: false}}, KeepRaw: true})
+        Canon: verbatimOptions(), KeepRaw: true})     // prompt.go's empty non-nil Strip, MinHash off
     on err: o.soft("stop.put", err); st.Turn++; st.LastTS = now; return hookio.Empty(), nil
     tok := res.Root.Tokens
     if tok == 0 && o.opt.Tokens != nil {
         tok = o.opt.Tokens.EstimateRoot(ctx, res.Root.Chunks, tokens.ClassJSON)  // the blob is JSON
     }
 6.  id := SubagentCaptureID(e.SessionID, st.Turn)
+    digest, preview := store.ArgsDigest(subagentArgs(agent, summary))   // §5.8 owns the ≤120-byte cap
     Store.RecordToolUse(ctx, store.ToolUseRecord{ID: id, Session: e.SessionID, Turn: st.Turn,
-        TS: now, Tool: "SubagentStop", ArgsDigest: core.HashBytes("qompack.args.v1", []byte(agent)),
-        ArgsPreview: truncateRunes(agent+": "+summary, argsPreviewMax),
+        TS: now, Tool: "SubagentStop", ArgsDigest: digest, ArgsPreview: preview,
         Root: res.Root.Hash, Bytes: int64(len(blob)), Tokens: tok,
         Status: store.StatusOK, Subagent: agent})
-7.  Graph.AddNode(dag.Node{ID: toolUseNode(id), Kind: dag.KindToolUse, Turn: st.Turn, TS: now,
-        Pos: o.advancePos(st, tok), Ref: string(id), Root: res.Root.Hash, Tokens: tok})
-    for _, r := range refs { Graph.AddEdge(dag.Edge{From: toolUseNode(id),
-        To: toolUseNode(r.ToolUseID), Kind: dag.EdgeConsumes, Weight: 1, Turn: st.Turn}) }
+7.  Graph.AddNode(dag.Node{ID: dag.ToolUseNode(id), Kind: dag.KindToolUse, Turn: st.Turn, TS: now,
+        Pos: o.advancePos(st, tok), Ref: "SubagentStop", Root: res.Root.Hash, Tokens: tok})
+    for _, r := range refs { Graph.AddEdge(dag.Edge{From: dag.ToolResultNode(r.ToolUseID),
+        To: dag.ToolUseNode(id), Kind: dag.EdgeConsumes, Weight: 1, Turn: st.Turn}) }
+    o.enrol(st, dag.ToolUseNode(id))                  // segment membership, graph.go
+    // D-1, no exception: the subagent's RESULTS are the earlier/producer end and the capture is the
+    // consumer, so every edge runs toolresult:<ref> → tooluse:<capture>. This is the one node set
+    // SP-08 still builds by hand — a subagent capture is not a transcript tool call, so there is no
+    // dag.Observed* shape for it — and the ids come from dag's constructors, never from string
+    // concatenation. `Ref` is the tool name, matching what BuildToolUse puts on a tool-use node.
 8.  st.SubagentSince = len(st.ToolUses); st.Turn++; st.LastTS = now
     o.count("observer.subagent_capture"); Graph.Flush(ctx)
 9.  return hookio.Empty(), nil
@@ -1324,11 +1617,16 @@ func (o *observer) ensureSegment(ctx context.Context, st *sessionState, s core.S
 ```
 
 `ensureSegment`: `cur, err := Segments().Current(ctx, s)`; if `err == nil && !cur.Closed` then
-`st.Segment = cur.ID`; otherwise `id, err := Segments().Open(ctx, store.Segment{Session: s,
-StartTurn: st.Turn, StartTS: now, Features: map[string]float64{}, Closed: false})` and
-`st.Segment = id`. An `Open` failure is `soft("segment.open")` and leaves `st.Segment = 0`, which
-every call site tolerates. **Closing on a changepoint is SP-12's**; the only close SP-08 performs
-is the session-end close below.
+`st.Segment = cur.ID` and `st.SegStartTurn = cur.StartTurn`; otherwise
+`st.PrevSegment = st.Segment` and `id, err := Segments().Open(ctx, store.Segment{Session: s,
+StartTurn: st.Turn, StartTS: now, Features: map[string]float64{}, Closed: false})`, then
+`st.Segment, st.SegStartTurn = id, st.Turn`. Either way `st.SegStartPos = st.PrefixTokens`, which is
+`dag.SegmentSpec.StartPos` — the opening token position that makes a segment boundary a position
+`CrossingEdges` can be asked about. On the resume path `PrefixTokens` has just been rehydrated from
+`state/observer.json`, so the value is the real prefix offset rather than zero. An `Open` failure is
+`soft("segment.open")` and leaves `st.Segment = 0`, which every call site tolerates (`enrol` emits
+nothing, and step 1 of `OnSessionEnd` skips). **Closing on a changepoint is SP-12's**; the only
+close SP-08 performs is the session-end close below.
 
 `OnSessionEnd`, in this exact order (§7.3 "Flush, compact the store, write session index"), after
 the same preamble — `ctx` check, `now := o.now()`, `st := o.session(...)`, `st.mu.Lock()` **without**
@@ -1342,6 +1640,12 @@ a `defer`, because step 7 releases it explicitly before touching `o.mu`:
                 "lexical_cohesion": fs.LexicalCohesion, "gap_seconds": fs.GapSeconds,
                 "todo_transition": fs.TodoTransition}
         }
+        dag.BuildSegment(o.opt.Graph, dag.SegmentSpec{      // the segment NODE and the chain edge
+            ID: st.Segment, PrevID: st.PrevSegment,
+            StartTurn: st.SegStartTurn, EndTurn: st.Turn, TS: now,
+            StartPos: st.SegStartPos,
+            Tokens: core.Tokens(st.PrefixTokens - st.SegStartPos),
+            Members: nil})                                   // membership was enrolled incrementally
         Segments().Close(ctx, st.Segment, st.Turn, feats)     // the session-index write
     }
 2.  Graph.Flush(ctx)                                          // dag/deps.jsonl
@@ -1363,9 +1667,28 @@ a `defer`, because step 7 releases it explicitly before touching `o.mu`:
 8.  return hookio.Empty(), nil
 ```
 
+`BuildSegment` is called with `Members: nil` because `graph.go`'s `enrol` already emitted one
+`member → segment` `EdgeSequence` per node as it arrived (legal under D-6, which makes an edge that
+precedes its endpoints a normal interleaving). What is left for close time is the segment node
+itself and the `previous → current` chain edge, which is what makes a boundary visible to
+`CrossingEdges`: §8.4 scores a cut point by how many edges straddle it, and a boundary whose only
+crossing edge is the chain link is exactly the cheap cut the scheduler hunts for. `st.PrevSegment`
+is 0 for a project's first segment — `SegmentID` is 1-based precisely so 0 can mean "none".
+
 `saveSketches` writes `filepath.Join(root, ".qompack", "sketches", "touch.cms")` and
 `"explore.hll"` via `sketch.Save`, skipping nil sketches, softing errors. It **never** writes
 `tried.bloom` — §3.3 reserves that file for `negknow.RebuildBloom`.
+
+**Which of the two writers owns the sketch files.** SP-05's `handleFlush` also calls
+`SketchSet.Save` after it calls the `SessionEnd` seam, so both run on one `flush`. The ownership is
+SP-08's, and it is not a coin toss: `SketchSet.Save` returns early unless `SketchSet.dirty` is set,
+and only `SketchSet.Write` sets it — whereas the observer mutates the sketches through the raw
+`*sketch.CMS` / `*sketch.HLL` / `*sketch.MisraGries` pointers `WireObserver` hands it (see
+`observer_ops.go`), so `dirty` stays false and `handleFlush`'s call is a no-op. Step 4 above is
+therefore the write that actually happens. Both writers go through `sketch.Save` to the same two
+paths, so even when something else in the daemon has dirtied the set the second write is idempotent
+and neither can produce a half-file. `TestOnSessionEnd_Order` pins step 4's position;
+`TestE2E_ObserverThroughDaemon` pins the files' existence after a real `flush` through the daemon.
 
 Steps 1–6 are individually softed: a GC failure never prevents the state file from having been
 written, and a segment-close failure never prevents the flush.
@@ -1383,9 +1706,10 @@ File: `<root>/.qompack/state/observer.json`, written with `paths.WriteAtomic` (n
 {
   "version": 1,
   "sessions": {
-    "01J8…": { "turn": 41, "prefix_tokens": 128340, "segment": 7,
-               "last_ts": 1723406400123, "last_tool_use": "tooluse:toolu_01A",
-               "last_result": "toolresult:toolu_01A", "subagent_since": 12,
+    "01J8…": { "turn": 41, "prefix_tokens": 128340, "segment": 7, "prev_segment": 6,
+               "seg_start_turn": 33, "seg_start_pos": 104880,
+               "last_ts": 1723406400123, "last_tool_use_id": "toolu_01A",
+               "last_tool_use_turn": 40, "subagent_since": 12,
                "todo_done": ["migrate schema"], "tool_uses": [
                  {"id":"toolu_01A","root":"sha256:ab…","tool":"FileRead","path":"src/auth.ts","bytes":2458}
                ] }
@@ -1404,9 +1728,12 @@ type persistedSession struct {
     Turn         core.TurnIndex   `json:"turn"`
     PrefixTokens int              `json:"prefix_tokens"`
     Segment      core.SegmentID   `json:"segment"`
+    PrevSegment  core.SegmentID   `json:"prev_segment"`
+    SegStartTurn core.TurnIndex   `json:"seg_start_turn"`
+    SegStartPos  int              `json:"seg_start_pos"`
     LastTS       core.UnixMilli   `json:"last_ts"`
-    LastToolUse  string           `json:"last_tool_use"`
-    LastResult   string           `json:"last_result"`
+    LastToolUseID   string        `json:"last_tool_use_id"`     // the ToolUseID, NOT a dag.NodeID
+    LastToolUseTurn core.TurnIndex `json:"last_tool_use_turn"`
     SubagentSince int             `json:"subagent_since"`
     TodoDone     []string         `json:"todo_done"`
     ToolUses     []persistedToolUse `json:"tool_uses"`
@@ -1439,22 +1766,71 @@ so state survives a daemon kill between `SessionEnd`s.
 
 ---
 
-### `internal/daemon/observer_ops.go` (new — the single file SP-08 adds outside its own package)
+### `internal/daemon/observer_ops.go` (new — the one file SP-08 adds outside its own package)
 
-**Responsibility.** Wire the observer into SP-05's op-routing table without editing daemon
-internals, exactly as §5.4's extension-seam note prescribes and as SP-12 will later do with
-`scheduler_runtime.go`.
+**Responsibility.** Attach the observer to SP-05's late-bound `Services` seams without editing
+daemon internals and without touching the op-routing table, exactly as §5.4's extension-seam note
+prescribes and as SP-12 will later do with `scheduler_runtime.go`.
 
 ```go
 package daemon
 
-// WireObserver constructs the L0 observer over the daemon's live services and registers the five
-// L0 ops. Called from the daemon's construction path once Options are complete.
-func WireObserver(o Options, s *SessionRegistry) (observer.Observer, error)
+// WireObserver constructs the L0 observer over the daemon's live services and binds it to the five
+// L0 function seams. Called from the daemon's construction path once Options are complete.
+func WireObserver(o *Options, s *SessionRegistry) (observer.Observer, error)
 
 type symbolAdapter struct{ ex symbols.Extractor }   // observer must not import `symbols` (§3.2)
 func (a symbolAdapter) Names(path string, b []byte) []string
 ```
+
+**`Bind`, never `Handle`.** The wiring is one call:
+
+```go
+obsv, err := observer.New(observer.Options{ /* … as below … */ })
+if err != nil { return nil, err }
+o.Bind(func(s *Services) {
+    s.ObserveTool   = func(ctx context.Context, e hookio.Event) error {
+        _, err := obsv.OnToolUse(ctx, e); return err
+    }
+    s.ObservePrompt = obsv.OnUserPrompt                       // (hookio.Output, error) — matches
+    s.ObserveStop   = func(ctx context.Context, e hookio.Event, subagent bool) error {
+        _, err := obsv.OnStop(ctx, e, subagent); return err
+    }
+    s.SessionStart  = obsv.OnSessionStart                     // (hookio.Output, error) — matches
+    s.SessionEnd    = func(ctx context.Context, e hookio.Event) error {
+        _, err := obsv.OnSessionEnd(ctx, e); return err
+    }
+})
+```
+
+`ObserveTool`, `ObserveStop` and `SessionEnd` return **only `error`** (`internal/daemon/options.go`);
+their `hookio.Output` is discarded, which costs nothing because resolved decision 7 already fixes
+those three at `hookio.Empty()`. `ObservePrompt` and `SessionStart` return `(hookio.Output, error)`
+and are assigned directly — those are the two entry points that may emit output.
+
+**SP-08 registers no ops through `Handle`, and that is not a style preference.** `Options.Handle`
+*"registers h as the handler for op, replacing any previous registration"*, and `buildRoutes` copies
+`o.Ops()` first, filling from `defaultRoutes` only for ops nobody claimed. SP-05's five default
+routes are where the durability machinery lives: `handleObserveTool`/`handleObserveStop` are
+`registry.Touch` then, unless the mode is `ModeOff`, `ingest.Accept` — *the WAL append that
+00-ARCHITECTURE §2.4 makes the durability boundary*, and the reason ACK can be sent before any
+indexing work. `handleObservePrompt` adds the synchronous reply inside `promptReplyDeadline`;
+`handleFlush` is `registry.End`, `ingest.CloseSession`, the `SessionEnd` seam, `contract.WriteMarker`,
+`SketchSet.Save` and `Drain`. Overriding any of them would delete WAL-before-ACK (E6's
+`TestIngestACKPrecedesProcessing`, budget B-B), the hot-path breach/spool submode (E8), the session
+registry, the terminal-hook marker (E10's `TestMarkerIsWrittenByFlushAndCheckpointOnly`) and the
+mode-enforcement table's row 1 — and it could not put them back, because `ingest` is an unexported
+field of an unexported struct that nothing outside SP-05's own files can reach. It would also leave
+the four `Services` seams SP-05 built for exactly this purpose permanently nil. `Bind` is the
+sanctioned seam: *"This is the seam a wave-2/3 subplan uses to attach its own function seams
+(ObserveTool, SessionStart, …) without editing daemon internals or colliding with a sibling
+subplan."* If a route override is ever genuinely wanted, SP-05 must first export a way for the
+override to reach `ingest.Accept`; that is an `arch/` amendment, not a line in this file.
+
+Two things follow. The observer never builds an `ipc.Response`, so it never names `mon.Mode()` or
+the registry's hot-path submode — `SessionRegistry` spells that `HotMode()`, not `HotPathMode()`,
+and SP-08 calls neither. And panic recovery stays where SP-05 put it, on the route side, rather than
+being re-implemented per handler here.
 
 - `symbolAdapter.Names` calls `a.ex.Extract(path, b)` and returns the deduplicated `Name` fields in
   first-appearance order.
@@ -1462,18 +1838,15 @@ func (a symbolAdapter) Names(path string, b []byte) []string
   return observer.ModePassive }`.
 - `OnFeatures` maps `observer.FeatureSample` field-for-field into `scheduler.Features` and calls
   `o.Sched.Observe(ctx, f, fs.Turn)` **when `o.Sched != nil`** (it is nil through wave 2).
-- `OnSignals` records the three booleans on the session registry and, when `o.Sched != nil`,
-  forwards them as a `scheduler.Features{TodoTransition: 1}` nudge on `TodoCompleted ||
-  TestPassed || GitCommit` — the G1.5 task-boundary delivery.
+- `OnSignals` logs the three booleans at `Debug` and, when `o.Sched != nil`, forwards them as a
+  `scheduler.Features{TodoTransition: 1}` nudge on `TodoCompleted || TestPassed || GitCommit` — the
+  G1.5 task-boundary delivery. It does **not** write to the session registry: `SessionState` carries
+  no signal fields, and adding one would be a Rule W-3 change to SP-05's type.
 - Sketch pointers come from `o.Sketches` (`*daemon.SketchSet`, SP-05): pass its `Touch`,
-  `Explore` and `Hot` members. If SP-05 named those members differently at merge time, adapt **only
-  in this file** — never in `internal/observer`.
-- Ops registered through `Handle`: `ipc.Op("observe.tool") → OnToolUse`,
-  `"observe.prompt" → OnUserPrompt`, `"observe.stop" → OnStop(…, req.Raw contains
-  {"subagent":true})`, `"session.start" → OnSessionStart`, `"flush" → OnSessionEnd`.
-  Each handler recovers panics, converts `(hookio.Output, error)` into
-  `ipc.Response{OK: err == nil, Mode: mon.Mode(), Hot: reg.HotPathMode(), Output: &out}` and never
-  returns a Go error to the transport.
+  `Explore` and `Top` members as the observer's `Touch`/`Explore`/`Hot`. They are handed over as raw
+  pointers rather than through `SketchSet.Write`, which is why `OnSessionEnd` owns the sketch write
+  (see `session.go`). If SP-05 named those members differently at merge time, adapt **only in this
+  file** — never in `internal/observer`.
 - `if p, ok := obsv.(observer.Persister); ok { o.Idle().Register("observer.persist", 50, p.Persist) }`
   so O3 idle time flushes the DAG and the state file. Priority `50` is mid-band: below SP-12's
   frontier advancement, above GC.
@@ -1485,8 +1858,17 @@ func (a symbolAdapter) Names(path string, b []byte) []string
 Every test below is written and run (failing) before the implementation it covers, inside the
 commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 `testdata/corpora/toolout/` (SP-04). Fakes live in `internal/observer/fakes_test.go`:
-`fakeStore` (in-memory, records every call), `fakeGraph` (records nodes/edges), `fakeGrammar`,
-`panicBloomStore`, `fakeSymbols`, and `testutil.FakeClock`.
+`fakeStore` (in-memory, records every call), `fakeGraph`, `fakeGrammar`, `panicBloomStore`,
+`fakeSymbols`, and `testutil.FakeClock`.
+
+`fakeGraph` records nodes and edges **and implements the full `dag.Graph` interface, `Out` and `In`
+included**. That is not optional bookkeeping: `dag.BuildToolUse` calls `turnLinkKind`, which calls
+`sharesState`, which reads the graph back through `Out` and `In` to decide `EdgeSequence` versus
+`EdgeControlOnly`. A double that returns nil from both would make every turn link control-only and
+would silently invalidate `TestGraph_TurnLinkIsSequenceWhenAFileIsShared`. The reference behaviour
+is `dag.Open(t.TempDir(), config.Defaults(), logging.Nop())`, and the graph rows that assert on edge
+kinds run against that real graph rather than the recorder, with `fakeGraph` reserved for the rows
+that only count calls (`TestGraph_FlushNotCalledPerToolUse`, the nil-tolerance rows).
 
 ### `tombstone_test.go`
 
@@ -1496,11 +1878,12 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 | `TestTombstone_NoPathUsesArgsPreview` | `Tool: "Bash"`, `Path: ""`, `ArgsPreview: "go test ./internal/store/..."`, `Bytes: 812` | `[cleared: sha256:…… · 812B · Bash go test ./internal/store/... · re-expandable]` |
 | `TestTombstone_LongPreviewTruncatedTo48Runes` | `ArgsPreview` of 200 ASCII chars | subject is exactly 47 runes + `…` |
 | `TestTombstone_MegabyteSize` | `Bytes: 3_500_000` | contains ` · 3.3MB · ` |
+| `TestTombstone_GigabyteSize` | `Bytes: 3 << 30` | contains ` · 3.0GB · ` — the shipped `humanBytes` GB tier survives the extension |
 | `TestTombstone_SupersededMarker` | `Status: StatusSuperseded` | `… · superseded · re-expandable]` |
 | `TestTombstone_EphemeralMarker` | `Ephemeral: true` | `… · ephemeral · re-expandable]` |
 | `TestTombstone_BothMarkers` | ephemeral + superseded | `… · ephemeral · superseded · re-expandable]` |
 | `TestTombstone_NoSubject` | `Path: ""`, `ArgsPreview: ""` | `[cleared: sha256:…… · 0B · Bash · re-expandable]` (no double space) |
-| `TestTombstoneGolden` | 12 records covering every branch | byte-identical to `testdata/golden/observer/tombstones.txt` |
+| `TestTombstoneGolden` | 13 records covering every branch, size tiers B/KB/MB/GB included | byte-identical to `testdata/golden/observer/tombstones.txt` |
 | `TestTombstoneNote_SingleLine` | — | contains `expand`, contains no `\n` |
 | `TestNormalizeToolName` | table: Read→FileRead, MultiEdit→FileEdit, Write→FileWrite, Task→AgentTool, `mcp__qompack__recall`→unchanged | as stated |
 | `TestIsCompactable` | the nine §2.2 names → true; `AgentTool`, `TodoWrite`, `mcp__qompack__expand` → false | as stated |
@@ -1538,8 +1921,9 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 | `TestOnToolUse_CanonOptionsFromConfig` | default config | `Strip` == `{crlf, timestamps, ansi, pids, addresses, tmpPaths, durations}`, `MinHash{Enabled:true, Permutations:128, NearDupThreshold:0.9}` |
 | `TestOnToolUse_FileVersionAppendedForFileContent` | `Read` then `Edit` on the same path | two `AppendFileVersion` calls, both with the normalized key |
 | `TestOnToolUse_NoFileVersionForGrep` | `Grep` with `path` | zero `AppendFileVersion` calls |
-| `TestOnToolUse_ArgsDigestAndPreview` | Bash `go test ./...` | `ArgsPreview == "go test ./..."`; `ArgsDigest == core.HashBytes("qompack.args.v1", compactJSON)` |
-| `TestOnToolUse_PreviewTruncatedAt120Runes` | 500-char command | preview is 119 runes + `…` |
+| `TestOnToolUse_ArgsDigestAndPreview` | Bash `{"command":"go test ./..."}` | `ArgsPreview == "go test ./..."`; `ArgsDigest`/`ArgsPreview` deep-equal `store.ArgsDigest(e.ToolInput)` — asserted against that call, never against a locally recomputed digest |
+| `TestOnToolUse_ArgsDigestIsKeyOrderInvariant` | the same two arguments submitted as `{"a":1,"command":"x"}` and `{"command":"x","a":1}` | one `ArgsDigest` value, proving the observer did not re-derive it with `json.Compact` (mirrors `store.TestArgsDigest_KeyOrderInvariant` at the production call site) |
+| `TestOnToolUse_PreviewTruncatedByStore` | 500-char command | `len(preview) <= 120` bytes and it ends in `…`; the cap is §5.8's, not the observer's |
 | `TestOnToolUse_MCPResultIsEphemeral` | `tool_name: "mcp__qompack__expand"` | record `Ephemeral: true`; zero CMS/HLL/MG adds; no supersession scan |
 | `TestOnToolUse_EmptyResponseStillIndexed` | `ToolResponse: null` | one `RecordToolUse` with `Bytes: 0`, zero `PutBytes` |
 | `TestOnToolUse_PutFailureIsSoft` | fakeStore returns error from `PutBytes` | returns `hookio.Empty(), nil`; `observer.err.put` counter == 1; zero `RecordToolUse` |
@@ -1561,7 +1945,7 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 
 | Test | Setup | Expected |
 |---|---|---|
-| `TestSupersede_IdenticalRootMarksEarlier` | same file read twice, identical bytes | `MarkSuperseded(older, newer)` called once; one `EdgeSupersedes` from newer→older |
+| `TestSupersede_IdenticalRootMarksEarlier` | same file read twice, identical bytes | `MarkSuperseded(older, newer)` called once; exactly one `EdgeSupersedes`, running **older → newer** (`dag.ToolUseNode(older) → dag.ToolUseNode(newer)`, D-1), and **no** edge in the reverse direction |
 | `TestSupersede_SupersetChunkSet` | read A = chunks {c1,c2}; read B = {c1,c2,c3} | B supersedes A |
 | `TestSupersede_SubsetDoesNotSupersede` | read A = {c1,c2,c3}; read B = {c1,c2} with Jaccard below threshold | zero `MarkSuperseded` |
 | `TestSupersede_NearDuplicateAboveThreshold` | signatures with Jaccard 0.95, threshold 0.9 | supersedes |
@@ -1573,8 +1957,8 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 | `TestSupersede_EphemeralNeitherDirection` | ephemeral MCP result then a real read; and the reverse | zero `MarkSuperseded` in both orders |
 | `TestSupersede_LookbackCapped` | 100 prior records | `ToolUsesByPath` called with `limit == 32` |
 | `TestSupersede_StatusSurvivesReopen` | real store, mark, `Close`, `Open`, `ToolUse(older)` | `Status == store.StatusSuperseded`, `SupersededBy == newer` |
-| `TestSupersede_PrevOnPathIsMostRecent` | real store; three reads of one path | the third call's `prevOnPath` is the **second** read's id, and `graph_test`'s `EdgeSharedFile` points at it |
-| `TestSupersede_PrevOnPathEmptyForFirstTouch` | first read of a path | `prevOnPath == ""`; zero `EdgeSharedFile` |
+| `TestSupersede_ToolUsesByPathIsMostRecentFirst` | real store; three reads of one path | `ToolUsesByPath(path, 32)` returns the three records newest-first — the §5.8 ordering `marked[0]` (and therefore `ObservedTool.Supersedes`) relies on |
+| `TestSupersede_EmitsNoEdgesItself` | fakeGraph; a read that supersedes two priors | `detectSupersession` adds **zero** edges; after `emitToolGraph` the graph holds exactly two `EdgeSupersedes` edges, both older→newer, one of them contributed by `dag.BuildToolUse` |
 | `TestIsSuperset_EmptyOlder` | `older == nil` | `false` |
 | `PropertyIsSupersetReflexive` (rapid) | random chunk sets | `isSuperset(x, x) == true`; `isSuperset(x∪y, x) == true` |
 
@@ -1582,18 +1966,24 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 
 | Test | Setup | Expected |
 |---|---|---|
-| `TestGraph_ToolUseProducesResult` | one tool use | nodes `tooluse:<id>` (KindToolUse) and `toolresult:<id>` (KindToolResult); edge `EdgeProduces` between them |
-| `TestGraph_SequenceChain` | two tool uses in one turn | `EdgeSequence` `toolresult:1 → assistant:<s>:<t>` and `assistant:<s>:<t> → tooluse:2` |
-| `TestGraph_FileConsumesAndProduces` | `Read a.ts` then `Write a.ts` | `EdgeConsumes` from the read, `EdgeProduces` from the write, both to `file:a.ts` |
-| `TestGraph_SharedFileEdge` | two reads of one path | `EdgeSharedFile` from the second tool use to the first |
-| `TestGraph_SymbolEdges` | fakeSymbols returning `["refreshToken","parseJWT"]` | two `KindSymbol` nodes, two `EdgeSharedSymbol` edges |
-| `TestGraph_SymbolsSkippedAboveCap` | body of `symbolScanCap+1` bytes | zero symbol nodes |
+| `TestGraph_ToolUseProducesResult` | one tool use | nodes `dag.ToolUseNode(id)` (KindToolUse, `Ref == "FileRead"`) and `dag.ToolResultNode(id)` (KindToolResult); one `EdgeProduces` between them |
+| `TestGraph_SequenceChainAcrossTurns` | tool use in turn 0, prompt, tool use in turn 2, both touching `a.ts` | `EdgeConsumes` `toolresult:<first> → dag.AssistantNode(2)` and `EdgeSequence` `dag.AssistantNode(2) → tooluse:<second>` |
+| `TestGraph_ParallelSiblingsShareATurnAndGetNoConsumesEdge` | two tool uses in **one** turn (decision 4) | **zero** `toolresult:<first> → assistant:*` edges; both tool uses hang off the same `dag.AssistantNode(turn)`; the emitted subgraph is acyclic (D-7's `tooluse → toolresult → assistant → tooluse` cycle never forms) |
+| `TestGraph_ObserverOutputIsAcyclic` | 200-event mixed session through `emitToolGraph`, `OnUserPrompt` and `OnStop` | a topological sort of every emitted edge succeeds — the observer-level counterpart of `dag.TestBuilderOutputIsAcyclic`, which guards the builders only |
+| `TestGraph_TurnLinkIsControlOnlyWhenNothingIsShared` | `Read a.ts` then `Bash` with no path or symbol overlap | the second call's `assistant → tooluse` edge is `EdgeControlOnly`, so §6.4 thin slicing has something to drop on observer-produced graphs |
+| `TestGraph_TurnLinkIsSequenceWhenAFileIsShared` | `Read a.ts` then `Edit a.ts` in a later turn | that edge is `EdgeSequence`, not `EdgeControlOnly` |
+| `TestGraph_FirstToolUseOfASessionIsSequence` | one tool use, no predecessor | `EdgeSequence` — a control-only head would make the opening turn unreachable under a thin slice |
+| `TestGraph_SharedFileOrientation` | `Read a.ts` then `Write a.ts` | one `dag.FileNode("a.ts")`; `EdgeSharedFile` `file:a.ts → tooluse:<read>` and `tooluse:<write> → file:a.ts` (D-1: a read consumes the anchor, a write produces it) |
+| `TestGraph_NoToolUseToToolUseSharedFileEdge` | two reads of one path | both couple through the shared `file:` node; **zero** `EdgeSharedFile` edges whose endpoints are both tool-use nodes |
+| `TestGraph_SymbolEdges` | fakeSymbols returning `["refreshToken","parseJWT"]` on `src/auth.ts` | nodes `dag.SymbolNode("src/auth.ts","parseJWT")` and `…"refreshToken"` — i.e. `symbol:src/auth.ts#parseJWT` — emitted in **ascending** name order by the builder, each with an `EdgeSharedSymbol` edge oriented like the file edge |
+| `TestGraph_SymbolsSkippedAboveCap` | body of `symbolScanCap+1` bytes | `symbolNames` returns nil; zero symbol nodes |
 | `TestGraph_SymbolsCappedAt64` | 200 distinct names | exactly 64 symbol nodes |
 | `TestGraph_PosIsMonotoneAndPreIncrement` | three tool uses of 100, 200, 300 tokens | result node `Pos` values 0, 100, 300 |
-| `TestGraph_SegmentAnchor` | `st.Segment == 7` | `EdgeSequence` from `segment:7` to the tool-use node |
+| `TestGraph_SegmentMembershipPointsIntoTheSegment` | `st.Segment == 7` | `EdgeSequence` from the tool-use node **to** `dag.SegmentNode(7)`, matching `dag.BuildSegment`'s member direction — never `segment → tooluse` |
+| `TestGraph_SegmentNodeAndChainEdgeAtClose` | segment 6 closed, segment 7 opened and closed | `dag.SegmentNode(7)` exists with `Ref == "<startTurn>-<endTurn>"`, and one `EdgeSequence` `segment:6 → segment:7` |
 | `TestGraph_NilSymbolsTolerated` | `Options.Symbols == nil` | no panic, zero symbol nodes |
 | `TestGraph_FlushNotCalledPerToolUse` | 10 tool uses | `fakeGraph.FlushCalls == 0` |
-| `TestNodeIDFormats` | table | `tooluse:toolu_1`, `toolresult:toolu_1`, `assistant:s:3`, `userprompt:s:3`, `file:src/a.ts`, `symbol:refreshToken`, `segment:7` |
+| `TestGraph_IDsComeFromDagConstructors` | one prompt, one tool use, one symbol, one segment | every emitted `Node.ID` and every edge endpoint is `require.Equal` against the corresponding `dag.ToolUseNode`/`ToolResultNode`/`AssistantNode`/`UserPromptNode`/`FileNode`/`SymbolNode`/`SegmentNode` call — in particular `assistant:<turn>` and `userprompt:<turn>` carry **no session component**, matching `testdata/golden/contracts/dag/graph-basic.jsonl` |
 
 ### `sketches_test.go`
 
@@ -1612,10 +2002,11 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 
 | Test | Setup | Expected |
 |---|---|---|
-| `TestOnUserPrompt_StoresVerbatim` | prompt `"fix the pgbouncer 1.18 pool bypass"` | `PutBytes` receives exactly those bytes; `Canon.Strip == nil`; `Canon.MinHash.Enabled == false` |
+| `TestOnUserPrompt_StoresVerbatim` | prompt `"fix the pgbouncer 1.18 pool bypass"` | `PutBytes` receives exactly those bytes; `Canon.Strip != nil && len(Canon.Strip) == 0` (the empty-non-nil "no optional class" request, **not** `nil`, which `canon` reads as "every class"); `Canon.MinHash.Enabled == false`; `KeepRaw == true` |
+| `TestOnUserPrompt_VerbatimAgainstARealStore` | real store on `t.TempDir()` with the six strip classes enabled in config; prompt containing a curly apostrophe, an ISO-8601 timestamp and `PID 4711` | `store.Open(root)` returns the prompt byte for byte, timestamp and PID intact, apostrophe intact — the assertion pre-step (a) exists for; a store without the amendment fails this row |
 | `TestOnUserPrompt_RecordsIndexEntry` | same | `RecordToolUse` with `Tool == "UserPromptSubmit"`, `ID == "prompt_<session>_0"` |
 | `TestOnUserPrompt_TurnIncrements` | two prompts | ids `prompt_s_0`, `prompt_s_1`; `st.Turn == 2` |
-| `TestOnUserPrompt_DAGNodeAndSegmentEdge` | `st.Segment == 3` | `KindUserPrompt` node; `EdgeSequence` `segment:3 → userprompt:s:0` |
+| `TestOnUserPrompt_DAGNodeAndSegmentEdge` | `st.Segment == 3`, first prompt of the session | node `dag.UserPromptNode(0)` (`userprompt:0` — no session component) of `KindUserPrompt`; `EdgeConsumes` `userprompt:0 → dag.AssistantNode(0)` from `dag.BuildUserPrompt`; `EdgeSequence` `userprompt:0 → dag.SegmentNode(3)` for membership |
 | `TestOnUserPrompt_NeverRegenerated` | same prompt text submitted twice against a real store | two records, identical `Root`; `Stats().Objects` unchanged after the second |
 | `TestOnUserPrompt_EmptyPromptIgnored` | `Prompt: ""` | zero store calls, `hookio.Empty()` |
 | `TestOnUserPrompt_GrammarSymbolAppended` | fakeGrammar | `Append("user")` called once |
@@ -1633,12 +2024,13 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 | `TestOnStop_SubagentCapturesSummary` | `ToolResponse: {"content":"Found the bug in retry.ts"}` | `PutBytes` body unmarshals to a `SubagentCapture` with that `Summary` |
 | `TestOnStop_SubagentCapturesToolHashes` | three tool uses recorded since the last prompt | `ToolResults` has 3 refs with the right ids, roots, tools, paths |
 | `TestOnStop_SubagentWindowStartsAtLastPrompt` | prompt, 2 tool uses, subagent stop, 1 tool use, subagent stop | first capture 2 refs, second capture 1 ref |
-| `TestOnStop_SubagentNameFromExtra` | `Extra["subagent_type"] = "\"code-reviewer\""` | `Agent == "code-reviewer"` |
-| `TestOnStop_SubagentNameFallback` | no Extra keys | `Agent == "subagent"` |
+| `TestOnStop_SubagentNameFromExtra` | `Extra["agent"] = "\"code-reviewer\""`, as pre-step (b)'s `resolveEvent` restores it from `Raw` | `Agent == "code-reviewer"`, and the same value on `ToolUseRecord.Subagent` |
+| `TestOnStop_SubagentNameFallback` | no `Extra` keys, or `Extra["agent"]` holding a number or an object | `Agent == "subagent"` |
+| `TestRawExtras_ResolvesTheSubagentNameClientSide` (`internal/cli`) | an `observe stop --subagent` payload whose `Extra` carries `subagent_type` (and separately: only `agent_name`; only `agent`; a numeric `subagent_type` plus a string `agent_name`; none of the three) | `rawExtras` emits `{"subagent":true,"agent":"<name>"}` for the first four in that preference order, and exactly `{"subagent":true}` for the last |
 | `TestOnStop_SummaryFromTranscriptTail` | empty `ToolResponse`; temp JSONL whose last assistant line has two text blocks | `Summary == "block one\nblock two"` |
 | `TestOnStop_TranscriptMissingIsSilent` | `TranscriptPath` points at a nonexistent file | `Summary == ""`, capture still written, no error |
 | `TestOnStop_EmptySummaryStillStoresHashes` | no response, no transcript, 2 tool uses | capture written with 2 refs |
-| `TestOnStop_ConsumesEdges` | 2 refs | two `EdgeConsumes` from the capture node to each tool-use node |
+| `TestOnStop_ConsumesEdges` | 2 refs | two `EdgeConsumes`, each running `dag.ToolResultNode(ref) → dag.ToolUseNode(captureID)` — the refs are the earlier/producer end under D-1 — and none in the reverse direction |
 | `TestOnStop_CaptureIsDeterministic` | two *independent* observers over a real store, each with a fresh session state, a `FakeClock` frozen at the same instant, the same session id and the same two preceding tool uses | both `PutBytes` bodies are byte-identical and produce the same root hash; `Stats().Objects` is unchanged after the second capture. (Within one session the capture is intentionally *not* repeatable: `Turn` advances and the id changes, which is what makes each capture addressable.) |
 | `TestOnStop_RetrievalPathG10_1` | real store; capture then `store.ToolUse(SubagentCaptureID(...))` then `Open(root)` | JSON round-trips to the same `SubagentCapture` |
 | `TestTailAssistantText_PartialFirstLine` | file whose truncation window starts mid-line | the partial line is discarded, the last complete assistant line is returned |
@@ -1672,12 +2064,13 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 | `TestOnSessionStart_ClearDelegates` | `Source: "clear"` | `OnClear` called once |
 | `TestOnSessionStart_CompactWithoutRehydratorIsEmpty` | `Rehydrate == nil` | `hookio.Empty()`, no error, segment still ensured |
 | `TestOnSessionStart_UnknownSourceTreatedAsStartup` | `Source: "marble_origami"` | startup branch taken |
-| `TestOnSessionEnd_Order` | recording fakes | call order exactly: `Segments().Close`, `Graph.Flush`, `Store.Flush`, `sketch.Save`×2, state write, `Store.GC` |
+| `TestOnSessionEnd_Order` | recording fakes | call order exactly: `dag.BuildSegment` (segment node + `segment:<prev> → segment:<cur>` chain edge), `Segments().Close`, `Graph.Flush`, `Store.Flush`, `sketch.Save`×2, state write, `Store.GC` |
 | `TestOnSessionEnd_GCPolicyFromConfig` | defaults | `GCPolicy{RetainDays:30, RetainSessions:10, DryRun:false, Deadline:8s}` |
 | `TestOnSessionEnd_GCFailureIsSoft` | GC errors | returns `hookio.Empty(), nil`; `observer.err.gc == 1`; state file still written |
 | `TestOnSessionEnd_NeverWritesTriedBloom` | real temp project | `.qompack/sketches/tried.bloom` does not exist after SessionEnd |
 | `TestOnSessionEnd_SegmentClosedWithFeatures` | 16 prior events | `Close` receives `endTurn == st.Turn` and a 5-key feature map |
-| `TestState_RoundTrip` | populate, `persistState`, new observer, `loadState` | turn, prefix tokens, segment, tool-use ring all restored |
+| `TestState_RoundTrip` | populate, `persistState`, new observer, `loadState` | turn, prefix tokens, segment, `prev_segment`, `seg_start_turn`, `seg_start_pos`, `last_tool_use_id`/`last_tool_use_turn` and the tool-use ring all restored |
+| `TestState_ResumedPrevTurnStillGuardsTheCycle` | persist mid-session with `last_tool_use_turn == 7`, reload, then a tool use at turn 7 | no `toolresult → assistant` consumes edge (the parallel-sibling guard survives a daemon restart, because `PrevTurn` is persisted rather than recomputed as 0) |
 | `TestState_CorruptFileRecovers` | write `{{{` to `state/observer.json` | fresh state; `observer.json.bad` exists; `Warn` logged; no error |
 | `TestState_AtomicWrite` | inspect during write via `testutil` | no partial file observable at the target path |
 
@@ -1688,12 +2081,28 @@ commit that introduces it. Fixtures come from `internal/testutil` (SP-01) and
 | `TestE2E_ObserverThroughDaemon` | real binary, real daemon, real store on `t.TempDir()`; send `session-start`, 40 `observe tool`, 3 `observe prompt`, 1 `observe stop --subagent`, `flush` | every hook exits 0; `index/tool_use.jsonl` has 44 lines; `dag/deps.jsonl` non-empty; `sketches/touch.cms` and `explore.hll` exist; `sketches/tried.bloom` does not |
 | `TestE2E_HooksExitZeroUnderFaultInjection` | make `.qompack/objects` read-only, then drive the same sequence | every hook exits 0; `LOUD.log` or the counter file records the failures |
 | `TestE2E_SupersessionVisibleAfterRestart` | read a file twice, `flush`, restart daemon, read `tool_use.jsonl` | the first record carries `"status"` superseded and `superseded_by` of the second |
-| `TestE2E_VerbatimPromptSurvivesRestart` | prompt, flush, restart, `store.Open(root)` | bytes equal the original prompt exactly |
+| `TestE2E_VerbatimPromptSurvivesRestart` | prompt containing a curly apostrophe, an ISO-8601 timestamp and a PID; flush; restart; `store.Open(root)` | bytes equal the original prompt exactly, with the volatile substrings intact — the end-to-end proof that pre-step (a) reached the real store |
+| `TestE2E_SubagentNameReachesTheDaemon` | real binary; a `SubagentStop` payload carrying `subagent_type: "code-reviewer"` on stdin, driven through `qompack observe stop --subagent`, then `flush` | the `tool_use.jsonl` capture record's `subagent` field is `"code-reviewer"`, **not** `"subagent"` — the assertion the in-process unit test cannot make, because it is the IPC boundary that drops `Extra` |
+| `TestE2E_ThinSliceDropsControlOnlyEdges` | 40 mixed tool calls through the real daemon, then read `dag/deps.jsonl` | at least one edge has `EdgeControlOnly`, and `BackwardSlice` with `Thin: true` returns strictly fewer nodes than with `Thin: false` — the property ADR 0007's 43%/88%/2.2× figures claim of production traffic |
 
 ### `test/e2e/phase1_exit_test.go` (new) — the Phase 1 exit criterion
 
-Fixtures are generated in-test with `eval.Synthesize` at fixed seeds, so the number is reproducible
-offline and does not depend on filenames SP-02 chooses:
+**The call sequence is synthesized; the bytes are real.** `eval.Synthesize` is the right source for
+the *shape* of a session — tool mix, re-read rate, changepoints, subagent calls — and the wrong
+source for its *content*: every tool result it emits is a token count, `call.Result =
+mustCompactJSON(map[string]int{"tokens": tokens})` (`internal/eval/synth.go`), and the committed
+corpus shows it (`"result": {"tokens": 646}`, `"args": null`). Driving that through the observer
+would measure roughly sixteen bytes per event with nothing volatile in them, which makes
+`ratioOn == ratioOff` and the 1.25× canonicalization gate unpassable by any change to
+`internal/observer`; `args: null` would also leave `pathKey` empty on every event, so no file
+version, no supersession, no HLL or Misra-Gries feed and no shared-file or symbol edge would ever be
+exercised — and the `FileRereadRate` the read-heavy spec turns on lives in `tc.Paths`, which the old
+`eventsFor` never read.
+
+So this harness pairs the synthesized sequence with **real tool output from
+`testdata/corpora/toolout/`** — SP-04's committed bash, test-runner, grep, glob, git, ANSI, fileread
+and webfetch captures, already listed under *Fixtures needed* below, and already the basis of
+`test/dedup`'s honest with/without measurement:
 
 ```go
 var readHeavy = eval.SynthSpec{
@@ -1711,14 +2120,28 @@ var testOutputHeavy = eval.SynthSpec{
     CompactionAt: []core.TurnIndex{200},
 }
 const seedReadHeavy, seedTestHeavy = 0x5108_0001, 0x5108_0002
+
+// corpus loads testdata/corpora/toolout/<group>/*.txt once, keyed by the group directory name, in
+// sorted filename order. Each file's sibling <name>.txt.meta.json carries {"tool":…,"path":…}; only
+// the bytes are used here, the tool name comes from the synthesized call.
+type corpus map[string][][]byte
+
+// payloadFor picks the response bytes for one synthesized call, deterministically: the group is
+// chosen from the tool name (Read/Edit → "fileread", Grep → "grep", Glob → "glob",
+// Bash → "testrunner" for testOutputHeavy and "bash" for readHeavy, WebFetch → "webfetch"), and the
+// file within the group is indexed by a hash of the call's first path — so re-reading a path
+// re-serves the SAME bytes and FileRereadRate turns into real chunk reuse, while the "-v2" variants
+// in the fileread and sp06 groups supply the "same file, two lines changed" case §6.1 names.
+func payloadFor(c corpus, tool string, paths []string, seq int) []byte
 ```
 
-**Driving a synthetic session through the observer.** `eval.Session` is a turn list, not a hook
-stream, so the harness materializes hook events itself — one helper, no ambiguity:
+**Driving the session through the observer.** `eval.Session` is a turn list, not a hook stream, so
+the harness materializes hook events itself — one helper, no ambiguity:
 
 ```go
-func eventsFor(s eval.Session) []hookio.Event {
+func eventsFor(s eval.Session, c corpus) []hookio.Event {
     var out []hookio.Event
+    seq := 0
     for _, t := range s.Turns {
         if t.Role == "user" {
             out = append(out, hookio.Event{HookEventName: "UserPromptSubmit",
@@ -1726,14 +2149,31 @@ func eventsFor(s eval.Session) []hookio.Event {
             continue
         }
         for _, tc := range t.ToolCalls {
+            // ToolInput is built from tc.Paths — eval.ToolCall keeps the paths in their own field
+            // and leaves Args nil for ordinary calls, so without this the observer sees no path at
+            // all and PathsFromInput returns nothing.
+            in := json.RawMessage(`{}`)
+            if len(tc.Paths) > 0 {
+                in = mustJSON(map[string]string{"file_path": tc.Paths[0]})
+            } else if len(tc.Args) > 0 {
+                in = tc.Args
+            }
+            body := payloadFor(c, tc.Name, tc.Paths, seq)
+            seq++
             out = append(out, hookio.Event{HookEventName: "PostToolUse",
                 SessionID: core.SessionID(s.ID), ToolName: tc.Name, ToolUseID: tc.ID,
-                ToolInput: tc.Args, ToolResponse: tc.Result})
+                ToolInput: in,
+                ToolResponse: mustJSON(map[string]string{"content": string(body)})})
         }
     }
     return out
 }
 ```
+
+`{"file_path": …}` is the key `PathsFromInput` reads for `Read`/`Edit`/`Write`; for `Grep` and
+`Glob` the helper emits `{"pattern":"…","path":paths[0]}` instead, matching those tools' real
+payload shapes, and for `Bash` it emits `{"command":"go test ./..."}` with no path. The point is
+only that a synthesized call arrives at `OnToolUse` looking like the hook payload it stands for.
 
 The test calls `OnUserPrompt` for `UserPromptSubmit` events and `OnToolUse` for `PostToolUse`
 events, in order, against a real `store.Open` on `t.TempDir()` with a `FakeClock` advancing 1 s per
@@ -1742,13 +2182,20 @@ count SP-06 accumulates) and **"store size" is `Stats().Bytes`**; the ratio asse
 `Stats().DedupRatio`, which §5.8 defines as `RawBytes / Bytes`. No other definition of the ratio is
 used anywhere in this subplan.
 
+`test/dedup` measures the same corpus at the canonicalizer level and is the cross-check: if
+`TestPhase1_CanonicalizationGapOnTestOutput` and `test/dedup`'s `testrunnerGainFloor` (also 1.25)
+disagree, the observer is doing something to the bytes on the way in, which is the bug to find —
+not a reason to move either number.
+
 | Test | Assertion |
 |---|---|
-| `TestPhase1_DedupRatioReadHeavy` | drive every `ToolCall` of `eval.Synthesize(seedReadHeavy, readHeavy)` through `observer.OnToolUse` against a real store with canonicalization **on**; `store.Stats().DedupRatio >= 4.0`. **This is the §10 Phase 1 exit criterion.** |
+| `TestPhase1_DedupRatioReadHeavy` | drive every `ToolCall` of `eval.Synthesize(seedReadHeavy, readHeavy)`, carrying `testdata/corpora/toolout/` bytes, through `observer.OnToolUse` against a real store with canonicalization **on**; `store.Stats().DedupRatio >= 4.0`. **This is the §10 Phase 1 exit criterion.** |
 | `TestPhase1_CanonicalizationGapOnTestOutput` | run `testOutputHeavy` twice — once with `store.canonicalize.enabled=true`, once `false` — and assert `ratioOn >= ratioOff*1.25`. The ≥25% figure is this subplan's operational reading of *"the gap on test-output-heavy sessions justifies O2 on its own"*; both raw numbers are printed and written to `phase1-dedup.json` in the test's temp dir regardless of pass/fail. |
+| `TestPhase1_PathsReachTheObserver` | the read-heavy run | `Stats().Files > 0`, at least one `AppendFileVersion`, at least one `MarkSuperseded`, and a non-zero HLL cardinality — the guard against a harness that silently stops exercising path-keyed behaviour, which is exactly how the previous `eventsFor` failed |
+| `TestPhase1_ResponseBytesAreReal` | the read-heavy run | `Stats().RawBytes` divided by the tool-call count exceeds 1 KB, so the ratio is measured over real tool output rather than over `{"tokens":N}` envelopes |
 | `TestPhase1_ReportArtifact` | the emitted JSON has keys `read_heavy_ratio_canon`, `read_heavy_ratio_raw`, `test_heavy_ratio_canon`, `test_heavy_ratio_raw`, `raw_bytes`, `store_bytes`, `objects`, `tool_uses` |
 | `TestPhase1_StoreGrowthSublinear` (§11.3 guardrail) | bytes stored over the second half of the read-heavy session are strictly less than over the first half |
-| `TestPhase1_CorpusSweep` | when `testdata/sessions/synthetic/` exists, replay every session in it and log each ratio; informational, fails only if any session panics |
+| `TestPhase1_CorpusSweep` | when `testdata/sessions/synthetic/` exists, replay every session in it — through the same `eventsFor`, so its calls also carry corpus bytes — and log each ratio; informational, fails only if any session panics |
 
 **Hook p99 < 15 ms** is the other half of the exit criterion and is measured by SP-05's existing
 harness, now with a non-trivial handler behind it:
@@ -1763,18 +2210,45 @@ ms. Micro-benchmarks `BenchmarkOnToolUse_*` and `BenchmarkTombstone` cover B-C.
 
 ### Fixtures needed
 
-- `testdata/golden/observer/tombstones.txt` — 12 rendered markers, created in commit 1.
-- `testdata/corpora/toolout/` — SP-04's committed raw bash/test/grep output; reused, not extended.
+- `testdata/golden/observer/tombstones.txt` — 13 rendered markers, created in commit 1.
+- `testdata/corpora/toolout/` — SP-04's committed raw bash/test/grep/glob/git/ANSI/fileread/webfetch
+  output; **reused, not extended**, by both `BenchmarkOnToolUse_TestOutput256KB` and the Phase 1
+  harness, which draws every tool-result payload from it.
 - `internal/observer/testdata/transcript_tail.jsonl` — 40-line synthetic transcript with sidechain
   assistant messages, for `TestOnStop_SummaryFromTranscriptTail`.
-- No new session fixtures: Phase 1 uses `eval.Synthesize`.
+- No new session fixtures: Phase 1 takes its call *sequence* from `eval.Synthesize` and its *bytes*
+  from the corpus above. Adding real result bytes to `eval.SynthSpec` would be an `arch/` amendment
+  against `internal/eval` and is explicitly not done here.
 
 ---
 
 ## Commit plan
 
-All work happens on **`feat/sp08-observer-l0`**, cut from `develop` with SP-01, SP-03, SP-04,
-SP-05, SP-06 and SP-07 already merged:
+### Commit 0 — the `arch/sp08-observer-seams` amendment (a **separate branch**, merged first)
+
+The Implementation spec's pre-step, landed on `develop` before `feat/sp08-observer-l0` is cut. It is
+one commit on its own branch and does not count toward SP-08's 5–8 band.
+
+```
+git fetch && git checkout develop && git pull
+git checkout -b arch/sp08-observer-seams
+```
+
+- [ ] `fix(store): honour an explicit empty Canon.Strip and a caller MinHash opt-out` —
+      `internal/store/put.go`'s `canonOptions` per pre-step (a), plus
+      `TestCanonOptions_EmptyStripMeansNoOptionalClasses`, plus the §5.8 note in
+      `plans/00-ARCHITECTURE.md`.
+- [ ] Same commit: `internal/cli/hookclient.go`'s `rawExtras` forwarding the resolved agent name and
+      `internal/daemon/handlers.go`'s `resolveEvent` restoring `Event.Extra` from `req.Raw`, per
+      pre-step (b), with `TestRawExtras_ResolvesTheSubagentNameClientSide`,
+      `TestResolveEvent_RestoresRawExtras` and the extended `TestDecodeRequestRoundTrip`.
+- [ ] `go run ./tools/devtool ci-local` green on the amendment branch alone; merge to `develop`.
+- [ ] Footer: `Refs: SP-08 pre-step, §0 amendment rule, §5.8 PutOptions, §5.3 Event.Extra`
+
+---
+
+The remaining work happens on **`feat/sp08-observer-l0`**, cut from `develop` with SP-01, SP-03,
+SP-04, SP-05, SP-06, SP-07 **and the amendment above** already merged:
 
 ```
 git fetch && git checkout develop && git pull
@@ -1788,11 +2262,16 @@ Conventional Commits per §10: `<type>(<scope>): <subject>`, body explains the d
 
 ### Commit 1 — `feat(observer): addressable tombstones, tool classification, and task-boundary signals`
 
-- [ ] Write `internal/observer/tombstone_test.go` and `signals_test.go` in full (all rows of both
-      tables above, plus `BenchmarkTombstone` and `FuzzExtractSignals`). Run
-      `go test ./internal/observer/ -run 'Tombstone|Signals|TestOutcome|PathsFromInput|ResponseText'`
-      and confirm they **fail** against SP-01's stub.
-- [ ] Add `internal/observer/doc.go`, `tombstone.go`, `signals.go`.
+- [ ] Extend `internal/observer/tombstone_test.go` — it already ships with four passing tests — and
+      write `signals_test.go` in full: all rows of both tables above, plus `BenchmarkTombstone` and
+      `FuzzExtractSignals`. Update `TestTombstone_RendersTheSection81Form`'s pinned string for the
+      new `…`, and leave `TestHumanBytes_UsesTheBinaryDivisor` untouched. Run
+      `go test ./internal/observer/ -run 'Tombstone|HumanBytes|Signals|TestOutcome|PathsFromInput|ResponseText'`
+      and confirm the **new** rows fail — including the updated §8.1-form assertion, which fails
+      until the ellipsis lands — while `TestHumanBytes_UsesTheBinaryDivisor` and
+      `TestTombstone_IsAddressable` still pass. A run in which those two also fail means the change
+      broke a shipped guarantee.
+- [ ] Rewrite `internal/observer/doc.go`, extend `tombstone.go`, implement `signals.go`.
 - [ ] Add `testdata/golden/observer/tombstones.txt` (generate once, eyeball every line against
       §8.1 item 2, then commit).
 - [ ] `go run ./tools/devtool fmt lint test` — green; the golden test passes byte-for-byte.
@@ -1805,9 +2284,12 @@ Conventional Commits per §10: `<type>(<scope>): <subject>`, body explains the d
       failure.
 - [ ] Add `observer.go` (Options/New/session map/locking/soft/metrics), `state.go`, `tooluse.go`,
       `graph.go`, `sketches.go`.
-- [ ] Flip off the `t.Skip`s in SP-01's observer conformance suite, or create
-      `internal/observer/observertest` with `RunObserverSuite` if SP-01 shipped none (see
-      **Exit criteria**), and run it against the real implementation.
+- [ ] Point `internal/observer/observertest.RunObserverSuite` — which **ships** — at the real
+      implementation and make its `/behaviour` block pass. The block is guarded by `skipIfStub`,
+      which probes `OnToolUse` for `core.ErrNotImplemented`, so landing the real `New` lifts the
+      Rule W-1 skip by itself; the work is making the eight behaviour cases green, not editing the
+      suite. Add the real factory alongside the two stub factories in
+      `internal/observer/observertest/suite_test.go`.
 - [ ] `go run ./tools/devtool test-race` for `./internal/observer/...` — green.
 - [ ] `go test -bench BenchmarkOnToolUse -benchtime 200x ./internal/observer/` and paste the p50/p99
       into the commit body against budget **B-C (p99 < 50 ms)**.
@@ -1844,11 +2326,19 @@ Conventional Commits per §10: `<type>(<scope>): <subject>`, body explains the d
 
 - [ ] Write `session_test.go` in full. Confirm failure.
 - [ ] Add `session.go`; complete `state.go`'s `Persist`.
-- [ ] Add `internal/daemon/observer_ops.go` with `WireObserver`, `symbolAdapter`, the five op
-      registrations, the mode mapping, the feature/signal forwarding, and the idle `Persist`
-      registration.
-- [ ] Add `test/e2e/observer_e2e_test.go` (all four rows).
-- [ ] `go run ./tools/devtool build test test-race` and `go test ./test/e2e/ -run ObserverE2E` —
+- [ ] Add `internal/daemon/observer_ops.go` with `WireObserver`, `symbolAdapter`, the **single
+      `o.Bind`** attaching the five `Services` seams (no `Handle` call anywhere in the file), the
+      mode mapping, the feature/signal forwarding, and the idle `Persist` registration.
+- [ ] Confirm `git grep -n 'Handle(' -- internal/daemon/observer_ops.go` returns nothing, and that
+      SP-05's `TestIngestACKPrecedesProcessing` and
+      `TestMarkerIsWrittenByFlushAndCheckpointOnly` still pass with the observer wired — they are
+      what a `Handle` override would silently break.
+- [ ] Add `internal/daemon/observer_ops_test.go` with `TestWireObserver` — builds a real observer
+      against a temp project, calls `WireObserver(&o, obs)`, and asserts all five `Services` seams
+      are non-nil, the mode mapping round-trips, and a driven `observe.tool` request reaches the
+      observer through SP-05's route (the daemon-side test V3-VERIFY H12 re-runs).
+- [ ] Add `test/e2e/observer_e2e_test.go` (all six rows).
+- [ ] `go run ./tools/devtool build test test-race` and `go test ./test/e2e/ -run 'TestE2E_'` —
       green on Windows and on Linux.
 - [ ] Confirm the import-graph check in `verify` still passes (observer must not have acquired an
       import of `scheduler`, `checkpoint`, `symbols` or `contract`).
@@ -1856,8 +2346,9 @@ Conventional Commits per §10: `<type>(<scope>): <subject>`, body explains the d
 
 ### Commit 7 — `test(observer): Phase 1 exit-criterion harness and hot-path benchmarks`
 
-- [ ] Add `test/e2e/phase1_exit_test.go` with the five rows, the two `SynthSpec` literals and
-      `eventsFor`. TDD ordering for a gate commit: write the assertions **at the design's numbers
+- [ ] Add `test/e2e/phase1_exit_test.go` with the seven rows, the two `SynthSpec` literals, the
+      `corpus`/`payloadFor` loader over `testdata/corpora/toolout/`, and the `eventsFor` that builds
+      `ToolInput` from `tc.Paths`. TDD ordering for a gate commit: write the assertions **at the design's numbers
       first** (`>= 4.0`, `ratioOn >= ratioOff*1.25`), run them, and only then tune the observer. If
       an assertion fails, the fix goes in `internal/observer` (or in the `PutOptions` it passes) —
       **the threshold is never weakened**; a genuine need to move it is a §11.3 sign-off, not an
@@ -1888,7 +2379,7 @@ session has landed commit 2's skeleton, because everything downstream depends on
 
 - `observer.go`, `state.go`, `doc.go` — the shared types every other file compiles against.
 - `internal/daemon/observer_ops.go` — it touches another subplan's package and must be reviewed
-  against SP-05's actual `Options`/`SessionRegistry`/`Handle` shapes as merged.
+  against SP-05's actual `Options`/`Bind`/`Services`/`SessionRegistry` shapes as merged.
 - All seven commits. Subagents return **diffs and test results, never commits**; the main session
   stages, runs `devtool ci-local`, and commits in the sequential order above.
 - The Phase 1 numbers and the ADR: they are the deliverable's headline claim and must be produced
@@ -1961,16 +2452,18 @@ Only then fan out.
 
 **Local criteria:**
 
-- [ ] Every `t.Skip` in the observer conformance suite shipped by SP-01 is removed (Rule W-1); the
-      suite passes against the real implementation. §5.22's named list of `<pkg>test` packages is
-      illustrative and does not spell `observertest`; if SP-01's `develop` has no
-      `internal/observer/observertest` package, SP-08 **creates** it in commit 2 — §5.22 says "for
-      every interface above", §5.21 is one of those interfaces, and later waves need a factory-based
-      suite to test their own `Observer` doubles against. Its shape is
-      `func RunObserverSuite(t *testing.T, name string, factory func(t *testing.T) observer.Observer)`
-      covering: all five methods return `hookio.Empty()` and a nil error on a well-formed event;
-      none panics on a zero `hookio.Event`; all five return `ctx.Err()` on a pre-cancelled context;
-      and `Tombstone` on a zero record is non-empty and single-line.
+- [ ] The Rule W-1 skip in the observer conformance suite no longer fires. `internal/observer/
+      observertest` **ships** — `func RunObserverSuite(t *testing.T, name string, factory func(t
+      *testing.T) observer.Observer)` in `suite.go`, with `behaviour.go` and `suite_test.go` beside
+      it — so SP-08 creates nothing here. Its `/behaviour` block is gated by `skipIfStub`, which
+      probes `OnToolUse` for `core.ErrNotImplemented`; landing the real `New` lifts the gate, and
+      SP-08's job is to make the eight behaviour cases pass — `post_tool_use_never_blocks_the_tool_
+      call`, `user_prompt_capture_never_blocks_the_prompt`, `session_start_branches_on_source`,
+      `stop_and_subagent_stop_are_both_accepted`, `session_end_flushes_without_reporting_an_error`,
+      `every_entry_point_tolerates_a_malformed_event`, `replaying_one_event_twice_is_not_an_error`
+      and `extract_signals_detects_todo_test_and_git` — with the real factory registered in
+      `suite_test.go`. `Tombstone` stays asserted in `internal/observer/tombstone_test.go` rather
+      than in the suite, because `observertest` may not import `store` (§3.2).
 - [ ] `go run ./tools/devtool ci-local` green: `verify` (gofumpt clean, `golangci-lint` clean,
       `go vet`, `nomagic`, import-graph layer check, test-only-dep check, build), `test` and
       `test-race`, `cover` (≥ 75% for `internal/observer`), `crossbuild`, `bench-gate`,
@@ -1984,8 +2477,12 @@ Only then fan out.
       (`TestOnSessionEnd_NeverWritesTriedBloom`, `TestE2E_ObserverThroughDaemon`).
 - [ ] Every hook subcommand still exits 0 under fault injection
       (`TestE2E_HooksExitZeroUnderFaultInjection`) — §13 invariant 6.
+- [ ] The `arch/sp08-observer-seams` amendment is merged to `develop` **before** this branch is cut,
+      and `feat/sp08-observer-l0` contains no edit to `internal/store`, `internal/cli` or
+      `internal/daemon/handlers.go`.
 - [ ] Exactly 7 commits on `feat/sp08-observer-l0`, all conventional, none carrying an attribution
-      trailer; CI's trailer grep passes.
+      trailer; CI's trailer grep passes. The amendment commit is on its own branch and is not one of
+      the seven.
 - [ ] `docs/adr/0008-observer-l0.md` exists and records the eight resolved decisions plus every
       measured number.
 
@@ -2008,13 +2505,20 @@ Only then fan out.
       `EstimateRoot` receives `[]core.ChunkRef`, and `MarkSuperseded(older, by)` argument order is
       older-first).
 - [ ] No §5 interface owned by another subplan was modified, and no method was added to one
-      (Rule W-3). Any need for one was raised as an `arch/` amendment instead.
-- [ ] Only one file outside `internal/observer` and the test trees was added:
-      `internal/daemon/observer_ops.go`.
+      (Rule W-3). The two behaviours that had to change were raised as the `arch/sp08-observer-seams`
+      amendment and landed on `develop` first, exactly as §0 requires.
+- [ ] Only one file outside `internal/observer` and the test trees was added on this branch:
+      `internal/daemon/observer_ops.go`. The amendment's three edits — `internal/store/put.go`,
+      `internal/cli/hookclient.go`, `internal/daemon/handlers.go` — are on the amendment branch.
+- [ ] `internal/observer` declares **no** NodeID constructor, no `argsPreviewMax`, no args-preview
+      key table and no `argsDigest` helper: `git grep -nE '"tooluse:|"toolresult:|"assistant:|
+      "userprompt:|"file:|"symbol:|"segment:|argsPreviewMax' -- internal/observer` returns nothing
+      outside test fixtures.
 - [ ] `nomagic` clean: every literal in `{0.1, 1.25, 12.5, 0.55, 0.004, 0.9, 0.4}` and
       `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}` inside `internal/observer` is
-      either read from `config` or carries a `//nomagic:allow <reason>` comment (`kib = 1024`,
-      `argsPreviewMax = 120`).
+      either read from `config` or carries a `//nomagic:allow <reason>` comment. After this subplan
+      the only such annotation in the package is the shipped `bytesPerKB = 1024` in `tombstone.go`;
+      `120` no longer appears at all, because §5.8's `store.ArgsDigest` owns the preview cap.
 - [ ] Commit count verified: `git rev-list --count develop..feat/sp08-observer-l0` is **7**, within
       the 5–8 band.
 - [ ] `git log develop..feat/sp08-observer-l0 --format=%B | grep -Ei 'co-authored-by|signed-off-by|
