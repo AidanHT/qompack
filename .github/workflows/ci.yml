@@ -159,8 +159,9 @@ jobs:
     #     go run ./tools/devtool bench-compare v2-bench.txt
     #
     # It is deliberately NOT a step here, and the reason is the baseline rather than the cost.
-    # testdata/bench-baseline.txt was recorded on one Windows host whose own header records an
-    # isolated fsync at ~2.1 ms, and §5.3 says in as many words that the I/O-bound rows "will look
+    # testdata/bench-baseline.txt was recorded on one Windows host whose isolated fsync measured
+    # ~2.1 ms (recorded in docs/adr/, not in the file itself — it is raw `go test -bench` output with
+    # no header block), and §5.3 says in as many words that the I/O-bound rows "will look
     # very different on the Linux CI runners" and that a large improvement there is a change of
     # machine, not a change of code. A 25% threshold fed cross-machine deltas fails constantly and
     # then gets switched off, which is a worse outcome than running it by hand — a gate that

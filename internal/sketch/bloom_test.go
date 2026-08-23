@@ -120,8 +120,8 @@ func TestBloom_SizingTable(t *testing.T) {
 // bloomSizing derives k from the UNCAPPED m and then holds m itself inside MaxBloomBits (the
 // ceiling rule in errors.go). Above capacity ≈ 9.34 M at p = 1e-6 the cap binds, and a k left over
 // from the m that was asked for is then wrong in the expensive direction: k = (m/n)·ln 2 minimises
-// the false-positive rate at a GIVEN m, so over-probing a filter that is now eight times smaller
-// raises the rate as well as the cost. The pair really is reachable — MaxBloomCapacity and
+// the false-positive rate at a GIVEN m, so over-probing a filter that is now 1.80x smaller
+// (4.82e8 bits requested, 2^28 allocated) raises the rate as well as the cost. The pair really is reachable — MaxBloomCapacity and
 // Appendix A's tightest rate are both legal configuration values — which is why this is a
 // re-derivation rather than a note in a comment.
 //
