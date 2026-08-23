@@ -1,6 +1,6 @@
 # Qompack — 00 Global Architecture
 
-**Status:** normative. Every subplan (`plans/NN-*.md`) conforms to this document.
+**Status:** normative. Every subplan (`plans/V<K>-SP-NN-<slug>.md`) conforms to this document.
 **Source of truth for requirements:** `Qompack.md` v1.2. Where this document and `Qompack.md`
 disagree on *what* to build, `Qompack.md` wins. This document decides *how*.
 
@@ -246,8 +246,8 @@ non-`_test.go` files; CI enforces with an import-graph check.
 
 | Concern | Tool | Pin |
 |---|---|---|
-| Language | Go | `go 1.26` + `toolchain go1.26.4` in `go.mod`; CI matrix `1.26.x` |
-| Format | `gofumpt` | version pinned in `tools/go.mod` |
+| Language | Go | `go 1.26` + `toolchain go1.26.6` in `go.mod`; every workflow pins the exact patch `go.mod`'s `toolchain` names |
+| Format | `gofumpt` | version pinned in `tools/pinned/go.mod` |
 | Lint | `golangci-lint` | `.golangci.yml`: `govet staticcheck errcheck revive gocritic ineffassign unconvert unparam misspell bodyclose gosec forbidigo copyloopvar` |
 | Custom lint | `tools/lint/nomagic` (in-repo `x/tools/go/analysis` pass) | forbids float/int literals that duplicate a config default outside `internal/config/defaults.go` (D11) |
 | Vuln scan | `govulncheck` | CI job |
@@ -255,6 +255,14 @@ non-`_test.go` files; CI enforces with an import-graph check.
 | Task runner | `go run ./tools/devtool <task>` | one Go program, identical on PowerShell / bash / zsh. **No Makefile-only workflow** — the dev machine is Windows |
 | Release | `goreleaser` | `.goreleaser.yaml`, 6 targets: linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} |
 | Benchmark diffing | `benchstat` | `devtool bench-compare`, run locally against `testdata/bench-baseline.txt` (V2 ruling: the baseline is single-host; `bench-gate` gains the comparison only once per-OS baselines are recorded on the runners) |
+
+**The Go pin is an equality, not a range.** A range (`go-version: '1.26.x'`) or a
+`go-version-file:` spelling is forbidden in every workflow, and
+`TestWorkflowGoVersionMatchesToolchain` (`test/guards/goversion_test.go`) fails the build if any
+workflow's `go-version` differs from `go.mod`'s `toolchain`. The range spelling was tried and
+rejected: it resolved to go1.26.5 against a `go.mod` pinning go1.26.6 — `GOTOOLCHAIN=local`
+ignores the `toolchain` directive — and left CI building on a Go carrying four stdlib advisories.
+A toolchain bump therefore edits `go.mod` and every workflow in the same commit.
 
 `tools/devtool` tasks (canonical names used by CI and by every subplan's local loop):
 `fmt`, `lint`, `vet`, `build`, `build-all`, `test`, `test-race`, `cover`, `bench`,
@@ -282,7 +290,13 @@ qompack/                                  module: github.com/qompack/qompack
 │   └── CODEOWNERS
 ├── plans/
 │   ├── 00-ARCHITECTURE.md                ← this file
-│   └── NN-sp<NN>-<slug>.md               18 subplan prompts
+│   ├── README.md                         master execution guide; defines the file naming below
+│   ├── V<K>-SP-NN-<slug>.md              18 subplan prompts (V<K> = verification group)
+│   ├── V<K>-VERIFY-<slug>.md             6 checkpoint prompts, one per group
+│   ├── TRACEABILITY.md                   Qompack.md coverage proof
+│   ├── OWNERS.tsv                        package → owner/floor/probe (devtool + test/guards)
+│   ├── CARRIED-DEFECTS.tsv               open defects carried across waves (test/guards)
+│   └── sdd/                              session decision records (see sdd/README.md)
 ├── docs/                                 SP-18 (+ per-subplan ADRs)
 │   ├── architecture.md  config-reference.md  mcp-tools.md  commands.md
 │   ├── user-guide.md  troubleshooting.md  uat.md
@@ -344,8 +358,11 @@ qompack/                                  module: github.com/qompack/qompack
 │   ├── golden/checkpoints/               checkpoint JSON goldens
 │   ├── corpora/toolout/                  raw bash/test/grep output for canonicalizer goldens
 │   └── fixtures/rules/                   fake project trees: paths: rules, nested CLAUDE.md
-└── test/
+└── test/                                 every package here is a composition root (§3.2)
     ├── e2e/                              drives the real binary + real daemon end to end
+    ├── guards/                           build-order, stub-inertness and default guards
+    ├── dedup/                            dedup-ratio harness: chunk + canon in one package
+    ├── integration/                      cross-component seams that exist only on merged trees
     ├── bench/hotpath/                    B-A / B-D harness (5 000 spawns)
     └── replay/                           replay-gate driver, phase-exit-criteria assertions
 ```
@@ -376,7 +393,7 @@ are exhaustive; anything not listed is forbidden.
 | `paths`, `config` | `core` |
 | `logging`, `obs` | `core` `paths` `config` |
 | *(the five above are the **foundation**; every package below may also import all of them)* | |
-| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler` | foundation only |
+| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest` | foundation only |
 | `canon` | `sketch` |
 | `dag` | — |
 | `store` | `chunk` `canon` `sketch` `symbols` `redact` `tokens` |
@@ -388,7 +405,22 @@ are exhaustive; anything not listed is forbidden.
 | `contract` | `hookio` `store` |
 | `ipc` | `hookio` `contract` |
 | `observer` | `hookio` `store` `chunk` `canon` `sketch` `dag` `grammar` `negknow` `tokens` |
-| `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack` | **composition roots** — may import anything; nothing may import them |
+| `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack`, and every `test/**` harness — `test/e2e`, `test/guards`, `test/dedup`, `test/bench/hotpath`, `test/replay`, `test/integration` | **composition roots** — may import anything; nothing may import them |
+
+**Why the test harnesses are roots.** Each one exists precisely because it needs a
+combination no internal package's allow-set permits, and being a root outside `internal/` is what
+keeps the table above from having to widen for it: `test/dedup` needs `chunk` *and* `canon` in one
+package (the table deliberately forbids `canon → chunk`); `test/bench/hotpath` drives the real
+binary plus a real daemon; `test/replay` supplies `eval` with store-growth and negknow-health
+samples so `eval` itself stays foundation-only; `test/integration` exercises cross-component seams
+that exist only on the merged tree. A new `test/**` harness is a root by construction and is
+declared alongside the others.
+
+**This table is the source; `tools/devtool/importrules.go` is its transcription.** The
+`importgraph` check reads that file, and a package present on disk but absent from both its
+allow-set and its composition-root set is an error there — so a new `internal/` package cannot
+land without an amendment commit to this section *and* the matching entry in `importrules.go`.
+The two must be edited together; the checker is not permitted to be a superset of the table.
 
 Consequences worth stating explicitly, because they are the ones that would otherwise be
 discovered as import cycles in wave 1:
@@ -1118,7 +1150,30 @@ type Graph interface {
     Stats() GraphStats
 }
 func Open(root string, cfg config.Config, log logging.Logger) (Graph, error)
+
+// NodeID construction — the ONLY sanctioned way to spell a NodeID (SP-11 amendment).
+func ToolUseNode(id core.ToolUseID) NodeID
+func ToolResultNode(id core.ToolUseID) NodeID
+func AssistantNode(t core.TurnIndex) NodeID
+func UserPromptNode(t core.TurnIndex) NodeID
+func FileNode(pathKey string) NodeID
+func SymbolNode(pathKey, name string) NodeID
+func DecisionNode(id core.DecisionID) NodeID
+func EliminationNode(recordID string) NodeID
+func SegmentNode(id core.SegmentID) NodeID
+func ParseNodeID(id NodeID) (kind NodeKind, key string, ok bool)
 ```
+
+**NodeID prefixes are not a string convention — they are an API.** `NodeID` is
+`"<prefix>:<stable-key>"` split on the *first* colon, and it is the join key between
+`dag/deps.jsonl`, a checkpoint's evidence lists and every MCP retrieval answer. Consumers
+therefore build IDs only through the constructors above and read them back only through
+`ParseNodeID`; concatenating the prefix by hand is forbidden, because two components spelling a
+file node differently do not fail loudly — they silently produce two disconnected halves of the
+same graph. The prefixes are the **long forms** — `tooluse`, `toolresult`, `assistant`,
+`userprompt`, `file`, `symbol`, `decision`, `elimination`, `segment` — never abbreviations; that
+is what the frozen Rule W-2 contract fixtures under `testdata/golden/contracts/dag/` already
+carry, so the long forms are fixed and changing one is a fixture-breaking amendment.
 
 ### 5.10 `internal/negknow` (L2 negative knowledge)
 
@@ -1743,7 +1798,14 @@ type SynthSpec struct {
 the policy is applied to the *logged* action sequence and divergence is computed against what the
 session actually did next, giving a reproducible, model-free estimate; and live mode (off by
 default, `QOMPACK_EVAL_LIVE=1`, never in CI) which re-executes the fork against a real model.
-CI gates on deterministic mode only; the release gate runs live mode over the recorded corpus.
+CI gates on deterministic mode only — and so does the nightly run over the recorded corpus
+(§6.3 tier 2): the replay driver constructs `ReplayOptions{Deterministic: true, …}` and exposes no
+flag to change it, so no live model call can occur in any workflow. Live mode is a declared seam
+with no caller yet. `LiveRunner` is nil in every shipped build, and `Replay` refuses
+non-deterministic mode twice over — once on the `QOMPACK_EVAL_LIVE` gate, once on the absent
+runner. **Wiring tier 3 is SP-17's deliverable:** a `--live` flag on `test/replay` plus the
+`SetLiveRunner` call that fills the seam. Until that lands, "the release gate runs live mode over
+the recorded corpus" describes SP-17's exit criterion, not a mechanism that exists.
 
 ### 5.19 `internal/contract` (G9.3, §12)
 
@@ -1961,7 +2023,10 @@ Three tiers, in ascending fidelity and descending availability:
    `qompack eval import --from <dir>` from `~/.claude/projects/**/**.jsonl`, redacted
    (secrets, absolute home paths, emails) by `eval.Redact`, stored under `$QOMPACK_SESSIONS_DIR`.
    Never committed. Gates releases (§8), not PRs.
-3. **Live fork** — `QOMPACK_EVAL_LIVE=1`, real model calls. Manual, pre-release only.
+3. **Live fork** — `QOMPACK_EVAL_LIVE=1`, real model calls. Manual, pre-release only. The seam
+   (`eval.LiveRunner`, `SetLiveRunner`) ships from wave 1; the caller does not. **SP-17** wires it
+   — `--live` on `test/replay` plus the `SetLiveRunner` call — so tier 3 is unreachable, by
+   construction, in every build before wave 5 (§5.18).
 
 The synthetic generator is itself tested: a golden test asserts that a given seed produces a
 byte-identical session, so replay numbers are comparable across commits.
@@ -2006,7 +2071,7 @@ It: starts a real daemon against a temp project, pre-populates it with a realist
 per-invocation wall time and reading the daemon-side B-B histogram at the end.
 
 Outputs `{budget_id, n, p50, p95, p99, p999, max, pass}` for B-A, B-B, B-D. CI runs it on
-ubuntu-latest, macos-latest, and windows-latest with `n=2000` (5 000 nightly) and **fails the
+ubuntu-latest, macos-latest, and windows-latest with `--iterations 2000` (5 000 nightly) and **fails the
 build if B-A p99 ≥ 15 ms or B-E p99 ≥ 2 s**. B-D is recorded and posted as a PR comment but is
 never a gate — that is the honest treatment of a cost we do not own.
 
@@ -2030,17 +2095,33 @@ baselines recorded on the runners are the stated precondition for wiring it into
 |---|---|---|
 | `verify` | ubuntu | `gofumpt -l` (must be empty) · `golangci-lint run` · `go vet` · custom `nomagic` pass · import-graph layer check · test-only-dep check · `go build ./...` |
 | `lint-windows` | windows | the same `devtool lint`, again on Windows. `stubskips` greps a real test run, so a `runtime.GOOS == "windows"` skip only reaches it on Windows; and `golangci-lint`, `nomagic`, `importgraph` and `testdeps` load packages through the host's build constraints, so the `//go:build windows` files are linted on no other runner |
-| `test` | ubuntu, macos, windows × go 1.26.x | `go test ./...` ; `-race` on ubuntu+macos, `-count=2` on windows (race nightly) |
+| `test` | ubuntu, macos, windows — an **OS matrix only**, one pinned Go (§2.6) | `go test -race -timeout=30m ./...` on ubuntu+macos, with `CGO_ENABLED=1` overriding the workflow default because `-race` requires cgo; `go test -count=2 -timeout=30m ./...` on windows (Windows `-race` runs nightly) |
 | `cover` | ubuntu | merged profile, per-group floors (§6.4), artifact upload |
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
-| `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath -n 2000`; hard fail on B-A / B-E |
+| `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; hard fail on B-A / B-E |
 | `replay-gate` | ubuntu | `devtool replay --corpus testdata/sessions/synthetic --baseline develop`; enforces §11.3 (no metric regresses >2% to improve another without a `sign-off:` trailer in the PR body) and the phase exit criterion of every phase merged so far |
 | `plugin-validate` | ubuntu | regenerate `plugin/**` from `internal/pluginmanifest`, `git diff --exit-code`; JSON-schema-validate `plugin.json`, `hooks.json`, `.mcp.json`; assert all 7 commands and 8 MCP tools present |
-| `security` | ubuntu | `govulncheck ./...` · `gosec` · secret scan · assert zero non-test imports of `net/http`, `net/url`, `crypto/tls` anywhere; `net` only in `internal/ipc` (Unix sockets — and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli` and `tools/` |
+| `security` | ubuntu | `govulncheck ./...` · `devtool lint --only=importgraph,testdeps,bindeps` · two import-allowlist greps over `go list -deps`: **(1)** zero non-test imports of `net/http`, `net/url`, `crypto/tls` from any `internal/**` or `cmd/**` package — `net` itself only in `internal/ipc` (Unix sockets, and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); **(2)** `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli`, and `internal/testutil` (§6.2 real-binary `RunHook`) |
 | `docs` | ubuntu | `devtool gen-config-docs`, `git diff --exit-code` — `docs/config-reference.md` can never drift from `config.Defaults()` |
 
-`.github/workflows/nightly.yml`: fuzz (10 min/target), Windows `-race`, 5 000-iteration bench,
-live-mode replay when `QOMPACK_SESSIONS_DIR` secret is present.
+**Two things the `security` job deliberately does *not* do**, stated here so nobody re-derives them
+from the job name. **`gosec` is not a step in it** — `gosec` is enabled in `.golangci.yml`, so it
+runs inside `golangci-lint` as part of `verify` and again on Windows in `lint-windows`; adding a
+second invocation here would double the runtime for no extra coverage. **There is no secret-scan
+step in Actions at all.** Secret hygiene is enforced upstream of CI instead: `internal/redact`
+scrubs before anything enters the store (§5.23), the redaction fixtures are deliberately
+credential-shaped and are guarded by tests, and the repo's `.gitguardian.yaml` exists to tell an
+*external* scanner to ignore those fixtures — no workflow invokes it. Do not describe this
+pipeline as secret-scanning; a claimed-but-absent scan is worse than an honest absence in a repo
+that commits credential-shaped fixtures on purpose. The third allowlist entry, `internal/testutil`,
+is load-bearing: `internal/testutil/spawn.go` is a non-test file that spawns the real binary for
+§6.2's `RunHook`. The greps scope to `internal/**` and `cmd/**`, so `tools/**` — build-time only,
+never in a shipped binary — is outside the scanned set by construction.
+
+`.github/workflows/nightly.yml`: fuzz (10 min/target), Windows `-race`, 5 000-iteration bench, and
+**deterministic** replay over the recorded corpus (§6.3 tier 2) when the `QOMPACK_SESSIONS_DIR`
+secret is present — the corpus is what makes that run different from `replay-gate`, not the mode.
+Live mode is never run by any workflow (§5.18).
 `.github/workflows/release.yml`: tag-triggered, `goreleaser`, plugin bundle assembly, checksum +
 provenance attestation.
 
@@ -2110,7 +2191,7 @@ Thumbs.db
   cut before verification V<N> is green.
 - Emergency architecture changes: `arch/<reason>` off `develop`, must land before dependent work.
 - Worktrees are encouraged for parallel subplans:
-  `git worktree add ../qompack-sp07 feat/sp07-observer-l0`.
+  `git worktree add ../qompack-sp07 feat/sp07-dependence-dag-and-slicing`.
 
 **Tags.** `v0.<wave>.<n>` on `develop` after each verification; `v<semver>` on `main` at release
 (SP-17).
@@ -2272,9 +2353,15 @@ of any Appendix C key.**
 "runtime": {
   "mode": "auto",                     // "auto" | "full" | "passive" | "off"
   "daemon": { "enabled": true, "idleExitSeconds": 1800, "maxSessions": 8,
-              "ackDeadlineMs": 8, "connectDeadlineMs": 5 },
+              "ackDeadlineMs": 8,
+              // platform-selected: 5 portable, 25 on Windows — see the note below
+              "connectDeadlineMs": 5 },
   "hotPath": { "budgetMs": 15, "breachWindows": 3, "spoolOnBreach": true,
                "maxPayloadBytes": 1048576 },
+  "budgets": { "l0IngestMs": 2, "l0ProcessMs": 50,      // B-B, B-C
+               "checkpointFinalizeMs": 2000,            // B-E
+               "mcpToolCallMs": 250,                    // B-F
+               "hookDegradedMs": 1000 },                // B-G (§12.3 spool append)
   "logging": { "level": "info", "maxFileMB": 10, "maxFiles": 5 },
   "redact": { "enabled": true, "patterns": [] },   // secrets never enter the store
   "telemetry": { "enabled": false },               // hardwired off; key exists to say so
@@ -2284,6 +2371,25 @@ of any Appendix C key.**
   "mcp": { "spanWidenLines": 40, "maxResponseBytes": 262144 }
 }
 ```
+
+`budgets` — together with `selection` and `tokens`, which the excerpt above does not spell out —
+are SP-01 additions recorded in `internal/config/runtime.go`: `budgets` gives §11.3/§2.4's B-B…B-F
+latency budgets (plus B-G's degraded-hook spool append) real config keys, `selection` carries
+closing-note-3's ship-order gate from which `Load` derives `SelectionCfg.Submodular.Enabled`, and
+`tokens` carries the baseline token-estimator constants (G10.2). They are `runtime` keys like any
+other and obey the additive rule above: none of them changes the meaning or default of an
+Appendix C key.
+
+**`connectDeadlineMs` is platform-selected, not a constant.** `internal/config/deadlines.go`
+declares both values — `ConnectDeadlineMsPortable = 5` and `ConnectDeadlineMsWindows = 25` — and
+`config.Defaults()` chooses between them on `runtime.GOOS`. The reason is `go-winio`: it answers
+`ERROR_PIPE_BUSY` with a hard-coded 10 ms sleep before retrying, so a 5 ms deadline on Windows buys
+exactly one `CreateFile` attempt and no retry at all — the first busy pipe becomes a spool fallback
+instead of a connection. A guard fails the build if the default drops below twice that retry
+quantum, so "restoring" 5 on Windows is a red build rather than a tuning choice. Both constants are
+declared unconditionally (no build tags) so either platform's value is readable and testable from
+anywhere. Anything reading this default in prose or in a test reads
+`config.Defaults().Runtime.Daemon.ConnectDeadlineMs`, never the literal.
 
 ### 11.6 The no-hardcoding rule (D11, §12 risk "Cache multipliers change")
 
@@ -2417,4 +2523,7 @@ Three placements are load-bearing and must not be "optimized" back:
 
 Ownership of every coverage-checklist item, the per-wave merge order, and verification gating are
 specified in the subplan decomposition that accompanies this document and are restated at the top
-of each `plans/NN-*.md` file.
+of each `plans/V<K>-SP-NN-<slug>.md` file. `plans/README.md` owns that naming convention: the
+`V<K>-` prefix is the verification group, so the directory listing is the execution order, and
+`SP-NN` is the stable ID that plans, branches (`feat/sp<NN>-<slug>`) and `TRACEABILITY.md` all
+refer to subplans by.
