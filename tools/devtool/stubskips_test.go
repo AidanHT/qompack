@@ -143,12 +143,18 @@ func TestClassifySkips_AcceptsRuleW2(t *testing.T) {
 // absent, and an absent skip is indistinguishable from a compliant one.
 func TestTimedOutPackages_ReportsAKilledBinary(t *testing.T) {
 	events := []testEvent{
-		{Action: "output", Package: modulePath + "/test/integration", Test: "TestHotPath",
-			Output: "panic: test timed out after 30m0s\n"},
-		{Action: "output", Package: modulePath + "/internal/store", Test: "TestPut",
-			Output: "*** Test killed with quit: ran too long\n"},
-		{Action: "output", Package: modulePath + "/internal/core", Test: "TestFine",
-			Output: "ok\n"},
+		{
+			Action: "output", Package: modulePath + "/test/integration", Test: "TestHotPath",
+			Output: "panic: test timed out after 30m0s\n",
+		},
+		{
+			Action: "output", Package: modulePath + "/internal/store", Test: "TestPut",
+			Output: "*** Test killed with quit: ran too long\n",
+		},
+		{
+			Action: "output", Package: modulePath + "/internal/core", Test: "TestFine",
+			Output: "ok\n",
+		},
 	}
 
 	got := timedOutPackages(events)
@@ -169,12 +175,18 @@ func TestTimedOutPackages_ReportsAKilledBinary(t *testing.T) {
 // detector must not quietly turn stubskips into a second test gate.
 func TestTimedOutPackages_IgnoresAnOrdinarilyFailingSuite(t *testing.T) {
 	events := []testEvent{
-		{Action: "output", Package: modulePath + "/internal/core", Test: "TestBoom",
-			Output: "    x_test.go:9: expected 3, got 4\n"},
-		{Action: "output", Package: modulePath + "/internal/core", Test: "TestBoom",
-			Output: "--- FAIL: TestBoom (0.00s)\n"},
-		{Action: "output", Package: modulePath + "/internal/core", Test: "",
-			Output: "FAIL\tgithub.com/qompack/qompack/internal/core\t0.01s\n"},
+		{
+			Action: "output", Package: modulePath + "/internal/core", Test: "TestBoom",
+			Output: "    x_test.go:9: expected 3, got 4\n",
+		},
+		{
+			Action: "output", Package: modulePath + "/internal/core", Test: "TestBoom",
+			Output: "--- FAIL: TestBoom (0.00s)\n",
+		},
+		{
+			Action: "output", Package: modulePath + "/internal/core", Test: "",
+			Output: "FAIL\tgithub.com/qompack/qompack/internal/core\t0.01s\n",
+		},
 		{Action: "fail", Package: modulePath + "/internal/core", Test: "TestBoom"},
 	}
 
