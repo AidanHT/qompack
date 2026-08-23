@@ -266,3 +266,50 @@ func TestCanonicalMetrics_StableAcrossMapOrder(t *testing.T) {
 	require.Equal(t, string(canonicalMetrics(a)), string(canonicalMetrics(b)))
 	require.Contains(t, string(canonicalMetrics(a)), `"fraction_of_opt":0.500000`)
 }
+
+// TestGate_WatchForsAreJudgedAsRatios pins the half of the 2 % rule that could not fail on any
+// input until the 2026-08-22 audit, for two compounding reasons.
+//
+// The baseline was recorded WITHOUT --sketch, so both watch-fors were 0 — below absFloor, which
+// sends judge to its absolute branch. And neither key was in ratioMetrics, so that branch used
+// countAbsTol, a tolerance of 1.0. A false-positive rate and a fill ratio both live in [0, 1], so
+// no reachable move could ever be judged a regression: the §11.4 watch-fors were recorded and
+// never checked.
+//
+// Both are fixed — the keys are ratio metrics, and testdata/baseline/phase0.json now carries the
+// health fixture's real values — so this asserts what the gate can now see.
+func TestGate_WatchForsAreJudgedAsRatios(t *testing.T) {
+	require.True(t, ratioMetrics["bloom_fp_rate"], "a rate in [0,1] on a tolerance of 1.0 is unfailable")
+	require.True(t, ratioMetrics["bloom_fill_ratio"])
+
+	// The committed baseline's own value, moved by more than 2 % in the wrong direction. Lower is
+	// better for an FP rate, so up is the regression.
+	r, regressed := judgeOne(t, "bloom_fp_rate", 0.006, 0.0062, "")
+	require.True(t, regressed, "a +3.3 %% move in the bloom FP rate is a regression")
+	require.InDelta(t, 3.33, r.DeltaPct, 0.05)
+
+	_, inside := judgeOne(t, "bloom_fp_rate", 0.006, 0.00611, "")
+	require.False(t, inside, "+1.8 %% is inside the allowance")
+
+	_, better := judgeOne(t, "bloom_fp_rate", 0.006, 0.004, "")
+	require.False(t, better, "a lower false-positive rate is an improvement")
+}
+
+// TestGate_BaselineCarriesTheWatchForValues is the other half: the fixed tolerance only matters if
+// the committed baseline holds real numbers to compare against. A baseline written without
+// --sketch records zeros, and a zero baseline is below absFloor — which is how the tolerance bug
+// stayed invisible.
+func TestGate_BaselineCarriesTheWatchForValues(t *testing.T) {
+	base, err := loadBaseline(repoPath(t, "testdata/baseline/phase0.json"), "")
+	require.NoError(t, err)
+
+	require.InDelta(t, 0.006, base.WatchFor["bloom_fp_rate"], 1e-9,
+		"the committed baseline must carry testdata/golden/eval/growth/health.json's estFPRate; "+
+			"regenerate it with --sketch")
+	require.InDelta(t, 0.18, base.WatchFor["bloom_fill_ratio"], 1e-9)
+	for name, v := range base.WatchFor {
+		require.Greater(t, v, absFloor,
+			"%s is %v, which is below absFloor — judge falls to its absolute branch and the 2%% rule "+
+				"never applies to it", name, v)
+	}
+}

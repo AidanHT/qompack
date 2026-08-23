@@ -71,7 +71,7 @@
     }
   },
   "watchFor": {
-    "bloom_fill_ratio": 0,
-    "bloom_fp_rate": 0
+    "bloom_fill_ratio": 0.18,
+    "bloom_fp_rate": 0.006
   }
 }
