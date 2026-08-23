@@ -61,7 +61,9 @@ The QPKS layout is a fixed contract instead: every length is declared in the pre
 cross-checked against the actual buffer before anything is allocated, and the CRC-32C catches the
 bit rot that structural checks cannot. Castagnoli rather than IEEE because it has hardware support
 on every architecture Qompack ships to, which keeps the checksum off the critical path of a 32 MiB
-Bloom save — measured at 6.8 µs to marshal and 4.2 µs to unmarshal the 11 984-byte default filter.
+Bloom save — measured at 9.1 µs to marshal and 6.3 µs to unmarshal the default filter
+(`BenchmarkBloomMarshal` / `BenchmarkBloomUnmarshal`, medians of the ten samples in
+`testdata/bench-baseline.txt`).
 
 The three failure modes are kept distinct on purpose: `ErrBadMagic` (not a sketch at all),
 `ErrTruncated` (an interrupted write), `ErrCorrupt` (bit rot). §13 invariant 10 requires degradation
@@ -155,7 +157,8 @@ it.
 cap binds — above capacity ≈ 9.34 M at `p = 1e-6`, which `NewBloom(MaxBloomCapacity, 1e-6)` reaches
 with legal configuration values — a `k` left over from the uncapped `m` is wrong in the expensive
 direction: `k = (m/n)·ln 2` minimises the false-positive rate *at a given m*, so over-probing an
-array eight times smaller raises the rate as well as the cost. At that pair `m/n` lands on 16, where
+array 1.80x smaller than the one requested (4.82 × 10⁸ bits asked for, `MaxBloomBits` = 2²⁸ = 2.68 ×
+10⁸ allocated) raises the rate as well as the cost. At that pair `m/n` lands on 16, where
 the optimal `k` is 11 and the uncapped derivation gave 20. `k` is therefore re-derived from the
 capped `m`, and only on that path, so no filter whose `m` was never capped moves.
 
@@ -195,7 +198,7 @@ The depth is `⌈ln(1/δ)⌉ = ⌈4.60517…⌉ = 5`, with no such ambiguity.
 Cost, and only cost. A 100 KiB tool result has ~102 393 shingle positions, every one of which is
 hashed to decide whether the content-defined sampler keeps it. FNV-1a over an 8-byte shingle is a
 handful of nanoseconds; `core.HashBytes` measures ~90 ns. The whole 100 KiB signature measures
-1.381 ms on the development host with FNV-1a; ~102 000 SHA-256 calls at 90 ns each would be 9.2 ms of
+1.749 ms on the development host with FNV-1a (`BenchmarkMinHash100KiB`, committed-baseline median); ~102 000 SHA-256 calls at 90 ns each would be 9.2 ms of
 hashing on their own, on a per-tool-result path budgeted at 50 ms end to end.
 
 The security argument that would normally force SHA-256 does not apply: the shingle hash's output
@@ -357,9 +360,9 @@ one `CMS.Add`, one `HLL.Add` and one `Bloom.Test`. The budget for that triple is
 allocations — at 5 µs it is 0.03 % of the 15 ms B-A hook budget, which is the quantitative form of
 §8.1's "the rest is one append and a few hash lookups".
 
-`BenchmarkL0SketchUpdate` measures it at **494.3 ns ± 11 % with zero allocations** (benchstat median,
-ten samples, `testdata/bench-baseline.txt`) — 10.1× inside the latency budget, and 0.003 % of B-A
-rather than the 0.03 % allowed. Both halves of the budget are met.
+`BenchmarkL0SketchUpdate` measures it at **547.9 ns with zero allocations** (median of the ten
+samples in `testdata/bench-baseline.txt`, range 481.2–588.3 ns) — 9.1× inside the latency budget,
+and 0.004 % of B-A rather than the 0.03 % allowed. Both halves of the budget are met.
 
 Its Bloom probe is a **hit**, against a filter pre-filled with the descriptors it probes. That is
 both the conservative reading — a miss short-circuits at the first clear bit instead of reading all
@@ -386,22 +389,29 @@ exactly the class of error a budget model catches only if somebody measures it.
 **MinHash is deliberately not on B-A.** It is not part of §8.1 item 5, and no hook calls it. It runs
 in the daemon's async worker under budget **B-C** (`l0_process`, p99 < 50 ms, soft), which is why its
 budget rows are stated in milliseconds — 1.5 ms for 4 KiB, 2.5 ms for 100 KiB — while every hot-path
-row here is stated in microseconds. Measured at 287.1 µs and 1.381 ms, the 100 KiB case clears B-C by
-more than 35×. The `MinHashSampleTarget` bound of 8 192 distinct shingle hashes is what keeps that
+row here is stated in microseconds. Measured at 345.0 µs and 1.749 ms (medians over the committed
+baseline's ten samples), the 100 KiB case clears B-C by more than 28×. The `MinHashSampleTarget` bound of 8 192 distinct shingle hashes is what keeps that
 flat in document size; without it a 1 MiB tool result would cost ~134 million multiply-compares.
 
-Both MinHash rows *improved* in the fix round that replaced the sampler (§9a), which is the opposite
-of what adding a selection pass would suggest: 367.5 µs → 287.1 µs and 1.525 ms → 1.381 ms, both at
-p = 0.000 over ten samples. Two restructurings paid for the selector and then some — shingle hashing
-moved into a batch helper whose default-width loop has a compile-time-constant length, so the
-compiler unrolls FNV-1a's multiply chain and overlaps consecutive shingles (323 µs against 580 µs
-for a 100 KiB document, measured in isolation), and hashing and permuting became two passes over a
-batch rather than one interleaved loop. The 100 KiB row's *allocation* moved the other way, from
-3 072 B / 2 allocs to 396 288 B / 4: the selector's table and buffer are sized from
+Both MinHash rows survived the fix round that replaced the sampler (§9a) without regressing, which
+is the opposite of what adding a selection pass would suggest. Two restructurings paid for the
+selector — shingle hashing moved into a batch helper whose default-width loop has a compile-time
+constant length, so the compiler unrolls FNV-1a's multiply chain and overlaps consecutive shingles,
+and hashing and permuting became two passes over a batch rather than one interleaved loop.
+
+**The before/after figures this paragraph used to quote are not restated, because their "after" side
+is in no committed file.** It read `367.5 µs → 287.1 µs` and `1.525 ms → 1.381 ms`, both "at
+p = 0.000 over ten samples"; `testdata/bench-baseline.txt` was regenerated at `2d2b596` and now
+records 345.0 µs and 1.749 ms as its medians, so the comparison cannot be reproduced from anything
+this repository holds. A measured claim whose evidence has been overwritten is worse than no claim:
+re-derive it with `devtool bench-compare` against a recorded pair if the comparison is wanted again.
+
+The 100 KiB row's *allocation* did move, from 3 072 B / 2 allocs to 396 288 B / 4, and that IS
+visible in the committed baseline: the selector's table and buffer are sized from
 `MinHashSampleTarget` and not from the document, so a 1 MiB input allocates exactly the same. That
 row carries no allocation budget; the six rows that do are all still at zero.
 
-The 100 KiB row is nonetheless the tightest in the file, now at 1.8× headroom rather than 1.6×, and
+The 100 KiB row is nonetheless the tightest in the file, at 1.4× headroom against its 2.5 ms row, and
 the baseline records the history at length: the first recording of it, under a loaded run, had a
 median of 2.432 ms against the 2.5 ms budget with four of ten samples above it. MinHash hashes
 shingles with FNV-1a and never calls `core.HashBytes`, so the allocation fix did not move that row —

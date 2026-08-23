@@ -186,25 +186,35 @@ func TestAllStubsReturnNotImplemented(t *testing.T) {
 			seam := sp.build(t)
 			require.NotNil(t, seam, "%s: constructor returned nil", sp.pkg)
 
-			if sp.pureMethods["*"] {
-				return
-			}
+			// A package marked allMethodsAreReal is not exempt from the walk — only from the
+			// ErrNotImplemented assertion, which cannot hold for an implementation that works.
+			// Returning here instead was the difference between what eval's and contract's registry
+			// entries promise ("the walk still proves its constructor builds and none of its methods
+			// panics on zero-valued arguments") and what ran: nothing was called at all, on the two
+			// packages whose comments say most about what the walk still does.
+			realImpl := sp.pureMethods["*"]
 
 			v := reflect.ValueOf(seam)
 			typ := v.Type()
 			checked := 0
 			for i := 0; i < typ.NumMethod(); i++ {
 				m := typ.Method(i)
-				if sp.pureMethods[m.Name] {
+				if !realImpl && sp.pureMethods[m.Name] {
 					continue
 				}
 				errIdx := errorResultIndex(m.Type)
 				if errIdx < 0 {
-					// No error return: the method's contract is a documented zero value, and
-					// there is nothing here to assert beyond "it does not panic".
+					// No error return: the method's contract is a documented zero value, so the
+					// only thing left to assert is that it does not panic — asserted by calling
+					// it, rather than by saying so in a comment.
+					callSeamMethod(t, sp.pkg, v, m)
 					continue
 				}
 				checked++
+				if realImpl {
+					callSeamMethod(t, sp.pkg, v, m)
+					continue
+				}
 				assertMethodReportsNotImplemented(t, sp.pkg, v, m, errIdx)
 			}
 			if sp.zeroValueOnly {
@@ -219,8 +229,12 @@ func TestAllStubsReturnNotImplemented(t *testing.T) {
 	}
 }
 
-// assertMethodReportsNotImplemented calls m with zero-valued arguments and checks its error.
-func assertMethodReportsNotImplemented(t *testing.T, pkg string, recv reflect.Value, m reflect.Method, errIdx int) {
+// callSeamMethod calls m with zero-valued arguments and asserts only that it survives the call.
+//
+// That is the whole assertion for a landed implementation and for a method with no error return: a
+// seam that panics on a zero-valued argument costs the user their turn (§12.3), and that is as true
+// of the finished article as of the stub it replaced.
+func callSeamMethod(t *testing.T, pkg string, recv reflect.Value, m reflect.Method) []reflect.Value {
 	t.Helper()
 
 	args := make([]reflect.Value, 0, m.Type.NumIn()-1)
@@ -233,12 +247,20 @@ func assertMethodReportsNotImplemented(t *testing.T, pkg string, recv reflect.Va
 		defer func() {
 			if r := recover(); r != nil {
 				t.Fatalf("%s.%s panicked on zero-valued arguments: %v\n"+
-					"a stub must fail by reporting, never by panicking — a hook that panics "+
+					"a seam must fail by reporting, never by panicking — a hook that panics "+
 					"costs the user their turn (§12.3)", pkg, m.Name, r)
 			}
 		}()
 		out = m.Func.Call(append([]reflect.Value{recv}, args...))
 	}()
+	return out
+}
+
+// assertMethodReportsNotImplemented calls m with zero-valued arguments and checks its error.
+func assertMethodReportsNotImplemented(t *testing.T, pkg string, recv reflect.Value, m reflect.Method, errIdx int) {
+	t.Helper()
+
+	out := callSeamMethod(t, pkg, recv, m)
 
 	errVal := out[errIdx].Interface()
 	if errVal == nil {
@@ -272,8 +294,10 @@ func errorResultIndex(t reflect.Type) int {
 
 // TestStubRegistry_ListsEveryPackageOnDisk is the completeness half of the plan's requirement.
 //
-// It compares the hand-written registry against plans/OWNERS.tsv, which `devtool lint` already
-// requires to list every package on disk. A new §5 package that nobody adds here would otherwise
+// It compares the hand-written registry against plans/OWNERS.tsv, which
+// TestV1_StubGraphIsInertAndOwned already requires to list every package on disk. (That test, not
+// `devtool lint`: no lint sub-check reads the disk, and stubskips deliberately ignores the exit
+// status of the `go test` run it greps, so a failure there would leave the lint green.) A new §5 package that nobody adds here would otherwise
 // be silently unguarded — which is the same failure as having no guard at all, but harder to see.
 func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 	t.Parallel()

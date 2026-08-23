@@ -5,11 +5,15 @@
 # it here instead of in a commit body, where nothing enforces it. The guard makes the row load-
 # bearing three ways:
 #
-#   - Every open row must name a live evidence test, so the defect cannot be silently fixed and
-#     left recorded as broken, nor recorded and left unpinned.
+#   - Every UNRESOLVED row must name a live evidence test, so the defect cannot be silently fixed
+#     and left recorded as broken, nor recorded and left unpinned.
 #   - Every id must have a section in the detail document, so "what is this" always has an answer.
-#   - No row owned by a checkpoint may still be `open` once that checkpoint has written its
-#     completion report. That is the gate: the wave cannot be signed off with unresolved rows.
+#   - No unresolved row may survive its RESOLVER's completion report. That is the gate: a wave
+#     cannot be signed off with rows it was responsible for.
+#
+# `open` and `deferred:<checkpoint>` are both unresolved; only `fixed` and `wontfix` are not. A
+# deferral names the LATER checkpoint that must dispose of the row, that checkpoint must have a
+# plans/<checkpoint>-*.md document, and the row then blocks ITS report rather than its owner's.
 #
 # Columns are TAB separated.
 #
@@ -33,3 +37,11 @@ SP04-D5	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	canonicalization cost is now domina
 SP04-D6	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	BenchmarkRun_Bash100KB measured +-33% run to run on the reference host, which the 25% bench-compare threshold cannot distinguish from a regression
 SP06-D1	SP-06	V2-VERIFY	deferred:V3-VERIFY	-	GCPolicy.Deadline bounds only the sweep; tombstoneDeadRoots answers only to ctx, so GCReport.Duration can overshoot the deadline by the whole tombstone phase (100-260 ms measured at 650 dead roots)
 SP05-D1	SP-05	V2-VERIFY	deferred:V3-VERIFY	-	a drain aborted by idle-budget expiry consumes the line it interrupted (offset advanced and seen-set committed before the binding completed), losing the event; the deliberate poison-line consume rule does not distinguish a dying drain from a refusing handler
+SP02-D1	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the synthetic corpus raises only DemandFileContent, so tool_edit_distance, re_attempts and decision_preservation are measured over an input that cannot exercise them
+SP02-D2	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	file_set_jaccard is pinned at 1.0: the only repair re-reads the path key the demanding turn already touches, so the repaired set is the demanded set by construction
+SP02-D3	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the Belady keep budget never binds on the corpus (oracle rewrite_span_tokens is 0 at every event), so fraction_of_opt grades against a trivial ceiling
+SP02-D4	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	belady.pMin iterates candidates where 5.2 defines it over all blocks; the deviation is recorded only in a code comment
+SP02-D5	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	decision_preservation measures post-compaction horizon agreement, which deterministic mode fixes at 1.0, not 11.2's pre-compaction decisions still recalled
+SP02-D6	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the stock model skips the 4/3 host padding: hostPadTokens has no production caller and hostSkillBudget is dead
+SP04-D7	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	canon.Decide has no consumer and 8.1's delta-vs-full storage write is implemented nowhere and owned by nobody
+SP06-D2	SP-06	V2-VERIFY	deferred:V3-VERIFY	-	the PutBytes cold and warm budgets (3 ms / 400 us) are 9x and 19x over on Windows and have never been measured on the reference platform

@@ -41,12 +41,20 @@ const bloomCeilingSentence = "At 1% they are safe; at 10% the agent starts skipp
 const corpusStalePhases = 2
 
 // ratioMetrics are the metrics whose absolute tolerance is a ratio rather than a count.
+//
+// The two §11.4 watch-fors belong here for the same reason every other entry does: they are
+// fractions in [0, 1]. Omitting them left them on countAbsTol — a tolerance of 1.0 — so no
+// reachable move in a fill ratio or a false-positive rate could ever be judged a regression, and
+// with a baseline of 0 (which is what a run without --sketch records) the relative branch was
+// skipped too. The watch-for half of the 2 % rule could not fail on any input.
 var ratioMetrics = map[string]bool{
 	"fraction_of_opt":       true,
 	"file_set_jaccard":      true,
 	"decision_preservation": true,
 	"retrieval_hit_rate":    true,
 	"same_decision":         true,
+	"bloom_fp_rate":         true,
+	"bloom_fill_ratio":      true,
 }
 
 // watchForDirection is the gate's own small extension table for the §11.4 watch-fors.

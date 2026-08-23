@@ -213,10 +213,17 @@ func TestIntegration_RealBloomHealthFeedsTheFPCeiling(t *testing.T) {
 
 	driver := buildReplayDriver(t)
 
-	code, stdout, stderr := runReplayGate(t, driver, "--sketch", realHealthFile)
+	// Both runs opt out of the baseline explicitly, and the reason is what this test is for. The
+	// §11.4 ceiling is an ABSOLUTE limit on a filter's health; the 2% rule is a RELATIVE comparison
+	// against the golden health fixture phase0.json was baselined from, which is a filter at about
+	// a fifth of its capacity. A real filter at full capacity is legitimately fuller and less
+	// accurate than that fixture, so leaving the baseline in would make both runs fail the 2% rule
+	// on watch-fors — and the second one would then be passing for a reason other than the ceiling
+	// it names. With no baseline, the verdict below is the ceiling's alone.
+	code, stdout, stderr := runReplayGate(t, driver, "--sketch", realHealthFile, "--baseline", "")
 	require.Equal(t, replayExitOK, code, "stdout:\n%s\nstderr:\n%s", stdout, stderr)
 
-	code, stdout, stderr = runReplayGate(t, driver, "--sketch", overCeilingFile)
+	code, stdout, stderr = runReplayGate(t, driver, "--sketch", overCeilingFile, "--baseline", "")
 	require.Equal(t, replayExitGateFailed, code, "stdout:\n%s\nstderr:\n%s", stdout, stderr)
 	require.Contains(t, stderr, bloomCeilingSentence,
 		"the ceiling is a number with a reason, and the gate prints the reason")

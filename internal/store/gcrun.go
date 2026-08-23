@@ -86,7 +86,20 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 	}
 
 	days, sessions := s.resolveRetention(p)
-	liveChunks, liveRoots, deadRoots := s.mark(days, sessions)
+	liveChunks, liveRoots, deadRoots, markTruncated, err := s.mark(ctx, days, sessions, deadline)
+	if err != nil {
+		return GCReport{}, err
+	}
+	if markTruncated {
+		// A truncated mark produced an incomplete live set, and sweeping against one would delete
+		// live objects — every reference the phase never reached looks dead. So the pass ends here
+		// with nothing retired and nothing swept, and neither the live set nor a resume cursor is
+		// persisted: a cursor recorded now would let the NEXT pass resume a sweep against this
+		// incomplete set, which is the same data loss one run later.
+		s.log.Warn("store: gc mark phase ran out of its deadline; nothing was collected this pass",
+			"deadline", p.Deadline)
+		return GCReport{Truncated: true, Duration: time.Since(started)}, nil
+	}
 
 	digest := liveDigest(liveChunks)
 	if err := s.writeLiveSet(liveChunks); err != nil {
@@ -172,6 +185,54 @@ func (s *FSStore) resolveRetention(p GCPolicy) (days, sessions int) {
 	return days, sessions
 }
 
+// gcBudget is the ctx-and-deadline pair a GC pass's long-running loops are checked against.
+//
+// Both levers are needed and they mean different things: ctx is how the CALLER cancels a pass, and
+// an expired ctx is an error on every loop that reads it; Deadline is the latency budget the idle
+// scheduler granted, and running out of it is a normal outcome that returns Truncated. Checking
+// only every gcCheckEvery items keeps a time.Now() off the per-item path.
+//
+// The two checks are offered separately because the loops are not alike. spent is for work whose
+// cost grows with the project's history and is paid to the disk — the harvest and the sweep — where
+// stopping mid-phase is exactly what a latency budget is for. cancelled is for the mark's index
+// walks: bounded by the in-memory indexes, microseconds of map iteration, and worth finishing even
+// when the budget has run out, because abandoning them throws away a harvest that has already been
+// paid for and hands the pass nothing. They still answer to ctx, since a shutdown must not wait for
+// any loop at all.
+type gcBudget struct {
+	ctx      context.Context
+	deadline time.Time
+	n        int
+}
+
+func newGCBudget(ctx context.Context, deadline time.Time) *gcBudget {
+	return &gcBudget{ctx: ctx, deadline: deadline}
+}
+
+// spent counts one item and reports whether the loop must stop, for either reason.
+func (b *gcBudget) spent() (truncated bool, err error) {
+	b.n++
+	if b.n%gcCheckEvery != 0 {
+		return false, nil
+	}
+	if ctxErr := b.ctx.Err(); ctxErr != nil {
+		return false, ctxErr
+	}
+	if !b.deadline.IsZero() && time.Now().After(b.deadline) {
+		return true, nil
+	}
+	return false, nil
+}
+
+// cancelled counts one item and reports only the caller's cancellation.
+func (b *gcBudget) cancelled() error {
+	b.n++
+	if b.n%gcCheckEvery != 0 {
+		return nil
+	}
+	return b.ctx.Err()
+}
+
 // mark computes the live chunk set and the live root set.
 //
 // "Whichever is longer" (Qompack.md §8.2) is implemented as a DISJUNCTION: an entry is in-window
@@ -179,8 +240,31 @@ func (s *FSStore) resolveRetention(p GCPolicy) (days, sessions int) {
 // is never in-window by the age clause — retrieval spam is reclaimable precisely because objects
 // are content-addressed, so a chunk it shares with a real tool result is still held alive by that
 // result (Qompack.md §8.7).
-func (s *FSStore) mark(days, sessions int) (liveChunks, liveRoots map[core.Hash]struct{}, deadRoots []core.Hash) {
-	harvested := s.harvestHashes()
+//
+// Until the 2026-08-22 audit the phase took neither ctx nor deadline, so harvestHashes streamed
+// every checkpoint, pin and elimination file token by token with nothing able to stop it, on a cost
+// that grows with the project's whole history. The sweep's own comment claimed otherwise.
+//
+// The two halves of the phase are budgeted differently, and the asymmetry is the point. The HARVEST
+// answers to both levers: it is the disk-proportional half, and a latency budget exists to stop
+// exactly that. The INDEX WALKS below answer to ctx alone — they are map iteration over indexes the
+// store already holds in memory, they cost microseconds where the harvest costs milliseconds, and
+// truncating them would discard a harvest already paid for to save a rounding error. A pass that
+// gets through its harvest therefore always gets a complete live set to hand the sweep, and the
+// deadline lands on the sweep, which can resume.
+//
+// A truncated mark yields an INCOMPLETE live set, which is the one thing a collector must never
+// sweep against — every unvisited reference would look dead. So truncation here stops the pass at
+// its caller rather than being carried forward, and neither the live set nor a resume cursor is
+// persisted from it.
+func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Time) (
+	liveChunks, liveRoots map[core.Hash]struct{}, deadRoots []core.Hash, truncated bool, err error,
+) {
+	budget := newGCBudget(ctx, deadline)
+	harvested, truncated, err := s.harvestHashes(budget)
+	if err != nil || truncated {
+		return nil, nil, nil, truncated, err
+	}
 	recent := s.recentSessionSet(sessions)
 
 	var cutoff core.UnixMilli
@@ -197,8 +281,27 @@ func (s *FSStore) mark(days, sessions int) (liveChunks, liveRoots map[core.Hash]
 		liveChunks[h] = struct{}{}
 	}
 
+	// The index walks below run under one read lock and are released through this named unlock on
+	// every path, including the cancelled early returns.
+	unlocked := false
 	s.mu.RLock()
+	defer func() {
+		if !unlocked {
+			s.mu.RUnlock()
+		}
+	}()
+	stop := func() bool {
+		if e := budget.cancelled(); e != nil {
+			truncated, err = false, e
+			return true
+		}
+		return false
+	}
+
 	for h, e := range s.rootIndex {
+		if stop() {
+			return nil, nil, nil, truncated, err
+		}
 		if _, ok := harvested[h]; ok {
 			liveRoots[h] = struct{}{}
 			continue
@@ -208,21 +311,40 @@ func (s *FSStore) mark(days, sessions int) (liveChunks, liveRoots map[core.Hash]
 		}
 	}
 	for _, rec := range s.toolUse {
+		if stop() {
+			return nil, nil, nil, truncated, err
+		}
 		if rec.Root.IsZero() {
 			continue
 		}
-		if inAgeWindow(rec.TS) || (sessions >= 0 && recent[rec.Session]) {
+		// The ephemeral exclusion applies HERE too, not only on the root path above. §8.2: "an
+		// ephemeral root is never in-window by the age clause; only the session clause and an
+		// explicit root reference keep it alive." Reading the age clause without consulting Eph
+		// made the documented property void on the main path rather than on an edge case — every
+		// retrieval result is recorded as a tool_use, so every ephemeral root was age-live through
+		// this loop no matter what the root path decided about it.
+		eph := false
+		if e, ok := s.rootIndex[rec.Root]; ok {
+			eph = e.Eph
+		}
+		if (!eph && inAgeWindow(rec.TS)) || (sessions >= 0 && recent[rec.Session]) {
 			liveRoots[rec.Root] = struct{}{}
 		}
 	}
 	for _, hist := range s.fileHist {
 		for _, v := range hist {
+			if stop() {
+				return nil, nil, nil, truncated, err
+			}
 			if inAgeWindow(v.TS) {
 				liveRoots[v.Root] = struct{}{}
 			}
 		}
 	}
 	for h := range liveRoots {
+		if stop() {
+			return nil, nil, nil, truncated, err
+		}
 		if e, ok := s.rootIndex[h]; ok {
 			for _, c := range e.Root.Chunks {
 				liveChunks[c.Hash] = struct{}{}
@@ -236,13 +358,17 @@ func (s *FSStore) mark(days, sessions int) (liveChunks, liveRoots map[core.Hash]
 	// was written (found by V2-VERIFY's §4.7 authoring).
 	deadRoots = make([]core.Hash, 0, len(s.rootIndex))
 	for h := range s.rootIndex {
+		if stop() {
+			return nil, nil, nil, truncated, err
+		}
 		if _, ok := liveRoots[h]; !ok {
 			deadRoots = append(deadRoots, h)
 		}
 	}
 	s.mu.RUnlock()
+	unlocked = true
 
-	return liveChunks, liveRoots, deadRoots
+	return liveChunks, liveRoots, deadRoots, false, nil
 }
 
 // recentSessionSet returns the n most recent session IDs.
@@ -320,12 +446,20 @@ func (s *FSStore) gcRootFiles() []string {
 }
 
 // harvestHashes collects every hash-shaped string token from the GC root files.
-func (s *FSStore) harvestHashes() map[core.Hash]struct{} {
+//
+// This is the unbounded half of the mark phase: its cost is the size of every checkpoint, pin and
+// elimination file a project has ever written, streamed token by token. It answers to the budget
+// for that reason, and a truncated harvest is reported rather than returned as a short set — a
+// partial harvest is a live set with references missing from it.
+func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]struct{}, bool, error) {
 	out := make(map[core.Hash]struct{})
 	for _, p := range s.gcRootFiles() {
-		s.harvestFile(p, out)
+		truncated, err := s.harvestFile(p, out, budget)
+		if err != nil || truncated {
+			return nil, truncated, err
+		}
 	}
-	return out
+	return out, false, nil
 }
 
 // harvestFile walks one file's JSON tokens, adding every hash-shaped string it finds.
@@ -334,18 +468,21 @@ func (s *FSStore) harvestHashes() map[core.Hash]struct{} {
 // single-document .json and a many-document .jsonl identically. A decode error stops the walk but
 // keeps what was already collected: a half-written final line must not cost the whole file's
 // references.
-func (s *FSStore) harvestFile(p string, into map[core.Hash]struct{}) {
+func (s *FSStore) harvestFile(p string, into map[core.Hash]struct{}, budget *gcBudget) (bool, error) {
 	f, err := os.Open(paths.Long(p))
 	if err != nil {
-		return // missing is normal; see gcRootFiles
+		return false, nil // missing is normal; see gcRootFiles
 	}
 	defer func() { _ = f.Close() }()
 
 	dec := json.NewDecoder(f)
 	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return
+		if truncated, budgetErr := budget.spent(); budgetErr != nil || truncated {
+			return truncated, budgetErr
+		}
+		tok, tokErr := dec.Token()
+		if tokErr != nil {
+			return false, nil
 		}
 		str, ok := tok.(string)
 		if !ok || !hashToken.MatchString(str) {
@@ -466,9 +603,15 @@ type sweepArgs struct {
 // sweep walks objects/ in lexicographic order and collects everything the live set does not hold.
 //
 // The walk order is what makes the pass resumable: a cursor is only meaningful if the next run
-// visits the same objects in the same sequence. Both this loop and the mark phase check the
-// deadline and the context every gcCheckEvery items, and an expired deadline returns a cursor
-// rather than an error — a truncated GC is a normal outcome of idle work, not a failure.
+// visits the same objects in the same sequence. This loop and the mark phase's harvest — the pass's
+// two disk-proportional loops — check the deadline and the context every gcCheckEvery items, and an
+// expired deadline returns a cursor rather than an error: a truncated GC is a normal outcome of
+// idle work, not a failure. (The mark's in-memory index walks check ctx only; see mark.)
+//
+// The two phases differ in what truncation MEANS, which is why only this one yields a cursor. A
+// truncated sweep has a complete live set and has simply not finished walking objects/, so it
+// resumes; a truncated mark has an incomplete live set and cannot be resumed or swept against at
+// all, so GC ends that pass with nothing collected (see mark).
 func (s *FSStore) sweep(ctx context.Context, a sweepArgs) (cursor string, truncated bool, err error) {
 	base := paths.Long(s.l.Objects)
 	seen := 0

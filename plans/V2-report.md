@@ -921,3 +921,87 @@ recorded at the merge; nothing in the tree carries them today, so that message i
 
 **This closes what §16.6 left open.** Every merge on `chore/post-v2-hardening` is now named in this
 report, and §16.3 items 9–11 carry the three corrections the same audit made to the sections above.
+
+### 16.8 The post-audit code-fix round (2026-08-23)
+
+The 2026-08-22 plan audit split into two halves: documentation corrections, applied directly to the
+plan files and merged as `docs(plans): merge the wave-0/1 plan audit`, and code defects, which
+`NEXT-SESSION.md` recorded as a brief. This section records what that brief's round closed and what
+it did not, per the same append-only rule as every section above: nothing here rewrites a verdict.
+
+**Closed.** Each carries its own commit with the diagnosis and, where the brief called for one, a
+mutation test that was observed failing against the pre-fix code.
+
+| Item | What was wrong | What closed it |
+|---|---|---|
+| A1 | `runpatterns` could not resolve any `./pkg/...` package argument — 128 plan lines — and counted them as checked. The lint written to stop a gate reporting success while checking nothing was doing exactly that | `namesFor` unions the packages under a wildcard prefix; an unresolvable package is a reported problem; the summary prints resolved-of-checkable. Mutation-tested with a dead test name under `./tools/...` |
+| A2 | `session_start.source_compact` read only `AwaitingCompactStart`, so a PreCompact in one session was resolved against whatever session started next. `LastPrecompactSession` was written by the daemon and read by nothing | the check consults it; a foreign session drops the pending flag and reports `precompact-pending-for-another-session` |
+| A3 | `SketchSet.Load` used the silent `sketch.Load` and classified on `core.ErrNotFound`, which `LoadWithLog` returns for every failure — so a corrupt sketch was filed under "expected, Debug" with no durable line | `LoadWithLog`, classification on `fs.ErrNotExist`, an absent-file sentinel that unwraps to both, and a `test/guards` case forbidding `sketch.Load` outside its own package |
+| A4 | the GC mark phase took neither `ctx` nor the deadline, on a phase whose cost is the project's whole history — while the sweep's comment claimed both phases checked both | one `gcBudget` shared by both phases, with the split §16.8.1 records: `ctx` on every loop, the deadline on the two disk-proportional ones. A truncated harvest ends the pass with nothing collected and no cursor, because an incomplete live set cannot be swept against |
+| A5 | the ephemeral age exclusion was honoured on the root path and not on the tool_use path, which is the path every retrieval result takes | the exclusion applies on both; the test records a tool_use for each root, which is what production does |
+| A6 | the sublinear-growth gate bound growth at 25× where linear for its fixture is 15×, so a store that deduplicated nothing passed with 40 % to spare | the gate binds at half of linear, derived from the put counts; `TestStats_GrowthGateFailsWithoutDedup` measures 14.95× against it |
+| A7 | the carried-defects guard read `deferred:` as resolved, so its evidence check and its sign-off gate both covered zero of the manifest's rows | a deferral is unresolved until its TARGET checkpoint disposes of it; deferral targets must name an existing checkpoint document |
+| A8.6 | a `--baseline` path that named no file exited 0 with the 2 % rule silently skipped, and a test pinned that | exit 2, with the phase criterion still run; `--baseline ""` remains the way to ask for no comparison |
+| A8.7 | both §11.4 watch-fors were recorded at 0 and judged on a tolerance of 1.0, so no reachable move in a rate or a ratio could fail | both are ratio metrics; the baseline carries the health fixture's real values; a test asserts no watch-for sits below `absFloor` |
+| A8.9 | `nightly.yml` replayed the RECORDED corpus against the committed SYNTHETIC baseline — the cross-tier comparison `corpusTier` exists to prevent | the driver refuses a tier mismatch by name; the job measures instead of comparing, and is called `replay-recorded` |
+| A9.1 | the stub walk returned before calling anything for `eval` and `contract`, whose registry entries promise it still proves no method panics | `allMethodsAreReal` now exempts a package from the ErrNotImplemented assertion only; every method is called under the panic guard |
+| A9.6 | SP-05's plan claimed a CI grep confined `QOMPACK_FAULT`. No such grep existed | `TestGuard_FaultEnvIsConfinedToTwoFiles`, closed in both directions |
+| A9.2–5, A10 | comments and ADR prose describing a tree that is not there: a stale `SliceStable` claim, a Bloom sizing factor wrong by 4.4×, ADR 0030 benchmark figures whose baseline was overwritten at `2d2b596`, an unmeasured "measured" tail allowance, and six smaller sites | one `docs(code)` sweep; the ADR's A/B claim is withdrawn rather than restated, because its "after" numbers are in no committed file |
+
+**Carried, with rows.** Eight findings were not closed and are now rows in
+`plans/CARRIED-DEFECTS.tsv`, all `deferred:V3-VERIFY`, explained in
+`plans/V2-SP-02-carried-defects.md`, `plans/V2-SP-04-carried-defects.md` and
+`plans/V2-WAVE1-carried-defects.md`. That is a deliberate choice of mechanism over prose: A7 above
+makes those rows block `plans/V3-report.md` until V3-VERIFY disposes of each one, which a paragraph
+in this section would not.
+
+- **SP02-D1/D2/D3** — the corpus raises one demand kind; `file_set_jaccard` is structurally 1.0; the
+  Belady budget never binds. All three need a different synthetic corpus, and a corpus change
+  re-baselines every metric for every policy at once (ADR 0003). They belong in one deliberate
+  re-baseline with the before/after recorded, which is a checkpoint's work rather than a fix round's.
+- **SP02-D4/D5/D6** — `pMin`'s scope, `decision_preservation`'s horizon, and the stock model's
+  missing host padding. Each has two defensible answers; picking one silently is how a metric ends up
+  meaning something other than what its name says.
+- **SP04-D7** — `canon.Decide` has no consumer and §8.1's delta-vs-full write has no owner. Three
+  options, one of which is `wontfix`; it is a product decision, not a repair.
+- **SP06-D2** — the `PutBytes` 3 ms / 400 µs budgets are 9× and 19× over on Windows and have never
+  been measured on the reference platform. §2.6a ②'s "revised" claim covered only the Redact half,
+  which is what §16.3 item 10 re-opened.
+
+#### 16.8.1 Two integration tests the round broke, and what that decided
+
+The per-item work above was verified package by package. The whole-tree `-race` run afterwards
+failed twice, both times in `test/integration` and both times because a fix had changed a contract an
+integration test held — which is what a whole-tree gate is for. Neither assertion was relaxed to make
+the tree green; each disagreement was resolved on its merits and the resolution is pinned by a test.
+
+**A4 versus `TestIntegration_GCNeverCollectsALiveRootUnderIngest`.** The brief asked for the deadline
+on the harvest **and** the index walks. With it on both, the fixture's already-expired deadline stops
+the pass 256 items into a 2 400-item mark, so no pass reaches the sweep: the test's cursor, phase and
+`DeletedObjects` assertions all fail, and — the part that matters beyond the test — a store whose
+granted budget is smaller than its mark can never collect anything, while every pass dutifully
+reports `Truncated`. The walks are map iteration over indexes the store already holds; truncating
+them discards a harvest already paid for to save microseconds. So the deadline was narrowed to the
+two loops that are paid to the disk and grow with history — the harvest and the sweep — and the walks
+answer to `ctx` alone. §GC in `V2-SP-06` now states that split rather than "both phases", and
+`TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline` fails if it is reverted (observed).
+`TestGC_MarkPhaseHonoursTheDeadline` was re-fixtured onto a 256-reference checkpoint so its
+truncation is structural rather than a race with the host's clock granularity, and its two
+conditional branches collapsed into one unconditional set of assertions.
+
+**A8.7 versus `TestIntegration_RealBloomHealthFeedsTheFPCeiling`.** Once the watch-fors became ratio
+metrics, that test's real `sketch.Bloom` at full capacity (fill 0.5189, estimated fp 0.0101) was
+judged against the baseline's golden health fixture, a filter at about a fifth of its capacity
+(0.18 / 0.006), and blocked at +188 % and +69 %. The gate is right and so is the filter: §11.4's
+ceiling is absolute and the 2 % rule is relative, and a full filter is not a regression against a
+near-empty one. Both runs in that test now pass `--baseline ""`, so the verdict each asserts is the
+ceiling's alone — which also makes the second run's failure attributable to the sentence it checks
+for rather than to two independent causes. The 2 % rule over the watch-fors keeps its own coverage in
+`TestGate_WatchForsAreJudgedAsRatios`.
+
+**Unchanged by this round, and still true:** no commit here carries a CI signature. The Actions
+quota has blocked every job since 2026-08-22, so the whole round is verified locally on Windows —
+`go build`, `go vet`, `gofumpt`, `devtool lint`, the affected packages under `-count=1` and a
+whole-tree `CGO_ENABLED=1 go test -race -timeout=40m ./...`, plus the mutation tests named above. The
+Linux and macOS halves of every claim in this section are unverified for the same reason §16.4's
+first bullet gives.

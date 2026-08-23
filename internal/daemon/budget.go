@@ -11,11 +11,18 @@ import (
 // breachDetector closes a window over.
 const sampleWindow = 512 //nomagic:allow §2.4 "rolling 512-sample HDR histogram per hook"
 
-// hotPathTailAllowance is the documented, deliberately-over-counting estimate of the client tail
-// B-A's own clock cannot observe from the daemon side (ACK read + process exit): measured by the
-// bench harness on all three platforms to be under 0.4 ms, and fixed here at 1 ms so the fallback
-// fires early rather than late (§2.4). It is added to hook.controlled.observed (recvTS - req.TS)
-// to estimate hook.controlled, the value the breach detector actually consumes.
+// hotPathTailAllowance is the deliberately-over-counting estimate of the client tail B-A's own
+// clock cannot observe from the daemon side: the ACK read plus process exit, after the daemon has
+// stopped timing. It is added to hook.controlled.observed (recvTS - req.TS) to estimate
+// hook.controlled, the value the breach detector actually consumes.
+//
+// It is NOT a measurement, and the comment here used to say it was ("measured by the bench harness
+// on all three platforms to be under 0.4 ms"). Nothing in this repository measures the ACK-read to
+// process-exit interval: test/bench/hotpath times whole invocations from the outside and the daemon
+// times its own side, and neither isolates the tail between them. The 1 ms is a conservative
+// ceiling chosen because it OVER-counts — an over-estimated tail makes the spool fallback fire early
+// rather than late, which is the safe direction for a hook that must answer inside 15 ms (§2.4).
+// Replacing it with a real number means emitting a tail row from the bench harness first.
 const hotPathTailAllowance = 1 * time.Millisecond //nomagic:allow §2.4 estimated client tail, see doc comment
 
 // Transition is what a closed window decided, if anything.

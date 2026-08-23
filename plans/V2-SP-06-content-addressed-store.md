@@ -837,7 +837,7 @@ Sort by `final` descending, tiebreak `TS` descending, then `ToolUseID` ascending
 
 The live **chunk** set is the union of `Root.Chunks` over live roots, resolved through `rootIndex`. It is written to `.qompack/state/gc-live.bin` as sorted 32-byte hashes so a resumed sweep can binary-search it without redoing the mark.
 
-**Sweep.** `filepath.WalkDir("objects")` in lexicographic order; any object whose hash is absent from the live set is deleted (`DryRun` counts without deleting) and a `{"op":"gc"}` tombstone is appended to `roots.jsonl` for each fully-collected root. Both phases check `ctx.Err()` and the deadline every 256 items; on expiry the state file is written and `GCReport.Truncated = true` is returned.
+**Sweep.** `filepath.WalkDir("objects")` in lexicographic order; any object whose hash is absent from the live set is deleted (`DryRun` counts without deleting) and a `{"op":"gc"}` tombstone is appended to `roots.jsonl` for each fully-collected root. Every long-running loop of both phases checks `ctx.Err()` every 256 items, and a cancelled caller is an error rather than a truncation. The **deadline** is checked every 256 items by the two loops whose cost is paid to the disk and grows with the project's history — the mark's hash harvest and this sweep — and not by the mark's in-memory index walks, which cost microseconds and whose truncation would only throw away a harvest already paid for and hand the pass nothing. A truncated **sweep** has a complete live set, so it writes the state file, returns its cursor and sets `GCReport.Truncated = true`; a truncated **harvest** has an incomplete live set, which is the one thing a collector must never sweep against, so the pass ends there with nothing tombstoned, nothing swept and no cursor written, and only `GCReport.Truncated` set. (The tombstone phase between them answers to `ctx` alone — carried defect SP06-D1.)
 
 ```json
 {"v":1,"phase":"sweep","cursor":"objects/3a/9f/3a9f…zst","live_digest":"sha256:…","roots":8123,"scanned":41200,"deleted":915,"freed":38221008,"started":1734129000000}
@@ -887,7 +887,7 @@ func Open(root string, cfg config.Config, deps Deps) (Store, error) {
 | What | Budget | Rationale |
 |---|---|---|
 | `PutBytes` of 100 KB into an **empty** store, stub canon (`BenchmarkPutBytes_100KB_Cold`) | **≤ 3 ms** | B-C `l0_process` p99 < 50 ms with headroom for canon+chunk+DAG |
-| `PutBytes` of 100 KB, all chunks already present (`BenchmarkPutBytes_100KB_Warm`) | **≤ 400 µs** | the four-reads-of-one-file case of §8.2 |
+| `PutBytes` of 100 KB, all chunks already present (`BenchmarkPutBytes_100KB_Warm`) | **≤ 400 µs** — **unmet and unverified; carried as SP06-D2** | the four-reads-of-one-file case of §8.2. Measured 7.68 ms on Windows (2026-08-23, median of five × 50), 19× over; both figures were set for the CI Linux runner and no Linux measurement of either exists |
 | `GetChunk` warm | **≤ 60 µs** | `expand` inside B-F p95 < 250 ms |
 | `OpenSpan` 4 KB out of a 4 MB root | **≤ 150 µs** | minimal-span default of §8.7 |
 | `Search` over 1 000 roots / 8 MB | **≤ 25 ms** | `recall` inside B-F |
@@ -994,8 +994,8 @@ Every test below is written and run (failing) before the implementation in its c
 | `TestOpenStore_TruncatedFinalLine` | append half a JSON line to `roots.jsonl`, reopen | opens successfully; `store.index.badline == 1`; all prior roots present |
 | `TestClosedStoreErrors` | `Close` then every method | all return `core.ErrDegraded`; second `Close` is nil |
 | `TestConcurrentPut` (`-race`) | 8 goroutines × 50 `PutBytes` with 20 % overlapping payloads | no race; total distinct objects equals the single-threaded result |
-| `BenchmarkPutBytes_100KB_Cold` | 100 KB, empty store | **≤ 3 ms/op** |
-| `BenchmarkPutBytes_100KB_Warm` | same payload repeated | **≤ 400 µs/op** |
+| `BenchmarkPutBytes_100KB_Cold` | 100 KB, empty store | **≤ 3 ms/op** — see SP06-D2 (27.2 ms on Windows; D16 puts 93 % of the residual in syscall cost, 10–40× cheaper on Linux) |
+| `BenchmarkPutBytes_100KB_Warm` | same payload repeated | **≤ 400 µs/op** — see SP06-D2 |
 | `BenchmarkGetChunk` | 4 KB chunk | **≤ 60 µs/op** |
 | `BenchmarkOpenSpan_4KB_of_4MB` | — | **≤ 150 µs/op** |
 | `BenchmarkOpenStore_50kRoots` | pre-built index | **≤ 400 ms/op** |
@@ -1060,7 +1060,8 @@ Every test below is written and run (failing) before the implementation in its c
 | `BenchmarkSearch_1000Roots` | 1 000 roots / 8 MB | **≤ 25 ms/op** |
 | `TestStats_DedupRatio` | the four fixture versions each read 4 times (16 puts) | `RawBytes` = 16 × file size; `DedupRatio ≥ 4.0` |
 | **`TestPhase1ExitCriterion_ReadHeavy`** | the read-heavy corpus: 40 reads across 10 files with edits between | `Stats.DedupRatio ≥ 4.0` — §10 Phase 1, quoted verbatim in the test doc comment |
-| `TestStats_SublinearGrowth` | 200 puts of a 100 KB payload mutated 1 % each time | `Bytes` after 200 puts < 25 × `Bytes` after 8 puts (§11.3 sublinear guardrail) |
+| `TestStats_SublinearGrowth` | **120** puts of a 100 KB payload mutated 1 % each time | `Bytes` after 120 puts < **7.5 ×** `Bytes` after 8 puts (§11.3 sublinear guardrail) — half of this fixture's linear growth, which is 120/8 = **15 ×**. Both numbers are derived from the two put counts in `stats_test.go`, never written as literals |
+| `TestStats_GrowthGateFailsWithoutDedup` | the same 120 puts, each payload sharing no chunk with any other | growth **≥ 7.5 ×** — the mutation test that proves the row above can fail; it measures 14.95 × against the gate's 7.5 × |
 | `TestGC_CollectsUnreferenced` | 10 roots, 2 referenced by a fake checkpoint JSON, `GCPolicy{RetainDays:-1, RetainSessions:-1}` | the other 8 roots' exclusive chunks deleted; the 2 survive |
 | `TestGC_ZeroPolicyInheritsConfigAndDeletesNothing` | the same 10 roots written "now", `GCPolicy{}` | `DeletedObjects == 0` — the zero policy is default retention (30/10), never a mass deletion |
 | `TestGC_RetentionIsWhicheverIsLonger` | a root 60 days old but in the most recent session, `RetainDays:30, RetainSessions:10` | retained |
@@ -1217,7 +1218,7 @@ This subplan is **heavy**: three packages, roughly 5 500 lines including tests. 
 
 > - Store growth sublinear in session length after dedup
 
-Asserted by `TestStats_SublinearGrowth`; the replay-gate wiring of the same guardrail is SP-02's.
+Asserted by `TestStats_SublinearGrowth`, and asserted to be *assertable* by `TestStats_GrowthGateFailsWithoutDedup` — the bound must sit below this fixture's linear growth or it passes on a store that deduplicates nothing, which is what the original 25 × bound did (post-V2 correction). The replay-gate wiring of the same guardrail is SP-02's.
 
 **From `Qompack.md` §8.2, verbatim:**
 

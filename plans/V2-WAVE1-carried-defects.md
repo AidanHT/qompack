@@ -17,6 +17,13 @@ overshoot is tight and tested (`TestGC_DeadlineOvershootIsBoundedByTheCheckInter
 against limits of 50–63 ms over ten runs), which is exactly why the tombstone phase is the whole
 of the remaining gap.
 
+**One of the three phases named here has since been fixed.** The mark phase was unbounded too — it
+took neither `ctx` nor the deadline, and `harvestHashes` streamed every checkpoint, pins and
+elimination file with nothing able to stop it — and the post-audit fix round bounded it
+(`TestGC_MarkPhaseHonoursTheDeadline`). A truncated mark ends the pass with nothing collected,
+because an incomplete live set cannot be swept against. This row is now about the tombstone phase
+ALONE, which is where the remaining overshoot lives.
+
 **Why it is not fixed at V2.** Bounding the tombstone phase needs a phase-aware resume cursor —
 today's cursor resumes the sweep, and a deadline hit mid-tombstone would either re-tombstone from
 the top (quadratic on repeated short deadlines) or skip dead roots silently. That is a design
@@ -61,3 +68,30 @@ is neither offset-advanced nor seen-committed, bounded by a per-line retry cap s
 still cannot wedge), with a test driving exactly the starved-budget interleaving — or the ruling
 is re-affirmed with the loss documented in the drain's contract and D4's "never data" wording
 amended, and this row moves to `wontfix` with that wording pinned.
+
+---
+
+## SP06-D2 — the `PutBytes` cold and warm budgets are unreachable and unverified
+
+**Symptom.** `plans/V2-SP-06-content-addressed-store.md` sets `BenchmarkPutBytes_100KB_Cold` at
+≤ 3 ms and `BenchmarkPutBytes_100KB_Warm` at ≤ 400 µs. Measured on the Windows development host,
+2026-08-23, medians of five runs at 50 iterations: **cold 27.2 ms** (no-redact 25.6 ms) and **warm
+7.68 ms** (no-redact 6.79 ms). The warm row is 19× its budget and the cold row 9×.
+
+**Why the numbers are not the whole story.** SP-06's D16 established that these benchmarks are
+platform-bound: profiling put 93 % of the residual in `runtime.cgocall`, i.e. ~25 file create+rename
+pairs per put, which cost 10–40× less on Linux. The budgets were set for the CI Linux runner, and
+**no Linux measurement of them exists** — `plans/V2-report.md` §9.3 records the pair as "documented
+over … Linux re-measure deferred", and CI has never completed a green run (the Actions quota has
+blocked every job since 2026-08-22).
+
+**Why this row exists at all.** `plans/V2-report.md` §2.6a ② recorded this pair as "fixed here as a
+budget revision, not code". Only the Redact half of that pair was actually revised; the `PutBytes`
+half was not, and §16.3 item 10 re-opens it. So the plan carries a budget nothing meets, the report
+says it was revised, and neither statement is checked by anything.
+
+**Acceptance (V3).** A measured number on the reference platform, with the payload shape and the
+platform named in the row itself, replacing both figures — or a statement that the budget is a Linux
+figure and a Windows exemption with its factor recorded, in the plan and in §9.3 together. What is
+not acceptable is a third round of "documented over".
+

@@ -151,8 +151,9 @@ func bloomSizing(n int, p float64) (mRaw float64, k int, mBits uint64) {
 		// the value that MINIMISES the false-positive rate at a given m; keeping the k that was
 		// optimal for the uncapped m over-probes a filter that is now much smaller, which raises the
 		// rate rather than lowering it. NewBloom(MaxBloomCapacity, 1e-6) is the reachable case:
-		// m/n lands at 16, where the optimal k is 11 and the k derived from the uncapped 2^33-bit
-		// array was 20 — nearly double the probes for a worse answer.
+		// m/n lands at 16, where the optimal k is 11 and the k derived from the uncapped array
+		// (4.82e8 bits, 1.80x this cap of 2^28) was 20 — nearly double the probes for a worse
+		// answer.
 		//
 		// Capacity() still reports the (n, p) it was constructed with, which the cap has now made
 		// unachievable; its doc comment says so, and EstimatedFPRate reports the truth from the bits

@@ -155,6 +155,11 @@ func TestGC_RetentionIsWhicheverIsLonger(t *testing.T) {
 
 // TestGC_EphemeralNotInWindowByAge asserts an ephemeral root is never held alive by the age clause,
 // so retrieval spam is reclaimable while an ordinary result of the same age is not.
+// Both roots are ALSO recorded as tool_use entries, which is what production does — a retrieval
+// result reaches the store through a recorded tool use like any other. Until the 2026-08-22 audit
+// the mark phase read the age clause on that path without consulting Eph, so this test passed only
+// because it seeded roots nothing referenced; with the records present, the ephemeral root was
+// age-live and the property this test names was void on the path that carries every real one.
 func TestGC_EphemeralNotInWindowByAge(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -162,6 +167,18 @@ func TestGC_EphemeralNotInWindowByAge(t *testing.T) {
 	ordinary := gcSeed(t, tp, "src/ordinary.ts", "an ordinary tool result, distinct content\n")
 	ephemeral := gcSeedEphemeral(t, tp, "src/ephemeral.ts", "a retrieved, born-ephemeral result\n")
 
+	now := core.UnixMilli(tp.Clock.Now().UnixMilli())
+	require.NoError(t, tp.Store.RecordToolUse(ctx, ToolUseRecord{
+		ID: "tu-ordinary", Session: "sess-a", Turn: 1, TS: now,
+		Tool: "FileRead", Root: ordinary.Hash, Path: "src/ordinary.ts",
+	}))
+	require.NoError(t, tp.Store.RecordToolUse(ctx, ToolUseRecord{
+		ID: "tu-ephemeral", Session: "sess-a", Turn: 2, TS: now,
+		Tool: "recall", Root: ephemeral.Hash, Path: "src/ephemeral.ts",
+	}))
+
+	// RetainSessions is off, so the session clause cannot mask the age clause: §8.2 keeps an
+	// ephemeral root alive by the session clause or an explicit reference, and this run has neither.
 	rep, err := tp.Store.GC(ctx, GCPolicy{RetainDays: 30, RetainSessions: -1})
 	require.NoError(t, err)
 	require.Positive(t, rep.DeletedObjects)
@@ -299,8 +316,30 @@ func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 
 	cursor := filepath.Join(paths.Of(resumed.Root).State, gcStateFile)
 
-	first, err := resumed.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond})
+	// The budget is priced from the mark phase rather than fixed at a nanosecond, and that is
+	// load-bearing since the mark phase became deadline-bounded too (see
+	// TestGC_MarkPhaseHonoursTheDeadline). A nanosecond is spent before the pass starts, so the
+	// pass truncates in MARK, sweeps nothing and writes no cursor — a correct outcome, and not the
+	// one this test is about.
+	//
+	// What this test needs is a budget that survives the mark phase and is long gone by the
+	// sweep's first check. Those two costs differ by construction and in the same direction on
+	// every host: the mark walks in-memory indexes and reads three small files, while reaching the
+	// sweep's first check is 256 filesystem visits and deletions. So the budget is measured, not
+	// guessed — from the CONTROL store, which carries the identical corpus and which mark, being
+	// read-only, leaves untouched — and expressed as a multiple of what it measured, so it scales
+	// with the host instead of encoding one host's speed.
+	markStart := time.Now()
+	_, _, _, markTruncated, merr := control.Store.mark(ctx, -1, -1, time.Time{})
+	require.NoError(t, merr)
+	require.False(t, markTruncated, "an unbounded mark must not truncate")
+	budget := 4 * time.Since(markStart)
+
+	first, err := resumed.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: budget})
 	require.NoError(t, err, "an expired deadline is a normal outcome, never an error")
+	require.Positive(t, first.ScannedObjects,
+		"this pass must reach the sweep: a mark-phase truncation collects nothing and leaves no "+
+			"cursor, so every assertion below would be measuring the wrong phase")
 	require.True(t, first.Truncated,
 		"a deadline that has already expired, over %d objects, must truncate", len(before))
 	require.FileExists(t, cursor, "a truncated pass must leave a cursor to resume from")
@@ -982,18 +1021,37 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 		}
 
 		dropCursor()
-		stop, serr := tp.Store.GC(ctx, GCPolicy{
-			RetainDays: -1, RetainSessions: -1, DryRun: true, Deadline: time.Nanosecond,
+		// This end of the window is "a pass that reaches the sweep and stops at its FIRST check",
+		// which is Prefix + one check interval in gcSweepModel's terms. It is measured by running
+		// the two phases GC runs, in the order GC runs them, rather than by handing GC an expired
+		// deadline: since the mark phase became deadline-bounded too — it streams every checkpoint,
+		// pin and elimination file and was previously unbounded, which the sweep's own comment
+		// denied — an already-expired GCPolicy.Deadline correctly stops the pass in mark with
+		// nothing swept at all (TestGC_MarkPhaseHonoursTheDeadline pins that), which prices the
+		// wrong phase for this window.
+		stopStart := time.Now()
+		liveChunks, _, _, markTruncated, merr := tp.Store.mark(ctx, -1, -1, time.Time{})
+		require.NoError(t, merr)
+		require.False(t, markTruncated, "an unbounded mark must not truncate")
+		require.NoError(t, tp.Store.writeLiveSet(liveChunks))
+		var stopRep GCReport
+		_, stopTruncated, serr := tp.Store.sweep(ctx, sweepArgs{
+			live:     liveChunks,
+			dryRun:   true,
+			deadline: time.Now().Add(-time.Nanosecond),
+			started:  stopStart,
+			rep:      &stopRep,
 		})
+		stopDuration := time.Since(stopStart)
 		require.NoError(t, serr, "an expired deadline is a normal outcome, never an error")
-		require.True(t, stop.Truncated,
+		require.True(t, stopTruncated,
 			"an already-expired deadline, over %d objects, must truncate", objects)
-		require.Equal(t, gcCheckEvery-1, stop.ScannedObjects,
+		require.Equal(t, gcCheckEvery-1, stopRep.ScannedObjects,
 			"an already-expired deadline must stop the sweep at its FIRST check: the deadline is "+
 				"consulted once every %d objects and before that object is counted, so this pass "+
 				"can only ever report %d", gcCheckEvery, gcCheckEvery-1)
-		if firstCheck == 0 || stop.Duration < firstCheck {
-			firstCheck = stop.Duration
+		if firstCheck == 0 || stopDuration < firstCheck {
+			firstCheck = stopDuration
 		}
 	}
 	fastest := gcCalibratedSweep(passes)
@@ -1085,6 +1143,15 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 					"only if it never saw its %v deadline expire — its last check falls on its last "+
 					"object, so it may return at most that object late, not %v late",
 				objects, budget, elapsed-budget)
+			win = win.next(elapsed, rep.Truncated)
+			continue
+		}
+
+		if rep.ScannedObjects == 0 {
+			// The budget was gone before the sweep ran at all, so the mark phase truncated the
+			// pass and nothing was swept or collected. That is a correct outcome and a mispriced
+			// setup, not a broken bound — the same case as the first-check one below, one phase
+			// earlier — so it is re-priced from what this pass measured and retried.
 			win = win.next(elapsed, rep.Truncated)
 			continue
 		}
@@ -1311,7 +1378,9 @@ func TestGC_TombstoneRetiresOnlyMarkTimeDead(t *testing.T) {
 	oldRoot := gcSeed(t, tp, "src/old.txt", "content the pass legitimately retires")
 
 	// Force-collect retention: at the snapshot, nothing is live and the old root is dead.
-	_, liveRoots, dead := tp.Store.mark(-1, -1)
+	_, liveRoots, dead, truncated, err := tp.Store.mark(ctx, -1, -1, time.Time{})
+	require.NoError(t, err)
+	require.False(t, truncated, "an unbounded mark must not report truncation")
 	require.Empty(t, liveRoots, "force-collect must find no live roots")
 	require.Contains(t, dead, oldRoot.Hash, "the pre-existing root must be dead at the snapshot")
 
@@ -1320,7 +1389,7 @@ func TestGC_TombstoneRetiresOnlyMarkTimeDead(t *testing.T) {
 
 	require.NoError(t, tp.Store.tombstoneDeadRoots(ctx, dead))
 
-	_, err := tp.Store.GetRoot(ctx, fresh.Hash)
+	_, err = tp.Store.GetRoot(ctx, fresh.Hash)
 	require.NoError(t, err, "a root written after mark's snapshot must survive that pass's tombstone phase")
 	_, err = tp.Store.GetRoot(ctx, oldRoot.Hash)
 	require.ErrorIs(t, err, core.ErrNotFound, "the mark-time dead root must still be retired")
@@ -1400,4 +1469,129 @@ func slicesContains(list []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// gcMarkBudgetRefs is how many hash-shaped strings the mark-budget fixtures plant in one
+// checkpoint. writeCheckpointJSON emits each reference twice, so the harvest sees over
+// 2·gcMarkBudgetRefs tokens and crosses gcCheckEvery with margin rather than by a token or two.
+const gcMarkBudgetRefs = gcCheckEvery
+
+// TestGC_MarkPhaseHonoursTheDeadline pins the bound the mark phase did not have until the
+// 2026-08-22 audit, and the sweep's own comment claimed it did ("both this loop and the mark phase
+// check the deadline and the ctx").
+//
+// The phase streams every checkpoint, pin and elimination file token by token, and its cost grows
+// with the project's whole history: an idle task that granted it 2 s had no way to get out of it.
+// An already-expired deadline must therefore stop the pass IN the harvest — with nothing
+// tombstoned, nothing swept, and no cursor left behind, because a live set the phase never finished
+// computing is one that would look mostly dead to a sweep.
+//
+// The fixture makes that structural rather than lucky. gcMarkBudgetRefs hash-shaped strings in one
+// checkpoint is over 2·gcMarkBudgetRefs JSON tokens, so the harvest crosses its first check no
+// matter how fast the host is — where a fixture that leaned on the in-memory index walks instead
+// would be testing the clock, since those walk indexes the store already holds and answer to ctx
+// alone (see mark).
+func TestGC_MarkPhaseHonoursTheDeadline(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+
+	// Enough roots that a mark which DID complete would have real work to hand the sweep, so
+	// "collected nothing" below is a property of the truncation and not of an empty store.
+	for i := 0; i < gcCheckEvery*3; i++ {
+		gcSeed(t, tp, fmt.Sprintf("src/m%04d.ts", i), fmt.Sprintf("mark budget body %d, unique\n", i))
+	}
+	before := objectCount(t, tp)
+
+	// A harvest long enough to reach a check. The references name nothing in the store on purpose:
+	// what is under test is the phase's bound, not what it would have found.
+	refs := make([]string, 0, gcMarkBudgetRefs)
+	for i := 0; i < gcMarkBudgetRefs; i++ {
+		refs = append(refs, fmt.Sprintf("%064x", i))
+	}
+	writeCheckpointJSON(t, tp, "0001.json", refs...)
+
+	// The phase bound itself, asserted directly: an expired deadline, a harvest that must reach its
+	// first check, and truncation as the outcome.
+	_, _, _, truncated, err := tp.Store.mark(ctx, -1, -1, time.Now().Add(-time.Second))
+	require.NoError(t, err, "an expired deadline is a normal outcome of idle work, never an error")
+	require.True(t, truncated, "an expired deadline must truncate the mark phase")
+
+	// And the consequence at the GC level. GCPolicy.Deadline is a duration from the pass's start,
+	// so a nanosecond is spent long before the harvest's 256th token.
+	rep, err := tp.Store.GC(ctx, GCPolicy{
+		RetainDays: -1, RetainSessions: -1, Deadline: time.Nanosecond,
+	})
+	require.NoError(t, err)
+	require.True(t, rep.Truncated, "an expired deadline must truncate the pass")
+	require.Zero(t, rep.ScannedObjects, "a pass truncated in mark never reaches the sweep")
+	require.Zero(t, rep.DeletedObjects)
+	require.Equal(t, before, objectCount(t, tp),
+		"a pass truncated in mark must collect nothing: every reference it never reached looks dead")
+	require.NoFileExists(t, filepath.Join(paths.Of(tp.Root).State, gcStateFile),
+		"a truncated mark must leave no cursor, or the next pass resumes a sweep against a live "+
+			"set that was never finished")
+}
+
+// TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline is the other side of the asymmetry the
+// 2026-08-22 fix round chose, and the reason the sweep can still be reached under a spent budget.
+//
+// The audit asked for the deadline on the harvest AND the index walks. Budgeting the walks too
+// would mean a pass whose deadline expires after the harvest throws that harvest away and hands the
+// caller nothing — to save microseconds of map iteration over indexes the store already holds. Worse
+// for the collector as a whole: with a small enough budget no pass could ever reach the sweep, so a
+// store would grow without bound while every pass reported Truncated and did nothing. So the walks
+// answer to ctx alone, and this test is what stops that from being quietly reverted: an expired
+// deadline over an EMPTY harvest and 3·gcCheckEvery indexed roots must still produce a complete
+// live set.
+func TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+
+	var roots []Root
+	for i := 0; i < gcCheckEvery*3; i++ {
+		roots = append(roots, gcSeed(t, tp,
+			fmt.Sprintf("src/w%04d.ts", i), fmt.Sprintf("index walk body %d, unique\n", i)))
+	}
+	// No checkpoint, pin or elimination file: the harvest has nothing to stream, so every one of
+	// the phase's budget checks below happens inside an index walk.
+	require.NoFileExists(t, filepath.Join(paths.Of(tp.Root).Checkpoints, "0001.json"))
+
+	liveChunks, liveRoots, _, truncated, err := tp.Store.mark(ctx, 30, -1, time.Now().Add(-time.Second))
+	require.NoError(t, err)
+	require.False(t, truncated,
+		"the mark's index walks answer to ctx, not to the deadline: a spent budget must not abandon "+
+			"a completed harvest")
+	require.Len(t, liveRoots, len(roots),
+		"a mark that did not truncate must have walked every index to the end")
+	for _, r := range roots {
+		require.Contains(t, liveRoots, r.Hash)
+		for _, c := range r.Chunks {
+			require.Contains(t, liveChunks, c.Hash,
+				"an unfinished chunk walk would leave a live root's chunks out of the live set")
+		}
+	}
+}
+
+// TestGC_MarkPhaseHonoursCancellation is the ctx half: a cancelled caller gets an error, not a
+// silently truncated pass, because the two are different events (a shutdown against a spent budget).
+func TestGC_MarkPhaseHonoursCancellation(t *testing.T) {
+	tp := newTestStore(t)
+	for i := 0; i < gcCheckEvery*3; i++ {
+		gcSeed(t, tp, fmt.Sprintf("src/c%04d.ts", i), fmt.Sprintf("cancel body %d, unique\n", i))
+	}
+	before := objectCount(t, tp)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// mark is called directly as well as through GC, because GC checks ctx once on entry and would
+	// return before mark ran at all — which would leave the phase's OWN cancellation path, the one
+	// that matters for a pass cancelled while it is already streaming files, unexercised.
+	_, _, _, truncated, err := tp.Store.mark(ctx, -1, -1, time.Time{})
+	require.ErrorIs(t, err, context.Canceled, "the mark phase must observe its caller's cancellation")
+	require.False(t, truncated, "a cancelled caller is an error, not a spent budget; the two differ")
+
+	_, err = tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1})
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, before, objectCount(t, tp), "a cancelled pass must collect nothing")
 }
