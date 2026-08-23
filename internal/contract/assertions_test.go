@@ -637,3 +637,66 @@ func TestHistoryPersistsAcrossMonitors(t *testing.T) {
 	require.Equal(t, contract.ModeDegradedPassive, second.Mode(),
 		"the next SessionStart must surface the degradation, not start clean")
 }
+
+// The three tests below pin the session-id half of §12.1's source_compact observable, which the
+// assertion ignored until the 2026-08-22 audit: it read only AwaitingCompactStart, so a PreCompact
+// in one session resolved against whatever session started next. SessionHistory.LastPrecompactSession
+// had been written by the daemon since SP-05 and read by nothing.
+
+// TestSourceCompact_PendingForAnotherSessionDoesNotFail is the defect itself: session X compacts,
+// an unrelated session Y starts with source=startup, and the assertion must not blame Y for X.
+func TestSourceCompact_PendingForAnotherSessionDoesNotFail(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartSourceCompact)
+	t.Cleanup(contract.ResetProducers)
+
+	h := &contract.SessionHistory{AwaitingCompactStart: true, LastPrecompactSession: "sess-x"}
+	env := contract.Env{
+		Clock: newFakeClock(), History: h,
+		Event: hookio.Event{SessionID: "sess-y", Source: "startup"},
+	}
+
+	r := assertionByID(t, contract.CSessionStartSourceCompact).Check(context.Background(), env)
+
+	require.True(t, r.OK, "a start of a different session must not resolve session X's pending observation")
+	require.Equal(t, "precompact-pending-for-another-session", r.Observed)
+	require.False(t, h.AwaitingCompactStart,
+		"the pending flag must be dropped, or the next start of any session inherits a stale obligation")
+}
+
+// TestSourceCompact_SameSessionStillFails is the mutation guard for the test above: the fix must not
+// turn the assertion off. Same session id, wrong source, still SevCritical-false.
+func TestSourceCompact_SameSessionStillFails(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartSourceCompact)
+	t.Cleanup(contract.ResetProducers)
+
+	h := &contract.SessionHistory{AwaitingCompactStart: true, LastPrecompactSession: "sess-x"}
+	env := contract.Env{
+		Clock: newFakeClock(), History: h,
+		Event: hookio.Event{SessionID: "sess-x", Source: "startup"},
+	}
+
+	r := assertionByID(t, contract.CSessionStartSourceCompact).Check(context.Background(), env)
+
+	require.False(t, r.OK, "the compacting session's own start with the wrong source must still fail")
+	require.Equal(t, "compact", r.Expected)
+	require.Equal(t, "startup", r.Observed)
+	require.False(t, h.AwaitingCompactStart)
+}
+
+// TestSourceCompact_SameSessionCompactPasses closes the table: the honest success path.
+func TestSourceCompact_SameSessionCompactPasses(t *testing.T) {
+	contract.DeclareProducer(contract.CSessionStartSourceCompact)
+	t.Cleanup(contract.ResetProducers)
+
+	h := &contract.SessionHistory{AwaitingCompactStart: true, LastPrecompactSession: "sess-x"}
+	env := contract.Env{
+		Clock: newFakeClock(), History: h,
+		Event: hookio.Event{SessionID: "sess-x", Source: "compact"},
+	}
+
+	r := assertionByID(t, contract.CSessionStartSourceCompact).Check(context.Background(), env)
+
+	require.True(t, r.OK)
+	require.Equal(t, "compact", r.Observed)
+	require.False(t, h.AwaitingCompactStart)
+}

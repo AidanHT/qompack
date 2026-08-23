@@ -120,9 +120,17 @@ func checkSessionStartFires(ctx context.Context, e Env) Result {
 }
 
 // checkSessionStartSourceCompact is CSessionStartSourceCompact's real observation: when a
-// PreCompact was observed for this session (History.AwaitingCompactStart), the FOLLOWING
-// SessionStart must arrive with source=="compact". The flag is cleared either way, because it is
-// only ever evaluated once, on the next start.
+// PreCompact was observed for a session (History.AwaitingCompactStart), the FOLLOWING SessionStart
+// OF THAT SAME SESSION must arrive with source=="compact". The flag is cleared either way, because
+// it is only ever evaluated once, on the next start.
+//
+// The session-id half is not decoration. 00-ARCHITECTURE §12.1 states the observable as "the next
+// SessionStart carries source=compact within the same session id", and a pending flag alone cannot
+// express it: a PreCompact in session X followed by a SessionStart of an unrelated session Y —
+// a second project window, or a fresh session started while X sat compacting — would resolve X's
+// pending assertion against Y's source and fail a contract nothing violated. The daemon has
+// written LastPrecompactSession since SP-05 (internal/daemon/handlers.go); until this check read
+// it, nothing did.
 func checkSessionStartSourceCompact(ctx context.Context, e Env) Result {
 	const desc = "SessionStart arrives with source=compact after PreCompact"
 	h, ok := historyOf(e)
@@ -131,6 +139,18 @@ func checkSessionStartSourceCompact(ctx context.Context, e Env) Result {
 	}
 	if !h.AwaitingCompactStart {
 		return Result{OK: true, Expected: desc, Observed: "no-precompact-pending", TS: now(e)}
+	}
+	if h.LastPrecompactSession != "" && h.LastPrecompactSession != e.Event.SessionID {
+		// A different session is starting. The pending observation belongs to the session that
+		// compacted and this start says nothing about it, so the flag is dropped rather than
+		// resolved: keeping it would let the NEXT start of any session inherit a stale obligation,
+		// which is the same wrong-session failure one step later.
+		h.AwaitingCompactStart = false
+		return Result{
+			OK: true, Expected: desc,
+			Observed: "precompact-pending-for-another-session",
+			TS:       now(e),
+		}
 	}
 	h.AwaitingCompactStart = false
 	if e.Event.Source == "compact" {
