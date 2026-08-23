@@ -260,3 +260,77 @@ func TestPlanDocsInScope_FollowsLandedSubplansWithoutASecondList(t *testing.T) {
 		}
 	}
 }
+
+// The wildcard tests below pin the defect the 2026-08-22 plan audit found: namesFor built its
+// lookup key by pasting the package argument onto the module path, so a `./pkg/...` spelling
+// produced a key ending in "/..." that no `go test -list` status line can ever carry. Every such
+// command — 128 lines of plans/ at the time — was counted as checkable and then dropped by the
+// caller's `!ok` branch, and the summary reported it as resolved. A gate reporting success while
+// checking nothing is the exact class this file exists to prevent, so it is pinned three ways:
+// the key must expand, an unmatched package must be an error rather than a skip, and the
+// build-constraint fallback must read the same package set the pattern selects.
+
+func TestPkgDirRel_StripsTheWildcard(t *testing.T) {
+	cases := []struct {
+		in       string
+		wantDir  string
+		wantWild bool
+	}{
+		{"./internal/cli", "internal/cli", false},
+		{"./internal/cli/...", "internal/cli", true},
+		{"./tools/...", "tools", true},
+		{"./...", ".", true},
+		{"./test/guards", "test/guards", false},
+	}
+	for _, c := range cases {
+		dir, wild := pkgDirRel(c.in)
+		if dir != c.wantDir || wild != c.wantWild {
+			t.Errorf("pkgDirRel(%q) = (%q, %v), want (%q, %v)", c.in, dir, wild, c.wantDir, c.wantWild)
+		}
+	}
+}
+
+func TestNamesFor_WildcardUnionsEveryPackageBeneathIt(t *testing.T) {
+	byPkg := map[string][]string{
+		modulePath + "/tools/devtool":      {"TestCheckCommitMsg"},
+		modulePath + "/tools/lint/nomagic": {"TestNoMagic_Analyzer"},
+		modulePath + "/internal/cli":       {"TestRunHook"},
+	}
+	names, ok := namesFor(byPkg, "./tools/...")
+	if !ok {
+		t.Fatal("./tools/... resolved to nothing; the wildcard key was not expanded")
+	}
+	if len(names) != 2 || names[0] != "TestCheckCommitMsg" || names[1] != "TestNoMagic_Analyzer" {
+		t.Errorf("names = %v, want the union of both tools packages, sorted", names)
+	}
+	if empty, err := matchesNoTest("TestNoMagic_Analyzer", names); err != nil || empty {
+		t.Errorf("a test declared in a nested package must satisfy the wildcard: empty=%v err=%v", empty, err)
+	}
+}
+
+func TestNamesFor_WildcardDoesNotReachSiblingPrefixes(t *testing.T) {
+	// ./tools/... must not pick up tools-adjacent packages that merely share a name prefix, or the
+	// union would silently satisfy a pattern from the wrong tree.
+	byPkg := map[string][]string{
+		modulePath + "/toolsmith": {"TestSomethingElse"},
+	}
+	if names, ok := namesFor(byPkg, "./tools/..."); ok {
+		t.Errorf("./tools/... matched %v via a bare string prefix", names)
+	}
+}
+
+func TestNamesFor_ExactPathStaysExact(t *testing.T) {
+	byPkg := map[string][]string{
+		modulePath + "/internal/cli/sub": {"TestNested"},
+	}
+	if names, ok := namesFor(byPkg, "./internal/cli"); ok {
+		t.Errorf("./internal/cli matched a subpackage's list %v; the non-wildcard join must be exact", names)
+	}
+}
+
+func TestNamesFor_ModuleRootWildcard(t *testing.T) {
+	byPkg := map[string][]string{modulePath + "/internal/obs": {"TestBudgets_"}}
+	if _, ok := namesFor(byPkg, "./..."); !ok {
+		t.Error("./... must resolve to every package in the module")
+	}
+}
