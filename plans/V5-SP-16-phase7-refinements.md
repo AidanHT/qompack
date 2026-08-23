@@ -14,7 +14,7 @@ This subplan owns **Phase 7 of `Qompack.md` §10 in full**, minus the one item �
 
 Five things ship. **(1) O4 cross-session warm start.** The store outlives the session, so a fresh session should not start blind. At daemon start the project's cumulative Count-Min sketch of file-touch frequency is exponentially decayed with `Scale` and merged into the live session sketch with `MergeFrom`; `scope: "project"` eliminations are re-verified against the current working tree and carried forward with their staleness correctly re-evaluated; and the changepoint detector's per-feature priors are seeded from the feature summaries of closed segments in past sessions, so BOCD's notion of "normal path locality on this project" does not have to be relearned from the first twenty turns of every new session. **(2) Demand-driven rehydration tuning.** §8.7 says repeated expansion of the same hash is *a signal, not a cost*; SP-13 counts those expansions and records every retrieval result as an ephemeral tool-use in the store. This subplan reads those counts at checkpoint-finalize time and promotes the frequently-re-expanded hashes into the checkpoint's pointer tier at an elevated weight, so the next rehydration includes what the last one should have — a measured correction to the 8–12K budget instead of a guess. **(3) Per-segment Bloom filters** in the LSM style of §6.8, populating `Segment.BloomRef`, so the question "which compacted segment could contain this path/tool/hash" is answerable without expanding any segment. **(4) The ski-rental cache-write policy** of §5.6 and Appendix A, with the threshold *computed* as `w/r` from `scheduler.cache.writeMultiplier / readMultiplier` and never written as the literal `12.5` — the literal is on the `nomagic` lint's forbidden list precisely so this cannot be fudged. **(5) Progressive checkpoint truncation tuning:** the actual budget-versus-reconstruction-quality curve of §6.9's importance ordering is *measured* on the synthetic replay corpus, and the tier reserve fractions are set to the argmax of that measurement, with a test that fails if the constants ever drift from the artifact that justifies them.
 
-**What exists when you start.** `develop` at the wave-3 verification tag: `internal/config` with the full Appendix C schema plus the `runtime` extension namespace; `internal/sketch` with `Bloom`, `CMS` (including `MergeFrom` and `Scale`), `HLL`, `MisraGries`, `MinHash`, all versioned and CRC-checked; `internal/store` with content-addressed objects, the `tool_use` index (including the `Ephemeral` flag on `ToolUseRecord`), file version history, `ChangedSince`, and the `SegmentLog` with `EncodedOnce`/`MarkEncoded`; `internal/negknow` with the elimination ledger, `Scope`, `Status`, `RefreshStaleness`, and `RebuildBloom`; `internal/checkpoint` with the §8.5 schema, `Writer`, `Reader`, `Truncate`, `ExtractDecisions`, and `FocusInstructions`; `internal/scheduler` with `Evaluate`, `NewBOCD`, `YoungDaly`, and a **stub** `SkiRentalShouldWrite` that always returns `false`; `internal/mcp` with all eight tools and the `Promoter`; `internal/daemon` with the `IdleController` extension seam; `internal/eval` (SP-02, wave 1) with the replay harness, Belady OPT, divergence metrics, and the 24-session synthetic corpus; `internal/rehydrate` (SP-11, wave 3) with the eight-item injection.
+**What exists when you start.** `develop` at the wave-3 verification tag: `internal/config` with the full Appendix C schema plus the `runtime` extension namespace; `internal/sketch` with `Bloom`, `CMS` (including `MergeFrom` and `Scale`), `HLL`, `MisraGries`, `MinHash`, all versioned and CRC-checked; `internal/store` with content-addressed objects, the `tool_use` index (including the `Ephemeral` flag on `ToolUseRecord`), file version history, `ChangedSince`, and the `SegmentLog` with `EncodedOnce`/`MarkEncoded`; `internal/negknow` with the elimination ledger, `Scope`, `Status`, `RefreshStaleness`, and `RebuildBloom`; `internal/checkpoint` with the §8.5 schema, `Writer`, `Reader`, `Truncate`, `ExtractDecisions`, and `FocusInstructions`; `internal/scheduler` with `Evaluate`, `NewBOCD`, `YoungDaly`, and a **real, already-tested** `SkiRentalShouldWrite` — SP-01 shipped the closed form in `internal/scheduler/formulas.go` (`if r <= 0 { return false }; return expectedReads > w/r`), not a stub, because 00-ARCHITECTURE §14.1 requires fully specified pure functions to be implemented; it is pinned today by `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig`; `internal/mcp` with all eight tools and the `Promoter`; `internal/daemon` with the `IdleController` extension seam; `internal/eval` (SP-02, wave 1) with the replay harness, Belady OPT, divergence metrics, and the 24-session synthetic corpus; `internal/rehydrate` (SP-11, wave 3) with the eight-item injection.
 
 **What exists when you finish.** `internal/config` exposes `runtime.phase7`; `internal/scheduler` has a real ski-rental policy that participates in `Evaluate` and a prior-seeded changepoint detector; `internal/store` writes and answers per-segment Bloom filters and exposes ephemeral-expansion counts; `internal/daemon/phase7.go` runs warm start once per session; `internal/checkpoint/promote.go` promotes re-expanded hashes into the pointer tier and `internal/checkpoint/curve.go` carries measured, artifact-justified truncation reserves; `testdata/phase7/` carries two committed measurement artifacts; and the replay gate carries the Phase 7 exit assertion with no metric regressed beyond §11.3's 2% rule.
 
@@ -386,7 +386,7 @@ type Decision struct{ /* … */
     P Candidate; PScore float64
     Breakdown map[string]float64; Urgency Urgency; TTL TTLState /* … */ }
 func Evaluate(in Inputs) Decision
-func SkiRentalShouldWrite(expectedReads, r, w float64) bool // §5.13; SP-01 ships a `false` stub
+func SkiRentalShouldWrite(expectedReads, r, w float64) bool // §5.13; SP-01 SHIPPED this, in formulas.go — a real closed form, never a stub
 
 // internal/checkpoint (§5.14)
 type Checkpoint struct{ /* §8.5 schema */ }
@@ -496,8 +496,8 @@ const (
 func SegmentKey(kind SegKeyKind, value string) []byte
 func SegmentBloomRef(id core.SegmentID) string
 // BuildSegmentBloom takes projectRoot + cfg rather than a Store: it is an INDEX-ONLY pass over
-// index/tool_use.jsonl (never an object read, §6.8), and the concrete SegmentLog that calls it
-// from Close already holds both while holding no Store handle.
+// index/tool_use.jsonl (never an object read, §6.8), and the concrete segLog that calls it from
+// Close is given both by §4's anchored edit while holding no Store handle.
 func BuildSegmentBloom(ctx context.Context, projectRoot string, cfg config.Config, seg Segment) (ref string, keys int, err error)
 func LoadSegmentBloom(projectRoot, ref string) (*sketch.Bloom, error)
 // SegmentMayContain returns (true, nil) when no bloom exists and (true, err) when one exists but
@@ -506,6 +506,13 @@ func LoadSegmentBloom(projectRoot, ref string) (*sketch.Bloom, error)
 func SegmentMayContain(projectRoot string, seg Segment, kind SegKeyKind, value string) (bool, error)
 func SegmentsMayContain(ctx context.Context, s Store, projectRoot string, kind SegKeyKind, value string, from, to core.TurnIndex) ([]core.SegmentID, error)
 func BackfillSegmentBlooms(ctx context.Context, s Store, projectRoot string, cfg config.Config, deadline time.Duration) (built int, err error)
+
+// ── internal/store/segments.go (SP-06's file; the anchored edits of §4) ──
+// segLog gains two fields, root string and cfg config.Config, and openSegLog takes them:
+func openSegLog(p, root string, cfg config.Config, clk core.Clock, log logging.Logger) (*segLog, error)
+// recordBloomRef appends SP-06's reserved segBloomRec and sets Segment.BloomRef in memory. It is
+// unexported and NOT added to the SegmentLog interface — Rule W-3 freezes §5.8's seam.
+func (l *segLog) recordBloomRef(ctx context.Context, id core.SegmentID, ref string) error
 
 // ── internal/store/ephemeral.go ──
 type Expansion struct{ Root core.Hash; Count int; Last ToolUseRecord }
@@ -680,6 +687,19 @@ forbidden integer set (§11.6) and a range bound is not a config default, so it 
 
 Package `scheduler` imports foundation packages only; this file adds no import beyond `math`.
 
+**`SkiRentalShouldWrite` already exists and already works.** SP-01 shipped it in
+`internal/scheduler/formulas.go` as a real closed form — `if r <= 0 { return false }; return
+expectedReads > w/r` — under 00-ARCHITECTURE §14.1's "fully specified pure functions are
+implemented, not stubbed" rule, and `TestSkiRental_ComputedNotLiteral` /
+`TestSkiRental_ThresholdTracksConfig` (both in the external `scheduler_test` package) pin it today.
+Commit 2 therefore **moves that function, with its doc comment, out of `formulas.go` and into
+`skirental.go`**, and re-expresses its body through the new `SkiRentalThreshold` so the ratio has
+exactly one definition. The move is behaviour-preserving on everything SP-01's tests assert
+(`r <= 0 → false`; otherwise `expectedReads > w/r`, strictly); the only extension is that a NaN `r`,
+`w` or `expectedReads` now folds into the same conservative `false` instead of into `false` by
+accident of IEEE comparison. Those two SP-01 tests must stay green **unedited** across the move —
+they are the regression proof that the move changed nothing. There is no stub to delete anywhere.
+
 ```go
 // SkiRentalThreshold is Appendix A's w/r. It is COMPUTED, never written as 12.5 — the literal
 // is on the nomagic forbidden list precisely so this stays true (§11.6, §12 "Cache multipliers
@@ -695,6 +715,11 @@ func SkiRentalThreshold(r, w float64) float64 {
 //   write when  E[remaining reads] > w/r
 // Strictly greater: exactly at the threshold the two policies cost the same and the
 // deterministic competitive-ratio-2 rule rents.
+//
+// This is SP-01's shipped body, moved here from formulas.go and routed through
+// SkiRentalThreshold. Carry SP-01's doc comment over with it — the "neither that ratio nor its
+// operands may ever appear as a literal in this package" rule is what nomagic's forbidden 12.5
+// enforces, and it belongs next to the function, not next to the one it was moved away from.
 func SkiRentalShouldWrite(expectedReads, r, w float64) bool {
     t := SkiRentalThreshold(r, w)
     if math.IsInf(t, 1) || math.IsNaN(expectedReads) {
@@ -974,13 +999,26 @@ and delete the now-redundant `UnmarshalBinary` call. Nothing else in that file c
 
 Written with `paths.CreateNew` and then chmod `0444` — a closed segment is immutable, so the file is written once. `os.IsExist` on `CreateNew` is **not** an error: it means the bloom is already built, and `BuildSegmentBloom` returns the existing ref with `keys = -1`. `sketches/tried.bloom` is the only append-only-protected bloom (§3.3); segment blooms are new immutable files and do not touch that guard.
 
-**Sidecar index** `.qompack/sketches/segments/INDEX.jsonl`, append-only via `paths.AppendOnly`, one line per built bloom:
+**Durable lookup: `index/segments.jsonl`, and no sidecar.** SP-06 already shipped the writer seam this needs. `internal/store/segments.go` declares
 
-```json
-{"seg":12,"ref":"sketches/segments/000012.bloom","keys":143,"capacity":2048,"records":57,"truncated":false,"built":1699999999999}
+```go
+// segBloomRec names a segment's own per-segment bloom file.
+//
+// SP-06 PARSES this record and surfaces it as Segment.BloomRef, but never writes one: the writer
+// is SP-16's, which is exactly the `"" until SP-16` reservation 00-ARCHITECTURE.md §5.8 describes.
+type segBloomRec struct {
+    V   int            `json:"v"`
+    Op  string         `json:"op"`
+    ID  core.SegmentID `json:"id"`
+    Ref string         `json:"ref"`
+}
 ```
 
-Its purpose is backfill: segments closed before SP-16 landed have `BloomRef == ""` in `segments.jsonl` and the log is append-only, so the sidecar is the lookup of record. Read path checks `Segment.BloomRef` first, then the sidecar.
+under the op constant `segOpBloom = "bloom"`, and its `load` replay already does `seg.BloomRef = r.Ref` for every such line. A bloom ref is therefore recorded by appending **one more line to the append-only `index/segments.jsonl`** — exactly the way `segCloseRec` records a close and `segEncodeRec` records an encode — and it survives a reopen through the same replay, for segments closed by this branch and for backfilled ones alike.
+
+**There is no `.qompack/sketches/segments/INDEX.jsonl` sidecar, and SP-16 must not create one.** A second append-only file describing the same fact would be a second source of truth for it, and `segments.jsonl` is already the log of record for everything else about a segment.
+
+Backfill needs nothing extra either: `SegmentBloomRef(id)` is a pure function of the segment id, so the read path resolves `seg.BloomRef` when it is set and falls back to the computed path when it is not. A bloom that `BackfillSegmentBlooms` has written is usable the instant its file exists, whether or not its `segBloomRec` line has landed yet; a segment with neither file nor ref answers "may contain" conservatively.
 
 **Key scheme.** Domain-separated, matching `core.HashBytes`:
 
@@ -1013,7 +1051,7 @@ with `capacityPerSegment = runtime.phase7.segmentBloom.capacityPerSegment` (defa
 func BuildSegmentBloom(ctx context.Context, projectRoot string, cfg config.Config, seg Segment) (ref string, keys int, err error)
 ```
 
-It takes `projectRoot` and `cfg` rather than a `Store` for two reasons: it is an **index-only** pass (never `Open`/`OpenSpan`/`GetChunk`/`GetRoot`, which is the whole point of §6.8), and the concrete `SegmentLog` that calls it from `Close` holds a project root and a `config.Config` but no `Store` handle. Reading `index/tool_use.jsonl` directly is legitimate here: `internal/store` owns that file.
+It takes `projectRoot` and `cfg` rather than a `Store` for two reasons: it is an **index-only** pass (never `Open`/`OpenSpan`/`GetChunk`/`GetRoot`, which is the whole point of §6.8), and the concrete `segLog` that calls it from `Close` is handed a project root and a `config.Config` by the anchored edit below but holds no `Store` handle and never will. Reading `index/tool_use.jsonl` directly is legitimate here: `internal/store` owns that file.
 
 Algorithm:
 
@@ -1023,7 +1061,7 @@ Algorithm:
 4. Iterate `<projectRoot>/.qompack/index/tool_use.jsonl` through the package's existing JSONL line reader, filtering `rec.Session == seg.Session && rec.Turn >= seg.StartTurn && rec.Turn <= seg.EndTurn`. For each record add the four keys above to the distinct-key set (skipping empty values; `rec.Path` is already in `paths.Key` form per §5.8, so `paths.Key` is applied defensively and is a no-op). Count records. Check `ctx.Err()` every 256 records; on deadline set `truncated = true` and stop.
 5. If `truncated`, **do not write the file** — a partial bloom produces false *negatives*, which would make a segment wrongly un-expandable. Return `("", 0, nil)` and log `Warn` with the segment id. A missing bloom is handled conservatively by the read path.
 6. `b := sketch.NewBloom(max(capacityPerSegment, len(keySet)), fpRate)`; insert every key in sorted order so the serialized bytes are deterministic.
-7. Marshal, write with `paths.CreateNew` + `Sync` + chmod `0444`, append the INDEX line (including `capacity`) via `paths.AppendOnly`.
+7. Marshal, write with `paths.CreateNew` + `Sync` + chmod `0444`. Nothing else is written here: recording the ref in `index/segments.jsonl` belongs to the caller — `SegmentLog.Close`'s anchored edit below, or `BackfillSegmentBlooms` — because only the segment log may append to its own file, and `BuildSegmentBloom` deliberately holds no log handle.
 8. Return `(ref, len(keySet), nil)`.
 
 **Read path.**
@@ -1036,7 +1074,7 @@ Joins `projectRoot` with the forward-slash `ref`, allocates a zero-value `*sketc
 ```go
 func SegmentMayContain(projectRoot string, seg Segment, kind SegKeyKind, value string) (bool, error)
 ```
-Resolves the ref (`seg.BloomRef`, else the sidecar entry for `seg.ID`) and calls `LoadSegmentBloom` + `Test(SegmentKey(kind, value))`. **No bloom ⇒ return `(true, nil)`** — the conservative answer: a segment we cannot rule out must be considered a candidate. A corrupt bloom returns `(true, err)`: still conservative, but the error is surfaced so a caller that holds a logger can report it. `SegmentsMayContain` — which does hold one, via `s` — converts a non-nil error into exactly one `Loud` entry per segment id per process, de-duplicated through a package-level `sync.Map` keyed on `core.SegmentID`. Keeping the logging in the `Store`-taking variant is what lets `SegmentMayContain` stay a pure function with no package-level logger.
+Resolves the ref — `seg.BloomRef` when it is set, otherwise the computed `SegmentBloomRef(seg.ID)` — and calls `LoadSegmentBloom` + `Test(SegmentKey(kind, value))`. **No bloom ⇒ return `(true, nil)`** — the conservative answer: a segment we cannot rule out must be considered a candidate. A corrupt bloom returns `(true, err)`: still conservative, but the error is surfaced so a caller that holds a logger can report it. `SegmentsMayContain` — which does hold one, via `s` — converts a non-nil error into exactly one `Loud` entry per segment id per process, de-duplicated through a package-level `sync.Map` keyed on `core.SegmentID`. Keeping the logging in the `Store`-taking variant is what lets `SegmentMayContain` stay a pure function with no package-level logger.
 
 ```go
 func SegmentsMayContain(ctx context.Context, s Store, projectRoot string, kind SegKeyKind, value string, from, to core.TurnIndex) ([]core.SegmentID, error)
@@ -1046,19 +1084,67 @@ Calls `s.Segments().Range(ctx, from, to)` and filters with `SegmentMayContain`, 
 ```go
 func BackfillSegmentBlooms(ctx context.Context, s Store, projectRoot string, cfg config.Config, deadline time.Duration) (built int, err error)
 ```
-Enumerates closed segments via `Range(ctx, 0, core.TurnIndex(math.MaxInt32))` where `seg.Closed && seg.BloomRef == ""` and no sidecar entry exists; calls `BuildSegmentBloom(ctx, projectRoot, cfg, seg)` per segment until `deadline` elapses; returns the count built. Idempotent and resumable — running it twice builds `n` then `0`. `math.MaxInt32` (not `math.MaxInt`) is used for every unbounded `Range` upper bound in this subplan so the value is identical on 32- and 64-bit targets and the replay artifacts stay reproducible.
+Enumerates closed segments via `Range(ctx, 0, core.TurnIndex(math.MaxInt32))` where `seg.Closed && seg.BloomRef == ""`; calls `BuildSegmentBloom(ctx, projectRoot, cfg, seg)` per segment until `deadline` elapses; on every non-empty `ref` it **records the ref durably** through `recordBloomRef` (below) so the next reopen replays `seg.BloomRef` out of `segments.jsonl` rather than rebuilding; returns the count built. A `recordBloomRef` failure is logged `Warn` and does not abort the sweep — the bloom file is already on disk and the computed-ref fallback still finds it. Idempotent and resumable — running it twice builds `n` then `0`.
 
-**Anchored edit in `internal/store` (SP-06's segment-log file).** Inside the concrete `SegmentLog.Close`, after `EndTurn`/`Features`/`Closed` have been set on the in-memory segment value and **before** the updated record is appended to `index/segments.jsonl`, insert:
+`recordBloomRef` is the one new unexported method on the concrete segment log, and it is what `BackfillSegmentBlooms` reaches for:
 
 ```go
-if ref, _, bErr := BuildSegmentBloom(ctx, l.root, l.cfg, seg); bErr == nil && ref != "" {
-    seg.BloomRef = ref
-}
+// recordBloomRef appends this segment's bloom ref to index/segments.jsonl and sets it in memory.
+// Unexported and NOT on the SegmentLog interface: Rule W-3 freezes §5.8's seam, and nothing
+// outside internal/store has any business naming a bloom file.
+func (l *segLog) recordBloomRef(ctx context.Context, id core.SegmentID, ref string) error
 ```
 
-`l.root` is the concrete segment log's project root and `l.cfg` its `config.Config` — both are necessarily already present, because the same receiver resolves `<root>/.qompack/index/segments.jsonl` and SP-06's `store.Open(root string, cfg config.Config, deps Deps)` threads both in. If SP-06 named them differently, use its names; do **not** add fields, and do **not** reach for a `Store` handle (the segment log does not hold one, and `BuildSegmentBloom` deliberately does not need one).
+It takes `l.mu`, refuses with `core.ErrDegraded` when the log is degraded, returns `core.ErrNotFound` for an unknown id, is a no-op when `seg.BloomRef == ref` already (so a second backfill writes nothing), appends `segBloomRec{V: indexRecordVersion, Op: segOpBloom, ID: id, Ref: ref}` through `l.append`, and only then sets `seg.BloomRef = ref`. `BackfillSegmentBlooms` reaches it with `sl, ok := s.Segments().(*segLog)`; when the assertion fails — a test fake standing in for the log — it logs `Warn` once and keeps building files, which still answer through the computed-ref fallback.
 
-Any error is swallowed deliberately: a missing segment bloom degrades to "may contain", never to a failed `Close` (§12.3 "everything else fails toward do nothing").
+`math.MaxInt32` (not `math.MaxInt`) is used for every unbounded `Range` upper bound in this subplan so the value is identical on 32- and 64-bit targets and the replay artifacts stay reproducible.
+
+**Anchored edits in `internal/store/segments.go` (SP-06's segment-log file) and `internal/store/open.go` (its one constructor call site).** Three sites in `segments.go` — the two struct fields, `openSegLog`'s two new parameters (which is also where `recordBloomRef` above lands), and `Close` — plus the single call-site update in `open.go` and the matching one in `segments_test.go`. All of them are listed in the Done checklist's file map, and nothing else in those files changes. Read the shipped `segLog` before editing: it does **not** hold a project root or a `config.Config` today, and its `Close` appends the close record **before** it mutates the in-memory segment — both facts drive the shape below.
+
+**Site 1 — `segLog` gains two fields.** `segLog` currently holds `mu`, `f`, `byID`, `order`, `maxID`, `clk`, `log`, `degraded`, `warnedNoTokens`. Add exactly two, and nothing else:
+
+```go
+root string        // the PROJECT root, matching openFS's own `root` (never <root>/.qompack)
+cfg  config.Config // needed for runtime.phase7.segmentBloom only
+```
+
+**Site 2 — `openSegLog` takes them as parameters.** Its signature becomes
+
+```go
+func openSegLog(p, root string, cfg config.Config, clk core.Clock, log logging.Logger) (*segLog, error)
+```
+
+and it stores both on the returned `segLog`. There are exactly two call sites in the package: `openFS` in `internal/store/open.go`, which already has `root` and `cfg` in scope and becomes
+
+```go
+if s.seg, err = openSegLog(filepath.Join(l.Index, segmentsFile), root, cfg, deps.Clock, deps.Log); err != nil {
+```
+
+and one benchmark call in `internal/store/segments_test.go`, which passes `b.TempDir()` and `config.Defaults()`. Both are mechanical argument additions; nothing else in either file changes. Threading through the constructor rather than through `FSStore` is deliberate: the segment log's own methods need the values, and a `segLog` reached through `FSStore.Segments()` has no back-pointer to its store.
+
+**Site 3 — the bloom build and its record inside `Close`.** The order matters and is the reverse of what a naive reading suggests. Today `Close` appends `segCloseRec` **first** (`l.append(segCloseRec{…})`) and only then mutates `seg`, so a `seg.BloomRef` assigned before that append would never reach the file and would be lost on the next reopen. `seg` is also a `*Segment` out of `l.byID`, while `BuildSegmentBloom` takes a `Segment` by value. So: append the close record, mutate `seg` as the shipped code already does, and **then** append a second record — SP-06's designed `segBloomRec` seam — before returning:
+
+```go
+seg.EndTurn, seg.EndTS, seg.Tokens, seg.Features, seg.Closed = endTurn, endTS, tokens, clean, true
+
+// SP-16, §6.8: build this segment's bloom now that its span is final, and record the ref
+// through SP-06's reserved segBloomRec so a reopen replays it.
+if ref, _, bErr := BuildSegmentBloom(ctx, l.root, l.cfg, *seg); bErr == nil && ref != "" {
+    if aErr := l.append(segBloomRec{
+        V: indexRecordVersion, Op: segOpBloom, ID: id, Ref: ref,
+    }); aErr == nil {
+        seg.BloomRef = ref
+    } else {
+        l.log.Warn("store: segment bloom built but its ref was not recorded",
+            "segment", int(id), "ref", ref, "err", aErr)
+    }
+}
+return nil
+```
+
+`Close` already holds `l.mu` for its whole body, so this runs under the same lock and must call `l.append` directly rather than `recordBloomRef`, which takes the lock itself.
+
+Every error here is swallowed deliberately: a missing segment bloom — or a bloom whose ref was not recorded — degrades to "may contain", never to a failed `Close` (§12.3 "everything else fails toward do nothing"). `BuildSegmentBloom` returns `("", 0, nil)` when `runtime.phase7.segmentBloom.enabled` is false, so a disabled config appends no second record at all and `segments.jsonl` is byte-identical to its pre-SP-16 shape.
 
 **Performance budget.** `BenchmarkBuildSegmentBloom` over a segment containing **2 000 tool-use records** must complete in **< 50 ms** (well inside the 250 ms `buildBudgetMs`). Segment close is on the changepoint/idle path, never on the L0 hot path, so B-A is untouched — `BenchmarkObserveToolHotPath` must show no change (§13 invariant 9). `BenchmarkSegmentsMayContain200` over 200 segments must complete in **< 5 ms**.
 
@@ -1337,13 +1423,13 @@ report.BOCDPriorFeatures = sortedKeys(pri)
 ```go
 func RegisterPhase7(o Options, idle IdleController) *WarmStarter {
     ws := NewWarmStarter(o)
-    idle.Register("warm_start", 100, func(ctx context.Context) error {
+    idle.Register("warm_start", 5, func(ctx context.Context) error {
         if sess := ws.session(); sess != "" {
             ws.MaybeRun(ctx, sess)
         }
         return nil
     })
-    idle.Register("segment_blooms", 30, func(ctx context.Context) error {
+    idle.Register("segment_blooms", 40, func(ctx context.Context) error {
         _, err := store.BackfillSegmentBlooms(ctx, o.Store, o.ProjectRoot, o.Cfg, 500*time.Millisecond)
         return err
     })
@@ -1351,7 +1437,12 @@ func RegisterPhase7(o Options, idle IdleController) *WarmStarter {
 }
 ```
 
-Priorities follow SP-05's `IdleController.Register(name, prio, fn)` ordering (higher runs first). `ws.session()` is the unexported mutex-guarded read of the field `SetSession` writes; it returns `""` before any session has registered, and the task is then a no-op. `daemon.Options` carries no session accessor and SP-16 does not add one.
+**Priorities follow SP-05's shipped `IdleController.Register(name, prio, fn)` ordering, and that ordering is LOWER FIRST.** `internal/daemon/idle.go` says so twice — "Register adds work to run when idle. Lower prio runs first." — and the tasks already registered are `idlePrioDrain = 10`, `idlePrioSketches = 20`, `idlePrioMetrics = 30` (`internal/daemon/daemon.go`). Hence the two numbers above:
+
+- **`warm_start` at 5** — below `idlePrioDrain`, so it wins the very first idle window. That is the whole point of the O4 deliverable: a fresh session's first compaction must benefit from history, and a warm start that ran last would routinely be preceded by the compaction it was supposed to inform. (A value of 100 would run it **last of everything** under these semantics — the exact inversion of the intent.)
+- **`segment_blooms` at 40** — after `metrics` (30) and deliberately **not equal** to it. Equal priorities leave relative order unspecified, and the backfill sweep is the one task here that can consume its whole 500 ms budget, so it goes behind every existing task rather than beside one.
+
+`ws.session()` is the unexported mutex-guarded read of the field `SetSession` writes; it returns `""` before any session has registered, and the task is then a no-op. `daemon.Options` carries no session accessor and SP-16 does not add one.
 
 **The edits to `internal/daemon` (SP-05's file), all confined to construction and session registration.** Four insertions and one struct field:
 
@@ -1395,6 +1486,7 @@ Insertion 4 means warm start does not wait for the first idle tick (default `idl
 | warm start exceeds `budgetMs` | context deadline cancels the in-flight step; partial report persisted with `Reason += "deadline;"` |
 | `BuildSegmentBloom` deadline | no file written (a partial bloom would produce false negatives); `Warn`; `SegmentMayContain` returns `true` conservatively |
 | segment bloom file exists | treated as already built; `keys = -1`; not an error |
+| `segBloomRec` append fails after the bloom file was written | `Warn` naming the segment and the ref; `Close` still returns nil and `seg.BloomRef` stays `""`. The read path's computed-ref fallback still finds the file in this process; the next `BackfillSegmentBlooms` sweep re-records it |
 | segment bloom CRC bad | `SegmentMayContain` returns `true`; `Loud` once per segment id per process |
 | `EphemeralExpansions` index missing | empty slice, nil error; `Promote` returns an empty report |
 | `Promote` error inside `Finalize` | `Warn`; `Finalize` continues and produces a checkpoint without promotions |
@@ -1439,18 +1531,23 @@ Tests are written **before** the implementation in each commit and must fail fir
 
 ### Ski rental (commit 2)
 
+The six `TestSkiRentalShouldWrite` rows below are marked **(pre-existing — green on the first run)**:
+`SkiRentalShouldWrite` already ships in `internal/scheduler/formulas.go`, so those rows are
+regression coverage for commit 2's move, not red-first TDD. Every other row in this table is
+red-first and must fail before its implementation exists.
+
 | Test | Input | Expected |
 |---|---|---|
 | `TestSkiRentalThresholdIsComputed` | `(0.1, 1.25)` | `12.5` exactly (`require.InDelta(12.5, got, 1e-12)`) |
 | ″ | `(0.05, 2.0)` | `40` |
 | ″ | `(0, 1.25)` | `+Inf` |
 | `TestNoLiteral12Point5InSource` | walk `internal/**/*.go`, `cmd/**/*.go` skipping `_test.go` and `internal/config/defaults.go`; parse each file with `go/parser` (comments discarded) and inspect every `*ast.BasicLit` | no basic literal whose value parses to `12.5` — comments explaining the threshold are allowed and expected, only compiled literals are forbidden (§11.6) |
-| `TestSkiRentalShouldWrite` | `(12.4, 0.1, 1.25)` | `false` |
+| `TestSkiRentalShouldWrite` **(pre-existing — green on the first run)** | `(12.4, 0.1, 1.25)` | `false` |
 | ″ | `(12.5, 0.1, 1.25)` | `false` (strictly greater) |
 | ″ | `(12.6, 0.1, 1.25)` | `true` |
 | ″ | `(100, 0.05, 2.0)` | `true` (threshold 40) |
 | ″ | `(39.9, 0.05, 2.0)` | `false` |
-| ″ | `(math.NaN(), 0.1, 1.25)` | `false` |
+| ″ | `(math.NaN(), 0.1, 1.25)` | `false` — the one row the move extends: SP-01's body returns `false` here through IEEE comparison, `SkiRentalThreshold` makes it explicit |
 | `TestEstimateRemainingReads` | `EffectiveWindow=180000, HardCeilingMargin=20000, ContextTokens=100000, FrontierTurn=100` | `60.6 ± 0.01` |
 | ″ | `ContextTokens=170000` (above hard ceiling) | `0` |
 | ″ | `FrontierTurn=0`, no candidates | `0` |
@@ -1483,16 +1580,18 @@ Tests are written **before** the implementation in each commit and must fail fir
 | Test | Setup | Expected |
 |---|---|---|
 | `TestBuildSegmentBloomSizesPerAppendixA` | 400 records (≈ 810 distinct keys, under the 2048 floor), capacity 2048, fp 0.01 | bit length ∈ [19600, 19700]; `k == 7` (Appendix A: m ≈ 19630, k = 6.64 → 7) |
-| `TestSegmentBloomSizesUpForLargeSegments` | 1500 records ⇒ ≈ 3100 distinct keys, capacity floor 2048 | bloom sized at `n == len(distinctKeys)`, not 2048; `m == round(-n·ln(0.01)/(ln2)²)` within ±1 bit; INDEX line records `capacity == n` |
+| `TestSegmentBloomSizesUpForLargeSegments` | 1500 records ⇒ ≈ 3100 distinct keys, capacity floor 2048 | bloom sized at `n == len(distinctKeys)`, not 2048; `m == round(-n·ln(0.01)/(ln2)²)` within ±1 bit; the returned `keys` equals `n` |
 | `TestSegmentKeyIsDomainSeparated` | `SegmentKey(SegKeyPath,"a")` vs `SegmentKey(SegKeyTool,"a")` | differ; both 32 bytes; stable across runs (golden hex) |
 | `TestSegmentMayContainNoFalseNegatives` | segment with 1500 records | every inserted path/tool/root/tooluse key ⇒ `true` |
 | `TestSegmentBloomFalsePositiveRateUnderBudget` | same 1500-record segment (sized up per the rule above); 10 000 absent keys | ≤ 150 positives — 1.5× the 1% design rate. This is the test that would have failed under a fixed capacity of 2048: ≈ 3100 keys in a 2048-sized filter measures ≈ 6%, past §11.4's warning band |
 | `TestSegmentsMayContainNarrowsWithoutExpanding` | 20 segments, key present only in segment 7; counting fake `Store` | result `[7]` (allow ≤1 extra FP); `Open`/`OpenSpan`/`GetChunk`/`GetRoot` call counts all `0` |
-| `TestCloseSetsBloomRef` | open a segment, add 50 records, `Close` | `Get(id).BloomRef == "sketches/segments/000001.bloom"`; file exists; mode `0444`; INDEX.jsonl has 1 line with `records:50` |
+| `TestCloseSetsBloomRef` | open a segment, add 50 records, `Close` | `Get(id).BloomRef == "sketches/segments/000001.bloom"`; file exists; mode `0444`; `index/segments.jsonl` gained exactly one `"op":"bloom"` line, carrying that ref, appended **after** the `"op":"close"` line |
+| `TestCloseBloomRefSurvivesReopen` | same setup, then close the store and reopen it | `Get(id).BloomRef` is the same ref after the reopen — SP-06's `segOpBloom` replay is what makes the ref durable, and this is the test that would have caught assigning `BloomRef` without appending the record |
+| `TestCloseAppendsNoBloomRecordWhenDisabled` | `segmentBloom.enabled=false`, close a segment | `index/segments.jsonl` contains zero `"op":"bloom"` lines and is byte-identical to its pre-SP-16 shape; `BloomRef == ""` |
 | `TestSegmentBloomDisabledByConfig` | `segmentBloom.enabled=false` | `BloomRef == ""`; no file; `SegmentMayContain` returns `true` |
 | `TestSegmentBloomDeadlineWritesNothing` | 5000 records; the test constructs `config.Config` **in memory** and sets `Runtime.Phase7.SegmentBloom.BuildBudgetMs = 0` directly — it must NOT go through `config.Load`, whose per-leaf fallback (§11.3) would coerce 0 to 250 and defeat the test | `ref == ""`, `keys == 0`, `err == nil`; no file; `SegmentsMayContain` returns every segment in range |
 | `TestSegmentBloomIsCreateNewNotTruncate` | build, capture bytes, build again | second call returns `keys == -1`; file bytes byte-identical |
-| `TestBackfillSegmentBloomsIsIdempotent` | 5 closed segments with empty `BloomRef` | first run `built == 5`, second `built == 0`; INDEX.jsonl 5 lines |
+| `TestBackfillSegmentBloomsIsIdempotent` | 5 closed segments with empty `BloomRef` | first run `built == 5`, second `built == 0`; `index/segments.jsonl` gained exactly 5 `"op":"bloom"` lines across both runs, and every segment reports its ref after a reopen |
 | `TestBackfillHonoursDeadline` | 50 segments, `deadline = 1ms` | `built < 50`; no error; re-running completes the rest |
 | `TestCorruptSegmentBloomIsConservative` | truncate a bloom file to 8 bytes | `SegmentMayContain` returns `(true, err)` with a non-nil `err`; `SegmentsMayContain` still lists the segment and emits exactly one `Loud` entry for it, and a second call emits none (per-segment-id de-duplication) |
 | `TestSegmentBloomDoesNotTouchTriedBloom` | build 5 blooms | `sketches/tried.bloom` mtime and bytes unchanged; `p.AssertAppendOnly(t)` passes |
@@ -1550,6 +1649,7 @@ Tests are written **before** the implementation in each commit and must fail fir
 | Test | Setup | Expected |
 |---|---|---|
 | `TestWarmStartMergesProjectCMS` | project CMS with `src/auth.ts` at count 40, decay 0.6 | live `Estimate("src/auth.ts")` ∈ [23, 41] and > 0 |
+| `TestWarmStartedCMSHoldsErrorBound` | derive the load from the table's own shape — `width, _ := sketch.NewCMS(cfg.Sketches.CMS.Epsilon, cfg.Sketches.CMS.Delta).Dims()`, then write `touch.project.cms` from `n = 2*width` distinct synthetic paths whose weights cycle `{1,2,3,5,8,13,21,34,55,58}` (the skewed pattern `internal/sketch`'s own `cmsStream` fixture uses; a uniform stream understates collision error). Two keys per row cell means collisions are **forced, not hoped for**. Keep the exact truth table. Run the full warm-start path — `MaybeRun` with `decay = 0.6` into an empty live CMS, i.e. `Scale(decay)` then `MergeFrom` | for **every** key: `live.Estimate(k) >= round(decay·exact[k])` (`Scale` rounds per cell and rounding is monotone, so the never-under-count guarantee survives decay) **and** `live.Estimate(k) - round(decay·exact[k]) <= ε·float64(live.Total()) + 1` — Appendix A's ε·N accuracy bound on the decayed mass, the `+1` absorbing `Scale`'s per-cell `math.Round`. Also `live.Total() == round(decay·N)`. `t.Logf` the worst over-count. **This row closes the V3-VERIFY §0 carry**: `sketchtest.RunCMSSuite` asserts only "Estimate ≥ true", which a max-estimator returning `math.MaxUint32` would satisfy, so a warm-started table held only to that suite would inherit the safety property and not the accuracy one (`internal/sketch/sketchtest/cms.go`'s own doc comment says exactly this and names SP-16). Nothing else in this subplan exercises a decayed-and-merged table |
 | `TestWarmStartRunsOncePerSession` | `MaybeRun` twice with the same session id | second returns `Ran:false, Reason:"already ran"`; CMS estimate unchanged |
 | `TestWarmStartBootstrapsWhenProjectCMSMissing` | no `touch.project.cms`, index with 300 path records over 3 sessions | `CMSKeysBootstrapped == 300`; file created afterwards |
 | `TestWarmStartShapeMismatchRebuilds` | `touch.project.cms` written at ε=0.01, config ε=0.001 | `MergeFrom` error handled; live CMS non-zero for a historical path; one `Loud` entry `"project CMS reshaped"` |
@@ -1565,7 +1665,8 @@ Tests are written **before** the implementation in each commit and must fail fir
 | `TestWarmStartStepFailureIsIsolated` | ledger returning an error from `RefreshStaleness` | CMS merge and BOCD seeding still ran; `Ran:true`; one `Warn` |
 | `TestWarmStartHonoursBudget` | `budgetMs = 1`, 30 prior sessions | returns within 200 ms; `Reason` contains `"deadline"`; no panic; no partial file left in `.qompack/tmp/` |
 | `TestWarmStartDoesNotBlockSessionStart` | e2e: real binary, `qompack session-start` | hook returns in < 15× B-A budget and always `exit 0`, regardless of warm-start duration |
-| `TestRegisterPhase7RegistersTwoTasks` | fake `IdleController` | names `["warm_start","segment_blooms"]` with priorities 100 and 30 |
+| `TestRegisterPhase7RegistersTwoTasks` | fake `IdleController` recording `(name, prio)` in call order | names `["warm_start","segment_blooms"]` with priorities **5 and 40**. Assert the semantics too, not just the numbers: `5 < idlePrioDrain` (10), so `warm_start` runs first in a real `RunOnce`, and `40 != idlePrioMetrics` (30), so no two registered tasks share a priority |
+| `TestRegisterPhase7OrdersAheadOfDrain` | the **real** `IdleController`, all five tasks registered, one `RunOnce` with a generous budget | `ran == ["warm_start","drain","sketches","metrics","segment_blooms"]` — the shipped controller runs lower priority first, and this is the test that would have caught the inverted reading |
 
 ### Replay, exit criteria, and non-delivery (commit 7)
 
@@ -1615,32 +1716,33 @@ Exactly **7 commits**, all on `feat/sp16-phase7-refinements`. Each compiles and 
 
 ### Commit 2 — `feat(scheduler): ski-rental write policy and prior-seeded changepoint detection`
 
-- [ ] Write `internal/scheduler/skirental_test.go` (11 tests) and `internal/scheduler/warmprior_test.go` (11 tests) — all 22 tests from the two tables above. Run — **must fail** (`SkiRentalShouldWrite` is SP-01's `false` stub; the rest do not exist).
+- [ ] Write `internal/scheduler/skirental_test.go` (11 tests) and `internal/scheduler/warmprior_test.go` (11 tests) — all 22 tests from the two tables above. Run — **must fail to compile**, because `SkiRentalThreshold`, `EstimateRemainingReads`, `applySkiRental`, the two `TriggerReason` constants and every `warmprior.go` symbol do not exist. The six `TestSkiRentalShouldWrite` rows are the exception and are marked as such in the table above: they are **green from the first run**, because SP-01 already shipped that function. They are regression coverage for the move in the next step, not red-first TDD, and a session that "fixes" them into failing has broken working code.
 - [ ] Create `internal/scheduler/skirental.go` (`SkiRentalThreshold`, `SkiRentalShouldWrite`, `EstimateRemainingReads`, `applySkiRental`, `onlySoftReasons`, the two `TriggerReason` constants).
-- [ ] Delete SP-01's stub body of `SkiRentalShouldWrite` if it lives elsewhere; there must be exactly one definition.
+- [ ] **Move** `SkiRentalShouldWrite` and its doc comment out of `internal/scheduler/formulas.go` into `skirental.go`, re-expressed through `SkiRentalThreshold`; there must be exactly one definition afterwards, and `formulas.go` keeps `YoungDaly`, `pSelectionAvailable` and `PSelectionAvailable` untouched. `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig` are **not edited** and must still be green — they are the proof the move preserved behaviour.
 - [ ] Create `internal/scheduler/warmprior.go` (`FeaturePrior(s)`, `DefaultFeaturePriors`, `SeedPriorsFromSegments`, `seeded`, `NewBOCDWithPriors`, `NewDetectorFromState`, `SetPriorWeight`, `FeatureValue`, `WithFeatureValue`, `seededWire` round-trip).
 - [ ] Modify `internal/scheduler/evaluate.go`: extract the per-candidate score into `scoreOf(in, c)` if inline (formula unchanged), then insert the single line `applySkiRental(&d, in)` before the return.
 - [ ] Modify SP-12's `scheduler.Runtime` implementation file in `internal/daemon`: the one-line swap of `scheduler.NewBOCD(...)`+`UnmarshalBinary(blob)` for `scheduler.NewDetectorFromState(hazard, features, blob)`.
 - [ ] `go test ./internal/scheduler/... ./internal/daemon/... -race` green; `go test -run TestEvaluateIsStillPure -count=2` green.
 - [ ] `go test -bench BenchmarkEvaluate ./internal/scheduler/... | benchstat testdata/bench-baseline.txt -` — within 10%.
-- [ ] Files: `internal/scheduler/{skirental,warmprior}.go` + tests, `internal/scheduler/evaluate.go`, SP-12's Runtime file in `internal/daemon`.
+- [ ] Files: `internal/scheduler/{skirental,warmprior}.go` + tests, `internal/scheduler/formulas.go` (the move only), `internal/scheduler/evaluate.go`, SP-12's Runtime file in `internal/daemon`.
 - [ ] Footer: `Refs: SP-16, §5.6, §6.6, Appendix A`
 
 ### Commit 3 — `feat(store): per-segment bloom filters populating Segment.BloomRef`
 
-- [ ] Write `internal/store/segbloom_test.go` (14 tests) and `internal/store/ephemeral_test.go` (6 tests), plus `seedSegment`. Run — **must fail**.
-- [ ] Create `internal/store/segbloom.go` (key scheme, `BuildSegmentBloom`, `LoadSegmentBloom`, `SegmentMayContain`, `SegmentsMayContain`, `BackfillSegmentBlooms`, `SegmentBloomRef`, INDEX.jsonl writer, the `max(capacityPerSegment, len(keys))` sizing rule).
+- [ ] Write `internal/store/segbloom_test.go` (16 tests) and `internal/store/ephemeral_test.go` (6 tests), plus `seedSegment`. Run — **must fail**.
+- [ ] Create `internal/store/segbloom.go` (key scheme, `BuildSegmentBloom`, `LoadSegmentBloom`, `SegmentMayContain`, `SegmentsMayContain`, `BackfillSegmentBlooms`, `SegmentBloomRef`, the `max(capacityPerSegment, len(keys))` sizing rule). **No `INDEX.jsonl`** — `index/segments.jsonl` plus SP-06's `segBloomRec` is the durable lookup.
 - [ ] Create `internal/store/ephemeral.go` (`Expansion`, `EphemeralExpansions`, `ProjectPathTouches`).
-- [ ] Modify the concrete `SegmentLog.Close` with the anchored two-line bloom build.
+- [ ] Modify `internal/store/segments.go` with §4's three anchored sites: the two `segLog` fields, `openSegLog`'s two new parameters plus `recordBloomRef`, and the bloom build + `segBloomRec` append at the end of `Close`.
+- [ ] Modify `internal/store/open.go`: `openSegLog` gains `root, cfg` at its one call site in `openFS`. Update the `openSegLog` call in `internal/store/segments_test.go` the same way (`b.TempDir()`, `config.Defaults()`) — mechanical, nothing else in that file changes.
 - [ ] `go test ./internal/store/... -race` green; `p.AssertAppendOnly(t)` still passes.
 - [ ] `go test -bench 'BenchmarkBuildSegmentBloom|BenchmarkSegmentsMayContain' ./internal/store/...` — within the 50 ms / 5 ms budgets.
 - [ ] `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon` — B-A p99 < 15 ms, unchanged.
-- [ ] Files: `internal/store/{segbloom,ephemeral}.go` + tests, the segment-log file.
+- [ ] Files: `internal/store/{segbloom,ephemeral}.go` + tests, `internal/store/segments.go`, `internal/store/open.go`, `internal/store/segments_test.go` (the `openSegLog` argument update only).
 - [ ] Footer: `Refs: SP-16, §6.8, §8.7, Appendix A`
 
 ### Commit 4 — `feat(daemon): O4 cross-session warm start for CMS, eliminations, and BOCD priors`
 
-- [ ] Write `internal/daemon/phase7_test.go` (18 tests) plus `priorSessions`. Run — **must fail**.
+- [ ] Write `internal/daemon/phase7_test.go` (19 tests) plus `priorSessions`. Run — **must fail**.
 - [ ] Create `internal/daemon/phase7.go` (`WarmStarter`, `WarmStartReport`, `NewWarmStarter`, `SetSession`, `SeedPriors`, `MaybeRun`, `LastReport`, `bootstrapProjectCMS`, `RegisterPhase7`).
 - [ ] Modify `internal/daemon`'s daemon type and `New(o Options)` with the four insertions of §8: struct field `warm *WarmStarter`; `d.warm = RegisterPhase7(o, d.Idle())`; `SetSession` + synchronous `SeedPriors` immediately before the session's `scheduler.Runtime` is constructed; `go d.warm.MaybeRun(...)` immediately after.
 - [ ] `go test ./internal/daemon/... -race` green.
@@ -1683,7 +1785,7 @@ Exactly **7 commits**, all on `feat/sp16-phase7-refinements`. Each compiles and 
 
 ## Subagent strategy
 
-This subplan is small enough that subagents are unnecessary — seven commits across six packages, each with a bounded, fully-specified change. The implementer may optionally dispatch one subagent to write the test tables for commits 2 and 3 in parallel with implementing commit 1, since those tests depend only on signatures fixed in this document; everything else should be done in a single session so the anchored edits to SP-05's, SP-06's, SP-10's, and SP-12's files stay consistent with one another.
+This subplan is small enough that subagents are unnecessary — seven commits across six packages, each with a bounded, fully-specified change. The implementer may optionally dispatch one subagent to write the test tables for commits 2 and 3 in parallel with implementing commit 1, since those tests depend only on signatures fixed in this document; everything else should be done in a single session so the anchored edits to SP-01's, SP-05's, SP-06's, SP-10's, and SP-12's files stay consistent with one another.
 
 ---
 
@@ -1708,9 +1810,9 @@ And by §11.4, which the segment blooms and the elimination rebuild must respect
 
 ### Local, measurable Definition of Done
 
-- [ ] **O4 warm start.** Across all 24 synthetic sessions, the warm-started run's mean `FractionOfOPT` is greater than or equal to the cold run's, and its mean `FirstDivergenceTurn` is greater than or equal to the cold run's, with both signed deltas committed in `testdata/phase7/warmstart-delta.json`. `sketches.cms.warmStartFromProject` is honoured in both directions (`TestWarmStartDisabledWhenConfigFalse`).
+- [ ] **O4 warm start.** Across all 24 synthetic sessions, the warm-started run's mean `FractionOfOPT` is greater than or equal to the cold run's, and its mean `FirstDivergenceTurn` is greater than or equal to the cold run's, with both signed deltas committed in `testdata/phase7/warmstart-delta.json`. `sketches.cms.warmStartFromProject` is honoured in both directions (`TestWarmStartDisabledWhenConfigFalse`). The warm-started Count-Min is held to **accuracy, not merely safety**: `TestWarmStartedCMSHoldsErrorBound` forces collisions with a `Dims()`-derived load and asserts Appendix A's ε·N bound for every key after `Scale`+`MergeFrom`, which closes the V3-VERIFY §0 carry that `sketchtest.RunCMSSuite` cannot discriminate a max-estimator from a real one.
 - [ ] **Demand-driven promotion.** With `retrieval.promoteAfterExpansions = 2`, a hash expanded 3× appears in the next checkpoint's `pointers.tools` at an elevated weight and reaches the rehydrated context within the 12 000-token cap (`TestPromotedPointersReachRehydration`).
-- [ ] **Per-segment blooms.** `Segment.BloomRef` is non-empty for every segment closed after this branch; `SegmentsMayContain` answers segment relevance with zero calls to `Open`/`OpenSpan`/`GetChunk`/`GetRoot`; measured false-positive rate ≤ 1.5% at design fill; sizing matches Appendix A (`m ∈ [19600,19700]`, `k == 7`).
+- [ ] **Per-segment blooms.** `Segment.BloomRef` is non-empty for every segment closed after this branch **and still non-empty after the store is reopened**, because it is recorded as a `segBloomRec` line in `index/segments.jsonl` rather than only assigned in memory (`TestCloseBloomRefSurvivesReopen`); no `INDEX.jsonl` sidecar exists anywhere under `.qompack/sketches/segments/`; `SegmentsMayContain` answers segment relevance with zero calls to `Open`/`OpenSpan`/`GetChunk`/`GetRoot`; measured false-positive rate ≤ 1.5% at design fill; sizing matches Appendix A (`m ∈ [19600,19700]`, `k == 7`).
 - [ ] **Ski rental.** `SkiRentalThreshold(0.1, 1.25) == 12.5` exactly, and the token `12.5` appears nowhere in non-test source (`TestNoLiteral12Point5InSource`). The policy defers only on soft reasons and never overrides `hard_ceiling`, `changepoint`, or `idle_cold_cache`.
 - [ ] **Progressive truncation.** `ReserveLatePct` and `ReserveFirstPct` equal the argmax recorded in `testdata/phase7/truncation-curve.json`; truncation is monotone; tier 1 is never truncated at any budget.
 - [ ] **Non-delivery.** `TestPrefixReorderingNotAttempted` is green and `docs/adr/0016-phase7-refinements.md` carries the verbatim non-delivery sentence.
@@ -1727,15 +1829,18 @@ And by §11.4, which the segment blooms and the elimination rebuild must respect
 
 - [ ] Every item quoted in **Design context** has a corresponding implementation or an explicit non-delivery: §5.6 ski rental → `skirental.go`; §5.6 prefix reordering → non-delivery test + ADR; §6.8 per-level blooms → `segbloom.go`; §6.9 progressive truncation → `curve.go` + measured artifact; §8.7 promotion bullet → `promote.go`; §8.3 item 5 scope carry-forward → `daemon/phase7.go` step 2; §6.6 feature list → `warmprior.go`; §10 Phase 7 five bullets → commits 2–7; Appendix A ski-rental, Bloom, and Count-Min formulas → computed, never literal.
 - [ ] Placeholder scan over the code this branch adds: `grep -rniE 'TBD|FIXME|XXX|not implemented|placeholder' internal/ test/ docs/adr/0016-phase7-refinements.md` returns nothing outside SP-01's `core.ErrNotImplemented` declaration.
-- [ ] Type consistency with the **Interface contract**: every signature in Produces exists verbatim in the code; every signature in Consumes is called unchanged; no §5 interface gained, lost, or changed a method (Rule W-3 not engaged).
-- [ ] Only the anchored edits enumerated below were made to files owned by other subplans — **seven sites across six files**, nothing else in any of them changed:
+- [ ] Type consistency with the **Interface contract**: every signature in Produces exists verbatim in the code; every signature in Consumes is called unchanged; no §5 interface gained, lost, or changed a method (Rule W-3 not engaged — `recordBloomRef` is an unexported method on the concrete `segLog` and `openSegLog` is an unexported constructor, so neither touches the frozen `SegmentLog` seam).
+- [ ] Only the anchored edits enumerated below were made to files owned by other subplans — **fourteen sites across twelve files**, nothing else in any of them changed:
 
   | File (owner) | Edits | What |
   |---|---|---|
   | `internal/config/{runtime,defaults,validate}.go` (SP-01) | 3 | one `RuntimeCfg` field, one `Defaults()` block, one `Validate()` line |
+  | `internal/scheduler/formulas.go` (SP-01) | 1 | `SkiRentalShouldWrite` **moved out**, with its doc comment, into `skirental.go`; `YoungDaly` and the p-selection guard untouched |
   | `internal/scheduler/evaluate.go` (SP-12) | 1 | `applySkiRental(&d, in)` before the return (plus extracting `scoreOf` if it was inline) |
   | SP-12's `scheduler.Runtime` implementation file in `internal/daemon` | 1 | `NewBOCD(...)`+`UnmarshalBinary` → `scheduler.NewDetectorFromState(...)` |
-  | the concrete segment-log file in `internal/store` (SP-06) | 1 | the two-line bloom build inside `SegmentLog.Close` |
+  | `internal/store/segments.go` (SP-06) | 3 | the two `segLog` fields (`root`, `cfg`); `openSegLog`'s two new parameters plus the unexported `recordBloomRef`; the bloom build + `segBloomRec` append at the end of `Close` |
+  | `internal/store/open.go` (SP-06) | 1 | `openSegLog(…, root, cfg, …)` at its one call site in `openFS` |
+  | `internal/store/segments_test.go` (SP-06) | 1 | the same two arguments at the one benchmark call site — mechanical |
   | `internal/checkpoint/writer.go` and `truncate.go` (SP-10) | 2 | the promotion block in `Finalize`; the Phase A/B/C body of `Truncate` |
   | `internal/daemon/daemon.go` (SP-05) | 1 site, 5 lines | the struct field and the four §8 insertions |
 - [ ] `internal/checkpoint/grammar.go` (SP-15) was never touched; the `Finalize` merge conflict, if any, was resolved on this branch keeping both blocks with grammar first and promotion second.
