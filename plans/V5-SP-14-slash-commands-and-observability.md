@@ -12,7 +12,9 @@
 
 Qompack is a sidecar that observes, stores, schedules, checkpoints, rehydrates and retrieves — and until this subplan lands, every one of those behaviours is invisible to the human sitting in front of Claude Code. `Qompack.md` §1.3 names the third root cause as **RC-3 — Unmeasured**: *"No distortion metric, no ceiling, no regression signal. Constants (13K buffer, 20K reserve, 5 files, 50K budget, 5K/file, 25K skills) are all unvalidated."* §0 states the consequence: *"the first symptom of a bad compaction is behavioural degradation noticed several turns later."* (§3 restates it as G8.1: *"First signal of a bad compaction is behavioural degradation noticed several turns later."*) SP-02 built the offline half of the answer (replay, Belady OPT, fraction-of-OPT). SP-14 builds the online half: the seven slash commands of the §7.5 manifest, with `/qompack:status` as the single screen that answers "is this thing working, and is it hurting me?"
 
-This slice is **a frontend and nothing else**. Every retrieval behaviour it exposes already has exactly one implementation elsewhere: `recall`, `why` and `dropped` are the MCP tool handlers SP-13 registered, invoked in-process through `mcp.Tool.Handler`; `checkpoint` is SP-10's `checkpoint.Writer.Begin/Advance/Finalize`; `pin` and `pin --eliminated` are SP-10's `pins.Store` and SP-09's `negknow.Ledger`; `eval` is SP-02's `eval.Harness`. SP-14 adds no second implementation of any of them. That is why the wave-4 placement is load-bearing (00-ARCHITECTURE §14: *"Slash commands are wave 4, not wave 3. `commands.Deps` names `checkpoint.Writer`, `scheduler.Runtime`, and the MCP handlers — all wave 3."*): building this in wave 3 would mean reporting on golden fixtures instead of on the real surfaces.
+This slice is **a frontend and nothing else**. Every retrieval behaviour it exposes already has exactly one implementation elsewhere: `recall`, `why` and `dropped` are the MCP tool handlers SP-13 registered, invoked in-process through `mcp.Tool.Handler`; `checkpoint` is SP-10's `checkpoint.Writer.Begin/Advance/Finalize`; `pin` and `pin --eliminated` are SP-10's `pins.Store` and SP-09's `negknow.Ledger`; `eval` is SP-02's `eval.Harness`. SP-14 adds no second implementation of any of them.
+
+**The one place that claim needs a precise statement is `status`, and it is stated here normatively.** SP-05 already ships both the `status` op and its payload: `internal/daemon/daemon.go`'s `defaultRoutes` registers `ipc.OpStatus: d.handleStatus`, and `internal/daemon/handlers.go` declares `daemon.StatusSnapshot{Mode string; Contract []contract.Result; Hot string; Sessions []SessionState; Latency map[string]obs.HistSnapshot; Budgets []obs.BudgetBreach; Counters map[string]int64; SpoolFiles int; LoudTail []string; Extra json.RawMessage}`. `test/bench/hotpath/measure.go` unmarshals that exact payload — it is the hot-path harness's only source for B-B and for the gated B-A row — so **`ipc.OpStatus` and `daemon.StatusSnapshot` are frozen for this subplan: SP-14 does not register a handler for `ipc.OpStatus`, does not change the payload's shape, and does not edit `d.handleStatus`.** Registering an `Options`-side handler for `status` would silently replace the default route (`buildRoutes` gives an `Options` registration priority) and break `bench-gate` with a JSON type error rather than a degradation. `commands.StatusSnapshot` is therefore a **composition**, not a re-implementation: it *consumes* `daemon.StatusSnapshot` over `ipc.OpStatus` for mode, contracts, latency, loud tail and hot-path submode, and obtains the six sections no existing route exposes — store stats, sketches, frontier, checkpoint, scheduler, GC — over a **new** op, `ipc.Op("status.full")`, registered by `cli` through SP-05's `daemon.Options.Handle` seam. That is why the wave-4 placement is load-bearing (00-ARCHITECTURE §14: *"Slash commands are wave 4, not wave 3. `commands.Deps` names `checkpoint.Writer`, `scheduler.Runtime`, and the MCP handlers — all wave 3."*): building this in wave 3 would mean reporting on golden fixtures instead of on the real surfaces.
 
 **What exists in the repo when you start.** A `develop` that has passed verification V4. `internal/core`, `paths`, `config`, `logging`, `obs`, `contract`, `tokens`, `hookio`, `cli`, `pluginmanifest`, `testutil`, `test/e2e` (SP-01). `internal/eval` with the harness and the 24-session synthetic corpus (SP-02). `internal/ipc` + `internal/daemon` with the op-routing table, `IdleController`, the late-bound `Services` set and the B-A/B-B/B-D/B-E budget histograms (SP-05). `internal/store` with `Stats`, `SegmentLog`, `GC` (SP-06). `internal/negknow` with the ledger and `Health()` (SP-09). `internal/checkpoint` + `internal/pins` (SP-10). `internal/rehydrate` with the `DropReporter` (SP-11). `internal/scheduler` with `Runtime` and `Decision.Breakdown` (SP-12). `internal/mcp` with all eight tools registered through `mcp.RegisterAll` (SP-13). `internal/commands` exists only as SP-01's compiling stub: the `Command` interface, `Deps`, and an `All` returning `core.ErrNotImplemented` runners.
 
@@ -27,7 +29,7 @@ This slice is **a frontend and nothing else**. Every retrieval behaviour it expo
 func RunCommandSuite(t *testing.T, name string, factory func(t *testing.T) []commands.Command)
 ```
 
-**What exists when you finish.** `internal/commands` with seven real `Command` implementations sharing one flag parser, one JSON envelope and one deterministic renderer; `internal/commands/StatusSnapshot`, a fully typed observability record collected either inside the daemon (over `ipc.Op("status")`) or locally from disk when the daemon is unreachable; the seven `plugin/commands/*.md` prompt files and `docs/commands.md`, both **generated** from a single command table in `internal/pluginmanifest` so the manifest, the binary and the docs cannot drift; a `devtool plugin-validate` assertion that all seven commands exist, are registered, and resolve to real subcommands of the built binary; and golden output tests for every command in both human and `--json` modes. Every `t.Skip` in `commandstest` is removed — a merge blocker under Rule W-1.
+**What exists when you finish.** `internal/commands` with seven real `Command` implementations sharing one flag parser, one JSON envelope and one deterministic renderer; `internal/commands/StatusSnapshot`, a fully typed observability record composed from the daemon's own `daemon.StatusSnapshot` (over the untouched `ipc.OpStatus`) plus the six extended sections carried over the new `ipc.Op("status.full")`, and collected locally from disk when the daemon is unreachable; the seven `plugin/commands/*.md` prompt files and `docs/commands.md`, both **generated** from `internal/pluginmanifest`'s existing single command table (`commandSpecs`, extended in place) so the manifest, the binary and the docs cannot drift; a `devtool plugin-validate` assertion that all seven commands exist, are registered, and resolve to real subcommands of the built binary; and golden output tests for every command in both human and `--json` modes. Every `t.Skip` in `commandstest` is removed — a merge blocker under Rule W-1.
 
 ---
 
@@ -134,6 +136,12 @@ func RunCommandSuite(t *testing.T, name string, factory func(t *testing.T) []com
 | **B-D** | `hook_wall` — includes host process creation | reported, not gated; tracked in `/qompack:status` and the bench artifact | — |
 | **B-E** | `checkpoint_finalize` — `PreCompact` entry → exit | **p99 < 2 s** (§11.3 L4) | CI |
 | **B-F** | `mcp_tool_call` — request → response | p95 < 250 ms (`minimal` span) | CI |
+
+**Plus B-G, which §2.4 does not list and `internal/obs` does.** `obs.Budgets()` returns seven entries, not six: B-A…B-F followed by `{ID: "B-G", Hist: "hook_degraded", Pct: 99, Gated: false, Limit: runtime.budgets.hookDegradedMs}` (default 1 000 ms). B-G bounds the synchronous spool append a hook pays inside `ipc.Client.Send` when the daemon is unreachable — the one step of `Send` no deadline governs, and the exact path on which B-A's daemon-anchored `hook_controlled` series has no sample by construction. It is **reported only, structurally**: `hook_degraded` is written only by a hook process's own per-process registry, which is never persisted, and a sample can exist only while the daemon is down, so no production evaluator can ever see one. `/qompack:status` therefore renders B-G exactly the way it renders B-D — as a reported row, never as a gate — and that is the whole of SP-14's obligation to it.
+
+| ID | Clock | Budget | Enforced |
+|---|---|---|---|
+| **B-G** | `hook_degraded` — the spool append inside `ipc.Client.Send` when the daemon is unreachable | `runtime.budgets.hookDegradedMs` (1 000 ms), reported, not gated; rendered in `/qompack:status` | — |
 
 ### 00-ARCHITECTURE §5.17 — the interface this subplan implements (normative)
 
@@ -268,31 +276,47 @@ var ErrUsage = errors.New("qompack: usage")
 
 type StatusSnapshot struct { /* fully specified below */ }
 type SnapshotSources struct { /* fully specified below */ }
-func Collect(ctx context.Context, src SnapshotSources) StatusSnapshot
-func NewStatusOpHandler(src SnapshotSources) ipc.Handler      // registered by cli at daemon start
-func FetchSnapshot(ctx context.Context, d Deps) (StatusSnapshot, bool)  // bool = came from daemon
+type StatusFull struct { /* the six extended sections; fully specified below */ }
+
+// OpStatusFull is SP-14's own op. It is NOT added to ipc.KnownOps — that vocabulary is pinned at
+// thirteen entries by internal/ipc's own test — and nothing on this path consults ipc.Op.Valid:
+// daemon.buildRoutes copies every Options-registered op into d.routes verbatim, dispatchOp looks
+// the op up in that map, and ipc.Client.Send never validates. ipc.OpStatus stays SP-05's.
+const OpStatusFull = ipc.Op("status.full")
+
+func Collect(ctx context.Context, src SnapshotSources) StatusSnapshot        // local/disk fallback
+func CollectFull(ctx context.Context, src SnapshotSources) StatusFull        // the six extended sections
+func NewStatusFullOpHandler(src SnapshotSources) ipc.Handler                 // registered by cli at daemon start
+func FetchSnapshot(ctx context.Context, d Deps) (StatusSnapshot, bool)       // bool = came from daemon
+// daemonStatus (package-private, statusfetch.go) is the JSON-tag mirror of the subset of
+// daemon.StatusSnapshot SP-14 reads. It is a mirror rather than an import because §3.2 forbids
+// importing internal/daemon; TestStatus_DaemonPayloadMirrorIsCurrent pins it against a payload
+// produced by the real daemon, so the mirror cannot drift silently.
 func RenderStatus(w io.Writer, s StatusSnapshot) error        // deterministic human text
 func RenderJSON(w io.Writer, command string, data any) error  // the shared envelope
 
-// package pluginmanifest  (new file commands.go; import direction requires the table live here)
-type CommandSpec struct {
-    Name, Subcommand, Summary, Usage, ArgHint string
-    Flags    []CommandFlag
-    Sections []string
-}
+// package pluginmanifest  (EXTENDS the shipped manifest.go; no new generator, no new file)
 type CommandFlag struct{ Name, Type, Default, Help string }
-func Commands() []CommandSpec
+type CommandDoc struct {                       // the shipped type, with four SP-14 fields appended
+    Name, Description, ArgumentHint, Subcommand, AllowedTools string   // shipped, unchanged
+    Summary  string                            // SP-14
+    Usage    string                            // SP-14
+    Flags    []CommandFlag                     // SP-14
+    Sections []string                          // SP-14
+}
+func Commands() []CommandDoc                   // a copy of the shipped commandSpecs, AllowedTools filled
 func CommandNames() []string
 func SubcommandFor(name string) string
-func CommandMarkdown(c CommandSpec) []byte             // exact bytes of plugin/commands/<name>.md
-func CommandFiles() map[string][]byte                  // "commands/<name>.md" → bytes
-func CommandDocs() []byte                              // exact bytes of docs/commands.md
+func CommandDocs() []byte                      // exact bytes of docs/commands.md
+// renderCommand and (Manifest).Files stay the SINGLE producer of plugin/commands/<name>.md, so
+// pluginmanifest.Validate and `devtool plugin-validate --write` keep working unchanged.
 
-// package cli  (new file slash.go, plus one switch arm)
-func RunSlash(ctx context.Context, name string, args []string, out io.Writer) int
+// package cli  (new file slash.go, plus a table edit in commands.go and a 3-line edit in dispatch.go)
+func slashCmds() []Cmd                                       // the seven §7.5 Cmd entries
+func runSlash(ctx context.Context, name string, env Env, args []string, out, errw io.Writer) error
 ```
 
-**Import-direction rule this subplan obeys and states normatively:** `internal/cli` imports `internal/commands`; `internal/commands` imports **neither** `internal/cli` nor `internal/daemon`. 00-ARCHITECTURE §3.2 groups `daemon`, `cli`, `commands`, `testutil` and `cmd/qompack` in a single "composition roots — may import anything; nothing may import them" row: *"may import anything"* covers the other members of that row (this is already how `cmd/qompack` imports `cli`), and *"nothing may import them"* binds the non-composition-root packages. If SP-01's import-graph check reads the second clause absolutely and rejects `cli → commands`, that is a bug in the check, not in this subplan — fix the check, do not invert the dependency, because inverting it would put command rendering inside `cli` and make `commands` unreachable from tests. `internal/pluginmanifest` is a foundation-level package and may not import `internal/commands` (nothing may import a composition root, §3.2) — which is exactly why the command table lives in `pluginmanifest` and `commands` imports it, not the reverse. The daemon-side status handler is a value produced by `commands` and registered by `cli` through SP-05's `daemon.Options.Handle(op, h)` seam, so `internal/daemon` is never edited.
+**Import-direction rule this subplan obeys and states normatively:** `internal/cli` imports `internal/commands`; `internal/commands` imports **neither** `internal/cli` nor `internal/daemon`. 00-ARCHITECTURE §3.2 groups `daemon`, `cli`, `commands`, `testutil` and `cmd/qompack` in a single "composition roots — may import anything; nothing may import them" row: *"may import anything"* covers the other members of that row (this is already how `cmd/qompack` imports `cli`), and *"nothing may import them"* binds the non-composition-root packages. If SP-01's import-graph check reads the second clause absolutely and rejects `cli → commands`, that is a bug in the check, not in this subplan — fix the check, do not invert the dependency, because inverting it would put command rendering inside `cli` and make `commands` unreachable from tests. `internal/pluginmanifest` is a foundation-level package and may not import `internal/commands` (nothing may import a composition root, §3.2) — which is exactly why the command table lives in `pluginmanifest` and `commands` imports it, not the reverse. The same rule is why `commands` never names `daemon.StatusSnapshot` as a Go type: it decodes the daemon's reply through its own JSON-tag mirror (`daemonStatus`). The `status.full` handler is a value produced by `commands` and registered by `cli` through SP-05's `daemon.Options.Handle(op, h)` seam, so `internal/daemon` is never edited and `ipc.OpStatus` keeps SP-05's own `d.handleStatus`.
 
 **Additive `Deps` fields.** SP-14 owns `internal/commands` and therefore extends its own `Deps` struct. The ten fields of §5.17 are unchanged in name, type and order; the following are appended. Every one is nil-tolerant — a nil member means "that section is unavailable", never a panic (00-ARCHITECTURE §5.4 `Services` rule).
 
@@ -312,8 +336,11 @@ type Deps struct {
     Session     core.SessionID       // "" ⇒ resolved at run time (see checkpoint-now)
     Log         logging.Logger
     Clock       core.Clock           // ALL durations and timestamps in output come from here
+    Getenv      func(string) string  // nil ⇒ os.Getenv; cli sets it from Env.Getenv
 }
 ```
+
+`Getenv` mirrors `cli.Env.Getenv` for exactly the reason SP-01 introduced that field: the two environment reads this package makes (`QOMPACK_SESSION_ID`, `QOMPACK_SESSIONS_DIR`) must be injectable so no test has to mutate the real process environment. A package-private `d.getenv(k)` falls back to `os.Getenv` when the field is nil, so a bare `Deps{}` still behaves.
 
 ---
 
@@ -341,7 +368,7 @@ type Deps struct {
 8. **Where errors go, in both modes — normative, because every golden depends on it.** Nothing in `internal/commands` writes to `os.Stderr` or `os.Stdout`; everything goes to the `out` writer handed to `Run`.
    - **Human mode.** The command writes one line `<COMMAND>  error: <err>` to `out`, then returns the error. For `errors.Is(err, ErrUsage)` it instead writes the same usage block `--help` writes, prefixed by `usage error: <err>`, and returns the wrapped `ErrUsage`.
    - **`--json` mode.** The command writes `renderJSONError(out, name, err)` — a complete `Envelope` with `ok:false`, `error:<err.Error()>`, `data:null` — and returns the error. **A non-zero exit is always still accompanied by a valid envelope on stdout**; that pair is what `TestProperty_EnvelopeAlwaysValidJSON` asserts.
-   - `RunSlash` prints nothing of its own; it only converts the returned error into `commands.ExitCode(err)`.
+   - `cli`'s `runSlash` adapter prints nothing of its own; it returns the error, tagging it `errAlreadyReported` so `cli.Dispatch` does not print a second line, and `errUsage` when `errors.Is(err, ErrUsage)` so `Dispatch` maps it to exit 2. `commands.ExitCode` remains the in-package statement of the same policy and is what the `commands` tests assert against.
 9. **Nil-`Deps` discipline — no command may panic on a missing component.** Every command begins with a `require` check naming the exact `Deps` members it needs, and returns `fmt.Errorf("%w: /qompack:%s needs %s, which failed to open (see .qompack/logs)", core.ErrNotFound, name, member)` (exit 1) when one is nil. The required sets are fixed:
    | Command | Required `Deps` members |
    |---|---|
@@ -352,28 +379,36 @@ type Deps struct {
    | `checkpoint` | `Writer`, `Checkpoints`, `Store`, `Pins`, `Ledger`, `Graph`, `Grammar`, `Tokens`, `Clock` |
    | `eval` | `Eval`, `Cfg` |
 
-### `internal/pluginmanifest/commands.go` (new file — the single command table)
+### `internal/pluginmanifest/manifest.go` (modified — the shipped command table, extended in place)
 
-Responsibility: the one place the seven commands are described. `plugin/commands/*.md`, `docs/commands.md`, the CLI usage strings, and the `plugin-validate` assertion all read from it.
+**Decision — extend, never duplicate.** `internal/pluginmanifest` already is the single command table and already gates it. `manifest.go` declares `var commandSpecs = []CommandDoc{…}` (all seven, §7.5 order), `func renderCommand(c CommandDoc) []byte`, and `func (m Manifest) Files() (map[string][]byte, error)` keying them repo-relative as `plugin/commands/<name>.md`; `Validate(dir, m)` reports `"content differs"` per file and `tools/devtool/pluginvalidate.go` fails the task on any diff. A second generator emitting different bytes without retiring the first would make `plugin-validate` report seven `content differs` diffs, so SP-14's own clean-diff gate in commit 8 could not pass. **SP-14 therefore appends its four fields to the shipped `CommandDoc`, fills them in `commandSpecs`, and replaces `renderCommand`'s body — `Manifest.Files()` remains the one and only producer of the seven files. There is no `CommandFiles()` and no `CommandMarkdown()`.**
 
 ```go
 type CommandFlag struct{ Name, Type, Default, Help string }
-type CommandSpec struct {
-    Name       string        // §7.5 slash-command name
-    Subcommand string        // argv[1] of the binary
-    Summary    string        // one sentence, ends with a period
-    Usage      string        // e.g. "<query> [--k N] [--json]"
-    ArgHint    string        // frontmatter argument-hint
-    Flags      []CommandFlag
-    Sections   []string      // Qompack.md sections this command surfaces
+
+// CommandDoc: the five shipped fields, unchanged in name, type and order, plus SP-14's four
+// appended after them.
+type CommandDoc struct {
+    Name         string        // §7.5 slash-command name              (shipped)
+    Description  string        // frontmatter description               (shipped)
+    ArgumentHint string        // frontmatter argument-hint             (shipped)
+    Subcommand   string        // argv[1] of the binary                 (shipped)
+    AllowedTools string        // filled by Default(); see below        (shipped)
+    Summary      string        // one sentence, ends with a period      (SP-14)
+    Usage        string        // e.g. "<query> [--k N] [--json]"       (SP-14)
+    Flags        []CommandFlag //                                       (SP-14)
+    Sections     []string      // Qompack.md sections surfaced          (SP-14)
 }
-func Commands() []CommandSpec
+
+func Commands() []CommandDoc              // a defensive copy of commandSpecs with AllowedTools filled
 func CommandNames() []string
-func SubcommandFor(name string) string   // "" if unknown
-func CommandMarkdown(c CommandSpec) []byte
-func CommandFiles() map[string][]byte
-func CommandDocs() []byte
+func SubcommandFor(name string) string    // "" if unknown
+func CommandDocs() []byte                 // exact bytes of docs/commands.md
 ```
+
+`Description` and `Summary` are kept as two fields rather than collapsed, because the frontmatter `description:` line is already committed in seven files and its bytes are diffed by `plugin-validate`; `Summary` is the longer sentence the `--help` block and `docs/commands.md` render. Where a row below gives only a summary, `Description` keeps its shipped value verbatim.
+
+`Default(version)` keeps filling `AllowedTools`, with one substitution: `Bash(qompack <sub>:*)` becomes `Bash(${CLAUDE_PLUGIN_ROOT}/bin/qompack <sub>:*)`, built from the existing `binaryRef` constant rather than a new literal. `commandSpecs`' `checkpoint` row changes `Subcommand` from `"checkpoint"` to `"checkpoint-now"` (00-ARCHITECTURE §2.3 binds bare `qompack checkpoint` to the PreCompact hook client). Both changes regenerate committed bytes, which is why the seven `plugin/commands/*.md` files are listed as **regenerated** in commit 8, not as untouched.
 
 `Commands()` returns exactly these seven, in this order (the §7.5 order):
 
@@ -387,7 +422,7 @@ func CommandDocs() []byte
 | `dropped` | `dropped` | `[--json]` | `` | `List the rules, nested CLAUDE.md files and skills that are currently out of context.` | §8.6, §8.7 |
 | `eval` | `eval` | `[--corpus DIR] [--policy NAME]... [--baseline NAME] [--k N] [--budget N] [--seed N] [--json]` | `[--corpus DIR] [--policy NAME]` | `Replay the corpus and print the fraction-of-Belady-OPT report with the regression table.` | §6.10, §11.1 |
 
-`CommandSpec.Flags` is enumerated exhaustively below — `--help` output, `docs/commands.md` flag tables and the `flag.FlagSet` registration all read this one list, so it is normative. Every command additionally declares `{Name: "json", Type: "bool", Default: "false", Help: "emit the machine-parseable Envelope instead of human text"}` and `{Name: "help", Type: "bool", Default: "false", Help: "print usage and exit 0"}`; those two are appended by `Commands()` to every spec and are **not** repeated per row.
+`CommandDoc.Flags` is enumerated exhaustively below — `--help` output, `docs/commands.md` flag tables and the `flag.FlagSet` registration all read this one list, so it is normative. Every command additionally declares `{Name: "json", Type: "bool", Default: "false", Help: "emit the machine-parseable Envelope instead of human text"}` and `{Name: "help", Type: "bool", Default: "false", Help: "print usage and exit 0"}`; those two are appended by `Commands()` to every spec and are **not** repeated per row.
 
 | Command | Name | Type | Default | Help |
 |---|---|---|---|---|
@@ -415,13 +450,13 @@ Defaults shown as `12000` are rendered in the docs and `--help` from `config.Def
 
 **Why `checkpoint` maps to `checkpoint-now`.** 00-ARCHITECTURE §2.3 already binds `qompack checkpoint` to the PreCompact hook client. The slash command therefore resolves to `checkpoint-now`, and the mapping is data in this table rather than a special case in any dispatcher. `commands.Dispatch` accepts either spelling.
 
-`CommandMarkdown(c)` renders, byte-for-byte (LF endings, single trailing newline; `%s` substitutions from the spec):
+`renderCommand(c)` — the shipped function, its body replaced — renders, byte-for-byte (LF endings, single trailing newline; `%s` substitutions from the spec):
 
 ```
 ---
-description: <c.Summary>
-argument-hint: "<c.ArgHint>"
-allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/bin/qompack <c.Subcommand>:*)
+description: <c.Description>
+argument-hint: "<c.ArgumentHint>"
+allowed-tools: <c.AllowedTools>
 ---
 
 <c.Summary>
@@ -433,17 +468,17 @@ design (Qompack.md §11, §12). If the command fails, show its stderr verbatim a
 !`${CLAUDE_PLUGIN_ROOT}/bin/qompack <c.Subcommand> $ARGUMENTS`
 ```
 
-`CommandFiles()` returns `map[string][]byte{"commands/status.md": …, …}` keyed by path relative to `plugin/`. `CommandDocs()` renders `docs/commands.md`: an H1 `# Qompack slash commands`, a generated-file warning line, one table row per command (`| `/qompack:name` | `qompack subcommand` | summary |`), then one `##` section per command containing usage, the flag table, and the design sections it surfaces.
+`Manifest.Files()` keeps keying these `plugin/commands/<name>.md` (repo-relative, forward slashes), unchanged — that is what `pluginmanifest.Validate` walks and what `devtool plugin-validate --write` materializes. `CommandDocs()` renders `docs/commands.md`: an H1 `# Qompack slash commands`, a generated-file warning line, one table row per command (`| `/qompack:name` | `qompack subcommand` | summary |`), then one `##` section per command containing usage, the flag table, and the design sections it surfaces.
 
 ### `internal/commands/spec.go`
 
-`Names()` → `pluginmanifest.CommandNames()`. `specFor(name string) pluginmanifest.CommandSpec` panics only on a programmer error (unknown constant), never on user input.
+`Names()` → `pluginmanifest.CommandNames()`. `specFor(name string) pluginmanifest.CommandDoc` panics only on a programmer error (unknown constant), never on user input.
 
 ### `internal/commands/flags.go`
 
 ```go
 type common struct{ JSON bool }
-func newFlagSet(spec pluginmanifest.CommandSpec, out io.Writer) (*flag.FlagSet, *common)
+func newFlagSet(spec pluginmanifest.CommandDoc, out io.Writer) (*flag.FlagSet, *common)
 ```
 Creates `flag.NewFlagSet(spec.Subcommand, flag.ContinueOnError)`, sets `fs.SetOutput(io.Discard)` (usage is rendered by us), registers `--json`, and registers `--help` as a bool. `parse(fs, args)` maps `flag.ErrHelp` and any parse error to `fmt.Errorf("%w: %v", ErrUsage, err)`. A repeatable string flag is `type stringList []string` implementing `flag.Value` (`String()` joins with `,`; `Set` appends).
 
@@ -470,10 +505,10 @@ const (
     gcProbeDeadline       = 250 * time.Millisecond
     statusDeadline        = 1500 * time.Millisecond
     mcpDeadline           = 10 * time.Second
-    checkpointFinalizeBudget = 2 * time.Second       // B-E, §11.3 "< 2s (L4)"
-    budgetIngestMs        = 2.0                      // B-B
-    budgetProcessMs       = 50.0                     // B-C (soft)
-    budgetMCPCallMs       = 250.0                    // B-F, p95
+    checkpointFinalizeBudget = 2 * time.Second       // B-E render default, §11.3 "< 2s (L4)"
+    budgetIngestMs        = 2.0                      // B-B render default
+    budgetProcessMs       = 50.0                     // B-C render default (soft)
+    budgetMCPCallMs       = 250.0                    // B-F render default, p95
 )
 // sectionOrder is the ONE definition of section order. RenderStatus, filterSections,
 // Unavailable sorting and the --section validator all read it; nothing re-lists these names.
@@ -481,7 +516,7 @@ var sectionOrder = []string{"mode","contracts","store","sketches","latency",
                             "frontier","checkpoint","scheduler","gc","loud","daemon"}
 ```
 
-`checkpointFinalizeBudget` and `budgetMCPCallMs` restate 00-ARCHITECTURE §2.4 budgets that are *not* config keys (only `runtime.hotPath.budgetMs` is), so they are legitimately constants here; each carries the `//nomagic:allow B-E budget, 00-ARCH §2.4` style comment if the pass ever grows to cover them.
+The four `budget*`/`checkpointFinalizeBudget` values are **render defaults, not the live limits**. Every §2.4 budget except B-A and B-D does have a config key — `runtime.budgets.{l0IngestMs, l0ProcessMs, checkpointFinalizeMs, mcpToolCallMs}`, plus `runtime.budgets.hookDegradedMs` for B-G — and the live limit always comes from `obs.Budgets()`'s `Budget.Limit(src.Cfg)`. These constants are used only where no `Cfg` is attached to the snapshot being rendered (a hand-built `StatusSnapshot` in a golden test, a `--json` payload replayed without its config), so `RenderStatus` never prints an empty budget column. Each carries the `//nomagic:allow B-E render default, 00-ARCH §2.4` style comment if the pass ever grows to cover them.
 
 ### `internal/commands/statussnapshot.go` — the observability record (byte-for-byte JSON shape)
 
@@ -604,19 +639,22 @@ Each block is independent; a nil source or a returned error appends the section 
 4. **Sketches.** `src.Ledger.Health()`. `BloomConfiguredFPRate = src.Cfg.Sketches.Bloom.FPRate`. `SaturationWarning = Health.EstFPRate >= 10*BloomConfiguredFPRate` — the §11.4 watch-for stated as "At 1% they are safe; at 10% the agent starts skipping viable approaches"; the multiplier `10` is `const saturationMultiple = 10`.
 5. **Latency.** For each `(clock, budgetID)` in the table below, read `src.Metrics.Hist(name).Snapshot()`; emit a row only when `N > 0`, except that the six `hook_controlled.<hook>` rows are always emitted (a hook that never fired is itself information) with `N: 0` and `Pass: true`.
 
-   **Where the histograms come from on each path.** `obs.Registry` is daemon-resident, so on the daemon path (`FetchSnapshot` step 3) `src.Metrics` is the daemon's live registry and the numbers are current. On the disk-fallback path `sourcesFromDeps` supplies a **read-only registry hydrated from `.qompack/metrics/latency.json`** — 00-ARCHITECTURE §3.3 defines that file as "rolling histograms for /status and bench", which is exactly this use — via a package-private `loadMetricsFromDisk(root string) obs.Registry` that unmarshals each entry into a fixed `obs.HistSnapshot` and serves `Hist(name).Snapshot()` from it. A missing or unparseable file yields an empty registry, every row reads `no samples`, and `latency` is **not** added to `Unavailable` (the section rendered correctly; it simply has nothing to report). `loadMetricsFromDisk` never writes, so looking at status cannot perturb the metrics it reports.
+   **Where the histograms come from on each path.** `obs.Registry` is daemon-resident, so on the daemon path the numbers are current — but they arrive as `daemon.StatusSnapshot.Latency`, a `map[string]obs.HistSnapshot` the daemon fills from `obs.Budgets()` plus `hook_controlled_observed`. That map is therefore keyed by exactly the seven budget clocks below; the `hook_controlled.<hook>` and `hook_wall.<hook>` sub-rows have no key in it and render `no samples` on the daemon path, which is the truth rather than a gap. On the disk-fallback path `sourcesFromDeps` supplies a **read-only registry hydrated from `.qompack/metrics/latency.json`** — 00-ARCHITECTURE §3.3 defines that file as "rolling histograms for /status and bench", which is exactly this use — via a package-private `loadMetricsFromDisk(root string) obs.Registry` that unmarshals each entry into a fixed `obs.HistSnapshot` and serves `Hist(name).Snapshot()` from it. A missing or unparseable file yields an empty registry, every row reads `no samples`, and `latency` is **not** added to `Unavailable` (the section rendered correctly; it simply has nothing to report). `loadMetricsFromDisk` never writes, so looking at status cannot perturb the metrics it reports.
 
    | metric name | Budget | LimitMs source | Gated |
    |---|---|---|---|
-   | `hook_controlled` | B-A | `Cfg.Runtime.HotPath.BudgetMs` | yes |
+   | `hook_controlled` | B-A | `Budget.Limit(Cfg)` → `runtime.hotPath.budgetMs` | yes |
    | `hook_controlled.observe_tool` … `.observe_prompt`, `.observe_stop`, `.session_start`, `.checkpoint`, `.flush` | B-A | same | yes |
-   | `hook_wall` and `hook_wall.<hook>` | B-D | 0 | no (reported, never gated) |
-   | `l0_ingest` | B-B | `budgetIngestMs` (2) | yes |
-   | `l0_process` | B-C | `budgetProcessMs` (50) | no (soft) |
-   | `checkpoint_finalize` | B-E | `checkpointFinalizeBudget` (2000) | yes |
-   | `mcp_tool_call` | B-F | `budgetMCPCallMs` (250) | yes (p95, not p99) |
+   | `hook_wall` and `hook_wall.<hook>` | B-D | 0 (B-D has no config key by design) | no (reported, never gated) |
+   | `l0_ingest` | B-B | `Budget.Limit(Cfg)` → `runtime.budgets.l0IngestMs` (2) | yes |
+   | `l0_process` | B-C | `Budget.Limit(Cfg)` → `runtime.budgets.l0ProcessMs` (50) | no (soft) |
+   | `checkpoint_finalize` | B-E | `Budget.Limit(Cfg)` → `runtime.budgets.checkpointFinalizeMs` (2000) | yes |
+   | `mcp_tool_call` | B-F | `Budget.Limit(Cfg)` → `runtime.budgets.mcpToolCallMs` (250) | yes (p95, not p99) |
+   | `hook_degraded` | B-G | `Budget.Limit(Cfg)` → `runtime.budgets.hookDegradedMs` (1000) | no (reported, never gated) |
 
-   `Pass` compares p99 against `LimitMs` for every budget except B-F, which compares p95 (00-ARCHITECTURE §2.4). Rows with `LimitMs == 0` always report `Pass: true` and render `budget B-D (reported, not gated)`. **The metric names above are SP-05's registry keys, not SP-14's invention** — `obs.Registry.Hist(name)` returns a fresh empty histogram for a name nobody registered, so a renamed or not-yet-emitted clock degrades to a `no samples` row rather than a failure. Rows are emitted in exactly the table's order; `hook_controlled.<hook>` sub-rows follow the §3.4 hook order (`observe_tool, observe_prompt, observe_stop, session_start, checkpoint, flush` — six subcommands serving the seven `hooks.json` entries, since `Stop` and `SubagentStop` share `observe stop`).
+   **The seven budget rows are read off `obs.Budgets()`, not re-typed here.** `Budget{ID, Hist, Pct, Gated, Limit(config.Config)}` already carries every column, in B-A…B-G order, and every `Limit` reads its own config key at call time. `LatencyRow.Budget`, `.LimitMs`, `.Gated` and the percentile `Pass` compares against are therefore `string(b.ID)`, `b.Limit(src.Cfg)`, `b.Gated` and `b.Pct` — which is why `budgetIngestMs`, `budgetProcessMs`, `checkpointFinalizeBudget` and `budgetMCPCallMs` in `limits.go` are **render defaults only**, used when a snapshot arrives with no `Cfg` attached, never as the live limit. The `.<hook>` sub-rows are the one thing not in `obs.Budgets()`: they inherit B-A's id, limit and gating from the `hook_controlled` entry.
+
+   `Pass` compares `b.Pct` (p99 for every budget except B-F's p95) against `LimitMs`. Rows with `LimitMs == 0` always report `Pass: true` and render `budget B-D (reported, not gated)`. **B-G is the second ungated row and renders `budget B-G 1.00s (reported, not gated)` — non-zero limit, `Gated: false`, `Pass: true` unconditionally.** Its ungatedness is structural, not soft: `hook_degraded` is written only by a hook process's own registry, which `internal/cli`'s `newHookMetrics` never persists, and a sample exists only while the daemon is unreachable, so a sample and an evaluator can never coexist. `/qompack:status` on the disk path is the one place a human ever sees the number, which is exactly why the row is here. **The metric names above are SP-05's registry keys, not SP-14's invention** — `obs.Registry.Hist(name)` returns a fresh empty histogram for a name nobody registered, so a renamed or not-yet-emitted clock degrades to a `no samples` row rather than a failure. Rows are emitted in exactly the table's order; `hook_controlled.<hook>` sub-rows follow the §3.4 hook order (`observe_tool, observe_prompt, observe_stop, session_start, checkpoint, flush` — six subcommands serving the seven `hooks.json` entries, since `Stop` and `SubagentStop` share `observe stop`).
 6. **Frontier.** `src.Store.Segments().Frontier(ctx, session)` → `Turn`. `Unencoded(ctx, session)` → `UnencodedSegments = len(segs)` and `ResidualTokens = Σ seg.Tokens`. `MaxResidualTokens = Cfg.Checkpoint.Frontier.MaxResidualTokens`.
 7. **Checkpoint.** `src.Checkpoints.List(ctx)` → `Count = len(refs)`; the entry with the highest `Seq` fills the rest (`SHA256 = ref.SHA256.String()`, `Path = filepath.ToSlash(ref.Path)` made project-relative via `paths.Norm`).
 8. **Scheduler.** `src.Sched.Evaluate(ctx)`. The section is labelled *evaluated now* in the human output — this is a fresh evaluation of the daemon's current state, which is the honest reading of "the last scheduler decision" and requires no daemon edit. `Breakdown` sorted by key. `Reasons` are `string(r)` in returned order. `Background` are `string(t)`.
@@ -626,19 +664,49 @@ Each block is independent; a nil source or a returned error appends the section 
 
 ### `internal/commands/statusop.go` and `statusfetch.go`
 
+**The two-op split, stated once and normatively.** `ipc.OpStatus` belongs to SP-05 and is not re-registered: `d.handleStatus` keeps serving it and `daemon.StatusSnapshot` keeps its shape, because `test/bench/hotpath/measure.go` decodes that exact payload for B-B and for the gated B-A row. What that payload does **not** carry is the six sections `/qompack:status` adds — store stats, sketches, frontier, checkpoint, scheduler, GC — none of which the daemon has any other reason to compute. Those travel over SP-14's own op.
+
 ```go
-func NewStatusOpHandler(src SnapshotSources) ipc.Handler
+const OpStatusFull = ipc.Op("status.full")
+
+type StatusFull struct {
+    Schema     int            `json:"schema"`      // 1
+    Session    core.SessionID `json:"session"`
+    Collected  string         `json:"collected"`   // RFC3339 UTC from Clock
+    Store      StoreInfo      `json:"store"`
+    Sketches   SketchInfo     `json:"sketches"`
+    Frontier   FrontierInfo   `json:"frontier"`
+    Checkpoint CheckpointInfo `json:"checkpoint"`
+    Scheduler  SchedulerInfo  `json:"scheduler"`
+    GC         GCInfo         `json:"gc"`
+    Unavailable []string      `json:"unavailable"`
+}
+
+func CollectFull(ctx context.Context, src SnapshotSources) StatusFull
+func NewStatusFullOpHandler(src SnapshotSources) ipc.Handler
 ```
-Returns a handler that runs `Collect(ctx, srcWithSession(req.Session))`, marshals it, and returns `ipc.Response{OK: true, Mode: src.Contract.Mode(), Data: b}`. `Hot` is left zero — SP-05's server stamps it. Panics inside the handler are recovered and returned as `ipc.Response{OK: false, Err: …}` (00-ARCHITECTURE §12.3 "any hook panic → recovered").
+`NewStatusFullOpHandler` returns a handler that runs `CollectFull(ctx, srcWithSession(req.Session))`, marshals it, and returns `ipc.Response{OK: true, Data: b}`. `Mode` and `Hot` are left zero — `dispatchOp` stamps both on every response before it leaves the daemon. Panics inside the handler are recovered and returned as `ipc.Response{OK: false, Err: …}` (00-ARCHITECTURE §12.3 "any hook panic → recovered"). `CollectFull` runs blocks 3, 4, 6, 7, 8 and 9 of `Collect` — the same code, the same per-section `recover`, the same `Unavailable` discipline — and nothing else; blocks 1, 2, 5, 10 and 11 are precisely what the daemon's own `status` reply already answers.
+
+`OpStatusFull` is deliberately **not** added to `ipc.KnownOps()`: `internal/ipc/op_test.go`'s `TestKnownOps_ListsAllThirteenSorted` pins that vocabulary at thirteen entries, and nothing on this path consults `ipc.Op.Valid` — `buildRoutes` copies every `Options`-registered op into `d.routes` verbatim, `dispatchOp` is a map lookup on `d.routes`, and `ipc.Client.Send` validates nothing. `status.full` is also not a hot-path op (`Op.HotPath()` is false for anything outside the three `observe.*` ops), so a spooling client never intercepts it.
 
 ```go
 func FetchSnapshot(ctx context.Context, d Deps) (StatusSnapshot, bool)
 ```
-1. `addr, err := ipc.Resolve(d.ProjectRoot)`. Bind `addrPath := ""` and, only when `err == nil`, `addrPath = addr.Path`. On error skip to step 4 (**never dereference `addr` on the error path** — `ipc.Resolve` returns the zero `Addr`).
+1. `addr, err := ipc.Resolve(d.ProjectRoot)`. Bind `addrPath := ""` and, only when `err == nil`, `addrPath = addr.Path`. On error skip to step 5 (**never dereference `addr` on the error path** — `ipc.Resolve` returns the zero `Addr`).
 2. `c := ipc.NewClient(addr, nopSpool{}, logOrNop(d.Log), metricsOrNop(d.Metrics))` where `nopSpool` implements `ipc.SpoolWriter` with `Append(ipc.Request) error { return nil }` and `Path() string { return "" }` — a status query must never leave junk in the spool. `logOrNop` returns `logging.Nop()` when `d.Log == nil`; `metricsOrNop` returns a package-private no-op `obs.Registry` when `d.Metrics == nil`, because `NewClient` takes both unconditionally and `status` must run on a project where nothing else opened.
-3. `resp, _ := c.Send(ctx, ipc.Request{Op: ipc.Op("status"), Session: d.Session, TS: core.UnixMilli(d.Clock.Now().UnixMilli()), Reply: true}, statusDeadline)` with `const statusDeadline = 1500 * time.Millisecond`. If `resp.OK && len(resp.Data) > 0` and `json.Unmarshal` succeeds, set `snap.FromDaemon = true`, `snap.Daemon = DaemonInfo{Reachable: true, Addr: addrPath, HotPath: hotName(resp.Hot)}` and return `(snap, true)`. `hotName` is an explicit switch — `ipc.HotPathMode` is an unexported-shape enum with no guaranteed `String()`, so `fmt.Sprint` on it would print an integer and break the goldens: `Sync → "sync"`, `Spool → "spool"`, anything else → `"unknown"`.
-4. Fallback: `snap := Collect(ctx, sourcesFromDeps(d))`; `snap.Daemon = DaemonInfo{Reachable: false, Addr: addrPath, HotPath: "unknown"}`; return `(snap, false)`. The fallback reads the same on-disk state the daemon would have loaded, so a stopped daemon degrades freshness, not correctness.
-5. `sourcesFromDeps(d)` copies `ProjectRoot, Session, Cfg, Clock, Log, Store, Ledger, Checkpoints, Sched, Contract` straight across and sets `SkipGC` from the `--no-gc` flag. Its **only** I/O is `Metrics: loadMetricsFromDisk(d.ProjectRoot)` (see the latency block below) — `d.Metrics` in a slash-command process is a freshly created, empty registry and would render every latency row as `no samples`, which would be a lie rather than a degradation.
+3. **`ipc.OpStatus` first.** `resp, _ := c.Send(ctx, ipc.Request{Op: ipc.OpStatus, Session: d.Session, TS: core.UnixMilli(d.Clock.Now().UnixMilli()), Reply: true}, statusDeadline)` with `const statusDeadline = 1500 * time.Millisecond`. If `resp.OK && len(resp.Data) > 0` and `json.Unmarshal` into `daemonStatus` succeeds, fill the five sections that payload carries and continue to step 4; otherwise skip to step 5. The mapping is fixed:
+   | `commands.StatusSnapshot` | from `daemonStatus` |
+   |---|---|
+   | `Mode` | `mode` (string), with the banner fields taken from the first `!OK && Severity == SevCritical` entry of `contract`, exactly as `Collect` block 1 does |
+   | `Contracts` | `contract` (`[]contract.Result`), one `ContractRow` each, in returned order |
+   | `Latency` | `latency` (`map[string]obs.HistSnapshot`), joined against `obs.Budgets()` by `Budget.Hist`; a budget with no key renders `no samples` |
+   | `Loud` | `loud_tail` (`[]string`), parsed by the same NDJSON reader `Collect` block 10 uses |
+   | `Daemon` | `DaemonInfo{Reachable: true, Addr: addrPath, HotPath: hotName(resp.Hot)}` |
+
+   `daemonStatus` is a package-private struct in `statusfetch.go` carrying exactly those five JSON tags (`mode`, `contract`, `hot`, `latency`, `loud_tail`) — a mirror rather than an import, because §3.2 forbids `commands` importing `internal/daemon`. `hotName` is an explicit switch — `ipc.HotPathMode` has no `String()` method, so `fmt.Sprint` on it would print an integer and break the goldens: `ipc.HotSync → "sync"`, `ipc.HotSpool → "spool"`, anything else → `"unknown"`. The daemon also stamps `resp.Hot` on every response, so `hotName(resp.Hot)` is authoritative even when `daemonStatus.Hot` is absent.
+4. **`OpStatusFull` second, on the same client.** `resp2, _ := c.Send(ctx, ipc.Request{Op: OpStatusFull, Session: d.Session, TS: …, Reply: true}, statusDeadline)`. On `resp2.OK` with a payload that unmarshals into `StatusFull`, copy its six sections and merge its `Unavailable` entries into `snap.Unavailable`. On any failure — an older daemon that has no such route answers `ipc.Response{OK: false, Err: "unknown op: status.full"}` — the six sections are collected locally instead, from `sourcesFromDeps(d)`, and only they fall back; the five sections of step 3 stay daemon-fresh. Set `snap.FromDaemon = true` and return `(snap, true)`.
+5. Full fallback: `snap := Collect(ctx, sourcesFromDeps(d))`; `snap.Daemon = DaemonInfo{Reachable: false, Addr: addrPath, HotPath: "unknown"}`; return `(snap, false)`. The fallback reads the same on-disk state the daemon would have loaded, so a stopped daemon degrades freshness, not correctness.
+6. `sourcesFromDeps(d)` copies `ProjectRoot, Session, Cfg, Clock, Log, Store, Ledger, Checkpoints, Sched, Contract` straight across and sets `SkipGC` from the `--no-gc` flag. Its **only** I/O is `Metrics: loadMetricsFromDisk(d.ProjectRoot)` (see the latency block above) — `d.Metrics` in a slash-command process is a freshly created, empty registry and would render every latency row as `no samples`, which would be a lie rather than a degradation.
 
 ### `internal/commands/status.go` + `renderstatus.go`
 
@@ -774,8 +842,8 @@ Flags: `--session ID`, `--budget N` (default `d.Cfg.Checkpoint.BudgetTokens` = 1
 **Session resolution, in order** — first non-empty wins:
 
 1. `--session ID`.
-2. `os.Getenv("QOMPACK_SESSION_ID")`.
-3. `d.Session` (set by `RunSlash` only when the environment supplied one).
+2. `d.getenv("QOMPACK_SESSION_ID")`.
+3. `d.Session` (set by `cli`'s `runSlash` only when `env.Getenv` supplied one).
 4. **Newest session in the segment log.** `segs, err := d.Store.Segments().Range(ctx, 0, core.TurnIndex(math.MaxInt32))`; take the `Segment` with the greatest `StartTS` (ties broken by the greatest `ID`) and use its `Session`. This is a read-only, API-legal fallback that needs no new interface and no daemon edit.
 5. Otherwise: `fmt.Errorf("no active session; pass --session (tried --session, QOMPACK_SESSION_ID, the caller's session, and the newest segment in %s)", segmentsPath)`, exit 1.
 
@@ -808,12 +876,12 @@ Flags: `--corpus DIR`, `--policy NAME` (repeatable), `--baseline NAME` (default 
 **Corpus resolution, in order** — first directory that exists wins; the chosen path is echoed in the header so the run is never ambiguous:
 
 1. `--corpus DIR` (an explicit value that does not exist is exit 1 naming the path — never a silent fallback).
-2. `os.Getenv("QOMPACK_SESSIONS_DIR")` — the same variable 00-ARCHITECTURE §6.3 tier 2 and the nightly workflow use.
+2. `d.getenv("QOMPACK_SESSIONS_DIR")` — the same variable 00-ARCHITECTURE §6.3 tier 2 and the nightly workflow use.
 3. `<d.ProjectRoot>/.qompack/eval/replay` (§7.4's own corpus location).
 4. `<cwd>/testdata/sessions/synthetic`, but **only when `<cwd>/go.mod` declares `module github.com/qompack/qompack`** — i.e. only when the command is run from inside the Qompack repo itself. A user's project has no `testdata/sessions/synthetic` and must not be probed for one.
 5. Otherwise exit 1: `no session corpus found; pass --corpus DIR (tried $QOMPACK_SESSIONS_DIR, <root>/.qompack/eval/replay, ./testdata/sessions/synthetic)`.
 
-**Policy discovery.** `d.Policies` is filled by the composition root. `RunSlash` populates it by probing the harness for an optional convenience interface — `if p, ok := d.Eval.(interface{ Policies() []eval.Policy }); ok { d.Policies = p.Policies() }`. This is a **type assertion, not an amendment**: SP-02's `eval.Harness` interface (§5.18) is untouched, Rule W-3 is respected, and a harness that does not implement it simply yields an empty set and the "no policies registered in this build" path below.
+**Policy discovery.** `d.Policies` is filled by the composition root. `cli`'s `runSlash` populates it by probing the harness for an optional convenience interface — `if p, ok := d.Eval.(interface{ Policies() []eval.Policy }); ok { d.Policies = p.Policies() }`. This is a **type assertion, not an amendment**: SP-02's `eval.Harness` interface (§5.18) is untouched, Rule W-3 is respected, and a harness that does not implement it simply yields an empty set and the "no policies registered in this build" path below.
 
 ```go
 sessions, err := d.Eval.Load(corpus)                      // err → exit 1, message names corpus
@@ -892,51 +960,99 @@ func ExitCode(err error) int
 ```
 `Dispatch` matches on either the slash name or `pluginmanifest.SubcommandFor(name)`; an unmatched name returns `fmt.Errorf("%w: unknown qompack subcommand %q", core.ErrNotFound, name)`.
 
-### `internal/cli/slash.go` (new file, SP-14) + one switch arm
+### `internal/cli/slash.go` (new file, SP-14) + a table edit in `commands.go` + 3 lines in `dispatch.go`
+
+**There is no subcommand switch in package `cli`, and SP-14 does not add one.** `cli.Dispatch` (`internal/cli/dispatch.go`) matches argv against the data table `All()` builds in `internal/cli/commands.go`; the only `switch argv[1]` in the file is `case "-h", "--help", "help"`. `Cmd.Run` is `func(ctx context.Context, env Env, args []string, out, errw io.Writer) error` — it returns an **error**, not an exit code — and `Env` exists precisely so no command reads `os.Args`, `os.Stdout` or `os.Getenv` directly. Six of the seven commands are already registered as data, in `commands.go`'s `notImplemented` table: `status`, `recall`, `pin`, `why`, `dropped`, `eval`. `checkpoint-now` is registered nowhere.
+
+SP-14's cli work is therefore three edits, all of them data:
+
+**(a) `internal/cli/commands.go` — remove six rows, splice in seven.** Delete the `{"status",…}`, `{"recall",…}`, `{"pin",…}`, `{"why",…}`, `{"dropped",…}` and `{"eval",…}` entries from `notImplemented` (leaving `mcp`, `fsck`, `doctor` and `bench` to their owners), and add one line to `All()` next to the existing `cmds = append(cmds, evalCmds()...)`:
 
 ```go
-// RunSlash builds commands.Deps from the process environment and runs one of the seven
-// §7.5 slash-command subcommands. It returns the process exit code.
-func RunSlash(ctx context.Context, name string, args []string, out io.Writer) int
-```
-It resolves the project root with the existing `paths` resolution, loads config, opens the logger, opens `store`, `negknow`, `dag`, `grammar`, `pins`, `checkpoint` reader/writer, `tokens`, builds `mcp.ToolDeps`, constructs `contract.NewMonitor(log, metrics, filepath.Join(root, "state", "contract.json"))`, sets `Session` from `os.Getenv("QOMPACK_SESSION_ID")`, fills `Policies` by the optional-interface probe described under `/qompack:eval`, sets `Clock: core.SystemClock()`, and calls `commands.Dispatch`, returning `commands.ExitCode(err)`. **Every `Open` is wrapped: an error leaves that member nil, logs at WARN, and never aborts `RunSlash`** — a status command must work on a broken store, that is when it is needed most. Commands other than `status` surface a missing member through the nil-`Deps` rule (global rule 9) rather than a panic.
-
-The **only** edit outside SP-14's own files is one arm in package `cli`'s subcommand switch (SP-01 placed it in `internal/cli/dispatch.go`; if the switch lives in another file of package `cli`, edit that file instead — it is a two-line change either way):
-
-```go
-case "status", "recall", "pin", "checkpoint-now", "why", "dropped", "eval":
-    return RunSlash(ctx, os.Args[1], os.Args[2:], os.Stdout)
+cmds = append(cmds, slashCmds()...)
 ```
 
-`internal/cli` also registers the daemon-side status op at daemon construction, in the same file where SP-05 builds `daemon.Options`:
+Removing the bare `eval` row is exactly what `internal/cli/register_eval.go` reserved it for ("the bare `eval` entry stays in the not-implemented list, because running the replay harness from the binary is SP-14's `/qompack:eval`"). `eval import` keeps working unchanged: `cli.match` tries the two-word name before the one-word one, so `qompack eval import …` still reaches `runEvalImport` and `qompack eval …` reaches SP-14's command.
+
+**(b) `internal/cli/slash.go` (new) — the seven `Cmd` entries and the one adapter.**
 
 ```go
-opts.Handle(ipc.Op("status"), commands.NewStatusOpHandler(commands.SnapshotSources{
+// slashCmds is the §7.5 verb group: one Cmd per slash command, in Commands() order. Summaries
+// come from pluginmanifest so `qompack help`, `--help` and docs/commands.md cannot disagree.
+func slashCmds() []Cmd {
+    out := make([]Cmd, 0, len(pluginmanifest.Commands()))
+    for _, spec := range pluginmanifest.Commands() {
+        sub := spec.Subcommand           // captured per iteration
+        out = append(out, Cmd{
+            Name:    sub,                // "status" … "checkpoint-now" … "eval"
+            Summary: spec.Summary,
+            Run: func(ctx context.Context, env Env, args []string, o, errw io.Writer) error {
+                return runSlash(ctx, sub, env, args, o, errw)
+            },
+        })
+    }
+    return out
+}
+
+// runSlash builds commands.Deps from env and runs one slash command.
+func runSlash(ctx context.Context, name string, env Env, args []string, out, errw io.Writer) error
+```
+
+`runSlash` resolves the project root with `loadForCommand(env)`'s own `paths.Resolve(env.Getenv, …)` path (never `os.Getenv`), loads config, opens the logger, opens `store`, `negknow`, `dag`, `grammar`, `pins`, `checkpoint` reader/writer, `tokens`, builds `mcp.ToolDeps`, constructs `contract.NewMonitor(log, metrics, filepath.Join(root, "state", "contract.json"))`, sets `Getenv: env.Getenv` and `Session` from `env.Getenv("QOMPACK_SESSION_ID")`, fills `Policies` by the optional-interface probe described under `/qompack:eval`, sets `Clock: env.Clock` (`Dispatch` has already defaulted it to `core.SystemClock()`), and calls `commands.Dispatch(ctx, name, args, out, deps)`. **Every `Open` is wrapped: an error leaves that member nil, logs at WARN, and never aborts `runSlash`** — a status command must work on a broken store, that is when it is needed most. Commands other than `status` surface a missing member through the nil-`Deps` rule (global rule 9) rather than a panic.
+
+`commands.Dispatch` writes its own diagnostics to `out` (global rule 8), so `runSlash` returns `errAlreadyReported`-wrapped errors and `Dispatch` prints nothing on top of them — the same contract `runEvalImport` already follows.
+
+**(c) `internal/cli/dispatch.go` — three lines, so exit 2 stays reachable.** `Dispatch` today returns `ExitError` (1) for every non-nil `Cmd.Run` error and `ExitUsage` (2) only for an unknown subcommand or a malformed `--set`. Global rule 6 requires a usage error to exit 2. `TestStatus_SectionUnknown`, `TestRecall_EmptyQuery` and their siblings assert that inside `internal/commands` via `ExitCode(err) == 2`; without this edit the real binary would still print 1, so the package contract and the process contract would quietly disagree. SP-14 therefore declares one small edit to SP-01's file: a package-private sentinel and one branch.
+
+```go
+// errUsage marks an error a subcommand has classified as a usage error, so Dispatch can map it
+// to ExitUsage without importing the package that raised it (§2.3's exit-code policy).
+var errUsage = errors.New("qompack: usage")
+…
+    if err != nil {
+        if !errors.Is(err, errAlreadyReported) {
+            fmt.Fprintf(errw, "qompack %s: %v\n", cmd.Name, err)
+        }
+        if errors.Is(err, errUsage) {
+            return ExitUsage
+        }
+        return ExitError
+    }
+```
+
+`runSlash` performs the translation, so `dispatch.go` gains no import: `if errors.Is(err, commands.ErrUsage) { return fmt.Errorf("%w: %w", errUsage, errAlreadyReported) }`. A hook subcommand is unaffected — the `cmd.Hook` early return still precedes this branch, so §2.3's "a hook always exits 0" is untouched.
+
+**Amendment carried by this subplan.** 00-ARCHITECTURE §2.3's subcommand list has no `checkpoint-now` row. SP-14 adds it — `checkpoint-now | on-demand checkpoint from the store (the `/qompack:checkpoint` target; the bare `checkpoint` stays the PreCompact hook client)` — as a one-row, one-line edit to `00-ARCHITECTURE.md` §2.3, made in commit 7 and listed in the Done checklist. It is an addition to a table, changes no §5 interface, and needs no Rule W-3 negotiation.
+
+`internal/cli` also registers the `status.full` op at daemon construction, in the same file where SP-05 builds `daemon.Options`:
+
+```go
+opts.Handle(commands.OpStatusFull, commands.NewStatusFullOpHandler(commands.SnapshotSources{
     ProjectRoot: opts.ProjectRoot,
-    Session:     "",              // per-request; NewStatusOpHandler overrides from req.Session
+    Session:     "",              // per-request; NewStatusFullOpHandler overrides from req.Session
     Cfg:         opts.Cfg,
     Clock:       opts.Clock,
     Log:         opts.Log,
     Store:       opts.Store,      // the daemon's live store — no second open
     Ledger:      opts.Ledger,
     Checkpoints: checkpointReader, // the same reader the daemon already holds
-    Sched:       opts.Sched,       // may be nil in a pre-SP-12 build; Collect tolerates it
-    Metrics:     opts.Metrics,     // the ONLY place the real B-A/B-B/B-E histograms live
+    Sched:       opts.Sched,       // may be nil in a pre-SP-12 build; CollectFull tolerates it
+    Metrics:     opts.Metrics,
     Contract:    contractMonitor,
     SkipGC:      false,
 }))
 ```
-Every member is a `daemon.Options` field of 00-ARCHITECTURE §5.4 or a value `cli` already built to construct those options; nothing new is opened and `internal/daemon` is not edited. This is the whole reason `status` prefers the daemon: `obs.Registry` is daemon-resident, so the latency section is *only* real on this path — the disk fallback reads `metrics/latency.json` and is explicitly labelled `source disk` in the header.
+Every member is a `daemon.Options` field of 00-ARCHITECTURE §5.4 or a value `cli` already built to construct those options; nothing new is opened, `internal/daemon` is not edited, and **`ipc.OpStatus` is not among the ops registered here** — `buildRoutes` prefers an `Options` registration over the default route, so registering `status` would silently displace `d.handleStatus` and break `bench-gate`. This is the whole reason `status` prefers the daemon: `obs.Registry` is daemon-resident, so the latency section is *only* real on this path — the disk fallback reads `metrics/latency.json` and is explicitly labelled `source disk` in the header.
 
 ### `tools/devtool` changes
 
 - **New task `gen-command-docs`**: writes `pluginmanifest.CommandDocs()` to `docs/commands.md`.
+- **`plugin-validate` — the byte-diff half needs no addition.** `tools/devtool/pluginvalidate.go` already calls `pluginmanifest.Validate(dir, m)` and fails the task on any `"missing"`, `"content differs"` or `"not produced by the generator"` diff, and `Manifest.Files()` is still the single producer of the seven `plugin/commands/<name>.md` files. Because SP-14 changes `renderCommand`'s body, the `checkpoint` row's `Subcommand` and the `AllowedTools` prefix, the committed bytes are regenerated once with `devtool plugin-validate --write` in commit 8; that is a checklist item, not a new assertion.
 - **`plugin-validate` additions** (in the file implementing that task):
-  1. Regenerate `plugin/commands/<name>.md` for every entry of `pluginmanifest.CommandFiles()` and `git diff --exit-code plugin/commands`.
-  2. Assert `pluginmanifest.CommandNames()` equals `["status","recall","pin","checkpoint","why","dropped","eval"]` — the §7.5 `"commands"` array, in that order. **Do not assert against a `commands` key in `plugin/.claude-plugin/plugin.json`: that file has no such key** (00-ARCHITECTURE §3.4 pins its exact contents to `name/version/description/author/homepage/keywords`; Claude Code discovers commands as files). The physical assertion is instead that `filepath.Glob("plugin/commands/*.md")` yields exactly the seven `<name>.md` files, no more and no fewer, so an orphaned or missing file fails the gate.
-  3. Assert `commands.Names()` equals the same list (binary agrees with manifest).
-  4. Build the binary and, for each spec, run `qompack <spec.Subcommand> --help`, requiring exit code 0 and stdout beginning with `usage: qompack <spec.Subcommand>` (commands resolve to real subcommands).
-  5. Assert `docs/commands.md` equals `pluginmanifest.CommandDocs()`.
+  1. Assert `pluginmanifest.CommandNames()` equals `["status","recall","pin","checkpoint","why","dropped","eval"]` — the §7.5 `"commands"` array, in that order. **Do not assert against a `commands` key in `plugin/.claude-plugin/plugin.json`: that file has no such key** (00-ARCHITECTURE §3.4 pins its exact contents to `name/version/description/author/homepage/keywords`; Claude Code discovers commands as files). The physical assertion is instead that `filepath.Glob("plugin/commands/*.md")` yields exactly the seven `<name>.md` files, no more and no fewer, so an orphaned or missing file fails the gate.
+  2. Assert `commands.Names()` equals the same list (binary agrees with manifest).
+  3. Build the binary and, for each spec, run `qompack <spec.Subcommand> --help`, requiring exit code 0 and stdout beginning with `usage: qompack <spec.Subcommand>` (commands resolve to real subcommands — including `checkpoint-now`, which is why it is registered in `cli`'s table and added to 00-ARCHITECTURE §2.3).
+  4. Assert `docs/commands.md` equals `pluginmanifest.CommandDocs()`.
 - **`.github/workflows/ci.yml`**: add `go run ./tools/devtool gen-command-docs` + `git diff --exit-code docs/commands.md` to the existing `docs` job, immediately after the `gen-config-docs` step.
 
 ### Performance budgets for this slice
@@ -949,7 +1065,7 @@ Every member is a `daemon.Options` field of 00-ARCHITECTURE §5.4 or a value `cl
 | GC dry-run probe | hard-bounded at 250 ms by `GCPolicy.Deadline` | by construction |
 | `RenderStatus` on a full snapshot | < 5 ms | local budget, benchmarked |
 
-`/qompack:status` is never on a hook path, so B-A does not apply to it; it *reports* B-A.
+`/qompack:status` is never on a hook path, so B-A does not apply to it; it *reports* B-A. The daemon-side `status.full` handler is likewise off the hot path — `ipc.Op.HotPath()` is true only for the three `observe.*` ops — so `CollectFull` inherits `Collect`'s p95 < 250 ms local budget and nothing else. `bench-gate` must be unmoved by this subplan: `ipc.OpStatus` keeps SP-05's handler and `daemon.StatusSnapshot` keeps its shape, so `test/bench/hotpath/measure.go` decodes exactly what it decoded before.
 
 ---
 
@@ -964,6 +1080,7 @@ Every test below is written before the code in its commit and must fail first. F
 | `TestCommandNames_MatchesSection75` | — | `pluginmanifest.CommandNames()` | exactly `["status","recall","pin","checkpoint","why","dropped","eval"]`, same order |
 | `TestSubcommandFor` | — | `"checkpoint"`, `"status"`, `"nope"` | `"checkpoint-now"`, `"status"`, `""` |
 | `TestAll_OneCommandPerSpec` | `Deps{}` | `All(Deps{})` | len 7; `Name()` of element *i* equals `Commands()[i].Name` |
+| `TestCommandDocFieldsPreserveShippedValues` | — | `pluginmanifest.Commands()` | the five shipped `CommandDoc` fields keep their pre-SP-14 values for every row except `checkpoint`'s `Subcommand` (now `checkpoint-now`) and the `${CLAUDE_PLUGIN_ROOT}` prefix in `AllowedTools`; every row has a non-empty `Summary`, `Usage` and at least the two appended flags |
 | `TestDispatch_AcceptsBothSpellings` | fake deps | `"checkpoint"` and `"checkpoint-now"` | both reach `checkpointCmd.Run` (recorded by a spy) |
 | `TestDispatch_UnknownName` | `Deps{}` | `"nope"` | `errors.Is(err, core.ErrNotFound)`, `ExitCode(err) == 1` |
 | `TestExitCode` | — | `nil`, `ErrUsage`-wrapped, other | `0`, `2`, `1` |
@@ -991,7 +1108,9 @@ Every test below is written before the code in its commit and must fail first. F
 | `TestStatus_LoudTail_NonJSONLine` | LOUD.log with one 400-char plain line | `Raw == true`, message truncated to 160 chars |
 | `TestStatus_LoudTail_MissingFile` | no LOUD.log | `Loud` empty, `unavailable` does **not** contain `loud`, human prints `(none)` |
 | `TestStatus_BloomSaturationWarning` | `Health.EstFPRate = 0.10`, `Cfg.Sketches.Bloom.FPRate = 0.01` | `saturation_warning == true`; human contains `bloom saturation` and `§11.4` |
-| `TestStatus_LatencyBudgets` | B-A p99 = 21ms with `Runtime.HotPath.BudgetMs = 15`; a `hook_wall` row; a zero-sample `checkpoint_finalize` | B-A row `FAIL`, B-D row `(reported, not gated)` and `pass == true`, B-E row `no samples` |
+| `TestStatus_LatencyBudgets` | B-A p99 = 21ms with `Runtime.HotPath.BudgetMs = 15`; a `hook_wall` row; a zero-sample `checkpoint_finalize`; a `hook_degraded` row at p99 = 340ms | B-A row `FAIL`, B-D row `(reported, not gated)` and `pass == true`, B-E row `no samples`, B-G row renders `budget B-G 1.00s (reported, not gated)` with `gated == false` and `pass == true` |
+| `TestStatus_LatencyRowsComeFromObsBudgets` | `Cfg.Runtime.Budgets.HookDegradedMs = 333`, `Cfg.Runtime.Budgets.MCPToolCallMs = 99` | the B-G row's `limit_ms` is `333` and B-F's is `99` — the column is `Budget.Limit(Cfg)`, never `limits.go`'s render default; the seven rows appear in `obs.Budgets()` order |
+| `TestStatus_BGIsNeverGated` | `hook_degraded` p99 far above the limit | `pass == true` and no `FAIL` anywhere in the human output — B-G is reported only, structurally |
 | `TestStatus_LatencyFromDiskFile` | no daemon; a hand-written `.qompack/metrics/latency.json` with a `hook_controlled` entry at p99 = 7.8ms | that row renders with `n > 0`; `loadMetricsFromDisk` never writes (assert the file's mtime and bytes are unchanged) |
 | `TestStatus_LatencyMissingMetricsFile` | no daemon, no `metrics/latency.json` | every row reads `no samples`; `unavailable` does **not** contain `latency` |
 | `TestStatus_NoGCFlag` | `--no-gc` | `fakeStore.GC` never called; `unavailable` contains `gc` |
@@ -1002,13 +1121,17 @@ Every test below is written before the code in its commit and must fail first. F
 | `TestStatus_CollectRecoversSectionPanic` | `fakeStore.Stats` panics | exit 0; `unavailable` contains `store: panic: …`; every other section still renders; no panic escapes `Collect` |
 | `TestStatus_UnavailableIsSortedBySectionOrder` | three sections fail in a shuffled order across 50 runs | `unavailable` is byte-identical every run |
 | `TestStatus_MapsAreSorted` | `Breakdown` inserted in random order 50× | rendered breakdown identical every run |
-| `TestStatus_FetchPrefersDaemon` | fake `ipc` server returning a marshalled snapshot | `FromDaemon == true`, `Daemon.Reachable == true`; `fakeStore.Stats` never called locally |
+| `TestStatus_FetchPrefersDaemon` | fake `ipc` server answering `status` with a `daemonStatus`-shaped payload and `status.full` with a `StatusFull` | `FromDaemon == true`, `Daemon.Reachable == true`; `fakeStore.Stats` never called locally; both ops were sent, `status` first |
+| `TestStatus_DaemonPayloadMirrorIsCurrent` | a real daemon's `status` reply captured in `test/e2e` and committed as `testdata/golden/commands/daemon_status_payload.json` | `json.Unmarshal` into `daemonStatus` populates `mode`, `contract`, `hot`, `latency` and `loud_tail`; a tag the daemon no longer emits fails the test naming the field — this is the drift guard for the §3.2-mandated mirror |
+| `TestStatus_StatusFullUnknownOpFallsBackPerSection` | `status` answers normally; `status.full` answers `OK:false, Err:"unknown op: status.full"` (an older daemon) | `FromDaemon == true`; mode/contracts/latency/loud come from the daemon; store/sketches/frontier/checkpoint/scheduler/gc come from the local `sourcesFromDeps` collection; no section is silently empty |
+| `TestStatus_DoesNotRegisterOpStatus` | AST scan of `internal/commands/*.go` and `internal/cli/*.go` excluding `_test.go` | zero `Handle(` calls whose op argument is `ipc.OpStatus` or the literal `"status"`; the only registered op is `commands.OpStatusFull` — the guard that keeps `bench-gate` green |
 | `TestStatus_FetchFallsBackToDisk` | no listener | `FromDaemon == false`; local `Collect` ran; nothing appended to the spool (assert the spool dir is empty); `Daemon.HotPath == "unknown"` |
 | `TestStatus_FetchResolveError` | `QOMPACK_PROJECT_ROOT` pointing at a path `ipc.Resolve` rejects | exit 0, `FromDaemon == false`, `Daemon.Addr == ""`, no nil-pointer dereference of the zero `ipc.Addr` |
 | `TestStatus_FetchNilLogAndMetrics` | `Deps{Log: nil, Metrics: nil}` | `ipc.NewClient` receives non-nil substitutes; no panic |
 | `TestStatus_HotPathNames` | daemon replies with `Sync`, then `Spool`, then an out-of-range value | `Daemon.HotPath` renders `"sync"`, `"spool"`, `"unknown"` — never an integer |
-| `TestStatusOpHandler_ReturnsSnapshot` | `NewStatusOpHandler(src)` | `resp.OK`, `resp.Data` unmarshals to `StatusSnapshot` with `Schema == 1` |
-| `TestStatusOpHandler_RecoversPanic` | source whose `Stats` panics | `resp.OK == false`, `resp.Err` non-empty, no panic escapes |
+| `TestStatusFullOpHandler_ReturnsSections` | `NewStatusFullOpHandler(src)` | `resp.OK`, `resp.Data` unmarshals to `StatusFull` with `Schema == 1` and all six sections populated |
+| `TestStatusFullOpHandler_RecoversPanic` | source whose `Stats` panics | `resp.OK == false`, `resp.Err` non-empty, no panic escapes |
+| `TestStatusFullOpIsNotAKnownOp` | — | `ipc.Op("status.full").Valid() == false` and `len(ipc.KnownOps()) == 13` — SP-14 adds a route, never a wire-vocabulary entry |
 | `TestDeterminism_RenderStatus` | one snapshot rendered 100× | all 100 outputs byte-identical |
 
 ### `/qompack:recall`, `/qompack:why`, `/qompack:dropped`
@@ -1099,10 +1222,11 @@ Every test below is written before the code in its commit and must fail first. F
 |---|---|---|
 | `TestProperty_EnvelopeAlwaysValidJSON` | `rapid`, 500 cases: random flag orders, random unicode query strings, randomly nil `Deps` members, every command with `--json` | stdout always parses as `Envelope`; never panics; exit code ∈ {0,1,2} |
 | `TestProperty_HumanOutputHasNoTabsOutsideTables` | `rapid` over snapshots | every rendered line is stable across two renders and contains no `\r` |
-| `TestCommandMarkdown_Golden` | 7 goldens under `testdata/golden/commands/plugin/` | byte-equal, LF endings, single trailing newline |
-| `TestCommandFiles_MatchesCommittedPluginDir` | compare `CommandFiles()` to `plugin/commands/*.md` on disk | equal — this is the in-test twin of the `plugin-validate` gate |
+| `TestRenderCommand_Golden` | 7 goldens under `testdata/golden/commands/plugin/` | byte-equal, LF endings, single trailing newline |
+| `TestManifestFiles_MatchCommittedPluginDir` | `pluginmanifest.Validate(repoRoot, Default(core.Version))` | zero `Diff`s — the in-test twin of the `plugin-validate` gate, run against the one and only generator |
+| `TestManifestFiles_HasExactlySevenCommandFiles` | `Manifest.Files()` keys under `plugin/commands/` | exactly the seven `<name>.md` paths, no more and no fewer — an orphaned or missing file fails here as well as in `plugin-validate` |
 | `TestCommandDocs_MatchesCommittedDocs` | compare `CommandDocs()` to `docs/commands.md` | equal |
-| `TestCommandMarkdown_ReferencesRealSubcommand` | for each spec | body contains `${CLAUDE_PLUGIN_ROOT}/bin/qompack <subcommand> $ARGUMENTS` and `allowed-tools` names the same subcommand |
+| `TestRenderCommand_ReferencesRealSubcommand` | for each spec | body contains `${CLAUDE_PLUGIN_ROOT}/bin/qompack <subcommand> $ARGUMENTS` and `allowed-tools` names the same subcommand |
 | `TestE2E_EverySubcommandResolves` (`test/e2e`) | build the real binary | `qompack <sub> --help` exits 0 for all seven; stdout starts with `usage: qompack <sub>` |
 | `TestE2E_StatusAgainstRealDaemon` (`test/e2e`) | real daemon on a temp project seeded with 50 tool uses | `qompack status --json` exits 0, `from_daemon == true`, `store.tool_uses == 50`, latency section has a `hook_controlled.observe_tool` row with `n >= 50` |
 | `TestE2E_StatusWithDaemonStopped` (`test/e2e`) | daemon killed | exits 0, `from_daemon == false`, `store.objects > 0`, spool dir empty |
@@ -1132,7 +1256,7 @@ Every commit compiles and passes `go run ./tools/devtool test` for the packages 
 | # | Subject line (`<type>(<scope>): <subject>`) | Footer |
 |---|---|---|
 | 1 | `feat(commands): command table, dispatch, flags and JSON envelope` | `Refs: SP-14, G8.1, §7.5` |
-| 2 | `feat(commands): status snapshot collector and daemon status op` | `Refs: SP-14, G8.1, §11.3, §11.4, §12` |
+| 2 | `feat(commands): status snapshot collector and the status.full daemon op` | `Refs: SP-14, G8.1, §11.3, §11.4, §12` |
 | 3 | `feat(commands): render /qompack:status with the degraded banner` | `Refs: SP-14, G8.1, G9.3, §11, §12` |
 | 4 | `feat(commands): recall, why and dropped as MCP-handler frontends` | `Refs: SP-14, G3.1, G4.5, §8.6, §8.7` |
 | 5 | `feat(commands): pin, pin --eliminated and on-demand checkpoint-now` | `Refs: SP-14, G2.2, G6.1, §4.6, §8.3, §8.5` |
@@ -1144,20 +1268,21 @@ Bodies explain the decision, not the diff (§10), wrap at 100 columns, and carry
 
 ### Commit 1 — `feat(commands): command table, dispatch, flags and JSON envelope`
 
-- [ ] Write failing tests first: `internal/pluginmanifest/commands_test.go` (`TestCommandNames_MatchesSection75`, `TestSubcommandFor`, `TestCommandMarkdown_Golden`), `internal/commands/dispatch_test.go` (`TestAll_OneCommandPerSpec`, `TestDispatch_AcceptsBothSpellings`, `TestDispatch_UnknownName`, `TestExitCode`), `internal/commands/flags_test.go` (`TestHelp_EveryCommand`, `TestHelp_DashH_SameAsHelp`, `TestJSONFlag_EveryCommand`, `TestJSONErrorEnvelope_EveryCommand`), `internal/commands/hygiene_test.go` (`TestNoTimeNowInPackage`, `TestNoANSI`, `TestNoDirectStdio`).
+- [ ] Write failing tests first: `internal/pluginmanifest/commands_test.go` (`TestCommandNames_MatchesSection75`, `TestSubcommandFor`, `TestRenderCommand_Golden`, `TestCommandDocFieldsPreserveShippedValues`), `internal/commands/dispatch_test.go` (`TestAll_OneCommandPerSpec`, `TestDispatch_AcceptsBothSpellings`, `TestDispatch_UnknownName`, `TestExitCode`), `internal/commands/flags_test.go` (`TestHelp_EveryCommand`, `TestHelp_DashH_SameAsHelp`, `TestJSONFlag_EveryCommand`, `TestJSONErrorEnvelope_EveryCommand`), `internal/commands/hygiene_test.go` (`TestNoTimeNowInPackage`, `TestNoANSI`, `TestNoDirectStdio`).
 - [ ] Run `go test ./internal/commands ./internal/pluginmanifest` — must fail.
-- [ ] Add `internal/pluginmanifest/commands.go` (`CommandSpec`, `CommandFlag`, `Commands`, `CommandNames`, `SubcommandFor`, `CommandMarkdown`, `CommandFiles`, `CommandDocs`) with the full flag table above; defaults that mirror Appendix C are read from `config.Defaults()`, never typed as literals (§11.6).
+- [ ] Modify `internal/pluginmanifest/manifest.go`: append `Summary`, `Usage`, `Flags`, `Sections` to the shipped `CommandDoc`, add `CommandFlag`, fill the four new fields in `commandSpecs` from the tables above, change the `checkpoint` row's `Subcommand` to `checkpoint-now`, prefix `AllowedTools` with `binaryRef`, replace `renderCommand`'s body, and add `Commands`, `CommandNames`, `SubcommandFor`, `CommandDocs`. `Manifest.Files()` is not touched. Defaults that mirror Appendix C are read from `config.Defaults()`, never typed as literals (§11.6).
 - [ ] Resolve the `commandstest` decision: flip the skips off if SP-01 shipped the suite, otherwise create `internal/commands/commandstest/suite.go` with `RunCommandSuite` as specified, plus `internal/commands/suite_test.go` calling it.
 - [ ] Add `internal/commands/{spec.go,flags.go,envelope.go,dispatch.go,limits.go,deps.go,require.go}` with the seven command structs returning `core.ErrNotImplemented` from `Run` (help, `--json`, error-envelope and nil-`Deps` paths already real).
 - [ ] Add `testdata/golden/commands/plugin/*.md` (7 files).
 - [ ] `go run ./tools/devtool fmt lint test` green.
 
-### Commit 2 — `feat(commands): status snapshot collector and daemon status op`
+### Commit 2 — `feat(commands): status snapshot collector and the status.full daemon op`
 
-- [ ] Write failing tests: `collect_test.go` (`TestStatus_NilDepsUnavailable`, `TestStatus_StoreStatsError`, `TestStatus_CollectRecoversSectionPanic`, `TestStatus_UnavailableIsSortedBySectionOrder`, `TestStatus_LoudTail_*`, `TestStatus_BloomSaturationWarning`, `TestStatus_LatencyBudgets`, `TestStatus_LatencyFromDiskFile`, `TestStatus_LatencyMissingMetricsFile`, `TestStatus_GCIsDryRun`, `TestStatus_MapsAreSorted`), `statusop_test.go` (`TestStatusOpHandler_ReturnsSnapshot`, `TestStatusOpHandler_RecoversPanic`), `statusfetch_test.go` (`TestStatus_FetchPrefersDaemon`, `TestStatus_FetchFallsBackToDisk`, `TestStatus_FetchResolveError`, `TestStatus_FetchNilLogAndMetrics`, `TestStatus_HotPathNames`), plus `fakes_test.go`.
+- [ ] Write failing tests: `collect_test.go` (`TestStatus_NilDepsUnavailable`, `TestStatus_StoreStatsError`, `TestStatus_CollectRecoversSectionPanic`, `TestStatus_UnavailableIsSortedBySectionOrder`, `TestStatus_LoudTail_*`, `TestStatus_BloomSaturationWarning`, `TestStatus_LatencyBudgets`, `TestStatus_LatencyRowsComeFromObsBudgets`, `TestStatus_BGIsNeverGated`, `TestStatus_LatencyFromDiskFile`, `TestStatus_LatencyMissingMetricsFile`, `TestStatus_GCIsDryRun`, `TestStatus_MapsAreSorted`), `statusop_test.go` (`TestStatusFullOpHandler_ReturnsSections`, `TestStatusFullOpHandler_RecoversPanic`, `TestStatusFullOpIsNotAKnownOp`), `statusfetch_test.go` (`TestStatus_FetchPrefersDaemon`, `TestStatus_DaemonPayloadMirrorIsCurrent`, `TestStatus_StatusFullUnknownOpFallsBackPerSection`, `TestStatus_DoesNotRegisterOpStatus`, `TestStatus_FetchFallsBackToDisk`, `TestStatus_FetchResolveError`, `TestStatus_FetchNilLogAndMetrics`, `TestStatus_HotPathNames`), plus `fakes_test.go`.
 - [ ] Run `go test ./internal/commands` — must fail.
-- [ ] Add `statussnapshot.go`, `collect.go`, `statusop.go`, `statusfetch.go`, `metricsdisk.go` (`loadMetricsFromDisk`).
+- [ ] Add `statussnapshot.go`, `collect.go`, `statusop.go` (`OpStatusFull`, `StatusFull`, `CollectFull`, `NewStatusFullOpHandler`), `statusfetch.go` (`daemonStatus`, `FetchSnapshot`), `metricsdisk.go` (`loadMetricsFromDisk`).
 - [ ] `go run ./tools/devtool test-race` green for `./internal/commands`.
+- [ ] `go test ./test/bench/...` and `go run ./tools/devtool bench-hotpath --iterations 2000` still green — the check that `ipc.OpStatus` and `daemon.StatusSnapshot` were genuinely left alone.
 
 ### Commit 3 — `feat(commands): render /qompack:status with the degraded banner`
 
@@ -1188,18 +1313,19 @@ Bodies explain the decision, not the diff (§10), wrap at 100 columns, and carry
 - [ ] Add `eval.go`; generate `eval_report.*` goldens.
 - [ ] `go run ./tools/devtool cover` — `internal/commands` **and** `internal/pluginmanifest` at or above the 75% floor (§6.4 "everything else"; neither package is in the 90%/85% groups).
 
-### Commit 7 — `feat(cli): dispatch the seven §7.5 slash commands and register the status op`
+### Commit 7 — `feat(cli): dispatch the seven §7.5 slash commands and register status.full`
 
 - [ ] Write failing tests: `test/e2e/commands_test.go` (`TestE2E_EverySubcommandResolves`, `TestE2E_StatusAgainstRealDaemon`, `TestE2E_StatusWithDaemonStopped`, `TestE2E_CheckpointNowThenStatus`).
 - [ ] Run `go test ./test/e2e -run TestE2E_` — must fail.
-- [ ] Add `internal/cli/slash.go`; add the single `case` arm to package `cli`'s subcommand switch; register `commands.NewStatusOpHandler` at daemon construction through `daemon.Options.Handle(ipc.Op("status"), …)`.
-- [ ] `go run ./tools/devtool build test` green; run `./bin/qompack status` manually against a real project and eyeball every section.
+- [ ] Add `internal/cli/slash.go` (`slashCmds`, `runSlash`); remove the six `notImplemented` rows and splice `slashCmds()` into `All()` in `internal/cli/commands.go`; add the `errUsage` sentinel and its one branch in `internal/cli/dispatch.go`; register `commands.NewStatusFullOpHandler` at daemon construction through `daemon.Options.Handle(commands.OpStatusFull, …)` — and **not** for `ipc.OpStatus`.
+- [ ] Add the `checkpoint-now` row to 00-ARCHITECTURE.md §2.3's subcommand table (one line; the amendment declared in the cli section above).
+- [ ] `go run ./tools/devtool build test` green; run `./bin/qompack status` manually against a real project and eyeball every section; confirm `./bin/qompack status --section nope` exits **2**.
 
 ### Commit 8 — `build(plugin): generate plugin/commands and docs/commands.md, gate them in CI`
 
-- [ ] Write failing tests: `tools/devtool/plugin_validate_test.go` (`TestPluginValidate_DetectsDrift`), `tools/devtool/gen_command_docs_test.go` (`TestGenCommandDocs_Idempotent`), and `internal/pluginmanifest/commands_files_test.go` (`TestCommandFiles_MatchesCommittedPluginDir`, `TestCommandDocs_MatchesCommittedDocs`, `TestCommandMarkdown_ReferencesRealSubcommand`).
+- [ ] Write failing tests: `tools/devtool/plugin_validate_test.go` (`TestPluginValidate_DetectsDrift`), `tools/devtool/gen_command_docs_test.go` (`TestGenCommandDocs_Idempotent`), and `internal/pluginmanifest/commands_files_test.go` (`TestManifestFiles_MatchCommittedPluginDir`, `TestManifestFiles_HasExactlySevenCommandFiles`, `TestCommandDocs_MatchesCommittedDocs`, `TestRenderCommand_ReferencesRealSubcommand`).
 - [ ] Run `go test ./tools/... ./internal/pluginmanifest` — must fail.
-- [ ] Add the `gen-command-docs` devtool task; extend `plugin-validate` with the five assertions; commit the seven generated `plugin/commands/*.md` and the generated `docs/commands.md`; add the two steps to the `docs` job in `.github/workflows/ci.yml`.
+- [ ] Add the `gen-command-docs` devtool task; extend `plugin-validate` with the four assertions; regenerate the seven `plugin/commands/*.md` with `go run ./tools/devtool plugin-validate --write` and commit them together with the generated `docs/commands.md`; add the two steps to the `docs` job in `.github/workflows/ci.yml`.
 - [ ] `go run ./tools/devtool plugin-validate gen-command-docs` then `git diff --exit-code` — clean.
 - [ ] `go run ./tools/devtool ci-local` green; push and confirm every CI job is green on the branch.
 
@@ -1209,7 +1335,7 @@ Merge back into `develop` with `--no-ff` in the wave-4 merge order.
 
 ## Subagent strategy
 
-This subplan is small enough that subagents are unnecessary — it is one package, one new manifest file, one CLI arm and one devtool task, all sequential. The implementer may optionally dispatch a single subagent to write the golden-fixture test bodies for commits 3–6 in parallel with the renderer implementation, provided that subagent is given this document's "Test plan (TDD)" section verbatim and writes only `_test.go` files and `testdata/golden/commands/**`.
+This subplan is small enough that subagents are unnecessary — it is one package, one extended manifest table, three small `cli` edits and one devtool task, all sequential. The implementer may optionally dispatch a single subagent to write the golden-fixture test bodies for commits 3–6 in parallel with the renderer implementation, provided that subagent is given this document's "Test plan (TDD)" section verbatim and writes only `_test.go` files and `testdata/golden/commands/**`.
 
 ---
 
@@ -1231,7 +1357,8 @@ SP-14 does not *achieve* these numbers — SP-06, SP-05 and SP-02 do. SP-14's ex
 **Local Definition of Done:**
 
 - [ ] All seven §7.5 commands implemented; `commands.Names()` equals `["status","recall","pin","checkpoint","why","dropped","eval"]` in that order.
-- [ ] `/qompack:status` renders all **ten** §5.17 elements plus daemon reachability (SP-14's own eleventh section): mode with a loud banner when degraded, contract table with expected vs observed, store size and dedup ratio, sketch fill ratio and estimated FP rate, per-hook latency percentiles against B-A and B-D, frontier turn and residual tokens, last checkpoint seq and size, last scheduler `Decision.Breakdown`, GC statistics, the last five `Loud` messages, and daemon reachability.
+- [ ] `/qompack:status` renders all **ten** §5.17 elements plus daemon reachability (SP-14's own eleventh section): mode with a loud banner when degraded, contract table with expected vs observed, store size and dedup ratio, sketch fill ratio and estimated FP rate, latency percentiles for every entry of `obs.Budgets()` — B-A…B-F **and B-G**, with B-D and B-G rendered as reported-not-gated — frontier turn and residual tokens, last checkpoint seq and size, last scheduler `Decision.Breakdown`, GC statistics, the last five `Loud` messages, and daemon reachability.
+- [ ] `ipc.OpStatus` is untouched: no `Handle` registration for it anywhere in SP-14's diff, `daemon.StatusSnapshot`'s shape unchanged, `internal/daemon` unedited, and `commands.OpStatusFull` absent from `ipc.KnownOps()` — proved by `TestStatus_DoesNotRegisterOpStatus` and `TestStatusFullOpIsNotAKnownOp`.
 - [ ] `recall`, `why` and `dropped` reach data **only** through `mcp.Tool.Handler` — proved by `TestRecall_NoSecondImplementation`.
 - [ ] `pin` writes through `pins.Store`; `pin --eliminated` writes through `negknow.Ledger` with a canonical §8.3 descriptor, an evidence hash and resolved `depends_on` hashes.
 - [ ] `checkpoint-now` drives `Begin → Advance → Finalize` and honours the `ErrAlreadyEncoded` DPI guard.
@@ -1242,17 +1369,17 @@ SP-14 does not *achieve* these numbers — SP-06, SP-05 and SP-02 do. SP-14's ex
 - [ ] `go run ./tools/devtool ci-local` green: `gofumpt -l` empty, `golangci-lint run` clean, `go vet`, `nomagic`, import-graph check (`commands` imports neither `cli` nor `daemon`; `pluginmanifest` does not import `commands`), `go test ./... -race`.
 - [ ] Coverage for `internal/commands` ≥ 75% (§6.4 floor for "everything else").
 - [ ] Benchmarks within budget: `BenchmarkCheckpointNow` < 2 s (**B-E**), `BenchmarkMCPFrontend` p95 < 250 ms (**B-F**), `BenchmarkCollect` p95 < 250 ms, `BenchmarkRenderStatus` < 5 ms.
-- [ ] `bench-gate` and `replay-gate` still green on the branch — this subplan adds nothing to the hot path and must not move B-A.
+- [ ] `bench-gate` and `replay-gate` still green on the branch — this subplan adds nothing to the hot path and must not move B-A. `bench-gate` is the specific gate at risk, because `test/bench/hotpath/measure.go` decodes `daemon.StatusSnapshot` over `ipc.OpStatus` for B-B and for the gated B-A row; leaving that op and that payload alone is what keeps it green, and re-running `devtool bench-hotpath` after commit 2 and again after commit 7 is how it is checked rather than assumed.
 - [ ] All CI jobs green on `feat/sp14-slash-commands-and-observability`.
 
 ---
 
 ## Done checklist
 
-- [ ] Every constant, formula, schema and table quoted in "Design context" has a corresponding implementation or rendering: §7.5 command list (command table), §8.7 tool table (`recall`/`why`/`dropped` delegation + ephemeral flag in the JSON envelope), §8.3 four elimination sources item 2 and the canonical descriptor (`pin --eliminated`), §8.3 scope semantics (`--scope`), §8.5 regeneration rule (`SourceSet` assembly), §11.1 fraction-of-OPT (`eval`), §11.2 secondary metrics (`eval` columns), §11.3 guardrails (latency budget rows + regression table), §11.4 bloom watch-for (saturation warning), §12 storage-growth and bloom-saturation rows (`status` store + sketch sections), Phase 1 4:1 ratio (dedup line), B-A/B-B/B-C/B-D/B-E/B-F (latency table).
-- [ ] Placeholder scan: `rg -n "TBD|FIXME|implement appropriately|handle edge cases" internal/commands internal/pluginmanifest internal/cli/slash.go plugin/commands docs/commands.md` returns nothing (the plan file's own checklist line is the only permitted match anywhere).
+- [ ] Every constant, formula, schema and table quoted in "Design context" has a corresponding implementation or rendering: §7.5 command list (command table), §8.7 tool table (`recall`/`why`/`dropped` delegation + ephemeral flag in the JSON envelope), §8.3 four elimination sources item 2 and the canonical descriptor (`pin --eliminated`), §8.3 scope semantics (`--scope`), §8.5 regeneration rule (`SourceSet` assembly), §11.1 fraction-of-OPT (`eval`), §11.2 secondary metrics (`eval` columns), §11.3 guardrails (latency budget rows + regression table), §11.4 bloom watch-for (saturation warning), §12 storage-growth and bloom-saturation rows (`status` store + sketch sections), Phase 1 4:1 ratio (dedup line), B-A/B-B/B-C/B-D/B-E/B-F **and B-G** (latency table, sourced from `obs.Budgets()`).
+- [ ] Placeholder scan: `rg -n "TBD|FIXME|implement appropriately|handle edge cases" internal/commands internal/pluginmanifest internal/cli plugin/commands docs/commands.md` returns nothing (the plan file's own checklist line is the only permitted match anywhere).
 - [ ] Type consistency: every signature used in the code matches "Interface contract" exactly; `commands.Command`, `commands.All` and the ten original `commands.Deps` fields are byte-identical to 00-ARCHITECTURE §5.17; the additive `Deps` fields are documented in-file with the reason each is needed.
-- [ ] No §5 interface owned by another subplan was changed, and no method was added to one (Rule W-3). The only files touched outside SP-14's own (`internal/commands/**`, including the new `internal/commands/commandstest/`, and `testdata/golden/commands/**`) are: one arm in package `cli`'s switch, `internal/cli/slash.go` (new), `internal/pluginmanifest/commands.go` (new), `tools/devtool` (new task + assertions), `.github/workflows/ci.yml` (`docs` job), `plugin/commands/*.md`, `docs/commands.md`, `test/e2e/commands_test.go` (new). No file under `internal/daemon`, `internal/mcp`, `internal/checkpoint`, `internal/negknow`, `internal/scheduler`, `internal/store` or `internal/eval` is edited.
+- [ ] No §5 interface owned by another subplan was changed, and no method was added to one (Rule W-3). The only files touched outside SP-14's own (`internal/commands/**`, including the new `internal/commands/commandstest/`, and `testdata/golden/commands/**`) are: `internal/cli/slash.go` (new), `internal/cli/commands.go` (six `notImplemented` rows removed, one `append` line added), `internal/cli/dispatch.go` (the `errUsage` sentinel and its one branch), `internal/pluginmanifest/manifest.go` (the `CommandDoc` extension and the `renderCommand` body), `tools/devtool` (new task + assertions), `.github/workflows/ci.yml` (`docs` job), `plugin/commands/*.md` (regenerated by the existing generator), `docs/commands.md` (generated), `00-ARCHITECTURE.md` §2.3 (one table row: `checkpoint-now`), `test/e2e/commands_test.go` (new). No file under `internal/daemon`, `internal/mcp`, `internal/checkpoint`, `internal/negknow`, `internal/scheduler`, `internal/store`, `internal/ipc`, `internal/obs` or `internal/eval` is edited — in particular `internal/daemon/handlers.go`'s `StatusSnapshot` and `daemon.go`'s `defaultRoutes` are left exactly as SP-05 shipped them.
 - [ ] Commit count verified: 8 commits, within the 5–8 range, each with a conventional-commit message and a `Refs: SP-14, §7.5, §8.7, §11, §12` footer.
 - [ ] No `Co-Authored-By`, `Signed-off-by`, `Generated with` or 🤖 in any commit message, merge commit, tag or PR body.
 - [ ] `Qompack.md` unmodified: `git diff develop -- Qompack.md` is empty.
