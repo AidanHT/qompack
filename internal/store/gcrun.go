@@ -211,7 +211,17 @@ func (s *FSStore) mark(days, sessions int) (liveChunks, liveRoots map[core.Hash]
 		if rec.Root.IsZero() {
 			continue
 		}
-		if inAgeWindow(rec.TS) || (sessions >= 0 && recent[rec.Session]) {
+		// The ephemeral exclusion applies HERE too, not only on the root path above. §8.2: "an
+		// ephemeral root is never in-window by the age clause; only the session clause and an
+		// explicit root reference keep it alive." Reading the age clause without consulting Eph
+		// made the documented property void on the main path rather than on an edge case — every
+		// retrieval result is recorded as a tool_use, so every ephemeral root was age-live through
+		// this loop no matter what the root path decided about it.
+		eph := false
+		if e, ok := s.rootIndex[rec.Root]; ok {
+			eph = e.Eph
+		}
+		if (!eph && inAgeWindow(rec.TS)) || (sessions >= 0 && recent[rec.Session]) {
 			liveRoots[rec.Root] = struct{}{}
 		}
 	}
