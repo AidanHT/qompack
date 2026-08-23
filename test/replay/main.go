@@ -340,13 +340,33 @@ func run(args []string, out, errw io.Writer) int {
 		failed = true
 	}
 
+	// missingBaseline records a --baseline path that named nothing. The run continues — the phase
+	// criterion does not need a baseline and is the half of the gate that can still say something —
+	// but the exit code is not 0. A caller who asked for a comparison and silently did not get one
+	// has a green build that compared nothing, which is the failure this whole file exists to
+	// prevent; a caller who wants no comparison says so with --baseline "".
+	missingBaseline := ""
 	if o.baseline != "" {
 		base, err := loadBaseline(resolve(root, o.baseline), root)
 		switch {
 		case err != nil && looksLikePath(o.baseline) && os.IsNotExist(errors.Unwrap(err)):
+			missingBaseline = o.baseline
 			fmt.Fprintf(errw, "WARN no baseline at %s; comparison disabled\n", o.baseline)
 		case err != nil:
 			fmt.Fprintf(errw, "%v\n", err)
+			return exitBadInput
+		case base.CorpusTier != "" && base.CorpusTier != driver.CorpusTier:
+			// The corpusTier key exists to make this comparison impossible, and nothing consulted
+			// it. §6.3's two corpora are different populations — 24 generated sessions against
+			// whatever a real user recorded — so a percentage change between them is not a
+			// regression signal at all, and the nightly recorded-corpus run was comparing against
+			// the synthetic baseline for exactly that reason.
+			fmt.Fprintf(errw,
+				"FAIL baseline %s was recorded over a %s corpus and this run replayed a %s one; the "+
+					"2%% rule compares policies over the SAME population, and a percentage change "+
+					"between two different corpora measures the corpora. Point --baseline at a %s "+
+					"baseline (ADR 0002)\n",
+				o.baseline, base.CorpusTier, driver.CorpusTier, driver.CorpusTier)
 			return exitBadInput
 		default:
 			driver.Regressions = compare(base, driver.Policies, driver.WatchFor, readSignOff(o.signOff))
@@ -371,6 +391,13 @@ func run(args []string, out, errw io.Writer) int {
 	}
 	if failed {
 		return exitGateFailed
+	}
+	if missingBaseline != "" {
+		fmt.Fprintf(errw,
+			"FAIL --baseline %s named no file, so the 2%% rule compared nothing. Pass --baseline \"\" "+
+				"to run without a comparison deliberately, or point it at a baseline that exists\n",
+			missingBaseline)
+		return exitBadInput
 	}
 	return exitOK
 }
