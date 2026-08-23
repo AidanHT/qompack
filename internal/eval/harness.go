@@ -10,7 +10,7 @@ import (
 )
 
 // Latency-model coefficients. They are calibrated against two sentences of the design, not tuned:
-// see LatencyModel's doc comment and TestReplay_LatencyModelAnchors, which names the sentence each
+// see LatencyModel's doc comment and TestLatencyModel_Anchors, which names the sentence each
 // one answers to. They are not Qompack tunables — nothing at runtime reads them — so they are
 // constants here rather than config keys.
 const (

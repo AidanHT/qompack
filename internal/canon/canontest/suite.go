@@ -31,7 +31,7 @@ func (shapeProbeCanonicalizer) Canonicalize(in []byte, o canon.Options) (canon.R
 // RunRegistrySuite is the conformance suite for canon.Registry. name distinguishes multiple
 // factories run in the same test binary; factory must return a fresh, ready-to-use Registry on
 // every call. The returned Registry need not start empty — a factory built from canon.Default,
-// for example, arrives with SP-04's twelve real canonicalizers already registered; see
+// for example, arrives with SP-04's fourteen real canonicalizers already registered; see
 // runRegistrationOrderPreservedCase's own comment for how the behaviour block stays correct
 // either way.
 func RunRegistrySuite(t *testing.T, name string, factory func(t *testing.T) canon.Registry) {

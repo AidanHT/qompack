@@ -294,8 +294,10 @@ func errorResultIndex(t reflect.Type) int {
 
 // TestStubRegistry_ListsEveryPackageOnDisk is the completeness half of the plan's requirement.
 //
-// It compares the hand-written registry against plans/OWNERS.tsv, which `devtool lint` already
-// requires to list every package on disk. A new §5 package that nobody adds here would otherwise
+// It compares the hand-written registry against plans/OWNERS.tsv, which
+// TestV1_StubGraphIsInertAndOwned already requires to list every package on disk. (That test, not
+// `devtool lint`: no lint sub-check reads the disk, and stubskips deliberately ignores the exit
+// status of the `go test` run it greps, so a failure there would leave the lint green.) A new §5 package that nobody adds here would otherwise
 // be silently unguarded — which is the same failure as having no guard at all, but harder to see.
 func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 	t.Parallel()
