@@ -143,7 +143,9 @@ Everything below is quoted exactly. Nothing in this subplan requires opening the
 
 > **V2 reconciliation:** the sentence in bold above was missing from this quote, and with it the literal `8000`. SP-01 landed the §11.5 `rehydrate` keys, so the extension is in force: `tools/lint/nomagic/literals.go` ships `forbiddenInts = {20000, 12000, 10000, 8000, 2048, 1024, 4096, 16384, 300, 120, 450}` — eleven values, not ten — and `internal/sketch/doc.go` already lists it correctly. See `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.3a item 7(b) (**V2-ALL-06**). Nothing in `internal/sketch` spells `8000`, so no code changed; the omission was in this document only.
 
-**Consequence, binding on every file in this subplan:** `10000`, `8000`, `2048`, `4096`, `1024`, `0.9` and `0.1` must never appear as literals in non-test code under `internal/sketch`. Every constructor takes its sizing as a parameter; the caller supplies it from `config`. The one deliberate exception is `FPWarnRate` in `bloom.go`, which carries an explicit `//nomagic:allow` annotation (§ Implementation spec, `bloom.go`).
+**Consequence, binding on every file in this subplan:** `10000`, `8000`, `2048`, `4096`, `1024`, `0.9` and `0.1` must never appear as literals in non-test code under `internal/sketch`. Every constructor takes its sizing as a parameter; the caller supplies it from `config`. The subplan adds exactly one deliberate exception: `FPWarnRate` in `bloom.go`, which carries an explicit `//nomagic:allow` annotation (§ Implementation spec, `bloom.go`).
+
+> **V2 reconciliation — the tree is `internal/sketch/...`, and it holds two annotations, not one.** `nomagic` exempts only `_test.go` files, `internal/config/defaults.go`, and paths under `tools/`, `test/` or `testdata/` (`tools/lint/nomagic/nomagic.go`, `exemptFile`), so `internal/sketch/sketchtest/minhash.go` is scanned like production code and its `const mhJaccardTolerance = 0.1 //nomagic:allow §15 behaviour-table tolerance, not a config default` (`:23`) is a required annotation. It is **SP-01's**, landed with the conformance-suite stubs, and it is frozen: SP-03 must not remove or re-word it. So the count a verifier can confirm across `internal/sketch/...` is **two** annotations — `FPWarnRate` in `bloom.go` (SP-03) and `mhJaccardTolerance` in `sketchtest/minhash.go` (SP-01). Scoped to `package sketch` proper, which is what `internal/sketch/doc.go` states for itself, `FPWarnRate` remains the only one.
 
 ---
 
@@ -180,7 +182,8 @@ type UnixMilli int64
 var ErrNotFound = errors.New("qompack: not found")
 
 // package paths (§3.3)
-func WriteAtomic(p string, b []byte) error     // .qompack/tmp/<rand> → Sync → os.Rename
+// NOTE: three args — the mode is not optional. .qompack/tmp/<rand> → Sync → os.Rename
+func WriteAtomic(p string, b []byte, perm fs.FileMode) error
 
 // package logging (§5.2)
 type Logger interface {
@@ -970,6 +973,10 @@ Two empty documents therefore compare as `Jaccard == 1` (all positions are `MaxU
 ### `internal/sketch/io.go` (create)
 
 ```go
+// sketchFilePerm is the mode every sketch file is written with: owner-only, matching the rest
+// of the .qompack tree. paths.WriteAtomic takes the mode as its third argument (see Consumes).
+const sketchFilePerm fs.FileMode = 0o600
+
 // Save writes s atomically. It REFUSES tried.bloom: §7.4 makes that file append-only/additive
 // and 00-ARCHITECTURE §3.3 permits its replacement only through the generational path, so the
 // refusal is the mechanical enforcement rather than a comment asking for care.
@@ -977,7 +984,7 @@ func Save(p string, s Sketch) error {
     if filepath.Base(p) == TriedBloomBase { return ErrGenerational }
     b, err := s.MarshalBinary()
     if err != nil { return err }
-    return paths.WriteAtomic(p, b)
+    return paths.WriteAtomic(p, b, sketchFilePerm)   // sketchFilePerm fs.FileMode = 0o600
 }
 
 // Load is the §5.7 signature. It performs the CRC and version checking and maps every
@@ -1024,7 +1031,7 @@ func ReplaceGenerational(p string, s Sketch, seq int) (string, error) {
         if err := os.Rename(p, backup); err != nil { return "", err }
         hadOld = true
     }
-    if err := paths.WriteAtomic(p, b); err != nil {
+    if err := paths.WriteAtomic(p, b, sketchFilePerm); err != nil {
         if hadOld { _ = os.Rename(backup, p) }      // roll back; never leave the store without a bloom
         return "", err
     }
@@ -1040,7 +1047,7 @@ func ReplaceGenerational(p string, s Sketch, seq int) (string, error) {
 func Quarantine(p string) (string, error)   // → p + ".corrupt." + strconv.FormatInt(unixmilli,10)
 ```
 
-> **V2 reconciliation — the `ReplaceGenerational` body above cannot run, and the shipped one differs from it in three observable ways.** `sketches/tried.bloom` is append-only (00-ARCHITECTURE §3.3, §7.4) and **`paths.WriteAtomic` refuses that exact path outright** through `paths.IsProtected`, returning `core.ErrAppendOnly`; `paths.ReplaceBloom(l, b, seq)` is the single sanctioned exception. The sample body therefore fails on its own `paths.WriteAtomic` call for every input. What shipped:
+> **V2 reconciliation — the `ReplaceGenerational` body above cannot run, and the shipped one differs from it in three observable ways.** `sketches/tried.bloom` is append-only (00-ARCHITECTURE §3.3, §7.4) and **`paths.WriteAtomic` refuses that exact path outright** through `paths.IsProtected`, returning `core.ErrAppendOnly`; `paths.ReplaceBloom(l, b, seq)` is the single sanctioned exception. The sample body therefore fails on its own `paths.WriteAtomic` call for every input. Its arity is the second reason it could not run as first written: `paths.WriteAtomic` takes three arguments (`p, b, perm`), not two — the sample bodies above and the *Consumes* block have been corrected to pass `sketchFilePerm` (`0o600`, `internal/sketch/io.go:20`), matching `plans/V2-SP-06-content-addressed-store.md:220` and SP-01's own signature. What shipped:
 >
 > - **The mechanics stay in `internal/paths`.** `ReplaceGenerational` delegates to `paths.ReplaceBloom`, which renames the current file to its backup, stages and swaps the new content, and prunes to exactly one generation. `internal/sketch` adds only marshalling, rollback and returning the backup path. Re-implementing the rename here would mean two writers of one filename pattern and a guard with a hole in it.
 > - **The backup name is `tried.bloom.<seq>.bak` — `%d`, not this plan's zero-padded `%04d`** — because `paths.pruneBloomBackups` is what parses that filename family, and it parses the unpadded form. A `%04d` name is invisible to the pruner.
@@ -1465,7 +1472,7 @@ Concretely: `BenchmarkL0SketchUpdate` ≤ 5 µs with zero allocations is this sl
 - [ ] `TestImports_FoundationOnly` passes: the package imports only `core`, `paths`, `logging`.
 - [ ] Line coverage for `internal/sketch` ≥ **90 %** (00-ARCHITECTURE §6.4 floor).
 - [ ] Every benchmark meets its budget row; `TestL0SketchUpdate_ZeroAlloc` reports 0 allocations; results appended to `testdata/bench-baseline.txt`.
-- [ ] `go run ./tools/devtool ci-local` green: `gofumpt -l` empty, `golangci-lint run` clean, `go vet` clean, `nomagic` clean (no forbidden literal in non-test code; the single `//nomagic:allow` on `FPWarnRate` is the only annotation), import-graph check clean, `go build ./...` clean.
+- [ ] `go run ./tools/devtool ci-local` green: `gofumpt -l` empty, `golangci-lint run` clean, `go vet` clean, `nomagic` clean (no forbidden literal in non-test code; `internal/sketch/...` carries exactly **two** `//nomagic:allow` annotations — `FPWarnRate` in `bloom.go`, added by this subplan, and SP-01's pre-existing `mhJaccardTolerance` in `sketchtest/minhash.go`, which stays untouched — so `FPWarnRate` is the only one inside `package sketch` proper), import-graph check clean, `go build ./...` clean.
 - [ ] CI green on `feat/sp03-sketch-library` for `verify`, `test` (ubuntu + macos + windows), `cover`, `crossbuild`, `security`.
 - [ ] Commit count is exactly 8; every message is Conventional Commits with a `Refs:` footer; no `Co-Authored-By`, `Signed-off-by`, `Generated with`, or 🤖 anywhere in the range (the `verify` job greps for these).
 

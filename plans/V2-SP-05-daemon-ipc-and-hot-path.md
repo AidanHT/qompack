@@ -6,15 +6,24 @@
 
 **Branch:** `feat/sp05-daemon-ipc-and-hot-path` (cut from `develop`) | **Wave:** 1 | **Prerequisites:** the branches of `["SP-01"]` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 1 (SP-02, SP-03, SP-04, SP-06, SP-07) | **Design sections:** §7.1, §8.1 (performance budget), §9 (G9.3 row), §12 (contract monitor, hook latency rows) | **Gaps closed:** G9.3
 
-> **V2 reconciliation — five places where this document is now HISTORICAL, and the branch is right.**
+> **V2 reconciliation — fourteen places where this document is now HISTORICAL, and the branch is right.**
 >
-> `feat/sp05-daemon-ipc-and-hot-path` shipped under **30 numbered rulings**. Five of them contradict text below, and a reader who "fixes" the code back to this plan re-opens a defect in every case. Each site carries its own **V2 reconciliation** note; this is the index.
+> `feat/sp05-daemon-ipc-and-hot-path` shipped under **30 numbered rulings**, and a later plan audit re-checked this document line by line against the merged tree. **Fourteen** sites below are contradicted by what shipped, and a reader who "fixes" the code back to this plan re-opens a defect in every case. Each site carries its own **V2 reconciliation** note; this is the index.
 >
-> 1. **There is no `ipc.Router`.** The op-routing table is a map on `daemon.Options`, reached through `Handle`/`Handler`/`Ops`, exactly as 00-ARCHITECTURE §5.4 specifies (*"the op-routing table is data, not a switch"*, with `func (*Options) Handle(op ipc.Op, h ipc.Handler)`). The plan's `Router` type was the outlier against the normative document, not an addition to it. → *Interface contract → Produces* (both the `ipc` and the `daemon` blocks) and *Implementation spec → `internal/ipc/op.go`*.
+> 1. **There is no `ipc.Router`.** The op-routing table is a map on `daemon.Options`, reached through `Handle`/`Handler`/`Ops`, exactly as 00-ARCHITECTURE §5.4 specifies (*"the op-routing table is data, not a switch"*, with `func (*Options) Handle(op ipc.Op, h ipc.Handler)`). The plan's `Router` type was the outlier against the normative document, not an addition to it. → *Interface contract → Produces* (both the `ipc` and the `daemon` blocks), *Implementation spec → `internal/ipc/op.go`* and *→ `internal/daemon/options.go`*.
 > 2. **Commits 4 and 5 are swapped:** `contract` lands before daemon composition. The plan's order references symbols that do not exist yet and **literally cannot compile**. → *Commit plan*.
 > 3. **The B-A gate does not use the plan's subtract-a-constant method (ruling #29).** It consumes the daemon's TS-anchored `hook_controlled` estimate; wall-clock survives only as the informational `B-A_spawn_estimate` row. Under the plan's method this branch **fails B-A on every platform, including bare metal**. → *Implementation spec → `test/bench/hotpath/main.go`*.
 > 4. **The ring-full spill was deleted (ruling #23).** WAL-first ordering already made every such line durable; the `l0_ring_full` counter is retained. → *Implementation spec → `internal/daemon/ingest.go`*.
 > 5. **`SessionHistory` persists to `state/history.json`**, a *new* file beside the Monitor's pre-existing `state/contract.json`; `contract.History` stays an **interface** with `SessionHistory` as its first concrete implementation; and counters use the **underscore** idiom (`l0_ring_full`, `contract_fail_<id>`, `contract_mode_change`), not this plan's dotted names. → *Interface contract → Produces* and *Implementation spec → `internal/contract/*`*.
+> 6. **Six of the nine `Services` function seams ship with different signatures.** `ObserveTool`, `ObserveStop` and `SessionEnd` return a bare `error`; `Rehydrate` returns `(hookio.Output, error)`; `MCPInitialized` takes a `context.Context`; `StatusExtra` returns `(json.RawMessage, error)`. These are exactly the seams waves 2–3 bind, and `DeclareProducers` gates four §12.1 producers on three of them, so a later subplan **adapts its own closure to the shipped seam** — it wraps, it never retypes. → *Interface contract → Produces* (the `daemon` block).
+> 7. **`StatusSnapshot` has no `PID`, `Addr` or `UptimeSeconds` field**, spells the breach list `json:"budgets"`, and types `Extra` as `json.RawMessage`. pid/version/uptime are the `admin.ping` route's payload, not the status payload. → *Interface contract → Produces* and *Implementation spec → `internal/daemon/handlers.go`* (the `StatusSnapshot` assembly).
+> 8. **There is no `ErrOptionsUninitialized`, and there never was** (ruling #2). `Handle` is a **pointer** receiver over a lazily-allocated unexported `handlers` map, so a bare `Options{}` literal is valid by construction and `New` needs no uninitialized check. A value receiver here would mutate a copy and register nothing, which is the failure mode 00-ARCHITECTURE §5.4 names. → *Interface contract → Produces*, *Implementation spec → `internal/daemon/options.go`* and *→ `internal/daemon/daemon.go`*, and the *Test plan*.
+> 9. **`runtime.daemon.connectDeadlineMs`'s built-in default is platform-selected**: **5** on every portable platform, **25** on Windows (`internal/config/deadlines.go`, chosen from `runtime.GOOS`), because go-winio answers `ERROR_PIPE_BUSY` with a hard-coded 10 ms sleep and 5 ms buys one `CreateFile` attempt and no retry. `internal/cli` additionally floors the *dial* budget of the three non-hot-path reply ops at 250 ms (`hookConnectDeadlineFloor`). → *§11.5 excerpt*, *Implementation spec → `internal/ipc/client.go`* and *→ `internal/cli/hookclient.go`*, and the *Test plan*.
+> 10. **The `nomagic` exit criterion's "exactly five allowances" is void** (ruling #3): `internal/obs` was never touched, none of the four named `obs` constants was ever shipped, and SP-05's own packages carry roughly a dozen annotated allowances. The binding rule is that the pass is clean and every allowance carries its §-reference. → *Exit criteria*.
+> 11. **Mode enforcement has two further sites, both deliberate and both recorded in code comments**: the `flush` route gates `svc.SessionEnd` behind `MayRecord()` (M-3), and `registry.Touch` is unconditional rather than skipped under `ModeOff` (M-2, liveness tracking). The table below carries them as rows; the exit criterion no longer claims exhaustiveness no test enforces. → *Implementation spec → `internal/daemon/handlers.go`* (mode-enforcement table) and *Exit criteria*.
+> 12. **`ipc.DefaultMaxLine` shipped as `ipc.MaxLineBytes`, and `ipc.HotPathMode` has no `String` method** (ruling #1 — shipped spellings win). The daemon renders the submode with its own private `hotModeString`; SP-14 must render `StatusSnapshot.Hot`, which is already the `"sync"`/`"spool"` string. → *Interface contract → Produces* (the `ipc` block) and *Implementation spec → `internal/ipc/frame.go`* and *→ `internal/daemon/handlers.go`*.
+> 13. **No CI job greps `QOMPACK_FAULT`, and the invariant is a *two*-file one.** The literal is confined to `internal/cli/fault.go` and `internal/daemon/spawn.go` — the second file being the one that strips the variable from a spawned daemon's environment. → *Implementation spec → `internal/cli/fault.go`*.
+> 14. **`hotPathTailAllowance` is not a measurement.** No artifact in this repository measures the ACK-read → process-exit interval; the 1 ms constant is a deliberately conservative ceiling chosen because it over-counts. → *Implementation spec → the breach detector's "What is measured"*.
 >
 > The ruling record is `plans/sdd/V2-SP-05-daemon-ipc-and-hot-path/progress.md` — 30 rulings, seven per-task reviews, the review diffs and the final review. Two further facts it carries: **`internal/obs` was never touched**, so this plan's `obs/budgets.go` section is historical in the same sense; and the seven commit subjects match the task briefs rather than this document's text, trimmed to `subjectRE`'s **64 characters of free text after `type(scope): `** — they run 61–63 there, which is legal. Summarized at `plans/V2-VERIFY-primitives-store-dag-and-baseline.md` §2.5a B (**V2-ALL-06**).
 
@@ -28,7 +37,7 @@ Concretely: SP-05 delivers `internal/ipc` (address resolution, Windows named pip
 
 **What exists in the repo when you start.** SP-01 has merged into `develop`. That means: the Go 1.26 module `github.com/qompack/qompack` with `gofumpt`, `golangci-lint`, the in-repo `nomagic` analysis pass, `tools/devtool`, the import-graph DAG check and the full GitHub Actions pipeline (the `bench-gate` job exists and is wired but not yet a required check, and its script is a placeholder that SP-05 replaces). The complete Appendix C configuration system plus the §11.5 `runtime` extension namespace (`runtime.mode`, `runtime.daemon.*`, `runtime.hotPath.*`, `runtime.logging.*`, `runtime.redact.*`, `runtime.telemetry.enabled`, `runtime.rehydrate.*`, `runtime.mcp.*`) with five-layer precedence, per-leaf fallback-not-crash validation and provenance. `internal/paths` with `WriteAtomic`, `AppendOnly`, `CreateNew`, `Norm`, `Key` and Windows long-path handling. `internal/core` (`Hash`, `HashBytes`, `SessionID`, `ToolUseID`, `TurnIndex`, `UnixMilli`, `Clock`, the sentinel errors). `internal/logging` with the `Loud` channel, `internal/obs` with `Histogram`/`Registry`/`HistSnapshot`/`BudgetBreach`, `internal/hookio`, `internal/cli` with hand-rolled dispatch and six **no-op** hook entry points, `internal/tokens` baseline, `internal/testutil` and the `test/e2e` harness scaffolding, plus compiling `ErrNotImplemented` stubs and `<pkg>test` conformance suites for every interface in §5 — including `ipctest`, and including the `store`, `sketch`, `dag`, `grammar`, `negknow`, `scheduler` and `checkpoint` stubs this subplan composes but does not implement.
 
-**What exists when you finish.** A `qompack daemon` that starts itself lazily, holds per-project state, ACKs a hook in well under the budget, spools when it cannot, drains what it spooled, exits when idle, and reloads config without a restart. Six hook subcommands that are thin clients and that exit 0 under every fault we can inject. A measured, CI-gated B-A p99 under 15 ms on all three platforms, produced by a harness that spawns 5 000 real processes against a warm daemon. An observable `sync`/`spool` submode that flips on three consecutive breach windows and reverts in the next session. A contract monitor that runs nine assertions at every session start, reports `SevInfo`/`not-yet-implemented` for any assertion whose producer is absent from the build, and degrades loudly to passive recording — L0 and L1 still recording, every acting path off — when a critical assertion fails. And a set of extension seams (`ipc.Router`, `Options.Handle`, `Options.Bind`, `daemon.Services`, `IdleController.Register`) that let SP-08 through SP-13 wire themselves in without editing a single line of daemon internals.
+**What exists when you finish.** A `qompack daemon` that starts itself lazily, holds per-project state, ACKs a hook in well under the budget, spools when it cannot, drains what it spooled, exits when idle, and reloads config without a restart. Six hook subcommands that are thin clients and that exit 0 under every fault we can inject. A measured, CI-gated B-A p99 under 15 ms on all three platforms, produced by a harness that spawns 5 000 real processes against a warm daemon. An observable `sync`/`spool` submode that flips on three consecutive breach windows and reverts in the next session. A contract monitor that runs nine assertions at every session start, reports `SevInfo`/`not-yet-implemented` for any assertion whose producer is absent from the build, and degrades loudly to passive recording — L0 and L1 still recording, every acting path off — when a critical assertion fails. And a set of extension seams (`ipc.Handler`, `Options.Handle`, `Options.Bind`, `daemon.Services`, `IdleController.Register` — no `ipc.Router`, per V2 reconciliation index entry 1) that let SP-08 through SP-13 wire themselves in without editing a single line of daemon internals.
 
 ---
 
@@ -202,6 +211,8 @@ Concretely: SP-05 delivers `internal/ipc` (address resolution, Windows named pip
 
 **Key-spelling reconciliation (decided, do not re-litigate).** 00-ARCHITECTURE §2.4's daemon-lifecycle bullet writes the idle-exit key as `runtime.daemonIdleExitSeconds`. That is prose shorthand; §11.5 is the normative schema and spells it `runtime.daemon.idleExitSeconds`. This subplan reads `cfg.Runtime.Daemon.IdleExitSeconds` (default **1800**) everywhere and never introduces a `runtime.daemonIdleExitSeconds` key.
 
+**V2 reconciliation — `connectDeadlineMs`'s default is platform-selected (index entry 9).** The `5` in the excerpt above is the *portable* default. What shipped is `config.ConnectDeadlineMsPortable = 5` and `config.ConnectDeadlineMsWindows = 25`, selected from `runtime.GOOS` by `config.Defaults()` (`internal/config/deadlines.go`); `docs/config-reference.md` renders the Default cell as "`5` (`25` on Windows)". The reason is dial-level and not negotiable: go-winio answers `ERROR_PIPE_BUSY` — the state a named-pipe listener is in between accepting one connection and creating the next instance — with a hard-coded `time.Sleep(10 * time.Millisecond)` and re-checks the caller's deadline only at the top of the next loop iteration. `internal/ipc/dial_windows.go` names that 10 ms `dialBusyRetryQuantum`. A 5 ms budget therefore buys exactly one `CreateFile` attempt and no retry, so a client that met a momentarily-busy listener spooled instead of retrying; 25 ms is 2.5 quanta and buys a third attempt with half a quantum of slack. `TestConnectDeadlineDefaultClearsTheBusyRetryQuantum` (`internal/ipc`) is the anti-drift guard and **fails if the default ever drops below `2 * dialBusyRetryQuantum`** — an implementer who "restores" the plain 5 breaks the build on Windows. Everywhere below that this document writes `runtime.daemon.connectDeadlineMs = 5`, read `config.Defaults().Runtime.Daemon.ConnectDeadlineMs` (5, or 25 on Windows). Raising it does not move the §8.1 B-A budget and is not meant to: a connect to a warm daemon is microseconds, and this deadline caps only the rare busy-retry path.
+
 ### §7 Benchmark harness (verbatim)
 
 > `devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json out.json`
@@ -238,7 +249,7 @@ Each item names the sibling subplan that owns it. Do not implement any of these.
 | `internal/checkpoint`, `internal/pins`, the PreCompact **semantics**, `FocusInstructions`, `Advance`, `Finalize`. SP-05 ships the `qompack checkpoint` thin client, the `checkpoint` op route, the `Services.PreCompact` seam and the B-E histogram. | SP-10 |
 | `internal/rehydrate`, `internal/rules`, `internal/skills`, the eight-item injection, the drop report. SP-05 emits only the contract **sentinel** in `additionalContext`, never rehydration content. | SP-11 |
 | `internal/mcp` — the JSON-RPC server and the eight tools. SP-05 ships the `mcp` op route and the `Services.MCPInitialized` seam that feeds the `mcp.server_registered` assertion. | SP-13 |
-| `internal/commands` and `/qompack:status` rendering. SP-05 produces the `status` op payload (a JSON snapshot); SP-14 renders it. | SP-14 |
+| `internal/commands` and `/qompack:status` rendering. SP-05 produces the `status` op payload (a JSON snapshot); SP-14 renders it. The payload is the shipped `StatusSnapshot` (Interface contract → Produces, V2 reconciliation index entry 7): it carries no pid/addr/uptime, so SP-14 reads those from the `admin.ping` route instead. | SP-14 |
 | `internal/config` schema, defaults, validation, provenance, the `runtime` namespace keys themselves; `internal/paths`, `internal/core`, `internal/logging`, `internal/hookio`, `internal/testutil`, the `test/e2e` scaffolding, and the six no-op hook entry points SP-05 replaces the bodies of | SP-01 |
 | `internal/obs`'s `Histogram`, `Registry`, `Counter`, `Gauge`, `Snapshot` implementations. SP-05 adds exactly one new file, `internal/obs/budgets.go`, and replaces the single stub method `CheckBudgets`. | SP-01 |
 | goreleaser packaging, the `plugin/bin` launcher shim, cross-platform install validation, `qompack fsck`, `qompack doctor`, the security audit, hardening of §12 paths against real-world failures | SP-17 |
@@ -370,7 +381,11 @@ type Request struct {
 }
 type HotPathMode uint8
 const (HotSync HotPathMode = iota; HotSpool)
-func (m HotPathMode) String() string
+// V2 reconciliation (index entry 12): ipc ships NO String method on HotPathMode. The zero value
+// HotSync is meant to be read with ==, not printed. The daemon renders the wire-stable
+// "sync"/"spool" spelling with its own private hotModeString (internal/daemon/handlers.go) and
+// puts the result in StatusSnapshot.Hot, so SP-14 renders that string and never calls a
+// HotPathMode.String() that does not exist.
 type Response struct {
     OK     bool            `json:"ok"`
     Mode   contract.Mode   `json:"mode"`
@@ -392,7 +407,7 @@ type ClientOptions struct {
     Spawn           func(projectRoot, self string) error   // set by cli to daemon.SpawnDetached; nil disables lazy spawn
     ConnectDeadline time.Duration                          // 0 → State.ConnectDeadlineMs
     AckDeadline     time.Duration                          // 0 → State.AckDeadlineMs
-    MaxLine         int                                    // 0 → DefaultMaxLine
+    MaxLine         int                                    // 0 → MaxLineBytes
     Clock           core.Clock                             // nil → core.SystemClock()
 }
 func NewClientWithOptions(addr Addr, spool SpoolWriter, log logging.Logger, m obs.Registry, o ClientOptions) Client
@@ -402,14 +417,16 @@ func NewSpool(dir string) (SpoolWriter, error)
 func SpoolFiles(dir string) ([]string, error)
 var ErrSpoolFull = errors.New("qompack: spool file at cap")
 // ExternalizeThreshold reports the encoded-request size at or above which the client moves the
-// oversized member to a side blob: min(cfg.Runtime.HotPath.MaxPayloadBytes, DefaultMaxLine).
+// oversized member to a side blob: min(cfg.Runtime.HotPath.MaxPayloadBytes, MaxLineBytes).
 func ExternalizeThreshold(cfg config.Config) int
 
 const (
     ACK byte = 0x06
     NAK byte = 0x15
 )
-const DefaultMaxLine = 1 << 20 // 1 MiB, 00-ARCH §2.4 "1 MiB max line"
+// V2 reconciliation (index entry 12, ruling #1 — shipped spellings win): the constant is
+// MaxLineBytes, not DefaultMaxLine. There is no DefaultMaxLine anywhere in the tree.
+const MaxLineBytes = 1 << 20 // 1 MiB, 00-ARCH §2.4 "1 MiB max line"
 var ErrLineTooLong = errors.New("qompack: ipc line exceeds max")
 type LineReader struct{ /* … */ }
 func NewLineReader(r io.Reader, maxLine int) *LineReader
@@ -475,22 +492,32 @@ func (*Options) Handle(op ipc.Op, h ipc.Handler)    // normative §5.4; POINTER 
 func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) // shipped: the read side of the table
 func (o *Options) Ops() []ipc.Op                         // shipped: every registered op
 func (o *Options) Bind(fn func(*Services))          // late binding for waves 2–3
-var ErrOptionsUninitialized = errors.New("qompack: daemon.Options not built with NewOptions")
+// V2 reconciliation (index entry 8, ruling #2): there is NO ErrOptionsUninitialized. Handle
+// lazily allocates the unexported handlers map on its pointer receiver, so a bare Options{}
+// literal is valid by construction and New has no uninitialized check to make.
 
 type Services struct {
     Store store.Store; Ledger negknow.Ledger; Sketches *SketchSet
     Graph dag.Graph; Grammar grammar.Sequitur; Sched scheduler.Runtime
     Checkpoints checkpoint.Writer
     // Function seams — nil until the owning subplan binds them. Every call site checks for nil.
-    ObserveTool    func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-08
+    //
+    // V2 reconciliation (index entry 6): SIX of these nine shipped with different types. The
+    // block below is the shipped set, verbatim from internal/daemon/options.go:122-130 — only
+    // ObservePrompt, SessionStart and PreCompact matched this plan. These are precisely the
+    // seams waves 2–3 bind, and DeclareProducers gates four §12.1 producers on PreCompact,
+    // Rehydrate and MCPInitialized being non-nil, so the drift is load-bearing, not cosmetic.
+    // A later subplan whose observer naturally returns (hookio.Output, error) WRAPS its closure
+    // to fit the shipped seam; it never retypes the seam.
+    ObserveTool    func(ctx context.Context, e hookio.Event) error                  // SP-08
     ObservePrompt  func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-08
-    ObserveStop    func(ctx context.Context, e hookio.Event, subagent bool) (hookio.Output, error) // SP-08
+    ObserveStop    func(ctx context.Context, e hookio.Event, subagent bool) error   // SP-08
     SessionStart   func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-08 + SP-11
-    SessionEnd     func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-08
+    SessionEnd     func(ctx context.Context, e hookio.Event) error                  // SP-08
     PreCompact     func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-10
-    Rehydrate      func(ctx context.Context, e hookio.Event) (string, error)        // SP-11
-    MCPInitialized func() bool                                                      // SP-13
-    StatusExtra    func(ctx context.Context) map[string]any                         // SP-14
+    Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-11
+    MCPInitialized func(ctx context.Context) bool                                   // SP-13
+    StatusExtra    func(ctx context.Context) (json.RawMessage, error)               // SP-14
 }
 func ServicesFrom(ctx context.Context) *Services
 func RegistryFrom(ctx context.Context) *SessionRegistry
@@ -539,20 +566,24 @@ var ErrLockHeld = errors.New("qompack: daemon already running for this project")
 func EnsureRunning(projectRoot, self string, log logging.Logger, clk core.Clock) (spawned bool, err error)
 func SpawnDetached(projectRoot, self string) error
 
+// V2 reconciliation (index entry 7): the shipped struct, verbatim from
+// internal/daemon/handlers.go:69-80. There is no PID, no Addr and no UptimeSeconds field; the
+// breach list's wire key is "budgets", not "budget_breaches"; and Extra is json.RawMessage, not
+// map[string]any (StatusExtra hands the daemon already-encoded JSON, so the status route never
+// re-marshals a later wave's payload). pid/version/uptime live on a DIFFERENT route,
+// admin.ping, whose Data is {"pid":…,"version":…,"uptime_seconds":…} — SP-14 must call that
+// route for them rather than expect them here.
 type StatusSnapshot struct {
-    Mode            string                     `json:"mode"`
-    Hot             string                     `json:"hot"`
-    PID             int                        `json:"pid"`
-    Addr            string                     `json:"addr"`
-    UptimeSeconds   float64                    `json:"uptime_seconds"`
-    Sessions        []SessionState             `json:"sessions"`
-    Budgets         []obs.BudgetBreach         `json:"budget_breaches"`
-    Latency         map[string]obs.HistSnapshot `json:"latency"`
-    Counters        map[string]int64           `json:"counters"`
-    Contract        []contract.Result          `json:"contract"`
-    SpoolFiles      int                        `json:"spool_files"`
-    LoudTail        []string                   `json:"loud_tail"`
-    Extra           map[string]any             `json:"extra,omitempty"`
+    Mode       string                      `json:"mode"`
+    Contract   []contract.Result           `json:"contract"`
+    Hot        string                      `json:"hot"`
+    Sessions   []SessionState              `json:"sessions"`
+    Latency    map[string]obs.HistSnapshot `json:"latency"`
+    Budgets    []obs.BudgetBreach          `json:"budgets"`
+    Counters   map[string]int64            `json:"counters"`
+    SpoolFiles int                         `json:"spool_files"`
+    LoudTail   []string                    `json:"loud_tail"`
+    Extra      json.RawMessage             `json:"extra,omitempty"`
 }
 
 // ── package contract ────────────────────────────────────────────────────────
@@ -726,7 +757,7 @@ const (
     ACK byte = 0x06
     NAK byte = 0x15
 )
-const DefaultMaxLine = 1 << 20 // 1 MiB, §2.4 "1 MiB max line"
+const MaxLineBytes = 1 << 20 // 1 MiB, §2.4 "1 MiB max line" (V2 reconciliation, index entry 12)
 
 func EncodeRequest(req Request) ([]byte, error)          // compact JSON + '\n', no HTML escaping
 func DecodeRequest(line []byte) (Request, error)
@@ -836,7 +867,7 @@ func SpoolFiles(dir string) ([]string, error)  // sorted: wal-* first, then clie
 
 `NewSpool` does **not** open the file — it only records the directory, so a process that never spools pays nothing. `Append` lazily `os.MkdirAll(dir, 0o700)` then opens with `O_APPEND|O_CREATE|O_WRONLY, 0o600` (via `paths.AppendOnly`, which is the only permitted write path into `*.ndjson`), writes the encoded line, and keeps the handle for the process lifetime. No `fsync` — §2.4 makes the WAL, not the spool, the durability boundary, and the spool is a best-effort fallback below it.
 
-**Externalized payloads.** If the encoded request reaches `ExternalizeThreshold(cfg)` = `min(cfg.Runtime.HotPath.MaxPayloadBytes, DefaultMaxLine)` (both default to 1 MiB), the client writes the oversized member to `<dir>/blob-<pid>-<n>.bin` and spools/sends the request with `Raw` replaced by `{"blob":"blob-<pid>-<n>.bin","bytes":<n>,"field":"e.tool_response"}` and `Event.ToolResponse` set to `null`. The daemon resolves blobs during handling and during `Drain`, then deletes them. This keeps a 40 MB tool result off the socket and out of the 1 MiB line limit while losing nothing. Counter: `obs.Counter("l0.externalized")`.
+**Externalized payloads.** If the encoded request reaches `ExternalizeThreshold(cfg)` = `min(cfg.Runtime.HotPath.MaxPayloadBytes, MaxLineBytes)` (both default to 1 MiB), the client writes the oversized member to `<dir>/blob-<pid>-<n>.bin` and spools/sends the request with `Raw` replaced by `{"blob":"blob-<pid>-<n>.bin","bytes":<n>,"field":"e.tool_response"}` and `Event.ToolResponse` set to `null`. The daemon resolves blobs during handling and during `Drain`, then deletes them. This keeps a 40 MB tool result off the socket and out of the 1 MiB line limit while losing nothing. Counter: `obs.Counter("l0.externalized")`.
 
 **Spool cap.** A daemon that never comes back must not let the spool grow without bound and fill the user's disk (that would violate §7.1 directly). `Append` refuses once the process's own spool file reaches
 
@@ -914,7 +945,9 @@ type client struct {
     if err != nil                            → externalize(req) then retry once; on failure spoolAndReturn
     if len(line) >= c.threshold → req = externalize(req); re-encode
         // c.threshold = min(int(c.o.State.MaxPayloadBytes), c.o.MaxLine), i.e. ExternalizeThreshold
- 5. dctx, cancel := context.WithTimeout(ctx, c.o.ConnectDeadline)          // default runtime.daemon.connectDeadlineMs = 5
+ 5. dctx, cancel := context.WithTimeout(ctx, c.o.ConnectDeadline)          // default config.Defaults().Runtime.Daemon.ConnectDeadlineMs
+                                                                          // = 5, or 25 on Windows (internal/config/deadlines.go);
+                                                                          // see the §11.5 reconciliation note
     conn, err := dial(dctx, c.addr); cancel()
     if err != nil                            → c.lazySpawn(); spoolAndReturn(req)
  6. defer conn.Close()
@@ -974,33 +1007,43 @@ func (s *server) Serve(ctx context.Context, h Handler) error
 
 This file is the reason wave-3 subplans do not collide inside one package. Three seams, all shipped now, all exercised by tests now.
 
-**Symbol note.** 00-ARCHITECTURE §5.2 fixes `obs.Registry`, `obs.Counter` and `obs.Gauge` as interfaces but does not spell their constructor or their increment method. Use the exact names SP-01 shipped in `internal/obs` (read `internal/obs/registry.go` once, at the start of commit 4) — this subplan writes `obs.NewRegistry()` and `Counter.Inc()` as placeholders **for those exact shipped names**, not as a request to invent them. Do not add either symbol to `internal/obs` if it is spelled differently there.
+**Symbol note.** 00-ARCHITECTURE §5.2 fixes `obs.Registry`, `obs.Counter` and `obs.Gauge` as interfaces but does not spell their constructor or their increment method. Use the exact names SP-01 shipped in `internal/obs` (read `internal/obs/registry.go` once, at the start of commit 4): they are `obs.New(clock core.Clock) Registry` and `Counter.Add(n int64)`. Wherever this document writes `obs.NewRegistry()` or `Counter.Inc()`, it means **those exact shipped names**, not a request to invent them. Do not add either symbol to `internal/obs` if it is spelled differently there.
+
+**V2 reconciliation (index entries 1 and 8, ruling #2).** The block below is the shipped shape, not the draft one. Three things changed and none of them may be changed back. There is **no `Routes *ipc.Router` field and no `ipc.NewRouter`** — the table is the unexported `handlers map[ipc.Op]ipc.Handler` on `Options`. `Handle` takes a **pointer** receiver and allocates that map lazily; on a value receiver it would mutate a copy and register nothing, so every caller would silently get an empty table (00-ARCHITECTURE §5.4 says exactly this). And because the map is allocated on first `Handle`, a bare `Options{}` literal is **valid by construction**: there is no uninitialized state left for `New` to reject, and therefore no `ErrOptionsUninitialized`.
 
 ```go
+// NewOptions returns an Options with every non-service field defaulted. It is a convenience
+// constructor for a composition root that wants sane defaults; a bare Options{} literal remains
+// valid (New tolerates it) for tests and minimal wiring.
 func NewOptions(projectRoot string, cfg config.Config) Options {
+    clk := core.SystemClock()
     return Options{
         ProjectRoot: projectRoot, Cfg: cfg,
-        Log: logging.Nop(), Metrics: obs.NewRegistry(), Clock: core.SystemClock(),
-        Routes: ipc.NewRouter(),
+        Log: logging.Nop(), Metrics: obs.New(clk), Clock: clk,
         Sketches: NewSketchSet(cfg),
     }
 }
 
-// Handle registers an op handler. Signature is normative (00-ARCH §5.4).
-func (o Options) Handle(op ipc.Op, h ipc.Handler) {
-    if o.Routes == nil {                       // Options built as a bare literal
-        if o.Metrics != nil { o.Metrics.Counter("daemon.route.dropped").Inc() }
-        if o.Log != nil { o.Log.Loud("daemon.Handle called on uninitialized Options — route dropped", "op", op) }
-        return
+// Handle registers h as the handler for op, replacing any previous registration. Signature is
+// normative (00-ARCH §5.4): POINTER receiver. It is defined on Options rather than on Daemon so
+// the table is complete before Run starts — registering against a running server would need
+// locking on the hot path, and B-A has no room for a contended mutex per request.
+func (o *Options) Handle(op ipc.Op, h ipc.Handler) {
+    if o.handlers == nil {
+        o.handlers = map[ipc.Op]ipc.Handler{}
     }
-    o.Routes.Handle(op, h)
+    o.handlers[op] = h
 }
+
+// Handler and Ops are the read side New uses to compose the dispatch table.
+func (o *Options) Handler(op ipc.Op) (ipc.Handler, bool) { h, ok := o.handlers[op]; return h, ok }
+func (o *Options) Ops() []ipc.Op
 
 // Bind registers a late-binding hook run once, in registration order, at daemon start.
 func (o *Options) Bind(fn func(*Services)) { o.binds = append(o.binds, fn) }
 ```
 
-`New(o Options)` returns `ErrOptionsUninitialized` when `o.Routes == nil`, so a mis-built `Options` fails at construction (which is off the hot path and inside the composition root) instead of silently losing routes.
+`New(o Options)` therefore has no options-validity check to make: it reads the table through `Handler`/`Ops`, registers its own default routes for every op not already present, and proceeds. `obs.New(clk)` and `Counter.Add(1)` are the shipped `internal/obs` spellings; use whatever SP-01 shipped rather than inventing a constructor.
 
 `Services` is the late-bound dependency set. `New` seeds it from the `Options` fields (`Store`, `Ledger`, `Sketches`, `Graph`, `Grammar`, `Sched`, `Checkpoints`), then applies every `Bind` function in order, then calls `DeclareProducers(svc)`. The daemon stores `*Services` and injects it into every handler context:
 
@@ -1235,7 +1278,7 @@ Window closure runs on a worker goroutine, not on the ACK path.
 **What is measured.** The daemon cannot observe the client's `main()` entry → `exit` interval directly, and inventing a number would be the exact dishonesty §2.4 warns against. So two histograms are kept and both are reported:
 
 - `obs.MetricHookObserved` (`hook.controlled.observed`) = `recvTS - req.TS`, where `req.TS` is stamped as the first statement of the hook subcommand. This is a strict **lower bound** on B-A: it covers process start through the daemon's read.
-- `obs.MetricHookControlled` (`hook.controlled`) = that value plus `hotPathTailAllowance`, a documented **1 ms** constant covering the un-observable client tail (ACK read + process exit), measured by the bench harness on all three platforms to be under 0.4 ms. The allowance deliberately over-counts so the fallback fires early rather than late.
+- `obs.MetricHookControlled` (`hook.controlled`) = that value plus `hotPathTailAllowance`, a documented **1 ms** constant covering the un-observable client tail (ACK read + process exit). **V2 reconciliation (index entry 14): this constant is not a measurement.** No artifact in this repository isolates the ACK-read → process-exit interval — `test/bench/hotpath` measures the spawn floor, B-D wall, B-E wall and CPU, and reads the daemon-side `hook_controlled_observed`/`hook_controlled` pair over the `status` op; the tail is precisely the difference it never computes. The 1 ms is therefore an **unmeasured, deliberately conservative ceiling, chosen because it over-counts**, so the fallback fires early rather than late. Do not tighten it against evidence that does not exist: the harness change that would produce that evidence (an informational `hook_tail_estimate` row on all three platforms, derived per sample as `B-D_i − spawn_floor_p50 − observed_i`) is queued for the code-fix session, and only its artifact may justify a smaller number. `internal/daemon/budget.go`'s doc comment is the same sentence and moves with it.
 
 The breach detector consumes `hook.controlled`. `/qompack:status` shows both, labelled. The authoritative B-A number remains `test/bench/hotpath`, which measures real spawns end to end and is what CI gates on.
 
@@ -1252,7 +1295,7 @@ On `ToSync`: the inverse, logged at INFO plus a `Loud` line (degradation transit
 
 ### `internal/daemon/handlers.go` — the default op routes
 
-Registered by `New` into `Options.Routes` **only if the op is not already registered**, so a later subplan's `Handle` call always wins.
+Registered by `New` into the `Options` handlers table **only if the op is not already registered** (V2 reconciliation, index entry 1: the table is the unexported map reached through `Handler`/`Ops`, not an `ipc.Router`), so a later subplan's `Handle` call always wins.
 
 | Op | Reply | Behaviour |
 |---|---|---|
@@ -1261,7 +1304,7 @@ Registered by `New` into `Options.Routes` **only if the op is not already regist
 | `observe.stop` | no | same as `observe.tool` via `svc.ObserveStop`, `subagent` read from `req.Raw` `{"subagent":true}` |
 | `session.start` | **yes** | full warm path (below) |
 | `checkpoint` | **yes** | records the PreCompact observation into `History` (`LastPreCompactTS`, `LastPreCompactSession`, `AwaitingCompactStart = true`, `PreCompactTimeoutMs` from `pluginmanifest`, the wall time appended to `PreCompactWallMs`); `contract.WriteMarker`; then `svc.PreCompact` when non-nil **and** `mode.MayAct()`, timed into `obs.MetricCheckpointFin` (B-E); records the first 256 chars of any returned `CustomInstructions` into `History.PreCompactInstr`; returns its `hookio.Output` |
-| `flush` | **yes** | `registry.End`; `ingest.CloseSession`; `svc.SessionEnd` when non-nil; `contract.WriteMarker`; `SketchSet.Save`; `Drain` |
+| `flush` | **yes** | `registry.End`; `ingest.CloseSession`; `svc.SessionEnd` when non-nil **and** `mode.MayRecord()` (mode-enforcement row 7); `contract.WriteMarker`; `SketchSet.Save`; `Drain` |
 | `status` | **yes** | `Data` = JSON of `StatusSnapshot` (below) |
 | `mcp` | **yes** | when `svc.MCPInitialized` is nil, `Response{OK:false, Err:"mcp not built"}`; SP-13 replaces this route |
 | `admin.ping` | **yes** | `{OK:true, Data:{"pid":…,"version":…,"uptime_seconds":…}}` |
@@ -1278,18 +1321,22 @@ const promptReplyDeadline = 250 * time.Millisecond // well inside the manifest's
 
 On timeout the client spools and writes `hookio.Empty()`; a prompt is never blocked on the daemon.
 
-**Mode enforcement — normative, because §12.1 defines `degraded-passive` by what it turns off.** Every route consults `monitor.Mode()` at exactly the points below; there is no other mode check in `internal/daemon`.
+**Mode enforcement — normative, because §12.1 defines `degraded-passive` by what it turns off.** The routes consult `monitor.Mode()` at the points below. Rows 1–6 are the design's own division; rows 7 and 8 are two further shipped sites, **recorded rulings rather than drift** (V2 reconciliation, index entry 11), each carrying its rationale in a code comment beside the call. The table is the complete list of mode checks in `internal/daemon`, footnote rows included.
 
 | Route / step | `ModeFull` | `ModeDegradedPassive` | `ModeOff` |
 |---|---|---|---|
-| `ingest.Accept` (WAL append), `registry.Touch`, worker dispatch to `svc.ObserveTool` / `ObserveStop` | run | **run** — L0/L1 recording is explicitly preserved | skipped; ACK returned, nothing written |
+| `ingest.Accept` (WAL append) and worker dispatch to `svc.ObserveTool` / `ObserveStop` | run | **run** — L0/L1 recording is explicitly preserved | skipped; ACK returned, nothing written |
 | `svc.ObservePrompt` reply, `svc.SessionStart` output, sentinel emission, any `Output.HookSpecificOutput.AdditionalContext` | run | **suppressed** — `Output = hookio.Empty()` | suppressed |
 | `svc.PreCompact` and any `Output.HookSpecificOutput.CustomInstructions` | run | **suppressed** — the route still records the timing observation and the marker | suppressed |
 | scheduler-initiated checkpoints and drop reports (`IdleController` tasks registered by SP-12/SP-11 whose names begin `act.`) | run | **skipped by `RunOnce`** | skipped |
 | SP-05's own idle tasks (`drain`, `sketches`, `metrics`) and `Drain` | run | run | run |
 | `status`, `admin.*`, `mcp` | run | run | run — pull-based, cannot make anything worse (§12.1) |
+| **(7)** `svc.SessionEnd` from the `flush` route (M-3) | run | **run** | skipped — gated on `MayRecord()` |
+| **(8)** `registry.Touch` (M-2) | run | run | **run — deliberately unconditional** |
 
-`Mode.MayAct()` is the single predicate for rows 2–4; `Mode.MayRecord()` gates row 1. `IdleController.Register` therefore adopts one naming rule: a task whose name is prefixed `act.` is an *acting* task and `RunOnce` skips it when `!mode.MayAct()`; every other task is recording/maintenance and always runs. `TestDegradedPassiveSuppressesActingPaths` and `TestDegradedPassiveStillRecords` prove both halves.
+Row 7 is an extra mode-check site beyond the design's own list, and it is defensible: `SessionEnd` is SP-08's L1 flush semantics (`store.Flush` and friends), which is *recording* work, not *acting* work, so it belongs behind the same predicate row 1's `ingest.Accept` uses rather than behind `MayAct()`. Row 8 is the inverse deviation and is equally deliberate: the design groups `registry.Touch` with `ingest.Accept` as skipped under `ModeOff`, but liveness tracking (`LastActivity`/`Live`, which the idle-exit timer reads) is cheap, in-memory and worth keeping even while `ModeOff` suppresses recording — a session still sending traffic must not look idle to `Run`'s idle-exit tick just because the operator turned recording off. Both are stated in comments at the call sites so nobody "fixes" them.
+
+`Mode.MayAct()` is the single predicate for rows 2–4; `Mode.MayRecord()` gates rows 1 and 7. `IdleController.Register` therefore adopts one naming rule: a task whose name is prefixed `act.` is an *acting* task and `RunOnce` skips it when `!mode.MayAct()`; every other task is recording/maintenance and always runs. `TestDegradedPassiveSuppressesActingPaths` and `TestDegradedPassiveStillRecords` prove both halves.
 
 The **`session.start` warm path**, in order (this ordering is normative — §5.21 says the monitor runs "before any other work"):
 
@@ -1305,14 +1352,14 @@ The **`session.start` warm path**, in order (this ordering is normative — §5.
 
 The **sentinel scan** on `observe.prompt`: when `History.Sentinel.Token != ""` and `!History.Sentinel.Observed`, a worker (not the reply path) calls `contract.ScanTranscriptTail(event.TranscriptPath, token, 256<<10)`. Found → `Observed = true`; not found → `Chances++`. Both persist to `state/contract.json`. This is off the reply path and therefore outside B-A and outside `promptReplyDeadline`.
 
-**`StatusSnapshot` assembly** (the `status` route, and the only place these five come together):
+**`StatusSnapshot` assembly** (the `status` route, and the only place these five come together — against the shipped struct in *Interface contract → Produces*, which carries no `PID`, `Addr` or `UptimeSeconds`; those three are `admin.ping`'s payload):
 
 - `Mode` = `monitor.Mode().String()`; `Contract` = `monitor.Report()`.
-- `Hot` = `registry.HotMode().String()`; `Sessions` = `registry.Snapshot()`.
+- `Hot` = `hotModeString(registry.HotMode())` — the daemon's own private renderer, because `ipc` ships no `String` method on `HotPathMode` (V2 reconciliation, index entry 12); `Sessions` = `registry.Snapshot()`.
 - `Latency` = one entry per `obs.Budgets(cfg)` metric name from `obs.Registry.Snapshot()`, plus `MetricHookObserved`; `Budgets` = the breaches from the most recent `CheckBudgets` call; `Counters` = the registry's counter map.
 - `SpoolFiles` = `len(ipc.SpoolFiles(spoolDir))`.
 - `LoudTail` = the last **five** non-empty lines of `.qompack/logs/LOUD.log`, read with a bounded 64 KiB tail seek (matching 00-ARCH §5.17 "the last five `Loud` messages"); a missing file yields an empty slice, never an error.
-- `Extra` = `svc.StatusExtra(ctx)` when non-nil, else omitted. SP-14 renders this payload; SP-05 only produces it.
+- `Extra` = the `json.RawMessage` returned by `svc.StatusExtra(ctx)` when the seam is non-nil and returns a nil error, else omitted (a seam that errors is silently skipped — `status` never fails because a later wave's extra payload did). SP-14 renders this payload; SP-05 only produces it.
 
 ---
 
@@ -1354,7 +1401,7 @@ func loudTail(root string, n int) []string
 
 ### `internal/daemon/daemon.go` — `New`, `Run` and `Stop`
 
-`New(o Options)`, after the `ErrOptionsUninitialized` check and the `Services` assembly described in `options.go`, additionally constructs the single per-daemon **contract monitor** — nothing else in the process constructs one:
+`New(o Options)`, after the `Services` assembly described in `options.go` (there is no options-validity check to run first — V2 reconciliation, index entry 8: a bare `Options{}` is valid and `ErrOptionsUninitialized` does not exist), additionally constructs the single per-daemon **contract monitor** — nothing else in the process constructs one:
 
 ```go
 mon := contract.NewMonitor(o.Log, o.Metrics, filepath.Join(o.ProjectRoot, ".qompack", "state", "contract.json"))
@@ -1544,20 +1591,22 @@ The unexported helpers the skeleton uses all live in `internal/cli/hookclient.go
 
 Per-subcommand wiring:
 
-| Subcommand | Op | Reply | Deadline |
-|---|---|---|---|
-| `qompack observe tool` | `observe.tool` | no | `AckDeadline` (manifest timeout 5 s) |
-| `qompack observe prompt` | `observe.prompt` | **yes** | `promptReplyDeadline` = 250 ms (manifest timeout 5 s) |
-| `qompack observe stop` (`--subagent`) | `observe.stop` | no | `AckDeadline` (manifest timeout 5 s / 10 s subagent) |
-| `qompack session-start` | `session.start` | **yes** | 10 s (manifest timeout 15 s) |
-| `qompack checkpoint` | `checkpoint` | **yes** | 15 s (manifest timeout 20 s) |
-| `qompack flush` | `flush` | **yes** | 15 s (manifest timeout 20 s) |
+| Subcommand | Op | Reply | Reply/ACK deadline | Dial (connect) budget |
+|---|---|---|---|---|
+| `qompack observe tool` | `observe.tool` | no | `AckDeadline` (manifest timeout 5 s) | `State.ConnectDeadlineMs` as-is |
+| `qompack observe prompt` | `observe.prompt` | **yes** | `promptReplyDeadline` = 250 ms (manifest timeout 5 s) | `State.ConnectDeadlineMs` as-is |
+| `qompack observe stop` (`--subagent`) | `observe.stop` | no | `AckDeadline` (manifest timeout 5 s / 10 s subagent) | `State.ConnectDeadlineMs` as-is |
+| `qompack session-start` | `session.start` | **yes** | 10 s (manifest timeout 15 s) | floored at `hookConnectDeadlineFloor` = **250 ms** |
+| `qompack checkpoint` | `checkpoint` | **yes** | 15 s (manifest timeout 20 s) | floored at `hookConnectDeadlineFloor` = **250 ms** |
+| `qompack flush` | `flush` | **yes** | 15 s (manifest timeout 20 s) | floored at `hookConnectDeadlineFloor` = **250 ms** |
+
+**The dial column, and why it is a separate number (V2 reconciliation, index entry 9).** `hookConnectDeadline(spec, st)` widens the *dial* budget to at least `hookConnectDeadlineFloor` = 250 ms for a **non-hot-path reply op carrying its own fixed `spec.deadline`** — exactly `session-start`, `checkpoint` and `flush`. The selecting predicate is `spec.deadline > 0 && !spec.op.HotPath()`; "carries a fixed deadline" alone would be wrong, because `observe.prompt` carries `promptReplyDeadline` and is squarely on the hot path. Every `ipc.Op.HotPath()` op keeps `State.ConnectDeadlineMs` untouched. The floor exists because `State.ConnectDeadlineMs` is sized for a warm daemon's already-established connection cadence (5 ms, or 25 ms on Windows) and is too tight for `session-start`'s very first dial, which lands moments after `preSend`'s own `daemon.EnsureRunning`: a daemon that has just finished spawning, or has just accepted-and-closed `EnsureRunning`'s liveness probe, is not guaranteed to have its next accept re-posted inside a hot-path budget on a loaded host, and the client would spool a request the daemon was milliseconds from taking. Widening only these three costs nothing in the steady state — a genuinely absent daemon still fails the dial almost instantly, because a nonexistent pipe or socket is a fast connection-refused, not a wait for the timeout to elapse. `hookConnectDeadline` is factored out of `doHook` precisely so it is unit-testable without a real client or connection.
 
 `qompack session-start` additionally calls `daemon.EnsureRunning(root, selfPath(), log, clk)` **before** `Send`, because §2.4 makes it the designated daemon starter and its hook timeout is generous. If the daemon fails to come up it still sends (which spools), writes `hookio.Empty()` and exits 0.
 
 **`cli/daemon.go`** — `qompack daemon [--project <root>] [--foreground]`: loads config, builds the logger against `.qompack/logs`, `daemon.NewOptions`, `daemon.New`, installs a `signal.Notify` for `os.Interrupt`/`syscall.SIGTERM` that cancels the run context, and calls `Run`. Exits 0 on clean stop and on `ErrLockHeld`; exits 0 with a `Loud` line on any other error (a daemon that cannot start must not surface a non-zero exit through a lazy spawn).
 
-**`cli/selftest.go`** — `qompack self-test [--json]`, **the only subcommand permitted to exit non-zero** (§2.3). It runs, in order: config load and validation; `.qompack/` writability; `paths.AppendOnly`/`CreateNew` guard behaviour; `ipc.Resolve`; daemon reachable or spawnable; a full IPC round trip using `admin.ping`; `Router.Ops()` coverage against `ipc.KnownOps()`; and `contract.StandardAssertions` executed against a synthetic `Env` built from the last persisted `History`. Output is a fixed-width table plus a summary line, or a JSON document under `--json` with `{checks:[{id,ok,severity,expected,observed,detail}], mode, exit}`. Exit code: `0` when no check failed at `SevCritical`, `1` otherwise.
+**`cli/selftest.go`** — `qompack self-test [--json]`, **the only subcommand permitted to exit non-zero** (§2.3). It runs, in order: config load and validation; `.qompack/` writability; `paths.AppendOnly`/`CreateNew` guard behaviour; `ipc.Resolve`; daemon reachable or spawnable; a full IPC round trip using `admin.ping`; op coverage reported from `ipc.KnownOps()` (V2 reconciliation, index entry 1: there is no `Router` and no live "list your routes" op — the routing table is process-internal, and `New` covers every known op from its default routes, so this check is an informational count, not a round trip); and `contract.StandardAssertions` executed against a synthetic `Env` built from the last persisted `History`. Output is a fixed-width table plus a summary line, or a JSON document under `--json` with `{checks:[{id,ok,severity,expected,observed,detail}], mode, exit}`. Exit code: `0` when no check failed at `SevCritical`, `1` otherwise.
 
 **`cli/fault.go`** — the fault-injection seam used by the exit-0 test suite. `QOMPACK_FAULT` accepts a comma-separated list of `site[:arg]`. **Eleven sites, all concretely defined** (the assignment names daemon-down, spool-full, disk-full, corrupt-config and panic explicitly, so none of them may be left implicit):
 
@@ -1575,7 +1624,7 @@ Per-subcommand wiring:
 | `panic:hook` | `runHook` panics immediately after `ReadEvent` | `recoverToZero` writes empty JSON, exit 0 |
 | `panic:client` | `ipc.Client.Send` panics | recovered by `recoverToZero`, exit 0 |
 
-`faultActive(site string) (arg string, on bool)` is checked at each named site; when `QOMPACK_FAULT` is unset the parsed map is nil and the check is a single nil-map lookup (~2 ns), which is why it may live on the hot path. `TestFaultSitesInertWhenUnset` asserts `faultActive` returns `false` for all eleven sites with the variable unset **and** that a hook run with it unset produces byte-identical output to one built with `-tags noinject`. The `security` CI job greps that the string `QOMPACK_FAULT` appears in exactly one non-test file, `internal/cli/fault.go`, and that `SpawnDetached` strips it from the child environment (it does, see `spawn.go`).
+`faultActive(site string) (arg string, on bool)` is checked at each named site; when `QOMPACK_FAULT` is unset the parsed map is nil and the check is a single nil-map lookup (~2 ns), which is why it may live on the hot path. `TestFaultSitesInertWhenUnset` asserts `faultActive` returns `false` for all eleven sites with the variable unset **and** that a hook run with it unset produces byte-identical output to one built with `-tags noinject`. **V2 reconciliation — the `QOMPACK_FAULT` invariant is a *two*-file one, and no CI job checks it today (index entry 13).** The shipped rule, documented at the top of `internal/cli/fault.go`, is that the grep-able literal `QOMPACK_FAULT` is confined to exactly **two** non-test files: `internal/cli/fault.go` (`const qompackFaultEnv`, where every fault check reads it) and `internal/daemon/spawn.go` (`const qompackFaultEnv`, `buildSpawnEnv`, which strips the variable from a spawned daemon's environment before exec — a hook process testing its own fault paths must never make the daemon it lazily starts fault too). Two is the floor, not an accident: the file doing the stripping must name the variable it strips. `fault_noinject.go`, this package's `noinject`-tagged twin, deliberately spells the same constant name *without* the literal string, so `-tags noinject` compiles the seam out without also removing the second legitimate hit. Every other occurrence — `internal/daemon/spawn_test.go`, `test/e2e/faultinject_test.go` — is test code and does not count. The `security` CI job does **not** grep for this: it runs `govulncheck`, `devtool lint --only=importgraph,testdeps,bindeps` and the two `go list` import-allowlist greps, and nothing more. Claiming otherwise is what let a one-file wording survive against two-file code; the real guard — a `test/guards` test asserting the literal appears only in those two files, shaped like `TestGuard_NoNetworkImports` — is queued for the code-fix session, and until it lands this invariant is enforced by review, not by CI.
 
 **`cmd/qompack/main.go`** — add `daemon` and `self-test` to the dispatch switch. `self-test` is the only case that returns a non-zero code; every other case returns 0.
 
@@ -1670,7 +1719,8 @@ Tests are written **before** the implementation in each commit and must fail for
 | Test | Input | Expected |
 |---|---|---|
 | `TestStateRoundTrip` | `State{ModeDegradedPassive, HotSpool, 5, 8, true, true, 1048576, 4242, 1730000000000}` | `ReadState` returns exactly that; file is exactly 32 bytes |
-| `TestStateMissingFallsBackToDefaults` | no file | `ReadState(root, config.Defaults())` returns `ModeFull`, `HotSync`, `AckDeadlineMs == 8`, `ConnectDeadlineMs == 5` |
+| `TestStateMissingFallsBackToDefaults` | no file | `ReadState(root, config.Defaults())` returns `ModeFull`, `HotSync`, `AckDeadlineMs == 8`, and `ConnectDeadlineMs == config.Defaults().Runtime.Daemon.ConnectDeadlineMs` — 5, or 25 on Windows. Assert against the defaults, never against a literal 5: the default is platform-selected (V2 reconciliation, index entry 9) |
+| `TestConnectDeadlineDefaultClearsTheBusyRetryQuantum` | — | `config.Defaults().Runtime.Daemon.ConnectDeadlineMs` is at least `2 * dialBusyRetryQuantum`. This is the anti-drift guard between `internal/config/deadlines.go` and go-winio's hard-coded 10 ms busy-retry sleep; `internal/config` may not import `internal/ipc` (§3.2), so nothing but this test couples the two |
 | `TestStateBadCRCFallsBack` | write a valid record, flip byte 12 | returns the defaults, no error, no log |
 | `TestStateShortFileFallsBack` | 17 bytes | returns the defaults |
 | `TestStateWriteIsAtomic` | 500 concurrent `WriteState` + `ReadState` under `-race` | every read yields a valid CRC; no torn record |
@@ -1734,7 +1784,7 @@ Tests are written **before** the implementation in each commit and must fail for
 | `TestModeOffSkipsIngest` | monitor forced to `ModeOff` | ACK returned, WAL file never created, `svc.ObserveTool` never called |
 | `TestNAKDuplicateIsDedupedOnDrain` | force `ToSpool`, send one `observe.tool` (daemon WALs it and NAKs, client spools the same line), then `Drain` | the handler sees the request exactly **once**; both files are consumed |
 | `TestHandleOverridesDefaultRoute` | `opts.Handle(OpStatus, custom)` before `New` | the custom handler runs, not the default |
-| `TestHandleOnBareOptionsIsSafe` | `Options{}` literal, `Handle(...)` | no panic; `New` returns `ErrOptionsUninitialized` |
+| `TestHandleOnBareOptionsIsSafe` | `Options{}` literal, `Handle(...)` | no panic; the handler **is** registered (`Handler(op)` returns it) and `New` succeeds — a bare literal is valid by construction, because `Handle`'s pointer receiver allocates the table lazily (V2 reconciliation, index entry 8) |
 | `TestBindRunsInOrderAndDeclaresProducers` | two `Bind`s, second sets `Rehydrate` | both ran in order; `contract.HasProducer(CAdditionalContext)` true |
 | `TestSketchSetNeverWritesTriedBloom` | pre-write `tried.bloom` with known bytes; `Save` | the file's bytes and mtime are unchanged |
 | `TestConfigReloadDefersChunkChange` | change `store.chunk.target`, touch mtime, idle tick | in-memory chunk block unchanged; `state/config-pending.json` written; one `Loud` line |
@@ -2015,13 +2065,13 @@ Feeds commits 6 and 7. It starts **after** the main session has written `interna
 - [ ] `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon` reports **B-A p99 < 15 ms**, **B-B p99 < 2 ms** and **B-E p99 < 2 s** on ubuntu-latest, macos-latest **and** windows-latest in CI, with the artifact uploaded, `spawn_floor_ms` and `b_a_method` present, and B-D reported but not gated.
 - [ ] `go test ./... -race` green on ubuntu and macos; `go test ./... -count=2` green on windows.
 - [ ] Line coverage ≥ **75%** for `internal/ipc`, `internal/daemon`, `internal/contract` and the SP-05 files in `internal/cli` (the §6.4 floor for "everything else"), measured on the merged Linux profile.
-- [ ] `gofumpt -l` prints nothing; `golangci-lint run` clean; `go vet ./...` clean; `staticcheck` clean; the `nomagic` pass clean with exactly **five** annotated allowances in the whole subplan — four in `internal/obs/budgets.go` (`limitL0Ingest`, `limitL0Process`, `limitCheckpointFin`, `limitMCPToolCall`) and one in `internal/daemon/ingest.go` (`ringCapacity = 4096`, a queue depth that collides with the forbidden chunk-size literal). No other forbidden literal appears outside `*_test.go`.
+- [ ] `gofumpt -l` prints nothing; `golangci-lint run` clean; `go vet ./...` clean; `staticcheck` clean; the **`nomagic` pass is clean, and every allowance carries its §-reference** in the `//nomagic:allow` comment. *(V2 reconciliation, index entry 10: the draft's "exactly five allowances, four of them in `internal/obs/budgets.go`" is void. `internal/obs` was never touched by this subplan — its limits are `func(config.Config) time.Duration` reading `cfg.Runtime.Budgets.*`, so `limitL0Ingest` and its three siblings were never shipped — and SP-05's own packages legitimately carry roughly a dozen annotated allowances across `internal/daemon` and `internal/cli`. Counting allowances was never the gate; justifying each one is.)* No unannotated forbidden literal appears outside `*_test.go`.
 - [ ] The import-graph check passes: `ipc` imports only foundation + `hookio` + `contract`; `contract` imports only foundation + `hookio` + `store`; nothing imports `daemon` or `cli`.
 - [ ] The `security` job passes: zero non-test imports of `net/http`, `net/url`, `crypto/tls`; `net` only in `internal/ipc` and only `unix`; `os/exec` only in `internal/daemon`, `internal/cli`, `tools/`.
 - [ ] `TestHooksExitZeroUnderFaults` passes all 66 combinations (6 hook subcommands × 11 fault sites, including `spool-full` and `disk-full`); `TestFaultSitesInertWhenUnset` and `TestSelfTestIsTheOnlyNonZeroExit` pass.
 - [ ] `TestFreshBuildReportsModeFull` passes — a freshly built `develop` with SP-05 merged reports `ModeFull`, and the **four** later-wave assertions report `not-yet-implemented`; `TestDeclaredProducerSetMatchesArchitecture` pins the five/four split against 00-ARCH §12.1.
 - [ ] `TestServicesAllNil` passes — every op is answered without panic with a fully nil `Services`.
-- [ ] `TestDegradedPassiveSuppressesActingPaths`, `TestDegradedPassiveStillRecords` and `TestModeOffSkipsIngest` pass — the three-mode state machine is enforced at exactly the sites listed in the mode-enforcement table and nowhere else.
+- [ ] `TestDegradedPassiveSuppressesActingPaths`, `TestDegradedPassiveStillRecords` and `TestModeOffSkipsIngest` pass — the three-mode state machine is enforced at the sites listed in the mode-enforcement table, **its two footnote rows included** (`flush`/`svc.SessionEnd` behind `MayRecord()`, and `registry.Touch` deliberately unconditional). Any mode check added outside that table carries a comment naming its rationale and a new table row; nothing in this subplan proves exhaustiveness, so do not assert it.
 - [ ] `TestMarkerIsWrittenByFlushAndCheckpointOnly` passes — the `session_start.fires` marker is produced by the terminal hooks, per 00-ARCH §12.1, never by `session.start` itself.
 - [ ] `TestBreachDetectorTransitionsAfterThreeWindows` and `TestBreachDetectorRevertsAfterThreeCleanWindows` pass, and `TestHotModeTransitionWritesStateAndNAKs` proves the transition is observable in `state.bin`, in the NAK frame, in the WARN log and in the `status` payload.
 - [ ] SP-01's `ipctest` conformance suite has zero remaining `t.Skip`s (Rule W-1).
@@ -2034,7 +2084,7 @@ Feeds commits 6 and 7. It starts **after** the main session has written `interna
 
 - [ ] Branch `feat/sp05-daemon-ipc-and-hot-path` was cut from `develop` **after** SP-01 merged, and all work landed on it.
 - [ ] `Qompack.md` is byte-identical to its state at branch point.
-- [ ] Every constant, formula, table and threshold in the **Design context** section above has a corresponding implementation and at least one test: the 15 ms B-A budget, the 2 ms B-B budget, the 50 ms B-C soft budget, the 2 s B-E budget, the 250 ms B-F budget, the 512-sample window, the 3 breach windows, the 1 MiB line limit, the 8 ms ACK deadline, the 5 ms connect deadline, the 250 ms prompt reply deadline, the 1800 s idle exit, the 8-session cap, the 120 s idle detection, the 100-byte `sun_path` guard, the 12-hex-char project hash, the `0x06`/`0x15` frame bytes, the 32-byte state record, the 4096-entry ring, the 64 MiB WAL/spool caps, the 90 s lock staleness window with its 30 s heartbeat, the nine assertion IDs with their five/four producer split, the two-chance sentinel, the two-clean-run restore, and the three-mode state machine with its mode-enforcement table.
+- [ ] Every constant, formula, table and threshold in the **Design context** section above has a corresponding implementation and at least one test: the 15 ms B-A budget, the 2 ms B-B budget, the 50 ms B-C soft budget, the 2 s B-E budget, the 250 ms B-F budget, the 512-sample window, the 3 breach windows, the 1 MiB line limit, the 8 ms ACK deadline, the 5 ms connect deadline (25 ms on Windows) and the 250 ms `hookConnectDeadlineFloor`, the 250 ms prompt reply deadline, the 1800 s idle exit, the 8-session cap, the 120 s idle detection, the 100-byte `sun_path` guard, the 12-hex-char project hash, the `0x06`/`0x15` frame bytes, the 32-byte state record, the 4096-entry ring, the 64 MiB WAL/spool caps, the 90 s lock staleness window with its 30 s heartbeat, the nine assertion IDs with their five/four producer split, the two-chance sentinel, the two-clean-run restore, and the three-mode state machine with its mode-enforcement table.
 - [ ] Placeholder scan: `grep -rniE "TBD|TODO|FIXME|XXX|implement appropriately|add error handling|similar to|handle edge cases" internal/ipc internal/daemon internal/contract internal/cli internal/obs/budgets.go test/bench/hotpath test/e2e` returns nothing.
 - [ ] Type consistency verified against the **Interface contract** section: `ipc.Addr`, `ipc.Request`, `ipc.Response`, `ipc.Op`, `ipc.Client`, `ipc.SpoolWriter`, `ipc.Server`, `ipc.Handler`, `daemon.Daemon`, `daemon.Options`, `daemon.Options.Handle`, `daemon.IdleController`, `daemon.SessionRegistry`, `contract.ID`, `contract.Severity`, `contract.Result`, `contract.Mode`, `contract.Assertion`, `contract.Env`, `contract.Monitor`, `contract.NewMonitor`, `contract.StandardAssertions`, `obs.BudgetBreach` — each matches 00-ARCHITECTURE §5.2/§5.4/§5.19 exactly, with no changed or removed member and no interface method added.
 - [ ] No method was added to any interface owned by another subplan (Rule W-3); `internal/obs` received exactly one new file and one stub-method replacement; no other package outside SP-05's ownership was modified except the six hook bodies in `internal/cli`, `cmd/qompack/main.go` (the `daemon`, `self-test` and `version` dispatch cases only), `tools/devtool`, and the two CI workflows.

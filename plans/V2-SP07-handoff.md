@@ -1,6 +1,13 @@
 # SP-07 → V2 checkpoint: reconciliation and carry-forward
 
-**Branch:** `feat/sp07-dependence-dag-and-slicing`
+> **STATUS — HISTORICAL. This is the SP-07 → V2-VERIFY handoff, written on the SP-07 branch before
+> the wave-1 merge, and §C was discharged at that merge.** Read §A, §B and §D as the record of what
+> SP-07 reconciled; read §C for the reasoning only. **All three of its ACTION items are CLOSED** —
+> each carries its closing evidence inline below. Do not re-do them: re-recording `backward_slice_scores`
+> (ACTION 1) would raise `internal/testutil/fixtures_test.go`'s `frozenCount` past 38 and break that
+> package's contract test. Anything still open from wave 1 lives in `plans/V2-report.md`, not here.
+
+**Branch:** `feat/sp07-dependence-dag-and-slicing` (merged into `develop` at the wave-1 merge)
 **Read before executing §2.7 of `V2-VERIFY-primitives-store-dag-and-baseline.md`.**
 
 Seven rows of §2.7 and one whole-tree row do not reconcile against a literal reading of their
@@ -170,7 +177,12 @@ throughput-under-contention to a benchmark, where it belongs.
 
 ## C. Carry-forward work items
 
-### ACTION 1 — `backward_slice_scores` is still unrecorded
+**All three ACTION items in this section are CLOSED.** They were open on the SP-07 branch; each was
+discharged at or before the wave-1 merge, and the closing evidence is recorded under each item. The
+text is kept in its original tense so the reasoning stays readable — the **CLOSED** paragraph under
+each item is what applies now.
+
+### ACTION 1 — `backward_slice_scores` is still unrecorded — **CLOSED (`14a9668`)**
 
 `testdata/golden/contracts/dag/MANIFEST.json` lists `backward_slice_scores` as `record-by-owner`,
 and SP-07 is the owner, but recording it flips `internal/testutil/fixtures_test.go`'s guard from
@@ -183,18 +195,46 @@ Either record it and update the guard to 24/4 in the same commit, or drop the ma
 `slice-backward.json` is judged to cover it. Do not leave it as-is: a permanently unrecorded
 `record-by-owner` entry trains people to ignore the manifest.
 
-### ACTION 2 — add SP-07 to `landedSubplans` in `tools/devtool/cover.go`
+> **CLOSED at the wave-1 merge by `14a9668` — "fix(dag,testutil): declare dag's five goldens, drop
+> the unrecorded row" — which took the second arm.** The same commit declared the five dag goldens
+> SP-07 had shipped as committed files without declaring (`nodeid`, `graph_basic`, `crossing`,
+> `slice_backward`, `thin_vs_full`), so `testdata/golden/contracts/dag/MANIFEST.json` now holds seven
+> frozen entries — those five plus SP-01's `node_line` and `edge_line` — and **no
+> `backward_slice_scores` row**; the behaviour it would have pinned is already covered by
+> `slice_backward` and `TestThinDropsControlOnly`. The guard in `internal/testutil/fixtures_test.go`
+> moved in the same commit and now reads `require.Equal(t, 38, frozenCount)` with `pendingCount` at 4.
+> **Do not record `backward_slice_scores`:** doing so would raise `frozenCount` past 38 and break
+> `internal/testutil`'s contract test. Verify with
+> `go test ./internal/testutil/ -run TestContractFixture_EveryManifestIsReadable`.
+
+### ACTION 2 — add SP-07 to `landedSubplans` in `tools/devtool/cover.go` — **CLOSED (V2-MERGE-14)**
 
 See V2-SP07-20 above. This converges with `plans/V2-SP02-handoff.md` §4.1, which raised the same
 item first; treat that as the authoritative version and add SP-07 to the list it describes.
 
-### ACTION 3 — V2-ALL-04 cannot run in this environment
+> **CLOSED at the wave-1 merge, row V2-MERGE-14 of `plans/V2-report.md`.** `landedSubplans` exists in
+> `tools/devtool/cover.go` and holds **SP-01 … SP-07**, all seven `true`; `probeBlind` is still
+> exactly `{scheduler, grammar, contract, redact}`. SP-02's and SP-04's branches had each rewritten
+> the map independently, which is why the merge had to take neither side whole. The transcription is
+> pinned by `TestLandedSubplansMatchesTheBranch`, rewritten in the same row to fail loudly on drift.
+> Every wave-1 coverage floor is live as a result — dag measures 90.7 % against its 85 % floor.
+
+### ACTION 3 — V2-ALL-04 cannot run in this environment — **CLOSED (superseded)**
 
 The row requires pushing `verify/v2` and confirming the CI matrix. **This repository has no git
 remote**, so there is nothing to push to and no CI to observe. `ci-local` is the closest available
 equivalent and is green end to end (§D). Either add a remote before the checkpoint or record the row
 as environment-blocked — but do not mark it passed on the strength of `ci-local`, which does not run
 the cross-OS matrix, `crossbuild`, `security`, or `docs`.
+
+> **CLOSED — superseded. The premise no longer holds: the remote exists and CI has run.** `git remote -v`
+> reports `origin https://github.com/AidanHT/qompack.git`, and the cross-OS matrix has executed against
+> the merged tree. `plans/V2-report.md` §16 ("What the first CI runs found") is the authoritative
+> record — including §16.1's defects, which are exactly the class `ci-local` could not have surfaced,
+> and §16.4's remaining open items. Read §16 rather than treating V2-ALL-04 as environment-blocked.
+> One related item did **not** close this way and is carried in `V2-report.md`, not here: making
+> `replay-gate` a *required* check is hosted branch protection, a repository setting rather than a
+> commit.
 
 ### INHERIT — the DAG is not acyclic, and SP-09 must tolerate it
 

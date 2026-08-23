@@ -113,15 +113,15 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-01.7 | Validation is fallback-not-crash; complete rule table; tiers partition; telemetry forced off | `go test ./internal/config/ -run 'TestValidate_' -v` and `go test ./internal/cli/ -run TestCLI_ConfigViolationsAreLoudAndPersisted -v` | PASS; invalid leaves fall back to defaults, `error == nil`; two `Loud` lines; `state/config-violations.json` written |
 | I-01.8 | Config fuzz | `go test ./internal/config/ -run xxx -fuzz FuzzConfigLoad -fuzztime 60s` | no crashers; always a validated config |
 | I-01.9 | Leveled logging + the `Loud` three-destination channel + rotation | `go test ./internal/logging/ -run 'TestLogger_\|TestLoud_ThreeDestinations' -v` | PASS; `LOUD.log` written; `LastLoud()` populated; observer closure fired once |
-| I-01.10 | Log-bucket histograms, conservative percentiles, exact max, six budget IDs B-A..B-F | `go test ./internal/obs/ -run 'TestHistogram_\|TestBudgets_AllSixPresentAndConfigDriven\|TestCheckBudgets_' -v` | PASS; six budgets in order; B-A limit follows `runtime.hotPath.budgetMs`; B-D `Gated == false` |
+| I-01.10 | Log-bucket histograms, conservative percentiles, exact max, the budget table B-A..B-G | `go test ./internal/obs/ -run 'TestHistogram_\|TestBudgets_\|TestCheckBudgets_' -v` | PASS; **seven** budgets in B-A..B-G order (`Budgets()` returns §2.4's six followed by B-G); B-A limit follows `runtime.hotPath.budgetMs`; B-G's follows `runtime.budgets.hookDegradedMs` and no other budget's key; B-D and B-G both `Gated == false`, and `TestCheckBudgets_NeverReportsBG` proves the second one structurally |
 | I-01.11 | Token estimation: classification, prose/code, image dimensions, PDF pages, calibration clamp | `go test ./internal/tokens/ -run 'TestClassify_\|TestEstimate_\|TestCalibrate_\|TestEstimateRoot_' -v` | PASS; image cap 1600; calibration clamped to `[0.6,1.6]` and persisted |
 | I-01.12 | Hook wire format: all seven payloads, unknown-field preservation, never panics, limits | `go test ./internal/hookio/ -run 'TestReadEvent_\|TestWriteOutput_\|TestSessionStartOutput_Shape' -v` | PASS; `Empty()` emits exactly `{}\n`; unknown fields survive in `Extra` |
 | I-01.13 | Hook payload fuzz | `go test ./internal/hookio/ -run xxx -fuzz FuzzReadEvent -fuzztime 60s` | no panics |
 | I-01.14 | **Hooks always exit 0** (§13 inv. 6) — 30 fault-injection combinations | `go test ./internal/cli/ -run 'TestDispatch_HookAlwaysExitsZero\|TestDispatch_PanicRecovered\|TestDispatch_NonHookErrorExitsOne\|TestDispatch_UnknownCommandExitsTwo' -v` | PASS; exit 0 in all 30; non-hook error exit 1; unknown command exit 2 |
 | I-01.15 | Plugin manifest generated from one typed source; six hooks; seven commands; `.mcp.json` | `go test ./internal/pluginmanifest/ -v` and `go run ./tools/devtool plugin-validate` and `git diff --exit-code -- plugin/` | tests PASS; task exit 0; diff clean; hook timeouts `5,5,15,20,5,10,20`; `PostToolUse` has `matcher:"*"` |
 | I-01.16 | Config docs never drift | `go run ./tools/devtool gen-config-docs --check` | exit 0 |
-| I-01.17 | **Every §5 interface has a live implementation now** — no stub residue anywhere | `go test ./test/guards/ -run TestAllStubsReturnNotImplemented -v` and `Select-String -Path internal\**\*.go -Pattern "ErrNotImplemented" -Exclude *_test.go` | the guard's probe table must show **zero** packages still reporting `ErrNotImplemented` except `core`'s declaration itself; the grep returns only `internal/core/errors.go` |
-| I-01.18 | Every conformance suite is live (Rule W-1) | `Select-String -Path internal\**\*test\**.go -Pattern "t\.Skip"` | **returns nothing.** Any surviving `t.Skip` in `sketchtest canontest symbolstest storetest dagtest negknowtest checkpointtest rehydratetest schedulertest mcptest evaltest ipctest redacttest tokenstest analyzertest grammartest observertest commandstest` is a V5 failure |
+| I-01.17 | **Every §5 interface has a live implementation now** — no stub residue anywhere | `go test ./test/guards/ -run TestAllStubsReturnNotImplemented -v` and `Select-String -Path internal\**\*.go -Pattern "ErrNotImplemented" -Exclude *_test.go` | the guard's probe table must show **zero** packages whose §5 interface methods still return `core.ErrNotImplemented`. The grep is read against a named survivor list rather than against zero, because three classes of reference are permanent and correct: (a) `internal/core/errors.go`, the declaration itself; (b) the `<pkg>test` conformance suites, which name the sentinel as an *accepted* answer while probing (`internal/analyzer/analyzertest/suite.go`, `internal/canon/canontest/suite.go`, and every sibling suite that does the same), plus `internal/canon/registry.go`'s doc comment; (c) `internal/cli`'s `notImplemented` table and `notImplementedRun`, which must at V5 carry **exactly three** rows — `fsck`, `doctor`, `bench` — the wave-5/SP-17 surfaces this checkpoint puts out of scope. **Any hit outside (a)–(c) is a V5 failure**, and so is a `notImplemented` table still listing `mcp`, `status`, `recall`, `pin`, `why`, `dropped` or `eval`: wave 4 delivers all seven, and their rows must be gone. |
+| I-01.18 | Every conformance suite is live (Rule W-1) | `Select-String -Path internal\**\*test\**.go -Pattern '^\s*t\.Skip(f\|Now)?\('` | **no matching call.** The pattern deliberately matches *calls at statement position*, not mentions: the older `"t\.Skip"` spelling can never return nothing, because ~11 matches under `internal/**/*test*/` are prose (`// RETURNING, never by t.Skip …` in `internal/dag/dagtest/behaviour.go`, the `// t.Skip fires on the *T …` comments in eight `suite_test.go` files) or are `require.False(t, t.Skipped())` assertions that the skip did **not** fire — all of which are expected and are not failures. Any surviving `t.Skip(`/`t.Skipf(`/`t.SkipNow(` **call** in `sketchtest canontest symbolstest storetest dagtest negknowtest checkpointtest rehydratetest schedulertest mcptest evaltest ipctest redacttest tokenstest analyzertest grammartest observertest commandstest` is a V5 failure. Search the whole `*test*/` directory, never just `suite.go`: today `internal/tokens/tokenstest/estimator_suite.go` carries a real `t.Skip(stubSkipMsg)` inside `skipIfStub`, and it is the one hit this row exists to catch. Its owner (SP-06's `tokens`) must delete `skipIfStub` and its call sites before sign-off — once I-01.17 is green the stub branch it guards is unreachable, so the skip has nothing left to gate. |
 | I-01.19 | Cross-wave contract fixtures present and reproduced by real implementations (Rule W-2) | `go test ./... -run 'Golden\|Contract' -v` | PASS; `testdata/golden/contracts/**` reproduced by the **real** implementations, not by fixtures |
 | I-01.20 | Ship-order and safety guards | `go test ./test/guards/ -run 'TestGuard_' -v` | `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection`, `TestGuard_O1FlagDefaults`, `TestGuard_FreshBuildReportsModeFull`, `TestGuard_WriteSetConfinedToQompack`, `TestGuard_NoNetworkImports` all PASS |
 | I-01.21 | Toolchain: `nomagic`, import-graph DAG, test-dep isolation, commit-msg checker | `go test ./tools/lint/nomagic/ ./tools/devtool/ -v` | `TestNoMagic_Analyzer`, `TestImportGraph_AcceptsRealRepo`, `TestImportGraph_RejectsViolation`, `TestTestDeps_RejectsProductionTestify`, `TestCheckCommitMsg` PASS |
@@ -156,7 +156,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-03.2 | **Bloom sized per Appendix A** | `go test ./internal/sketch/ -run 'TestBloom_AppendixASizing\|TestBloom_SizingTable' -v` | `mRaw == 95_851`, `mBits == 95_872`, `k == 7`, body 11 984 bytes |
 | I-03.3 | Bloom correctness: no false negatives, measured FP rate, fill ratio, saturation | `go test ./internal/sketch/ -run 'TestBloom_NoFalseNegatives\|TestBloom_FillRatioAtCapacity\|TestBloom_EstimatedFPRateMatchesEmpirical\|TestBloom_SaturatedThreshold' -v` | PASS; empirical FP ∈ [0.008, 0.013] at capacity; `Saturated()` fires at est. FP ≥ 0.10 |
 | I-03.4 | Resize + rebuild-from-iterator at a different capacity | `go test ./internal/sketch/ -run 'TestBloom_Resize\|TestBloom_RebuildFrom' -v` | PASS; grow 2× above 0.5 fill; capped at `MaxBloomCapacity` |
-| I-03.5 | **Count-Min sized per Appendix A**, never underestimates, merge/scale/heavy-hitters | `go test ./internal/sketch/ -run 'TestCMS_' -v` | PASS; `Dims() == (2719, 5)`, body 54 380; `MergeFrom` additive; `ErrShapeMismatch` on mismatch and nil |
+| I-03.5 | **Count-Min sized per Appendix A**, never underestimates, merge/scale/heavy-hitters | `go test ./internal/sketch/ -run 'TestCMS_' -v` | PASS; `Dims() == (2719, 5)`, body 54 380; `MergeFrom` additive; `ErrShapeMismatch` on mismatch and nil. Note what this row does **not** cover: it exercises `sketch.NewCMS` only, never a decayed-and-merged table, and `RunCMSSuite`'s safety-only assertion would pass a max-estimator — that gap is SP-16's and is closed by I-16.17, not here |
 | I-03.6 | HyperLogLog sizing, error bounds, exact-union merge | `go test ./internal/sketch/ -run 'TestHLL_' -v` | PASS; 2048 registers, 2 102-byte frame, relative error ≤ 0.07 at every n |
 | I-03.7 | Misra-Gries: no false positives, frequent-item guarantee, deterministic order | `go test ./internal/sketch/ -run 'TestMG_' -v` | PASS; 32 rebuilds byte-identical |
 | I-03.8 | MinHash: shift invariance, "one new failure" near-dup, subsampling | `go test ./internal/sketch/ -run 'TestMinHash_\|TestSignature_\|TestSigSketch_' -v` | PASS; `TestMinHash_OneNewFailure` Jaccard ≥ 0.9; `TestMinHash_StableAcrossRuns` matches frozen constants |
@@ -425,7 +425,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-15.10 | **Suffix-constrained selector: nothing before `p` is constructible** (§13 inv. 4) | `go test ./internal/analyzer/ -run 'TestNewSelectorRejectsPreP\|TestNewSelectorAcceptsPosEqualP\|TestNewSelectorRejectsNegativeLambda\|TestSelectorP' -v` | PASS; `ErrBlockBeforeP` names block id, pos and `p` |
 | I-15.11 | Lazy-greedy submodular selection | `go test ./internal/analyzer/ -run 'TestSelect' -v` | all PASS; budget respected; superseded and ephemeral penalized; diminishing returns observable; lazy == naive keep-set with strictly fewer evaluations on ≥ 190/200 instances; golden small case reproduced |
 | I-15.12 | **The `(1 − 1/e)` guarantee, brute-forced** | `go test ./internal/analyzer/ -run Prop -rapid.checks=1000 -v` | `PropGuaranteeUnitCost` and `PropGuaranteeKnapsack` PASS at 1 000 checks each; `PropMonotone`, `PropSubmodular`, `PropBudgetNeverExceeded`, `PropNothingBeforeP`, `PropCoverageMinusLambdaRedundancy` PASS |
-| I-15.13 | **The ship-order guard is real and inert without p-selection** | `go test ./internal/analyzer/ -run 'TestNewSelectorInertWithoutPSelection\|TestNewSelectorLiveWithPSelection\|TestPSelectionProbeDefaultsToScheduler\|TestSetPSelectionProbeRestores' -v` and `go test ./test/e2e/ -run 'TestPSelectionProbeIsTestOnly\|TestNoSelectorBypass' -v` | PASS; zero non-test references to `SetPSelectionProbe`; **exactly one** `Pos <` occurrence in `internal/analyzer` non-test source |
+| I-15.13 | **The ship-order guard is real and inert without p-selection** | `go test ./internal/analyzer/ -run 'TestNewSelectorInertWithoutPSelection\|TestNewSelectorLiveWithPSelection\|TestPSelectionProbeDefaultsToScheduler\|TestSetPSelectionProbeRestores' -v` and `go test ./test/e2e/ -run 'TestPSelectionProbeIsTestOnly\|TestNoSelectorBypass' -v` | PASS; zero non-test references to `SetPSelectionProbe`; `TestNoSelectorBypass` parses every non-test `.go` file under `internal/analyzer` with `go/parser` and finds **exactly one** comparison of a block's `Pos` against `p` — the `if blocks[i].Pos < p` guard inside `NewSelectorWithStore` in `selector.go`. It is an AST check, not a `"Pos <"` string grep: block-vs-block ordering comparisons (`blocks[i].Pos < blocks[j].Pos`, sorts, span arithmetic) are legitimate and permitted, and a second `Pos`-vs-`p` comparison anywhere in the package fails the test naming file and line (invariant 4, "Do not add a bypass") |
 | I-15.14 | **Grammar folded into the checkpoint at compaction time** | `go test ./internal/checkpoint/ -run 'TestBuildActionHistory\|TestRenderActionHistory\|TestFold\|TestFinalizeIncludesActionHistory\|TestTruncateDropsActionHistoryFirst' -v` | all PASS; narrative **appended**, never rewritten; `sketch_refs.grammar` set; **`"version": 1` unchanged**; no code fences (§13 inv. 5) |
 | I-15.15 | Thrash warning reaches `additionalContext` | `go test ./test/e2e/ -run 'TestThrashWarning' -v` | PASS; `"[qompack] thrash:"` and `"repeated 11×"` present; inner context preserved; hook still exits 0 |
 | I-15.16 | **Phase-5 exit criterion** | `go test ./test/replay/ -run TestPhase5 -v` | PASS; `FractionOfOPT(analyzer-suffix-submodular) > FractionOfOPT(baseline)` on all 24 sessions at an identical 12 000-token budget, delta ≥ 0.02 on the read-heavy and refactor subsets; `testdata/replay-baseline/phase5.json` matches to 4 dp |
@@ -440,18 +440,19 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-16.2 | **Ski-rental policy, computed not literal** (§5.6, Appendix A) | `go test ./internal/scheduler/ -run 'TestSkiRentalThresholdIsComputed\|TestNoLiteral12Point5InSource\|TestSkiRentalShouldWrite\|TestEstimateRemainingReads' -v` | PASS; `SkiRentalThreshold(0.1,1.25) == 12.5` exactly; **no compiled `12.5` literal anywhere in non-test source** |
 | I-16.3 | Ski rental defers only on soft reasons | `go test ./internal/scheduler/ -run 'TestEvaluateDefers\|TestEvaluateNeverDefers\|TestEvaluatePrefers\|TestEvaluateKeepsDeepCut\|TestEvaluateColdCacheIgnoresSkiRental\|TestEvaluateIsStillPure' -rapid.checks=500 -v` | PASS; never overrides `hard_ceiling`, `changepoint` or `idle_cold_cache`; `Evaluate` still pure |
 | I-16.4 | **BOCD feature priors seeded from past sessions** (O4) | `go test ./internal/scheduler/ -run 'TestDefaultFeaturePriors\|TestSeedPriors\|TestSeededDetector\|TestSetPriorWeight\|TestNewDetectorFromStateDisambiguates' -rapid.checks=200 -v` | PASS; standardization exact; format disambiguation never cross-restores and never panics |
-| I-16.5 | **Per-segment Bloom filters** (§6.8) | `go test ./internal/store/ -run 'TestBuildSegmentBloom\|TestSegmentBloom\|TestSegmentKey\|TestSegmentMayContain\|TestSegmentsMayContain\|TestCloseSetsBloomRef\|TestBackfillSegmentBlooms\|TestCorruptSegmentBloomIsConservative' -v` | all PASS; Appendix A sizing (`m ∈ [19600,19700]`, `k == 7`); no false negatives; measured FP ≤ 1.5%; **zero object reads while narrowing**; `tried.bloom` untouched |
+| I-16.5 | **Per-segment Bloom filters** (§6.8) | `go test ./internal/store/ -run 'TestBuildSegmentBloom\|TestSegmentBloom\|TestSegmentKey\|TestSegmentMayContain\|TestSegmentsMayContain\|TestCloseSetsBloomRef\|TestCloseBloomRefSurvivesReopen\|TestCloseAppendsNoBloomRecordWhenDisabled\|TestBackfillSegmentBlooms\|TestCorruptSegmentBloomIsConservative' -v` | all PASS; Appendix A sizing (`m ∈ [19600,19700]`, `k == 7`); no false negatives; measured FP ≤ 1.5%; **zero object reads while narrowing**; `tried.bloom` untouched. Also confirm the ref is **durable, not just in-memory**: `TestCloseBloomRefSurvivesReopen` passes, `index/segments.jsonl` carries one `"op":"bloom"` line per built bloom appended after that segment's `"op":"close"` line, and **no `.qompack/sketches/segments/INDEX.jsonl` sidecar exists** — the design was corrected to use SP-06's reserved `segBloomRec` seam, so a sidecar in the tree means the stale design was implemented |
 | I-16.6 | Ephemeral expansion counts and project touch counts from the index | `go test ./internal/store/ -run 'TestEphemeralExpansions\|TestProjectPathTouches' -v` | PASS; deterministic tie ordering; cancellation-safe |
 | I-16.7 | **Demand-driven pointer promotion** (§8.7) | `go test ./internal/checkpoint/ -run 'TestPromote\|TestFinalizeIncludesPromotedPointers\|TestFinalizeStillUnderBudgetBE' -v` | all PASS; weight formula `boost × min(count/threshold, 3)`; idempotent; **`TestPromoteNeverAddsCodeSnippets`**; `Finalize` still < 2 s |
 | I-16.8 | **Measured progressive-truncation reserves** (§6.9) | `go test ./internal/checkpoint/ -run 'TestTierReserve\|TestTruncateNeverDropsTier1\|TestTruncateDropsTier3BeforeTier2\|TestTruncateTier2DropOrder\|TestTruncateTier3DropOrder\|TestTruncateReservesLateBudget\|TestTruncateOversizeFieldDroppedWhole\|TestTruncateIsMonotone\|TestOrderPointersStable\|TestTierReserveMatchesCurve' -rapid.checks=300 -v` | all PASS; reserves equal the argmax recorded in `testdata/phase7/truncation-curve.json` |
 | I-16.9 | Truncation curve artifact is reproducible | `go test ./test/replay/ -run 'TestTruncationCurve\|TestTunedReservesBeatUntuned' -v` (**without** `QOMPACK_UPDATE_GOLDEN`) | PASS; regenerates `testdata/phase7/truncation-curve.json` byte-identically; tuned ≥ untuned |
-| I-16.10 | **O4 warm start** | `go test ./internal/daemon/ -run 'TestWarmStart\|TestSeedPriorsRunsBeforeRuntimeConstruction\|TestRegisterPhase7RegistersTwoTasks' -v` | all PASS; CMS decay+merge; bootstrap when the project CMS is missing; project-scope eliminations carried and correctly flipped stale; BOCD priors seeded **before** Runtime construction; step failures isolated; budget honoured |
+| I-16.10 | **O4 warm start** | `go test ./internal/daemon/ -run 'TestWarmStart\|TestSeedPriorsRunsBeforeRuntimeConstruction\|TestRegisterPhase7' -v` | all PASS; CMS decay+merge; bootstrap when the project CMS is missing; project-scope eliminations carried and correctly flipped stale; BOCD priors seeded **before** Runtime construction; step failures isolated; budget honoured. Two specifics to read off the output rather than assume: (a) the idle priorities are **`warm_start` = 5 and `segment_blooms` = 40**, because `IdleController.Register` runs **lower prio first** (`internal/daemon/idle.go`: "Lower prio runs first") against the shipped `drain` 10 / `sketches` 20 / `metrics` 30 — `TestRegisterPhase7OrdersAheadOfDrain` must show `ran == ["warm_start","drain","sketches","metrics","segment_blooms"]`, and any plan or code still registering `warm_start` at 100 has the ordering exactly inverted; (b) `TestWarmStartedCMSHoldsErrorBound` passes — the warm-started Count-Min is held to Appendix A's ε·N bound for every key, under a `Dims()`-derived load that forces collisions |
 | I-16.11 | Warm start never blocks the hook | `go test ./test/e2e/ -run 'TestWarmStartDoesNotBlockSessionStart\|TestHooksStillExitZeroUnderPhase7Faults' -v` | PASS; `qompack session-start` always exits 0 |
 | I-16.12 | **Phase-7 warm-start delta** | `go test ./test/replay/ -run TestPhase7WarmStartDelta -v` | PASS; `mean(warm.FractionOfOPT) >= mean(cold.FractionOfOPT)` **and** `mean(warm.FirstDivergenceTurn) >= mean(cold.FirstDivergenceTurn)`; `testdata/phase7/warmstart-delta.json` reproduced |
 | I-16.13 | Phase-7 regression and growth guardrails | `go test ./test/replay/ -run 'TestPhase7NoRegressionBeyondTwoPercent\|TestPhase7StoreGrowthStillSublinear' -v` | PASS; zero disallowed regressions; segment-bloom bytes ≤ 3 KB × segment count |
 | I-16.14 | **Declared non-delivery is enforced** (§12 "cannot place or move `cache_control` breakpoints") | `go test ./test/replay/ ./test/e2e/ -run 'TestPrefixReorderingNotAttempted\|TestPhase7ADRDocumentsNonDelivery' -v` | PASS; no `cache_control`/`CacheBreakpoint`/`ReorderPrefix`/`MutationRateSort` outside `internal/eval`; ADR carries the verbatim sentence |
 | I-16.15 | Phase-7 e2e seams | `go test ./test/e2e/ -run 'TestSegmentBloomAnswersWithoutExpansion\|TestPromotedPointersReachRehydration\|TestIndexExpansionsAgreeWithPromoter' -v` | PASS; promoted pointer reaches `additionalContext` within the 12 000-token cap; store index and MCP Promoter agree on the same hash set |
 | I-16.16 | Phase-7 budgets | `go test ./internal/store/ ./internal/checkpoint/ ./internal/daemon/ ./internal/scheduler/ -bench 'BenchmarkBuildSegmentBloom\|BenchmarkSegmentsMayContain200\|BenchmarkPromote500\|BenchmarkTruncateTuned\|BenchmarkWarmStart10Sessions\|BenchmarkEvaluateWithSkiRental' -benchtime 2s` | `BuildSegmentBloom` < 50 ms; `SegmentsMayContain200` < 5 ms; `Promote500` < 50 ms; `TruncateTuned` < 20 ms at budget 12 000; `WarmStart10Sessions` < 3 s; `EvaluateWithSkiRental` within 10% of baseline |
+| I-16.17 | **The warm-started Count-Min is accurate, not merely safe** — closes the V3-VERIFY §0 carry | `go test ./internal/daemon/ -run TestWarmStartedCMSHoldsErrorBound -v` and `go test ./internal/sketch/ -run 'TestCMS_EstimateNeverUnderestimates\|TestCMS_ErrorBoundHolds' -v` | PASS. V3-VERIFY §0 carried this forward to SP-16/V5 in as many words: `sketchtest.RunCMSSuite` asserts only "Estimate ≥ true", which **a max-estimator returning `math.MaxUint32` for every key would satisfy**, so a warm-started table held only to that suite inherits the safety property and not the accuracy one — `internal/sketch/sketchtest/cms.go`'s own doc comment says exactly this and names SP-16. `TestWarmStartedCMSHoldsErrorBound` closes it: it builds the project CMS from `n = 2×width` synthetic touches (`width` from `Dims()`, so collisions are forced), runs the real warm-start path `Scale(decay)` + `MergeFrom`, and asserts for **every** key both `Estimate ≥ round(decay·exact)` and `Estimate − round(decay·exact) ≤ ε·N + 1`. Record the worst over-count the test logs, and tick the carry closed in §8.8. |
 
 ---
 
@@ -879,12 +880,13 @@ every number in the completion report — a budget that is not written down was 
 | ID | Budget | Source | Command | Threshold |
 |---|---|---|---|---|
 | **B-A** | `hook_controlled` p99 | §8.1, §11.3 L0, 00-ARCH §2.4 | `go run ./tools/devtool bench-hotpath --iterations 5000 --hook observe-tool --warm-daemon --json .\v5-ba.json` on ubuntu, macos **and** windows | **p99 < 15 ms** on all three. Hard fail. |
-| **B-A′** | `hook_controlled` p99 for the reply path | 00-ARCH §2.4 | same harness `--hook observe-prompt` | p99 < 15 ms **with the SP-15 thrash addendum active** — `WarningsFor` is inside this budget |
+| **B-A′** | `hook_controlled` p99 for the reply path | 00-ARCH §2.4 | same harness, `--hook observe-prompt` — **after landing the harness change described below**, without which the flag is rejected before any work happens | p99 < 15 ms **with the SP-15 thrash addendum active** — `WarningsFor` is inside this budget |
 | **B-B** | `l0_ingest` (daemon read → WAL append) p99 | 00-ARCH §2.4 | reported by the same bench artifact; `go test ./internal/daemon/ -bench BenchmarkIngestAccept` | p99 < 2 ms |
 | **B-C** | `l0_process` p99 (soft) | 00-ARCH §2.4 | `go test ./internal/observer/ -bench 'BenchmarkOnToolUse_' -benchtime 5s` | p99 < 50 ms; overrun degrades to sampling/backpressure, never blocking |
 | **B-D** | `hook_wall` incl. host process creation | 00-ARCH §2.4 | same bench artifact | **reported, never gated.** Record it honestly. |
-| **B-E** | `checkpoint_finalize` p99 | §11.3 L4, 00-ARCH §2.4 | `go run ./tools/devtool bench-hotpath --iterations 200 --hook checkpoint --json .\v5-be.json` | **p99 < 2 s** on all three platforms. Hard fail. Must hold **with grammar folding and pointer promotion both in `Finalize`.** |
+| **B-E** | `checkpoint_finalize` p99 | §11.3 L4, 00-ARCH §2.4 | `go run ./tools/devtool bench-hotpath --iterations 200 --warm-daemon --json .\v5-be.json` — **no `--hook` flag**: the harness measures B-E unconditionally, spawning `qompack checkpoint` itself, and `--hook checkpoint` is rejected outright by `hookArgs` (`--hook %q not supported (only observe-tool)`, exit 2) | **p99 < 2 s** on all three platforms. Hard fail. **Both** rows the run emits must pass: `B-E` (wall clock) and `B-E_cpu` (its co-load-immune arm). Must hold **with grammar folding and pointer promotion both in `Finalize`.** |
 | **B-F** | `mcp_tool_call` p95 (`minimal` span) | 00-ARCH §2.4 | `go test ./internal/mcp/ -run TestBudgetBF -v` and `go test ./internal/commands/ -bench BenchmarkMCPFrontend` | p95 < 250 ms |
+| **B-G** | `hook_degraded` p99 — the synchronous spool append a hook pays when the daemon is unreachable | 00-ARCH §12.3 (no §2.4 row); `runtime.budgets.hookDegradedMs` | `go test ./internal/obs/ -run TestBudgets_BGCoversTheDegradedSpoolAppend -v`; `go test ./internal/ipc/ -run 'TestDegradedSpoolAppendIsRateGradedAgainstThePlatform\|TestDegradedSendRecordsIntoBGsHistogram' -v` | **reported, never gated** — and structurally so: `CheckBudgets`' only production caller is the daemon's own registry, while `hook_degraded` is written only by a hook process's registry when the daemon is unreachable, so a sample and an evaluator can never coexist. What actually binds is the rate grade the `ipc` test logs (`B-G rate grade: … x of 6x allowed`). Record that multiple and the per-append figure; the 1 000 ms `hookDegradedMs` limit is the reported ceiling. |
 | **P1-ratio** | Store dedup ratio on read-heavy sessions | §10 Phase 1 | `go test ./test/e2e/ -run TestPhase1_DedupRatioReadHeavy -v` | `Stats().DedupRatio ≥ 4.0` |
 | **P1-gap** | Canonicalization gap on test-output-heavy sessions | §10 Phase 1 | `go test ./test/e2e/ -run TestPhase1_CanonicalizationGapOnTestOutput -v`; `go test ./test/dedup/ -v` | `ratioOn ≥ ratioOff × 1.25`; `testrunner` `gain ≥ 1.25`; overall `gain ≥ 1.0` |
 | **Growth** | Store growth sublinear after dedup | §11.3 | `go test ./internal/store/ -run TestStats_SublinearGrowth -v`; `go test ./test/e2e/ -run TestPhase1_StoreGrowthSublinear -v`; `go test ./test/replay/ -run TestPhase7StoreGrowthStillSublinear -v` | sublinear on all three; growth exponent from `CheckSublinearGrowth` < 1.0; segment-bloom bytes ≤ 3 KB × segments |
@@ -900,6 +902,29 @@ Notes that must not be shortcut:
   warm daemon with 2 000 tool uses and 40 MB of raw output so the CMS and DAG are realistically sized.
 - **B-D is reported and never gated.** Hiding host process creation inside B-A is exactly the
   dishonest measurement §1.3 RC-3 indicts.
+- **B-G is reported and never gated for a structural reason, not a soft one** — see the row. It is
+  in this table because a budget that is not written down was not measured, and because its two
+  `internal/ipc` tests are the only thing standing between the degraded path and an unbounded
+  filesystem append.
+- **B-E takes no `--hook` flag, and `--hook checkpoint` is not a thing.** The harness measures B-E
+  on every run by spawning `qompack checkpoint` itself; `hookArgs` in `test/bench/hotpath/main.go`
+  accepts only `""` and `observe-tool` and returns an error for anything else, which `runMain`
+  prints as `hotpath: --hook "checkpoint" not supported (only observe-tool)` and exits 2 with
+  nothing measured. The same stale spelling appears in V2-VERIFY, V3-VERIFY, V4-SP-10, V4-VERIFY
+  and V6-VERIFY; correcting those is their own checkpoints' business, but do not copy it here.
+- **B-A′ requires a committed harness change before it can be measured, and V5 owns it.** There is
+  no `observe-prompt` spawn arm anywhere in `test/bench/hotpath` today, so `--hook observe-prompt`
+  is rejected by the same `hookArgs` switch. The change is small, explicit, and lands on
+  `verify/v5` as its own commit **before** §5 is run:
+  1. `hookArgs` gains `case "observe-prompt": return []string{"observe", "prompt"}, nil`, and the
+     `--hook` flag's help text stops saying "only observe-tool is supported today".
+  2. A `representativePromptPayload(sess, projectRoot string, seq int) []byte` is added alongside
+     `representativeObservePayload`, emitting a `UserPromptSubmit` hook event (the reply-carrying
+     hook, which is where SP-15's thrash addendum is composed) rather than a `PostToolUse` one.
+  3. `runHarness` drives it through the same `measureSpawns` call the B-A/B-D arm uses, selecting
+     the payload builder from `f.hook`, and reports the result under its own budget row.
+  Without this commit B-A′ is unmeasurable and `WarningsFor` — which is inside this budget — is
+  measured nowhere at all. Record the commit sha in §8.5's B-A′ row.
 - Budgets whose components do not exist yet: none. At V5 every layer L0–L7 exists, so every budget
   in the table binds.
 
@@ -908,8 +933,10 @@ Notes that must not be shortcut:
 ## 6. Regression
 
 V5 re-runs the full inventory of every prior checkpoint, because "the wave-4 branches did not touch
-that package" is a claim, not a measurement — and SP-16 in particular edits seven sites across six
-files owned by SP-01, SP-05, SP-06, SP-10 and SP-12.
+that package" is a claim, not a measurement — and SP-16 in particular edits fourteen sites across
+twelve files owned by SP-01, SP-05, SP-06, SP-10 and SP-12, `internal/store/segments.go` (three
+sites, including `openSegLog`'s signature) and `internal/scheduler/formulas.go` (from which
+`SkiRentalShouldWrite` was moved) among them.
 
 ### 6.1 Predecessor checkpoints
 
@@ -1130,7 +1157,7 @@ Attribution-trailer grep over develop..verify/v5: <empty / FINDINGS>
 | I-13.1 … I-13.19 | SP-13 MCP (19 rows) | | B-F p95= |
 | I-14.1 … I-14.16 | SP-14 commands/status (16 rows) | | Collect p95=, RenderStatus= |
 | I-15.1 … I-15.18 | SP-15 analyzer/grammar (18 rows) | | ΔfractionOfOPT=, thrash first-warn turn= |
-| I-16.1 … I-16.16 | SP-16 Phase 7 (16 rows) | | warm-cold ΔOPT=, ΔfirstDiv=, segment FP= |
+| I-16.1 … I-16.17 | SP-16 Phase 7 (17 rows) | | warm-cold ΔOPT=, ΔfirstDiv=, segment FP=, warm-CMS worst over-count= |
 
 *(Expand every abbreviated block to one row per inventory ID when filling this in. A collapsed block
 is not a report.)*
@@ -1184,12 +1211,14 @@ is not a report.)*
 | ID | Threshold | ubuntu | macos | windows | Result |
 |---|---|---|---|---|---|
 | B-A `hook_controlled` p99 | < 15 ms | | | | |
-| B-A′ `observe-prompt` p99 | < 15 ms | | | | |
+| B-A′ `observe-prompt` p99 (record the harness-arm commit sha) | < 15 ms | | | | |
 | B-B `l0_ingest` p99 | < 2 ms | | | | |
 | B-C `l0_process` p99 | < 50 ms (soft) | | | | |
 | B-D `hook_wall` p99 | reported only | | | | n/a |
 | B-E `checkpoint_finalize` p99 | < 2 s | | | | |
+| B-E_cpu (co-load-immune arm) | < 2 s | | | | |
 | B-F `mcp_tool_call` p95 | < 250 ms | | | | |
+| B-G `hook_degraded` p99 (record the `ipc` rate grade; the gate is 6× the platform's own append) | reported only | | | | n/a |
 | Dedup ratio (read-heavy) | ≥ 4.0 | | | | |
 | Canon gain (testrunner) | ≥ 1.25 | | | | |
 | Store growth exponent | < 1.0 | | | | |
@@ -1235,7 +1264,16 @@ is not a report.)*
 [ ] Every §5 budget measured on all three platforms and written down.
 [ ] Full §6 regression green, including V1–V4 inventories and the 2% guardrail.
 [ ] Zero disallowed regressions; every allowed one carries a per-metric sign-off: trailer.
-[ ] Zero t.Skip in any conformance suite; zero ErrNotImplemented outside internal/core.
+[ ] Zero t.Skip/t.Skipf/t.SkipNow CALLS under internal/**/*test*/ (comment mentions and
+    t.Skipped() assertions are expected and do not count) — I-01.18.
+[ ] Zero ErrNotImplemented outside the three named survivors of I-01.17: internal/core/errors.go,
+    the <pkg>test suites' accepted-error checks, and internal/cli's notImplemented table, which
+    carries exactly fsck, doctor and bench.
+[ ] The V3-VERIFY §0 carry is CLOSED and recorded as closed: RunCMSSuite cannot discriminate a
+    max-estimator, and TestWarmStartedCMSHoldsErrorBound (I-16.17) now holds SP-16's warm-started
+    Count-Min to the epsilon-N accuracy bound under a Dims()-derived, collision-forcing load.
+[ ] B-A-prime's observe-prompt harness arm is committed on verify/v5 and its sha is recorded in
+    Section 8.5; B-A-prime and B-G are both measured, not skipped.
 [ ] Zero attribution trailers in develop..verify/v5.
 [ ] verify/v5 merged into develop with --no-ff; ci-local and replay-gate re-run on develop after the merge.
 [ ] Tag v0.4.0 applied.

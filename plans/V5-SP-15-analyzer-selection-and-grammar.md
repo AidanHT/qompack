@@ -14,6 +14,23 @@ This slice is layer **L2's selection machinery**. Qompack's store (L1) records e
 
 It also closes Phase 6 by shipping `internal/grammar`: an online, linear-time Sequitur implementation over the action log that maintains the two invariants (no digram appears twice; every rule is used more than once), detects high-multiplicity nonterminals as thrash, delivers a one-line warning through `UserPromptSubmit` `additionalContext`, and folds the grammar-compressed action history into the checkpoint **at compaction time** rather than rewriting anything in place — which is exactly why §5.5 classifies Sequitur as cache-**Safe**.
 
+**What this subplan ships, stated plainly so no one has to infer it: in wave 4 the selector ships
+measured, not wired.** Its only callers are the two replay policies in `test/replay`
+(`NewSuffixSubmodularPolicy` and `NewPSelectionBaselinePolicy`); no production code path constructs
+a `Selector`. §6.5's "this should allocate the post-compact budget instead of 'top 5 files, 5K
+each'" is therefore **partially** delivered here: the allocator exists, is property-tested against
+the `(1 − 1/e)` guarantee, and is scored against Belady OPT on the 24-session corpus — but the
+production budget allocation stays with SP-11's rehydrator and SP-10's `Truncate`, both of which
+this subplan lists as out of scope. **The production consumer — the rehydration allocation and
+`checkpoint.Truncate`'s pointer ordering, which is also where SP-16's `OrderPointers` lands — is
+deferred to a later, named owner: SP-16 for pointer ordering, and the wave-5 rehydration slice for
+the 8–12K allocation.** Wiring it here would mean an anchored edit inside two other subplans'
+files and an owner negotiation none of the three wave-4 branches has room for. What follows from
+that, and is repeated in the Exit criteria: **Phase 5's number is replay evidence, not live-path
+behaviour.** It is the honest form of the phase gate — "the selector would do better at equal
+budget, measured on a corpus" — and it is what makes the later wiring a mechanical change with a
+number already attached rather than a leap of faith.
+
 The scheduling of this subplan into wave 4 is load-bearing and must not be "optimized" earlier. Closing note 3 of `Qompack.md` states that shipping slicing or submodular selection before p-selection "would make the system measurably more expensive while looking smarter." SP-07 already shipped slice *scores* in wave 1 (legal: scores rank content inside a checkpoint or rehydration budget, which is not a prefix edit). What was withheld until now is the scattered keep-set that drives a *drop* decision. `analyzer.NewSelector` therefore refuses to construct unless `scheduler.PSelectionAvailable()` reports true, and a CI test proves the inertness.
 
 **What exists in the repo when you start.** `internal/core`, `paths`, `config`, `logging`, `obs`, `tokens`, `contract`, `hookio`, `cli`, `pluginmanifest`, `testutil`, and the `test/e2e` scaffolding (SP-01). `internal/eval` with `Harness`, `Policy`, `Belady`, `Synthesize` and the 24-session synthetic corpus under `testdata/sessions/synthetic/` (SP-02, wave 1). `internal/sketch` with `Signature`, `Jaccard` and `IsNearDup` (SP-03, wave 1). `internal/symbols` with `Extractor` and `References` (SP-04, wave 1). `internal/store` with objects, roots, the tool_use index, file version history, segments, GC and exact token accounting (SP-06). `internal/dag` with the nine node kinds, eight edge kinds, `BackwardSlice`/`ForwardSlice` returning relevance scores, `CrossingEdges(pos)` and `NodesAfter(pos)` (SP-07). `internal/observer` writing tool-use records, supersession marks and Sequitur symbols through the shipped interfaces (SP-08). `internal/checkpoint` with the versioned schema, the incremental `Draft`, `Truncate`, `ExtractDecisions` and `FocusInstructions` (SP-10). `internal/scheduler` with BOCD, Young–Daly, the composite trigger, p-selection, droppable-block classification and `PSelectionAvailable()` (SP-12). `internal/analyzer` and `internal/grammar` exist as SP-01 stubs whose methods return `core.ErrNotImplemented` and whose conformance suites are `t.Skip`ped.
@@ -221,7 +238,8 @@ Each item names the sibling subplan that owns it. Do not implement any of these.
 | `sketch.MinHash`, `Signature.Jaccard`, Bloom/CMS/HLL/Misra-Gries implementations and serialization | **SP-03** |
 | `symbols.Extractor` implementation, FastCDC, canonicalizers | **SP-04** |
 | `store` objects/roots/index/GC, redaction at ingest, `tokens` exact accounting | **SP-06** |
-| Daemon lifecycle, IPC transport, op-routing table, `IdleController`, spool/WAL, hot-path budgets | **SP-05** (SP-15 adds exactly one new file, `internal/daemon/grammar_addendum.go`, plus one contiguous four-line guarded call in the daemon constructor; see Implementation spec §7) |
+| Daemon lifecycle, IPC transport, op-routing table, `IdleController`, spool/WAL, hot-path budgets | **SP-05** (SP-15 adds exactly one new file, `internal/daemon/grammar_addendum.go`, plus one contiguous four-line guarded call in `daemon.New` immediately before `d.routes = buildRoutes(&o, d)`; it registers on `*Options`, never on a running daemon, and never mutates `d.routes`. See Implementation spec §7) |
+| The production consumer of the selector — the rehydrator's 8–12K allocation, and `checkpoint.Truncate`'s pointer ordering. SP-15 ships the selector measured-but-unwired; its callers are the two `test/replay` policies | **SP-16** (pointer ordering / `OrderPointers`) and the **wave-5 rehydration slice** (allocation) |
 | Packaging, cross-platform matrix, security audit, release pipeline | **SP-17** |
 | README, user guide, troubleshooting, config reference, cannot-do list, UAT | **SP-18** |
 
@@ -256,21 +274,62 @@ func Defaults() Config
 func Load(env Env) (Config, Provenance, []Warning, error)
 // Config.Selection.Submodular.Lambda float64        (Appendix C default 0.4)
 // Config.Selection.Submodular.LazyGreedy bool       (Appendix C default true)
+// Config.Selection.Submodular.Enabled bool          (json:"-"; derived by Load from
+//                                                    Runtime.Selection.SubmodularEnabled — see
+//                                                    the ship-order decision below)
 // Config.Selection.DeltaScoring string              (Appendix C default "cheap")
 // Config.Selection.Slicing string                   (Appendix C default "thin")
 // Config.Store.Canonicalize.MinHash.NearDupThreshold float64   (Appendix C default 0.9)
 ```
 
-**Decision — there is no `selection.submodular.enabled` key.** 00-ARCHITECTURE §5.12 mentions
-`config.SelectionCfg.Submodular.Enabled` "defaults to `false` until SP-12 … has merged", but
-Appendix C's `selection.submodular` object has exactly two members (`lambda`, `lazyGreedy`) and
-§11.1 pins `config.Defaults()` to the Appendix C document verbatim with a golden test. Inventing an
-Appendix C key would break that golden. SP-12 merged in wave 3, so the guard §5.12 describes is
-already satisfied structurally, and the **single normative gate is `scheduler.PSelectionAvailable()`**.
-Contingency, decided in advance so no one has to ask: if SP-01 did ship a `SelectionCfg.Submodular.Enabled`
-field on `develop`, `NewSelectorWithStore` ANDs it with `pAvailable()` — `!enabled` returns
-`ErrPSelectionUnavailable` exactly as `!pAvailable()` does — and nothing else in this subplan changes.
-Do **not** add the key if it is absent; that would require an amendment under 00-ARCHITECTURE §0.
+**Decision — the ship-order key exists on `develop`, and SP-15 flips its default to `true`.**
+There is no `selection.submodular.enabled` key in Appendix C, and none is invented: Appendix C's
+`selection.submodular` object has exactly two members (`lambda`, `lazyGreedy`) and §11.1 pins
+`config.Defaults()` to that document with a golden test. What SP-01 did ship is a **separate,
+derived** field outside Appendix C, and it is live on `develop` today:
+
+```go
+// internal/config/runtime.go
+type RSelectionCfg struct {
+    SubmodularEnabled bool `json:"submodularEnabled" doc:"ship-order gate: enable submodular selection; refused without p-selection (closing-note-3)" sec:"Closing note"`
+}
+// internal/config/config.go — SubmodularCfg.Enabled is json:"-", never read from a file
+// internal/config/load.go   — deriveSubmodularEnabled copies Runtime.Selection.SubmodularEnabled
+//                             into Selection.Submodular.Enabled after every fromMap
+// internal/config/defaults.go — SubmodularEnabled: false, and the derived Enabled: false
+```
+
+`runtime.selection.submodularEnabled` therefore defaults to **false** on `develop`, and ANDing that
+flag into the gate while it stays false would make this entire subplan inert under
+`config.Defaults()` and under every real project config — the Phase 5 exit number would be
+demonstrable only in tests that hand-build a `Config`, and the shipped plugin would improve
+nothing. That is not a shippable outcome, so the gate is not left where SP-01 parked it.
+
+**SP-15 flips the default, as an explicit declared edit, because the condition SP-01 wrote it for
+is now satisfied.** The key's own doc string names the condition ("refused without p-selection"),
+and SP-12 merged in wave 3, so `scheduler.PSelectionAvailable()` reports true on the branch SP-15
+is cut from. Four files change, all of them listed in the Done checklist and made in commit 5:
+
+| File | Edit |
+|---|---|
+| `internal/config/defaults.go` | `Runtime.Selection.SubmodularEnabled: false → true`, and the derived `Selection.Submodular.Enabled: false → true` so `Defaults()` agrees with what `Load` derives |
+| `internal/config/defaults_test.go` | `require.Equal(t, config.RSelectionCfg{SubmodularEnabled: true}, rt.Selection)`; `TestDefaults_SubmodularEnabledDefaultsFalseAndHidden` becomes `TestDefaults_SubmodularEnabledDefaultsTrueAndHidden` — `require.True(t, cfg.Selection.Submodular.Enabled)`, with the `json:"-"` assertion unchanged |
+| `test/guards/buildorder_test.go` | `TestGuard_SubmodularDefaultsOff` becomes `TestGuard_SubmodularEnabledOnlyAfterPSelection`: it asserts `d.Runtime.Selection.SubmodularEnabled == true` **and** `d.Selection.Submodular.Enabled == d.Runtime.Selection.SubmodularEnabled`, i.e. that the derived field still follows the runtime key. The guard is not deleted — it is re-pointed at the invariant that survives, which is the derivation, not the value |
+| `docs/config-reference.md` | regenerated: `go run ./tools/devtool gen-config-docs` (the `docs` CI job runs `gen-config-docs --check`, so the row's default column must be regenerated, never hand-edited) |
+
+**With the default flipped, the AND-gate only lets an operator opt out — and its two halves live in
+two different places, on purpose.** The **ship-order** half is structural and stays in the
+constructor exactly as SP-01 shipped it: `NewSelectorWithStore` consults `pAvailable()` and refuses
+with `ErrPSelectionUnavailable`, and no configuration can override that. The **operator opt-out**
+half lives at the call site, because that is where a loaded `config.Config` exists: every consumer
+reads `cfg.Selection.Submodular.Enabled` before constructing and, when it is false, keeps the
+baseline keep-set unchanged — `test/replay/policy_analyzer.go`'s `KeepSet` step 6 returns `base`
+without building a selector, which is byte-identical to what the `ErrPSelectionUnavailable` branch
+in step 7 already does. Two alternatives were considered and rejected: adding a `config.Config` parameter to the
+§5.12-pinned constructor signature is an amendment under 00-ARCHITECTURE §0, and holding the flag
+in a package-level variable the way `pAvailable` is held would put a mutable global on a path two
+goroutines can reach. Neither Appendix C nor any §5 interface changes, so no amendment is needed
+and none is made.
 
 From `internal/logging` and `internal/obs` (§5.2):
 
@@ -476,10 +535,18 @@ func NewSelector(p int, blocks []Block, slice dag.Slice, delta map[dag.NodeID]fl
 func NewSelectorWithStore(p int, blocks []Block, slice dag.Slice, delta map[dag.NodeID]float64,
                           lambda float64, lazy bool, s store.Store) (Selector, error)
 
+// The two structural sentinels WRAP the core errors the shipped constructor already returns, so
+// every live errors.Is check keeps passing. test/guards/buildorder_test.go requires
+// core.ErrBudget for a pre-p block (ungated by PSelectionAvailable) and
+// internal/analyzer/selector_test.go additionally requires the formatted message to contain
+// "invariant 4"; the ship-order refusal is pinned to core.ErrNotImplemented by
+// TestNewSelector_ShipOrderGateDecidesTheLegalCandidateSet and TestGuard_SelectorRefusesWithoutPSelection.
 var (
-    ErrPSelectionUnavailable = errors.New("qompack: p-selection unavailable; submodular selection is inert (closing note 3)")
-    ErrBlockBeforeP          = errors.New("qompack: block position precedes p (suffix constraint, §5.3)")
-    ErrLambdaNegative        = errors.New("qompack: submodular lambda must be >= 0")
+    ErrPSelectionUnavailable = fmt.Errorf("%w: submodular selection requires p-selection (closing note 3)",
+        core.ErrNotImplemented)
+    ErrBlockBeforeP = fmt.Errorf("%w: block position precedes p (suffix constraint, §5.3, §13 invariant 4)",
+        core.ErrBudget)
+    ErrLambdaNegative = errors.New("qompack: submodular lambda must be >= 0")
 )
 
 // SetPSelectionProbe replaces the ship-order probe and returns a restore func. Test-only:
@@ -511,6 +578,9 @@ func NewWithClock(c core.Clock) Sequitur   // New() == NewWithClock(core.SystemC
 type TurnAware interface{ AppendAt(s Symbol, turn core.TurnIndex) }
 
 type Warning struct{ Rule Rule; Repeats int; Message string; Turns []core.TurnIndex }
+// FormatWarning is SHIPPED by SP-01 and frozen (internal/grammar/formatwarning.go). It is listed
+// here because SP-15 calls it; SP-15 does not modify it, its wording, or its test. Warning.Message
+// is the "short, human-readable suggestion" it interpolates — never the rendered line (§6.5).
 func FormatWarning(w Warning) string
 
 type WarnOptions struct{ MinUses, MinSpan, MaxWarnings int }
@@ -549,7 +619,9 @@ func FoldActionHistoryInto(c *Checkpoint, g grammar.Sequitur, o grammar.WarnOpti
 ```go
 func WrapPromptHandlerWithThrashWarning(inner ipc.Handler, g grammar.Sequitur,
                                         o grammar.WarnOptions, log logging.Logger) ipc.Handler
-func AttachThrashWarning(d Daemon, g grammar.Sequitur, o grammar.WarnOptions, log logging.Logger) error
+// AttachThrashWarning takes *Options, not Daemon: the route table is frozen by New and read
+// unguarded on the B-A path, so the wrap must be registered before New builds it (see §7).
+func AttachThrashWarning(o *Options, g grammar.Sequitur, wo grammar.WarnOptions, log logging.Logger) error
 ```
 
 `test/replay` — additive, own files:
@@ -610,10 +682,18 @@ type Block struct {
     Superseded bool
 }
 
+// ErrPSelectionUnavailable and ErrBlockBeforeP are NAMES for the two refusals SP-01's constructor
+// already returns; they are not new error values. Each wraps the core sentinel the shipped code
+// (and the live tests that pin it) returns today, so `errors.Is(err, core.ErrBudget)` and
+// `core.IsNotImplemented(err)` keep holding while callers gain a specific symbol to branch on.
+// The messages are the shipped messages: ErrBlockBeforeP keeps the phrase "invariant 4", which
+// internal/analyzer/selector_test.go asserts with require.Contains.
 var (
-    ErrPSelectionUnavailable = errors.New("qompack: p-selection unavailable; submodular selection is inert (closing note 3)")
-    ErrBlockBeforeP          = errors.New("qompack: block position precedes p (suffix constraint, §5.3)")
-    ErrLambdaNegative        = errors.New("qompack: submodular lambda must be >= 0")
+    ErrPSelectionUnavailable = fmt.Errorf("%w: submodular selection requires p-selection (closing note 3)",
+        core.ErrNotImplemented)
+    ErrBlockBeforeP = fmt.Errorf("%w: block position precedes p (suffix constraint, §5.3, §13 invariant 4)",
+        core.ErrBudget)
+    ErrLambdaNegative = errors.New("qompack: submodular lambda must be >= 0")
 )
 
 // pAvailable is an indirection over scheduler.PSelectionAvailable so the closing-note-3
@@ -920,28 +1000,46 @@ func NewSelector(p int, blocks []Block, slice dag.Slice, delta map[dag.NodeID]fl
 
 func NewSelectorWithStore(p int, blocks []Block, slice dag.Slice, delta map[dag.NodeID]float64,
                           lambda float64, lazy bool, s store.Store) (Selector, error) {
-    // Guard 1 — ship order (Qompack.md closing note 3, 00-ARCHITECTURE §5.12).
+    // Guard 1 — the suffix constraint (§5.3, 00-ARCHITECTURE §13 invariant 4).
+    // This runs FIRST and the order is NORMATIVE: SP-01's own doc comment on NewSelector says so
+    // ("The order matters and is normative: the Pos check runs FIRST, so a build in which both
+    // conditions hold reports the invariant-4 violation rather than masking it behind the
+    // ship-order one"), and two live tests pin it —
+    // internal/analyzer/selector_test.go's TestNewSelector_PosCheckRunsBeforeTheShipOrderCheck and
+    // test/guards/buildorder_test.go's TestGuard_SubmodularInertWithoutPSelection, which passes a
+    // pre-p block and requires core.ErrBudget with no PSelectionAvailable gate around it.
+    for i := range blocks {
+        if blocks[i].Pos < p {
+            return nil, fmt.Errorf("%w: block %s at pos %d precedes p=%d",
+                ErrBlockBeforeP, blocks[i].ID, blocks[i].Pos, p)
+        }
+    }
+    // Guard 2 — ship order (Qompack.md closing note 3, 00-ARCHITECTURE §5.12).
     if !pAvailable() {
         return nil, ErrPSelectionUnavailable
     }
     if lambda < 0 {
         return nil, fmt.Errorf("%w: got %v", ErrLambdaNegative, lambda)
     }
-    // Guard 2 — the suffix constraint (§5.3, 00-ARCHITECTURE §13 invariant 4).
-    for i := range blocks {
-        if blocks[i].Pos < p {
-            return nil, fmt.Errorf("%w: block %q at pos %d, p=%d",
-                ErrBlockBeforeP, blocks[i].ID, blocks[i].Pos, p)
-        }
-    }
     …
 }
 ```
 
-Guard 2 **errors**; it does not filter. `00-ARCHITECTURE §13` says "refuses", and refusing is
+**Both refusals keep the shipped `core` sentinels and the shipped message text.** `ErrBlockBeforeP`
+wraps `core.ErrBudget` and carries "§5.3, §13 invariant 4" in its own text, so the formatted error
+still satisfies `require.ErrorIs(err, core.ErrBudget)`, still names the offending block
+(`%s` on `blocks[i].ID`, matching `require.Contains(err.Error(), "tooluse:early")`), and still
+contains the substring `invariant 4`. `ErrPSelectionUnavailable` wraps `core.ErrNotImplemented`,
+so `core.IsNotImplemented(err)` still reports true and the message still contains `p-selection`.
+SP-15 renames nothing and removes neither check: it replaces `Select` and gives the two existing
+refusals exported names. Reordering the guards, dropping either `core` sentinel, or dropping the
+phrase "invariant 4" would each break a live test on `develop` and is forbidden.
+
+Guard 1 **errors**; it does not filter. `00-ARCHITECTURE §13` says "refuses", and refusing is
 strictly safer than silently discarding a caller's block: a caller that passes pre-`p` blocks has
 a bug in its candidate assembly and must be told, not accommodated. Blocks with `Pos == p` are
-legal (the cut is *at* `p`; everything from `p` onward is being rewritten anyway).
+legal (the cut is *at* `p`; everything from `p` onward is being rewritten anyway), which
+`TestNewSelector_PosEqualToPIsLegal` pins.
 
 The constructor then materializes the immutable selection state, once, **in this order**:
 (1) blocks are copied into a private slice sorted by `(Pos asc, ID asc)`; (2) `wEff` is computed
@@ -1374,7 +1472,16 @@ func WarningsFor(g Sequitur, o WarnOptions) []Warning
 `WarningsFor` calls `g.Thrash(o.MinUses)`, filters `Span >= o.MinSpan`, takes the first
 `o.MaxWarnings`, and builds one `Warning` each with `Repeats = Rule.Uses`,
 `Turns = turnsForRule(Rule.ID)` (empty when the grammar carries no turn data), and
-`Message = FormatWarning(w)`.
+
+```go
+// thrashSuggestion is the §5.11 "short, human-readable suggestion" that grammar.Warning.Message
+// is documented to carry. FormatWarning interpolates it; it is not the formatted line.
+const thrashSuggestion = "consider a different approach; call already_tried before retrying"
+```
+
+`Message = thrashSuggestion` for every warning. **`Message` is the suggestion, never the rendered
+line.** Setting `Message = FormatWarning(w)` would be self-referential against the shipped
+formatter, which interpolates `w.Message` into its own output.
 
 **Memoization — required, not an optimization.** `Rules()`, `Thrash()` and `turnsForRule()` all walk
 the whole grammar, and `PromptAddendum` runs on the `UserPromptSubmit` reply path, which is the hot
@@ -1385,31 +1492,63 @@ behind it under the same `mu`. Steady state on a prompt with no new tool calls s
 therefore a cache read costing O(number of warnings), not O(grammar). `BenchmarkWarningsFor` measures
 the cold (dirty) path, which is the one that must fit the budget.
 
-`FormatWarning(w Warning) string` produces exactly one line, no trailing newline:
+**`FormatWarning` is SP-01's, is frozen, and SP-15 does not modify it.** `internal/grammar/formatwarning.go`
+already ships it as a real function — not a stub — with wording that 00-ARCHITECTURE §5.11 left
+open and SP-01 deliberately closed:
 
 ```go
-fmt.Sprintf("[qompack] thrash: %s repeated %d× (turns %s) — consider a different approach; call already_tried before retrying.",
-    strings.Join(symbolsToStrings(w.Rule.Expansion), " → "), w.Repeats, renderTurns(w.Turns))
+// internal/grammar/formatwarning.go — SHIPPED, unchanged by this subplan
+func FormatWarning(w Warning) string {
+    return fmt.Sprintf("[qompack] possible loop: %s repeated %d× (turns %s) — %s",
+        strings.Join(symbolStrings(w.Rule.Expansion), "→"), w.Repeats, turnRange(w.Turns), w.Message)
+}
 ```
 
-`renderTurns` joins up to the first 5 turn indices with `", "` and appends `", …"` when more
-exist; with no turns it renders `"unknown"`. Example output, pinned as a golden at
-`testdata/golden/grammar/thrash_warning.txt`:
+Three exact strings are pinned unconditionally by `internal/grammar/formatwarning_test.go`
+(a test whose own header notes that, unlike everything else in the package, `FormatWarning` is real
+and therefore never skipped), and `plans/V1-VERIFY-foundation-and-contracts.md` L11 gates the shape
+`[qompack] possible loop: A→B→C repeated N× (turns X–Y) — <message>`. `turnRange` renders an
+en-dash min–max span (`42–74`, or `42` for a single turn) and the empty string for empty turns; the
+symbol join is `"→"` with **no** surrounding spaces. **SP-15 neither re-words the line nor adds a
+`renderTurns`: `internal/grammar/formatwarning.go` and `formatwarning_test.go` are not in this
+subplan's file list, and the V1 goldens are untouched.** Everything SP-15 wanted from a re-wording
+it gets from `Warning.Message`, which is exactly what that field is for.
+
+The composed line, pinned as a golden at `testdata/golden/grammar/thrash_warning.txt`, is therefore
+what `FormatWarning` produces from a `WarningsFor` output — a fixture of the composition, not a
+second definition of the format:
 
 ```
-[qompack] thrash: FileRead → FileEdit → Bash → test:fail repeated 11× (turns 14, 19, 24, 29, 34, …) — consider a different approach; call already_tried before retrying.
+[qompack] possible loop: FileRead→FileEdit→Bash→test:fail repeated 11× (turns 14–39) — consider a different approach; call already_tried before retrying
 ```
 
 `PromptAddendum(g Sequitur, o WarnOptions) string` returns `""` when there are no warnings, and
-otherwise the warnings joined with `"\n"`. This is the exact string the daemon appends to
-`hookSpecificOutput.additionalContext` on `UserPromptSubmit`.
+otherwise `FormatWarning` applied to each warning, joined with `"\n"`. This is the exact string the
+daemon appends to `hookSpecificOutput.additionalContext` on `UserPromptSubmit`.
 
-### 7. Thrash-warning delivery — `internal/daemon/grammar_addendum.go` (new) and one line in `New()`
+`WarningsFor` always populates `Turns` for a grammar built through `AppendAt`, so the degenerate
+empty-`turnRange` rendering (`(turns )`) is unreachable in production; `TestWarningsForPopulatesTurns`
+asserts that rather than re-testing SP-01's formatter.
+
+### 7. Thrash-warning delivery — `internal/daemon/grammar_addendum.go` (new) and four lines in `New()`
 
 §5.21 of 00-ARCHITECTURE is normative: **"No subplan other than SP-08 writes code in
 `internal/observer`."** Delivery therefore happens in the daemon, which §2.4 designs as the place
 later waves wire into ("a late-bound `Services` set", "the op-routing table is data, not a
-switch"). SP-15 adds exactly one new file and one line.
+switch"). SP-15 adds exactly one new file and one four-line guarded block.
+
+**The wrap happens at `Options` time, before the route table exists.** This is not a stylistic
+choice — it is the only race-free shape against the shipped daemon, and the shipped daemon says so
+itself. `Options.Handle`'s doc comment is normative: *"It is defined on Options rather than on
+Daemon so the table is complete before Run starts: registering a handler against a running server
+would need locking on the hot path, and B-A has no room for a contended mutex per request."*
+Concretely, on `develop`: the concrete type is the unexported `daemon` (there is no `daemonImpl`);
+`Handle` and `Handler` are methods on `*Options`, not on the daemon or the `Daemon` interface;
+`routes map[ipc.Op]ipc.Handler` has **no mutex**, is written exactly once at
+`d.routes = buildRoutes(&o, d)` and read unguarded on the request path in `dispatchOp`, so any
+post-`New` re-registration is a data race under `-race`; and the default prompt route is the method
+`d.handleObservePrompt`, installed by `defaultRoutes`, for which `o.Handler(ipc.OpObservePrompt)`
+reports `ok == false`.
 
 ```go
 // WrapPromptHandlerWithThrashWarning appends the L2 thrash warning to the UserPromptSubmit
@@ -1433,60 +1572,74 @@ func WrapPromptHandlerWithThrashWarning(inner ipc.Handler, g grammar.Sequitur,
     }
 }
 
-// AttachThrashWarning re-registers ipc.Op("observe.prompt") wrapped. It is a no-op returning nil
-// when the daemon has no grammar (waves 1–2 run with a nil Sequitur).
-func AttachThrashWarning(d Daemon, g grammar.Sequitur, o grammar.WarnOptions, log logging.Logger) error
+// AttachThrashWarning registers the wrapped observe.prompt handler ON THE OPTIONS, before New
+// freezes the route table. It is a no-op returning nil when there is no grammar (waves 1–2 run
+// with a nil Sequitur).
+func AttachThrashWarning(o *Options, g grammar.Sequitur, wo grammar.WarnOptions, log logging.Logger) error
 ```
 
-`AttachThrashWarning` reads the currently registered handler for `ipc.Op("observe.prompt")` from
-the daemon's routing table and registers the wrapped one. Its body, fully specified:
+Its body, fully specified:
 
 ```go
-func AttachThrashWarning(d Daemon, g grammar.Sequitur, o grammar.WarnOptions, log logging.Logger) error {
+func AttachThrashWarning(o *Options, g grammar.Sequitur, wo grammar.WarnOptions, log logging.Logger) error {
+    if o == nil {
+        return errors.New("qompack: cannot attach thrash warning to a nil Options")
+    }
     if g == nil { return nil }                      // waves 1–2 run with a nil Sequitur
     if log == nil { log = logging.Nop() }
-    impl, ok := d.(*daemonImpl)                     // substitute SP-05's concrete type name
+
+    inner, ok := o.Handler(ipc.OpObservePrompt)
     if !ok {
-        return fmt.Errorf("qompack: cannot attach thrash warning to %T", d)
+        // Nobody registered an override, so buildRoutes will install the daemon's own default.
+        // Delegate to it rather than reimplementing it.
+        inner = defaultObservePromptHandler
     }
-    inner := impl.routeFor(ipc.Op("observe.prompt"))
-    if inner == nil {
-        return fmt.Errorf("qompack: no handler registered for observe.prompt")
-    }
-    impl.Handle(ipc.Op("observe.prompt"), WrapPromptHandlerWithThrashWarning(inner, g, o, log))
+    o.Handle(ipc.OpObservePrompt, WrapPromptHandlerWithThrashWarning(inner, g, wo, log))
     return nil
+}
+
+// defaultObservePromptHandler is the route buildRoutes would have installed: the daemon's own
+// (*daemon).handleObservePrompt, reached through the Daemon value dispatchOp injects into every
+// request's context (withDaemon/DaemonFrom, options.go). Referencing it here is legal because
+// this file is in package daemon; it needs no export and no change to the Daemon interface.
+//
+// It exists so the wrapper can be installed at Options time — the only point at which the route
+// table can be changed without a mutex, since routes is written once in New and read unguarded on
+// the request path.
+func defaultObservePromptHandler(ctx context.Context, req ipc.Request) ipc.Response {
+    d, _ := DaemonFrom(ctx).(*daemon)
+    if d == nil {
+        return ipc.Response{OK: false, Err: "qompack: observe.prompt default handler unavailable"}
+    }
+    return d.handleObservePrompt(ctx, req)
 }
 ```
 
-Both error returns are non-fatal at the call site (it logs `Warn` and continues), so a daemon that
-SP-05 later restructures degrades to "no thrash warning", never to a broken prompt path.
-
-If SP-05's `Options.Handle` seam does not expose a read, add the three-line accessor **in this same
-new file** (the daemon struct is in the same package):
-
-```go
-func (d *daemonImpl) routeFor(op ipc.Op) ipc.Handler { d.mu.RLock(); defer d.mu.RUnlock(); return d.routes[op] }
-```
-
-Substitute SP-05's actual struct, mutex and map field names, which are visible in the file that
-defines `Handle`. If SP-05 registers routes through a different mechanism entirely (for example a
-route table built once and frozen before `New` returns), do **not** restructure SP-05's package:
-open `arch/daemon-route-read` under 00-ARCHITECTURE §0, add `RouteFor(op ipc.Op) ipc.Handler` to the
-`Daemon` interface in §5.4, land it, and rebase. The single call site added to SP-05's `New()` (or
-whichever file constructs the daemon and registers the default routes), placed immediately after
-the default route registration block:
+The single call site, added to `internal/daemon/daemon.go`'s `New()` **immediately before**
+`d.routes = buildRoutes(&o, d)` — which is the last moment the table can still be changed:
 
 ```go
     // SP-15: L2 thrash warning delivery (§8.1 item 6, §10 Phase 6).
     if o.Grammar != nil {
-        if err := AttachThrashWarning(d, o.Grammar, grammar.DefaultWarnOptions(), o.Log); err != nil {
+        if err := AttachThrashWarning(&o, o.Grammar, grammar.DefaultWarnOptions(), o.Log); err != nil {
             o.Log.Warn("thrash warning not attached", "err", err)
         }
     }
+    d.routes = buildRoutes(&o, d)
 ```
 
-Four lines, contiguous, guarded — trivially resolvable if SP-14 or SP-16 touch the same function
-(00-ARCHITECTURE §9: conflicts are resolved on the incoming branch, then re-merged).
+`New` takes `Options` by value, so `&o` is the same pointer `buildRoutes(&o, d)` already reads, and
+the registration is visible to it. The error return is non-fatal at the call site (it logs `Warn`
+and continues), so a daemon SP-05 later restructures degrades to "no thrash warning", never to a
+broken prompt path. Four lines, contiguous, guarded — trivially resolvable if SP-14 or SP-16 touch
+the same function (00-ARCHITECTURE §9: conflicts are resolved on the incoming branch, then
+re-merged).
+
+**No `routeFor` accessor, no mutex, no `Daemon`-interface change, and no amendment.** Earlier drafts
+of this section proposed reading the live route table back out of the daemon after `New`; that is
+wrong twice over — there is nothing to read it through, and writing `d.routes` after `New` would be
+an unsynchronized write on the B-A path. The Options-time wrap is what the shipped seam was built
+for, and it is the whole mechanism. `go test -race ./internal/daemon/...` is the check.
 
 ### 8. `internal/checkpoint/grammar.go` (new file in SP-10's package) and 4 lines in `writer.go`
 
@@ -1519,8 +1672,12 @@ func BuildActionHistory(g grammar.Sequitur, o grammar.WarnOptions) ActionHistory
     }
 
     for _, w := range grammar.WarningsFor(g, o) {
+        // FormatWarning, not w.Message: the note must carry the whole rendered line (rule,
+        // repeats, turn span AND suggestion), because RenderActionHistory prints it verbatim and
+        // the Phase 6 exit assertion greps the narrative for it. w.Message alone is only the
+        // suggestion half (§6.5).
         h.Thrash = append(h.Thrash, ThrashNote{Rule: "R" + strconv.Itoa(int(w.Rule.ID)),
-            Repeats: w.Repeats, Message: w.Message})
+            Repeats: w.Repeats, Message: grammar.FormatWarning(w)})
     }
     return h
 }
@@ -1555,7 +1712,7 @@ Action history (grammar-compressed, Qompack.md §6.3): 412 tool actions → 37 s
 R3 = FileRead FileEdit Bash test:fail (×11)
 R7 = Grep FileRead (×4)
 sequence: user R3 R3 R3 Grep R7 R3 …
-thrash: [qompack] thrash: FileRead → FileEdit → Bash → test:fail repeated 11× (turns 14, 19, 24, 29, 34, …) — consider a different approach; call already_tried before retrying.
+thrash: [qompack] possible loop: FileRead→FileEdit→Bash→test:fail repeated 11× (turns 14–39) — consider a different approach; call already_tried before retrying
 ```
 
 Every line is plain text; **no fenced code blocks, no leading tabs, and no line indented by four or
@@ -1658,12 +1815,17 @@ either way because it compares two `eval.Score`s, not two implementations.
    `Continuation.Paths`, sets `FromTurn = at+1`, and leaves `Continuation.Symbols` empty unless a
    `SymbolRefs` was supplied to the scorer. This is the **observed** continuation §4.3 calls the
    retrospective proxy.
-6. `sel, err := analyzer.NewSelectorWithStore(base.P, blocks, slice, delta, d.Lambda, d.Lazy, d.Store)`.
+6. **The operator opt-out, checked here because this is where the config lives.** If
+   `!d.Cfg.Selection.Submodular.Enabled`, return `base` unchanged without constructing a selector —
+   byte-identical to the `ErrPSelectionUnavailable` branch below. With the default flipped to
+   `true` (see the Interface contract's ship-order decision), this branch is taken only when an
+   operator has explicitly set `runtime.selection.submodularEnabled: false`.
+7. `sel, err := analyzer.NewSelectorWithStore(base.P, blocks, slice, delta, d.Lambda, d.Lazy, d.Store)`.
    On `errors.Is(err, analyzer.ErrPSelectionUnavailable)` return `base` unchanged — the policy is
    inert, exactly as closing note 3 requires. On `errors.Is(err, analyzer.ErrBlockBeforeP)` the
    candidate assembly in step 2 is wrong; fail the test loudly rather than falling back, because a
    silent fallback would hide a violation of invariant 4.
-7. `out, err := sel.Select(ctx, budget)`; return
+8. `out, err := sel.Select(ctx, budget)`; return
    `eval.KeepSet{IDs: stringsOf(out.Keep), Tokens: out.Tokens, P: base.P}`.
 
 `Name()` returns `"analyzer-suffix-submodular"`.
@@ -1710,7 +1872,8 @@ against the corpus with no new fixture fields:
   is worthless.
 - Assert the checkpoint fold: build a `Checkpoint` from each thrash session's grammar via
   `checkpoint.FoldActionHistoryInto` and require `SketchRefs["grammar"] == "grammar/actions.seq"`
-  and a non-empty `Narrative` containing `"[qompack] thrash:"`.
+  and a non-empty `Narrative` containing `"[qompack] possible loop:"` — SP-01's frozen prefix
+  (`internal/grammar/formatwarning.go`), which this subplan does not re-word.
 
 ---
 
@@ -1803,10 +1966,12 @@ branch of the encoder.
 | `TestWarningsForAtThreshold` | `read edit` × 3 | default | exactly 1 warning, `Repeats == 3` |
 | `TestWarningsForMaxWarnings` | cycle A = 4 distinct symbols × 3 (best product 12) then cycle B = 3 distinct *other* symbols × 6 (best product 18); the two alphabets are disjoint | `MaxWarnings: 1` | exactly 1 warning, and every symbol in its `Rule.Expansion` belongs to cycle B's alphabet — asserted on alphabet membership rather than on an exact rule id, because Sequitur's hierarchy makes several cycle-B rules tie at 18 and any of them is a correct answer |
 | `TestWarningsForMaxWarningsTieBreak` | one 4-symbol cycle × 6, so the 4-symbol rule (product 24) and the 8-symbol pair rule (product 24) tie | `MaxWarnings: 1` | exactly 1 warning, and it is the rule with the **lower** `RuleID` — the documented `ID ASC` tiebreak; asserted identical across 20 rebuilds to prove it is not map-iteration dependent |
-| `TestFormatWarningGolden` | rule `FileRead FileEdit Bash test:fail`, `Uses 11`, turns `[14,19,24,29,34,39]` | `FormatWarning` | byte-equal to `testdata/golden/grammar/thrash_warning.txt` (single line, no trailing newline) |
-| `TestFormatWarningNoTurns` | same rule, `Turns` nil | `FormatWarning` | contains `"(turns unknown)"` |
+| `TestWarningMessageIsTheSuggestionOnly` | `read edit test fail` × 11 | `WarningsFor` | every `Warning.Message` equals `thrashSuggestion` and contains **no** `"[qompack]"` — `Message` is §5.11's "short, human-readable suggestion", the half `FormatWarning` interpolates, never the rendered line |
+| `TestWarningsForPopulatesTurns` | same grammar, fed through `AppendAt` | `WarningsFor` | every `Warning.Turns` is non-empty and ascending, so SP-01's degenerate empty-`turnRange` rendering is unreachable in production |
+| `TestComposedWarningGolden` | rule `FileRead FileEdit Bash test:fail`, `Uses 11`, turns `[14,19,24,29,34,39]` from `WarningsFor` | `FormatWarning(WarningsFor(g, o)[0])` | byte-equal to `testdata/golden/grammar/thrash_warning.txt` (single line, no trailing newline). This is a fixture of the composition; the formatter's own wording stays pinned by SP-01's `internal/grammar/formatwarning_test.go`, which SP-15 does not touch |
+| `TestFormatWarningWordingIsSP01s` | the V1 fixture `Warning{Expansion:[Read Edit Bash], Repeats:11, Message:"consider a different approach", Turns:[42,74]}` | `FormatWarning` | exactly `"[qompack] possible loop: Read→Edit→Bash repeated 11× (turns 42–74) — consider a different approach"` — the same byte string V1-VERIFY L11 gates, restated here so a re-wording fails in SP-15's own package as well as SP-01's. The file itself is proved unmodified by the commit-2 checklist's `git diff --exit-code develop -- internal/grammar/formatwarning.go` |
 | `TestPromptAddendumEmpty` | grammar with no thrash | `PromptAddendum` | `""` |
-| `TestPromptAddendumJoinsWithNewline` | two thrash cycles, `MaxWarnings: 2` | `PromptAddendum` | exactly one `"\n"`, two lines each starting `"[qompack] thrash:"` |
+| `TestPromptAddendumJoinsWithNewline` | two thrash cycles, `MaxWarnings: 2` | `PromptAddendum` | exactly one `"\n"`, two lines each starting `"[qompack] possible loop:"` |
 
 ### `internal/grammar/bench_test.go`
 
@@ -1873,9 +2038,17 @@ Fixture: `testutil.NewProject` with a real store; helper `putRead(path, body, tu
 
 ### `internal/analyzer/selector_test.go`
 
+**SP-01's five tests in this file stay exactly as they are** (`TestNewSelector_RefusesABlockBeforeP`,
+`TestNewSelector_PosCheckRunsBeforeTheShipOrderCheck`, `TestNewSelector_ShipOrderGateDecidesTheLegalCandidateSet`,
+`TestNewSelector_PosEqualToPIsLegal`, `TestNewSelector_EmptyCandidateSetStillConsultsTheShipOrderGate`);
+`TestStubSelector_SelectIsNotImplemented` is the one exception — its "Select is either the SP-01
+stub or SP-15's real implementation" branch is what it was written to allow, and it keeps passing
+once `Select` returns a real `Selection` with a nil error. The rows below are added alongside them.
+
 | Test | Setup | Expected |
 |---|---|---|
-| `TestNewSelectorRejectsPreP` | `p = 100`; blocks at Pos 150, 99 | `errors.Is(err, ErrBlockBeforeP)`; error text names the block id, its pos, and `p` |
+| `TestNewSelectorRejectsPreP` | `p = 100`; blocks at Pos 150, 99 | `errors.Is(err, ErrBlockBeforeP)` **and** `errors.Is(err, core.ErrBudget)`; error text names the block id, its pos, `p`, and contains `invariant 4` |
+| `TestNewSelectorPosCheckPrecedesShipOrderCheck` | probe forced false; blocks at Pos 150 and 99 | `errors.Is(err, core.ErrBudget)` and `!core.IsNotImplemented(err)` — the shipped normative order, re-asserted against the new sentinels |
 | `TestNewSelectorAcceptsPosEqualP` | `p = 100`; block at Pos 100 | no error |
 | `TestNewSelectorRejectsNegativeLambda` | `lambda = -0.1` | `errors.Is(err, ErrLambdaNegative)` |
 | `TestSelectorPReturnsP` | `p = 4242` | `P() == 4242` |
@@ -1908,7 +2081,7 @@ Fixture: `testutil.NewProject` with a real store; helper `putRead(path, body, tu
 
 | Test | Setup | Expected |
 |---|---|---|
-| `TestNewSelectorInertWithoutPSelection` | `restore := SetPSelectionProbe(func() bool { return false }); defer restore()` | `NewSelector(0, blocks, slice, delta, 0.4, true)` returns `nil, ErrPSelectionUnavailable`; `NewSelectorWithStore` likewise |
+| `TestNewSelectorInertWithoutPSelection` | `restore := SetPSelectionProbe(func() bool { return false }); defer restore()`, every block at `Pos >= p` | `NewSelector(0, blocks, slice, delta, 0.4, true)` returns `nil` and an error satisfying both `errors.Is(err, ErrPSelectionUnavailable)` and `core.IsNotImplemented(err)`; `NewSelectorWithStore` likewise |
 | `TestNewSelectorLiveWithPSelection` | probe forced true | constructor succeeds and `Select` returns a non-empty keep-set |
 | `TestPSelectionProbeDefaultsToScheduler` | no override | `pAvailable` is `scheduler.PSelectionAvailable` (compared by calling both and requiring equal results across 3 calls) |
 | `TestSetPSelectionProbeRestores` | override then restore | the default behaviour returns |
@@ -1918,7 +2091,7 @@ Fixture: `testutil.NewProject` with a real store; helper `putRead(path, body, tu
 | Test | Setup | Expected |
 |---|---|---|
 | `TestPSelectionProbeIsTestOnly` | walk `internal/**` and `cmd/**` with `go/parser`, skipping `*_test.go` | zero references to `SetPSelectionProbe`; failure message names each offending file — this is the CI test 00-ARCHITECTURE §5.12 requires |
-| `TestNoSelectorBypass` | grep every non-test `.go` file under `internal/analyzer` | exactly **one** occurrence of the string `Pos <`, and it is on the `if blocks[i].Pos < p {` line inside `NewSelectorWithStore` in `selector.go`. Any second occurrence anywhere in the package fails the test, naming file and line (invariant 4: "Do not add a bypass") |
+| `TestNoSelectorBypass` | `go/parser` over every non-test `.go` file under `internal/analyzer` | exactly **one** comparison of a `Block.Pos` against the constructor's `p`: a binary `<` (or `>=`) expression whose operands are a selector ending in `.Pos` and the identifier `p`, and it occurs inside `NewSelectorWithStore` in `selector.go`. A second such comparison anywhere in the package fails the test, naming file and line (invariant 4: "Do not add a bypass"). **Ordering comparisons of two blocks' `Pos` are explicitly permitted** — `bs[i].Pos < bs[j].Pos` is the `(Pos asc, ID asc)` sort §5.2 mandates, and neither operand is `p`. This is an AST check precisely because the earlier string-grep formulation (`exactly one occurrence of "Pos <"`) failed on correct code: the constructor's own sort contains that substring, so the grep would have forced an implementer to contort `sortByPosThenID` (`cmp.Compare`, a reversed `>`) purely to satisfy a text match |
 
 ### `internal/checkpoint/grammar_test.go`
 
@@ -1940,10 +2113,13 @@ Fixture: `testutil.NewProject` with a real store; helper `putRead(path, body, tu
 
 | Test | Setup | Expected |
 |---|---|---|
-| `TestThrashWarningReachesAdditionalContext` | real daemon over `testutil.NewProject`, grammar pre-fed 11 `read edit test fail` cycles, `AttachThrashWarning` applied | the `observe.prompt` response's `hookSpecificOutput.additionalContext` contains `"[qompack] thrash:"` and `"repeated 11×"` |
-| `TestThrashWarningPreservesInnerContext` | inner handler that sets `additionalContext = "inner"` | result is `"inner\n[qompack] thrash: …"` |
+| `TestThrashWarningReachesAdditionalContext` | real daemon built by `daemon.New` over `testutil.NewProject` with `Options.Grammar` pre-fed 11 `read edit test fail` cycles (so `New`'s own guarded `AttachThrashWarning(&o, …)` fires) | the `observe.prompt` response's `hookSpecificOutput.additionalContext` contains `"[qompack] possible loop:"` and `"repeated 11×"` |
+| `TestThrashWarningWrapsTheDefaultRoute` | same, with **no** `Options.Handle(ipc.OpObservePrompt, …)` override registered | the response still carries SP-05's own `handleObservePrompt` output **plus** the addendum — the check that `defaultObservePromptHandler`'s ctx delegation actually reaches `(*daemon).handleObservePrompt` |
+| `TestThrashWarningWrapsAnOptionsOverride` | an override registered on `Options` before `New` | the override runs and the addendum is appended to its output; `o.Handler(ipc.OpObservePrompt)` reported `ok == true` and the override was used as `inner` |
+| `TestThrashWarningPreservesInnerContext` | inner handler that sets `additionalContext = "inner"` | result is `"inner\n[qompack] possible loop: …"` |
 | `TestThrashWarningAbsentWhenNoThrash` | grammar with 5 distinct symbols | response is byte-identical to the unwrapped handler's |
-| `TestThrashWarningNilGrammarIsNoOp` | `g == nil` | wrapper returns the inner response unchanged |
+| `TestThrashWarningNilGrammarIsNoOp` | `g == nil` | `AttachThrashWarning` returns nil, registers nothing, and `o.Handler(ipc.OpObservePrompt)` still reports `ok == false`; the wrapper likewise returns the inner response unchanged |
+| `TestThrashWarningNoRouteMutationAfterNew` | `go test -race`, 64 concurrent `observe.prompt` requests against a daemon whose grammar is being appended to | no race reported; the route table is written once inside `New` and never afterwards |
 | `TestThrashWarningHookStillExitsZero` | the real `qompack observe prompt` binary against the warmed daemon | exit code 0 (00-ARCHITECTURE §13 invariant 6) |
 
 ### `test/replay/phase5_exit_test.go` and `phase6_exit_test.go`
@@ -1965,7 +2141,7 @@ Fixtures: `testdata/sessions/synthetic/*.json` (SP-02, 24 sessions) and the SP-1
 | Path | Contents |
 |---|---|
 | `testdata/golden/grammar/actions_v1.seq` | the byte-exact v1 serialization of a fixed 60-symbol grammar |
-| `testdata/golden/grammar/thrash_warning.txt` | the single-line formatted warning, no trailing newline |
+| `testdata/golden/grammar/thrash_warning.txt` | the single line `FormatWarning` produces from a `WarningsFor` output — SP-01's `[qompack] possible loop:` wording with SP-15's `thrashSuggestion` as the message — no trailing newline |
 | `testdata/golden/checkpoints/action_history.txt` | the rendered narrative block for the 11× thrash grammar |
 | `testdata/golden/analyzer/selection_smallcase.json` | an 8-block instance (blocks, slice scores, Δ scores, λ, budget) plus expected `Keep` (exact order), `Tokens` (exact) and `Value` (4 dp). **`Iters` is deliberately not in the golden** — it is a property of the heap implementation and freezing it would turn a legal optimization into a test failure; `TestSelectorGoldenSmallCase` bounds it instead |
 | `testdata/replay-baseline/phase5.json` | the recorded fraction-of-OPT baseline and analyzer numbers |
@@ -2015,12 +2191,15 @@ not import `sketch` under the §3.2 import DAG.*
 Footer: `Refs: SP-15, §6.3, §7.4, §10 Phase 6`
 
 - [ ] Write `internal/grammar/codec_test.go` (12 tests + `FuzzGrammarUnmarshal`) and
-      `warn_test.go` (8 tests) **first**; confirm they fail.
-- [ ] Add `internal/grammar/codec.go` and `warn.go`, including the `dirty`-flag projection cache
-      that makes the `PromptAddendum` B-A sub-budget hold.
+      `warn_test.go` (11 tests) **first**; confirm they fail.
+- [ ] Add `internal/grammar/codec.go` and `warn.go`, including the `thrashSuggestion` constant and
+      the `dirty`-flag projection cache that makes the `PromptAddendum` B-A sub-budget hold.
+      **Do not touch `formatwarning.go`.**
 - [ ] Generate `testdata/golden/grammar/actions_v1.seq` from the normative 60-symbol sequence,
-      `testdata/golden/grammar/thrash_warning.txt`, and the fuzz seed corpus under
-      `testdata/corpora/grammar/`.
+      `testdata/golden/grammar/thrash_warning.txt` (the composed line, in SP-01's `possible loop`
+      wording), and the fuzz seed corpus under `testdata/corpora/grammar/`.
+- [ ] Run `git diff --exit-code develop -- internal/grammar/formatwarning.go internal/grammar/formatwarning_test.go`
+      — must be empty. SP-01 froze that wording and V1-VERIFY L11 gates it.
 - [ ] Add `internal/grammar/bench_test.go` and confirm the four budgets
       (`< 20 µs/op`, `< 20 ms`, `< 5 ms` cold, `< 50 µs` cached).
 - [ ] Run: `go test -race ./internal/grammar/... && go test -run Fuzz -fuzz FuzzGrammarUnmarshal -fuzztime 60s ./internal/grammar/`.
@@ -2068,10 +2247,24 @@ refuses to construct at all unless p-selection is available, which is closing no
 code.*
 Footer: `Refs: SP-15, §5.2, §5.3, §6.5, §8.3, Closing note 3, Appendix A`
 
-- [ ] Write `internal/analyzer/selector_test.go` (16 tests), `greedy_property_test.go`
-      (7 properties) and `guard_test.go` (4 tests) **first**; confirm they fail.
-- [ ] Add `internal/analyzer/selector.go` (weights, coverage universe, `NewSelector`,
-      `NewSelectorWithStore`, `P`) and `greedy.go` (the lazy heap, `marginal`, Phase A, Phase B).
+- [ ] Extend the shipped `internal/analyzer/selector_test.go` with the 17 rows tabled above —
+      **keeping SP-01's five constructor tests exactly as they are** — and write
+      `greedy_property_test.go` (7 properties) and `guard_test.go` (4 tests) **first**; confirm the
+      new ones fail and the five old ones pass.
+- [ ] Replace `internal/analyzer/selector.go`'s stub body (weights, coverage universe,
+      `NewSelector`, `NewSelectorWithStore`, `P`) and add `greedy.go` (the lazy heap, `marginal`,
+      Phase A, Phase B). **Both guards survive verbatim**: the `Pos < p` check first, wrapped as
+      `ErrBlockBeforeP` over `core.ErrBudget` with `invariant 4` still in the message; then the
+      `pAvailable()` check, wrapped as `ErrPSelectionUnavailable` over `core.ErrNotImplemented`.
+- [ ] Run `go test ./internal/analyzer/ -run TestNewSelector_ && go test ./test/guards/ -run TestGuard_S`
+      **before** touching anything else in the file — the five shipped constructor tests and the two
+      shipped build-order guards must still pass, unmodified, after the replacement.
+- [ ] Flip the submodular default: `internal/config/defaults.go` (`SubmodularEnabled: true` and the
+      derived `Enabled: true`), `internal/config/defaults_test.go` (two assertions),
+      `test/guards/buildorder_test.go` (`TestGuard_SubmodularDefaultsOff` →
+      `TestGuard_SubmodularEnabledOnlyAfterPSelection`), then
+      `go run ./tools/devtool gen-config-docs` and commit the regenerated
+      `docs/config-reference.md`. Confirm with `go run ./tools/devtool gen-config-docs --check`.
 - [ ] Add `testdata/golden/analyzer/selection_smallcase.json`.
 - [ ] Add `test/e2e/analyzer_shiporder_test.go` (2 tests).
 - [ ] Add `BenchmarkLazyGreedy2000` (**< 50 ms**, B-E sub-budget) and
@@ -2089,16 +2282,17 @@ other wave-4 checkpoint work.*
 Footer: `Refs: SP-15, §5.5, §6.3, §6.9, §8.5, §10 Phase 6`
 
 - [ ] Write `internal/checkpoint/grammar_test.go` (11 tests) and
-      `test/e2e/thrash_warning_test.go` (5 tests) **first**; confirm they fail.
+      `test/e2e/thrash_warning_test.go` (8 tests) **first**; confirm they fail.
 - [ ] Add `internal/checkpoint/grammar.go` (`ActionRule`, `ThrashNote`, `ActionHistory`,
       `BuildActionHistory`, `RenderActionHistory`, `FoldActionHistoryInto`).
 - [ ] Modify `internal/checkpoint/writer.go`: insert the three-line fold immediately before the
       `Truncate` call in `Finalize`. No other change to that file.
-- [ ] Add `internal/daemon/grammar_addendum.go`
-      (`WrapPromptHandlerWithThrashWarning`, `AttachThrashWarning`, and the `routeFor` accessor
-      only if SP-05's seam does not already expose one).
-- [ ] Modify the daemon constructor file: insert the four-line guarded `AttachThrashWarning` call
-      after the default route registration. No other change to that file.
+- [ ] Add `internal/daemon/grammar_addendum.go` (`WrapPromptHandlerWithThrashWarning`,
+      `AttachThrashWarning(o *Options, …)`, `defaultObservePromptHandler`). No accessor, no mutex,
+      no change to the `Daemon` interface.
+- [ ] Modify `internal/daemon/daemon.go`: insert the four-line guarded `AttachThrashWarning(&o, …)`
+      call **immediately before** `d.routes = buildRoutes(&o, d)` in `New`. No other change to that
+      file, and nothing writes `d.routes` after `New` returns.
 - [ ] Add `testdata/golden/checkpoints/action_history.txt`.
 - [ ] Add `BenchmarkFoldActionHistory` and confirm **< 20 ms**.
 - [ ] Run: `go test -race ./internal/checkpoint/... ./internal/daemon/... ./test/e2e/...` and
@@ -2127,9 +2321,12 @@ Footer: `Refs: SP-15, §10 Phase 5, §10 Phase 6, §11.1, §11.3`
       guarantee), why `W₀(u)` and `ρ(u)` are both read off the same `b*(u)` so the
       `coverage − λ·redundancy` identity is exact, why `NewSelector` errors rather than filters,
       why `symbols` is consumed structurally, why `grammar.Rule.Uses` is the occurrence
-      multiplicity rather than the reference count, why the ship-order guard is
-      `scheduler.PSelectionAvailable()` alone and not an Appendix C config key, and why the
-      grammar fold lives in tier 3.
+      multiplicity rather than the reference count, why the ship-order guard stays
+      `scheduler.PSelectionAvailable()` in the constructor while the operator opt-out
+      (`runtime.selection.submodularEnabled`, default flipped to `true` by this subplan) is read at
+      the call site rather than added to the §5.12 signature, why the selector ships
+      measured-but-unwired in wave 4 with the production consumer deferred to SP-16 and the wave-5
+      rehydration slice, and why the grammar fold lives in tier 3.
 - [ ] Run: `go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop`
       — the replay-gate must pass with no metric regressing more than 2 %.
 - [ ] Run the full local gate: `go run ./tools/devtool ci-local`.
@@ -2165,10 +2362,12 @@ published signatures and only runs them after C and D integrate.
 
 **Must stay in the main session — never delegated:**
 
-1. **The two cross-package edits.** The 3 lines in `internal/checkpoint/writer.go` and the 4 lines
-   in the daemon constructor. These touch files owned by SP-10 and SP-05; they must be made by one
-   agent that has read the surrounding function, and they are the only merge-conflict surface this
-   subplan has.
+1. **The six cross-package edits.** The 3 lines in `internal/checkpoint/writer.go`, the 4 lines in
+   `internal/daemon/daemon.go`'s `New`, the submodular default flip in
+   `internal/config/defaults.go`, and its three follow-ons (`internal/config/defaults_test.go`,
+   `test/guards/buildorder_test.go`, the regenerated `docs/config-reference.md`). These touch files
+   owned by SP-10, SP-05 and SP-01; each must be made by one agent that has read the surrounding
+   function or test, and together they are the only merge-conflict surface this subplan has.
 2. **`internal/checkpoint/grammar.go` and `internal/daemon/grammar_addendum.go`.** Both live in
    packages another subplan owns and both need the surrounding code read before writing.
 3. **Every `git commit`.** The seven-commit sequence, the conventional-commit messages, and the
@@ -2215,6 +2414,16 @@ E (commit 7). Run `go build ./... && go vet ./...` after each merge-in, before w
 
 ### Measurable Definition of Done
 
+**Scope note, binding on every criterion below.** Phase 5's exit number is a **replay-harness
+result**, not a live-path measurement. The selector's only callers in this subplan are
+`test/replay/policy_analyzer.go` and `policy_baseline_p.go`; nothing in `internal/` constructs a
+`Selector`. "Improved fraction-of-OPT at equal budget" is therefore satisfied by the two policies
+scoring differently on the committed 24-session corpus, and by nothing else. The production
+consumer — the rehydrator's 8–12K allocation and `checkpoint.Truncate`'s pointer ordering — is
+owned by SP-16 (pointer ordering) and the wave-5 rehydration slice (allocation), as stated in the
+Mission. A reviewer must not read the criteria below as claiming the shipped plugin allocates its
+post-compact budget submodularly; it does not yet, and that is the declared shape of this wave.
+
 - [ ] **Phase 5, operationalized.** `test/replay/phase5_exit_test.go` passes:
       `FractionOfOPT(analyzer-suffix-submodular) > FractionOfOPT(baseline)` across all 24
       synthetic sessions at an identical 12 000-token budget, with a delta ≥ 0.02 on the
@@ -2228,10 +2437,24 @@ E (commit 7). Run `go build ./... && go vet ./...` after each merge-in, before w
       `PropGuaranteeUnitCost` and `PropGuaranteeKnapsack`, run at
       `go test -run Prop -rapid.checks=1000 ./internal/analyzer/` (1 000 brute-forced cases each;
       rapid's default is 100, so the flag is not optional).
-- [ ] **The suffix constraint is structural.** `NewSelector` returns `ErrBlockBeforeP` for any
-      block with `Pos < p`; `TestNoSelectorBypass` finds no bypass; `PropNothingBeforeP` holds.
-- [ ] **The ship-order guard is proven inert.** `TestNewSelectorInertWithoutPSelection` passes and
+- [ ] **The suffix constraint is structural, and the shipped guards are intact.** `NewSelector`
+      returns `ErrBlockBeforeP` — which wraps `core.ErrBudget` and still contains "invariant 4" —
+      for any block with `Pos < p`, and the Pos check still runs before the ship-order check.
+      `go test ./test/guards/ -run TestGuard_SubmodularInertWithoutPSelection` and
+      `go test ./internal/analyzer/ -run TestNewSelector_` both pass unmodified from `develop`;
+      `TestNoSelectorBypass` finds exactly one `Block.Pos`-vs-`p` comparison; `PropNothingBeforeP`
+      holds.
+- [ ] **The ship-order guard is proven inert.** `TestNewSelectorInertWithoutPSelection` passes,
+      `ErrPSelectionUnavailable` still satisfies `core.IsNotImplemented`, and
       `TestPSelectionProbeIsTestOnly` finds zero non-test references to `SetPSelectionProbe`.
+- [ ] **The submodular default is on and the derivation still holds.** `config.Defaults()` reports
+      `Runtime.Selection.SubmodularEnabled == true` and `Selection.Submodular.Enabled == true`;
+      `go test ./internal/config/ ./test/guards/` passes with the three updated assertions; and
+      `go run ./tools/devtool gen-config-docs --check` reports `docs/config-reference.md` up to
+      date (its `runtime.selection.submodularEnabled` row now reads `true`).
+- [ ] **FormatWarning is untouched.** `git diff --exit-code develop -- internal/grammar/formatwarning.go internal/grammar/formatwarning_test.go` is empty, and
+      `go test ./internal/grammar/ -run TestFormatWarning` passes — SP-01's frozen wording and the
+      V1-VERIFY L11 shape are exactly as they were.
 - [ ] **Sequitur's two invariants** hold on 1 000 rapid-generated sequences
       (`go test -run Prop -rapid.checks=1000 ./internal/grammar/`: `PropDigramUniqueness`,
       `PropRuleUtility`), and `PropExpansionRoundTrip` reproduces every input exactly.
@@ -2275,7 +2498,10 @@ E (commit 7). Run `go build ./... && go vet ./...` after each merge-in, before w
   - [ ] §6.3 Sequitur — online, linear-time, both invariants, high-multiplicity nonterminal as the
         insight → `sequitur.go`, `rules.go`, `warn.go`, `invariants_property_test.go`.
   - [ ] §6.5 submodular — knapsack, `(1 − 1/e)`, lazy greedy, slice + Δ as coverage weights →
-        `selector.go`, `greedy.go`, `greedy_property_test.go`.
+        `selector.go`, `greedy.go`, `greedy_property_test.go`. §6.5's *"this should allocate the
+        post-compact budget instead of 'top 5 files, 5K each'"* is delivered as a measured policy
+        only; the production allocator is deferred to SP-16 and the wave-5 rehydration slice, as
+        the Mission and the Exit criteria's scope note both state.
   - [ ] §7.2 L2 row — slicing (consumed from SP-07), Δ-scoring, submodular, Sequitur, redundancy
         detection: all five present or explicitly delegated in "Out of scope".
   - [ ] §8.1 item 6 — Sequitur append and thrash warning emission → `AppendAt` + the daemon
@@ -2303,8 +2529,12 @@ E (commit 7). Run `go build ./... && go vet ./...` after each merge-in, before w
       over every file this subplan added or modified returns nothing.
 - [ ] **Type consistency with the Interface contract:** every signature in
       `internal/analyzer` and `internal/grammar` matches 00-ARCHITECTURE §5.11 and §5.12
-      character for character; nothing in §5 was changed or removed; every addition is a new
-      symbol in a package SP-15 owns (`NewCheapScorerWithSymbols`, `NewSelectorWithStore`,
+      character for character; no §5 *interface* was changed or removed. Two shipped
+      implementations inside packages SP-15 owns are deliberately replaced, both declared here:
+      `NewSelector`'s stub body (its two guards preserved verbatim in order, sentinel and message —
+      see §5.2) and `stubSelector.Select`. `internal/grammar/formatwarning.go` is **not** among
+      them: SP-01's wording is frozen and untouched. Every other addition is a new symbol in a
+      package SP-15 owns (`NewCheapScorerWithSymbols`, `NewSelectorWithStore`,
       `DetectRedundancyWithConfig`, `SortedNearDupKeys`, `SetPSelectionProbe`, `ToolUseIDOf`,
       `SymbolRefs`, `TurnAware`, `WarnOptions`, `WarningsFor`, `PromptAddendum`, `Save`, `Load`,
       `DefaultThrashMinUses`, `DefaultThrashMinSpan`, `FormatVersion`, and in `test/replay`
@@ -2314,9 +2544,16 @@ E (commit 7). Run `go build ./... && go vet ./...` after each merge-in, before w
       are pinned down here, which needs no amendment.
 - [ ] **Import DAG respected:** `internal/symbols` is not imported by `internal/analyzer`;
       `internal/sketch` is not imported by `internal/grammar`; the import-graph test passes.
-- [ ] **Ownership respected:** zero lines written in `internal/observer`; exactly two files
-      modified outside packages SP-15 owns (`internal/checkpoint/writer.go`, the daemon
-      constructor file), each a single contiguous guarded block.
+- [ ] **Ownership respected:** zero lines written in `internal/observer`; exactly six files
+      modified outside packages SP-15 owns, each edit contiguous, guarded and declared above:
+      `internal/checkpoint/writer.go` (the three-line fold before `Truncate`),
+      `internal/daemon/daemon.go` (the four-line guarded `AttachThrashWarning(&o, …)` block
+      immediately before `d.routes = buildRoutes(&o, d)`), `internal/config/defaults.go` (the
+      submodular default flip, two fields), `internal/config/defaults_test.go` (two assertions),
+      `test/guards/buildorder_test.go` (`TestGuard_SubmodularDefaultsOff` re-pointed at the
+      derivation) and `docs/config-reference.md` (regenerated, never hand-edited).
+      `internal/grammar/formatwarning.go` and `formatwarning_test.go` are explicitly **not** in
+      that list.
 - [ ] **Commit count verified: 7**, within the 5–8 range. `git rev-list --count develop..HEAD`
       returns `7`.
 - [ ] **No co-author or attribution trailers** in any commit message, merge commit, tag message or

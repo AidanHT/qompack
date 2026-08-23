@@ -108,7 +108,7 @@
 
 §2.6a (SP-06):
 - ① Phase0BeforeStore red on the branch in isolation is correct: **accepted** — and its counterfactual re-run here confirmed the guard still fires (V2-MERGE-21).
-- ② Redact 2 ms / PutBytes-warm 400 µs unreachable: **fixed here as a budget revision, not code** — measured no-secret 486 µs, keyword 7.43 ms, secrets 25.2 ms; warm-with-redact 621 µs (≈188 µs store + ≈430 µs redact); the 227 µs figure was the _NoRedact variant. Revised numbers recorded in §11; SP-17's window-around-literal option remains open.
+- ② Redact 2 ms / PutBytes-warm 400 µs unreachable: **half revised, half carried** (corrected 2026-08-22; §16.3 item 10). The Redact half was revised and is recorded in §9.3 — the budget now reads "≤ 2 ms (no-secret shape)" and passes at 472.0 µs, with keyword 6.27 ms and secrets 29.8 ms documented over by design. The **PutBytes-warm 400 µs half was never revised**: §9.3 keeps the original number and records the row as documented-over, deferred with V2-ALL-04, and `plans/V2-SP-06-content-addressed-store.md`'s budget table is untouched. The governing measurement is §9.3's **warm 7.64 ms** (warm-no-redact 4.87 ms), which the committed `testdata/bench-baseline.txt` corroborates at 7.52–8.77 ms over ten samples; the 621 µs figure this line used to carry was a different variant and is withdrawn. The revision is **re-opened and queued for the code-fix session** that follows this audit; SP-06's own D19 independently recommends the same revision for SP-17 hardening, alongside the 2 ms figure and the window-around-literal option.
 - ③ conformance `t.Skip` grep must hit: **accepted** — replaced by the RUN+PASS observable; all store/segment/redact/tokens behaviour cases execute.
 - ④ Novel not strictly decreasing: **fixed here** — restated for the real pipeline (F-4); v1–v3 measured 4,1,2 with v3 = 1.75× v1; bounds now span-derived.
 - ⑤ dedup numbers were pre-canon: **re-measured** — 81.11 / 24.52 on the real pipeline vs 12.40 / 6.34; increase confirmed, no regression.
@@ -585,7 +585,9 @@ platform-excluded and two waived.
 ## 16. What the first CI runs found
 
 V2-ALL-04 was recorded **environment-blocked** because the repository had no git remote. One now
-exists, and `ci.yml`'s nine jobs run on ubuntu-latest, macos-latest and windows-latest. That
+exists, and `ci.yml`'s ten jobs run across ubuntu-latest, macos-latest and windows-latest: `test`
+and `bench-gate` on all three, `lint-windows` on windows-latest — the tenth job, added further down
+this same section (§16.6 item 21) — and the remaining seven on ubuntu-latest. That
 retires the escape clause §14 invoked, and with it three of this report's own disclosed
 limitations: §2.5a C's never-executed POSIX paths, §9.1's windows-only platform note, and
 V2-SP04-04's environment-blocked three-OS assertion.
@@ -652,6 +654,16 @@ measurement, test result or gate verdict changes.
 | 6 | V2-MERGE-05 called `test/integration` "the eighth root" and §12 said "eight composition roots". `importrules.go` declares eleven, and the same V2-MERGE-05 sentence names three of the others as already present at the cut. | eleventh, and eleven. |
 | 7 | §16.5's closing sentence said seven wall-clock sites "remain unaudited". That was true of the list §16.4 carried when the sentence was written; e86dbb9 replaced that list with the full audited inventory two commits later, in the very section the sentence points at, and did not revisit the sentence. Nothing is unaudited — the inventory covers every wall-clock gate in the tree — and the number that matters is how many are still judged unsafe, which was never seven. | A pointer to §16.4's inventory and to the rows still judged co-load-unsafe, which §16.4 states outright. |
 | 8 | The same inventory's summary said "Four rows remain unsafe and unfixed". Four rows carried a **No**, but one of them (`dag/slice_compare_test.go`) records its own fix in that very cell, so three were unfixed — five sites across them. The overcount ran in the direction that reads as more debt than existed, which is the safer direction to be wrong in and still wrong. | Restated in §16.4 against what is left after §16.6's round: one row, two sites, accepted by decision. |
+
+Items 9–11 were found by the plan audit of 2026-08-22, which re-read every claim in this report and
+in the V2 checkpoint against the tree they describe. Item 10 re-opens an adjudication; as in §15,
+no number, test result or gate verdict moves.
+
+| # | What was wrong | Corrected to |
+|---|---|---|
+| 9 | §16's opening said `ci.yml` had **nine** jobs, contradicting §16.6 item 21 four hundred lines below it, which adds the tenth (`lint-windows`). The enumerated nine are also what a checkpoint checks "CI green" against — V2-VERIFY's V2-ALL-04 row, its §7.4 gate and its definition-of-done checklist all listed the same nine — so "all green" could have been claimed with the one job that exists specifically because the linter is blind on Linux never having run. The same sentence also read as if all nine carried the three-OS matrix; only `test` and `bench-gate` do. | **Ten** jobs, with the matrix stated per job and a forward pointer to §16.6 item 21. `lint-windows` added to all four of V2-VERIFY's enumerations — §2.8's V2-ALL-04 row, §7.4's gate, the completion-report template's §8 row and §14's definition-of-done checklist — so the Windows lint leg cannot be omitted from a green claim. |
+| 10 | §2.6a ② recorded the Redact 2 ms / PutBytes-warm 400 µs pair as "**fixed here as a budget revision, not code**", with "revised numbers recorded in §11". Only half of that is true. The Redact half was revised — §9.3 narrows it to "≤ 2 ms (no-secret shape)" and marks it PASS. The PutBytes-warm half was revised nowhere: §9.3:412 keeps `≤ 400 µs` verbatim and records the row as documented-over/deferred, and SP-06's own budget table is untouched. Worse, the 621 µs figure the line offered as the revised number is contradicted by this report's own §9.3 (warm **7.64 ms**) and by `testdata/bench-baseline.txt` (7.52–8.77 ms over ten samples) — it was a different variant. An item marked resolved is an item V3-VERIFY will not revisit. | §2.6a ② now reads **half revised, half carried**, cites §9.3 rather than §11, drops the 621 µs figure in favour of §9.3's measured 7.64 ms, and re-opens the PutBytes-warm revision, queued for the code-fix session and listed in §16.4. |
+| 11 | §16.6 item 22 records the `--max-cpu` / `--max-wall` split as complete without recording that it **changed what `--max-wall` means**. Before the split it was the driver's only budget and stood for cost; after it, it is a pure liveness ceiling with a 15 m default, and the cost bound is `--max-cpu`. Downstream checkpoint plans still passed `--max-wall 2m` / `3m` as a cost bound — the very co-load-unsafe wall gate this round removed from `ci.yml`, which now passes only `--max-cpu 2m`. On a runner like the ones that produced 187.50 s and 148.17 s worst wall for this binary, a correct driver would exit 3 with "wall-clock ceiling exceeded". | Recorded here, since item 22's row is a verdict and stands as written: the flag's meaning changed with the split, and every downstream checkpoint command line that passed `--max-wall` as a cost bound has been repointed to `--max-cpu` at the same duration, letting `--max-wall` fall to its 15 m default. In-tree callers were already migrated when the split landed. |
 
 ### 16.4 Still open
 
@@ -781,6 +793,15 @@ measurement, test result or gate verdict changes.
   the linter is no longer red locally and green in CI. It has not yet run — see the quota bullet —
   and the fix's own author records the likely first redness on a real runner as `.golangci.yml`'s
   5-minute `run.timeout`.
+- **The `store.PutBytes` warm 400 µs budget is unrevised, and the item that recorded it revised is
+  re-opened.** §2.6a ② recorded the Redact/PutBytes pair as fixed by revision; only the Redact half
+  was. §9.3 keeps `≤ 400 µs` against a measured warm **7.64 ms** (warm-no-redact 4.87 ms),
+  `testdata/bench-baseline.txt` corroborates at 7.52–8.77 ms over ten samples, and
+  `plans/V2-SP-06-content-addressed-store.md`'s budget table still carries both the 400 µs and the
+  2 ms figures unchanged. Re-opened by the 2026-08-22 plan audit (§16.3 item 10) and **queued for
+  the code-fix session**. What it needs is a measured, defensible number with the payload shape and
+  platform named, cross-referenced from §9.3 — not a quiet deletion of the budget, and not a second
+  claim that a revision happened somewhere else.
 - **The daemon's `Stop`-after-`stopBegun` window is left open by design.** A `Stop` landing after
   the checkpoint at `internal/daemon/daemon.go:491` can still let `Run` bind a listener and rewrite
   the `state.bin` that `Stop` removed. It cannot wedge — `runCancel` is published by then — and the
@@ -878,3 +899,25 @@ buys is that the answer cannot silently revert. Item 22 closes two of the three 
 §16.4's wall-clock inventory; the third is `hotpath_test.go`'s pair, which §16.4 records as
 accepted by decision rather than fixed, and that pair is the whole remainder of the genus §0
 items 18/22/25 named.
+
+### 16.7 The final review's fix wave
+
+§16.6 describes the closing round as closed behind five `--no-ff` merges. A **sixth** landed on
+`chore/post-v2-hardening` after that section was written, and until this audit it was recorded
+nowhere in this report: branch `fix/final-wave`, merged as **9408dbc**, carrying two commits. It is
+recorded here for the same reason every other row is — a merge that no document names is a change
+the next reader has to rediscover from the reflog.
+
+| # | Defect | Platform | Fix |
+|---|---|---|---|
+| 25 | `lint-windows`, the tenth job item 21 added, ran without a bound of its own. It is plausibly the longest job in the matrix — `stubskips` runs a real whole-tree `go test` on the slowest runner of the three, and item 21's own fix gave that run a `-timeout=30m`, which bounds the child and not the job. Go's timeout is per test binary, so a job wedging outside one — a hung child process, a stalled runner — would have sat until GitHub's 360-minute platform default. `timeout-minutes: 45` now bounds the job itself: above the sub-check's whole 30-minute budget plus checkout, toolchain setup and the other sub-checks, so the inner timeout is what reports a slow test and the outer one only catches what the inner one cannot see. | CI only | e943b23 |
+| 26 | Six comment and description sites across `test/replay`, `internal/obs` and `internal/config` had stayed behind the changes made around them during this round — each one asserting something the code beside it now contradicts. Same non-CI class as §16.5's two findings: no job can produce a signature for a description that is merely no longer true. | none — prose in shipped code | 9019edd |
+
+Neither commit carries a CI signature either, for the reason §16.4's first bullet gives, and
+item 25's subject is a CI job that has still never run. Item 25 belongs to item 21's row and is
+recorded here rather than folded into it, because that row is a verdict as landed and this report
+does not rewrite those. 9408dbc's merge message additionally mentions three prose residuals
+recorded at the merge; nothing in the tree carries them today, so that message is their record.
+
+**This closes what §16.6 left open.** Every merge on `chore/post-v2-hardening` is now named in this
+report, and §16.3 items 9–11 carry the three corrections the same audit made to the sections above.

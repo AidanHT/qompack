@@ -1023,10 +1023,10 @@ Later subplans append `1:`…`6:` to this map; the driver runs every entry `≤ 
 2. **rejects the series as `inconclusive` if `RawBytes` is not non-decreasing in `Turn`** (`Reason: "rawBytes not monotone in turn; the proxy for session length is invalid"`) — this is what keeps the substitution honest rather than convenient;
 3. fits `ln(Bytes) = α·ln(RawBytes) + c` by ordinary least squares and returns `Exponent = α`, `Sublinear = α ≤ 0.95`.
 
-It refuses to judge with fewer than 6 usable samples or a `RawSpan` (max/min `RawBytes`) below 8× (`Reason` explains, `Sublinear = false`, and the gate reports it as `inconclusive`, which fails the job — an unmeasurable guardrail is not a passing guardrail). In wave 1 the samples come from `testdata/golden/contracts/store/stats-growth.json` (W-2 fixture, created by this subplan, 8 samples with α ≈ 0.62). From SP-06 onward the driver swaps in a real provider that walks a replayed session through `store.Stats`; the fixture stays as the shape contract and the wave-2 verification re-runs the same check against the real store, per Rule W-2.
+It refuses to judge with fewer than 6 usable samples or a `RawSpan` (max/min `RawBytes`) below 8× (`Reason` explains, `Sublinear = false`, and the gate reports it as `inconclusive`, which fails the job — an unmeasurable guardrail is not a passing guardrail). In wave 1 the samples come from `testdata/golden/eval/growth/stats-growth.json` (W-2 fixture, created by this subplan, 8 samples with α ≈ 0.62). From SP-06 onward the driver swaps in a real provider that walks a replayed session through `store.Stats`; the fixture stays as the shape contract and the wave-2 verification re-runs the same check against the real store, per Rule W-2.
 
 **Watch-fors (§11.4).**
-- *Bloom FP rate as a first-class metric.* `--sketch` supplies `eval.SketchHealth`; the gate emits `bloom_fp_rate` and `bloom_fill_ratio` alongside the score metrics, subject to the same 2% rule, plus a hard ceiling: `EstFPRate > 0.10` fails outright with the §11.4 sentence quoted in the error (*"At 1% they are safe; at 10% the agent starts skipping viable approaches"*). Wave-1 fixture: `testdata/golden/contracts/negknow/health.json` with `{fillRatio: 0.18, estFPRate: 0.006}`.
+- *Bloom FP rate as a first-class metric.* `--sketch` supplies `eval.SketchHealth`; the gate emits `bloom_fp_rate` and `bloom_fill_ratio` alongside the score metrics, subject to the same 2% rule, plus a hard ceiling: `EstFPRate > 0.10` fails outright with the §11.4 sentence quoted in the error (*"At 1% they are safe; at 10% the agent starts skipping viable approaches"*). Wave-1 fixture: `testdata/golden/eval/growth/health.json` with `{fillRatio: 0.18, estFPRate: 0.006}`.
 - *Replay overfitting.* `CORPUS.json.regeneratedAfterPhase` is compared against `--phase`. When `--phase > regeneratedAfterPhase + 2`, the gate fails with `corpus stale: re-collect sessions under the current policy (§11.4)` and points at `docs/adr/0003-replay-overfit-recollection.md`, which specifies the protocol: re-run `--regen-corpus` with bumped seeds (`+100` per regeneration), re-import the recorded corpus, re-write `testdata/baseline/phase<N>.json`, and record the new `regeneratedAfterPhase`. This makes "re-collect sessions periodically" a mechanical schedule instead of a good intention.
 
 **`testdata/baseline/phase0.json`** — the committed Phase-0 answer:
@@ -1058,10 +1058,10 @@ Each policy object holds **exactly** the 19 keys of `MetricsOf`, no more and no 
              --corpus testdata/sessions/synthetic
              --baseline testdata/baseline/phase0.json
              --phase 0
-             --growth testdata/golden/contracts/store/stats-growth.json
-             --sketch testdata/golden/contracts/negknow/health.json
+             --growth testdata/golden/eval/growth/stats-growth.json
+             --sketch testdata/golden/eval/growth/health.json
              --signoff "$PR_BODY_FILE"
-             --max-wall 2m
+             --max-cpu 2m
              --ci
 ```
 
@@ -1092,7 +1092,7 @@ with a preceding step writing `${{ github.event.pull_request.body }}` to `$PR_BO
 
 | ID | What | Budget |
 |---|---|---|
-| **E-1** | `devtool replay` over the 24-session corpus × 3 policies, deterministic | wall < 120 s (gate flag `--max-wall`) |
+| **E-1** | `devtool replay` over the 24-session corpus × 3 policies, deterministic | CPU < 120 s (gate flag `--max-cpu`; `--max-wall` stays at its 15 m default as the liveness bound — the post-V2 hardening round split cost from liveness) |
 | **E-2** | `BenchmarkBeladyDetail_400Turns` | ≤ 250 ms/op |
 | **E-3** | `BenchmarkSynthesize_320Turns` | ≤ 50 ms/op |
 | **E-4** | `BenchmarkCompare_400Actions` (Levenshtein dominated) | ≤ 20 ms/op |
@@ -1274,8 +1274,8 @@ Flips every `t.Skip` in SP-01's `evaltest.RunEvalSuite` off and runs it against 
 
 - `testdata/sessions/synthetic/*.json` (24) + `CORPUS.json`
 - `testdata/baseline/phase0.json`
-- `testdata/golden/contracts/store/stats-growth.json` (8 samples, α ≈ 0.62)
-- `testdata/golden/contracts/negknow/health.json` (`fillRatio 0.18`, `estFPRate 0.006`)
+- `testdata/golden/eval/growth/stats-growth.json` (8 samples, α ≈ 0.62)
+- `testdata/golden/eval/growth/health.json` (`fillRatio 0.18`, `estFPRate 0.006`)
 - `testdata/fixtures/transcripts/{basic,compact-boundary,unknown-record,secrets}.jsonl`
 - `testdata/golden/eval/divergence/{identical,repairs,decision-loss}.json`
 - `testdata/corpora/evalredact/` — fuzz seed corpus for `FuzzRedact`
@@ -1358,7 +1358,7 @@ Refs: SP-02, G8.1, §4.2, §11.2
 - [ ] Write `internal/eval/score_test.go` first, including the §5.2 table reproductions and the `WriteMultiplier = 2.0` D11 test; confirm failure.
 - [ ] Add `internal/eval/score.go` (`ScoreRun`, `Report`, `MetricsOf`, `MetricDirection`, percentile helper).
 - [ ] Add `internal/eval/growth.go` (`CheckSublinearGrowth`, `StatsSample`, `GrowthResult`, `SketchHealth`) and `internal/eval/growth_test.go`.
-- [ ] Add the two W-2 fixtures `testdata/golden/contracts/{store/stats-growth.json,negknow/health.json}`.
+- [ ] Add the two W-2 fixtures `testdata/golden/eval/growth/{stats-growth.json,health.json}`.
 - [ ] Run: `go run ./tools/devtool lint test cover` — `eval` ≥ 85%.
 - [ ] Files: `internal/eval/{score,growth}.go`, `internal/eval/{score,growth}_test.go`, the two fixtures.
 
@@ -1493,7 +1493,7 @@ This subplan is **heavy**. Partition it across four parallel subagents after the
 - [ ] Every `t.Skip` in `evaltest.RunEvalSuite` is removed and the suite passes against `eval.New` (Rule W-1).
 - [ ] `go run ./tools/devtool test` and `-race` green on Linux, macOS and Windows in CI.
 - [ ] `go run ./tools/devtool cover` shows `internal/eval` ≥ **85%** (00-ARCHITECTURE §6.4).
-- [ ] `gofumpt -l` empty; `golangci-lint run` clean; the in-repo `nomagic` pass clean. Concretely, none of the pass's forbidden literals — floats `{0.1, 1.25, 12.5, 0.55, 0.004, 0.9, 0.4}`, ints `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}` — appears in `internal/eval` or `test/replay` outside `*_test.go`, except on the `//nomagic:allow`-annotated lines of `internal/eval/hostconst.go` (which model Claude Code's constants, not Qompack's) and on the `--max-wall` default, written `const defaultMaxWall = 2 * time.Minute //nomagic:allow driver wall-clock cap, not a Qompack tunable` rather than as `120 * time.Second`.
+- [ ] `gofumpt -l` empty; `golangci-lint run` clean; the in-repo `nomagic` pass clean. Concretely, none of the pass's forbidden literals — floats `{0.1, 1.25, 12.5, 0.55, 0.004, 0.9, 0.4}`, ints `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}` — appears in `internal/eval` or `test/replay` outside `*_test.go`, except on the `//nomagic:allow`-annotated lines of `internal/eval/hostconst.go` (which model Claude Code's constants, not Qompack's) and on the driver's limit defaults (`defaultMaxCPU = 2 * time.Minute`, `defaultMaxWall = 15 * time.Minute` — the post-V2 hardening round split the cost bound from the liveness bound; both carry their own annotations in `test/replay/main.go`), written as durations rather than as second counts.
 - [ ] The import-graph test proves `internal/eval` imports no `internal/` package outside `{core, paths, config, logging, obs}`.
 - [ ] Benchmarks within budget: E-1 < 120 s, E-2 ≤ 250 ms/op, E-3 ≤ 50 ms/op, E-4 ≤ 20 ms/op, E-5 ≤ 15 ms/op, all recorded in `testdata/bench-baseline.txt`.
 - [ ] `replay-gate` runs on the branch, passes, and is configured as a required check on `develop`.
@@ -1516,7 +1516,7 @@ This subplan is **heavy**. Partition it across four parallel subagents after the
 - [ ] **Report envelope, not a mutated `Report`:** `budget_violation`, `noDemands`, `retrieval_actions`, `latency`, `corpusTier`, `corpusSHA256`, the breakpoint plan and the growth result live on `test/replay`'s `DriverReport`; `eval.Report` still has exactly the §5.18 five fields.
 - [ ] **Config, not constants:** `w` and `r` read from `cfg.Scheduler.Cache.*` at the use site; `eval.minSessions` read from `cfg.Eval.MinSessions`; `nomagic` clean.
 - [ ] **Honesty check:** every latency number in the report is tagged `"latency": "modelled"`; the breakpoint number carries `NotPluginActionable`; `retrieval_hit_rate: 0.0` is accompanied by `retrieval_actions: 0`; `forfeited_discount_tokens` is reported separately from `rewrite_tokens`.
-- [ ] **W-2 fixtures** committed at `testdata/golden/contracts/store/stats-growth.json` and `testdata/golden/contracts/negknow/health.json`, and the driver's provider seam is documented so SP-06 and SP-09 can swap in the real sources without editing `internal/eval`.
+- [ ] **W-2 fixtures** committed at `testdata/golden/eval/growth/stats-growth.json` and `testdata/golden/eval/growth/health.json` — they live under `testdata/golden/eval/` rather than `testdata/golden/contracts/` because the contract directories are their owning subplan's to regenerate (V2-MERGE-18), as `test/replay/growth.go:19-22` records — and the driver's provider seam is documented so SP-06 and SP-09 can swap in the real sources without editing `internal/eval`.
 - [ ] **Corpus integrity:** 24 files present, `CORPUS.json` hashes match, regeneration is byte-identical, `regeneratedAfterPhase: 0` recorded.
 - [ ] **Out-of-scope respected:** no file created or modified under `internal/{store,sketch,chunk,canon,symbols,dag,negknow,checkpoint,rehydrate,scheduler,analyzer,grammar,mcp,commands,observer,daemon,ipc,contract,redact}`; the only files touched outside `internal/eval`, `test/replay`, `testdata/`, `docs/adr/` are `internal/cli/register_eval.go` (new), `tools/devtool/task_replay.go` (new), `.github/workflows/ci.yml` (one step body), and `testdata/bench-baseline.txt`.
 - [ ] **`Qompack.md` unmodified** — verify with `git diff develop -- Qompack.md` returning empty.

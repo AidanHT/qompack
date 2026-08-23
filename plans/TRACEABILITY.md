@@ -87,7 +87,7 @@ Ordering constraint from the closing note honoured: p-selection (SP-12, wave 3) 
 | `PreCompact` (checkpoint + `custom_instructions`) | SP-10 |
 | MCP tools: `recall`, `expand`, `re_read`, `already_tried`, `record_eliminated`, `timeline`, `why`, `dropped` | SP-13 (ephemeral-at-birth, minimal-span, promotion counting) |
 | Slash commands: `status`, `recall`, `pin`, `checkpoint`, `why`, `dropped`, `eval` | SP-14 |
-| Plugin manifest + `.qompack/` directory layout + Appendix C config loader | SP-01 (layout/loader), SP-17 (shipped manifest), SP-18 (config reference, 72 documented leaves) |
+| Plugin manifest + `.qompack/` directory layout + Appendix C config loader | SP-01 (layout/loader), SP-17 (shipped manifest), SP-18 (config reference: every leaf `config.Defaults()` exposes, an equal number of `Meta` entries, zero orphans, zero missing — the count is whatever the tree holds at V6, never a frozen literal) |
 
 ## 5. Revision-log items (v1.1 / v1.2) → subplans
 

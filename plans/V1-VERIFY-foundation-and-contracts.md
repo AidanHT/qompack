@@ -109,20 +109,20 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
-| B1 | Go module identity and pins | `go list -m` ; `head -6 go.mod` | `github.com/qompack/qompack`; `go 1.26`; `toolchain go1.26.4` |
-| B2 | Closed runtime dependency list (§2.5) | `go list -m all \| head -40` ; inspect `go.mod` `require` block | Direct requires are exactly: `Microsoft/go-winio`, `google/go-cmp`, `klauspost/compress`, `stretchr/testify`, `golang.org/x/tools`, `pgregory.net/rapid` |
+| B1 | Go module identity and pins | `go list -m` ; `head -6 go.mod` | `github.com/qompack/qompack`; `go 1.26`; a `toolchain go1.26.x` directive. **Post-V2 correction:** read the patch level **from `go.mod`** rather than matching a frozen number here — wave 1 moved the pin from `go1.26.4` to `go1.26.6`, and re-pinning the row every bump is how it goes stale. What this row asserts is that all three are present and that `.github/workflows/ci.yml`'s `setup-go` `go-version` matches whatever patch `go.mod` names (it is `1.26.6` on both sides today) |
+| B2 | Closed runtime dependency list (§2.5) | `go list -m all \| head -40` ; inspect `go.mod` `require` block | Direct requires are exactly **seven**: `Microsoft/go-winio`, `google/go-cmp`, `klauspost/compress`, `stretchr/testify`, `golang.org/x/sys`, `golang.org/x/tools`, `pgregory.net/rapid`. **Post-V2 correction:** `golang.org/x/sys` became a direct require in SP-05's task 6 and belongs here — `internal/paths/replace_windows.go` imports `golang.org/x/sys/windows` for the two Windows rename-replace semantics, and `internal/ipc` reaches the same package through go-winio for the named pipe's per-user SID ACL (the rationale is written out in `tools/devtool/bindeps.go`'s allow-list). Six entries is now the stale count, not a violation; an **eighth** direct require is what this row exists to catch |
 | B3 | Pinned external tools live in a separate nested module | `go list -m -modfile=tools/pinned/go.mod all \| head` ; `go list ./... \| grep -c 'tools/pinned'` | Four pinned modules (golangci-lint, x/perf, x/vuln, gofumpt) with resolved versions and a committed `tools/pinned/go.sum`; **0** packages from `tools/pinned` in the root module's package list |
 | B4 | Formatting is clean | `go run ./tools/devtool fmt-check` | Prints nothing; exit 0 |
-| B5 | Full lint pass — all seven sub-checks (DoD 3) | `go run ./tools/devtool lint` | Exit 0. `golangci-lint` (govet staticcheck errcheck revive gocritic ineffassign unconvert unparam misspell bodyclose gosec forbidigo copyloopvar), then `nomagic`, `importgraph`, `testdeps`, `bindeps`, `sleepcheck`, `stubskips` all clean |
+| B5 | Full lint pass — all nine sub-checks (DoD 3) | `go run ./tools/devtool lint` | Exit 0. `golangci-lint` (govet staticcheck errcheck revive gocritic ineffassign unconvert unparam misspell bodyclose gosec forbidigo copyloopvar), then `nomagic`, `importgraph`, `testdeps`, `bindeps`, `sleepcheck`, `stubskips`, `runpatterns`, `docmarkers` all clean. **Post-V2 correction:** the last two are new since V2 and run in exactly that order (`tools/devtool/lint.go`'s `lintSubchecks`). They read the plan documents rather than the code: `runpatterns` fails any `go test -run` in `plans/**` whose pattern matches no test in the package it names, and `docmarkers` fails an unfilled angle-bracketed all-caps placeholder left in specification prose — both authored after V2-VERIFY found 25 silently-disabled gates (`tools/devtool/planchecks.go`). Naming only seven leaves a verifier with no row to record their output against |
 | B6 | `nomagic` literal gate (D11 / §11.6) works and is not vacuous | `go test -run TestNoMagic_Analyzer ./tools/lint/nomagic/...` ; then a **temporary** negative probe: add `var _ = 0.55` to a scratch file under `internal/obs/`, run `go run ./tools/lint/nomagic ./internal/obs/...`, then delete the scratch file | `TestNoMagic_Analyzer` PASS (one violation per literal class plus the allowed line, matching `// want`); the negative probe **reports** `literal 0.55 duplicates a config default`; after deletion `go run ./tools/devtool lint` is clean again |
 | B7 | Ski-rental threshold is computed, never literal | `go test -run TestSkiRental_ComputedNotLiteral ./internal/scheduler/...` ; `git grep -n '12\.5' -- 'internal/**/*.go' ':!*_test.go'` | Test PASS (`SkiRentalShouldWrite(13,0.1,1.25)==true`, `(12,…)==false`, `(1,0,1.25)==false`); grep returns **zero** matches |
 | B8 | Import-graph dependency DAG (§3.2) enforced against the real repo | `go test -run 'TestImportGraph_(RejectsViolation\|AcceptsRealRepo)' ./tools/...` | Both PASS. `RejectsViolation` rejects a synthetic `store → negknow` list with a message naming §3.2; `AcceptsRealRepo` passes against the actual package graph |
 | B9 | Composition-root rule: nothing imports `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack`, `test/e2e`, `test/guards` | `go run ./tools/devtool lint --only=importgraph` | Exit 0; no violation lines |
 | B10 | Test-only dependencies never reach production packages | `go run ./tools/devtool lint --only=testdeps` ; `go test -run TestTestDeps_RejectsProductionTestify ./tools/...` | Exit 0 / PASS. `testify`, `go-cmp`, `rapid` appear only in `internal/testutil`, the `<pkg>test` subpackages, and `test/**` |
-| B11 | Shipped binary's dependency closure (§2.5) — for all six targets | `go run ./tools/devtool lint --only=bindeps` ; spot-check `go list -deps ./cmd/qompack \| grep -Ev '^(internal/\|github.com/qompack/\|github.com/klauspost/compress\|github.com/Microsoft/go-winio)' \| grep -E '^[a-z0-9.-]+\.[a-z]{2,}/'` | Exit 0. The only non-stdlib modules in the closure are `github.com/qompack/qompack/…`, `klauspost/compress/…`, `Microsoft/go-winio/…`. `golang.org/x/tools`, testify, go-cmp, rapid are **absent** on every one of linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64} |
+| B11 | Shipped binary's dependency closure (§2.5) — for all six targets | `go run ./tools/devtool lint --only=bindeps` ; spot-check `go list -deps ./cmd/qompack \| grep -Ev '^(internal/\|github.com/qompack/\|github.com/klauspost/compress\|github.com/Microsoft/go-winio\|golang.org/x/sys/windows)' \| grep -E '^[a-z0-9.-]+\.[a-z]{2,}/'` | Exit 0 from `lint --only=bindeps`; the spot-check pipeline prints **nothing** (its trailing `grep` then exits 1 — no match is the pass). The only non-stdlib packages in the closure are `github.com/qompack/qompack/…`, `klauspost/compress/…`, `Microsoft/go-winio/…` and `golang.org/x/sys/windows`. `golang.org/x/tools`, testify, go-cmp, rapid are **absent** on every one of linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64}. **Post-V2 correction:** `golang.org/x/sys/windows` is an allowed member of the closure and had to be added to the spot-check's exclusion list — without it the row prints one line and reads as a FAIL while `lint --only=bindeps` passes. `tools/devtool/bindeps.go` allow-lists that **exact** import path and no prefix of it (so `.../windows/registry`, `.../windows/svc` and the rest stay out), because SP-05's task 6 is the first wiring that pulls go-winio into `cmd/qompack`'s own import graph for the named pipe's per-user SID ACL |
 | B12 | No wall-clock sleeps (§6.1) | `go run ./tools/devtool lint --only=sleepcheck` | Exit 0; no `time.Sleep` selector call outside `test/bench` |
 | B13 | Stub-skip accounting | `go run ./tools/devtool lint --only=stubskips` | Exit 0; the count of `behaviour: implementation is a stub (Rule W-1)` skips is reported and matches the number of stubbed packages listed with a non-`SP-01` owner in `plans/OWNERS.tsv` |
-| B14 | Every `devtool` task exists and behaves | `go run ./tools/devtool` (usage) ; then `vet`, `build`, `test`, `cover`, `bench`, `bench-hotpath`, `replay`, `plugin-validate`, `fsck`, `gen-config-docs --check`, `gen-contract-fixtures`, `ci-local` | Usage lists the §2.6 task names. `bench-hotpath` prints `bench-hotpath: harness not present (owned by SP-05)` and **exits 0**. `replay` prints `replay: driver not present (owned by SP-02)` and **exits 0**. `fsck` exits non-zero with `qompack fsck: not implemented in this build` (fsck is a non-hook subcommand). Every other task exits 0 |
+| B14 | Every `devtool` task exists and behaves | `go run ./tools/devtool` (usage) ; then `vet`, `build`, `test`, `cover`, `bench`, `plugin-validate`, `fsck`, `gen-config-docs --check`, `gen-contract-fixtures`, `ci-local`. **Do not invoke `bench-hotpath` or `replay` from this row** — check them in the usage listing and by reading `tools/devtool/benchhotpath.go` / `tools/devtool/replay.go`; their real runs are §5 P-5 and §2 respectively | Usage lists the §2.6 task names. `fsck` exits non-zero with `qompack fsck: not implemented in this build` (fsck is a non-hook subcommand). Every other task above exits 0. **Post-V2 correction:** `bench-hotpath` and `replay` no longer print a not-present message and exit 0 — SP-05 landed `test/bench/hotpath` and SP-02 landed `test/replay`, so both tasks now **forward every argument to their real driver and propagate its exit code unchanged**. That is why they are excluded from this row's sweep: a bare `bench-hotpath` here launches a 2000-iteration real-process-spawn benchmark that starts a detached daemon, and a bare `replay` runs the gate driver. `replay` still errors with `replay: no driver at <path>` if `test/replay` is ever absent (a bisect), and the driver's own exit codes are load-bearing — 1 gate failure, 2 bad input, 3 a self-imposed replay limit, 5 phase checks disabled under `--ci` |
 | B15 | Six-target cross-build (DoD 10) | `go run ./tools/devtool build-all` ; `ls dist/` | Six artifacts: `qompack-linux-amd64`, `qompack-linux-arm64`, `qompack-darwin-amd64`, `qompack-darwin-arm64`, `qompack-windows-amd64.exe`, `qompack-windows-arm64.exe`. All built with `CGO_ENABLED=0`, `-trimpath` |
 | B16 | `.golangci.yml` forbid rules are real | inspect `.golangci.yml` ; `go run ./tools/devtool lint` | `forbidigo` forbids `fmt.Print*`, `time.Sleep`, `net.Dial`; `internal/ipc` carries the documented `net.Dial` exclusion; `errcheck.check-type-assertions: true`; `revive` has `exported` and `package-comments` |
 | B17 | Full local CI (DoD 3, 4, 5, 8, 9) | `go run ./tools/devtool ci-local` | Exit 0 end to end: `fmt-check` → `lint` → `vet` → `build` → `test` → `cover` → `plugin-validate` → `gen-config-docs --check` |
@@ -159,7 +159,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | E1 | **Appendix C reproduced verbatim** (DoD 11, §11.1) | `go test -v -run TestDefaults_MatchesAppendixCVerbatim ./internal/config/...` | PASS. `json.Marshal(Defaults())` minus the `runtime` key deep-equals `testdata/golden/config/appendix-c.jsonc` — every key spelling (`softFloorPct`, `hardCeilingMargin`, `nearDupThreshold`, `promoteAfterExpansions`, …) and every value (`0.55`, `20000`, `0.004`, `0.1`, `1.25`, `300`, `120`, `12000`, `20000`, `10000`, `0.01`, `0.001`, `2048`, `128`, `0.9`, `0.4`, `20`) exact |
-| E2 | §11.5 `runtime` namespace plus the three SP-01 additions | `go test -run TestDefaults_RuntimeNamespace ./internal/config/...` | PASS field by field: `mode:auto`; daemon `{true,1800,8,8,5}`; hotPath `{15,3,true,1048576}`; logging `{info,10,5}`; redact `{true,[]}`; telemetry `{false}`; rehydrate `{8000,12000,450,8}`; mcp `{40,262144}`; **budgets** `{l0IngestMs:2, l0ProcessMs:50, checkpointFinalizeMs:2000, mcpToolCallMs:250}`; **selection** `{submodularEnabled:false}`; **tokens** `{4.0,3.6,3.2,3.4,3.0,750,1600,1800,0.6,1.6,0.2}` |
+| E2 | §11.5 `runtime` namespace plus the three SP-01 additions | `go test -run TestDefaults_RuntimeNamespace ./internal/config/...` | PASS field by field: `mode:auto`; daemon `{true,1800,8,8,5 — 25 on Windows}`; hotPath `{15,3,true,1048576}`; logging `{info,10,5}`; redact `{true,[]}`; telemetry `{false}`; rehydrate `{8000,12000,450,8}`; mcp `{40,262144}`; **budgets** `{l0IngestMs:2, l0ProcessMs:50, checkpointFinalizeMs:2000, mcpToolCallMs:250, hookDegradedMs:1000}`; **selection** `{submodularEnabled:false}`; **tokens** `{4.0,3.6,3.2,3.4,3.0,750,1600,1800,0.6,1.6,0.2}`. **Post-V2 correction:** two of these moved in wave 1. `runtime.daemon.connectDeadlineMs` is platform-selected — `connectDeadlineMsDefault()` returns `ConnectDeadlineMsWindows = 25` on Windows and `ConnectDeadlineMsPortable = 5` everywhere else (`internal/config/deadlines.go`), which is why `docs/config-reference.md` renders it as `5` (`25` on Windows) and why a single frozen tuple cannot be right on both hosts. And `runtime.budgets` gained a fifth key, `hookDegradedMs: 1000`, the limit for budget B-G (see G2) |
 | E3 | JSONC tolerance | `go test -run TestStripJSONC ./internal/config/...` | PASS; line and block comments blanked with **byte offsets preserved**; `//` inside a string untouched; trailing commas removed in objects and arrays |
 | E4 | Five-layer precedence (§11.2) | `go test -run 'TestLoad_PrecedenceFiveLayers\|TestLoad_DeepMergePerLeaf\|TestLoad_EnvKeyMapping' ./internal/config/...` | All PASS. Flag beats env beats project beats user beats defaults (`0.8` wins, `Origin == OriginFlag`); a project file setting only `scheduler.softFloorPct` leaves `cache.readMultiplier == 0.1` and `idle.detectAfterSeconds == 120` intact; `QOMPACK_SCHEDULER__CACHE__READMULTIPLIER=0.08` → `0.08` with `OriginEnv` |
 | E5 | `null` means "measure at runtime", not zero | `go test -run TestLoad_NullMeansMeasure ./internal/config/...` | PASS; `MeasuredDeltaSeconds == nil`, not `*float64(0)` |
@@ -185,12 +185,12 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | F5 | `Nop()` still records loudness | `go test ./internal/logging/...` | Whole-package PASS; `Nop()` discards everything except `Loud`, which still lands in the ring |
 | F6 | Coverage floor (75%) | `go test -cover ./internal/logging/...` | ≥ 75% |
 
-#### Group G — `internal/obs` (histograms, budget IDs B-A…B-F)
+#### Group G — `internal/obs` (histograms, budget IDs B-A…B-G)
 
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | G1 | Log-bucket histogram correctness | `go test -run 'TestHistogram_BucketMonotone\|TestHistogram_PercentileConservative\|TestHistogram_MaxExact' ./internal/obs/...` | All PASS. `bucketFor` non-decreasing and `bucketUpper(bucketFor(u)) >= u`; 10 000 observations of exactly 10 ms give `10ms <= P99 <= 10ms × 1.0905` (**conservative**, so a gate can never pass by rounding); `Max` exact at 1 234 567 µs |
-| G2 | **All six budgets present and config-driven** (§2.4, §11.3) | `go test -v -run TestBudgets_AllSixPresentAndConfigDriven ./internal/obs/...` | PASS. `Budgets()` returns B-A…B-F. B-A limit `15ms` from `runtime.hotPath.budgetMs` (p99, gated); B-B from `runtime.budgets.l0IngestMs` (p99, gated); B-C from `l0ProcessMs` (**not gated** — soft); B-D `Gated == false`, reported only; B-E from `checkpointFinalizeMs` (p99, gated); B-F from `mcpToolCallMs` (p95, gated). Changing config changes every limit |
+| G2 | **Every budget present and config-driven** (§2.4, §11.3) | `go test -v -run 'TestBudgets_AllSixPresentAndConfigDriven\|TestBudgets_BGCoversTheDegradedSpoolAppend' ./internal/obs/...` | Both PASS. `Budgets()` returns **B-A…B-G**, seven entries. B-A limit `15ms` from `runtime.hotPath.budgetMs` (p99, gated); B-B from `runtime.budgets.l0IngestMs` (p99, gated); B-C from `l0ProcessMs` (**not gated** — soft); B-D `Gated == false`, reported only; B-E from `checkpointFinalizeMs` (p99, gated); B-F from `mcpToolCallMs` (p95, gated); B-G from `runtime.budgets.hookDegradedMs = 1000`, **reported only** (`Gated == false`). Changing config changes every limit. **Post-V2 correction:** SP-05 added B-G, which has no §2.4 row of its own — it names the one synchronous cost §2.4 leaves unbudgeted, the spool append a hook pays inside `ipc.Client.Send` when no daemon answers. §2.4's six are still what `TestBudgets_AllSixPresentAndConfigDriven` grades (it keeps its name deliberately and now asserts `require.Len(t, budgets, 7)`); B-G is graded by `TestBudgets_BGCoversTheDegradedSpoolAppend` |
 | G3 | Breach-window accounting | `go test -run TestCheckBudgets_CountsConsecutiveWindows ./internal/obs/...` | PASS; one `BudgetBreach` with `Windows == 3` |
 | G4 | Counters, gauges, snapshot, persistence | `go test ./internal/obs/...` | Whole-package PASS; `Snapshot()` returns a deep copy; `Persist(layout)` writes `metrics/latency.json` through `paths.WriteAtomic` |
 | G5 | Coverage floor (75%) | `go test -cover ./internal/obs/...` | ≥ 75% |
@@ -206,7 +206,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | H5 | `EstimateRoot` over `[]core.ChunkRef` (no `store` import) | `go test -run TestEstimateRoot_SumsChunks ./internal/tokens/...` ; `go list -deps ./internal/tokens \| grep -c 'qompack/internal/store'` | Test PASS (3×1000-byte prose chunks → `750`); grep count **0** |
 | H6 | Monotonicity property | `go test -run TestEstimate_MonotoneInLength ./internal/tokens/...` | rapid property PASS |
 | H7 | `tokenstest` conformance suite shape | `go test -v -run 'TestEstimatorSuite_RealImplementation' ./internal/tokens/...` — **`TestTokensSuite` does not exist**, and `-run` on a name that matches nothing exits 0, so the original command reported success while running no test at all | Shape block PASS; behaviour block skipped with exactly `behaviour: implementation is a stub (Rule W-1)` **only** for the parts SP-06 owns (`EstimateRoot` exact chunk accounting); baseline assertions run |
-| H8 | Coverage floor (75%) | `go test -cover ./internal/tokens/...` | ≥ 75% |
+| H8 | Coverage floor (90%) | `go test -cover ./internal/tokens/...` | ≥ **90%**. **Post-V2 correction:** `tokens` is a 90%-floor package, not 75%. `00-ARCHITECTURE.md` §6.4 lists it in the 90% group and `plans/OWNERS.tsv` ships the row `tokens SP-01 90 -`, which is the number `devtool cover` actually enforces (and IT-6 cross-checks the row against §6.4 in both directions). The 75% figure here and at R5 was 15 points weaker than the gate that has been running all along |
 
 #### Group I — `internal/hookio` (host-drift absorption)
 
@@ -227,13 +227,13 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | J1 | **Hooks always exit 0** (§2.3, DoD 13) | `go test -v -run TestDispatch_HookAlwaysExitsZero ./internal/cli/...` | PASS on **all 30 combinations** (6 hook subcommands × 5 fault injections: unreadable stdin, malformed JSON, unresolvable project root, read-only `.qompack`, panicking inner function). Exit code 0 every time; stdout always parses as `hookio.Output` |
 | J2 | Exit-code policy for non-hooks | `go test -run 'TestDispatch_NonHookErrorExitsOne\|TestDispatch_UnknownCommandExitsTwo' ./internal/cli/...` | Both PASS; stub subcommand → exit 1 with the name on stderr; unknown subcommand → exit 2 with usage |
 | J3 | Panic recovery is loud | `go test -run TestDispatch_PanicRecovered ./internal/cli/...` | PASS; exit 0 for a hook command, a `Loud` record with a stack, and valid JSON still written to stdout |
-| J4 | Hook observability log, without payload content | `go test -run TestHooks_WriteHookLog ./internal/cli/...` | PASS; `.qompack/logs/hooks-YYYYMMDD.jsonl` gains 6 lines with the right `hook` values and fields `{ts, hook, session_id, tool_name, bytes, truncated}` — **no payload text** |
+| J4 | Hook quiet-failure log, without payload content | `go test -run 'TestHooks_LogQuietWritesWhenLogsDirExists\|TestHooks_LogQuietNeverCreatesLogsDir' ./internal/cli/...` | Both PASS. Positive case: a hook whose stdin cannot be read at all still records that failure, as exactly one `hook-quiet-YYYYMMDD.jsonl` line under `.qompack/logs/`, shaped `{ts, err}` — **no payload text**, because the record carries the error and nothing else. Negative case: the same failure against a project whose `.qompack/logs` does not exist leaves the project untouched — neither `logs/` nor `.qompack/` is conjured on a hook's error path. **Post-V2 correction:** `TestHooks_WriteHookLog` and the `hooks-YYYYMMDD.jsonl` observation log it named are both gone. SP-05 replaced the six hook bodies with thin `ipc` clients (`internal/cli/hookclient.go`), and `logQuiet` is the only log a hook body still writes; the row pointed at a name nothing declares, and `go test -run` on a pattern that matches nothing prints `ok` and exits 0, so it signed off green while executing zero assertions. The whole-tree "no payload text anywhere in the logs" property now lives in IT-1's `v1Secrets` scan |
 | J5 | `config print` with provenance | `go test -run TestConfigPrint_Provenance ./internal/cli/...` ; `go run ./cmd/qompack config print --provenance` | Test PASS; the live command annotates each leaf with origin and location |
 | J6 | `config schema` | `go test -run TestConfigSchema_Emits ./internal/cli/...` ; `go run ./cmd/qompack config schema \| head -5` | Test PASS; live output parses as JSON and equals `Defaults().JSONSchema()` |
 | J7 | `--set` flag plumbing | `go test -run TestSetFlagParsing ./internal/cli/...` | PASS; `--set scheduler.cache.readMultiplier=0.08 --set eval.minSessions=5` both land in **`Env.Set`** and take effect. (The field is `Set`, not `Flags`; `Flags` is the name it is passed under into the config loader's own struct) |
 | J8 | The dispatch table is complete from day one | `go run ./tools/devtool build` ; then for each of `mcp status recall pin why dropped eval fsck doctor bench` (**V2 correction: `daemon` and `self-test` are real since SP-05** — `daemon` starts a resident process and `self-test` may exit non-zero by design; both have their own rows): `./bin/qompack <name>` (`.\bin\qompack.exe` on Windows) | Each prints `qompack <name>: not implemented in this build` to stderr and exits **1** (`self-test` may exit 1 by its own policy). None panics; none exits 0 falsely |
 | J9 | `version` and `help` | `./bin/qompack version` ; `./bin/qompack --help` | usage text exits 0; `version` prints `core.Version` — `0.1.0` in-source, but `devtool build` injects a git-describe string via `-ldflags` since SP-05, so expect that form from a devtool-built binary (SP-17 owns reconciling binary and plugin-manifest versions) |
-| J10 | Six hook subcommands respond correctly through the real binary | `./bin/qompack observe tool < payload.json`, `observe prompt`, `observe stop`, `observe stop --subagent`, `session-start`, `checkpoint`, `flush` | `observe *` and `flush` emit `{}`; `session-start` emits `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}`; `checkpoint` emits `{"hookSpecificOutput":{"hookEventName":"PreCompact"}}`; every exit code 0 |
+| J10 | Six hook subcommands respond correctly through the real binary | `./bin/qompack observe tool < payload.json`, `observe prompt`, `observe stop`, `observe stop --subagent`, `session-start`, `checkpoint`, `flush` | `observe *`, `flush` **and `checkpoint`** emit exactly `{}`; `session-start` answers through `hookSpecificOutput` with `hookEventName == "SessionStart"`; every exit code 0. **Post-V2 correction:** both hookSpecificOutput expectations moved. `checkpoint` emits `{}` until SP-10's `svc.PreCompact` seam lands — `PreCompact`'s `hookSpecificOutput` is populated only by that seam, which is absent from a wave-1 build, so the minimal response is the correct answer and `test/e2e/v1_integration_test.go` pins it as `wantStdout: "{}\n"`. Recording a FAIL here, or 'restoring' an unconditional PreCompact payload, takes work SP-10 owns. And `session-start` is no longer byte-comparable: it starts the daemon, whose `handleSessionStart` mints a live §12.1 sentinel into `additionalContext` on every run, so assert the **event name**, not the exact bytes |
 | J11 | `cmd/qompack/main.go` stays a dispatcher | `wc -l cmd/qompack/main.go` (PowerShell: `(Get-Content cmd/qompack/main.go \| Measure-Object -Line).Lines`) | **< 150** lines; no package-level init beyond `var` declarations |
 | J12 | Coverage floor (75%) for `cli` | `go test -cover ./internal/cli/...` | ≥ 75% |
 
@@ -255,7 +255,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | L1 | Every stubbed package compiles with the exact §5 signature | `go build ./...` ; `go vet ./...` | Exit 0 both. The 23 packages present: `chunk canon symbols redact sketch store dag grammar negknow analyzer scheduler checkpoint pins rehydrate rules skills mcp commands eval ipc daemon observer contract` |
-| L2 | **Stubs are inert, not faked** | `go test -v -run TestAllStubsReturnNotImplemented ./test/guards/...` | PASS; the reflective walk covers all 23 packages (the `probes.go` table asserts none is missing); every method returns `core.ErrNotImplemented` or a documented zero value (`Bloom.Test`→`false`, `Graph.CrossingEdges`→`0`, `Sequitur.Rules`→`nil`); constructors return a usable value with a **nil** error |
+| L2 | **Stubs are inert, not faked** | `go test -v -run TestAllStubsReturnNotImplemented ./test/guards/...` | PASS; the registry still names all 23 §5 packages and `TestStubRegistry_ListsEveryPackageOnDisk` asserts none is missing; every constructor returns a usable value with a **nil** error, no method panics on zero-valued arguments, and a method that returns a non-nil error returns `core.ErrNotImplemented` — never a different error and never fabricated data. **Post-V2 correction:** the wave-0 `probes.go` table is gone (the registry is `stubRegistry()` in `test/guards/stubs_test.go`) and eleven of the 23 packages landed in wave 1, so this row no longer means "all 23 report `ErrNotImplemented`". `sketch`, `store`, `dag`, `eval` and `contract` are marked `pureMethods: allMethodsAreReal` and the walk returns straight after their constructor check. The rest are still walked method by method, and there the assertion is a **disjunction**: the twelve packages that remain stubs — `observer negknow checkpoint pins rehydrate rules skills mcp commands scheduler analyzer grammar` — report `core.ErrNotImplemented`, while the landed-but-unmarked seams (`chunk`, `canon`, `symbols`, `redact`, `ipc`) return a nil error and a documented zero value, which the walk permits. A wrong non-nil error, or a panic, is the failure |
 | L3 | `chunk.RootHash` (real) | `go test -run TestRootHash_Formula ./internal/chunk/...` | PASS; equals `HashBytes("qompack.root.v1", h1‖h2)` |
 | L4 | `chunk.DefaultParams` / `Params.Validate` (real) | `go test ./internal/chunk/...` | PASS; defaults `1024/4096/16384` read from `config.StoreCfg.Chunk`; `Validate` enforces `Min < Target < Max` |
 | L5 | `scheduler.YoungDaly` (real) | `go test -run TestYoungDaly_Formula ./internal/scheduler/...` | PASS; `YoungDaly(30,600) == math.Sqrt(2*30*600)`; `YoungDaly(0,600) == 0`; `YoungDaly(-1,5) == 0` |
@@ -272,7 +272,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | L16 | `ipc.Resolve` endpoint derivation (real) | `go test -v -run 'TestResolve' ./internal/ipc/...` — the derivation is covered by nine `TestResolveFor_*`/`TestResolve_*` tests; **`TestIPCResolve_SunPathFallback` does not exist** and selected zero tests while exiting 0 | PASS. Windows: `\\.\pipe\qompack.<hash12>`; POSIX: `$XDG_RUNTIME_DIR/qompack/<hash12>.sock` → `<tmp>/qompack-<uid>/<hash12>.sock` → `<tmp>/qp-<hash8>.sock` when the path exceeds 100 bytes. Hash is **undomained** `sha256.Sum256` of the normalized absolute project root |
 | L17 | `contract.StandardAssertions` returns the nine §5.19 IDs, all not-yet-implemented | `go test -v -run 'TestStandardAssertions\|TestResultSet' ./internal/contract/...` — `TestContractSuite` matched only by prefix (the real name is `TestContractSuite_ShapePassesAgainstStub`, which asserts suite shape, not the nine IDs). The four `TestStandardAssertions_*` tests are what check the table, and `TestResultSet_MatchesFrozenGolden` pins the §16 fixture | PASS; nine assertions; each `Check` returns `OK:true, Severity:SevInfo, Observed:"not-yet-implemented"` |
 | L18 | SP-01-declared types §5 names but never defines | `go doc ./internal/obs Counter` ; `go doc ./internal/ipc AddrKind` ; `go doc ./internal/daemon SketchSet` ; `go doc ./internal/dag GraphStats` ; `go doc ./internal/negknow Deps` ; `go doc ./internal/contract History` ; `go doc ./internal/paths Global` | All declared exactly as SP-01 §14.0 spells them: `obs.Counter/Gauge/Snapshot`; `ipc.AddrKind{NamedPipe,UnixSocket}`, `HotPathMode{HotSync,HotSpool}`, `ACK=0x06`, `NAK=0x15`, `MaxLineBytes=1<<20`; `daemon.SketchSet{Tried,Touch,Explore,Top}`; `dag.GraphStats`; `negknow.Deps`; `contract.History`; `paths.Global` |
-| L19 | Stub packages are **exempt** from their coverage floors, visibly | `go run ./tools/devtool cover` | Exit 0; the log prints `exempt (stub, owned by <SP-NN>)` for `store sketch chunk canon negknow checkpoint scheduler dag analyzer rehydrate eval mcp` and every other non-SP-01-owned package; no floor is silently skipped |
+| L19 | Stub packages are **exempt** from their coverage floors, visibly | `go run ./tools/devtool cover` | Exit 0; the log prints `exempt (stub, owned by <SP-NN>)` for every package whose owner is not listed in `tools/devtool/cover.go`'s `landedSubplans`, plus `exempt (composition root, §6.4): cmd/qompack`; no floor is silently skipped. **Post-V2 correction:** the exempt set is now exactly the twelve packages of the unlanded subplans — `observer` (SP-08), `negknow` (SP-09), `checkpoint` and `pins` (SP-10), `rehydrate`, `rules` and `skills` (SP-11), `scheduler` (SP-12), `mcp` (SP-13), `commands` (SP-14), `analyzer` and `grammar` (SP-15). SP-02…SP-07 have landed, so `eval sketch chunk canon symbols ipc daemon contract store redact dag` are **no longer exempt** and their §6.4 floors are enforced; seeing any of those eleven printed as a stub means `landedSubplans` lost an entry, which is the silent-zero-coverage failure `cover`'s own cross-check exists to catch. The exemption is keyed on `landedSubplans`, not on owner identity |
 
 #### Group M — 22 conformance suites and `plans/OWNERS.tsv` (§5.22, Rule W-1)
 
@@ -304,7 +304,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | O3 | `FakeClock` determinism | `go test -run TestFakeClock_Deterministic ./internal/testutil/...` | PASS; `Advance` moves `Now`; `Since` exact; no wall-clock read |
 | O4 | Golden helper | `go test -run TestGolden_UpdateFlag ./internal/testutil/...` | PASS; `-update` rewrites, absence compares; CRLF in the file causes no false failure |
 | O5 | Windows-hostile fixtures (§6.2) | `go test -run TestWindowsHostileFiles_AllCreatable ./internal/testutil/...` | PASS; spaces-in-path, >260-char path, CRLF file, `0444` file all created; the case-colliding pair collapses to one file on a case-insensitive FS and the test asserts **that outcome explicitly** |
-| O6 | Real-binary e2e hook run (DoD 13) | `go test -v -run TestE2E_AllSixHooksExitZero ./test/e2e/...` | PASS; the real binary is built once per test binary; all six hooks exit 0; every stdout parses as `hookio.Output`; the hook log gains six lines |
+| O6 | Real-binary e2e hook run (DoD 13) | `go test -v -run TestE2E_AllSixHooksExitZero ./test/e2e/...` | PASS; the real binary is built once per test binary; all six hooks exit 0; every stdout parses as `hookio.Output`. **Post-V2 correction:** "the hook log gains six lines" is retired — SP-05 replaced wave-0's `hooks-*.jsonl` observation log with the real transport, so there is no per-hook log line left to count. The property it stood in for, that the hooks are observable without storing content, is IT-1's `v1Secrets` scan over `.qompack/logs/**`. The test itself keeps its name deliberately: five VERIFY documents name it as a command, and a build where it reported "no tests to run" would make every one of them pass vacuously |
 | O7 | Real-binary config surface | `go test -run TestE2E_ConfigPrintFromRealBinary ./test/e2e/...` | PASS; `config print --json` from the real binary deep-equals `Defaults()` for a project with no config file |
 | O8 | `os/exec` allowlist honoured | `go run ./tools/devtool lint --only=bindeps,importgraph` ; inspect `internal/testutil/spawn.go` | Exit 0. In **non-test production code** `os/exec` appears only in `internal/testutil/spawn.go` and `tools/devtool/util.go`, and `testutil`'s use is isolated in `spawn.go` with an inline comment naming §6.2. Note the row previously named `internal/daemon` and `internal/cli`: neither imports `os/exec` at V1 (the daemon that would spawn does not exist yet, and the CLI is in-process). The complete V1 set, tests included, is `internal/paths` (two `_test.go` files), `internal/testutil/spawn.go`, `test/e2e/harness.go`, `test/guards` (four `_test.go` files) and `tools/devtool/util.go` — the composition roots and the harnesses, which is the shape §6.2 intends |
 
@@ -312,7 +312,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
-| P1 | Closing note 1 — Phase 0 before Phase 1 | `go test -v -run TestGuard_Phase0BeforeStore ./test/guards/...` | PASS (both `eval` and `store` are stubs today, so the guard is satisfied and stays armed) |
+| P1 | Closing note 1 — Phase 0 before Phase 1 | `go test -v -run TestGuard_Phase0BeforeStore ./test/guards/...` | PASS. **Post-V2 correction:** the parenthetical "both are stubs today" no longer describes the tree — `eval` landed with SP-02 and `store` with SP-06, so the guard now passes in its intended direction: Phase 0's measurement shipped **before** Phase 1's store, which is what closing note 1 asks for. It stays armed rather than becoming vacuous: `test/guards/buildorder_test.go` fails the moment `eval`'s probe looks like a stub while `store`'s does not, which is what a revert of the measurement layer would look like |
 | P2 | Closing note 2 — store + negknow before checkpoint | `go test -v -run TestGuard_StoreAndNegknowBeforeCheckpoint ./test/guards/...` | PASS |
 | P3 | Closing note 3 — submodular inert without p-selection | `go test -v -run TestGuard_SubmodularInertWithoutPSelection ./test/guards/...` | PASS; `runtime.selection.submodularEnabled` and the derived `Selection.Submodular.Enabled` both **false**; `NewSelector` refuses `Pos < p` with `core.ErrBudget` |
 | P4 | Closing note 3 — selector refuses while p-selection is absent | `go test -v -run TestGuard_SelectorRefusesWithoutPSelection ./test/guards/...` | PASS with `core.ErrNotImplemented` |
@@ -327,12 +327,12 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 |---|---|---|---|
 | Q1 | `ci.yml` job set matches §8 | `cat .github/workflows/ci.yml` | Jobs: `verify`, `test` (ubuntu/macos/windows × go 1.26.x), `cover`, `crossbuild`, `bench-gate`, `replay-gate`, `plugin-validate`, `security`, `docs`. Triggers: push to `**`, PR into `develop`/`main`. `GOTOOLCHAIN: local`, `CGO_ENABLED: '0'` |
 | Q2 | Attribution-trailer and Conventional-Commit gates exist in CI | inspect the `verify` job | Two run-steps: one greps the commit range for `Co-Authored-By\|Signed-off-by\|Generated with\|🤖` and fails on a match; one validates every subject against the §10 regex **and, as a separate `case` test, rejects a trailing period**. The two must be separate: `.` in `.{1,64}` matches a literal period like any other character, so the pattern alone can never reject one — `tools/devtool/checkcommitmsg.go` has always checked it separately for exactly this reason, and CI did not until this checkpoint |
-| Q3 | Gates correctly not-yet-required | inspect `bench-gate` and `replay-gate` | Both carry `continue-on-error: true` with an inline comment naming the subplan that removes it (SP-05 for bench-gate, SP-02 for replay-gate) |
+| Q3 | Gates are required, and say so | inspect `bench-gate` and `replay-gate` in `.github/workflows/ci.yml` | **Neither job carries `continue-on-error`** — finding the key on either one is now the failure. `bench-gate`'s comment block reads "Required from the end of wave 1 onward (00-ARCH §8): test/bench/hotpath has landed (SP-05), so this is no longer continue-on-error"; `replay-gate`'s reads "A REQUIRED check from the end of wave 1 (§8): SP-02 landed test/replay, so the continue-on-error placeholder is gone and a regression here blocks the merge". The only live occurrences of the string in the file are those two explanations. **Post-V2 correction: this row is inverted.** It asserted the opposite until wave 1 landed both drivers, and `plans/V3-VERIFY-observer-and-negative-knowledge.md` asserts the corrected form for the same re-run, so leaving it would put two documents in direct contradiction over one file. Note also what the row can and cannot see: whether the two jobs are **required checks** is GitHub branch protection on `develop`/`main`, not a property of any file in this repo — inspect branch protection for that half, and record it separately |
 | Q4 | Security job asserts the §8 import allowlists | inspect the `security` job | Runs `govulncheck`, `devtool lint --only=importgraph,testdeps,bindeps`, and the two `grep`-based allowlists for `net/http\|net/url\|crypto/tls` and `os/exec` |
 | Q5 | Nightly and release workflows present | `cat .github/workflows/nightly.yml .github/workflows/release.yml` | Nightly: cron `0 3 * * *`, fuzz 10 min/target over the **eight** declared targets (six of which are waived while their package is a stub — see N5/N6 and `TestNightlyFuzzMatrix`), Windows `-race`, `bench-hotpath --iterations 5000`, live replay gated on `QOMPACK_SESSIONS_DIR`. Release: tag-triggered `v*`, `goreleaser release --clean` |
 | Q6 | `.goreleaser.yaml` six targets | `cat .goreleaser.yaml` | Six §2.6 targets, `CGO_ENABLED=0`, `-trimpath`, `-ldflags "-s -w -X …/internal/core.Version={{.Version}}"`, `checksum.name_template: checksums.txt` |
 | Q7 | Issue templates and CODEOWNERS | `ls .github/ISSUE_TEMPLATE/` ; `cat .github/CODEOWNERS` | `bug.yml` and `upstream-tracker.yml` present; `upstream-tracker.yml` enumerates the five §12 upstream issues; CODEOWNERS covers `*` and `/plans/` |
-| Q8 | CI is green on `verify/v1` (DoD 17) | push the branch and inspect the run | `verify`, `test` ×3 OS, `cover`, `crossbuild`, `plugin-validate`, `security`, `docs` **green**; `bench-gate` and `replay-gate` run and report their not-present message |
+| Q8 | CI is green on `verify/v1` (DoD 17) | push the branch and inspect the run | `verify`, `test` ×3 OS, `cover`, `crossbuild`, `plugin-validate`, `security`, `docs` **green**. **Post-V2 correction:** `bench-gate` and `replay-gate` no longer "report their not-present message" — both drivers landed in wave 1, so both jobs do real work and must be **green** as well: `bench-gate` runs `bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json …` on all three OS runners and uploads its artifact, `replay-gate` runs the SP-02 driver on ubuntu under a 20-minute deadlock backstop. A not-present message from either one now means its driver directory is missing, which is itself a failure |
 
 #### Group R — Whole-tree test execution
 
@@ -342,7 +342,7 @@ Implementation spec (§1–§20), the Test plan, and the 18-item Definition of D
 | R2 | Race detector (DoD 6) | `go test -race ./...` (Linux/macOS; Windows nightly) | Exit 0; no data races |
 | R3 | Windows repeat run (DoD 6) | `go test -count=2 ./...` on Windows | Exit 0; no order-dependent or state-leaking test |
 | R4 | Build and vet on all three platforms (DoD 2) | `go build ./...` and `go vet ./...` on Windows locally + Linux/macOS in CI | Exit 0 everywhere |
-| R5 | Coverage floors for SP-01-implemented packages (DoD 7) | `go run ./tools/devtool cover` | Exit 0. Binding this wave: `config` ≥ 90%, `paths` ≥ 90%; `core`, `logging`, `obs`, `tokens`, `hookio`, `cli`, `pluginmanifest`, `testutil` ≥ 75%. `cover` fails if `OWNERS.tsv` claims `SP-01` for a package whose probe still reports `ErrNotImplemented` |
+| R5 | Coverage floors for SP-01-implemented packages (DoD 7) | `go run ./tools/devtool cover` | Exit 0. Binding this wave: `config` ≥ 90%, `paths` ≥ 90%, **`tokens` ≥ 90%**; `core`, `logging`, `obs`, `hookio`, `cli`, `pluginmanifest`, `testutil` ≥ 75%. `cover` fails if a package whose owner `landedSubplans` lists as landed still has a probe that looks like a bare `core.ErrNotImplemented` stub. **Post-V2 correction:** `tokens` moved out of the 75% list — §6.4 and `plans/OWNERS.tsv` both put it at **90%**, which is the floor the gate has been enforcing all along (see H8) |
 
 ---
 
@@ -358,10 +358,16 @@ Each completed subplan's exit criteria, **quoted**, with the concrete measuremen
 Verify only that SP-01 made it measurable:
 1. `go test -run TestDefaults_MatchesAppendixCVerbatim ./internal/config/...` → `eval.minSessions == 20` in the golden.
 2. `go run ./cmd/qompack config print --json | grep -A2 '"eval"'` → `"minSessions": 20`, `"replayOnPhaseGate": true`.
-3. `grep -n 'replay-gate' -A6 .github/workflows/ci.yml` → the job exists, invokes
-   `devtool replay --corpus testdata/sessions/synthetic --baseline develop`, and is
-   `continue-on-error: true` with SP-02 named inline.
-4. `go run ./tools/devtool replay` → prints `replay: driver not present (owned by SP-02)`, **exit 0**.
+3. `grep -n 'replay-gate' -A30 .github/workflows/ci.yml` → the job exists and invokes
+   `go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --growth … --sketch … --signoff … --max-cpu 2m --ci`.
+   **Post-V2 correction:** the arguments moved (the baseline is a committed JSON artifact, not the
+   `develop` branch) and the job is **no longer `continue-on-error`** — SP-02 landed `test/replay`,
+   so a regression here blocks the merge. See Q3.
+4. Confirm the task **forwards** rather than stubs: `go run ./tools/devtool` lists `replay`, and
+   `tools/devtool/replay.go` passes every argument through to `go run ./test/replay`, propagating
+   the driver's exit code unchanged. **Post-V2 correction:** do not run a bare
+   `go run ./tools/devtool replay` here expecting a not-present message — it now runs the gate
+   driver. The driver's own full run belongs to the `replay-gate` job and to V2's checkpoint.
 
 > **Exit criterion:** store size vs. raw transcript ratio ≥ 4:1 on read-heavy sessions (measure with and without canonicalization — the gap on test-output-heavy sessions justifies O2 on its own); hook p99 < 15ms. *(Phase 1 — SP-06 achieves the dedup ratio and SP-08 the hook p99, both measured by SP-02's replay corpus; SP-01 ships `store.Stats.DedupRatio`, budget B-A and the bench-harness contract that will measure them.)*
 
@@ -369,7 +375,12 @@ Verify only that SP-01 made it measurable:
 `N/A — SP-06` in the report table; do not fabricate a number. Verify the affordances exist:
 1. `go doc ./internal/store Stats` → the struct declares `DedupRatio float64` with the "RawBytes / Bytes — the Phase 1 exit criterion (≥ 4:1)" comment.
 2. `go test -run TestBudgets_AllSixPresentAndConfigDriven ./internal/obs/...` → B-A exists, is gated at p99, limit read from `runtime.hotPath.budgetMs` = 15 ms.
-3. `go run ./tools/devtool bench-hotpath --iterations 2000 --json bench.json` → `bench-hotpath: harness not present (owned by SP-05)`, exit 0.
+3. B-A's spawn-inclusive harness **exists** now (SP-05 landed `test/bench/hotpath`), so it is
+   measured rather than deferred — run it once, serially, per §5 P-5, not from this list.
+   **Post-V2 correction:** the old expectation here was
+   `bench-hotpath: harness not present (owned by SP-05)`, exit 0; `tools/devtool/benchhotpath.go`
+   keeps that message only as the documented degrade path for a build that predates the harness
+   (a bisect), and forwards to the real driver otherwise.
 4. The wave-0 headroom proxy for B-A is `BenchmarkHookNoop_InProcess` — see §5 B-A-proxy.
 
 ### SP-01 — guardrails it must express as configuration and CI, quoted from §11.3
@@ -400,7 +411,10 @@ Procedure: R4 locally on Windows plus the CI `verify` and `test` jobs for Linux/
 
 > 3. `go run ./tools/devtool lint` exits 0: `golangci-lint`, `nomagic`, `importgraph`, `testdeps`, `bindeps`, `sleepcheck`, `stubskips` all clean. In particular `importgraph` passes against the real repository, and `bindeps` proves `go list -deps ./cmd/qompack` contains only stdlib, `github.com/qompack/qompack/…`, zstd and go-winio — so `golang.org/x/tools` in the root `go.mod` never reaches the shipped binary.
 
-Procedure: B5 + B8 + B10 + B11 + B12 + B13.
+Procedure: B5 + B8 + B10 + B11 + B12 + B13. **Post-V2 correction:** the quoted item names the seven
+sub-checks SP-01 shipped; `devtool lint` runs **nine** today — `runpatterns` and `docmarkers` were
+added after V2-VERIFY — and the allowed binary closure gained `golang.org/x/sys/windows`. SP-01's
+own DoD 3 carries the same correction. Grade against B5 and B11, not against the quote.
 
 > 4. `go run ./tools/devtool fmt-check` prints nothing.
 
@@ -417,6 +431,9 @@ Procedure: R2 + R3.
 > 7. `go run ./tools/devtool cover` meets every §6.4 floor for the packages SP-01 **implements**, and exempts every package it only **stubs** … printing `exempt (stub, owned by <SP-NN>)` for each …
 
 Procedure: R5 + L19. Confirm the exemption lines are printed (visible, not hidden in a constant).
+**Post-V2 correction:** the exemption is keyed on `tools/devtool/cover.go`'s `landedSubplans`, not
+on a package's owner being `SP-01`, and `tokens` binds at **90%**. SP-01's own DoD 7 carries both
+corrections.
 
 > 8. `go run ./tools/devtool plugin-validate` exits 0 and `git diff --exit-code -- plugin/` is clean.
 
@@ -522,28 +539,26 @@ sleeps** (`devtool lint --only=sleepcheck` must stay clean).
 - **Inputs:** the seven golden hook payloads from `testdata/golden/contracts/hookio/input/`, fed on stdin in the realistic order: `SessionStart(source=startup)` → `UserPromptSubmit` → `PostToolUse`(FileRead) → `PostToolUse`(Bash) → `Stop` → `PreCompact(trigger=auto)` → `SessionEnd`. `SubagentStop` is run as an eighth call with `--subagent`.
 - **Expected outputs:**
   - exit code `0` for all eight invocations;
-  - every stdout unmarshals into `hookio.Output` with no trailing garbage;
-  - `session-start` stdout equals `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}`;
-  - `checkpoint` stdout equals `{"hookSpecificOutput":{"hookEventName":"PreCompact"}}`;
-  - the other six produce exactly `{}`;
-  - `.qompack/logs/hooks-<date>.jsonl` has **exactly 8** lines, in call order, each with `hook` equal to the invoked subcommand name, `session_id` echoing the payload, `bytes > 0`, `truncated == false`;
-  - the log file contains **none** of: the prompt text, the tool_response body, or any file path from the payload (assert by substring search) — proving the wave-0 hooks are observable without storing content;
+  - every stdout unmarshals into `hookio.Output` with no trailing garbage, and each is a **lone** output (nothing printed around it);
+  - `session-start` answers through `hookSpecificOutput` with `hookEventName == "SessionStart"`;
+  - `checkpoint` and the other six produce exactly `{}`;
+  - the concatenated contents of every file under `.qompack/logs/` — the day log, `LOUD.log` and any `hook-quiet-*.jsonl` — contain **none** of the `v1Secrets` substrings: the prompt text, the `tool_input` file path, a key from the `tool_response` body, the derived Bash command and its output, the `transcript_path`, and the payload `cwd`. This is the row's load-bearing half: none of the surviving log files is a content store, so a regression that started writing payload text into one would otherwise be invisible;
   - `.qompack/.gitignore` exists with content exactly `*\n`.
+- **Post-V2 correction (three of these moved when SP-05 landed).** `session-start` is no longer byte-comparable: it is the designated daemon starter, and `handleSessionStart` mints a live §12.1 sentinel into `additionalContext` on every run, so the assertion is on the event name. `checkpoint` answers `{}` — `PreCompact`'s `hookSpecificOutput` is populated only by an actual `svc.PreCompact` seam (SP-10), absent from a wave-1 build. And the eight-line `hooks-<date>.jsonl` assertion is gone with the log it named: SP-05 replaced wave-0's observation log with the real transport, so the leak scan above is re-anchored on `.qompack/logs/**` as a whole rather than on one file. The WAL under `spool/` is deliberately **excluded** from that scan — it is the durable content store the system exists to build, and its `Request`s legitimately carry `Event.Prompt`/`ToolInput`/`ToolResponse` verbatim.
 
 ### IT-2 — `TestV1_ConfigPrecedenceReachesHookBehaviour` (`test/e2e`)
 
-- **Crosses:** `config` (five layers) → `cli` bootstrap ordering → `hookio` limit → `logging`.
+- **Crosses:** `config` (five layers) → `config print --provenance`; and, separately, the hot-path read limit a bare hook actually applies (`cli` → `ipc.ReadState` → `hookio`).
 - **Setup:** fake `HOME` with `~/.qompack/config.json` setting `runtime.hotPath.maxPayloadBytes = 4096`; project `.qompack/config.json` setting it to `8192`.
-- **Inputs:** three sub-cases, each running the real binary `observe tool` with a synthesized `PostToolUse` payload of **12 KiB**:
-  1. no env override;
-  2. `QOMPACK_RUNTIME__HOTPATH__MAXPAYLOADBYTES=16384`;
-  3. no env, but `--set runtime.hotPath.maxPayloadBytes=32768`.
+- **Inputs:** two halves.
+  1. Three precedence sub-cases, each running the real binary `config print --provenance`: no override; `QOMPACK_RUNTIME__HOTPATH__MAXPAYLOADBYTES=16384`; and `--set runtime.hotPath.maxPayloadBytes=32768`.
+  2. Three bare-hook sub-cases, each running `observe tool` against a project no daemon has ever touched, with a synthesized `PostToolUse` payload sized relative to the **default** read boundary `config.Defaults().Runtime.HotPath.MaxPayloadBytes × 4`: just under it, just over it, and twice it.
 - **Expected outputs:**
-  - all three exit `0` and print `{}`;
-  - case 1 → hook-log line has `truncated: true` (effective limit 8192 < 12288) and the day log carries one `level=warn` line naming the payload limit;
-  - cases 2 and 3 → `truncated: false`, no warn line;
-  - `qompack config print --provenance` in case 2 annotates `runtime.hotPath.maxPayloadBytes` with `OriginEnv`, and in case 3 with `OriginFlag`;
-  - in every case the hook read stdin under the **default** 1 MiB bootstrap limit first — assert by feeding a 2 MiB payload in a fourth sub-case and expecting exit `0` with `{}` and a hook-log line recording `bytes` clamped at the bootstrap limit, never a crash.
+  - the three precedence sub-cases exit `0`, and the provenance line for `maxPayloadBytes` reads `project`, then `env`, then `flag` — the project file beating the user file, env beating both files, the flag beating everything;
+  - the "just under" payload exits `0`, prints `{}`, and leaves **exactly one** spool file holding **exactly one** NDJSON request: it parsed and reached the spool step with no daemon reachable;
+  - the "just over" payload exits `0`, prints `{}`, and leaves **no** spool file at all — it never reached the spool step;
+  - the "twice the boundary" payload exits `0` and prints `{}`: grossly oversized input is clamped before anything expensive happens, and never hangs and never crashes.
+- **Post-V2 correction (the limit and the seam both moved).** SP-05 removed `config.Load` from the hot path on purpose: `internal/cli/hookclient.go` reads `ipc.ReadState(root, config.Defaults())`, and `hookio.ReadEvent` is called with `int64(st.MaxPayloadBytes)*4` from `run/state.bin` — **not** with `config.Defaults().Runtime.HotPath.MaxPayloadBytes` and not with the project's own key. So the old expectations here are unsatisfiable and were replaced rather than repaired: there is no hook-log line to carry `truncated: true` (that log is gone — see IT-1), a bare hook against a daemon-less project reads under the default alone regardless of precedence, and the bootstrap boundary is ~4 MiB rather than 1 MiB, which is why a 2 MiB payload is no longer clamped. Sizing the two payloads **around the boundary** is what distinguishes "reads the default" from "reads the project config": under the old 8192 project limit both would fail to parse identically, so the "just under" case passing is the discriminating half, not merely "exits 0".
 
 ### IT-3 — `TestV1_AppendOnlyInvariantSurvivesRealHookRun` (`test/guards`)
 
@@ -642,8 +657,8 @@ the report table and into `testdata/bench-baseline.txt`.
 | **P-1** | `BenchmarkHistogram_Observe` — feeds B-B (`00-ARCH` §7, SP-01 DoD 16) | **In force** | `go test -run '^$' -bench BenchmarkHistogram_Observe -benchmem -count 5 ./internal/obs/` | **< 100 ns/op**; allocations 0 B/op |
 | **P-2** | `BenchmarkConfigLoad_ColdNoFiles` — config load must not eat B-A's 15 ms (SP-01 DoD 16) | **In force** | `go test -run '^$' -bench BenchmarkConfigLoad_ColdNoFiles -benchmem -count 5 ./internal/config/` | **< 2 ms/op** |
 | **P-3** | `BenchmarkHookNoop_InProcess` — the wave-0 headroom proxy for **B-A p99 < 15 ms** (§11.3, §8.1) | **In force (proxy)** | `go test -run '^$' -bench BenchmarkHookNoop_InProcess -benchmem -count 5 ./internal/cli/` | **< 3 ms/op** for `observe tool` end to end in-process. Record the number: it is the headroom against 15 ms that SP-05's daemon and SP-08's observer will spend |
-| **P-4** | `BenchmarkPathsWriteAtomic_4KB` (SP-01 DoD 16) | **In force** | `go test -run '^$' -bench BenchmarkPathsWriteAtomic_4KB -benchmem -count 5 ./internal/paths/` | **< 2 ms/op** on CI-class hardware. **Read the allocation columns, not just sec/op.** This benchmark is fsync-bound and the threshold is unreachable on a host whose fsync alone costs more than 2 ms — which includes the Windows/NTFS dev host `testdata/bench-baseline.txt` was recorded on, where it is already annotated `MISSED`. Before treating an overrun as a code defect, isolate the host: measure create+write+close with and without `f.Sync()`. If the delta accounts for the overrun, the finding is the machine. `B/op` and `allocs/op` are the platform-independent halves and a change there **is** a code change |
-| **P-5** | **B-A** `hook_controlled` p99 < 15 ms (§11.3 L0, §2.4, §8.1) — the real spawn-inclusive measurement | **Harness N/A — SP-05** | `go run ./tools/devtool bench-hotpath --iterations 2000 --json bench.json` | Prints `bench-hotpath: harness not present (owned by SP-05)`, **exit 0**. Verify instead that the budget is *expressed*: `go test -run TestBudgets_AllSixPresentAndConfigDriven ./internal/obs/` shows B-A gated at p99 with limit from `runtime.hotPath.budgetMs = 15`. Report `N/A — SP-05` with P-3 as the standing proxy |
+| **P-4** | `BenchmarkPathsWriteAtomic_4KB` (SP-01 DoD 16) | **In force** | `go test -run '^$' -bench BenchmarkPathsWriteAtomic_4KB -benchmem -count 5 ./internal/paths/` | **< 2 ms/op** on CI-class hardware. **Read the allocation columns, not just sec/op.** This benchmark is fsync-bound and the threshold is unreachable on a host whose fsync alone costs more than 2 ms — which includes the Windows/NTFS dev host `testdata/bench-baseline.txt` was recorded on. **Post-V2 correction:** that file carries no header and no annotations — it is 836 lines of raw `go test -bench` output, re-recorded during wave 1, so there is no `MISSED` marker in it to read and this row no longer cites one. Before treating an overrun as a code defect, isolate the host: measure create+write+close with and without `f.Sync()`. If the delta accounts for the overrun, the finding is the machine. `B/op` and `allocs/op` are the platform-independent halves and a change there **is** a code change |
+| **P-5** | **B-A** `hook_controlled` p99 < 15 ms (§11.3 L0, §2.4, §8.1) — the real spawn-inclusive measurement | **In force (harness landed — SP-05)** | `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench.json` — the same invocation CI's `bench-gate` uses. **Run it once, alone, on an idle machine**: it builds the real binary, starts a real detached daemon child and spawns 2000 processes. Also `go test -run TestBudgets_AllSixPresentAndConfigDriven ./internal/obs/` for the config half | Exit **0**, and `bench.json` written. The summary prints a spawn-floor line and one row per budget with `p50/p95/p99/p999/max`, its limit, and `[PASS]` or `[FAIL]`; the harness exits **1** if any *gated* budget's p99 breached its limit, 2 on bad flags. B-A must read `[PASS]` against the 15 ms limit obs reports. The budget must also still be *expressed*: B-A gated at p99 with its limit from `runtime.hotPath.budgetMs = 15`. Record the number — this is the real B-A measurement, with P-3 kept as the in-process proxy for comparison. **Post-V2 correction:** this row previously expected `bench-hotpath: harness not present (owned by SP-05)` and exit 0. SP-05 landed `test/bench/hotpath`, so `devtool bench-hotpath` forwards to it and propagates its exit code; running the row as written would have signed off a real benchmark run as a not-present message |
 | **P-6** | **B-B** `l0_ingest` p99 < 2 ms | **N/A — SP-05** | as P-5 | Budget key present (`runtime.budgets.l0IngestMs = 2`), `Gated == true`; no daemon exists to measure |
 | **P-7** | **B-C** `l0_process` p99 < 50 ms (soft) | **N/A — SP-05/SP-06** | as P-5 | Budget key present (`l0ProcessMs = 50`), `Gated == false` — the soft treatment is itself the thing to verify |
 | **P-8** | **B-D** `hook_wall` (reported, never gated) | **Partially measurable** | IT-5 records per-hook subprocess wall time; also `go run ./tools/devtool build && <time the 8 real-binary invocations of IT-1>` | Recorded, **never gated** (§2.4: process creation is the host's cost). Report the p50/max of the eight spawns as the wave-0 B-D reference point. On Windows expect 6–20 ms of pure spawn floor per §2.1 — that is expected and is not a failure |
@@ -651,7 +666,7 @@ the report table and into `testdata/bench-baseline.txt`.
 | **P-10** | **B-F** `mcp_tool_call` p95 < 250 ms | **N/A — SP-13** | as P-9 | Budget expressed: `mcpToolCallMs = 250`, evaluated at **p95** |
 | **P-11** | **Store dedup ratio ≥ 4:1** (Phase 1 exit criterion, §11.3) | **N/A — SP-06** | `go doc ./internal/store Stats` | `Stats.DedupRatio` declared with the ≥ 4:1 comment. **Record `N/A — SP-06`. Do not fabricate a ratio** |
 | **P-12** | **Store growth sublinear in session length after dedup** (§11.3) | **N/A — SP-06** | — | Record `N/A — SP-06` |
-| **P-13** | Micro-benchmark regression gate (§7): >10% warns, >25% fails vs. `testdata/bench-baseline.txt` | **Baseline-setting run** | `go test -run '^$' -bench . -benchmem -count 10 -p 1 ./... > new.txt` ; `go run -modfile=tools/pinned/go.mod golang.org/x/perf/cmd/benchstat testdata/bench-baseline.txt new.txt` (**`-count 10`, not 5**: benchstat needs at least 6 samples per side to report a confidence interval, and the committed baseline was recorded at 10 — a 5-sample run can only be compared point-to-point, which is what the header of `testdata/bench-baseline.txt` says) | V1 is the first checkpoint, so the committed baseline is SP-01's. Expect **no** benchmark more than 10% worse than the committed baseline; if the machine differs materially from the one that produced the baseline, note it in the report and re-record the baseline as part of this checkpoint's commits |
+| **P-13** | Micro-benchmark regression gate (§7): >10% warns, >25% fails vs. `testdata/bench-baseline.txt` | **Baseline-setting run** | `go test -run '^$' -bench . -benchmem -count 10 -p 1 ./... > new.txt` ; `go run -modfile=tools/pinned/go.mod golang.org/x/perf/cmd/benchstat testdata/bench-baseline.txt new.txt` (**`-count 10`, not 5**: benchstat needs at least 6 samples per side to report a confidence interval, and the committed baseline holds **10 samples per benchmark** — count them with `grep -c 'BenchmarkHistogram_Observe-' testdata/bench-baseline.txt` — so a 5-sample run can only be compared point-to-point. **Post-V2 correction:** the sample count is stated here directly because the file has no header block to read it from; it is raw `go test -bench` output from its first line onward) | V1 is the first checkpoint, so the committed baseline is SP-01's. Expect **no** benchmark more than 10% worse than the committed baseline; if the machine differs materially from the one that produced the baseline, note it in the report and re-record the baseline as part of this checkpoint's commits |
 | **P-14** | Binary size sanity (§2.2 "a single 12–20 MB static binary") | **In force** | `go run ./tools/devtool build` then `ls -l bin/qompack*` (`.exe` on Windows) | 8–25 MB **for the finished binary**. At V1 expect **far less** — 23 of the 33 packages are `ErrNotImplemented` stubs, so there is almost nothing to link; ~2–3 MB is the correct answer here and an 8 MB floor would fail this row for the wrong reason. The upper bound is the live half of this check today: exceeding 25 MB at V1 would mean an accidental dependency. Neither bound is a hard gate |
 
 **Recording rule.** Every number produced above goes into the §8 report table *and* into
@@ -693,9 +708,12 @@ checkpoint. The rule still binds in two places:
    do not sign it off. Pure environmental noise (different machine, different CPU governor) is not
    a regression: re-record the baseline in a `perf:` commit and say so in the body.
 2. **Against the replay gate.** `replay-gate` enforces the 2% rule mechanically from the end of
-   wave 1 (§8: "required checks on `develop` and `main` from the end of wave 1 onward"). At V1 it
-   correctly prints `replay: driver not present (owned by SP-02)` and exits 0. Verify that it is
-   **wired** (Q3) so that SP-02 only has to remove `continue-on-error`.
+   wave 1 (§8: "required checks on `develop` and `main` from the end of wave 1 onward").
+   **Post-V2 correction:** that end has passed. SP-02 landed `test/replay`, the job's
+   `continue-on-error` placeholder is gone, and it runs the driver for real with a `--signoff`
+   file taken from the pull-request body — so on a direct push, where there is no body, **no
+   regression can be signed off at all**. Verify the job's wiring per Q3, and read the sign-off
+   step rather than expecting a not-present message.
 
 **Report line required.** The §8 table must contain a `2% guardrail` row reading either
 `no regressions vs. testdata/bench-baseline.txt` or an explicit list of regressed metrics with
@@ -870,7 +888,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | B2 | Closed runtime dependency list | PASS/FAIL | |
 | B3 | Pinned tools in nested module | PASS/FAIL | |
 | B4 | `fmt-check` clean | PASS/FAIL | |
-| B5 | `devtool lint` (7 sub-checks) | PASS/FAIL | |
+| B5 | `devtool lint` (9 sub-checks) | PASS/FAIL | |
 | B6 | `nomagic` armed and non-vacuous | PASS/FAIL | negative probe reported: yes/no |
 | B7 | Ski-rental computed, no `12.5` literal | PASS/FAIL | grep matches: 0 |
 | B8 | importgraph rejects + accepts real repo | PASS/FAIL | |
@@ -879,7 +897,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | B11 | bindeps across 6 targets | PASS/FAIL | |
 | B12 | sleepcheck | PASS/FAIL | |
 | B13 | stubskips accounting | PASS/FAIL | skips counted: |
-| B14 | All devtool tasks behave | PASS/FAIL | bench-hotpath/replay exit 0 with not-present msg: |
+| B14 | All devtool tasks behave | PASS/FAIL | bench-hotpath/replay forward to their drivers (checked by inspection; run in §5/§2): |
 | B15 | build-all → 6 targets | PASS/FAIL | |
 | B16 | `.golangci.yml` forbid rules | PASS/FAIL | |
 | B17 | `ci-local` green | PASS/FAIL | wall time: |
@@ -942,7 +960,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | F5 | Nop still records Loud | PASS/FAIL | |
 | F6 | Coverage ≥ 75% | PASS/FAIL | coverage: |
 | G1 | Histogram monotone/conservative/max-exact | PASS/FAIL | P99 error bound: |
-| G2 | Six budgets, config-driven | PASS/FAIL | |
+| G2 | Seven budgets B-A…B-G, config-driven | PASS/FAIL | |
 | G3 | Breach windows | PASS/FAIL | |
 | G4 | Counters/gauges/snapshot/persist | PASS/FAIL | |
 | G5 | Coverage ≥ 75% | PASS/FAIL | coverage: |
@@ -953,7 +971,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | H5 | EstimateRoot; no store import | PASS/FAIL | |
 | H6 | Monotone property | PASS/FAIL | |
 | H7 | tokenstest shape | PASS/FAIL | |
-| H8 | Coverage ≥ 75% | PASS/FAIL | coverage: |
+| H8 | Coverage ≥ 90% | PASS/FAIL | coverage: |
 | I1 | Seven hook payloads parse | PASS/FAIL | |
 | I2 | Unknown fields → Extra | PASS/FAIL | |
 | I3 | Missing/null never panic | PASS/FAIL | |
@@ -969,7 +987,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | J1 | Hooks exit 0 — 30/30 fault injections | PASS/FAIL | subtests: 30 |
 | J2 | Non-hook exit codes 1 / 2 | PASS/FAIL | |
 | J3 | Panic recovered loudly, exit 0 | PASS/FAIL | |
-| J4 | Hook log, no payload content | PASS/FAIL | |
+| J4 | hook-quiet log, no payload content | PASS/FAIL | |
 | J5 | config print --provenance | PASS/FAIL | |
 | J6 | config schema | PASS/FAIL | |
 | J7 | --set plumbing | PASS/FAIL | |
@@ -992,7 +1010,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | ID | Item | Result | Metric / notes |
 |---|---|---|---|
 | L1 | 23 stub packages build + vet | PASS/FAIL | |
-| L2 | Stubs inert, not faked | PASS/FAIL | packages probed: 23 |
+| L2 | Stubs inert, not faked | PASS/FAIL | packages registered: 23; still-stub packages walked: 12 |
 | L3–L13 | Pure functions implemented (RootHash, DefaultParams/Validate, YoungDaly, SkiRental, PSelectionAvailable, Descriptor.Key, StripInjections, Tombstone, FormatWarning, StandingInstruction, Mode.String) | PASS/FAIL | |
 | L14 | NewSelector guards (ErrBudget first, then ErrNotImplemented) | PASS/FAIL | |
 | L15 | zstd round-trip + bomb bounded | PASS/FAIL | |
@@ -1034,7 +1052,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | R2 | `go test -race ./...` | PASS/FAIL | |
 | R3 | `go test -count=2 ./...` (Windows) | PASS/FAIL | |
 | R4 | build + vet on 3 platforms | PASS/FAIL | |
-| R5 | Coverage floors (config/paths ≥90; others ≥75) | PASS/FAIL | per-package: |
+| R5 | Coverage floors (config/paths/tokens ≥90; others ≥75) | PASS/FAIL | per-package: |
 
 ## Exit-criteria re-verification (§2)
 
@@ -1067,7 +1085,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 
 | ID | Test | Result | Notes |
 |---|---|---|---|
-| IT-1 | TestV1_HookLifecycleThroughRealBinary | PASS/FAIL | hook-log lines: 8 |
+| IT-1 | TestV1_HookLifecycleThroughRealBinary | PASS/FAIL | payload-leak hits in .qompack/logs/**: 0 |
 | IT-2 | TestV1_ConfigPrecedenceReachesHookBehaviour | PASS/FAIL | |
 | IT-3 | TestV1_AppendOnlyInvariantSurvivesRealHookRun | PASS/FAIL | |
 | IT-4 | TestV1_WriteSetConfinedAcrossFullHookSequence | PASS/FAIL | paths outside .qompack: 0 |
@@ -1086,7 +1104,7 @@ Go: <go version>   Merged wave-0 branch: feat/sp01-foundation-toolchain-and-cont
 | P-2 | BenchmarkConfigLoad_ColdNoFiles | < 2 ms/op | | PASS/FAIL |
 | P-3 | BenchmarkHookNoop_InProcess (B-A proxy) | < 3 ms/op | | PASS/FAIL |
 | P-4 | BenchmarkPathsWriteAtomic_4KB | < 2 ms/op | | PASS/FAIL |
-| P-5 | B-A hook_controlled p99 | < 15 ms | N/A — SP-05 (budget expressed) | N/A |
+| P-5 | B-A hook_controlled p99 | < 15 ms | | PASS/FAIL |
 | P-6 | B-B l0_ingest p99 | < 2 ms | N/A — SP-05 | N/A |
 | P-7 | B-C l0_process p99 (soft) | < 50 ms | N/A — SP-05/06 | N/A |
 | P-8 | B-D hook_wall (reported only) | — | p50 / max spawn: | RECORDED |
