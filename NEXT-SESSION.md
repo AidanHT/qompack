@@ -1,5 +1,14 @@
 # qompack — code-fix round after the wave-0/1 plan audit
 
+> **CLOSED 2026-08-23. Do not run this brief again.** It was executed on branch
+> `fix/post-audit-code-round` and merged to `develop` at `33bb206`. A1–A7, A8.6, A8.7, A8.9, A9.1,
+> A9.2–A9.6 and A10 are fixed; the remaining eight findings are rows in `plans/CARRIED-DEFECTS.tsv`
+> (all `deferred:V3-VERIFY`, which the carried-defects guard enforces against `plans/V3-report.md`).
+> What the round closed, what it carried, and the two contracts it changed along the way are
+> recorded in `plans/V2-report.md` §16.8 and §16.8.1 — read those rather than this file. The text
+> below is kept verbatim as the record of what was asked for, and its line numbers and "state when
+> written" describe `e7dd4ad`, not the tree you are looking at.
+
 Paste this whole file as the opening prompt of the next Claude Code session.
 
 > **Scope: wave-0/1 CODE defects found by the 2026-08-22 plan audit.** A 28-agent adversarially
