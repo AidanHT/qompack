@@ -155,6 +155,11 @@ func TestGC_RetentionIsWhicheverIsLonger(t *testing.T) {
 
 // TestGC_EphemeralNotInWindowByAge asserts an ephemeral root is never held alive by the age clause,
 // so retrieval spam is reclaimable while an ordinary result of the same age is not.
+// Both roots are ALSO recorded as tool_use entries, which is what production does — a retrieval
+// result reaches the store through a recorded tool use like any other. Until the 2026-08-22 audit
+// the mark phase read the age clause on that path without consulting Eph, so this test passed only
+// because it seeded roots nothing referenced; with the records present, the ephemeral root was
+// age-live and the property this test names was void on the path that carries every real one.
 func TestGC_EphemeralNotInWindowByAge(t *testing.T) {
 	tp := newTestStore(t)
 	ctx := context.Background()
@@ -162,6 +167,18 @@ func TestGC_EphemeralNotInWindowByAge(t *testing.T) {
 	ordinary := gcSeed(t, tp, "src/ordinary.ts", "an ordinary tool result, distinct content\n")
 	ephemeral := gcSeedEphemeral(t, tp, "src/ephemeral.ts", "a retrieved, born-ephemeral result\n")
 
+	now := core.UnixMilli(tp.Clock.Now().UnixMilli())
+	require.NoError(t, tp.Store.RecordToolUse(ctx, ToolUseRecord{
+		ID: "tu-ordinary", Session: "sess-a", Turn: 1, TS: now,
+		Tool: "FileRead", Root: ordinary.Hash, Path: "src/ordinary.ts",
+	}))
+	require.NoError(t, tp.Store.RecordToolUse(ctx, ToolUseRecord{
+		ID: "tu-ephemeral", Session: "sess-a", Turn: 2, TS: now,
+		Tool: "recall", Root: ephemeral.Hash, Path: "src/ephemeral.ts",
+	}))
+
+	// RetainSessions is off, so the session clause cannot mask the age clause: §8.2 keeps an
+	// ephemeral root alive by the session clause or an explicit reference, and this run has neither.
 	rep, err := tp.Store.GC(ctx, GCPolicy{RetainDays: 30, RetainSessions: -1})
 	require.NoError(t, err)
 	require.Positive(t, rep.DeletedObjects)
