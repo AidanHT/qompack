@@ -73,8 +73,9 @@ span's neighbours and the joined text can match a rule neither neighbour did:
 
 **Blast radius is small and worth stating precisely.** `Restore` is byte-exact at every step, so the
 cost is a store lookup that misses, never content that cannot be recovered. It does not arise on real
-tool output: `TestCorpus_StructuralProperties` asserts unconditional idempotence across all 26
-captured files and passes, because colourizers wrap whole tokens rather than splitting values.
+tool output: `TestCorpus_StructuralProperties` asserts unconditional idempotence across every captured
+file (30 at the wave-1 merge; the four-file `sp06` group joined the corpus then — see V2-VERIFY's
+`V2-SP04-18` row) and passes, because colourizers wrap whole tokens rather than splitting values.
 
 **Why SP-04 did not fix it.** The complete fix is to run composition to a fixed point and rebase each
 later pass's `Delta` into ORIGINAL coordinates, since a second-pass match's preimage spans the bytes
