@@ -185,13 +185,20 @@ func (s *FSStore) resolveRetention(p GCPolicy) (days, sessions int) {
 	return days, sessions
 }
 
-// gcBudget is the ctx-and-deadline pair every unbounded-length phase of a GC pass is checked
-// against, so the mark phase and the sweep answer to the same two levers in the same way.
+// gcBudget is the ctx-and-deadline pair a GC pass's long-running loops are checked against.
 //
-// Both are needed and they mean different things: ctx is how the CALLER cancels a pass, and an
-// expired ctx is an error; Deadline is the latency budget the idle scheduler granted, and running
-// out of it is a normal outcome that returns Truncated. Checking only every gcCheckEvery items
-// keeps a time.Now() off the per-item path.
+// Both levers are needed and they mean different things: ctx is how the CALLER cancels a pass, and
+// an expired ctx is an error on every loop that reads it; Deadline is the latency budget the idle
+// scheduler granted, and running out of it is a normal outcome that returns Truncated. Checking
+// only every gcCheckEvery items keeps a time.Now() off the per-item path.
+//
+// The two checks are offered separately because the loops are not alike. spent is for work whose
+// cost grows with the project's history and is paid to the disk — the harvest and the sweep — where
+// stopping mid-phase is exactly what a latency budget is for. cancelled is for the mark's index
+// walks: bounded by the in-memory indexes, microseconds of map iteration, and worth finishing even
+// when the budget has run out, because abandoning them throws away a harvest that has already been
+// paid for and hands the pass nothing. They still answer to ctx, since a shutdown must not wait for
+// any loop at all.
 type gcBudget struct {
 	ctx      context.Context
 	deadline time.Time
@@ -202,7 +209,7 @@ func newGCBudget(ctx context.Context, deadline time.Time) *gcBudget {
 	return &gcBudget{ctx: ctx, deadline: deadline}
 }
 
-// spent counts one item and reports whether the phase must stop.
+// spent counts one item and reports whether the loop must stop, for either reason.
 func (b *gcBudget) spent() (truncated bool, err error) {
 	b.n++
 	if b.n%gcCheckEvery != 0 {
@@ -217,6 +224,15 @@ func (b *gcBudget) spent() (truncated bool, err error) {
 	return false, nil
 }
 
+// cancelled counts one item and reports only the caller's cancellation.
+func (b *gcBudget) cancelled() error {
+	b.n++
+	if b.n%gcCheckEvery != 0 {
+		return nil
+	}
+	return b.ctx.Err()
+}
+
 // mark computes the live chunk set and the live root set.
 //
 // "Whichever is longer" (Qompack.md §8.2) is implemented as a DISJUNCTION: an entry is in-window
@@ -225,10 +241,17 @@ func (b *gcBudget) spent() (truncated bool, err error) {
 // are content-addressed, so a chunk it shares with a real tool result is still held alive by that
 // result (Qompack.md §8.7).
 //
-// It is bounded by the same budget the sweep is, and until the 2026-08-22 audit it was not: it took
-// neither ctx nor deadline, so harvestHashes streamed every checkpoint, pin and elimination file
-// token by token with nothing able to stop it, on a phase whose cost grows with the project's whole
-// history. The sweep's own comment claimed otherwise.
+// Until the 2026-08-22 audit the phase took neither ctx nor deadline, so harvestHashes streamed
+// every checkpoint, pin and elimination file token by token with nothing able to stop it, on a cost
+// that grows with the project's whole history. The sweep's own comment claimed otherwise.
+//
+// The two halves of the phase are budgeted differently, and the asymmetry is the point. The HARVEST
+// answers to both levers: it is the disk-proportional half, and a latency budget exists to stop
+// exactly that. The INDEX WALKS below answer to ctx alone — they are map iteration over indexes the
+// store already holds in memory, they cost microseconds where the harvest costs milliseconds, and
+// truncating them would discard a harvest already paid for to save a rounding error. A pass that
+// gets through its harvest therefore always gets a complete live set to hand the sweep, and the
+// deadline lands on the sweep, which can resume.
 //
 // A truncated mark yields an INCOMPLETE live set, which is the one thing a collector must never
 // sweep against — every unvisited reference would look dead. So truncation here stops the pass at
@@ -259,7 +282,7 @@ func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Ti
 	}
 
 	// The index walks below run under one read lock and are released through this named unlock on
-	// every path, including the budgeted early returns.
+	// every path, including the cancelled early returns.
 	unlocked := false
 	s.mu.RLock()
 	defer func() {
@@ -268,13 +291,8 @@ func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Ti
 		}
 	}()
 	stop := func() bool {
-		t, e := budget.spent()
-		if e != nil {
+		if e := budget.cancelled(); e != nil {
 			truncated, err = false, e
-			return true
-		}
-		if t {
-			truncated = true
 			return true
 		}
 		return false
@@ -585,9 +603,10 @@ type sweepArgs struct {
 // sweep walks objects/ in lexicographic order and collects everything the live set does not hold.
 //
 // The walk order is what makes the pass resumable: a cursor is only meaningful if the next run
-// visits the same objects in the same sequence. Both this loop and the mark phase check the
-// deadline and the context every gcCheckEvery items, and an expired deadline returns a cursor
-// rather than an error — a truncated GC is a normal outcome of idle work, not a failure.
+// visits the same objects in the same sequence. This loop and the mark phase's harvest — the pass's
+// two disk-proportional loops — check the deadline and the context every gcCheckEvery items, and an
+// expired deadline returns a cursor rather than an error: a truncated GC is a normal outcome of
+// idle work, not a failure. (The mark's in-memory index walks check ctx only; see mark.)
 //
 // The two phases differ in what truncation MEANS, which is why only this one yields a cursor. A
 // truncated sweep has a complete live set and has simply not finished walking objects/, so it
