@@ -105,6 +105,16 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		}
 	}
 
+	// 5a. §8.1 item 1's near-duplicate signal, counted at the PUT and not inside the
+	//     supersession scan. The store detects it for PATHLESS content too — Bash and
+	//     test-runner output, the noisiest class in a session and the one item 1 says the dedup
+	//     ratio is won or lost on — and supersession returns early on an empty Path, so
+	//     counting it there would read ~0 for exactly the content it exists to measure. A
+	//     retrieval result is excluded because it is not exploration (resolved decision 6).
+	if res.NearDup != nil && !ephemeral {
+		o.count(counterNearDup)
+	}
+
 	// 6. The index entry. store.ArgsDigest is §5.8's, and nothing else may re-derive it.
 	tok := res.Root.Tokens
 	if tok == 0 && o.opt.Tokens != nil {
@@ -132,9 +142,15 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		}))
 	}
 
-	// 8. §8.1 item 3. Supersession detection lands in supersede.go; until then nothing is marked,
-	//    and BuildToolUse's Supersedes stays empty.
+	// 8. §8.1 item 3. Every earlier read of this path that this one makes redundant is marked
+	//    SUPERSEDED in the index; graph.go turns marked[0] into ObservedTool.Supersedes and emits
+	//    the tail itself. An EMPTY result is skipped: it has no chunk set to contain a prior one
+	//    and no root to compare against, so the scan could only ever answer "nothing" — at the
+	//    cost of a per-path index lookup on the hot path.
 	var superseded []core.ToolUseID
+	if !empty {
+		superseded = o.detectSupersession(ctx, st, rec, res)
+	}
 
 	// 9. §8.1 item 5.
 	o.feedSketches(rec)
