@@ -293,9 +293,11 @@ qompack/                                  module: github.com/qompack/qompack
 │   ├── README.md                         master execution guide; defines the file naming below
 │   ├── V<K>-SP-NN-<slug>.md              18 subplan prompts (V<K> = verification group)
 │   ├── V<K>-VERIFY-<slug>.md             6 checkpoint prompts, one per group
+│   ├── V<K>-report.md                    checkpoint completion report, committed at wave sign-off
 │   ├── TRACEABILITY.md                   Qompack.md coverage proof
 │   ├── OWNERS.tsv                        package → owner/floor/probe (devtool + test/guards)
-│   ├── CARRIED-DEFECTS.tsv               open defects carried across waves (test/guards)
+│   ├── CARRIED-DEFECTS.tsv               defects carried across waves; a row still unresolved once
+│   │                                     its RESOLVER's V<K>-report.md exists fails test/guards
 │   └── sdd/                              session decision records (see sdd/README.md)
 ├── docs/                                 SP-18 (+ per-subplan ADRs)
 │   ├── architecture.md  config-reference.md  mcp-tools.md  commands.md
@@ -446,7 +448,11 @@ resolved in this order and cached per daemon:
 3. the payload `cwd` itself
 
 It is **never** the plugin install directory and never `~`. Global, cross-project state lives in
-`~/.qompack/` (`config.json` user-global layer, `daemons.json` registry, `calibration.json`).
+`~/.qompack/` (`config.json` user-global layer, `calibration.json`). There is no daemon registry
+file: a daemon is located by deriving its endpoint from the project root (`ipc.Resolve`), not by
+looking it up in a global list, so nothing has to be reconciled after a crash. `daemons.json` was
+in an earlier draft of this section and was never built; it is named here only so that a reader who
+finds the string in an old branch knows it is not a missing feature.
 
 **It is not source.** `.gitignore` contains `/.qompack/`, and SP-01 additionally writes
 `.qompack/.gitignore` containing `*` on first use, so the store self-ignores even in a project
@@ -489,25 +495,36 @@ whose `.gitignore` we never touch.
 
 - `paths.AppendOnly(p)` opens `O_WRONLY|O_APPEND|O_CREATE` and returns an error if `O_TRUNC` is
   requested. It is the *only* write path allowed into `*.jsonl`.
-- `paths.CreateNew(p)` uses `O_EXCL`. Checkpoint files use it — writing `0007.json` twice is an
-  error, not an overwrite. After a successful write the file is set read-only
-  (`0444` / `FILE_ATTRIBUTE_READONLY`).
+- `paths.CreateNew(p, b)` opens with `O_EXCL` and writes `b` in the same call. Checkpoint files use
+  it — writing `0007.json` twice is an error, not an overwrite. After a successful write the file is
+  set read-only (`0444` / `FILE_ATTRIBUTE_READONLY`).
 - `checkpoints/MANIFEST.jsonl` records `(seq, sha256, bytes, created)` per checkpoint;
   `qompack fsck` re-hashes every checkpoint against it. Any mismatch is a loud failure and flips
   the session to `degraded-passive`.
 - `pins/invariants.json` is written by read-modify-**append**: it is a JSON array persisted as a
   JSONL log (`pins/invariants.jsonl` internally) with `invariants.json` regenerated as a
   materialized view; the log is the truth. Deletion is a tombstone record, never a rewrite.
-- `sketches/tried.bloom` may be *replaced* only by `negknow.RebuildBloom`, whose input is
-  `records/eliminations.jsonl` filtered to `status:"active"` — never a checkpoint, never a
-  summary, never context. The rebuild writes a new file and renames; the previous file is kept as
-  `tried.bloom.<seq>.bak` for one generation.
+- `sketches/tried.bloom` is rebuilt only from `records/eliminations.jsonl` filtered to
+  `status:"active"` — never a checkpoint, never a summary, never context. Two symbols split that
+  job and neither may be skipped: `negknow.RebuildBloom` recomputes the filter **in memory** and
+  writes nothing, and `sketch.ReplaceGenerational(p, s, seq)` — which calls
+  `paths.ReplaceBloom(l, b, seq)` — is the only writer. `sketch.Save` refuses that basename outright
+  (`core.ErrAppendOnly` wrapping `sketch.ErrGenerational`), so the rule is enforced by the code
+  rather than asked for. The replacement writes a new file and renames; the previous file is kept as
+  `tried.bloom.<seq>.bak` for one generation, and `paths.HighestBloomBackupSeq(l)` is how a caller
+  learns which sequence to write next — the counter lives on disk, not in a state file.
 - A conformance test (`paths.TestAppendOnlyGuard`) attempts truncation, in-place rewrite, and
   out-of-order seq writes against all three locations and asserts every one fails.
 
-**Atomic writes.** `paths.WriteAtomic(p, b)` writes to `.qompack/tmp/<rand>`, `Sync()`, then
+**Atomic writes.** `paths.WriteAtomic(p, b, perm)` writes to `.qompack/tmp/<rand>`, `Sync()`, then
 `os.Rename` onto `p` (same volume by construction, so `MoveFileEx(REPLACE_EXISTING)` semantics
-hold on Windows). Directory fsync on POSIX. Never used for append-only targets.
+hold on Windows). Directory fsync on POSIX. Never used for append-only targets. `perm` is required
+rather than defaulted because two callers want different modes on the same mechanism — `0444` for a
+sealed artifact, `0644` for a mutable one — and a silent default is how one of them ends up wrong.
+
+**`internal/paths` signatures are normative and live in §5.0.** This section states the *rules*;
+the signatures those rules are expressed in are frozen there. Restating them here is what let them
+drift once already.
 
 ### 3.4 Plugin bundle and manifest (§7.5)
 
@@ -622,6 +639,75 @@ may not change or remove anything below without an amendment (§0).
 Every interface listed here is created by **SP-01** as a compiling stub returning
 `core.ErrNotImplemented`, together with a conformance suite (§5.22).
 
+**What "additive" means here, precisely.** The sentence above grants latitude that has been read
+two ways, so it is worth stating once: a package may *add* an exported symbol, a struct field, or a
+method on a type it owns without an amendment — §5 is a floor, not an inventory. What needs an
+amendment is *changing* or *removing* something written below: an arity, a return type, a method on
+an interface others implement, or a documented behaviour. The practical consequence is that a
+subplan discovering an undeclared-but-shipped helper has found a documentation gap, not a
+governance violation, and the correct response is to record it here rather than to open an `arch/`
+branch. A subplan discovering that a signature below *disagrees* with the tree has found the other
+thing, and §0 applies in full.
+
+### 5.0 `internal/paths`
+
+`paths` has no interface and no stub — it is pure functions over the layout — which is why it was
+the one package with no §5 block for two waves, and why §3.3 restated its signatures and then drifted
+from them. The rules live in §3.3 and §4; the signatures are here.
+
+```go
+// Layout is the resolved set of directories under <root>/.qompack. Of() derives it; EnsureLayout
+// creates every directory and writes .qompack/.gitignore on first use (§3.2).
+type Layout struct {
+    Root, Dot                                      string
+    Objects, Index, Sketches, DAG                  string
+    Grammar, Checkpoints, Pins, Eval               string
+    Records, State, Run, Spool, Logs, Metrics, Tmp string
+}
+func Of(root string) Layout
+func EnsureLayout(l Layout) error
+func Global(home string) string                       // ~/.qompack (§3.2)
+func Resolve(getenv func(string) string, payloadCWD string) (string, error) // §3.2's three-step project root
+
+// ── the append-only writers (§3.3) ─────────────────────────────────────
+func AppendOnly(p string) (io.WriteCloser, error)     // O_WRONLY|O_APPEND|O_CREATE; refuses O_TRUNC
+func AppendJSONL(p string, v any) error               // one compact line per record, HTML escaping off
+func CreateNew(p string, b []byte) error              // O_EXCL + write + Sync + Close + Chmod(0444)
+func IsProtected(root, p string) bool                 // true for the three append-only locations
+func ReplaceBloom(l Layout, b []byte, seq int) error  // the ONLY writer of sketches/tried.bloom
+func HighestBloomBackupSeq(l Layout) (seq int, ok bool, err error) // the seq counter lives on disk
+
+// ── the atomic writer (§3.3) ───────────────────────────────────────────
+func WriteAtomic(p string, b []byte, perm fs.FileMode) error // refuses a protected target
+func OpenFile(p string, flag int, perm fs.FileMode) (*os.File, error)
+func OpenShared(p string) (*os.File, error)           // Windows: FILE_SHARE_DELETE, so WriteAtomic
+func ReadFileShared(p string) ([]byte, error)         //          can rename under an open reader
+
+// ── the checkpoint manifest (§7.4) ─────────────────────────────────────
+type ManifestEntry struct {
+    Seq     core.CheckpointSeq `json:"seq"`
+    SHA256  string             `json:"sha256"`
+    Bytes   int64              `json:"bytes"`
+    Created core.UnixMilli     `json:"created"`   // a NUMBER, not RFC 3339
+}
+func CheckpointPath(l Layout, seq core.CheckpointSeq) string   // <checkpoints>/%04d.json
+func ManifestPath(l Layout) string
+func AppendManifest(l Layout, e ManifestEntry) error
+func ReadManifest(l Layout) ([]ManifestEntry, error)           // missing file → empty, not an error
+
+// ── normalization (§5 preamble) ────────────────────────────────────────
+func Norm(projectRoot, p string) (string, error)
+func Key(p string) string                              // Norm + fold on Windows/macOS
+func KeyFold(p string, fold bool) string
+func DefaultFold() bool
+func Long(p string) string                             // Windows: the \\?\ prefix above 260 chars; identity elsewhere
+```
+
+**`Long` is not optional.** Every file operation in this repository that takes a path from the
+layout goes through it, because a `.qompack/objects/ab/cd/<64 hex>.zst` under a deep project root
+crosses 260 bytes on Windows without anyone doing anything unusual. It is the identity function on
+POSIX, so calling it costs nothing and forgetting it costs a platform.
+
 ### 5.1 `internal/config`
 
 ```go
@@ -687,8 +773,10 @@ type Registry interface {
     Gauge(name string) Gauge
     Snapshot() Snapshot          // feeds /qompack:status and metrics/latency.json
     CheckBudgets(cfg config.Config) []BudgetBreach
+    Persist(l paths.Layout) error   // writes Snapshot() to l.Metrics/latency.json via paths.WriteAtomic
 }
 type BudgetBreach struct{ Budget string; Observed, Limit time.Duration; Windows int }
+func New(clock core.Clock) Registry
 func Timed(h Histogram, f func() error) error
 ```
 
@@ -796,15 +884,63 @@ func New(o Options) (Daemon, error)
 // Extension seams (SP-05 ships these so later waves wire in WITHOUT editing daemon internals,
 // which is what keeps wave-3 subplans from colliding inside one package):
 //   - Handle registers an Op handler; the op-routing table is data, not a switch.
+//   - Bind attaches a function seam on Services; it SUPPLEMENTS the default routes, never
+//     replaces one. This is the seam every wave-2+ subplan wires through.
 //   - IdleController.Register adds O3/O5 background work.
 //   - Services is the late-bound dependency set; nil members mean "not built yet" and every
 //     call site must tolerate that (waves 1–2 run with Checkpoints and Sched nil).
 //
-// Handle takes a POINTER receiver. The routing table is an unexported map that Handle allocates
-// on first use, so a value receiver would mutate a copy and register nothing — every caller would
-// silently get an empty table. Wiring is therefore `o := daemon.Options{...}; o.Handle(...)` and
-// composition roots must pass &o where an *Options is wanted.
+// Both Handle and Bind take a POINTER receiver, over unexported fields New reads. A value
+// receiver would mutate a copy and register nothing — every caller would silently get an empty
+// table and nil seams, with every hook still exiting 0. Wiring is therefore
+// `o := daemon.Options{...}; o.Handle(...); o.Bind(...)` and composition roots must pass &o where
+// an *Options is wanted.
+//
+// HANDLE OR BIND is not a style choice. Handle REPLACES the default route for an op, so a subplan
+// that Handles an op SP-05 already routes silently deletes SP-05's behaviour for it — the
+// WAL-before-ACK ordering, the breach/spool submode, the session registry touch, the terminal
+// marker. Those live in an unexported ingest path and cannot be re-created by the caller. A
+// subplan adding BEHAVIOUR to an existing op uses Bind. Handle is for an op that does not exist yet.
 func (*Options) Handle(op ipc.Op, h ipc.Handler)
+
+// Bind registers fn to run once, in registration order, at daemon construction, against the
+// Services set New seeds from the Options fields above.
+func (*Options) Bind(fn func(*Services))
+
+// Services is what op handlers read through ServicesFrom. New seeds the struct-typed fields from
+// Options, applies every Bind function in registration order, then calls DeclareProducers. Every
+// function-typed field is optional: a handler that finds a nil seam still ACKs, because the event
+// is already durable in the WAL by the time any of these would run — an unbound seam costs
+// freshness, never data. The consequence for a subplan: an unwired seam is INVISIBLE at merge, so
+// a subplan that owns a seam owns proving its call site exists.
+//
+// The seams below run in TWO DIRECTIONS, and confusing them is a wiring bug that compiles. The
+// nine hook seams are CONSUMED by SP-05 and PROVIDED by a later subplan: SP-05 calls them, the
+// owner column names who fills them in through Bind. Mode is the inverse — PROVIDED by SP-05 and
+// CONSUMED by a Bind function. It exists because a bound function cannot reach the contract
+// monitor any other way: contract.NewMonitor is called inside New, into an unexported daemon
+// field, and it is on neither Options nor the Daemon interface. New therefore constructs the
+// monitor and assigns svc.Mode = monitor.Mode BEFORE it runs the bind loop, so a bind body may
+// capture svc.Mode and call it later. Calling it DURING the bind body is still wrong: the monitor
+// has not yet loaded state/contract.json, so it answers ModeFull for every project. Capture the
+// func value; call it per event.
+type Services struct {
+    Store store.Store; Ledger negknow.Ledger; Sketches *SketchSet
+    Graph dag.Graph; Grammar grammar.Sequitur; Sched scheduler.Runtime
+    Checkpoints checkpoint.Writer
+
+    Mode func() contract.Mode                                                          // SP-05 → SP-08
+
+    ObserveTool    func(ctx context.Context, e hookio.Event) error                     // SP-08
+    ObservePrompt  func(ctx context.Context, e hookio.Event) (hookio.Output, error)    // SP-08
+    ObserveStop    func(ctx context.Context, e hookio.Event, subagent bool) error      // SP-08
+    SessionStart   func(ctx context.Context, e hookio.Event) (hookio.Output, error)    // SP-08 → SP-11
+    SessionEnd     func(ctx context.Context, e hookio.Event) error                     // SP-08
+    PreCompact     func(ctx context.Context, e hookio.Event) (hookio.Output, error)    // SP-10
+    Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error)    // SP-11
+    MCPInitialized func(ctx context.Context) bool                                      // SP-13
+    StatusExtra    func(ctx context.Context) (json.RawMessage, error)                  // SP-14
+}
 
 type IdleController interface {
     // Register work that may run only when the session is idle (§8.4 O3).
@@ -885,6 +1021,22 @@ Normative properties (SP-04): `Canonicalize(Canonicalize(x)) == Canonicalize(x)`
 
 ### 5.7 `internal/sketch`
 
+**`Load` versus `LoadWithLog` — the split, and why it is not optional.** §13 invariant 10 says
+degradation is loud, and this package refuses package-level mutable state, so the contract that
+would have been one function is two. `Load` does the CRC and version checking and the
+`core.ErrNotFound` mapping; it writes nothing anywhere, because it hands `LoadWithLog` a
+`logging.Nop()` with no destination behind it. `LoadWithLog` does the Loud half. **Every
+composition root calls `LoadWithLog`.** Choosing the silent form by accident is a §13 invariant 10
+violation that looks like working code, so `test/guards/sketchload_test.go` forbids `sketch.Load`
+in any non-test file outside `internal/sketch`.
+
+Every failure the pair reports — absent, unstattable, oversize, unreadable, corrupt — comes back as
+`core.ErrNotFound` with the underlying sentinel still reachable through `errors.Is`. That is
+deliberate (§13 invariant 3: a sketch is a cache, never the source of truth), and it has a
+consequence a caller must handle: `core.ErrNotFound` alone does **not** distinguish a cold start
+from bit rot. Discriminate on `fs.ErrNotExist` for the first and `sketch.ErrCorrupt` for the
+second; a header or version failure is neither.
+
 ```go
 type Kind uint8 // KindBloom, KindCMS, KindHLL, KindMisraGries, KindMinHash
 type Header struct {
@@ -901,8 +1053,19 @@ type Sketch interface {
     MarshalBinary() ([]byte, error)
     UnmarshalBinary([]byte) error
 }
-func Save(p string, s Sketch) error   // atomic (paths.WriteAtomic) except tried.bloom (§3.3)
-func Load(p string, s Sketch) error   // CRC + version checked; corrupt → ErrNotFound + Loud log
+// The two package sentinels; both stay reachable through errors.Is under core.ErrNotFound.
+var (
+    ErrCorrupt      = errors.New("qompack/sketch: CRC32C mismatch")
+    ErrGenerational = errors.New("qompack/sketch: tried.bloom must be replaced via ReplaceGenerational")
+)
+
+func Save(p string, s Sketch) error   // atomic (paths.WriteAtomic); REFUSES tried.bloom (§3.3)
+func Load(p string, s Sketch) error   // CRC + version checked; maps every failure to ErrNotFound.
+                                      // Writes NO log line — it passes logging.Nop() through.
+                                      // For tests and for callers that provably have no logger.
+func LoadWithLog(p string, s Sketch, log logging.Logger) error // the form a composition root MUST call
+func ReplaceGenerational(p string, s Sketch, seq int) (backup string, err error) // the tried.bloom door
+const TriedBloomBase = "tried.bloom"
 
 // ── Bloom ──────────────────────────────────────────────────────────────
 type Bloom struct{ /* … */ }
@@ -975,6 +1138,9 @@ type PutResult struct {
     Reused    int
     Signature sketch.Signature
     NearDup   *NearDupInfo    // set when a prior version is within nearDupThreshold
+    Truncated bool            // the write hit a size bound and stored a prefix
+    Redacted  int             // redact.Match spans replaced on the way in (§5.22a) — the only
+                              // signal to a caller that secret hygiene fired on this write
 }
 type NearDupInfo struct{ PriorRoot core.Hash; Jaccard float64; DeltaBytes int64 }
 
@@ -986,7 +1152,7 @@ type ToolUseRecord struct {
     TS           core.UnixMilli
     Tool         string
     ArgsDigest   core.Hash
-    ArgsPreview  string          // ≤120 chars, for tombstones and `timeline`
+    ArgsPreview  string          // ≤120 BYTES on a rune boundary, for tombstones and `timeline`
     Root         core.Hash
     Path         string
     Bytes        int64
@@ -1034,14 +1200,28 @@ type Store interface {
     Close() error
 }
 
+// ArgsDigest is a PACKAGE function, not a Store method — it is pure over its input and needs no
+// store. It canonicalizes tool_input (object keys sorted recursively, array order preserved,
+// numbers re-emitted verbatim as json.Number literals so a byte offset above 2^53 cannot be
+// corrupted through float64) and returns the digest plus the ≤120-byte preview.
+// SP-08 calls it; nothing else may re-derive it, so that two subplans can never disagree about
+// what "the same tool arguments" means.
+func ArgsDigest(raw json.RawMessage) (core.Hash, string)
+
 type Query struct {
     Text   string
     Path   string
     Symbol string
     Tool   string
     Since  time.Time
-    K      int
+    K      int    // clamped to maxK = 100; 0 means the §8.7 `recall` default of 5
 }
+
+// Search is a RANKED RETRIEVAL surface, not an enumerator. K is clamped to 100 and the candidate
+// scan is bounded (512 candidates, 32 MiB), so it returns the best 100 records of the PROJECT —
+// never "every record of this session". A caller that wants session enumeration needs a
+// session-keyed accessor, which does not exist today; asking Search for it silently gets a
+// truncated project-wide answer that looks like a complete session-wide one.
 type Hit struct {
     Root core.Hash; ToolUseID core.ToolUseID; Path string; Tool string
     TS core.UnixMilli; Score float64; Summary string; Span [2]int64
@@ -1106,7 +1286,7 @@ on `SessionEnd` and during idle (O3), always with a `Deadline`, always resumable
 ```go
 type NodeKind uint8 // KindToolUse, KindToolResult, KindAssistant, KindUserPrompt,
                     // KindFile, KindSymbol, KindDecision, KindElimination, KindSegment
-type NodeID string  // "<kind>:<stable-key>"
+type NodeID string  // "<prefix>:<stable-key>" — the prefix is NOT the kind name; see the note below
 type Node struct {
     ID NodeID; Kind NodeKind
     Turn core.TurnIndex; TS core.UnixMilli
@@ -1151,7 +1331,37 @@ type Graph interface {
 }
 func Open(root string, cfg config.Config, log logging.Logger) (Graph, error)
 
-// NodeID construction — the ONLY sanctioned way to spell a NodeID (SP-11 amendment).
+// Maintainer is the maintenance half of the concrete value Open returns. It is deliberately NOT
+// folded into Graph, so SP-01's stub keeps satisfying Graph unchanged. SP-05's idle controller and
+// SP-12's compaction trigger reach it by type assertion: if m, ok := g.(dag.Maintainer); ok { … }
+type Maintainer interface {
+    Tombstone(ids []NodeID) error   // hides nodes immediately; storage reclaimed only by Compact
+    NeedsCompaction() bool
+    Generation() int                // compaction generation; 0 means never compacted
+    SetClock(c core.Clock)          // §4; what makes deps.jsonl goldens reproducible
+}
+
+// Graph construction — the sanctioned edge-emitting entry points. A caller hands these a Graph and
+// an observation; the builders mint every node through the constructors below and emit the §8.1
+// item-4 edge set with the frozen directions. Observers do not spell edges by hand: the edge
+// DIRECTIONS are part of the contract (superseded → superseding, member → segment,
+// toolresult → tooluse for a subagent consume) and a hand-built edge in the wrong direction does
+// not fail loudly — it makes a backward slice walk forward and return nothing.
+//   ObservedTool{ToolUseID, PrevToolUseID, PrevTurn, Supersedes, …}
+//   ObservedPrompt{Turn, TS, Pos, Tokens, Ref}
+//   DecisionSpec{ID, Turn, TS, Pos, Tokens, Evidence, …}
+//   EliminationSpec{RecordID, Turn, TS, Pos, PathKey, Symbol, …}
+//   SegmentSpec{ID, PrevID, StartTurn, EndTurn, TS, StartPos, Tokens, …}
+// (field-by-field truth is `internal/dag/builders.go`; the point here is that these five are the
+// only sanctioned emitters.)
+func BuildToolUse(g Graph, o ObservedTool) error
+func BuildUserPrompt(g Graph, o ObservedPrompt) error
+func BuildDecision(g Graph, d DecisionSpec) error
+func BuildElimination(g Graph, e EliminationSpec) error
+func BuildSegment(g Graph, s SegmentSpec) error
+
+// NodeID construction — the ONLY sanctioned way to spell a NodeID. Shipped by SP-07 in wave 1 and
+// recorded here by the 2026-08-22 plan audit; it is not a later-wave amendment.
 func ToolUseNode(id core.ToolUseID) NodeID
 func ToolResultNode(id core.ToolUseID) NodeID
 func AssistantNode(t core.TurnIndex) NodeID
@@ -1174,6 +1384,14 @@ same graph. The prefixes are the **long forms** — `tooluse`, `toolresult`, `as
 `userprompt`, `file`, `symbol`, `decision`, `elimination`, `segment` — never abbreviations; that
 is what the frozen Rule W-2 contract fixtures under `testdata/golden/contracts/dag/` already
 carry, so the long forms are fixed and changing one is a fixture-breaking amendment.
+
+The **numbering** is frozen the same way, and in a shape that surprises: `KindInvalid` is the
+**last** constant in the iota block, not the first, because
+`testdata/golden/contracts/dag/want/node_line.jsonl` pins `"kind":4` to `KindFile` and
+`edge_line.jsonl` pins `"kind":2` to `EdgeConsumes`. Prepending a sentinel renumbers every kind and
+breaks both fixtures. The consequence a caller must know is that `NodeKind`'s zero value is
+`KindToolUse`, not "unset" — which is why `AddNode` validates a node's `Kind` against its ID prefix
+rather than trusting a zero value to mean anything.
 
 ### 5.10 `internal/negknow` (L2 negative knowledge)
 
@@ -1326,6 +1544,7 @@ scattered keep-set driving a drop decision, and that path is the one this guard 
 
 ```go
 type TriggerReason string // "soft_floor" "changepoint" "young_daly" "hard_ceiling" "idle_cold_cache"
+                         // "cache_expiring"  — ADDED by SP-12's cache-regime work; see the note below
 type TTLState string      // "warm" | "expiring" | "cold" | "unknown"
 type Urgency uint8        // UrgencyNone, UrgencyAdvisory, UrgencyNow
 
@@ -1398,7 +1617,11 @@ func Evaluate(in Inputs) Decision
 
 func PSelectionAvailable() bool     // ship-order guard for analyzer.NewSelector
 func YoungDaly(deltaSeconds, mtbfSeconds float64) float64 // √(2·δ·M)
-func SkiRentalShouldWrite(expectedReads, r, w float64) bool // reads > w/r (≈12.5)
+// w is TTL-DEPENDENT and the caller supplies it: cache writes are 1.25× base input at the
+// 5-minute TTL and 2× at the 1-hour TTL, so w/r is 12.5 under one regime and 20 under the other.
+// The "≈12.5" that Qompack.md §5.6 quotes is the 5-minute figure, not the only one. Pass
+// scheduler.CacheRegime.WriteMultiplier, never config's Appendix C floor.
+func SkiRentalShouldWrite(expectedReads, r, w float64) bool // reads > w/r (12.5 at 5m, 20 at 1h)
 
 type Runtime interface {                        // the stateful wrapper the daemon owns
     Observe(ctx context.Context, f Features, at core.TurnIndex) ChangepointState
@@ -1511,6 +1734,8 @@ type Reader interface {
     Chain(ctx context.Context, seq core.CheckpointSeq) ([]Checkpoint, error)
     Verify(ctx context.Context) ([]core.CheckpointSeq, error)   // MANIFEST re-hash; fsck
 }
+func OpenWriter(root string, cfg config.Config, log logging.Logger, m obs.Registry, clk core.Clock) (Writer, error)
+func OpenReader(root string, log logging.Logger, m obs.Registry) (Reader, error)
 
 // Truncate applies importance ordering (§6.9): tier 3 first, then tier 2, tier 1 never.
 func Truncate(c Checkpoint, budget core.Tokens, t config.TiersCfg, est tokens.Estimator) (Checkpoint, []DropEntry)
@@ -1548,6 +1773,9 @@ type Store interface {
     All(ctx context.Context) ([]Invariant, error)
     Materialize(ctx context.Context) error              // regenerate invariants.json view
 }
+func Open(root string) (Store, error)   // ONE argument. A logger/metrics form is additive
+                                        // (OpenWith); widening Open itself breaks pinstest,
+                                        // which cannot import logging or obs to be fixed.
 ```
 
 ### 5.15 `internal/rehydrate` (L5), `internal/rules`, `internal/skills`
@@ -1603,6 +1831,9 @@ type Scanner interface {
     // NestedClaudeMD returns CLAUDE.md files in directories containing a pointer-set file.
     NestedClaudeMD(ctx context.Context, root string, pointers []string) ([]Rule, error)
 }
+func New(opts ...Option) Scanner   // SP-01 shipped New(); widening to variadic options is
+                                   // source-compatible with every existing call site, which is
+                                   // why it is additive rather than an amendment
 
 // package skills  (G4.4)
 type Entry struct{ Name, Description, Source string }
@@ -1610,6 +1841,7 @@ type Indexer interface {
     // Index returns a compact skill index: names + one-line descriptions only, budgeted.
     Index(ctx context.Context, root string, budget core.Tokens) ([]Entry, core.Tokens, error)
 }
+func New(opts ...Option) Indexer   // same shape as rules.New above
 // The ~450-token skill-index budget of §8.6 is a CONFIG KEY
 // (runtime.rehydrate.skillIndexTokens, §11.5), not a package constant: §11.6 forbids the
 // literal 450 outside internal/config/defaults.go.
@@ -1773,6 +2005,7 @@ type Harness interface {
     ScoreRun(r Run, opt map[core.TurnIndex]KeepSet) Score
     Report(ctx context.Context, scores map[string][]Score) (Report, error)
 }
+func New(o Options) Harness
 type ReplayOptions struct{ K int; Seed int64; Budget core.Tokens; Deterministic bool }
 type Report struct {
     Policies map[string]Score
@@ -1851,6 +2084,19 @@ type Monitor interface {
 }
 func NewMonitor(log logging.Logger, m obs.Registry, statePath string) Monitor
 func StandardAssertions() []Assertion
+
+// SessionHistory is the CROSS-SESSION record behind Env.History, and it is a different document
+// from the Monitor's own state file: HistoryPath is .qompack/state/history.json, NOT
+// state/contract.json. Writing one over the other corrupts both schemas on first write while every
+// assertion goes on reporting "not received" forever, so the two paths are named here rather than
+// left to be re-derived. LoadHistory/SaveHistory are POINTER-based because the read-modify-write is
+// the whole point — a value copy silently loses the modification.
+type SessionHistory struct { /* Version, SessionCount, LastSessionID, StartsWithoutMarker,
+    LastPrecompact*, PrecompactWallMs, PrecompactInstr, AwaitingCompactStart, Sentinel,
+    MCPInitialized, CleanRuns, Mode, DegradedReason, Last, Seen — internal/contract/history.go */ }
+func HistoryPath(projectRoot string) string
+func LoadHistory(path string) *SessionHistory   // never nil; a missing file is a fresh record
+func SaveHistory(path string, h *SessionHistory) error
 ```
 
 ### 5.20 `internal/tokens` (G10.2)
@@ -1885,6 +2131,11 @@ type Observer interface {
     OnSessionStart(ctx context.Context, e hookio.Event) (hookio.Output, error)
     OnSessionEnd(ctx context.Context, e hookio.Event) (hookio.Output, error)
 }
+// Options is the collaborator set New assembles an Observer from — ProjectRoot, Cfg, Store, Graph,
+// Grammar, Tokens, Log, Metrics, Clock and the sketches. SP-08 WIDENS it (Rule W-3: additions,
+// never renames); no other subplan writes code in internal/observer.
+func New(o Options) (Observer, error)
+
 // Tombstone renders the addressable marker of §8.1 item 2:
 //   [cleared: sha256:a3f2… · 2.4KB · FileRead src/auth.ts · re-expandable]
 func Tombstone(rec store.ToolUseRecord) string
@@ -1953,8 +2204,13 @@ For every interface above, SP-01 ships an exported test suite in a `<pkg>test` s
 // package storetest
 func RunStoreSuite(t *testing.T, name string, factory func(t *testing.T) store.Store)
 func RunSegmentLogSuite(t *testing.T, factory func(t *testing.T) store.SegmentLog)
-// package sketchtest, canontest, dagtest, negknowtest, checkpointtest, rehydratetest,
-// schedulertest, mcptest, evaltest, ipctest, symbolstest, redacttest, tokenstest — same shape.
+// package analyzertest, canontest, checkpointtest, chunktest, contracttest, dagtest, evaltest,
+// grammartest, ipctest, mcptest, negknowtest, observertest, pinstest, redacttest, rehydratetest,
+// rulestest, schedulertest, sketchtest, skillstest, storetest, symbolstest, tokenstest — same
+// shape. Twenty-two, one per §5 interface (sketchtest ships five sub-suites plus the shared
+// RunSketchSuite). Rule W-1 makes flipping a skip in any of them a merge blocker, so a subplan
+// owner who reads a short list here and concludes no suite exists for their package is wrong in
+// the one direction that ships an unverified contract.
 ```
 
 Rules:
@@ -2035,13 +2291,22 @@ byte-identical session, so replay numbers are comparable across commits.
 
 | Package group | Line coverage floor |
 |---|---|
-| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `paths`, `redact`, `tokens` | **90%** |
+| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens` | **90%** |
 | `scheduler`, `dag`, `analyzer`, `rehydrate`, `eval`, `mcp` | **85%** |
 | everything else | **75%** |
 
-Coverage is measured on the merged profile from the Linux job. A drop below the floor fails
-`verify`. Coverage is a floor, never a target — subplans are graded on the conformance suite
-and the replay gate.
+Coverage is measured on the merged profile from the Linux job. A drop below the floor fails the
+**`cover`** job (§8), not `verify`: no `devtool lint` sub-check measures coverage, so a subplan
+asserting a floor in its own exit criteria is asserting something only `cover` can grade. What
+`lint` does check is that the two documents agree — `coveragefloors` fails when a floor claimed in
+any `plans/*.md` disagrees with that package's row in `OWNERS.tsv`, which is the failure mode that
+let SP-10 assert 90% against a file carrying 75 for a whole wave.
+`tools/devtool/cover.go`'s `landedSubplans` decides which floors are live: a package whose owning
+subplan has not landed is exempt at any coverage, including 0%, and says so in the job log. The
+floors themselves are data, in `plans/OWNERS.tsv` — that file, not this table, is what `cover`
+reads, so a plan that asserts a floor OWNERS.tsv does not carry asserts nothing.
+Coverage is a floor, never a target — subplans are graded on the conformance suite and the replay
+gate.
 
 **Composition roots are exempt.** A `main` package that declares nothing but `func main`, whose
 body only constructs dependencies and hands off to a library entry point, carries no floor. The
@@ -2093,16 +2358,16 @@ baselines recorded on the runners are the stated precondition for wiring it into
 
 | Job | Runs on | Steps |
 |---|---|---|
-| `verify` | ubuntu | `gofumpt -l` (must be empty) · `golangci-lint run` · `go vet` · custom `nomagic` pass · import-graph layer check · test-only-dep check · `go build ./...` |
+| `verify` | ubuntu | `devtool fmt-check` · `devtool lint` (ten sub-checks, in order: `golangci-lint`, `nomagic`, `importgraph`, `testdeps`, `bindeps`, `sleepcheck`, `stubskips`, `runpatterns`, `docmarkers`, `coveragefloors`) · `go vet ./...` · `go build ./...` · two git-history greps over the PR's commit range enforcing §10: no attribution trailer (`Co-Authored-By`, `Signed-off-by`, `Generated with`, 🤖) and a conventional-commit subject with no trailing period |
 | `lint-windows` | windows | the same `devtool lint`, again on Windows. `stubskips` greps a real test run, so a `runtime.GOOS == "windows"` skip only reaches it on Windows; and `golangci-lint`, `nomagic`, `importgraph` and `testdeps` load packages through the host's build constraints, so the `//go:build windows` files are linted on no other runner |
 | `test` | ubuntu, macos, windows — an **OS matrix only**, one pinned Go (§2.6) | `go test -race -timeout=30m ./...` on ubuntu+macos, with `CGO_ENABLED=1` overriding the workflow default because `-race` requires cgo; `go test -count=2 -timeout=30m ./...` on windows (Windows `-race` runs nightly) |
 | `cover` | ubuntu | merged profile, per-group floors (§6.4), artifact upload |
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
 | `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; hard fail on B-A / B-E |
-| `replay-gate` | ubuntu | `devtool replay --corpus testdata/sessions/synthetic --baseline develop`; enforces §11.3 (no metric regresses >2% to improve another without a `sign-off:` trailer in the PR body) and the phase exit criterion of every phase merged so far |
-| `plugin-validate` | ubuntu | regenerate `plugin/**` from `internal/pluginmanifest`, `git diff --exit-code`; JSON-schema-validate `plugin.json`, `hooks.json`, `.mcp.json`; assert all 7 commands and 8 MCP tools present |
+| `replay-gate` | ubuntu | `devtool replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 0 --growth testdata/golden/eval/growth/stats-growth.json --sketch testdata/golden/eval/growth/health.json --signoff "$RUNNER_TEMP/pr-body.md" --max-cpu 2m --ci`; enforces §11.3 (no metric regresses >2% to improve another without a `sign-off:` trailer in the PR body — read from the body captured to a file, so a direct *push* can sign off on nothing) and the phase exit criterion of every phase merged so far. **`--baseline` names a FILE, never a git ref**: the driver refuses a baseline recorded over a different `corpusTier`, and refuses a `--baseline` path naming nothing. `--baseline ""` is the only way to ask for no comparison |
+| `plugin-validate` | ubuntu | `devtool plugin-validate` byte-compares `plugin/**` against what `internal/pluginmanifest` generates (`--write` regenerates), then `git diff --exit-code -- plugin/`. It asserts the three counts §7.5 fixes: **7 commands, 7 hook events** (§7.3's six entry points, with `Stop` and `SubagentStop` as separate host events) and **1 MCP server**. It does **not** JSON-schema-validate the bundle, and it deliberately does **not** count MCP tools — `mcp.Tools()` is a stub returning nil until SP-13, so a count here would pass for the wrong reason. Asserting the eight tools is SP-13's own exit criterion |
 | `security` | ubuntu | `govulncheck ./...` · `devtool lint --only=importgraph,testdeps,bindeps` · two import-allowlist greps over `go list -deps`: **(1)** zero non-test imports of `net/http`, `net/url`, `crypto/tls` from any `internal/**` or `cmd/**` package — `net` itself only in `internal/ipc` (Unix sockets, and only `net.Dial`/`net.Listen` on `unix`, never `tcp`); **(2)** `os/exec` only in `internal/daemon` (detached self-spawn), `internal/cli`, and `internal/testutil` (§6.2 real-binary `RunHook`) |
-| `docs` | ubuntu | `devtool gen-config-docs`, `git diff --exit-code` — `docs/config-reference.md` can never drift from `config.Defaults()` |
+| `docs` | ubuntu | `devtool gen-config-docs --check` — diffs `docs/config-reference.md` against `config.Defaults()` in-process and fails if it is missing or stale, so the page can never drift. `--check` is load-bearing: bare `gen-config-docs` *writes* the file, so a job without the flag passes on a stale tree |
 
 **Two things the `security` job deliberately does *not* do**, stated here so nobody re-derives them
 from the job name. **`gosec` is not a step in it** — `gosec` is enabled in `.golangci.yml`, so it
@@ -2368,7 +2633,11 @@ of any Appendix C key.**
   "rehydrate": { "minTokens": 8000, "maxTokens": 12000,   // §8.6 8–12K cap; Appendix C has no key
                  "skillIndexTokens": 450,                 // §8.6 ~450-token skill index
                  "eliminationsTopN": 8 },
-  "mcp": { "spanWidenLines": 40, "maxResponseBytes": 262144 }
+  "mcp": { "spanWidenLines": 40, "maxResponseBytes": 262144 },
+  // §5.13 / SP-12 cache-regime work. NONE of these changes an Appendix C default: they add a
+  // trigger and a regime resolution beside `scheduler.cache`, which keeps its values untouched.
+  "scheduler": { "cache": { "expiringTriggerFraction": 0.8,   // fire while the prefix is still readable
+                            "assumeMaxTTLSeconds": 3600 } }   // upper bound when the regime is unknown
 }
 ```
 
@@ -2489,8 +2758,33 @@ its idle tick. Data is not lost; only freshness is.
 5. **No code snippets in checkpoints (§4.4).** Files are `{path, hash, why}`. A test greps
    checkpoint goldens for multi-line code blocks and fails.
 6. **Hooks exit 0. Always.**
-7. **No network. No telemetry. No writes outside `.qompack/`** (plus `~/.qompack/` for the global
-   layer). CI asserts the import graph and a runtime test asserts the write set.
+7. **No network. No telemetry. No writes outside the product write set.** That set is exactly five
+   locations, and it is enumerated rather than summarized because the two-prefix headline this
+   invariant used to carry is a promise the product cannot keep on POSIX:
+
+   1. `<project>/.qompack/` — everything the plugin stores.
+   2. `~/.qompack/` — the user-global config layer and `calibration.json`.
+   3. `$XDG_RUNTIME_DIR/qompack/<hash12>.sock` (POSIX)
+   4. `<os.TempDir()>/qompack-<uid>/<hash12>.sock` (POSIX)
+   5. `<os.TempDir()>/qp-<hash8>.sock` (POSIX, the last resort when §2.4's 100-byte `sun_path`
+      budget cannot fit the others)
+
+   Locations 3–5 are the daemon's IPC endpoint, and they are not discretionary: a Unix socket has
+   to be a file somewhere, `ipc.Resolve` takes the first candidate that fits, `listen_unix.go`
+   creates the parent directory and `net.Listen` creates the socket. On Windows the endpoint is a
+   named pipe in a flat, non-filesystem namespace, so 3–5 do not exist there at all — which is
+   exactly why a Windows-only test suite cannot see the divergence, and did not.
+
+   What is NOT in the set, and must stay out: the plugin install directory, `$TMPDIR` at large, the
+   user's home outside `~/.qompack/`, and anything under the project root other than `.qompack/`.
+   `test/guards/writeset_test.go` snapshots the filesystem around all six hooks and fails on any
+   created, modified or deleted path outside locations 1 and 2 — the hooks never open an endpoint,
+   so that is the whole of what a hook may touch. CI asserts the import graph.
+
+   Documentation quoting this invariant quotes **all five**. A doc set that reproduces the old
+   two-prefix headline beside a five-location enumeration states two different promises about the
+   same thing, which is the failure `test/docs`'s verbatim check exists to prevent.
+
 8. **Every constant that §12 says might change is a config key** (§11.6).
 9. **Every latency budget is measured, not assumed** (§7). Adding work to L0 without a bench
    result is a review rejection.
@@ -2499,6 +2793,41 @@ its idle tick. Data is not lost; only freshness is.
 ---
 
 ## 14. Wave and subplan map
+
+### 14.1 How stubs work
+
+SP-01 creates every §5 interface as a compiling stub, and forty-three shipped files cite this
+subsection for the rules those stubs follow. They are stated here rather than only in SP-01's
+subplan because they outlive it: every later wave replaces stubs, and every reviewer grades that
+replacement against these three.
+
+1. **Constructors succeed, operations fail.** `Open`/`New`/`NewX` return a usable value and a nil
+   error, so composition roots can be wired in wave 0. Every method returns
+   `core.ErrNotImplemented` — or, for a method with no error return, a documented zero value:
+   `Bloom.Test` returns `false`, `Graph.CrossingEdges` returns `0`, `Sequitur.Rules` returns `nil`.
+2. **No behaviour is faked.** A stub never returns plausible-looking data.
+   `store.Stats` returns `Stats{}, core.ErrNotImplemented`, never a zeroed-but-nil-error `Stats{}`.
+   The distinction is the whole point: a caller must be able to tell "not built yet" from "built,
+   and the answer is empty", and a zero value with a nil error destroys that.
+3. **Pure functions that are fully specified by the architecture are implemented, not stubbed.**
+   They have exact closed definitions and later subplans consume them immediately, so stubbing
+   them would block work for a wave to buy nothing. The set is `chunk.Params.Validate`,
+   `chunk.DefaultParams`, `chunk.RootHash`, `scheduler.YoungDaly`, `scheduler.SkiRentalShouldWrite`,
+   `scheduler.PSelectionAvailable`, `negknow.Descriptor.Key`, `checkpoint.StripInjections` and the
+   two injection-tag constants, `grammar.FormatWarning`, `rehydrate.StandingInstruction`,
+   `observer.Tombstone`, `contract.Mode.String`, `redact.Nop`, and `analyzer.NewSelector`'s
+   constructor validation.
+   The consequence for a later subplan is the one that keeps being missed: **these are not stubs to
+   delete.** A plan that says "replace the stub" about any symbol on this list is describing work
+   that does not exist, and following it means deleting tested behaviour and then rewriting its
+   passing tests to match a reimplementation.
+
+Rule W-1 (a conformance suite's behaviour cases are `t.Skip`ped until the owning subplan lands, and
+flipping that skip is a merge blocker) and Rule W-2 (a frozen fixture is byte authority; a
+disagreeing implementation is wrong, never the fixture) are in §5.22. Rule W-3 (a later subplan
+*widens* a shipped struct, never renames a field) is stated with the seams it protects.
+
+
 
 | Wave | Subplans | Verification |
 |---|---|---|

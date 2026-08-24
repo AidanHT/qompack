@@ -529,8 +529,8 @@ tokens` plus stdlib.
 
 ### Pre-step: the `arch/sp08-observer-seams` amendment (lands on `develop` before this branch)
 
-Two shipped behaviours block SP-08 as written, and §0's amendment rule is explicit that the response
-is a branch against the architecture rather than a local workaround: *"If an interface in §5 is
+Three shipped behaviours block SP-08 as written, and §0's amendment rule is explicit that the
+response is a branch against the architecture rather than a local workaround: *"If an interface in §5 is
 wrong, you do not work around it. You open a branch `arch/<short-reason>` off `develop`, change §5,
 get it merged, and rebase."* Cut `arch/sp08-observer-seams` off `develop`, land it, then cut
 `feat/sp08-observer-l0` from the result. It is small, and every part is spelled out here so the
@@ -547,20 +547,34 @@ structural ones" (`internal/canon/classes.go`). The amendment makes the store ag
 
 - change the override test to `if o.Canon.Strip != nil { opts.Strip = o.Canon.Strip }`, so an empty
   non-nil slice means "no optional class" and a nil slice still means "use the store's config";
-- honour a caller-supplied opt-out on MinHash: when `o.Canon.MinHash.Enabled` is false, the returned
-  options carry `MinHash.Enabled = false` regardless of `store.canonicalize.minhash.enabled`. The
-  reverse direction stays config-wins — a caller may turn the signature *off* for one Put, never on,
-  because the permutation count and threshold are configuration the caller does not own;
+- honour a caller-supplied opt-out on MinHash, gated by that same `Strip != nil` test: when
+  `o.Canon.Strip != nil` **and** `o.Canon.MinHash.Enabled` is false, the returned options carry
+  `MinHash.Enabled = false` regardless of `store.canonicalize.minhash.enabled`. The gate is
+  load-bearing, not decoration. `sketch.MinHashOptions.Enabled` is a plain `bool` and
+  `PutOptions.Canon` is a value field, so an explicit `false` is byte-identical to the zero value:
+  an ungated rule would read every `store.PutOptions{}` in the tree as an opt-out, zero every
+  `PutResult.Signature`, and silently retire `FSStore.nearDup` — §8.1 item 3's redundancy detector,
+  whose output `supersede.go` depends on. `Strip` is the one field that *can* say "unset", so it
+  carries the whole decision: a **nil** `Strip` means "I supplied no per-call canon override at
+  all", a **non-nil** `Strip` means "this entire `canon.Options` is mine, MinHash included". Both of
+  SP-08's call sites pass a non-nil `Strip` (`prompt.go`'s `verbatimOptions()` and `tooluse.go`'s
+  `canonOptions()`), so the gate costs this subplan nothing. The reverse direction stays
+  config-wins — a caller may turn the signature *off* for one Put, never on, because the permutation
+  count and threshold are configuration the caller does not own;
 - add the matching note to `plans/00-ARCHITECTURE.md` §5.8 under `PutOptions`: a nil `Canon.Strip`
-  means "the store's configured classes", an empty non-nil `Canon.Strip` means "no optional class",
-  `Canon.MinHash.Enabled == false` disables the signature for that one Put, and `Canon.KeepDeltas`
-  remains derived from `PutOptions.KeepRaw` rather than read from `Canon`;
+  means "no per-call override at all — the store's configured classes *and* the store's MinHash
+  setting", an empty non-nil `Canon.Strip` means "no optional class",
+  `Canon.MinHash.Enabled == false` disables the signature for that one Put **only when
+  `Canon.Strip` is non-nil**, and `Canon.KeepDeltas` remains derived from `PutOptions.KeepRaw`
+  rather than read from `Canon`;
 - add `TestCanonOptions_EmptyStripMeansNoOptionalClasses` in `internal/store`: a body carrying a
   timestamp and an ANSI escape, Put once with
   `Canon: canon.Options{Strip: []canon.Class{}, MinHash: sketch.MinHashOptions{Enabled: false}}` and
   once with `Canon: canon.Options{}`, against a store whose config has the six classes enabled. The
   first must come back with a zero `PutResult.Signature` and a `Root.CanonBytes` equal to the input
-  length after CRLF/path normalization only; the second must not.
+  length after CRLF/path normalization only; the second must not. The second Put is also the row
+  that pins the gate: its `MinHash.Enabled` is the zero `false` too, and its `Signature` must still
+  be non-zero, because its `Strip` is nil and a nil `Strip` is not an opt-out.
 
 **(b) the subagent's name must survive the IPC boundary.** `hookio.Event.Extra` is
 `map[string]json.RawMessage` tagged `json:"-"`: `hookio.ReadEvent` fills it in the *hook client*
@@ -582,10 +596,41 @@ map in production and every subagent capture would be named `"subagent"`. Two ed
 - add `TestResolveEvent_RestoresRawExtras` in `internal/daemon`, and extend `internal/ipc`'s
   `TestDecodeRequestRoundTrip` with a request whose `Raw` carries the agent name.
 
+**(c) the contract mode must be reachable from a bound function.** §12.1 gives the observer two
+behaviours — `ModeFull` acts, `ModeDegradedPassive` records but does not — and §8.1 item 7's
+thrash warning is gated on the first. The mode lives on the `contract.Monitor`, and nothing SP-08
+can hold reaches one. `contract.NewMonitor` is called *inside* `daemon.New`
+(`internal/daemon/daemon.go`, after the bind loop) into the unexported `d.monitor` field; it is on
+neither `Options`, nor `Services`, nor the `Daemon` interface. `WireObserver` must return before
+`New` is called at all, so there is no ordering that lets it dereference a monitor. Three edits fix
+it:
+
+- add `Mode func() contract.Mode` to `Services` in `internal/daemon/options.go`. It is a **provided**
+  seam, the inverse direction to the nine consumed ones beside it: SP-05 fills it in, a bound
+  function reads it. Rule W-3 is satisfied — the struct is widened, nothing is renamed or
+  re-typed — but the struct belongs to SP-05, which is why the edit belongs on this branch and not
+  on `feat/sp08-observer-l0`;
+- in `internal/daemon/daemon.go`, hoist the two `statePath` / `contract.NewMonitor` lines above the
+  `for _, bind := range o.binds` loop and assign `svc.Mode = monitor.Mode` before it runs. The hoist
+  is safe because `NewMonitor` reads only `o.ProjectRoot`, `o.Log` and `o.Metrics`, none of which a
+  bind produces; it is *necessary* because a bind body that captures `s.Mode` before the assignment
+  captures nil and reports `ModePassive` for the process's whole life — a fully silent failure, since
+  a passive observer still records and still exits 0;
+- add the matching `Mode` line and its two-direction note to `plans/00-ARCHITECTURE.md` §5.4, and
+  `TestServicesModeIsAssignedBeforeBinds` in `internal/daemon`: a bind body that captures `s.Mode`,
+  a `daemon.New` over a temp project, and an assertion that the captured func is non-nil and returns
+  `contract.ModeFull` on a fresh state directory. Asserting inside the bind body instead would pass
+  vacuously — the monitor has not read `state/contract.json` yet at that point and answers `ModeFull`
+  for every project, including a degraded one.
+
 **Why an amendment rather than a workaround.** (a) cannot be worked around at all — nothing outside
 `internal/store` can reach `FSStore.canonOptions` — and working (b) around by registering a `Handle`
 route would replace SP-05's WAL-before-ACK path outright (see `internal/daemon/observer_ops.go`
-below). Both are exactly the "an interface in §5 is wrong" case §0 names.
+below). (c) has two workarounds and both are worse than the amendment: constructing a second
+`contract.NewMonitor` over the same `state/contract.json` gives the observer a monitor whose mode
+diverges from the daemon's the moment either degrades, and reading the state file directly duplicates
+§12.1's parsing in a package that §3.2 forbids from importing `contract` for anything else. All three
+are exactly the "an interface in §5 is wrong" case §0 names.
 
 The amendment is a separate branch and a separate merge; it does **not** count against SP-08's own
 5–8 commit band, and `git rev-list --count develop..feat/sp08-observer-l0` is still 7 afterwards.
@@ -1628,6 +1673,18 @@ StartTurn: st.Turn, StartTS: now, Features: map[string]float64{}, Closed: false}
 nothing, and step 1 of `OnSessionEnd` skips). **Closing on a changepoint is SP-12's**; the only
 close SP-08 performs is the session-end close below.
 
+**One obligation on the `startup`/`resume` branch lives outside this file: SP-09's
+`RefreshStaleness`.** SP-09's out-of-scope table assigns this subplan *"Calling `RefreshStaleness`
+from the `SessionStart` startup/resume branch — in `internal/daemon/observer_ops.go`, around SP-08's
+`OnSessionStart`, never inside `internal/observer`"*, because it is the only wave-2 production caller
+of the mechanism behind SP-09's §12 High-severity staleness row. `OnSessionStart` itself does **not**
+make that call and must not: the exit criterion at the end of this document forbids
+`internal/observer` importing `negknow` at all. It is the wrapped `s.SessionStart` seam in
+`observer_ops.go` that calls `s.Ledger.RefreshStaleness(ctx, s.Store)` after `OnSessionStart`
+returns, nil-tolerant on both `Ledger` and `Store`, gated on `e.Source` being neither `"compact"` nor
+`"clear"`. It is recorded here so a reader of this branch does not conclude the obligation was
+dropped.
+
 `OnSessionEnd`, in this exact order (§7.3 "Flush, compact the store, write session index"), after
 the same preamble — `ctx` check, `now := o.now()`, `st := o.session(...)`, `st.mu.Lock()` **without**
 a `defer`, because step 7 releases it explicitly before touching `o.mu`:
@@ -1776,19 +1833,38 @@ prescribes and as SP-12 will later do with `scheduler_runtime.go`.
 package daemon
 
 // WireObserver constructs the L0 observer over the daemon's live services and binds it to the five
-// L0 function seams. Called from the daemon's construction path once Options are complete.
-func WireObserver(o *Options, s *SessionRegistry) (observer.Observer, error)
+// L0 function seams. Called from runDaemon (internal/cli/daemon.go) on the addressable Options,
+// BEFORE daemon.New: New applies o.binds inside itself, so a Bind registered afterwards never runs.
+func WireObserver(o *Options) (observer.Observer, error)
+
+// RegisterObserverIdleWork attaches the observer's O3 background work. Called from runDaemon
+// immediately AFTER daemon.New succeeds — the same post-New shape SP-10's WireCheckpoint and
+// SP-12's RegisterSchedulerIdleWork use.
+func RegisterObserverIdleWork(d Daemon, obsv observer.Observer)
 
 type symbolAdapter struct{ ex symbols.Extractor }   // observer must not import `symbols` (§3.2)
 func (a symbolAdapter) Names(path string, b []byte) []string
 ```
 
+**Two functions, not one, and no `*SessionRegistry` parameter.** The split is forced by SP-05's own
+construction order, not by taste. `daemon.New` applies every bound function inside itself
+(`for _, bind := range o.binds { bind(svc) }`, `internal/daemon/daemon.go`) and only afterwards
+builds the session registry and the idle controller, which it exposes through `d.Registry()` and
+`d.Idle()` on the `Daemon` interface. So the `Bind` half must run **before** `New` and the idle half
+**after** it, and neither a registry nor an `IdleController` is reachable from `Options` at all —
+`Options` carries no registry field and `Idle()` is a method on the daemon, not on `Options`. The
+dropped `s *SessionRegistry` parameter was dead in any case: the wiring below does **not** write to
+the session registry, and a caller-built `NewSessionRegistry()` would be a different object from the
+one the daemon serves from.
+
 **`Bind`, never `Handle`.** The wiring is one call:
 
 ```go
+var modeSrc func() contract.Mode                          // filled by the bind body, read per event
 obsv, err := observer.New(observer.Options{ /* … as below … */ })
 if err != nil { return nil, err }
 o.Bind(func(s *Services) {
+    modeSrc = s.Mode                                      // SP-05 assigns svc.Mode before this runs
     s.ObserveTool   = func(ctx context.Context, e hookio.Event) error {
         _, err := obsv.OnToolUse(ctx, e); return err
     }
@@ -1796,7 +1872,15 @@ o.Bind(func(s *Services) {
     s.ObserveStop   = func(ctx context.Context, e hookio.Event, subagent bool) error {
         _, err := obsv.OnStop(ctx, e, subagent); return err
     }
-    s.SessionStart  = obsv.OnSessionStart                     // (hookio.Output, error) — matches
+    s.SessionStart  = func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+        out, err := obsv.OnSessionStart(ctx, e)
+        if s.Ledger != nil && s.Store != nil && e.Source != "compact" && e.Source != "clear" {
+            if _, rErr := s.Ledger.RefreshStaleness(ctx, s.Store); rErr != nil {
+                o.Log.Warn("negknow: staleness refresh failed", "err", rErr.Error())
+            }
+        }
+        return out, err
+    }
     s.SessionEnd    = func(ctx context.Context, e hookio.Event) error {
         _, err := obsv.OnSessionEnd(ctx, e); return err
     }
@@ -1806,7 +1890,21 @@ o.Bind(func(s *Services) {
 `ObserveTool`, `ObserveStop` and `SessionEnd` return **only `error`** (`internal/daemon/options.go`);
 their `hookio.Output` is discarded, which costs nothing because resolved decision 7 already fixes
 those three at `hookio.Empty()`. `ObservePrompt` and `SessionStart` return `(hookio.Output, error)`
-and are assigned directly — those are the two entry points that may emit output.
+— those are the two entry points that may emit output — so `ObservePrompt` is assigned directly and
+`SessionStart` is wrapped only to carry the output through unchanged (see the next paragraph).
+
+**`SessionStart` is the one seam that is wrapped rather than assigned, and SP-09 is why.**
+SP-09's out-of-scope table hands `RefreshStaleness`'s *only* wave-2 production caller to SP-08:
+*"Calling `RefreshStaleness` from the `SessionStart` startup/resume branch — in
+`internal/daemon/observer_ops.go`, around SP-08's `OnSessionStart`, never inside `internal/observer`"*.
+It cannot live in `internal/observer`: the exit criterion at the end of this document forbids that
+package importing `negknow` at all, so the wrapper above is the only sanctioned seam. The call is
+nil-tolerant on both sides — a nil `Services.Ledger` and a nil `Services.Store` are both legitimate
+in a stub build — it runs on the `startup`/`resume`/`""` branches only (the `compact` and `clear`
+sources delegate to the rehydrator and are SP-11's), it never fails the hook, and its error is a
+`Warn`, not a return. Without it wave 2 closes with SP-09's §12 High-severity staleness flip having
+no production caller at all: V3-VERIFY's X2 drives `led.RefreshStaleness(ctx, st)` from the test
+body, which proves the ledger works and proves nothing about whether anything calls it.
 
 **SP-08 registers no ops through `Handle`, and that is not a style preference.** `Options.Handle`
 *"registers h as the handler for op, replacing any previous registration"*, and `buildRoutes` copies
@@ -1827,15 +1925,32 @@ sanctioned seam: *"This is the seam a wave-2/3 subplan uses to attach its own fu
 subplan."* If a route override is ever genuinely wanted, SP-05 must first export a way for the
 override to reach `ingest.Accept`; that is an `arch/` amendment, not a line in this file.
 
-Two things follow. The observer never builds an `ipc.Response`, so it never names `mon.Mode()` or
-the registry's hot-path submode — `SessionRegistry` spells that `HotMode()`, not `HotPathMode()`,
-and SP-08 calls neither. And panic recovery stays where SP-05 put it, on the route side, rather than
+Two things follow. The observer never builds an `ipc.Response`, so it never names a monitor or the
+registry's hot-path submode — `SessionRegistry` spells that `HotMode()`, not `HotPathMode()`, and
+SP-08 calls neither. The contract mode still reaches the observer, but as a `func()` handed in
+through `Services.Mode`, never as a monitor this file dereferences. And panic recovery stays where SP-05 put it, on the route side, rather than
 being re-implemented per handler here.
 
 - `symbolAdapter.Names` calls `a.ex.Extract(path, b)` and returns the deduplicated `Name` fields in
   first-appearance order.
-- `Mode` is `func() observer.Mode { if mon.Mode() == contract.ModeFull { return observer.ModeFull };
-  return observer.ModePassive }`.
+- `Mode` is `func() observer.Mode { if modeSrc != nil && modeSrc() == contract.ModeFull { return
+  observer.ModeFull }; return observer.ModePassive }` — over the `modeSrc` variable the `Bind` body
+  fills, **not** over a monitor named here. There is no monitor to name at this point in the
+  program: `contract.NewMonitor` runs inside `daemon.New`, into the unexported `d.monitor` field,
+  and appears on neither `Options` nor the `Daemon` interface, so `WireObserver` — which must
+  return before `New` is called at all — provably cannot reach one. `Services.Mode` (§5.4) is the
+  seam that closes the gap, and it runs in the opposite direction to the five this file binds:
+  SP-05 **provides** it, SP-08 **consumes** it. The nil guard is not decoration — `modeSrc` is nil
+  in any test that builds the observer without ever calling `daemon.New`, and a nil check that
+  falls through to `ModePassive` is the safe default (§12.1: when in doubt, do not act).
+- `Services.Mode` is the one **SP-05-owned line SP-08 adds**, under Rule W-3 (widen, never rename):
+  the field on `Services` in `internal/daemon/options.go`, and the two moved lines in
+  `internal/daemon/daemon.go` that hoist `statePath` / `contract.NewMonitor` above the
+  `for _, bind := range o.binds` loop and assign `svc.Mode = monitor.Mode` before it. The hoist is
+  safe because `NewMonitor` reads only `o.ProjectRoot`, `o.Log` and `o.Metrics` — nothing a bind
+  produces — and it is required because a bind body that runs before the monitor exists would
+  capture a nil `s.Mode` and report `ModePassive` forever. `TestWireObserver` asserts the wiring by
+  building a real daemon and checking the observer reports `ModeFull` on a fresh project.
 - `OnFeatures` maps `observer.FeatureSample` field-for-field into `scheduler.Features` and calls
   `o.Sched.Observe(ctx, f, fs.Turn)` **when `o.Sched != nil`** (it is nil through wave 2).
 - `OnSignals` logs the three booleans at `Debug` and, when `o.Sched != nil`, forwards them as a
@@ -1847,9 +1962,11 @@ being re-implemented per handler here.
   pointers rather than through `SketchSet.Write`, which is why `OnSessionEnd` owns the sketch write
   (see `session.go`). If SP-05 named those members differently at merge time, adapt **only in this
   file** — never in `internal/observer`.
-- `if p, ok := obsv.(observer.Persister); ok { o.Idle().Register("observer.persist", 50, p.Persist) }`
+- The idle registration is `RegisterObserverIdleWork`'s whole body, not `WireObserver`'s:
+  `if p, ok := obsv.(observer.Persister); ok { d.Idle().Register("observer.persist", 50, p.Persist) }`,
   so O3 idle time flushes the DAG and the state file. Priority `50` is mid-band: below SP-12's
-  frontier advancement, above GC.
+  frontier advancement, above GC. It cannot sit in `WireObserver`: the `IdleController` is reached
+  through `Daemon.Idle()`, and the daemon does not exist until `daemon.New` has returned.
 
 ---
 
@@ -2242,6 +2359,31 @@ git checkout -b arch/sp08-observer-seams
       `internal/daemon/handlers.go`'s `resolveEvent` restoring `Event.Extra` from `req.Raw`, per
       pre-step (b), with `TestRawExtras_ResolvesTheSubagentNameClientSide`,
       `TestResolveEvent_RestoresRawExtras` and the extended `TestDecodeRequestRoundTrip`.
+- [ ] Same commit: `Services.Mode func() contract.Mode` in `internal/daemon/options.go`, the hoist of
+      `statePath` / `contract.NewMonitor` above the bind loop in `internal/daemon/daemon.go` with
+      `svc.Mode = monitor.Mode` assigned before it, the §5.4 declaration in
+      `plans/00-ARCHITECTURE.md`, and `TestServicesModeIsAssignedBeforeBinds`, per pre-step (c).
+- [ ] Confirm the copy of this plan you are working from carries the branch-purity carve-out: the
+      Definition-of-Done criterion reads "no edit to `internal/store`, to
+      `internal/daemon/handlers.go`, or to any file under `internal/cli` **except**
+      `internal/cli/daemon.go`", and the Done checklist's file-map bullet says the same. If it does
+      not, narrow both before cutting the feature branch — this is a plan edit, not a code edit, and
+      it belongs on this branch. `internal/cli/daemon.go` holds the repository's only
+      non-test `daemon.New` call site
+      (`git grep -n 'daemon\.New(' -- internal cmd test tools ':!*_test.go'` → one hit), so with the
+      criterion unnarrowed `WireObserver` has no caller it is permitted to have, all five `Services`
+      seams stay nil, every hook still exits 0, and this subplan's own e2e rows
+      (`TestE2E_ObserverThroughDaemon`, `TestE2E_SubagentNameReachesTheDaemon`) — which build and run
+      the real `./cmd/qompack` binary — cannot pass. The call itself cannot be added here: it
+      belongs to Commit 6, because `daemon.WireObserver` does not exist yet on this branch and a
+      reference to it would not compile.
+- [ ] Confirm, likewise, that the `observer_ops.go` declaration in the Implementation spec is
+      `func WireObserver(o *Options) (observer.Observer, error)` plus
+      `func RegisterObserverIdleWork(d Daemon, obsv observer.Observer)`, and the idle `Persist`
+      registration has moved into the second function. The `s *SessionRegistry` parameter and the
+      `o.Idle()` call the earlier draft carried are both unsatisfiable: `Bind` must run before
+      `daemon.New`, while the registry and the idle controller are built inside it and reachable
+      only afterwards through `d.Registry()` and `d.Idle()`.
 - [ ] `go run ./tools/devtool ci-local` green on the amendment branch alone; merge to `develop`.
 - [ ] Footer: `Refs: SP-08 pre-step, §0 amendment rule, §5.8 PutOptions, §5.3 Event.Extra`
 
@@ -2326,17 +2468,42 @@ Conventional Commits per §10: `<type>(<scope>): <subject>`, body explains the d
 
 - [ ] Write `session_test.go` in full. Confirm failure.
 - [ ] Add `session.go`; complete `state.go`'s `Persist`.
-- [ ] Add `internal/daemon/observer_ops.go` with `WireObserver`, `symbolAdapter`, the **single
-      `o.Bind`** attaching the five `Services` seams (no `Handle` call anywhere in the file), the
-      mode mapping, the feature/signal forwarding, and the idle `Persist` registration.
+- [ ] Add `internal/daemon/observer_ops.go` with `WireObserver`, `RegisterObserverIdleWork`,
+      `symbolAdapter`, the **single `o.Bind`** attaching the five `Services` seams (no `Handle` call
+      anywhere in the file), the mode mapping, the feature/signal forwarding, the nil-tolerant
+      `s.Ledger.RefreshStaleness(ctx, s.Store)` inside the wrapped `SessionStart` seam that SP-09's
+      out-of-scope table assigns to this subplan, and the idle `Persist` registration inside
+      `RegisterObserverIdleWork`.
+- [ ] Add the wiring block to `runDaemon` in `internal/cli/daemon.go` — the only non-test
+      `daemon.New` call site, and the one file outside `internal/observer` this branch is permitted
+      to modify. After the `opts.Log` / `opts.Metrics` / `opts.Clock` assignments and **before**
+      `daemon.New(opts)`: `obsv, obsErr := daemon.WireObserver(&opts)`; on error,
+      `opts.Log.Loud("observer unavailable; L0 capture disabled", "err", obsErr.Error())` and carry
+      on, per §12.3's "everything else fails toward do nothing" and `runDaemon`'s contract that a
+      degraded daemon still starts. Immediately after `d, err := daemon.New(opts)` succeeds:
+      `if obsv != nil { daemon.RegisterObserverIdleWork(d, obsv) }`. Pass `&opts`, never `opts`:
+      `Bind` is pointer-receiver over the unexported `binds` slice, so the value form compiles,
+      appends to a copy, and leaves all five seams nil with every hook still exiting 0.
+- [ ] Prove the block is load-bearing: delete the two calls, re-run
+      `go test ./test/e2e/ -run TestE2E_ObserverThroughDaemon`, confirm it **fails**, restore them.
+      That test is the only thing standing between a nil-seam merge and a green CI run.
 - [ ] Confirm `git grep -n 'Handle(' -- internal/daemon/observer_ops.go` returns nothing, and that
       SP-05's `TestIngestACKPrecedesProcessing` and
       `TestMarkerIsWrittenByFlushAndCheckpointOnly` still pass with the observer wired — they are
       what a `Handle` override would silently break.
 - [ ] Add `internal/daemon/observer_ops_test.go` with `TestWireObserver` — builds a real observer
-      against a temp project, calls `WireObserver(&o, obs)`, and asserts all five `Services` seams
-      are non-nil, the mode mapping round-trips, and a driven `observe.tool` request reaches the
-      observer through SP-05's route (the daemon-side test V3-VERIFY H12 re-runs).
+      against a temp project, calls `WireObserver(&o)`, then `daemon.New(o)`, and asserts all five
+      `Services` seams are non-nil **on the daemon built from the wired Options**, that
+      `RegisterObserverIdleWork(d, obsv)` registers `observer.persist` at priority 50, that the mode
+      mapping round-trips, and that a driven `observe.tool` request reaches the observer through
+      SP-05's route (the daemon-side test V3-VERIFY H12 re-runs). Asserting through a built daemon
+      rather than against the `Options` value is what catches the `WireObserver(o Options)` value
+      form: `Bind` appends to `o.binds`, and nothing is observable until `New` runs those binds.
+- [ ] Add `TestWireObserver_SessionStartRefreshesStaleness` beside it — a fake ledger bound to
+      `Services.Ledger`, a `SessionStart` event with `Source: "startup"` driven through the wired
+      seam, asserting exactly one `RefreshStaleness` call; and the same event with a nil `Ledger`
+      asserting no panic and no error. This is the gate on SP-09's §12 High-severity staleness flip
+      having a production caller at all.
 - [ ] Add `test/e2e/observer_e2e_test.go` (all six rows).
 - [ ] `go run ./tools/devtool build test test-race` and `go test ./test/e2e/ -run 'TestE2E_'` —
       green on Windows and on Linux.
@@ -2478,8 +2645,12 @@ Only then fan out.
 - [ ] Every hook subcommand still exits 0 under fault injection
       (`TestE2E_HooksExitZeroUnderFaultInjection`) — §13 invariant 6.
 - [ ] The `arch/sp08-observer-seams` amendment is merged to `develop` **before** this branch is cut,
-      and `feat/sp08-observer-l0` contains no edit to `internal/store`, `internal/cli` or
-      `internal/daemon/handlers.go`.
+      and `feat/sp08-observer-l0` contains no edit to `internal/store`, to
+      `internal/daemon/handlers.go`, to `internal/daemon/options.go`, to `internal/daemon/daemon.go`,
+      or to any file under `internal/cli` **except**
+      `internal/cli/daemon.go`, whose `runDaemon` gains the Commit 6 observer wiring block and
+      nothing else. That one carve-out is deliberate: it is the repository's only non-test
+      `daemon.New` call site, so without it `WireObserver` has no caller it is allowed to have.
 - [ ] Exactly 7 commits on `feat/sp08-observer-l0`, all conventional, none carrying an attribution
       trailer; CI's trailer grep passes. The amendment commit is on its own branch and is not one of
       the seven.
@@ -2505,15 +2676,30 @@ Only then fan out.
       `EstimateRoot` receives `[]core.ChunkRef`, and `MarkSuperseded(older, by)` argument order is
       older-first).
 - [ ] No §5 interface owned by another subplan was modified, and no method was added to one
-      (Rule W-3). The two behaviours that had to change were raised as the `arch/sp08-observer-seams`
-      amendment and landed on `develop` first, exactly as §0 requires.
-- [ ] Only one file outside `internal/observer` and the test trees was added on this branch:
-      `internal/daemon/observer_ops.go`. The amendment's three edits — `internal/store/put.go`,
-      `internal/cli/hookclient.go`, `internal/daemon/handlers.go` — are on the amendment branch.
+      (Rule W-3). The three behaviours that had to change were raised as the
+      `arch/sp08-observer-seams` amendment and landed on `develop` first, exactly as §0 requires —
+      including `Services.Mode`, which widens SP-05's struct rather than adding a method to an
+      interface, and is declared in §5.4 on that branch before this one reads it.
+- [ ] Only one file outside `internal/observer` and the test trees was **added** on this branch:
+      `internal/daemon/observer_ops.go`; the only file **modified** outside them is
+      `internal/cli/daemon.go`, by Commit 6's wiring block and nothing else. The amendment's five
+      edits — `internal/store/put.go`, `internal/cli/hookclient.go`, `internal/daemon/handlers.go`,
+      `internal/daemon/options.go` and `internal/daemon/daemon.go` — are on the amendment branch.
+- [ ] `git diff develop..HEAD -- internal/cli/daemon.go` shows exactly the two wiring blocks — the
+      `daemon.WireObserver(&opts)` call before `daemon.New` and the
+      `daemon.RegisterObserverIdleWork(d, obsv)` call after it — and no other change.
+- [ ] SP-09's assigned obligation is discharged, not silently dropped:
+      `git grep -n 'RefreshStaleness' -- internal/daemon/observer_ops.go` returns the wrapped
+      `SessionStart` call, `TestWireObserver_SessionStartRefreshesStaleness` passes, and
+      `git grep -n 'negknow' -- internal/observer` returns nothing — the call is in the daemon seam
+      because the observer is forbidden the import.
 - [ ] `internal/observer` declares **no** NodeID constructor, no `argsPreviewMax`, no args-preview
-      key table and no `argsDigest` helper: `git grep -nE '"tooluse:|"toolresult:|"assistant:|
-      "userprompt:|"file:|"symbol:|"segment:|argsPreviewMax' -- internal/observer` returns nothing
-      outside test fixtures.
+      key table and no `argsDigest` helper:
+      `git grep -nE '"(tooluse|toolresult|assistant|userprompt|file|symbol|segment):|argsPreviewMax' -- internal/observer ':!*_test.go'`
+      returns nothing. The pattern is one line on purpose: the earlier wrapped form pasted a newline
+      and six spaces into the middle of the alternation, so the copied command silently tested
+      something else. The exclusion pathspec replaces the old "outside test fixtures" clause, which
+      required a human to read the output and so was not a gate.
 - [ ] `nomagic` clean: every literal in `{0.1, 1.25, 12.5, 0.55, 0.004, 0.9, 0.4}` and
       `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}` inside `internal/observer` is
       either read from `config` or carries a `//nomagic:allow <reason>` comment. After this subplan

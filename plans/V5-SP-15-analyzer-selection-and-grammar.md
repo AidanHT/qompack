@@ -4,7 +4,7 @@
 >
 > **Second-hardest.** Sequitur's two invariants (digram uniqueness, rule utility) are famously easy to break under recursive rule elimination, and the lazy-greedy selector must satisfy the `coverage(S) − λ·redundancy(S)` identity to 1e-12 under a property test while keeping the `(1 − 1/e)` guarantee and the structural pre-`p` refusal. `high` rather than `xhigh` because the plan already writes the algorithms out.
 
-**Branch:** `feat/sp15-analyzer-selection-and-grammar` (cut from `develop`) | **Wave:** 4 | **Prerequisites:** the branches of `SP-01`, `SP-06`, `SP-07`, `SP-08`, `SP-10`, `SP-12` already merged into `develop` | **Runs in parallel with:** sibling subplans of wave 4 (SP-14 slash commands, SP-16 Phase 7 refinements) | **Design sections:** §6.3, §6.5, §7.2 L2, §8.1 item 6, §8.3 (delta-scoring, slicing, submodular), §10 Phase 5, §10 Phase 6, Closing note item 3 | **Gaps closed:** G6.3
+**Branch:** `feat/sp15-analyzer-selection-and-grammar` (cut from `develop`) | **Wave:** 4 | **Prerequisites:** the branches of `SP-01`, `SP-06`, `SP-07`, `SP-08`, `SP-10`, `SP-12` already merged into `develop`, **plus the blocking `arch/store-tooluses-by-session` pre-step** (adds `store.Store.ToolUsesBySession`; see Implementation spec §4 — this branch is cut after it lands) | **Runs in parallel with:** sibling subplans of wave 4 (SP-14 slash commands, SP-16 Phase 7 refinements) | **Design sections:** §6.3, §6.5, §7.2 L2, §8.1 item 6, §8.3 (delta-scoring, slicing, submodular), §10 Phase 5, §10 Phase 6, Closing note item 3 | **Gaps closed:** G6.3
 
 ---
 
@@ -21,12 +21,18 @@ a `Selector`. §6.5's "this should allocate the post-compact budget instead of '
 each'" is therefore **partially** delivered here: the allocator exists, is property-tested against
 the `(1 − 1/e)` guarantee, and is scored against Belady OPT on the 24-session corpus — but the
 production budget allocation stays with SP-11's rehydrator and SP-10's `Truncate`, both of which
-this subplan lists as out of scope. **The production consumer — the rehydration allocation and
-`checkpoint.Truncate`'s pointer ordering, which is also where SP-16's `OrderPointers` lands — is
-deferred to a later, named owner: SP-16 for pointer ordering, and the wave-5 rehydration slice for
-the 8–12K allocation.** Wiring it here would mean an anchored edit inside two other subplans'
-files and an owner negotiation none of the three wave-4 branches has room for. What follows from
-that, and is repeated in the Exit criteria: **Phase 5's number is replay evidence, not live-path
+this subplan lists as out of scope. **The production consumer splits, and only half of it has an
+owner.** `checkpoint.Truncate`'s pointer ordering — where SP-16's `OrderPointers` lands — is owned
+by **SP-16**. The rehydrator's 8–12K post-compact allocation (`Qompack.md:590`) is owned by
+**nobody**: no subplan in waves 3–5 claims it, and the "wave-5 rehydration slice" earlier drafts of
+this file pointed at does not exist — no document in `plans/` defines it and `plans/README.md`'s
+wave-5 list does not contain it. It is recorded as an unowned obligation in
+`plans/TRACEABILITY.md`'s unowned-obligations section, and naming its owner is a decision for the
+plan set, not for this subplan. Wiring it here would in any case mean an anchored edit inside two
+other subplans' files and an owner negotiation none of the three wave-4 branches has room for.
+**This costs SP-15 no exit criterion:** §10 Phase 5's criterion is *"improved fraction-of-OPT at
+equal budget"*, a replay-harness number, and the two policies deliver it. What follows from that,
+and is repeated in the Exit criteria: **Phase 5's number is replay evidence, not live-path
 behaviour.** It is the honest form of the phase gate — "the selector would do better at equal
 budget, measured on a corpus" — and it is what makes the later wiring a mechanical change with a
 number already attached rather than a leap of faith.
@@ -126,6 +132,7 @@ and, from §8.1 item 3, the summary-exclusion rule this subplan enforces:
 > ```
 > minimize   Σ tokens_kept · r          (steady-state read cost)
 >          + w · (n − p_min)            (one-time rewrite)
+>          + c · n                       (the compaction request's own input)
 >          + λ · D(keep-set)            (task damage, from §4.2)
 > ```
 >
@@ -238,8 +245,8 @@ Each item names the sibling subplan that owns it. Do not implement any of these.
 | `sketch.MinHash`, `Signature.Jaccard`, Bloom/CMS/HLL/Misra-Gries implementations and serialization | **SP-03** |
 | `symbols.Extractor` implementation, FastCDC, canonicalizers | **SP-04** |
 | `store` objects/roots/index/GC, redaction at ingest, `tokens` exact accounting | **SP-06** |
-| Daemon lifecycle, IPC transport, op-routing table, `IdleController`, spool/WAL, hot-path budgets | **SP-05** (SP-15 adds exactly one new file, `internal/daemon/grammar_addendum.go`, plus one contiguous four-line guarded call in `daemon.New` immediately before `d.routes = buildRoutes(&o, d)`; it registers on `*Options`, never on a running daemon, and never mutates `d.routes`. See Implementation spec §7) |
-| The production consumer of the selector — the rehydrator's 8–12K allocation, and `checkpoint.Truncate`'s pointer ordering. SP-15 ships the selector measured-but-unwired; its callers are the two `test/replay` policies | **SP-16** (pointer ordering / `OrderPointers`) and the **wave-5 rehydration slice** (allocation) |
+| Daemon lifecycle, IPC transport, op-routing table, `IdleController`, spool/WAL, hot-path budgets | **SP-05** (SP-15 adds exactly one new file, `internal/daemon/grammar_addendum.go`, plus one contiguous four-line guarded call in `daemon.New` immediately before the `for _, bind := range o.binds` loop; it appends to `*Options`' bind list, never registers a route, never touches a running daemon, and never reads or mutates `d.routes`. See Implementation spec §7) |
+| The production consumer of the selector — the rehydrator's 8–12K allocation, and `checkpoint.Truncate`'s pointer ordering. SP-15 ships the selector measured-but-unwired; its callers are the two `test/replay` policies | **SP-16** (pointer ordering / `OrderPointers`). The 8–12K allocation is **unowned** — see the Mission and `plans/TRACEABILITY.md`'s unowned-obligations section |
 | Packaging, cross-platform matrix, security audit, release pipeline | **SP-17** |
 | README, user guide, troubleshooting, config reference, cannot-do list, UAT | **SP-18** |
 
@@ -366,7 +373,10 @@ type Store interface {
     Open(ctx context.Context, root core.Hash) (io.ReadCloser, error)
     ToolUse(ctx context.Context, id core.ToolUseID) (ToolUseRecord, error)
     ToolUsesByPath(ctx context.Context, path string, limit int) ([]ToolUseRecord, error)
-    Search(ctx context.Context, q Query) ([]Hit, error)
+    ToolUsesBySession(ctx context.Context, sess core.SessionID, limit int) ([]ToolUseRecord, error)
+    // ^ added by the blocking arch/store-tooluses-by-session pre-step; see Implementation spec §4.
+    //   Search is deliberately NOT in SP-15's call set: it clamps K to maxK = 100 and is
+    //   project-wide (store.Query has no Session field).
     // … the rest of the interface is not called by SP-15
 }
 ```
@@ -617,10 +627,14 @@ func FoldActionHistoryInto(c *Checkpoint, g grammar.Sequitur, o grammar.WarnOpti
 `internal/daemon` — additive, one new file:
 
 ```go
-func WrapPromptHandlerWithThrashWarning(inner ipc.Handler, g grammar.Sequitur,
-                                        o grammar.WarnOptions, log logging.Logger) ipc.Handler
-// AttachThrashWarning takes *Options, not Daemon: the route table is frozen by New and read
-// unguarded on the B-A path, so the wrap must be registered before New builds it (see §7).
+func WrapObservePromptWithThrashWarning(
+    inner func(ctx context.Context, e hookio.Event) (hookio.Output, error),
+    g grammar.Sequitur, o grammar.WarnOptions, log logging.Logger,
+) func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+// AttachThrashWarning takes *Options, not Daemon, and uses Options.Bind, not Options.Handle: the
+// addendum decorates the Services.ObservePrompt seam so it inherits handleObservePrompt's
+// mode.MayAct() gate and its 250 ms promptReplyDeadline race. A route-level override would sit
+// outside both (see §7).
 func AttachThrashWarning(o *Options, g grammar.Sequitur, wo grammar.WarnOptions, log logging.Logger) error
 ```
 
@@ -866,21 +880,35 @@ func DetectRedundancyWithConfig(ctx context.Context, s store.Store, sess core.Se
 `0.9` never appears as a literal in this package (§11.6 `nomagic`; `0.9` is in the forbidden set).
 `MaxCandidates` is `5000`, a named constant `maxRedundancyCandidates` (not in the forbidden set).
 
-**Candidate enumeration.** `s.Search(ctx, store.Query{Since: time.Time{}, K: o.MaxCandidates})`
-is the "everything, most recent first" query: empty `Text`/`Path`/`Symbol`/`Tool` and a zero
-`Since` place no filter, and SP-06's `Search` ranks and caps at `K`. Each `Hit` with a non-empty
-`ToolUseID` is resolved with `s.ToolUse(ctx, id)`; records whose `Session != sess` are skipped;
-`core.ErrNotFound` on a single record is skipped with a Debug log, never propagated.
+**Candidate enumeration.** `s.ToolUsesBySession(ctx, sess, o.MaxCandidates)` — the
+session-scoped enumerator added by the blocking pre-step below. Records whose `Session != sess`
+cannot occur; `core.ErrNotFound` on a single record is skipped with a Debug log, never propagated.
 
-> **This is the one assumption SP-15 makes about a package it does not own.** §5.8 declares
-> `Search(ctx, q Query) ([]Hit, error)` but does not specify empty-query semantics, and `store.Store`
-> exposes no session-scoped enumerator. `TestDetectRedundancyEnumeratesWholeSession` pins the
-> assumption against the real SP-06 store: put 12 records across 3 paths in one session, assert the
-> empty query returns all 12. **If that test fails on `develop`, the fix is an amendment** adding
-> `ToolUsesBySession(ctx, sess core.SessionID, limit int) ([]ToolUseRecord, error)` to `store.Store`
-> under 00-ARCHITECTURE §0 (branch `arch/store-tooluses-by-session`, merged before this work
-> continues) — **not** a workaround inside `analyzer`, and never a direct read of
-> `.qompack/index/tool_use.jsonl`, which would bypass the store's ownership of its own index.
+**`store.Search` must not be used here, and this is not a preference.** The shipped `Search`
+clamps `K` to `maxK = 100` (`internal/store/search.go:41, :60-66`), caps the scanned candidate
+set at `maxCandidates = 512` (`:114-118`), and `store.Query` carries no `Session` field
+(`internal/store/query.go:11-25`), so an empty query with `K: 5000` returns **the 100 most recent
+records of the whole project**, not the session — and a per-record `Session != sess` filter then
+discards most of those 100. A session with more than 100 records would be silently analysed on a
+truncated, cross-session sample, which is precisely the shape a redundancy detector must not
+have. The same shipped behaviour is written up independently in
+`plans/V4-SP-11-rehydrator-l5.md:506, :1113` and `plans/V4-SP-13-mcp-retrieval-layer.md:820`
+(the sibling `K: 0` → `defaultK = 5` case); SP-15 is the fourth plan to meet it and the first to
+depend on it, so it is stated here rather than rediscovered again.
+
+> **Pre-step (blocking): `arch/store-tooluses-by-session`.** `store.Store` exposes no
+> session-scoped enumerator (`internal/store/store.go:21-67`). Cut `arch/store-tooluses-by-session`
+> off `develop`, add
+> `ToolUsesBySession(ctx context.Context, sess core.SessionID, limit int) ([]ToolUseRecord, error)`
+> to §5.8's `store.Store` block in `00-ARCHITECTURE.md` and to `internal/store/store.go`, and
+> implement it on `*FSStore` alongside `ToolUsesByPath` (`internal/store/tooluseindex.go:263-265`)
+> with a `bySessionTU map[core.SessionID][]core.ToolUseID` index built in `loadToolUse`, returning
+> newest-first with `limit <= 0` meaning all — the same contract `ToolUsesByPath` already states.
+> This is a §5 interface change, so 00-ARCHITECTURE §0's amendment rule applies in full: it is
+> negotiated with SP-06's owner and **merged into `develop` before `feat/sp15-*` is cut**, not
+> opened mid-branch as a contingency. A workaround inside `analyzer` is forbidden, and so is a
+> direct read of `.qompack/index/tool_use.jsonl`, which would bypass the store's ownership of its
+> own index.
 
 **Group construction.** Records are grouped by `paths.Key(rec.Path)`; records with an empty `Path`
 form no group and participate in neither pass. Within a group, records are sorted ascending by
@@ -1537,44 +1565,70 @@ asserts that rather than re-testing SP-01's formatter.
 later waves wire into ("a late-bound `Services` set", "the op-routing table is data, not a
 switch"). SP-15 adds exactly one new file and one four-line guarded block.
 
-**The wrap happens at `Options` time, before the route table exists.** This is not a stylistic
-choice — it is the only race-free shape against the shipped daemon, and the shipped daemon says so
-itself. `Options.Handle`'s doc comment is normative: *"It is defined on Options rather than on
-Daemon so the table is complete before Run starts: registering a handler against a running server
-would need locking on the hot path, and B-A has no room for a contended mutex per request."*
-Concretely, on `develop`: the concrete type is the unexported `daemon` (there is no `daemonImpl`);
-`Handle` and `Handler` are methods on `*Options`, not on the daemon or the `Daemon` interface;
-`routes map[ipc.Op]ipc.Handler` has **no mutex**, is written exactly once at
-`d.routes = buildRoutes(&o, d)` and read unguarded on the request path in `dispatchOp`, so any
-post-`New` re-registration is a data race under `-race`; and the default prompt route is the method
-`d.handleObservePrompt`, installed by `defaultRoutes`, for which `o.Handler(ipc.OpObservePrompt)`
-reports `ok == false`.
+**The addendum decorates the `Services.ObservePrompt` seam through `Options.Bind`; it does not
+override the `observe.prompt` route through `Options.Handle`.** This is not a stylistic choice — a
+route-level override is *wrong*, for two independent reasons the shipped handler makes plain:
+
+1. **It would bypass the §12 mode gate.** `handleObservePrompt` gates twice
+   (`internal/daemon/handlers.go:376-381`, `:401-403`): it returns `hookio.Empty()` outright when
+   `!mode.MayRecord()` (`ModeOff`), and it calls the seam **only** when `mode.MayAct()`, which
+   `internal/contract/mode.go:53-55` makes false for `ModeDegradedPassive` and `ModeOff`. A wrapper
+   sitting outside the route appends `additionalContext` after the handler has already returned its
+   inert response — so Qompack would act while degraded, and act while the operator had explicitly
+   switched it off. Decorating the seam inherits both gates for free, and the route-level shape
+   cannot be repaired in place: `ipc.Handler` has no access to `d.monitor`.
+2. **It would run outside `promptReplyDeadline`.** `callObservePromptWithDeadline`
+   (`internal/daemon/handlers.go:406-435`) races the seam call against
+   `promptReplyDeadline = 250 * time.Millisecond` (`:22`) in a goroutine and falls back to
+   `hookio.Empty()` — *"a prompt is never blocked on the daemon"*. That race wraps
+   `d.svc.ObservePrompt` and nothing else. `observe.prompt` is a hot-path op gated at B-A
+   p99 < 15 ms, so grammar work run *after* the handler returns is charged to the request with no
+   bound of any kind — and SP-15's own out-of-scope table hands hot-path budgets to SP-05. Inside
+   the seam it is bounded by the same 250 ms race as every other prompt-path callee.
+
+**The bind is appended at `Options` time, before `New` applies the bind list.** `New` seeds
+`Services` from `Options`, then runs `for _, bind := range o.binds { bind(svc) }`
+(`internal/daemon/daemon.go:222-233`) before it builds the route table — so a bind appended last
+wraps whatever every earlier bind (SP-08's `ObservePrompt` in particular) installed, and reading
+`s.ObservePrompt` inside the bind is the documented way to compose onto a seam another subplan
+owns: *"This is the seam a wave-2/3 subplan uses to attach its own function seams … without
+editing daemon internals or colliding with a sibling subplan doing the same thing."* `Services` is
+a plain struct mutated once during construction and read thereafter, so there is no mutex and no
+race — the same property that makes `Options.Handle` the right seam for a route makes `Bind` the
+right seam for a service. Registration order is the one constraint: SP-15's `Bind` must be
+appended after SP-08's, which the call site below guarantees by construction.
 
 ```go
-// WrapPromptHandlerWithThrashWarning appends the L2 thrash warning to the UserPromptSubmit
-// response's additionalContext (Qompack.md §8.1 item 6, §10 Phase 6). It wraps rather than
-// replaces, so SP-08's observer semantics are untouched and internal/observer is not edited.
-func WrapPromptHandlerWithThrashWarning(inner ipc.Handler, g grammar.Sequitur,
-                                        o grammar.WarnOptions, log logging.Logger) ipc.Handler {
-    return func(ctx context.Context, req ipc.Request) ipc.Response {
-        resp := inner(ctx, req)
-        if g == nil { return resp }
-        add := grammar.PromptAddendum(g, o)
-        if add == "" { return resp }
-        if resp.Output == nil { resp.Output = &hookio.Output{} }
-        if resp.Output.HookSpecificOutput == nil {
-            resp.Output.HookSpecificOutput = &hookio.HSO{HookEventName: "UserPromptSubmit"}
+// WrapObservePromptWithThrashWarning appends the L2 thrash warning to the UserPromptSubmit
+// output's additionalContext (Qompack.md §8.1 item 6, §10 Phase 6). It decorates the
+// Services.ObservePrompt seam, so it runs only when mode.MayAct() and only inside
+// callObservePromptWithDeadline's 250 ms race. It wraps rather than replaces, so SP-08's observer
+// semantics are untouched and internal/observer is not edited.
+func WrapObservePromptWithThrashWarning(
+    inner func(ctx context.Context, e hookio.Event) (hookio.Output, error),
+    g grammar.Sequitur, o grammar.WarnOptions, log logging.Logger,
+) func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+    return func(ctx context.Context, e hookio.Event) (hookio.Output, error) {
+        out := hookio.Empty()
+        if inner != nil {
+            var err error
+            if out, err = inner(ctx, e); err != nil { return out, err }
         }
-        h := resp.Output.HookSpecificOutput
+        if g == nil { return out, nil }
+        add := grammar.PromptAddendum(g, o)
+        if add == "" { return out, nil }
+        if out.HookSpecificOutput == nil {
+            out.HookSpecificOutput = &hookio.HSO{HookEventName: "UserPromptSubmit"}
+        }
+        h := out.HookSpecificOutput
         if h.AdditionalContext == "" { h.AdditionalContext = add } else { h.AdditionalContext += "\n" + add }
-        log.Info("thrash warning delivered", "session", string(req.Session), "bytes", len(add))
-        return resp
+        log.Info("thrash warning delivered", "session", string(e.SessionID), "bytes", len(add))
+        return out, nil
     }
 }
 
-// AttachThrashWarning registers the wrapped observe.prompt handler ON THE OPTIONS, before New
-// freezes the route table. It is a no-op returning nil when there is no grammar (waves 1–2 run
-// with a nil Sequitur).
+// AttachThrashWarning appends the seam decoration to the Options bind list, before New applies it.
+// It is a no-op returning nil when there is no grammar (waves 1–2 run with a nil Sequitur).
 func AttachThrashWarning(o *Options, g grammar.Sequitur, wo grammar.WarnOptions, log logging.Logger) error
 ```
 
@@ -1588,35 +1642,29 @@ func AttachThrashWarning(o *Options, g grammar.Sequitur, wo grammar.WarnOptions,
     if g == nil { return nil }                      // waves 1–2 run with a nil Sequitur
     if log == nil { log = logging.Nop() }
 
-    inner, ok := o.Handler(ipc.OpObservePrompt)
-    if !ok {
-        // Nobody registered an override, so buildRoutes will install the daemon's own default.
-        // Delegate to it rather than reimplementing it.
-        inner = defaultObservePromptHandler
-    }
-    o.Handle(ipc.OpObservePrompt, WrapPromptHandlerWithThrashWarning(inner, g, wo, log))
+    o.Bind(func(s *Services) {
+        // s.ObservePrompt is whatever every earlier Bind left there — SP-08's, normally. A nil
+        // seam is legal and the wrapper handles it: the addendum is then the whole output.
+        s.ObservePrompt = WrapObservePromptWithThrashWarning(s.ObservePrompt, g, wo, log)
+    })
     return nil
-}
-
-// defaultObservePromptHandler is the route buildRoutes would have installed: the daemon's own
-// (*daemon).handleObservePrompt, reached through the Daemon value dispatchOp injects into every
-// request's context (withDaemon/DaemonFrom, options.go). Referencing it here is legal because
-// this file is in package daemon; it needs no export and no change to the Daemon interface.
-//
-// It exists so the wrapper can be installed at Options time — the only point at which the route
-// table can be changed without a mutex, since routes is written once in New and read unguarded on
-// the request path.
-func defaultObservePromptHandler(ctx context.Context, req ipc.Request) ipc.Response {
-    d, _ := DaemonFrom(ctx).(*daemon)
-    if d == nil {
-        return ipc.Response{OK: false, Err: "qompack: observe.prompt default handler unavailable"}
-    }
-    return d.handleObservePrompt(ctx, req)
 }
 ```
 
+**`Options.Handle`, `Options.Handler` and `defaultObservePromptHandler` play no part.** An earlier
+draft of this section registered a wrapped `ipc.Handler` for `ipc.OpObservePrompt` on the Options
+and delegated to `(*daemon).handleObservePrompt` through the `Daemon` value in the request context.
+That shape is deleted: it put the addendum outside both the `mode.MayAct()` gate and the 250 ms
+prompt-reply race, and its only reason for existing — needing to reach the daemon's own default
+route — disappears with `Bind`, which composes onto the seam the default route already calls. One
+consequence worth stating: nothing in this file now needs `(*daemon)`, `DaemonFrom` or the route
+table, so `internal/daemon/grammar_addendum.go` is in package `daemon` only so that `New` can call
+`AttachThrashWarning` (below) without an import cycle.
+
 The single call site, added to `internal/daemon/daemon.go`'s `New()` **immediately before**
-`d.routes = buildRoutes(&o, d)` — which is the last moment the table can still be changed:
+`for _, bind := range o.binds { bind(svc) }` (`daemon.go:232`) — which is the last moment a bind can
+still be appended, and which guarantees SP-15's decoration runs after every bind a composition root
+registered, SP-08's included:
 
 ```go
     // SP-15: L2 thrash warning delivery (§8.1 item 6, §10 Phase 6).
@@ -1625,21 +1673,23 @@ The single call site, added to `internal/daemon/daemon.go`'s `New()` **immediate
             o.Log.Warn("thrash warning not attached", "err", err)
         }
     }
-    d.routes = buildRoutes(&o, d)
+    for _, bind := range o.binds {
+        bind(svc)
+    }
 ```
 
-`New` takes `Options` by value, so `&o` is the same pointer `buildRoutes(&o, d)` already reads, and
-the registration is visible to it. The error return is non-fatal at the call site (it logs `Warn`
-and continues), so a daemon SP-05 later restructures degrades to "no thrash warning", never to a
-broken prompt path. Four lines, contiguous, guarded — trivially resolvable if SP-14 or SP-16 touch
-the same function (00-ARCHITECTURE §9: conflicts are resolved on the incoming branch, then
+`New` takes `Options` by value, so `&o` is the same value whose `binds` slice the loop below reads,
+and the appended bind is visible to it. The error return is non-fatal at the call site (it logs
+`Warn` and continues), so a daemon SP-05 later restructures degrades to "no thrash warning", never
+to a broken prompt path. Four lines, contiguous, guarded — trivially resolvable if SP-14 or SP-16
+touch the same function (00-ARCHITECTURE §9: conflicts are resolved on the incoming branch, then
 re-merged).
 
-**No `routeFor` accessor, no mutex, no `Daemon`-interface change, and no amendment.** Earlier drafts
-of this section proposed reading the live route table back out of the daemon after `New`; that is
-wrong twice over — there is nothing to read it through, and writing `d.routes` after `New` would be
-an unsynchronized write on the B-A path. The Options-time wrap is what the shipped seam was built
-for, and it is the whole mechanism. `go test -race ./internal/daemon/...` is the check.
+**No `routeFor` accessor, no route registration, no mutex, no `Daemon`-interface change, and no
+amendment.** `d.routes` is neither read nor written by this subplan: `ipc.OpObservePrompt` keeps
+SP-05's own `d.handleObservePrompt`, and the addendum is composed onto the service that handler
+already calls — inside the `mode.MayAct()` gate and inside the 250 ms deadline race. That is the
+whole mechanism. `go test -race ./internal/daemon/...` is the check.
 
 ### 8. `internal/checkpoint/grammar.go` (new file in SP-10's package) and 4 lines in `writer.go`
 
@@ -2020,7 +2070,7 @@ Fixture: `testutil.NewProject` with a real store; helper `putRead(path, body, tu
 | Test | Setup | Expected |
 |---|---|---|
 | `TestDetectRedundancyEmpty` | empty store | zero-value report, no error |
-| `TestDetectRedundancyEnumeratesWholeSession` | 12 records across 3 paths in one session | the detector observes all 12 (assert via an instrumented store wrapper counting `ToolUse` calls, or by making all 12 mutually superseding). **This is the pin on the `store.Search` empty-query assumption**; if it fails on `develop`, follow the amendment path in Implementation spec §4 rather than working around it |
+| `TestDetectRedundancyEnumeratesWholeSession` | **150** records across 3 paths in the target session, interleaved with 150 records of a second session | the detector observes all 150 of the target session's records and none of the other session's (assert via an instrumented store wrapper counting the enumerator's returns, or by making all 150 mutually superseding). **150 is chosen to exceed `store`'s `maxK = 100`**, so this row fails against any `Search`-based enumeration and passes only against `ToolUsesBySession` — a 12-record fixture would pass either way and pin nothing |
 | `TestSortedNearDupKeys` | report with 3 near-dup keys inserted in reverse order | `SortedNearDupKeys()` returns them ascending, identical across 50 runs |
 | `TestDetectRedundancyObserverMarked` | one record with `Status: StatusSuperseded` | `Superseded == [that id]` |
 | `TestDetectRedundancyChunkSuperset` | `src/auth.ts` read at turn 1 (100 lines), re-read at turn 5 (the same 100 lines plus 40 more) | `Superseded` contains the turn-1 id, not the turn-5 id |
@@ -2113,13 +2163,15 @@ once `Select` returns a real `Selection` with a nil error. The rows below are ad
 
 | Test | Setup | Expected |
 |---|---|---|
-| `TestThrashWarningReachesAdditionalContext` | real daemon built by `daemon.New` over `testutil.NewProject` with `Options.Grammar` pre-fed 11 `read edit test fail` cycles (so `New`'s own guarded `AttachThrashWarning(&o, …)` fires) | the `observe.prompt` response's `hookSpecificOutput.additionalContext` contains `"[qompack] possible loop:"` and `"repeated 11×"` |
-| `TestThrashWarningWrapsTheDefaultRoute` | same, with **no** `Options.Handle(ipc.OpObservePrompt, …)` override registered | the response still carries SP-05's own `handleObservePrompt` output **plus** the addendum — the check that `defaultObservePromptHandler`'s ctx delegation actually reaches `(*daemon).handleObservePrompt` |
-| `TestThrashWarningWrapsAnOptionsOverride` | an override registered on `Options` before `New` | the override runs and the addendum is appended to its output; `o.Handler(ipc.OpObservePrompt)` reported `ok == true` and the override was used as `inner` |
+| `TestThrashWarningReachesAdditionalContext` | real daemon built by `daemon.New` over `testutil.NewProject` with `Options.Grammar` pre-fed 11 `read edit test fail` cycles (so `New`'s own guarded `AttachThrashWarning(&o, …)` fires), contract mode `full` | the `observe.prompt` response's `hookSpecificOutput.additionalContext` contains `"[qompack] possible loop:"` and `"repeated 11×"` |
+| `TestThrashWarning_NotInjectedWhenModeMayNotAct` | same daemon, contract monitor forced to `degraded-passive`, then to `off` | in **both** modes the `observe.prompt` response carries **no** `additionalContext` — the addendum inherits `handleObservePrompt`'s `mode.MayAct()` gate (`handlers.go:401-403`) because it decorates the seam. This row fails against any route-level `Options.Handle` wrapper, which is why it exists |
+| `TestThrashWarning_InsidePromptDeadline` | a `grammar.Sequitur` whose `PromptAddendum` blocks 2 s | the `observe.prompt` route returns **within 1 s** with an empty `Output` — the addendum is inside `callObservePromptWithDeadline`'s 250 ms race (`handlers.go:406-435`), so unbounded grammar work cannot be charged to the B-A hot path |
+| `TestThrashWarningWrapsTheDefaultSeam` | same, with **no** other `Bind` registering `Services.ObservePrompt` | the response carries the addendum alone and the daemon still ACKs — a nil inner seam is legal (`Services`' "a handler that finds a nil seam still ACKs"), and `ipc.OpObservePrompt` is still SP-05's own `d.handleObservePrompt`: assert `o.Handler(ipc.OpObservePrompt)` reports `ok == false` both before and after `AttachThrashWarning` |
+| `TestThrashWarningWrapsAnEarlierBind` | an earlier `Options.Bind` setting `Services.ObservePrompt` (SP-08's shape) | that seam runs and the addendum is appended to its output — proof that `AttachThrashWarning`'s bind is appended last and reads back what earlier binds installed |
 | `TestThrashWarningPreservesInnerContext` | inner handler that sets `additionalContext = "inner"` | result is `"inner\n[qompack] possible loop: …"` |
-| `TestThrashWarningAbsentWhenNoThrash` | grammar with 5 distinct symbols | response is byte-identical to the unwrapped handler's |
-| `TestThrashWarningNilGrammarIsNoOp` | `g == nil` | `AttachThrashWarning` returns nil, registers nothing, and `o.Handler(ipc.OpObservePrompt)` still reports `ok == false`; the wrapper likewise returns the inner response unchanged |
-| `TestThrashWarningNoRouteMutationAfterNew` | `go test -race`, 64 concurrent `observe.prompt` requests against a daemon whose grammar is being appended to | no race reported; the route table is written once inside `New` and never afterwards |
+| `TestThrashWarningAbsentWhenNoThrash` | grammar with 5 distinct symbols | response is byte-identical to the undecorated seam's |
+| `TestThrashWarningNilGrammarIsNoOp` | `g == nil` | `AttachThrashWarning` returns nil and appends **no** bind (`Services.ObservePrompt` is the same function value before and after `New`); the wrapper likewise returns the inner output unchanged |
+| `TestThrashWarningNoRouteMutationAfterNew` | `go test -race`, 64 concurrent `observe.prompt` requests against a daemon whose grammar is being appended to | no race reported; `d.routes` is never written by this subplan and `Services` is mutated only inside `New`'s bind loop |
 | `TestThrashWarningHookStillExitsZero` | the real `qompack observe prompt` binary against the warmed daemon | exit code 0 (00-ARCHITECTURE §13 invariant 6) |
 
 ### `test/replay/phase5_exit_test.go` and `phase6_exit_test.go`
@@ -2191,7 +2243,7 @@ not import `sketch` under the §3.2 import DAG.*
 Footer: `Refs: SP-15, §6.3, §7.4, §10 Phase 6`
 
 - [ ] Write `internal/grammar/codec_test.go` (12 tests + `FuzzGrammarUnmarshal`) and
-      `warn_test.go` (11 tests) **first**; confirm they fail.
+      `warn_test.go` (10 tests) **first**; confirm they fail.
 - [ ] Add `internal/grammar/codec.go` and `warn.go`, including the `thrashSuggestion` constant and
       the `dirty`-flag projection cache that makes the `PromptAddendum` B-A sub-budget hold.
       **Do not touch `formatwarning.go`.**
@@ -2230,9 +2282,12 @@ without a code change.*
 Footer: `Refs: SP-15, §4.3, §8.1 item 3, §8.3`
 
 - [ ] Write `internal/analyzer/redundancy_test.go` (16 tests) **first**; confirm they fail.
+- [ ] Confirm the `arch/store-tooluses-by-session` pre-step (Implementation spec §4) is already
+      merged into `develop` — `store.Store` must declare `ToolUsesBySession`. It is a prerequisite
+      of this branch, not a contingency: `feat/sp15-*` is cut after it lands.
 - [ ] Run `TestDetectRedundancyEnumeratesWholeSession` against the real SP-06 store **before**
-      writing the rest of the file. If it cannot pass, stop and open the
-      `arch/store-tooluses-by-session` amendment described in Implementation spec §4.
+      writing the rest of the file; its 150-record fixture is what proves the enumerator is
+      session-scoped and unclamped.
 - [ ] Add `internal/analyzer/redundancy.go` (`RedundancyOptions`, `DetectRedundancy`,
       `DetectRedundancyWithConfig`, chunk-superset detection, MinHash grouping,
       `ExcludeFromSummary`, `ApplyTo`, `SortedNearDupKeys`).
@@ -2282,17 +2337,18 @@ other wave-4 checkpoint work.*
 Footer: `Refs: SP-15, §5.5, §6.3, §6.9, §8.5, §10 Phase 6`
 
 - [ ] Write `internal/checkpoint/grammar_test.go` (11 tests) and
-      `test/e2e/thrash_warning_test.go` (8 tests) **first**; confirm they fail.
+      `test/e2e/thrash_warning_test.go` (10 tests) **first**; confirm they fail.
 - [ ] Add `internal/checkpoint/grammar.go` (`ActionRule`, `ThrashNote`, `ActionHistory`,
       `BuildActionHistory`, `RenderActionHistory`, `FoldActionHistoryInto`).
 - [ ] Modify `internal/checkpoint/writer.go`: insert the three-line fold immediately before the
       `Truncate` call in `Finalize`. No other change to that file.
-- [ ] Add `internal/daemon/grammar_addendum.go` (`WrapPromptHandlerWithThrashWarning`,
-      `AttachThrashWarning(o *Options, …)`, `defaultObservePromptHandler`). No accessor, no mutex,
-      no change to the `Daemon` interface.
+- [ ] Add `internal/daemon/grammar_addendum.go` (`WrapObservePromptWithThrashWarning`,
+      `AttachThrashWarning(o *Options, …)`). No route registration, no accessor, no mutex, no
+      change to the `Daemon` interface — and no `defaultObservePromptHandler`: `Bind` composes onto
+      the seam `handleObservePrompt` already calls, so nothing here reaches into `(*daemon)`.
 - [ ] Modify `internal/daemon/daemon.go`: insert the four-line guarded `AttachThrashWarning(&o, …)`
-      call **immediately before** `d.routes = buildRoutes(&o, d)` in `New`. No other change to that
-      file, and nothing writes `d.routes` after `New` returns.
+      call **immediately before** the `for _, bind := range o.binds { bind(svc) }` loop in `New`.
+      No other change to that file, and `d.routes` is neither read nor written.
 - [ ] Add `testdata/golden/checkpoints/action_history.txt`.
 - [ ] Add `BenchmarkFoldActionHistory` and confirm **< 20 ms**.
 - [ ] Run: `go test -race ./internal/checkpoint/... ./internal/daemon/... ./test/e2e/...` and
@@ -2325,8 +2381,9 @@ Footer: `Refs: SP-15, §10 Phase 5, §10 Phase 6, §11.1, §11.3`
       `scheduler.PSelectionAvailable()` in the constructor while the operator opt-out
       (`runtime.selection.submodularEnabled`, default flipped to `true` by this subplan) is read at
       the call site rather than added to the §5.12 signature, why the selector ships
-      measured-but-unwired in wave 4 with the production consumer deferred to SP-16 and the wave-5
-      rehydration slice, and why the grammar fold lives in tier 3.
+      measured-but-unwired in wave 4 with pointer ordering deferred to SP-16 and the production
+      8–12K allocator left unowned (see `plans/TRACEABILITY.md`), and why the grammar fold lives
+      in tier 3.
 - [ ] Run: `go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop`
       — the replay-gate must pass with no metric regressing more than 2 %.
 - [ ] Run the full local gate: `go run ./tools/devtool ci-local`.
@@ -2419,10 +2476,11 @@ result**, not a live-path measurement. The selector's only callers in this subpl
 `test/replay/policy_analyzer.go` and `policy_baseline_p.go`; nothing in `internal/` constructs a
 `Selector`. "Improved fraction-of-OPT at equal budget" is therefore satisfied by the two policies
 scoring differently on the committed 24-session corpus, and by nothing else. The production
-consumer — the rehydrator's 8–12K allocation and `checkpoint.Truncate`'s pointer ordering — is
-owned by SP-16 (pointer ordering) and the wave-5 rehydration slice (allocation), as stated in the
-Mission. A reviewer must not read the criteria below as claiming the shipped plugin allocates its
-post-compact budget submodularly; it does not yet, and that is the declared shape of this wave.
+consumer splits: `checkpoint.Truncate`'s pointer ordering is owned by SP-16, and the rehydrator's
+8–12K allocation (`Qompack.md:590`) is **unowned** and carried in `plans/TRACEABILITY.md`'s
+unowned-obligations section, as stated in the Mission. A reviewer must not read the criteria
+below as claiming the shipped plugin allocates its post-compact budget submodularly; it does
+not yet, and that is the declared shape of this wave.
 
 - [ ] **Phase 5, operationalized.** `test/replay/phase5_exit_test.go` passes:
       `FractionOfOPT(analyzer-suffix-submodular) > FractionOfOPT(baseline)` across all 24
@@ -2500,8 +2558,9 @@ post-compact budget submodularly; it does not yet, and that is the declared shap
   - [ ] §6.5 submodular — knapsack, `(1 − 1/e)`, lazy greedy, slice + Δ as coverage weights →
         `selector.go`, `greedy.go`, `greedy_property_test.go`. §6.5's *"this should allocate the
         post-compact budget instead of 'top 5 files, 5K each'"* is delivered as a measured policy
-        only; the production allocator is deferred to SP-16 and the wave-5 rehydration slice, as
-        the Mission and the Exit criteria's scope note both state.
+        only. `checkpoint.Truncate`'s pointer ordering goes to SP-16; the production 8–12K
+        allocator is **unowned** and tracked in `plans/TRACEABILITY.md`'s unowned-obligations
+        section, as the Mission and the Exit criteria's scope note both state.
   - [ ] §7.2 L2 row — slicing (consumed from SP-07), Δ-scoring, submodular, Sequitur, redundancy
         detection: all five present or explicitly delegated in "Out of scope".
   - [ ] §8.1 item 6 — Sequitur append and thrash warning emission → `AppendAt` + the daemon
@@ -2539,7 +2598,9 @@ post-compact budget submodularly; it does not yet, and that is the declared shap
       `SymbolRefs`, `TurnAware`, `WarnOptions`, `WarningsFor`, `PromptAddendum`, `Save`, `Load`,
       `DefaultThrashMinUses`, `DefaultThrashMinSpan`, `FormatVersion`, and in `test/replay`
       `NewSuffixSubmodularPolicy` / `NewPSelectionBaselinePolicy`) — no amendment to
-      00-ARCHITECTURE was required and none was made. In particular `Rule.Uses` and
+      00-ARCHITECTURE was required **on this branch** and none was made: §5.8's
+      `ToolUsesBySession` line lands on the `arch/store-tooluses-by-session` pre-step, merged
+      into `develop` before `feat/sp15-*` is cut. In particular `Rule.Uses` and
       `Selection.Keep`/`Dropped` keep their §5.11/§5.12 *types*; only their documented *semantics*
       are pinned down here, which needs no amendment.
 - [ ] **Import DAG respected:** `internal/symbols` is not imported by `internal/analyzer`;
@@ -2548,7 +2609,7 @@ post-compact budget submodularly; it does not yet, and that is the declared shap
       modified outside packages SP-15 owns, each edit contiguous, guarded and declared above:
       `internal/checkpoint/writer.go` (the three-line fold before `Truncate`),
       `internal/daemon/daemon.go` (the four-line guarded `AttachThrashWarning(&o, …)` block
-      immediately before `d.routes = buildRoutes(&o, d)`), `internal/config/defaults.go` (the
+      immediately before the `for _, bind := range o.binds` loop), `internal/config/defaults.go` (the
       submodular default flip, two fields), `internal/config/defaults_test.go` (two assertions),
       `test/guards/buildorder_test.go` (`TestGuard_SubmodularDefaultsOff` re-pointed at the
       derivation) and `docs/config-reference.md` (regenerated, never hand-edited).
