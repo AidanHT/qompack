@@ -45,3 +45,4 @@ SP02-D5	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	decision_preservation measures post
 SP02-D6	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the stock model skips the 4/3 host padding: hostPadTokens has no production caller and hostSkillBudget is dead
 SP04-D7	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	canon.Decide has no consumer and 8.1's delta-vs-full storage write is implemented nowhere and owned by nobody
 SP06-D2	SP-06	V2-VERIFY	deferred:V3-VERIFY	-	the PutBytes cold and warm budgets (3 ms / 400 us) are 9x and 19x over on Windows and have never been measured on the reference platform
+SP08-D1	SP-08	V3-VERIFY	open	BenchmarkOnToolUse_TestOutput256KB	OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
