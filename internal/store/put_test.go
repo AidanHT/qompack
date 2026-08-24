@@ -15,6 +15,7 @@ import (
 	"github.com/qompack/qompack/internal/canon"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/sketch"
 )
 
 // awsExampleKey is AWS's own long-standing documentation example access key ID. It is a redaction
@@ -633,4 +634,49 @@ func TestConcurrentPut(t *testing.T) {
 
 	require.Equal(t, serial.objectPaths(t), concurrent.objectPaths(t),
 		"concurrent puts must produce exactly the object set the serial order produces")
+}
+
+// TestCanonOptions_EmptyStripMeansNoOptionalClasses pins the distinction canonOptions used to drop
+// on the floor: internal/canon's gateSet already reads a NIL Strip as "every class" and a non-nil
+// but EMPTY Strip as "exactly these — none — plus the always-on structural ones", and the store
+// must forward that difference rather than flatten it with a len() > 0 test.
+//
+// The two rows are deliberately the same bytes through the same store, and each pins one half of
+// the gate:
+//
+//   - The empty non-nil Strip asks for no optional class AND, through the same non-nil Strip,
+//     opts out of the signature. Its canonical form must therefore be the input verbatim — the
+//     body carries no CRLF, no trailing horizontal whitespace and no path text, so the always-on
+//     crlf/paths classes are no-ops over it — and its PutResult.Signature must be zero.
+//   - The bare canon.Options{} row is what makes the gate load-bearing rather than decorative. Its
+//     MinHash.Enabled is the same zero false as the first row's, so an ungated opt-out rule would
+//     zero this signature too — and with it every store.PutOptions{} in the tree, retiring
+//     FSStore.nearDup outright. Its Strip is nil, a nil Strip is not an opt-out, and its signature
+//     must still be computed from the store's own configured MinHash.
+func TestCanonOptions_EmptyStripMeansNoOptionalClasses(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+
+	// One timestamp and two ANSI escapes: two of the six classes config.Defaults() enables.
+	body := []byte("2026-08-23T10:11:12.345Z \x1b[31mbuild failed\x1b[0m after three attempts\n")
+
+	off, err := tp.Store.PutBytes(ctx, body, PutOptions{
+		Tool: "Bash", Path: "logs/explicit-override.txt",
+		Canon: canon.Options{Strip: []canon.Class{}, MinHash: sketch.MinHashOptions{Enabled: false}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(len(body)), off.Root.CanonBytes,
+		"an empty non-nil Canon.Strip must leave every optional class unapplied")
+	require.Zero(t, off.Signature.Perms,
+		"a non-nil Canon.Strip carrying MinHash.Enabled=false must opt this Put out of the signature")
+
+	on, err := tp.Store.PutBytes(ctx, body, PutOptions{
+		Tool: "Bash", Path: "logs/no-override.txt",
+		Canon: canon.Options{},
+	})
+	require.NoError(t, err)
+	require.Less(t, on.Root.CanonBytes, int64(len(body)),
+		"a nil Canon.Strip must still apply the store's six configured classes")
+	require.NotZero(t, on.Signature.Perms,
+		"a nil Canon.Strip is not a MinHash opt-out: the store's configured signature must still run")
 }

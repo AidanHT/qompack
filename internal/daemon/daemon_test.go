@@ -1427,3 +1427,211 @@ func TestIdleExitEndsAbandonedSessions(t *testing.T) {
 
 	require.Zero(t, d.Registry().Live(), "the vanished session must have been ended, not kept live")
 }
+
+// TestResolveEvent_RestoresRawExtras pins the daemon-side half of the subagent-name seam.
+//
+// hookio.Event.Extra is tagged `json:"-"`: hookio.ReadEvent fills it in the hook-client process
+// and ipc.EncodeRequest then drops it, so it is the ONE field of hookio.Event the transport
+// silently empties. resolveEvent puts back whatever req.Raw carried — Raw being the field the
+// client uses for exactly this — so every bound Services seam reads the keys the client parsed
+// instead of an empty map.
+//
+// The last row is the aliasing guard: resolveEvent copies the Event by value, so a restoration
+// that wrote into a pre-existing Extra map would mutate the CALLER's map through the shared header.
+func TestResolveEvent_RestoresRawExtras(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name string
+		req  ipc.Request
+		want map[string]string
+	}{
+		{
+			name: "an object Raw becomes Extra",
+			req: ipc.Request{
+				Session: "s-1", Event: &hookio.Event{HookEventName: "SubagentStop"},
+				Raw: json.RawMessage(`{"subagent":true,"agent":"code-reviewer"}`),
+			},
+			want: map[string]string{"subagent": "true", "agent": `"code-reviewer"`},
+		},
+		{
+			name: "a nil Event still gets the restored keys",
+			req:  ipc.Request{Session: "s-2", Raw: json.RawMessage(`{"agent":"explorer"}`)},
+			want: map[string]string{"agent": `"explorer"`},
+		},
+		{name: "no Raw leaves Extra nil", req: ipc.Request{Session: "s-3", Event: &hookio.Event{}}, want: nil},
+		{name: "a JSON null leaves Extra nil", req: ipc.Request{Session: "s-4", Raw: json.RawMessage(`null`)}, want: nil},
+		{name: "a JSON array is not an object", req: ipc.Request{Session: "s-5", Raw: json.RawMessage(`[1,2]`)}, want: nil},
+		{name: "a JSON string is not an object", req: ipc.Request{Session: "s-6", Raw: json.RawMessage(`"agent"`)}, want: nil},
+		{name: "malformed Raw is ignored, never fatal", req: ipc.Request{Session: "s-7", Raw: json.RawMessage(`{not json`)}, want: nil},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ev := resolveEvent(c.req)
+			require.NotNil(t, ev)
+			require.Equal(t, c.req.Session, ev.SessionID)
+			if c.want == nil {
+				require.Empty(t, ev.Extra)
+				return
+			}
+			require.Len(t, ev.Extra, len(c.want))
+			for k, v := range c.want {
+				require.JSONEq(t, v, string(ev.Extra[k]), "Extra[%q]", k)
+			}
+		})
+	}
+
+	// An Event that already carries Extra keeps them, wins the collision, and is not mutated:
+	// resolveEvent copies the Event by value, so the map it hands back must be a fresh one.
+	original := map[string]json.RawMessage{"agent": json.RawMessage(`"in-process"`)}
+	ev := resolveEvent(ipc.Request{
+		Session: "s-8",
+		Event:   &hookio.Event{Extra: original},
+		Raw:     json.RawMessage(`{"agent":"from-the-wire","subagent":true}`),
+	})
+	require.JSONEq(t, `"in-process"`, string(ev.Extra["agent"]), "an Event's own Extra wins over the restored copy")
+	require.JSONEq(t, `true`, string(ev.Extra["subagent"]))
+	require.Len(t, original, 1, "the caller's own Extra map must not be written through")
+}
+
+// TestObserveStopSeamSeesTheRestoredAgentName is TestResolveEvent_RestoresRawExtras' reason for
+// existing, asserted where it is actually spent: the ObserveStop seam a later subplan binds must
+// see the agent name the hook client resolved, alongside the subagent flag decodeSubagent already
+// read out of the same Raw.
+func TestObserveStopSeamSeesTheRestoredAgentName(t *testing.T) {
+	t.Parallel()
+
+	o := NewOptions(t.TempDir(), testConfig())
+	var (
+		gotAgent    string
+		gotSubagent bool
+		called      bool
+	)
+	o.Bind(func(s *Services) {
+		s.ObserveStop = func(_ context.Context, e hookio.Event, subagent bool) error {
+			called, gotSubagent = true, subagent
+			_ = json.Unmarshal(e.Extra["agent"], &gotAgent)
+			return nil
+		}
+	})
+
+	d, err := New(o)
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	t.Cleanup(func() { _ = dd.Stop(context.Background()) })
+
+	dd.runIngested(context.Background(), ipc.Request{
+		Op: ipc.OpObserveStop, Session: "s-subagent", TS: core.NowMilli(dd.clk),
+		Event: &hookio.Event{HookEventName: "SubagentStop", SessionID: "s-subagent"},
+		Raw:   json.RawMessage(`{"subagent":true,"agent":"code-reviewer"}`),
+	})
+
+	require.True(t, called, "the bound ObserveStop seam must run")
+	require.True(t, gotSubagent)
+	require.Equal(t, "code-reviewer", gotAgent, "the name the hook client resolved must survive the IPC boundary")
+}
+
+// TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing pins §12.1's split for observe.prompt:
+// under ModeDegradedPassive "L0 and L1 keep running (observe, chunk, store, sketches, DAG,
+// verbatim capture …)" and only ACTING is off.
+//
+// The ObservePrompt seam does both jobs at once — G2.3's verbatim prompt capture is RECORDING, its
+// returned Output is ACTING — so the two have to be gated separately. Gating the call itself on
+// MayAct (which is what this route did) silently stopped the verbatim capture the moment the
+// contract degraded, with no error anywhere: the hook still exits 0 and the reply still looks
+// exactly like a passive one is supposed to look. What must be asserted is therefore BOTH halves
+// at once — the seam ran, and nothing it returned reached the reply.
+func TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	var mu sync.Mutex
+	calls := 0
+	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
+	o.Bind(func(s *Services) {
+		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+			mu.Lock()
+			calls++
+			mu.Unlock()
+			return hookio.Output{HookSpecificOutput: &hookio.HSO{
+				HookEventName: "UserPromptSubmit", AdditionalContext: "recalled context",
+			}}, nil
+		}
+	})
+	d, err := New(o)
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	t.Cleanup(func() { _ = dd.ing.Close() })
+
+	dd.monitor.Degrade("forced for test", []contract.Result{
+		{ID: "x.forced", OK: false, Severity: contract.SevCritical},
+	})
+	require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
+
+	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-passive", CWD: root, Prompt: "what changed?"}
+	resp := dd.dispatchOp(context.Background(), ipc.Request{
+		Op: ipc.OpObservePrompt, Session: "sess-passive", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
+	})
+	require.True(t, resp.OK)
+	require.NotNil(t, resp.Output)
+	require.Nil(t, resp.Output.HookSpecificOutput, "degraded-passive must put nothing into the reply")
+	require.Empty(t, resp.Output.SystemMessage)
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Equal(t, 1, calls, "degraded-passive still RECORDS: the ObservePrompt seam must run exactly once")
+}
+
+// TestObservePrompt_ModeOffNeverInvokesTheSeam is the other side of the same gate. ModeOff is not
+// "record but stay quiet", it is "do nothing at all" — MayRecord is false, so the route returns
+// before the WAL append and before the seam, exactly as observe.tool does under the same mode.
+func TestObservePrompt_ModeOffNeverInvokesTheSeam(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	var mu sync.Mutex
+	calls := 0
+	cfg := testConfig()
+	cfg.Runtime.Mode = "off"
+	o := Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()}
+	o.Bind(func(s *Services) {
+		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+			mu.Lock()
+			calls++
+			mu.Unlock()
+			return hookio.Output{HookSpecificOutput: &hookio.HSO{AdditionalContext: "recalled context"}}, nil
+		}
+	})
+	d, err := New(o)
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	t.Cleanup(func() { _ = dd.ing.Close() })
+
+	// runtime.mode = "off" reaches the monitor through RunAll, which session.start is the route
+	// that runs — the same sequence TestModeOffSkipsIngest uses.
+	start := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-off", CWD: root, Source: "startup"}
+	require.True(t, dd.dispatchOp(context.Background(), ipc.Request{
+		Op: ipc.OpSessionStart, Session: "sess-off", Reply: true, Event: start,
+	}).OK)
+	require.Equal(t, contract.ModeOff, dd.monitor.Mode())
+
+	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-off", CWD: root, Prompt: "what changed?"}
+	resp := dd.dispatchOp(context.Background(), ipc.Request{
+		Op: ipc.OpObservePrompt, Session: "sess-off", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
+	})
+	require.True(t, resp.OK)
+	require.NotNil(t, resp.Output)
+	require.Nil(t, resp.Output.HookSpecificOutput)
+
+	walPath := filepath.Join(paths.Of(root).Spool, "wal-sess-off.ndjson")
+	_, statErr := os.Stat(walPath)
+	require.True(t, os.IsNotExist(statErr), "ModeOff must never create the WAL file")
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Zero(t, calls, "ModeOff records nothing: the ObservePrompt seam must never run")
+}
