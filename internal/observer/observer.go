@@ -422,24 +422,10 @@ func (o *observer) session(s core.SessionID) *sessionState {
 	return st
 }
 
-// The three entry points below are completed by later commits of this subplan. Each one already
-// honours the two rules every Observer method owes the host — return ctx.Err() and nothing else,
-// and hand back a valid do-nothing Output — which is exactly what observertest's behaviour block
-// requires of them today.
-
-// OnStop closes the assistant turn and captures subagent detail (§8.1 item 8). Commit 5 lands
-// stop.go.
-func (o *observer) OnStop(ctx context.Context, e Event, subagent bool) (Output, error) {
-	var out Output
-	err := o.timed(histStop, func() error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		out = hookio.Empty()
-		return nil
-	})
-	return out, err
-}
+// The two entry points below are completed by Commit 6 of this subplan. Each one already honours
+// the two rules every Observer method owes the host — return ctx.Err() and nothing else, and hand
+// back a valid do-nothing Output — which is exactly what observertest's behaviour block requires
+// of them today. OnStop is no longer among them: stop.go implements it.
 
 // OnSessionStart branches on the SessionStart source. Commit 6 lands session.go.
 func (o *observer) OnSessionStart(ctx context.Context, e Event) (Output, error) {
