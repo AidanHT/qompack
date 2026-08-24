@@ -59,20 +59,56 @@ land here; none is derivable from the code alone.
    green, exactly as V2-MERGE-21 did. An order nothing constrains is not an order nothing can
    break.
 
-5. **Six carried-defect rows are `deferred:V3-VERIFY` in `plans/CARRIED-DEFECTS.tsv`, and the
-   guard makes ignoring them fail.** SP04-D2 (fixed-point composition / Delta-rebase — V2
-   evaluated and rejected the ANSI pre-pass because a BOM deletion reproduces the class with no
-   escape involved), SP04-D3 (its one remaining edge is D2 in disguise), SP04-D5 (re-judge the
-   canon rule budget against the V2 §5 quiet-pass number), SP04-D6 (quiet-host distribution for
-   `BenchmarkRun_Bash100KB`, then confirm or exempt), SP06-D1 (`GCPolicy.Deadline` starts after
-   the tombstone phase; bounding it needs a phase-aware resume cursor), and SP05-D1 (a drain
-   aborted by idle-budget expiry consumes the line it interrupted — offset and seen-set are
-   committed before dispatch — losing the event; fixing it means re-adjudicating the
-   poison-line consume rule). Reasons live in
-   `plans/V2-SP-04-carried-defects.md` and `plans/V2-WAVE1-carried-defects.md`. Fix or
-   consciously re-defer each; `test/guards/carrieddefects_test.go` blocks `plans/V3-report.md`
-   on any row left `open` — and re-deferring without updating the detail document is the one
-   escape it cannot catch, so do not use it.
+5. **Fourteen carried-defect rows name this checkpoint as their resolver in
+   `plans/CARRIED-DEFECTS.tsv`, and the guard makes ignoring them fail.**
+   `test/guards/carrieddefects_test.go`'s `TestCarriedDefects_WaveReportRequiresResolution` fails
+   the moment `plans/V3-report.md` exists while any row it resolves is still unresolved — and
+   **unresolved means `open` OR `deferred:<anything>`**, not `open` alone. Since `90cdecb`,
+   `carriedDefect.unresolved()` is `d.status == "open" || strings.HasPrefix(d.status, "deferred:")`
+   and the responsible checkpoint is the **deferral target**, not the row's `owner` column — so
+   every row reading `deferred:V3-VERIFY` is a row this checkpoint must dispose of, whoever opened
+   it. Reading the gate as blocking only "on any row left `open`" is the pre-`90cdecb` rule and
+   concludes, wrongly, that these rows are advisory. Resolving one means **either** fixing it and
+   setting `fixed`, **or** setting `deferred:<a later checkpoint that has a
+   plans/<checkpoint>-*.md document>` and writing the reason into that row's detail document. Both
+   are conscious acts; neither is reachable by doing nothing, and re-deferring without updating the
+   detail document is the one escape the guard cannot catch — so do not use it. §8.5 requires the
+   completion report to be committed as `plans/V3-report.md`, which is the path the gate keys on: a
+   report recorded only in a merge commit body or an ADR leaves every one of these rows unchecked
+   and trips no test.
+
+   The list below is a snapshot taken at `5b418a0`. **The authoritative status of each row is its
+   line in `plans/CARRIED-DEFECTS.tsv`, not this file** — re-derive the set with
+   `cut -f1,4 plans/CARRIED-DEFECTS.tsv | grep deferred:V3-VERIFY` before acting on it, and expect
+   the count to have moved if a later round carried more.
+
+   | id | detail document | what the manifest records (verbatim) | what this checkpoint owes it |
+   |---|---|---|---|
+   | SP04-D2 | `plans/V2-SP-04-carried-defects.md` | canonicalization is not idempotent when a deletion joins two fragments into a value neither half contained | a DECISION on fixed-point composition / Delta-rebase — V2 evaluated and rejected the ANSI pre-pass, because a BOM deletion reproduces the class with no escape involved |
+   | SP04-D3 | `plans/V2-SP-04-carried-defects.md` | one timestamp edge remains of the original three: a word byte after an ISO timestamp defeats the rule, and fixing it is legal only under fixed-point composition, so it travels with SP04-D2 | nothing of its own — it is D2 in disguise and travels with D2 |
+   | SP04-D5 | `plans/V2-SP-04-carried-defects.md` | canonicalization cost is now dominated by per-rule prefilter scans, so each new rule spends the hot-path budget linearly | re-judge the canon rule budget against the V2 §5 quiet-pass number, alongside §6.3's `canon` budget row |
+   | SP04-D6 | `plans/V2-SP-04-carried-defects.md` | BenchmarkRun_Bash100KB measured +-33% run to run on the reference host, which the 25% bench-compare threshold cannot distinguish from a regression | a quiet-host distribution for `BenchmarkRun_Bash100KB` at `-count 10`, then confirm or exempt |
+   | SP06-D1 | `plans/V2-WAVE1-carried-defects.md` | GCPolicy.Deadline binds the mark's hash harvest and the sweep, but tombstoneDeadRoots and the mark's index walks answer only to ctx, so GCReport.Duration can overshoot the deadline by the whole tombstone phase (100-260 ms measured at 650 dead roots) | a phase-aware resume cursor, or change `GCPolicy.Deadline`'s doc comment to say what it actually scopes and move the row to `wontfix`. `4708ebe` bound the mark's harvest and the sweep; `tombstoneDeadRoots` and the mark's index walks still answer to ctx alone, so a pass can still overshoot by the whole tombstone phase. **§2 row F10 and §6.3 both assert "deadline honoured ±50 ms"; this row records 100–260 ms of tombstone overshoot, so expect F10 red until the row is disposed of** |
+   | SP05-D1 | `plans/V2-WAVE1-carried-defects.md` | a drain aborted by idle-budget expiry consumes the line it interrupted (offset advanced and seen-set committed before the binding completed), losing the event; the deliberate poison-line consume rule does not distinguish a dying drain from a refusing handler | re-adjudicate the poison-line consume rule so a dying drain and a refusing handler are distinguishable |
+   | SP02-D1 | `plans/V2-SP-02-carried-defects.md` | the synthetic corpus raises only DemandFileContent, so tool_edit_distance, re_attempts and decision_preservation are measured over an input that cannot exercise them | regenerate the corpus (bumped seeds, ADR 0003) so more than `DemandFileContent` is raised, plus a corpus assertion pinning a minimum per demand kind |
+   | SP02-D2 | `plans/V2-SP-02-carried-defects.md` | file_set_jaccard is pinned at 1.0: the only repair re-reads the path key the demanding turn already touches, so the repaired set is the demanded set by construction | make the repair model able to change the file set, or record `file_set_jaccard` as structurally inert in ADR 0002 and stop the gate treating it as a signal |
+   | SP02-D3 | `plans/V2-SP-02-carried-defects.md` | the Belady keep budget never binds on the corpus (oracle rewrite_span_tokens is 0 at every event), so fraction_of_opt grades against a trivial ceiling | a corpus assertion that Σ tokens(candidates) exceeds the keep budget at a stated fraction of events. **§3.2's Belady step says that if `stock` ties `null` the corpus is wrong; this row already records the corpus as wrong in that direction. Read it before running §3.2** |
+   | SP02-D4 | `plans/V2-SP-02-carried-defects.md` | belady.pMin iterates candidates where 5.2 defines it over all blocks; the deviation is recorded only in a code comment | make `belady.pMin` and `Qompack.md` §5.2 agree in one direction, and re-baseline if the code moves |
+   | SP02-D5 | `plans/V2-SP-02-carried-defects.md` | decision_preservation measures post-compaction horizon agreement, which deterministic mode fixes at 1.0, not 11.2's pre-compaction decisions still recalled | redefine `decision_preservation` over kept pre-compaction decisions and re-baseline, or rename it everywhere (plan, ADR 0002, `TRACEABILITY.md` §6, report key) |
+   | SP02-D6 | `plans/V2-SP-02-carried-defects.md` | the stock model skips the 4/3 host padding: hostPadTokens has no production caller and hostSkillBudget is dead | model the 4/3 host padding and re-baseline, or delete `hostPadTokens`/`hostSkillBudget` and record the exclusion in ADR 0002 |
+   | SP04-D7 | `plans/V2-SP-04-carried-defects.md` | canon.Decide has no consumer and 8.1's delta-vs-full storage write is implemented nowhere and owned by nobody | one of (a) give `Qompack.md` §8.1's delta write an owner, (b) make `store.nearDup` call `canon.Decide`, (c) `wontfix` and delete the unconsumed surface — with the `TRACEABILITY.md` consequence written down |
+   | SP06-D2 | `plans/V2-WAVE1-carried-defects.md` | the PutBytes cold and warm budgets (3 ms / 400 us) are 9x and 19x over on Windows and have never been measured on the reference platform | a measured `PutBytes` cold/warm number on the reference platform with the platform named in the row, or a Linux figure plus a recorded Windows exemption factor. **§2 row F13 and §6.3's `store` — Put cold / warm row assert ≤ 3 ms / ≤ 400 µs; this row records 27.2 ms and 7.68 ms on Windows, 9× and 19× over, so expect both cells red on a Windows host** |
+
+   The six SP02 rows re-baseline every metric for every policy at once — `plans/V2-report.md` §16.8
+   assigns that to a checkpoint deliberately. Do the corpus work **once**, before §3.2, §6 and
+   §7.3, and follow it with a single baseline refresh; doing it afterwards means measuring twice.
+
+   ```bash
+   go test ./test/guards/ -run TestCarriedDefects -v
+   # Before plans/V3-report.md exists on disk the third test is VACUOUS — it passes while
+   # asserting nothing. After the report is committed, expect one failure per row still
+   # deferred to this checkpoint.
+   ```
 
 6. **INHERIT (post-V2 hardening → SP-08): B-G and B-D are observations nothing in production can
    judge, and this wave owns carrying them somewhere that can.** The hardening round added a
@@ -227,7 +263,7 @@ assertion is named.
 | **A11** | `internal/cli` dispatch and **hooks always exit 0** under fault injection (§13 invariant 6) | `go test ./internal/cli/... -run 'TestDispatch\|TestHooks\|TestConfig\|TestSetFlag'` | PASS: `TestDispatch_HookAlwaysExitsZero` (all 30 SP-01 combinations), `TestDispatch_NonHookErrorExitsOne`, `TestDispatch_UnknownCommandExitsTwo`, `TestDispatch_PanicRecovered`, `TestConfigPrint_Provenance`, `TestConfigSchema_Emits` |
 | **A12** | Interface stubs for every §5 package a **later** wave owns, plus the 22 `<pkg>test` conformance suites | `go test ./internal/... -run 'Suite'` ; `go run ./tools/devtool lint --only=stubskips` | PASS, and the two lists below must account for all 22 (`internal/*/*test/`), 9 + 13. Suites for `analyzer, scheduler, checkpoint, pins, rehydrate, rules, skills, mcp, grammar` still skip their behaviour block with the **exact** message `behaviour: implementation is a stub (Rule W-1)` — `grammar` is SP-15/wave 4, and its `internal/grammar/grammartest/suite.go` skip is the same `ruleW1SkipMsg` mechanism (this is J2's exemption list minus `commands`, which owns no `<pkg>test` suite). Suites for `chunk, canon, symbols, redact, sketch, store, dag, negknow, eval, ipc, contract, tokens, observer` have **zero** skips |
 | **A13** | `internal/pluginmanifest` and the generated `plugin/` bundle | `go run ./tools/devtool plugin-validate` ; `git diff --exit-code -- plugin/` ; `go test ./internal/pluginmanifest/...` | Exit 0 on all three. `TestManifest_CoversAllSixHooks` confirms the seven hook entries with timeouts `5,5,15,20,5,10,20`; `TestManifest_SevenCommands`; `TestMCPJSON_UsesPluginRoot` |
-| **A14** | **Closing-note build-order guards** and the contract/write-set/network guards | `go test ./test/guards/... -v` | PASS: `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection` (still active — `scheduler.PSelectionAvailable()` is false at wave 2), `TestGuard_O1FlagDefaults`, `TestGuard_FreshBuildReportsModeFull`, `TestGuard_WriteSetConfinedToQompack`, `TestGuard_NoNetworkImports`, `TestAllStubsReturnNotImplemented` |
+| **A14** | **Closing-note build-order guards** and the contract/write-set/network guards | `go test ./test/guards/... -v` | PASS: `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection` (still active — `scheduler.PSelectionAvailable()` is false at wave 2), `TestGuard_O1FlagDefaults`, `TestGuard_SubmodularDefaultsOff`, `TestGuard_FreshBuildReportsModeFull`, `TestGuard_WriteSetConfinedToQompack`, `TestGuard_NoNetworkImports`, `TestAllStubsReturnNotImplemented`, and the carried-defect trio `TestCarriedDefects_ManifestIsWellFormed`, `TestCarriedDefects_OpenRowsHaveLivingEvidence`, `TestCarriedDefects_WaveReportRequiresResolution` — **the third passes vacuously until `plans/V3-report.md` exists (§8.5); a green A14 before the report is written is not evidence that the rows of §0a item 5 are disposed of** |
 | **A15** | `internal/testutil` fixtures + `test/e2e` harness against the real binary | `go test ./internal/testutil/... ./test/e2e/ -run 'TestProject\|TestFakeClock\|TestGolden\|TestWindowsHostileFiles\|TestE2E_AllSixHooksExitZero\|TestE2E_ConfigPrintFromRealBinary'` | PASS; `TestE2E_AllSixHooksExitZero` runs all six hooks through the built binary with exit 0 and parseable stdout |
 | **A16** | `docs/config-reference.md` can never drift from `config.Defaults()` | `go run ./tools/devtool gen-config-docs --check` | Exit 0, no diff |
 | **A17** | Commit-message policy: conventional commits, **no attribution trailers** | `git log --format=%B origin/main..develop \| grep -Ei "co-authored-by\|signed-off-by\|generated with\|🤖"` (PowerShell: `git log --format=%B origin/main..develop \| Select-String -Pattern "co-authored-by\|signed-off-by\|generated with"`) | **No output.** Also: every subject on `develop` matches `^(feat\|fix\|docs\|test\|refactor\|perf\|build\|ci\|chore\|revert)(\([a-z0-9/_.-]+\))?: .{1,64}$` |
@@ -241,14 +277,14 @@ assertion is named.
 | **B1** | `eval` data model, `Blocks` and `Demands` derivation | `go test ./internal/eval/ -run 'TestBlocks\|TestDemands\|TestApproachClass'` | PASS: `TestBlocks_PositionsAreCumulative`, `TestBlocks_FileBlockPerDistinctKey`, `TestBlocks_DecisionMarkerExtracted`, `TestDemands_OnlyPreCompactionBlocks`, `TestDemands_DeduplicatesWithinTurn`, `TestDemands_EliminationMatchByApproachClass`, `TestApproachClass_Normalization` |
 | **B2** | **Belady OPT keep-sets (§6.10, §11.1)** — knapsack DP with fallback | `go test ./internal/eval/ -run TestBelady` | PASS: `TestBelady_UnitWeightsMatchesClassicBelady`, `TestBelady_KnapsackBeatsGreedyDensity`, `TestBelady_BudgetNeverExceeded`, `TestBelady_Deterministic`, `TestBelady_ZeroValueBlocksPruned`, `TestBelady_PMinIsEarliestDropped`, `TestBelady_FallbackWhenDPTooLarge`, `TestBelady_ContextCancelled` |
 | **B3** | §5.6 breakpoint-placement OPT — **measurement only**, always disclaimed | `go test ./internal/eval/ -run 'TestBreakpointOPT\|TestBreakpointPlan'` | PASS incl. `TestBreakpointOPT_KnownOptimum`, `TestBreakpointPlan_MoreMarkersNeverWorse` (the monotonicity property; it lives on the `Plan` prefix, which is why the pattern names both), `TestBreakpointPlan_MatchesBruteForce`, `TestBreakpointOPT_NoteIsAlwaysTheDisclaimer` (`Plan.Note == NotPluginActionable`) |
-| **B4** | Policy registry and the three built-ins (`stock`, `null`, `oracle`) | `go test ./internal/eval/ -run 'TestStockPolicy\|TestNullPolicy\|TestRegisterPolicy\|TestPolicyNames\|TestOraclePolicy'` | PASS: `TestStockPolicy_TopFiveFilesFiveKEach` (which also pins `KeepSet.P == 0` — a Full Compact rewrites the whole message array, so `p_min` is 0), `TestStockPolicy_PreservationMinimums`, `TestStockPolicy_UsedNeverGoesNegative`, `TestStockPolicy_BudgetSmallerThanOneBlockTerminates`, `TestNullPolicy_Empty`, `TestPolicyNames_Sorted` == `["null","oracle","stock"]`, `TestOraclePolicy_DelegatesToBelady` |
+| **B4** | Policy registry and the three built-ins (`stock`, `null`, `oracle`) | `go test ./internal/eval/ -run 'TestStockPolicy\|TestNullPolicy\|TestRegisterPolicy\|TestPolicyNames\|TestOraclePolicy'` | PASS: `TestStockPolicy_TopFiveFilesFiveKEach` (which also pins `KeepSet.P == 0` — a Full Compact rewrites the whole message array, so `p_min` is 0), `TestStockPolicy_PreservationMinimums`, `TestStockPolicy_UsedNeverGoesNegative`, `TestStockPolicy_BudgetSmallerThanOneBlockTerminates`, `TestNullPolicy_Empty`, `TestPolicyNames_Sorted` == `["null","oracle","stock"]`, `TestOraclePolicy_DelegatesToBelady` — see §0a item 5 (SP02-D1…D6) before treating a red cell here as a regression |
 | **B5** | Counterfactual replay, deterministic mode, latency model, live-mode refusal | `go test ./internal/eval/ -run 'TestReplay\|TestLatencyModel\|TestModelledLatency'` | PASS incl. `TestReplay_DeterministicAcrossRuns`, `TestReplay_LiveModeRefusedWithoutEnv`, `TestReplay_HorizonRespected`, and the latency model's own anchors — `TestLatencyModel_Anchors`, `TestLatencyModel_FirstTurnAfterScalesWithRehydration`, `TestModelledLatency_NeverNegative` (internal tests on the `LatencyModel` prefix, not the `Replay` one, which is why the pattern names all three) |
 | **B6** | §4.2 divergence metrics (all five bullets) | `go test ./internal/eval/ -run TestCompare` | PASS: `TestCompare_IdenticalRuns`, `TestCompare_FirstDivergenceIsRelativeToCompaction`, `TestCompare_JaccardHalf`, `TestCompare_EditDistanceKnown`, `TestCompare_EditDistance_Property`, `TestCompare_RedundantReadsCanBeNegative`, `TestCompare_DecisionPreservationDenominatorZero` |
-| **B7** | `ScoreRun` / `Report` — fraction-of-OPT, §5.2 rewrite-cost table, percentiles, 19-metric map | `go test ./internal/eval/ -run 'TestScoreRun\|TestReport\|TestMetricsOf'` | PASS incl. `TestScoreRun_FractionIsMicroAveraged`, `TestScoreRun_RewriteTokensSection52TableA` (`rewrite_span_tokens == 17000`, `rewrite_tokens == 21250`, `forfeited_discount_tokens == 15300`), `TestScoreRun_RewriteTokensSection52TableB` (`157000 / 196250 / 141300`), `TestScoreRun_NoHardcodedMultiplier`, `TestReport_PercentilesRecomputedNotAveraged`, `TestMetricsOf_CoversEveryDirection` |
-| **B8** | Deterministic synthesizer + the committed 24-session corpus | `go test ./internal/eval/ -run 'TestSynthesize\|TestCorpus'` | PASS: `TestSynthesize_ByteIdenticalForSeed`, **`TestSynthesize_MatchesCommittedCorpus`** (all 24 regenerate byte-for-byte), `TestSynthesize_ShapeInvariants`, `TestSynthesize_EveryCompactionHasDemands`, `TestCorpus_CountAtLeastMinSessions` (24 ≥ 20), `TestCorpus_ManifestHashesMatch` |
+| **B7** | `ScoreRun` / `Report` — fraction-of-OPT, §5.2 rewrite-cost table, percentiles, 19-metric map | `go test ./internal/eval/ -run 'TestScoreRun\|TestReport\|TestMetricsOf'` | PASS incl. `TestScoreRun_FractionIsMicroAveraged`, `TestScoreRun_RewriteTokensSection52TableA` (`rewrite_span_tokens == 17000`, `rewrite_tokens == 21250`, `forfeited_discount_tokens == 15300`), `TestScoreRun_RewriteTokensSection52TableB` (`157000 / 196250 / 141300`), `TestScoreRun_NoHardcodedMultiplier`, `TestReport_PercentilesRecomputedNotAveraged`, `TestMetricsOf_CoversEveryDirection` — see §0a item 5 (SP02-D1…D6) before treating a red cell here as a regression |
+| **B8** | Deterministic synthesizer + the committed 24-session corpus | `go test ./internal/eval/ -run 'TestSynthesize\|TestCorpus'` | PASS: `TestSynthesize_ByteIdenticalForSeed`, **`TestSynthesize_MatchesCommittedCorpus`** (all 24 regenerate byte-for-byte), `TestSynthesize_ShapeInvariants`, `TestSynthesize_EveryCompactionHasDemands`, `TestCorpus_CountAtLeastMinSessions` (24 ≥ 20), `TestCorpus_ManifestHashesMatch` — see §0a item 5 (SP02-D1…D6) before treating a red cell here as a regression; regenerating the corpus breaks `TestSynthesize_MatchesCommittedCorpus` by design and must be sequenced per §3.2 |
 | **B9** | Recorded-corpus importer with redaction; `qompack eval import` | `go test ./internal/eval/ -run 'TestImport\|TestRedact'` ; `go test -fuzz FuzzRedact -fuzztime 60s ./internal/eval/` | PASS incl. `TestImport_RefusesDestinationInsideRepo`, `TestRedact_AllEightRules`, `TestRedact_Idempotent`; fuzz run clean, no new crashers |
-| **B10** | `test/replay` driver: the §11.3 2% rule, sign-off trailer, phase gates, growth guardrail, watch-fors | `go test ./test/replay/...` | PASS: `TestGate_NoRegressionPasses`, `TestGate_TwoPercentBoundaryExclusive`, `TestGate_LowerBetterMetricDirection`, `TestGate_SignOffAllowsNamedMetricOnly`, `TestGate_SignOffRejectsShortReason`, `TestGate_ZeroBaselineUsesAbsoluteTolerance`, `TestPhase0_SessionCountFloor`, `TestPhase0_RequiresStock`, `TestPhase0_Reproducibility`, `TestGate_BloomFPCeiling`, `TestGate_CorpusStaleness`, `TestGate_GrowthInconclusiveFails`, `TestReplayDriver_MaxCPUExceeded`, `TestReplayDriver_MaxWallExceeded`, `TestReplayDriver_BothLimitsHoldOnTheCommittedCorpus`, `TestReplayDriver_PhaseChecksMayNotBeDisabledInCI`, `TestReplayDriver_BaselineHasExactlyNineteenKeysPerPolicy`, `TestReplayDriver_BaselineIsByteReproducible`, `TestReplayDriver_EndToEnd` |
-| **B11** | **The Phase-0 single number, reproducible** | `go run ./test/replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 2 --growth testdata/golden/eval/growth/stats-growth.json --sketch testdata/golden/eval/growth/health.json --max-cpu 2m --ci` | Exit 0. `sessions == 24`; `policies.stock.fraction_of_opt` equals the committed baseline exactly; `oracle == 1.0`; `null == 0.0`; `stock > null`. Note `--phase 2` — phase checks 0, 1 and 2 must all run and pass now. Two flag facts this row depends on: the growth/sketch fixtures live under `testdata/golden/eval/growth/`, **not** under `testdata/golden/contracts/` (contract directories are regenerated by their owning subplan, so an undeclared file there is deleted by the first `-update` — `test/replay/growth.go` and `docs/adr/0002-replay-methodology.md` record the move), and the **cost** bound is `--max-cpu`; `--max-wall` is a liveness bound whose 15 m default is deliberate and must be left alone (§7.3) |
+| **B10** | `test/replay` driver: the §11.3 2% rule, sign-off trailer, phase gates, growth guardrail, watch-fors | `go test ./test/replay/...` | PASS: `TestGate_NoRegressionPasses`, `TestGate_TwoPercentBoundaryExclusive`, `TestGate_LowerBetterMetricDirection`, `TestGate_SignOffAllowsNamedMetricOnly`, `TestGate_SignOffRejectsShortReason`, `TestGate_ZeroBaselineUsesAbsoluteTolerance`, `TestPhase0_SessionCountFloor`, `TestPhase0_RequiresStock`, `TestPhase0_Reproducibility`, `TestGate_BloomFPCeiling`, `TestGate_CorpusStaleness`, `TestGate_GrowthInconclusiveFails`, `TestReplayDriver_MaxCPUExceeded`, `TestReplayDriver_MaxWallExceeded`, `TestReplayDriver_BothLimitsHoldOnTheCommittedCorpus`, `TestReplayDriver_PhaseChecksMayNotBeDisabledInCI`, `TestReplayDriver_BaselineHasExactlyNineteenKeysPerPolicy`, `TestReplayDriver_BaselineIsByteReproducible`, `TestReplayDriver_EndToEnd`, `TestGate_WatchForsAreJudgedAsRatios`, `TestGate_BaselineCarriesTheWatchForValues`, `TestReplayDriver_RefusesACrossTierBaseline`, `TestReplayDriver_ExplicitlyNoBaselineIsOK`, `TestReplayDriver_MissingBaselineWarnsButStillChecksPhase`. Since `b103037` and `0fff22c` the baseline's `watchFor` block carries real values (0.006 / 0.18) rather than zeros, both watch-fors are ratio metrics, a `--baseline <path>` naming no file exits 2 rather than 0, and a baseline whose `corpusTier` differs from the run's exits 2 |
+| **B11** | **The Phase-0 single number, reproducible** | `go run ./test/replay --corpus testdata/sessions/synthetic --baseline testdata/baseline/phase0.json --phase 2 --growth testdata/golden/eval/growth/stats-growth.json --sketch testdata/golden/eval/growth/health.json --max-cpu 2m --ci` | Exit 0. `sessions == 24`; `policies.stock.fraction_of_opt` equals the committed baseline exactly; `oracle == 1.0`; `null == 0.0`; `stock > null`. Note `--phase 2` — phase checks 0, 1 and 2 must all run and pass now. Two flag facts this row depends on: the growth/sketch fixtures live under `testdata/golden/eval/growth/`, **not** under `testdata/golden/contracts/` (contract directories are regenerated by their owning subplan, so an undeclared file there is deleted by the first `-update` — `test/replay/growth.go` and `docs/adr/0002-replay-methodology.md` record the move), and the **cost** bound is `--max-cpu`; `--max-wall` is a liveness bound whose 15 m default is deliberate and must be left alone (§7.3). **This row keeps the committed fixture as `--sketch`**, deliberately: the watch-fors are ratio metrics baselined from `testdata/golden/eval/growth/health.json`, so this is the one place the 2% rule over them is meaningful. The live-ledger health belongs to X5, with `--baseline ""`. See §0a item 5 (SP02-D1…D6) before treating a red cell here as a regression |
 | **B12** | Sublinear-growth guardrail (§11.3), now fed by the **real** store | see X6 in §5 | `GrowthResult.Sublinear == true`, `Exponent ≤ 0.95`, never `inconclusive` |
 | **B13** | SP-02 performance budgets E-1…E-5 | `go test -bench 'BenchmarkBeladyDetail_400Turns\|BenchmarkSynthesize_320Turns\|BenchmarkCompare_400Actions\|BenchmarkBreakpointOPT_256Candidates' -run '^$' ./internal/eval/` | E-2 ≤ 250 ms/op; E-3 ≤ 50 ms/op; E-4 ≤ 20 ms/op; E-5 ≤ 15 ms/op. **E-1 (full driver cost) < 120 s of CPU**, read from the CPU figure B11's driver prints — *not* from elapsed wall time, which on a co-loaded runner reports how much of the host the process was given (the committed corpus is ≈ 220 ms of work that has been stretched to 187.5 s of wall at 1024 busy threads on 22 cores, 279× apart, with no defect in the binary). `--max-cpu 2m` is the same bound, enforced by the driver itself: exceeded ⇒ exit 3 with `errMaxCPU` |
 
@@ -318,10 +354,10 @@ assertion is named.
 | **F7** | **Segment log and the encoded-once DPI guard (§4.6, §8.2)** | `go test ./internal/store/ -run TestSegment` ; `go test -bench BenchmarkMarkEncoded_100 -run '^$' ./internal/store/` | PASS: **`TestSegment_MarkEncodedRefusesDifferentSeq`** (`errors.Is(err, core.ErrAlreadyEncoded)`), `TestSegment_MarkEncodedBatchIsAllOrNothing`, `TestSegment_MarkEncodedIdempotentSameSeq`, `TestSegment_FrontierIsContiguous`, `TestSegment_Unencoded`, `TestSegment_Current`, `TestSegment_Range`, `TestSegment_SurvivesReopen`; benchmark ≤ 1 ms |
 | **F8** | `Search` (backs future `recall`) — path/text/symbol ranking, determinism, span widening | `go test ./internal/store/ -run TestSearch` ; `go test -bench BenchmarkSearch_1000Roots -run '^$' ./internal/store/` | PASS incl. `TestSearch_BySymbol` (`Span == [812,1052]`), `TestSearch_Deterministic`, `TestSearch_TruncatesWithoutError`; benchmark ≤ 25 ms |
 | **F9** | `Stats` / **`DedupRatio` ≥ 4:1 at the store level** / sublinear growth | `go test ./internal/store/ -run 'TestStats\|TestPhase1ExitCriterion_ReadHeavy'` | PASS: `TestStats_DedupRatio`, **`TestPhase1ExitCriterion_ReadHeavy`** (`Stats.DedupRatio ≥ 4.0`), `TestStats_SublinearGrowth` |
-| **F10** | GC — deadline-bounded, resumable mark-and-sweep from checkpoints/pins/eliminations roots | `go test ./internal/store/ -run TestGC` ; `go test -bench BenchmarkGC_50kObjects -run '^$' ./internal/store/` | PASS: `TestGC_CollectsUnreferenced`, **`TestGC_ZeroPolicyInheritsConfigAndDeletesNothing`**, `TestGC_RetentionIsWhicheverIsLonger`, `TestGC_EphemeralNotInWindowByAge`, `TestGC_HarvestsHashesFromCheckpointPinsEliminations`, `TestGC_DryRun`, `TestGC_DeadlineTruncatesAndResumes`, `TestGC_TombstonesRootsAppendOnly`, `TestGC_ContextCancel`; benchmark ≤ 2 s, deadline honoured ±50 ms |
+| **F10** | GC — deadline-bounded, resumable mark-and-sweep from checkpoints/pins/eliminations roots | `go test ./internal/store/ -run TestGC` ; `go test -bench BenchmarkGC_50kObjects -run '^$' ./internal/store/` | PASS: `TestGC_CollectsUnreferenced`, **`TestGC_ZeroPolicyInheritsConfigAndDeletesNothing`**, `TestGC_RetentionIsWhicheverIsLonger`, `TestGC_EphemeralNotInWindowByAge`, `TestGC_HarvestsHashesFromCheckpointPinsEliminations`, `TestGC_DryRun`, `TestGC_DeadlineTruncatesAndResumes`, `TestGC_TombstonesRootsAppendOnly`, `TestGC_ContextCancel`, `TestGC_MarkPhaseHonoursTheDeadline`, `TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline`; benchmark ≤ 2 s, deadline honoured ±50 ms. Since `4708ebe` the mark's harvest and the sweep answer to the deadline while the mark's in-memory index walks answer to ctx alone, and a truncated mark ends the pass with nothing collected and no cursor — but see §0a item 5: SP06-D1 already adjudicates that deadline as unmet end to end (the tombstone phase overshoots by 100–260 ms at 650 dead roots); a red cell here is that row surfacing, not a new regression |
 | **F11** | Flush, session index, append-only guard over every store file | `go test ./internal/store/ -run 'TestFlush\|TestAppendOnlyGuard_StoreFiles\|TestGolden_IndexFormats'` | PASS; `TestGolden_IndexFormats` reproduces `roots.jsonl`, `tool_use.jsonl`, `segments.jsonl`, `files.json`, `sessions.jsonl` byte-for-byte |
 | **F12** | Store property tests + end-to-end secret containment | `go test ./internal/store/ -run Prop` ; `go test ./test/e2e/ -run 'TestE2E_StoreSurvivesProcessRestart\|TestE2E_SecretNeverLandsInObjects'` | PASS: `PropPutGetRoundtrip`, `PropOpenSpanMatchesSlice`, `PropDedupMonotone`, `PropChangedSinceIsExactlyHashInequality`, `PropMarkEncodedNeverDowngrades`; **`TestE2E_SecretNeverLandsInObjects`** — none of the ten secret literals appears in any decompressed object |
-| **F13** | SP-06 performance budgets | `go test -bench 'BenchmarkPutBytes_100KB_Cold\|BenchmarkPutBytes_100KB_Warm\|BenchmarkGetChunk\|BenchmarkOpenSpan_4KB_of_4MB\|BenchmarkOpenStore_50kRoots\|BenchmarkEstimateRoot_64Cached' -run '^$' ./internal/store/ ./internal/tokens/` | Cold ≤ 3 ms; Warm ≤ 400 µs; `GetChunk` ≤ 60 µs; `OpenSpan` ≤ 150 µs; `Open` 50k roots ≤ 400 ms; `EstimateRoot` 64 cached ≤ 5 µs; `Redact` 100 KB ≤ 2 ms |
+| **F13** | SP-06 performance budgets | `go test -bench 'BenchmarkPutBytes_100KB_Cold\|BenchmarkPutBytes_100KB_Warm\|BenchmarkGetChunk\|BenchmarkOpenSpan_4KB_of_4MB\|BenchmarkOpenStore_50kRoots\|BenchmarkEstimateRoot_64Cached' -run '^$' ./internal/store/ ./internal/tokens/` | Cold ≤ 3 ms; Warm ≤ 400 µs; `GetChunk` ≤ 60 µs; `OpenSpan` ≤ 150 µs; `Open` 50k roots ≤ 400 ms; `EstimateRoot` 64 cached ≤ 5 µs; `Redact` 100 KB ≤ 2 ms on the no-secret shape (the other two shapes are documented over — `plans/V2-report.md` §9.3) — but see §0a item 5: SP06-D2 already adjudicates Put cold and Put warm as unmet (27.2 ms / 7.68 ms on Windows); a red cell for either is that row surfacing, not a new regression |
 
 ---
 
@@ -329,9 +365,9 @@ assertion is named.
 
 | ID | Functionality | Command | Expected result |
 |---|---|---|---|
-| **G1** | All nine node kinds and eight edge kinds, stable `NodeID` scheme | `go test ./internal/dag/ -run 'TestKinds\|TestNodeID'` | PASS; `nodeid.json` golden reproduced |
+| **G1** | All nine node kinds and eight edge kinds, stable `NodeID` scheme | `go test ./internal/dag/ -run 'TestNodeKindTextRoundTrip\|TestEdgeKindTextRoundTrip\|TestEdgeKindMultiplierTable\|TestNodeKindTablesAligned\|TestFrozenFixtureKindNumberingUnchanged\|TestGraphBasicFixtureCoversEveryKind\|TestNodeID\|TestParseNodeID'` | PASS; `nodeid.json` golden reproduced |
 | **G2** | In-memory graph: upsert, dedup, tombstones, concurrency | `go test -race ./internal/dag/ -run 'TestGraph\|TestConcurrent'` | PASS, no race, no lock upgrade |
-| **G3** | Position indexes: **`CrossingEdges` = `segment_coupling(p)`** and `NodesAfter` | `go test ./internal/dag/ -run TestIndex` ; `go test -bench 'BenchmarkCrossingEdges' -run '^$' ./internal/dag/` | `CrossingEdges` matches brute force on every `rapid` case and all twelve golden positions; **< 5 µs on 15 000 edges**; `NodesAfter` totally ordered, live-only, freshly allocated |
+| **G3** | Position indexes: **`CrossingEdges` = `segment_coupling(p)`** and `NodesAfter` | `go test ./internal/dag/ -run 'TestCrossingEdges\|TestNodesAfter\|TestPropCrossingEdgesMatchesBruteForce\|TestPropNodesAfterMatchesFilter'` ; `go test -bench 'BenchmarkCrossingEdges' -run '^$' ./internal/dag/` | `CrossingEdges` matches brute force on every `rapid` case and all twelve golden positions; **< 5 µs on 15 000 edges**; `NodesAfter` totally ordered, live-only, freshly allocated |
 | **G4** | **Scored backward/forward slicing, thin by default** | `go test ./internal/dag/ -run TestSlice` ; `go test -bench 'BenchmarkBackwardSlice5000\|BenchmarkForwardSlice5000' -run TestSliceLatencyBudget ./internal/dag/` | `Slice.Scores` is `map[NodeID]float32`; `DefaultSliceOptions(config.Defaults()).Thin == true`; **both benchmarks < 1 ms/op** and `TestSliceLatencyBudget` PASS |
 | **G5** | **No selection authority** (closing note 3, mechanically enforced) | `go test ./internal/dag/ -run TestNoBooleanKeepAPI -v` | PASS — no exported function returns a keep-set, drop list or `map[NodeID]bool`; the `NO SELECTION AUTHORITY` note is present in `doc.go` |
 | **G6** | `deps.jsonl` persistence: byte-exact round-trip, torn tail, corrupt line, idle-only `Compact` | `go test ./internal/dag/ -run 'TestLog\|TestCompact'` | PASS; torn tail and corrupt line both load and are surfaced (`TruncatedTail`, `LoadErrors`, one `Loud`); `Compact` no-op below the 25% waste threshold |
@@ -356,7 +392,7 @@ assertion is named.
 | **H9** | **Subagent capture (G10.1, §8.1 item 8)** — summary + tool-result hashes, and the subagent's **name across the IPC boundary** | `go test ./internal/observer/ -run 'TestOnStop\|TestTailAssistantText'` ; `go test ./internal/cli/ -run TestRawExtras_ResolvesTheSubagentNameClientSide` | PASS incl. `_SubagentCapturesSummary`, `_SubagentCapturesToolHashes`, `_SubagentWindowStartsAtLastPrompt`, `_SummaryFromTranscriptTail`, `_TranscriptMissingIsSilent`, `_EmptySummaryStillStoresHashes`, `_ConsumesEdges` (each edge `dag.ToolResultNode(ref) → dag.ToolUseNode(captureID)` — the refs are the earlier/producer end under D-1 — and none reversed), `_CaptureIsDeterministic`, **`_RetrievalPathG10_1`** (round-trips out of a real store). Name resolution: **`_SubagentNameFromExtra`** reads the single `Extra["agent"]` key and **`_SubagentNameFallback`** yields the literal `"subagent"` when it is absent, numeric or an object. The three-way host resolution (`subagent_type` → `agent_name` → `agent`) happens **client-side** in `rawExtras`, pinned by `TestRawExtras_ResolvesTheSubagentNameClientSide` (five payloads; byte-identical `{"subagent":true}` when all three are missing), and `resolveEvent` re-populates `Event.Extra` from `Request.Raw` daemon-side — `hookio.Event.Extra` is tagged `json:"-"` and `ipc.EncodeRequest` drops it, so without that forwarding every production capture would be named `"subagent"`. The over-the-wire proof is H14's **`TestE2E_SubagentNameReachesTheDaemon`** |
 | **H10** | BOCD feature emission (§6.6's five features) | `go test ./internal/observer/ -run TestFeatures` | PASS across all thirteen rows; `TestFeatures_AllFinite` property holds; `TestFeatures_RecentRingBounded` == 16 |
 | **H11** | `SessionStart` (startup/resume/compact-delegate/clear) and **ordered** `SessionEnd` | `go test ./internal/observer/ -run 'TestOnSessionStart\|TestOnSessionEnd\|TestState_'` | PASS: `_StartupOpensSegment`, `_ResumeReusesOpenSegment`, `_ResumeAdoptsFrontierTurn`, `_CompactDelegates` / `_ClearDelegates` through the `Rehydrator` seam, **`_CompactWithoutRehydratorIsEmpty`** (SP-11 absent at wave 2), `_UnknownSourceTreatedAsStartup`; **`TestOnSessionEnd_Order`** exactly `dag.BuildSegment` (the segment node plus the `segment:<prev> → segment:<cur>` chain edge) `→ Segments().Close → Graph.Flush → Store.Flush → sketch.Save ×2 → state write → Store.GC`; `_GCPolicyFromConfig` (`{30,10,false,8s}`), `_GCFailureIsSoft`, **`_NeverWritesTriedBloom`**, `_SegmentClosedWithFeatures` (`endTurn == st.Turn`, 5-key feature map), `TestState_RoundTrip`, **`TestState_ResumedPrevTurnStillGuardsTheCycle`** (the parallel-sibling guard survives a daemon restart because `PrevTurn` is persisted, not recomputed as 0), `TestState_CorruptFileRecovers`, `TestState_AtomicWrite` |
-| **H12** | Daemon wiring: `WireObserver` binds the five L0 `Services` seams (one `o.Bind`, **never `Handle`**), adapts symbols, tolerates nil scheduler | `go test -race ./internal/daemon/ -run 'TestWireObserver\|TestServicesAllNil'` ; `go test ./test/e2e/ -run TestE2E_ObserverThroughDaemon` | `ObserveTool`, `ObservePrompt`, `ObserveStop`, `SessionStart` and `SessionEnd` bound, so ops `observe.tool`, `observe.prompt`, `observe.stop`, `session.start`, `flush` still route through SP-05's defaults and now reach the observer; `git grep -n 'Handle(' -- internal/daemon/observer_ops.go` returns nothing, and E6's `TestIngestACKPrecedesProcessing` and E10's `TestMarkerIsWrittenByFlushAndCheckpointOnly` still pass with the observer wired — they are what a route override would silently break; `o.Sched == nil` path exercised (scheduler is SP-12, wave 3); `Persister` registered on the idle controller at priority 50 |
+| **H12** | Daemon wiring: `WireObserver` binds the five L0 `Services` seams (one `o.Bind`, **never `Handle`**), adapts symbols, tolerates nil scheduler | `go test -race ./internal/daemon/ -run 'TestWireObserver\|TestRegisterObserverIdleWork\|TestServicesAllNil\|TestServicesModeIsAssignedBeforeBinds'` ; `go test ./test/e2e/ -run TestE2E_ObserverThroughDaemon` | `ObserveTool`, `ObservePrompt`, `ObserveStop`, `SessionStart` and `SessionEnd` bound, so ops `observe.tool`, `observe.prompt`, `observe.stop`, `session.start`, `flush` still route through SP-05's defaults and now reach the observer; `git grep -n 'Handle(' -- internal/daemon/observer_ops.go` returns nothing, and E6's `TestIngestACKPrecedesProcessing` and E10's `TestMarkerIsWrittenByFlushAndCheckpointOnly` still pass with the observer wired — they are what a route override would silently break; `o.Sched == nil` path exercised (scheduler is SP-12, wave 3); and `RegisterObserverIdleWork(d, obsv)` — **not** `WireObserver` — registers `Persister` on the idle controller at priority 50, because `Bind` runs inside `daemon.New` while `Idle()` is a method on the constructed `Daemon`, so the two halves cannot be one function. `TestWireObserver` asserts the five seams non-nil on a daemon built from the wired `Options`; `TestRegisterObserverIdleWork` asserts the task is registered. `TestServicesModeIsAssignedBeforeBinds` covers the sixth seam and the one that runs the other way — `Services.Mode` is **provided** by SP-05 and **consumed** by SP-08's bind body (§5.4), which is why `daemon.New` builds the contract monitor and assigns `svc.Mode = monitor.Mode` *above* the bind loop. Assert the captured func outside the bind body: inside it the monitor has not read `state/contract.json` yet and answers `ModeFull` for every project, so an in-body assertion passes even when the field is wired to the wrong thing. A nil `s.Mode` is the failure this row exists to catch — it pins the observer at `ModePassive` for the process's whole life, and a passive observer still records and still exits 0 |
 | **H13** | `observertest` conformance suite | `go test ./internal/observer/... -run Suite` | `RunObserverSuite` passes; **zero `t.Skip`** (Rule W-1) |
 | **H14** | Observer end-to-end through the real daemon and binary | `go test ./test/e2e/ -run 'TestE2E_ObserverThroughDaemon\|TestE2E_HooksExitZeroUnderFaultInjection\|TestE2E_SupersessionVisibleAfterRestart\|TestE2E_VerbatimPromptSurvivesRestart\|TestE2E_SubagentNameReachesTheDaemon\|TestE2E_ThinSliceDropsControlOnlyEdges'` | PASS: 44 lines in `index/tool_use.jsonl`; `dag/deps.jsonl` non-empty; `sketches/touch.cms` and `explore.hll` exist; **`sketches/tried.bloom` does not exist**; every hook exits 0 with `.qompack/objects` read-only; the superseded record carries `"status"` superseded and `superseded_by`; the verbatim prompt's volatile substrings survive a restart; **`TestE2E_SubagentNameReachesTheDaemon`** — a `SubagentStop` payload carrying `subagent_type: "code-reviewer"` produces a capture record whose `subagent` field is `"code-reviewer"`, **not** `"subagent"`, the assertion no in-process unit test can make because it is the IPC boundary that drops `Extra` (H9); **`TestE2E_ThinSliceDropsControlOnlyEdges`** — at least one `EdgeControlOnly` in `dag/deps.jsonl` from 40 mixed calls, and `BackwardSlice` with `Thin: true` returns strictly fewer nodes than with `Thin: false`, the production-traffic counterpart of ADR 0007's 43%/88%/2.2× figures |
 | **H15** | **Phase 1 exit criterion** (see also §3 and §5) — synthesized call **sequence**, **real corpus bytes** | `go test ./test/e2e/ -run TestPhase1 -v` | `TestPhase1_DedupRatioReadHeavy` → `DedupRatio ≥ 4.0`; `TestPhase1_CanonicalizationGapOnTestOutput` → `ratioOn ≥ ratioOff*1.25`; **`TestPhase1_PathsReachTheObserver`** (`Stats().Files > 0`, ≥ 1 `AppendFileVersion`, ≥ 1 `MarkSuperseded`, non-zero HLL cardinality — the guard against a harness that silently stops exercising path-keyed behaviour); **`TestPhase1_ResponseBytesAreReal`** (`Stats().RawBytes` ÷ tool-call count > 1 KB, so the ratio is measured over real tool output and not over `{"tokens":N}` envelopes); `TestPhase1_StoreGrowthSublinear`; `TestPhase1_ReportArtifact`; `TestPhase1_CorpusSweep`; `TestPhase1_HotPathBudgetDocumented`. Every tool-result payload is drawn from `testdata/corpora/toolout/` by `payloadFor`, keyed so a re-read of a path re-serves the **same** bytes; `eval.Synthesize` supplies only the call sequence |
@@ -426,6 +462,18 @@ items A1–A17; item 1 (commit count on the SP-01 branch) is historical and is r
 
 ### 3.2 SP-02 — replay harness / Belady / Phase 0
 
+**Read §0a item 5 before running this section.** Six carried rows land on exactly these metrics —
+SP02-D1 (the corpus raises only `DemandFileContent`), SP02-D2 (`file_set_jaccard` pinned at 1.0 by
+construction), SP02-D3 (the Belady keep budget never binds, so `fraction_of_opt` grades against a
+trivial ceiling), SP02-D4 (`belady.pMin` iterates candidates where `Qompack.md` §5.2 defines it over
+all blocks), SP02-D5 (`decision_preservation` measures the post-compaction horizon), SP02-D6 (the
+stock model omits the 4/3 host padding). **Sequence the corpus work first.** Regenerating the
+corpus — which SP02-D1 and SP02-D3 both require — invalidates `TestSynthesize_MatchesCommittedCorpus`
+(§2 B8) and B11's "equals the committed baseline exactly" in the same stroke, so it must precede
+§3.2, §6 and §7.3 and be followed by a single baseline refresh, per
+`docs/adr/0003-replay-overfit-recollection.md` and `plans/V2-report.md` §16.8. Doing it after §6
+means measuring twice.
+
 > **Exit criterion:** a single number for stock behaviour, reproducible across at least 20 real sessions.
 
 **Procedure.** (a) **Main session only** — §9 rule 2 forbids a subagent from running
@@ -461,7 +509,12 @@ Phase gate: B11 with `--phase 2`.
 
 **Procedure.** `go test ./internal/eval/ -run 'TestBelady|TestOraclePolicy_DelegatesToBelady|TestScoreRun_FractionIsMicroAveraged'`.
 `oracle` must score exactly `1.0` on all 24 sessions and `null` exactly `0.0`; `stock` strictly
-between. If `stock` ties `null`, the corpus is wrong — fix the corpus, never the assertion.
+between. **`stock` tying `null` is SP02-D3 surfacing, not a new finding** — that row already records
+the keep budget as never binding on this corpus (`oracle rewrite_span_tokens` is 0 at every event).
+The fix is still the corpus, never the assertion, but it is the corpus fix SP02-D1 and SP02-D3
+already specify: bumped seeds per ADR 0003 plus a corpus assertion pinning Σ tokens(candidates)
+above the keep budget at a stated fraction of events. Dispose of both rows here rather than
+re-discovering them.
 
 ### 3.3 SP-03 — sketch library
 
@@ -635,8 +688,13 @@ emitted `phase2-negknow.json`:
 
 **Procedure.** `Health()` must report `FillRatio` and `EstFPRate`; `TestRebuildBloom_Resizes` proves
 `FillRatio ≤ 0.5` and `EstFPRate < 0.02` at 8 000 active records (I8). The replay gate's hard
-ceiling (`EstFPRate > 0.10` fails outright) is exercised by `TestGate_BloomFPCeiling` (B10), and the
-`--sketch` input at B11 must now be produced from the **real** ledger — see X5.
+ceiling (`EstFPRate > 0.10` fails outright) is exercised by `TestGate_BloomFPCeiling` (B10), and X5
+feeds the gate a **real** ledger's health with `--baseline ""`, which is where the live number is
+judged. B11 keeps `testdata/golden/eval/growth/health.json`: since `b103037` the watch-fors are
+ratio metrics compared at 2% against `testdata/baseline/phase0.json`, whose values were baselined
+from that same fixture, so B11 measures reproducibility of the committed number and X5 measures the
+live filter against the absolute ceiling. Swapping B11's input for a live one makes the two rows
+measure the same thing badly (§7.3).
 
 > **The bloom filter is a cache, never the source of truth (§8.3).** Every membership answer is backed by a record lookup or explicitly flagged `BloomOnly`.
 
@@ -866,7 +924,16 @@ from a fixed seed (distinct targets, so none is deduped) at the Appendix C defau
 (`capacity 10000, fpRate 0.01`); `RebuildBloom`.
 
 **Inputs.** Marshal `led.Health()` into the `eval.SketchHealth` shape and write it to
-`$TMP/v3-health.json`. Run the driver with `--sketch $TMP/v3-health.json`.
+`$TMP/v3-health.json`. Run the driver with `--sketch $TMP/v3-health.json --baseline ""`.
+
+**The empty baseline is deliberate**, and it is what `cb27449` had to add to
+`test/integration/replaygrowth_test.go` for the same reason. Since `b103037` made `bloom_fp_rate`
+and `bloom_fill_ratio` ratio metrics judged against `testdata/baseline/phase0.json`'s watch-fors
+(0.006 / 0.18), a real ledger's health would otherwise be compared at 2% against a fixture recorded
+at a different fill: a 3 000-record filter at capacity 10 000 reports `FillRatio ≈ 0.197`, +9.3% on
+a lower-better metric, and fails the gate on a healthy store. The §11.4 ceiling is an **absolute**
+limit and is what this row judges; the 2% rule over the watch-fors keeps its own coverage in
+`TestGate_WatchForsAreJudgedAsRatios` and in B11 (§7.3).
 
 **Expected outputs.**
 - `Health.FillRatio ≤ 0.5`; `Health.EstFPRate < 0.02`; `NeedsResize == false`.
@@ -877,8 +944,10 @@ from a fixed seed (distinct targets, so none is deduped) at the Appendix C defau
   with a commit that says why** — the fixture was a shape contract, and this is the wave-2 moment
   the architecture says to reconcile it.
 - Negative control: build a second ledger with 30 000 active records against a **pinned** capacity
-  of 10 000 with resizing disabled, emit its health, and assert the gate **fails** with the §11.4
-  sentence in the message.
+  of 10 000 with resizing disabled, emit its health, run the driver with `--baseline ""` here too,
+  and assert the gate **fails** with the §11.4 sentence in the message. Without the empty baseline
+  the arm fails for the watch-for comparison instead, and the failure is no longer attributable to
+  the ceiling sentence.
 
 ---
 
@@ -1102,7 +1171,7 @@ are listed explicitly as **not applicable**, so the omission is a decision and n
 | **B-B** | `l0_ingest`: daemon read → WAL append returned | p99 < 2 ms | same run; also `go test -bench BenchmarkIngestAccept -run '^$' ./internal/daemon/` | **Hard fail** |
 | **B-C** | `l0_process`: WAL → chunked, stored, DAG/sketches updated (async) | p99 < 50 ms (**soft**; overrun → sampling + backpressure, never blocking) | `go test -bench 'BenchmarkOnToolUse_FileRead64KB\|BenchmarkOnToolUse_TestOutput256KB' -run '^$' ./internal/observer/` ; `go test -bench 'BenchmarkPutBytes_100KB_Cold' -run '^$' ./internal/store/` | Reported |
 | **B-D** | `hook_wall`: includes host process creation | reported, never gated (§2.4) | same bench run; posted as artifact. Also record **where `hook_wall` is written**: today it is written nowhere outside `test/bench/hotpath`, so even the reported-only form is unwired in production — §0a item 6 | No |
-| **B-E** | `checkpoint_finalize`: `PreCompact` entry → exit | **p99 < 2 s** (§11.3 L4) | same bench run (`--hook checkpoint`) | **Hard fail** — measured against the current `qompack checkpoint` client path; the checkpoint *writer* is SP-10 (wave 3), so this measures the hook envelope, and that is the honest reading at wave 2 |
+| **B-E** | `checkpoint_finalize`: `PreCompact` entry → exit | **p99 < 2 s** (§11.3 L4) | same bench run as B-A (§3.5, X11) — the harness spawns `qompack checkpoint` itself for B-E on every run, 50 times, whatever `--hook` says; `--hook checkpoint` is **not** a way to select it and is rejected by `hookArgs` with exit 2 before any measurement | **Hard fail** — measured against the current `qompack checkpoint` client path; the checkpoint *writer* is SP-10 (wave 3), so this measures the hook envelope, and that is the honest reading at wave 2 |
 | **B-F** | `mcp_tool_call`: request → response | p95 < 250 ms (`minimal` span) | **Not applicable at wave 2** — `internal/mcp` is an SP-01 stub (SP-13, wave 3). Assert only that the budget row exists in `obs.Budgets()` (E14) | No |
 | **B-G** | `hook_degraded`: the synchronous spool append inside `ipc.Client.Send` when the daemon cannot take the event (no §2.4 row; added by the post-V2 hardening round) | 1 000 ms from `runtime.budgets.hookDegradedMs` — a reader's yardstick for "slow disk or broken disk", not an SLO | `go test -race ./internal/ipc/ -run TestDegraded` (the rate-graded gate that enforces it today) ; `go test ./internal/obs/ -run TestBudgets_BGCoversTheDegradedSpoolAppend` | Reported — and **structurally** so, not softly: a B-G sample only exists when the daemon is unreachable, and `CheckBudgets`' only production caller is the daemon's own registry, so sample and evaluator never coexist. §0a item 6 is this wave's obligation to change that or re-carry it |
 
@@ -1130,11 +1199,11 @@ are listed explicitly as **not applicable**, so the omission is a decision and n
 | `chunk` — throughput | gear scan ≥ 400 MB/s; Split ≥ 120 MB/s | `go test -bench 'BenchmarkGearScan_1MiB\|BenchmarkSplit_1MiB' -benchmem -run '^$' ./internal/chunk/` |
 | `canon` — Bash 100 KB / go test / Restore 100 KB | < 3 ms / < 1 ms / < 1 ms | `go test -bench 'BenchmarkRun_\|BenchmarkRestore_' -run '^$' ./internal/canon/` |
 | `symbols` — Extract / Enclosing / References @100 KB | < 2 ms / < 2 ms / < 1 ms | `go test -bench . -run '^$' ./internal/symbols/` |
-| `store` — Put cold / warm | ≤ 3 ms / ≤ 400 µs | `go test -bench 'BenchmarkPutBytes' -run '^$' ./internal/store/` |
+| `store` — Put cold / warm | ≤ 3 ms / ≤ 400 µs — **carried as SP06-D2 (§0a item 5): 27.2 ms / 7.68 ms measured on Windows, 9× and 19× over, never measured on Linux.** Expect red on a Windows host; record the number and dispose of the row rather than filing a regression | `go test -bench 'BenchmarkPutBytes' -run '^$' ./internal/store/` |
 | `store` — GetChunk / OpenSpan / Search / Open 50k | ≤ 60 µs / ≤ 150 µs / ≤ 25 ms / ≤ 400 ms | `go test -bench 'BenchmarkGetChunk\|BenchmarkOpenSpan\|BenchmarkSearch_1000Roots\|BenchmarkOpenStore_50kRoots' -run '^$' ./internal/store/` |
-| `store` — GC 50k objects / MarkEncoded 100 | ≤ 2 s (deadline ±50 ms) / ≤ 1 ms | `go test -bench 'BenchmarkGC_50kObjects\|BenchmarkMarkEncoded_100' -run '^$' ./internal/store/` |
+| `store` — GC 50k objects / MarkEncoded 100 | ≤ 2 s (**mark-harvest and sweep** deadline ±50 ms) / ≤ 1 ms — **carried as SP06-D1 (§0a item 5): the tombstone phase answers only to ctx and overshoots by 100–260 ms at 650 dead roots, so `GCReport.Duration ≤ Deadline + 50 ms` does NOT hold end to end.** The mark phase was bounded by the post-audit fix round (`TestGC_MarkPhaseHonoursTheDeadline`) | `go test -bench 'BenchmarkGC_50kObjects\|BenchmarkMarkEncoded_100' -run '^$' ./internal/store/` |
 | `tokens` — EstimateRoot 64 cached | ≤ 5 µs | `go test -bench BenchmarkEstimateRoot_64Cached -run '^$' ./internal/tokens/` |
-| `redact` — 100 KB | ≤ 2 ms | `go test -bench BenchmarkRedact -run '^$' ./internal/redact/` |
+| `redact` — 100 KB | ≤ 2 ms **(no-secret shape only)**; keyword-bearing 6.27 ms and secret-bearing 29.8 ms are documented over by design (`plans/V2-report.md` §9.3 / §2.6a ②, SP-06 D19) | `go test -bench BenchmarkRedact -run '^$' ./internal/redact/` |
 | `dag` — Backward/Forward slice, 5 000 nodes | **< 1 ms/op** | `go test -bench 'Slice5000' -run TestSliceLatencyBudget ./internal/dag/` |
 | `dag` — CrossingEdges, 15 000 edges | < 5 µs | `go test -bench BenchmarkCrossingEdges -run '^$' ./internal/dag/` |
 | `observer` — Tombstone | < 2 µs/op | `go test -bench BenchmarkTombstone -benchmem -run '^$' ./internal/observer/` |
@@ -1251,7 +1320,6 @@ go run ./test/replay --corpus testdata/sessions/synthetic \
   --baseline testdata/baseline/phase0.json \
   --phase 2 \
   --growth $TMP/v3-growth.json \
-  --sketch $TMP/v3-health.json \
   --signoff $TMP/v3-signoff.txt \
   --max-cpu 2m --ci
 ```
@@ -1275,8 +1343,17 @@ and leaves `--max-wall` at its default. Do not re-add a wall override here.
   `^sign-off:\s*<metric>\s*=\s*<±N.N%>\s+<reason ≥ 10 chars>$`, naming that exact metric. Do not
   invent sign-offs to make this checkpoint pass: a sign-off is a decision the human owner makes,
   and if none is available, the regression must be fixed.
-- The two watch-for metrics (`bloom_fp_rate`, `bloom_fill_ratio`) are subject to the same 2% rule
-  **plus** the hard ceiling `EstFPRate > 0.10`.
+- The two watch-for metrics (`bloom_fp_rate`, `bloom_fill_ratio`) are judged two different ways,
+  and this command runs only one of them — which is why it carries no `--sketch`. The §11.4 hard
+  ceiling (`EstFPRate > 0.10`) is **absolute**, and it is exercised by X5 and
+  `TestGate_BloomFPCeiling`, each with `--baseline ""`. The 2% rule over the watch-fors is
+  **relative**, and it is only meaningful against a baseline recorded from the same filter state:
+  since `b103037` both watch-fors are ratio metrics and `testdata/baseline/phase0.json` carries
+  `testdata/golden/eval/growth/health.json`'s values (0.18 / 0.006), so the 2% comparison is run
+  against that fixture — `go run ./test/replay … --sketch testdata/golden/eval/growth/health.json`,
+  which is B11 — and against a real ledger never. A live 3 000-record filter reports
+  `FillRatio ≈ 0.197`, +9.3% on a lower-better metric, and would fail this gate on a healthy store.
+  `TestGate_WatchForsAreJudgedAsRatios` is where the rule's own coverage lives.
 - Corpus staleness: `--phase 2` against `CORPUS.json.regeneratedAfterPhase: 0` is within the
   `phase ≤ regeneratedAfterPhase + 2` window and must **not** trip. If it does, the corpus needs
   regeneration per `docs/adr/0003-replay-overfit-recollection.md` — that is a real finding, not a
@@ -1365,23 +1442,39 @@ group. The whole of §2 → §3 → §5 → §6 → §7, in the order of §7.4, 
 simultaneously; a targeted re-run will not see it. This is the same discipline §11.3's "every phase
 gate runs the full replay suite" imposes on phases, applied to verification.
 
-Iterate: diagnose → fix → commit → full re-run. Repeat until every row of §8.5 reads PASS.
+Iterate: diagnose → fix → commit → full re-run. Repeat until every row of §10 reads PASS.
 
 ### 8.4 The wave-3 gate
 
 **No wave-3 branch is cut until this checkpoint is fully green.** Concretely, until every row of
-§8.5 reads PASS, do not create `feat/sp10-checkpointer-l4`, `feat/sp11-rehydrator-l5`,
+§10 reads PASS, do not create `feat/sp10-checkpointer-l4`, `feat/sp11-rehydrator-l5`,
 `feat/sp12-scheduler-l3` or `feat/sp13-mcp-retrieval-layer`, and do not begin work described in
 their subplan files. This is `00-ARCHITECTURE.md` §9: *"No wave-N branch is ever cut before
 verification V<N> is green."*
 
-### 8.5 On success — merge and tag
+### 8.5 On success — write the report, then merge and tag
+
+**Write the completion report first.** Fill in the §10 template and commit it to `verify/v3` as
+`plans/V3-report.md` **before** the merge, exactly as V1 did
+(`plans/V1-VERIFY-foundation-and-contracts.md` §8). This is not a filing convention.
+`test/guards/carrieddefects_test.go`'s `TestCarriedDefects_WaveReportRequiresResolution` keys on
+`plans/V3-report.md` and on nothing else — while that file is absent from the working tree the
+sign-off gate passes without asserting anything, so a report recorded only in a merge commit body
+or an ADR signs wave 2 off with every `deferred:V3-VERIFY` row of §0a item 5 unexamined and trips
+no test. Copy the §10 template with every `<sha>` and `___` placeholder filled: `devtool lint`'s
+prose-placeholder check reads committed plan documents.
 
 ```
+go test ./test/guards/ -run TestCarriedDefects -v   # three PASS, the report already on disk
+git add plans/V3-report.md
+git commit -m "docs(v3-report): record the wave-2 verification checkpoint"
 git checkout develop
 git merge --no-ff verify/v3 -m "chore(verify): V3 — wave 2 verification checkpoint green"
 git tag v0.2.0
 ```
+
+A failure from that guard run names the rows §0a item 5 still owes a disposition; fix or re-defer
+them and re-run before merging.
 
 Then, and only then, cut the four wave-3 branches from the post-merge `develop`:
 
@@ -1392,9 +1485,11 @@ git checkout -b feat/sp12-scheduler-l3       develop
 git checkout -b feat/sp13-mcp-retrieval-layer develop
 ```
 
-Record the completion report (§8.5's table below) in the merge commit body or as
-`docs/adr/0100-v3-verification.md` — the numbers are the input to V4's regression comparison and
-must not live only in a terminal scrollback.
+`plans/V3-report.md` is the record; the numbers in it are the input to V4's regression comparison
+and must not live only in a terminal scrollback. Also write the per-checkpoint entry
+`docs/adr/0100-v3-verification.md` (V6-VERIFY expects the `0100` block to exist on disk), and paste
+an abridged copy into the merge commit body if you want it visible in `git log` — both are
+additional to `plans/V3-report.md`, never a substitute for it.
 
 ---
 
@@ -1421,7 +1516,7 @@ one per subplan group, and keep everything that crosses a seam in the main sessi
   deciding that a V1 or V2 row is superseded rather than failing is a checkpoint judgement.
 - The replay gate and the 2% rule (§7.3).
 - Every commit. Subagents return **diffs, test output and measured numbers — never commits**.
-- The completion report (§8.5) and the merge.
+- The completion report (§10) and the merge.
 
 **Parallel subagents, one per inventory group:**
 
@@ -1690,6 +1785,29 @@ exists, the measured value. A row with `PASS` and an empty metric cell is not co
 | Contract producer split still 5/4 | | |
 | **2% no-regression guardrail (§11.3)** | | regressions: ___ ; signed off: ___ |
 | Corpus staleness window (`phase ≤ regen+2`) | | |
+
+**Carried-defect disposition (§0a item 5)**
+
+Every row `plans/CARRIED-DEFECTS.tsv` defers to `V3-VERIFY` needs a disposition here before this
+report is committed, or `TestCarriedDefects_WaveReportRequiresResolution` fails on it. An empty
+cell is a visibly incomplete report.
+
+| id | `fixed` / re-deferred to | evidence or reason |
+|---|---|---|
+| SP04-D2 | | |
+| SP04-D3 | | |
+| SP04-D5 | | |
+| SP04-D6 | | |
+| SP06-D1 | | |
+| SP05-D1 | | |
+| SP02-D1 | | |
+| SP02-D2 | | |
+| SP02-D3 | | |
+| SP02-D4 | | |
+| SP02-D5 | | |
+| SP02-D6 | | |
+| SP04-D7 | | |
+| SP06-D2 | | |
 
 **Gate**
 

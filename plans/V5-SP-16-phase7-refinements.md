@@ -14,7 +14,7 @@ This subplan owns **Phase 7 of `Qompack.md` §10 in full**, minus the one item �
 
 Five things ship. **(1) O4 cross-session warm start.** The store outlives the session, so a fresh session should not start blind. At daemon start the project's cumulative Count-Min sketch of file-touch frequency is exponentially decayed with `Scale` and merged into the live session sketch with `MergeFrom`; `scope: "project"` eliminations are re-verified against the current working tree and carried forward with their staleness correctly re-evaluated; and the changepoint detector's per-feature priors are seeded from the feature summaries of closed segments in past sessions, so BOCD's notion of "normal path locality on this project" does not have to be relearned from the first twenty turns of every new session. **(2) Demand-driven rehydration tuning.** §8.7 says repeated expansion of the same hash is *a signal, not a cost*; SP-13 counts those expansions and records every retrieval result as an ephemeral tool-use in the store. This subplan reads those counts at checkpoint-finalize time and promotes the frequently-re-expanded hashes into the checkpoint's pointer tier at an elevated weight, so the next rehydration includes what the last one should have — a measured correction to the 8–12K budget instead of a guess. **(3) Per-segment Bloom filters** in the LSM style of §6.8, populating `Segment.BloomRef`, so the question "which compacted segment could contain this path/tool/hash" is answerable without expanding any segment. **(4) The ski-rental cache-write policy** of §5.6 and Appendix A, with the threshold *computed* as `w/r` from `scheduler.cache.writeMultiplier / readMultiplier` and never written as the literal `12.5` — the literal is on the `nomagic` lint's forbidden list precisely so this cannot be fudged. **(5) Progressive checkpoint truncation tuning:** the actual budget-versus-reconstruction-quality curve of §6.9's importance ordering is *measured* on the synthetic replay corpus, and the tier reserve fractions are set to the argmax of that measurement, with a test that fails if the constants ever drift from the artifact that justifies them.
 
-**What exists when you start.** `develop` at the wave-3 verification tag: `internal/config` with the full Appendix C schema plus the `runtime` extension namespace; `internal/sketch` with `Bloom`, `CMS` (including `MergeFrom` and `Scale`), `HLL`, `MisraGries`, `MinHash`, all versioned and CRC-checked; `internal/store` with content-addressed objects, the `tool_use` index (including the `Ephemeral` flag on `ToolUseRecord`), file version history, `ChangedSince`, and the `SegmentLog` with `EncodedOnce`/`MarkEncoded`; `internal/negknow` with the elimination ledger, `Scope`, `Status`, `RefreshStaleness`, and `RebuildBloom`; `internal/checkpoint` with the §8.5 schema, `Writer`, `Reader`, `Truncate`, `ExtractDecisions`, and `FocusInstructions`; `internal/scheduler` with `Evaluate`, `NewBOCD`, `YoungDaly`, and a **real, already-tested** `SkiRentalShouldWrite` — SP-01 shipped the closed form in `internal/scheduler/formulas.go` (`if r <= 0 { return false }; return expectedReads > w/r`), not a stub, because 00-ARCHITECTURE §14.1 requires fully specified pure functions to be implemented; it is pinned today by `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig`; `internal/mcp` with all eight tools and the `Promoter`; `internal/daemon` with the `IdleController` extension seam; `internal/eval` (SP-02, wave 1) with the replay harness, Belady OPT, divergence metrics, and the 24-session synthetic corpus; `internal/rehydrate` (SP-11, wave 3) with the eight-item injection.
+**What exists when you start.** `develop` at the wave-3 verification tag: `internal/config` with the full Appendix C schema plus the `runtime` extension namespace; `internal/sketch` with `Bloom`, `CMS` (including `MergeFrom` and `Scale`), `HLL`, `MisraGries`, `MinHash`, all versioned and CRC-checked; `internal/store` with content-addressed objects, the `tool_use` index (including the `Ephemeral` flag on `ToolUseRecord`), file version history, `ChangedSince`, and the `SegmentLog` with `EncodedOnce`/`MarkEncoded`; `internal/negknow` with the elimination ledger, `Scope`, `Status`, `RefreshStaleness`, and `RebuildBloom`; `internal/checkpoint` with the §8.5 schema, `Writer`, `Reader`, `Truncate`, `ExtractDecisions`, and `FocusInstructions`; `internal/scheduler` with `Evaluate`, `NewBOCD`, `YoungDaly` (in `youngdaly.go`), the p-selection gate (in `gate.go`), and a **real, already-tested** `SkiRentalShouldWrite` in `internal/scheduler/skirental.go` (`if r <= 0 || w <= 0 { return false }; return expectedReads > w/r`) — SP-01 shipped the closed form in `formulas.go` under 00-ARCHITECTURE §14.1's "fully specified pure functions are implemented, not stubbed" rule, and **SP-12 (wave 3) deleted `formulas.go`, redistributing its four symbols into `youngdaly.go`, `skirental.go` and `gate.go` and adding the `w <= 0` guard**; it is pinned today by `TestSkiRentalShouldWrite`, `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig`, all in `skirental_test.go`; `internal/mcp` with all eight tools and the `Promoter`; `internal/daemon` with the `IdleController` extension seam; `internal/eval` (SP-02, wave 1) with the replay harness, Belady OPT, divergence metrics, and the 24-session synthetic corpus; `internal/rehydrate` (SP-11, wave 3) with the eight-item injection.
 
 **What exists when you finish.** `internal/config` exposes `runtime.phase7`; `internal/scheduler` has a real ski-rental policy that participates in `Evaluate` and a prior-seeded changepoint detector; `internal/store` writes and answers per-segment Bloom filters and exposes ephemeral-expansion counts; `internal/daemon/phase7.go` runs warm start once per session; `internal/checkpoint/promote.go` promotes re-expanded hashes into the pointer tier and `internal/checkpoint/curve.go` carries measured, artifact-justified truncation reserves; `testdata/phase7/` carries two committed measurement artifacts; and the replay gate carries the Phase 7 exit assertion with no metric regressed beyond §11.3's 2% rule.
 
@@ -38,6 +38,18 @@ Everything quoted below is reproduced verbatim so this document is self-containe
 ### §5.6 — ski rental, and the scope note that excludes prefix reordering
 
 > **Ski rental for the write decision.** Whether to pay `w` to write a cache entry is rent-or-buy under unknown horizon. Competitive ratio 2 deterministic, `e/(e−1) ≈ 1.58` randomized. Practically: write the cache when expected remaining reads exceed `w/r ≈ 12.5`. Short sessions should not be paying for cache writes at all.
+
+**The threshold is two numbers, not one, and ≈12.5 is only the first.** §5.1 attaches a standing instruction to its multipliers — *"verify against current pricing before tuning, since the ratio drives several thresholds below"* — and this is the threshold it means. That verification was carried out on 2026-08-23 against `platform.claude.com/docs/en/build-with-claude/prompt-caching`, which states the read multiplier once and the write multiplier **twice**:
+
+> "Cache read tokens are 0.1 times the base input tokens price"
+> "5-minute cache write tokens are 1.25 times the base input tokens price"
+> "1-hour cache write tokens are **2** times the base input tokens price"
+
+So `r = 0.1` is confirmed, and `w/r` is **12.5 under the five-minute TTL and 20 under the one-hour TTL**. The `≈12.5` in §5.6 and in Appendix A is the five-minute figure. It is not wrong; it is one of two, and Claude Code requests the one-hour TTL automatically on a Claude subscription (`code.claude.com/docs/en/prompt-caching`, *Cache lifetime*), which is the deployment this plugin ships into.
+
+The consequence for SP-16 is narrow and entirely mechanical, because `SkiRentalShouldWrite` was always written with `w` as a *parameter* — SP-01 got that right and V1's `TestSkiRental_ComputedNotLiteral` has been pinning it since wave 1. Nothing about the closed form changes. What changes is **where the caller reads `w` from**: `Inputs.Regime.WriteMultiplier`, resolved by SP-12's `ResolveCacheRegime`, rather than `cfg.Cache.WriteMultiplier`, which is Appendix C's five-minute floor and cannot be edited (Appendix C lives in the read-only `Qompack.md` and `TestDefaults_MatchesAppendixCVerbatim` deep-equals against it). A session on the one-hour TTL that rents against a 12.5-read threshold buys cache entries it needs 20 reads to amortize, and buys them on exactly the short sessions §5.6's last sentence says should not be paying for cache writes at all.
+
+`TestSkiRentalThreshold_TracksRegimeNotConfig` pins it: the same `Inputs` under a `force_5m` regime and an `enable_1h` regime must yield thresholds of `12.5` and `20`, and `cfg.Cache.WriteMultiplier` must read `1.25` in both — the config is the floor, the regime is the bill.
 
 > **Scope note.** The first item below — breakpoint placement — is **not plugin-actionable**: Claude Code manages its own `cache_control` markers and a plugin cannot move them. The analysis is retained because it applies verbatim if Qompack is later ported to a first-party harness on the Messages API (§2.8), and because the Belady extension makes it measurable today. It is listed in the §12 "cannot do" inventory.
 
@@ -167,7 +179,8 @@ Everything quoted below is reproduced verbatim so this document is self-containe
 
 > **Ski-rental cache-write threshold**
 > ```
-> write when  E[remaining reads] > w/r   (≈ 12.5 at r=0.1, w=1.25)
+> write when  E[remaining reads] > w/r   (12.5 at r=0.1, w=1.25 — the 5-minute TTL)
+>                                       (20   at r=0.1, w=2.0  — the 1-hour   TTL)
 > ```
 
 > **Bloom filter sizing**
@@ -359,6 +372,7 @@ type Ledger interface {
 
 // internal/scheduler (§5.13)
 type TriggerReason string // "soft_floor" "changepoint" "young_daly" "hard_ceiling" "idle_cold_cache"
+                          // SP-16 widens this to seven — see the §5.13 amendment prerequisite in commit 2
 type TTLState string      // "warm" | "expiring" | "cold" | "unknown"
 type Urgency uint8        // UrgencyNone, UrgencyAdvisory, UrgencyNow
 type Features struct{ PathJaccard, ToolShift, LexicalCohesion, GapSeconds, TodoTransition float64 }
@@ -386,7 +400,7 @@ type Decision struct{ /* … */
     P Candidate; PScore float64
     Breakdown map[string]float64; Urgency Urgency; TTL TTLState /* … */ }
 func Evaluate(in Inputs) Decision
-func SkiRentalShouldWrite(expectedReads, r, w float64) bool // §5.13; SP-01 SHIPPED this, in formulas.go — a real closed form, never a stub
+func SkiRentalShouldWrite(expectedReads, r, w float64) bool // §5.13; SP-12 SHIPPED this in skirental.go with the w<=0 guard — SP-16 only re-expresses it through SkiRentalThreshold
 
 // internal/checkpoint (§5.14)
 type Checkpoint struct{ /* §8.5 schema */ }
@@ -452,12 +466,14 @@ type SegmentBloomCfg struct {
 // RuntimeCfg gains: Phase7 Phase7Cfg `json:"phase7"`
 
 // ── internal/scheduler/skirental.go ──
+// r and w come from Inputs.Regime (scheduler.CacheRegime, SP-12's cacheregime.go), NEVER from
+// cfg.Cache directly. See "the threshold is two numbers, not one" below.
 func SkiRentalThreshold(r, w float64) float64
 func SkiRentalShouldWrite(expectedReads, r, w float64) bool
 func EstimateRemainingReads(in Inputs) float64
 const (
-    ReasonSkiRentalDefer   TriggerReason = "ski_rental_defer"
-    ReasonSkiRentalShallow TriggerReason = "ski_rental_shallow"
+    TriggerSkiRentalDefer   TriggerReason = "ski_rental_defer"
+    TriggerSkiRentalShallow TriggerReason = "ski_rental_shallow"
 )
 
 // ── internal/scheduler/warmprior.go ──
@@ -501,7 +517,7 @@ func SegmentBloomRef(id core.SegmentID) string
 func BuildSegmentBloom(ctx context.Context, projectRoot string, cfg config.Config, seg Segment) (ref string, keys int, err error)
 func LoadSegmentBloom(projectRoot, ref string) (*sketch.Bloom, error)
 // SegmentMayContain returns (true, nil) when no bloom exists and (true, err) when one exists but
-// fails sketch.Load's CRC/version check — never a false negative. Callers that hold a logger
+// fails the CRC/version check — never a false negative. Callers that hold a logger
 // (SegmentsMayContain) turn the non-nil error into one Loud entry per segment id per process.
 func SegmentMayContain(projectRoot string, seg Segment, kind SegKeyKind, value string) (bool, error)
 func SegmentsMayContain(ctx context.Context, s Store, projectRoot string, kind SegKeyKind, value string, from, to core.TurnIndex) ([]core.SegmentID, error)
@@ -595,7 +611,9 @@ func (w *WarmStarter) LastReport() WarmStartReport
 func RegisterPhase7(o Options, idle IdleController) *WarmStarter
 ```
 
-**Why no §5 amendment is required.** Every addition above is either a new package-level symbol in a package this subplan writes a new file in, a new field on a struct declared inside `internal/config`'s own `RuntimeCfg` (which §5.1 declares only as `Runtime RuntimeCfg` without fixing its members), or population of a field 00-ARCHITECTURE already reserved for SP-16 (`Segment.BloomRef`, `Inputs.ExpectedRemainingReads`). `NewDetectorFromState` is a package-level **function**, not a method on the `Detector` or `Runtime` interface, so swapping SP-12's construction site over to it changes no interface either. **No interface in §5 gains, loses, or changes a method.** Rule W-3 is not engaged. One documentation edit to `plans/00-ARCHITECTURE.md` §11.5 and one comment update in §5.8 record the additive namespace and the now-populated field; that edit lands inside this branch's commit 1 and is additive by §11.5's own rule ("No key here may change the meaning or default of any Appendix C key").
+**Why no §5 interface amendment is required.** Every addition above is either a new package-level symbol in a package this subplan writes a new file in, a new field on a struct declared inside `internal/config`'s own `RuntimeCfg` (which §5.1 declares only as `Runtime RuntimeCfg` without fixing its members), or population of a field 00-ARCHITECTURE already reserved for SP-16 (`Segment.BloomRef`, `Inputs.ExpectedRemainingReads`). `NewDetectorFromState` is a package-level **function**, not a method on the `Detector` or `Runtime` interface, so swapping SP-12's construction site over to it changes no interface either. **No interface in §5 gains, loses, or changes a method.** Rule W-3 is not engaged. One documentation edit to `plans/00-ARCHITECTURE.md` §11.5 and one comment update in §5.8 record the additive namespace and the now-populated field; that edit lands inside this branch's commit 1 and is additive by §11.5's own rule ("No key here may change the meaning or default of any Appendix C key").
+
+**The one thing that does need an amendment, and it is not a method.** `TriggerSkiRentalDefer` and `TriggerSkiRentalShallow` are new **wire values**, not aliases of the shipped five: they widen §5.13's `TriggerReason` vocabulary from five to seven, and §5.13's inline enumeration plus `internal/scheduler/types.go`'s "five named conditions" godoc both still say five. That widening is an §0 amendment and lands on its own `arch/` branch **before** `feat/sp16-phase7-refinements` is cut, so this branch's own `00-ARCHITECTURE.md` edits remain exactly the two documentation edits above. See commit 2's first bullet.
 
 ---
 
@@ -687,26 +705,28 @@ forbidden integer set (§11.6) and a range bound is not a config default, so it 
 
 Package `scheduler` imports foundation packages only; this file adds no import beyond `math`.
 
-**`SkiRentalShouldWrite` already exists and already works.** SP-01 shipped it in
-`internal/scheduler/formulas.go` as a real closed form — `if r <= 0 { return false }; return
-expectedReads > w/r` — under 00-ARCHITECTURE §14.1's "fully specified pure functions are
-implemented, not stubbed" rule, and `TestSkiRental_ComputedNotLiteral` /
-`TestSkiRental_ThresholdTracksConfig` (both in the external `scheduler_test` package) pin it today.
-Commit 2 therefore **moves that function, with its doc comment, out of `formulas.go` and into
-`skirental.go`**, and re-expresses its body through the new `SkiRentalThreshold` so the ratio has
-exactly one definition. The move is behaviour-preserving on everything SP-01's tests assert
-(`r <= 0 → false`; otherwise `expectedReads > w/r`, strictly); the only extension is that a NaN `r`,
-`w` or `expectedReads` now folds into the same conservative `false` instead of into `false` by
-accident of IEEE comparison. Those two SP-01 tests must stay green **unedited** across the move —
-they are the regression proof that the move changed nothing. There is no stub to delete anywhere.
+**`SkiRentalShouldWrite` already exists and already works — in SP-12's `internal/scheduler/skirental.go`.**
+SP-01 shipped the closed form in `formulas.go` under 00-ARCHITECTURE §14.1's "fully specified pure
+functions are implemented, not stubbed" rule; SP-12 (wave 3) deleted that file and moved the
+function here, adding a `w <= 0` guard so a cache write that cannot be free no longer reports
+"always write". Commit 2 therefore **modifies SP-12's existing `skirental.go` in place** — no file
+is created and nothing is moved — re-expressing the body through the new `SkiRentalThreshold` so the
+ratio has exactly one definition. The re-expression is behaviour-preserving on every case SP-12's
+`TestSkiRentalShouldWrite` (`r = 0 → false`, `w = 0 → false`), `TestSkiRental_ComputedNotLiteral` and
+`TestSkiRental_ThresholdTracksConfig` assert; the only extension is that a NaN `r`, `w` or
+`expectedReads` now folds into the same conservative `false` explicitly rather than by accident of
+IEEE comparison. All three tests must stay green **unedited** across the re-expression — they are
+the regression proof that it changed nothing. There is no stub to delete anywhere.
 
 ```go
 // SkiRentalThreshold is Appendix A's w/r. It is COMPUTED, never written as 12.5 — the literal
 // is on the nomagic forbidden list precisely so this stays true (§11.6, §12 "Cache multipliers
-// change"). At the Appendix C defaults r=0.1, w=1.25 it evaluates to 12.5.
+// change"). At the Appendix C defaults r=0.1, w=1.25 it evaluates to 12.5. It carries SP-12's
+// r <= 0 || w <= 0 guard, so when either multiplier is unusable it reports "never amortizable"
+// (+Inf) rather than the bare ratio — a write that cannot be free must not read as free.
 func SkiRentalThreshold(r, w float64) float64 {
-    if r <= 0 || math.IsNaN(r) || math.IsNaN(w) {
-        return math.Inf(1) // an unusable read multiplier means "never amortizable"
+    if r <= 0 || w <= 0 || math.IsNaN(r) || math.IsNaN(w) {
+        return math.Inf(1) // an unusable multiplier means "never amortizable"
     }
     return w / r
 }
@@ -716,10 +736,10 @@ func SkiRentalThreshold(r, w float64) float64 {
 // Strictly greater: exactly at the threshold the two policies cost the same and the
 // deterministic competitive-ratio-2 rule rents.
 //
-// This is SP-01's shipped body, moved here from formulas.go and routed through
-// SkiRentalThreshold. Carry SP-01's doc comment over with it — the "neither that ratio nor its
-// operands may ever appear as a literal in this package" rule is what nomagic's forbidden 12.5
-// enforces, and it belongs next to the function, not next to the one it was moved away from.
+// This is SP-12's shipped body, re-expressed in place through SkiRentalThreshold; its
+// r <= 0 || w <= 0 guard now lives in the threshold helper. Preserve SP-12's doc comment
+// verbatim — the "neither that ratio nor its operands may ever appear as a literal in this
+// package" rule is what nomagic's forbidden 12.5 enforces, and it belongs next to the function.
 func SkiRentalShouldWrite(expectedReads, r, w float64) bool {
     t := SkiRentalThreshold(r, w)
     if math.IsInf(t, 1) || math.IsNaN(expectedReads) {
@@ -771,12 +791,20 @@ func applySkiRental(d *Decision, in Inputs) {
     if d.Breakdown == nil {
         d.Breakdown = map[string]float64{}
     }
-    d.Breakdown["ski_rental_threshold"] = thr
+    if math.IsInf(thr, 1) {
+        // NEVER write a non-finite value into Breakdown: encoding/json refuses +Inf, and
+        // Decision is round-tripped through testdata/golden/scheduler/decision-*.json (SP-12)
+        // and rendered by /qompack:status. Report the unamortizable case with a companion flag
+        // instead, matching SP-12's young_daly_delta_unmeasured=1 pattern.
+        d.Breakdown["ski_rental_unamortizable"] = 1
+    } else {
+        d.Breakdown["ski_rental_threshold"] = thr
+    }
     d.Breakdown["expected_remaining_reads"] = exp
     if SkiRentalShouldWrite(exp, r, w) {
         return // the rewrite amortizes; leave p-selection exactly as chosen
     }
-    if d.TTL != "warm" {
+    if d.TTL != TTLWarm {
         return // cold or expiring: rewrite(p) is already ~0, ski rental is moot (§5.4)
     }
     // Not amortizable and the cache is warm. Two corrections, in this order.
@@ -791,13 +819,13 @@ func applySkiRental(d *Decision, in Inputs) {
     }
     if changed {
         d.P = best
-        d.Reasons = append(d.Reasons, ReasonSkiRentalShallow)
+        d.Reasons = append(d.Reasons, TriggerSkiRentalShallow)
     }
     // (b) If the ONLY reasons to compact are the amortizable ones, defer.
     if d.ShouldCompact && onlySoftReasons(d.Reasons) {
         d.ShouldCompact = false
         d.Urgency = UrgencyAdvisory
-        d.Reasons = append(d.Reasons, ReasonSkiRentalDefer)
+        d.Reasons = append(d.Reasons, TriggerSkiRentalDefer)
     }
 }
 
@@ -811,7 +839,7 @@ func onlySoftReasons(rs []TriggerReason) bool {
     }
     for _, r := range rs {
         switch r {
-        case "soft_floor", "young_daly", ReasonSkiRentalShallow:
+        case TriggerSoftFloor, TriggerYoungDaly, TriggerSkiRentalShallow:
         default:
             return false
         }
@@ -1069,7 +1097,7 @@ Algorithm:
 ```go
 func LoadSegmentBloom(projectRoot, ref string) (*sketch.Bloom, error)
 ```
-Joins `projectRoot` with the forward-slash `ref`, allocates a zero-value `*sketch.Bloom`, and fills it with `sketch.Load` (which checks magic, version, and CRC32C per §5.7). Returns `core.ErrNotFound` when the file is absent, and `sketch.Load`'s error unchanged when it is corrupt.
+Joins `projectRoot` with the forward-slash `ref`, allocates a zero-value `*sketch.Bloom`, and fills it with `sketch.LoadWithLog(p, b, logging.Nop())` (which checks magic, version, and CRC32C per §5.7). **Never `sketch.Load`**: `test/guards/sketchload_test.go`'s `TestGuard_NoSilentSketchLoadOutsideItsPackage` fails the build on `sketch.Load` in any non-test file outside `internal/sketch`, and `internal/store` already imports `internal/logging`. The `logging.Nop()` is deliberate and is not silence: this function's signature stays logger-free so `SegmentMayContain` can remain pure, and the error is returned up to `SegmentsMayContain`, which holds the `Store`'s logger and emits the single de-duplicated `Loud` entry per segment id (see below). Returns `core.ErrNotFound` when the file is absent, and `LoadWithLog`'s error unchanged when it is corrupt — that error satisfies `errors.Is` against both `core.ErrNotFound` and the decoder sentinel (`sketch.ErrCorrupt` for a CRC mismatch, `sketch.ErrUnsupportedVersion` for a version bump).
 
 ```go
 func SegmentMayContain(projectRoot string, seg Segment, kind SegKeyKind, value string) (bool, error)
@@ -1337,16 +1365,25 @@ func (w *WarmStarter) LastReport() WarmStartReport
 
 ```
 proj := new CMS(cfg.Sketches.CMS.Epsilon, cfg.Sketches.CMS.Delta)
-if sketch.Load(".qompack/sketches/touch.project.cms", proj) fails (missing or CRC/version):
+p := filepath.Join(w.o.ProjectRoot, ".qompack/sketches/touch.project.cms")
+if err := sketch.LoadWithLog(p, proj, w.o.Log); err != nil {
+      // LoadWithLog, NEVER Load: test/guards/sketchload_test.go's
+      // TestGuard_NoSilentSketchLoadOutsideItsPackage fails the build on sketch.Load in any
+      // non-test file outside internal/sketch, because Load runs on a logging.Nop and so
+      // writes no durable line anywhere. LoadWithLog emits the one Loud line itself.
+      // Classify with errors.Is(err, fs.ErrNotExist) — a cold start, Debug — NOT with
+      // core.ErrNotFound, which LoadWithLog also returns for corrupt, truncated and
+      // oversize files (internal/sketch/io.go, absentSketch).
       proj = bootstrapProjectCMS(ctx)            // see below
+}
 proj.Scale(cfg.Runtime.Phase7.WarmStart.Decay)   // default 0.6 — exponential decay of history
 if err := live.MergeFrom(proj); err != nil {     // shape mismatch (epsilon/delta changed)
       proj = bootstrapProjectCMS(ctx)            // rebuild at the CURRENT shape
       proj.Scale(decay)
       _ = live.MergeFrom(proj)                   // shapes now match by construction
-      log.Loud("warm start: project CMS reshaped", "err", err)
+      w.o.Log.Loud("warm start: project CMS reshaped", "err", err)
 }
-sketch.Save(".qompack/sketches/touch.project.cms", proj)
+sketch.Save(p, proj)
 report.CMSMerged = true
 ```
 
@@ -1472,8 +1509,8 @@ Insertion 4 means warm start does not wait for the first idle tick (default `idl
 
 | Failure | Response |
 |---|---|
-| `touch.project.cms` missing | bootstrap from `index/tool_use.jsonl`; `Info` log; warm start proceeds |
-| `touch.project.cms` CRC/version bad | `sketch.Load` returns `ErrNotFound` + Loud (SP-03 behaviour); bootstrap; overwrite on save |
+| `touch.project.cms` missing | `sketch.LoadWithLog` returns an error unwrapping to `fs.ErrNotExist` **as well as** `core.ErrNotFound` — classify on `fs.ErrNotExist`, or a corrupt file reads as a cold start; bootstrap from `index/tool_use.jsonl`; `Info`, never `Loud`; warm start proceeds |
+| `touch.project.cms` CRC/version bad | `sketch.LoadWithLog` returns an error satisfying `core.ErrNotFound` and wrapping the decoder's own sentinel — `sketch.ErrCorrupt` for a CRC32C mismatch, `sketch.ErrUnsupportedVersion` for a version bump — and writes the one `Loud` line itself ("sketch corrupt — rebuilding from records"); bootstrap; overwrite on save. `sketch.Load` would write no line anywhere, which is why the guard forbids it |
 | `CMS.MergeFrom` shape mismatch (epsilon/delta changed) | rebuild at the current shape from the index, merge, `Loud` |
 | `Ledger.RefreshStaleness` error | log `Warn`, skip `RebuildBloom`, continue to step 3; `already_tried` keeps last-known state (never a false positive) |
 | `Ledger.RebuildBloom` error | log `Loud`; per §12.3 `already_tried` returns `absent` for everything rather than a false positive |
@@ -1491,7 +1528,7 @@ Insertion 4 means warm start does not wait for the first idle tick (default `idl
 | `EphemeralExpansions` index missing | empty slice, nil error; `Promote` returns an empty report |
 | `Promote` error inside `Finalize` | `Warn`; `Finalize` continues and produces a checkpoint without promotions |
 | `budget <= tier1Tokens` in `Truncate` | tier 1 emitted in full (§8.5 never truncated); tiers 2 and 3 fully dropped with `DropEntry`s |
-| `r <= 0` or NaN in ski rental | `SkiRentalThreshold` returns `+Inf`; `SkiRentalShouldWrite` returns `false`; the scheduler prefers the shallowest cut and never defers past the hard ceiling |
+| `r <= 0`, `w <= 0` or NaN in ski rental | `SkiRentalThreshold` returns `+Inf`; `SkiRentalShouldWrite` returns `false`; `Breakdown` carries `ski_rental_unamortizable=1` instead of a non-finite `ski_rental_threshold` (`encoding/json` refuses `+Inf`); the scheduler prefers the shallowest cut and never defers past the hard ceiling |
 
 ---
 
@@ -1531,23 +1568,26 @@ Tests are written **before** the implementation in each commit and must fail fir
 
 ### Ski rental (commit 2)
 
-The six `TestSkiRentalShouldWrite` rows below are marked **(pre-existing — green on the first run)**:
-`SkiRentalShouldWrite` already ships in `internal/scheduler/formulas.go`, so those rows are
-regression coverage for commit 2's move, not red-first TDD. Every other row in this table is
-red-first and must fail before its implementation exists.
+The eight `TestSkiRentalShouldWrite` rows below are marked **(pre-existing — green on the first run
+that compiles)**: `SkiRentalShouldWrite` already ships in SP-12's `internal/scheduler/skirental.go`,
+so those rows are regression coverage for commit 2's re-expression, not red-first TDD. Every other
+row in this table is red-first and must fail before its implementation exists.
 
 | Test | Input | Expected |
 |---|---|---|
 | `TestSkiRentalThresholdIsComputed` | `(0.1, 1.25)` | `12.5` exactly (`require.InDelta(12.5, got, 1e-12)`) |
 | ″ | `(0.05, 2.0)` | `40` |
 | ″ | `(0, 1.25)` | `+Inf` |
+| ″ | `(0.1, 0)` | `+Inf` — SP-12's `w <= 0` guard lives here now; a finite `0` threshold here would make every positive `expectedReads` amortize |
 | `TestNoLiteral12Point5InSource` | walk `internal/**/*.go`, `cmd/**/*.go` skipping `_test.go` and `internal/config/defaults.go`; parse each file with `go/parser` (comments discarded) and inspect every `*ast.BasicLit` | no basic literal whose value parses to `12.5` — comments explaining the threshold are allowed and expected, only compiled literals are forbidden (§11.6) |
-| `TestSkiRentalShouldWrite` **(pre-existing — green on the first run)** | `(12.4, 0.1, 1.25)` | `false` |
+| `TestSkiRentalShouldWrite` **(pre-existing — green on the first run that compiles)** | `(12.4, 0.1, 1.25)` | `false` |
 | ″ | `(12.5, 0.1, 1.25)` | `false` (strictly greater) |
 | ″ | `(12.6, 0.1, 1.25)` | `true` |
 | ″ | `(100, 0.05, 2.0)` | `true` (threshold 40) |
 | ″ | `(39.9, 0.05, 2.0)` | `false` |
-| ″ | `(math.NaN(), 0.1, 1.25)` | `false` — the one row the move extends: SP-01's body returns `false` here through IEEE comparison, `SkiRentalThreshold` makes it explicit |
+| ″ | `(5, 0.1, 0)` | `false` — SP-12's declared `w <= 0` guard. Without this row no `TestSkiRentalShouldWrite` case catches a revert: drop `w <= 0` from `SkiRentalThreshold` and the other seven rows all stay green, leaving the `(0.1, 0)` threshold row above as the only witness |
+| ″ | `(1, 0, 1.25)` | `false` — the `r <= 0` guard, pinned in this table as well as in `TestSkiRental_ComputedNotLiteral` |
+| ″ | `(math.NaN(), 0.1, 1.25)` | `false` — the one row the re-expression extends: SP-12's body returns `false` here through IEEE comparison, `SkiRentalThreshold` makes it explicit |
 | `TestEstimateRemainingReads` | `EffectiveWindow=180000, HardCeilingMargin=20000, ContextTokens=100000, FrontierTurn=100` | `60.6 ± 0.01` |
 | ″ | `ContextTokens=170000` (above hard ceiling) | `0` |
 | ″ | `FrontierTurn=0`, no candidates | `0` |
@@ -1557,6 +1597,7 @@ red-first and must fail before its implementation exists.
 | `TestEvaluatePrefersShallowCutWhenNotAmortizable` | candidates `(Pos 10000,score 100)`, `(120000, 98)`, `(150000, 97)`; `ExpectedRemainingReads=3`; TTL warm | `d.P.Pos==150000`; `Reasons` contains `"ski_rental_shallow"` |
 | `TestEvaluateKeepsDeepCutWhenAmortizable` | same candidates, `ExpectedRemainingReads=200` | `d.P.Pos==10000`; no ski-rental reason appended |
 | `TestEvaluateColdCacheIgnoresSkiRental` | `TTL="cold"`, `ExpectedRemainingReads=1` | `d.P` unchanged; no defer; breakdown keys still present |
+| `TestEvaluateWithZeroReadMultiplier` | `r=0` (and a second case with `w=0`), TTL warm | `Breakdown` has **no** `ski_rental_threshold` key and `Breakdown["ski_rental_unamortizable"]==1`; `json.Marshal(d)` returns a nil error — `encoding/json` refuses `+Inf`, and SP-12 round-trips `Decision` through `testdata/golden/scheduler/decision-*.json` |
 | `TestEvaluateIsStillPure` (rapid, 500 cases) | random `Inputs` | `Evaluate(in)` called twice deep-equals; no file created under `t.TempDir()` |
 
 ### BOCD priors (commit 2)
@@ -1716,15 +1757,17 @@ Exactly **7 commits**, all on `feat/sp16-phase7-refinements`. Each compiles and 
 
 ### Commit 2 — `feat(scheduler): ski-rental write policy and prior-seeded changepoint detection`
 
-- [ ] Write `internal/scheduler/skirental_test.go` (11 tests) and `internal/scheduler/warmprior_test.go` (11 tests) — all 22 tests from the two tables above. Run — **must fail to compile**, because `SkiRentalThreshold`, `EstimateRemainingReads`, `applySkiRental`, the two `TriggerReason` constants and every `warmprior.go` symbol do not exist. The six `TestSkiRentalShouldWrite` rows are the exception and are marked as such in the table above: they are **green from the first run**, because SP-01 already shipped that function. They are regression coverage for the move in the next step, not red-first TDD, and a session that "fixes" them into failing has broken working code.
-- [ ] Create `internal/scheduler/skirental.go` (`SkiRentalThreshold`, `SkiRentalShouldWrite`, `EstimateRemainingReads`, `applySkiRental`, `onlySoftReasons`, the two `TriggerReason` constants).
-- [ ] **Move** `SkiRentalShouldWrite` and its doc comment out of `internal/scheduler/formulas.go` into `skirental.go`, re-expressed through `SkiRentalThreshold`; there must be exactly one definition afterwards, and `formulas.go` keeps `YoungDaly`, `pSelectionAvailable` and `PSelectionAvailable` untouched. `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig` are **not edited** and must still be green — they are the proof the move preserved behaviour.
+- [ ] **Prerequisite, before any code in this commit:** the `plans/00-ARCHITECTURE.md` §5.13 amendment widening the `TriggerReason` wire enum from five values to seven must already have landed on `develop`. `TriggerSkiRentalDefer` and `TriggerSkiRentalShallow` are **new wire values**, not aliases of the shipped five, and §5.13's inline enumeration plus `internal/scheduler/types.go`'s "five named conditions" godoc both still say five. A §5 contract widening is an §0 amendment — it does not ride in on a feature branch.
+- [ ] **Extend** SP-12's `internal/scheduler/skirental_test.go` (12 tests) and write `internal/scheduler/warmprior_test.go` (11 tests) — all 23 tests from the two tables above. Run — **must fail to compile**, because `SkiRentalThreshold`, `EstimateRemainingReads`, `applySkiRental`, the two `TriggerReason` constants and every `warmprior.go` symbol do not exist. SP-12's existing `TestSkiRentalShouldWrite`, `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig` rows are **not edited** and must be **green on the first run that compiles** — i.e. immediately after the new symbols land in the next step, with no edit to their bodies. (A reconciled exception to `plans/README.md:59`'s red-first rule, not a silent carve-out: these rows cover code SP-01 shipped and SP-12 moved, so there is no red state to observe and manufacturing one would break working code. Because the package does not compile until the new symbols exist they cannot be *run* green first either — they are observed green in the same run as every other row, and that run is the regression proof for this commit's re-expression.) A session that "fixes" them into failing has broken working code.
+- [ ] **Extend** SP-12's `internal/scheduler/skirental.go` with `SkiRentalThreshold`, `EstimateRemainingReads`, `applySkiRental`, `onlySoftReasons` and the two `TriggerReason` constants. No file is created — SP-12 created `skirental.go` in wave 3.
+- [ ] **Re-express** SP-12's `SkiRentalShouldWrite` body in place through `SkiRentalThreshold`, preserving **both** guards (`r <= 0` and `w <= 0`) and its doc comment; there is exactly one definition before and after. `formulas.go` does not exist at this point — SP-12 deleted it in wave 3, redistributing `YoungDaly` into `youngdaly.go` and `pSelectionAvailable` / `PSelectionAvailable` into `gate.go`; neither file is touched here. `TestSkiRental_ComputedNotLiteral` and `TestSkiRental_ThresholdTracksConfig` are **not edited** and must still be green — they are the proof the re-expression preserved behaviour.
 - [ ] Create `internal/scheduler/warmprior.go` (`FeaturePrior(s)`, `DefaultFeaturePriors`, `SeedPriorsFromSegments`, `seeded`, `NewBOCDWithPriors`, `NewDetectorFromState`, `SetPriorWeight`, `FeatureValue`, `WithFeatureValue`, `seededWire` round-trip).
 - [ ] Modify `internal/scheduler/evaluate.go`: extract the per-candidate score into `scoreOf(in, c)` if inline (formula unchanged), then insert the single line `applySkiRental(&d, in)` before the return.
 - [ ] Modify SP-12's `scheduler.Runtime` implementation file in `internal/daemon`: the one-line swap of `scheduler.NewBOCD(...)`+`UnmarshalBinary(blob)` for `scheduler.NewDetectorFromState(hazard, features, blob)`.
+- [ ] Modify `internal/scheduler/types.go` (SP-01): the `TriggerReason` godoc — "five named conditions" and "all five … can appear in `Decision.Reasons`" become seven, naming `ski_rental_defer` and `ski_rental_shallow` as the two Phase 7 policy annotations. This mirrors the §5.13 amendment in the first bullet; the constant set and the godoc must never disagree.
 - [ ] `go test ./internal/scheduler/... ./internal/daemon/... -race` green; `go test -run TestEvaluateIsStillPure -count=2` green.
 - [ ] `go test -bench BenchmarkEvaluate ./internal/scheduler/... | benchstat testdata/bench-baseline.txt -` — within 10%.
-- [ ] Files: `internal/scheduler/{skirental,warmprior}.go` + tests, `internal/scheduler/formulas.go` (the move only), `internal/scheduler/evaluate.go`, SP-12's Runtime file in `internal/daemon`.
+- [ ] Files: `internal/scheduler/{skirental,warmprior}.go` + tests, `internal/scheduler/evaluate.go`, `internal/scheduler/types.go` (the `TriggerReason` godoc, five → seven), SP-12's Runtime file in `internal/daemon`.
 - [ ] Footer: `Refs: SP-16, §5.6, §6.6, Appendix A`
 
 ### Commit 3 — `feat(store): per-segment bloom filters populating Segment.BloomRef`
@@ -1830,12 +1873,13 @@ And by §11.4, which the segment blooms and the elimination rebuild must respect
 - [ ] Every item quoted in **Design context** has a corresponding implementation or an explicit non-delivery: §5.6 ski rental → `skirental.go`; §5.6 prefix reordering → non-delivery test + ADR; §6.8 per-level blooms → `segbloom.go`; §6.9 progressive truncation → `curve.go` + measured artifact; §8.7 promotion bullet → `promote.go`; §8.3 item 5 scope carry-forward → `daemon/phase7.go` step 2; §6.6 feature list → `warmprior.go`; §10 Phase 7 five bullets → commits 2–7; Appendix A ski-rental, Bloom, and Count-Min formulas → computed, never literal.
 - [ ] Placeholder scan over the code this branch adds: `grep -rniE 'TBD|FIXME|XXX|not implemented|placeholder' internal/ test/ docs/adr/0016-phase7-refinements.md` returns nothing outside SP-01's `core.ErrNotImplemented` declaration.
 - [ ] Type consistency with the **Interface contract**: every signature in Produces exists verbatim in the code; every signature in Consumes is called unchanged; no §5 interface gained, lost, or changed a method (Rule W-3 not engaged — `recordBloomRef` is an unexported method on the concrete `segLog` and `openSegLog` is an unexported constructor, so neither touches the frozen `SegmentLog` seam).
-- [ ] Only the anchored edits enumerated below were made to files owned by other subplans — **fourteen sites across twelve files**, nothing else in any of them changed:
+- [ ] Only the anchored edits enumerated below were made to files owned by other subplans — **fifteen sites across thirteen files**, nothing else in any of them changed:
 
   | File (owner) | Edits | What |
   |---|---|---|
   | `internal/config/{runtime,defaults,validate}.go` (SP-01) | 3 | one `RuntimeCfg` field, one `Defaults()` block, one `Validate()` line |
-  | `internal/scheduler/formulas.go` (SP-01) | 1 | `SkiRentalShouldWrite` **moved out**, with its doc comment, into `skirental.go`; `YoungDaly` and the p-selection guard untouched |
+  | `internal/scheduler/skirental.go` (SP-12) | 1 | `SkiRentalShouldWrite` **re-expressed in place** through `SkiRentalThreshold`; both guards (`r <= 0`, `w <= 0`) and the doc comment preserved. The commit's new Phase 7 symbols are appended to the same file and are not anchored edits |
+  | `internal/scheduler/types.go` (SP-01) | 1 | the `TriggerReason` godoc — "five named conditions" / "all five" → seven, naming `ski_rental_defer` and `ski_rental_shallow` as the two Phase 7 policy annotations. Requires the §5.13 amendment named in commit 2's first bullet |
   | `internal/scheduler/evaluate.go` (SP-12) | 1 | `applySkiRental(&d, in)` before the return (plus extracting `scoreOf` if it was inline) |
   | SP-12's `scheduler.Runtime` implementation file in `internal/daemon` | 1 | `NewBOCD(...)`+`UnmarshalBinary` → `scheduler.NewDetectorFromState(...)` |
   | `internal/store/segments.go` (SP-06) | 3 | the two `segLog` fields (`root`, `cfg`); `openSegLog`'s two new parameters plus the unexported `recordBloomRef`; the bloom build + `segBloomRec` append at the end of `Close` |

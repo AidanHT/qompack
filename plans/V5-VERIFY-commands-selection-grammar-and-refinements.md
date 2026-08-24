@@ -5,12 +5,14 @@
 > The smallest checkpoint (1.2k lines), over subsystems that are frontends or refinements rather than new substrate.
 
 **When this runs.** Immediately after every wave-4 branch has merged into `develop`, in the merge
-order fixed by `00-ARCHITECTURE.md` §9 (`--no-ff`, conflicts resolved on the *incoming* branch and
-re-merged, never with a hand-edited merge commit):
+order fixed by `plans/README.md` step 3 (`--no-ff`, conflicts resolved on the *incoming* branch and
+re-merged, never with a hand-edited merge commit). `00-ARCHITECTURE.md` §9 and §14 both delegate the
+per-wave order to the subplan decomposition rather than stating one, and that decomposition is
+`plans/README.md` — the same resolution V3-VERIFY §0a item 4 reached for wave 2:
 
-1. `feat/sp14-slash-commands-and-observability`
-2. `feat/sp15-analyzer-selection-and-grammar`
-3. `feat/sp16-phase7-refinements`
+1. `feat/sp15-analyzer-selection-and-grammar`
+2. `feat/sp16-phase7-refinements`
+3. `feat/sp14-slash-commands-and-observability`
 
 and **before any wave-5 branch (`feat/sp17-*`, `feat/sp18-*`) is cut**. 00-ARCHITECTURE §9 is
 explicit: *"The next wave's branches are cut from the post-verification `develop`. No wave-N branch
@@ -21,7 +23,9 @@ is ever cut before verification V<N> is green."*
 ```
 git checkout develop
 git pull
-git log --oneline --merges -3          # must show the three wave-4 merges, in the order above
+git log --oneline --merges -3 --reverse   # top to bottom: sp15, sp16, sp14 (--reverse is required:
+                                          # git log prints newest first, so without it the three
+                                          # wave-4 merges read sp14, sp16, sp15)
 git checkout -b verify/v5
 ```
 
@@ -120,10 +124,10 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-01.14 | **Hooks always exit 0** (§13 inv. 6) — 30 fault-injection combinations | `go test ./internal/cli/ -run 'TestDispatch_HookAlwaysExitsZero\|TestDispatch_PanicRecovered\|TestDispatch_NonHookErrorExitsOne\|TestDispatch_UnknownCommandExitsTwo' -v` | PASS; exit 0 in all 30; non-hook error exit 1; unknown command exit 2 |
 | I-01.15 | Plugin manifest generated from one typed source; six hooks; seven commands; `.mcp.json` | `go test ./internal/pluginmanifest/ -v` and `go run ./tools/devtool plugin-validate` and `git diff --exit-code -- plugin/` | tests PASS; task exit 0; diff clean; hook timeouts `5,5,15,20,5,10,20`; `PostToolUse` has `matcher:"*"` |
 | I-01.16 | Config docs never drift | `go run ./tools/devtool gen-config-docs --check` | exit 0 |
-| I-01.17 | **Every §5 interface has a live implementation now** — no stub residue anywhere | `go test ./test/guards/ -run TestAllStubsReturnNotImplemented -v` and `Select-String -Path internal\**\*.go -Pattern "ErrNotImplemented" -Exclude *_test.go` | the guard's probe table must show **zero** packages whose §5 interface methods still return `core.ErrNotImplemented`. The grep is read against a named survivor list rather than against zero, because three classes of reference are permanent and correct: (a) `internal/core/errors.go`, the declaration itself; (b) the `<pkg>test` conformance suites, which name the sentinel as an *accepted* answer while probing (`internal/analyzer/analyzertest/suite.go`, `internal/canon/canontest/suite.go`, and every sibling suite that does the same), plus `internal/canon/registry.go`'s doc comment; (c) `internal/cli`'s `notImplemented` table and `notImplementedRun`, which must at V5 carry **exactly three** rows — `fsck`, `doctor`, `bench` — the wave-5/SP-17 surfaces this checkpoint puts out of scope. **Any hit outside (a)–(c) is a V5 failure**, and so is a `notImplemented` table still listing `mcp`, `status`, `recall`, `pin`, `why`, `dropped` or `eval`: wave 4 delivers all seven, and their rows must be gone. |
+| I-01.17 | **Every §5 interface has a live implementation now** — no stub residue anywhere | `go test ./test/guards/ -run TestAllStubsReturnNotImplemented -v` and `Select-String -Path internal\**\*.go -Pattern "ErrNotImplemented" -Exclude *_test.go` | the guard's probe table must show **zero** packages whose §5 interface methods still return `core.ErrNotImplemented`. The grep is read against a named survivor list rather than against zero, because three classes of reference are permanent and correct: (a) `internal/core/errors.go`, the declaration itself; (b) the `<pkg>test` conformance suites, which name the sentinel as an *accepted* answer while probing (`internal/analyzer/analyzertest/suite.go`, `internal/canon/canontest/suite.go`, and every sibling suite that does the same), plus `internal/canon/registry.go`'s doc comment; (c) `internal/cli`'s `notImplemented` table and `notImplementedRun`, which must at V5 carry **exactly three** rows — `fsck`, `doctor` and `bench`. Two of the three have an owner: `V6-SP-17`'s Done checklist replaces the `fsck` and `doctor` entries with real `Cmd` registrations, which is why this checkpoint puts them out of scope. **`bench` has none.** Its source annotation reads `(SP-05)`, and SP-05 merged in wave 1; no plan in waves 3–5 registers a real `bench`, and SP-17's checklist does not name it. V5 therefore permits it as a **standing survivor with a recorded reason** — the hot-path harness it would front is `test/bench/hotpath`, invoked directly by every budget row in §5 — and the V5 completion report must carry that fact forward rather than let the row pass as an SP-17 surface. Naming an owner (or deleting the row) is a decision for the wave-5 plan set, not for this checkpoint. **Any hit outside (a)–(c) is a V5 failure**, and so is a `notImplemented` table still listing `mcp`, `status`, `recall`, `pin`, `why`, `dropped` or `eval`: wave 4 delivers all seven, and their rows must be gone. |
 | I-01.18 | Every conformance suite is live (Rule W-1) | `Select-String -Path internal\**\*test\**.go -Pattern '^\s*t\.Skip(f\|Now)?\('` | **no matching call.** The pattern deliberately matches *calls at statement position*, not mentions: the older `"t\.Skip"` spelling can never return nothing, because ~11 matches under `internal/**/*test*/` are prose (`// RETURNING, never by t.Skip …` in `internal/dag/dagtest/behaviour.go`, the `// t.Skip fires on the *T …` comments in eight `suite_test.go` files) or are `require.False(t, t.Skipped())` assertions that the skip did **not** fire — all of which are expected and are not failures. Any surviving `t.Skip(`/`t.Skipf(`/`t.SkipNow(` **call** in `sketchtest canontest symbolstest storetest dagtest negknowtest checkpointtest rehydratetest schedulertest mcptest evaltest ipctest redacttest tokenstest analyzertest grammartest observertest commandstest` is a V5 failure. Search the whole `*test*/` directory, never just `suite.go`: today `internal/tokens/tokenstest/estimator_suite.go` carries a real `t.Skip(stubSkipMsg)` inside `skipIfStub`, and it is the one hit this row exists to catch. Its owner (SP-06's `tokens`) must delete `skipIfStub` and its call sites before sign-off — once I-01.17 is green the stub branch it guards is unreachable, so the skip has nothing left to gate. |
 | I-01.19 | Cross-wave contract fixtures present and reproduced by real implementations (Rule W-2) | `go test ./... -run 'Golden\|Contract' -v` | PASS; `testdata/golden/contracts/**` reproduced by the **real** implementations, not by fixtures |
-| I-01.20 | Ship-order and safety guards | `go test ./test/guards/ -run 'TestGuard_' -v` | `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection`, `TestGuard_O1FlagDefaults`, `TestGuard_FreshBuildReportsModeFull`, `TestGuard_WriteSetConfinedToQompack`, `TestGuard_NoNetworkImports` all PASS |
+| I-01.20 | Ship-order and safety guards | `go test ./test/guards/ -run 'TestGuard_' -v` | `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection`, `TestGuard_O1FlagDefaults`, `TestGuard_SubmodularEnabledOnlyAfterPSelection`, `TestGuard_FreshBuildReportsModeFull`, `TestGuard_WriteSetConfinedToQompack`, `TestGuard_NoNetworkImports` all PASS — **nine** named guards, plus the sibling guards in the same package (`TestGuard_DeclaredSeverityIsPreservedOnTheAssertion`, `TestGuard_FaultEnvIsConfinedToTwoFiles`, `TestGuard_HotFilesAreReadWithDeleteSharing`, `TestGuard_NoSilentSketchLoadOutsideItsPackage` and the four `_Detects…`/`_Sees…` scanner self-tests), none of which may be failing either. The sixth name is the one to check by hand: `test/guards/buildorder_test.go` ships it as `TestGuard_SubmodularDefaultsOff` and SP-15 **re-points** it to `TestGuard_SubmodularEnabledOnlyAfterPSelection`. If **neither** name is in the run's output, SP-15 deleted the guard rather than renaming it, and that is a V5 failure — not a pass |
 | I-01.21 | Toolchain: `nomagic`, import-graph DAG, test-dep isolation, commit-msg checker | `go test ./tools/lint/nomagic/ ./tools/devtool/ -v` | `TestNoMagic_Analyzer`, `TestImportGraph_AcceptsRealRepo`, `TestImportGraph_RejectsViolation`, `TestTestDeps_RejectsProductionTestify`, `TestCheckCommitMsg` PASS |
 | I-01.22 | Test fixtures: temp project, FakeClock, Windows-hostile files, golden helper | `go test ./internal/testutil/ -v` | PASS incl. `TestWindowsHostileFiles_AllCreatable`, `TestProject_AssertAppendOnly` |
 | I-01.23 | e2e: all six hooks against the real binary | `go test ./test/e2e/ -run 'TestE2E_AllSixHooksExitZero\|TestE2E_ConfigPrintFromRealBinary' -v` | PASS; six exit-0s; hook log has six lines |
@@ -136,7 +140,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-02.1 | Block/demand extraction from a session | `go test ./internal/eval/ -run 'TestBlocks_\|TestDemands_\|TestApproachClass_Normalization' -v` | PASS; cumulative `Pos`; per-`paths.Key` file blocks; elimination demands matched by approach class |
 | I-02.2 | **Belady OPT** — knapsack, exactness, budget, determinism, fallback | `go test ./internal/eval/ -run 'TestBelady_' -v` | all PASS; `TestBelady_UnitWeightsMatchesClassicBelady` exact; `KeepSet.Tokens <= budget` always; `TestBelady_PMinIsEarliestDropped` |
 | I-02.3 | §5.6 breakpoint OPT, always labelled not-plugin-actionable | `go test ./internal/eval/ -run 'TestBreakpointOPT_' -v` | PASS; `Plan.Note == NotPluginActionable` on every path |
-| I-02.4 | Policies: `stock` (§2.4 step 7 reproduction), `null`, `oracle` | `go test ./internal/eval/ -run 'TestStockPolicy_\|TestNullPolicy_Empty\|TestOraclePolicy_ScoresExactlyOne\|TestPolicyNames_Sorted' -v` | PASS; `oracle` scores exactly 1.0; `stock` keeps 5 files at 5K each, `P == 0` |
+| I-02.4 | Policies: `stock` (§2.4 step 7 reproduction), `null`, `oracle` | `go test ./internal/eval/ -run 'TestStockPolicy_\|TestNullPolicy_Empty\|TestOraclePolicy_DelegatesToBelady\|TestPolicyNames_Sorted' -v` | PASS; `oracle`'s keep-set is byte-identical to `BeladyDetail`'s, so it scores exactly 1.0 against OPT; `stock` keeps 5 files at 5K each, `P == 0` |
 | I-02.5 | Counterfactual replay, horizon, determinism, live-mode refusal | `go test ./internal/eval/ -run 'TestReplay_' -v` | PASS; live mode refused without `QOMPACK_EVAL_LIVE`; two runs `go-cmp`-equal |
 | I-02.6 | The five §4.2 divergence metrics | `go test ./internal/eval/ -run 'TestCompare_' -v` | PASS; identical runs give `{Horizon,1,0,true,1,0,0}`; edit distance symmetric |
 | I-02.7 | Scoring: micro-averaged fraction-of-OPT, §5.2 rewrite arithmetic, percentiles, report | `go test ./internal/eval/ -run 'TestScoreRun_\|TestReport_\|TestMetricsOf_CoversEveryDirection' -v` | PASS; table A `rewrite_span_tokens == 17_000`, table B `== 157_000`; `TestScoreRun_NoHardcodedMultiplier` proves D11 at runtime |
@@ -144,7 +148,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-02.9 | Recorded-transcript importer + redaction | `go test ./internal/eval/ -run 'TestImport_\|TestRedact_' -v` and `go test ./internal/eval/ -run xxx -fuzz FuzzRedact -fuzztime 60s` | PASS; all 8 redact rules; idempotent; refuses in-repo destinations; no crashers |
 | I-02.10 | Sublinear-growth guardrail computation | `go test ./internal/eval/ -run TestCheckSublinearGrowth_ -v` | PASS; committed fixture `Exponent ≈ 0.62 ± 0.02` |
 | I-02.11 | **The replay gate** — 2% rule, sign-off trailer, phase assertions, corpus staleness, bloom FP ceiling | `go test ./test/replay/ -run 'TestGate_' -v` | all PASS incl. `TestGate_TwoPercentBoundaryExclusive` (−1.98% passes, −2.02% fails), `TestGate_SignOffAllowsNamedMetricOnly`, `TestGate_PhaseChecksMayNotBeDisabledInCI` |
-| I-02.12 | Phase-0 baseline reproducible | `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline .\v5-phase0-a.json` then again to `.\v5-phase0-b.json`; compare | byte-identical; `policies.stock.fraction_of_opt` equals the committed `testdata/baseline/phase0.json`; `"corpusTier":"synthetic"` present |
+| I-02.12 | Phase-0 baseline reproducible | `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline --baseline .\v5-phase0-a.json` then again with `--baseline .\v5-phase0-b.json`; compare | byte-identical; `policies.stock.fraction_of_opt` equals the committed `testdata/baseline/phase0.json`; `"corpusTier":"synthetic"` present. **`--write-baseline` is a boolean**, and the destination is `--baseline`: a positional path after it is an unparsed argument and the driver exits 2 having measured nothing |
 | I-02.13 | Replay driver e2e | `go test ./test/replay/ -run TestReplayDriver_EndToEnd -v` | PASS; exit 0; report parses |
 | I-02.14 | Eval benchmark budgets E-1..E-5 | `go test ./internal/eval/ -bench 'BenchmarkBeladyDetail_400Turns\|BenchmarkSynthesize_320Turns\|BenchmarkCompare_400Actions\|BenchmarkBreakpointOPT_256Candidates' -benchtime 2s` | ≤ 250 ms, ≤ 50 ms, ≤ 20 ms, ≤ 15 ms per op respectively |
 
@@ -179,7 +183,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-04.7 | Chunk fuzz | `go test ./internal/chunk/ -run xxx -fuzz FuzzSplit -fuzztime 120s` | no crashers; invariants hold on every input |
 | I-04.8 | Canonicalizer registry: deterministic order, 14 names, overlap resolution, non-growth guard | `go test ./internal/canon/ -run 'TestRegistry_\|TestOverlapResolution_\|TestNonGrowingGuard_\|TestApplied_\|TestReduced_Value\|TestMatcherClassAssigned' -v` | PASS; `For("Bash","")` returns the exact 10-name order |
 | I-04.9 | All seven generic + seven per-tool canonicalizers | `go test ./internal/canon/ -run 'TestCRLF_\|TestANSI_\|TestTimestamps_\|TestDurations_\|TestPIDs_\|TestAddresses_\|TestTmpPaths_\|TestBash_\|TestTestRunner_\|TestGrep_\|TestGlob_\|TestFileRead_\|TestWebFetch_\|TestGit_' -v` | all table rows PASS |
-| I-04.10 | **Idempotence, non-growth, exact inverse** (§5.6 normative) | `go test ./internal/canon/ -run 'TestPropIdempotence_EveryCanonicalizer\|TestPropNonGrowing_EveryCanonicalizer\|TestPropRestoreIsExactInverse\|TestRestore_' -rapid.checks=1000 -v` | PASS; `Restore(Canonicalize(x).Canonical, deltas) == x` |
+| I-04.10 | **Idempotence, non-growth, exact inverse** (§5.6 normative) | `go test ./internal/canon/ -run 'TestEveryCanonicalizer_Idempotent\|TestEveryCanonicalizer_NeverGrows\|TestNonGrowingGuard_\|TestRestore_' -rapid.checks=1000 -v` | PASS; `Restore(Canonicalize(x).Canonical, deltas) == x` (`TestRestore_RoundTrip`) |
 | I-04.11 | Near-dup delta-vs-full decision | `go test ./internal/canon/ -run 'TestDecide_' -v` | PASS incl. the golden `dedup-decisions.json` |
 | I-04.12 | Golden tool-output corpus reproduced | `go test ./internal/canon/ -run TestGoldenCorpus_AllFiles -v` | PASS **without** `-update` over all 24 corpus files |
 | I-04.13 | Canon fuzz | `go test ./internal/canon/ -run xxx -fuzz FuzzCanonicalizeRun -fuzztime 120s`; then `-fuzz FuzzRestore -fuzztime 120s` | no crashers |
@@ -192,7 +196,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 
 | # | Functionality | Command | Expected |
 |---|---|---|---|
-| I-05.1 | Address resolution: pipe naming, XDG/TempDir ladder, `sun_path` guard | `go test ./internal/ipc/ -run 'TestProjectHash12\|TestResolveUnix\|TestResolveWindowsPipeName' -v` | PASS; >100-byte paths fall back to `qp-<hash8>.sock`; `ErrAddrTooLong` when impossible |
+| I-05.1 | Address resolution: pipe naming, XDG/TempDir ladder, `sun_path` guard | `go test ./internal/ipc/ -run 'TestProjectHash12\|TestProjectHash8\|TestResolveFor_\|TestResolve_' -v` | PASS incl. `TestResolveFor_WindowsIsAlwaysANamedPipe`, `TestResolveFor_PosixPrefersXDGRuntimeDir`, `TestResolveFor_PosixFallsBackToTempDir` and `TestResolveFor_ShortFallbackWhenNoCandidateFits`; >100-byte paths fall back to `qp-<hash8>.sock`; `ErrAddrTooLong` when impossible (`TestResolveFor_ReportsWhenEvenTheShortFallbackIsTooLong`) |
 | I-05.2 | NDJSON framing byte-exactness, resynchronization, fuzz | `go test ./internal/ipc/ -run 'TestEncodeRequestByteExact\|TestDecodeRequestRoundTrip\|TestLineReaderRejectsOversize' -v`; `go test ./internal/ipc/ -run xxx -fuzz FuzzDecodeRequest -fuzztime 60s` | PASS; golden byte-equal; no crashers |
 | I-05.3 | 32-byte state record: round-trip, CRC fallback, atomic concurrent access | `go test ./internal/ipc/ -run 'TestState' -race -v` | PASS; torn records impossible; bad CRC silently falls back to defaults |
 | I-05.4 | **Client `Send` never propagates an error** | `go test ./internal/ipc/ -run 'TestSend' -race -v` | all PASS incl. `TestSendNeverReturnsError` (200 random requests × 4 hostile server shapes), `TestSendDaemonDownSpoolsAndReturnsNilError`, `TestSendOversizeExternalizes` |
@@ -208,7 +212,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-05.14 | Three-mode state machine enforcement | `go test ./internal/daemon/ -run 'TestDegradedPassive\|TestModeOffSkipsIngest' -v` | PASS; degraded-passive **records** but never **acts**; `act.`-prefixed idle tasks suppressed |
 | I-05.15 | Daemon lifecycle: idle exit, lock-held no-op | `go test ./internal/daemon/ -run 'TestIdleExitWithZeroSessions\|TestRunReturnsNilWhenLockHeld' -v` | PASS; lock and `state.bin` removed on exit |
 | I-05.16 | **Contract monitor** — nine assertions, five/four producer split, degrade/restore | `go test ./internal/contract/ -v` | all PASS incl. `TestFreshBuildReportsModeFull`, `TestDeclaredProducerSetMatchesArchitecture`, `TestCriticalFailureDegrades`, `TestTwoCleanRunsRestore`, `TestPanickingAssertionDoesNotDegrade`. **At V5, `mcp.server_registered`, `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and `hook.additional_context_delivered` all have real producers (SP-10, SP-11, SP-13) — they must report a real observation, not `not-yet-implemented`** |
-| I-05.17 | Budget table matches the architecture | `go test ./internal/obs/ -run 'TestBudgetsMatchArchitectureTable\|TestBudgetALimitFollowsConfig\|TestCheckBudgetsNeverGatesBD' -v` | PASS |
+| I-05.17 | Budget table matches the architecture | `go test ./internal/obs/ -run 'TestBudgets_AllSixPresentAndConfigDriven\|TestBudgets_BGCoversTheDegradedSpoolAppend\|TestCheckBudgets_NeverReportsBG\|TestCheckBudgets_NeverReportsUngatedBudgets' -v` | PASS; all four named tests report, none skipped. The names matter: `-run` prints `ok … [no tests to run]` and exits 0 on a pattern that matches nothing, so a misspelling here reads as green |
 | I-05.18 | **66 hook fault-injection combinations still exit 0** | `go test ./test/e2e/ -run 'TestHooksExitZeroUnderFaults\|TestFaultSitesInertWhenUnset\|TestSelfTestIsTheOnlyNonZeroExit' -v` | PASS; 6 subcommands × 11 fault sites = 66 exit-0s; only `self-test` may exit non-zero |
 | I-05.19 | Daemon e2e: round-trip, lazy spawn, idle exit, self-test, spool submode | `go test ./test/e2e/ -run 'TestE2EHookRoundTrip\|TestE2ELazySpawn\|TestE2EIdleExit\|TestE2ESelfTest\|TestE2ESpoolSubmodeEndToEnd' -v` | PASS |
 | I-05.20 | IPC/daemon micro-benchmarks | `go test ./internal/ipc/ ./internal/daemon/ -bench 'BenchmarkReadState\|BenchmarkServerRoundTrip\|BenchmarkIngestAccept\|BenchmarkEncodeRequest' -benchtime 2s` | `ReadState` < 100 µs; `ServerRoundTrip` p99 < 2 ms; `IngestAccept` p99 < 2 ms (**B-B**); `EncodeRequest` < 5 µs |
@@ -230,7 +234,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-06.11 | **Segment log + the encoded-once DPI guard** (§4.6, §8.2) | `go test ./internal/store/ -run 'TestSegment_' -v` | all PASS; **`TestSegment_MarkEncodedRefusesDifferentSeq` returns `core.ErrAlreadyEncoded`**; batch is all-or-nothing; frontier is contiguous |
 | I-06.12 | Search backing `recall` | `go test ./internal/store/ -run 'TestSearch_' -v` | PASS; deterministic ordering across 20 runs; default `K == 5` |
 | I-06.13 | **Stats and the Phase-1 dedup ratio** | `go test ./internal/store/ -run 'TestStats_\|TestPhase1ExitCriterion_ReadHeavy' -v` | `TestPhase1ExitCriterion_ReadHeavy`: `Stats.DedupRatio >= 4.0`; `TestStats_SublinearGrowth` PASS |
-| I-06.14 | GC: mark-and-sweep from real roots, retention "whichever is longer", deadline resume, dry run | `go test ./internal/store/ -run 'TestGC_' -v` | all PASS; zero `GCPolicy` deletes nothing; ephemeral roots collected by age; tombstoned roots stay in `roots.jsonl` |
+| I-06.14 | GC: mark-and-sweep from real roots, retention "whichever is longer", the **two** deadline truncations, dry run | `go test ./internal/store/ -run 'TestGC_' -v` | all PASS; zero `GCPolicy` deletes nothing; ephemeral roots collected by age; tombstoned roots stay in `roots.jsonl`. GC is **not** uniformly resumable, and the two truncations must be recorded separately: `TestGC_DeadlineTruncatesAndResumes` — a truncated **sweep** persists a cursor and the next pass continues from it; `TestGC_MarkPhaseHonoursTheDeadline` — a truncated **mark harvest** returns `Truncated: true` having collected nothing and having persisted **no** cursor, because sweeping against an incomplete live set would delete live objects, so a store whose budget is smaller than its mark never collects however often the tick fires; `TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline` — the mark's in-memory index walks answer to `ctx` alone, so a harvest already paid for is not thrown away. Record which of the two truncations the measured run took |
 | I-06.15 | Flush/session index; append-only guard over every store file | `go test ./internal/store/ -run 'TestFlush_\|TestAppendOnlyGuard_StoreFiles' -v` | PASS |
 | I-06.16 | Store properties | `go test ./internal/store/ -run 'Prop' -rapid.checks=1000 -v` | all six properties PASS |
 | I-06.17 | Store e2e durability | `go test ./test/e2e/ -run TestE2E_StoreSurvivesProcessRestart -v` | PASS |
@@ -427,7 +431,7 @@ git log develop --format=%B | Select-String -Pattern "co-authored-by|signed-off-
 | I-15.12 | **The `(1 − 1/e)` guarantee, brute-forced** | `go test ./internal/analyzer/ -run Prop -rapid.checks=1000 -v` | `PropGuaranteeUnitCost` and `PropGuaranteeKnapsack` PASS at 1 000 checks each; `PropMonotone`, `PropSubmodular`, `PropBudgetNeverExceeded`, `PropNothingBeforeP`, `PropCoverageMinusLambdaRedundancy` PASS |
 | I-15.13 | **The ship-order guard is real and inert without p-selection** | `go test ./internal/analyzer/ -run 'TestNewSelectorInertWithoutPSelection\|TestNewSelectorLiveWithPSelection\|TestPSelectionProbeDefaultsToScheduler\|TestSetPSelectionProbeRestores' -v` and `go test ./test/e2e/ -run 'TestPSelectionProbeIsTestOnly\|TestNoSelectorBypass' -v` | PASS; zero non-test references to `SetPSelectionProbe`; `TestNoSelectorBypass` parses every non-test `.go` file under `internal/analyzer` with `go/parser` and finds **exactly one** comparison of a block's `Pos` against `p` — the `if blocks[i].Pos < p` guard inside `NewSelectorWithStore` in `selector.go`. It is an AST check, not a `"Pos <"` string grep: block-vs-block ordering comparisons (`blocks[i].Pos < blocks[j].Pos`, sorts, span arithmetic) are legitimate and permitted, and a second `Pos`-vs-`p` comparison anywhere in the package fails the test naming file and line (invariant 4, "Do not add a bypass") |
 | I-15.14 | **Grammar folded into the checkpoint at compaction time** | `go test ./internal/checkpoint/ -run 'TestBuildActionHistory\|TestRenderActionHistory\|TestFold\|TestFinalizeIncludesActionHistory\|TestTruncateDropsActionHistoryFirst' -v` | all PASS; narrative **appended**, never rewritten; `sketch_refs.grammar` set; **`"version": 1` unchanged**; no code fences (§13 inv. 5) |
-| I-15.15 | Thrash warning reaches `additionalContext` | `go test ./test/e2e/ -run 'TestThrashWarning' -v` | PASS; `"[qompack] thrash:"` and `"repeated 11×"` present; inner context preserved; hook still exits 0 |
+| I-15.15 | Thrash warning reaches `additionalContext` | `go test ./test/e2e/ -run 'TestThrashWarning' -v` | PASS; `"[qompack] possible loop:"` and `"repeated 11×"` present; inner context preserved; hook still exits 0. The prefix is the shipped one (`internal/grammar/formatwarning.go:22`), which SP-15's rewrite re-points every golden at — `"[qompack] thrash:"` was never emitted by any build |
 | I-15.16 | **Phase-5 exit criterion** | `go test ./test/replay/ -run TestPhase5 -v` | PASS; `FractionOfOPT(analyzer-suffix-submodular) > FractionOfOPT(baseline)` on all 24 sessions at an identical 12 000-token budget, delta ≥ 0.02 on the read-heavy and refactor subsets; `testdata/replay-baseline/phase5.json` matches to 4 dp |
 | I-15.17 | **Phase-6 exit criterion** | `go test ./test/replay/ -run TestPhase6 -v` | PASS; on every `thrash-loop` session the first warning fires at or before the third repetition and ≥ 5 turns before the loop ends; zero warnings on non-thrash sessions |
 | I-15.18 | Analyzer and grammar budgets | `go test ./internal/analyzer/ ./internal/grammar/ -bench . -benchtime 2s` | `SequiturAppend` < 20 µs/op with amortization proven (n=200 000 within 3× of n=20 000); `GrammarMarshal50k` < 20 ms; `WarningsFor` < 5 ms cold and `WarningsForCached` < 50 µs; `CheapScorer500` < 250 ms; `DetectRedundancy2000` < 300 ms; `LazyGreedy2000` < 50 ms; `LazyGreedyEvaluations` ≤ naive/5 |
@@ -466,9 +470,11 @@ the **merged** `develop`, not against the branch that claimed it. Quotes are ver
 
 > **Exit criterion:** a single number for stock behaviour, reproducible across at least 20 real sessions.
 
-**Procedure.** `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline .\v5-p0-1.json`
-twice into two files; `fc /b .\v5-p0-1.json .\v5-p0-2.json` (or `Compare-Object`) must report no
-difference. Open `testdata/baseline/phase0.json` and confirm `policies.stock.fraction_of_opt`
+**Procedure.** `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline --baseline .\v5-p0-1.json`,
+then the same with `--baseline .\v5-p0-2.json`; `fc /b .\v5-p0-1.json .\v5-p0-2.json` (or
+`Compare-Object`) must report no difference. `--write-baseline` is a **boolean** that says *write
+rather than compare*; the destination is `--baseline`. A path handed to it positionally is left in
+`fs.Args()` and the driver exits 2 without replaying anything. Open `testdata/baseline/phase0.json` and confirm `policies.stock.fraction_of_opt`
 equals the freshly computed number, `"corpusTier":"synthetic"` is present, and the session count is
 **24 ≥ `eval.minSessions` (20)**. Confirm `docs/adr/0002-replay-methodology.md` still documents the
 recorded-corpus command and owner. **The synthetic substitution must remain declared, never silent.**
@@ -770,11 +776,12 @@ against the committed curve artifact.
 `checkpoint-now`.
 
 *Expected.* The prompt hook exits 0 and its `hookSpecificOutput.additionalContext` contains
-`[qompack] thrash:` and `repeated 11×`. The same cycle appears once in the checkpoint's action
-history. The warning is emitted **once per rule** — a second prompt does not repeat it. With the
-contract monitor forced to `ModeDegradedPassive`, the prompt hook emits **nothing** while the
-grammar still records the appends (§12.1 record-but-do-not-act), and `status` shows the degraded
-banner.
+`[qompack] possible loop:` and `repeated 11×` — that is the prefix `grammar.FormatWarning` emits
+(`internal/grammar/formatwarning.go:22`), and the one SP-15's goldens are re-pointed at. The same
+cycle appears once in the checkpoint's action history. The warning is emitted **once per rule** —
+a second prompt does not repeat it. With the contract monitor forced to `ModeDegradedPassive`, the
+prompt hook emits **nothing** while the grammar still records the appends (§12.1
+record-but-do-not-act), and `status` shows the degraded banner.
 
 ### 4.11 `TestV5_SegmentBloomNarrowsRecall`
 
@@ -986,7 +993,27 @@ A drop below any floor fails `verify` and is a V5 failure, not a waiver.
 **Procedure.**
 
 ```
-go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop --ci --json .\v5-replay.json
+go run ./tools/devtool replay --corpus testdata/sessions/synthetic \
+  --baseline develop --phase 7 \
+  --growth .\v5-growth.json --signoff .\v5-signoff.txt \
+  --max-cpu 3m --ci --out .\v5-replay.json               # expect exit 0 and "regressions": []
+# --phase defaults to 0. Without `--phase 7` only the Phase-0 check runs and the "Phases 0–7 pass"
+# assertion below is vacuous. Without `--signoff` the trailer scan has no PR body to read, so an
+# allowed regression cannot be distinguished from an unallowed one — an unreadable signoff path is
+# treated as an empty body, so check the file exists yourself.
+# `--growth` names a StatsSample JSON that must already exist (write it from the store's Stats
+# samples, as V4-VERIFY §4.9 does); a missing path is a hard error, not a skipped check.
+# --max-cpu is the COST bound; --max-wall stays at its 15 m liveness default. The report flag is
+# `--out`; there is no `--json`. No `--sketch` on a baselined run: the watch-fors are ratio metrics
+# judged at 2% against the fixture the baseline was recorded from, so a live ledger's health fails
+# it by construction — the absolute bloom ceiling is measured by §3.10 (b) instead.
+
+go run ./tools/devtool replay --corpus testdata/sessions/synthetic \
+  --sketch .\v5-health.json --baseline "" --phase 7 \
+  --max-cpu 3m --ci                                      # expect exit 0; EstFPRate < 0.10
+# `--baseline ""` is how a run says "compare nothing" deliberately; any other spelling of "no
+# baseline" is a path that named no file, and the driver fails rather than silently comparing zero
+# metrics.
 ```
 
 The gate compares every metric in `eval.MetricsOf` for every policy against the recorded baseline,
@@ -994,10 +1021,15 @@ honouring `MetricDirection` (higher-better vs. lower-better) and the zero-baseli
 tolerance. Requirements at V5:
 
 - **Zero `Regression` entries with `Allowed == false`.**
-- Any regression that *is* allowed must be justified by a `sign-off:` trailer in the merge commit
-  message on `verify/v5` naming **the exact metric** and giving a reason of more than four
-  characters — `sign-off: rewrite_tokens=+3.1% traded for a 9% first-divergence gain`. A blanket
-  sign-off is not accepted; the gate matches per metric.
+- **A regression discovered at this checkpoint is fixed, not signed off.** The `sign-off:` trailer
+  exists for a deliberate trade made on a *feature* PR; a checkpoint that signs off its own
+  regression has defeated its purpose, and a trailer added to `verify/v5` to carry one past this
+  gate is itself a V5 failure. If a metric genuinely must move, the sign-off belongs on the wave-4
+  PR (`feat/sp14-…`, `feat/sp15-…` or `feat/sp16-…`) that trades it.
+- Any regression already allowed by such a wave-4 trailer must name **the exact metric** and carry a
+  reason of **at least ten characters** (`test/replay/gate.go`'s `signOffMinReason = 10`) —
+  `sign-off: rewrite_tokens=+3.1% traded for a 9% first-divergence gain`. A blanket sign-off is not
+  accepted; the gate matches per metric.
 - The 2% boundary is exclusive: −1.98% passes, −2.02% fails. Do not round.
 - `TestGate_PhaseChecksMayNotBeDisabledInCI` must pass — `eval.replayOnPhaseGate` cannot be turned
   off to make this green.
@@ -1106,7 +1138,7 @@ never "ok" or a checkmark.
 
 ```
 V5 verification — commands, selection, grammar, Phase-7 refinements
-develop commit:      <sha>          (merges: sp14 <sha>, sp15 <sha>, sp16 <sha>)
+develop commit:      <sha>          (merges, in order: sp15 <sha>, sp16 <sha>, sp14 <sha>)
 verify/v5 commit:    <sha>
 Run started:         <ISO-8601>     Run completed: <ISO-8601>
 Platforms:           ubuntu-<ver> / macos-<ver> / windows-<ver>
@@ -1128,7 +1160,7 @@ Attribution-trailer grep over develop..verify/v5: <empty / FINDINGS>
 | I-01.7 | validation falls back, never crashes | | |
 | I-01.8 | `FuzzConfigLoad` | | crashers: |
 | I-01.9 | logging & Loud channel | | |
-| I-01.10 | histograms & six budgets | | |
+| I-01.10 | histograms & the seven budgets B-A..B-G | | |
 | I-01.11 | token estimation | | |
 | I-01.12 | hook wire format | | |
 | I-01.13 | `FuzzReadEvent` | | crashers: |
@@ -1248,6 +1280,7 @@ is not a report.)*
 | V2 inventory re-run | §2.2–§2.7 | | |
 | V3 inventory re-run | §2.8–§2.9 | | |
 | V4 inventory re-run | §2.10–§2.13 | | |
+| Wave-4 merge order (SP-15 → SP-16 → SP-14, `plans/README.md` step 3) | `git log --oneline --merges -3 --reverse` | | **merge order unverified — no guard discriminates this wave's permutations.** `plans/README.md`:51 makes every wave from 2 onward fill exactly one of two cells: name the build-order guard it authored, or record this declaration. Wave 4 has no guard — none of the six `TestGuard_*` in `test/guards/buildorder_test.go` distinguishes a wave-4 permutation — so V5 discharges the rule the second way, and the order is carried on review of the three merge commits |
 
 ### 8.7 Findings and fixes
 
@@ -1274,6 +1307,9 @@ is not a report.)*
     Count-Min to the epsilon-N accuracy bound under a Dims()-derived, collision-forcing load.
 [ ] B-A-prime's observe-prompt harness arm is committed on verify/v5 and its sha is recorded in
     Section 8.5; B-A-prime and B-G are both measured, not skipped.
+[ ] The wave-4 merge order declaration in Section 8.6 is filled in — either the name of a wave-4
+    build-order guard, or `merge order unverified — no guard discriminates this wave's
+    permutations` (plans/README.md:51). Leaving the cell blank is not one of the two options.
 [ ] Zero attribution trailers in develop..verify/v5.
 [ ] verify/v5 merged into develop with --no-ff; ci-local and replay-gate re-run on develop after the merge.
 [ ] Tag v0.4.0 applied.

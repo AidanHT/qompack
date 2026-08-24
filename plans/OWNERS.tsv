@@ -45,7 +45,7 @@ dag	SP-07	85	AddNode
 observer	SP-08	75	OnToolUse
 negknow	SP-09	90	Query
 checkpoint	SP-10	90	Begin
-pins	SP-10	75	Add
+pins	SP-10	90	Add
 rehydrate	SP-11	85	Build
 rules	SP-11	75	PathScoped
 skills	SP-11	75	Index

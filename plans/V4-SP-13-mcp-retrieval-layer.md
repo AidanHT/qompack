@@ -184,7 +184,10 @@ Also from §12, degradation doctrine (`00-ARCHITECTURE.md` §12.1 and §12.3):
 
 Every signature below is reproduced exactly. The `store.Store`, `store.SegmentLog` and
 `checkpoint.Reader` blocks list **only the methods SP-13 calls** — the full interfaces are §5.8 and
-§5.14 and are not restated or altered here. SP-13 calls no method outside these lists.
+§5.14 and are not restated or altered here. SP-13 calls no method outside these lists. The last block
+is the one to read twice: SP-13's daemon bootstrap (spec §11) is not a wiring line, it is the
+composition root's whole resident-set lifecycle, so `internal/cli` calls constructors and `Close`
+methods that `internal/mcp` itself never touches. They are consumed all the same and are listed here.
 
 ```go
 // §5.8 internal/store
@@ -289,10 +292,39 @@ func SpawnDetached(projectRoot, self string) error
 // state/contract.json, which is the Monitor's own persisted mode/reason/results file: two distinct
 // schemas sharing one path corrupt each other the first time both are written
 // (internal/contract/history.go's HistoryPath comment says exactly this).
+// The four signatures below rest on the §5.19 amendment that added SessionHistory, HistoryPath,
+// LoadHistory and SaveHistory to the section (they were absent when this plan was written, and
+// §5.19 declared only ID/Severity/Result/Mode/Assertion/Env/Monitor). Confirm that amendment is on
+// the develop this branch is cut from before relying on the citation; the shipped declarations are
+// internal/contract/history.go:80, :259, :280, :306, and LoadHistory/SaveHistory are POINTER-based
+// because the read-modify-write is the point — a value copy silently loses the modification.
 type SessionHistory struct{ /* … */ MCPInitialized bool `json:"mcp_initialized"` /* … */ }
 func HistoryPath(projectRoot string) string
 func LoadHistory(path string) *SessionHistory
 func SaveHistory(path string, h *SessionHistory) error
+
+// Composition-root constructors and closers — called from internal/cli/daemon.go by SP-13's
+// resident-set block (spec §11 — created by SP-11, extended here), never from internal/mcp, which
+// §3.2 keeps free of all of them.
+// Each Open failure logs Loud and leaves its Options field nil; runDaemon still returns nil.
+func store.Open(root string, cfg config.Config, deps store.Deps) (store.Store, error)   // §5.8
+type store.Deps struct{ Chunker chunk.Chunker; Canon canon.Registry; Tokens tokens.Estimator
+                        Symbols symbols.Extractor; Redact redact.Redactor
+                        Log logging.Logger; Metrics obs.Registry; Clock core.Clock }
+func dag.Open(root string, cfg config.Config, log logging.Logger) (dag.Graph, error)     // §5.9
+func negknow.Open(root string, cfg config.Config, b *sketch.Bloom,
+                  deps negknow.Deps) (negknow.Ledger, error)                             // §5.10
+type negknow.Deps struct{ Store store.Store; Graph dag.Graph
+                          Log logging.Logger; Metrics obs.Registry; Clock core.Clock }
+func symbols.New() symbols.Extractor                                                     // §5.22b
+func paths.Of(root string) paths.Layout        // §5.0; .State is where promotions.json is written
+// The two Close()s the bootstrap defers. They are members of the §5.8 and §5.10 interfaces above
+// and are the only methods of those interfaces `internal/cli` calls that `internal/mcp` does not.
+// Both are deferred in runDaemon so the daemon releases its store and ledger on exit; dag.Graph
+// exposes no Close, which is why there are two defers and not three.
+Store.Close() error                                                                      // §5.8
+Ledger.Close() error                                                                     // §5.10
+// The seventh symbol the block calls, mcp.NewPromoter, is SP-13's own — see the Produces block.
 
 // wave-3 siblings, wired only at the post-merge rebase (spec §11)
 func checkpoint.OpenReader(root string, log logging.Logger, m obs.Registry) (checkpoint.Reader, error) // SP-10
@@ -922,10 +954,29 @@ func (nopSpool) Append(ipc.Request) error { return nil }
 func (nopSpool) Path() string             { return "" }
 ```
 
-**The daemon bootstrap, and what SP-13 actually has to add to it.** `internal/cli/daemon.go` is SP-05's `qompack daemon` subcommand and the composition root that builds `daemon.Options`, but on `develop` it opens **no store, no ledger and no graph**: between `LoadConfigAndReport` and `daemon.New` it does exactly `opts := daemon.NewOptions(root, cfg)` plus `opts.Log`, `opts.Metrics` and `opts.Clock`, and `NewOptions` fills only `ProjectRoot`, `Cfg`, `Log`, `Metrics`, `Clock` and `Sketches`. So `st`, `ledger`, `syms` and `promoter` do not exist at that point and there is no one line to add. **SP-13 owns opening them**, in `internal/cli/daemon.go`, after the config load and **before `daemon.New(opts)`** — this whole block, not a line:
+**The daemon bootstrap, and what SP-13 actually has to add to it.** `internal/cli/daemon.go` is SP-05's `qompack daemon` subcommand and the composition root that builds `daemon.Options`, but on `develop` it opens **no store, no ledger and no graph**: between `LoadConfigAndReport` and `daemon.New` it does exactly `opts := daemon.NewOptions(root, cfg)` plus `opts.Log`, `opts.Metrics` and `opts.Clock`, and `NewOptions` fills only `ProjectRoot`, `Cfg`, `Log`, `Metrics`, `Clock` and `Sketches`.
+
+**Ownership ruling — SP-11 creates the block, SP-13 extends it and owns its final shape.** An earlier draft of this section read *"SP-13 owns opening them"*, and `plans/V4-SP-11-rehydrator-l5.md`'s prerequisite 1 reads *"SP-11 lands the minimal block; SP-13 owns its final shape and extends it."* Both cannot be executed: `store.Open`, `dag.Open` and `negknow.Open` would be written twice, on two branches, into the same six-line window — a guaranteed rebase collision on exactly the lines where a duplicate is a **corruption bug**, because two `store.Store` handles on one project root is not a redundancy. Merge order settles it, not preference. Wave 3 merges SP-10 → SP-11 → SP-12 → SP-13 (`plans/README.md:44`), SP-11 merges **second**, and SP-11's exit criterion `TestE2E_AdditionalContextProducerIsDeclared` runs against a daemon built the way `cmd/qompack` builds it — so the block must exist at SP-11's merge, two merges before this one. SP-13 owning creation would make an already-merged subplan's exit criterion unreachable. **This section is the corrected one; SP-11's prerequisite 1 is the ruling, and this document conforms to it.**
+
+So the split is:
+
+| Line | Created by | Read by |
+|---|---|---|
+| `syms := symbols.New()` | **SP-11** — it is `store.Deps.Symbols`, and a nil there silently disables `Query.Symbol` and the §8.7 span widener for two whole merges | SP-13 (passes it to `NewToolDeps`) |
+| `store.Open` / `opts.Store` | **SP-11** | SP-12 Block 1, SP-13 |
+| `dag.Open` / `opts.Graph` | **SP-11** | SP-12 Block 1, SP-13 |
+| `negknow.Open` / `opts.Ledger` | **SP-11** | SP-12 Block 1, SP-13 |
+| `checkpoint.OpenReader` → `ckptReader` | **SP-11** (SP-10 merged first, so it is real, not typed-nil) | SP-13 |
+| the two `defer Close`s | **SP-11** | — |
+| `BindRehydrate(o, svc)` | **SP-11** | — |
+| `rehydrate.NewReporter` → `dropReporter` | **SP-13** | SP-13 |
+| `mcp.NewPromoter` → `promoter` | **SP-13** | SP-13 |
+| `daemon.InstallMCPOp(&opts, NewToolDeps(…))` | **SP-13** | — |
+
+The whole block, after SP-13 has extended it, is below. The lines SP-13 **adds** are marked; everything unmarked is SP-11's and this branch's diff must show it unmoved and unedited:
 
 ```go
-syms := symbols.New()
+syms := symbols.New()                                                            // SP-11
 st, err := store.Open(root, cfg, store.Deps{Symbols: syms, Log: log, Metrics: reg, Clock: clk})
 if err != nil {
     log.Loud("daemon: store unavailable; retrieval and L3 are disabled for this daemon", "err", err.Error())
@@ -949,6 +1000,9 @@ if opts.Store != nil {
         opts.Ledger = ledger
     }
 }
+ckptReader := checkpoint.OpenReader(root, log, reg)                              // SP-11
+// —— SP-13 ADDS FROM HERE ——
+dropReporter := rehydrate.NewReporter(root, log)
 promoter, err := mcp.NewPromoter(filepath.Join(paths.Of(root).State, "promotions.json"),
     cfg.Retrieval.PromoteAfterExpansions, clk)
 if err != nil {
@@ -960,7 +1014,19 @@ if err := daemon.InstallMCPOp(&opts, NewToolDeps(root, cfg, opts.Store, opts.Led
 }
 ```
 
-Three properties of that block are load-bearing and a reviewer must check each. (a) **Every failure degrades, never exits** — `runDaemon`'s whole contract is that it returns nil however badly things go (a hook's `lazySpawn` has already exited 0), so each constructor logs `Loud` and leaves its `Options` field nil; every MCP handler already tolerates a nil `Store`/`Ledger` and says `available:false`. (b) **`InstallMCPOp` is last**, because it must run after `opts.Store`/`opts.Graph`/`opts.Ledger` are assigned and before `daemon.New(opts)` — `New` seeds `Services` from those fields, registers its own fallback `mcp` route only for ops not already registered, and calls `DeclareProducers` after applying every `Bind`. (c) **This wiring is shared, and SP-13 is its single owner.** SP-12's L3 bootstrap reads the same `opts.Store`, `opts.Graph` and `opts.Ledger` for `daemon.SchedulerRuntimeOptions`, and SP-12's plan is corrected to say so rather than to open a second store: until this block lands, `NewSchedulerRuntime` reports its missing deps by name and L3 stays disabled. SP-13 merges last in wave 3 (§14), so the wave closes with one store, one ledger and one graph in the daemon process — if a reviewer finds a second `store.Open` in `internal/cli`, that is the defect.
+**What this changes about the typed-nil development device.** SP-13's branch is cut before SP-11 has merged, so during development `ckptReader` and `dropReporter` are typed nils and `syms`/`st`/`opts.Ledger` do not exist in the file at all — write the `InstallMCPOp` call against locals the branch declares itself, and delete those local declarations at the rebase in favour of SP-11's. The rebase step below says so explicitly. What must **not** happen is SP-13 shipping its own `store.Open`: at rebase that is a conflict if you are lucky and a second store handle if you are not.
+
+**Shared-file protocol — SP-13 is not the only subplan writing this file.** `runDaemon`'s window between `opts := daemon.NewOptions(root, cfg)` (line 81) and `d, err := daemon.New(opts)` (line 86) is claimed by four subplans: SP-08 (observer wiring), SP-11 (the resident-set block and `BindRehydrate`), SP-12 (its three scheduler blocks) and SP-13 (the MCP extension). Wave 3 merges SP-10 → SP-11 → SP-12 → SP-13, so by the time SP-13 rebases the window already contains SP-08's `opts.Bind`, SP-11's resident-set block and SP-12's Blocks 1 and 2 — **SP-13 is the last writer and creates none of them.** It appends `mcp.NewPromoter` and `rehydrate.NewReporter` after SP-11's block, places `InstallMCPOp` immediately before `daemon.New(opts)`, and moves or rewrites no line of SP-08's, SP-11's or SP-12's. The resulting order is normative, and each step reads what the one before it wrote:
+
+1. **SP-08's observer wiring** (`V3-SP-08`, commit 6) — sets the five `Services` seams SP-12's tap decorates.
+2. **SP-11's resident-set block** — `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `checkpoint.OpenReader`, the `opts.Store`/`opts.Graph`/`opts.Ledger` assignments, the two `defer Close`s, and `BindRehydrate(o, svc)`.
+3. **SP-12's Block 1 and Block 2** — `NewSchedulerRuntime` reads the three fields step 2 assigned, then the tap's `opts.Bind` registers after SP-08's.
+4. **SP-13's extension** — `rehydrate.NewReporter`, `mcp.NewPromoter`, then `InstallMCPOp(&opts, …)` last in the window, per (b) below.
+5. **`daemon.New(opts)`**, then SP-12's Block 3 (idle registration) immediately after it succeeds.
+
+`plans/V4-SP-12-scheduler-l3.md`'s `internal/cli/daemon.go` section states the same five steps; if the two ever disagree, that is a defect in whichever was edited last, not a licence to reorder. The same section also records the extraction SP-12 performs if the file outgrows its self-imposed 150-line ceiling — SP-13's block is roughly 30 lines and is the largest single contributor, so expect the extraction to happen and expect `wireScheduler(&opts)` to sit at step 3 in place of SP-12's inline blocks.
+
+Three properties of that block are load-bearing and a reviewer must check each. (a) **Every failure degrades, never exits** — `runDaemon`'s whole contract is that it returns nil however badly things go (a hook's `lazySpawn` has already exited 0), so each constructor logs `Loud` and leaves its `Options` field nil; every MCP handler already tolerates a nil `Store`/`Ledger` and says `available:false`. (b) **`InstallMCPOp` is last**, because it must run after `opts.Store`/`opts.Graph`/`opts.Ledger` are assigned and before `daemon.New(opts)` — `New` seeds `Services` from those fields, registers its own fallback `mcp` route only for ops not already registered, and calls `DeclareProducers` after applying every `Bind`. (c) **This wiring is shared; SP-13 owns the block's FINAL SHAPE and the one-store invariant, not the file and not the block's creation.** SP-11 creates the resident-set lines two merges earlier (ownership ruling above); SP-12's L3 bootstrap reads the same `opts.Store`, `opts.Graph` and `opts.Ledger` for `daemon.SchedulerRuntimeOptions` rather than opening a second store, and because SP-11 merges **before** SP-12, `NewSchedulerRuntime` finds its deps present at SP-12's merge — the L3-disabled degrade path is the failure case, not the expected state. SP-13 merges last in wave 3 (§14), which is why the closing count is its responsibility: the wave must end with exactly one store, one ledger and one graph in the daemon process, and if a reviewer finds a second `store.Open` anywhere in `internal/cli`, that is the defect and it is SP-13's to report even when SP-13 did not write it.
 
 `ckptReader` and `dropReporter` are **not** `daemon.Services` members — `Services` carries a `checkpoint.Writer` and a `Rehydrate` function, neither of which is what `why` and `dropped` need. They are constructed here, in the composition root, from the wave-3 siblings' own constructors:
 
@@ -1195,6 +1261,12 @@ Fixture object: `src/auth.ts`, 200 000 canonical bytes, chunked by the real Fast
 | `TestDaemonMCPOpResolvesSessionFromRegistry` | empty `ipc.Request.Session`; registry holds one ended session and one live session with the greater `LastActivityTS` | the ephemeral record's `Session` is the live one |
 | `TestDaemonMCPOpEmptyRegistryDegrades` | empty registry | `dropped` returns `available:false`, `reason:"no live session"`; `expand` still succeeds with an empty `Session` on its record |
 | `TestDaemonMCPOpResolvesTurnFromCurrentSegment` | `Turn:0`, open segment with `StartTurn == 12` | ephemeral record has `Turn == 12`; with no open segment, `Turn == 0` and no error |
+| `TestBootstrapStoreOpenFailureDegrades` (`internal/cli/daemon_bootstrap_test.go`) | `store.Open` fails (its object directory pre-created as a regular file) | `runDaemon` returns nil, exactly one `Loud` naming the store, `opts.Store` nil, `daemon.New` still called, and a `recall` through the resulting daemon answers `available:false` rather than erroring |
+| `TestBootstrapDAGOpenFailureDegrades` | `dag.Open` fails the same way | `runDaemon` returns nil, one `Loud` naming the dag, `opts.Graph` nil, and the store and ledger are still opened — a dead graph does not cascade |
+| `TestBootstrapLedgerSkippedWhenStoreIsNil` | `store.Open` fails | spy `negknow.Open` records **zero** calls (the `opts.Store == nil` guard), exactly one `Loud` is emitted (the store's — no second, misleading "elimination ledger unavailable"), and `already_tried` answers `available:false` |
+| `TestBootstrapLedgerOpenFailureDegrades` | live store, `negknow.Open` fails | `runDaemon` returns nil, one `Loud` naming the ledger, `opts.Ledger` nil, `opts.Store` still non-nil, `already_tried` `available:false` while `recall` still returns hits |
+| `TestBootstrapPromoterFailureDegrades` | `mcp.NewPromoter` fails (its `promotions.json` path pre-created as a directory) | one `Loud`, `InstallMCPOp` still called and still succeeds, tools serve, and `expand` returns without promoting |
+| `TestBootstrapClosesStoreAndLedgerExactlyOnce` | spy `Close` recorders on both handles; `runDaemon` driven to return on the normal path, and again with `daemon.New` returning an error | both `defer Close`s fire on both paths, each exactly once, ledger before store (LIFO); no `Close` on the dag, which exposes none; a nil `opts.Ledger` from the previous rows produces no nil-deref |
 | `TestCmdMCPWritesNothingButJSONRPCToStdout` | run `cmd_mcp` in-process against pipes with a logger set to Debug | every stdout line is a valid `rpcResponse` |
 | `TestCmdMCPDaemonUnavailableReturnsToolError` | no daemon, lazy spawn disabled by building the client with `ClientOptions{Spawn: nil}`, `retryDelay` shortened by the test | `isError:true` with the exact "qompack daemon unavailable" text; server keeps serving and a following `ping` answers |
 | `TestCmdMCPRetriesUntilListenerAppears` | spy `Spawn` func; fake listener appearing on the third retry | `Spawn` invoked exactly once (SP-05's `lazySpawn` is once-per-process), the call succeeds on the third attempt, and total attempts ≤ 10 |
@@ -1270,9 +1342,9 @@ Work happens on `feat/sp13-mcp-retrieval-layer`, cut from `develop` with SP-01, 
 
 ### Commit 6 — `feat(cli): qompack mcp subcommand, daemon mcp op, and the initialize observable`
 
-- [ ] Write **failing** tests: `internal/mcp/observable_test.go` (2 cases), `internal/daemon/mcpop_test.go` (9 cases), `internal/cli/cmd_mcp_test.go` (5 cases)
+- [ ] Write **failing** tests: `internal/mcp/observable_test.go` (2 cases), `internal/daemon/mcpop_test.go` (9 cases), `internal/cli/cmd_mcp_test.go` (5 cases), `internal/cli/daemon_bootstrap_test.go` (6 cases — one per degrade path of the spec §11 block: `store.Open`, `dag.Open`, the `opts.Store == nil` ledger skip, `negknow.Open`, `mcp.NewPromoter`, and the two `defer Close`s). The bootstrap is the only part of SP-13 whose whole contract is what it does when things fail; a block with five `Loud` branches and no test for any of them is how a silent-degrade regression ships.
 - [ ] `go test ./internal/mcp/... ./internal/daemon/... ./internal/cli/...` → red
-- [ ] Add `internal/mcp/observable.go`, `internal/daemon/mcpop.go`, `internal/cli/mcpwire.go`; replace SP-01's `internal/cli/cmd_mcp.go` stub; add the resident-set block of spec §11 to SP-05's daemon bootstrap in `internal/cli/daemon.go` — `symbols.New()`, `store.Open`, `dag.Open`, `negknow.Open`, `mcp.NewPromoter`, the `opts.Store`/`opts.Graph`/`opts.Ledger` assignments, then `daemon.InstallMCPOp(&opts, NewToolDeps(…))`, all before `daemon.New(opts)` and each failure logged `Loud` and degraded — passing typed-nil `ckptReader`/`dropReporter`
+- [ ] Add `internal/mcp/observable.go`, `internal/daemon/mcpop.go`, `internal/cli/mcpwire.go`; replace SP-01's `internal/cli/cmd_mcp.go` stub; add SP-13's extension of spec §11's bootstrap block to `internal/cli/daemon.go` — `mcp.NewPromoter` and then `daemon.InstallMCPOp(&opts, NewToolDeps(…))` last before `daemon.New(opts)`, each failure logged `Loud` and degraded. **Do not write `symbols.New()`, `store.Open`, `dag.Open` or `negknow.Open` here**: SP-11 creates those two merges earlier (ownership ruling in spec §11), and a second `store.Open` in `internal/cli` is a corruption bug. On this pre-rebase branch they do not exist yet, so declare whatever locals the `NewToolDeps` call needs — including typed-nil `ckptReader`/`dropReporter` — as branch-local declarations to be deleted at the rebase
 - [ ] `go test ./... -race` → green; `go run ./tools/devtool build && ./bin/qompack mcp < testdata/corpora/mcp/initialize.ndjson` returns a valid `initialize` result
 - Body: why handlers execute daemon-side (single writer, warm state) and the client process is a transcoder. Footer: `Refs: SP-13, 00-ARCHITECTURE §2.4, §12.1 mcp.server_registered`
 
@@ -1283,14 +1355,14 @@ Work happens on `feat/sp13-mcp-retrieval-layer`, cut from `develop` with SP-01, 
 - [ ] Add `tools/devtool/genmcpdocs.go`, register `gen-mcp-docs` in the devtool task table, generate `docs/mcp-tools.md`, add the `gen-mcp-docs` step to CI's `docs` job and the 8-tool assertion to `plugin-validate`
 - [ ] `go run ./tools/devtool gen-mcp-docs && git diff --exit-code`
 - [ ] `go run ./tools/devtool ci-local` → all green; push and confirm CI green on the branch
-- [ ] After SP-10, SP-11 and SP-12 have merged into `develop`: `git rebase develop`; replace the typed-nil `ckptReader`/`dropReporter` in `internal/cli/daemon.go` with `checkpoint.OpenReader(root, log, metrics)` and `rehydrate.NewReporter(root, log)`; un-skip `TestStandingInstructionsAgree`; re-point the `why`/`dropped` tests from `fakeReader`/`fakeReporter` to those real implementations while keeping the same `testdata/golden/contracts/checkpoint/**` inputs (Rule W-2 verification — a fixture the real reader cannot reproduce is a verification failure, not a fixture bug); re-run `ci-local`, then merge with `--no-ff` as the last wave-3 merge
+- [ ] After SP-10, SP-11 and SP-12 have merged into `develop`: `git rebase develop`; **delete this branch's local `syms`/`st`/`ledger`/`ckptReader` declarations in favour of SP-11's resident-set block, which the rebase brings in** — `ckptReader` is already `checkpoint.OpenReader(root, log, reg)` there and needs no replacement — and replace the typed-nil `dropReporter` with `rehydrate.NewReporter(root, log)`; confirm `git grep -c 'store\.Open' -- internal/cli` returns 1; un-skip `TestStandingInstructionsAgree`; re-point the `why`/`dropped` tests from `fakeReader`/`fakeReporter` to those real implementations while keeping the same `testdata/golden/contracts/checkpoint/**` inputs (Rule W-2 verification — a fixture the real reader cannot reproduce is a verification failure, not a fixture bug); re-run `ci-local`, then merge with `--no-ff` as the last wave-3 merge
 - Footer: `Refs: SP-13, 00-ARCHITECTURE §2.4 B-F, §7, §8`
 
 ---
 
 ## Subagent strategy
 
-This subplan is heavy (~2 600 LOC of implementation plus ~2 200 LOC of tests). Partition it across four parallel subagents. **The commit plan stays strictly sequential and is executed only by the main session** — subagents produce files, the main session sequences them into the seven commits.
+This subplan is heavy: roughly **2 750 LOC of implementation plus 2 400 LOC of tests**. The four-subagent partition below covers `internal/mcp` and `internal/daemon/mcpop.go`, and it was sized when the daemon bootstrap was believed to be one line. It is not — though it is also no longer the whole resident-set lifecycle: spec §11's ownership ruling gives SP-11 the creation of `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `checkpoint.OpenReader`, the three `Options` assignments and the two `defer Close`s, and leaves SP-13 the extension — `rehydrate.NewReporter`, `mcp.NewPromoter`, `InstallMCPOp` and their `Loud`-and-degrade branches, about **8 lines of composition-root code plus ~60 lines of degrade-path tests** — plus, undiminished, the invariant that the wave closes with exactly one store, one ledger and one graph in the daemon process, which SP-13 owns because it merges last. That work is **not** in any subagent's partition: it stays in the main session (see the bullet below), it is written after D's `mcpwire.go` lands, and it is re-checked after the wave-3 rebase — the rebase being where this branch's local stand-in declarations are deleted in favour of SP-11's block, the step most likely to go wrong. Budget main-session time for it rather than treating it as a wiring afterthought. Partition the rest across four parallel subagents. **The commit plan stays strictly sequential and is executed only by the main session** — subagents produce files, the main session sequences them into the seven commits.
 
 **Stays in the main session, done first, before any subagent is dispatched.** Write and land the shared vocabulary so every subagent codes against the same types, with no guessing:
 
@@ -1313,7 +1385,7 @@ Rules for the partition:
 - Subagents **A and B may start immediately** after the main session lands `types.go` + schemas. **C** may start at the same time (it depends only on `types.go` and the fixtures). **D** must wait for A (it registers on a real `Server`) and for the `recordEphemeral` call sites that B and C create — dispatch D once A is green and B/C have their handler signatures fixed, and have D stub the call sites behind a one-line `h.recordEphemeral(...)` that B and C already invoke.
 - **File-level exclusivity is absolute.** Handlers are split across `handlers.go` (C) and `handlers_span.go` (B) precisely so two subagents never edit one file. The `handlers` struct and the shared `run` preamble live in `handlers_common.go`, written by the main session and read-only to every subagent.
 - Each subagent returns a **diff plus its own `go test ./internal/... -race` output**; the main session re-runs the full suite before every commit and is the only actor that runs `git commit`.
-- The daemon-bootstrap edit (spec §11's resident-set block: `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `mcp.NewPromoter`, the three `Options` assignments and `InstallMCPOp`) is made by the **main session**, never a subagent, because it is the only cross-subplan file touched, SP-12 depends on the same three assignments, and it must be re-checked after the wave-3 rebase.
+- The daemon-bootstrap edit (spec §11: SP-13's extension — `rehydrate.NewReporter`, `mcp.NewPromoter` and `InstallMCPOp` — appended to SP-11's resident-set block, plus the deletion at rebase of this branch's local stand-in declarations) is made by the **main session**, never a subagent, because it is the only file SP-13 shares with other subplans — SP-08, SP-11 and SP-12 write into the same six-line window — SP-12 reads the same three assignments, and the shared-file order of spec §11 must be re-checked after the wave-3 rebase.
 
 ---
 
@@ -1370,6 +1442,6 @@ SP-13's contribution to it is the surface, and it is verified locally as: `alrea
 - [ ] **Spec coverage self-review**: walk the "Design context" section top to bottom and point at the code or test that implements each quoted item — the §8.7 tool table (all eight), the three ephemeral bullets, the Appendix C `retrieval` block (all three keys), the `runtime.mcp` keys, the §8.3 three-way response and `scope`, the §12 re-inflation row, the §12.1 `mcp.server_registered` observable, the §12.3 bloom-failure and panic rows, and budget B-F.
 - [ ] **Placeholder scan**: `grep -rn -E 'TODO|TBD|FIXME|XXX|not implemented|unimplemented' internal/mcp internal/daemon/mcpop.go internal/cli/cmd_mcp.go internal/cli/mcpwire.go tools/devtool/genmcpdocs.go docs/mcp-tools.md` returns nothing (`core.ErrNotImplemented` must no longer appear in `internal/mcp`).
 - [ ] **Type consistency with the Interface contract**: every §5.16 name, field and signature is present and unchanged; the five additive fields (`Request.Turn`, `ToolDeps.Widener/ProjectRoot/Clock/Log/Metrics`) are additions only; no method was added to another subplan's interface (Rule W-3).
-- [ ] Out-of-scope discipline: no file under `internal/checkpoint`, `internal/rehydrate`, `internal/negknow`, `internal/store`, `internal/symbols`, `internal/scheduler`, `internal/commands` or `internal/analyzer` was modified. The only edits outside SP-13's own files are: the `t.Skip` removals in SP-01's `mcptest`, the replacement of SP-01's `internal/cli/cmd_mcp.go` stub, the **resident-set block** added to SP-05's `internal/cli/daemon.go` (spec §11: `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `mcp.NewPromoter`, the `opts.Store`/`opts.Graph`/`opts.Ledger` assignments and the `InstallMCPOp` call, plus their `Loud`-and-degrade error paths and the two `defer Close`s — and nothing else in that file), the `gen-mcp-docs` entry in `tools/devtool`, and the two CI job additions (`docs`, `plugin-validate`). `git diff --stat develop` is checked against exactly that list.
+- [ ] Out-of-scope discipline: no file under `internal/checkpoint`, `internal/rehydrate`, `internal/negknow`, `internal/store`, `internal/symbols`, `internal/scheduler`, `internal/commands` or `internal/analyzer` was modified. The only edits outside SP-13's own files are: the `t.Skip` removals in SP-01's `mcptest`, the replacement of SP-01's `internal/cli/cmd_mcp.go` stub, the **extension of the resident-set block** in SP-05's `internal/cli/daemon.go` (spec §11: `rehydrate.NewReporter`, `mcp.NewPromoter` and the `InstallMCPOp` call, plus their `Loud`-and-degrade error paths — **nothing else in that file is SP-13's**, which is not the same as nothing else being in it: SP-08's observer wiring, SP-11's resident-set block and SP-12's three scheduler blocks are already there on the rebased `develop`, and this branch's diff must show them unmoved and unedited. In particular `git diff develop -- internal/cli/daemon.go` must show **no** added `symbols.New`, `store.Open`, `dag.Open` or `negknow.Open` line: those are SP-11's, and `git grep -c 'store\.Open' -- internal/cli` returns 1), the `gen-mcp-docs` entry in `tools/devtool`, and the two CI job additions (`docs`, `plugin-validate`). `git diff --stat develop` is checked against exactly that list, and that same line-by-line read confirms the shared-file order of spec §11 holds: SP-08's `Bind`, SP-11's resident-set block, SP-12's Blocks 1–2, SP-13's extension and `InstallMCPOp`, `daemon.New(opts)`, SP-12's Block 3.
 - [ ] `Qompack.md` is untouched at the repository root.
 - [ ] Commit count verified in `5–8`; wave-3 merge performed last, with `--no-ff`, after SP-10, SP-11 and SP-12.

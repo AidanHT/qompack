@@ -261,6 +261,12 @@ func TestCarriedDefects_OpenRowsHaveLivingEvidence(t *testing.T) {
 // a named later checkpoint with the reason written down. Both are conscious acts that leave a trace
 // in git history; neither is reachable by forgetting.
 //
+// One subtest per unresolved row. `require.Failf` is FailNow, and in a bare loop it reports the
+// FIRST unresolved row whose resolver's report already exists and abandons the rest — a
+// fourteen-row backlog becomes fourteen fix-and-rerun cycles of a package that takes ~45 s to run.
+// V2-VERIFY §4a promises the opposite ("expect a failure naming every unresolved row"), and t.Run
+// is what makes that true.
+//
 // While no report exists the assertion is vacuous and the test passes, which is the state on the
 // branch that adds it. It is not skipped — a skip would be invisible to `devtool lint`'s stubskips
 // sub-check and would read as an unfinished test rather than as an inapplicable condition.
@@ -272,25 +278,27 @@ func TestCarriedDefects_WaveReportRequiresResolution(t *testing.T) {
 		if !d.unresolved() {
 			continue
 		}
-		// The checkpoint that must dispose of the row is its RESOLVER, not always its owner: an
-		// open row is its owner's, a `deferred:<X>` row is X's. The checkpoint name and the report
-		// name share the wave prefix, which is the convention V1 established.
-		resolver := d.resolver()
-		wave, _, ok := strings.Cut(resolver, "-")
-		require.True(t, ok, "%s: resolver %q is not <wave>-<kind>", d.id, resolver)
+		t.Run(d.id, func(t *testing.T) {
+			// The checkpoint that must dispose of the row is its RESOLVER, not always its owner: an
+			// open row is its owner's, a `deferred:<X>` row is X's. The checkpoint name and the
+			// report name share the wave prefix, which is the convention V1 established.
+			resolver := d.resolver()
+			wave, _, ok := strings.Cut(resolver, "-")
+			require.True(t, ok, "%s: resolver %q is not <wave>-<kind>", d.id, resolver)
 
-		report := filepath.Join(root, "plans", wave+"-report.md")
-		if _, err := os.Stat(report); err != nil {
-			continue
-		}
-		require.Failf(t, "carried defect left unresolved at wave sign-off",
-			"%s is still `%s` in %s, but plans/%s-report.md exists — %s has been signed off with a "+
-				"defect it was responsible for resolving.\n\n  %s\n\nResolve it one of two ways: "+
-				"fix it and set the status to `fixed`, or set the status to `deferred:<a later "+
-				"checkpoint>` and add the reason to %s. Both are fine; leaving it for this "+
-				"checkpoint is not.",
-			d.id, d.status, carriedDefectsPath, wave, resolver, d.summary,
-			carriedDefectsDocFor(t, root, d.id))
+			report := filepath.Join(root, "plans", wave+"-report.md")
+			if _, err := os.Stat(report); err != nil {
+				return
+			}
+			require.Failf(t, "carried defect left unresolved at wave sign-off",
+				"%s is still `%s` in %s, but plans/%s-report.md exists — %s has been signed off with a "+
+					"defect it was responsible for resolving.\n\n  %s\n\nResolve it one of two ways: "+
+					"fix it and set the status to `fixed`, or set the status to `deferred:<a later "+
+					"checkpoint>` and add the reason to %s. Both are fine; leaving it for this "+
+					"checkpoint is not.",
+				d.id, d.status, carriedDefectsPath, wave, resolver, d.summary,
+				carriedDefectsDocFor(t, root, d.id))
+		})
 	}
 }
 

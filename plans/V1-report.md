@@ -222,3 +222,27 @@ One exception is recorded rather than waived: **Q8 is BLOCKED, not PASS.** No gi
 configured, so no CI run exists to observe. Every job CI would run was executed locally through
 `devtool ci-local`, which exits 0. Q8 should be cleared the first time this repository gains a
 remote, and it is the one row a reader of this report should not treat as verified.
+
+## Correction recorded 2026-08-23 (wave-2+ plan audit)
+
+This report is append-only and no verdict above is rewritten. One row's *wording* has since been
+found narrower than the product it graded, and the correction is recorded here rather than in the
+row, because the row was true of what was tested.
+
+**Architecture invariants, row 7.** The row reads "No network, no telemetry, no writes outside
+`.qompack/`", which is §13 invariant 7's wording as it stood at V1, and the evidence behind it —
+the network guard, `TestValidate_TelemetryMustBeFalse` and IT-4's write-set snapshot — is
+unaffected and still passes. `test/guards/writeset_test.go` asserts exactly those two prefixes,
+`<root>/.qompack/` and `<home>/.qompack/`, over all six hooks, and that assertion is correct and
+complete for what it covers.
+
+What the row's *wording* does not cover is a location the plugin does not choose. On POSIX the
+daemon's IPC endpoint is a Unix socket, so `internal/ipc/listen_unix.go` does `os.MkdirAll` on the
+directory `ipc.Resolve` picked and `net.Listen` creates a socket file there —
+`$XDG_RUNTIME_DIR/qompack/`, else `<os.TempDir()>/qompack-<uid>/`. On Windows, where this
+checkpoint ran, the endpoint is a named pipe and no filesystem entry exists, which is why the
+divergence could not surface here. §13 invariant 7 has been amended to state both halves. The V1
+row graded what it tested, on the platform it ran on, correctly; the correction is recorded because
+SP-18 is instructed to quote invariant 7 verbatim into `docs/architecture.md`, and a user-facing
+promise that a POSIX install silently breaks is the one class of documentation defect this project
+treats as a product defect.

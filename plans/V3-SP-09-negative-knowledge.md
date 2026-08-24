@@ -16,7 +16,7 @@ The mechanism is a canonical descriptor `(normalized_path, symbol_or_null, appro
 
 **How G6.1 is closed, concretely.** G6.1 is "no schema slot for ruled-out approaches"; §9 attributes its closure to "L4 `eliminated[]` + Bloom". This subplan supplies both halves of that: `negknow.Record` **is** the typed schema slot, and its `MarshalJSON` emits exactly the §8.5 `eliminated[]` entry shape, so SP-10 embeds `[]negknow.Record` as checkpoint tier 1 with no transformation and no second schema; `tried.bloom`, keyed on the canonical descriptor and rebuilt only from active records, is the immortal membership half. The residual column in §9 reads "—" because nothing about the slot depends on the summarizer cooperating. The two neighbouring gaps are explicitly *not* this subplan's to close: G6.2 is closed by SP-13's `already_tried` standing instruction (SP-09 supplies the ledger it calls) and G6.3 by SP-15's Δ-scoring (SP-09 supplies the `KindElimination` DAG nodes it scores).
 
-**What exists in the repo when you start.** `develop` carries all of wave 0 and wave 1. From SP-01: `internal/core` (`Hash`, `HashBytes`, `Dep`, `ChunkRef`, `Clock`, the sentinel errors), `internal/paths` (`Norm`, `Key`, `AppendOnly`, `CreateNew`, `WriteAtomic`, `Of`, `ReplaceBloom`, `HighestBloomBackupSeq`), `internal/config` (the full Appendix C schema including `EliminationsCfg` and `SketchesCfg`), `internal/logging`, `internal/obs`, `internal/testutil` (`NewProject`, `FakeClock`), and `testdata/golden/contracts/negknow/`. **Parts of `internal/negknow` are already real and are not this subplan's to re-derive**: `types.go` ships `Scope`/`Status`/`SourceKind` with their constants, `Descriptor` with its frozen json tags, `Dep = core.Dep`, and a **fully implemented, golden-frozen `Descriptor.Key()`**; `record.go` ships the `Record` struct with the frozen json tags. What is still a stub is `Canonicalize` (returns the zero `Descriptor`) and the `ErrNotImplemented` body of `negknow.Open`, plus the `negknowtest` conformance suite with its behaviour tests `t.Skip`ped (Rule W-1). From SP-03: a real `internal/sketch` with `Bloom`, `NewBloom`, `RebuildBloom(capacity, fpRate, keys iter.Seq[[]byte])`, `FillRatio`, `EstimatedFPRate`, `ResizeTarget`, `Save`, `Load`, **`LoadWithLog`** (the form a composition root must call) and **`ReplaceGenerational`** (the only sanctioned writer of `sketches/tried.bloom`, §3.3). From SP-06: a real `internal/store` with `ChangedSince([]core.Dep)`, `FileHistory`, `PutBytes`, and the CRC-checked object store. From SP-07: a real `internal/dag` with `AddNode`, `AddEdge`, `Node`, `In`, `Out`, `NodesAfter`, `BackwardSlice`, and the `NodeID` constructors every consumer must build ids through.
+**What exists in the repo when you start.** `develop` carries all of wave 0 and wave 1. From SP-01: `internal/core` (`Hash`, `HashBytes`, `Dep`, `ChunkRef`, `Clock`, the sentinel errors), `internal/paths` (`Norm`, `Key`, `AppendOnly`, `CreateNew`, `WriteAtomic`, `Of`, `ReplaceBloom`, `HighestBloomBackupSeq`), `internal/config` (the full Appendix C schema including `EliminationsCfg` and `SketchesCfg`), `internal/logging`, `internal/obs`, `internal/testutil` (`NewProject`, `FakeClock`), and `testdata/golden/contracts/negknow/`. **Parts of `internal/negknow` are already real and are not this subplan's to re-derive.** The package ships six non-test files plus its `negknowtest` sibling, and every declaration in them is SP-01's: `doc.go`; `types.go` — `Scope`/`Status`/`SourceKind` with their constants, `Descriptor` with its frozen json tags, `Dep = core.Dep`, and a **fully implemented, golden-frozen `Descriptor.Key()`**; `record.go` — the `Record` struct with its frozen json tags; `answer.go` — `AnswerState` with `AnswerAbsent`/`AnswerActive`/`AnswerStale` and the `Answer` struct (`State`, `Record`, `Note`, `BloomOnly`); `detector.go` — the `Detector` interface (`Scan(ctx, dag.Graph, core.TurnIndex) ([]Record, error)`), declared deliberately **without** a constructor, which is the one SP-09 adds; `ledger.go` — `Deps` (`Store`, `Graph`, `Log`, `Metrics`, `Clock`), `Health` (`Records`/`Active`/`Stale`, `FillRatio`/`EstFPRate`, `NeedsResize`), the ten-method `Ledger` interface, and `Open(root string, cfg config.Config, b *sketch.Bloom, deps Deps) (Ledger, error)`. Three shipped test files pin parts of that and are not this subplan's to rewrite: `key_test.go` (`fixedDescriptor`, `wantDescriptorKeyHex`, `TestDescriptorKey_Stable` and two siblings), `fixture_test.go` (`TestRecord_RoundTripsFrozenEliminationFixture`, `TestRecord_MatchesCheckpointFixtureEliminatedEntry` — the two frozen fixtures), and `types_test.go`. **What is still a stub is narrower than "`Open` is unimplemented", and the difference is load-bearing:** `Open` itself already **succeeds** — it returns `stubLedger{}, nil`, which is why a wave-0 composition root can hold a live `negknow.Ledger` today — and it is the unexported `stubLedger`'s methods that report `core.ErrNotImplemented`, all of them but `Health`, which returns the zero `Health`. SP-09 replaces `stubLedger` and gives `Open` a real body; it does not change `Open`'s signature or its "constructing always succeeds" contract, which SP-05's daemon already relies on. `Canonicalize` is the other stub — it returns the zero `Descriptor`, and its body is replaced in place in `types.go`. In `negknowtest`, `suite.go`'s `RunLedgerSuite` already runs its `/shape` block against the stub and then `skipIfStub` — probing with `Query` — calls `t.Skip(ruleW1SkipMsg)` before the `/behaviour` block; `behaviour.go` ships all three behaviour cases written and unrun (`three_way_absent_active_stale`, `bloom_rebuilt_from_active_records_only`, `bloomonly_consistency`). The unskip is what SP-09 *earns*, not what it writes, and `ruleW1SkipMsg`'s literal is greped by `devtool lint`'s `stubskips` sub-check, so it may not be paraphrased. From SP-03: a real `internal/sketch` with `Bloom`, `NewBloom`, `RebuildBloom(capacity, fpRate, keys iter.Seq[[]byte])`, `FillRatio`, `EstimatedFPRate`, `ResizeTarget`, `Save`, `Load`, **`LoadWithLog`** (the form a composition root must call) and **`ReplaceGenerational`** (the only sanctioned writer of `sketches/tried.bloom`, §3.3). From SP-06: a real `internal/store` with `ChangedSince([]core.Dep)`, `FileHistory`, `PutBytes`, and the CRC-checked object store. From SP-07: a real `internal/dag` with `AddNode`, `AddEdge`, `Node`, `In`, `Out`, `NodesAfter`, `BackwardSlice`, and the `NodeID` constructors every consumer must build ids through.
 
 **What exists when you finish.** `internal/negknow` is complete and its `negknowtest` skips are all removed. The ledger records eliminations from all four §8.3 sources, answers `already_tried` three ways, flips records stale from `store.ChangedSince`, rebuilds `sketches/tried.bloom` from active records only, and never returns a membership answer that is not backed by a record lookup or explicitly flagged `BloomOnly`. SP-13 (`already_tried`, `record_eliminated`), SP-14 (`/qompack:pin --eliminated`), SP-10 (checkpoint tier-1 `eliminated[]`), SP-11 (the eliminations digest) and SP-16 (project-scope carry-forward) all call this ledger rather than reimplementing any of it. A Phase 2 replay assertion in `test/replay/` proves the exit criterion.
 
@@ -210,7 +210,20 @@ What follows is not background reading. Each item is a constraint on what this s
    first version appended for a dependency after the fix re-derives a different root from identical
    bytes and `RefreshStaleness` flips an active record stale on evidence that did not change. Either
    the dep baseline stays re-derivable, or the record carries the canonicalizer generation it was minted
-   under and the staleness comparison declines to flip on that axis alone. `Descriptor.Key()` and
+   under and the staleness comparison declines to flip on that axis alone. **The second of those is not
+   free, and this plan prices it rather than leaving it as an open hatch.** `Record`'s json tags are
+   frozen and normative (§5.10), and two byte-frozen fixtures transcribe that declaration —
+   `testdata/golden/contracts/negknow/want/elimination_record.jsonl` and
+   `testdata/golden/contracts/checkpoint/want/0001.json`'s `eliminated[0]` — so a generation field is
+   not a field this subplan may add. If it is ever added, exactly one shape is admissible: a trailing
+   additive key tagged `omitempty` whose zero value means *unversioned*, the same shape `stale_since`
+   and `stale_because` already have, so a record minted before the fix still marshals to the frozen
+   line byte-for-byte and neither fixture is touched. Even then it needs an `arch/` amendment to §5.10
+   landed on `develop` first, because §5.10's declaration is what those fixtures are transcribed from.
+   **SP-09 therefore takes the first branch and only the first branch:** the dep baseline stays
+   re-derivable, `RefreshStaleness` compares nothing it cannot recompute, and no generation field is
+   minted in wave 2. The hatch is recorded here as the option available to whoever lands the D2/D3
+   fix — it travels with that change and its amendment, not with this subplan. `Descriptor.Key()` and
    `MatchKey()` are not affected — they hash this package's own canonicalization (`ApproachClass`,
    `reasonHash`) and the bloom is rebuilt from records regardless — and that is not a licence to treat
    the store's hashes as equally stable.
@@ -273,7 +286,7 @@ Implement only `internal/negknow`, its tests, its conformance-suite unskip, one 
 | `redact.Redactor` and its application at `store.Put` | **SP-06** |
 | DAG node/edge model, persistence, `BackwardSlice`, `CrossingEdges`, `Compact` | **SP-07** |
 | Emission of `EdgeConsumes`/`EdgeProduces`/`EdgeSharedFile` edges from real tool uses; `observer.Signals`; **any file under `internal/observer`** | **SP-08** (sole writer, §5.21) |
-| Calling `RefreshStaleness` from the `SessionStart` startup/resume branch | **SP-08** |
+| Calling `RefreshStaleness` from the `SessionStart` startup/resume branch — in `internal/daemon/observer_ops.go`, around SP-08's `OnSessionStart`, never inside `internal/observer` (see the note under this table) | **SP-08** |
 | Checkpoint tier-1 embedding of `[]negknow.Record` into `eliminated[]`, `Truncate`, importance ordering | **SP-10** |
 | The rehydrator's eliminations digest rendering, `StandingInstruction()` text, the 8-item injection order, the top-N budget key `runtime.rehydrate.eliminationsTopN` | **SP-11** |
 | Registering `MaintenanceTask` with `daemon.IdleController`; the `BackgroundTask("rebuild_bloom")` scheduling decision; idle-gap detection | **SP-12** |
@@ -284,6 +297,25 @@ Implement only `internal/negknow`, its tests, its conformance-suite unskip, one 
 | The replay harness, `eval.Synthesize`, the 24-session corpus, `Belady`, the `replay-gate` CI job, the 2% no-regression rule | **SP-02** (SP-09 adds exactly one new test file that consumes `eval.Harness`; it edits none of SP-02's files) |
 | Security audit of free-text elimination fields | **SP-17** |
 | `docs/user-guide.md` "how to record and query eliminations" | **SP-18** |
+
+**The one row above that must not stay implicit — `RefreshStaleness`'s production caller.**
+`RefreshStaleness` is the mechanism behind the §12 High-severity staleness row this plan carries at
+its head, and this table hands its *only* wave-2 production caller to SP-08. Precisely what SP-08
+owes: in `internal/daemon/observer_ops.go` — the one file SP-08 adds outside its own package —
+`WireObserver` binds `s.SessionStart` from `obsv.OnSessionStart`; that binding wraps the call and,
+when the daemon's `Services.Ledger` is non-nil, invokes `s.Ledger.RefreshStaleness(ctx, s.Store)`
+on the `startup`/`resume` branch before returning the observer's output, tolerating a nil ledger and
+a nil store silently (both are legitimate in a stub build). It cannot live in `internal/observer`:
+SP-08's own Done checklist forbids that package importing `negknow` at all, so `observer_ops.go` is
+the only sanctioned seam. The gate is a `TestWireObserver_SessionStartRefreshesStaleness` row beside
+SP-08's existing `TestWireObserver` in `internal/daemon/observer_ops_test.go`, plus a V3-VERIFY row
+asserting the refresh happens **through the daemon path with the ledger bound** — V3-VERIFY's X2
+drives `led.RefreshStaleness(ctx, st)` from the test body, so without that row a green wave-2
+checkpoint proves nothing about whether a production caller exists at all. The idle-driven caller is
+a separate, later thing — the `MaintenanceTask` registration row above, owned by SP-12 in wave 3, so
+it cannot stand in for this one. **If SP-08 declines this**, the row is wrong as written and wave 2
+closes with a flip nothing calls: change its owner cell to **SP-12**, and record the deferral in
+V3-VERIFY §0a rather than leaving the two documents to disagree silently.
 
 ---
 
@@ -544,6 +576,50 @@ type ObservationSource interface{ Since(turn core.TurnIndex) []Observation }
 var ErrNoEvidence = errors.New("qompack: elimination requires evidence (eliminations.requireEvidence)")
 var ErrBlind      = errors.New("qompack: elimination ledger is in blind mode")
 ```
+
+**The `obs` instrument names this subplan mints.** These are strings, not Go symbols, so nothing
+catches a typo at compile time and a second spelling simply produces a second, silently empty
+instrument. This list is the single authority for how they are written; every occurrence elsewhere
+in this plan is a copy of a line here, and no other subplan may re-mint one under a different name.
+
+```text
+counters
+  negknow.records.appended               a record line was appended to records/eliminations.jsonl
+  negknow.records.deduped                an append collapsed onto an existing record
+  negknow.records.rejected_no_evidence   refused under eliminations.requireEvidence (ErrNoEvidence)
+  negknow.query.<state>                  one per Answer state, suffixed by the state's own name
+  negknow.query.bloom_only               a bloom hit with no backing record (a false positive)
+  negknow.stale.flipped                  RefreshStaleness moved a record active → stale
+  negknow.stale.skipped                  a stale record was not answered as a block
+  negknow.log.corrupt_lines              an unparseable line was skipped (Warn, never fatal)
+  negknow.log.duplicate_add              a second record line for an ID already materialized
+  negknow.log.unknown_op                 a control line carrying an unrecognized "op" key
+  negknow.log.orphan_stale               a stale control line naming no known record
+  negknow.detector.candidates            source #3 proposed an elimination
+  negknow.detector.emitted               a candidate survived to a record
+  negknow.detector.dropped_no_evidence   a candidate was dropped for lack of an evidence root
+  negknow.user_statement.unresolved      source #4 could not resolve a path or approach
+  negknow.bloom.rebuilds                 RebuildBloom completed and swapped a new filter in
+  negknow.bloom.blind_mode               the record log was unreadable at Open; blind = true
+  negknow.bloom.corrupt_on_load          tried.bloom failed its CRC at Open (bit rot, not cold start)
+
+histograms
+  negknow.record    append latency        negknow.refresh   RefreshStaleness latency
+  negknow.query     query latency         negknow.rebuild   RebuildBloom latency
+
+idle task name (not an instrument)
+  negknow.maintain  the (name, prio, fn) triple MaintenanceTask returns for SP-12 to register
+```
+
+`negknow.bloom.corrupt_on_load` is **new in this subplan** and deserves its own sentence, because it
+is the one name above that cannot be checked against anything: `git grep -n corrupt_on_load` over
+the whole tree returns nothing today, so there is no shipped spelling to conform to and no test
+outside this plan that would notice a variant. SP-09 mints it, exactly as written above — lower
+snake case, under the `negknow.bloom.` family, singular `corrupt`, `_on_load` not `_at_load`. It is
+the counter that separates bit rot from a cold start in §12.3's "bloom load fails" row: incremented
+when `errors.Is(err, sketch.ErrCorrupt)` holds, left alone on an ordinary first session, and
+asserted at both ends by `TestBloomLoadFailure_RebuildsFromRecords` (`== 1`) and
+`TestBloomLoad_ColdStartIsQuiet` (`== 0`).
 
 ---
 
@@ -1506,7 +1582,7 @@ Consumes `eval.Harness` (SP-02, already on `develop`) and touches none of SP-02'
    - `require.Greater(stockRepeats, 0)` — guards against a vacuous pass on a corpus with no eliminations.
    - `require.LessOrEqual(negknowRepeats, int(0.75*float64(stockRepeats)))` — at least a 25 % reduction, the operationalization of "measurable reduction in repeated-elimination events in replay."
    - `require.Less(negknowRepeats, stockRepeats)` on at least 8 individual sessions.
-4. **Metric 2 — stale-block incidents.** Restricted to sessions whose `SynthSpec.DependencyChangeAt` is non-empty. A *stale-block incident* is any `Query` that returned `AnswerActive` at a turn at or after the turn where one of that record's `depends_on` entries changed. Assertion: `require.Zero(staleBlocks)` across every dependency-change session, and `require.Greater(dependencyChangeSessions, 0)`.
+4. **Metric 2 — stale-block incidents.** Restricted to sessions whose `SynthSpec.DependencyChangeAt` is non-empty. A *stale-block incident* is any `Query` that returned `AnswerActive` at a turn at or after the turn where one of that record's `depends_on` entries changed. Assertion: `require.Zero(staleBlocks)` across every dependency-change session, and `require.Greater(dependencyChangeSessions, 0)`. **What that zero claims, and what it does not** — the qualification inherited constraint 2 (SP05-D1) argues in full, restated here because this is the line that carries it: `require.Zero(staleBlocks)` is a statement about *the ledger given the events it received*, not about the world. SP-05's drain is not lossless on abort; a lost `PostToolUse` never manufactures a false flip but can produce a **missed** one, leaving a record `active` whose evidence did in fact change. The replay corpus is deterministic and drops nothing, so this assertion is structurally incapable of seeing that case and must not be read as excluding it. Write that in the test file as a comment directly above the assertion, in those terms — the exit criterion should *say* its scope rather than imply it.
 5. Write the report to `filepath.Join(t.TempDir(), "phase2-negknow.json")` with `{stock_repeats, negknow_repeats, reduction_pct, stale_blocks, sessions, dependency_change_sessions}` and `t.Log` it so the `replay-gate` job surfaces the numbers.
 
 ### Benchmarks
@@ -1573,7 +1649,7 @@ Refs: SP-09, G6.1, G6.2, §8.3, §8.7, §12
 ```
 
 - [ ] Write `ledger_test.go` first (all 28 cases in the `ledger_test.go` table); run and watch them fail.
-- [ ] Add `ledger.go`; delete the SP-01 `ErrNotImplemented` stub body for `Open`.
+- [ ] Fill in `ledger.go`; give `Open` a real body and delete the SP-01 `stubLedger` whose methods carry the `ErrNotImplemented` returns. `Open` itself already succeeds today (it returns `stubLedger{}, nil`) and must keep doing so — its signature and its "constructing always succeeds" contract are unchanged.
 - [ ] `go test -race ./internal/negknow/` green; `TestConcurrentRecordQuery` passes under `-race`.
 
 ### Commit 4
@@ -1694,7 +1770,7 @@ Operationalized by `TestPhase2ExitCriterion`:
 
 - [ ] `stockRepeats > 0` and `negknowRepeats <= 0.75 * stockRepeats` across the 24-session synthetic corpus.
 - [ ] `negknowRepeats < stockRepeats` on at least 8 individual sessions.
-- [ ] `staleBlocks == 0` across every session whose `SynthSpec.DependencyChangeAt` is non-empty, with at least one such session present.
+- [ ] `staleBlocks == 0` across every session whose `SynthSpec.DependencyChangeAt` is non-empty, with at least one such session present — read as inherited constraint 2 (SP05-D1) requires: a statement about the ledger **given the events it received**, not about the world. The deterministic replay corpus loses nothing, so this zero does not exclude the *missed* flip a dropped `PostToolUse` would cause in production, and the test file must carry that qualification as a comment above the assertion.
 
 ### Quoted verbatim from Qompack.md §11.4
 

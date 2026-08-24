@@ -10,7 +10,7 @@
 
 ## 0. When this runs, and on what
 
-Run this checkpoint **after both wave-5 branches have merged into `develop`**, in the merge order fixed by `plans/00-ARCHITECTURE.md` §9 and by the two subplan headers:
+Run this checkpoint **after both wave-5 branches have merged into `develop`**, in the merge order fixed by `plans/README.md` step 3 and by the two subplan headers (`00-ARCHITECTURE.md` §9 and §14 delegate the per-wave order to the subplan decomposition rather than stating one):
 
 1. `feat/sp17-packaging-hardening-and-release` → `develop` (`--no-ff`)
 2. `feat/sp18-documentation-and-uat` → `develop` (`--no-ff`)
@@ -57,6 +57,8 @@ Every item below is a functionality that exists on `develop` at this point. Each
 
 Unless stated otherwise, all commands run from the repository root `C:/Users/Quant/Documents/Programming/Projects/qompack` on branch `verify/v6`.
 
+**Two rules about the commands themselves, because both failure modes are silent.** (1) `go test -run` and `go test -bench` print `ok … [no tests to run]` and exit **0** when the pattern matches nothing, so a row whose names have drifted reports PASS while executing nothing. Every `-run`/`-bench` name below has been checked against `go test -list '.*' <pkg>`; re-check with `-list` before recording a PASS, and treat a zero-count run as a failure of the row. (2) `test/replay` — and `devtool replay`, which forwards its arguments verbatim — accepts exactly `corpus baseline policies out signoff growth sketch phase regen-corpus write-baseline max-cpu max-wall ci`. Anything else is `flag provided but not defined` and exit 2 with nothing measured; `--out` is the report flag (there is no `--json`), `--write-baseline` is a **boolean** that writes to whatever `--baseline` names, and `--phase` defaults to **0**, so a command that omits it checks only Phase 0.
+
 ### 1.1 SP-01 — Foundation, toolchain, contracts
 
 | # | Functionality | Command | Expected result |
@@ -83,8 +85,8 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.1.20 | Plugin manifest generated from `internal/pluginmanifest`, no drift | `go run ./tools/devtool plugin-validate` ; `git diff --exit-code -- plugin/` | Exit 0; clean diff; 7 commands and 8 MCP tools asserted present |
 | 1.1.21 | Config docs generated, never stale | `go run ./tools/devtool gen-config-docs --check` | Exit 0 |
 | 1.1.22 | Six-target cross-build | `go run ./tools/devtool build-all` | All six §2.6 targets produced (linux/{amd64,arm64}, darwin/{amd64,arm64}, windows/{amd64,arm64}) |
-| 1.1.23 | Contract-monitor default posture on a fresh build | `go test -run TestGuard_FreshBuildReportsModeFull ./internal/contract/` | PASS — `ModeFull`; every assertion with a shipped producer reports a real observation |
-| 1.1.24 | The four closing-note build-order guards | `go test -run 'TestGuard_' ./...` | All PASS, incl. `TestGuard_NoNetworkImports` and `TestGuard_WriteSetConfinedToQompack` |
+| 1.1.23 | Contract-monitor default posture on a fresh build | `go test -run TestGuard_FreshBuildReportsModeFull ./test/guards/` ; `go test -run TestFreshBuildReportsModeFull ./internal/contract/` | PASS — `ModeFull`; every assertion with a shipped producer reports a real observation. The guard lives in `test/guards`; `internal/contract`'s own copy is `TestFreshBuildReportsModeFull`, without the `TestGuard_` prefix |
+| 1.1.24 | The six closing-note guards in `test/guards/buildorder_test.go`, plus the contract/write-set/network guards alongside them and the two `internal/contract` guards | `go test -run 'TestGuard_' ./...` ; `go test -run 'TestGuard_' ./test/guards/ -v` for per-name output | All PASS. `buildorder_test.go` holds `TestGuard_Phase0BeforeStore`, `TestGuard_StoreAndNegknowBeforeCheckpoint`, `TestGuard_SubmodularInertWithoutPSelection`, `TestGuard_SelectorRefusesWithoutPSelection`, `TestGuard_O1FlagDefaults` and — at V6, **after** SP-15 has merged — `TestGuard_SubmodularEnabledOnlyAfterPSelection`, which SP-15 re-points from the `TestGuard_SubmodularDefaultsOff` wave-1 shipped: at this checkpoint the old name must be **absent**, and if neither name runs SP-15 deleted the guard rather than re-pointing it, which is a V6 failure. Of the six, exactly two — `TestGuard_Phase0BeforeStore` and `TestGuard_StoreAndNegknowBeforeCheckpoint` — are merge-order guards. `TestGuard_FreshBuildReportsModeFull`, `TestGuard_NoNetworkImports` and `TestGuard_WriteSetConfinedToQompack` live in sibling files in the same package; `TestGuard_LastSessionIDIsWrittenOnlyByContract` and `TestGuard_LastSessionIDScannerFindsTheOwnedWrites` live in `internal/contract`, which is why the tree-wide `./...` run is the one that gates and the narrower `./test/guards/` run is only for reading names |
 | 1.1.25 | Conformance-suite infrastructure: 22 `<pkg>test` suites, zero remaining W-1 skips anywhere | `grep -rn "t.Skip" --include='*_test.go' internal/ \| grep -v '_test.go:.*short'` ; `go test ./...` | **Zero** `t.Skip` carrying `behaviour: implementation is a stub (Rule W-1)` or `contract fixture not yet recorded (Rule W-2)` anywhere in the tree. Every suite runs against a real implementation |
 | 1.1.26 | `internal/testutil` fixture: temp project, `FakeClock`, golden helpers, Windows specifics | `go test ./internal/testutil/...` | PASS |
 | 1.1.27 | Baseline benchmarks within their SP-01 budgets | `go test -bench 'BenchmarkConfigLoad_ColdNoFiles\|BenchmarkHookNoop_InProcess\|BenchmarkPathsWriteAtomic_4KB' ./...` | < 2 ms/op, < 3 ms/op, < 2 ms/op respectively |
@@ -95,17 +97,17 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | 1.2.1 | `internal/eval` full suite | `go test -race ./internal/eval/...` | PASS |
-| 1.2.2 | Conformance suite live | `grep -rn "t.Skip" internal/eval/evaltest/` ; `go test -run RunEvalSuite ./internal/eval/evaltest/` | No skips; suite passes against `eval.New` |
-| 1.2.3 | 24-session deterministic synthetic corpus present and hash-stable | `ls testdata/sessions/synthetic/*.json \| wc -l` ; `go test -run TestCorpusIntegrity ./internal/eval/` | 24 files; `CORPUS.json` hashes match; regeneration byte-identical |
-| 1.2.4 | Phase-0 baseline number committed, reproducible, honestly tiered | `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline /tmp/p0a.json` ; repeat to `/tmp/p0b.json` ; `cmp /tmp/p0a.json /tmp/p0b.json` ; `grep corpusTier testdata/baseline/phase0.json` | Byte-identical between runs; `"corpusTier": "synthetic"`; `policies.stock.fraction_of_opt` present over 24 sessions (≥ `eval.minSessions` = 20) |
-| 1.2.5 | Belady OPT ceiling and floor bracket every policy | `go test -run 'TestOracleScoresOne\|TestNullScoresZero\|TestStockAboveNull' ./internal/eval/` | `oracle` = 1.0 on every session; `null` = 0.0 on every session; `stock` strictly above `null` on all 24 |
-| 1.2.6 | Five §4.2 divergence metrics | `go test -run TestDivergence ./internal/eval/` | PASS: file-set Jaccard, tool edit distance, first-divergence turn, same-decision, redundant work |
+| 1.2.2 | Conformance suite live | `grep -rn "t.Skip" internal/eval/evaltest/` ; `go test -run RunHarnessSuite ./internal/eval/evaltest/` | No skips; suite passes against `eval.New`. The exported suite is `RunHarnessSuite` (driven by `TestRunHarnessSuite_AgainstEvalNew`); there is no `RunEvalSuite` |
+| 1.2.3 | 24-session deterministic synthetic corpus present and hash-stable | `ls testdata/sessions/synthetic/*.json \| wc -l` ; `go test -run 'TestCorpus_ManifestHashesMatch\|TestCorpus_CountAtLeastMinSessions\|TestSynthesize_MatchesCommittedCorpus' ./internal/eval/` | 24 files; `CORPUS.json` hashes match; regeneration byte-identical |
+| 1.2.4 | Phase-0 baseline number committed, reproducible, honestly tiered | `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline --baseline /tmp/p0a.json` ; repeat with `--baseline /tmp/p0b.json` ; `cmp /tmp/p0a.json /tmp/p0b.json` ; `grep corpusTier testdata/baseline/phase0.json` | Byte-identical between runs; `"corpusTier": "synthetic"`; `policies.stock.fraction_of_opt` present over 24 sessions (≥ `eval.minSessions` = 20) |
+| 1.2.5 | Belady OPT ceiling and floor bracket every policy | `go test -run 'TestOraclePolicy_DelegatesToBelady\|TestNullPolicy_Empty\|TestSynthesize_StockBeatsNullOnEverySession' ./internal/eval/` | `oracle` = 1.0 on every session; `null` = 0.0 on every session; `stock` strictly above `null` on all 24 |
+| 1.2.6 | Five §4.2 divergence metrics | `go test -run 'TestCompare_' ./internal/eval/` | PASS: file-set Jaccard, tool edit distance, first-divergence turn, same-decision, redundant work |
 | 1.2.7 | All ten §11.2 secondary metrics incl. the v1.2 latency trio | `go test -run TestMetricsOf ./internal/eval/` | All ten rows produced; latency values tagged `"latency": "modelled"` |
-| 1.2.8 | Breakpoint OPT reported and labelled not-plugin-actionable (§5.6) | `go run ./test/replay --corpus testdata/sessions/synthetic --json /tmp/rep.json` ; `grep -i NotPluginActionable /tmp/rep.json` | Note present in every breakpoint result |
-| 1.2.9 | `replay-gate`: 2% rule, sign-off trailer, phase assertions, growth guardrail, max-wall | `go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop` | Exit 0; report lists every merged phase's exit assertion as passing |
+| 1.2.8 | Breakpoint OPT reported and labelled not-plugin-actionable (§5.6) | `go run ./test/replay --corpus testdata/sessions/synthetic --out /tmp/rep.json` ; `grep -i NotPluginActionable /tmp/rep.json` | Note present in every breakpoint result. The report flag is `--out`; `--json` is not a driver flag, and a run that exits 2 at flag parsing writes no file, so the `grep` would then fail on a missing path rather than on a missing note |
+| 1.2.9 | `replay-gate`: 2% rule, sign-off trailer, phase assertions, growth guardrail, max-wall | `go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop --phase 7 --growth /tmp/v6-growth.json --sketch /tmp/v6-health.json --signoff /tmp/v6-signoff.txt --max-cpu 3m --ci --out /tmp/v6-gate.json` | Exit 0; report lists every merged phase's exit assertion as passing. `--phase` defaults to 0: without it only the Phase-0 check runs and the "every merged phase" claim is vacuous |
 | 1.2.10 | Every gate failure mode has a test | `go test -run 'TestGate_\|TestPhase0_\|TestReplayDriver_' ./test/replay/...` | PASS: 2% boundary both sides (`TestGate_TwoPercentBoundaryExclusive`), trailer accept/reject (`TestGate_SignOff*`, `TestGate_ReportRegressionsBlocksOnlyUnsigned`), session-count (`TestPhase0_SessionCountFloor`, `TestReplayDriver_SessionFloorFails`), reproducibility (`TestPhase0_Reproducibility`, `TestReplayDriver_BaselineIsByteReproducible`), bloom FP ceiling (`TestGate_BloomFPCeiling`), corpus staleness (`TestGate_CorpusStaleness`), growth-inconclusive (`TestGate_GrowthInconclusiveFails`), max-wall (`TestReplayDriver_MaxWallExceeded`). **Three of those eight live outside the `TestGate_` prefix** — session-count, reproducibility and max-wall — so the narrower `-run 'TestGate_'` this row used to carry reported PASS while never executing them. Cross-check the pattern before trusting the result: `go test -list 'TestGate_\|TestPhase0_\|TestReplayDriver_' ./test/replay/...` must print a name for every failure mode above |
 | 1.2.11 | Redacting importer for recorded transcripts | `go test -run TestRedact ./internal/eval/` ; `go test -fuzz FuzzRedact -fuzztime 60s ./internal/eval/` | Idempotent; no fixture secret survives; fuzz clean |
-| 1.2.12 | Eval benchmarks within budget | `go test -bench 'E-' ./internal/eval/` (or the named benchmarks) | E-1 < 120 s, E-2 ≤ 250 ms/op, E-3 ≤ 50 ms/op, E-4 ≤ 20 ms/op, E-5 ≤ 15 ms/op |
+| 1.2.12 | Eval benchmarks within budget | `go test -bench 'BenchmarkBeladyDetail_400Turns\|BenchmarkSynthesize_320Turns\|BenchmarkCompare_400Actions\|BenchmarkBreakpointOPT_256Candidates' -run '^$' ./internal/eval/` | All four benchmarks report a result — the four names above are the whole of `internal/eval`'s benchmark set, and a `-bench` pattern matching nothing (the old `'E-'` spelling) runs zero benchmarks and still exits 0. E-2 (`BenchmarkBeladyDetail_400Turns`) ≤ 250 ms/op, E-3 (`BenchmarkSynthesize_320Turns`) ≤ 50 ms/op, E-4 (`BenchmarkCompare_400Actions`) ≤ 20 ms/op, E-5 (`BenchmarkBreakpointOPT_256Candidates`) ≤ 15 ms/op. **E-1 (full driver cost) < 120 s of CPU**, read from the CPU figure the replay driver prints, not from elapsed wall time (V3-VERIFY B13) |
 | 1.2.13 | `internal/eval` imports foundation only | `go run ./tools/devtool lint` (importgraph) | `eval` imports no `internal/` package outside `{core, paths, config, logging, obs}` |
 | 1.2.14 | Coverage floor | `go run ./tools/devtool cover` | `internal/eval` ≥ 85% |
 
@@ -118,16 +120,16 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.3.3 | Appendix A Count-Min sizing | `go test -run TestCMS_AppendixASizing ./internal/sketch/` | `width = 2719`, `depth = 5`, body 54 380 bytes |
 | 1.3.4 | HyperLogLog sizing and error | `go test -run TestHLL_AppendixSizing ./internal/sketch/` | 2 048 registers, 2 102-byte frame, 2.3% standard error |
 | 1.3.5 | Measured Bloom FP rate matches the 1% claim | `go test -run TestBloom_EstimatedFPRateMatchesEmpirical ./internal/sketch/` | Empirical FP ∈ [0.008, 0.013] at capacity |
-| 1.3.6 | Resize policy and saturation alarm (§11.4) | `go test -run 'TestBloom_ResizeTarget\|TestBloom_Saturated' ./internal/sketch/` | `(2×capacity, fpRate, true)` above 0.5 fill; `(capacity, fpRate, false)` below; `Saturated()` fires at `EstimatedFPRate ≥ 0.10` |
-| 1.3.7 | `RebuildBloom` from an arbitrary `iter.Seq[[]byte]` at a different capacity | `go test -run TestRebuildBloom ./internal/sketch/` | Equivalent filter rebuilt; ≤ 15 ms for 5 000 keys |
+| 1.3.6 | Resize policy and saturation alarm (§11.4) | `go test -run 'TestBloom_ResizeFiresBeforeCapacity\|TestBloom_ResizeCapsAtMax\|TestBloom_SaturatedThreshold' ./internal/sketch/` | `(2×capacity, fpRate, true)` above 0.5 fill; `(capacity, fpRate, false)` below; `Saturated()` fires at `EstimatedFPRate ≥ 0.10` |
+| 1.3.7 | `RebuildBloom` from an arbitrary `iter.Seq[[]byte]` at a different capacity | `go test -run 'TestBloom_RebuildFromIterator\|TestBloom_RebuildEmptyIterator\|TestProp_BloomRebuildEquivalence' ./internal/sketch/` ; `go test -bench BenchmarkRebuildBloom5000 -run '^$' ./internal/sketch/` | Equivalent filter rebuilt; ≤ 15 ms for 5 000 keys. The 5 000-key budget is a benchmark (`BenchmarkRebuildBloom5000`), which `-run` never selects |
 | 1.3.8 | `MergeFrom` / `Scale` on CMS, HLL, Misra-Gries (O4 primitives) | `go test -run 'TestCMS_Merge\|TestHLL_Merge\|TestMG_Merge\|TestCMS_Scale' ./internal/sketch/` | Correct; `ErrShapeMismatch` on shape mismatch and on `nil` |
 | 1.3.9 | Misra-Gries `Top(n)` has no false positives by construction | `go test -run TestMG_ ./internal/sketch/` | PASS |
 | 1.3.10 | MinHash signature, Jaccard, near-dup threshold | `go test -run TestMinHash ./internal/sketch/` | PASS incl. the "same test suite, one new failure" fixture |
-| 1.3.11 | `tried.bloom` generational replacement stays inside the append-only invariant | `go test -run 'TestSave_ErrGenerational\|TestReplaceGenerational' ./internal/sketch/` | `Save` returns `ErrGenerational` for any `tried.bloom` path; `ReplaceGenerational` keeps exactly one `.bak`; rolls back on write failure |
-| 1.3.12 | Corruption detection is loud and typed | `go test -run TestLoadWithLog_Corrupt ./internal/sketch/` | Exactly one `Loud`; error satisfies both `errors.Is(err, core.ErrNotFound)` and `errors.Is(err, ErrCorrupt)` |
-| 1.3.13 | Frozen v1 wire format still decodes; param names lowercase and ascending | `go test -run 'TestGolden_V1StillDecodes\|TestParamNames' ./internal/sketch/` | PASS; Bloom writes `fprate` (not `fpRate`); names strictly ascending in every frame |
-| 1.3.14 | Frame-size guards | `go test -run 'TestMaxBloomBits\|TestMaxCMSCells\|TestEncodeHeader_ErrTooLarge' ./internal/sketch/` | Largest legal body ≤ 32 MiB; `ErrTooLarge` rather than an oversized frame |
-| 1.3.15 | Five fuzz targets clean | `go test -fuzz FuzzSketchUnmarshal -fuzztime 60s ./internal/sketch/` (repeat per target) | No panic, no non-sentinel error |
+| 1.3.11 | `tried.bloom` generational replacement stays inside the append-only invariant | `go test -run 'TestSave_RefusesTriedBloom\|TestReplaceGenerational_' ./internal/sketch/` | `Save` returns `ErrGenerational` for any `tried.bloom` path (asserted by `TestSave_RefusesTriedBloom`, not by any `TestSave_ErrGenerational`); `ReplaceGenerational` keeps exactly one `.bak`; rolls back on write failure |
+| 1.3.12 | Corruption detection is loud and typed | `go test -run 'TestLoadWithLog_LoudOnCorrupt\|TestLoad_CorruptIsNotFoundAndCorrupt' ./internal/sketch/` | Exactly one `Loud`; error satisfies both `errors.Is(err, core.ErrNotFound)` and `errors.Is(err, ErrCorrupt)` |
+| 1.3.13 | Frozen v1 wire format still decodes; param names lowercase and ascending | `go test -run 'TestGolden_V1StillDecodes\|TestHeader_ParamsSortedDeterministically\|TestHeader_RejectUnsortedParams\|TestHeader_RejectBadParamName' ./internal/sketch/` | PASS; Bloom writes `fprate` (not `fpRate`); names strictly ascending in every frame |
+| 1.3.14 | Frame-size guards | `go test -run 'TestHeader_EncodeRejectsOversizeFrame\|TestHeader_RejectOversizeBodyLen\|TestHeader_RejectOversizeFrame' ./internal/sketch/` | Largest legal body ≤ 32 MiB; `ErrTooLarge` rather than an oversized frame. This gate is hard-fail, so confirm with `go test -list ...` that all three names resolve before trusting a PASS — the previous spelling matched nothing and the row executed zero tests |
+| 1.3.15 | Five fuzz targets clean | `go test -fuzz FuzzBloomUnmarshalBinary -fuzztime 60s ./internal/sketch/`, then the same for `FuzzCMSUnmarshalBinary`, `FuzzHLLUnmarshalBinary`, `FuzzMisraGriesUnmarshalBinary` and `FuzzSignatureUnmarshalBinary` — one run per target, `-fuzz` takes exactly one | No panic, no non-sentinel error. There is no `FuzzSketchUnmarshal`; those five names are the whole set |
 | 1.3.16 | Hot-path sketch update budget with zero allocations | `go test -bench BenchmarkL0SketchUpdate -benchmem ./internal/sketch/` ; `go test -run TestL0SketchUpdate_ZeroAlloc ./internal/sketch/` | ≤ 5 µs/op, 0 allocs/op |
 | 1.3.17 | Foundation-only imports; coverage floor | `go test -run TestImports_FoundationOnly ./internal/sketch/` ; `go run ./tools/devtool cover` | Imports only `core`, `paths`, `logging`; coverage ≥ 90% |
 
@@ -136,15 +138,15 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | 1.4.1 | FastCDC `Split` / `SplitStream` at 1 KB / 4 KB / 16 KB from config | `go test ./internal/chunk/...` | PASS; `Min ≤ len ≤ Max` for every chunk except the last |
-| 1.4.2 | Boundary stability under insertion | `go test -run 'TestSplit_BoundaryStability' -rapid.checks=1000 ./internal/chunk/` | Inserting bytes at offset *k* perturbs at most 2 chunks after the insertion point |
+| 1.4.2 | Boundary stability under insertion | `go test -run 'TestPropBoundaryStability_Insertion\|TestPropBoundaryStability_Deletion' -rapid.checks=1000 ./internal/chunk/` | Inserting bytes at offset *k* perturbs at most 2 chunks after the insertion point |
 | 1.4.3 | Cross-platform determinism (gear table + boundary goldens) | `go test -run 'TestGearTableGolden\|TestSplit_GoldenBoundaries' ./internal/chunk/` **and** the same tests in CI's `test` matrix on ubuntu/macos/windows | Identical goldens on all three OSes. A per-platform golden is a failure, not a fix |
 | 1.4.4 | Domain-separated Merkle `RootHash` | `go test -run TestRootHash ./internal/chunk/` | `HashBytes("qompack.root.v1", concat(chunk hashes))` |
-| 1.4.5 | Canonicalizer registry: 14 canonicalizers, §5.6 registration order | `go test -run 'TestRegistry_Order\|TestNames' ./internal/canon/` | `Default` registers crlf, ansi, timestamps, durations, pids, addresses, tmpPaths, then bash, testrunner, grep, glob, fileread, webfetch, git — in that order |
+| 1.4.5 | Canonicalizer registry: 14 canonicalizers, §5.6 registration order | `go test -run 'TestKnownClasses_RegistrationOrder\|TestRegistry_ForDeterministicOrder\|TestDefault_Names' ./internal/canon/` | `Default` registers crlf, ansi, timestamps, durations, pids, addresses, tmpPaths, then bash, testrunner, grep, glob, fileread, webfetch, git — in that order |
 | 1.4.6 | Idempotence: `Canonicalize(Canonicalize(x)) == Canonicalize(x)` | `go test -run 'Idempot' ./internal/canon/` | PASS for every canonicalizer, each with its own named test |
 | 1.4.7 | Byte-exact inverse: `Restore(Canonicalize(x).Canonical, deltas) == x` | `go test -run 'TestRestore' ./internal/canon/` ; `go test -fuzz FuzzRestore -fuzztime 120s ./internal/canon/` | PASS; fuzz clean |
-| 1.4.8 | No canonicalizer grows its input | `go test -run 'NonGrowth' ./internal/canon/` | PASS for every canonicalizer |
+| 1.4.8 | No canonicalizer grows its input | `go test -run 'TestEveryCanonicalizer_NeverGrows\|TestNonGrowingGuard_DropsGrowingMatch' ./internal/canon/` | PASS for every canonicalizer |
 | 1.4.9 | Every rule emits a `Match` with its assigned `Class`; nothing silently dropped by the `Strip` gate | `go test -run TestMatcherClassAssigned ./internal/canon/` | PASS over the whole `testdata/corpora/toolout/` corpus |
-| 1.4.10 | MinHash signature attached to every `Registry.Run` result; delta-vs-full decision surfaced | `go test -run 'TestRun_Signature\|TestRun_NearDup' ./internal/canon/` | PASS |
+| 1.4.10 | MinHash signature attached to every `Registry.Run` result; delta-vs-full decision surfaced | `go test -run 'TestSignature_OnlyWhenEnabled\|TestNearDup_DelegatesToSignature' ./internal/canon/` | PASS |
 | 1.4.11 | With-vs-without-canonicalization dedup measurement (the O2 justification) | `go test ./test/dedup/...` ; `cat testdata/canon-dedup-report.json` | Report reproduced byte-for-byte; `testrunner` group `gain ≥ 1.25`; overall `gain ≥ 1.0` |
 | 1.4.12 | Symbol extraction: `Extract`, `Enclosing`, `References` | `go test ./internal/symbols/...` | PASS; `Kind ∈ {func,type,class,const,var}` in every dialect |
 | 1.4.13 | `Enclosing` is the minimal-sufficient-span resolver (§8.7) | `go test -run TestEnclosing ./internal/symbols/` | Returns the smallest symbol span containing the offset |
@@ -158,12 +160,12 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | 1.5.1 | IPC address resolution per platform | `go test ./internal/ipc/...` | Windows named pipe `\\.\pipe\qompack.<hash12>` ACL'd to the current user SID; POSIX Unix socket with XDG→TempDir order, dir `0700`, socket `0600`, `sun_path` ≤ 100-byte fallback |
-| 1.5.2 | NDJSON framing, 1 MiB line limit, `\x06`/`\x15` ACK/NAK | `go test -run 'TestFraming' ./internal/ipc/` ; `go test -fuzz FuzzFraming -fuzztime 60s ./internal/ipc/` | PASS; fuzz clean |
-| 1.5.3 | `ipc.Client.Send` never propagates an error; spools on any failure | `go test -run 'TestClient_SpoolsOnFailure\|TestClient_NeverErrors' ./internal/ipc/` | Returns `Response{OK:false}, nil` on refused/timeout; event lands in `.qompack/spool/client-<pid>.ndjson` |
+| 1.5.2 | NDJSON framing, 1 MiB line limit, `\x06`/`\x15` ACK/NAK | `go test -run 'TestEncodeRequestByteExact\|TestDecodeRequestRoundTrip\|TestLineReaderRejectsOversize\|TestMaxLineBytes_IsOneMebibyte\|TestACKAndNAK_AreTheDesignsControlBytes' ./internal/ipc/` ; `go test -fuzz FuzzDecodeRequest -fuzztime 60s ./internal/ipc/` | PASS; fuzz clean. The fuzz target is `FuzzDecodeRequest` — a `-fuzz` pattern naming no target fails with "no fuzz tests match", so a green run here is only meaningful once the name resolves |
+| 1.5.3 | `ipc.Client.Send` never propagates an error; spools on any failure | `go test -run 'TestSendNeverReturnsError\|TestSendNAKSwitchesToSpool\|TestSendDaemonDownSpoolsAndReturnsNilError\|TestSendFailedSpoolAppendCountsAsDropped' ./internal/ipc/` | Returns `Response{OK:false}, nil` on refused/timeout; event lands in `.qompack/spool/client-<pid>.ndjson` |
 | 1.5.4 | `ipctest` conformance suite live | `grep -rn "t.Skip" internal/ipc/ipctest/` ; `go test ./internal/ipc/ipctest/` | Zero skips; PASS |
 | 1.5.5 | Daemon singleton lock, stale-lock reclamation, 90 s staleness window / 30 s heartbeat | `go test -run 'TestLock' ./internal/daemon/` | PASS; a lock whose pid is dead is reclaimed |
-| 1.5.6 | Lazy detached spawn (hidden window on Windows, `Setsid` on POSIX) | `go test -run TestLazySpawn ./internal/daemon/` ; `go test -run TestE2E_DaemonAutostart ./test/e2e/` | Daemon starts; spawning client does not wait, spools and exits 0 |
-| 1.5.7 | WAL-backed ingest queue; ACK after WAL append, before indexing | `go test -run 'TestIngest\|TestWAL' ./internal/daemon/` | PASS; crash mid-index loses no event |
+| 1.5.6 | Lazy detached spawn (hidden window on Windows, `Setsid` on POSIX) | `go test -run 'TestLazySpawn_' ./internal/ipc/` ; `go test -run 'TestBuildSpawnEnv_\|TestBuildSpawnCommand_\|TestEnsureRunning_' ./internal/daemon/` ; `go test -run TestE2ELazySpawn ./test/e2e/` | Daemon starts; spawning client does not wait, spools and exits 0. The client-side lazy spawn lives in `internal/ipc` (`TestLazySpawn_*`); `internal/daemon` owns only the argv/env/already-running half, and the end-to-end case is `TestE2ELazySpawn` |
+| 1.5.7 | WAL-backed ingest queue; ACK after WAL append, before indexing | `go test -run 'TestIngest\|TestWalSessionID\|TestDrainKeepsLiveSessionWAL\|TestAcceptWireLineWALsExactlyOneTerminator' ./internal/daemon/` | PASS; crash mid-index loses no event |
 | 1.5.8 | `Drain` is idempotent over spool + WAL | `go test -run TestDrain ./internal/daemon/` | Replaying twice produces the same store state |
 | 1.5.9 | Idle controller, registration, `RunOnce` budget, idle exit at 1800 s | `go test -run 'TestIdle' ./internal/daemon/` | PASS; idle-exits with zero live sessions |
 | 1.5.10 | Config hot reload on mtime change; `store.chunk.*` deferred to next `SessionStart` and logged loudly | `go test -run TestConfigReload ./internal/daemon/` | PASS |
@@ -171,9 +173,9 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.5.12 | Hot-path budget B-A on the real binary, three platforms | `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json /tmp/ba.json` locally; CI `bench-gate` artifact for macos/ubuntu | **B-A p99 < 15 ms**, **B-B p99 < 2 ms**; `spawn_floor_ms` and `b_a_method` present; B-D reported, never gated |
 | 1.5.13 | Hot-path overrun degradation is an observable state transition | `go test -run 'TestBreachDetectorTransitionsAfterThreeWindows\|TestBreachDetectorRevertsAfterThreeCleanWindows\|TestHotModeTransitionWritesStateAndNAKs' ./internal/daemon/` | `sync`→`spool` after 3 consecutive breach windows; reverts after 3 clean windows; visible in `state.bin`, the NAK frame, a WARN log, and the `status` payload |
 | 1.5.14 | Nine contract assertions run at every `SessionStart` | `go test ./internal/contract/...` | All nine IDs of §5.19 registered and evaluated |
-| 1.5.15 | Producer-presence rule and its declared split | `go test -run 'TestFreshBuildReportsModeFull\|TestDeclaredProducerSetMatchesArchitecture' ./internal/contract/` | On a **post-wave-5** `develop` **every** assertion has a shipped producer — `mcp.server_registered` (SP-13), `precompact.*` (SP-10), `hook.additional_context_delivered` (SP-11) must now report real observations, **not** `not-yet-implemented`. If any still reports `not-yet-implemented`, that is a V6 failure |
+| 1.5.15 | Producer-presence rule and its declared split | `go test -run 'TestFreshBuildReportsModeFull\|TestStandardAssertions_MatchTheNormativeTable\|TestDeclareProducer_IsIdempotentAndScoped' ./internal/contract/` | On a **post-wave-5** `develop` **every** assertion has a shipped producer — `mcp.server_registered` (SP-13), `precompact.*` (SP-10), `hook.additional_context_delivered` (SP-11) must now report real observations, **not** `not-yet-implemented`. If any still reports `not-yet-implemented`, that is a V6 failure |
 | 1.5.16 | Degradation semantics | `go test -run 'TestDegradedPassiveSuppressesActingPaths\|TestDegradedPassiveStillRecords\|TestModeOffSkipsIngest' ./internal/daemon/ ./internal/contract/` | In `degraded-passive`: L0/L1 keep recording; no `additionalContext`, no `customInstructions`, no scheduler-initiated checkpoints, no drop report; MCP retrieval still answers |
-| 1.5.17 | Restoration after two clean runs | `go test -run TestMonitorRestore ./internal/contract/` | `Monitor.Restore` called, logged as loudly as the degradation |
+| 1.5.17 | Restoration after two clean runs | `go test -run 'TestMonitor_TwoConsecutiveCleanRunsRestore\|TestTwoCleanRunsRestore\|TestOneCleanRunDoesNotRestore' ./internal/contract/` | `Monitor.Restore` called, logged as loudly as the degradation |
 | 1.5.18 | Session-start marker produced only by terminal hooks | `go test -run TestMarkerIsWrittenByFlushAndCheckpointOnly ./internal/daemon/` | PASS |
 | 1.5.19 | Every hook subcommand exits 0 under every injected fault | `go test -run 'TestHooksExitZeroUnderFaults\|TestFaultSitesInertWhenUnset\|TestSelfTestIsTheOnlyNonZeroExit' ./internal/cli/ ./test/e2e/` | All 66 combinations exit 0; `qompack self-test` is the only subcommand permitted a non-zero exit |
 | 1.5.20 | Security posture of the transport | CI `security` job; locally `go run ./tools/devtool security-audit` | Zero non-test imports of `net/http`, `net/url`, `crypto/tls`; `net` only in `internal/ipc` and only `unix`; `os/exec` only in `internal/daemon`, `internal/cli`, `tools/` |
@@ -196,7 +198,7 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.6.11 | `OpenSpan` minimal-span reads on chunk boundaries | `go test -run TestOpenSpan_Boundaries ./internal/store/` | PASS |
 | 1.6.12 | Segment log with the encoded-once DPI guard | `go test -run 'TestSegment_MarkEncodedRefusesDifferentSeq\|TestSegment_MarkEncodedBatchIsAllOrNothing' ./internal/store/` | Re-encoding a segment into a different `CheckpointSeq` returns `core.ErrAlreadyEncoded`; batch is all-or-nothing; same-seq is idempotent |
 | 1.6.13 | `Frontier` / `Unencoded` queries | `go test -run 'TestSegment_Frontier\|TestSegment_Unencoded' ./internal/store/` | PASS |
-| 1.6.14 | Mark-and-sweep GC, deadline-bounded, resumable, `max(30 days, 10 sessions)` retention | `go test -run 'TestGC' ./internal/store/` | `TestGC_RetentionIsWhicheverIsLonger` PASS; `GCReport.Truncated` set when the deadline is hit |
+| 1.6.14 | Mark-and-sweep GC, deadline-bounded, resumable **in the sweep only**, `max(30 days, 10 sessions)` retention | `go test -run 'TestGC' ./internal/store/` | `TestGC_RetentionIsWhicheverIsLonger` PASS; `TestGC_DeadlineTruncatesAndResumes` PASS (a truncated **sweep** persists a cursor and the next pass resumes from it); `TestGC_MarkPhaseHonoursTheDeadline` PASS (a truncated **mark harvest** returns `Truncated: true` with nothing collected and **no** cursor — an incomplete live set must never be swept against); `TestGC_MarkIndexWalksAreNotTruncatedByTheDeadline` PASS (the mark's in-memory index walks answer to `ctx` alone, so a harvest already paid for is not discarded). Record which of the two truncations the measured run took |
 | 1.6.15 | `Stats.DedupRatio` responds to the canonicalization toggle | `go test -run TestStats_DedupRatio ./internal/store/` | Toggling `store.canonicalize.enabled` changes the number |
 | 1.6.16 | Phase-1 dedup ratio on read-heavy sessions | `go test -run TestPhase1ExitCriterion_ReadHeavy ./internal/store/` | `Stats.DedupRatio ≥ 4.0` |
 | 1.6.17 | Sublinear store growth | `go test -run TestStats_SublinearGrowth ./internal/store/` | PASS |
@@ -210,8 +212,8 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | # | Functionality | Command | Expected result |
 |---|---|---|---|
 | 1.7.1 | Nine node kinds, eight edge kinds, stable `NodeID` scheme | `go test ./internal/dag/...` | Every kind constructible, serializable, and exercised by at least one test |
-| 1.7.2 | Append-only `dag/deps.jsonl` round-trips byte-exactly | `go test -run 'TestLog_RoundTrip' ./internal/dag/` | PASS; written only via `paths.AppendOnly` |
-| 1.7.3 | Torn tail and corrupt line tolerated and surfaced | `go test -run 'TestLoad_TornTail\|TestLoad_CorruptLine' ./internal/dag/` | Both load; `TruncatedTail` and `LoadErrors` set; exactly one `Loud` |
+| 1.7.2 | Append-only `dag/deps.jsonl` round-trips byte-exactly | `go test -run 'TestPropLogRoundTrip\|TestOpenRoundTrip\|TestFlushIsAppendOnly' ./internal/dag/` | PASS; written only via `paths.AppendOnly` |
+| 1.7.3 | Torn tail and corrupt line tolerated and surfaced | `go test -run 'TestOpenTornTail\|TestOpenCorruptLines' ./internal/dag/` | Both load; `TruncatedTail` and `LoadErrors` set; exactly one `Loud` |
 | 1.7.4 | Idle-only `Compact` drops tombstoned nodes | `go test -run TestCompact ./internal/dag/` | Generation bumped; slice answers preserved on a tombstone-free graph; no-op below 25% waste |
 | 1.7.5 | `BackwardSlice` / `ForwardSlice` return **scores**, never keep/drop | `go test -run 'TestBackwardSlice\|TestForwardSlice\|TestNoBooleanKeepAPI' ./internal/dag/` | `Slice.Scores` is `map[NodeID]float32`; `TestNoBooleanKeepAPI` finds no exported function returning a keep-set, a drop list, or `map[NodeID]bool`; the `NO SELECTION AUTHORITY` note is still in `doc.go` |
 | 1.7.6 | Thin slicing is the default, tied to Appendix C | `go test -run TestDefaultSliceOptions ./internal/dag/` | `DefaultSliceOptions(config.Defaults()).Thin == true` |
@@ -221,7 +223,7 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.7.10 | Slice latency budget (§6.4 "sub-millisecond") | `go test -bench 'BenchmarkBackwardSlice5000\|BenchmarkForwardSlice5000' ./internal/dag/` ; `go test -run TestSliceLatencyBudget ./internal/dag/` | Both **< 1 ms/op** on 5 000 nodes / ~15 000 edges; the test fails the build if not |
 | 1.7.11 | Builder output is acyclic | `go test -run TestBuilderOutputIsAcyclic ./internal/dag/` | No cycle over 200 built tool uses incl. parallel siblings |
 | 1.7.12 | Concurrency safety, no lock upgrades | `go test -race -run TestConcurrent ./internal/dag/` | PASS |
-| 1.7.13 | Golden fixtures consumable by SP-08/09/12 | `ls testdata/golden/contracts/dag/` ; `go test -run TestGolden ./internal/dag/` | `graph-basic.jsonl`, `nodeid.json`, `slice-backward.json`, `crossing.json`, `thin-vs-full.json` present and reproduced |
+| 1.7.13 | Golden fixtures consumable by SP-08/09/12 | `ls testdata/golden/contracts/dag/` ; `go test -run 'TestGraphBasicGolden\|TestCrossingEdgesGolden\|TestSliceGoldenBackward' ./internal/dag/` | `graph-basic.jsonl`, `nodeid.json`, `slice-backward.json`, `crossing.json`, `thin-vs-full.json` present and reproduced |
 | 1.7.14 | Conformance suite live; imports; coverage | `grep -rn "t.Skip" internal/dag/dagtest/` ; `go run ./tools/devtool lint` ; `go run ./tools/devtool cover` | Zero skips; `dag` imports only `core paths config logging`; coverage ≥ 85% |
 
 ### 1.8 SP-08 — Observer L0
@@ -235,7 +237,7 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.8.5 | Count-Min and HLL fed; **Bloom never fed** | `go test -run 'TestSketches\|TestObserverSourceHasNoBloomReference\|TestOnSessionEnd_NeverWritesTriedBloom' ./internal/observer/` ; `grep -rn "Bloom" internal/observer/ --include='*.go' \| grep -v _test.go` | CMS/HLL updated; **zero** occurrences of `Bloom` in non-test observer source; `.qompack/sketches/tried.bloom` never created by any observer path |
 | 1.8.6 | Verbatim, immutable user-prompt capture (G2.3) | `go test -run 'TestOnUserPrompt_NeverRegenerated' ./internal/observer/` ; `go test -run TestE2E_VerbatimPromptSurvivesRestart ./test/e2e/` | Content-addressed, indexed, never rewritten; survives a daemon restart byte-identically |
 | 1.8.7 | Subagent capture with tool-result hashes (G10.1) | `go test -run TestOnStop_RetrievalPathG10_1 ./internal/observer/` | Summary **and** hashes round-trip out of a real store |
-| 1.8.8 | Task-boundary signals (G1.5) | `go test -run 'TestExtractSignals\|TestWireObserver' ./internal/observer/` | Todo completion, passing test run, git commit detected and delivered to the scheduler seam |
+| 1.8.8 | Task-boundary signals (G1.5) | `go test -run TestExtractSignals ./internal/observer/` ; `go test -run TestWireObserver ./internal/daemon/` | Todo completion, passing test run, git commit detected and delivered to the scheduler seam |
 | 1.8.9 | `SessionStart` startup/resume branch; `SessionEnd` flush + GC + session index | `go test -run 'TestOnSessionStart\|TestOnSessionEnd' ./internal/observer/` | Ordering matches §7.3 and §8.2 |
 | 1.8.10 | Phase-1 exit criterion, dedup half | `go test -run TestPhase1_DedupRatioReadHeavy ./test/e2e/` | `store.Stats().DedupRatio ≥ 4.0` on `eval.Synthesize(0x51080001, readHeavy)` |
 | 1.8.11 | Canonicalization gap on test-output-heavy sessions | `go test -run TestPhase1_CanonicalizationGapOnTestOutput ./test/e2e/` | `ratioOn ≥ ratioOff × 1.25` on `eval.Synthesize(0x51080002, testOutputHeavy)` |
@@ -281,10 +283,10 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.10.13 | `pins` append-only log with tombstone deletion and materialized view | `go test ./internal/pins/...` | `Add`/`Remove`/`All`/`Materialize`; deletion is a tombstone record, never a rewrite |
 | 1.10.14 | `PreCompact` hook writes a real checkpoint and emits `customInstructions` | `go test -run TestE2E ./test/e2e/checkpoint_test.go` (or `go test -run TestE2E_Checkpoint ./test/e2e/`) | `qompack checkpoint` exits 0; emits `customInstructions` in `full` mode and **none** in `degraded-passive`; checkpoint re-hashes to its MANIFEST line |
 | 1.10.15 | Independent cadence: checkpoints exist even when compaction never fires | `go test -run 'TestCadenceFinalizesWhenDraftReachesBudget\|TestCadenceIsOffInDegradedPassive' ./internal/checkpoint/ ./internal/daemon/` | PASS |
-| 1.10.16 | Budget B-E on the `PreCompact` hook | `go run ./tools/devtool bench-hotpath --hook checkpoint -n 200 --json /tmp/be.json` (and CI on three platforms) | **B-E p99 < 2 s** |
+| 1.10.16 | Budget B-E on the `PreCompact` hook | `go run ./tools/devtool bench-hotpath --iterations 200 --warm-daemon --json /tmp/be.json` (and CI on three platforms) | **B-E p99 < 2 s**. No `--hook`: the harness spawns the checkpoint path itself for B-E, and `hookArgs` rejects every `--hook` value but `observe-tool` with exit 2. The count flag is `--iterations`; there is no `-n` |
 | 1.10.17 | Checkpoint micro-benchmarks | `go test -bench 'BenchmarkFinalize\|BenchmarkAdvanceSegment\|BenchmarkExtractDecisions' ./internal/checkpoint/` | < 50 ms, < 25 ms, < 20 ms; no >10% regression vs `testdata/bench-baseline.txt` |
-| 1.10.18 | Residual-span reduction from frontier advancement | the two `devtool replay --set checkpoint.frontier.advanceOnSegmentClose={false,true}` runs of SP-10's exit criteria | `on.json` `Score.ResidualSpan.P50` ≥ **30% below** `off.json`; `Score.Divergence` not regressed beyond 2% |
-| 1.10.19 | Conformance suites, imports, coverage | `grep -rn "t.Skip" internal/checkpoint/checkpointtest/` ; `go run ./tools/devtool lint` ; `go run ./tools/devtool cover` | Zero skips in `RunWriterSuite`/`RunReaderSuite`/`RunPinsSuite`; `checkpoint` imports only `store dag negknow pins grammar tokens` + foundation; `pins` foundation-only; coverage both ≥ 90% |
+| 1.10.18 | Residual-span reduction from frontier advancement | the two full `devtool replay --phase 4 --max-cpu 3m --ci --out <path>` runs of SP-10's exit criteria, with `checkpoint.frontier.advanceOnSegmentClose` toggled `false`/`true` in `<project>/.qompack/config.json` between them — the driver has no `--set` and no `--filter` (see §2.10) | `on.json` `Score.ResidualSpan.P50` ≥ **30% below** `off.json`; `Score.Divergence` not regressed beyond 2% |
+| 1.10.19 | Conformance suites, imports, coverage | `grep -rn "t.Skip" internal/checkpoint/checkpointtest/ internal/pins/pinstest/` ; `go run ./tools/devtool lint` ; `go run ./tools/devtool cover` | Zero skips in `RunWriterSuite`/`RunReaderSuite`/`RunTruncateSuite` — all three in `internal/checkpoint/checkpointtest` — **and** in `RunPinsSuite`, which lives in `internal/pins/pinstest`, not under `checkpointtest`: grepping only the latter cannot see it. `checkpoint` imports only `store dag negknow pins grammar tokens` + foundation; `pins` foundation-only; coverage both ≥ 90% |
 
 ### 1.11 SP-11 — Rehydrator L5, rules, skills
 
@@ -348,7 +350,7 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.13.11 | Ephemeral-at-birth on the seven retrieval tools | `go test -run TestEphemeral ./internal/mcp/` | `_meta.qompack.ephemeral == true`; a `store.ToolUseRecord` with `Ephemeral: true` is written; `record_eliminated` carries neither |
 | 1.13.12 | Minimal-sufficient-span default and `full=true` escape hatch | `go test -run 'TestSpan\|PropPagingReconstructs' ./internal/mcp/` | Default ≤ `store.chunk.max` (16384) before widening; `full=true` up to `runtime.mcp.maxResponseBytes` (262144); paging reconstructs objects exactly |
 | 1.13.13 | Promoter counts expansions | `go test -run 'TestNoteExpansion\|TestPromoted' ./internal/mcp/` | `promoted == true` at exactly `retrieval.promoteAfterExpansions`; `Promoted()` deduplicated, promotion-ordered, survives a process restart |
-| 1.13.14 | Contract observable `mcp.server_registered` is real | `go test -run TestMCPRegistered ./internal/contract/ ./test/e2e/` ; `go run ./cmd/qompack self-test` after an MCP session | `contract.History.MCPInitialized` set in `state/contract.json`; `.qompack/state/mcp.json` written; `self-test` reports `mcp.server_registered` OK |
+| 1.13.14 | Contract observable `mcp.server_registered` is real | `go test -run 'TestMCPInitializedSeamFlipsAfterInitialize\|TestInitializedWritesContractHistory' ./internal/daemon/` ; `go test -run TestE2E_MCP ./test/e2e/` ; `go run ./cmd/qompack self-test` after an MCP session | `contract.SessionHistory.MCPInitialized` set in `state/history.json` — the path `contract.HistoryPath(root)` returns, **never** `state/contract.json`, which is the Monitor's own mode/reason/results file and must be left untouched (SP-13's own assertion); `.qompack/state/mcp.json` written alongside it; `contract.DeclareProducers` declares `CMCPRegistered` rather than reporting `not-yet-implemented`; `self-test` reports `mcp.server_registered` OK at `SevInfo` — SP-13 is instructed not to strengthen it |
 | 1.13.15 | Panic isolation and hostile input | `go test -run 'TestPanicIsolated\|TestMalformed' ./internal/mcp/` ; `go test -fuzz FuzzMCPLine -fuzztime 30s ./internal/mcp/` | Handler panics, malformed lines, oversized lines and unknown methods never terminate `Serve` |
 | 1.13.16 | Budget B-F | `go test -run TestBudgetBF ./internal/mcp/` (and CI on three platforms) | p95 < 250 ms over 200 calls against the 2 000-tool-use / 40 MB fixture |
 | 1.13.17 | Docs generated from the tool table | `go run ./tools/devtool gen-mcp-docs && git diff --exit-code -- docs/mcp-tools.md` | No diff; `plugin-validate` sees exactly 8 tools |
@@ -427,7 +429,7 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.17.14 | Every §12.3 degradation row has a driven failure and a documented recovery | `go test ./test/fault/...` ; read `docs/security.md` | Each of the **nine** §12.3 rows: one driven-failure test (`TestDegradation_DaemonUnreachable`, `_SpoolWriteFails`, `_StoreCorrupt`, `_ManifestMismatch`, `_BloomLoadFails`, `_ConfigInvalid`, `_MCPToolPanic`, `_HookPanic`, `_PreCompactTimeout`) and one recovery paragraph. §12.3's table has nine rows, not ten; the `sync → spool` submode transition is §12.2 and is covered separately by §2.5's hot-path items |
 | 1.17.15 | `qompack fsck` | `go run ./cmd/qompack fsck --strict` on a clean store; then on each of the nine seeded corruptions; then `--repair` | Exits 0 clean; exits 1 on each seeded corruption; repairs all nine; a full pass over a 200 000-object store completes in < 60 s and is resumable under a short deadline (`FsckReport.Truncated`) |
 | 1.17.16 | `qompack doctor` | `go run ./cmd/qompack doctor --skip-mcp` ; `go run ./cmd/qompack doctor --json` | All 16 checks run in < 3 s with `--skip-mcp`, < 8 s with the MCP probe, in both human and `--json` modes; each non-pass carries a remedy |
-| 1.17.17 | `qompack version` and version-drift guard | `go run ./cmd/qompack version --json` ; `go run ./tools/devtool verify-version` ; `go run ./tools/devtool changelog --check` | Binary version, `pluginmanifest.DefaultVersion`, the tag and the CHANGELOG heading are one number; both devtool checks clean |
+| 1.17.17 | `qompack version` and version-drift guard | `go run ./cmd/qompack version --json` ; `go run ./tools/devtool verify-version` ; `go run ./tools/devtool changelog --check` | Binary version, `internal/core.Version`, `plugin.json`'s `version`, the tag and the CHANGELOG heading are one number; both devtool checks clean. There is exactly one version source and it is `internal/core/version.go` — `pluginmanifest.DefaultVersion` does not exist, must not be created, and its absence is an SP-17 merge blocker (`V6-SP-17`:393, DoD 16) |
 | 1.17.18 | Release pipeline dry run | `actionlint` ; `goreleaser release --snapshot --clean` | `actionlint` clean; snapshot release succeeds; the artifact list matches `docs/release.md` |
 | 1.17.19 | The four new CI jobs are required checks | inspect branch protection / `.github/workflows/ci.yml` | `package-gate`, `platform-matrix`, `fault-gate`, `install-gate` present and required on `develop` and `main` |
 | 1.17.20 | Checksum file format | `head -1 dist/plugin-universal/bin/SHA256SUMS` | `<64 lowercase hex><two spaces><filename>\n`, LF endings, bytewise-sorted by filename, no header |
@@ -440,7 +442,7 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
 | 1.18.2 | Config reference generated, never stale, complete | `go run ./tools/devtool gen-config-docs && git diff --exit-code` ; `go run ./tools/devtool gen-config-docs --check` ; `go test -run 'TestConfigReferenceNotStale\|TestConfigReferenceCoversEveryKey\|TestConfigReferenceHasNoOrphanRows\|TestJSONSchemaCoversEveryDocumentedKey' ./test/docs/` | No diff; `--check` exits 0; `len(Meta)` equals the walked leaf count with zero orphans and zero missing. **Record the count, do not assert one**: it was 88 when SP-18 was written and every wave may add keys, so the verdict is "the two counts agree", never "the count is 88". Then prove the gate is live rather than merely present: delete one table row from `docs/config-reference.md`, re-run `--check`, confirm a **non-zero** exit naming the file as stale, and `git checkout -- docs/config-reference.md` |
 | 1.18.3 | Config-reference ranges agree with `Validate()` | `go test -run TestMetaRangesMatchValidate ./test/docs/` | Every documented range matches the validator |
 | 1.18.4 | `runtime` namespace marked additive | `go test -run TestConfigReferenceRuntimeSectionIsMarkedAdditive ./test/docs/` | PASS |
-| 1.18.5 | Cannot-do list reproduced verbatim | `go test -run 'TestCannotDoListVerbatim\|TestCannotDoCoversResiduals\|TestCannotDoCoversG72\|TestCannotDoQuotesScopeNote' ./test/docs/` | All eight §12 bullets byte-for-byte; all fifteen §9 residual strings; the "Not closeable from a plugin" sentence; the §5.6 scope note |
+| 1.18.5 | Cannot-do list reproduced verbatim | `go test -run 'TestCannotDoListVerbatim\|TestCannotDoCoversResiduals\|TestCannotDoCoversG72\|TestCannotDoQuotesScopeNote' ./test/docs/` | All twelve §12 bullets byte-for-byte; all fifteen §9 residual strings; the "Not closeable from a plugin" sentence; the §5.6 scope note |
 | 1.18.6 | Upstream issues and tracker template | `go test -run 'TestUpstream' ./test/docs/` ; inspect `.github/ISSUE_TEMPLATE/upstream-tracker.yml` | All five upstream items with their five required subsections and a filable issue block; the template has all seven fields |
 | 1.18.7 | Loud-message glossary covers every contract ID and failure mode | `go test -run 'TestLoudGlossaryCoversContractIDs\|TestLoudGlossaryCoversFailureModes' ./test/docs/` | All nine `contract.ID` constants with the severity `contract.StandardAssertions()` actually reports; all **nine** §12.3 failure rows plus the §12.2 `sync → spool` transition |
 | 1.18.8 | ADRs D1–D12 present and structurally correct | `go test -run 'TestAdrShape\|TestAdrIndexEntriesExist\|TestAdrNamesItsDecisionID\|TestArchitectureLinksEveryADR' ./test/docs/` | Twelve ADRs `0200`–`0211`, each naming its decision ID (ADR number *n* names D(*n* − 199)) and linked from `docs/architecture.md`. The `0200` block exists because `0001`–`0012` collides with the per-package ADRs already committed under `docs/adr/` — `0002-replay-methodology.md`, `0003-replay-overfit-recollection.md`, `0007-dag-slices-are-scores-not-drop-decisions.md`, `0030-sketch-binary-format.md` — and with four more that other subplans claim |
@@ -480,7 +482,7 @@ Every completed subplan's exit criteria, quoted, with the concrete measurement p
 
 **Procedure.**
 
-1. `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline /tmp/p0-v6.json`; run again to `/tmp/p0-v6b.json`; `cmp` them → byte-identical.
+1. `go run ./test/replay --corpus testdata/sessions/synthetic --write-baseline --baseline /tmp/p0-v6.json`; repeat with `--baseline /tmp/p0-v6b.json`; `cmp` them → byte-identical. `--write-baseline` is a **boolean** and writes to whatever `--baseline` names; a bare path after it is a positional argument and the driver exits 2 (`TestReplayDriver_LeftoverArgumentsAreBadInput`), leaving both files uncreated and the `cmp` comparing nothing.
 2. Compare `policies.stock.fraction_of_opt`, `sessions` (= 24) and `corpusTier` (= `synthetic`) against the committed `testdata/baseline/phase0.json` → equal.
 3. Confirm the honesty discharge: `docs/adr/0002-replay-methodology.md` states the committed number is synthetic-corpus and names the recorded-corpus command and its owner.
 4. V6 is the last checkpoint before release, so the tier-2 number is due here: if `$QOMPACK_SESSIONS_DIR` holds ≥ 20 recorded sessions, produce `testdata/baseline/phase0-recorded.json` with `"corpusTier": "recorded"`. If it does not, record **"recorded tier not available on this machine"** explicitly in the completion report — never silently skip it.
@@ -509,9 +511,9 @@ SP-03 is a dependency of both criteria rather than the owner of either. Re-measu
 
 1. `go test ./test/dedup/...`; diff `testdata/canon-dedup-report.json` against the committed copy → byte-for-byte, `testrunner` `gain ≥ 1.25`, overall `gain ≥ 1.0`. SP-04 owns *"measure with and without"*, not the 4:1 number.
 2. `go test -bench BenchmarkSplit_100KB ./internal/chunk/` → < 800 µs/op.
-3. `go test -run TestSplit_BoundaryStability -rapid.checks=1000 ./internal/chunk/` → PASS.
+3. `go test -run 'TestPropBoundaryStability_Insertion|TestPropBoundaryStability_Deletion' -rapid.checks=1000 ./internal/chunk/` → PASS.
 4. Cross-platform determinism: read the CI `test` job logs for ubuntu, macos **and** windows and confirm `TestGearTableGolden` and `TestSplit_GoldenBoundaries` passed on all three against the *same* goldens. A per-platform golden is a failure.
-5. `go test -run 'Idempot|NonGrowth|TestRestore' ./internal/canon/` → PASS for every canonicalizer individually.
+5. `go test -run 'TestEveryCanonicalizer_Idempotent|TestEveryCanonicalizer_NeverGrows|TestNonGrowingGuard_DropsGrowingMatch|TestRestore_' ./internal/canon/` → PASS for every canonicalizer individually. (`NonGrowth` matches no test name; the non-growth property is `TestEveryCanonicalizer_NeverGrows`.)
 
 ### 2.5 SP-05 — Daemon, IPC, hot path, contract monitor
 
@@ -526,7 +528,7 @@ SP-03 is a dependency of both criteria rather than the owner of either. Re-measu
 1. `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json /tmp/ba-v6.json` locally on Windows; read the CI `bench-gate` artifacts for ubuntu and macos. **B-A p99 < 15 ms**, **B-B p99 < 2 ms**, **B-E p99 < 2 s** on all three; B-D recorded, never gated.
    This is the first honest measurement of the budget with the **finished** system attached — observer, scheduler tap, negknow, checkpointer, MCP handlers, warm start. Wave 1 measured it with almost nothing wired. Treat a pass here as the real result and a wave-1 pass as historical.
 2. `go test -run 'TestBreachDetectorTransitionsAfterThreeWindows|TestBreachDetectorRevertsAfterThreeCleanWindows|TestHotModeTransitionWritesStateAndNAKs' ./internal/daemon/` → the "degrade to async queue-and-drain" clause is an observable transition.
-3. `go test -run 'TestFreshBuildReportsModeFull|TestDeclaredProducerSetMatchesArchitecture' ./internal/contract/` → `ModeFull`, and at V6 **no assertion may report `not-yet-implemented`**: every producer has shipped. `mcp.server_registered`, `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and `hook.additional_context_delivered` must all be real observations.
+3. `go test -run 'TestFreshBuildReportsModeFull|TestStandardAssertions_MatchTheNormativeTable|TestDeclareProducer_IsIdempotentAndScoped' ./internal/contract/` → `ModeFull`, and at V6 **no assertion may report `not-yet-implemented`**: every producer has shipped. `mcp.server_registered`, `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and `hook.additional_context_delivered` must all be real observations.
 4. `go test -run 'TestDegradedPassiveSuppressesActingPaths|TestDegradedPassiveStillRecords|TestModeOffSkipsIngest' ./...` → §7.1 holds.
 5. `go test -run 'TestHooksExitZeroUnderFaults|TestSelfTestIsTheOnlyNonZeroExit' ./...` → 66 combinations exit 0.
 
@@ -595,14 +597,21 @@ SP-03 is a dependency of both criteria rather than the owner of either. Re-measu
 **Procedure.**
 
 1. Re-run SP-10's own gate at V6:
+   The driver takes no `--filter`, no `--set` and no `--json` — it accepts exactly `corpus baseline
+   policies out signoff growth sketch phase regen-corpus write-baseline max-cpu max-wall ci`, and
+   anything else is `flag provided but not defined` and exit 2 with nothing measured. So the toggle
+   is made in `<project>/.qompack/config.json` between two full replays, and the report flag is
+   `--out`:
    ```
+   # set "checkpoint.frontier.advanceOnSegmentClose": false in <project>/.qompack/config.json
    go run ./tools/devtool replay --corpus testdata/sessions/synthetic \
-       --filter multi-compaction --set checkpoint.frontier.advanceOnSegmentClose=false --json /tmp/off.json
+       --phase 4 --max-cpu 3m --ci --out /tmp/off.json
+   # set it to true
    go run ./tools/devtool replay --corpus testdata/sessions/synthetic \
-       --filter multi-compaction --set checkpoint.frontier.advanceOnSegmentClose=true  --json /tmp/on.json
+       --phase 4 --max-cpu 3m --ci --out /tmp/on.json
    ```
    `on.json` `Score.ResidualSpan.P50` must be **≥ 30% below** `off.json`'s, and `Score.Divergence` must not regress beyond the 2% of §11.3.
-2. `go run ./tools/devtool bench-hotpath --hook checkpoint -n 200` on three platforms → **B-E p99 < 2 s**.
+2. `go run ./tools/devtool bench-hotpath --iterations 200 --warm-daemon` on three platforms → **B-E p99 < 2 s**. (**No `--hook`** — B-E is measured on every run, and `--hook checkpoint` is rejected by `hookArgs` with exit 2 before anything is measured; and the count flag is `--iterations`, not `-n`.)
 3. `go test -run 'TestGoldenCheckpointsContainNoCodeBlocks|TestSourceSetCarriesNoText|TestAdvanceIsDPIGuarded' ./internal/checkpoint/` → no snippets; no summary-sourced checkpoint; DPI guard live.
 4. `go test -run 'TestCadenceFinalizesWhenDraftReachesBudget|TestCadenceIsOffInDegradedPassive' ./...` → checkpoints exist even when compaction never fires, and the cadence is off in `degraded-passive`.
 
@@ -634,7 +643,7 @@ SP-03 is a dependency of both criteria rather than the owner of either. Re-measu
 3. Least-squares slope of median residual span against session turn count ≤ 0.02 tokens/turn; longest-quartile median ≤ 1.25× shortest-quartile median. This is the amortization claim, tested directly.
 4. `ResidualSpan.P95 ≤ 20 000` (`checkpoint.frontier.maxResidualTokens`).
 5. Compaction pause derived linearly from residual span (`3000 ms + 0.12 ms/token`), written to `.qompack/eval/phase4-pause.json` with `"pause_modelled": true`, and **never** presented as a measured wall-clock in deterministic replay. Verify the flag is present in the artifact.
-6. `go test -run TestSchedulerNotOnHotPath ./...` plus `bench-hotpath -n 2000` on three platforms → B-A p99 unchanged within noise.
+6. `go test -run TestSchedulerNotOnHotPath ./...` plus `bench-hotpath --iterations 2000` on three platforms → B-A p99 unchanged within noise.
 
 ### 2.13 SP-13 — MCP retrieval
 
@@ -725,7 +734,7 @@ SP-14 does not *achieve* these numbers — SP-06, SP-05 and SP-02 do. Its exit c
 > - **Bloom false positives compounding.** At 1% they are safe; at 10% the agent starts skipping viable approaches. Monitor fill ratio and resize.
 > **Exit criterion:** store size vs. raw transcript ratio ≥ 4:1 on read-heavy sessions … hook p99 < 15ms.
 
-**Procedure.** Walk SP-17's fifteen numbered Definition-of-Done items and treat each as a V6 line item:
+**Procedure.** Walk SP-17's seventeen numbered Definition-of-Done items and treat each as a V6 line item:
 
 1. `go run ./tools/devtool package` twice; `sha256sum` every archive from both runs and diff → identical. Six per-platform bundles, one universal bundle, ten archives with matching `.sha256`.
 2. `ls -l` every release binary → linux/amd64 ≤ 20 MiB; all others ≤ 24 MiB.
@@ -742,6 +751,8 @@ SP-14 does not *achieve* these numbers — SP-06, SP-05 and SP-02 do. Its exit c
 13. `devtool verify-version`, `devtool changelog --check`, `actionlint`, `goreleaser release --snapshot --clean`.
 14. All **fourteen** CI jobs green: `ci.yml`'s ten (`verify`, `lint-windows`, `test`, `cover`, `crossbuild`, `bench-gate`, `replay-gate`, `plugin-validate`, `security`, `docs`) plus SP-17's four (`package-gate`, `platform-matrix`, `fault-gate`, `install-gate`). `lint-windows` was added by the post-V2 hardening round and is absent from SP-17's own enumeration; it is a required gate all the same, so a report listing thirteen has dropped it.
 15. `gofumpt -l` empty; `golangci-lint run` clean; `nomagic` clean; coverage floors unchanged; `internal/cli` ≥ 75%.
+16. **Exactly one stamped version source**, and it is a merge blocker rather than a style note: `grep -R -- '-X ' .goreleaser.yaml tools/devtool/` names `internal/core.Version` and nothing else, and `grep -rn 'DefaultVersion' --include='*.go' .` returns nothing. A second source ships a tagged binary whose `qompack version`, daemon lock, daemon status payload and MCP handshake all still report the previous number while every version assertion in the suite passes — which is why this is checked by grep against the tree rather than by asserting a version string.
+17. **The pre-release live run.** One hand-executed `test/replay --live --live-runner <cmd>` over the recorded corpus with `QOMPACK_EVAL_LIVE=1`, run **before** the release tag, its report attached to the release notes and its numbers copied into the completion report. This is 00-ARCHITECTURE §5.18's tier-3 run; no workflow executes live mode, so if this row is blank at sign-off it was not run — there is no CI artefact that can stand in for it.
 
 Additionally: `doctor`'s reported Phase-1 ratio and §11.4 bloom thresholds must agree with the numbers recorded in §2.6 and §2.9.
 
@@ -764,7 +775,7 @@ SP-18 ships no phase; it ships the guide by which a human confirms every shipped
 2. `go run ./tools/devtool gen-config-docs && git diff --exit-code` → no diff; then `go run ./tools/devtool gen-config-docs --check` → exit 0. `configdocs.Leaves(config.Defaults())` returns zero orphans and zero missing, and `len(Meta)` equals the walked leaf count — **record that number, do not assert a literal**; it was 88 when SP-18 was written and later waves may add keys. Then hand-edit one row out of `docs/config-reference.md`, re-run `--check`, confirm it exits non-zero naming the file stale, and restore the file: a staleness gate that cannot fail is not a gate.
 3. `go test -run TestUATQuotesPhaseExitCriteria ./test/docs/` → each phase criterion quoted verbatim **inside** the scenario that operationalizes it: Phase 1 → UAT-02, Phase 2 → UAT-09, Phase 3 → UAT-05, Phase 4 → UAT-10.
 4. **Execute `docs/uat.md` UAT-01 … UAT-12 by hand against a real project, using the packaged bundle from §2.17.** Record twelve verdicts in the completion report. A scenario that cannot be executed exactly as written is a documentation defect and therefore a V6 failure: fix `docs/uat.md` on `verify/v6`, never record a workaround.
-5. `go test -run 'TestCannotDoListVerbatim|TestCannotDoCoversResiduals|TestCannotDoCoversG72|TestCannotDoQuotesScopeNote|TestLoudGlossaryCoversContractIDs|TestLoudGlossaryCoversFailureModes' ./test/docs/` → the honesty surface is complete: eight §12 bullets byte-for-byte, fifteen §9 residual strings, the "Not closeable from a plugin" sentence, the §5.6 scope note, nine `contract.ID`s, the **nine** §12.3 failure rows and the §12.2 `sync → spool` transition (nineteen glossary entries, not twenty — §12.3's table has nine rows).
+5. `go test -run 'TestCannotDoListVerbatim|TestCannotDoCoversResiduals|TestCannotDoCoversG72|TestCannotDoQuotesScopeNote|TestLoudGlossaryCoversContractIDs|TestLoudGlossaryCoversFailureModes' ./test/docs/` → the honesty surface is complete: twelve §12 bullets byte-for-byte, fifteen §9 residual strings, the "Not closeable from a plugin" sentence, the §5.6 scope note, nine `contract.ID`s, the **nine** §12.3 failure rows and the §12.2 `sync → spool` transition (nineteen glossary entries, not twenty — §12.3's table has nine rows).
 6. **The documentation describes the binary that actually ships.** `go test -run 'TestUATCommandsAreReal|TestUserGuideCoversSevenCommands|TestUserGuideJSONFormMatchesCommandsDoc|TestUserGuideCoversEightMCPTools|TestUserGuideHookTableMatchesManifest|TestUserGuideStatusSectionCoversEveryStatusField|TestUserGuideStorageTreeMatchesLayout|TestReadmeStructure|TestReadmeInstallMatchesManifest|TestReadmeFirstFiveMinutesHasFiveSteps' ./test/docs/` → every `qompack <word>` occurrence across `docs/uat.md`, `docs/user-guide.md` and `docs/troubleshooting.md` is in the 00-ARCHITECTURE §2.3 subcommand set; every `/qompack:<word>` is one of the seven names read from `plugin/commands/*.md`; the seven hook event names match `plugin/hooks/hooks.json`; the eight MCP tool sections carry their §8.7 purpose text verbatim; the twelve §5.17 status field labels are all present. Then re-run the subcommand half against the **packaged** binary of §2.17 — that is §3.3. A document that describes a subcommand the shipped binary does not have is a release blocker, not a doc nit.
 7. **The twelve ADRs and the architecture digest.** `go test -run 'TestAdrShape|TestAdrNamesItsDecisionID|TestAdrIndexEntriesExist|TestArchitectureDigestSections|TestArchitectureQuotesTenInvariants|TestArchitectureLinksEveryADR' ./test/docs/` → `0200`–`0211` present, all twelve carrying the same `**Date:**`, each with `## Context`, `## Decision`, `## Consequences`, `### Positive`, `### Negative`, `## References` in that byte order, each naming its own decision ID (ADR number *n* names D(*n* − 199): `0200` names D1, `0211` names D12) and each with at least one Negative item; the eight digest headings in order; ARCH §13 invariant 7 quoted verbatim. Note the boundary: `OwnedDocs()` and `docs/adr/README.md` own exactly the twelve ADRs of the `0200` block. ADR files written by other subplans — the per-package records `docs/adr/0002-replay-methodology.md`, `0003-replay-overfit-recollection.md`, `0007-dag-slices-are-scores-not-drop-decisions.md`, `0030-sketch-binary-format.md`, `0016-phase7-refinements.md` of §2.16, and the per-checkpoint records in the `0100` block — exist on disk, are not in `OwnedDocs()`, and are not indexed. That low-block occupancy is exactly why the architecture ADRs are numbered `0200`–`0211` rather than `0001`–`0012`. If `TestAdrIndexEntriesExist` fails because a sibling ADR was added to the index, the index is what is wrong.
 8. **Upstream issues and the tracker template.** `go test -run 'TestUpstreamIssuesCoversFive|TestUpstreamIssuesQuotesEvidence|TestUpstreamTrackerTemplateShape' ./test/docs/` → the five upstream items as `##` headings in design-document order, each with its five `###` subsections and a fenced block whose first line starts with `Title:`; the §12 upstream sentence, G1.2, G4.5, G8.1, the §2.6 PTL paragraph and the two §2.7 "**Lost**" rows plus the "**Not re-injected at all**" row all verbatim; `.github/ISSUE_TEMPLATE/upstream-tracker.yml` carrying `name:`, `description:`, `title:`, `labels:`, `body:`, the seven field `id:` values, all five item titles as dropdown options, and `required: true` at least six times.
@@ -873,7 +884,7 @@ Everything in §1 and §2 verifies a component or a criterion. This section veri
 
 **Seam:** `devtool package` → `.goreleaser.yaml` → `internal/pluginmanifest` → `CHANGELOG.md`.
 **Setup:** two consecutive `devtool package` runs into separate output directories.
-**Asserts:** the ten archives are byte-identical between runs and each matches its `.sha256`; `SHA256SUMS` is `<64 lowercase hex><two spaces><filename>\n`, LF endings, bytewise-sorted, no header; the binary version, `pluginmanifest.DefaultVersion`, the tag under test and the CHANGELOG heading are one number; the artifact list matches `docs/release.md`; `release-guard --tag <tag> --require-branch main` reports every failing condition rather than the first.
+**Asserts:** the ten archives are byte-identical between runs and each matches its `.sha256`; `SHA256SUMS` is `<64 lowercase hex><two spaces><filename>\n`, LF endings, bytewise-sorted, no header; the binary version, `internal/core.Version`, `plugin/.claude-plugin/plugin.json`'s `version`, the tag under test and the CHANGELOG heading are one number; the artifact list matches `docs/release.md`; `release-guard --tag <tag> --require-branch main` reports every failing condition rather than the first.
 
 ### 3.14 — `TestV6_HotPathHoldsWithEverySubsystemResidentInTheBundle`
 
@@ -964,7 +975,7 @@ A drop below any floor fails `verify` and is a V6 failure, never a waiver. `inte
 | 7 | No network, no telemetry, no writes outside `.qompack/` | `go test ./test/security/...` ; `go run ./tools/devtool security-audit` ; §3.11 |
 | 8 | Every constant §12 says might change is a config key | `go run ./tools/devtool lint` (`nomagic`) ; `go test -run 'TestNoLiteral12Point5InSource' ./internal/scheduler/` ; `grep -rn "450" internal/skills/ --include='*.go' \| grep -v _test.go` empty |
 | 9 | Every latency budget is measured, not assumed | §5, every cell filled |
-| 10 | Degradation is loud | `go test -run 'TestMonitorRestore\|TestLoadWithLog_Corrupt\|TestHotModeTransitionWritesStateAndNAKs' ./...` ; §3.10 |
+| 10 | Degradation is loud | `go test -run 'TestMonitor_TwoConsecutiveCleanRunsRestore\|TestMonitor_DegradeWritesLoudLog\|TestLoadWithLog_LoudOnCorrupt\|TestHotModeTransitionWritesStateAndNAKs' ./...` ; §3.10 |
 
 ### 4.5 Residue checks
 
@@ -972,7 +983,7 @@ A drop below any floor fails `verify` and is a V6 failure, never a waiver. `inte
 |---|---|---|
 | No stub skips anywhere | `grep -rn "t.Skip" --include='*_test.go' internal/ test/ tools/` | No occurrence carrying `behaviour: implementation is a stub (Rule W-1)` or `contract fixture not yet recorded (Rule W-2)` |
 | No unimplemented sentinels outside `core` | `grep -rn "ErrNotImplemented" --include='*.go' internal/ \| grep -v '^internal/core/'` | Empty |
-| No `not-yet-implemented` contract assertion | `go test -run TestDeclaredProducerSetMatchesArchitecture ./internal/contract/` ; `go run ./cmd/qompack self-test` | All nine assertions report a real observation |
+| No `not-yet-implemented` contract assertion | `go test -run 'TestStandardAssertions_MatchTheNormativeTable\|TestDeclareProducer_IsIdempotentAndScoped' ./internal/contract/` ; `go run ./cmd/qompack self-test` | All nine assertions report a real observation |
 | `Qompack.md` untouched | `git diff develop -- Qompack.md` ; `git diff $(git rev-list --max-parents=0 HEAD) HEAD -- Qompack.md` | Both empty |
 | `plans/00-ARCHITECTURE.md` §5 untouched | `git diff develop -- plans/00-ARCHITECTURE.md` | Empty, or one reviewed `arch/` amendment merged into `develop` first and named in the report |
 | No attribution trailers | `git log develop..verify/v6 --format=%B \| grep -iE 'co-authored-by\|signed-off-by\|generated with\|🤖'` | Empty |
@@ -994,7 +1005,7 @@ A cell left blank is a budget that was not measured, and §13 invariant 9 says a
 | **B-B** | `l0_ingest` (daemon read → WAL append) p99 | ARCH §2.4 | the same bench artifact; `go test -bench BenchmarkIngestAccept ./internal/daemon/` |
 | **B-C** | `l0_process` p99 (soft) | ARCH §2.4 | `go test -bench 'BenchmarkOnToolUse_' -benchtime 5s ./internal/observer/` |
 | **B-D** | `hook_wall` incl. host process creation and the launcher | ARCH §2.4 | the same bench artifact — **reported, never gated** |
-| **B-E** | `checkpoint_finalize` p99 | §11.3 L4, ARCH §2.4 | `go run ./tools/devtool bench-hotpath --hook checkpoint -n 200 --bundle native --json /tmp/v6-be.json` on all three |
+| **B-E** | `checkpoint_finalize` p99 | §11.3 L4, ARCH §2.4 | `go run ./tools/devtool bench-hotpath --iterations 200 --warm-daemon --bundle native --json /tmp/v6-be.json` on all three (**no `--hook`**: `hookArgs` accepts only `observe-tool`; the count flag is `--iterations`) |
 | **B-F** | `mcp_tool_call` p95 (`minimal` span) | ARCH §2.4 | `go test -run TestBudgetBF ./internal/mcp/` ; `go test -bench BenchmarkMCPFrontend ./internal/commands/` |
 | **B-G** | `hook_degraded` p99 — the synchronous spool append a hook pays inside `ipc.Client.Send` when the daemon cannot take the event | ARCH §12.3; `runtime.budgets.hookDegradedMs`; `internal/obs/budgets.go` | `go test -run 'TestDegradedSpoolAppendIsRateGradedAgainstThePlatform\|TestDegradedSendRecordsIntoBGsHistogram' ./internal/ipc/` |
 | **LAUNCH-P** | Universal-launcher overhead p99, POSIX | SP-17 DoD 3 | `go run ./tools/devtool bench-hotpath --iterations 500 --bundle universal --json /tmp/v6-launcher.json` on ubuntu and macos |
@@ -1009,7 +1020,7 @@ A cell left blank is a budget that was not measured, and §13 invariant 9 says a
 | **Bloom** | Elimination and segment bloom health | §11.4 | `go test -run TestHealth ./internal/negknow/` ; `go test -run 'TestSegmentBloom' ./internal/store/` |
 | **Micro** | Every named micro-benchmark of §1 | ARCH §7 | `go run ./tools/devtool bench` then `benchstat testdata/bench-baseline.txt /tmp/v6-bench.txt` |
 
-**Where `bench-hotpath --bundle` comes from.** `--bundle native|universal` is SP-17's additive extension to the existing `bench-hotpath` task, listed in SP-17's produced-artifact table alongside `package`, `set-version` and the rest. It is the mechanism §5.3's rule "B-A and B-E are measured from the installed per-platform bundle" depends on: without it every number above would be a `go run ./cmd/qompack` development figure, which §5's opening paragraph explicitly refuses. On `develop` before SP-17 merges, `bench-hotpath` takes no flags at all — so if `--bundle native` is rejected when this checkpoint runs, SP-17 did not ship its own deliverable and that is the finding, not a command to rewrite.
+**Where `bench-hotpath --bundle` comes from.** `--bundle native|universal|source` is SP-17's additive extension to the existing `bench-hotpath` task (`V6-SP-17` §14), listed in SP-17's produced-artifact table alongside `package`, `set-version` and the rest. It **defaults to `source`** — the behaviour that exists today — so every committed `bench-hotpath` line in `ci.yml` and `nightly.yml` keeps its exact current meaning, and so a §5 row that omits the flag measures a `go run ./cmd/qompack` development figure rather than the bundle. That is why every B-A/B-E/LAUNCH-P command in this section names `--bundle` explicitly: it is the mechanism §5.3's rule "B-A and B-E are measured from the installed per-platform bundle" depends on, and §5's opening paragraph refuses the source figure. On `develop` before SP-17 merges, `bench-hotpath` has no `--bundle` flag at all — so if `--bundle native` is rejected when this checkpoint runs, SP-17 did not ship its own deliverable and that is the finding, not a command to rewrite.
 
 ### 5.2 The validation table
 
@@ -1094,7 +1105,12 @@ There is nothing to skip and nothing to sample. Every row of §1 is executed aga
 > - No metric may regress by more than 2% to improve another without explicit sign-off
 
 ```bash
-go run ./tools/devtool replay --corpus testdata/sessions/synthetic --baseline develop --ci --json /tmp/v6-replay.json
+go run ./tools/devtool replay --corpus testdata/sessions/synthetic \
+  --baseline develop --phase 7 \
+  --growth /tmp/v6-growth.json --sketch /tmp/v6-health.json --signoff /tmp/v6-signoff.txt \
+  --max-cpu 3m --ci --out /tmp/v6-replay.json
+# --phase defaults to 0: without it only the Phase-0 check runs and the "Phases 0 through 7" claim
+# below is vacuous. The report flag is --out; there is no --json.
 ```
 
 The gate compares every metric in `eval.MetricsOf` for every policy against the recorded baseline, honouring `MetricDirection` and the zero-baseline absolute tolerance. At V6 the rule is stricter than at any previous checkpoint:
@@ -1195,7 +1211,7 @@ This checkpoint is the widest in the set — eighteen inventory groups, eighteen
 
 ## 8. Completion report template
 
-Fill this in as the checkpoint runs and paste it into the merge commit body (abridged) and into `docs/adr/0018-v6-release-verification.md` (in full). Every metric cell carries a **measured number**. A row with `PASS` and an empty metric cell is not a result.
+Fill this in as the checkpoint runs. Commit the filled-in report to `verify/v6` as **`plans/V6-report.md`** before merging — that path, and only that path, is what `test/guards`'s carried-defects sign-off gate keys on, so a report that lives only in an ADR leaves every `deferred:V6-VERIFY` row unresolved and un-fired. Then paste it into the merge commit body (abridged) and into `docs/adr/0018-v6-release-verification.md` (in full) as the secondary, human-readable destination. Every metric cell carries a **measured number**. A row with `PASS` and an empty metric cell is not a result.
 
 ### 8.1 Header
 
@@ -1208,8 +1224,10 @@ Platforms:             ubuntu-<ver> / macos-<ver> / windows-<ver>
 Go toolchain:          go1.26.<x>
 Bundle under test:     dist/plugin-<goos>-<goarch>, sha256 <hex>
 Release version:       v1.0.0   (set by the §10 release-prep commit; must match
-                                 pluginmanifest.DefaultVersion, plugin.json and the
-                                 CHANGELOG top heading)
+                                 internal/core.Version, plugin.json and the
+                                 CHANGELOG top heading — internal/core/version.go is
+                                 the single version source; there is no
+                                 pluginmanifest.DefaultVersion)
 develop verification tag:        v0.5.0
 Config leaves documented:        <n>   (configdocs.Leaves == len(Meta); record, do not assert)
 Fixes landed on verify/v6:                       <n commits>
@@ -1248,7 +1266,7 @@ One row per inventory ID. No collapsed ranges: a block written as "1.6.1 … 1.6
 | 1.1.21 | config docs no-drift | | |
 | 1.1.22 | six-target cross-build | | |
 | 1.1.23 | contract monitor `ModeFull` on a fresh build | | |
-| 1.1.24 | the four closing-note guards | | |
+| 1.1.24 | the six `buildorder_test.go` guards + the sibling `TestGuard_*` | | names run: |
 | 1.1.25 | conformance infrastructure, zero W-1 skips | | skip count: |
 | 1.1.26 | testutil fixture | | |
 | 1.1.27 | SP-01 baseline benchmarks | | ms/op ×3: |
@@ -1633,9 +1651,10 @@ One row per inventory ID. No collapsed ranges: a block written as "1.6.1 … 1.6
 | 2.12 | SP-12 | Phase 4 closed | rewrite ≤ 0.80×, slope ≤ 0.02, P95 ≤ 20 000 | | |
 | 2.13 | SP-13 | Phase 2 surfaced, B-F, no re-inflation | stale never active; p95 < 250 ms | | |
 | 2.14 | SP-14 | the surfaces report the real numbers | field-by-field agreement | | |
-| 2.15 | SP-15 | Phases 5 and 6 closed | Δ ≥ 0.02 subsets; warn ≤ 3rd repetition | | |
+| 2.15a | SP-15 | **Phase 5 closed** — submodular selection beats the suffix baseline | `FractionOfOPT(analyzer-suffix-submodular) > FractionOfOPT(baseline)` on all 24 sessions at an identical 12 000-token budget, Δ ≥ 0.02 on the read-heavy and refactor subsets, matching `testdata/replay-baseline/phase5.json` to 4 dp (§2.15 step 1) | | |
+| 2.15b | SP-15 | **Phase 6 closed** — loop warning is early and silent otherwise | first warning at or before the 3rd repetition **and** ≥ 5 turns before the loop ends on every `thrash-loop` session; empty warning set on every non-`thrash-loop` session (§2.15 step 2) | | |
 | 2.16 | SP-16 | Phase 7 measured | warm ≥ cold on both metrics | | |
-| 2.17 | SP-17 | fifteen Definition-of-Done items | all fifteen | | |
+| 2.17 | SP-17 | seventeen Definition-of-Done items | all seventeen — item 16 (exactly one stamped version source) is a merge blocker, item 17 is the hand-run `--live` replay whose report is attached to the release notes | | |
 | 2.18 | SP-18 | the guide is executable exactly as written | zero doc defects; twelve verdicts | | |
 
 ### 8.4 New integration tests (§3)
@@ -1670,6 +1689,7 @@ One row per inventory ID. No collapsed ranges: a block written as "1.6.1 … 1.6
 | Residue checks (§4.5) | | skips / sentinels / not-yet-implemented: |
 | `Qompack.md` and `00-ARCHITECTURE.md` untouched | | |
 | Attribution-trailer scan | | |
+| Wave-5 merge order (SP-17 → SP-18, `plans/README.md` step 3) | `git log --oneline --merges -2 --reverse` | `plans/README.md`:51 makes every wave from 2 onward fill exactly one of two cells: name the build-order guard it authored, or record **`merge order unverified — no guard discriminates this wave's permutations`**. Wave 5 has no guard — none of the six `TestGuard_*` in `test/guards/buildorder_test.go` distinguishes SP-17 → SP-18 from its reverse — so V6 discharges the rule the second way, and the order is carried on review of the two merge commits plus `V6-SP-17`'s own header, the one wave order README notes is stated in a subplan. Leaving the cell blank is not one of the two options |
 
 ### 8.6 Performance budgets (§5)
 
@@ -1722,7 +1742,7 @@ Every verdict is `pass` or `fail`. There is no `partial`, no `n/a` and no `not r
 
 ```
 [ ] Every inventory row in §1 executed and recorded — no row skipped, no row summarized.
-[ ] Every exit criterion in §2 re-measured against the merged develop, including SP-17's fifteen
+[ ] Every exit criterion in §2 re-measured against the merged develop, including SP-17's seventeen
     Definition-of-Done items and SP-18's docs suites.
 [ ] All fourteen §3 integration tests authored, passing, and committed to verify/v6.
 [ ] Every §4 gate green, including the fourteen CI jobs on the final commit and all ten invariants.
@@ -1795,7 +1815,7 @@ At V1 through V5, a failure delayed the next wave. At V6 there is no next wave: 
 This is the last gate in the plan set. Every box below is ticked with evidence in hand, in order.
 
 - [ ] Every row of §1 (all 304 inventory items, eighteen groups) is PASS, recorded in §8.2 with its measured value.
-- [ ] Every exit criterion in §2 is re-measured on `verify/v6` and PASS, including SP-17's **fifteen** Definition-of-Done items (§2.17) and SP-18's documentation suites (§2.18).
+- [ ] Every exit criterion in §2 is re-measured on `verify/v6` and PASS, including SP-17's **seventeen** Definition-of-Done items (§2.17) and SP-18's documentation suites (§2.18). Items 16 and 17 are the two that no CI job can report on your behalf: 16 is a grep over the tree, 17 is a hand-run live replay.
 - [ ] All fourteen §3 integration tests are authored, green, and committed to `verify/v6`.
 - [ ] Every gate of §4 is green: `ci-local`, `-race`, `-count=2`, every §6.4 coverage floor, all ten §13 invariants, and every residue check (zero `t.Skip`, zero `ErrNotImplemented` outside `internal/core`, **zero contract assertions reporting `not-yet-implemented`**).
 - [ ] Every cell of the §5.2 budget table is filled with a measured number on all three platforms, and every hard budget passes: **B-A p99 < 15 ms**, **B-B p99 < 2 ms**, **B-E p99 < 2 s**, **B-F p95 < 250 ms**, launcher p99 **< 4 ms POSIX / < 15 ms Windows**, B-D reported and not gated.
@@ -1804,12 +1824,12 @@ This is the last gate in the plan set. Every box below is ticked with evidence i
 - [ ] **UAT-01 through UAT-12 are recorded in §8.9 as `pass`, every one hand-executed by a person against a real project using the packaged bundle**, with the platform named, the evidence artifacts attached, and no scenario marked partial, skipped or delegated.
 - [ ] `git log develop..verify/v6 --format=%B | grep -iE 'co-authored-by|signed-off-by|generated with|🤖'` is empty — no `Co-Authored-By`, `Signed-off-by`, `Generated with` or 🤖 anywhere in the range, in any commit, merge commit, tag message or PR body.
 - [ ] `git diff develop -- Qompack.md` is empty, and `plans/00-ARCHITECTURE.md` is unmodified (or carries exactly one reviewed `arch/` amendment, named in §8.5).
-- [ ] The completion report §8 is filled in, pasted into the merge commit body (abridged) and committed in full as `docs/adr/0018-v6-release-verification.md`.
+- [ ] The completion report §8 is filled in and committed to `verify/v6` as `plans/V6-report.md` — the path the carried-defects sign-off gate keys on — then pasted into the merge commit body (abridged) and committed in full as `docs/adr/0018-v6-release-verification.md`.
 - [ ] **The release-prep commit has landed on `verify/v6` and the four version spellings are one number.** See "Release prep" immediately below: without it `verify-version --tag v1.0.0` compares `1.0.0` against the `0.1.0` that wave 5 actually ships and exits 1, taking `release-guard` down with it.
 
 ### Release prep — bump the version before anything else
 
-**Nothing in wave 5 bumps the version off `0.1.0`.** SP-17 ships `pluginmanifest.DefaultVersion = "0.1.0"`, a `CHANGELOG.md` whose top heading is `## [0.1.0]`, and a `plugin/.claude-plugin/plugin.json` carrying `"version": "0.1.0"` — while its mission promises **a tag `v1.0.0` on `main`**. SP-17 defines `set-version` for exactly this and defers it: *"Run by a human in the release-prep commit; never by CI."* No SP-17 commit is that commit. **This is that commit, and the release semver is `v1.0.0`** — the number SP-17's mission names and the one its tag-triggered pipeline is written against.
+**Nothing in wave 5 bumps the version off `0.1.0`.** SP-17 ships `internal/core/version.go` still reading `var Version = "0.1.0"`, a `CHANGELOG.md` whose top heading is `## [0.1.0]`, and a `plugin/.claude-plugin/plugin.json` carrying `"version": "0.1.0"` — while its mission promises **a tag `v1.0.0` on `main`**. SP-17 defines `set-version` for exactly this and defers it: *"Run by a human in the release-prep commit; never by CI."* No SP-17 commit is that commit. **This is that commit, and the release semver is `v1.0.0`** — the number SP-17's mission names and the one its tag-triggered pipeline is written against.
 
 Run it on `verify/v6`, before the `develop` merge, as a commit of its own so the version bump is reviewable in isolation:
 
@@ -1825,7 +1845,7 @@ git commit -m "chore(release): set version 1.0.0
 Refs: V6, SP-17"
 ```
 
-`set-version` rewrites `internal/pluginmanifest/version.go`, regenerates `plugin/**` from the generator, and inserts a dated `## [1.0.0] - YYYY-MM-DD` heading into `CHANGELOG.md` above the previous top heading, moving everything under `## [Unreleased]` into it and leaving `## [Unreleased]` empty. `plugin-validate` then proves the regenerated bundle still matches its committed form, and `gen-config-docs --check` proves the regeneration touched nothing under `docs/`. Only once `verify-version --tag v1.0.0` exits 0 here — binary version, `pluginmanifest.DefaultVersion`, `plugin.json` and the CHANGELOG heading all reading `1.0.0` — is the release sequence below runnable at all.
+`set-version` rewrites `internal/core/version.go` (`var Version = "1.0.0"`) — **the single version source, and `set-version`'s only writable target**; `pluginmanifest.DefaultVersion` and `internal/pluginmanifest/version.go` do not exist, must not be created, and their absence is an SP-17 merge blocker (`V6-SP-17`:393, DoD 16). It then regenerates `plugin/**` from the generator, and inserts a dated `## [1.0.0] - YYYY-MM-DD` heading into `CHANGELOG.md` above the previous top heading, moving everything under `## [Unreleased]` into it and leaving `## [Unreleased]` empty. `plugin-validate` then proves the regenerated bundle still matches its committed form, and `gen-config-docs --check` proves the regeneration touched nothing under `docs/`. Only once `verify-version --tag v1.0.0` exits 0 here — the tag, `core.Version`, `plugin.json`'s `version` and the CHANGELOG heading all reading `1.0.0` — is the release sequence below runnable at all.
 
 - [ ] `set-version 1.0.0` run on `verify/v6` in its own commit; `plugin-validate`, `gen-config-docs --check`, `verify-version --tag v1.0.0` and `changelog --check` all exit 0 on that commit.
 

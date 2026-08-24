@@ -262,7 +262,8 @@ Young–Daly optimal checkpoint interval
 I* = √(2·δ·M)
 
 Ski-rental cache-write threshold
-write when  E[remaining reads] > w/r   (≈ 12.5 at r=0.1, w=1.25)
+write when  E[remaining reads] > w/r   (12.5 at r=0.1, w=1.25 — the 5-minute TTL)
+                                      (20   at r=0.1, w=2.0  — the 1-hour   TTL)
 ```
 
 ### Closing note (the four build-order priorities SP-01 encodes as CI guards)

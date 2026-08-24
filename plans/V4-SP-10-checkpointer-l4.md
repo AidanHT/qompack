@@ -361,8 +361,9 @@ func (Estimator) EstimateString(s string, c Class) core.Tokens
 func (o *Options) Handle(op ipc.Op, h ipc.Handler)   // NOT used by this subplan
 func (o *Options) Bind(fn func(*Services))           // the seam this subplan uses
 type Services struct {
-    // … the struct-typed services, plus the nine nil-tolerant function seams, of which this
-    // subplan binds exactly one:
+    // … the struct-typed services, plus the nine nil-tolerant CONSUMED function seams
+    // (and the tenth field, Mode, which runs the other way — SP-05 provides it, a Bind
+    // body reads it), of which this subplan binds exactly one:
     PreCompact func(ctx context.Context, e hookio.Event) (hookio.Output, error)
 }
 // Idle() is a method on the constructed Daemon, NOT on Options: there is no Options-level
@@ -1219,7 +1220,7 @@ Tests are written before the implementation in each commit. Package-level covera
 | `TestAdvanceDerivesCurrentWorkGoalFromLatestPrompt` | 3 user prompts in range, the last `"Fix the retry loop. Then ship."` | `Advance` | `CurrentWork.Goal == "Fix the retry loop."`; `NextStep == ""`; `BlockedOn == nil` |
 | `TestSetCurrentWorkSuppressesDerivation` | as above | `SetCurrentWork({Goal:"X"})` then `Advance` | `Goal == "X"` — derivation does not overwrite an explicit value |
 | `TestPackageFunctionsWorkWithoutObservers` | observers never set (`SetObservers` not called) | `ExtractDecisions`, `Truncate`, `ValidatePointers` | no panic, no nil dereference, results identical to the observed runs |
-| `TestFrontierAdvanceCutsResidualSpan` (**the Phase 3 gate SP-10 owns — see Exit criteria**) | one fixed synthetic session: 60 turns, 12 closed segments, the last 2 left unencoded, driven twice from the same store — once with `cfg.Checkpoint.Frontier.AdvanceOnSegmentClose = true` (idle `Advance` after every segment close) and once with it `false` (no `Advance` before the finalize) | `Begin` → the configured `Advance` sequence → `Finalize`, then `residual := lastTurn − ref.Frontier` | with advancement **on**, `d.Frontier()` is strictly monotonically non-decreasing across the 12 `Advance` calls and ends at segment 10's `EndTurn`; `residual` is at least **70% below** the advancement-**off** run's, whose frontier never leaves `Begin`'s starting value. Both runs are deterministic (`testutil.FakeClock`, fixed corpus), so the ratio is exact, not statistical |
+| `TestFrontierAdvanceCutsResidualSpan` (**the Phase 3 gate SP-10 owns — see Exit criteria**) | one fixed synthetic session: 60 turns, 12 closed segments, the last 2 left unencoded, driven twice from the same store — once with `cfg.Checkpoint.Frontier.AdvanceOnSegmentClose = true` (idle `Advance` after every segment close) and once with it `false` (no `Advance` before the finalize) | `Begin` → the configured `Advance` sequence → `Finalize`, then `residual := lastTurn − ref.Frontier` | with advancement **on**, `d.Frontier()` is strictly monotonically non-decreasing across the 12 `Advance` calls and ends at segment 10's `EndTurn`; `residual` is at least **70% below** the advancement-**off** run's, whose frontier never leaves `Begin`'s starting value — the fixture calls `Begin(sess, 0, src)` on a store whose 12 segments are all still unencoded, and `Begin` takes that value from `src.Segments.Frontier` (step 5 above), which is 0 until a segment is marked encoded — parent 0 does not by itself pin it — so the start is turn 0 and the ratio (10 ÷ 60) is closed arithmetically rather than left unstated. Both runs are deterministic (`testutil.FakeClock`, fixed corpus), so the ratio is exact, not statistical |
 
 ### `internal/checkpoint` — decisions
 
@@ -1469,6 +1470,20 @@ go run ./tools/devtool test
 go test -bench=BenchmarkAdvanceSegment -benchtime=50x ./internal/checkpoint
 ```
 
+**This gate and the one it replaces measure different quantities — `0.70` and 70% are not the same
+number in different units.** The retired criterion (the two-run `devtool replay` comparison recorded
+at V4-VERIFY row `V4-SP10-21`) is stated over **`Score.ResidualSpan.P50`** — a P50 pooled across
+the whole replayed corpus, all 24 sessions, because the driver has no corpus-subset flag and the
+`multi-compaction` restriction cannot be expressed there at all — and passes when
+`on.Score.ResidualSpan.P50 ≤ 0.70 × off.Score.ResidualSpan.P50`, i.e. **a 30% reduction**, with a
+second clause requiring `Score.Divergence` not to regress by more than 2% (§11.3). The gate this
+plan owns is stated over **`residual := lastTurn − ref.Frontier`** on one deterministic 60-turn
+fixture, and passes when `residual_on ≤ 0.30 × residual_off`, i.e. **at least 70% below**, with the
+`Draft.Frontier()` monotonicity assertion standing in place of the divergence clause. Corpus-level
+P50 at 0.70× → single-fixture ratio at 0.30×: a different metric, a different population and a
+tighter bar, deliberately, because the replay driver cannot see this package at all (Part 2). Quote
+both quantities by name whenever either number is carried into a checkpoint document.
+
 **Part 2 — the replay reference run, recorded in the PR body but not a threshold.**
 The `test/replay` driver's complete flag set is `-corpus -baseline -policies -out -signoff
 -growth -sketch -phase -regen-corpus -write-baseline -max-cpu -max-wall -ci`. There is no
@@ -1520,7 +1535,7 @@ unaffected by anything above.
 
 - [ ] `go run ./tools/devtool test` green on linux, macos and windows; `-race` clean.
 - [ ] `go run ./tools/devtool lint` and `vet` clean; `gofumpt -l` empty; the `nomagic` pass green — no literal from the §11.6 set (`12000`, `20000`, `10000`, `2048`, `1024`, `4096`, `16384`, `300`, `120`, `450`) in `internal/checkpoint`, `internal/pins` or `internal/daemon/wire_checkpoint.go`, except the single annotated `pointerWhyMaxRunes` declaration.
-- [ ] Line coverage for `internal/checkpoint` ≥ **90%** and `internal/pins` ≥ **90%** (§6.4 puts `checkpoint` in the 90% group; `pins` is held to the same floor because it is append-only state).
+- [ ] Line coverage for `internal/checkpoint` ≥ **90%** and `internal/pins` ≥ **90%** (§6.4's 90% group carries both `checkpoint` and `pins`, and `plans/OWNERS.tsv` — the file `devtool cover` actually reads — records 90 for each; `pins` sits in that group because it is append-only state).
 - [ ] The four conformance suites shipped by SP-01 (§5.22) run with **zero** Rule W-1 skips remaining: `checkpointtest.RunWriterSuite`, `checkpointtest.RunReaderSuite`, `checkpointtest.RunTruncateSuite` and `pinstest.RunPinsSuite`. `RunPinsSuite` lives in `internal/pins/pinstest`; `checkpointtest` does not export it.
 - [ ] `go run ./tools/devtool bench-hotpath --iterations 200 --warm-daemon --json out.json`: **B-E p99 < 2 s** on all three CI platforms, both the wall-clock row and the CPU-time row.
 - [ ] `BenchmarkFinalize` mean < 50 ms; `BenchmarkAdvanceSegment` < 25 ms; `BenchmarkExtractDecisions` < 20 ms; no micro-benchmark regresses > 10% against `testdata/bench-baseline.txt`.

@@ -337,7 +337,7 @@ func Empty() Output
 
 // Consumed as nil-tolerant late-bound seams only (stubs in wave 1; never called when nil):
 // store.Store, negknow.Ledger, dag.Graph, grammar.Sequitur, scheduler.Runtime, checkpoint.Writer,
-// sketch.NewBloom/NewCMS/NewHLL/NewMisraGries, sketch.Save, sketch.Load.
+// sketch.NewBloom/NewCMS/NewHLL/NewMisraGries, sketch.Save, sketch.LoadWithLog (never sketch.Load).
 ```
 
 ### Produces (exact signatures later subplans rely on)
@@ -518,6 +518,14 @@ type Services struct {
     Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error) // SP-11
     MCPInitialized func(ctx context.Context) bool                                   // SP-13
     StatusExtra    func(ctx context.Context) (json.RawMessage, error)               // SP-14
+
+    // Wave-3 addition, not shipped by SP-05: `Mode func() contract.Mode`, added by SP-08's
+    // `arch/sp08-observer-seams` amendment (§5.4). It is the one seam that runs the OTHER way —
+    // SP-05's New assigns it, a bound function reads it — and it exists because the contract
+    // monitor is built inside New into an unexported field and is on neither Options nor the
+    // Daemon interface, so nothing a Bind body can hold reaches one. That amendment also hoists
+    // New's `contract.NewMonitor` call above the bind loop; the hoist is what makes the field
+    // non-nil by the time a bind body captures it.
 }
 func ServicesFrom(ctx context.Context) *Services
 func RegistryFrom(ctx context.Context) *SessionRegistry
@@ -1382,7 +1390,7 @@ type SketchSet struct {
 }
 ```
 
-`NewSketchSet(cfg)` constructs from `cfg.Sketches` (`bloom.capacity`, `bloom.fpRate`, `cms.epsilon`, `cms.delta`, `hll.registers`) and `NewMisraGries(64)`. `Load(root, log)` calls `sketch.Load` for `sketches/tried.bloom`, `touch.cms`, `explore.hll`; any error that is `core.ErrNotFound` or `core.ErrNotImplemented` is expected in wave 1 and logged at Debug, and the in-memory sketch is kept — the daemon must run correctly against SP-03's stub. Any *other* error is `Loud`ed and the sketch is kept in memory. `Save(root, log)` is the inverse and is a no-op when `!dirty`. `tried.bloom` is **never written by this method** (§3.3: it may be replaced only by `negknow.RebuildBloom`); `Save` skips it and a unit test asserts the file is untouched.
+`NewSketchSet(cfg)` constructs from `cfg.Sketches` (`bloom.capacity`, `bloom.fpRate`, `cms.epsilon`, `cms.delta`, `hll.registers`) and `NewMisraGries(64)`. `Load(root, log)` calls `sketch.LoadWithLog` — never `sketch.Load`, which hands `LoadWithLog` a `logging.Nop` and so writes no durable line anywhere; `test/guards/sketchload_test.go` forbids the bare form outside `internal/sketch` — for `sketches/tried.bloom`, `touch.cms`, `explore.hll`. Only `fs.ErrNotExist` (a genuine cold start, carried by `LoadWithLog`'s absent branch) and `core.ErrNotImplemented` are expected and logged at Debug, and the in-memory sketch is kept — the daemon must run correctly against SP-03's stub. `core.ErrNotFound` is **not** a usable discriminator: `LoadWithLog` returns it for corrupt, truncated, oversize and unreadable files too (§13 invariant 3), so branching on it files bit rot under "expected". Every *other* error is `Loud`ed per §13 invariant 10 and the sketch is kept in memory. `Save(root, log)` is the inverse and is a no-op when `!dirty`. `tried.bloom` is **never written by this method** (§3.3: it may be replaced only by `negknow.RebuildBloom`); `Save` skips it and a unit test asserts the file is untouched.
 
 ---
 

@@ -55,7 +55,10 @@ Everything below is quoted verbatim. No fact needed to implement this slice live
 >                 AND ( at_changepoint
 >                       OR elapsed > young_daly_interval
 >                       OR tokens > hard_ceiling
->                       OR idle_gap > ttl )     # cache provably cold → cut is free
+>                       OR idle_gap > ttl_max            # cache provably cold → cut is free
+>                       OR ( regime_known                # §5.4: fire BEFORE expiry — the
+>                            AND idle_gap > 0.8 · ttl )  # summarization call still reads cache
+>                       OR effort_changed )              # §5.4: the key changed; prefix is gone
 > ```
 >
 > - `soft_floor` — well below the auto-compact threshold; default 55% of effective window, so the plugin acts before Claude Code's own trigger and the expensive path stays a fallback
@@ -85,6 +88,7 @@ Everything below is quoted verbatim. No fact needed to implement this slice live
 > ```
 > minimize   Σ tokens_kept · r          (steady-state read cost)
 >          + w · (n − p_min)            (one-time rewrite)
+>          + c · n                       (the compaction request's own input)
 >          + λ · D(keep-set)            (task damage, from §4.2)
 > ```
 >
@@ -272,7 +276,8 @@ Everything below is quoted verbatim. No fact needed to implement this slice live
 >
 > **Ski-rental cache-write threshold**
 > ```
-> write when  E[remaining reads] > w/r   (≈ 12.5 at r=0.1, w=1.25)
+> write when  E[remaining reads] > w/r   (12.5 at r=0.1, w=1.25 — the 5-minute TTL)
+>                                       (20   at r=0.1, w=2.0  — the 1-hour   TTL)
 > ```
 
 ### Appendix C — the configuration this slice reads, verbatim
@@ -334,7 +339,7 @@ Implement none of the following. Each names its owning sibling subplan.
 | `observer.Signals`, `ExtractSignals`, `PostToolUse` / `UserPromptSubmit` / `Stop` semantics, the session's **first** `SegmentLog.Open`, addressable tombstones, supersession detection | **SP-08**. SP-12 owns every segment *close* and every subsequent *roll-open*. |
 | `negknow.Ledger`, `RefreshStaleness`, `RebuildBloom` mechanics, descriptors, the three-way answer | **SP-09**. SP-12's `rebuild_bloom` idle task only *invokes* the ledger's existing methods. |
 | `internal/daemon` core (registry, ingest queue, WAL, worker pool, `IdleController` implementation, the `act.` prefix rule, `Options`/`Services`/`Handle`/`Bind`/`DeclareProducers`, spool drain, idle exit), `internal/ipc`, `internal/contract`, budgets B-A/B-B/B-C/B-D | **SP-05**. SP-12 adds new files inside `internal/daemon`, *uses* the `Bind` and `IdleController.Register` seams SP-05 shipped for exactly this purpose, and adds three blocks to `internal/cli/daemon.go`, the composition root behind the `qompack daemon` subcommand. It edits no existing SP-05 line and registers no op route. |
-| Constructing and assigning `opts.Store`, `opts.Graph` and `opts.Ledger` in `internal/cli/daemon.go` (opening the store, the DAG and the negative-knowledge ledger for the resident daemon) | **SP-13**. `daemon.NewOptions` sets only `ProjectRoot`/`Cfg`/`Log`/`Metrics`/`Clock`/`Sketches`, and `internal/cli/daemon.go` adds only `Log`/`Metrics`/`Clock`, so today nothing populates the three service members SP-12's runtime requires. SP-13 owns that bootstrap; SP-12's Block 1 **reads** those fields and must not open a second store, graph or ledger of its own. See the dependency note in the `internal/cli/daemon.go` section. |
+| Constructing and assigning `opts.Store`, `opts.Graph` and `opts.Ledger` in `internal/cli/daemon.go` (opening the store, the DAG and the negative-knowledge ledger for the resident daemon) | **SP-11** creates the block; **SP-13** extends it and owns its final shape. `daemon.NewOptions` sets only `ProjectRoot`/`Cfg`/`Log`/`Metrics`/`Clock`/`Sketches`, and `internal/cli/daemon.go` adds only `Log`/`Metrics`/`Clock`, so on the `develop` every wave-3 branch is cut from, nothing populates the three service members SP-12's runtime requires. SP-11 merges **second** in wave 3 and its `TestE2E_AdditionalContextProducerIsDeclared` needs the block at that moment, which is why creation is SP-11's and not SP-13's (`plans/V4-SP-11-rehydrator-l5.md` prerequisite 1; `plans/V4-SP-13-mcp-retrieval-layer.md` spec §11 conforms). Either way SP-12's Block 1 **reads** those fields and must not open a second store, graph or ledger of its own. See the dependency note in the `internal/cli/daemon.go` section. |
 | `internal/config` schema, defaults, precedence, validation, provenance, JSON Schema, the `nomagic` pass | **SP-01** |
 | Packaging, cross-platform matrix, release pipeline | **SP-17** |
 | User guide, troubleshooting, config reference, UAT | **SP-18**. SP-12 writes one ADR only. |
@@ -549,6 +554,12 @@ const ( // already declared in types.go — SP-12 uses these, adds none
     TriggerYoungDaly     TriggerReason = "young_daly"
     TriggerHardCeiling   TriggerReason = "hard_ceiling"
     TriggerIdleColdCache TriggerReason = "idle_cold_cache"
+    // ADDED by SP-12. This is a new value of a §5.13 type SP-01 owns, so it is additive under
+    // §5's latitude but the enumeration in 00-ARCHITECTURE §5.13 moves with it — that doc edit
+    // is part of this branch, not a follow-up. It does not trip the alias gate in the Done
+    // checklist, which greps for `Reason*`/`Task*` identifiers; this one keeps the `Trigger`
+    // prefix the eleven shipped values use.
+    TriggerCacheExpiring TriggerReason = "cache_expiring"
 )
 
 type TTLState string
@@ -621,6 +632,19 @@ type Inputs struct {
     CouplingLambda   float64        // §8.4 λ in distortion(p) = λ·segment_coupling(p).
                                     // Filled from config `selection.submodular.lambda`
                                     // (Appendix C default 0.4). ≤0 ⇒ distortion term off.
+
+    // ── ADDITIVE, SP-12, cache-regime correction (see cacheregime.go). Same rationale:
+    // `internal/scheduler` owns `Inputs` and nothing outside SP-12 constructs one.
+    Regime             CacheRegime    // the (TTL, price) pair this session is actually billed at.
+                                      // Zero value ⇒ Evaluate resolves the unknown-regime rung.
+    LastRequestStartTS core.UnixMilli // start of the most recent API REQUEST, never the end of its
+                                      // response. The TTL clock runs from the request start and
+                                      // generation time counts against it, so anchoring on Stop
+                                      // over-reports warmth by the whole generation. 0 ⇒ fall back
+                                      // to LastAPICallTS, i.e. exactly today's behaviour.
+    EffortChanged      bool           // the turn's effort level differs from the previous turn's.
+                                      // Effort is part of the cache key, so this is an INSTANT
+                                      // full invalidation that no wall-clock gap can reveal.
 }
 
 type Decision struct {
@@ -826,7 +850,8 @@ func New(cfg config.Config) eval.Policy // Name() == "qompack-l3"
 | `internal/scheduler/doc.go` | modify | package doc: purity contract, §8.4 quote, where `Runtime` lives |
 | `internal/scheduler/types.go` | modify | add the two additive `Inputs` fields (`LastCompactionTS`, `CouplingLambda`) — the **only** genuinely new declarations in this file. No constant is added: all five `TriggerReason`, four `TTLState`, three `Urgency` and six `BackgroundTask` constants already ship. Also correct three godocs (see below) |
 | `internal/scheduler/thresholds.go` | create | `HostAutoCompactBuffer`, `SoftFloor`, `HardCeiling` |
-| `internal/scheduler/ttl.go` | create | `ClassifyTTL`, `CacheFactor` — the E1 sliding-TTL idle model |
+| `internal/scheduler/cacheregime.go` | create | `CacheRegime`, `ResolveCacheRegime`, `UnknownRegime` — which TTL and which `w` this session is actually billed at |
+| `internal/scheduler/ttl.go` | create | `ClassifyTTL`, `CacheFactor` — the E1 sliding-TTL idle model, keyed off the regime's two bounds |
 | `internal/scheduler/formulas.go` | **delete** | SP-01 shipped `YoungDaly`, `SkiRentalShouldWrite`, `PSelectionAvailable` and `var pSelectionAvailable bool` here. Its four symbols are redistributed to `youngdaly.go`, `skirental.go` and `gate.go` below; the file is removed in the same commit so package `scheduler` never holds two declarations of any of them |
 | `internal/scheduler/formulas_test.go` | **delete** | its four cases (`TestYoungDaly_Formula`, `TestSkiRental_ComputedNotLiteral`, `TestSkiRental_ThresholdTracksConfig`, `TestPSelectionAvailable_DefaultsFalse`) move — under those exact names — into `youngdaly_test.go`, `skirental_test.go` and `gate_test.go`, absorbing the new cases rather than being duplicated beside them |
 | `internal/scheduler/youngdaly.go` | create | takes over `YoungDaly` from `formulas.go` (adding the NaN/Inf guard — a declared behaviour change), plus `mtbfSeconds` and δ precedence resolution |
@@ -851,7 +876,7 @@ func New(cfg config.Config) eval.Policy // Name() == "qompack-l3"
 | `internal/daemon/scheduler_*_test.go` | create | unit + property + benchmark tests |
 | `internal/cli/daemon.go` | modify | three added blocks in `runDaemon`, the composition root that builds `daemon.Options` and calls `daemon.New`: construct, `Bind`, register. `cmd/qompack/main.go` is 30 lines of `cli.Dispatch` and has no `daemon` subcommand, no `opts` and no `daemon.Options` — it is not touched |
 | `testdata/golden/scheduler/decision-{warm,expiring,cold}.json` | create | frozen `Decision` goldens (`Breakdown` key set + ordering) |
-| `testdata/bench-baseline.txt` | modify | append the seven SP-12 benchmark baselines |
+| `testdata/bench-baseline.txt` | modify | append the eight SP-12 benchmark baselines — one per row of the benchmark table in the test plan; a benchmark with no baseline line is a benchmark `benchstat` cannot judge |
 | `test/e2e/scheduler_idle_test.go` | create | `TestDaemonIdleRunsSchedulerWork` against a real daemon |
 | `test/replay/l3policy/policy.go` | create | the `eval.Policy` named `qompack-l3` |
 | `test/replay/l3policy/policy_test.go` | create | policy unit tests (determinism, keep-set shape) |
@@ -938,6 +963,24 @@ func HardCeiling(effectiveWindow core.Tokens, cfg config.SchedulerCfg) core.Toke
 **Where the window numbers come from — decided, not left open.** There is no host API for the model's context window in wave 3, and a scheduler that cannot resolve one is inert. The Runtime resolves `contextWindow` and `maxOutputTokens` in this order, then writes which rung fired into `Breakdown["window_source"]` (`3` = env autocompact, `2` = explicit override, `1` = host default) **after `Evaluate` returns** — `Evaluate` stays pure and sees only the resulting number — so `/qompack:status` never presents a guess as a measurement:
 
 1. `CLAUDE_CODE_AUTO_COMPACT_WINDOW` — the documented host env var of §2.5, clamped to its documented range `[100_000, 1_000_000]`. Read once per `SessionStart` through `config.Env.Getenv`, never `os.Getenv` directly, so tests can inject it.
+
+**Four further variables change the window Claude Code is working to, and §2.5 v1.3 names all four.**
+A ladder that reads only `CLAUDE_CODE_AUTO_COMPACT_WINDOW` sizes `soft_floor` and `hard_ceiling`
+against a window nobody is using — silently, because every threshold still computes and every cut is
+still legal. All four are read through `config.Env.Getenv` at `SessionStart`, beside rung 1, and
+each writes its own `Breakdown` key so `/qompack:status` can show which one bound:
+
+| Variable | Effect on the ladder | `Breakdown` |
+|---|---|---|
+| `DISABLE_COMPACT` | **There is no host trigger to stay ahead of.** `hard_ceiling`'s entire justification — "one turn's worth of headroom below Claude Code's threshold" — is void, and `Evaluate` must stop promising headroom it no longer controls: `Urgency` is capped at `UrgencyAdvisory`, the `hard_ceiling` clause cannot raise it to `UrgencyNow`, and every trigger becomes a recommendation. It does **not** disable Qompack: L4 checkpointing and L5 rehydration are more valuable here, not less, because nothing else is bounding the window | `host_compaction_disabled = 1` |
+| `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | Declares the window Claude Code assumes for a gateway or unrecognized model ID. Outranks the `HostDefault*` rung and is clamped to the same `[100_000, 1_000_000]` range; it does **not** outrank an explicit `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, which sets the compaction point rather than the window | `window_source = 2.5` |
+| `CLAUDE_CODE_DISABLE_1M_CONTEXT` | A natively-1M model compacts at the 200 000 boundary instead. Clamps the resolved window to 200 000 **after** every other rung, because it is a ceiling on the host's behaviour rather than a source for the number | `window_clamped_200k = 1` |
+| `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT` | The host compacts only after the API rejects the conversation, so the resolved window is a guess with no enforcement behind it. Treated like `DISABLE_COMPACT` for urgency — advisory only — while the window itself still resolves normally | `host_enforcement_off = 1` |
+
+None of these is an Appendix C key and none is a new one: they are documented host variables, read
+the same way §2.5's original is. `TestResolveWindow_HostVariables` drives each in isolation and the
+`DISABLE_COMPACT` + `hard_ceiling` interaction explicitly, because "the plugin acts first by design"
+(§12) is a claim about a host trigger that, under that variable, does not exist.
 2. `QOMPACK_CONTEXT_WINDOW` / `QOMPACK_MAX_OUTPUT_TOKENS` — explicit overrides for CI, replay and the bench harness. These are environment variables, not config keys: this slice adds no Appendix C key and therefore cannot break the `docs` gate.
 3. `HostDefaultContextWindow` / `HostDefaultMaxOutput` (200 000 / 32 000), which reproduce §2.5's worked example.
 
@@ -947,9 +990,188 @@ func HardCeiling(effectiveWindow core.Tokens, cfg config.SchedulerCfg) core.Toke
 
 ---
 
+### `internal/scheduler/cacheregime.go` — which cache the session is actually running on
+
+**Why this file exists.** `Qompack.md` §5.1 states the multipliers and then says, in bold, *"verify
+against current pricing before tuning, since the ratio drives several thresholds below."* That
+verification was done on 2026-08-23 against the two primary sources, and it found the ratio intact
+but the **TTL and the write multiplier wrong for the deployment Qompack actually ships into**. Both
+are quoted verbatim below, because every number in this file is downstream of them.
+
+From the Claude API reference (`platform.claude.com/docs/en/build-with-claude/prompt-caching`):
+
+> "Cache read tokens are 0.1 times the base input tokens price"
+> "5-minute cache write tokens are 1.25 times the base input tokens price"
+> "**1-hour cache write tokens are 2 times the base input tokens price**"
+
+From the Claude Code reference (`code.claude.com/docs/en/prompt-caching`, *Cache lifetime*):
+
+> "**On a Claude subscription, Claude Code requests the one-hour TTL automatically**, so the cache
+> survives breaks of up to an hour."
+> "On an API key, Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or Claude
+> Platform on AWS, you pay the per-token rates, so the TTL stays at the cheaper five minutes by
+> default. To opt into the one-hour TTL, set `ENABLE_PROMPT_CACHING_1H=1`."
+> "Set `FORCE_PROMPT_CACHING_5M=1` to force the five-minute TTL regardless of authentication."
+
+So `r = 0.1` is confirmed and unchanged. `w` is **not a scalar**: it is `1.25` at the five-minute
+TTL and `2.0` at the one-hour TTL. And Appendix C's `ttlSeconds: 300` is correct for API-key auth
+and **wrong by a factor of 12** for a Claude subscription, which is the majority Claude Code
+deployment and the one this plugin is written for.
+
+**What that costs, computed from this subplan's own fixture.** `baseInputs()` (see the
+`evaluate_test.go` fixture table) sets `ContextTokens: 120_000` with candidates at `Pos` 40 000 /
+80 000 / 118 000. `TestEvaluate_ArgmaxDeepestWhenCold` drives it with `LastAPICallTS = Now−400_000`
+— a 400-second gap — and `ttlSeconds = 300`, which classifies `TTLCold`, sets `CacheFactor = 0`,
+zeroes `rewrite` for every candidate, and makes `chooseP` take the deep-cut branch: `P.Pos ==
+40_000`, `Breakdown["rewrite"] == 0`.
+
+On a subscription the true TTL is 3600 s, so a 400-second gap is **warm**, not cold. The same
+fixture's warm scores are `−97 084` at `Pos 40_000` and `−1 916.8` at `Pos 118_000`: the warm
+objective prefers the shallow cut by roughly fifty to one, and the rewrite the cold branch treated
+as free actually costs `w · (120 000 − 40 000) = 2.0 × 80 000 = 160 000` write-units against
+`2.0 × 2 000 = 4 000` for the shallow cut. **A forty-fold error on precisely the decision §5.2
+calls "the governing quantity".** It is also silent: nothing fails, the cut is legal, and the bill
+arrives later.
+
+**The resolution, and why it is a runtime ladder rather than a config edit.** Appendix C lives in
+`Qompack.md`, which is read-only, and `TestDefaults_MatchesAppendixCVerbatim` deep-equals against
+it, so `scheduler.cache.ttlSeconds` and `writeMultiplier` cannot change value or shape. They do not
+need to. §11.5's `runtime` namespace is the sanctioned additive extension — *"No key here may
+change the meaning or default of any Appendix C key"* — and this file resolves the regime the same
+way `EffectiveWindow` already resolves the context window: a documented rung ladder read through
+`config.Env.Getenv`, never `os.Getenv`, with the winning rung written into `Breakdown` so
+`/qompack:status` never presents an inference as a measurement.
+
+```go
+package scheduler
+
+// CacheRegime is the (TTL, price) pair the session is actually running under. Appendix C's
+// scheduler.cache keys supply the FLOOR; this struct is what the scheduler reasons with.
+//
+// TTLMin and TTLMax are separate on purpose, and they are equal only when the regime is KNOWN.
+// The asymmetry is the whole point — see ClassifyTTL.
+type CacheRegime struct {
+    TTLMinSeconds   int     // shortest TTL the session could be running under
+    TTLMaxSeconds   int     // longest  TTL the session could be running under
+    ReadMultiplier  float64 // r
+    WriteMultiplier float64 // w — 1.25 at the 5-minute TTL, 2.0 at the 1-hour TTL
+    Disabled        bool    // prompt caching turned off entirely for this model
+    Source          string  // which rung fired; goes straight into Breakdown and /qompack:status
+}
+
+// ResolveCacheRegime walks the documented ladder. Highest rung wins.
+//
+//  4. FORCE_PROMPT_CACHING_5M=1        → KNOWN 5-minute  (300, 300, r, 1.25)   source "force_5m"
+//  3. DISABLE_PROMPT_CACHING[_MODEL]=1 → KNOWN no cache  (0, 0, 1.0, 1.0)      source "disabled"
+//  2. ENABLE_PROMPT_CACHING_1H=1       → KNOWN 1-hour    (3600, 3600, r, 2.0)  source "enable_1h"
+//  1. nothing set                      → UNKNOWN         (cfgTTL, 3600, r, 2.0) source "unknown"
+//
+// Rung 4 outranks rung 2 because the Claude Code reference says FORCE_PROMPT_CACHING_5M applies
+// "regardless of authentication" and names overriding an ENABLE_PROMPT_CACHING_1H in managed
+// settings as its purpose. Rung 3 outranks rung 2 because a disabled cache is not a short cache.
+//
+// Rung 1 is the case that matters, because it is the default on every machine that has not been
+// deliberately configured, and Qompack CANNOT tell subscription auth from API-key auth: no hook
+// input carries it and there is no environment variable for it. So rung 1 does not guess. It
+// reports a RANGE — the Appendix C floor for the lower bound, the one-hour ceiling for the upper —
+// and takes the conservative multiplier of the two, which is the larger w. Charging the scheduler
+// the higher write price when the regime is unknown biases it toward shallower cuts, and a
+// shallower cut than optimal costs reclaim; a deeper cut than optimal costs money.
+func ResolveCacheRegime(getenv func(string) string, cfg config.SchedulerCfg, model string) CacheRegime
+```
+
+**The asymmetric classification, and the claim it finally makes true.** The shipped `ClassifyTTL`
+doc comment says `gap >= ttl` means *"cache provably cold → cut is free"*. Under rung 1 that word
+is not earned: a 400-second gap proves nothing when the TTL might be 3600. The fix is to key the
+two thresholds off the two different bounds:
+
+```
+gap <  0.5 · TTLMin   → TTLWarm       the prefix is certainly still readable
+0.5·TTLMin ≤ gap < TTLMax → TTLExpiring   it MIGHT be dead; confidence decays
+gap ≥ TTLMax          → TTLCold       it is dead under every regime in the range
+```
+
+When the regime is known the two bounds coincide and this is exactly the shipped behaviour, so
+`TestClassifyTTL_*` keeps its `ttl = 300` assertions unchanged by passing a known 5-minute regime.
+When the regime is unknown, `TTLCold` now requires a full hour of silence — and when it does fire,
+the "provably cold" in the comment is a fact rather than a hope. `CacheFactor` ramps across the
+widened expiring band exactly as before; only the endpoints move.
+
+`Disabled` short-circuits everything: with no cache there is no read discount and no write premium,
+so `r = w = 1`, `CacheFactor` is always 1, every token of tail costs exactly one token to resend,
+and the bimodal deep-cut branch is turned off because there is no cold state to exploit.
+`Breakdown["cache_disabled"] = 1` says so out loud, because a scheduler silently optimizing a cache
+that does not exist is the worst of the failure modes here.
+
+**Subagents are a different regime and must not inherit the main conversation's.** The Claude Code
+reference is explicit: *"Subagents use the five-minute TTL even on a subscription, since the
+automatic one-hour TTL applies to the main conversation."* Any regime resolved for a session whose
+`hookio.Event` carries `agent_id` is therefore pinned to `(300, 300, r, 1.25)`, source
+`"subagent_5m"`, whatever the ladder says. This costs nothing to implement and prevents the
+scheduler from believing a subagent's prefix survives an hour of idle when it dies in five minutes.
+
+---
+
+### The two clock corrections
+
+**(a) The TTL clock starts at the request, and generation time counts against it.** The API
+reference states it without qualification:
+
+> "The lifetime is measured from the **start of the request** that writes or reads the cache entry,
+> not from the end of its response. Time spent generating a response counts against the lifetime:
+> if a response takes 4 minutes to stream, a follow-up request that reuses the same cached prefix
+> must start within about 1 minute of that response completing."
+
+`NotifyActivity(ts)` currently sets `lastAPICallTS` from whichever hook fired last, and the last
+hook of a turn is `Stop`, which fires **after** generation. So the gap the scheduler measures is
+short by the whole generation time — on a long agentic turn, minutes. Under a five-minute TTL that
+is the difference between "five minutes of headroom" and "one", and it makes the scheduler classify
+a genuinely cold prefix as warm.
+
+The fix is free, because the observer already sees the earlier events: anchor on the **start of the
+most recent request**, which is the last `PostToolUse` of the turn (the tool result is what the next
+request carries) or `UserPromptSubmit` when the turn used no tools — never `Stop`. `Inputs` gains
+`LastRequestStartTS`; `ClassifyTTL` reads it and falls back to `LastAPICallTS` when it is zero, so a
+session that predates the field still classifies exactly as it does today. The estimate is
+one-sided by construction: `LastRequestStartTS ≤ true request start ≤ Stop`, so the new anchor can
+only make the measured gap **larger**, never smaller, and the classifier can only become more
+conservative about warmth. That one-sidedness is the property `TestTTLAnchorIsNeverLaterThanStop`
+asserts, and it is why the change cannot introduce a regression in the direction that costs money.
+
+**(b) A change of effort level empties the cache instantly, and wall-clock cannot see it.** The
+Claude Code reference lists effort alongside model as part of the cache key:
+
+> "The cache is keyed by **effort level** as well as model, so switching with `/effort` means the
+> next request reads the entire conversation history with no cache hits."
+
+This one is observable, and cheaply. Hook inputs carry `effort.level` on `PreToolUse`,
+`PostToolUse`, `Stop` and `SubagentStop` — three of which SP-08 already registers — and the same
+value is exported as `$CLAUDE_EFFORT`. So the observer records the effort string on every event it
+already handles, and `Inputs` gains `EffortChanged bool`, set when the current turn's effort differs
+from the previous turn's. When it is true the classifier returns `TTLCold` **regardless of gap**,
+because the prefix is not expiring, it is gone.
+
+This is worth more than it looks. §5.4's bimodality says the two good moments to cut are "as late as
+possible" and "when the cache is cold and rebuilding is free". An effort switch manufactures the
+second one instantly, at a moment the scheduler currently reads as maximally warm, and it is the
+only such moment Qompack can detect. `Breakdown["cold_reason"]` distinguishes `"idle"` from
+`"effort_change"` so the two are never conflated in a report.
+
+**What Qompack cannot see, recorded so nobody looks for it.** A mid-session **model** switch and a
+**fast-mode** toggle both invalidate the cache identically, and neither is observable: hook inputs
+carry `model` only on `SessionStart`, and the reference notes it is not guaranteed present even
+there; `fast_mode` appears in the status-line payload and in no hook input. There is no environment
+variable for either. These go in the §12 "cannot do" inventory (SP-18) rather than being
+approximated, because an approximation here would classify a warm prefix as cold and take the
+expensive branch — the exact failure this section exists to remove.
+
+---
+
 ### `internal/scheduler/ttl.go` — the E1 sliding-TTL idle model
 
-The correction in `Qompack.md` §8.4 is precise: track **time since last API call**, never time since last cache write. `Inputs` carries both; this file reads only `LastAPICallTS`. `LastCacheWriteTS` is retained on `Inputs` for observability and for SP-16's ski-rental work and is written into `Breakdown` but never into the decision.
+The correction in `Qompack.md` §8.4 is precise: track **time since last API call**, never time since last cache write. `Inputs` carries both; this file never reads `LastCacheWriteTS`, which is retained for observability and for SP-16's ski-rental work and is written into `Breakdown` but never into the decision.
+
+Two refinements arrive with the cache-regime work above and neither weakens that correction. The anchor is `LastRequestStartTS` when it is set, falling back to `LastAPICallTS` when it is zero — both are API-call clocks, and the first is simply the tighter of the two, because the API measures the TTL from the request's start while `LastAPICallTS` is written by whichever hook fired last. And the thresholds key off `CacheRegime` rather than a bare `ttlSeconds`, so a session that cannot identify its regime says so instead of asserting a 300-second cliff it cannot justify.
 
 ```go
 package scheduler
@@ -962,23 +1184,34 @@ import "github.com/qompack/qompack/internal/core"
 const ttlExpiringFraction = 0.5
 
 // ClassifyTTL returns the cache state and the observed idle gap in seconds.
-//   lastAPICallTS == 0                      → TTLUnknown, gap 0
-//   gap <  0.5·ttl                          → TTLWarm
-//   0.5·ttl <= gap < ttl                    → TTLExpiring
-//   gap >= ttl                              → TTLCold   ("cache provably cold → cut is free")
-func ClassifyTTL(now, lastAPICallTS core.UnixMilli, ttlSeconds int) (TTLState, float64) {
-    if lastAPICallTS <= 0 || ttlSeconds <= 0 {
+//
+// anchorTS is the start of the most recent API REQUEST, not the end of its response — see the
+// clock corrections in cacheregime.go. Callers pass Inputs.LastRequestStartTS and fall back to
+// LastAPICallTS only when it is zero.
+//
+// The two thresholds key off the two DIFFERENT bounds of the regime, and that asymmetry is what
+// makes "provably cold" true rather than hopeful:
+//   anchorTS == 0 or regime invalid            → TTLUnknown, gap 0
+//   effortChanged                              → TTLCold at any gap (the prefix is gone, not aging)
+//   gap <  0.5·TTLMin                          → TTLWarm     (readable under every regime)
+//   0.5·TTLMin <= gap < TTLMax                 → TTLExpiring (readable under SOME regime)
+//   gap >= TTLMax                              → TTLCold     (dead under every regime)
+// When the regime is known, TTLMin == TTLMax and this reduces exactly to the shipped behaviour.
+func ClassifyTTL(now, anchorTS core.UnixMilli, reg CacheRegime, effortChanged bool) (TTLState, float64) {
+    if anchorTS <= 0 || reg.TTLMaxSeconds <= 0 {
         return TTLUnknown, 0
     }
-    gap := float64(now-lastAPICallTS) / 1000.0
+    gap := float64(now-anchorTS) / 1000.0
     if gap < 0 {
         gap = 0
     }
-    ttl := float64(ttlSeconds)
-    switch {
-    case gap >= ttl:
+    if effortChanged {
         return TTLCold, gap
-    case gap >= ttlExpiringFraction*ttl:
+    }
+    switch {
+    case gap >= float64(reg.TTLMaxSeconds):
+        return TTLCold, gap
+    case gap >= ttlExpiringFraction*float64(reg.TTLMinSeconds):
         return TTLExpiring, gap
     default:
         return TTLWarm, gap
@@ -1008,7 +1241,99 @@ func CacheFactor(state TTLState, idleGapSeconds float64, ttlSeconds int) float64
 }
 ```
 
-**Worked example (asserted by test).** `ttlSeconds = 300` (Appendix C). gap 10 s ⇒ warm, factor 1.0. gap 150 s ⇒ expiring, factor `(300−150)/150 = 1.0`. gap 225 s ⇒ expiring, factor `(300−225)/150 = 0.5`. gap 300 s ⇒ cold, factor 0.0. gap 4 h ⇒ cold, factor 0.0. The ramp is continuous at both endpoints.
+**Worked example (asserted by test), known 5-minute regime.** `TTLMin = TTLMax = 300` — the regime a `FORCE_PROMPT_CACHING_5M=1` session resolves to, and the one Appendix C's floor describes. gap 10 s ⇒ warm, factor 1.0. gap 150 s ⇒ expiring, factor `(300−150)/150 = 1.0`. gap 225 s ⇒ expiring, factor `(300−225)/150 = 0.5`. gap 300 s ⇒ cold, factor 0.0. gap 4 h ⇒ cold, factor 0.0. The ramp is continuous at both endpoints. **These are the shipped numbers and they do not move**: a known regime collapses `TTLMin` and `TTLMax` onto one value and the classifier is bit-identical to the version this replaces.
+
+**Worked example, unknown regime — the case that changes.** `TTLMin = 300`, `TTLMax = 3600`. gap 10 s ⇒ warm. gap 150 s ⇒ expiring (the *lower* bound governs the warm→expiring edge, so Qompack stops trusting warmth exactly when it used to). gap 400 s ⇒ **expiring, not cold** — the correction, and the one that keeps `TestEvaluate_ArgmaxDeepestWhenCold`'s 40× mis-cut from happening on a subscription. gap 3600 s ⇒ cold, and now provably so. The expiring ramp is stretched across `[150, 3600]`, which is deliberate: an unknown regime should express its uncertainty as a long, slow decay in the value of the warm prefix rather than as a cliff at a number it cannot justify.
+
+---
+
+---
+
+### The compaction event has its own price, and the trigger set currently ignores it
+
+**The fact.** Compaction is not free bookkeeping that happens between requests. It **is** a
+request, and the Claude Code reference prices it explicitly (`code.claude.com/docs/en/prompt-caching`,
+*Compacting the conversation*):
+
+> "To produce the summary, Claude Code sends a separate request with the same system prompt, tools,
+> and history as your conversation, plus a summarization instruction appended as a final user
+> message. **While the cache is warm, that request reads your prefix from the cache**, so a
+> mid-session `/compact` costs a fraction of what the context size suggests and spends most of its
+> time generating the summary."
+>
+> "**After a break longer than the cache lifetime, there is no cache left to read, so the
+> summarization request reprocesses the full history as uncached input.** This is why `/compact`
+> costs the most when you resume an old session."
+
+That request shares the conversation's prefix and appends to it, so it hits the cache when the cache
+is alive. Its input cost is therefore `r · n` warm and `1.0 · n` cold — a difference of
+`(1 − r) · n`, which at `r = 0.1` is **`0.9 · n`**.
+
+**Where §8.4's objective is silent.** `score(p) = reclaimable(p)·r − rewrite(p) − distortion(p)`
+prices the *cut*. It has no term for the *event*. That omission is harmless for the argmax — the
+event cost is identical for every candidate `p`, so it cannot reorder them — but it is not harmless
+for the fire decision, which is where `TTLCold` enters as a standalone trigger:
+
+```go
+idleColdCache := ttl == TTLCold
+fired := aboveSoftFloor && (atChangepoint || youngDalyElapsed || aboveHardCeiling || idleColdCache)
+```
+
+**What follows, stated carefully, because the obvious reading is wrong.** It is tempting to conclude
+that firing on a cold cache is a mistake. It is not. Once the prefix is dead the comparison is
+`compact now` at `1.0·n + w·s` against `keep working` at `w·n` plus a permanently larger steady
+state, and with `s ≪ n` and `w > 1` the first is the cheaper of the two. The cold trigger is sound
+and stays exactly as it is.
+
+The defect is one step earlier. `TTLExpiring` is used **only** as a ramp on `CacheFactor` and never
+as a trigger, so no idle-driven compaction can fire until the prefix is already dead. The scheduler
+therefore pays the `0.9·n` cold-summarization premium on **every** idle-driven compaction it will
+ever recommend, and it does so by construction rather than by bad luck.
+
+Firing one band earlier removes that premium outright:
+
+| Fired at | Summarization input | Warm prefix forfeited | Total (n = 150 000, r = 0.1) |
+|---|---|---|---|
+| `TTLExpiring` (prefix alive, nearly dead) | `r·n` = 15 000 | almost none — it was about to expire | **15 000** |
+| `TTLCold` (prefix dead) | `1.0·n` = 150 000 | none — already gone | **150 000** |
+
+`0.9 · n` = **135 000 base-input-token-equivalents saved per idle-driven compaction** at a 150 000-token
+context, and the saving scales linearly with `n`, which is to say it is largest exactly when
+compaction matters most. The forfeited-discount column is what makes the expiring band the right
+place rather than merely an earlier one: §5.1 prices a premature cut at `(1 − r)·(n − p)` in
+discounted reads you no longer get to use, and a prefix at `0.9 · TTL` of idle has almost no
+remaining reads to lose. Cutting there gives up nearly nothing and buys the cheap summarization.
+This is `Qompack.md` §5.4's own instruction — *"Compaction should be scheduled against cache state,
+not only against token count"* — applied to the half of cache state the shipped trigger set skipped.
+
+**The change.** One new trigger, additive; nothing is removed or reordered.
+
+```go
+// TriggerCacheExpiring fires while the prefix is STILL READABLE but close enough to expiry that
+// its remaining discounted reads are worth less than the (1−r)·n premium a cold summarization
+// pays. Gated on the regime being KNOWN: under rung 1 the expiring band spans 150 s to 3600 s and
+// firing across all of it would compact sessions that are merely between turns.
+cacheExpiring := ttl == TTLExpiring &&
+    reg.TTLMinSeconds == reg.TTLMaxSeconds &&
+    gap >= cfg.Cache.ExpiringTriggerFraction*float64(reg.TTLMaxSeconds)
+
+fired := aboveSoftFloor &&
+    (atChangepoint || youngDalyElapsed || aboveHardCeiling || idleColdCache || cacheExpiring)
+```
+
+`runtime.scheduler.cache.expiringTriggerFraction` (default `0.8`) is the new key, and it is a
+`runtime` key precisely because §11.5 forbids it from touching an Appendix C default — it adds a
+trigger, it does not retune `ttlSeconds`, `readMultiplier` or `writeMultiplier`. `0.8` is not tuned
+against a corpus and this document does not claim it is: it is the point at which the remaining
+warm window is one fifth of the TTL, chosen so that the trigger cannot fire during ordinary
+between-turn pauses, and SP-16's Phase-7 work owns measuring it. Until then `Breakdown["fired_at_ttl_fraction"]`
+records the gap fraction at every firing so the corpus needed to tune it accumulates from real runs.
+
+**Two guards this must not lose.** The trigger is gated on `aboveSoftFloor` like every other, so it
+cannot compact a small context merely because the cache is aging. And it is gated on a **known**
+regime: firing on an unknown-regime expiring band would mean compacting on the strength of a
+threshold derived from a TTL the scheduler admits it cannot identify, which is the failure mode this
+whole section is removing rather than one to reintroduce one paragraph later.
 
 ---
 
@@ -1086,6 +1411,13 @@ package scheduler
 // The threshold is COMPUTED from config, never written as 12.5 (00-ARCHITECTURE §11.6).
 // Nothing in SP-12 calls this; SP-16 applies the policy. It lives here because
 // 00-ARCHITECTURE §5.13 places the signature in this package.
+//
+// The “≈12.5” in §5.6 and in §5.13's signature comment is the FIVE-MINUTE figure and is not the
+// only one. Cache writes are 1.25× base input at the 5-minute TTL and 2× at the 1-hour TTL, so
+// w/r is 12.5 under one regime and **20** under the other — a caller that hardcodes either is
+// wrong 50% of the time. Pass w from CacheRegime.WriteMultiplier (see cacheregime.go), never
+// from cfg.Cache.WriteMultiplier directly: the config key is Appendix C's 5-minute floor, and
+// the regime is what the session is actually billed at.
 func SkiRentalShouldWrite(expectedReads, r, w float64) bool {
     if r <= 0 || w <= 0 {
         return false
@@ -1564,7 +1896,17 @@ func Evaluate(in Inputs) Decision {
     n := in.ContextTokens
 
     // ── cache state (E1: time since last API CALL, never last cache write) ─
-    ttl, gap := ClassifyTTL(in.Now, in.LastAPICallTS, cfg.Cache.TTLSeconds)
+    // Regime first: every threshold below is relative to it. A zero-value Regime means the
+    // Runtime did not resolve one, which is the unknown rung, not an error.
+    reg := in.Regime
+    if reg.TTLMaxSeconds <= 0 {
+        reg = UnknownRegime(cfg)
+    }
+    anchor := in.LastRequestStartTS
+    if anchor <= 0 {
+        anchor = in.LastAPICallTS
+    }
+    ttl, gap := ClassifyTTL(in.Now, anchor, reg, in.EffortChanged)
     cf := CacheFactor(ttl, gap, cfg.Cache.TTLSeconds)
     d.TTL = ttl
 
@@ -1589,12 +1931,20 @@ func Evaluate(in Inputs) Decision {
     //                    AND ( at_changepoint
     //                          OR elapsed > young_daly_interval
     //                          OR tokens > hard_ceiling
-    //                          OR idle_gap > ttl )
+    //                          OR idle_gap > ttl_max
+    //                          OR (regime_known AND idle_gap > 0.8·ttl)
+    //                          OR effort_changed )
     aboveSoftFloor := n > soft
     atChangepoint := in.Changepoint.AtChangepoint
     youngDalyElapsed := interval > 0 && elapsed > interval
     aboveHardCeiling := n > hard
     idleColdCache := ttl == TTLCold
+    // Fire one band EARLIER than expiry when the regime is known: the summarization request still
+    // reads the prefix from cache there, which is (1−r)·n cheaper than the same compaction after
+    // the prefix dies. Gated on a known regime because the unknown band spans 150 s–3600 s.
+    cacheExpiring := ttl == TTLExpiring &&
+        reg.TTLMinSeconds == reg.TTLMaxSeconds &&
+        gap >= cfg.Cache.ExpiringTriggerFraction*float64(reg.TTLMaxSeconds)
 
     if aboveSoftFloor {
         d.Reasons = append(d.Reasons, TriggerSoftFloor)
@@ -1610,9 +1960,12 @@ func Evaluate(in Inputs) Decision {
         if idleColdCache {
             d.Reasons = append(d.Reasons, TriggerIdleColdCache)
         }
+        if cacheExpiring {
+            d.Reasons = append(d.Reasons, TriggerCacheExpiring)
+        }
     }
     fired := aboveSoftFloor &&
-        (atChangepoint || youngDalyElapsed || aboveHardCeiling || idleColdCache)
+        (atChangepoint || youngDalyElapsed || aboveHardCeiling || idleColdCache || cacheExpiring)
 
     // ── p-selection ───────────────────────────────────────────────────────
     cands, nonMono := prepareCandidates(in.Candidates)
@@ -1669,6 +2022,16 @@ func Evaluate(in Inputs) Decision {
     d.Breakdown["hard_ceiling"] = float64(hard)
     d.Breakdown["idle_gap_seconds"] = gap
     d.Breakdown["cache_factor"] = cf
+    d.Breakdown["ttl_min_seconds"] = float64(reg.TTLMinSeconds)
+    d.Breakdown["ttl_max_seconds"] = float64(reg.TTLMaxSeconds)
+    d.Breakdown["regime_write_multiplier"] = reg.WriteMultiplier
+    d.Breakdown["fired_at_ttl_fraction"] = gap / float64(reg.TTLMaxSeconds) // corpus for tuning 0.8
+    if reg.Disabled {
+        d.Breakdown["cache_disabled"] = 1
+    }
+    if in.EffortChanged {
+        d.Breakdown["cold_reason_effort_change"] = 1
+    }
     d.Breakdown["read_multiplier"] = cfg.Cache.ReadMultiplier
     d.Breakdown["write_multiplier"] = cfg.Cache.WriteMultiplier
     d.Breakdown["lambda"] = in.CouplingLambda
@@ -2003,9 +2366,11 @@ Per-seam behaviour. Every wrapper calls the inner seam **first**, so SP-08 has a
 | Seam | Inner returns | Tap work | Clock |
 |---|---|---|---|
 | `SessionStart` | `(hookio.Output, error)` | `rt.BindSession(e.SessionID)` — binds the id, loads `state/*.json` for that id (§ state files below), seeds turn 0 as a round boundary, `NotifyActivity(now)` | warm path, no budget concern |
-| `ObserveTool` | `error` | `sig := observer.ExtractSignals(e)`; `rec, err := store.ToolUse(ctx, e.ToolUseID)`; on success `f := FeaturesFrom(hist, sig, rec.Tool, rec.TS)` then `rt.Observe(ctx, f, rec.Turn)`; `rt.NotifyActivity(rec.TS)`; fold `rec.Tokens` into the burn-rate sample **and into `r.openSegTokens`, the open segment's token accumulator** (see below — this is the number `closeSegmentLocked` hands to `SegmentLog.Close`); then, when `sig.TodoCompleted \|\| sig.TestPassed \|\| sig.GitCommit`, `rt.CloseSegmentOn(ctx, rec.Turn, f, cause)` with `cause` ∈ `todo`/`test`/`commit` (first true wins) — these are the non-changepoint members of §8.5's "changepoint, todo completion, passing test run", plus the git-commit safe point G1.5 names | worker pool, budget **B-C** (50 ms) — never B-A |
-| `ObserveStop` | `error` | same as `ObserveTool` minus the record lookup and the token fold (a `Stop` carries no `tool_use_id` and no token count), **plus** `rt.NoteAPIRound(turn)` — §2.6's "boundary on new assistant `message.id`". `turn` is the highest turn the runtime has seen | worker pool, B-C |
-| `ObservePrompt` | `(hookio.Output, error)` | `rt.NotifyActivity(now)` **only**. This seam is called synchronously inside SP-05's 250 ms reply deadline, so the tap does no store I/O and no BOCD update here | reply path — keep under 1 ms |
+| `ObserveTool` | `error` | `sig := observer.ExtractSignals(e)`; `rec, err := store.ToolUse(ctx, e.ToolUseID)`; on success `f := FeaturesFrom(hist, sig, rec.Tool, rec.TS)` then `rt.Observe(ctx, f, rec.Turn)`; `rt.NotifyActivity(rec.TS)`; `rt.NoteRequestStart(rec.TS)`; `rt.NoteEffort(e)` (see below); fold `rec.Tokens` into the burn-rate sample **and into `r.openSegTokens`, the open segment's token accumulator** (see below — this is the number `closeSegmentLocked` hands to `SegmentLog.Close`); then, when `sig.TodoCompleted \|\| sig.TestPassed \|\| sig.GitCommit`, `rt.CloseSegmentOn(ctx, rec.Turn, f, cause)` with `cause` ∈ `todo`/`test`/`commit` (first true wins) — these are the non-changepoint members of §8.5's "changepoint, todo completion, passing test run", plus the git-commit safe point G1.5 names | worker pool, budget **B-C** (50 ms) — never B-A |
+| `ObserveStop` | `error` | same as `ObserveTool` minus the record lookup and the token fold (a `Stop` carries no `tool_use_id` and no token count), **plus** `rt.NoteAPIRound(turn)` — §2.6's "boundary on new assistant `message.id`". `turn` is the highest turn the runtime has seen. It calls `NotifyActivity` but **not** `NoteRequestStart`: `Stop` fires after generation completes and is therefore later than the request whose cache entry it would be dating | worker pool, B-C |
+
+**`NoteEffort(e hookio.Event)`** — reads `e.Extra["effort"]`, unmarshals `{"level":"..."}`, and sets `effortChanged = level != lastEffort` before storing it (`lastEffort == ""` on the first event is not a change). Falls back to `cfgEnv.Getenv("CLAUDE_EFFORT")` when the object is absent. **This needs no new plumbing at all**, which is why it is worth doing: `effort` is a top-level key that no `hookio.Event` struct tag claims, so it already lands in `Extra`, and SP-08's `arch/sp08-observer-seams` amendment already restores `Extra` daemon-side from `req.Raw` (the transport drops it because `Extra` is `json:"-"`). The effort signal rides the exact channel that amendment builds for the subagent name. It is worth capturing because effort is part of the cache key — *"switching with `/effort` means the next request reads the entire conversation history with no cache hits"* — so a change empties the prefix instantly at a moment every wall-clock heuristic reads as maximally warm, and §5.4 calls that the second of the two good moments to cut.
+| `ObservePrompt` | `(hookio.Output, error)` | `rt.NotifyActivity(now)` and `rt.NoteRequestStart(now)` **only**. This seam is called synchronously inside SP-05's 250 ms reply deadline, so the tap does no store I/O and no BOCD update here | reply path — keep under 1 ms |
 | `SessionEnd` | `error` | `rt.Persist(ctx)` then `CloseSchedulerRuntime(rt)` | `flush` op, 20 s hook timeout |
 
 The four seams SP-12 does **not** decorate — `PreCompact`, `Rehydrate`, `MCPInitialized`, `StatusExtra` — are left exactly as `Bind` found them. `WrapServicesForScheduler` never reads or replaces them, so their signatures (including `MCPInitialized func(ctx context.Context) bool` and `StatusExtra func(ctx context.Context) (json.RawMessage, error)`) are SP-13's and SP-14's business, not this slice's.
@@ -2154,9 +2519,28 @@ r.lastDecision = d
 - `deltaPtr()` returns `nil` when `deltaSamples == 0`, honouring "null means measure at runtime, not zero".
 - Budget: **≤ 25 ms p99** with 2 000 tool-use records and 32 candidates. Never called from a hook; only from the idle worker and the `status` op.
 
+**`NoteRequestStart(ts)`** — sets `lastRequestStartTS = ts`. Called from the `ObserveTool` and `ObservePrompt` wrappers and **deliberately not from `ObserveStop`**. That asymmetry is the whole point: the API measures the cache TTL *"from the start of the request … not from the end of its response"*, and `Stop` fires after generation, so anchoring on it over-reports warmth by the entire generation time — minutes, on a long agentic turn. A tool result is what the next request carries, so the last `PostToolUse` of a turn is the tightest anchor the hook surface can offer; `UserPromptSubmit` covers the turn that used no tools. The estimate is one-sided by construction — `lastRequestStartTS ≤ true request start ≤ Stop` — so it can only widen the measured gap and make the classifier more conservative about warmth, never less. Additive method on the concrete type; not on the interface.
+
 **`NotifyActivity(ts)`** — sets `lastActivity = ts`; sets `lastAPICallTS = ts` (E1: the API-call clock is what the sliding TTL keys on); updates the burn-rate EWMA from `(tokens − lastTokens)` over `(ts − lastTokensTS)` when both deltas are positive. It does **not** forward to `IdleController.Notify`: SP-05 already calls `Notify` from `registry.Touch` on every accepted request (SP-05, `registry.go`), and a second call from here would be a duplicate feeding the same controller.
 
 **`IdleSince()`** — returns `(lastActivity, clock.Now()−lastActivity >= cfg.Scheduler.Idle.DetectAfterSeconds)`.
+
+**δ is where the compaction request's own cost belongs, and that is a decision, not an omission.**
+§5.3 v1.3 adds a `c·n` term for the summarization call's *input* — `r·n` against a live prefix, `n`
+against a dead one — and `Evaluate` uses it only in the fire decision, never in `score(p)`, because
+it is identical for every candidate and so cannot reorder them. Its *output* is a different matter.
+Since Claude Code v2.1.198 the summarization request inherits the session's extended-thinking
+configuration (§2.7), so on a thinking-enabled session it also emits thinking tokens, and their
+volume is **not published**. Modelling them would put a guess inside an objective whose whole claim
+is that it replaces guesses with measurement.
+
+So it is measured instead. `RecordCompactionCost` already folds the observed wall-clock of a real
+compaction into `δ`, and thinking shows up there for free — a thinking-enabled session's compactions
+simply take longer, `δ` rises, and `√(2·δ·M)` lengthens the interval between them, which is exactly
+the response a more expensive compaction should produce. Nothing needs to know *why* δ rose.
+`Breakdown["delta_seconds"]` makes it visible, and `/qompack:status` shows it beside the interval, so
+a user on a thinking-enabled session can see the cost they are paying rather than having it modelled
+at them.
 
 **δ measurement.** `RecordCompactionCost(seconds float64)` (an additive method on the concrete type, reached through `SchedulerSnapshotOf` and by the frontier code) folds a measured compaction wall-clock into `deltaEWMA`:
 `deltaEWMA = deltaEWMAAlpha*seconds + (1−deltaEWMAAlpha)*deltaEWMA`, seeded on the first sample, `deltaSamples++`, `lastCompactionTS = now`. Sources of a sample, in order of preference: the elapsed time of the `checkpoint` op (PreCompact entry→exit, SP-10's B-E clock, read from `obs.Registry.Hist("checkpoint_finalize").Snapshot()`); failing that, the wall-clock between a `PreCompact` observation and the following `SessionStart(source=compact)`. Both are real measurements — the design says *"δ is measured compaction cost"*, and nothing in this slice substitutes a constant.
@@ -2358,19 +2742,29 @@ func (r *schedRuntime) gate(name scheduler.BackgroundTask) bool {
 
 so the pure `Evaluate` decides *what* runs and the daemon decides *when*, without SP-12 editing SP-05's `IdleController`. Before any session is bound, `refreshDecision`'s `Evaluate` short-circuits on `error_no_window` and returns an empty `Background`, so every task is inert — which is the correct posture for a daemon that has not yet seen a session, and for a session that has not yet reached the soft floor.
 
-Each task honours the `ctx` deadline the `IdleController` passes and returns promptly on cancellation. `gc` additionally derives `GCPolicy.Deadline` from that context — `if dl, ok := ctx.Deadline(); ok { p.Deadline = time.Until(dl) }`, and when the context carries no deadline, `p.Deadline = 0` meaning "unbounded, but still cancellable" — so it is resumable (00-ARCHITECTURE §5.8 GC semantics) rather than truncated.
+Each task honours the `ctx` deadline the `IdleController` passes and returns promptly on cancellation. `gc` additionally derives `GCPolicy.Deadline` from that context — `if dl, ok := ctx.Deadline(); ok { p.Deadline = time.Until(dl) }`, and when the context carries no deadline, `p.Deadline = 0` meaning "unbounded, but still cancellable" — so the pass is bounded. Truncation has two meanings since `4708ebe`, and the idle budget must be sized against the harsher one: a truncated **sweep** persists a cursor and resumes on the next pass, while a truncated **mark harvest** returns `GCReport{Truncated: true}` with nothing collected and no cursor, because sweeping against an incomplete live set would delete live objects. An idle budget smaller than the harvest therefore collects nothing however often the tick fires — which is a reason to grant `gc` a real budget, not a reason to treat every pass as resumable.
 
 **Criterion set for `precompute_slice`.** The `[]dag.NodeID` criteria are, in order: the current segment's `KindSegment` node, every `KindFile` node touched in the last `defaultFeatureWindow` turns, and the most recent `KindUserPrompt` node. This mirrors §8.3's "current todo items, files under edit, the active plan, the most recent user intent" as far as the DAG exposes it in wave 3.
 
 ---
 
-### `internal/cli/daemon.go` — the only modification outside SP-12's own files
+### `internal/cli/daemon.go` — SP-12's only modification outside its own files, and a file three subplans share
 
-**Not `cmd/qompack/main.go`.** That file is 30 lines: it builds a `cli.Env` and calls `os.Exit(cli.Dispatch(…))`. It has no `daemon` subcommand, no `opts` and no `daemon.Options`. The composition root that builds `daemon.Options` and calls `daemon.New` is `runDaemon` in `internal/cli/daemon.go` — `opts := daemon.NewOptions(root, cfg)` at line 81, `d, err := daemon.New(opts)` at line 86, the single non-test `daemon.New` call site in the repo. SP-13 targets the same file for the same reason.
+**Not `cmd/qompack/main.go`.** That file is 30 lines: it builds a `cli.Env` and calls `os.Exit(cli.Dispatch(…))`. It has no `daemon` subcommand, no `opts` and no `daemon.Options`. The composition root that builds `daemon.Options` and calls `daemon.New` is `runDaemon` in `internal/cli/daemon.go` — `opts := daemon.NewOptions(root, cfg)` at line 81, `d, err := daemon.New(opts)` at line 86, the single non-test `daemon.New` call site in the repo. SP-13 targets the same file for the same reason, and so does SP-08.
 
-**Dependency, stated explicitly: Block 1 reads `opts.Store`, `opts.Graph` and `opts.Ledger`, and nothing populates them yet.** `daemon.NewOptions` sets only `ProjectRoot`/`Cfg`/`Log`/`Metrics`/`Clock`/`Sketches` (`internal/daemon/options.go:58-68`), and `runDaemon` adds only `Log`/`Metrics`/`Clock` (`internal/cli/daemon.go:82-84`). Opening the store, the DAG and the ledger in that composition root is **owned by SP-13's daemon-bootstrap work**, whose plan carries the assignment; SP-12 depends on it and must not duplicate it, because two `store.Store` handles on one project root is a corruption bug, not a redundancy. Until SP-13's bootstrap lands, `NewSchedulerRuntime` returns `daemon: scheduler runtime: store required` on every real daemon start, Block 1 logs `Loud` and L3 stays disabled — the degrade path below, taken on purpose and visibly, not silently. Every SP-12 unit test constructs the runtime directly with `fakeStore`/`fakeGraph`, so the unit suite is green either way; `test/e2e/scheduler_idle_test.go` is the test that fails if this dependency is missed, and it wires a real store/graph itself rather than relying on the composition root.
+**Shared-file protocol — four subplans write into the same six-line window, in one fixed order.** `runDaemon`'s window between `opts := daemon.NewOptions(root, cfg)` (line 81) and `d, err := daemon.New(opts)` (line 86) is claimed by SP-08, SP-11, SP-12 and SP-13. None of the four owns the file exclusively, and no reviewer should read any of the four plans' "only modification outside my own files" bullets as an exclusivity claim over `internal/cli/daemon.go` — each bullet scopes that subplan's **own** diff, not the file. Inside the window the order is normative, because each step reads what the one before it wrote:
 
-In `runDaemon`, after `opts` is populated — **including after every other subplan's `opts.Bind(…)` call**, because `Bind` hooks run in registration order and the tap must decorate seams SP-08 has already set — and **before** `daemon.New(opts)`:
+1. **SP-08's observer wiring** (`V3-SP-08`, commit 6) — constructs the observer and registers its `opts.Bind`, which sets the five `Services` seams SP-12's tap decorates.
+2. **SP-11's resident-set block** (`V4-SP-11` prerequisite 1) — `symbols.New`, `store.Open`, `dag.Open`, `negknow.Open`, `checkpoint.OpenReader`, the `opts.Store`/`opts.Graph`/`opts.Ledger` assignments, the two `defer Close`s and `BindRehydrate(o, svc)`, each failure logged `Loud` and degraded.
+3. **SP-12's Block 1 and Block 2** — construct the runtime from those three fields, then register the tap's `Bind`. Block 1 must follow step 2 or it reads nil handles; Block 2's `Bind` must follow step 1's `Bind` or it decorates seams nobody has set.
+4. **SP-13's extension** (`V4-SP-13` spec §11) — `rehydrate.NewReporter`, `mcp.NewPromoter`, then `InstallMCPOp(&opts, …)` last in the window, because it must see the finished `opts.Store`/`opts.Graph`/`opts.Ledger` and because `daemon.New` registers its own fallback `mcp` route only for ops not already registered. It binds `Services.MCPInitialized` and no seam SP-12's tap touches, so its `Bind` running after Block 2's is harmless.
+5. **`daemon.New(opts)`**, then SP-12's Block 3 (idle registration) immediately after it succeeds.
+
+Wave 3 merges SP-10 → SP-11 → SP-12 → SP-13 and same-wave branches never branch from each other (`plans/README.md:38`), so on `feat/sp12-*` steps 2 and 4 do not exist yet: SP-12 lands blocks 1–3 against a window that has SP-08's wiring and nothing else, and the degrade path below is the one that runs **on the branch**. It stops running at the merge: SP-11 is already on `develop` by then, so step 2 arrives with SP-12's rebase rather than later. Step 4 arrives when SP-13 rebases onto a `develop` that already contains steps 1–3 and **inserts its own lines after SP-11's block and immediately before `daemon.New`** rather than appending them wholesale — that insertion, not a merge conflict resolution, is what puts the file in the order above.
+
+**Dependency, stated explicitly: Block 1 reads `opts.Store`, `opts.Graph` and `opts.Ledger`, and nothing populates them yet.** `daemon.NewOptions` sets only `ProjectRoot`/`Cfg`/`Log`/`Metrics`/`Clock`/`Sketches` (`internal/daemon/options.go:58-68`), and `runDaemon` adds only `Log`/`Metrics`/`Clock` (`internal/cli/daemon.go:82-84`). Opening the store, the DAG and the ledger in that composition root is **created by SP-11's daemon-bootstrap block and extended by SP-13**, whose plans carry the assignment; SP-12 depends on it and must not duplicate it, because two `store.Store` handles on one project root is a corruption bug, not a redundancy. On SP-12's own branch that block does not exist — same-wave branches never branch from each other (`plans/README.md:38`) — so `NewSchedulerRuntime` returns `daemon: scheduler runtime: store required` on every real daemon start, Block 1 logs `Loud` and L3 stays disabled: the degrade path below, taken on purpose and visibly, not silently. On `develop` that state is transient rather than wave-long, because SP-11 merges one place **ahead** of SP-12: by SP-12's own merge the three fields are populated, and a `Loud` store-required line in a post-merge daemon start is then a defect to chase, not the expected reading. Every SP-12 unit test constructs the runtime directly with `fakeStore`/`fakeGraph`, so the unit suite is green either way; `test/e2e/scheduler_idle_test.go` is the test that fails if this dependency is missed, and it wires a real store/graph itself rather than relying on the composition root.
+
+Block 1 and Block 2 go in `runDaemon` after `opts` is populated — at position 3 of the shared-file protocol above, i.e. **after SP-08's `opts.Bind(…)` call**, because `Bind` hooks run in registration order and the tap must decorate seams SP-08 has already set, and after SP-13's `opts.Store`/`opts.Graph`/`opts.Ledger` assignments — and **before** `daemon.New(opts)`. The SP-08 `Bind` this must follow is the observer wiring SP-08's commit 6 adds to `runDaemon`; if that call is absent, `WrapServicesForScheduler` decorates nil seams and L3 receives nothing, so verify it is present before adding Block 2:
 
 ```go
 // Block 1 — construct. Session is deliberately empty: the daemon is per project and starts
@@ -2403,7 +2797,9 @@ if opts.Sched != nil {
 }
 ```
 
-Three added blocks (construction, tap binding, idle registration), no edits to any existing line, no changes to SP-05's daemon internals. A failure at any point degrades L3 only — the daemon, the store, and every hook keep working, which is 00-ARCHITECTURE §12.3's "everything else fails toward do nothing", and `runDaemon`'s own contract that it never surfaces a non-zero exit is preserved because every path here logs `Loud` and continues. `runDaemon` is ~126 lines today; the three blocks add about 20, which stays inside 00-ARCHITECTURE §3.1's 150-line file bound. If a sibling wave-3 subplan's own wiring pushes the file over it, move all three blocks into an SP-12-owned `internal/cli/scheduler_wiring.go` with a single `wireScheduler(&opts)` call left in `runDaemon`, and record that in the ADR.
+Three added blocks (construction, tap binding, idle registration), no edits to any existing line, no changes to SP-05's daemon internals. A failure at any point degrades L3 only — the daemon, the store, and every hook keep working, which is 00-ARCHITECTURE §12.3's "everything else fails toward do nothing", and `runDaemon`'s own contract that it never surfaces a non-zero exit is preserved because every path here logs `Loud` and continues. `runDaemon` is 98 lines today (`internal/cli/daemon.go:29-126`; the file itself is 126 lines), and the three blocks add about 20.
+
+**The 150-line ceiling on this file is SP-12's own house rule, not an architecture obligation.** 00-ARCHITECTURE §3.1 states `<150 LOC` for `cmd/qompack/main.go` alone (`plans/00-ARCHITECTURE.md:308`, inside the repo tree) and imposes no per-file bound anywhere else — do not cite §3.1 for this file. SP-12 adopts the number anyway for one reason: `internal/cli/daemon.go` is the one file four subplans write into, in a fixed order, and a composition root that still fits on two screens is the only cheap way a reviewer can check that order by eye. Treat it as a trigger, not a gate. It will in fact be crossed during wave 3 — SP-08's wiring adds ~6 lines, SP-11's resident-set block ~28 and SP-13's extension ~8 on top of SP-12's ~20 — so the expected outcome is the extraction, not the exception: move all three SP-12 blocks into an SP-12-owned `internal/cli/scheduler_wiring.go` with a single `wireScheduler(&opts)` call left in `runDaemon` at position 3 of the shared-file protocol, and record that in the ADR. The extraction is SP-12's to perform whenever the file crosses the line, whichever subplan's block pushed it over.
 
 ---
 
@@ -2468,12 +2864,28 @@ Tests are written **before** the implementation inside each commit and must be o
 
 | Test | Input | Expected |
 |---|---|---|
-| `TestClassifyTTL_Table` | `ttl=300`; gaps 0, 10, 149, 150, 224, 299, 300, 3600 s | `warm, warm, warm, expiring, expiring, expiring, cold, cold`; boundary at exactly 150 s is `expiring`, at exactly 300 s is `cold` |
-| `TestClassifyTTL_UnknownWhenNoAPICall` | `lastAPICallTS = 0` | `TTLUnknown`, gap `0` |
-| `TestClassifyTTL_NegativeGapClamped` | `lastAPICallTS > now` | `TTLWarm`, gap `0` |
+| `TestClassifyTTL_Table` | **known** 5-minute regime (`TTLMin==TTLMax==300`); gaps 0, 10, 149, 150, 224, 299, 300, 3600 s | `warm, warm, warm, expiring, expiring, expiring, cold, cold`; boundary at exactly 150 s is `expiring`, at exactly 300 s is `cold`. Unchanged from the pre-regime version — a known regime collapses both bounds and the classifier is bit-identical |
+| **`TestClassifyTTL_UnknownRegimeIsNotColdAt400s`** | unknown regime (`TTLMin=300`, `TTLMax=3600`); gap 400 s | `TTLExpiring`, **not** `TTLCold`. This is the row that stops the 40× mis-cut: under the old scalar `ttl=300` this gap classified cold, zeroed `rewrite`, and sent `chooseP` down the deep-cut branch on a prefix that a subscription session still had 53 minutes of |
+| **`TestClassifyTTL_UnknownRegimeColdAtMax`** | unknown regime; gaps 3599 s, 3600 s | `expiring`, then `cold` — "provably cold" now means dead under **every** regime in the range, which is what the doc comment always claimed |
+| **`TestClassifyTTL_EffortChangeIsColdAtAnyGap`** | any regime; `effortChanged = true`; gap 0 s | `TTLCold`. Effort is part of the cache key, so the prefix is gone rather than aging, and no wall-clock gap can reveal it |
+| `TestClassifyTTL_UnknownWhenNoAPICall` | `anchorTS = 0` | `TTLUnknown`, gap `0` |
+| `TestClassifyTTL_NegativeGapClamped` | `anchorTS > now` | `TTLWarm`, gap `0` |
+| **`TestTTLAnchorIsNeverLaterThanStop`** (rapid) | any turn with `UserPromptSubmit ≤ PostToolUse ≤ Stop` | the resolved anchor is `≤` the `Stop` timestamp for every ordering. One-sided by construction: the new anchor can only make the measured gap **larger**, so the classifier can only become more conservative about warmth, and the change cannot regress in the direction that costs money |
 | `TestCacheFactor_Ramp` | `ttl=300`; states/gaps from the row above | warm ⇒ `1.0`; gap 150 ⇒ `1.0`; gap 225 ⇒ `0.5`; gap 299 ⇒ `≈0.00667`; cold ⇒ `0.0`; unknown ⇒ `1.0` |
 | `TestCacheFactor_MonotoneDecreasing_Property` (rapid) | `gap ∈ [0, 2·ttl]` | factor is non-increasing in gap and always in `[0,1]` |
-| `TestSlidingTTLUsesAPICallNotCacheWrite` | `LastCacheWriteTS = Now−1000` (fresh), `LastAPICallTS = Now−400_000` (stale), `ttl=300` | `Decision.TTL == TTLCold` — the E1 correction, asserted directly |
+| `TestSlidingTTLUsesAPICallNotCacheWrite` | `LastCacheWriteTS = Now−1000` (fresh), `LastAPICallTS = Now−400_000` (stale), **known** 5-minute regime | `Decision.TTL == TTLCold` — the E1 correction, asserted directly. Pinning the regime to known-5m is what keeps this row asserting E1 rather than accidentally re-asserting the new range logic |
+
+### `internal/scheduler/cacheregime_test.go`
+
+| Test | Input | Expected |
+|---|---|---|
+| `TestResolveCacheRegime_LadderOrder` | each env var alone, then `FORCE_PROMPT_CACHING_5M=1` **and** `ENABLE_PROMPT_CACHING_1H=1` together | `force_5m`, `disabled`, `enable_1h`, `unknown` from their own rungs; the conflicting pair resolves to `force_5m`, because the Claude Code reference says it applies "regardless of authentication" and names overriding a managed-settings `ENABLE_PROMPT_CACHING_1H` as its purpose |
+| `TestResolveCacheRegime_WriteMultiplierTracksTTL` | `enable_1h`, then `force_5m` | `WriteMultiplier == 2.0`, then `1.25`; `ReadMultiplier == 0.1` in both. These are the two documented figures and the reason `w` cannot be a scalar |
+| `TestResolveCacheRegime_UnknownTakesTheDearerW` | no env vars set | `TTLMin == cfg.Cache.TTLSeconds`, `TTLMax == 3600`, `WriteMultiplier == 2.0`. Charging the higher write price under uncertainty biases toward shallower cuts, and a shallow cut costs reclaim while a deep one costs money |
+| `TestResolveCacheRegime_DisabledZeroesThePremium` | `DISABLE_PROMPT_CACHING=1`; then `DISABLE_PROMPT_CACHING_OPUS=1` with a matching and a non-matching model | `r == w == 1.0` and `Disabled` for the global var and the matching model; the non-matching model falls through to the next rung. With no cache there is no read discount and no write premium |
+| `TestResolveCacheRegime_SubagentPinned5m` | `agent_id` present, `ENABLE_PROMPT_CACHING_1H=1` | `(300, 300, 0.1, 1.25)`, source `subagent_5m` — "Subagents use the five-minute TTL even on a subscription" |
+| `TestResolveCacheRegime_ReadsEnvThroughConfigEnv` | injected `config.Env.Getenv` | resolution never calls `os.Getenv`; `git grep -n 'os\.Getenv' -- internal/scheduler` returns nothing |
+| `TestResolveCacheRegime_NoAppendixCKeyMoved` | — | `config.Defaults().Scheduler.Cache` is byte-identical to Appendix C after resolution runs. The regime is computed beside the config, never written back into it, which is what keeps `TestDefaults_MatchesAppendixCVerbatim` green |
 
 ### `internal/scheduler/youngdaly_test.go`
 
@@ -2526,10 +2938,16 @@ These cases live in `youngdaly_test.go`, which **absorbs** the shipped `formulas
 | `TestEvaluate_YoungDaly_Fires` | `MeasuredDeltaSeconds=ptr(20)`, `LastCompactionTS=Now−300_000` (elapsed 300 s > 268.3 s) | `true`, `Reasons` contains `young_daly`, `YoungDalySeconds≈268.328` |
 | `TestEvaluate_YoungDaly_DoesNotFireBelowInterval` | same but `LastCompactionTS=Now−200_000` | `Reasons` has no `young_daly` |
 | `TestEvaluate_HardCeiling_Fires_UrgencyNow` | `ContextTokens=150_000` | `true`, `Reasons` contains `hard_ceiling`, `Urgency=UrgencyNow` |
-| `TestEvaluate_IdleColdCache_Fires` | `LastAPICallTS=Now−400_000` | `true`, `Reasons` contains `idle_cold_cache`, `TTL=TTLCold` |
+| `TestEvaluate_IdleColdCache_Fires` | `LastAPICallTS=Now−400_000`, **known 5-minute regime** | `true`, `Reasons` contains `idle_cold_cache`, `TTL=TTLCold`. The regime must be pinned: on the unknown rung a 400-second gap is `expiring`, and leaving it unpinned would make this row assert the old scalar behaviour by accident |
+| **`TestEvaluate_CacheExpiring_FiresBeforeExpiry`** | known 5-minute regime, gap 250 s (`0.83·TTL`, above the `0.8` fraction) | `true`, `Reasons` contains `cache_expiring` and **not** `idle_cold_cache`; `TTL == TTLExpiring`; `CacheFactor > 0`. This is the row that buys the `(1−r)·n` saving: the prefix is still readable, so the summarization request this recommendation leads to reads it at `r` instead of reprocessing it at full price |
+| **`TestEvaluate_CacheExpiring_SilentBelowFraction`** | known 5-minute regime, gap 200 s (`0.67·TTL`) | `cache_expiring` absent. The trigger must not fire during ordinary between-turn pauses |
+| **`TestEvaluate_CacheExpiring_SilentWhenRegimeUnknown`** | unknown regime, gap 3000 s (above `0.8·TTLMax`) | `cache_expiring` absent. Firing here would mean compacting on a threshold derived from a TTL the scheduler has just admitted it cannot identify |
+| **`TestEvaluate_CacheExpiring_RequiresSoftFloor`** | known regime, gap 250 s, `ContextTokens` below the soft floor | `ShouldCompact == false`. Gated like every other trigger — an aging cache is not a reason to compact a small context |
+| **`TestEvaluate_EffortChangeIsColdImmediately`** | `EffortChanged=true`, gap 0 s, any regime | `TTL == TTLCold`, `Breakdown["cold_reason_effort_change"]==1`. §5.4's second good moment to cut, manufactured instantly at a moment wall-clock reads as maximally warm |
 | `TestEvaluate_ReasonsOrderStable` | all four clauses true | `["soft_floor","changepoint","young_daly","hard_ceiling","idle_cold_cache"]` exactly |
 | `TestEvaluate_ArgmaxLatestWhenWarm` | default (warm) | `P.Pos == 118_000` — the latest boundary; `PScore == −1_916.8` (±1e-9) and negative, asserted as intended |
-| `TestEvaluate_ArgmaxDeepestWhenCold` | `LastAPICallTS=Now−400_000` | `P.Pos == 40_000` — the deepest boundary; `PScore == 2_916`; `Breakdown["rewrite"]==0` |
+| `TestEvaluate_ArgmaxDeepestWhenCold` | `LastAPICallTS=Now−400_000`, **known 5-minute regime** | `P.Pos == 40_000` — the deepest boundary; `PScore == 2_916`; `Breakdown["rewrite"]==0` |
+| **`TestEvaluate_UnknownRegimeDoesNotDeepCutAt400s`** | the same fixture, **unknown regime** | `P.Pos == 118_000`, not `40_000`; `Breakdown["rewrite"] > 0`. Same inputs, same 400-second gap, opposite cut — which is the whole finding. Under the old scalar the scheduler rewrote 80 000 tokens believing it free; here it rewrites 2 000 and pays for them honestly |
 | `TestEvaluate_DeepCutWhenColdDisabled` | cold **and** `cfg.Idle.DeepCutWhenCold=false`, with all three candidates given equal `ReclaimableTokens` and `Coupling` so scores tie | `P.Pos == 118_000` (latest wins the tie) |
 | `TestEvaluate_RoundBoundaryIntersection` | candidate at `Pos 80_000` has `RoundBoundary=false` | it is never chosen; `Breakdown["candidates"]==2` |
 | `TestEvaluate_RoundBoundaryRelaxed` | all candidates `RoundBoundary=false` | `Breakdown["round_boundary_relaxed"]==1`, a `P` is still chosen |
@@ -2746,7 +3164,7 @@ The grader keeps discriminating after all three edits: the two negative cases st
 | `BenchmarkBOCDObserve_4Features` | **≤ 150 µs/op** at a full 512-entry posterior; **≤ 20 µs/op** at the steady-state pruned length | proves the §6.6 "O(1) amortized" claim is met in wall-clock, not just in asymptotics |
 | `BenchmarkBOCDMarshal` | **≤ 2 ms/op** at 512 entries × 4 features | bounds the idle-tick persist cost |
 | `BenchmarkFeaturesFrom` | **≤ 100 µs/op** | runs on the async B-C path (50 ms) |
-| `BenchmarkAssembleCandidates_2000ToolUses` | **≤ 20 ms/op cold, ≤ 200 µs/op warm** | the `CrossingEdges` cache is the difference |
+| `BenchmarkAssembleCandidates_2000ToolUses` | **≤ 20 ms/op cold, ≤ 200 µs/op warm** | the turn→`Pos` cache is the difference; `CrossingEdges` is uncached and paid on both paths |
 | `BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates` | **≤ 25 ms/op** | never on B-A; asserted to be invoked only from the idle worker and the `status` op by an import/call-site test |
 | `BenchmarkReclaimableIndexBuild_5000Blocks` | **≤ 3 ms/op** | |
 | `BenchmarkSchedulerTap_ObserveTool` | **≤ 1.5 ms/op** | one store lookup + `FeaturesFrom` + `Observe`; runs on B-C (50 ms), never on B-A |
@@ -2820,11 +3238,11 @@ Adds the changepoint detector of `Qompack.md` §6.6 with a Normal-Inverse-Gamma 
 
 Adds the pure scalar machinery the composite trigger composes: §2.5's `EffectiveWindow` and the 55%/hard-ceiling thresholds measured against the host's own arithmetic, the E1 sliding-TTL idle model that keys on the last API call rather than the last cache write, the `√(2·δ·M)` interval with the `*float64` null-means-measure contract, the `w/r` ski-rental helper, and the §2.2/§8.7 droppable-block ranking as foundation-only spec so `test/replay` can share it without importing a composition root.
 
-**Files added:** `internal/scheduler/thresholds.go`, `internal/scheduler/ttl.go`, `internal/scheduler/youngdaly.go`, `internal/scheduler/skirental.go`, `internal/scheduler/dropclass.go`, and their `_test.go` peers.
+**Files added:** `internal/scheduler/thresholds.go`, `internal/scheduler/cacheregime.go`, `internal/scheduler/ttl.go`, `internal/scheduler/youngdaly.go`, `internal/scheduler/skirental.go`, `internal/scheduler/dropclass.go`, and their `_test.go` peers.
 **Files deleted:** `internal/scheduler/formulas.go` and `internal/scheduler/formulas_test.go` — `YoungDaly` and `SkiRentalShouldWrite` move into `youngdaly.go`/`skirental.go` in this same commit, so the deletion and the additions must land together or the package holds two declarations of each and does not compile.
 **Files modified:** `internal/scheduler/types.go` (the three godoc corrections in the `thresholds.go` section: `Decision.HardCeilingTokens`, `TriggerHardCeiling`, `TriggerYoungDaly`).
 
-- [ ] Write `thresholds_test.go`, `ttl_test.go`, `youngdaly_test.go`, `skirental_test.go`, `dropclass_test.go` first (6 + 6 + 8 + 4 + 6 cases), including `TestEffectiveWindow_Section25Arithmetic`, `TestSlidingTTLUsesAPICallNotCacheWrite` and `TestResolveDelta_NilMeansMeasureNotZero`, and carrying over `formulas_test.go`'s four cases under their existing names (`TestYoungDaly_Formula`, `TestSkiRental_ComputedNotLiteral`, `TestSkiRental_ThresholdTracksConfig` here; `TestPSelectionAvailable_DefaultsFalse` with `gate.go` in commit 3).
+- [ ] Write `thresholds_test.go`, `cacheregime_test.go`, `ttl_test.go`, `youngdaly_test.go`, `skirental_test.go`, `dropclass_test.go` first (6 + 7 + 6 + 8 + 4 + 6 cases), including `TestEffectiveWindow_Section25Arithmetic`, `TestSlidingTTLUsesAPICallNotCacheWrite`, `TestResolveCacheRegime_LadderOrder`, `TestClassifyTTL_UnknownRegimeIsNotColdAt400s`, `TestTTLAnchorIsNeverLaterThanStop` and `TestResolveDelta_NilMeansMeasureNotZero`, and carrying over `formulas_test.go`'s four cases under their existing names (`TestYoungDaly_Formula`, `TestSkiRental_ComputedNotLiteral`, `TestSkiRental_ThresholdTracksConfig` here; `TestPSelectionAvailable_DefaultsFalse` with `gate.go` in commit 3).
 - [ ] Run `go test ./internal/scheduler/` — **must fail** on undefined symbols.
 - [ ] Implement the five files; `git rm internal/scheduler/formulas.go internal/scheduler/formulas_test.go` in the same change.
 - [ ] `grep -rn "func YoungDaly\|func SkiRentalShouldWrite" internal/scheduler/` returns exactly one line each — the duplicate-declaration check this commit exists to pass.
@@ -2856,7 +3274,7 @@ Makes `Evaluate` real: the four-clause trigger gated on the soft floor, candidat
 
 ### Commit 4 — `feat(daemon): classify droppable blocks and assemble p-selection candidates`
 
-Adds the wave-3 half of `reclaimable(p)`: the `store.ToolUseRecord` adapter onto commit 2's ranking, an O(log N) suffix-sum index that makes §5.4's monotonicity structural, the `observer.Signals` → `scheduler.Features` translation that keeps `observer` free of a `scheduler` import, and candidate assembly with a memoized turn→`Pos` map and memoized `CrossingEdges`.
+Adds the wave-3 half of `reclaimable(p)`: the `store.ToolUseRecord` adapter onto commit 2's ranking, an O(log N) suffix-sum index that makes §5.4's monotonicity structural, the `observer.Signals` → `scheduler.Features` translation that keeps `observer` free of a `scheduler` import, and candidate assembly with a memoized turn→`Pos` map and live, uncached `CrossingEdges` — coupling is deliberately recomputed per candidate, two binary searches at ~0.27 µs, because `dag`'s only invalidation probe costs far more than it saves and would serve stale values after a `Pos`-moving upsert.
 
 **Files added:** `internal/daemon/scheduler_droppable.go`, `internal/daemon/scheduler_features.go`, `internal/daemon/scheduler_candidates.go`, `internal/daemon/scheduler_testhelpers_test.go`, and the three `_test.go` peers (5 + 7 + 10 cases).
 
@@ -2878,10 +3296,10 @@ Implements the stateful wrapper the daemon owns: session binding and the §2.5 w
 
 - [ ] Write all 24 `scheduler_runtime_test.go` cases, the 5 `scheduler_state_test.go` cases and the 10 `scheduler_tap_test.go` cases first. Transcribe the five decorated seam signatures from `internal/daemon/options.go:122-130` — three return `error` only, and a wrapper written against `(hookio.Output, error)` will not compile.
 - [ ] Run `go test ./internal/daemon/ -run 'TestRuntime|TestStateCodec|TestWrapServices'` — **must fail**.
-- [ ] Implement `scheduler_state.go`, then `scheduler_runtime.go`, then `scheduler_tap.go`, then add the `internal/cli/daemon.go` wiring — registering the `Bind` hook **after** every pre-existing `opts.Bind` call so the tap decorates seams SP-08 has already set. Do not add store/graph/ledger construction there: that is SP-13's bootstrap, and Block 1 only reads those fields.
+- [ ] Implement `scheduler_state.go`, then `scheduler_runtime.go`, then `scheduler_tap.go`, then add the `internal/cli/daemon.go` wiring — registering the `Bind` hook **after** SP-08's `opts.Bind` call so the tap decorates seams SP-08 has already set, and before `daemon.New(opts)`. Do not add store/graph/ledger construction there: SP-11 creates that block and SP-13 extends it, SP-12 must not open a second store, and Block 1 only reads those fields. Follow the shared-file protocol in the `internal/cli/daemon.go` section — SP-12 is not the only writer of this file.
 - [ ] `go test ./internal/daemon/... -race -count=2` — green, including `TestRuntime_ConcurrentObserveEvaluatePersist`.
 - [ ] `go build ./...` and `go run ./tools/devtool build-all` — the composition-root change must cross-compile for all six targets.
-- [ ] `go run ./tools/devtool lint` — confirm the import-graph check still passes and `internal/cli/daemon.go` stays under 150 LOC (it is ~126 today; the two blocks add about 15).
+- [ ] `go run ./tools/devtool lint` — confirm the import-graph check still passes. Then check the shared-file protocol by eye: in `internal/cli/daemon.go`, SP-08's observer `Bind` comes first, Block 1 and Block 2 follow it, and both sit before `daemon.New(opts)`; SP-11's resident-set block and SP-13's `InstallMCPOp` are not on this branch yet — same-wave branches never branch from each other — and land above Block 1 and immediately before `daemon.New` respectively: SP-11's when this branch rebases onto the `develop` SP-11 merged into, SP-13's when SP-13 rebases afterwards. `internal/cli/daemon.go` is 126 lines today and SP-12's three blocks add about 20; if it crosses SP-12's self-imposed 150-line ceiling (a house rule, not an architecture bound — see the `internal/cli/daemon.go` section), perform the `internal/cli/scheduler_wiring.go` extraction described there in this same commit.
 - [ ] Footer: `Refs: SP-12, G1.3, G8.2, §8.4, 00-ARCHITECTURE §5.13`
 
 ---
@@ -2908,7 +3326,7 @@ Registers the six idle tasks on SP-05's `IdleController` without editing daemon 
 Closes Phase 4 with the exit-criterion harness, the eight micro-benchmarks and their budgets, the hot-path guard test, and the ADR recording the eleven decisions this slice made that a reader would otherwise have to reverse-engineer.
 
 **Files added:** `test/replay/l3policy/policy.go`, `test/replay/l3policy/policy_test.go`, `test/replay/phase4_test.go`, `internal/scheduler/bench_test.go`, `internal/daemon/scheduler_bench_test.go`, `docs/adr/0012-scheduler-l3.md`.
-**Files modified:** `testdata/bench-baseline.txt` (append the seven new benchmark baselines).
+**Files modified:** `testdata/bench-baseline.txt` (append all **eight** new benchmark baselines — `BenchmarkEvaluate_64Candidates`, `BenchmarkBOCDObserve_4Features`, `BenchmarkBOCDMarshal`, `BenchmarkFeaturesFrom`, `BenchmarkAssembleCandidates_2000ToolUses`, `BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates`, `BenchmarkReclaimableIndexBuild_5000Blocks`, `BenchmarkSchedulerTap_ObserveTool`; miss one and it ships with nothing for `benchstat` to compare against).
 
 - [ ] Write `phase4_test.go` (7 cases) and `l3policy/policy_test.go` (5 cases) first against the 24-session synthetic corpus; run them — **must fail** because `l3policy` does not exist. Both files read their latency coefficients from `eval.DefaultLatencyModel()`; neither declares a pause constant of its own.
 - [ ] Implement `l3policy/policy.go`; iterate until all seven Phase 4 assertions and all five policy tests pass. It imports `internal/scheduler` and must **not** import `internal/daemon` — `TestPolicy_DoesNotImportDaemon` enforces it.
@@ -2948,7 +3366,7 @@ This subplan is **heavy**: two packages, twelve new source files, two deletions,
 | Subagent | Owns | Returns |
 |---|---|---|
 | **A1 — BOCD** | `internal/scheduler/bocd.go` + `bocd_test.go` | Full file contents; a table of the 15 test names with pass/fail; the measured `BenchmarkBOCDObserve` numbers at 512-entry and steady-state posteriors; the exact serialized byte length at 512×4 |
-| **A2 — scalars** | `internal/scheduler/thresholds.go`, `ttl.go`, `youngdaly.go`, `skirental.go`, `dropclass.go` + tests; the deletion of `formulas.go`/`formulas_test.go`; the three `types.go` godoc corrections | Full file contents; the worked-example table (180 000 / 99 000 / 147 000 / 268.328 / the cache-factor ramp) confirmed by test output; the four `formulas_test.go` cases shown passing under their new homes. **A2 must be told that `YoungDaly`, `SkiRentalShouldWrite` and `PSelectionAvailable` already exist in `formulas.go`** — its job is to move them, with the two declared guard changes, not to declare them again |
+| **A2 — scalars** | `internal/scheduler/thresholds.go`, `cacheregime.go`, `ttl.go`, `youngdaly.go`, `skirental.go`, `dropclass.go` + tests; the deletion of `formulas.go`/`formulas_test.go`; the three `types.go` godoc corrections | Full file contents; the worked-example table (180 000 / 99 000 / 147 000 / 268.328 / the cache-factor ramp) confirmed by test output; the four `formulas_test.go` cases shown passing under their new homes. **A2 must be told that `YoungDaly`, `SkiRentalShouldWrite` and `PSelectionAvailable` already exist in `formulas.go`** — its job is to move them, with the two declared guard changes, not to declare them again |
 | **A3 — droppable + features** | `internal/daemon/scheduler_droppable.go`, `scheduler_features.go` + tests + the fake `store`/`dag`/`SegmentLog` helpers | Full file contents; the rapid monotonicity property's pass output; `BenchmarkFeaturesFrom` and `BenchmarkReclaimableIndexBuild` numbers. **Depends on A2's `scheduler.DropClassOf`** — hand A3 that four-line signature up front; it must not redefine the tool table |
 
 A1, A2 and A3 share no file. A3's fake helpers are the only artifact later rounds reuse, so A3 must return them as a standalone file with no dependency on A1 or A2.
@@ -3044,17 +3462,17 @@ Operationalized and enforced by `test/replay/phase4_test.go`:
 - [ ] Branch `feat/sp12-scheduler-l3` cut from a `develop` containing merged SP-01, SP-05, SP-06, SP-07 and SP-08.
 - [ ] `Qompack.md` untouched — `git diff develop..HEAD -- Qompack.md` is empty.
 - [ ] `plans/00-ARCHITECTURE.md` untouched — no §5 signature changed or removed; the only additions are two fields on `scheduler.Inputs`, a struct `internal/scheduler` owns, documented in `docs/adr/0012-scheduler-l3.md`.
-- [ ] **Spec coverage self-review against the Design context section.** Walk each quoted block and point at the code that implements it: the four-clause trigger (`evaluate.go`); `soft_floor` at 55% and `hard_ceiling` one turn below the host threshold (`thresholds.go`); `candidates = changepoint ∩ API-round` (`pselect.go` `eligible` + `scheduler_candidates.go`); `reclaimable(p)` (`scheduler_droppable.go`); `rewrite(p) = w·(n−p)`, zero when cold (`pselect.go` + `ttl.go`); `distortion(p) = λ·coupling` (`pselect.go` via `dag.CrossingEdges`); `argmax` (`chooseP`); the sliding-TTL correction keyed on last API call (`ttl.go`, `Runtime.NotifyActivity`); `√(2·δ·M)` with measured δ (`youngdaly.go`, `RecordCompactionCost`); BOCD over paths/tools/time/todos with pruning (`bocd.go`); O3's four named activities (`scheduler_idle.go`); O5 segment close and frontier advance (`scheduler_frontier.go`); the §2.2 compactable tool set and the §8.7 ephemeral-first ranking (`scheduler.DropClassOf` + `daemon.ClassifyDrop`); §2.5's `effectiveContextWindow` arithmetic and the window-resolution ladder (`thresholds.go`, `BindSession`); §2.6's API-round boundary (`NoteAPIRound`, fed by the `ObserveStop` wrapper); the §8.2 encoded-once DPI guard (`advanceFrontier`'s `ErrAlreadyEncoded` path); Phase 4's exit criterion (`phase4_test.go`).
+- [ ] **Spec coverage self-review against the Design context section.** Walk each quoted block and point at the code that implements it: the four-clause trigger (`evaluate.go`); `soft_floor` at 55% and `hard_ceiling` one turn below the host threshold (`thresholds.go`); `candidates = changepoint ∩ API-round` (`pselect.go` `eligible` + `scheduler_candidates.go`); `reclaimable(p)` (`scheduler_droppable.go`); `rewrite(p) = w·(n−p)`, zero when cold (`pselect.go` + `ttl.go`); `distortion(p) = λ·coupling` (`pselect.go` via `dag.CrossingEdges`); `argmax` (`chooseP`); the sliding-TTL correction keyed on last API call (`ttl.go`, `Runtime.NotifyActivity`); the cache-regime ladder and the request-start anchor (`cacheregime.go`), which are what make `§5.1`'s *"verify against current pricing before tuning"* an executed instruction rather than a standing one; `§5.4`'s *"scheduled against cache state"* applied to the **expiring** band as well as the cold one (`TriggerCacheExpiring` in `evaluate.go`); `√(2·δ·M)` with measured δ (`youngdaly.go`, `RecordCompactionCost`); BOCD over paths/tools/time/todos with pruning (`bocd.go`); O3's four named activities (`scheduler_idle.go`); O5 segment close and frontier advance (`scheduler_frontier.go`); the §2.2 compactable tool set and the §8.7 ephemeral-first ranking (`scheduler.DropClassOf` + `daemon.ClassifyDrop`); §2.5's `effectiveContextWindow` arithmetic and the window-resolution ladder (`thresholds.go`, `BindSession`); §2.6's API-round boundary (`NoteAPIRound`, fed by the `ObserveStop` wrapper); the §8.2 encoded-once DPI guard (`advanceFrontier`'s `ErrAlreadyEncoded` path); Phase 4's exit criterion (`phase4_test.go`).
 - [ ] **Event path proven end to end.** `TestWrapServices_*` plus `test/e2e/scheduler_idle_test.go` show a real hook payload reaching `Observe`, a `Stop` recording a round boundary, and an idle tick running the six tasks — the scheduler is wired, not merely written.
 - [ ] `act.advance_frontier` is the only prefixed idle task, and `TestIdleActingTaskSkippedInDegradedPassive` proves it is suppressed in `degraded-passive` while the other five keep running.
 - [ ] **Placeholder scan.** `grep -RniE 'TODO|FIXME|TBD|XXX|unimplemented|not implemented|handle .* appropriately' internal/scheduler internal/daemon/scheduler_* test/replay/l3policy docs/adr/0012-scheduler-l3.md` returns nothing. No function returns `core.ErrNotImplemented` in any SP-12-owned file.
-- [ ] **Type consistency with the Interface contract.** Every signature in the Produces block compiles exactly as written: `Evaluate(Inputs) Decision`, `NewBOCD(float64, []string) Detector`, `YoungDaly(float64, float64) float64`, `SkiRentalShouldWrite(float64, float64, float64) bool`, `PSelectionAvailable() bool`, `EffectiveWindow`/`SoftFloor`/`HardCeiling`/`ClassifyTTL`/`CacheFactor`, `DropClassOf(string, bool, bool) DropClass`, `ClassifyDrop(store.ToolUseRecord) DropClass`, `NewSchedulerRuntime(SchedulerRuntimeOptions) (scheduler.Runtime, error)`, `RegisterSchedulerIdleWork(Daemon, scheduler.Runtime, SchedulerRuntimeOptions) error`, `WrapServicesForScheduler(*Services, scheduler.Runtime, SchedulerRuntimeOptions)`, `CloseSchedulerRuntime(scheduler.Runtime) error`, `PrecomputedSlice(scheduler.Runtime) (dag.Slice, bool)`, `FeaturesFrom(*FeatureHistory, observer.Signals, string, core.UnixMilli) scheduler.Features`. `TriggerReason` string values match §5.13 exactly: `soft_floor`, `changepoint`, `young_daly`, `hard_ceiling`, `idle_cold_cache`, **under SP-01's shipped identifiers `TriggerSoftFloor`…`TriggerIdleColdCache`**. `BackgroundTask` values match: `advance_frontier`, `gc`, `precompute_slice`, `refresh_delta`, `rebuild_bloom`, `compact_dag`, **under `BackgroundAdvanceFrontier`…`BackgroundCompactDAG`**. `TTLState` values match: `warm`, `expiring`, `cold`, `unknown`. `grep -rn "ReasonSoftFloor\|TaskAdvanceFrontier" internal/ test/` returns nothing: no `Reason*`/`Task*` alias is introduced anywhere.
+- [ ] **Type consistency with the Interface contract.** Every signature in the Produces block compiles exactly as written: `Evaluate(Inputs) Decision`, `NewBOCD(float64, []string) Detector`, `YoungDaly(float64, float64) float64`, `SkiRentalShouldWrite(float64, float64, float64) bool`, `PSelectionAvailable() bool`, `EffectiveWindow`/`SoftFloor`/`HardCeiling`/`ClassifyTTL`/`CacheFactor`, `DropClassOf(string, bool, bool) DropClass`, `ClassifyDrop(store.ToolUseRecord) DropClass`, `NewSchedulerRuntime(SchedulerRuntimeOptions) (scheduler.Runtime, error)`, `RegisterSchedulerIdleWork(Daemon, scheduler.Runtime, SchedulerRuntimeOptions) error`, `WrapServicesForScheduler(*Services, scheduler.Runtime, SchedulerRuntimeOptions)`, `CloseSchedulerRuntime(scheduler.Runtime) error`, `PrecomputedSlice(scheduler.Runtime) (dag.Slice, bool)`, `FeaturesFrom(*FeatureHistory, observer.Signals, string, core.UnixMilli) scheduler.Features`. `TriggerReason` string values match §5.13 exactly: `soft_floor`, `changepoint`, `young_daly`, `hard_ceiling`, `idle_cold_cache`, **under SP-01's shipped identifiers `TriggerSoftFloor`…`TriggerIdleColdCache`**. `BackgroundTask` values match: `advance_frontier`, `gc`, `precompute_slice`, `refresh_delta`, `rebuild_bloom`, `compact_dag`, **under `BackgroundAdvanceFrontier`…`BackgroundCompactDAG`**. `TTLState` values match: `warm`, `expiring`, `cold`, `unknown`. `grep -rnE "\b(Reason|Task)[A-Z][A-Za-z]*[[:space:]]+(TriggerReason|BackgroundTask|TTLState)\b" internal/ test/` returns nothing: no `Reason*`/`Task*` alias is introduced anywhere. The gate is written against the **type**, not against a list of names, so a later subplan minting a brand-new `ReasonSomethingElse TriggerReason = "…"` trips it too — a two-name alternation (`ReasonSoftFloor\|TaskAdvanceFrontier`) only catches re-declarations of the eleven values that already ship and lets every new mint through. Anchoring on the type also keeps the gate from firing on unrelated identifiers that merely start with `Reason` (`negknow`'s `ReasonHash`, the `contract` monitor test names), which a bare `Reason[A-Z]` prefix grep would flag.
 - [ ] No method added to another subplan's interface (Rule W-3); the `checkpoint.Writer`, `store.SegmentLog`, `dag.Graph`, `negknow.Ledger` and `daemon.IdleController` surfaces are used exactly as §5 declares them.
 - [ ] Rule W-2 honoured: the `checkpoint.Writer` call sites are exercised against `testdata/golden/contracts/checkpoint/` fixtures and re-run against SP-10's real implementation at the V4 verification checkpoint.
 - [ ] All 181 enumerated tests exist by name and are green; all 8 benchmarks report within their budgets; all four property tests (`SoftFloorBelowHardCeiling`, `CacheFactor_MonotoneDecreasing`, `reclaimable` monotonicity, BOCD posterior normalization) plus `TestBOCD_MarshalRoundTrip_Property` pass under `rapid`.
 - [ ] `state/bocd.json` and `state/scheduler.json` round-trip, and both self-heal loudly from corruption without losing store data.
 - [ ] Six idle tasks registered at 110–160 with the stated names, coexisting with SP-05's `drain`/`sketches`/`metrics` at 10/20/30 for nine in total; each inert until an `Evaluate` has placed it in `Decision.Background`, and `refreshDecision` is what produces that `Evaluate` on the idle path.
-- [ ] The three-block `internal/cli/daemon.go` addition is the only modification outside SP-12-owned files, apart from the four in-package files SP-12 is explicitly assigned in the file map (`internal/scheduler/types.go`, `detector.go`, `evaluate.go`, `schedulertest/behaviour.go`) and the deletion of `formulas.go`/`formulas_test.go`. `internal/daemon`'s pre-existing SP-05 files are unmodified (`git diff develop..HEAD --stat internal/daemon/` lists only `scheduler_*.go`), `cmd/qompack/main.go` is untouched, and `internal/observer` is untouched. The tap reaches L0 through SP-05's `Options.Bind` seam precisely so this stays true.
+- [ ] The three-block `internal/cli/daemon.go` addition is the only modification outside SP-12-owned files, apart from the four in-package files SP-12 is explicitly assigned in the file map (`internal/scheduler/types.go`, `detector.go`, `evaluate.go`, `schedulertest/behaviour.go`) and the deletion of `formulas.go`/`formulas_test.go`. `internal/daemon`'s pre-existing SP-05 files are unmodified (`git diff develop..HEAD --stat internal/daemon/` lists only `scheduler_*.go`), `cmd/qompack/main.go` is untouched, and `internal/observer` is untouched. The tap reaches L0 through SP-05's `Options.Bind` seam precisely so this stays true. This bullet bounds **SP-12's own diff**; it is not a claim that SP-12 is the only subplan writing `internal/cli/daemon.go`. SP-08, SP-11 and SP-13 write into the same window, and the fixed order — SP-08's `Bind`, SP-11's resident-set block, SP-12's Blocks 1–2, SP-13's extension and `InstallMCPOp`, `daemon.New`, SP-12's Block 3 — is stated in the `internal/cli/daemon.go` section and must be checked there rather than asserted away here.
 - [ ] Commit count verified: exactly **7** (within the mandated 5–8).
 - [ ] No `Co-Authored-By`, `Signed-off-by`, `Generated with` or `🤖` in any commit message, merge message, tag or PR body.
 - [ ] `docs/adr/0012-scheduler-l3.md` written and covers all eleven recorded decisions.
