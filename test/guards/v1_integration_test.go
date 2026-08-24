@@ -267,6 +267,12 @@ var v1CoverageFloors = map[string]int{
 	// (V2-SP06-27) and the merged tree measures 96.4% / 93.5%, so the override is now the
 	// architecture's floor rather than unenforced prose. Refs: V2, SP-06.
 	"redact": 90, "tokens": 90,
+	// pins was raised from the §6.4 default by the 2026-08-23 wave-2+ plan audit. SP-10 had
+	// already committed to 90 in its own exit criteria (V4-SP-10) while OWNERS.tsv — the file
+	// devtool cover actually reads — carried 75, so the exit criterion graded nothing. pins holds
+	// append-only invariant state whose corruption is unrecoverable, which is the same argument
+	// that put checkpoint in this group. Refs: V3, SP-10.
+	"pins": 90,
 
 	"scheduler": 85, "dag": 85, "analyzer": 85, "rehydrate": 85, "eval": 85, "mcp": 85,
 }
