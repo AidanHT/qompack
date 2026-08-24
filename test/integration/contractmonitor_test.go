@@ -331,6 +331,11 @@ func statusMode(t *testing.T, ctx context.Context, p *testutil.Project) string {
 // store.AppendFileVersion against the real store. 20 observe.tool events driven through the real
 // hook client must all land in the store (roots, tool-use records, file versions), while every
 // acting seam stays suppressed: no hook's Output may carry a HookSpecificOutput.
+//
+// ObservePrompt is the one seam that sits on both sides of that line, and the assertions below
+// treat it accordingly. §12.1 keeps "verbatim capture" running under ModeDegradedPassive, and the
+// capture is what the ObservePrompt seam DOES, so it must still be CALLED; what must not happen is
+// its returned Output reaching the reply. See handleObservePrompt's own doc comment for the split.
 func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 	// Not parallel: daemon.New declares producers into the process-wide set (and NewProject uses
 	// t.Setenv). Reset on both sides so this test neither inherits nor leaks producer state.
@@ -344,10 +349,14 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 
 	forceDegradedPassive(t, p)
 
-	// Acting seams that WOULD emit HookSpecificOutput if the daemon (wrongly) acted while
-	// degraded. Binding them makes the "no HookSpecificOutput on any hook" assertion below proof
-	// of suppression rather than a vacuous truth about unbound seams.
-	var sessionStartActed, preCompactActed, promptActed atomic.Bool
+	// Seams that WOULD emit HookSpecificOutput if the daemon (wrongly) delivered while degraded.
+	// Binding them makes the "no HookSpecificOutput on any hook" assertion below proof of
+	// suppression rather than a vacuous truth about unbound seams.
+	//
+	// promptRan is named differently from the other two on purpose: SessionStart and PreCompact are
+	// purely acting seams and must not run at all, while ObservePrompt also carries the recording
+	// half §12.1 keeps alive, so running is exactly what it must do.
+	var sessionStartActed, preCompactActed, promptRan atomic.Bool
 	var turn atomic.Int64
 
 	opts := daemon.NewOptions(p.Root, p.Cfg)
@@ -393,7 +402,7 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 			return hookio.PreCompactOutput("must-never-be-delivered"), nil
 		}
 		sv.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
-			promptActed.Store(true)
+			promptRan.Store(true)
 			return hookio.Output{HookSpecificOutput: &hookio.HSO{
 				HookEventName: "UserPromptSubmit", AdditionalContext: "must-never-be-delivered",
 			}}, nil
@@ -518,14 +527,18 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
 	require.Equal(t, degradedEventCount, st.ToolUses,
 		"the flush drain must leave exactly the 20 recorded tool uses in the store")
 
-	// NO Output.HookSpecificOutput on any hook, and no acting seam ever ran.
+	// NO Output.HookSpecificOutput on any hook, and no purely-acting seam ever ran.
 	for name, out := range hookOutputs {
 		require.Nil(t, out.HookSpecificOutput,
 			"hook %s must not emit hookSpecificOutput under degraded-passive", name)
 	}
 	require.False(t, sessionStartActed.Load(), "SessionStart seam must not run while degraded")
 	require.False(t, preCompactActed.Load(), "PreCompact seam must not run while degraded")
-	require.False(t, promptActed.Load(), "ObservePrompt seam must not run while degraded")
+	// ObservePrompt is the recording half of §12.1's "L0 and L1 keep running … verbatim capture".
+	// It MUST have run; the UserPromptSubmit row of the loop above is what proves the Output it
+	// returned ("must-never-be-delivered") went nowhere.
+	require.True(t, promptRan.Load(),
+		"degraded-passive still records: the ObservePrompt seam must run, only its Output is suppressed")
 
 	// Still degraded at the end: the single clean RunAll must not have restored the session —
 	// §12.1 requires two consecutive clean runs.

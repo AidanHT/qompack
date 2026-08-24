@@ -93,15 +93,50 @@ func hotModeString(h ipc.HotPathMode) string {
 // bare Event carrying only req.Session when req.Event is nil (a malformed or synthetic request —
 // every real client always sets Event). It never returns nil, so every route can dereference
 // freely.
+//
+// It also restores Event.Extra from req.Raw, which is a restoration rather than a new channel:
+// §5.3 already makes Extra the home for a hook payload's unclaimed top-level keys, and it is the
+// ONE field of hookio.Event the transport silently empties — it is tagged `json:"-"`, so
+// hookio.ReadEvent fills it in the hook-client process and ipc.EncodeRequest then drops it. Every
+// bound Services seam would otherwise read an empty map in production while the same code read a
+// full one in any in-process test.
 func resolveEvent(req ipc.Request) *hookio.Event {
+	ev := &hookio.Event{SessionID: req.Session}
 	if req.Event != nil {
-		ev := *req.Event
-		if ev.SessionID == "" {
-			ev.SessionID = req.Session
+		cp := *req.Event
+		if cp.SessionID == "" {
+			cp.SessionID = req.Session
 		}
-		return &ev
+		ev = &cp
 	}
-	return &hookio.Event{SessionID: req.Session}
+	ev.Extra = restoredExtra(ev.Extra, req.Raw)
+	return ev
+}
+
+// restoredExtra merges raw's top-level keys into extra, returning extra unchanged when raw is not
+// a JSON object (nil, a null, an array, a scalar, or malformed — all of which a corrupt spool line
+// can produce, and none of which is an error worth failing a hook over).
+//
+// A key already present in extra WINS: the Event's own value is what an in-process caller set
+// deliberately, while raw is a reconstruction. The merge always allocates a fresh map rather than
+// writing into extra, because resolveEvent copies the Event by VALUE — the copy shares the
+// caller's map header, so writing through it would mutate a request the caller still holds.
+func restoredExtra(extra map[string]json.RawMessage, raw json.RawMessage) map[string]json.RawMessage {
+	if len(raw) == 0 {
+		return extra
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil || len(m) == 0 {
+		return extra
+	}
+	merged := make(map[string]json.RawMessage, len(extra)+len(m))
+	for k, v := range m {
+		merged[k] = v
+	}
+	for k, v := range extra {
+		merged[k] = v
+	}
+	return merged
 }
 
 // decodeSubagent reads observe.stop's {"subagent":true} marker out of req.Raw. A missing or
@@ -365,10 +400,19 @@ func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
 }
 
 // handleObservePrompt is the default observe.prompt route: registry.Touch, ingest.Accept (WAL
-// first), then — synchronously and inside promptReplyDeadline — svc.ObservePrompt when non-nil
-// and the mode MayAct(). The result becomes Response.Output; a nil seam, a suppressed mode, an
-// error or a timeout all fall back to hookio.Empty(). The sentinel scan runs later, off this
-// reply path, in runIngested via the same ingest.Accept job.
+// first), then — synchronously and inside promptReplyDeadline — svc.ObservePrompt when non-nil.
+// The result becomes Response.Output; a nil seam, a suppressed mode, an error or a timeout all
+// fall back to hookio.Empty(). The sentinel scan runs later, off this reply path, in runIngested
+// via the same ingest.Accept job.
+//
+// The two mode gates are DIFFERENT gates, and collapsing them is a silent data-loss bug. §12.1
+// says ModeDegradedPassive keeps "L0 and L1 running (observe, chunk, store, sketches, DAG,
+// verbatim capture …)" and turns only ACTING off, but the ObservePrompt seam does both jobs in one
+// call: G2.3's verbatim prompt capture is recording, and the hookio.Output it returns is acting.
+// So MayRecord gates the WAL append and the CALL, exactly as it does on observe.tool/observe.stop,
+// while MayAct gates only whether the returned Output reaches the reply. Gating the call itself on
+// MayAct — which this route used to do — stopped the verbatim capture the moment the contract
+// degraded, with no error, no counter and a reply indistinguishable from a healthy passive one.
 func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
@@ -399,8 +443,13 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 	}
 
 	out := hookio.Empty()
-	if d.svc.ObservePrompt != nil && mode.MayAct() {
-		out = d.callObservePromptWithDeadline(ctx, ev)
+	if d.svc.ObservePrompt != nil {
+		// The call is recording, so it runs under the MayRecord check above; only what it hands
+		// back is acting, and under !MayAct the reply stays the empty output.
+		produced := d.callObservePromptWithDeadline(ctx, ev)
+		if mode.MayAct() {
+			out = produced
+		}
 	}
 	return ipc.Response{OK: true, Output: &out}
 }
