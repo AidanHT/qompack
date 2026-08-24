@@ -185,6 +185,25 @@ Recursion guards skip compaction when `querySource` is `session_memory`, `compac
 
 User-facing controls: `/autocompact <value>`, the `autoCompactWindow` setting, `--autocompact` flag, `CLAUDE_CODE_AUTO_COMPACT_WINDOW` env var. Range 100K–1M, capped at the model's window.
 
+**The arithmetic above is confirmed; the default around it is per-model.** With no auto-compact
+window set, current Claude Code compacts *at the model's context limit* rather than at one formula
+for every model, with documented exceptions per model and per deployment. The formula still governs
+where a set window lands: Sonnet 5 at a 1M window is documented to auto-compact "at about **967K**
+tokens by default", and `1 000 000 − 20 000 − 13 000 = 967 000` reproduces it exactly.
+
+Four further variables move the window Claude Code believes it has, and a scheduler that reads only
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` will size against the wrong one:
+
+| Variable | Effect |
+|---|---|
+| `CLAUDE_CODE_MAX_CONTEXT_TOKENS` | Declares the window to assume for a gateway or unrecognized model ID |
+| `CLAUDE_CODE_DISABLE_1M_CONTEXT` | A natively-1M model compacts at the 200K boundary instead |
+| `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT` | Compact only after the API rejects the conversation |
+| `DISABLE_COMPACT` | Disables compaction entirely — every trigger in §8.4 becomes advisory |
+
+1M context windows are now available on several models, so "capped at the model's window" is a
+larger number than it was when this section was first written, not a different rule.
+
 ### 2.6 PTL recovery and partial compact
 
 When the compaction request itself exceeds the prompt-too-long limit, the system groups messages by API round (`groupMessagesByApiRound`, boundary on new assistant `message.id`) and drops the **oldest** groups until the gap is covered. Max 3 retries; fallback drops 20% of groups when the gap is unparseable.
@@ -208,6 +227,16 @@ When the compaction request itself exceeds the prompt-too-long limit, the system
 | Invoked skill bodies | Re-injected, 5K/skill and 25K total, oldest dropped, truncated head-first |
 | Skill *index* / descriptions | **Not re-injected at all** |
 | Hooks | N/A — hooks run as code |
+
+The summarization request **inherits the session's extended-thinking configuration** (Claude Code
+v2.1.198 onward): it reasons with thinking when the session has it enabled and stays off otherwise,
+and the session's own settings are unchanged afterwards. That is a cost, not a survival rule — it
+adds thinking output tokens to every compaction on a thinking-enabled session — and §5.3 carries it.
+
+One row here is **unverified against current documentation**: the claim that the skill *index* and
+descriptions are not re-injected at all. The published table has no row for it, so it is neither
+confirmed nor contradicted, and it is retained as written. §12 files it as an upstream issue, which
+is the disposition that does not depend on the answer.
 
 ### 2.8 The API-level surface (for reference)
 
@@ -436,6 +465,27 @@ forfeited discount = (1 − r) · (n − p)
 
 Standard documented multipliers are `r = 0.1`, `w = 1.25` — **verify against current pricing before tuning**, since the ratio drives several thresholds below.
 
+**That verification was performed on 2026-08-23, and it changed one of the two numbers into a pair.**
+`r = 0.1` is confirmed. `w` is **not a scalar** — it depends on which TTL the entry is written at:
+
+| Cache TTL | Write multiplier `w` | `w/r` |
+|---|---|---|
+| 5 minutes | 1.25 | 12.5 |
+| **1 hour** | **2.0** | **20** |
+
+> "Cache read tokens are 0.1 times the base input tokens price"
+> "5-minute cache write tokens are 1.25 times the base input tokens price"
+> "1-hour cache write tokens are 2 times the base input tokens price"
+
+Every threshold below that spells `w` therefore takes a **(TTL, `w`) pair**, never a bare number,
+and the `≈ 12.5` that appears in §5.6 and Appendix A is the five-minute figure. Which pair is in
+force is a property of the running session rather than of this document — see §5.4.
+
+The instruction in bold above stands for the next reader. It is not discharged once; it is
+discharged per revision, and the mechanism for doing so without editing this document is D11: `r`,
+`w` and the TTL are configuration keys under a lint gate that fails the build on the literal, so a
+price change moves a config value and a report, not this text.
+
 ### 5.2 The trap
 
 **Most content-selection algorithms produce arbitrary subsets, and an arbitrary subset of a prefix-cached sequence is a worst-case edit.**
@@ -462,8 +512,39 @@ This is precisely why the codebase splits MicroCompact into cold-cache and warm-
 ```
 minimize   Σ tokens_kept · r          (steady-state read cost)
          + w · (n − p_min)            (one-time rewrite)
+         + c · n                       (the compaction request's own input)
          + λ · D(keep-set)            (task damage, from §4.2)
+
+           where c = r    if the prefix is still cached when compaction runs
+                 c = 1    if it is not
 ```
+
+**The third term is not bookkeeping; it is a whole API request.** Compaction sends a separate call
+carrying the same system prompt, tools and history as the conversation, with a summarization
+instruction appended. It therefore shares the conversation's prefix and hits the same cache:
+
+> "While the cache is warm, that request reads your prefix from the cache, so a mid-session
+> `/compact` costs a fraction of what the context size suggests."
+> "After a break longer than the cache lifetime, there is no cache left to read, so the
+> summarization request reprocesses the full history as uncached input."
+
+`c` is **independent of `p`**, so it cannot reorder the candidates and §5.4's argmax is unaffected.
+What it changes is *when to fire at all*: `(1 − r) · n` separates a compaction run against a live
+prefix from the same compaction run against a dead one — at `n = 150 000` and `r = 0.1`, **135 000
+base-input-token-equivalents**, scaling linearly with `n` and so largest exactly when compaction
+matters most.
+
+One inference that looks right and is not: this does *not* make it wrong to compact once the cache
+has already gone cold. At that point the comparison is `n + w·s` for compacting against `w·n` plus a
+permanently larger steady state for carrying on, and with `s ≪ n` and `w > 1` compacting is the
+cheaper branch. The scheduling consequence is the opposite and is drawn in §5.4: fire *before*
+expiry, not after.
+
+A fourth cost is real but unmodelled here. Since Claude Code v2.1.198 the summarization request
+inherits the session's extended-thinking configuration, so with thinking enabled it also emits
+thinking output tokens. Those are output-priced and their volume is not published, so the term above
+counts input only and **under-states** the cold case rather than over-stating it. §8.4 records how
+the scheduler carries the estimate.
 
 The right question is never "should I drop this block." It is:
 
@@ -483,10 +564,31 @@ Three structural facts make this cheap:
 - **Monotonicity.** Reclaimable tokens are non-increasing in `p`; cost is increasing. The objective is unimodal in the typical case, so a single pass finds the knee.
 - **Small candidate set.** Do not evaluate all `n` positions — only changepoint boundaries from §6.6. Twenty candidates, not 167,000. A cut at a task boundary has low distortion *and* tends to follow a long stable prefix.
 - **TTL bimodality — with a correction.** If the prefix has expired, `p = 0` is free, so the optimal policy is genuinely bimodal: **edit as late as possible, or edit when the cache is cold and rebuild everything.** The expensive region is the middle. But the TTL is *sliding*, not fixed — it refreshes on every cache hit, so an actively-used prefix never expires on its own. Cold-cache windows therefore occur only during **idle gaps**: user think-time, meetings, overnight. "Wait for expiry" operationally means "detect idle," which is precisely the signal Claude Code's own time-based MicroCompact path already keys on.
+- **The TTL is a regime, not a constant, and the session does not announce it.** The API offers two, and Claude Code chooses between them from how you authenticate: the **one-hour** TTL automatically on a Claude subscription, five minutes on an API key, Bedrock, Google Cloud's Agent Platform, Microsoft Foundry or Claude Platform on AWS. `ENABLE_PROMPT_CACHING_1H=1` opts in; `FORCE_PROMPT_CACHING_5M=1` overrides "regardless of authentication"; `DISABLE_PROMPT_CACHING[_MODEL]=1` turns caching off altogether, which sets `r = w = 1` and collapses this entire section to "every token costs one token". **Subagents use the five-minute TTL even on a subscription.** A plugin can read those variables but cannot read the authentication mode, so when none is set the honest answer is a *range* — and the two errors are not symmetric. Treating a warm prefix as cold spends `w · (n − p)` on a rewrite that was not needed; treating a cold prefix as warm merely forfeits a free deep cut. Under uncertainty, assume the **longer** TTL and the **dearer** `w`.
+- **The clock starts at the request, not at the response.** "The lifetime is measured from the start of the request that writes or reads the cache entry, not from the end of its response. Time spent generating a response counts against the lifetime." An idle model anchored on the *end* of the last turn therefore over-reports warmth by the whole generation time — minutes, on a long agentic turn. Anchor on the last event that precedes a request (a tool result, or the user's prompt), never on the turn's end.
+- **Time is not the only way a prefix dies.** The cache key includes the **model**, the **effort level**, and the fast-mode request header; changing any of the three empties the prefix instantly, at a moment every wall-clock heuristic reads as maximally warm. That is the bimodal policy's second branch arriving on demand — and §12 records which of the three a plugin can actually observe.
 
 The strategic consequence:
 
 > **Compaction should be scheduled against cache state, not only against token count.** A deep cut during an idle gap that outlasts the TTL is nearly free — the rewrite was going to happen on the next message regardless. The same cut mid-burst, one minute after a fresh cache write, forfeits every discounted read the warm prefix would have served. Idle-gap detection is therefore a first-class scheduler input (§8.4), and the Young–Daly interval (§6.7) takes it as a term.
+
+**And the best moment is just *before* expiry, not just after it.** §5.3's third term is what makes
+this precise, and it points the opposite way from the `p`-choice. The `p`-choice wants a dead
+prefix, because then `w · (n − p_min)` is zero for every `p`. The compaction request wants a live
+one, because then it pays `r · n` instead of `n`. Those two pull against each other everywhere
+except in one band: **the tail of the TTL**, where the prefix is still readable — so the
+summarization call is cheap — but has so few discounted reads left to forfeit that giving it up
+costs almost nothing.
+
+| Fired at | Compaction request | Warm prefix forfeited | Total at `n` = 150 000, `r` = 0.1 |
+|---|---|---|---|
+| Tail of the TTL (alive, nearly dead) | `r·n` = 15 000 | almost none — it was about to expire | **15 000** |
+| After expiry (dead) | `1.0·n` = 150 000 | none — already gone | **150 000** |
+
+A scheduler that treats the expiring band only as a decay factor on `rewrite(p)` and never as a
+trigger cannot fire until the prefix is already dead, and so pays that `(1 − r) · n` premium on
+**every** idle-driven compaction, by construction rather than by bad luck. The expiring band is a
+trigger. §8.4 carries it.
 
 ### 5.5 Cache-compatibility audit of every proposed method
 
@@ -501,6 +603,19 @@ The strategic consequence:
 | Dynamic slicing | **Conditional** | Legal only inside the suffix after `p`. |
 | Submodular greedy | **Conditional** | Same constraint. |
 | Δ-scoring | **Conditional** | Same constraint. |
+
+Three invalidations belong on that list and are not methods at all, because they are not edits to
+the prefix — they change the **key** it is stored under, so a byte-identical prefix misses:
+
+| Trigger | Cache status | Notes |
+|---|---|---|
+| Model switch | **Fatal** | "Each model has its own cache." Nothing to optimize; the whole prefix is recomputed |
+| Effort-level change | **Fatal** | Same, and it is the one of the three a plugin can observe (§12) |
+| Enabling fast mode | **Fatal** | Adds a request header that is part of the key. Costs once per conversation |
+
+They earn their place here because §5.4's bimodal policy treats a cold cache as an *opportunity*:
+each of these manufactures one instantly, and a scheduler blind to them will read the cheapest
+compaction moment in a session as its most expensive.
 
 `cache_edits` is the one escape hatch: it deletes blocks server-side by `tool_use_id` without touching the cached prefix, breaking the prefix constraint entirely. Where available, arbitrary-subset algorithms become legal. Where not, the prefix constraint binds hard.
 
@@ -525,6 +640,13 @@ position 0  ──────────────────────�
 Under that ordering, edits concentrate at high `p` by construction and `n − p_min` stays small automatically. Most cache pain in a long session is frequently-mutating content sitting earlier in the prefix than stable content.
 
 **Ski rental for the write decision.** Whether to pay `w` to write a cache entry is rent-or-buy under unknown horizon. Competitive ratio 2 deterministic, `e/(e−1) ≈ 1.58` randomized. Practically: write the cache when expected remaining reads exceed `w/r ≈ 12.5`. Short sessions should not be paying for cache writes at all.
+
+The `≈ 12.5` is the **five-minute** figure (§5.1). At the one-hour TTL the write costs `w = 2.0` and
+the threshold is **20**. The competitive-ratio result is unaffected — it is a statement about the
+policy, not about the price — but the operating point moves, and it moves in the direction that
+matters: a session on the one-hour TTL renting against a 12.5-read threshold buys entries it needs
+20 reads to amortize, on exactly the short sessions the last sentence above says should not be
+paying for cache writes at all. Read `w` from the resolved regime, never from a default.
 
 **Belady extends to breakpoints.** The retrospective replay harness can compute optimal *breakpoint placement* as well as optimal keep-sets — same clairvoyant setup, different decision variable.
 
@@ -849,7 +971,10 @@ should_compact  =  tokens > soft_floor
                 AND ( at_changepoint
                       OR elapsed > young_daly_interval
                       OR tokens > hard_ceiling
-                      OR idle_gap > ttl )     # cache provably cold → cut is free
+                      OR idle_gap > ttl_max            # cache provably cold → cut is free
+                      OR ( regime_known                # §5.4: fire BEFORE expiry — the
+                           AND idle_gap > 0.8 · ttl )  # summarization call still reads cache
+                      OR effort_changed )              # §5.4: the key changed; prefix is gone
 ```
 
 - `soft_floor` — well below the auto-compact threshold; default 55% of effective window, so the plugin acts before Claude Code's own trigger and the expensive path stays a fallback
@@ -871,6 +996,38 @@ choose argmax
 `segment_coupling(p)` is the count of DAG edges crossing `p` — a direct, cheap measure of how much the post-`p` region depends on pre-`p` detail. Cutting where coupling is low is the operational meaning of "compact at a task boundary."
 
 **Cache-state awareness (corrected for sliding TTL).** The TTL refreshes on every hit, so the prefix does not expire during active use — only during idle gaps. The scheduler therefore tracks *time since last API call*, not time since last cache write. When an idle gap exceeds the TTL (cache provably cold), `rewrite(p) → 0` for all `p` and the scheduler prefers a deep cut it would refuse mid-burst. When the user has been idle long enough that expiry is imminent, the marginal cost of forfeiting the warm prefix approaches zero and the same preference applies. This implements the corrected bimodality in §5.4 and reuses the exact idle signal that gates Claude Code's own time-based MicroCompact.
+
+**Four refinements the §5 cost model forces, each of which is silent when omitted.**
+
+1. **Resolve the cache regime; do not assume one.** The TTL is 5 minutes or 1 hour depending on
+   authentication (§5.4), and `w` moves with it. The scheduler resolves a `(ttl_min, ttl_max, r, w)`
+   tuple from `ENABLE_PROMPT_CACHING_1H` / `FORCE_PROMPT_CACHING_5M` / `DISABLE_PROMPT_CACHING*` and
+   reports **unknown** when none is set, rather than treating a default as a measurement. The two
+   thresholds then key on the two *different* bounds: warm→expiring at `0.5 · ttl_min`,
+   expiring→cold at `ttl_max`. Only then does "cache provably cold" above mean *provably*. Assuming
+   a 5-minute TTL on a session that has an hour classifies a live prefix as free to rewrite, and
+   nothing fails when it does — the cut is legal and the bill arrives later.
+2. **Anchor the idle clock on the request, not the turn.** The TTL runs from the *start* of the
+   request (§5.4); a clock anchored on the turn's end over-reports warmth by the whole generation
+   time. Use the last event preceding a request — a tool result, or the user's prompt.
+3. **Fire in the expiring band.** §5.4's table: firing while the prefix is still readable costs
+   `(1 − r) · n` less than the same compaction after it dies. The band is a trigger, gated on a
+   *known* regime — under an unknown regime it spans minutes to an hour and would fire on ordinary
+   between-turn pauses.
+4. **Resolve the window, not just the threshold.** §2.5's four further variables
+   (`CLAUDE_CODE_MAX_CONTEXT_TOKENS`, `CLAUDE_CODE_DISABLE_1M_CONTEXT`,
+   `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT`, `DISABLE_COMPACT`) each change the
+   window Claude Code is working to. A scheduler that reads only `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+   sizes `soft_floor` and `hard_ceiling` against a window nobody is using, and under `DISABLE_COMPACT`
+   there is no host trigger to stay ahead of at all — every clause above becomes advisory and must
+   say so rather than promising a headroom it no longer controls.
+
+**What the model deliberately does not price.** The compaction request's *output* — including the
+thinking tokens it inherits from the session (§2.7) — is real cost and is not in `score(p)`. It is
+`p`-independent, so it cannot change the cut; and its volume is unpublished, so modelling it would
+substitute a guess for a measurement. The scheduler records the compaction's measured wall-clock and
+token cost as `δ` for Young–Daly, which is where that cost belongs: an empirical term fed by
+observation rather than an analytic one fed by assumption.
 
 **Idle-time background work (O3).** User think-time is free compute. During detected idle, the scheduler advances the shadow checkpoint incrementally, runs store GC, precomputes backward slices from the current criterion set, and refreshes Δ-scores — so that when compaction does fire, the expensive analysis is already done and `PreCompact` only finalizes. This is also the natural moment to *perform* a deep cut: the cache is dying anyway and no user is waiting on latency.
 
@@ -1197,10 +1354,21 @@ State these plainly rather than discovering them in month three:
 - **Cannot change PTL retry, the circuit breaker, or the blocking-limit cliff.** It can only keep sessions away from those regions.
 - **Cannot modify the message array directly.** Everything flows through `additionalContext`.
 - **Cannot guarantee the summarizer honours focus instructions** — span narrowing (§8.5) and snippet prohibition (G3.4) are advisory; the durable checkpoint is the backstop for both.
+- **Cannot tell which cache TTL the session is on** unless the user has set one of the caching environment variables. Claude Code picks five minutes or one hour from the authentication mode, and no hook input carries it. With none set, the scheduler reports a range rather than guessing — setting `ENABLE_PROMPT_CACHING_1H=1` or `FORCE_PROMPT_CACHING_5M=1` is the one-line way a user sharpens every cache-timing decision in §8.4.
+- **Cannot detect a mid-session model switch or a fast-mode toggle**, both of which empty the cache instantly (§5.5). `model` reaches hooks on `SessionStart` only and is not guaranteed present; `fast_mode` reaches no hook at all. An effort-level change *is* observable, and is the only one of the three the scheduler can act on.
+- **Cannot measure its own cache hit rate.** `cache_read_input_tokens` and `cache_creation_input_tokens` are delivered to a status-line command, and a plugin may ship only `subagentStatusLine` — the main `statusLine` is a user setting. §5 is therefore a *model* of cache cost, never a measurement of it, unless the user opts in by pasting the status-line snippet the user guide provides.
+- **Cannot correct the context window Claude Code assumes for a gateway or unrecognized model ID.** `CLAUDE_CODE_MAX_CONTEXT_TOKENS` is the user's to set (§2.5); the scheduler can read it and size against it, but cannot supply it.
 
 ### Upstream issues worth filing separately
 
 The following are better fixed in Claude Code than worked around: agent-initiated compaction (already filed), PTL retry dropping oldest-first rather than importance-first, path-scoped rule re-injection, skill index re-injection, and a drop report surface.
+
+Two more, both from the §5 cache work and both cheap upstream: **expose the resolved cache TTL to
+hooks**, so a scheduler reasoning about prefix lifetime does not have to infer it from environment
+variables the user may never have set; and **carry `cache_read_input_tokens` / `cache_creation_input_tokens`
+in hook input** as they already are in the status-line payload, which would turn §5 from a model of
+cache cost into a measurement of it. Neither needs a new hook — both are fields on events that
+already fire.
 
 ---
 
@@ -1249,7 +1417,8 @@ I* = √(2·δ·M)
 
 **Ski-rental cache-write threshold**
 ```
-write when  E[remaining reads] > w/r   (≈ 12.5 at r=0.1, w=1.25)
+write when  E[remaining reads] > w/r   (12.5 at r=0.1, w=1.25 — the 5-minute TTL)
+                                      (20   at r=0.1, w=2.0  — the 1-hour   TTL)
 ```
 
 **Bloom filter sizing**
@@ -1310,6 +1479,10 @@ f(S_greedy) ≥ (1 − 1/e)·f(S_opt) ≈ 0.63
     "hardCeilingMargin": 20000,
     "youngDaly": { "enabled": true, "measuredDeltaSeconds": null },
     "changepoint": { "hazardRate": 0.004, "features": ["paths","tools","time","todos"] },
+    // The FIVE-MINUTE regime (§5.1). These values are correct as written and are the floor, not
+    // the whole story: at the 1-hour TTL writeMultiplier is 2.0 and ttlSeconds 3600. The running
+    // regime is resolved from the environment at runtime (§5.4, §8.4) and is never written back
+    // into config, so these keys stay stable and D11's lint gate keeps working.
     "cache": { "readMultiplier": 0.1, "writeMultiplier": 1.25, "ttlSeconds": 300 },
     "idle": { "detectAfterSeconds": 120, "backgroundWork": true, "deepCutWhenCold": true }
   },
@@ -1378,4 +1551,45 @@ Everything past Phase 5 is refinement on a system that already works.
 - **O5**: amortized compaction — continuous checkpoint frontier advancement keeps the residual span O(delta), turning the summarization call from a stop-the-world O(session) pause into an incremental-GC-style amortized cost (§8.5, Phase 4)
 - Latency budget breakdown added: warm-cache prefill is cheap, **decode dominates**, thinking inheritance and the post-compact rebuild are the other two components (§8.5)
 - Latency metrics added to §11.2: compaction pause, residual span, first-turn-after latency; Phase 4 exit criterion now tests the amortization claim directly (pause flat as session length grows)
+
+**v1.3** — §5.1's standing instruction discharged. Every cache figure in this document was checked
+against published Anthropic documentation on 2026-08-23; `plans/QOMPACK-ERRATA.md` records what was
+confirmed, what changed, what could not be verified, and the sources. The reasoning in §5 survived
+intact — what moved were numbers it was written to expect to move, and one scheduling consequence
+it had drawn only half of:
+- **`w` is a pair, not a scalar** — 1.25 at the 5-minute TTL, **2.0** at the 1-hour. `w/r` is
+  therefore 12.5 **or 20**, and every threshold spelling `w` takes a (TTL, `w`) pair (§5.1, §5.6,
+  Appendix A). `r = 0.1` confirmed unchanged.
+- **The TTL is a regime the session does not announce** — one hour automatically on a Claude
+  subscription, five minutes on API-key and third-party auth, overridable by three environment
+  variables, and five minutes for subagents regardless. Under an unknown regime, assume the longer
+  TTL and dearer `w`: the two errors are not symmetric (§5.4, §8.4).
+- **The TTL clock starts at the request, not the response** — generation time counts against it, so
+  an idle model anchored on a turn's end over-reports warmth by the whole generation (§5.4, §8.4).
+- **Compaction is itself a priced request** — `r·n` against a live prefix, `n` against a dead one.
+  §5.3's objective gains the `c·n` term. It is `p`-independent, so the argmax is unchanged; what it
+  changes is *when to fire* (§5.3).
+- **The expiring band is a trigger, not just a decay factor** — the consequence of the term above,
+  and the half of "schedule against cache state" v1.1 did not draw. Firing while the prefix is still
+  readable costs `(1 − r)·n` less than firing after it dies: 135 000 base-input-token-equivalents at
+  a 150 000-token context (§5.4, §8.4).
+- **Time is not the only way a prefix dies** — model, effort level and the fast-mode header are all
+  part of the cache key. Only effort is observable from a plugin (§5.5, §5.4, §12).
+- **§2.5 gains four window variables** and the per-model default framing; the section's arithmetic is
+  confirmed, reproducing the published 967K Sonnet-5 figure exactly (§2.5, §8.4).
+- **§2.7 gains the extended-thinking inheritance** of the summarization request (v2.1.198), and marks
+  its one unverifiable row as such (§2.7).
+- **§12 gains four limits and two upstream issues**, all about cache state a plugin cannot see.
+
+Appendix C's values are **unchanged and remain correct**: they are the five-minute regime, which is
+the floor. The running regime is resolved at runtime and never written back into config, so D11's
+lint gate and the Appendix C golden test keep working exactly as before.
+
+§2.2, §2.3, §2.4 and §2.6 are **unchanged and were not verified**. They describe Claude Code
+internals by identifier, none of which appears in published documentation. They were not checked
+against decompiled or leaked builds — §7.1 makes this a sidecar that surrounds compaction rather
+than depending on its internals, and a design premised on that must not acquire the dependency
+through its own revision. Treat them as motivating background at the version they were written
+against. Where a §2 fact became load-bearing — §2.5's arithmetic and §2.7's table — it is publicly
+documented and it checks out.
 - Existing levers re-attributed as latency wins: no-snippets rule cuts decode length; 8–12K rehydration budget cuts first-turn-after latency
