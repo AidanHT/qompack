@@ -1030,3 +1030,685 @@ quota has blocked every job since 2026-08-22, so the whole round is verified loc
 whole-tree `CGO_ENABLED=1 go test -race -timeout=40m ./...`, plus the mutation tests named above. The
 Linux and macOS halves of every claim in this section are unverified for the same reason §16.4's
 first bullet gives.
+
+## 17. The wave-2+ plan audit and its fix round (2026-08-23)
+
+Section 16 closed the wave-1 code. This section records the round that followed it: an audit of the
+fifteen wave-2 through wave-5 plan documents rewritten under `c0c5627`, an independent
+re-verification of that audit, and the corrections both produced. Nothing above is rewritten; §16.8
+and §16.8.1 stand as recorded. What is new here is that **the wave-2+ plan set, and the normative
+document it conforms to, were audited for the first time** — `plans/00-ARCHITECTURE.md` had never
+itself been the subject of a review, which is the finding that turned out to matter most.
+
+### 17.1 What was audited, and how the audit was checked
+
+`plans/WAVE2-PLUS-SCOPE-AUDIT.md` inventoried 425 verified changes across the fifteen documents —
+211 scope-changing, 163 contract-only, 51 cosmetic — plus 26 design conflicts and 64 cross-cutting
+findings, four of them live blockers.
+
+That report was then **re-verified rather than acted on directly.** Fifty agents re-derived every
+citation from the repository, refusing the audit's line numbers, and a second adversarial pass tried
+to *refute* each surviving claim and each proposed fix. That pass is why this section exists: it
+changed the answer in both directions. Several blockers hardened; several conflicts dissolved; and,
+most usefully, a number of the audit's own recommended fixes were found to be unsound and were not
+applied in the form they were written.
+
+**The audit's headline is overstated, and the correction is load-bearing.** Its central claim was
+thirteen design conflicts where a rewritten plan binds itself to a shipped signature that §5 still
+spells the old way, "with no `arch/<reason>` amendment anywhere — precisely the failure §0 calls the
+single failure mode that makes parallel waves worthless." Most of those are not §0 violations.
+§5's own preamble reads: *"Signatures are normative; a subplan may add methods to a struct it owns
+but may not change or remove anything below without an amendment (§0)."* Additive surface is
+explicitly permitted, and §16's own V2-MERGE-08 already recorded a deliberate disposition to leave
+§5's signature blocks alone for exactly this class ("Additive-only surface drift recorded: store
+§5.8 … `ArgsDigest` … signature blocks untouched"). `Options.Bind`, the `Services` field set,
+`store.ArgsDigest`, `sketch.LoadWithLog` and `sketch.ReplaceGenerational` are all additive. A
+subplan that finds an undeclared-but-shipped helper has found a **documentation gap**, not a
+governance violation. §5's preamble now says which is which in as many words, because the audit's
+misreading of it is the kind that produces unnecessary `arch/` branches — themselves a real
+mid-wave serialization the schedule does not model.
+
+What *is* a §0 violation is a signature or documented behaviour below §5 that **disagrees** with the
+tree, and there were several. They are in §17.3.
+
+### 17.2 The blockers that survived, and what was done about them
+
+Four of the audit's findings survived adversarial refutation unchanged, and a fifth was found during
+the re-verification.
+
+**`WireObserver` has no caller, and could not have had one.** SP-08's rewrite moved the observer
+onto `Services` seam binding through `WireObserver`, and in the same commit forbade the branch from
+editing `internal/cli/daemon.go:86` — the repository's only non-test `daemon.New` call site. The
+audit's own remedy was to add the call to Commit 0's checklist, and that **cannot work**: Commit 0 is
+a separate branch merged to `develop` *before* the branch that creates `WireObserver` is cut. Worse,
+the declared signature is uncallable at any point: `Bind` must run before `daemon.New` (which applies
+`o.binds` inside itself), while the `*SessionRegistry` is constructed inside `New` and reachable only
+afterwards through `d.Registry()`, and `o.Idle()` does not compile at all because `Idle()` is a
+method on `*daemon`. The fix reshapes the seam into the post-`New` form SP-10 and SP-12 already use,
+carves `internal/cli/daemon.go` alone out of branch purity, and puts the wiring in Commit 6 with a
+mutation check that deleting it fails `TestE2E_ObserverThroughDaemon`. Without it SP-08 merges with
+all five seams nil, every hook still exiting 0, and SP-12's only L0-to-L3 path decorating nothing.
+
+**SP-12 and SP-16 author the same file with contradictory bodies.** Both create
+`internal/scheduler/skirental.go`. SP-12 (wave 3) deletes `formulas.go` and adds a `w <= 0` guard —
+a declared behaviour change fixing "always write for a cache write that cannot be free". SP-16
+(wave 4) opens from the premise that `formulas.go` still holds the function, instructs a *move* out
+of a file that will not exist, and routes the body through a `SkiRentalThreshold` that guards only
+`r <= 0`. The three bodies were compiled and run: at `w = 0, r = 0.1, expectedReads = 5` the shipped
+body and SP-16's return **true** and SP-12's returns **false**. SP-16 would silently reinstate the
+regression SP-12 declared it was fixing, and none of SP-16's six test rows has a `w = 0` or `r = 0`
+case. SP-16 was rewritten to extend SP-12's file in place, its threshold helper now carries the
+`w <= 0` guard, and the two missing rows were added.
+
+**The carried-defect gate is vacuous by construction.** Fourteen rows are `deferred:V3-VERIFY`;
+V3-VERIFY names six. The sign-off gate keys on exactly one path — `plans/V3-report.md` — and
+V3-VERIFY §8.5 directs its completion report to the merge commit body or an ADR instead, *after* the
+merge and tag block. V4-VERIFY replicates that; V5 and V6 name no path at all. And §0a item 5
+describes the guard as blocking on rows left `open`, which is the pre-A7 rule §16.8's A7 removed —
+no row in the manifest is `open`. A V3 session following its own plan merges and tags wave 2 with all
+fourteen rows unresolved and trips no test. All four checkpoints now name their `plans/V<K>-report.md`
+before the merge block, §0a item 5 enumerates fourteen with the shipped `unresolved()` semantics, and
+`TestCarriedDefects_WaveReportRequiresResolution` reports **every** unresolved row per run rather
+than `FailNow`-ing on the first — V2-VERIFY promised that behaviour and the shipped test did not have
+it.
+
+**Three checkpoints ran the bloom watch-fors the way `cb27449` had to stop.** §16.8.1 records why
+`TestIntegration_RealBloomHealthFeedsTheFPCeiling` now passes `--baseline ""`: a full filter judged
+against a near-empty golden blocks at +188% and +69%, and that is not a regression. V3-VERIFY §7.3's
+own 2%-rule gate command, V3-VERIFY X5 and two V4-VERIFY rows all fed a live ledger's health to
+`--sketch` against `testdata/baseline/phase0.json` and asserted exit 0. Every one is now split the
+way the code round settled it: the absolute §11.4 ceiling with `--baseline ""`, the relative 2% rule
+against the fixture the baseline was recorded from.
+
+**Rows that verify nothing.** The audit found five dead `-run` patterns by hand and said explicitly
+it had no reason to believe they were the only five. They were not: the sweep found roughly thirty
+across the four checkpoints, every one naming a test in an already-shipped wave-1 package, every one
+printing `ok` and exiting 0. Six rows in V6-VERIFY §1.3-§1.7 executed nothing whatsoever, including
+a hard-fail sketch frame-size gate. Alongside them: six rows passing `--json`, `--filter` or `--set`
+to a replay driver that registers none of them; seven passing `--hook checkpoint` to a bench harness
+that rejects it with exit 2 *before* measuring; three passing `-n 200` where the flag is
+`--iterations`; two passing a positional path to the boolean `--write-baseline`.
+
+### 17.3 What changed in `plans/00-ARCHITECTURE.md`
+
+The normative document was rewritten in the same merge as the plans it grades (`ca63567`, +127/-18)
+and was itself audited for the first time this round. A signature-by-signature sweep of §5.1 through
+§5.22 against the shipped tree was run and its negative result is on record: everything not listed
+below matches. The divergences clustered in three places, and the pattern is worth stating —
+**every one of them is in a section that restates something rather than declaring it once.**
+
+- **`internal/paths` had no §5 subsection at all**, despite twenty-four exported functions and being
+  normative in §3.3, §4 and §13. Its signatures lived only in §3.3's prose, which is exactly where
+  they drifted: §3.3 spelled `paths.CreateNew(p)` and `paths.WriteAtomic(p, b)` where the tree ships
+  two- and three-argument forms. **§5.0 now declares the package**, and §3.3 points at it instead of
+  restating it.
+- **§5.7's `Load` annotation promised a Loud log the shipped `Load` does not write** — it delegates
+  to `LoadWithLog(p, s, logging.Nop())` and writes nothing anywhere. That is a *changed* behaviour,
+  not an additive one, and it is the §13-invariant-10 trap §16.8's A3 fixed in code. §5.7 now states
+  the split, names `LoadWithLog` as the form a composition root must call, records that
+  `test/guards/sketchload_test.go` forbids the silent form, and — the part no document carried —
+  that `core.ErrNotFound` alone does not distinguish a cold start from bit rot.
+- **§5.7's `Save` said "except tried.bloom"**; the shipped `Save` refuses that basename outright.
+  **§3.3 attributed the replacement to `negknow.RebuildBloom`**, which computes in memory and writes
+  nothing; the writers are `sketch.ReplaceGenerational` and `paths.ReplaceBloom`, named in neither.
+- **§5.4 declared neither `Options.Bind` nor `Services`**, the seam every wave-2+ subplan wires
+  through. This is the additive case, so it needed documenting rather than amending — and the thing
+  worth documenting was not the signature but the **choice**: `Handle` *replaces* a default route,
+  so a subplan that Handles an op SP-05 already routes silently deletes the WAL-before-ACK ordering,
+  the breach/spool submode, the session-registry touch and the terminal marker, none of which the
+  caller can re-create because `ingest` is unexported. §5.4 now says that in as many words, because
+  it is the mistake the SP-08 rewrite existed to fix and the one SP-15 still had.
+- **§5.9 attributed its NodeID constructor block to "(SP-11 amendment)"** — SP-11 is the wave-4
+  rehydrator and never touched `internal/dag`; SP-07 shipped all ten in wave 1. The same block
+  omitted the five `dag.Build*` entry points that three rewritten plans bind themselves to, and
+  `dag.Maintainer`, which the V2 checkpoint report had already recommended adding. All are now there,
+  with the frozen `KindInvalid`-last numbering the golden fixtures pin and its consequence stated:
+  `NodeKind`'s zero value is `KindToolUse`, not "unset".
+- **§5.2's `obs.Registry` was missing `Persist`**, a sixth method on an interface six packages take
+  as a parameter — an interface method is not additive latitude. **Six §5 packages declared an
+  interface with no constructor** (`checkpoint`, `pins`, `rules`, `skills`, `eval`, `observer`), so
+  SP-01 minted the spellings itself and they became load-bearing outside the normative set. All are
+  now declared.
+- **§8's CI table described a job set that has moved on**: the `docs` row claimed a
+  `git diff --exit-code` step the job does not have, the `replay-gate` row printed `--baseline develop`
+  — a git ref where the driver takes a file, and the cross-tier hazard `0fff22c` taught it to refuse —
+  the `plugin-validate` row claimed a JSON-schema step and an eight-MCP-tool assertion the task
+  deliberately does not make, and the `verify` row named seven upstream tools where the job runs two
+  devtool tasks and two git-history greps.
+- **§6.4 said a coverage drop "fails `verify`"**; it fails the separate `cover` job, and the floors
+  live in `plans/OWNERS.tsv`, not in §6.4's table — which is why SP-10's `internal/pins` 90% exit
+  criterion graded nothing while OWNERS.tsv carried 75. `pins` is now in the 90% group in all three
+  places that had to agree, and the third — a hardcoded transcription in
+  `test/guards/v1_integration_test.go` — is why the divergence survived: the same fact was written
+  down three times and checked in none.
+- **§13 invariant 7 promised "no writes outside `.qompack/`"**, which the product cannot keep on
+  POSIX: a Unix socket has to be a file, and `ipc.Resolve` picks one of three locations outside both
+  `.qompack` roots. The invariant now enumerates all five locations. This is the one correction that
+  reaches a user-facing promise — SP-18 is instructed to quote invariant 7 verbatim into
+  `docs/architecture.md` — so it is also recorded against V1's row 7 in `plans/V1-report.md`.
+- **§14 had no §14.1**, while **forty-three shipped Go files cite `00-ARCHITECTURE.md §14.1`** for
+  the three stub rules. The rule lived only in `V1-SP-01:1393`. §14.1 now states it, which makes
+  every one of those citations resolve — and states the consequence that kept being missed: the
+  fifteen fully-specified pure functions on rule 3's list are **not stubs to delete**. A plan saying
+  "replace the stub" about any of them describes work that does not exist, which is exactly how
+  SP-16 came to instruct deleting a tested function.
+- **`daemons.json`** was named at line 449 as a global registry file. It does not exist and was
+  never built; a daemon is located by deriving its endpoint from the project root. Removed, with the
+  reason recorded so a reader who finds the string in an old branch knows it is not a missing feature.
+
+### 17.4 Two gates the plan set had, and did not enforce
+
+Both are the same genus §15 named — a check that cannot fail — reached from a new direction.
+
+**The plan lint was scoped out of every document it most needed to check.** `runpatterns` resolves
+every `-run` pattern in `plans/` against `go test -list`, and `planDocsInScope` excludes a wave's
+documents until every subplan in that wave has landed. That scoping is *correct* for a test that does
+not exist yet, and simply widening it would produce hundreds of false positives. But it also excluded
+every pattern in a wave-2+ document naming a test in an **already-shipped** package — which is what
+every one of the ~30 dead rows above was. The lint now checks a pattern whenever its target
+package's owning subplan has landed, regardless of the document's own wave: **501 patterns checkable,
+up from 301**, and the thirty dead rows are now mechanically caught rather than found by hand.
+
+**Nothing compared a plan's coverage-floor claims to `OWNERS.tsv`.** Running it by hand found the
+`pins` divergence in one pass. A `coveragefloors` sub-check now parses every floor assertion in
+`plans/*.md` and fails on disagreement with the file `devtool cover` actually reads — 72 claims
+across 68 documents, and it is what would have caught SP-10's 90-versus-75 the day it was written.
+
+### 17.5 What is recorded rather than fixed
+
+Three obligations have no owner, and naming an owner is a product decision rather than a repair.
+They are now recorded in `plans/TRACEABILITY.md` instead of being implied-covered, which is the whole
+point of that document:
+
+- **O2's second half.** Qompack.md §8.1 item 1 says the store "stores the delta against the prior
+  version instead of the full text … this is where the dedup ratio is won or lost."
+  `TRACEABILITY` assigns O2 wholly to SP-04; SP-04's own plan disclaims that half, and `canon.Decide`
+  ships with no consumer. This is already `SP04-D7` in the carried-defect manifest, deferred to
+  V3-VERIFY, and it is a product decision with `wontfix` among its three answers.
+- **`observer.Tombstone` has no reader.** It closes G3.2, SP-08 ships and tests it, and every call
+  site in the tree is a test. §8.1 item 2 specifies replacing the host's cleared marker, which §12
+  says the plugin cannot do — everything flows through `additionalContext` — and no plan supplies
+  the legal substitute. A rendered string with no reader closes nothing.
+- **The per-hook latency element of §5.17.** `/qompack:status` is specified to report hook latency
+  p50/p99 *per hook*; no code in the repository produces a `hook_controlled.<hook>` or `hook_wall`
+  sample, on either the daemon path or the disk path. SP-14's rewrite conceded the daemon half and
+  dropped "per hook" from its Definition of Done in the same commit, which left the exit criteria and
+  the normative spec disagreeing about what shipping the command means.
+
+Two further items are decisions a wave coordinator must make before the wave they affect, and are
+recorded in the plans rather than settled here: whether `rules.NestedClaudeMD` walks ancestors
+(the shipped fixture says yes, `Qompack.md` §8.6 and §5.15 both say no, and §0's precedence rule
+gives `Qompack.md` the last word on *what* to build), and whether the `already_tried` standing
+instruction survives an empty ledger.
+
+### 17.6 Verification of this round
+
+Windows, local, no CI run — the Actions quota position of §16.8 is unchanged.
+
+- `go build ./...` and `go vet ./...` clean.
+- `go test ./test/guards/ -count=1` — **ok**, including the rewritten per-row carried-defects gate
+  and `TestV1_StubGraphIsInertAndOwned` against the raised `pins` floor.
+- `go test ./tools/devtool/ -count=1` — **ok**, including the new `coveragefloors` parser tests and
+  the widened `planDocsInScope` tests.
+- `devtool lint --only=runpatterns,docmarkers,coveragefloors` — **PASS** on all three.
+  `runpatterns` reports 1362 patterns parsed, 501 of 501 checkable resolved against 52 packages,
+  2 waived, 1 platform-excluded.
+
+`plans/WAVE2-PLUS-SCOPE-AUDIT.md` remains in the tree as the evidence for this section. Its counts
+are its own; where this section and that document disagree — on the thirteen design conflicts, on
+`WP-02`'s guard count, on `XS-11`, and on the wave numbering of SP-12 and SP-16 — this section is
+the corrected reading and says why.
+
+---
+
+## 18. Residuals from §17, closed (2026-08-23)
+
+§17 recorded the audit and the fix round. Three findings were escalated out of that round rather
+than fixed inside it, because each needed a ruling rather than an edit. This section records the
+rulings and where they landed. Nothing here revises a §17 verdict; it completes the work §17
+listed as open.
+
+### 18.1 The observer's contract mode had no seam, and could not have had one
+
+**The finding.** `plans/V3-SP-08-observer-l0.md` specified the observer's mode source as
+`func() observer.Mode { if mon.Mode() == contract.ModeFull { … } }`. `mon` is unobtainable at that
+point in the program, and not by an oversight that a rename could fix. `contract.NewMonitor` is
+called *inside* `daemon.New` (`internal/daemon/daemon.go:238`), into the unexported `d.monitor`
+field, and appears on none of `Options`, `Services` or the `Daemon` interface. `WireObserver` is
+specified to return *before* `daemon.New` is called at all — it must, because `New` applies
+`o.binds` inside itself and a `Bind` registered afterwards never runs. So there is no ordering in
+which SP-08 can dereference a monitor: the code the plan asked for could not be written.
+
+**Why it mattered more than it looks.** The failure is silent in both directions. A mode source
+that is nil, or that answers `ModeFull` unconditionally, still produces an observer that records,
+still exits 0, and still passes every unit test that supplies its own mode func. §12.1's whole
+point is that `ModeDegradedPassive` keeps L0/L1 recording and turns every *acting* path off; an
+observer wired to the wrong mode source is therefore indistinguishable from a correct one until
+the day the contract monitor degrades and the thrash warning (§8.1 item 7) fires anyway.
+
+**The ruling.** Add the seam, in the direction the constraint forces. `Services` gains
+
+```go
+Mode func() contract.Mode      // SP-05 → SP-08
+```
+
+and `daemon.New` hoists its `statePath` / `contract.NewMonitor` lines above the
+`for _, bind := range o.binds` loop so it can assign `svc.Mode = monitor.Mode` before the loop
+runs. The hoist is safe — `NewMonitor` reads only `o.ProjectRoot`, `o.Log` and `o.Metrics`, none of
+which a bind produces — and it is *necessary*: a bind body that captures `s.Mode` before the
+assignment captures nil.
+
+**The thing worth naming, because it is a new category in this codebase.** The nine function seams
+already on `Services` are **consumed** by SP-05 and **provided** by a later subplan — SP-05 calls
+them, the owner column says who fills them in. `Mode` runs the other way: SP-05 provides it, a
+`Bind` body reads it. Confusing the two directions produces code that compiles and wires nothing,
+which is the same failure mode `Handle`-versus-`Bind` produces and which §17.3 already had to write
+a paragraph about. §5.4 now states the distinction in the struct's own doc comment rather than
+leaving it to be inferred from the owner annotations.
+
+A second trap sits next to it and is recorded with the test rather than in prose alone: the monitor
+has not read `state/contract.json` at bind time, so it answers `ModeFull` for *every* project at
+that instant. An assertion written inside the bind body passes even when the field is wired to the
+wrong thing. `TestServicesModeIsAssignedBeforeBinds` therefore captures the func in the bind body
+and asserts on it afterwards.
+
+**Where it landed.** `plans/00-ARCHITECTURE.md` §5.4 (the field, and the two-direction paragraph);
+`plans/V3-SP-08-observer-l0.md` — pre-step **(c)** of the `arch/sp08-observer-seams` amendment,
+the corrected `Mode` bullet, the `modeSrc` late-binding in the `Bind` code block, a Commit 0
+checklist item, and the branch-purity criterion widened to prohibit `internal/daemon/options.go`
+and `internal/daemon/daemon.go` on the *feature* branch (they belong to the amendment);
+`plans/V3-VERIFY-observer-and-negative-knowledge.md` row **H12**;
+`plans/V2-SP-05-daemon-ipc-and-hot-path.md` and `plans/V4-SP-10-checkpointer-l4.md`, which both
+enumerate `Services` and now carry the forward-pointer. SP-05 is landed, so its plan records the
+field as a wave-3 addition rather than as something SP-05 shipped.
+
+The amendment branch already existed in the plan for two other reasons, so this costs SP-08 no new
+branch — it becomes the amendment's third pre-step and fifth edited file. SP-08's own DoD, which
+asserted "the two behaviours that had to change", now says three.
+
+### 18.2 SP-11 and SP-13 both claimed to create the daemon bootstrap block
+
+**The finding.** `plans/V4-SP-11-rehydrator-l5.md` prerequisite 1: *"SP-11 lands the minimal block;
+SP-13 owns its final shape and extends it."* `plans/V4-SP-13-mcp-retrieval-layer.md` spec §11:
+*"**SP-13 owns opening them** … this whole block, not a line"*, listing the same `store.Open`,
+`dag.Open` and `negknow.Open`. `plans/V4-SP-12-scheduler-l3.md` agreed with SP-13 in three places.
+Two branches were instructed to write the same lines into the same six-line window of
+`internal/cli/daemon.go`.
+
+**Why it is not a documentation nit.** The best case is a rebase conflict on the last merge of the
+wave. The worst case is that both survive and the daemon opens two `store.Store` handles on one
+project root — which SP-12's own plan already names as *"a corruption bug, not a redundancy"*. The
+duplicate is invisible to every unit suite, because every SP-12 and SP-13 unit test builds its own
+fakes rather than going through the composition root.
+
+**The ruling: SP-11 creates, SP-13 extends.** Merge order decides it and preference does not.
+Wave 3 merges SP-10 → SP-11 → SP-12 → SP-13, SP-11 merges **second**, and SP-11's exit criterion
+`TestE2E_AdditionalContextProducerIsDeclared` runs against a daemon built the way `cmd/qompack`
+builds it. If SP-13 owned creation, an already-merged subplan's exit criterion would be unreachable
+for two further merges. SP-11's prerequisite 1 is therefore the ruling and the other two documents
+were corrected to conform to it, which is the direction the audit's own evidence pointed.
+
+The split, now stated identically in all three plans:
+
+| Line | Created by |
+|---|---|
+| `symbols.New()`, `store.Open` (with `Deps.Symbols`), `dag.Open`, `negknow.Open`, the two `defer Close`s, `BindRehydrate` | SP-11 |
+| `checkpoint.Reader` | SP-11 — typed-nil on the branch, `checkpoint.OpenReader` at the rebase onto SP-10 |
+| `rehydrate.NewReporter`, `mcp.NewPromoter`, `InstallMCPOp` | SP-13 |
+| nothing | SP-12 — Block 1 **reads** the three fields |
+
+Three details fell out of the ruling and are recorded with it:
+
+1. **`store.Deps.Symbols` is SP-11's to supply, not SP-13's.** A nil there silently disables
+   `Query.Symbol` and the §8.7 symbol-aware span widener — for two whole merges, with nothing
+   failing. So `syms := symbols.New()` moves to SP-11 along with the `store.Open` call that needs it.
+2. **`checkpoint.OpenReader` is not callable on SP-11's branch.** Same-wave branches never branch
+   from each other (`plans/README.md:38`) and SP-01 stubbed only the `checkpoint.Reader` *type*, so
+   SP-11 carries a typed nil and swaps it at the rebase onto the `develop` SP-10 merged into. SP-13's
+   rebase step, which previously replaced *both* `ckptReader` and `dropReporter`, now replaces only
+   `dropReporter` and says why.
+3. **SP-12's degrade path is transient, not wave-long.** Its plan read "until SP-13's bootstrap
+   lands, L3 stays disabled" — with SP-11 merging one place *ahead* of SP-12, that state ends at
+   SP-12's own merge. A `Loud` "scheduler runtime: store required" line in a post-merge daemon start
+   is now a defect to chase rather than the documented expectation.
+
+The shared-file protocol consequently names **four** writers, not three: SP-08's `Bind`, SP-11's
+resident-set block, SP-12's Blocks 1–2, SP-13's extension and `InstallMCPOp`, `daemon.New`, then
+SP-12's Block 3. SP-13's ~30-line bootstrap estimate drops to ~8, and its subagent-strategy
+paragraph was re-sized to match rather than left overstating main-session work.
+
+### 18.3 V6-VERIFY graded SP-17 against fifteen items when it ships seventeen
+
+`plans/V6-SP-17-packaging-hardening-and-release.md` §"Local, measurable Definition of Done" runs to
+17 numbered items. V6-VERIFY said "fifteen" in four places, and its §2.17 procedure enumerated
+exactly fifteen steps. The two missing items are not filler:
+
+- **16 — exactly one stamped version source.** SP-17 marks it *"a merge blocker rather than a style
+  note"*: a second source ships a tagged binary whose `qompack version`, daemon lock, daemon status
+  payload and MCP handshake all still report the previous number *while every version assertion in
+  the suite passes*. It is checked by grep over the tree, which is precisely why no test failure
+  would have surfaced its absence from the checkpoint.
+- **17 — the pre-release live run.** One hand-executed `test/replay --live` over the recorded corpus
+  before the release tag. 00-ARCHITECTURE §5.18 assigns the tier-3 run to this slice and no workflow
+  runs live mode, so a blank row at sign-off means it was not run; there is no CI artefact that can
+  stand in for it.
+
+Both are now steps in §2.17's procedure, the four counts read "seventeen", and the §8 completion
+report row 2.17 names them. The same pass corrected `deferred:V6` to `deferred:V6-VERIFY` in the
+§8 preamble: `test/guards/carrieddefects_test.go` derives the resolver's report path by cutting the
+checkpoint name at `-`, so `deferred:V6` fails the manifest's shape check outright.
+
+### 18.4 Verification
+
+`go build ./...` clean. `go test ./test/guards/ ./tools/devtool/ -count=1` — both ok (59.8 s /
+2.7 s). `go run ./tools/devtool lint` — all ten sub-checks PASS, including `runpatterns` (1363
+patterns parsed, 501 of 501 checkable resolved against 52 packages, 2 waived, 1 platform-excluded),
+`docmarkers` (68 documents) and `coveragefloors` (72 floor claims across 68 documents, checked
+against `plans/OWNERS.tsv`).
+
+No shipped Go file was changed by §18. Every edit is in `plans/`, and the two code changes §18.1
+describes — the `Services.Mode` field and the `daemon.New` hoist — are specified as work on
+SP-08's `arch/sp08-observer-seams` amendment branch, not applied here: SP-05's package is landed,
+and §0's amendment rule is what governs a change to it.
+
+---
+
+## 19. The cache-cost verification, and what it moved (2026-08-23)
+
+`Qompack.md` §5.1 carries a standing instruction that had never been executed:
+
+> "Standard documented multipliers are `r = 0.1`, `w = 1.25` — **verify against current pricing
+> before tuning**, since the ratio drives several thresholds below."
+
+This section is that verification, done against primary sources, and the five plan changes it
+forced. Every number below is quoted from a published Anthropic document, not inferred. No leaked
+or reverse-engineered material was used: Qompack is a sidecar by construction (§7.1, *"a plugin
+cannot replace Claude Code's compaction, it can only surround it"*), so documented behaviour is
+both the only thing it is entitled to depend on and the only thing that will not shift under it.
+
+### 19.1 What the sources say
+
+From `platform.claude.com/docs/en/build-with-claude/prompt-caching`:
+
+| Quantity | Value | Status |
+|---|---|---|
+| Cache **read** multiplier `r` | "Cache read tokens are 0.1 times the base input tokens price" | **confirmed**, unchanged |
+| Cache **write** multiplier `w`, 5-minute TTL | "5-minute cache write tokens are 1.25 times the base input tokens price" | **confirmed**, unchanged |
+| Cache **write** multiplier `w`, 1-hour TTL | "1-hour cache write tokens are **2** times the base input tokens price" | **new to the plan set** |
+| TTL refresh | "The cache is refreshed for no additional cost each time the cached content is used" | confirms §5.4's sliding-TTL model |
+| TTL origin | "The lifetime is measured from the **start of the request** … not from the end of its response. Time spent generating a response counts against the lifetime" | **new to the plan set** |
+
+From `code.claude.com/docs/en/prompt-caching`:
+
+| Fact | Quote |
+|---|---|
+| The default TTL is **not** 300 s for the deployment Qompack ships into | "**On a Claude subscription, Claude Code requests the one-hour TTL automatically**, so the cache survives breaks of up to an hour." |
+| It is 300 s elsewhere | "On an API key, Amazon Bedrock, Google Cloud's Agent Platform, Microsoft Foundry, or Claude Platform on AWS … the TTL stays at the cheaper five minutes by default." |
+| Both are overridable | `ENABLE_PROMPT_CACHING_1H=1`; `FORCE_PROMPT_CACHING_5M=1` "regardless of authentication"; `DISABLE_PROMPT_CACHING[_MODEL]=1` |
+| Effort is part of the cache key | "The cache is keyed by **effort level** as well as model, so switching with `/effort` means the next request reads the entire conversation history with no cache hits." |
+| Compaction is itself a priced request | "While the cache is warm, that request reads your prefix from the cache… **After a break longer than the cache lifetime, there is no cache left to read, so the summarization request reprocesses the full history as uncached input.**" |
+| Subagents differ | "Subagents use the five-minute TTL even on a subscription." |
+
+### 19.2 The defect this exposed, priced from the plan's own fixture
+
+`scheduler.cache.ttlSeconds` is `300` in Appendix C and is used as the single cliff between warm
+and cold. On a Claude subscription the real TTL is 3600 s — **wrong by a factor of twelve**, in the
+direction that costs money.
+
+SP-12's own `evaluate_test.go` fixture makes the size of it exact. `baseInputs()` sets
+`ContextTokens: 120_000` with candidates at `Pos` 40 000 / 80 000 / 118 000, and
+`TestEvaluate_ArgmaxDeepestWhenCold` drives it at `LastAPICallTS = Now−400_000` — a 400-second gap.
+Under `ttlSeconds = 300` that classifies `TTLCold`, sets `CacheFactor = 0`, zeroes `rewrite` for
+every candidate, and sends `chooseP` down the deep-cut branch: `P.Pos == 40_000`.
+
+On a subscription, a 400-second gap is warm and the prefix has 53 minutes left. The same fixture's
+warm scores are `−97 084` at `Pos 40_000` against `−1 916.8` at `Pos 118_000`. The rewrite the cold
+branch treated as free actually costs `w · (120 000 − 40 000) = 2.0 × 80 000 = 160 000` write-units,
+against `2.0 × 2 000 = 4 000` for the cut the warm objective prefers. **A forty-fold error on the
+quantity §5.2 calls "the governing" one** — and a silent one: the cut is legal, nothing fails, the
+bill arrives later.
+
+### 19.3 What changed, and why each is provably in the right direction
+
+**(a) A cache *regime* replaces the scalar pair.** New `internal/scheduler/cacheregime.go` (SP-12)
+resolves `(TTLMin, TTLMax, r, w)` through a documented env-var ladder read via `config.Env.Getenv` —
+the same shape `EffectiveWindow` already uses for `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, with the
+winning rung written into `Breakdown`. Appendix C is untouched, because it cannot be touched: it
+lives in the read-only `Qompack.md` and `TestDefaults_MatchesAppendixCVerbatim` deep-equals against
+it. The regime is computed *beside* the config, never written back into it.
+
+**(b) The two TTL thresholds key off two different bounds.** `ClassifyTTL` becomes asymmetric:
+warm→expiring at `0.5·TTLMin`, expiring→cold at `TTLMax`. When the regime is known the bounds
+coincide and the classifier is bit-identical to what shipped — every existing `ttl=300` assertion
+survives by pinning a known 5-minute regime. When it is unknown, `TTLCold` now requires a full hour
+of silence. The shipped doc comment already claimed `gap >= ttl` meant *"cache provably cold"*; this
+is the change that makes the word "provably" true.
+
+The conservative direction is not a matter of taste and is worth stating, because it is what makes
+the change safe. Assuming warm when the cache is actually cold forfeits a free deep cut — you
+reclaim less. Assuming cold when it is actually warm pays `w·(n−p)` for a rewrite you did not need —
+you lose money. The two errors are not symmetric, so under uncertainty the plan now takes the
+longer TTL and the dearer `w`, both of which bias toward the cheaper mistake. SP-12 had already
+reached the same conclusion for `TTLUnknown` (*"conservatively warm"*); the defect was that it
+treated a known-but-wrong 300 s as knowledge.
+
+**(c) `w/r` is two numbers.** 12.5 at the five-minute TTL, **20** at the one-hour. `SkiRentalShouldWrite`
+needed no change — SP-01 wrote `w` as a parameter and V1's `TestSkiRental_ComputedNotLiteral` has
+pinned it since wave 1, which is exactly the payoff D11 was designed for. What changed is where
+SP-16's caller reads `w` from: `Inputs.Regime.WriteMultiplier`, not `cfg.Cache.WriteMultiplier`.
+A session on the one-hour TTL renting against a 12.5-read threshold buys cache entries it needs 20
+reads to amortize — and buys them on precisely the short sessions §5.6's last sentence says should
+not be paying for cache writes at all.
+
+**(d) The TTL clock moves to the request start.** `NotifyActivity` anchored on whichever hook fired
+last, and the last hook of a turn is `Stop`, which fires *after* generation. The API measures the
+lifetime from the request's start, with generation counted against it. So the shipped anchor
+over-reports warmth by the whole generation time — minutes on a long agentic turn. New
+`NoteRequestStart(ts)`, called from the `ObserveTool` and `ObservePrompt` wrappers and deliberately
+*not* from `ObserveStop`. The estimator is one-sided by construction —
+`lastRequestStartTS ≤ true request start ≤ Stop` — so it can only widen the measured gap and make
+the classifier more conservative, never less. `TestTTLAnchorIsNeverLaterThanStop` is that property,
+and it is why the change cannot regress in the expensive direction.
+
+**(e) A trigger one band before expiry.** This is the largest single saving and the one the plan
+had backwards by omission.
+
+Compaction is not bookkeeping between requests; it *is* a request, and its input is priced. Warm, it
+reads the conversation's prefix from cache at `r·n`. Cold, it "reprocesses the full history as
+uncached input" at `1.0·n`. §8.4's objective —
+`score(p) = reclaimable(p)·r − rewrite(p) − distortion(p)` — prices the *cut* and has no term for the
+*event*. That omission cannot affect the argmax, since the event cost is identical for every
+candidate `p`. It does affect the fire decision, where `TTLCold` sits as a standalone trigger.
+
+The tempting conclusion is that firing on a cold cache is a mistake. **It is not, and the plan does
+not now say it is.** Once the prefix is dead, compacting costs `1.0·n + w·s` against `w·n` plus a
+permanently larger steady state for carrying on, and with `s ≪ n` and `w > 1` compacting is the
+cheaper branch. The cold trigger is sound and is unchanged.
+
+The defect is one step earlier: `TTLExpiring` was used *only* as a ramp on `CacheFactor` and never
+as a trigger, so no idle-driven compaction could fire until the prefix was already dead. The
+scheduler therefore paid the cold-summarization premium on **every** idle-driven compaction it would
+ever recommend, by construction rather than by luck.
+
+| Fired at | Summarization input | Warm prefix forfeited | Total at n = 150 000, r = 0.1 |
+|---|---|---|---|
+| `TTLExpiring` (alive, nearly dead) | `r·n` = 15 000 | almost none — it was about to expire | **15 000** |
+| `TTLCold` (dead) | `1.0·n` = 150 000 | none — already gone | **150 000** |
+
+`(1 − r)·n` = **135 000 base-input-token-equivalents per idle-driven compaction**, scaling linearly
+with `n`, which is to say largest exactly when compaction matters most. The forfeited-discount
+column is what makes the expiring band the right place rather than merely an earlier one: §5.1
+prices a premature cut at `(1−r)·(n−p)` in discounted reads never used, and a prefix at 0.8 of its
+TTL in idle has almost none left to lose. New `TriggerCacheExpiring`, additive, gated on the soft
+floor like every other trigger and on the regime being **known** — firing across the unknown band,
+which spans 150 s to 3600 s, would mean compacting on a threshold derived from a TTL the scheduler
+has just admitted it cannot identify.
+
+`runtime.scheduler.cache.expiringTriggerFraction` (default `0.8`) is a §11.5 `runtime` key, which is
+the namespace's exact purpose: *"No key here may change the meaning or default of any Appendix C
+key."* The `0.8` is **not** tuned against a corpus and the plan says so; SP-16's Phase-7 work owns
+measuring it, and `Breakdown["fired_at_ttl_fraction"]` accumulates the corpus meanwhile.
+
+**(f) One new signal, free.** An effort-level change empties the cache instantly, and `effort.level`
+arrives on `PreToolUse`, `PostToolUse`, `Stop` and `SubagentStop` — three of which SP-08 already
+registers — with `$CLAUDE_EFFORT` as a fallback. It needs no new plumbing whatsoever: `effort` is a
+top-level key no `hookio.Event` struct tag claims, so it already lands in `Extra`, and SP-08's
+`arch/sp08-observer-seams` amendment (§18.1) already restores `Extra` daemon-side from `req.Raw`.
+The signal rides the channel that amendment builds for the subagent name. §5.4 names two good
+moments to cut — "as late as possible" or "when the cache is cold"; an effort switch manufactures
+the second one instantly, at a moment every wall-clock heuristic reads as maximally warm, and it is
+the only such moment Qompack can detect.
+
+### 19.4 What Qompack cannot see, recorded rather than approximated
+
+Four limits went into SP-18's `docs/cannot-do.md` as an **additive** section, separate from the
+verbatim §12 block that `TestCannotDoListVerbatim` asserts byte-for-byte:
+
+- **Which TTL is in force**, absent an env var. No hook input carries the auth mode. Qompack reports
+  a range and shows `ttl_regime: unknown`; setting `ENABLE_PROMPT_CACHING_1H` or
+  `FORCE_PROMPT_CACHING_5M` is the one-line way a user sharpens every cache-timing decision it makes.
+- **A mid-session model switch.** `model` reaches hooks on `SessionStart` only, and the reference
+  notes it is not guaranteed present even there. There is no `$CLAUDE_MODEL`.
+- **Fast mode.** Carried in the status-line payload and in no hook input.
+- **Actual cache hit rates.** `cache_read_input_tokens` and `cache_creation_input_tokens` reach a
+  *status-line* command, and a plugin may ship only `subagentStatusLine` — the main `statusLine` is
+  a user or managed setting. So the cache model stays inferred from event timing, never measured.
+  `docs/user-guide.md` carries an **optional** snippet a user may paste into their own settings to
+  feed the daemon real numbers. This is the one place where an opt-in would convert the whole of §5
+  from a model into a measurement, and it is worth saying plainly that Qompack cannot take that step
+  on the user's behalf.
+
+Each was approximable and none was approximated, for the reason that runs through this whole
+section: an approximation here classifies a warm prefix as cold and takes the expensive branch,
+which is the failure §19.2 exists to remove rather than one to reintroduce under a different name.
+
+### 19.5 Scope, and what was deliberately not changed
+
+`Qompack.md` was not edited — it is read-only, and every one of its cache claims survived
+verification. `r = 0.1` and `w = 1.25` are correct as written; §5.2's `p_min` argument, §5.4's
+bimodality and sliding-TTL correction, and §5.5's compatibility audit all hold. §5.6's scope note
+that breakpoint placement is not plugin-actionable is confirmed by the current reference (Claude
+Code manages its own `cache_control` markers; a plugin may not move them). What the verification
+found was not error in the design document but **under-specification carried into the subplans**: a
+scalar where the API has two regimes, a cliff where the plan should have had a range, and a trigger
+set that used only half of the cache state §5.4 told it to schedule against.
+
+Appendix C's values and shape are unchanged; `TestDefaults_MatchesAppendixCVerbatim` is untouched
+and must stay green. The two new keys are `runtime` keys. `SkiRentalShouldWrite`'s signature is
+unchanged. `TriggerCacheExpiring` is a new value of a §5.13 type SP-01 owns — additive under §5's
+latitude, with the enumeration in `00-ARCHITECTURE.md` §5.13 moved on the same branch rather than
+left to a follow-up.
+
+### 19.6 Verification
+
+`go run ./tools/devtool lint` — all ten sub-checks PASS: `runpatterns` 1364 patterns parsed, 501 of
+501 checkable resolved against 52 packages, 2 waived, 1 platform-excluded; `docmarkers` 68
+documents; `coveragefloors` 72 claims. No shipped Go file was changed by §19 — every edit is in
+`plans/`, and the code it describes belongs to SP-12 and SP-16, both unlanded.
+
+Sources, both fetched 2026-08-23:
+`platform.claude.com/docs/en/build-with-claude/prompt-caching`,
+`code.claude.com/docs/en/prompt-caching`,
+`code.claude.com/docs/en/statusline`,
+`code.claude.com/docs/en/hooks`,
+`code.claude.com/docs/en/plugins-reference`.
+
+---
+
+## 20. `Qompack.md` v1.3 — the design of record revised (2026-08-23)
+
+§19 recorded the cache-cost verification and applied it to the subplans. It deliberately did not
+touch `Qompack.md`, which is read-only. This section records the decision to revise the document
+itself, what that cost, and how the cost was kept small.
+
+### 20.1 Why this was a revision and not a rule violation
+
+`Qompack.md` carries a **Revision log**. It has been revised twice before — v1.1 (a full-plan
+review that produced corrections E1, E2, GA–GC and O1–O4) and v1.2 (latency made an explicit
+objective, adding O5). So the document was always revisable; the read-only rule is about *subplans*
+not editing it in passing, not about the document being frozen for all time.
+
+That distinction was not clearly stated in `plans/README.md`, which read simply *"`Qompack.md` is
+read-only."* It now reads "read-only **to subplans**" and names the versioned-revision path, because
+the ambiguity is what made this look like a rule violation rather than the mechanism the document
+was built with. The rule is otherwise unchanged and back in force: **v1.3 is a one-time authorized
+revision, and the next one requires the same explicit decision.**
+
+### 20.2 What v1.3 contains
+
+The eight changes are enumerated in the document's own revision log and tabulated in
+`plans/QOMPACK-ERRATA.md`; §19 carries the arithmetic behind each. In one line: `w` became a pair,
+the TTL became a regime, the TTL clock moved to the request, the §5.3 objective gained the
+compaction request's own price, the expiring band became a trigger, the cache key grew three
+non-temporal components, §2.5 gained four window variables, and §2.7 gained the extended-thinking
+inheritance.
+
+**Nothing in §5's reasoning was refuted.** Every change was either a number the document was written
+to expect to move — §5.1's standing instruction is precisely *"verify against current pricing before
+tuning"* — or a consequence it had drawn only half of. The clearest example is the expiring-band
+trigger: §5.4 already said *"Compaction should be scheduled against cache state, not only against
+token count"*, and already identified both ends of the bimodality. What it had no way to know was
+that the compaction request is itself priced against the cache, which is what makes the *tail* of
+the TTL the cheapest moment rather than the moment after it.
+
+### 20.3 The two E6 items, closed
+
+**The window-resolution ladder.** §2.5 v1.3 names `CLAUDE_CODE_MAX_CONTEXT_TOKENS`,
+`CLAUDE_CODE_DISABLE_1M_CONTEXT`, `CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT` and
+`DISABLE_COMPACT`; SP-12's ladder now reads all four, each with its own `Breakdown` key. One of them
+has a consequence worth stating on its own: under `DISABLE_COMPACT` **there is no host trigger to
+stay ahead of**, so `hard_ceiling`'s entire justification — "one turn's worth of headroom below
+Claude Code's threshold" — is void. `Evaluate` caps `Urgency` at `UrgencyAdvisory` there rather than
+promising headroom it no longer controls. It does not disable Qompack: L4 checkpointing and L5
+rehydration are *more* valuable when nothing else is bounding the window, not less.
+
+**The thinking cost — closed by routing it, not by modelling it.** The summarization request inherits
+the session's extended-thinking configuration, so on a thinking-enabled session it emits thinking
+output tokens. Their volume is not published. Putting an estimate of them inside `score(p)` would
+place a guess at the centre of an objective whose entire claim is that it replaces guesses with
+measurement, so v1.3 does the opposite: the `c·n` term counts **input only** and therefore
+*under-states* the cold case, and the output cost is left to Young–Daly's `δ`, which is already
+measured from real compactions. A thinking-enabled session's compactions simply take longer, `δ`
+rises, and `√(2·δ·M)` lengthens the interval between them — the correct response, arrived at without
+anyone needing to know why `δ` rose. `Breakdown["delta_seconds"]` makes it visible.
+
+### 20.4 Blast radius, and how it was kept small
+
+A document that 69 plan files quote verbatim is a re-sync problem. The containing principle:
+**every change to a sentence quoted elsewhere was made additively** — the quoted text stays
+byte-identical and the new material follows it. That left exactly four constructs genuinely changed
+in shape, each re-synced by hand and listed in `QOMPACK-ERRATA.md`: §12's bullet list (8 → 12, which
+moved SP-18's subagent brief and two V6-VERIFY rows), Appendix A's ski-rental line (3 plans), §5.3's
+objective block (2 plans) and §8.4's composite trigger (SP-12, in both its design-context quote and
+its `evaluate.go` comment).
+
+Byte-identical and therefore untouched: §5.1's multiplier sentence (5 quotes), §5.6's ski-rental
+bullet (3), §5.4's TTL-bimodality bullet and its strategic-consequence blockquote, §2.5's controls
+sentence, §2.7's table rows, §5.5's `cache_edits` paragraph, and Appendix C's `cache` line (7
+quotes).
+
+**Appendix C's values did not change**, and that was a decision rather than an oversight. `0.1`,
+`1.25` and `300` are correct — they are the five-minute regime, which is the floor. The running
+regime is resolved at runtime and never written back into config. A comment above the block says so.
+Consequently `internal/config/defaults.go`, `testdata/golden/config/appendix-c.jsonc`,
+`TestDefaults_MatchesAppendixCVerbatim` and `nomagic`'s forbidden-literal list are all untouched,
+and **no shipped Go file changed in §20.** That is exactly the outcome D11 was designed to produce:
+a price change moves a config value and a report, not a schema.
+
+§19 quotes §5.1's pre-revision text. That stays: `V2-report.md` is append-only, and §19 is the record
+of what the document said when the discrepancy was found.
+
+### 20.5 What was deliberately not verified
+
+§2.2, §2.3, §2.4 and §2.6 describe Claude Code's compaction internals by identifier and are
+**unchanged in v1.3**. None of it appears in published documentation; none was checked against
+decompiled or leaked builds. The reasoning is in `QOMPACK-ERRATA.md` and is worth restating in one
+line, because it is a design constraint and not a scruple: §7.1 makes Qompack a sidecar that
+surrounds compaction rather than depending on its internals, and a design premised on that must not
+acquire the dependency through its own revision.
+
+### 20.6 Verification
+
+`go build ./...` clean. `go test ./internal/config/ -run TestDefaults` ok — the Appendix C golden is
+unaffected. `go test ./test/guards/ -count=1` ok. `go run ./tools/devtool lint` — all ten sub-checks
+PASS. `Qompack.md` is 1 380 → 1 595 lines and back to read-only at v1.3.
