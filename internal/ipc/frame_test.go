@@ -119,7 +119,13 @@ var rawMessageNullIsNil = cmp.Comparer(func(a, b json.RawMessage) bool {
 })
 
 // TestDecodeRequestRoundTrip asserts DecodeRequest(EncodeRequest(r)) reproduces r exactly, over a
-// wide range of generated requests including the optional Event.
+// wide range of generated requests including the optional Event and the optional Raw.
+//
+// Raw is drawn as `observe stop --subagent`'s own dispatch payload, agent name and all. That shape
+// matters more than an arbitrary blob: hookio.Event.Extra is tagged `json:"-"` and does NOT
+// survive this round trip, so Raw is the only field carrying what the hook client parsed out of
+// the payload — the subagent's name included — across to the daemon. A Raw that lost a key here
+// would name every subagent capture "subagent".
 func TestDecodeRequestRoundTrip(t *testing.T) {
 	rapid.Check(t, func(rt *rapid.T) {
 		req := ipc.Request{
@@ -135,6 +141,10 @@ func TestDecodeRequestRoundTrip(t *testing.T) {
 				ToolName:       rapid.StringMatching(`[A-Za-z]{0,20}`).Draw(rt, "toolName"),
 				StopHookActive: rapid.Bool().Draw(rt, "stopHookActive"),
 			}
+		}
+		if rapid.Bool().Draw(rt, "hasRaw") {
+			agent := rapid.StringMatching(`[a-zA-Z0-9_-]{1,24}`).Draw(rt, "agent")
+			req.Raw = json.RawMessage(`{"subagent":true,"agent":"` + agent + `"}`)
 		}
 
 		encoded, err := ipc.EncodeRequest(req)

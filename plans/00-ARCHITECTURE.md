@@ -1128,10 +1128,26 @@ type Root struct {
 type PutOptions struct {
     Tool      string
     Path      string          // paths.Key form; "" if none
-    Canon     canon.Options
+    Canon     canon.Options   // per-call override; see the Canon.Strip rule below
     KeepRaw   bool            // store the volatile deltas alongside
     Ephemeral bool            // retrieval results, born ephemeral (§8.7)
 }
+
+// PutOptions.Canon: Strip's NIL-ness — not its length — is what decides whether the caller
+// supplied a per-call override at all, matching the distinction canon's own gateSet already draws
+// (§5.6).
+//
+//   - Canon.Strip == nil  → no per-call override: the store's CONFIGURED classes and the store's
+//     CONFIGURED MinHash setting both stand.
+//   - Canon.Strip non-nil → this entire canon.Options is the caller's. An EMPTY non-nil Strip means
+//     "no optional class" — only the always-on structural crlf/paths run.
+//   - Canon.MinHash.Enabled == false disables PutResult.Signature for that one Put ONLY when
+//     Canon.Strip is non-nil. The gate is load-bearing: Enabled is a plain bool and Canon is a
+//     value field, so an ungated rule would read every PutOptions{} in the tree as an opt-out and
+//     silently retire the near-dup detector §8.1 item 3 depends on. The reverse direction is
+//     config-wins — a caller may turn the signature off, never on, because the permutation count
+//     and threshold are configuration the caller does not own.
+//   - Canon.KeepDeltas is NOT read from Canon: it is derived from PutOptions.KeepRaw.
 type PutResult struct {
     Root      Root
     Novel     int             // chunks actually written

@@ -116,6 +116,18 @@ type Services struct {
 	Sched       scheduler.Runtime
 	Checkpoints checkpoint.Writer
 
+	// Mode reports the daemon's current §12.1 contract mode. It is the one seam here that runs
+	// the OPPOSITE way to the nine below: those are CONSUMED by SP-05 and provided by a later
+	// subplan through Bind, while Mode is PROVIDED by SP-05 and consumed by a bind body. It
+	// exists because a bound function cannot reach the contract monitor any other way —
+	// contract.NewMonitor is called inside New, into an unexported daemon field, and it appears on
+	// neither Options nor the Daemon interface. New therefore constructs the monitor and assigns
+	// this field BEFORE the bind loop runs, so a bind body may capture the func value and call it
+	// later. Calling it DURING the bind body is still wrong: the monitor has not yet read
+	// state/contract.json at that point and answers ModeFull for every project. Capture the func;
+	// call it per event.
+	Mode func() contract.Mode
+
 	// The nine nil-tolerant function seams (§5.21, out-of-scope table). None is called by SP-05
 	// except through the exact call sites handlers.go documents; every other subplan wires its own
 	// implementation in via Bind.

@@ -229,16 +229,22 @@ func New(o Options) (Daemon, error) {
 		Sched:       o.Sched,
 		Checkpoints: o.Checkpoints,
 	}
-	for _, bind := range o.binds {
-		bind(svc)
-	}
-	DeclareProducers(svc)
-
+	// The monitor is constructed BEFORE the bind loop, not after, so svc.Mode can be assigned
+	// before any bind body runs. The hoist is safe — NewMonitor reads only o.ProjectRoot, o.Log and
+	// o.Metrics, none of which a bind produces — and it is necessary: a bind body that captures
+	// s.Mode while the field is still nil reports ModePassive for this process's whole life, and a
+	// passive observer still records and still exits 0, so the failure would be entirely silent.
 	statePath := filepath.Join(paths.Of(o.ProjectRoot).State, "contract.json")
 	monitor := contract.NewMonitor(o.Log, o.Metrics, statePath)
 	for _, a := range contract.StandardAssertions() {
 		_ = monitor.Register(a)
 	}
+	svc.Mode = monitor.Mode
+
+	for _, bind := range o.binds {
+		bind(svc)
+	}
+	DeclareProducers(svc)
 
 	d := &daemon{
 		root:        o.ProjectRoot,

@@ -134,3 +134,27 @@ func TestServicesFromNeverReturnsNil(t *testing.T) {
 	require.NotNil(t, s)
 	require.Nil(t, s.ObserveTool)
 }
+
+// TestServicesModeIsAssignedBeforeBinds pins the ordering §5.4 mandates for the one PROVIDED seam
+// on Services: New must construct the contract monitor and assign svc.Mode = monitor.Mode BEFORE
+// it runs the bind loop, so a bind body can capture the func value and call it per event.
+//
+// The assertion is deliberately made OUTSIDE the bind body. Asserting inside it would pass
+// vacuously: at that point the monitor has just been constructed and answers ModeFull for every
+// project, degraded or not. What has to be pinned is that the captured value is not nil — a bind
+// that captures a nil s.Mode reports ModePassive for the process's whole life, and a passive
+// observer still records and still exits 0, so the failure is completely silent.
+func TestServicesModeIsAssignedBeforeBinds(t *testing.T) {
+	contract.ResetProducers()
+	t.Cleanup(contract.ResetProducers)
+
+	o := NewOptions(t.TempDir(), testConfig())
+	var captured func() contract.Mode
+	o.Bind(func(s *Services) { captured = s.Mode })
+
+	_, err := New(o)
+	require.NoError(t, err)
+
+	require.NotNil(t, captured, "the bind loop must run AFTER svc.Mode is assigned, or every bound seam captures nil")
+	require.Equal(t, contract.ModeFull, captured(), "a fresh state directory is ModeFull")
+}
