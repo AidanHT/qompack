@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
@@ -338,27 +339,62 @@ func TestOnToolUse_LastTSIsPreviousEventTS(t *testing.T) {
 }
 
 func TestModePassiveStillWrites(t *testing.T) {
-	session := func(t *testing.T, mode Mode) (storeCounts, graphCounts, uint64) {
+	// Every fifth event is a PROMPT, and the grammar has a rule above the thrash threshold, so the
+	// two runs genuinely differ in the one way §12 permits: in ModeFull the first prompt carries
+	// an additionalContext block and in ModePassive it carries nothing. Everything counted below
+	// — the puts, the index entries, the file versions, the nodes, the edges and the CMS — has to
+	// come out identical, which is what "mode gates output, never writes" actually claims.
+	session := func(t *testing.T, mode Mode) (storeCounts, graphCounts, uint64, []Output) {
 		t.Helper()
-		h := newHarness(t, func(o *Options) { o.Mode = func() Mode { return mode } })
+		h := newHarness(t, func(o *Options) {
+			o.Mode = func() Mode { return mode }
+			o.Grammar = &fakeGrammar{Thrashing: []grammar.Rule{
+				thrashRule(1, 11, "FileRead", "FileEdit", "Bash"),
+			}}
+		})
+		var prompts []Output
 		for i := range 20 {
+			if i%5 == 0 {
+				prompts = append(prompts, h.submit(fmt.Sprintf("keep going, step %d", i)))
+			}
 			h.drive(readOf(fmt.Sprintf("toolu_%d", i), fmt.Sprintf("src/f%d.ts", i%4), "alpha\n"))
 		}
-		return h.Store.counts(), h.Graph.counts(), h.Touch.Total()
+		return h.Store.counts(), h.Graph.counts(), h.Touch.Total(), prompts
 	}
 
-	fullStore, fullGraph, fullCMS := session(t, ModeFull)
-	passiveStore, passiveGraph, passiveCMS := session(t, ModePassive)
+	// warned counts how many of a run's prompts carried an injected thrash line.
+	warned := func(outs []Output) int {
+		n := 0
+		for _, out := range outs {
+			if out.HookSpecificOutput != nil && out.HookSpecificOutput.AdditionalContext != "" {
+				n++
+			}
+		}
+		return n
+	}
+
+	fullStore, fullGraph, fullCMS, fullPrompts := session(t, ModeFull)
+	passiveStore, passiveGraph, passiveCMS, passivePrompts := session(t, ModePassive)
 
 	require.Equal(t, fullStore, passiveStore, "§12: L0 keeps observing, chunking and storing")
 	require.Equal(t, fullGraph, passiveGraph, "the DAG stays correct in degraded-passive mode")
 	require.Equal(t, fullCMS, passiveCMS, "the sketches stay correct too")
+
+	require.Equal(t, 1, warned(fullPrompts),
+		"the queued warning drains on the first prompt AFTER a tool use, and only once")
+	require.Equal(t, 0, warned(passivePrompts),
+		"only OnUserPrompt's AdditionalContext differs between the two modes")
 }
 
 func TestOnToolUse_ConcurrentSessionsRaceFree(t *testing.T) {
 	const perSession = 200
+	// Every put is priced identically, so the expected prefix position is arithmetic rather than
+	// a recorded number: one prompt node plus one tool_result node per iteration, each advancing
+	// by its own token count (decision 5).
+	const tokensPerPut = core.Tokens(7)
+
 	h := newHarness(t)
-	h.Store.DefaultTokens = 7
+	h.Store.DefaultTokens = tokensPerPut
 
 	var wg sync.WaitGroup
 	for _, s := range []core.SessionID{"sess_a", "sess_b"} {
@@ -366,6 +402,14 @@ func TestOnToolUse_ConcurrentSessionsRaceFree(t *testing.T) {
 		go func(sid core.SessionID) {
 			defer wg.Done()
 			for i := range perSession {
+				// A prompt and a tool use per iteration, because both entry points mutate the
+				// same session state and decision 9's locking has to hold across both.
+				p := promptOf(fmt.Sprintf("step %d", i))
+				p.SessionID = sid
+				if _, err := h.obs.OnUserPrompt(context.Background(), p); err != nil {
+					t.Errorf("OnUserPrompt(%s, %d): %v", sid, i, err)
+					return
+				}
 				e := readOf(fmt.Sprintf("toolu_%s_%d", sid, i), "src/a.ts", "alpha\n")
 				e.SessionID = sid
 				if _, err := h.obs.OnToolUse(context.Background(), e); err != nil {
@@ -380,8 +424,11 @@ func TestOnToolUse_ConcurrentSessionsRaceFree(t *testing.T) {
 	for _, sid := range []core.SessionID{"sess_a", "sess_b"} {
 		st := h.state(sid)
 		st.mu.Lock()
-		require.Equal(t, core.TurnIndex(0), st.Turn, "OnToolUse never increments the turn (decision 4)")
-		require.Equal(t, perSession*7, st.PrefixTokens, "%s: PrefixTokens is what a sequential run produces", sid)
+		require.Equal(t, core.TurnIndex(perSession), st.Turn,
+			"%s: each prompt increments the turn exactly once and no tool use ever does", sid)
+		require.Equal(t, perSession*2*int(tokensPerPut), st.PrefixTokens,
+			"%s: PrefixTokens is what a sequential run produces", sid)
+		require.Equal(t, core.TurnIndex(perSession-1), st.LastPromptTurn, "%s", sid)
 		st.mu.Unlock()
 	}
 }

@@ -422,23 +422,10 @@ func (o *observer) session(s core.SessionID) *sessionState {
 	return st
 }
 
-// The four entry points below are completed by later commits of this subplan. Each one already
+// The three entry points below are completed by later commits of this subplan. Each one already
 // honours the two rules every Observer method owes the host — return ctx.Err() and nothing else,
 // and hand back a valid do-nothing Output — which is exactly what observertest's behaviour block
 // requires of them today.
-
-// OnUserPrompt records the user's prompt verbatim (§8.1 item 7). Commit 4 lands prompt.go.
-func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
-	var out Output
-	err := o.timed(histPrompt, func() error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		out = hookio.Empty()
-		return nil
-	})
-	return out, err
-}
 
 // OnStop closes the assistant turn and captures subagent detail (§8.1 item 8). Commit 5 lands
 // stop.go.
