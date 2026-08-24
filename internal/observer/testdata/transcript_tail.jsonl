@@ -1,0 +1,7 @@
+{"type":"summary","summary":"Investigate the retry backoff"}
+{"parentUuid":null,"isSidechain":true,"type":"user","message":{"role":"user","content":[{"type":"text","text":"find the bug in retry.ts"}]}}
+{"isSidechain":true,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"an earlier assistant message that is not the tail"}]}}
+{"isSidechain":true,"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01","name":"Read","input":{"file_path":"src/retry.ts"}}]}}
+{"isSidechain":true,"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"block one"},{"type":"text","text":"block two"}]}}
+{"isSidechain":true,"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_02","name":"Bash","input":{"command":"npm test"}}]}}
+{"isSidechain":true,"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_02","content":"3 passing"}]}}
