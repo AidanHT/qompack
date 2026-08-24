@@ -192,7 +192,13 @@ const (
 
 	// counterSuperseded, counterNearDup and counterSubagentCapture are registered here — the
 	// metric names belong to the package rather than to one commit — and are incremented by the
-	// supersession and SubagentStop paths, which land in later commits of this subplan.
+	// supersession, PostToolUse and SubagentStop paths.
+	//
+	// counterNearDup is bumped at the PUT (tooluse.go step 5a), NOT inside the supersession scan.
+	// The store's near-duplicate signal exists for PATHLESS content — Bash and test-runner output,
+	// which §8.1 item 1 names as the noisiest content class and the one where "the dedup ratio is
+	// won or lost" — and supersession returns early on an empty Path, so counting it there made
+	// this counter read ~0 for exactly the class it was meant to measure.
 	counterSuperseded      = "observer.superseded"
 	counterNearDup         = "observer.neardup"
 	counterTombstone       = "observer.tombstone"

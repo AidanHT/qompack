@@ -91,9 +91,22 @@ type fakeStore struct {
 	ByPathCalls  int
 	FlushCalls   int
 
-	// PutErr and RecordErr make the corresponding call fail.
-	PutErr    error
-	RecordErr error
+	// ByPathLimits records the limit argument of every ToolUsesByPath call, so the
+	// supersessionLookback cap is asserted at the CALL rather than inferred from the answer.
+	ByPathLimits []int
+
+	// Roots is this double's index/roots.jsonl: PutBytes registers every root it mints and setRoot
+	// stages a prior read's chunk list. GetRoot answers out of it, which is what lets a chunk-set
+	// row exist at all — PutBytes mints one chunk per payload, so a superset relation can only be
+	// staged, never produced.
+	Roots map[core.Hash]store.Root
+
+	// PutErr, RecordErr, ByPathErr, GetRootErr and MarkErr make the corresponding call fail.
+	PutErr     error
+	RecordErr  error
+	ByPathErr  error
+	GetRootErr error
+	MarkErr    error
 
 	// TokenQueue supplies Root.Tokens for successive PutBytes calls; DefaultTokens is used once
 	// it is exhausted.
@@ -102,9 +115,17 @@ type fakeStore struct {
 
 	// Signature is returned as PutResult.Signature on every call.
 	Signature sketch.Signature
+
+	// NearDup is returned as PutResult.NearDup on every call, so a test can stage the
+	// near-duplicate the STORE would have found on the way in.
+	NearDup *store.NearDupInfo
+
+	// GetRoots records every root GetRoot was asked for, so a test can assert that a candidate
+	// was skipped BEFORE the lookup rather than after it.
+	GetRoots []core.Hash
 }
 
-func newFakeStore() *fakeStore { return &fakeStore{} }
+func newFakeStore() *fakeStore { return &fakeStore{Roots: make(map[core.Hash]store.Root)} }
 
 func (s *fakeStore) PutBytes(_ context.Context, b []byte, o store.PutOptions) (store.PutResult, error) {
 	s.mu.Lock()
@@ -121,17 +142,32 @@ func (s *fakeStore) PutBytes(_ context.Context, b []byte, o store.PutOptions) (s
 		s.TokenQueue = s.TokenQueue[1:]
 	}
 	h := core.HashBytes(core.DomainArgs, body)
-	return store.PutResult{
-		Root: store.Root{
-			Hash:       h,
-			Chunks:     []core.ChunkRef{{Hash: h, Len: len(body)}},
-			CanonBytes: int64(len(body)),
-			RawBytes:   int64(len(body)),
-			Tokens:     tok,
-		},
-		Novel:     1,
-		Signature: s.Signature,
-	}, nil
+	root := store.Root{
+		Hash:       h,
+		Chunks:     []core.ChunkRef{{Hash: h, Len: len(body)}},
+		CanonBytes: int64(len(body)),
+		RawBytes:   int64(len(body)),
+		Tokens:     tok,
+	}
+	s.Roots[h] = root
+	return store.PutResult{Root: root, Novel: 1, Signature: s.Signature, NearDup: s.NearDup}, nil
+}
+
+// GetRoot answers out of Roots, the way SP-06's own GetRoot answers out of its in-memory index. A
+// root nobody stored is an error rather than a zero value, because a zero Root has an EMPTY chunk
+// list and isSuperset would then quietly report "not a superset" instead of the miss it is.
+func (s *fakeStore) GetRoot(_ context.Context, root core.Hash) (store.Root, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.GetRoots = append(s.GetRoots, root)
+	if s.GetRootErr != nil {
+		return store.Root{}, s.GetRootErr
+	}
+	r, ok := s.Roots[root]
+	if !ok {
+		return store.Root{}, fmt.Errorf("fakeStore: no such root %s", root)
+	}
+	return r, nil
 }
 
 func (s *fakeStore) RecordToolUse(_ context.Context, rec store.ToolUseRecord) error {
@@ -151,18 +187,60 @@ func (s *fakeStore) AppendFileVersion(_ context.Context, path string, v store.Fi
 	return nil
 }
 
-func (s *fakeStore) ToolUsesByPath(_ context.Context, _ string, _ int) ([]store.ToolUseRecord, error) {
+// ToolUsesByPath serves the recorded index, newest first and capped at limit — the §5.8 contract
+// supersede.go relies on, which TestSupersede_ToolUsesByPathIsMostRecentFirst pins against the REAL
+// store so a drift between this double and SP-06 is caught rather than assumed away.
+func (s *fakeStore) ToolUsesByPath(_ context.Context, path string, limit int) ([]store.ToolUseRecord, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ByPathCalls++
-	return nil, nil
+	s.ByPathLimits = append(s.ByPathLimits, limit)
+	if s.ByPathErr != nil {
+		return nil, s.ByPathErr
+	}
+	var out []store.ToolUseRecord
+	for i := len(s.Records) - 1; i >= 0; i-- {
+		if s.Records[i].Path != path {
+			continue
+		}
+		out = append(out, s.Records[i])
+		if limit > 0 && len(out) == limit {
+			break
+		}
+	}
+	return out, nil
 }
 
+// MarkSuperseded records the call AND applies it, so a second scan of the same path sees the flip.
+// Without the mutation TestSupersede_SkipsAlreadySuperseded would assert nothing.
 func (s *fakeStore) MarkSuperseded(_ context.Context, older, by core.ToolUseID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.MarkErr != nil {
+		return s.MarkErr
+	}
 	s.Supersedes = append(s.Supersedes, supersedeCall{Older: older, By: by})
+	for i := range s.Records {
+		if s.Records[i].ID == older {
+			s.Records[i].Status, s.Records[i].SupersededBy = store.StatusSuperseded, by
+		}
+	}
 	return nil
+}
+
+// seed stages tool_use index entries that the observer never wrote, so a test can describe prior
+// reads whose chunk sets, signatures, timestamps or classes the pipeline cannot produce.
+func (s *fakeStore) seed(recs ...store.ToolUseRecord) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Records = append(s.Records, recs...)
+}
+
+// setRoot registers r so GetRoot can answer for a seeded record.
+func (s *fakeStore) setRoot(r store.Root) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Roots[r.Hash] = r
 }
 
 func (s *fakeStore) Flush(_ context.Context) error {
@@ -292,6 +370,13 @@ func (g *fakeGraph) nodeCount(kind dag.NodeKind) int {
 		}
 	}
 	return n
+}
+
+// edges returns a copy of every edge added so far.
+func (g *fakeGraph) edges() []dag.Edge {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return append([]dag.Edge(nil), g.Edges...)
 }
 
 // graphCounts is the node/edge tuple TestModePassiveStillWrites compares between two runs.
