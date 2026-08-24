@@ -8,13 +8,14 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 )
 
-// The two checks in this file exist because V2-VERIFY spent five passes finding the same class of
+// The checks in this file exist because V2-VERIFY spent five passes finding the same class of
 // defect by hand: a gate that reports success while checking nothing. Twenty-five instances were
-// recorded (plans/V2-report.md, "Silently-disabled gates found"), and two of them are mechanical
-// enough that no human should ever have to find them again:
+// recorded (plans/V2-report.md, "Silently-disabled gates found"), and these are mechanical enough
+// that no human should ever have to find them again:
 //
 //   - A `-run` pattern that matches zero tests. `go test -run` prints "ok" and exits 0 when its
 //     pattern selects nothing, so a plan row whose command names a test that was renamed, moved to
@@ -29,10 +30,21 @@ import (
 //     bare pipe; everywhere else the escape is a live bug. Commit 84ccbfa corrected every non-table
 //     instance by hand. This check keeps them corrected.
 //
-// Neither check can be satisfied by writing prose. Both fail the build.
+//   - A coverage floor asserted in prose that plans/OWNERS.tsv does not carry. `devtool cover`
+//     grades against OWNERS.tsv and nothing else, so a checklist item holding a package to 90%
+//     while the data says 75 can be ticked by a package at 75.1%. See runPlanCoverageFloors.
+//
+// No check here can be satisfied by writing prose. All of them fail the build.
 
 // planDocRoots are the directories whose markdown is treated as specification text.
 var planDocRoots = []string{"plans"}
+
+// The third check in this file — coveragefloors, below — registers itself rather than being written
+// into lint.go's table, so the whole plan-document group lives in one file. It runs after
+// docmarkers, which is where a check that reads no test binaries and builds nothing belongs.
+func init() {
+	lintSubchecks = append(lintSubchecks, lintSubcheck{"coveragefloors", runPlanCoverageFloors})
+}
 
 // goTestCmd finds a `go test` invocation and captures the rest of its command span. The span ends at
 // the first character that cannot be part of the same simple command: a backtick (the markdown code
@@ -168,12 +180,16 @@ func matchesNoTest(pattern string, names []string) (bool, error) {
 	return true, nil
 }
 
-// deliberateNoMatch holds the patterns that are SUPPOSED to select nothing. Both are the documented
-// way to run a package's fuzz, bench or list step without also running its tests: `-run '^$'` says
-// so with an anchor pair, and `-run=XXX` is Go's own long-standing spelling of the same idea.
+// deliberateNoMatch holds the patterns that are SUPPOSED to select nothing. All three are the
+// documented way to run a package's fuzz, bench or list step without also running its tests:
+// `-run '^$'` says so with an anchor pair, and `-run=XXX` is Go's own long-standing spelling of the
+// same idea. The lowercase spelling is here because the plans use it: eleven `-run xxx -fuzz Fuzz…`
+// rows against eleven packages, every one of them correct, and all of them invisible until the
+// zero-match check started reading documents outside their own wave's scope.
 var deliberateNoMatch = map[string]bool{
 	"^$":  true,
 	"XXX": true,
+	"xxx": true,
 }
 
 // runPatternWaiver marks a line whose command is quoted BECAUSE it is broken — a handoff note
@@ -200,6 +216,15 @@ var testFuncDecl = regexp.MustCompile(`(?m)^func ((?:Test|Benchmark|Fuzz|Example
 // The escaped-pipe check does NOT consult this: a literal pipe in a regexp is wrong the day it is
 // written, whether or not the test it names exists yet, and catching it in an unlanded wave's plan
 // is the whole point of having a machine do it.
+//
+// Nor is document scope the last word for the zero-match check. A document belonging to an unlanded
+// wave still names, row after row, tests in packages that shipped waves ago — a wave-6
+// re-verification row against `./internal/eval/` is checkable the day it is written, and the
+// 2026-08-23 plan audit found roughly twenty-five such rows dead by hand, one of them a pattern
+// V2-VERIFY had already found, documented and fixed before a later document reintroduced the broken
+// spelling. pkgTestSetIsSettled below is the per-pattern half of the rule: an out-of-scope
+// document's pattern is still checked when its package's test set is finished, and only a pattern
+// naming a package somebody is still writing into stays out.
 func planDocsInScope(files []string) map[string]bool {
 	waveSubplans := map[string]map[string]bool{}
 	for _, f := range files {
@@ -247,6 +272,80 @@ func planDocsInScope(files []string) map[string]bool {
 		scope[f] = inScope
 	}
 	return scope
+}
+
+// ownersKeyOf maps a ./-relative package argument from a plan command to the bare key
+// plans/OWNERS.tsv uses, or "" when it names no single package: the module root and the
+// internal-wide wildcard resolve to "." and "internal", neither of which is a package name.
+func ownersKeyOf(pkg string) string {
+	dir, _ := pkgDirRel(strings.TrimSuffix(pkg, "/"))
+	if dir == "." || dir == "internal" {
+		return ""
+	}
+	return packageKeyOf(modulePath + "/" + dir)
+}
+
+// pkgTestSetIsSettled reports whether the set of tests in pkg is finished — its owning subplan has
+// landed and no subplan that has NOT landed is still writing tests into it. A `-run` pattern
+// against such a package is resolvable today no matter which wave the document quoting it belongs
+// to, so it is checked out of document scope.
+//
+// Both halves are load-bearing, and each was measured against the corpus rather than assumed.
+//
+// Ownership rather than the filesystem, because a directory being present says nothing: test/guards
+// exists from SP-01 onward and every later wave adds to it. OWNERS.tsv says the narrower, correct
+// thing — internal/eval belongs to SP-02, SP-02 has landed, so a pattern matching none of eval's
+// tests is dead prose rather than a forward reference.
+//
+// The unsettled half is what keeps the widening honest, and without it this check reports roughly
+// forty false failures. A package's owner landing does not close it: SP-12 writes its scheduler
+// runtime into internal/daemon (SP-05's), SP-16 writes segment blooms into internal/store (SP-06's)
+// and Phase 7 keys into internal/config (SP-01's), and SP-17 writes fsck into internal/cli. Every
+// wave-4/5/6 row naming one of those unwritten tests is CORRECT and must not fail. So the rule is
+// derived, not hand-maintained, exactly as planDocsInScope's is: a subplan document whose own
+// SP-nn is not in landedSubplans names, in its own `go test` commands, every package it is still
+// writing into, and those packages are held out until it lands.
+func pkgTestSetIsSettled(ownerOf map[string]string, unsettled map[string]bool, pkg string) bool {
+	key := ownersKeyOf(pkg)
+	if key == "" || unsettled[key] {
+		return false
+	}
+	owner, ok := ownerOf[key]
+	return ok && landedSubplans[owner]
+}
+
+// unsettledPackages returns every package key that a subplan which has not landed still runs tests
+// against, read out of that subplan's own document. Only SP-nn documents count: a VERIFY document
+// verifies work rather than writing it, so its commands are claims to be checked and not evidence
+// that a package is still moving.
+func unsettledPackages(files []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	for _, f := range files {
+		m := subplanInFilename.FindStringSubmatch(filepath.Base(f))
+		if m == nil || landedSubplans["SP-"+m[1]] {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(root, f))
+		if err != nil {
+			return nil, err
+		}
+		for _, cmd := range goTestCmd.FindAllStringSubmatch(string(b), -1) {
+			// -run's own argument is removed first for the same reason parsePlanRunPatterns does
+			// it: a pattern containing a slash would otherwise be read as the package path.
+			span := cmd[1]
+			if rf := runFlag.FindStringSubmatch(span); rf != nil {
+				span = strings.Replace(span, rf[0], " ", 1)
+			}
+			pm := pkgArg.FindStringSubmatch(span)
+			if pm == nil || shellVar.MatchString(pm[1]) {
+				continue
+			}
+			if key := ownersKeyOf(pm[1]); key != "" {
+				out[key] = true
+			}
+		}
+	}
+	return out, nil
 }
 
 // planMarker is an unfilled placeholder left in a specification document.
@@ -503,6 +602,15 @@ func runPlanRunPatterns() error {
 	}
 	scope := planDocsInScope(files)
 
+	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	if err != nil {
+		return fmt.Errorf("runpatterns: %w", err)
+	}
+	ownerOf := make(map[string]string, len(owners))
+	for _, o := range owners {
+		ownerOf[o.Package] = o.Owner
+	}
+
 	var patterns []planRunPattern
 	for _, f := range files {
 		b, readErr := os.ReadFile(filepath.Join(root, f))
@@ -530,12 +638,21 @@ func runPlanRunPatterns() error {
 			p.file, p.line, p.pattern))
 	}
 
-	// Phase 2 — zero-match, over in-scope documents whose package exists in the tree.
+	// Phase 2 — zero-match, over every pattern that can be resolved: one in an in-scope document,
+	// or one in any document at all whose package's test set is already settled.
+	unsettled, err := unsettledPackages(files)
+	if err != nil {
+		return err
+	}
 	wanted := map[string]bool{}
 	var checkable []planRunPattern
-	skippedUnlanded := 0
+	skippedUnlanded, skippedUnlandedWave := 0, 0
 	for _, p := range patterns {
-		if !scope[p.file] || p.pkg == "" || deliberateNoMatch[p.pattern] {
+		if p.pkg == "" || deliberateNoMatch[p.pattern] {
+			continue
+		}
+		if !scope[p.file] && !pkgTestSetIsSettled(ownerOf, unsettled, p.pkg) {
+			skippedUnlandedWave++
 			continue
 		}
 		if p.waiver != "" {
@@ -605,8 +722,8 @@ func runPlanRunPatterns() error {
 	// The resolved count is the number of patterns that actually reached a test list, not the number
 	// that entered the loop: those differed by every wildcard command before namesFor learned to
 	// expand one, and the summary line reporting the larger number is what made the hole invisible.
-	fmt.Printf("runpatterns: %d -run patterns parsed, %d of %d checkable resolved against %d packages, %d skipped (package not in tree yet), %d platform-excluded, %d waived\n",
-		len(patterns), resolved, len(checkable), len(pkgs), skippedUnlanded, platformExcluded, len(waived))
+	fmt.Printf("runpatterns: %d -run patterns parsed, %d of %d checkable resolved against %d packages, %d skipped (package not in tree yet), %d skipped (unlanded wave and the package's test set is not settled), %d platform-excluded, %d waived\n",
+		len(patterns), resolved, len(checkable), len(pkgs), skippedUnlanded, skippedUnlandedWave, platformExcluded, len(waived))
 	if len(waived) > 0 {
 		sort.Strings(waived)
 		fmt.Printf("runpatterns: waivers in force:\n  %s\n", strings.Join(waived, "\n  "))
@@ -614,6 +731,141 @@ func runPlanRunPatterns() error {
 	if len(problems) > 0 {
 		sort.Strings(problems)
 		return fmt.Errorf("runpatterns: %d unsatisfiable -run pattern(s):\n  %s",
+			len(problems), strings.Join(problems, "\n  "))
+	}
+	return nil
+}
+
+// coverageFloorClaim is one plan-document assertion about a package's §6.4 line-coverage floor.
+type coverageFloorClaim struct {
+	file string
+	line int
+	pkg  string // the plans/OWNERS.tsv key, with any `internal/` prefix stripped
+	pct  int
+}
+
+// The coverage-floor check exists because a floor written into a plan is a claim about a data file,
+// and claims about data files drift. 00-ARCHITECTURE.md §6.4 says so itself: "the floors themselves
+// are data, in `plans/OWNERS.tsv` — that file, not this table, is what `cover` reads, so a plan that
+// asserts a floor OWNERS.tsv does not carry asserts nothing." The 2026-08-23 plan audit found the
+// drift on its first pass by hand: several plan sites held `pins` to 90 % while OWNERS.tsv recorded
+// 75, so every checklist item describing that floor could be ticked by a package sitting at 75.1 %
+// — a gate reporting success while checking nothing, the same class the two checks above hunt.
+//
+// coverageFloorRun matches the prose form: a run of backticked `internal/…` package names, at most
+// a few words of connecting text, then a `≥` (or `>=`) and a percentage that may or may not be
+// bold. The connecting text may not contain a backtick, a pipe, a `≥` or a `%`, which is what stops
+// one claim's tail being read as the next claim's head across a comma list or a table cell.
+var coverageFloorRun = regexp.MustCompile(
+	"((?:`internal/[a-z][a-z0-9]*`(?:\\s*(?:,|and)\\s*)*)+)" +
+		"([^`|\\n≥%]{0,40}?)(?:≥|>=)\\s*\\*{0,2}\\s*(\\d{1,3})\\s*%")
+
+// coverageFloorGroupRow matches the table form 00-ARCHITECTURE.md §6.4 uses for the floor groups
+// themselves: a cell holding nothing but backticked package names, and a cell holding nothing but a
+// bolded percentage. Requiring both cells to be pure is what keeps every other two-column table in
+// the plan set out of this check.
+var coverageFloorGroupRow = regexp.MustCompile(
+	"^\\|\\s*((?:`[a-z][a-z0-9/]*`\\s*,?\\s*)+)\\|\\s*\\*\\*(\\d{1,3})%\\*\\*\\s*\\|\\s*$")
+
+// coverageFloorName pulls one OWNERS.tsv key out of a name run, in either spelling: the prose form
+// writes `internal/store`, the §6.4 group table writes `store`, and `cmd/qompack` is a key already.
+var coverageFloorName = regexp.MustCompile("`(?:internal/)?([a-z][a-z0-9/]*)`")
+
+// parsePlanCoverageFloors extracts every coverage-floor claim from one document.
+func parsePlanCoverageFloors(file, content string) []coverageFloorClaim {
+	var out []coverageFloorClaim
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+	for lineNo := 1; scanner.Scan(); lineNo++ {
+		line := scanner.Text()
+		// A §6.4 group row is checked as a row and not also scanned for the prose form, so a
+		// package in it is claimed once rather than twice.
+		if m := coverageFloorGroupRow.FindStringSubmatch(line); m != nil {
+			out = append(out, coverageFloorClaims(file, lineNo, m[1], m[2])...)
+			continue
+		}
+		for _, m := range coverageFloorRun.FindAllStringSubmatch(line, -1) {
+			out = append(out, coverageFloorClaims(file, lineNo, m[1], m[3])...)
+		}
+	}
+	return out
+}
+
+// coverageFloorClaims turns one matched name run and its percentage into one claim per package.
+func coverageFloorClaims(file string, lineNo int, names, pct string) []coverageFloorClaim {
+	n, err := strconv.Atoi(pct)
+	if err != nil {
+		return nil
+	}
+	var out []coverageFloorClaim
+	for _, m := range coverageFloorName.FindAllStringSubmatch(names, -1) {
+		out = append(out, coverageFloorClaim{file: file, line: lineNo, pkg: m[1], pct: n})
+	}
+	return out
+}
+
+// coverageFloorProblems grades every claim against the floors OWNERS.tsv records. It is separate
+// from the sub-check that gathers them so the comparison can be tested against a fixture rather
+// than against whatever the tree happens to say today — which is the state the pins divergence
+// lived in undetected, agreeing with itself in five documents and with OWNERS.tsv in none.
+func coverageFloorProblems(claims []coverageFloorClaim, floorOf map[string]int) []string {
+	var problems []string
+	for _, c := range claims {
+		floor, ok := floorOf[c.pkg]
+		switch {
+		case !ok:
+			problems = append(problems, fmt.Sprintf(
+				"%s:%d: holds `%s` to a %d%% coverage floor, but plans/OWNERS.tsv has no row for that "+
+					"package, so `devtool cover` grades nothing against it (00-ARCHITECTURE.md §6.4)",
+				c.file, c.line, c.pkg, c.pct))
+		case floor != c.pct:
+			problems = append(problems, fmt.Sprintf(
+				"%s:%d: holds `%s` to a %d%% coverage floor; plans/OWNERS.tsv records %d%%, and that "+
+					"file is what `devtool cover` reads. Fix whichever is wrong — a floor a document "+
+					"asserts and OWNERS.tsv does not carry is unenforced prose (00-ARCHITECTURE.md §6.4)",
+				c.file, c.line, c.pkg, c.pct, floor))
+		}
+	}
+	return problems
+}
+
+// runPlanCoverageFloors is the `coveragefloors` lint sub-check: every coverage floor a plan document
+// asserts must be the floor plans/OWNERS.tsv records, because OWNERS.tsv is the only one of the two
+// that `devtool cover` reads.
+//
+// Unlike runpatterns this consults no scope at all. A floor claim is gradeable the day it is
+// written — the package's owner need not have landed for the two numbers to be comparable — and an
+// unlanded wave's document is exactly where a stale floor sits longest before anybody runs it.
+func runPlanCoverageFloors() error {
+	files, err := collectPlanDocs()
+	if err != nil {
+		return err
+	}
+	owners, err := loadOwners(filepath.Join(root, "plans", "OWNERS.tsv"))
+	if err != nil {
+		return fmt.Errorf("coveragefloors: %w", err)
+	}
+	floorOf := make(map[string]int, len(owners))
+	for _, o := range owners {
+		floorOf[o.Package] = o.Floor
+	}
+
+	var claims []coverageFloorClaim
+	for _, f := range files {
+		b, readErr := os.ReadFile(filepath.Join(root, f))
+		if readErr != nil {
+			return readErr
+		}
+		claims = append(claims, parsePlanCoverageFloors(f, string(b))...)
+	}
+
+	problems := coverageFloorProblems(claims, floorOf)
+
+	fmt.Printf("coveragefloors: %d floor claim(s) across %d plan document(s) checked against plans/OWNERS.tsv\n",
+		len(claims), len(files))
+	if len(problems) > 0 {
+		sort.Strings(problems)
+		return fmt.Errorf("coveragefloors: %d plan floor(s) disagree with plans/OWNERS.tsv:\n  %s",
 			len(problems), strings.Join(problems, "\n  "))
 	}
 	return nil

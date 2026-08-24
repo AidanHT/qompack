@@ -18,6 +18,11 @@ type lintSubcheck struct {
 // two specification-document checks. The last pair run last because they are the only ones that
 // build test binaries, and a document defect is not worth waiting on a compile to hear about when
 // something earlier already failed.
+//
+// A third specification-document check, `coveragefloors`, appends itself to this slice from
+// planchecks.go's init() so that the whole plan-document group lives in one file, which means the
+// order a run actually reports is these nine followed by that one. It reads Markdown and
+// plans/OWNERS.tsv and builds nothing, so running it last costs nothing.
 var lintSubchecks = []lintSubcheck{
 	{"golangci-lint", runGolangciLintCheck},
 	{"nomagic", runNomagicCheck},
