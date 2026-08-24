@@ -45,6 +45,11 @@ var landedSubplans = map[string]bool{
 	"SP-05": true,
 	"SP-06": true,
 	"SP-07": true,
+	// SP-08 is listed from its OWN branch rather than from a merge commit, unlike SP-06 and
+	// SP-07. Commit ba477c5 made internal/observer's OWNERS probe (OnToolUse) a real
+	// implementation, and the exempt-but-real cross-check below fails the moment a probe stops
+	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
+	"SP-08": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
