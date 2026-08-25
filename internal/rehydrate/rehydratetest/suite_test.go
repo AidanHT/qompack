@@ -38,6 +38,10 @@ func buildFunc(t *testing.T) rehydratetest.BuildFunc {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// As of SP-09 negknow.Open returns a real ledger holding an open append-only handle on
+	// records/eliminations.jsonl. It must be released before the test's TempDir is removed, for
+	// the same reason as the store above.
+	t.Cleanup(func() { _ = ledger.Close() })
 	graph, err := dag.Open(root, cfg, logging.Nop())
 	if err != nil {
 		t.Fatal(err)
