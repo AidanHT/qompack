@@ -422,33 +422,4 @@ func (o *observer) session(s core.SessionID) *sessionState {
 	return st
 }
 
-// The two entry points below are completed by Commit 6 of this subplan. Each one already honours
-// the two rules every Observer method owes the host — return ctx.Err() and nothing else, and hand
-// back a valid do-nothing Output — which is exactly what observertest's behaviour block requires
-// of them today. OnStop is no longer among them: stop.go implements it.
-
-// OnSessionStart branches on the SessionStart source. Commit 6 lands session.go.
-func (o *observer) OnSessionStart(ctx context.Context, e Event) (Output, error) {
-	var out Output
-	err := o.timed(histSessionStart, func() error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		out = hookio.Empty()
-		return nil
-	})
-	return out, err
-}
-
-// OnSessionEnd flushes, indexes and garbage-collects. Commit 6 lands session.go.
-func (o *observer) OnSessionEnd(ctx context.Context, e Event) (Output, error) {
-	var out Output
-	err := o.timed(histSessionEnd, func() error {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		out = hookio.Empty()
-		return nil
-	})
-	return out, err
-}
+// OnSessionStart and OnSessionEnd live in session.go.
