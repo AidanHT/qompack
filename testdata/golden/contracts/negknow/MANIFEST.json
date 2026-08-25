@@ -3,6 +3,10 @@
   "owner": "SP-09",
   "fixtures": [
     { "name": "elimination_record", "kind": "format", "state": "frozen", "input": "", "want": "want/elimination_record.jsonl", "note": "records/eliminations.jsonl record with the §8.3 staleness guard" },
-    { "name": "three_way_answer", "kind": "behaviour", "state": "record-by-owner", "input": "input/ledger_seed.jsonl", "want": "", "note": "absent / active / stale" }
+    { "name": "three_way_answer", "kind": "behaviour", "state": "frozen", "input": "input/ledger_seed.jsonl", "want": "want/three_way_answer.json", "note": "absent / active / stale" },
+    { "name": "descriptors", "kind": "format", "state": "frozen", "input": "", "want": "descriptors.golden.json", "note": "the hand-authored Canonicalize table: target/approach/reason triples with the Descriptor, Key and MatchKey each must produce; internal/negknow's TestDescriptorKey_Golden reproduces it" },
+    { "name": "eliminations_log", "kind": "format", "state": "frozen", "input": "", "want": "eliminations.golden.jsonl", "note": "the records/eliminations.jsonl worked example replayLog materializes: bare Record lines plus op-keyed control lines, in append order" },
+    { "name": "corrupt_log", "kind": "format", "state": "frozen", "input": "corrupt.jsonl", "want": "", "note": "a records/eliminations.jsonl carrying every per-line corruption replayLog must degrade past rather than fail on" },
+    { "name": "node_ids", "kind": "format", "state": "frozen", "input": "", "want": "node-ids.json", "note": "the hand-derived NodeID table NodeIDFor and FileNodeID must reproduce (§8.1); internal/negknow's TestNodeIDGolden checks it" }
   ]
 }
