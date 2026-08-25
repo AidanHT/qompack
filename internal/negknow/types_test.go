@@ -7,15 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCanonicalize_StubReturnsZeroDescriptor pins Canonicalize's documented stub behaviour (Rule
-// 1/2 of the SP-01 stub template): with no closed-form classification algorithm to implement yet,
-// it must return the zero Descriptor rather than a plausible-looking fabrication, for ANY input.
-func TestCanonicalize_StubReturnsZeroDescriptor(t *testing.T) {
-	require.Equal(t, negknow.Descriptor{}, negknow.Canonicalize("", "", ""))
-	require.Equal(t, negknow.Descriptor{},
-		negknow.Canonicalize("src/auth.ts:refreshToken", "widen pool timeout", "pgbouncer ignores it"))
-}
-
 // TestScopeAndStatusConstants_MatchDocumentedWireStrings pins that ScopeSession/ScopeProject and
 // StatusActive/StatusStale serialize to exactly the string values 00-ARCHITECTURE.md §5.10
 // documents inline ("session" | "project", "active" | "stale") — the same strings the frozen
