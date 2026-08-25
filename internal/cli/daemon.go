@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	"github.com/qompack/qompack/internal/config"
@@ -83,10 +84,45 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	opts.Metrics = reg
 	opts.Clock = core.SystemClock() // §6.1's own "connection deadlines are always real wall-clock time" rule applies to the daemon's own lifecycle clock too.
 
+	// &opts, never opts: Bind is pointer-receiver over the unexported binds slice, so the value
+	// form would compile, append to a copy, and leave all five L0 seams nil with every hook still
+	// exiting 0. On error the daemon still starts — degraded, per §12.3's "everything else fails
+	// toward do nothing" — with L0 capture disabled and the failure Loud.
+	obsv, obsErr := daemon.WireObserver(&opts)
+	if obsErr != nil {
+		opts.Log.Loud("observer unavailable; L0 capture disabled", "err", obsErr.Error())
+	}
+	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
+	// but store's own quarantine() MkdirAlls that directory again at use — so the EMPTY directory
+	// is redundant from the moment it exists, and it is the one entry that would make the
+	// write-set guard's ".qompack/tmp/ is empty once every write has landed" assertion
+	// (test/guards IT-4) read scaffolding as staging debris. It is removed HERE, at startup,
+	// because the daemon's lock release — the guard's "the daemon has finished" signal — happens
+	// inside Run, before any cleanup this function could do afterwards. os.Remove refuses a
+	// non-empty directory, so genuine quarantine evidence is never touched.
+	if opts.Store != nil {
+		_ = os.Remove(paths.Long(filepath.Join(paths.Of(root).Tmp, "quarantine")))
+	}
+	// The daemon has no services shutdown path (§5.4): the store WireObserver opened is flushed
+	// by OnSessionEnd/Persist and lives for the process. Its file handles are still released once
+	// Run returns — in production that is the moment before process exit, and in the in-process
+	// tests that drive runDaemon directly an unreleased append handle would fail the caller's
+	// TempDir cleanup on Windows.
+	defer func() {
+		if opts.Store != nil {
+			if closeErr := opts.Store.Close(); closeErr != nil {
+				opts.Log.Warn("daemon: closing the observer's store", "err", closeErr.Error())
+			}
+		}
+	}()
+
 	d, err := daemon.New(opts)
 	if err != nil {
 		log.Loud("daemon: could not construct", "err", err.Error())
 		return nil
+	}
+	if obsv != nil {
+		daemon.RegisterObserverIdleWork(d, obsv)
 	}
 
 	if *foreground {
