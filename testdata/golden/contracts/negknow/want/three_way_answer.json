@@ -1,0 +1,23 @@
+{
+  "absent": {
+    "state": "absent",
+    "reason": "",
+    "note": "",
+    "evidence": "",
+    "bloom_only": false
+  },
+  "active": {
+    "state": "active",
+    "reason": "pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect",
+    "note": "",
+    "evidence": "sha256:3c09ba2a4e8a46d8e95f4fcf568bc193e7f7a8d81aa437a9014a7afa930ccdd7",
+    "bloom_only": false
+  },
+  "stale": {
+    "state": "stale",
+    "reason": "the upstream rate limiter rejects a burst regardless of how many times the client retries it",
+    "note": "previously eliminated, but the evidence has changed since — re-verification may be warranted",
+    "evidence": "sha256:f56943a3e350e0453cd1f557e3dd01c58945dc386acf24a300f2f24da40c6f44",
+    "bloom_only": false
+  }
+}

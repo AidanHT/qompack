@@ -36,8 +36,12 @@ func RunLedgerSuite(t *testing.T, name string, factory func(t *testing.T) negkno
 		require.NotNil(t, l)
 		ctx := context.Background()
 
+		// ErrNoEvidence is passed HERE and nowhere else in the block: this is the one probe that
+		// can legitimately provoke it (ruling R28, and see requireKnownError). A Query, a Get or a
+		// RebuildBloom answering "elimination requires evidence" would be a real defect, and the
+		// other probes below must keep failing on it.
 		_, err := l.Record(ctx, negknow.Record{})
-		requireKnownError(t, err)
+		requireKnownError(t, err, negknow.ErrNoEvidence)
 
 		_, err = l.Query(ctx, probeTarget, probeApproach, negknow.ScopeSession)
 		requireKnownError(t, err)
@@ -71,8 +75,13 @@ func RunLedgerSuite(t *testing.T, name string, factory func(t *testing.T) negkno
 
 	t.Run(name+"/behaviour", func(t *testing.T) {
 		t.Run("three_way_absent_active_stale", func(t *testing.T) { runThreeWayAnswerCase(t, factory) })
+		t.Run("scope_isolation", func(t *testing.T) { runScopeIsolationCase(t, factory) })
+		t.Run("require_evidence", func(t *testing.T) { runRequireEvidenceCase(t, factory) })
+		t.Run("stale_note_text", func(t *testing.T) { runStaleNoteTextCase(t, factory) })
 		t.Run("bloom_rebuilt_from_active_records_only", func(t *testing.T) { runBloomRebuildActiveOnlyCase(t, factory) })
 		t.Run("bloomonly_consistency", func(t *testing.T) { runBloomOnlyConsistencyCase(t, factory) })
+		t.Run("bloomonly_on_a_synthetic_false_positive", func(t *testing.T) { runBloomFalsePositiveCase(t, factory) })
+		t.Run("maintainer_surface", func(t *testing.T) { runMaintainerSurfaceCase(t, factory) })
 	})
 }
 
@@ -96,10 +105,32 @@ func refreshStalenessShapeProbe(t *testing.T, l negknow.Ledger, ctx context.Cont
 	return l.RefreshStaleness(ctx, nil)
 }
 
-// requireKnownError fails the test unless err is nil or wraps one of the four sentinels every
-// stub and every real implementation is allowed to return from an operation
-// (00-ARCHITECTURE.md §5.22; §15 of plans/V1-SP-01-foundation-toolchain-and-contracts.md).
-func requireKnownError(t *testing.T, err error) {
+// requireKnownError fails the test unless err is nil or wraps one of the four sentinels every stub
+// and every real implementation is allowed to return from an operation (00-ARCHITECTURE.md §5.22;
+// §15 of plans/V1-SP-01-foundation-toolchain-and-contracts.md), or one of the alsoAllowed
+// sentinels the CALLING PROBE nominates.
+//
+// alsoAllowed is per-probe and not a widening of the set, which is the point. RULING R28 approved
+// admitting negknow.ErrNoEvidence, and the reason is specific to ONE probe: the shape block's
+// first call is Record(ctx, negknow.Record{}) — a record carrying no evidence hash — and
+// eliminations.requireEvidence is TRUE by Appendix C default (internal/config/defaults.go), so a
+// ledger built from real configuration refuses it with ErrNoEvidence. Refusing it is the ledger
+// obeying §8.3 rather than misbehaving, and negknow_test.go's TestLedgerConformance — which runs
+// this suite over testutil.NewProject's loaded defaults — would otherwise fail the shape block on
+// correct behaviour.
+//
+// Nothing about that reasoning applies to Query, Get, Active, All, MarkStale, RefreshStaleness,
+// RebuildBloom or Close. A Ledger that answered any of those with "elimination requires evidence"
+// would be a real defect, and a sentinel accepted globally could not tell the difference. So the
+// exemption is passed at the one call site that earns it and the other eight probes keep failing
+// on it.
+//
+// The four core sentinels cannot express ErrNoEvidence: it is not degradation, not a budget, not a
+// missing thing, and certainly not "not implemented" — answering the probe with any of those would
+// be a worse lie than admitting a fifth name. What the block actually asserts is that every error a
+// conformant Ledger returns is one a caller can switch on BY NAME, and a named, exported,
+// documented sentinel nominated by the probe that expects it keeps that property exactly.
+func requireKnownError(t *testing.T, err error, alsoAllowed ...error) {
 	t.Helper()
 	if err == nil {
 		return
@@ -108,6 +139,9 @@ func requireKnownError(t *testing.T, err error) {
 		errors.Is(err, core.ErrNotFound) ||
 		errors.Is(err, core.ErrBudget) ||
 		errors.Is(err, core.ErrDegraded)
+	for _, sentinel := range alsoAllowed {
+		known = known || errors.Is(err, sentinel)
+	}
 	require.True(t, known, "unexpected error: %v", err)
 }
 
