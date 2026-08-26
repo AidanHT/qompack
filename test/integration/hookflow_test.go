@@ -206,10 +206,16 @@ export function revokeSession(session: SessionRecord): SessionRecord {
 `
 
 // hookflowTombstoneRE is §4.2's §8.1 item-2 form, with the short hash captured. The separator is
-// U+00B7 MIDDLE DOT with a space on each side and the short form is exactly the 12 hex characters
-// core.Hash.Short produces (observer.Tombstone's own contract).
+// U+00B7 MIDDLE DOT with a space on each side, and the short form is exactly the 12 hex characters
+// core.Hash.Short produces followed by U+2026 HORIZONTAL ELLIPSIS.
+//
+// The ellipsis is REQUIRED, not tolerated. Qompack.md §8.1's own example marker elides the digest
+// (`sha256:a3f2…`), and SP-08's extended renderer is pinned byte-for-byte by
+// testdata/golden/observer/tombstones.txt, every line of which carries it. Accepting either form
+// here would let the short hash silently stop announcing that it is an elision — which is the one
+// thing that tells a reader the marker is an address to re-expand rather than a whole digest.
 var hookflowTombstoneRE = regexp.MustCompile(
-	`^\[cleared: sha256:([0-9a-f]{12}) · [\d.]+KB · FileRead src/auth\.ts · re-expandable\]$`)
+	`^\[cleared: sha256:([0-9a-f]{12})… · [\d.]+KB · FileRead src/auth\.ts · re-expandable\]$`)
 
 // buildQompackBinary compiles ./cmd/qompack into this test's own temp dir and returns the
 // executable's path.

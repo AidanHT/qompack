@@ -2524,7 +2524,7 @@ Conventional Commits per §10: `<type>(<scope>): <subject>`, body explains the d
       `read_heavy_ratio_raw`, `test_heavy_ratio_canon`, `test_heavy_ratio_raw`.
 - [ ] Run `go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon
       --json bench-observer.json` locally; record B-A p50/p99 and B-B p99.
-- [ ] Add `docs/adr/0008-observer-l0.md`: the eight resolved decisions, the §8.1-item-7 destination
+- [ ] Add `docs/adr/0008-observer-l0.md`: the twelve resolved decisions, the §8.1-item-7 destination
       rationale, the tombstone grammar, the supersession rules, the measured dedup ratios, and the
       measured B-A/B-B/B-C numbers per platform from the CI run.
 - [ ] `go run ./tools/devtool ci-local` — `verify`, `test`, `cover`, `bench-gate`, `replay-gate`,
@@ -2638,8 +2638,10 @@ Only then fan out.
 - [ ] `internal/observer` imports exactly: `core paths config logging obs hookio store canon sketch
       dag grammar tokens` plus stdlib. No `scheduler`, `checkpoint`, `symbols`, `contract`,
       `negknow`, `analyzer`, or `daemon`.
-- [ ] Zero occurrences of `Bloom` in non-test files under `internal/observer`
-      (`TestObserverSourceHasNoBloomReference`).
+- [ ] Zero occurrences of the IDENTIFIERS `Bloom`/`NewBloom`/`RebuildBloom` in non-test files under
+      `internal/observer` — the enforced check is the AST-level
+      `TestObserverSourceHasNoBloomReference` (`go/parser` over every non-test file), not a bare
+      grep: doc comments legitimately name the Bloom filter to explain the prohibition.
 - [ ] `.qompack/sketches/tried.bloom` is never created by any observer code path
       (`TestOnSessionEnd_NeverWritesTriedBloom`, `TestE2E_ObserverThroughDaemon`).
 - [ ] Every hook subcommand still exits 0 under fault injection
@@ -2651,10 +2653,11 @@ Only then fan out.
       `internal/cli/daemon.go`, whose `runDaemon` gains the Commit 6 observer wiring block and
       nothing else. That one carve-out is deliberate: it is the repository's only non-test
       `daemon.New` call site, so without it `WireObserver` has no caller it is allowed to have.
-- [ ] Exactly 7 commits on `feat/sp08-observer-l0`, all conventional, none carrying an attribution
-      trailer; CI's trailer grep passes. The amendment commit is on its own branch and is not one of
-      the seven.
-- [ ] `docs/adr/0008-observer-l0.md` exists and records the eight resolved decisions plus every
+- [ ] Exactly 7 commits on `feat/sp08-observer-l0` were planned; by controller ruling the branch
+      carries the 7 plus the sanctioned gates chore (`chore(devtool,guards)`) and one post-review
+      fix commit — 8 plus 1 — all conventional, none carrying an attribution trailer; CI's trailer
+      grep passes. The amendment commit is on its own branch and is not one of them.
+- [ ] `docs/adr/0008-observer-l0.md` exists and records the twelve resolved decisions plus every
       measured number.
 
 ---
@@ -2691,8 +2694,11 @@ Only then fan out.
 - [ ] SP-09's assigned obligation is discharged, not silently dropped:
       `git grep -n 'RefreshStaleness' -- internal/daemon/observer_ops.go` returns the wrapped
       `SessionStart` call, `TestWireObserver_SessionStartRefreshesStaleness` passes, and
-      `git grep -n 'negknow' -- internal/observer` returns nothing — the call is in the daemon seam
-      because the observer is forbidden the import.
+      `internal/observer` never imports `negknow` — the enforced checks are devtool's import-graph
+      lint and the realized-import test in `sketches_test.go`; a bare
+      `git grep -n 'negknow' -- internal/observer` hits doc COMMENTS that explain the prohibition,
+      which is legitimate — the call is in the daemon seam because the observer is forbidden the
+      import.
 - [ ] `internal/observer` declares **no** NodeID constructor, no `argsPreviewMax`, no args-preview
       key table and no `argsDigest` helper:
       `git grep -nE '"(tooluse|toolresult|assistant|userprompt|file|symbol|segment):|argsPreviewMax' -- internal/observer ':!*_test.go'`
