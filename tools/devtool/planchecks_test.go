@@ -220,6 +220,7 @@ func TestPlanDocsInScope_TracksLandedSubplans(t *testing.T) {
 		"plans/V2-VERIFY-primitives-store-dag-and-baseline.md",
 		"plans/V2-report.md",
 		"plans/V3-SP-08-observer-l0.md",
+		"plans/V3-SP-09-negative-knowledge.md",
 		"plans/V3-VERIFY-observer-and-negative-knowledge.md",
 		"plans/V4-SP-10-checkpointer-l4.md",
 	}
@@ -230,9 +231,12 @@ func TestPlanDocsInScope_TracksLandedSubplans(t *testing.T) {
 			t.Errorf("%s: want in scope (its wave has landed)", f)
 		}
 	}
+	// SP-08 landed in commit ba477c5, so it is no longer the subplan that holds wave 3 out of
+	// scope; SP-09 is. The fixture names it explicitly for that reason — without an unlanded V3
+	// subplan in the list, wave 3 would derive as landed and this half would assert nothing.
 	for _, f := range files[5:] {
 		if scope[f] {
-			t.Errorf("%s: want out of scope (SP-08 and later have not landed)", f)
+			t.Errorf("%s: want out of scope (SP-09 and later have not landed)", f)
 		}
 	}
 }
@@ -249,9 +253,18 @@ func TestPlanDocsInScope_FollowsLandedSubplansWithoutASecondList(t *testing.T) {
 		t.Fatal("V3-VERIFY must be out of scope while SP-08/SP-09 are unlanded")
 	}
 
+	// Restore rather than delete: SP-08 is genuinely in landedSubplans since commit ba477c5, and a
+	// bare delete would leave the map wrong for every test that runs after this one.
 	for _, sp := range []string{"SP-08", "SP-09"} {
+		prev, existed := landedSubplans[sp]
 		landedSubplans[sp] = true
-		defer delete(landedSubplans, sp)
+		t.Cleanup(func() {
+			if existed {
+				landedSubplans[sp] = prev
+				return
+			}
+			delete(landedSubplans, sp)
+		})
 	}
 	scope := planDocsInScope(files)
 	for _, f := range files {
