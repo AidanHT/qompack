@@ -352,9 +352,44 @@ func logQuiet(root string, err error, clk core.Clock) {
 	_ = paths.AppendJSONL(p, quietLogLine{TS: now.Format(time.RFC3339Nano), Err: err.Error()})
 }
 
+// subagentExtras is `observe stop --subagent`'s Request.Raw shape. Agent is omitempty so an
+// unnamed subagent marshals to exactly {"subagent":true} — byte-for-byte what shipped before the
+// name was resolved here, which is what keeps an already-installed daemon's decodeSubagent working
+// against a newer hook client and vice versa.
+type subagentExtras struct {
+	Subagent bool   `json:"subagent"`
+	Agent    string `json:"agent,omitempty"`
+}
+
+// subagentNameKeys are the payload keys a subagent's name may arrive under, in priority order.
+// They are read from hookio.Event.Extra, which is where ReadEvent files every top-level key
+// Event's own struct tags do not claim.
+var subagentNameKeys = []string{"subagent_type", "agent_name", "agent"}
+
+// subagentName resolves the agent's name out of ev.Extra, or "" when no key holds one.
+//
+// It MUST run here, in the hook-client process. hookio.Event.Extra is tagged `json:"-"`, so
+// ReadEvent fills it on this side of the IPC boundary and ipc.EncodeRequest then drops it: a
+// daemon-side reader of e.Extra sees an empty map in production, and every subagent capture would
+// be named "subagent". Request.Raw is the field that does cross, so the resolution happens where
+// the data still exists and the ANSWER is what travels.
+//
+// A key whose value is not a non-empty JSON string — a number, an object, an empty string, or the
+// key simply being absent — falls through to the next candidate rather than winning with a
+// nonsense name.
+func subagentName(ev hookio.Event) string {
+	for _, k := range subagentNameKeys {
+		var name string
+		if err := json.Unmarshal(ev.Extra[k], &name); err == nil && name != "" {
+			return name
+		}
+	}
+	return ""
+}
+
 // rawExtras builds Request.Raw for the two hook subcommands that carry dispatch data beyond the
-// parsed Event: {"subagent":true} for `observe stop --subagent` (the flag the plugin manifest's
-// SubagentStop entry actually passes — internal/pluginmanifest's hookSpecs), and
+// parsed Event: {"subagent":true,"agent":"<name>"} for `observe stop --subagent` (the flag the
+// plugin manifest's SubagentStop entry actually passes — internal/pluginmanifest's hookSpecs), and
 // {"trigger":"<manual|auto>"} for checkpoint. checkpoint's trigger comes from the EVENT's own
 // Trigger field, not a CLI flag: the manifest invokes `checkpoint` with no flags at all (PreCompact
 // carries its manual/auto discriminator in the hook payload itself, per hookio.Event.Trigger's own
@@ -363,7 +398,7 @@ func rawExtras(op ipc.Op, args []string, ev hookio.Event) json.RawMessage {
 	switch op {
 	case ipc.OpObserveStop:
 		if hasFlag(args, "--subagent") {
-			b, _ := json.Marshal(map[string]bool{"subagent": true})
+			b, _ := json.Marshal(subagentExtras{Subagent: true, Agent: subagentName(ev)})
 			return b
 		}
 	case ipc.OpCheckpoint:

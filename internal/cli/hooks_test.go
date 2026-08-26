@@ -353,3 +353,100 @@ func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
 			"EnsureRunning must have reached SpawnDetached, which fails fast against a nonexistent self")
 	})
 }
+
+// TestRawExtras_ResolvesTheSubagentNameClientSide pins the client-side half of the subagent-name
+// seam. hookio.Event.Extra is tagged `json:"-"`, so ReadEvent fills it in THIS process and
+// ipc.EncodeRequest then drops it — a daemon-side reader of e.Extra sees an empty map in
+// production. rawExtras is therefore the only place the agent's name can be resolved from, and it
+// must resolve it here, where Extra is real, rather than forward a key nothing downstream can see.
+//
+// The table pins the resolution rules the wire format depends on: three keys in priority order, a
+// value that is not a non-empty JSON string falls through to the next key, and all three missing
+// emits the pre-existing {"subagent":true} byte-for-byte so an older daemon's decodeSubagent is
+// untouched.
+func TestRawExtras_ResolvesTheSubagentNameClientSide(t *testing.T) {
+	raw := func(pairs map[string]string) map[string]json.RawMessage {
+		if pairs == nil {
+			return nil
+		}
+		m := make(map[string]json.RawMessage, len(pairs))
+		for k, v := range pairs {
+			m[k] = json.RawMessage(v)
+		}
+		return m
+	}
+
+	cases := []struct {
+		name  string
+		extra map[string]json.RawMessage
+		want  string
+	}{
+		{name: "no extras at all", extra: nil, want: `{"subagent":true}`},
+		{name: "no name key among the extras", extra: raw(map[string]string{"unrelated": `"x"`}), want: `{"subagent":true}`},
+		{name: "subagent_type wins", extra: raw(map[string]string{"subagent_type": `"code-reviewer"`}), want: `{"subagent":true,"agent":"code-reviewer"}`},
+		{name: "agent_name is second", extra: raw(map[string]string{"agent_name": `"explorer"`}), want: `{"subagent":true,"agent":"explorer"}`},
+		{name: "agent is third", extra: raw(map[string]string{"agent": `"planner"`}), want: `{"subagent":true,"agent":"planner"}`},
+		{
+			name:  "priority order is subagent_type, agent_name, agent",
+			extra: raw(map[string]string{"agent": `"third"`, "agent_name": `"second"`, "subagent_type": `"first"`}),
+			want:  `{"subagent":true,"agent":"first"}`,
+		},
+		{
+			name:  "a numeric value falls through to the next key",
+			extra: raw(map[string]string{"subagent_type": `7`, "agent_name": `"explorer"`}),
+			want:  `{"subagent":true,"agent":"explorer"}`,
+		},
+		{
+			name:  "an object value falls through to the next key",
+			extra: raw(map[string]string{"subagent_type": `{"name":"nested"}`, "agent": `"planner"`}),
+			want:  `{"subagent":true,"agent":"planner"}`,
+		},
+		{
+			name:  "an empty string is not a name",
+			extra: raw(map[string]string{"subagent_type": `""`, "agent_name": `""`, "agent": `""`}),
+			want:  `{"subagent":true}`,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := rawExtras(ipc.OpObserveStop, []string{"--subagent"}, hookio.Event{Extra: c.extra})
+			require.JSONEq(t, c.want, string(got))
+		})
+	}
+
+	// The no-name shape must be byte-identical to what shipped, not merely JSON-equal: the wire
+	// format is what an already-installed daemon parses.
+	require.Equal(t, `{"subagent":true}`,
+		string(rawExtras(ipc.OpObserveStop, []string{"--subagent"}, hookio.Event{})))
+
+	// Nothing changes for a Stop without the flag, or for another op.
+	require.Nil(t, rawExtras(ipc.OpObserveStop, nil, hookio.Event{Extra: raw(map[string]string{"subagent_type": `"code-reviewer"`})}))
+	require.Nil(t, rawExtras(ipc.OpObserveTool, []string{"--subagent"}, hookio.Event{Extra: raw(map[string]string{"subagent_type": `"code-reviewer"`})}))
+}
+
+// TestHooks_SubagentNameReachesTheSpooledRequest is the end-to-end half of the same seam: a real
+// SubagentStop payload dispatched through the real hook body, whose unclaimed subagent_type key
+// hookio.ReadEvent routes into Event.Extra, must reach Request.Raw — the one field the transport
+// does carry.
+func TestHooks_SubagentNameReachesTheSpooledRequest(t *testing.T) {
+	dir := t.TempDir()
+	payload, err := json.Marshal(map[string]any{
+		"session_id":    "s-subagent-named",
+		"cwd":           dir,
+		"subagent_type": "code-reviewer",
+	})
+	require.NoError(t, err)
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), argvFor("observe stop", "--subagent"), Env{
+		Getenv:  noEnv,
+		Stdin:   bytes.NewReader(payload),
+		Clock:   testClock(),
+		HomeDir: t.TempDir(),
+	}, &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+
+	req := onlySpooledRequest(t, dir)
+	require.JSONEq(t, `{"subagent":true,"agent":"code-reviewer"}`, string(req.Raw))
+}

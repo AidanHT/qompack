@@ -152,11 +152,16 @@ func stubRegistry() []stubPackage {
 			return ipc.NewClient(ipc.Addr{}, nil, logging.Nop(), obs.New(core.SystemClock()))
 		}},
 		{pkg: "daemon"},
+		// observer's seam is REAL as of SP-08's PostToolUse pipeline (commit ba477c5): OnToolUse
+		// stores, indexes, sketches and emits the §8.1 item 4 DAG chain, so no method reports
+		// ErrNotImplemented any more. New also stopped accepting a bare ProjectRoot — the five
+		// collaborators below are the ones without which L0 can record nothing at all — which is
+		// what TestObserverNewRequiresItsCollaborators pins alongside this row.
 		{pkg: "observer", build: func(t *testing.T) any {
-			o, err := observer.New(observer.Options{ProjectRoot: t.TempDir(), Cfg: config.Defaults()})
+			o, err := observer.New(observerOptions(t))
 			require.NoError(t, err)
 			return o
-		}},
+		}, pureMethods: allMethodsAreReal},
 		// contract's monitor mechanics are REAL in wave 0 (§12.1), so none of its methods is
 		// expected to report ErrNotImplemented. It is registered for completeness only.
 		{pkg: "contract", build: func(t *testing.T) any {
@@ -179,6 +184,60 @@ const (
 	bloomFPRate   = 0.01 //nomagic:allow arbitrary well-formed constructor input
 	hazardRate    = 0.05 //nomagic:allow arbitrary well-formed constructor input
 )
+
+// observerOptions is the minimal Options observer.New accepts now that SP-08 has landed: an empty
+// ProjectRoot or a nil Store, Graph, Log or Clock is an error rather than a stub that would have
+// reported ErrNotImplemented at the first hook instead.
+func observerOptions(t *testing.T) observer.Options {
+	t.Helper()
+
+	root := t.TempDir()
+	cfg := config.Defaults()
+	log := logging.Nop()
+	clock := core.SystemClock()
+
+	s, err := store.Open(root, cfg, store.Deps{Log: log, Clock: clock})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = s.Close() })
+
+	g, err := dag.Open(root, cfg, log)
+	require.NoError(t, err)
+
+	return observer.Options{
+		ProjectRoot: root, Cfg: cfg, Store: s, Graph: g,
+		Log: log, Metrics: obs.New(clock), Clock: clock,
+	}
+}
+
+// TestObserverNewRequiresItsCollaborators is the other half of the observer registry row above.
+//
+// The guard used to assert that observer.New succeeded with nothing but a ProjectRoot and a Cfg.
+// That was true of SP-01's stub and is false of the real constructor, and deleting the assertion
+// outright would have left the NEW contract unguarded — so it is restated here rather than dropped.
+func TestObserverNewRequiresItsCollaborators(t *testing.T) {
+	full := observerOptions(t)
+
+	built, err := observer.New(full)
+	require.NoError(t, err, "the five mandatory collaborators are enough on their own")
+	require.NotNil(t, built)
+
+	for name, breakIt := range map[string]func(*observer.Options){
+		"ProjectRoot": func(o *observer.Options) { o.ProjectRoot = "" },
+		"Store":       func(o *observer.Options) { o.Store = nil },
+		"Graph":       func(o *observer.Options) { o.Graph = nil },
+		"Log":         func(o *observer.Options) { o.Log = nil },
+		"Clock":       func(o *observer.Options) { o.Clock = nil },
+	} {
+		t.Run(name, func(t *testing.T) {
+			broken := full
+			breakIt(&broken)
+			got, err := observer.New(broken)
+			require.Error(t, err,
+				"a missing %s must be reported by New, not discovered at the first hook", name)
+			require.Nil(t, got)
+		})
+	}
+}
 
 // TestAllStubsReturnNotImplemented walks every registered seam and asserts each method either
 // reports core.ErrNotImplemented or returns a documented zero value.

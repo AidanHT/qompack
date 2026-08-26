@@ -229,6 +229,29 @@ func (s *FSStore) countRaw(raw int64) {
 // When store.canonicalize.enabled is false, Strip is nil: only the CRLF normalization
 // 00-ARCHITECTURE.md §4 mandates remains, so a Windows read and a Linux read of the same file
 // still produce the same chunks and still dedup against each other.
+//
+// PutOptions.Canon.Strip carries the whole per-call override decision, and its NIL-ness is the
+// signal — not its length. internal/canon's gateSet already draws exactly this distinction: a nil
+// Strip means "every class", a non-nil but EMPTY Strip means "exactly these — i.e. none — plus the
+// always-on structural crlf/paths". So:
+//
+//   - a NIL Canon.Strip means "I supplied no per-call canon override at all": the store's
+//     configured classes AND the store's configured MinHash both stand;
+//   - a NON-NIL Canon.Strip, empty included, means "this entire canon.Options is mine, MinHash
+//     included" — the classes are the caller's, and Canon.MinHash.Enabled == false turns the
+//     signature off for this one Put.
+//
+// The nil gate on the MinHash opt-out is load-bearing, not decoration. sketch.MinHashOptions.Enabled
+// is a plain bool and PutOptions.Canon is a value field, so an explicit false is byte-identical to
+// the zero value: an ungated rule would read every store.PutOptions{} in the tree as an opt-out,
+// zero every PutResult.Signature, and silently retire FSStore.nearDup — §8.1 item 3's redundancy
+// detector, which supersede.go depends on. Strip is the one field that CAN say "unset", which is
+// why it carries the decision for both.
+//
+// The reverse direction stays config-wins: a caller may turn the signature OFF for one Put, never
+// on, because the permutation count and the near-dup threshold are configuration the caller does
+// not own. Canon.KeepDeltas is likewise never read from Canon — it is derived from
+// PutOptions.KeepRaw, which is where §5.8 puts that decision.
 func (s *FSStore) canonOptions(o PutOptions) canon.Options {
 	cc := s.cfg.Store.Canonicalize
 	opts := canon.Options{
@@ -247,8 +270,11 @@ func (s *FSStore) canonOptions(o PutOptions) canon.Options {
 	}
 	// A caller that supplied its own canon.Options wins: PutOptions.Canon is the per-call override
 	// the §5.8 shape provides for exactly this.
-	if len(o.Canon.Strip) > 0 {
+	if o.Canon.Strip != nil {
 		opts.Strip = o.Canon.Strip
+		if !o.Canon.MinHash.Enabled {
+			opts.MinHash.Enabled = false
+		}
 	}
 	return opts
 }
