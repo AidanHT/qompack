@@ -1445,6 +1445,35 @@ This subplan is **heavy**: two packages, fourteen new files, seven modified file
 
 **Sequencing.** Dispatch A, C and D immediately and in parallel (they share no file). Dispatch B after A returns, because B's tests import `checkpoint.SourceSet` from A's `source.go`. The main session writes `draft.go` and `writer.go` while A/C/D are running, using the signatures fixed in this plan, then integrates in commit order 1→8. **Commits stay strictly sequential and are made only by the main session**, so each commit's "tests fail first, then pass" record is real.
 
+### Maximum-parallelism revision (2026-08-26, added at V3 close by user directive)
+
+Where this subsection and the Sequencing paragraph above disagree, this subsection wins.
+
+- **All four subagents dispatch at t=0.** B's stated wait on A is unnecessary: the
+  `SourceSet`/`Draft`/`Ref` shapes B codes against are already shipped on `develop`
+  (`internal/checkpoint/source.go`, SP-01) and frozen by Rule W-2 — A *modifies* that file but
+  may not change those shapes. Brief B against the shipped file plus the Interface contract. If A
+  believes it must alter a shape B consumes, that is a spec bug the main session rules on once,
+  centrally — not a reason to serialize the dispatch.
+- **The main session never idles during the fan.** While A–D run it writes its own files
+  (`draft.go`, `writer.go`, `finalize.go`, `precompact.go`, `checkpoint.go`,
+  `internal/daemon/wire_checkpoint.go`) and the golden-fixture scaffolding, and it reviews each
+  subagent's return the moment it arrives — pipeline, no barrier. Commits stay strictly
+  sequential 1→8, but each commit lands as soon as its inputs exist; never hold an integration
+  until all four seats drain.
+- **Timing is serial by nature, not by schedule.** Every p99, benchmark or gate number this plan
+  records is measured on a quiet machine after the fan drains; a number produced under fan
+  co-load is requeued, never recorded. A subagent's own benchmark output is provisional evidence
+  of correctness, not the recorded figure.
+- **Seat models.** Mechanical seats — fixture transcription, corpus assembly, file moves,
+  docs generation, searching — run on Opus 5 at low effort; algorithmic cores, integration-facing
+  code and every reviewer stay on the most capable available model. Turn count beats token price:
+  a seat that needs judgment gets the capable model even if small.
+- Nothing here relaxes the rules above: subagents still never run `git`, never edit outside their
+  file set, never run `-update` or `--write-baseline`, and the commit sequence stays strictly
+  sequential in the main session. This subsection reschedules the *authoring*; it does not
+  reassign ownership.
+
 ---
 
 ## Exit criteria
