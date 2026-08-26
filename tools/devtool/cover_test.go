@@ -257,12 +257,16 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)
 		}
 	}
-	// The tripwire half, kept in the same breath as the half above. SP-06 and SP-07 add themselves
-	// in their own merge commits, so listing one early binds a floor against code that is still a
-	// stub; SP-08 and SP-09 are wave 2 and cannot have landed at all.
-	for _, id := range []string{"SP-08", "SP-09"} {
+	// The tripwire half, kept in the same breath as the half above: listing a subplan early binds
+	// a §6.4 floor against code that is still a stub.
+	//
+	// Wave 2 is now cut. SP-08 left this list in commit ba477c5, which made internal/observer's
+	// probe real — it is listed as landed above, from its own branch rather than from a merge
+	// commit, because cover's exempt-but-real cross-check fails the moment a probe goes real while
+	// its subplan is unlisted. SP-09 has not landed and stays here.
+	for _, id := range []string{"SP-09"} {
 		if landedSubplans[id] {
-			t.Errorf("%s is listed as landed, but wave 2 has not been cut yet", id)
+			t.Errorf("%s is listed as landed, but it has not landed yet", id)
 		}
 	}
 }
