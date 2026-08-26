@@ -271,3 +271,23 @@ design-mandated behaviour disagreed, with the full trail in
 | `verify/v3` merged into `develop` with `--no-ff`? | NO - held until J5 is green (§8.4/§8.5) |
 | Tag `v0.2.0` applied? | NO - follows the merge; the tag is applied locally and never pushed (a pushed v* tag cuts a Release) |
 | Wave-3 branches cut (SP-10, SP-11, SP-12, SP-13)? | NO - only after every answer above is yes |
+
+---
+
+## Addendum — CI-gate waiver (2026-08-26)
+
+The user ruled to waive the J5 CI gate: GitHub Actions refuses every job with an account-level
+billing error ("recent account payments have failed or your spending limit needs to be
+increased"), the failure is external to the tree, and every locally-runnable row above is green.
+Under that ruling the §8.5 close-out executed on 2026-08-26: `verify/v3` merged into `develop`
+(`--no-ff`), `v0.2.0` tagged locally on `develop` (deliberately not pushed — a pushed `v*` tag
+cuts a public Release), and the four wave-3 branches cut from the post-merge `develop`. The
+branches were not pushed at cut time; each first push happens when its subplan session has
+content, which is when the bench-gate-at-first-push condition bites.
+
+The J5 backfill obligation stands unchanged: when billing is restored, the armed rerun of run
+32932419445 must go green, the three-platform bench-gate p99 figures fold into
+`docs/adr/0008-observer-l0.md` (SP-08's named merge condition), and this report's J5/CI cells
+are filled in a follow-up commit on `develop`. Until then the verdict remains "GREEN on every
+locally-runnable row" with J5 waived-open, and the §10 gate answers read as overridden by this
+addendum.
