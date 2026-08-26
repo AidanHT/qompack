@@ -303,10 +303,10 @@ func TestGate_BaselineCarriesTheWatchForValues(t *testing.T) {
 	base, err := loadBaseline(repoPath(t, "testdata/baseline/phase0.json"), "")
 	require.NoError(t, err)
 
-	require.InDelta(t, 0.006, base.WatchFor["bloom_fp_rate"], 1e-9,
+	require.InDelta(t, 0.002912202, base.WatchFor["bloom_fp_rate"], 1e-9,
 		"the committed baseline must carry testdata/golden/eval/growth/health.json's estFPRate; "+
 			"regenerate it with --sketch")
-	require.InDelta(t, 0.18, base.WatchFor["bloom_fill_ratio"], 1e-9)
+	require.InDelta(t, 0.434256, base.WatchFor["bloom_fill_ratio"], 1e-9)
 	for name, v := range base.WatchFor {
 		require.Greater(t, v, absFloor,
 			"%s is %v, which is below absFloor — judge falls to its absolute branch and the 2%% rule "+

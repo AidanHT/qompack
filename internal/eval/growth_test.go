@@ -139,8 +139,8 @@ func TestSketchHealth_FixtureShape(t *testing.T) {
 	var got eval.SketchHealth
 	require.NoError(t, json.Unmarshal(raw, &got))
 
-	require.InDelta(t, 0.18, got.FillRatio, 1e-9)
-	require.InDelta(t, 0.006, got.EstFPRate, 1e-9)
+	require.InDelta(t, 0.434256, got.FillRatio, 1e-9)
+	require.InDelta(t, 0.002912202, got.EstFPRate, 1e-9)
 	require.Less(t, got.EstFPRate, 0.10, "§11.4: at 10% the agent starts skipping viable approaches")
 	require.Equal(t, got.Records, got.Active+got.Stale)
 }

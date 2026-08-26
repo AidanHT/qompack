@@ -15,7 +15,10 @@ type GCPolicy struct {
 	RetainDays, RetainSessions int
 	// DryRun reports what GC would collect without collecting it.
 	DryRun bool
-	// Deadline bounds GC's wall-clock budget; GC must be resumable when it runs out (GCReport.Truncated).
+	// Deadline bounds the mark's hash harvest and the sweep. The tombstone phase and the mark's
+	// in-memory index walks answer only to ctx, so a pass may overshoot the deadline by the
+	// tombstone phase's cost (SP06-D1, adjudicated wontfix at V3-VERIFY: 100-260 ms measured at
+	// 650 dead roots). GC must be resumable when it runs out (GCReport.Truncated).
 	Deadline time.Duration
 }
 
