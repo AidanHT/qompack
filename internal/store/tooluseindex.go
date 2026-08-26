@@ -214,6 +214,14 @@ func (s *FSStore) RecordToolUse(ctx context.Context, rec ToolUseRecord) error {
 	if rec.ID == "" {
 		return fmt.Errorf("%w: tool_use record has no id", core.ErrNotFound)
 	}
+	// Section 13 invariant 7: the preview passes the same choke point as the bytes. Callers build
+	// ArgsPreview from raw tool arguments, which can carry credentials, and index/tool_use.jsonl
+	// is a plaintext file redaction otherwise never sees (V3-VERIFY ruling on the SP-08 parked
+	// note). Re-normalize to the preview budget only when a match rewrote the string, because
+	// replacement tokens may grow it past argsPreviewMax.
+	if red, matches := s.deps.Redact.Redact([]byte(rec.ArgsPreview)); len(matches) > 0 {
+		rec.ArgsPreview = previewString(string(red))
+	}
 
 	s.mu.Lock()
 	if cur, ok := s.toolUse[rec.ID]; ok {
