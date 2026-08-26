@@ -1125,7 +1125,7 @@ This is precisely the stop-the-world vs. incremental garbage collection distinct
 **Instruction restoration (G4.1, G4.2, G4.4).** The rehydrator re-reads from disk, independently of Claude Code's own restoration:
 
 - Every `paths:`-scoped rule whose glob matches any file in the checkpoint's pointer set
-- Every nested `CLAUDE.md` in a directory containing a pointer-set file
+- Every nested `CLAUDE.md` in a directory containing — **or ancestor to** — a pointer-set file, stopping before the project root, which Claude Code re-injects itself (§2.7)
 - A compact skill index (names and one-line descriptions only, ~450 tokens) so skill awareness returns
 
 **Budget discipline.** Default rehydration budget is deliberately far below Claude Code's 50K + 25K: target 8–12K. The whole point is that pointers plus retrieval replace eager restoration. Measure this in the harness before relaxing it.
@@ -1593,3 +1593,16 @@ through its own revision. Treat them as motivating background at the version the
 against. Where a §2 fact became load-bearing — §2.5's arithmetic and §2.7's table — it is publicly
 documented and it checks out.
 - Existing levers re-attributed as latency wins: no-snippets rule cuts decode length; 8–12K rehydration budget cuts first-turn-after latency
+
+**v1.4** — §8.6's nested-`CLAUDE.md` rule widened to the subtree it actually governs:
+- **Nested `CLAUDE.md` restoration walks ancestors.** §8.6's "in a directory *containing* a
+  pointer-set file" was too narrow by the semantics of the thing it restores. A nested `CLAUDE.md`
+  governs its whole subtree in Claude Code, so a `src/pkg/CLAUDE.md` is in force for
+  `src/pkg/deep/thing.go` and is lost after compaction on exactly the terms G4.2 describes. The
+  literal reading restored it only when a pointer sat in its own directory, leaving the deeper —
+  and more common — case unrepaired while §9's G4.2 row claimed closure. The rule now reads
+  "containing, or ancestor to", bounded at 32 levels and stopping before the project root, which
+  the host re-injects itself (§2.7). §12's "cannot" list is unchanged; this widens what L5 reads
+  from disk, not what a plugin may do.
+- No other section moved. `plans/QOMPACK-ERRATA.md` records the conflict this resolved, the
+  evidence on both sides, and why the widening was chosen over correcting the code to match.

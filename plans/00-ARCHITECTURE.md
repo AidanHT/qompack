@@ -1799,15 +1799,19 @@ func Open(root string) (Store, error)   // ONE argument. A logger/metrics form i
 ```go
 type ItemKind uint8
 const (
-    ItemInvariants ItemKind = iota  // 1. pins, verbatim, always
-    ItemUserIntent                  // 2. verbatim original intent, from L0 (G2.3)
-    ItemEliminations                // 3. top-N by slice score + "already_tried covers the rest"
-    ItemDecisions                   // 4. decisions with rationale
-    ItemCurrentWork                 // 5. current work and next step
-    ItemPointers                    // 6. pointers, not contents
-    ItemDropReport                  // 7. explicit drop report (G4.5)
-    ItemAffordance                  // 8. one line: recall / re_read / already_tried exist
-)                                   // ORDER IS NORMATIVE — this is the §8.6 importance order.
+    ItemInvariants ItemKind = iota  // 1.  pins, verbatim, always
+    ItemUserIntent                  // 2.  verbatim original intent, from L0 (G2.3)
+    ItemEliminations                // 3.  top-N by slice score + "already_tried covers the rest"
+    ItemDecisions                   // 4.  decisions with rationale
+    ItemCurrentWork                 // 5.  current work and next step
+    ItemPointers                    // 6.  pointers, not contents
+    ItemRestoredInstructions        // 6a. path-scoped rules and nested CLAUDE.md (G4.1, G4.2)
+    ItemSkillIndex                  // 6b. the compact skill index (G4.4)
+    ItemDropReport                  // 7.  explicit drop report (G4.5)
+    ItemAffordance                  // 8.  one line: recall / re_read / already_tried exist
+)   // ORDER IS NORMATIVE — the eight §8.6 items in importance order, with the two
+    // instruction-restoration kinds of §8.6's "Instruction restoration" clause inserted at their
+    // rendered position between items 6 and 7. ItemAffordance stays last.
 
 type Item struct{ Kind ItemKind; Rank int; Tokens core.Tokens; Text string; Truncated bool }
 type DropEntry = checkpoint.DropEntry
@@ -1844,7 +1848,9 @@ type Rule struct{ Path string; Globs []string; Body string; Tokens core.Tokens; 
 type Scanner interface {
     // PathScoped returns every rule whose `paths:` frontmatter glob matches any pointer path.
     PathScoped(ctx context.Context, root string, pointers []string) ([]Rule, error)
-    // NestedClaudeMD returns CLAUDE.md files in directories containing a pointer-set file.
+    // NestedClaudeMD returns CLAUDE.md files in directories containing, or ancestor to, a
+    // pointer-set file (bounded at maxAncestorDepth=32, stopping before the project root, which
+    // Claude Code re-injects itself — §2.7). Qompack.md v1.4 widened the §8.6 sentence to match.
     NestedClaudeMD(ctx context.Context, root string, pointers []string) ([]Rule, error)
 }
 func New(opts ...Option) Scanner   // SP-01 shipped New(); widening to variadic options is
