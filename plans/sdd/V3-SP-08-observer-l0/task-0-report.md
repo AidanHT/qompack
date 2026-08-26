@@ -218,7 +218,7 @@ here instead of silently renaming every subagent capture back to "subagent".
 
 ### GREEN
 
-`go test -count=1 -run '<the seven new/extended tests>' ./internal/store/ ./internal/cli/ ./internal/daemon/ ./internal/ipc/`
+`go test -count=1 -run '<the seven new/extended tests>' ./internal/store/ ./internal/cli/ ./internal/daemon/ ./internal/ipc/` <!-- runpatterns: metavariable summarizing the report's per-test runs above, not a command to verify -->
 
 ```
 ok  	github.com/qompack/qompack/internal/store	2.133s

@@ -419,7 +419,7 @@ the next push, because `lint` is a CI gate.
 
 **The fifteenth is a genuine plan defect, not a timing artefact.**
 `plans/V6-VERIFY-production-readiness-and-uat.md:236` (row 1.8.4) runs
-`go test -run TestGraphEdges ./internal/observer/`, but `plans/V3-SP-08-observer-l0.md` names every
+`go test -run TestGraphEdges ./internal/observer/`, but `plans/V3-SP-08-observer-l0.md` names every <!-- runpatterns: quotes the defective V6 command this finding documents -->
 DAG row `TestGraph_*` (`TestGraph_ToolUseProducesResult`, `TestGraph_SharedFileOrientation`, ...)
 and Commit 2 shipped them under exactly those names. No SP-08 commit will ever declare a
 `TestGraphEdges`, so that row verifies nothing and `go test` would print `ok` and exit 0 — the exact
@@ -464,7 +464,7 @@ the 14 accepted ahead-of-the-branch patterns.
 ## B.1 The two fixes
 
 1. **`plans/V6-VERIFY-production-readiness-and-uat.md:236` (row 1.8.4).**
-   `go test -run TestGraphEdges ./internal/observer/` → `go test -run TestGraph_ ./internal/observer/`.
+   `go test -run TestGraphEdges ./internal/observer/` → `go test -run TestGraph_ ./internal/observer/`. <!-- runpatterns: left side quotes the defective V6 command being corrected -->
    That is the minimal edit that resolves to a non-empty set and keeps the row's intent: every DAG
    row `ba477c5` shipped is named `TestGraph_*` (`TestGraph_ToolUseProducesResult`,
    `TestGraph_SharedFileOrientation`, `TestGraph_SymbolEdges`, …), so the pattern now re-runs
