@@ -28,6 +28,7 @@ jobs:
           - { pkg: ./internal/eval,       fn: FuzzRedact }
           - { pkg: ./internal/hookio,     fn: FuzzReadEvent }
           - { pkg: ./internal/ipc,        fn: FuzzDecodeRequest }
+          - { pkg: ./internal/observer,   fn: FuzzExtractSignals }
           - { pkg: ./internal/redact,     fn: FuzzRedactIdempotent }
           - { pkg: ./internal/redact,     fn: FuzzRedactPrefilterEquivalence }
           - { pkg: ./internal/sketch,     fn: FuzzBloomUnmarshalBinary }
