@@ -113,3 +113,16 @@ pseudo-code omits it too, so this is a specification gap rather than an implemen
 delete the two constants and record in ADR 0002 that the stock model deliberately excludes host
 padding, with what that does to the comparison. A dead constant that looks like it is part of the
 model is a trap for the next reader of it.
+
+---
+
+## V3-VERIFY dispositions (2026-08-26)
+
+All six rows -> `deferred:V4-VERIFY`, together. The corpus re-baseline they jointly require is
+SP-02-scale work no wave-2 subplan touched, and V3 measured every SP-02 gate green on the committed
+corpus (B1-B10 all PASS, `stock.fraction_of_opt` 0.695164 strictly between null and oracle, the
+Phase-2 criterion green, X5/X6 driver runs exit 0, baseline byte-reproducible twice). Regenerating
+the corpus mid-checkpoint invalidates the Phase 0/1/2 baselines simultaneously; V4's checkpointer
+replay integration re-baselines in any case, so the work lands there once, per ADR 0003. The six
+rows travel as one unit because a single regeneration discharges D1/D3 and re-measures D2/D5/D6,
+with D4's pMin alignment folded into the same re-baseline.

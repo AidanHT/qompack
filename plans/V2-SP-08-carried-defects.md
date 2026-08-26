@@ -121,3 +121,16 @@ Two candidate fixes belong to that conversation rather than to this row: pushing
 off the ingest path (the queue-and-drain §8.1 names, taken one level deeper), and reconsidering
 whether a 256 KB tool result is the payload the budget should be stated against — the plugin's own
 `runtime.hotPath.maxPayloadBytes` default is 1 MiB, four times larger again.
+
+---
+
+## V3-VERIFY dispositions (2026-08-26)
+
+**SP08-D1 -> deferred:V4-VERIFY, adjudicated with SP06-D2.** V3 isolated re-measurement
+(BenchmarkOnToolUse, -count=3, quiet host): 256 KB p99 90-98 ms (Deduped/Delta) and 164-197 ms
+(AllNovel) against B-C's soft 50 ms; 64 KB Deduped p50 9.2-10.2 ms. B-C is Reported, never gated
+(section 2.4), the daemon's response to overrun is sampling + backpressure rather than blocking,
+and the cost is dominated by store.PutBytes's per-novel-chunk object-write path - the same path
+SP06-D2 now measures over budget on Linux as well as Windows. The two rows are one defect seen
+from two layers and travel together to V4-VERIFY, where the checkpointer's encode path (the other
+large PutBytes caller) lands and the budget-vs-implementation decision has its full evidence.
