@@ -368,7 +368,7 @@ func x9EphemeralOnlyObjects(t *testing.T, root string) map[string]bool {
 		if len(h) < 4 {
 			return ""
 		}
-		return filepath.Join(h[:2], h[2:4], h+".zst")
+		return h[:2] + "/" + h[2:4] + "/" + h + ".zst" // slash form, matching x9ListFiles's ToSlash keys
 	}
 	ephFiles := map[string]bool{}
 	keepFiles := map[string]bool{}
