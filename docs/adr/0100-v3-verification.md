@@ -58,3 +58,8 @@ are all answered. V4-VERIFY inherits: the corpus re-baseline unit (SP02-D1..D6),
 budget-vs-implementation decision (SP06-D2 + SP08-D1, one defect at two layers), SP05-D1 beside
 SP-08's R3 transport-ordering work, the B-G/B-D production wiring, and the recorded-corpus tier
 (still empty, restated).
+
+2026-08-26 amendment: the user waived the J5 CI gate (external GitHub billing failure; no job
+ever executed). Merge to `develop`, the local `v0.2.0` tag and the wave-3 branch cut proceeded
+under that waiver. The CI backfill — nine green jobs plus the three bench-gate p99 figures
+folded into ADR 0008 — remains an open obligation on `develop`.
