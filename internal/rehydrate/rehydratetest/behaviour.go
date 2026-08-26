@@ -151,7 +151,7 @@ func runItemOrderCase(t *testing.T, factory func(t *testing.T) BuildFunc) {
 		require.Equal(t, i, it.Rank, "Rank must be the item's own position in the emitted order")
 	}
 	require.LessOrEqual(t, int(kinds[len(kinds)-1]), int(rehydrate.ItemAffordance),
-		"no item may carry a kind beyond the eight §8.6 items")
+		"no item may carry a kind beyond the ten §5.15 kinds (the eight §8.6 items plus the two instruction-restoration kinds)")
 }
 
 // runBudgetCase is the hard constraint of §8.6: the whole injection fits the budget, and the
