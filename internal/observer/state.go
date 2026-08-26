@@ -167,6 +167,13 @@ func (o *observer) rehydrate(p persistedSession) *sessionState {
 // releases it, snapshots each session under that session's own lock, and re-takes o.mu only for
 // the write itself — which is the half of decision 9's "guards sess and the state-file write".
 func (o *observer) persistState() {
+	// The load-before-persist guard. Persist is registered as daemon idle work, so it can fire
+	// BEFORE any observer entry point has run — a daemon restarted mid-session with no hook event
+	// in its first idle interval. Without this, the write below would serialize an EMPTY session
+	// map over the crash-resume file and wipe it. Same sync.Once as session(): whichever runs
+	// first loads, the other sees loaded state.
+	o.once.Do(o.loadState)
+
 	o.mu.Lock()
 	ids := make([]core.SessionID, 0, len(o.sess))
 	states := make([]*sessionState, 0, len(o.sess))

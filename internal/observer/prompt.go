@@ -165,6 +165,20 @@ func (o *observer) recordPrompt(ctx context.Context, st *sessionState, e Event,
 	o.soft(stageDAG, dag.BuildUserPrompt(o.opt.Graph, dag.ObservedPrompt{
 		Turn: st.Turn, TS: now, Pos: o.advancePos(st, tok), Tokens: tok, Ref: string(id),
 	}))
+	// 5b. The bridging consumes edge, userprompt:<turn> → assistant:<turn+1>. The plan carries an
+	//     internal contradiction here: decision 4 records the prompt AT Turn and then increments,
+	//     and BuildToolUse — the only AssistantNode minter — mints assistant nodes only at the
+	//     post-increment tool turns, yet BuildUserPrompt's own edge targets AssistantNode(Turn),
+	//     a node no path ever creates. Under decision 4 the assistant turn that ANSWERS this
+	//     prompt always sits at Turn+1, so this hand-emitted edge is the §4.4 backward-slice path
+	//     from the work back to the request that set it off. The builder's same-turn edge stays:
+	//     it dangles, a dangling edge is legal (D-6) and no slice from a real node traverses it.
+	//     V3-VERIFY should fold this bridge into an amended BuildUserPrompt(AssistantNode(Turn+1))
+	//     together with SP-07, at which point this AddEdge becomes redundant and is removed.
+	o.soft(stageDAG, o.opt.Graph.AddEdge(dag.Edge{
+		From: dag.UserPromptNode(st.Turn), To: dag.AssistantNode(st.Turn + 1),
+		Kind: dag.EdgeConsumes, Weight: edgeWeight, Turn: st.Turn,
+	}))
 	o.enrol(st, dag.UserPromptNode(st.Turn))
 }
 

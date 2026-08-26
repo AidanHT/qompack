@@ -222,6 +222,10 @@ on vs off on byte-identical replays is ~1x by construction (189.35 vs 181.31 rea
   ruling #29 on SP-05's harness.
 - CI platform figures (ubuntu-latest, macos-latest, windows-latest): **pending** — CI has not
   run on this branch; the `bench-gate` job is the enforcing gate on push.
+- By controller ruling (wave-1 precedent): the local Windows B-A/B-B figures above are recorded,
+  and a green `bench-gate` on ubuntu-latest, macos-latest and windows-latest on the branch's
+  first push is a NAMED condition of Phase 1 closure — discharged post-push, with the three p99
+  figures folded into this section; discharge is owned by V3-VERIFY.
 
 ### L0 processing — B-C, and SP08-D1
 
