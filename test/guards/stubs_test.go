@@ -123,7 +123,7 @@ func stubRegistry() []stubPackage {
 			return l
 		}, pureMethods: allMethodsAreReal},
 		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }},
-		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }},
+		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }, pureMethods: allMethodsAreReal},
 		{pkg: "checkpoint", build: func(t *testing.T) any {
 			w, err := checkpoint.OpenWriter(t.TempDir(), config.Defaults(), logging.Nop(),
 				obs.New(core.SystemClock()), core.SystemClock())
