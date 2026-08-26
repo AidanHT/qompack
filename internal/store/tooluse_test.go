@@ -132,6 +132,30 @@ func TestRecordToolUse_Roundtrip(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
+// TestRecordToolUse_ArgsPreviewRedacted pins the V3-VERIFY ruling on SP-08's parked note: the
+// preview is built from raw tool arguments and lands in a plaintext index file, so it must pass
+// the same redaction choke point as the content bytes (section 13 invariant 7).
+func TestRecordToolUse_ArgsPreviewRedacted(t *testing.T) {
+	f := newIdxStore(t)
+	ctx := context.Background()
+
+	rec := sampleToolUse("toolu_01SEC", "src/auth.ts", 1734128400123)
+	rec.ArgsPreview = "aws_key=" + awsExampleKey + " limit=200"
+	require.NoError(t, f.s.RecordToolUse(ctx, rec))
+
+	got, err := f.s.ToolUse(ctx, rec.ID)
+	require.NoError(t, err)
+	require.NotContains(t, got.ArgsPreview, "AKIA",
+		"the preview bypassed the redaction choke point")
+	require.LessOrEqual(t, len(got.ArgsPreview), 120)
+
+	s2 := f.reopen(t)
+	got, err = s2.ToolUse(ctx, rec.ID)
+	require.NoError(t, err)
+	require.NotContains(t, got.ArgsPreview, "AKIA",
+		"index/tool_use.jsonl carries the unredacted secret on disk")
+}
+
 func TestRecordToolUse_IdempotentReplay(t *testing.T) {
 	f := newIdxStore(t)
 	ctx := context.Background()
