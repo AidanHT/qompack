@@ -75,6 +75,10 @@ var negknowProbe = probe{pkg: "negknow", isStub: func(t *testing.T) bool {
 	if err != nil {
 		return true
 	}
+	// A landed ledger holds an open append-only handle on records/eliminations.jsonl; releasing it
+	// here keeps the probe from making its caller's t.TempDir cleanup fail on Windows, exactly as
+	// storeProbe above has had to since SP-06.
+	defer func() { _ = l.Close() }()
 	_, err = l.Query(context.Background(), "probe-target", "probe-approach", negknow.ScopeProject)
 	return core.IsNotImplemented(err)
 }}

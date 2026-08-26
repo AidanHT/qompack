@@ -107,11 +107,21 @@ func stubRegistry() []stubPackage {
 			return g
 		}, pureMethods: allMethodsAreReal},
 		{pkg: "grammar", build: func(*testing.T) any { return grammar.New() }},
+		// negknow's seam is REAL as of SP-09 (the elimination ledger: the three-way already_tried
+		// answer, the evidence-linked staleness flip, tried.bloom rebuilt from active records
+		// only), so none of its methods reports ErrNotImplemented any more — Get reports
+		// ErrNotFound for an id that does not exist, which is the honest answer and not a stub's.
+		// It stays registered for the completeness check; dropping the marker would assert
+		// negknow is still a stub, which it is not.
 		{pkg: "negknow", build: func(t *testing.T) any {
 			l, err := negknow.Open(t.TempDir(), config.Defaults(), nil, negknow.Deps{Log: logging.Nop()})
 			require.NoError(t, err)
+			// A landed ledger holds an open append-only handle, which must be released before the
+			// test's TempDir is removed or RemoveAll fails on Windows — the same line store's
+			// entry above has carried since SP-06.
+			t.Cleanup(func() { _ = l.Close() })
 			return l
-		}},
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }},
 		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }},
 		{pkg: "checkpoint", build: func(t *testing.T) any {

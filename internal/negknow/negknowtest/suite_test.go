@@ -60,15 +60,28 @@ func TestRunLedgerSuite_StubIsSkipped(t *testing.T) {
 	})
 }
 
-// TestRunLedgerSuite_AgainstQompackStub exercises RunLedgerSuite against the real negknow.Open
-// stub, end to end, so a change to its stub behaviour that breaks the conformance suite is caught
-// here rather than only once SP-09 lands.
-func TestRunLedgerSuite_AgainstQompackStub(t *testing.T) {
-	negknowtest.RunLedgerSuite(t, "negknow.Open-stub", func(t *testing.T) negknow.Ledger {
+// TestRunLedgerSuite_AgainstQompackOpen exercises RunLedgerSuite against the ledger negknow.Open
+// actually returns, end to end. As of SP-09 that is the real ledger, so the suite's behaviour
+// block runs rather than skipping — which is what Rule W-1's runtime probe exists to switch on.
+//
+// The config is deliberately the ZERO config.Config rather than a loaded one. Every Appendix C
+// value the ledger reads is defaulted inside Open (normalizeEliminations, newConfiguredBloom), so
+// this factory exercises the degradation path a composition root that has not loaded
+// configuration yet would take — and the whole behaviour block has to pass over it. The
+// real-defaults path is the other half, and negknow's own TestLedgerConformance runs the same
+// suite over testutil.NewProject's fully loaded configuration.
+func TestRunLedgerSuite_AgainstQompackOpen(t *testing.T) {
+	negknowtest.RunLedgerSuite(t, "negknow.Open", func(t *testing.T) negknow.Ledger {
 		l, err := negknow.Open(t.TempDir(), config.Config{}, nil, negknow.Deps{})
 		if err != nil {
 			t.Fatal(err)
 		}
+		// A real ledger holds an open append-only handle on records/eliminations.jsonl, so it
+		// MUST be closed before the test's TempDir is removed: on Windows an open handle makes
+		// RemoveAll fail and the test error out during cleanup. The SP-01 stub held no handles,
+		// which is why this was not needed until SP-09 landed — the same one-line addition
+		// internal/store/storetest/suite_test.go needed when SP-06 replaced its own stub.
+		t.Cleanup(func() { _ = l.Close() })
 		return l
 	})
 }

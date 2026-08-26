@@ -599,14 +599,45 @@ func TestV1_FrozenContractFixturesRoundTripIntoDeclaredTypes(t *testing.T) {
 			switch fx.Kind {
 			case "behaviour":
 				behaviour++
-				require.Equal(t, "record-by-owner", fx.State,
-					"%s: a behaviour fixture cannot be frozen before its owner records it", key)
-				require.Empty(t, fx.Want, "%s: a record-by-owner fixture has no want yet", key)
 
-				// The accessor must agree.
+				// A behaviour fixture has exactly two legitimate states, and this arm exists to
+				// rule out a third. It may be AWAITING its owner — record-by-owner, no want, the
+				// accessor reporting frozen == false so consumers skip with the Rule W-2 message.
+				// Or it may have been RECORDED by its owner, which is frozen with the want file
+				// that recording produced actually present and non-empty on disk.
+				//
+				// What must never happen is frozen with nothing behind it: Rule W-2 makes a frozen
+				// fixture byte-final for every later wave, and freezing a behaviour fixture whose
+				// bytes nobody produced would make it byte-final over an empty promise.
+				//
+				// Until SP-09 the second state did not exist anywhere in the corpus, so this arm
+				// asserted record-by-owner outright. SP-09 recorded three_way_answer through
+				// `devtool gen-contract-fixtures --record negknow` — the §16 flow this repository
+				// has always specified — and ruling R29 widens the assertion to admit it without
+				// weakening what it actually protects.
 				_, want, isFrozen := testutil.ContractFixture(t, pkg.Name(), fx.Name)
-				require.False(t, isFrozen, "%s: accessor must report frozen == false", key)
-				require.Nil(t, want, "%s", key)
+				switch fx.State {
+				case "record-by-owner":
+					require.Empty(t, fx.Want, "%s: a record-by-owner fixture has no want yet", key)
+					require.False(t, isFrozen, "%s: accessor must report frozen == false", key)
+					require.Nil(t, want, "%s", key)
+
+				case "frozen":
+					require.NotEmpty(t, fx.Want,
+						"%s: a behaviour fixture cannot be frozen without naming the want file its owner recorded", key)
+					wantPath := filepath.Join(dir, pkg.Name(), filepath.FromSlash(fx.Want))
+					fi, statErr := os.Stat(wantPath)
+					require.NoError(t, statErr,
+						"%s: frozen behaviour fixture names want file %q, which is not on disk", key, fx.Want)
+					require.Positive(t, fi.Size(),
+						"%s: frozen behaviour fixture's want file %q is empty — nothing was recorded", key, fx.Want)
+					require.True(t, isFrozen, "%s: accessor must report frozen == true", key)
+					require.NotEmpty(t, want, "%s: accessor must return the recorded bytes", key)
+
+				default:
+					t.Fatalf("%s: behaviour fixture is in state %q; want %q (awaiting its owner) or %q (recorded)",
+						key, fx.State, "record-by-owner", "frozen")
+				}
 
 			case "format":
 				frozen++
