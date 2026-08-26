@@ -195,19 +195,20 @@ func TestFloorApplies(t *testing.T) {
 		}
 	})
 
-	// negknow is SP-09's and stays a stub until wave 2. This case used SP-03/sketch while SP-03 was
-	// unlanded, which asserted an exemption that stopped existing the moment wave 1 merged. Any
-	// still-unlanded owner works — the subject here is the reason string, not the package — but it
-	// has to be one that is still a stub, or the case passes for the wrong reason.
+	// commands is SP-14's and stays a stub until its wave. This case used SP-03/sketch while SP-03
+	// was unlanded and SP-09/negknow until SP-09 landed on this branch — each rotation asserting an
+	// exemption that stopped existing the moment the owner landed. Any still-unlanded owner works —
+	// the subject here is the reason string, not the package — but it has to be one that is still a
+	// stub, or the case passes for the wrong reason.
 	t.Run("an unlanded owner is exempt and the log names it", func(t *testing.T) {
 		dir := t.TempDir()
-		mustWrite(t, filepath.Join(dir, "negknow.go"), "package negknow\n\nfunc New() {}\n")
-		row := ownerRow{Package: "negknow", Owner: "SP-09", Floor: 90, Probe: "Query"}
+		mustWrite(t, filepath.Join(dir, "commands.go"), "package commands\n\nfunc Run() {}\n")
+		row := ownerRow{Package: "commands", Owner: "SP-14", Floor: 75, Probe: "Run"}
 		applies, why := floorApplies(row, dir)
 		if applies {
 			t.Error("a stub's coverage number measures nothing, so its floor cannot bind yet")
 		}
-		if want := "exempt (stub, owned by SP-09): negknow"; why != want {
+		if want := "exempt (stub, owned by SP-14): commands"; why != want {
 			t.Errorf("reason = %q, want %q", why, want)
 		}
 	})
@@ -244,14 +245,15 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 			t.Errorf("landedSubplans names %s, which owns nothing in plans/OWNERS.tsv", id)
 		}
 	}
-	// The missing-entry half. Wave 0 plus every wave-1 subplan merged so far must be listed, or the
+	// The missing-entry half. Wave 0, every wave-1 subplan merged so far, and both wave-2 subplans
+	// (SP-08 landed on develop; SP-09 lands in this branch's merge) must be listed, or the
 	// §6.4 floor of every package it owns is exempt at any coverage, including 0%.
 	//
 	// This assertion used to read the other way for SP-03 — "SP-03 has not landed; internal/sketch
 	// is still a stub" — which was right while it was a tripwire and reads backwards the moment the
 	// wave lands. SP-02's handoff §4.1 asked for it to be rewritten here rather than deleted,
 	// because the set still has to keep agreeing with the branch for waves 2 through 6.
-	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07"} {
+	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07", "SP-08", "SP-09"} {
 		if !landedSubplans[id] {
 			t.Errorf("%s has landed on develop but is missing from landedSubplans, so every "+
 				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)
@@ -260,11 +262,11 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 	// The tripwire half, kept in the same breath as the half above: listing a subplan early binds
 	// a §6.4 floor against code that is still a stub.
 	//
-	// Wave 2 is now cut. SP-08 left this list in commit ba477c5, which made internal/observer's
-	// probe real — it is listed as landed above, from its own branch rather than from a merge
-	// commit, because cover's exempt-but-real cross-check fails the moment a probe goes real while
-	// its subplan is unlisted. SP-09 has not landed and stays here.
-	for _, id := range []string{"SP-09"} {
+	// Wave 2 has fully landed — SP-08 left this list in commit ba477c5 (its probe went real on its
+	// own branch), and SP-09 leaves it in the merge that lands feat/sp09-negative-knowledge — so
+	// the list is empty until a wave-3 subplan needs pinning. The exempt-but-real cross-check in
+	// cover.go still fails any probe that goes real while its subplan is unlisted.
+	for _, id := range []string{} {
 		if landedSubplans[id] {
 			t.Errorf("%s is listed as landed, but it has not landed yet", id)
 		}

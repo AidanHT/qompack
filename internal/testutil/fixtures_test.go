@@ -100,11 +100,27 @@ func TestContractFixture_EveryManifestIsReadable(t *testing.T) {
 	// crossing, slice_backward, thin_vs_full — and declared none of them, so this count could not
 	// see them (V2-MERGE-18). They are declared now. The same commit drops dag's
 	// backward_slice_scores, whose behaviour slice_backward and TestThinDropsControlOnly already
-	// pin, which is why pendingCount falls to 4 as frozenCount rises by five.
-	require.Equal(t, 38, frozenCount,
-		"21 SP-01 + 2 V1 + 5 SP-03 sketch frames + 3 SP-05 ipc + 2 SP-05 contract + 5 SP-07 dag; "+
+	// pin, which is why pendingCount fell to 4 as frozenCount rose by five.
+	//
+	// SP-09 moved both numbers, and it is the first subplan to move the PENDING one (ruling R29,
+	// extending R18). Two separate things happened in one commit and the arithmetic only reads if
+	// they are kept apart:
+	//
+	//   +4 frozen — the four negknow goldens SP-09 already shipped as committed files its own
+	//     tests read (descriptors, eliminations_log, corrupt_log, node_ids) and had not declared,
+	//     which is the same undeclared-golden gap V2-MERGE-18 closed for dag;
+	//   +1 frozen / -1 pending — three_way_answer, the FIRST behaviour fixture in the corpus any
+	//     owner has actually recorded (`devtool gen-contract-fixtures --record negknow`). Every
+	//     count before this one was written when "behaviour" and "record-by-owner" were the same
+	//     thing, which is why this literal — and test/guards' IT-9 walker — had to be told that a
+	//     behaviour fixture can now legitimately be frozen.
+	//
+	// So 38 + 5 = 43, and 4 - 1 = 3.
+	require.Equal(t, 43, frozenCount,
+		"21 SP-01 + 2 V1 + 5 SP-03 sketch frames + 3 SP-05 ipc + 2 SP-05 contract + 5 SP-07 dag "+
+			"+ 4 SP-09 negknow goldens + 1 recorded behaviour fixture (three_way_answer); "+
 			"adding or losing one is a contract change")
-	require.Equal(t, 4, pendingCount, "4 behaviour fixtures await their owning subplan")
+	require.Equal(t, 3, pendingCount, "3 behaviour fixtures still await their owning subplan")
 }
 
 // allContractManifests returns every package directory under testdata/golden/contracts/ and the

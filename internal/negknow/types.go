@@ -71,14 +71,31 @@ type Descriptor struct {
 }
 
 // Canonicalize turns free-text target/approach/reason strings into a canonical Descriptor
-// (00-ARCHITECTURE.md §5.10). Canonicalize always returns the zero Descriptor in this build.
-// Canonicalize has no error return, so the zero value is Rule 1's documented answer: unlike
-// Descriptor.Key (a fixed byte-layout-plus-hash with a closed-form definition, §14.1 of
-// plans/V1-SP-01-foundation-toolchain-and-contracts.md), turning free text into a normalized path,
-// a symbol, and an approach-class label is a real classification algorithm with no closed-form
-// definition SP-01 can implement today — producing a plausible-looking Descriptor here would be
-// exactly the faked behaviour Rule 2 forbids. SP-09 owns the real implementation.
-func Canonicalize(target, approach, reason string) Descriptor { return Descriptor{} }
+// (00-ARCHITECTURE.md §5.10, Qompack.md §8.3): SplitTarget supplies the normalized path and the
+// symbol, ApproachClass the approach-class label, and reasonHash the normalized-reason digest.
+// It is deterministic and does no I/O, so a phrase always canonicalizes to the same bloom key.
+//
+// Canonicalize has no error return because none of its three steps can fail: a target it cannot
+// split is a path with no symbol, and an approach it cannot classify is "unclassified". A caller
+// holding an ABSOLUTE path wants CanonicalizeAt instead, which normalizes against the project
+// root first and does have an error return.
+//
+// The classification is deliberately coarse — see the synonyms table in classify.go — so two
+// phrasings of one idea collide on purpose. That only widens the set of records a query can
+// match; the record lookup stays authoritative and Record.Reason is what disambiguates.
+//
+// Never compare this output against testdata/golden/contracts/negknow/want/, whose
+// approach_class ("widen-timeout") is a hand-chosen label in a frozen wire-shape fixture, not an
+// assertion about ApproachClass — which yields "widen-pool-timeout" for that same phrase.
+func Canonicalize(target, approach, reason string) Descriptor {
+	p, sym := SplitTarget(target)
+	return Descriptor{
+		NormalizedPath: p,
+		Symbol:         sym,
+		ApproachClass:  ApproachClass(approach),
+		ReasonHash:     reasonHash(reason),
+	}
+}
 
 // Key returns d's stable bloom key: the domain-separated digest of its four fields, concatenated
 // with 0x1f (ASCII Unit Separator) delimiters — a byte that cannot appear in any of the three text
