@@ -193,3 +193,29 @@ func TestPersist_FlushesTheGraphAndHonoursCtx(t *testing.T) {
 	require.ErrorIs(t, h.obs.Persist(ctx), context.Canceled)
 	require.Equal(t, 1, h.Graph.FlushCalls, "a cancelled Persist does no work")
 }
+
+// TestPersist_BeforeAnyEntryPointDoesNotWipeTheFile is the load-before-persist regression row.
+// Persist is registered as daemon idle work, so it can fire before ANY observer entry point after
+// a restart; without persistState's own once.Do(loadState) it would write an empty session map
+// over the crash-resume file.
+func TestPersist_BeforeAnyEntryPointDoesNotWipeTheFile(t *testing.T) {
+	root := t.TempDir()
+	first := stateHarness(t, root)
+	first.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
+	st := first.state(testSession)
+	st.mu.Lock()
+	st.Turn, st.PrefixTokens = 17, 4242
+	st.mu.Unlock()
+	require.NoError(t, first.obs.Persist(context.Background()))
+
+	// A fresh observer over the same root: Persist fires FIRST, before any entry point.
+	second := stateHarness(t, root)
+	require.NoError(t, second.obs.Persist(context.Background()))
+
+	var ps persistedState
+	require.NoError(t, json.Unmarshal(readStateFile(t, root), &ps))
+	sess, ok := ps.Sessions[string(testSession)]
+	require.True(t, ok, "an idle Persist before the first event must not empty the state file")
+	require.Equal(t, core.TurnIndex(17), sess.Turn)
+	require.Equal(t, 4242, sess.PrefixTokens)
+}

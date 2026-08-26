@@ -263,8 +263,10 @@ func TestOnUserPrompt_DAGNodeAndSegmentEdge(t *testing.T) {
 
 	edges := h.Graph.edges()
 	_, ok = findEdge(edges, dag.UserPromptNode(0), dag.AssistantNode(0), dag.EdgeConsumes)
-	require.True(t, ok,
-		"§4.4: the ONLY path by which a backward slice reaches the request that set a session off")
+	require.True(t, ok, "BuildUserPrompt's own same-turn edge; it dangles inertly (D-6)")
+	_, ok = findEdge(edges, dag.UserPromptNode(0), dag.AssistantNode(1), dag.EdgeConsumes)
+	require.True(t, ok, "the bridge to the ANSWERING assistant turn (decision 4: prompt turn + 1) "+
+		"— §4.4's actual path by which a backward slice reaches the request that set it off")
 	_, ok = findEdge(edges, dag.UserPromptNode(0), dag.SegmentNode(segment), dag.EdgeSequence)
 	require.True(t, ok, "segment members point INTO the segment (SP-07 D-1)")
 
@@ -416,4 +418,25 @@ func TestPromptArgs_IsTheToolInputAPromptDoesNotHave(t *testing.T) {
 	_, preview := store.ArgsDigest(promptArgs(samplePrompt))
 	require.NotEmpty(t, preview,
 		"without a synthesized document every prompt would collapse onto the empty-args digest")
+}
+
+// TestOnUserPrompt_BackwardSliceReachesThePrompt is the reachability half of §4.4 that the edge
+// assertions above cannot state: against a REAL graph, a backward slice from a tool-use node must
+// surface the user prompt that set the work off. Decision 4 puts the answering assistant turn at
+// the prompt's turn + 1, and only BuildToolUse mints assistant nodes, so the path is
+// tooluse ← assistant:1 ← userprompt:0 — through the hand-emitted bridge edge, not the builder's
+// same-turn edge (which targets assistant:0, a node no path creates, and dangles inertly).
+func TestOnUserPrompt_BackwardSliceReachesThePrompt(t *testing.T) {
+	h, g := newRealGraphHarness(t)
+
+	h.submit(samplePrompt)                        // recorded at turn 0; Turn advances to 1
+	h.drive(readOf("toolu_1", "src/a.ts", "a\n")) // recorded at turn 1; mints assistant:1
+
+	for _, thin := range []bool{true, false} {
+		slice, err := g.BackwardSlice([]dag.NodeID{dag.ToolUseNode("toolu_1")},
+			dag.SliceOptions{Thin: thin})
+		require.NoError(t, err)
+		require.Contains(t, slice.Scores, dag.UserPromptNode(0),
+			"thin=%v: the slice from the work must reach the request that caused it (§4.4)", thin)
+	}
 }

@@ -437,7 +437,7 @@ func TestFaultSitesInertWhenUnset(t *testing.T) {
 // construction), daemon, self-test, version, config print and config schema — rather than the
 // whole dispatch table: the not-yet-implemented placeholders (`status`, `recall`, `mcp`, ...)
 // report core.ErrNotImplemented and a non-zero exit by design, independent of any fault, and
-// asserting otherwise would just be testing a different subplan's TODO.
+// asserting otherwise would just be testing another subplan's unfinished surface.
 func TestSelfTestIsTheOnlyNonZeroExit(t *testing.T) {
 	bin := Build(t)
 	p := testutil.NewProject(t)

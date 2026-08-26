@@ -111,7 +111,14 @@
 //     and sketch calls are made while holding the session lock: those packages own their internal
 //     synchronization, and one session is inherently sequential in the host anyway. Never take
 //     the package mutex while holding a session mutex; the shape is always map-lock → copy
-//     pointer → map-unlock → session-lock.
+//     pointer → map-unlock → session-lock. One caveat is load-bearing: the locking serializes
+//     one session's STATE, not its ORDER. Arrival order over the daemon transport is best-effort
+//     — the daemon's shared worker ring has no session affinity and the synchronous prompt path
+//     bypasses the queue entirely, so two in-flight events for ONE session can be observed out of
+//     host order under queue lag. Turn, PrefixTokens and the rest of the per-session bookkeeping
+//     are therefore monotone counters of events as OBSERVED, best-effort under the transport
+//     (SP05-D1's inherited constraint), not a reconstruction of host order. The transport-level
+//     fix — session affinity or per-session sequence numbers — is V3-VERIFY's, beside SP05-D1.
 //
 //  10. Mode gates output, never writes. Under §12's degraded-passive mode L0 and L1 keep running:
 //     observe, chunk, store, sketches, DAG, verbatim capture. Mode is therefore consulted in
