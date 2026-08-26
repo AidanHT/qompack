@@ -3415,6 +3415,44 @@ D1 needs the whole branch built, so it runs alone after commit 6.
 6. No `TODO`, no `panic("unimplemented")`, no stubbed branches. Every path in this plan is fully specified.
 7. Every test touching time uses `testutil.FakeClock`. `time.Sleep` is forbidden.
 
+### Maximum-parallelism revision (2026-08-26, added at V3 close by user directive)
+
+Where this subsection and the round structure above disagree, this subsection wins. The rounds
+above encode *symbol* dependencies — but every one of those symbols is spelled verbatim in this
+plan's Interface contract, so dispatch on the contract, not on a sibling's finished files.
+
+- **Before any dispatch (main session, minutes not hours):** land the two additive `Inputs`
+  fields and the `types.go` godoc corrections it owns anyway, and fix three contracts verbatim
+  into the briefs: `DropClassOf`'s four-line signature (for A3 and B1), the fake
+  `store`/`dag`/`SegmentLog` helper signatures (fixed by the main session up front — A3 conforms
+  to them rather than inventing them, and B2 codes against the same block), and `schedRuntime`'s
+  ~40-line struct-and-method contract transcribed from the Interface contract (for C1 and C2 —
+  the text above already licenses C1∥C2 once that contract is fixed; fix it at t=0).
+- **Then dispatch A1, A2, A3, B1, B2, C1 and C2 — seven seats — in one message.** B1 is briefed
+  on A2's symbol *signatures* from the Interface contract instead of A2's files; B2 on the fake
+  contract; C2 on the `schedRuntime` contract. The integration points and their between-commit
+  test runs still gate the *commits* in strict order 1→7 — they no longer gate the authoring.
+- **D1 splits into author-then-measure.** Dispatch its authoring seat as soon as commit 4 lands
+  (the scheduler package and candidates build): it writes `test/replay/l3policy/`,
+  `phase4_test.go`, both `bench_test.go` files and the ADR against the Interface contract,
+  compiling what it can. Its measurement pass — the seven Phase 4 assertions and the eight
+  benchmarks — runs only after commit 6, on a quiet machine.
+- **The seven-commit spine with its declared between-commit runs is the only serial path left;**
+  everything else overlaps it. The main session reviews and stages each seat's return as it
+  arrives.
+- **Timing is serial by nature, not by schedule.** Every p99, benchmark or gate number this plan
+  records is measured on a quiet machine after the fan drains; a number produced under fan
+  co-load is requeued, never recorded. A subagent's own benchmark output is provisional evidence
+  of correctness, not the recorded figure.
+- **Seat models.** Mechanical seats — fixture transcription, corpus assembly, file moves,
+  docs generation, searching — run on Opus 5 at low effort; algorithmic cores, integration-facing
+  code and every reviewer stay on the most capable available model. Turn count beats token price:
+  a seat that needs judgment gets the capable model even if small.
+- Nothing here relaxes the rules above: subagents still never run `git`, never edit outside their
+  file set, never run `-update` or `--write-baseline`, and the commit sequence stays strictly
+  sequential in the main session. This subsection reschedules the *authoring*; it does not
+  reassign ownership.
+
 ---
 
 ## Exit criteria

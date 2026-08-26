@@ -270,3 +270,34 @@ surface and recording in `TRACEABILITY.md` that O2's second half is deliberately
 with it — an unconsumed decision surface that nobody has decided to keep is how a reader concludes
 the feature exists.
 
+
+---
+
+## V3-VERIFY dispositions (2026-08-26)
+
+**SP04-D2 -> wontfix (the owed decision).** Fixed-point composition rejected: unbounded re-runs on
+the B-C hot path for a class only reachable when a deletion joins two fragments into a value
+neither half contained. Delta-rebase rejected: complexity with no consumer (canon.Decide's consumer
+question is SP04-D7's, resolved separately). V2 already rejected the ANSI pre-pass because a BOM
+deletion reproduces the class with no escape involved. The class stands as a documented limitation:
+single-pass canonicalization, idempotent over its own output (D4's property suite pins this), with
+the deletion-join composition case out of scope.
+
+**SP04-D3 -> wontfix.** Travels with D2 by its own manifest text: the remaining timestamp edge is
+fixable only under fixed-point composition, which D2's decision rejects.
+
+**SP04-D5 -> fixed (re-judged).** Quiet-host V3 lane: BenchmarkRun_Bash100KB 2.315 ms (-48.9% vs
+the develop baseline), Run_GoTest 676.5 us - both inside the 3 ms / 1 ms budgets with margin. The
+per-rule prefilter cost no longer threatens the budget; the section 6.3 canon row stays as the
+ongoing guard.
+
+**SP04-D6 -> fixed (confirmed stable).** The row's own procedure: -count=10 on a quiet host gives
+2.292-2.349 ms (spread +-1.2%), against V2's +-33% co-loaded spread. The 25% bench-compare
+threshold can distinguish this distribution from a regression; the noise was host load, not the
+benchmark.
+
+**SP04-D7 -> fixed (owner assigned).** Qompack.md section 8.1's delta-vs-full storage write is
+owned by SP-10's checkpointer encode path (wave 3): the encode step is where a segment's content is
+re-serialized and where the delta-vs-full economics exist. canon.Decide stays as the seam SP-10
+consumes; store.nearDup keeps its own threshold (option (b) rejected - conflating near-dup
+detection with storage-format choice couples two unrelated policies).

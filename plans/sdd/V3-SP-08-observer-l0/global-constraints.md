@@ -62,5 +62,5 @@ and the repository's tooling; they are not optional.
   10000, 8000, 2048, 1024, 4096, 16384, 300, 120, 450}.
 - Reading stored bytes in tests: package `store.Open(root, cfg, deps) (Store, error)` opens a store;
   `st.Open(ctx, root core.Hash) (io.ReadCloser, error)` / `st.GetRoot(ctx, root)` read content.
-- Focused runs while iterating: `go test ./internal/observer/ -run '<pattern>' -count=1`.
+- Focused runs while iterating: `go test ./internal/observer/ -run '<pattern>' -count=1`. <!-- runpatterns: the -run argument is a placeholder metavariable in an iteration recipe, not a row to verify -->
 - Race: `go test -race -count=1 -timeout=30m ./internal/observer/...`.

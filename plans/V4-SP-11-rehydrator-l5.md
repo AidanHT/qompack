@@ -2029,6 +2029,35 @@ This subplan is **heavy**. Partition it across four parallel subagents in the im
 
 **What must be verified in the main session regardless of what a subagent reports.** That `renderOrder` equals the `iota` sequence and matches the §8.6 numbering; that no golden contains a fenced code block in items 4, 5 or 6 (items 1–3 are exempt by design and must be checked the other way — that a fenced user prompt *did* survive verbatim); that no literal `450`, `8000` or `12000` appears outside `_test.go`; that `Result.Tokens <= Request.Budget` and `Result.Tokens == Σ Items[i].Tokens` hold on every golden; that no `dag.NodeID("…")` string literal survives anywhere in `internal/rehydrate`; that `internal/rehydrate/rehydratetest/`, `internal/rules/rulestest/` and `internal/skills/skillstest/` are byte-identical to `develop` on the feature branch; and that every hook path exits 0.
 
+### Maximum-parallelism revision (2026-08-26, added at V3 close by user directive)
+
+Where this subsection and the text above disagree, this subsection wins.
+
+- **A–D dispatch at t=0** (already the rule above — D writes failing tests by design; keep it).
+  The main session creates the shared fixture root files first, in minutes, then dispatches all
+  four in one message.
+- **The main session authors `budget.go` and `drops.go` DURING the fan.** The builder signature
+  `([]unit, seen int)` is fixed by this plan, not discovered from C's return: write the budget
+  arithmetic against the contract while A–D run, and reconcile mechanically when C lands. The
+  same holds for `rehydrate_service.go` and the `phases.go` edit — author them concurrently,
+  land them in their commits when their subagent inputs arrive.
+- **Commits keep the plan's numbered order, but each is prepared as its inputs arrive** —
+  reviewed, reconciled and staged the moment its subagent returns, so the sequence closes with
+  no idle gaps. The commit order is dependency order, not a queue discipline that makes commit 2
+  wait for work commit 5 needs.
+- **Timing is serial by nature, not by schedule.** Every p99, benchmark or gate number this plan
+  records is measured on a quiet machine after the fan drains; a number produced under fan
+  co-load is requeued, never recorded. A subagent's own benchmark output is provisional evidence
+  of correctness, not the recorded figure.
+- **Seat models.** Mechanical seats — fixture transcription, corpus assembly, file moves,
+  docs generation, searching — run on Opus 5 at low effort; algorithmic cores, integration-facing
+  code and every reviewer stay on the most capable available model. Turn count beats token price:
+  a seat that needs judgment gets the capable model even if small.
+- Nothing here relaxes the rules above: subagents still never run `git`, never edit outside their
+  file set, never run `-update` or `--write-baseline`, and the commit sequence stays strictly
+  sequential in the main session. This subsection reschedules the *authoring*; it does not
+  reassign ownership.
+
 ---
 
 ## Exit criteria

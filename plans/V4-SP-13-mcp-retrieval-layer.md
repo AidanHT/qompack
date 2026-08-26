@@ -1387,6 +1387,39 @@ Rules for the partition:
 - Each subagent returns a **diff plus its own `go test ./internal/... -race` output**; the main session re-runs the full suite before every commit and is the only actor that runs `git commit`.
 - The daemon-bootstrap edit (spec §11: SP-13's extension — `rehydrate.NewReporter`, `mcp.NewPromoter` and `InstallMCPOp` — appended to SP-11's resident-set block, plus the deletion at rebase of this branch's local stand-in declarations) is made by the **main session**, never a subagent, because it is the only file SP-13 shares with other subplans — SP-08, SP-11 and SP-12 write into the same six-line window — SP-12 reads the same three assignments, and the shared-file order of spec §11 must be re-checked after the wave-3 rebase.
 
+### Maximum-parallelism revision (2026-08-26, added at V3 close by user directive)
+
+Where this subsection and the rules above disagree, this subsection wins.
+
+- **A, B and C: unchanged — all three dispatch at t=0**, the moment the main session lands the
+  shared vocabulary (`types.go`, the schema constants, the goldens, `handlers_common.go`,
+  `fixture_test.go`).
+- **Split D into two seats.** Seat **D-1** — `ephemeral.go`, `promote.go`, `observable.go`,
+  `tools/devtool/genmcpdocs.go` and their tests — depends only on `types.go` and dispatches at
+  t=0 with A, B and C. Seat **D-2** — `internal/daemon/mcpop.go`, `internal/cli/cmd_mcp.go`,
+  `internal/cli/mcpwire.go`, `test/e2e/mcp_e2e_test.go`, `internal/mcp/bench_test.go` —
+  dispatches when A is green, and waits on A *only*: the `h.recordEphemeral(...)` call shape is
+  fixed by the main session in `handlers_common.go` at t=0, so D-2 does not wait for B's or C's
+  handler signatures.
+- **The main session authors the composition-root extension** (spec §11: `rehydrate.NewReporter`,
+  `mcp.NewPromoter`, `InstallMCPOp` and the degrade paths) **while the fan runs**, and reviews
+  each seat's return on arrival. Commits 1–7 stay strictly sequential, landing as their inputs
+  exist.
+- **The B-F gate and every benchmark run post-fan on a quiet machine** — D-2 authors them; the
+  recorded numbers come from the main session's quiet-machine run.
+- **Timing is serial by nature, not by schedule.** Every p99, benchmark or gate number this plan
+  records is measured on a quiet machine after the fan drains; a number produced under fan
+  co-load is requeued, never recorded. A subagent's own benchmark output is provisional evidence
+  of correctness, not the recorded figure.
+- **Seat models.** Mechanical seats — fixture transcription, corpus assembly, file moves,
+  docs generation, searching — run on Opus 5 at low effort; algorithmic cores, integration-facing
+  code and every reviewer stay on the most capable available model. Turn count beats token price:
+  a seat that needs judgment gets the capable model even if small.
+- Nothing here relaxes the rules above: subagents still never run `git`, never edit outside their
+  file set, never run `-update` or `--write-baseline`, and the commit sequence stays strictly
+  sequential in the main session. This subsection reschedules the *authoring*; it does not
+  reassign ownership.
+
 ---
 
 ## Exit criteria

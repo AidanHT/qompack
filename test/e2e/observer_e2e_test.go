@@ -233,7 +233,7 @@ func obsErrCounterTotal(root string) int64 {
 // observably (the observer.err.* counters the daemon persists and serves).
 func TestE2E_HooksExitZeroUnderFaultInjection(t *testing.T) {
 	if runtime.GOOS != "windows" && os.Geteuid() == 0 {
-		t.Skip("permission-based fault injection is inert when running as root")
+		t.Skip("platform: permission-based fault injection is inert when running as root")
 	}
 	bin := Build(t)
 	p := testutil.NewProject(t)

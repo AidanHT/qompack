@@ -95,3 +95,27 @@ platform named in the row itself, replacing both figures — or a statement that
 figure and a Windows exemption with its factor recorded, in the plan and in §9.3 together. What is
 not acceptable is a third round of "documented over".
 
+
+---
+
+## V3-VERIFY dispositions (2026-08-26)
+
+**SP06-D1 -> wontfix (option b taken).** GCPolicy.Deadline's doc comment now says what it actually
+scopes: the mark's hash harvest and the sweep; the tombstone phase and the mark's in-memory index
+walks answer only to ctx. The 100-260 ms tombstone overshoot at 650 dead roots stands as documented
+behaviour. V3 lane figures: BenchmarkGC_50kObjects 1.217 s (budget 2 s), and the V2-SP06-20
+overshoot gate is 3/3 green in isolation (its one J1 red was the whole-tree run's own package
+parallelism).
+
+**SP05-D1 -> deferred:V4-VERIFY.** The dying-drain vs refusing-handler distinction is
+transport-shape work: it needs the same per-session sequencing surface as SP-08's parked R3
+(same-session ordering), and wave 3's SP-11/SP-12 rework the drain path both would land in.
+Re-adjudicating it now would be redesigning it twice.
+
+**SP06-D2 -> deferred:V4-VERIFY, now measured on both platforms.** V3 lane (quiet Windows host):
+PutBytes cold 16.1 ms / warm 4.7 ms (V2 recorded 27.2 / 7.68). First Linux figures (WSL2
+docker-desktop distro on the same 22-core host, native-tmpfs store, 6 runs): cold 5.11-5.87 ms,
+warm 4.33-4.60 ms. The 3 ms / 400 us budgets are unmet on Linux too - cold ~1.8x over, warm ~11x
+over - so this is no longer a measurement gap but a budget-vs-implementation decision, and it
+travels to V4-VERIFY beside SP08-D1, whose B-C breach is dominated by this same per-novel-chunk
+write path. Windows/Linux exemption factor from these runs: ~3x cold, ~1.05x warm.
