@@ -13,13 +13,15 @@ import (
 	"github.com/qompack/qompack/internal/tokens"
 )
 
-// ItemKind identifies one of the eight things a rehydration may inject (00-ARCHITECTURE.md §5.15,
-// Qompack.md §8.6).
+// ItemKind identifies one of the ten things a rehydration may inject (00-ARCHITECTURE.md §5.15,
+// Qompack.md §8.6): the eight numbered §8.6 items, plus the two kinds §8.6's "Instruction
+// restoration" clause calls for, which render between items 6 and 7.
 //
 // THE ORDER IS NORMATIVE. These constants are the §8.6 importance order, most important first,
 // and Build emits Items in it. That is not a formatting preference: budget truncation drops from
 // the tail, so an implementation that reorders these silently changes what survives a small
-// budget. Do not reorder them, and do not insert into the middle.
+// budget. Do not reorder them. Inserting a kind requires a §0 amendment to 00-ARCHITECTURE §5.15,
+// because the values are what budget truncation drops from the tail of.
 type ItemKind uint8
 
 const (
@@ -36,9 +38,17 @@ const (
 	ItemCurrentWork
 	// ItemPointers is item 6: pointers, never contents (§4.4).
 	ItemPointers
+	// ItemRestoredInstructions is item 6a: the `paths:`-scoped rules and nested CLAUDE.md files
+	// the rehydrator re-reads from disk because the host does not restore them (G4.1, G4.2).
+	ItemRestoredInstructions
+	// ItemSkillIndex is item 6b: the compact skill index, names and one-line descriptions only,
+	// which the host does not re-inject at all (G4.4).
+	ItemSkillIndex
 	// ItemDropReport is item 7: the explicit drop report (G4.5).
 	ItemDropReport
 	// ItemAffordance is item 8: one line saying that recall, re_read and already_tried exist.
+	// It is, and must remain, the LAST constant: the conformance suite bounds every emitted kind
+	// by it.
 	ItemAffordance
 )
 
