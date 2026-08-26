@@ -1,0 +1,4409 @@
+# Review package: c0c63c9..f1f56e8
+
+## Commits
+f1f56e8 chore(devtool,guards): mark the observer landed for the stub and cover gates
+ba477c5 feat(observer): PostToolUse pipeline: store, index, sketches, DAG emission
+
+## Files changed
+ internal/observer/fakes_test.go                 | 515 ++++++++++++++++++++++++
+ internal/observer/features.go                   | 251 ++++++++++++
+ internal/observer/features_test.go              | 260 ++++++++++++
+ internal/observer/graph.go                      | 143 +++++++
+ internal/observer/graph_test.go                 | 448 +++++++++++++++++++++
+ internal/observer/observer.go                   | 415 +++++++++++++++++--
+ internal/observer/observer_test.go              | 143 +++++++
+ internal/observer/observertest/suite_test.go    |  71 +++-
+ internal/observer/prompt.go                     |  59 +++
+ internal/observer/prompt_test.go                |  98 +++++
+ internal/observer/sketches.go                   |  45 +++
+ internal/observer/sketches_test.go              | 189 +++++++++
+ internal/observer/state.go                      | 243 +++++++++++
+ internal/observer/state_test.go                 | 195 +++++++++
+ internal/observer/tooluse.go                    | 261 ++++++++++++
+ internal/observer/tooluse_test.go               | 483 ++++++++++++++++++++++
+ plans/V6-VERIFY-production-readiness-and-uat.md |   2 +-
+ test/guards/nightlyfuzz_test.go                 |   1 +
+ test/guards/stubs_test.go                       |  63 ++-
+ test/integration/hookflow_test.go               |  12 +-
+ tools/devtool/cover.go                          |   5 +
+ tools/devtool/cover_test.go                     |  14 +-
+ tools/devtool/planchecks_test.go                |  17 +-
+ 23 files changed, 3870 insertions(+), 63 deletions(-)
+
+## Diff
+diff --git a/internal/observer/fakes_test.go b/internal/observer/fakes_test.go
+new file mode 100644
+index 0000000..79a14bc
+--- /dev/null
++++ b/internal/observer/fakes_test.go
+@@ -0,0 +1,515 @@
++// This is an INTERNAL test package (package observer, not observer_test) because the PostToolUse
++// pipeline's assertions are about per-session state — st.ToolUses, st.Recent, st.PrefixTokens —
++// and about which collaborator was called with what. Neither is reachable through the §5.21
++// interface, which is exactly why observertest's own doc comment says SP-08 must assert the
++// verbatim capture and the subagent capture white-box in here.
++//
++// Every double in this file is local. internal/testutil is a composition root, and §3.2 forbids an
++// IN-PACKAGE test file from importing one (only an external `package foo_test` file may), so the
++// clock below is a two-method core.Clock double of the kind internal/dag/clock_test.go already
++// carries for the same reason.
++package observer
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/grammar"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/sketch"
++	"github.com/qompack/qompack/internal/store"
++	"github.com/stretchr/testify/require"
++)
++
++// testEpoch is the instant every fakeClock starts at. It is a fixed date rather than a wall-clock
++// read so that a FeatureSample's TS and a ToolUseRecord's TS are reproducible across runs.
++var testEpoch = time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
++
++// fakeClock is the local core.Clock double: a monotone instant a test advances by hand.
++type fakeClock struct {
++	mu  sync.Mutex
++	now time.Time
++}
++
++func newFakeClock() *fakeClock { return &fakeClock{now: testEpoch} }
++
++func (c *fakeClock) Now() time.Time {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	return c.now
++}
++
++func (c *fakeClock) Since(t time.Time) time.Duration { return c.Now().Sub(t) }
++
++// Advance moves the clock forward by d.
++func (c *fakeClock) Advance(d time.Duration) {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	c.now = c.now.Add(d)
++}
++
++// putCall is one recorded PutBytes call: the bytes the observer handed the store, and the options
++// it chose for them — which is where per-tool canonicalizer selection is actually asserted.
++type putCall struct {
++	Body []byte
++	Opts store.PutOptions
++}
++
++// fileVersionCall is one recorded AppendFileVersion call.
++type fileVersionCall struct {
++	Path    string
++	Version store.FileVersion
++}
++
++// supersedeCall is one recorded MarkSuperseded call.
++type supersedeCall struct {
++	Older core.ToolUseID
++	By    core.ToolUseID
++}
++
++// fakeStore records what the observer asked of the store. It embeds the store.Store interface so
++// that a method this package never calls does not have to be written out; calling one panics on
++// the nil embedded interface, which is a louder failure than a silent zero value.
++type fakeStore struct {
++	store.Store
++
++	mu sync.Mutex
++
++	Puts         []putCall
++	Records      []store.ToolUseRecord
++	FileVersions []fileVersionCall
++	Supersedes   []supersedeCall
++	ByPathCalls  int
++	FlushCalls   int
++
++	// PutErr and RecordErr make the corresponding call fail.
++	PutErr    error
++	RecordErr error
++
++	// TokenQueue supplies Root.Tokens for successive PutBytes calls; DefaultTokens is used once
++	// it is exhausted.
++	TokenQueue    []core.Tokens
++	DefaultTokens core.Tokens
++
++	// Signature is returned as PutResult.Signature on every call.
++	Signature sketch.Signature
++}
++
++func newFakeStore() *fakeStore { return &fakeStore{} }
++
++func (s *fakeStore) PutBytes(_ context.Context, b []byte, o store.PutOptions) (store.PutResult, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.PutErr != nil {
++		return store.PutResult{}, s.PutErr
++	}
++	body := append([]byte(nil), b...)
++	s.Puts = append(s.Puts, putCall{Body: body, Opts: o})
++
++	tok := s.DefaultTokens
++	if len(s.TokenQueue) > 0 {
++		tok = s.TokenQueue[0]
++		s.TokenQueue = s.TokenQueue[1:]
++	}
++	h := core.HashBytes(core.DomainArgs, body)
++	return store.PutResult{
++		Root: store.Root{
++			Hash:       h,
++			Chunks:     []core.ChunkRef{{Hash: h, Len: len(body)}},
++			CanonBytes: int64(len(body)),
++			RawBytes:   int64(len(body)),
++			Tokens:     tok,
++		},
++		Novel:     1,
++		Signature: s.Signature,
++	}, nil
++}
++
++func (s *fakeStore) RecordToolUse(_ context.Context, rec store.ToolUseRecord) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.RecordErr != nil {
++		return s.RecordErr
++	}
++	s.Records = append(s.Records, rec)
++	return nil
++}
++
++func (s *fakeStore) AppendFileVersion(_ context.Context, path string, v store.FileVersion) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.FileVersions = append(s.FileVersions, fileVersionCall{Path: path, Version: v})
++	return nil
++}
++
++func (s *fakeStore) ToolUsesByPath(_ context.Context, _ string, _ int) ([]store.ToolUseRecord, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.ByPathCalls++
++	return nil, nil
++}
++
++func (s *fakeStore) MarkSuperseded(_ context.Context, older, by core.ToolUseID) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.Supersedes = append(s.Supersedes, supersedeCall{Older: older, By: by})
++	return nil
++}
++
++func (s *fakeStore) Flush(_ context.Context) error {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.FlushCalls++
++	return nil
++}
++
++// storeCounts is the call-count tuple TestModePassiveStillWrites compares between two runs.
++type storeCounts struct{ Puts, Records, FileVersions int }
++
++func (s *fakeStore) counts() storeCounts {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	return storeCounts{Puts: len(s.Puts), Records: len(s.Records), FileVersions: len(s.FileVersions)}
++}
++
++// putOpts returns the options of the i-th PutBytes call.
++func (s *fakeStore) putOpts(i int) store.PutOptions {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	return s.Puts[i].Opts
++}
++
++// fakeGraph is the dag.Graph double. Out and In are implemented FAITHFULLY, indexing edges by
++// endpoint, because dag.BuildToolUse's turnLinkKind reads them through sharesState to decide
++// whether the assistant → tool_use link is an EdgeSequence or an EdgeControlOnly. A double that
++// returned nil from both would silently make every observer-produced turn link control-only.
++type fakeGraph struct {
++	dag.Graph
++
++	mu sync.Mutex
++
++	Nodes []dag.Node
++	Edges []dag.Edge
++
++	byID map[dag.NodeID]dag.Node
++	out  map[dag.NodeID][]dag.Edge
++	in   map[dag.NodeID][]dag.Edge
++
++	FlushCalls int
++
++	AddNodeErr error
++	AddEdgeErr error
++}
++
++func newFakeGraph() *fakeGraph {
++	return &fakeGraph{
++		byID: make(map[dag.NodeID]dag.Node),
++		out:  make(map[dag.NodeID][]dag.Edge),
++		in:   make(map[dag.NodeID][]dag.Edge),
++	}
++}
++
++func (g *fakeGraph) AddNode(n dag.Node) error {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	if g.AddNodeErr != nil {
++		return g.AddNodeErr
++	}
++	if _, ok := g.byID[n.ID]; ok {
++		return nil
++	}
++	g.byID[n.ID] = n
++	g.Nodes = append(g.Nodes, n)
++	return nil
++}
++
++func (g *fakeGraph) AddEdge(e dag.Edge) error {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	if g.AddEdgeErr != nil {
++		return g.AddEdgeErr
++	}
++	for _, have := range g.Edges {
++		if have.From == e.From && have.To == e.To && have.Kind == e.Kind {
++			return nil
++		}
++	}
++	g.Edges = append(g.Edges, e)
++	g.out[e.From] = append(g.out[e.From], e)
++	g.in[e.To] = append(g.in[e.To], e)
++	return nil
++}
++
++func (g *fakeGraph) Node(id dag.NodeID) (dag.Node, bool) {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	n, ok := g.byID[id]
++	return n, ok
++}
++
++func (g *fakeGraph) Out(id dag.NodeID) []dag.Edge {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return append([]dag.Edge(nil), g.out[id]...)
++}
++
++func (g *fakeGraph) In(id dag.NodeID) []dag.Edge {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return append([]dag.Edge(nil), g.in[id]...)
++}
++
++func (g *fakeGraph) Flush(_ context.Context) error {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	g.FlushCalls++
++	return nil
++}
++
++// has reports whether id was added as a node.
++func (g *fakeGraph) has(id dag.NodeID) bool {
++	_, ok := g.Node(id)
++	return ok
++}
++
++// nodeCount returns how many nodes of kind are present.
++func (g *fakeGraph) nodeCount(kind dag.NodeKind) int {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	n := 0
++	for _, node := range g.Nodes {
++		if node.Kind == kind {
++			n++
++		}
++	}
++	return n
++}
++
++// graphCounts is the node/edge tuple TestModePassiveStillWrites compares between two runs.
++type graphCounts struct{ Nodes, Edges int }
++
++func (g *fakeGraph) counts() graphCounts {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return graphCounts{Nodes: len(g.Nodes), Edges: len(g.Edges)}
++}
++
++// fakeSymbols is the SymbolLister double: a fixed name list, optionally keyed by path.
++type fakeSymbols struct {
++	mu sync.Mutex
++
++	Fixed   []string
++	ByPath  map[string][]string
++	Calls   int
++	LastLen int
++}
++
++func (f *fakeSymbols) Names(path string, b []byte) []string {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	f.Calls++
++	f.LastLen = len(b)
++	if f.ByPath != nil {
++		return f.ByPath[path]
++	}
++	return f.Fixed
++}
++
++// fakeGrammar is the grammar.Sequitur double: it records the symbol stream and returns a fixed
++// thrash answer. It embeds the interface so the four methods SP-08 never calls need no body.
++type fakeGrammar struct {
++	grammar.Sequitur
++
++	mu        sync.Mutex
++	Appended  []grammar.Symbol
++	Thrashing []grammar.Rule
++}
++
++func (g *fakeGrammar) Append(s grammar.Symbol) {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	g.Appended = append(g.Appended, s)
++}
++
++func (g *fakeGrammar) Thrash(_ int) []grammar.Rule {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return append([]grammar.Rule(nil), g.Thrashing...)
++}
++
++func (g *fakeGrammar) appended() []grammar.Symbol {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return append([]grammar.Symbol(nil), g.Appended...)
++}
++
++// signalCall and featureCall are one delivery through Options.OnSignals / Options.OnFeatures.
++type signalCall struct {
++	Session core.SessionID
++	Signals Signals
++}
++
++type featureCall struct {
++	Session core.SessionID
++	Sample  FeatureSample
++}
++
++// harness wires a real observer to the doubles above and keeps every callback delivery.
++type harness struct {
++	t   *testing.T
++	obs *observer
++
++	Store   *fakeStore
++	Graph   *fakeGraph
++	Clock   *fakeClock
++	Metrics obs.Registry
++	Touch   *sketch.CMS
++	Explore *sketch.HLL
++	Hot     *sketch.MisraGries
++
++	mu           sync.Mutex
++	signalCalls  []signalCall
++	featureCalls []featureCall
++}
++
++// The sketch dimensions the harness builds. They are test fixtures, not config defaults: a CMS
++// this small still answers Estimate exactly for the handful of keys one test feeds it.
++const (
++	testCMSEpsilon = 0.01
++	testCMSDelta   = 0.05
++	testHLLRegs    = 512
++	testMGCounters = 16
++)
++
++// newHarness builds an observer over the doubles, applying every mutator to Options first.
++func newHarness(t *testing.T, mutators ...func(*Options)) *harness {
++	t.Helper()
++
++	h := &harness{
++		t:       t,
++		Store:   newFakeStore(),
++		Graph:   newFakeGraph(),
++		Clock:   newFakeClock(),
++		Touch:   sketch.NewCMS(testCMSEpsilon, testCMSDelta),
++		Explore: sketch.NewHLL(testHLLRegs),
++		Hot:     sketch.NewMisraGries(testMGCounters),
++	}
++	h.Metrics = obs.New(h.Clock)
++
++	o := Options{
++		ProjectRoot: t.TempDir(),
++		Cfg:         config.Defaults(),
++		Store:       h.Store,
++		Graph:       h.Graph,
++		Touch:       h.Touch,
++		Explore:     h.Explore,
++		Hot:         h.Hot,
++		Log:         logging.Nop(),
++		Metrics:     h.Metrics,
++		Clock:       h.Clock,
++		OnSignals: func(s core.SessionID, sig Signals) {
++			h.mu.Lock()
++			defer h.mu.Unlock()
++			h.signalCalls = append(h.signalCalls, signalCall{Session: s, Signals: sig})
++		},
++		OnFeatures: func(s core.SessionID, f FeatureSample) {
++			h.mu.Lock()
++			defer h.mu.Unlock()
++			h.featureCalls = append(h.featureCalls, featureCall{Session: s, Sample: f})
++		},
++	}
++	for _, m := range mutators {
++		m(&o)
++	}
++
++	built, err := New(o)
++	require.NoError(t, err)
++	impl, ok := built.(*observer)
++	require.True(t, ok, "New must return the concrete observer")
++	h.obs = impl
++	return h
++}
++
++// counter reads a metric the observer bumped.
++func (h *harness) counter(name string) int64 { return h.Metrics.Counter(name).Value() }
++
++// signals returns a copy of every OnSignals delivery so far.
++func (h *harness) signals() []signalCall {
++	h.mu.Lock()
++	defer h.mu.Unlock()
++	return append([]signalCall(nil), h.signalCalls...)
++}
++
++// features returns a copy of every OnFeatures delivery so far.
++func (h *harness) features() []featureCall {
++	h.mu.Lock()
++	defer h.mu.Unlock()
++	return append([]featureCall(nil), h.featureCalls...)
++}
++
++// state returns the session state for s, created exactly the way an entry point would create it.
++func (h *harness) state(s core.SessionID) *sessionState { return h.obs.session(s) }
++
++// testSession is the session id every single-session test uses.
++const testSession = core.SessionID("sess_sp08")
++
++// toolUse builds a PostToolUse event. input and response are raw JSON so a test pins the exact
++// bytes the host would have sent.
++func toolUse(id, tool, input, response string) Event {
++	e := Event{
++		HookEventName: "PostToolUse",
++		SessionID:     testSession,
++		ToolName:      tool,
++		ToolUseID:     core.ToolUseID(id),
++	}
++	if input != "" {
++		e.ToolInput = json.RawMessage(input)
++	}
++	if response != "" {
++		e.ToolResponse = json.RawMessage(response)
++	}
++	return e
++}
++
++// readOf builds a Read of path whose result is body.
++func readOf(id, path, body string) Event {
++	return toolUse(id, "Read",
++		fmt.Sprintf(`{"file_path":%s}`, jsonString(path)),
++		fmt.Sprintf(`{"content":%s}`, jsonString(body)))
++}
++
++// bashOf builds a Bash call running command whose stdout is out.
++func bashOf(id, command, out string) Event {
++	return toolUse(id, "Bash",
++		fmt.Sprintf(`{"command":%s}`, jsonString(command)),
++		fmt.Sprintf(`{"exit_code":0,"stdout":%s}`, jsonString(out)))
++}
++
++// jsonString renders s as a JSON string literal.
++func jsonString(s string) string {
++	b, err := json.Marshal(s)
++	if err != nil {
++		panic(err)
++	}
++	return string(b)
++}
++
++// drive feeds every event through OnToolUse, failing on the first error and asserting the
++// PostToolUse silence rule as it goes.
++func (h *harness) drive(events ...Event) {
++	h.t.Helper()
++	for _, e := range events {
++		out, err := h.obs.OnToolUse(context.Background(), e)
++		require.NoError(h.t, err)
++		require.Equal(h.t, hookio.Empty(), out)
++	}
++}
+diff --git a/internal/observer/features.go b/internal/observer/features.go
+new file mode 100644
+index 0000000..ccc4e4a
+--- /dev/null
++++ b/internal/observer/features.go
+@@ -0,0 +1,251 @@
++package observer
++
++import (
++	"encoding/json"
++	"math"
++	"regexp"
++	"strings"
++
++	"github.com/qompack/qompack/internal/core"
++)
++
++// The five cheap features of §6.6, computed from sessionState.Recent and delivered through
++// Options.OnFeatures for the daemon to translate into scheduler.Features. Every one of them is
++// O(window) with a fixed window, which is what keeps BOCD's input off the latency budget.
++
++// bytesPerCohesionToken is how many bytes of a result are retained per token the lexical-cohesion
++// feature will score. It bounds the memory one feature window pins; four or five bytes is a
++// typical token, and eight leaves headroom without pinning a whole session's output.
++const bytesPerCohesionToken = 8
++
++// millisPerSecond converts the package's UnixMilli timestamps to the seconds GapSeconds reports.
++const millisPerSecond = 1000
++
++// todoWriteTool is the display name whose newest appearance turns the todo-transition feature on.
++const todoWriteTool = "TodoWrite"
++
++// reCohesionToken is the token shape the lexical-cohesion feature scores: identifiers and words,
++// which is what TextTiling-style cohesion is actually about. Numbers and punctuation runs carry no
++// topic signal and would make two unrelated stack traces look cohesive.
++var reCohesionToken = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
++
++// recordRecent appends one event to the BOCD feature window, evicting from the front at
++// 2*featureWindow entries.
++//
++// It deliberately does NOT touch st.LastTS. LastTS is the timestamp of the PREVIOUS event and is
++// assigned as the last bookkeeping statement of each entry point, after features has been
++// consulted; assigning it here would make GapSeconds identically zero, which is the single easiest
++// way to silently disable BOCD's time feature.
++func (o *observer) recordRecent(st *sessionState, tool string, paths []string, body []byte, ts core.UnixMilli) {
++	text := body
++	if len(text) > cohesionTokenCap*bytesPerCohesionToken {
++		text = text[:cohesionTokenCap*bytesPerCohesionToken]
++	}
++
++	st.Recent = append(st.Recent, recentEvent{
++		Tool:  tool,
++		Paths: append([]string(nil), paths...),
++		Text:  append([]byte(nil), text...),
++		TS:    ts,
++	})
++	if k := len(st.Recent) - 2*featureWindow; k > 0 {
++		st.Recent = st.Recent[k:]
++	}
++}
++
++// features computes the §6.6 sample, reporting false until two full windows are in hand — there is
++// nothing to compare a single window against.
++//
++// Every returned value is finite: each divisor below is guarded, so NaN and ±Inf are impossible.
++func (o *observer) features(st *sessionState, now core.UnixMilli) (FeatureSample, bool) {
++	n := len(st.Recent)
++	if n < 2*featureWindow {
++		return FeatureSample{}, false
++	}
++	cur := st.Recent[n-featureWindow:]
++	prev := st.Recent[n-2*featureWindow : n-featureWindow]
++
++	f := FeatureSample{
++		Turn:            st.Turn,
++		TS:              now,
++		PathJaccard:     jaccard(pathSet(cur), pathSet(prev)),
++		ToolShift:       totalVariation(toolDistribution(cur), toolDistribution(prev)),
++		LexicalCohesion: cosineTokens(concatText(cur), concatText(prev)),
++	}
++	if st.LastTS != 0 {
++		f.GapSeconds = float64(now-st.LastTS) / millisPerSecond
++		if f.GapSeconds < 0 {
++			f.GapSeconds = 0
++		}
++	}
++	if st.Recent[n-1].Tool == todoWriteTool && st.TodoTransitioned {
++		f.TodoTransition = 1
++	}
++	return f, true
++}
++
++// pathSet is the set of paths a window touched.
++func pathSet(window []recentEvent) map[string]struct{} {
++	set := make(map[string]struct{}, len(window))
++	for _, e := range window {
++		for _, p := range e.Paths {
++			set[p] = struct{}{}
++		}
++	}
++	return set
++}
++
++// toolDistribution is a window's normalized tool-name distribution.
++func toolDistribution(window []recentEvent) map[string]float64 {
++	if len(window) == 0 {
++		return nil
++	}
++	counts := make(map[string]float64, len(window))
++	for _, e := range window {
++		counts[e.Tool]++
++	}
++	total := float64(len(window))
++	for k := range counts {
++		counts[k] /= total
++	}
++	return counts
++}
++
++// concatText joins a window's retained result bytes.
++func concatText(window []recentEvent) []byte {
++	var out []byte
++	for _, e := range window {
++		out = append(out, e.Text...)
++		out = append(out, '\n')
++	}
++	return out
++}
++
++// jaccard is |a ∩ b| / |a ∪ b|. Two EMPTY sets score 1 — no locality shift happened — and one
++// empty set against a non-empty one scores 0, which is a complete shift.
++func jaccard(a, b map[string]struct{}) float64 {
++	if len(a) == 0 && len(b) == 0 {
++		return 1
++	}
++	if len(a) == 0 || len(b) == 0 {
++		return 0
++	}
++	inter := 0
++	for k := range a {
++		if _, ok := b[k]; ok {
++			inter++
++		}
++	}
++	union := len(a) + len(b) - inter
++	if union == 0 {
++		return 1
++	}
++	return float64(inter) / float64(union)
++}
++
++// totalVariation is 0.5 · Σ|p_i − q_i| over the union of keys: 0 for identical distributions and 1
++// for disjoint ones.
++func totalVariation(a, b map[string]float64) float64 {
++	if len(a) == 0 && len(b) == 0 {
++		return 0
++	}
++	sum := 0.0
++	for k, p := range a {
++		sum += math.Abs(p - b[k])
++	}
++	for k, q := range b {
++		if _, ok := a[k]; !ok {
++			sum += q
++		}
++	}
++	return 0.5 * sum
++}
++
++// cosineTokens is the cosine similarity of two term-frequency vectors over lowercased identifier
++// tokens, capped at cohesionTokenCap tokens per side. Either side having no tokens scores 0.
++func cosineTokens(a, b []byte) float64 {
++	va, vb := termFrequencies(a), termFrequencies(b)
++	if len(va) == 0 || len(vb) == 0 {
++		return 0
++	}
++
++	var dot, na, nb float64
++	for term, ca := range va {
++		na += ca * ca
++		if cb, ok := vb[term]; ok {
++			dot += ca * cb
++		}
++	}
++	for _, cb := range vb {
++		nb += cb * cb
++	}
++	if na == 0 || nb == 0 {
++		return 0
++	}
++
++	cos := dot / (math.Sqrt(na) * math.Sqrt(nb))
++	switch {
++	case cos < 0:
++		return 0
++	case cos > 1:
++		return 1
++	default:
++		return cos
++	}
++}
++
++// termFrequencies counts the first cohesionTokenCap lowercased tokens of b.
++func termFrequencies(b []byte) map[string]float64 {
++	if len(b) == 0 {
++		return nil
++	}
++	matches := reCohesionToken.FindAll(b, cohesionTokenCap)
++	if len(matches) == 0 {
++		return nil
++	}
++	tf := make(map[string]float64, len(matches))
++	for _, m := range matches {
++		tf[strings.ToLower(string(m))]++
++	}
++	return tf
++}
++
++// todoTransitionInput is the tolerant shape newlyCompletedTodos reads. It carries content as well
++// as status, unlike signals.go's todoInput, because a TRANSITION is a comparison against the
++// contents already known to be done.
++type todoTransitionInput struct {
++	Todos []struct {
++		Content string `json:"content"`
++		Status  string `json:"status"`
++	} `json:"todos"`
++}
++
++// newlyCompletedTodos reports whether e completed a todo that was not already complete, and
++// records every completed item it saw.
++//
++// This is the transition detector that lets ExtractSignals stay pure: §5.21 requires that function
++// to be a function of the payload alone, and "newly completed" is a fact about the session.
++func (o *observer) newlyCompletedTodos(st *sessionState, e Event) bool {
++	st.TodoTransitioned = false
++	if NormalizeToolName(e.ToolName) != todoWriteTool {
++		return false
++	}
++
++	var in todoTransitionInput
++	if err := json.Unmarshal(e.ToolInput, &in); err != nil {
++		return false
++	}
++
++	fired := false
++	for _, todo := range in.Todos {
++		if todo.Status != todoStatusCompleted || todo.Content == "" {
++			continue
++		}
++		if !st.TodoDone[todo.Content] {
++			fired = true
++		}
++		st.TodoDone[todo.Content] = true
++	}
++	st.TodoTransitioned = fired
++	return fired
++}
+diff --git a/internal/observer/features_test.go b/internal/observer/features_test.go
+new file mode 100644
+index 0000000..1239dba
+--- /dev/null
++++ b/internal/observer/features_test.go
+@@ -0,0 +1,260 @@
++package observer
++
++import (
++	"fmt"
++	"math"
++	"testing"
++	"time"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/stretchr/testify/require"
++	"pgregory.net/rapid"
++)
++
++// feed pushes n identical events into the feature window.
++func (h *harness) feed(st *sessionState, n int, tool string, paths []string, body string) {
++	for range n {
++		h.obs.recordRecent(st, tool, paths, []byte(body), h.obs.now())
++	}
++}
++
++func TestFeatures_NotReadyBeforeTwoWindows(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, 2*featureWindow-1, "FileRead", []string{"a.ts"}, "alpha")
++
++	_, ok := h.obs.features(st, h.obs.now())
++	require.False(t, ok, "BOCD needs two full windows before it has anything to compare")
++}
++
++func TestFeatures_PathJaccardIdenticalWindows(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, 2*featureWindow, "FileRead", []string{"a.ts"}, "alpha")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 1.0, f.PathJaccard, 1e-9)
++	require.Equal(t, st.Turn, f.Turn)
++	require.Equal(t, h.obs.now(), f.TS)
++}
++
++func TestFeatures_PathJaccardDisjointWindows(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, featureWindow, "FileRead", []string{"a.ts"}, "alpha")
++	h.feed(st, featureWindow, "FileRead", []string{"b.ts"}, "alpha")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 0.0, f.PathJaccard, 1e-9)
++}
++
++func TestFeatures_PathJaccardBothEmpty(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, 2*featureWindow, "Bash", nil, "ok")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 1.0, f.PathJaccard, 1e-9, "two path-free windows are no locality shift at all")
++}
++
++func TestFeatures_ToolShiftIdentical(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, 2*featureWindow, "FileRead", []string{"a.ts"}, "alpha")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 0.0, f.ToolShift, 1e-9)
++}
++
++func TestFeatures_ToolShiftComplete(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, featureWindow, "FileRead", []string{"a.ts"}, "alpha")
++	h.feed(st, featureWindow, "Bash", nil, "alpha")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 1.0, f.ToolShift, 1e-9, "total variation between disjoint distributions is 1")
++}
++
++func TestFeatures_ToolShiftHalf(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, featureWindow, "FileRead", []string{"a.ts"}, "alpha")
++	h.feed(st, featureWindow/2, "FileRead", []string{"a.ts"}, "alpha")
++	h.feed(st, featureWindow/2, "Bash", nil, "alpha")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 0.5, f.ToolShift, 1e-9)
++}
++
++func TestFeatures_LexicalCohesionIdenticalText(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, 2*featureWindow, "FileRead", []string{"a.ts"}, "refresh token parse jwt")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 1.0, f.LexicalCohesion, 1e-9)
++}
++
++func TestFeatures_LexicalCohesionDisjointVocabulary(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, featureWindow, "FileRead", []string{"a.ts"}, "alpha beta")
++	h.feed(st, featureWindow, "FileRead", []string{"a.ts"}, "gamma delta")
++
++	f, ok := h.obs.features(st, h.obs.now())
++	require.True(t, ok)
++	require.InDelta(t, 0.0, f.LexicalCohesion, 1e-9)
++}
++
++func TestFeatures_GapSecondsFromFakeClock(t *testing.T) {
++	h := newHarness(t)
++
++	for i := range 2*featureWindow - 1 {
++		h.drive(readOf(fmt.Sprintf("toolu_%d", i), "a.ts", "alpha\n"))
++	}
++	h.Clock.Advance(45 * time.Second)
++	h.drive(readOf("toolu_last", "a.ts", "alpha\n"))
++
++	got := h.features()
++	require.Len(t, got, 1)
++	require.InDelta(t, 45.0, got[0].Sample.GapSeconds, 1e-9)
++}
++
++func TestFeatures_TodoTransition(t *testing.T) {
++	h := newHarness(t)
++
++	for i := range 2*featureWindow - 1 {
++		h.drive(readOf(fmt.Sprintf("toolu_%d", i), "a.ts", "alpha\n"))
++	}
++	h.drive(toolUse("toolu_todo", "TodoWrite",
++		`{"todos":[{"content":"trace the timeout","status":"completed"}]}`,
++		`{"content":"ok"}`))
++
++	got := h.features()
++	require.Len(t, got, 1)
++	require.InDelta(t, 1.0, got[0].Sample.TodoTransition, 1e-9)
++}
++
++func TestFeatures_AllFinite(t *testing.T) {
++	rapid.Check(t, func(rt *rapid.T) {
++		h := newHarness(t)
++		st := h.state(testSession)
++
++		tools := []string{"FileRead", "FileEdit", "Bash", "Grep", "TodoWrite"}
++		words := []string{"", "alpha", "alpha beta", "gamma", "delta epsilon zeta", "α β"}
++		files := [][]string{nil, {"a.ts"}, {"b.ts"}, {"a.ts", "b.ts"}, {}}
++
++		n := rapid.IntRange(2*featureWindow, 4*featureWindow).Draw(rt, "events")
++		for range n {
++			h.obs.recordRecent(st,
++				rapid.SampledFrom(tools).Draw(rt, "tool"),
++				rapid.SampledFrom(files).Draw(rt, "paths"),
++				[]byte(rapid.SampledFrom(words).Draw(rt, "text")),
++				h.obs.now())
++			h.Clock.Advance(time.Duration(rapid.IntRange(0, 5000).Draw(rt, "ms")) * time.Millisecond)
++		}
++		st.LastTS = h.obs.now()
++		h.Clock.Advance(time.Second)
++
++		f, ok := h.obs.features(st, h.obs.now())
++		require.True(rt, ok)
++		for name, v := range map[string]float64{
++			"PathJaccard":     f.PathJaccard,
++			"ToolShift":       f.ToolShift,
++			"LexicalCohesion": f.LexicalCohesion,
++			"TodoTransition":  f.TodoTransition,
++		} {
++			require.False(rt, math.IsNaN(v) || math.IsInf(v, 0), "%s is not finite: %v", name, v)
++			require.GreaterOrEqual(rt, v, 0.0, name)
++			require.LessOrEqual(rt, v, 1.0, name)
++		}
++		require.False(rt, math.IsNaN(f.GapSeconds) || math.IsInf(f.GapSeconds, 0))
++		require.GreaterOrEqual(rt, f.GapSeconds, 0.0)
++	})
++}
++
++func TestFeatures_RecentRingBounded(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.feed(st, 1000, "FileRead", []string{"a.ts"}, "alpha")
++
++	require.Len(t, st.Recent, 2*featureWindow, "the window is a ring, not a transcript")
++}
++
++func TestFeatures_RecentTextIsBounded(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	h.obs.recordRecent(st, "FileRead", []string{"a.ts"},
++		make([]byte, cohesionTokenCap*bytesPerCohesionToken*4), h.obs.now())
++
++	require.Len(t, st.Recent, 1)
++	require.LessOrEqual(t, len(st.Recent[0].Text), cohesionTokenCap*bytesPerCohesionToken,
++		"a feature window may not pin an unbounded amount of a session's bytes")
++}
++
++func TestNewlyCompletedTodos_RecordsEveryCompletedItem(t *testing.T) {
++	h := newHarness(t)
++	st := h.state(testSession)
++
++	first := toolUse("toolu_1", "TodoWrite",
++		`{"todos":[{"content":"one","status":"completed"},{"content":"two","status":"in_progress"}]}`,
++		`{"content":"ok"}`)
++	require.True(t, h.obs.newlyCompletedTodos(st, first))
++	require.False(t, h.obs.newlyCompletedTodos(st, first), "the same list closes nothing new")
++
++	second := toolUse("toolu_2", "TodoWrite",
++		`{"todos":[{"content":"one","status":"completed"},{"content":"two","status":"completed"}]}`,
++		`{"content":"ok"}`)
++	require.True(t, h.obs.newlyCompletedTodos(st, second), "a second item completing IS a transition")
++	require.Equal(t, map[string]bool{"one": true, "two": true}, st.TodoDone)
++}
++
++func TestJaccard_EdgeCases(t *testing.T) {
++	set := func(keys ...string) map[string]struct{} {
++		m := make(map[string]struct{}, len(keys))
++		for _, k := range keys {
++			m[k] = struct{}{}
++		}
++		return m
++	}
++
++	require.InDelta(t, 1.0, jaccard(set(), set()), 1e-9, "both empty is no shift")
++	require.InDelta(t, 0.0, jaccard(set("a"), set()), 1e-9, "one empty is a complete shift")
++	require.InDelta(t, 0.0, jaccard(set(), set("a")), 1e-9)
++	require.InDelta(t, 1.0/3.0, jaccard(set("a", "b"), set("b", "c")), 1e-9)
++}
++
++func TestTotalVariation_EdgeCases(t *testing.T) {
++	require.InDelta(t, 0.0, totalVariation(nil, nil), 1e-9)
++	require.InDelta(t, 1.0, totalVariation(map[string]float64{"a": 1}, map[string]float64{"b": 1}), 1e-9)
++	require.InDelta(t, 0.0, totalVariation(map[string]float64{"a": 1}, map[string]float64{"a": 1}), 1e-9)
++}
++
++func TestCosineTokens_EdgeCases(t *testing.T) {
++	require.InDelta(t, 0.0, cosineTokens(nil, []byte("alpha")), 1e-9, "an empty side scores zero")
++	require.InDelta(t, 0.0, cosineTokens([]byte("12345 !!"), []byte("alpha")), 1e-9, "no tokens at all")
++	require.InDelta(t, 1.0, cosineTokens([]byte("Alpha beta"), []byte("alpha BETA")), 1e-9, "tokens are lowercased")
++}
++
++// core.UnixMilli is referenced by the feature sample assertions above; this keeps the import
++// honest if the assertions are ever narrowed.
++var _ = core.UnixMilli(0)
+diff --git a/internal/observer/graph.go b/internal/observer/graph.go
+new file mode 100644
+index 0000000..4835e76
+--- /dev/null
++++ b/internal/observer/graph.go
+@@ -0,0 +1,143 @@
++package observer
++
++import (
++	"context"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/store"
++)
++
++// §8.1 item 4 — "Record tool_use → tool_result → assistant_turn → next_tool_use, plus shared-state
++// edges keyed on file path and symbol name" — expressed ENTIRELY as one call to dag.BuildToolUse.
++//
++// This file translates a store.ToolUseRecord into a dag.ObservedTool. It decides no node id, no
++// edge direction and no edge kind for the item-4 chain, and it assembles no NodeID from a string:
++// internal/dag/nodeid.go is explicit that a component spelling a node differently from another
++// does not fail loudly, it silently produces two disconnected halves of the same graph.
++//
++// Three consequences of going through the builder are worth naming, because each was a bug an
++// earlier revision of this plan had:
++//
++//   - Thin slicing has something to drop. dag.turnLinkKind makes the assistant → tool_use link an
++//     EdgeSequence when this call touches the same file or symbol as its predecessor and an
++//     EdgeControlOnly when it shares nothing, and traverse.go's thin branch drops EdgeControlOnly
++//     and nothing else. SP-08 is the sole production emitter of transcript edges, so a hand-rolled
++//     emitter that always wrote EdgeSequence would make Thin a no-op on every real graph.
++//   - No parallel-sibling cycle. Parallel tool calls share a turn index (decision 4), and the
++//     builder emits the consumes edge only under PrevTurn < Turn. Carrying LastToolUseTurn is the
++//     only thing this package has to do to feed that guard.
++//   - Shared state is anchored on the FILE, not on the previous tool use. A tooluse → tooluse
++//     shared-file edge is not part of the scheme and is never emitted.
++
++// emitToolGraph records one observed tool call in the dependence DAG and enrols both of its nodes
++// in the open segment.
++func (o *observer) emitToolGraph(ctx context.Context, st *sessionState, rec store.ToolUseRecord,
++	body []byte, superseded []core.ToolUseID,
++) {
++	if err := ctx.Err(); err != nil {
++		// A cancelled context short-circuits at the stage boundary; the object is already stored
++		// and the index entry already written, so there is nothing half-built to unwind.
++		return
++	}
++
++	pos := o.advancePos(st, 0)                // the tool_use block's start position
++	resultPos := o.advancePos(st, rec.Tokens) // the tool_result block's — decision 5
++
++	sup := core.ToolUseID("")
++	if len(superseded) > 0 {
++		sup = superseded[0] // most recent first, per supersede.go
++	}
++
++	o.soft(stageDAG, dag.BuildToolUse(o.opt.Graph, dag.ObservedTool{
++		ToolUseID:     rec.ID,
++		PrevToolUseID: st.LastToolUseID,
++		PrevTurn:      st.LastToolUseTurn,
++		Supersedes:    sup,
++		Turn:          rec.Turn,
++		TS:            rec.TS,
++		Pos:           pos,
++		ResultPos:     resultPos,
++		Tool:          rec.Tool,
++		PathKey:       rec.Path,
++		Writes:        rec.Tool == toolFileEdit || rec.Tool == toolFileWrite,
++		Symbols:       o.symbolNames(rec, body),
++		Root:          rec.Root,
++		Tokens:        rec.Tokens,
++		Ephemeral:     rec.Ephemeral,
++	}))
++
++	// BuildToolUse carries exactly one supersedes edge. Any FURTHER read this one superseded gets
++	// its edge here, in the same D-1 direction the builder uses: superseded → superseding.
++	if len(superseded) > 1 {
++		for _, older := range superseded[1:] {
++			o.soft(stageDAG, o.opt.Graph.AddEdge(dag.Edge{
++				From: dag.ToolUseNode(older), To: dag.ToolUseNode(rec.ID),
++				Kind: dag.EdgeSupersedes, Weight: edgeWeight, Turn: rec.Turn,
++			}))
++		}
++	}
++
++	o.enrol(st, dag.ToolUseNode(rec.ID))
++	o.enrol(st, dag.ToolResultNode(rec.ID))
++	st.LastToolUseID, st.LastToolUseTurn = rec.ID, rec.Turn
++}
++
++// edgeWeight is the weight every edge this package emits directly carries, matching the builders'
++// own: they record STRUCTURE, and per-hop relative worth is expressed by EdgeKind.Multiplier
++// (SP-07 D-3) rather than twice.
++const edgeWeight float32 = 1
++
++// symbolNames resolves the symbol names a result touched, for dag.ObservedTool.Symbols.
++//
++// It returns them UNSORTED: BuildToolUse sorts and deduplicates, precisely so dag/deps.jsonl's
++// edge order does not depend on how the extractor happened to walk the file.
++func (o *observer) symbolNames(rec store.ToolUseRecord, body []byte) []string {
++	if o.opt.Symbols == nil || rec.Path == "" ||
++		supersedableClass(rec.Tool) != classFileContent || len(body) > symbolScanCap {
++		return nil
++	}
++
++	names := o.opt.Symbols.Names(rec.Path, body)
++	if len(names) == 0 {
++		return nil
++	}
++
++	out := make([]string, 0, min(len(names), maxSymbolsPerResult))
++	seen := make(map[string]bool, len(out))
++	for _, name := range names {
++		if name == "" || seen[name] {
++			continue
++		}
++		seen[name] = true
++		out = append(out, name)
++		if len(out) == maxSymbolsPerResult {
++			break
++		}
++	}
++	return out
++}
++
++// enrol records one segment-membership edge, member → segment.
++//
++// The direction is dag.BuildSegment's: members are the earlier end under D-1. Emitting these
++// incrementally rather than in BuildSegment's Members list is legal by D-6 — an edge may precede
++// its endpoints — and is what keeps this package from holding a whole segment's node list in
++// memory.
++func (o *observer) enrol(st *sessionState, n dag.NodeID) {
++	if st.Segment == 0 {
++		return
++	}
++	o.soft(stageDAG, o.opt.Graph.AddEdge(dag.Edge{
++		From: n, To: dag.SegmentNode(st.Segment),
++		Kind: dag.EdgeSequence, Weight: edgeWeight, Turn: st.Turn,
++	}))
++}
++
++// advancePos returns the PRE-increment prefix position and advances it by tok (decision 5): every
++// node's Pos is its own START position.
++func (o *observer) advancePos(st *sessionState, tok core.Tokens) int {
++	pos := st.PrefixTokens
++	st.PrefixTokens += int(tok)
++	return pos
++}
+diff --git a/internal/observer/graph_test.go b/internal/observer/graph_test.go
+new file mode 100644
+index 0000000..3b3b26c
+--- /dev/null
++++ b/internal/observer/graph_test.go
+@@ -0,0 +1,448 @@
++package observer
++
++import (
++	"fmt"
++	"strings"
++	"testing"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/stretchr/testify/require"
++)
++
++// newRealGraphHarness wires the observer to a REAL dag.Graph. Every row about an EDGE KIND runs
++// against one, because dag.turnLinkKind decides EdgeSequence vs EdgeControlOnly by reading the
++// graph back through Out and In: asserting that against a double would be asserting the double.
++func newRealGraphHarness(t *testing.T, mutators ...func(*Options)) (*harness, dag.Graph) {
++	t.Helper()
++	g, err := dag.Open(t.TempDir(), config.Defaults(), logging.Nop())
++	require.NoError(t, err)
++
++	all := append([]func(*Options){func(o *Options) { o.Graph = g }}, mutators...)
++	return newHarness(t, all...), g
++}
++
++// setTurn moves a session's turn index the way a user prompt or a Stop will once those entry
++// points land (resolved decision 4), so a turn-crossing graph row can be written today.
++func (h *harness) setTurn(s core.SessionID, turn core.TurnIndex) {
++	st := h.obs.session(s)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	st.Turn = turn
++}
++
++// setSegment opens a segment on a session without going through session.go.
++func (h *harness) setSegment(s core.SessionID, id core.SegmentID) {
++	st := h.obs.session(s)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	st.Segment = id
++}
++
++// allEdges collects every edge leaving every node of g. NodesAfter(0) returns all of them because
++// every observer-minted node carries a non-negative Pos.
++func allEdges(g dag.Graph) []dag.Edge {
++	var out []dag.Edge
++	for _, n := range g.NodesAfter(0) {
++		out = append(out, g.Out(n.ID)...)
++	}
++	return out
++}
++
++// findEdge returns the edge from → to of kind, and whether it was found.
++func findEdge(edges []dag.Edge, from, to dag.NodeID, kind dag.EdgeKind) (dag.Edge, bool) {
++	for _, e := range edges {
++		if e.From == from && e.To == to && e.Kind == kind {
++			return e, true
++		}
++	}
++	return dag.Edge{}, false
++}
++
++// turnLink returns the kind of the assistant → tool_use edge for id, and whether it exists.
++func turnLink(edges []dag.Edge, turn core.TurnIndex, id core.ToolUseID) (dag.EdgeKind, bool) {
++	for _, e := range edges {
++		if e.From == dag.AssistantNode(turn) && e.To == dag.ToolUseNode(id) {
++			return e.Kind, true
++		}
++	}
++	return dag.EdgeInvalid, false
++}
++
++func TestGraph_ToolUseProducesResult(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(readOf("toolu_1", "src/auth.ts", "alpha\n"))
++
++	use, ok := g.Node(dag.ToolUseNode("toolu_1"))
++	require.True(t, ok)
++	require.Equal(t, dag.KindToolUse, use.Kind)
++	require.Equal(t, "FileRead", use.Ref, "the tool-use node's Ref is the display name")
++
++	result, ok := g.Node(dag.ToolResultNode("toolu_1"))
++	require.True(t, ok)
++	require.Equal(t, dag.KindToolResult, result.Kind)
++
++	_, ok = findEdge(allEdges(g), dag.ToolUseNode("toolu_1"), dag.ToolResultNode("toolu_1"), dag.EdgeProduces)
++	require.True(t, ok, "tool_use --produces--> tool_result")
++}
++
++func TestGraph_SequenceChainAcrossTurns(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	h.setTurn(testSession, 2) // the prompt and the assistant turn that answered it
++	h.drive(toolUse("toolu_2", "Edit",
++		`{"file_path":"src/a.ts","old_string":"alpha","new_string":"beta"}`,
++		`{"content":"beta\n"}`))
++
++	edges := allEdges(g)
++	_, ok := findEdge(edges, dag.ToolResultNode("toolu_1"), dag.AssistantNode(2), dag.EdgeConsumes)
++	require.True(t, ok, "the assistant turn CONSUMED the previous result")
++	_, ok = findEdge(edges, dag.AssistantNode(2), dag.ToolUseNode("toolu_2"), dag.EdgeSequence)
++	require.True(t, ok, "and emitted this call; the shared file makes the link a sequence edge")
++}
++
++func TestGraph_ParallelSiblingsShareATurnAndGetNoConsumesEdge(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		readOf("toolu_2", "src/b.ts", "beta\n"),
++	)
++
++	edges := allEdges(g)
++	for _, e := range edges {
++		if e.Kind == dag.EdgeConsumes && e.From == dag.ToolResultNode("toolu_1") {
++			t.Fatalf("a same-turn sibling must get NO consumes edge (D-7 cycle): %+v", e)
++		}
++	}
++	_, ok := findEdge(edges, dag.AssistantNode(0), dag.ToolUseNode("toolu_1"), dag.EdgeSequence)
++	require.True(t, ok)
++	_, ok = turnLink(edges, 0, "toolu_2")
++	require.True(t, ok, "both siblings hang off the same assistant node")
++	requireAcyclic(t, edges)
++}
++
++func TestGraph_ObserverOutputIsAcyclic(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	// A mixed session: parallel siblings inside a turn, and a turn boundary every third call,
++	// which is the shape resolved decision 4 produces once prompts and stops advance the index.
++	//
++	// One shape is deliberately excluded, exactly as in dag.TestBuilderOutputIsAcyclic: a read
++	// emits file → tooluse and a write emits tooluse → file, so reading a file and LATER writing it
++	// closes a legitimate loop through that file node. That loop is a real property of §8.1 item
++	// 4's shared-state modelling — the Read-then-Edit pattern — and not the D-7 mistake this hunts.
++	// Every file therefore gets its single writer at its first touch and only readers afterwards,
++	// which leaves the tool_use → tool_result → assistant chain as the only thing that can close a
++	// cycle here.
++	written := make(map[string]bool)
++	turn := core.TurnIndex(0)
++	for i := range 200 {
++		if i%3 == 0 && i > 0 {
++			turn += 2
++			h.setTurn(testSession, turn)
++		}
++		id := fmt.Sprintf("toolu_%d", i)
++		path := fmt.Sprintf("src/f%d.ts", i%7)
++		switch {
++		case !written[path]:
++			written[path] = true
++			h.drive(toolUse(id, "Write",
++				fmt.Sprintf(`{"file_path":%q}`, path), `{"content":"written\n"}`))
++		case i%3 == 1:
++			h.drive(bashOf(id, "go build ./...", "ok\n"))
++		case i%3 == 2:
++			h.drive(toolUse(id, "Grep",
++				`{"pattern":"x","path":"src"}`, `{"content":"src/f1.ts:1:x"}`))
++		default:
++			h.drive(readOf(id, path, "alpha\n"))
++		}
++	}
++
++	requireAcyclic(t, allEdges(g))
++}
++
++// requireAcyclic fails unless a topological sort of edges succeeds. It is the observer-level
++// counterpart of dag.TestBuilderOutputIsAcyclic, which guards the builders in isolation.
++func requireAcyclic(t *testing.T, edges []dag.Edge) {
++	t.Helper()
++
++	indeg := make(map[dag.NodeID]int)
++	adj := make(map[dag.NodeID][]dag.NodeID)
++	seen := make(map[dag.NodeID]bool)
++	for _, e := range edges {
++		adj[e.From] = append(adj[e.From], e.To)
++		indeg[e.To]++
++		seen[e.From], seen[e.To] = true, true
++	}
++
++	var queue []dag.NodeID
++	for id := range seen {
++		if indeg[id] == 0 {
++			queue = append(queue, id)
++		}
++	}
++	visited := 0
++	for len(queue) > 0 {
++		id := queue[len(queue)-1]
++		queue = queue[:len(queue)-1]
++		visited++
++		for _, next := range adj[id] {
++			indeg[next]--
++			if indeg[next] == 0 {
++				queue = append(queue, next)
++			}
++		}
++	}
++	require.Equal(t, len(seen), visited,
++		"the emitted subgraph has a cycle — the D-7 tooluse → toolresult → assistant → tooluse cycle is the likely one")
++}
++
++func TestGraph_TurnLinkIsControlOnlyWhenNothingIsShared(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		bashOf("toolu_2", "date", "Mon Aug 24\n"),
++	)
++
++	kind, ok := turnLink(allEdges(g), 0, "toolu_2")
++	require.True(t, ok)
++	require.Equal(t, dag.EdgeControlOnly, kind,
++		"thin slicing has nothing to drop unless the observer produces control-only links")
++}
++
++func TestGraph_TurnLinkIsSequenceWhenAFileIsShared(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	h.setTurn(testSession, 2)
++	h.drive(toolUse("toolu_2", "Edit",
++		`{"file_path":"src/a.ts","old_string":"alpha","new_string":"beta"}`,
++		`{"content":"beta\n"}`))
++
++	kind, ok := turnLink(allEdges(g), 2, "toolu_2")
++	require.True(t, ok)
++	require.Equal(t, dag.EdgeSequence, kind)
++}
++
++func TestGraph_FirstToolUseOfASessionIsSequence(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(bashOf("toolu_1", "date", "Mon Aug 24\n"))
++
++	kind, ok := turnLink(allEdges(g), 0, "toolu_1")
++	require.True(t, ok)
++	require.Equal(t, dag.EdgeSequence, kind,
++		"a control-only head would make the opening turn unreachable under a thin slice")
++}
++
++func TestGraph_SharedFileOrientation(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(
++		readOf("toolu_read", "src/a.ts", "alpha\n"),
++		toolUse("toolu_write", "Write", `{"file_path":"src/a.ts"}`, `{"content":"beta\n"}`),
++	)
++
++	require.Equal(t, 1, countKind(g, dag.KindFile), "one file node per path")
++	edges := allEdges(g)
++	_, ok := findEdge(edges, dag.FileNode("src/a.ts"), dag.ToolUseNode("toolu_read"), dag.EdgeSharedFile)
++	require.True(t, ok, "a read CONSUMES the anchor: file → tool_use (D-1)")
++	_, ok = findEdge(edges, dag.ToolUseNode("toolu_write"), dag.FileNode("src/a.ts"), dag.EdgeSharedFile)
++	require.True(t, ok, "a write PRODUCES it: tool_use → file (D-1)")
++}
++
++func TestGraph_NoToolUseToToolUseSharedFileEdge(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		readOf("toolu_2", "src/a.ts", "alpha\n"),
++	)
++
++	for _, e := range allEdges(g) {
++		if e.Kind != dag.EdgeSharedFile {
++			continue
++		}
++		require.False(t, isToolUseNode(e.From) && isToolUseNode(e.To),
++			"two calls couple through the shared file node, never directly: %+v", e)
++	}
++}
++
++// isToolUseNode reports whether id is a tool-use node id, through the constructor rather than a
++// hand-written prefix.
++func isToolUseNode(id dag.NodeID) bool {
++	kind, _, ok := dag.ParseNodeID(id)
++	return ok && kind == dag.KindToolUse
++}
++
++// countKind returns how many nodes of kind g holds.
++func countKind(g dag.Graph, kind dag.NodeKind) int {
++	n := 0
++	for _, node := range g.NodesAfter(0) {
++		if node.Kind == kind {
++			n++
++		}
++	}
++	return n
++}
++
++func TestGraph_SymbolEdges(t *testing.T) {
++	syms := &fakeSymbols{ByPath: map[string][]string{"src/auth.ts": {"refreshToken", "parseJWT"}}}
++	h, g := newRealGraphHarness(t, func(o *Options) { o.Symbols = syms })
++
++	h.drive(readOf("toolu_1", "src/auth.ts", "alpha\n"))
++
++	require.True(t, hasNode(g, dag.SymbolNode("src/auth.ts", "parseJWT")))
++	require.True(t, hasNode(g, dag.SymbolNode("src/auth.ts", "refreshToken")))
++	require.Equal(t, dag.NodeID("symbol:src/auth.ts#refreshToken"), dag.SymbolNode("src/auth.ts", "refreshToken"),
++		"the frozen golden testdata/golden/contracts/dag/graph-basic.jsonl spells it this way")
++
++	edges := allEdges(g)
++	for _, name := range []string{"parseJWT", "refreshToken"} {
++		_, ok := findEdge(edges, dag.SymbolNode("src/auth.ts", name), dag.ToolUseNode("toolu_1"), dag.EdgeSharedSymbol)
++		require.True(t, ok, "%s's shared-symbol edge is oriented like the file edge", name)
++	}
++
++	// Emission ORDER is a call-order property, so it is asserted against the recording double.
++	fh := newHarness(t, func(o *Options) { o.Symbols = syms })
++	fh.drive(readOf("toolu_1", "src/auth.ts", "alpha\n"))
++	var got []string
++	for _, n := range fh.Graph.Nodes {
++		if n.Kind == dag.KindSymbol {
++			got = append(got, n.Ref)
++		}
++	}
++	require.Equal(t, []string{"parseJWT", "refreshToken"}, got,
++		"BuildToolUse sorts, so deps.jsonl does not depend on how the extractor walked the file")
++}
++
++// hasNode reports whether g holds id.
++func hasNode(g dag.Graph, id dag.NodeID) bool {
++	_, ok := g.Node(id)
++	return ok
++}
++
++func TestGraph_SymbolsSkippedAboveCap(t *testing.T) {
++	syms := &fakeSymbols{Fixed: []string{"refreshToken"}}
++	h, g := newRealGraphHarness(t, func(o *Options) { o.Symbols = syms })
++
++	h.drive(readOf("toolu_1", "src/auth.ts", strings.Repeat("a", symbolScanCap+1)))
++
++	require.Equal(t, 0, countKind(g, dag.KindSymbol))
++	require.Zero(t, syms.Calls, "the extractor is not even consulted above the cap")
++}
++
++func TestGraph_SymbolsCappedAt64(t *testing.T) {
++	names := make([]string, 200)
++	for i := range names {
++		names[i] = fmt.Sprintf("sym%03d", i)
++	}
++	h, g := newRealGraphHarness(t, func(o *Options) { o.Symbols = &fakeSymbols{Fixed: names} })
++
++	h.drive(readOf("toolu_1", "src/auth.ts", "alpha\n"))
++
++	require.Equal(t, maxSymbolsPerResult, countKind(g, dag.KindSymbol))
++}
++
++func TestGraph_PosIsMonotoneAndPreIncrement(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++	h.Store.TokenQueue = []core.Tokens{100, 200, 300}
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		readOf("toolu_2", "src/b.ts", "beta\n"),
++		readOf("toolu_3", "src/c.ts", "gamma\n"),
++	)
++
++	for i, want := range []int{0, 100, 300} {
++		n, ok := g.Node(dag.ToolResultNode(core.ToolUseID(fmt.Sprintf("toolu_%d", i+1))))
++		require.True(t, ok)
++		require.Equal(t, want, n.Pos, "Pos is the node's START position (decision 5)")
++	}
++}
++
++func TestGraph_SegmentMembershipPointsIntoTheSegment(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++	h.setSegment(testSession, 7)
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++
++	edges := allEdges(g)
++	_, ok := findEdge(edges, dag.ToolUseNode("toolu_1"), dag.SegmentNode(7), dag.EdgeSequence)
++	require.True(t, ok, "members point INTO the segment, matching dag.BuildSegment (SP-07 D-1)")
++	_, ok = findEdge(edges, dag.ToolResultNode("toolu_1"), dag.SegmentNode(7), dag.EdgeSequence)
++	require.True(t, ok)
++	_, ok = findEdge(edges, dag.SegmentNode(7), dag.ToolUseNode("toolu_1"), dag.EdgeSequence)
++	require.False(t, ok, "never segment → member")
++}
++
++func TestGraph_SegmentNodeAndChainEdgeAtClose(t *testing.T) {
++	// session.go's close path lands in a later commit; this pins the SegmentSpec shape the three
++	// sessionState.Seg* fields exist to supply, which is the half of the row SP-08 owns.
++	g, err := dag.Open(t.TempDir(), config.Defaults(), logging.Nop())
++	require.NoError(t, err)
++
++	require.NoError(t, dag.BuildSegment(g, dag.SegmentSpec{
++		ID: 6, StartTurn: 20, EndTurn: 32, TS: 1, StartPos: 0,
++	}))
++	require.NoError(t, dag.BuildSegment(g, dag.SegmentSpec{
++		ID: 7, PrevID: 6, StartTurn: 33, EndTurn: 41, TS: 2, StartPos: 104880,
++	}))
++
++	n, ok := g.Node(dag.SegmentNode(7))
++	require.True(t, ok)
++	require.Equal(t, "33-41", n.Ref, "a segment node's Ref is its turn range")
++	_, ok = findEdge(allEdges(g), dag.SegmentNode(6), dag.SegmentNode(7), dag.EdgeSequence)
++	require.True(t, ok, "the chain runs previous → current")
++}
++
++func TestGraph_NilSymbolsTolerated(t *testing.T) {
++	h, g := newRealGraphHarness(t, func(o *Options) { o.Symbols = nil })
++
++	require.NotPanics(t, func() { h.drive(readOf("toolu_1", "src/auth.ts", "alpha\n")) })
++	require.Equal(t, 0, countKind(g, dag.KindSymbol))
++}
++
++func TestGraph_FlushNotCalledPerToolUse(t *testing.T) {
++	h := newHarness(t)
++
++	for i := range 10 {
++		h.drive(readOf(fmt.Sprintf("toolu_%d", i), "src/a.ts", "alpha\n"))
++	}
++
++	require.Zero(t, h.Graph.FlushCalls, "an append+fsync per tool use is not the ingest path")
++	require.Zero(t, h.Store.FlushCalls)
++}
++
++func TestGraph_IDsComeFromDagConstructors(t *testing.T) {
++	syms := &fakeSymbols{Fixed: []string{"refreshToken"}}
++	h := newHarness(t, func(o *Options) { o.Symbols = syms })
++	h.setSegment(testSession, 7)
++	h.setTurn(testSession, 3)
++
++	h.drive(readOf("toolu_1", "src/auth.ts", "alpha\n"))
++
++	want := map[dag.NodeID]bool{
++		dag.ToolUseNode("toolu_1"):                    true,
++		dag.ToolResultNode("toolu_1"):                 true,
++		dag.AssistantNode(3):                          true,
++		dag.FileNode("src/auth.ts"):                   true,
++		dag.SymbolNode("src/auth.ts", "refreshToken"): true,
++	}
++	for _, n := range h.Graph.Nodes {
++		require.True(t, want[n.ID], "node id %q was not built by a dag constructor", n.ID)
++	}
++	for _, e := range h.Graph.Edges {
++		require.True(t, want[e.From] || e.From == dag.SegmentNode(7), "edge From %q", e.From)
++		require.True(t, want[e.To] || e.To == dag.SegmentNode(7), "edge To %q", e.To)
++	}
++
++	require.Equal(t, dag.NodeID("assistant:3"), dag.AssistantNode(3), "no session component")
++	require.Equal(t, dag.NodeID("userprompt:3"), dag.UserPromptNode(3), "no session component")
++}
+diff --git a/internal/observer/observer.go b/internal/observer/observer.go
+index cc9d247..925e32b 100644
+--- a/internal/observer/observer.go
++++ b/internal/observer/observer.go
+@@ -1,22 +1,26 @@
+ package observer
+ 
+ import (
+ 	"context"
++	"fmt"
++	"sync"
++	"time"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/dag"
+ 	"github.com/qompack/qompack/internal/grammar"
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/sketch"
+ 	"github.com/qompack/qompack/internal/store"
+ 	"github.com/qompack/qompack/internal/tokens"
+ )
+ 
+ // Event and Output alias the hookio types every Observer method is written in terms of
+ // (00-ARCHITECTURE.md §5.21). They are aliases, not new types, so the interface signatures below
+ // are literally unchanged: observer.Event and hookio.Event are the same type, and a value of
+ // either satisfies both.
+ //
+ // They exist for the same reason checkpoint.Invariant aliases pins.Invariant (§5.14) — to keep a
+@@ -45,76 +49,427 @@ type Observer interface {
+ 	// OnStop handles Stop and SubagentStop, distinguished by subagent: capture subagent detail
+ 	// before the host double-compresses it (G10.1).
+ 	OnStop(ctx context.Context, e Event, subagent bool) (Output, error)
+ 	// OnSessionStart handles SessionStart. The source switch (startup|resume|compact|clear) lives
+ 	// here and delegates: startup/resume load the store, compact rehydrates, clear resets.
+ 	OnSessionStart(ctx context.Context, e Event) (Output, error)
+ 	// OnSessionEnd handles SessionEnd: flush the store, write the session index, and run GC.
+ 	OnSessionEnd(ctx context.Context, e Event) (Output, error)
+ }
+ 
++// Mode is the degradation mode the contract monitor has this session in (§12.1). It reaches this
++// package as a plain value through Options.Mode, because observer may not import contract (§3.2).
++type Mode uint8
++
++const (
++	// ModeFull is normal operation.
++	ModeFull Mode = iota
++	// ModePassive is ModeDegradedPassive: L0 and L1 keep observing, chunking, storing, sketching
++	// and building the DAG; everything that ACTS is off (resolved decision 10).
++	ModePassive
++)
++
++// SymbolLister resolves the symbol names a tool result touched. It is a seam rather than a direct
++// dependency because §3.2 never gave observer internal/symbols; SP-06's store holds the real
++// extractor and the daemon wires an adapter.
++type SymbolLister interface {
++	// Names returns the symbol names defined in b, which is path's content.
++	Names(path string, b []byte) []string
++}
++
++// Rehydrator is the seam SP-11 installs so that SessionStart's compact and clear branches are a
++// delegation rather than a direct call into a wave-3 package.
++type Rehydrator interface {
++	// OnCompact handles SessionStart with source "compact".
++	OnCompact(ctx context.Context, e Event) (Output, error)
++	// OnClear handles SessionStart with source "clear".
++	OnClear(ctx context.Context, e Event) (Output, error)
++}
++
++// FeatureSample is one delivery of the five cheap §6.6 features. The daemon maps it onto
++// scheduler.Features and calls scheduler.Runtime.Observe, which is why it carries both the turn
++// and the timestamp the sample was taken at.
++type FeatureSample struct {
++	// Turn is the turn the sample was taken at.
++	Turn core.TurnIndex
++	// TS is when it was taken.
++	TS core.UnixMilli
++	// PathJaccard is the Jaccard similarity of the recently-touched path sets of the two windows.
++	PathJaccard float64
++	// ToolShift is the total variation distance between the two windows' tool distributions.
++	ToolShift float64
++	// LexicalCohesion is the cosine similarity of the two windows' term-frequency vectors.
++	LexicalCohesion float64
++	// GapSeconds is the wall-clock gap since the previous observed event.
++	GapSeconds float64
++	// TodoTransition is 1 when the newest event completed a todo that was not already complete.
++	TodoTransition float64
++}
++
++// Persister lets the daemon's idle loop checkpoint observer state. The value New returns ALWAYS
++// satisfies it; observer_ops.go performs the single guarded assertion in the codebase
++// (p, ok := obsv.(Persister)) and skips the idle registration when ok is false, so a future
++// alternate Observer implementation cannot panic the daemon.
++type Persister interface {
++	// Persist writes the observer's per-session state and flushes the graph.
++	Persist(ctx context.Context) error
++}
++
+ // Options is the collaborator set New assembles an Observer from.
+ //
+ // 00-ARCHITECTURE.md §5.21 declares the Observer interface without a constructor, so Options is
+ // an SP-01 addition of the kind §14.0 of plans/V1-SP-01-foundation-toolchain-and-contracts.md
+-// describes: something §5 needs but does not spell out, decided once here so wave-0 composition
+-// roots have something to wire. Its field names are SP-08's own, so landing the real
+-// implementation widens this struct rather than renaming it.
++// describes: something §5 needs but does not spell out. SP-08 WIDENS it rather than renaming any
++// field (Rule W-3).
++//
++// Grammar, Touch, Explore, Hot, Symbols, Rehydrate, Mode, OnSignals, OnFeatures and Metrics may
++// each be nil; every call site guards (resolved decision 8).
+ type Options struct {
+ 	// ProjectRoot is the project root the observer records under.
+ 	ProjectRoot string
+ 	// Cfg is the loaded configuration.
+ 	Cfg config.Config
+ 	// Store is the content-addressed store every observed byte is written through.
+ 	Store store.Store
+ 	// Graph is the dependence DAG nodes and edges are appended to.
+ 	Graph dag.Graph
+ 	// Grammar is the action-stream grammar tool names are folded into.
+ 	Grammar grammar.Sequitur
++	// Touch is §6.2's file-touch frequency sketch.
++	Touch *sketch.CMS
++	// Explore is §6.2's breadth-of-exploration cardinality sketch.
++	Explore *sketch.HLL
++	// Hot is the deterministic top-k `/qompack:status` reads.
++	Hot *sketch.MisraGries
+ 	// Tokens prices observed content.
+ 	Tokens tokens.Estimator
+-	// Log is the logger; a nil Log must be treated as logging.Nop.
++	// Symbols resolves the symbol names a result touched.
++	Symbols SymbolLister
++	// Rehydrate is SP-11's SessionStart compact/clear seam.
++	Rehydrate Rehydrator
++	// Mode reports the current degradation mode; nil means ModeFull.
++	Mode func() Mode
++	// OnSignals delivers each event's task-boundary evidence to the scheduler.
++	OnSignals func(core.SessionID, Signals)
++	// OnFeatures delivers each BOCD feature sample to the scheduler.
++	OnFeatures func(core.SessionID, FeatureSample)
++	// Log is the logger; it may not be nil.
+ 	Log logging.Logger
+ 	// Metrics is the metrics registry; a nil Metrics must not panic a hook.
+ 	Metrics obs.Registry
+ 	// Clock is the only source of time in this package (§6.1): no observer code calls time.Now.
+ 	Clock core.Clock
+ }
+ 
+-// New returns an Observer built from o. Constructing always succeeds, so wave-0 composition roots
+-// can wire an observer.Observer today, but every hook entry point reports core.ErrNotImplemented
+-// until SP-08 lands the real L0 semantics (00-ARCHITECTURE.md §5.21).
+-func New(o Options) (Observer, error) { return stubObserver{}, nil }
++// The tuning constants of the L0 pipeline. Every one is a bound on work or memory rather than a
++// configuration default, which is why none of them lives in internal/config (§11.6 D11).
++const (
++	// featureWindow is how many tool uses one BOCD comparison window holds (§6.6).
++	featureWindow = 8
++	// maxSymbolsPerResult bounds how many symbol nodes one result may mint.
++	maxSymbolsPerResult = 64
++	// symbolScanCap is the body size above which symbol extraction is skipped outright: the
++	// observer is on budget B-C and an extractor walk is the only unbounded work in the pipeline.
++	symbolScanCap = 256 << 10
++	// supersessionLookback is how many prior tool uses per path supersede.go examines.
++	supersessionLookback = 32
++	// subagentWindowCap is how many tool uses are retained for SubagentStop linkage.
++	subagentWindowCap = 256
++	// thrashMinUses is the rule multiplicity above which the action grammar is thrashing.
++	thrashMinUses = 3
++	// cohesionTokenCap is how many tokens per window the lexical-cohesion feature scores.
++	cohesionTokenCap = 4000
++	// gcDeadline bounds the SessionEnd GC pass. The SessionEnd hook's own timeout is 20 s (§3.4).
++	gcDeadline = 8 * time.Second
++)
++
++// The metric names this package registers on Options.Metrics.
++const (
++	histToolUse      = "observer.tooluse"
++	histPrompt       = "observer.prompt"
++	histStop         = "observer.stop"
++	histSessionStart = "observer.session_start"
++	histSessionEnd   = "observer.session_end"
+ 
+-// stubObserver is the SP-01 placeholder Observer. SP-08 owns the real implementation.
++	// counterSuperseded, counterNearDup and counterSubagentCapture are registered here — the
++	// metric names belong to the package rather than to one commit — and are incremented by the
++	// supersession and SubagentStop paths, which land in later commits of this subplan.
++	counterSuperseded      = "observer.superseded"
++	counterNearDup         = "observer.neardup"
++	counterTombstone       = "observer.tombstone"
++	counterSubagentCapture = "observer.subagent_capture"
++	counterSignalTodo      = "observer.signal.todo"
++	counterSignalTest      = "observer.signal.test"
++	counterSignalGit       = "observer.signal.git"
++
++	// counterErrPrefix is prepended to a stage name by soft.
++	counterErrPrefix = "observer.err."
++)
++
++// The stage names soft reports under. They are the suffixes of observer.err.<stage>.
++const (
++	stagePut      = "put"
++	stageIndex    = "index"
++	stageFileVer  = "fileversion"
++	stageDAG      = "dag"
++	stageState    = "state"
++	stageGraphOut = "flush"
++)
++
++// recentEvent is one entry of the BOCD feature window.
++type recentEvent struct {
++	Tool  string
++	Paths []string
++	Text  []byte
++	TS    core.UnixMilli
++}
++
++// toolUseLite is the SubagentStop-linkage projection of a ToolUseRecord: everything a subagent
++// capture needs to hand the parent a retrieval path into detail it never held (G10.1), and
++// nothing else.
++type toolUseLite struct {
++	ID         core.ToolUseID
++	Root       core.Hash
++	Tool, Path string
++	Bytes      int64
++}
++
++// sessionState is one session's in-memory state, mirrored to disk by state.go.
+ //
+-// Every method returns hookio.Empty() alongside core.ErrNotImplemented rather than a zero Output.
+-// They are the same value — Empty() is documented as the zero-cost `{}` response — but naming it
+-// says which of the two it is on purpose: a hook that cannot do its work must still hand the host
+-// a valid, do-nothing response, because §2.3 and §12.3 both require a hook to exit 0 and change
+-// nothing rather than surface a failure into the session.
+-type stubObserver struct{}
++// Every field is read and written under mu (resolved decision 9). The three Seg* fields exist
++// because dag.SegmentSpec needs PrevID, StartTurn and StartPos at CLOSE time and none of them is
++// recoverable from store.Segment; LastToolUseID/LastToolUseTurn are carried as the raw pair rather
++// than as a dag.NodeID because dag.BuildToolUse mints the NodeIDs itself and applies its
++// PrevTurn < Turn guard to the turn — which is the whole defence against the parallel-sibling
++// cycle of SP-07 D-7.
++type sessionState struct {
++	mu sync.Mutex
++
++	Turn         core.TurnIndex
++	PrefixTokens int
++
++	Segment      core.SegmentID
++	PrevSegment  core.SegmentID
++	SegStartTurn core.TurnIndex
++	SegStartPos  int
++
++	// LastTS is the timestamp of the PREVIOUS event. It is assigned as the last bookkeeping
++	// statement of each entry point, after features() has been consulted: assigning it earlier
++	// would make GapSeconds identically zero and silently disable BOCD's time feature.
++	LastTS core.UnixMilli
++
++	LastToolUseID   core.ToolUseID
++	LastToolUseTurn core.TurnIndex
++	LastPromptTurn  core.TurnIndex
++
++	// SubagentSince indexes ToolUses at the last SubagentStop or user prompt. Every front
++	// eviction of the ring clamps it in the same statement.
++	SubagentSince int
++
++	Recent   []recentEvent
++	ToolUses []toolUseLite
++
++	TodoDone    map[string]bool
++	WarnedRules map[grammar.RuleID]bool
++
++	// TodoTransitioned records whether newlyCompletedTodos fired for the event currently being
++	// processed. features() reads it for the §6.6 todo-transition feature; it is deliberately not
++	// persisted, because it describes one event rather than the session.
++	TodoTransitioned bool
+ 
+-// OnToolUse always reports core.ErrNotImplemented.
+-func (stubObserver) OnToolUse(ctx context.Context, e Event) (Output, error) {
+-	return hookio.Empty(), core.ErrNotImplemented
++	// PendingThrash is collected in OnToolUse and drained by OnUserPrompt.
++	PendingThrash []grammar.Rule
+ }
+ 
+-// OnUserPrompt always reports core.ErrNotImplemented.
+-func (stubObserver) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
+-	return hookio.Empty(), core.ErrNotImplemented
++// observer is the real L0 implementation.
++type observer struct {
++	opt Options
++
++	// mu guards sess and the state-file write ONLY (resolved decision 9). It is never held while
++	// a sessionState.mu is held.
++	mu   sync.Mutex
++	sess map[core.SessionID]*sessionState
++
++	// sketchMu guards the three Options sketches. They are PER-PROJECT objects shared by every
++	// session, so the per-session lock of decision 9 cannot serialize them, and internal/sketch's
++	// own doc.go is explicit that "no mutable type here is safe for concurrent use: Bloom, CMS,
++	// HLL, MisraGries and SigSketch all require external synchronisation". The daemon holds them
++	// behind its session registry, but this package is handed the pointers directly and decision
++	// 9 requires every entry point to be race-free under go test -race with two sessions in
++	// flight — so the synchronisation for the sketch feed lives here. It is only ever taken
++	// INSIDE a sessionState.mu and never around o.mu, so it introduces no new lock order.
++	sketchMu sync.Mutex
++
++	// once makes loadState run at most once per process.
++	once sync.Once
++
++	// maxResultBytes is runtime.hotPath.maxPayloadBytes, read once in New.
++	maxResultBytes int
++
++	// stateFile is <root>/.qompack/state/observer.json.
++	stateFile string
++}
++
++// The value New returns satisfies both seams.
++var (
++	_ Observer  = (*observer)(nil)
++	_ Persister = (*observer)(nil)
++)
++
++// New returns an Observer built from o.
++//
++// It reports an error only for a collaborator without which L0 cannot record anything at all:
++// an empty ProjectRoot, or a nil Store, Graph, Log or Clock (resolved decision 8). Every other
++// field is optional and every call site guards. The returned value ALWAYS satisfies Persister.
++func New(o Options) (Observer, error) {
++	switch {
++	case o.ProjectRoot == "":
++		return nil, fmt.Errorf("observer: New: ProjectRoot is required")
++	case o.Store == nil:
++		return nil, fmt.Errorf("observer: New: Store is required")
++	case o.Graph == nil:
++		return nil, fmt.Errorf("observer: New: Graph is required")
++	case o.Log == nil:
++		return nil, fmt.Errorf("observer: New: Log is required")
++	case o.Clock == nil:
++		return nil, fmt.Errorf("observer: New: Clock is required")
++	}
++
++	return &observer{
++		opt:            o,
++		sess:           make(map[core.SessionID]*sessionState),
++		maxResultBytes: maxResultBytes(o.Cfg),
++		stateFile:      stateFilePath(o.ProjectRoot),
++	}, nil
++}
++
++// hotPathMaxPayloadKey is the dotted config path the hot-path payload cap is read from.
++const hotPathMaxPayloadKey = "runtime.hotPath.maxPayloadBytes"
++
++// maxResultBytes reads the configured hot-path payload cap, falling back to the DEFAULT rather
++// than to a literal when the key is absent, not an int, or non-positive — which is what keeps
++// §11.6's no-hardcoding rule satisfied here without a //nomagic:allow.
++func maxResultBytes(cfg config.Config) int {
++	if v, ok := cfg.Get(hotPathMaxPayloadKey); ok {
++		if n, isInt := v.(int); isInt && n > 0 {
++			return n
++		}
++	}
++	return config.Defaults().Runtime.HotPath.MaxPayloadBytes
++}
++
++// mode reports the current degradation mode. A nil Options.Mode means ModeFull.
++func (o *observer) mode() Mode {
++	if o.opt.Mode == nil {
++		return ModeFull
++	}
++	return o.opt.Mode()
++}
++
++// now is the ONLY Clock call site in this package (resolved decision 11).
++func (o *observer) now() core.UnixMilli {
++	return core.UnixMilli(o.opt.Clock.Now().UnixMilli())
++}
++
++// soft absorbs one stage failure: no I/O failure ever escapes an Observer method (decision 7).
++func (o *observer) soft(stage string, err error) {
++	if err == nil {
++		return
++	}
++	o.count(counterErrPrefix + stage)
++	o.opt.Log.Warn("observer: stage failed", "stage", stage, "err", err)
++}
++
++// count bumps a counter. It is nil-safe on Options.Metrics and is the only place in this package
++// that names an obs COUNTER method, so adapting to a different spelling is a one-line change.
++func (o *observer) count(name string) {
++	if o.opt.Metrics == nil {
++		return
++	}
++	o.opt.Metrics.Counter(name).Add(1)
++}
++
++// timed runs f under the named histogram. It is the only place in this package that names an obs
++// HISTOGRAM method, for the same reason count is the only one that names a counter method.
++func (o *observer) timed(name string, f func() error) error {
++	if o.opt.Metrics == nil {
++		return f()
++	}
++	return obs.Timed(o.opt.Metrics.Hist(name), f)
++}
++
++// session returns s's state, creating it on first use. It is the only accessor of the session
++// map: it takes o.mu for the lookup/insert and releases it before returning, so a caller then
++// takes the returned state's OWN mutex with o.mu already free (resolved decision 9).
++func (o *observer) session(s core.SessionID) *sessionState {
++	o.once.Do(o.loadState)
++
++	o.mu.Lock()
++	defer o.mu.Unlock()
++	if st, ok := o.sess[s]; ok {
++		return st
++	}
++	st := &sessionState{
++		TodoDone:    make(map[string]bool),
++		WarnedRules: make(map[grammar.RuleID]bool),
++	}
++	o.sess[s] = st
++	return st
++}
++
++// The four entry points below are completed by later commits of this subplan. Each one already
++// honours the two rules every Observer method owes the host — return ctx.Err() and nothing else,
++// and hand back a valid do-nothing Output — which is exactly what observertest's behaviour block
++// requires of them today.
++
++// OnUserPrompt records the user's prompt verbatim (§8.1 item 7). Commit 4 lands prompt.go.
++func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
++	var out Output
++	err := o.timed(histPrompt, func() error {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		out = hookio.Empty()
++		return nil
++	})
++	return out, err
+ }
+ 
+-// OnStop always reports core.ErrNotImplemented.
+-func (stubObserver) OnStop(ctx context.Context, e Event, subagent bool) (Output, error) {
+-	return hookio.Empty(), core.ErrNotImplemented
++// OnStop closes the assistant turn and captures subagent detail (§8.1 item 8). Commit 5 lands
++// stop.go.
++func (o *observer) OnStop(ctx context.Context, e Event, subagent bool) (Output, error) {
++	var out Output
++	err := o.timed(histStop, func() error {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		out = hookio.Empty()
++		return nil
++	})
++	return out, err
+ }
+ 
+-// OnSessionStart always reports core.ErrNotImplemented.
+-func (stubObserver) OnSessionStart(ctx context.Context, e Event) (Output, error) {
+-	return hookio.Empty(), core.ErrNotImplemented
++// OnSessionStart branches on the SessionStart source. Commit 6 lands session.go.
++func (o *observer) OnSessionStart(ctx context.Context, e Event) (Output, error) {
++	var out Output
++	err := o.timed(histSessionStart, func() error {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		out = hookio.Empty()
++		return nil
++	})
++	return out, err
+ }
+ 
+-// OnSessionEnd always reports core.ErrNotImplemented.
+-func (stubObserver) OnSessionEnd(ctx context.Context, e Event) (Output, error) {
+-	return hookio.Empty(), core.ErrNotImplemented
++// OnSessionEnd flushes, indexes and garbage-collects. Commit 6 lands session.go.
++func (o *observer) OnSessionEnd(ctx context.Context, e Event) (Output, error) {
++	var out Output
++	err := o.timed(histSessionEnd, func() error {
++		if err := ctx.Err(); err != nil {
++			return err
++		}
++		out = hookio.Empty()
++		return nil
++	})
++	return out, err
+ }
+diff --git a/internal/observer/observer_test.go b/internal/observer/observer_test.go
+new file mode 100644
+index 0000000..6bdc39b
+--- /dev/null
++++ b/internal/observer/observer_test.go
+@@ -0,0 +1,143 @@
++package observer
++
++import (
++	"context"
++	"testing"
++	"time"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/stretchr/testify/require"
++)
++
++// validOptions is the minimal Options New must accept: the five collaborators without which L0
++// cannot record anything at all, and nothing else (resolved decision 8).
++func validOptions(t *testing.T) Options {
++	t.Helper()
++	return Options{
++		ProjectRoot: t.TempDir(),
++		Cfg:         config.Defaults(),
++		Store:       newFakeStore(),
++		Graph:       newFakeGraph(),
++		Log:         logging.Nop(),
++		Clock:       newFakeClock(),
++	}
++}
++
++func TestNew_RequiresItsMandatoryCollaborators(t *testing.T) {
++	for name, breakIt := range map[string]func(*Options){
++		"ProjectRoot": func(o *Options) { o.ProjectRoot = "" },
++		"Store":       func(o *Options) { o.Store = nil },
++		"Graph":       func(o *Options) { o.Graph = nil },
++		"Log":         func(o *Options) { o.Log = nil },
++		"Clock":       func(o *Options) { o.Clock = nil },
++	} {
++		t.Run(name, func(t *testing.T) {
++			o := validOptions(t)
++			breakIt(&o)
++			built, err := New(o)
++			require.Error(t, err, "a nil %s must be reported, not discovered at the first hook", name)
++			require.Nil(t, built)
++		})
++	}
++}
++
++func TestNew_AcceptsEveryOptionalCollaboratorAsNil(t *testing.T) {
++	built, err := New(validOptions(t))
++	require.NoError(t, err)
++	require.NotNil(t, built)
++
++	_, ok := built.(Persister)
++	require.True(t, ok, "the value New returns ALWAYS satisfies Persister")
++}
++
++func TestNew_MaxResultBytesFallsBackToTheDefault(t *testing.T) {
++	t.Run("absent", func(t *testing.T) {
++		o := validOptions(t)
++		o.Cfg = config.Config{} // no runtime section at all
++		built, err := New(o)
++		require.NoError(t, err)
++		impl, ok := built.(*observer)
++		require.True(t, ok)
++		require.Equal(t, config.Defaults().Runtime.HotPath.MaxPayloadBytes, impl.maxResultBytes,
++			"the fallback is the DEFAULT, never a literal")
++	})
++
++	t.Run("configured", func(t *testing.T) {
++		o := validOptions(t)
++		o.Cfg.Runtime.HotPath.MaxPayloadBytes = 7777
++		built, err := New(o)
++		require.NoError(t, err)
++		impl, ok := built.(*observer)
++		require.True(t, ok)
++		require.Equal(t, 7777, impl.maxResultBytes)
++	})
++}
++
++func TestObserver_ModeDefaultsToFull(t *testing.T) {
++	h := newHarness(t)
++	require.Equal(t, ModeFull, h.obs.mode(), "a nil Options.Mode is full operation")
++
++	passive := newHarness(t, func(o *Options) { o.Mode = func() Mode { return ModePassive } })
++	require.Equal(t, ModePassive, passive.obs.mode())
++}
++
++func TestObserver_SessionIsCreatedOnceWithNonNilMaps(t *testing.T) {
++	h := newHarness(t)
++
++	first := h.obs.session("sess_x")
++	require.NotNil(t, first.TodoDone)
++	require.NotNil(t, first.WarnedRules)
++	require.Same(t, first, h.obs.session("sess_x"), "the map is the only accessor and it memoizes")
++	require.NotSame(t, first, h.obs.session("sess_y"))
++}
++
++func TestObserver_MetricsAreOptional(t *testing.T) {
++	h := newHarness(t, func(o *Options) { o.Metrics = nil })
++
++	require.NotPanics(t, func() {
++		h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++		h.obs.count("observer.err.anything")
++		require.NoError(t, h.obs.timed("observer.tooluse", func() error { return nil }))
++	})
++}
++
++func TestObserver_SoftIgnoresANilError(t *testing.T) {
++	h := newHarness(t)
++
++	h.obs.soft(stagePut, nil)
++
++	require.Equal(t, int64(0), h.counter("observer.err."+stagePut),
++		"a stage that succeeded must not bump an error counter")
++}
++
++func TestObserver_NowIsTheOnlyClockCallSite(t *testing.T) {
++	h := newHarness(t)
++
++	before := h.obs.now()
++	h.Clock.Advance(500 * time.Microsecond)
++	require.Equal(t, before, h.obs.now(), "a sub-millisecond advance does not move a UnixMilli")
++
++	h.Clock.Advance(time.Second)
++	require.Equal(t, before+1000, h.obs.now())
++}
++
++func TestObserver_EveryEntryPointReturnsCtxErr(t *testing.T) {
++	h := newHarness(t)
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++
++	var e Event
++	for name, call := range map[string]func() (Output, error){
++		"OnToolUse":      func() (Output, error) { return h.obs.OnToolUse(ctx, e) },
++		"OnUserPrompt":   func() (Output, error) { return h.obs.OnUserPrompt(ctx, e) },
++		"OnStop":         func() (Output, error) { return h.obs.OnStop(ctx, e, false) },
++		"OnSessionStart": func() (Output, error) { return h.obs.OnSessionStart(ctx, e) },
++		"OnSessionEnd":   func() (Output, error) { return h.obs.OnSessionEnd(ctx, e) },
++	} {
++		t.Run(name, func(t *testing.T) {
++			_, err := call()
++			require.ErrorIs(t, err, context.Canceled)
++		})
++	}
++}
+diff --git a/internal/observer/observertest/suite_test.go b/internal/observer/observertest/suite_test.go
+index db4b3ca..8c1bf48 100644
+--- a/internal/observer/observertest/suite_test.go
++++ b/internal/observer/observertest/suite_test.go
+@@ -1,28 +1,30 @@
+ package observertest_test
+ 
+ import (
+ 	"context"
+ 	"testing"
+ 
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/observer"
+ 	"github.com/qompack/qompack/internal/observer/observertest"
++	"github.com/qompack/qompack/internal/store"
+ )
+ 
+ // fakeStubObserver mirrors the shape of an SP-01-style stub Observer: every entry point reports
+-// core.ErrNotImplemented alongside a valid, do-nothing Output, exactly like observer.New's own
+-// stub does today. It exists so the suite is exercised against a second, independent stub as well
+-// as against the real one.
++// core.ErrNotImplemented alongside a valid, do-nothing Output. It exists so the suite's shape
++// block and its Rule W-1 skip are still exercised against a stub now that observer.New itself
++// returns the real implementation.
+ type fakeStubObserver struct{}
+ 
+ func (fakeStubObserver) OnToolUse(ctx context.Context, e observer.Event) (observer.Output, error) {
+ 	return observer.Output{}, core.ErrNotImplemented
+ }
+ 
+ func (fakeStubObserver) OnUserPrompt(ctx context.Context, e observer.Event) (observer.Output, error) {
+ 	return observer.Output{}, core.ErrNotImplemented
+ }
+ 
+@@ -32,40 +34,69 @@ func (fakeStubObserver) OnStop(ctx context.Context, e observer.Event, subagent b
+ 
+ func (fakeStubObserver) OnSessionStart(ctx context.Context, e observer.Event) (observer.Output, error) {
+ 	return observer.Output{}, core.ErrNotImplemented
+ }
+ 
+ func (fakeStubObserver) OnSessionEnd(ctx context.Context, e observer.Event) (observer.Output, error) {
+ 	return observer.Output{}, core.ErrNotImplemented
+ }
+ 
+ // TestObserverSuite_ShapePassesAgainstStub proves the observertest suite's shape block passes
+-// against the SP-01 stubs — both the real observer.New stub and an independent fake — and that
+-// the behaviour block is skipped with the exact Rule W-1 message. SP-08 reuses RunObserverSuite
+-// unchanged, pointed at its real implementation, to flip that skip off.
++// against an SP-01-style stub and that the behaviour block is skipped with the exact Rule W-1
++// message. It is the negative control for the real run below: the skip has to still fire for a
++// stub, or "the behaviour block passed" would be an unfalsifiable claim.
+ //
+ // Each suite runs inside its own t.Run wrapper. That is load-bearing, not cosmetic: Rule W-1's
+ // t.Skip fires on the *T the suite was handed, so calling several suites directly from one test
+ // function would let the first stub skip abort the rest of them before they ever ran.
+ func TestObserverSuite_ShapePassesAgainstStub(t *testing.T) {
+ 	t.Run("fake-stub", func(t *testing.T) {
+ 		observertest.RunObserverSuite(t, "fake-stub", func(t *testing.T) observer.Observer {
+ 			return fakeStubObserver{}
+ 		})
+ 	})
++}
+ 
+-	t.Run("observer-new-stub", func(t *testing.T) {
+-		observertest.RunObserverSuite(t, "observer.New-stub", func(t *testing.T) observer.Observer {
+-			o, err := observer.New(observer.Options{
+-				ProjectRoot: t.TempDir(),
+-				Cfg:         config.Defaults(),
+-				Log:         logging.Nop(),
+-				Metrics:     obs.New(core.SystemClock()),
+-				Clock:       core.SystemClock(),
+-			})
+-			if err != nil {
+-				t.Fatal(err)
+-			}
+-			return o
+-		})
++// TestObserverSuite_RealObserver runs the whole suite — shape AND behaviour — against the real
++// SP-08 implementation. Landing the real observer.New is what lifts skipIfStub's Rule W-1 skip:
++// the probe no longer sees core.ErrNotImplemented from OnToolUse, so the eight behaviour cases
++// run for the first time.
++func TestObserverSuite_RealObserver(t *testing.T) {
++	observertest.RunObserverSuite(t, "observer.New", newRealObserver)
++}
++
++// newRealObserver builds a fresh, fully-wired Observer over a real store and a real dependence
++// graph on their own temporary root. The suite calls its factory once per case and documents that
++// every call must return a ready-to-use Observer, so nothing here is shared between calls.
++func newRealObserver(t *testing.T) observer.Observer {
++	t.Helper()
++
++	root := t.TempDir()
++	cfg := config.Defaults()
++	log := logging.Nop()
++	clock := core.SystemClock()
++
++	st, err := store.Open(root, cfg, store.Deps{Log: log, Clock: clock})
++	if err != nil {
++		t.Fatalf("store.Open(%s): %v", root, err)
++	}
++	t.Cleanup(func() { _ = st.Close() })
++
++	g, err := dag.Open(root, cfg, log)
++	if err != nil {
++		t.Fatalf("dag.Open(%s): %v", root, err)
++	}
++
++	o, err := observer.New(observer.Options{
++		ProjectRoot: root,
++		Cfg:         cfg,
++		Store:       st,
++		Graph:       g,
++		Log:         log,
++		Metrics:     obs.New(clock),
++		Clock:       clock,
+ 	})
++	if err != nil {
++		t.Fatalf("observer.New: %v", err)
++	}
++	return o
+ }
+diff --git a/internal/observer/prompt.go b/internal/observer/prompt.go
+new file mode 100644
+index 0000000..bc64aad
+--- /dev/null
++++ b/internal/observer/prompt.go
+@@ -0,0 +1,59 @@
++package observer
++
++import (
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/grammar"
++)
++
++// The UserPromptSubmit half of L0 (§8.1 items 6 and 7). Only the thrash-warning collector and its
++// drain live here so far: PostToolUse is where a high-multiplicity nonterminal becomes visible,
++// but PostToolUse has no channel to say anything through, so the warning is queued on the session
++// and emitted by the next user prompt — the one hook whose additionalContext reaches the
++// transcript. OnUserPrompt itself, and the verbatim capture of §8.1 item 7, land in a later commit
++// of this subplan.
++
++// thrashAdvice is the suggestion every thrash warning ends with. It is deliberately one clause: a
++// loop warning that argues with the agent costs more tokens than the loop it is reporting.
++const thrashAdvice = "consider a different approach"
++
++// collectThrash queues one warning per newly-thrashing grammar rule.
++//
++// The dedup is per rule id and per session, in st.WarnedRules, because Sequitur reports a rule for
++// as long as it stays above the multiplicity threshold: without it, one loop would produce a
++// warning on every prompt for the rest of the session. WarnedRules is deliberately not persisted
++// (see state.go) — the worst failure of losing it is one repeated line.
++func (o *observer) collectThrash(st *sessionState) {
++	if o.opt.Grammar == nil {
++		return
++	}
++	for _, rule := range o.opt.Grammar.Thrash(thrashMinUses) {
++		if st.WarnedRules[rule.ID] {
++			continue
++		}
++		st.WarnedRules[rule.ID] = true
++		st.PendingThrash = append(st.PendingThrash, rule)
++	}
++}
++
++// pendingThrashLines drains the queued warnings into their rendered form and clears the queue.
++//
++// The rendering goes through grammar.FormatWarning rather than a local Sprintf: §5.11 leaves the
++// wording open, SP-01 closed it there, and SP-15 asserts it byte-for-byte, so a second formatter
++// in this package would be a second answer to a question that already has one.
++func (o *observer) pendingThrashLines(st *sessionState) []string {
++	if len(st.PendingThrash) == 0 {
++		return nil
++	}
++
++	out := make([]string, 0, len(st.PendingThrash))
++	for _, rule := range st.PendingThrash {
++		out = append(out, grammar.FormatWarning(grammar.Warning{
++			Rule:    rule,
++			Repeats: rule.Uses,
++			Message: thrashAdvice,
++			Turns:   []core.TurnIndex{st.Turn},
++		}))
++	}
++	st.PendingThrash = nil
++	return out
++}
+diff --git a/internal/observer/prompt_test.go b/internal/observer/prompt_test.go
+new file mode 100644
+index 0000000..5b596b7
+--- /dev/null
++++ b/internal/observer/prompt_test.go
+@@ -0,0 +1,98 @@
++package observer
++
++import (
++	"testing"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/grammar"
++	"github.com/stretchr/testify/require"
++)
++
++// thrashRule is one Sequitur rule above the multiplicity threshold.
++func thrashRule(id grammar.RuleID, uses int, expansion ...grammar.Symbol) grammar.Rule {
++	return grammar.Rule{ID: id, Uses: uses, Expansion: expansion, Span: len(expansion)}
++}
++
++func TestCollectThrash_QueuesEachRuleExactlyOnce(t *testing.T) {
++	g := &fakeGrammar{Thrashing: []grammar.Rule{
++		thrashRule(1, 11, "FileRead", "FileEdit", "Bash"),
++	}}
++	h := newHarness(t, func(o *Options) { o.Grammar = g })
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		readOf("toolu_2", "src/a.ts", "alpha\n"),
++		readOf("toolu_3", "src/a.ts", "alpha\n"),
++	)
++
++	st := h.state(testSession)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Len(t, st.PendingThrash, 1,
++		"Sequitur reports a rule for as long as it stays above the threshold; the warning is per rule")
++	require.True(t, st.WarnedRules[1])
++}
++
++func TestCollectThrash_QueuesANewlyThrashingRule(t *testing.T) {
++	g := &fakeGrammar{}
++	h := newHarness(t, func(o *Options) { o.Grammar = g })
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	g.mu.Lock()
++	g.Thrashing = []grammar.Rule{thrashRule(1, 4, "FileRead", "Bash"), thrashRule(2, 9, "Grep", "FileEdit")}
++	g.mu.Unlock()
++	h.drive(readOf("toolu_2", "src/a.ts", "alpha\n"))
++
++	st := h.state(testSession)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Len(t, st.PendingThrash, 2)
++}
++
++func TestCollectThrash_AppendsTheToolSymbolAndTheTestVerdict(t *testing.T) {
++	g := &fakeGrammar{}
++	h := newHarness(t, func(o *Options) { o.Grammar = g })
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		bashOf("toolu_2", "go test ./...", "ok  \tgithub.com/example/pkg\t0.42s\n"),
++		bashOf("toolu_3", "go test ./...", "FAIL\tgithub.com/example/pkg\t0.42s\n"),
++	)
++
++	require.Equal(t, []grammar.Symbol{
++		"FileRead",
++		"Bash", grammarTestPass,
++		"Bash", grammarTestFail,
++	}, g.appended(), "the action stream carries the tool symbol and, when there is one, the verdict")
++}
++
++func TestPendingThrashLines_DrainsAndFormatsThroughGrammar(t *testing.T) {
++	rule := thrashRule(1, 11, "FileRead", "FileEdit", "Bash")
++	h := newHarness(t, func(o *Options) { o.Grammar = &fakeGrammar{Thrashing: []grammar.Rule{rule}} })
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	st := h.state(testSession)
++	st.mu.Lock()
++	st.Turn = 42
++	lines := h.obs.pendingThrashLines(st)
++	drained := h.obs.pendingThrashLines(st)
++	st.mu.Unlock()
++
++	require.Equal(t, []string{grammar.FormatWarning(grammar.Warning{
++		Rule: rule, Repeats: 11, Message: thrashAdvice, Turns: []core.TurnIndex{42},
++	})}, lines)
++	require.Nil(t, drained, "the queue is drained, so one loop is reported once")
++}
++
++func TestCollectThrash_NilGrammarIsTolerated(t *testing.T) {
++	h := newHarness(t, func(o *Options) { o.Grammar = nil })
++
++	require.NotPanics(t, func() {
++		h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++		st := h.state(testSession)
++		st.mu.Lock()
++		defer st.mu.Unlock()
++		h.obs.collectThrash(st)
++		require.Empty(t, st.PendingThrash)
++	})
++}
+diff --git a/internal/observer/sketches.go b/internal/observer/sketches.go
+new file mode 100644
+index 0000000..c2f8eb3
+--- /dev/null
++++ b/internal/observer/sketches.go
+@@ -0,0 +1,45 @@
++package observer
++
++import "github.com/qompack/qompack/internal/store"
++
++// The two key prefixes that keep the path and tool namespaces disjoint inside one Count-Min
++// sketch. They are single bytes plus a NUL separator rather than a human-readable word because
++// every Add is on budget B-C and the key is hashed, never displayed.
++const (
++	sketchPathPrefix = "p\x00"
++	sketchToolPrefix = "t\x00"
++)
++
++// feedSketches is §8.1 item 5: the Count-Min file-touch frequency sketch of §6.2, the HyperLogLog
++// breadth-of-exploration cardinality over DISTINCT paths, and the Misra-Gries top-k that gives
++// `/qompack:status` a no-false-positives answer.
++//
++// # The Bloom filter is never referenced in this file, or anywhere in internal/observer
++//
++// §8.1 item 5 is explicit: "Feed the Bloom filter ONLY on explicit negative-knowledge events
++// (§8.3)", and those events are SP-09's. That is why this package declines the negknow import its
++// §3.2 allow-set would permit, and why TestObserverSourceHasNoBloomReference parses every non-test
++// file here and requires zero occurrences of the identifier.
++func (o *observer) feedSketches(rec store.ToolUseRecord) {
++	if rec.Ephemeral {
++		return // retrieval is not exploration (resolved decision 6)
++	}
++
++	// The three sketches are per-PROJECT and shared by every session, so the per-session lock of
++	// decision 9 does not cover them and internal/sketch supplies no locking of its own.
++	o.sketchMu.Lock()
++	defer o.sketchMu.Unlock()
++
++	if o.opt.Touch != nil {
++		o.opt.Touch.Add([]byte(sketchToolPrefix+rec.Tool), 1)
++		if rec.Path != "" {
++			o.opt.Touch.Add([]byte(sketchPathPrefix+rec.Path), 1)
++		}
++	}
++	if o.opt.Explore != nil && rec.Path != "" {
++		o.opt.Explore.Add([]byte(sketchPathPrefix + rec.Path))
++	}
++	if o.opt.Hot != nil && rec.Path != "" {
++		o.opt.Hot.Add(rec.Path, 1)
++	}
++}
+diff --git a/internal/observer/sketches_test.go b/internal/observer/sketches_test.go
+new file mode 100644
+index 0000000..10c9d81
+--- /dev/null
++++ b/internal/observer/sketches_test.go
+@@ -0,0 +1,189 @@
++package observer
++
++import (
++	"fmt"
++	"go/ast"
++	"go/parser"
++	"go/token"
++	"os"
++	"path/filepath"
++	"reflect"
++	"sort"
++	"strconv"
++	"strings"
++	"testing"
++
++	"github.com/qompack/qompack/internal/sketch"
++	"github.com/stretchr/testify/require"
++)
++
++func TestSketches_CMSFedWithPathAndTool(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++
++	require.Equal(t, uint32(1), h.Touch.Estimate([]byte("p\x00src/a.ts")), "the file-touch key")
++	require.Equal(t, uint32(1), h.Touch.Estimate([]byte("t\x00FileRead")), "the tool key")
++}
++
++func TestSketches_HLLCountsDistinctPaths(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(
++		readOf("toolu_1", "a.ts", "alpha\n"),
++		readOf("toolu_2", "b.ts", "beta\n"),
++		readOf("toolu_3", "a.ts", "alpha again\n"),
++	)
++
++	require.Equal(t, uint64(2), h.Explore.Cardinality(), "breadth of exploration counts DISTINCT paths")
++}
++
++func TestSketches_MisraGriesTopK(t *testing.T) {
++	h := newHarness(t)
++
++	for i := range 5 {
++		h.drive(readOf(fmt.Sprintf("toolu_a%d", i), "a.ts", "alpha\n"))
++	}
++	for i := range 2 {
++		h.drive(readOf(fmt.Sprintf("toolu_b%d", i), "b.ts", "beta\n"))
++	}
++
++	require.Equal(t, []sketch.Counted{{Key: "a.ts", Count: 5}}, h.Hot.Top(1))
++}
++
++func TestSketches_NoPathNoHLL(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(bashOf("toolu_1", "go build ./...", "ok\n"))
++
++	require.Equal(t, uint64(0), h.Explore.Cardinality())
++	require.Equal(t, uint32(1), h.Touch.Estimate([]byte("t\x00Bash")), "the tool is still counted")
++}
++
++func TestSketches_EphemeralNotFed(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(toolUse("toolu_1", "mcp__qompack__expand",
++		`{"path":"src/a.ts"}`, `{"content":"expanded"}`))
++
++	require.Zero(t, h.Touch.Total())
++	require.Equal(t, uint64(0), h.Explore.Cardinality())
++	require.Empty(t, h.Hot.Top(1))
++}
++
++func TestSketches_NilTolerated(t *testing.T) {
++	h := newHarness(t, func(o *Options) {
++		o.Touch, o.Explore, o.Hot = nil, nil, nil
++	})
++
++	require.NotPanics(t, func() { h.drive(readOf("toolu_1", "src/a.ts", "alpha\n")) })
++}
++
++// TestObserverNeverFeedsBloom is §8.1 item 5's prohibition: "Feed the Bloom filter ONLY on explicit
++// negative-knowledge events (§8.3)", and those events are SP-09's.
++//
++// The plan's own phrasing is a store "whose sketch.Bloom is replaced by a panicking double". There
++// is no such seam to replace — neither Options nor store.Store nor store.Deps carries a Bloom — and
++// that absence is the STRONGER form of the same assertion, so it is what this asserts: no Options
++// field is a Bloom in any spelling, and a full 50-event session completes without reaching a single
++// method of the embedded store.Store interface, every one of which is nil and would panic.
++func TestObserverNeverFeedsBloom(t *testing.T) {
++	h := newHarness(t)
++
++	optionsType := reflect.TypeOf(Options{})
++	for i := range optionsType.NumField() {
++		f := optionsType.Field(i)
++		require.NotContains(t, f.Type.String(), "Bloom",
++			"Options.%s is a Bloom seam; L0 may not have one", f.Name)
++	}
++
++	require.NotPanics(t, func() {
++		for i := range 50 {
++			switch i % 3 {
++			case 0:
++				h.drive(readOf(fmt.Sprintf("toolu_%d", i), fmt.Sprintf("src/f%d.ts", i%5), "alpha\n"))
++			case 1:
++				h.drive(bashOf(fmt.Sprintf("toolu_%d", i), "go test ./...", "ok  \tpkg\t0.1s\n"))
++			default:
++				h.drive(toolUse(fmt.Sprintf("toolu_%d", i), "Grep",
++					`{"pattern":"x","path":"src"}`, `{"content":"src/f1.ts:1:x"}`))
++			}
++		}
++	})
++	require.Len(t, h.Store.Records, 50)
++}
++
++// observerSourceFiles parses every non-test .go file of this package.
++func observerSourceFiles(t *testing.T) (*token.FileSet, []*ast.File, []string) {
++	t.Helper()
++
++	entries, err := os.ReadDir(".")
++	require.NoError(t, err)
++
++	fset := token.NewFileSet()
++	var files []*ast.File
++	var names []string
++	for _, e := range entries {
++		name := e.Name()
++		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
++			continue
++		}
++		f, err := parser.ParseFile(fset, filepath.Join(".", name), nil, parser.SkipObjectResolution)
++		require.NoError(t, err, "parsing %s", name)
++		files = append(files, f)
++		names = append(names, name)
++	}
++	require.NotEmpty(t, files)
++	return fset, files, names
++}
++
++// TestObserverSourceHasNoBloomReference greps the package's own AST — not its comments, which
++// legitimately explain the prohibition — for the Bloom identifiers.
++func TestObserverSourceHasNoBloomReference(t *testing.T) {
++	_, files, names := observerSourceFiles(t)
++
++	forbidden := map[string]bool{"Bloom": true, "NewBloom": true, "RebuildBloom": true}
++	for i, f := range files {
++		ast.Inspect(f, func(n ast.Node) bool {
++			id, ok := n.(*ast.Ident)
++			if !ok {
++				return true
++			}
++			require.False(t, forbidden[id.Name], "%s references the identifier %q", names[i], id.Name)
++			return true
++		})
++	}
++}
++
++// TestObserverImportSetIsExact pins the exit criterion of the subplan: the REALIZED import set,
++// not the §3.2 ceiling. devtool's import-graph check permits negknow and chunk, so this is the
++// only place the two declines (resolved decision 1 and §8.1 item 5) are actually enforced.
++func TestObserverImportSetIsExact(t *testing.T) {
++	_, files, _ := observerSourceFiles(t)
++
++	const prefix = "github.com/qompack/qompack/internal/"
++	got := map[string]bool{}
++	for _, f := range files {
++		for _, imp := range f.Imports {
++			path, err := strconv.Unquote(imp.Path.Value)
++			require.NoError(t, err)
++			if !strings.HasPrefix(path, prefix) {
++				continue
++			}
++			got[strings.TrimPrefix(path, prefix)] = true
++		}
++	}
++
++	want := []string{
++		"canon", "config", "core", "dag", "grammar", "hookio",
++		"logging", "obs", "paths", "sketch", "store", "tokens",
++	}
++	have := make([]string, 0, len(got))
++	for k := range got {
++		have = append(have, k)
++	}
++	sort.Strings(have)
++	require.Equal(t, want, have,
++		"the realized set is exactly this — chunk and negknow are declined, and symbols, scheduler, "+
++			"checkpoint and contract are what the seams stand in for")
++}
+diff --git a/internal/observer/state.go b/internal/observer/state.go
+new file mode 100644
+index 0000000..eebbd29
+--- /dev/null
++++ b/internal/observer/state.go
+@@ -0,0 +1,243 @@
++package observer
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"io/fs"
++	"os"
++	"path/filepath"
++	"sort"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/grammar"
++	"github.com/qompack/qompack/internal/paths"
++)
++
++// The observer's crash-tolerant resume state (§3.3): turn index, prefix position, segment
++// bookkeeping and the SubagentStop window, written to <root>/.qompack/state/observer.json.
++//
++// state/ is daemon-persisted scratch rather than an append-only log, so this is a whole-file
++// WriteAtomic rather than an append. What is deliberately NOT here is as important as what is:
++// Recent is a feature window that legitimately restarts cold after a daemon restart, and
++// WarnedRules and PendingThrash are warning-dedup state whose worst failure is one repeated
++// thrash line.
++const (
++	// stateVersion is the on-disk schema version. Any other value is treated exactly like a
++	// corrupt file — rename and start fresh — which is the migration path for a future field.
++	stateVersion = 1
++	// observerStateFile is the basename under <root>/.qompack/state.
++	observerStateFile = "observer.json"
++	// corruptStateSuffix is appended when an unreadable file is set aside.
++	corruptStateSuffix = ".bad"
++	// stateFilePerm is the permission every state file in this repository is written with.
++	stateFilePerm fs.FileMode = 0o600
++	// stateDirPerm is the permission the state directory is created with.
++	stateDirPerm fs.FileMode = 0o700
++)
++
++// stateFilePath returns the observer state file's path under root.
++func stateFilePath(root string) string {
++	return filepath.Join(paths.Of(root).State, observerStateFile)
++}
++
++// persistedState is the whole file.
++type persistedState struct {
++	Version  int                         `json:"version"`
++	Sessions map[string]persistedSession `json:"sessions"`
++}
++
++// persistedSession is one session's durable half.
++type persistedSession struct {
++	Turn         core.TurnIndex `json:"turn"`
++	PrefixTokens int            `json:"prefix_tokens"`
++	Segment      core.SegmentID `json:"segment"`
++	PrevSegment  core.SegmentID `json:"prev_segment"`
++	SegStartTurn core.TurnIndex `json:"seg_start_turn"`
++	SegStartPos  int            `json:"seg_start_pos"`
++	LastTS       core.UnixMilli `json:"last_ts"`
++	// LastToolUseID is the ToolUseID, NOT a dag.NodeID: the builder mints node ids itself.
++	LastToolUseID   string         `json:"last_tool_use_id"`
++	LastToolUseTurn core.TurnIndex `json:"last_tool_use_turn"`
++	LastPromptTurn  core.TurnIndex `json:"last_prompt_turn"`
++	SubagentSince   int            `json:"subagent_since"`
++	// TodoDone is persisted SORTED so the file is diffable and byte-stable across runs.
++	TodoDone []string           `json:"todo_done"`
++	ToolUses []persistedToolUse `json:"tool_uses"`
++}
++
++// persistedToolUse is one entry of the SubagentStop window.
++type persistedToolUse struct {
++	ID string `json:"id"`
++	// Root is core.Hash.String() form ("sha256:…"), so the file stays greppable and the identity
++	// stays the STORE's own root rather than a second one only this package can read.
++	Root  string `json:"root"`
++	Tool  string `json:"tool"`
++	Path  string `json:"path"`
++	Bytes int64  `json:"bytes"`
++}
++
++// loadState reads the state file into the session map. It runs at most once per process, tolerates
++// a missing file, and never blocks a session: a JSON error or an unknown version logs Warn,
++// renames the file aside, and starts fresh.
++func (o *observer) loadState() {
++	b, err := os.ReadFile(paths.Long(o.stateFile))
++	if err != nil {
++		if !errors.Is(err, fs.ErrNotExist) {
++			o.soft(stageState, err)
++		}
++		return
++	}
++
++	var ps persistedState
++	if err := json.Unmarshal(b, &ps); err != nil {
++		o.setAsideCorruptState(err)
++		return
++	}
++	if ps.Version != stateVersion {
++		o.setAsideCorruptState(fmt.Errorf("observer: state file version %d is not %d",
++			ps.Version, stateVersion))
++		return
++	}
++
++	o.mu.Lock()
++	defer o.mu.Unlock()
++	for id, sess := range ps.Sessions {
++		o.sess[core.SessionID(id)] = o.rehydrate(sess)
++	}
++}
++
++// setAsideCorruptState renames the unreadable file and reports it. A failure to rename is itself
++// soft: the next persistState overwrites the file anyway.
++func (o *observer) setAsideCorruptState(cause error) {
++	o.soft(stageState, cause)
++	if err := os.Rename(paths.Long(o.stateFile), paths.Long(o.stateFile+corruptStateSuffix)); err != nil {
++		o.opt.Log.Debug("observer: could not set aside the corrupt state file",
++			"path", o.stateFile, "err", err)
++	}
++}
++
++// rehydrate turns one persisted session back into live state.
++func (o *observer) rehydrate(p persistedSession) *sessionState {
++	st := &sessionState{
++		Turn:            p.Turn,
++		PrefixTokens:    p.PrefixTokens,
++		Segment:         p.Segment,
++		PrevSegment:     p.PrevSegment,
++		SegStartTurn:    p.SegStartTurn,
++		SegStartPos:     p.SegStartPos,
++		LastTS:          p.LastTS,
++		LastToolUseID:   core.ToolUseID(p.LastToolUseID),
++		LastToolUseTurn: p.LastToolUseTurn,
++		LastPromptTurn:  p.LastPromptTurn,
++		SubagentSince:   p.SubagentSince,
++		TodoDone:        make(map[string]bool, len(p.TodoDone)),
++		WarnedRules:     make(map[grammar.RuleID]bool),
++	}
++	for _, done := range p.TodoDone {
++		st.TodoDone[done] = true
++	}
++	for _, tu := range p.ToolUses {
++		root, err := core.ParseHash(tu.Root)
++		if err != nil {
++			// One unreadable root drops one entry rather than the whole window: the entry is a
++			// retrieval convenience for SubagentStop, not a durable identity.
++			o.opt.Log.Debug("observer: dropping a tool-use window entry with an unparseable root",
++				"id", tu.ID, "root", tu.Root, "err", err)
++			continue
++		}
++		st.ToolUses = append(st.ToolUses, toolUseLite{
++			ID: core.ToolUseID(tu.ID), Root: root, Tool: tu.Tool, Path: tu.Path, Bytes: tu.Bytes,
++		})
++	}
++	if st.SubagentSince > len(st.ToolUses) {
++		st.SubagentSince = len(st.ToolUses)
++	}
++	return st
++}
++
++// persistState writes every live session to the state file.
++//
++// It never holds o.mu and a sessionState.mu at the same time: it copies the map under o.mu,
++// releases it, snapshots each session under that session's own lock, and re-takes o.mu only for
++// the write itself — which is the half of decision 9's "guards sess and the state-file write".
++func (o *observer) persistState() {
++	o.mu.Lock()
++	ids := make([]core.SessionID, 0, len(o.sess))
++	states := make([]*sessionState, 0, len(o.sess))
++	for id, st := range o.sess {
++		ids = append(ids, id)
++		states = append(states, st)
++	}
++	o.mu.Unlock()
++
++	ps := persistedState{Version: stateVersion, Sessions: make(map[string]persistedSession, len(ids))}
++	for i, st := range states {
++		ps.Sessions[string(ids[i])] = snapshotSession(st)
++	}
++
++	b, err := json.Marshal(ps)
++	if err != nil {
++		o.soft(stageState, err)
++		return
++	}
++
++	o.mu.Lock()
++	defer o.mu.Unlock()
++	if err := os.MkdirAll(paths.Long(filepath.Dir(o.stateFile)), stateDirPerm); err != nil {
++		o.soft(stageState, err)
++		return
++	}
++	o.soft(stageState, paths.WriteAtomic(o.stateFile, b, stateFilePerm))
++}
++
++// snapshotSession copies one session's durable half under its own lock.
++func snapshotSession(st *sessionState) persistedSession {
++	st.mu.Lock()
++	defer st.mu.Unlock()
++
++	done := make([]string, 0, len(st.TodoDone))
++	for content := range st.TodoDone {
++		done = append(done, content)
++	}
++	sort.Strings(done)
++
++	window := st.ToolUses
++	if len(window) > subagentWindowCap {
++		window = window[len(window)-subagentWindowCap:]
++	}
++	tus := make([]persistedToolUse, 0, len(window))
++	for _, tu := range window {
++		tus = append(tus, persistedToolUse{
++			ID: string(tu.ID), Root: tu.Root.String(), Tool: tu.Tool, Path: tu.Path, Bytes: tu.Bytes,
++		})
++	}
++
++	return persistedSession{
++		Turn:            st.Turn,
++		PrefixTokens:    st.PrefixTokens,
++		Segment:         st.Segment,
++		PrevSegment:     st.PrevSegment,
++		SegStartTurn:    st.SegStartTurn,
++		SegStartPos:     st.SegStartPos,
++		LastTS:          st.LastTS,
++		LastToolUseID:   string(st.LastToolUseID),
++		LastToolUseTurn: st.LastToolUseTurn,
++		LastPromptTurn:  st.LastPromptTurn,
++		SubagentSince:   st.SubagentSince,
++		TodoDone:        done,
++		ToolUses:        tus,
++	}
++}
++
++// Persist writes the observer's state and flushes the graph. It is what the daemon's
++// IdleController registers, so state survives a daemon kill between SessionEnds.
++func (o *observer) Persist(ctx context.Context) error {
++	if err := ctx.Err(); err != nil {
++		return err
++	}
++	o.persistState()
++	o.soft(stageGraphOut, o.opt.Graph.Flush(ctx))
++	return nil
++}
+diff --git a/internal/observer/state_test.go b/internal/observer/state_test.go
+new file mode 100644
+index 0000000..95a8294
+--- /dev/null
++++ b/internal/observer/state_test.go
+@@ -0,0 +1,195 @@
++package observer
++
++import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/stretchr/testify/require"
++)
++
++// stateHarness builds an observer rooted at root, so a second one can be built over the same
++// state file and asked what it resumed.
++func stateHarness(t *testing.T, root string) *harness {
++	t.Helper()
++	return newHarness(t, func(o *Options) { o.ProjectRoot = root })
++}
++
++// readStateFile returns the state file's raw bytes.
++func readStateFile(t *testing.T, root string) []byte {
++	t.Helper()
++	b, err := os.ReadFile(paths.Long(stateFilePath(root)))
++	require.NoError(t, err)
++	return b
++}
++
++func TestState_RoundTripsThroughDisk(t *testing.T) {
++	root := t.TempDir()
++	first := stateHarness(t, root)
++
++	first.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		readOf("toolu_2", "src/b.ts", "beta\n"),
++	)
++	st := first.state(testSession)
++	st.mu.Lock()
++	st.Turn, st.PrefixTokens = 41, 128340
++	st.Segment, st.PrevSegment = 7, 6
++	st.SegStartTurn, st.SegStartPos = 33, 104880
++	st.LastPromptTurn, st.SubagentSince = 40, 1
++	st.TodoDone["migrate schema"] = true
++	st.mu.Unlock()
++
++	require.NoError(t, first.obs.Persist(context.Background()))
++
++	second := stateHarness(t, root)
++	got := second.state(testSession)
++	got.mu.Lock()
++	defer got.mu.Unlock()
++
++	require.Equal(t, core.TurnIndex(41), got.Turn)
++	require.Equal(t, 128340, got.PrefixTokens)
++	require.Equal(t, core.SegmentID(7), got.Segment)
++	require.Equal(t, core.SegmentID(6), got.PrevSegment)
++	require.Equal(t, core.TurnIndex(33), got.SegStartTurn)
++	require.Equal(t, 104880, got.SegStartPos)
++	require.Equal(t, core.TurnIndex(40), got.LastPromptTurn)
++	require.Equal(t, 1, got.SubagentSince)
++	require.Equal(t, core.ToolUseID("toolu_2"), got.LastToolUseID)
++	require.Equal(t, map[string]bool{"migrate schema": true}, got.TodoDone)
++
++	require.Len(t, got.ToolUses, 2)
++	require.Equal(t, core.ToolUseID("toolu_1"), got.ToolUses[0].ID)
++	require.Equal(t, "FileRead", got.ToolUses[0].Tool)
++	require.Equal(t, "src/a.ts", got.ToolUses[0].Path)
++	require.Equal(t, core.HashBytes(core.DomainArgs, []byte("alpha\n")), got.ToolUses[0].Root,
++		"the store's own Root is the only identity; it must survive the round trip")
++
++	require.Empty(t, got.Recent, "the feature window legitimately restarts cold")
++	require.NotNil(t, got.WarnedRules, "warning-dedup state is rebuilt empty, never nil")
++}
++
++func TestState_IsByteStableAcrossRuns(t *testing.T) {
++	root := t.TempDir()
++	h := stateHarness(t, root)
++	st := h.state(testSession)
++	st.mu.Lock()
++	for _, done := range []string{"zeta", "alpha", "mu"} {
++		st.TodoDone[done] = true
++	}
++	st.mu.Unlock()
++
++	require.NoError(t, h.obs.Persist(context.Background()))
++	first := readStateFile(t, root)
++	require.NoError(t, h.obs.Persist(context.Background()))
++	require.Equal(t, string(first), string(readStateFile(t, root)),
++		"TodoDone is persisted sorted so the file is diffable and stable")
++
++	var ps persistedState
++	require.NoError(t, json.Unmarshal(first, &ps))
++	require.Equal(t, []string{"alpha", "mu", "zeta"}, ps.Sessions[string(testSession)].TodoDone)
++	require.Equal(t, stateVersion, ps.Version)
++}
++
++func TestState_CorruptFileIsSetAsideAndTheSessionStartsFresh(t *testing.T) {
++	root := t.TempDir()
++	path := stateFilePath(root)
++	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(path)), stateDirPerm))
++	require.NoError(t, os.WriteFile(paths.Long(path), []byte("{not json"), stateFilePerm))
++
++	h := stateHarness(t, root)
++	st := h.state(testSession)
++
++	require.Equal(t, core.TurnIndex(0), st.Turn, "a corrupt file never blocks a session")
++	require.Equal(t, int64(1), h.counter("observer.err."+stageState))
++	_, err := os.Stat(paths.Long(path + corruptStateSuffix))
++	require.NoError(t, err, "the unreadable file is renamed aside, not deleted")
++}
++
++func TestState_UnknownVersionIsTreatedAsCorrupt(t *testing.T) {
++	root := t.TempDir()
++	path := stateFilePath(root)
++	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(path)), stateDirPerm))
++	require.NoError(t, os.WriteFile(paths.Long(path),
++		[]byte(`{"version":99,"sessions":{"sess_sp08":{"turn":12}}}`), stateFilePerm))
++
++	h := stateHarness(t, root)
++	st := h.state(testSession)
++
++	require.Equal(t, core.TurnIndex(0), st.Turn, "a future schema is the migration path, not a crash")
++	_, err := os.Stat(paths.Long(path + corruptStateSuffix))
++	require.NoError(t, err)
++}
++
++func TestState_MissingFileIsNotAnError(t *testing.T) {
++	h := stateHarness(t, t.TempDir())
++
++	st := h.state(testSession)
++
++	require.Equal(t, core.TurnIndex(0), st.Turn)
++	require.Equal(t, int64(0), h.counter("observer.err."+stageState), "a fresh project has no state file")
++}
++
++func TestState_UnparseableRootDropsOnlyThatEntry(t *testing.T) {
++	root := t.TempDir()
++	path := stateFilePath(root)
++	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(path)), stateDirPerm))
++
++	good := core.HashBytes(core.DomainArgs, []byte("alpha")).String()
++	body, err := json.Marshal(persistedState{
++		Version: stateVersion,
++		Sessions: map[string]persistedSession{
++			string(testSession): {
++				SubagentSince: 9,
++				ToolUses: []persistedToolUse{
++					{ID: "toolu_bad", Root: "not-a-hash", Tool: "FileRead", Path: "src/a.ts"},
++					{ID: "toolu_good", Root: good, Tool: "FileRead", Path: "src/b.ts", Bytes: 5},
++				},
++			},
++		},
++	})
++	require.NoError(t, err)
++	require.NoError(t, os.WriteFile(paths.Long(path), body, stateFilePerm))
++
++	st := stateHarness(t, root).state(testSession)
++
++	require.Len(t, st.ToolUses, 1, "one unreadable root drops one entry, not the window")
++	require.Equal(t, core.ToolUseID("toolu_good"), st.ToolUses[0].ID)
++	require.Equal(t, 1, st.SubagentSince, "the cursor is clamped to what actually survived")
++}
++
++func TestState_ToolUsesAreCappedOnWrite(t *testing.T) {
++	root := t.TempDir()
++	h := stateHarness(t, root)
++	st := h.state(testSession)
++	st.mu.Lock()
++	for i := range subagentWindowCap + 50 {
++		st.ToolUses = append(st.ToolUses,
++			toolUseLite{ID: core.ToolUseID(fmt.Sprintf("toolu_%d", i)), Tool: "FileRead"})
++	}
++	st.mu.Unlock()
++
++	require.NoError(t, h.obs.Persist(context.Background()))
++
++	var ps persistedState
++	require.NoError(t, json.Unmarshal(readStateFile(t, root), &ps))
++	require.Len(t, ps.Sessions[string(testSession)].ToolUses, subagentWindowCap,
++		"the window is capped on write, so the file cannot grow without bound")
++}
++
++func TestPersist_FlushesTheGraphAndHonoursCtx(t *testing.T) {
++	h := stateHarness(t, t.TempDir())
++
++	require.NoError(t, h.obs.Persist(context.Background()))
++	require.Equal(t, 1, h.Graph.FlushCalls, "Persist is one of the three places Flush is called")
++
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++	require.ErrorIs(t, h.obs.Persist(ctx), context.Canceled)
++	require.Equal(t, 1, h.Graph.FlushCalls, "a cancelled Persist does no work")
++}
+diff --git a/internal/observer/tooluse.go b/internal/observer/tooluse.go
+new file mode 100644
+index 0000000..07ab73d
+--- /dev/null
++++ b/internal/observer/tooluse.go
+@@ -0,0 +1,261 @@
++package observer
++
++import (
++	"context"
++	"fmt"
++	"strings"
++
++	"github.com/qompack/qompack/internal/canon"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/grammar"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/paths"
++	"github.com/qompack/qompack/internal/sketch"
++	"github.com/qompack/qompack/internal/store"
++	"github.com/qompack/qompack/internal/tokens"
++)
++
++// mcpToolPrefix marks Qompack's own retrieval results (§8.7, resolved decision 6). A tool whose
++// name starts with it is recorded Ephemeral, excluded from supersession in both directions, and
++// not fed to the exploration sketches — retrieval is not exploration.
++const mcpToolPrefix = "mcp__qompack__"
++
++// The two display names whose results are WRITES rather than reads. dag.ObservedTool.Writes is
++// what orients every shared-state edge (SP-07 D-1), so this is the only place the distinction is
++// made on the observer's side.
++const (
++	toolFileEdit  = "FileEdit"
++	toolFileWrite = "FileWrite"
++)
++
++// The action-grammar symbols a test verdict contributes alongside the tool symbol (§8.1 item 6).
++const (
++	grammarTestPass grammar.Symbol = "test:pass"
++	grammarTestFail grammar.Symbol = "test:fail"
++)
++
++// crlfClass is stripped unconditionally, even when store.canonicalize.enabled is false: §4 makes
++// CRLF→LF normalization a property of content entering the store rather than a configured option
++// (resolved decision 2).
++const crlfClass = canon.Class("crlf")
++
++// minHashShingleSize is the shingle width the near-duplicate signature is computed over. It is a
++// property of this call site's content class — tool output — rather than a configuration default,
++// which is why it is named here and not in internal/config.
++const minHashShingleSize = 5
++
++// OnToolUse is the PostToolUse pipeline of §8.1 items 1–6, in the order resolved decision 1 fixes:
++// index → file version → sketches → DAG → grammar → signals/features → tombstone.
++//
++// It returns an error ONLY for ctx.Err(); every I/O failure is absorbed by soft (decision 7), and
++// the Output is always empty because PostToolUse emits nothing.
++func (o *observer) OnToolUse(ctx context.Context, e Event) (Output, error) {
++	var out Output
++	err := o.timed(histToolUse, func() error {
++		var err error
++		out, err = o.onToolUse(ctx, e)
++		return err
++	})
++	return out, err
++}
++
++func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
++	// 1. Nothing before the ctx check; nothing after it reads the clock twice (decision 11).
++	if err := ctx.Err(); err != nil {
++		return hookio.Empty(), err
++	}
++	now := o.now()
++	st := o.session(e.SessionID)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++
++	// 2. The display name is what selects the canonicalizer, the supersession class and the
++	//    grammar symbol; the RAW name is what identifies a retrieval result.
++	display := NormalizeToolName(e.ToolName)
++	ephemeral := strings.HasPrefix(e.ToolName, mcpToolPrefix)
++
++	// 3. The configured hot-path cap binds here, after signals.go's own allocation bound.
++	body := responseText(e)
++	if len(body) > o.maxResultBytes {
++		body = body[:o.maxResultBytes]
++	}
++	empty := len(body) == 0
++
++	// 4. The path this call touched, normalized once, in paths.Key form for everything downstream.
++	pathKey := ""
++	if raw := PathsFromInput(display, e.ToolInput); len(raw) > 0 && raw[0] != "" {
++		if n, err := paths.Norm(o.opt.ProjectRoot, raw[0]); err == nil {
++			pathKey = paths.Key(n)
++		}
++	}
++
++	// 5. §8.1 item 1. The observer never chunks, redacts or canonicalizes by hand: the store does
++	//    redact → canonicalize → chunk internally, and this call's contribution to O2 is the
++	//    per-tool canonicalizer SELECTION carried by Tool, Path and Canon.Strip.
++	var res store.PutResult
++	if !empty {
++		var err error
++		res, err = o.opt.Store.PutBytes(ctx, body, store.PutOptions{
++			Tool: display, Path: pathKey, Canon: o.canonOptions(),
++			KeepRaw: true, Ephemeral: ephemeral,
++		})
++		if err != nil {
++			o.soft(stagePut, err)
++			return hookio.Empty(), nil // never a dangling index record
++		}
++	}
++
++	// 6. The index entry. store.ArgsDigest is §5.8's, and nothing else may re-derive it.
++	tok := res.Root.Tokens
++	if tok == 0 && o.opt.Tokens != nil {
++		tok = o.opt.Tokens.EstimateRoot(ctx, res.Root.Chunks, tokens.Classify(display, pathKey, body))
++	}
++	digest, preview := store.ArgsDigest(e.ToolInput)
++	rec := store.ToolUseRecord{
++		ID: e.ToolUseID, Session: e.SessionID, Turn: st.Turn,
++		TS: now, Tool: display, ArgsDigest: digest, ArgsPreview: preview,
++		Root: res.Root.Hash, Path: pathKey, Bytes: res.Root.RawBytes, Tokens: tok,
++		Signature: res.Signature, Status: store.StatusOK, Ephemeral: ephemeral,
++	}
++	if e.ToolUseID == "" {
++		// A payload with no tool_use_id still gets a stable, session-local identity, because a
++		// record the graph cannot name is a record nothing can retrieve.
++		rec.ID = core.ToolUseID(fmt.Sprintf("tu_%s_%d_%d", e.SessionID, st.Turn, len(st.ToolUses)))
++	}
++	o.soft(stageIndex, o.opt.Store.RecordToolUse(ctx, rec))
++	o.rememberToolUse(st, rec)
++
++	// 7. §8.2 file version history. Only a result that IS the content of a path is a version of it.
++	if !empty && pathKey != "" && supersedableClass(display) == classFileContent {
++		o.soft(stageFileVer, o.opt.Store.AppendFileVersion(ctx, pathKey, store.FileVersion{
++			TS: now, Root: res.Root.Hash, Turn: st.Turn, Bytes: res.Root.RawBytes,
++		}))
++	}
++
++	// 8. §8.1 item 3. Supersession detection lands in supersede.go; until then nothing is marked,
++	//    and BuildToolUse's Supersedes stays empty.
++	var superseded []core.ToolUseID
++
++	// 9. §8.1 item 5.
++	o.feedSketches(rec)
++
++	// 10. §8.1 item 4, expressed entirely as one dag.BuildToolUse call.
++	o.emitToolGraph(ctx, st, rec, body, superseded)
++
++	// 11. §8.1 item 6, producer side. The warnings are only COLLECTED here; OnUserPrompt drains
++	//     them, because PostToolUse has no channel to say anything through.
++	if o.opt.Grammar != nil {
++		o.opt.Grammar.Append(grammar.Symbol(display))
++		switch ExtractTestOutcome(e) {
++		case TestPass:
++			o.opt.Grammar.Append(grammarTestPass)
++		case TestFail:
++			o.opt.Grammar.Append(grammarTestFail)
++		case TestUnknown:
++		}
++		o.collectThrash(st)
++	}
++
++	// 12. Task-boundary evidence. ExtractSignals stays pure, so the transition detector and the
++	//     path normalization are applied here rather than inside it.
++	sig := ExtractSignals(e)
++	sig.TodoCompleted = o.newlyCompletedTodos(st, e)
++	sig.Paths = normalizedPaths(o.opt.ProjectRoot, sig.Paths)
++	if sig.TodoCompleted {
++		o.count(counterSignalTodo)
++	}
++	if sig.TestPassed {
++		o.count(counterSignalTest)
++	}
++	if sig.GitCommit {
++		o.count(counterSignalGit)
++	}
++	if o.opt.OnSignals != nil {
++		o.opt.OnSignals(e.SessionID, sig)
++	}
++
++	// 13. The §6.6 features. LastTS is assigned AFTER features() runs, because GapSeconds is
++	//     measured against the PREVIOUS event's timestamp.
++	o.recordRecent(st, display, sig.Paths, body, now)
++	if fs, ok := o.features(st, now); ok && o.opt.OnFeatures != nil {
++		o.opt.OnFeatures(e.SessionID, fs)
++	}
++	st.LastTS = now
++
++	// 14. §8.1 item 2: this result may later be cleared and replaced by an addressable tombstone.
++	if IsCompactable(display) {
++		o.count(counterTombstone)
++	}
++	return hookio.Empty(), nil
++}
++
++// canonOptions is the observer's whole contribution to O2 beyond tool/path selection: which
++// canonicalizer classes to strip, and whether a near-duplicate signature is worth computing.
++//
++// A NON-NIL Strip means "this entire canon.Options is mine, MinHash included" on the store's side,
++// which is exactly what makes the crlf-only case below turn near-duplicate detection off rather
++// than inheriting the store's configured default.
++func (o *observer) canonOptions() canon.Options {
++	cc := o.opt.Cfg.Store.Canonicalize
++
++	cls := []canon.Class{crlfClass}
++	if cc.Enabled {
++		for _, s := range cc.Strip {
++			if canon.Class(s) != crlfClass {
++				cls = append(cls, canon.Class(s))
++			}
++		}
++	}
++
++	return canon.Options{
++		Strip:      cls,
++		KeepDeltas: true,
++		MinHash: sketch.MinHashOptions{
++			Enabled:          cc.Enabled && cc.MinHash.Enabled,
++			Permutations:     cc.MinHash.Permutations,
++			ShingleSize:      minHashShingleSize,
++			NearDupThreshold: cc.MinHash.NearDupThreshold,
++		},
++	}
++}
++
++// rememberToolUse appends rec to the SubagentStop window, front-evicting at subagentWindowCap and
++// clamping SubagentSince in the SAME operation — otherwise a long subagent run would slice past
++// the end of the ring.
++//
++// It is called for every tool use, ephemeral or not, because a subagent's retrieval calls are part
++// of what the parent never held.
++func (o *observer) rememberToolUse(st *sessionState, rec store.ToolUseRecord) {
++	st.ToolUses = append(st.ToolUses, toolUseLite{
++		ID: rec.ID, Root: rec.Root, Tool: rec.Tool, Path: rec.Path, Bytes: rec.Bytes,
++	})
++	if k := len(st.ToolUses) - subagentWindowCap; k > 0 {
++		st.ToolUses = st.ToolUses[k:]
++		st.SubagentSince = max(0, st.SubagentSince-k)
++	}
++}
++
++// normalizedPaths maps each raw path through paths.Norm then paths.Key, dropping entries whose
++// Norm errors — an escape above the project root — and preserving order and first-appearance
++// dedup. It is the ONLY place Signals.Paths is normalized: ExtractSignals stays pure and returns
++// the host's own spelling (see signals.go).
++func normalizedPaths(projectRoot string, raw []string) []string {
++	if len(raw) == 0 {
++		return nil
++	}
++	var out []string
++	seen := make(map[string]bool, len(raw))
++	for _, p := range raw {
++		n, err := paths.Norm(projectRoot, p)
++		if err != nil {
++			continue
++		}
++		key := paths.Key(n)
++		if seen[key] {
++			continue
++		}
++		seen[key] = true
++		out = append(out, key)
++	}
++	return out
++}
+diff --git a/internal/observer/tooluse_test.go b/internal/observer/tooluse_test.go
+new file mode 100644
+index 0000000..3efe7d7
+--- /dev/null
++++ b/internal/observer/tooluse_test.go
+@@ -0,0 +1,483 @@
++package observer
++
++import (
++	"context"
++	"encoding/json"
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/qompack/qompack/internal/canon"
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/sketch"
++	"github.com/qompack/qompack/internal/store"
++	"github.com/stretchr/testify/require"
++)
++
++func TestOnToolUse_StoresAndIndexes(t *testing.T) {
++	h := newHarness(t)
++	body := strings.Repeat("export async function refreshToken() {}\n", 52) // ~2 KB
++
++	h.drive(readOf("toolu_1", "src/auth.ts", body))
++
++	require.Len(t, h.Store.Puts, 1, "one PutBytes per non-empty tool result")
++	require.Equal(t, "FileRead", h.Store.Puts[0].Opts.Tool, "the DISPLAY name selects the canonicalizer")
++	require.Equal(t, "src/auth.ts", h.Store.Puts[0].Opts.Path)
++	require.Equal(t, body, string(h.Store.Puts[0].Body))
++
++	require.Len(t, h.Store.Records, 1)
++	rec := h.Store.Records[0]
++	require.Equal(t, core.ToolUseID("toolu_1"), rec.ID)
++	require.Equal(t, testSession, rec.Session)
++	require.Equal(t, core.TurnIndex(0), rec.Turn, "OnToolUse records at the current turn (decision 4)")
++	require.Equal(t, "FileRead", rec.Tool)
++	require.Equal(t, "src/auth.ts", rec.Path)
++	require.Equal(t, int64(len(body)), rec.Bytes)
++	require.Equal(t, store.StatusOK, rec.Status)
++	require.False(t, rec.Ephemeral)
++
++	wantRoot := core.HashBytes(core.DomainArgs, []byte(body))
++	require.Equal(t, wantRoot, rec.Root, "the record's Root is the PutResult's root, not a second identity")
++}
++
++func TestOnToolUse_CanonOptionsAlwaysIncludeCRLF(t *testing.T) {
++	h := newHarness(t, func(o *Options) {
++		o.Cfg.Store.Canonicalize.Enabled = false
++	})
++
++	h.drive(bashOf("toolu_1", "go build ./...", "ok\n"))
++
++	opts := h.Store.putOpts(0)
++	require.Equal(t, []canon.Class{canon.Class("crlf")}, opts.Canon.Strip,
++		"crlf is unconditional (resolved decision 2)")
++	require.False(t, opts.Canon.MinHash.Enabled)
++}
++
++func TestOnToolUse_CanonOptionsFromConfig(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(bashOf("toolu_1", "go test ./...", "ok  \tgithub.com/example/pkg\t0.42s\n"))
++
++	opts := h.Store.putOpts(0)
++	require.Equal(t, []canon.Class{
++		canon.Class("crlf"),
++		canon.Class("timestamps"), canon.Class("ansi"), canon.Class("pids"),
++		canon.Class("addresses"), canon.Class("tmpPaths"), canon.Class("durations"),
++	}, opts.Canon.Strip)
++	require.True(t, opts.Canon.MinHash.Enabled)
++	require.Equal(t, 128, opts.Canon.MinHash.Permutations)
++	require.InDelta(t, 0.9, opts.Canon.MinHash.NearDupThreshold, 1e-9)
++	require.True(t, opts.KeepRaw, "the volatile deltas are the byte-exact recovery record of §8.1 item 1")
++}
++
++func TestOnToolUse_FileVersionAppendedForFileContent(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(
++		readOf("toolu_1", "src/auth.ts", "before\n"),
++		toolUse("toolu_2", "Edit",
++			`{"file_path":"src/auth.ts","old_string":"before","new_string":"after"}`,
++			`{"content":"after\n"}`),
++	)
++
++	require.Len(t, h.Store.FileVersions, 2)
++	for i, fv := range h.Store.FileVersions {
++		require.Equal(t, "src/auth.ts", fv.Path, "call %d carries the normalized key", i)
++		require.Equal(t, core.TurnIndex(0), fv.Version.Turn)
++		require.NotZero(t, fv.Version.TS)
++	}
++}
++
++func TestOnToolUse_NoFileVersionForGrep(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(toolUse("toolu_1", "Grep",
++		`{"pattern":"refreshToken","path":"src"}`,
++		`{"content":"src/auth.ts:12:refreshToken"}`))
++
++	require.Empty(t, h.Store.FileVersions, "a Grep result is not a version of a file")
++}
++
++func TestOnToolUse_ArgsDigestAndPreview(t *testing.T) {
++	h := newHarness(t)
++	input := `{"command":"go test ./..."}`
++
++	h.drive(toolUse("toolu_1", "Bash", input, `{"exit_code":0,"stdout":"ok\n"}`))
++
++	wantDigest, wantPreview := store.ArgsDigest(json.RawMessage(input))
++	require.Len(t, h.Store.Records, 1)
++	require.Equal(t, wantDigest, h.Store.Records[0].ArgsDigest,
++		"§5.8 owns the digest; the observer must not re-derive it")
++	require.Equal(t, wantPreview, h.Store.Records[0].ArgsPreview)
++	require.Equal(t, "go test ./...", h.Store.Records[0].ArgsPreview)
++}
++
++func TestOnToolUse_ArgsDigestIsKeyOrderInvariant(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(
++		toolUse("toolu_1", "Bash", `{"a":1,"command":"x"}`, `{"stdout":"out\n"}`),
++		toolUse("toolu_2", "Bash", `{"command":"x","a":1}`, `{"stdout":"out\n"}`),
++	)
++
++	require.Len(t, h.Store.Records, 2)
++	require.Equal(t, h.Store.Records[0].ArgsDigest, h.Store.Records[1].ArgsDigest,
++		"a local json.Compact digest would be key-order dependent")
++}
++
++func TestOnToolUse_PreviewTruncatedByStore(t *testing.T) {
++	h := newHarness(t)
++	long := strings.Repeat("go test ./internal/observer ", 20) // > 500 bytes
++
++	h.drive(bashOf("toolu_1", long, "ok\n"))
++
++	preview := h.Store.Records[0].ArgsPreview
++	require.LessOrEqual(t, len(preview), 120, "the ≤120-BYTE cap is §5.8's, not the observer's")
++	require.True(t, strings.HasSuffix(preview, "…"), "a truncated preview ends in an ellipsis: %q", preview)
++}
++
++func TestOnToolUse_MCPResultIsEphemeral(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(toolUse("toolu_1", "mcp__qompack__expand",
++		`{"path":"src/auth.ts"}`, `{"content":"the expanded result"}`))
++
++	require.Len(t, h.Store.Records, 1)
++	require.True(t, h.Store.Records[0].Ephemeral, "an mcp__qompack__ result is born ephemeral (decision 6)")
++	require.True(t, h.Store.putOpts(0).Ephemeral)
++
++	require.Zero(t, h.Touch.Total(), "retrieval is not exploration: no CMS feed")
++	require.Zero(t, h.Explore.Cardinality(), "no HLL feed")
++	require.Empty(t, h.Hot.Top(1), "no Misra-Gries feed")
++	require.Zero(t, h.Store.ByPathCalls, "an ephemeral result is excluded from supersession in both directions")
++
++	require.True(t, h.Graph.has(dag.ToolUseNode("toolu_1")), "it still gets DAG nodes")
++}
++
++func TestOnToolUse_EmptyResponseStillIndexed(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(toolUse("toolu_1", "Read", `{"file_path":"src/empty.ts"}`, "null"))
++
++	require.Empty(t, h.Store.Puts, "there is nothing to store")
++	require.Len(t, h.Store.Records, 1, "a zero-byte result still produces an index entry")
++	require.Equal(t, int64(0), h.Store.Records[0].Bytes)
++	require.Empty(t, h.Store.FileVersions, "there is no content to version")
++	require.True(t, h.Graph.has(dag.ToolUseNode("toolu_1")))
++	require.Len(t, h.signals(), 1)
++}
++
++func TestOnToolUse_PutFailureIsSoft(t *testing.T) {
++	h := newHarness(t)
++	h.Store.PutErr = errors.New("disk full")
++
++	out, err := h.obs.OnToolUse(context.Background(), readOf("toolu_1", "src/auth.ts", "body\n"))
++
++	require.NoError(t, err, "no I/O failure escapes an Observer method (decision 7)")
++	require.Equal(t, hookio.Empty(), out)
++	require.Equal(t, int64(1), h.counter("observer.err.put"))
++	require.Empty(t, h.Store.Records, "never a dangling index record")
++}
++
++func TestOnToolUse_IndexFailureStillFeedsSketchesAndDAG(t *testing.T) {
++	h := newHarness(t)
++	h.Store.RecordErr = errors.New("index unavailable")
++
++	h.drive(readOf("toolu_1", "src/auth.ts", "body\n"))
++
++	require.Equal(t, int64(1), h.counter("observer.err.index"))
++	require.Equal(t, uint64(2), h.Touch.Total(), "the tool key and the path key are both fed")
++	require.True(t, h.Graph.has(dag.ToolUseNode("toolu_1")), "the object is stored and reachable by root hash")
++	require.True(t, h.Graph.has(dag.ToolResultNode("toolu_1")))
++}
++
++func TestOnToolUse_CancelledContext(t *testing.T) {
++	h := newHarness(t)
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++
++	out, err := h.obs.OnToolUse(ctx, readOf("toolu_1", "src/auth.ts", "body\n"))
++
++	require.ErrorIs(t, err, context.Canceled, "ctx.Err() is the ONLY error an entry point returns")
++	require.Equal(t, hookio.Empty(), out)
++	require.Equal(t, storeCounts{}, h.Store.counts())
++	require.Equal(t, graphCounts{}, h.Graph.counts())
++}
++
++func TestOnToolUse_OversizePayloadTruncated(t *testing.T) {
++	const cap1MiB = 1 << 20
++	h := newHarness(t, func(o *Options) {
++		o.Cfg.Runtime.HotPath.MaxPayloadBytes = cap1MiB
++	})
++
++	// 4 MiB of payload. signals.go's own maxScanBytes cap trims the raw JSON to 4 MiB first,
++	// which is what leaves the observer a 4 MiB body to apply the CONFIGURED cap to.
++	huge := strings.Repeat("a", 4<<20)
++	h.drive(toolUse("toolu_1", "Bash", `{"command":"cat big.log"}`,
++		fmt.Sprintf(`{"stdout":%s}`, jsonString(huge))))
++
++	require.Len(t, h.Store.Puts, 1)
++	require.Len(t, h.Store.Puts[0].Body, cap1MiB, "runtime.hotPath.maxPayloadBytes bounds the hot path")
++}
++
++func TestOnToolUse_SignalsDelivered(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(bashOf("toolu_1", `git commit -m "extract the identity call"`,
++		"[main 1a2b3c4] extract the identity call\n"))
++
++	got := h.signals()
++	require.Len(t, got, 1, "the callback fires once per tool use")
++	require.Equal(t, testSession, got[0].Session)
++	require.True(t, got[0].Signals.GitCommit)
++	require.False(t, got[0].Signals.TestPassed)
++	require.Equal(t, int64(1), h.counter("observer.signal.git"))
++	require.Equal(t, int64(0), h.counter("observer.signal.test"))
++}
++
++func TestOnToolUse_TodoTransitionOnlyOnce(t *testing.T) {
++	h := newHarness(t)
++	todo := toolUse("toolu_1", "TodoWrite",
++		`{"todos":[{"content":"trace the timeout","status":"completed"}]}`,
++		`{"content":"ok"}`)
++	again := todo
++	again.ToolUseID = "toolu_2"
++
++	h.drive(todo, again)
++
++	got := h.signals()
++	require.Len(t, got, 2)
++	require.True(t, got[0].Signals.TodoCompleted, "the first delivery is the transition")
++	require.False(t, got[1].Signals.TodoCompleted, "the same list re-submitted closes nothing new")
++	require.Equal(t, int64(1), h.counter("observer.signal.todo"))
++}
++
++func TestOnToolUse_ReturnsEmptyOutput(t *testing.T) {
++	h := newHarness(t)
++
++	out, err := h.obs.OnToolUse(context.Background(), readOf("toolu_1", "src/auth.ts", "body\n"))
++
++	require.NoError(t, err)
++	require.Equal(t, hookio.Empty(), out, "PostToolUse emits nothing")
++}
++
++func TestOnToolUse_RemembersToolUseForSubagentWindow(t *testing.T) {
++	h := newHarness(t)
++
++	h.drive(
++		readOf("toolu_1", "src/a.ts", "alpha\n"),
++		readOf("toolu_2", "src/b.ts", "beta\n"),
++		bashOf("toolu_3", "go build ./...", "ok\n"),
++	)
++
++	st := h.state(testSession)
++	require.Len(t, st.ToolUses, 3)
++	require.Equal(t, core.ToolUseID("toolu_1"), st.ToolUses[0].ID)
++	require.Equal(t, "FileRead", st.ToolUses[0].Tool)
++	require.Equal(t, "src/a.ts", st.ToolUses[0].Path)
++	require.Equal(t, core.HashBytes(core.DomainArgs, []byte("alpha\n")), st.ToolUses[0].Root)
++	require.Equal(t, int64(len("alpha\n")), st.ToolUses[0].Bytes)
++	require.Equal(t, core.ToolUseID("toolu_3"), st.ToolUses[2].ID)
++	require.Equal(t, "Bash", st.ToolUses[2].Tool)
++	require.Empty(t, st.ToolUses[2].Path)
++}
++
++func TestOnToolUse_ToolUseRingEvictsAndClampsSubagentSince(t *testing.T) {
++	h := newHarness(t)
++
++	// Five calls, then the cursor a prompt or a SubagentStop would leave behind.
++	for i := range 5 {
++		h.drive(readOf(fmt.Sprintf("toolu_pre_%d", i), "src/a.ts", "alpha\n"))
++	}
++	st := h.state(testSession)
++	st.mu.Lock()
++	st.SubagentSince = len(st.ToolUses)
++	st.mu.Unlock()
++
++	for i := range subagentWindowCap + 10 {
++		h.drive(readOf(fmt.Sprintf("toolu_%d", i), "src/a.ts", "alpha\n"))
++	}
++
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Len(t, st.ToolUses, subagentWindowCap, "the ring is front-evicted at its cap")
++	require.Equal(t, 0, st.SubagentSince, "the cursor is clamped in the same operation as the eviction")
++	require.NotPanics(t, func() { _ = st.ToolUses[st.SubagentSince:] },
++		"a SubagentStop must be able to slice from the cursor")
++}
++
++func TestOnToolUse_LastTSIsPreviousEventTS(t *testing.T) {
++	h := newHarness(t)
++
++	// features() reports nothing until two full windows are in hand, so the 45 s gap is placed
++	// between the last two of the 2*featureWindow events that fill them.
++	for i := range 2*featureWindow - 1 {
++		h.drive(readOf(fmt.Sprintf("toolu_%d", i), "src/a.ts", "alpha\n"))
++	}
++	h.Clock.Advance(45 * time.Second)
++	h.drive(readOf("toolu_last", "src/a.ts", "alpha\n"))
++
++	got := h.features()
++	require.Len(t, got, 1, "exactly the last event completes the two windows")
++	require.InDelta(t, 45.0, got[0].Sample.GapSeconds, 1e-9,
++		"LastTS must still be the PREVIOUS event's when features() runs")
++}
++
++func TestModePassiveStillWrites(t *testing.T) {
++	session := func(t *testing.T, mode Mode) (storeCounts, graphCounts, uint64) {
++		t.Helper()
++		h := newHarness(t, func(o *Options) { o.Mode = func() Mode { return mode } })
++		for i := range 20 {
++			h.drive(readOf(fmt.Sprintf("toolu_%d", i), fmt.Sprintf("src/f%d.ts", i%4), "alpha\n"))
++		}
++		return h.Store.counts(), h.Graph.counts(), h.Touch.Total()
++	}
++
++	fullStore, fullGraph, fullCMS := session(t, ModeFull)
++	passiveStore, passiveGraph, passiveCMS := session(t, ModePassive)
++
++	require.Equal(t, fullStore, passiveStore, "§12: L0 keeps observing, chunking and storing")
++	require.Equal(t, fullGraph, passiveGraph, "the DAG stays correct in degraded-passive mode")
++	require.Equal(t, fullCMS, passiveCMS, "the sketches stay correct too")
++}
++
++func TestOnToolUse_ConcurrentSessionsRaceFree(t *testing.T) {
++	const perSession = 200
++	h := newHarness(t)
++	h.Store.DefaultTokens = 7
++
++	var wg sync.WaitGroup
++	for _, s := range []core.SessionID{"sess_a", "sess_b"} {
++		wg.Add(1)
++		go func(sid core.SessionID) {
++			defer wg.Done()
++			for i := range perSession {
++				e := readOf(fmt.Sprintf("toolu_%s_%d", sid, i), "src/a.ts", "alpha\n")
++				e.SessionID = sid
++				if _, err := h.obs.OnToolUse(context.Background(), e); err != nil {
++					t.Errorf("OnToolUse(%s, %d): %v", sid, i, err)
++					return
++				}
++			}
++		}(s)
++	}
++	wg.Wait()
++
++	for _, sid := range []core.SessionID{"sess_a", "sess_b"} {
++		st := h.state(sid)
++		st.mu.Lock()
++		require.Equal(t, core.TurnIndex(0), st.Turn, "OnToolUse never increments the turn (decision 4)")
++		require.Equal(t, perSession*7, st.PrefixTokens, "%s: PrefixTokens is what a sequential run produces", sid)
++		st.mu.Unlock()
++	}
++}
++
++// benchHarness builds an observer over a REAL store and a REAL graph on b.TempDir(), which is what
++// makes the numbers comparable against budget B-C (l0_process, p99 < 50 ms).
++//
++// It returns the registry as well as the observer because a Go benchmark reports a MEAN ns/op and
++// B-C is stated as a p99. The observer already times every OnToolUse into the observer.tooluse
++// histogram, so reportBudget reads the real percentiles back out of it rather than inferring them.
++func benchHarness(b *testing.B) (*observer, obs.Registry) {
++	b.Helper()
++	root := b.TempDir()
++	cfg := config.Defaults()
++	clock := newFakeClock()
++	metrics := obs.New(clock)
++
++	st, err := store.Open(root, cfg, store.Deps{Log: logging.Nop(), Clock: clock})
++	require.NoError(b, err)
++	b.Cleanup(func() { _ = st.Close() })
++
++	g, err := dag.Open(root, cfg, logging.Nop())
++	require.NoError(b, err)
++
++	built, err := New(Options{
++		ProjectRoot: root,
++		Cfg:         cfg,
++		Store:       st,
++		Graph:       g,
++		Touch:       sketch.NewCMS(testCMSEpsilon, testCMSDelta),
++		Explore:     sketch.NewHLL(testHLLRegs),
++		Hot:         sketch.NewMisraGries(testMGCounters),
++		Log:         logging.Nop(),
++		Metrics:     metrics,
++		Clock:       clock,
++	})
++	require.NoError(b, err)
++	impl, ok := built.(*observer)
++	require.True(b, ok)
++	return impl, metrics
++}
++
++// reportBudget publishes the observer.tooluse histogram's p50 and p99, in milliseconds, as
++// benchmark metrics, so a run's output can be read against budget B-C directly.
++func reportBudget(b *testing.B, metrics obs.Registry) {
++	b.Helper()
++	snap := metrics.Hist(histToolUse).Snapshot()
++	b.ReportMetric(float64(snap.P50.Microseconds())/1000, "p50-ms")
++	b.ReportMetric(float64(snap.P99.Microseconds())/1000, "p99-ms")
++}
++
++// repeatTo returns s repeated until it is at least n bytes long.
++func repeatTo(s string, n int) string {
++	if len(s) == 0 || len(s) >= n {
++		return s
++	}
++	return strings.Repeat(s, n/len(s)+1)
++}
++
++func BenchmarkOnToolUse_FileRead64KB(b *testing.B) {
++	o, metrics := benchHarness(b)
++	body := repeatTo("func refreshToken(ctx context.Context) (Token, error) { return t, nil }\n", 64<<10)
++	require.GreaterOrEqual(b, len(body), 64<<10)
++
++	events := make([]Event, b.N)
++	for i := range events {
++		events[i] = readOf(fmt.Sprintf("toolu_%d", i), "src/auth.go", body)
++	}
++
++	ctx := context.Background()
++	b.ResetTimer()
++	for i := range b.N {
++		if _, err := o.OnToolUse(ctx, events[i]); err != nil {
++			b.Fatal(err)
++		}
++	}
++	b.StopTimer()
++	reportBudget(b, metrics)
++}
++
++func BenchmarkOnToolUse_TestOutput256KB(b *testing.B) {
++	o, metrics := benchHarness(b)
++
++	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "corpora", "toolout", "testrunner", "go-test-rerun.txt"))
++	require.NoError(b, err)
++	out := repeatTo(string(raw), 256<<10)
++	require.GreaterOrEqual(b, len(out), 256<<10)
++
++	events := make([]Event, b.N)
++	for i := range events {
++		events[i] = bashOf(fmt.Sprintf("toolu_%d", i), "go test ./...", out)
++	}
++
++	ctx := context.Background()
++	b.ResetTimer()
++	for i := range b.N {
++		if _, err := o.OnToolUse(ctx, events[i]); err != nil {
++			b.Fatal(err)
++		}
++	}
++	b.StopTimer()
++	reportBudget(b, metrics)
++}
+diff --git a/plans/V6-VERIFY-production-readiness-and-uat.md b/plans/V6-VERIFY-production-readiness-and-uat.md
+index 5036f2f..d9f4611 100644
+--- a/plans/V6-VERIFY-production-readiness-and-uat.md
++++ b/plans/V6-VERIFY-production-readiness-and-uat.md
+@@ -226,21 +226,21 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
+ | 1.7.13 | Golden fixtures consumable by SP-08/09/12 | `ls testdata/golden/contracts/dag/` ; `go test -run 'TestGraphBasicGolden\|TestCrossingEdgesGolden\|TestSliceGoldenBackward' ./internal/dag/` | `graph-basic.jsonl`, `nodeid.json`, `slice-backward.json`, `crossing.json`, `thin-vs-full.json` present and reproduced |
+ | 1.7.14 | Conformance suite live; imports; coverage | `grep -rn "t.Skip" internal/dag/dagtest/` ; `go run ./tools/devtool lint` ; `go run ./tools/devtool cover` | Zero skips; `dag` imports only `core paths config logging`; coverage ≥ 85% |
+ 
+ ### 1.8 SP-08 — Observer L0
+ 
+ | # | Functionality | Command | Expected result |
+ |---|---|---|---|
+ | 1.8.1 | `OnToolUse` full 14-step pipeline | `go test ./internal/observer/...` | PASS |
+ | 1.8.2 | Addressable tombstone (G3.2) | `go test -run 'TestTombstone' ./internal/observer/` | Golden-locked format `[cleared: sha256:… · <size> · <Tool> <subject> · re-expandable]`; `BenchmarkTombstone` < 2 µs/op |
+ | 1.8.3 | Supersession detection marks the earlier read `SUPERSEDED` | `go test -run TestSupersede ./internal/observer/` | PASS; superseded reads become first eviction candidates |
+-| 1.8.4 | DAG edges recorded per §8.1 item 4 | `go test -run TestGraphEdges ./internal/observer/` | `tool_use → tool_result → assistant_turn → next_tool_use` plus shared file/symbol edges |
++| 1.8.4 | DAG edges recorded per §8.1 item 4 | `go test -run TestGraph_ ./internal/observer/` | `tool_use → tool_result → assistant_turn → next_tool_use` plus shared file/symbol edges |
+ | 1.8.5 | Count-Min and HLL fed; **Bloom never fed** | `go test -run 'TestSketches\|TestObserverSourceHasNoBloomReference\|TestOnSessionEnd_NeverWritesTriedBloom' ./internal/observer/` ; `grep -rn "Bloom" internal/observer/ --include='*.go' \| grep -v _test.go` | CMS/HLL updated; **zero** occurrences of `Bloom` in non-test observer source; `.qompack/sketches/tried.bloom` never created by any observer path |
+ | 1.8.6 | Verbatim, immutable user-prompt capture (G2.3) | `go test -run 'TestOnUserPrompt_NeverRegenerated' ./internal/observer/` ; `go test -run TestE2E_VerbatimPromptSurvivesRestart ./test/e2e/` | Content-addressed, indexed, never rewritten; survives a daemon restart byte-identically |
+ | 1.8.7 | Subagent capture with tool-result hashes (G10.1) | `go test -run TestOnStop_RetrievalPathG10_1 ./internal/observer/` | Summary **and** hashes round-trip out of a real store |
+ | 1.8.8 | Task-boundary signals (G1.5) | `go test -run TestExtractSignals ./internal/observer/` ; `go test -run TestWireObserver ./internal/daemon/` | Todo completion, passing test run, git commit detected and delivered to the scheduler seam |
+ | 1.8.9 | `SessionStart` startup/resume branch; `SessionEnd` flush + GC + session index | `go test -run 'TestOnSessionStart\|TestOnSessionEnd' ./internal/observer/` | Ordering matches §7.3 and §8.2 |
+ | 1.8.10 | Phase-1 exit criterion, dedup half | `go test -run TestPhase1_DedupRatioReadHeavy ./test/e2e/` | `store.Stats().DedupRatio ≥ 4.0` on `eval.Synthesize(0x51080001, readHeavy)` |
+ | 1.8.11 | Canonicalization gap on test-output-heavy sessions | `go test -run TestPhase1_CanonicalizationGapOnTestOutput ./test/e2e/` | `ratioOn ≥ ratioOff × 1.25` on `eval.Synthesize(0x51080002, testOutputHeavy)` |
+ | 1.8.12 | Sublinear growth with the observer wired | `go test -run TestPhase1_StoreGrowthSublinear ./test/e2e/` | PASS |
+ | 1.8.13 | Observer-side latency | `go test -bench 'BenchmarkOnToolUse_FileRead64KB\|BenchmarkOnToolUse_TestOutput256KB' ./internal/observer/` | Both within **B-C p99 < 50 ms** |
+ | 1.8.14 | Observer conformance suite | `go test ./internal/observer/observertest/` ; `grep -rn "t.Skip" internal/observer/observertest/` | `RunObserverSuite` passes; zero skips |
+diff --git a/test/guards/nightlyfuzz_test.go b/test/guards/nightlyfuzz_test.go
+index 9fb9973..3338c7e 100644
+--- a/test/guards/nightlyfuzz_test.go
++++ b/test/guards/nightlyfuzz_test.go
+@@ -38,20 +38,21 @@ const nightlyFuzzMatrixLen = 20
+ // cover.go's literal and fails when the two sets drift, so the transcription cannot rot silently
+ // the way a comment alone would let it.
+ var nightlyFuzzLandedSubplans = map[string]bool{
+ 	"SP-01": true,
+ 	"SP-02": true,
+ 	"SP-03": true,
+ 	"SP-04": true,
+ 	"SP-05": true,
+ 	"SP-06": true,
+ 	"SP-07": true,
++	"SP-08": true,
+ }
+ 
+ // TestNightlyFuzzMatrix keeps .github/workflows/nightly.yml honest about what it actually fuzzes.
+ //
+ // The workflow reports and skips a target it cannot find rather than failing the leg, because a
+ // matrix that names the finished tree's targets necessarily names some nobody has written yet.
+ // This test bounds that skip, and the bound is mechanical rather than a judgement call:
+ //
+ //   - A target that EXISTS satisfies the matrix whoever owns its package. The nightly leg will
+ //     run it, which is the whole point; there is nothing left to waive.
+diff --git a/test/guards/stubs_test.go b/test/guards/stubs_test.go
+index 8737994..827804c 100644
+--- a/test/guards/stubs_test.go
++++ b/test/guards/stubs_test.go
+@@ -135,25 +135,30 @@ func stubRegistry() []stubPackage {
+ 		// an empty corpus, which is the honest answer and not a stub's. It stays registered so
+ 		// the walk still proves its constructor builds and none of its methods panics on
+ 		// zero-valued arguments.
+ 		{pkg: "eval", build: func(*testing.T) any {
+ 			return eval.New(eval.Options{Cfg: config.Defaults()})
+ 		}, pureMethods: allMethodsAreReal},
+ 		{pkg: "ipc", build: func(*testing.T) any {
+ 			return ipc.NewClient(ipc.Addr{}, nil, logging.Nop(), obs.New(core.SystemClock()))
+ 		}},
+ 		{pkg: "daemon"},
++		// observer's seam is REAL as of SP-08's PostToolUse pipeline (commit ba477c5): OnToolUse
++		// stores, indexes, sketches and emits the §8.1 item 4 DAG chain, so no method reports
++		// ErrNotImplemented any more. New also stopped accepting a bare ProjectRoot — the five
++		// collaborators below are the ones without which L0 can record nothing at all — which is
++		// what TestObserverNewRequiresItsCollaborators pins alongside this row.
+ 		{pkg: "observer", build: func(t *testing.T) any {
+-			o, err := observer.New(observer.Options{ProjectRoot: t.TempDir(), Cfg: config.Defaults()})
++			o, err := observer.New(observerOptions(t))
+ 			require.NoError(t, err)
+ 			return o
+-		}},
++		}, pureMethods: allMethodsAreReal},
+ 		// contract's monitor mechanics are REAL in wave 0 (§12.1), so none of its methods is
+ 		// expected to report ErrNotImplemented. It is registered for completeness only.
+ 		{pkg: "contract", build: func(t *testing.T) any {
+ 			return contract.NewMonitor(logging.Nop(), obs.New(core.SystemClock()),
+ 				filepath.Join(t.TempDir(), contractStateFile))
+ 		}, pureMethods: allMethodsAreReal},
+ 	}
+ }
+ 
+ // allMethodsAreReal marks a package whose seam is implemented rather than stubbed: contract
+@@ -163,20 +168,74 @@ func stubRegistry() []stubPackage {
+ var allMethodsAreReal = map[string]bool{"*": true}
+ 
+ // Arbitrary well-formed constructor inputs. None duplicates a configuration default; they exist
+ // only so the constructor returns something to reflect over.
+ const (
+ 	bloomCapacity = 128  //nomagic:allow arbitrary well-formed constructor input
+ 	bloomFPRate   = 0.01 //nomagic:allow arbitrary well-formed constructor input
+ 	hazardRate    = 0.05 //nomagic:allow arbitrary well-formed constructor input
+ )
+ 
++// observerOptions is the minimal Options observer.New accepts now that SP-08 has landed: an empty
++// ProjectRoot or a nil Store, Graph, Log or Clock is an error rather than a stub that would have
++// reported ErrNotImplemented at the first hook instead.
++func observerOptions(t *testing.T) observer.Options {
++	t.Helper()
++
++	root := t.TempDir()
++	cfg := config.Defaults()
++	log := logging.Nop()
++	clock := core.SystemClock()
++
++	s, err := store.Open(root, cfg, store.Deps{Log: log, Clock: clock})
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = s.Close() })
++
++	g, err := dag.Open(root, cfg, log)
++	require.NoError(t, err)
++
++	return observer.Options{
++		ProjectRoot: root, Cfg: cfg, Store: s, Graph: g,
++		Log: log, Metrics: obs.New(clock), Clock: clock,
++	}
++}
++
++// TestObserverNewRequiresItsCollaborators is the other half of the observer registry row above.
++//
++// The guard used to assert that observer.New succeeded with nothing but a ProjectRoot and a Cfg.
++// That was true of SP-01's stub and is false of the real constructor, and deleting the assertion
++// outright would have left the NEW contract unguarded — so it is restated here rather than dropped.
++func TestObserverNewRequiresItsCollaborators(t *testing.T) {
++	full := observerOptions(t)
++
++	built, err := observer.New(full)
++	require.NoError(t, err, "the five mandatory collaborators are enough on their own")
++	require.NotNil(t, built)
++
++	for name, breakIt := range map[string]func(*observer.Options){
++		"ProjectRoot": func(o *observer.Options) { o.ProjectRoot = "" },
++		"Store":       func(o *observer.Options) { o.Store = nil },
++		"Graph":       func(o *observer.Options) { o.Graph = nil },
++		"Log":         func(o *observer.Options) { o.Log = nil },
++		"Clock":       func(o *observer.Options) { o.Clock = nil },
++	} {
++		t.Run(name, func(t *testing.T) {
++			broken := full
++			breakIt(&broken)
++			got, err := observer.New(broken)
++			require.Error(t, err,
++				"a missing %s must be reported by New, not discovered at the first hook", name)
++			require.Nil(t, got)
++		})
++	}
++}
++
+ // TestAllStubsReturnNotImplemented walks every registered seam and asserts each method either
+ // reports core.ErrNotImplemented or returns a documented zero value.
+ //
+ // The reason to do this reflectively rather than trusting each package's own suite is that a stub
+ // which quietly returns nil is indistinguishable from a working implementation at the call site.
+ // A consumer written against it in wave 1 would appear to work and produce nothing — the single
+ // worst failure mode this whole stub-and-suite mechanism (D9) exists to prevent.
+ func TestAllStubsReturnNotImplemented(t *testing.T) {
+ 	for _, sp := range stubRegistry() {
+ 		if sp.build == nil {
+diff --git a/test/integration/hookflow_test.go b/test/integration/hookflow_test.go
+index 9bf4a42..5460fd6 100644
+--- a/test/integration/hookflow_test.go
++++ b/test/integration/hookflow_test.go
+@@ -199,24 +199,30 @@ export function revokeSession(session: SessionRecord): SessionRecord {
+   return {
+     id: session.id,
+     ownerId: session.ownerId,
+     rotations: TOKEN_ROTATION_LIMIT,
+     scopes: [],
+   };
+ }
+ `
+ 
+ // hookflowTombstoneRE is §4.2's §8.1 item-2 form, with the short hash captured. The separator is
+-// U+00B7 MIDDLE DOT with a space on each side and the short form is exactly the 12 hex characters
+-// core.Hash.Short produces (observer.Tombstone's own contract).
++// U+00B7 MIDDLE DOT with a space on each side, and the short form is exactly the 12 hex characters
++// core.Hash.Short produces followed by U+2026 HORIZONTAL ELLIPSIS.
++//
++// The ellipsis is REQUIRED, not tolerated. Qompack.md §8.1's own example marker elides the digest
++// (`sha256:a3f2…`), and SP-08's extended renderer is pinned byte-for-byte by
++// testdata/golden/observer/tombstones.txt, every line of which carries it. Accepting either form
++// here would let the short hash silently stop announcing that it is an elision — which is the one
++// thing that tells a reader the marker is an address to re-expand rather than a whole digest.
+ var hookflowTombstoneRE = regexp.MustCompile(
+-	`^\[cleared: sha256:([0-9a-f]{12}) · [\d.]+KB · FileRead src/auth\.ts · re-expandable\]$`)
++	`^\[cleared: sha256:([0-9a-f]{12})… · [\d.]+KB · FileRead src/auth\.ts · re-expandable\]$`)
+ 
+ // buildQompackBinary compiles ./cmd/qompack into this test's own temp dir and returns the
+ // executable's path.
+ //
+ // This replicates the build half of test/e2e's real-binary harness (test/e2e/harness.go, Build):
+ // test/e2e is a composition root — importgraph enforces that nothing may import it — so §4.2's
+ // "use test/e2e's harness" is satisfied the sanctioned way, by replicating the minimal build step
+ // here rather than importing the package. The spawn half needs no replication at all:
+ // (*testutil.Project).RunHook already runs the real binary whenever QOMPACK_E2E_BINARY names one,
+ // and that env var plus this build is exactly how test/e2e itself drives it.
+diff --git a/tools/devtool/cover.go b/tools/devtool/cover.go
+index 9721fc4..8598815 100644
+--- a/tools/devtool/cover.go
++++ b/tools/devtool/cover.go
+@@ -38,20 +38,25 @@ const coverProfileName = "coverage.out"
+ // map independently on their own branches, as {SP-01, SP-02} and {SP-01, SP-04}; taking either side
+ // whole at the merge would have left five subplans unlisted.
+ var landedSubplans = map[string]bool{
+ 	"SP-01": true,
+ 	"SP-02": true,
+ 	"SP-03": true,
+ 	"SP-04": true,
+ 	"SP-05": true,
+ 	"SP-06": true,
+ 	"SP-07": true,
++	// SP-08 is listed from its OWN branch rather than from a merge commit, unlike SP-06 and
++	// SP-07. Commit ba477c5 made internal/observer's OWNERS probe (OnToolUse) a real
++	// implementation, and the exempt-but-real cross-check below fails the moment a probe stops
++	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
++	"SP-08": true,
+ }
+ 
+ // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
+ // so the "still exempt, therefore still a stub" cross-check below has to skip them. Each entry is
+ // a fact about the probe's SHAPE, not a judgement about the package, and each should disappear when
+ // its subplan lands and the package gets a real floor.
+ var probeBlind = map[string]bool{
+ 	// Evaluate returns a Decision and no error, so a stub returns a zero value rather than
+ 	// core.ErrNotImplemented and isBareNotImplementedStub cannot see it.
+ 	"scheduler": true,
+diff --git a/tools/devtool/cover_test.go b/tools/devtool/cover_test.go
+index 3882eb2..2a7d567 100644
+--- a/tools/devtool/cover_test.go
++++ b/tools/devtool/cover_test.go
+@@ -250,26 +250,30 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
+ 	// This assertion used to read the other way for SP-03 — "SP-03 has not landed; internal/sketch
+ 	// is still a stub" — which was right while it was a tripwire and reads backwards the moment the
+ 	// wave lands. SP-02's handoff §4.1 asked for it to be rewritten here rather than deleted,
+ 	// because the set still has to keep agreeing with the branch for waves 2 through 6.
+ 	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07"} {
+ 		if !landedSubplans[id] {
+ 			t.Errorf("%s has landed on develop but is missing from landedSubplans, so every "+
+ 				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)
+ 		}
+ 	}
+-	// The tripwire half, kept in the same breath as the half above. SP-06 and SP-07 add themselves
+-	// in their own merge commits, so listing one early binds a floor against code that is still a
+-	// stub; SP-08 and SP-09 are wave 2 and cannot have landed at all.
+-	for _, id := range []string{"SP-08", "SP-09"} {
++	// The tripwire half, kept in the same breath as the half above: listing a subplan early binds
++	// a §6.4 floor against code that is still a stub.
++	//
++	// Wave 2 is now cut. SP-08 left this list in commit ba477c5, which made internal/observer's
++	// probe real — it is listed as landed above, from its own branch rather than from a merge
++	// commit, because cover's exempt-but-real cross-check fails the moment a probe goes real while
++	// its subplan is unlisted. SP-09 has not landed and stays here.
++	for _, id := range []string{"SP-09"} {
+ 		if landedSubplans[id] {
+-			t.Errorf("%s is listed as landed, but wave 2 has not been cut yet", id)
++			t.Errorf("%s is listed as landed, but it has not landed yet", id)
+ 		}
+ 	}
+ }
+ 
+ func TestIsBareNotImplementedStub_WrappedError(t *testing.T) {
+ 	dir := t.TempDir()
+ 	f := filepath.Join(dir, "wrapped.go")
+ 	mustWrite(t, f, `package store
+ 
+ import (
+diff --git a/tools/devtool/planchecks_test.go b/tools/devtool/planchecks_test.go
+index 985c958..e7c61a6 100644
+--- a/tools/devtool/planchecks_test.go
++++ b/tools/devtool/planchecks_test.go
+@@ -213,52 +213,65 @@ func TestFindPlanMarkers_ExemptsCodeFences(t *testing.T) {
+ // Scope is derived from landedSubplans and the plan filenames, never hand-maintained. A wave whose
+ // subplans have all landed is checkable; a wave that has not landed names tests nobody has written.
+ func TestPlanDocsInScope_TracksLandedSubplans(t *testing.T) {
+ 	files := []string{
+ 		"plans/00-ARCHITECTURE.md",
+ 		"plans/V1-SP-01-foundation-toolchain-and-contracts.md",
+ 		"plans/V2-SP-06-content-addressed-store.md",
+ 		"plans/V2-VERIFY-primitives-store-dag-and-baseline.md",
+ 		"plans/V2-report.md",
+ 		"plans/V3-SP-08-observer-l0.md",
++		"plans/V3-SP-09-negative-knowledge.md",
+ 		"plans/V3-VERIFY-observer-and-negative-knowledge.md",
+ 		"plans/V4-SP-10-checkpointer-l4.md",
+ 	}
+ 	scope := planDocsInScope(files)
+ 
+ 	for _, f := range files[:5] {
+ 		if !scope[f] {
+ 			t.Errorf("%s: want in scope (its wave has landed)", f)
+ 		}
+ 	}
++	// SP-08 landed in commit ba477c5, so it is no longer the subplan that holds wave 3 out of
++	// scope; SP-09 is. The fixture names it explicitly for that reason — without an unlanded V3
++	// subplan in the list, wave 3 would derive as landed and this half would assert nothing.
+ 	for _, f := range files[5:] {
+ 		if scope[f] {
+-			t.Errorf("%s: want out of scope (SP-08 and later have not landed)", f)
++			t.Errorf("%s: want out of scope (SP-09 and later have not landed)", f)
+ 		}
+ 	}
+ }
+ 
+ // The scope rule must react to landedSubplans rather than to a second list somebody has to remember
+ // to update. Landing SP-08 and SP-09 has to bring the V3 documents into scope on its own.
+ func TestPlanDocsInScope_FollowsLandedSubplansWithoutASecondList(t *testing.T) {
+ 	files := []string{
+ 		"plans/V3-SP-08-observer-l0.md",
+ 		"plans/V3-SP-09-negative-knowledge.md",
+ 		"plans/V3-VERIFY-observer-and-negative-knowledge.md",
+ 	}
+ 	if scope := planDocsInScope(files); scope[files[2]] {
+ 		t.Fatal("V3-VERIFY must be out of scope while SP-08/SP-09 are unlanded")
+ 	}
+ 
++	// Restore rather than delete: SP-08 is genuinely in landedSubplans since commit ba477c5, and a
++	// bare delete would leave the map wrong for every test that runs after this one.
+ 	for _, sp := range []string{"SP-08", "SP-09"} {
++		prev, existed := landedSubplans[sp]
+ 		landedSubplans[sp] = true
+-		defer delete(landedSubplans, sp)
++		t.Cleanup(func() {
++			if existed {
++				landedSubplans[sp] = prev
++				return
++			}
++			delete(landedSubplans, sp)
++		})
+ 	}
+ 	scope := planDocsInScope(files)
+ 	for _, f := range files {
+ 		if !scope[f] {
+ 			t.Errorf("%s: want in scope once SP-08 and SP-09 land", f)
+ 		}
+ 	}
+ }
+ 
+ // The wildcard tests below pin the defect the 2026-08-22 plan audit found: namesFor built its

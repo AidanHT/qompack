@@ -1,0 +1,802 @@
+# Review package: 39d87ef..e957564
+
+## Commits
+e957564 feat(observer): verbatim UserPromptSubmit capture and thrash warnings
+
+## Files changed
+ internal/observer/observer.go     |  15 +-
+ internal/observer/prompt.go       | 219 +++++++++++++++++++++++++-
+ internal/observer/prompt_test.go  | 321 ++++++++++++++++++++++++++++++++++++++
+ internal/observer/tooluse_test.go |  63 +++++++-
+ 4 files changed, 590 insertions(+), 28 deletions(-)
+
+## Diff
+diff --git a/internal/observer/observer.go b/internal/observer/observer.go
+index 27a422b..afd86a0 100644
+--- a/internal/observer/observer.go
++++ b/internal/observer/observer.go
+@@ -415,38 +415,25 @@ func (o *observer) session(s core.SessionID) *sessionState {
+ 		return st
+ 	}
+ 	st := &sessionState{
+ 		TodoDone:    make(map[string]bool),
+ 		WarnedRules: make(map[grammar.RuleID]bool),
+ 	}
+ 	o.sess[s] = st
+ 	return st
+ }
+ 
+-// The four entry points below are completed by later commits of this subplan. Each one already
++// The three entry points below are completed by later commits of this subplan. Each one already
+ // honours the two rules every Observer method owes the host — return ctx.Err() and nothing else,
+ // and hand back a valid do-nothing Output — which is exactly what observertest's behaviour block
+ // requires of them today.
+ 
+-// OnUserPrompt records the user's prompt verbatim (§8.1 item 7). Commit 4 lands prompt.go.
+-func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
+-	var out Output
+-	err := o.timed(histPrompt, func() error {
+-		if err := ctx.Err(); err != nil {
+-			return err
+-		}
+-		out = hookio.Empty()
+-		return nil
+-	})
+-	return out, err
+-}
+-
+ // OnStop closes the assistant turn and captures subagent detail (§8.1 item 8). Commit 5 lands
+ // stop.go.
+ func (o *observer) OnStop(ctx context.Context, e Event, subagent bool) (Output, error) {
+ 	var out Output
+ 	err := o.timed(histStop, func() error {
+ 		if err := ctx.Err(); err != nil {
+ 			return err
+ 		}
+ 		out = hookio.Empty()
+ 		return nil
+diff --git a/internal/observer/prompt.go b/internal/observer/prompt.go
+index bc64aad..b0f1035 100644
+--- a/internal/observer/prompt.go
++++ b/internal/observer/prompt.go
+@@ -1,28 +1,235 @@
+ package observer
+ 
+ import (
++	"context"
++	"encoding/json"
++	"fmt"
++	"strings"
++
++	"github.com/qompack/qompack/internal/canon"
+ 	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
+ 	"github.com/qompack/qompack/internal/grammar"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/sketch"
++	"github.com/qompack/qompack/internal/store"
++	"github.com/qompack/qompack/internal/tokens"
+ )
+ 
+-// The UserPromptSubmit half of L0 (§8.1 items 6 and 7). Only the thrash-warning collector and its
+-// drain live here so far: PostToolUse is where a high-multiplicity nonterminal becomes visible,
+-// but PostToolUse has no channel to say anything through, so the warning is queued on the session
+-// and emitted by the next user prompt — the one hook whose additionalContext reaches the
+-// transcript. OnUserPrompt itself, and the verbatim capture of §8.1 item 7, land in a later commit
+-// of this subplan.
++// The UserPromptSubmit half of L0: §8.1 item 7's verbatim capture (G2.3) and §8.1 item 6's thrash
++// warning. The two share a file because they share the hook: UserPromptSubmit is the ONLY hook
++// this package emits through, so the warning PostToolUse queued has nowhere else to surface.
++
++// userPromptSubmit is the one string this package spells for the UserPromptSubmit hook. It is the
++// PutOptions.Tool and ToolUseRecord.Tool a prompt is filed under AND the HSO.HookEventName a
++// thrash warning is stamped with, because the host names the hook and the pseudo-tool identically
++// — and additionalContext reaches the transcript only when the event name matches the hook that
++// produced it.
++const userPromptSubmit = "UserPromptSubmit"
++
++// promptSymbol is both the action-grammar symbol and the feature-window tool name one user turn
++// contributes. §8.1 item 6's action stream and §6.6's tool-shift feature both read it and they
++// must agree: a prompt spelled one way in the grammar and another in the window would make a
++// distribution spike out of every user turn.
++const promptSymbol = "user"
++
++// promptIDPrefix begins every VerbatimPromptID.
++const promptIDPrefix = "prompt"
++
++// stagePromptPut is the soft-failure stage the verbatim Put reports under. It is deliberately
++// distinct from stagePut: a lost user prompt is a G2.3 failure and must be countable on its own,
++// not averaged into the tool path's much larger observer.err.put.
++const stagePromptPut = "prompt.put"
++
++// thrashLineSep joins several drained warnings into one additionalContext block.
++const thrashLineSep = "\n"
+ 
+ // thrashAdvice is the suggestion every thrash warning ends with. It is deliberately one clause: a
+ // loop warning that argues with the agent costs more tokens than the loop it is reporting.
+ const thrashAdvice = "consider a different approach"
+ 
++// OnUserPrompt captures the user's own words verbatim and immutably (§8.1 item 7, G2.3) and is the
++// one entry point permitted to say something back — a thrash warning, and only in ModeFull.
++func (o *observer) OnUserPrompt(ctx context.Context, e Event) (Output, error) {
++	var out Output
++	err := o.timed(histPrompt, func() error {
++		var err error
++		out, err = o.onUserPrompt(ctx, e)
++		return err
++	})
++	return out, err
++}
++
++// onUserPrompt is resolved decision 3's three durable artifacts followed by the turn bookkeeping
++// of decision 4: store the bytes, index them, put a KindUserPrompt node in the graph and enrol it
++// in the open segment, append the user symbol, close the user turn, sample the §6.6 features, and
++// drain whatever PostToolUse queued.
++//
++// It returns an error ONLY for ctx.Err(); every I/O failure is absorbed by soft (decision 7).
++func (o *observer) onUserPrompt(ctx context.Context, e Event) (Output, error) {
++	// 1. Nothing before the ctx check, and the clock is read exactly once (decision 11).
++	if err := ctx.Err(); err != nil {
++		return hookio.Empty(), err
++	}
++	// An empty prompt is not a user turn. Capturing it would mint an object, an index entry and a
++	// graph node for no content, and — worse — would advance the turn counter past a turn that
++	// never happened, which every stored artifact downstream is numbered against.
++	if e.Prompt == "" {
++		return hookio.Empty(), nil
++	}
++	now := o.now()
++	st := o.session(e.SessionID)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++
++	// 2-3. Artifact (a): the user's bytes, content-addressed. verbatimOptions is the whole of what
++	//      makes this capture verbatim, and KeepRaw is what keeps the canonicalizer's deltas so
++	//      canon.Restore can reconstruct the pre-normalization bytes exactly.
++	body := []byte(e.Prompt)
++	res, err := o.opt.Store.PutBytes(ctx, body, store.PutOptions{
++		Tool: userPromptSubmit, Path: "", Canon: verbatimOptions(),
++		KeepRaw: true, Ephemeral: false,
++	})
++	if err != nil {
++		// The capture is lost; the TURN is not. Steps 4 and 5 are skipped, because no index entry
++		// and no DAG node may point at an object that was never written (tooluse.go's "never a
++		// dangling index record"), but everything from the grammar symbol onward still runs: a
++		// prompt whose bytes failed to land is still a prompt the session took, and renumbering
++		// every later artifact around it would be the larger corruption.
++		o.soft(stagePromptPut, err)
++	} else {
++		o.recordPrompt(ctx, st, e, res, body, now)
++	}
++
++	// 6. §8.1 item 6, the user half of the action stream.
++	if o.opt.Grammar != nil {
++		o.opt.Grammar.Append(grammar.Symbol(promptSymbol))
++	}
++
++	// 7. Decision 4: the prompt was recorded AT Turn, and this increment closes the user turn. The
++	//    subagent cursor moves with it because a SubagentStop reports on what has happened since
++	//    the request that provoked it, not since the start of the session.
++	st.LastPromptTurn = st.Turn
++	st.SubagentSince = len(st.ToolUses)
++	st.Turn++
++
++	// 8. The §6.6 features. LastTS is assigned AFTER features() has run: it is the PREVIOUS
++	//    event's timestamp, and assigning it earlier would make GapSeconds identically zero.
++	o.recordRecent(st, promptSymbol, nil, body, now)
++	if fs, ok := o.features(st, now); ok && o.opt.OnFeatures != nil {
++		o.opt.OnFeatures(e.SessionID, fs)
++	}
++	st.LastTS = now
++
++	// 9. The ONE place o.mode() is consulted (decision 10). Degraded-passive keeps every write
++	//    above and emits nothing, because §12 forbids injection while the contract is degraded.
++	out := hookio.Empty()
++	if o.mode() == ModeFull {
++		if lines := o.pendingThrashLines(st); len(lines) > 0 {
++			// hookio carries no UserPromptSubmit constructor yet; adding one is V3-VERIFY's.
++			out.HookSpecificOutput = &hookio.HSO{
++				HookEventName:     userPromptSubmit,
++				AdditionalContext: strings.Join(lines, thrashLineSep),
++			}
++		}
++	}
++	return out, nil
++}
++
++// recordPrompt writes artifacts (b) and (c) of resolved decision 3: the append-only tool_use entry
++// under VerbatimPromptID, and the KindUserPrompt node enrolled in the currently open segment.
++//
++// It runs only on a successful Put, so every record it writes names an object that exists.
++func (o *observer) recordPrompt(ctx context.Context, st *sessionState, e Event,
++	res store.PutResult, body []byte, now core.UnixMilli,
++) {
++	// 4. The index entry. Its id is DERIVED rather than carried: a UserPromptSubmit payload has no
++	//    tool_use_id, and a record the graph cannot name is a record nothing can retrieve.
++	id := VerbatimPromptID(e.SessionID, st.Turn)
++	tok := res.Root.Tokens
++	if tok == 0 && o.opt.Tokens != nil {
++		tok = o.opt.Tokens.EstimateString(e.Prompt, tokens.ClassProse)
++	}
++	digest, preview := store.ArgsDigest(promptArgs(e.Prompt))
++	o.soft(stageIndex, o.opt.Store.RecordToolUse(ctx, store.ToolUseRecord{
++		ID: id, Session: e.SessionID, Turn: st.Turn, TS: now, Tool: userPromptSubmit,
++		ArgsDigest: digest, ArgsPreview: preview,
++		Root: res.Root.Hash, Bytes: int64(len(body)), Tokens: tok,
++		Status: store.StatusOK,
++	}))
++
++	// 5. dag.BuildUserPrompt emits userprompt:<turn> and userprompt:<turn> --consumes-->
++	//    assistant:<turn>: the prompt is the producer end (SP-07 D-1), and §4.4 makes that edge
++	//    the ONLY path by which a backward slice from a tool use deep in a session reaches the
++	//    request that set it off.
++	o.soft(stageDAG, dag.BuildUserPrompt(o.opt.Graph, dag.ObservedPrompt{
++		Turn: st.Turn, TS: now, Pos: o.advancePos(st, tok), Tokens: tok, Ref: string(id),
++	}))
++	o.enrol(st, dag.UserPromptNode(st.Turn))
++}
++
++// VerbatimPromptID is the tool_use identity of one captured prompt: "prompt_<session>_<turn>".
++//
++// A UserPromptSubmit payload carries no tool_use_id, so the identity has to be derived, and it is
++// derived from the only two values that are already unique together. It is exported because
++// retrieval and replay reach a captured prompt by this id and must not re-derive the spelling.
++func VerbatimPromptID(s core.SessionID, t core.TurnIndex) core.ToolUseID {
++	return core.ToolUseID(fmt.Sprintf("%s_%s_%d", promptIDPrefix, s, t))
++}
++
++// verbatimOptions is the "no optional class" Put request §8.1 item 7 and §7.3 mean by "verbatim
++// and immutably". stop.go's capture blob takes the same treatment for the same reason: it is JSON
++// this package generated, not host content.
++//
++// Strip is EMPTY and NON-NIL, and both halves are load-bearing. canon.gateSet reads a nil Strip as
++// "every class" — the documented meaning of the zero canon.Options, and the OPPOSITE request —
++// and a non-nil Strip, empty included, as "exactly these, plus the always-on structural ones".
++// store.canonOptions reads that same nil-ness as "this entire canon.Options is mine, MinHash
++// included", which is the only reason the opt-out below is honoured rather than silently replaced
++// by the configured default.
++//
++// This is the one deliberate exception to resolved decision 2, and it is narrow: a user prompt is
++// not file content read on two platforms, so there is no dedup space to fork and nothing to gain
++// from stripping timestamps, ANSI, PIDs, addresses, tmp paths or durations out of the thing the
++// user typed. Three things it does NOT mean, all structural:
++//
++//   - crlf and paths still run. They are canon.alwaysOn, Appendix C cannot disable either, and §4
++//     makes CRLF→LF normalization a precondition of cross-platform dedup.
++//   - redaction still runs. store.PutBytes is redact → canonicalize → chunk and no caller may opt
++//     out: a credential pasted into a prompt must not reach objects/ in the clear, where
++//     content-addressing makes it undeletable.
++//   - no near-duplicate signature is computed, so a prompt is never delta-encoded against a prior
++//     one — the "never regenerated" half of G2.3.
++func verbatimOptions() canon.Options {
++	return canon.Options{
++		Strip:   []canon.Class{},
++		MinHash: sketch.MinHashOptions{Enabled: false},
++	}
++}
++
++// promptArgsDoc is the shape store.ArgsDigest digests a prompt as. A prompt has no tool_input, so
++// one is synthesized: without it every prompt in every session would collapse onto the single
++// empty-args digest, and ArgsPreview — §5.8's ≤120-byte cap — would carry nothing at all.
++type promptArgsDoc struct {
++	Prompt string `json:"prompt"`
++}
++
++// promptArgs renders {"prompt":<text>} for store.ArgsDigest.
++func promptArgs(prompt string) json.RawMessage {
++	// Marshalling a struct whose only field is a string cannot fail, and ArgsDigest digests bytes
++	// it cannot parse rather than rejecting them, so even the impossible branch would still yield
++	// a stable digest.
++	b, _ := json.Marshal(promptArgsDoc{Prompt: prompt})
++	return b
++}
++
+ // collectThrash queues one warning per newly-thrashing grammar rule.
+ //
+ // The dedup is per rule id and per session, in st.WarnedRules, because Sequitur reports a rule for
+ // as long as it stays above the multiplicity threshold: without it, one loop would produce a
+ // warning on every prompt for the rest of the session. WarnedRules is deliberately not persisted
+ // (see state.go) — the worst failure of losing it is one repeated line.
+ func (o *observer) collectThrash(st *sessionState) {
+ 	if o.opt.Grammar == nil {
+ 		return
+ 	}
+diff --git a/internal/observer/prompt_test.go b/internal/observer/prompt_test.go
+index 5b596b7..ff11e9f 100644
+--- a/internal/observer/prompt_test.go
++++ b/internal/observer/prompt_test.go
+@@ -1,17 +1,26 @@
+ package observer
+ 
+ import (
++	"context"
++	"errors"
++	"io"
+ 	"testing"
++	"time"
+ 
++	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
+ 	"github.com/qompack/qompack/internal/grammar"
++	"github.com/qompack/qompack/internal/hookio"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/store"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ // thrashRule is one Sequitur rule above the multiplicity threshold.
+ func thrashRule(id grammar.RuleID, uses int, expansion ...grammar.Symbol) grammar.Rule {
+ 	return grammar.Rule{ID: id, Uses: uses, Expansion: expansion, Span: len(expansion)}
+ }
+ 
+ func TestCollectThrash_QueuesEachRuleExactlyOnce(t *testing.T) {
+ 	g := &fakeGrammar{Thrashing: []grammar.Rule{
+@@ -89,10 +98,322 @@ func TestCollectThrash_NilGrammarIsTolerated(t *testing.T) {
+ 
+ 	require.NotPanics(t, func() {
+ 		h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
+ 		st := h.state(testSession)
+ 		st.mu.Lock()
+ 		defer st.mu.Unlock()
+ 		h.obs.collectThrash(st)
+ 		require.Empty(t, st.PendingThrash)
+ 	})
+ }
++
++// ── §8.1 item 7 / G2.3: verbatim UserPromptSubmit capture ──
++
++// verbatimPrompt carries one of each of the three volatile shapes the six configured strip classes
++// rewrite in a tool result — a curly apostrophe, an ISO-8601 timestamp and a PID — so that reading
++// it back byte for byte is a statement about the OPT-OUT rather than about a prompt that nothing
++// would have touched anyway.
++const verbatimPrompt = "The runner’s log says the pool reset at " +
++	"2026-08-24T12:34:56Z and PID 4711 never exited."
++
++// samplePrompt is the plain prompt the double-backed rows submit.
++const samplePrompt = "fix the pgbouncer 1.18 pool bypass"
++
++// promptOf builds a UserPromptSubmit payload carrying text.
++func promptOf(text string) Event {
++	return Event{HookEventName: userPromptSubmit, SessionID: testSession, Prompt: text}
++}
++
++// submit feeds one prompt through OnUserPrompt and returns its output.
++func (h *harness) submit(text string) Output {
++	h.t.Helper()
++	out, err := h.obs.OnUserPrompt(context.Background(), promptOf(text))
++	require.NoError(h.t, err)
++	return out
++}
++
++// readRoot re-materializes root's whole content out of st.
++func readRoot(ctx context.Context, t *testing.T, st store.Store, root core.Hash) string {
++	t.Helper()
++	rc, err := st.Open(ctx, root)
++	require.NoError(t, err)
++	defer func() { require.NoError(t, rc.Close()) }()
++	b, err := io.ReadAll(rc)
++	require.NoError(t, err)
++	return string(b)
++}
++
++func TestOnUserPrompt_StoresVerbatim(t *testing.T) {
++	h := newHarness(t)
++
++	h.submit(samplePrompt)
++
++	require.Len(t, h.Store.Puts, 1, "one PutBytes per non-empty prompt")
++	require.Equal(t, samplePrompt, string(h.Store.Puts[0].Body), "the user's own bytes, unmodified")
++
++	opts := h.Store.putOpts(0)
++	require.Equal(t, userPromptSubmit, opts.Tool)
++	require.Empty(t, opts.Path, "a prompt is not the content of a path")
++	require.NotNil(t, opts.Canon.Strip,
++		`a NIL Strip is canon's documented "every class" — the OPPOSITE request`)
++	require.Empty(t, opts.Canon.Strip, `"no optional class" is an EMPTY, non-nil Strip`)
++	require.False(t, opts.Canon.MinHash.Enabled,
++		"no near-duplicate signature: a prompt is never delta-encoded against a prior one")
++	require.True(t, opts.KeepRaw, "KeepRaw, not Canon.KeepDeltas, is what preserves the deltas")
++	require.False(t, opts.Ephemeral, "G2.3: the user's own words are never a first eviction candidate")
++}
++
++func TestOnUserPrompt_VerbatimAgainstARealStore(t *testing.T) {
++	ctx := context.Background()
++	root := t.TempDir()
++	clock := newFakeClock()
++
++	require.True(t, config.Defaults().Store.Canonicalize.Enabled)
++	require.Equal(t, []string{"timestamps", "ansi", "pids", "addresses", "tmpPaths", "durations"},
++		config.Defaults().Store.Canonicalize.Strip,
++		"the six classes this row proves the PROMPT path opts out of and the tool path does not")
++
++	o, st := newRealStoreObserver(t, root, clock, obs.New(clock))
++	t.Cleanup(func() { _ = st.Close() })
++
++	_, err := o.OnUserPrompt(ctx, promptOf(verbatimPrompt))
++	require.NoError(t, err)
++
++	rec, err := st.ToolUse(ctx, VerbatimPromptID(testSession, 0))
++	require.NoError(t, err)
++	require.Equal(t, verbatimPrompt, readRoot(ctx, t, st, rec.Root),
++		"§8.1 item 7: the stored object is the user's bytes, byte for byte")
++
++	// The control. The SAME text as a Bash result, through the SAME store, IS canonicalized — so
++	// the row above is a statement about verbatimOptions rather than about a store that happened
++	// to be configured to strip nothing.
++	_, err = o.OnToolUse(ctx, bashOf("toolu_1", "systemctl status pgbouncer", verbatimPrompt))
++	require.NoError(t, err)
++	bashRec, err := st.ToolUse(ctx, "toolu_1")
++	require.NoError(t, err)
++	canonicalized := readRoot(ctx, t, st, bashRec.Root)
++	require.NotEqual(t, verbatimPrompt, canonicalized)
++	require.NotContains(t, canonicalized, "2026-08-24T12:34:56Z", "the timestamps class ran here")
++	require.NotContains(t, canonicalized, "4711", "the pids class ran here")
++}
++
++func TestOnUserPrompt_RecordsIndexEntry(t *testing.T) {
++	const promptTokens = core.Tokens(9)
++	h := newHarness(t)
++	h.Store.DefaultTokens = promptTokens
++
++	h.submit(samplePrompt)
++
++	require.Len(t, h.Store.Records, 1)
++	rec := h.Store.Records[0]
++	require.Equal(t, userPromptSubmit, rec.Tool)
++	require.Equal(t, core.ToolUseID("prompt_sess_sp08_0"), rec.ID,
++		"a UserPromptSubmit payload carries no tool_use_id, so the identity is DERIVED")
++	require.Equal(t, VerbatimPromptID(testSession, 0), rec.ID)
++	require.Equal(t, testSession, rec.Session)
++	require.Equal(t, core.TurnIndex(0), rec.Turn, "the prompt is recorded AT Turn (decision 4)")
++	require.Equal(t, core.UnixMilli(testEpoch.UnixMilli()), rec.TS)
++	require.Equal(t, int64(len(samplePrompt)), rec.Bytes)
++	require.Equal(t, promptTokens, rec.Tokens)
++	require.Equal(t, store.StatusOK, rec.Status)
++	require.Empty(t, rec.Path)
++
++	digest, preview := store.ArgsDigest(promptArgs(samplePrompt))
++	require.Equal(t, digest, rec.ArgsDigest, "§5.8 owns the digest; nothing else may re-derive it")
++	require.Equal(t, preview, rec.ArgsPreview)
++	require.Contains(t, rec.ArgsPreview, "pgbouncer", "the preview carries the prompt itself")
++}
++
++func TestOnUserPrompt_TurnIncrements(t *testing.T) {
++	h := newHarness(t)
++
++	h.submit("why did the pool reset?")
++	h.submit("and what changed just before that?")
++
++	require.Len(t, h.Store.Records, 2)
++	require.Equal(t, core.ToolUseID("prompt_sess_sp08_0"), h.Store.Records[0].ID)
++	require.Equal(t, core.ToolUseID("prompt_sess_sp08_1"), h.Store.Records[1].ID)
++
++	st := h.state(testSession)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Equal(t, core.TurnIndex(2), st.Turn, "OnUserPrompt records at Turn, THEN increments")
++	require.Equal(t, core.TurnIndex(1), st.LastPromptTurn, "the turn the last prompt was recorded at")
++}
++
++func TestOnUserPrompt_DAGNodeAndSegmentEdge(t *testing.T) {
++	const segment = core.SegmentID(3)
++	const promptTokens = core.Tokens(11)
++
++	h := newHarness(t)
++	h.Store.DefaultTokens = promptTokens
++	st := h.state(testSession)
++	st.mu.Lock()
++	st.Segment = segment
++	st.mu.Unlock()
++
++	h.submit("why did the pool reset?")
++
++	node, ok := h.Graph.Node(dag.UserPromptNode(0))
++	require.True(t, ok, "userprompt:0 — the node is keyed on the TURN, with no session component")
++	require.Equal(t, dag.KindUserPrompt, node.Kind)
++	require.Equal(t, core.TurnIndex(0), node.Turn)
++	require.Equal(t, promptTokens, node.Tokens)
++	require.Equal(t, 0, node.Pos, "Pos is the node's START position (decision 5)")
++	require.Equal(t, string(VerbatimPromptID(testSession, 0)), node.Ref)
++
++	edges := h.Graph.edges()
++	_, ok = findEdge(edges, dag.UserPromptNode(0), dag.AssistantNode(0), dag.EdgeConsumes)
++	require.True(t, ok,
++		"§4.4: the ONLY path by which a backward slice reaches the request that set a session off")
++	_, ok = findEdge(edges, dag.UserPromptNode(0), dag.SegmentNode(segment), dag.EdgeSequence)
++	require.True(t, ok, "segment members point INTO the segment (SP-07 D-1)")
++
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Equal(t, int(promptTokens), st.PrefixTokens, "a prompt advances the prefix counter")
++}
++
++func TestOnUserPrompt_NeverRegenerated(t *testing.T) {
++	ctx := context.Background()
++	root := t.TempDir()
++	clock := newFakeClock()
++
++	o, st := newRealStoreObserver(t, root, clock, obs.New(clock))
++	t.Cleanup(func() { _ = st.Close() })
++
++	_, err := o.OnUserPrompt(ctx, promptOf(verbatimPrompt))
++	require.NoError(t, err)
++	first, err := st.Stats(ctx)
++	require.NoError(t, err)
++
++	clock.Advance(time.Minute)
++	_, err = o.OnUserPrompt(ctx, promptOf(verbatimPrompt))
++	require.NoError(t, err)
++	second, err := st.Stats(ctx)
++	require.NoError(t, err)
++
++	require.Equal(t, first.Objects, second.Objects,
++		"content-addressed: resubmitting the same text writes no chunk the second time")
++
++	rec0, err := st.ToolUse(ctx, VerbatimPromptID(testSession, 0))
++	require.NoError(t, err)
++	rec1, err := st.ToolUse(ctx, VerbatimPromptID(testSession, 1))
++	require.NoError(t, err)
++	require.Equal(t, rec0.Root, rec1.Root, "the same bytes are the same object")
++	require.NotEqual(t, rec0.ID, rec1.ID, "RecordToolUse APPENDS; there is no update path")
++	require.NotEqual(t, rec0.TS, rec1.TS, "each capture keeps the turn and time it was observed at")
++	require.Equal(t, 2, second.ToolUses)
++}
++
++func TestOnUserPrompt_EmptyPromptIgnored(t *testing.T) {
++	g := &fakeGrammar{}
++	h := newHarness(t, func(o *Options) { o.Grammar = g })
++
++	out, err := h.obs.OnUserPrompt(context.Background(), promptOf(""))
++	require.NoError(t, err)
++	require.Equal(t, hookio.Empty(), out)
++
++	require.Empty(t, h.Store.Puts, "an empty prompt mints no object")
++	require.Empty(t, h.Store.Records)
++	require.Equal(t, graphCounts{}, h.Graph.counts())
++	require.Empty(t, g.appended())
++
++	st := h.state(testSession)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Equal(t, core.TurnIndex(0), st.Turn, "a turn that never happened is not counted")
++}
++
++func TestOnUserPrompt_GrammarSymbolAppended(t *testing.T) {
++	g := &fakeGrammar{}
++	h := newHarness(t, func(o *Options) { o.Grammar = g })
++
++	h.submit(samplePrompt)
++
++	require.Equal(t, []grammar.Symbol{promptSymbol}, g.appended(),
++		"the user half of §8.1 item 6's action stream, appended exactly once")
++}
++
++func TestOnUserPrompt_ThrashWarningInFullMode(t *testing.T) {
++	rule := thrashRule(1, 11, "FileRead", "FileEdit", "Bash")
++	h := newHarness(t, func(o *Options) {
++		o.Grammar = &fakeGrammar{Thrashing: []grammar.Rule{rule}}
++	})
++
++	// PostToolUse is where a thrashing nonterminal becomes visible, and it has no channel to say
++	// so through: the warning has to wait for the next prompt.
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	out := h.submit("keep going")
++
++	require.NotNil(t, out.HookSpecificOutput)
++	require.Equal(t, userPromptSubmit, out.HookSpecificOutput.HookEventName,
++		"additionalContext reaches the transcript only when the event name matches its hook")
++	require.Equal(t, grammar.FormatWarning(grammar.Warning{
++		Rule: rule, Repeats: 11, Message: thrashAdvice, Turns: []core.TurnIndex{1},
++	}), out.HookSpecificOutput.AdditionalContext)
++}
++
++func TestOnUserPrompt_NoThrashWarningInPassiveMode(t *testing.T) {
++	rule := thrashRule(1, 11, "FileRead", "FileEdit", "Bash")
++	h := newHarness(t, func(o *Options) {
++		o.Grammar = &fakeGrammar{Thrashing: []grammar.Rule{rule}}
++		o.Mode = func() Mode { return ModePassive }
++	})
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	out := h.submit("keep going")
++
++	require.Equal(t, hookio.Empty(), out, "§12 forbids injection while degraded")
++	require.Len(t, h.Store.Puts, 2, "and mode gates OUTPUT, never the capture (decision 10)")
++	require.Len(t, h.Store.Records, 2)
++}
++
++func TestOnUserPrompt_ThrashWarnedOncePerRule(t *testing.T) {
++	rule := thrashRule(1, 11, "FileRead", "FileEdit", "Bash")
++	h := newHarness(t, func(o *Options) {
++		o.Grammar = &fakeGrammar{Thrashing: []grammar.Rule{rule}}
++	})
++
++	h.drive(readOf("toolu_1", "src/a.ts", "alpha\n"))
++	first := h.submit("keep going")
++	h.drive(readOf("toolu_2", "src/a.ts", "alpha\n"))
++	second := h.submit("still going")
++
++	require.NotNil(t, first.HookSpecificOutput)
++	require.NotEmpty(t, first.HookSpecificOutput.AdditionalContext)
++	require.Equal(t, hookio.Empty(), second,
++		"Sequitur reports a rule for as long as it stays above the threshold; the warning is once")
++}
++
++func TestOnUserPrompt_PutFailureStillIncrementsTurn(t *testing.T) {
++	h := newHarness(t)
++	h.Store.PutErr = errors.New("no space left on device")
++
++	out := h.submit(samplePrompt)
++
++	require.Equal(t, hookio.Empty(), out, "a failed capture never blocks the prompt")
++	require.Equal(t, int64(1), h.counter("observer.err.prompt.put"))
++	require.Empty(t, h.Store.Records, "no index entry may point at an object that was never written")
++	require.Equal(t, graphCounts{}, h.Graph.counts())
++
++	st := h.state(testSession)
++	st.mu.Lock()
++	defer st.mu.Unlock()
++	require.Equal(t, core.TurnIndex(1), st.Turn, "the turn happened whether or not the bytes landed")
++	require.Equal(t, 0, st.PrefixTokens, "no node was minted, so nothing advanced the prefix")
++}
++
++func TestVerbatimPromptID(t *testing.T) {
++	require.Equal(t, core.ToolUseID("prompt_abc_7"), VerbatimPromptID("abc", 7))
++	require.Equal(t, core.ToolUseID("prompt_abc_0"), VerbatimPromptID("abc", 0),
++		"turn 0 is a real turn, not an absent one")
++}
++
++func TestPromptArgs_IsTheToolInputAPromptDoesNotHave(t *testing.T) {
++	require.JSONEq(t, `{"prompt":"fix the pgbouncer 1.18 pool bypass"}`,
++		string(promptArgs(samplePrompt)))
++
++	_, preview := store.ArgsDigest(promptArgs(samplePrompt))
++	require.NotEmpty(t, preview,
++		"without a synthesized document every prompt would collapse onto the empty-args digest")
++}
+diff --git a/internal/observer/tooluse_test.go b/internal/observer/tooluse_test.go
+index ac06528..ea4762d 100644
+--- a/internal/observer/tooluse_test.go
++++ b/internal/observer/tooluse_test.go
+@@ -9,20 +9,21 @@ import (
+ 	"path/filepath"
+ 	"strings"
+ 	"sync"
+ 	"testing"
+ 	"time"
+ 
+ 	"github.com/qompack/qompack/internal/canon"
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/grammar"
+ 	"github.com/qompack/qompack/internal/hookio"
+ 	"github.com/qompack/qompack/internal/logging"
+ 	"github.com/qompack/qompack/internal/obs"
+ 	"github.com/qompack/qompack/internal/sketch"
+ 	"github.com/qompack/qompack/internal/store"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ func TestOnToolUse_StoresAndIndexes(t *testing.T) {
+ 	h := newHarness(t)
+@@ -331,64 +332,110 @@ func TestOnToolUse_LastTSIsPreviousEventTS(t *testing.T) {
+ 	h.Clock.Advance(45 * time.Second)
+ 	h.drive(readOf("toolu_last", "src/a.ts", "alpha\n"))
+ 
+ 	got := h.features()
+ 	require.Len(t, got, 1, "exactly the last event completes the two windows")
+ 	require.InDelta(t, 45.0, got[0].Sample.GapSeconds, 1e-9,
+ 		"LastTS must still be the PREVIOUS event's when features() runs")
+ }
+ 
+ func TestModePassiveStillWrites(t *testing.T) {
+-	session := func(t *testing.T, mode Mode) (storeCounts, graphCounts, uint64) {
++	// Every fifth event is a PROMPT, and the grammar has a rule above the thrash threshold, so the
++	// two runs genuinely differ in the one way §12 permits: in ModeFull the first prompt carries
++	// an additionalContext block and in ModePassive it carries nothing. Everything counted below
++	// — the puts, the index entries, the file versions, the nodes, the edges and the CMS — has to
++	// come out identical, which is what "mode gates output, never writes" actually claims.
++	session := func(t *testing.T, mode Mode) (storeCounts, graphCounts, uint64, []Output) {
+ 		t.Helper()
+-		h := newHarness(t, func(o *Options) { o.Mode = func() Mode { return mode } })
++		h := newHarness(t, func(o *Options) {
++			o.Mode = func() Mode { return mode }
++			o.Grammar = &fakeGrammar{Thrashing: []grammar.Rule{
++				thrashRule(1, 11, "FileRead", "FileEdit", "Bash"),
++			}}
++		})
++		var prompts []Output
+ 		for i := range 20 {
++			if i%5 == 0 {
++				prompts = append(prompts, h.submit(fmt.Sprintf("keep going, step %d", i)))
++			}
+ 			h.drive(readOf(fmt.Sprintf("toolu_%d", i), fmt.Sprintf("src/f%d.ts", i%4), "alpha\n"))
+ 		}
+-		return h.Store.counts(), h.Graph.counts(), h.Touch.Total()
++		return h.Store.counts(), h.Graph.counts(), h.Touch.Total(), prompts
++	}
++
++	// warned counts how many of a run's prompts carried an injected thrash line.
++	warned := func(outs []Output) int {
++		n := 0
++		for _, out := range outs {
++			if out.HookSpecificOutput != nil && out.HookSpecificOutput.AdditionalContext != "" {
++				n++
++			}
++		}
++		return n
+ 	}
+ 
+-	fullStore, fullGraph, fullCMS := session(t, ModeFull)
+-	passiveStore, passiveGraph, passiveCMS := session(t, ModePassive)
++	fullStore, fullGraph, fullCMS, fullPrompts := session(t, ModeFull)
++	passiveStore, passiveGraph, passiveCMS, passivePrompts := session(t, ModePassive)
+ 
+ 	require.Equal(t, fullStore, passiveStore, "§12: L0 keeps observing, chunking and storing")
+ 	require.Equal(t, fullGraph, passiveGraph, "the DAG stays correct in degraded-passive mode")
+ 	require.Equal(t, fullCMS, passiveCMS, "the sketches stay correct too")
++
++	require.Equal(t, 1, warned(fullPrompts),
++		"the queued warning drains on the first prompt AFTER a tool use, and only once")
++	require.Equal(t, 0, warned(passivePrompts),
++		"only OnUserPrompt's AdditionalContext differs between the two modes")
+ }
+ 
+ func TestOnToolUse_ConcurrentSessionsRaceFree(t *testing.T) {
+ 	const perSession = 200
++	// Every put is priced identically, so the expected prefix position is arithmetic rather than
++	// a recorded number: one prompt node plus one tool_result node per iteration, each advancing
++	// by its own token count (decision 5).
++	const tokensPerPut = core.Tokens(7)
++
+ 	h := newHarness(t)
+-	h.Store.DefaultTokens = 7
++	h.Store.DefaultTokens = tokensPerPut
+ 
+ 	var wg sync.WaitGroup
+ 	for _, s := range []core.SessionID{"sess_a", "sess_b"} {
+ 		wg.Add(1)
+ 		go func(sid core.SessionID) {
+ 			defer wg.Done()
+ 			for i := range perSession {
++				// A prompt and a tool use per iteration, because both entry points mutate the
++				// same session state and decision 9's locking has to hold across both.
++				p := promptOf(fmt.Sprintf("step %d", i))
++				p.SessionID = sid
++				if _, err := h.obs.OnUserPrompt(context.Background(), p); err != nil {
++					t.Errorf("OnUserPrompt(%s, %d): %v", sid, i, err)
++					return
++				}
+ 				e := readOf(fmt.Sprintf("toolu_%s_%d", sid, i), "src/a.ts", "alpha\n")
+ 				e.SessionID = sid
+ 				if _, err := h.obs.OnToolUse(context.Background(), e); err != nil {
+ 					t.Errorf("OnToolUse(%s, %d): %v", sid, i, err)
+ 					return
+ 				}
+ 			}
+ 		}(s)
+ 	}
+ 	wg.Wait()
+ 
+ 	for _, sid := range []core.SessionID{"sess_a", "sess_b"} {
+ 		st := h.state(sid)
+ 		st.mu.Lock()
+-		require.Equal(t, core.TurnIndex(0), st.Turn, "OnToolUse never increments the turn (decision 4)")
+-		require.Equal(t, perSession*7, st.PrefixTokens, "%s: PrefixTokens is what a sequential run produces", sid)
++		require.Equal(t, core.TurnIndex(perSession), st.Turn,
++			"%s: each prompt increments the turn exactly once and no tool use ever does", sid)
++		require.Equal(t, perSession*2*int(tokensPerPut), st.PrefixTokens,
++			"%s: PrefixTokens is what a sequential run produces", sid)
++		require.Equal(t, core.TurnIndex(perSession-1), st.LastPromptTurn, "%s", sid)
+ 		st.mu.Unlock()
+ 	}
+ }
+ 
+ // benchHarness builds an observer over a REAL store and a REAL graph on b.TempDir(), which is what
+ // makes the numbers comparable against budget B-C (l0_process, p99 < 50 ms).
+ //
+ // It returns the registry as well as the observer because a Go benchmark reports a MEAN ns/op and
+ // B-C is stated as a p99. The observer already times every OnToolUse into the observer.tooluse
+ // histogram, so reportBudget reads the real percentiles back out of it rather than inferring them.

@@ -1,0 +1,1613 @@
+# Review package: 1466b73..c0c63c9
+
+## Commits
+c0c63c9 feat(observer): addressable tombstones, tool tables, task-boundary signals
+
+## Files changed
+ internal/observer/doc.go                | 143 ++++++++++--
+ internal/observer/signals.go            | 306 +++++++++++++++++++++++-
+ internal/observer/signals_test.go       | 356 ++++++++++++++++++++++++++++
+ internal/observer/tombstone.go          | 219 ++++++++++++++++-
+ internal/observer/tombstone_test.go     | 401 ++++++++++++++++++++++++++++++--
+ testdata/golden/observer/tombstones.txt |  13 ++
+ 6 files changed, 1389 insertions(+), 49 deletions(-)
+
+## Diff
+diff --git a/internal/observer/doc.go b/internal/observer/doc.go
+index 34c78d3..d022238 100644
+--- a/internal/observer/doc.go
++++ b/internal/observer/doc.go
+@@ -1,21 +1,130 @@
+ // Package observer implements the L0 hook semantics of 00-ARCHITECTURE.md §5.21: what actually
+ // happens when Claude Code fires PostToolUse, UserPromptSubmit, Stop/SubagentStop, SessionStart
+ // and SessionEnd. It is the hot path — Qompack.md §8.1 budgets the whole of PostToolUse at under
+-// 15 ms p99 — and it is the only place user intent is captured verbatim (G2.3) and subagent
+-// detail is captured before the host double-compresses it (G10.1). SP-08 owns the real
+-// implementation, and §5.21 is explicit that no other subplan writes code in this package.
+-//
+-// observer may import hookio, store, chunk, canon, sketch, dag, grammar, negknow and tokens, plus
+-// the foundation packages core, paths, config, logging and obs (00-ARCHITECTURE.md §3.2's
+-// observer allow-set). It may NOT import scheduler, checkpoint, rehydrate or contract — which is
+-// why the L3 hand-off is the plain Signals value of §5.21 rather than a scheduler type, and why
+-// SessionStart's `compact` branch is a delegation SP-11 installs rather than a direct call.
+-//
+-// SP-01 ships the §5.21 surface — the Observer interface (5 methods), Signals, ExtractSignals and
+-// Tombstone — as real declarations, plus an Options/New constructor pair so wave-0 composition
+-// roots can wire an Observer today. Every method is a stub returning core.ErrNotImplemented. The
+-// one exception is Tombstone: a fully specified, closed-form renderer that §14.1 rule 3 of
+-// plans/V1-SP-01-foundation-toolchain-and-contracts.md has SP-01 implement for real, because the
+-// addressable marker it produces (§8.1 item 2) is what makes a cleared result re-expandable
+-// rather than merely gone.
++// 15 ms p99 — and it is the only place user intent is captured verbatim (G2.3) and subagent detail
++// is captured before the host double-compresses it (G10.1).
++//
++// §5.21 is explicit that no subplan other than SP-08 writes code in this package. That is a
++// sole-writer rule, not a courtesy: every other layer reaches L0 through the Observer interface,
++// the Signals value or the seams named below, so a change made from outside would be a change to
++// a contract several subplans compile against.
++//
++// SP-08 lands the package across a sequence of commits. Everything below is the package's
++// contract rather than a description of one commit's contents, and each rule is asserted by a test
++// in the commit that lands it.
++//
++// # Responsibilities (Qompack.md §8.1)
++//
++//  1. Chunk and store the tool result, canonicalizing first so that timestamps, ANSI escapes,
++//     PIDs and temp paths do not defeat exact-hash dedup.
++//  2. Emit the addressable tombstone that replaces a cleared result, which is what closes G3.2 at
++//     near-zero cost. See Tombstone.
++//  3. Detect redundancy: a read that is a superset or near-duplicate of an earlier read of the
++//     same path marks the earlier one superseded, and superseded reads evict first.
++//  4. Record the DAG edges tool_use → tool_result → assistant_turn → next_tool_use, plus
++//     shared-state edges keyed on file path and symbol name.
++//  5. Update the Count-Min and HyperLogLog sketches. The Bloom filter is fed ONLY on explicit
++//     negative-knowledge events (§8.3), which is why this package does not import negknow.
++//  6. Append the tool symbol to the action grammar and warn on a high-multiplicity nonterminal,
++//     which is a thrash loop the session cannot see itself in.
++//  7. Capture every UserPromptSubmit verbatim and immutably. Unlike a summary, it is never
++//     regenerated.
++//  8. On SubagentStop, capture the subagent's returned summary and its tool-result hashes, so the
++//     parent gains a retrieval path into detail it never held.
++//
++// # Imports
++//
++// The §3.2 allow-table permits observer to import hookio, store, chunk, canon, sketch, dag,
++// grammar, negknow and tokens plus the foundation packages, but a permission is a ceiling rather
++// than an instruction. This package declines chunk (it never chunks by hand — see decision 1) and
++// negknow (§8.1 item 5 forbids L0 from touching the Bloom filter), and it never had symbols,
++// scheduler, checkpoint or contract. The realized set is exactly core, paths, config, logging,
++// obs, hookio, store, canon, sketch, dag, grammar and tokens, plus the standard library.
++//
++// The packages it may not import are what the seams are for: SymbolLister stands in for symbols,
++// Signals and FeatureSample plus their callbacks stand in for scheduler and checkpoint, Mode
++// stands in for contract, and Rehydrator is the seam SP-11 installs so SessionStart's compact
++// branch is a delegation rather than a direct call.
++//
++// # Resolved decisions
++//
++// These are settled. None is open, and none may be revisited locally: a problem with one is an
++// arch/ amendment (§0).
++//
++//  1. Pipeline order. §8.1 item 1 says canonicalize first; §5.22a says redaction happens at the
++//     single choke point store.Put/PutBytes, BEFORE canonicalization and chunking. Both hold
++//     because the observer never chunks, redacts or canonicalizes by hand: it calls
++//     store.PutBytes with PutOptions{Tool, Path, Canon} and the store performs
++//     redact → canonicalize → chunk internally. This package's contribution to O2 is per-tool
++//     canonicalizer SELECTION, delivered as PutOptions.Tool and PutOptions.Path — which is what
++//     canon.Registry.For dispatches on — and PutOptions.Canon.Strip. Its own ordering, after the
++//     Put returns, is: index → file version → sketches → DAG → grammar → signals/features →
++//     tombstone.
++//
++//  2. crlf is unconditional. Content entering the store is CRLF→LF normalized before chunking, so
++//     the canon options always include the crlf class even when store.canonicalize.enabled is
++//     false. The with/without-canonicalization measurement therefore compares crlf-only against
++//     crlf plus the six configured classes, which is the honest A/B.
++//
++//  3. Verbatim capture (§8.1 item 7). The design names index/segments.jsonl; in this architecture
++//     the segment log carries no per-turn payload field and W-3 forbids adding one. The
++//     requirement is met with three durable artifacts, none ever regenerated from a summary: the
++//     prompt bytes stored as a content-addressed object with no optional canonicalization class
++//     and no MinHash; an append-only tool_use.jsonl entry under VerbatimPromptID; and a
++//     KindUserPrompt DAG node enrolled in the open segment by an EdgeSequence running
++//     userprompt:<turn> → segment:<id>, because members point INTO the segment. This is what
++//     closes G2.3: the bytes are content-addressed, immutable and reachable by hash forever.
++//
++//  4. Turn accounting. Turn starts at 0. OnUserPrompt records at Turn then increments. OnToolUse
++//     records at the current Turn without incrementing. OnStop increments in BOTH directions —
++//     subagent=false because the assistant turn ended, subagent=true because the capture itself
++//     occupies a turn slot and is recorded at the pre-increment Turn, exactly like a prompt. The
++//     result is a monotone alternating user/assistant sequence in which every stored artifact
++//     carries the turn it was observed at.
++//
++//  5. Node positions. A monotone per-session token counter gives every node its Pos as that
++//     node's START position, and is then advanced by the node's own token count. Prompts, tool
++//     results and subagent captures all advance it.
++//
++//  6. Ephemeral. A tool whose normalized name begins with mcp__qompack__ is a retrieval result:
++//     it is recorded Ephemeral, excluded from supersession in both directions, and not fed to the
++//     CMS, HLL or Misra-Gries, because retrieval is not exploration. It still gets DAG nodes and
++//     a tombstone.
++//
++//  7. Error policy. No I/O failure ever escapes an Observer method. Every stage is wrapped by a
++//     soft-failure helper that increments observer.err.<stage>, logs at Warn, and returns. The
++//     methods return a non-nil error ONLY for ctx.Err(). Every method returns hookio.Empty()
++//     unless it has a specific reason to emit: exactly two exist — OnUserPrompt may emit a thrash
++//     warning, and only in ModeFull, and OnSessionStart returns verbatim whatever the Rehydrator
++//     seam returns for source compact or clear. Counter bumps go through one nil-safe helper,
++//     which is the only place in the package that names an obs method.
++//
++//  8. Nil tolerance. Grammar, Touch, Explore, Hot, Symbols, Rehydrate, Mode, OnSignals, OnFeatures
++//     and Metrics may each be nil, and every call site guards. New reports an error only when
++//     ProjectRoot is empty or Store, Graph, Log or Clock is nil.
++//
++//  9. Concurrency (two-level locking). The daemon's worker pool may deliver events for DIFFERENT
++//     sessions concurrently, so every entry point is race-free under go test -race. The package
++//     mutex guards ONLY the session map and the state-file write, and is held for the map
++//     lookup/insert and released immediately. Each session state carries its own mutex, taken for
++//     the remainder of the method, so all work for one session is serialized. Store, DAG, grammar
++//     and sketch calls are made while holding the session lock: those packages own their internal
++//     synchronization, and one session is inherently sequential in the host anyway. Never take
++//     the package mutex while holding a session mutex; the shape is always map-lock → copy
++//     pointer → map-unlock → session-lock.
++//
++//  10. Mode gates output, never writes. Under §12's degraded-passive mode L0 and L1 keep running:
++//     observe, chunk, store, sketches, DAG, verbatim capture. Mode is therefore consulted in
++//     exactly one place, the AdditionalContext emission on the prompt path, and never guards a
++//     PutBytes, RecordToolUse, AddNode, AddEdge or sketch update.
++//
++//  11. Time. Every timestamp comes from the injected Clock, read once at the top of each entry
++//     point after the ctx check and reused for the record, the DAG nodes and the feature sample,
++//     so one hook firing has exactly one timestamp. time.Now never appears in this package.
++//
++//  12. MinHash options. §5.6 declares canon's field as MinHashOptions inside a package that
++//     imports sketch, and §5.7 declares sketch.MinHashOptions, so the call site writes
++//     sketch.MinHashOptions. A package-local alias on canon's side compiles unchanged; a
++//     genuinely distinct struct would be a §5 divergence and an arch/ amendment request rather
++//     than a local workaround.
+ package observer
+diff --git a/internal/observer/signals.go b/internal/observer/signals.go
+index ce146c2..4055948 100644
+--- a/internal/observer/signals.go
++++ b/internal/observer/signals.go
+@@ -1,28 +1,318 @@
+ package observer
+ 
++import (
++	"bytes"
++	"encoding/json"
++	"regexp"
++	"strings"
++)
++
+ // Signals is the L0 → L3 hand-off of gap G1.5 (00-ARCHITECTURE.md §5.21): the task-boundary
+ // evidence a hook payload carries, extracted in L0 and consumed by the scheduler's composite
+ // trigger. It is a plain value rather than a scheduler type precisely because observer may not
+ // import scheduler (§3.2) — the hand-off crosses that boundary as data, not as a call.
+ type Signals struct {
+ 	// TodoCompleted reports that a todo item moved to completed in this event.
+ 	TodoCompleted bool
+ 	// TestPassed reports that a test run in this event succeeded.
+ 	TestPassed bool
+ 	// GitCommit reports that this event was a git commit.
+ 	GitCommit bool
+-	// Paths lists the file paths this event touched, in paths.Key form.
++	// Paths lists the file paths this event touched, RAW: exactly as the host submitted them,
++	// separators, casing and relativity included. Normalization to paths.Key form is the
++	// observer's own job on the PostToolUse path, before OnSignals is called — it is deliberately
++	// not done here, because everything in this file is a pure function of a hookio.Event so that
++	// ExtractSignals stays reusable by the daemon and trivially fuzzable.
+ 	Paths []string
+ }
+ 
+ // ExtractSignals reads the task-boundary signals out of one hook payload: a todo transition, a
+ // passing test run, a git commit, and the paths the event touched. The scheduler treats each as
+ // evidence that a unit of work closed, which is when compaction is cheapest (Qompack.md §8.4).
+ //
+-// It always returns the zero Signals in this build. ExtractSignals has no error return, so
+-// core.ErrNotImplemented is unavailable to it, and the zero value is the honest answer under
+-// §14.1 rule 1 of plans/V1-SP-01-foundation-toolchain-and-contracts.md: no signal was detected,
+-// because nothing was inspected. Unlike Tombstone — a closed-form renderer — recognizing a todo
+-// transition or a passing test means parsing per-tool payload shapes that only SP-08 fixes, so
+-// returning a plausible-looking Signals here would be exactly the faked behaviour rule 2 forbids.
+-func ExtractSignals(e Event) Signals { return Signals{} }
++// It is pure — no clock, no state, no I/O — and it never panics or errors: a payload whose shape
++// the host changed underneath us yields the zero value of whatever could not be read, which is
++// also the honest answer, because no boundary was observed.
++//
++// Note what it does NOT do. TodoCompleted reports the STATE of the list, not the transition into
++// it; newly-completed detection compares against the session's previous list and therefore lives
++// in the observer's stateful path, because §5.21 requires this function to stay pure.
++func ExtractSignals(e Event) Signals {
++	return Signals{
++		TodoCompleted: hasCompletedTodo(e),
++		TestPassed:    ExtractTestOutcome(e) == TestPass,
++		GitCommit:     isGitCommit(e),
++		Paths:         PathsFromInput(e.ToolName, e.ToolInput),
++	}
++}
++
++// TestOutcome is the verdict ExtractTestOutcome reads out of a test-runner invocation.
++type TestOutcome uint8
++
++const (
++	// TestUnknown means the event was not a recognized test run, or the run reported no verdict
++	// this package knows how to read. It is the zero value, so an unread payload is never
++	// mistaken for a result.
++	TestUnknown TestOutcome = iota
++	// TestPass means the run reported success.
++	TestPass
++	// TestFail means the run reported at least one failure.
++	TestFail
++)
++
++// maxScanBytes bounds how many tool_response bytes the pure decoders in this file will look at:
++// 4 MiB. It bounds the decoder's allocation and nothing else — the CONFIGURED cap
++// (runtime.hotPath.maxPayloadBytes) is applied separately, on the observer's own PostToolUse path,
++// because this file may not read observer state and stay pure.
++//
++// 4 MiB is deliberately larger than that setting's 1 MiB default, so in practice the two caps
++// never interact. When a user configures a larger payload cap this one binds first, and the
++// retained prefix is scanned as-is: a JSON payload cut at 4 MiB no longer parses, so it falls
++// through to the raw-bytes branch of responseText rather than being repaired.
++const maxScanBytes = 4 << 20
++
++// reTestRunner recognizes the command lines whose output is worth scanning for a verdict. It is
++// the gate, not the verdict: plenty of ordinary output contains the word PASS, and only a
++// recognized runner turns that into evidence that a unit of work closed.
++var reTestRunner = regexp.MustCompile(`(?i)\b(go\s+test|npm\s+(run\s+)?test|yarn\s+test|pnpm\s+test|jest|vitest|pytest|python\s+-m\s+pytest|cargo\s+test|dotnet\s+test|mvn\s+test|gradle\s+test|rspec|ctest)\b`)
++
++// reTestPass are the success summaries of the runners above, one per output dialect.
++var reTestPass = []*regexp.Regexp{
++	regexp.MustCompile(`(?m)^ok\s+\S+`),
++	regexp.MustCompile(`(?m)^PASS\b`),
++	regexp.MustCompile(`(?i)\btests?:\s+\d+\s+passed\b`),
++	regexp.MustCompile(`(?i)=+\s*\d+\s+passed`),
++	regexp.MustCompile(`test result: ok\.`),
++	regexp.MustCompile(`(?i)\bOK\s+\(\d+\s+tests?\)`),
++}
++
++// reTestFail are the failure summaries, checked before the success ones: a run with one failure is
++// not a passing test run, however many tests passed alongside it.
++//
++// The bare FAILED pattern is deliberately case-SENSITIVE while every other pattern here is not.
++// Uppercase FAILED is the standalone marker pytest, cargo and jest print for a failure; lowercase
++// "failed" is a count word that means nothing without its count, and every clean cargo, pytest and
++// jest summary ends with "0 failed". A case-insensitive match would therefore read every passing
++// run as a failure and suppress the task boundary on the most common summary line there is. The
++// counted form is covered by the next pattern, whose [1-9] is what makes a zero count harmless.
++var reTestFail = []*regexp.Regexp{
++	regexp.MustCompile(`(?m)^FAIL\b`),
++	regexp.MustCompile(`(?m)^---\s+FAIL`),
++	regexp.MustCompile(`\bFAILED\b`),
++	regexp.MustCompile(`(?i)\b[1-9]\d*\s+failed\b`),
++	regexp.MustCompile(`test result: FAILED\.`),
++}
++
++// reGitCommit recognizes a commit anywhere in a command line, including the -C form every commit
++// into a sibling worktree is spelled with, because commits are almost always the tail of a chain.
++var reGitCommit = regexp.MustCompile(`(?i)\bgit\s+(-C\s+\S+\s+)?commit\b`)
++
++// reGitNoop recognizes the two ways git reports that a commit committed nothing. The command ran,
++// but no work closed, so firing a compaction on it would spend tokens for nothing.
++var reGitNoop = regexp.MustCompile(`(?i)nothing to commit|no changes added to commit`)
++
++// ExtractTestOutcome reads the verdict of a test run out of one hook payload, or TestUnknown when
++// the event was not one. Two conditions gate it: the tool must be a shell (a file whose contents
++// happen to contain "PASS" is not a test run), and the command must name a recognized runner.
++//
++// Failure is checked before success on purpose. A run that reports both — "2 failed, 40 passed" —
++// closed nothing.
++func ExtractTestOutcome(e Event) TestOutcome {
++	if !isShellTool(e.ToolName) || !reTestRunner.MatchString(commandOf(e)) {
++		return TestUnknown
++	}
++
++	body := responseText(e)
++	for _, re := range reTestFail {
++		if re.Match(body) {
++			return TestFail
++		}
++	}
++	for _, re := range reTestPass {
++		if re.Match(body) {
++			return TestPass
++		}
++	}
++	return TestUnknown
++}
++
++// isShellTool reports whether hostName is one of the two shells of §2.2 whose command line the
++// signal extractors parse.
++func isShellTool(hostName string) bool {
++	switch NormalizeToolName(hostName) {
++	case "Bash", "PowerShell":
++		return true
++	default:
++		return false
++	}
++}
++
++// isGitCommit reports whether this event was a git commit that actually committed something.
++func isGitCommit(e Event) bool {
++	if !isShellTool(e.ToolName) || !reGitCommit.MatchString(commandOf(e)) {
++		return false
++	}
++	return !reGitNoop.Match(responseText(e))
++}
++
++// todoStatusCompleted is the status value Claude Code writes for a finished todo item.
++const todoStatusCompleted = "completed"
++
++// todoInput is the tolerant shape of TodoWrite's tool_input. Every field this file unmarshals into
++// is optional: a shape the host changed yields zero values rather than an error.
++type todoInput struct {
++	Todos []struct {
++		Status string `json:"status"`
++	} `json:"todos"`
++}
++
++// hasCompletedTodo reports whether the event is a TodoWrite whose list contains at least one
++// completed item.
++func hasCompletedTodo(e Event) bool {
++	if e.ToolName != "TodoWrite" {
++		return false
++	}
++	var in todoInput
++	if err := json.Unmarshal(e.ToolInput, &in); err != nil {
++		return false
++	}
++	for _, todo := range in.Todos {
++		if todo.Status == todoStatusCompleted {
++			return true
++		}
++	}
++	return false
++}
++
++// pathInput is the union of the path-bearing keys across every host tool: the three top-level
++// spellings and the per-edit array MultiEdit sends.
++type pathInput struct {
++	FilePath     string `json:"file_path"`
++	Path         string `json:"path"`
++	NotebookPath string `json:"notebook_path"`
++	Edits        []struct {
++		FilePath string `json:"file_path"`
++	} `json:"edits"`
++}
++
++// PathsFromInput returns the paths a tool input names, in a fixed order — file_path, path,
++// notebook_path, then every edits[].file_path — deduplicated with first-seen order preserved.
++// Order is what makes the result usable as a feature: the changepoint detector compares the path
++// sets of consecutive turns, and a set that reordered itself would look like movement that never
++// happened.
++//
++// Values are returned RAW, exactly as the host submitted them; the caller normalizes with
++// paths.Norm/paths.Key. An input naming no path at all returns nil rather than an empty slice, so
++// that ExtractSignals of an empty event is exactly the zero Signals.
++//
++// tool is not dispatched on: the key union above covers every §2.2 tool, so a host tool that grows
++// a new path-bearing key is picked up without a table edit. It is part of the signature §5.21
++// publishes so callers pass the name they already hold rather than deciding which keys apply.
++func PathsFromInput(tool string, in json.RawMessage) []string {
++	var v pathInput
++	if err := json.Unmarshal(in, &v); err != nil {
++		return nil
++	}
++
++	var out []string
++	add := func(p string) {
++		if p == "" {
++			return
++		}
++		for _, seen := range out {
++			if seen == p {
++				return
++			}
++		}
++		out = append(out, p)
++	}
++
++	add(v.FilePath)
++	add(v.Path)
++	add(v.NotebookPath)
++	for _, edit := range v.Edits {
++		add(edit.FilePath)
++	}
++	return out
++}
++
++// commandOf returns the shell command a tool input carries, or "" when the payload has none or
++// cannot be read.
++func commandOf(e Event) string {
++	var in struct {
++		Command string `json:"command"`
++	}
++	if err := json.Unmarshal(e.ToolInput, &in); err != nil {
++		return ""
++	}
++	return in.Command
++}
++
++// toolResponse is the tolerant union of the tool_response object shapes Claude Code sends. Content
++// stays raw because it is a string in one dialect and an array of typed blocks in another.
++type toolResponse struct {
++	Content json.RawMessage `json:"content"`
++	Stdout  string          `json:"stdout"`
++	Stderr  string          `json:"stderr"`
++}
++
++// contentBlock is one element of the array form of tool_response.content.
++type contentBlock struct {
++	Text string `json:"text"`
++}
++
++// responseText unwraps e.ToolResponse into the plain text the signal patterns scan, trying the
++// four shapes the host uses in a fixed order: a bare JSON string; an object with "content", either
++// a string or an array of blocks whose text is joined with newlines; an object with "stdout", plus
++// stderr behind a newline when it carries anything; and anything else as compacted JSON.
++//
++// The order is what makes it deterministic rather than a guess, and every step is failure-tolerant:
++// a payload that matches no shape is scanned as its own raw bytes rather than discarded, because a
++// verdict line is still a verdict line inside JSON nobody could parse.
++//
++// The input is capped at maxScanBytes before any decoding, so a decoded result can never exceed it
++// either — a JSON string is always at least as long as the text it encodes.
++func responseText(e Event) []byte {
++	raw := e.ToolResponse
++	if len(raw) == 0 {
++		return nil
++	}
++	if len(raw) > maxScanBytes {
++		raw = raw[:maxScanBytes]
++	}
++
++	var text string
++	if err := json.Unmarshal(raw, &text); err == nil {
++		return []byte(text)
++	}
++
++	var resp toolResponse
++	if err := json.Unmarshal(raw, &resp); err == nil {
++		if len(resp.Content) > 0 {
++			var content string
++			if err := json.Unmarshal(resp.Content, &content); err == nil {
++				return []byte(content)
++			}
++			var blocks []contentBlock
++			if err := json.Unmarshal(resp.Content, &blocks); err == nil {
++				parts := make([]string, len(blocks))
++				for i, block := range blocks {
++					parts[i] = block.Text
++				}
++				return []byte(strings.Join(parts, "\n"))
++			}
++		}
++		if resp.Stdout != "" || resp.Stderr != "" {
++			if resp.Stderr == "" {
++				return []byte(resp.Stdout)
++			}
++			return []byte(resp.Stdout + "\n" + resp.Stderr)
++		}
++	}
++
++	var compact bytes.Buffer
++	if err := json.Compact(&compact, raw); err != nil {
++		return raw
++	}
++	return compact.Bytes()
++}
+diff --git a/internal/observer/signals_test.go b/internal/observer/signals_test.go
+new file mode 100644
+index 0000000..b87593f
+--- /dev/null
++++ b/internal/observer/signals_test.go
+@@ -0,0 +1,356 @@
++// This is an INTERNAL test package (package observer, not observer_test) because responseText and
++// commandOf are unexported and are where the host's payload shapes are actually absorbed. Asserting
++// them only through ExtractSignals would mean every shape failure surfaced as "no signal detected",
++// which is also what a correct extractor returns for an ordinary read.
++package observer
++
++import (
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"testing"
++	"unicode/utf8"
++
++	"github.com/stretchr/testify/require"
++)
++
++// toolEvent builds a PostToolUse payload from raw tool_input and tool_response JSON, so a test can
++// pin the exact bytes the host would have sent rather than a Go value's round trip.
++func toolEvent(tool, input, response string) Event {
++	e := Event{HookEventName: "PostToolUse", ToolName: tool}
++	if input != "" {
++		e.ToolInput = json.RawMessage(input)
++	}
++	if response != "" {
++		e.ToolResponse = json.RawMessage(response)
++	}
++	return e
++}
++
++// shellEvent builds a PostToolUse payload for a shell tool running command and returning response.
++// response is wrapped as a bare JSON string — one of the four shapes responseText recognizes, and
++// the one that keeps the test's expectation readable.
++func shellEvent(tb testing.TB, tool, command, response string) Event {
++	tb.Helper()
++	in, err := json.Marshal(struct {
++		Command string `json:"command"`
++	}{Command: command})
++	require.NoError(tb, err)
++	out, err := json.Marshal(response)
++	require.NoError(tb, err)
++	return toolEvent(tool, string(in), string(out))
++}
++
++// TestExtractSignals_TodoCompleted is G1.5's cheapest task boundary: the agent's own todo list says
++// a unit of work closed. Compaction is cheapest exactly there (Qompack.md §8.4).
++func TestExtractSignals_TodoCompleted(t *testing.T) {
++	e := toolEvent("TodoWrite", `{"todos":[{"content":"a","status":"completed"},{"content":"b","status":"pending"}]}`, "")
++
++	got := ExtractSignals(e)
++	require.True(t, got.TodoCompleted, "one completed item in the list is a boundary")
++	require.False(t, got.TestPassed)
++	require.False(t, got.GitCommit)
++}
++
++// TestExtractSignals_TodoNoneCompleted asserts an in-flight todo list is not a boundary. Writing
++// the plan is not finishing the work, and a compaction fired here would evict the context the next
++// step needs.
++func TestExtractSignals_TodoNoneCompleted(t *testing.T) {
++	e := toolEvent("TodoWrite", `{"todos":[{"content":"a","status":"in_progress"},{"content":"b","status":"pending"}]}`, "")
++
++	require.False(t, ExtractSignals(e).TodoCompleted)
++}
++
++// TestExtractTestOutcome_GoPass covers `go test`'s passing form: the per-package "ok" line.
++func TestExtractTestOutcome_GoPass(t *testing.T) {
++	e := shellEvent(t, "Bash", "go test ./...", "ok  \tgithub.com/x/y\t0.31s\n")
++
++	require.Equal(t, TestPass, ExtractTestOutcome(e))
++	require.True(t, ExtractSignals(e).TestPassed)
++}
++
++// TestExtractTestOutcome_GoFail covers `go test`'s failing form.
++func TestExtractTestOutcome_GoFail(t *testing.T) {
++	e := shellEvent(t, "Bash", "go test ./...", "--- FAIL: TestX\nFAIL\n")
++
++	require.Equal(t, TestFail, ExtractTestOutcome(e))
++	require.False(t, ExtractSignals(e).TestPassed, "a failing run closes nothing")
++}
++
++// TestExtractTestOutcome_JestPass covers the jest/vitest summary line.
++func TestExtractTestOutcome_JestPass(t *testing.T) {
++	e := shellEvent(t, "Bash", "npm test", "Tests:       42 passed, 42 total")
++
++	require.Equal(t, TestPass, ExtractTestOutcome(e))
++}
++
++// TestExtractTestOutcome_PytestMixed is the fail-wins rule: a run with one failure is not a passing
++// test run, however many tests passed alongside it.
++func TestExtractTestOutcome_PytestMixed(t *testing.T) {
++	e := shellEvent(t, "Bash", "pytest -q", "2 failed, 40 passed")
++
++	require.Equal(t, TestFail, ExtractTestOutcome(e))
++}
++
++// TestExtractTestOutcome_CargoPass is the counter-case to the fail-wins rule, and the reason the
++// FAILED pattern is case-sensitive: cargo's passing summary contains the literal word "failed" with
++// a zero count in front of it. Reading that as a failure would suppress a task boundary on every
++// clean cargo, pytest and jest run there is.
++func TestExtractTestOutcome_CargoPass(t *testing.T) {
++	e := shellEvent(t, "Bash", "cargo test", "test result: ok. 12 passed; 0 failed")
++
++	require.Equal(t, TestPass, ExtractTestOutcome(e))
++}
++
++// TestExtractTestOutcome_NotATestCommand asserts the command gates the response. Plenty of output
++// contains the word PASS; only a recognized test runner makes it a verdict.
++func TestExtractTestOutcome_NotATestCommand(t *testing.T) {
++	e := shellEvent(t, "Bash", "ls -la", "PASS")
++
++	require.Equal(t, TestUnknown, ExtractTestOutcome(e))
++	require.False(t, ExtractSignals(e).TestPassed)
++}
++
++// TestExtractTestOutcome_NotAShellTool asserts a test verdict can only come from a shell. A file
++// whose contents happen to contain "PASS" is not a test run.
++func TestExtractTestOutcome_NotAShellTool(t *testing.T) {
++	e := toolEvent("Read", `{"file_path":"go.mod","command":"go test ./..."}`, `"PASS\n"`)
++
++	require.Equal(t, TestUnknown, ExtractTestOutcome(e))
++}
++
++// TestExtractTestOutcome_PowerShell asserts the second shell of §2.2 is recognized too. Windows is
++// this project's primary development platform, so a Bash-only extractor would miss the boundary
++// signal exactly where it is developed.
++func TestExtractTestOutcome_PowerShell(t *testing.T) {
++	e := shellEvent(t, "PowerShell", "go test ./internal/observer/", "ok  \tgithub.com/x/y\t0.31s\n")
++
++	require.Equal(t, TestPass, ExtractTestOutcome(e))
++}
++
++// TestExtractSignals_GitCommit is G1.5's strongest boundary: a commit is a unit of work the session
++// itself declared finished.
++func TestExtractSignals_GitCommit(t *testing.T) {
++	e := shellEvent(t, "Bash", `git commit -m "x"`, "[main 3f2a1] x\n 2 files changed")
++
++	require.True(t, ExtractSignals(e).GitCommit)
++}
++
++// TestExtractSignals_GitCommitNoop asserts a commit that committed nothing is not a boundary. The
++// command matched, but no work closed, and firing a compaction here would spend tokens for nothing.
++func TestExtractSignals_GitCommitNoop(t *testing.T) {
++	e := shellEvent(t, "Bash", `git commit -m "x"`, "nothing to commit, working tree clean")
++
++	require.False(t, ExtractSignals(e).GitCommit)
++}
++
++// TestExtractSignals_GitCommitInChain asserts the command is scanned rather than matched whole:
++// commits are almost always the tail of a chained command line.
++func TestExtractSignals_GitCommitInChain(t *testing.T) {
++	e := shellEvent(t, "Bash", "git add -A && git commit -m x", "[main 3f2a1] x\n")
++
++	require.True(t, ExtractSignals(e).GitCommit)
++}
++
++// TestExtractSignals_GitCommitWithDashC asserts the -C form is recognized. It is how every commit
++// into a sibling worktree is spelled, so missing it would lose the boundary on exactly the
++// multi-worktree workflow this repository is developed with.
++func TestExtractSignals_GitCommitWithDashC(t *testing.T) {
++	e := shellEvent(t, "Bash", "git -C ../qompack-develop commit -m x", "[develop 3f2a1] x\n")
++
++	require.True(t, ExtractSignals(e).GitCommit)
++}
++
++// TestPathsFromInput_Read covers the single-path shape every file tool uses.
++func TestPathsFromInput_Read(t *testing.T) {
++	got := PathsFromInput("FileRead", json.RawMessage(`{"file_path":"src/a.ts"}`))
++
++	require.Equal(t, []string{"src/a.ts"}, got)
++}
++
++// TestPathsFromInput_MultiEdit covers the edits array, the dedup, and the fact that order is
++// preserved. Order is what makes the value usable as a feature: the changepoint detector compares
++// consecutive turns, and a set that reordered itself would look like movement that never happened.
++func TestPathsFromInput_MultiEdit(t *testing.T) {
++	got := PathsFromInput("FileEdit", json.RawMessage(`{"file_path":"a","edits":[{"file_path":"b"},{"file_path":"a"}]}`))
++
++	require.Equal(t, []string{"a", "b"}, got)
++}
++
++// TestPathsFromInput_Glob asserts the search shape: the pattern is not a path, the search root is.
++func TestPathsFromInput_Glob(t *testing.T) {
++	got := PathsFromInput("Glob", json.RawMessage(`{"pattern":"**/*.go","path":"internal"}`))
++
++	require.Equal(t, []string{"internal"}, got)
++}
++
++// TestPathsFromInput_NotebookAndOrder pins the emission order of the three top-level keys.
++func TestPathsFromInput_NotebookAndOrder(t *testing.T) {
++	got := PathsFromInput("FileEdit", json.RawMessage(`{"notebook_path":"n.ipynb","path":"p","file_path":"f"}`))
++
++	require.Equal(t, []string{"f", "p", "n.ipynb"}, got)
++}
++
++// TestPathsFromInput_EmptyIsNil asserts an input with no path at all yields nil rather than an
++// empty slice. It is not a style preference: observertest's conformance suite requires
++// ExtractSignals(Event{}) to equal the zero Signals exactly, and []string{} does not.
++func TestPathsFromInput_EmptyIsNil(t *testing.T) {
++	require.Nil(t, PathsFromInput("Bash", json.RawMessage(`{"command":"ls"}`)))
++	require.Nil(t, PathsFromInput("Bash", nil))
++}
++
++// TestExtractSignals_MalformedJSON is the degradation rule (§12.3) applied to a pure function: a
++// payload shape the host changed underneath us yields no signals, never a panic and never an error.
++func TestExtractSignals_MalformedJSON(t *testing.T) {
++	cases := []struct{ name, tool, input, response string }{
++		{name: "truncated input object", tool: "Read", input: "{not json", response: `"ok"`},
++		{name: "truncated response object", tool: "Bash", input: `{"command":"go test ./..."}`, response: "{not json"},
++		{name: "input is an array", tool: "TodoWrite", input: `["completed"]`, response: ""},
++		{name: "response is a number", tool: "Bash", input: `{"command":"git commit -m x"}`, response: "12"},
++		{name: "todos is not an array", tool: "TodoWrite", input: `{"todos":"completed"}`, response: ""},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			var got Signals
++			require.NotPanics(t, func() { got = ExtractSignals(toolEvent(tc.tool, tc.input, tc.response)) })
++			require.False(t, got.TodoCompleted)
++			require.False(t, got.TestPassed)
++			require.Nil(t, got.Paths)
++		})
++	}
++}
++
++// TestExtractSignals_ZeroEventIsZeroSignals is the assertion observertest/behaviour.go makes from
++// outside the package, pinned here too because it is what constrains PathsFromInput's nil return.
++func TestExtractSignals_ZeroEventIsZeroSignals(t *testing.T) {
++	require.Equal(t, Signals{}, ExtractSignals(Event{}), "an empty payload must not manufacture a boundary")
++}
++
++// TestExtractSignals_ReadReportsItsPath asserts the ordinary case: a file read is not a boundary,
++// but it does report what it touched, which is what feeds the changepoint features.
++func TestExtractSignals_ReadReportsItsPath(t *testing.T) {
++	e := toolEvent("Read", `{"file_path":"src/auth.ts"}`, `{"content":"export async function refreshToken() {}"}`)
++
++	require.Equal(t, Signals{Paths: []string{"src/auth.ts"}}, ExtractSignals(e))
++}
++
++// TestExtractSignals_PathsAreRaw pins what Signals.Paths carries: the host's own bytes.
++// Normalization to paths.Key form happens in the observer's PostToolUse path, not here, so that
++// everything in this file stays a pure function of the event.
++func TestExtractSignals_PathsAreRaw(t *testing.T) {
++	const winPath = `C:\Users\dev\src\Auth.ts`
++	in, err := json.Marshal(struct {
++		FilePath string `json:"file_path"`
++	}{FilePath: winPath})
++	require.NoError(t, err)
++
++	got := ExtractSignals(toolEvent("Read", string(in), ""))
++	require.Equal(t, []string{winPath}, got.Paths, "the raw host path must survive unchanged")
++}
++
++// TestResponseText_AllFourShapes covers every branch of the unwrapper, in the order it tries them.
++func TestResponseText_AllFourShapes(t *testing.T) {
++	cases := []struct{ name, raw, want string }{
++		{name: "bare json string", raw: `"x"`, want: "x"},
++		{name: "content string", raw: `{"content":"x"}`, want: "x"},
++		{
++			name: "content blocks joined with newlines",
++			raw:  `{"content":[{"type":"text","text":"a"},{"type":"text","text":"b"}]}`,
++			want: "a\nb",
++		},
++		{name: "stdout and stderr", raw: `{"stdout":"o","stderr":"e"}`, want: "o\ne"},
++		{name: "stdout alone carries no separator", raw: `{"stdout":"o"}`, want: "o"},
++		{name: "an unrecognized object falls back to compacted json", raw: `{"exit_code": 0}`, want: `{"exit_code":0}`},
++		{name: "an array falls back to compacted json", raw: `[1, 2]`, want: `[1,2]`},
++		{name: "unparseable bytes are used as-is", raw: `{not json`, want: `{not json`},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			require.Equal(t, tc.want, string(responseText(toolEvent("Bash", "", tc.raw))))
++		})
++	}
++
++	require.Nil(t, responseText(Event{}), "an absent response is no text at all")
++}
++
++// TestCommandOf covers the one field the shell extractors read, including the shapes that carry no
++// command at all.
++func TestCommandOf(t *testing.T) {
++	cases := []struct{ name, input, want string }{
++		{name: "present", input: `{"command":"go test ./..."}`, want: "go test ./..."},
++		{name: "absent", input: `{"file_path":"a.ts"}`, want: ""},
++		{name: "malformed", input: `{not json`, want: ""},
++		{name: "wrong type", input: `{"command":42}`, want: ""},
++		{name: "missing", input: "", want: ""},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			require.Equal(t, tc.want, commandOf(toolEvent("Bash", tc.input, "")))
++		})
++	}
++}
++
++// corpusToolOutDir is testdata/corpora/toolout/, spelled relative to this package. It is SP-04's
++// committed raw tool output, reused rather than extended — SP-08's fixture list says so in as many
++// words — so the fuzzer starts from bytes a real session actually produced.
++const corpusToolOutDir = "../../testdata/corpora/toolout"
++
++// fuzzCorpusSeeds names the corpus payloads FuzzExtractSignals starts from, paired with a command
++// line that makes each one reachable: a test-runner payload is only ever scanned for a verdict when
++// the command that produced it was a test runner.
++var fuzzCorpusSeeds = []struct{ tool, command, file string }{
++	{tool: "Bash", command: "go test ./...", file: "testrunner/go-test-pass.txt"},
++	{tool: "Bash", command: "go test ./...", file: "testrunner/go-test-fail.txt"},
++	{tool: "Bash", command: "cargo test", file: "testrunner/cargo-test-pass.txt"},
++	{tool: "Bash", command: "pytest -q", file: "testrunner/pytest-fail.txt"},
++	{tool: "Bash", command: "git status", file: "git/git-status.txt"},
++	{tool: "Grep", command: "", file: "grep/grep-symbol.txt"},
++	{tool: "Bash", command: "npm install", file: "ansi/ansi-colored-build.txt"},
++}
++
++// FuzzExtractSignals asserts the properties every pure extractor in this file owes the hot path: it
++// never panics on any payload the host could send, and every path it reports is a non-empty, valid
++// UTF-8 string — because those paths reach paths.Key, the DAG's node identifiers and the store's
++// index, none of which may be handed a byte sequence that cannot round-trip through JSON.
++func FuzzExtractSignals(f *testing.F) {
++	f.Add("Bash", `{"command":"go test ./..."}`, `{"stdout":"ok  \tgithub.com/x/y\t0.31s\n"}`)
++	f.Add("TodoWrite", `{"todos":[{"content":"a","status":"completed"}]}`, "")
++	f.Add("Read", `{"file_path":"src/auth.ts"}`, `{"content":"package main"}`)
++	f.Add("MultiEdit", `{"file_path":"a","edits":[{"file_path":"b"}]}`, `"done"`)
++	f.Add("Bash", "{not json", "{not json")
++
++	for _, seed := range fuzzCorpusSeeds {
++		body, err := os.ReadFile(filepath.Join(corpusToolOutDir, seed.file))
++		if err != nil {
++			f.Fatalf("reading fuzz seed %s: %v", seed.file, err)
++		}
++		response, err := json.Marshal(string(body))
++		if err != nil {
++			f.Fatalf("encoding fuzz seed %s: %v", seed.file, err)
++		}
++		input, err := json.Marshal(struct {
++			Command string `json:"command"`
++		}{Command: seed.command})
++		if err != nil {
++			f.Fatalf("encoding fuzz seed command for %s: %v", seed.file, err)
++		}
++		f.Add(seed.tool, string(input), string(response))
++	}
++
++	f.Fuzz(func(t *testing.T, tool, input, response string) {
++		e := toolEvent(tool, input, response)
++		got := ExtractSignals(e)
++
++		for _, p := range got.Paths {
++			if !utf8.ValidString(p) {
++				t.Fatalf("ExtractSignals reported a path that is not valid UTF-8: %q", p)
++			}
++			if p == "" {
++				t.Fatal("ExtractSignals reported an empty path")
++			}
++		}
++		if got.TestPassed && ExtractTestOutcome(e) != TestPass {
++			t.Fatal("Signals.TestPassed disagreed with ExtractTestOutcome")
++		}
++	})
++}
+diff --git a/internal/observer/tombstone.go b/internal/observer/tombstone.go
+index c19817f..5748d70 100644
+--- a/internal/observer/tombstone.go
++++ b/internal/observer/tombstone.go
+@@ -1,48 +1,245 @@
+ package observer
+ 
+ import (
+ 	"fmt"
+ 	"strconv"
++	"strings"
++	"unicode/utf8"
+ 
+ 	"github.com/qompack/qompack/internal/store"
+ )
+ 
+ // bytesPerKB is the binary divisor humanBytes renders sizes with: 1 KB is 1024 bytes, not 1000.
+ // The distinction is load-bearing rather than pedantic — 2457 bytes renders as "2.4KB" at 1024
+ // and "2.5KB" at 1000, and Qompack.md §8.1's example tombstone says 2.4KB, so a decimal divisor
+ // would silently break the golden.
+ const bytesPerKB = 1024 //nomagic:allow binary byte-unit divisor for size rendering, not store.chunk.min
+ 
+ // sizeUnits are the suffixes humanBytes steps through above bytesPerKB. A tool result larger than
+ // the last one is rendered in that unit rather than overflowing into an unnamed one.
+ var sizeUnits = [...]string{"KB", "MB", "GB"}
+ 
++// The literal parts of the marker Qompack.md §8.1 item 2 specifies. They are named rather than
++// inlined so tombstoneFixedBytes below can be computed from them instead of being a number that
++// silently stops matching the format string it was derived from.
++const (
++	// tombstoneOpen begins every marker and carries the hash algorithm the short form belongs to.
++	tombstoneOpen = "[cleared: sha256:"
++	// tombstoneSep is the field separator: U+00B7 MIDDLE DOT with one space on each side, exactly
++	// as the design document draws it.
++	tombstoneSep = " · "
++	// tombstoneEllipsis follows the short hash, saying it is an elision of the full digest rather
++	// than a differently-shaped identifier.
++	tombstoneEllipsis = "…"
++	// tombstoneEphemeral marks a result Qompack itself put in the window (§8.7).
++	tombstoneEphemeral = "ephemeral"
++	// tombstoneSuperseded marks a result a later tool use on the same path replaced (§8.1 item 3).
++	tombstoneSuperseded = "superseded"
++	// tombstoneClose ends every marker with the promise the whole design rests on.
++	tombstoneClose = "re-expandable]"
++)
++
++// tombstoneShortHashLen is the width of core.Hash.Short: the first 12 hex characters of the digest
++// (00-ARCHITECTURE.md §4). It is fixed for every hash, so it belongs in the Grow estimate below.
++const tombstoneShortHashLen = 12
++
++// tombstonePreviewRunes caps the ArgsPreview fallback subject. A tombstone is a one-line marker
++// injected into a context window that is already under pressure, so an unbounded subject would let
++// one pathological command line cost more than the result it replaced. store.ToolUseRecord caps
++// ArgsPreview at 120 characters of its own; this is the tighter cap the marker itself needs.
++const tombstonePreviewRunes = 48
++
++// tombstoneFixedBytes is the worst-case byte length of every part of a marker that does not depend
++// on a variable-length field: the literal open and close, the short hash and its ellipsis, the
++// three separators that are always present, the space before a subject, and both optional status
++// segments. It is only a strings.Builder.Grow hint — an over-estimate costs a few bytes of slack,
++// while an under-estimate would cost a second allocation on the hot path — so it is deliberately
++// the largest a marker's fixed part can be.
++const tombstoneFixedBytes = len(tombstoneOpen) + tombstoneShortHashLen + len(tombstoneEllipsis) +
++	3*len(tombstoneSep) + 1 +
++	len(tombstoneSep) + len(tombstoneEphemeral) +
++	len(tombstoneSep) + len(tombstoneSuperseded) +
++	len(tombstoneClose)
++
+ // Tombstone renders the addressable marker of Qompack.md §8.1 item 2: the one-line trace a
+ // cleared tool result leaves behind, carrying enough identity to fetch the content back.
+ //
+-//	[cleared: sha256:a3f2c9e14b70 · 2.4KB · FileRead src/auth.ts · re-expandable]
++//	[cleared: sha256:a3f2c9e14b70… · 2.4KB · FileRead src/auth.ts · re-expandable]
+ //
+-// It is fully specified by the architecture, so SP-01 implements it for real rather than stubbing
+-// it (§14.1 rule 3 of plans/V1-SP-01-foundation-toolchain-and-contracts.md). The point of the
+-// marker is that clearing a result is reversible: the short hash is a real store address, so
+-// `expand` can retrieve exactly what was cleared. A tombstone that merely said "[cleared]" would
+-// turn a cache eviction into data loss.
++// The point of the marker is that clearing a result is reversible: the short hash is a real store
++// address, so `expand` can retrieve exactly what was cleared. A tombstone that merely said
++// "[cleared]" would turn a cache eviction into data loss, which is what closes G3.2 at near-zero
++// cost.
+ //
+-// The separator is U+00B7 MIDDLE DOT with a space on each side, the hash carries its "sha256:"
+-// prefix, and the short form is the first 12 hex characters — the same 12 core.Hash.Short
+-// produces, so a tombstone can be pasted straight back into a retrieval call.
++// The grammar, in order: the "sha256:" prefix and the 12 hex characters core.Hash.Short produces,
++// so a marker can be pasted straight back into a retrieval call; the ellipsis that says those 12
++// are an elision; the size; the DISPLAY tool name (§2.2), never the host's own spelling; the
++// subject, which is the record's path when it has one and otherwise its argument preview truncated
++// to tombstonePreviewRunes; then ` · ephemeral` and ` · superseded` when they apply, in that order;
++// then the closing promise. A record with neither a path nor a preview omits the subject group and
++// its leading space entirely rather than rendering a double separator.
++//
++// Tombstone renders for ANY record, including one IsCompactable rejects: a caller may want an
++// addressable marker for a result it is eliding for its own budget reasons, and whether a result
++// MAY be elided is the caller's decision rather than the renderer's.
++//
++// It performs no I/O and takes no lock, so it is safe to call from anywhere on the hot path.
+ func Tombstone(rec store.ToolUseRecord) string {
+-	return fmt.Sprintf("[cleared: sha256:%s · %s · %s %s · re-expandable]",
+-		rec.Root.Short(), humanBytes(rec.Bytes), rec.Tool, rec.Path)
++	tool := NormalizeToolName(rec.Tool)
++	size := humanBytes(rec.Bytes)
++	subject := tombstoneSubject(rec)
++
++	var b strings.Builder
++	b.Grow(tombstoneFixedBytes + len(size) + len(tool) + len(subject))
++
++	b.WriteString(tombstoneOpen)
++	b.WriteString(rec.Root.Short())
++	b.WriteString(tombstoneEllipsis)
++	b.WriteString(tombstoneSep)
++	b.WriteString(size)
++	b.WriteString(tombstoneSep)
++	b.WriteString(tool)
++	if subject != "" {
++		b.WriteByte(' ')
++		b.WriteString(subject)
++	}
++	if rec.Ephemeral {
++		b.WriteString(tombstoneSep)
++		b.WriteString(tombstoneEphemeral)
++	}
++	if rec.Status == store.StatusSuperseded {
++		b.WriteString(tombstoneSep)
++		b.WriteString(tombstoneSuperseded)
++	}
++	b.WriteString(tombstoneSep)
++	b.WriteString(tombstoneClose)
++
++	return b.String()
+ }
+ 
++// tombstoneSubject returns the marker's subject: the record's path when it has one, else its
++// argument preview truncated to tombstonePreviewRunes, else "" for a record that identifies
++// nothing. The path is never truncated — it is the retrieval key a reader is most likely to want
++// whole.
++func tombstoneSubject(rec store.ToolUseRecord) string {
++	if rec.Path != "" {
++		return rec.Path
++	}
++	return truncateRunes(rec.ArgsPreview, tombstonePreviewRunes)
++}
++
++// truncateRunes returns s unchanged when it is at most limit runes long, and otherwise its first
++// limit-1 runes followed by the ellipsis, so the result is exactly limit runes wide. It counts
++// runes rather than bytes because a preview can carry any UTF-8 the host sent, and slicing bytes
++// would be able to cut a rune in half.
++func truncateRunes(s string, limit int) string {
++	if utf8.RuneCountInString(s) <= limit {
++		return s
++	}
++	n := 0
++	for i := range s {
++		if n == limit-1 {
++			return s[:i] + tombstoneEllipsis
++		}
++		n++
++	}
++	return s
++}
++
++// tombstoneNoteText is the expand affordance: the one line that tells a reader what to do with the
++// markers above it. SP-11 emits it once per rehydration block and SP-13 once per `expand` response.
++// It names both addresses a marker can be resolved by, because the sha256 survives a session and
++// the tool_use_id is what the transcript itself carries.
++const tombstoneNoteText = "Cleared tool results above are re-expandable: call the qompack MCP tool " +
++	"expand with the sha256 shown in the marker, or with the tool_use_id."
++
++// TombstoneNote returns the expand affordance line that accompanies a block of markers. It is one
++// line, always: it is injected into structured output whose shape a second line would break.
++func TombstoneNote() string { return tombstoneNoteText }
++
++// hostToDisplay maps Claude Code's own tool names onto the display names Qompack.md §2.2 and §8.1
++// are written in terms of. The indirection exists because the host's vocabulary is not stable and
++// is not ours: Read/NotebookRead are one kind of thing to this system, Edit/MultiEdit/NotebookEdit
++// another, and Task is the agent tool §2.2 preserves rather than compacts. Collapsing them here
++// means the rest of the package — supersession classes, the compactable predicate, the tombstone,
++// the action grammar — reasons about four file operations and a handful of searches instead of
++// fifteen host spellings.
++//
++// A name that misses this table passes through unchanged, which is what keeps qompack's own
++// mcp__qompack__* retrieval results recognizable to the §8.7 ephemeral rule.
++var hostToDisplay = map[string]string{
++	"Read": "FileRead", "NotebookRead": "FileRead", "Edit": "FileEdit",
++	"MultiEdit": "FileEdit", "NotebookEdit": "FileEdit", "Write": "FileWrite",
++	"Bash": "Bash", "BashOutput": "Bash", "PowerShell": "PowerShell",
++	"Grep": "Grep", "Glob": "Glob", "WebSearch": "WebSearch", "WebFetch": "WebFetch",
++	"Task": "AgentTool", "TodoWrite": "TodoWrite",
++}
++
++// NormalizeToolName returns the display name for a host tool name — "Read" becomes "FileRead" —
++// and returns hostName unchanged when the table does not claim it, so a tool Claude Code adds
++// tomorrow is still recorded under a name rather than lost.
++func NormalizeToolName(hostName string) string {
++	if display, ok := hostToDisplay[hostName]; ok {
++		return display
++	}
++	return hostName
++}
++
++// compactableTools is the §2.2 set: the high-volume, reproducible results a tombstone may replace.
++// Everything else — AgentTool and MCP results, in the design's own words — is preserved, because a
++// subagent's returned summary and a retrieval result cannot be reproduced by re-running a tool.
++var compactableTools = map[string]bool{
++	"FileRead": true, "Bash": true, "PowerShell": true, "Grep": true, "Glob": true,
++	"WebSearch": true, "WebFetch": true, "FileEdit": true, "FileWrite": true,
++}
++
++// IsCompactable reports whether a result produced by tool may legally be represented by a marker
++// instead of its content (Qompack.md §2.2). It accepts either spelling — a host name or a display
++// name — because a caller holding the raw tool_name off a hook payload should get the same answer
++// as one holding a store.ToolUseRecord.Tool.
++//
++// It reports Claude Code's §2.2 host set and nothing else. Qompack's own retrieval results are
++// governed by the §8.7 ephemeral rule carried on store.ToolUseRecord.Ephemeral instead, which is
++// why an mcp__qompack__… result is simultaneously not compactable and first in the eviction order.
++func IsCompactable(tool string) bool { return compactableTools[NormalizeToolName(tool)] }
++
++// The supersession classes of §8.1 item 3. Supersession is keyed on the class rather than the
++// exact tool because a FileWrite genuinely replaces an earlier FileRead of the same path, while a
++// Grep of that path replaces neither.
++const (
++	// classFileContent covers the tools whose result IS the content of a path.
++	classFileContent = "filecontent"
++	// classSearch covers the tools whose result is a set of matches within a tree.
++	classSearch = "search"
++	// classExec covers the shells, whose result is the output of a command.
++	classExec = "exec"
++	// classWeb covers the network tools, whose result is a remote document.
++	classWeb = "web"
++)
++
++// supersedableClasses maps a display name onto its supersession class. A tool absent from this
++// table never supersedes and is never superseded, which is the correct answer for AgentTool (a
++// subagent's summary is not a re-readable resource), for TodoWrite (each write is a distinct
++// event), and for retrieval results.
++var supersedableClasses = map[string]string{
++	"FileRead": classFileContent, "FileEdit": classFileContent, "FileWrite": classFileContent,
++	"Grep": classSearch, "Glob": classSearch,
++	"Bash": classExec, "PowerShell": classExec,
++	"WebFetch": classWeb, "WebSearch": classWeb,
++}
++
++// supersedableClass returns the supersession class of tool, or "" when results of that tool
++// participate in supersession in neither direction. Like IsCompactable it accepts a host name or a
++// display name.
++func supersedableClass(tool string) string { return supersedableClasses[NormalizeToolName(tool)] }
++
+ // humanBytes renders n as a compact size with one decimal place and no space before the unit:
+ // under one KB as a whole number of bytes ("973B"), and above it in KB, MB or GB scaled by
+ // bytesPerKB ("2.4KB"). Sizes at or beyond the largest unit stay in that unit.
+ func humanBytes(n int64) string {
+ 	if n < bytesPerKB {
+ 		return strconv.FormatInt(n, 10) + "B"
+ 	}
+ 	v := float64(n) / bytesPerKB
+ 	i := 0
+ 	for i < len(sizeUnits)-1 && v >= bytesPerKB {
+diff --git a/internal/observer/tombstone_test.go b/internal/observer/tombstone_test.go
+index 62c70bb..239c16e 100644
+--- a/internal/observer/tombstone_test.go
++++ b/internal/observer/tombstone_test.go
+@@ -1,69 +1,419 @@
+-// This is an INTERNAL test package (package observer, not observer_test) for one reason:
++// This is an INTERNAL test package (package observer, not observer_test) for two reasons:
+ // humanBytes is unexported, and its rounding is the part of Tombstone most likely to drift
+ // silently — a 1000-based divisor would render Qompack.md §8.1's own example as "2.5KB" and no
+ // external assertion on Tombstone alone would say why. Testing it directly makes the failure name
+-// itself.
++// itself. supersedableClass is unexported too, and it is the predicate the redundancy detection of
++// §8.1 item 3 keys on, so it is asserted here rather than inferred from an observed supersession.
+ package observer
+ 
+ import (
++	"flag"
++	"os"
++	"path/filepath"
++	"strings"
+ 	"testing"
++	"unicode/utf8"
+ 
+ 	"github.com/qompack/qompack/internal/core"
+ 	"github.com/qompack/qompack/internal/store"
+ 	"github.com/stretchr/testify/require"
+ )
+ 
+ // section81Hash is a hash whose Short() form is the "a3f2…" of Qompack.md §8.1's example
+ // tombstone, so the assertion below can be byte-for-byte against the design document.
+ const section81Hash = "sha256:a3f2c9e14b70d5183c6a94f27b0e5d8a1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e"
+ 
++// hexHashLen is the number of hex characters core.ParseHash requires: a full sha256 digest.
++const hexHashLen = 64
++
++// hashFiller pads a 12-character short hash out to hexHashLen. Only the first 12 characters ever
++// reach a marker, so the tail is arbitrary — but it is fixed, which is what makes every fixture
++// below byte-reproducible and therefore safe to freeze in a golden file.
++const hashFiller = "9e14b70d5183c6a94f27b0e5d8a1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e"
++
++// hashShort returns a core.Hash whose Short() is exactly short, which must be 12 hex characters.
++// It takes a testing.TB rather than a *testing.T so BenchmarkTombstone can build its record the
++// same way the tests do.
++func hashShort(tb testing.TB, short string) core.Hash {
++	tb.Helper()
++	h, err := core.ParseHash((short + hashFiller)[:hexHashLen])
++	require.NoError(tb, err, "short hash %q must be 12 hex characters", short)
++	require.Equal(tb, short, h.Short())
++	return h
++}
++
+ // TestTombstone_RendersTheSection81Form asserts the exact marker Qompack.md §8.1 item 2 shows.
+ // Every character is load-bearing: the "sha256:" prefix and the 12-character short hash make the
+-// marker a real store address that `expand` can resolve, and the U+00B7 separators are what the
+-// /qompack:status renderer and the docs both reproduce.
++// marker a real store address that `expand` can resolve, the ellipsis says the hash is an elision
++// rather than the whole digest, and the U+00B7 separators are what the /qompack:status renderer
++// and the docs both reproduce.
+ func TestTombstone_RendersTheSection81Form(t *testing.T) {
+ 	root, err := core.ParseHash(section81Hash)
+ 	require.NoError(t, err)
+ 
+ 	rec := store.ToolUseRecord{
+ 		Root:  root,
+ 		Bytes: 2457,
+ 		Tool:  "FileRead",
+ 		Path:  "src/auth.ts",
+ 	}
+ 
+ 	require.Equal(t,
+-		"[cleared: sha256:a3f2c9e14b70 · 2.4KB · FileRead src/auth.ts · re-expandable]",
++		"[cleared: sha256:a3f2c9e14b70… · 2.4KB · FileRead src/auth.ts · re-expandable]",
+ 		Tombstone(rec))
+ }
+ 
+ // TestTombstone_IsAddressable asserts the property that makes a tombstone worth writing at all: a
+ // cleared result stays fetchable, because the marker carries the same 12 hex characters
+ // core.Hash.Short produces and can therefore be pasted straight back into a retrieval call.
+ func TestTombstone_IsAddressable(t *testing.T) {
+ 	root, err := core.ParseHash(section81Hash)
+ 	require.NoError(t, err)
+ 
+ 	got := Tombstone(store.ToolUseRecord{Root: root, Bytes: 1, Tool: "Grep", Path: "src/pool.ts"})
+ 	require.Contains(t, got, root.Short(), "the marker must carry a resolvable store address")
+ 	require.Contains(t, got, "re-expandable", "the marker must say the content can be fetched back")
+ }
+ 
+-// TestTombstone_HandlesAnEmptyRecord asserts the renderer never panics on a zero record: a
+-// tombstone is written on the hot path, and a nil-ish record must degrade to a useless-but-valid
+-// line rather than take a hook down (§12.3).
+-func TestTombstone_HandlesAnEmptyRecord(t *testing.T) {
+-	got := Tombstone(store.ToolUseRecord{})
+-	require.Contains(t, got, "[cleared: sha256:")
+-	require.Contains(t, got, "0B")
+-	require.Contains(t, got, "re-expandable]")
++// TestTombstone_NormalizesTheHostToolName asserts the host's own tool name never reaches a marker:
++// Claude Code says "Read", every Qompack surface says "FileRead" (§2.2), and the marker is one of
++// those surfaces.
++func TestTombstone_NormalizesTheHostToolName(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "b1c2d3e4f506"), Bytes: 973, Tool: "Read", Path: "src/index.ts",
++	}
++
++	require.Equal(t,
++		"[cleared: sha256:b1c2d3e4f506… · 973B · FileRead src/index.ts · re-expandable]",
++		Tombstone(rec))
++}
++
++// TestTombstone_NoPathUsesArgsPreview asserts the subject falls back to the argument preview when
++// a tool has no path of its own. A Bash result is the common case: "[cleared: … · Bash]" tells a
++// reader nothing, while the command line tells them whether they want it back.
++func TestTombstone_NoPathUsesArgsPreview(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root:  hashShort(t, "c2d3e4f50617"),
++		Bytes: 812,
++		Tool:  "Bash",
++		Path:  "",
++
++		ArgsPreview: "go test ./internal/store/...",
++	}
++
++	require.Equal(t,
++		"[cleared: sha256:c2d3e4f50617… · 812B · Bash go test ./internal/store/... · re-expandable]",
++		Tombstone(rec))
++}
++
++// TestTombstone_LongPreviewTruncatedTo48Runes asserts the preview subject is bounded. A tombstone
++// is a one-line marker injected into a context window that is already under pressure; an unbounded
++// subject would let one pathological command line cost more than the result it replaced.
++func TestTombstone_LongPreviewTruncatedTo48Runes(t *testing.T) {
++	const previewLen = 200
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "516273849506"), Tool: "Bash",
++		ArgsPreview: strings.Repeat("x", previewLen),
++	}
++
++	wantSubject := strings.Repeat("x", tombstonePreviewRunes-1) + tombstoneEllipsis
++	require.Equal(t, tombstonePreviewRunes, utf8.RuneCountInString(wantSubject),
++		"the truncated subject must be exactly %d runes wide", tombstonePreviewRunes)
++	require.Equal(t,
++		"[cleared: sha256:516273849506… · 0B · Bash "+wantSubject+" · re-expandable]",
++		Tombstone(rec))
++}
++
++// TestTombstone_MegabyteSize asserts the MB tier reaches the marker.
++func TestTombstone_MegabyteSize(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "f50617283940"), Bytes: 3_500_000, Tool: "WebFetch",
++		Path: "https://pkg.go.dev/regexp",
++	}
++	require.Contains(t, Tombstone(rec), " · 3.3MB · ")
++}
++
++// TestTombstone_GigabyteSize asserts the shipped humanBytes GB tier survives SP-08's extension.
++// The tier is not hypothetical: a single large build log or a repository-wide grep can exceed a
++// gigabyte, and a marker that overflowed into "3072.0MB" would be the first sign of it.
++func TestTombstone_GigabyteSize(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "061728394051"), Bytes: 3 << 30, Tool: "FileWrite",
++		Path: "dist/bundle.js",
++	}
++	require.Contains(t, Tombstone(rec), " · 3.0GB · ")
++}
++
++// TestTombstone_SupersededMarker asserts a superseded record says so. §8.1 item 3 makes superseded
++// reads the first candidates for eviction, so a reader who sees the marker should be able to tell
++// that a newer answer for the same path already exists without resolving the hash.
++func TestTombstone_SupersededMarker(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "172839405162"), Bytes: 2458, Tool: "FileRead",
++		Path: "src/auth.ts", Status: store.StatusSuperseded,
++	}
++
++	got := Tombstone(rec)
++	require.True(t, strings.HasSuffix(got, " · superseded · re-expandable]"),
++		"superseded must be the segment immediately before re-expandable, got %q", got)
++}
++
++// TestTombstone_EphemeralMarker asserts a born-ephemeral record says so (§8.7). A retrieval result
++// is the one kind of content Qompack itself put in the window, and it is first in the eviction
++// order.
++func TestTombstone_EphemeralMarker(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "283940516273"), Bytes: 1536, Tool: "mcp__qompack__recall",
++		Path: "src/auth.ts", Ephemeral: true,
++	}
++
++	got := Tombstone(rec)
++	require.True(t, strings.HasSuffix(got, " · ephemeral · re-expandable]"),
++		"ephemeral must be the segment immediately before re-expandable, got %q", got)
++}
++
++// TestTombstone_BothMarkers pins the order of the two optional segments. Order is not cosmetic:
++// the golden file freezes it, and a marker whose segments swapped between runs would make every
++// diff of a rehydration block unreadable.
++func TestTombstone_BothMarkers(t *testing.T) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(t, "394051627384"), Bytes: 2048, Tool: "FileRead",
++		Path: "src/auth.ts", Status: store.StatusSuperseded, Ephemeral: true,
++	}
++
++	got := Tombstone(rec)
++	require.True(t, strings.HasSuffix(got, " · ephemeral · superseded · re-expandable]"),
++		"ephemeral precedes superseded, got %q", got)
++}
++
++// TestTombstone_NoSubject asserts a record with neither a path nor a preview elides the subject
++// group entirely, leading space included. It is the tightened successor to SP-01's
++// TestTombstone_HandlesAnEmptyRecord: the renderer must still never panic on a zero-ish record,
++// and it must no longer emit the double space the old Sprintf form left behind.
++func TestTombstone_NoSubject(t *testing.T) {
++	rec := store.ToolUseRecord{Root: hashShort(t, "405162738495"), Tool: "Bash"}
++
++	got := Tombstone(rec)
++	require.Equal(t, "[cleared: sha256:405162738495… · 0B · Bash · re-expandable]", got)
++	require.NotContains(t, got, "  ", "an absent subject must not leave a double space")
++
++	require.NotPanics(t, func() { _ = Tombstone(store.ToolUseRecord{}) },
++		"a zero record must degrade to a useless-but-valid line, never take a hook down (§12.3)")
++}
++
++// goldenTombstoneRecords is the fixture set TestTombstoneGolden freezes: thirteen records chosen so
++// that every branch of the renderer and every tier of humanBytes appears at least once — the §8.1
++// design example, a host name that needs normalizing, a path subject, a preview subject, a
++// truncated preview, no subject at all, each optional status segment alone and both together, a
++// non-compactable tool, and the B/KB/MB/GB size tiers.
++func goldenTombstoneRecords(tb testing.TB) []store.ToolUseRecord {
++	tb.Helper()
++	const longCommand = "go test -race -count=1 -timeout=30m ./internal/observer/... " +
++		"./internal/store/... ./internal/dag/... ./internal/canon/... ./internal/sketch/..."
++
++	return []store.ToolUseRecord{
++		{Root: hashShort(tb, "a3f2c19d0b74"), Bytes: 2458, Tool: "FileRead", Path: "src/auth.ts"},
++		{Root: hashShort(tb, "b1c2d3e4f506"), Bytes: 973, Tool: "Read", Path: "src/index.ts"},
++		{
++			Root: hashShort(tb, "c2d3e4f50617"), Bytes: 812, Tool: "Bash",
++			ArgsPreview: "go test ./internal/store/...",
++		},
++		{Root: hashShort(tb, "d3e4f5061728"), Bytes: 1024, Tool: "Grep", Path: "internal/observer"},
++		{Root: hashShort(tb, "e4f506172839"), Bytes: 4096, Tool: "Glob", ArgsPreview: "**/*.go"},
++		{
++			Root: hashShort(tb, "f50617283940"), Bytes: 3_500_000, Tool: "WebFetch",
++			Path: "https://pkg.go.dev/regexp",
++		},
++		{
++			Root: hashShort(tb, "061728394051"), Bytes: 3 << 30, Tool: "FileWrite",
++			Path: "dist/bundle.js",
++		},
++		{
++			Root: hashShort(tb, "172839405162"), Bytes: 2458, Tool: "FileRead",
++			Path: "src/auth.ts", Status: store.StatusSuperseded,
++		},
++		{
++			Root: hashShort(tb, "283940516273"), Bytes: 1536, Tool: "mcp__qompack__recall",
++			Path: "src/auth.ts", Ephemeral: true,
++		},
++		{
++			Root: hashShort(tb, "394051627384"), Bytes: 2048, Tool: "FileRead",
++			Path: "src/auth.ts", Status: store.StatusSuperseded, Ephemeral: true,
++		},
++		{Root: hashShort(tb, "405162738495"), Tool: "Bash"},
++		{Root: hashShort(tb, "516273849506"), Bytes: 65536, Tool: "Bash", ArgsPreview: longCommand},
++		{
++			Root: hashShort(tb, "627384950617"), Bytes: 65536, Tool: "Task",
++			ArgsPreview: "review the diff for correctness",
++		},
++	}
++}
++
++// tombstoneGoldenPath is testdata/golden/observer/tombstones.txt, spelled relative to this package.
++//
++// testutil.Golden would resolve the same file and is what an external test would use, but this is
++// an in-package test file: tools/devtool/importgraph.go forbids .TestImports from reaching the
++// internal/testutil composition root, and its one carve-out is for x_test packages only. The
++// relative spelling is the same one internal/dag/golden_test.go and internal/config already use.
++const tombstoneGoldenPath = "../../testdata/golden/observer/tombstones.txt"
++
++// tombstoneGoldenPerm matches testutil's: a golden is committed source, not a runtime store file.
++const tombstoneGoldenPerm = 0o644
++
++// updateGolden reports whether -update was passed.
++//
++// The flag is looked up before being registered because other packages in this repository declare
++// an -update flag of their own; two registrations of one name panic a test binary during init.
++// Looking it up first turns that collision into what both sides wanted: one flag driving every
++// golden in the binary.
++var updateGolden = registerGoldenUpdateFlag()
++
++// registerGoldenUpdateFlag returns a reader for -update, registering the flag only if nothing else
++// already has.
++func registerGoldenUpdateFlag() func() bool {
++	const name = "update"
++	if f := flag.Lookup(name); f != nil {
++		return func() bool { return f.Value.String() == "true" }
++	}
++	p := flag.Bool(name, false, "rewrite golden files under testdata/golden/ instead of comparing against them")
++	return func() bool { return *p }
++}
++
++// TestTombstoneGolden freezes the rendered form of every branch of the renderer. Qompack.md §8.1
++// item 2 specifies the marker down to the separator, and SP-11 and SP-13 both re-emit it verbatim,
++// so a change to any part of the grammar has to be a deliberate golden update rather than a diff
++// nobody notices until a rehydration block looks wrong in a live session.
++func TestTombstoneGolden(t *testing.T) {
++	recs := goldenTombstoneRecords(t)
++
++	var sb strings.Builder
++	for _, rec := range recs {
++		sb.WriteString(Tombstone(rec))
++		sb.WriteByte('\n')
++	}
++	got := sb.String()
++
++	if updateGolden() {
++		require.NoError(t, os.MkdirAll(filepath.Dir(tombstoneGoldenPath), 0o755))
++		require.NoError(t, os.WriteFile(tombstoneGoldenPath, []byte(got), tombstoneGoldenPerm))
++		t.Logf("updated %s (%d records, %d bytes)", tombstoneGoldenPath, len(recs), len(got))
++		return
++	}
++
++	want, err := os.ReadFile(tombstoneGoldenPath)
++	require.NoError(t, err, "golden missing: %s (regenerate with -update)", tombstoneGoldenPath)
++
++	// Both sides are normalized to LF: .gitattributes leaves .txt subject to eol=lf, but a Windows
++	// checkout can still hand a test CRLF bytes, and a golden that failed on the primary
++	// development platform for a reason unrelated to the renderer would be worse than no golden.
++	require.Equal(t, strings.ReplaceAll(string(want), "\r\n", "\n"), got,
++		"the rendered markers drifted; if the change is intended, regenerate with -update and say why in the commit")
++}
++
++// TestTombstoneNote_SingleLine asserts the expand affordance stays one line. It is injected into a
++// rehydration block and into every `expand` response, where a multi-line note would break the
++// block's own structure — and it has to name the tool a reader is meant to call, or the marker's
++// promise that a cleared result is re-expandable has no instructions attached.
++func TestTombstoneNote_SingleLine(t *testing.T) {
++	got := TombstoneNote()
++	require.Contains(t, got, "expand", "the note must name the tool that resolves a marker")
++	require.NotContains(t, got, "\n", "the note is one line")
++}
++
++// TestNormalizeToolName covers every row of the host→display table, plus the two ways a name can
++// miss it: an MCP name, which must survive untouched so §8.7's ephemeral rule can still recognize
++// qompack's own retrieval results, and an unknown host tool, which must pass through rather than
++// disappear when Claude Code adds one.
++func TestNormalizeToolName(t *testing.T) {
++	cases := []struct{ in, want string }{
++		{in: "Read", want: "FileRead"},
++		{in: "NotebookRead", want: "FileRead"},
++		{in: "Edit", want: "FileEdit"},
++		{in: "MultiEdit", want: "FileEdit"},
++		{in: "NotebookEdit", want: "FileEdit"},
++		{in: "Write", want: "FileWrite"},
++		{in: "Bash", want: "Bash"},
++		{in: "BashOutput", want: "Bash"},
++		{in: "PowerShell", want: "PowerShell"},
++		{in: "Grep", want: "Grep"},
++		{in: "Glob", want: "Glob"},
++		{in: "WebSearch", want: "WebSearch"},
++		{in: "WebFetch", want: "WebFetch"},
++		{in: "Task", want: "AgentTool"},
++		{in: "TodoWrite", want: "TodoWrite"},
++		{in: "mcp__qompack__recall", want: "mcp__qompack__recall"},
++		{in: "SomeToolTheHostAddedLater", want: "SomeToolTheHostAddedLater"},
++		{in: "", want: ""},
++	}
++	for _, tc := range cases {
++		t.Run(tc.in, func(t *testing.T) {
++			require.Equal(t, tc.want, NormalizeToolName(tc.in))
++		})
++	}
++}
++
++// TestIsCompactable pins the §2.2 set: only high-volume, reproducible host results may be replaced
++// by a marker. AgentTool and MCP results are preserved, in as many words, so a false positive here
++// would let a caller clear the one kind of content that cannot be reproduced by re-running a tool.
++func TestIsCompactable(t *testing.T) {
++	compactable := []string{
++		"FileRead", "Bash", "PowerShell", "Grep", "Glob",
++		"WebSearch", "WebFetch", "FileEdit", "FileWrite",
++	}
++	for _, tool := range compactable {
++		t.Run(tool, func(t *testing.T) {
++			require.True(t, IsCompactable(tool), "%s is in the §2.2 set", tool)
++		})
++	}
++
++	preserved := []string{"AgentTool", "TodoWrite", "mcp__qompack__expand", "mcp__qompack__recall", ""}
++	for _, tool := range preserved {
++		t.Run("preserved/"+tool, func(t *testing.T) {
++			require.False(t, IsCompactable(tool), "%q is preserved, never replaced by a marker", tool)
++		})
++	}
++
++	// A host name answers the same question its display name does, so a caller holding the raw
++	// tool_name off a hook payload gets the right answer without normalizing first.
++	require.True(t, IsCompactable("Read"))
++	require.False(t, IsCompactable("Task"))
++}
++
++// TestSupersedableClass pins which results may supersede which. Supersession is keyed on the class
++// rather than on the exact tool because a FileWrite genuinely replaces an earlier FileRead of the
++// same path, while a Grep of that path replaces neither; a class that leaked across those
++// boundaries would evict content that is still the only answer for its question (§8.1 item 3).
++func TestSupersedableClass(t *testing.T) {
++	cases := []struct{ tool, want string }{
++		{tool: "FileRead", want: "filecontent"},
++		{tool: "FileEdit", want: "filecontent"},
++		{tool: "FileWrite", want: "filecontent"},
++		{tool: "Grep", want: "search"},
++		{tool: "Glob", want: "search"},
++		{tool: "Bash", want: "exec"},
++		{tool: "PowerShell", want: "exec"},
++		{tool: "WebFetch", want: "web"},
++		{tool: "WebSearch", want: "web"},
++		{tool: "AgentTool", want: ""},
++		{tool: "TodoWrite", want: ""},
++		{tool: "mcp__qompack__recall", want: ""},
++		{tool: "", want: ""},
++		// Host names resolve through the same table, so the raw tool_name works too.
++		{tool: "Read", want: "filecontent"},
++		{tool: "Task", want: ""},
++	}
++	for _, tc := range cases {
++		t.Run(tc.tool, func(t *testing.T) {
++			require.Equal(t, tc.want, supersedableClass(tc.tool))
++		})
++	}
+ }
+ 
+ // TestHumanBytes_UsesTheBinaryDivisor is the assertion the whole golden rests on: 1 KB is 1024
+ // bytes. Each case names why it is here rather than being an arbitrary number.
+ func TestHumanBytes_UsesTheBinaryDivisor(t *testing.T) {
+ 	const kb = 1024
+ 	cases := []struct {
+ 		name string
+ 		in   int64
+ 		want string
+@@ -86,10 +436,35 @@ func TestHumanBytes_UsesTheBinaryDivisor(t *testing.T) {
+ 	}
+ }
+ 
+ // TestHumanBytes_NeverEmitsASpaceBeforeTheUnit pins the format detail that would otherwise be
+ // invisible until a golden diff: the unit is glued to the number.
+ func TestHumanBytes_NeverEmitsASpaceBeforeTheUnit(t *testing.T) {
+ 	for _, n := range []int64{0, 1, 1023, 1024, 2457, 1 << 20, 1 << 30} {
+ 		require.NotContains(t, humanBytes(n), " ", "humanBytes(%d) must not contain a space", n)
+ 	}
+ }
++
++// benchTombstoneSink keeps the compiler from eliminating the call under benchmark.
++var benchTombstoneSink string
++
++// BenchmarkTombstone measures the renderer on the hot path. Qompack.md §8.1 budgets the whole of
++// PostToolUse at under 15 ms p99 and this repository's B-C budget wants the marker itself under
++// 2 µs; the record below is the §8.1 design example, so the measurement covers the common case of
++// a path subject and the KB size tier.
++//
++// There is deliberately NO allocation budget here. humanBytes is frozen by SP-08's plan and
++// allocates before this function writes a byte (strconv.FormatInt plus a concatenation below the
++// KB boundary, fmt.Sprintf plus a boxed float64 above it), so "zero allocations beyond the
++// returned string" is not reachable without rewriting a function the plan says is untouched, and
++// Qompack.md sets no allocation budget for the renderer. Tombstone still pre-sizes its builder so
++// its own contribution is exactly one allocation; -benchmem records the rest.
++func BenchmarkTombstone(b *testing.B) {
++	rec := store.ToolUseRecord{
++		Root: hashShort(b, "a3f2c19d0b74"), Bytes: 2458, Tool: "FileRead", Path: "src/auth.ts",
++	}
++	b.ReportAllocs()
++	b.ResetTimer()
++	for i := 0; i < b.N; i++ {
++		benchTombstoneSink = Tombstone(rec)
++	}
++}
+diff --git a/testdata/golden/observer/tombstones.txt b/testdata/golden/observer/tombstones.txt
+new file mode 100644
+index 0000000..0efee5d
+--- /dev/null
++++ b/testdata/golden/observer/tombstones.txt
+@@ -0,0 +1,13 @@
++[cleared: sha256:a3f2c19d0b74… · 2.4KB · FileRead src/auth.ts · re-expandable]
++[cleared: sha256:b1c2d3e4f506… · 973B · FileRead src/index.ts · re-expandable]
++[cleared: sha256:c2d3e4f50617… · 812B · Bash go test ./internal/store/... · re-expandable]
++[cleared: sha256:d3e4f5061728… · 1.0KB · Grep internal/observer · re-expandable]
++[cleared: sha256:e4f506172839… · 4.0KB · Glob **/*.go · re-expandable]
++[cleared: sha256:f50617283940… · 3.3MB · WebFetch https://pkg.go.dev/regexp · re-expandable]
++[cleared: sha256:061728394051… · 3.0GB · FileWrite dist/bundle.js · re-expandable]
++[cleared: sha256:172839405162… · 2.4KB · FileRead src/auth.ts · superseded · re-expandable]
++[cleared: sha256:283940516273… · 1.5KB · mcp__qompack__recall src/auth.ts · ephemeral · re-expandable]
++[cleared: sha256:394051627384… · 2.0KB · FileRead src/auth.ts · ephemeral · superseded · re-expandable]
++[cleared: sha256:405162738495… · 0B · Bash · re-expandable]
++[cleared: sha256:516273849506… · 64.0KB · Bash go test -race -count=1 -timeout=30m ./internal/… · re-expandable]
++[cleared: sha256:627384950617… · 64.0KB · AgentTool review the diff for correctness · re-expandable]

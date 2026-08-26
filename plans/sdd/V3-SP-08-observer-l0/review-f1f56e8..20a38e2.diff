@@ -1,0 +1,581 @@
+# Review package: f1f56e8..20a38e2
+
+## Commits
+20a38e2 chore(devtool,guards): mark the observer landed for the stub and cover gates
+d860ccd feat(observer): PostToolUse pipeline: store, index, sketches, DAG emission
+
+## Files changed
+ internal/observer/features_test.go              |   5 -
+ internal/observer/graph.go                      |  16 +--
+ internal/observer/observer_test.go              |   2 +-
+ internal/observer/state.go                      |   8 +-
+ internal/observer/tooluse_test.go               | 161 +++++++++++++++++++-----
+ plans/CARRIED-DEFECTS.tsv                       |   1 +
+ plans/V2-SP-08-carried-defects.md               | 123 ++++++++++++++++++
+ plans/V6-VERIFY-production-readiness-and-uat.md |   2 +-
+ 8 files changed, 268 insertions(+), 50 deletions(-)
+
+## Diff
+diff --git a/internal/observer/features_test.go b/internal/observer/features_test.go
+index 1239dba..96e0c50 100644
+--- a/internal/observer/features_test.go
++++ b/internal/observer/features_test.go
+@@ -1,19 +1,18 @@
+ package observer
+ 
+ import (
+ 	"fmt"
+ 	"math"
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/qompack/qompack/internal/core"
+ 	"github.com/stretchr/testify/require"
+ 	"pgregory.net/rapid"
+ )
+ 
+ // feed pushes n identical events into the feature window.
+ func (h *harness) feed(st *sessionState, n int, tool string, paths []string, body string) {
+ 	for range n {
+ 		h.obs.recordRecent(st, tool, paths, []byte(body), h.obs.now())
+ 	}
+ }
+@@ -247,14 +246,10 @@ func TestTotalVariation_EdgeCases(t *testing.T) {
+ 	require.InDelta(t, 0.0, totalVariation(nil, nil), 1e-9)
+ 	require.InDelta(t, 1.0, totalVariation(map[string]float64{"a": 1}, map[string]float64{"b": 1}), 1e-9)
+ 	require.InDelta(t, 0.0, totalVariation(map[string]float64{"a": 1}, map[string]float64{"a": 1}), 1e-9)
+ }
+ 
+ func TestCosineTokens_EdgeCases(t *testing.T) {
+ 	require.InDelta(t, 0.0, cosineTokens(nil, []byte("alpha")), 1e-9, "an empty side scores zero")
+ 	require.InDelta(t, 0.0, cosineTokens([]byte("12345 !!"), []byte("alpha")), 1e-9, "no tokens at all")
+ 	require.InDelta(t, 1.0, cosineTokens([]byte("Alpha beta"), []byte("alpha BETA")), 1e-9, "tokens are lowercased")
+ }
+-
+-// core.UnixMilli is referenced by the feature sample assertions above; this keeps the import
+-// honest if the assertions are ever narrowed.
+-var _ = core.UnixMilli(0)
+diff --git a/internal/observer/graph.go b/internal/observer/graph.go
+index 4835e76..f1792d9 100644
+--- a/internal/observer/graph.go
++++ b/internal/observer/graph.go
+@@ -25,29 +25,31 @@ import (
+ //     and nothing else. SP-08 is the sole production emitter of transcript edges, so a hand-rolled
+ //     emitter that always wrote EdgeSequence would make Thin a no-op on every real graph.
+ //   - No parallel-sibling cycle. Parallel tool calls share a turn index (decision 4), and the
+ //     builder emits the consumes edge only under PrevTurn < Turn. Carrying LastToolUseTurn is the
+ //     only thing this package has to do to feed that guard.
+ //   - Shared state is anchored on the FILE, not on the previous tool use. A tooluse → tooluse
+ //     shared-file edge is not part of the scheme and is never emitted.
+ 
+ // emitToolGraph records one observed tool call in the dependence DAG and enrols both of its nodes
+ // in the open segment.
+-func (o *observer) emitToolGraph(ctx context.Context, st *sessionState, rec store.ToolUseRecord,
++//
++// The context is taken but deliberately UNUSED, and is named _ so unparam says so out loud. Past
++// step 1 the pipeline's bookkeeping is all-or-nothing: a mid-pipeline cancellation check here
++// would leave the index entry written while advancePos and LastToolUseID went unadvanced, and
++// steps 11-14 would then run on top of that half-advanced state. The top-of-method ctx check and
++// the store's own ctx handling are what a cancellation acts on. The parameter stays in the
++// signature — same arity, same types — because dag.Graph may one day take a ctx, and because it
++// is the shape §5.21's plan pins.
++func (o *observer) emitToolGraph(_ context.Context, st *sessionState, rec store.ToolUseRecord,
+ 	body []byte, superseded []core.ToolUseID,
+ ) {
+-	if err := ctx.Err(); err != nil {
+-		// A cancelled context short-circuits at the stage boundary; the object is already stored
+-		// and the index entry already written, so there is nothing half-built to unwind.
+-		return
+-	}
+-
+ 	pos := o.advancePos(st, 0)                // the tool_use block's start position
+ 	resultPos := o.advancePos(st, rec.Tokens) // the tool_result block's — decision 5
+ 
+ 	sup := core.ToolUseID("")
+ 	if len(superseded) > 0 {
+ 		sup = superseded[0] // most recent first, per supersede.go
+ 	}
+ 
+ 	o.soft(stageDAG, dag.BuildToolUse(o.opt.Graph, dag.ObservedTool{
+ 		ToolUseID:     rec.ID,
+diff --git a/internal/observer/observer_test.go b/internal/observer/observer_test.go
+index 6bdc39b..d49981a 100644
+--- a/internal/observer/observer_test.go
++++ b/internal/observer/observer_test.go
+@@ -104,21 +104,21 @@ func TestObserver_MetricsAreOptional(t *testing.T) {
+ 
+ func TestObserver_SoftIgnoresANilError(t *testing.T) {
+ 	h := newHarness(t)
+ 
+ 	h.obs.soft(stagePut, nil)
+ 
+ 	require.Equal(t, int64(0), h.counter("observer.err."+stagePut),
+ 		"a stage that succeeded must not bump an error counter")
+ }
+ 
+-func TestObserver_NowIsTheOnlyClockCallSite(t *testing.T) {
++func TestObserver_NowTruncatesToUnixMilli(t *testing.T) {
+ 	h := newHarness(t)
+ 
+ 	before := h.obs.now()
+ 	h.Clock.Advance(500 * time.Microsecond)
+ 	require.Equal(t, before, h.obs.now(), "a sub-millisecond advance does not move a UnixMilli")
+ 
+ 	h.Clock.Advance(time.Second)
+ 	require.Equal(t, before+1000, h.obs.now())
+ }
+ 
+diff --git a/internal/observer/state.go b/internal/observer/state.go
+index eebbd29..8922829 100644
+--- a/internal/observer/state.go
++++ b/internal/observer/state.go
+@@ -53,22 +53,26 @@ type persistedSession struct {
+ 	Turn         core.TurnIndex `json:"turn"`
+ 	PrefixTokens int            `json:"prefix_tokens"`
+ 	Segment      core.SegmentID `json:"segment"`
+ 	PrevSegment  core.SegmentID `json:"prev_segment"`
+ 	SegStartTurn core.TurnIndex `json:"seg_start_turn"`
+ 	SegStartPos  int            `json:"seg_start_pos"`
+ 	LastTS       core.UnixMilli `json:"last_ts"`
+ 	// LastToolUseID is the ToolUseID, NOT a dag.NodeID: the builder mints node ids itself.
+ 	LastToolUseID   string         `json:"last_tool_use_id"`
+ 	LastToolUseTurn core.TurnIndex `json:"last_tool_use_turn"`
+-	LastPromptTurn  core.TurnIndex `json:"last_prompt_turn"`
+-	SubagentSince   int            `json:"subagent_since"`
++	// LastPromptTurn is beyond the shape the plan pins, and is persisted deliberately: it is
++	// OnUserPrompt's own bookkeeping, it is not recoverable from any other persisted field, and
++	// losing it on resume would make the first prompt after a daemon restart look like the first
++	// prompt of the session.
++	LastPromptTurn core.TurnIndex `json:"last_prompt_turn"`
++	SubagentSince  int            `json:"subagent_since"`
+ 	// TodoDone is persisted SORTED so the file is diffable and byte-stable across runs.
+ 	TodoDone []string           `json:"todo_done"`
+ 	ToolUses []persistedToolUse `json:"tool_uses"`
+ }
+ 
+ // persistedToolUse is one entry of the SubagentStop window.
+ type persistedToolUse struct {
+ 	ID string `json:"id"`
+ 	// Root is core.Hash.String() form ("sha256:…"), so the file stays greppable and the identity
+ 	// stays the STORE's own root rather than a second one only this package can read.
+diff --git a/internal/observer/tooluse_test.go b/internal/observer/tooluse_test.go
+index 3efe7d7..ac06528 100644
+--- a/internal/observer/tooluse_test.go
++++ b/internal/observer/tooluse_test.go
+@@ -152,20 +152,24 @@ func TestOnToolUse_MCPResultIsEphemeral(t *testing.T) {
+ 	h.drive(toolUse("toolu_1", "mcp__qompack__expand",
+ 		`{"path":"src/auth.ts"}`, `{"content":"the expanded result"}`))
+ 
+ 	require.Len(t, h.Store.Records, 1)
+ 	require.True(t, h.Store.Records[0].Ephemeral, "an mcp__qompack__ result is born ephemeral (decision 6)")
+ 	require.True(t, h.Store.putOpts(0).Ephemeral)
+ 
+ 	require.Zero(t, h.Touch.Total(), "retrieval is not exploration: no CMS feed")
+ 	require.Zero(t, h.Explore.Cardinality(), "no HLL feed")
+ 	require.Empty(t, h.Hot.Top(1), "no Misra-Gries feed")
++	// This assertion is vacuous until supersede.go exists — nothing calls ToolUsesByPath yet.
++	// Commit 3 must keep it meaningful: the supersession scan it lands is exactly what would
++	// start calling it, and the ephemeral exclusion of resolved decision 6 is what must keep it
++	// from doing so for an mcp__qompack__ result.
+ 	require.Zero(t, h.Store.ByPathCalls, "an ephemeral result is excluded from supersession in both directions")
+ 
+ 	require.True(t, h.Graph.has(dag.ToolUseNode("toolu_1")), "it still gets DAG nodes")
+ }
+ 
+ func TestOnToolUse_EmptyResponseStillIndexed(t *testing.T) {
+ 	h := newHarness(t)
+ 
+ 	h.drive(toolUse("toolu_1", "Read", `{"file_path":"src/empty.ts"}`, "null"))
+ 
+@@ -381,21 +385,21 @@ func TestOnToolUse_ConcurrentSessionsRaceFree(t *testing.T) {
+ 		st.mu.Unlock()
+ 	}
+ }
+ 
+ // benchHarness builds an observer over a REAL store and a REAL graph on b.TempDir(), which is what
+ // makes the numbers comparable against budget B-C (l0_process, p99 < 50 ms).
+ //
+ // It returns the registry as well as the observer because a Go benchmark reports a MEAN ns/op and
+ // B-C is stated as a p99. The observer already times every OnToolUse into the observer.tooluse
+ // histogram, so reportBudget reads the real percentiles back out of it rather than inferring them.
+-func benchHarness(b *testing.B) (*observer, obs.Registry) {
++func benchHarness(b *testing.B) (*observer, store.Store, obs.Registry) {
+ 	b.Helper()
+ 	root := b.TempDir()
+ 	cfg := config.Defaults()
+ 	clock := newFakeClock()
+ 	metrics := obs.New(clock)
+ 
+ 	st, err := store.Open(root, cfg, store.Deps{Log: logging.Nop(), Clock: clock})
+ 	require.NoError(b, err)
+ 	b.Cleanup(func() { _ = st.Close() })
+ 
+@@ -410,74 +414,163 @@ func benchHarness(b *testing.B) (*observer, obs.Registry) {
+ 		Touch:       sketch.NewCMS(testCMSEpsilon, testCMSDelta),
+ 		Explore:     sketch.NewHLL(testHLLRegs),
+ 		Hot:         sketch.NewMisraGries(testMGCounters),
+ 		Log:         logging.Nop(),
+ 		Metrics:     metrics,
+ 		Clock:       clock,
+ 	})
+ 	require.NoError(b, err)
+ 	impl, ok := built.(*observer)
+ 	require.True(b, ok)
+-	return impl, metrics
++	return impl, st, metrics
+ }
+ 
+-// reportBudget publishes the observer.tooluse histogram's p50 and p99, in milliseconds, as
+-// benchmark metrics, so a run's output can be read against budget B-C directly.
+-func reportBudget(b *testing.B, metrics obs.Registry) {
++// reportBudget publishes the observer.tooluse histogram's p50 and p99, in milliseconds, plus two
++// numbers that say whether those latencies were earned honestly.
++//
++// Feeding one identical payload every iteration would leave the store fully deduped from the second
++// call on, so the run would never pay the novel-chunk cost and its headroom against budget B-C would
++// be fiction. varyBody is what prevents that, and OBJECTS is the metric that proves it: it is the
++// count of chunks actually stored, so it stays flat across iterations when they dedup and climbs
++// with them when they do not.
++//
++// dedup-x is reported beside it but is deliberately NOT the proof. store.Stats.DedupRatio is
++// RawBytes/Bytes over a compressed, content-addressed store, so it folds zstd compression and
++// WITHIN-payload repetition into the same number as cross-iteration dedup — a self-similar fixture
++// scores high on it while still writing every chunk anew.
++func reportBudget(b *testing.B, st store.Store, metrics obs.Registry) {
+ 	b.Helper()
+ 	snap := metrics.Hist(histToolUse).Snapshot()
+ 	b.ReportMetric(float64(snap.P50.Microseconds())/1000, "p50-ms")
+ 	b.ReportMetric(float64(snap.P99.Microseconds())/1000, "p99-ms")
++
++	stats, err := st.Stats(context.Background())
++	require.NoError(b, err)
++	b.ReportMetric(float64(stats.Objects), "objects")
++	b.ReportMetric(stats.DedupRatio, "dedup-x")
+ }
+ 
+-// repeatTo returns s repeated until it is at least n bytes long.
+-func repeatTo(s string, n int) string {
+-	if len(s) == 0 || len(s) >= n {
+-		return s
++// benchTag returns a per-iteration marker.
++//
++// It is purely alphabetic on purpose. A numeric counter would be a canonicalization target — the
++// pids, addresses and durations classes all rewrite numbers — and a marker the canonicalizer
++// normalized away would leave every iteration's CANONICAL bytes identical again, which is the same
++// dedup these fixtures exist to control, hidden one layer deeper.
++func benchTag(i int) string {
++	const alphabet = "abcdefghijklmnopqrstuvwxyz"
++	tag := make([]byte, 8)
++	for k := range tag {
++		tag[k] = alphabet[i%len(alphabet)]
++		i /= len(alphabet)
+ 	}
+-	return strings.Repeat(s, n/len(s)+1)
++	return "//qompackbench" + string(tag)
+ }
+ 
+-func BenchmarkOnToolUse_FileRead64KB(b *testing.B) {
+-	o, metrics := benchHarness(b)
+-	body := repeatTo("func refreshToken(ctx context.Context) (Token, error) { return t, nil }\n", 64<<10)
+-	require.GreaterOrEqual(b, len(body), 64<<10)
++// deltaBody rewrites exactly ONE line, near the middle of body: Qompack.md §8.1's own near-duplicate
++// case, "same test suite, one new failure". One chunk per call is novel and the rest dedup, which is
++// what a real session's re-run of a test command looks like.
++func deltaBody(body string, i int) string {
++	mid := len(body) / 2
++	start := strings.LastIndexByte(body[:mid], '\n') + 1
++	end := strings.IndexByte(body[mid:], '\n')
++	if end < 0 {
++		return body
++	}
++	return body[:start] + benchTag(i) + body[mid+end:]
++}
++
++// varyStride is how often varyBody splices its marker into a payload. It is below the store's
++// minimum FastCDC chunk size, so every chunk of every iteration carries at least one marker and no
++// chunk can dedup against the previous iteration's.
++const varyStride = 512
++
++// varyBody rewrites the payload every varyStride bytes, so EVERY chunk of every iteration is novel
++// and every call pays the full object-write cost. It is the pessimal end of the dedup axis.
++func varyBody(body string, i int) string {
++	marker := []byte(benchTag(i) + "\n")
++	out := []byte(body)
++	for off := 0; off+len(marker) <= len(out); off += varyStride {
++		copy(out[off:], marker)
++	}
++	return string(out)
++}
++
++// benchFixture is one payload-variation strategy: how much of a tool result differs from the
++// previous call.
++//
++// That is the axis the store's dedup path lives on, and measuring one point of it and calling the
++// answer "the cost of the pipeline" is exactly the mistake this table exists to stop. Deduped is
++// the optimistic end and is kept only for comparison; Delta is the realistic middle and is the one
++// carried defect SP08-D1 is stated against; AllNovel is the pessimal end.
++type benchFixture struct {
++	name string
++	vary func(body string, i int) string
++}
+ 
+-	events := make([]Event, b.N)
+-	for i := range events {
+-		events[i] = readOf(fmt.Sprintf("toolu_%d", i), "src/auth.go", body)
++func benchFixtures() []benchFixture {
++	return []benchFixture{
++		{"Deduped", func(body string, _ int) string { return body }},
++		{"Delta", deltaBody},
++		{"AllNovel", varyBody},
+ 	}
++}
+ 
++// runOnToolUseBench drives events through OnToolUse and reports the budget metrics.
++//
++// It asserts NOTHING about latency, deliberately. B-C is a soft, ungated budget and these numbers
++// move with the host; a benchmark that failed the build on one would make every unrelated change
++// look like a regression and would put a machine-dependent number in the way of every commit. The
++// breach is RECORDED in plans/CARRIED-DEFECTS.tsv (SP08-D1), which is where a known problem belongs.
++func runOnToolUseBench(b *testing.B, o *observer, st store.Store, metrics obs.Registry, events []Event) {
++	b.Helper()
+ 	ctx := context.Background()
+ 	b.ResetTimer()
+ 	for i := range b.N {
+ 		if _, err := o.OnToolUse(ctx, events[i]); err != nil {
+ 			b.Fatal(err)
+ 		}
+ 	}
+ 	b.StopTimer()
+-	reportBudget(b, metrics)
++	reportBudget(b, st, metrics)
+ }
+ 
+-func BenchmarkOnToolUse_TestOutput256KB(b *testing.B) {
+-	o, metrics := benchHarness(b)
++// repeatTo returns s repeated until it is at least n bytes long.
++func repeatTo(s string, n int) string {
++	if len(s) == 0 || len(s) >= n {
++		return s
++	}
++	return strings.Repeat(s, n/len(s)+1)
++}
++
++func BenchmarkOnToolUse_FileRead64KB(b *testing.B) {
++	body := repeatTo("func refreshToken(ctx context.Context) (Token, error) { return t, nil }\n", 64<<10)
++
++	for _, f := range benchFixtures() {
++		b.Run(f.name, func(b *testing.B) {
++			o, st, metrics := benchHarness(b)
++			events := make([]Event, b.N)
++			for i := range events {
++				events[i] = readOf(fmt.Sprintf("toolu_%d", i), "src/auth.go", f.vary(body, i))
++			}
++			runOnToolUseBench(b, o, st, metrics, events)
++		})
++	}
++}
+ 
++// BenchmarkOnToolUse_TestOutput256KB is the evidence benchmark named by carried defect SP08-D1.
++// Its Delta sub-bench is the one the defect's acceptance criterion is stated against.
++func BenchmarkOnToolUse_TestOutput256KB(b *testing.B) {
+ 	raw, err := os.ReadFile(filepath.Join("..", "..", "testdata", "corpora", "toolout", "testrunner", "go-test-rerun.txt"))
+ 	require.NoError(b, err)
+ 	out := repeatTo(string(raw), 256<<10)
+-	require.GreaterOrEqual(b, len(out), 256<<10)
+-
+-	events := make([]Event, b.N)
+-	for i := range events {
+-		events[i] = bashOf(fmt.Sprintf("toolu_%d", i), "go test ./...", out)
+-	}
+ 
+-	ctx := context.Background()
+-	b.ResetTimer()
+-	for i := range b.N {
+-		if _, err := o.OnToolUse(ctx, events[i]); err != nil {
+-			b.Fatal(err)
+-		}
++	for _, f := range benchFixtures() {
++		b.Run(f.name, func(b *testing.B) {
++			o, st, metrics := benchHarness(b)
++			events := make([]Event, b.N)
++			for i := range events {
++				events[i] = bashOf(fmt.Sprintf("toolu_%d", i), "go test ./...", f.vary(out, i))
++			}
++			runOnToolUseBench(b, o, st, metrics, events)
++		})
+ 	}
+-	b.StopTimer()
+-	reportBudget(b, metrics)
+ }
+diff --git a/plans/CARRIED-DEFECTS.tsv b/plans/CARRIED-DEFECTS.tsv
+index afe0ebb..5a558fe 100644
+--- a/plans/CARRIED-DEFECTS.tsv
++++ b/plans/CARRIED-DEFECTS.tsv
+@@ -38,10 +38,11 @@ SP04-D6	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	BenchmarkRun_Bash100KB measured +-3
+ SP06-D1	SP-06	V2-VERIFY	deferred:V3-VERIFY	-	GCPolicy.Deadline binds the mark's hash harvest and the sweep, but tombstoneDeadRoots and the mark's index walks answer only to ctx, so GCReport.Duration can overshoot the deadline by the whole tombstone phase (100-260 ms measured at 650 dead roots)
+ SP05-D1	SP-05	V2-VERIFY	deferred:V3-VERIFY	-	a drain aborted by idle-budget expiry consumes the line it interrupted (offset advanced and seen-set committed before the binding completed), losing the event; the deliberate poison-line consume rule does not distinguish a dying drain from a refusing handler
+ SP02-D1	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the synthetic corpus raises only DemandFileContent, so tool_edit_distance, re_attempts and decision_preservation are measured over an input that cannot exercise them
+ SP02-D2	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	file_set_jaccard is pinned at 1.0: the only repair re-reads the path key the demanding turn already touches, so the repaired set is the demanded set by construction
+ SP02-D3	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the Belady keep budget never binds on the corpus (oracle rewrite_span_tokens is 0 at every event), so fraction_of_opt grades against a trivial ceiling
+ SP02-D4	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	belady.pMin iterates candidates where 5.2 defines it over all blocks; the deviation is recorded only in a code comment
+ SP02-D5	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	decision_preservation measures post-compaction horizon agreement, which deterministic mode fixes at 1.0, not 11.2's pre-compaction decisions still recalled
+ SP02-D6	SP-02	V2-VERIFY	deferred:V3-VERIFY	-	the stock model skips the 4/3 host padding: hostPadTokens has no production caller and hostSkillBudget is dead
+ SP04-D7	SP-04	V2-VERIFY	deferred:V3-VERIFY	-	canon.Decide has no consumer and 8.1's delta-vs-full storage write is implemented nowhere and owned by nobody
+ SP06-D2	SP-06	V2-VERIFY	deferred:V3-VERIFY	-	the PutBytes cold and warm budgets (3 ms / 400 us) are 9x and 19x over on Windows and have never been measured on the reference platform
++SP08-D1	SP-08	V3-VERIFY	open	BenchmarkOnToolUse_TestOutput256KB	OnToolUse over a 256 KB tool result breaches budget B-C (l0_process, p99 < 50 ms): 53-115 ms on Qompack.md 8.1's own one-changed-line case and 262-655 ms when every chunk is novel, dominated by store.PutBytes's per-novel-chunk object-write path
+diff --git a/plans/V2-SP-08-carried-defects.md b/plans/V2-SP-08-carried-defects.md
+new file mode 100644
+index 0000000..e26cd36
+--- /dev/null
++++ b/plans/V2-SP-08-carried-defects.md
+@@ -0,0 +1,123 @@
++# SP-08 — carried defects
++
++One thing SP-08 knowingly ships. It has a row in `plans/CARRIED-DEFECTS.tsv`, and
++`test/guards/carrieddefects_test.go` will not let `V3-VERIFY` write `plans/V3-report.md` while it is
++still `open`.
++
++**A note on this file's name.** It is `V2-SP-08-…` rather than `V3-SP-08-…` because
++`test/guards/carrieddefects_test.go` derives the one document a row's section may live in from the
++row id and the single constant `carriedDefectsWave`, which is `"V2"` — that guard's own comment
++says "a later wave keeping its own manifest changes this one constant", and no later wave has kept
++one. `plans/CARRIED-DEFECTS.tsv` is still the only manifest, and it already carries SP-02, SP-04,
++SP-05 and SP-06 rows alongside this one. Renaming the scheme is a change to a guard SP-08 does not
++own; when a wave-3 manifest is cut, this file moves with it.
++
++**This is not a reason to hold the merge.** The cost is inside `store.PutBytes`, it is bounded, and
++it is invisible to the user: the hook path acknowledges from the WAL before L0 processing runs, so a
++B-C overrun delays index freshness and blocks nothing. Writing it down is the alternative to hoping
++someone re-derives it at V3-VERIFY.
++
++Fixing the row means setting its status to `fixed`; deciding not to means setting it to
++`deferred:<a later checkpoint>` and adding a paragraph here saying why. Doing neither fails the gate.
++
++---
++
++## SP08-D1 — `OnToolUse` over a large tool result breaches budget B-C
++
++**Symptom.** `OnToolUse` on a 256 KB `go test` result costs far more than budget **B-C**
++(`l0_process`, p99 < 50 ms, soft, `Gated: false`) allows, and does so on the realistic case as well
++as the pessimal one. On a 64 KB source read it stays inside the budget on every fixture.
++
++The number moves with one variable — how much of the result differs from the previous call — so the
++two shipping benchmarks each measure three points on that axis rather than one. `objects` is the
++count of chunks the store actually holds after the run, and is what proves a fixture is doing what
++its name says.
++
++Measured on a quiet machine (Intel Core Ultra 7 155H, windows/amd64),
++`-benchtime 200x -count=5`, against a real `store.Open` and a real `dag.Open` on a temp root. p50 and
++p99 are read out of the observer's own `observer.tooluse` histogram, which is the instrument B-C is
++evaluated against in production; the ns/op column is Go's mean.
++
++| benchmark | fixture | ns/op | objects | p50 (ms) | p99 (ms) | B-C |
++|---|---|---|---|---|---|---|
++| `BenchmarkOnToolUse_FileRead64KB` | `Deduped` | 11.5–13.4 ms | 5 | 12.3–14.3 | 14.3–18.4 | inside |
++| `BenchmarkOnToolUse_FileRead64KB` | `Delta` | 15.8–16.7 ms | 204 | 15.4–16.4 | 24.6–45.1 | inside |
++| `BenchmarkOnToolUse_FileRead64KB` | `AllNovel` | 23.7–24.6 ms | 905 | 24.6 | 36.9–45.1 | inside |
++| `BenchmarkOnToolUse_TestOutput256KB` | `Deduped` | 39.9–65.6 ms | 34 | 41.0–61.4 | 53.3–131.1 | **breach** |
++| `BenchmarkOnToolUse_TestOutput256KB` | `Delta` | 39.3–55.6 ms | 236 | 41.0–49.2 | 53.3–114.7 | **breach** |
++| `BenchmarkOnToolUse_TestOutput256KB` | `AllNovel` | 163.6–224.1 ms | 12209 | 147.5–213.0 | 262.1–655.4 | **breach** |
++
++The three fixtures are:
++
++- **`Deduped`** — one identical payload every call. It dedups completely from the second call on, so
++  the store never writes a chunk (`objects` stays at the first call's count). It is the optimistic
++  end and is kept only for comparison; an earlier revision of these benchmarks measured only this
++  and reported 2–18% headroom, which is what the review caught.
++- **`Delta`** — one line differs per call: Qompack.md §8.1's own near-duplicate case, *"same test
++  suite, one new failure"*. This is the realistic shape and **the fixture the acceptance criterion
++  below is stated against.**
++- **`AllNovel`** — a marker every 512 bytes, below the store's 1 KB minimum FastCDC chunk, so every
++  chunk of every call is novel. The pessimal end.
++
++**Diagnosis.** Three costs stack, and only the third is new information.
++
++1. Canonicalization, roughly 25–30 ms of the 256 KB fixed cost. This is SP-04's per-rule prefilter
++   scan, already recorded as **SP04-D5**: cost is linear in the rule count, and 256 KB is 2.5× the
++   100 KB that row's `BenchmarkRun_Bash100KB` is stated against.
++2. MinHash, roughly 10–15 ms, at the configured 128 permutations over 256 KB of shingles.
++3. **The novel-chunk object-write path inside `store.PutBytes`** — zstd compression plus one file
++   write per novel chunk. This is what separates the three fixtures: 34 objects and ~45 ms against
++   12 209 objects and ~180 ms for the same payload size. It is amplified on Windows, where per-file
++   create/write/close is materially more expensive than on Linux, so the CI reference platform is
++   expected to read better than the numbers above.
++
++This row is downstream of **SP06-D2**, which already records that `PutBytes`'s own cold and warm
++budgets (3 ms / 400 us) are 9x and 19x over on Windows and have never been measured on the reference
++platform. SP08-D1 is what that costs once a hook calls `PutBytes` on a real tool result: the same
++mechanics, seen from the caller, at a payload size SP-06's own benchmarks do not cover. V3-VERIFY
++should dispose of the two together, and a fix to SP06-D2 may close this row without SP-08 changing
++a line.
++
++Nothing in the observer's own bookkeeping is on this scale. Its measurable share is about 7 ms of
++repeated `responseText` decoding — the payload is unwrapped four times per event, once at step 3 and
++three more times inside the §5.21 pure functions — and reducing that means changing the shape of
++`ExtractSignals` and `ExtractTestOutcome`, which are frozen by §5.21.
++
++**Evidence.** `BenchmarkOnToolUse_TestOutput256KB` (and `BenchmarkOnToolUse_FileRead64KB` for the
++inside-budget half), in `internal/observer/tooluse_test.go`. Reproduce with:
++
++```
++go test -bench BenchmarkOnToolUse -benchtime 200x -count=5 -timeout=30m ./internal/observer/
++```
++
++Neither benchmark asserts a latency. B-C is soft and ungated and these numbers move with the host, so
++a benchmark that failed the build on one would make every unrelated change look like a regression.
++That is precisely why the breach is recorded here instead.
++
++**Why it is deferred rather than fixed.** The dominant cost is `store.PutBytes`'s object-write path,
++which is SP-06's mechanics and outside SP-08's scope: the observer never chunks, compresses or writes
++an object by hand (resolved decision 1), it hands bytes to the store and the store decides. Reaching
++into that from here would be exactly the cross-subplan edit Rule W-1 forbids.
++
++It is also not user-visible. §8.1's own instruction for a budget overrun is to *"degrade to async
++queue-and-drain rather than blocking"*, and that is already the architecture: the hook acknowledges
++from the write-ahead log before L0 processing runs, so a B-C overrun delays index freshness and
++blocks nothing in the session. B-C is `Gated: false` in `internal/obs/budgets.go` for that reason.
++
++No threshold is edited. Moving a §11.3 budget row is a sign-off SP-08 may not give itself.
++
++**Acceptance (V3-VERIFY).** Either of:
++
++1. `BenchmarkOnToolUse_TestOutput256KB/Delta` reports p99 < 50 ms on the CI reference platform on a
++   quiet host, at `-benchtime 200x -count=5`; or
++2. an explicit §11.3 sign-off that records the measured figures and either moves the B-C row or
++   re-defers this one to a later checkpoint with a reason.
++
++Re-measure the whole table above, not just the `Delta` row: `Deduped` breaching at all on the run
++recorded here — it did not on an earlier, quieter pass — is the sign that the 256 KB fixture sits
++close enough to the budget that host noise crosses it, which is itself information for the decision.
++
++Two candidate fixes belong to that conversation rather than to this row: pushing the object write
++off the ingest path (the queue-and-drain §8.1 names, taken one level deeper), and reconsidering
++whether a 256 KB tool result is the payload the budget should be stated against — the plugin's own
++`runtime.hotPath.maxPayloadBytes` default is 1 MiB, four times larger again.
+diff --git a/plans/V6-VERIFY-production-readiness-and-uat.md b/plans/V6-VERIFY-production-readiness-and-uat.md
+index d9f4611..37490b7 100644
+--- a/plans/V6-VERIFY-production-readiness-and-uat.md
++++ b/plans/V6-VERIFY-production-readiness-and-uat.md
+@@ -227,21 +227,21 @@ Unless stated otherwise, all commands run from the repository root `C:/Users/Qua
+ | 1.7.14 | Conformance suite live; imports; coverage | `grep -rn "t.Skip" internal/dag/dagtest/` ; `go run ./tools/devtool lint` ; `go run ./tools/devtool cover` | Zero skips; `dag` imports only `core paths config logging`; coverage ≥ 85% |
+ 
+ ### 1.8 SP-08 — Observer L0
+ 
+ | # | Functionality | Command | Expected result |
+ |---|---|---|---|
+ | 1.8.1 | `OnToolUse` full 14-step pipeline | `go test ./internal/observer/...` | PASS |
+ | 1.8.2 | Addressable tombstone (G3.2) | `go test -run 'TestTombstone' ./internal/observer/` | Golden-locked format `[cleared: sha256:… · <size> · <Tool> <subject> · re-expandable]`; `BenchmarkTombstone` < 2 µs/op |
+ | 1.8.3 | Supersession detection marks the earlier read `SUPERSEDED` | `go test -run TestSupersede ./internal/observer/` | PASS; superseded reads become first eviction candidates |
+ | 1.8.4 | DAG edges recorded per §8.1 item 4 | `go test -run TestGraph_ ./internal/observer/` | `tool_use → tool_result → assistant_turn → next_tool_use` plus shared file/symbol edges |
+-| 1.8.5 | Count-Min and HLL fed; **Bloom never fed** | `go test -run 'TestSketches\|TestObserverSourceHasNoBloomReference\|TestOnSessionEnd_NeverWritesTriedBloom' ./internal/observer/` ; `grep -rn "Bloom" internal/observer/ --include='*.go' \| grep -v _test.go` | CMS/HLL updated; **zero** occurrences of `Bloom` in non-test observer source; `.qompack/sketches/tried.bloom` never created by any observer path |
++| 1.8.5 | Count-Min and HLL fed; **Bloom never fed** | `go test -run 'TestSketches\|TestOnSessionEnd_NeverWritesTriedBloom' ./internal/observer/` ; `go test ./internal/observer/ -run 'TestObserverSourceHasNoBloomReference\|TestObserverNeverFeedsBloom' -count=1` | CMS/HLL updated; **zero** `Bloom` IDENTIFIERS in non-test observer source — the check is the `go/parser` walk in `sketches_test.go`, not a `grep`, because doc comments and the §8.1 item-5 prohibition legitimately name Bloom in prose; `.qompack/sketches/tried.bloom` never created by any observer path |
+ | 1.8.6 | Verbatim, immutable user-prompt capture (G2.3) | `go test -run 'TestOnUserPrompt_NeverRegenerated' ./internal/observer/` ; `go test -run TestE2E_VerbatimPromptSurvivesRestart ./test/e2e/` | Content-addressed, indexed, never rewritten; survives a daemon restart byte-identically |
+ | 1.8.7 | Subagent capture with tool-result hashes (G10.1) | `go test -run TestOnStop_RetrievalPathG10_1 ./internal/observer/` | Summary **and** hashes round-trip out of a real store |
+ | 1.8.8 | Task-boundary signals (G1.5) | `go test -run TestExtractSignals ./internal/observer/` ; `go test -run TestWireObserver ./internal/daemon/` | Todo completion, passing test run, git commit detected and delivered to the scheduler seam |
+ | 1.8.9 | `SessionStart` startup/resume branch; `SessionEnd` flush + GC + session index | `go test -run 'TestOnSessionStart\|TestOnSessionEnd' ./internal/observer/` | Ordering matches §7.3 and §8.2 |
+ | 1.8.10 | Phase-1 exit criterion, dedup half | `go test -run TestPhase1_DedupRatioReadHeavy ./test/e2e/` | `store.Stats().DedupRatio ≥ 4.0` on `eval.Synthesize(0x51080001, readHeavy)` |
+ | 1.8.11 | Canonicalization gap on test-output-heavy sessions | `go test -run TestPhase1_CanonicalizationGapOnTestOutput ./test/e2e/` | `ratioOn ≥ ratioOff × 1.25` on `eval.Synthesize(0x51080002, testOutputHeavy)` |
+ | 1.8.12 | Sublinear growth with the observer wired | `go test -run TestPhase1_StoreGrowthSublinear ./test/e2e/` | PASS |
+ | 1.8.13 | Observer-side latency | `go test -bench 'BenchmarkOnToolUse_FileRead64KB\|BenchmarkOnToolUse_TestOutput256KB' ./internal/observer/` | Both within **B-C p99 < 50 ms** |
+ | 1.8.14 | Observer conformance suite | `go test ./internal/observer/observertest/` ; `grep -rn "t.Skip" internal/observer/observertest/` | `RunObserverSuite` passes; zero skips |
+ | 1.8.15 | Import discipline and coverage | `go run ./tools/devtool lint` ; `go run ./tools/devtool cover` | Imports exactly `core paths config logging obs hookio store canon sketch dag grammar tokens`; no `scheduler`, `checkpoint`, `symbols`, `contract`, `negknow`, `analyzer`, `daemon`; coverage ≥ 75% |

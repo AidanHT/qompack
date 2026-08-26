@@ -1,0 +1,1057 @@
+# Review package: 6ca496f..bc257ee
+
+## Commits
+bc257ee fix(store): honour an empty Canon.Strip and a caller MinHash opt-out
+
+## Files changed
+ internal/cli/hookclient.go               |  41 +++++-
+ internal/cli/hooks_test.go               |  97 ++++++++++++++
+ internal/daemon/daemon.go                |  16 ++-
+ internal/daemon/daemon_test.go           | 208 +++++++++++++++++++++++++++++++
+ internal/daemon/handlers.go              |  71 +++++++++--
+ internal/daemon/options.go               |  12 ++
+ internal/daemon/options_test.go          |  24 ++++
+ internal/ipc/frame_test.go               |  12 +-
+ internal/store/put.go                    |  28 ++++-
+ internal/store/put_test.go               |  46 +++++++
+ plans/00-ARCHITECTURE.md                 |  18 ++-
+ test/integration/contractmonitor_test.go |  27 ++--
+ 12 files changed, 571 insertions(+), 29 deletions(-)
+
+## Diff
+diff --git a/internal/cli/hookclient.go b/internal/cli/hookclient.go
+index 072a673..0844571 100644
+--- a/internal/cli/hookclient.go
++++ b/internal/cli/hookclient.go
+@@ -345,32 +345,67 @@ func logQuiet(root string, err error, clk core.Clock) {
+ 		return
+ 	}
+ 	if clk == nil {
+ 		clk = core.SystemClock()
+ 	}
+ 	now := clk.Now().UTC()
+ 	p := filepath.Join(logs, "hook-quiet-"+now.Format("20060102")+".jsonl")
+ 	_ = paths.AppendJSONL(p, quietLogLine{TS: now.Format(time.RFC3339Nano), Err: err.Error()})
+ }
+ 
++// subagentExtras is `observe stop --subagent`'s Request.Raw shape. Agent is omitempty so an
++// unnamed subagent marshals to exactly {"subagent":true} — byte-for-byte what shipped before the
++// name was resolved here, which is what keeps an already-installed daemon's decodeSubagent working
++// against a newer hook client and vice versa.
++type subagentExtras struct {
++	Subagent bool   `json:"subagent"`
++	Agent    string `json:"agent,omitempty"`
++}
++
++// subagentNameKeys are the payload keys a subagent's name may arrive under, in priority order.
++// They are read from hookio.Event.Extra, which is where ReadEvent files every top-level key
++// Event's own struct tags do not claim.
++var subagentNameKeys = []string{"subagent_type", "agent_name", "agent"}
++
++// subagentName resolves the agent's name out of ev.Extra, or "" when no key holds one.
++//
++// It MUST run here, in the hook-client process. hookio.Event.Extra is tagged `json:"-"`, so
++// ReadEvent fills it on this side of the IPC boundary and ipc.EncodeRequest then drops it: a
++// daemon-side reader of e.Extra sees an empty map in production, and every subagent capture would
++// be named "subagent". Request.Raw is the field that does cross, so the resolution happens where
++// the data still exists and the ANSWER is what travels.
++//
++// A key whose value is not a non-empty JSON string — a number, an object, an empty string, or the
++// key simply being absent — falls through to the next candidate rather than winning with a
++// nonsense name.
++func subagentName(ev hookio.Event) string {
++	for _, k := range subagentNameKeys {
++		var name string
++		if err := json.Unmarshal(ev.Extra[k], &name); err == nil && name != "" {
++			return name
++		}
++	}
++	return ""
++}
++
+ // rawExtras builds Request.Raw for the two hook subcommands that carry dispatch data beyond the
+-// parsed Event: {"subagent":true} for `observe stop --subagent` (the flag the plugin manifest's
+-// SubagentStop entry actually passes — internal/pluginmanifest's hookSpecs), and
++// parsed Event: {"subagent":true,"agent":"<name>"} for `observe stop --subagent` (the flag the
++// plugin manifest's SubagentStop entry actually passes — internal/pluginmanifest's hookSpecs), and
+ // {"trigger":"<manual|auto>"} for checkpoint. checkpoint's trigger comes from the EVENT's own
+ // Trigger field, not a CLI flag: the manifest invokes `checkpoint` with no flags at all (PreCompact
+ // carries its manual/auto discriminator in the hook payload itself, per hookio.Event.Trigger's own
+ // doc comment), so args has nothing to read for it. Every other subcommand carries nil.
+ func rawExtras(op ipc.Op, args []string, ev hookio.Event) json.RawMessage {
+ 	switch op {
+ 	case ipc.OpObserveStop:
+ 		if hasFlag(args, "--subagent") {
+-			b, _ := json.Marshal(map[string]bool{"subagent": true})
++			b, _ := json.Marshal(subagentExtras{Subagent: true, Agent: subagentName(ev)})
+ 			return b
+ 		}
+ 	case ipc.OpCheckpoint:
+ 		if ev.Trigger != "" {
+ 			b, _ := json.Marshal(map[string]string{"trigger": ev.Trigger})
+ 			return b
+ 		}
+ 	}
+ 	return nil
+ }
+diff --git a/internal/cli/hooks_test.go b/internal/cli/hooks_test.go
+index dbbaaeb..c4e10a1 100644
+--- a/internal/cli/hooks_test.go
++++ b/internal/cli/hooks_test.go
+@@ -346,10 +346,107 @@ func TestEnsureDaemonRunning_GatedOnDaemonEnabled(t *testing.T) {
+ 		matches, err := filepath.Glob(filepath.Join(paths.Of(root).Logs, "qompack-*.log"))
+ 		require.NoError(t, err)
+ 		require.NotEmpty(t, matches, "runtime.daemon.enabled=true must still let EnsureRunning run")
+ 
+ 		b, err := os.ReadFile(matches[0])
+ 		require.NoError(t, err)
+ 		require.Contains(t, string(b), "spawn failed",
+ 			"EnsureRunning must have reached SpawnDetached, which fails fast against a nonexistent self")
+ 	})
+ }
++
++// TestRawExtras_ResolvesTheSubagentNameClientSide pins the client-side half of the subagent-name
++// seam. hookio.Event.Extra is tagged `json:"-"`, so ReadEvent fills it in THIS process and
++// ipc.EncodeRequest then drops it — a daemon-side reader of e.Extra sees an empty map in
++// production. rawExtras is therefore the only place the agent's name can be resolved from, and it
++// must resolve it here, where Extra is real, rather than forward a key nothing downstream can see.
++//
++// The table pins the resolution rules the wire format depends on: three keys in priority order, a
++// value that is not a non-empty JSON string falls through to the next key, and all three missing
++// emits the pre-existing {"subagent":true} byte-for-byte so an older daemon's decodeSubagent is
++// untouched.
++func TestRawExtras_ResolvesTheSubagentNameClientSide(t *testing.T) {
++	raw := func(pairs map[string]string) map[string]json.RawMessage {
++		if pairs == nil {
++			return nil
++		}
++		m := make(map[string]json.RawMessage, len(pairs))
++		for k, v := range pairs {
++			m[k] = json.RawMessage(v)
++		}
++		return m
++	}
++
++	cases := []struct {
++		name  string
++		extra map[string]json.RawMessage
++		want  string
++	}{
++		{name: "no extras at all", extra: nil, want: `{"subagent":true}`},
++		{name: "no name key among the extras", extra: raw(map[string]string{"unrelated": `"x"`}), want: `{"subagent":true}`},
++		{name: "subagent_type wins", extra: raw(map[string]string{"subagent_type": `"code-reviewer"`}), want: `{"subagent":true,"agent":"code-reviewer"}`},
++		{name: "agent_name is second", extra: raw(map[string]string{"agent_name": `"explorer"`}), want: `{"subagent":true,"agent":"explorer"}`},
++		{name: "agent is third", extra: raw(map[string]string{"agent": `"planner"`}), want: `{"subagent":true,"agent":"planner"}`},
++		{
++			name:  "priority order is subagent_type, agent_name, agent",
++			extra: raw(map[string]string{"agent": `"third"`, "agent_name": `"second"`, "subagent_type": `"first"`}),
++			want:  `{"subagent":true,"agent":"first"}`,
++		},
++		{
++			name:  "a numeric value falls through to the next key",
++			extra: raw(map[string]string{"subagent_type": `7`, "agent_name": `"explorer"`}),
++			want:  `{"subagent":true,"agent":"explorer"}`,
++		},
++		{
++			name:  "an object value falls through to the next key",
++			extra: raw(map[string]string{"subagent_type": `{"name":"nested"}`, "agent": `"planner"`}),
++			want:  `{"subagent":true,"agent":"planner"}`,
++		},
++		{
++			name:  "an empty string is not a name",
++			extra: raw(map[string]string{"subagent_type": `""`, "agent_name": `""`, "agent": `""`}),
++			want:  `{"subagent":true}`,
++		},
++	}
++
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			got := rawExtras(ipc.OpObserveStop, []string{"--subagent"}, hookio.Event{Extra: c.extra})
++			require.JSONEq(t, c.want, string(got))
++		})
++	}
++
++	// The no-name shape must be byte-identical to what shipped, not merely JSON-equal: the wire
++	// format is what an already-installed daemon parses.
++	require.Equal(t, `{"subagent":true}`,
++		string(rawExtras(ipc.OpObserveStop, []string{"--subagent"}, hookio.Event{})))
++
++	// Nothing changes for a Stop without the flag, or for another op.
++	require.Nil(t, rawExtras(ipc.OpObserveStop, nil, hookio.Event{Extra: raw(map[string]string{"subagent_type": `"code-reviewer"`})}))
++	require.Nil(t, rawExtras(ipc.OpObserveTool, []string{"--subagent"}, hookio.Event{Extra: raw(map[string]string{"subagent_type": `"code-reviewer"`})}))
++}
++
++// TestHooks_SubagentNameReachesTheSpooledRequest is the end-to-end half of the same seam: a real
++// SubagentStop payload dispatched through the real hook body, whose unclaimed subagent_type key
++// hookio.ReadEvent routes into Event.Extra, must reach Request.Raw — the one field the transport
++// does carry.
++func TestHooks_SubagentNameReachesTheSpooledRequest(t *testing.T) {
++	dir := t.TempDir()
++	payload, err := json.Marshal(map[string]any{
++		"session_id":    "s-subagent-named",
++		"cwd":           dir,
++		"subagent_type": "code-reviewer",
++	})
++	require.NoError(t, err)
++
++	var out, errw bytes.Buffer
++	code := Dispatch(context.Background(), All(), argvFor("observe stop", "--subagent"), Env{
++		Getenv:  noEnv,
++		Stdin:   bytes.NewReader(payload),
++		Clock:   testClock(),
++		HomeDir: t.TempDir(),
++	}, &out, &errw)
++	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
++
++	req := onlySpooledRequest(t, dir)
++	require.JSONEq(t, `{"subagent":true,"agent":"code-reviewer"}`, string(req.Raw))
++}
+diff --git a/internal/daemon/daemon.go b/internal/daemon/daemon.go
+index 6922c3f..e3fe221 100644
+--- a/internal/daemon/daemon.go
++++ b/internal/daemon/daemon.go
+@@ -222,30 +222,36 @@ func New(o Options) (Daemon, error) {
+ 
+ 	svc := &Services{
+ 		Store:       o.Store,
+ 		Ledger:      o.Ledger,
+ 		Sketches:    o.Sketches,
+ 		Graph:       o.Graph,
+ 		Grammar:     o.Grammar,
+ 		Sched:       o.Sched,
+ 		Checkpoints: o.Checkpoints,
+ 	}
+-	for _, bind := range o.binds {
+-		bind(svc)
+-	}
+-	DeclareProducers(svc)
+-
++	// The monitor is constructed BEFORE the bind loop, not after, so svc.Mode can be assigned
++	// before any bind body runs. The hoist is safe — NewMonitor reads only o.ProjectRoot, o.Log and
++	// o.Metrics, none of which a bind produces — and it is necessary: a bind body that captures
++	// s.Mode while the field is still nil reports ModePassive for this process's whole life, and a
++	// passive observer still records and still exits 0, so the failure would be entirely silent.
+ 	statePath := filepath.Join(paths.Of(o.ProjectRoot).State, "contract.json")
+ 	monitor := contract.NewMonitor(o.Log, o.Metrics, statePath)
+ 	for _, a := range contract.StandardAssertions() {
+ 		_ = monitor.Register(a)
+ 	}
++	svc.Mode = monitor.Mode
++
++	for _, bind := range o.binds {
++		bind(svc)
++	}
++	DeclareProducers(svc)
+ 
+ 	d := &daemon{
+ 		root:        o.ProjectRoot,
+ 		log:         o.Log,
+ 		m:           o.Metrics,
+ 		clk:         o.Clock,
+ 		cfg:         o.Cfg,
+ 		cfgEnv:      config.Env{ProjectRoot: o.ProjectRoot, HomeDir: userHomeDir(), Getenv: os.Getenv},
+ 		svc:         svc,
+ 		monitor:     monitor,
+diff --git a/internal/daemon/daemon_test.go b/internal/daemon/daemon_test.go
+index 9d668b4..2c395db 100644
+--- a/internal/daemon/daemon_test.go
++++ b/internal/daemon/daemon_test.go
+@@ -1420,10 +1420,218 @@ func TestIdleExitEndsAbandonedSessions(t *testing.T) {
+ 
+ 	select {
+ 	case err := <-errCh:
+ 		require.NoError(t, err)
+ 	case <-time.After(12 * time.Second):
+ 		t.Fatal("Run did not exit on its own: the abandoned session still counts as live")
+ 	}
+ 
+ 	require.Zero(t, d.Registry().Live(), "the vanished session must have been ended, not kept live")
+ }
++
++// TestResolveEvent_RestoresRawExtras pins the daemon-side half of the subagent-name seam.
++//
++// hookio.Event.Extra is tagged `json:"-"`: hookio.ReadEvent fills it in the hook-client process
++// and ipc.EncodeRequest then drops it, so it is the ONE field of hookio.Event the transport
++// silently empties. resolveEvent puts back whatever req.Raw carried — Raw being the field the
++// client uses for exactly this — so every bound Services seam reads the keys the client parsed
++// instead of an empty map.
++//
++// The last row is the aliasing guard: resolveEvent copies the Event by value, so a restoration
++// that wrote into a pre-existing Extra map would mutate the CALLER's map through the shared header.
++func TestResolveEvent_RestoresRawExtras(t *testing.T) {
++	t.Parallel()
++
++	cases := []struct {
++		name string
++		req  ipc.Request
++		want map[string]string
++	}{
++		{
++			name: "an object Raw becomes Extra",
++			req: ipc.Request{
++				Session: "s-1", Event: &hookio.Event{HookEventName: "SubagentStop"},
++				Raw: json.RawMessage(`{"subagent":true,"agent":"code-reviewer"}`),
++			},
++			want: map[string]string{"subagent": "true", "agent": `"code-reviewer"`},
++		},
++		{
++			name: "a nil Event still gets the restored keys",
++			req:  ipc.Request{Session: "s-2", Raw: json.RawMessage(`{"agent":"explorer"}`)},
++			want: map[string]string{"agent": `"explorer"`},
++		},
++		{name: "no Raw leaves Extra nil", req: ipc.Request{Session: "s-3", Event: &hookio.Event{}}, want: nil},
++		{name: "a JSON null leaves Extra nil", req: ipc.Request{Session: "s-4", Raw: json.RawMessage(`null`)}, want: nil},
++		{name: "a JSON array is not an object", req: ipc.Request{Session: "s-5", Raw: json.RawMessage(`[1,2]`)}, want: nil},
++		{name: "a JSON string is not an object", req: ipc.Request{Session: "s-6", Raw: json.RawMessage(`"agent"`)}, want: nil},
++		{name: "malformed Raw is ignored, never fatal", req: ipc.Request{Session: "s-7", Raw: json.RawMessage(`{not json`)}, want: nil},
++	}
++
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			ev := resolveEvent(c.req)
++			require.NotNil(t, ev)
++			require.Equal(t, c.req.Session, ev.SessionID)
++			if c.want == nil {
++				require.Empty(t, ev.Extra)
++				return
++			}
++			require.Len(t, ev.Extra, len(c.want))
++			for k, v := range c.want {
++				require.JSONEq(t, v, string(ev.Extra[k]), "Extra[%q]", k)
++			}
++		})
++	}
++
++	// An Event that already carries Extra keeps them, wins the collision, and is not mutated:
++	// resolveEvent copies the Event by value, so the map it hands back must be a fresh one.
++	original := map[string]json.RawMessage{"agent": json.RawMessage(`"in-process"`)}
++	ev := resolveEvent(ipc.Request{
++		Session: "s-8",
++		Event:   &hookio.Event{Extra: original},
++		Raw:     json.RawMessage(`{"agent":"from-the-wire","subagent":true}`),
++	})
++	require.JSONEq(t, `"in-process"`, string(ev.Extra["agent"]), "an Event's own Extra wins over the restored copy")
++	require.JSONEq(t, `true`, string(ev.Extra["subagent"]))
++	require.Len(t, original, 1, "the caller's own Extra map must not be written through")
++}
++
++// TestObserveStopSeamSeesTheRestoredAgentName is TestResolveEvent_RestoresRawExtras' reason for
++// existing, asserted where it is actually spent: the ObserveStop seam a later subplan binds must
++// see the agent name the hook client resolved, alongside the subagent flag decodeSubagent already
++// read out of the same Raw.
++func TestObserveStopSeamSeesTheRestoredAgentName(t *testing.T) {
++	t.Parallel()
++
++	o := NewOptions(t.TempDir(), testConfig())
++	var (
++		gotAgent    string
++		gotSubagent bool
++		called      bool
++	)
++	o.Bind(func(s *Services) {
++		s.ObserveStop = func(_ context.Context, e hookio.Event, subagent bool) error {
++			called, gotSubagent = true, subagent
++			_ = json.Unmarshal(e.Extra["agent"], &gotAgent)
++			return nil
++		}
++	})
++
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.Stop(context.Background()) })
++
++	dd.runIngested(context.Background(), ipc.Request{
++		Op: ipc.OpObserveStop, Session: "s-subagent", TS: core.NowMilli(dd.clk),
++		Event: &hookio.Event{HookEventName: "SubagentStop", SessionID: "s-subagent"},
++		Raw:   json.RawMessage(`{"subagent":true,"agent":"code-reviewer"}`),
++	})
++
++	require.True(t, called, "the bound ObserveStop seam must run")
++	require.True(t, gotSubagent)
++	require.Equal(t, "code-reviewer", gotAgent, "the name the hook client resolved must survive the IPC boundary")
++}
++
++// TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing pins §12.1's split for observe.prompt:
++// under ModeDegradedPassive "L0 and L1 keep running (observe, chunk, store, sketches, DAG,
++// verbatim capture …)" and only ACTING is off.
++//
++// The ObservePrompt seam does both jobs at once — G2.3's verbatim prompt capture is RECORDING, its
++// returned Output is ACTING — so the two have to be gated separately. Gating the call itself on
++// MayAct (which is what this route did) silently stopped the verbatim capture the moment the
++// contract degraded, with no error anywhere: the hook still exits 0 and the reply still looks
++// exactly like a passive one is supposed to look. What must be asserted is therefore BOTH halves
++// at once — the seam ran, and nothing it returned reached the reply.
++func TestObservePrompt_PassiveModeInvokesSeamButEmitsNothing(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	var mu sync.Mutex
++	calls := 0
++	o := Options{ProjectRoot: root, Cfg: testConfig(), Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
++			mu.Lock()
++			calls++
++			mu.Unlock()
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{
++				HookEventName: "UserPromptSubmit", AdditionalContext: "recalled context",
++			}}, nil
++		}
++	})
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	dd.monitor.Degrade("forced for test", []contract.Result{
++		{ID: "x.forced", OK: false, Severity: contract.SevCritical},
++	})
++	require.Equal(t, contract.ModeDegradedPassive, dd.monitor.Mode())
++
++	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-passive", CWD: root, Prompt: "what changed?"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{
++		Op: ipc.OpObservePrompt, Session: "sess-passive", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
++	})
++	require.True(t, resp.OK)
++	require.NotNil(t, resp.Output)
++	require.Nil(t, resp.Output.HookSpecificOutput, "degraded-passive must put nothing into the reply")
++	require.Empty(t, resp.Output.SystemMessage)
++
++	mu.Lock()
++	defer mu.Unlock()
++	require.Equal(t, 1, calls, "degraded-passive still RECORDS: the ObservePrompt seam must run exactly once")
++}
++
++// TestObservePrompt_ModeOffNeverInvokesTheSeam is the other side of the same gate. ModeOff is not
++// "record but stay quiet", it is "do nothing at all" — MayRecord is false, so the route returns
++// before the WAL append and before the seam, exactly as observe.tool does under the same mode.
++func TestObservePrompt_ModeOffNeverInvokesTheSeam(t *testing.T) {
++	t.Parallel()
++
++	root := t.TempDir()
++	var mu sync.Mutex
++	calls := 0
++	cfg := testConfig()
++	cfg.Runtime.Mode = "off"
++	o := Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop()}
++	o.Bind(func(s *Services) {
++		s.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
++			mu.Lock()
++			calls++
++			mu.Unlock()
++			return hookio.Output{HookSpecificOutput: &hookio.HSO{AdditionalContext: "recalled context"}}, nil
++		}
++	})
++	d, err := New(o)
++	require.NoError(t, err)
++	dd, ok := d.(*daemon)
++	require.True(t, ok)
++	t.Cleanup(func() { _ = dd.ing.Close() })
++
++	// runtime.mode = "off" reaches the monitor through RunAll, which session.start is the route
++	// that runs — the same sequence TestModeOffSkipsIngest uses.
++	start := &hookio.Event{HookEventName: "SessionStart", SessionID: "sess-off", CWD: root, Source: "startup"}
++	require.True(t, dd.dispatchOp(context.Background(), ipc.Request{
++		Op: ipc.OpSessionStart, Session: "sess-off", Reply: true, Event: start,
++	}).OK)
++	require.Equal(t, contract.ModeOff, dd.monitor.Mode())
++
++	ev := &hookio.Event{HookEventName: "UserPromptSubmit", SessionID: "sess-off", CWD: root, Prompt: "what changed?"}
++	resp := dd.dispatchOp(context.Background(), ipc.Request{
++		Op: ipc.OpObservePrompt, Session: "sess-off", Reply: true, Event: ev, TS: core.NowMilli(dd.clk),
++	})
++	require.True(t, resp.OK)
++	require.NotNil(t, resp.Output)
++	require.Nil(t, resp.Output.HookSpecificOutput)
++
++	walPath := filepath.Join(paths.Of(root).Spool, "wal-sess-off.ndjson")
++	_, statErr := os.Stat(walPath)
++	require.True(t, os.IsNotExist(statErr), "ModeOff must never create the WAL file")
++
++	mu.Lock()
++	defer mu.Unlock()
++	require.Zero(t, calls, "ModeOff records nothing: the ObservePrompt seam must never run")
++}
+diff --git a/internal/daemon/handlers.go b/internal/daemon/handlers.go
+index 6a44002..f1937b6 100644
+--- a/internal/daemon/handlers.go
++++ b/internal/daemon/handlers.go
+@@ -86,29 +86,64 @@ func hotModeString(h ipc.HotPathMode) string {
+ 	if h == ipc.HotSpool {
+ 		return "spool"
+ 	}
+ 	return "sync"
+ }
+ 
+ // resolveEvent returns req.Event, defensively defaulting its SessionID from req.Session, or a
+ // bare Event carrying only req.Session when req.Event is nil (a malformed or synthetic request —
+ // every real client always sets Event). It never returns nil, so every route can dereference
+ // freely.
++//
++// It also restores Event.Extra from req.Raw, which is a restoration rather than a new channel:
++// §5.3 already makes Extra the home for a hook payload's unclaimed top-level keys, and it is the
++// ONE field of hookio.Event the transport silently empties — it is tagged `json:"-"`, so
++// hookio.ReadEvent fills it in the hook-client process and ipc.EncodeRequest then drops it. Every
++// bound Services seam would otherwise read an empty map in production while the same code read a
++// full one in any in-process test.
+ func resolveEvent(req ipc.Request) *hookio.Event {
++	ev := &hookio.Event{SessionID: req.Session}
+ 	if req.Event != nil {
+-		ev := *req.Event
+-		if ev.SessionID == "" {
+-			ev.SessionID = req.Session
++		cp := *req.Event
++		if cp.SessionID == "" {
++			cp.SessionID = req.Session
+ 		}
+-		return &ev
++		ev = &cp
+ 	}
+-	return &hookio.Event{SessionID: req.Session}
++	ev.Extra = restoredExtra(ev.Extra, req.Raw)
++	return ev
++}
++
++// restoredExtra merges raw's top-level keys into extra, returning extra unchanged when raw is not
++// a JSON object (nil, a null, an array, a scalar, or malformed — all of which a corrupt spool line
++// can produce, and none of which is an error worth failing a hook over).
++//
++// A key already present in extra WINS: the Event's own value is what an in-process caller set
++// deliberately, while raw is a reconstruction. The merge always allocates a fresh map rather than
++// writing into extra, because resolveEvent copies the Event by VALUE — the copy shares the
++// caller's map header, so writing through it would mutate a request the caller still holds.
++func restoredExtra(extra map[string]json.RawMessage, raw json.RawMessage) map[string]json.RawMessage {
++	if len(raw) == 0 {
++		return extra
++	}
++	var m map[string]json.RawMessage
++	if err := json.Unmarshal(raw, &m); err != nil || len(m) == 0 {
++		return extra
++	}
++	merged := make(map[string]json.RawMessage, len(extra)+len(m))
++	for k, v := range m {
++		merged[k] = v
++	}
++	for k, v := range extra {
++		merged[k] = v
++	}
++	return merged
+ }
+ 
+ // decodeSubagent reads observe.stop's {"subagent":true} marker out of req.Raw. A missing or
+ // unparseable Raw reports false — the ordinary, non-subagent Stop hook.
+ func decodeSubagent(raw json.RawMessage) bool {
+ 	if len(raw) == 0 {
+ 		return false
+ 	}
+ 	var payload struct {
+ 		Subagent bool `json:"subagent"`
+@@ -358,24 +393,33 @@ func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
+ 	if err != nil {
+ 		return ipc.Response{OK: false, Err: err.Error()}
+ 	}
+ 	if err := d.ing.Accept(req, line); err != nil {
+ 		return ipc.Response{OK: false, Err: err.Error()}
+ 	}
+ 	return ipc.Response{OK: true}
+ }
+ 
+ // handleObservePrompt is the default observe.prompt route: registry.Touch, ingest.Accept (WAL
+-// first), then — synchronously and inside promptReplyDeadline — svc.ObservePrompt when non-nil
+-// and the mode MayAct(). The result becomes Response.Output; a nil seam, a suppressed mode, an
+-// error or a timeout all fall back to hookio.Empty(). The sentinel scan runs later, off this
+-// reply path, in runIngested via the same ingest.Accept job.
++// first), then — synchronously and inside promptReplyDeadline — svc.ObservePrompt when non-nil.
++// The result becomes Response.Output; a nil seam, a suppressed mode, an error or a timeout all
++// fall back to hookio.Empty(). The sentinel scan runs later, off this reply path, in runIngested
++// via the same ingest.Accept job.
++//
++// The two mode gates are DIFFERENT gates, and collapsing them is a silent data-loss bug. §12.1
++// says ModeDegradedPassive keeps "L0 and L1 running (observe, chunk, store, sketches, DAG,
++// verbatim capture …)" and turns only ACTING off, but the ObservePrompt seam does both jobs in one
++// call: G2.3's verbatim prompt capture is recording, and the hookio.Output it returns is acting.
++// So MayRecord gates the WAL append and the CALL, exactly as it does on observe.tool/observe.stop,
++// while MayAct gates only whether the returned Output reaches the reply. Gating the call itself on
++// MayAct — which this route used to do — stopped the verbatim capture the moment the contract
++// degraded, with no error, no counter and a reply indistinguishable from a healthy passive one.
+ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.Response {
+ 	ev := resolveEvent(req)
+ 	now := core.NowMilli(d.clk)
+ 	d.registry.Touch(ev.SessionID, now)
+ 
+ 	mode := d.monitor.Mode()
+ 	if !mode.MayRecord() {
+ 		empty := hookio.Empty()
+ 		return ipc.Response{OK: true, Output: &empty}
+ 	}
+@@ -392,22 +436,27 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
+ 			d.m.Counter(counterL0AcceptError).Add(1)
+ 		}
+ 	} else if err := d.ing.Accept(req, line); err != nil {
+ 		d.log.Warn("daemon: observe.prompt: WAL append failed", "err", err)
+ 		if d.m != nil {
+ 			d.m.Counter(counterL0AcceptError).Add(1)
+ 		}
+ 	}
+ 
+ 	out := hookio.Empty()
+-	if d.svc.ObservePrompt != nil && mode.MayAct() {
+-		out = d.callObservePromptWithDeadline(ctx, ev)
++	if d.svc.ObservePrompt != nil {
++		// The call is recording, so it runs under the MayRecord check above; only what it hands
++		// back is acting, and under !MayAct the reply stays the empty output.
++		produced := d.callObservePromptWithDeadline(ctx, ev)
++		if mode.MayAct() {
++			out = produced
++		}
+ 	}
+ 	return ipc.Response{OK: true, Output: &out}
+ }
+ 
+ // callObservePromptWithDeadline enforces promptReplyDeadline even against a callee that ignores
+ // its own context: it races the call (in a goroutine, since a badly-behaved seam might not
+ // respect cancellation) against the deadline and falls back to hookio.Empty() if the deadline
+ // wins. The goroutine, if the callee never returns, is abandoned rather than leaked-and-blocked-
+ // on — a prompt is never blocked on the daemon (task-5-spec.md handlers.go).
+ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event) hookio.Output {
+diff --git a/internal/daemon/options.go b/internal/daemon/options.go
+index 0bc75b0..ef7fecc 100644
+--- a/internal/daemon/options.go
++++ b/internal/daemon/options.go
+@@ -109,20 +109,32 @@ func (o *Options) Bind(fn func(*Services)) {
+ // so an unbound seam costs freshness, never data.
+ type Services struct {
+ 	Store       store.Store
+ 	Ledger      negknow.Ledger
+ 	Sketches    *SketchSet
+ 	Graph       dag.Graph
+ 	Grammar     grammar.Sequitur
+ 	Sched       scheduler.Runtime
+ 	Checkpoints checkpoint.Writer
+ 
++	// Mode reports the daemon's current §12.1 contract mode. It is the one seam here that runs
++	// the OPPOSITE way to the nine below: those are CONSUMED by SP-05 and provided by a later
++	// subplan through Bind, while Mode is PROVIDED by SP-05 and consumed by a bind body. It
++	// exists because a bound function cannot reach the contract monitor any other way —
++	// contract.NewMonitor is called inside New, into an unexported daemon field, and it appears on
++	// neither Options nor the Daemon interface. New therefore constructs the monitor and assigns
++	// this field BEFORE the bind loop runs, so a bind body may capture the func value and call it
++	// later. Calling it DURING the bind body is still wrong: the monitor has not yet read
++	// state/contract.json at that point and answers ModeFull for every project. Capture the func;
++	// call it per event.
++	Mode func() contract.Mode
++
+ 	// The nine nil-tolerant function seams (§5.21, out-of-scope table). None is called by SP-05
+ 	// except through the exact call sites handlers.go documents; every other subplan wires its own
+ 	// implementation in via Bind.
+ 	ObserveTool    func(ctx context.Context, e hookio.Event) error
+ 	ObservePrompt  func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+ 	ObserveStop    func(ctx context.Context, e hookio.Event, subagent bool) error
+ 	SessionStart   func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+ 	SessionEnd     func(ctx context.Context, e hookio.Event) error
+ 	PreCompact     func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+ 	Rehydrate      func(ctx context.Context, e hookio.Event) (hookio.Output, error)
+diff --git a/internal/daemon/options_test.go b/internal/daemon/options_test.go
+index e0928a2..2fdf784 100644
+--- a/internal/daemon/options_test.go
++++ b/internal/daemon/options_test.go
+@@ -127,10 +127,34 @@ func TestDeclaredProducerSetMatchesArchitecture(t *testing.T) {
+ 	require.False(t, contract.HasProducer(contract.CPreCompactTiming))
+ }
+ 
+ // TestServicesFromNeverReturnsNil: a context with nothing bound still yields a usable *Services.
+ func TestServicesFromNeverReturnsNil(t *testing.T) {
+ 	t.Parallel()
+ 	s := ServicesFrom(context.Background())
+ 	require.NotNil(t, s)
+ 	require.Nil(t, s.ObserveTool)
+ }
++
++// TestServicesModeIsAssignedBeforeBinds pins the ordering §5.4 mandates for the one PROVIDED seam
++// on Services: New must construct the contract monitor and assign svc.Mode = monitor.Mode BEFORE
++// it runs the bind loop, so a bind body can capture the func value and call it per event.
++//
++// The assertion is deliberately made OUTSIDE the bind body. Asserting inside it would pass
++// vacuously: at that point the monitor has just been constructed and answers ModeFull for every
++// project, degraded or not. What has to be pinned is that the captured value is not nil — a bind
++// that captures a nil s.Mode reports ModePassive for the process's whole life, and a passive
++// observer still records and still exits 0, so the failure is completely silent.
++func TestServicesModeIsAssignedBeforeBinds(t *testing.T) {
++	contract.ResetProducers()
++	t.Cleanup(contract.ResetProducers)
++
++	o := NewOptions(t.TempDir(), testConfig())
++	var captured func() contract.Mode
++	o.Bind(func(s *Services) { captured = s.Mode })
++
++	_, err := New(o)
++	require.NoError(t, err)
++
++	require.NotNil(t, captured, "the bind loop must run AFTER svc.Mode is assigned, or every bound seam captures nil")
++	require.Equal(t, contract.ModeFull, captured(), "a fresh state directory is ModeFull")
++}
+diff --git a/internal/ipc/frame_test.go b/internal/ipc/frame_test.go
+index 11fbc10..ab2cf6b 100644
+--- a/internal/ipc/frame_test.go
++++ b/internal/ipc/frame_test.go
+@@ -112,37 +112,47 @@ func TestEncodeRequest_DoesNotEscapeHTML(t *testing.T) {
+ // Event-specific knowledge, so it does not — and should not — apply that normalization itself.
+ var rawMessageNullIsNil = cmp.Comparer(func(a, b json.RawMessage) bool {
+ 	isNil := func(m json.RawMessage) bool { return len(m) == 0 || string(m) == "null" }
+ 	if isNil(a) && isNil(b) {
+ 		return true
+ 	}
+ 	return bytes.Equal(a, b)
+ })
+ 
+ // TestDecodeRequestRoundTrip asserts DecodeRequest(EncodeRequest(r)) reproduces r exactly, over a
+-// wide range of generated requests including the optional Event.
++// wide range of generated requests including the optional Event and the optional Raw.
++//
++// Raw is drawn as `observe stop --subagent`'s own dispatch payload, agent name and all. That shape
++// matters more than an arbitrary blob: hookio.Event.Extra is tagged `json:"-"` and does NOT
++// survive this round trip, so Raw is the only field carrying what the hook client parsed out of
++// the payload — the subagent's name included — across to the daemon. A Raw that lost a key here
++// would name every subagent capture "subagent".
+ func TestDecodeRequestRoundTrip(t *testing.T) {
+ 	rapid.Check(t, func(rt *rapid.T) {
+ 		req := ipc.Request{
+ 			Op:      rapid.SampledFrom(ipc.KnownOps()).Draw(rt, "op"),
+ 			Session: core.SessionID(rapid.StringMatching(`[a-zA-Z0-9_-]{1,24}`).Draw(rt, "session")),
+ 			TS:      core.UnixMilli(rapid.Int64Range(0, 4102444800000).Draw(rt, "ts")),
+ 			Reply:   rapid.Bool().Draw(rt, "reply"),
+ 		}
+ 		if rapid.Bool().Draw(rt, "hasEvent") {
+ 			req.Event = &hookio.Event{
+ 				HookEventName:  rapid.StringMatching(`[A-Za-z]{1,20}`).Draw(rt, "hookEventName"),
+ 				SessionID:      req.Session,
+ 				ToolName:       rapid.StringMatching(`[A-Za-z]{0,20}`).Draw(rt, "toolName"),
+ 				StopHookActive: rapid.Bool().Draw(rt, "stopHookActive"),
+ 			}
+ 		}
++		if rapid.Bool().Draw(rt, "hasRaw") {
++			agent := rapid.StringMatching(`[a-zA-Z0-9_-]{1,24}`).Draw(rt, "agent")
++			req.Raw = json.RawMessage(`{"subagent":true,"agent":"` + agent + `"}`)
++		}
+ 
+ 		encoded, err := ipc.EncodeRequest(req)
+ 		require.NoError(rt, err)
+ 
+ 		decoded, err := ipc.DecodeRequest(encoded)
+ 		require.NoError(rt, err)
+ 
+ 		if diff := cmp.Diff(req, decoded, rawMessageNullIsNil); diff != "" {
+ 			rt.Fatalf("round trip mismatch (-want +got):\n%s", diff)
+ 		}
+diff --git a/internal/store/put.go b/internal/store/put.go
+index 1d6e1dd..b283496 100644
+--- a/internal/store/put.go
++++ b/internal/store/put.go
+@@ -222,40 +222,66 @@ func (s *FSStore) countRaw(raw int64) {
+ 	s.rawBytes += raw
+ 	s.statsDirty = true
+ 	s.mu.Unlock()
+ }
+ 
+ // canonOptions maps this store's configuration, plus one call's PutOptions, onto canon.Options.
+ //
+ // When store.canonicalize.enabled is false, Strip is nil: only the CRLF normalization
+ // 00-ARCHITECTURE.md §4 mandates remains, so a Windows read and a Linux read of the same file
+ // still produce the same chunks and still dedup against each other.
++//
++// PutOptions.Canon.Strip carries the whole per-call override decision, and its NIL-ness is the
++// signal — not its length. internal/canon's gateSet already draws exactly this distinction: a nil
++// Strip means "every class", a non-nil but EMPTY Strip means "exactly these — i.e. none — plus the
++// always-on structural crlf/paths". So:
++//
++//   - a NIL Canon.Strip means "I supplied no per-call canon override at all": the store's
++//     configured classes AND the store's configured MinHash both stand;
++//   - a NON-NIL Canon.Strip, empty included, means "this entire canon.Options is mine, MinHash
++//     included" — the classes are the caller's, and Canon.MinHash.Enabled == false turns the
++//     signature off for this one Put.
++//
++// The nil gate on the MinHash opt-out is load-bearing, not decoration. sketch.MinHashOptions.Enabled
++// is a plain bool and PutOptions.Canon is a value field, so an explicit false is byte-identical to
++// the zero value: an ungated rule would read every store.PutOptions{} in the tree as an opt-out,
++// zero every PutResult.Signature, and silently retire FSStore.nearDup — §8.1 item 3's redundancy
++// detector, which supersede.go depends on. Strip is the one field that CAN say "unset", which is
++// why it carries the decision for both.
++//
++// The reverse direction stays config-wins: a caller may turn the signature OFF for one Put, never
++// on, because the permutation count and the near-dup threshold are configuration the caller does
++// not own. Canon.KeepDeltas is likewise never read from Canon — it is derived from
++// PutOptions.KeepRaw, which is where §5.8 puts that decision.
+ func (s *FSStore) canonOptions(o PutOptions) canon.Options {
+ 	cc := s.cfg.Store.Canonicalize
+ 	opts := canon.Options{
+ 		KeepDeltas: o.KeepRaw,
+ 		MinHash: sketch.MinHashOptions{
+ 			Enabled:          cc.MinHash.Enabled,
+ 			Permutations:     cc.MinHash.Permutations,
+ 			NearDupThreshold: cc.MinHash.NearDupThreshold,
+ 		},
+ 	}
+ 	if cc.Enabled {
+ 		opts.Strip = make([]canon.Class, 0, len(cc.Strip))
+ 		for _, c := range cc.Strip {
+ 			opts.Strip = append(opts.Strip, canon.Class(c))
+ 		}
+ 	}
+ 	// A caller that supplied its own canon.Options wins: PutOptions.Canon is the per-call override
+ 	// the §5.8 shape provides for exactly this.
+-	if len(o.Canon.Strip) > 0 {
++	if o.Canon.Strip != nil {
+ 		opts.Strip = o.Canon.Strip
++		if !o.Canon.MinHash.Enabled {
++			opts.MinHash.Enabled = false
++		}
+ 	}
+ 	return opts
+ }
+ 
+ // nearDup reports whether sig is a near-duplicate of the most recent prior root stored for path.
+ //
+ // This is §8.1's "same test suite, one new failure" detector: content that still differs after
+ // canonicalization but is substantially the same as its predecessor.
+ func (s *FSStore) nearDup(path string, root core.Hash, canonBytes int64, sig sketch.Signature) *NearDupInfo {
+ 	cc := s.cfg.Store.Canonicalize
+diff --git a/internal/store/put_test.go b/internal/store/put_test.go
+index 1df1596..aa31be2 100644
+--- a/internal/store/put_test.go
++++ b/internal/store/put_test.go
+@@ -8,20 +8,21 @@ import (
+ 	"io"
+ 	"strings"
+ 	"sync"
+ 	"testing"
+ 
+ 	"github.com/stretchr/testify/require"
+ 
+ 	"github.com/qompack/qompack/internal/canon"
+ 	"github.com/qompack/qompack/internal/config"
+ 	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/sketch"
+ )
+ 
+ // awsExampleKey is AWS's own long-standing documentation example access key ID. It is a redaction
+ // FIXTURE, never a credential.
+ //
+ //nolint:gosec // G101: this IS the redaction fixture; see comment above.
+ const awsExampleKey = "AKIA" + "IOSFODNN7EXAMPLE"
+ 
+ // withChunkSize overrides the test chunker's boundary, so a test that must move a lot of bytes can
+ // do it in a few large chunks instead of thousands of small ones.
+@@ -627,10 +628,55 @@ func TestConcurrentPut(t *testing.T) {
+ 		for i := 0; i < perGoroutine; i++ {
+ 			_, err := serial.Store.PutBytes(context.Background(), payloads[g*perGoroutine+i],
+ 				PutOptions{Tool: "Bash", Path: fmt.Sprintf("src/g%d.txt", g)})
+ 			require.NoError(t, err)
+ 		}
+ 	}
+ 
+ 	require.Equal(t, serial.objectPaths(t), concurrent.objectPaths(t),
+ 		"concurrent puts must produce exactly the object set the serial order produces")
+ }
++
++// TestCanonOptions_EmptyStripMeansNoOptionalClasses pins the distinction canonOptions used to drop
++// on the floor: internal/canon's gateSet already reads a NIL Strip as "every class" and a non-nil
++// but EMPTY Strip as "exactly these — none — plus the always-on structural ones", and the store
++// must forward that difference rather than flatten it with a len() > 0 test.
++//
++// The two rows are deliberately the same bytes through the same store, and each pins one half of
++// the gate:
++//
++//   - The empty non-nil Strip asks for no optional class AND, through the same non-nil Strip,
++//     opts out of the signature. Its canonical form must therefore be the input verbatim — the
++//     body carries no CRLF, no trailing horizontal whitespace and no path text, so the always-on
++//     crlf/paths classes are no-ops over it — and its PutResult.Signature must be zero.
++//   - The bare canon.Options{} row is what makes the gate load-bearing rather than decorative. Its
++//     MinHash.Enabled is the same zero false as the first row's, so an ungated opt-out rule would
++//     zero this signature too — and with it every store.PutOptions{} in the tree, retiring
++//     FSStore.nearDup outright. Its Strip is nil, a nil Strip is not an opt-out, and its signature
++//     must still be computed from the store's own configured MinHash.
++func TestCanonOptions_EmptyStripMeansNoOptionalClasses(t *testing.T) {
++	tp := newTestStore(t)
++	ctx := context.Background()
++
++	// One timestamp and two ANSI escapes: two of the six classes config.Defaults() enables.
++	body := []byte("2026-08-23T10:11:12.345Z \x1b[31mbuild failed\x1b[0m after three attempts\n")
++
++	off, err := tp.Store.PutBytes(ctx, body, PutOptions{
++		Tool: "Bash", Path: "logs/explicit-override.txt",
++		Canon: canon.Options{Strip: []canon.Class{}, MinHash: sketch.MinHashOptions{Enabled: false}},
++	})
++	require.NoError(t, err)
++	require.Equal(t, int64(len(body)), off.Root.CanonBytes,
++		"an empty non-nil Canon.Strip must leave every optional class unapplied")
++	require.Zero(t, off.Signature.Perms,
++		"a non-nil Canon.Strip carrying MinHash.Enabled=false must opt this Put out of the signature")
++
++	on, err := tp.Store.PutBytes(ctx, body, PutOptions{
++		Tool: "Bash", Path: "logs/no-override.txt",
++		Canon: canon.Options{},
++	})
++	require.NoError(t, err)
++	require.Less(t, on.Root.CanonBytes, int64(len(body)),
++		"a nil Canon.Strip must still apply the store's six configured classes")
++	require.NotZero(t, on.Signature.Perms,
++		"a nil Canon.Strip is not a MinHash opt-out: the store's configured signature must still run")
++}
+diff --git a/plans/00-ARCHITECTURE.md b/plans/00-ARCHITECTURE.md
+index 7193acb..4d97e91 100644
+--- a/plans/00-ARCHITECTURE.md
++++ b/plans/00-ARCHITECTURE.md
+@@ -1121,24 +1121,40 @@ type Root struct {
+     Hash       core.Hash
+     Chunks     []ChunkRef
+     CanonBytes int64
+     RawBytes   int64
+     Tokens     core.Tokens     // exact chunk-level accounting (G10.2)
+ }
+ 
+ type PutOptions struct {
+     Tool      string
+     Path      string          // paths.Key form; "" if none
+-    Canon     canon.Options
++    Canon     canon.Options   // per-call override; see the Canon.Strip rule below
+     KeepRaw   bool            // store the volatile deltas alongside
+     Ephemeral bool            // retrieval results, born ephemeral (§8.7)
+ }
++
++// PutOptions.Canon: Strip's NIL-ness — not its length — is what decides whether the caller
++// supplied a per-call override at all, matching the distinction canon's own gateSet already draws
++// (§5.6).
++//
++//   - Canon.Strip == nil  → no per-call override: the store's CONFIGURED classes and the store's
++//     CONFIGURED MinHash setting both stand.
++//   - Canon.Strip non-nil → this entire canon.Options is the caller's. An EMPTY non-nil Strip means
++//     "no optional class" — only the always-on structural crlf/paths run.
++//   - Canon.MinHash.Enabled == false disables PutResult.Signature for that one Put ONLY when
++//     Canon.Strip is non-nil. The gate is load-bearing: Enabled is a plain bool and Canon is a
++//     value field, so an ungated rule would read every PutOptions{} in the tree as an opt-out and
++//     silently retire the near-dup detector §8.1 item 3 depends on. The reverse direction is
++//     config-wins — a caller may turn the signature off, never on, because the permutation count
++//     and threshold are configuration the caller does not own.
++//   - Canon.KeepDeltas is NOT read from Canon: it is derived from PutOptions.KeepRaw.
+ type PutResult struct {
+     Root      Root
+     Novel     int             // chunks actually written
+     Reused    int
+     Signature sketch.Signature
+     NearDup   *NearDupInfo    // set when a prior version is within nearDupThreshold
+     Truncated bool            // the write hit a size bound and stored a prefix
+     Redacted  int             // redact.Match spans replaced on the way in (§5.22a) — the only
+                               // signal to a caller that secret hygiene fired on this write
+ }
+diff --git a/test/integration/contractmonitor_test.go b/test/integration/contractmonitor_test.go
+index b38beb6..5e06ae9 100644
+--- a/test/integration/contractmonitor_test.go
++++ b/test/integration/contractmonitor_test.go
+@@ -324,37 +324,46 @@ func statusMode(t *testing.T, ctx context.Context, p *testutil.Project) string {
+ // TestIntegration_DegradedPassiveStillWritesToTheRealStore is §4.3's second test — §12.1's "L0
+ // and L1 keep running … the store stays correct and the session's data is not lost", verified
+ // against the actual L1 rather than a stub.
+ //
+ // The monitor is forced to ModeDegradedPassive (persisted state, loaded by the daemon's own
+ // contract.NewMonitor at construction). A real daemon runs with an ObserveTool bound through the
+ // daemon.Options.Bind seam that performs store.PutBytes → store.RecordToolUse →
+ // store.AppendFileVersion against the real store. 20 observe.tool events driven through the real
+ // hook client must all land in the store (roots, tool-use records, file versions), while every
+ // acting seam stays suppressed: no hook's Output may carry a HookSpecificOutput.
++//
++// ObservePrompt is the one seam that sits on both sides of that line, and the assertions below
++// treat it accordingly. §12.1 keeps "verbatim capture" running under ModeDegradedPassive, and the
++// capture is what the ObservePrompt seam DOES, so it must still be CALLED; what must not happen is
++// its returned Output reaching the reply. See handleObservePrompt's own doc comment for the split.
+ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
+ 	// Not parallel: daemon.New declares producers into the process-wide set (and NewProject uses
+ 	// t.Setenv). Reset on both sides so this test neither inherits nor leaks producer state.
+ 	contract.ResetProducers()
+ 	t.Cleanup(contract.ResetProducers)
+ 
+ 	p := testutil.NewProject(t)
+ 	ctx := context.Background()
+ 	s := openRealStore(t, p)
+ 	transcript := writeRealTranscript(t, p)
+ 
+ 	forceDegradedPassive(t, p)
+ 
+-	// Acting seams that WOULD emit HookSpecificOutput if the daemon (wrongly) acted while
+-	// degraded. Binding them makes the "no HookSpecificOutput on any hook" assertion below proof
+-	// of suppression rather than a vacuous truth about unbound seams.
+-	var sessionStartActed, preCompactActed, promptActed atomic.Bool
++	// Seams that WOULD emit HookSpecificOutput if the daemon (wrongly) delivered while degraded.
++	// Binding them makes the "no HookSpecificOutput on any hook" assertion below proof of
++	// suppression rather than a vacuous truth about unbound seams.
++	//
++	// promptRan is named differently from the other two on purpose: SessionStart and PreCompact are
++	// purely acting seams and must not run at all, while ObservePrompt also carries the recording
++	// half §12.1 keeps alive, so running is exactly what it must do.
++	var sessionStartActed, preCompactActed, promptRan atomic.Bool
+ 	var turn atomic.Int64
+ 
+ 	opts := daemon.NewOptions(p.Root, p.Cfg)
+ 	opts.Log = p.Log
+ 	opts.Clock = p.Clock
+ 	opts.Store = s
+ 	opts.Bind(func(sv *daemon.Services) {
+ 		// The §4.2-shaped test-local binding through the seam SP-05 shipped for exactly this
+ 		// purpose; replaced by observer.OnToolUse in V3. It performs the three L1 writes §4.3
+ 		// names, in order, against the real store.
+@@ -386,21 +395,21 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
+ 		}
+ 		sv.SessionStart = func(context.Context, hookio.Event) (hookio.Output, error) {
+ 			sessionStartActed.Store(true)
+ 			return hookio.SessionStartOutput("must-never-be-delivered"), nil
+ 		}
+ 		sv.PreCompact = func(context.Context, hookio.Event) (hookio.Output, error) {
+ 			preCompactActed.Store(true)
+ 			return hookio.PreCompactOutput("must-never-be-delivered"), nil
+ 		}
+ 		sv.ObservePrompt = func(context.Context, hookio.Event) (hookio.Output, error) {
+-			promptActed.Store(true)
++			promptRan.Store(true)
+ 			return hookio.Output{HookSpecificOutput: &hookio.HSO{
+ 				HookEventName: "UserPromptSubmit", AdditionalContext: "must-never-be-delivered",
+ 			}}, nil
+ 		}
+ 	})
+ 
+ 	d, err := daemon.New(opts)
+ 	require.NoError(t, err)
+ 
+ 	runCtx, cancel := context.WithCancel(ctx)
+@@ -511,24 +520,28 @@ func TestIntegration_DegradedPassiveStillWritesToTheRealStore(t *testing.T) {
+ 	// store must come out of that with the same 20 tool-use records — no record lost, none
+ 	// invented — and, like every other hook this session, no hookSpecificOutput.
+ 	hookOutputs["SessionEnd"] = p.RunHook(t, "SessionEnd", hookio.Event{
+ 		HookEventName: "SessionEnd", SessionID: degradedSession, CWD: p.Root, TranscriptPath: transcript,
+ 	})
+ 	st, err = s.Stats(ctx)
+ 	require.NoError(t, err)
+ 	require.Equal(t, degradedEventCount, st.ToolUses,
+ 		"the flush drain must leave exactly the 20 recorded tool uses in the store")
+ 
+-	// NO Output.HookSpecificOutput on any hook, and no acting seam ever ran.
++	// NO Output.HookSpecificOutput on any hook, and no purely-acting seam ever ran.
+ 	for name, out := range hookOutputs {
+ 		require.Nil(t, out.HookSpecificOutput,
+ 			"hook %s must not emit hookSpecificOutput under degraded-passive", name)
+ 	}
+ 	require.False(t, sessionStartActed.Load(), "SessionStart seam must not run while degraded")
+ 	require.False(t, preCompactActed.Load(), "PreCompact seam must not run while degraded")
+-	require.False(t, promptActed.Load(), "ObservePrompt seam must not run while degraded")
++	// ObservePrompt is the recording half of §12.1's "L0 and L1 keep running … verbatim capture".
++	// It MUST have run; the UserPromptSubmit row of the loop above is what proves the Output it
++	// returned ("must-never-be-delivered") went nowhere.
++	require.True(t, promptRan.Load(),
++		"degraded-passive still records: the ObservePrompt seam must run, only its Output is suppressed")
+ 
+ 	// Still degraded at the end: the single clean RunAll must not have restored the session —
+ 	// §12.1 requires two consecutive clean runs.
+ 	require.Equal(t, contract.ModeDegradedPassive.String(), statusMode(t, ctx, p),
+ 		"one clean contract run must not restore ModeFull")
+ }

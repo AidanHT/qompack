@@ -1,0 +1,26 @@
+{
+  "read_heavy_ratio_canon": 189.345083086575,
+  "read_heavy_ratio_raw": 181.3067790465833,
+  "test_heavy_ratio_canon": 108.74022540698483,
+  "test_heavy_ratio_raw": 27.130414255412955,
+  "raw_bytes": 14003773,
+  "store_bytes": 73959,
+  "objects": 128,
+  "tool_uses": 400,
+  "_supplementary": {
+    "note": "the eight keys above are the read-heavy canonicalization-on run's sizes plus the four ratios, matching TestPhase1_ReportArtifact's key set; the block below is extra diagnostic detail. Measured AFTER the controller-ruled volatile-substring refresh: payloadFor now applies a deterministic, seeded refresh of strip-set-covered volatile substrings (clocks, pid/goroutine ids, run durations, hex addresses) to the bash and testrunner groups only, per §8.1's premise that every Bash/test-runner output is unique in reality.",
+    "test_heavy_raw_bytes": 7815160,
+    "test_heavy_store_bytes_canon": 71870,
+    "test_heavy_store_bytes_raw": 288059,
+    "canonicalization_gap_measured": 4.0081,
+    "canonicalization_gap_floor": 1.25,
+    "read_heavy_first_half_bytes": 72455,
+    "read_heavy_second_half_bytes": 1504,
+    "read_heavy_files": 106,
+    "read_heavy_superseded": 133,
+    "read_heavy_hll_cardinality": 101,
+    "read_heavy_tool_calls_driven": 336,
+    "read_heavy_bytes_per_tool_call": 41678,
+    "determinism": "two consecutive runs produced byte-identical ratios (189.3451; 108.7402/27.1304; gap 4.0081)"
+  }
+}

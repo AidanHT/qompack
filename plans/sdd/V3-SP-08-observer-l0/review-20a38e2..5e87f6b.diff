@@ -1,0 +1,934 @@
+# Review package: 20a38e2..5e87f6b
+
+## Commits
+5e87f6b feat(observer): supersession and near-duplicate redundancy detection
+
+## Files changed
+ internal/observer/fakes_test.go     | 110 ++++++--
+ internal/observer/supersede.go      | 142 ++++++++++
+ internal/observer/supersede_test.go | 518 ++++++++++++++++++++++++++++++++++++
+ internal/observer/tooluse.go        |  10 +-
+ 4 files changed, 761 insertions(+), 19 deletions(-)
+
+## Diff
+diff --git a/internal/observer/fakes_test.go b/internal/observer/fakes_test.go
+index 79a14bc..fcd83a0 100644
+--- a/internal/observer/fakes_test.go
++++ b/internal/observer/fakes_test.go
+@@ -84,94 +84,163 @@ type fakeStore struct {
+ 
+ 	mu sync.Mutex
+ 
+ 	Puts         []putCall
+ 	Records      []store.ToolUseRecord
+ 	FileVersions []fileVersionCall
+ 	Supersedes   []supersedeCall
+ 	ByPathCalls  int
+ 	FlushCalls   int
+ 
+-	// PutErr and RecordErr make the corresponding call fail.
+-	PutErr    error
+-	RecordErr error
++	// ByPathLimits records the limit argument of every ToolUsesByPath call, so the
++	// supersessionLookback cap is asserted at the CALL rather than inferred from the answer.
++	ByPathLimits []int
++
++	// Roots is this double's index/roots.jsonl: PutBytes registers every root it mints and setRoot
++	// stages a prior read's chunk list. GetRoot answers out of it, which is what lets a chunk-set
++	// row exist at all — PutBytes mints one chunk per payload, so a superset relation can only be
++	// staged, never produced.
++	Roots map[core.Hash]store.Root
++
++	// PutErr, RecordErr, ByPathErr, GetRootErr and MarkErr make the corresponding call fail.
++	PutErr     error
++	RecordErr  error
++	ByPathErr  error
++	GetRootErr error
++	MarkErr    error
+ 
+ 	// TokenQueue supplies Root.Tokens for successive PutBytes calls; DefaultTokens is used once
+ 	// it is exhausted.
+ 	TokenQueue    []core.Tokens
+ 	DefaultTokens core.Tokens
+ 
+ 	// Signature is returned as PutResult.Signature on every call.
+ 	Signature sketch.Signature
+ }
+ 
+-func newFakeStore() *fakeStore { return &fakeStore{} }
++func newFakeStore() *fakeStore { return &fakeStore{Roots: make(map[core.Hash]store.Root)} }
+ 
+ func (s *fakeStore) PutBytes(_ context.Context, b []byte, o store.PutOptions) (store.PutResult, error) {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 	if s.PutErr != nil {
+ 		return store.PutResult{}, s.PutErr
+ 	}
+ 	body := append([]byte(nil), b...)
+ 	s.Puts = append(s.Puts, putCall{Body: body, Opts: o})
+ 
+ 	tok := s.DefaultTokens
+ 	if len(s.TokenQueue) > 0 {
+ 		tok = s.TokenQueue[0]
+ 		s.TokenQueue = s.TokenQueue[1:]
+ 	}
+ 	h := core.HashBytes(core.DomainArgs, body)
+-	return store.PutResult{
+-		Root: store.Root{
+-			Hash:       h,
+-			Chunks:     []core.ChunkRef{{Hash: h, Len: len(body)}},
+-			CanonBytes: int64(len(body)),
+-			RawBytes:   int64(len(body)),
+-			Tokens:     tok,
+-		},
+-		Novel:     1,
+-		Signature: s.Signature,
+-	}, nil
++	root := store.Root{
++		Hash:       h,
++		Chunks:     []core.ChunkRef{{Hash: h, Len: len(body)}},
++		CanonBytes: int64(len(body)),
++		RawBytes:   int64(len(body)),
++		Tokens:     tok,
++	}
++	s.Roots[h] = root
++	return store.PutResult{Root: root, Novel: 1, Signature: s.Signature}, nil
++}
++
++// GetRoot answers out of Roots, the way SP-06's own GetRoot answers out of its in-memory index. A
++// root nobody stored is an error rather than a zero value, because a zero Root has an EMPTY chunk
++// list and isSuperset would then quietly report "not a superset" instead of the miss it is.
++func (s *fakeStore) GetRoot(_ context.Context, root core.Hash) (store.Root, error) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	if s.GetRootErr != nil {
++		return store.Root{}, s.GetRootErr
++	}
++	r, ok := s.Roots[root]
++	if !ok {
++		return store.Root{}, fmt.Errorf("fakeStore: no such root %s", root)
++	}
++	return r, nil
+ }
+ 
+ func (s *fakeStore) RecordToolUse(_ context.Context, rec store.ToolUseRecord) error {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 	if s.RecordErr != nil {
+ 		return s.RecordErr
+ 	}
+ 	s.Records = append(s.Records, rec)
+ 	return nil
+ }
+ 
+ func (s *fakeStore) AppendFileVersion(_ context.Context, path string, v store.FileVersion) error {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 	s.FileVersions = append(s.FileVersions, fileVersionCall{Path: path, Version: v})
+ 	return nil
+ }
+ 
+-func (s *fakeStore) ToolUsesByPath(_ context.Context, _ string, _ int) ([]store.ToolUseRecord, error) {
++// ToolUsesByPath serves the recorded index, newest first and capped at limit — the §5.8 contract
++// supersede.go relies on, which TestSupersede_ToolUsesByPathIsMostRecentFirst pins against the REAL
++// store so a drift between this double and SP-06 is caught rather than assumed away.
++func (s *fakeStore) ToolUsesByPath(_ context.Context, path string, limit int) ([]store.ToolUseRecord, error) {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 	s.ByPathCalls++
+-	return nil, nil
++	s.ByPathLimits = append(s.ByPathLimits, limit)
++	if s.ByPathErr != nil {
++		return nil, s.ByPathErr
++	}
++	var out []store.ToolUseRecord
++	for i := len(s.Records) - 1; i >= 0; i-- {
++		if s.Records[i].Path != path {
++			continue
++		}
++		out = append(out, s.Records[i])
++		if limit > 0 && len(out) == limit {
++			break
++		}
++	}
++	return out, nil
+ }
+ 
++// MarkSuperseded records the call AND applies it, so a second scan of the same path sees the flip.
++// Without the mutation TestSupersede_SkipsAlreadySuperseded would assert nothing.
+ func (s *fakeStore) MarkSuperseded(_ context.Context, older, by core.ToolUseID) error {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
++	if s.MarkErr != nil {
++		return s.MarkErr
++	}
+ 	s.Supersedes = append(s.Supersedes, supersedeCall{Older: older, By: by})
++	for i := range s.Records {
++		if s.Records[i].ID == older {
++			s.Records[i].Status, s.Records[i].SupersededBy = store.StatusSuperseded, by
++		}
++	}
+ 	return nil
+ }
+ 
++// seed stages tool_use index entries that the observer never wrote, so a test can describe prior
++// reads whose chunk sets, signatures, timestamps or classes the pipeline cannot produce.
++func (s *fakeStore) seed(recs ...store.ToolUseRecord) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.Records = append(s.Records, recs...)
++}
++
++// setRoot registers r so GetRoot can answer for a seeded record.
++func (s *fakeStore) setRoot(r store.Root) {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.Roots[r.Hash] = r
++}
++
+ func (s *fakeStore) Flush(_ context.Context) error {
+ 	s.mu.Lock()
+ 	defer s.mu.Unlock()
+ 	s.FlushCalls++
+ 	return nil
+ }
+ 
+ // storeCounts is the call-count tuple TestModePassiveStillWrites compares between two runs.
+ type storeCounts struct{ Puts, Records, FileVersions int }
+ 
+@@ -287,20 +356,27 @@ func (g *fakeGraph) nodeCount(kind dag.NodeKind) int {
+ 	defer g.mu.Unlock()
+ 	n := 0
+ 	for _, node := range g.Nodes {
+ 		if node.Kind == kind {
+ 			n++
+ 		}
+ 	}
+ 	return n
+ }
+ 
++// edges returns a copy of every edge added so far.
++func (g *fakeGraph) edges() []dag.Edge {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	return append([]dag.Edge(nil), g.Edges...)
++}
++
+ // graphCounts is the node/edge tuple TestModePassiveStillWrites compares between two runs.
+ type graphCounts struct{ Nodes, Edges int }
+ 
+ func (g *fakeGraph) counts() graphCounts {
+ 	g.mu.Lock()
+ 	defer g.mu.Unlock()
+ 	return graphCounts{Nodes: len(g.Nodes), Edges: len(g.Edges)}
+ }
+ 
+ // fakeSymbols is the SymbolLister double: a fixed name list, optionally keyed by path.
+diff --git a/internal/observer/supersede.go b/internal/observer/supersede.go
+new file mode 100644
+index 0000000..7c9cb33
+--- /dev/null
++++ b/internal/observer/supersede.go
+@@ -0,0 +1,142 @@
++package observer
++
++import (
++	"context"
++
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/store"
++)
++
++// §8.1 item 3, verbatim: "If the chunk set is a superset or near-duplicate of a prior read of the
++// same path, mark the earlier one SUPERSEDED in the DAG. Superseded reads are the first candidates
++// for eviction and should never appear in a summary."
++//
++// "Should never appear in a summary" is enforced STRUCTURALLY rather than by a predicate this
++// package exports, because internal/checkpoint does not import internal/observer (§3.2): the fact
++// lives on store.ToolUseRecord.Status == store.StatusSuperseded and on the EdgeSupersedes edge,
++// both of which SP-10 and SP-15 already read, and TestSupersede_StatusSurvivesReopen pins that the
++// status outlives the process that set it.
++//
++// The stage names soft reports this file's failures under. They are dotted, and they are here
++// rather than in observer.go's flat block, because each is a step of THIS algorithm: a reader
++// looking at observer.err.supersede.root wants the loop below, not the pipeline's stage list.
++const (
++	stageSupersedeList = "supersede.list"
++	stageSupersedeRoot = "supersede.root"
++	stageSupersedeMark = "supersede.mark"
++)
++
++// detectSupersession marks every earlier read of rec.Path that rec makes redundant, and returns
++// their ids MOST RECENT FIRST.
++//
++// It writes to the STORE only and emits no DAG edges. EdgeSupersedes is part of the §8.1 item 4
++// edge set dag.BuildToolUse owns, and graph.go hands marked[0] to it as ObservedTool.Supersedes,
++// emitting the tail of the list itself in the same D-1 direction. Splitting it that way is what
++// keeps this package from deciding an edge direction: get EdgeSupersedes backwards and the
++// superseded read becomes a full-strength upstream source of relevance for everything the new read
++// explains, which is the exact opposite of "first candidate for eviction".
++//
++// The sessionState is unused and named _ so unparam says so out loud, exactly as emitToolGraph's
++// context is: supersession is a question about the STORE's per-path history, not about the
++// session's in-memory window, and a scan that consulted st would answer a different question after
++// a restart than before one. The parameter stays in the signature — same arity, same types —
++// because it is the shape §5.21's plan pins.
++//
++// Nothing here is exact, and it does not claim to be: SP05-D1 means a read the observer never
++// saw cannot supersede an earlier one, so this is a best-effort marking over what arrived (see
++// doc.go).
++func (o *observer) detectSupersession(ctx context.Context, _ *sessionState,
++	rec store.ToolUseRecord, res store.PutResult,
++) (marked []core.ToolUseID) {
++	// A result with no path is not a read OF anything, a retrieval result is already a
++	// first-eviction candidate (resolved decision 6), and a tool outside the supersession classes
++	// has no notion of "the same content read again".
++	class := supersedableClass(rec.Tool)
++	if rec.Path == "" || rec.Ephemeral || class == "" {
++		return nil
++	}
++
++	// The lookback is bounded at the CALL, so a path read a thousand times in one session cannot
++	// make this hook unbounded — the budget of §8.1 is 15 ms p99 for the whole pipeline.
++	prior, err := o.opt.Store.ToolUsesByPath(ctx, rec.Path, supersessionLookback)
++	if err != nil {
++		o.soft(stageSupersedeList, err)
++		return nil
++	}
++
++	thr := o.opt.Cfg.Store.Canonicalize.MinHash.NearDupThreshold
++
++	// ToolUsesByPath returns the most recent records newest first (§5.8), so marked comes back
++	// newest first too — which is what makes marked[0] the right value for ObservedTool.Supersedes.
++	// The loop itself is order-INDEPENDENT: every candidate is filtered on p.TS <= rec.TS, so an
++	// oldest-first store would change only which end of marked graph.go reads.
++	for _, p := range prior {
++		if p.ID == rec.ID {
++			continue // the record this scan is for
++		}
++		if p.Status == store.StatusSuperseded {
++			continue // already handled by an earlier read
++		}
++		if p.TS > rec.TS {
++			continue // only ever mark EARLIER reads
++		}
++		if p.Ephemeral {
++			continue // ephemeral results are already first-evicted
++		}
++		if supersedableClass(p.Tool) != class {
++			continue // a Grep hit list is not a version of the file's content
++		}
++
++		superseded := p.Root == rec.Root // identical content: the later read wins
++		if !superseded {
++			pr, rootErr := o.opt.Store.GetRoot(ctx, p.Root)
++			if rootErr != nil {
++				o.soft(stageSupersedeRoot, rootErr)
++				continue
++			}
++			superseded = isSuperset(res.Root.Chunks, pr.Chunks) ||
++				(thr > 0 && rec.Signature.IsNearDup(p.Signature, thr))
++		}
++		if !superseded {
++			continue
++		}
++
++		// store.MarkSuperseded takes the OLDER id first: it is the record being flipped, and
++		// rec.ID is what its SupersededBy comes to point at.
++		if markErr := o.opt.Store.MarkSuperseded(ctx, p.ID, rec.ID); markErr != nil {
++			o.soft(stageSupersedeMark, markErr)
++			continue // a record the store refused to mark is not reported as marked
++		}
++		o.count(counterSuperseded)
++		marked = append(marked, p.ID) // no AddEdge here — see graph.go
++	}
++
++	// The near-duplicate the STORE found on the way in is a different fact from the supersession
++	// this scan decided, and it is counted whether or not anything was marked: it is the §8.1
++	// item 1 signal that a delta was storable, which is where the dedup ratio is won.
++	if res.NearDup != nil {
++		o.count(counterNearDup)
++	}
++	return marked
++}
++
++// isSuperset reports whether every chunk of older is also present in newer.
++//
++// It is a SET containment test: multiplicity is ignored, per §8.1 item 3's "chunk set", so a result
++// that repeats a chunk does not defeat it. An EMPTY older is never contained — returning true there
++// would make every read a superset of every empty prior, and mark records nothing is known about.
++func isSuperset(newer, older []core.ChunkRef) bool {
++	if len(older) == 0 {
++		return false
++	}
++	have := make(map[core.Hash]struct{}, len(newer))
++	for _, c := range newer {
++		have[c.Hash] = struct{}{}
++	}
++	for _, c := range older {
++		if _, ok := have[c.Hash]; !ok {
++			return false
++		}
++	}
++	return true
++}
+diff --git a/internal/observer/supersede_test.go b/internal/observer/supersede_test.go
+new file mode 100644
+index 0000000..0ae38fd
+--- /dev/null
++++ b/internal/observer/supersede_test.go
+@@ -0,0 +1,518 @@
++package observer
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/qompack/qompack/internal/config"
++	"github.com/qompack/qompack/internal/core"
++	"github.com/qompack/qompack/internal/dag"
++	"github.com/qompack/qompack/internal/logging"
++	"github.com/qompack/qompack/internal/obs"
++	"github.com/qompack/qompack/internal/sketch"
++	"github.com/qompack/qompack/internal/store"
++	"github.com/stretchr/testify/require"
++	"pgregory.net/rapid"
++)
++
++// The chunk-set rows CALL detectSupersession rather than driving OnToolUse, because the chunk list
++// is what they are about: fakeStore.PutBytes mints exactly one chunk per payload, so a
++// superset/subset relation cannot be expressed through the pipeline at all. The end-to-end rows
++// (identical root, different path, already-superseded, reopen, ordering) go through OnToolUse,
++// where a store's own index is what answers ToolUsesByPath.
++
++// supersedePath is the one path every single-path row reads.
++const supersedePath = "src/auth.ts"
++
++// chunkRef mints a deterministic chunk reference from a label, so a test can spell a chunk set as
++// {c1, c2, c3} and have the hashes follow.
++func chunkRef(label string) core.ChunkRef {
++	return core.ChunkRef{Hash: core.HashBytes(core.DomainChunk, []byte(label)), Len: len(label)}
++}
++
++// rootOf builds the Root a chunk list would have produced. Its Hash is derived from the chunks, so
++// two different chunk lists never collide on a root — which is what keeps the p.Root == rec.Root
++// fast path from silently answering a row that is about isSuperset.
++func rootOf(chunks ...core.ChunkRef) store.Root {
++	var acc []byte
++	for _, c := range chunks {
++		acc = append(acc, c.Hash[:]...)
++	}
++	return store.Root{Hash: core.HashBytes(core.DomainRoot, acc), Chunks: chunks}
++}
++
++// priorRead is a staged tool_use index entry: a read of supersedePath that already happened.
++func priorRead(id string, ts core.UnixMilli, root store.Root) store.ToolUseRecord {
++	return store.ToolUseRecord{
++		ID: core.ToolUseID(id), Session: testSession, TS: ts,
++		Tool: "FileRead", Path: supersedePath, Root: root.Hash, Status: store.StatusOK,
++	}
++}
++
++// newRead is the record OnToolUse would have built for the call under test.
++func newRead(id string, ts core.UnixMilli, root store.Root) store.ToolUseRecord {
++	return priorRead(id, ts, root)
++}
++
++// sigPair returns two signatures of width perms agreeing in exactly agree positions, so their
++// Signature.Jaccard is agree/perms EXACTLY rather than approximately — a row that says "Jaccard
++// 0.95" must not be at the mercy of a hash.
++func sigPair(perms, agree int) (sketch.Signature, sketch.Signature) {
++	a := make([]uint64, perms)
++	b := make([]uint64, perms)
++	for i := range a {
++		a[i] = uint64(i + 1)
++		if i < agree {
++			b[i] = a[i]
++		} else {
++			b[i] = uint64(i+1) << 32 // distinct from a[i] for every i >= 0
++		}
++	}
++	return sketch.Signature{Perms: uint16(perms), Mins: a}, sketch.Signature{Perms: uint16(perms), Mins: b}
++}
++
++// The near-duplicate rows' fixture. sigPerms is chosen so every threshold the plan's table names is
++// representable as an exact fraction of it.
++const (
++	sigPerms      = 20
++	nearDupThresh = 0.9
++)
++
++// countEdgeKind returns how many edges of kind appear in edges.
++func countEdgeKind(edges []dag.Edge, kind dag.EdgeKind) int {
++	n := 0
++	for _, e := range edges {
++		if e.Kind == kind {
++			n++
++		}
++	}
++	return n
++}
++
++// detect runs the supersession scan for rec over the chunk set of root.
++func (h *harness) detect(rec store.ToolUseRecord, root store.Root) []core.ToolUseID {
++	return h.obs.detectSupersession(context.Background(), h.state(testSession), rec,
++		store.PutResult{Root: root})
++}
++
++// newRealStoreObserver builds an observer over a REAL SP-06 store and a REAL dag.Graph rooted at
++// root. The reopen and ordering rows need the store's own tool_use index — a double asserting its
++// own ordering would assert nothing — so they pay for the real one.
++//
++// It deliberately registers no Close cleanup: both callers close the store themselves, because
++// when the close happens is part of what they assert.
++func newRealStoreObserver(t *testing.T, root string, clock *fakeClock, metrics obs.Registry) (*observer, store.Store) {
++	t.Helper()
++	cfg := config.Defaults()
++
++	st, err := store.Open(root, cfg, store.Deps{Log: logging.Nop(), Clock: clock})
++	require.NoError(t, err)
++
++	g, err := dag.Open(root, cfg, logging.Nop())
++	require.NoError(t, err)
++
++	built, err := New(Options{
++		ProjectRoot: root, Cfg: cfg, Store: st, Graph: g,
++		Log: logging.Nop(), Metrics: metrics, Clock: clock,
++	})
++	require.NoError(t, err)
++	impl, ok := built.(*observer)
++	require.True(t, ok, "New must return the concrete observer")
++	return impl, st
++}
++
++func TestSupersede_IdenticalRootMarksEarlier(t *testing.T) {
++	h, g := newRealGraphHarness(t)
++	body := strings.Repeat("export async function refreshToken() {}\n", 8)
++
++	h.drive(readOf("toolu_1", supersedePath, body))
++	h.Clock.Advance(time.Second)
++	h.drive(readOf("toolu_2", supersedePath, body))
++
++	require.Equal(t, []supersedeCall{{Older: "toolu_1", By: "toolu_2"}}, h.Store.Supersedes,
++		"identical content: the LATER read wins, and MarkSuperseded takes older FIRST")
++	require.Equal(t, int64(1), h.counter("observer.superseded"))
++
++	edges := allEdges(g)
++	require.Equal(t, 1, countEdgeKind(edges, dag.EdgeSupersedes), "exactly one supersedes edge")
++	_, ok := findEdge(edges, dag.ToolUseNode("toolu_1"), dag.ToolUseNode("toolu_2"), dag.EdgeSupersedes)
++	require.True(t, ok, "SP-07 D-1: EdgeSupersedes runs superseded (older) to superseding (newer)")
++	_, ok = findEdge(edges, dag.ToolUseNode("toolu_2"), dag.ToolUseNode("toolu_1"), dag.EdgeSupersedes)
++	require.False(t, ok, "reversed, the 0.30 multiplier would rank the superseded read as upstream")
++}
++
++func TestSupersede_SupersetChunkSet(t *testing.T) {
++	h := newHarness(t)
++	c1, c2, c3 := chunkRef("c1"), chunkRef("c2"), chunkRef("c3")
++
++	older := rootOf(c1, c2)
++	h.Store.setRoot(older)
++	h.Store.seed(priorRead("toolu_1", 100, older))
++
++	newer := rootOf(c1, c2, c3)
++	marked := h.detect(newRead("toolu_2", 200, newer), newer)
++
++	require.Equal(t, []core.ToolUseID{"toolu_1"}, marked)
++	require.Equal(t, []supersedeCall{{Older: "toolu_1", By: "toolu_2"}}, h.Store.Supersedes,
++		"{c1,c2,c3} holds everything {c1,c2} held, so the earlier read is redundant")
++}
++
++func TestSupersede_SubsetDoesNotSupersede(t *testing.T) {
++	h := newHarness(t, func(o *Options) {
++		o.Cfg.Store.Canonicalize.MinHash.NearDupThreshold = nearDupThresh
++	})
++	c1, c2, c3 := chunkRef("c1"), chunkRef("c2"), chunkRef("c3")
++
++	// Jaccard 0.50, well below the 0.9 threshold, so the near-duplicate arm cannot rescue a
++	// containment test the subset direction is supposed to fail.
++	oldSig, newSig := sigPair(sigPerms, sigPerms/2)
++
++	older := rootOf(c1, c2, c3)
++	h.Store.setRoot(older)
++	prior := priorRead("toolu_1", 100, older)
++	prior.Signature = oldSig
++	h.Store.seed(prior)
++
++	newer := rootOf(c1, c2)
++	rec := newRead("toolu_2", 200, newer)
++	rec.Signature = newSig
++
++	require.Empty(t, h.detect(rec, newer))
++	require.Empty(t, h.Store.Supersedes, "a SUBSET of a prior read supersedes nothing")
++	require.Zero(t, h.counter("observer.superseded"))
++}
++
++func TestSupersede_NearDuplicateAboveThreshold(t *testing.T) {
++	h := newHarness(t, func(o *Options) {
++		o.Cfg.Store.Canonicalize.MinHash.NearDupThreshold = nearDupThresh
++	})
++	// Jaccard 0.95 >= 0.9. The chunk sets are DISJOINT, so the superset arm cannot answer this row.
++	oldSig, newSig := sigPair(sigPerms, sigPerms-1)
++
++	older := rootOf(chunkRef("a1"), chunkRef("a2"))
++	h.Store.setRoot(older)
++	prior := priorRead("toolu_1", 100, older)
++	prior.Signature = oldSig
++	h.Store.seed(prior)
++
++	newer := rootOf(chunkRef("b1"), chunkRef("b2"))
++	rec := newRead("toolu_2", 200, newer)
++	rec.Signature = newSig
++
++	require.Equal(t, []core.ToolUseID{"toolu_1"}, h.detect(rec, newer))
++	require.Equal(t, []supersedeCall{{Older: "toolu_1", By: "toolu_2"}}, h.Store.Supersedes)
++	require.Equal(t, int64(1), h.counter("observer.superseded"))
++}
++
++func TestSupersede_NearDuplicateBelowThreshold(t *testing.T) {
++	h := newHarness(t, func(o *Options) {
++		o.Cfg.Store.Canonicalize.MinHash.NearDupThreshold = nearDupThresh
++	})
++	// Jaccard 0.80 < 0.9.
++	oldSig, newSig := sigPair(sigPerms, sigPerms*4/5)
++
++	older := rootOf(chunkRef("a1"), chunkRef("a2"))
++	h.Store.setRoot(older)
++	prior := priorRead("toolu_1", 100, older)
++	prior.Signature = oldSig
++	h.Store.seed(prior)
++
++	newer := rootOf(chunkRef("b1"), chunkRef("b2"))
++	rec := newRead("toolu_2", 200, newer)
++	rec.Signature = newSig
++
++	require.Empty(t, h.detect(rec, newer))
++	require.Empty(t, h.Store.Supersedes, "0.80 is below the configured 0.9 threshold")
++}
++
++func TestSupersede_DifferentPathIgnored(t *testing.T) {
++	h := newHarness(t)
++	body := "the very same bytes\n"
++
++	h.drive(readOf("toolu_1", "src/a.ts", body))
++	h.Clock.Advance(time.Second)
++	h.drive(readOf("toolu_2", "src/b.ts", body))
++
++	require.Equal(t, 2, h.Store.ByPathCalls, "each read scans its OWN path")
++	require.Empty(t, h.Store.Supersedes,
++		"item 3 is per-path: identical bytes at another path are not a redundant read")
++}
++
++func TestSupersede_DifferentClassIgnored(t *testing.T) {
++	h := newHarness(t)
++	c1, c2, c3 := chunkRef("c1"), chunkRef("c2"), chunkRef("c3")
++
++	older := rootOf(c1, c2)
++	h.Store.setRoot(older)
++	prior := priorRead("toolu_1", 100, older)
++	prior.Tool = "Grep" // classSearch, not classFileContent
++	h.Store.seed(prior)
++
++	newer := rootOf(c1, c2, c3)
++	require.Empty(t, h.detect(newRead("toolu_2", 200, newer), newer))
++	require.Empty(t, h.Store.Supersedes,
++		"a Grep hit list and a file's content answer different questions about the same path")
++}
++
++func TestSupersede_NeverMarksLaterRecord(t *testing.T) {
++	h := newHarness(t)
++
++	same := rootOf(chunkRef("c1"))
++	h.Store.setRoot(same)
++	h.Store.seed(priorRead("toolu_1", 300, same))
++
++	require.Empty(t, h.detect(newRead("toolu_2", 200, same), same))
++	require.Empty(t, h.Store.Supersedes,
++		"a record with a LATER TS is not an earlier read, whatever order the index returned it in")
++}
++
++func TestSupersede_SkipsAlreadySuperseded(t *testing.T) {
++	h := newHarness(t)
++	body := "one file, read three times\n"
++
++	h.drive(readOf("toolu_1", supersedePath, body))
++	h.Clock.Advance(time.Second)
++	h.drive(readOf("toolu_2", supersedePath, body))
++	h.Clock.Advance(time.Second)
++	h.drive(readOf("toolu_3", supersedePath, body))
++
++	require.Equal(t, []supersedeCall{
++		{Older: "toolu_1", By: "toolu_2"},
++		{Older: "toolu_2", By: "toolu_3"},
++	}, h.Store.Supersedes, "the third read marks only the record that was still current")
++	require.Equal(t, int64(2), h.counter("observer.superseded"))
++}
++
++func TestSupersede_EphemeralNeitherDirection(t *testing.T) {
++	same := rootOf(chunkRef("c1"))
++
++	t.Run("EphemeralPrior", func(t *testing.T) {
++		h := newHarness(t)
++		h.Store.setRoot(same)
++		prior := priorRead("toolu_1", 100, same)
++		prior.Ephemeral = true
++		h.Store.seed(prior)
++
++		require.Empty(t, h.detect(newRead("toolu_2", 200, same), same))
++		require.Empty(t, h.Store.Supersedes, "an ephemeral result is already a first-eviction candidate")
++	})
++
++	t.Run("EphemeralNewer", func(t *testing.T) {
++		h := newHarness(t)
++		h.Store.setRoot(same)
++		h.Store.seed(priorRead("toolu_1", 100, same))
++
++		rec := newRead("toolu_2", 200, same)
++		rec.Ephemeral = true
++
++		require.Empty(t, h.detect(rec, same))
++		require.Empty(t, h.Store.Supersedes)
++		require.Zero(t, h.Store.ByPathCalls, "retrieval is excluded before the scan, not after it")
++	})
++}
++
++func TestSupersede_LookbackCapped(t *testing.T) {
++	h := newHarness(t)
++
++	same := rootOf(chunkRef("c1"))
++	h.Store.setRoot(same)
++	const priors = 100
++	for i := range priors {
++		h.Store.seed(priorRead(fmt.Sprintf("toolu_prior_%03d", i), core.UnixMilli(i), same))
++	}
++
++	marked := h.detect(newRead("toolu_new", priors, same), same)
++
++	require.Equal(t, []int{supersessionLookback}, h.Store.ByPathLimits,
++		"the scan is bounded at the call, so a hot path cannot make the hook unbounded")
++	require.Len(t, marked, supersessionLookback,
++		"every record the capped lookback returned was examined, and no record beyond it was")
++}
++
++func TestSupersede_StatusSurvivesReopen(t *testing.T) {
++	ctx := context.Background()
++	root := t.TempDir()
++	clock := newFakeClock()
++	metrics := obs.New(clock)
++
++	o, st := newRealStoreObserver(t, root, clock, metrics)
++	body := strings.Repeat("export const sessionTTL = fromEnv()\n", 40)
++
++	_, err := o.OnToolUse(ctx, readOf("toolu_1", supersedePath, body))
++	require.NoError(t, err)
++	clock.Advance(time.Second)
++	_, err = o.OnToolUse(ctx, readOf("toolu_2", supersedePath, body))
++	require.NoError(t, err)
++
++	require.Equal(t, int64(1), metrics.Counter("observer.superseded").Value(),
++		"the real store's index is what answered the scan")
++	require.NoError(t, st.Flush(ctx))
++	require.NoError(t, st.Close())
++
++	reopened, err := store.Open(root, config.Defaults(), store.Deps{Log: logging.Nop(), Clock: clock})
++	require.NoError(t, err)
++	t.Cleanup(func() { _ = reopened.Close() })
++
++	rec, err := reopened.ToolUse(ctx, "toolu_1")
++	require.NoError(t, err)
++	require.Equal(t, store.StatusSuperseded, rec.Status,
++		`"never appears in a summary" is carried by the RECORD, not by an observer predicate`)
++	require.Equal(t, core.ToolUseID("toolu_2"), rec.SupersededBy)
++}
++
++func TestSupersede_ToolUsesByPathIsMostRecentFirst(t *testing.T) {
++	ctx := context.Background()
++	root := t.TempDir()
++	clock := newFakeClock()
++
++	o, st := newRealStoreObserver(t, root, clock, obs.New(clock))
++	t.Cleanup(func() { _ = st.Close() })
++
++	for i, id := range []string{"toolu_1", "toolu_2", "toolu_3"} {
++		_, err := o.OnToolUse(ctx, readOf(id, supersedePath,
++			strings.Repeat(fmt.Sprintf("revision %d of this file\n", i), 20)))
++		require.NoError(t, err)
++		clock.Advance(time.Second)
++	}
++
++	got, err := st.ToolUsesByPath(ctx, supersedePath, supersessionLookback)
++	require.NoError(t, err)
++	require.Len(t, got, 3)
++
++	ids := []core.ToolUseID{got[0].ID, got[1].ID, got[2].ID}
++	require.Equal(t, []core.ToolUseID{"toolu_3", "toolu_2", "toolu_1"}, ids,
++		"5.8 returns the most recent limit records NEWEST FIRST - the order marked[0], and "+
++			"therefore ObservedTool.Supersedes, relies on")
++}
++
++func TestSupersede_EmitsNoEdgesItself(t *testing.T) {
++	h := newHarness(t)
++
++	same := rootOf(chunkRef("c1"), chunkRef("c2"))
++	h.Store.setRoot(same)
++	h.Store.seed(priorRead("toolu_1", 100, same), priorRead("toolu_2", 200, same))
++
++	rec := newRead("toolu_3", 300, same)
++	before := h.Graph.counts()
++	marked := h.detect(rec, same)
++
++	require.Equal(t, before, h.Graph.counts(),
++		"detectSupersession writes to the STORE only: EdgeSupersedes belongs to dag.BuildToolUse")
++	require.Equal(t, []core.ToolUseID{"toolu_2", "toolu_1"}, marked, "newest first")
++
++	h.obs.emitToolGraph(context.Background(), h.state(testSession), rec, nil, marked)
++
++	edges := h.Graph.edges()
++	require.Equal(t, 2, countEdgeKind(edges, dag.EdgeSupersedes))
++	for _, older := range marked {
++		found := false
++		for _, e := range edges {
++			if e.From == dag.ToolUseNode(older) && e.To == dag.ToolUseNode("toolu_3") &&
++				e.Kind == dag.EdgeSupersedes {
++				found = true
++			}
++		}
++		require.True(t, found, "%s to toolu_3 is missing; both edges run older to newer", older)
++	}
++}
++
++func TestSupersede_StoreFailuresAreSoft(t *testing.T) {
++	same := rootOf(chunkRef("c1"))
++	other := rootOf(chunkRef("c2"))
++
++	t.Run("List", func(t *testing.T) {
++		h := newHarness(t)
++		h.Store.ByPathErr = errors.New("index unreadable")
++
++		require.Empty(t, h.detect(newRead("toolu_2", 200, same), same))
++		require.Equal(t, int64(1), h.counter("observer.err.supersede.list"))
++	})
++
++	t.Run("Root", func(t *testing.T) {
++		h := newHarness(t)
++		h.Store.seed(priorRead("toolu_1", 100, other)) // its Root is never registered
++		h.Store.GetRootErr = errors.New("root missing")
++
++		require.Empty(t, h.detect(newRead("toolu_2", 200, same), same))
++		require.Equal(t, int64(1), h.counter("observer.err.supersede.root"))
++		require.Empty(t, h.Store.Supersedes)
++	})
++
++	t.Run("Mark", func(t *testing.T) {
++		h := newHarness(t)
++		h.Store.setRoot(same)
++		h.Store.seed(priorRead("toolu_1", 100, same))
++		h.Store.MarkErr = errors.New("index read-only")
++
++		require.Empty(t, h.detect(newRead("toolu_2", 200, same), same),
++			"a record the store refused to mark is not reported as marked")
++		require.Equal(t, int64(1), h.counter("observer.err.supersede.mark"))
++		require.Zero(t, h.counter("observer.superseded"))
++	})
++}
++
++func TestSupersede_NearDupCounterFollowsThePutResult(t *testing.T) {
++	h := newHarness(t)
++	same := rootOf(chunkRef("c1"))
++
++	h.obs.detectSupersession(context.Background(), h.state(testSession),
++		newRead("toolu_1", 100, same),
++		store.PutResult{Root: same, NearDup: &store.NearDupInfo{Jaccard: nearDupThresh}})
++
++	require.Equal(t, int64(1), h.counter("observer.neardup"),
++		"the near-duplicate the STORE detected is counted whether or not it superseded anything")
++}
++
++func TestIsSuperset_EmptyOlder(t *testing.T) {
++	newer := []core.ChunkRef{chunkRef("c1"), chunkRef("c2")}
++
++	require.False(t, isSuperset(newer, nil), "nothing is not evidence of anything")
++	require.False(t, isSuperset(newer, []core.ChunkRef{}))
++	require.False(t, isSuperset(nil, nil))
++}
++
++func TestIsSuperset_IgnoresMultiplicity(t *testing.T) {
++	c1, c2 := chunkRef("c1"), chunkRef("c2")
++
++	require.True(t, isSuperset([]core.ChunkRef{c1, c2}, []core.ChunkRef{c1, c1, c2}),
++		"item 3 says chunk SET: a file that repeats a chunk is still contained")
++}
++
++// TestIsSuperset_Properties holds the property rows. They are SUBTESTS of a Test function whose
++// name the plans' -run patterns also match, because `go test -run PropertyIsSupersetReflexive`
++// resolves its first element against TOP-LEVEL names only: a bare Property... function would never
++// be selected by the very commands that document it.
++func TestIsSuperset_Properties(t *testing.T) {
++	draw := func(rt *rapid.T, label string) []core.ChunkRef {
++		ids := rapid.SliceOfN(rapid.Byte(), 1, 8).Draw(rt, label)
++		out := make([]core.ChunkRef, 0, len(ids))
++		for _, id := range ids {
++			out = append(out, chunkRef(string(rune('a'+int(id%26)))))
++		}
++		return out
++	}
++
++	t.Run("PropertyIsSupersetReflexive", func(t *testing.T) {
++		rapid.Check(t, func(rt *rapid.T) {
++			x := draw(rt, "x")
++			if !isSuperset(x, x) {
++				rt.Fatalf("isSuperset(x, x) is false for a %d-chunk set", len(x))
++			}
++		})
++	})
++
++	t.Run("PropertyIsSupersetOfUnion", func(t *testing.T) {
++		rapid.Check(t, func(rt *rapid.T) {
++			x := draw(rt, "x")
++			y := draw(rt, "y")
++			union := append(append([]core.ChunkRef(nil), x...), y...)
++			if !isSuperset(union, x) {
++				rt.Fatalf("isSuperset(x union y, x) is false for |x|=%d, |y|=%d", len(x), len(y))
++			}
++		})
++	})
++}
+diff --git a/internal/observer/tooluse.go b/internal/observer/tooluse.go
+index 07ab73d..bcb6352 100644
+--- a/internal/observer/tooluse.go
++++ b/internal/observer/tooluse.go
+@@ -125,23 +125,29 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
+ 	o.soft(stageIndex, o.opt.Store.RecordToolUse(ctx, rec))
+ 	o.rememberToolUse(st, rec)
+ 
+ 	// 7. §8.2 file version history. Only a result that IS the content of a path is a version of it.
+ 	if !empty && pathKey != "" && supersedableClass(display) == classFileContent {
+ 		o.soft(stageFileVer, o.opt.Store.AppendFileVersion(ctx, pathKey, store.FileVersion{
+ 			TS: now, Root: res.Root.Hash, Turn: st.Turn, Bytes: res.Root.RawBytes,
+ 		}))
+ 	}
+ 
+-	// 8. §8.1 item 3. Supersession detection lands in supersede.go; until then nothing is marked,
+-	//    and BuildToolUse's Supersedes stays empty.
++	// 8. §8.1 item 3. Every earlier read of this path that this one makes redundant is marked
++	//    SUPERSEDED in the index; graph.go turns marked[0] into ObservedTool.Supersedes and emits
++	//    the tail itself. An EMPTY result is skipped: it has no chunk set to contain a prior one
++	//    and no root to compare against, so the scan could only ever answer "nothing" — at the
++	//    cost of a per-path index lookup on the hot path.
+ 	var superseded []core.ToolUseID
++	if !empty {
++		superseded = o.detectSupersession(ctx, st, rec, res)
++	}
+ 
+ 	// 9. §8.1 item 5.
+ 	o.feedSketches(rec)
+ 
+ 	// 10. §8.1 item 4, expressed entirely as one dag.BuildToolUse call.
+ 	o.emitToolGraph(ctx, st, rec, body, superseded)
+ 
+ 	// 11. §8.1 item 6, producer side. The warnings are only COLLECTED here; OnUserPrompt drains
+ 	//     them, because PostToolUse has no channel to say anything through.
+ 	if o.opt.Grammar != nil {
