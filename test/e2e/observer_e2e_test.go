@@ -32,15 +32,65 @@ import (
 	"github.com/qompack/qompack/internal/testutil"
 )
 
-// obsProcessBound bounds waiting for hot-path events whose ACKs have already returned to finish
-// ASYNCHRONOUS processing (worker pool -> observer -> index append). Basis: each event's
-// processing is bounded by the B-C budget class (single-digit milliseconds of store work), so even
-// 44 events are sub-second on a quiet host; the bound is two orders of magnitude above that for a
-// co-loaded CI runner, and a failure names the mechanism rather than the machine.
+// obsProcessBound bounds waiting for an observed event to reach index/tool_use.jsonl. TWO distinct
+// mechanisms can stand between a hook's exit and that line, and the bound has to outlast the
+// slower one:
+//
+//   - The event was delivered live. §2.4 ACKs after the WAL append, not after the work, so worker
+//     pool -> observer -> index append still runs behind the returned ACK. That is what
+//     obsProcessAllowance covers.
+//   - Client.Send missed its deadline and SPOOLED instead. Every failure route in
+//     internal/ipc/client.go ends in a spool append and a hook that still exits 0 — degrade rather
+//     than block — and the entry is then replayed by the daemon's FALLBACK drain, since
+//     redrainOnceServing fires only on the first served request and that is long past. The
+//     fallback's cadence is daemon.IdleTickMax.
+//
+// The bound used to be obsProcessAllowance alone, and so exactly EQUAL to daemon.IdleTickMax: an
+// event spooled just after a tick could not be indexed before the wait expired. CI run
+// 34052269275 (windows-latest, whole tree, -count=2, heavily co-loaded) failed both iterations
+// that way, at 40 and 43 of 44 lines — the shape of one-or-a-few spooled events, not of a broken
+// index, and the count was exact once the drain landed. Summing the two makes the bound exceed the
+// drain cadence by construction, which is the property any bound racing a fallback must have.
 const (
-	obsProcessBound = 30 * time.Second
-	obsProcessTick  = 50 * time.Millisecond
+	// obsProcessAllowance is the processing half: each event is the B-C budget class (single-digit
+	// milliseconds of store work), so even 44 events are sub-second on a quiet host, and this is
+	// two orders of magnitude above that for a co-loaded runner.
+	obsProcessAllowance = 30 * time.Second
+	obsProcessBound     = daemon.IdleTickMax + obsProcessAllowance
+	obsProcessTick      = 50 * time.Millisecond
 )
+
+// obsClientSpoolPrefix is the client-spool file family internal/ipc/spool.go names
+// client-<pid>.ndjson. A fully drained one is removed unconditionally (internal/daemon/drain.go,
+// shouldDelete — only wal-* files are kept while their session is live), so one still on disk is
+// an event the daemon has not replayed yet.
+const obsClientSpoolPrefix = "client-"
+
+// obsWaitDiag names, at FORMAT time, which of obsProcessBound's two mechanisms a wait that just
+// expired was really waiting on. require.Eventually evaluates its message arguments at the call —
+// before the wait — so a snapshot taken there describes the state the wait STARTED from, which is
+// how the CI failure above could only report "have 40" for a count that was already stale. fmt
+// calls String when it builds the failure message, and that is the state that explains it.
+type obsWaitDiag struct{ root string }
+
+func (d obsWaitDiag) String() string {
+	lines := len(obsToolUseLines(d.root))
+	files, err := ipc.SpoolFiles(paths.Of(d.root).Spool)
+	if err != nil {
+		return fmt.Sprintf("index holds %d lines; spool unreadable (%v), so which mechanism this waited on is unknown", lines, err)
+	}
+	var pending []string
+	for _, f := range files {
+		if base := filepath.Base(f); strings.HasPrefix(base, obsClientSpoolPrefix) {
+			pending = append(pending, base)
+		}
+	}
+	if len(pending) == 0 {
+		return fmt.Sprintf("index holds %d lines; no undrained client spool, so every event reached the daemon live and this waited on the processing behind its ACK", lines)
+	}
+	return fmt.Sprintf("index holds %d lines; undrained client spool %v, so at least one event degraded to the spool and this waited on the %s idle-tick drain",
+		lines, pending, daemon.IdleTickMax)
+}
 
 // obsRunHook runs one hook subcommand and asserts the two §2.3 invariants every hook owes the
 // host: exit 0, and a stdout that parses as a hookio.Output.
@@ -162,7 +212,7 @@ func TestE2E_ObserverThroughDaemon(t *testing.T) {
 	const wantRecords = 44
 	require.Eventually(t, func() bool { return len(obsToolUseLines(p.Root)) >= wantRecords },
 		obsProcessBound, obsProcessTick,
-		"index/tool_use.jsonl never reached %d lines (have %d)", wantRecords, len(obsToolUseLines(p.Root)))
+		"index/tool_use.jsonl never reached %d lines: %s", wantRecords, obsWaitDiag{p.Root})
 
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
 
@@ -260,7 +310,8 @@ func TestE2E_HooksExitZeroUnderFaultInjection(t *testing.T) {
 
 	require.Eventually(t, func() bool { return obsErrCounterTotal(p.Root) > 0 },
 		obsProcessBound, obsProcessTick,
-		"no observer.err.* counter ever appeared: the injected write failures left no observable record")
+		"no observer.err.* counter ever appeared: the injected write failures left no observable record (%s)",
+		obsWaitDiag{p.Root})
 }
 
 // TestE2E_SupersessionVisibleAfterRestart: the second identical read of a path supersedes the
@@ -279,13 +330,14 @@ func TestE2E_SupersessionVisibleAfterRestart(t *testing.T) {
 	obsRunHook(t, bin, []string{"observe", "tool"},
 		obsToolPayload(t, p.Root, sess, "toolu_sup_a", "src/dup.go", content), env)
 	require.Eventually(t, func() bool { return len(obsToolUseLines(p.Root)) >= 1 },
-		obsProcessBound, obsProcessTick, "the first read was never indexed")
+		obsProcessBound, obsProcessTick, "the first read was never indexed: %s", obsWaitDiag{p.Root})
 
 	obsRunHook(t, bin, []string{"observe", "tool"},
 		obsToolPayload(t, p.Root, sess, "toolu_sup_b", "src/dup.go", content), env)
 	require.Eventually(t, func() bool {
 		return strings.Contains(strings.Join(obsToolUseLines(p.Root), "\n"), `"op":"supersede"`)
-	}, obsProcessBound, obsProcessTick, "the second identical read never superseded the first")
+	}, obsProcessBound, obsProcessTick, "the second identical read never superseded the first: %s",
+		obsWaitDiag{p.Root})
 
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
 	e2eShutdownIfReachable(t, p.Root)
@@ -362,7 +414,8 @@ func TestE2E_SubagentNameReachesTheDaemon(t *testing.T) {
 	// name whichever wire keys the index uses, so this waits schema-free before the flush.
 	require.Eventually(t, func() bool {
 		return strings.Contains(strings.Join(obsToolUseLines(p.Root), "\n"), "code-reviewer")
-	}, obsProcessBound, obsProcessTick, "no capture line naming the subagent ever appeared")
+	}, obsProcessBound, obsProcessTick, "no capture line naming the subagent ever appeared: %s",
+		obsWaitDiag{p.Root})
 
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
 	e2eShutdownIfReachable(t, p.Root)
@@ -407,7 +460,7 @@ func TestE2E_ThinSliceDropsControlOnlyEdges(t *testing.T) {
 	}
 	require.Eventually(t, func() bool {
 		return strings.Contains(strings.Join(obsToolUseLines(p.Root), "\n"), lastID)
-	}, obsProcessBound, obsProcessTick, "the last mixed call was never indexed")
+	}, obsProcessBound, obsProcessTick, "the last mixed call was never indexed: %s", obsWaitDiag{p.Root})
 
 	obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, sess), env)
 	e2eShutdownIfReachable(t, p.Root)
