@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -294,6 +295,106 @@ func seedGCCorpus(t *testing.T) *testProject {
 	return tp
 }
 
+// gcResumeBudgetMultiple prices TestGC_DeadlineTruncatesAndResumes' deadline: this many times the
+// CONTROL store's measured mark phase.
+//
+// The budget is priced from the mark phase rather than fixed at a nanosecond, and that is
+// load-bearing since the mark phase became deadline-bounded too (see
+// TestGC_MarkPhaseHonoursTheDeadline): a budget the harvest sees expired — it consults the
+// deadline every gcCheckEvery tokens — stops the pass in MARK, sweeps nothing and writes no cursor,
+// a correct outcome and not the one that test is about. What it needs is a budget that survives
+// the mark phase and is long gone by the sweep's first check. Those two costs differ by
+// construction and in the same direction on every host: the mark walks in-memory indexes and
+// reads three small files, while reaching the sweep's first check is the live-set write, a
+// tombstone append for each of the gcResumeSeeds-gcResumeKept dead roots (tombstoning runs
+// between the two phases and inside the deadline) and gcCheckEvery-1 object visits and deletions.
+// So the budget is measured, not guessed — from the CONTROL store, which carries the identical
+// corpus and which mark, being read-only, leaves untouched — and expressed as a multiple of what
+// it measured, so it scales with the host instead of encoding one host's speed.
+//
+// Four has been the multiple since the pass became mark-bounded. Measured on a loaded windows/amd64
+// host, the control's mark read 2.2, 2.8, 10.4 and 14.1 ms across four runs — a 6.4x spread on one
+// host in one afternoon — against a judged pass whose first check fell at 68…86 ms, so the budget
+// sat at 9…56 ms: past the mark by 4x, short of the first check by 1.2x…9x. It is that top end
+// which fails under co-load, and gcResumeAttempts is what happens when it does.
+const gcResumeBudgetMultiple = 4
+
+// gcResumeAttempts is how many budgets TestGC_DeadlineTruncatesAndResumes may try — under
+// obs.UnderCoload only — before it reports the host as unpriceable and returns.
+//
+// Placing the deadline past the mark phase and short of the sweep's first check is a PRECONDITION
+// on the measurement, not a property of the product: it is priced from the CONTROL store's mark,
+// which ran before the pass being judged, on a host that may not hold still between the two. CI
+// run 34052269275 (`test (windows-latest)`, the whole-tree job) failed "a deadline that has
+// already expired, over 700 objects, must truncate": the control's mark caught a slow stretch and
+// the judged pass a quiet one, so gcResumeBudgetMultiple times the control's mark outlasted the
+// judged pass's first check and the sweep finished inside it — a correct collection, judged
+// against a budget priced for a host that was no longer there. That is the genus items 18, 22 and
+// 25 of plans/V2-report.md §0 name, and gcOvershootAttempts' reasoning applies to it unchanged.
+//
+// A miss is therefore re-priced rather than reported, from the missing pass's OWN timing and in
+// the direction it missed (gcResumeReprice), so that a host holding still is landed by the second
+// attempt: measured on a loaded windows/amd64 host with the budget forced 100x too long, three of
+// three runs went completed pass (234…337 ms) → re-priced to 12.5…16.6 ms → landed at the first
+// check. Three is two chances for the host to change its mind again between ADJACENT passes.
+//
+// It is fewer than gcOvershootAttempts because a miss here is not free: a pass that reached the
+// sweep has collected part or all of the corpus, and the retry needs a fresh gcResumeSeeds-root
+// one seeded in its place (a mark-phase miss touches nothing, which is asserted, and retries on
+// the same store). Every miss still asserts what the collector DID on it — a truncated mark
+// collected nothing and left no cursor, a completed pass swept the whole tree, a truncated sweep
+// stopped ON a check and left a cursor — and exhausting the attempts logs every attempt's budget,
+// elapsed time and counts.
+const gcResumeAttempts = 3
+
+// gcResumeReprice is the budget TestGC_DeadlineTruncatesAndResumes tries next after a pass that
+// missed — one that took `elapsed` and scanned `scanned` objects — given the control's mark.
+//
+// A pass that scanned nothing was truncated in its mark phase, so its elapsed time is a mark
+// sample from the judged host — no smaller than the budget it outran — and the same multiple
+// applies to it as to the control's. (This fixture's harvest is under gcCheckEvery tokens, so its
+// mark never consults the deadline and this arm is unreachable from it; it is what the loop does
+// if the fixture grows.)
+//
+// A pass that reached the sweep missed the other way: its first check fell inside the budget. Its
+// own timing puts that check at about (gcCheckEvery-1)/scanned of its elapsed time — pro rata,
+// which is an estimate rather than a bound: measured on a loaded windows/amd64 host, a completed
+// 700-object pass of 218.7 ms put it at 79.7 ms when the first check actually fell between 68.4 ms
+// and 79.7 ms (and 235.7 → 85.9 against 77.1…85.9 ms), because what the pass does before its first
+// object is smaller than what it does after its last. A budget placed AT the estimate is therefore
+// gone by the first check only on a lucky draw, and costs a whole reseeded attempt when it is not.
+// So the next budget is placed between the two costs it has to sit between — the control's mark,
+// which it must survive, and the estimate, which it must not reach — at their GEOMETRIC centre,
+// for the reason gcSweepWindow.budget gives: both ends move multiplicatively with the host, and
+// the centre tolerates the estimate reading sqrt(estimate/mark) high, 2.4x…6.0x over the marks
+// measured here (2.2…14.1 ms against first checks of 68…86 ms).
+func gcResumeReprice(controlMark, elapsed time.Duration, scanned int) time.Duration {
+	if scanned == 0 {
+		return gcResumeBudgetMultiple * elapsed
+	}
+	firstCheck := elapsed * (gcCheckEvery - 1) / time.Duration(scanned)
+	return time.Duration(math.Sqrt(float64(controlMark) * float64(firstCheck)))
+}
+
+// gcReportWallClock is what the two GC deadline tests do with a wall-clock judgement when the
+// invoking job has declared the run co-loaded (obs.UnderCoload): the bound is not applied, and one
+// log line records what was measured, the limit that was not applied to it, the variable that
+// withdrew it, and that ci.yml's `timing` job — which runs both tests by name, alone, on a runner
+// doing nothing else and without the variable — still applies it.
+//
+// Both tests' properties are intrinsically wall-clock — a deadline honoured in wall time, an
+// overshoot that is one check interval of wall time — so there is no CPU clock to move the
+// judgement to, the way internal/dag's budgets and the harness's B-E_cpu row do: under co-load the
+// OS can deschedule the sweep between two checks for longer than any interval, and no correct
+// collector can bound that. What the collector DID is never routed through here; every assertion
+// about it stays hard in both modes.
+func gcReportWallClock(t *testing.T, bound string, measured, limit time.Duration) {
+	t.Helper()
+	t.Logf("%s: %s — measured %v against a limit of %v that is REPORTED here, not applied; ci.yml's "+
+		"`timing` job runs this test alone, without the variable, and judges it there",
+		obs.UnderColoadEnv, bound, measured, limit)
+}
+
 // TestGC_DeadlineTruncatesAndResumes asserts a deadline-bounded pass really truncates, persists a
 // cursor, stops at the first deadline check, and that resuming from that cursor collects exactly
 // the set one unbounded pass collects.
@@ -304,6 +405,23 @@ func seedGCCorpus(t *testing.T) *testProject {
 // structurally rather than hoped for — gcResumeSeeds exceeds gcCheckEvery, so an already-expired
 // deadline is guaranteed to be seen — and the resume property is checked against a CONTROL store
 // carrying the identical corpus, collected in one pass.
+//
+// "Already expired" is a WALL-CLOCK premise: the deadline is priced from the control's mark phase
+// (gcResumeBudgetMultiple) and has to fall past the judged pass's mark and short of its first
+// sweep check, on a host that may change speed between the two measurements. The test therefore
+// runs in two modes, per internal/obs/coload.go and docs/adr/0010:
+//
+//   - not co-loaded (ci.yml's `timing` job, which runs this test by name, alone; every local run
+//     without the variable): one pass, and the pricing is judged where it stands — the pass must
+//     reach the sweep, must truncate, and must stop at the FIRST check — exactly as before;
+//   - under obs.UnderCoload (ci.yml's `test` job, `devtool test`/`cover`): the same three
+//     conditions are what a landing IS, a miss re-prices from its own timing and retries up to
+//     gcResumeAttempts times, and if none lands the pricing judgement is logged with every
+//     attempt's numbers and the test returns before the resume half, which has no truncated pass
+//     to work from. Never a t.Skip. CI run 34052269275 is the evidence, in gcResumeAttempts.
+//
+// A landing runs every assertion below unchanged in both modes, and every assertion about what
+// the collector DID — on a landing or on a miss — is hard in both.
 func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 	ctx := context.Background()
 	resumed, control := seedGCCorpus(t), seedGCCorpus(t)
@@ -314,34 +432,121 @@ func TestGC_DeadlineTruncatesAndResumes(t *testing.T) {
 	require.Greater(t, len(before), gcCheckEvery,
 		"fixture sanity: the sweep must walk past at least one deadline check for truncation to be reachable")
 
-	cursor := filepath.Join(paths.Of(resumed.Root).State, gcStateFile)
-
-	// The budget is priced from the mark phase rather than fixed at a nanosecond, and that is
-	// load-bearing since the mark phase became deadline-bounded too (see
-	// TestGC_MarkPhaseHonoursTheDeadline). A nanosecond is spent before the pass starts, so the
-	// pass truncates in MARK, sweeps nothing and writes no cursor — a correct outcome, and not the
-	// one this test is about.
-	//
-	// What this test needs is a budget that survives the mark phase and is long gone by the
-	// sweep's first check. Those two costs differ by construction and in the same direction on
-	// every host: the mark walks in-memory indexes and reads three small files, while reaching the
-	// sweep's first check is 256 filesystem visits and deletions. So the budget is measured, not
-	// guessed — from the CONTROL store, which carries the identical corpus and which mark, being
-	// read-only, leaves untouched — and expressed as a multiple of what it measured, so it scales
-	// with the host instead of encoding one host's speed.
+	// See gcResumeBudgetMultiple for why the budget is a multiple of a measured mark phase rather
+	// than a nanosecond or a fixed number.
 	markStart := time.Now()
 	_, _, _, markTruncated, merr := control.Store.mark(ctx, -1, -1, time.Time{})
 	require.NoError(t, merr)
 	require.False(t, markTruncated, "an unbounded mark must not truncate")
-	budget := 4 * time.Since(markStart)
+	controlMark := time.Since(markStart)
+	budget := gcResumeBudgetMultiple * controlMark
 
-	first, err := resumed.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: budget})
-	require.NoError(t, err, "an expired deadline is a normal outcome, never an error")
-	require.Positive(t, first.ScannedObjects,
-		"this pass must reach the sweep: a mark-phase truncation collects nothing and leaves no "+
-			"cursor, so every assertion below would be measuring the wrong phase")
-	require.True(t, first.Truncated,
-		"a deadline that has already expired, over %d objects, must truncate", len(before))
+	// The judged pass. A landing is a pass that reached the sweep, truncated, and did so at the
+	// sweep's FIRST check — the three conditions the pricing exists to produce. Not co-loaded they
+	// are asserted on the one pass that runs; under co-load they are what the loop looks for, and
+	// a miss is classified by what the collector did on it, asserted, and re-priced from (see
+	// gcResumeAttempts).
+	underCoload := obs.UnderCoload()
+	type resumeAttempt struct {
+		budget, elapsed  time.Duration
+		scanned, deleted int
+		truncated        bool
+	}
+	var tries []resumeAttempt
+	var first GCReport
+	var cursor string
+	landed := false
+	for !landed {
+		cursor = filepath.Join(paths.Of(resumed.Root).State, gcStateFile)
+		start := time.Now()
+		rep, err := resumed.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, Deadline: budget})
+		elapsed := time.Since(start)
+		require.NoError(t, err, "an expired deadline is a normal outcome, never an error")
+		first = rep
+		tries = append(tries, resumeAttempt{
+			budget: budget, elapsed: elapsed, scanned: rep.ScannedObjects, deleted: rep.DeletedObjects,
+			truncated: rep.Truncated,
+		})
+
+		if !underCoload {
+			require.Positive(t, first.ScannedObjects,
+				"this pass must reach the sweep: a mark-phase truncation collects nothing and leaves no "+
+					"cursor, so every assertion below would be measuring the wrong phase")
+			require.True(t, first.Truncated,
+				"a deadline that has already expired, over %d objects, must truncate", len(before))
+			landed = true
+			break
+		}
+		landed = rep.ScannedObjects > 0 && rep.Truncated && rep.ScannedObjects < gcCheckEvery
+		if landed {
+			break
+		}
+
+		// A miss. Where the deadline fell is the host's; what the collector did with it is not,
+		// and is asserted here as hard as on a landing. Each shape also says which end of the
+		// window the pass measured, which is what the next budget is priced from.
+		switch {
+		case rep.ScannedObjects == 0:
+			// The budget was gone before the sweep ran: the mark phase truncated the pass. That
+			// is a mark sample from the judged host, no smaller than the budget it outran.
+			require.True(t, rep.Truncated,
+				"a pass that scanned none of %d objects can only be one whose mark phase ran out of "+
+					"its deadline, and such a pass reports Truncated", len(before))
+			require.Zero(t, rep.DeletedObjects, "a truncated mark collects nothing")
+			require.NoFileExists(t, cursor,
+				"a truncated mark leaves no cursor: one recorded against an incomplete live set is "+
+					"data loss one pass later")
+			require.Equal(t, before, resumed.objectPaths(t), "a truncated mark touches no object")
+		case !rep.Truncated:
+			// The budget outlasted the sweep's last check, so the pass swept the whole tree.
+			require.Equal(t, len(before), rep.ScannedObjects,
+				"a pass that did not truncate must have swept the whole tree")
+			require.NoFileExists(t, cursor, "a completed pass must clear its cursor")
+		default:
+			// The budget expired inside the sweep, past its first check.
+			require.Zero(t, (rep.ScannedObjects+1)%gcCheckEvery,
+				"a truncated sweep must stop exactly ON a deadline check: the sweep consults the "+
+					"deadline once every %d objects and before that object is counted, so it can only "+
+					"ever report a multiple of %d minus one; it reported %d",
+				gcCheckEvery, gcCheckEvery, rep.ScannedObjects)
+			require.FileExists(t, cursor, "a truncated pass must leave a cursor to resume from")
+			require.Positive(t, rep.DeletedObjects, "a truncated pass must still have done real work")
+		}
+		budget = gcResumeReprice(controlMark, elapsed, rep.ScannedObjects)
+		if len(tries) == gcResumeAttempts {
+			break
+		}
+		if rep.ScannedObjects > 0 {
+			// The pass collected part or all of this corpus; the retry gets an identical fresh one.
+			resumed = seedGCCorpus(t)
+			require.Equal(t, before, resumed.objectPaths(t),
+				"fixture sanity: the retry's corpus must be identical to the control's, or comparing "+
+					"their outcomes proves nothing")
+		}
+	}
+
+	if underCoload {
+		var trail strings.Builder
+		for i, a := range tries {
+			fmt.Fprintf(&trail,
+				"\n\tattempt %d: budget %v → %v elapsed, %d/%d objects scanned, %d deleted, truncated %v",
+				i+1, a.budget, a.elapsed, a.scanned, len(before), a.deleted, a.truncated)
+		}
+		if !landed {
+			t.Logf("%s: no attempt placed a deadline past the mark phase and short of the sweep's first "+
+				"check over %d objects, so the pricing judgement — an already-expired deadline must "+
+				"truncate the sweep at its FIRST check — is REPORTED here, not applied, and the resume "+
+				"assertions it feeds are not reached. Control mark %v, budget %dx that, %d attempts:%s"+
+				"\n\tci.yml's `timing` job runs this test alone, without the variable, and judges all "+
+				"of it",
+				obs.UnderColoadEnv, len(before), controlMark, gcResumeBudgetMultiple, len(tries),
+				trail.String())
+			return
+		}
+		t.Logf("%s: the deadline landed at the sweep's first check on attempt %d of %d; control "+
+			"mark %v:%s", obs.UnderColoadEnv, len(tries), gcResumeAttempts, controlMark, trail.String())
+	}
+
 	require.FileExists(t, cursor, "a truncated pass must leave a cursor to resume from")
 	require.Positive(t, first.DeletedObjects, "a truncated pass must still have done real work")
 	require.Less(t, first.ScannedObjects, gcCheckEvery,
@@ -974,7 +1179,33 @@ func TestGC_DeadlineBudgetRepricesAfterAMissedWindow(t *testing.T) {
 // and it is what keeps a retry from being a second chance for the collector rather than for the
 // host: a deadline that fires before it is due fails on the attempt that did it, whatever the
 // attempt count.
+//
+// A fourth run then failed it in a way none of those fixes reach, because it was not a pricing
+// miss. Run 32932419445 (`test (ubuntu-latest)`, the whole-tree job) calibrated 160.2…248.8 ms
+// over 3 072 objects (fastest of 4), first check 16.9 ms, window 9.48x, check interval 56.46 ms,
+// and landed a 231.23 ms budget on attempt 4 of 5 — then overshot it by 220.25 ms after 2 047
+// objects, against a 112.92 ms limit. The sweep stopped ON its eighth check, having outlived its
+// budget; between two checks 56 ms apart it was simply not scheduled for four intervals. The check
+// schedule did nothing wrong, and no check interval can bound how long the OS keeps a process off
+// the CPU: the overshoot is intrinsically wall-clock, and there is no co-load-immune clock to move
+// it to. So the test runs in two modes, per internal/obs/coload.go and docs/adr/0010:
+//
+//   - not co-loaded (ci.yml's `timing` job, which runs this test by name, alone; every local run
+//     without the variable): every bound below is asserted exactly as before;
+//   - under obs.UnderCoload (ci.yml's `test` job, `devtool test`/`cover`): the wall-clock
+//     JUDGEMENTS — the host-sanity precondition, the "did not outlive its last check" bound on
+//     every completed attempt, the retry exhaustion, the two-interval ceiling and the ±50 ms bound
+//     itself — are REPORTED through gcReportWallClock, each with its measurement and the limit not
+//     applied, and the test returns early only where there is nothing left to assert. Never a
+//     t.Skip.
+//
+// Every assertion about what the collector DID is hard in both modes: the calibration passes
+// complete and sweep the whole tree, an already-expired deadline stops the sweep at its first
+// check with exactly gcCheckEvery-1 scanned, a truncated sweep stops ON a check and only after
+// outliving its budget, a completed one swept the whole tree, and a deadline that is never
+// consulted (no truncation across every re-priced budget) fails without a clock.
 func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
+	underCoload := obs.UnderCoload()
 	tp := newTestStore(t)
 	ctx := context.Background()
 	for i := 0; i < gcOvershootSeeds; i++ {
@@ -1062,13 +1293,22 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 	require.Positive(t, cal.FirstCheck,
 		"a pass that stops at the sweep's first check must be measurable at all; %d objects, "+
 			"whole pass %v", objects, cal.Full)
-	require.Greater(t, cal.Full, 2*cal.FirstCheck,
-		"host sanity: a whole pass costs %v and merely reaching the sweep's FIRST check costs %v, "+
-			"so there is no room either side of any budget that could expire inside the sweep. On "+
-			"this host the pass spends most of its time somewhere other than visiting objects — "+
-			"the mark phase and the live-set write before the sweep, the cursor write after it, "+
-			"two fsyncs each — and that is a statement about the host, not about the collector; "+
-			"see gcSweepWindow", cal.Full, cal.FirstCheck)
+	// A statement about the host, so under co-load it is reported rather than judged: the attempt
+	// loop below re-prices from whatever window it is given, and the exhaustion path says what
+	// became of one this narrow.
+	if underCoload {
+		gcReportWallClock(t, "host sanity: reaching the sweep's FIRST check must cost less than half "+
+			"a whole pass, or there is no room either side of any budget that could expire inside "+
+			"the sweep", cal.FirstCheck, cal.Full/2)
+	} else {
+		require.Greater(t, cal.Full, 2*cal.FirstCheck,
+			"host sanity: a whole pass costs %v and merely reaching the sweep's FIRST check costs %v, "+
+				"so there is no room either side of any budget that could expire inside the sweep. On "+
+				"this host the pass spends most of its time somewhere other than visiting objects — "+
+				"the mark phase and the live-set write before the sweep, the cursor write after it, "+
+				"two fsyncs each — and that is a statement about the host, not about the collector; "+
+				"see gcSweepWindow", cal.Full, cal.FirstCheck)
+	}
 
 	// limitFor prices one check interval on THIS host — from BOTH passes, and the slower rate
 	// wins. The limit is the §2.6 row's 50 ms, or two intervals when a single interval is already
@@ -1138,11 +1378,17 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 			require.Equal(t, objects, rep.ScannedObjects,
 				"a pass that did not truncate must have swept the whole tree")
 			_, limit := limitFor(budget, elapsed-budget, rep.ScannedObjects)
-			require.LessOrEqual(t, elapsed-budget, limit,
-				"V2-SP06-20: this pass swept all %d objects instead of truncating, which is correct "+
-					"only if it never saw its %v deadline expire — its last check falls on its last "+
-					"object, so it may return at most that object late, not %v late",
-				objects, budget, elapsed-budget)
+			if underCoload {
+				gcReportWallClock(t, fmt.Sprintf("V2-SP06-20: a pass that swept all %d objects instead "+
+					"of truncating may return at most one object past its %v deadline (attempt %d)",
+					objects, budget, len(tries)), elapsed-budget, limit)
+			} else {
+				require.LessOrEqual(t, elapsed-budget, limit,
+					"V2-SP06-20: this pass swept all %d objects instead of truncating, which is correct "+
+						"only if it never saw its %v deadline expire — its last check falls on its last "+
+						"object, so it may return at most that object late, not %v late",
+					objects, budget, elapsed-budget)
+			}
 			win = win.next(elapsed, rep.Truncated)
 			continue
 		}
@@ -1213,17 +1459,31 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 			"that is never consulted sweeps to the end however small the budget gets, and this is "+
 			"the second shape:%s", cal.budget(), gcOvershootAttempts, trail.String())
 
-	require.True(t, landed,
-		"no attempt placed the deadline inside the sweep, so this host could not be measured — a "+
-			"finding about the HOST, not about the deadline, and the two are not the same. "+
-			"Calibration: whole pass %v…%v (fastest of %d), a %.2fx spread; reaching the sweep's "+
-			"first check %v, measured %v; so the window is %.2fx wide and one attempt tolerates "+
-			"being %.2fx off in either direction. Every attempt re-priced from the previous "+
-			"attempt's own timing, so defeating all %d takes a sweep cost that moves further than "+
-			"that between ADJACENT passes, every time:%s",
-		fastest.Duration, slowest, gcCalibrationPasses, float64(slowest)/float64(fastest.Duration),
-		cal.FirstCheck, firstCheck,
-		float64(cal.Full)/float64(cal.FirstCheck), cal.slack(), gcOvershootAttempts, trail.String())
+	if !landed {
+		unmeasurable := fmt.Sprintf(
+			"no attempt placed the deadline inside the sweep, so this host could not be measured — a "+
+				"finding about the HOST, not about the deadline, and the two are not the same. "+
+				"Calibration: whole pass %v…%v (fastest of %d), a %.2fx spread; reaching the sweep's "+
+				"first check %v, measured %v; so the window is %.2fx wide and one attempt tolerates "+
+				"being %.2fx off in either direction. Every attempt re-priced from the previous "+
+				"attempt's own timing, so defeating all %d takes a sweep cost that moves further than "+
+				"that between ADJACENT passes, every time:%s",
+			fastest.Duration, slowest, gcCalibrationPasses, float64(slowest)/float64(fastest.Duration),
+			cal.FirstCheck, firstCheck,
+			float64(cal.Full)/float64(cal.FirstCheck), cal.slack(), gcOvershootAttempts, trail.String())
+		// A host that could not be priced under co-load has measured nothing the ±50 ms bound
+		// can be judged on, and the bound is a wall-clock one with no other clock to fall back
+		// to; so the finding is logged in full and the test ends here. Everything asserted about
+		// the collector — every attempt's own truncation shape, and that some budget truncated —
+		// has already run.
+		if underCoload {
+			t.Logf("%s: %s\n\tV2-SP06-20's ±%v (priced per host, capped at %v) is REPORTED here, not "+
+				"applied; ci.yml's `timing` job runs this test alone, without the variable, and judges it",
+				obs.UnderColoadEnv, unmeasurable, gcDeadlineOvershoot, gcOvershootCeiling)
+			return
+		}
+		require.True(t, landed, unmeasurable)
+	}
 
 	interval, limit := limitFor(judgedBudget, judgedOvershoot, judged.ScannedObjects)
 	t.Logf("calibration %v…%v over %d objects (fastest of %d); first check %v (measured %v); "+
@@ -1233,6 +1493,14 @@ func TestGC_DeadlineOvershootIsBoundedByTheCheckInterval(t *testing.T) {
 		firstCheck, float64(cal.Full)/float64(cal.FirstCheck), cal.slack(), interval, judgedBudget,
 		judgedOvershoot, judged.ScannedObjects, len(tries), gcOvershootAttempts, limit)
 
+	if underCoload {
+		gcReportWallClock(t, fmt.Sprintf("two deadline checks (gcCheckEvery %d) must fit the 2 s idle "+
+			"budget's overshoot ceiling", gcCheckEvery), limit, gcOvershootCeiling)
+		gcReportWallClock(t, fmt.Sprintf("V2-SP06-20: a truncating sweep must return within one check "+
+			"interval (%v) of its deadline; it ran over after scanning %d objects", interval,
+			judged.ScannedObjects), judgedOvershoot, limit)
+		return
+	}
 	require.LessOrEqual(t, limit, gcOvershootCeiling,
 		"two deadline checks cost %v on this host, so gcCheckEvery (%d) is too coarse to honour a "+
 			"deadline inside the 2 s idle budget; revisit the constant, not this assertion", 2*interval, gcCheckEvery)
