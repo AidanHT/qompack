@@ -54,7 +54,8 @@ const (
 )
 
 // The documented range of CLAUDE_CODE_AUTO_COMPACT_WINDOW and CLAUDE_CODE_MAX_CONTEXT_TOKENS.
-// Values outside it are rejected and the ladder falls through to the next rung.
+// A value outside it is CLAMPED into the range (ruling R53; the host's own range is a clamp
+// range) — only an unparsable, empty or non-positive value falls through to the next rung.
 const (
 	hostWindowEnvMin core.Tokens = 100_000
 	hostWindowEnvMax core.Tokens = 1_000_000
@@ -379,13 +380,16 @@ func (r *schedRuntime) resetSessionLocked() {
 
 // resolveWindowLocked is the §2.5 ladder, read through getenv at bind:
 //
-//	3   CLAUDE_CODE_AUTO_COMPACT_WINDOW in [100 000, 1 000 000] — IS the effective window, maxOutput 0
+//	3   CLAUDE_CODE_AUTO_COMPACT_WINDOW, clamped into [100 000, 1 000 000] — IS the effective window, maxOutput 0
 //	2   QOMPACK_CONTEXT_WINDOW (+ QOMPACK_MAX_OUTPUT_TOKENS, else the host default output)
-//	2.5 CLAUDE_CODE_MAX_CONTEXT_TOKENS in the same range, with the host default output
+//	2.5 CLAUDE_CODE_MAX_CONTEXT_TOKENS, clamped into the same range, with the host default output
 //	1   HostDefaultContextWindow / HostDefaultMaxOutput (§2.5's worked example: 180 000)
 //
-// then CLAUDE_CODE_DISABLE_1M_CONTEXT clamps whichever won to HostDefaultContextWindow
-// (window_clamped_200k), DISABLE_COMPACT marks the host trigger absent (host_compaction_disabled)
+// The ranges on rungs 3 and 2.5 are clamps, not preconditions (ruling R53): 50 000 resolves as
+// 100 000 and 2 000 000 as 1 000 000, both still naming their rung in window_source; only an
+// unparsable, empty or non-positive value falls through. Then CLAUDE_CODE_DISABLE_1M_CONTEXT
+// clamps whichever won to HostDefaultContextWindow (window_clamped_200k), DISABLE_COMPACT marks
+// the host trigger absent (host_compaction_disabled)
 // and CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT does the same while the window still
 // resolves normally (host_enforcement_off). The host keys and window_source are stamped onto
 // Decision.Breakdown after scheduler.Evaluate returns, so Evaluate sees only the number.
@@ -691,18 +695,12 @@ func (r *schedRuntime) Persist(ctx context.Context) error {
 	r.persistMu.Lock()
 	defer r.persistMu.Unlock()
 
-	r.mu.Lock()
-	if r.session == "" {
-		r.mu.Unlock()
-		return nil
-	}
-	files, err := r.saveStateLocked()
-	if err == nil {
-		r.dirty = false
-	}
-	r.mu.Unlock()
+	files, bound, err := r.snapshotState()
 	if err != nil {
 		return fmt.Errorf("daemon: scheduler persist: %w", err)
+	}
+	if !bound {
+		return nil
 	}
 
 	if err := os.MkdirAll(paths.Long(filepath.Dir(files.bocdPath)), 0o700); err != nil {
@@ -716,6 +714,24 @@ func (r *schedRuntime) Persist(ctx context.Context) error {
 	}
 	r.count(counterPersist)
 	return nil
+}
+
+// snapshotState encodes both documents under mu and clears dirty on success; bound is false,
+// with nothing encoded, before a session is bound. The unlock is deferred on purpose: the tap's
+// recover (schedTap.guard) takes mu to record a panic, so a snapshot that panicked while
+// holding mu without a defer would turn the first Loud into a wedge of every seam behind it.
+// With the defer the panic unwinds through the lock and surfaces as that one Loud.
+func (r *schedRuntime) snapshotState() (files stateFiles, bound bool, err error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.session == "" {
+		return stateFiles{}, false, nil
+	}
+	files, err = r.saveStateLocked()
+	if err == nil {
+		r.dirty = false
+	}
+	return files, true, err
 }
 
 // persistFailed re-arms the dirty flag so the next idle tick retries, and returns err.
@@ -862,11 +878,6 @@ func (r *schedRuntime) count(name string) {
 		r.metrics.Counter(name).Add(1)
 	}
 }
-
-// closeSegmentLocked closes the session's current segment and opens its successor.
-func (r *schedRuntime) closeSegmentLocked(context.Context, core.TurnIndex, scheduler.Features, string) error {
-	return nil
-} // replaced by scheduler_frontier.go (C2)
 
 // ── Package-level helpers ────────────────────────────────────────────────────────────────────
 
