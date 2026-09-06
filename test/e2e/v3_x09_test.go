@@ -68,6 +68,26 @@ const (
 	x9Eliminations = 6
 )
 
+// x9MTimeCoarseSlack is how far outside the measured RebuildBloom window the bloom file's own
+// mtime is allowed to fall on each side. It is not a tolerance for a sloppy assertion: it is the
+// difference between the two clocks the assertion unavoidably compares. time.Now reads the fine
+// clock; the timestamp a kernel stamps on an inode comes from a COARSE clock it only refreshes
+// once per timer tick (Linux ktime_get_coarse_real_ts64, at most CONFIG_HZ granularity; Windows'
+// file times move on the 15.625 ms scheduler tick, the same coarseness internal/obs/cpu_test.go
+// already documents). So a file genuinely written INSIDE the window can carry an mtime stamped
+// from a tick that began before the window did, and the strict comparison this constant replaces
+// fails on a correct write. CI run 34052269275 (test, ubuntu-latest) is that failure, by 738
+// microseconds:
+//
+//	tried.bloom's mtime (2026-09-06 19:00:39.486147054) must be later than
+//	the RebuildBloom call (2026-09-06 19:00:39.486885591)
+//
+// A tick's worth of slack cannot weaken what the assertion is FOR. The claim being pinned is "no
+// later writer ever touched this file", and every other writer in this test's timeline is seconds
+// away — the daemon is already shut down, the flush has not run yet. 50 ms is an order of
+// magnitude above the coarsest tick above and three orders below the nearest other write.
+const x9MTimeCoarseSlack = 50 * time.Millisecond
+
 // x9MCPToolName carries the observer's own retrieval-result prefix (tooluse.go mcpToolPrefix), so
 // the 20 MCP-shaped events are recorded Ephemeral exactly as a real mcp__qompack__* result is.
 const x9MCPToolName = "mcp__qompack__timeline"
@@ -178,17 +198,20 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// tried.bloom was written ONLY through negknow.RebuildBloom: exactly one .bak generation
 	// survives (negknow.Open's own reconcile rebuild wrote the initial file with nothing to back
 	// up; this rebuild renamed it away), and the file's mtime sits inside the RebuildBloom call's
-	// own window — re-checked, unchanged, after the flush below, which is what "and earlier than
+	// own window, widened on both sides by x9MTimeCoarseSlack for the clock the kernel stamps
+	// inodes from — re-checked, unchanged, after the flush below, which is what "and earlier than
 	// nothing else" means: no later writer ever touched it.
 	require.Len(t, bloomBackupNames(t, p.Root), 1,
 		"exactly one tried.bloom.<seq>.bak generation must survive the rebuild")
 	fi, err := os.Stat(paths.Long(bloomPath))
 	require.NoError(t, err)
 	bloomMTime := fi.ModTime()
-	require.False(t, bloomMTime.Before(beforeRebuild),
-		"tried.bloom's mtime (%s) must be later than the RebuildBloom call (%s)", bloomMTime, beforeRebuild)
-	require.False(t, bloomMTime.After(afterRebuild),
-		"tried.bloom's mtime (%s) must not postdate RebuildBloom's return (%s)", bloomMTime, afterRebuild)
+	require.False(t, bloomMTime.Before(beforeRebuild.Add(-x9MTimeCoarseSlack)),
+		"tried.bloom's mtime (%s) must be later than the RebuildBloom call (%s, less %s of "+
+			"coarse-clock slack)", bloomMTime, beforeRebuild, x9MTimeCoarseSlack)
+	require.False(t, bloomMTime.After(afterRebuild.Add(x9MTimeCoarseSlack)),
+		"tried.bloom's mtime (%s) must not postdate RebuildBloom's return (%s, plus %s of "+
+			"coarse-clock slack)", bloomMTime, afterRebuild, x9MTimeCoarseSlack)
 
 	ledClosed = true
 	require.NoError(t, led.Close())
