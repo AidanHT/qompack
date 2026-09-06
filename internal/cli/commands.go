@@ -27,6 +27,7 @@ func All() []Cmd {
 		Cmd{Name: "config print", Summary: "print the effective configuration", Run: runConfigPrint},
 		Cmd{Name: "config schema", Summary: "print the configuration JSON Schema", Run: runConfigSchema},
 		Cmd{Name: "daemon", Summary: "run the resident per-project daemon", Run: runDaemon},
+		Cmd{Name: "mcp", Summary: "run the MCP server over stdio", Run: runMCP},
 		Cmd{Name: "self-test", Summary: "assert every host contract; the only command that may exit non-zero", Run: runSelfTest},
 	)
 	cmds = append(cmds, evalCmds()...)
@@ -39,7 +40,6 @@ func All() []Cmd {
 // notImplemented is every §2.3 subcommand whose owning subplan has not merged. Keeping the list as
 // data — rather than as absent entries — is what makes the dispatch table complete on day one.
 var notImplemented = []struct{ name, summary string }{
-	{"mcp", "run the MCP server over stdio (SP-13)"},
 	{"status", "mode, contracts, store, latency, last decision (SP-14)"},
 	{"recall", "search stored tool output and file versions (SP-14)"},
 	{"pin", "pin an invariant so it is never summarized away (SP-14)"},

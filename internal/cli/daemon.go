@@ -11,12 +11,15 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/symbols"
 )
 
 // runDaemon implements `qompack daemon [--project <root>] [--foreground]` (task-6-spec.md).
@@ -116,6 +119,8 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		}
 	}()
 
+	installMCPTools(&opts, root, cfg, log, reg, clk)
+
 	d, err := daemon.New(opts)
 	if err != nil {
 		log.Loud("daemon: could not construct", "err", err.Error())
@@ -158,5 +163,49 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	default:
 		log.Loud("daemon: run exited with an error", "err", runErr.Error())
 		return nil
+	}
+}
+
+// installMCPTools registers the L6 retrieval tools on the daemon's op table (SP-13).
+//
+// It runs BEFORE daemon.New, and that ordering is the whole point rather than a style preference:
+// New applies every Bind and only then calls DeclareProducers, so an InstallMCPOp that ran
+// afterwards would bind Services.MCPInitialized too late for CMCPRegistered to be declared, and
+// the mcp.server_registered assertion would report "not-yet-implemented" for ever while a working
+// server answered tools/call beside it.
+//
+// It also reuses opts.Store, which WireObserver has already opened. A second store.Open in this
+// process would be a corruption bug, not a redundancy: the store is single-writer by design and
+// two handles over one append log race each other's offsets.
+//
+// Every failure degrades rather than aborts. A daemon that cannot offer retrieval still observes
+// tool use, still checkpoints and still answers `status`; one that refused to start would take the
+// whole session down for a feature the model can work without.
+func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
+	log logging.Logger, reg obs.Registry, clk core.Clock,
+) {
+	// --- SP-13 branch-local declarations: DELETE AT THE WAVE-3 REBASE ---
+	// SP-10 merges the checkpoint reader and SP-11 merges the symbol extractor and the drop
+	// reporter; until then these are typed nils, which is exactly what ToolDeps documents as
+	// legal. `why` then answers found:false and `dropped` answers available:false — degraded, not
+	// broken — and the spans are chunk-aligned without symbol widening. At the rebase these three
+	// lines are replaced by the locals those subplans already build; nothing else here changes.
+	var (
+		ckptReader   checkpoint.Reader
+		dropReporter mcp.DropReporter
+		syms         symbols.Extractor
+	)
+	// --- end branch-local declarations ---
+
+	prom, promErr := mcp.NewPromoter(mcp.PromotionsPath(root), cfg.Retrieval.PromoteAfterExpansions, clk)
+	if promErr != nil {
+		// Counting expansions is advisory (§8.7): losing the signal costs SP-16 a demand-driven
+		// hint at the next checkpoint, and costs this session nothing at all.
+		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
+	}
+
+	deps := NewToolDeps(root, cfg, opts.Store, opts.Ledger, ckptReader, dropReporter, prom, syms, log, reg, clk)
+	if err := daemon.InstallMCPOp(opts, deps); err != nil {
+		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}
 }
