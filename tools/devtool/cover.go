@@ -51,6 +51,12 @@ var landedSubplans = map[string]bool{
 	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
 	"SP-08": true,
 	"SP-09": true,
+	// SP-12 is listed from its OWN branch, for the same reason SP-08 is. Commit 3 of
+	// feat/sp12-scheduler-l3 makes internal/scheduler's OWNERS.tsv probe (Evaluate) a real
+	// implementation, so the 85% floor applies from that commit rather than from the merge — and
+	// the exempt-but-real cross-check below would fail the moment the probe stopped looking like a
+	// stub while the subplan was still unlisted.
+	"SP-12": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
@@ -58,9 +64,11 @@ var landedSubplans = map[string]bool{
 // a fact about the probe's SHAPE, not a judgement about the package, and each should disappear when
 // its subplan lands and the package gets a real floor.
 var probeBlind = map[string]bool{
-	// Evaluate returns a Decision and no error, so a stub returns a zero value rather than
-	// core.ErrNotImplemented and isBareNotImplementedStub cannot see it.
-	"scheduler": true,
+	// internal/scheduler used to be listed here: Evaluate returns a Decision and no error, so a
+	// stub returned a zero value rather than core.ErrNotImplemented and isBareNotImplementedStub
+	// could not see it. SP-12 has landed, so the entry has done its job and is gone — the
+	// cross-check it silenced only runs for a subplan landedSubplans does not list.
+	//
 	// Append has an empty body — no return statement at all — for the same reason.
 	"grammar": true,
 	// RunAll and Redact are partly real at V1: SP-01 shipped working bodies that SP-05 and SP-06
@@ -83,9 +91,9 @@ var probeBlind = map[string]bool{
 // Deriving "has landed" from the probe alone does NOT work, and the two packages that prove it are
 // worth naming: scheduler's probe Evaluate returns a Decision and no error, and grammar's probe
 // Append has an empty body, so isBareNotImplementedStub — which looks for a lone
-// core.ErrNotImplemented return — reports neither as a stub even though both are. A probe-only
-// rule therefore turns SP-12's and SP-15's floors on years early and fails the gate on work nobody
-// has started. landedSubplans is the explicit half instead: one line, added by the subplan that
+// core.ErrNotImplemented return — reported neither as a stub even though both were. A probe-only
+// rule therefore turned SP-12's floor on years before SP-12 was written, and still turns SP-15's
+// on today, failing the gate on work nobody has started. landedSubplans is the explicit half instead: one line, added by the subplan that
 // lands, reviewed in the commit that lands it.
 //
 // For a landed subplan a stub probe is a hard failure rather than an exemption: a package its own
