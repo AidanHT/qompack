@@ -244,6 +244,25 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 	})
 	defer func() { _ = c.Close() }()
 
+	// The pid holding the lock when the handshake starts. Lock.Release is Stop's LAST act, but the
+	// process still has to unwind after Stop returns — flush its observability sinks, close the day
+	// log, run its deferred closers, exit — and every one of those can write inside <root>/.qompack.
+	// Returning the moment the lock file disappears therefore hands a still-writing process's
+	// directory to the caller's t.TempDir RemoveAll, which is CI run 32932419445's single failure:
+	//
+	//	--- FAIL: TestFaultSitesInertWhenUnset
+	//	    TempDir RemoveAll cleanup: unlinkat /tmp/…/001/.qompack: directory not empty
+	//
+	// ENOTEMPTY, not EBUSY, and that distinction is the whole diagnosis: on Linux an open handle
+	// never blocks an unlink, so nothing was holding the tree open — an entry was CREATED inside
+	// .qompack between RemoveAll emptying it and RemoveAll unlinking it, which only a live process
+	// can do. (The Windows failure quoted above is the same race seen through a different errno:
+	// there the straggler's open handle is what surfaces, here its next write is.) So process
+	// death, not lock absence, is the condition that makes the tree safe to remove —
+	// e2eProcessAlive's own doc comment already says exactly that, and this loop simply had one
+	// exit that never asked it.
+	shutdownPID, _ := e2eDaemonHoldingLock(root)
+
 	// Client.Send never propagates an error — a failed connect/write/ACK round trip just spools
 	// the request instead and returns silently (00-ARCHITECTURE.md §2.4/§12.3), so a single
 	// admin.shutdown attempt has no way to know whether the daemon actually received it. Retrying
@@ -258,26 +277,32 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		_, _ = c.Send(context.Background(), ipc.Request{
 			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		}, e2eRoundTripDeadline)
-		if !e2eFileExists(lockPath) {
-			return
-		}
-		// A daemon also stops mattering by dying. Lock.Release is Stop's last act, so a process
-		// that never reaches it — an injected fault, a crash, a kill — leaves the lock behind for
-		// nobody to remove, and inside this loop that costs exactly what e785891 refused to pay at
-		// the gate above: the whole of e2eDaemonDownBound spent proving a fact already on disk. A
-		// dead pid is "gone" for every purpose the caller has, since a process that has exited
-		// holds no handles.
+		// Two things must both be true before this tree is nobody's to write to: no live process
+		// holds the lock now, and the process that held it when we started has actually exited.
+		//
+		// The first half also covers a daemon that stops mattering by dying. Lock.Release is
+		// Stop's last act, so a process that never reaches it — an injected fault, a crash, a
+		// kill — leaves the lock behind for nobody to remove, and waiting on the FILE would cost
+		// exactly what e785891 refused to pay at the gate above: the whole of e2eDaemonDownBound
+		// spent proving a fact already on disk. e2eDaemonHoldingLock answers "no lock file" and
+		// "lock file naming a dead pid" identically, which is why the absent-file check that used
+		// to stand here is not merely moved but subsumed.
 		lockPID, held := e2eDaemonHoldingLock(root)
-		if !held {
+		if !held && !e2eProcessAlive(shutdownPID) {
 			return
 		}
 		select {
 		case <-ticker.C:
 		case <-timeout.C:
-			if e2eFileExists(lockPath) {
+			switch {
+			case e2eFileExists(lockPath):
 				t.Logf("e2eShutdownIfReachable: a live daemon (pid %d) still held %s after %s of retried "+
 					"admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still "+
 					"be writing to", lockPID, lockPath, e2eDaemonDownBound)
+			case e2eProcessAlive(shutdownPID):
+				t.Logf("e2eShutdownIfReachable: the daemon (pid %d) released %s but was still running after "+
+					"%s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to",
+					shutdownPID, lockPath, e2eDaemonDownBound)
 			}
 			return
 		}
