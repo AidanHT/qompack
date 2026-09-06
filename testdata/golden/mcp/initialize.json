@@ -1,0 +1,13 @@
+{
+  "protocolVersion": "2025-06-18",
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    }
+  },
+  "serverInfo": {
+    "name": "qompack",
+    "version": "0.1.0"
+  },
+  "instructions": "Qompack retrieval. The transcript is durably stored and addressable: use recall to find hashes, expand to re-materialize a cleared tool result, re_read for a current or historical file version, timeline for what happened between two points, why for a decision's rationale, and dropped for what is currently out of context. Before committing to an approach, call already_tried. Record eliminations with record_eliminated so they survive compaction. Retrieval results are ephemeral and are evicted first — retrieve again rather than hoarding, and prefer the default minimal span over full=true."
+}
