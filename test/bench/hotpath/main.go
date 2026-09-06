@@ -114,15 +114,25 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	// --under-coload is a statement about the RUN'S ENVIRONMENT, not a switch on a gate, and it is
 	// spelled that way on purpose: the caller declares a fact only the caller knows (this harness
 	// is sharing its host with unrelated concurrent work), and the harness derives the one
-	// consequence that fact has — the wall-clock B-E row becomes a measurement rather than a
-	// judgement, disclosed in the artifact by beWallWaivedNote. Nothing else changes: the
-	// CPU-time B-E gate (budgetIDBECPU), B-A and B-B are all still hard, and every invocation that
-	// does not pass it — bench-gate's and nightly's `devtool bench-hotpath` lines, and a bare local
-	// run — keeps the wall-clock gate it has always had, byte for byte. Default false so that
-	// forgetting it can only ever make a run STRICTER.
+	// consequence that fact has — the two rows whose samples span a process boundary, the
+	// wall-clock B-E row and B-A, become measurements rather than judgements, each disclosed in
+	// the artifact by its own note (beWallWaivedNote, baWallWaivedNote). Nothing else changes:
+	// the CPU-time B-E gate (budgetIDBECPU) and B-B are still hard, and every invocation that
+	// does not pass it — bench-gate's and nightly bench-deep's `devtool bench-hotpath` lines,
+	// ci.yml's test-e2e job, and a bare local run — keeps every gate it has always had, byte for
+	// byte. Default false so that forgetting it can only ever make a run STRICTER.
+	//
+	// The evidence for B-A is CI's own, on windows-latest, one commit: the B-A row measured p99
+	// 3.072 ms in bench-gate (harness alone on its runner) and 11.264 ms then 18.432 ms in two
+	// whole-tree `test` job runs minutes apart (limit 15 ms), while the spawn floor's p50 went
+	// 12.954 → 24.431 / 23.143 ms and B-B — which contains no process spawn — moved only
+	// 0.576 → 0.768 / 0.704 ms. B-A is the daemon-observed hook_controlled estimate (recvTS −
+	// reqTS + tail allowance): reqTS is stamped inside the spawned hook process, so the interval
+	// contains the child's scheduling wait under co-load, and there is no CPU-time analogue of a
+	// cross-process latency. B-B is the co-load-resistant half and stays gated.
 	fs.BoolVar(&f.underCoload, "under-coload", false,
 		"declare that this run shares its host with unrelated concurrent work (e.g. the whole-tree `go test ./...`), "+
-			"so the wall-clock B-E row is reported instead of gated; the CPU-time B-E gate is unaffected")
+			"so the wall-clock B-E row and the B-A row are reported instead of gated; B-B and the CPU-time B-E gate are unaffected")
 	if err := fs.Parse(args); err != nil {
 		return flags{}, err
 	}
@@ -376,8 +386,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		return Report{}, err
 	}
 
-	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, budgetLimit(cfg, obs.BA), true, baMissing)
-	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true, ledger.Undelivered())
+	baRow, bbRow, daemonNotes := buildDaemonRows(cfg, baSnap, bbSnap, baMissing, ledger.Undelivered(), f.underCoload)
 
 	// One limit, read once from obs.Budgets() + config.Defaults() (task-7-brief.md's binding
 	// ruling), and applied to BOTH B-E rows: the wall-clock one and the CPU-time one are two
@@ -395,7 +404,7 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		SpawnFloorMs: SpawnFloor{
 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
 		},
-		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger, baNote, bbNote, beWallNote),
+		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger, append(daemonNotes, beWallNote)...),
 		Budgets: []BudgetRow{
 			baRow,
 			bbRow,
@@ -413,6 +422,30 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		},
 	}
 	return report, nil
+}
+
+// buildDaemonRows builds the two rows sourced from the daemon's own histograms via the status op —
+// B-A (ruling #29's hook_controlled estimate) and B-B (l0_ingest) — with their limits read from
+// obs.Budgets() + cfg, and returns them with every disclosure note they owe the artifact, in row
+// order. underCoload is the one thing that changes their shape, and it changes B-A's only: B-A is
+// built REPORTED (LimitMs/Pass nil, exactly B-D's shape) and baWallWaivedNote is appended, because
+// reqTS is stamped inside the spawned hook process and a child's scheduling wait on a shared host
+// sits inside the interval with no CPU clock to move the judgement to — see the flag's comment in
+// parseFlags for the measurements. B-B, the daemon's own read-to-WAL-append cost with no process
+// boundary inside it, is gated in both shapes. The shortfall accounting is identical in both
+// shapes too: tailAdjustedP99 still counts the missing samples back in and the P99 field carries
+// the same number the gate would have read, so a reported row can be re-judged from the artifact
+// alone.
+func buildDaemonRows(cfg config.Config, baSnap, bbSnap obs.HistSnapshot, baMissing, bbMissing int64, underCoload bool) (baRow, bbRow BudgetRow, notes []string) {
+	baLimit := budgetLimit(cfg, obs.BA)
+	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, baLimit, !underCoload, baMissing)
+	notes = append(notes, baNote)
+	if underCoload {
+		notes = append(notes, baWallWaivedNote(baLimit))
+	}
+	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true, bbMissing)
+	notes = append(notes, bbNote)
+	return baRow, bbRow, notes
 }
 
 // shortPIDTag is a short, human-legible discriminator (this process's own pid) folded into the

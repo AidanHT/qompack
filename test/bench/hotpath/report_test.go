@@ -188,6 +188,96 @@ func TestBEWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
 	require.Contains(t, note, "--under-coload")
 }
 
+// TestBAWallWaivedNote_NamesTheLimitItDidNotApply is baWallWaivedNote's counterpart of the test
+// above: a --under-coload run's B-A row is a null in the artifact, and the note is what makes that
+// null legible — the limit not applied, the flag that caused it, the row (B-B) still gated in the
+// same run, and the jobs that still judge B-A. Built from the same limit the row is built from.
+func TestBAWallWaivedNote_NamesTheLimitItDidNotApply(t *testing.T) {
+	note := baWallWaivedNote(budgetLimit(config.Defaults(), obs.BA))
+	require.Contains(t, note, string(obs.BA))
+	require.Contains(t, note, string(obs.BB), "the row that is still gated in this run must be named")
+	require.Contains(t, note, "15ms", "the waived limit must be named, not implied by a null")
+	require.Contains(t, note, "--under-coload")
+	require.Contains(t, note, "bench-gate")
+	require.Contains(t, note, "test-e2e", "every run that still judges B-A must be named")
+	require.NotContains(t, note, budgetIDBECPU,
+		"B-A has no CPU row to point at; the note must not borrow B-E's")
+}
+
+// TestGateFailed_ANilPassBARowNeverDecidesTheRun pins --under-coload's B-A half against the same
+// failure TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun pins for B-E: a reported B-A
+// row neither passes nor fails the run, and the rows still gated beside it decide it alone — B-B
+// over its limit still exits non-zero, and B-B inside it exits zero with B-A null.
+func TestGateFailed_ANilPassBARowNeverDecidesTheRun(t *testing.T) {
+	bbBreached := Report{Budgets: []BudgetRow{
+		{BudgetID: string(obs.BA), LimitMs: nil, Pass: nil},
+		{BudgetID: string(obs.BB), LimitMs: floatPtr(2), Pass: boolPtr(false)},
+	}}
+	require.True(t, bbBreached.GateFailed(),
+		"a co-loaded run whose B-B breached must still fail: B-A is waived by --under-coload, B-B never is")
+
+	bbInside := Report{Budgets: []BudgetRow{
+		{BudgetID: string(obs.BA), LimitMs: nil, Pass: nil},
+		{BudgetID: string(obs.BB), LimitMs: floatPtr(2), Pass: boolPtr(true)},
+		{BudgetID: budgetIDBECPU, LimitMs: floatPtr(2000), Pass: boolPtr(true)},
+	}}
+	require.False(t, bbInside.GateFailed(), "a reported B-A row is not a failed one")
+}
+
+// TestBuildDaemonRows_UnderColoadReportsBAAndStillGatesBB pins the shape runHarness assembles
+// from the daemon's two histograms, without a daemon: with --under-coload the B-A row comes back
+// REPORTED (limit_ms/pass null, B-D's shape) with its disclosure in the notes, and B-B comes back
+// gated from the same call; without it both are gated and no waiver is disclosed. The same
+// snapshots go in both times, so the only thing that can differ is the gate.
+func TestBuildDaemonRows_UnderColoadReportsBAAndStillGatesBB(t *testing.T) {
+	cfg := config.Defaults()
+	baSnap := obs.HistSnapshot{
+		N: 2064, P50: 400 * time.Microsecond, P95: 1200 * time.Microsecond, P99: 2 * time.Millisecond,
+		P999: 3100 * time.Microsecond, Max: 4500 * time.Microsecond,
+	}
+	bbSnap := obs.HistSnapshot{
+		N: 2064, P50: 100 * time.Microsecond, P95: 310 * time.Microsecond, P99: 620 * time.Microsecond,
+		P999: 1100 * time.Microsecond, Max: 1900 * time.Microsecond,
+	}
+
+	ba, bb, notes := buildDaemonRows(cfg, baSnap, bbSnap, 0, 0, true)
+	require.Nil(t, ba.LimitMs, "--under-coload must leave B-A ungated")
+	require.Nil(t, ba.Pass)
+	require.InDelta(t, 2.0, ba.P99, 0.001, "the reported row still carries the number the gate would have read")
+	require.NotNil(t, bb.LimitMs, "B-B is gated in a co-loaded run")
+	require.InDelta(t, msf(budgetLimit(cfg, obs.BB)), *bb.LimitMs, 0.001)
+	require.NotNil(t, bb.Pass)
+	require.True(t, *bb.Pass)
+	require.Equal(t, []string{"", baWallWaivedNote(budgetLimit(cfg, obs.BA)), ""}, notes,
+		"a clean co-loaded run owes exactly one note — B-A's waiver — in row order")
+
+	ba, bb, notes = buildDaemonRows(cfg, baSnap, bbSnap, 0, 0, false)
+	require.NotNil(t, ba.LimitMs, "without the declaration B-A is the hard gate it has always been")
+	require.InDelta(t, msf(budgetLimit(cfg, obs.BA)), *ba.LimitMs, 0.001)
+	require.NotNil(t, ba.Pass)
+	require.True(t, *ba.Pass)
+	require.NotNil(t, bb.Pass)
+	require.True(t, *bb.Pass)
+	require.Equal(t, []string{"", ""}, notes, "a clean isolated run discloses nothing")
+}
+
+// TestBuildDaemonRows_UnderColoadKeepsTheShortfallAccounting pins that the waiver changes the
+// gate and nothing else: a deferred request still moves the reported B-A p99 to the sound upper
+// bound tailAdjustedP99 derives, and the tail-adjustment note is still emitted beside the waiver.
+func TestBuildDaemonRows_UnderColoadKeepsTheShortfallAccounting(t *testing.T) {
+	snap := obs.HistSnapshot{
+		N: 2063, P50: time.Millisecond, P95: 2 * time.Millisecond, P99: 3 * time.Millisecond,
+		P999: 22 * time.Millisecond, Max: 40 * time.Millisecond,
+	}
+	ba, _, notes := buildDaemonRows(config.Defaults(), snap, snap, 1, 1, true)
+	require.Nil(t, ba.Pass)
+	require.InDelta(t, 22.0, ba.P99, 0.001, "the reported field must carry the bound, exactly as the gated one would")
+	require.Len(t, notes, 3)
+	require.Contains(t, notes[0], "counted back in as over-budget samples")
+	require.Contains(t, notes[1], "--under-coload")
+	require.Contains(t, notes[2], "counted back in as over-budget samples")
+}
+
 // TestBuildBudgetRowFromSnapshot pins B-B's own construction path: unlike buildBudgetRow, there
 // are no raw samples — the daemon's own obs.HistSnapshot IS the source of truth, reported
 // verbatim.
