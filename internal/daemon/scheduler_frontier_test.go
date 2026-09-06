@@ -1,0 +1,555 @@
+package daemon
+
+// The plan's 12 scheduler_frontier_test.go cases (plans/V4-SP-12-scheduler-l3.md, "Test plan"):
+// segment close on the three tap boundaries, the SP-08-owns-the-first-open rule, O5 frontier
+// advancement over closed-and-unencoded segments through checkpoint.Writer, the DPI guard, the
+// residual-span accounting and its once-per-session over-budget warning, and the one case a fake
+// cannot catch — the "tokens" pseudo-feature reaching a REAL store.SegmentLog.
+//
+// Every case but the real-store one runs over the in-memory doubles of
+// scheduler_testhelpers_test.go through C1's rtFixture; all are parallel (none asserts the
+// process-wide p-selection gate).
+
+import (
+	"context"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/scheduler"
+	"github.com/qompack/qompack/internal/store"
+)
+
+// frontierSeq is the foreign checkpoint sequence the DPI test marks a segment under, so the
+// runtime's own draft (seq 1 from the fake writer) can never collide with it.
+const frontierForeignSeq core.CheckpointSeq = 99
+
+// newFrontierFixture is an rtFixture bound to rtSession with a fakeWriter over the fixture's own
+// segment log and a Sources func that hands the writer the fixture's store, log and graph — the
+// shape SP-10 will wire through SchedulerRuntimeOptions.Sources.
+func newFrontierFixture(t testing.TB, mods ...func(*rtFixture)) *rtFixture {
+	t.Helper()
+	all := append([]func(*rtFixture){func(fx *rtFixture) { fx.writer = newFakeWriter(fx.store.segs) }}, mods...)
+	fx := newRTFixture(t, all...)
+	fx.bind(rtSession)
+	fx.rt.mu.Lock()
+	fx.rt.sources = func() (checkpoint.SourceSet, error) {
+		return checkpoint.SourceSet{Store: fx.store, Segments: fx.store.segs, Graph: fx.graph}, nil
+	}
+	fx.rt.mu.Unlock()
+	return fx
+}
+
+// openSegment opens a segment of rtSession at start through the fixture's log (the SP-08 role).
+func openSegment(t testing.TB, fx *rtFixture, start core.TurnIndex) core.SegmentID {
+	t.Helper()
+	id, err := fx.store.segs.Open(context.Background(), store.Segment{Session: rtSession, StartTurn: start, StartTS: fx.now()})
+	require.NoError(t, err)
+	return id
+}
+
+// markEncoded marks ids encoded under seq directly on the fixture's log.
+func markEncoded(t testing.TB, fx *rtFixture, seq core.CheckpointSeq, ids ...core.SegmentID) {
+	t.Helper()
+	require.NoError(t, fx.store.segs.MarkEncoded(context.Background(), ids, seq))
+}
+
+// advance runs advanceFrontier and requires it to succeed.
+func advance(t testing.TB, fx *rtFixture) {
+	t.Helper()
+	require.NoError(t, fx.rt.advanceFrontier(context.Background()))
+}
+
+// residualOf reads the residual under the lock.
+func residualOf(fx *rtFixture) core.Tokens {
+	fx.rt.mu.Lock()
+	defer fx.rt.mu.Unlock()
+	return fx.rt.residual
+}
+
+// frontierOf reads the frontier under the lock.
+func frontierOf(fx *rtFixture) core.TurnIndex {
+	fx.rt.mu.Lock()
+	defer fx.rt.mu.Unlock()
+	return fx.rt.frontier
+}
+
+// kvValue finds key in a captured log entry's KV list.
+func kvValue(e logEntry, key string) (any, bool) {
+	for i := 0; i+1 < len(e.KV); i += 2 {
+		if k, ok := e.KV[i].(string); ok && k == key {
+			return e.KV[i+1], true
+		}
+	}
+	return nil, false
+}
+
+// ── Segment close on the tap's three boundaries ─────────────────────────────────────────────
+
+// assertCloseAndRoll drives CloseSegmentOn with the cause the tap derives from sig and asserts
+// the segment was closed at the turn, rolled into a successor, counted, and that the close
+// carried the open accumulator as the "tokens" pseudo-feature.
+func assertCloseAndRoll(t *testing.T, sig observer.Signals, wantCause string) {
+	t.Helper()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	ctx := context.Background()
+	first := openSegment(t, fx, 1)
+	fx.rt.AddOpenSegmentTokens(2_500)
+
+	cause := boundaryCause(sig)
+	require.Equal(t, wantCause, cause, "the tap maps the signal to this cause")
+	require.NoError(t, fx.rt.CloseSegmentOn(ctx, 7, scheduler.Features{PathJaccard: 0.5, ToolShift: 1}, cause))
+
+	closes := fx.store.segs.closeCalls
+	require.Len(t, closes, 1)
+	require.Equal(t, first, closes[0].ID)
+	require.Equal(t, core.TurnIndex(7), closes[0].EndTurn)
+	require.Equal(t, 2_500.0, closes[0].Feats[segTokensFeature], "the close carries Σ rec.Tokens as the tokens pseudo-feature")
+	for _, k := range []string{"path_jaccard", "tool_shift", "lexical_cohesion", "gap_seconds", "todo_transition", "prob_changepoint"} {
+		require.Contains(t, closes[0].Feats, k, "the five BOCD features plus the posterior")
+	}
+	require.Equal(t, 0.5, closes[0].Feats["path_jaccard"])
+
+	opens := fx.store.segs.openCalls
+	require.Len(t, opens, 2, "the fixture's open, then the roll-open")
+	require.Equal(t, core.TurnIndex(8), opens[1].StartTurn, "the successor starts at the close turn + 1")
+	require.Equal(t, rtSession, opens[1].Session)
+	require.Equal(t, fx.now(), opens[1].StartTS)
+
+	closed, err := fx.store.segs.Get(ctx, first)
+	require.NoError(t, err)
+	require.True(t, closed.Closed)
+	require.Equal(t, core.Tokens(2_500), closed.Tokens, "Segment.Tokens is written from the pseudo-feature")
+	cur, err := fx.store.segs.Current(ctx, rtSession)
+	require.NoError(t, err)
+	require.Equal(t, core.TurnIndex(8), cur.StartTurn, "the successor is the session's current segment")
+
+	require.Equal(t, int64(1), fx.counter(counterSegmentClosedPrefix+cause))
+	require.Equal(t, core.Tokens(0), fx.rt.openSegTokens, "the accumulator is reset after the roll-open")
+	require.True(t, fx.rt.dirty)
+	require.Zero(t, fx.log.count(logWarn))
+	require.Zero(t, fx.log.count(logLoud))
+}
+
+func TestFrontier_CloseOnTodoCompleted(t *testing.T) {
+	t.Parallel()
+	assertCloseAndRoll(t, observer.Signals{TodoCompleted: true}, causeTodo)
+}
+
+func TestFrontier_CloseOnTestPassed(t *testing.T) {
+	t.Parallel()
+	assertCloseAndRoll(t, observer.Signals{TestPassed: true}, causeTest)
+}
+
+func TestFrontier_CloseOnGitCommit(t *testing.T) {
+	t.Parallel()
+	assertCloseAndRoll(t, observer.Signals{GitCommit: true}, causeCommit)
+}
+
+func TestFrontier_NoCloseWithoutCurrentSegment(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	ctx := context.Background()
+	fx.rt.AddOpenSegmentTokens(300)
+
+	require.NoError(t, fx.rt.CloseSegmentOn(ctx, 4, scheduler.Features{}, causeTodo), "Current ⇒ ErrNotFound is not an error")
+	require.Empty(t, fx.store.segs.closeCalls)
+	require.Empty(t, fx.store.segs.openCalls, "SP-08 owns the session's first Open")
+	require.Zero(t, fx.counter(counterSegmentClosedPrefix+causeTodo))
+	require.Equal(t, core.Tokens(300), fx.rt.openSegTokens, "nothing was closed, so nothing is reset")
+
+	// A close BEFORE the open segment's own start turn is refused the same silent way.
+	openSegment(t, fx, 10)
+	require.NoError(t, fx.rt.CloseSegmentOn(ctx, 4, scheduler.Features{}, causeTest))
+	require.Empty(t, fx.store.segs.closeCalls)
+	require.Len(t, fx.store.segs.openCalls, 1, "only the fixture's own open")
+
+	// And the whole mechanism is off when the frontier is not advanced on close.
+	off := newRTFixture(t, func(fx *rtFixture) { fx.cfg.Checkpoint.Frontier.AdvanceOnSegmentClose = false })
+	off.bind(rtSession)
+	openSegment(t, off, 1)
+	require.NoError(t, off.rt.CloseSegmentOn(ctx, 5, scheduler.Features{}, causeCommit))
+	require.Empty(t, off.store.segs.closeCalls)
+	require.Len(t, off.store.segs.openCalls, 1)
+}
+
+// ── O5 frontier advancement ─────────────────────────────────────────────────────────────────
+
+func TestFrontier_AdvanceCallsWriterWithClosedUnencodedOnly(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	ctx := context.Background()
+	segs := fx.store.segs
+
+	// Inserted out of turn order on purpose: B (turns 4–6) gets a lower ID than A (turns 1–3),
+	// so an implementation that forwards Unencoded's ID order would hand the writer [B, A].
+	b := segs.addSegment(t, rtSession, 4, 6, 800)
+	a := segs.addSegment(t, rtSession, 1, 3, 1_000)
+	open := openSegment(t, fx, 10)
+	d := segs.addSegment(t, rtSession, 7, 8, 500)
+	e := segs.addSegment(t, rtSession, 9, 9, 200)
+	markEncoded(t, fx, frontierForeignSeq, d, e)
+	fx.rt.NoteAPIRound(10)
+
+	advance(t, fx)
+
+	require.Equal(t, [][]core.SegmentID{{a, b}}, fx.writer.advanceCalls, "exactly the closed+unencoded ids, ascending by StartTurn")
+	require.Len(t, fx.writer.beginCalls, 1, "the draft is opened lazily, once")
+	require.Equal(t, writerBeginCall{Session: rtSession, Parent: 0}, fx.writer.beginCalls[0])
+	require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the frontier is what Advance returned")
+	require.NotNil(t, fx.rt.draft, "the draft stays open for the next idle window")
+	require.True(t, fx.rt.dirty)
+	require.Equal(t, uint64(1), fx.rt.frontierRuns)
+
+	for _, id := range []core.SegmentID{a, b} {
+		seg, err := segs.Get(ctx, id)
+		require.NoError(t, err)
+		require.True(t, seg.EncodedOnce, "segment %d encoded through the writer", id)
+		require.Equal(t, core.CheckpointSeq(1), seg.CheckpointSeq)
+	}
+	cur, err := segs.Get(ctx, open)
+	require.NoError(t, err)
+	require.False(t, cur.EncodedOnce, "the open segment is never encoded")
+	require.Zero(t, fx.counter(counterFrontierNoWriter))
+	require.Zero(t, fx.log.count(logLoud))
+	require.Zero(t, fx.log.count(logWarn))
+}
+
+func TestFrontier_AdvanceNoWriterIsNoOp(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	fx.rt.NoteAPIRound(3)
+
+	advance(t, fx)
+	require.Equal(t, int64(1), fx.counter(counterFrontierNoWriter), "ckpt == nil is the Rule W-2 posture, counted")
+	require.Zero(t, frontierOf(fx))
+	require.Equal(t, uint64(1), fx.rt.frontierRuns, "the run is still a run for the starvation counter")
+
+	// A writer without a Sources func is the same posture.
+	w := newFakeWriter(fx.store.segs)
+	fx.rt.mu.Lock()
+	fx.rt.ckpt = w
+	fx.rt.mu.Unlock()
+	advance(t, fx)
+	require.Equal(t, int64(2), fx.counter(counterFrontierNoWriter))
+	require.Empty(t, w.beginCalls)
+
+	// And a Sources func that errors: counter, Warn, return nil.
+	fx.rt.mu.Lock()
+	fx.rt.sources = func() (checkpoint.SourceSet, error) { return checkpoint.SourceSet{}, context.DeadlineExceeded }
+	fx.rt.mu.Unlock()
+	advance(t, fx)
+	require.Equal(t, int64(3), fx.counter(counterFrontierNoWriter))
+	require.Empty(t, w.beginCalls, "Begin is never reached without a SourceSet")
+	require.Equal(t, 1, fx.log.count(logWarn))
+	require.Zero(t, fx.log.count(logLoud))
+}
+
+func TestFrontier_AdvanceIdempotent(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 5, 400)
+	openSegment(t, fx, 6)
+	fx.rt.NoteAPIRound(6)
+
+	advance(t, fx)
+	require.Equal(t, core.TurnIndex(5), frontierOf(fx))
+	draft := fx.rt.draft
+
+	advance(t, fx)
+	require.Equal(t, core.TurnIndex(5), frontierOf(fx), "the second call moves nothing")
+	require.Equal(t, [][]core.SegmentID{{a, b}}, fx.writer.advanceCalls, "nothing left to encode ⇒ Advance is not called again")
+	require.Len(t, fx.store.segs.markCalls, 1)
+	require.Len(t, fx.writer.beginCalls, 1)
+	require.Same(t, draft, fx.rt.draft, "the same draft is kept open")
+	require.Zero(t, fx.writer.abortCalls)
+	require.Zero(t, fx.log.count(logLoud))
+	require.Zero(t, fx.log.count(logWarn))
+}
+
+// dpiWriter models the one real way a §4.6 violation reaches Advance with ids that came from
+// Unencoded: something else (a PreCompact finalize under another seq) marks a segment encoded
+// between the runtime's Unencoded call and the writer's MarkEncoded. The FIRST armed id in the
+// batch is flipped in the log under frontierForeignSeq the moment it is handed to Advance (one
+// per call, so a retry can hit a second one), and the wrapped fakeWriter's own MarkEncoded then
+// refuses it with core.ErrAlreadyEncoded.
+type dpiWriter struct {
+	*fakeWriter
+	log *fakeSegmentLog
+	arm map[core.SegmentID]bool
+}
+
+func (w *dpiWriter) Advance(ctx context.Context, d *checkpoint.Draft, ids []core.SegmentID) (core.TurnIndex, error) {
+	for _, id := range ids {
+		if w.arm[id] {
+			delete(w.arm, id)
+			if err := w.log.MarkEncoded(ctx, []core.SegmentID{id}, frontierForeignSeq); err != nil {
+				return 0, err
+			}
+			break
+		}
+	}
+	return w.fakeWriter.Advance(ctx, d, ids)
+}
+
+func TestFrontier_DPIGuardViolationDropsBatchAndNeverReEncodes(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	ctx := context.Background()
+	segs := fx.store.segs
+	dw := &dpiWriter{fakeWriter: fx.writer, log: segs, arm: map[core.SegmentID]bool{}}
+	fx.rt.mu.Lock()
+	fx.rt.ckpt = dw
+	fx.rt.mu.Unlock()
+
+	s1 := segs.addSegment(t, rtSession, 1, 2, 100)
+	s2 := segs.addSegment(t, rtSession, 3, 4, 100)
+	s3 := segs.addSegment(t, rtSession, 5, 6, 100)
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+
+	// One violation: s2 is refused, dropped, and the remainder is retried once.
+	dw.arm[s2] = true
+	advance(t, fx)
+	require.Equal(t, 1, fx.log.count(logLoud), "one Loud per violation")
+	require.Equal(t, msgDPIGuard, fx.log.msgs(logLoud)[0])
+	require.Equal(t, [][]core.SegmentID{{s1, s2, s3}, {s1, s3}}, fx.writer.advanceCalls, "retry with the remainder")
+	require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the frontier advances for the clean ids")
+	require.Zero(t, fx.writer.abortCalls, "one violation does not abandon the draft")
+	for _, id := range []core.SegmentID{s1, s3} {
+		seg, err := segs.Get(ctx, id)
+		require.NoError(t, err)
+		require.Equal(t, core.CheckpointSeq(1), seg.CheckpointSeq, "clean segment %d encoded under the draft's seq", id)
+	}
+	refused, err := segs.Get(ctx, s2)
+	require.NoError(t, err)
+	require.Equal(t, frontierForeignSeq, refused.CheckpointSeq, "the refused segment keeps its first encoding: never re-encoded")
+	require.Equal(t, []segMarkCall{
+		{IDs: []core.SegmentID{s2}, Seq: frontierForeignSeq}, // the foreign encoder
+		{IDs: []core.SegmentID{s1, s2, s3}, Seq: 1},          // refused atomically: nothing marked
+		{IDs: []core.SegmentID{s1, s3}, Seq: 1},              // the one retry, without the offender
+	}, segs.markCalls, "the log is asked once with the offender (refused) and once without; never a re-encode")
+
+	// A second violation in the same window abandons the draft and leaves the frontier alone.
+	draft := fx.rt.draft
+	s4 := segs.addSegment(t, rtSession, 8, 9, 100)
+	s5 := segs.addSegment(t, rtSession, 10, 11, 100)
+	fx.rt.NoteAPIRound(11)
+	dw.arm[s4], dw.arm[s5] = true, true
+	advance(t, fx)
+	require.Equal(t, 3, fx.log.count(logLoud), "the first violation and its recurrence are both Loud")
+	require.Equal(t, 1, fx.writer.abortCalls, "the recurrence aborts the draft")
+	require.Nil(t, fx.rt.draft)
+	require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the frontier stays where it was")
+	require.NotNil(t, draft)
+	for _, id := range []core.SegmentID{s4, s5} {
+		seg, err := segs.Get(ctx, id)
+		require.NoError(t, err)
+		require.Equal(t, frontierForeignSeq, seg.CheckpointSeq, "segment %d was never re-encoded from a checkpoint", id)
+	}
+
+	// The next window opens a fresh draft chained to the same parent and carries on.
+	s6 := segs.addSegment(t, rtSession, 12, 12, 100)
+	fx.rt.NoteAPIRound(12)
+	advance(t, fx)
+	require.Len(t, fx.writer.beginCalls, 2)
+	require.Equal(t, core.TurnIndex(12), frontierOf(fx))
+	seg, err := segs.Get(ctx, s6)
+	require.NoError(t, err)
+	require.True(t, seg.EncodedOnce)
+
+	// A writer that refuses on its own state (A3's alreadyEncoded hook) cannot be attributed
+	// through the log: the retry recurs, the draft is abandoned, nothing is encoded.
+	own := newFrontierFixture(t)
+	o1 := own.store.segs.addSegment(t, rtSession, 1, 2, 100)
+	o2 := own.store.segs.addSegment(t, rtSession, 3, 4, 100)
+	own.rt.NoteAPIRound(4)
+	own.writer.alreadyEncoded[o2] = true
+	advance(t, own)
+	require.Equal(t, 2, own.log.count(logLoud))
+	require.Equal(t, 1, own.writer.abortCalls)
+	require.Zero(t, frontierOf(own))
+	require.Empty(t, own.store.segs.markCalls, "nothing reached MarkEncoded")
+	for _, id := range []core.SegmentID{o1, o2} {
+		seg, err := own.store.segs.Get(ctx, id)
+		require.NoError(t, err)
+		require.False(t, seg.EncodedOnce)
+	}
+}
+
+func TestFrontier_CloseWritesRealSegmentTokens(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	root := t.TempDir()
+	clk := newFakeClock(epoch)
+	log := newRecordingLogger()
+	st, err := store.Open(root, config.Defaults(), store.Deps{Log: log, Clock: clk})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = st.Close() })
+	reg := obs.New(clk)
+
+	rt, err := NewSchedulerRuntime(SchedulerRuntimeOptions{
+		ProjectRoot: root, Cfg: config.Defaults(), Clock: clk, Log: log, Metrics: reg,
+		Store: st, Graph: newFakeGraph(),
+	})
+	require.NoError(t, err)
+	t.Cleanup(scheduler.DisablePSelection)
+	r, ok := rt.(*schedRuntime)
+	require.True(t, ok, "NewSchedulerRuntime returns the daemon's own runtime")
+	r.BindSession(rtSession, nil)
+
+	// SP-08's first open, then 4 000 tokens of tool use observed THROUGH THE TAP.
+	id, err := st.Segments().Open(ctx, store.Segment{
+		Session: rtSession, StartTurn: 0, StartTS: core.NowMilli(clk), Features: map[string]float64{},
+	})
+	require.NoError(t, err)
+	rec := store.ToolUseRecord{
+		ID: "toolu_real", Session: rtSession, Turn: 3, TS: core.NowMilli(clk) + 5_000, Tool: "Read",
+		ArgsPreview: "read src/a.go", Path: "src/a.go", Tokens: 4_000, Status: store.StatusOK,
+	}
+	require.NoError(t, st.RecordToolUse(ctx, rec))
+	s := &Services{}
+	WrapServicesForScheduler(s, r, SchedulerRuntimeOptions{Log: log, Metrics: reg})
+	require.NoError(t, s.ObserveTool(ctx, tapToolEvent("toolu_real", "Read", `{"file_path":"src/a.go"}`, "")))
+	require.Equal(t, core.Tokens(4_000), r.openSegTokens)
+
+	r.mu.Lock()
+	err = r.closeSegmentLocked(ctx, 3, scheduler.Features{PathJaccard: 1}, causeTest)
+	r.mu.Unlock()
+	require.NoError(t, err)
+
+	seg, err := st.Segments().Get(ctx, id)
+	require.NoError(t, err)
+	require.True(t, seg.Closed)
+	require.Equal(t, core.Tokens(4_000), seg.Tokens, "feats[\"tokens\"] is the only writer of Segment.Tokens")
+	require.NotContains(t, seg.Features, "tokens", "the pseudo-feature is lifted off the BOCD summary")
+	require.Equal(t, 1.0, seg.Features["path_jaccard"])
+	for _, m := range log.msgs(logWarn) {
+		require.NotContains(t, m, "without a tokens feature", "the store must not warn about a missing tokens feature")
+	}
+	require.Zero(t, log.count(logLoud))
+
+	cur, err := st.Segments().Current(ctx, rtSession)
+	require.NoError(t, err)
+	require.Equal(t, core.TurnIndex(4), cur.StartTurn, "rolled open in the real log")
+	require.Equal(t, core.Tokens(0), r.openSegTokens)
+	require.Equal(t, int64(1), reg.Counter(counterSegmentClosedPrefix+causeTest).Value())
+
+	// The closed segment's tokens now reach Evaluate through the real Range.
+	r.NoteAPIRound(4)
+	d, err := r.Evaluate(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 4_000.0, d.Breakdown["context_tokens"])
+}
+
+// ── Residual accounting ─────────────────────────────────────────────────────────────────────
+
+func TestFrontier_ResidualRecomputed(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	segs := fx.store.segs
+	e1 := segs.addSegment(t, rtSession, 1, 2, 20_000)
+	e2 := segs.addSegment(t, rtSession, 3, 4, 11_000)
+	segs.addSegment(t, rtSession, 5, 6, 5_000) // closed, not yet encoded
+	markEncoded(t, fx, frontierForeignSeq, e1, e2)
+	fx.rt.NoteAPIRound(6)
+	fx.rt.AddOpenSegmentTokens(4_000)
+
+	fx.rt.mu.Lock()
+	fx.rt.recomputeResidualLocked(context.Background())
+	fx.rt.mu.Unlock()
+
+	require.Equal(t, core.Tokens(40_000), fx.rt.contextTokens, "closed Σ plus the open accumulator")
+	require.Equal(t, core.Tokens(9_000), residualOf(fx), "context 40 000 − encoded 31 000")
+}
+
+func TestFrontier_ResidualNeverNegative(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	segs := fx.store.segs
+	e1 := segs.addSegment(t, rtSession, 1, 2, 20_000)
+	markEncoded(t, fx, frontierForeignSeq, e1)
+	// An encoded segment the context sum does not count. The real DPI guard refuses to mark an
+	// open segment, so this shape cannot arise from the log itself; it is the one arithmetic
+	// input under which Σ encoded exceeds contextTokens, which is exactly what the clamp guards.
+	segs.mu.Lock()
+	segs.insertLocked(store.Segment{Session: rtSession, StartTurn: 3, Tokens: 25_000, EncodedOnce: true, CheckpointSeq: frontierForeignSeq})
+	segs.mu.Unlock()
+	fx.rt.NoteAPIRound(4)
+	fx.rt.AddOpenSegmentTokens(1_000)
+
+	fx.rt.mu.Lock()
+	fx.rt.recomputeResidualLocked(context.Background())
+	fx.rt.mu.Unlock()
+
+	require.Equal(t, core.Tokens(21_000), fx.rt.contextTokens)
+	require.Equal(t, core.Tokens(0), residualOf(fx), "encoded 45 000 > context 21 000 clamps to zero")
+}
+
+func TestFrontier_ResidualOverBudgetWarnsOnce(t *testing.T) {
+	t.Parallel()
+	const maxResidual = 20_000
+
+	t.Run("nothing to encode", func(t *testing.T) {
+		t.Parallel()
+		fx := newFrontierFixture(t)
+		require.Equal(t, maxResidual, fx.cfg.Checkpoint.Frontier.MaxResidualTokens, "Appendix C")
+		openSegment(t, fx, 1)
+		fx.rt.NoteAPIRound(1)
+		fx.rt.AddOpenSegmentTokens(25_000)
+
+		advance(t, fx)
+		advance(t, fx)
+
+		require.Equal(t, core.Tokens(25_000), residualOf(fx))
+		require.Empty(t, fx.writer.advanceCalls, "nothing closed ⇒ nothing to encode")
+		warns := fx.log.entries(logWarn)
+		require.Len(t, warns, 1, "exactly one Warn per session, on the empty-batch path too")
+		require.Equal(t, msgResidualOverBudget, warns[0].Msg)
+		n, ok := kvValue(warns[0], "unencodedClosed")
+		require.True(t, ok)
+		require.Equal(t, 0, n)
+		require.Equal(t, int64(1), fx.reg.Gauge(gaugeResidualOverBudget).Value())
+		require.True(t, fx.rt.residualWarned)
+	})
+
+	t.Run("three-segment backlog", func(t *testing.T) {
+		t.Parallel()
+		fx := newFrontierFixture(t)
+		segs := fx.store.segs
+		segs.addSegment(t, rtSession, 1, 2, 1_000)
+		segs.addSegment(t, rtSession, 3, 4, 1_000)
+		segs.addSegment(t, rtSession, 5, 6, 1_000)
+		openSegment(t, fx, 7)
+		fx.rt.NoteAPIRound(7)
+		fx.rt.AddOpenSegmentTokens(25_000)
+
+		advance(t, fx)
+		advance(t, fx)
+
+		require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the backlog was encoded")
+		require.Equal(t, core.Tokens(25_000), residualOf(fx), "the open segment alone is over budget")
+		warns := fx.log.entries(logWarn)
+		require.Len(t, warns, 1, "a backlog must not suppress the warning, and it fires once")
+		require.Equal(t, msgResidualOverBudget, warns[0].Msg)
+		n, ok := kvValue(warns[0], "unencodedClosed")
+		require.True(t, ok)
+		require.Equal(t, 3, n, "the line carries the backlog length")
+		ft, ok := kvValue(warns[0], "frontierTurn")
+		require.True(t, ok)
+		require.Equal(t, 6, ft)
+		require.Equal(t, int64(1), fx.reg.Gauge(gaugeResidualOverBudget).Value())
+	})
+}

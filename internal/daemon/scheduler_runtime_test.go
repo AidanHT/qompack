@@ -757,8 +757,12 @@ func rtExercise(t *testing.T, fx *rtFixture) {
 	t0 := fx.now()
 	fx.rt.NotifyActivity(t0)
 	fx.rt.AddOpenSegmentTokens(4_000)
-	fx.rt.NotifyActivity(t0 + 60_000)
-	fx.rt.NoteRequestStart(t0 + 60_000)
+	// The clock advances with the stamps: a restart shares this clock (withRoot), and ruling
+	// R59 clamps any restored stamp that is later than it.
+	fx.clock.Advance(time.Minute)
+	t1 := fx.now()
+	fx.rt.NotifyActivity(t1)
+	fx.rt.NoteRequestStart(t1)
 	fx.rt.mu.Lock()
 	fx.rt.frontier, fx.rt.residual, fx.rt.lastCheckpointSeq = 33, 9_120, 2
 	fx.rt.mu.Unlock()
@@ -823,6 +827,72 @@ func TestRuntime_PersistRoundTrip(t *testing.T) {
 	require.Equal(t, a.rt.openSegTokens, b.rt.openSegTokens)
 	require.Zero(t, b.log.count(logWarn))
 	require.Zero(t, b.log.count(logLoud))
+}
+
+// TestRuntime_PersistRoundTrip_FutureStampRepaired is ruling R59: a parsable document whose
+// stamps are later than the clock, or whose counters are out of range, must not wedge the
+// restarted runtime — the stamps clamp to now, the counters to their floors, the EWMAs to
+// unmeasured — and one Warn says so.
+func TestRuntime_PersistRoundTrip_FutureStampRepaired(t *testing.T) {
+	t.Parallel()
+	a := newRTFixture(t)
+	a.bind(rtSession)
+	rtExercise(t, a)
+	require.NoError(t, a.rt.Persist(context.Background()))
+
+	// Hand-edit the document: every stamp a day ahead of the clock, negative counters, a burn
+	// EWMA that is negative and a δ EWMA that claims samples it has no value for.
+	raw, err := os.ReadFile(a.statePath(stateFileScheduler))
+	require.NoError(t, err)
+	var m map[string]any
+	require.NoError(t, json.Unmarshal(raw, &m))
+	future := int64(a.now()) + int64(24*time.Hour/time.Millisecond)
+	for _, k := range []string{"session_start_ts", "last_compaction_ts", "last_api_call_ts", "last_cache_write_ts", "last_request_start_ts"} {
+		require.Contains(t, m, k)
+		m[k] = future
+	}
+	m["open_segment_tokens"] = -5
+	m["residual_tokens"] = -7
+	m["burn_ewma_tokens_per_min"] = -1.0
+	m["delta_ewma_seconds"] = 0.0
+	m["delta_samples"] = 3
+	out, err := json.Marshal(m)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(a.statePath(stateFileScheduler), out, 0o600))
+
+	b := newRTFixture(t, withRoot(a))
+	b.bind(rtSession)
+	now := b.now()
+	require.Equal(t, now, b.rt.lastAPICallTS, "a future stamp clamps to the clock")
+	require.Equal(t, now, b.rt.lastActivity)
+	require.Equal(t, now, b.rt.lastCompactionTS)
+	require.Equal(t, now, b.rt.lastCacheWriteTS)
+	require.Equal(t, now, b.rt.lastRequestStartTS)
+	require.Equal(t, now, b.rt.sessionStartTS)
+	require.Zero(t, b.rt.openSegTokens)
+	require.Zero(t, b.rt.residual)
+	require.Zero(t, b.rt.burnEWMA)
+	require.Zero(t, b.rt.burnSamples)
+	require.Zero(t, b.rt.deltaEWMA)
+	require.Zero(t, b.rt.deltaSamples)
+	require.Nil(t, b.rt.deltaPtr(), "an inconsistent δ pair restores as unmeasured")
+	require.Equal(t, []string{msgStateRepaired}, b.log.msgs(logWarn), "exactly one Warn names the repair")
+	require.Zero(t, b.log.count(logLoud))
+	require.Equal(t, a.rt.cpTurns, b.rt.cpTurns, "the sane fields still round-trip")
+	require.Equal(t, a.rt.det.State(), b.rt.det.State())
+
+	// The restarted runtime is live: real activity is accepted, idleness is reported once the
+	// detect-after window has elapsed since it, and the TTL gap is measured from the clamped
+	// anchor rather than pinned at 0.
+	b.rt.NotifyActivity(now + 1_000)
+	require.Equal(t, now+1_000, b.rt.lastActivity, "NotifyActivity with a real now is accepted")
+	after := time.Duration(b.cfg.Scheduler.Idle.DetectAfterSeconds) * time.Second
+	b.clock.Advance(after + 2*time.Second)
+	since, idle := b.rt.IdleSince()
+	require.Equal(t, now+1_000, since)
+	require.True(t, idle, "IdleSince fires after the restart")
+	d := b.evaluate(t)
+	require.Positive(t, d.Breakdown["idle_gap_seconds"])
 }
 
 func TestRuntime_StateDiscardedOnSessionMismatch(t *testing.T) {
@@ -1094,4 +1164,50 @@ func TestRuntime_ConcurrentObserveEvaluatePersist(t *testing.T) {
 	}
 	require.NoError(t, fx.rt.Persist(ctx))
 	require.FileExists(t, fx.statePath(stateFileScheduler))
+}
+
+func TestRuntime_OpenSegmentTokensResetOnClose(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	ctx := context.Background()
+	_, err := fx.store.segs.Open(ctx, store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+
+	fx.rt.AddOpenSegmentTokens(4_000)
+	fx.rt.mu.Lock()
+	err = fx.rt.closeSegmentLocked(ctx, 5, scheduler.Features{PathJaccard: 1}, "test")
+	fx.rt.mu.Unlock()
+	require.NoError(t, err)
+
+	closes := fx.store.segs.closeCalls
+	require.Len(t, closes, 1, "closeSegmentLocked is C2's (scheduler_frontier.go); red against C1's stub by design")
+	require.Equal(t, 4_000.0, closes[0].Feats[segTokensFeature], "the close carries the open accumulator as the tokens pseudo-feature")
+	require.Equal(t, core.Tokens(0), fx.rt.openSegTokens, "the successor starts empty")
+
+	fx.rt.AddOpenSegmentTokens(1_500)
+	fx.rt.NoteAPIRound(5)
+	d := fx.evaluate(t)
+	require.Equal(t, 5_500.0, d.Breakdown["context_tokens"], "4 000 now closed + 1 500 open, no double count")
+}
+
+func TestRuntime_ObserveClosesSegmentOnChangepoint(t *testing.T) {
+	t.Parallel()
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+	_, err := fx.store.segs.Open(context.Background(), store.Segment{Session: rtSession, StartTurn: 0})
+	require.NoError(t, err)
+
+	declared := declaredTurns(fx.feed(rtStepSeries(200, rtStepShift)))
+	require.Len(t, declared, 1)
+	at := declared[0]
+
+	closes := fx.store.segs.closeCalls
+	require.Len(t, closes, 1, "closeSegmentLocked is C2's (scheduler_frontier.go); red against C1's stub by design")
+	require.Equal(t, core.SegmentID(1), closes[0].ID)
+	require.Equal(t, at, closes[0].EndTurn)
+	opens := fx.store.segs.openCalls
+	require.Len(t, opens, 2, "the fixture's open, then the roll-open")
+	require.Equal(t, at+1, opens[1].StartTurn)
+	require.Equal(t, rtSession, opens[1].Session)
 }

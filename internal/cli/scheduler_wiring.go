@@ -45,9 +45,36 @@ func wireScheduler(opts *daemon.Options, getenv func(string) string) (scheduler.
 }
 
 // registerSchedulerIdle is Block 3 (idle registration), called immediately after daemon.New
-// succeeds. Commit 6 (C2) fills the body with daemon.RegisterSchedulerIdleWork; until then a
-// constructed runtime observes and persists but runs no O3/O5 background work.
+// succeeds: SP-12's six O3/O5 tasks join SP-05's controller behind the Background gate. A nil
+// sched means Block 1 already logged why L3 is disabled; a registration failure is Loud and
+// leaves a runtime that observes and persists but runs no background work — never an error out
+// of runDaemon.
 func registerSchedulerIdle(d daemon.Daemon, sched scheduler.Runtime, o daemon.SchedulerRuntimeOptions) {
-	// filled by commit 6 (C2)
-	_, _, _ = d, sched, o
+	if sched == nil {
+		return
+	}
+	if err := daemon.RegisterSchedulerIdleWork(d, sched, o); err != nil {
+		wiringLog(o).Loud("scheduler idle work not registered", "err", err.Error())
+	}
+}
+
+// closeScheduler is the daemon's shutdown path for L3 (ruling R52): deferred in runDaemon right
+// after registration, it persists the scheduler's state, releases the p-selection gate and
+// aborts an open draft once d.Run has returned. Without it a daemon stopped mid-session loses
+// everything since the last idle persist. nil-safe; a failure is a Warn, never an exit code.
+func closeScheduler(sched scheduler.Runtime, o daemon.SchedulerRuntimeOptions) {
+	if sched == nil {
+		return
+	}
+	if err := daemon.CloseSchedulerRuntime(sched); err != nil {
+		wiringLog(o).Warn("scheduler runtime close at daemon shutdown failed", "err", err.Error())
+	}
+}
+
+// wiringLog is the options' logger, or a Nop when none was wired.
+func wiringLog(o daemon.SchedulerRuntimeOptions) logging.Logger {
+	if o.Log != nil {
+		return o.Log
+	}
+	return logging.Nop()
 }

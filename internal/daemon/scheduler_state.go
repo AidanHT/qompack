@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,6 +32,7 @@ const (
 	msgStateOtherSession      = "scheduler: state from another session discarded"
 	msgStateModelShapeChanged = "scheduler: detector state discarded, model shape changed"
 	msgStateUnreadable        = "scheduler state unreadable, restarting detector"
+	msgStateRepaired          = "scheduler: persisted state out of range, repaired on load"
 )
 
 // bocdStateDoc is state/bocd.json. State is the standard-base64 encoding of
@@ -330,15 +332,37 @@ func (r *schedRuntime) restoreSchedulerLocked(raw []byte, p string) {
 		r.log.Info(msgStateOtherSession, "path", p, "file_session", string(doc.Session), "session", string(r.session))
 		return
 	}
-	if doc.SessionStartTS > 0 {
-		r.sessionStartTS = doc.SessionStartTS
+	// Ruling R59: a document that parses is not a document that is sane. A stamp later than the
+	// clock — a wall clock stepped back, a machine restored from a snapshot, a .qompack tree
+	// copied between hosts, a hand-edited file — would make NotifyActivity's monotone guard
+	// drop every real activity, hold IdleSince at "never idle", pin the TTL gap at 0 (always
+	// warm) and keep the burn clock from starting until real time caught up with the stamp.
+	// Every restored timestamp is therefore CLAMPED to now rather than dropped: the fact the
+	// stamp carries ("recently active") survives, the anchors keep their ordering, and the
+	// first activity after the restart — later than now — is accepted and restarts the clocks.
+	// Negative counters are clamped to zero. An EWMA that is not finite, not positive, or
+	// disagrees with its sample count is restored as unmeasured — the state a fresh session has
+	// (deltaPtr answers nil, a zero burn disables mtbfSeconds) — because Evaluate would sanitise
+	// the number to 0 anyway while /qompack:status would present it as a measurement. One Warn
+	// per restore names what was repaired, at the level the neighbouring self-heal branches use.
+	now := r.nowMS()
+	var futureStamps, negativeCounters, unmeasuredEWMAs int
+	clampTS := func(ts core.UnixMilli) core.UnixMilli {
+		if ts > now {
+			futureStamps++
+			return now
+		}
+		return ts
 	}
-	r.lastCompactionTS = doc.LastCompactionTS
-	r.lastAPICallTS = doc.LastAPICallTS
-	r.lastCacheWriteTS = doc.LastCacheWriteTS
-	r.lastRequestStartTS = doc.LastRequestStartTS
-	r.deltaEWMA, r.deltaSamples = doc.DeltaEWMASeconds, doc.DeltaSamples
-	r.burnEWMA, r.burnSamples = doc.BurnEWMATokensPerMin, doc.BurnSamples
+	if doc.SessionStartTS > 0 {
+		r.sessionStartTS = clampTS(doc.SessionStartTS)
+	}
+	r.lastCompactionTS = clampTS(doc.LastCompactionTS)
+	r.lastAPICallTS = clampTS(doc.LastAPICallTS)
+	r.lastCacheWriteTS = clampTS(doc.LastCacheWriteTS)
+	r.lastRequestStartTS = clampTS(doc.LastRequestStartTS)
+	r.deltaEWMA, r.deltaSamples = restoredEWMA(doc.DeltaEWMASeconds, doc.DeltaSamples, &unmeasuredEWMAs)
+	r.burnEWMA, r.burnSamples = restoredEWMA(doc.BurnEWMATokensPerMin, doc.BurnSamples, &unmeasuredEWMAs)
 	r.cpTurns = r.cpTurns[:0]
 	for _, t := range doc.ChangepointTurns {
 		r.recordChangepointLocked(t)
@@ -348,15 +372,50 @@ func (r *schedRuntime) restoreSchedulerLocked(raw []byte, p string) {
 	for _, t := range doc.RoundTurns {
 		r.rounds[t] = struct{}{}
 	}
+	if doc.MaxTurn < 0 {
+		negativeCounters++
+		doc.MaxTurn = 0
+	}
+	if doc.OpenSegmentTokens < 0 {
+		negativeCounters++
+		doc.OpenSegmentTokens = 0
+	}
+	if doc.FrontierTurn < 0 {
+		negativeCounters++
+		doc.FrontierTurn = 0
+	}
+	if doc.ResidualTokens < 0 {
+		negativeCounters++
+		doc.ResidualTokens = 0
+	}
 	r.maxTurn = doc.MaxTurn
 	r.openSegTokens = doc.OpenSegmentTokens
 	// contextTokens is NOT taken from the document: BindSession recomputes it from the segment
 	// log (closed segments + this open accumulator) right after the load, and re-baselines the
-	// burn clock on the result. lastActivity follows the restored API-call anchor so the
-	// monotone guard in NotifyActivity keeps protecting it after a restart.
-	r.lastActivity = doc.LastAPICallTS
+	// burn clock on the result. lastActivity follows the restored (clamped) API-call anchor so
+	// the monotone guard in NotifyActivity keeps protecting it after a restart.
+	r.lastActivity = r.lastAPICallTS
 	r.frontier = doc.FrontierTurn
 	r.residual = doc.ResidualTokens
 	r.lastCheckpointSeq = doc.LastCheckpointSeq
 	r.lastDecision = docToDecision(doc.LastDecision)
+	if futureStamps+negativeCounters+unmeasuredEWMAs > 0 {
+		r.log.Warn(msgStateRepaired, "path", p, "future_timestamps", futureStamps,
+			"negative_counters", negativeCounters, "unmeasured_ewmas", unmeasuredEWMAs)
+	}
+}
+
+// restoredEWMA returns (v, samples) when the pair describes a measurement — a finite positive
+// value with a positive sample count — or the unmeasured pair (0, 0) it was persisted as. Any
+// other pair (a value with no samples, samples with no value, a negative count, NaN, ±Inf) is
+// inconsistent: it is counted on *repaired and restores as unmeasured. Both EWMAs only ever
+// fold positive samples (NotifyActivity, RecordCompactionCost, refreshDeltaTask), so a
+// measured value is positive by construction.
+func restoredEWMA(v float64, samples int, repaired *int) (float64, int) {
+	measured := samples > 0 && v > 0 && !math.IsInf(v, 0)
+	if measured || (samples == 0 && v == 0) {
+		return v, samples
+	}
+	*repaired++
+	return 0, 0
 }

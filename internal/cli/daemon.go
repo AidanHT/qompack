@@ -126,6 +126,7 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		daemon.RegisterObserverIdleWork(d, obsv)
 	}
 	registerSchedulerIdle(d, sched, schedOpts)
+	defer closeScheduler(sched, schedOpts)
 
 	if *foreground {
 		fmt.Fprintf(errw, "qompack daemon: starting for project %s\n", root)

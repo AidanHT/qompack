@@ -262,8 +262,3 @@ func (r *schedRuntime) observeStop(ctx context.Context, sig observer.Signals, ts
 	r.observeLocked(ctx, f, r.maxTurn)
 	return f, r.maxTurn
 }
-
-// CloseSegmentOn closes the current segment with cause ∈ {todo, test, commit}; takes the lock.
-func (r *schedRuntime) CloseSegmentOn(context.Context, core.TurnIndex, scheduler.Features, string) error {
-	return nil
-} // replaced by scheduler_frontier.go (C2)
