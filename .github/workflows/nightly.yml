@@ -83,7 +83,16 @@ jobs:
       # wholeTreeTestTimeout, ci.yml's race job). Without it this job took go test's 10m default
       # and test/e2e — the slowest package, slower again under -race on Windows — panicked at
       # 600s mid-TestPhase1_CorpusSweep rather than finishing.
-      - run: go test -race -timeout=30m ./...
+      #
+      # test/e2e is excluded for the same reason ci.yml's `test` job excludes it, and with the
+      # same measurement: under -race the package does not finish in 30 minutes on any runner, and
+      # the detector only ever instruments the harness, since every e2e test drives the real,
+      # plainly built binary. ci.yml's `test-e2e` runs the package alone, without -race. The
+      # co-load declaration is the same one ci.yml's `test` job makes, for the same run shape.
+      - shell: bash
+        env:
+          QOMPACK_UNDER_COLOAD: '1'
+        run: go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
 
   bench-deep:
     strategy:
