@@ -143,6 +143,54 @@ func TestLoad_UnknownKeyWarnsNeverErrors(t *testing.T) {
 	require.Equal(t, config.Defaults(), cfg)
 }
 
+// TestLoad_RelationalViolationFallsBackToSectionDefaults pins the fix for a FuzzConfigLoad
+// finding: Load returned a Config that failed its own Validate(). store.chunk.min < target is
+// keyed on min, so a bad TARGET produced a violation naming min — which was already 1024, its
+// default — and the single-pass fallback restored nothing. Load now iterates and, when a pass
+// restores nothing new, widens to the violated key's parent section.
+func TestLoad_RelationalViolationFallsBackToSectionDefaults(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		file    string
+		section string
+	}{
+		// The bad value is on the side of the comparison the rule does not name.
+		{"chunk target below min", `{"store":{"chunk":{"target":0}}}`, "store.chunk"},
+		{"chunk target above max", `{"store":{"chunk":{"target":999999999}}}`, "store.chunk"},
+		{"rehydrate max below min", `{"runtime":{"rehydrate":{"maxTokens":1}}}`, "runtime.rehydrate"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			writeConfigFile(t, env.ProjectRoot, tc.file)
+
+			cfg, prov, warns, err := config.Load(env)
+			require.NoError(t, err)
+			require.Empty(t, cfg.Validate(),
+				"Load must return an already-validated config, whichever side of the relation is bad")
+
+			// The widened fallback fired, and said so: without this the test would pass vacuously
+			// if some future absolute bound caught the value before the relation ever broke.
+			require.Contains(t, warningKeys(warns), tc.section,
+				"the caller must be told which section was reset")
+			require.Equal(t, config.OriginDefault, prov[tc.section].Origin)
+		})
+	}
+
+	// The narrow path is unaffected: when the NAMED key is the bad one, the leaf is restored and
+	// its siblings are left alone.
+	t.Run("named key is the bad one keeps its siblings", func(t *testing.T) {
+		env := baseEnv(t)
+		writeConfigFile(t, env.ProjectRoot, `{"store":{"chunk":{"min":9999,"max":99999}}}`)
+
+		cfg, _, warns, err := config.Load(env)
+		require.NoError(t, err)
+		require.Empty(t, cfg.Validate())
+		require.Equal(t, config.Defaults().Store.Chunk.Min, cfg.Store.Chunk.Min, "the violated leaf falls back")
+		require.Equal(t, 99999, cfg.Store.Chunk.Max, "a valid sibling survives the fallback")
+		require.ElementsMatch(t, []string{"store.chunk.min"}, warningKeys(warns))
+	})
+}
+
 func TestLoad_InvalidLeafFallsBackNotCrash(t *testing.T) {
 	env := baseEnv(t)
 	writeConfigFile(t, env.ProjectRoot, `{"scheduler":{"softFloorPct":1.5},"store":{"chunk":{"min":9999}}}`)
