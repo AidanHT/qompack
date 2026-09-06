@@ -489,6 +489,37 @@
           ],
           "type": "object"
         },
+        "scheduler": {
+          "properties": {
+            "cache": {
+              "properties": {
+                "assumeMaxTTLSeconds": {
+                  "default": 3600,
+                  "description": "upper TTL bound the scheduler assumes when the cache regime cannot be identified",
+                  "type": "integer",
+                  "x-qompack-range": "[scheduler.cache.ttlSeconds,∞)",
+                  "x-qompack-section": "00-ARCH §11.5 / Qompack.md §5.4"
+                },
+                "expiringTriggerFraction": {
+                  "default": 0.8,
+                  "description": "fraction of a KNOWN prompt-cache TTL past which the scheduler fires while the prefix is still readable (cache_expiring trigger)",
+                  "type": "number",
+                  "x-qompack-range": "(0,1)",
+                  "x-qompack-section": "00-ARCH §11.5 / Qompack.md §5.4"
+                }
+              },
+              "required": [
+                "assumeMaxTTLSeconds",
+                "expiringTriggerFraction"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "cache"
+          ],
+          "type": "object"
+        },
         "selection": {
           "properties": {
             "submodularEnabled": {
@@ -621,6 +652,7 @@
         "mode",
         "redact",
         "rehydrate",
+        "scheduler",
         "selection",
         "telemetry",
         "tokens"
