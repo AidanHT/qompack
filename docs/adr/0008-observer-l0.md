@@ -220,12 +220,30 @@ on vs off on byte-identical replays is ~1x by construction (189.35 vs 181.31 rea
   (end-to-end spawn wall clock, informational) p50 12.647 ms / p99 24.667 ms; the gated B-A row
   is the daemon-observed hook-controlled statistic plus the tail allowance, per controller
   ruling #29 on SP-05's harness.
-- CI platform figures (ubuntu-latest, macos-latest, windows-latest): **pending** — CI has not
-  run on this branch; the `bench-gate` job is the enforcing gate on push.
+- CI platform figures — **DISCHARGED 2026-09-06** by run
+  [32932419445](https://github.com/AidanHT/qompack/actions/runs/32932419445), `bench-gate` green on all
+  three runners (`bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon`, n=2064 for
+  B-A/B-B, n=50 for B-E):
+
+  | budget | gate | ubuntu-latest (linux/amd64) | macos-latest (darwin/arm64) | windows-latest (windows/amd64) |
+  |---|---|---:|---:|---:|
+  | **B-A** hook spawn -> ack | p99 < 15 ms | **2.048 ms** | **3.072 ms** | **3.072 ms** |
+  | **B-B** in-daemon hot path | p99 < 2 ms | **0.060 ms** | **0.320 ms** | **0.576 ms** |
+  | **B-E** PreCompact finalize | p99 < 2000 ms | **9.295 ms** | **73.498 ms** | **188.110 ms** |
+
+  Every gated row reports `pass: true` on every platform. Diagnostics from the same runs, for the
+  reader who needs the spawn cost these figures deliberately exclude: spawn floor p50/p99 is
+  4.826/6.520 ms on ubuntu, 8.676/13.760 ms on macos and 12.954/18.490 ms on windows, and the
+  informational B-D end-to-end wall clock is p99 5.956 / 24.342 / 19.761 ms respectively. The
+  three-runner spread is a spread of process-spawn cost, not of hot-path work: B-B, the figure
+  that contains no spawn at all, stays under a third of a millisecond everywhere except Windows,
+  where it is still under a fifth of its gate.
 - By controller ruling (wave-1 precedent): the local Windows B-A/B-B figures above are recorded,
   and a green `bench-gate` on ubuntu-latest, macos-latest and windows-latest on the branch's
-  first push is a NAMED condition of Phase 1 closure — discharged post-push, with the three p99
-  figures folded into this section; discharge is owned by V3-VERIFY.
+  first push was a NAMED condition of Phase 1 closure. V3-VERIFY owned the discharge and it is
+  now complete — the condition is satisfied, not waived. The delay was external: GitHub Actions
+  refused every job on the branch's first push for an account-billing failure, so the run above
+  is that push's rerun once billing was restored (see `plans/V3-report.md`, J5).
 
 ### L0 processing — B-C, and SP08-D1
 
