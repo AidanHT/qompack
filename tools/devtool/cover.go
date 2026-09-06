@@ -51,6 +51,11 @@ var landedSubplans = map[string]bool{
 	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
 	"SP-08": true,
 	"SP-09": true,
+	// SP-13 is listed from its own branch, for the same reason SP-08 was: internal/mcp's OWNERS
+	// probe stops returning core.ErrNotImplemented in the first commit of this branch, and the
+	// exempt-but-real cross-check below fails the moment a probe stops looking like a stub while
+	// its subplan is still unlisted.
+	"SP-13": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
