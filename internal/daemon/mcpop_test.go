@@ -195,7 +195,7 @@ func (f *mcpOpFixture) seedToolUse(t *testing.T, tool, path, body string, turn c
 	res, err := f.Store.PutBytes(context.Background(), []byte(body), store.PutOptions{Tool: tool, Path: path})
 	require.NoError(t, err, "PutBytes(%s)", path)
 
-	id := core.ToolUseID("toolu-mcpop-" + string(rune('a'+int(turn)%26)) + core.Hash(res.Root.Hash).Short())
+	id := core.ToolUseID("toolu-mcpop-" + string(rune('a'+int(turn)%26)) + res.Root.Hash.Short())
 	require.NoError(t, f.Store.RecordToolUse(context.Background(), store.ToolUseRecord{
 		ID: id, Session: mcpOpSession, Turn: turn, TS: core.NowMilli(f.Clock),
 		Tool: tool, ArgsPreview: path, Root: res.Root.Hash, Path: path, Bytes: int64(len(body)),

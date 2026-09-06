@@ -259,3 +259,4 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool gen-config-docs --check
+      - run: go run ./tools/devtool gen-mcp-docs --check
