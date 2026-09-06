@@ -18,6 +18,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,10 @@ import (
 // two one-shot rows — RebuildBloom and Open — are wall-clock budgets for a single operation, and
 // each benchmark iteration performs exactly one of them, so the mean ns/op IS the operation's mean
 // wall-clock duration for those.
+//
+// Every row is graded on a second clock as well — the CPU time its timed region consumed per op —
+// and on a run the invoking job has declared co-loaded that is the only clock it is graded on. The
+// section "the second clock" below has the rule and the reason.
 //
 // The fixtures are a fixed-seed synthetic generator in this file and never internal/eval's corpus:
 // eval is outside this package's import allow-set (§3.2 constraint 1), and a fixture that changed
@@ -211,8 +216,123 @@ func budgetNote() string {
 	return note + ")"
 }
 
+// ── the second clock ──────────────────────────────────────────────────────────────────────────
+//
+// Every row is measured on TWO clocks and the budget is graded on both. The wall clock is
+// testing.B's own, and it is the clock the §11.2 table was written against. The second is this
+// process's CPU time over the same timed region, read from obs.ProcessCPU, and it exists because
+// of what the wall clock measures on a shared host: CI run
+// 34052269275's `test (windows-latest)` job — the whole tree, about twenty package binaries on two
+// cores — measured BenchmarkOpen at 564-580 ms/op best-of-three against the 300 ms budget, on a
+// benchmark that measures ~190 ms/op alone on the same runner class. The product was byte-identical
+// either way; the wall clock had measured the runner's spare capacity. That is the failure shape
+// internal/dag's TestCrossingLatencyBudget and test/bench/hotpath's B-E_cpu row already grade on
+// CPU time for, and this is the same rule applied to a benchmark: obs.UnderColoadEnv, set by the
+// invoking job, licenses moving a wall-clock JUDGEMENT to the CPU clock, and nothing more.
+//
+// What a CPU clock cannot see is time the process spent WAITING rather than working: a sleep, a
+// lock it now blocks on, an I/O call. BenchmarkOpen reads a 13 MB fixture and rebuilds a filter
+// under sketches/, so a regression that made Open block — a synchronous fsync per line, a lock
+// held across the replay — would be invisible here and plain on the wall clock. That is why the
+// wall row is not demoted to a diagnostic the way dag's is: it keeps its gate in every run that is
+// not declared co-loaded, and ci.yml's `timing` job runs every TestBudget_ test by name, alone,
+// without the declaration, so the wall budget is deferred by the whole-tree job and never dropped.
+// test/guards' TestColoadYieldersAreJudgedInIsolation is what keeps the lane's list complete.
+//
+// The rule is applied to all seven rows and not only to the two that have breached under co-load,
+// because all seven are cost budgets and the smaller ones are only further from their ceilings,
+// not differently measured: a row that is under budget by three orders of magnitude on a wall
+// clock still has to be judged somewhere when the wall clock is waived, and the CPU clock is that
+// somewhere.
+
+// cpuMetric is the unit name every benchmark here reports its per-op CPU time under, and the key
+// requireBudget reads it back from testing.BenchmarkResult.Extra by. A result without it is a
+// fixture error, refused like a zero iteration count: the benchmark did not bracket its timed
+// region, so nothing was measured on the clock the budget is gated on in every run.
+const cpuMetric = "cpu-ns/op"
+
+// benchCPU reads this process's CPU clock for a benchmark, failing the benchmark rather than
+// returning a value it could mistake for a measurement if the clock is unreadable.
+func benchCPU(b *testing.B) time.Duration {
+	b.Helper()
+	cpu, err := obs.ProcessCPU()
+	if err != nil {
+		b.Fatalf("the CPU clock the §11.2 budget is graded on must be readable: %v", err)
+	}
+	return cpu
+}
+
+// reportCPU publishes total, the CPU time the benchmark's timed region consumed over all b.N
+// iterations, as a per-op metric — the same shape as ns/op, so the two clocks read side by side
+// in -bench output and requireBudget grades both against the same ceiling. Every benchmark here
+// calls it: the five whose loops contain no untimed work read the clock once on either side of
+// the loop, and BenchmarkOpen reads it around each iteration's timed region.
+//
+// The figure is not bounded by ns/op. ProcessCPU is the whole process's user+system time, and the
+// garbage collector's concurrent mark workers — the dedicated ones and the ones the runtime puts
+// on otherwise-idle Ps — run on other cores while the wall clock overlaps them, so an
+// allocation-heavy op is charged for work the wall clock never waited on, and the charge grows
+// with GOMAXPROCS. Measured with `-cpu 1,2,22` on a 22-thread host: at GOMAXPROCS=1 CPU equals
+// wall on every row (QueryHit 1.90 against 1.92 µs, RefreshStaleness 4.17 against 4.36 ms,
+// DetectorScan 3.20 against 3.26 ms); at 2, the CI runner's width, CPU runs 10-31% above wall;
+// at 22 it runs 27-47% above (DetectorScan 4.12 against 3.12 ms, RefreshStaleness 5.63 against
+// 3.83 ms). Against the same ceiling that makes the CPU gate the STRICTER of the two, and on a
+// wide host materially stricter: the 5 ms Detector.Scan row has read 4.6-5.2 ms of CPU per op on
+// this 22-thread laptop under load, against 3.0-3.1 ms of wall. That is the right way round for
+// a cost budget — the GC work is work the operation caused — but it is a property of the clock
+// worth knowing when a wide, loaded developer host fails a row CI's two-core runner passes.
+//
+// Quantisation. obs.ProcessCPU reads GetProcessTimes on Windows, which is credited on the
+// 15.625 ms scheduler tick, so any one reading is off by up to one tick and what matters is how
+// much of the per-op figure one tick can be. testing.Benchmark scales b.N until the timed region
+// has run for at least a second of WALL time, which bounds N from below at each row's speed:
+//
+//   - Six rows have no untimed work inside their loops, so one bracket spans the whole loop and
+//     the per-op error is one tick divided by N. BenchmarkDetectorScan at ~2-4 ms/op lands at
+//     N = 300-500 (observed 320 and 462; ≈50-100 under -race at ~20 ms/op), so the error is
+//     ≈0.03-0.05 ms (≈0.2-0.3 ms) against a 5 ms budget (80 ms under -race): under 1% of the
+//     ceiling. The faster rows only have more iterations to spread the tick over: RebuildBloom
+//     at N ≈ 60-75 is ≈0.25 ms against 50 ms, RefreshStaleness at N ≈ 400 is ≈0.04 ms against
+//     10 ms, Record at N ≈ 20 000 is under 1 µs against 5 ms, and the two Query rows at
+//     N ≈ 600 000 are ≈26 ns against 50 µs and 5 µs — 0.5% of the tightest ceiling in the file.
+//   - BenchmarkOpen must bracket EACH iteration, because StopTimer/StartTimer keep the sketches/
+//     purge and the Close out of the wall clock and the CPU delta has to cover exactly what the
+//     wall timer covers. Each bracket's error is under one tick and unbiased — the tick lands
+//     inside or outside the bracket by phase, not by design — so the mean's worst case is one tick
+//     per op, 15.6 ms, about 5% of the 300 ms budget, and its expected error shrinks with N
+//     (observed N: 3-4 at the ~270-350 ms/op a loaded host measures, more at the 190 ms/op a
+//     quiet one does; 1 under -race, where one op already exceeds the second and the tick is
+//     0.3% of the 4.8 s scaled ceiling). That is coarser than DetectorScan's resolution and it is
+//     stated rather than hidden: a measurement inside one tick of the ceiling is one this gate
+//     cannot resolve either way. At the 186-196 ms wall the row measures on a quiet host, plus the
+//     GC share above, the headroom is around six ticks.
+//
+// A zero total is not refused HERE, because testing.Benchmark's first probe is always N=1 and one
+// ~2 ms Detector.Scan legitimately reads zero ticks; it is refused in requireBudget, on the final
+// result, which is the one the second-of-wall scaling has already made large enough to count.
+func reportCPU(b *testing.B, total time.Duration) {
+	b.ReportMetric(float64(total)/float64(b.N), cpuMetric)
+}
+
+// clockSample is one clock's reading of one requireBudget attempt: the mean cost per op and the
+// iteration count it was averaged over. A zero iters is "no sample yet" — every real sample has
+// passed the NotZero check on res.N before it is built.
+type clockSample struct {
+	perOp time.Duration
+	iters int
+}
+
+// better returns the faster of s and got, taking got unconditionally when s is no sample yet.
+func (s clockSample) better(got clockSample) clockSample {
+	if s.iters == 0 || got.perOp < s.perOp {
+		return got
+	}
+	return s
+}
+
 // budgetAttempts is how many times requireBudget will run a benchmark before failing it, and the
-// BEST of those runs is what the budget is asserted against. RULING R30 approved the estimator.
+// BEST of those runs — on each clock — is what the budget is asserted against. RULING R30
+// approved the estimator.
 //
 // This is not a way of retrying until the number is convenient. A wall-clock gate has to measure
 // the code, and two things that are not the code inflate a single sample badly here. One is
@@ -227,47 +347,96 @@ func budgetNote() string {
 // and it does not weaken the gate: a real regression is slow on every attempt, so it still fails.
 // A benchmark inside its budget passes on the first attempt and costs exactly one run.
 //
+// The best is taken PER CLOCK, not per attempt: the wall minimum and the CPU minimum may come
+// from different attempts. Each clock answers its own question — how fast can this go, how cheap
+// can this be — and the warm-up cost lands on both (page-cache misses on the wall, heap growth
+// on the CPU), so each gets its own minimum. Picking one attempt for both would let a co-loaded
+// wall reading, which is noise, choose which CPU reading is judged; a real regression is slow on
+// every attempt on both clocks, so per-clock minima still fail it. The loop stops as soon as
+// every GATED clock is under the ceiling.
+//
 // A pass that needed more than one attempt logs "budget met on attempt N of M". That line is there
 // to be grepped: a row that starts needing its retries is a row drifting toward its ceiling, and
 // the difference between "passed" and "barely passed" should not be invisible in a CI log.
 const budgetAttempts = 3
 
-// requireBudget runs fn as a benchmark and requires its best mean ns/op to be at or under budget.
+// requireBudget runs fn as a benchmark and requires its best mean cost per op to be at or under
+// budget on every clock that is gated in this run.
+//
+// The two-clock rule. Every benchmark reports cpuMetric and is graded on both clocks, and the two
+// gates differ in when they apply:
+//
+//   - CPU ns/op is gated against the ceiling ALWAYS. The same budget and the same budgetFactor
+//     scaling apply — instrumentation inflates CPU exactly as it inflates wall time, since the
+//     race detector's and coverage's extra instructions are executed, not waited for.
+//   - Wall ns/op is gated against the ceiling only when the run is not declared co-loaded
+//     (obs.UnderCoload). Under the declaration the wall figure is still measured and logged, with
+//     a line naming the ceiling not applied, the variable that waived it and the job that still
+//     judges it, so a passing log can never be read as the wall budget having been met.
 //
 // A benchmark that fails or skips leaves testing.Benchmark with a zero result rather than
 // propagating the failure — its output goes to the benchmark's own buffer, which nothing prints —
 // so a zero iteration count is checked first and reported as what it is: the fixture broke, not
-// the budget.
+// the budget. A result that carries no cpuMetric is refused the same way (see cpuMetric), and so
+// is a zero CPU reading, for the reason internal/dag's TestCrossingLatencyBudget gives: over a run
+// testing.Benchmark has already scaled past a second of wall time, zero CPU means the clock told
+// us nothing, and it is the one value that can only ever make a CPU budget pass.
 func requireBudget(t *testing.T, name string, fn func(*testing.B), budget time.Duration) {
 	t.Helper()
 	ceiling := budget * time.Duration(budgetFactor())
+	gateWall := !obs.UnderCoload()
+	met := func(wall, cpu clockSample) bool {
+		return cpu.perOp <= ceiling && (!gateWall || wall.perOp <= ceiling)
+	}
 
-	var best time.Duration
-	var iters, attempts int
+	var wall, cpu clockSample
+	var attempts int
 	for attempt := 1; attempt <= budgetAttempts; attempt++ {
 		res := testing.Benchmark(fn)
 		require.NotZero(t, res.N,
 			"%s ran zero iterations: the benchmark itself failed or skipped, so nothing was measured", name)
+		cpuNs, ok := res.Extra[cpuMetric]
+		require.True(t, ok,
+			"%s reported no %s: the benchmark did not bracket its timed region with benchCPU/reportCPU, "+
+				"so nothing was measured on the clock the budget is gated on in every run", name, cpuMetric)
 		attempts = attempt
-		got := time.Duration(res.NsPerOp())
-		if attempt == 1 || got < best {
-			best, iters = got, res.N
-		}
-		if best <= ceiling {
+
+		gotWall := clockSample{perOp: time.Duration(res.NsPerOp()), iters: res.N}
+		gotCPU := clockSample{perOp: time.Duration(cpuNs), iters: res.N}
+		require.Positive(t, gotCPU.perOp,
+			"%s reported no CPU time at all over %d iterations; the budget cannot be graded on a "+
+				"clock that did not move", name, res.N)
+		wall, cpu = wall.better(gotWall), cpu.better(gotCPU)
+		if met(wall, cpu) {
 			break
 		}
 		// Log THIS attempt's sample, not the running best — T9's gate run printed the best three
 		// times over, which read as an impossibly identical re-measurement.
-		t.Logf("%s: attempt %d is %v/op, over the %v ceiling — retrying", name, attempt, got, ceiling)
+		t.Logf("%s: attempt %d is %v wall/op and %v CPU/op, over the %v ceiling on a gated clock — "+
+			"retrying", name, attempt, gotWall.perOp, gotCPU.perOp, ceiling)
 	}
 
-	if attempts > 1 && best <= ceiling {
+	if attempts > 1 && met(wall, cpu) {
 		t.Logf("%s: budget met on attempt %d of %d", name, attempts, budgetAttempts)
 	}
-	t.Logf("%s: %v/op over %d iterations (best of %d) against a %v budget%s",
-		name, best, iters, attempts, budget, budgetNote())
-	require.LessOrEqual(t, best, ceiling,
-		"%s: %v/op exceeds the §11.2 budget of %v%s", name, best, budget, budgetNote())
+	t.Logf("%s: %v CPU/op over %d iterations (best of %d) against a %v budget%s",
+		name, cpu.perOp, cpu.iters, attempts, budget, budgetNote())
+	if gateWall {
+		t.Logf("%s: %v wall/op over %d iterations (best of %d) against a %v budget%s",
+			name, wall.perOp, wall.iters, attempts, budget, budgetNote())
+	} else {
+		t.Logf("%s: %v wall/op over %d iterations (best of %d); the %v budget is NOT applied to the "+
+			"wall clock in this run — %s is set, so the wall clock measured the host's spare capacity "+
+			"rather than this operation; ci.yml's `timing` job runs this test alone, without it, and "+
+			"judges the wall row there",
+			name, wall.perOp, wall.iters, attempts, budget, obs.UnderColoadEnv)
+	}
+	require.LessOrEqual(t, cpu.perOp, ceiling,
+		"%s: %v CPU/op exceeds the §11.2 budget of %v%s", name, cpu.perOp, budget, budgetNote())
+	if gateWall {
+		require.LessOrEqual(t, wall.perOp, ceiling,
+			"%s: %v wall/op exceeds the §11.2 budget of %v%s", name, wall.perOp, budget, budgetNote())
+	}
 }
 
 // ── the fixed-seed synthetic generator ────────────────────────────────────────────────────────
@@ -440,6 +609,7 @@ func BenchmarkQueryHit(b *testing.B) {
 	ctx := context.Background()
 
 	b.ReportAllocs()
+	cpuStart := benchCPU(b)
 	b.ResetTimer()
 	for range b.N {
 		a, err := l.Query(ctx, hit.Target, hit.Approach, ScopeSession)
@@ -450,6 +620,8 @@ func BenchmarkQueryHit(b *testing.B) {
 			b.Fatalf("Query: state %v, want AnswerActive — the fixture is not a bloom hit", a.State)
 		}
 	}
+	b.StopTimer()
+	reportCPU(b, benchCPU(b)-cpuStart)
 }
 
 func BenchmarkQueryMiss(b *testing.B) {
@@ -457,6 +629,7 @@ func BenchmarkQueryMiss(b *testing.B) {
 	ctx := context.Background()
 
 	b.ReportAllocs()
+	cpuStart := benchCPU(b)
 	b.ResetTimer()
 	for range b.N {
 		a, err := l.Query(ctx, "src/never/recorded.ts:missing", "rewrite the module", ScopeSession)
@@ -470,6 +643,8 @@ func BenchmarkQueryMiss(b *testing.B) {
 			b.Fatalf("Query: state %v, want AnswerAbsent", a.State)
 		}
 	}
+	b.StopTimer()
+	reportCPU(b, benchCPU(b)-cpuStart)
 }
 
 func TestBudget_QueryHit(t *testing.T) {
@@ -492,12 +667,15 @@ func BenchmarkRecord(b *testing.B) {
 	ctx := context.Background()
 
 	b.ReportAllocs()
+	cpuStart := benchCPU(b)
 	b.ResetTimer()
 	for i := range b.N {
 		if _, err := l.Record(ctx, benchRecordAt(i)); err != nil {
 			b.Fatal(err)
 		}
 	}
+	b.StopTimer()
+	reportCPU(b, benchCPU(b)-cpuStart)
 }
 
 func TestBudget_Record(t *testing.T) {
@@ -514,6 +692,7 @@ func BenchmarkRebuildBloom(b *testing.B) {
 	l := benchLedger(b, benchRecordCount, benchDeps(nil, nil))
 	ctx := context.Background()
 
+	cpuStart := benchCPU(b)
 	b.ResetTimer()
 	for range b.N {
 		nb, h, err := l.RebuildBloom(ctx)
@@ -527,6 +706,8 @@ func BenchmarkRebuildBloom(b *testing.B) {
 			b.Fatal("the rebuilt filter is empty")
 		}
 	}
+	b.StopTimer()
+	reportCPU(b, benchCPU(b)-cpuStart)
 }
 
 func TestBudget_RebuildBloom(t *testing.T) {
@@ -540,6 +721,7 @@ func BenchmarkRefreshStaleness(b *testing.B) {
 	l := benchLedger(b, benchRecordCount, benchDeps(s, nil))
 	ctx := context.Background()
 
+	cpuStart := benchCPU(b)
 	b.ResetTimer()
 	for range b.N {
 		flipped, err := l.RefreshStaleness(ctx, s)
@@ -550,6 +732,8 @@ func BenchmarkRefreshStaleness(b *testing.B) {
 			b.Fatalf("RefreshStaleness flipped %d records; the store reports nothing changed", len(flipped))
 		}
 	}
+	b.StopTimer()
+	reportCPU(b, benchCPU(b)-cpuStart)
 }
 
 func TestBudget_RefreshStaleness(t *testing.T) {
@@ -593,6 +777,12 @@ func benchLogBytes(tb testing.TB, n int) []byte {
 // for the rebuild and every later one would load the filter it left behind, so the reported mean
 // would drift with b.N — and it is the cold path that the row is about, since "daemon start /
 // first ledger use" is exactly the case where no filter has been written yet.
+//
+// It reports cpuMetric as well as ns/op, and the CPU clock is read on either side of the SAME
+// region the wall timer runs over: after the purge and before StartTimer, then after StopTimer
+// and before the checks and the Close. Two ProcessCPU reads per iteration is a few microseconds
+// of syscall outside the timed region, against ~190 ms inside it. See reportCPU for why the
+// bracket is per iteration and what that costs in resolution.
 func BenchmarkOpen(b *testing.B) {
 	root, cfg := benchProject(b)
 	p := logPath(root)
@@ -604,12 +794,14 @@ func BenchmarkOpen(b *testing.B) {
 	}
 	sketches := paths.Of(root).Sketches
 
+	var cpuTotal time.Duration
 	b.ResetTimer()
 	for range b.N {
 		b.StopTimer()
 		if err := os.RemoveAll(sketches); err != nil {
 			b.Fatalf("clearing sketches/: %v", err)
 		}
+		cpuStart := benchCPU(b)
 		b.StartTimer()
 
 		l, err := Open(root, cfg, nil, benchDeps(nil, nil))
@@ -618,6 +810,7 @@ func BenchmarkOpen(b *testing.B) {
 		}
 
 		b.StopTimer()
+		cpuTotal += benchCPU(b) - cpuStart
 		led, ok := l.(*ledger)
 		if !ok {
 			b.Fatal("negknow.Open must return this package's own *ledger")
@@ -630,6 +823,7 @@ func BenchmarkOpen(b *testing.B) {
 		}
 		b.StartTimer()
 	}
+	reportCPU(b, cpuTotal)
 }
 
 func TestBudget_Open(t *testing.T) {
@@ -737,6 +931,9 @@ func benchScanGraph(tb testing.TB, root string, cfg config.Config) dag.Graph {
 	return g
 }
 
+// BenchmarkDetectorScan reports cpuMetric as well as ns/op. Nothing inside its loop is untimed, so
+// one CPU bracket spans the whole loop — the same region the wall timer covers from ResetTimer to
+// the benchmark's return — and the per-op quantisation error is one tick over N; see reportCPU.
 func BenchmarkDetectorScan(b *testing.B) {
 	root, cfg := benchProject(b)
 	l := benchOpen(b, root, cfg, benchDeps(benchStore{newFakeStore()}, nil))
@@ -746,6 +943,7 @@ func BenchmarkDetectorScan(b *testing.B) {
 	ctx := context.Background()
 
 	b.ReportAllocs()
+	cpuStart := benchCPU(b)
 	b.ResetTimer()
 	for range b.N {
 		recs, err := det.Scan(ctx, g, 0)
@@ -756,6 +954,8 @@ func BenchmarkDetectorScan(b *testing.B) {
 			b.Fatal("Scan emitted nothing: the corpus no longer contains a complete Pattern P")
 		}
 	}
+	b.StopTimer()
+	reportCPU(b, benchCPU(b)-cpuStart)
 }
 
 func TestBudget_DetectorScan(t *testing.T) {
