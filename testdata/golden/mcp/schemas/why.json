@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "description": "A dec_<12 hex> id from a checkpoint or a rehydrated decision list."
+    }
+  },
+  "required": [
+    "decision_id"
+  ],
+  "additionalProperties": false
+}
