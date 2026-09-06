@@ -63,3 +63,15 @@ SP-08's R3 transport-ordering work, the B-G/B-D production wiring, and the recor
 ever executed). Merge to `develop`, the local `v0.2.0` tag and the wave-3 branch cut proceeded
 under that waiver. The CI backfill — nine green jobs plus the three bench-gate p99 figures
 folded into ADR 0008 — remains an open obligation on `develop`.
+
+2026-09-06. CI ran for the first time against this tree. `bench-gate` came back green on all three
+runners, discharging SP-08's named merge condition with the p99 figures folded into ADR 0008, and
+nine of J5's ten jobs are green. The run also showed what the waiver had cost: seven defects had
+reached `develop` — an invalid-config escape in `config.Load`, a missing `-timeout` on nightly's
+race job, two shutdown helpers that returned before the daemon had finished writing, a banned
+`time.Sleep` and an mtime compared against the wrong clock (both in this checkpoint's own X tests),
+and the class that keeps the three `test` jobs red: wall-clock latency budgets asserted inside a
+co-loaded whole-tree run, which the repository had already ruled unjudgeable for `bench-compare`
+and for B-E but never extended to B-A, the GC deadline tests or the negknow budgets. Six are fixed;
+the seventh is recorded with a recommendation. `plans/V3-report.md` Addendum 2 is the record. The verdict stands as GREEN on every
+locally-runnable row with J5 red and understood — not GREEN outright.

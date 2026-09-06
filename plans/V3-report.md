@@ -18,7 +18,7 @@ design-mandated behaviour disagreed, with the full trail in
 | Attribution-trailer scan | clean (zero hits over the whole range, both greps) |
 | Platforms | windows-11 (local) + ubuntu-latest, macos-latest, windows-latest (CI) |
 | Phases closed | 0, 1, 2 |
-| Verdict | **GREEN on every locally-runnable row** - final GREEN pends J5 alone (CI refused by GitHub billing; see J5) |
+| Verdict | **GREEN on every locally-runnable row. J5 is RED and is now understood.** CI ran for the first time on 2026-09-06 and did two things: it discharged SP-08's named bench-gate condition on all three runners, and it showed that the `test` job has never been able to pass, because it asserts co-load-sensitive latency budgets inside a co-loaded whole-tree run. Seven defects were found; six are fixed. See Addendum 2. |
 
 **Group A — SP-01 foundation**
 
@@ -185,7 +185,7 @@ design-mandated behaviour disagreed, with the full trail in
 | J2 | Coverage floors | PASS | negknow 91.2% / observer 96.2% / store 92.7% / dag 90.8%; canon 98.5 / chunk 100 / config 92.8 / eval 90.9 / sketch 96.5 / redact 96.4 / tokens 93.5 / paths 90.6 (>= 90 floors); ipc 85.3 / daemon 82.5 / contract 84.2 / cli 82.9 (>= 75); every floor met by the tool's own gate. Its first two runs went red only on the X9 assertion amended below |
 | J3 | Security posture | PASS | govulncheck: 0 vulnerabilities called; importgraph/testdeps/bindeps all OK (62/64 pkgs, 6 targets) |
 | J4 | Placeholder scan | PASS (ruled) | 7 grep hits, all self-referential prose or lint machinery (bench payload's `"TODO"` grep-pattern string, planchecks' `XXX` spelling table, a negknowtest doc comment, the `not implemented` user-facing message and `ErrNotImplemented`'s own definition) — none a placeholder. Two `core.ErrNotImplemented` returns sit outside the J2 stub list: `cli`'s `notImplementedRun` (SP-01's sanctioned honest stub-command surface) and `eval`'s live-mode guard (pinned by `TestReplay_LiveModeRefusedWithoutEnv`) — ruled (d): the row under-lists the two sanctioned non-stub uses |
-| J5 | CI on `verify/v3` (9 jobs) | BLOCKED (external) | all local rows green; the push (run 32929547097) had every one of its 12 jobs refused by GitHub Actions - "recent account payments have failed or your spending limit needs to be increased" - so no job executed. BLOCKED on account billing, not on the tree; the rerun and the three-platform bench-gate figures land in a follow-up commit the moment billing is restored, and SP-08's named merge condition (bench-gate green at first push, three p99 figures folded into ADR 0008) discharges with it |
+| J5 | Full CI, ten jobs | **RED - partially discharged** | Nine of the ten named jobs are green on `develop` run [34052269275](https://github.com/AidanHT/qompack/actions/runs/34052269275): `verify`, `cover`, `crossbuild`, `bench-gate` (all three runners), `replay-gate`, `plugin-validate`, `security`, `docs`, `lint-windows`. The tenth, `test`, is RED on all three platforms; Addendum 2 separates its one real defect (fixed) from the measurement-discipline class that remains. SP-08's named merge condition is separately and FULLY discharged by the green `bench-gate` (three p99 figures in ADR 0008). `verify/v3` at `68723ad` can never be green - it predates six of the seven fixes - so J5 is judged on the merged tree. |
 | J6 | `Qompack.md` immutability | PASS (ruled) | diff vs root is exactly the authorized v1.3 revision (`9c50c6c`, Revision-log entry present). The gate's byte-immutability literal predates the recorded revision mechanism; "no unauthorized modification" is the enforced reading, and the working tree matches HEAD exactly |
 
 **Cross-component integration tests (new, permanent — committed as `test(e2e)` on `verify/v3`)**
@@ -209,11 +209,11 @@ design-mandated behaviour disagreed, with the full trail in
 
 | Budget | Threshold | Linux | macOS | Windows | Verdict |
 |---|---|---|---|---|---|
-| B-A `hook_controlled` | p99 < 15 ms | pending CI | pending CI | 2.048 ms | PASS local; CI pending (billing) |
-| B-B `l0_ingest` | p99 < 2 ms | pending CI | pending CI | 0.576 ms | PASS local; CI pending (billing) |
+| B-A `hook_controlled` | p99 < 15 ms | 2.048 ms | 3.072 ms | 3.072 ms | **PASS** on all three runners in `bench-gate`, which measures in isolation (run 32932419445). Under whole-tree co-load the same row measured 11.264 ms and then 18.432 ms on one runner minutes apart - see Addendum 2 item 7 |
+| B-B `l0_ingest` | p99 < 2 ms | 0.060 ms | 0.320 ms | 0.576 ms | **PASS** on all three runners (run 32932419445), and PASS under co-load too (0.704-0.768 ms): it contains no process spawn, so it is the co-load-resistant half of the hot path |
 | B-C `l0_process` | p99 < 50 ms (soft) | — | — | 90–98 ms (256 KB Deduped/Delta), 164–197 ms AllNovel; 64 KB ≤ 41 ms | over — SP08-D1 → V4-VERIFY (Reported, never gated) |
 | B-D `hook_wall` | reported only | — | — | p50 10.2 ms / p99 12.7–16.9 ms | n/a — production writer: none; re-carried (§0a item 6, below) |
-| B-E `checkpoint_finalize` | p99 < 2 s | pending CI | pending CI | 70.8 ms wall / 31.25 ms CPU | PASS local; CI pending (billing) |
+| B-E `checkpoint_finalize` | p99 < 2 s | 9.295 ms | 73.498 ms | 188.110 ms | **PASS** on all three runners (run 32932419445). Its wall row is already waived under `--under-coload`; `B-E_cpu` gates it everywhere |
 | B-F `mcp_tool_call` | p95 < 250 ms | — | — | — | **N/A — SP-13, wave 3** (row present in `obs.Budgets()`, E14) |
 | B-G `hook_degraded` | 1 000 ms, reported only | — | — | rate-graded ipc gate green | n/a — `TestDegraded*` green: YES ; re-carried to V4-VERIFY (§0a item 6, below) |
 | Store dedup ratio (read-heavy) | ≥ 4.0 | — | — | 189.35 (observer-level, authoritative) | PASS |
@@ -267,10 +267,10 @@ design-mandated behaviour disagreed, with the full trail in
 
 | Question | Answer |
 |---|---|
-| Every row above PASS? | Every locally-runnable row: YES. J5: blocked on GitHub billing - the one open row |
-| `verify/v3` merged into `develop` with `--no-ff`? | NO - held until J5 is green (§8.4/§8.5) |
-| Tag `v0.2.0` applied? | NO - follows the merge; the tag is applied locally and never pushed (a pushed v* tag cuts a Release) |
-| Wave-3 branches cut (SP-10, SP-11, SP-12, SP-13)? | NO - only after every answer above is yes |
+| Every row above PASS? | Every locally-runnable row: YES. J5: NO - nine of the ten named jobs green, `test` red on all three platforms (Addendum 2) |
+| `verify/v3` merged into `develop` with `--no-ff`? | YES - `71c46a2`, 2026-08-26, under the CI-gate waiver rather than after a green J5 |
+| Tag `v0.2.0` applied? | YES - locally on `develop`, 2026-08-26, deliberately never pushed (a pushed `v*` tag cuts a Release) |
+| Wave-3 branches cut (SP-10, SP-11, SP-12, SP-13)? | YES - all four from `71c46a2`, 2026-08-26 |
 
 ---
 
@@ -291,3 +291,119 @@ The J5 backfill obligation stands unchanged: when billing is restored, the armed
 are filled in a follow-up commit on `develop`. Until then the verdict remains "GREEN on every
 locally-runnable row" with J5 waived-open, and the §10 gate answers read as overridden by this
 addendum.
+
+---
+
+## Addendum 2 — the first CI run, and what the waiver cost (2026-09-06)
+
+GitHub billing was restored and CI ran for the first time against this checkpoint's tree
+(`verify/v3` rerun [32932419445](https://github.com/AidanHT/qompack/actions/runs/32932419445), then
+`develop` run [34052269275](https://github.com/AidanHT/qompack/actions/runs/34052269275)).
+
+### What was discharged
+
+`bench-gate` went green on ubuntu-latest, macos-latest and windows-latest, discharging SP-08's
+named merge condition in full. Per-platform p99, now recorded in `docs/adr/0008-observer-l0.md`:
+B-A 2.048 / 3.072 / 3.072 ms against a 15 ms gate; B-B 0.060 / 0.320 / 0.576 ms against 2 ms;
+B-E 9.295 / 73.498 / 188.110 ms against 2 s. Every gated row reports `pass: true`. Nine of the ten
+named J5 jobs are green; the tenth, `test`, is the subject of items 6 and 7.
+
+### What it cost: seven defects, six fixed
+
+Four failed the CI run itself; two had been failing nightly against the merged `develop` since
+2026-08-27, unread because nobody watches a branch whose gate has been waived; the seventh is the
+class that keeps the `test` jobs red.
+
+1. **`config.Load` could return a `Config` that fails its own `Validate()`.** `FuzzConfigLoad`
+   found `{{"store":{{"chunk":{{"target":0}}}}}}`. The three relational rules
+   (`store.chunk.min < target < max`, `runtime.rehydrate.minTokens <= maxTokens`) are each keyed on
+   ONE side of a comparison, so when the OTHER side carries the bad value the violation names a key
+   already at its default and the single-pass fallback restored nothing. `Load` now iterates to a
+   fixed point and widens to the violated key's parent section on a no-progress pass; `Defaults()`
+   satisfies every rule, so a section restore clears any relation inside that section, and the loop
+   terminates because it only writes defaults and only counts writes that changed something.
+   Foundation-era and latent since SP-01 — wave 2 did not cause it, a working gate would have found
+   it. **Fixed** (`6452362`).
+2. **nightly's `race-windows` job had no `-timeout`**, so it took `go test`'s 10-minute default
+   instead of the repository's own 30-minute `wholeTreeTestTimeout`, which `ci.yml`'s race job
+   already passes. `test/e2e` is the slowest package and slower again under `-race` on Windows; the
+   twelve X tests this checkpoint added pushed it over, and the job panicked at 600 s mid
+   `TestPhase1_CorpusSweep`. The goroutine dump shows work in progress, not a deadlock — the job
+   was under-budgeted. **Fixed** (`e69b1a7`).
+3. **`e2eShutdownIfReachable` returned before the daemon had exited.** It waited for `daemon.lock`
+   to vanish, but `Lock.Release` is `Stop`'s LAST act and the process keeps writing while it
+   unwinds. `cover` caught it as `TempDir RemoveAll cleanup: unlinkat …/.qompack: directory not
+   empty` — ENOTEMPTY, not EBUSY, so an entry was *created* inside `.qompack` between `RemoveAll`
+   emptying it and unlinking it, which only a live process can do. **Fixed** (`2bee8e5`): the exit
+   now requires both no live lock holder and the death of the pid that held the lock.
+4. **`test/e2e/v3_x08_test.go` held the tree's only `time.Sleep`**, banned by §6.1 and enforced by
+   `devtool lint`'s `sleepcheck`. It failed both `verify` and `lint-windows`. This one is squarely
+   V3's own: the sleep shipped in a test this checkpoint authored, and the local `devtool lint`
+   that would have caught it was never run to completion on the final tree. **Fixed** (`7f65d28`).
+5. **`v1StopDaemonAndWaitGone` did not do what its own doc comment promises.** It is documented to
+   return "ONLY ONCE THE DAEMON HAS FINISHED, not once it has stopped answering" — the property its
+   caller cites to claim the assertions downstream are about what the run LEAKED rather than what it
+   had in flight — but it returned on the lock file's disappearance, the same gap as item 3. It
+   failed `TestV1_WriteSetConfinedAcrossFullHookSequence` with exactly the symptom its own timeout
+   message predicts in as many words: `WriteAtomic left staging files in .qompack/tmp/`.
+   **Fixed** (`d69b099`); the process probe now has one home in `internal/testutil` rather than a
+   copy per test package.
+6. **X-09 compared a file's mtime against the wrong clock.** It asserted `tried.bloom`'s mtime
+   falls strictly inside the measured `RebuildBloom` window, but `time.Now` reads the fine clock
+   while the timestamp a kernel stamps on an inode comes from a coarse one refreshed once per timer
+   tick. A file written inside the window can therefore carry an mtime from a tick that began before
+   it — which is what `test (ubuntu-latest)` hit, by 738 microseconds. Also squarely V3's own, in a
+   test this checkpoint authored, and the repository already takes the opposite position elsewhere:
+   `test/guards/writeset_test.go` hashes content rather than comparing mtimes for exactly this
+   reason. **Fixed** (`1bfaa1a`): the window is widened on both sides by a named 50 ms
+   coarse-clock slack, three orders of magnitude below the nearest other write in that test's
+   timeline, so what the assertion exists to pin is unweakened.
+7. **The `test` jobs assert co-load-sensitive latency budgets inside a co-loaded whole-tree run —
+   and never could have passed.** NOT FIXED; see below.
+
+### Item 7, stated precisely, because it is the one that is still red
+
+`ci.yml`'s `test` job runs `go test -race ./...` and then `go test -count=2 ./...`: roughly twenty
+package binaries competing for a 2-core runner. Several assertions inside it are wall-clock latency
+budgets. On windows-latest, one commit, two harness runs minutes apart in the same job:
+
+| row | bench-gate (isolated) | whole-tree run 1 | whole-tree run 2 | limit |
+|---|---:|---:|---:|---:|
+| spawn floor p50 | 12.954 ms | 24.431 ms | 23.143 ms | — |
+| **B-A p99** | **3.072 ms** | **11.264 ms** (pass) | **18.432 ms** (FAIL) | 15 ms |
+| B-B p99 | 0.576 ms | 0.768 ms | 0.704 ms | 2 ms |
+
+The product is byte-identical across all three columns. B-A is a coin flip under co-load; B-B,
+which contains no process spawn, barely moves. The same class fails
+`TestGC_DeadlineOvershootIsBoundedByTheCheckInterval` (ubuntu), `TestGC_DeadlineTruncatesAndResumes`
+and `TestBudget_Open` (windows), and `TestIntegration_HotPathWarmWithRealResidentState` and
+`TestV3_HotPathUnchangedWithLedgerResident` (both of which already pass `--under-coload`, which
+today waives only B-E's wall row and not B-A's). Separately, `test/e2e` exceeds the 30-minute
+whole-tree timeout under `-race` on ubuntu and macos — the alarm fires with
+`TestV3_FullCorpusIngestThroughObserverAndLedger` six minutes into its own run, so the package is
+not hung, it is over budget — and those two jobs therefore do not finish at all. Item 6 was found
+underneath that timeout on ubuntu; fixing it does not by itself turn any of the three jobs green.
+
+This is not a new discovery so much as an unfinished one: the repository has already ruled twice
+that a wall-clock number measured under co-load is not judgeable — `bench-compare` was deliberately
+kept out of CI for it, and `--under-coload` waives B-E's wall row with a quantified note
+(67.2 ms isolated versus 4302 ms in the whole-tree job on the same runner class). The ruling simply
+was never extended to B-A, to the GC deadline tests, or to the negknow budgets, and with CI never
+having run, nothing forced the issue.
+
+**Recommendation, for whoever picks this up.** Extend the existing `--under-coload` waiver to B-A's
+wall-clock row exactly as B-E's, keeping it hard-gated in `bench-gate` and nightly where it is
+measured in isolation and where it passed at a fifth of its budget; give the GC and negknow
+wall-clock assertions the same co-load escape; and decide whether `test/e2e` belongs in the
+whole-tree job at all or in one of its own with a budget that fits it. That is a measurement-policy
+change across four packages, and it will churn branches three wave-3 sessions are building on,
+which is why this report records it rather than making it.
+
+### The lesson
+
+Waiving J5 did not make this checkpoint's claims wrong — every one of them still holds, and six of
+the seven defects are fixed. What it did was convert a gate that fails in minutes into seven defects
+found eleven days and eleven nightlies later, two of them in code this checkpoint wrote, and one of
+them a job that has never passed in the project's history. A future checkpoint blocked the same way
+should prefer waiting to waiving; if it waives anyway, the first green CI run is an unfinished exit
+criterion, not a formality.
