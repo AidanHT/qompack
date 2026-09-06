@@ -94,7 +94,7 @@ var probeBlind = map[string]bool{
 // stub — lives inside the exemption branch below, and is the one that catches a landed subplan
 // nobody added to landedSubplans.
 func taskCover(args []string) error {
-	if err := goInherit("test", "-timeout="+wholeTreeTestTimeout, "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
+	if err := goInheritEnv(wholeTreeEnv, "test", "-timeout="+wholeTreeTestTimeout, "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
 		return fmt.Errorf("cover: go test -coverprofile: %w", err)
 	}
 
