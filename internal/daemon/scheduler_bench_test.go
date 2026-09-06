@@ -2,14 +2,18 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/observer"
+	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -89,7 +93,9 @@ func BenchmarkReclaimableIndexBuild_5000Blocks(b *testing.B) {
 }
 
 // BenchmarkAssembleCandidates_2000ToolUses: 2 000 tool-use records classified into the
-// reclaimable index, 40 changepoint turns, a 5 000-node graph over 500 turns and 100 segments.
+// reclaimable index, 40 changepoint turns (every one a round boundary, as the observer's turn
+// semantics make them, so the 32-cap binds after the round filter), a 5 000-node graph over 500
+// turns and 100 segments.
 // Budget: ≤ 20 ms/op cold (turn→Pos map rebuilt every call), ≤ 200 µs/op warm (map reused).
 // CrossingEdges is uncached and paid on both paths.
 func BenchmarkAssembleCandidates_2000ToolUses(b *testing.B) {
@@ -138,9 +144,7 @@ func BenchmarkAssembleCandidates_2000ToolUses(b *testing.B) {
 	for i := range cpCount {
 		t := core.TurnIndex(1 + i*(turns/cpCount))
 		cp = append(cp, t)
-		if i%2 == 0 {
-			rounds[t] = struct{}{}
-		}
+		rounds[t] = struct{}{}
 	}
 	ctx := context.Background()
 	reg := obs.New(core.SystemClock())
@@ -171,4 +175,103 @@ func BenchmarkAssembleCandidates_2000ToolUses(b *testing.B) {
 			}
 		}
 	})
+}
+
+// ── SP-12 commit 5 (C1): the runtime's Evaluate and the L0→L3 tap ─────────────────────────────
+
+// BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates: a bound runtime over 2 000 tool-use
+// records anchored in a 4 000-node graph across 500 turns and 100 closed segments, 40 changepoint
+// turns, every one a round boundary (capped to the 32 highest-Pos candidates after the round
+// filter), the host-default window. Budget: ≤ 25 ms/op.
+// "warm" is the steady state (the turn→Pos map and the reclaimable index are reused); "cold"
+// rebuilds both on every call, which is the cost paid once per turn advance.
+func BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates(b *testing.B) {
+	const (
+		toolUses   = 2_000
+		perTurn    = 4 // 500 turns
+		tokensEach = 75
+		cpCount    = 40
+	)
+	fx := newRTFixture(b)
+	fx.bind(rtSession)
+	tu := rtPopulateToolUses(b, fx, toolUses, perTurn, tokensEach)
+	fx.rt.mu.Lock()
+	for i := range cpCount {
+		turn := core.TurnIndex(1 + i*(tu.turns/cpCount))
+		fx.rt.recordChangepointLocked(turn)
+		fx.rt.rounds[turn] = struct{}{}
+	}
+	fx.rt.mu.Unlock()
+	fx.rt.NoteAPIRound(core.TurnIndex(tu.turns))
+	ctx := context.Background()
+	check := func(b *testing.B, d scheduler.Decision, err error) {
+		if err != nil || d.Breakdown["candidates_supplied"] != maxAssembledCandidates {
+			b.Fatalf("evaluate: %v candidates, err %v", d.Breakdown["candidates_supplied"], err)
+		}
+	}
+
+	b.Run("warm", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			d, err := fx.rt.Evaluate(ctx)
+			check(b, d, err)
+		}
+	})
+	b.Run("cold", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			fx.rt.mu.Lock()
+			fx.rt.asm.Invalidate()
+			fx.rt.idxBuilt = false
+			fx.rt.mu.Unlock()
+			d, err := fx.rt.Evaluate(ctx)
+			check(b, d, err)
+		}
+	})
+}
+
+// BenchmarkSchedulerTap_ObserveTool: the decorated ObserveTool seam end to end — one store
+// lookup, observeText + FeaturesFrom, one BOCD Observe, the timestamp work and the token fold —
+// over a ring of 256 stored records with 12-path inputs. Budget: ≤ 1.5 ms/op (B-C, never B-A).
+func BenchmarkSchedulerTap_ObserveTool(b *testing.B) {
+	const (
+		ring         = 256
+		pathsPerTurn = 12
+	)
+	fx := newRTFixture(b)
+	fx.bind(rtSession)
+	tools := []string{"Bash", "Read", "Edit", "Grep"}
+	events := make([]hookio.Event, ring)
+	for i := range ring {
+		id := core.ToolUseID(fmt.Sprintf("toolu_tap_%d", i))
+		fx.store.put(store.ToolUseRecord{
+			ID: id, Session: rtSession, Turn: core.TurnIndex(1 + i/4), TS: fx.now() + core.UnixMilli(i)*1_000,
+			Tool:        tools[i%len(tools)],
+			ArgsPreview: fmt.Sprintf("go test ./internal/pkg%d/... -run TestThing%d -count=1 -race -v -timeout 30s", i%7, i),
+			Tokens:      300,
+		})
+		ps := make([]string, 0, pathsPerTurn)
+		for k := range pathsPerTurn {
+			ps = append(ps, fmt.Sprintf(`{"file_path":"src/pkg%d/file%d.go"}`, (i+k)%7, k))
+		}
+		events[i] = hookio.Event{
+			HookEventName: "PostToolUse", SessionID: rtSession, ToolName: tools[i%len(tools)], ToolUseID: id,
+			ToolInput: json.RawMessage(`{"edits":[` + strings.Join(ps, ",") + `]}`),
+		}
+	}
+	s := &Services{}
+	WrapServicesForScheduler(s, fx.rt, fx.options())
+	ctx := context.Background()
+	for i := range 2 * defaultFeatureWindow {
+		_ = s.ObserveTool(ctx, events[i%ring])
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if err := s.ObserveTool(ctx, events[i%ring]); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
