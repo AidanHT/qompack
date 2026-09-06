@@ -17,6 +17,10 @@ func FuzzConfigLoad(f *testing.F) {
 		`{"scheduler":{"softFloorPct":0.6}}`,
 		`{`,
 		`{"store":{"chunk":{"min":99999999}}}`,
+		// A bad value on the side of a relational rule the violation does not name: the fallback
+		// loop must widen to the section rather than restore the already-default key it blames.
+		`{"store":{"chunk":{"target":0}}}`,
+		`{"runtime":{"rehydrate":{"maxTokens":1}}}`,
 		`{"runtime":{"telemetry":{"enabled":true}}}`,
 		`null`,
 		`[]`,
