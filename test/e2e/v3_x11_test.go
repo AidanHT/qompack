@@ -18,18 +18,26 @@ package e2e
 // unconditionally at startup, so the rebuilt 5,000-entry filter is genuinely resident in the
 // measured process.
 //
-// B-E's clock: the harness is invoked with --under-coload, so its wall-clock B-E row is reported
-// (limit/pass null) and the gated B-E row is B-E_cpu — the same 50 `qompack checkpoint` children
-// measured in the CPU time they consumed, against the same 2,000 ms limit. This is the accepted
-// V2 ruling for a bench run issued from inside a `go test` binary (plans/V2-report.md, the
-// co-load evidence in test/bench/hotpath/report.go's budgetIDBECPU comment): a wall-clock B-E
-// sample from a co-loaded test job measures the runner's spare capacity, not the checkpoint, and
-// CI already reproduced a 64x wall move with the product byte-identical. The spec bullet
-// "B-E p99 < 2 s" is asserted on the CPU row — the gated budget — and the wall row is asserted to
-// be present, disclosed, and covering the same 50 children.
+// Which clock judges which row is decided by the INVOKING JOB, not by this test: the harness is
+// passed --under-coload iff obs.UnderCoload() (QOMPACK_UNDER_COLOAD, internal/obs/coload.go), the
+// job's own declaration that the run shares its host with unrelated concurrent work. ci.yml's
+// `test-e2e` job runs this package alone on its own runner and does NOT declare it, so there B-A
+// and B-E's wall-clock row are judged for real, exactly as bench-gate judges them: limit carried,
+// pass=true, p99 under the obs.Budgets() limit, and no waiver note in the artifact. The two rows
+// whose samples span a process boundary yield only under a job that has declared co-load — a
+// whole-tree `devtool test` / `test-race` / `cover`, the runs that reach this package with the
+// variable set: there they must come back REPORTED
+// (limit/pass null) with the harness's own disclosure for each, and the spec bullet "B-E p99 < 2 s"
+// is carried by B-E_cpu — the same 50 `qompack checkpoint` children measured in the CPU time they
+// consumed, against the same 2,000 ms limit, gated in both modes with B-B. The evidence that the
+// distinction is real is CI's own (test/bench/hotpath/report.go, budgetIDBECPU and
+// baWallWaivedNote): a 64x B-E wall move and a 3.072 → 18.432 ms B-A move, product byte-identical,
+// between a harness alone on its runner and the same harness inside the whole-tree job.
 //
 // NOTE for runners: this is a TIMING test. It spawns ~2,250 real processes and runs two `go
-// build`s; run it focused and alone (the P2 lane), not under whole-tree co-load.
+// build`s. Unset, the variable can only make a run stricter: a local run alongside other work
+// that fails only on B-A's or B-E's wall-clock p99 is the host being measured, and the fix is
+// QOMPACK_UNDER_COLOAD=1 or a quiet host, never a looser limit.
 
 import (
 	"context"
@@ -145,6 +153,22 @@ const (
 	// x11CheckpointSamples mirrors the harness's checkpointIterations: task-7-spec.md step 7's
 	// "spawn qompack checkpoint 50 times", the population BOTH B-E rows are built from.
 	x11CheckpointSamples = 50
+
+	// x11UnderColoadFlag is the harness's --under-coload flag (test/bench/hotpath/main.go,
+	// parseFlags), passed iff obs.UnderCoload(). Both waiver notes the harness writes name it
+	// verbatim, so the same string is what the notes assertions look for.
+	x11UnderColoadFlag = "--under-coload"
+
+	// x11BAWaiverMark is the opening of the harness's baWallWaivedNote (test/bench/hotpath/
+	// report.go) — the one phrase that note carries and no other note the harness writes does
+	// (B-E's waiver says "wall-clock row"; the tail-adjustment notes say "p99"). Spelled after
+	// obs.BA so the row's name is never a second literal here.
+	x11BAWaiverMark = string(obs.BA) + "'s row is REPORTED, not gated"
+
+	// x11LimitDeltaMs is the tolerance for comparing a row's limit_ms against obs.Budgets(): the
+	// artifact renders limits in whole milliseconds, so anything under a microsecond is a float
+	// rendering difference, never a different budget.
+	x11LimitDeltaMs = 0.001
 )
 
 // ── deterministic corpus content ────────────────────────────────────────────────────────────────
@@ -252,6 +276,37 @@ func x11NotesMention(rep x11BenchReport, sub string) bool {
 		}
 	}
 	return false
+}
+
+// x11RequireGatedRow asserts the shape bench-gate reads for every row it judges: the row carries
+// limitMs as its limit, a pass verdict, the verdict is true, and its p99 is under the limit — the
+// last restated rather than trusted from the verdict, so the number the harness judged and the
+// number the artifact shows can never disagree unnoticed. what names the row in the message.
+func x11RequireGatedRow(t *testing.T, row x11BudgetRow, limitMs float64, what string) {
+	t.Helper()
+	require.NotNil(t, row.LimitMs, "%s is gated in this run and must carry its limit", what)
+	require.InDelta(t, limitMs, *row.LimitMs, x11LimitDeltaMs,
+		"%s's limit must be the one obs.Budgets() defines, not a private copy", what)
+	require.NotNil(t, row.Pass, "%s is gated in this run and must carry a pass verdict", what)
+	require.True(t, *row.Pass, "%s gate must pass with the ledger resident (p99=%.3fms, limit %.0fms)",
+		what, row.P99, limitMs)
+	require.Less(t, row.P99, limitMs,
+		"X11: %s p99 < %.0fms with the observer pipeline and the 5 000-elimination ledger resident",
+		what, limitMs)
+}
+
+// x11RequireReportedRow asserts the shape the harness gives a row it REPORTED under
+// --under-coload: limit_ms and pass both null, exactly B-D's. pass=true here would mean the flag
+// had stopped taking effect and the wall-clock gate was silently back, judging the runner's spare
+// capacity; pass=false would mean the same thing having already failed. Both are caught. limitMs
+// is the limit still applied elsewhere, for the message.
+func x11RequireReportedRow(t *testing.T, row x11BudgetRow, limitMs float64, what string) {
+	t.Helper()
+	require.Nil(t, row.LimitMs,
+		"%s must leave %s REPORTED (limit_ms null) in this run's artifact; it is still gated at %.0fms "+
+			"by every run that does not pass the flag", x11UnderColoadFlag, what, limitMs)
+	require.Nil(t, row.Pass, "%s must leave %s REPORTED (pass null) in this run's artifact",
+		x11UnderColoadFlag, what)
 }
 
 // x11BuildBenchBinary compiles ./test/bench/hotpath and returns the executable: the harness is
@@ -387,23 +442,27 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	// devtool's bench-hotpath task is a verbatim forwarder to `go run ./test/bench/hotpath`
 	// (tools/devtool/benchhotpath.go), so building and spawning the harness binary directly runs
 	// the identical measurement without nesting a `go run` inside the test. --project points it at
-	// the pre-populated project; --under-coload declares this caller is a `go test` binary (see
-	// the file comment for the B-E clock this moves the judgement to).
+	// the pre-populated project; --under-coload is forwarded iff the invoking job declared the run
+	// co-loaded (see the file comment) — ci.yml's test-e2e job does not, and judges every row.
 	bench := x11BuildBenchBinary(t)
 	jsonPath := filepath.Join(t.TempDir(), "v3-hotpath.json")
+
+	underCoload := obs.UnderCoload()
+	args := []string{
+		"--iterations", strconv.Itoa(x11BenchIterations),
+		"--hook", "observe-tool",
+		"--warm-daemon",
+	}
+	if underCoload {
+		args = append(args, x11UnderColoadFlag)
+	}
+	args = append(args, "--json", jsonPath, "--project", p.Root)
 
 	hctx, hcancel := context.WithTimeout(ctx, x11HarnessBound)
 	defer hcancel()
 	root, err := moduleRoot()
 	require.NoError(t, err)
-	cmd := exec.CommandContext(hctx, bench,
-		"--iterations", strconv.Itoa(x11BenchIterations),
-		"--hook", "observe-tool",
-		"--warm-daemon",
-		"--under-coload",
-		"--json", jsonPath,
-		"--project", p.Root,
-	)
+	cmd := exec.CommandContext(hctx, bench, args...)
 	cmd.Dir = root
 	cmd.Env = x11InitialEnv
 	var stdout, stderr strings.Builder
@@ -416,11 +475,11 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"bench-hotpath exited non-zero with the observer and the 5 000-elimination ledger resident: "+
-			"either a gated budget (B-A p99<%.0fms, B-B p99<%.0fms, B-E_cpu p99<%.0fms) breached, or "+
-			"the harness itself failed\nstderr:\n%s",
-		x11BudgetLimitMs(t, p, obs.BA), x11BudgetLimitMs(t, p, obs.BB),
-		x11BudgetLimitMs(t, p, obs.BE), stderr.String())
+		"bench-hotpath exited non-zero with the observer and the 5 000-elimination ledger resident "+
+			"(%s=%v): either a gated budget (B-B p99<%.0fms, B-E_cpu p99<%.0fms; without %s also B-A "+
+			"p99<%.0fms and B-E's wall row p99<%.0fms) breached, or the harness itself failed\nstderr:\n%s",
+		obs.UnderColoadEnv, underCoload, x11BudgetLimitMs(t, p, obs.BB), x11BudgetLimitMs(t, p, obs.BE),
+		x11UnderColoadFlag, x11BudgetLimitMs(t, p, obs.BA), x11BudgetLimitMs(t, p, obs.BE), stderr.String())
 
 	raw, err := os.ReadFile(jsonPath)
 	require.NoError(t, err, "the harness must write the --json artifact")
@@ -437,14 +496,9 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	bbLimit := x11BudgetLimitMs(t, p, obs.BB)
 	beLimit := x11BudgetLimitMs(t, p, obs.BE)
 
-	// ── Expected output 1: B-A p99 < 15 ms, pass true. ──
+	// ── Expected output 1: B-A p99 < 15 ms, pass true — judged in the two-mode block after
+	// expected output 3, with B-E's wall row. ──
 	ba := x11Row(t, rep, string(obs.BA))
-	require.NotNil(t, ba.LimitMs, "B-A is a hard gate and must carry its limit")
-	require.InDelta(t, baLimit, *ba.LimitMs, 0.001)
-	require.NotNil(t, ba.Pass)
-	require.True(t, *ba.Pass, "B-A gate must pass with the ledger resident (p99=%.3fms)", ba.P99)
-	require.Less(t, ba.P99, baLimit,
-		"X11: B-A p99 < %.0fms with the observer pipeline and the 5 000-elimination ledger resident", baLimit)
 
 	// ── Expected output 2: B-B p99 < 2 ms, pass true. ──
 	bb := x11Row(t, rep, string(obs.BB))
@@ -454,26 +508,50 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 	require.True(t, *bb.Pass, "B-B gate must pass with the ledger resident (p99=%.3fms)", bb.P99)
 	require.Less(t, bb.P99, bbLimit, "X11: B-B p99 < %.0fms", bbLimit)
 
-	// ── Expected output 3: B-E p99 < 2 s, pass true, on the gated (CPU) row; the wall row is
-	// disclosed as reported-not-gated for this --under-coload run (see the file comment). ──
+	// ── Expected output 3: B-E p99 < 2 s, pass true, on the CPU row — gated in both modes (see the
+	// file comment). ──
 	beCPU := x11Row(t, rep, x11BECPURowID)
 	require.Equal(t, x11CheckpointSamples, beCPU.N,
 		"the B-E CPU row must cover every checkpoint spawn the harness made")
-	require.NotNil(t, beCPU.LimitMs, "B-E_cpu is the gated B-E row under co-load and must carry its limit")
-	require.InDelta(t, beLimit, *beCPU.LimitMs, 0.001)
+	require.NotNil(t, beCPU.LimitMs, "B-E_cpu is gated in both modes and must carry its limit")
+	require.InDelta(t, beLimit, *beCPU.LimitMs, x11LimitDeltaMs)
 	require.NotNil(t, beCPU.Pass)
 	require.True(t, *beCPU.Pass, "B-E gate must pass with the ledger resident (cpu p99=%.3fms)", beCPU.P99)
 	require.Less(t, beCPU.P99, beLimit, "X11: B-E p99 < %.0fms (§11.3 L4) on the checkpoint's own clock", beLimit)
 
+	// ── Expected outputs 1 and 3, wall clock: B-A and B-E's wall-clock row are the two rows whose
+	// samples span a process boundary, judged by the job that can judge them and asserted waived
+	// by the job that cannot, nothing assumed in either mode:
+	//
+	//   - not co-loaded (ci.yml's `test-e2e` job, this package alone on its runner; bench-gate's
+	//     shape): both rows gated at their obs.Budgets() limits, pass=true, p99 under the limit —
+	//     and the waiver notes ABSENT, because a note present without the flag would mean the
+	//     harness had waived on its own.
+	//   - co-loaded (QOMPACK_UNDER_COLOAD set by the job): both rows REPORTED (limit_ms/pass both
+	//     null, exactly B-D's shape) with the harness's own disclosure for each in the notes — the
+	//     flag that caused it, the limit not applied and where it still is; B-E's also names the
+	//     row that still enforces the limit here. A null pass field is not an explanation. ──
 	beWall := x11Row(t, rep, string(obs.BE))
 	require.Equal(t, x11CheckpointSamples, beWall.N, "both B-E rows must cover the same 50 children")
-	require.Nil(t, beWall.LimitMs,
-		"--under-coload must leave B-E's wall-clock row ungated in this run's artifact; bench-gate "+
-			"still gates it at %.0fms in isolation", beLimit)
-	require.Nil(t, beWall.Pass)
-	require.True(t, x11NotesMention(rep, "--under-coload") && x11NotesMention(rep, x11BECPURowID),
-		"the artifact must disclose the wall-clock waiver in its notes, naming the flag and the row "+
-			"that still enforces the limit; notes present: %q", rep.Notes)
+	if underCoload {
+		x11RequireReportedRow(t, ba, baLimit, "B-A")
+		x11RequireReportedRow(t, beWall, beLimit, "B-E's wall-clock row")
+		require.True(t, x11NotesMention(rep, x11UnderColoadFlag) && x11NotesMention(rep, x11BECPURowID),
+			"the artifact must disclose B-E's wall-clock waiver in its notes, naming the flag and the row "+
+				"that still enforces the limit; notes present: %q", rep.Notes)
+		require.True(t, x11NotesMention(rep, x11BAWaiverMark),
+			"the artifact must disclose B-A's waiver in its own note (%q), not only B-E's; notes present: %q",
+			x11BAWaiverMark, rep.Notes)
+		t.Logf("X11 under %s: B-A p99=%.3fms (limit %.0fms) and B-E wall p99=%.3fms (limit %.0fms) are "+
+			"REPORTED here, not judged; ci.yml's `test-e2e` job runs this package alone and judges both",
+			obs.UnderColoadEnv, ba.P99, baLimit, beWall.P99, beLimit)
+	} else {
+		x11RequireGatedRow(t, ba, baLimit, "B-A")
+		x11RequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
+		require.False(t, x11NotesMention(rep, x11UnderColoadFlag),
+			"no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
+				"on its own; notes present: %q", x11UnderColoadFlag, rep.Notes)
+	}
 
 	// ── Expected output 4: `pass: true` for each gated budget — swept structurally, so a row this
 	// test does not name explicitly can never fail its own gate unnoticed. ──
@@ -497,21 +575,34 @@ func TestV3_HotPathUnchangedWithLedgerResident(t *testing.T) {
 
 	// ── Expected output 6: B-A p99 compared against the V2 completion report's figure — a
 	// regression greater than 25% fails this checkpoint even under budget (§7 benchstat policy
-	// applied to the hot path). ──
+	// applied to the hot path). The V2 figure was measured with the harness alone on its host, so
+	// the comparison is a judgement only where this run is: co-loaded, it is logged with the
+	// ceiling and left to `test-e2e`. ──
 	regressionCeiling := x11V2BAp99Ms * x11RegressionFactor
-	require.LessOrEqualf(t, ba.P99, regressionCeiling,
-		"X11: B-A p99 regressed more than 25%% against V2's recorded %.3fms (got %.3fms, ceiling "+
-			"%.3fms) — wave 2's observer pipeline and resident ledger are NOT allowed to move the hot "+
-			"path, budget headroom or not (§13 invariant 9)",
-		x11V2BAp99Ms, ba.P99, regressionCeiling)
+	if underCoload {
+		t.Logf("X11 under %s: B-A p99=%.3fms against V2's %.3fms (ceiling %.3fms) is REPORTED, not "+
+			"judged — a co-loaded sample is not comparable to a figure taken in isolation",
+			obs.UnderColoadEnv, ba.P99, x11V2BAp99Ms, regressionCeiling)
+	} else {
+		require.LessOrEqualf(t, ba.P99, regressionCeiling,
+			"X11: B-A p99 regressed more than 25%% against V2's recorded %.3fms (got %.3fms, ceiling "+
+				"%.3fms) — wave 2's observer pipeline and resident ledger are NOT allowed to move the hot "+
+				"path, budget headroom or not (§13 invariant 9)",
+			x11V2BAp99Ms, ba.P99, regressionCeiling)
+	}
 
-	// The §5 completion-report row: B-A p99 now vs then, from one artifact.
+	// The §5 completion-report row: B-A p99 now vs then, from one artifact. The verdict word says
+	// which mode this run was.
+	wallVerdict := "gated"
+	if underCoload {
+		wallVerdict = "reported, not gated: " + x11UnderColoadFlag
+	}
 	t.Logf("X11 measured (platform %s, n=%d): B-A p99 = %.3f ms (V2 was %.3f ms; ceiling %.3f ms, "+
-		"limit %.0f ms) | B-B p99=%.3fms (limit %.0fms) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | "+
-		"B-E wall p50=%.3fms p99=%.3fms (reported, not gated: --under-coload) | B-D p50=%.3fms "+
+		"limit %.0f ms; %s) | B-B p99=%.3fms (limit %.0fms) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | "+
+		"B-E wall p50=%.3fms p99=%.3fms (limit %.0fms; %s) | B-D p50=%.3fms "+
 		"p99=%.3fms max=%.3fms (n=%d) | spawn_floor p50=%.3fms p99=%.3fms (n=%d) | b_a_method=%q",
-		rep.Platform, rep.N, ba.P99, x11V2BAp99Ms, regressionCeiling, baLimit,
-		bb.P99, bbLimit, beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99,
+		rep.Platform, rep.N, ba.P99, x11V2BAp99Ms, regressionCeiling, baLimit, wallVerdict,
+		bb.P99, bbLimit, beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99, beLimit, wallVerdict,
 		bd.P50, bd.P99, bd.Max, bd.N, rep.SpawnFloorMs.P50, rep.SpawnFloorMs.P99, rep.SpawnFloorMs.N,
 		rep.BAMethod)
 	for _, note := range rep.Notes {
