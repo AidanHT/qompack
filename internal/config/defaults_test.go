@@ -74,6 +74,12 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 
 	require.Equal(t, config.MCPCfg{SpanWidenLines: 40, MaxResponseBytes: 262144}, rt.MCP)
 
+	// The §11.5 cache-regime block SP-12 adds: neither key changes an Appendix C default, they
+	// sit beside scheduler.cache and leave its values untouched (00-ARCHITECTURE.md §11.5).
+	require.Equal(t, config.RSchedulerCfg{
+		Cache: config.RSchedulerCacheCfg{ExpiringTriggerFraction: 0.8, AssumeMaxTTLSeconds: 3600},
+	}, rt.Scheduler)
+
 	// SP-01 additions beyond the §11.5 document reproduced in 00-ARCHITECTURE.md.
 	require.Equal(t, config.BudgetsCfg{
 		L0IngestMs: 2, L0ProcessMs: 50, CheckpointFinalizeMs: 2000, MCPToolCallMs: 250,

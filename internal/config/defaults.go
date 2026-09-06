@@ -146,6 +146,12 @@ func Defaults() Config {
 				SpanWidenLines:   40,
 				MaxResponseBytes: 262144,
 			},
+			Scheduler: RSchedulerCfg{
+				Cache: RSchedulerCacheCfg{
+					ExpiringTriggerFraction: 0.8,
+					AssumeMaxTTLSeconds:     3600,
+				},
+			},
 			Budgets: BudgetsCfg{
 				L0IngestMs:           2,
 				L0ProcessMs:          50,

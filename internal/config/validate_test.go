@@ -143,6 +143,24 @@ var ruleCases = []ruleCase{
 	{"mcp.spanWidenLines below 0", func(c *config.Config) { c.Runtime.MCP.SpanWidenLines = -1 }, "runtime.mcp.spanWidenLines"},
 	{"mcp.maxResponseBytes below 4096", func(c *config.Config) { c.Runtime.MCP.MaxResponseBytes = 4095 }, "runtime.mcp.maxResponseBytes"},
 
+	// runtime.scheduler.cache.expiringTriggerFraction ∈ (0,1) ;
+	// runtime.scheduler.cache.assumeMaxTTLSeconds ≥ scheduler.cache.ttlSeconds
+	{"expiringTriggerFraction at 0", func(c *config.Config) {
+		c.Runtime.Scheduler.Cache.ExpiringTriggerFraction = 0
+	}, "runtime.scheduler.cache.expiringTriggerFraction"},
+	{"expiringTriggerFraction at 1", func(c *config.Config) {
+		c.Runtime.Scheduler.Cache.ExpiringTriggerFraction = 1
+	}, "runtime.scheduler.cache.expiringTriggerFraction"},
+	{"expiringTriggerFraction above 1", func(c *config.Config) {
+		c.Runtime.Scheduler.Cache.ExpiringTriggerFraction = 1.5
+	}, "runtime.scheduler.cache.expiringTriggerFraction"},
+	{"assumeMaxTTLSeconds below scheduler.cache.ttlSeconds", func(c *config.Config) {
+		c.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds = 100 // scheduler.cache.ttlSeconds defaults to 300
+	}, "runtime.scheduler.cache.assumeMaxTTLSeconds"},
+	{"assumeMaxTTLSeconds at 0", func(c *config.Config) {
+		c.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds = 0
+	}, "runtime.scheduler.cache.assumeMaxTTLSeconds"},
+
 	// runtime.tokens.* charsPerToken ∈ [1,20]
 	{"proseCharsPerToken below 1", func(c *config.Config) { c.Runtime.Tokens.ProseCharsPerToken = 0.5 }, "runtime.tokens.proseCharsPerToken"},
 	{"proseCharsPerToken above 20", func(c *config.Config) { c.Runtime.Tokens.ProseCharsPerToken = 21 }, "runtime.tokens.proseCharsPerToken"},

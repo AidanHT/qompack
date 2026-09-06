@@ -7,7 +7,9 @@ package config
 // through B-F config keys (B-A already has one at hotPath.budgetMs; B-D is reported, never
 // gated, so it has no key), Selection carries the closing-note-3 ship-order gate that derives
 // SelectionCfg.Submodular.Enabled, and Tokens carries the baseline token-estimator constants
-// (G10.2 groundwork).
+// (G10.2 groundwork). Scheduler is SP-12's §11.5 cache-regime block: it is documented in the
+// §11.5 text 00-ARCHITECTURE.md reproduces, so it sits with the other §11.5 blocks above
+// Budgets rather than with the SP-01 additions below it.
 type RuntimeCfg struct {
 	Mode      string        `json:"mode" doc:"overall operating mode" enum:"auto|full|passive|off" sec:"00-ARCH §12"`
 	Daemon    DaemonCfg     `json:"daemon"`
@@ -17,6 +19,7 @@ type RuntimeCfg struct {
 	Telemetry TelemetryCfg  `json:"telemetry"`
 	Rehydrate RehydrateCfg  `json:"rehydrate"`
 	MCP       MCPCfg        `json:"mcp"`
+	Scheduler RSchedulerCfg `json:"scheduler"`
 	Budgets   BudgetsCfg    `json:"budgets"`
 	Selection RSelectionCfg `json:"selection"`
 	Tokens    RTokensCfg    `json:"tokens"`
@@ -72,6 +75,28 @@ type RehydrateCfg struct {
 type MCPCfg struct {
 	SpanWidenLines   int `json:"spanWidenLines"   doc:"lines to widen a minimal span by when the caller requests more context" rng:"[0,∞)" sec:"§8.7"`
 	MaxResponseBytes int `json:"maxResponseBytes" doc:"maximum bytes an MCP tool response may return" rng:"[4096,∞)" sec:"§8.7"`
+}
+
+// RSchedulerCfg is the §11.5 cache-regime namespace: scheduler knobs that describe the PROMPT
+// CACHE the host happens to be running under, which is a property of the process the daemon
+// observes rather than of the compaction algorithm Appendix C configures. None of it changes an
+// Appendix C default — the keys sit beside `scheduler.cache` and leave its values untouched.
+type RSchedulerCfg struct {
+	Cache RSchedulerCacheCfg `json:"cache"`
+}
+
+// RSchedulerCacheCfg carries the two cache-regime keys 00-ARCHITECTURE.md §11.5 documents for
+// SP-12's `cache_expiring` trigger: when to fire relative to a KNOWN TTL, and what upper bound to
+// assume when the regime cannot be identified at all.
+//
+// assumeMaxTTLSeconds is bounded below by scheduler.cache.ttlSeconds rather than by a literal,
+// because an assumed upper bound that sits under the TTL the scheduler already knows about would
+// make the unknown-regime case fire sooner than the known one — the opposite of what an upper
+// bound is for. The relation is cross-key, so Validate enforces it and the rng tag names the key
+// it is measured against, the same way runtime.rehydrate's min/max pair does.
+type RSchedulerCacheCfg struct {
+	ExpiringTriggerFraction float64 `json:"expiringTriggerFraction" doc:"fraction of a KNOWN prompt-cache TTL past which the scheduler fires while the prefix is still readable (cache_expiring trigger)" rng:"(0,1)" sec:"00-ARCH §11.5 / Qompack.md §5.4"`
+	AssumeMaxTTLSeconds     int     `json:"assumeMaxTTLSeconds"     doc:"upper TTL bound the scheduler assumes when the cache regime cannot be identified"                                             rng:"[scheduler.cache.ttlSeconds,∞)" sec:"00-ARCH §11.5 / Qompack.md §5.4"`
 }
 
 // BudgetsCfg gives the §11.3/§2.4 latency budgets B-B through B-F config keys, plus B-G's. B-A
