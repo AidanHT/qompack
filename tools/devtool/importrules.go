@@ -44,6 +44,10 @@ var compositionRoots = map[string]bool{
 	"test/bench/hotpath": true,
 	"test/replay":        true,
 	"test/integration":   true,
+	// test/replay/l3policy (SP-12) is the replay driver's qompack-l3 policy: a library over
+	// scheduler/eval/config/core/paths, declared here because classify() knows test/ paths only
+	// through this table. TestPolicy_DoesNotImportDaemon keeps it off the composition roots.
+	"test/replay/l3policy": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package

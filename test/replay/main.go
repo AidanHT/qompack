@@ -28,6 +28,7 @@ import (
 	"github.com/qompack/qompack/internal/eval"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
+	_ "github.com/qompack/qompack/test/replay/l3policy" // registers qompack-l3 for --policies
 )
 
 // Exit codes. Each names a distinct failure so a CI log says what happened without being read.
