@@ -32,15 +32,3 @@ func Truncate(c Checkpoint, budget core.Tokens, t config.TiersCfg, est tokens.Es
 func ValidatePointers(ctx context.Context, root string, p Pointers) ([]DropEntry, error) {
 	return nil, core.ErrNotImplemented
 }
-
-// ExtractDecisions mints tier-2 decisions from src, considering everything recorded after turn
-// from: EdgeExplains chains in the dependence DAG, elimination records that carry an
-// alternatives-rejected shape, and explicitly recorded decisions.
-//
-// It is the ONLY producer of core.DecisionID, and therefore the only thing that makes the
-// `why(decision_id)` MCP tool answerable (00-ARCHITECTURE.md §5.14, §5.16). A minted decision also
-// gets a dag.KindDecision node so slice scores can rank it. Always reports
-// core.ErrNotImplemented until SP-10 lands.
-func ExtractDecisions(ctx context.Context, src SourceSet, from core.TurnIndex) ([]Decision, error) {
-	return nil, core.ErrNotImplemented
-}
