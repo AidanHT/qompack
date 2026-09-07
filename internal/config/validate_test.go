@@ -193,6 +193,21 @@ var ruleCases = []ruleCase{
 
 	// runtime.telemetry.enabled must be false
 	{"telemetry.enabled true", func(c *config.Config) { c.Runtime.Telemetry.Enabled = true }, "runtime.telemetry.enabled"},
+
+	// runtime.migration.settingsVersion == MigrationSettingsVersion
+	{"migration.settingsVersion below current", func(c *config.Config) { c.Runtime.Migration.SettingsVersion = 0 }, "runtime.migration.settingsVersion"},
+	{"migration.settingsVersion above current", func(c *config.Config) { c.Runtime.Migration.SettingsVersion = config.MigrationSettingsVersion + 1 }, "runtime.migration.settingsVersion"},
+
+	// runtime.migration gated switches must be false while their gate is pending (every gate is
+	// pending at SP-19; migration_test.go's TestMigrationGates_AllPendingInThisBuild pins that)
+	{"migration.capture.rawEvidence true", func(c *config.Config) { c.Runtime.Migration.Capture.RawEvidence = true }, "runtime.migration.capture.rawEvidence"},
+	{"migration.publication.durableFrontier true", func(c *config.Config) { c.Runtime.Migration.Publication.DurableFrontier = true }, "runtime.migration.publication.durableFrontier"},
+	{"migration.replacement.newResult true", func(c *config.Config) { c.Runtime.Migration.Replacement.NewResult = true }, "runtime.migration.replacement.newResult"},
+	{"migration.compaction.automaticVeto true", func(c *config.Config) { c.Runtime.Migration.Compaction.AutomaticVeto = true }, "runtime.migration.compaction.automaticVeto"},
+	{"migration.experiments.enabled true", func(c *config.Config) { c.Runtime.Migration.Experiments.Enabled = true }, "runtime.migration.experiments.enabled"},
+
+	// runtime.migration.compaction.blockManualCompact must be false
+	{"migration.compaction.blockManualCompact true", func(c *config.Config) { c.Runtime.Migration.Compaction.BlockManualCompact = true }, "runtime.migration.compaction.blockManualCompact"},
 }
 
 func TestValidate_EveryRule(t *testing.T) {
@@ -247,7 +262,9 @@ var unconstrainedLeaves = map[string]bool{
 	"runtime.redact.enabled":                    true,
 	"runtime.redact.patterns":                   true,
 	"runtime.selection.submodularEnabled":       true,
-	"runtime.tokens.imageMaxTokens":             true,
+	// The injection kill switch: a bool with no invalid state (Qompack.md v1.5 Appendix C).
+	"runtime.migration.reinjection.sessionStartCompact": true,
+	"runtime.tokens.imageMaxTokens":                     true,
 }
 
 func TestValidate_RuleTableIsComplete(t *testing.T) {

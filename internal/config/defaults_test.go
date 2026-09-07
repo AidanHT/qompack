@@ -80,6 +80,14 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 		Cache: config.RSchedulerCacheCfg{ExpiringTriggerFraction: 0.8, AssumeMaxTTLSeconds: 3600},
 	}, rt.Scheduler)
 
+	// SP-19's migration block (Qompack.md v1.5 Appendix C): every gated switch off, the hardwired
+	// manual-compact block off, the tested SessionStart adapter on. migration_test.go pins the
+	// gate table; this pins the defaults.
+	require.Equal(t, config.MigrationCfg{
+		SettingsVersion: 1,
+		Reinjection:     config.MigrationReinjectionCfg{SessionStartCompact: true},
+	}, rt.Migration)
+
 	// SP-01 additions beyond the §11.5 document reproduced in 00-ARCHITECTURE.md.
 	require.Equal(t, config.BudgetsCfg{
 		L0IngestMs: 2, L0ProcessMs: 50, CheckpointFinalizeMs: 2000, MCPToolCallMs: 250,

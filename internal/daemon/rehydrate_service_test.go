@@ -381,8 +381,19 @@ type rsFixture struct {
 // with persistence disabled.
 func rsNewFixture(t *testing.T) *rsFixture {
 	t.Helper()
+	return rsNewFixtureWith(t, nil)
+}
+
+// rsNewFixtureWith is rsNewFixture with the project's resolved config edited before the service
+// reads it; nil leaves it alone.
+func rsNewFixtureWith(t *testing.T, mutate func(*config.Config)) *rsFixture {
+	t.Helper()
 
 	p := testutil.NewProject(t)
+	cfg := p.Cfg
+	if mutate != nil {
+		mutate(&cfg)
+	}
 	log := &rsLogger{}
 	clk := testutil.NewFakeClock(testutil.Epoch)
 	reader := &rsFakeReader{cp: rsGoldenCheckpoint(t), ref: rsRef(p.Root)}
@@ -397,7 +408,7 @@ func rsNewFixture(t *testing.T) *rsFixture {
 	f := &rsFixture{proj: p, reader: reader, log: log, tok: tok, st: sp, ledger: led, mon: mon, clock: clk}
 	f.svc = daemon.NewRehydrateService(daemon.RehydrateOptions{
 		ProjectRoot: p.Root,
-		Cfg:         p.Cfg,
+		Cfg:         cfg,
 		Checkpoints: reader,
 		Deps: rehydrate.Deps{
 			Store:  sp,
@@ -479,6 +490,20 @@ func TestService_CompactEmitsAdditionalContext(t *testing.T) {
 			"checkpoint re-encodes it (§4.6)")
 
 	require.Equal(t, 1, f.reader.latests, "exactly one checkpoint read per compact")
+}
+
+// TestService_ReinjectionKillSwitchEmitsNothing pins Qompack.md v1.5 Appendix C's independent
+// injection switch (SP-19): with runtime.migration.reinjection.sessionStartCompact false the
+// service emits nothing and reads no checkpoint, while the mode stays ModeFull — recording is a
+// different switch (runtime.mode) and is untouched.
+func TestService_ReinjectionKillSwitchEmitsNothing(t *testing.T) {
+	f := rsNewFixtureWith(t, func(c *config.Config) { c.Runtime.Migration.Reinjection.SessionStartCompact = false })
+
+	out, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.Equal(t, hookio.Empty(), out, "a disabled injection emits nothing")
+	require.Zero(t, f.reader.latests, "a disabled injection must not even read the checkpoint")
+	require.Equal(t, contract.ModeFull, f.mon.Mode(), "the kill switch is not a degradation")
 }
 
 // TestService_DegradedPassiveEmitsNothing is §12.1's contract-failure state made mechanical: L0

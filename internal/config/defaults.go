@@ -152,6 +152,15 @@ func Defaults() Config {
 					AssumeMaxTTLSeconds:     3600,
 				},
 			},
+			Migration: MigrationCfg{
+				SettingsVersion: MigrationSettingsVersion,
+				Capture:         MigrationCaptureCfg{RawEvidence: false},
+				Publication:     MigrationPublicationCfg{DurableFrontier: false},
+				Reinjection:     MigrationReinjectionCfg{SessionStartCompact: true},
+				Replacement:     MigrationReplacementCfg{NewResult: false},
+				Compaction:      MigrationCompactionCfg{AutomaticVeto: false, BlockManualCompact: false},
+				Experiments:     MigrationExperimentsCfg{Enabled: false},
+			},
 			Budgets: BudgetsCfg{
 				L0IngestMs:           2,
 				L0ProcessMs:          50,

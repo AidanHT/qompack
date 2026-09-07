@@ -1,5 +1,7 @@
 # `Qompack.md` verification record
 
+**Current revision:** v1.5, 2026-09-06, deliberately authorized by the user for Markdown-only planning. The v1.3 record below is preserved verbatim history, not current endorsement of its arithmetic, internal constants or compatibility conclusions. See the appended v1.5 record for superseded claims.
+
 `Qompack.md` is **read-only** (`plans/README.md`, Global rules). It carries a **Revision log**, so it
 is revisable — but only deliberately, as a versioned revision, never edited in passing by a subplan.
 It has been revised twice before: v1.1 (full-plan review) and v1.2 (latency made an explicit
@@ -11,6 +13,9 @@ revision appends to this file rather than replacing it.
 
 **v1.4 landed 2026-08-26**, appended below: a single §8.6 sentence widened, raised by SP-11 when the
 design of record and the shipped conformance suite were found to disagree about it.
+
+**v1.5 landed on the combined wave-3 baseline (SP-19 M0-01)**, appended after it: the 2026-09-06 planning-only
+revision and its merge-first addendum, renumbered from their draft label "v1.4" (see the numbering note in that section).
 
 **Why a record at all, when the document itself has a revision log.** The log says what changed. This
 says what was *checked and did not change*, which is the more perishable half — without it the next
@@ -219,3 +224,46 @@ an approach when nothing has ever been eliminated is noise that costs budget and
 skip the line, and §8.6 item 8's affordance notice still names the tool. §9's G6.2 mitigation row is
 therefore conditional on a non-empty ledger at `SessionStart`, and that conditionality is recorded
 here rather than in the design of record.
+## v1.5 — evidence-grounded planning-only migration (2026-09-06)
+
+**Numbering.** This section was drafted as "v1.4" on the `verify/v3` snapshot (`7f92af5`) before the SP-11 v1.4 above had reached the combined baseline; SP-19 M0-01 renumbered it v1.5 when the planning revision landed on `develop`'s wave-3 baseline. Nothing in the v1.4 record above is superseded by the renumbering.
+
+### Origin
+
+The user authorized revising Markdown plans while preserving completed Waves 0–2 and active Wave 3. The repository design was v1.3; a separately named Pasted markdown.md was not found. The actual design and original plan/test/source locations were inspected. [MIGRATION-EVIDENCE.md](MIGRATION-EVIDENCE.md) records the baseline, sources, claims, blueprint, routing and review. The earlier v1.3 record above remains historical; its future instructions do not override the current scope or corrected contracts.
+
+### Confirmed — inspected and preserved
+
+The checkout remains verify/v3 at 7f92af5353a6bd084aa49043351e4183ecbcb2ad. V3's 2026-08-26 final addendum records the user's J5 waiver/closure and Wave 3 branch creation; its earlier blocked cells were not rewritten. Active sibling SP10–13 source demonstrates ongoing work, not newly passed gates. Existing negative-knowledge matching already excludes reason and confirms Bloom positives exactly; no rewrite is proposed for those correct seams.
+
+Completed subplans/reports, NEXT-SESSION.md, session records, machine-read TSVs, source/tests/manifests/fixtures/config/CI/data and initial untracked coverage/benchmark files remain protected. The explicit design revision changes only the 21 planning Markdown paths in the ledger. Existing branch/commit/role/checkbox conventions remain future instructions.
+
+### Changed
+
+Qompack.md now separates documented contracts, observed code, unsupported controls and experiments. All 40 G IDs across 10 categories remain traceable. Native O(delta), guaranteed first-turn savings, custom_instructions output-setting, historical cuts/eviction/cache-marker control, generic greedy/KL/slicing/Belady guarantees and arbitrary truncation are removed from current specifications. Cache break-even is conditional N versus w+(N−1)r, with request-category accounting and unknown telemetry.
+
+SP19 reconciles capabilities/cost/settings/baselines; SP20 remediates capture privacy/fidelity, publication, acknowledged drains, reversible legacy import, state and trust; SP13 extends actual archive recovery. SP10/11 preserve active Wave 3 and correct frontiers/lifecycle/authority/complete-record recovery. SP21 adds a distinct default-off admission extension after M1–M3. SP12/15/16 specify supported cadence, feasible future representations, warning-only loops and scoped reuse. SP14/17/18 and V4–V6 define continuous measurement, installed compatibility, held-out task evaluation, release and rollback gates.
+
+Old source/schema examples were removed from revised subplans so future agents receive one current prose specification. Architecture's retained signatures/fixtures describe existing compatibility and are explicitly superseded by §0.1 where old behavior differs. Historical revision logs and benchmark outputs retain their old meaning; no completed implementation item was checked or reset.
+
+### What was not verified
+
+No application test, build, benchmark, replay, integration/capability probe, installer, generator, migration or Git mutation ran. Reading source/tests and independent-agent agreement do not establish installed runtime correctness. Host versions/managed restrictions, actual retrieval/replacement behavior, storage crash/backup/rollback, UAT, pricing/telemetry completeness and release/name support remain named future gates. This revision does not promise runtime perfection or performance improvement.
+
+### Review and blast radius
+
+P0–P4 scope/discovery/blueprint/pilot/drafting were followed by a fresh requested Terra-high semantic reviewer and reused Luna-low structural scout. Their findings and coordinator repairs are recorded in the ledger. Only Markdown planning edits are attributable to the pass; protected implementation and historical work were not reset. Final read-only documentation checks and remaining limitations are recorded in the ledger, separate from future implementation acceptance.
+
+### Sources
+
+[The source register](MIGRATION-EVIDENCE.md#source-register-and-verification-limits) distinguishes sources opened on 2026-09-06 from carried prior-review references S1–S29. No current price or installed capability is inferred from an old source or model name.
+
+## v1.5 addendum — merge completed Wave 3 before remaining SP-19 (2026-09-06)
+
+The user clarified that original SP-10–13 are complete and requested that their integration precede the rest of SP-19. That completion report supersedes the initial in-progress status without certifying a combined tree or the new migration requirements. Original checkboxes, reports, delivery branches and implementation remain preserved.
+
+SP-19 now starts with M0-00/M0-G0: nominate current delivery tips, preserve worktree dirt and history, review all overlapping contracts, merge SP-10 → SP-11 → SP-12 → SP-13 into `develop` under architecture §9, resolve conflicts on the incoming branch, validate each merge and the combined baseline, and obtain independent acceptance. Already-integrated deliveries are verified rather than merged again. Unexplained integration regressions block the gate; inherited defects, stale assertions and unavailable target evidence remain explicitly attributed. The remaining M0 tasks, original eight SP-19 commits and contract amendment wait for this gate. Full revised V4 migration verification follows remediation, avoiding a prerequisite cycle.
+
+The master execution guide, design order/closing, architecture precedence, V4 verification and evidence ledger now share that sequencing. SP-10–13 status/placement text distinguishes user-completed original deliveries from future corrections. The new merge gate includes abort/retry/revert-or-forward-fix planning without shared-history resets; merging does not authorize deployment or data migration.
+
+This addendum changes only existing authorized planning Markdown. No merge, branch creation, code/configuration edit, test, build or runtime validation occurs here. Documentation checks and focused review are recorded in MIGRATION-EVIDENCE.md; no promise of a perfect future merge substitutes for actual reviewed evidence.

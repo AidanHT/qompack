@@ -1,14 +1,12 @@
 # Qompack — 00 Global Architecture
 
-**Status:** normative. Every subplan (`plans/V<K>-SP-NN-<slug>.md`) conforms to this document.
-**Source of truth for requirements:** `Qompack.md` v1.2. Where this document and `Qompack.md`
-disagree on *what* to build, `Qompack.md` wins. This document decides *how*.
+**Status:** normative planning architecture, amended for design v1.5 on 2026-09-06. Existing type/signature extracts below describe the compatibility baseline, not generated implementation for this migration. **Source of truth:** `Qompack.md` v1.5 and the migration contracts in `MIGRATION-EVIDENCE.md`. Waves 0–2 remain completed history; original Wave 3 SP-10–13 are now user-reported complete, with combined integration and migration gates unverified here. No implementation, runtime validation, configuration or Git mutation is authorized by this planning revision.
 
 ---
 
 ## 0. How to use this document
 
-This is the contract that lets 18 subplans be built — several of them simultaneously, by
+This is the contract for the original 18 subplans and the three focused SP19–21 migration plans ; independent future work may be authored by
 different agents, in different worktrees — and still compose. It fixes four things:
 
 1. **The runtime substrate** (§2) — language, process model, IPC, dependency policy.
@@ -27,17 +25,114 @@ divergence from §5 is the single failure mode that makes parallel waves worthle
 
 ---
 
+### 0.1 v1.5 migration amendment and precedence
+
+This deliberate user-authorized Markdown revision supersedes old behavioral guarantees wherever retained ABI/config/test examples below still encode them. Preserve existing symbols and frozen fixtures for compatible readers; do not implement the old guarantees as new features. SP-19 owns the `arch/migration-contracts` implementation handoff — §0.2 below, prepared at M0-02 and binding on M1–M3 owners once approved — and the inventory of every source/test/config consumer (`plans/sdd/V4-SP-19-migration-reconciliation/M0-01-inventory.md`). No fixture is changed; the only configuration change is the additive, gated `runtime.migration` block (§11.5).
+
+| Existing section/surface | Revised contract and future owner |
+|---|---|
+| §5.3/5.4 hooks, spool and contract monitor | SP-19/SP-20: privacy before persistence of permitted captured host bytes, actual scoped event identity, durable acknowledgement and explicit gaps; no custom-instruction output setter |
+| §5.6/5.8 canon/store hashes and publication | SP-20: original-vs-derived fidelity/version, object verification before reference/frontier/checkpoint publication, compatible IDs/readers and reversible import |
+| §5.7 sketches; §5.10 negknow | SP-20: preserve MatchKey/exact confirmation; generation/coverage-qualified negatives; uncertain/unavailable distinct from absent; heuristic candidates not prohibition |
+| §5.9/5.12 DAG/analyzer | SP-15: approximate relation scores; feasible whole representations/dependency closure, no general greedy/task-quality theorem |
+| §5.13 scheduler; existing YoungDaly/SkiRental/p-selection symbols | SP-12: compatibility/harness-only where retained; cadence and Qompack frontier independent of unsupported native cuts/triggers/veto |
+| §5.14 checkpoint/pins | SP-10: committed event frontier with gaps/in-flight work; local attempts; optional PostCompact; complete-record overflow and versioned old readers |
+| §5.15 rehydrate/rules/skills | SP-11: Qompack-added budget, current authority, qualified coverage, scoped instruction contracts; no inferred native absence or loaded bytes |
+| §5.16 MCP | SP-13: negotiated existing protocols, discoverable authorized history recovery, stable error/fidelity envelopes; no native eviction from ephemeral tags |
+| §5.17 commands / §5.18 eval / §5.20 tokens | SP-14/SP-19: reported usage vs dated estimated price/invoice, assembled token estimation; task/recovery outcomes separate from file/action diagnostics |
+| §11 config/defaults and §13 invariants | SP-19 coordinates version/deprecation/readers; unsupported controls and admission remain off until their gates; SP-21 owns new-result admission |
+| §6–8 measurement and CI | Historical 15ms/4:1/sublinear/2% numbers are targets or dataset observations; V4/V6 define future margins, uncertainty and skipped-host status |
+
+The functional migration dependency is M0→M1→M2→M3→M4/M5→M6→M7, not a restart of waves. The user's merge-prerequisite addendum requires SP-19 M0-00 to integrate the completed original SP10→SP11→SP12→SP13 deliveries into `develop` under §9 and pass M0-G0 before the rest of SP-19 starts. Already-integrated deliveries retain their history and require verification, not duplicate merges. Original integration does not establish corrected recovery or authorize deployment; dependent features remain disabled pending M1–M3 gates. Shared identities/envelopes sit below consumers; compose checkpoint/rehydrator/MCP services without circular imports. Schema, daemon wiring, config and checkpoint integration each have one future editor. Package allow-tables are permissions, not proof of an actual dependency.
+
+Planning routing belongs solely to the ledger: Astra coordinator, bounded Luna scouts/Terra writers and independent review, no config changes. Future implementation roles in subplans are not active planning agents. Existing working branches and dirty files are preserved.
+
+### 0.2 Migration contracts (`arch/migration-contracts`, SP-19 M0-02)
+
+**Status:** proposed contract amendment; approval by SP-20, SP-13, SP-10 and SP-11 is required before any of them implements against it, and the SP-19 independent reviewer records each owner's concerns in `plans/MIGRATION-EVIDENCE.md`. Rationale and rejected alternatives: `docs/adr/0013-migration-contracts.md`. Nothing here enables a feature: every behaviour below sits behind a `runtime.migration.*` gate that `config.Validate` refuses while pending (§11.5, `internal/config/migration.go`). Retained public symbols and frozen fixture bytes are not touched; every new field is a versioned sidecar read through a compatible reader.
+
+#### 0.2.1 Versioned identities
+
+| Identity | Definition | Home | Rule |
+|---|---|---|---|
+| `core.ObservationID` | Qompack-assigned per accepted host delivery: `core.HashBytes("qompack.observation.v1", session ‖ arrivalSeq)`, assigned and persisted in the durable spool lease BEFORE the delivery is handled, so a re-delivered line keeps its identity; never derived from content | `internal/core` (SP-20 M1-01 adds the file; additive) | Two deliveries with equal bytes are two observations with one content identity; a host `tool_use_id` is carried verbatim as `HostID` when supplied and absent otherwise — never synthesised |
+| Content identity | The existing `core.Hash` root of the canonicalised content (`store.Root`) | unchanged | Shared by equal content; never a substitute for event identity |
+| Ordering | `ArrivalSeq` (a per-session sequence assigned at lease time and resumed from the lease/ack log after a daemon restart, so it never restarts at zero) beside the observed `Turn`, `ParentHostID`, `Session`, `Worktree` exactly as the host supplied them; missing relationships are listed in `Gaps` | sidecar envelope | Observed order and arrival order are recorded separately; neither is inferred from the other |
+| Envelope version | Every new on-disk record carries `v` (schema), `transform` (canonicaliser registry version) and `hash` (`sha256/v1`) | sidecar envelope | A record without an envelope has fidelity `unknown`, not `exact`: an additive contract cannot read an old missing field as complete evidence |
+| Fidelity, coverage, outcome, authority | `core.Fidelity` ∈ {exact, prefix, partial, redacted, truncated, binary, failure, unknown}; `core.Coverage` ∈ {qompack_included, archive_only, native_load_observed, expired_deleted, unknown}; `core.EvidenceOutcome` ∈ {ok, absent, unavailable, denied, corrupt, expired, uncertain}; `core.Authority` ∈ {user_correction, explicit_decision, tool_observation, candidate_extraction, hypothesis, conflict} | `internal/core` | Enumerations are closed and versioned; consumers receive them through composition roots, never by importing a sibling layer (no `checkpoint` ↔ `mcp` or `checkpoint` ↔ `rehydrate` edge) |
+
+The sidecar is `index/observations.jsonl` (append-only, keyed by `ToolUseID`); `ToolUseRecord`'s wire line, `checkpoints/NNNN.json`, `records/eliminations.jsonl` and every §16 fixture keep their bytes.
+
+#### 0.2.2 Durable publication and the frontier
+
+1. **Order.** Durable object (`store` object file, fsynced) → verified references (index lines naming the object, appended only after the object is durable and re-verified by hash on read) → committed frontier / checkpoint visibility (`MANIFEST.jsonl` line, `state/frontier.json` acknowledgement). A reference or frontier failure leaves the object as a GC root (`pending write`); a capture failure leaves the host result in place and forbids any handle or pointer that claims it recoverable (SP-21 consumes this rule).
+2. **Acknowledgement.** The spool drain acknowledges a line only after step 2: lease (assigning and persisting `ObservationID` and `ArrivalSeq`) → handle → ack, idempotent by that persisted `ObservationID`, so an interrupted drain re-delivers the same observation instead of consuming it or minting a second identity (SP05-D1; SP-20 M1-02, T20-M1-05).
+3. **One draft owner per session — the checkpointer.** SP-10's `FileWriter` owns `Begin`, `Finalize` and `Abort`. SP-12's O5 `advance_frontier` task neither begins nor caches a `*Draft`: it calls the `checkpoint.FrontierAdvancer` port (`Advance(ctx, session, segments) (core.TurnIndex, error)`), which the checkpointer implements over its live draft (beginning one if none), recovers `ErrDraftSealed` by re-beginning against the new parent and retrying once, and adjudicates the DPI guard (`core.ErrAlreadyEncoded`) in exactly one place. `scheduler_frontier.go`'s `ensureDraft`/`abandonDraft` and the `Close`/`resetSessionLocked` abort are retired by the same change. Owners: SP-10 (port and recovery in `internal/checkpoint`), SP-12 (consumer in `internal/daemon/scheduler_frontier.go`); until both land, `Sources` stays nil and the defect stays inert (M0-00 semantic decision 2). Wiring C-1 also flips SP-12's e2e expectation `sched.frontier.no_writer ≥ 1` (`test/e2e/scheduler_idle_test.go`), which SP-12 updates in the same change.
+4. **Committed frontier with gaps.** `Frontier{Turn, Gaps, InFlight}` may name explicit gaps and in-flight work; a local compaction attempt is identified locally (`AttemptID` = hash of session ‖ PreCompact timestamp) and correlated to a later `SessionStart source=compact` conservatively — never presented as a host identifier. Missing, duplicate or out-of-order events never make a frontier complete (§12.1).
+
+#### 0.2.3 The shared negative-knowledge ledger (the M0-00 deferral)
+
+One once-guarded handle in the composition root replaces four independent openers:
+
+```
+// internal/cli/ledger_handle.go — one editor (SP-19 / coordinator), implemented at SP-20 M2-02
+type LedgerReason uint8 // LedgerRead | LedgerWrite
+type LedgerHandle interface {
+    Get(ctx context.Context, why LedgerReason) (negknow.Ledger, error) // ErrLedgerAbsent for a read with nothing on disk
+    Peek() (negknow.Ledger, bool)                                      // open handle, if any; never opens
+    Close() error                                                      // daemon shutdown; replaces opts.Ledger.Close()
+}
+```
+
+**Policy: create on first write; open if it exists for reads.** The one writer is the `record_eliminated` MCP tool: it calls `Get(ctx, LedgerWrite)` and thereby creates `records/eliminations.jsonl` and `sketches/tried.bloom` on first use. Every other consumer reads — `already_tried`, SP-10's `SourceSet.Ledger` (through `advance_frontier`'s `Ledger.All`), SP-11's rehydration item 3 (the eliminations digest), and SP-12's `rebuild_bloom` idle task, which uses `Peek()` and is a no-op while nothing is open, because rebuilding an absent ledger would create it — and calls `Get(ctx, LedgerRead)`, which opens only if `records/eliminations.jsonl` already exists and otherwise returns `ErrLedgerAbsent` without creating anything. The inherited e2e invariant (`tried.bloom` exists only after a session recorded eliminations) therefore holds by construction, and C-1 can be wired: `SourceSet.Ledger` receives a non-nil read adapter whose `All`, `Active` and `Query` answer an absent ledger with an empty result and no error — so `SourceSet.Validate` passes and `Begin`/`Advance`, which fail on any `All` error, proceed — while `Checkpoint.Eliminated` stays `[]negknow.Record` with its frozen shape untouched; the "no eliminations recorded (ledger absent)" qualifier travels in the observation sidecar and SP-11's coverage report, never as a fabricated record. `RehydrateOptions.OpenLedger` is replaced by the handle; `runDaemon`'s `opts.Ledger.Close()` moves into `Close`.
+
+**Error semantics (E06).** A ledger query error, an absent ledger, stale filter generation, unknown dependency coverage or a failed bloom rebuild yields `unavailable` or `uncertain` with a reason and a recovery direction — never `absent` (which is reserved for a backed record lookup with complete fresh coverage) and never `active`. `negknow.Answer` gains those states with coverage/freshness metadata (SP-20 M2-02); `already_tried`'s `State: absent, Degraded: true` on error becomes `State: unavailable`, and its `absent` for a `BloomOnly` hit or for a stale record under `staleResponse: drop` becomes `uncertain` (SP-13, exclusively).
+
+#### 0.2.4 Retrieval and error envelope (SP-20 M2-03 produces, SP-13 consumes)
+
+`core.EvidenceEnvelope{ObservationID, HostID, Root, Fidelity, Coverage, Validity{From, To, Generation}, Omissions []Omission, Page{Cursor, HasMore}, Outcome}`. MCP responses embed it as data; `IsError` is reserved for protocol failures. `absent` is asserted only with complete, fresh coverage — otherwise `uncertain` or `unavailable`. Authorization is evaluated before any preview or expansion; a hash is not authorization; symlink, path, encoding, size and decompression checks precede materialisation; retrieval never replays a command, calls a service, or bypasses a denied host read (retained SP-13 T13-TRUST). Negotiated MCP protocol versions are unchanged.
+
+#### 0.2.5 Current-state authority and coverage (SP-20 M2-01 produces; SP-11, SP-13, SP-15 consume)
+
+Derived-state records carry `Authority`, the source `ObservationID`s, scope, dependency set and coverage, validity interval, supersession/correction lineage and transform version. Authority orders rehydration: user_correction > explicit_decision > tool_observation > candidate_extraction > hypothesis; a conflict is rendered as a conflict until an authorised source resolves it; a later user correction supersedes a derived record without altering the observation behind it. A current-file read never substitutes for historical retrieval. Coverage states travel with timestamps/epochs and fidelity and never claim native completeness or model compliance.
+
+#### 0.2.6 Unique file ownership for M1–M3
+
+| Path | Owner | Rule |
+|---|---|---|
+| `internal/core/evidence.go` (identities, enumerations, envelope types) | SP-20 M1-01 | additive only; one writer; no behaviour |
+| `internal/store/{observations.go, publish.go, gc_roots.go}`; `internal/observer/capture.go` | SP-20 storage owner | `tooluse.go` wire and existing seams frozen; capture before transform |
+| `internal/daemon/spool_ack.go` (SP05-D1 lease/ack) | SP-20 (its one assigned daemon file) | the daemon files below keep their wave-3 owners; every other `internal/daemon` file: coordinator |
+| `internal/daemon/wire_checkpoint.go` (C-1 wiring through the ledger handle) | SP-10 | lands with the handle |
+| `internal/daemon/rehydrate_service.go` (ledger through the handle; authority/coverage consumption) | SP-11 | `OpenLedger` retired |
+| `internal/daemon/scheduler_idle.go` (`rebuild_bloom` via `Peek()`) | SP-12 | with `scheduler_frontier.go` below |
+| `internal/negknow/{applicability.go, coverage.go}` | SP-20 state owner | `descriptor.go` `MatchKey` and exact bloom confirmation frozen |
+| `internal/checkpoint/frontier_port.go`, `writer.go` (`ErrDraftSealed` recovery) | SP-10 | one draft owner (§0.2.2 item 3) |
+| `internal/daemon/scheduler_frontier.go` | SP-12 | consume the port; drop draft caching and abort |
+| `internal/rehydrate/*` (authority/coverage consumption, ledger through the handle) | SP-11 | whole-record budget and qualified coverage retained |
+| `internal/mcp/{handlers.go, envelope.go}` | SP-13 exclusively | no other subplan edits MCP handlers |
+| `internal/cli/{daemon.go, ledger_handle.go}` (composition root), `internal/config/migration.go` gate table | SP-19 / coordinator | one editor; a gate flips only in its owner's reviewed commit with named test evidence |
+| `internal/contract/{capability.go, observation.go}` and their SessionStart persistence call | SP-19 (types), coordinator (daemon call) | per-capability observation ledger; no `Result` shape change |
+
+No two owners edit one file; the composition root integrates; `tools/devtool/importrules.go` changes only by additive rows. Package allow-tables are permissions, not proof of a dependency.
+
+#### 0.2.7 Enablement and rollback
+
+Capture (`runtime.migration.capture.rawEvidence`), publication (`…publication.durableFrontier`), admission (`…replacement.newResult`), automatic veto (`…compaction.automaticVeto`) and experiments (`…experiments.enabled`) stay refused until their owner flips the gate in `MigrationGates` with the named evidence (T20-M1-01/02, T20-M1-03/04/05, T21, the target canary, M5/M6). With every gate pending the existing code paths are unchanged, so rollback of any M1–M3 landing is "the gate stays off": old readers ignore sidecars, no old artifact changes shape, and `runtime.migration.settingsVersion` newer than a build resets the whole block to defaults. Manual `/compact` is never blocked (`…compaction.blockManualCompact` is hardwired false).
+
+---
+
 ## 1. Decision summary
 
 | # | Decision | Rationale (short) | Section |
 |---|---|---|---|
-| D1 | **Go 1.26+**, single static binary, `CGO_ENABLED=0` | Fastest realistic cold start of any mainstream managed toolchain; trivial cross-compile to 6 targets; pure-Go zstd; no runtime to ship | §2.3 |
-| D2 | **Resident daemon + thin client**, *both* | Neither alone meets 15 ms p99 on Windows. Compiled client floors the spawn cost; daemon removes per-hook state load/serialize (~70 KB of sketches + DAG) which is the real budget killer | §2.1–§2.4 |
+| D1 | **Go 1.26+**, single static binary, `CGO_ENABLED=0` | Retain implemented toolchain/static-binary design; measure target startup and cross-platform support | §2.3 |
+| D2 | **Resident daemon + thin client**, *both* | Retain implemented process model; startup, payload, locking and I/O costs require target measurement | §2.1–§2.4 |
 | D3 | IPC = **named pipe (Windows) / Unix domain socket (POSIX)**, NDJSON framing, 1-byte ACK | No TCP (no ports, no firewall prompts, no cross-user exposure). NDJSON is debuggable with `type`/`cat` | §2.4 |
 | D4 | **Client-side spool fallback** (`.qompack/spool/*.ndjson`) | The queue-and-drain degradation of §8.1 must exist below the daemon, not inside it | §2.4, §12 |
 | D5 | **Hand-rolled CLI dispatch**, no cobra/urfave | The hot path must not pay for a command framework's init | §2.5 |
-| D6 | **Hand-rolled MCP server** (JSON-RPC 2.0 / stdio), conformance-tested | Pre-1.0 SDK churn vs. ~400 LOC we fully control; we need `_meta` for ephemeral tagging | §5.17 |
-| D7 | **Sketches, FastCDC, Sequitur, BOCD implemented in-house** | We need versioned serialization, resize-and-rebuild, and merge semantics no library exposes | §2.5, §5.8 |
+| D6 | **Hand-rolled MCP server** (JSON-RPC 2.0 / stdio), conformance-tested | Retain implemented negotiation and hand-rolled server; `_meta` does not establish native eviction | §5.17 |
+| D7 | **Sketches, FastCDC, Sequitur, BOCD implemented in-house** | Preserve useful existing primitives; optional algorithm complexity requires scoped evidence | §2.5, §5.8 |
 | D8 | **`.qompack/` resolved from the hook payload's project root**, never from the plugin install dir | One store per project, matching §7.4 | §3.3 |
 | D9 | **Conformance suites** (`RunXContractTests`) ship with every interface in SP-01 | This is the mechanism that makes same-wave parallel builds safe | §5.22, §6.4 |
 | D10 | **No network I/O anywhere in the plugin**, ever | Security posture is "reads your code, writes to one gitignored directory, talks to nobody" | §3.3, §13 |
@@ -407,7 +502,7 @@ are exhaustive; anything not listed is forbidden.
 | `contract` | `hookio` `store` |
 | `ipc` | `hookio` `contract` |
 | `observer` | `hookio` `store` `chunk` `canon` `sketch` `dag` `grammar` `negknow` `tokens` |
-| `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack`, and every `test/**` harness — `test/e2e`, `test/guards`, `test/dedup`, `test/bench/hotpath`, `test/replay`, `test/integration` | **composition roots** — may import anything; nothing may import them |
+| `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack`, and every `test/**` harness — `test/e2e`, `test/guards`, `test/dedup`, `test/bench/hotpath`, `test/replay`, `test/integration`, `test/canary` | **composition roots** — may import anything; nothing may import them |
 
 **Why the test harnesses are roots.** Each one exists precisely because it needs a
 combination no internal package's allow-set permits, and being a root outside `internal/` is what
@@ -2523,62 +2618,9 @@ body in this repository. CI's `verify` job greps for `Co-Authored-By`, `Signed-o
 
 ### 11.1 Appendix C schema — verbatim
 
-The following is reproduced **verbatim** from `Qompack.md` Appendix C. It is the normative
-default configuration. `config.Defaults()` must produce exactly this document (modulo the
-`runtime` extension of §11.5), and a golden test asserts it.
+This heading identifies the historical default-contract obligation. v1.5 Appendix C describes future configuration evolution in prose and no longer embeds executable configuration. Existing `internal/config/defaults.go`, its golden fixtures and `docs/config-reference.md` are untouched compatibility artifacts. SP-19 inventories parsers/guards that consumed the earlier fenced example and adds versioned checks against actual supported defaults; no regeneration is authorized here. SP-18 later documents actual shipped values, types, ranges, origin and deprecated meanings.
 
-```jsonc
-{
-  "store": {
-    "chunk": { "min": 1024, "target": 4096, "max": 16384 },
-    "compression": "zstd",
-    "retention": { "days": 30, "sessions": 10 },
-    "canonicalize": {
-      "enabled": true,
-      "strip": ["timestamps", "ansi", "pids", "addresses", "tmpPaths", "durations"],
-      "minhash": { "enabled": true, "permutations": 128, "nearDupThreshold": 0.9 }
-    }
-  },
-  "scheduler": {
-    "softFloorPct": 0.55,
-    "hardCeilingMargin": 20000,
-    "youngDaly": { "enabled": true, "measuredDeltaSeconds": null },
-    "changepoint": { "hazardRate": 0.004, "features": ["paths","tools","time","todos"] },
-    "cache": { "readMultiplier": 0.1, "writeMultiplier": 1.25, "ttlSeconds": 300 },
-    "idle": { "detectAfterSeconds": 120, "backgroundWork": true, "deepCutWhenCold": true }
-  },
-  "checkpoint": {
-    "budgetTokens": 12000,
-    "incrementalSpanInstruction": true,
-    "frontier": { "advanceOnSegmentClose": true, "maxResidualTokens": 20000 },
-    "tiers": { "never": ["invariants","user_intent","eliminated"],
-               "late":  ["decisions","open_questions","current_work"],
-               "first": ["pointers","narrative"] }
-  },
-  "sketches": {
-    "bloom": { "capacity": 10000, "fpRate": 0.01 },
-    "cms":   { "epsilon": 0.001, "delta": 0.01, "warmStartFromProject": true },
-    "hll":   { "registers": 2048 }
-  },
-  "eliminations": {
-    "requireEvidence": true,
-    "defaultScope": "session",
-    "rebuildOnStale": "nextIdle",
-    "staleResponse": "flag"          // "flag" | "drop"
-  },
-  "retrieval": {
-    "ephemeralResults": true,
-    "defaultSpan": "minimal",        // "minimal" | "full"
-    "promoteAfterExpansions": 2
-  },
-  "selection": {
-    "slicing": "thin",
-    "deltaScoring": "cheap",
-    "submodular": { "lambda": 0.4, "lazyGreedy": true }
-  },
-  "eval": { "replayOnPhaseGate": true, "minSessions": 20 }
-}
-```
+Unsupported native request/block/cut controls, output replacement and unverified experimental policies default disabled in the future migration. Separate recording/reinjection/replacement/experiment switches are proposed through compatible configuration change, not silently applied now.
 
 ### 11.2 Loading
 
@@ -2638,32 +2680,7 @@ Appendix C does not cover process-level concerns that the daemon architecture in
 live under a clearly-marked additive namespace. **No key here may change the meaning or default
 of any Appendix C key.**
 
-```jsonc
-"runtime": {
-  "mode": "auto",                     // "auto" | "full" | "passive" | "off"
-  "daemon": { "enabled": true, "idleExitSeconds": 1800, "maxSessions": 8,
-              "ackDeadlineMs": 8,
-              // platform-selected: 5 portable, 25 on Windows — see the note below
-              "connectDeadlineMs": 5 },
-  "hotPath": { "budgetMs": 15, "breachWindows": 3, "spoolOnBreach": true,
-               "maxPayloadBytes": 1048576 },
-  "budgets": { "l0IngestMs": 2, "l0ProcessMs": 50,      // B-B, B-C
-               "checkpointFinalizeMs": 2000,            // B-E
-               "mcpToolCallMs": 250,                    // B-F
-               "hookDegradedMs": 1000 },                // B-G (§12.3 spool append)
-  "logging": { "level": "info", "maxFileMB": 10, "maxFiles": 5 },
-  "redact": { "enabled": true, "patterns": [] },   // secrets never enter the store
-  "telemetry": { "enabled": false },               // hardwired off; key exists to say so
-  "rehydrate": { "minTokens": 8000, "maxTokens": 12000,   // §8.6 8–12K cap; Appendix C has no key
-                 "skillIndexTokens": 450,                 // §8.6 ~450-token skill index
-                 "eliminationsTopN": 8 },
-  "mcp": { "spanWidenLines": 40, "maxResponseBytes": 262144 },
-  // §5.13 / SP-12 cache-regime work. NONE of these changes an Appendix C default: they add a
-  // trigger and a regime resolution beside `scheduler.cache`, which keeps its values untouched.
-  "scheduler": { "cache": { "expiringTriggerFraction": 0.8,   // fire while the prefix is still readable
-                            "assumeMaxTTLSeconds": 3600 } }   // upper bound when the regime is unknown
-}
-```
+The existing runtime namespace in `internal/config/runtime.go` covers process/mode/daemon/IPC budgets, logging/redaction, estimator and rehydration/MCP limits. Preserve current values as legacy input; SP-19 versions any safe-default changes and deprecates cache-expiring/native-action assumptions. No configuration snippet is generated or applied here.
 
 `budgets` — together with `selection` and `tokens`, which the excerpt above does not spell out —
 are SP-01 additions recorded in `internal/config/runtime.go`: `budgets` gives §11.3/§2.4's B-B…B-F
@@ -2691,8 +2708,7 @@ config at every use site. There is no package-level `const r = 0.1` anywhere. Th
 `nomagic` analysis pass fails the build on any float literal in `{0.1, 1.25, 12.5, 0.55, 0.004,
 0.9, 0.4}` or integer literal in `{20000, 12000, 10000, 2048, 1024, 4096, 16384, 300, 120, 450}`
 appearing outside `internal/config/defaults.go`, `*_test.go`, and explicitly annotated
-`//nomagic:allow <reason>` lines. The ski-rental threshold is computed as `w/r`, never written as
-`12.5`. `450` is in that set, which is why `skills.Index` takes its budget from
+`//nomagic:allow <reason>` lines. The historical ski-rental helper remains a compatibility surface; w/r is not the ordinary cache break-even and must not drive default production policy. `450` is in that set, which is why `skills.Index` takes its budget from
 `runtime.rehydrate.skillIndexTokens` rather than a package constant (§5.15); the set is extended
 with `{8000, 12000}` when §11.5's `rehydrate` keys land in SP-01.
 
@@ -2705,51 +2721,20 @@ independent degradation mechanisms, each with an explicit, observable state.
 
 ### 12.1 Contract monitor (G9.3, §12 row 1)
 
-Every `SessionStart`, before any other work, `contract.Monitor.RunAll` executes
-`StandardAssertions()` (§5.19). Each assertion is a real observation, not a version check:
+SP-19 revises the implemented monitor as a per-capability observation ledger. An absent producer/event is unknown or unsupported, not verified success. Record host/provider/platform/version, scope, timestamp, local attempt correlation, coverage, mechanism and test artifact. Keep observed failure and documentation mismatches.
 
-| Assertion | How it is asserted |
-|---|---|
-| `session_start.fires` | a marker written at `SessionEnd`/`PreCompact` is found by the next `SessionStart`; absence across two sessions ⇒ fail |
-| `session_start.source_compact` | after a `PreCompact` is observed, the next `SessionStart` must arrive with `source == "compact"` within the same session id. Recorded in `state/contract.json` and evaluated on the *following* start |
-| `hook.additional_context_delivered` | `SessionStart` emits a sentinel token in `additionalContext`; the next `UserPromptSubmit` reads the transcript tail and looks for it. Not found ⇒ fail |
-| `precompact.has_time_to_write` | measured `PreCompact` wall time vs. the manifest timeout; p99 > 60% of timeout ⇒ warn, timeout hit ⇒ fail |
-| `precompact.custom_instructions_accepted` | the emitted instruction's sentinel phrase is searched for in the post-compaction summary; absent ⇒ warn (advisory by design, §8.5) |
-| `hook.payload_shape` | required fields present and typed as `hookio.Event` expects |
-| `mcp.server_registered` | the MCP server received `initialize` at least once this session |
-| `transcript.readable` | `transcript_path` exists and parses |
-| `plugin.root_resolves` | `${CLAUDE_PLUGIN_ROOT}` expanded to an existing binary |
+Observation, injection, new-result replacement, usage attribution, token estimation, native request, native blocking and history rewriting are distinct capabilities. A transcript sentinel can document an observed delivery under its tested contract; it cannot prove complete context or model compliance. PreCompact instruction output is unsupported here; do not search a summary for evidence an invented setter worked.
 
-**Assertions whose observable does not exist yet.** Some assertions depend on a subsystem that a
-later wave delivers: `mcp.server_registered` (SP-13), `precompact.custom_instructions_accepted`
-and `precompact.has_time_to_write` (SP-10), `hook.additional_context_delivered` (SP-11). An
-assertion whose *producer is absent from the build* returns `OK: true, Severity: SevInfo` with
-`Observed: "not-yet-implemented"` — it must never degrade the session. Wiring this wrong would
-put every wave-1 and wave-2 verification run into `degraded-passive` and silently disable the very
-paths those waves are testing. A CI test asserts a freshly built `develop` reports `ModeFull`.
+Future supported behavior uses SessionStart compact reinjection without waiting for optional PostCompact. Missing/duplicate/out-of-order events do not certify a complete frontier. Asynchronous InstructionsLoaded cannot establish missing instructions or exact loaded bytes. No manual optimization veto; automatic optimization veto defaults off because recovery/proactive distinction is unverified.
 
-**On any `SevCritical` failure:** `Monitor.Degrade` is called. That means, in order:
-`logging.Loud` (log file + `LOUD.log` + `systemMessage` on the next hook that may emit one),
-persist the reason to `state/contract.json`, set `Mode = ModeDegradedPassive`, and record it in
-`obs`. `/qompack:status` leads with a banner naming the failed assertion, what was expected, and
-what was observed. **Nothing fails silently — that is the whole point of the mechanism.**
-
-`ModeDegradedPassive` behaviour: L0 and L1 keep running (observe, chunk, store, sketches, DAG,
-verbatim capture, elimination records — the store stays correct and the session's data is not
-lost). Everything that *acts* is off: no `additionalContext` injection, no `customInstructions`,
-no scheduler-initiated checkpoints, no drop report. MCP retrieval tools stay available, because
-they are pull-based and cannot make anything worse. The session then behaves exactly as it does
-without Qompack, which is §7.1's stated requirement.
-
-Recovery: assertions re-run every `SessionStart`. Two consecutive clean runs call
-`Monitor.Restore`, logged just as loudly as the degradation.
+Degraded mode preserves permitted recording/retrieval only when their integrity/privacy contracts hold, independently disabling unverified optimizations. Recording itself can be incomplete; report gaps. Recovery of a capability requires its actual verification criteria, not two unrelated successful session starts. MCP errors and authorization failures remain explicit.
 
 ### 12.2 Hot-path overrun (§8.1)
 
 Described in §2.4. `sync` → `spool` submode transition on 3 consecutive breach windows; logged at
 WARN; visible in `/qompack:status`; automatically reverts after 3 clean windows in a subsequent
 session. Under `spool`, the client never connects: it appends and exits, and the daemon drains on
-its idle tick. Data is not lost; only freshness is.
+its idle tick. Durable spooling can defer freshness; a failed spool or interrupted drain can lose capture. SP05-D1 and SP-20 require explicit incomplete state and durable acknowledgement before any no-loss claim.
 
 ### 12.3 Everything else fails toward "do nothing"
 
@@ -2759,28 +2744,21 @@ its idle tick. Data is not lost; only freshness is.
 | spool write fails | drop the event, increment `obs.Counter("l0.dropped")`, `Loud` once per session |
 | store corrupt (bad CRC, truncated object) | quarantine the object to `.qompack/tmp/quarantine/`, `Loud`, continue; `qompack fsck` repairs |
 | checkpoint MANIFEST mismatch | `Loud`, refuse to use the affected checkpoint, fall back to its parent, degrade to passive |
-| bloom load fails | rebuild from `records/eliminations.jsonl` (§3.3); if that fails, `already_tried` returns `absent` for everything — never a false positive |
+| bloom load fails | use authoritative records if available; otherwise return unavailable/uncertain through compatible consumers, never absence or a binding prohibition |
 | config invalid | per-leaf fallback to default + `Loud` (§11.3) |
 | MCP tool panic | recovered at the handler boundary, returned as `IsError`, never kills the server |
 | any hook panic | recovered in `cli`, logged, `exit 0` with empty output |
-| `PreCompact` about to exceed its timeout | `Finalize` the draft as-is (importance-ordered, so a truncated checkpoint is still the best available for its size — §6.9) and return |
+| `PreCompact` about to exceed its timeout | select the latest internally consistent usable checkpoint; preserve incomplete work/gaps and explicit overflow; never arbitrary byte truncation |
 
 ---
 
 ## 13. Invariants every subplan must uphold
 
-1. **Never compress a compression (§4.6).** Any content written into a checkpoint is encoded from
-   the store's original chunks or from structured records. `SourceSet` (§5.14) makes the
-   alternative uncompilable; `SegmentLog.MarkEncoded` makes it detectable; the injection tags make
-   surviving in-context injections identifiable and ignorable.
-2. **Append-only means append-only (§7.4).** `checkpoints/`, `pins/`, `sketches/tried.bloom`.
-   Enforced by `paths` and by `TestAppendOnlyGuard`.
-3. **The bloom filter is a cache, never the source of truth (§8.3).** Every membership answer is
-   backed by a record lookup or explicitly flagged `BloomOnly`.
-4. **Nothing scattered before `p` (§5.3).** `analyzer.NewSelector` refuses blocks with
-   `Pos < p`. Do not add a bypass.
-5. **No code snippets in checkpoints (§4.4).** Files are `{path, hash, why}`. A test greps
-   checkpoint goldens for multi-line code blocks and fails.
+1. **Evidence is not replaced by derivatives (§4.6).** Retain captured-source identity, fidelity, coverage and transformation provenance. Store-only derivation does not itself establish original fidelity. Exclude own injections/wrappers as independent primary evidence.
+2. **Durable publication precedes references.** Append-only historical artifacts retain compatible readers, subject to explicit retention/expiry/deletion and rollback roots. No indefinite-retention plus bounded-storage promise.
+3. **Bloom is an acceleration structure.** Exact records confirm positives; negatives require complete fresh coverage. Errors/uncertain applicability never become absent/active or a filter veto.
+4. **Representations stay within supported Qompack outputs.** At most one compatible representation per item with dependency closure and serialized overhead; no native historical cuts or marker manipulation.
+5. **Serialize complete records.** Essential exact exceptions/small spans are permitted; overflow preserves the record outside context with qualified coverage and recovery diagnostics. No blanket no-snippets requirement.
 6. **Hooks exit 0. Always.**
 7. **No network. No telemetry. No writes outside the product write set.** That set is exactly five
    locations, and it is enumerated rather than summarized because the two-prefix headline this

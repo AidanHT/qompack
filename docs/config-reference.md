@@ -75,6 +75,14 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.logging.maxFiles` | integer | `5` | — | 00-ARCH §5.2 | number of rotated log files retained |
 | `runtime.mcp.maxResponseBytes` | integer | `262144` | [4096,∞) | §8.7 | maximum bytes an MCP tool response may return |
 | `runtime.mcp.spanWidenLines` | integer | `40` | [0,∞) | §8.7 | lines to widen a minimal span by when the caller requests more context |
+| `runtime.migration.capture.rawEvidence` | boolean | `false` | — | Qompack.md v1.5 §8.1 / SP-20 M1-01 | capture permitted raw host payload bytes before any transform (SP-20 M1); refused until the M1 gate passes |
+| `runtime.migration.compaction.automaticVeto` | boolean | `false` | — | Qompack.md v1.5 §7.3 / 00-ARCH §12.1 | let the scheduler veto an automatic compaction for optimization; refused: the recovery/proactive distinction is unverified (SP-19 M0-03) |
+| `runtime.migration.compaction.blockManualCompact` | boolean | `false` | — | Qompack.md v1.5 §12 / 00-ARCH §12.1 | block a manual /compact for optimization; hardwired false, the key exists only to say so |
+| `runtime.migration.experiments.enabled` | boolean | `false` | — | Qompack.md v1.5 Appendix C / SP-15, SP-16 | enable experimental representation and optimizer policies (SP-15/SP-16); refused until their gates pass |
+| `runtime.migration.publication.durableFrontier` | boolean | `false` | — | Qompack.md v1.5 §8.2 / SP-20 M1-02 | publish references and the committed frontier only behind an acknowledged durable object write (SP-20 M1); refused until the M1 gate passes |
+| `runtime.migration.reinjection.sessionStartCompact` | boolean | `true` | — | Qompack.md v1.5 §8.6 / 00-ARCH §12.1 | reinject the rehydration payload through SessionStart source=compact additionalContext, the one tested injection adapter; false disables injection without touching recording |
+| `runtime.migration.replacement.newResult` | boolean | `false` | — | Qompack.md v1.5 §8.7 / SP-21 | replace newly delivered tool results with Qompack handles (SP-21 M4); refused until the M4 gate passes |
+| `runtime.migration.settingsVersion` | integer | `1` | [1,1] | Qompack.md v1.5 Appendix C / SP-19 M0 | version of the runtime.migration block; a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
 | `runtime.mode` | string | `"auto"` | one of `auto`, `full`, `passive`, `off` | 00-ARCH §12 | overall operating mode |
 | `runtime.redact.enabled` | boolean | `true` | — | 00-ARCH §5.23 | scrub secrets before content enters the store |
 | `runtime.redact.patterns` | array | `[]` | — | 00-ARCH §5.23 | additional user-supplied secret-detection patterns |
