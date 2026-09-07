@@ -206,6 +206,10 @@ func TestV3_DegradedPassiveStillRecordsEverything(t *testing.T) {
 	// idempotent, and ingest's seen-set collapses a WAL+spool duplicate back to one dispatch).
 	const x8WantRecords = 44
 	x8Deadline := time.Now().Add(obsProcessBound)
+	// A ticker paces the poll, never time.Sleep: §6.1 bans wall-clock sleeps outside test/bench,
+	// _test.go files included, and devtool lint's sleepcheck sub-check enforces it by AST scan.
+	x8Tick := time.NewTicker(obsProcessTick)
+	defer x8Tick.Stop()
 	for len(obsToolUseLines(p.Root)) < x8WantRecords {
 		if time.Now().After(x8Deadline) {
 			// Diagnostics before failing: spool depth, LOUD, daemon counters and the day-log
@@ -236,7 +240,7 @@ func TestV3_DegradedPassiveStillRecordsEverything(t *testing.T) {
 				x8WantRecords, len(obsToolUseLines(p.Root)))
 		}
 		_, _ = d.Drain(ctx)
-		time.Sleep(obsProcessTick)
+		<-x8Tick.C
 	}
 
 	// ── 2 IngestMCP eliminations: the elimination-record half keeps recording too ────────────────

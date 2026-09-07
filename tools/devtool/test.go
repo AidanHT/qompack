@@ -1,5 +1,7 @@
 package main
 
+import "github.com/qompack/qompack/internal/obs"
+
 // taskTest runs the fmt-check gate and then `go test ./...`.
 //
 // fmt-check is here because of V2-MERGE-24. `devtool fmt-check` runs the pinned gofumpt, which is
@@ -23,8 +25,14 @@ func taskTest(args []string) error {
 	if err := taskFmtCheck(nil); err != nil {
 		return err
 	}
-	return goInherit("test", "-timeout="+wholeTreeTestTimeout, "./...")
+	return goInheritEnv(wholeTreeEnv, "test", "-timeout="+wholeTreeTestTimeout, "./...")
 }
+
+// wholeTreeEnv is the environment every whole-tree `go test` here runs under. A whole-tree run is
+// co-loaded by construction — that is the very fact wholeTreeTestTimeout below provisions for —
+// and the tests cannot see it from inside, so the run declares it, exactly as ci.yml's `test` job
+// does. What the declaration licenses is documented on obs.UnderColoadEnv.
+var wholeTreeEnv = map[string]string{obs.UnderColoadEnv: "1"}
 
 // wholeTreeTestTimeout provisions every whole-tree `go test` for test/integration, whose two
 // hot-path suites legitimately spend ~3 quiet minutes spawning real processes (2 000 measured
@@ -38,5 +46,5 @@ const wholeTreeTestTimeout = "30m"
 
 // taskTestRace runs `go test -race ./...`.
 func taskTestRace(args []string) error {
-	return goInherit("test", "-race", "-timeout="+wholeTreeTestTimeout, "./...")
+	return goInheritEnv(wholeTreeEnv, "test", "-race", "-timeout="+wholeTreeTestTimeout, "./...")
 }

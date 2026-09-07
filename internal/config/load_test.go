@@ -98,6 +98,58 @@ func TestLoad_EnvKeyMapping(t *testing.T) {
 	require.Equal(t, "QOMPACK_SCHEDULER__CACHE__READMULTIPLIER", prov["scheduler.cache.readMultiplier"].Location)
 }
 
+// TestLoad_EnvKeyMappingNestedRuntime covers the §11.5 cache-regime keys SP-12 adds, which are
+// the first leaves two levels deep inside the runtime namespace: envVarName upper-cases every
+// dotted segment and joins them with "__", so the nested-runtime spelling is
+// QOMPACK_RUNTIME__SCHEDULER__CACHE__<LEAF> and not the flat QOMPACK_SCHEDULER__CACHE__<LEAF>
+// that scheduler.cache's own Appendix C leaves use.
+func TestLoad_EnvKeyMappingNestedRuntime(t *testing.T) {
+	env := baseEnv(t)
+	env.Getenv = func(k string) string {
+		switch k {
+		case "QOMPACK_RUNTIME__SCHEDULER__CACHE__EXPIRINGTRIGGERFRACTION":
+			return "0.65"
+		case "QOMPACK_RUNTIME__SCHEDULER__CACHE__ASSUMEMAXTTLSECONDS":
+			return "7200"
+		default:
+			return ""
+		}
+	}
+
+	cfg, prov, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Empty(t, warns)
+	require.Equal(t, 0.65, cfg.Runtime.Scheduler.Cache.ExpiringTriggerFraction)
+	require.Equal(t, 7200, cfg.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds)
+	require.Equal(t, config.OriginEnv, prov["runtime.scheduler.cache.expiringTriggerFraction"].Origin)
+	require.Equal(t, "QOMPACK_RUNTIME__SCHEDULER__CACHE__EXPIRINGTRIGGERFRACTION",
+		prov["runtime.scheduler.cache.expiringTriggerFraction"].Location)
+	require.Equal(t, config.OriginEnv, prov["runtime.scheduler.cache.assumeMaxTTLSeconds"].Origin)
+
+	// The neighbouring Appendix C block keeps its own values: the two namespaces are separate.
+	require.Equal(t, 300, cfg.Scheduler.Cache.TTLSeconds)
+	require.Equal(t, 0.1, cfg.Scheduler.Cache.ReadMultiplier)
+}
+
+// TestLoad_SchedulerCacheRegimeInvalidFallsBack pins the §11.3 fallback for the two new keys: an
+// out-of-range value in a project file is a Warning and a reversion to the default, never an
+// error.
+func TestLoad_SchedulerCacheRegimeInvalidFallsBack(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot,
+		`{"runtime":{"scheduler":{"cache":{"expiringTriggerFraction":1.5,"assumeMaxTTLSeconds":100}}}}`)
+
+	cfg, prov, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Equal(t, 0.8, cfg.Runtime.Scheduler.Cache.ExpiringTriggerFraction)
+	require.Equal(t, 3600, cfg.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds)
+	require.ElementsMatch(t, []string{
+		"runtime.scheduler.cache.expiringTriggerFraction",
+		"runtime.scheduler.cache.assumeMaxTTLSeconds",
+	}, warningKeys(warns))
+	require.Equal(t, "fallback after violation", prov["runtime.scheduler.cache.expiringTriggerFraction"].Location)
+}
+
 func TestLoad_NullMeansMeasure(t *testing.T) {
 	env := baseEnv(t)
 	// Set a non-nil value at a lower layer first, so a nil result actually proves the project
@@ -141,6 +193,54 @@ func TestLoad_UnknownKeyWarnsNeverErrors(t *testing.T) {
 		require.Contains(t, w.Message, "unknown key")
 	}
 	require.Equal(t, config.Defaults(), cfg)
+}
+
+// TestLoad_RelationalViolationFallsBackToSectionDefaults pins the fix for a FuzzConfigLoad
+// finding: Load returned a Config that failed its own Validate(). store.chunk.min < target is
+// keyed on min, so a bad TARGET produced a violation naming min — which was already 1024, its
+// default — and the single-pass fallback restored nothing. Load now iterates and, when a pass
+// restores nothing new, widens to the violated key's parent section.
+func TestLoad_RelationalViolationFallsBackToSectionDefaults(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		file    string
+		section string
+	}{
+		// The bad value is on the side of the comparison the rule does not name.
+		{"chunk target below min", `{"store":{"chunk":{"target":0}}}`, "store.chunk"},
+		{"chunk target above max", `{"store":{"chunk":{"target":999999999}}}`, "store.chunk"},
+		{"rehydrate max below min", `{"runtime":{"rehydrate":{"maxTokens":1}}}`, "runtime.rehydrate"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := baseEnv(t)
+			writeConfigFile(t, env.ProjectRoot, tc.file)
+
+			cfg, prov, warns, err := config.Load(env)
+			require.NoError(t, err)
+			require.Empty(t, cfg.Validate(),
+				"Load must return an already-validated config, whichever side of the relation is bad")
+
+			// The widened fallback fired, and said so: without this the test would pass vacuously
+			// if some future absolute bound caught the value before the relation ever broke.
+			require.Contains(t, warningKeys(warns), tc.section,
+				"the caller must be told which section was reset")
+			require.Equal(t, config.OriginDefault, prov[tc.section].Origin)
+		})
+	}
+
+	// The narrow path is unaffected: when the NAMED key is the bad one, the leaf is restored and
+	// its siblings are left alone.
+	t.Run("named key is the bad one keeps its siblings", func(t *testing.T) {
+		env := baseEnv(t)
+		writeConfigFile(t, env.ProjectRoot, `{"store":{"chunk":{"min":9999,"max":99999}}}`)
+
+		cfg, _, warns, err := config.Load(env)
+		require.NoError(t, err)
+		require.Empty(t, cfg.Validate())
+		require.Equal(t, config.Defaults().Store.Chunk.Min, cfg.Store.Chunk.Min, "the violated leaf falls back")
+		require.Equal(t, 99999, cfg.Store.Chunk.Max, "a valid sibling survives the fallback")
+		require.ElementsMatch(t, []string{"store.chunk.min"}, warningKeys(warns))
+	})
 }
 
 func TestLoad_InvalidLeafFallsBackNotCrash(t *testing.T) {

@@ -59,7 +59,14 @@ type Report struct {
 // definition exactly. The wall-clock, floor-subtracted number is NOT discarded: it survives as the
 // "B-A_spawn_estimate" row (budgetIDBASpawnEstimate below), always informational, never gated —
 // see its own doc comment for the caveat this constant explains.
-const bAMethod = "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit; " +
+//
+// Excluding process CREATION is not the same as excluding the process boundary: reqTS is stamped
+// inside the spawned hook, so on a host the harness shares with unrelated work the interval also
+// contains the child's scheduling wait. That is why a run that declares --under-coload builds this
+// row reported rather than gated (baWallWaivedNote), and why the string below says "gated" only
+// for a run that does not.
+const bAMethod = "daemon status hook_controlled (observed + hotPathTailAllowance), p99 gated against obs.Budgets() B-A's limit " +
+	"(reported, not gated, under --under-coload — see the notes); " +
 	"see the B-A_spawn_estimate row for the wall-clock, floor-subtracted diagnostic (unbiased at p50, dispersion-contaminated at p99 — spec step 6 amended by controller ruling #29)"
 
 // budgetIDBASpawnEstimate is the renamed budget_id the wall-clock, per-sample-floor-subtracted
@@ -118,6 +125,14 @@ const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
 // waived ONLY for a run that has declared itself co-loaded (--under-coload, main.go): bench-gate
 // and nightly still judge it, in the isolation where a wall-clock SLO is judgeable at all, and the
 // whole-tree run — where it never was — judges the CPU one.
+//
+// B-A is waived by the same flag on the same reasoning (baWallWaivedNote), with one difference:
+// there is no CPU row to move its judgement to. B-A is a latency across a process boundary —
+// recvTS in the daemon minus reqTS stamped in the spawned hook — and a child's scheduling wait
+// under co-load is inside that interval but on nobody's CPU clock. So --under-coload leaves B-A
+// judged only by the runs that do not pass it, and B-B, the co-load-resistant half of the same
+// hot path (the daemon's own read-to-WAL-append cost, no process boundary inside it), stays gated
+// everywhere.
 const budgetIDBECPU = "B-E_cpu"
 
 // beWallWaivedNote is the artifact's own disclosure for a --under-coload run: the wall-clock B-E
@@ -128,6 +143,19 @@ func beWallWaivedNote(limit time.Duration) string {
 	return fmt.Sprintf(
 		"%s's wall-clock row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and a wall-clock sample taken under co-load measures the host's spare capacity rather than the checkpoint (bench-gate measured this same row at 67.2ms on windows-latest in isolation and the whole-tree job at 4302ms on the same runner class minutes later, product unchanged). The %.0fms limit is still enforced on that wall-clock row by every run that does NOT pass --under-coload — bench-gate and nightly — and the %s row below enforces the same %.0fms limit on these children's own CPU time, which co-load does not move; see budgetIDBECPU (report.go)",
 		obs.BE, msf(limit), budgetIDBECPU, msf(limit))
+}
+
+// baWallWaivedNote is the artifact's own disclosure for a --under-coload run's B-A row, in the
+// same shape as beWallWaivedNote: the row is a MEASUREMENT and not a judgement, and the note names
+// the limit that was not applied, the evidence that a co-loaded sample does not measure the hook,
+// the row that is still gated in this run (B-B), and every run that still judges B-A. B-A is the
+// daemon-observed hook_controlled estimate (recvTS − reqTS + tail allowance): reqTS is stamped
+// inside the spawned hook process, so the interval contains the child's scheduling wait under
+// co-load, and there is no CPU-time analogue of a cross-process latency to gate instead.
+func baWallWaivedNote(limit time.Duration) string {
+	return fmt.Sprintf(
+		"%s's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and %s is the daemon-observed hook_controlled estimate (recvTS - reqTS + tail allowance) whose reqTS is stamped inside the spawned hook process, so under co-load the interval contains the child's scheduling wait — a cross-process latency with no CPU-time analogue to gate instead (on windows-latest, one commit: bench-gate, harness alone on its runner, measured this row's p99 at 3.072ms; two whole-tree test-job runs minutes apart measured 11.264ms then 18.432ms against the %.0fms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms and %s, which contains no process spawn, moved only 0.576 → 0.768 / 0.704ms). %s is still gated in this run. The %.0fms limit is still enforced on %s by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, and ci.yml's test-e2e job, where X-11 runs alone",
+		obs.BA, obs.BA, msf(limit), obs.BB, obs.BB, msf(limit), obs.BA)
 }
 
 // GateFailed reports whether any GATED budget (a non-nil Pass) reports false. B-D's Pass is

@@ -21,7 +21,8 @@ jobs:
           - { pkg: ./internal/canon,      fn: FuzzPrefilterAgreesWithFullScan }
           - { pkg: ./internal/canon,      fn: FuzzRestore }
           - { pkg: ./internal/canon,      fn: FuzzTrailingWSAgreesWithReference }
-          - { pkg: ./internal/checkpoint, fn: FuzzCheckpointJSON }
+          - { pkg: ./internal/checkpoint, fn: FuzzParseGitIndex }
+          - { pkg: ./internal/checkpoint, fn: FuzzStripInjections }
           - { pkg: ./internal/chunk,      fn: FuzzSplit }
           - { pkg: ./internal/chunk,      fn: FuzzSplitStream }
           - { pkg: ./internal/config,     fn: FuzzConfigLoad }
@@ -52,8 +53,10 @@ jobs:
       # test/guards fails as soon as its owning subplan lands while the declared target is still
       # absent, so the leg is owed the moment the owner lands and not before.
       #
-      # Twenty rows at V2, of which NINETEEN exist today and run for real. The single skip is
-      # internal/checkpoint's FuzzCheckpointJSON — SP-10, wave 4. The wave-1 reconciliation
+      # Twenty rows at V2, of which NINETEEN existed then and ran for real. The single skip was
+      # internal/checkpoint's FuzzCheckpointJSON — SP-10, wave 4 — a name the plan proposed and
+      # SP-10 never wrote; at the wave-3 integration (SP-19 M0-00) that row became the two targets
+      # SP-10 actually shipped, FuzzParseGitIndex and FuzzStripInjections. The wave-1 reconciliation
       # (V2-VERIFY §2.0 V2-MERGE-01) replaced three rows that named functions existing nowhere in
       # the tree — ipc/FuzzFraming, redact/FuzzRedact and sketch/FuzzUnmarshalBinary — and added
       # the fifteen targets SP-03, SP-04, SP-05 and SP-06 shipped with no row at all. nightly.yml
@@ -79,7 +82,20 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
-      - run: go test -race ./...
+      # -timeout=30m is the repository's whole-tree timeout (tools/devtool/test.go's
+      # wholeTreeTestTimeout, ci.yml's race job). Without it this job took go test's 10m default
+      # and test/e2e — the slowest package, slower again under -race on Windows — panicked at
+      # 600s mid-TestPhase1_CorpusSweep rather than finishing.
+      #
+      # test/e2e is excluded for the same reason ci.yml's `test` job excludes it, and with the
+      # same measurement: under -race the package does not finish in 30 minutes on any runner, and
+      # the detector only ever instruments the harness, since every e2e test drives the real,
+      # plainly built binary. ci.yml's `test-e2e` runs the package alone, without -race. The
+      # co-load declaration is the same one ci.yml's `test` job makes, for the same run shape.
+      - shell: bash
+        env:
+          QOMPACK_UNDER_COLOAD: '1'
+        run: go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
 
   bench-deep:
     strategy:

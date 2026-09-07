@@ -123,21 +123,32 @@ func stubRegistry() []stubPackage {
 			return l
 		}, pureMethods: allMethodsAreReal},
 		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }},
-		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }},
+		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }, pureMethods: allMethodsAreReal},
+		// checkpoint is the real L4 writer as of SP-10 (§8.5): Begin, Advance, Finalize and Abort
+		// all do their work, so no method reports ErrNotImplemented any more. What they report
+		// instead is ordinary argument validation — Advance on a nil draft says "advance: nil
+		// draft" — which is exactly the distinction this guard exists to make.
 		{pkg: "checkpoint", build: func(t *testing.T) any {
 			w, err := checkpoint.OpenWriter(t.TempDir(), config.Defaults(), logging.Nop(),
 				obs.New(core.SystemClock()), core.SystemClock())
 			require.NoError(t, err)
 			return w
-		}},
+		}, pureMethods: allMethodsAreReal},
+		// pins is a real append-only invariant log as of SP-10 (§7.4, §8.5): Add, Remove, All,
+		// Get and Materialize all do their work, so no method reports ErrNotImplemented any more.
 		{pkg: "pins", build: func(t *testing.T) any {
 			s, err := pins.Open(t.TempDir())
 			require.NoError(t, err)
 			return s
-		}},
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "rehydrate"}, // package-level Build/StandingInstruction, no constructed seam
-		{pkg: "rules", build: func(*testing.T) any { return rules.New() }},
-		{pkg: "skills", build: func(*testing.T) any { return skills.New() }},
+		// rules and skills are REAL from SP-11: the scanner reads `paths:` frontmatter and nested
+		// CLAUDE.md files off disk and the indexer builds the compact skill index, so neither
+		// reports ErrNotImplemented any more. Both answer an empty root with an empty result,
+		// which is the honest answer and not a stub's. They stay registered so the walk still
+		// proves their constructors build and no method panics on zero-valued arguments.
+		{pkg: "rules", build: func(*testing.T) any { return rules.New() }, pureMethods: allMethodsAreReal},
+		{pkg: "skills", build: func(*testing.T) any { return skills.New() }, pureMethods: allMethodsAreReal},
 		{pkg: "mcp", build: func(*testing.T) any { return mcp.NewServer("qompack", "0.1.0", logging.Nop()) }},
 		{pkg: "commands"},
 		// eval's seam is REAL from SP-02 (Phase 0 is the first thing built after the foundation),

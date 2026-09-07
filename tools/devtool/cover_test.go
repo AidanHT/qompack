@@ -245,15 +245,23 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 			t.Errorf("landedSubplans names %s, which owns nothing in plans/OWNERS.tsv", id)
 		}
 	}
-	// The missing-entry half. Wave 0, every wave-1 subplan merged so far, and both wave-2 subplans
-	// (SP-08 landed on develop; SP-09 lands in this branch's merge) must be listed, or the
-	// §6.4 floor of every package it owns is exempt at any coverage, including 0%.
+	// The missing-entry half. Wave 0, every wave-1 subplan merged so far, both wave-2 subplans
+	// (SP-08 landed on develop; SP-09 lands in this branch's merge) and all four wave-3 subplans
+	// must be listed, or the §6.4 floor of every package it owns is exempt at any coverage,
+	// including 0%.
 	//
 	// This assertion used to read the other way for SP-03 — "SP-03 has not landed; internal/sketch
 	// is still a stub" — which was right while it was a tripwire and reads backwards the moment the
 	// wave lands. SP-02's handoff §4.1 asked for it to be rewritten here rather than deleted,
 	// because the set still has to keep agreeing with the branch for waves 2 through 6.
-	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07", "SP-08", "SP-09"} {
+	//
+	// SP-12 joins the list from its OWN branch, the way SP-08 did rather than the way SP-06 and
+	// SP-07 did: commit 3 of feat/sp12-scheduler-l3 makes internal/scheduler's probe Evaluate a
+	// real implementation, and cover.go's exempt-but-real cross-check fires the moment a probe
+	// stops looking like a stub while its subplan is unlisted — so the entry cannot wait for the
+	// merge. SP-10 and SP-11 joined from their own branches too, at the wave-3 integration, and
+	// SP-13 listed itself in its first commit, when internal/mcp's probe went real.
+	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07", "SP-08", "SP-09", "SP-10", "SP-11", "SP-12", "SP-13"} {
 		if !landedSubplans[id] {
 			t.Errorf("%s has landed on develop but is missing from landedSubplans, so every "+
 				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)
@@ -263,9 +271,11 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 	// a §6.4 floor against code that is still a stub.
 	//
 	// Wave 2 has fully landed — SP-08 left this list in commit ba477c5 (its probe went real on its
-	// own branch), and SP-09 leaves it in the merge that lands feat/sp09-negative-knowledge — so
-	// the list is empty until a wave-3 subplan needs pinning. The exempt-but-real cross-check in
-	// cover.go still fails any probe that goes real while its subplan is unlisted.
+	// own branch), and SP-09 leaves it in the merge that lands feat/sp09-negative-knowledge. Wave 3
+	// has fully landed too — SP-12 and SP-13 left this list from their own branches, SP-10 and
+	// SP-11 at the wave-3 integration (SP-19 M0-00) — so the list is empty until a wave-4 subplan
+	// needs pinning. The exempt-but-real cross-check in cover.go is the other direction, and still
+	// fails any probe that goes real while its subplan is unlisted.
 	for _, id := range []string{} {
 		if landedSubplans[id] {
 			t.Errorf("%s is listed as landed, but it has not landed yet", id)

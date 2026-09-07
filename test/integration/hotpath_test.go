@@ -498,6 +498,23 @@ const hotpathBECPURowID = "B-E_cpu"
 // samples: the two rows must cover the same 50 children, in two clocks.
 const hotpathCheckpointSamples = 50
 
+// hotpathUnderColoadFlag is the harness's --under-coload flag (test/bench/hotpath/main.go,
+// parseFlags), passed iff obs.UnderCoload() — the job's declaration, forwarded, never this test's
+// own guess about who is running it. Both waiver notes the harness writes name the flag verbatim,
+// so the same string is what the notes assertions look for.
+const hotpathUnderColoadFlag = "--under-coload"
+
+// hotpathBAWaiverMark is the opening of the harness's baWallWaivedNote (test/bench/hotpath/
+// report.go) — the one phrase that note carries and no other note the harness writes does (B-E's
+// waiver says "wall-clock row"; the tail-adjustment notes say "p99"). Spelled after obs.BA so the
+// row's name is never a second literal here.
+const hotpathBAWaiverMark = string(obs.BA) + "'s row is REPORTED, not gated"
+
+// hotpathLimitDeltaMs is the tolerance for comparing a row's limit_ms against obs.Budgets(): the
+// artifact renders limits in whole milliseconds, so anything under a microsecond is a float
+// rendering difference, never a different budget.
+const hotpathLimitDeltaMs = 0.001
+
 // hotpathNotesMention reports whether any note in the artifact mentions sub — used to assert that
 // a disclosure the harness owes the reader was actually emitted, without this file re-spelling the
 // harness's prose (which would then have to be kept in sync with it).
@@ -508,6 +525,37 @@ func hotpathNotesMention(rep hotpathBenchReport, sub string) bool {
 		}
 	}
 	return false
+}
+
+// hotpathRequireGatedRow asserts the shape bench-gate reads for every row it judges: the row
+// carries limitMs as its limit, a pass verdict, the verdict is true, and its p99 is under the
+// limit — the last restated here rather than trusted from the verdict, so the number the harness
+// judged and the number the artifact shows can never disagree unnoticed. what names the row in
+// the failure message.
+func hotpathRequireGatedRow(t *testing.T, row hotpathBudgetRow, limitMs float64, what string) {
+	t.Helper()
+	require.NotNil(t, row.LimitMs, "%s is gated in this run and must carry its limit", what)
+	require.InDelta(t, limitMs, *row.LimitMs, hotpathLimitDeltaMs,
+		"%s's limit must be the one obs.Budgets() defines, not a private copy", what)
+	require.NotNil(t, row.Pass, "%s is gated in this run and must carry a pass verdict", what)
+	require.True(t, *row.Pass,
+		"%s gate must pass against the real resident state (p99=%.3fms, limit %.0fms)", what, row.P99, limitMs)
+	require.Less(t, row.P99, limitMs, "§4.6: %s p99 < %.0fms with the real store/DAG/sketches resident",
+		what, limitMs)
+}
+
+// hotpathRequireReportedRow asserts the shape the harness gives a row it REPORTED under
+// --under-coload: limit_ms and pass both null, exactly B-D's. A row that came back with pass=true
+// here would mean the flag had stopped taking effect and the wall-clock gate was silently back,
+// judging the runner's spare capacity; pass=false would mean the same thing having already
+// failed. Both are caught. limitMs is the limit still applied elsewhere, for the message.
+func hotpathRequireReportedRow(t *testing.T, row hotpathBudgetRow, limitMs float64, what string) {
+	t.Helper()
+	require.Nil(t, row.LimitMs,
+		"%s must leave %s REPORTED (limit_ms null) in this run's artifact; it is still gated at %.0fms "+
+			"by every run that does not pass the flag", hotpathUnderColoadFlag, what, limitMs)
+	require.Nil(t, row.Pass, "%s must leave %s REPORTED (pass null) in this run's artifact",
+		hotpathUnderColoadFlag, what)
 }
 
 // hotpathRow returns the report row for id, failing the test if the artifact does not carry it.
@@ -562,11 +610,13 @@ func hotpathBuildBenchBinary(t *testing.T) string {
 // than only reported: the project is pre-populated with the §4.6 resident state through the bound
 // §4.2 ObserveTool, and the harness then runs its 2,000 real process spawns of the real hook
 // binary against a real daemon started over that project (see the file comment for the wave-1
-// composition). B-A p99 < 15ms and B-B p99 < 2ms are asserted from the JSON artifact; b_a_method
-// must name the TS-anchored hook_controlled estimate (ruling #29); B-E is asserted at the same
-// 2000ms on the one clock this test can honestly read — the checkpoint children's own CPU time,
-// see the --under-coload comment below the harness invocation; spawn_floor_ms must be present; and
-// the daemon must never transition to spool during the run.
+// composition). B-B p99 < 2ms and B-E's CPU-time p99 < 2000ms are asserted from the JSON artifact
+// on every run; b_a_method must name the TS-anchored hook_controlled estimate (ruling #29);
+// spawn_floor_ms must be present; and the daemon must never transition to spool during the run.
+// B-A p99 < 15ms and B-E's wall-clock p99 < 2000ms are judged here only when the invoking job has
+// not declared the run co-loaded (obs.UnderCoload — ci.yml's `timing` job runs this test alone
+// for exactly that), and asserted REPORTED-and-disclosed when it has; see the comment above the
+// harness invocation.
 func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	ctx := context.Background()
 	p := testutil.NewProject(t)
@@ -638,36 +688,51 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		}
 	}()
 
-	// --under-coload is a statement of fact about THIS caller, and only this caller can make it:
-	// a Go test binary is one of ~20 the whole-tree `go test -race ./...` / `-count=2 ./...` job
-	// runs concurrently on a 2-core GitHub runner, and it spawns 2,250 more processes of its own
-	// on top. Under that, a wall-clock sample stops being a measurement of the product. The
-	// evidence is CI's own: on windows-latest the bench-gate job, which runs this same harness
-	// alone on its own runner, reported B-E's wall p99 at 67.2 ms against the 2000 ms limit
-	// (ubuntu 232.1, macos 21.3), and minutes later, same commit and same runner class, this test
-	// reported 4302 ms — a 64x move with the product byte-identical. That was item 18/22/25's
-	// genus one more time (plans/V2-report.md §0), and the audit V2-MERGE-25 asked for and never
-	// got: a wall-clock bound failing on a correct product because it is priced against a host
-	// that is no longer there.
+	// --under-coload is a statement of fact about the RUN'S ENVIRONMENT, and this test cannot make
+	// it from inside: a Go test binary cannot tell whether it is one of ~20 the whole-tree
+	// `go test -race ./...` / `-count=2 ./...` job runs concurrently on a 2-core GitHub runner, or
+	// the only binary on a runner doing nothing else — and it spawns 2,250 more processes of its
+	// own either way. The declaration therefore comes from the invoking job, through
+	// obs.UnderCoload (QOMPACK_UNDER_COLOAD, internal/obs/coload.go): ci.yml's `test` job sets it,
+	// and its `timing` job — which runs this test BY NAME, alone, on its own runner — does not.
+	// The flag is forwarded to the harness iff the job declared it, and unset can only ever make a
+	// run STRICTER.
 	//
-	// The flag does not remove the bound. It moves the JUDGEMENT to the clock that survives
-	// co-load: the harness's B-E_cpu row (budgetIDBECPU, test/bench/hotpath/report.go) gates the
-	// same 50 checkpoint children's own user+system CPU time against the same 2000 ms limit, and
-	// that clock did not move at all across a quiet/co-loaded pair whose wall p50 moved 23x. The
-	// wall-clock row is still gated at 2000 ms by every run that does NOT pass this flag —
-	// bench-gate's and nightly's `devtool bench-hotpath` lines are untouched — and this test
-	// asserts below that the harness reported it as waived rather than passed, so the waiver can
-	// never be mistaken for a measurement that met its budget.
-	hctx, hcancel := context.WithTimeout(ctx, hotpathHarnessBound)
-	defer hcancel()
-	cmd := exec.CommandContext(hctx, bench,
+	// Under co-load a wall-clock sample stops being a measurement of the product. The evidence is
+	// CI's own: on windows-latest the bench-gate job, which runs this same harness alone on its
+	// own runner, reported B-E's wall p99 at 67.2 ms against the 2000 ms limit (ubuntu 232.1,
+	// macos 21.3), and minutes later, same commit and same runner class, this test reported
+	// 4302 ms from inside the whole-tree job — a 64x move with the product byte-identical. B-A,
+	// one commit, same runner class: 3.072 ms in bench-gate, then 11.264 and 18.432 ms in two
+	// whole-tree runs minutes apart, against 15 ms, while B-B — no process boundary inside it —
+	// moved 0.576 → 0.768 / 0.704 ms. That was item 18/22/25's genus one more time
+	// (plans/V2-report.md §0), and the audit V2-MERGE-25 asked for and never got: a wall-clock
+	// bound failing on a correct product because it is priced against a host that is no longer
+	// there.
+	//
+	// The flag does not remove either bound. For B-E it moves the JUDGEMENT to the clock that
+	// survives co-load: the harness's B-E_cpu row (budgetIDBECPU, test/bench/hotpath/report.go)
+	// gates the same 50 checkpoint children's own user+system CPU time against the same 2000 ms
+	// limit, and that clock did not move at all across a quiet/co-loaded pair whose wall p50
+	// moved 23x. For B-A — a latency across a process boundary, with no CPU clock to move to —
+	// it leaves the judgement to the runs that do not pass the flag, and keeps B-B gated. Both
+	// wall-clock rows are still judged at their limits by every run that does NOT pass it:
+	// bench-gate's and nightly's `devtool bench-hotpath` lines, and this test itself in the
+	// `timing` job, where every assertion below is the one bench-gate makes.
+	underCoload := obs.UnderCoload()
+	args := []string{
 		"--iterations", strconv.Itoa(hotpathBenchIterations),
 		"--hook", "observe-tool",
 		"--warm-daemon",
-		"--under-coload",
-		"--json", jsonPath,
-		"--project", p.Root,
-	)
+	}
+	if underCoload {
+		args = append(args, hotpathUnderColoadFlag)
+	}
+	args = append(args, "--json", jsonPath, "--project", p.Root)
+
+	hctx, hcancel := context.WithTimeout(ctx, hotpathHarnessBound)
+	defer hcancel()
+	cmd := exec.CommandContext(hctx, bench, args...)
 	cmd.Dir = growthModuleRoot(t)
 	cmd.Env = initialEnv
 	var stdout, stderr strings.Builder
@@ -682,11 +747,13 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"bench-hotpath exited non-zero: either a gated budget (B-A p99<%.0fms, B-B p99<%.0fms, B-E_cpu "+
-			"p99<%.0fms) breached against the real resident state, or the harness itself failed (its own "+
-			"delivery-integrity guard included)\nstderr:\n%s",
-		hotpathBudgetLimitMs(t, p, obs.BA), hotpathBudgetLimitMs(t, p, obs.BB),
-		hotpathBudgetLimitMs(t, p, obs.BE), stderr.String())
+		"bench-hotpath exited non-zero (%s=%v): either a gated budget (B-B p99<%.0fms, B-E_cpu p99<%.0fms; "+
+			"without %s also B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached against the real "+
+			"resident state, or the harness itself failed (its own delivery-integrity guard included)\n"+
+			"stderr:\n%s",
+		obs.UnderColoadEnv, underCoload, hotpathBudgetLimitMs(t, p, obs.BB), hotpathBudgetLimitMs(t, p, obs.BE),
+		hotpathUnderColoadFlag, hotpathBudgetLimitMs(t, p, obs.BA), hotpathBudgetLimitMs(t, p, obs.BE),
+		stderr.String())
 
 	raw, err := os.ReadFile(jsonPath)
 	require.NoError(t, err, "the harness must write the --json artifact")
@@ -704,12 +771,9 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	baLimit := hotpathBudgetLimitMs(t, p, obs.BA)
 	bbLimit := hotpathBudgetLimitMs(t, p, obs.BB)
 
+	// B-A's verdict is the two-mode block below, with B-E's wall row; its row is fetched here
+	// because the structural cross-checks that follow read its population.
 	ba := hotpathRow(t, rep, string(obs.BA))
-	require.NotNil(t, ba.LimitMs, "B-A is a hard gate and must carry its limit")
-	require.InDelta(t, baLimit, *ba.LimitMs, 0.001)
-	require.NotNil(t, ba.Pass)
-	require.True(t, *ba.Pass, "B-A gate must pass against the real resident state (p99=%.3fms)", ba.P99)
-	require.Less(t, ba.P99, baLimit, "§4.6: B-A p99 < %.0fms with the real store/DAG/sketches resident", baLimit)
 
 	bb := hotpathRow(t, rep, string(obs.BB))
 	require.NotNil(t, bb.LimitMs)
@@ -734,12 +798,12 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		"the gated B-A row must be sourced from the daemon's hook_controlled histogram (spawn loop "+
 			"plus warm-up hot tranche), not from the %d wall-clock spawn samples", bd.N)
 
-	// §4.6's B-E, asserted on the clock that survives this test's own co-load. B-E is the one
+	// §4.6's B-E, asserted in every mode on the clock that survives co-load. B-E is the one
 	// budget the harness can only observe from OUTSIDE a whole real process, so its wall-clock
 	// sample is host process creation plus scheduling weather plus the checkpoint — and §2.4 has
 	// already ruled that the first of those must never be gated (B-D's "includes host process
 	// creation. Reported only, never gated"). Ruling #29 made exactly this move for B-A. Here it
-	// is made for B-E: the gated row for a co-loaded run is the same 50 children's own user+system
+	// is made for B-E: the row gated in BOTH modes is the same 50 children's own user+system
 	// CPU time, which co-load does not inflate — measured at p50/p99 = 15.625/46.875 ms in BOTH
 	// halves of a quiet/co-loaded pair whose wall p50 moved 138.8 → 3219.1 ms (see
 	// test/bench/hotpath/process.go's spawnSamples table). The limit is the same §2.4 number the
@@ -748,7 +812,7 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	beCPU := hotpathRow(t, rep, hotpathBECPURowID)
 	require.Equal(t, hotpathCheckpointSamples, beCPU.N,
 		"the B-E CPU row must cover every checkpoint spawn the harness made")
-	require.NotNil(t, beCPU.LimitMs, "B-E_cpu is a hard gate under co-load and must carry its limit")
+	require.NotNil(t, beCPU.LimitMs, "B-E_cpu is a hard gate in both modes and must carry its limit")
 	require.InDelta(t, beLimit, *beCPU.LimitMs, 0.001,
 		"both B-E rows read one limit from obs.Budgets(); a second number here would mean the harness "+
 			"had grown a private copy of the budget")
@@ -758,23 +822,42 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		"§4.6: the checkpoint's own cost — the CPU its process actually consumed — must stay under "+
 			"%.0fms with the real store/DAG/sketches resident", beLimit)
 
-	// And the waiver is asserted, not assumed: the wall-clock row must come back REPORTED for this
-	// run (limit_ms/pass both null, exactly B-D's shape), with the harness's own disclosure in the
-	// notes naming the limit it did not apply and where it still applies. A run that came back with
-	// pass=true here would mean --under-coload had stopped taking effect and the wall-clock gate
-	// was silently back, judging the runner's spare capacity again; a run with pass=false would
-	// mean the same thing having already failed. Both are caught.
+	// The two rows whose samples span a process boundary — B-A and B-E's wall-clock row — are
+	// judged by the job that can judge them and asserted waived by the job that cannot, and in
+	// neither mode is anything assumed:
+	//
+	//   - co-loaded (ci.yml's `test` job, QOMPACK_UNDER_COLOAD set): both rows must come back
+	//     REPORTED (limit_ms/pass both null, exactly B-D's shape), and the harness's own
+	//     disclosures must be in the notes — one per row, each naming the flag that caused it, the
+	//     limit it did not apply and where it still applies (B-E's also names the row that still
+	//     enforces the limit here). A null pass field is not an explanation; a reader must be able
+	//     to see from the artifact alone which limit went unjudged on which row.
+	//   - not co-loaded (ci.yml's `timing` job, which runs this test alone; bench-gate's shape):
+	//     both rows gated at their obs.Budgets() limits, pass=true, p99 under the limit — and the
+	//     waiver notes ABSENT, because a note present without the flag would mean the harness had
+	//     waived on its own.
 	beWall := hotpathRow(t, rep, string(obs.BE))
 	require.Equal(t, hotpathCheckpointSamples, beWall.N)
-	require.Nil(t, beWall.LimitMs,
-		"--under-coload must leave B-E's wall-clock row ungated in this run's artifact; it is still "+
-			"gated at %.0fms by bench-gate, which measures it in isolation", beLimit)
-	require.Nil(t, beWall.Pass)
-	require.True(t, hotpathNotesMention(rep, "--under-coload") && hotpathNotesMention(rep, hotpathBECPURowID),
-		"the artifact must disclose the wall-clock waiver in its notes, naming both the flag that "+
-			"caused it and the row that still enforces the limit — a null pass field is not an "+
-			"explanation, and a reader must be able to see from the artifact alone which limit went "+
-			"unjudged on which row and where it is still judged; notes present: %q", rep.Notes)
+	if underCoload {
+		hotpathRequireReportedRow(t, ba, baLimit, "B-A")
+		hotpathRequireReportedRow(t, beWall, beLimit, "B-E's wall-clock row")
+		require.True(t,
+			hotpathNotesMention(rep, hotpathUnderColoadFlag) && hotpathNotesMention(rep, hotpathBECPURowID),
+			"the artifact must disclose B-E's wall-clock waiver in its notes, naming both the flag that "+
+				"caused it and the row that still enforces the limit; notes present: %q", rep.Notes)
+		require.True(t, hotpathNotesMention(rep, hotpathBAWaiverMark),
+			"the artifact must disclose B-A's waiver in its own note (%q), not only B-E's; notes present: %q",
+			hotpathBAWaiverMark, rep.Notes)
+		t.Logf("§4.6 under %s: B-A p99=%.3fms (limit %.0fms) and B-E wall p99=%.3fms (limit %.0fms) are "+
+			"REPORTED here, not judged; ci.yml's `timing` job runs this test alone and judges both",
+			obs.UnderColoadEnv, ba.P99, baLimit, beWall.P99, beLimit)
+	} else {
+		hotpathRequireGatedRow(t, ba, baLimit, "B-A")
+		hotpathRequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
+		require.False(t, hotpathNotesMention(rep, hotpathUnderColoadFlag),
+			"no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
+				"on its own; notes present: %q", hotpathUnderColoadFlag, rep.Notes)
+	}
 
 	// spawn_floor_ms present, and recorded for the completion report alongside B-D.
 	require.Positive(t, rep.SpawnFloorMs.N, "spawn_floor_ms must be present")
@@ -803,15 +886,20 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 			"a state.bin that survived the harness's teardown must still report hot=0 (sync)")
 	}
 
-	// The waived wall-clock B-E row is logged alongside the gated CPU one on purpose: the pair is
+	// The wall-clock B-E row is logged alongside the CPU one in both modes on purpose: the pair is
 	// the evidence for the co-load argument above, and a future reader chasing a B-E question wants
-	// to see both numbers from the same run, not just the one that was judged.
-	t.Logf("§4.6 measured (platform %s, n=%d): B-A p99=%.3fms (limit %.0fms, n=%d) | B-B p99=%.3fms "+
+	// to see both numbers from the same run, not just the one that was judged. The verdict word
+	// says which mode this run was.
+	wallVerdict := "gated"
+	if underCoload {
+		wallVerdict = "reported, not gated: " + hotpathUnderColoadFlag
+	}
+	t.Logf("§4.6 measured (platform %s, n=%d): B-A p99=%.3fms (limit %.0fms, n=%d; %s) | B-B p99=%.3fms "+
 		"(limit %.0fms, n=%d) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+
-		"(reported, not gated: --under-coload) | B-D p50=%.3fms p99=%.3fms max=%.3fms | spawn_floor "+
+		"(limit %.0fms; %s) | B-D p50=%.3fms p99=%.3fms max=%.3fms | spawn_floor "+
 		"p50=%.3fms p99=%.3fms (n=%d) | B-A_spawn_estimate p50=%.3fms p99=%.3fms | b_a_method=%q",
-		rep.Platform, rep.N, ba.P99, baLimit, ba.N, bb.P99, bbLimit, bb.N,
-		beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99,
+		rep.Platform, rep.N, ba.P99, baLimit, ba.N, wallVerdict, bb.P99, bbLimit, bb.N,
+		beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99, beLimit, wallVerdict,
 		bd.P50, bd.P99, bd.Max, rep.SpawnFloorMs.P50, rep.SpawnFloorMs.P99, rep.SpawnFloorMs.N,
 		spawnEst.P50, spawnEst.P99, rep.BAMethod)
 	for _, note := range rep.Notes {
