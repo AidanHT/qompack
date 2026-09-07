@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,6 +44,8 @@ type drainFileState struct {
 	Size   int64 `json:"size"`
 	Offset int64 `json:"offset"`
 	Done   bool  `json:"done"`
+	// PendingBlobs is persisted with the acknowledged offset before any deletion is attempted.
+	PendingBlobs []string `json:"pending_blobs,omitempty"`
 }
 
 // drainState is state/drain.json's on-disk shape, keyed by spool file base name.
@@ -56,10 +59,9 @@ type DrainConfig struct {
 	Clock   core.Clock
 	// Dispatch is the same handler the worker pool uses to process a request.
 	Dispatch func(ctx context.Context, req ipc.Request) ipc.Response
-	// Seen, if non-nil, is consulted (and updated) before every dispatch, so a line already
-	// processed by the ingest worker pool this daemon lifetime — or by an earlier Drain call — is
-	// never dispatched twice. Sharing the same *seenSet the ingest queue uses is what makes a
-	// NAK-then-spooled duplicate line collapse to exactly one dispatch.
+	// Seen shares in-flight ownership and successful handling within this daemon lifetime. It
+	// is not a durable delivery identity: restart may redeliver, and equal-content identity is
+	// a remaining SP-20 lease migration requirement.
 	Seen *seenSet
 	// IsLive reports whether sess is still a live session; its WAL is kept (offset-marked, not
 	// deleted) rather than removed once fully drained. A nil IsLive treats every session as ended,
@@ -107,13 +109,19 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
-	st := dr.loadState()
+	st, err := dr.loadState()
+	if err != nil {
+		return 0, err // preserve corrupt progress for diagnosis; never authorize deletion from it
+	}
+	if err := dr.validateProgress(files, st); err != nil {
+		return 0, err
+	}
 	total := 0
-	var stopErr error
+	stopErr := dr.cleanupAcknowledged(st)
 
 	for _, path := range files {
 		if ctx.Err() != nil {
-			stopErr = ctx.Err()
+			stopErr = errors.Join(stopErr, ctx.Err())
 			break
 		}
 		n, ferr := dr.drainFile(ctx, path, st)
@@ -122,17 +130,19 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 			continue
 		}
 		if errors.Is(ferr, context.Canceled) || errors.Is(ferr, context.DeadlineExceeded) {
-			stopErr = ferr
+			stopErr = errors.Join(stopErr, ferr)
 			break
 		}
 		if dr.cfg.Metrics != nil {
 			dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
 		}
 		dr.cfg.Log.Warn("daemon: drain: file error", "path", path, "err", ferr)
+		stopErr = errors.Join(stopErr, ferr)
 	}
 
 	if serr := dr.saveState(st); serr != nil {
 		dr.cfg.Log.Warn("daemon: drain: failed to persist state", "err", serr)
+		stopErr = errors.Join(stopErr, serr)
 	}
 	return total, stopErr
 }
@@ -160,16 +170,16 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState) (i
 		st[base] = fs
 	}
 	if fs.Done && fs.Size == size {
-		return 0, nil
+		return 0, dr.removeCompletedFile(path, base, fs, st)
 	}
+	fs.Done = false
 
 	f, err := os.Open(paths.Long(path))
 	if err != nil {
 		return 0, err
 	}
-	// f is closed explicitly, below, before a possible os.Remove — not deferred to function
-	// return: on Windows, deleting a file with a still-open handle fails, and a deferred Close
-	// would not have run yet at the point this function calls os.Remove.
+	defer func() { _ = f.Close() }() // also releases the handle if a callback panics or exits its goroutine
+	// Also close explicitly before a possible os.Remove: Windows cannot delete an open file.
 
 	if fs.Offset > 0 {
 		if _, err := f.Seek(fs.Offset, io.SeekStart); err != nil {
@@ -201,11 +211,11 @@ readLoop:
 			readErr = err
 			break readLoop
 		}
-		offset += int64(len(raw))
-		fs.Offset = offset
+		nextOffset := offset + int64(len(raw))
 
 		line := bytes.TrimSuffix(raw, []byte{'\n'})
 		if len(bytes.TrimSpace(line)) == 0 {
+			offset, fs.Offset = nextOffset, nextOffset
 			continue // lenient to blank lines, though the writer never emits them
 		}
 
@@ -215,24 +225,40 @@ readLoop:
 				dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
 			}
 			dr.cfg.Log.Warn("daemon: drain: corrupt line", "path", path, "err", decErr)
+			offset, fs.Offset = nextOffset, nextOffset
 			continue
 		}
 
 		key := core.HashBytes(walHashDomain, line)
-		if dr.cfg.Seen != nil && dr.cfg.Seen.SeenOrAdd(key) {
-			continue
+		if dr.cfg.Seen != nil {
+			completed, acquired := dr.cfg.Seen.begin(key)
+			if completed {
+				// A live worker's acknowledgement was in memory only. Keep its blob until this
+				// file's consumed offset is persisted below.
+				if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
+					fs.PendingBlobs = append(fs.PendingBlobs, blob)
+				}
+				offset, fs.Offset = nextOffset, nextOffset
+				continue
+			}
+			if !acquired {
+				readErr = fmt.Errorf("daemon: drain: delivery still in progress")
+				break readLoop
+			}
 		}
 
-		req = resolveBlob(dr.cfg.Root, dr.cfg.Log, req)
-		dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
-		// The response is intentionally discarded and the offset advances unconditionally: the
-		// spec's algorithm (task-3-spec.md drain.go step 3) treats "dispatched" as consumed even
-		// when the handler itself refuses or times out. That is an accepted, deliberate loss at
-		// this layer — the alternative (retrying forever) would let one permanently-failing line
-		// wedge the whole file — but it is worth stating plainly given how much of the rest of this
-		// package is about never losing data.
-		dr.cfg.Dispatch(dctx, req)
-		cancel()
+		blob, dispatchErr := dr.dispatchPending(ctx, req)
+		if dr.cfg.Seen != nil {
+			dr.cfg.Seen.finish(key, dispatchErr == nil)
+		}
+		if dispatchErr != nil {
+			readErr = dispatchErr
+			break readLoop
+		}
+		if blob != "" {
+			fs.PendingBlobs = append(fs.PendingBlobs, blob)
+		}
+		offset, fs.Offset = nextOffset, nextOffset
 		count++
 	}
 	_ = f.Close() // must happen before the delete-if-drained check below (Windows cannot remove an open file)
@@ -245,24 +271,155 @@ readLoop:
 		return count, readErr
 	}
 
-	fs.Done = true
+	fs.Done = offset == size // incomplete trailing bytes remain pending, even for ended sessions
 	// Persisted here — per file, on EOF, before the remove — not just once at the end of Drain
 	// (task-3-spec.md drain.go step 4's exact ordering): a crash between this file's removal and
 	// the end of the outer loop must not lose this file's recorded completion, which is what makes
 	// "Drain is idempotent and resumable" true across a crash, not only across a clean cancel.
 	if serr := dr.saveState(st); serr != nil {
 		dr.cfg.Log.Warn("daemon: drain: failed to persist state", "err", serr)
+		return count, serr
 	}
-	if dr.shouldDelete(base) {
+	if err := dr.cleanupAcknowledged(st); err != nil {
+		return count, err
+	}
+	return count, dr.removeCompletedFile(path, base, fs, st)
+}
+
+func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st drainState) error {
+	if fs.Done && len(fs.PendingBlobs) == 0 && dr.shouldDelete(base) {
 		if err := os.Remove(paths.Long(path)); err != nil {
 			if !os.IsNotExist(err) {
-				dr.cfg.Log.Warn("daemon: drain: failed to remove drained file", "path", path, "err", err)
+				return err
 			}
 		} else {
 			delete(st, base)
 		}
 	}
-	return count, nil
+	return nil
+}
+
+// cleanupAcknowledged consumes only cleanup intents from a successfully persisted state. Every
+// failed deletion remains in that state for the next drain/restart, even after the source ended.
+func (dr *drainer) cleanupAcknowledged(st drainState) error {
+	pending := false
+	for _, fs := range st {
+		pending = pending || len(fs.PendingBlobs) > 0
+	}
+	if !pending {
+		return nil
+	}
+	// A lost transport ACK can leave the same descriptor in both WAL and client fallback.
+	// A cleanup intent proves one consumed reference, not that every other reference is gone.
+	referenced, err := dr.pendingBlobReferences(st)
+	if err != nil {
+		return err // incomplete/unreadable input cannot authorize collection
+	}
+	var result error
+	for _, fs := range st {
+		var remaining []string
+		for _, blob := range fs.PendingBlobs {
+			if referenced[blob] {
+				remaining = append(remaining, blob)
+				continue
+			}
+			if err := removeBlob(dr.cfg.Root, blob); err != nil {
+				remaining = append(remaining, blob)
+				result = errors.Join(result, err)
+			}
+		}
+		fs.PendingBlobs = remaining
+	}
+	return result
+}
+
+// pendingBlobReferences checks the current spool snapshot only. A future delivery/lease ledger
+// must also protect descriptors that a live client can publish after this scan.
+func (dr *drainer) pendingBlobReferences(st drainState) (map[string]bool, error) {
+	files, err := ipc.SpoolFiles(paths.Of(dr.cfg.Root).Spool)
+	if err != nil {
+		return nil, err
+	}
+	refs := make(map[string]bool)
+	for _, path := range files {
+		if err := scanPendingBlobs(path, st[filepath.Base(path)], refs); err != nil {
+			return nil, err
+		}
+	}
+	return refs, nil
+}
+
+func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) error {
+	f, err := os.Open(paths.Long(path))
+	if err != nil {
+		return fmt.Errorf("daemon: drain: blob reference source unavailable")
+	}
+	defer func() { _ = f.Close() }()
+	if fs != nil {
+		if _, err := f.Seek(fs.Offset, io.SeekStart); err != nil {
+			return err
+		}
+	}
+	s := bufio.NewScanner(f)
+	s.Buffer(make([]byte, drainReadBufferBytes), ipc.MaxLineBytes+1)
+	s.Split(func(data []byte, atEOF bool) (int, []byte, error) {
+		if atEOF && len(data) > 0 && !bytes.ContainsRune(data, '\n') {
+			return 0, nil, fmt.Errorf("daemon: drain: incomplete blob reference source")
+		}
+		return bufio.ScanLines(data, atEOF)
+	})
+	for s.Scan() {
+		if len(bytes.TrimSpace(s.Bytes())) == 0 {
+			continue
+		}
+		req, err := ipc.DecodeRequest(s.Bytes())
+		if err != nil {
+			return fmt.Errorf("daemon: drain: invalid blob reference source")
+		}
+		var ref blobRef
+		if json.Unmarshal(req.Raw, &ref) == nil && ref.Blob != "" && ref.Field == drainBlobToolResponse {
+			refs[ref.Blob] = true
+		}
+	}
+	return s.Err()
+}
+
+func (dr *drainer) validateProgress(files []string, st drainState) error {
+	for _, path := range files {
+		fs := st[filepath.Base(path)]
+		if fs == nil {
+			continue
+		}
+		fi, err := os.Stat(paths.Long(path))
+		if err != nil || fs.Size > fi.Size() || fs.Offset > fi.Size() {
+			return fmt.Errorf("daemon: drain: progress no longer matches spool")
+		}
+	}
+	return nil
+}
+
+// dispatchPending leaves the record and any externalized bytes available until handling and
+// acknowledgement persistence succeed. A NAK, panic, or canceled handler cannot consume it.
+func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request) (blob string, err error) {
+	defer func() {
+		if recover() != nil {
+			err = fmt.Errorf("daemon: drain: handler panicked")
+		}
+	}()
+	resolved, blob, err := readBlob(dr.cfg.Root, req)
+	if err != nil {
+		return "", err
+	}
+	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
+	defer cancel()
+	resp := dr.cfg.Dispatch(dctx, resolved)
+	if !resp.OK || resp.Err != "" {
+		if dctx.Err() != nil {
+			return "", dctx.Err()
+		}
+		return "", fmt.Errorf("daemon: drain: handler did not acknowledge delivery")
+	}
+	return blob, nil
 }
 
 // shouldDelete reports whether a fully-drained file should be removed: a client-*.ndjson fallback
@@ -299,19 +456,31 @@ func drainStatePath(root string) string {
 	return filepath.Join(paths.Of(root).State, drainStateFile)
 }
 
-// loadState reads state/drain.json, falling back to an empty state for a missing or corrupt file
-// — the first-ever drain, or a state file this build can no longer parse, both start clean rather
-// than error out.
-func (dr *drainer) loadState() drainState {
+// loadState distinguishes a first drain from unreadable or inconsistent progress. Corrupt state
+// requires an explicit recovery decision; treating it as success could delete unread records.
+func (dr *drainer) loadState() (drainState, error) {
 	b, err := os.ReadFile(paths.Long(drainStatePath(dr.cfg.Root)))
+	if os.IsNotExist(err) {
+		return drainState{}, nil
+	}
 	if err != nil {
-		return drainState{}
+		return nil, err
 	}
 	var st drainState
 	if err := json.Unmarshal(b, &st); err != nil || st == nil {
-		return drainState{}
+		return nil, fmt.Errorf("daemon: drain: invalid progress state")
 	}
-	return st
+	for _, fs := range st {
+		if fs == nil || fs.Size < 0 || fs.Offset < 0 || fs.Offset > fs.Size || (fs.Done && fs.Offset != fs.Size) {
+			return nil, fmt.Errorf("daemon: drain: inconsistent progress state")
+		}
+		for _, blob := range fs.PendingBlobs {
+			if !safeBlobName(blob) {
+				return nil, fmt.Errorf("daemon: drain: invalid cleanup intent")
+			}
+		}
+	}
+	return st, nil
 }
 
 // saveState persists st to state/drain.json via paths.WriteAtomic. WriteAtomic renames its temp

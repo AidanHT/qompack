@@ -1,0 +1,11 @@
+--- FAIL: TestNAKDuplicateIsDedupedOnDrain (0.18s)
+    daemon_test.go:397: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/daemon_test.go:397
+        	Error:      	Received unexpected error:
+        	            	remove C:\Users\Quant\AppData\Local\Temp\TestNAKDuplicateIsDedupedOnDrain1175184882\001\.qompack\spool\wal-sess-1.ndjson: The process cannot access the file because it is being used by another process.
+        	Test:       	TestNAKDuplicateIsDedupedOnDrain
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	11.234s
+ok  	github.com/qompack/qompack/internal/ipc	17.229s
+ok  	github.com/qompack/qompack/internal/core	2.233s
+FAIL

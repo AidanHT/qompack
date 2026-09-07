@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -157,8 +158,9 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 }
 
 // appendWAL writes line, plus exactly one trailing newline, to req's session WAL file, opening
-// (and caching) the handle on first use and rotating past walRotateBytes. No fsync (§2.4: "O_APPEND,
-// no fsync").
+// (and caching) the handle on first use and rotating past walRotateBytes. Sync precedes the
+// transport acknowledgement; this corrects the historical no-fsync boundary. Full object and
+// reference publication is a separate SP-20 gate.
 func (i *ingest) appendWAL(sess core.SessionID, line []byte) error {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -194,7 +196,10 @@ func (i *ingest) appendWAL(sess core.SessionID, line []byte) error {
 		return err
 	}
 	wf.bytes += int64(n)
-	return nil
+	if n != len(buf) {
+		return io.ErrShortWrite
+	}
+	return wf.w.Sync()
 }
 
 // openWALLocked opens (creating if needed) the WAL segment file for sess at wf's current
@@ -233,7 +238,7 @@ func walPath(spoolDir string, sess core.SessionID, seq int) string {
 // off the ring until ctx is done, deduplicating against seen, and dispatching to run, timed into
 // the B-C histogram. A panic inside run is recovered, counted and Loud'd — it never brings down
 // the worker.
-func (i *ingest) Start(ctx context.Context, workers int, run func(context.Context, ipc.Request)) {
+func (i *ingest) Start(ctx context.Context, workers int, run func(context.Context, ipc.Request) ipc.Response) {
 	if workers <= 0 {
 		workers = defaultWorkerCount()
 	}
@@ -243,7 +248,7 @@ func (i *ingest) Start(ctx context.Context, workers int, run func(context.Contex
 	}
 }
 
-func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Request)) {
+func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response) {
 	defer i.wg.Done()
 	for {
 		select {
@@ -264,24 +269,41 @@ func (i *ingest) worker(ctx context.Context, run func(context.Context, ipc.Reque
 // in place of Event.ToolResponse. The dedup key (j.key) was computed in Accept from the WAL line
 // with its terminator trimmed, before any resolution — the same bytes Drain hashes when it later reads the
 // same line back out of the WAL — so a request resolved here and the identical (still-descriptor)
-// bytes Drain might independently see cannot double-dispatch: whichever side's SeenOrAdd runs
-// first wins, and only one of them ever reaches run.
-func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request), j job) {
+// bytes Drain might independently see share same-process ownership. Only a successful handler
+// acknowledgement enters the bounded completed set; rejection remains retryable. Restart does
+// not retain this set, so handlers must tolerate at-least-once delivery.
+func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Request) ipc.Response, j job) {
 	defer func() {
 		if r := recover(); r != nil {
 			if i.m != nil {
 				i.m.Counter(counterL0WorkerPanic).Add(1)
 			}
-			i.log.Loud("daemon: ingest worker panicked — job dropped", "op", string(j.req.Op), "recover", r)
+			i.log.Loud("daemon: ingest worker panicked; WAL retained for retry", "op", string(j.req.Op))
 		}
 	}()
 
-	if i.seen.SeenOrAdd(j.key) {
+	_, acquired := i.seen.begin(j.key)
+	if !acquired {
 		return
 	}
+	acknowledged := false
+	defer func() { i.seen.finish(j.key, acknowledged) }()
 
-	req := resolveBlob(i.root, i.log, j.req)
-	work := func() error { run(ctx, req); return nil }
+	req, _, err := readBlob(i.root, j.req)
+	if err != nil {
+		i.log.Warn("daemon: ingest blob unavailable; WAL retained for retry", "op", string(j.req.Op))
+		return // retain the WAL and blob for recovery
+	}
+	work := func() error {
+		resp := run(ctx, req)
+		acknowledged = resp.OK && resp.Err == ""
+		if !acknowledged {
+			i.log.Warn("daemon: ingest handler did not acknowledge; WAL retained for retry", "op", string(j.req.Op))
+		}
+		// The WAL still names any externalized blob. Only Drain's persisted offset may release
+		// it; an in-memory success is lost on restart and is not a durable acknowledgement.
+		return nil
+	}
 	if i.m != nil {
 		_ = obs.Timed(i.m.Hist(i.histBC), work)
 	} else {
@@ -338,11 +360,36 @@ type seenSet struct {
 	capacity int
 	set      map[core.Hash]struct{}
 	order    []core.Hash
+	working  map[core.Hash]struct{}
 }
 
 // newSeenSet returns an empty seenSet bounded at capacity entries.
 func newSeenSet(capacity int) *seenSet {
-	return &seenSet{capacity: capacity, set: make(map[core.Hash]struct{}, capacity)}
+	return &seenSet{capacity: capacity, set: make(map[core.Hash]struct{}, capacity), working: make(map[core.Hash]struct{})}
+}
+
+// begin distinguishes a completed delivery from one still owned by another handler. A drainer
+// must not consume a line merely because an ingest worker is currently handling it.
+func (s *seenSet) begin(key core.Hash) (completed, acquired bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.set[key]; ok {
+		return true, false
+	}
+	if _, ok := s.working[key]; ok {
+		return false, false
+	}
+	s.working[key] = struct{}{}
+	return false, true
+}
+
+func (s *seenSet) finish(key core.Hash, acknowledged bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.working, key)
+	if acknowledged {
+		s.addLocked(key)
+	}
 }
 
 // SeenOrAdd reports whether key has already been recorded; if not, it records it (evicting the
@@ -353,6 +400,14 @@ func (s *seenSet) SeenOrAdd(key core.Hash) bool {
 	if _, ok := s.set[key]; ok {
 		return true
 	}
+	s.addLocked(key)
+	return false
+}
+
+func (s *seenSet) addLocked(key core.Hash) {
+	if s.capacity <= 0 {
+		return
+	}
 	if len(s.order) >= s.capacity {
 		oldest := s.order[0]
 		s.order = s.order[1:]
@@ -360,5 +415,4 @@ func (s *seenSet) SeenOrAdd(key core.Hash) bool {
 	}
 	s.set[key] = struct{}{}
 	s.order = append(s.order, key)
-	return false
 }

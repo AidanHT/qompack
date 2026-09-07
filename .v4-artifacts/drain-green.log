@@ -1,0 +1,17 @@
+ok  	github.com/qompack/qompack/internal/core	1.136s
+--- FAIL: TestDrainRejectedBlobResponseRetainsBlobForRestart (1.30s)
+    drain_recovery_test.go:237: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/drain_recovery_test.go:237
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/drain.go:300
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/drain.go:240
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/drain.go:120
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/drain_recovery_test.go:241
+        	Error:      	Not equal: 
+        	            	expected: []uint8([]byte{0x7b, 0x22, 0x6c, 0x61, 0x72, 0x67, 0x65, 0x22, 0x3a, 0x22, 0x74, 0x6f, 0x6f, 0x6c, 0x20, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x7d})
+        	            	actual  : json.RawMessage(json.RawMessage{0x7b, 0x22, 0x6c, 0x61, 0x72, 0x67, 0x65, 0x22, 0x3a, 0x22, 0x74, 0x6f, 0x6f, 0x6c, 0x20, 0x72, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x7d})
+        	Test:       	TestDrainRejectedBlobResponseRetainsBlobForRestart
+        	Messages:   	the handler must see the resolved payload
+    testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\Quant\AppData\Local\Temp\TestDrainRejectedBlobResponseRetainsBlobForRestart1464991157\001\.qompack\spool\client-blob-rejected.ndjson: The process cannot access the file because it is being used by another process.
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.819s
+FAIL

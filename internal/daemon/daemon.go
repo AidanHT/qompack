@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -719,29 +720,42 @@ func (d *daemon) Drain(ctx context.Context) (int, error) {
 // bound Services function when present, and — for observe.prompt — runs the off-reply-path
 // sentinel scan. It is also drainer.Dispatch's underlying function, wrapped as dispatchOp so a
 // drained line gets exactly the same handling a live request would.
-func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
+func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	switch req.Op {
 	case ipc.OpObserveTool:
 		if d.svc.ObserveTool != nil {
 			if err := d.svc.ObserveTool(ctx, *ev); err != nil {
 				d.log.Warn("daemon: ObserveTool failed", "err", err)
+				return ipc.Response{Err: "observation handling failed"}
 			}
-		} else if d.m != nil {
-			d.m.Counter(counterUnhandledObserveTool).Add(1)
+		} else {
+			if d.m != nil {
+				d.m.Counter(counterUnhandledObserveTool).Add(1)
+			}
+			// A deliberately unwired capability is an acknowledged no-op, not captured evidence.
+			return ipc.Response{OK: true, Data: json.RawMessage(`{"outcome":"unavailable","reason":"observer not configured"}`)}
 		}
 	case ipc.OpObserveStop:
 		subagent := decodeSubagent(req.Raw)
 		if d.svc.ObserveStop != nil {
 			if err := d.svc.ObserveStop(ctx, *ev, subagent); err != nil {
 				d.log.Warn("daemon: ObserveStop failed", "err", err)
+				return ipc.Response{Err: "stop handling failed"}
 			}
-		} else if d.m != nil {
-			d.m.Counter(counterUnhandledObserveStop).Add(1)
+		} else {
+			if d.m != nil {
+				d.m.Counter(counterUnhandledObserveStop).Add(1)
+			}
+			return ipc.Response{OK: true, Data: json.RawMessage(`{"outcome":"unavailable","reason":"observer not configured"}`)}
 		}
 	case ipc.OpObservePrompt:
 		d.scanSentinelForPrompt(ev)
 	}
+	if ctx.Err() != nil {
+		return ipc.Response{Err: "observation handling interrupted"}
+	}
+	return ipc.Response{OK: true}
 }
 
 // drainDispatch is the drainer's DrainConfig.Dispatch function — an explicit, non-reentrant
@@ -774,8 +788,7 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
 func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
 	switch {
 	case req.Op.HotPath():
-		d.runIngested(ctx, req)
-		return ipc.Response{OK: true}
+		return d.runIngested(ctx, req)
 	case req.Op == ipc.OpFlush:
 		return d.flushRoute(ctx, req, false)
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):

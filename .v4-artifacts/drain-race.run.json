@@ -1,0 +1,8 @@
+{
+  "stage": "provisional changed packages and IPC consumer race; one heavy job",
+  "started": "2026-09-07T22:57:55.6846129Z",
+  "source_head": "919ca3a",
+  "seconds": 93.1555072,
+  "exit": 0,
+  "command": "go test -race -p=1 -count=1 -timeout=10m ./internal/daemon ./internal/ipc ./internal/core"
+}

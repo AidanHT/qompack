@@ -1,0 +1,5 @@
+# github.com/qompack/qompack/internal/daemon [github.com/qompack/qompack/internal/daemon.test]
+internal\daemon\daemon.go:736:40: undefined: json
+internal\daemon\daemon.go:749:40: undefined: json
+FAIL	github.com/qompack/qompack/internal/daemon [build failed]
+FAIL

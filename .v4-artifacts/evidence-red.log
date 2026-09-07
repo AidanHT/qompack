@@ -1,0 +1,14 @@
+# github.com/qompack/qompack/internal/core_test [github.com/qompack/qompack/internal/core.test]
+internal\core\evidence_test.go:13:21: undefined: core.NewObservationID
+internal\core\evidence_test.go:15:24: undefined: core.NewObservationID
+internal\core\evidence_test.go:17:22: undefined: core.NewObservationID
+internal\core\evidence_test.go:19:21: undefined: core.NewObservationID
+internal\core\evidence_test.go:24:16: undefined: core.NewObservationID
+internal\core\evidence_test.go:26:16: undefined: core.NewObservationID
+internal\core\evidence_test.go:32:21: undefined: core.EvidenceEnvelope
+internal\core\evidence_test.go:35:25: undefined: core.FidelityUnknown
+internal\core\evidence_test.go:36:25: undefined: core.CoverageUnknown
+internal\core\evidence_test.go:37:25: undefined: core.OutcomeUncertain
+internal\core\evidence_test.go:37:25: too many errors
+FAIL	github.com/qompack/qompack/internal/core [build failed]
+FAIL
