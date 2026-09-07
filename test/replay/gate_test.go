@@ -243,7 +243,17 @@ func TestRunPhaseChecks_RunsEveryMergedPhase(t *testing.T) {
 	c := phaseContextFixture()
 	c.Report.Sessions = 1
 	require.Len(t, runPhaseChecks(c, 0), 1)
-	require.Len(t, runPhaseChecks(c, 6), 1, "no later phase has landed yet")
+
+	// SP-11 landed phase 3, so a run at --phase 6 now asserts BOTH criteria and reports both
+	// failures: phase 0's session count, and phase 3's missing qompack-rehydrate arm (the fixture
+	// carries only the stock and null policies). Before phase 3 landed this line asserted 1 with
+	// the message "no later phase has landed yet" — its failing is the mechanism working, not a
+	// regression, and the count rises again the next time a phase merges.
+	errs := runPhaseChecks(c, 6)
+	require.Len(t, errs, 2, "phases 0 and 3 have both landed and both re-assert")
+	require.Contains(t, errs[0].Error(), "phase 0:")
+	require.Contains(t, errs[1].Error(), "phase 3:")
+
 	require.Empty(t, runPhaseChecks(c, -1), "nothing is asserted below phase 0")
 }
 

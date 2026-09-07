@@ -31,6 +31,11 @@ type Context struct {
 // rather than inventing a new gate. See docs/adr/0002-replay-methodology.md.
 var phaseChecks = map[int]func(Context) error{
 	0: phase0,
+	// 3 is SP-11's: §10 Phase 3's exit criterion, checked by phase3 in policy_rehydrate.go. It
+	// lives beside the policy it measures rather than here because that file is also where
+	// qompackRehydratePolicy records the per-session maxima the assertions read — numbers the
+	// driver's summed Policies map cannot recover.
+	3: phase3,
 }
 
 // phase0 is §10 Phase 0's exit criterion: "a single number for stock behaviour, reproducible

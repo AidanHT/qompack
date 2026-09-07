@@ -246,14 +246,14 @@ func TestLandedSubplansMatchesTheBranch(t *testing.T) {
 		}
 	}
 	// The missing-entry half. Wave 0, every wave-1 subplan merged so far, both wave-2 subplans
-	// (SP-08 landed on develop; SP-09 lands in this branch's merge) and SP-10 must be listed, or
-	// the §6.4 floor of every package it owns is exempt at any coverage, including 0%.
+	// (SP-08 landed on develop; SP-09 lands in this branch's merge), SP-10 and SP-11 must be
+	// listed, or the §6.4 floor of every package it owns is exempt at any coverage, including 0%.
 	//
 	// This assertion used to read the other way for SP-03 — "SP-03 has not landed; internal/sketch
 	// is still a stub" — which was right while it was a tripwire and reads backwards the moment the
 	// wave lands. SP-02's handoff §4.1 asked for it to be rewritten here rather than deleted,
 	// because the set still has to keep agreeing with the branch for waves 2 through 6.
-	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07", "SP-08", "SP-09", "SP-10"} {
+	for _, id := range []string{"SP-01", "SP-02", "SP-03", "SP-04", "SP-05", "SP-06", "SP-07", "SP-08", "SP-09", "SP-10", "SP-11"} {
 		if !landedSubplans[id] {
 			t.Errorf("%s has landed on develop but is missing from landedSubplans, so every "+
 				"package it owns is exempt from its §6.4 floor at any coverage, including 0%%", id)

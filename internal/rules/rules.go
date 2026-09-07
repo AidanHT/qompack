@@ -33,23 +33,3 @@ type Scanner interface {
 	// ancestor to) a path in pointers.
 	NestedClaudeMD(ctx context.Context, root string, pointers []string) ([]Rule, error)
 }
-
-// New returns a stub Scanner: constructing it always succeeds so wave-0 composition roots can
-// wire a rules.Scanner today, but every operation reports core.ErrNotImplemented until SP-11
-// lands the real frontmatter and directory-walk logic (00-ARCHITECTURE.md §5.15).
-func New() Scanner {
-	return stubScanner{}
-}
-
-// stubScanner is the SP-01 placeholder Scanner. SP-11 owns the real implementation.
-type stubScanner struct{}
-
-// PathScoped always reports core.ErrNotImplemented.
-func (stubScanner) PathScoped(ctx context.Context, root string, pointers []string) ([]Rule, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// NestedClaudeMD always reports core.ErrNotImplemented.
-func (stubScanner) NestedClaudeMD(ctx context.Context, root string, pointers []string) ([]Rule, error) {
-	return nil, core.ErrNotImplemented
-}
