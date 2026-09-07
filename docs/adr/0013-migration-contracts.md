@@ -56,7 +56,9 @@ forbids.
 **D13-2 — New evidence is a sidecar, never an edit to a frozen record.** `ToolUseRecord`'s wire
 line, `checkpoints/0001.json`, `records/eliminations.jsonl` and every §16 fixture keep their
 bytes. Fidelity, transform chain, hash version and ordering live in `index/observations.jsonl`
-keyed by the existing `ToolUseID`. A record with no sidecar has fidelity `unknown`, not `exact`:
+keyed by `ObservationID`, with optional nonunique `HostID` and legacy `ToolUseID` lookups. The
+V4 implementation review corrected the earlier ToolUseID key: repeated or absent host IDs must
+not collapse distinct deliveries or force a fabricated host ID. A record with no sidecar has fidelity `unknown`, not `exact`:
 the additive contract cannot read an old missing field as complete evidence. *Rejected:* adding
 fields to the frozen wire and regenerating goldens — §16 forbids refreshing a fixture to make a
 difference disappear, and every old reader would misreport old lines as complete.
