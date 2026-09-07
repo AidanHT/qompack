@@ -124,17 +124,23 @@ func stubRegistry() []stubPackage {
 		}, pureMethods: allMethodsAreReal},
 		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }},
 		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }},
+		// checkpoint is the real L4 writer as of SP-10 (§8.5): Begin, Advance, Finalize and Abort
+		// all do their work, so no method reports ErrNotImplemented any more. What they report
+		// instead is ordinary argument validation — Advance on a nil draft says "advance: nil
+		// draft" — which is exactly the distinction this guard exists to make.
 		{pkg: "checkpoint", build: func(t *testing.T) any {
 			w, err := checkpoint.OpenWriter(t.TempDir(), config.Defaults(), logging.Nop(),
 				obs.New(core.SystemClock()), core.SystemClock())
 			require.NoError(t, err)
 			return w
-		}},
+		}, pureMethods: allMethodsAreReal},
+		// pins is a real append-only invariant log as of SP-10 (§7.4, §8.5): Add, Remove, All,
+		// Get and Materialize all do their work, so no method reports ErrNotImplemented any more.
 		{pkg: "pins", build: func(t *testing.T) any {
 			s, err := pins.Open(t.TempDir())
 			require.NoError(t, err)
 			return s
-		}},
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "rehydrate"}, // package-level Build/StandingInstruction, no constructed seam
 		// rules and skills are REAL from SP-11: the scanner reads `paths:` frontmatter and nested
 		// CLAUDE.md files off disk and the indexer builds the compact skill index, so neither

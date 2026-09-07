@@ -2,16 +2,11 @@ package checkpointtest_test
 
 import (
 	"context"
-	"path/filepath"
 	"testing"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/checkpoint/checkpointtest"
-	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/obs"
-	"github.com/qompack/qompack/internal/tokens"
 )
 
 // fakeStubWriter mirrors the shape of an SP-01-style stub Writer: every operation reports
@@ -81,22 +76,22 @@ func readerFixture(t *testing.T, r checkpoint.Reader) checkpointtest.ReaderFixtu
 	}
 }
 
-// truncateFunc binds checkpoint.Truncate to the default tier assignment and a real token
-// estimator — the two arguments checkpointtest may not name itself (00-ARCHITECTURE.md §3.2).
-func truncateFunc(t *testing.T) checkpointtest.TruncateFunc {
-	t.Helper()
-	cfg := config.Defaults()
-	est := tokens.New(cfg, filepath.Join(t.TempDir(), "calibration.json"))
-	return func(c checkpoint.Checkpoint, budget core.Tokens) (checkpoint.Checkpoint, []checkpoint.DropEntry) {
-		return checkpoint.Truncate(c, budget, cfg.Checkpoint.Tiers, est)
-	}
-}
-
-// TestCheckpointSuite_ShapePassesAgainstStub proves all three checkpointtest suites' shape blocks
-// pass against the SP-01 stubs — both the real checkpoint.OpenWriter/OpenReader/Truncate stubs
-// and an independent fake — and that every behaviour block is skipped with the exact Rule W-1
-// message. SP-10 reuses these suites unchanged, pointed at its real implementation, to flip those
-// skips off.
+// TestCheckpointSuite_ShapePassesAgainstStub proves the checkpointtest suites' shape blocks pass
+// against a stub Writer and Reader, and that every behaviour block is skipped with the exact
+// Rule W-1 message.
+//
+// SP-10 removed the three drivers that pointed these suites at checkpoint.OpenWriter,
+// checkpoint.OpenReader and checkpoint.Truncate. Those three asserted that the SP-01
+// implementations WERE stubs — which is precisely what SP-10 falsifies — so after this branch they
+// would have run their behaviour blocks for real against an empty t.TempDir() and an empty
+// SourceSet, failing on a missing fixture rather than on anything being wrong. The fakes below
+// stay stubs forever, so they keep proving exactly what this test's name promises.
+//
+// The real conformance runs live in the implementation package, where a populated SourceSet and a
+// seeded checkpoint directory can actually be built: TestWriterConformanceSuite and
+// TestReaderConformanceSuite in internal/checkpoint, and TestTruncateConformanceSuite for
+// RunTruncateSuite. That is the same split the subplan uses for pinstest.RunPinsSuite, which it
+// drives from a test inside internal/pins.
 //
 // Each suite runs inside its own t.Run wrapper. That is load-bearing, not cosmetic: Rule W-1's
 // t.Skip fires on the *T the suite was handed, so calling several suites directly from one test
@@ -108,33 +103,9 @@ func TestCheckpointSuite_ShapePassesAgainstStub(t *testing.T) {
 		})
 	})
 
-	t.Run("writer-openwriter-stub", func(t *testing.T) {
-		checkpointtest.RunWriterSuite(t, "checkpoint.OpenWriter-stub", func(t *testing.T) checkpointtest.WriterFixture {
-			w, err := checkpoint.OpenWriter(t.TempDir(), config.Defaults(), logging.Nop(), obs.New(core.SystemClock()), core.SystemClock())
-			if err != nil {
-				t.Fatal(err)
-			}
-			return writerFixture(t, w)
-		})
-	})
-
 	t.Run("reader-fake-stub", func(t *testing.T) {
 		checkpointtest.RunReaderSuite(t, "fake-stub", func(t *testing.T) checkpointtest.ReaderFixture {
 			return readerFixture(t, fakeStubReader{})
 		})
-	})
-
-	t.Run("reader-openreader-stub", func(t *testing.T) {
-		checkpointtest.RunReaderSuite(t, "checkpoint.OpenReader-stub", func(t *testing.T) checkpointtest.ReaderFixture {
-			r, err := checkpoint.OpenReader(t.TempDir(), logging.Nop(), obs.New(core.SystemClock()))
-			if err != nil {
-				t.Fatal(err)
-			}
-			return readerFixture(t, r)
-		})
-	})
-
-	t.Run("truncate-stub", func(t *testing.T) {
-		checkpointtest.RunTruncateSuite(t, "checkpoint.Truncate-stub", truncateFunc)
 	})
 }

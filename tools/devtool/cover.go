@@ -51,6 +51,12 @@ var landedSubplans = map[string]bool{
 	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
 	"SP-08": true,
 	"SP-09": true,
+	// SP-10 is listed from its own branch, in the wave-3 integration prelude (SP-19 M0-00) rather
+	// than in one of its eight feature commits: internal/checkpoint's probe (Begin) and
+	// internal/pins's (Add) both went real in those commits, so the exempt-but-real cross-check
+	// below fails the moment the branch is measured as a whole — the floors were silently off at
+	// f22534e. Listed here, both packages are measured against their 90% floors.
+	"SP-10": true,
 	// SP-11 lands rehydrate, rules and skills together, and all three probes — Build, PathScoped,
 	// Index — stop returning core.ErrNotImplemented in the same branch. The exempt-but-real
 	// cross-check below fails the moment a probe stops looking like a stub while its subplan is
