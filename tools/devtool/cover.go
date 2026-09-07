@@ -51,6 +51,11 @@ var landedSubplans = map[string]bool{
 	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
 	"SP-08": true,
 	"SP-09": true,
+	// SP-11 lands rehydrate, rules and skills together, and all three probes — Build, PathScoped,
+	// Index — stop returning core.ErrNotImplemented in the same branch. The exempt-but-real
+	// cross-check below fails the moment a probe stops looking like a stub while its subplan is
+	// still unlisted, so this entry cannot wait for the merge either.
+	"SP-11": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,

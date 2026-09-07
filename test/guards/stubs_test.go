@@ -136,8 +136,13 @@ func stubRegistry() []stubPackage {
 			return s
 		}},
 		{pkg: "rehydrate"}, // package-level Build/StandingInstruction, no constructed seam
-		{pkg: "rules", build: func(*testing.T) any { return rules.New() }},
-		{pkg: "skills", build: func(*testing.T) any { return skills.New() }},
+		// rules and skills are REAL from SP-11: the scanner reads `paths:` frontmatter and nested
+		// CLAUDE.md files off disk and the indexer builds the compact skill index, so neither
+		// reports ErrNotImplemented any more. Both answer an empty root with an empty result,
+		// which is the honest answer and not a stub's. They stay registered so the walk still
+		// proves their constructors build and no method panics on zero-valued arguments.
+		{pkg: "rules", build: func(*testing.T) any { return rules.New() }, pureMethods: allMethodsAreReal},
+		{pkg: "skills", build: func(*testing.T) any { return skills.New() }, pureMethods: allMethodsAreReal},
 		{pkg: "mcp", build: func(*testing.T) any { return mcp.NewServer("qompack", "0.1.0", logging.Nop()) }},
 		{pkg: "commands"},
 		// eval's seam is REAL from SP-02 (Phase 0 is the first thing built after the foundation),
