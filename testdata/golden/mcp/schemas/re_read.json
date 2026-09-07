@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span."
+    },
+    "at": {
+      "type": "string",
+      "description": "Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>."
+    },
+    "full": {
+      "type": "boolean",
+      "default": false,
+      "description": "Return the whole file instead of the minimum sufficient span."
+    }
+  },
+  "required": [
+    "path"
+  ],
+  "additionalProperties": false
+}

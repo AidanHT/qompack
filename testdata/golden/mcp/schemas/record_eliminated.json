@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "string"
+    },
+    "approach": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string",
+      "description": "Why it does not work. Encode what a competent engineer with no session history would get wrong."
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "session",
+        "project"
+      ],
+      "default": "session"
+    },
+    "depends_on": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Project-relative paths whose contents this reason rests on; a change to any of them flips this record to stale."
+    }
+  },
+  "required": [
+    "target",
+    "approach",
+    "reason"
+  ],
+  "additionalProperties": false
+}
