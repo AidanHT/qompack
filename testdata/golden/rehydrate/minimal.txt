@@ -1,0 +1,12 @@
+<!-- qompack:injected seq=2 ver=1 -->
+# Qompack rehydration — checkpoint 0002, session sess_min
+
+## 1. Invariants (pinned, verbatim)
+- [inv_a1b2c3d4e5f6] Never bypass the connection pool in transaction mode. (source: /qompack:pin)
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Fix the Stripe webhook retry logic; payments are being double-charged under load.
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->
