@@ -1,6 +1,11 @@
 package main
 
-import "github.com/qompack/qompack/internal/obs"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/qompack/qompack/internal/obs"
+)
 
 // taskTest runs the fmt-check gate and then `go test ./...`.
 //
@@ -44,7 +49,32 @@ var wholeTreeEnv = map[string]string{obs.UnderColoadEnv: "1"}
 // in-test and unchanged.
 const wholeTreeTestTimeout = "30m"
 
-// taskTestRace runs `go test -race ./...`.
+// taskTestRace uses CI's non-e2e race scope (ADR-0010). E2E remains in taskTest and the
+// isolated CI test-e2e job. Ordinary -race instruments the e2e harness, not the child go build;
+// repeating that known timeout cannot certify races in the actual installed process.
 func taskTestRace(args []string) error {
-	return goInheritEnv(wholeTreeEnv, "test", "-race", "-timeout="+wholeTreeTestTimeout, "./...")
+	out, stderr, err := runCapture(nil, "go", "list", "./...")
+	if err != nil {
+		return fmt.Errorf("test-race: list packages: %w: %s", err, stderr)
+	}
+	pkgs, err := racePackages(out)
+	if err != nil {
+		return err
+	}
+	fmt.Println("test-race: CI non-e2e scope; isolated e2e and any required child-process race evidence remain separate gates")
+	argv := append([]string{"test", "-race", "-timeout=" + wholeTreeTestTimeout}, pkgs...)
+	return goInheritEnv(wholeTreeEnv, argv...)
+}
+
+func racePackages(list []byte) ([]string, error) {
+	var pkgs []string
+	for _, pkg := range strings.Fields(string(list)) {
+		if !strings.HasSuffix(pkg, "/test/e2e") {
+			pkgs = append(pkgs, pkg)
+		}
+	}
+	if len(pkgs) == 0 {
+		return nil, fmt.Errorf("test-race: no non-e2e packages selected")
+	}
+	return pkgs, nil
 }
