@@ -681,3 +681,97 @@ PASS
 ok  	github.com/qompack/qompack/tools/devtool	0.579s
 PASS
 ok  	github.com/qompack/qompack/tools/lint/nomagic	0.656s
+
+# SP-10 (L4 checkpointer) micro-benchmarks, windows/amd64, Intel Core Ultra 7 155H, -count=6.
+# BenchmarkFinalize is over its 50 ms exit criterion; see plans/V2-SP-10-carried-defects.md SP10-D1.
+BenchmarkExtractDecisions-22    	     103	  11853291 ns/op
+BenchmarkExtractDecisions-22    	      93	  12346549 ns/op
+BenchmarkExtractDecisions-22    	     102	  12025266 ns/op
+BenchmarkExtractDecisions-22    	      99	  11315540 ns/op
+BenchmarkExtractDecisions-22    	     105	  12176288 ns/op
+BenchmarkExtractDecisions-22    	      90	  12777592 ns/op
+BenchmarkFinalize-22            	       4	 273831525 ns/op
+BenchmarkFinalize-22            	       4	 264030050 ns/op
+BenchmarkFinalize-22            	       4	 276757225 ns/op
+BenchmarkFinalize-22            	       4	 270813850 ns/op
+BenchmarkFinalize-22            	       4	 284213700 ns/op
+BenchmarkFinalize-22            	       4	 264046550 ns/op
+BenchmarkStripInjections-22     	    3298	    361001 ns/op	 726.16 MB/s	 1162115 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    3567	    389462 ns/op	 673.09 MB/s	 1162115 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    2718	    455315 ns/op	 575.74 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    4369	    442342 ns/op	 592.63 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    3063	    430623 ns/op	 608.76 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    2924	    406959 ns/op	 644.15 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkTruncate-22            	     572	   1888676 ns/op	  741949 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     715	   1677753 ns/op	  741977 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     757	   1645121 ns/op	  742530 B/op	    1568 allocs/op
+BenchmarkTruncate-22            	     757	   1659043 ns/op	  742055 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     819	   1541916 ns/op	  741823 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     742	   1585147 ns/op	  742510 B/op	    1568 allocs/op
+BenchmarkAdvanceSegment-22      	      61	  16543766 ns/op
+BenchmarkAdvanceSegment-22      	      72	  17314725 ns/op
+BenchmarkAdvanceSegment-22      	      70	  17656499 ns/op
+BenchmarkAdvanceSegment-22      	      72	  17860412 ns/op
+BenchmarkAdvanceSegment-22      	      73	  18917812 ns/op
+BenchmarkAdvanceSegment-22      	      72	  18772243 ns/op
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/scheduler
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkEvaluate_64Candidates-22    	  306014	      4962 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkEvaluate_64Candidates-22    	  228014	      4836 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkEvaluate_64Candidates-22    	  256507	      4802 ns/op	    3736 B/op	       6 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-22         	   40654	     31054 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-22         	   35480	     29377 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/full_posterior-22         	   40255	     31272 ns/op	    4128 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-22           	  546858	      2156 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-22           	  546614	      2182 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDObserve_4Features/steady_state-22           	  517552	      2234 ns/op	     302 B/op	       2 allocs/op
+BenchmarkBOCDMarshal-22                                  	   40382	     26905 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-22
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+BenchmarkBOCDMarshal-22                                  	   38170	     30232 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-22
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+BenchmarkBOCDMarshal-22                                  	   44013	     30640 ns/op	   73728 B/op	       1 allocs/op
+--- BENCH: BenchmarkBOCDMarshal-22
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+    bocd_test.go:669: serialized size at 512×4: 69687 bytes
+PASS
+ok  	github.com/qompack/qompack/internal/scheduler	21.585s
+goos: windows
+goarch: amd64
+pkg: github.com/qompack/qompack/internal/daemon
+cpu: Intel(R) Core(TM) Ultra 7 155H
+BenchmarkFeaturesFrom-22                                 	   43357	     26068 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkFeaturesFrom-22                                 	   68307	     19799 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkFeaturesFrom-22                                 	   59124	     21802 ns/op	   17056 B/op	      39 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-22             	    2253	    610456 ns/op	  364594 B/op	      17 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-22             	    2460	    546851 ns/op	  364592 B/op	      17 allocs/op
+BenchmarkReclaimableIndexBuild_5000Blocks-22             	    1834	    617369 ns/op	  364593 B/op	      17 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-22         	     783	   1595231 ns/op	  930957 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-22         	     670	   2888599 ns/op	  928846 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/cold-22         	     411	   2872154 ns/op	  932436 B/op	     536 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-22         	  288208	      4094 ns/op	    9897 B/op	      11 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-22         	  246486	      4682 ns/op	   10021 B/op	      11 allocs/op
+BenchmarkAssembleCandidates_2000ToolUses/warm-22         	  389623	      5301 ns/op	   10001 B/op	      11 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-22         	   70429	     15879 ns/op	   46317 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-22         	   74071	     15447 ns/op	   46533 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/warm-22         	   84290	     15300 ns/op	   45821 B/op	      25 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-22         	     472	   2971195 ns/op	 1768629 B/op	    1970 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-22         	     495	   2829299 ns/op	 1756975 B/op	    1970 allocs/op
+BenchmarkRuntimeEvaluate_2000ToolUses_32Candidates/cold-22         	     400	   2678511 ns/op	 1705591 B/op	    1970 allocs/op
+BenchmarkSchedulerTap_ObserveTool-22                               	   29229	     41928 ns/op	   20028 B/op	      73 allocs/op
+BenchmarkSchedulerTap_ObserveTool-22                               	   27246	    107880 ns/op	   20031 B/op	      73 allocs/op
+BenchmarkSchedulerTap_ObserveTool-22                               	   31258	     46946 ns/op	   20043 B/op	      73 allocs/op
+PASS
+ok  	github.com/qompack/qompack/internal/daemon	37.565s

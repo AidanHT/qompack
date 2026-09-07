@@ -62,27 +62,153 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 	cfg := fromMap(merged)
 	deriveSubmodularEnabled(&cfg)
 
-	// defaults is a private, per-call copy used only to look up fallback values: it may end up
-	// aliased into merged by setPath below, but since it is local to this call (never a package
-	// var) that aliasing can never leak into another Load call, and every value it can ever
-	// supply is itself a default, so even a worst-case self-alias only ever writes a correct
-	// value redundantly.
+	// defaults is a private, per-call copy used only to look up fallback values; restoreDefault
+	// deep-copies whatever it takes from it, so nothing merged holds can alias it.
 	defaults := toMap(Defaults())
-	for _, v := range cfg.Validate() {
-		if dv, ok := getPath(defaults, v.Key); ok {
-			setPath(merged, v.Key, dv)
+	// Restoring the key a violation NAMES does not always clear it. Three rules are relational —
+	// store.chunk.min < target < max, and runtime.rehydrate.minTokens <= maxTokens — and each is
+	// keyed on one side of its comparison, so when the other side carries the bad value the named
+	// key is already at its default and resetting it changes nothing. A single pass therefore
+	// returned a Config that failed its own Validate() (FuzzConfigLoad found `{"store":{"chunk":
+	// {"target":0}}}`: min=1024 is blamed, min is already 1024, target stays 0). So iterate, and
+	// when a pass restores nothing new, widen to the violated key's parent section and restore
+	// every sibling leaf from Defaults(). Defaults() satisfies every rule, so a section restore
+	// clears any relation confined to that section.
+	//
+	// The loop terminates because it only ever writes default values and only counts a write that
+	// actually changed something: the set of paths differing from Defaults() shrinks strictly on
+	// every iteration, and a pass that changes nothing exits.
+	warned := make(map[string]bool)
+	for {
+		violations := cfg.Validate()
+		if len(violations) == 0 {
+			break
 		}
-		warns = append(warns, Warning{
-			Key:      v.Key,
-			Location: prov[v.Key].Location,
-			Message:  fmt.Sprintf("invalid value, using default: %v not in %v", v.Got, v.Want),
-		})
-		prov[v.Key] = Source{Origin: OriginDefault, Location: "fallback after violation"}
+		changed := false
+		for _, v := range violations {
+			if restoreDefault(merged, defaults, v.Key) {
+				changed = true
+			}
+			if warned[v.Key] {
+				continue
+			}
+			warned[v.Key] = true
+			warns = append(warns, Warning{
+				Key:      v.Key,
+				Location: prov[v.Key].Location,
+				Message:  fmt.Sprintf("invalid value, using default: %v not in %v", v.Got, v.Want),
+			})
+			prov[v.Key] = Source{Origin: OriginDefault, Location: "fallback after violation"}
+		}
+		if !changed {
+			// Every named key is already at its default and the config is still invalid: the bad
+			// value is a sibling the rule does not name. Restore the whole section it lives in.
+			for _, v := range violations {
+				section, ok := parentPath(v.Key)
+				if !ok || !restoreDefault(merged, defaults, section) {
+					continue
+				}
+				changed = true
+				if warned[section] {
+					continue
+				}
+				warned[section] = true
+				warns = append(warns, Warning{
+					Key:      section,
+					Location: prov[v.Key].Location,
+					Message: fmt.Sprintf(
+						"invalid combination, using section defaults: %s is %v, want %v", v.Key, v.Got, v.Want),
+				})
+				prov[section] = Source{Origin: OriginDefault, Location: "fallback after violation"}
+			}
+		}
+		if !changed {
+			break // nothing left to restore; Validate's remaining rows are unreachable by fallback
+		}
+		cfg = fromMap(merged) // re-derive after fallbacks
+		deriveSubmodularEnabled(&cfg)
 	}
-	cfg = fromMap(merged) // re-derive after fallbacks
-	deriveSubmodularEnabled(&cfg)
 
 	return cfg, prov, warns, nil
+}
+
+// parentPath returns the section a dotted leaf path lives in. A top-level path has no parent, and
+// reports false: there is no wider scope for Load's fallback loop to widen to.
+func parentPath(path string) (string, bool) {
+	i := strings.LastIndex(path, ".")
+	if i < 0 {
+		return "", false
+	}
+	return path[:i], true
+}
+
+// restoreDefault writes the value Defaults() holds at path into merged, and reports whether that
+// changed anything. The report is what makes Load's fallback loop terminate — a pass that restores
+// nothing new is the loop's fixed point — so the comparison must happen before the write.
+func restoreDefault(merged, defaults map[string]any, path string) bool {
+	dv, ok := getPath(defaults, path)
+	if !ok {
+		return false
+	}
+	if cur, ok := getPath(merged, path); ok && jsonEqual(cur, dv) {
+		return false
+	}
+	setPath(merged, path, copyJSON(dv))
+	return true
+}
+
+// jsonEqual compares two decoded-JSON values structurally. Both sides come from encoding/json, so
+// the value space is exactly map[string]any, []any, float64, string, bool and nil.
+func jsonEqual(a, b any) bool {
+	switch at := a.(type) {
+	case map[string]any:
+		bt, ok := b.(map[string]any)
+		if !ok || len(at) != len(bt) {
+			return false
+		}
+		for k, av := range at {
+			bv, ok := bt[k]
+			if !ok || !jsonEqual(av, bv) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		bt, ok := b.([]any)
+		if !ok || len(at) != len(bt) {
+			return false
+		}
+		for i, av := range at {
+			if !jsonEqual(av, bt[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		return a == b
+	}
+}
+
+// copyJSON deep-copies a decoded-JSON value. Load's defaults map is private to one call but is
+// read on every pass of the fallback loop, so a subtree restored from it must not be aliased into
+// merged where a later pass could write through the alias and corrupt the fallback source.
+func copyJSON(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, vv := range t {
+			out[k] = copyJSON(vv)
+		}
+		return out
+	case []any:
+		out := make([]any, len(t))
+		for i, vv := range t {
+			out[i] = copyJSON(vv)
+		}
+		return out
+	default:
+		return v
+	}
 }
 
 // deriveSubmodularEnabled implements the §5.12 ship-order decision: SubmodularCfg.Enabled is

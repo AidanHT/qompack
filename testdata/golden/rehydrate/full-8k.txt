@@ -1,0 +1,378 @@
+<!-- qompack:injected seq=1 ver=1 -->
+# Qompack rehydration — checkpoint 0001, session sess_01J
+
+## 1. Invariants (pinned, verbatim)
+- [inv_7c1a9e2f4b60] The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference. (source: user)
+- [inv_2d8f0a6c3e15] Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction. (source: agent)
+
+## 2. Original user intent (verbatim from L0 capture — never summarized)
+> Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.
+Evolution:
+> Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.
+> Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help.
+
+## 3. Approaches already eliminated (top 1 of 1 by slice relevance)
+- src/auth.ts:refreshToken — "widen pool timeout" — pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect [active] [evidence sha256:4d7a0c3f6b9e2158a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3]
+Before committing to an approach, call already_tried.
+
+## 4. Decisions
+- [dec_a3f2c9e14b70] (turn 61) Move refresh-token rotation out of the request transaction and into a dedicated short-lived connection.
+  why: The rotation holds a row lock for the duration of the outbound identity-provider call, which is what exhausts the pool under concurrent refreshes.
+  rejected: Widen the pool timeout — eliminated: pgbouncer ignores it in transaction mode.; Increase pool size — rejected: moves the cliff without removing the lock-hold-across-IO pattern.
+  evidence: sha256:c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9
+
+## 5. Current work
+goal: Eliminate pool exhaustion on POST /api/session/refresh under 200 concurrent refreshes.
+next step: Extract the identity-provider call out of the transaction in refreshToken, then re-run the reproduction.
+blocked on: none
+
+## 6. Pointers (paths and hashes — contents are NOT restored; use expand/re_read)
+- docker-compose.yml sha256:1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d — pins the pgbouncer version and pool mode the elimination depends on
+- src/auth.ts sha256:0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f1b4e7a0d3c — refreshToken lives here; the lock-across-IO pattern is at the top of the function
+- tool_use toolu_01A2B3C4D5E6F7G8H9J0K1L2 sha256:5c8f1b4e7a0d3c6f9b2e5a8d1c4f7b0e3a6d9c2f5b8e1a4d7c0f3b6e9a2d5c8f — load test: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts
+
+## 6a. Restored instructions (re-read from disk by Qompack; the host does not restore these)
+### .claude/rules/api-conventions.md — paths: src/api/**, src/auth.ts
+Every route under `src/api/` is a thin adapter. It parses, it authorizes, it delegates, and it
+maps a domain error onto a status code. Business logic that lives in a route handler is a bug
+report waiting to be filed against the wrong file.
+
+1. One route per file, named for its path: `POST /api/session/refresh` lives in
+   `src/api/session/refresh.ts` and exports exactly one handler.
+2. The handler signature is `(req: Request, ctx: RouteContext) => Promise<Response>`. Nothing
+   else is exported from a route file — no helpers, no constants, no types other callers need.
+3. Parse the body with the route's own zod schema before touching anything else. A handler that
+   reads `req.body.foo` without having parsed is rejected in review without further comment.
+4. Authorization is the second statement, never the last. `ctx.requireSession()` throws
+   `UnauthorizedError`, which the error middleware maps to 401; do not hand-roll the check.
+5. Delegate to a service in `src/services/`. A route may call at most two service functions. If
+   it needs three, the orchestration belongs in a service of its own.
+6. Never open a database transaction in a route. Transactions are a service concern, and the
+   pool-exhaustion incident of 2026-01-01 was a route holding one across an outbound call.
+7. Never `await` an outbound HTTP call while a transaction is open, anywhere. This is the single
+   rule with an incident attached to it; see `docs/incidents/2026-01-01-pool-exhaustion.md`.
+8. Return `Response.json(body, { status })` directly. There is no `res.send`, no `res.status`,
+   and no framework wrapper to learn.
+9. Domain errors are classes in `src/errors/`. The error middleware owns the mapping from class
+   to status; a route that constructs a status code for a domain condition has bypassed it.
+10. A 5xx is never returned deliberately. If the handler can name the failure, it is a 4xx with a
+    machine-readable `code`; if it cannot, it throws and the middleware owns the 500.
+11. Every response body has a `code` field on the error path and no `code` field on the success
+    path. Clients switch on `code`, never on the human-readable `message`.
+12. `message` is for humans and may change without notice. `code` is an API contract and changing
+    one is a breaking change requiring a version note.
+13. Idempotency keys are read from the `Idempotency-Key` header, never from the body, and are
+    required on every non-GET route that has an external side effect.
+14. Pagination is cursor-based. `limit` is clamped to 100 server-side; a client asking for more
+    gets 100 and a `Warning` header, not a 400.
+15. Timestamps in request and response bodies are RFC 3339 with an explicit offset. A bare
+    `2026-01-01T00:00:00` is rejected at the schema boundary.
+16. Money is an integer of minor units plus an ISO 4217 code. There are no floats anywhere in an
+    API body, in either direction.
+17. Enumerations are lowercase snake_case strings, never integers. An integer enum on the wire
+    cannot be extended without a coordinated deploy.
+18. Unknown fields in a request body are rejected, not ignored. A typo'd field name that silently
+    does nothing is the most expensive kind of API bug.
+19. Unknown fields in a response body are permitted and clients must ignore them. This asymmetry
+    is deliberate and is what lets the API add fields without a version bump.
+20. Every route emits one structured log line on completion with `route`, `status`,
+    `duration_ms`, and `session_id`. Nothing else logs at info level inside a request.
+21. Do not log request or response bodies. If a body is needed to debug, it is captured by the
+    tracing sampler under an explicit flag, not by a `console.log` someone forgot to remove.
+22. Rate limits are declared in the route's own module as `export const rateLimit`. A route with
+    no declaration inherits the conservative default and that is usually correct.
+23. Long-running work is enqueued, never awaited. A handler that can exceed two seconds under
+    p99 returns 202 with a job id.
+24. Tests for a route live beside it as `refresh.test.ts` and exercise the HTTP surface, not the
+    handler function. Calling the handler directly skips the middleware the route depends on.
+25. A new route is not merged without a load test entry in `test/load/routes.yaml`, even if the
+    entry is one request per second. The absence of an entry is how routes escape the budget.
+### .claude/rules/auth-conventions.md — paths: src/auth.ts, src/auth/**
+`src/auth.ts` is the only file permitted to mint, rotate, or revoke a credential. Everything else
+asks it to. The rules below exist because every one of them has been violated at least once and
+the violation cost a production incident.
+
+1. Refresh-token rotation is single-use. A token presented twice is a reuse event, not a retry,
+   and reuse detection revokes the entire family. This is a security requirement, not a
+   performance tuning knob.
+2. The rotation writes the new token and marks the old one consumed in one transaction. There is
+   no window in which both are valid and no window in which neither is.
+3. The identity-provider call happens OUTSIDE that transaction. Holding a row lock across an
+   outbound call is what exhausted the pool; the fix is structural, not a timeout.
+4. `refreshToken()` acquires a dedicated short-lived connection from the `auth` pool, not the
+   request-scoped connection. The two pools are sized independently for exactly this reason.
+5. Never widen a pool timeout to fix a pool exhaustion. Under pgbouncer transaction pooling,
+   `statement_timeout` is ignored, so the widened value never takes effect at all.
+6. Access tokens are 15 minutes. Refresh tokens are 30 days. Neither is configurable at runtime;
+   changing one is a code change with a migration for the existing rows.
+7. Token bodies carry `sub`, `sid`, `iat`, `exp`, and nothing else. Every additional claim is a
+   field that must be revoked when it changes, and revocation is the expensive path.
+8. Session identifiers are opaque to every consumer. Do not parse a `sid`, do not sort by it, and
+   do not infer creation order from it.
+9. All comparison of secret material uses `timingSafeEqual`. A `===` on a token, a signature, or
+   a hash is rejected in review regardless of the surrounding argument.
+10. Hashes of refresh tokens are stored, never the tokens themselves. A database dump must not be
+    sufficient to impersonate a user.
+11. The hash is SHA-256 over the raw token with no salt, because the token is already 256 bits of
+    entropy. Do not "improve" this to bcrypt; it makes the lookup a table scan.
+12. Revocation is by family, not by token. Revoking one token of a family and leaving its
+    siblings valid is the bug reuse detection exists to catch.
+13. A revoked family is retained for 90 days so that a reuse event can still be attributed. The
+    retention job lives in `src/jobs/auth-gc.ts` and must not be merged into the general GC.
+14. Clock skew tolerance is 30 seconds in each direction and is applied only to `exp`, never to
+    `iat`. A future-dated `iat` is a forgery signal.
+15. Every auth failure emits a structured event with `reason`, `sid`, and `ip`. The reason is one
+    of a closed set; free-text reasons make the alerting rules unwritable.
+16. Never emit the token, the hash, or any prefix of either into a log line, a trace attribute, or
+    an error message. A four-character prefix is enough to make a leak actionable for an attacker.
+17. Rate limiting on the refresh route is per-family, not per-IP. A shared NAT should not be able
+    to lock out an unrelated user.
+18. The 401 body for an expired token and the 401 body for an invalid token are byte-identical.
+    Distinguishing them is an oracle.
+19. Tests use the fixture clock in `test/support/clock.ts`. A test that calls `Date.now()` is
+    flaky by construction and will be quarantined.
+20. Every change to this file requires re-running `test/load/refresh-storm.ts` at 200 concurrent
+    refreshes and attaching the result. The reproduction is the review artifact, not the diff.
+21. The pgbouncer pool mode is a dependency of these rules. If `docker-compose.yml` changes its
+    `pool_mode`, this file is stale until the reproduction has been re-run against the new mode.
+22. Do not add a cache in front of the token lookup. The lookup is a primary-key hit; a cache adds
+    a revocation window and buys nothing measurable.
+23. Do not add retries around the identity-provider call inside the request path. A retry there
+    turns a slow dependency into a queued one and the queue is the pool.
+### .claude/rules/db-conventions.md — paths: src/db/**, docker-compose.yml
+Anything that opens a connection, holds one, or changes what a connection means belongs here.
+`src/db/` owns the pool; no other package constructs one.
+
+1. There are exactly two pools: `request` and `auth`. A third pool requires an architecture note,
+   not a pull request.
+2. Pool sizes are set from `DB_POOL_REQUEST` and `DB_POOL_AUTH` with no defaults. A missing
+   variable is a startup failure, deliberately, so that a misconfigured deploy never half-works.
+3. `withTransaction(fn)` is the only way to open a transaction. It sets a statement timeout, tags
+   the connection for tracing, and guarantees release on both paths.
+4. The callback passed to `withTransaction` must not await anything that is not a database call.
+   A lint rule enforces this; suppressing it requires a comment naming the incident you expect.
+5. Transactions are short. The p99 budget is 50 ms; a transaction routinely exceeding it is a
+   design problem and gets a ticket, not a longer timeout.
+6. Read-only work does not open a transaction. A single statement is already atomic and the
+   BEGIN/COMMIT round trip doubles its cost.
+7. Isolation is READ COMMITTED everywhere. A stronger level is a per-call argument with a comment
+   explaining the anomaly it prevents.
+8. Advisory locks are forbidden in request paths. They are permitted in jobs, where a stuck lock
+   is an alert rather than an outage.
+9. Every query is a prepared statement built by the query builder. String interpolation into SQL
+   fails the security job and is not overridable.
+10. `SELECT *` is forbidden. Column lists are how a migration that drops a column is caught at
+    compile time rather than at 3am.
+11. Every table has `id`, `created_at`, and `updated_at`. `updated_at` is maintained by a trigger,
+    never by application code, because application code forgets.
+12. Soft deletes use `deleted_at` and every query against a soft-deletable table goes through the
+    scoped repository. A raw query against such a table is a data-leak bug.
+13. Migrations are forward-only and are never edited after merge. A wrong migration is corrected
+    by a new migration.
+14. A migration that takes a lock on a table with more than a million rows must be split: add the
+    column nullable, backfill in batches, then add the constraint.
+15. `NOT NULL` is added with `NOT VALID` first and validated in a second migration. The one-step
+    form takes an ACCESS EXCLUSIVE lock for the length of a full scan.
+16. Indexes are created `CONCURRENTLY` and therefore never inside a transaction. The migration
+    runner knows about this; do not fight it.
+17. Foreign keys are declared with an explicit `ON DELETE` action. The default is a silent
+    RESTRICT that surfaces as an opaque constraint violation months later.
+18. Connection acquisition is instrumented. `db.pool.wait_ms` is the metric that predicts an
+    outage; alert on its p99, not on its mean.
+19. When pgbouncer runs in transaction pooling mode, session-level state does not survive a
+    statement. No `SET`, no session advisory locks, no `LISTEN`, no server-side cursors.
+20. `statement_timeout` set from the client is ignored in transaction pooling mode. Timeouts must
+    be configured on the pgbouncer side or they do not exist.
+21. Prepared statement names must be unique per connection or pgbouncer will reuse the wrong plan.
+    The query builder handles this; hand-written `PREPARE` does not.
+22. The reproduction for any pool-related change is `test/load/refresh-storm.ts`. A pool change
+    merged without it is reverted on sight.
+23. Never tune a pool to fix a lock-hold-across-IO pattern. The pool size moves the cliff; it does
+    not remove it, and the next traffic increase finds it again.
+### .claude/rules/infra-conventions.md — paths: docker-compose.yml, infra/**
+`docker-compose.yml` is the reproduction environment. It is not a development convenience and it
+is not a deployment artifact; it is the file that decides whether a bug reproduces.
+
+1. Every service pins an exact image tag. `postgres:16` is forbidden; `postgres:16.4-bookworm` is
+   required. A floating tag makes a reproduction unreproducible a week later.
+2. The pgbouncer `pool_mode` is `transaction` and matches production. Changing it locally to make
+   a test pass is changing the test, not fixing the bug.
+3. `max_client_conn` and `default_pool_size` are set explicitly and are the production values
+   divided by the documented ratio in `infra/README.md`.
+4. Resource limits are declared for every service. An unlimited container hides a memory leak
+   until it reaches a machine that is not the developer's.
+5. Health checks are real queries, not TCP probes. A port that accepts connections while the
+   database is still recovering is the worst kind of green.
+6. `depends_on` uses `condition: service_healthy`. The bare form only orders start, not
+   readiness, and the difference is a flaky suite.
+7. Volumes for data are named, never bind-mounted from the host. A bind mount on macOS changes
+   the fsync behaviour and therefore the timing the bug depends on.
+8. No service publishes a port unless a human needs it. Published ports collide across projects
+   and the collision presents as an unrelated connection error.
+9. Environment values live in `.env.example` with every key present and every secret blank. A key
+   absent from the example file is a key someone will not set.
+10. Secrets never appear in this file, not even as defaults, not even for local use. A default
+    that works is a default that reaches production.
+11. The compose file and the load test are versioned together. If `refresh-storm.ts` needs a new
+    service, the same commit adds it here.
+12. Any change to this file invalidates the eliminations that depend on it. The negative-knowledge
+    ledger tracks that dependency; do not work around a stale flag by deleting the record.
+13. `restart: unless-stopped` is set on infrastructure services and never on the application. An
+    application that restarts silently hides a crash loop from the test run.
+14. Logging drivers are left at their defaults. A JSON log driver with rotation is a production
+    concern and it changes the flush timing under load.
+15. The compose project name is pinned so that two checkouts of this repository do not share
+    volumes. They will, otherwise, and the resulting state corruption is very hard to read.
+16. `docker compose down -v` is part of the reproduction protocol, not an optional cleanup. A
+    retained volume carries the previous run's pool statistics into the next one.
+### .claude/rules/security-conventions.md — paths: src/auth.ts, src/api/**, infra/**
+This file is the security review checklist in rule form. It is long on purpose: a checklist that
+fits on a screen is a checklist someone has already decided they remember.
+
+## Boundaries
+
+1. Untrusted input is anything that crossed a process boundary: a request body, a header, a
+   database row written by a previous version, an environment variable, a file on disk, the
+   output of a subprocess, and the response of an internal service. "Internal" is not a trust
+   level.
+2. Every boundary has exactly one parser, and the parser produces a typed value. Code downstream
+   of the parser never re-validates, because two validators disagree eventually and the
+   disagreement is the vulnerability.
+3. Validation rejects; it does not repair. Trimming, coercing, or normalizing an invalid value
+   produces a value the sender did not send and nobody reviewed.
+4. Length limits are declared on every string field that reaches storage, a log line, or another
+   service. An unbounded field is a denial-of-service primitive with extra steps.
+5. Collections have element limits as well as byte limits. A 1 KB body containing 50,000 empty
+   array entries is small and expensive.
+6. Recursion limits are explicit wherever the input shape is recursive. The default stack is not
+   a limit, it is a crash.
+7. Decompression is bounded by output size, not by input size. A zip bomb is small on the wire by
+   definition.
+
+## Identity and authorization
+
+8. Authentication answers "who"; authorization answers "may they". A handler that checks only the
+   first has checked nothing about the object it is about to return.
+9. Authorization is checked against the object, not against the route. `GET /users/:id` that
+   verifies a valid session and not the relationship between session and `:id` is the single most
+   common serious bug in this codebase's history.
+10. Deny by default. A new route with no policy is unreachable until a policy is written, and the
+    router enforces that at startup rather than at request time.
+11. Policies are data, tested independently of the handlers that consume them. A policy expressed
+    only as branching inside a handler cannot be reviewed as a policy.
+12. Elevation is explicit, scoped, and logged. There is no ambient admin context that a helper
+    three layers down can pick up.
+13. Service-to-service calls carry the caller's identity, never a shared secret that means
+    "trusted". A shared secret makes every service as privileged as the least careful one.
+14. Tokens are audience-scoped. A token minted for one service must be rejected by another even
+    when both trust the same issuer.
+15. Impersonation, where it exists at all, records both identities in every log line and every
+    audit row. A record that shows only the impersonated user is a record that hides the actor.
+
+## Secrets
+
+16. Secrets come from the secret manager at startup and live in memory. They are not in the
+    repository, not in the image, not in the compose file, and not in a comment explaining where
+    they used to be.
+17. A secret that has ever been written to a log, a ticket, a chat message, or a terminal
+    recording is burned. Rotate it; do not reason about who saw it.
+18. Secret material is compared with a constant-time primitive and never logged, never included
+    in an error message, and never used as a map key that might be dumped.
+19. Key rotation is supported before a key is first used, not after it must be rotated. Rotation
+    designed under incident pressure is rotation done wrong.
+20. Derived keys are per-purpose. One key used for signing and encryption is a key whose
+    compromise costs twice as much.
+21. Randomness for anything security-relevant comes from the CSPRNG. `Math.random` in a security
+    path fails the security job and is not overridable by review.
+22. Nonces are never reused with the same key, and the code makes reuse structurally impossible
+    rather than merely unlikely.
+
+## Data handling
+
+23. Personal data is classified at the schema, and the classification is what the retention job
+    and the export job both read. A field nobody classified is a field nobody will delete.
+24. Logs carry identifiers, not contents. A user id is an identifier; an email address is
+    contents; a request body is contents with a plausible excuse.
+25. Errors returned to a client name what the client did wrong and nothing about what the server
+    is. Stack traces, query text, and internal hostnames do not cross the boundary.
+26. Timing differences that depend on secret material are bugs. Where a constant-time comparison
+    is impossible, the operation is made uniformly slow rather than conditionally fast.
+27. Enumeration is prevented at the response level, not by obscurity. If "user exists" and "user
+    does not exist" produce different bodies, different statuses, or different latencies, the
+    endpoint is an enumeration oracle.
+28. Bulk export is rate-limited and audited separately from ordinary reads. The interesting attack
+    is rarely one request.
+29. Deletion is real. A soft delete that leaves the row readable through any query path is not a
+    deletion and must not be described as one to a user.
+
+## Dependencies and supply chain
+
+30. Dependencies are pinned by exact version and integrity hash. A range is a promise that
+    somebody else's future decision is safe.
+31. A new direct dependency requires a note naming what it does, what it replaced, and who
+    maintains it. Transitive additions are reviewed in aggregate at upgrade time.
+32. Build steps do not fetch from the network. A build that can reach the internet can be changed
+    by the internet.
+33. Lockfiles are committed and their diffs are read. An unexplained lockfile change is a review
+    blocker, not a formality.
+34. Postinstall scripts are disabled. A dependency that requires one is a dependency that needs a
+    conversation first.
+35. Container images are built from a pinned digest, scanned on build, and rebuilt on base-image
+    advisories rather than on a schedule.
+
+## Operational
+
+36. Every security-relevant event emits a structured record with actor, action, object, and
+    outcome. Four fields, always the same four, so the queries are writable.
+37. Audit records are append-only and are not deletable by the application's own credentials.
+38. Alerting is on the absence of expected events as well as on the presence of unexpected ones.
+    A silent audit stream is an outage nobody pages for.
+39. Rate limits are per-principal and per-object, not only per-IP. An authenticated attacker has
+    an IP address too, and it is usually a good one.
+40. Lockout is a last resort and is never triggerable by an unauthenticated third party against
+    another user's account.
+41. Incident response starts by preserving evidence: capture before you restart, and record what
+    you captured before you change anything.
+42. Any change to this file requires a security review sign-off recorded in the pull request. The
+    sign-off names the reviewer, not the team.
+43. A finding is closed by a test that would have caught it, or by a written argument for why no
+    test can. "Fixed" with neither is reopened.
+
+## 6b. Skill index (names and one-line descriptions only)
+- api-lint: Check a route against the API conventions: codes, pagination, idempotency.
+- changelog-bump: Bump the version and update the changelog per the release protocol.
+- code-review: Review a diff for correctness, security, and convention drift before merge.
+- compose-doctor: Diagnose a docker compose environment that no longer reproduces a bug.
+- dep-audit: Audit dependencies for advisories and pin drift; propose the minimal upgrade.
+- flaky-triage: Quarantine a flaky test, assign an owner, and write the reproduction note.
+- incident-writeup: Draft an incident report from a timeline, with contributing factors.
+- load-test: Run and read the load suite under test/load, including refresh-storm.
+- log-grep: Find the structured log lines for one session across the retained window.
+- migration-runner: Plan and run a forward-only migration, including the backfill split.
+- onboard: Walk a new contributor through the repository layout and review protocol.
+- perf-profile: Capture and read a CPU or allocation profile; name the top three costs.
+- pool-watch: Read the connection-pool metrics and say whether the cliff is near.
+- release-notes: Assemble release notes from merged pull requests by user-visible change.
+- repro-protocol: Run the pool-exhaustion reproduction end to end and record the result.
+- schema-diff: Diff two database schemas and explain the lock each change would take.
+- secret-scan: Scan a diff for credentials and explain why each hit is or is not a leak.
+- tf-plan-review: Read a terraform plan and flag destructive or lock-taking changes.
+- token-forensics: Trace one refresh-token family through mint, rotation, and revocation.
+
+## 7. No longer in context
+- path_rule .claude/rules/testing-conventions.md — matched src/auth.ts; did not fit the rehydration budget
+- path_rule api-conventions.md — path-scoped rule for src/api/**; no pointer in this checkpoint matched its globs
+- nested_claude_md src/CLAUDE.md — did not fit the rehydration budget
+- skill * — total skill bodies ~36800 tokens exceed the host's 25000-token cap; the oldest are dropped entirely (§2.7)
+- skill migration-runner — body ~7400 tokens; the host re-injects at most 5000 per skill, head-first, so treat it as partial (§2.7)
+- skill onboard — body ~6100 tokens; the host re-injects at most 5000 per skill, head-first, so treat it as partial (§2.7)
+- skill trace-read — did not fit the rehydration budget
+- skill triage-500s — not in the compact skill index (budget 450 tokens)
+- skill tx-audit — not in the compact skill index (budget 450 tokens)
+- skill webhook-replay — not in the compact skill index (budget 450 tokens)
+- skill why-flaky — not in the compact skill index (budget 450 tokens)
+- tool_output toolu_01M3N4P5Q6R7S8T9U0V1W2X3 — superseded by a later read of the same file
+
+## 8. Retrieval
+Qompack retrieval is available: recall(query,k) · expand(hash|tool_use_id) · re_read(path,at) · already_tried(target,approach) · record_eliminated(target,approach,reason) · timeline(from,to) · why(decision_id) · dropped().
+<!-- /qompack:injected -->

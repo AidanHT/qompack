@@ -1,11 +1,10 @@
 package scheduler
 
-import "github.com/qompack/qompack/internal/core"
-
 // Detector is the BOCD (Bayesian online changepoint detection) seam (Qompack.md §6.6,
-// 00-ARCHITECTURE.md §5.13). SP-12 owns the real posterior update; SP-01 ships NewBOCD returning
-// a detector whose methods report core.ErrNotImplemented (or the documented zero value, for the
-// two methods with no error return) so that wave-0 composition compiles today.
+// 00-ARCHITECTURE.md §5.13). The implementation is bocd.go's Normal-Inverse-Gamma run-length
+// posterior; NewBOCD is its only constructor. A Detector is a pure function of the observations it
+// has been fed: it performs no I/O and reads no clock, so the same Features sequence always
+// yields the same ChangepointState sequence and the same MarshalBinary bytes.
 type Detector interface {
 	// Observe folds one Features observation into the run-length posterior and returns the
 	// resulting state.
@@ -20,30 +19,12 @@ type Detector interface {
 	UnmarshalBinary(data []byte) error
 }
 
-// NewBOCD returns a stub BOCD Detector: constructing it always succeeds so wave-0 composition
-// roots can wire a scheduler.Detector today, but every method reports core.ErrNotImplemented (or
-// the documented zero ChangepointState, for the two methods with no error return) until SP-12
-// lands the real posterior update (Qompack.md §6.6, 00-ARCHITECTURE.md §5.13).
+// NewBOCD returns the Qompack.md §6.6 changepoint Detector: an Adams–MacKay run-length posterior
+// with constant hazard hazardRate (Appendix C changepoint.hazardRate) over the named feature
+// streams (changepoint.features: "paths", "tools", "lexical", "time", "todos"). Construction
+// always succeeds. A hazard outside (0,1) or NaN falls back to 1/bocdMaxRunLength —
+// config.Validate normally prevents this; unknown feature names are dropped and duplicates
+// collapsed; an empty selection falls back to the Appendix C default list.
 func NewBOCD(hazardRate float64, features []string) Detector {
-	return stubDetector{}
+	return newBOCD(hazardRate, features)
 }
-
-// stubDetector is the SP-01 placeholder Detector. SP-12 owns the real implementation.
-type stubDetector struct{}
-
-// Observe always reports the zero ChangepointState. Observe has no error return, and the zero
-// value — run length 0, changepoint probability 0, AtChangepoint false, no posterior — is the
-// only honest "no detection has happened yet" answer a stub can give.
-func (stubDetector) Observe(f Features) ChangepointState { return ChangepointState{} }
-
-// State always reports the zero ChangepointState, for the same reason as Observe.
-func (stubDetector) State() ChangepointState { return ChangepointState{} }
-
-// Reset is a no-op: there is no posterior yet to clear.
-func (stubDetector) Reset() {}
-
-// MarshalBinary always reports core.ErrNotImplemented.
-func (stubDetector) MarshalBinary() ([]byte, error) { return nil, core.ErrNotImplemented }
-
-// UnmarshalBinary always reports core.ErrNotImplemented.
-func (stubDetector) UnmarshalBinary(data []byte) error { return core.ErrNotImplemented }

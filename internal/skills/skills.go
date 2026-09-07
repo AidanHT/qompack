@@ -22,22 +22,22 @@ type Entry struct {
 // G4.4): names and one-line descriptions only, budgeted, so skill awareness returns without
 // paying for full skill bodies.
 type Indexer interface {
-	// Index returns every discovered skill's Entry, the total token cost of the returned entries,
-	// and an error. The returned Entries and their total token cost must never exceed budget.
+	// Index returns the skills it could fit, the total token cost of the returned entries, and an
+	// error.
+	//
+	// Entries are ordered by Name (tiebroken by Source) and admitted as a PREFIX of that order:
+	// filling stops at the first entry that does not fit rather than skipping ahead to a smaller
+	// one, so the index a given budget produces is reproducible and is a prefix of the index any
+	// larger budget produces. The returned total never exceeds budget.
+	//
+	// A budget <= 0 means "no budget": every discovered entry is returned, with its full cost.
+	// That is not a degenerate case, it is a documented protocol — the rehydrator calls Index
+	// twice, once with 0 to learn the complete set so its drop report can name the skills that
+	// did not make the index, and once with the real budget to get the index itself. Callers that
+	// want a bounded result must pass a positive budget.
+	//
+	// A skill file that cannot be read is skipped rather than failing the call: a rehydration that
+	// returned no index because one file was unreadable would lose skill awareness entirely to
+	// repair nothing (Qompack.md §12.3).
 	Index(ctx context.Context, root string, budget core.Tokens) ([]Entry, core.Tokens, error)
-}
-
-// New returns a stub Indexer: constructing it always succeeds so wave-0 composition roots can
-// wire a skills.Indexer today, but Index reports core.ErrNotImplemented until SP-11 lands the
-// real discovery and budgeting logic (00-ARCHITECTURE.md §5.15).
-func New() Indexer {
-	return stubIndexer{}
-}
-
-// stubIndexer is the SP-01 placeholder Indexer. SP-11 owns the real implementation.
-type stubIndexer struct{}
-
-// Index always reports core.ErrNotImplemented.
-func (stubIndexer) Index(ctx context.Context, root string, budget core.Tokens) ([]Entry, core.Tokens, error) {
-	return nil, 0, core.ErrNotImplemented
 }

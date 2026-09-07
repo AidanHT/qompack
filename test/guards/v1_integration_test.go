@@ -912,6 +912,24 @@ func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 	})
 	defer func() { _ = c.Close() }()
 
+	// The pid holding the lock as the handshake starts. This helper's contract — quoted by its
+	// caller, and the reason every assertion downstream is about what the run LEAKED rather than
+	// what it had in flight — is that it returns only once the daemon has FINISHED. The lock file
+	// does not answer that question: Lock.Release is Stop's last act, so the file disappears while
+	// the process is still unwinding, and everything it does on the way out (flushing sinks,
+	// closing the day log, completing an in-flight paths.WriteAtomic) still lands under .qompack/.
+	// Returning there is what failed TestV1_WriteSetConfinedAcrossFullHookSequence on CI run
+	// 32932419445 — with exactly the symptom the timeout branch below predicts in as many words:
+	//
+	//	Error:    Should be empty, but was [wa-2077983404]
+	//	Messages: WriteAtomic left staging files in .qompack/tmp/
+	//
+	// So the exit asks the process, not the file. testutil.ProcessAlive is the same probe
+	// test/e2e's shutdown helper uses, and it is decisive on Windows too, where
+	// internal/daemon's own pidAlive deliberately abstains (it has a heartbeat fallback; this
+	// helper has none).
+	shutdownPID, _ := daemon.ReadLock(root)
+
 	// A ticker, not time.Sleep, per §6.1's wall-clock-sleep ban (devtool lint's sleepcheck
 	// sub-check, which exempts only test/bench/**).
 	ticker := time.NewTicker(v1ShutdownPollTick)
@@ -922,16 +940,24 @@ func v1StopDaemonAndWaitGone(t *testing.T, root string) {
 		_, _ = c.Send(context.Background(), ipc.Request{
 			Op: ipc.OpAdminShutdown, TS: core.NowMilli(core.SystemClock()), Reply: true,
 		}, v1RoundTripDeadline)
-		if !v1FileExists(lockPath) {
+		if !v1FileExists(lockPath) && !testutil.ProcessAlive(shutdownPID.PID) {
 			return
 		}
 		select {
 		case <-ticker.C:
 		case <-timeout.C:
-			if !v1FileExists(lockPath) {
+			if !v1FileExists(lockPath) && !testutil.ProcessAlive(shutdownPID.PID) {
 				return
 			}
 			info, _ := daemon.ReadLock(root)
+			if !v1FileExists(lockPath) {
+				t.Errorf("a daemon (pid %d) released %s but had still not exited after %s. Every "+
+					"assertion the caller is about to make walks a tree this process may still be "+
+					"writing to on its way out — which is exactly the shape that leaves a half-finished "+
+					"paths.WriteAtomic staging file behind in .qompack/tmp/",
+					shutdownPID.PID, lockPath, v1ShutdownPollBound)
+				return
+			}
 			t.Errorf("a daemon (pid %d, addr %s) still held %s after %s of retried admin.shutdown. "+
 				"Every assertion the caller is about to make walks a tree this process may still be "+
 				"writing to, and a daemon that exits without releasing its lock is itself the failure: "+

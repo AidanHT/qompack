@@ -82,6 +82,8 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.rehydrate.maxTokens` | integer | `12000` | [minTokens,∞) | §8.6 | upper bound of the rehydration budget |
 | `runtime.rehydrate.minTokens` | integer | `8000` | [1,maxTokens] | §8.6 | lower bound of the rehydration budget |
 | `runtime.rehydrate.skillIndexTokens` | integer | `450` | [1,∞) | §8.6 | token budget for the compact skill index |
+| `runtime.scheduler.cache.assumeMaxTTLSeconds` | integer | `3600` | [scheduler.cache.ttlSeconds,∞) | 00-ARCH §11.5 / Qompack.md §5.4 | upper TTL bound the scheduler assumes when the cache regime cannot be identified |
+| `runtime.scheduler.cache.expiringTriggerFraction` | number | `0.8` | (0,1) | 00-ARCH §11.5 / Qompack.md §5.4 | fraction of a KNOWN prompt-cache TTL past which the scheduler fires while the prefix is still readable (cache_expiring trigger) |
 | `runtime.selection.submodularEnabled` | boolean | `false` | — | Closing note | ship-order gate: enable submodular selection; refused without p-selection (closing-note-3) |
 | `runtime.telemetry.enabled` | boolean | `false` | — | §7.1 | send telemetry; hardwired off, the key exists only to say so |
 | `runtime.tokens.binaryCharsPerToken` | number | `3` | [1,20] | 00-ARCH §10 (G10.2) | baseline characters-per-token estimate for opaque binary content |

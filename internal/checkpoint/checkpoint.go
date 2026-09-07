@@ -3,10 +3,7 @@ package checkpoint
 import (
 	"context"
 
-	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
-	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/obs"
 )
 
 // Writer produces immutable checkpoint artifacts (00-ARCHITECTURE.md §5.14). The Begin/Advance/
@@ -46,70 +43,4 @@ type Reader interface {
 	// Verify re-hashes every artifact against checkpoints/MANIFEST.jsonl and returns the sequence
 	// numbers that do not match. It is what `qompack fsck` reports.
 	Verify(ctx context.Context) ([]core.CheckpointSeq, error)
-}
-
-// OpenWriter returns a Writer rooted at root. Constructing always succeeds, so wave-0 composition
-// roots can wire a checkpoint.Writer today, but every operation is a stub reporting
-// core.ErrNotImplemented until SP-10 lands the real checkpointer (00-ARCHITECTURE.md §5.14).
-//
-// The parameter list is the one SP-10 declares, so that landing the real implementation is a body
-// change rather than a call-site change across the tree. SP-10 narrows the return type to its own
-// concrete *FileWriter; that is a widening of what callers get, not a change to this contract.
-func OpenWriter(root string, cfg config.Config, log logging.Logger, m obs.Registry, clk core.Clock) (Writer, error) {
-	return stubWriter{}, nil
-}
-
-// OpenReader returns a Reader rooted at root. Constructing always succeeds, for the same reason
-// OpenWriter does; every operation reports core.ErrNotImplemented until SP-10 lands.
-func OpenReader(root string, log logging.Logger, m obs.Registry) (Reader, error) {
-	return stubReader{}, nil
-}
-
-// stubWriter is the SP-01 placeholder Writer. SP-10 owns the real implementation.
-type stubWriter struct{}
-
-// Begin always reports core.ErrNotImplemented. It returns a nil *Draft rather than an empty one:
-// a draft that could be passed on to Advance would be exactly the faked behaviour §14.1 rule 2
-// of plans/V1-SP-01-foundation-toolchain-and-contracts.md forbids.
-func (stubWriter) Begin(ctx context.Context, s core.SessionID, parent core.CheckpointSeq, src SourceSet) (*Draft, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// Advance always reports core.ErrNotImplemented.
-func (stubWriter) Advance(ctx context.Context, d *Draft, segs []core.SegmentID) (core.TurnIndex, error) {
-	return 0, core.ErrNotImplemented
-}
-
-// Finalize always reports core.ErrNotImplemented.
-func (stubWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens) (Ref, error) {
-	return Ref{}, core.ErrNotImplemented
-}
-
-// Abort always reports core.ErrNotImplemented.
-func (stubWriter) Abort(d *Draft) error { return core.ErrNotImplemented }
-
-// stubReader is the SP-01 placeholder Reader. SP-10 owns the real implementation.
-type stubReader struct{}
-
-// Latest always reports core.ErrNotImplemented.
-func (stubReader) Latest(ctx context.Context, s core.SessionID) (Checkpoint, Ref, error) {
-	return Checkpoint{}, Ref{}, core.ErrNotImplemented
-}
-
-// Get always reports core.ErrNotImplemented.
-func (stubReader) Get(ctx context.Context, seq core.CheckpointSeq) (Checkpoint, Ref, error) {
-	return Checkpoint{}, Ref{}, core.ErrNotImplemented
-}
-
-// List always reports core.ErrNotImplemented.
-func (stubReader) List(ctx context.Context) ([]Ref, error) { return nil, core.ErrNotImplemented }
-
-// Chain always reports core.ErrNotImplemented.
-func (stubReader) Chain(ctx context.Context, seq core.CheckpointSeq) ([]Checkpoint, error) {
-	return nil, core.ErrNotImplemented
-}
-
-// Verify always reports core.ErrNotImplemented.
-func (stubReader) Verify(ctx context.Context) ([]core.CheckpointSeq, error) {
-	return nil, core.ErrNotImplemented
 }

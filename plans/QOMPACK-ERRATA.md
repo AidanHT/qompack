@@ -9,6 +9,9 @@ objective).
 could not be verified, and against which sources. The read-only rule is back in force. The next
 revision appends to this file rather than replacing it.
 
+**v1.4 landed 2026-08-26**, appended below: a single §8.6 sentence widened, raised by SP-11 when the
+design of record and the shipped conformance suite were found to disagree about it.
+
 **Why a record at all, when the document itself has a revision log.** The log says what changed. This
 says what was *checked and did not change*, which is the more perishable half — without it the next
 auditor cannot tell a claim that was verified last year from one that has never been looked at, and
@@ -145,3 +148,74 @@ All fetched 2026-08-23.
 4. **Do not verify §2.2–§2.6 from a leaked build**, however tempting. The reasoning is above and it
    has not changed.
 5. **Add a section here rather than editing this one.** Same discipline as the document itself.
+
+---
+
+## v1.4 — §8.6's nested-`CLAUDE.md` rule
+
+### Origin
+
+`plans/V4-SP-11-rehydrator-l5.md` is the subplan that implements §8.6's instruction-restoration
+clause. Writing it surfaced a three-way disagreement about one sentence, which no commit had ever
+recorded a decision about, and which the subplan explicitly refused to settle on its own authority.
+
+### The conflict
+
+| Source | Reading | Status before v1.4 |
+|---|---|---|
+| `Qompack.md` §8.6 | "Every nested `CLAUDE.md` in a directory **containing** a pointer-set file" | narrow; design of record |
+| `plans/00-ARCHITECTURE.md` §5.15 | `// NestedClaudeMD returns CLAUDE.md files in directories containing a pointer-set file.` | narrow; restated |
+| `internal/rules/rules.go` (SP-01) | "every CLAUDE.md under root that lives in a directory containing (**or ancestor to**) a path in pointers" | broad; shipped doc comment |
+| `internal/rules/rulestest/suite.go` `nested_claude_md_discovery` | fixture puts `CLAUDE.md` at `src/pkg`, pointer at `src/pkg/deep/thing.go`, asserts `require.Len(t, matched, 1)` | broad; **executable**, and the ancestor is two levels up |
+
+The two documents landed together in the initial commit `d361f06`; the code landed in SP-01's
+conformance-suite commit `3464079`. No commit between them records a decision to widen, so this was
+a genuine open question rather than settled precedence — and the precedence rule in
+`plans/00-ARCHITECTURE.md:5` ("disagree on *what* to build, `Qompack.md` wins") pointed at the
+narrow reading while the only executable artifact pointed at the broad one.
+
+### Why the widening, rather than correcting the code
+
+Both readings were implementable and neither was free. Correcting the code would have meant amending
+the shipped doc comment **and** relocating the `rulestest` fixture's `CLAUDE.md` from `src/pkg` down
+to `src/pkg/deep` — editing an SP-01-owned conformance suite to make a narrower behaviour pass.
+
+The deciding argument is behavioural, not procedural. A nested `CLAUDE.md` governs its entire
+subtree in Claude Code. §2.7's own row says these files are "**Lost** until a file in that subdir is
+read again", and G4.2 exists to repair exactly that loss. Under the narrow reading, a pointer at
+`src/pkg/deep/thing.go` restores nothing when the governing rule sits at `src/pkg/CLAUDE.md` — an
+instruction that *is* in force for that file, *is* lost after compaction, and is silently not
+restored, while §9's G4.2 row reports the gap closed. The narrow reading did not describe a smaller
+feature; it described a feature with a hole in the middle of its stated purpose.
+
+### What changed
+
+- `Qompack.md` §8.6, instruction-restoration bullet 2 — "containing" → "containing, or ancestor to",
+  with the two bounds the implementation needs stated inline: stop before the project root (the host
+  re-injects it, §2.7), and cap the walk.
+- `plans/00-ARCHITECTURE.md` §5.15, the `NestedClaudeMD` doc line — same widening, plus
+  `maxAncestorDepth=32`.
+
+### What did not change
+
+- `internal/rules/rules.go` and `internal/rules/rulestest/suite.go` are **untouched**. They were
+  already correct; the documents moved to them, which is the direction that cost nothing to verify —
+  the conformance case is executable and had never been able to run against a real implementation.
+- §12's cannot-do list. This widens what L5 reads from disk on its own initiative; it does not claim
+  any new power over the host.
+- Every other §8.6 sentence, including the 8–12K budget and the ~450-token skill index.
+
+### Recorded at the same time, and deliberately *not* revised
+
+§8.7's design note — "`already_tried` should be surfaced in the rehydrated context as a *standing
+instruction*, not merely an available tool" — is unscoped, while `plans/00-ARCHITECTURE.md` §5.15
+calls `StandingInstruction` "item 3's companion" and `internal/rehydrate/rehydratetest/behaviour.go`
+asserts that with no item 3 the sentence must not appear anywhere in the payload. The two readings
+differ in exactly one case: an empty eliminations set.
+
+This was left as the narrow (item-3-scoped) reading, unrevised, because the divergence is defensible
+on its own terms rather than an error: telling an agent to call `already_tried` before committing to
+an approach when nothing has ever been eliminated is noise that costs budget and trains the agent to
+skip the line, and §8.6 item 8's affordance notice still names the tool. §9's G6.2 mitigation row is
+therefore conditional on a non-empty ledger at `SessionStart`, and that conditionality is recorded
+here rather than in the design of record.

@@ -51,6 +51,23 @@ var landedSubplans = map[string]bool{
 	// looking like a stub while its subplan is still unlisted — so the flag cannot wait.
 	"SP-08": true,
 	"SP-09": true,
+	// SP-10 is listed from its own branch, in the wave-3 integration prelude (SP-19 M0-00) rather
+	// than in one of its eight feature commits: internal/checkpoint's probe (Begin) and
+	// internal/pins's (Add) both went real in those commits, so the exempt-but-real cross-check
+	// below fails the moment the branch is measured as a whole — the floors were silently off at
+	// f22534e. Listed here, both packages are measured against their 90% floors.
+	"SP-10": true,
+	// SP-11 lands rehydrate, rules and skills together, and all three probes — Build, PathScoped,
+	// Index — stop returning core.ErrNotImplemented in the same branch. The exempt-but-real
+	// cross-check below fails the moment a probe stops looking like a stub while its subplan is
+	// still unlisted, so this entry cannot wait for the merge either.
+	"SP-11": true,
+	// SP-12 is listed from its OWN branch, for the same reason SP-08 is. Commit 3 of
+	// feat/sp12-scheduler-l3 makes internal/scheduler's OWNERS.tsv probe (Evaluate) a real
+	// implementation, so the 85% floor applies from that commit rather than from the merge — and
+	// the exempt-but-real cross-check below would fail the moment the probe stopped looking like a
+	// stub while the subplan was still unlisted.
+	"SP-12": true,
 	// SP-13 is listed from its own branch, for the same reason SP-08 was: internal/mcp's OWNERS
 	// probe stops returning core.ErrNotImplemented in the first commit of this branch, and the
 	// exempt-but-real cross-check below fails the moment a probe stops looking like a stub while
@@ -63,9 +80,11 @@ var landedSubplans = map[string]bool{
 // a fact about the probe's SHAPE, not a judgement about the package, and each should disappear when
 // its subplan lands and the package gets a real floor.
 var probeBlind = map[string]bool{
-	// Evaluate returns a Decision and no error, so a stub returns a zero value rather than
-	// core.ErrNotImplemented and isBareNotImplementedStub cannot see it.
-	"scheduler": true,
+	// internal/scheduler used to be listed here: Evaluate returns a Decision and no error, so a
+	// stub returned a zero value rather than core.ErrNotImplemented and isBareNotImplementedStub
+	// could not see it. SP-12 has landed, so the entry has done its job and is gone — the
+	// cross-check it silenced only runs for a subplan landedSubplans does not list.
+	//
 	// Append has an empty body — no return statement at all — for the same reason.
 	"grammar": true,
 	// RunAll and Redact are partly real at V1: SP-01 shipped working bodies that SP-05 and SP-06
@@ -88,9 +107,9 @@ var probeBlind = map[string]bool{
 // Deriving "has landed" from the probe alone does NOT work, and the two packages that prove it are
 // worth naming: scheduler's probe Evaluate returns a Decision and no error, and grammar's probe
 // Append has an empty body, so isBareNotImplementedStub — which looks for a lone
-// core.ErrNotImplemented return — reports neither as a stub even though both are. A probe-only
-// rule therefore turns SP-12's and SP-15's floors on years early and fails the gate on work nobody
-// has started. landedSubplans is the explicit half instead: one line, added by the subplan that
+// core.ErrNotImplemented return — reported neither as a stub even though both were. A probe-only
+// rule therefore turned SP-12's floor on years before SP-12 was written, and still turns SP-15's
+// on today, failing the gate on work nobody has started. landedSubplans is the explicit half instead: one line, added by the subplan that
 // lands, reviewed in the commit that lands it.
 //
 // For a landed subplan a stub probe is a hard failure rather than an exemption: a package its own
@@ -99,7 +118,7 @@ var probeBlind = map[string]bool{
 // stub — lives inside the exemption branch below, and is the one that catches a landed subplan
 // nobody added to landedSubplans.
 func taskCover(args []string) error {
-	if err := goInherit("test", "-timeout="+wholeTreeTestTimeout, "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
+	if err := goInheritEnv(wholeTreeEnv, "test", "-timeout="+wholeTreeTestTimeout, "-coverprofile="+coverProfileName, "-covermode=atomic", "./..."); err != nil {
 		return fmt.Errorf("cover: go test -coverprofile: %w", err)
 	}
 

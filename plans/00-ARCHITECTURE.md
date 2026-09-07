@@ -1799,15 +1799,19 @@ func Open(root string) (Store, error)   // ONE argument. A logger/metrics form i
 ```go
 type ItemKind uint8
 const (
-    ItemInvariants ItemKind = iota  // 1. pins, verbatim, always
-    ItemUserIntent                  // 2. verbatim original intent, from L0 (G2.3)
-    ItemEliminations                // 3. top-N by slice score + "already_tried covers the rest"
-    ItemDecisions                   // 4. decisions with rationale
-    ItemCurrentWork                 // 5. current work and next step
-    ItemPointers                    // 6. pointers, not contents
-    ItemDropReport                  // 7. explicit drop report (G4.5)
-    ItemAffordance                  // 8. one line: recall / re_read / already_tried exist
-)                                   // ORDER IS NORMATIVE — this is the §8.6 importance order.
+    ItemInvariants ItemKind = iota  // 1.  pins, verbatim, always
+    ItemUserIntent                  // 2.  verbatim original intent, from L0 (G2.3)
+    ItemEliminations                // 3.  top-N by slice score + "already_tried covers the rest"
+    ItemDecisions                   // 4.  decisions with rationale
+    ItemCurrentWork                 // 5.  current work and next step
+    ItemPointers                    // 6.  pointers, not contents
+    ItemRestoredInstructions        // 6a. path-scoped rules and nested CLAUDE.md (G4.1, G4.2)
+    ItemSkillIndex                  // 6b. the compact skill index (G4.4)
+    ItemDropReport                  // 7.  explicit drop report (G4.5)
+    ItemAffordance                  // 8.  one line: recall / re_read / already_tried exist
+)   // ORDER IS NORMATIVE — the eight §8.6 items in importance order, with the two
+    // instruction-restoration kinds of §8.6's "Instruction restoration" clause inserted at their
+    // rendered position between items 6 and 7. ItemAffordance stays last.
 
 type Item struct{ Kind ItemKind; Rank int; Tokens core.Tokens; Text string; Truncated bool }
 type DropEntry = checkpoint.DropEntry
@@ -1844,7 +1848,9 @@ type Rule struct{ Path string; Globs []string; Body string; Tokens core.Tokens; 
 type Scanner interface {
     // PathScoped returns every rule whose `paths:` frontmatter glob matches any pointer path.
     PathScoped(ctx context.Context, root string, pointers []string) ([]Rule, error)
-    // NestedClaudeMD returns CLAUDE.md files in directories containing a pointer-set file.
+    // NestedClaudeMD returns CLAUDE.md files in directories containing, or ancestor to, a
+    // pointer-set file (bounded at maxAncestorDepth=32, stopping before the project root, which
+    // Claude Code re-injects itself — §2.7). Qompack.md v1.4 widened the §8.6 sentence to match.
     NestedClaudeMD(ctx context.Context, root string, pointers []string) ([]Rule, error)
 }
 func New(opts ...Option) Scanner   // SP-01 shipped New(); widening to variadic options is
@@ -2376,7 +2382,9 @@ baselines recorded on the runners are the stated precondition for wiring it into
 |---|---|---|
 | `verify` | ubuntu | `devtool fmt-check` · `devtool lint` (ten sub-checks, in order: `golangci-lint`, `nomagic`, `importgraph`, `testdeps`, `bindeps`, `sleepcheck`, `stubskips`, `runpatterns`, `docmarkers`, `coveragefloors`) · `go vet ./...` · `go build ./...` · two git-history greps over the PR's commit range enforcing §10: no attribution trailer (`Co-Authored-By`, `Signed-off-by`, `Generated with`, 🤖) and a conventional-commit subject with no trailing period |
 | `lint-windows` | windows | the same `devtool lint`, again on Windows. `stubskips` greps a real test run, so a `runtime.GOOS == "windows"` skip only reaches it on Windows; and `golangci-lint`, `nomagic`, `importgraph` and `testdeps` load packages through the host's build constraints, so the `//go:build windows` files are linted on no other runner |
-| `test` | ubuntu, macos, windows — an **OS matrix only**, one pinned Go (§2.6) | `go test -race -timeout=30m ./...` on ubuntu+macos, with `CGO_ENABLED=1` overriding the workflow default because `-race` requires cgo; `go test -count=2 -timeout=30m ./...` on windows (Windows `-race` runs nightly) |
+| `test` | ubuntu, macos, windows — an **OS matrix only**, one pinned Go (§2.6) | the whole tree **except `test/e2e`**, with `QOMPACK_UNDER_COLOAD=1` declared at job level (ADR 0010): `go test -race -timeout=30m $(go list ./... \\| grep -v '/test/e2e$')` on ubuntu+macos, with `CGO_ENABLED=1` overriding the workflow default because `-race` requires cgo; the same list under `-count=2` on windows (Windows `-race` runs nightly). Under the declaration a cost budget is judged on the process's CPU clock and an intrinsically wall-clock budget is reported, not judged — the `timing` and `test-e2e` jobs below judge those |
+| `test-e2e` | ubuntu, macos, windows | `go test -count=1 -timeout=30m ./test/e2e` — the package alone on its runner, no `-race` (the detector only ever instrumented the harness: every e2e test drives the plainly built real binary, and under `-race` the package did not finish inside 30 min on any runner), and **no co-load declaration**, so X-11 gates B-A and B-E's wall row here exactly as `bench-gate` does |
+| `timing` | ubuntu, macos, windows | `go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes\|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval\|TestBudget_QueryHit\|TestBudget_QueryMiss\|TestBudget_Record\|TestBudget_RebuildBloom\|TestBudget_RefreshStaleness\|TestBudget_Open\|TestBudget_DetectorScan\|TestIntegration_HotPathWarmWithRealResidentState)$' ./internal/store ./internal/negknow ./test/integration` — every test that yields a wall-clock judgement under `QOMPACK_UNDER_COLOAD`, run **by name**, one package binary at a time, without the declaration. The name list is enforced by `test/guards`' `TestColoadYieldersAreJudgedInIsolation`: a test that consults `obs.UnderCoload` and is named in neither this job nor `test-e2e` fails the tree |
 | `cover` | ubuntu | merged profile, per-group floors (§6.4), artifact upload |
 | `crossbuild` | ubuntu | `GOOS/GOARCH` matrix build for all 6 release targets |
 | `bench-gate` | ubuntu, macos, windows | `devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json bench-<os>.json`; hard fail on B-A / B-E |
@@ -2399,7 +2407,7 @@ is load-bearing: `internal/testutil/spawn.go` is a non-test file that spawns the
 §6.2's `RunHook`. The greps scope to `internal/**` and `cmd/**`, so `tools/**` — build-time only,
 never in a shipped binary — is outside the scanned set by construction.
 
-`.github/workflows/nightly.yml`: fuzz (10 min/target), Windows `-race`, 5 000-iteration bench, and
+`.github/workflows/nightly.yml`: fuzz (10 min/target), Windows `-race` (the whole tree except `test/e2e`, under the same co-load declaration as `test`), 5 000-iteration bench, and
 **deterministic** replay over the recorded corpus (§6.3 tier 2) when the `QOMPACK_SESSIONS_DIR`
 secret is present — the corpus is what makes that run different from `replay-gate`, not the mode.
 Live mode is never run by any workflow (§5.18).

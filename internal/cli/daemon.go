@@ -95,6 +95,7 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsErr != nil {
 		opts.Log.Loud("observer unavailable; L0 capture disabled", "err", obsErr.Error())
 	}
+	sched, schedOpts := wireScheduler(&opts, env.Getenv)
 	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
 	// but store's own quarantine() MkdirAlls that directory again at use — so the EMPTY directory
 	// is redundant from the moment it exists, and it is the one entry that would make the
@@ -117,6 +118,15 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 				opts.Log.Warn("daemon: closing the observer's store", "err", closeErr.Error())
 			}
 		}
+		// The ledger the rehydrator opens on its FIRST compaction holds an append handle on
+		// records/eliminations.jsonl and is released on exactly the same terms as the store above.
+		// It is assigned back onto Options by WireRehydrator's opener, so this field is nil in a
+		// daemon that never compacted and there is nothing to close.
+		if opts.Ledger != nil {
+			if closeErr := opts.Ledger.Close(); closeErr != nil {
+				opts.Log.Warn("daemon: closing the negative-knowledge ledger", "err", closeErr.Error())
+			}
+		}
 	}()
 
 	installMCPTools(&opts, root, cfg, log, reg, clk)
@@ -129,6 +139,8 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsv != nil {
 		daemon.RegisterObserverIdleWork(d, obsv)
 	}
+	registerSchedulerIdle(d, sched, schedOpts)
+	defer closeScheduler(sched, schedOpts)
 
 	if *foreground {
 		fmt.Fprintf(errw, "qompack daemon: starting for project %s\n", root)
