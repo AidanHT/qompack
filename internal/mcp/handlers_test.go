@@ -238,11 +238,10 @@ func TestAlreadyTriedBloomOnlyReportedAsAbsent(t *testing.T) {
 	require.Equal(t, true, resp.Meta["bloom_only"], "_meta must flag the unbacked hit")
 }
 
-// TestAlreadyTriedLedgerFailureReturnsAbsent pins §12.3 verbatim: if the ledger cannot answer,
-// already_tried returns absent for everything and NEVER a false positive. A wrongly refused viable
-// approach is the failure this whole subsystem exists to avoid, and it is strictly worse than a
-// missed warning — so the degradation is loud in the log and silent in the answer.
-func TestAlreadyTriedLedgerFailureReturnsAbsent(t *testing.T) {
+// TestAlreadyTriedLedgerFailureReturnsUnavailable replaces the historical error-as-absence
+// assertion under ADR 0013 / T13-STATE. A failed query proves neither prior absence nor an
+// active prohibition, and remains a domain outcome rather than an MCP protocol error.
+func TestAlreadyTriedLedgerFailureReturnsUnavailable(t *testing.T) {
 	f := newFixture(t)
 	log := f.withSpyLogger(t)
 	spy := f.withSpyLedger(t)
@@ -254,10 +253,11 @@ func TestAlreadyTriedLedgerFailureReturnsAbsent(t *testing.T) {
 	}, &res)
 
 	require.False(t, resp.IsError, "a ledger failure degrades the answer; it does not fail the call")
-	require.Equal(t, stateAbsent, res.State)
-	require.True(t, res.Degraded, "the caller must be able to see that this absence is a degradation")
+	require.Equal(t, "unavailable", res.State)
+	require.True(t, res.Degraded, "the caller must be able to see that the ledger could not answer")
+	require.NotEmpty(t, res.Note, "unavailability must include a recovery direction")
 	require.Equal(t, 1, log.loudCount(), "a §12.3 degradation is a Loud event, exactly once")
-	require.Equal(t, "mcp: elimination ledger unavailable; already_tried degrades to absent",
+	require.Equal(t, "mcp: elimination ledger unavailable; already_tried cannot determine prior attempts",
 		log.lastLoud(t))
 }
 

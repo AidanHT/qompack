@@ -11,12 +11,15 @@ daemon, which holds the warm store handles and is the single writer.
 
 Two behaviours apply to every tool here.
 
-**Results are ephemeral at birth.** Everything a retrieval tool returns is re-stored
-with the ephemeral flag set, which makes it the *first* eviction candidate rather than
-the last. Asking a question does not permanently enlarge the context; it borrows space
-for as long as the answer is being used. The flag is surfaced to the client as
-`_meta.qompack.ephemeral`. `record_eliminated` is the one exception — it writes a
-durable ledger entry, which is the whole point of calling it.
+**Ephemeral metadata describes Qompack records.** Retrieval responses expose
+`_meta.qompack.ephemeral`; this is not a host eviction control or proof of native
+context retention. Capture, archive availability and coverage may be partial or unknown.
+`record_eliminated` writes evidence; check its response before relying on persistence.
+
+**Query failures leave prior attempts unknown.** `already_tried` returns the added
+`unavailable` state when its ledger query fails. Legacy JSON fields remain readable,
+but clients with a closed three-state enum must handle this outcome explicitly.
+Unavailable or unrecognized states never establish absence or prohibit an approach.
 
 **Spans are minimal by default.** A tool that returns file content returns the smallest
 chunk-aligned span that covers what you asked for, widened to a symbol boundary where
@@ -29,20 +32,20 @@ A model should call `already_tried` before committing to an approach: Before com
 
 | Tool | Ephemeral result | Purpose |
 |---|---|---|
-| [`recall`](#recall) | yes | Search the store by content, path, or symbol; returns hashes and summaries, never content. |
-| [`expand`](#expand) | yes | Re-materialize a cleared tool result by hash or tool_use_id. |
+| [`recall`](#recall) | yes | Search captured archive material by content, path, or symbol; returns references and summaries. |
+| [`expand`](#expand) | yes | Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. |
 | [`re_read`](#re-read) | yes | Current or historical version of a file, from the store's own version history. |
-| [`already_tried`](#already-tried) | yes | Bloom membership plus the stored reason when present, as one of three states: absent, active, or stale. |
+| [`already_tried`](#already-tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
 | [`record_eliminated`](#record-eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
-| [`timeline`](#timeline) | yes | What happened between two points: the session's closed and open segments over a turn or timestamp range. |
-| [`why`](#why) | yes | Retrieve a decision and its evidence from the checkpoint chain. |
-| [`dropped`](#dropped) | yes | What is currently out of context: the explicit drop report for this session. |
+| [`timeline`](#timeline) | yes | Retrieve recorded session segments over a turn or timestamp range. |
+| [`why`](#why) | yes | Retrieve an attributed decision and its evidence from the checkpoint chain. |
+| [`dropped`](#dropped) | yes | Retrieve Qompack's recorded omissions for this session. |
 
 ## `recall`
 
-Search the store by content, path, or symbol; returns hashes and summaries, never content. Results are ephemeral and are evicted first.
+Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
@@ -78,9 +81,9 @@ Search the store by content, path, or symbol; returns hashes and summaries, neve
 
 ## `expand`
 
-Re-materialize a cleared tool result by hash or tool_use_id. Returns the minimum sufficient span by default; pass full=true only when you genuinely need the whole object. Results are ephemeral and are evicted first.
+Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
@@ -122,9 +125,9 @@ Re-materialize a cleared tool result by hash or tool_use_id. Returns the minimum
 
 ## `re_read`
 
-Current or historical version of a file, from the store's own version history. Returns the minimum sufficient span by default; pass full=true only when you genuinely need the whole object. Results are ephemeral and are evicted first.
+Current or historical version of a file, from the store's own version history. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
@@ -163,9 +166,9 @@ Current or historical version of a file, from the store's own version history. R
 
 ## `already_tried`
 
-Bloom membership plus the stored reason when present, as one of three states: absent, active, or stale. Before committing to an approach, call already_tried.
+Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. Clients must treat unavailable or unrecognized states as unknown, never as absence or a prohibition. Before committing to an approach, call already_tried.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
@@ -256,9 +259,9 @@ Write negative knowledge: record that an approach does not work, with evidence a
 
 ## `timeline`
 
-What happened between two points: the session's closed and open segments over a turn or timestamp range. Results are ephemeral and are evicted first.
+Retrieve recorded session segments over a turn or timestamp range. Missing events and native context coverage may be unknown.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
@@ -289,9 +292,9 @@ What happened between two points: the session's closed and open segments over a 
 
 ## `why`
 
-Retrieve a decision and its evidence from the checkpoint chain. Results are ephemeral and are evicted first.
+Retrieve an attributed decision and its evidence from the checkpoint chain. Recorded reasoning does not prove model compliance.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
@@ -319,9 +322,9 @@ Retrieve a decision and its evidence from the checkpoint chain. Results are ephe
 
 ## `dropped`
 
-What is currently out of context: the explicit drop report for this session. Results are ephemeral and are evicted first.
+Retrieve Qompack's recorded omissions for this session. This report does not establish what remains in native context.
 
-*Result:* ephemeral — re-stored as the first eviction candidate, and reported as `_meta.qompack.ephemeral: true`.
+*Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 Takes no arguments.
 

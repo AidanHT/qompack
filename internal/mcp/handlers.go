@@ -40,11 +40,12 @@ const (
 	selectorTool   = "tool:"
 )
 
-// The three answers `already_tried` renders (00-ARCHITECTURE.md §8.3).
+// Legacy ledger answers plus an explicit failure outcome (architecture §0.2 / ADR 0013).
 const (
-	stateAbsent = "absent"
-	stateActive = "active"
-	stateStale  = "stale"
+	stateAbsent      = "absent"
+	stateActive      = "active"
+	stateStale       = "stale"
+	stateUnavailable = "unavailable"
 )
 
 // bloomOnlyNote is what a filter hit with no backing record is reported as. It is stated as a
@@ -151,13 +152,12 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 	scope := negknow.Scope(h.cfg.Eliminations.DefaultScope)
 	ans, err := h.ledger.Query(ctx, a.Target, a.Approach, scope)
 	if err != nil {
-		// §12.3, verbatim: if the ledger cannot answer, already_tried returns absent for
-		// everything — NEVER a false positive. A wrongly refused viable approach is the failure
-		// this whole subsystem exists to avoid, and it is strictly worse than a missed warning.
-		h.log.Loud("mcp: elimination ledger unavailable; already_tried degrades to absent",
-			"err", err.Error())
+		// A failed query is not evidence of absence. Do not expose a backend error that may
+		// contain private paths, query text or stored evidence in the response or diagnostic.
+		h.log.Loud("mcp: elimination ledger unavailable; already_tried cannot determine prior attempts")
 		return h.jsonResponse(ToolAlreadyTried, AlreadyTriedResult{
-			State: stateAbsent, Degraded: true, Reason: "elimination ledger unavailable",
+			State: stateUnavailable, Degraded: true, Reason: "elimination ledger unavailable",
+			Note: "Prior attempts are unknown. Retry after ledger recovery; this is not evidence against the approach.",
 		}, nil), nil
 	}
 	return h.jsonResponse(ToolAlreadyTried, h.renderAnswer(ans), answerMeta(ans)), nil

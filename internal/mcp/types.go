@@ -23,8 +23,8 @@ type Tool struct {
 	InputSchema json.RawMessage
 	// Handler answers a call to this tool.
 	Handler Handler
-	// Ephemeral marks results born ephemeral: first eviction candidate, surfaced to the client as
-	// _meta.qompack.ephemeral (00-ARCHITECTURE.md §8.7).
+	// Ephemeral marks Qompack representations via _meta.qompack.ephemeral. It does not control
+	// host eviction or prove what remains in native context (ADR 0013).
 	Ephemeral bool
 }
 

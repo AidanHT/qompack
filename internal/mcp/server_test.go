@@ -121,7 +121,9 @@ func TestInitializeResultMatchesGolden(t *testing.T) {
 	require.NoError(t, json.Indent(&pretty, resps[0].Result, "", "  "), "indenting %s", resps[0].Result)
 	pretty.WriteByte('\n')
 
-	requireGolden(t, "testdata/golden/mcp/initialize.json", pretty.Bytes())
+	// Preserve initialize.json as the historical contract. v2 retires unsupported completeness
+	// and native-eviction promises without changing protocol negotiation or response shape.
+	requireGolden(t, "testdata/golden/mcp/initialize.v2.json", pretty.Bytes())
 }
 
 // TestInitializeInstructionsCarryStandingInstruction is G6.2 made checkable. §8.7 requires
