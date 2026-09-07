@@ -681,3 +681,36 @@ PASS
 ok  	github.com/qompack/qompack/tools/devtool	0.579s
 PASS
 ok  	github.com/qompack/qompack/tools/lint/nomagic	0.656s
+
+# SP-10 (L4 checkpointer) micro-benchmarks, windows/amd64, Intel Core Ultra 7 155H, -count=6.
+# BenchmarkFinalize is over its 50 ms exit criterion; see plans/V2-SP-10-carried-defects.md SP10-D1.
+BenchmarkExtractDecisions-22    	     103	  11853291 ns/op
+BenchmarkExtractDecisions-22    	      93	  12346549 ns/op
+BenchmarkExtractDecisions-22    	     102	  12025266 ns/op
+BenchmarkExtractDecisions-22    	      99	  11315540 ns/op
+BenchmarkExtractDecisions-22    	     105	  12176288 ns/op
+BenchmarkExtractDecisions-22    	      90	  12777592 ns/op
+BenchmarkFinalize-22            	       4	 273831525 ns/op
+BenchmarkFinalize-22            	       4	 264030050 ns/op
+BenchmarkFinalize-22            	       4	 276757225 ns/op
+BenchmarkFinalize-22            	       4	 270813850 ns/op
+BenchmarkFinalize-22            	       4	 284213700 ns/op
+BenchmarkFinalize-22            	       4	 264046550 ns/op
+BenchmarkStripInjections-22     	    3298	    361001 ns/op	 726.16 MB/s	 1162115 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    3567	    389462 ns/op	 673.09 MB/s	 1162115 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    2718	    455315 ns/op	 575.74 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    4369	    442342 ns/op	 592.63 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    3063	    430623 ns/op	 608.76 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkStripInjections-22     	    2924	    406959 ns/op	 644.15 MB/s	 1162113 B/op	      14 allocs/op
+BenchmarkTruncate-22            	     572	   1888676 ns/op	  741949 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     715	   1677753 ns/op	  741977 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     757	   1645121 ns/op	  742530 B/op	    1568 allocs/op
+BenchmarkTruncate-22            	     757	   1659043 ns/op	  742055 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     819	   1541916 ns/op	  741823 B/op	    1567 allocs/op
+BenchmarkTruncate-22            	     742	   1585147 ns/op	  742510 B/op	    1568 allocs/op
+BenchmarkAdvanceSegment-22      	      61	  16543766 ns/op
+BenchmarkAdvanceSegment-22      	      72	  17314725 ns/op
+BenchmarkAdvanceSegment-22      	      70	  17656499 ns/op
+BenchmarkAdvanceSegment-22      	      72	  17860412 ns/op
+BenchmarkAdvanceSegment-22      	      73	  18917812 ns/op
+BenchmarkAdvanceSegment-22      	      72	  18772243 ns/op

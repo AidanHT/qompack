@@ -1,0 +1,237 @@
+{
+  "version": 1,
+  "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+  "seq": 2,
+  "created": "2026-01-01T00:58:00.000Z",
+  "parent": "0001.json",
+  "encoded_segments": [
+    15,
+    16,
+    17,
+    18
+  ],
+  "invariants": [
+    {
+      "id": "inv_7c1a9e2f4b60",
+      "text": "The refresh-token rotation must remain single-use; reuse detection is a security requirement.",
+      "source": "user",
+      "pinned": 1767225120000
+    },
+    {
+      "id": "inv_2d8f0a6c3e15",
+      "text": "Never change the pgbouncer pool mode without re-running the exhaustion reproduction.",
+      "source": "agent",
+      "pinned": 1767225300000
+    },
+    {
+      "id": "inv_5b8e2d1f7a03",
+      "text": "The load-test gate stays required on the release branch.",
+      "source": "user",
+      "pinned": 1767225660000
+    }
+  ],
+  "user_intent": {
+    "original": "Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.",
+    "evolution": [
+      "Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.",
+      "Scope widened to include the pgbouncer transaction-mode interaction.",
+      "Added the k6 load test as the acceptance gate for the fix.",
+      "Split the rotation extraction into its own branch behind a flag."
+    ]
+  },
+  "eliminated": [
+    {
+      "id": "elim_3f9b2c7d1a48",
+      "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+      "ts": 1767225480000,
+      "target": "src/auth.ts:refreshToken",
+      "approach": "widen pool timeout",
+      "reason": "pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect",
+      "descriptor": {
+        "normalized_path": "src/auth.ts",
+        "symbol": "refreshToken",
+        "approach_class": "widen-timeout",
+        "reason_hash": "sha256:851c5bf6bcbc3958fb02d339563520ab98d1194896ad6e8a5bf8d36ac19d997e"
+      },
+      "evidence": "sha256:5561065415879e500a686267b8dbbbe90a0777539adb2ed021f0632de3ad288a",
+      "depends_on": [
+        {
+          "path": "docker-compose.yml",
+          "hash": "sha256:7368759f9de9d905f8afbe7d0f088753f7379dbb17dbb5174c00ebc57f8710b2"
+        }
+      ],
+      "scope": "project",
+      "status": "active",
+      "source": 1
+    },
+    {
+      "id": "elim_8c1e4a7b2d95",
+      "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+      "ts": 1767225840000,
+      "target": "src/pool.ts:acquire",
+      "approach": "increase pool size",
+      "reason": "resizing moves the cliff without removing the lock-hold-across-IO pattern",
+      "descriptor": {
+        "normalized_path": "src/pool.ts",
+        "symbol": "acquire",
+        "approach_class": "resize-pool",
+        "reason_hash": "sha256:f057dc535f7df3a96269ea943017573cf2d5dd4778f5e3c48519e2393cbd1856"
+      },
+      "evidence": "sha256:f290c7418b0137ff64ae24c14e0d31bf74866ebb2881a14dce906769e8168572",
+      "depends_on": [
+        {
+          "path": "src/pool.ts",
+          "hash": "sha256:a6656eebbcfbd976d269aed396076e2221735976f23be1b90a3415af7e3bad60"
+        }
+      ],
+      "scope": "session",
+      "status": "stale",
+      "stale_since": 1767226020000,
+      "stale_because": [
+        "src/pool.ts"
+      ],
+      "source": 1
+    }
+  ],
+  "decisions": [
+    {
+      "id": "dec_a3f2c9e14b70",
+      "what": "Move the rotation out of the request transaction.",
+      "why": "It holds a row lock across the outbound identity-provider call.",
+      "alternatives_rejected": [
+        "Widen the pool timeout — eliminated.",
+        "Increase pool size — rejected."
+      ],
+      "evidence": "sha256:3ef8272a5fa0c26e7bbd794b14b06447545cb29033ece83c27179b41c2af33e2",
+      "turn": 61
+    },
+    {
+      "id": "dec_b7e1d4a92c58",
+      "what": "Keep pgbouncer in transaction mode.",
+      "why": "Session mode halves effective capacity for no measured gain.",
+      "alternatives_rejected": [
+        "Switch to session pooling."
+      ],
+      "evidence": "sha256:38b1a53a8714096803a848d0b2255359e07231c62864e6960af62bd9c6c9f58b",
+      "turn": 54
+    },
+    {
+      "id": "dec_c9a5f2e81d36",
+      "what": "Gate the fix on the k6 load test.",
+      "why": "The failure only reproduces above 150 concurrent refreshes.",
+      "alternatives_rejected": [
+        "Unit-test the pool wrapper only."
+      ],
+      "evidence": "sha256:395d31507ff1a4e030864e1a688fa249e860152f7159a59ea8c5466cee61f054",
+      "turn": 47
+    },
+    {
+      "id": "dec_d2c8b5f71e94",
+      "what": "Use a dedicated short-lived connection for rotation.",
+      "why": "It caps lock hold time at the token write itself.",
+      "alternatives_rejected": [
+        "Reuse the request connection."
+      ],
+      "evidence": "sha256:2f70bd7ea27bdceb4efdf0515d3ca05dbc65f609d624f7b277df633e92ae4859",
+      "turn": 40
+    },
+    {
+      "id": "dec_e5b9c8a24f17",
+      "what": "Record the widened-timeout attempt as eliminated.",
+      "why": "pgbouncer ignores it in transaction mode.",
+      "alternatives_rejected": [
+        "Leave it as a code comment."
+      ],
+      "evidence": "sha256:1badfe1ef7eeba5b16f4418ef0094cb670dfd247952638ee57f508e2168626fd",
+      "turn": 33
+    }
+  ],
+  "open_questions": [
+    "Does the identity provider guarantee idempotency on a retried rotation?",
+    "Is the staging pgbouncer running the same 1.18 build as production?",
+    "Do we need our own dedupe key for concurrent refresh attempts?"
+  ],
+  "current_work": {
+    "goal": "Eliminate pool exhaustion on POST /api/session/refresh under load.",
+    "next_step": "Extract the identity-provider call from the transaction and re-run the k6 gate.",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [
+      {
+        "path": "src/auth.ts",
+        "hash": "sha256:0a3f812b7898fa8d2d63cbee3c6355bdc04995980f5df24e39e8c855904e9131",
+        "why": "refreshToken lives here; the lock-across-IO pattern starts at the top"
+      },
+      {
+        "path": "src/pool.ts",
+        "hash": "sha256:038922f239859ae2f5d582e874ec9e4503851e6d4c3b76daa13f006b3b603c98",
+        "why": "acquisition timeout and pool sizing are configured here"
+      },
+      {
+        "path": "src/session/refresh.ts",
+        "hash": "sha256:a8dbe0d44ba213d0afa6771d56bb5610a7bcaefdc55132704be38e947e198793",
+        "why": "the route handler that drives refreshToken"
+      },
+      {
+        "path": "docker-compose.yml",
+        "hash": "sha256:bc1291c16b86ae0155239fa492ef93e730ac3311ba4374675a1875dd5a47899e",
+        "why": "pins the pgbouncer version and pool mode"
+      },
+      {
+        "path": "package-lock.json",
+        "hash": "sha256:f69cd204b2dd1cdcfe1e6b879919af3b552f5d0be757cdb9a06d0950c387460c",
+        "why": "pins the pg client the elimination depends on"
+      },
+      {
+        "path": "test/load/refresh-k6.js",
+        "hash": "sha256:29fbd5025b7ddb15a2920aca651aceff0b684f948eb3362c8478d2caa5c12c5f",
+        "why": "the acceptance load test for the fix"
+      }
+    ],
+    "tools": [
+      {
+        "tool_use_id": "toolu_01LOADTEST48H2M9",
+        "hash": "sha256:71a877543845a3d81abc0fb6603ea94ef6743dd5b1bbd3da61d6988bacc2f5e1",
+        "summary": "k6: 200 concurrent refreshes, 37 failures, all pool acquisition timeouts"
+      },
+      {
+        "tool_use_id": "toolu_01POOLSTATS7C4Q1",
+        "hash": "sha256:5d621b5c40a69f386ef5c50f7ad1adb009339114f19ee4d2202bcafebae96c97",
+        "summary": "pool statistics during the failing window"
+      },
+      {
+        "tool_use_id": "toolu_01PGBLOG92XW5TR3",
+        "hash": "sha256:d10f0642ed4779c0caa08a1437027cfc9e67b999523efd24723c19e46a423b07",
+        "summary": "pgbouncer log for the failing window"
+      },
+      {
+        "tool_use_id": "toolu_01SCHEMA4Q8N2VD7",
+        "hash": "sha256:a413532320743071518dcdcd43f78b3db224d6e78ac3f08b67863f0387f0a730",
+        "summary": "session-table schema and the rotation trigger"
+      }
+    ]
+  },
+  "narrative": "Reproduced the 500s under concurrent load and traced them to pool acquisition timeouts rather than token validation. Widening the timeout had no effect because pgbouncer ignores it in transaction pooling mode. The working hypothesis is that refreshToken holds a row lock across the outbound identity-provider call.",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [
+    {
+      "kind": "path_rule",
+      "id": "api-conventions.md",
+      "detail": "path-scoped rule for src/api/**; no pointer in this checkpoint matched its globs"
+    },
+    {
+      "kind": "tool_output",
+      "id": "toolu_01M3N4P5Q6R7S8T9U0V1W2X3",
+      "detail": "superseded by a later read of the same file"
+    }
+  ],
+  "cache": {
+    "p_chosen": 148230,
+    "rewrite_tokens": 18770,
+    "ttl_state": "warm"
+  }
+}

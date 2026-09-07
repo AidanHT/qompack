@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+  "seq": 3,
+  "created": "2026-01-01T01:31:00.000Z",
+  "parent": "0002.json",
+  "encoded_segments": [
+    19,
+    20
+  ],
+  "invariants": [
+    {
+      "id": "inv_7c1a9e2f4b60",
+      "text": "The refresh-token rotation must remain single-use; reuse detection is a security requirement, not a preference.",
+      "source": "user",
+      "pinned": 1767225120000
+    },
+    {
+      "id": "inv_2d8f0a6c3e15",
+      "text": "Never change the pgbouncer pool mode without re-running the connection-exhaustion reproduction.",
+      "source": "agent",
+      "pinned": 1767225300000
+    }
+  ],
+  "user_intent": {
+    "original": "Fix the intermittent 500s on POST /api/session/refresh. They started after the connection-pool change last Tuesday.",
+    "evolution": [
+      "Narrowed to refreshToken(): the 500 is a pool acquisition timeout, not a token error.",
+      "Scope widened to include the pgbouncer transaction-mode interaction after the timeout fix did not help."
+    ]
+  },
+  "eliminated": [
+    {
+      "id": "elim_3f9b2c7d1a48",
+      "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+      "ts": 1767225480000,
+      "target": "src/auth.ts:refreshToken",
+      "approach": "widen pool timeout",
+      "reason": "pgbouncer 1.18 ignores statement_timeout in transaction pooling mode, so the widened timeout never takes effect",
+      "descriptor": {
+        "normalized_path": "src/auth.ts",
+        "symbol": "refreshToken",
+        "approach_class": "widen-timeout",
+        "reason_hash": "sha256:851c5bf6bcbc3958fb02d339563520ab98d1194896ad6e8a5bf8d36ac19d997e"
+      },
+      "evidence": "sha256:5561065415879e500a686267b8dbbbe90a0777539adb2ed021f0632de3ad288a",
+      "depends_on": [
+        {
+          "path": "docker-compose.yml",
+          "hash": "sha256:7368759f9de9d905f8afbe7d0f088753f7379dbb17dbb5174c00ebc57f8710b2"
+        }
+      ],
+      "scope": "project",
+      "status": "active",
+      "source": 1
+    }
+  ],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "Eliminate pool exhaustion on POST /api/session/refresh under load.",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [
+    {
+      "kind": "narrative",
+      "id": "narrative",
+      "detail": "prose residue dropped at budget"
+    },
+    {
+      "kind": "file_pointer",
+      "id": "src/auth.ts",
+      "detail": "truncated at budget; re_read(path) still resolves"
+    },
+    {
+      "kind": "open_question",
+      "id": "oq_0",
+      "detail": "Is the staging pgbouncer running the same 1.18 build as production?"
+    },
+    {
+      "kind": "alternatives",
+      "id": "dec_a3f2c9e14b70",
+      "detail": "alternatives_rejected emptied at budget"
+    },
+    {
+      "kind": "decision",
+      "id": "dec_a3f2c9e14b70",
+      "detail": "truncated at budget; why(decision_id) still resolves"
+    },
+    {
+      "kind": "next_step",
+      "id": "current_work.next_step",
+      "detail": "truncated at budget"
+    },
+    {
+      "kind": "budget_exceeded",
+      "id": "tier1",
+      "detail": "tier 1 is 1012 tokens against a 200 budget; written in full per §8.5"
+    }
+  ],
+  "cache": {
+    "p_chosen": 151080,
+    "rewrite_tokens": 9410,
+    "ttl_state": "expiring"
+  }
+}
