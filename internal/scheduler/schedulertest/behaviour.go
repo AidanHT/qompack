@@ -13,43 +13,48 @@ import (
 // YoungDalySeconds tracks scheduler.YoungDaly. Both work directly against the package-level pure
 // scheduler.Evaluate rather than through the factory-supplied Runtime, because Inputs is the
 // white-box, directly-constructible value the composite trigger is specified over (Qompack.md
-// §8.4); a black-box Runtime has no way to inject a precise Inputs snapshot. They are authored
-// now, gated behind the same Rule W-1 stub probe as the rest of the suite, so SP-12 inherits them
-// rather than writing its own grader.
+// §8.4); a black-box Runtime has no way to inject a precise Inputs snapshot. They were authored
+// by SP-01 and gated behind the Rule W-1 stub probe; SP-12 removed the gate, so they run
+// unconditionally.
 //
-// Fixture note for SP-12: Inputs has no explicit "time of last checkpoint" or "M" (mean time
-// between forced compactions) field. This file assumes LastCacheWriteTS doubles as the time of
-// the last significant rewrite for the Young-Daly clause, and derives M from the remaining
-// headroom to the hard ceiling divided by BurnRateTokensPerMin, matching the prose of Qompack.md
-// §6.7 ("M is expected time to forced compaction at the current burn rate"). If SP-12's real
-// Evaluate derives either differently, adjust assumedMTBFSeconds and the Young-Daly fixture below
-// rather than the truth table's other cases, which do not depend on this assumption.
+// Fixture note (SP-12): the Young-Daly clause is keyed on Inputs.LastCompactionTS — never on
+// LastCacheWriteTS, which does not enter the decision — and M is derived from the remaining
+// headroom to the hard ceiling (EffectiveWindow − HostAutoCompactBuffer − HardCeilingMargin)
+// divided by BurnRateTokensPerMin, matching the prose of Qompack.md §6.7 ("M is expected time to
+// forced compaction at the current burn rate"). assumedMTBFSeconds below reproduces that
+// derivation independently so runYoungDalyFormulaCase compares two computations, not one.
 
 // The base scenario every truth-table case starts from and perturbs. Values are deliberately
 // off the nomagic forbidden-literal set (00-ARCHITECTURE.md §11.6) since this is not a _test.go
 // file.
 const (
-	baseNowMillis          = 1_700_000_000_000
-	effectiveWindowTokens  = 200_000
-	quietContextTokens     = 150_000
-	aboveCeilingTokens     = 190_000
-	belowFloorTokens       = 50_000
-	softFloorPct           = 0.6
-	hardCeilingMargin      = 15_000
-	idleDetectAfterSeconds = 90
-	cacheTTLSeconds        = 250
-	cacheReadMultiplier    = 0.2
-	cacheWriteMultiplier   = 1.5
-	youngDalyDeltaSeconds  = 30.0
-	burnRateTokensPerMin   = 500.0
-	idleGapSeconds         = 400
-	secondsPerMinute       = 60.0
-	millisPerSecond        = 1000
+	baseNowMillis              = 1_700_000_000_000
+	effectiveWindowTokens      = 200_000
+	quietContextTokens         = 150_000
+	aboveCeilingTokens         = 190_000
+	belowFloorTokens           = 50_000
+	softFloorPct               = 0.6
+	hardCeilingMargin          = 15_000
+	idleDetectAfterSeconds     = 90
+	cacheTTLSeconds            = 250
+	cacheReadMultiplier        = 0.2
+	cacheWriteMultiplier       = 1.5
+	youngDalyDeltaSeconds      = 30.0
+	burnRateTokensPerMin       = 500.0
+	idleGapSeconds             = 400
+	secondsPerMinute           = 60.0
+	millisPerSecond            = 1000
+	candidatePosTokens         = 120_000 // strictly below quietContextTokens (150 000)
+	candidateReclaimableTokens = 40_000
+	candidateCouplingEdges     = 12
 )
 
 // baseInputs returns the "quiet" scenario: above the soft floor, below the hard ceiling, no
-// changepoint, a cache write and an API call that both just happened. Every truth-table case
-// copies this and perturbs exactly the field(s) relevant to the condition under test.
+// changepoint, a cache write and an API call that both just happened, a compaction that just
+// happened (so the Young-Daly clock reads zero), one placeable round-boundary candidate, and a
+// pinned five-minute-class regime so the idle thresholds are the fixture's own cacheTTLSeconds
+// rather than the unknown rung's one-hour upper bound. Every truth-table case copies this and
+// perturbs exactly the field(s) relevant to the condition under test.
 func baseInputs() scheduler.Inputs {
 	var in scheduler.Inputs
 	in.Now = core.UnixMilli(baseNowMillis)
@@ -57,6 +62,7 @@ func baseInputs() scheduler.Inputs {
 	in.ContextTokens = core.Tokens(quietContextTokens)
 	in.LastAPICallTS = in.Now
 	in.LastCacheWriteTS = in.Now
+	in.LastCompactionTS = in.Now
 	in.Cfg.SoftFloorPct = softFloorPct
 	in.Cfg.HardCeilingMargin = hardCeilingMargin
 	in.Cfg.Idle.DetectAfterSeconds = idleDetectAfterSeconds
@@ -69,14 +75,29 @@ func baseInputs() scheduler.Inputs {
 	delta := youngDalyDeltaSeconds
 	in.MeasuredDeltaSeconds = &delta
 	in.BurnRateTokensPerMin = burnRateTokensPerMin
+	in.Candidates = []scheduler.Candidate{{
+		Pos:               candidatePosTokens,
+		RoundBoundary:     true,
+		ReclaimableTokens: core.Tokens(candidateReclaimableTokens),
+		Coupling:          candidateCouplingEdges,
+	}}
+	in.Regime = scheduler.CacheRegime{
+		TTLMinSeconds:   cacheTTLSeconds,
+		TTLMaxSeconds:   cacheTTLSeconds,
+		ReadMultiplier:  cacheReadMultiplier,
+		WriteMultiplier: cacheWriteMultiplier,
+		Source:          "force_5m",
+	}
 	return in
 }
 
 // assumedMTBFSeconds derives M, the expected time to a forced compaction at the current burn
-// rate, from the remaining token headroom to the hard ceiling. See the fixture note above this
-// file's imports for why this is an assumption SP-12 may need to adjust.
+// rate, from the remaining token headroom to the hard ceiling — which sits HostAutoCompactBuffer
+// plus HardCeilingMargin below the effective window (Qompack.md §2.5, §8.4). See the fixture note
+// above this file's constants.
 func assumedMTBFSeconds(in scheduler.Inputs) float64 {
-	headroom := float64(in.EffectiveWindow) - float64(in.Cfg.HardCeilingMargin) - float64(in.ContextTokens)
+	headroom := float64(in.EffectiveWindow) - float64(scheduler.HostAutoCompactBuffer) -
+		float64(in.Cfg.HardCeilingMargin) - float64(in.ContextTokens)
 	if in.BurnRateTokensPerMin <= 0 || headroom <= 0 {
 		return 0
 	}
@@ -159,7 +180,7 @@ func runCompositeTriggerTruthTable(t *testing.T) {
 		in := baseInputs()
 		interval := youngDalyIntervalSeconds(in)
 		elapsedMS := int64(interval*2*millisPerSecond) + millisPerSecond
-		in.LastCacheWriteTS = in.Now - core.UnixMilli(elapsedMS)
+		in.LastCompactionTS = in.Now - core.UnixMilli(elapsedMS)
 		got := scheduler.Evaluate(in)
 		require.True(t, got.ShouldCompact)
 		require.Contains(t, got.Reasons, scheduler.TriggerYoungDaly)

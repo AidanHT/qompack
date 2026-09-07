@@ -147,6 +147,26 @@ func TestJSONSchema_EnumsPresentWhereExpected(t *testing.T) {
 	require.Equal(t, "string", items["type"])
 }
 
+// TestJSONSchema_SchedulerCacheRegimeLeaves spot-checks the two §11.5 cache-regime leaves SP-12
+// adds, independently of the golden: they are the first leaves nested two objects deep inside
+// runtime, so a wrong json tag anywhere on the path would move them rather than drop them.
+func TestJSONSchema_SchedulerCacheRegimeLeaves(t *testing.T) {
+	var schema map[string]any
+	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
+
+	node := schemaNodeAt(t, schema, "runtime.scheduler.cache.expiringTriggerFraction")
+	require.Equal(t, "number", node["type"])
+	require.Equal(t, 0.8, node["default"])
+	require.Equal(t, "(0,1)", node["x-qompack-range"])
+	require.NotEmpty(t, node["description"])
+	require.NotEmpty(t, node["x-qompack-section"])
+
+	node = schemaNodeAt(t, schema, "runtime.scheduler.cache.assumeMaxTTLSeconds")
+	require.Equal(t, "integer", node["type"])
+	require.Equal(t, float64(3600), node["default"])
+	require.Equal(t, "[scheduler.cache.ttlSeconds,∞)", node["x-qompack-range"])
+}
+
 func schemaNodeAt(t *testing.T, schema map[string]any, dotted string) map[string]any {
 	t.Helper()
 	cur := schema
