@@ -47,8 +47,9 @@ const minHashShingleSize = 5
 // OnToolUse is the PostToolUse pipeline of §8.1 items 1–6, in the order resolved decision 1 fixes:
 // index → file version → sketches → DAG → grammar → signals/features → tombstone.
 //
-// It returns an error ONLY for ctx.Err(); every I/O failure is absorbed by soft (decision 7), and
-// the Output is always empty because PostToolUse emits nothing.
+// Required content/reference failures return ErrUnpublished so the daemon retains the delivery
+// for retry. Secondary derived stages remain soft failures. Output is always empty because
+// PostToolUse emits nothing; the host's original result is preserved.
 func (o *observer) OnToolUse(ctx context.Context, e Event) (Output, error) {
 	var out Output
 	err := o.timed(histToolUse, func() error {
@@ -100,8 +101,7 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 			KeepRaw: true, Ephemeral: ephemeral,
 		})
 		if err != nil {
-			o.soft(stagePut, err)
-			return hookio.Empty(), nil // never a dangling index record
+			return hookio.Empty(), o.unpublished(stagePut) // never a dangling index record
 		}
 	}
 
@@ -132,7 +132,9 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		// record the graph cannot name is a record nothing can retrieve.
 		rec.ID = core.ToolUseID(fmt.Sprintf("tu_%s_%d_%d", e.SessionID, st.Turn, len(st.ToolUses)))
 	}
-	o.soft(stageIndex, o.opt.Store.RecordToolUse(ctx, rec))
+	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
+		return hookio.Empty(), o.unpublished(stageIndex)
+	}
 	o.rememberToolUse(st, rec)
 
 	// 7. §8.2 file version history. Only a result that IS the content of a path is a version of it.

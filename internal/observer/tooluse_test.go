@@ -182,28 +182,41 @@ func TestOnToolUse_EmptyResponseStillIndexed(t *testing.T) {
 	require.Len(t, h.signals(), 1)
 }
 
-func TestOnToolUse_PutFailureIsSoft(t *testing.T) {
+// Replaces the historical PutFailureIsSoft assertion: the host still receives empty output,
+// but the daemon must retain this delivery for recovery rather than acknowledging capture.
+func TestOnToolUse_PutFailureRemainsUnpublished(t *testing.T) {
 	h := newHarness(t)
 	h.Store.PutErr = errors.New("disk full")
 
 	out, err := h.obs.OnToolUse(context.Background(), readOf("toolu_1", "src/auth.ts", "body\n"))
 
-	require.NoError(t, err, "no I/O failure escapes an Observer method (decision 7)")
+	require.ErrorIs(t, err, ErrUnpublished, "a failed capture must remain retryable")
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.NotContains(t, err.Error(), h.Store.PutErr.Error())
 	require.Equal(t, hookio.Empty(), out)
 	require.Equal(t, int64(1), h.counter("observer.err.put"))
 	require.Empty(t, h.Store.Records, "never a dangling index record")
 }
 
-func TestOnToolUse_IndexFailureStillFeedsSketchesAndDAG(t *testing.T) {
+// Replaces IndexFailureStillFeedsSketchesAndDAG: an object without its observation reference
+// is not a published event, so derived consumers cannot advance past it as successful capture.
+func TestOnToolUse_IndexFailureStopsPublication(t *testing.T) {
 	h := newHarness(t)
 	h.Store.RecordErr = errors.New("index unavailable")
 
-	h.drive(readOf("toolu_1", "src/auth.ts", "body\n"))
+	out, err := h.obs.OnToolUse(context.Background(), readOf("toolu_1", "src/auth.ts", "body\n"))
 
+	require.ErrorIs(t, err, ErrUnpublished, "a failed reference write must remain retryable")
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.NotContains(t, err.Error(), h.Store.RecordErr.Error())
+	require.Equal(t, hookio.Empty(), out)
 	require.Equal(t, int64(1), h.counter("observer.err.index"))
-	require.Equal(t, uint64(2), h.Touch.Total(), "the tool key and the path key are both fed")
-	require.True(t, h.Graph.has(dag.ToolUseNode("toolu_1")), "the object is stored and reachable by root hash")
-	require.True(t, h.Graph.has(dag.ToolResultNode("toolu_1")))
+	require.Zero(t, h.Touch.Total())
+	require.False(t, h.Graph.has(dag.ToolUseNode("toolu_1")))
+	require.False(t, h.Graph.has(dag.ToolResultNode("toolu_1")))
+	require.Empty(t, h.Store.FileVersions)
+	require.Empty(t, h.state(testSession).ToolUses)
+	require.Empty(t, h.signals())
 }
 
 func TestOnToolUse_CancelledContext(t *testing.T) {
@@ -213,7 +226,7 @@ func TestOnToolUse_CancelledContext(t *testing.T) {
 
 	out, err := h.obs.OnToolUse(ctx, readOf("toolu_1", "src/auth.ts", "body\n"))
 
-	require.ErrorIs(t, err, context.Canceled, "ctx.Err() is the ONLY error an entry point returns")
+	require.ErrorIs(t, err, context.Canceled, "cancellation retains its cause")
 	require.Equal(t, hookio.Empty(), out)
 	require.Equal(t, storeCounts{}, h.Store.counts())
 	require.Equal(t, graphCounts{}, h.Graph.counts())

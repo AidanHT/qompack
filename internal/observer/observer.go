@@ -35,6 +35,11 @@ type (
 	Output = hookio.Output
 )
 
+// ErrUnpublished means tool capture failed before a required content or reference write
+// completed. The daemon must keep the delivery retryable. Host output remains empty; this
+// error describes recording availability and does not deny the host's original tool result.
+var ErrUnpublished = fmt.Errorf("observer: tool capture unpublished: %w", core.ErrDegraded)
+
 // Observer is the L0 semantics seam (00-ARCHITECTURE.md §5.21). One method per hook the plugin
 // registers; every one of them is on a latency budget, and every one of them must fail toward
 // "record nothing, block nothing" rather than toward an error the host sees (§12.3).
@@ -376,13 +381,21 @@ func (o *observer) now() core.UnixMilli {
 	return core.UnixMilli(o.opt.Clock.Now().UnixMilli())
 }
 
-// soft absorbs one stage failure: no I/O failure ever escapes an Observer method (decision 7).
+// soft records a secondary stage failure. Required tool content/reference writes use unpublished
+// instead so their failure cannot become a successful drain acknowledgement.
 func (o *observer) soft(stage string, err error) {
 	if err == nil {
 		return
 	}
 	o.count(counterErrPrefix + stage)
 	o.opt.Log.Warn("observer: stage failed", "stage", stage, "err", err)
+}
+
+// unpublished preserves the stage without logging an error that may contain private payloads.
+func (o *observer) unpublished(stage string) error {
+	o.count(counterErrPrefix + stage)
+	o.opt.Log.Warn("observer: tool capture unpublished", "stage", stage)
+	return ErrUnpublished
 }
 
 // count bumps a counter. It is nil-safe on Options.Metrics and is the only place in this package
