@@ -354,7 +354,8 @@ func TestModeOffSkipsIngest(t *testing.T) {
 }
 
 // TestNAKDuplicateIsDedupedOnDrain: a request WAL'd and NAK'd under HotSpool, then duplicated by
-// the client's own spool, is dispatched exactly once when drained.
+// the client's own spool, is dispatched once by this daemon's shared in-memory dedup window.
+// Fresh-process redelivery remains possible without a durable acknowledgement.
 func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	t.Parallel()
 
@@ -392,6 +393,9 @@ func TestNAKDuplicateIsDedupedOnDrain(t *testing.T) {
 	spoolPath := filepath.Join(paths.Of(root).Spool, "client-99999.ndjson")
 	require.NoError(t, os.MkdirAll(filepath.Dir(spoolPath), 0o700))
 	require.NoError(t, os.WriteFile(paths.Long(spoolPath), append(line, '\n'), 0o600))
+	// No session was registered as live in this fixture. Close its writer before the drainer
+	// retires the inactive WAL; otherwise Windows correctly reports a deletion failure.
+	require.NoError(t, dd.ing.Close())
 
 	n, err := dd.Drain(context.Background())
 	require.NoError(t, err)

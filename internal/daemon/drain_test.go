@@ -71,7 +71,8 @@ func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 	dr = newDrainer(DrainConfig{Root: root, Clock: clk, Dispatch: func(context.Context, ipc.Request) ipc.Response {
 		calls++
 		if calls == 3 { // the first line of the second file
-			st := dr.loadState()
+			st, stateErr := dr.loadState()
+			require.NoError(t, stateErr)
 			fs, ok := st["client-1.ndjson"]
 			sawFirstFileDoneOnDiskEarly = ok && fs.Done
 		}
