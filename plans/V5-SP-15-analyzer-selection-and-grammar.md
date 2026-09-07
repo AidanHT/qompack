@@ -68,6 +68,16 @@ No execution here. Future existing entry points: `go test ./internal/analyzer/..
 
 Fixed inputs, controlled closed-loop repository snapshots and failure recovery are distinct evidence layers. Include baseline variation, failed trials and held-out tasks; task completion/constraints/recoverability dominate, cost and diagnostic divergence remain separate. Old synthetic benchmark files retain their labels and provenance.
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** Split grammar/codec/progress-warning checks from analyzer diagnostic/selector/budget checks on isolated fixtures after their contracts are agreed. Run the relevant existing analyzer/grammar package or real-case selection first; small exact-objective counterexamples belong in this fast lane.
+
+**When broader checks are necessary.** Run actual SP-11 serialization/selection and warning-feedback seams after consumer integration. Full phase5/6 replay, held-out trials and ablations belong to commit 7 or the final V5 policy candidate, with declared sample sizes; keep benchmark timing isolated.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Retain seven numbered future commit identifiers; SP-19 reconciles existing work before assigning a remainder. Compatible tests/contract changes accompany their implementation; no actions occur during planning.
@@ -132,6 +142,7 @@ Start independent A and C slices after shared contracts. Schedule B after A's co
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] M5-G15-A/B/C and M6-G15-A/B have versioned artifacts or explicit optional-disabled disposition.

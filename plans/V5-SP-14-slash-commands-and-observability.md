@@ -71,6 +71,16 @@ Future existing commands: `go test ./internal/commands ./internal/pluginmanifest
 | SP14-M7-03 | Cost categories, retries/aborts and estimate/invoice distinctions survive display; cheap wrong result cannot pass |
 | SP14-M7-04 | Help and generated command documentation match installed schemas; unsafe unsupported features not advertised |
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** Command names, text/JSON/exit parity, missing usage and help/schema fixtures can be checked as independent small groups in commands/pluginmanifest; add the affected CLI, daemon or MCP consumer checks when wiring changes. Keep the existing single frontend writer and optional fixture worker.
+
+**When broader checks are necessary.** Run real command-to-retrieval/checkpoint/status seams after those consumers are integrated. Installed discoverability and generated-help parity belong to the matching final artifact; full replay/race/coverage are not triggered by a rendering or help-only edit.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Eight future commits retain original numbering and areas. Each includes meaningful failing contract cases, compatible implementation, relevant validation artifacts and rollback notes; no existing work is replayed merely to match a number.
@@ -125,6 +135,7 @@ Main can retain the helper's work when it is too small to justify a child. Run t
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] SP14-M2/M3/M7 gates preserve errors, scope, authority, recovery and telemetry uncertainty.

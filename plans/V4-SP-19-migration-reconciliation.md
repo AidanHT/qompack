@@ -118,6 +118,16 @@ For M0-G0, inspect delivered tests and their recorded results first. After each 
 | M0-G5 accounting | Missing/retry/aborted/compaction/subagent usage remains attributed or unknown, with category sums and rate-schedule provenance; no invoice claim from an estimate |
 | M0-G6 baseline | Original metric outputs preserved; corrected labels/corpus changes separately versioned; SP02-D1–D6 resolved together or explicitly blocked |
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** After the existing M0-G0 prerequisite, check changed observation/lifecycle, hook contract, settings, usage arithmetic and provenance cases in separate bounded groups. The new daemon observation writer and its contract storage need explicit same-tip race coverage of actual concurrent paths; inspect instrumentation instead of waiting on unrelated e2e. Host canaries use separate disposable sessions.
+
+**When broader checks are necessary.** Preserve completed M0-00/SP-19 runs; this revision does not restart them or cancel another session's process. Whole-tree/canary/accounting acceptance belongs to the integrated SP-19 candidate and M0-G1–G6 dispositions. Finish useful race coverage or record an interrupted remainder under R2; an old M0-00 pass is never a substitute for new-writer coverage. A final report-only commit needs documentation checks and provenance, not a fresh eleven-step chain.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Future implementation only; eight small conventional commits at most, no attribution trailers. Retain any already-completed equivalent work and create only the required remediation delta. Each row includes its contract/test before compatible implementation and retained validation evidence.
@@ -158,6 +168,7 @@ Before M0-G0, use one inventory child and one read-only contract analyst where u
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] M0-G0 records all four completed deliveries integrated and independently accepted before M0-01–05 or commits 1–8 began; final baseline and branch ancestry are retained as evidence.

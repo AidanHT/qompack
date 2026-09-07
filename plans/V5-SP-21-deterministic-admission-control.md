@@ -94,6 +94,16 @@ No tests run in this planning pass. Future TDD starts with contract failures. Ex
 | T21-QUALITY-01 | Supported task completion/constraints/recoverability compared to unmodified output on controlled held-out tasks; failures and uncertainty retained, no cost-only win |
 | T21-ROLLBACK-01 | Disable/pass-through and compatible-reader-or-backup rollback before/after schema write |
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** Run schema/parser/fidelity/budget and pass-through/recursion cases as short independent groups on frozen admission contracts. Resolve actual test names after the proposed package exists. Test capture ordering and authorized handle resolution against real SP-20/SP-13 seams before drawing integration conclusions.
+
+**When broader checks are necessary.** Reserve competing-hook/installed-host, pre/post-write rollback and controlled unmodified-output comparisons for the integrated opt-in candidate. Every T21 gate remains required for enablement, including quality and missing-baseline failure cases; isolated unit success does not enable admission.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Future six-commit proposal, all unchecked and requiring separate authorization.
@@ -136,6 +146,7 @@ After main fixes shared types and test contracts, A/B can author disjoint slices
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] M1–M3 and target/privacy prerequisites are complete.

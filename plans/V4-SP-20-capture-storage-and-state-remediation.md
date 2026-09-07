@@ -138,9 +138,19 @@ No tests, builds, benchmarks, probes, generators, installers, or Git actions run
 | T20-M2-04 | Denied path, symlink, encoding, size/decompression, secret logging, command/external-service replay; **M2 + SP-13 owner**; authorization audit |
 | T20-OPT-01 | Measured need for SQLite/FTS and patched WAL/backup/recovery proof; **M1 owner**; adoption decision or retained filesystem-store evidence |
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** Split raw-fidelity/event identity, publication/frontier, delta/GC, importer/rollback and state/negative-knowledge cases into independently owned short groups, reusing the shared fixture/V4 worker. Deliberate crash/reader/writer interactions stay inside one isolated scenario; cover every T20 boundary across the groups.
+
+**When broader checks are necessary.** Run real SP-13/M3 recovery seams when their producers/consumers are ready. Complete the full publication crash matrix, legacy parity, rollback and final integrated gates once per applicable candidate; splitting groups cannot omit crash cuts or reinterpret incomplete historical data. Keep quiet measurements separate.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
-All commits are future, conventional, and contingent on separate implementation authorization. They retain the SP-20 identifier without asserting present completion.
+All commits are future, conventional, and contingent on separate implementation authorization. They retain the SP-20 identifier without asserting present completion. Independent authoring and fixture preparation may overlap under the schedule below; the integration owner still lands the eight commit units in the listed order with their compatibility changes and required validation. Parallel authoring does not authorize concurrent schema edits, merges or data cutovers.
 
 | Commit | Scope and validation gate |
 |---|---|
@@ -165,16 +175,35 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 |---|---|---|
 | Storage/publication owner | Fable 5.1 / high | External objects, index/frontier acknowledgement, legacy compatibility and GC interact across crash boundaries; main may retain this work when it already holds that context |
 | State/negative-knowledge owner | Opus 4.8 / high | Bounded authority, supersession and uncertainty work against the frozen producer contract; no storage-schema redesign |
-| Migration/fixture tester | Opus 4.8 / high | Design repeat/import/crash/rollback cases in separately assigned files and disposable stores; medium only for collecting known artifact fields |
+| Migration/fixture tester and early V4 verification owner | Opus 4.8 / high | One shared assignment designs repeat/import/crash/rollback cases and maps them to V4 requirements in separately assigned files and disposable stores; medium for collating known artifacts, low for exact inventory only |
 | Independent integrity/trust reviewer | Fable 5.1 / high | Inspect the actual publication/import/GC evidence and authorization assumptions; must be a different thread from the storage author |
 
-Storage and state may overlap only once envelope ownership and compatibility are settled. A fixture worker is the optional third slot; no two roles edit one fixture, and import/cutover writers remain serialized. Finish or pause the Fable author before starting the independent Fable reviewer so only one is active. Never reuse the author's thread as its independent reviewer. Stop added parallelism when shared-schema churn or lock/test interference appears; retain actual failures and reduce concurrency. Neither model agreement nor a worker summary satisfies the crash, legacy-reader or backup/rollback gate.
+Storage and state may overlap once envelope ownership and compatibility are settled. Use one coordinator and one shared pool across SP-20 and cooperating V4-VERIFY work: at most three active children in total, at most one Fable, no nested delegation, also counting other coordinated SP-14–21 children under R1. Start the two author roles when ready; the migration/fixture role can occupy the third slot for independent V4 preparation without launching a second verification team. Main may retain an author role and use the freed slot for another ready task. No two roles edit one file or fixture; import/cutover writers remain serialized. Finish or pause the Fable author before starting the independent Fable reviewer in a different thread. Reuse author threads for their own fixes, never as their independent reviewers. Reduce concurrency on schema churn, memory pressure or lock/test interference; retain actual failures. Neither model agreement nor a worker summary satisfies the crash, legacy-reader or backup/rollback gate.
+
+### Parallel delivery and V4 handoff
+
+This future schedule implements [V4-VERIFY parallel preparation and validation](V4-VERIFY-checkpoint-rehydrate-schedule-retrieval.md#12-parallel-preparation-and-validation). Dispatch ready work as its inputs become available; do not wait for every author to finish before reviewing an accepted slice or preparing the next consumer check. Review the first substantive delegated slice before expanding the assignment under R1. Keep concise handoffs in the existing planning/evidence and future V4 report conventions; no new orchestration service is required.
+
+| Readiness gate | Work that may overlap | Required handoff and serial boundary |
+|---|---|---|
+| SP-19, including accepted M0-G0 and shared architecture/schema contracts | Storage/publication author develops M1; state author develops M2 against the agreed envelope; shared fixture/V4 owner inventories actual tests and prepares independently owned cases | Coordinator records accepted integration HEAD, contract/version, exact source/test ownership and disposable resource allocation. Verify previously recorded merges; do not repeat completed integrations. Changed shared contracts return to the coordinator before dependent authoring resumes |
+| First contract slice reviewed; individual producer or fixture becomes available | Fixture/V4 owner checks that slice while authors continue disjoint work. State fixtures need not wait for all storage/GC/import work; actual state-to-store tests wait for their real producer | Each handoff names snapshot, schema/interface revision, requirement IDs, changed files, actual artifacts and missing consumers. Commit 6/7 authoring can overlap M1 work, but integration keeps commits 1–8 in order. Contract fixtures alone do not establish runtime compatibility |
+| Accepted M1/M2 producer slices are integrated | SP-13's existing owner can prepare or validate its corresponding consumer correction; V4 lifecycle/retrieval checks can use the available composed slices while unrelated remediation continues | SP-13 keeps MCP file ownership and consumes a pinned producer contract. It uses an available slot in the same pool. Cross-component results on intermediate snapshots are provisional; no M1–M3 enablement or final V4 signoff follows from them |
+| Accepted remaining SP-19/M0 corrective work, SP-20 and required SP-10–13 consumer corrections are integrated and ready for acceptance | V4 owners divide final validation by requirement and resource availability; independent reviewer reads stable artifacts while compatible checks run | Final V4 evidence uses the common accepted candidate, including SP-19 M0-G1–G6 corrections and all required producers and consumers. Candidate files are immutable during validation. Final integration, quiet performance measurements, backup/cutover and acceptance retain their explicit serial gates |
+
+The fixture/V4 owner maintains one requirement-to-check map for T20-M1-01–08, T20-M2-01–04 and conditional T20-OPT-01, including their V4 row IDs. Reuse one actual artifact for multiple requirements only when its assertions cover each one. Review definitions and confirm any future test selection matches real cases; a zero-test success is not evidence. Assign a single runner to each distinct check on a snapshot, rather than making every role rerun the whole suite. Per-commit checks cover touched packages and affected consumers under R2; the coordinator schedules broader validation only at its named integration gate or for a documented regression question.
+
+Future write-producing checks use separate worktrees/copies at the recorded HEAD with separate stores, spools, checkpoints, backup destinations and daemon/IPC identities. Resolve fixtures and resource paths explicitly before concurrent execution. Never run two migration writers, a destructive crash case and a reader, or GC and rollback against the same test store except inside the single owned scenario that deliberately tests that interaction. Parallel isolated scenarios are permitted; shared data publication and cutover keep one owner. Keep production/user data outside those fixtures.
+
+Validation scheduling follows V4-VERIFY §1.2: source/test authoring and read-only review may overlap independent work, but CPU-heavy suites already contain parallel package execution. Use one heavy validation job per machine initially; add another only with observed resource headroom and no timing interference, or use an already available independent runner. Quiet timing gates have exclusive runner access. A blocking dependency moves the worker to another ready assignment or ends the child; do not pay for idle polling or duplicate research. Record elapsed time, retries and exposed usage to assess this proposed efficiency policy; no speed or cost improvement is certified by the plan.
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 All criteria are future and unchecked.
 
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+- [ ] Parallel handoffs record accepted inputs, unique file/resource ownership and one shared SP-20/V4 worker pool; provisional checks remain distinct from final integrated acceptance, with every T20 gate mapped to a real check and artifact.
 - [ ] M1 captures or explicitly qualifies raw-host fidelity before every derivative and preserves event/content identity and ordering gaps.
 - [ ] Durable publication, bounded deferred indexing, SP05-D1 recovery, and capture-failure non-replacement are demonstrated with artifacts.
 - [ ] Delta, GC, quota/expiry, and SessionEnd recovery preserve every declared root class.
@@ -193,7 +222,7 @@ All criteria are future and unchecked.
 - [ ] It makes raw fidelity, provenance, transforms, hashes, coverage, identity, observed/arrival ordering, publication, migration, GC, and state authority explicit.
 - [ ] It places native output admission in SP-21 after M1–M3, with no eviction claim.
 - [ ] It records SP-19 → SP-20 → SP-13 → M3 enablement dependencies.
-- [ ] This planning pass changes only this Markdown file and the permitted SP-13 plan; no validation commands were run.
+- [ ] Planning edits stay within the assigned Markdown scope recorded in the ledger; the parallelism follow-up changes only SP-20, V4-VERIFY and the ledger, with no implementation validation commands run.
 
 ### Rollout, rollback and blockers
 

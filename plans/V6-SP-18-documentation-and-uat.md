@@ -89,6 +89,16 @@ Existing future commands: `go run ./tools/devtool gen-config-docs --check`, `go 
 | SP18-M7-06 | Docs and UAT describe/report backup, independent switches and rollback before/after new writes consistently |
 | SP18-M7-07 | Claims omit unsupported control/performance/price/completeness guarantees; independent reader review |
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** For prose-only commits use affected link/anchor, capability-claim and UAT-shape checks; do not run whole-tree test/race/coverage/replay just because a Markdown file changed. Generator or metadata changes additionally require the affected generator/config tests and existing staleness checks. The proposed docs package must exist before using its command.
+
+**When broader checks are necessary.** Keep source-product evidence bound to SP-17's tested artifact and record documentation HEAD separately. UAT-01–12 still require actual human results or explicit unverified dispositions. Independent UAT projects may overlap if people/resources are available; each scenario's lifecycle and backup/upgrade sequence remains intact.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Seven future conventional commits retain original areas and numbers; no attribution trailers. Each starts with a meaningful documentation contract test where needed, then its supported doc/generator change, validation evidence and rollout/rollback note. No old implementation is repeated solely to match these identifiers.
@@ -152,6 +162,7 @@ Start with two ready disjoint documents; use a third slot only for another indep
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] SP18-M7-01–07 match actual installed release scope and evidence.

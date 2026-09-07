@@ -66,6 +66,16 @@ No tests run now. Existing future commands: `go test ./internal/store/... ./inte
 
 Correctness and recoverability gates are independent of lower token cost. Preserve historical synthetic outputs, include failures and re-reading of changed files as potentially useful work.
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** Use separate short scope/expiry/authorization, filter-watermark, retrieval-reminder and serialized-promotion cases while the main owner retains coupled implementation. An optional fixture worker may run independent cases in its own store; shared-state interactions stay one owned scenario.
+
+**When broader checks are necessary.** Run real SP-13/SP-11/SP-15 consumer and maintenance/recovery seams once their inputs are integrated. Full phase7/held-out evaluation belongs to commit 7 or the final V5 policy candidate. Optional disabled policies need a recorded disposition rather than unnecessary experimental runs.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Seven original identifiers retained; reconcile any existing work first, then implement only the separately authorized remainder.
@@ -119,6 +129,7 @@ SP-12 retains ski-rental ownership; SP-15's consumer handoff still precedes shar
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] M6-G16-A–E have actual versioned artifacts or optional-disabled disposition.

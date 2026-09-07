@@ -14,6 +14,16 @@ Future fixes use the existing verification branch/worktree convention and small 
 
 Retain future groups A–H: A foundation/evaluation, B sketches/chunk/canon/symbols, C daemon/store, D DAG/observer, E negknow/checkpoint, F rehydrate/rules/skills/scheduler, G MCP/commands, H analyzer/grammar/reuse. Add SP21 adapter/recovery checks to G with H's representation contract handed off; C/E/MCP owners consume SP20 remediation. Main owns shared composition/configuration and reviewed file assignments. SP-12 retains ski-rental file ownership; H does not edit it. An independent correctness/cost reviewer reads the combined artifacts.
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every command catalog, commit and acceptance row below. Broad commands are available entry points, not a per-edit/per-owner execution list. Use focused real cases first and require a named reason for each long run; preserve coverage, failure artifacts and explicit incomplete states. No execution occurs during planning.
+
+Map existing A–H responsibilities to a few actual run groups rather than launching one suite per owner: command/status/MCP seams; analyzer/grammar/selector cases; and scope/filter/promotion/recovery cases. Dispatch ready independent short groups on isolated resources, preserving SP15→SP16→SP14 integration and SP21's M1–M3 gate. Full phase5/6/7 replay, held-out comparisons and admission quality trials run at their named final policy gate, with their full declared coverage/sample design. A known e2e race timeout is not a required ritual: inherit V4's reviewed race/e2e split or retain a named coverage blocker.
+
+Keep one integrated V5 source candidate and share actual artifacts across all retained inventory rows. Recheck changed producers and consumers before scheduling broader regression. The coordinator assigns each distinct mode/platform/corpus job once; package-level parallelism is counted before adding concurrent processes. Quiet performance checks and shared-state scenarios remain isolated. Final V5 still requires the complete inventory, actual consumer/recovery evidence and all enabled admission gates; shorter runs cannot waive them.
+
+Reuse the existing logical owners and R1 model/effort/fallback policy: Opus 4.8 high for substantive validation, low/medium only constrained inventory/collation, Fable 5.1 high for a necessary independent critical review. All cooperating SP14–21 and V4–V6 work shares at most three active children, one Fable, no nesting; narrower plan limits remain. The coordinator owns run allocation, final report and acceptance. Do not buy extra capacity or create configuration to force parallelism.
+
 ## 2. Cumulative functionality inventory
 
 The original row identifiers remain below as reconciliation references. For each ID, the future inventory owner records the actual current test definition, revised assertion, result/artifact and any retirement/replacement reason. Old test names or historical checked reports are not proof of a current requirement. No row is silently discarded; obsolete success assertions use the current criterion in its owner plan. Existing package tests are inspected before adding missing entry points.
@@ -122,6 +132,7 @@ Retained IDs: `I-16.1`, `I-16.2`, `I-16.3`, `I-16.4`, `I-16.5`, `I-16.6`, `I-16.
 
 ## 3. Exit-criteria re-verification
 
+- [ ] R2 run map accounts for focused/parallel groups, each justified long gate, actual instrumented coverage, current candidate/artifact identity and every incomplete result; no duplicate per-row whole-tree runs or unreviewed coverage substitutions.
 - [ ] Carry V4's actual mandatory results and unresolved disabled capabilities without rewriting history.
 - [ ] SP14 command/JSON/exit/status/request-ledger behavior matches the supported plugin.
 - [ ] SP15 selection reaches the real future Qompack consumer with one compatible representation, closure, deterministic ties and complete overhead/overflow.

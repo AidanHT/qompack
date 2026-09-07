@@ -12,6 +12,16 @@ Use current source and test definitions, [architecture §0.1](00-ARCHITECTURE.md
 
 Future fixes use the existing verification branch/worktree convention and small conventional commits, no attribution trailers. Proposed sequence: (1) inventory/contract regressions, (2) compatible corrections with fixtures, (3) migration/recovery integration, (4) controlled evaluation/packaging evidence, (5) report/rollback handoff. The coordinator owns shared integration, commits and report; subagents receive exact exclusive test/source scopes only after implementation is authorized. Planning model requests do not select product models.
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every command catalog, commit and acceptance row below. Broad commands are available entry points, not a per-edit/per-owner execution list. Use focused real cases first and require a named reason for each long run; preserve coverage, failure artifacts and explicit incomplete states. No execution occurs during planning.
+
+Begin with short checks of changed package/launcher/schema, permission/path, archive/recovery and documentation/UAT contracts. Independent platform and installed-package scenarios may overlap on already available isolated runners; each scenario keeps its own bundle identity, installation, store, IPC and backup. Reuse SP17/SP18 work within this checkpoint through one requirement-to-artifact map rather than rerunning a release matrix per reviewer or UAT row.
+
+The longer supported-platform installation/upgrade/uninstall, failure/rollback, human UAT and held-out release evaluations remain final release obligations. Run them against the identified artifact once per required mode/scenario/trial, after focused prerequisites pass. Preserve all original inventory/UAT identifiers and required samples; no historical-source pass certifies a different installed bundle. Use V4's reviewed race/e2e contract, independently instrumenting child product paths when race coverage requires it. Report-only/prose changes use R2's separate tested-source and documentation HEADs; they do not automatically repeat the release suite.
+
+Reuse the existing logical owners and R1 model/effort/fallback policy: Opus 4.8 high for substantive validation, low/medium only constrained inventory/collation, Fable 5.1 high for a necessary independent critical review. All cooperating SP14–21 and V4–V6 work shares at most three active children, one Fable, no nesting; narrower plan limits remain. The coordinator owns run allocation, final report and acceptance. Do not buy extra capacity or create configuration to force parallelism.
+
 ## 1. Cumulative functionality inventory
 
 The original row identifiers remain below as reconciliation references. For each ID, the future inventory owner records the actual current test definition, revised assertion, result/artifact and any retirement/replacement reason. Old test names or historical checked reports are not proof of a current requirement. No row is silently discarded; obsolete success assertions use the current criterion in its owner plan. Existing package tests are inspected before adding missing entry points.
@@ -132,6 +142,7 @@ Retained IDs: `1.18.1`, `1.18.2`, `1.18.3`, `1.18.4`, `1.18.5`, `1.18.6`, `1.18.
 
 ## 2. Exit-criteria re-verification
 
+- [ ] R2 run map accounts for focused/parallel groups, each justified long gate, actual instrumented coverage, current candidate/artifact identity and every incomplete result; no duplicate per-row whole-tree runs or unreviewed coverage substitutions.
 - [ ] Reconcile SP01–18 original row families and SP19/20/21 additions against actual supported release scope.
 - [ ] SP17-M7-01–08 and SP18-M7-01–07/UAT-01–12 have inspected artifacts on the shipped package.
 - [ ] M0–M6 enabled capabilities retain actual target/failure/compatibility evidence; missing host integration cannot be signed off as passed.

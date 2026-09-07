@@ -80,6 +80,16 @@ Existing future commands: `go run ./tools/devtool plugin-validate`, `go run ./to
 | SP17-M7-07 | Release benchmark includes primary task/constraint/recovery outcomes, uncertainty and complete-or-unknown accounting |
 | SP17-M7-08 | Supported platforms/licenses/version/name checks and rollback rehearsal are attached; no unsupported feature advertised |
 
+### Focused validation and bounded parallel runs
+
+Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
+
+**Short checks to dispatch first.** Check changed manifest/launcher/version, path/permission, fsck/doctor and archive-validation cases first. Independent platform or fault cases may run in parallel only with separate installed bundles, stores and existing available runners; inspect actual process cost before scheduling.
+
+**When broader checks are necessary.** Reserve full build/platform/security, installed-host, crash/upgrade/rollback and release evaluation for their named commits or the frozen release artifact. Share matching SP-20/V4/V5 evidence as context, but perform the installed-artifact checks required by SP17-M7-01–08 and V6; earlier source snapshots do not certify a new bundle.
+
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+
 ## Commit plan
 
 Eight future commits retain original numbering/areas, conventional subjects and no attribution trailers. Meaningful tests precede the compatible change; each future commit retains command/result artifacts and updated rollback notes. Preserve already implemented equivalent work after reconciliation.
@@ -148,6 +158,7 @@ A establishes the artifact/version contract first. B/C/D may then occupy up to t
 
 ## Exit criteria
 
+- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
 - [ ] SP17-M7-01–08 and V6 primary quality/recovery gates have actual evidence or a documented reduced release scope.
