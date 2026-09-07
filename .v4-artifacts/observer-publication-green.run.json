@@ -1,0 +1,17 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=10m -run '^(TestOnToolUse|TestObserver|TestWireObserver|TestModePassiveStillWrites|Test.*(Drain|Ingest|RunIngested))' ./internal/observer ./internal/daemon",
+  "head": "f6a86918f628d15d8844e569e5ebcde53a349ff3",
+  "started": "2026-09-07T23:49:07.9711974Z",
+  "stage": "provisional observer acknowledgement correction",
+  "files": {
+    "internal/observer/doc.go": "612E3802FD0088DE9944433082F4806AB88E3B0D969CB40CF20A1E9645BFDCC1",
+    "internal/observer/tooluse_test.go": "06B305BF37A5C06323CFEFFAE34256E1CB76C0E88AB1826EB05E1806FEC7D022",
+    "internal/observer/observer.go": "AAC75E4FF2412B9199FD4FA2DE2054D9265FD7640CBB71EB7E6950479CE0E81C",
+    "docs/adr/0013-migration-contracts.md": "E55FE7570E4DB5483B08BADF71F0B04263F092658287B06C74DCFED78786D8B7",
+    "internal/daemon/daemon.go": "6CE0CC62169D28AB7B0CE840BC6C57F37E4904A81418B442626C11B3958F96BD",
+    "internal/observer/tooluse.go": "1B0D965455359EEAE3E383159340CBD522E23211415B4F87F5F5F1E303E5AF8F",
+    "internal/daemon/observer_publication_test.go": "96CE80CB7594B569E19920071BB6FD3888DCF35BD53B18D61E16002A34D32500"
+  },
+  "exit": 0,
+  "elapsed_seconds": 30.1124658
+}

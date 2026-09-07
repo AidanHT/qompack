@@ -91,9 +91,9 @@
 //     CMS, HLL or Misra-Gries, because retrieval is not exploration. It still gets DAG nodes and
 //     a tombstone.
 //
-//  7. Error policy. No I/O failure ever escapes an Observer method. Every stage is wrapped by a
-//     soft-failure helper that increments observer.err.<stage>, logs at Warn, and returns. The
-//     methods return a non-nil error ONLY for ctx.Err(). Every method returns hookio.Empty()
+//  7. Error policy. Required tool content/reference failures return ErrUnpublished to keep daemon
+//     work retryable. Secondary stages use a soft-failure helper; prompt/stop recovery still needs
+//     its separate M1 correction. All methods can return ctx.Err(). Every method returns hookio.Empty()
 //     unless it has a specific reason to emit: exactly two exist — OnUserPrompt may emit a thrash
 //     warning, and only in ModeFull, and OnSessionStart returns verbatim whatever the Rehydrator
 //     seam returns for source compact or clear. Counter bumps go through one nil-safe helper,

@@ -726,7 +726,7 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 	case ipc.OpObserveTool:
 		if d.svc.ObserveTool != nil {
 			if err := d.svc.ObserveTool(ctx, *ev); err != nil {
-				d.log.Warn("daemon: ObserveTool failed", "err", err)
+				d.log.Warn("daemon: ObserveTool failed")
 				return ipc.Response{Err: "observation handling failed"}
 			}
 		} else {
@@ -740,7 +740,7 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 		subagent := decodeSubagent(req.Raw)
 		if d.svc.ObserveStop != nil {
 			if err := d.svc.ObserveStop(ctx, *ev, subagent); err != nil {
-				d.log.Warn("daemon: ObserveStop failed", "err", err)
+				d.log.Warn("daemon: ObserveStop failed")
 				return ipc.Response{Err: "stop handling failed"}
 			}
 		} else {

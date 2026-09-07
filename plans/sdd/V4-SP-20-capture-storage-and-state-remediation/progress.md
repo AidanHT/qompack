@@ -71,6 +71,40 @@ active children. The independent packet is in the preparation worktree at
 
 ## Mandatory remaining work
 
+### Provisional observer acknowledgement correction
+
+On source `f6a8691` plus the hashes in `observer-publication-*.run.json`, required tool
+content/reference failures now return generic `observer.ErrUnpublished` wrapping
+`core.ErrDegraded`. A failed reference stops remembered-use, file-history, graph, sketch,
+grammar and signal publication. The daemon returns an internal NAK and keeps live work out of
+the completed seen set, so the WAL can retry it. Host output stays empty. Observer stage
+counters remain available; neither the observer nor daemon log records backend error text on
+this failure path.
+
+The historical `TestOnToolUse_PutFailureIsSoft` and
+`TestOnToolUse_IndexFailureStillFeedsSketchesAndDAG` assertions are replaced by
+`TestOnToolUse_PutFailureRemainsUnpublished` and `TestOnToolUse_IndexFailureStopsPublication`.
+`observer-publication-red` records both old behaviors failing the revised criteria.
+`observer-publication-green` passes the affected observer/daemon/drain/ingest race selection
+in 30.112 s (observer 5.691 s; daemon 5.067 s). After independent review requested explicit
+error wrapping and privacy assertions, `observer-publication-privacy` passes the three changed
+tests under race in 26.391 s (observer 3.166 s; daemon 4.052 s). Only test assertions changed
+between those runs, so the unchanged broader selection retains its provisional coverage.
+`observer-publication-guards.run.json` records formatting and affected-package vet.
+
+The shared V4 fixture worker owned only `internal/daemon/observer_publication_test.go`; its
+real store and WireObserver fixture injects object/reference failures, verifies the retained
+WAL and incomplete seen state, repairs the store wrapper and drains the original delivery.
+The fixture explicitly closes its inactive WAL writer before deletion on Windows. Independent
+Terra/high review authored none of the source/tests and accepted this bounded correction in
+the preparation worktree's review packet. Effective model/effort and usage were not exposed.
+No host session, user store or final integrated candidate was exercised.
+
+This is a failure acknowledgement correction, not a durable publication commit protocol.
+Successful legacy store calls still do not prove object/index sync, delivery identity, leases
+or a committed frontier. Prompt and stop failure/retry semantics remain required separate
+work; this test does not cover them.
+
 This correction does not close SP05-D1 or T20-M1-05 as a whole. A client may publish a fallback
 after the spool-reference scan; a durable delivery/lease ledger must protect that late
 reference. Distinct equal-byte deliveries still need distinct ObservationIDs, durable sequence

@@ -99,6 +99,17 @@ old readers ignore sidecars, and no old artifact changes shape.
 
 ## Consequences
 
+**Compatible failure correction (SP-20 / V4 preparation).** The retained observer method
+signatures and host output shapes stay unchanged. `OnToolUse` now returns the additive
+`observer.ErrUnpublished` (wrapping `core.ErrDegraded`) when its content or tool-use reference
+write fails. The daemon treats that internal result as retryable work; it never replaces or
+denies the host's original result. No derived graph, file history, remembered-use or sketch
+publication follows a failed tool-use reference write. Error counters retain the failed stage
+without persisting the backend error text. This supersedes SP-08's historical all-I/O-soft
+assertions for these two required writes. Prompt/stop acknowledgement, privacy at ingress,
+durable sync/frontier, restart identity and publication leases remain separate M1 requirements;
+success of the legacy store calls does not certify those gates.
+
 - SP-20 M1 can begin from a fixed identity/envelope contract without touching `checkpoint` or
   `mcp`; SP-13 consumes the envelope through the composition root; SP-10/SP-12 have one owner for
   the draft and a port to implement/consume; SP-11 gets the ledger through the handle instead of

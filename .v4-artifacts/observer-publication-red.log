@@ -1,0 +1,15 @@
+--- FAIL: TestOnToolUse_PutFailureRemainsUnpublished (0.00s)
+    tooluse_test.go:193: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/observer/tooluse_test.go:193
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestOnToolUse_PutFailureRemainsUnpublished
+        	Messages:   	a failed capture must remain retryable
+--- FAIL: TestOnToolUse_IndexFailureStopsPublication (0.00s)
+    tooluse_test.go:207: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/observer/tooluse_test.go:207
+        	Error:      	An error is expected but got nil.
+        	Test:       	TestOnToolUse_IndexFailureStopsPublication
+        	Messages:   	a failed reference write must remain retryable
+FAIL
+FAIL	github.com/qompack/qompack/internal/observer	0.226s
+FAIL
