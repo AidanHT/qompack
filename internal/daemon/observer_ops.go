@@ -58,8 +58,16 @@ func WireObserver(o *Options) (observer.Observer, error) {
 		clk = core.SystemClock()
 	}
 
+	// One extractor, shared by the store and the observer below. store.Deps.Symbols backs
+	// Query.Symbol and the §8.7 symbol-aware span widener; leaving it nil does not fail, it
+	// silently disables both, which is why SP-11 supplies it here rather than leaving the gap for
+	// a later branch to find by its absence.
+	syms := symbols.New()
+
 	if o.Store == nil {
-		st, err := store.Open(o.ProjectRoot, o.Cfg, store.Deps{Log: log, Metrics: o.Metrics, Clock: clk})
+		st, err := store.Open(o.ProjectRoot, o.Cfg, store.Deps{
+			Symbols: syms, Log: log, Metrics: o.Metrics, Clock: clk,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("daemon: wire observer: open store: %w", err)
 		}
@@ -87,6 +95,13 @@ func WireObserver(o *Options) (observer.Observer, error) {
 	var modeSrc func() contract.Mode
 	sched := o.Sched // nil through wave 2; captured so the callbacks below need no *Options
 
+	// The L5 seam (00-ARCHITECTURE.md §5.21): SessionStart's source switch delegates compact and
+	// clear to this rather than calling into a wave-3 package directly. WireRehydrator reuses the
+	// store and graph opened above — never a second handle on the same project root — opens the
+	// ledger and checkpoint reader nothing else opens yet, and binds Services.Rehydrate, which is
+	// the sole condition DeclareProducers tests before declaring contract.CAdditionalContext.
+	rehydrator := WireRehydrator(o)
+
 	obsv, err := observer.New(observer.Options{
 		ProjectRoot: o.ProjectRoot,
 		Cfg:         o.Cfg,
@@ -96,11 +111,12 @@ func WireObserver(o *Options) (observer.Observer, error) {
 		// The raw sketch pointers, NOT SketchSet.Write: the observer serializes its own feeds and
 		// owns the sketch files' SessionEnd write (see internal/observer/session.go) precisely
 		// because these hand-overs leave SketchSet.dirty false.
-		Touch:   o.Sketches.Touch,
-		Explore: o.Sketches.Explore,
-		Hot:     o.Sketches.Top,
-		Tokens:  tokens.NewForProject(o.Cfg, tokens.DefaultCalibPath(), o.ProjectRoot),
-		Symbols: symbolAdapter{ex: symbols.New()},
+		Touch:     o.Sketches.Touch,
+		Explore:   o.Sketches.Explore,
+		Hot:       o.Sketches.Top,
+		Tokens:    tokens.NewForProject(o.Cfg, tokens.DefaultCalibPath(), o.ProjectRoot),
+		Symbols:   symbolAdapter{ex: syms},
+		Rehydrate: rehydrator,
 		Mode: func() observer.Mode {
 			if modeSrc == nil {
 				return observer.ModePassive
