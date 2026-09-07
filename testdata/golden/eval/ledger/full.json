@@ -1,0 +1,204 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "req-turn-1",
+      "kind": "turn",
+      "provider": "example-provider",
+      "model": "example-model",
+      "rate_table_date": "2026-08-23",
+      "pricing_mode": "estimate",
+      "reported": {
+        "cache_read": {
+          "known": true,
+          "value": 120000
+        },
+        "cache_write_1h": {
+          "known": true
+        },
+        "cache_write_5m": {
+          "known": true,
+          "value": 8100
+        },
+        "input": {
+          "known": true,
+          "value": 3300
+        },
+        "output": {
+          "known": true,
+          "value": 900
+        },
+        "thinking_output": {
+          "known": true,
+          "value": 1500
+        }
+      },
+      "missing": [],
+      "retries": 0,
+      "aborted": false,
+      "notes": "cache_write_1h is a KNOWN zero: nothing was written at the one-hour TTL. An unknown count is spelled {\"known\": false} and never collapses to 0."
+    },
+    {
+      "id": "req-turn-1-retry-1",
+      "parent_id": "req-turn-1",
+      "kind": "retry",
+      "provider": "example-provider",
+      "model": "example-model",
+      "rate_table_date": "2026-08-23",
+      "pricing_mode": "estimate",
+      "reported": {
+        "input": {
+          "known": true,
+          "value": 3300
+        },
+        "output": {
+          "known": false
+        }
+      },
+      "missing": [
+        "output",
+        "cache_read",
+        "cache_write_5m",
+        "cache_write_1h",
+        "thinking_output"
+      ],
+      "retries": 1,
+      "aborted": false,
+      "notes": "the retry's usage block was truncated; output is reported-but-unknown, which is a missing category, not a zero one."
+    },
+    {
+      "id": "req-compaction-1",
+      "parent_id": "req-turn-1",
+      "kind": "compaction",
+      "provider": "example-provider",
+      "model": "example-model",
+      "rate_table_date": "2026-08-23",
+      "pricing_mode": "estimate",
+      "reported": {
+        "input": {
+          "known": true,
+          "value": 167000
+        }
+      },
+      "missing": [
+        "output",
+        "cache_read",
+        "cache_write_5m",
+        "cache_write_1h",
+        "thinking_output"
+      ],
+      "estimate": {
+        "micros": 2505000,
+        "currency": "USD"
+      },
+      "retries": 0,
+      "aborted": true,
+      "notes": "the summarization request carries the conversation history and was billed even though the turn aborted; the estimate is a lower bound because five categories are unknown."
+    },
+    {
+      "id": "req-child-1",
+      "parent_id": "req-turn-1",
+      "kind": "child",
+      "provider": "example-provider",
+      "model": "example-model",
+      "rate_table_date": "2026-08-23",
+      "pricing_mode": "subscription",
+      "reported": {
+        "input": {
+          "known": true,
+          "value": 11500
+        },
+        "output": {
+          "known": true,
+          "value": 400
+        }
+      },
+      "missing": [
+        "cache_read",
+        "cache_write_5m",
+        "cache_write_1h",
+        "thinking_output"
+      ],
+      "retries": 0,
+      "aborted": false,
+      "notes": "subagent work under a subscription allowance: any price computed for it is list-price-equivalent and still labelled an estimate, never a cash charge."
+    },
+    {
+      "id": "invoice-2026-08",
+      "kind": "non_token",
+      "provider": "example-provider",
+      "model": "",
+      "rate_table_date": "2026-08-23",
+      "pricing_mode": "invoice",
+      "reported": {},
+      "missing": [
+        "input",
+        "output",
+        "cache_read",
+        "cache_write_5m",
+        "cache_write_1h",
+        "thinking_output"
+      ],
+      "invoice": {
+        "micros": 41230000,
+        "currency": "USD"
+      },
+      "non_token_charges": [
+        {
+          "kind": "web_search",
+          "amount": {
+            "micros": 9500,
+            "currency": "USD"
+          }
+        }
+      ],
+      "retries": 0,
+      "aborted": false,
+      "notes": "reconciled against a provider invoice. An invoice is a separate observation source and is never filled in from an estimate."
+    }
+  ],
+  "schedule": {
+    "provider": "example-provider",
+    "model": "example-model",
+    "date": "2026-08-23",
+    "source": "plans/QOMPACK-ERRATA.md, the v1.3 §5.1 cache-cost verification (sources fetched 2026-08-23): r = 0.1, w = 1.25 at the 5-minute TTL and 2.0 at the 1-hour TTL. Multipliers only; no per-million cash rate is asserted here, so per_million is deliberately empty.",
+    "per_million": {},
+    "cache_read_multiplier": 0.1,
+    "cache_write_5m_multiplier": 1.25,
+    "cache_write_1h_multiplier": 2
+  },
+  "compaction": [
+    {
+      "native_compaction_input": {
+        "known": true,
+        "value": 167000
+      },
+      "qompack_frontier_work": {
+        "known": true,
+        "value": 4200
+      },
+      "added_tokens": {
+        "known": true,
+        "value": 3100
+      },
+      "total_observed_context": {
+        "known": true,
+        "value": 171100
+      }
+    },
+    {
+      "native_compaction_input": {
+        "known": false
+      },
+      "qompack_frontier_work": {
+        "known": false
+      },
+      "added_tokens": {
+        "known": false
+      },
+      "total_observed_context": {
+        "known": false
+      }
+    }
+  ]
+}
