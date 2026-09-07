@@ -27,7 +27,7 @@ divergence from §5 is the single failure mode that makes parallel waves worthle
 
 ### 0.1 v1.5 migration amendment and precedence
 
-This deliberate user-authorized Markdown revision supersedes old behavioral guarantees wherever retained ABI/config/test examples below still encode them. Preserve existing symbols and frozen fixtures for compatible readers; do not implement the old guarantees as new features. SP-19 owns the future `arch/migration-contracts` implementation handoff and inventory of every source/test/config consumer. No fixture or configuration is changed now.
+This deliberate user-authorized Markdown revision supersedes old behavioral guarantees wherever retained ABI/config/test examples below still encode them. Preserve existing symbols and frozen fixtures for compatible readers; do not implement the old guarantees as new features. SP-19 owns the `arch/migration-contracts` implementation handoff — §0.2 below, prepared at M0-02 and binding on M1–M3 owners once approved — and the inventory of every source/test/config consumer (`plans/sdd/V4-SP-19-migration-reconciliation/M0-01-inventory.md`). No fixture is changed; the only configuration change is the additive, gated `runtime.migration` block (§11.5).
 
 | Existing section/surface | Revised contract and future owner |
 |---|---|
@@ -46,6 +46,79 @@ This deliberate user-authorized Markdown revision supersedes old behavioral guar
 The functional migration dependency is M0→M1→M2→M3→M4/M5→M6→M7, not a restart of waves. The user's merge-prerequisite addendum requires SP-19 M0-00 to integrate the completed original SP10→SP11→SP12→SP13 deliveries into `develop` under §9 and pass M0-G0 before the rest of SP-19 starts. Already-integrated deliveries retain their history and require verification, not duplicate merges. Original integration does not establish corrected recovery or authorize deployment; dependent features remain disabled pending M1–M3 gates. Shared identities/envelopes sit below consumers; compose checkpoint/rehydrator/MCP services without circular imports. Schema, daemon wiring, config and checkpoint integration each have one future editor. Package allow-tables are permissions, not proof of an actual dependency.
 
 Planning routing belongs solely to the ledger: Astra coordinator, bounded Luna scouts/Terra writers and independent review, no config changes. Future implementation roles in subplans are not active planning agents. Existing working branches and dirty files are preserved.
+
+### 0.2 Migration contracts (`arch/migration-contracts`, SP-19 M0-02)
+
+**Status:** proposed contract amendment; approval by SP-20, SP-13, SP-10 and SP-11 is required before any of them implements against it, and the SP-19 independent reviewer records each owner's concerns in `plans/MIGRATION-EVIDENCE.md`. Rationale and rejected alternatives: `docs/adr/0013-migration-contracts.md`. Nothing here enables a feature: every behaviour below sits behind a `runtime.migration.*` gate that `config.Validate` refuses while pending (§11.5, `internal/config/migration.go`). Retained public symbols and frozen fixture bytes are not touched; every new field is a versioned sidecar read through a compatible reader.
+
+#### 0.2.1 Versioned identities
+
+| Identity | Definition | Home | Rule |
+|---|---|---|---|
+| `core.ObservationID` | Qompack-assigned per accepted host delivery: `core.HashBytes("qompack.observation.v1", session ‖ arrivalSeq)`, assigned and persisted in the durable spool lease BEFORE the delivery is handled, so a re-delivered line keeps its identity; never derived from content | `internal/core` (SP-20 M1-01 adds the file; additive) | Two deliveries with equal bytes are two observations with one content identity; a host `tool_use_id` is carried verbatim as `HostID` when supplied and absent otherwise — never synthesised |
+| Content identity | The existing `core.Hash` root of the canonicalised content (`store.Root`) | unchanged | Shared by equal content; never a substitute for event identity |
+| Ordering | `ArrivalSeq` (a per-session sequence assigned at lease time and resumed from the lease/ack log after a daemon restart, so it never restarts at zero) beside the observed `Turn`, `ParentHostID`, `Session`, `Worktree` exactly as the host supplied them; missing relationships are listed in `Gaps` | sidecar envelope | Observed order and arrival order are recorded separately; neither is inferred from the other |
+| Envelope version | Every new on-disk record carries `v` (schema), `transform` (canonicaliser registry version) and `hash` (`sha256/v1`) | sidecar envelope | A record without an envelope has fidelity `unknown`, not `exact`: an additive contract cannot read an old missing field as complete evidence |
+| Fidelity, coverage, outcome, authority | `core.Fidelity` ∈ {exact, prefix, partial, redacted, truncated, binary, failure, unknown}; `core.Coverage` ∈ {qompack_included, archive_only, native_load_observed, expired_deleted, unknown}; `core.EvidenceOutcome` ∈ {ok, absent, unavailable, denied, corrupt, expired, uncertain}; `core.Authority` ∈ {user_correction, explicit_decision, tool_observation, candidate_extraction, hypothesis, conflict} | `internal/core` | Enumerations are closed and versioned; consumers receive them through composition roots, never by importing a sibling layer (no `checkpoint` ↔ `mcp` or `checkpoint` ↔ `rehydrate` edge) |
+
+The sidecar is `index/observations.jsonl` (append-only, keyed by `ToolUseID`); `ToolUseRecord`'s wire line, `checkpoints/NNNN.json`, `records/eliminations.jsonl` and every §16 fixture keep their bytes.
+
+#### 0.2.2 Durable publication and the frontier
+
+1. **Order.** Durable object (`store` object file, fsynced) → verified references (index lines naming the object, appended only after the object is durable and re-verified by hash on read) → committed frontier / checkpoint visibility (`MANIFEST.jsonl` line, `state/frontier.json` acknowledgement). A reference or frontier failure leaves the object as a GC root (`pending write`); a capture failure leaves the host result in place and forbids any handle or pointer that claims it recoverable (SP-21 consumes this rule).
+2. **Acknowledgement.** The spool drain acknowledges a line only after step 2: lease (assigning and persisting `ObservationID` and `ArrivalSeq`) → handle → ack, idempotent by that persisted `ObservationID`, so an interrupted drain re-delivers the same observation instead of consuming it or minting a second identity (SP05-D1; SP-20 M1-02, T20-M1-05).
+3. **One draft owner per session — the checkpointer.** SP-10's `FileWriter` owns `Begin`, `Finalize` and `Abort`. SP-12's O5 `advance_frontier` task neither begins nor caches a `*Draft`: it calls the `checkpoint.FrontierAdvancer` port (`Advance(ctx, session, segments) (core.TurnIndex, error)`), which the checkpointer implements over its live draft (beginning one if none), recovers `ErrDraftSealed` by re-beginning against the new parent and retrying once, and adjudicates the DPI guard (`core.ErrAlreadyEncoded`) in exactly one place. `scheduler_frontier.go`'s `ensureDraft`/`abandonDraft` and the `Close`/`resetSessionLocked` abort are retired by the same change. Owners: SP-10 (port and recovery in `internal/checkpoint`), SP-12 (consumer in `internal/daemon/scheduler_frontier.go`); until both land, `Sources` stays nil and the defect stays inert (M0-00 semantic decision 2). Wiring C-1 also flips SP-12's e2e expectation `sched.frontier.no_writer ≥ 1` (`test/e2e/scheduler_idle_test.go`), which SP-12 updates in the same change.
+4. **Committed frontier with gaps.** `Frontier{Turn, Gaps, InFlight}` may name explicit gaps and in-flight work; a local compaction attempt is identified locally (`AttemptID` = hash of session ‖ PreCompact timestamp) and correlated to a later `SessionStart source=compact` conservatively — never presented as a host identifier. Missing, duplicate or out-of-order events never make a frontier complete (§12.1).
+
+#### 0.2.3 The shared negative-knowledge ledger (the M0-00 deferral)
+
+One once-guarded handle in the composition root replaces four independent openers:
+
+```
+// internal/cli/ledger_handle.go — one editor (SP-19 / coordinator), implemented at SP-20 M2-02
+type LedgerReason uint8 // LedgerRead | LedgerWrite
+type LedgerHandle interface {
+    Get(ctx context.Context, why LedgerReason) (negknow.Ledger, error) // ErrLedgerAbsent for a read with nothing on disk
+    Peek() (negknow.Ledger, bool)                                      // open handle, if any; never opens
+    Close() error                                                      // daemon shutdown; replaces opts.Ledger.Close()
+}
+```
+
+**Policy: create on first write; open if it exists for reads.** The one writer is the `record_eliminated` MCP tool: it calls `Get(ctx, LedgerWrite)` and thereby creates `records/eliminations.jsonl` and `sketches/tried.bloom` on first use. Every other consumer reads — `already_tried`, SP-10's `SourceSet.Ledger` (through `advance_frontier`'s `Ledger.All`), SP-11's rehydration item 3 (the eliminations digest), and SP-12's `rebuild_bloom` idle task, which uses `Peek()` and is a no-op while nothing is open, because rebuilding an absent ledger would create it — and calls `Get(ctx, LedgerRead)`, which opens only if `records/eliminations.jsonl` already exists and otherwise returns `ErrLedgerAbsent` without creating anything. The inherited e2e invariant (`tried.bloom` exists only after a session recorded eliminations) therefore holds by construction, and C-1 can be wired: `SourceSet.Ledger` receives a non-nil read adapter whose `All`, `Active` and `Query` answer an absent ledger with an empty result and no error — so `SourceSet.Validate` passes and `Begin`/`Advance`, which fail on any `All` error, proceed — while `Checkpoint.Eliminated` stays `[]negknow.Record` with its frozen shape untouched; the "no eliminations recorded (ledger absent)" qualifier travels in the observation sidecar and SP-11's coverage report, never as a fabricated record. `RehydrateOptions.OpenLedger` is replaced by the handle; `runDaemon`'s `opts.Ledger.Close()` moves into `Close`.
+
+**Error semantics (E06).** A ledger query error, an absent ledger, stale filter generation, unknown dependency coverage or a failed bloom rebuild yields `unavailable` or `uncertain` with a reason and a recovery direction — never `absent` (which is reserved for a backed record lookup with complete fresh coverage) and never `active`. `negknow.Answer` gains those states with coverage/freshness metadata (SP-20 M2-02); `already_tried`'s `State: absent, Degraded: true` on error becomes `State: unavailable`, and its `absent` for a `BloomOnly` hit or for a stale record under `staleResponse: drop` becomes `uncertain` (SP-13, exclusively).
+
+#### 0.2.4 Retrieval and error envelope (SP-20 M2-03 produces, SP-13 consumes)
+
+`core.EvidenceEnvelope{ObservationID, HostID, Root, Fidelity, Coverage, Validity{From, To, Generation}, Omissions []Omission, Page{Cursor, HasMore}, Outcome}`. MCP responses embed it as data; `IsError` is reserved for protocol failures. `absent` is asserted only with complete, fresh coverage — otherwise `uncertain` or `unavailable`. Authorization is evaluated before any preview or expansion; a hash is not authorization; symlink, path, encoding, size and decompression checks precede materialisation; retrieval never replays a command, calls a service, or bypasses a denied host read (retained SP-13 T13-TRUST). Negotiated MCP protocol versions are unchanged.
+
+#### 0.2.5 Current-state authority and coverage (SP-20 M2-01 produces; SP-11, SP-13, SP-15 consume)
+
+Derived-state records carry `Authority`, the source `ObservationID`s, scope, dependency set and coverage, validity interval, supersession/correction lineage and transform version. Authority orders rehydration: user_correction > explicit_decision > tool_observation > candidate_extraction > hypothesis; a conflict is rendered as a conflict until an authorised source resolves it; a later user correction supersedes a derived record without altering the observation behind it. A current-file read never substitutes for historical retrieval. Coverage states travel with timestamps/epochs and fidelity and never claim native completeness or model compliance.
+
+#### 0.2.6 Unique file ownership for M1–M3
+
+| Path | Owner | Rule |
+|---|---|---|
+| `internal/core/evidence.go` (identities, enumerations, envelope types) | SP-20 M1-01 | additive only; one writer; no behaviour |
+| `internal/store/{observations.go, publish.go, gc_roots.go}`; `internal/observer/capture.go` | SP-20 storage owner | `tooluse.go` wire and existing seams frozen; capture before transform |
+| `internal/daemon/spool_ack.go` (SP05-D1 lease/ack) | SP-20 (its one assigned daemon file) | the daemon files below keep their wave-3 owners; every other `internal/daemon` file: coordinator |
+| `internal/daemon/wire_checkpoint.go` (C-1 wiring through the ledger handle) | SP-10 | lands with the handle |
+| `internal/daemon/rehydrate_service.go` (ledger through the handle; authority/coverage consumption) | SP-11 | `OpenLedger` retired |
+| `internal/daemon/scheduler_idle.go` (`rebuild_bloom` via `Peek()`) | SP-12 | with `scheduler_frontier.go` below |
+| `internal/negknow/{applicability.go, coverage.go}` | SP-20 state owner | `descriptor.go` `MatchKey` and exact bloom confirmation frozen |
+| `internal/checkpoint/frontier_port.go`, `writer.go` (`ErrDraftSealed` recovery) | SP-10 | one draft owner (§0.2.2 item 3) |
+| `internal/daemon/scheduler_frontier.go` | SP-12 | consume the port; drop draft caching and abort |
+| `internal/rehydrate/*` (authority/coverage consumption, ledger through the handle) | SP-11 | whole-record budget and qualified coverage retained |
+| `internal/mcp/{handlers.go, envelope.go}` | SP-13 exclusively | no other subplan edits MCP handlers |
+| `internal/cli/{daemon.go, ledger_handle.go}` (composition root), `internal/config/migration.go` gate table | SP-19 / coordinator | one editor; a gate flips only in its owner's reviewed commit with named test evidence |
+| `internal/contract/{capability.go, observation.go}` and their SessionStart persistence call | SP-19 (types), coordinator (daemon call) | per-capability observation ledger; no `Result` shape change |
+
+No two owners edit one file; the composition root integrates; `tools/devtool/importrules.go` changes only by additive rows. Package allow-tables are permissions, not proof of a dependency.
+
+#### 0.2.7 Enablement and rollback
+
+Capture (`runtime.migration.capture.rawEvidence`), publication (`…publication.durableFrontier`), admission (`…replacement.newResult`), automatic veto (`…compaction.automaticVeto`) and experiments (`…experiments.enabled`) stay refused until their owner flips the gate in `MigrationGates` with the named evidence (T20-M1-01/02, T20-M1-03/04/05, T21, the target canary, M5/M6). With every gate pending the existing code paths are unchanged, so rollback of any M1–M3 landing is "the gate stays off": old readers ignore sidecars, no old artifact changes shape, and `runtime.migration.settingsVersion` newer than a build resets the whole block to defaults. Manual `/compact` is never blocked (`…compaction.blockManualCompact` is hardwired false).
 
 ---
 
@@ -429,7 +502,7 @@ are exhaustive; anything not listed is forbidden.
 | `contract` | `hookio` `store` |
 | `ipc` | `hookio` `contract` |
 | `observer` | `hookio` `store` `chunk` `canon` `sketch` `dag` `grammar` `negknow` `tokens` |
-| `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack`, and every `test/**` harness — `test/e2e`, `test/guards`, `test/dedup`, `test/bench/hotpath`, `test/replay`, `test/integration` | **composition roots** — may import anything; nothing may import them |
+| `daemon`, `cli`, `commands`, `testutil`, `cmd/qompack`, and every `test/**` harness — `test/e2e`, `test/guards`, `test/dedup`, `test/bench/hotpath`, `test/replay`, `test/integration`, `test/canary` | **composition roots** — may import anything; nothing may import them |
 
 **Why the test harnesses are roots.** Each one exists precisely because it needs a
 combination no internal package's allow-set permits, and being a root outside `internal/` is what
