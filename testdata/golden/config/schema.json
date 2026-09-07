@@ -414,6 +414,118 @@
           ],
           "type": "object"
         },
+        "migration": {
+          "properties": {
+            "capture": {
+              "properties": {
+                "rawEvidence": {
+                  "default": false,
+                  "description": "capture permitted raw host payload bytes before any transform (SP-20 M1); refused until the M1 gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.1 / SP-20 M1-01"
+                }
+              },
+              "required": [
+                "rawEvidence"
+              ],
+              "type": "object"
+            },
+            "compaction": {
+              "properties": {
+                "automaticVeto": {
+                  "default": false,
+                  "description": "let the scheduler veto an automatic compaction for optimization; refused: the recovery/proactive distinction is unverified (SP-19 M0-03)",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §7.3 / 00-ARCH §12.1"
+                },
+                "blockManualCompact": {
+                  "default": false,
+                  "description": "block a manual /compact for optimization; hardwired false, the key exists only to say so",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §12 / 00-ARCH §12.1"
+                }
+              },
+              "required": [
+                "automaticVeto",
+                "blockManualCompact"
+              ],
+              "type": "object"
+            },
+            "experiments": {
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "description": "enable experimental representation and optimizer policies (SP-15/SP-16); refused until their gates pass",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 Appendix C / SP-15, SP-16"
+                }
+              },
+              "required": [
+                "enabled"
+              ],
+              "type": "object"
+            },
+            "publication": {
+              "properties": {
+                "durableFrontier": {
+                  "default": false,
+                  "description": "publish references and the committed frontier only behind an acknowledged durable object write (SP-20 M1); refused until the M1 gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.2 / SP-20 M1-02"
+                }
+              },
+              "required": [
+                "durableFrontier"
+              ],
+              "type": "object"
+            },
+            "reinjection": {
+              "properties": {
+                "sessionStartCompact": {
+                  "default": true,
+                  "description": "reinject the rehydration payload through SessionStart source=compact additionalContext, the one tested injection adapter; false disables injection without touching recording",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.6 / 00-ARCH §12.1"
+                }
+              },
+              "required": [
+                "sessionStartCompact"
+              ],
+              "type": "object"
+            },
+            "replacement": {
+              "properties": {
+                "newResult": {
+                  "default": false,
+                  "description": "replace newly delivered tool results with Qompack handles (SP-21 M4); refused until the M4 gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.7 / SP-21"
+                }
+              },
+              "required": [
+                "newResult"
+              ],
+              "type": "object"
+            },
+            "settingsVersion": {
+              "default": 1,
+              "description": "version of the runtime.migration block; a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off",
+              "type": "integer",
+              "x-qompack-range": "[1,1]",
+              "x-qompack-section": "Qompack.md v1.5 Appendix C / SP-19 M0"
+            }
+          },
+          "required": [
+            "capture",
+            "compaction",
+            "experiments",
+            "publication",
+            "reinjection",
+            "replacement",
+            "settingsVersion"
+          ],
+          "type": "object"
+        },
         "mode": {
           "default": "auto",
           "description": "overall operating mode",
@@ -649,6 +761,7 @@
         "hotPath",
         "logging",
         "mcp",
+        "migration",
         "mode",
         "redact",
         "rehydrate",

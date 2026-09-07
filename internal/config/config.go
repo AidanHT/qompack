@@ -263,6 +263,11 @@ type Warning struct {
 	Key      string
 	Message  string
 	Location string
+	// Deprecated marks a diagnostic about a key whose value WAS applied but whose production
+	// meaning Qompack.md v1.5 retired (migration.go's retiredMeaningKeys). Every other Warning
+	// describes something Load dropped or replaced; consumers that treat warnings as "your config
+	// was not honoured" must skip these.
+	Deprecated bool
 }
 
 // Violation is one rule failure from Validate(): the leaf that failed, why, what was found, and

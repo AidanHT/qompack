@@ -116,6 +116,15 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 		return hookio.Empty(), nil
 	}
 
+	// Qompack.md v1.5 Appendix C's independent injection kill switch (SP-19): recording is
+	// untouched — runtime.mode governs that — and nothing is reinjected. Checked before the
+	// checkpoint read for the same reason the mode is: work §12.1 forbids is not paid for first.
+	if !s.o.Cfg.Runtime.Migration.Reinjection.SessionStartCompact {
+		s.o.Log.Info("rehydrate: injection disabled by runtime.migration.reinjection.sessionStartCompact",
+			"session", string(e.SessionID))
+		return hookio.Empty(), nil
+	}
+
 	cp, ref, degraded := s.latest(ctx, e.SessionID)
 	if degraded == errFatalCheckpoint {
 		return hookio.Empty(), nil
