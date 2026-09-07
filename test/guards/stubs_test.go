@@ -130,11 +130,13 @@ func stubRegistry() []stubPackage {
 			require.NoError(t, err)
 			return w
 		}},
+		// pins is a real append-only invariant log as of SP-10 (§7.4, §8.5): Add, Remove, All,
+		// Get and Materialize all do their work, so no method reports ErrNotImplemented any more.
 		{pkg: "pins", build: func(t *testing.T) any {
 			s, err := pins.Open(t.TempDir())
 			require.NoError(t, err)
 			return s
-		}},
+		}, pureMethods: allMethodsAreReal},
 		{pkg: "rehydrate"}, // package-level Build/StandingInstruction, no constructed seam
 		{pkg: "rules", build: func(*testing.T) any { return rules.New() }},
 		{pkg: "skills", build: func(*testing.T) any { return skills.New() }},
