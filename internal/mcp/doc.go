@@ -18,9 +18,15 @@
 // span returned is the minimum sufficient one — the matching function or hunk — with an explicit
 // full=true escape hatch.
 //
-// SP-01 ships the complete §5.16 type set — Tool, Request, Content, Response, Handler, the Server
-// interface, the eight tools' argument and result types, ToolDeps, DropReporter and Promoter — as
-// real declarations, and every operation as a stub returning core.ErrNotImplemented (or the
-// documented zero value, for the one method with no error return). There is no pure function in
-// this package's §5 surface for SP-01 to implement for real.
+// The handlers execute in the DAEMON, not in the `qompack mcp` process. The daemon is the single
+// writer of the store and holds the warm handles, and — because Claude Code launches an MCP server
+// once per client and hands it no session_id — it is also the only party that can resolve which
+// session a call belongs to. The stdio process is a transcoder: it advertises this package's own
+// ToolDefs, so `tools/list` is byte-identical on both sides, and forwards every `tools/call` over
+// the local transport (see internal/daemon/mcpop.go and internal/cli/cmd_mcp.go).
+//
+// SP-01 shipped the complete §5.16 type set — Tool, Request, Content, Response, Handler, the
+// Server interface, the eight tools' argument and result types, ToolDeps, DropReporter and
+// Promoter — as real declarations with every operation stubbed. SP-13 replaced those stubs with
+// the implementation, so core.ErrNotImplemented no longer appears anywhere in this package.
 package mcp

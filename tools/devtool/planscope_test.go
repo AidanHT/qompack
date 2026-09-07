@@ -36,7 +36,7 @@ func TestPkgTestSetIsSettled_LandedOwnerAndNobodyStillWriting(t *testing.T) {
 		{"./internal/eval/", true, "owner landed, nobody still writing"},
 		{"./internal/eval/...", true, "the wildcard resolves to the same settled package"},
 		{"./internal/store/", false, "SP-16 is still writing into it"},
-		{"./internal/mcp/", false, "SP-13 has not landed"},
+		{"./internal/mcp/", true, "SP-13 landed it and no later subplan adds tests to it"},
 		{"./test/guards", false, "no OWNERS.tsv row, so nothing guarantees its test set is closed"},
 		{"./...", false, "spans packages nobody has written"},
 	}

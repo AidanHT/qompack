@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "from": {
+      "type": "string",
+      "description": "Turn index, RFC3339 timestamp, or empty for the session start."
+    },
+    "to": {
+      "type": "string",
+      "description": "Turn index, RFC3339 timestamp, or empty for the current frontier."
+    }
+  },
+  "required": [],
+  "additionalProperties": false
+}

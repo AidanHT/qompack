@@ -11,12 +11,16 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/rehydrate"
+	"github.com/qompack/qompack/internal/symbols"
 )
 
 // runDaemon implements `qompack daemon [--project <root>] [--foreground]` (task-6-spec.md).
@@ -126,6 +130,8 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		}
 	}()
 
+	installMCPTools(&opts, root, cfg, log, reg, clk)
+
 	d, err := daemon.New(opts)
 	if err != nil {
 		log.Loud("daemon: could not construct", "err", err.Error())
@@ -170,5 +176,59 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	default:
 		log.Loud("daemon: run exited with an error", "err", runErr.Error())
 		return nil
+	}
+}
+
+// installMCPTools registers the L6 retrieval tools on the daemon's op table (SP-13).
+//
+// It runs BEFORE daemon.New, and that ordering is the whole point rather than a style preference:
+// New applies every Bind and only then calls DeclareProducers, so an InstallMCPOp that ran
+// afterwards would bind Services.MCPInitialized too late for CMCPRegistered to be declared, and
+// the mcp.server_registered assertion would report "not-yet-implemented" for ever while a working
+// server answered tools/call beside it.
+//
+// It also reuses opts.Store, which WireObserver has already opened. A second store.Open in this
+// process would be a corruption bug, not a redundancy: the store is single-writer by design and
+// two handles over one append log race each other's offsets.
+//
+// Every failure degrades rather than aborts. A daemon that cannot offer retrieval still observes
+// tool use, still checkpoints and still answers `status`; one that refused to start would take the
+// whole session down for a feature the model can work without.
+func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
+	log logging.Logger, reg obs.Registry, clk core.Clock,
+) {
+	// The three wave-3 collaborators SP-13 could not build on its own branch — its commits predate
+	// SP-10 and SP-11 on develop — assembled at the wave-3 integration (SP-19 M0-00). Each is
+	// side-effect-free to construct, which is what makes a second instance beside the ones
+	// WireRehydrator holds legitimate where a second store or ledger would not be: OpenReader
+	// holds no handle and reads the manifest per call, the drop reporter reads its state file per
+	// call, and symbols.New is a stateless empty struct. `why` answers from the sealed
+	// checkpoints, `dropped` from the last rehydration's persisted drop report, and spans widen
+	// to symbol boundaries.
+	ckptReader, ckptErr := checkpoint.OpenReader(root, log, reg)
+	if ckptErr != nil {
+		log.Loud("mcp: checkpoint reader unavailable; `why` will answer found:false", "err", ckptErr.Error())
+		ckptReader = nil
+	}
+	var dropReporter mcp.DropReporter = rehydrate.NewReporter(root, log)
+	syms := symbols.New()
+
+	prom, promErr := mcp.NewPromoter(mcp.PromotionsPath(root), cfg.Retrieval.PromoteAfterExpansions, clk)
+	if promErr != nil {
+		// Counting expansions is advisory (§8.7): losing the signal costs SP-16 a demand-driven
+		// hint at the next checkpoint, and costs this session nothing at all.
+		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
+	}
+
+	// opts.Ledger is nil HERE on the daemon path and the tools capture the value, not the field:
+	// WireRehydrator opens the negative-knowledge ledger lazily on the first compaction and only
+	// then assigns it back onto Options (see RehydrateOptions.OpenLedger for why an eager open is
+	// not an option), so `already_tried` and `record_eliminated` answer available:false in the
+	// shipped daemon. Sharing that single lazily-opened handle with the MCP tools, SP-12's
+	// maintenance work and SP-10's SourceSet is the shared-ledger contract SP-19 M0-02 owns; it is
+	// deliberately not improvised here.
+	deps := NewToolDeps(root, cfg, opts.Store, opts.Ledger, ckptReader, dropReporter, prom, syms, log, reg, clk)
+	if err := daemon.InstallMCPOp(opts, deps); err != nil {
+		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}
 }

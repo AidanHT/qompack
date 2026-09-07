@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "File path, optionally :symbol — e.g. src/auth.ts:refreshToken."
+    },
+    "approach": {
+      "type": "string",
+      "description": "The approach as one short verb phrase — e.g. widen pool timeout."
+    }
+  },
+  "required": [
+    "target",
+    "approach"
+  ],
+  "additionalProperties": false
+}

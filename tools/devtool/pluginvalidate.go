@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/pluginmanifest"
 )
 
@@ -15,14 +16,16 @@ import (
 // wantHookEvents is seven, not six: §7.3 names six hook ENTRY POINTS, but Stop and SubagentStop
 // are separate host events that both route to `observe stop`.
 //
-// There is deliberately no MCP-tool count here. §7.5's eight tools are declared by
-// internal/mcp, whose Tools() is a stub returning nil until SP-13 lands; asserting a count over
-// an empty list would be a check that passes for the wrong reason and would keep passing after
-// SP-13 got it wrong. The bundle fixes the MCP SERVER declaration, and that is what is checked.
+// wantMCPTools is eight, and the count is now real. It was deliberately absent while
+// internal/mcp's Tools() was a stub returning nil — a count over an empty list is a check that
+// passes for the wrong reason, and would have gone on passing after SP-13 got it wrong. SP-13
+// lands the eight tools of §8.7, so the assertion is made against mcp.ToolNames(), which is the
+// same list `tools/list` advertises and the same list docs/mcp-tools.md is generated from.
 const (
 	wantCommands   = 7
 	wantHookEvents = 7
 	wantMCPServers = 1
+	wantMCPTools   = 8
 )
 
 // taskPluginValidate regenerates the plugin bundle from internal/pluginmanifest and byte-compares
@@ -91,6 +94,13 @@ func checkBundleShape(m pluginmanifest.Manifest) error {
 	}
 	if got := len(m.MCP.MCPServers); got != wantMCPServers {
 		return fmt.Errorf("plugin-validate: manifest declares %d MCP server(s), want %d (§7.5)", got, wantMCPServers)
+	}
+	// The tool count is asserted against internal/mcp rather than against the bundle, because the
+	// bundle declares the SERVER and the server declares the tools: `.mcp.json` names the command
+	// to launch, and `tools/list` is answered at runtime. A bundle that is byte-perfect while the
+	// binary behind it advertises seven tools is exactly the drift this check exists to catch.
+	if got := len(mcp.ToolNames()); got != wantMCPTools {
+		return fmt.Errorf("plugin-validate: internal/mcp declares %d tool(s), want %d (§8.7)", got, wantMCPTools)
 	}
 	return nil
 }
