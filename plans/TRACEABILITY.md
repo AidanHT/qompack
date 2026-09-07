@@ -1,218 +1,137 @@
 # Traceability — Qompack.md → subplan set
 
-This matrix proves the subplan set preserves the entire design document. Every gap, phase, layer, tool, revision item, and closing-note priority in `Qompack.md` maps to an **owning** subplan (others consume its output); where `Qompack.md` splits an obligation across two layers, the row names both owners and says which half each holds. Ownership in **§1** is taken from each subplan's own header metadata (`**Gaps closed:**` / `**Design sections:**`) and mirrors the §9 gap-traceability matrix of the design document. **§3's layer column is not derivable that way** — SP-05, SP-07 and SP-14 carry no `§7.2 L*` tag in their header metadata — so it, and the surface and mitigation tables in §4 and §7, are read off each subplan's declared scope against the design section named in the heading. Re-testing ownership is listed under Verification.
+**Status:** v1.5 planning map, 2026-09-06. Preserves 40 unique G-numbered IDs across 10 categories and original phase/revision IDs. This maps future responsibilities; it does not certify runtime closure. [MIGRATION-EVIDENCE.md](MIGRATION-EVIDENCE.md) is the single capability/source/decision register and includes the M0–M7 package map.
 
 ## 1. Gap → owning subplan (mirrors Qompack.md §9)
 
-| Gap | Description (short) | Owner | Notes / residual |
-|---|---|---|---|
-| G1.1 | Task-blind trigger | SP-12 | BOCD changepoints; cannot block Claude Code's own trigger |
-| G1.2 | No agent agency over timing | SP-12 | Soft floor + hard ceiling; partial by design |
-| G1.3 | Fixed 13K buffer | SP-12 | Adaptive Young–Daly interval |
-| G1.4 | Blocking-limit cliff | SP-12 | Soft floor keeps sessions off the cliff; cliff itself is upstream |
-| G1.5 | No task-boundary signals | SP-08 + SP-12 | Closed **jointly**, as `Qompack.md` §9 states it (L0 todo/git/test signals → L3): SP-08 owns `observer.ExtractSignals`, SP-12 owns the translation (`FeaturesFrom`, the `todos` feature) and the consumption (segment close on todo/test/commit). SP-08's half is inert until SP-12 lands in wave 3 |
-| G2.1 | Recursive compression | SP-06 | Segment log `encoded-once` DPI guard; append-only invariant |
-| G2.2 | Nothing pinned | SP-10 | `pins/invariants.json` + sketches (primitives from SP-03) |
-| G2.3 | User messages regenerated | SP-08 | Verbatim immutable capture; replayed by SP-11 |
-| G2.4 | Prose, not typed state | SP-10 | Versioned typed checkpoint schema |
-| G2.5 | No ground-truth check | SP-10 | Pointer set validated against `git status` |
-| G2.6 | Session-memory drift | SP-10 | Checkpoint is the durable source |
-| G3.1 | Unreachable transcript | SP-06 | Store + retrieval path (surfaced by SP-13) |
-| G3.2 | Pointerless tombstones | SP-08 | Addressable tombstones — SP-08 renders the marker, but no subplan puts it in front of the model; delivery is unowned, see §11.2 |
-| G3.3 | Eager restoration | SP-11 | Pointer-first, 8–12K budget; refined by SP-16 promotion |
-| G3.4 | Snippets in summary | SP-10 | Focus instructions forbid them; advisory (checkpoint is backstop) |
-| G4.1 | Path rules lost | SP-11 | Re-reads matching rules |
-| G4.2 | Nested CLAUDE.md lost | SP-11 | Re-reads by pointer directory |
-| G4.3 | Skill head-truncation | SP-10 | Importance ordering; SP-11 skill index; upstream truncation unchanged |
-| G4.4 | Skill index gone | SP-11 | ~450-token compact index re-injection |
-| G4.5 | No drop report | SP-11 | Explicit drop report |
-| G5.1 | Single cut | SP-12 | Multi-segment log; cannot multi-cut the live array |
-| G5.2 | Wrong direction cheap | SP-12 | p-selection with cache term |
-| G5.3 | Homogeneous treatment | SP-10 | Three-tier typed schema |
-| G6.1 | No slot for eliminations | SP-09 | `eliminated[]` + Bloom (sketch primitives from SP-03) |
-| G6.2 | Re-attempt loop | SP-13 | `already_tried` standing instruction (records from SP-09) |
-| G6.3 | Highest-Δ content dropped | SP-15 | Δ-scoring prioritises it |
-| G7.1 | Expensive summarization call | SP-12 | Earlier, cheaper, better-targeted compaction |
-| G7.2 | No cheap summarizer | SP-18 | **Not plugin-closeable** — documented in the cannot-do list + upstream issue |
-| G7.3 | PTL drops intent | SP-11 | Verbatim intent restored regardless; PTL logic unchanged |
-| G7.4 | Circuit breaker gives up | SP-10 | Checkpoints make the session survivable |
-| G7.5 | Tool-call-instead-of-summary | SP-11 | Checkpoint is the fallback path |
-| G7.6 | Loops / >100% jam | SP-12 | Keeps sessions out of the failure region; underlying bug is upstream |
-| G8.1 | No observability | SP-02 | Replay harness; surfaced live by SP-14 `/qompack:status` |
-| G8.2 | Degraded summarizer vantage | SP-12 | Compacts earlier, at lower context; partial by design |
-| G8.3 | No feedback on compaction | SP-02 | Fraction-of-OPT metric |
-| G9.1 | Not a durable checkpoint | SP-10 | Immutable versioned checkpoints |
-| G9.2 | Hand-rebuilt layer | SP-17 | The packaged plugin *is* the layer |
-| G9.3 | Undocumented contracts | SP-05 | Contract monitor; fail-loud degradation to passive recording |
-| G10.1 | Subagent double-compression | SP-08 | `SubagentStop` capture |
-| G10.2 | Coarse token estimation | SP-06 | Exact chunk-level accounting |
+Each row has one accountable migration owner. Completed supporting primitives remain in place; root/sibling code is `implemented_unverified` in this planning review unless an inspected historical artifact is explicitly cited. All gates below are future. Host-only controls remain unsupported or disabled; partial mechanisms are not unconditional closure.
 
-All 40 gap IDs verified present in the plan set by grep (`G[0-9]+\.[0-9]+` across `plans/*.md`).
+| Gap | Concern | Owner | Mechanism | Future gate | Residual |
+|---|---|---|---|---|---|
+| G1.1 | Task-blind timing | [SP-12](V4-SP-12-scheduler-l3.md) | Cadence/dirty maintenance and aged observations | M5 / scheduler acceptance | Native request/cut/veto unsupported or disabled |
+| G1.2 | Timing agency | [SP-12](V4-SP-12-scheduler-l3.md) | Cadence/dirty maintenance and aged observations | M5 / scheduler acceptance | Native request/cut/veto unsupported or disabled |
+| G1.3 | Headroom estimates | [SP-12](V4-SP-12-scheduler-l3.md) | Cadence/dirty maintenance and aged observations | M5 / scheduler acceptance | Native request/cut/veto unsupported or disabled |
+| G1.4 | Blocking-limit recovery | [SP-19](V4-SP-19-migration-reconciliation.md) | Separate capability register and request ledger | M0 / M0-G1–G6 | Target canaries and J5 backfill future |
+| G1.5 | Task-boundary signals | [SP-12](V4-SP-12-scheduler-l3.md) | Cadence/dirty maintenance and aged observations | M5 / scheduler acceptance | Native request/cut/veto unsupported or disabled |
+| G2.1 | Derivative provenance | [SP-20](V4-SP-20-capture-storage-and-state-remediation.md) | Capture fidelity, durable state, exact applicability | M1/M2 / publication/state acceptance | Unknown originals/dependency coverage stay unknown |
+| G2.2 | Durable pins | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G2.3 | User-intent history | [SP-20](V4-SP-20-capture-storage-and-state-remediation.md) | Capture fidelity, durable state, exact applicability | M1/M2 / publication/state acceptance | Unknown originals/dependency coverage stay unknown |
+| G2.4 | Typed state | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G2.5 | Evidence validation | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G2.6 | Session-memory drift | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G3.1 | Historical retrieval | [SP-13](V4-SP-13-mcp-retrieval-layer.md) | Scoped exact/history recovery and error envelope | M2 / retrieval acceptance | Installed archive operations unverified |
+| G3.2 | Addressable result handles | [SP-21](V5-SP-21-deterministic-admission-control.md) | Capture-before-replacement, tested schema allowlist | M4 / T21 admission acceptance | New outputs only; off until recovery gate |
+| G3.3 | Budgeted additional context | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G3.4 | Essential exact spans | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G4.1 | Path-scoped rules | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G4.2 | Nested instructions | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G4.3 | Partial skill coverage | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G4.4 | Skill discovery | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G4.5 | Coverage report | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G5.1 | Native cut limitations | [SP-12](V4-SP-12-scheduler-l3.md) | Cadence/dirty maintenance and aged observations | M5 / scheduler acceptance | Native request/cut/veto unsupported or disabled |
+| G5.2 | Cache-cost observability | [SP-19](V4-SP-19-migration-reconciliation.md) | Separate capability register and request ledger | M0 / M0-G1–G6 | Target canaries and J5 backfill future |
+| G5.3 | Heterogeneous evidence | [SP-15](V5-SP-15-analyzer-selection-and-grammar.md) | Feasible representations and state loop warnings | M5/M6 / selection and warning acceptance | Approximate graph/behavior signals are not correctness |
+| G6.1 | Elimination records | [SP-20](V4-SP-20-capture-storage-and-state-remediation.md) | Capture fidelity, durable state, exact applicability | M1/M2 / publication/state acceptance | Unknown originals/dependency coverage stay unknown |
+| G6.2 | Repeated failed approaches | [SP-13](V4-SP-13-mcp-retrieval-layer.md) | Scoped exact/history recovery and error envelope | M2 / retrieval acceptance | Installed archive operations unverified |
+| G6.3 | Retention of applicable negative knowledge | [SP-15](V5-SP-15-analyzer-selection-and-grammar.md) | Budgeted selection uses SP-20 authority/applicability and preserves recoverable elimination evidence | M5 / M5-G15-A/B/C | No universal highest-value claim; unknown applicability remains uncertain |
+| G7.1 | Compaction request cost | [SP-19](V4-SP-19-migration-reconciliation.md) | Separate capability register and request ledger | M0 / M0-G1–G6 | Target canaries and J5 backfill future |
+| G7.2 | Summarizer model control | [SP-18](V6-SP-18-documentation-and-uat.md) | Evidence-matched limits/UAT documentation | M7 / V6 documentation gate | No plugin control over summarizer model |
+| G7.3 | Intent recovery | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
+| G7.4 | Failed compaction recovery | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G7.5 | Empty or unexpected summary | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G7.6 | Repeated compaction failures | [SP-19](V4-SP-19-migration-reconciliation.md) | Separate capability register and request ledger | M0 / M0-G1–G6 | Target canaries and J5 backfill future |
+| G8.1 | Task and recovery metrics | [SP-19](V4-SP-19-migration-reconciliation.md) | Separate capability register and request ledger | M0 / M0-G1–G6 | Target canaries and J5 backfill future |
+| G8.2 | Summary uncertainty | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G8.3 | Feedback and accounting | [SP-14](V5-SP-14-slash-commands-and-observability.md) | Commands show qualified evidence and usage | M7 / command acceptance | Unavailable telemetry remains unknown |
+| G9.1 | Durable checkpoints | [SP-10](V4-SP-10-checkpointer-l4.md) | Compatible checkpoint, durable frontier, local attempt | M3 / T10 lifecycle and compatibility | Native summary/model compliance unknown |
+| G9.2 | Packaged recovery layer | [SP-17](V6-SP-17-packaging-hardening-and-release.md) | Installed package and reversible upgrade | M7 / V6 release gate | Platforms/package identifiers not certified |
+| G9.3 | Host contracts | [SP-19](V4-SP-19-migration-reconciliation.md) | Separate capability register and request ledger | M0 / M0-G1–G6 | Target canaries and J5 backfill future |
+| G10.1 | Subagent capture coverage | [SP-20](V4-SP-20-capture-storage-and-state-remediation.md) | Capture fidelity, durable state, exact applicability | M1/M2 / publication/state acceptance | Unknown originals/dependency coverage stay unknown |
+| G10.2 | Assembled token estimation | [SP-11](V4-SP-11-rehydrator-l5.md) | Whole-record additional context and qualified coverage | M3 / T11 recovery, authority and scope | Native context/load bytes not certified |
 
 ## 2. Build phases (Qompack.md §10) → subplans
 
-| Phase | Content | Owner(s) | Exit criterion re-tested at |
-|---|---|---|---|
-| 0 — Measurement | Replay harness, divergence metrics, Belady OPT, stock baseline | SP-02 | V2 (baseline gate), then every later checkpoint via replay-gate |
-| 1 — Store and observer | FastCDC, canonicalizers + MinHash (O2), hooks, Merkle index, tombstones, supersession | SP-04 + SP-06 + SP-08 (closes the phase) | V2 (primitives), V3 (≥4:1 dedup ratio, p99 < 15ms) |
-| 2 — Negative knowledge | Bloom, descriptors, staleness (GA), MCP `record_eliminated`/`already_tried`, CMS/HLL, the standing instruction in rehydrated context | SP-03 (primitives) + SP-09 (closes) + SP-13 (tools) + SP-11 (the standing instruction, §8.7 design note) | V3, V4 |
-| 3 — Checkpoint and rehydrate | Checkpoint writer, rehydrator, drop report, focus instructions incl. O1 | SP-10 + SP-11 (closes) | V4 |
-| 4 — Scheduler | BOCD, Young–Daly, p-selection, idle model (E1), O3, O5 frontier | SP-12 | V4 (amortization claim tested directly) |
-| 5 — Selection | DAG (built in SP-07), thin slicing, Δ-scoring, suffix-constrained submodular | SP-07 (DAG/slicing) + SP-15 | V5 |
-| 6 — Grammar / loop detection | Sequitur, thrash warning, grammar-compressed action history | SP-15 | V5 |
-| 7 — Refinement | O4 warm start, demand-driven promotion, per-segment Blooms, ski-rental, progressive truncation | SP-16 | **No exit criterion of its own** — Phase 7 is the only §10 phase without one, so V5 and V6 gate it on `Qompack.md` §11.3's cross-phase budgets (hook p99, sublinear growth, the 2% no-regression rule) instead |
-| — Production | Packaging, hardening, release, docs, UAT | SP-17 + SP-18 | V6 (release gate) |
-
-Ordering constraint from the closing note honoured: p-selection (SP-12, wave 3) ships strictly **before** slicing/submodular selection (SP-15, wave 4).
+| Original phase | Repository placement and status | Migration disposition |
+|---|---|---|
+| 0 measurement | SP02, Wave1/V2, completed | SP19 + V4 VERIFY preserve baseline, resolve SP02-D1–D6 with corrected metrics |
+| 1 store/observer | SP04/SP06 Wave1/V2, SP08 Wave2/V3, completed | SP20 focused fidelity/publication remediation; no restart |
+| 2 negative knowledge | SP03/SP09 completed; SP11/SP13 active consumers | SP20 authority/coverage and SP13 error compatibility |
+| 3 checkpoint/rehydrate | SP10/SP11 Wave3/V4, completed and merged at SP-19 M0-00 (66549ce); revised V4 migration gates future | M3 depends on M1/M2 recovery before pointer enablement |
+| 4 scheduler | SP12 Wave3/V4, completed and merged at SP-19 M0-00 (66549ce); revised V4 migration gates future | M5 supported cadence and future representations |
+| 5 selection | SP07 completed graph, SP15 Wave4/V5 | M5 owns actual budget selection integration; SP11 consumes agreed contract |
+| 6 grammar/loops | SP15 Wave4/V5 | M6 warning-only state/progress criteria |
+| 7 refinements | SP16 Wave4/V5 | M6 scoped reuse; optional experiments nonblocking |
+| Production | SP17→SP18 Wave5/V6 | M7 installed package, UAT and rollback |
+| Added remediation/extension | SP19/SP20 within V4; SP21 within V5 | Logical M packages do not renumber waves |
 
 ## 3. Layers (Qompack.md §7.2) → subplans
 
-| Layer | Owner(s) |
-|---|---|
-| L0 Observer | SP-05 (daemon/IPC substrate, hook client, contract monitor) + SP-08 (event handlers) |
-| L1 Store | SP-06 |
-| L2 Analyzer | SP-09 (negative knowledge) + SP-15 (Δ-scoring, submodular, Sequitur) + SP-07 (DAG, slicing) |
-| L3 Scheduler | SP-12 |
-| L4 Checkpointer | SP-10 |
-| L5 Rehydrator | SP-11 |
-| L6 Retrieval (MCP + commands) | SP-13 (8 MCP tools) + SP-14 (7 slash commands) |
-| L7 Evaluation | SP-02 |
+L0 remains implemented SP05/SP08, remediated by SP20. L1 remains SP06/SP04, remediated by SP20. L2 remains SP09/SP07 plus future SP15, with state remediation SP20. L3 is merged SP12; L4 merged SP10; L5 merged SP11; L6 merged SP13 (all four at SP-19 M0-00, 66549ce; corrective M1–M3 follow-ups pending) and future SP14. L7's implemented SP02 harness is extended through SP19 and V4/V5/V6 verification. SP21 is explicitly a new-result admission extension, not a passive-observer redefinition.
 
 ## 4. Hook surface (§7.3), MCP tools (§8.7), slash commands (§7.5)
 
-| Surface | Owner |
+| Surface | Accountable future owner / contract |
 |---|---|
-| `PostToolUse`, `UserPromptSubmit`, `Stop`/`SubagentStop` | SP-08 (entry points on SP-05's substrate) |
-| `PostToolUse` (todo/git) — the L3 task-boundary tap §7.3 lists separately | SP-12 (the tap and its consumption: `FeaturesFrom`, segment close on todo/test/commit) over SP-08's `observer.ExtractSignals` |
-| `SessionStart` (source branching: startup/resume vs compact) | SP-08 (dispatch) → SP-11 (compact path) |
-| `SessionEnd` | SP-08 (the L0 entry point / driver) → SP-06 (the L1 work §7.3 assigns: flush, compact the store, write the session index) |
-| `PreCompact` (checkpoint + `custom_instructions`) | SP-10 |
-| MCP tools: `recall`, `expand`, `re_read`, `already_tried`, `record_eliminated`, `timeline`, `why`, `dropped` | SP-13 (ephemeral-at-birth, minimal-span, promotion counting) |
-| Slash commands: `status`, `recall`, `pin`, `checkpoint`, `why`, `dropped`, `eval` | SP-14 |
-| Plugin manifest + `.qompack/` directory layout + Appendix C config loader | SP-01 (layout/loader), SP-17 (shipped manifest), SP-18 (config reference: every leaf `config.Defaults()` exposes, an equal number of `Meta` entries, zero orphans, zero missing — the count is whatever the tree holds at V6, never a frozen literal) |
+| Existing observation and user/subagent capture | SP20 remediation; preserve observed event/relationship gaps |
+| PreCompact checkpoint and optional PostCompact observation | SP10; custom instructions are input, no output-setter dependency |
+| SessionStart compact reinjection; instruction-load coverage | SP11; no PostCompact wait, native byte/absence inference or automatic pointer-directory rule injection |
+| Todo/test/git/task signals and worker | SP12; Qompack cadence only unless a separate control is validated |
+| SessionEnd flush/GC | SP20; not sole cleanup/recovery path |
+| Eight MCP names recall/expand/re_read/already_tried/record_eliminated/timeline/why/dropped | SP13; protocol compatibility, authorization before previews/expansion, unavailable distinct from absence |
+| Seven command names status/recall/pin/checkpoint/why/dropped/eval | SP14; reuse APIs, evidence-qualified coverage and usage |
+| New-result replacement | SP21; off until capture/recovery/schema tests, deterministic allowlist |
+| Manifest/install/tool discovery | SP19 canaries, SP17 installed release validation |
 
 ## 5. Revision-log items (v1.1 / v1.2) → subplans
 
-| Item | Content | Owner |
+| ID | Revised disposition | Owner / gate / fallback |
 |---|---|---|
-| E1 | Sliding-TTL idle model; idle detection as scheduler input | SP-12 |
-| E1a | Cache **regime** resolution (which TTL and which `w` the session is billed at), the request-start TTL anchor, and the effort-change invalidation signal — the discharge of §5.1's *"verify against current pricing before tuning"*. See `V2-report.md` §19 | SP-12 (`cacheregime.go`), SP-16 (ski-rental reads `w` from the regime), SP-18 (the four cache limits in `cannot-do.md`) |
-| E1b | `TriggerCacheExpiring` — §5.4's "scheduled against cache state" applied to the expiring band, not only the cold one; saves `(1−r)·n` on every idle-driven compaction | SP-12 |
-| E2 | `cache_control` breakpoints rescoped to harness-port only | SP-16 (explicit non-delivery test + ADR) and SP-18 (cannot-do list) |
-| GA | Elimination staleness: `depends_on` hashes, active/stale, rebuild-from-records | SP-09 |
-| GB | Retrieval re-inflation: ephemeral-at-birth, minimal span, promotion | SP-13 |
-| GC | Checkpoints regenerated from the store only; injection tagging | SP-10 |
-| O1 | Incremental-span focus instruction | SP-10 |
-| O2 | Per-tool canonicalization + MinHash near-dedup | SP-04 — first half only; the §8.1 delta-vs-full storage write is unowned, see §11.1 |
-| O3 | Idle-time background work | SP-12 |
-| O4 | Cross-session warm start | SP-16 |
-| O5 | Amortized compaction / frontier advancement | SP-12 (frontier driver) with SP-10 (incremental checkpoint writes) |
+| E1 | Sliding TTL is documented motivation, arbitrary tool time not exact state | SP12 M5; unknown observations disable dependent policy |
+| E1a | Regime/request attribution is scope/category-bound | SP19 M0 request ledger; no billing inference from env |
+| E1b | Retire guaranteed pre-expiry savings/native trigger | SP12 M5; advisory cadence baseline |
+| E2 | Native cache markers remain unsupported | SP18 M7 limitations; no port required |
+| GA | Keep conditional exact elimination records, add uncertain coverage | SP20 M2; exact confirmation/no filter veto |
+| GB | Bound future retrieval representations; ephemeral tags cannot evict native history | SP13 M2 and SP16 demand policy; failure returns qualified error |
+| GC | Preserve evidence and derivative provenance, exclude own wrappers | SP10 M3 with SP20 fidelity; unknown originals not invented |
+| O1 | Retire PreCompact output setter and physically shortened native-input claim | SP10 M3; supported local checkpoint only |
+| O2 | Keep normalized search/dedup as derivative; optional exact deltas require round-trip | SP20 M1; retained full original/legacy unknown fallback |
+| O3 | Bounded lifecycle-managed maintenance, not free idle compute | SP12 M5; cancellation/quota/crash gate |
+| O4 | Scoped expiring reuse, no unrelated project/session intent import | SP16 M6; cold/empty reuse fallback |
+| O5 | Incremental Qompack frontier work only, no native O(delta) guarantee | SP10/SP12, accountable SP12 M5; measured local work |
 
 ## 6. Evaluation methodology (§11) and guardrails
 
-| Item | Owner | Enforced at |
-|---|---|---|
-| Fraction of Belady OPT (primary metric) | SP-02 | Replay-gate in CI from V2 onward |
-| Secondary metrics incl. compaction pause, residual span, first-turn-after latency | SP-02 | V4 (amortization), V5, V6 |
-| Hook p99 < 15ms (L0), < 2s (L4) | SP-05 / SP-10 | Bench-gate at every checkpoint from V2 |
-| Store growth sublinear after dedup | SP-06 | V2 onward |
-| 2% no-regression rule | SP-02 (measurement) | Every V checkpoint; zero sign-offs allowed at V6 |
-| Replay suite on every phase gate | SP-02 | All checkpoints |
-| Watch-fors: replay overfitting (re-collection), Bloom FP compounding (fill-ratio monitor + resize) | SP-02 / SP-03 | V5, V6 |
+[MIGRATION-EVIDENCE.md](MIGRATION-EVIDENCE.md) owns the mandatory 13-area future scenario matrix. V4 validates capture/migration/retrieval/state/lifecycle continuously with SP19/SP20/SP10–13; V5 adds admission, selection, warnings and reuse; V6 consolidates release, closed-loop and rollback evidence.
+
+Primary outcomes: task completion, constraint/regression failures and evidence recoverability. Cost/latency/context/repeated-work/retrieval/CPU/storage/tails accompany them. Preserve file/action divergence and Belady metrics as historical diagnostics. Corrected request accounting separates reported usage, estimated rates and invoiced cost; failed/aborted trials and missing telemetry stay visible. Predeclare margins/sample rationale, held-out tasks and baseline variation. No fixed 2% guarantee from twenty trials, no universal sublinear/4:1/15ms claim.
 
 ## 7. Risk register (§12) plugin-actionable mitigations
 
-| Mitigation | Owner |
-|---|---|
-| Contract monitor, fail-loud, degrade to passive recording | SP-05 |
-| Incremental checkpoint writing (never rely on `PreCompact` time) | SP-10 + SP-12 |
-| Reference-counted GC, retention window, size surfaced by `/qompack:status` | SP-06 + SP-14 |
-| Async queue-and-drain on hot-path overrun | SP-05 |
-| Hard rehydration budget cap, pointer-first | SP-11 |
-| Bloom fill monitoring, resize, rebuild from `eliminated[]` | SP-03 + SP-09 |
-| Soft floor below auto-threshold (no fighting stock compaction) | SP-12 |
-| Cache multipliers `r`/`w` read from config, never hardcoded | SP-01 (loader) + SP-12 (ski-rental computes `w/r`, literal forbidden in source) |
-| Ephemeral retrieval results, first eviction candidates | SP-13 |
-| Advisory `custom_instructions`; checkpoint remains authoritative | SP-10 |
+SP20 owns raw/derived fidelity, object/index publication, legacy migration, GC/leases/retention and authority uncertainty. SP13 owns retrieval scope/preview/expansion, path/symlink/decompression and old MCP caller compatibility. SP10/SP11 own bounded lifecycle/current-state recovery and qualified coverage. SP12/SP15/SP16 own unknown observations/feasible selection and warning/reuse limits. SP21 owns malformed/recursive/coexisting-hook replacements and opt-in pass-through. SP17 owns installed compatibility and independent kill switches/backup rollback. Each owning subplan specifies its future artifacts and disable/degraded outcome.
 
 ## 8. Honesty surface
 
-The §12 "What this plugin cannot do" list (all eight bullets), the §9 residual notes, and the upstream-issues list are reproduced verbatim in user documentation owned by **SP-18** (tested by `TestCannotDoListVerbatim`, `TestCannotDoCoversResiduals`, `TestCannotDoCoversG72`, `TestCannotDoQuotesScopeNote`), with an upstream-issue tracker template shipped in-repo.
+SP18 documents actual supported capabilities and residuals from the current register, not verbatim obsolete gap-closed promises. UAT-01–12 remain identifiers but criteria are revised to observable task/recovery/scoping behavior. No fixed-count source quotations, unclaimed package-name assertion, native context certainty or secure physical erasure promise.
 
 ## 9. Closing-note priorities (the four things that matter)
 
-| Priority | Where honoured |
-|---|---|
-| 1. Phase 0 first | SP-02 sits in wave 1, before any behavior-changing component; baseline gates all later waves |
-| 2. Phase 1 + 2 (store + canonicalization + tombstones + evidence-linked negative knowledge with staleness) | SP-04/SP-06/SP-08 + SP-03/SP-09 |
-| 3. The cache correction (no selection before p-selection) | SP-12 (wave 3) precedes SP-15 (wave 4) by construction |
-| 4. The incremental-span instruction (O1) | SP-10, riding with the checkpoint writer |
+1. Preserve completed baseline and active work; reconcile M0.
+2. Repair capture/publication and trusted recoverable state M1/M2.
+3. Complete current Wave3 checkpoint/rehydration M3.
+4. Evaluate opt-in admission and measured policies only after recovery; consolidate release/rollback evidence.
 
 ## 10. Verification checkpoints
 
-| Checkpoint | After wave | Gates |
-|---|---|---|
-| V1 | 0 | Foundation, contracts, config verbatim vs Appendix C, hooks exit 0 |
-| V2 | 1 | Primitives, store, DAG, Phase 0 baseline; bench-gate + replay-gate begin; tag v0.1.0 |
-| V3 | 2 | Observer + negative knowledge; Phase 1 exit criterion (≥4:1, p99 < 15ms); Phase 2 exit criterion |
-| V4 | 3 | Checkpoint/rehydrate/schedule/retrieval; Phase 3 + Phase 4 exit criteria; core loop round-trip |
-| V5 | 4 | Commands, selection, grammar, Phase 5/6/7 exit criteria |
-| V6 | 5 | Production readiness: packaging, security, docs honesty surface, hand-executed UAT-01..12, release gate |
+V1/V2/V3 reports remain historical records, including the V3 J5 waiver/backfill. V4/V5/V6 plans remain future gates, not completion reports. Future release scope matches actual installed-host evidence; skipped integration is unverified. M7 is continuous evaluation in earlier packages plus final consolidation, not deferred testing of unsafe features.
 
 ## 11. Unowned design obligations — recorded, not assigned
 
-Two obligations `Qompack.md` states are **not owned by any subplan in this set**. They are recorded
-here rather than folded into the tables above, because assigning either one silently would make this
-document assert coverage the plan set does not provide. Each needs a decision before the checkpoint
-that would otherwise close its phase signs off. Nothing below is scheduled work. It is appended as
-§11 rather than inserted, so that no cross-reference to `TRACEABILITY.md` §8, §9 or §10 elsewhere in
-the plan set is renumbered by its addition.
+The heading is retained for existing links. v1.5 assigns the two previously unowned concerns below; no feature is marked implemented by that assignment.
 
 ### 11.1 O2's second half — the delta-vs-full storage write
 
-**What the design says.** `Qompack.md` §8.1 item 1: a MinHash signature per result detects
-near-duplicates — "same test suite, one new failure" — and "stores the delta against the prior
-version instead of the full text… this is where the dedup ratio is won or lost."
-
-**What the plan set says.** §5 above assigns O2 whole to SP-04. SP-04 disclaims half of it in its own
-text (`V2-SP-04-chunking-canonicalization-and-symbols.md`): `canon.Decide` is "an **unconsumed
-decision surface** reserved for the `Qompack.md` §8.1 delta-vs-full storage write… that write **is
-not implemented anywhere after wave 1, and no subplan owns it**." `V2-SP-04-carried-defects.md`
-records the intended fallback — "recording in `TRACEABILITY.md` that O2's second half is deliberately
-not shipped" — which is what this subsection now does. What ships today is reporting only:
-`store.NearDupInfo.DeltaBytes` measures the size difference between two versions and
-`canon`'s dedup path estimates it; neither writes a delta.
-
-**Why it matters.** The Phase 1 exit criterion `Qompack.md` §10 states for O2 is discharged in
-`test/dedup/dedup_test.go` by a canonicalization ratio threshold, so the phase can close green with
-the storage half absent, and the design's ratio claim rests on the absent half.
-
-**The two options.** (a) Assign the write — SP-16 is the natural candidate, since its Phase-7
-charter is already "fills a seam an earlier wave deliberately reserved"; that means a `store.Put`
-delta path, an exit-criterion row, and O2's row in §5 gaining a second owner. (b) Declare it
-not-shipped: keep §5's row as SP-04's with an explicit "second half not shipped" note, and add it to
-SP-18's cannot-do / known-limitations surface, because the design ties the dedup ratio to it.
-**Doing neither leaves §5 asserting coverage no plan provides.**
+Earlier TRACEABILITY called this unowned; V3's carry table records SP04-D7 fixed by assigning the checkpointer consumer. Preserve that history. SP20 now owns compatible exact-delta/fidelity/publication remediation; SP10 consumes its durable identities. Similarity and `NearDupInfo.DeltaBytes` are not exact reconstruction evidence. Full retained content is the fallback; no missing original may be synthesized.
 
 ### 11.2 `observer.Tombstone` — G3.2's marker has no reader
 
-**What the design says.** `Qompack.md` §8.1 item 2: "**Emit the tombstone.** Replace the eventual
-cleared marker with an addressable one: `[cleared: sha256:a3f2… · 2.4KB · FileRead src/auth.ts ·
-re-expandable]` This alone closes G3.2 at near-zero cost." `Qompack.md` §12 also says the plugin "cannot modify
-the message array directly — everything flows through `additionalContext`", so the literal
-instruction is unexecutable and the only legal channel is a rehydration or tool payload.
-
-**What the plan set says.** §1 above closes G3.2 on SP-08 ("addressable tombstones"). SP-08 ships and
-tests `observer.Tombstone`, and assigns the *affordance line* `TombstoneNote()` to SP-11 and SP-13 —
-but leaves the marker itself ownerless ("the compactability decision belongs to the caller"), and its
-own runtime use of it is a counter. Every other call site in the tree is a test:
-`V2-VERIFY` and `V3-VERIFY` exercise it, no production caller exists in any of the eighteen subplans.
-SP-11's §8.6 injection list has no tombstone item, and SP-13's `dropped` tool returns the
-checkpoint's `dropped[]` (path rules, nested CLAUDE.md, skills), not cleared tool results.
-
-**The two options.** (a) Give it a consumer: add a bounded tombstone digest for tool results cleared
-since the last checkpoint to SP-11's §8.6 injection list, rendered by `observer.Tombstone` and
-budgeted alongside the pointer item, then name that delivery owner in §1's G3.2 row. (b) Declare it
-undeliverable through `additionalContext`: move it to SP-18's cannot-do list and downgrade G3.2's
-claimed closure. **A rendered string with no reader closes nothing, so §1's G3.2 row is currently
-stronger than the plan set supports.**
+SP08's stored marker rendering alone did not establish delivered native replacement. SP11/SP13 expose qualified archive handles in supported injections/results; SP21 explicitly owns new-result admission after M1–M3. Native historical cleared markers remain outside plugin control. Pass only with real installed handle discovery/resolution and schema tests; never infer a deleted native result from a marker string.
