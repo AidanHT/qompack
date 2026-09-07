@@ -587,3 +587,128 @@ func TestReplacePinsViewReplacesTheViewInFull(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, entries, "no staging file may survive a successful replace")
 }
+
+// TestReplacePinsView_MkdirStagingFailsPreservesView covers the first staging boundary without
+// changing l.Tmp itself: another caller may still own that directory. A copied layout names a
+// regular file as its staging path, so MkdirAll must fail before ReplacePinsView has created any
+// staging file or touched the prior materialized view.
+func TestReplacePinsView_MkdirStagingFailsPreservesView(t *testing.T) {
+	l := newLayout(t)
+	view := filepath.Join(l.Pins, "invariants.json")
+	const before = `{"invariants":["old evidence"]}`
+	require.NoError(t, paths.ReplacePinsView(l, []byte(before)))
+
+	bad := l
+	bad.Tmp = filepath.Join(t.TempDir(), "tmp-is-a-file")
+	require.NoError(t, os.WriteFile(bad.Tmp, []byte("not a directory"), 0o600))
+
+	err := paths.ReplacePinsView(bad, []byte(`{"invariants":["new evidence"]}`))
+	require.Error(t, err)
+
+	got, readErr := os.ReadFile(view)
+	require.NoError(t, readErr)
+	require.Equal(t, before, string(got), "a staging setup failure must leave the prior view intact")
+
+	entries, readDirErr := os.ReadDir(l.Tmp)
+	require.NoError(t, readDirErr)
+	require.Empty(t, entries, "the untouched real staging directory must contain no leaked file")
+}
+
+// TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging covers the other side
+// of the write barrier: once staging has succeeded, a failed replacement must still retain the
+// destination and defer-clean the staged file.
+func TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging(t *testing.T) {
+	t.Run("nonempty destination directory", func(t *testing.T) {
+		l := newLayout(t)
+		bad := l
+		bad.Pins = filepath.Join(l.Dot, "pins-blocked")
+		view := filepath.Join(bad.Pins, "invariants.json")
+		sentinel := filepath.Join(view, "old-evidence.json")
+		require.NoError(t, os.MkdirAll(view, 0o700))
+		require.NoError(t, os.WriteFile(sentinel, []byte(`{"invariants":["old evidence"]}`), 0o600))
+
+		err := paths.ReplacePinsView(bad, []byte(`{"invariants":["new evidence"]}`))
+		require.Error(t, err, "a file cannot replace a nonempty destination directory")
+
+		got, readErr := os.ReadFile(sentinel)
+		require.NoError(t, readErr)
+		require.Equal(t, `{"invariants":["old evidence"]}`, string(got),
+			"the destination evidence must survive a failed replacement")
+
+		entries, readDirErr := os.ReadDir(l.Tmp)
+		require.NoError(t, readDirErr)
+		require.Empty(t, entries, "the staged replacement must be removed after a failed rename")
+	})
+
+	// On Windows a plain os.Open handle forbids the destination replacement. POSIX intentionally
+	// permits renaming over an open file, so this row is Windows-only rather than a vacuous chmod
+	// approximation on a privileged Unix runner.
+	t.Run("plain reader blocks replacement on Windows", func(t *testing.T) {
+		if runtime.GOOS != "windows" {
+			t.Skip("platform: POSIX permits renaming over an open file")
+		}
+		l := newLayout(t)
+		view := filepath.Join(l.Pins, "invariants.json")
+		const before = `{"invariants":["old evidence"]}`
+		require.NoError(t, paths.ReplacePinsView(l, []byte(before)))
+
+		f, err := os.Open(view)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = f.Close() })
+
+		err = paths.ReplacePinsView(l, []byte(`{"invariants":["new evidence"]}`))
+		require.Error(t, err, "a plain Windows reader must block a replacement it did not share")
+
+		got, readErr := os.ReadFile(view)
+		require.NoError(t, readErr)
+		require.Equal(t, before, string(got), "the old view must remain authoritative after failure")
+
+		entries, readDirErr := os.ReadDir(l.Tmp)
+		require.NoError(t, readDirErr)
+		require.Empty(t, entries, "the failed replacement must not leak its staging file")
+	})
+}
+
+// TestReplacePinsView_DeniedStagingCreatePreservesView drives CreateTemp's permission failure.
+// Windows needs an ACL deny rather than chmod: an administrator can write through directory mode
+// bits, which would make this row pass without exercising the failure. The deny and its removal
+// apply only to this test's t.TempDir-owned staging directory.
+func TestReplacePinsView_DeniedStagingCreatePreservesView(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("platform: icacls is windows-specific")
+	}
+	u, err := user.Current()
+	if err != nil {
+		t.Skipf("platform: could not determine current user: %v", err)
+	}
+
+	l := newLayout(t)
+	view := filepath.Join(l.Pins, "invariants.json")
+	const before = `{"invariants":["old evidence"]}`
+	require.NoError(t, paths.ReplacePinsView(l, []byte(before)))
+
+	if out, denyErr := exec.Command("icacls", l.Tmp, "/deny", u.Username+":(WD)").CombinedOutput(); denyErr != nil {
+		t.Skipf("platform: icacls deny unavailable in this environment: %v: %s", denyErr, out)
+	}
+	denied := true
+	t.Cleanup(func() {
+		if denied {
+			_, _ = exec.Command("icacls", l.Tmp, "/remove:d", u.Username).CombinedOutput()
+		}
+	})
+
+	err = paths.ReplacePinsView(l, []byte(`{"invariants":["new evidence"]}`))
+	require.Error(t, err, "CreateTemp must report a staging directory that denies new files")
+
+	got, readErr := os.ReadFile(view)
+	require.NoError(t, readErr)
+	require.Equal(t, before, string(got), "a denied staging create must leave the prior view intact")
+
+	if out, clearErr := exec.Command("icacls", l.Tmp, "/remove:d", u.Username).CombinedOutput(); clearErr != nil {
+		t.Fatalf("remove test-owned deny ACE: %v: %s", clearErr, out)
+	}
+	denied = false
+	entries, readDirErr := os.ReadDir(l.Tmp)
+	require.NoError(t, readDirErr)
+	require.Empty(t, entries, "a denied CreateTemp must not leave a staging file")
+}

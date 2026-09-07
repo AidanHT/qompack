@@ -1,0 +1,6 @@
+# .v4-artifacts/paths-before.cover
+FAIL	.v4-artifacts/paths-before.cover [setup failed]
+no required module provides package .v4-artifacts/paths-before.cover; to add it:
+	go get .v4-artifacts/paths-before.cover
+ok  	github.com/qompack/qompack/internal/paths	3.332s	coverage: 88.8% of statements
+FAIL
