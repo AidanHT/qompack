@@ -1,0 +1,30 @@
+$ claude plugin validate <repo>\plugin --json
+{
+  "success": true,
+  "strict": false,
+  "target": "<repo>\\plugin\\.claude-plugin\\plugin.json",
+  "manifest": {
+    "file": "<repo>\\plugin\\.claude-plugin\\plugin.json",
+    "type": "plugin",
+    "errors": [],
+    "warnings": [],
+    "notes": []
+  },
+  "contents": []
+}
+
+$ claude plugin validate <repo>\plugin --json --strict
+{
+  "success": true,
+  "strict": true,
+  "target": "<repo>\\plugin\\.claude-plugin\\plugin.json",
+  "manifest": {
+    "file": "<repo>\\plugin\\.claude-plugin\\plugin.json",
+    "type": "plugin",
+    "errors": [],
+    "warnings": [],
+    "notes": []
+  },
+  "contents": []
+}
+

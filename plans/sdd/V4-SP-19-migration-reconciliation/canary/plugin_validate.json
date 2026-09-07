@@ -1,0 +1,15 @@
+{
+  "name": "plugin_validate",
+  "capability": "observation",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "`claude plugin validate <repo>/plugin --json` (plain: true, --strict: true) under Claude CLI 2.1.263. REPOSITORY-LEVEL ONLY: the committed plugin directory was validated where it sits. The plugin is not installed in this host, so installed manifest resolution, ${CLAUDE_PLUGIN_ROOT} expansion and launcher discovery remain unverified (B01).",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-07T19:38:25Z"
+  },
+  "artifact": "plans/sdd/V4-SP-19-migration-reconciliation/canary/plugin_validate.claude.txt",
+  "recorded_at": "2026-09-07T19:38:26Z"
+}

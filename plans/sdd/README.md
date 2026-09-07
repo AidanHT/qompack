@@ -15,7 +15,7 @@ improvise silently. A ruling is the audit trail for that repair.
 | Directory | Subplan | Why it is committed here |
 |---|---|---|
 | `V2-SP-05-daemon-ipc-and-hot-path/` | SP-05 | Its session kept its ledger under an untracked, git-ignored path and wrote no tracked handoff document. `V2-VERIFY` gate **V2-MERGE-20** required it to be secured before `verify/v2` was cut |
-| `V4-SP-19-migration-reconciliation/` | SP-19 | The M0-01 repository inventory (worktrees, branches, carries, M0-04 consumer locations, capability evidence) is 600 lines of exact `file:line` facts; `plans/MIGRATION-EVIDENCE.md` carries the decisions taken on it and points here for the evidence |
+| `V4-SP-19-migration-reconciliation/` | SP-19 | The M0-01 repository inventory (worktrees, branches, carries, M0-04 consumer locations, capability evidence) is 600 lines of exact `file:line` facts; `plans/MIGRATION-EVIDENCE.md` carries the decisions taken on it and points here for the evidence. `canary/` holds the JSON records the `test/canary` suite wrote on the SP-19 host for M0-G2 to M0-G4 (six verified at repository or installed-CLI scope, four skipped at installed-session scope), plus the Claude CLI validator transcript; each record names its capability, structural scope, outcome, reason and target, and none contains transcript or prompt text |
 
 Every other wave-1 subplan recorded its reconciliation somewhere already tracked: SP-02 and SP-07 in
 `plans/V2-SP02-handoff.md` and `plans/V2-SP07-handoff.md`, SP-04 in `plans/CARRIED-DEFECTS.tsv` plus
