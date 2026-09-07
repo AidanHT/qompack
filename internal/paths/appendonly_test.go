@@ -498,3 +498,92 @@ func TestHighestBloomBackupSeq_UnreadableDirIsAnError(t *testing.T) {
 	require.False(t, ok)
 	require.Zero(t, seq)
 }
+
+// TestReplacePinsViewLandsUnderAnOpenReader is the ReplacePinsView half of the property
+// TestOpenSharedLetsWriteAtomicLandUnderAnOpenReader asserts for WriteAtomic, and it belongs here
+// because pins/invariants.json is the file in this tree that is most continuously held open: it is
+// read at session start to decide which invariants are live, and the daemon's materialize_pins
+// idle task rewrites it on every idle tick with no dirty check. The window in which some reader
+// holds it open is therefore not a rare race — it is re-opened for the life of the daemon.
+//
+// A reader is not passive on Windows. os.Rename is MoveFileEx, whose replace step fails with
+// ERROR_ACCESS_DENIED whenever the destination has ANY open handle, at ANY share mode. So a
+// ReplacePinsView that finished with a bare os.Rename could not replace the view for as long as
+// anybody was reading it — not "races with", could not finish. Going through renameWithRetry, and
+// therefore through posixReplace's FILE_RENAME_POSIX_SEMANTICS, is what makes the consenting-reader
+// case land, exactly as it already does for WriteAtomic.
+//
+// Both rows are asserted rather than skipped off Windows: rename(2) has always had these
+// semantics, so the table states the platform difference instead of hiding it.
+func TestReplacePinsViewLandsUnderAnOpenReader(t *testing.T) {
+	const before = `{"invariants":["the generation a reader already opened"]}`
+	const after = `{"invariants":["the replacement"]}`
+
+	cases := []struct {
+		name string
+		open func(p string) (*os.File, error)
+		// windowsBlocks is whether a holder that opened the view this way still blocks the replace
+		// on Windows. Only the plain os.Open handle does; that row is the guard half of the table.
+		windowsBlocks bool
+	}{
+		{name: "held with os.Open", open: os.Open, windowsBlocks: true},
+		{name: "held with paths.OpenShared", open: paths.OpenShared, windowsBlocks: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			l := newLayout(t)
+			view := filepath.Join(l.Pins, "invariants.json")
+			require.NoError(t, paths.ReplacePinsView(l, []byte(before)))
+
+			f, err := tc.open(view)
+			require.NoError(t, err)
+			defer func() { _ = f.Close() }()
+
+			err = paths.ReplacePinsView(l, []byte(after))
+			if tc.windowsBlocks && runtime.GOOS == "windows" {
+				require.Error(t, err,
+					"guard: os.Open's handle is supposed to block the replace on Windows. If it no "+
+						"longer does, paths.OpenShared has stopped being load-bearing — do not just "+
+						"relax this assertion")
+				return
+			}
+			require.NoError(t, err,
+				"a reader that consented to the replace must not be able to stall the materializer: "+
+					"invariants.json is re-read at every session start and rewritten on every idle tick")
+
+			buf := make([]byte, len(before))
+			n, readErr := f.Read(buf)
+			require.NoError(t, readErr)
+			require.Equal(t, before, string(buf[:n]),
+				"the open handle must keep reading the generation it opened, exactly as on POSIX")
+
+			landed, err := os.ReadFile(view)
+			require.NoError(t, err)
+			require.Equal(t, after, string(landed), "the replacement must be what is on disk")
+		})
+	}
+}
+
+// TestReplacePinsViewReplacesTheViewInFull pins the ordinary path: the view is a projection
+// replaced whole rather than appended to, it stays owner-writable (it is derived state, not an
+// immutable checkpoint artifact), and the staging file is cleaned up rather than left in l.Tmp.
+func TestReplacePinsViewReplacesTheViewInFull(t *testing.T) {
+	l := newLayout(t)
+	view := filepath.Join(l.Pins, "invariants.json")
+
+	require.NoError(t, paths.ReplacePinsView(l, []byte(`{"invariants":[]}`)))
+	require.NoError(t, paths.ReplacePinsView(l, []byte(`{"invariants":["a"]}`)))
+
+	got, err := os.ReadFile(view)
+	require.NoError(t, err)
+	require.Equal(t, `{"invariants":["a"]}`, string(got))
+
+	fi, err := os.Stat(view)
+	require.NoError(t, err)
+	require.NotZero(t, fi.Mode().Perm()&0o200, "the view must stay owner-writable")
+
+	entries, err := os.ReadDir(l.Tmp)
+	require.NoError(t, err)
+	require.Empty(t, entries, "no staging file may survive a successful replace")
+}
