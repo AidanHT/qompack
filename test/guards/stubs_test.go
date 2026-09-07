@@ -123,7 +123,7 @@ func stubRegistry() []stubPackage {
 			return l
 		}, pureMethods: allMethodsAreReal},
 		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }},
-		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }},
+		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }, pureMethods: allMethodsAreReal},
 		// checkpoint is the real L4 writer as of SP-10 (§8.5): Begin, Advance, Finalize and Abort
 		// all do their work, so no method reports ErrNotImplemented any more. What they report
 		// instead is ordinary argument validation — Advance on a nil draft says "advance: nil

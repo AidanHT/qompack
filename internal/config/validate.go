@@ -42,6 +42,8 @@ import (
 //	runtime.logging.level ∈ {debug,info,warn,error}
 //	runtime.rehydrate.minTokens ≥ 1 ; minTokens ≤ maxTokens ; skillIndexTokens ≥ 1 ; eliminationsTopN ≥ 1
 //	runtime.mcp.spanWidenLines ≥ 0 ; runtime.mcp.maxResponseBytes ≥ 4096
+//	runtime.scheduler.cache.expiringTriggerFraction ∈ (0,1)
+//	runtime.scheduler.cache.assumeMaxTTLSeconds ≥ scheduler.cache.ttlSeconds   ← cross-key; also > 0
 //	runtime.tokens.* charsPerToken ∈ [1,20] ; imagePixelsPerToken ≥ 1 ; pdfTokensPerPage ≥ 1
 //	runtime.tokens.calibrationMin ∈ (0,1] ; calibrationMax ≥ 1 ; calibrationAlpha ∈ (0,1]
 //	runtime.budgets.* > 0
@@ -247,6 +249,22 @@ func (c Config) Validate() []Violation {
 	}
 	if c.Runtime.MCP.MaxResponseBytes < 4096 { //nomagic:allow validation bound, not a default
 		add("runtime.mcp.maxResponseBytes", "must be at least 4096", c.Runtime.MCP.MaxResponseBytes, ">= 4096")
+	}
+
+	// runtime.scheduler.cache.expiringTriggerFraction ∈ (0,1) ;
+	// runtime.scheduler.cache.assumeMaxTTLSeconds ≥ scheduler.cache.ttlSeconds (and > 0)
+	if c.Runtime.Scheduler.Cache.ExpiringTriggerFraction <= 0 || c.Runtime.Scheduler.Cache.ExpiringTriggerFraction >= 1 {
+		add("runtime.scheduler.cache.expiringTriggerFraction", "out of range",
+			c.Runtime.Scheduler.Cache.ExpiringTriggerFraction, "(0,1)")
+	}
+	if c.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds <= 0 {
+		add("runtime.scheduler.cache.assumeMaxTTLSeconds", "must be greater than 0",
+			c.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds, "> 0")
+	} else if c.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds < c.Scheduler.Cache.TTLSeconds {
+		add("runtime.scheduler.cache.assumeMaxTTLSeconds",
+			"must be at least scheduler.cache.ttlSeconds",
+			c.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds,
+			fmt.Sprintf(">= %d", c.Scheduler.Cache.TTLSeconds))
 	}
 
 	// runtime.tokens.* charsPerToken ∈ [1,20]

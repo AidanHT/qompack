@@ -92,6 +92,7 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsErr != nil {
 		opts.Log.Loud("observer unavailable; L0 capture disabled", "err", obsErr.Error())
 	}
+	sched, schedOpts := wireScheduler(&opts, env.Getenv)
 	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
 	// but store's own quarantine() MkdirAlls that directory again at use — so the EMPTY directory
 	// is redundant from the moment it exists, and it is the one entry that would make the
@@ -133,6 +134,8 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsv != nil {
 		daemon.RegisterObserverIdleWork(d, obsv)
 	}
+	registerSchedulerIdle(d, sched, schedOpts)
+	defer closeScheduler(sched, schedOpts)
 
 	if *foreground {
 		fmt.Fprintf(errw, "qompack daemon: starting for project %s\n", root)

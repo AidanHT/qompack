@@ -98,6 +98,58 @@ func TestLoad_EnvKeyMapping(t *testing.T) {
 	require.Equal(t, "QOMPACK_SCHEDULER__CACHE__READMULTIPLIER", prov["scheduler.cache.readMultiplier"].Location)
 }
 
+// TestLoad_EnvKeyMappingNestedRuntime covers the §11.5 cache-regime keys SP-12 adds, which are
+// the first leaves two levels deep inside the runtime namespace: envVarName upper-cases every
+// dotted segment and joins them with "__", so the nested-runtime spelling is
+// QOMPACK_RUNTIME__SCHEDULER__CACHE__<LEAF> and not the flat QOMPACK_SCHEDULER__CACHE__<LEAF>
+// that scheduler.cache's own Appendix C leaves use.
+func TestLoad_EnvKeyMappingNestedRuntime(t *testing.T) {
+	env := baseEnv(t)
+	env.Getenv = func(k string) string {
+		switch k {
+		case "QOMPACK_RUNTIME__SCHEDULER__CACHE__EXPIRINGTRIGGERFRACTION":
+			return "0.65"
+		case "QOMPACK_RUNTIME__SCHEDULER__CACHE__ASSUMEMAXTTLSECONDS":
+			return "7200"
+		default:
+			return ""
+		}
+	}
+
+	cfg, prov, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Empty(t, warns)
+	require.Equal(t, 0.65, cfg.Runtime.Scheduler.Cache.ExpiringTriggerFraction)
+	require.Equal(t, 7200, cfg.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds)
+	require.Equal(t, config.OriginEnv, prov["runtime.scheduler.cache.expiringTriggerFraction"].Origin)
+	require.Equal(t, "QOMPACK_RUNTIME__SCHEDULER__CACHE__EXPIRINGTRIGGERFRACTION",
+		prov["runtime.scheduler.cache.expiringTriggerFraction"].Location)
+	require.Equal(t, config.OriginEnv, prov["runtime.scheduler.cache.assumeMaxTTLSeconds"].Origin)
+
+	// The neighbouring Appendix C block keeps its own values: the two namespaces are separate.
+	require.Equal(t, 300, cfg.Scheduler.Cache.TTLSeconds)
+	require.Equal(t, 0.1, cfg.Scheduler.Cache.ReadMultiplier)
+}
+
+// TestLoad_SchedulerCacheRegimeInvalidFallsBack pins the §11.3 fallback for the two new keys: an
+// out-of-range value in a project file is a Warning and a reversion to the default, never an
+// error.
+func TestLoad_SchedulerCacheRegimeInvalidFallsBack(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot,
+		`{"runtime":{"scheduler":{"cache":{"expiringTriggerFraction":1.5,"assumeMaxTTLSeconds":100}}}}`)
+
+	cfg, prov, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.Equal(t, 0.8, cfg.Runtime.Scheduler.Cache.ExpiringTriggerFraction)
+	require.Equal(t, 3600, cfg.Runtime.Scheduler.Cache.AssumeMaxTTLSeconds)
+	require.ElementsMatch(t, []string{
+		"runtime.scheduler.cache.expiringTriggerFraction",
+		"runtime.scheduler.cache.assumeMaxTTLSeconds",
+	}, warningKeys(warns))
+	require.Equal(t, "fallback after violation", prov["runtime.scheduler.cache.expiringTriggerFraction"].Location)
+}
+
 func TestLoad_NullMeansMeasure(t *testing.T) {
 	env := baseEnv(t)
 	// Set a non-nil value at a lower layer first, so a nil result actually proves the project
