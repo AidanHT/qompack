@@ -61,6 +61,12 @@ func wireTestDaemon(t *testing.T, root string, mutate func(*Options)) (observer.
 	if mutate != nil {
 		mutate(&o)
 	}
+	// Whether WireObserver will OPEN the ledger, as opposed to adopting one a test supplied. Only
+	// what the wiring opened may be closed here: a caller-supplied ledger belongs to the caller,
+	// and fakeStalenessLedger embeds a nil negknow.Ledger, so closing one would panic on the
+	// embedded nil rather than release anything.
+	ledgerIsOurs := o.Ledger == nil
+
 	obsv, err := WireObserver(&o)
 	require.NoError(t, err)
 	require.NotNil(t, obsv)
@@ -68,6 +74,15 @@ func wireTestDaemon(t *testing.T, root string, mutate func(*Options)) (observer.
 	require.NotNil(t, o.Graph, "WireObserver must open the DAG when the field is nil")
 	require.NotNil(t, o.Sketches)
 	t.Cleanup(func() { _ = o.Store.Close() })
+	// WireObserver also opens the negative-knowledge ledger now (WireRehydrator, SP-11), and it
+	// holds an append handle on records/eliminations.jsonl. Windows refuses to unlink an open
+	// file, so without this the TempDir cleanup fails the test after its body has already passed
+	// — the same reason the store is closed on the line above.
+	t.Cleanup(func() {
+		if ledgerIsOurs && o.Ledger != nil {
+			_ = o.Ledger.Close()
+		}
+	})
 
 	d, err := New(o)
 	require.NoError(t, err)

@@ -50,9 +50,13 @@ const (
 	defaultCorpusPath   = "testdata/sessions/synthetic"
 	defaultBaselinePath = "testdata/baseline/phase0.json"
 	defaultOutPath      = "testdata/bench-replay.json"
-	defaultPolicies     = "stock,null,oracle"
-	defaultMaxCPU       = 2 * time.Minute
-	defaultMaxWall      = 15 * time.Minute
+	// qompack-rehydrate joins the default set with SP-11. phase3 grades the rehydrator against
+	// the stock arm IN THE SAME RUN, so a default that omitted it would make the phase-3 gate fail
+	// with "no qompack-rehydrate policy in the report" on every invocation that did not pass
+	// --policies explicitly — including CI's.
+	defaultPolicies = "stock,null,oracle,qompack-rehydrate"
+	defaultMaxCPU   = 2 * time.Minute
+	defaultMaxWall  = 15 * time.Minute
 )
 
 // noDemandCorpusLimit is how much of a corpus may demand nothing before the corpus stops measuring

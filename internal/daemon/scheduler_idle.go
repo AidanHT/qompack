@@ -34,22 +34,22 @@ import (
 // The registered names and priorities. Names derive from the decision vocabulary so the two
 // cannot drift; only the acting task carries SP-05's prefix.
 const (
-	idleTaskAdvanceFrontier = actPrefix + string(scheduler.BackgroundAdvanceFrontier)
-	idleTaskPrecomputeSlice = string(scheduler.BackgroundPrecomputeSlice)
-	idleTaskRefreshDelta    = string(scheduler.BackgroundRefreshDelta)
-	idleTaskRebuildBloom    = string(scheduler.BackgroundRebuildBloom)
-	idleTaskCompactDAG      = string(scheduler.BackgroundCompactDAG)
-	idleTaskGC              = string(scheduler.BackgroundGC)
+	idleTaskSchedAdvanceFrontier = actPrefix + string(scheduler.BackgroundAdvanceFrontier)
+	idleTaskPrecomputeSlice      = string(scheduler.BackgroundPrecomputeSlice)
+	idleTaskRefreshDelta         = string(scheduler.BackgroundRefreshDelta)
+	idleTaskRebuildBloom         = string(scheduler.BackgroundRebuildBloom)
+	idleTaskCompactDAG           = string(scheduler.BackgroundCompactDAG)
+	idleTaskGC                   = string(scheduler.BackgroundGC)
 
 	// The band is 110–160 in steps of 10, spelled as a base and a step so that no priority is
 	// a bare literal that happens to coincide with an Appendix C default (§11.6 forbids 120).
-	idlePrioAdvanceFrontier = 110
-	idlePrioStep            = 10
-	idlePrioPrecomputeSlice = idlePrioAdvanceFrontier + idlePrioStep
-	idlePrioRefreshDelta    = idlePrioPrecomputeSlice + idlePrioStep
-	idlePrioRebuildBloom    = idlePrioRefreshDelta + idlePrioStep
-	idlePrioCompactDAG      = idlePrioRebuildBloom + idlePrioStep
-	idlePrioGC              = idlePrioCompactDAG + idlePrioStep
+	idlePrioSchedAdvanceFrontier = 110
+	idlePrioStep                 = 10
+	idlePrioPrecomputeSlice      = idlePrioSchedAdvanceFrontier + idlePrioStep
+	idlePrioRefreshDelta         = idlePrioPrecomputeSlice + idlePrioStep
+	idlePrioRebuildBloom         = idlePrioRefreshDelta + idlePrioStep
+	idlePrioCompactDAG           = idlePrioRebuildBloom + idlePrioStep
+	idlePrioGC                   = idlePrioCompactDAG + idlePrioStep
 )
 
 // The idle path's instruments: one Evaluate per pass, and the starvation counter/gauge that
@@ -89,7 +89,7 @@ func RegisterSchedulerIdleWork(d Daemon, rt scheduler.Runtime, o SchedulerRuntim
 	ledger, st := r.ledger, r.st
 	r.mu.Unlock()
 
-	ctl.Register(idleTaskAdvanceFrontier, idlePrioAdvanceFrontier, r.idleTask(scheduler.BackgroundAdvanceFrontier, r.advanceFrontierTask))
+	ctl.Register(idleTaskSchedAdvanceFrontier, idlePrioSchedAdvanceFrontier, r.idleTask(scheduler.BackgroundAdvanceFrontier, r.advanceFrontierTask))
 	ctl.Register(idleTaskPrecomputeSlice, idlePrioPrecomputeSlice, r.idleTask(scheduler.BackgroundPrecomputeSlice, r.precomputeSliceTask))
 	ctl.Register(idleTaskRefreshDelta, idlePrioRefreshDelta, r.idleTask(scheduler.BackgroundRefreshDelta, r.refreshDeltaTask))
 	ctl.Register(idleTaskRebuildBloom, idlePrioRebuildBloom, r.idleTask(scheduler.BackgroundRebuildBloom, r.rebuildBloomBody(ledger, st)))
@@ -101,7 +101,7 @@ func RegisterSchedulerIdleWork(d Daemon, rt scheduler.Runtime, o SchedulerRuntim
 		log = r.log
 	}
 	log.Info("scheduler: idle work registered",
-		"tasks", []string{idleTaskAdvanceFrontier, idleTaskPrecomputeSlice, idleTaskRefreshDelta, idleTaskRebuildBloom, idleTaskCompactDAG, idleTaskGC},
+		"tasks", []string{idleTaskSchedAdvanceFrontier, idleTaskPrecomputeSlice, idleTaskRefreshDelta, idleTaskRebuildBloom, idleTaskCompactDAG, idleTaskGC},
 		"maintainer", isMaintainer(ledger))
 	return nil
 }

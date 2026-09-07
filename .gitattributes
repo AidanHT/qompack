@@ -5,3 +5,4 @@
 testdata/corpora/** -text
 *.png binary
 *.zst binary
+testdata/golden/rehydrate/** -text

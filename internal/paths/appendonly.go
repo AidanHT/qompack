@@ -247,3 +247,62 @@ func ReplaceBloom(l Layout, b []byte, seq int) error {
 	}
 	return os.Rename(Long(tmp), Long(cur))
 }
+
+// ReplacePinsView writes b over pins/invariants.json, the materialized view of the pins log.
+//
+// It exists because IsProtected guards the WHOLE pins/ subtree, so WriteAtomic refuses
+// pins/invariants.json outright — and it must, because pins/invariants.jsonl is the append-only
+// file that carries the truth. But invariants.json is not that file: it is a projection that can
+// be rebuilt from the log at any time, and it is replaced in full every time the log changes.
+// A protected-but-replaceable derived file needs a door rather than a hole in IsProtected, which
+// is exactly the shape ReplaceBloom already has for sketches/tried.bloom.
+//
+// The staging file lives in l.Tmp so the finishing rename is same-volume by construction, and the
+// write barrier is WriteAtomic's, step for step: Sync the staging file, renameWithRetry it into
+// place, then fsyncDir the destination directory. Nothing weaker is enough for this file, on
+// either platform.
+//
+// The file's own fsync is what makes a half-written view impossible rather than merely unlikely:
+// invariants.json is read at session start to decide which invariants are live, so a torn write
+// would present a truncated invariant set as a complete one. The DIRECTORY fsync is the other
+// half, and it is separate: on POSIX a crash between the rename and the next unrelated metadata
+// flush can lose the rename itself even though the file's data was already durable, which leaves
+// the previous generation of the view in place — silently a checkpoint behind.
+//
+// renameWithRetry rather than a bare os.Rename because of Windows. os.Rename is MoveFileEx, whose
+// replace step fails with ERROR_ACCESS_DENIED whenever the destination has ANY open handle — even
+// one opened with FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE (replace_windows.go carries
+// the table, measured on this host). This destination is continuously re-opened by design:
+// invariants.json is read at session start, and the daemon's materialize_pins idle task rewrites
+// it on every idle tick. A bare rename therefore fails for as long as any reader holds the view
+// open, which is exactly when a rewrite is most likely to be attempted.
+func ReplacePinsView(l Layout, b []byte) error {
+	if err := os.MkdirAll(Long(l.Tmp), 0o700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(Long(l.Tmp), "invariants.json.")
+	if err != nil {
+		return err
+	}
+	tmp := f.Name()
+	defer func() { _ = os.Remove(tmp) }()
+
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	if err := os.Chmod(tmp, 0o600); err != nil {
+		return err
+	}
+	if err := renameWithRetry(tmp, Long(filepath.Join(l.Pins, "invariants.json"))); err != nil {
+		return err
+	}
+	return fsyncDir(l.Pins)
+}
