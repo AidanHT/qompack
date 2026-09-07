@@ -115,6 +115,15 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 				opts.Log.Warn("daemon: closing the observer's store", "err", closeErr.Error())
 			}
 		}
+		// The ledger the rehydrator opens on its FIRST compaction holds an append handle on
+		// records/eliminations.jsonl and is released on exactly the same terms as the store above.
+		// It is assigned back onto Options by WireRehydrator's opener, so this field is nil in a
+		// daemon that never compacted and there is nothing to close.
+		if opts.Ledger != nil {
+			if closeErr := opts.Ledger.Close(); closeErr != nil {
+				opts.Log.Warn("daemon: closing the negative-knowledge ledger", "err", closeErr.Error())
+			}
+		}
 	}()
 
 	d, err := daemon.New(opts)

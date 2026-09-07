@@ -1,0 +1,152 @@
+{
+  "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
+  "seq": 1,
+  "emitted": 1767225600000,
+  "tokens": 7144,
+  "budget": 8000,
+  "items": [
+    {
+      "kind": "invariants",
+      "rank": 0,
+      "tokens": 112,
+      "truncated": false,
+      "units": 2,
+      "units_seen": 2
+    },
+    {
+      "kind": "user_intent",
+      "rank": 1,
+      "tokens": 101,
+      "truncated": false,
+      "units": 3,
+      "units_seen": 3
+    },
+    {
+      "kind": "eliminations",
+      "rank": 2,
+      "tokens": 98,
+      "truncated": false,
+      "units": 2,
+      "units_seen": 1
+    },
+    {
+      "kind": "decisions",
+      "rank": 3,
+      "tokens": 146,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "current_work",
+      "rank": 4,
+      "tokens": 62,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    },
+    {
+      "kind": "pointers",
+      "rank": 5,
+      "tokens": 156,
+      "truncated": false,
+      "units": 3,
+      "units_seen": 3
+    },
+    {
+      "kind": "restored_instructions",
+      "rank": 6,
+      "tokens": 5672,
+      "truncated": true,
+      "units": 5,
+      "units_seen": 7
+    },
+    {
+      "kind": "skill_index",
+      "rank": 7,
+      "tokens": 441,
+      "truncated": true,
+      "units": 19,
+      "units_seen": 20
+    },
+    {
+      "kind": "drop_report",
+      "rank": 8,
+      "tokens": 294,
+      "truncated": false,
+      "units": 12,
+      "units_seen": 12
+    },
+    {
+      "kind": "affordance",
+      "rank": 9,
+      "tokens": 62,
+      "truncated": false,
+      "units": 1,
+      "units_seen": 1
+    }
+  ],
+  "dropped": [
+    {
+      "kind": "path_rule",
+      "id": "api-conventions.md",
+      "detail": "path-scoped rule for src/api/**; no pointer in this checkpoint matched its globs"
+    },
+    {
+      "kind": "tool_output",
+      "id": "toolu_01M3N4P5Q6R7S8T9U0V1W2X3",
+      "detail": "superseded by a later read of the same file"
+    },
+    {
+      "kind": "skill",
+      "id": "triage-500s",
+      "detail": "not in the compact skill index (budget 450 tokens)"
+    },
+    {
+      "kind": "skill",
+      "id": "tx-audit",
+      "detail": "not in the compact skill index (budget 450 tokens)"
+    },
+    {
+      "kind": "skill",
+      "id": "webhook-replay",
+      "detail": "not in the compact skill index (budget 450 tokens)"
+    },
+    {
+      "kind": "skill",
+      "id": "why-flaky",
+      "detail": "not in the compact skill index (budget 450 tokens)"
+    },
+    {
+      "kind": "skill",
+      "id": "migration-runner",
+      "detail": "body ~7400 tokens; the host re-injects at most 5000 per skill, head-first, so treat it as partial (§2.7)"
+    },
+    {
+      "kind": "skill",
+      "id": "onboard",
+      "detail": "body ~6100 tokens; the host re-injects at most 5000 per skill, head-first, so treat it as partial (§2.7)"
+    },
+    {
+      "kind": "skill",
+      "id": "*",
+      "detail": "total skill bodies ~36800 tokens exceed the host's 25000-token cap; the oldest are dropped entirely (§2.7)"
+    },
+    {
+      "kind": "path_rule",
+      "id": ".claude/rules/testing-conventions.md",
+      "detail": "matched src/auth.ts; did not fit the rehydration budget"
+    },
+    {
+      "kind": "nested_claude_md",
+      "id": "src/CLAUDE.md",
+      "detail": "did not fit the rehydration budget"
+    },
+    {
+      "kind": "skill",
+      "id": "trace-read",
+      "detail": "did not fit the rehydration budget"
+    }
+  ],
+  "degraded": false
+}

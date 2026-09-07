@@ -25,7 +25,7 @@ var nightlyFuzzMatrixRE = regexp.MustCompile(`(?m)^\s*-\s*\{\s*pkg:\s*(\S+?),\s*
 // The assertion exists because a matrix repair can be made by RENAMING rows instead of adding them,
 // and a rename leaves the count untouched. Eight was the V1 number and survived the whole of wave 1
 // unchanged while fifteen shipped targets went unregistered; that is what this constant is for.
-const nightlyFuzzMatrixLen = 21
+const nightlyFuzzMatrixLen = 22
 
 // nightlyFuzzLandedSubplans is a transcription of tools/devtool/cover.go's landedSubplans, and must
 // be kept identical to it: a subplan adds itself there in the commit that lands it, and the same
@@ -47,6 +47,8 @@ var nightlyFuzzLandedSubplans = map[string]bool{
 	"SP-07": true,
 	"SP-08": true,
 	"SP-09": true,
+	"SP-10": true,
+	"SP-11": true,
 	"SP-12": true,
 }
 

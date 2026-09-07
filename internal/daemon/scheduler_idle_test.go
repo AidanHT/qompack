@@ -28,7 +28,7 @@ import (
 
 // sp12IdleNames is the plan's registration order, act.advance_frontier first.
 var sp12IdleNames = []string{
-	idleTaskAdvanceFrontier, idleTaskPrecomputeSlice, idleTaskRefreshDelta,
+	idleTaskSchedAdvanceFrontier, idleTaskPrecomputeSlice, idleTaskRefreshDelta,
 	idleTaskRebuildBloom, idleTaskCompactDAG, idleTaskGC,
 }
 
@@ -164,13 +164,13 @@ func TestIdleTasksRegistered(t *testing.T) {
 	require.Equal(t, before, after[:len(before)], "every pre-existing task keeps its place ahead of SP-12's")
 	require.Equal(t, sp12IdleNames, after[len(before):], "SP-12's six, in the plan's order, after all of them")
 
-	require.Equal(t, 110, prioOf(t, ctl, idleTaskAdvanceFrontier))
+	require.Equal(t, 110, prioOf(t, ctl, idleTaskSchedAdvanceFrontier))
 	require.Equal(t, 120, prioOf(t, ctl, idleTaskPrecomputeSlice))
 	require.Equal(t, 130, prioOf(t, ctl, idleTaskRefreshDelta))
 	require.Equal(t, 140, prioOf(t, ctl, idleTaskRebuildBloom))
 	require.Equal(t, 150, prioOf(t, ctl, idleTaskCompactDAG))
 	require.Equal(t, 160, prioOf(t, ctl, idleTaskGC))
-	require.Equal(t, actPrefix+string(scheduler.BackgroundAdvanceFrontier), idleTaskAdvanceFrontier,
+	require.Equal(t, actPrefix+string(scheduler.BackgroundAdvanceFrontier), idleTaskSchedAdvanceFrontier,
 		"the acting task carries SP-05's prefix; the decision vocabulary does not")
 }
 
@@ -184,7 +184,7 @@ func TestIdleActingTaskSkippedInDegradedPassive(t *testing.T) {
 	for _, name := range sp12IdleNames[1:] {
 		require.Contains(t, ran, name, "recording/maintenance work keeps running while degraded")
 	}
-	require.NotContains(t, ran, idleTaskAdvanceFrontier, "§12.1: no scheduler-initiated checkpoints in degraded-passive")
+	require.NotContains(t, ran, idleTaskSchedAdvanceFrontier, "§12.1: no scheduler-initiated checkpoints in degraded-passive")
 	require.Zero(t, f.counter(counterFrontierNoWriter), "the acting body never ran")
 	require.Equal(t, 1, f.graph.compactCalls, "…but the maintenance bodies did")
 }
@@ -258,7 +258,7 @@ func TestIdleFrontierSkippedCounted(t *testing.T) {
 	// Pass 0 (degraded-passive) produces the first decision that plans advance_frontier; the
 	// acting task is skipped by SP-05's prefix rule.
 	ran := f.pass(t, idleRunBudget)
-	require.NotContains(t, ran, idleTaskAdvanceFrontier)
+	require.NotContains(t, ran, idleTaskSchedAdvanceFrontier)
 	require.Contains(t, f.rt.lastDecision.Background, scheduler.BackgroundAdvanceFrontier)
 	require.Zero(t, skipped(), "the decision being replaced planned nothing")
 
@@ -292,7 +292,7 @@ func TestIdleFrontierSkippedCounted(t *testing.T) {
 	// One real run, inside the same idle window (the refresh above is reused): the gauge resets.
 	hog = false
 	ran = f.pass(t, idleRunBudget)
-	require.Contains(t, ran, idleTaskAdvanceFrontier)
+	require.Contains(t, ran, idleTaskSchedAdvanceFrontier)
 	require.Equal(t, int64(1), f.counter(counterFrontierNoWriter), "advance_frontier ran (against no writer)")
 	require.Zero(t, ticks(), "the gauge resets when the frontier task runs")
 	require.Equal(t, int64(2), skipped())
@@ -301,7 +301,7 @@ func TestIdleFrontierSkippedCounted(t *testing.T) {
 	for range 3 {
 		f.clock.Advance(idleRunBudget)
 		ran = f.pass(t, idleRunBudget)
-		require.Contains(t, ran, idleTaskAdvanceFrontier)
+		require.Contains(t, ran, idleTaskSchedAdvanceFrontier)
 		require.Equal(t, int64(2), skipped(), "the counter stops rising once the task runs")
 		require.Zero(t, ticks())
 	}
@@ -319,7 +319,7 @@ func TestIdleFrontierSkippedCounted(t *testing.T) {
 	for range 3 {
 		off.clock.Advance(idleRunBudget)
 		ran := off.pass(t, idleRunBudget)
-		require.Contains(t, ran, idleTaskAdvanceFrontier, "the task ran and returned at its switch")
+		require.Contains(t, ran, idleTaskSchedAdvanceFrontier, "the task ran and returned at its switch")
 		require.Zero(t, off.counter(counterFrontierSkipped), "a task configured off is never reported starved")
 		require.Zero(t, off.reg.Gauge(gaugeFrontierTicks).Value())
 		require.Zero(t, off.counter(counterFrontierNoWriter), "...and never reached advanceFrontier")
