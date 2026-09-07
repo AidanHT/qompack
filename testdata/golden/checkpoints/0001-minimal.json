@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "session": "sess_01JD2Q0M8RWZK4Y6T1B3N5C7E9",
+  "seq": 1,
+  "created": "2026-02-01T09:00:00.000Z",
+  "encoded_segments": [],
+  "invariants": [
+    {
+      "id": "inv_9a1c4f7b0e3d",
+      "text": "Do not hand-edit files under generated/; regenerate them from the schema.",
+      "source": "user",
+      "pinned": 1770000000000
+    }
+  ],
+  "user_intent": {
+    "original": "Add pagination to the audit-log listing endpoint; the mobile client times out fetching the full history.",
+    "evolution": []
+  },
+  "eliminated": [],
+  "decisions": [],
+  "open_questions": [],
+  "current_work": {
+    "goal": "",
+    "next_step": "",
+    "blocked_on": null
+  },
+  "pointers": {
+    "files": [],
+    "tools": []
+  },
+  "narrative": "",
+  "sketch_refs": {
+    "touch": "touch.cms",
+    "tried": "tried.bloom"
+  },
+  "dropped": [],
+  "cache": {
+    "p_chosen": 0,
+    "rewrite_tokens": 0,
+    "ttl_state": ""
+  }
+}
