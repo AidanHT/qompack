@@ -63,9 +63,9 @@ var _ Reader = (*fileReader)(nil)
 // Finalize is the only thing that prices an artifact against the token estimator and the only
 // thing that knows what turn the encoding frontier reached, and neither value is recorded in
 // checkpoints/MANIFEST.jsonl, so there is nothing for a reader to recover them from. A consumer
-// that needs the frontier must read it from the writer's own Ref or from the checkpoint document;
-// treating a Reader's zero as "frontier 0" would read "nothing encoded yet" out of a checkpoint
-// that encoded plenty.
+// may use the writer's Ref only while it remains in memory; a durable reader frontier requires a
+// versioned, immutable seq-to-frontier record. Treating a Reader's zero as "frontier 0" would
+// read "nothing encoded yet" out of a checkpoint that encoded plenty.
 //
 // It does NOT call SetObservers. OpenWriter owns that one-time package-level wiring (see obs.go);
 // a reader installing its own observers would silently redirect the receiver-less functions'

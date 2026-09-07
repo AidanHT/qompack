@@ -130,7 +130,8 @@ func TestListIsAscendingAndCarriesManifestFields(t *testing.T) {
 
 // TestReaderRefLeavesWriterOnlyFieldsZero is the reader half of the writer-only-fields contract:
 // Tokens and Frontier are populated by Finalize alone, so every Ref a Reader hands back leaves
-// them zero. SP-11 must not read a zero here as "no tokens" or "frontier 0".
+// them zero until a versioned, immutable seq-to-frontier record exists. SP-11 must not read a
+// zero here as "no tokens" or "frontier 0".
 func TestReaderRefLeavesWriterOnlyFieldsZero(t *testing.T) {
 	e := newReaderEnv(t)
 	e.chain(t, readerSession, 2)
