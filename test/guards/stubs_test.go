@@ -149,7 +149,12 @@ func stubRegistry() []stubPackage {
 		// proves their constructors build and no method panics on zero-valued arguments.
 		{pkg: "rules", build: func(*testing.T) any { return rules.New() }, pureMethods: allMethodsAreReal},
 		{pkg: "skills", build: func(*testing.T) any { return skills.New() }, pureMethods: allMethodsAreReal},
-		{pkg: "mcp", build: func(*testing.T) any { return mcp.NewServer("qompack", "0.1.0", logging.Nop()) }},
+		// mcp is the real JSON-RPC server as of SP-13: Register validates the tool it is handed,
+		// Serve reports a missing stream, and Tools lists what was registered — none of them
+		// reports ErrNotImplemented any more. SP-13 listed itself in cover.go from its first commit
+		// but never flipped this row, so its own tip failed this guard; the row moves with the
+		// wave-3 integration (SP-19 M0-00), the way the nightlyfuzz mirror does.
+		{pkg: "mcp", build: func(*testing.T) any { return mcp.NewServer("qompack", "0.1.0", logging.Nop()) }, pureMethods: allMethodsAreReal},
 		{pkg: "commands"},
 		// eval's seam is REAL from SP-02 (Phase 0 is the first thing built after the foundation),
 		// so none of its methods reports ErrNotImplemented any more: Load reports ErrNotFound on

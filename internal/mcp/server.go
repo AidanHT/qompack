@@ -160,6 +160,13 @@ func (s *server) Tools() []Tool {
 // loop continues. The only thing that ends Serve with an error is a write failure, which means
 // the other end is gone and there is nothing left to answer to.
 func (s *server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
+	// Refuse a missing stream here, on the caller's goroutine, rather than discover it inside
+	// readLoop: bufio's first Read on a nil io.Reader panics on the read goroutine, where nothing
+	// recovers it. A seam fails by reporting (§12.3).
+	if in == nil || out == nil {
+		return errors.New("qompack: mcp: Serve needs a reader and a writer")
+	}
+
 	s.wmu.Lock()
 	enc := json.NewEncoder(out)
 	enc.SetEscapeHTML(false)

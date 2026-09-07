@@ -264,3 +264,18 @@ func TestServeReturnsOnContextCancel(t *testing.T) {
 		"a cancelled context ends the loop cleanly; the caller asked for this")
 	require.Empty(t, out.String(), "nothing was asked, so nothing is answered")
 }
+
+// TestServeRejectsNilStreams asserts Serve reports a missing reader or writer instead of starting
+// its read goroutine on one. A nil io.Reader panics inside that goroutine, where no caller's
+// recover can reach it, and takes the whole process with it — which for `qompack mcp` is the
+// host's MCP session and for the guard walk in test/guards is the test binary. A seam fails by
+// reporting, never by panicking (§12.3).
+func TestServeRejectsNilStreams(t *testing.T) {
+	srv := protoServer(t, ServerOptions{})
+	var out bytes.Buffer
+
+	require.Error(t, srv.Serve(context.Background(), nil, &out), "a nil reader must be reported")
+	require.Error(t, srv.Serve(context.Background(), strings.NewReader(""), nil), "a nil writer must be reported")
+	require.Error(t, srv.Serve(context.Background(), nil, nil))
+	require.Empty(t, out.String(), "a refused Serve writes nothing")
+}
