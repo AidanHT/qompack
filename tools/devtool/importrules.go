@@ -48,6 +48,12 @@ var compositionRoots = map[string]bool{
 	// scheduler/eval/config/core/paths, declared here because classify() knows test/ paths only
 	// through this table. TestPolicy_DoesNotImportDaemon keeps it off the composition roots.
 	"test/replay/l3policy": true,
+	// test/canary (SP-19 M0-03) is the host-contract canary suite: it builds and drives the real
+	// binary, reads the committed plugin manifest, speaks JSON-RPC to `qompack mcp` and reports
+	// against internal/contract's capability register. Spanning cli/mcp/pluginmanifest/contract at
+	// once is what no internal package's allow-set permits and what a composition root exists to
+	// hold — the same reason test/e2e is one.
+	"test/canary": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
