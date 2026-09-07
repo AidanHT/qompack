@@ -547,6 +547,8 @@ func (d *daemon) handleSessionStart(ctx context.Context, req ipc.Request) ipc.Re
 	if err := contract.SaveHistory(contract.HistoryPath(d.root), h); err != nil {
 		d.log.Warn("daemon: failed to save history after RunAll", "err", err)
 	}
+	// The same nine results, read as per-capability evidence (SP-19 commit 3; observations.go).
+	d.recordCapabilityObservations(results, ev.SessionID, now)
 	d.historyMu.Unlock()
 
 	// Phase 2 (unlocked): the wave-3 seam call. A seam's own budget (B-E is 2s) or, in principle,
