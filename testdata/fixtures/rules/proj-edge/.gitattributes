@@ -1,0 +1,4 @@
+# This fixture tree is byte-exact on purpose. The repository-root .gitattributes normalizes every
+# *.md to LF on checkout, which would silently delete the one property crlf/CLAUDE.md and
+# .claude/rules/crlf-rule.md exist to test. -text opts the whole tree out of EOL translation.
+* -text

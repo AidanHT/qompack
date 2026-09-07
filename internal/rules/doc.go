@@ -5,7 +5,15 @@
 // coincidentally re-read. The rehydrator re-reads both from disk, independently of Claude Code's
 // own restoration, and Scanner is how it finds them.
 //
-// rules is foundation-only (00-ARCHITECTURE.md §3.2): it imports core, paths and config and
-// nothing else. SP-01 ships the complete type set below as real declarations and every Scanner
-// operation as a stub returning core.ErrNotImplemented; SP-11 owns the real implementation.
+// rules is foundation-only (00-ARCHITECTURE.md §3.2): it imports core, paths and logging, and
+// nothing else. In particular it does NOT import tokens, which is why Rule.Tokens is a baseline
+// (len+3)/4 estimate that the rehydrator re-prices with a real estimator before budgeting.
+//
+// SP-01 shipped the type set as real declarations with every Scanner operation stubbed; SP-11
+// landed the real implementation: a "**"-aware glob matcher, a frontmatter reader for the three
+// `paths:` spellings Claude Code rule files use, a discovery walk over .claude/rules (recursive)
+// and .claude (depth 1), and the ancestor walk NestedClaudeMD performs — which climbs from each
+// pointer's directory toward the project root, stopping before the root itself because Claude
+// Code re-injects that file on its own (Qompack.md §2.7, widened to "containing, or ancestor to"
+// in Qompack.md v1.4).
 package rules
