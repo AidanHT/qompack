@@ -13,10 +13,9 @@
 // io.Writer its caller hands Serve. There is no listener, no port and no socket. The one place a
 // socket exists at all is internal/ipc, which talks to the local daemon.
 //
-// Two policies keep the retrieval layer from becoming the bloat it exists to solve (§8.7): every
-// result is born ephemeral, so analyzer.Block.Ephemeral ranks it first for eviction, and every
-// span returned is the minimum sufficient one — the matching function or hunk — with an explicit
-// full=true escape hatch.
+// Retrieval metadata marks Qompack representations ephemeral; it does not control host eviction
+// or establish native context retention. Content retrieval defaults to a bounded span with an
+// explicit full=true escape hatch. Capture, fidelity and coverage may be partial or unknown.
 //
 // The handlers execute in the DAEMON, not in the `qompack mcp` process. The daemon is the single
 // writer of the store and holds the warm handles, and — because Claude Code launches an MCP server

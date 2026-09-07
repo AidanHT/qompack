@@ -1,6 +1,6 @@
 # V4 execution report — IN PROGRESS
 
-**Status: IN PROGRESS — revised gate not accepted.** This is the current preparation execution report, not final signoff. Source tree: `wip/v4-preparation` at `919ca3abfba938c53ddbd9a9f55224f0054375a6`; `verify/v4` has not been created.
+**Status: IN PROGRESS — revised gate not accepted.** This is the current preparation execution report, not final signoff. Source tree: `wip/v4-preparation`, branched from `919ca3abfba938c53ddbd9a9f55224f0054375a6`; each run records its own source HEAD and dirty-input hashes. `verify/v4` has not been created.
 
 Scope and authority
 V4 retains the original SP-01–SP-13 assertions and cross-component scenarios while applying the current migration contracts. The individual reconciliations are in the [retained inventory](sdd/V4-VERIFY/inventory.md); every linked row remains UNVERIFIED unless explicitly labelled retired assertion. No old PASS result is copied.
@@ -74,6 +74,24 @@ Rows: [V4-SP12-01](sdd/V4-VERIFY/inventory.md#v4-sp12-01), [V4-SP12-02](sdd/V4-V
 Disposition: all rows are **UNVERIFIED** or explicitly retired under the revised migration contracts; implementation pointers do not constitute execution evidence. Current owner must reconcile each exact assertion with SP-19 migration authority before any acceptance.
 
 ## 13. SP13 retained assertions
+
+Provisional correction on preparation base `7dcb962`: ledger query failures now return
+`state: unavailable` with generic recovery text and no backend error disclosure. The old
+`TestAlreadyTriedLedgerFailureReturnsAbsent` assertion is retired; its replacement and the
+NotFound/cancel/deadline/private-error cases run through the real MCP handler fixture. Legacy
+JSON fields decode, but callers that assume a closed three-state enum need a behavior update.
+Successful legacy active/stale/absent answers still await M2 freshness/coverage qualification.
+
+Original `initialize.json` and `tools-list.json` goldens remain unchanged. Their `.v2` successors
+correct only instructions and seven tool descriptions, including the unsupported native eviction
+and complete-capture promises. Tool names, titles, schemas and negotiated protocol versions are
+unchanged. Generated MCP documentation reflects these limits.
+
+`mcp-unavailable-red` preserves the failing old absence behavior. `mcp-unavailable-green` passed
+the focused MCP and documentation race selection in 24.356 s (MCP 3.041 s, devtool 2.080 s).
+Its run manifest identifies dirty input hashes. Later MCP comment clarifications and this report
+change no runtime logic, test assertions, fixtures or generator inputs; the independent packet
+records that dependency review. These results do not close installed-host, M2 or final V4 gates.
 
 Rows: [V4-SP13-01](sdd/V4-VERIFY/inventory.md#v4-sp13-01), [V4-SP13-02](sdd/V4-VERIFY/inventory.md#v4-sp13-02), [V4-SP13-03](sdd/V4-VERIFY/inventory.md#v4-sp13-03), [V4-SP13-04](sdd/V4-VERIFY/inventory.md#v4-sp13-04), [V4-SP13-05](sdd/V4-VERIFY/inventory.md#v4-sp13-05), [V4-SP13-06](sdd/V4-VERIFY/inventory.md#v4-sp13-06), [V4-SP13-07](sdd/V4-VERIFY/inventory.md#v4-sp13-07), [V4-SP13-08](sdd/V4-VERIFY/inventory.md#v4-sp13-08), [V4-SP13-09](sdd/V4-VERIFY/inventory.md#v4-sp13-09), [V4-SP13-10](sdd/V4-VERIFY/inventory.md#v4-sp13-10), [V4-SP13-11](sdd/V4-VERIFY/inventory.md#v4-sp13-11), [V4-SP13-12](sdd/V4-VERIFY/inventory.md#v4-sp13-12), [V4-SP13-13](sdd/V4-VERIFY/inventory.md#v4-sp13-13), [V4-SP13-14](sdd/V4-VERIFY/inventory.md#v4-sp13-14), [V4-SP13-15](sdd/V4-VERIFY/inventory.md#v4-sp13-15), [V4-SP13-16](sdd/V4-VERIFY/inventory.md#v4-sp13-16), [V4-SP13-17](sdd/V4-VERIFY/inventory.md#v4-sp13-17), [V4-SP13-18](sdd/V4-VERIFY/inventory.md#v4-sp13-18), [V4-SP13-19](sdd/V4-VERIFY/inventory.md#v4-sp13-19), [V4-SP13-20](sdd/V4-VERIFY/inventory.md#v4-sp13-20), [V4-SP13-21](sdd/V4-VERIFY/inventory.md#v4-sp13-21), [V4-SP13-22](sdd/V4-VERIFY/inventory.md#v4-sp13-22), [V4-SP13-23](sdd/V4-VERIFY/inventory.md#v4-sp13-23), [V4-SP13-24](sdd/V4-VERIFY/inventory.md#v4-sp13-24).
 Disposition: all rows are **UNVERIFIED** or explicitly retired under the revised migration contracts; implementation pointers do not constitute execution evidence. Current owner must reconcile each exact assertion with SP-19 migration authority before any acceptance.

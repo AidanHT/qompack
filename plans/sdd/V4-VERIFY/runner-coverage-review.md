@@ -155,6 +155,58 @@ No mandatory issue was found in these bounded corrections. They do not satisfy
 V4-ALL-01 or prove race instrumentation/coverage of harness-built e2e child
 processes; the separate full-race/e2e-equivalence residual above remains open.
 
+## MCP consumer correction review
+
+This read-only review accepts the bounded MCP consumer correction as a
+compatible preparatory change. It is not an SP-20 or V4 final gate claim.
+
+`already_tried` maps every `Ledger.Query` error to a successful MCP domain
+response with `state: "unavailable"`, `degraded: true`, a generic reason, and
+a recovery note. It does not map an error to `absent` or `active`. The handler's
+Loud message is constant and the response contains no backend error string;
+the focused cases include `core.ErrNotFound`, cancellation, deadline expiry,
+and an error carrying a private Windows path. This limits the assertion to the
+MCP handler's response and diagnostic: it does not prove that every dependency
+which could log independently has the same redaction policy.
+
+The historical `initialize.json` and `tools-list.json` are retained. The active
+tests use `initialize.v2.json` and `tools-list.v2.json`. A structural comparison
+found that initialize v2 changes only `instructions`; tools-list v2 preserves
+all eight tool names, titles, order, and input schemas, and changes descriptions
+only for `recall`, `expand`, `re_read`, `already_tried`, `timeline`, `why`, and
+`dropped`. The names `.v2` identify versioned test fixtures; they do not add
+MCP protocol negotiation or let an old client select the former semantic
+contract.
+
+The generated MCP page and initialize instructions now distinguish Qompack's
+ephemeral record metadata from host eviction and native-context retention.
+This is consistent with the implementation: retrieval output can be stored and
+ranked within Qompack, while the plugin cannot assert that the host will retain
+or evict its context. The generated page no longer promises host-level eviction
+or complete capture.
+
+JSON shape remains readable by a permissive legacy decoder, as
+`unavailable_test.go` demonstrates. A caller that treats `state` as a closed
+three-value enum is semantically incompatible until it handles `unavailable`;
+the tool description, initialize instruction, and generated page state that
+limit and require unknown states to confer neither absence nor prohibition.
+
+The recorded `mcp-unavailable-green.run.json` artifact passed the focused race
+selection over `internal/mcp` and `tools/devtool` in 24.356 seconds (package
+times 3.041 and 2.080 seconds). It covers the updated AlreadyTried,
+initialize, tools-list, Tool, and generated-document guards. This review did
+not rerun it. The subsequent review-only changes are comments and golden-path
+annotations: runtime logic, test logic, fixtures, and generator inputs used by
+the recorded command are unchanged, so no additional full chain is required
+for this bounded acceptance. It does not establish a full MCP or whole-tree
+race gate.
+
+This correction also remains pending the M2 producer work: there is no
+completeness/authority witness that would make an unavailable or absent answer
+an SP-20 publication gate result. Installed host clients remain outside this
+repository's compatibility proof; they must accept the additional state and
+follow the current initialize/tools-list guidance before relying on it.
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.

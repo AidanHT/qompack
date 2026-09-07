@@ -31,7 +31,7 @@ import (
 // reasons that are not about the protocol.
 
 // protoVersionUnderTest is the server version the handshake tests report. It is a literal rather
-// than core.Version so that testdata/golden/mcp/initialize.json does not churn on every release.
+// than core.Version so that testdata/golden/mcp/initialize.v2.json does not churn on every release.
 const protoVersionUnderTest = "0.1.0"
 
 // probeSchema is the argument schema every probe tool in these files declares: an object that

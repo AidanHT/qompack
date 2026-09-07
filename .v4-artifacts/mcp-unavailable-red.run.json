@@ -1,0 +1,9 @@
+{
+  "head": "7dcb962f01eebffcb4844c61f34192aeb4910423",
+  "started": "2026-09-07T23:25:10.4864646Z",
+  "test_sha256": "B248F828A56B94C0740560129BE6907B2378B7F84DC8E68F632F736E317F7C65",
+  "stage": "provisional compatible consumer correction",
+  "elapsed_seconds": 3.4018769,
+  "exit": 1,
+  "command": "go test -p=1 -count=1 -run '^TestAlreadyTriedLedgerFailureReturnsUnavailable$' ./internal/mcp"
+}
