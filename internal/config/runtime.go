@@ -20,6 +20,7 @@ type RuntimeCfg struct {
 	Rehydrate RehydrateCfg  `json:"rehydrate"`
 	MCP       MCPCfg        `json:"mcp"`
 	Scheduler RSchedulerCfg `json:"scheduler"`
+	Migration MigrationCfg  `json:"migration"`
 	Budgets   BudgetsCfg    `json:"budgets"`
 	Selection RSelectionCfg `json:"selection"`
 	Tokens    RTokensCfg    `json:"tokens"`
@@ -97,6 +98,61 @@ type RSchedulerCfg struct {
 type RSchedulerCacheCfg struct {
 	ExpiringTriggerFraction float64 `json:"expiringTriggerFraction" doc:"fraction of a KNOWN prompt-cache TTL past which the scheduler fires while the prefix is still readable (cache_expiring trigger)" rng:"(0,1)" sec:"00-ARCH §11.5 / Qompack.md §5.4"`
 	AssumeMaxTTLSeconds     int     `json:"assumeMaxTTLSeconds"     doc:"upper TTL bound the scheduler assumes when the cache regime cannot be identified"                                             rng:"[scheduler.cache.ttlSeconds,∞)" sec:"00-ARCH §11.5 / Qompack.md §5.4"`
+}
+
+// MigrationCfg is SP-19's §11.5 block (Qompack.md v1.5 Appendix C, rows "Schema/config version"
+// and "Recording/reinjection/replacement/experiments"): an explicit version for the block itself
+// and one independent switch per capability the migration keeps off until its gate passes. None
+// of it changes an Appendix C key. Recording has no switch here because runtime.mode already is
+// one ("passive" records without acting; "off" does nothing).
+//
+// A switch whose gate has not passed in this build is refused by Validate when set true — Load
+// then restores the default and warns — so the only way to enable a gated capability is the
+// reviewed commit that flips its gate in MigrationGates (migration.go), never a config edit against
+// a build that cannot honour it. The one switch that is on by default,
+// reinjection.sessionStartCompact, is the tested SessionStart adapter SP-11 ships; turning it off
+// is the independent kill switch v1.5 Appendix C asks for, consumed by internal/daemon's rehydrate
+// service.
+type MigrationCfg struct {
+	SettingsVersion int                     `json:"settingsVersion" doc:"version of the runtime.migration block; a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off" rng:"[1,1]" sec:"Qompack.md v1.5 Appendix C / SP-19 M0"`
+	Capture         MigrationCaptureCfg     `json:"capture"`
+	Publication     MigrationPublicationCfg `json:"publication"`
+	Reinjection     MigrationReinjectionCfg `json:"reinjection"`
+	Replacement     MigrationReplacementCfg `json:"replacement"`
+	Compaction      MigrationCompactionCfg  `json:"compaction"`
+	Experiments     MigrationExperimentsCfg `json:"experiments"`
+}
+
+// MigrationCaptureCfg is SP-20 M1's capture switch.
+type MigrationCaptureCfg struct {
+	RawEvidence bool `json:"rawEvidence" doc:"capture permitted raw host payload bytes before any transform (SP-20 M1); refused until the M1 gate passes" sec:"Qompack.md v1.5 §8.1 / SP-20 M1-01"`
+}
+
+// MigrationPublicationCfg is SP-20 M1's publication switch.
+type MigrationPublicationCfg struct {
+	DurableFrontier bool `json:"durableFrontier" doc:"publish references and the committed frontier only behind an acknowledged durable object write (SP-20 M1); refused until the M1 gate passes" sec:"Qompack.md v1.5 §8.2 / SP-20 M1-02"`
+}
+
+// MigrationReinjectionCfg is the injection kill switch.
+type MigrationReinjectionCfg struct {
+	SessionStartCompact bool `json:"sessionStartCompact" doc:"reinject the rehydration payload through SessionStart source=compact additionalContext, the one tested injection adapter; false disables injection without touching recording" sec:"Qompack.md v1.5 §8.6 / 00-ARCH §12.1"`
+}
+
+// MigrationReplacementCfg is SP-21 M4's admission switch.
+type MigrationReplacementCfg struct {
+	NewResult bool `json:"newResult" doc:"replace newly delivered tool results with Qompack handles (SP-21 M4); refused until the M4 gate passes" sec:"Qompack.md v1.5 §8.7 / SP-21"`
+}
+
+// MigrationCompactionCfg holds the two native-compaction controls, both off: one gated, one
+// hardwired.
+type MigrationCompactionCfg struct {
+	AutomaticVeto      bool `json:"automaticVeto"      doc:"let the scheduler veto an automatic compaction for optimization; refused: the recovery/proactive distinction is unverified (SP-19 M0-03)" sec:"Qompack.md v1.5 §7.3 / 00-ARCH §12.1"`
+	BlockManualCompact bool `json:"blockManualCompact" doc:"block a manual /compact for optimization; hardwired false, the key exists only to say so" sec:"Qompack.md v1.5 §12 / 00-ARCH §12.1"`
+}
+
+// MigrationExperimentsCfg gates the SP-15/SP-16 experimental policies.
+type MigrationExperimentsCfg struct {
+	Enabled bool `json:"enabled" doc:"enable experimental representation and optimizer policies (SP-15/SP-16); refused until their gates pass" sec:"Qompack.md v1.5 Appendix C / SP-15, SP-16"`
 }
 
 // BudgetsCfg gives the §11.3/§2.4 latency budgets B-B through B-F config keys, plus B-G's. B-A

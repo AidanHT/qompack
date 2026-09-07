@@ -159,7 +159,11 @@ func TestLoad_NullMeansMeasure(t *testing.T) {
 
 	cfg, prov, warns, err := config.Load(env)
 	require.NoError(t, err)
-	require.Empty(t, warns)
+	// scheduler.youngDaly.measuredDeltaSeconds is this test's *float64 example, and since SP-19 a
+	// non-default layer that sets it also earns the v1.5 deprecation note (migration_test.go pins
+	// that diagnostic); it is the only warning tolerated here.
+	require.Empty(t, nonDeprecation(warns))
+	require.Equal(t, []string{"scheduler.youngDaly.measuredDeltaSeconds"}, warningKeys(warns))
 	require.Nil(t, cfg.Scheduler.YoungDaly.MeasuredDeltaSeconds)
 	require.Equal(t, config.OriginProjectFile, prov["scheduler.youngDaly.measuredDeltaSeconds"].Origin)
 }
@@ -176,7 +180,11 @@ func TestLoad_EnvFloatPtrNullLiteral(t *testing.T) {
 
 	cfg, prov, warns, err := config.Load(env)
 	require.NoError(t, err)
-	require.Empty(t, warns)
+	// scheduler.youngDaly.measuredDeltaSeconds is this test's *float64 example, and since SP-19 a
+	// non-default layer that sets it also earns the v1.5 deprecation note (migration_test.go pins
+	// that diagnostic); it is the only warning tolerated here.
+	require.Empty(t, nonDeprecation(warns))
+	require.Equal(t, []string{"scheduler.youngDaly.measuredDeltaSeconds"}, warningKeys(warns))
 	require.Nil(t, cfg.Scheduler.YoungDaly.MeasuredDeltaSeconds)
 	require.Equal(t, config.OriginEnv, prov["scheduler.youngDaly.measuredDeltaSeconds"].Origin)
 }
@@ -408,6 +416,18 @@ func TestLoad_ArraysReplaceWholesale(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, warns)
 	require.Equal(t, []string{"paths"}, cfg.Scheduler.Changepoint.Features)
+}
+
+// nonDeprecation drops the Deprecated warnings (migration.go) so a test about what Load dropped or
+// replaced can keep asserting an empty list.
+func nonDeprecation(ws []config.Warning) []config.Warning {
+	var out []config.Warning
+	for _, w := range ws {
+		if !w.Deprecated {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 func warningKeys(ws []config.Warning) []string {

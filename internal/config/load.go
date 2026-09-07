@@ -59,12 +59,20 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 	applyEnv(merged, env.Getenv, prov, &warns)
 	applyFlags(merged, env.Flags, prov, &warns)
 
-	cfg := fromMap(merged)
-	deriveSubmodularEnabled(&cfg)
-
 	// defaults is a private, per-call copy used only to look up fallback values; restoreDefault
 	// deep-copies whatever it takes from it, so nothing merged holds can alias it.
 	defaults := toMap(Defaults())
+
+	// A runtime.migration block written for a newer settingsVersion is reset wholesale before the
+	// per-leaf fallback below can keep half of it (migration.go), and a retired-meaning Appendix C
+	// key set by any non-default layer is warned about while its value is still applied.
+	if w, reset := applyMigrationVersion(merged, defaults, prov); reset {
+		warns = append(warns, w)
+	}
+	warns = append(warns, migrationDeprecations(prov)...)
+
+	cfg := fromMap(merged)
+	deriveSubmodularEnabled(&cfg)
 	// Restoring the key a violation NAMES does not always clear it. Three rules are relational —
 	// store.chunk.min < target < max, and runtime.rehydrate.minTokens <= maxTokens — and each is
 	// keyed on one side of its comparison, so when the other side carries the bad value the named

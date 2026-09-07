@@ -48,6 +48,11 @@ import (
 //	runtime.tokens.calibrationMin ∈ (0,1] ; calibrationMax ≥ 1 ; calibrationAlpha ∈ (0,1]
 //	runtime.budgets.* > 0
 //	runtime.telemetry.enabled must be false            ← hardwired; a true value is a Violation
+//	runtime.migration.settingsVersion == MigrationSettingsVersion
+//	runtime.migration.{capture.rawEvidence, publication.durableFrontier, replacement.newResult,
+//	    compaction.automaticVeto, experiments.enabled} must be false while their gate is pending
+//	    (migration.go's MigrationGates; every gate is pending at SP-19)
+//	runtime.migration.compaction.blockManualCompact must be false   ← hardwired; manual compact is never blocked
 //
 // Every leaf in Config not covered by a check below is intentionally unconstrained (booleans
 // with no invalid state, and a handful of ints/strings §11.3 does not bound): see
@@ -318,6 +323,30 @@ func (c Config) Validate() []Violation {
 	// runtime.telemetry.enabled must be false — hardwired; a true value is a Violation
 	if c.Runtime.Telemetry.Enabled {
 		add("runtime.telemetry.enabled", "must be false: telemetry is hardwired off", c.Runtime.Telemetry.Enabled, false)
+	}
+
+	// runtime.migration.settingsVersion == MigrationSettingsVersion
+	if c.Runtime.Migration.SettingsVersion != MigrationSettingsVersion {
+		add("runtime.migration.settingsVersion",
+			fmt.Sprintf("must be %d: the only runtime.migration version this build understands", MigrationSettingsVersion),
+			c.Runtime.Migration.SettingsVersion, MigrationSettingsVersion)
+	}
+
+	// runtime.migration.* gated switches must be false while their gate is pending. A switch
+	// with no consumer in this build is still load-bearing here: nothing can be turned on by
+	// editing a file, only by the reviewed commit that flips the gate.
+	for _, g := range migrationGates {
+		on, known := c.migrationSwitch(g.Key)
+		if known && on && !g.Passed {
+			add(g.Key, fmt.Sprintf("must be false: gate %q (%s) has not passed in this build", g.Gate, g.Owner), true, false)
+		}
+	}
+
+	// runtime.migration.compaction.blockManualCompact must be false — hardwired; a manual
+	// /compact is never blocked for optimization (Qompack.md v1.5 §12; 00-ARCHITECTURE §12.1)
+	if c.Runtime.Migration.Compaction.BlockManualCompact {
+		add("runtime.migration.compaction.blockManualCompact",
+			"must be false: a manual compact is never blocked for optimization", true, false)
 	}
 
 	return out

@@ -33,7 +33,11 @@ func TestLoad_EnvAllKinds(t *testing.T) {
 
 	cfg, prov, warns, err := config.Load(env)
 	require.NoError(t, err)
-	require.Empty(t, warns)
+	// scheduler.youngDaly.measuredDeltaSeconds is this test's *float64 example, and since SP-19 a
+	// non-default layer that sets it also earns the v1.5 deprecation note (migration_test.go pins
+	// that diagnostic); it is the only warning tolerated here.
+	require.Empty(t, nonDeprecation(warns))
+	require.Equal(t, []string{"scheduler.youngDaly.measuredDeltaSeconds"}, warningKeys(warns))
 	require.True(t, cfg.Store.Canonicalize.Enabled)
 	require.Equal(t, 2048, cfg.Store.Chunk.Min)
 	require.Equal(t, 0.4, cfg.Scheduler.SoftFloorPct)
@@ -93,7 +97,11 @@ func TestLoad_FlagsAllKinds(t *testing.T) {
 
 	cfg, prov, warns, err := config.Load(env)
 	require.NoError(t, err)
-	require.Empty(t, warns)
+	// scheduler.youngDaly.measuredDeltaSeconds is this test's *float64 example, and since SP-19 a
+	// non-default layer that sets it also earns the v1.5 deprecation note (migration_test.go pins
+	// that diagnostic); it is the only warning tolerated here.
+	require.Empty(t, nonDeprecation(warns))
+	require.Equal(t, []string{"scheduler.youngDaly.measuredDeltaSeconds"}, warningKeys(warns))
 	require.False(t, cfg.Store.Canonicalize.Enabled)
 	require.Equal(t, 8192, cfg.Store.Chunk.Target)
 	require.Equal(t, 600, cfg.Scheduler.Cache.TTLSeconds)
