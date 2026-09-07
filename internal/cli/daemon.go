@@ -19,6 +19,7 @@ import (
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/rehydrate"
 	"github.com/qompack/qompack/internal/symbols"
 )
 
@@ -196,18 +197,21 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 	log logging.Logger, reg obs.Registry, clk core.Clock,
 ) {
-	// --- SP-13 branch-local declarations: DELETE AT THE WAVE-3 REBASE ---
-	// SP-10 merges the checkpoint reader and SP-11 merges the symbol extractor and the drop
-	// reporter; until then these are typed nils, which is exactly what ToolDeps documents as
-	// legal. `why` then answers found:false and `dropped` answers available:false — degraded, not
-	// broken — and the spans are chunk-aligned without symbol widening. At the rebase these three
-	// lines are replaced by the locals those subplans already build; nothing else here changes.
-	var (
-		ckptReader   checkpoint.Reader
-		dropReporter mcp.DropReporter
-		syms         symbols.Extractor
-	)
-	// --- end branch-local declarations ---
+	// The three wave-3 collaborators SP-13 could not build on its own branch — its commits predate
+	// SP-10 and SP-11 on develop — assembled at the wave-3 integration (SP-19 M0-00). Each is
+	// side-effect-free to construct, which is what makes a second instance beside the ones
+	// WireRehydrator holds legitimate where a second store or ledger would not be: OpenReader
+	// holds no handle and reads the manifest per call, the drop reporter reads its state file per
+	// call, and symbols.New is a stateless empty struct. `why` answers from the sealed
+	// checkpoints, `dropped` from the last rehydration's persisted drop report, and spans widen
+	// to symbol boundaries.
+	ckptReader, ckptErr := checkpoint.OpenReader(root, log, reg)
+	if ckptErr != nil {
+		log.Loud("mcp: checkpoint reader unavailable; `why` will answer found:false", "err", ckptErr.Error())
+		ckptReader = nil
+	}
+	var dropReporter mcp.DropReporter = rehydrate.NewReporter(root, log)
+	syms := symbols.New()
 
 	prom, promErr := mcp.NewPromoter(mcp.PromotionsPath(root), cfg.Retrieval.PromoteAfterExpansions, clk)
 	if promErr != nil {
@@ -216,6 +220,13 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
 	}
 
+	// opts.Ledger is nil HERE on the daemon path and the tools capture the value, not the field:
+	// WireRehydrator opens the negative-knowledge ledger lazily on the first compaction and only
+	// then assigns it back onto Options (see RehydrateOptions.OpenLedger for why an eager open is
+	// not an option), so `already_tried` and `record_eliminated` answer available:false in the
+	// shipped daemon. Sharing that single lazily-opened handle with the MCP tools, SP-12's
+	// maintenance work and SP-10's SourceSet is the shared-ledger contract SP-19 M0-02 owns; it is
+	// deliberately not improvised here.
 	deps := NewToolDeps(root, cfg, opts.Store, opts.Ledger, ckptReader, dropReporter, prom, syms, log, reg, clk)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())

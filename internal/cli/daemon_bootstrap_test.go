@@ -418,14 +418,14 @@ func TestBootstrapDAGOpenFailureDegrades(t *testing.T) {
 // TestBootstrapLedgerSkippedWhenStoreIsNil pins what negative knowledge does when the bootstrap
 // hands it nothing: `already_tried` reports available:false and never state:"active".
 //
-// On THIS branch the assertion is stronger than its name and weaker than it will be. installMCPTools
-// passes opts.Ledger straight through, and nothing in runDaemon ever opens a ledger — SP-09's
-// ledger is wired through the observer's own SessionStart seam, not through Options — so
+// The assertion is stronger than its name and weaker than it will be. installMCPTools passes
+// opts.Ledger straight through, and at that point nothing has opened a ledger: SP-11's
+// WireRehydrator opens one lazily on the first compaction and assigns it to Options only then, so
 // ToolDeps.Ledger is nil whether or not the store opened. What is therefore checked here is the
 // invariant that survives either way and is the one §12.3 actually cares about: with no ledger, the
 // answer is "this build cannot tell you", never a false positive that would refuse a viable
-// approach. The ordering claim in the name becomes assertable only once a ledger is opened at all,
-// which is SP-11's rebase.
+// approach. The ordering claim in the name becomes assertable once the shared-ledger contract
+// (SP-19 M0-02) hands the tools the same lazily-opened handle.
 func TestBootstrapLedgerSkippedWhenStoreIsNil(t *testing.T) {
 	root := bootstrapProject(t)
 
