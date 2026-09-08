@@ -48,6 +48,46 @@ func MigrationGates() []MigrationGate {
 	return append([]MigrationGate(nil), migrationGates...)
 }
 
+// LegacyImportGateKey names the build gate that guards SP-20 M1-04's legacy import, writer
+// handoff and cutover (T20-M1-08). It is deliberately NOT spelled as a runtime.migration.* dotted
+// path: it has no config leaf, and a caller must not be able to turn it on by editing a file.
+const LegacyImportGateKey = "store.migrate.legacyImportCutover"
+
+// migrationBuildGates is the second gate table: capabilities whose gate is a BUILD fact with no
+// config leaf behind it. MigrationGates above is the config-switch table — every entry there must
+// name a bool leaf under runtime.migration, which is what TestMigrationGates_CoverEveryGatedLeaf
+// pins. A build gate has no such leaf on purpose: side-by-side legacy import mutates the
+// destination store and then transfers the single writer, so it must be unreachable from any
+// config file and reachable only from the reviewed commit that flips Passed here, or from a test
+// that constructs a passed gate explicitly and says so.
+//
+// Consumers take the gate as a value (store.MigrateOptions.Gate) rather than reading this table
+// directly, so "the gate is closed" is the zero value and a caller cannot forget to ask.
+var migrationBuildGates = []MigrationGate{
+	{
+		Key:   LegacyImportGateKey,
+		Owner: "SP-20 M1-04",
+		Gate:  "M1 compatible migration (T20-M1-08: import/parity/cutover and the pre- and post-first-write rollback drill)",
+	},
+}
+
+// MigrationBuildGates returns a copy of the build-gate table.
+func MigrationBuildGates() []MigrationGate {
+	return append([]MigrationGate(nil), migrationBuildGates...)
+}
+
+// LegacyImportGate returns the legacy import/cutover build gate as this build ships it. Passed is
+// false until SP-20 M1-04's acceptance evidence lands, so the production wiring of
+// store.NewMigrator refuses to import or cut over at all.
+func LegacyImportGate() MigrationGate {
+	for _, g := range migrationBuildGates {
+		if g.Key == LegacyImportGateKey {
+			return g
+		}
+	}
+	return MigrationGate{Key: LegacyImportGateKey}
+}
+
 // migrationSwitch reads the bool behind a gate's key. It is an explicit switch rather than a
 // reflective lookup so that the gate table and MigrationCfg cannot drift apart silently:
 // TestMigrationGates_CoverEveryGatedLeaf walks every bool leaf under runtime.migration and checks
