@@ -140,14 +140,22 @@ func (k RepresentationKind) String() string {
 // High — so the type makes the difference impossible to lose in transit.
 type Qualification uint8
 
+// THE ORDER IS DELIBERATE AND THE ZERO VALUE IS THE POINT. QualUncertain is first so that an
+// unset Qualification — a struct literal that forgot the field, a map miss read without comma-ok,
+// a decoder that skipped it — is NON-BINDING. The obvious ordering, current-stale-uncertain, makes
+// the zero value QualCurrent and therefore makes every one of those slips silently mint an
+// authoritative constraint, which is precisely the false already_tried that inverts negative
+// knowledge from asset to liability. This is not hypothetical: the first draft of block.go read a
+// qualification out of a map with a plain index and turned every absent item into QualCurrent.
+// Callers should still be explicit, but the type no longer punishes them for not being.
 const (
+	// QualUncertain marks evidence whose observation coverage is incomplete, so neither current
+	// nor stale can be established. It is the ZERO VALUE, so unqualified evidence never binds.
+	QualUncertain Qualification = iota
 	// QualCurrent marks evidence that is authoritative and applicable right now.
-	QualCurrent Qualification = iota
+	QualCurrent
 	// QualStale marks evidence whose recorded dependency has changed since capture.
 	QualStale
-	// QualUncertain marks evidence whose observation coverage is incomplete, so neither current
-	// nor stale can be established.
-	QualUncertain
 )
 
 // Active reports whether evidence with this qualification may act as a binding constraint. Only
