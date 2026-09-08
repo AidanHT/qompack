@@ -72,6 +72,10 @@ type recallBody struct {
 	Count int         `json:"count"`
 	Found bool        `json:"found"`
 	Query recallQuery `json:"query"`
+	// Denied counts hits the search actually matched but whose stored path failed authorization
+	// before the preview was built (T13-TRUST). It is reported explicitly, never left for the
+	// caller to infer from a shorter-than-expected hit list, and it never names which paths.
+	Denied int `json:"denied,omitempty"`
 }
 
 // recall searches the store by content, path or symbol and returns hashes and summaries. It does
@@ -96,15 +100,25 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 	}
 
 	out := make([]RecallHit, 0, len(hits))
+	var deniedCount int
 	for _, hit := range hits {
+		// Authorization runs BEFORE the preview is built, over every hit the search actually
+		// matched — a hash or a stored path is never itself proof that this hit may be shown
+		// (T13-TRUST). A hit that fails is omitted rather than rendered with its summary redacted:
+		// the summary itself is the thing being protected.
+		if ok, _ := h.authorizePath(hit.Path); !ok {
+			deniedCount++
+			continue
+		}
 		out = append(out, RecallHit{
 			Hash: hit.Root.String(), Path: hit.Path, Tool: hit.Tool,
-			Summary: hit.Summary, TS: rfc3339(hit.TS), Score: hit.Score,
+			Summary: string(h.redactForRetrieval(ToolRecall, []byte(hit.Summary))),
+			TS:      rfc3339(hit.TS), Score: hit.Score,
 			ToolUseID: string(hit.ToolUseID), Span: hit.Span,
 		})
 	}
-	body := recallBody{Hits: out, Count: len(out), Found: len(out) > 0, Query: q}
-	return h.jsonResponse(ToolRecall, body, nil), nil
+	body := recallBody{Hits: out, Count: len(out), Found: len(out) > 0, Query: q, Denied: deniedCount}
+	return h.jsonResponse(ToolRecall, body, map[string]any{metaUntrusted: true}), nil
 }
 
 // parseRecallQuery splits space-separated selector prefixes out of the query string; every word
@@ -587,6 +601,9 @@ type whyMissBody struct {
 
 // why retrieves a decision and its evidence from the checkpoint chain.
 func (h *handlers) why(ctx context.Context, r Request, raw json.RawMessage) (Response, error) {
+	if h.disableWhy {
+		return h.jsonResponse(ToolWhy, unsupported(ToolWhy), nil), nil
+	}
 	var a WhyArgs
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolWhy + ": " + err.Error()), nil
@@ -713,6 +730,9 @@ func droppedUnavailable(reason string) droppedBody {
 // dropped reports what is currently out of context, so the model can ask for something back
 // instead of assuming it never existed.
 func (h *handlers) dropped(ctx context.Context, r Request, _ json.RawMessage) (Response, error) {
+	if h.disableDropped {
+		return h.jsonResponse(ToolDropped, droppedUnavailable(unsupportedReason(ToolDropped)), nil), nil
+	}
 	if h.drops == nil {
 		return h.jsonResponse(ToolDropped, droppedUnavailable("rehydrator not present in this build"), nil), nil
 	}
