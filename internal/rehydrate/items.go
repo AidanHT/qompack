@@ -199,6 +199,12 @@ var kindRank = map[string]int{
 	dropKindIntentMismatch:      10,
 	dropKindUserIntentSource:    11,
 	dropKindEliminationSource:   12,
+
+	// SP-15's archive-only outcome ranks immediately after the elimination drops it accompanies:
+	// a reader scanning item 7 for "what happened to my eliminations" finds both answers together,
+	// and it deliberately does NOT sort near overflow, because an archive-only choice is a
+	// deliberate, recoverable decision rather than something the budget could not represent.
+	dropKindArchive: 13,
 }
 
 // unknownKindRank sorts a kind no version of this package minted after every known one, then by
@@ -405,6 +411,12 @@ func buildEliminations(ctx context.Context, r Request, d Deps, sc map[dag.NodeID
 		}
 		kept = append(kept, rec)
 	}
+	// SP-15's representation selection, when one was computed, decides membership and order here
+	// (selection.go). With no selection this is the identity and the slice-score ranking below
+	// stands, which is exactly the pre-SP-15 behaviour.
+	kept, selDrops := applySelection(kept, r.Selection)
+	b.drops = append(b.drops, selDrops...)
+
 	b.seen = len(kept)
 	if b.seen == 0 {
 		return built{drops: b.drops}
@@ -414,16 +426,21 @@ func buildEliminations(ctx context.Context, r Request, d Deps, sc map[dag.NodeID
 	for _, rec := range kept {
 		scores[rec.ID] = recordScore(sc, rec)
 	}
-	sort.SliceStable(kept, func(i, j int) bool {
-		si, sj := scores[kept[i].ID], scores[kept[j].ID]
-		if si != sj {
-			return si > sj
-		}
-		if kept[i].TS != kept[j].TS {
-			return kept[i].TS > kept[j].TS
-		}
-		return kept[i].ID < kept[j].ID
-	})
+	// The slice-score ranking is skipped when a selection is present: SelectionOutcome.Keep is
+	// already the selector's own ranking, and re-sorting it here would throw away the decision the
+	// selector was run to make and leave an enabled selector observably doing nothing.
+	if r.Selection == nil {
+		sort.SliceStable(kept, func(i, j int) bool {
+			si, sj := scores[kept[i].ID], scores[kept[j].ID]
+			if si != sj {
+				return si > sj
+			}
+			if kept[i].TS != kept[j].TS {
+				return kept[i].TS > kept[j].TS
+			}
+			return kept[i].ID < kept[j].ID
+		})
+	}
 
 	topN := r.Cfg.Runtime.Rehydrate.EliminationsTopN
 	if topN < 0 {

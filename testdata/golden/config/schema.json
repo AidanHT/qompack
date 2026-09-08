@@ -634,6 +634,12 @@
         },
         "selection": {
           "properties": {
+            "loopWarningsEnabled": {
+              "default": false,
+              "description": "enable state-aware loop warnings; warning-only, bounded and deduplicated when on",
+              "type": "boolean",
+              "x-qompack-section": "00-ARCH §5.11"
+            },
             "submodularEnabled": {
               "default": false,
               "description": "ship-order gate: enable submodular selection; refused without p-selection (closing-note-3)",
@@ -642,6 +648,7 @@
             }
           },
           "required": [
+            "loopWarningsEnabled",
             "submodularEnabled"
           ],
           "type": "object"

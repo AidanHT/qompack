@@ -88,6 +88,12 @@ type Request struct {
 	Ref checkpoint.Ref
 	// Cfg is the loaded configuration.
 	Cfg config.Config
+	// Selection is an optional, PRE-COMPUTED representation selection (SP-15; see selection.go).
+	// A nil Selection is the rollback path and reproduces the pre-SP-15 build exactly, which is
+	// why the field is a pointer rather than a zero-valued struct: "no selection was run" and "a
+	// selection ran and chose nothing" are different facts, and only the second one should produce
+	// an empty item 3.
+	Selection *SelectionOutcome
 }
 
 // Result is one rehydration (00-ARCHITECTURE.md §5.15).
