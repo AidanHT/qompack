@@ -634,3 +634,48 @@ func BenchmarkOnToolUse_TestOutput256KB(b *testing.B) {
 		})
 	}
 }
+
+// TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity is publication order's second
+// stage from this side: the identity the daemon assigned reaches the index record, and the durable
+// join between that identity and the record is written into the capture the daemon already made.
+func TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity(t *testing.T) {
+	root := t.TempDir()
+	h := newHarness(t, func(o *Options) { o.ProjectRoot = root })
+	id, err := core.NewObservationID("sess-obs", 1)
+	require.NoError(t, err)
+	require.NoError(t, store.WriteCaptureSidecar(root, store.CaptureSidecar{
+		ObservationID: id, Session: "sess-obs", Arrival: 1, Op: "observe.tool",
+		Fidelity: core.FidelityExact, Outcome: core.OutcomeOK, Bytes: []byte(`{"a":1}`),
+	}))
+
+	ctx := WithObservation(context.Background(), id)
+	_, err = h.obs.OnToolUse(ctx, readOf("toolu_obs", "src/auth.ts", "body\n"))
+	require.NoError(t, err)
+
+	require.Len(t, h.Store.Records, 1)
+	require.Equal(t, id, h.Store.Records[0].Observation,
+		"the reference record carries the delivery identity it was published for")
+
+	sc, err := store.ReadCaptureSidecar(root, id)
+	require.NoError(t, err)
+	require.True(t, sc.Published)
+	require.Equal(t, core.ToolUseID("toolu_obs"), sc.ToolUseID)
+	require.Equal(t, h.Store.Records[0].Root, sc.Root)
+}
+
+// TestOnToolUse_UnlinkableCaptureBlocksPublication: an identity whose capture is not durable must
+// not publish. The delivery stays retryable and the host's own result is untouched.
+func TestOnToolUse_UnlinkableCaptureBlocksPublication(t *testing.T) {
+	h := newHarness(t)
+	id, err := core.NewObservationID("sess-missing", 1)
+	require.NoError(t, err)
+
+	ctx := WithObservation(context.Background(), id)
+	out, err := h.obs.OnToolUse(ctx, readOf("toolu_missing", "src/auth.ts", "body\n"))
+
+	require.ErrorIs(t, err, ErrUnpublished)
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.Equal(t, hookio.Empty(), out)
+	require.Equal(t, int64(1), h.counter("observer.err.link"))
+	require.Empty(t, h.state(testSession).ToolUses)
+}
