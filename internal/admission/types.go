@@ -98,6 +98,15 @@ const (
 	// ReasonPrivacyDenied is the only reason that produces OutcomeDeny.
 	ReasonPrivacyDenied
 
+	// ReasonAlreadyProcessed means the delivery carries admission's own marker: it is output this
+	// pipeline already produced, and transforming it again would chain.
+	ReasonAlreadyProcessed
+
+	// ReasonForeignTransform means another hook has already transformed this result. A separate
+	// fact from our own marker — the first is admission working, the second is a coexistence
+	// observation — and both refuse, because chaining is chaining whoever wrote the first link.
+	ReasonForeignTransform
+
 	// ReasonAdmitted is the single success reason.
 	ReasonAdmitted
 )
@@ -121,6 +130,10 @@ func (r Reason) String() string {
 		return "handle-unresolvable"
 	case ReasonPolicyUnavailable:
 		return "policy-unavailable"
+	case ReasonAlreadyProcessed:
+		return "already-processed"
+	case ReasonForeignTransform:
+		return "foreign-transform"
 	case ReasonPrivacyDenied:
 		return "privacy-denied"
 	case ReasonAdmitted:
@@ -291,6 +304,18 @@ type Record struct {
 
 	// Base names the baseline a delta is relative to, and is empty for a capsule.
 	Base string
+
+	// Mark is the marker the caller must stamp onto the representation it emits, and it is set
+	// only on an admitted record. A mark on a passed-through record would tell a caller to stamp
+	// an envelope it never produced, and every later delivery of that untransformed result would
+	// then bypass admission forever.
+	Mark string
+
+	// Observed are the markers the adapter read off the delivery, verbatim and in read order.
+	// Duplicates are kept: two copies of one marker means something stamped twice, and collapsing
+	// them destroys the only evidence that it happened. The order is what was read, never a claim
+	// about the order hooks ran in.
+	Observed []string
 
 	// HandleState is what resolving the handle found, and it is set on a blocked record as well
 	// as an admitted one. Every non-resolvable answer produces the same outcome and the same

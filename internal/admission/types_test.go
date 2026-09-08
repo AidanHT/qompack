@@ -177,53 +177,78 @@ func TestDisabledGateOutranksAStageFailure(t *testing.T) {
 // reporting "unknown" for a real outcome. A reader of that record cannot tell a missing arm from a
 // genuinely unrecognized value, so the audit trail degrades silently.
 //
-// Written after the methods rather than before them — they went in untested and the OWNERS.tsv
-// coverage floor is what caught it.
+// assertEnumIsExhaustive is what makes it more than a hand-kept list. Listing values by hand was
+// the original shape, and commit 5 caught it: two reasons were added, both got String arms, neither
+// got a list entry, and the test went on passing — the coverage floor was the only thing that
+// noticed. Now a value added without a list entry fails here directly.
 func TestEveryEnumValueRendersADistinctName(t *testing.T) {
 	t.Run("outcome", func(t *testing.T) {
-		seen := map[string]bool{}
-		for _, o := range []admission.Outcome{
-			admission.OutcomePassThrough, admission.OutcomeTransform, admission.OutcomeDeny,
-		} {
-			name := o.String()
-			require.NotEqual(t, "unknown", name, "outcome %d has no String arm", int(o))
-			require.False(t, seen[name], "%q is rendered by two outcomes", name)
-			seen[name] = true
-		}
-		require.Equal(t, "unknown", admission.Outcome(99).String())
+		assertEnumIsExhaustive(t, "unknown", []string{
+			admission.OutcomePassThrough.String(),
+			admission.OutcomeTransform.String(),
+			admission.OutcomeDeny.String(),
+		}, func(i int) string { return admission.Outcome(i).String() })
 	})
 
 	t.Run("reason", func(t *testing.T) {
-		seen := map[string]bool{}
-		for _, r := range []admission.Reason{
-			admission.ReasonDisabled, admission.ReasonUnknownTarget, admission.ReasonCaptureFailed,
-			admission.ReasonPublicationUnverified, admission.ReasonParseFailed,
-			admission.ReasonNoRepresentation, admission.ReasonHandleUnresolvable,
-			admission.ReasonPolicyUnavailable, admission.ReasonPrivacyDenied,
-			admission.ReasonAdmitted,
-		} {
-			name := r.String()
-			require.NotEqual(t, "unknown", name, "reason %d has no String arm", int(r))
-			require.False(t, seen[name], "%q is rendered by two reasons", name)
-			seen[name] = true
-		}
-		require.Equal(t, "unknown", admission.Reason(99).String())
+		assertEnumIsExhaustive(t, "unknown", []string{
+			admission.ReasonDisabled.String(),
+			admission.ReasonUnknownTarget.String(),
+			admission.ReasonCaptureFailed.String(),
+			admission.ReasonPublicationUnverified.String(),
+			admission.ReasonParseFailed.String(),
+			admission.ReasonNoRepresentation.String(),
+			admission.ReasonHandleUnresolvable.String(),
+			admission.ReasonPolicyUnavailable.String(),
+			admission.ReasonPrivacyDenied.String(),
+			admission.ReasonAlreadyProcessed.String(),
+			admission.ReasonForeignTransform.String(),
+			admission.ReasonAdmitted.String(),
+		}, func(i int) string { return admission.Reason(i).String() })
 	})
 
 	t.Run("stage", func(t *testing.T) {
-		seen := map[string]bool{}
-		for _, s := range []admission.Stage{
-			admission.StageNone, admission.StageCapture, admission.StagePublication,
-			admission.StageParse, admission.StageSelection, admission.StageResolution,
-			admission.StagePolicy, admission.StagePrivacy,
-		} {
-			name := s.String()
-			require.NotEqual(t, "unknown", name, "stage %d has no String arm", int(s))
-			require.False(t, seen[name], "%q is rendered by two stages", name)
-			seen[name] = true
-		}
-		require.Equal(t, "unknown", admission.Stage(99).String())
+		assertEnumIsExhaustive(t, "unknown", []string{
+			admission.StageNone.String(),
+			admission.StageCapture.String(),
+			admission.StagePublication.String(),
+			admission.StageParse.String(),
+			admission.StageSelection.String(),
+			admission.StageResolution.String(),
+			admission.StagePolicy.String(),
+			admission.StagePrivacy.String(),
+		}, func(i int) string { return admission.Stage(i).String() })
 	})
+}
+
+// assertEnumIsExhaustive checks that names covers every value the enum actually has.
+//
+// It walks upward from zero until render returns sentinel — the string an unmapped value renders —
+// which works because every enum in this package is a contiguous iota run from zero. Two different
+// mistakes fail it. A value added without a String arm stops the walk early, so the counts
+// disagree. A value added WITH an arm but not listed by the caller also makes the counts disagree.
+// Neither was catchable while the list was maintained by hand.
+func assertEnumIsExhaustive(t *testing.T, sentinel string, names []string, render func(int) string) {
+	t.Helper()
+
+	seen := map[string]bool{}
+	for i, name := range names {
+		require.NotEqual(t, sentinel, name, "value %d has no String arm", i)
+		require.False(t, seen[name], "%q is rendered by two values", name)
+		seen[name] = true
+	}
+
+	const walkLimit = 1000
+	n := 0
+	for render(n) != sentinel {
+		n++
+		require.Less(t, n, walkLimit, "the enum walk did not reach an unmapped value")
+	}
+
+	require.Equal(t, n, len(names),
+		"the enum has %d mapped values but %d are covered here; a value was added without a case",
+		n, len(names))
+	require.Equal(t, sentinel, render(n+1), "values past the end must render the sentinel")
 }
 
 // TestUnrecognizedStageCannotAdmit pins reasonForStage's default arm.
