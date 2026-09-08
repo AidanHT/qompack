@@ -303,7 +303,9 @@ func TestFrontier_ConstructorUsesPortOrLegacyAdapter(t *testing.T) {
 			}
 			rt, err := NewSchedulerRuntime(opts)
 			require.NoError(t, err)
-			fx.rt = rt.(*schedRuntime)
+			concrete, ok := rt.(*schedRuntime)
+			require.True(t, ok, "NewSchedulerRuntime returns the daemon's concrete runtime")
+			fx.rt = concrete
 			fx.bind(rtSession)
 			fx.store.segs.addSegment(t, rtSession, 1, 3, 100)
 			fx.rt.NoteAPIRound(3)
