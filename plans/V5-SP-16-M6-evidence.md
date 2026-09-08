@@ -20,37 +20,54 @@ sharing a file").
 | 3 | `fix(store): qualify per-segment filter coverage and generation` | landed |
 | 3 | `fix(store): record demand without letting frequency stand in for usefulness` | landed |
 | 4 | `feat(daemon): apply scope-aware reusable candidates` | landed |
-| 5 | `feat(checkpoint): promote only future compatible representations` | **not started — blocked, see below** |
+| 5 | `feat(checkpoint): promote only future compatible representations` | landed — checkpoint half; the rehydration-budget half is deferred, see below |
 | 6 | `fix(refinement): bound phase-7 serialization and maintenance` | landed |
 | 7 | `test(refinement): evaluate reuse and optional policies` | landed (this document plus the ablation) |
 
-### Commit 5 is blocked, by the plan's own edge
+### Commit 5 landed against SP-11's contracts; its rehydration half did not
 
 The subplan's subagent strategy says: "`internal/checkpoint` and the rehydration files belong to
 SP-15's owner until SP-15's handoff, and SP-16 must not edit them concurrently: only E, the slice
 that integrates through the SP-11/SP-15 contracts, waits on that edge."
 
-SP-15 had not been started when commits 1 through 4 and 6 were written, and it has since appeared
-on `feat/sp15-analyzer-selection-and-grammar` — 17 commits off the same base, `develop@7c735ac`,
-**unpushed, unmerged and with its mandatory independent adversarial review still open**. It
-supplies `internal/rehydrate/selection.go`, which is the representation-selection contract commit 5
-would consume; it touches no file under `internal/checkpoint`.
+That edge guards against two seats editing the same files at once. Whether it binds is a question
+about SP-15's actual diff, not about its status, and the diff answers it:
 
-That is a branch, not a handoff. The subplan's edge is "SP-15's consumer handoff still precedes E's
-shared integration", and building commit 5 on an unmerged, unreviewed sibling branch would mean
-this branch could no longer be merged to `develop` on its own — it would carry SP-15's 17 commits
-with it, and the two branches already conflict on `testdata/golden/config/schema.json`, which both
-regenerated. Commit 5 therefore remains not attempted, pending an explicit decision to integrate
-the two branches.
+```
+$ git diff --name-only develop..feat/sp15-analyzer-selection-and-grammar -- internal/checkpoint internal/rehydrate
+internal/rehydrate/items.go
+internal/rehydrate/selection.go
+internal/rehydrate/selection_test.go
+internal/rehydrate/types.go
+```
+
+**SP-15 touches no file under `internal/checkpoint`.** The hazard is real for `internal/rehydrate`
+and absent for the checkpoint package, so commit 5 was split along exactly that line.
+
+- **Delivered.** `internal/checkpoint/promote.go` and `promote_test.go` — new files no other seat
+  owns. They integrate through contracts already merged into `develop`: SP-10/SP-11's `ToolPointer`,
+  `Truncate` and `DropEntry`, SP-13's `Promoter` (whose own doc comment names SP-16 as its
+  consumer), and SP-16's own `store.Demand`. The evidence crosses into the package as VALUES rather
+  than through an import — `internal/mcp` imports `internal/checkpoint`, so the reverse edge is a
+  cycle, and §3.2's checkpoint allow-set excludes mcp regardless.
+- **Not delivered.** Role E's other half, the "rehydration budget files". `internal/rehydrate/budget.go`
+  is untouched, and §3's "tune complete records under SP-11/SP-15 serialized budgets" has no accepted
+  serialized budget to tune under while SP-15 is unmerged. Promotion also has no production call
+  site: it is a pure function the daemon does not yet invoke.
+
+SP-15 stands on `feat/sp15-analyzer-selection-and-grammar` — 18 commits off the same base,
+`develop@7c735ac`, unpushed, unmerged, with its mandatory independent adversarial review still open.
+Building on it would mean this branch could no longer be merged to `develop` on its own, and the two
+already conflict on `testdata/golden/config/schema.json`, which both regenerated. Nothing delivered
+here depends on it.
 
 Every other prerequisite the subplan names is merged into `develop`: SP-19 and SP-20 arrived
 through the V4 corrective integration (e194abf) rather than under their own subject lines, which is
 why a commit-message search for them finds nothing, and SP-10, SP-11, SP-12 and SP-13 are all
 present.
 
-So commit 5 has no ACCEPTED contract to integrate through, and §3's "tune complete records under
-SP-11/SP-15 serialized budgets" has no accepted serialized budget to tune under. It was not
-attempted, no checkpoint or rehydration file was touched, and **M6-G16-C has no evidence**.
+**M6-G16-C is therefore partially met**, and §5 says which of its clauses have evidence and which
+does not.
 
 Development of the rest proceeded concurrently on the ledger's own rule: "SP-15→SP-16→SP-14 govern
 integration order, not development order; under disjoint ownership their development runs
@@ -62,12 +79,12 @@ concurrently."
 |---|---|---|
 | M6-G16-A | **met** | scope observation and the applicability transcript, §3 below |
 | M6-G16-B | **met** | bounded attempts, reminders and demand telemetry, §4 below |
-| M6-G16-C | **blocked** | SP-15 exists only as an unmerged, unreviewed branch, which is not the handoff the plan's edge names; nothing was measured and nothing is claimed |
-| M6-G16-D | **measured; disposition is DISABLED** | the ablation, §5 below |
-| M6-G16-E | **met** | filter coverage and maintenance recovery, §6 below |
+| M6-G16-C | **partially met** | the promotion gate, its budget and its trace, §5 below; the complete-record budget under SP-11/SP-15 serialized budgets is NOT tuned |
+| M6-G16-D | **measured; disposition is DISABLED** | the ablation, §6 below |
+| M6-G16-E | **met** | filter coverage and maintenance recovery, §7 below |
 
 Every phase-7 switch ships `false` and every one is refused by `Validate` while its gate is
-pending, so none of the above changes what a build does. §7 lists the switches.
+pending, so none of the above changes what a build does. §8 lists the switches.
 
 ## 3. M6-G16-A — scope, authorization and applicability
 
@@ -140,7 +157,73 @@ denominator is outcomes rather than requests; `Instrumented()` is what says how 
 the rate covers. Recovery cost is reported as the maximum observed, never the mean, so unmeasured
 records cannot average an expensive span down to cheap.
 
-## 5. M6-G16-D — the optional-policy ablation
+## 5. M6-G16-C — promotion of future representations
+
+**Gate:** "Promotion changes only actual future Qompack delivery with complete record/overhead
+budgeting; consumer and overflow trace."
+
+**Disposition: partially met.** Three of the gate's four clauses have evidence; the fourth does not.
+
+```
+go test ./internal/checkpoint/ -run 'TestPromote_' -count=1
+```
+
+| Clause | Disposition | Where |
+|---|---|---|
+| changes only FUTURE delivery | met | `TestPromote_SameEpochIsRefused`, `TestPromote_AnEarlierTargetIsRefused`, `TestPromote_ApplyDoesNotMutateTheArchivedCheckpoint` |
+| overhead budgeting | met | `TestPromote_OverflowLeavesADropEntry`, `TestPromote_AZeroOverheadPromotesNothing` |
+| consumer and overflow trace | met | `TestPromote_EveryNonAppliedResultExplainsItself` |
+| COMPLETE-RECORD budgeting | **not met** | `internal/rehydrate/budget.go` untouched; no accepted SP-11/SP-15 serialized budget to tune under |
+
+**What promotion actually does.** It reorders `Pointers.Tools`. `Truncate` cuts tool pointers
+tail-first, so moving one forward means exactly "this survives the next budget" — expressed through
+the mechanism that already exists, with no new field, no json-tag change and nothing for Rule W-2 to
+catch. `TestPromote_PromotedPointersSurviveTruncation` drives that end to end: a pointer the budget
+cuts without promotion is present after it, and the result is still inside the same budget. That
+test finds its budget by stepping down from the checkpoint's own size rather than hard-coding an
+offset, so it keeps testing something if the estimator's constants ever move.
+
+**The epoch guard is the gate's first sentence in code.** `Promote` refuses the entire pass, before
+evaluating anything else, when `TargetSeq <= ObservedSeq`. §10 Phase 7's "same-epoch delivery does
+not prove native residency" is a statement about a feedback loop: the model asking for something
+while reading checkpoint 2 is evidence produced BY checkpoint 2 having been delivered, not evidence
+about what checkpoint 2 should have contained. Promoting on it would be a system reading its own
+output as an observation.
+
+**Frequency is not usefulness, mechanically.** `store.Demand.Instrumented()` is consulted before any
+usefulness rate is trusted, and an uninstrumented candidate is WITHHELD rather than refused —
+nobody measured it, so nothing has been judged, and a later session that does measure it may promote
+it. `TestPromote_FrequencyWithoutOutcomesIsWithheld` is the case that fails if promotion ever starts
+reading `Requests` as evidence of benefit, which is the whole reason SP-16's demand record splits
+those counters in the first place.
+
+`Instrumented()` alone turned out not to be enough, and the first draft of this gate was wrong.
+It asks whether outcomes account for requests, which is VACUOUSLY TRUE of an all-zero record: zero
+outcomes do account for zero requests, with no gaps. A candidate can arrive with a healthy expansion
+count from mcp's counter and a demand record nobody ever wrote, pass the check on that technicality,
+and be promoted on expansion count alone — precisely the substitution the gate exists to prevent.
+The gate now also requires the usefulness rate to be KNOWN, and
+`TestPromote_AnEmptyDemandRecordIsWithheld` asserts the vacuous case directly, including that the
+fixture really does pass `Instrumented()`, so the test cannot quietly stop guarding anything.
+
+**Archives are preserved by construction.** `Apply` copies the pointer slice before reordering it.
+The checkpoint handed in may have been read straight from the archive, and sorting its backing array
+in place would reorder a document other readers still hold — corruption no golden test would catch,
+because the file on disk would be unchanged.
+
+**Not claimed.** No token saving, no measured benefit, and no production call site: `Promote` is a
+pure function nothing in the daemon calls yet, behind a switch that ships `false` and is refused by
+`Validate` while its gate is pending.
+
+**One caveat a reviewer should hold onto.** `Promote` does not verify that a candidate's
+`Demand.Key` names the same object as its `Pointer.Hash` — pairing the expansion count, the demand
+record and the pointer is the composition root's job, and the checkpoint package cannot check it
+without fixing a key convention that `store.Demand` deliberately leaves open (a key may be a hash, a
+path or a tool-use id). Mis-paired evidence would promote the wrong pointer, and nothing here would
+catch it. That check belongs in the wiring commit, which is the part of role E that has not been
+written.
+
+## 6. M6-G16-D — the optional-policy ablation
 
 Run:
 
@@ -192,7 +275,7 @@ and `TestWarmPriorAblation_ThinEvidenceIsAlsoExactlyTheBaseline` assert that a r
 lack of authorization, thin evidence or age — moves no prediction by any amount at any horizon.
 Turning `warmPrior` off is not a degraded mode; it is the unmodified system.
 
-## 6. M6-G16-E — filters, maintenance and recovery
+## 7. M6-G16-E — filters, maintenance and recovery
 
 Run:
 
@@ -231,7 +314,7 @@ missing telemetry rather than as an absence of demand.
 keep set, including when empty: reading it from a `SegmentLog` would make a transient load failure
 indistinguishable from "delete every filter". It removes only names it recognises.
 
-## 7. Independent switches and the rollback drill
+## 8. Independent switches and the rollback drill
 
 Every switch below defaults `false`, is gated in `internal/config/migration.go`, and is refused by
 `Validate` while its gate is pending — `Load` then restores the default and warns. The only way to
@@ -240,9 +323,9 @@ enable one is the reviewed commit that flips its gate, never a config edit.
 | Switch | Gate | Disposition |
 |---|---|---|
 | `runtime.phase7.reuse.scopedCandidates` | M6-G16-A | pending; report-only stage is available with the switch off |
-| `runtime.phase7.reuse.warmPrior` | M6-G16-D | pending; **disposition is disabled**, see §5 |
+| `runtime.phase7.reuse.warmPrior` | M6-G16-D | pending; **disposition is disabled**, see §6 |
 | `runtime.phase7.retrieval.reminders` | M6-G16-B | pending |
-| `runtime.phase7.retrieval.demandPromotion` | M6-G16-C | pending; **blocked**, no evidence |
+| `runtime.phase7.retrieval.demandPromotion` | M6-G16-C | pending; **partially met** — no complete-record budget, see §5 |
 | `runtime.phase7.filters.segmentBloom` | M6-G16-E | pending |
 
 Each is independent: turning one off has no effect on the others, and none of them gates a shipped
@@ -254,7 +337,7 @@ build that had enabled one:
 
 1. Setting the switch `false` restores the previous behaviour with no migration. The scoped-reuse
    gate returns no candidates and its report says `Enabled: false`; the reminder budget emits
-   nothing; a refused warm prior is byte-identical to the baseline (§5).
+   nothing; a refused warm prior is byte-identical to the baseline (§6).
 2. Artifacts are additive and are read only through an explicit reference. A segment filter is
    reached only through `Segment.BloomRef`, so an unreferenced file is inert; `SweepSegmentFilters`
    removes it when asked.
@@ -270,17 +353,16 @@ build that had enabled one:
 the descriptor's are untouched, and the two contract fixtures that pin them byte-for-byte still
 pass. `runtime.phase7` is additive; an older binary drops it by `deepMerge`'s unknown-key rule.
 
-## 8. What is not claimed
+## 9. What is not claimed
 
-- **M6-G16-C has no evidence.** No promotion path was built, no complete-record budget was tuned,
-  and nothing is asserted about future Qompack delivery. `runtime.phase7.retrieval.demandPromotion`
-  exists as a gated-off switch and consumes nothing. SP-15's branch appearing during this work does
-  not change that: the plan's edge is a handoff, and an unmerged branch with an open review is not
-  one.
+- **M6-G16-C is only partially met.** The promotion gate exists, is budgeted and is traced (§5),
+  but no complete-record budget was tuned, no rehydration file was touched, nothing in the daemon
+  calls it, and no benefit of any kind is claimed. What is claimed is narrow and negative: promotion
+  cannot change a checkpoint that has already been delivered, and cannot promote on frequency alone.
 - **No token saving is claimed.** Nothing here was measured against a cost baseline, and correctness
   and recoverability were the only objectives.
 - **The M6-G16-D result is a simulation.** It is against a synthetic θ, not against Qompack's replay
-  corpus, and §5 says what would change the disposition.
+  corpus, and §6 says what would change the disposition.
 - **The four M6-U16 blockers remain open.** Applicability coverage has a mechanism and a transcript
   but no dependency/scope extraction matrix over real sessions; usefulness telemetry has its
   instrumentation but no held-out report; the authorization matrix is covered by tests and not by a
