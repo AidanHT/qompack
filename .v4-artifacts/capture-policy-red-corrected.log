@@ -1,0 +1,236 @@
+--- FAIL: TestCaptureHook_PreservesPermittedHostJSONExactly (0.00s)
+    capture_test.go:31: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:31
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCaptureHook_PreservesPermittedHostJSONExactly
+--- FAIL: TestCaptureHook_InPlacePolicyRedactionUsesOriginalForFidelity (0.00s)
+    capture_test.go:72: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:72
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCaptureHook_InPlacePolicyRedactionUsesOriginalForFidelity
+--- FAIL: TestCaptureHook_UsesExplicitPolicyFidelityForChangedBytes (0.00s)
+    capture_test.go:90: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:90
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCaptureHook_UsesExplicitPolicyFidelityForChangedBytes
+--- FAIL: TestCaptureHook_RejectsIncoherentPolicyFidelity (0.00s)
+    --- FAIL: TestCaptureHook_RejectsIncoherentPolicyFidelity/changed_bytes_claimed_exact (0.00s)
+        capture_test.go:128: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:128
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsIncoherentPolicyFidelity/changed_bytes_claimed_exact
+    --- FAIL: TestCaptureHook_RejectsIncoherentPolicyFidelity/redacted_flag_claimed_exact (0.00s)
+        capture_test.go:128: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:128
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsIncoherentPolicyFidelity/redacted_flag_claimed_exact
+    --- FAIL: TestCaptureHook_RejectsIncoherentPolicyFidelity/redacted_fidelity_without_flag (0.00s)
+        capture_test.go:128: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:128
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsIncoherentPolicyFidelity/redacted_fidelity_without_flag
+    --- FAIL: TestCaptureHook_RejectsIncoherentPolicyFidelity/truncated_fidelity_without_flag (0.00s)
+        capture_test.go:128: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:128
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsIncoherentPolicyFidelity/truncated_fidelity_without_flag
+--- FAIL: TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes (0.00s)
+    --- FAIL: TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/denied (0.00s)
+        capture_test.go:188: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:188
+            	Error:      	Not equal: 
+            	            	expected: "denied"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.EvidenceOutcome) (len=6) "denied"
+            	            	+(core.EvidenceOutcome) ""
+            	            	 
+            	Test:       	TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/denied
+    --- FAIL: TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/policy_error (0.00s)
+        capture_test.go:188: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:188
+            	Error:      	Not equal: 
+            	            	expected: "unavailable"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.EvidenceOutcome) (len=11) "unavailable"
+            	            	+(core.EvidenceOutcome) ""
+            	            	 
+            	Test:       	TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/policy_error
+    --- FAIL: TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/unsupported_outcome (0.00s)
+        capture_test.go:188: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:188
+            	Error:      	Not equal: 
+            	            	expected: "unavailable"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.EvidenceOutcome) (len=11) "unavailable"
+            	            	+(core.EvidenceOutcome) ""
+            	            	 
+            	Test:       	TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/unsupported_outcome
+    --- FAIL: TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/nil_policy (0.00s)
+        capture_test.go:188: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:188
+            	Error:      	Not equal: 
+            	            	expected: "unavailable"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.EvidenceOutcome) (len=11) "unavailable"
+            	            	+(core.EvidenceOutcome) ""
+            	            	 
+            	Test:       	TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/nil_policy
+    --- FAIL: TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/missing_policy_version (0.00s)
+        capture_test.go:188: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:188
+            	Error:      	Not equal: 
+            	            	expected: "unavailable"
+            	            	actual  : ""
+            	            	
+            	            	Diff:
+            	            	--- Expected
+            	            	+++ Actual
+            	            	@@ -1,2 +1,2 @@
+            	            	-(core.EvidenceOutcome) (len=11) "unavailable"
+            	            	+(core.EvidenceOutcome) ""
+            	            	 
+            	Test:       	TestCaptureHook_DenialAndUnavailableDoNotExposePolicyBytes/missing_policy_version
+--- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput (0.00s)
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/malformed_source (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/malformed_source
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/non-object_source (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/non-object_source
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_utf8_source (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_utf8_source
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_typed_source (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_typed_source
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/malformed_policy_output (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/malformed_policy_output
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/non-object_policy_output (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/non-object_policy_output
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_typed_policy_output (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_typed_policy_output
+    --- FAIL: TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_utf8_policy_output (0.00s)
+        capture_test.go:249: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:249
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: host contract violated"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsInvalidSourceAndPolicyOutput/invalid_utf8_policy_output
+--- FAIL: TestCaptureHook_RejectsSourceAndResultBeyondBudget (0.00s)
+    --- FAIL: TestCaptureHook_RejectsSourceAndResultBeyondBudget/source (0.00s)
+        capture_test.go:295: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:295
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: budget exceeded"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsSourceAndResultBeyondBudget/source
+    --- FAIL: TestCaptureHook_RejectsSourceAndResultBeyondBudget/policy_result (0.00s)
+        capture_test.go:295: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/hookio/capture_test.go:295
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: budget exceeded"
+            	            	in chain: "qompack: not implemented"
+            	Test:       	TestCaptureHook_RejectsSourceAndResultBeyondBudget/policy_result
+FAIL
+FAIL	github.com/qompack/qompack/internal/hookio	1.069s
+--- FAIL: TestCapturePolicy_PreservesUnchangedJSONBytes (0.00s)
+    capture_test.go:17: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:17
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_PreservesUnchangedJSONBytes
+--- FAIL: TestCapturePolicy_RedactsDecodedAndStructuredSecrets (0.00s)
+    capture_test.go:27: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:27
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_RedactsDecodedAndStructuredSecrets
+--- FAIL: TestCapturePolicy_StrictRulesAndDisabledMode (0.00s)
+    capture_test.go:67: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:67
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_StrictRulesAndDisabledMode
+--- FAIL: TestCapturePolicy_RejectsAmbiguousOrInvalidJSON (0.00s)
+    capture_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:77
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_RejectsAmbiguousOrInvalidJSON
+--- FAIL: TestCapturePolicy_RefusesRedactedKeyCollisions (0.00s)
+    capture_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:97
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_RefusesRedactedKeyCollisions
+--- FAIL: TestCapturePolicy_CustomPatternSeesDecodedUnknownFields (0.00s)
+    capture_test.go:108: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:108
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_CustomPatternSeesDecodedUnknownFields
+FAIL
+FAIL	github.com/qompack/qompack/internal/redact	1.235s
+FAIL

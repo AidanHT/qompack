@@ -1,0 +1,22 @@
+{
+  "head": "16ecc771956a656c5423650713bd4eaffb5cea5d",
+  "source": "capture-policy-reviewed.run.json",
+  "started": "2026-09-08T01:01:52.5489669Z",
+  "checks": [
+    {
+      "command": "go run ./tools/devtool fmt-check",
+      "exit": 0,
+      "elapsed_seconds": 8.1535421
+    },
+    {
+      "command": "go vet ./internal/core ./internal/hookio ./internal/redact ./test/integration",
+      "exit": 0,
+      "elapsed_seconds": 4.0752828
+    },
+    {
+      "command": "go run ./tools/devtool lint --only=importgraph,testdeps",
+      "exit": 0,
+      "elapsed_seconds": 7.3667408
+    }
+  ]
+}

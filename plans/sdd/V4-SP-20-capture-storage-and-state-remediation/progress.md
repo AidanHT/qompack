@@ -162,3 +162,59 @@ reuse remains optimistic; object sync, verified reference/frontier publication, 
 durable identities, migration, GC/lease/rollback roots and scoped retrieval remain mandatory.
 The legacy writeStaged comment now accurately states that Flush does not sync its closed
 object files. No write-side durability change or performance acceptance is implied.
+
+### Provisional capture and privacy contract
+
+On `16ecc77` plus the hashes in `capture-policy-*.run.json`, additive `core.CaptureDecision`
+and `hookio.CaptureHook` establish a pure capture seam. A non-nil, explicitly versioned policy
+must admit the bytes before an Event is derived. The source receives only bounded UTF-8/JSON
+object validation before policy evaluation. Unchanged permitted bytes retain whitespace,
+escapes, unknown fields and numeric spelling. The capture's `[]byte` JSON field uses base64
+so serialization does not compact the original payload. Source, policy, capture and derived
+Event buffers have separate ownership.
+
+Policy fidelity is explicit, not inferred from byte differences. Exact requires byte identity
+without redacted/truncated flags; other valid fidelity states remain qualified. Denial returns
+`OutcomeDenied` with no bytes or Event; policy failure/panic, unsupported decisions and invalid
+outputs return generic unavailable failures without backend text. Source/result size refusal
+retains a truncated flag and returns no prefix to persist. This is a JSON host-delivery seam;
+it does not infer complete underlying process output or implement binary-file capture.
+
+`redact.CapturePolicy` supplies the `redact-json/v1` policy without changing the frozen
+Redactor constructors. Enabled policy creation requires every configured pattern to compile
+and pass the existing admission rules; rejected patterns are not logged. Explicit disabled
+redaction configuration permits valid JSON unchanged. The new policy examines decoded keys,
+strings and unknown fields, escaped raw spellings, and structured sensitive properties using
+the existing built-in assignment/.env key rules. It preserves exact numeric values when a
+redacted representation is encoded. Ambiguous duplicate keys, redacted key collisions, invalid
+UTF-8/surrogates, nesting beyond 128 levels and matches spanning JSON syntax refuse retention.
+The adapter is not a general guarantee that regex rules identify every secret.
+
+| Artifact | Result and interpretation |
+|---|---|
+| `capture-policy-red` | Initial hookio fixture used unavailable `require.NotNegative` and did not compile; redact fixtures failed against the stub. The compile error is preserved and contributes no hookio assertion evidence |
+| `capture-policy-red-corrected` | Corrected fixture compiled; both packages failed their new assertions against the explicit stubs |
+| `capture-policy-green` | Capture, real JSON privacy policy and their composed envelope round trip passed under race; command 35.758 s, hookio 2.015 s, redact 2.055 s, integration 2.177 s |
+| `capture-policy-reviewed` | After review removed pre-policy Event parsing, affected capture/composition and retained core/ReadEvent/redactor contracts passed under race; command 31.822 s, core 1.782 s, hookio 2.246 s, redact 2.741 s, integration 2.489 s |
+| `capture-policy-guards` | Formatting, affected-package vet and the actual importgraph/testdeps subchecks passed; no full lint or coverage-floor gate implied |
+
+The reviewer required explicit policy fidelity and Event derivation only after permission;
+both changes are implemented and covered. New redact implementation/tests were unchanged
+between the green and reviewed runs, so their earlier focused evidence carries provisionally
+under that dependency review. The integration fixture composes real policy/capture functions
+and JSON serialization, not a daemon, filesystem or installed host. All original frozen
+fixtures remain unchanged.
+
+The shared V4 Terra/high fixture worker owned only new `internal/hookio/capture_test.go` and
+released it before execution; the coordinator corrected fixture compilation/bounds, added
+the review cases and owned remaining source/tests and commands. A separate Terra/high reviewer
+authored none of them. Luna/medium supplied exact read-only policy/transport inventory. Model
+and effort requests are recorded; effective route, usage and queue wait were not exposed.
+At most two children were active together and only one heavy command ran at a time.
+
+This is partial T20-M1-01/02 preparation and selected legacy redactor regression evidence.
+The new APIs are unwired, `runtime.migration.capture.rawEvidence` remains refused, and current
+CLI/spool/blob/WAL paths still lack privacy-before-persistence and faithful raw capture. Strict
+policy loading before fallback, raw sidecar ownership/limits, durable per-delivery identity,
+lease/ack retention, source-to-observation publication, all fidelity/lifecycle cases and
+installed recovery remain mandatory. No T20 or V4 row closes from this seam.
