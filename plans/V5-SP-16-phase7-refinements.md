@@ -1,6 +1,9 @@
 # SP-16: Phase 7 refinements — scoped reuse and bounded retrieval experiments
 
-**Status:** remaining Wave 4 plan; M6 future tasks unchecked. **Planning owner/model:** writer C, requested gpt-5.6-terra medium; coordinator consolidation and independent review in [ledger](MIGRATION-EVIDENCE.md).
+**Status:** implemented on `feat/sp16-phase7-refinements`; all seven commit identifiers landed.
+Commit 5 landed partially — its checkpoint half only; role E's rehydration-budget half is
+deferred while SP-15 is unmerged. M6-G16-A/B/E met, D measured (disposition: disabled), C
+partially met. Every phase-7 switch ships `false` behind a pending migration gate.
 
 **Branch:** proposed future use of `feat/sp16-phase7-refinements` from reconciled `develop` | **Wave:** 4 (V5) | **Prerequisites:** completed SP-01/03/06/09 preserved; SP-19, SP-20/M1–M2, SP-13/M2, SP-10/11 M3, SP-12/SP-15 M5 | **Design:** Qompack.md §§5–6, 8.3/8.7, 10–11.
 
@@ -82,33 +85,39 @@ Seven original identifiers retained; reconcile any existing work first, then imp
 
 ### Commit 1 — `test(refinement): specify scoped reuse and setting compatibility`
 
-- [ ] Define applicability/expiry/authorization fixtures and versioned setting behavior; no optional default flip.
+- [x] Define applicability/expiry/authorization fixtures and versioned setting behavior; no optional default flip.
 
 ### Commit 2 — `feat(refinement): qualify warm priors and retrieval triggers`
 
-- [ ] Replace the old SP-16 ski-rental assignment with bounded observations/triggers; retain SP-12 ownership and deprecated reader compatibility.
+- [x] Replace the old SP-16 ski-rental assignment with bounded observations/triggers; retain SP-12 ownership and deprecated reader compatibility.
 
 ### Commit 3 — `fix(store): qualify filter coverage and demand records`
 
-- [ ] Reuse exact records, add optional bounded filter generation/rebuild and usefulness metadata only when needed; run M6-G16-B/E.
+- [x] Reuse exact records, add optional bounded filter generation/rebuild and usefulness metadata only when needed; run M6-G16-B/E.
 
 D (filter coverage) and C (demand records) land as separate commits under this identifier rather than sharing a file; the identifier and its acceptance are unchanged.
 
 ### Commit 4 — `feat(daemon): apply scope-aware reusable candidates`
 
-- [ ] Integrate authority/dependency/expiry checks; run M6-G16-A including branch/worktree/child failures.
+- [x] Integrate authority/dependency/expiry checks; run M6-G16-A including branch/worktree/child failures.
 
 ### Commit 5 — `feat(checkpoint): promote only future compatible representations`
 
-- [ ] Integrate through SP-11/SP-15 contracts after their handoff, verify M6-G16-C and preserve archives.
+- [x] Integrate through SP-11/SP-15 contracts after their handoff, verify M6-G16-C and preserve archives.
+- PARTIAL: the checkpoint half landed against SP-11/SP-13 contracts already on `develop`
+  (`internal/checkpoint/promote.go`); SP-15's diff touches no file under `internal/checkpoint`, so
+  the ownership edge does not bind there. Role E's rehydration-budget half is NOT done —
+  `internal/rehydrate/budget.go` is untouched and there is no accepted serialized budget to tune
+  under while SP-15 is unmerged — and promotion has no production call site. M6-G16-C is partially
+  met ([evidence §5](V5-SP-16-M6-evidence.md#5-m6-g16-c--promotion-of-future-representations)).
 
 ### Commit 6 — `fix(refinement): bound serialization and maintenance`
 
-- [ ] Retire arbitrary truncation, add complete-record overflow, cancellation/quotas/recovery and compatible-state rollback.
+- [x] Retire arbitrary truncation, add complete-record overflow, cancellation/quotas/recovery and compatible-state rollback.
 
 ### Commit 7 — `test(refinement): evaluate reuse and optional policies`
 
-- [ ] Run M6-G16-A–E in future, record ablations/failures/uncertainty and disabled alternatives; document independent switches and rollback drill.
+- [x] Run M6-G16-A–E in future, record ablations/failures/uncertainty and disabled alternatives; document independent switches and rollback drill.
 
 ## Subagent strategy
 
@@ -152,15 +161,23 @@ SP-12 retains ski-rental ownership; SP-15's consumer handoff still precedes E's 
 - [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
-- [ ] M6-G16-A–E have actual versioned artifacts or optional-disabled disposition.
-- [ ] Reuse never converts stale/unknown evidence or another session's unfinished intent to current authority.
-- [ ] Retrieval/warning volume and maintenance are bounded, with missing telemetry visible.
-- [ ] Promotion is demonstrated on future Qompack representations, without native-context claims.
+- [x] M6-G16-A–E have actual versioned artifacts or optional-disabled disposition — M6-G16-C only
+  partially, its complete-record clause unmet
+  ([evidence §2](V5-SP-16-M6-evidence.md#2-gate-dispositions)).
+- [x] Reuse never converts stale/unknown evidence or another session's unfinished intent to current authority.
+- [x] Retrieval/warning volume and maintenance are bounded, with missing telemetry visible.
+- [x] Promotion is demonstrated on future Qompack representations, without native-context claims.
+  The epoch guard, the overhead budget and the trace are pinned; no native-context claim is made and
+  no benefit is claimed ([evidence §5](V5-SP-16-M6-evidence.md#5-m6-g16-c--promotion-of-future-representations)).
 
 ## Done checklist
 
 - [ ] Future seven-commit remainders, compatibility review and V5 gate completed with actual results.
-- [ ] Retention/backup and independent disable/rollback drill accepted.
+  All seven landed; commit 5 partially, its rehydration-budget half deferred. See
+  [evidence §1](V5-SP-16-M6-evidence.md#1-what-landed-and-what-did-not).
+- [ ] Retention/backup and independent disable/rollback drill accepted. The drill is documented and
+  its disabled arm is asserted ([evidence §7](V5-SP-16-M6-evidence.md#8-independent-switches-and-the-rollback-drill));
+  no independent reviewer has accepted it.
 - [ ] Planning review recorded separately in MIGRATION-EVIDENCE.md.
 
 **Rollout/rollback:** start report-only scoped candidates, then opt-in bounded retrieval/promotion after M1–M5. Disable reuse, reminders and optional policies independently; fall back to current-session exact retrieval and SP-11 complete-record assembly. Preserve archive evidence and compatible state readers, or restore verified backup where old readers cannot interpret new writes.

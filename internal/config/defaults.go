@@ -161,6 +161,18 @@ func Defaults() Config {
 				Compaction:      MigrationCompactionCfg{AutomaticVeto: false, BlockManualCompact: false},
 				Experiments:     MigrationExperimentsCfg{Enabled: false},
 			},
+			Phase7: Phase7Cfg{
+				SettingsVersion: Phase7SettingsVersion,
+				Reuse:           Phase7ReuseCfg{ScopedCandidates: false, WarmPrior: false},
+				Retrieval: Phase7RetrievalCfg{
+					Reminders:              false,
+					DemandPromotion:        false,
+					MaxRemindersPerSession: 3,
+					MaxAttemptsPerTrigger:  2,
+					MaxQueueDepth:          32,
+				},
+				Filters: Phase7FiltersCfg{SegmentBloom: false},
+			},
 			Budgets: BudgetsCfg{
 				L0IngestMs:           2,
 				L0ProcessMs:          50,

@@ -538,6 +538,104 @@
           "type": "string",
           "x-qompack-section": "00-ARCH §12"
         },
+        "phase7": {
+          "properties": {
+            "filters": {
+              "properties": {
+                "segmentBloom": {
+                  "default": false,
+                  "description": "build a per-segment bloom filter alongside each segment index to skip segments that cannot match (SP-16 §3); refused until the M6-G16-E gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §6 / SP-16 M6"
+                }
+              },
+              "required": [
+                "segmentBloom"
+              ],
+              "type": "object"
+            },
+            "retrieval": {
+              "properties": {
+                "demandPromotion": {
+                  "default": false,
+                  "description": "let observed demand promote a representation in the NEXT Qompack injection (SP-16 §2); refused until the M6-G16-C gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.6 / SP-16 M6"
+                },
+                "maxAttemptsPerTrigger": {
+                  "default": 2,
+                  "description": "hard cap on retrieval attempts one trigger may make before it stops and reports",
+                  "type": "integer",
+                  "x-qompack-range": "[1,∞)",
+                  "x-qompack-section": "Qompack.md v1.5 §8.7 / SP-16 M6"
+                },
+                "maxQueueDepth": {
+                  "default": 32,
+                  "description": "hard cap on queued retrieval work; a full queue drops new work rather than growing unbounded",
+                  "type": "integer",
+                  "x-qompack-range": "[1,∞)",
+                  "x-qompack-section": "Qompack.md v1.5 §8.7 / SP-16 M6"
+                },
+                "maxRemindersPerSession": {
+                  "default": 3,
+                  "description": "hard cap on retrieval reminders surfaced in one session; 0 emits none",
+                  "type": "integer",
+                  "x-qompack-range": "[0,∞)",
+                  "x-qompack-section": "Qompack.md v1.5 §8.7 / SP-16 M6"
+                },
+                "reminders": {
+                  "default": false,
+                  "description": "emit bounded retrieval reminders when references change or errors repeat (SP-16 §2); refused until the M6-G16-B gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.7 / SP-16 M6"
+                }
+              },
+              "required": [
+                "demandPromotion",
+                "maxAttemptsPerTrigger",
+                "maxQueueDepth",
+                "maxRemindersPerSession",
+                "reminders"
+              ],
+              "type": "object"
+            },
+            "reuse": {
+              "properties": {
+                "scopedCandidates": {
+                  "default": false,
+                  "description": "offer eliminations recorded outside this session as scope-qualified reusable candidates (SP-16 §1); refused until the M6-G16-A gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §8.3 / SP-16 M6"
+                },
+                "warmPrior": {
+                  "default": false,
+                  "description": "seed a new session with a labeled statistical prior from earlier ones (SP-16 §1); refused until the M6-G16-D gate passes",
+                  "type": "boolean",
+                  "x-qompack-section": "Qompack.md v1.5 §5 / SP-16 M6"
+                }
+              },
+              "required": [
+                "scopedCandidates",
+                "warmPrior"
+              ],
+              "type": "object"
+            },
+            "settingsVersion": {
+              "default": 1,
+              "description": "version of the runtime.phase7 block; a file written for a newer version has its whole block reset to defaults, so unknown future refinements stay off",
+              "type": "integer",
+              "x-qompack-range": "[1,1]",
+              "x-qompack-section": "Qompack.md v1.5 Appendix C / SP-16 M6"
+            }
+          },
+          "required": [
+            "filters",
+            "retrieval",
+            "reuse",
+            "settingsVersion"
+          ],
+          "type": "object"
+        },
         "redact": {
           "properties": {
             "enabled": {
@@ -770,6 +868,7 @@
         "mcp",
         "migration",
         "mode",
+        "phase7",
         "redact",
         "rehydrate",
         "scheduler",
