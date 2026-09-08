@@ -127,6 +127,26 @@ func TestRecallNilStoreReportsUnavailable(t *testing.T) {
 	require.Equal(t, "store not present in this build", body.Reason)
 }
 
+// TestRecallOmitsHitsWhoseStoredPathFailsAuthorization pins that authorization runs BEFORE a
+// recall preview is built, over every hit — not only over an argument the caller supplied. A
+// record whose stored path no longer resolves safely under the project root must never surface
+// its summary or pointer in a search result, and the response must say plainly that something was
+// held back rather than silently returning fewer hits than the index actually matched.
+func TestRecallOmitsHitsWhoseStoredPathFailsAuthorization(t *testing.T) {
+	f := newFixture(t)
+	const marker = "denial-marker-alpha-9f2 pool timeout"
+	f.record(t, "Bash", "../outside/leaked.txt", marker, 1)
+
+	var body recallBody
+	resp := f.callOK(t, ToolRecall, map[string]any{"query": "denial-marker-alpha-9f2"}, &body)
+
+	require.False(t, resp.IsError)
+	require.Empty(t, body.Hits, "a hit whose path fails authorization must never reach the preview")
+	require.False(t, body.Found)
+	require.Equal(t, 1, body.Denied, "an omission must be reported explicitly, not left silent")
+	require.NotContains(t, responseText(resp), marker, "denied content must never reach the response")
+}
+
 // ── already_tried ───────────────────────────────────────────────────────────────────────────
 
 // TestAlreadyTriedAbsent pins the answer an empty ledger gives, byte for byte. The exact rendering
@@ -809,4 +829,48 @@ func TestDroppedReporterErrorIsToolError(t *testing.T) {
 	require.Equal(t, "dropped failed: the drop report is unreadable", msg)
 	require.Equal(t, 1, log.loudCount(), "a broken drop reporter is a Loud event, exactly once")
 	require.Equal(t, "mcp: the drop reporter failed", log.lastLoud(t))
+}
+
+// ── checkpoint-tool gating ──────────────────────────────────────────────────────────────────
+
+// TestCheckpointDependentToolsAreExplicitlyGateable pins the SP-13 interface contract's escape
+// from a circular dependency: `why` and `dropped` are the only two of the eight tools that depend
+// on checkpoint/rehydration state, and this is what lets a build ship and verify the other six
+// (core archive retrieval) without waiting on that work. A REAL checkpoint reader and rehydrator
+// ARE wired below — which is exactly what distinguishes "disabled" from "not present in this
+// build": the collaborator exists, is never consulted, and the gate still refuses the call with an
+// explicit reason rather than silently answering as if the collaborator were absent.
+func TestCheckpointDependentToolsAreExplicitlyGateable(t *testing.T) {
+	f := newFixture(t, withCheckpointToolsDisabled())
+	f.Checks.Chained = []checkpoint.Checkpoint{loadContractCheckpoint(t)}
+
+	for name, args := range map[string]map[string]any{
+		ToolWhy:     {"decision_id": "dec_000000000000"},
+		ToolDropped: {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var body missBody
+			resp := f.callOK(t, name, args, &body)
+
+			require.False(t, resp.IsError, "a disabled tool is a domain outcome, not a tool failure")
+			require.NotNil(t, body.Available, "a disabled tool must state availability explicitly")
+			require.False(t, *body.Available)
+			require.Contains(t, body.Reason, "disabled", "the reason must say WHY, not just that it is unavailable")
+		})
+	}
+	require.Equal(t, 0, f.Drops.Calls, "a disabled tool must never consult its collaborator")
+}
+
+// TestCheckpointDependentToolsRemainListedWhenDisabled pins "not silently absent": tools/list
+// still advertises `why` and `dropped` even when the gate is off, so a host does not have to
+// special-case tool discovery around a purely runtime, per-call decision.
+func TestCheckpointDependentToolsRemainListedWhenDisabled(t *testing.T) {
+	f := newFixture(t, withCheckpointToolsDisabled())
+
+	names := map[string]bool{}
+	for _, tool := range f.Server.Tools() {
+		names[tool.Name] = true
+	}
+	require.True(t, names[ToolWhy], "a disabled tool must remain advertised in tools/list")
+	require.True(t, names[ToolDropped], "a disabled tool must remain advertised in tools/list")
 }
