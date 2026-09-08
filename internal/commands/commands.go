@@ -51,6 +51,9 @@ type Deps struct {
 	// fidelity distinctions its handlers make survive into the command output instead of being
 	// re-derived — and re-derived differently — here.
 	MCP mcp.Server
+	// CheckpointNow requests one Qompack-local checkpoint. nil means this build has no route for
+	// it, which the checkpoint command reports rather than falling back to anything native.
+	CheckpointNow CheckpointNow
 	// Clock is the injected time source. A nil Clock means the system clock: a command is not
 	// worth failing over a missing seam, and every caller that cares about determinism — every
 	// test, every golden fixture — sets it.
@@ -137,6 +140,10 @@ func bodyFor(name string) body {
 		return whyBody
 	case "dropped":
 		return droppedBody
+	case "pin":
+		return pinBody
+	case "checkpoint":
+		return checkpointBody
 	default:
 		return notImplemented(name)
 	}
