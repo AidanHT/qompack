@@ -40,6 +40,26 @@ type Options struct {
 	Sched       scheduler.Runtime
 	Checkpoints checkpoint.Writer
 
+	// OpenLedger opens the negative-knowledge ledger the FIRST time a caller actually needs one,
+	// assigns the handle to Ledger, and answers with that same handle — or with the same nil —
+	// on every later call. WireRehydrator publishes it; it is nil in any Options that wiring has
+	// not run over.
+	//
+	// It is the seam that keeps the ledger's laziness and the checkpointer's need for it from
+	// being in conflict. negknow.Open has exactly ONE production call site, inside this accessor,
+	// because an eager open creates sketches/tried.bloom and holds a records/eliminations.jsonl
+	// handle in every daemon that never compacts, and §3.3 gives that file to the ledger alone.
+	// But a compaction needs the ledger BEFORE it needs the rehydration that used to open it: the
+	// PreCompact hook fires first and the SessionStart(source=compact) that follows is already too
+	// late for it. Publishing the opener here lets the PreCompact seam trigger the SAME one-shot
+	// open, so nothing opens a second handle and nothing opens anything at all in a daemon that
+	// never compacts.
+	//
+	// The memoization is what makes it safe to call from anywhere: two compactions racing on the
+	// daemon's worker pool get one handle, and an open that FAILED is Loud once and then answers
+	// nil for the life of the process rather than retrying per compaction.
+	OpenLedger func() negknow.Ledger
+
 	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
 	// op by calling Handle at wiring time instead of editing a function in this package — the
 	// difference between four wave-3 subplans composing and four subplans conflicting.
