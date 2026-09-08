@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
@@ -51,11 +52,19 @@ type v1Call struct {
 	// subcommand. `observe stop --subagent` and `observe stop` both carry "Stop" here (the two
 	// host events share one subcommand; SP-08 owns distinguishing them at the observer layer).
 	logHook string
-	// wantStdout is the exact response the host must receive, trailing newline included. Compared
-	// exactly for every call except SessionStart, whose additionalContext carries a live §12.1
-	// sentinel token that varies run to run (checked separately, via
-	// hookSpecificOutput.HookEventName — fix round 1, Minor M-2).
+	// wantStdout is the exact response the host must receive, trailing newline included. It is
+	// compared byte for byte, and it is empty for the two calls whose response is not a
+	// constant: see answersThroughHookOutput.
 	wantStdout string
+	// answersThroughHookOutput marks a call whose response is a hookSpecificOutput naming its
+	// own event rather than the minimal "{}", and whose bytes therefore vary run to run. Those
+	// calls are asserted by FIELD instead: the event name always, plus whatever else the
+	// payload carries.
+	//
+	// SessionStart's additionalContext carries a live §12.1 sentinel token the daemon mints per
+	// process (fix round 1, Minor M-2). PreCompact's customInstructions are a real sealed
+	// checkpoint's focus instruction, built from what this lifecycle actually observed.
+	answersThroughHookOutput bool
 }
 
 // v1Lifecycle is IT-1's eight invocations in the order a real session produces them.
@@ -66,17 +75,26 @@ type v1Call struct {
 var v1Lifecycle = []v1Call{
 	{
 		argv: []string{"session-start"}, fixture: "session_start_startup", logHook: "SessionStart",
-		wantStdout: `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}` + "\n",
+		answersThroughHookOutput: true,
 	},
 	{argv: []string{"observe", "prompt"}, fixture: "user_prompt_submit", logHook: "UserPromptSubmit", wantStdout: "{}\n"},
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
 	{
-		// PreCompact's hookSpecificOutput is populated only by an actual svc.PreCompact seam
-		// (SP-10), absent from a wave-1-only build, so checkpoint answers the minimal response —
-		// same as every other fire-and-forget/no-seam-yet call in this lifecycle.
-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
+		// THIS ROW ONCE EXPECTED "{}", AND THAT WAS THE BUG, NOT THE CONTRACT. The shipped daemon
+		// could not seal a checkpoint on the first PreCompact of its life: wireCheckpointSources
+		// published a SourceSet whose Ledger was nil (negknow.Open is lazy on purpose),
+		// FileWriter.SetSources dropped it in silence, and the seam answered
+		// `hookSpecificOutput: null` behind a single Warn. A minimal "{}" here is that defect's
+		// own signature, so do not "restore" it: what it means is that a compaction threw the
+		// session's context away with nothing written down.
+		//
+		// PreCompact now answers the way SessionStart does -- through a hookSpecificOutput naming
+		// itself -- and carries the sealed checkpoint's focus instruction. See the PreCompact
+		// block in the loop below for what is asserted in place of the byte compare.
+		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact",
+		answersThroughHookOutput: true,
 	},
 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
@@ -165,13 +183,14 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	// means the exact response bytes are no longer a CLI-side constant: SessionStart's
 	// additionalContext now carries a live §12.1 sentinel token the daemon mints unconditionally
 	// (handleSessionStart mints and emits it whenever the mode may act, with no wave-3 seam
-	// required). PreCompact's hookSpecificOutput, by contrast, is populated only by an actual
-	// svc.PreCompact seam (SP-10) — absent from a wave-1-only build — so a bare `checkpoint` call
-	// here answers with the minimal "{}" response, exactly like every fire-and-forget hook. What
-	// stays true, and what this loop still proves end to end across pluginmanifest -> cmd/qompack
-	// -> cli -> ipc -> daemon -> hookio, is that every call in the lifecycle exits 0 with exactly
-	// one well-formed hookio.Output, and that SessionStart specifically still answers through
-	// hookSpecificOutput naming itself.
+	// required). PreCompact answers through hookSpecificOutput too, and its customInstructions are
+	// a REAL sealed checkpoint's focus instruction -- built from what the five calls above this one
+	// actually left in the store, and so not a constant either. This row expected a bare "{}" here
+	// until the first-PreCompact defect was fixed; see the lifecycle entry for why that expectation
+	// was the symptom and not the contract. What stays true, and what this loop still proves end to
+	// end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is that every call
+	// in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that the two calls
+	// that answer with a hookSpecificOutput name their own event in it.
 	for i, call := range v1Lifecycle {
 		payload := v1Payload(t, call)
 
@@ -184,11 +203,33 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 
 		var out hookio.Output
 		require.NoError(t, json.Unmarshal(stdout, &out), "call %d (%v): stdout:\n%s", i+1, call.argv, stdout)
-		if call.logHook == "SessionStart" {
+		if call.answersThroughHookOutput {
 			require.NotNil(t, out.HookSpecificOutput, "call %d (%v) answers through hookSpecificOutput", i+1, call.argv)
 			require.Equal(t, call.logHook, out.HookSpecificOutput.HookEventName)
 		} else {
 			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
+		}
+
+		// PreCompact is the ONE call in this lifecycle that answers with content rather than with
+		// an acknowledgement, so it gets its own assertions. The customInstructions it returns are
+		// the only bytes this plugin ever puts back into the model's context, and §5.14 permits them
+		// to be built from the SourceSet -- durable, original content -- and from nothing else.
+		if call.logHook == "PreCompact" {
+			instr := out.HookSpecificOutput.CustomInstructions
+			require.NotEmpty(t, instr,
+				"call %d (%v): a sealed checkpoint must come back as customInstructions; empty here is "+
+					"the first-PreCompact defect, whose signature was a bare \"{}\" response", i+1, call.argv)
+			// Paragraph 1 is §8.5's standing focus instruction: always emitted, always first, and the
+			// whole of the first LINE, which is what contract.probePhrase scans a transcript tail for.
+			// It is computed from the package rather than pasted, so this row cannot drift from the
+			// text the daemon actually emits (and cannot re-key that probe by asserting a paraphrase).
+			standing := checkpoint.FocusInstructions(checkpoint.Checkpoint{}, checkpoint.Ref{}, checkpoint.FocusOptions{})
+			require.Equal(t, standing, cpFirstLine(instr),
+				"the emitted instruction's first line is the standing focus paragraph\ninstructions:\n%s", instr)
+			for _, secret := range v1Secrets {
+				require.NotContains(t, instr, secret,
+					"customInstructions is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
+			}
 		}
 	}
 

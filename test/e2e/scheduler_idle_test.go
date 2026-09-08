@@ -41,14 +41,16 @@ const (
 // The daemon-side names this test reads back by effect. They are spelled here rather than
 // imported because e2e asserts what a process left on disk, not what a package exports.
 const (
-	schedCounterNoWriter = "sched.frontier.no_writer"
-	schedCounterPersist  = "sched.persist"
-	schedCounterTapPanic = "sched.tap.panic"
-	schedCounterPrefix   = "sched."
-	schedHistAdvance     = "idle_task_act.advance_frontier"
-	schedHistGC          = "idle_task_gc"
-	schedStateScheduler  = "scheduler.json"
-	schedStateBOCD       = "bocd.json"
+	schedCounterNoWriter       = "sched.frontier.no_writer"
+	schedCounterPersist        = "sched.persist"
+	schedCounterSourcesUnavail = "checkpoint.sources.unavailable"
+	schedGaugeFrontierTicks    = "sched.frontier.ticks_since_advance"
+	schedCounterTapPanic       = "sched.tap.panic"
+	schedCounterPrefix         = "sched."
+	schedHistAdvance           = "idle_task_act.advance_frontier"
+	schedHistGC                = "idle_task_gc"
+	schedStateScheduler        = "scheduler.json"
+	schedStateBOCD             = "bocd.json"
 )
 
 // schedObserveToolPayload is observeToolPayload with a tool response large enough that the
@@ -96,8 +98,8 @@ func pollUntil(bound, tick time.Duration, cond func() bool) bool {
 //
 //   - the persisted metrics snapshot (obs.Registry.Persist, written by SP-05's own `metrics`
 //     idle task) carries the per-task histograms SP-05's RunOnce times every registered task
-//     into, under SP-12's names, and the `sched.*` family — including sched.frontier.no_writer,
-//     which only act.advance_frontier increments (the branch has no checkpoint.Writer wired);
+//     into, under SP-12's names, and the `sched.*` family, and the frontier gauge only the
+//     ACTING body of act.advance_frontier can leave at zero;
 //   - state/scheduler.json and state/bocd.json exist and carry the session id, written by
 //     refresh_delta's Persist during the idle pass;
 //   - nothing about the scheduler was ever Loud.
@@ -152,7 +154,14 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 		if s.Hists[schedHistAdvance].N < 1 || s.Hists[schedHistGC].N < 1 {
 			return false // SP-12's tasks have not been timed by RunOnce yet
 		}
-		if s.Counters[schedCounterNoWriter] < 1 || s.Counters[schedCounterPersist] < 1 {
+		if s.Counters[schedCounterPersist] < 1 {
+			return false
+		}
+		// The acting body of act.advance_frontier resets sched.frontier.ticks_since_advance to 0
+		// on entry, and refreshDecision is the only other writer -- which only ever sets it to a
+		// skip count it has just incremented, so never to 0. A gauge PRESENT and ZERO is therefore
+		// the acting body having run, which is what this row waits for.
+		if ticks, ran := s.Gauges[schedGaugeFrontierTicks]; !ran || ticks != 0 {
 			return false
 		}
 		snap = s
@@ -161,9 +170,31 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	require.True(t, ok, "the idle pass never ran SP-12's tasks into %s within %s (idle tick %s); last read: %s",
 		metricsPath, schedIdleWorkBound, schedIdleTick, last)
 
-	// The acting task ran against no writer (the branch wires no checkpoint.Writer): counted,
-	// never Loud.
-	require.GreaterOrEqual(t, snap.Counters[schedCounterNoWriter], int64(1))
+	// The acting task ran against a REAL writer, and that is the direction that changed.
+	// sched.frontier.no_writer is the Rule W-2 posture of a runtime with no frontier advancer,
+	// and SP-12's own branch had none -- which is why this row used to REQUIRE the counter. The
+	// integrated composition root hands wireScheduler both halves the advancer needs (the
+	// checkpoint writer on Options.Checkpoints and the live source supplier), so the honest
+	// assertion is now the absence: a regression that stopped passing either half would put the
+	// counter back, and this row would catch it.
+	require.Zero(t, snap.Counters[schedCounterNoWriter],
+		"the shipped daemon wires a frontier advancer; a count here means it stopped: %v", snap.Counters)
+	require.Zero(t, snap.Gauges[schedGaugeFrontierTicks],
+		"...and O5 was never starved: the acting body ran on every pass it was planned for")
+
+	// It found nothing to advance INTO, and that is by design rather than a hole. negknow.Open
+	// has exactly one production call site and fires on the first COMPACTION, because an eager
+	// open creates sketches/tried.bloom in every daemon that never compacts and §3.3 reserves
+	// that file for the ledger alone (TestE2E_ObserverThroughDaemon and V3-X08 both guard it).
+	// This daemon never compacts, so the SourceSet never resolves, and checkpoint's own
+	// advance_frontier reports unavailable
+	// once per pass -- counted, degraded, never Loud. The first PreCompact is what opens the
+	// ledger and seals (internal/daemon TestBindCheckpointSealsOnTheFirstPreCompact,
+	// TestE2E_CheckpointHookWritesImmutableArtifact), and the field is live for every pass after
+	// it. A ZERO here would mean something opened the ledger eagerly after all.
+	require.Positive(t, snap.Counters[schedCounterSourcesUnavail],
+		"a daemon that has never compacted has no ledger, so frontier advancement reports "+
+			"unavailable rather than advancing: %v", snap.Counters)
 	require.Zero(t, snap.Counters[schedCounterTapPanic], "the tap never panicked")
 	family := 0
 	for name := range snap.Counters {
