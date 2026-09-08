@@ -228,6 +228,37 @@ func TestStatus_DiskFallbackCarriesItsAge(t *testing.T) {
 	require.Equal(t, int64(90_000), *pre.Provenance.AgeMS)
 }
 
+// TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged pins the ordering the real binding
+// has: Invocation.Now is read before the body runs, and the daemon's answer is stamped when the
+// round trip that follows completes, so a live observation is always a little YOUNGER than the
+// report's own clock reading. That must read as an age of 0 — as fresh as the report — and never
+// as a negative number, which V5-VERIFY §4.1 observed as `"age_ms": -1` on a real round trip.
+func TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged(t *testing.T) {
+	t.Parallel()
+
+	// One millisecond after now: the smallest gap the millisecond resolution can show.
+	answeredAt := collectedAt.Add(time.Millisecond)
+	rep := commands.CollectStatus(context.Background(), commands.StatusSources{
+		Daemon: func(context.Context) (commands.DaemonStatus, time.Time, error) {
+			return commands.DaemonStatus{
+				Latency: map[string]obs.HistSnapshot{"checkpoint_finalize": {N: 1, P99: time.Second}},
+			}, answeredAt, nil
+		},
+	}, collectedAt)
+
+	require.Equal(t, commands.SourceDaemon, rep.Primary.Source)
+	require.NotNil(t, rep.Primary.AgeMS, "a live answer has a known age")
+	require.Equal(t, int64(0), *rep.Primary.AgeMS, "an answer younger than the report is 0 ms old, not -1")
+	for _, h := range rep.Hooks {
+		require.NotNil(t, h.Provenance.AgeMS, h.Event)
+		require.Equal(t, int64(0), *h.Provenance.AgeMS, h.Event)
+	}
+	for _, b := range rep.Budgets {
+		require.NotNil(t, b.Provenance.AgeMS, b.ID)
+		require.Equal(t, int64(0), *b.Provenance.AgeMS, b.ID)
+	}
+}
+
 // TestStatus_NilDepsUnavailable is the SP14-M7-02 gate: with neither source reachable, every row
 // says unavailable and none says zero. A zero-filled report is the failure this whole design is
 // arranged against, because a rendered zero and an observed zero look identical.
