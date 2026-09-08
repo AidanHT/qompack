@@ -188,8 +188,21 @@ type DroppedArgs struct{}
 type ToolDeps struct {
 	// Store backs `recall`, `expand`, `re_read` and `timeline`.
 	Store store.Store
-	// Ledger backs `already_tried` and `record_eliminated`.
+	// Ledger backs `already_tried` and `record_eliminated`. It is the VALUE seam, for a caller
+	// that already holds an open ledger at wiring time; a caller whose ledger is opened later
+	// supplies LedgerFn instead.
 	Ledger negknow.Ledger
+	// LedgerFn resolves the ledger LIVE, on every call, and takes precedence over Ledger.
+	//
+	// It exists because negknow.Open is deliberately lazy: the daemon opens the elimination ledger
+	// on the FIRST compaction, not at startup, so that a daemon which never compacts never creates
+	// sketches/tried.bloom. A composition root that reads its ledger field at wiring time therefore
+	// reads nil, and a ToolDeps that stored that value would freeze it — leaving `already_tried`
+	// and `record_eliminated` permanently answering "not present in this build" beside a ledger
+	// that is open. The accessor closes over the field instead, exactly as
+	// daemon.SchedulerRuntimeOptions.LedgerFn does one layer up. It never opens a ledger and never
+	// owns one; the lifecycle stays with whoever does.
+	LedgerFn func() negknow.Ledger
 	// Checkpoints backs `why`.
 	Checkpoints checkpoint.Reader
 	// Rehydrator backs `dropped`. It is a DropReporter rather than a rehydrate type because mcp

@@ -80,12 +80,16 @@ type toolFunc func(ctx context.Context, r Request, args json.RawMessage) (Respon
 // handlers is the collaborator set the eight tool bodies read. Every member may be nil except
 // cfg, clk, log and m, which newHandlers always fills.
 type handlers struct {
-	store  store.Store
-	ledger negknow.Ledger
-	ckpt   checkpoint.Reader
-	drops  DropReporter
-	prom   Promoter
-	wide   Widener
+	store store.Store
+	// ledgerFn resolves the elimination ledger on every read rather than holding it, because the
+	// daemon opens it lazily and long after these handlers were built. It is never nil —
+	// newHandlers wraps a plain ToolDeps.Ledger in a closure — so h.ledger() is always safe to
+	// call. See ToolDeps.LedgerFn.
+	ledgerFn func() negknow.Ledger
+	ckpt     checkpoint.Reader
+	drops    DropReporter
+	prom     Promoter
+	wide     Widener
 
 	cfg  config.Config
 	root string
@@ -133,8 +137,13 @@ func newHandlers(d ToolDeps) *handlers {
 		m = obs.New(clk)
 	}
 	cfg := normalizeCfg(d.Cfg)
+	ledgerFn := d.LedgerFn
+	if ledgerFn == nil {
+		l := d.Ledger
+		ledgerFn = func() negknow.Ledger { return l }
+	}
 	return &handlers{
-		store: d.Store, ledger: d.Ledger, ckpt: d.Checkpoints,
+		store: d.Store, ledgerFn: ledgerFn, ckpt: d.Checkpoints,
 		drops: d.Rehydrator, prom: d.Promoter, wide: d.Widener,
 		cfg:  cfg,
 		root: d.ProjectRoot,
@@ -143,6 +152,16 @@ func newHandlers(d ToolDeps) *handlers {
 		redactor:   redact.New(cfg),
 		disableWhy: d.DisableWhy, disableDropped: d.DisableDropped,
 	}
+}
+
+// ledger resolves the elimination ledger for this call, or nil when none is wired. Every
+// ledger-backed handler already checks for nil, because a build without one must answer "not
+// present in this build" rather than panic.
+func (h *handlers) ledger() negknow.Ledger {
+	if h.ledgerFn == nil {
+		return nil
+	}
+	return h.ledgerFn()
 }
 
 // normalizeCfg fills the eight configuration keys this package reads when cfg arrives zeroed.
