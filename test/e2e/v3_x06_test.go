@@ -178,12 +178,34 @@ func x6RunDriver(t *testing.T, root, bin string, args ...string) (int, string) {
 	}
 }
 
+// x6CurrentBaseline names the baseline recorded over the corpus this row replays;
+// x6PreCorrectionBaseline names the preserved pre-V4 one.
+//
+// This row used to name phase0.json, and that pairing became wrong when the V4 corpus correction
+// landed. phase0.json was recorded over the pre-correction corpus (every demand file-only, the
+// Belady budget binding on 0 of 39 events); testdata/sessions/synthetic now holds the corrected
+// corpus (all four demand kinds raised at 39/39, the budget binding on 30 of 39). A run over one
+// compared to a baseline over the other is not two measurements of the same thing, and the driver
+// refuses it outright (checkCorpusIdentity, test/replay/gate.go) with exit 2 — "bad input", not
+// "gate failure". The pointer is repointed here exactly as test/integration's runReplayGate was.
+// phase0.json stays committed and M0-04-protected as the record of what the old corpus said, and
+// the negative control below is what stops this pointer from silently rotting back to it.
+const (
+	x6CurrentBaseline       = "testdata/baseline/phase0-recall.json"
+	x6PreCorrectionBaseline = "testdata/baseline/phase0.json"
+)
+
+// x6ExitBadInput is the driver's exit 2 (test/replay/main.go's exitBadInput): the run was never
+// judged, because its inputs did not describe one another. It is deliberately distinct from exit
+// 1, which means the gate ran and found something.
+const x6ExitBadInput = 2
+
 // x6DriverArgs is the committed replay-gate invocation (test/replay/e2e_test.go's end-to-end run)
 // with the --growth fixture swapped for the file X6 measured off the real store.
-func x6DriverArgs(growthPath, outPath string) []string {
+func x6DriverArgs(baseline, growthPath, outPath string) []string {
 	return []string{
 		"--corpus", "testdata/sessions/synthetic",
-		"--baseline", "testdata/baseline/phase0.json",
+		"--baseline", baseline,
 		"--phase", "0",
 		"--growth", growthPath,
 		"--sketch", "testdata/golden/eval/growth/health.json",
@@ -227,9 +249,21 @@ func TestV3_ReplayGrowthGuardrailUsesRealStore(t *testing.T) {
 	bin := x6BuildDriver(t, root)
 
 	code, stderr := x6RunDriver(t, root, bin,
-		x6DriverArgs(growthPath, filepath.Join(tmp, "report-real.json"))...)
+		x6DriverArgs(x6CurrentBaseline, growthPath, filepath.Join(tmp, "report-real.json"))...)
 	require.Equal(t, 0, code,
 		"the replay driver must exit 0 with the real growth file; stderr:\n%s", stderr)
+
+	// Negative control for the pointer itself: the SAME run against the pre-correction baseline
+	// must be refused as bad input rather than silently compared. This is the half of the repoint
+	// worth keeping — the guard firing is the valuable part, not the green row.
+	code, stderr = x6RunDriver(t, root, bin,
+		x6DriverArgs(x6PreCorrectionBaseline, growthPath, filepath.Join(tmp, "report-mismatch.json"))...)
+	require.Equal(t, x6ExitBadInput, code,
+		"a baseline recorded over a different corpus must exit 2 (bad input), never be compared; stderr:\n%s", stderr)
+	require.Contains(t, stderr, "does not describe the corpus this run replayed",
+		"the exit-2 refusal must come from the corpus-identity guard, not some other input error")
+	require.Contains(t, stderr, x6PreCorrectionBaseline,
+		"the refusal must name the baseline that did not describe this run's corpus")
 
 	// Negative control: a synthetic LINEAR series (Bytes == RawBytes, exponent 1.0) over the same
 	// turn axis and a >= 8x span must be judged not sublinear, and the driver must fail on it.
@@ -245,7 +279,7 @@ func TestV3_ReplayGrowthGuardrailUsesRealStore(t *testing.T) {
 
 	linearPath := x6WriteGrowthFile(t, tmp, "v3-growth-linear.json", linear)
 	code, stderr = x6RunDriver(t, root, bin,
-		x6DriverArgs(linearPath, filepath.Join(tmp, "report-linear.json"))...)
+		x6DriverArgs(x6CurrentBaseline, linearPath, filepath.Join(tmp, "report-linear.json"))...)
 	require.NotEqual(t, 0, code, "the driver must exit non-zero on a linear growth series")
 	require.Contains(t, stderr, "store growth is not sublinear",
 		"the non-zero exit must come from the §11.3 growth gate, not some other check")
