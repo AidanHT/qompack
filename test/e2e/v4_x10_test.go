@@ -60,8 +60,6 @@ func TestV4_WhyAndDroppedAnswerFromRealProducers(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	r.ArmCheckpointSources(t, x10v4Session)
-
 	// Real closed, encoded segments: ExtractDecisions scans from the draft's own turn cut, so a
 	// draft that covers nothing has nothing to derive a decision from.
 	cpCloseObserverSegment(t, r.Segs, x10v4Session)

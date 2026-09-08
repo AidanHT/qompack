@@ -14,6 +14,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -94,11 +95,29 @@ const maxTrackedSessions = 32
 
 // BindCheckpoint binds the PreCompact seam before daemon.New. It must run BEFORE New, because
 // Options.Bind is what New applies to the Services struct it constructs.
-func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src checkpoint.SourceSet) {
+//
+// The variadic options are the same WireOptions WireCheckpoint takes, so the shipped four-argument
+// call sites keep compiling. WithSourceSupplier is the one that matters here: it is what lets the
+// bound seam re-resolve the SourceSet AT COMPACTION TIME instead of sealing from the snapshot
+// wiring happened to hold, which on the production path is the ledger-less one.
+func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src checkpoint.SourceSet, opts ...WireOption) {
+	var wc wireCfg
+	for _, opt := range opts {
+		opt(&wc)
+	}
+	resolve := wc.sources
+	if resolve == nil {
+		resolve = staticSources(src)
+	}
+
 	// Publish the seams to the writer before anything can call it. The cold PreCompact path -- a
 	// compaction that fires before the first idle tick -- has no draft to take a SourceSet from,
 	// and there is no reason to make it wait for one when the daemon holds it right here.
-	w.SetSources(src)
+	//
+	// The error is deliberately not returned: SetSources has already said Loud which seam is
+	// missing, and a checkpoint layer that cannot publish its sources is a degradation (§12.3),
+	// never a reason to refuse to construct a daemon.
+	_ = w.SetSources(src)
 
 	// The bind body's own logger. §16 requires this seam's two abnormal outcomes -- a panicking
 	// checkpointer and an unreadable hook timeout -- to be Loud, and the daemon's own logger is
@@ -136,7 +155,11 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 			}()
 
 			timeout := time.Duration(precompactTimeoutMs()) * time.Millisecond
+			// now is taken BEFORE arming, so the arming cost is spent INSIDE the daemon's own
+			// 14 s window rather than added to it. The nested 14 s < 15 s < 20 s argument above
+			// only holds if everything this seam does happens inside the first number.
 			now := time.Now()
+			armSources(o, w, resolve, log)
 			deadline, known := precompactDeadline(now, timeout)
 			if !known {
 				// Loud rather than Warn because this is the degenerate branch
@@ -169,6 +192,53 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 			return hookio.PreCompactOutput(res.Instructions), nil
 		}
 	})
+}
+
+// armSources makes the writer's cold path usable BEFORE the compaction that is about to need it,
+// and it is the whole of the first-PreCompact fix.
+//
+// The shipped daemon could not seal a checkpoint on the first PreCompact of its life. The chain
+// ran: wireCheckpointSources published a SourceSet whose Ledger was nil, because negknow.Open is
+// lazy; SetSources dropped it; and the ledger was opened only by WireRehydrator, on the first
+// COMPACTION — the SessionStart(source=compact) that arrives AFTER the PreCompact that needed it.
+// The user saw `hookSpecificOutput: null` and one Warn, and no checkpoint existed for a session
+// whose context had just been thrown away. Every daemon's first compaction lost its checkpoint.
+//
+// Two things happen here, in this order:
+//
+//  1. The ONE lazy open is triggered, through Options.OpenLedger. This is not a second open and
+//     not an eager one: it is the SAME memoized accessor the rehydration uses, called by the half
+//     of the compaction that reaches it first. A daemon that never compacts never runs this seam,
+//     so sketches/tried.bloom is still created only by a project that actually compacted.
+//  2. The supplier is re-resolved and republished. The resolved ledger is folded in directly
+//     rather than left to be read back off Options, so the set the writer gets is complete on the
+//     value this call just obtained.
+//
+// An unresolvable supplier leaves the writer holding whatever it already had — a wiring-time set
+// is still better than none — and says so. It is Warn, not Loud: PreCompact's own failure path
+// reports the seal it could not make, and duplicating it here would put two lines in the log for
+// one event.
+func armSources(o *Options, w *checkpoint.FileWriter,
+	resolve func() (checkpoint.SourceSet, error), log logging.Logger,
+) {
+	if w == nil || resolve == nil {
+		return
+	}
+	var led negknow.Ledger
+	if o != nil && o.OpenLedger != nil {
+		led = o.OpenLedger()
+	}
+	live, err := resolve()
+	if err != nil && live.Ledger == nil && led == nil {
+		log.Warn(msgSourcesUnavailable, "err", err.Error())
+		return
+	}
+	if live.Ledger == nil {
+		live.Ledger = led
+	}
+	if setErr := w.SetSources(live); setErr != nil && err != nil {
+		log.Warn(msgSourcesUnavailable, "err", err.Error())
+	}
 }
 
 // precompactDeadline computes the daemon's own PreCompact deadline from the manifest's declared
@@ -281,7 +351,11 @@ func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src c
 // half-wired caller is reported unavailable instead of dereferenced.
 func staticSources(src checkpoint.SourceSet) func() (checkpoint.SourceSet, error) {
 	return func() (checkpoint.SourceSet, error) {
-		if err := src.Validate(); err != nil {
+		// Resolve rather than Validate, for the reason the live supplier in internal/cli records:
+		// a consumer asks this question in order to BEGIN a draft, and a ledger that is still only
+		// an accessor is not one it can read eliminations from. The partial set travels with the
+		// reason either way.
+		if _, err := src.Resolve(); err != nil {
 			return src, fmt.Errorf("%w: %w", err, core.ErrDegraded)
 		}
 		return src, nil
@@ -316,13 +390,12 @@ func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
 			}
 			return nil
 		}
-		// Republish to the writer now that the set is complete. BindCheckpoint publishes whatever
-		// it was handed BEFORE daemon.New, which on the production path is still ledger-less, and
-		// SetSources drops an invalid set on the floor. Without this the cold PreCompact path -- a
-		// compaction that fires with no draft open -- would have no sources for the life of the
-		// process even after the ledger appeared. SetSources validates and takes one uncontended
-		// lock; it is idempotent and costs nothing to repeat.
-		w.SetSources(live)
+		// Republish to the writer now that the set has resolved. This is no longer the cold
+		// PreCompact path's only hope -- BindCheckpoint publishes a set at wiring time and
+		// armSources republishes one at every compaction -- but a set that has since gained a
+		// resolved ledger is strictly fresher than either, and SetSources validates, takes one
+		// uncontended lock and is idempotent. The error is already Loud inside.
+		_ = w.SetSources(live)
 		return advanceAllSessions(ctx, reg, w, live, log)
 	}
 }
@@ -383,10 +456,11 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 	// here means the frontier route is either backed by a real source or explicitly unavailable —
 	// never quietly advancing over a stub.
 	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) {
-		if err := src.Validate(); err != nil {
+		resolved, err := src.Resolve()
+		if err != nil {
 			return checkpoint.SourceSet{}, fmt.Errorf("%w: %w", err, core.ErrDegraded)
 		}
-		return src, nil
+		return resolved, nil
 	})
 	for _, s := range liveSessions(reg, w, src) {
 		if ctx.Err() != nil {

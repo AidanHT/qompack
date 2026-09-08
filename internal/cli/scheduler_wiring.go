@@ -181,15 +181,29 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 			Store:    opts.Store,
 			Segments: segs,
 			// The FIELD, read now — nil until the first compaction opens it. See the note above.
-			Ledger:  opts.Ledger,
-			Pins:    pinStore,
-			Graph:   opts.Graph,
-			Grammar: gram,
-			Tokens:  toks,
+			Ledger: opts.Ledger,
+			// ... and the ACCESSOR onto that same field, so a set published before the open is a
+			// wired seam rather than a rejected one. It is liveLedger, the accessor the MCP tools
+			// are already wired with: it reads the field on every call and opens nothing. Without
+			// it SourceSet.Validate refused every set this supplier built before the first
+			// compaction, SetSources dropped them, and the first PreCompact of the daemon's life
+			// sealed nothing at all.
+			LedgerFn: liveLedger(opts),
+			Pins:     pinStore,
+			Graph:    opts.Graph,
+			Grammar:  gram,
+			Tokens:   toks,
 		}
-		if valErr := src.Validate(); valErr != nil {
+		// Resolve, not Validate: this supplier answers the question "may a draft be BEGUN from
+		// this?", and until something has opened the ledger the honest answer is no. Validate
+		// would say yes on the strength of the accessor alone, and every consumer -- frontier
+		// advancement, the scheduler's advancer -- would then discover the missing handle one
+		// frame deeper, inside Begin, as an idle-task error on every tick instead of the one
+		// reported-unavailable line §16 asks for. Resolving costs a field read and opens nothing.
+		if _, valErr := src.Resolve(); valErr != nil {
 			// The partial set travels WITH the reason: a consumer that needs only one seam (pins)
-			// must not be degraded by a seam it never reads (the ledger).
+			// must not be degraded by a seam it never reads (the ledger). It keeps its live
+			// accessor, so a consumer that only needs to PUBLISH it -- SetSources -- still can.
 			return src, fmt.Errorf("%w: %w", valErr, core.ErrDegraded)
 		}
 		return src, nil
@@ -201,10 +215,13 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 	// every nil check downstream and fault inside Advance instead.
 	opts.Checkpoints = w
 
-	// Phase 1, before New. The snapshot handed over here is the ledger-less one; SetSources drops
-	// an invalid set, and the first idle pass that resolves a complete one republishes it.
+	// Phase 1, before New. The snapshot handed over here still has no ledger HANDLE -- nothing has
+	// opened one yet -- but it does carry the accessor, so SetSources accepts it and the writer's
+	// cold path is usable from this moment on. The SUPPLIER goes over too: the bound PreCompact
+	// seam re-resolves through it at every compaction, which is what lets the FIRST compaction of a
+	// daemon's life trigger the one lazy ledger open and then seal against it.
 	src, _ := sources()
-	daemon.BindCheckpoint(opts, opts.Cfg, w, src)
+	daemon.BindCheckpoint(opts, opts.Cfg, w, src, daemon.WithSourceSupplier(sources))
 
 	return checkpointWiring{w: w, sources: sources}
 }

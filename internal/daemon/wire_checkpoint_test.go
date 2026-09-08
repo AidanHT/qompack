@@ -594,3 +594,119 @@ func TestWireCheckpointWithoutASupplierStillValidatesItsFrozenSet(t *testing.T) 
 	_, err := staticSources(half)()
 	require.ErrorIs(t, err, core.ErrDegraded, "the reason must be reportable, not merely nil")
 }
+
+// TestBindCheckpointSealsOnTheFirstPreCompact is the daemon-side half of the first-PreCompact fix.
+//
+// The shipped daemon could not seal on the first PreCompact of its life. wireCheckpointSources
+// published a SourceSet whose Ledger was nil — negknow.Open is lazy on purpose — SetSources dropped
+// it in silence, and the ledger was opened only by the rehydration on the first COMPACTION, which
+// is the SessionStart(source=compact) that arrives AFTER the PreCompact that needed it. Every
+// daemon's first compaction therefore produced `hookSpecificOutput: null`, one Warn, and no
+// checkpoint.
+//
+// Three things are asserted here, and the middle one is the invariant the fix had to keep:
+//
+//   - wiring publishes a usable set even though no ledger exists yet (the accessor is the seam);
+//   - wiring opens NOTHING — Options.OpenLedger is untouched until a compaction arrives, so a
+//     daemon that never compacts still never creates sketches/tried.bloom;
+//   - the first PreCompact triggers that one lazy open itself and seals an artifact.
+func TestBindCheckpointSealsOnTheFirstPreCompact(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	// The ledger the fixture opened stands in for the one WireRehydrator would open, and the
+	// field for daemon.Options.Ledger. Both start out of reach, exactly as on a fresh daemon.
+	realLedger := f.src.Ledger
+	var field negknow.Ledger
+	opens := 0
+
+	o := &Options{ProjectRoot: f.root, Cfg: f.cfg, Log: logging.Nop(), Clock: f.clk}
+	o.OpenLedger = func() negknow.Ledger {
+		opens++
+		field = realLedger
+		return field
+	}
+
+	// The supplier, shaped as internal/cli's wireCheckpointSources shapes it: the ledger arrives
+	// as a FIELD plus an ACCESSOR onto that same field, and the answer is Resolve's, not
+	// Validate's, because a consumer asks it in order to begin a draft.
+	sources := func() (checkpoint.SourceSet, error) {
+		s := f.src
+		s.Ledger = field
+		s.LedgerFn = func() negknow.Ledger { return field }
+		if _, err := s.Resolve(); err != nil {
+			return s, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return s, nil
+	}
+
+	snapshot, snapErr := sources()
+	require.Error(t, snapErr, "fixture sanity: no compaction has happened, so the set cannot resolve")
+	require.NoError(t, snapshot.Validate(),
+		"but it IS wired: an accessor is a ledger seam, and a producer must be able to publish this set")
+
+	BindCheckpoint(o, f.cfg, f.w, snapshot, WithSourceSupplier(sources))
+	require.Equal(t, 0, opens, "wiring must open nothing; the ledger's laziness is the whole reason it is an accessor")
+
+	var s Services
+	for _, bind := range o.binds {
+		bind(&s)
+	}
+	require.NotNil(t, s.PreCompact, "BindCheckpoint must have bound the PreCompact seam")
+
+	out, err := s.PreCompact(f.ctx(), hookio.Event{
+		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
+	})
+	require.NoError(t, err, "the FIRST PreCompact of a daemon's life must seal")
+	require.NotNil(t, out.HookSpecificOutput, "a null hookSpecificOutput is the defect's own signature")
+	require.NotEmpty(t, out.HookSpecificOutput.CustomInstructions)
+	require.Equal(t, 1, opens, "the compaction that needed the ledger is what opened it — exactly once, here")
+
+	entries, readErr := os.ReadDir(paths.Long(f.l.Checkpoints))
+	require.NoError(t, readErr)
+	require.NotEmpty(t, entries, "an artifact must exist on disk after the first PreCompact")
+}
+
+// TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened is the other side of the same seam: a
+// source that is genuinely unavailable must reach the caller as a reported failure, never as a
+// panic or a silently-empty checkpoint.
+//
+// The accessor answering nil is what a failed negknow.Open looks like from here. SourceSet.Resolve
+// names it, Begin refuses at the top of the call, and the hook route turns that into an ordinary
+// error — which handleCheckpoint already reports as a Warn while still exiting 0.
+func TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+
+	opens := 0
+	o := &Options{ProjectRoot: f.root, Cfg: f.cfg, Log: logging.Nop(), Clock: f.clk}
+	o.OpenLedger = func() negknow.Ledger { opens++; return nil }
+
+	sources := func() (checkpoint.SourceSet, error) {
+		s := f.src
+		s.Ledger = nil
+		s.LedgerFn = func() negknow.Ledger { return nil }
+		if _, err := s.Resolve(); err != nil {
+			return s, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return s, nil
+	}
+	snapshot, _ := sources()
+
+	BindCheckpoint(o, f.cfg, f.w, snapshot, WithSourceSupplier(sources))
+
+	var s Services
+	for _, bind := range o.binds {
+		bind(&s)
+	}
+
+	out, err := s.PreCompact(f.ctx(), hookio.Event{
+		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
+	})
+	require.Error(t, err, "a ledger that cannot be opened is reported, not sealed around")
+	require.ErrorContains(t, err, "SourceSet.Ledger is nil",
+		"and it is reported BY NAME, from the top of Begin, rather than as a nil dereference deeper in")
+	require.Nil(t, out.HookSpecificOutput, "nothing was sealed, so there is nothing to instruct with")
+	require.Equal(t, 1, opens)
+}

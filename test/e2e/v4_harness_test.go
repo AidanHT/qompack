@@ -13,15 +13,20 @@
 // form of the §12.1 act.-prefix mode gate. Everything a scenario TESTS still arrives through the
 // real binary: the hook calls are real processes over the real transport.
 //
-// PRODUCTION SEAM GAP found while writing these rows, and the reason RunIdle exists: on the
-// shipped path the first PreCompact of a daemon's life cannot seal anything. wireCheckpointSources
-// publishes a ledger-less SourceSet, SetSources drops it because Validate rejects a nil Ledger, and
-// the negative-knowledge ledger is opened only by WireRehydrator's lazy opener on the FIRST
-// COMPACTION — which is the SessionStart(source=compact) that arrives AFTER the PreCompact. Until
-// an idle pass runs advanceFrontierTask (which republishes the now-complete set), `qompack
-// checkpoint` fails with "checkpoint: SourceSet.Store is nil". The rows below therefore drive one
-// rehydration and one idle pass before the first PreCompact, exactly as a long-lived daemon would,
-// and say so at the call site.
+// THE PRODUCTION SEAM GAP THESE ROWS FOUND is fixed, and the fix is why they no longer arm
+// anything. On the shipped path the first PreCompact of a daemon's life could not seal: the
+// composition root published a ledger-less SourceSet, SetSources dropped it silently because
+// Validate rejected a nil Ledger, and the negative-knowledge ledger was opened only by
+// WireRehydrator's lazy opener on the first COMPACTION — the SessionStart(source=compact) that
+// arrives AFTER the PreCompact that needed it — so `qompack checkpoint` failed with "checkpoint:
+// SourceSet.Store is nil" and a null hookSpecificOutput. The rows worked around it by driving one
+// rehydration and one idle pass before their first PreCompact.
+//
+// SourceSet now carries LedgerFn, an accessor onto the lazily-opened handle, so a wiring-time set
+// is publishable; and the bound PreCompact seam triggers the one lazy open itself, through
+// Options.OpenLedger, before it seals. The composition below carries both, because it is a
+// transcription and not a variant. The workaround is gone and every row's first PreCompact is now
+// the daemon's first PreCompact, unarmed — which is the path a user actually walks.
 package e2e
 
 import (
@@ -109,12 +114,18 @@ func v4StartRig(t *testing.T, p *testutil.Project) *v4Rig {
 			Store:    opts.Store,
 			Segments: segs,
 			Ledger:   opts.Ledger,
+			// The accessor onto that same field, exactly as wireCheckpointSources supplies it: it
+			// is what makes a set assembled before the first compaction publishable rather than
+			// silently dropped.
+			LedgerFn: func() negknow.Ledger { return opts.Ledger },
 			Pins:     pinStore,
 			Graph:    opts.Graph,
 			Grammar:  gram,
 			Tokens:   toks,
 		}
-		if valErr := src.Validate(); valErr != nil {
+		// Resolve, not Validate: a consumer asks this in order to BEGIN a draft, and until
+		// something has opened the ledger the honest answer is that it cannot.
+		if _, valErr := src.Resolve(); valErr != nil {
 			return src, fmt.Errorf("%w: %w", valErr, core.ErrDegraded)
 		}
 		return src, nil
@@ -122,7 +133,7 @@ func v4StartRig(t *testing.T, p *testutil.Project) *v4Rig {
 
 	opts.Checkpoints = w
 	snapshot, _ := sources()
-	daemon.BindCheckpoint(&opts, p.Cfg, w, snapshot)
+	daemon.BindCheckpoint(&opts, p.Cfg, w, snapshot, daemon.WithSourceSupplier(sources))
 
 	d, err := daemon.New(opts)
 	require.NoError(t, err)
@@ -192,14 +203,26 @@ func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) (hookio.Output, st
 	return out, out.HookSpecificOutput.CustomInstructions
 }
 
-// ArmCheckpointSources performs the two steps the shipped daemon needs before its FIRST PreCompact
-// can seal anything (see this file's header): one compaction, which is what opens the ledger, and
-// one idle pass, whose advanceFrontierTask republishes the now-complete SourceSet to the writer.
+// OpenLedgerByCompacting drives one SessionStart(source=compact) so that the lazily-opened
+// negative-knowledge ledger exists on Options.
 //
-// It asserts BOTH halves rather than merely performing them, because each is a real precondition a
-// regression could remove: the first compact start must report no checkpoint (there is none yet),
-// and the supplier must actually resolve afterwards.
-func (r *v4Rig) ArmCheckpointSources(t *testing.T, sess core.SessionID) {
+// This is NOT the old ArmCheckpointSources workaround. That one existed because the first
+// PreCompact of a daemon's life could not seal at all; it is gone, and every row's first
+// `qompack checkpoint` now seals unarmed. What survives is the ledger's LAZINESS, which is a
+// product rule and not a defect: negknow.Open has exactly one production call site and it runs on
+// the first COMPACTION, because an eager open creates sketches/tried.bloom in every daemon that
+// never compacts. So a daemon that has never compacted has no ledger, and the idle frontier and
+// §8.5 cadence tasks — which seed a draft's tier 1 from eliminations — correctly report themselves
+// unavailable until one has.
+//
+// Only the two rows whose SUBJECT is those idle paths call this. A PreCompact would open the
+// ledger just as well, and would also seal an artifact — which is exactly what x02's "nothing may
+// be sealed before the cadence threshold is crossed" forbids, so the compact-start is the one that
+// isolates the variable.
+//
+// It ASSERTS both halves rather than merely performing them: the set must be unresolvable before
+// (the ledger really is lazy) and resolvable after (the compaction really did open one).
+func (r *v4Rig) OpenLedgerByCompacting(t *testing.T, sess core.SessionID) {
 	t.Helper()
 
 	if r.Opts.Ledger == nil {
@@ -220,11 +243,7 @@ func (r *v4Rig) ArmCheckpointSources(t *testing.T, sess core.SessionID) {
 		_, srcErr := r.Src()
 		return srcErr == nil
 	}, 10*time.Second, 100*time.Millisecond,
-		"the first compaction must have opened the negative-knowledge ledger onto Options")
-
-	ran := r.RunIdle(t)
-	require.Contains(t, ran, "advance_frontier",
-		"the idle pass that republishes the complete SourceSet must have run; ran=%v", ran)
+		"the compaction must have opened the negative-knowledge ledger onto Options")
 }
 
 // v4SeedTurns drives n PostToolUse events with distinct content through the real binary and waits

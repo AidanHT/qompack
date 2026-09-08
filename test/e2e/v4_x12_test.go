@@ -63,7 +63,6 @@ func TestV4_DegradedPassiveWithEverySubsystem(t *testing.T) {
 	obsRunHook(t, rf.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, pf.Root, x12v4Session, "keep recording while the contract is degraded"), envf)
 	rf.SeedTurns(t, x12v4Session, "v4x12f", 3)
-	rf.ArmCheckpointSources(t, x12v4Session)
 
 	fullRan := rf.RunIdle(t)
 	var actingPaths []string

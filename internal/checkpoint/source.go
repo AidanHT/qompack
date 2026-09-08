@@ -30,6 +30,22 @@ type SourceSet struct {
 	Segments store.SegmentLog
 	// Ledger supplies the tier-1 eliminated[] records.
 	Ledger negknow.Ledger
+	// LedgerFn resolves Ledger LATE — at the moment a draft is actually begun — and is consulted
+	// only while Ledger is nil.
+	//
+	// It exists because negknow.Open is deliberately lazy. Its single production call site opens
+	// the elimination ledger on the first compaction, because an eager open creates
+	// sketches/tried.bloom and holds a records/eliminations.jsonl handle in every daemon that
+	// never compacts, and §3.3 reserves that file for the ledger alone. So a composition root
+	// assembling this set at WIRING time has no handle to put in Ledger, and freezing the nil
+	// there is not a cosmetic problem: Validate rejects the set, SetSources drops it, and the
+	// first PreCompact of the daemon's life finds no seams at all and seals nothing.
+	//
+	// The accessor is the shape mcp.ToolDeps.LedgerFn and daemon.SchedulerRuntimeOptions.LedgerFn
+	// already use one layer up: it reads a FIELD on every call, it opens nothing itself, and it
+	// owns nothing. Validate accepts it in place of a handle — a promise of a ledger is a wired
+	// seam — while Resolve, which the consumer calls, insists on the handle itself.
+	LedgerFn func() negknow.Ledger
 	// Pins supplies the tier-1 invariants[].
 	Pins pins.Store
 	// Graph supplies slice scores for ranking and the EdgeExplains chains ExtractDecisions mints
@@ -41,16 +57,22 @@ type SourceSet struct {
 	Tokens tokens.Estimator
 }
 
-// Validate reports the first seam left nil, naming it. Begin calls it before touching anything,
-// so a half-wired composition root fails at the top of the call with a message that says which
-// dependency is missing, rather than as a nil dereference several frames down inside Advance.
+// Validate reports the first seam left nil, naming it. It is what a PRODUCER of a SourceSet calls
+// — a composition root publishing one, SetSources accepting one — so a half-wired root is refused
+// with a message that says which dependency is missing, rather than faulting as a nil dereference
+// several frames down inside Advance.
+//
+// The ledger is satisfied by EITHER a handle or an accessor: at wiring time a lazily-opened ledger
+// can only be a promise, and refusing the whole set over a seam that is wired but not yet
+// materialized is what left the first PreCompact of every fresh daemon with nothing to build from.
+// Resolve is the consumer-side check that insists on the handle.
 func (s SourceSet) Validate() error {
 	switch {
 	case s.Store == nil:
 		return fmt.Errorf("checkpoint: SourceSet.Store is nil")
 	case s.Segments == nil:
 		return fmt.Errorf("checkpoint: SourceSet.Segments is nil")
-	case s.Ledger == nil:
+	case s.Ledger == nil && s.LedgerFn == nil:
 		return fmt.Errorf("checkpoint: SourceSet.Ledger is nil")
 	case s.Pins == nil:
 		return fmt.Errorf("checkpoint: SourceSet.Pins is nil")
@@ -62,6 +84,30 @@ func (s SourceSet) Validate() error {
 		return fmt.Errorf("checkpoint: SourceSet.Tokens is nil")
 	}
 	return nil
+}
+
+// Resolve materializes the late-bound seams and returns the set a draft may actually be built
+// from. It is what a CONSUMER calls; Validate is what a producer calls.
+//
+// The two differ on exactly one point, and it is the point this seam exists for. Validate accepts
+// a ledger that is still a promise, because at wiring time that is all there is. Resolve calls the
+// promise in and insists on the handle, because Begin is about to read eliminations out of it.
+//
+// An accessor that answers nil is a ledger that could not be opened, and it is reported as the
+// same named, top-of-call failure a nil field gets — an explicitly unavailable source rather than
+// a nil dereference inside Begin's tier-1 seeding. The receiver is a value, so resolving never
+// mutates the caller's set: the accessor stays live for the next call.
+func (s SourceSet) Resolve() (SourceSet, error) {
+	if s.Ledger == nil && s.LedgerFn != nil {
+		s.Ledger = s.LedgerFn()
+	}
+	if err := s.Validate(); err != nil {
+		return s, err
+	}
+	if s.Ledger == nil {
+		return s, fmt.Errorf("checkpoint: SourceSet.Ledger is nil: its accessor resolved to no ledger")
+	}
+	return s, nil
 }
 
 // Draft is an in-progress checkpoint: the incrementally accumulated tiers Advance encodes closed

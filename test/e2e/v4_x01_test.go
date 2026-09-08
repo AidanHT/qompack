@@ -92,10 +92,6 @@ func TestV4_PreCompactToCheckpointToRehydrateRoundTrip(t *testing.T) {
 	obsRunHook(t, r.Bin, []string{"observe", "prompt"}, obsPromptPayload(t, p.Root, x1v4Session, x1v4Intent), env)
 	r.SeedTurns(t, x1v4Session, "v4x01", 6)
 
-	// The two steps a daemon needs before its FIRST PreCompact can seal — themselves asserted; see
-	// ArmCheckpointSources and the harness header's production seam-gap note.
-	r.ArmCheckpointSources(t, x1v4Session)
-
 	// ── PreCompact: the real writer seals the artifact ───────────────────────────────────────────
 	out, instr := r.PreCompact(t, x1v4Session)
 	require.NotNil(t, out.HookSpecificOutput,
