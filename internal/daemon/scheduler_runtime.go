@@ -113,12 +113,12 @@ type SchedulerRuntimeOptions struct {
 	Metrics     obs.Registry
 	Store       store.Store
 	Graph       dag.Graph
-	Ledger      negknow.Ledger    // may be nil
-	Checkpoints checkpoint.Writer // may be nil (SP-10 merges after SP-12)
-	// Sources supplies checkpoint.SourceSet to Writer.Begin. SP-10 owns every member of that
-	// struct and wires this field when it merges; until then it is nil and frontier advancement
-	// is inert in exactly the same way a nil Checkpoints makes it inert.
-	Sources func() (checkpoint.SourceSet, error) // may be nil
+	Ledger      negknow.Ledger // may be nil
+	// Frontier keeps draft lifecycle ownership in checkpoint. The legacy Checkpoints/Sources
+	// options remain compatible inputs to its adapter when no explicit port is supplied.
+	Frontier    checkpoint.FrontierAdvancer
+	Checkpoints checkpoint.Writer
+	Sources     func() (checkpoint.SourceSet, error) // may be nil
 	// Getenv is config.Env.Getenv. nil ⇒ every lookup answers "". NEVER os.Getenv.
 	Getenv func(string) string
 }
@@ -137,13 +137,11 @@ type schedRuntime struct {
 	metrics obs.Registry
 	getenv  func(string) string
 
-	st      store.Store
-	segs    store.SegmentLog
-	graph   dag.Graph
-	ledger  negknow.Ledger                       // may be nil
-	ckpt    checkpoint.Writer                    // may be nil
-	sources func() (checkpoint.SourceSet, error) // may be nil
-	draft   *checkpoint.Draft                    // opened lazily by advanceFrontier (C2)
+	st       store.Store
+	segs     store.SegmentLog
+	graph    dag.Graph
+	ledger   negknow.Ledger              // may be nil
+	advancer checkpoint.FrontierAdvancer // may be nil; never exposes a draft
 
 	det  scheduler.Detector
 	hist *FeatureHistory
@@ -236,22 +234,25 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		getenv = func(string) string { return "" }
 	}
 	cp := o.Cfg.Scheduler.Changepoint
+	advancer := o.Frontier
+	if advancer == nil && o.Checkpoints != nil && o.Sources != nil {
+		advancer = checkpoint.NewFrontierAdvancer(o.Checkpoints, o.Sources)
+	}
 	r := &schedRuntime{
-		root:    o.ProjectRoot,
-		cfg:     o.Cfg,
-		clock:   o.Clock,
-		log:     o.Log,
-		metrics: o.Metrics,
-		getenv:  getenv,
-		st:      o.Store,
-		segs:    o.Store.Segments(),
-		graph:   o.Graph,
-		ledger:  o.Ledger,
-		ckpt:    o.Checkpoints,
-		sources: o.Sources,
-		det:     scheduler.NewBOCD(cp.HazardRate, cp.Features),
-		hist:    NewFeatureHistory(defaultFeatureWindow),
-		rounds:  map[core.TurnIndex]struct{}{},
+		root:     o.ProjectRoot,
+		cfg:      o.Cfg,
+		clock:    o.Clock,
+		log:      o.Log,
+		metrics:  o.Metrics,
+		getenv:   getenv,
+		st:       o.Store,
+		segs:     o.Store.Segments(),
+		graph:    o.Graph,
+		ledger:   o.Ledger,
+		advancer: advancer,
+		det:      scheduler.NewBOCD(cp.HazardRate, cp.Features),
+		hist:     NewFeatureHistory(defaultFeatureWindow),
+		rounds:   map[core.TurnIndex]struct{}{},
 	}
 	r.asm = newCandidateAssembler(o.Graph, r.segs, o.Log, o.Metrics)
 	r.sessionStartTS = r.nowMS()
@@ -350,15 +351,10 @@ func (r *schedRuntime) resolveRegimeLocked() scheduler.CacheRegime {
 }
 
 // resetSessionLocked clears everything session-scoped: the detector, the feature history, the
-// turn histories, the token accounting, the EWMAs, the decision, the frontier and the draft.
+// turn histories, the token accounting, the EWMAs, the decision and the local frontier.
+// Checkpoint drafts remain with their owner across a scheduler session change.
 func (r *schedRuntime) resetSessionLocked() {
 	cp := r.cfg.Scheduler.Changepoint
-	if draft, ckpt := r.draft, r.ckpt; draft != nil && ckpt != nil {
-		if err := ckpt.Abort(draft); err != nil {
-			r.log.Warn("scheduler: aborting the previous session's draft", "err", err.Error())
-		}
-	}
-	r.draft = nil
 	r.det = scheduler.NewBOCD(cp.HazardRate, cp.Features)
 	r.hist = NewFeatureHistory(defaultFeatureWindow)
 	r.asm.Invalidate()
@@ -742,24 +738,14 @@ func (r *schedRuntime) persistFailed(err error) error {
 	return err
 }
 
-// Close persists, releases the p-selection gate and aborts an open draft. Idempotent: a second
-// call persists again (cheap, and the honest thing on a repeated shutdown signal) but finds no
-// draft to abort. Idempotent is not final: the daemon is per project and outlives sessions, so
+// Close persists and releases the p-selection gate. Checkpoint draft lifecycle stays with the
+// checkpointer. Idempotent is not final: the daemon is per project and outlives sessions, so
 // the next BindSession — the same id on a `--resume`, or a new one — re-opens the gate and the
 // runtime is live again; a same-id rebind keeps the in-memory state Close has just persisted.
 // Not on scheduler.Runtime (Rule W-3); reached through CloseSchedulerRuntime.
 func (r *schedRuntime) Close() error {
 	err := r.Persist(context.Background())
 	scheduler.DisablePSelection()
-	r.mu.Lock()
-	draft, ckpt := r.draft, r.ckpt
-	r.draft = nil
-	r.mu.Unlock()
-	if draft != nil && ckpt != nil {
-		if aerr := ckpt.Abort(draft); aerr != nil && err == nil {
-			err = fmt.Errorf("daemon: scheduler close: abort draft: %w", aerr)
-		}
-	}
 	return err
 }
 

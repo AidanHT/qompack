@@ -1055,18 +1055,17 @@ func TestRuntime_CloseIsIdempotent(t *testing.T) {
 	t.Parallel()
 	fx := newRTFixture(t, func(fx *rtFixture) { fx.writer = newFakeWriter(fx.store.segs) })
 	fx.bind(rtSession)
-	fx.rt.mu.Lock()
-	fx.rt.draft = &checkpoint.Draft{}
-	fx.rt.mu.Unlock()
+	draft, err := fx.writer.Begin(context.Background(), rtSession, 0, checkpoint.SourceSet{})
+	require.NoError(t, err)
 
 	require.NoError(t, CloseSchedulerRuntime(fx.rt))
 	require.Equal(t, int64(1), fx.counter(counterPersist))
-	require.Equal(t, 1, fx.writer.abortCalls)
-	require.Nil(t, fx.rt.draft)
+	require.Zero(t, fx.writer.abortCalls)
+	require.Contains(t, fx.writer.drafts, draft, "scheduler close preserves the owner's draft")
 
 	require.NoError(t, CloseSchedulerRuntime(fx.rt))
 	require.Equal(t, int64(2), fx.counter(counterPersist), "Persist runs once per call")
-	require.Equal(t, 1, fx.writer.abortCalls, "the draft is aborted exactly once")
+	require.Zero(t, fx.writer.abortCalls, "scheduler close never aborts the owner's draft")
 	require.FileExists(t, fx.statePath(stateFileScheduler))
 }
 
