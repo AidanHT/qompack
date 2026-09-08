@@ -365,3 +365,34 @@ func TestReplayDriver_RefusesACrossTierBaseline(t *testing.T) {
 	require.Contains(t, errw, "SAME population",
 		"the failure must say why a cross-tier comparison is meaningless, not merely that it refused")
 }
+
+// TestReplayDriver_RefusesABaselineRecordedOverAnotherCorpus is the cross-tier check's sibling,
+// and the one that was actually mis-firing in V4.
+//
+// The two committed baselines are the same tier, the same generator and the same session count, so
+// the tier check above sees nothing wrong with the pairing. They differ in the only field that
+// identifies the WORKLOAD: corpusSHA256 e2d9fa5a... against ebaf30d2.... Replaying the corrected
+// corpus against the pre-correction baseline therefore ran the 2 % rule over two different
+// populations and produced a table of regressions describing the corpus change -- among them
+// fraction_of_opt -62.84 %, which is real movement caused by a budget that now binds, and
+// re_attempts +2 400 000 000 000 %, which is a division by a baseline of zero and means nothing at
+// all. Neither is a policy regression, and no sign-off could truthfully be written for either.
+//
+// The run must therefore fail as BAD INPUT rather than as a gate failure: the comparison was
+// invalid, not lost.
+func TestReplayDriver_RefusesABaselineRecordedOverAnotherCorpus(t *testing.T) {
+	code, _, errw := driverRun(t,
+		"--corpus", defaultCorpusPath,
+		"--baseline", "testdata/baseline/phase0.json",
+		"--out", "", "--phase", "0")
+
+	require.Equal(t, exitBadInput, code, errw)
+	require.Contains(t, errw, "corpus sha256:")
+	require.Contains(t, errw, "different sessions")
+	require.Contains(t, errw, "testdata/baseline/phase0-recall.json",
+		"the failure names the baseline that does describe this corpus")
+	require.NotContains(t, errw, "Sign-off: fraction_of_opt",
+		"the gate must not ask for a rationale for a comparison it should never have made")
+	require.NotContains(t, errw, "2400000000000",
+		"and must never print a percentage taken against a baseline of zero")
+}
