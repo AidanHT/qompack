@@ -1,0 +1,198 @@
+{
+  "tools": [
+    {
+      "description": "Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "k": {
+            "default": 5,
+            "description": "Maximum number of hits.",
+            "maximum": 50,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "query": {
+            "description": "Free text, or prefixed selectors combined with spaces: path:<glob>, symbol:<name>, tool:<ToolName>.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "name": "recall",
+      "title": "Recall"
+    },
+    {
+      "description": "Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "full": {
+            "default": false,
+            "description": "Return the whole object instead of the minimum sufficient span.",
+            "type": "boolean"
+          },
+          "hash": {
+            "description": "Root or chunk hash as sha256:<64 hex>. Provide exactly one of hash or tool_use_id.",
+            "type": "string"
+          },
+          "span": {
+            "description": "Explicit span: \"<off>:<len>\" in bytes, or \"L<start>-L<end>\" in lines.",
+            "type": "string"
+          },
+          "tool_use_id": {
+            "description": "tool_use_id taken from a tombstone or a recall hit.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "expand",
+      "title": "Expand"
+    },
+    {
+      "description": "Current or historical version of a file, from the store's own version history. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "description": "Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>.",
+            "type": "string"
+          },
+          "full": {
+            "default": false,
+            "description": "Return the whole file instead of the minimum sufficient span.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "type": "object"
+      },
+      "name": "re_read",
+      "title": "Re-read"
+    },
+    {
+      "description": "Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. Clients must treat unavailable or unrecognized states as unknown, never as absence or a prohibition. Before committing to an approach, call already_tried.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "approach": {
+            "description": "The approach as one short verb phrase — e.g. widen pool timeout.",
+            "type": "string"
+          },
+          "target": {
+            "description": "File path, optionally :symbol — e.g. src/auth.ts:refreshToken.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "approach"
+        ],
+        "type": "object"
+      },
+      "name": "already_tried",
+      "title": "Already tried"
+    },
+    {
+      "description": "Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "approach": {
+            "type": "string"
+          },
+          "depends_on": {
+            "description": "Project-relative paths whose contents this reason rests on; a change to any of them flips this record to stale.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reason": {
+            "description": "Why it does not work. Encode what a competent engineer with no session history would get wrong.",
+            "type": "string"
+          },
+          "scope": {
+            "default": "session",
+            "enum": [
+              "session",
+              "project"
+            ],
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "approach",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "name": "record_eliminated",
+      "title": "Record eliminated"
+    },
+    {
+      "description": "Retrieve recorded session segments over a turn or timestamp range. Missing events and native context coverage may be unknown.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "Turn index, RFC3339 timestamp, or empty for the session start.",
+            "type": "string"
+          },
+          "to": {
+            "description": "Turn index, RFC3339 timestamp, or empty for the current frontier.",
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "name": "timeline",
+      "title": "Timeline"
+    },
+    {
+      "description": "Retrieve an attributed decision and its evidence from the checkpoint chain. Recorded reasoning does not prove model compliance.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_id": {
+            "description": "A dec_<12 hex> id from a checkpoint or a rehydrated decision list.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_id"
+        ],
+        "type": "object"
+      },
+      "name": "why",
+      "title": "Why"
+    },
+    {
+      "description": "Retrieve Qompack's recorded omissions for this session. This report does not establish what remains in native context.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "name": "dropped",
+      "title": "Dropped"
+    }
+  ]
+}

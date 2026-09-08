@@ -1,0 +1,17 @@
+{
+  "source_head": "919ca3abfba938c53ddbd9a9f55224f0054375a6",
+  "branch": "wip/v4-preparation",
+  "timestamp": "2026-09-07T22:30:26.0231563Z",
+  "toolchain": "go version go1.26.6 windows/amd64",
+  "os": "windows/amd64",
+  "client": "Codex CLI 0.153.4",
+  "host_cli": "Claude Code 2.1.263",
+  "stage": "provisional preparation; SP20/M1-M3 missing",
+  "concurrency": "one test command; package concurrency 1",
+  "shared_cache": "default Go build/module caches; owned commands serialized",
+  "stores": "test-created temporary projects",
+  "requested_inventory": "gpt-5.6-luna / medium",
+  "requested_components_and_review": "gpt-5.6-terra / high",
+  "effective_child_settings": "not exposed",
+  "usage": "not exposed"
+}

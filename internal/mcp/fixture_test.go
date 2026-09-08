@@ -142,7 +142,7 @@ func withFiles(files map[string]string) fixtureOpt {
 // every content tool is exercised.
 func withoutStore() fixtureOpt { return func(c *fixtureCfg) { c.noStore = true } }
 
-// withoutLedger leaves ToolDeps.Ledger nil (§12.3: absent for everything, never a false positive).
+// withoutLedger leaves ToolDeps.Ledger nil: available:false, never evidence of absence.
 func withoutLedger() fixtureOpt { return func(c *fixtureCfg) { c.noLedger = true } }
 
 // withoutCheckpoints leaves ToolDeps.Checkpoints nil, which is SP-10's pre-merge state.

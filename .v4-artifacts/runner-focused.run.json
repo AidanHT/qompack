@@ -1,0 +1,8 @@
+{
+  "started": "2026-09-07T22:51:57.1225224Z",
+  "stage": "provisional runner coverage guards",
+  "exit": 0,
+  "seconds": 11.1668876,
+  "source_head": "919ca3a",
+  "command": "go test -p=1 -count=1 -run TestRacePackagesRetainsAllNonE2ECoverage|TestColoadYieldersAreJudgedInIsolation ./tools/devtool ./test/guards"
+}

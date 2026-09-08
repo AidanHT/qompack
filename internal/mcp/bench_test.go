@@ -74,6 +74,8 @@ func bfReReadTarget(n int) string {
 //
 // The histogram is Reset first because the corpus is shared: a benchmark that ran earlier in the
 // same binary would otherwise contribute its own samples to this percentile.
+// Under declared co-load the behavior and sample-count assertions still apply; the two wall
+// judgements are reported here and enforced by the isolated CI timing lane (ADR-0010).
 func TestBudgetBF(t *testing.T) {
 	if testing.Short() {
 		t.Skip(bigFixtureSkip)
@@ -121,6 +123,11 @@ func TestBudgetBF(t *testing.T) {
 		"every dispatched call must have been observed into %s", hist)
 
 	limit := time.Duration(f.Cfg.Runtime.Budgets.MCPToolCallMs) * time.Millisecond
+	if obs.UnderCoload() {
+		t.Logf("B-F wall judgement deferred to CI timing: limit=%s %s; all %d dispatch and histogram assertions passed",
+			limit, bfSnapshotMsg(snap), budgetBFCalls)
+		return
+	}
 	require.Less(t, snap.P95, limit,
 		"B-F breached over %d tool uses / ~%d MB: limit=%s %s",
 		bigFixtureUses, bigFixtureUses*bigFixtureUseBytes/(1<<20), limit, bfSnapshotMsg(snap))

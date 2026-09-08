@@ -1,0 +1,18 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=10m -run '^(TestFrontier|TestRuntime_|TestWrapServices_|TestCadence|TestAdvanceFrontier|TestACancelled|TestADPI|Test.*(Sealed|ChainsToTheLatest))' ./internal/checkpoint ./internal/daemon",
+  "head": "65c499dd84786a846b2ab36011738c2a2d4f8c33",
+  "started": "2026-09-08T00:29:54.6484599Z",
+  "stage": "provisional checkpoint owner port and scheduler lifecycle correction",
+  "files": {
+    "internal/daemon/scheduler_frontier.go": "3FA8DB1E2F2396B7172DB11248A25E771A7FA38E7EBFDF50523CB833878DF073",
+    "internal/daemon/scheduler_runtime.go": "7DCED2641ECF1EC793A108732E27DBE6A9C7BFADEDFF6E1078FA09216B2B9C06",
+    "internal/checkpoint/frontier_port.go": "C72634008E3126DB7F7597E3426FDC14ADFD9032057AB85692DE760A22AA4DFD",
+    "internal/daemon/scheduler_tap_test.go": "D0DE256E5DABBE9AC69799512E908F6B973609E2603DC2294A5E59EBD9C227CC",
+    "internal/daemon/scheduler_frontier_test.go": "87D08823FC344F736F3D619C3034A3325C3094EC8BA6778C7DCEF052DF6589D1",
+    "internal/daemon/scheduler_runtime_test.go": "851EE80F7855DAD19375A18146250675A11B768C9DDE4A8D23F43599787CE3C9",
+    "internal/daemon/wire_checkpoint.go": "5AE747DC4E86356F75FAD9C0085AD3C1AC3616D18C49112709E56E08E44A2084",
+    "internal/checkpoint/frontier_port_test.go": "AA11B554DDD0AA630DCF5F414FF3966936A75F3B267731511D5A6FD749E89BD9"
+  },
+  "exit": 0,
+  "elapsed_seconds": 76.1806262
+}

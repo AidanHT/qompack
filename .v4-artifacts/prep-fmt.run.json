@@ -1,0 +1,9 @@
+{
+  "timestamp": null,
+  "timing": "not captured",
+  "exit": 0,
+  "command": "go run ./tools/devtool fmt-check",
+  "source_head": "919ca3a",
+  "recorded_from": "completed tool result; no stdout",
+  "elapsed_seconds": null
+}
