@@ -118,3 +118,47 @@ SP10–13 consumers remain unverified or unimplemented. The current observer sti
 store errors; callback acknowledgement is not proof of durable publication. Quiet full hot-path
 measurements must assess the new WAL Sync cost. No performance acceptance follows from a race
 or unit pass. Installed Claude Code recovery and all final V4 gates remain open.
+
+### Provisional object integrity correction
+
+On `3576900` plus the source/test hashes in `object-integrity-*.run.json`, every object read
+checks its plaintext against the requested `DomainChunk` hash, including raw objects and
+orphan objects without a roots entry. A valid zstd checksum and matching length alone did not
+bind the bytes to that address. Open/OpenSpan and Search consume the same verifier. Delta
+payload chunks use the same domain; their enclosing root metadata is a separate identity.
+
+Physical reads reject nonregular leaf paths, compare Lstat/Open identities, check file size
+before reading, and enforce a LimitReader bound if the file grows. Raw bytes are capped at
+MaxPutBytes; compressed bytes include the actual encoder's maximum framing/block overhead.
+Decompression retains its existing cap. This does not establish authorization of ancestor
+directories or a complete defence against concurrent filesystem mutation.
+
+Quarantine now uses a unique attempt directory and preserves prior evidence. A failed move
+leaves the source intact and counts/logs `store.quarantine_failed`; reads still refuse its
+contents. The historical `TestQuarantine_RemovesTheObjectEvenWhenTheMoveFails` assertion is
+replaced by `TestQuarantine_PreservesExistingEvidence`, and the blocked quarantine root fixture
+checks rejection without losing the source bytes. Historical corruption and indexed-length
+tests locate the preserved evidence in the new attempt directory. No frozen data fixture was
+rewritten. Read failures retain the legacy `core.ErrNotFound` contract; the M2 outcome envelope
+must still distinguish corruption/unavailability from supported absence.
+
+| Artifact | Result and interpretation |
+|---|---|
+| `object-integrity-red` | New replacement/oversize/quarantine fixtures failed against the prior implementation; package 1.232 s, command 8.014 s |
+| `object-integrity-green` | Selected store read, search, write, recovery and integrity cases passed under race; package 71.378 s, command 95.289 s. The separate storetest package selected zero tests and contributes no coverage |
+| `object-integrity-conformance` | Corrected selection of the actual `TestRunStoreSuite_AgainstRealStore` passed under race; package 3.434 s, command 9.951 s; source/test hashes unchanged |
+| `object-integrity-guards` | Formatting and affected store-package vet results recorded separately |
+
+Only one heavy command ran at a time. The shared Terra/high fixture owner authored only
+`internal/store/object_integrity_test.go` and released it before validation. The coordinator
+owned implementation, historical test mappings and commands. Independent Terra/high review
+authored none of the source/tests; its bounded evidence review is in the V4 preparation
+worktree's `plans/sdd/V4-VERIFY/runner-coverage-review.md`. Requested routing is recorded;
+effective model/effort, usage, queue wait and task cost were not exposed. Checks used disposable
+Windows test stores, not an installed host or final candidate.
+
+This is partial T20-M1-04/M2-04 evidence, not their acceptance. Write-side existing-object
+reuse remains optimistic; object sync, verified reference/frontier publication, crash cuts,
+durable identities, migration, GC/lease/rollback roots and scoped retrieval remain mandatory.
+The legacy writeStaged comment now accurately states that Flush does not sync its closed
+object files. No write-side durability change or performance acceptance is implied.

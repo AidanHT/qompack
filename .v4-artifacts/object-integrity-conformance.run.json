@@ -1,0 +1,16 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^TestRunStoreSuite_AgainstRealStore$' ./internal/store/storetest",
+  "head": "3576900be22ffd7d1dcceaa2123897f06dc4d62c",
+  "started": "2026-09-08T00:14:29.6834653Z",
+  "stage": "corrected real-store conformance selection; previous package selected zero tests",
+  "files": {
+    "internal/store/helpers_test.go": "4B966F0BD630EC86A0E0776ADE1C71E4A21C4140B7B7A4CAB82E1A1930801901",
+    "internal/store/objects_test.go": "78B601B09B2F3B5F09EA0DDE3CF4460415E7FD7190B8ECA399D5C07C597A69EF",
+    "internal/store/compress.go": "20DDDDA70CD1ACD37A2D02F7EF0440571F0D3D0AD764406B79880B5485354C26",
+    "internal/store/read.go": "9B95CF950D0BCA949F873C653992BE03541467B2C83E9D5C5C0E9009253684CC",
+    "internal/store/object_integrity_test.go": "4DE611CD866296363A873998BBB2257BD19E785A5418F0E432D461816A4AEB83",
+    "internal/store/objects.go": "3913409D00E61A4EB448FD5E68AA5C8EDDD36BC33D245A17631EE29F9154E47F"
+  },
+  "exit": 0,
+  "elapsed_seconds": 9.9506784
+}

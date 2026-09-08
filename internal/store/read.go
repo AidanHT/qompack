@@ -12,15 +12,15 @@ import (
 
 // GetChunk returns one chunk's plaintext bytes.
 //
-// Integrity rests on zstd's per-frame content checksum, which klauspost enables by default and
-// which DecodeAll verifies: a flipped byte anywhere in the frame fails the decode, and getObject
-// quarantines the object and reports core.ErrNotFound.
+// Integrity requires the plaintext's DomainChunk hash to match h, for both compressed and raw
+// objects. Physical size and zstd decoding are bounded; getObject quarantines rejected content
+// when possible and reports the legacy core.ErrNotFound degradation.
 //
 // It also cross-checks the decoded length against the length index/roots.jsonl recorded, which
 // costs one map lookup because chunkSet is a chunk-hash → length map rather than a set (see
 // fsstore.go). A hash with no index entry — an object left on disk by a crash between its write
 // and its index append — is still readable; there is simply no recorded length to check it
-// against, so the checksum stands alone for that one case.
+// against, but its plaintext must still match the requested content address.
 func (s *FSStore) GetChunk(ctx context.Context, h core.Hash) ([]byte, error) {
 	if err := s.use(); err != nil {
 		return nil, err
