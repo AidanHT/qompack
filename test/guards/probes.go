@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/qompack/qompack/internal/admission"
 	"github.com/qompack/qompack/internal/analyzer"
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -49,18 +48,6 @@ var evalProbe = probe{pkg: "eval", isStub: func(t *testing.T) bool {
 	t.Helper()
 	h := eval.New(eval.Options{Cfg: config.Defaults()})
 	_, err := h.Load(t.TempDir())
-	return core.IsNotImplemented(err)
-}}
-
-// admissionProbe — OWNERS.tsv names admission's canonical operation as Admit.
-//
-// SP-21's contract slice landed the policy (Decide) fully graded while the pipeline around it is
-// still a seam, so this probe reads the pipeline rather than the package: Admit is what commits 2
-// through 4 fill in.
-var admissionProbe = probe{pkg: "admission", isStub: func(t *testing.T) bool {
-	t.Helper()
-	p := admission.NewPipeline(admission.Gate{Enabled: true, Owned: true})
-	_, err := p.Admit(admission.Target{Schema: "qompack.retrieval", Version: "1"})
 	return core.IsNotImplemented(err)
 }}
 

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/qompack/qompack/internal/admission"
-	"github.com/qompack/qompack/internal/core"
 	"github.com/stretchr/testify/require"
 )
 
@@ -200,7 +199,8 @@ func TestEveryEnumValueRendersADistinctName(t *testing.T) {
 			admission.ReasonDisabled, admission.ReasonUnknownTarget, admission.ReasonCaptureFailed,
 			admission.ReasonPublicationUnverified, admission.ReasonParseFailed,
 			admission.ReasonNoRepresentation, admission.ReasonHandleUnresolvable,
-			admission.ReasonPrivacyDenied, admission.ReasonAdmitted,
+			admission.ReasonPolicyUnavailable, admission.ReasonPrivacyDenied,
+			admission.ReasonAdmitted,
 		} {
 			name := r.String()
 			require.NotEqual(t, "unknown", name, "reason %d has no String arm", int(r))
@@ -215,7 +215,7 @@ func TestEveryEnumValueRendersADistinctName(t *testing.T) {
 		for _, s := range []admission.Stage{
 			admission.StageNone, admission.StageCapture, admission.StagePublication,
 			admission.StageParse, admission.StageSelection, admission.StageResolution,
-			admission.StagePrivacy,
+			admission.StagePolicy, admission.StagePrivacy,
 		} {
 			name := s.String()
 			require.NotEqual(t, "unknown", name, "stage %d has no String arm", int(s))
@@ -239,24 +239,4 @@ func TestUnrecognizedStageCannotAdmit(t *testing.T) {
 	require.Equal(t, admission.OutcomePassThrough, rec.Outcome,
 		"an unmapped stage must never reach the transform path")
 	require.Equal(t, admission.ReasonNoRepresentation, rec.Reason)
-}
-
-// TestAdmitIsNotImplemented pins the pipeline seam this slice declares but does not build.
-//
-// SP-21's schedule makes main's contract slice freeze the pipeline's input and output before roles
-// A-D author against it. Admit is that signature. It returns core.ErrNotImplemented until commit 2
-// wires SP-20 capture behind it, and OWNERS.tsv names it as this package's stub probe for exactly
-// that reason: the policy in Decide is real, the pipeline around it is not.
-//
-// The assertion that matters is the second one. A stub must not answer with a payload alongside its
-// error — a caller that ignored the error would otherwise act on a fabricated decision, and a
-// fabricated decision here is a delivered result nobody captured.
-func TestAdmitIsNotImplemented(t *testing.T) {
-	p := admission.NewPipeline(admission.Gate{Enabled: true, Owned: true})
-
-	rec, err := p.Admit(tgt)
-
-	require.True(t, core.IsNotImplemented(err), "Admit must report the stub seam, got %v", err)
-	require.Equal(t, admission.Record{}, rec,
-		"a stub must not return a Record alongside its error; a caller ignoring err would act on it")
 }

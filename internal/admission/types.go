@@ -86,6 +86,13 @@ const (
 	// authorization, which blocks the transform (SP-21 invariant 6).
 	ReasonHandleUnresolvable
 
+	// ReasonPolicyUnavailable means the privacy check could not be evaluated — an unwired port,
+	// or a policy that errored. It is NOT a denial. "Policy said no" and "we could not ask policy"
+	// are different facts with different safe answers: a denial withholds the delivered result
+	// from the user, and only an actual policy decision may do that. An unanswerable check
+	// passes the original through and captures nothing.
+	ReasonPolicyUnavailable
+
 	// ReasonPrivacyDenied is the only reason that produces OutcomeDeny.
 	ReasonPrivacyDenied
 
@@ -110,6 +117,8 @@ func (r Reason) String() string {
 		return "no-representation"
 	case ReasonHandleUnresolvable:
 		return "handle-unresolvable"
+	case ReasonPolicyUnavailable:
+		return "policy-unavailable"
 	case ReasonPrivacyDenied:
 		return "privacy-denied"
 	case ReasonAdmitted:
@@ -129,6 +138,10 @@ const (
 	StageParse
 	StageSelection
 	StageResolution
+
+	// StagePolicy is the privacy CHECK — asking. It fails when policy cannot be evaluated, which
+	// is an ordinary stage failure and passes through.
+	StagePolicy
 
 	// StagePrivacy is not an ordinary stage. A failure at StagePrivacy is a policy decision to
 	// withhold, and it is the only input that produces OutcomeDeny.
@@ -150,6 +163,8 @@ func (s Stage) String() string {
 		return "selection"
 	case StageResolution:
 		return "resolution"
+	case StagePolicy:
+		return "policy"
 	case StagePrivacy:
 		return "privacy"
 	default:
@@ -248,6 +263,15 @@ type Record struct {
 	// Err is the underlying stage error, retained for the audit diagnostic. It is never used to
 	// choose an outcome — the stage is.
 	Err error
+
+	// Handle is the resolvable pointer the capture produced, and is set only on an admitted
+	// record. Every refusal leaves it empty, which is what makes "a failed capture emitted no
+	// handle" checkable rather than merely intended.
+	Handle string
+
+	// Fidelity is the admitted capture's recoverability, carried into the record so an audit can
+	// see WHY a replacement was allowed and not only that it was.
+	Fidelity Fidelity
 }
 
 // Decide is SP-21's frozen admission policy.
@@ -301,6 +325,8 @@ func reasonForStage(s Stage) Reason {
 		return ReasonParseFailed
 	case StageResolution:
 		return ReasonHandleUnresolvable
+	case StagePolicy:
+		return ReasonPolicyUnavailable
 	default:
 		return ReasonNoRepresentation
 	}
