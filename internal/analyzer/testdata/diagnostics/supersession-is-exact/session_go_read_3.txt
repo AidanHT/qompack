@@ -1,0 +1,27 @@
+package auth
+
+import "errors"
+
+// ErrSessionExpired is returned by Check for a session past its expiry.
+var ErrSessionExpired = errors.New("auth: session expired")
+
+// Session is the server-side half of a signed-in user.
+type Session struct {
+	ID      string
+	UserID  string
+	Expires int64
+	Rotated int64
+}
+
+// Check reports why s is unusable, or nil when it is usable at unix second now.
+func (s Session) Check(now int64) error {
+	if s.Expires <= now {
+		return ErrSessionExpired
+	}
+	return nil
+}
+
+// NeedsRotation reports whether s is older than the rotation window.
+func (s Session) NeedsRotation(now, window int64) bool {
+	return now-s.Rotated >= window
+}

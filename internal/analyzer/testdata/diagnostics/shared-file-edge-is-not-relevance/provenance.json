@@ -1,0 +1,15 @@
+{
+  "fixture": "shared-file-edge-is-not-relevance",
+  "gate": "M5-G15-B",
+  "owner": "SP-15 role C",
+  "origin": "Authored by hand for SP-15. NOT captured from a session and not derived from any existing benchmark file.",
+  "signal_under_test": "the shared_file relation edge of the dependence DAG (00-ARCHITECTURE.md 8.1 item 4, 5.9)",
+  "files": {
+    "changelog_release_notes.txt": "a read of docs/CHANGELOG.md about connection pooling",
+    "changelog_typo_fix.txt": "an edit of docs/CHANGELOG.md correcting a spelling mistake in a 2019 entry"
+  },
+  "what_it_demonstrates": "Both tool uses touch one path, so the DAG connects both to file:docs/CHANGELOG.md with shared_file edges. The edges exist and are preserved. They say nothing whatever about relevance: the two contents share no subject, and neither is evidence about the other. The cheap delta scorer confirms it independently, scoring the typo fix at zero against a continuation drawn from the pooling notes.",
+  "qualified_claim_this_supports": "Shared files and tool ordering form an APPROXIMATE relation graph. An edge is an association, not a dependency; analyzer.isDependenceEdge excludes shared_file from the Requires closure for that reason, and analyzer.NewRelations preserves every excluded edge rather than filtering it away.",
+  "over_claim_this_prevents": "Two symmetrical errors. Reading an edge as relevance, so that keeping one item licenses dropping the other. And reading the ABSENCE of an edge as irrelevance, which is the more dangerous direction: the graph records what the observer saw, thin slicing drops control edges by design, and content outside a slice is not thereby shown to be irrelevant.",
+  "asserted_by": "internal/analyzer/block_test.go — TestRelations_ASharedFileEdgeIsPreservedAndProvesNothing"
+}
