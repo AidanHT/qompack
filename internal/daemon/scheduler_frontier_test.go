@@ -12,6 +12,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -669,4 +670,61 @@ func TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour(t *testing.T)
 	ids, stop := verifyEvidence(context.Background(), fx.store.segs, rtSession, batch)
 	require.Nil(t, stop)
 	require.Equal(t, []core.SegmentID{a, c}, ids)
+}
+
+// ── Cancellation and bounded resources (item 9) ──────────────────────────────────────────────
+
+// TestFrontier_AdvanceHonoursCancellation asserts a cancelled idle budget stops the pass before
+// it reaches the writer. The run still counts — the starvation counter measures passes, not work
+// — but nothing is begun, nothing is advanced and the frontier does not move.
+func TestFrontier_AdvanceHonoursCancellation(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	openSegment(t, fx, 4)
+	fx.rt.NoteAPIRound(4)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := fx.rt.advanceFrontier(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+
+	require.Empty(t, fx.writer.beginCalls, "a cancelled pass never opens a draft")
+	require.Empty(t, fx.writer.advanceCalls)
+	require.Zero(t, frontierOf(fx))
+}
+
+// TestFrontier_SegmentLogFailureLeavesTheFrontierUnchanged is the disk-failure row: the segment
+// log cannot be listed, so the pass reports the failure and changes nothing. A frontier that
+// advanced on an unreadable log would be a frontier over evidence nobody checked.
+func TestFrontier_SegmentLogFailureLeavesTheFrontierUnchanged(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	fx.store.segs.unencodedErr = errors.New("disk I/O error")
+
+	require.Error(t, fx.rt.advanceFrontier(context.Background()))
+	require.Empty(t, fx.writer.beginCalls)
+	require.Zero(t, frontierOf(fx))
+	require.Equal(t, 1, fx.log.count(logWarn))
+}
+
+// TestFrontier_VerifyEvidenceStopsOnCancellation keeps the verification walk itself bounded: a
+// budget that runs out mid-batch stops where it is rather than re-reading every remaining
+// segment.
+func TestFrontier_VerifyEvidenceStopsOnCancellation(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	ids, stop := verifyEvidence(ctx, fx.store.segs, rtSession, []store.Segment{
+		{ID: a, Session: rtSession, StartTurn: 1, EndTurn: 3, Closed: true},
+		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true},
+	})
+	require.Empty(t, ids)
+	require.NotNil(t, stop)
+	require.Equal(t, evidenceCancelled, stop.reason)
 }
