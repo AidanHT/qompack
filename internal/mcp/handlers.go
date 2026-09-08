@@ -102,6 +102,15 @@ type recallBody struct {
 	// before the preview was built (T13-TRUST). It is reported explicitly, never left for the
 	// caller to infer from a shorter-than-expected hit list, and it never names which paths.
 	Denied int `json:"denied,omitempty"`
+	// SummariesWithheld says every summary was suppressed because this build wired no retrieval
+	// -side Redactor, and Reason says why in one sentence.
+	//
+	// A recall hit is a POINTER — hash, path, tool, score — and those are still true and still
+	// useful. The summary is the one piece of ARCHIVE TEXT in the response, so it is the one piece
+	// that must not be served unchecked. Both keys carry omitempty, so a build with a redactor
+	// emits the shape §5.16 declares, byte for byte.
+	SummariesWithheld bool   `json:"summaries_withheld,omitempty"`
+	Reason            string `json:"reason,omitempty"`
 }
 
 // recall searches the store by content, path or symbol and returns hashes and summaries. It does
@@ -125,6 +134,17 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 		return errResponse("recall failed: " + err.Error()), nil
 	}
 
+	// FAIL CLOSED on the summaries (T20-M2-04). With no Redactor this build cannot tell a summary
+	// drawn from a clean record from one drawn from a record captured before today's rules existed,
+	// so it returns NO summary text at all and says so. The pointers survive because they are not
+	// archive text and were never redaction's subject; `expand` and `re_read`, whose entire output
+	// IS archive text, report themselves unavailable instead.
+	withheld := h.redactor == nil
+	if withheld {
+		h.log.Loud("mcp: recall withheld every summary: no retrieval-side redactor is wired",
+			"tool", ToolRecall, "hits", len(hits))
+	}
+
 	out := make([]RecallHit, 0, len(hits))
 	var deniedCount int
 	for _, hit := range hits {
@@ -136,14 +156,20 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 			deniedCount++
 			continue
 		}
+		// A summary is archive text like any other, so it goes through today's policy before it is
+		// rendered. ok is false only in the withheld case above, and the summary is then dropped.
+		summary, _ := h.redactForRetrieval(ToolRecall, []byte(hit.Summary))
 		out = append(out, RecallHit{
 			Hash: hit.Root.String(), Path: hit.Path, Tool: hit.Tool,
-			Summary: string(h.redactForRetrieval(ToolRecall, []byte(hit.Summary))),
+			Summary: string(summary),
 			TS:      rfc3339(hit.TS), Score: hit.Score,
 			ToolUseID: string(hit.ToolUseID), Span: hit.Span,
 		})
 	}
 	body := recallBody{Hits: out, Count: len(out), Found: len(out) > 0, Query: q, Denied: deniedCount}
+	if withheld {
+		body.SummariesWithheld, body.Reason = true, redactorMissingReason
+	}
 	return h.jsonResponse(ToolRecall, body, map[string]any{metaUntrusted: true}), nil
 }
 
