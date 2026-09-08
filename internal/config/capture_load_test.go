@@ -93,7 +93,7 @@ func TestLoadForCapture_RefusesUnsafeConfigFileLeaves(t *testing.T) {
 				target := filepath.Join(t.TempDir(), "target.json")
 				require.NoError(t, os.WriteFile(target, []byte(`{"runtime":{"redact":{"enabled":false}}}`), 0o600))
 				if err := os.Symlink(target, path); err != nil {
-					t.Skipf("creating a test-owned symlink is unavailable: %v", err)
+					t.Skipf("platform: creating a test-owned symlink is unavailable: %v", err)
 				}
 			},
 		},

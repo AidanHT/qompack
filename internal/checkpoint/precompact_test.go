@@ -176,7 +176,7 @@ func TestPreCompactOnAColdSessionBeginsAndSeals(t *testing.T) {
 	f.closedSeg(1, 0, 4)
 	require.Empty(t, f.w.OpenDrafts(), "fixture sanity: no draft is open yet")
 	// The daemon publishes the seams at bind time; without them the cold path has no SourceSet.
-	f.w.SetSources(f.src)
+	require.NoError(t, f.w.SetSources(f.src))
 
 	res, err := f.w.PreCompact(f.ctx(), f.precompactInput())
 	require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestColdPreCompactCatchesUpInOneBatchOldestFirst(t *testing.T) {
 	counted := &countingSegments{SegmentLog: f.src.Segments}
 	cold := f.src
 	cold.Segments = counted
-	f.w.SetSources(cold)
+	require.NoError(t, f.w.SetSources(cold))
 
 	in := f.precompactInput()
 	in.Cfg.IncrementalSpanInstruction = true
