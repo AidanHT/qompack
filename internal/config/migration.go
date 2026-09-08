@@ -12,8 +12,17 @@ import (
 // behaviour is disabled, never guessed at).
 const MigrationSettingsVersion = 1
 
-// migrationSection is the dotted path of the block applyMigrationVersion resets wholesale.
-const migrationSection = "runtime.migration"
+// Phase7SettingsVersion is the runtime.phase7.settingsVersion this build understands. It is
+// versioned independently of MigrationSettingsVersion because the two blocks move for different
+// reasons — one tracks the shipped pipeline's controls, the other SP-16's optional refinements —
+// and a shared number would force a reset of one whenever the other changed.
+const Phase7SettingsVersion = 1
+
+// The dotted paths of the blocks applyVersionedSection resets wholesale.
+const (
+	migrationSection = "runtime.migration"
+	phase7Section    = "runtime.phase7"
+)
 
 // MigrationGate records, for one gated runtime.migration switch, which future gate must pass before
 // a build may honour a true value. The table is what makes the switches load-bearing before their
@@ -41,6 +50,11 @@ var migrationGates = []MigrationGate{
 	{Key: "runtime.migration.replacement.newResult", Owner: "SP-21", Gate: "M4 admission (T21 pipeline, pass-through and recovery)"},
 	{Key: "runtime.migration.compaction.automaticVeto", Owner: "SP-19 M0-03, then SP-12", Gate: "recovery/proactive distinction verified in the target host"},
 	{Key: "runtime.migration.experiments.enabled", Owner: "SP-15 and SP-16", Gate: "M5/M6 selection and refinement acceptance"},
+	{Key: "runtime.phase7.reuse.scopedCandidates", Owner: "SP-16", Gate: "M6-G16-A scoped reuse and authorization"},
+	{Key: "runtime.phase7.reuse.warmPrior", Owner: "SP-16", Gate: "M6-G16-D optional-policy value against a simple baseline"},
+	{Key: "runtime.phase7.retrieval.reminders", Owner: "SP-16", Gate: "M6-G16-B bounded retrieval and usefulness telemetry"},
+	{Key: "runtime.phase7.retrieval.demandPromotion", Owner: "SP-16", Gate: "M6-G16-C promotion of future representations only"},
+	{Key: "runtime.phase7.filters.segmentBloom", Owner: "SP-16", Gate: "M6-G16-E filter coverage, staleness and recovery"},
 }
 
 // MigrationGates returns a copy of the gate table in switch order.
@@ -106,6 +120,19 @@ func (c Config) migrationSwitch(key string) (on, known bool) {
 	case "runtime.migration.experiments.enabled":
 		return m.Experiments.Enabled, true
 	}
+	p := c.Runtime.Phase7
+	switch key {
+	case "runtime.phase7.reuse.scopedCandidates":
+		return p.Reuse.ScopedCandidates, true
+	case "runtime.phase7.reuse.warmPrior":
+		return p.Reuse.WarmPrior, true
+	case "runtime.phase7.retrieval.reminders":
+		return p.Retrieval.Reminders, true
+	case "runtime.phase7.retrieval.demandPromotion":
+		return p.Retrieval.DemandPromotion, true
+	case "runtime.phase7.filters.segmentBloom":
+		return p.Filters.SegmentBloom, true
+	}
 	return false, false
 }
 
@@ -147,36 +174,58 @@ func migrationDeprecations(prov Provenance) []Warning {
 	return out
 }
 
-// applyMigrationVersion resets the whole runtime.migration block in merged to its defaults when the
-// merged document declares a settingsVersion newer than MigrationSettingsVersion, rewriting the
-// block's provenance to OriginDefault. It reports whether it did so and the Warning to record.
+// applyVersionedSections resets each independently versioned block whose merged document declares
+// a settingsVersion newer than this build understands. It returns one Warning per block it reset.
+//
+// Two blocks carry their own version — runtime.migration (SP-19) and runtime.phase7 (SP-16) — and
+// they are reset independently: a refinement schema moving forward must not reset the pipeline's
+// own controls, and vice versa. Adding a third means adding a row here and nothing else.
+func applyVersionedSections(merged, defaults map[string]any, prov Provenance) []Warning {
+	var out []Warning
+	for _, s := range []struct {
+		section string
+		build   int
+	}{
+		{migrationSection, MigrationSettingsVersion},
+		{phase7Section, Phase7SettingsVersion},
+	} {
+		if w, reset := applyVersionedSection(merged, defaults, prov, s.section, s.build); reset {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
+// applyVersionedSection resets the whole section block in merged to its defaults when the merged
+// document declares a settingsVersion newer than build, rewriting the block's provenance to
+// OriginDefault. It reports whether it did so and the Warning to record.
 //
 // It runs before Validate's fallback loop on purpose: that loop restores one violated leaf at a
 // time, which would keep every switch a newer file set while resetting only the version number —
 // the opposite of "unknown future behaviour disabled". Keys this build does not know under the
 // block have already been dropped by deepMerge's unknown-key rule; this handles the ones it does.
-func applyMigrationVersion(merged, defaults map[string]any, prov Provenance) (Warning, bool) {
-	const versionKey = migrationSection + ".settingsVersion"
+func applyVersionedSection(merged, defaults map[string]any, prov Provenance, section string, build int) (Warning, bool) {
+	versionKey := section + ".settingsVersion"
 	raw, ok := getPath(merged, versionKey)
 	if !ok {
 		return Warning{}, false
 	}
 	v, ok := raw.(float64)
-	if !ok || v <= MigrationSettingsVersion {
+	if !ok || v <= float64(build) {
 		return Warning{}, false
 	}
 	loc := prov[versionKey].Location
-	restoreDefault(merged, defaults, migrationSection)
+	restoreDefault(merged, defaults, section)
 	for k := range globalSchema.leaves {
-		if strings.HasPrefix(k, migrationSection+".") {
+		if strings.HasPrefix(k, section+".") {
 			prov[k] = Source{Origin: OriginDefault, Location: "reset: newer settingsVersion"}
 		}
 	}
 	return Warning{
-		Key:      migrationSection,
+		Key:      section,
 		Location: loc,
 		Message: fmt.Sprintf("settingsVersion %v is newer than this build understands (%d); "+
-			"the whole runtime.migration block is reset to defaults so unknown switches stay off",
-			v, MigrationSettingsVersion),
+			"the whole %s block is reset to defaults so unknown switches stay off",
+			v, build, section),
 	}, true
 }

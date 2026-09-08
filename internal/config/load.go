@@ -63,12 +63,11 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 	// deep-copies whatever it takes from it, so nothing merged holds can alias it.
 	defaults := toMap(Defaults())
 
-	// A runtime.migration block written for a newer settingsVersion is reset wholesale before the
-	// per-leaf fallback below can keep half of it (migration.go), and a retired-meaning Appendix C
-	// key set by any non-default layer is warned about while its value is still applied.
-	if w, reset := applyMigrationVersion(merged, defaults, prov); reset {
-		warns = append(warns, w)
-	}
+	// An independently versioned block — runtime.migration, runtime.phase7 — written for a newer
+	// settingsVersion is reset wholesale before the per-leaf fallback below can keep half of it
+	// (migration.go), and a retired-meaning Appendix C key set by any non-default layer is warned
+	// about while its value is still applied.
+	warns = append(warns, applyVersionedSections(merged, defaults, prov)...)
 	warns = append(warns, migrationDeprecations(prov)...)
 
 	cfg := fromMap(merged)

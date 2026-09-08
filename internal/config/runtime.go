@@ -21,6 +21,7 @@ type RuntimeCfg struct {
 	MCP       MCPCfg        `json:"mcp"`
 	Scheduler RSchedulerCfg `json:"scheduler"`
 	Migration MigrationCfg  `json:"migration"`
+	Phase7    Phase7Cfg     `json:"phase7"`
 	Budgets   BudgetsCfg    `json:"budgets"`
 	Selection RSelectionCfg `json:"selection"`
 	Tokens    RTokensCfg    `json:"tokens"`
@@ -153,6 +154,63 @@ type MigrationCompactionCfg struct {
 // MigrationExperimentsCfg gates the SP-15/SP-16 experimental policies.
 type MigrationExperimentsCfg struct {
 	Enabled bool `json:"enabled" doc:"enable experimental representation and optimizer policies (SP-15/SP-16); refused until their gates pass" sec:"Qompack.md v1.5 Appendix C / SP-15, SP-16"`
+}
+
+// Phase7Cfg is SP-16's §11.5 block: the phase-7 refinement experiments — scope-qualified reuse,
+// bounded retrieval and demand-based promotion — plus the caps that bound them.
+//
+// It is a SIBLING of MigrationCfg, not a part of it, because the two answer different questions.
+// runtime.migration says which parts of the shipped pipeline a build may run at all; this says
+// which OPTIONAL refinements sit on top of it. Folding SP-16's switches into the migration block
+// would make "reset the whole block so unknown future switches stay off" reset the pipeline's own
+// controls whenever a refinement's schema moved, which is a much bigger hammer than the situation
+// calls for. Each block therefore carries its own settingsVersion and is reset independently.
+//
+// Every switch here defaults FALSE and is gated in migration.go's table, and the block's presence
+// is not a promise that any of it will ship: SP-16's own plan says its optional policies stay
+// disabled where they cannot beat a simple baseline. What the block guarantees is only that a
+// setting written for a refinement remains READABLE — SP-19's versioned validation and deprecation
+// path applies to it unchanged — not that the refinement exists.
+//
+// The caps are separate from the switches on purpose. A cap has to be readable and enforceable
+// even while its switch is off, because the code that would consult it must not carry a literal
+// bound of its own (§11.6): a bound nobody can configure is a bound nobody can lower after it
+// turns out to be wrong.
+type Phase7Cfg struct {
+	SettingsVersion int                `json:"settingsVersion" doc:"version of the runtime.phase7 block; a file written for a newer version has its whole block reset to defaults, so unknown future refinements stay off" rng:"[1,1]" sec:"Qompack.md v1.5 Appendix C / SP-16 M6"`
+	Reuse           Phase7ReuseCfg     `json:"reuse"`
+	Retrieval       Phase7RetrievalCfg `json:"retrieval"`
+	Filters         Phase7FiltersCfg   `json:"filters"`
+}
+
+// Phase7ReuseCfg holds SP-16 §1's scope-qualified reuse switches.
+type Phase7ReuseCfg struct {
+	ScopedCandidates bool `json:"scopedCandidates" doc:"offer eliminations recorded outside this session as scope-qualified reusable candidates (SP-16 §1); refused until the M6-G16-A gate passes" sec:"Qompack.md v1.5 §8.3 / SP-16 M6"`
+	WarmPrior        bool `json:"warmPrior"        doc:"seed a new session with a labeled statistical prior from earlier ones (SP-16 §1); refused until the M6-G16-D gate passes" sec:"Qompack.md v1.5 §5 / SP-16 M6"`
+}
+
+// Phase7RetrievalCfg holds SP-16 §2's bounded retrieval switches and the caps that bound them.
+//
+// The caps apply whether or not Reminders is on, and they are counted per session rather than per
+// trigger for the ones a user actually experiences: a bound that reset on every changed reference
+// would not bound anything a reader notices.
+type Phase7RetrievalCfg struct {
+	Reminders       bool `json:"reminders"       doc:"emit bounded retrieval reminders when references change or errors repeat (SP-16 §2); refused until the M6-G16-B gate passes" sec:"Qompack.md v1.5 §8.7 / SP-16 M6"`
+	DemandPromotion bool `json:"demandPromotion" doc:"let observed demand promote a representation in the NEXT Qompack injection (SP-16 §2); refused until the M6-G16-C gate passes" sec:"Qompack.md v1.5 §8.6 / SP-16 M6"`
+
+	MaxRemindersPerSession int `json:"maxRemindersPerSession" doc:"hard cap on retrieval reminders surfaced in one session; 0 emits none"                       rng:"[0,∞)" sec:"Qompack.md v1.5 §8.7 / SP-16 M6"`
+	MaxAttemptsPerTrigger  int `json:"maxAttemptsPerTrigger"  doc:"hard cap on retrieval attempts one trigger may make before it stops and reports"              rng:"[1,∞)" sec:"Qompack.md v1.5 §8.7 / SP-16 M6"`
+	MaxQueueDepth          int `json:"maxQueueDepth"          doc:"hard cap on queued retrieval work; a full queue drops new work rather than growing unbounded" rng:"[1,∞)" sec:"Qompack.md v1.5 §8.7 / SP-16 M6"`
+}
+
+// Phase7FiltersCfg holds SP-16 §3's optional per-segment filter acceleration.
+//
+// There is no false-positive-rate key here, and that absence is the point: §3 and ledger row A06
+// both say a fixed filter cannot hold an unbounded insertion stream at a fixed error rate, so a
+// key promising one would be a promise the mechanism cannot keep. Coverage and generation are
+// published with the index instead, and an incomplete filter is bypassed rather than tuned.
+type Phase7FiltersCfg struct {
+	SegmentBloom bool `json:"segmentBloom" doc:"build a per-segment bloom filter alongside each segment index to skip segments that cannot match (SP-16 §3); refused until the M6-G16-E gate passes" sec:"Qompack.md v1.5 §6 / SP-16 M6"`
 }
 
 // BudgetsCfg gives the §11.3/§2.4 latency budgets B-B through B-F config keys, plus B-G's. B-A

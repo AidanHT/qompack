@@ -84,6 +84,15 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `runtime.migration.replacement.newResult` | boolean | `false` | — | Qompack.md v1.5 §8.7 / SP-21 | replace newly delivered tool results with Qompack handles (SP-21 M4); refused until the M4 gate passes |
 | `runtime.migration.settingsVersion` | integer | `1` | [1,1] | Qompack.md v1.5 Appendix C / SP-19 M0 | version of the runtime.migration block; a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
 | `runtime.mode` | string | `"auto"` | one of `auto`, `full`, `passive`, `off` | 00-ARCH §12 | overall operating mode |
+| `runtime.phase7.filters.segmentBloom` | boolean | `false` | — | Qompack.md v1.5 §6 / SP-16 M6 | build a per-segment bloom filter alongside each segment index to skip segments that cannot match (SP-16 §3); refused until the M6-G16-E gate passes |
+| `runtime.phase7.retrieval.demandPromotion` | boolean | `false` | — | Qompack.md v1.5 §8.6 / SP-16 M6 | let observed demand promote a representation in the NEXT Qompack injection (SP-16 §2); refused until the M6-G16-C gate passes |
+| `runtime.phase7.retrieval.maxAttemptsPerTrigger` | integer | `2` | [1,∞) | Qompack.md v1.5 §8.7 / SP-16 M6 | hard cap on retrieval attempts one trigger may make before it stops and reports |
+| `runtime.phase7.retrieval.maxQueueDepth` | integer | `32` | [1,∞) | Qompack.md v1.5 §8.7 / SP-16 M6 | hard cap on queued retrieval work; a full queue drops new work rather than growing unbounded |
+| `runtime.phase7.retrieval.maxRemindersPerSession` | integer | `3` | [0,∞) | Qompack.md v1.5 §8.7 / SP-16 M6 | hard cap on retrieval reminders surfaced in one session; 0 emits none |
+| `runtime.phase7.retrieval.reminders` | boolean | `false` | — | Qompack.md v1.5 §8.7 / SP-16 M6 | emit bounded retrieval reminders when references change or errors repeat (SP-16 §2); refused until the M6-G16-B gate passes |
+| `runtime.phase7.reuse.scopedCandidates` | boolean | `false` | — | Qompack.md v1.5 §8.3 / SP-16 M6 | offer eliminations recorded outside this session as scope-qualified reusable candidates (SP-16 §1); refused until the M6-G16-A gate passes |
+| `runtime.phase7.reuse.warmPrior` | boolean | `false` | — | Qompack.md v1.5 §5 / SP-16 M6 | seed a new session with a labeled statistical prior from earlier ones (SP-16 §1); refused until the M6-G16-D gate passes |
+| `runtime.phase7.settingsVersion` | integer | `1` | [1,1] | Qompack.md v1.5 Appendix C / SP-16 M6 | version of the runtime.phase7 block; a file written for a newer version has its whole block reset to defaults, so unknown future refinements stay off |
 | `runtime.redact.enabled` | boolean | `true` | — | 00-ARCH §5.23 | scrub secrets before content enters the store |
 | `runtime.redact.patterns` | array | `[]` | — | 00-ARCH §5.23 | additional user-supplied secret-detection patterns |
 | `runtime.rehydrate.eliminationsTopN` | integer | `8` | [1,∞) | §8.6 | number of eliminated approaches surfaced verbatim in the rehydrated digest |

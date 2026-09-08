@@ -208,6 +208,22 @@ var ruleCases = []ruleCase{
 
 	// runtime.migration.compaction.blockManualCompact must be false
 	{"migration.compaction.blockManualCompact true", func(c *config.Config) { c.Runtime.Migration.Compaction.BlockManualCompact = true }, "runtime.migration.compaction.blockManualCompact"},
+
+	// runtime.phase7.settingsVersion == Phase7SettingsVersion
+	{"phase7.settingsVersion below current", func(c *config.Config) { c.Runtime.Phase7.SettingsVersion = 0 }, "runtime.phase7.settingsVersion"},
+	{"phase7.settingsVersion above current", func(c *config.Config) { c.Runtime.Phase7.SettingsVersion = config.Phase7SettingsVersion + 1 }, "runtime.phase7.settingsVersion"},
+
+	// runtime.phase7 gated switches must be false while their gate is pending (SP-16 M6)
+	{"phase7.reuse.scopedCandidates true", func(c *config.Config) { c.Runtime.Phase7.Reuse.ScopedCandidates = true }, "runtime.phase7.reuse.scopedCandidates"},
+	{"phase7.reuse.warmPrior true", func(c *config.Config) { c.Runtime.Phase7.Reuse.WarmPrior = true }, "runtime.phase7.reuse.warmPrior"},
+	{"phase7.retrieval.reminders true", func(c *config.Config) { c.Runtime.Phase7.Retrieval.Reminders = true }, "runtime.phase7.retrieval.reminders"},
+	{"phase7.retrieval.demandPromotion true", func(c *config.Config) { c.Runtime.Phase7.Retrieval.DemandPromotion = true }, "runtime.phase7.retrieval.demandPromotion"},
+	{"phase7.filters.segmentBloom true", func(c *config.Config) { c.Runtime.Phase7.Filters.SegmentBloom = true }, "runtime.phase7.filters.segmentBloom"},
+
+	// The runtime.phase7 caps
+	{"phase7.retrieval.maxRemindersPerSession negative", func(c *config.Config) { c.Runtime.Phase7.Retrieval.MaxRemindersPerSession = -1 }, "runtime.phase7.retrieval.maxRemindersPerSession"},
+	{"phase7.retrieval.maxAttemptsPerTrigger at 0", func(c *config.Config) { c.Runtime.Phase7.Retrieval.MaxAttemptsPerTrigger = 0 }, "runtime.phase7.retrieval.maxAttemptsPerTrigger"},
+	{"phase7.retrieval.maxQueueDepth at 0", func(c *config.Config) { c.Runtime.Phase7.Retrieval.MaxQueueDepth = 0 }, "runtime.phase7.retrieval.maxQueueDepth"},
 }
 
 func TestValidate_EveryRule(t *testing.T) {
