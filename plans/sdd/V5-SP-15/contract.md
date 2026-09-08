@@ -190,9 +190,14 @@ const CodecVersion = 1
 ```
 
 - `MarshalBinary` writes `magic || version || payload` and is deterministic for equal grammars.
-- `UnmarshalBinary` accepts `version <= CodecVersion`. A **higher** version, a bad magic or a
-  truncated payload reports `core.ErrDegraded` and leaves the receiver **unchanged** - that is the
-  compatibility reader, not a panic and not a silently empty grammar.
+- `UnmarshalBinary` accepts `1 <= version <= CodecVersion`. A **higher** version, **version zero**,
+  a bad magic, a truncated or forged payload, or trailing bytes each report `core.ErrDegraded` and
+  leave the receiver **unchanged** - that is the compatibility reader, not a panic and not a
+  silently empty grammar.
+  - *Amendment A6:* the original wording said only `version <= CodecVersion`, which admits zero.
+    No build has ever written a zero, and a fully zeroed file of the right length is a well-formed
+    empty-grammar payload — so accepting it would turn a truncated or zero-filled write into
+    exactly the silently-empty grammar this clause exists to forbid. Zero is refused.
 - Round-trip identity: after `UnmarshalBinary(MarshalBinary(g))`, `Rules()`, `Compressed()` and
   `Thrash(n)` equal `g`'s for every `n`.
 - The four sentinels `core.ErrNotImplemented | ErrNotFound | ErrBudget | ErrDegraded` remain the
@@ -258,6 +263,19 @@ type StateWarning struct {
 5. **Self-suppression:** symbols produced by Qompack's own injection, retrieval or warning path
    are excluded from the detector's input, so a warning can never cause the next warning.
 6. Usefulness and false alarms are logged separately from repeated-action frequency.
+
+*Amendment A7 — the uncertain wording.* Bound 3 was structurally invisible: an `Uncertain` warning
+rendered through the frozen `FormatWarning` template read exactly like a confident one, so the
+qualification existed in the type and nowhere the reader could see it. The template stays frozen;
+the qualification rides in `Warning.Message`, which is the one field it was always free to vary:
+
+| Case | `Warning.Message` |
+|---|---|
+| confident | `consider a different approach` (§14.1's own wording, verbatim) |
+| uncertain | `observation coverage is incomplete, so this may not be a loop` |
+
+Both strings are pinned by test. A warning the detector is not sure about now says so in the line
+the user actually reads.
 
 ## 6. Diagnostic qualification (C)
 
