@@ -309,3 +309,221 @@ matrix is an unverified disposition, the independent host-boundary review has no
 composition root wires the pipeline — the ports have no adapters, so `internal/admission` has no
 consumers. The commit plan is complete; the enablement gate is not, and the two were never the same
 thing.
+
+## Merge and integration
+
+Everything in this section and the next describes work after the implementation pass, so both sit
+below the evidence section rather than above it: the plan's proposal tense stops at
+[Implementation evidence](#implementation-evidence-2026-09-08).
+
+SP-21 **is** wave-4 work — [R3](MIGRATION-EVIDENCE.md) names the population as SP-15, SP-16, SP-14
+and SP-21 — but it is outside the *ordered* chain. V5-VERIFY: "retain SP15→SP16→SP14 order and
+evaluate SP21 separately after its M1–M3 prerequisites." Separately does not mean outside: V5-VERIFY
+scopes SP-21 in through its M4 row, its exit criterion and its SP-21 enabled-surface matrix, and
+`verify/v5` is cut from the verified integrated `develop`, so an SP-21 merge lands in that branch's
+ancestry. The M1–M3 gate is **SP-20's** milestone gate, not a gate SP-21 owns.
+
+### Branch state
+
+| Branch | Tip | Ahead of develop | Worktree |
+|---|---|---|---|
+| `develop` | `7c735ac` | — | `../qompack-develop` |
+| `feat/sp21-prerequisites` | `197d12d` | 6 | `../qompack-sp21-prereq` |
+| `feat/sp21-deterministic-admission-control` | `a7d92eb` | 14 | `../qompack-sp21` |
+| `feat/sp15-analyzer-selection-and-grammar` | `db4ec2e` | 19 | `../qompack-sp15` |
+| `feat/sp16-phase7-refinements` | `03ba720` | 10 | `../qompack-sp16` |
+| `feat/sp14-slash-commands-and-observability` | `154d2de` | 9 | `../qompack-sp14` |
+
+### One merge, not two
+
+`feat/sp21-prerequisites` is a strict prefix of `feat/sp21-deterministic-admission-control`:
+`git merge-base --is-ancestor` between them is true, and the 14 commits are the 6 prerequisite
+commits plus 8 authored on top — the 6 of the commit plan and 2 later docs commits. Merging the
+admission branch therefore carries the prerequisite branch whole, and merging both produces a
+redundant merge commit.
+
+The prerequisite branch is worth merging **alone** in exactly one case: if the admission merge is
+held pending the independent host-boundary review, its six commits still close V4 sign-off item 4
+and half of item 3, which are useful without M4.
+
+### Four mechanics that stop an operator
+
+**`develop` is checked out in a sibling worktree.** The main repo is on `verify/v3`;
+`git checkout develop` there fails with `'develop' is already used by worktree at .../qompack-develop`.
+Merging a branch that another worktree has checked out is permitted — only `checkout` and
+`branch -d` are blocked — so run merges with `git -C` against the develop worktree.
+
+**Without `--no-ff` the hook never runs.** Every branch's merge-base is develop's own tip, so a plain
+`git merge` fast-forwards, creates no commit, and silently ignores `-m`. A clean fast-forward is not
+evidence that the subject was acceptable.
+
+**The commit-msg hook rejects git's default merge subject.** `.git/hooks/commit-msg` shells
+`go run ./tools/devtool check-commit-msg`, so Go must be on the merging shell's PATH. The subject
+grammar is `^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9/_.,-]+\))?: .{1,64}$`,
+with a trailing period rejected separately. `Merge branch 'x' into develop` matches no type and is
+refused. Three consequences: the **scope must be lowercase**, so `chore(SP-21)` fails where
+`chore(sp21)` passes; a `feat`/`fix` subject additionally requires a `Refs:` footer, which a merge
+does not need, so prefer `chore`; and body lines are capped at 100 runes.
+
+**Attribution trailers are rejected on any line**, subject included: `co-authored-by`,
+`signed-off-by` and `generated with` case-insensitively, plus the robot emoji. CI re-greps the whole
+pushed range for the same patterns. A bare `Claude-Session:` line is not in that set and passes the
+hook — it is excluded by this plan's "no attribution trailers" convention, not by the checker.
+
+### Commands
+
+Run in Git Bash; the POSIX forms below are parse errors in PowerShell. Confirm the preconditions
+first — `git -C "$D" rev-parse --short HEAD` is `7c735ac` and `git -C "$D" status --porcelain` is
+empty.
+
+```sh
+D=C:/Users/Quant/Documents/Programming/Projects/qompack-develop
+
+# SP-21, on its own track. Carries feat/sp21-prerequisites.
+git -C "$D" merge --no-ff feat/sp21-deterministic-admission-control \
+  -m "chore(sp21): integrate deterministic admission control"
+```
+
+If the hook rejects the subject, the merge leaves `MERGE_HEAD` and a staged index with no commit:
+re-commit with `git -C "$D" commit -m "chore(sp21): ..."`, or back out with
+`git -C "$D" merge --abort`. Conflicts stop git on their own — resolve in the develop worktree, then
+commit with a conforming subject. `--no-commit` only suppresses the auto-commit on a *clean* merge.
+Develop is local-only and unpushed, so an unwanted merge undoes with
+`git -C "$D" reset --hard 7c735ac` before any push, or `git -C "$D" revert -m 1 <merge-sha>` after.
+
+The wave-4 chain that V5-VERIFY actually gates on is SP-15 → SP-16 → SP-14, in that order, with
+validation between merges. Its recipe belongs to V5-VERIFY; it is named here only because SP-21
+shares the two mechanics above. SP-15 and SP-16 both modify `docs/config-reference.md`,
+`internal/config/defaults.go`, `internal/config/runtime.go`, `internal/config/validate_test.go` and
+`testdata/golden/config/schema.json`, so the collision class to expect at the SP-16 merge is an
+added-config-key clash and a stale golden, not logic.
+
+### Validation, serialized
+
+R3 bounds agent count and validation load separately for a recorded reason: the preceding corrective
+session exhausted machine memory running the whole tree alongside its agents. B09 states the standing
+rule — one heavy job per machine, quiet timing gates exclusive. After each merge run these in order,
+each to completion:
+
+| Step | Command | Why |
+|---|---|---|
+| 1 | `go build ./...` | Cheapest failure first |
+| 2 | `go vet ./...` | Catches merge-shaped errors that still compile |
+| 3 | `go test -p 1 -timeout=30m ./...` | The standing convention for the serialized whole-tree run |
+| 4 | `go run ./tools/devtool lint` | All ten sub-checks, **after** the suite, never beside it |
+
+Two traps, both of which produced wrong conclusions in this plan's own implementation pass:
+
+- **Never pipe `go test` through `grep` or `head`.** The pipeline's exit code is the last command's,
+  so the shell reports success on a red suite, and the cap truncates the failure list.
+- **Co-load fabricates timing failures.** Running `devtool lint` beside the suite produced three
+  `internal/negknow` timing breaches that do not exist serialized, and killed `stubskips` at 400s.
+
+Re-baseline after each merge rather than predicting counts; SP-15 alone touches 88 files and the
+package totals will not survive integration. What should stay constant is the *failure set*: the four
+tests named in the pre-existing-failures table above fail on clean `develop` `7c735ac` and will still
+fail after any merge here. A fifth failure is merge damage.
+
+**Authorization.** The dispatch decision recorded above authorized *starting* SP-21. It does not
+authorize merging it; that is a separate coordinator action. Merging carries the pending independent
+host-boundary review forward — it does not satisfy it, and B08 forbids treating a skipped mandatory
+review as discharged.
+
+## Maximum-parallelism dispatch
+
+### How to trigger it
+
+`ultracode` is a keyword a **user types in a prompt**. This file containing the word triggers
+nothing; a plan is read as content, never as a dispatch instruction. To fan the remaining work out,
+paste a prompt of this shape:
+
+```text
+ultracode — execute the Maximum-parallelism dispatch table in
+plans/V5-SP-21-deterministic-admission-control.md. One child per row, each in its own
+worktree off a7d92eb, exclusive file ownership as listed, report to its own file.
+```
+
+The keyword also escalates reasoning effort. That escalation is authorized here for the adversarial
+review seats only; blanket premium effort across mechanical rows is not, per R1.
+
+### Remaining work
+
+The six delivered commits are **not** in scope — they are done, and no subagent ran for any of them.
+This dispatch is forward-looking only and does not retroactively parallelize delivered work. Four of
+the six outstanding items in the closing paragraph of the evidence section are fannable; the refused
+feature switch and the competing-hook disposition are coordinator decisions, not work units.
+
+### Seats
+
+R3 raised the coordinated SP-14–21 cap from three to **at most eight active implementation children,
+one level deep, at most two Fable, no nesting**, and names SP-21 in its population. That pool is
+**shared** with SP-14, SP-15, SP-16 and cooperating V4–V6 work; the budget below is the residual.
+Confirm no other wave-4 plan has active children before dispatching, and reduce the count if it does.
+V5-VERIFY still reads "at most three active children, one Fable" — that text predates R3 and is
+superseded for agent count only. The serialization rule above is unaffected by R3.
+
+R3's palette: Opus 5 high for multi-file judgment, **Opus 4.8 high for bounded single-package
+slices**, Opus 5 low for mechanical collation, **Fable 5.1 high for adversarial review**.
+
+| Unit | Seat | Exclusive ownership | Returns |
+|---|---|---|---|
+| A1 Privacy port adapter | Opus 4.8 / high | one new composition-root file | adapter and focused tests |
+| A2 Capturer port adapter | **Opus 5 / high** | one new composition-root file | capture-before-transform ordering proof |
+| A3 Publisher port adapter | **Opus 5 / high** | one new composition-root file | publication-verification binding |
+| A4 Parser port adapter | Opus 4.8 / high | one new composition-root file | owned-schema parser and tests |
+| A5 Resolver port adapter | Opus 4.8 / high | one new composition-root file | SP-13/M2 binding; carries serial edge 3 |
+| A6 B01 target canary | Opus 4.8 / high | `test/canary` fixture only | transcript, or an unverified disposition |
+| A7 Held-out task set | Opus 4.8 / high | new eval fixture only | observations for the existing `report.go` |
+| B1 Host-boundary review | Fable 5.1 / high | its own report file | independent verdict on the assembled pipeline |
+| B2 Methodology review | Fable 5.1 / high | its own report file | adversarial review of A7's design |
+
+A2 and A3 keep **Opus 5 / high** because the plan's existing role table assigns the capture boundary
+there as multi-file judgment. This table governs the remaining work, and supersedes that table only
+for A1 and A4–A7, which are genuinely single-file slices.
+
+**Adapters land at a composition root, never in `internal/admission`.** That package is
+foundation-only under §3.2 with `core` as its single non-stdlib import, enforced by `importgraph`; an
+adapter importing SP-13 or SP-20 from inside it breaks the guard. If the adapters need a *new*
+package, that package is a coordinator-owned pre-slice — `plans/OWNERS.tsv`, §3.2, §6.4,
+`test/guards/stubs_test.go`'s registry and `wantStubPackages`, and the §6.4 transcription in
+`test/guards/v1_integration_test.go` must all name it first, mirroring serial edge 1. Note the naming
+trap: `internal/cli/capture_admission.go` already exists and is unrelated hook-capture code.
+
+A7 must not rebuild `report.go` — the predeclared-margin mechanism ships and is tested. The gap is
+that no held-out observations exist. A7 produces observations and *proposes* rather than applies any
+change to `report.go`. A6 likewise cannot edit the allowlist: a positive canary returns a handoff,
+because the allowlist entry in `internal/contract/capability.go` is the enablement decision and stays
+coordinator-owned and unparallelized.
+
+### Added ordering constraints
+
+The four edges in **Serial edges** above are development-order constraints. Edges 1 and 2 already
+landed; edge 3 is satisfied by commit 4, and A5 now carries the M2/SP-13 dependency. This dispatch
+adds three edges those four do not cover, so that paragraph's "only" is scoped to development order:
+
+1. Any new-package pre-slice precedes A1–A5.
+2. B2 follows A7 — it reviews A7's methodology.
+3. B1 follows the coordinator's composition-root wiring, because edge 4 requires the *assembled*
+   pipeline, not a per-slice review.
+
+Merges are serial. Heavy validation is serial. Only authoring fans out.
+
+### Preconditions
+
+R3 is explicit that the raised cap holds only while its controls hold, so all five are required:
+exclusive file ownership per child; a contract-first slice landed before fan-out; report-to-file with
+short structured returns, each unit writing **only** its own report path; a per-unit tool-call budget
+with a stop-and-report-BLOCKED rule after three identical failures; and heavy validation serialized
+at one command per machine.
+
+Children may run focused checks — `go test ./internal/admission/`, and `go vet` on owned packages.
+The whole-tree suite, `devtool lint` and any timing gate are coordinator-only. Every child's brief
+must name the four known pre-existing failures, or a child running a broad suite will report a false
+BLOCKED. Briefs also carry the `git stash` prohibition (the stash list is shared across every
+worktree of one repository), the zero-match `go test -run` trap, and the commit rules above.
+
+### Claims this dispatch may not make
+
+B08 forbids claiming observed routing: model identities are requested, and effective routing is not
+exposed. No speedup, cost saving or measured-efficiency claim follows from running this in parallel.
+Nothing here enables admission.
