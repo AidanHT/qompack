@@ -31,6 +31,7 @@ func All() []Cmd {
 		Cmd{Name: "self-test", Summary: "assert every host contract; the only command that may exit non-zero", Run: runSelfTest},
 	)
 	cmds = append(cmds, evalCmds()...)
+	cmds = append(cmds, slashCommandCmds()...)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
 	}
@@ -39,13 +40,10 @@ func All() []Cmd {
 
 // notImplemented is every §2.3 subcommand whose owning subplan has not merged. Keeping the list as
 // data — rather than as absent entries — is what makes the dispatch table complete on day one.
+// SP-14 removed status, recall, pin, why, dropped and eval from this list: slashCommandCmds now
+// registers them against internal/commands. checkpoint was never here — it is a hook entry point,
+// and giving that name a second non-hook meaning is handoff edge H3.
 var notImplemented = []struct{ name, summary string }{
-	{"status", "mode, contracts, store, latency, last decision (SP-14)"},
-	{"recall", "search stored tool output and file versions (SP-14)"},
-	{"pin", "pin an invariant so it is never summarized away (SP-14)"},
-	{"why", "explain a recorded decision and its evidence (SP-14)"},
-	{"dropped", "report what the last compaction dropped (SP-14)"},
-	{"eval", "run the replay harness and score it (SP-02)"},
 	{"fsck", "verify store and checkpoint integrity (SP-17)"},
 	{"doctor", "diagnose installation and host contract problems (SP-17)"},
 	{"bench", "run the hot-path latency harness (SP-05)"},

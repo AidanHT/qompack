@@ -12,7 +12,6 @@ import (
 
 	"github.com/qompack/qompack/internal/commands"
 	"github.com/qompack/qompack/internal/config"
-	"github.com/qompack/qompack/internal/core"
 )
 
 // fixedClock is the injected clock every deterministic case in this file uses. internal/commands
@@ -91,11 +90,21 @@ func TestRun_JSONEnvelopeCarriesTheError(t *testing.T) {
 	for _, s := range commands.Specs() {
 		var out bytes.Buffer
 		err := find(t, s.Name).Run(context.Background(), []string{"--json"}, &out)
-		require.Error(t, err, "%s: with no dependencies there is nothing to succeed at", s.Name)
 
 		env, decodeErr := commands.DecodeEnvelope(out.Bytes())
 		require.NoError(t, decodeErr, "%s: --json must emit a decodable envelope", s.Name)
 		require.Equal(t, s.Name, env.Command)
+
+		// status succeeds by reporting that it observed nothing; every other command has nothing
+		// to succeed at without its dependencies.
+		if s.Name == "status" {
+			require.NoError(t, err)
+			require.True(t, env.OK)
+			require.Contains(t, string(env.Data), "unavailable")
+			continue
+		}
+
+		require.Error(t, err, "%s: with no dependencies there is nothing to succeed at", s.Name)
 		require.False(t, env.OK, "%s: a command that could not answer is not a success", s.Name)
 		require.NotNil(t, env.Error)
 		require.Contains(t,
@@ -111,8 +120,8 @@ func TestRun_WithoutJSONWritesNoEnvelope(t *testing.T) {
 	t.Parallel()
 
 	var out bytes.Buffer
-	err := find(t, "status").Run(context.Background(), nil, &out)
-	require.True(t, core.IsNotImplemented(err))
+	err := find(t, "why").Run(context.Background(), []string{"d-1"}, &out)
+	require.ErrorIs(t, err, commands.ErrUnavailable)
 	require.Empty(t, out.String())
 }
 
@@ -126,12 +135,15 @@ func TestRun_ExitCodesCoverEveryCommand(t *testing.T) {
 			commands.ExitCode(find(t, s.Name).Run(context.Background(), []string{"--help"}, &out)))
 
 		// A command that cannot answer is an error (1); one missing a required argument is a
-		// usage mistake (2). Both are legitimate here, and which one applies depends on whether
-		// the command takes a required positional argument.
+		// usage mistake (2); status reports what it could not observe and succeeds (0).
+		want := []int{commands.ExitError, commands.ExitUsage}
+		if s.Name == "status" {
+			want = []int{commands.ExitOK}
+		}
 		out.Reset()
-		require.Contains(t, []int{commands.ExitError, commands.ExitUsage},
+		require.Contains(t, want,
 			commands.ExitCode(find(t, s.Name).Run(context.Background(), nil, &out)),
-			"%s: must not report success with no dependencies", s.Name)
+			"%s: unexpected exit code with no dependencies", s.Name)
 
 		out.Reset()
 		require.Equal(t, commands.ExitUsage,
