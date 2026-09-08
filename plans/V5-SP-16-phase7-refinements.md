@@ -70,11 +70,11 @@ Correctness and recoverability gates are independent of lower token cost. Preser
 
 Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
 
-**Short checks to dispatch first.** Use separate short scope/expiry/authorization, filter-watermark, retrieval-reminder and serialized-promotion cases while the main owner retains coupled implementation. An optional fixture worker may run independent cases in its own store; shared-state interactions stay one owned scenario.
+**Short checks to dispatch first.** Use separate short scope/expiry/authorization, filter-watermark, retrieval-reminder and serialized-promotion cases; A, B, C, D, F and G each run the cases for the files they own, concurrently. Shared-state interactions stay one owned scenario inside a single owner's store.
 
 **When broader checks are necessary.** Run real SP-13/SP-11/SP-15 consumer and maintenance/recovery seams once their inputs are integrated. Full phase7/held-out evaluation belongs to commit 7 or the final V5 policy candidate. Optional disabled policies need a recorded disposition rather than unnecessary experimental runs.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+Each implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -91,6 +91,8 @@ Seven original identifiers retained; reconcile any existing work first, then imp
 ### Commit 3 — `fix(store): qualify filter coverage and demand records`
 
 - [ ] Reuse exact records, add optional bounded filter generation/rebuild and usefulness metadata only when needed; run M6-G16-B/E.
+
+D (filter coverage) and C (demand records) land as separate commits under this identifier rather than sharing a file; the identifier and its acceptance are unchanged.
 
 ### Commit 4 — `feat(daemon): apply scope-aware reusable candidates`
 
@@ -110,22 +112,40 @@ Seven original identifiers retained; reconcile any existing work first, then imp
 
 ## Subagent strategy
 
-Retain the original sequential future implementer with an optional bounded test writer; six-package shared integration does not justify concurrent ownership. This is separate from planning writer C. Main owns shared configuration, daemon, store and checkpoint integration plus all seven commits, after prior owners hand off. Optional test writer owns only newly agreed scope/filter fixtures and test files, never production files. Independent applicability/privacy reviewer reads future artifacts.
+Future roles run concurrently under exclusive per-file ownership. The six packages (`internal/store`, `internal/negknow`, `internal/mcp`, `internal/checkpoint`, `internal/scheduler`, `internal/rehydrate`) are shared, but this plan's work lands in distinct files inside them — warm-prior, segment-filter, demand-record, promotion and phase7 integration/test files — so ownership is per file, not per package. This is separate from planning writer C. Two roles never own the same file; a role that needs a file it does not own returns a handoff to the integration owner rather than editing it. SP-19 first reconciles actual names, and the integration owner records the exact non-overlapping allowlist before delegation. No blind file creation over active sibling work.
 
-Proposed absent implementation files include warm-prior, segment-filter, demand-record, promotion and phase7 integration/test files within their existing packages. SP-19 first reconciles actual names, and main records an exact non-overlapping file allowlist before future delegation. `internal/scheduler/skirental.go` is explicitly excluded. No blind file creation over active sibling work.
+| Future role | Exclusive source ownership; absent names are proposed |
+|---|---|
+| A — scoped reuse and consent | Proposed `internal/negknow/scope.go`, `authorization.go`, `expiry.go` and their scope/applicability tests |
+| B — warm start (O4) prior | Proposed `internal/scheduler/warmprior.go` and its tests; `skirental.go` explicitly excluded |
+| C — bounded retrieval triggers and demand records | Proposed `internal/mcp/reminder.go`, `attempt.go` and `internal/store/demand.go` plus their tests |
+| D — per-segment Bloom filters | Proposed `internal/store/segmentfilter.go`, coverage/watermark files and filter tests; no edits to `segments.go` shared types |
+| E — promotion and complete-record budget tuning | Proposed `internal/checkpoint/promote.go` and rehydration budget files; starts only after the SP-11/SP-15 handoff |
+| F — serialization bounds and maintenance | Proposed overflow, cancellation, quota and crash-recovery files plus their tests; no scope, filter or promotion files |
+| G — evaluation and optional-policy ablation | Proposed phase7 held-out evaluation and ablation test files, disposition fixtures |
+| Integration owner | Shared configuration, daemon wiring, cross-package seams, the seven commit identifiers and final acceptance |
+| Independent applicability/privacy reviewer | Read-only; future artifacts, unknown evidence, bounded reminders |
+
+A, B, C, D, F and G start immediately on their own files. `internal/checkpoint` and the rehydration files belong to SP-15's owner until SP-15's handoff, and SP-16 must not edit them concurrently: only E, the slice that integrates through the SP-11/SP-15 contracts, waits on that edge. SP-12 retains ski-rental ownership. Commit 3 bundles filter coverage and demand records; D and C land as separate commits under that identifier rather than sharing a file. The only serial edges are the SP-15/SP-11 contract handoff and the final integration/verification slice (commits 5–7 acceptance); everything else runs concurrently. Tests that mutate shared state or collect timings stay isolated inside their owner's scenario.
 
 ### Future model and effort assignments
 
-Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). Retain the sequential main implementer; this plan's six-package integration remains one owner's work. At most one optional test worker and one independent reviewer may overlap.
+Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). These choices govern future delegates, not historical planning models or Qompack runtime calls. Preserve A–G and their file sets.
 
 | Existing role / bounded task | Requested model and effort | Reason and boundary |
 |---|---|---|
-| Scope/filter test helper | Opus 4.8 / high | Author only assigned stale-scope, expiry, filter-watermark and promotion cases after contracts freeze |
-| Same helper, experiment/result inventory only | Opus 4.8 / medium | Map completed baseline artifacts and explicit deferrals; no speculative algorithm implementation |
-| Independent applicability/privacy reviewer | Opus 4.8 / high | Check project/worktree/version applicability, unknown evidence and bounded reminders |
-| Focused unresolved trust or retention decision | Fable 5.1 / high | Replace a generic repeat review with one precise cross-session authorization or GC/recovery question, then return the decision to main |
+| A scoped reuse and consent | Opus 5 / high | Multi-file judgment across identity, authorization, expiry and correction; cross-scope authority is the plan's hardest requirement |
+| E promotion and complete-record budget tuning | Opus 5 / high | Multi-file judgment against SP-11/SP-15 serialized budgets, overflow and archive recoverability |
+| Integration owner | Opus 5 / high | Owns shared configuration, daemon and cross-package seams plus the seven commit identifiers |
+| B warm prior; C retrieval triggers and demand records | Opus 4.8 / high | Bounded single-package slices with declared baselines; a labeled statistical candidate is not inherited truth |
+| D per-segment filters; F serialization and maintenance | Opus 4.8 / high | Bounded single-package slices over exact indexes, quotas and recovery paths |
+| G evaluation and ablation | Opus 4.8 / high | Test design and failure attribution need reasoning |
+| Gate-row, allowlist and result collation | Opus 5 / low | Mechanical rows, gate tables and already-produced artifact inventory; no speculative algorithm implementation |
+| Independent applicability/privacy reviewer | Fable 5.1 / high | Check project/worktree/version applicability, unknown evidence and bounded reminders across components |
 
-SP-12 retains ski-rental ownership; SP-15's consumer handoff still precedes shared integration. Optional experiments must justify themselves against the simple baseline before extra workers are assigned. Keep tests that mutate shared state or collect timings sequential and isolated. A reviewer cannot approve its own test or implementation work; a required independent review remains a separate task even if optional workers are omitted.
+Dispatch contract: each unit owns its named files exclusively, reports to a file with a short structured return, works within a per-unit tool-call budget, and stops with BLOCKED after three identical failures rather than retrying. No `git stash` — the stash list is shared across all worktrees of one repository. Confirm any `go test -run` filter actually selects cases; it prints `ok` when it matches nothing, which caused three real misdiagnoses in the preceding session.
+
+SP-12 retains ski-rental ownership; SP-15's consumer handoff still precedes E's shared integration. Optional experiments must justify themselves against the simple baseline before extra workers are assigned. A reviewer cannot approve its own test or implementation work; a required independent review remains a separate task even if optional workers are omitted.
 
 ## Exit criteria
 
