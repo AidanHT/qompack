@@ -24,7 +24,8 @@ import (
 var ErrToolNotFound = errors.New("qompack: mcp tool not found")
 
 // The eight tool names, in the order Qompack.md §8.7 lists them. The order is contract: it is
-// what `tools/list` emits and what testdata/golden/mcp/tools-list.json freezes.
+// what `tools/list` emits and what testdata/golden/mcp/tools-list.v2.json freezes. The original
+// tools-list.json remains historical evidence.
 const (
 	ToolRecall           = "recall"
 	ToolExpand           = "expand"
@@ -110,20 +111,20 @@ type AlreadyTriedArgs struct {
 	Approach string `json:"approach"`
 }
 
-// AlreadyTriedResult is `already_tried`'s three-way answer (00-ARCHITECTURE.md §8.3). Three-way,
-// not two-way, is the whole point: an elimination whose dependencies have changed is "stale", not
-// "absent", so the agent learns both that it was tried and that the evidence may no longer hold.
+// AlreadyTriedResult retains the legacy ledger answers and adds "unavailable" for query
+// failures (architecture §0.2 / ADR 0013). A stale record retains its evidence; an unreadable
+// ledger cannot establish absence or an active prohibition.
 //
 // Scope, RecordedAt, DependsOn, StaleBecause and Degraded are SP-13 ADDITIONS to §5.16's four
 // fields: the §8.3 staleness evidence is what turns "re-verification may be warranted" from an
 // assertion into something the agent can check, and Degraded is §12.3's ledger-failure path made
 // visible rather than indistinguishable from a genuine absence.
 type AlreadyTriedResult struct {
-	// State is "absent", "active" or "stale".
+	// State is "absent", "active", "stale" or "unavailable". Unknown states confer no prohibition.
 	State string `json:"state"`
 	// Reason is why the approach was eliminated, when it was.
 	Reason string `json:"reason,omitempty"`
-	// Note carries the staleness explanation, when State is "stale".
+	// Note carries a staleness explanation or unavailable recovery direction.
 	Note string `json:"note,omitempty"`
 	// Evidence is the content hash backing the elimination.
 	Evidence string `json:"evidence,omitempty"`
@@ -135,8 +136,7 @@ type AlreadyTriedResult struct {
 	DependsOn []core.Dep `json:"depends_on,omitempty"`
 	// StaleBecause names which DependsOn entries changed.
 	StaleBecause []string `json:"stale_because,omitempty"`
-	// Degraded marks an answer produced with no working ledger: absent for everything, never a
-	// false positive (00-ARCHITECTURE.md §12.3).
+	// Degraded marks an answer produced with no working ledger; it is not an absence witness.
 	Degraded bool `json:"degraded,omitempty"`
 }
 
@@ -232,7 +232,7 @@ type Promoter interface {
 // to be where the model reads it, which is the tool description — a policy documented only in the
 // design is a policy the model never sees.
 const spanPolicy = " Returns the minimum sufficient span by default; pass full=true only when " +
-	"you genuinely need the whole object. Results are ephemeral and are evicted first."
+	"you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown."
 
 // The eight input schemas, byte-for-byte as `tools/list` emits them. They are raw literals rather
 // than a struct marshalled at runtime because the bytes ARE the contract: a golden freezes them,
@@ -258,16 +258,15 @@ const (
 
 // ToolDefs returns the eight §8.7 tools with their handlers bound to d, in design order.
 //
-// Ephemeral is true for seven of the eight. record_eliminated is the exception: it WRITES
-// negative knowledge, and the acknowledgement of a durable fact is not retrieved content, so
-// nothing about it belongs in the first-eviction tier.
+// Ephemeral is true for seven of the eight as Qompack metadata, without a native eviction claim.
+// record_eliminated is the exception: its acknowledgement concerns a write rather than retrieval.
 func ToolDefs(d ToolDeps) []Tool {
 	h := newHandlers(d)
 	return []Tool{
 		{
 			Name:        ToolRecall,
 			Title:       "Recall",
-			Description: "Search the store by content, path, or symbol; returns hashes and summaries, never content. Results are ephemeral and are evicted first.",
+			Description: "Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.",
 			InputSchema: json.RawMessage(schemaRecall),
 			Handler:     h.run(ToolRecall, h.recall),
 			Ephemeral:   true,
@@ -275,7 +274,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolExpand,
 			Title:       "Expand",
-			Description: "Re-materialize a cleared tool result by hash or tool_use_id." + spanPolicy,
+			Description: "Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete." + spanPolicy,
 			InputSchema: json.RawMessage(schemaExpand),
 			Handler:     h.run(ToolExpand, h.expand),
 			Ephemeral:   true,
@@ -291,7 +290,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolAlreadyTried,
 			Title:       "Already tried",
-			Description: "Bloom membership plus the stored reason when present, as one of three states: absent, active, or stale. " + StandingInstruction,
+			Description: "Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. Clients must treat unavailable or unrecognized states as unknown, never as absence or a prohibition. " + StandingInstruction,
 			InputSchema: json.RawMessage(schemaAlreadyTried),
 			Handler:     h.run(ToolAlreadyTried, h.alreadyTried),
 			Ephemeral:   true,
@@ -307,7 +306,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolTimeline,
 			Title:       "Timeline",
-			Description: "What happened between two points: the session's closed and open segments over a turn or timestamp range. Results are ephemeral and are evicted first.",
+			Description: "Retrieve recorded session segments over a turn or timestamp range. Missing events and native context coverage may be unknown.",
 			InputSchema: json.RawMessage(schemaTimeline),
 			Handler:     h.run(ToolTimeline, h.timeline),
 			Ephemeral:   true,
@@ -315,7 +314,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolWhy,
 			Title:       "Why",
-			Description: "Retrieve a decision and its evidence from the checkpoint chain. Results are ephemeral and are evicted first.",
+			Description: "Retrieve an attributed decision and its evidence from the checkpoint chain. Recorded reasoning does not prove model compliance.",
 			InputSchema: json.RawMessage(schemaWhy),
 			Handler:     h.run(ToolWhy, h.why),
 			Ephemeral:   true,
@@ -323,7 +322,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolDropped,
 			Title:       "Dropped",
-			Description: "What is currently out of context: the explicit drop report for this session. Results are ephemeral and are evicted first.",
+			Description: "Retrieve Qompack's recorded omissions for this session. This report does not establish what remains in native context.",
 			InputSchema: json.RawMessage(schemaDropped),
 			Handler:     h.run(ToolDropped, h.dropped),
 			Ephemeral:   true,

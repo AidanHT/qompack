@@ -53,7 +53,9 @@ func TestToolsListMatchesGolden(t *testing.T) {
 	require.NoError(t, json.Unmarshal(got[0].Result, &v), "decoding the tools/list result")
 	require.NoError(t, enc.Encode(v), "re-encoding the tools/list result")
 
-	requireGolden(t, "testdata/golden/mcp/tools-list.json", []byte(pretty.String()))
+	// The original golden is retained as historical evidence; v2 corrects descriptions of query
+	// failure, capture and host capabilities under ADR 0013. Names, schemas and shape are stable.
+	requireGolden(t, "testdata/golden/mcp/tools-list.v2.json", []byte(pretty.String()))
 }
 
 // TestUnknownToolNameIsToolErrorNotRPCError asserts a misspelt tool name is answered, not refused.

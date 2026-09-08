@@ -284,9 +284,8 @@ func TestWrapServices_BoundarySignalsCloseSegment(t *testing.T) {
 func TestWrapServices_SessionStartBindsAndSessionEndCloses(t *testing.T) {
 	t.Parallel()
 	fx := newRTFixture(t, func(fx *rtFixture) { fx.writer = newFakeWriter(fx.store.segs) })
-	fx.rt.mu.Lock()
-	fx.rt.draft = &checkpoint.Draft{}
-	fx.rt.mu.Unlock()
+	draft, err := fx.writer.Begin(context.Background(), rtSession, 0, checkpoint.SourceSet{})
+	require.NoError(t, err)
 	s := &Services{}
 	WrapServicesForScheduler(s, fx.rt, fx.options())
 	ctx := context.Background()
@@ -297,7 +296,7 @@ func TestWrapServices_SessionStartBindsAndSessionEndCloses(t *testing.T) {
 		"model":    json.RawMessage(`"claude-opus-4-1"`),
 		"agent_id": json.RawMessage(`"researcher"`),
 	}
-	_, err := s.SessionStart(ctx, e)
+	_, err = s.SessionStart(ctx, e)
 	require.NoError(t, err)
 	r := fx.rt
 	require.Equal(t, core.SessionID("sess-7f3a"), r.session, "BindSession with the event's id")
@@ -310,7 +309,8 @@ func TestWrapServices_SessionStartBindsAndSessionEndCloses(t *testing.T) {
 
 	require.NoError(t, s.SessionEnd(ctx, tapEvent("SessionEnd", "sess-7f3a")))
 	require.Equal(t, int64(2), fx.counter(counterPersist), "Persist, then CloseSchedulerRuntime (which persists again)")
-	require.Equal(t, 1, fx.writer.abortCalls, "Close aborted the open draft")
+	require.Zero(t, fx.writer.abortCalls, "session binding and Close preserve checkpoint ownership")
+	require.Contains(t, fx.writer.drafts, draft)
 	require.FileExists(t, fx.statePath(stateFileBOCD))
 	require.FileExists(t, fx.statePath(stateFileScheduler))
 	doc, err := decodeSchedulerState(mustRead(t, fx.statePath(stateFileScheduler)))
