@@ -287,3 +287,34 @@ records formatting and affected-package vet. Independent review accepted this bo
 production wiring. It must be replaced by accepted source/capability evidence when C-1 lands;
 it cannot fill a successful recovery cell. Shared ledger authority, committed-frontier/gap
 evidence, M1/M2, C-1, installed-host recovery and final V4 acceptance remain open.
+
+## Provisional capture/privacy seam — SP-20 `9e939dd`
+
+New `hookio.CaptureHook` and `redact.CapturePolicy` provide partial T20-M1-01/02 preparation.
+Their real composition preserves permitted raw JSON through a versioned base64 envelope,
+redacts decoded/escaped and structured secrets, and derives Events only after policy approval.
+Explicit fidelity prevents changed bytes from being guessed exact or redacted. Denial and
+policy/validation failure return no retained bytes or Event; limits reject prefixes, and
+callback panic/error text does not escape. Source/policy/capture/Event ownership is tested.
+
+`capture-policy-red` preserves a hookio fixture compile error and redact assertion failures;
+`capture-policy-red-corrected` records actual assertion failures in both packages against stubs.
+`capture-policy-green` passes the new policy/capture/composition race selection. Independent
+review required explicit policy fidelity and removal of pre-policy Event parsing; the affected
+capture/composition recheck and retained core/ReadEvent/redactor checks pass in
+`capture-policy-reviewed`. Unchanged new redact inputs retain the first run's provisional
+evidence. Format/vet/importgraph/testdeps pass in `capture-policy-guards`. All artifact files
+are in the SP-20 worktree and identify `16ecc77` plus exact source/test hashes.
+
+Retained rows [V4-SP06-01](inventory.md#v4-sp06-01) and
+[V4-SP01-01](inventory.md#v4-sp01-01) receive only selected legacy redactor race and
+importgraph/testdeps evidence respectively, not their full package/repeat/lint assertions.
+No coverage floor, timing, frozen-index, observer publication or §4 installed-host row passes
+from this slice. The original 195 dispositions remain intact and unverified for final V4.
+
+Runtime CLI/IPC/spool/WAL capture is still unwired and the migration switch remains refused.
+Strict policy loading, dedicated raw-sidecar durability, distinct delivery leases, all source
+fidelity/lifecycle cases and producer-to-store recovery remain required. Independent review
+accepted this bounded seam only. The shared worker owned the new hookio test file; main owned
+the schema, source, composition and follow-up fixes. Requested Terra/high and Luna/medium
+routes are recorded in SP-20 progress; effective settings/usage/queue wait remain unexposed.

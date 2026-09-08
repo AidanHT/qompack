@@ -349,6 +349,64 @@ privacy handling or durable acknowledgement, and do not provide M2
 completeness or authority. Full backup/import/GC rooting, durable delivery
 identity and lease behavior, and all final gates remain open.
 
+## Capture-policy admission seam review
+
+This read-only review accepts the bounded, currently unwired capture-policy
+seam in `qompack-sp20` at `16ecc77` plus reviewed dirty files in `internal/core`,
+`internal/hookio`, `internal/redact`, and `test/integration`. It is a pure
+privacy-admission foundation, not an enabled raw-capture, observation, or
+publication feature.
+
+`core.CaptureDecision` carries the policy's permitted bytes, closed outcome,
+explicit fidelity, and independent redaction/truncation facts. This replaced
+the initially insufficient bytes/outcome callback result: a byte difference
+cannot determine whether a policy redacted, truncated, or merely transformed
+its input. `CaptureHook` accepts bytes only for `OutcomeOK`, validates exact
+as byte-identical with neither flag, validates redacted/truncated fidelity
+against its corresponding flag, bounds both source and result, and clones the
+caller input, policy input/result, capture bytes, and parsed `Event` ownership
+domains. Denial reports `OutcomeDenied` with no bytes or Event; unavailable,
+invalid, oversize, nil-policy, callback error, and callback panic paths expose
+no bytes or Event and use generic errors that omit policy/backend text.
+
+An independent review found that the first implementation typed an Event from
+the unpermitted source before policy admission. That was corrected: it now
+does only bounded UTF-8/JSON-object validation of source bytes before calling
+the policy, and `ReadEvent` is reached solely for a copied approved decision
+buffer. The new test proves a policy can remove an invalid/private typed field
+and that the resulting permitted object is the only Event input. The original
+`CapturePolicy` API gap and this admission-order correction are retained in
+the review history; `capture-policy-red` and `capture-policy-red-corrected`
+remain diagnostic artifacts.
+
+`redact.CapturePolicy` compiles the complete configured rule set without
+logging pattern text. It preserves unchanged valid JSON bytes exactly,
+including formatting, escapes, unknown fields, and large numbers; any actual
+change is explicitly `FidelityRedacted`. Its JSON-aware walker handles decoded
+strings and sensitive property context, rejects duplicate or redaction-colliding
+keys, unpaired surrogates, syntax-spanning matches, malformed UTF-8/JSON, and
+excess depth. Disabled redaction is an explicit exact-admission configuration;
+invalid enabled patterns refuse policy construction rather than admitting under
+a partial ruleset. This adapter has no dependency on `hookio`, preserving the
+existing package direction.
+
+`capture-policy-green.run.json` records the focused hookio/redact/integration
+race selection passing in 35.7576847 seconds. After the admission-order
+correction, `capture-policy-reviewed.run.json` records the expanded
+core/hookio/redact/integration race selection passing in 31.8222258 seconds
+(core 1.782 seconds, hookio 2.246 seconds, redact 2.741 seconds, integration
+2.489 seconds of package time). `capture-policy-guards.run.json` records
+format checking, affected-package vet, and `importgraph,testdeps` lint passing.
+This review did not rerun those commands.
+
+Nothing calls these APIs in installed ingress, daemon drain, WAL/client spool,
+store sidecar, or observer publication paths. `runtime.migration.capture.rawEvidence`
+and durable-frontier gates remain disabled. There is no persisted
+ObservationID/arrival lease, host/content identity association, fsynced object,
+verified reference, committed frontier, retry/ack proof, compatible reader,
+M2 coverage/authority, or backup/import/GC root result. This review does not
+close any T20 M1/M2 or V4 verification row.
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.

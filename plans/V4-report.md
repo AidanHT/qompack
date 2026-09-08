@@ -127,6 +127,19 @@ Not met. Required exit evidence includes accepted combined-tree verification, al
 
 ## 16. Integration and installed-host scenarios
 
+SP-20 `9e939dd` adds an independently reviewed privacy admission seam and a real policy-to-hook
+envelope fixture. Exact permitted JSON bytes survive serialization; explicit fidelity and
+generic no-payload failures are enforced before Event derivation. The new capture/policy race
+selection passes in 35.758 s. After the review correction, affected capture/composition and
+retained core/ReadEvent/redactor checks pass in 31.822 s; unchanged redact source/tests retain
+the first run's provisional evidence. Initial fixture compilation and stub assertion failures
+are preserved. Formatting, vet and importgraph/testdeps pass. Artifacts identify SP-20 base
+`16ecc77` plus dirty input hashes; this preparation report HEAD is separate.
+
+This is partial T20-M1-01/02 preparation. The new APIs are unwired: current ingress still needs
+strict policy loading before every spool/blob/WAL write, faithful sidecar publication and
+durable delivery identity. No installed privacy, recovery, timing or full T20/V4 gate passes.
+
 Original §4.1–§4.14 scenarios remain unverified in the inventory. Installed host behavior, native compaction controls, native eviction, output setters, and native history rewriting are unsupported or unobserved; no scenario is accepted from names, comments, or local seams. M0-G0 is accepted as an existing ledger result; remaining M0 qualifications are preserved. Core prerequisite `029d065` and drain correction `f6a8691` are accepted only as bounded corrective slices. Late-client publication, durable identity/lease, privacy capture, object/reference/frontier publication, GC roots, import/backup and M2 producers remain open.
 
 ## 17. Performance budgets
