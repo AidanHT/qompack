@@ -193,13 +193,15 @@ func stubRegistry() []stubPackage {
 		// wiring gap, not a reason to call the seam itself a stub. It stays registered for the
 		// completeness check, the same as eval and contract above.
 		{pkg: "state", build: func(*testing.T) any { return state.NewSet() }, pureMethods: allMethodsAreReal},
-		// admission's seam is STUBBED as of SP-21's contract slice, deliberately. Decide — the
-		// policy — is real and fully graded, but Admit reports ErrNotImplemented until commit 2
-		// wires SP-20 capture behind it. Registering it stubbed is the honest entry: the package
-		// exists and is owned, and nothing may replace a delivered result through it yet.
+		// admission's seam is REAL as of SP-21 commit 2: Admit runs privacy, the gate, capture and
+		// publication verification and returns a decided Record, so it no longer reports
+		// ErrNotImplemented. Its ports are interfaces a composition root satisfies, and a Pipeline
+		// built with none of them refuses rather than panicking, which is what this entry constructs.
+		// It stays registered for the completeness check; dropping the marker would assert admission
+		// is still a stub, which it is not.
 		{pkg: "admission", build: func(*testing.T) any {
-			return admission.NewPipeline(admission.Gate{Enabled: true, Owned: true})
-		}},
+			return admission.NewPipeline(admission.Gate{Enabled: true, Owned: true}, admission.Ports{})
+		}, pureMethods: allMethodsAreReal},
 	}
 }
 
