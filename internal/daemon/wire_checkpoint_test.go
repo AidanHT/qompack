@@ -439,6 +439,31 @@ func TestADPIViolationIsLoggedLoudAndSkipped(t *testing.T) {
 	}
 }
 
+// TestTheSweepReportsEvidenceItCannotVerify is the sweep's half of the verification guard, and
+// the half that shipped with a log line and no instrument. Turns 2-4 have no segment at all, so
+// the frontier stops at 1: the work beyond the hole is left listed rather than encoded out of
+// order, and the shortfall is COUNTED, keyed by reason, not only written to a log nobody reads.
+func TestTheSweepReportsEvidenceItCannotVerify(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	a := f.closeSegment(cpSession, 0, 1)
+	beyond := f.closeSegment(cpSession, 5, 6) // turns 2-4 have no segment at all
+
+	require.NoError(t, f.advance(f.ctx()), "a gap holds the frontier back; it is not a sweep failure")
+
+	require.Equal(t, int64(1), f.m.Counter(counterFrontierUnverified).Value())
+	require.Equal(t, int64(1), f.m.Counter(counterFrontierUnverified+"."+evidenceGap).Value())
+	require.Zero(t, f.m.Counter(counterFrontierDPIGuard).Value(),
+		"missing evidence is a shortfall, never a two-writer violation")
+
+	encoded, err := f.store.Segments().Get(f.ctx(), a)
+	require.NoError(t, err)
+	require.True(t, encoded.EncodedOnce, "the verified prefix still advances")
+	seg, err := f.store.Segments().Get(f.ctx(), beyond)
+	require.NoError(t, err)
+	require.False(t, seg.EncodedOnce, "the segment past the gap is left listed, not swept over")
+}
+
 // TestPrecompactDeadlineIsLeftUnsetWhenTheManifestDeclaresNoTimeout pins the degenerate branch
 // precompactTimeoutMs was written to make explicit and the wiring used to fold into a
 // normal-looking deadline.

@@ -504,6 +504,15 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 			log.Loud(msgDPIViolation, "session", string(s), "segments", segmentIDInts(dpi))
 		}
 		if stop != nil {
+			// Counted as well as logged, and keyed by reason, exactly as the scheduler's own pass
+			// counts it. A frontier held back by a gap is a condition an operator has to be able
+			// to SEE without reading logs -- a log line alone is not an instrument -- and the two
+			// passes reaching the same verification must report it through the same names or the
+			// sweep's shortfalls are invisible wherever the scheduler is not the one advancing.
+			if m != nil {
+				m.Counter(counterFrontierUnverified).Add(1)
+				m.Counter(counterFrontierUnverified + "." + stop.reason).Add(1)
+			}
 			log.Warn(msgUnverifiedEvidence,
 				"session", string(s), "reason", stop.reason,
 				"segment", int(stop.segment), "atTurn", int(stop.atTurn),
