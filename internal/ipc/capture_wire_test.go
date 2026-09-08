@@ -132,7 +132,7 @@ func TestNewDeliveryNonce_LabelsInvocationsNotContent(t *testing.T) {
 	for i := 0; i < 64; i++ {
 		nonce, err := ipc.NewDeliveryNonce()
 		require.NoError(t, err)
-		require.Len(t, nonce, 32, "128 bits, hex encoded")
+		require.Len(t, nonce, 64, "256 bits, hex encoded: the delivery journal's token length")
 		require.False(t, seen[nonce], "a minted nonce must never repeat")
 		seen[nonce] = true
 	}

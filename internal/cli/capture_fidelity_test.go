@@ -156,7 +156,7 @@ func TestHookCapture_DeliveryNonceAndCaptureReachTheSpooledRequest(t *testing.T)
 	}
 
 	first, second := deliver(), deliver()
-	require.Len(t, first.Nonce, 32, "128 bits of minted delivery label, hex encoded")
+	require.Len(t, first.Nonce, 64, "256 bits of minted delivery label, hex encoded: the journal's token length")
 	require.NotEqual(t, first.Nonce, second.Nonce,
 		"two host invocations of identical bytes are two distinct deliveries")
 
