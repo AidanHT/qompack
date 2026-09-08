@@ -21,7 +21,11 @@ import (
 // idle gaps. A long think-gap at a task boundary is therefore exactly where the design says one
 // belongs, and the "long-idle" shape is simply the shape with the most changepoints.
 const (
-	synthGeneratorID = "eval.Synthesize/1"
+	// synthGeneratorID is bumped whenever the generator's OUTPUT SHAPE changes, because
+	// eval.Comparable refuses to compare two baselines whose corpora were produced by different
+	// generators. /2 is the SP02-D1/D3 recall rework: sessions now recall tool results,
+	// decisions and eliminations across a compaction cut, not only file content.
+	synthGeneratorID = "eval.Synthesize/2"
 	// synthEpochMillis is 2025-01-01T00:00:00Z.
 	synthEpochMillis   = 1735689600000
 	synthTurnGapMS     = 45_000
@@ -40,7 +44,59 @@ const (
 	// betting on, so a corpus that ignored it would not be neutral, it would be adversarial.
 	synthRecencyWindow  = 12
 	synthDecisionDomain = "qompack.eval.decision"
+
+	// The recall window is SP02-D1 and SP02-D3's repair, and it is one mechanism, not two.
+	//
+	// Before it, exactly ONE assistant turn after each compaction re-read one pre-compaction file.
+	// That made every demand in the committed corpus a DemandFileContent (177 of 177 across 39
+	// events), so tool_edit_distance, re_attempts and decision_preservation were computed over an
+	// input that could not move them; and it capped Σ tokens(candidates) at 14 412 against a
+	// 40 000 keep budget, so the Belady budget never bound and fraction_of_opt graded against a
+	// trivial ceiling.
+	//
+	// A real agent does not resume with one read. It spends its first several turns rebuilding the
+	// context the summary dropped: re-reading the files it was in, re-checking a tool result it
+	// had quoted, restating what it had decided, and — when the elimination went with the summary
+	// — re-attempting an approach it had already ruled out. That last one is the failure the whole
+	// negative-knowledge subsystem exists to prevent, so a corpus that could not produce it was
+	// measuring around the thing under test.
+	//
+	// The window's LENGTH is derived from FileRereadRate rather than from a new SynthSpec field:
+	// SynthSpec is fixed by §5.18 and gains no fields here, and the re-read rate is already the
+	X
+	synthRecallBase  = 9
+	synthRecallScale = 10
+	// The three fixed recall slots, in the order an agent actually rebuilds: pick the file back up,
+	// re-check the tool result it quoted, restate the decision, re-try the ruled-out approach.
+	// Slot 0 and every slot at or above synthRecallFileFrom are file re-reads.
+	synthRecallToolSlot     = 1
+	synthRecallDecisionSlot = 2
+	synthRecallElimSlot     = 3
+	synthRecallFileFrom     = 4
+	// synthRecallPathsPerTurn is the working set one recall turn picks back up. The recall window
+	// cannot simply be made longer: DefaultHorizonK bounds it at 20 turns, and a demand raised
+	// past at+K is outside the horizon and counts for nothing. Widening each turn is the only
+	// axis left, and it is the faithful one — an agent resuming a task opens the two or three
+	// files it was working across, not one.
+	synthRecallPathsPerTurn = 3
+	// synthSubagentDelay is how many assistant turns a subagent's report lands after its Task
+	// call. SP02-D1's other half: at 0 the pair was adjacent, so it could never straddle a cut and
+	// DemandToolResult could never fire from it.
+	synthSubagentDelay = 2
 )
+
+// recallTurns is how many assistant turns after a compaction are spent recalling what it dropped.
+func recallTurns(rereadRate float64) int {
+	n := synthRecallBase + int(rereadRate*synthRecallScale)
+	return max(n, synthRecallFileFrom+1)
+}
+
+// recallSlots is how many DISTINCT pre-compaction files a recall window can name, and therefore
+// how wide preCompactionPath's recency window has to be. Narrower and the later slots wrap onto
+// paths the window already named, which is what silently capped Σ tokens(candidates).
+func recallSlots(rereadRate float64) int {
+	return (recallTurns(rereadRate) - synthRecallFileFrom + 1) * synthRecallPathsPerTurn
+}
 
 // synthToolTokens is the token cost range of each tool's result.
 var synthToolTokens = map[string][2]int{
@@ -133,13 +189,30 @@ type synthGen struct {
 	bag    []string
 	bagPos int
 
-	// rereadAt maps a forced-reread turn to how many paths had been read before its compaction, so
-	// the re-read always names content that actually predates the boundary.
+	// rereadAt maps a compaction turn to how many paths had been read before it, so a recall
+	// always names content that actually predates the boundary.
 	rereadAt map[int]int
+	// The three parallel snapshots the non-file recall slots draw from: how many tool ids,
+	// decisions and eliminations existed before each compaction. Without them a recall could quote
+	// something minted AFTER the cut, which raises no demand at all and would make the corpus
+	// assertion pass while measuring nothing — the exact failure SP02-D1 records.
+	toolIDs     []string
+	toolIDsAt   map[int]int
+	decisions   []string
+	decisionsAt map[int]int
+	elims       []synthElim
+	elimsAt     map[int]int
 	// thrashPos advances only on thrash-cycle turns, so an interruption costs one trigram rather
 	// than shifting the loop's phase.
 	thrashPos int
 }
+
+// synthElim is one recorded elimination, kept so a later turn can re-attempt exactly it.
+type synthElim struct{ target, approach string }
+
+// recallSlot names the compaction an assistant turn is recalling and its position in that
+// compaction's recall window.
+type recallSlot struct{ at, slot int }
 
 func (g *synthGen) run() Session {
 	spec := g.spec
@@ -187,18 +260,30 @@ func (g *synthGen) run() Session {
 	}
 	g.bag = toolBag(g.rng, spec.ToolMix, assistantCount)
 
-	// Every compaction is followed by a re-read of content that predates it. That is not padding:
-	// a compaction nobody demands anything back from scores every policy 1.0 and hides all signal,
-	// so the corpus would measure nothing. Re-reading what the boundary just dropped is also
-	// exactly what an agent does, and exactly what the harness exists to count.
+	// Every compaction is followed by a RECALL WINDOW: the first recallTurns assistant turns after
+	// it rebuild what the boundary dropped. That is not padding — a compaction nobody demands
+	// anything back from scores every policy 1.0 and hides all signal — and it is what an agent
+	// actually does. See the synthRecall* constants for why one re-read was not enough.
 	g.rereadAt = map[int]int{}
-	rereadOwner := map[int]bool{}
+	g.toolIDsAt = map[int]int{}
+	g.decisionsAt = map[int]int{}
+	g.elimsAt = map[int]int{}
+	recall := make(map[int]recallSlot, len(spec.CompactionAt)*synthRecallBase)
+	want := recallTurns(spec.FileRereadRate)
 	for _, at := range spec.CompactionAt {
-		for t := int(at) + 1; t < spec.Turns; t++ {
-			if roles[t] == roleAssistant {
-				rereadOwner[t] = true
-				break
+		n := 0
+		for t := int(at) + 1; t < spec.Turns && n < want; t++ {
+			if roles[t] != roleAssistant {
+				continue
 			}
+			// A turn already claimed by an EARLIER compaction keeps that claim: two windows
+			// overlapping means the second compaction lands mid-recovery, and the first
+			// compaction's recall is the one that predates it.
+			if _, taken := recall[t]; taken {
+				continue
+			}
+			recall[t] = recallSlot{at: int(at), slot: n}
+			n++
 		}
 	}
 
@@ -210,6 +295,7 @@ func (g *synthGen) run() Session {
 	ts := int64(synthEpochMillis)
 	assistantSeen := 0
 	pendingSubagent := ""
+	pendingSubagentIn := 0
 	var thrashPath string
 
 	for i := range spec.Turns {
@@ -225,6 +311,9 @@ func (g *synthGen) run() Session {
 		}
 		if compactSet[i] {
 			g.rereadAt[i] = len(g.readPaths)
+			g.toolIDsAt[i] = len(g.toolIDs)
+			g.decisionsAt[i] = len(g.decisions)
+			g.elimsAt[i] = len(g.elims)
 		}
 
 		turn := Turn{Index: core.TurnIndex(i), Role: roles[i], TS: core.UnixMilli(ts)}
@@ -233,21 +322,50 @@ func (g *synthGen) run() Session {
 			assistantSeen++
 			turn.Tokens = core.Tokens(400 + g.rng.IntN(400))
 			if assistantSeen%synthDecisionEvery == 0 {
-				turn.Text = "settled the approach [decision:" + g.decisionID(i) + "]"
+				id := g.decisionID(i)
+				g.decisions = append(g.decisions, id)
+				turn.Text = "settled the approach [decision:" + id + "]"
 			}
 			if pendingSubagent != "" {
-				turn.Text = strings.TrimSpace(turn.Text + " subagent " + pendingSubagent +
-					" reported back: the migration path is viable")
-				pendingSubagent = ""
+				if pendingSubagentIn > 0 {
+					pendingSubagentIn--
+				} else {
+					turn.Text = strings.TrimSpace(turn.Text + " subagent " + pendingSubagent +
+						" reported back: the migration path is viable")
+					pendingSubagent = ""
+				}
 			}
-			tool, path := g.toolFor(i, rereadOwner[i], elimSet[i], subSet[i], depSet,
+			slot, recalling := recall[i]
+			turn.Text = strings.TrimSpace(turn.Text + g.recallText(slot, recalling))
+			tool, path := g.toolFor(i, slot, recalling, elimSet[i], subSet[i], depSet,
 				thrashLo, thrashHi, &thrashPath)
-			turn.ToolCalls = []ToolCall{g.callFor(i, tool, path)}
+			call := g.callFor(i, tool, path)
+			switch {
+			case recalling && slot.slot == synthRecallElimSlot:
+				call = g.reAttemptCall(i, slot.at, call)
+			case recalling && slot.slot >= synthRecallFileFrom:
+				// A resuming agent picks up a WORKING SET, not one file, and the recall window is
+				// bounded by DefaultHorizonK — a demand raised after turn at+K is outside the
+				// horizon and counts for nothing. Two paths per recall turn is how the candidate
+				// set clears DefaultKeepBudget without the window running past K. It inflates no
+				// token count: every path here was already read before the cut, so its block's
+				// weight was fixed by that first read, not by this call.
+				call = g.addRecallPath(call, slot)
+			}
+			turn.ToolCalls = []ToolCall{call}
+			if call.ID != "" && len(call.Paths) > 0 {
+				g.toolIDs = append(g.toolIDs, string(call.ID))
+			}
+			if call.Name == toolRecordEliminated {
+				target, approach := eliminationArgs(call.Args)
+				g.elims = append(g.elims, synthElim{target: target, approach: approach})
+			}
 			// Only an INJECTED subagent reports back. A Task the tool mix happened to draw is an
 			// ordinary call, and quoting its id too would make SubagentCalls describe something
 			// other than the number of subagent round-trips in the session.
 			if subSet[i] {
-				pendingSubagent = string(turn.ToolCalls[0].ID)
+				pendingSubagent = string(call.ID)
+				pendingSubagentIn = synthSubagentDelay
 			}
 		} else {
 			turn.Tokens = core.Tokens(60 + g.rng.IntN(140))
@@ -267,12 +385,27 @@ func (g *synthGen) run() Session {
 }
 
 // toolFor decides one assistant turn's tool and the path it touches.
-func (g *synthGen) toolFor(i int, forcedReread, isElim, isSub bool, depSet map[int]int,
+//
+// A recall slot outranks everything: the window exists to make the demand fire, and a turn the
+// tool mix happened to want for something else would silently drop it.
+func (g *synthGen) toolFor(i int, slot recallSlot, recalling, isElim, isSub bool, depSet map[int]int,
 	thrashLo, thrashHi int, thrashPath *string,
 ) (tool, path string) {
+	if recalling {
+		switch slot.slot {
+		case synthRecallToolSlot, synthRecallDecisionSlot:
+			// The recall is in the TEXT, so the turn still does ordinary work. Bash touches no
+			// path, which keeps the quoted-id demand the only one this turn raises.
+			return toolBash, ""
+		case synthRecallElimSlot:
+			// reAttemptCall rewrites this call's args; the tool has to be one whose paths become
+			// a file block, so the re-attempt is visible as work and not only as a demand.
+			return "Edit", g.preCompactionPath(slot.at, slot.slot)
+		default:
+			return "FileRead", g.preCompactionPath(slot.at, synthRecallPathsPerTurn*slot.slot)
+		}
+	}
 	switch {
-	case forcedReread:
-		return "FileRead", g.preCompactionPath(i)
 	case isElim:
 		return toolRecordEliminated, ""
 	case isSub:
@@ -299,7 +432,7 @@ func (g *synthGen) toolFor(i int, forcedReread, isElim, isSub bool, depSet map[i
 	return tool, ""
 }
 
-// preCompactionPath returns a path read shortly before the compaction this re-read answers to.
+// preCompactionPath returns the slot'th most recent path read before compaction at.
 //
 // It draws from the most RECENT pre-compaction files rather than uniformly over the session's
 // whole history, and that is a fidelity choice, not a thumb on the scale. Real sessions have
@@ -308,22 +441,87 @@ func (g *synthGen) toolFor(i int, forcedReread, isElim, isSub bool, depSet map[i
 // would be adversarial to every recency heuristic at once, stock would score exactly 0.0 on every
 // session, and the primary metric would become indistinguishable from the null floor — which
 // measures nothing and would make the Phase 0 number a tautology rather than a finding.
-func (g *synthGen) preCompactionPath(turn int) string {
-	best, found := -1, false
-	for at, count := range g.rereadAt {
-		if at >= turn || count == 0 {
-			continue
-		}
-		if !found || at > best {
-			best, found = at, true
-		}
-	}
-	if !found {
+//
+// The window is exactly as wide as the recall window is long, so every slot names a DIFFERENT
+// file. Distinctness is what SP02-D3 needs: one file re-read ten times is one candidate block, and
+// Σ tokens(candidates) has to clear DefaultKeepBudget for the Belady budget to bind at all.
+func (g *synthGen) preCompactionPath(at, slot int) string {
+	count := g.rereadAt[at]
+	if count == 0 {
 		return g.pickPath()
 	}
-	count := g.rereadAt[best]
-	window := min(count, hostTopFiles)
-	return g.readPaths[count-1-(turn*7+3)%window]
+	window := min(count, max(recallSlots(g.spec.FileRereadRate), hostTopFiles))
+	return g.readPaths[count-1-slot%window]
+}
+
+// addRecallPath gives a file-recall turn the rest of its working set: the next pre-compaction
+// files in recency order, skipping any that would repeat a path this call already names.
+func (g *synthGen) addRecallPath(call ToolCall, slot recallSlot) ToolCall {
+	for n := 1; n < synthRecallPathsPerTurn; n++ {
+		p := g.preCompactionPath(slot.at, synthRecallPathsPerTurn*slot.slot+n)
+		if p == "" || contains(call.Paths, p) {
+			continue
+		}
+		call.Paths = append(call.Paths, p)
+		if !contains(g.readPaths, p) {
+			g.readPaths = append(g.readPaths, p)
+		}
+	}
+	return call
+}
+
+// recallText is the half of the recall window that lives in a turn's prose: a quoted tool_use_id
+// and a quoted decision id, both minted before the cut, which is what raises DemandToolResult and
+// DemandDecision. Blocks.Demands matches them by substring, exactly as it does for a real
+// transcript.
+func (g *synthGen) recallText(slot recallSlot, recalling bool) string {
+	if !recalling {
+		return ""
+	}
+	switch slot.slot {
+	case synthRecallToolSlot:
+		// Reach PAST the working set the file slots re-read. A tool result whose file the recall
+		// window was going to re-open anyway is repaired by a read that was already happening, so
+		// the compacted branch's file set stays identical to the uncompacted one and
+		// file_set_jaccard is 1.0 by construction — SP02-D2. The result an agent has to go back
+		// for is the one that fell out of the working set, and its repair is a genuinely extra
+		// read.
+		if n := g.toolIDsAt[slot.at]; n > 0 {
+			return " re-checking what " + g.toolIDs[max(n-1-recallSlots(g.spec.FileRereadRate), 0)] +
+				" returned before the summary"
+		}
+	case synthRecallDecisionSlot:
+		if n := g.decisionsAt[slot.at]; n > 0 {
+			return " as already settled in [decision:" + g.decisions[n-1] + "]"
+		}
+	}
+	return ""
+}
+
+// reAttemptCall turns the elimination slot's call into a re-attempt of an approach that was
+// recorded as eliminated BEFORE the cut.
+//
+// Blocks.Demands matches a re-attempt on (target key, approach class) against the eliminations in
+// the prefix, and skips RecordEliminated calls themselves — so this has to be an ordinary tool
+// call carrying the same target and approach. When the session recorded no elimination before this
+// compaction the call is left exactly as it was: an unmatched re-attempt would raise no demand and
+// would only add noise.
+func (g *synthGen) reAttemptCall(i, at int, call ToolCall) ToolCall {
+	n := g.elimsAt[at]
+	if n == 0 {
+		return call
+	}
+	e := g.elims[(i+n-1)%n]
+	if e.target == "" || e.approach == "" {
+		return call
+	}
+	call.Paths = []string{e.target}
+	call.Args = mustCompactJSON(map[string]string{
+		"target":   e.target,
+		"approach": e.approach,
+		"reason":   "the summary dropped the elimination, so this approach looks untried",
+	})
+	return call
 }
 
 // nextBagTool draws the next tool from the shuffled exact-proportion bag.

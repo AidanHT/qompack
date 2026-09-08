@@ -192,11 +192,22 @@ func (stockPolicy) KeepSet(ctx context.Context, s Session, at core.TurnIndex, bu
 		return KeepSet{}, err
 	}
 	blocks := Blocks(s, at)
+	// Two maps, because the host and the harness count in different units. The host decides
+	// against its own §2.2 estimate, which pads by 4/3; the harness's equal-budget rule and every
+	// downstream metric count true tokens. est is what stock believes it is spending, contrib is
+	// what it actually kept, and the pair is SP02-D6's repair: before it, hostPadTokens had no
+	// production caller at all and the modelled host was more accurate than the real one.
 	contrib := map[string]core.Tokens{}
-	add := func(id string, t core.Tokens) {
+	est := map[string]core.Tokens{}
+	add := func(id string, trueTokens, estTokens core.Tokens) {
 		if _, ok := contrib[id]; !ok {
-			contrib[id] = t
+			contrib[id] = trueTokens
+			est[id] = estTokens
 		}
+	}
+	drop := func(id string) {
+		delete(contrib, id)
+		delete(est, id)
 	}
 	used := func() core.Tokens {
 		var n core.Tokens
@@ -205,16 +216,25 @@ func (stockPolicy) KeepSet(ctx context.Context, s Session, at core.TurnIndex, bu
 		}
 		return n
 	}
+	estUsed := func() core.Tokens {
+		var n core.Tokens
+		for _, t := range est {
+			n += t
+		}
+		return n
+	}
 
-	// (a) §2.4 step 7: top 5 recently-read files, 5K/file, 50K budget.
+	// (a) §2.4 step 7: top 5 recently-read files, 5K/file, 50K budget — all three of those are
+	// budgets over the host's PADDED estimate, so the cap binds on padded tokens and the file
+	// contributes the true tokens that survive it.
 	fileUsed := core.Tokens(0)
 	for _, b := range lastNDistinctFiles(blocks, hostTopFiles) {
-		t := min(b.Tokens, hostPerFileTokens)
-		if fileUsed+t > hostRestoreBudget {
+		e := min(hostPadTokens(b.Tokens), hostPerFileTokens)
+		if fileUsed+e > hostRestoreBudget {
 			break
 		}
-		add(b.ID, t)
-		fileUsed += t
+		add(b.ID, unpadTokens(e, b.Tokens), e)
+		fileUsed += e
 	}
 
 	// (b) §2.3 preservation: walk backwards from `at`, keeping whole turns until BOTH
@@ -222,12 +242,12 @@ func (stockPolicy) KeepSet(ctx context.Context, s Session, at core.TurnIndex, bu
 	msgs, msgTokens := 0, core.Tokens(0)
 	for t := int(at) - 1; t >= 0; t-- {
 		turnBlocks := blocksOfTurn(blocks, core.TurnIndex(t))
-		tt := sumTokens(turnBlocks)
+		tt := hostPadTokens(sumTokens(turnBlocks))
 		if msgTokens+tt > hostPreserveMaxTokens {
 			break
 		}
 		for _, b := range turnBlocks {
-			add(b.ID, b.Tokens)
+			add(b.ID, b.Tokens, hostPadTokens(b.Tokens))
 		}
 		msgTokens += tt
 		if hasTextBlock(turnBlocks) {
@@ -243,16 +263,20 @@ func (stockPolicy) KeepSet(ctx context.Context, s Session, at core.TurnIndex, bu
 	// do not fit inside it. Stock has no smarter rule than dropping its oldest kept turn, so that
 	// is exactly what it does, and the resulting squeeze is a real property of stock behaviour
 	// under an equal budget rather than an artifact to be tuned away.
-	for used() > budget {
+	// The squeeze is the host's, so it too runs against the padded estimate: the host cannot see
+	// the true count, and a model that squeezed against the true one would keep more than the host
+	// does. The loop still terminates on the true budget as well, so a keep-set the harness would
+	// reject can never be returned.
+	for estUsed() > hostPadTokens(budget) || used() > budget {
 		oldest, ok := oldestKeptTurn(contrib, blocks)
 		if !ok {
 			break
 		}
 		for _, b := range blocksOfTurn(blocks, oldest) {
-			delete(contrib, b.ID)
+			drop(b.ID)
 		}
 		for _, b := range derivedBlocksOfTurn(blocks, oldest) {
-			delete(contrib, b.ID)
+			drop(b.ID)
 		}
 	}
 

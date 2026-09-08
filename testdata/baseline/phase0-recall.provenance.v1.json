@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "artifact": "testdata/baseline/phase0-recall.json",
+  "artifact_sha256": "e1369c88da4b7ba42b7214e9e5212ba0b1b1dc1e44ebbe5cddce4d5552a7a13d",
+  "generator": "test/replay/1",
+  "snapshot": "0b14ea6035a323f253836763afdc600dbff909a6 (2026-09-07) - the branch base this re-baseline was measured at, on feat/v4-l-eval-carried-defects. The commit that WRITES this artifact cannot name its own hash; it is the SP-02 re-baseline commit on that branch, and the corpus SHA-256 below is what identifies the sessions the number was measured over.",
+  "dirty_changes": "dirty at measurement time, deliberately: internal/eval/{synth,corpus,policy,hostconst,divergence}.go and testdata/sessions/synthetic/* were the uncommitted SP02-D1/D2/D3/D5/D6 changes being measured. Every one of them is in the commit range that lands this artifact; nothing else in the tree was modified.",
+  "corpus": {
+    "path": "testdata/sessions/synthetic",
+    "sha256": "ebaf30d212c00480cf7c74311359157ba40c4b1321b44670f30a4573f8b45317",
+    "tier": "synthetic",
+    "sessions": 24,
+    "generator": "eval.Synthesize/2"
+  },
+  "latency": "modelled",
+  "metric_definitions": [
+    {
+      "name": "fraction_of_opt",
+      "direction": "higher_better",
+      "definition": "the demands this policy's keep-sets satisfied as a fraction of the demands the Belady-optimal keep-set satisfied, over the same recorded demand set (Qompack.md 11.1, the primary metric)."
+    },
+    {
+      "name": "first_divergence_turn",
+      "direction": "higher_better",
+      "definition": "how many turns after the compaction the compacted and uncompacted branches first disagree; it equals the horizon K when they never do, and -1 is never emitted."
+    },
+    {
+      "name": "file_set_jaccard",
+      "direction": "higher_better",
+      "definition": "the Jaccard similarity of the two branches' touched-file sets."
+    },
+    {
+      "name": "tool_edit_distance",
+      "direction": "lower_better",
+      "definition": "the edit distance between the two branches' tool-call sequences."
+    },
+    {
+      "name": "same_decision",
+      "direction": "higher_better",
+      "definition": "1 when the two branches reached the same final decision and 0 otherwise."
+    },
+    {
+      "name": "decision_preservation",
+      "direction": "higher_better",
+      "definition": "of the decisions minted BEFORE a compaction that the session went on to reference after it, the fraction the policy's keep-set retained (Qompack.md 11.2, 'pre-compaction decisions still recalled'). REDEFINED at V4 by SP02-D5: it previously measured whether the two branches reached the same decisions inside the post-compaction horizon, which deterministic replay fixes at 1.0 for every policy including the null policy that keeps nothing. Baselines across that redefinition are not comparable."
+    },
+    {
+      "name": "redundant_reads",
+      "direction": "lower_better",
+      "definition": "reads the compacted branch repeated that the uncompacted branch did not; it may be negative, which means the policy prevented re-reads."
+    },
+    {
+      "name": "re_attempts",
+      "direction": "lower_better",
+      "definition": "approaches the compacted branch retried that had already been eliminated."
+    },
+    {
+      "name": "rewrite_span_tokens",
+      "direction": "lower_better",
+      "definition": "the unweighted rewrite span, sum over compaction events of (n - p_min), derived as rewrite_tokens divided by the configured cache write multiplier w."
+    },
+    {
+      "name": "rewrite_tokens",
+      "direction": "lower_better",
+      "definition": "the weighted rewrite cost, sum over compaction events of w * (n - p_min), summed across the session and rounded once."
+    },
+    {
+      "name": "forfeited_discount_tokens",
+      "direction": "lower_better",
+      "definition": "rewrite_span_tokens * (1 - r): the prompt-cache read discount the rewrite gave up, at the configured read multiplier r."
+    },
+    {
+      "name": "rehydration_tokens",
+      "direction": "lower_better",
+      "definition": "the total token cost of the keep-sets this policy restored."
+    },
+    {
+      "name": "retrieval_hit_rate",
+      "direction": "higher_better",
+      "definition": "the fraction of retrieval calls (recall, expand, re_read, already_tried) that prevented a later plain read of the same path within the lookahead."
+    },
+    {
+      "name": "compaction_pause_ms_p50",
+      "direction": "lower_better",
+      "definition": "the median compaction pause in milliseconds, computed by the latency model and never observed; the artifact carries latency = modelled for exactly this reason."
+    },
+    {
+      "name": "compaction_pause_ms_p95",
+      "direction": "lower_better",
+      "definition": "the 95th-percentile modelled compaction pause, in milliseconds."
+    },
+    {
+      "name": "residual_span_p50",
+      "direction": "lower_better",
+      "definition": "the median residual span, in tokens, after a compaction event."
+    },
+    {
+      "name": "residual_span_p95",
+      "direction": "lower_better",
+      "definition": "the 95th-percentile residual span, in tokens."
+    },
+    {
+      "name": "first_turn_after_ms_p50",
+      "direction": "lower_better",
+      "definition": "the median modelled latency to the first turn after a compaction, in milliseconds."
+    },
+    {
+      "name": "first_turn_after_ms_p95",
+      "direction": "lower_better",
+      "definition": "the 95th-percentile modelled first-turn-after latency, in milliseconds."
+    }
+  ],
+  "seed": "replay seed 0: test/replay never sets ReplayOptions.Seed, and deterministic mode replays the logged action sequence, so no pseudo-random draw depends on it. Two consecutive driver runs over this corpus produced byte-identical reports apart from generatedAt, so n=1 is exact for this instrument and averaging runs would add nothing. The corpus itself was generated by eval.Synthesize/2 from 24 per-session seeds - 1101-1103, 1111-1113, 1121-1123, 1131-1133, 1141-1143, 1151-1153, 1161-1163 and 1171-1173, each the ADR 0003 +100 bump of the seed it replaces - recorded against its session in testdata/sessions/synthetic/CORPUS.json.",
+  "model": "none",
+  "provider": "none",
+  "date": "2026-09-07",
+  "historical_failures": [
+    "SP02-D1 (CARRIED-DEFECTS.tsv, deferred:V4-VERIFY): the synthetic corpus raises only DemandFileContent, so tool_edit_distance, re_attempts and decision_preservation are measured over an input that cannot exercise them",
+    "SP02-D2 (CARRIED-DEFECTS.tsv, deferred:V4-VERIFY): file_set_jaccard is pinned at 1.0: the only repair re-reads the path key the demanding turn already touches, so the repaired set is the demanded set by construction",
+    "SP02-D3 (CARRIED-DEFECTS.tsv, deferred:V4-VERIFY): the Belady keep budget never binds on the corpus (oracle rewrite_span_tokens is 0 at every event), so fraction_of_opt grades against a trivial ceiling",
+    "SP02-D4 (CARRIED-DEFECTS.tsv, deferred:V4-VERIFY): belady.pMin iterates candidates where 5.2 defines it over all blocks; the deviation is recorded only in a code comment",
+    "SP02-D5 (CARRIED-DEFECTS.tsv, deferred:V4-VERIFY): decision_preservation measures post-compaction horizon agreement, which deterministic mode fixes at 1.0, not 11.2's pre-compaction decisions still recalled",
+    "SP02-D6 (CARRIED-DEFECTS.tsv, deferred:V4-VERIFY): the stock model skips the 4/3 host padding: hostPadTokens has no production caller and hostSkillBudget is dead",
+    "V3-report.md B11 and MIGRATION-EVIDENCE.md E15: stock.fraction_of_opt = 0.695164 is a historical synthetic metric over 24 generated sessions. It is not a task ceiling, not a real-session result and not evidence of Qompack performance; SP02-D1 through SP02-D6 are the reasons it cannot be read as one. Note the two dates: this record's date field is 2026-08-25, the date of the commit that last wrote the artifact, while V3-report.md quotes the number on 2026-08-26.",
+    "V3-report.md J5 and its 2026-08-26 CI-gate waiver addendum: GitHub Actions refused every job on an account-level billing error, so no CI job ever executed for this baseline and the gate was waived. The backfill obligation stands - when billing is restored the armed rerun must go green and the three-platform bench-gate p99 figures fold into docs/adr/0008-observer-l0.md. Until then J5 is waived-open (MIGRATION-EVIDENCE.md B05).",
+    "M0-04 rule, obeyed rather than worked around: testdata/baseline/phase0.json is the PRESERVED historical baseline and is not edited in place, so this measurement is a new artifact beside it - phase0-recall.json, with its own provenance and ledger. The 2026-08-25 artifact, its provenance and its ledger are untouched and remain readable as the record of what the pre-recall corpus reported. eval.Comparable refuses the two as a before/after, which is the correct answer and the reason both are kept.",
+    "V4 SP-02 re-baseline (2026-09-07), old numbers retained beside the new ones: this artifact is NOT a later measurement of the baseline it replaces. eval.Comparable refuses the pair on three independent rules at once - corpus SHA-256 e2d9fa5a -> ebaf30d2, corpus generator eval.Synthesize/1 -> /2, and the decision_preservation redefinition. Old -> new, all policies: stock.fraction_of_opt 0.695164 -> 0.258291; qompack-rehydrate.fraction_of_opt 0.666849 -> 0.859402; oracle.rewrite_span_tokens 0 -> 6239544; stock.decision_preservation 1 -> 0; stock.re_attempts 0 -> 24; stock.tool_edit_distance 43 -> 536; stock.file_set_jaccard 1 -> 0.996845. The old figures stand as the record of what the pre-recall corpus said, and SP02-D1 through SP02-D6 are why it said it.",
+    "V4 SP-02 attribution, measured not assumed: the stock.fraction_of_opt move from 0.695164 to 0.258291 is the CORPUS, not the stock model. Replaying the regenerated corpus with the 4/3 host padding and the decision_preservation redefinition reverted gives stock.fraction_of_opt 0.258291 - identical to six decimal places. The padding changes which blocks stock keeps (TestStockPolicy_PreservationMinimums moves from 20 preserved turns to 16) without changing which demands they satisfy on this corpus, and the same reverted run puts decision_preservation at 0.583333 rather than 0, so the old definition was degenerate on the OLD corpus rather than inert in principle.",
+    "V4 SP-02 sample-size statement, declared before the outcome was judged: 24 sessions over 8 shapes x 3 seeds, 39 compaction events, replayed deterministically. What that supports: an exact, byte-reproducible comparison of policies over THIS corpus, and a threshold gate on it. What it does not support: any interval, p-value or percentage guarantee about real agent sessions. 24 generated sessions are not a random sample of any population, so no 2 percent claim about real behaviour follows from them, and the 2 percent gate is a threshold on a reproducible number rather than a confidence statement.",
+    "V4 SP-02 limits that remain open: file_set_jaccard now moves (oracle 0.998333 against 0.996845 for the other three) but the spread is 0.15 percent, so it discriminates in ordering and barely in magnitude - SP02-D2's structural pinning is gone, its usefulness as a signal is not established. hostSkillBudget still has no caller: modelling 2.4 step 7's invoked-skills budget needs a Session that records skill invocations and Session is fixed by 5.18, so SP02-D6 is discharged for the 4/3 padding half only."
+  ],
+  "new_fields": [],
+  "old_fields": [],
+  "non_comparable": [
+    "a corpus SHA-256 change makes two baselines non-comparable: the numbers were measured over different sessions",
+    "a corpus tier change (synthetic to recorded, or back) makes two baselines non-comparable: the 6.3 fidelity tiers are different populations, and a synthetic number reported as a real-session number is the dishonest measurement 1.3 RC-3 indicts",
+    "a generator change, of either the replay driver or the corpus generator, makes two baselines non-comparable: the measurement procedure differs",
+    "a latency-mode change (modelled to observed, or back) makes two baselines non-comparable: modelled pauses are computed from a model and were never measured against a wall clock",
+    "a metric-definition change - a metric added, removed, redirected or redefined - makes two baselines non-comparable, and this record's metric_definitions is the definition of record for the artifact it describes"
+  ]
+}

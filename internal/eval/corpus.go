@@ -73,49 +73,49 @@ func CorpusSpecs() []NamedSpec {
 		compact []core.TurnIndex
 	}{
 		{
-			file: "read-heavy", shape: "read-heavy", seeds: [3]int64{1001, 1002, 1003}, turns: 180,
+			file: "read-heavy", shape: "read-heavy", seeds: [3]int64{1101, 1102, 1103}, turns: 180,
 			mix:    map[string]float64{"FileRead": 0.60, "Grep": 0.20, "Edit": 0.12, "Bash": 0.08},
 			reread: 0.45, noise: 0.0, cps: 3, elims: 2, subs: 0,
 			compact: []core.TurnIndex{90},
 		},
 		{
-			file: "test-output", shape: "test-output-heavy", seeds: [3]int64{1011, 1012, 1013}, turns: 200,
+			file: "test-output", shape: "test-output-heavy", seeds: [3]int64{1111, 1112, 1113}, turns: 200,
 			mix:    map[string]float64{"Test": 0.45, "Bash": 0.25, "Edit": 0.18, "FileRead": 0.12},
 			reread: 0.20, noise: 0.8, cps: 4, elims: 3, subs: 0,
 			compact: []core.TurnIndex{100},
 		},
 		{
-			file: "refactor", shape: "refactor-across-files", seeds: [3]int64{1021, 1022, 1023}, turns: 240,
+			file: "refactor", shape: "refactor-across-files", seeds: [3]int64{1121, 1122, 1123}, turns: 240,
 			mix:    map[string]float64{"Edit": 0.40, "FileRead": 0.30, "Grep": 0.18, "Test": 0.12}, //nomagic:allow synthetic tool-mix weights
 			reread: 0.35, noise: 0.2, cps: 5, elims: 3, subs: 0,
 			compact: []core.TurnIndex{80, 160},
 		},
 		{
-			file: "long-idle", shape: "long-idle-gap", seeds: [3]int64{1031, 1032, 1033}, turns: 160,
+			file: "long-idle", shape: "long-idle-gap", seeds: [3]int64{1131, 1132, 1133}, turns: 160,
 			mix:    map[string]float64{"FileRead": 0.35, "Bash": 0.30, "Edit": 0.20, "Grep": 0.15},
 			reread: 0.30, noise: 0.1, cps: 8, elims: 2, subs: 0, //nomagic:allow synthetic test-output noise level
 			compact: []core.TurnIndex{100},
 		},
 		{
-			file: "dep-change", shape: "dependency-change", seeds: [3]int64{1041, 1042, 1043}, turns: 220,
+			file: "dep-change", shape: "dependency-change", seeds: [3]int64{1141, 1142, 1143}, turns: 220,
 			mix:    map[string]float64{"FileRead": 0.35, "Test": 0.25, "Edit": 0.25, "Bash": 0.15},
 			reread: 0.30, noise: 0.4, cps: 4, elims: 5, subs: 0, //nomagic:allow synthetic test-output noise level
 			depAt: []core.TurnIndex{60, 140}, compact: []core.TurnIndex{90, 170},
 		},
 		{
-			file: "subagent", shape: "subagent-heavy", seeds: [3]int64{1051, 1052, 1053}, turns: 190,
+			file: "subagent", shape: "subagent-heavy", seeds: [3]int64{1151, 1152, 1153}, turns: 190,
 			mix:    map[string]float64{"Task": 0.30, "FileRead": 0.30, "Edit": 0.22, "Bash": 0.18},
 			reread: 0.25, noise: 0.1, cps: 3, elims: 2, subs: 8, //nomagic:allow synthetic test-output noise level
 			compact: []core.TurnIndex{95},
 		},
 		{
-			file: "thrash", shape: "thrash-loop", seeds: [3]int64{1061, 1062, 1063}, turns: 210,
+			file: "thrash", shape: "thrash-loop", seeds: [3]int64{1161, 1162, 1163}, turns: 210,
 			mix:    map[string]float64{"FileRead": 0.28, "Edit": 0.28, "Test": 0.28, "Bash": 0.16},
 			reread: 0.65, noise: 0.5, cps: 2, elims: 4, subs: 0,
 			compact: []core.TurnIndex{105},
 		},
 		{
-			file: "multi-compact", shape: "multi-compaction", seeds: [3]int64{1071, 1072, 1073}, turns: 320,
+			file: "multi-compact", shape: "multi-compaction", seeds: [3]int64{1171, 1172, 1173}, turns: 320,
 			mix: map[string]float64{
 				"FileRead": 0.32, "Edit": 0.26, "Test": 0.22, "Bash": 0.12, "Grep": 0.08,
 			},
