@@ -396,7 +396,7 @@ func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
 		// resolved ledger is strictly fresher than either, and SetSources validates, takes one
 		// uncontended lock and is idempotent. The error is already Loud inside.
 		_ = w.SetSources(live)
-		return advanceAllSessions(ctx, reg, w, live, log)
+		return advanceAllSessions(ctx, reg, w, live, log, m)
 	}
 }
 
@@ -445,9 +445,14 @@ func daemonLog(d Daemon) logging.Logger {
 // ctx is consulted per session. RunOnce gives each idle task a sub-context of the budget still
 // remaining in the tick, so a sweep over many sessions must stop when that budget is gone rather
 // than run to completion and starve every task queued behind it.
-func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint.FileWriter, src checkpoint.SourceSet, log logging.Logger) error {
+func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint.FileWriter, src checkpoint.SourceSet, log logging.Logger, m obs.Registry) error {
 	if log == nil {
 		log = logging.Nop()
+	}
+	countDPI := func() {
+		if m != nil {
+			m.Counter(counterFrontierDPIGuard).Add(1)
+		}
 	}
 	var firstErr error
 	// The port's source supplier VALIDATES before handing anything over. A SourceSet with a nil
@@ -487,8 +492,27 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 			}
 		}
 		slices.SortFunc(closed, func(a, b store.Segment) int { return cmp.Compare(a.StartTurn, b.StartTurn) })
-		ids, stop := verifyEvidence(ctx, src.Segments, s, closed)
+		ids, dpi, stop := verifyEvidence(ctx, src.Segments, s, closed)
+		if len(dpi) > 0 {
+			// Unencoded offered these and the segment log's own re-read says another checkpoint
+			// owns them. That is the §4.6 violation, and it is reported HERE rather than left to
+			// the ErrAlreadyEncoded branch below, which never sees it: verification does not
+			// resubmit an encoded segment, so with only that branch the sweep would drop the ids
+			// and say nothing at all. Reporting it before the stop warn and before the empty-prefix
+			// `continue` is what keeps it from being lost behind either.
+			countDPI()
+			log.Loud(msgDPIViolation, "session", string(s), "segments", segmentIDInts(dpi))
+		}
 		if stop != nil {
+			// Counted as well as logged, and keyed by reason, exactly as the scheduler's own pass
+			// counts it. A frontier held back by a gap is a condition an operator has to be able
+			// to SEE without reading logs -- a log line alone is not an instrument -- and the two
+			// passes reaching the same verification must report it through the same names or the
+			// sweep's shortfalls are invisible wherever the scheduler is not the one advancing.
+			if m != nil {
+				m.Counter(counterFrontierUnverified).Add(1)
+				m.Counter(counterFrontierUnverified + "." + stop.reason).Add(1)
+			}
 			log.Warn(msgUnverifiedEvidence,
 				"session", string(s), "reason", stop.reason,
 				"segment", int(stop.segment), "atTurn", int(stop.atTurn),
@@ -498,18 +522,20 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 			continue
 		}
 		if _, err := advancer.Advance(ctx, s, ids); err != nil {
-			// A DPI violation -- the same segment reachable from two checkpoints -- is the §4.6
-			// invariant this whole layer exists to enforce mechanically, so §16 requires it Loud
-			// and the ids dropped, not folded into a sweep error that surfaces as an ordinary
-			// Warn. Folding it in also LOSES it: firstNonNil keeps only the first error of the
+			// The SECOND DPI guard, and the one that catches the narrow race verification cannot:
+			// a segment that was genuinely unencoded when verifyEvidence re-read it and was
+			// encoded by another writer before Advance reached it. A DPI violation -- the same
+			// segment reachable from two checkpoints -- is the §4.6 invariant this whole layer
+			// exists to enforce mechanically, so §16 requires it Loud and the ids dropped, not
+			// folded into a sweep error that surfaces as an ordinary Warn. Folding it in also LOSES it: firstNonNil keeps only the first error of the
 			// sweep, so a violation on a later session behind any earlier failure would never
 			// reach a log line at all. The ids are already skipped inside Advance and the draft is
 			// already persisted, so continuing is the documented handling, not a swallow.
 			// The owner already retried one sealed-draft handoff. A repeated seal or another
 			// failure remains a failed sweep result and may be retried by a later idle tick.
 			if errors.Is(err, core.ErrAlreadyEncoded) {
-				log.Loud("checkpoint: DPI violation: segments are already encoded by another checkpoint and were skipped",
-					"session", string(s), "err", err.Error())
+				countDPI()
+				log.Loud(msgDPIViolation, "session", string(s), "err", err.Error())
 				continue
 			}
 			firstErr = firstNonNil(firstErr, err)

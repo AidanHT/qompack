@@ -105,6 +105,7 @@ type cpFixture struct {
 	store store.Store
 	src   checkpoint.SourceSet
 	w     *checkpoint.FileWriter
+	m     obs.Registry
 	pins  *stubPins
 	reg   *SessionRegistry
 	seg   core.SegmentID
@@ -146,12 +147,13 @@ func newCPFixture(t *testing.T) *cpFixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = led.Close() })
 
-	w, err := checkpoint.OpenWriter(root, cfg, log, obs.New(clk), clk)
+	m := obs.New(clk)
+	w, err := checkpoint.OpenWriter(root, cfg, log, m, clk)
 	require.NoError(t, err)
 
 	f := &cpFixture{
 		t: t, root: root, l: l, cfg: cfg, clk: clk, store: st,
-		pins: &stubPins{}, reg: NewSessionRegistry(), w: w,
+		pins: &stubPins{}, reg: NewSessionRegistry(), w: w, m: m,
 	}
 	f.src = checkpoint.SourceSet{
 		Store: st, Segments: st.Segments(), Ledger: led, Pins: f.pins,
@@ -196,7 +198,7 @@ func (f *cpFixture) readDraft(sess core.SessionID) persistedDraft {
 
 // advance runs one advance_frontier tick over the fixture's registry.
 func (f *cpFixture) advance(ctx context.Context) error {
-	return advanceAllSessions(ctx, f.reg, f.w, f.src, logging.Nop())
+	return advanceAllSessions(ctx, f.reg, f.w, f.src, logging.Nop(), f.m)
 }
 
 // captureLoud installs a process-wide Loud observer for the duration of one test and returns an
@@ -431,8 +433,35 @@ func TestADPIViolationIsLoggedLoudAndSkipped(t *testing.T) {
 
 			require.NotEmpty(t, loud(), "a DPI violation must never be able to pass silently")
 			require.Contains(t, loud()[0], "DPI")
+			require.Equal(t, int64(1), f.m.Counter(counterFrontierDPIGuard).Value(),
+				"and it is counted, not only logged")
 		})
 	}
+}
+
+// TestTheSweepReportsEvidenceItCannotVerify is the sweep's half of the verification guard, and
+// the half that shipped with a log line and no instrument. Turns 2-4 have no segment at all, so
+// the frontier stops at 1: the work beyond the hole is left listed rather than encoded out of
+// order, and the shortfall is COUNTED, keyed by reason, not only written to a log nobody reads.
+func TestTheSweepReportsEvidenceItCannotVerify(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	a := f.closeSegment(cpSession, 0, 1)
+	beyond := f.closeSegment(cpSession, 5, 6) // turns 2-4 have no segment at all
+
+	require.NoError(t, f.advance(f.ctx()), "a gap holds the frontier back; it is not a sweep failure")
+
+	require.Equal(t, int64(1), f.m.Counter(counterFrontierUnverified).Value())
+	require.Equal(t, int64(1), f.m.Counter(counterFrontierUnverified+"."+evidenceGap).Value())
+	require.Zero(t, f.m.Counter(counterFrontierDPIGuard).Value(),
+		"missing evidence is a shortfall, never a two-writer violation")
+
+	encoded, err := f.store.Segments().Get(f.ctx(), a)
+	require.NoError(t, err)
+	require.True(t, encoded.EncodedOnce, "the verified prefix still advances")
+	seg, err := f.store.Segments().Get(f.ctx(), beyond)
+	require.NoError(t, err)
+	require.False(t, seg.EncodedOnce, "the segment past the gap is left listed, not swept over")
 }
 
 // TestPrecompactDeadlineIsLeftUnsetWhenTheManifestDeclaresNoTimeout pins the degenerate branch
