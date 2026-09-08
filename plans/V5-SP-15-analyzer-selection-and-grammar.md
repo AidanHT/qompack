@@ -112,7 +112,7 @@ Retain seven numbered future commit identifiers; SP-19 reconciles existing work 
 
 ## Subagent strategy
 
-Future roles preserve A–E; planning models above do not select Qompack runtime models. No future agents are launched now. Main agrees shared contracts before independent authoring and sequences integrations A→B, C→D, consumer wiring, then E.
+Future roles preserve A–E; planning models above do not select Qompack runtime models. No future agents are launched now. Main lands one contract-first slice, then A, B, C and D author concurrently against the frozen contract.
 
 | Future role | Exclusive source ownership; absent names are proposed |
 |---|---|
@@ -124,7 +124,30 @@ Future roles preserve A–E; planning models above do not select Qompack runtime
 | Main implementation owner | Shared types, `internal/checkpoint` and daemon integration, configuration/guards, conformance activation, shared fixtures, seven commits |
 | Independent reviewer | Read-only constraint, consumer, cost and false-alarm evidence |
 
-Main coordinates shared checkpoint/rehydration files after SP-11's handoff; SP-16 never edits them concurrently. Generated config documentation follows SP-14/SP-18 ownership in the later integration session. Benchmarks are recorded on quiet runners after future authoring completes, not during concurrent load.
+**Contract-first slice (Main, before any fan-out).** Main lands and freezes the shared surface B and D consume, then dispatches. The slice must freeze:
+
+| Frozen artifact | Consumed by |
+|---|---|
+| Shared representation types — exact span, structured capsule, pointer and archive-only choice, each with coverage, estimated assembled cost, provenance and dependency-closure fields | A, B, C, D |
+| Grammar codec contract — encode/decode signatures, version tag, compatibility-reader behaviour, and the warning record's scoped state signature, observed progress, uncertainty, dedup key, expiry and bounded-delivery fields | B |
+| Selector objective/feasibility contract — the stated nonnegative saturating coverage objective, the deterministic tie-break rule, at-most-one mutually compatible representation per item, dependency/record/wrapper/handle/report overhead accounting, and SP-11's explicit overflow and archive-recovery outcome | D |
+| Shared fixture layout, conformance-activation switch names, and the independent selector/warning disable switches | A, B, C, D, E |
+
+After freeze, A, B, C and D run concurrently on their existing exclusive file sets. B is briefed on the codec contract and D on the objective/feasibility contract, not on A's or C's finished files. E starts as soon as the contracts it measures are frozen rather than waiting for implementations; its full phase5/6 replay, held-out trials and ablations still belong to commit 7 or the final V5 policy stage.
+
+**The only serial edges.** Everything not listed here overlaps; the seven-commit sequence still lands in order in the main session, gating the commits and not the authoring.
+
+| Serial edge | Reason |
+|---|---|
+| Contract-first slice → A, B, C, D | B and D code against frozen shared types, not against sibling output |
+| Main → shared `internal/checkpoint` and rehydration files | Main coordinates them after SP-11's handoff and this plan owns them until it hands off; SP-16 never edits them concurrently. Correctness constraint, not conservatism |
+| Actual SP-11 consumer integration (commit 6) → E's combined evidence | E must measure delivered serialization, not a unit selector return |
+| Later integration session → generated config documentation | Follows SP-14/SP-18 ownership |
+| Authoring drains → quiet-runner benchmarks | Benchmarks are recorded on quiet runners, not during concurrent load; a number produced under co-load is requeued |
+
+**Ownership overlap to resolve at dispatch.** This plan names "daemon integration" in Main's ownership; SP-14 names `internal/daemon/handlers`. That file must be assigned to exactly one plan's owner at dispatch time and the other plan briefed against its contract; it is never edited by both.
+
+This plan's handoff is what unblocks SP-16's integration slice and SP-14's status surface, so landing the contract-first slice early is what parallelizes the whole wave.
 
 ### Future model and effort assignments
 
@@ -132,13 +155,16 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 
 | Existing role | Requested model and effort | Reason |
 |---|---|---|
-| A Sequitur core; B codec/warnings | Opus 4.8 / high | Bounded invariant/codec/progress work; B consumes A's agreed contract, and extra grammar machinery still needs its ablation |
-| C diagnostic inputs | Opus 4.8 / high | Preserve approximate evidence and provenance rather than invent correctness labels |
-| D selector | Opus 4.8 / high | Implement the declared objective and serialized feasibility checks; escalate a cross-consumer conflict to Fable 5.1 / high |
-| E evaluation | Opus 4.8 / high; medium for result collation alone | Test design and failure attribution need reasoning; collecting already-produced artifacts is bounded |
+| Main implementation owner | Opus 5 / high | Multi-file judgment: freezes the shared contract, integrates `internal/checkpoint`/daemon and configuration, sequences seven commits |
+| A Sequitur core; B codec/warnings | Opus 4.8 / high | Bounded single-package invariant/codec/progress work against the frozen contract; extra grammar machinery still needs its ablation |
+| C diagnostic inputs | Opus 4.8 / high | Bounded single-package slice; preserve approximate evidence and provenance rather than invent correctness labels |
+| D selector | Opus 5 / high | Cross-consumer judgment: the declared objective and serialized feasibility checks span SP-11 and SP-21 consumers; escalate a cross-consumer conflict to the Fable 5.1 / high reviewer |
+| E evaluation | Opus 4.8 / high; Opus 5 / low for result collation alone | Test design and failure attribution need reasoning; collecting already-produced artifacts is mechanical |
 | Independent constraint/consumer reviewer | Fable 5.1 / high | Review G6.3 retention, dependency closure, overflow and actual SP-11 delivery across components |
 
-Start independent A and C slices after shared contracts. Schedule B after A's contract and D after C's contract; implementations may overlap only on agreed disjoint files. Main integrates actual consumers before E's combined evaluation. At most two authors and one ready reviewer are active, with one Fable maximum; roles may reuse threads and do not each require a child. Preserve the quiet-run benchmark requirement and main-only shared checkpoint/configuration integration.
+One Fable seat at a time; roles may reuse threads and do not each require a child. Preserve the quiet-run benchmark requirement and main-only shared checkpoint/configuration integration.
+
+**Dispatch contract.** Every unit owns an exclusive file set and reports to a file with a short structured return: status, files touched, gates exercised, open questions. Each unit carries a per-unit tool-call budget and stops with BLOCKED after three identical failures instead of retrying. No `git stash` — the stash list is shared across all worktrees of one repository. Confirm any `go test -run` filter actually selects cases; it prints `ok` when it matches nothing, which caused three real misdiagnoses in the preceding session.
 
 ## Exit criteria
 
