@@ -53,6 +53,15 @@ var decoderPool = sync.Pool{
 	},
 }
 
+// encodedObjectLimit includes the encoder's worst-case framing/block overhead for a maximum
+// plaintext object. A raw MaxPutBytes limit would reject valid incompressible encoded input.
+// The same configured encoder used by Encode defines the supported on-disk representation.
+func encodedObjectLimit() int64 {
+	enc := encoderPool.Get().(*zstd.Encoder)
+	defer encoderPool.Put(enc)
+	return int64(enc.MaxEncodedSize(MaxPutBytes))
+}
+
 // Encode returns the zstd-compressed form of b, at zstd.SpeedDefault. This is a real
 // implementation, not a stub (§14.1 of plans/V1-SP-01-foundation-toolchain-and-contracts.md):
 // SP-06's real Put/PutBytes calls it directly to produce objects/ab/cd/<sha256>.zst, so it must

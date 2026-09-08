@@ -141,9 +141,7 @@ func TestGetChunk_QuarantinesCorruption(t *testing.T) {
 	_, statErr := os.Stat(paths.Long(objPath))
 	require.True(t, os.IsNotExist(statErr), "the corrupt object must be moved out of objects/")
 
-	quarantined := filepath.Join(paths.Of(tp.Root).Tmp, quarantineDir, hx+objectSuffix)
-	_, statErr = os.Stat(paths.Long(quarantined))
-	require.NoError(t, statErr, "the corrupt object must land in tmp/quarantine for inspection")
+	expectQuarantinedObject(t, tp, objPath)
 
 	require.Equal(t, int64(1), tp.counter("store.quarantined"))
 }

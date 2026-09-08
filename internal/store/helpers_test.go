@@ -1085,13 +1085,10 @@ func TestPutObject_FailsWhenTheFanoutDirectoryCannotBeCreated(t *testing.T) {
 	require.False(t, novel, "a failed write must not be reported as a novel stored object")
 }
 
-// TestQuarantine_RemovesTheObjectEvenWhenTheMoveFails asserts the §12.3 "store corrupt" row holds
-// even when the quarantine directory cannot receive the file.
-//
-// Keeping the object for inspection is the nice-to-have; taking it OUT OF SERVICE is the
-// requirement. Losing the race to move it must not leave a known-bad object sitting in objects/,
-// where every later read would keep tripping over it and re-paying the failed decode.
-func TestQuarantine_RemovesTheObjectEvenWhenTheMoveFails(t *testing.T) {
+// TestQuarantine_PreservesExistingEvidence replaces the historical delete-on-move-failure
+// assertion. SP-20 requires retained evidence: an occupied historical destination must survive
+// while newly rejected bytes are moved to a separate quarantine attempt.
+func TestQuarantine_PreservesExistingEvidence(t *testing.T) {
 	tp := newTestStore(t)
 	payload := []byte("a chunk that will be quarantined the hard way")
 	h := core.HashBytes(core.DomainChunk, payload)
@@ -1100,7 +1097,7 @@ func TestQuarantine_RemovesTheObjectEvenWhenTheMoveFails(t *testing.T) {
 	require.NoError(t, err)
 	objPath := tp.Store.objectPath(h)
 
-	// Block the quarantine destination with a non-empty directory, so the move cannot land there.
+	// Occupy the old fixed destination; a new attempt must not remove or overwrite its contents.
 	blocked := filepath.Join(paths.Of(tp.Root).Tmp, quarantineDir, filepath.Base(objPath))
 	require.NoError(t, os.MkdirAll(paths.Long(blocked), 0o700))
 	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(blocked, "occupant")), []byte("x"), 0o600))
@@ -1109,13 +1106,12 @@ func TestQuarantine_RemovesTheObjectEvenWhenTheMoveFails(t *testing.T) {
 	require.ErrorIs(t, err, core.ErrNotFound,
 		"the read must still degrade to not-found rather than surfacing the failed move")
 
-	_, statErr := os.Stat(paths.Long(objPath))
-	require.True(t, os.IsNotExist(statErr),
-		"a known-bad object must leave objects/ even when it cannot be preserved for inspection: "+
-			"otherwise every later read re-discovers the same corruption")
-	require.Equal(t, int64(1), tp.counter("store.quarantined"),
-		"the quarantine must still be counted, since that counter is how the corruption becomes "+
-			"visible at all")
+	expectQuarantinedObject(t, tp, objPath)
+	occupant, err := os.ReadFile(paths.Long(filepath.Join(blocked, "occupant")))
+	require.NoError(t, err)
+	require.Equal(t, []byte("x"), occupant)
+	require.Equal(t, int64(1), tp.counter("store.quarantined"))
+	require.Zero(t, tp.counter("store.quarantine_failed"))
 }
 
 // ── objects.go: isRenameContention and renameObject ──────────────────────────────────────────
@@ -1304,15 +1300,12 @@ func TestGetObject_LengthDisagreementQuarantines(t *testing.T) {
 	require.False(t, tp.Store.objectExists(h),
 		"the mismatched object must be moved out of objects/ so a later read cannot keep tripping "+
 			"over it")
-	quarantined := filepath.Join(paths.Of(tp.Root).Tmp, quarantineDir, hexOf(h)+objectSuffix)
-	_, statErr := os.Stat(paths.Long(quarantined))
-	require.NoError(t, statErr, "the object must be kept in tmp/quarantine so a human can inspect it")
+	expectQuarantinedObject(t, tp, tp.Store.objectPath(h))
 }
 
 // TestGetChunk_ReadsAnObjectWithNoIndexEntry asserts the crash-recovery case GetChunk documents: an
 // object left on disk by a crash between its write and its index append is still readable. There is
-// simply no recorded length to check it against, so the frame checksum stands alone for that one
-// case.
+// no recorded length to check it against, but the plaintext still must match its content address.
 func TestGetChunk_ReadsAnObjectWithNoIndexEntry(t *testing.T) {
 	tp := newTestStore(t)
 	payload := []byte("written to objects/ but never announced in index/roots.jsonl")
