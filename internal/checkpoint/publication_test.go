@@ -260,3 +260,46 @@ func TestLegacyFormatCheckpointsStayReadable(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, chain, 2, "and it still links to its parent")
 }
+
+// TestCommittedFrontierIsBackedByDurableEvidence is the verified-frontier row. A committed
+// checkpoint may claim a frontier only over segments it actually encoded from durable originals,
+// and everything it did not encode must still be listed as unencoded afterwards — preserved and
+// visible, never closed over by a frontier that swept past it.
+func TestCommittedFrontierIsBackedByDurableEvidence(t *testing.T) {
+	f := newFx(t)
+	f.prompt(0, "Fix the intermittent 500s on the refresh endpoint.", true)
+	f.tool("toolu_frontier_0001", 1, "Read", "src/auth.ts", "export function refreshToken() {}", false)
+
+	// Three closed segments with a HOLE at turns 4-6: 1-3 and 7-9 exist, the middle span does not.
+	f.closedSeg(1, 0, 3)
+	f.closedSeg(2, 7, 9)
+	d := f.begin()
+
+	// Only the first is encoded. The draft's frontier must describe that and nothing more.
+	fr := f.advance(d, 1)
+	require.Equal(t, core.TurnIndex(3), fr, "the frontier is the last turn actually encoded")
+
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err)
+	require.Equal(t, core.TurnIndex(3), ref.Frontier,
+		"a committed frontier may not exceed the evidence encoded under it")
+
+	cp, _, err := f.reader(t).Get(f.ctx(), ref.Seq)
+	require.NoError(t, err)
+	require.Equal(t, []core.SegmentID{1}, cp.EncodedSegments,
+		"the artifact names exactly the segments it was built from")
+
+	// The unencoded segment beyond the hole is preserved and still offered to the next pass.
+	left, err := f.store.Segments().Unencoded(f.ctx(), f.sess)
+	require.NoError(t, err)
+	require.Len(t, left, 1)
+	require.Equal(t, core.SegmentID(2), left[0].ID,
+		"work the frontier did not reach stays listed, not silently closed over")
+
+	// And the segment that WAS encoded carries the checkpoint reference §8.2 requires, so a second
+	// checkpoint cannot claim it.
+	seg, err := f.store.Segments().Get(f.ctx(), 1)
+	require.NoError(t, err)
+	require.True(t, seg.EncodedOnce)
+	require.Equal(t, ref.Seq, seg.CheckpointSeq)
+}
