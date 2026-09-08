@@ -565,6 +565,33 @@ on `verify/v4`, and `govulncheck`'s database fetch are the parts that cannot run
 in this environment.
 
 
+### Addendum — coordinator rulings that bind this schedule (2026-09-08)
+
+Four of the ten NC rulings change what a gate report may claim. Full text and
+evidence: [`reconciliation-map.md`](reconciliation-map.md) section 7.
+
+- **NC-9 — the gate set of record is the historical `V4-ALL-01..08`**, not the
+  coordinator's eight. Where the two enumerations differ, the difference is
+  recorded rather than substituted, and `V4-ALL-04` (coverage floors) keeps its
+  slot even though the coordinator's eight has no coverage gate. Groups S1–S16
+  are unchanged; only the enumeration the report is written against is settled.
+- **NC-10 — G3 now passes by correction.** All sixteen unsatisfiable `-run`
+  patterns in `inventory.md` were fixed in place, with **no waivers added**;
+  `go run ./tools/devtool lint --only=runpatterns` PASSes with the same seven
+  pre-existing waivers. Six of them exited 0 while verifying nothing, so any row
+  scored against those commands **before this fix** was scored against a silent
+  pass and must be re-run.
+- **NC-2 — G5 (group S5) must still run after unit F `f5df6f0`.** The §7.1
+  exception that was verified there covers the goldens' *provenance* — they are
+  reproduced exactly by the real generator, and the diff is description text
+  only — not the manifest gate itself.
+- **NC-1a — G8 gained a gap, not a check.** `V4-ALL-08` is retired as written,
+  and its replacement (a `Qompack.md` change carries an authorized Revision-log
+  entry with a matching `QOMPACK-ERRATA.md` record) has **no enforcing guard**.
+  G8's manual review must record it as **MISSING**; it cannot be signed off as
+  passed.
+
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.
