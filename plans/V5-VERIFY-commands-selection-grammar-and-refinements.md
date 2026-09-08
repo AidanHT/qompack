@@ -125,6 +125,76 @@ The first is this checkpoint's own work: SP05-D1, SP06-D2, SP08-D1 and SP10-D1 a
 dispositions. Re-baseline package counts after each merge rather than predicting them; SP-15 alone
 touches 88 files, so totals will move even where the failure set does not.
 
+#### Delegating the integration
+
+**The merge itself is never fanned out.** There is one `develop` worktree, one index and one branch
+ref; three children merging concurrently race on all three and the survivor is whichever wrote last.
+R3's first safety control is exclusive file ownership, and concurrent merges into one worktree are
+its exact inverse. This document already fixes the ownership: the coordinator owns shared
+integration, commits and report. A child may be given the merge only as a single serial lane, one
+merge at a time, and gains nothing over the coordinator running it.
+
+What parallelizes is the work *around* the merge. Four lanes, in order:
+
+| Lane | Concurrency | Owner | Seat |
+|---|---|---|---|
+| 1. Pre-merge branch assessment | 3 concurrent | one child per branch | Opus 4.8 / high |
+| 2. The merges | **serial, one at a time** | coordinator | — |
+| 3. Post-merge validation | **serial, one at a time** | one child per merge | Opus 4.8 / high |
+| 4. Checkpoint verification | up to the residual cap | groups A–H | per §1 |
+
+Lane 4 is where the fan-out actually pays: the A–H groups are this checkpoint's real work and are
+already scoped for concurrency. Lanes 1–3 exist to get `develop` into a state those groups can run
+against.
+
+**Lane 1 — pre-merge assessment, 3 concurrent.** One child per wave-4 branch, each read-only in its
+own worktree at that branch's tip, none touching `develop`. Each returns: the branch's changed-file
+set, the result of `go build ./...` and its owning packages' tests on that branch alone, and the
+collisions it predicts against the other two branches. Three children reading three isolated
+worktrees have no shared writer, which is what makes this lane safe to run wide. Their reports let
+the coordinator merge knowing what to expect instead of discovering it at the conflict prompt.
+
+**Lane 2 — the merges, serial.** SP-15, then SP-16, then SP-14, by the commands above. Not delegated
+and not overlapped.
+
+**Lane 3 — validation, serial.** One child per merge, and only one alive at a time, because heavy
+validation is one job per machine under B09 and R3 bounds agent count and validation load separately.
+A child that runs the whole tree while another child does the same exhausts memory — that is the
+recorded incident behind the raised cap, not a hypothetical. The child runs the four validation steps
+in order, reports the failure set, and compares it against the four-test known baseline.
+
+**Every child's brief carries these, or it will report a false BLOCKED:**
+
+- The four known pre-existing failures. A child running a broad suite hits them and, without the
+  baseline, concludes the merge broke something.
+- Never `git stash`. The stash list is shared across every worktree of one repository, so one child's
+  stash silently reaches every other worktree.
+- A `go test -run` filter prints `ok` when it matches nothing. Confirm the pattern selects real cases
+  before reporting a pass.
+- Never pipe `go test` through `grep` or `head`; the exit code is the pipeline's and the list is
+  truncated.
+- Commit rules: conventional subject, lowercase scope, no attribution trailers, body lines ≤ 100
+  runes.
+- Its own report path. Two children never write the same file.
+- A tool-call budget, and a stop-and-report-BLOCKED rule after three identical failures rather than
+  retrying.
+
+**Dispatch.** `ultracode` takes effect only when a user types it in a prompt; this document
+containing the word triggers nothing. To run lane 1:
+
+```text
+ultracode — run lane 1 of "Delegating the integration" in
+plans/V5-VERIFY-commands-selection-grammar-and-refinements.md. One child per wave-4 branch,
+read-only, each in its own worktree at that branch's tip. None touches develop.
+```
+
+Then merge serially, and dispatch lane 3 one child per merge. The residual of the shared eight-child
+pool governs lane 4; confirm no other cooperating wave-4 plan holds children before sizing it.
+
+**Claims this delegation may not make.** B08 forbids claiming observed routing — model identities are
+requested and effective routing is not exposed — so no speedup, cost saving or measured-efficiency
+claim follows from running lanes 1 and 4 wide.
+
 #### Then cut the branch
 
 Only once the integrated `develop` has been validated does `verify/v5` come from it. Merging
