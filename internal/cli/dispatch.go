@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/qompack/qompack/internal/commands"
 	"github.com/qompack/qompack/internal/core"
 )
 
@@ -119,6 +120,14 @@ func Dispatch(ctx context.Context, cmds []Cmd, argv []string, env Env, out, errw
 	if err != nil {
 		if !errors.Is(err, errAlreadyReported) {
 			fmt.Fprintf(errw, "qompack %s: %v\n", cmd.Name, err)
+		}
+		// §2.3 makes ExitUsage "an unknown subcommand OR A MALFORMED FLAG". Until SP-14 no
+		// subcommand could report the second case — every registered body either succeeded or
+		// failed — so a malformed flag inside a command came back as ExitError. A user who
+		// mistyped a flag and a command that could not answer are different situations, and a
+		// script branching on the exit code could not tell them apart.
+		if errors.Is(err, commands.ErrUsage) {
+			return ExitUsage
 		}
 		return ExitError
 	}

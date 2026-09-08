@@ -9,7 +9,6 @@ import (
 
 	"github.com/qompack/qompack/internal/commands"
 	"github.com/qompack/qompack/internal/config"
-	"github.com/qompack/qompack/internal/core"
 )
 
 // wantCommands is the §5.17 list. It is written out here rather than read from commands.Names()
@@ -36,6 +35,13 @@ func TestAll_CoversEverySlashCommand(t *testing.T) {
 //
 // Every Deps member is nil during waves 1–2. If All panicked or refused, the plugin would have no
 // working commands during precisely the period when asking it what state it is in matters most.
+//
+// The assertion is that every command gives a CLASSIFIED answer — not that it gives one specific
+// error. It used to require core.ErrNotImplemented from all seven, which was exactly right while
+// all seven were stubs and stops being right as SP-14 fills them in: an implemented command run
+// with no dependencies reports unavailable, and one run without a required argument reports a
+// usage error. Both are honest, and neither is the panic or the silent empty success this test
+// exists to prevent.
 func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
 	t.Parallel()
 
@@ -45,10 +51,27 @@ func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
 	for _, c := range cmds {
 		var out bytes.Buffer
 		err := c.Run(context.Background(), nil, &out)
-		require.True(t, core.IsNotImplemented(err),
-			"/qompack:%s must report ErrNotImplemented, got %v", c.Name(), err)
-		require.Contains(t, err.Error(), c.Name(),
-			"the error must name the command so a user can tell which one is missing")
+
+		// status is the exception, and the exception is the design: its job is to report what
+		// could be observed, so "nothing could be reached" is one of its answers rather than a
+		// failure to produce one. It must still say so in the output.
+		if c.Name() == "status" {
+			require.NoError(t, err)
+			require.Contains(t, out.String(), "unavailable")
+			continue
+		}
+
+		require.Error(t, err, "/qompack:%s must not report success with no dependencies", c.Name())
+
+		kind := commands.KindOf(err)
+		require.Contains(t,
+			[]commands.ErrorKind{commands.ErrorKindUnavailable, commands.ErrorKindUsage},
+			kind, "/qompack:%s answered %q: %v", c.Name(), kind, err)
+
+		if kind == commands.ErrorKindUnavailable {
+			require.Contains(t, err.Error(), c.Name(),
+				"the error must name the command so a user can tell which one could not answer")
+		}
 	}
 }
 
