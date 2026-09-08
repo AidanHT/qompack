@@ -65,6 +65,13 @@ const CodecVersion = 1
 // NUL is the separator because Symbol's real inhabitants are tool names, the literal "user" and
 // test-outcome markers such as "test:fail" — none of which can contain a NUL byte. A printable
 // sigil like "R" or "$" could collide with a tool named that; this cannot.
+//
+// The prefix is RESERVED, and the reservation is what makes the encoding sound rather than merely
+// unlikely. In the live grammar it does not matter — rule identity there is a pointer, not a
+// string — but a Snapshot flattens both into one Symbol space, so a TERMINAL that happened to
+// spell RuleRef(7) would decode as a reference to rule 7. That is why the sigil is a byte no
+// legitimate inhabitant can contain: the collision is excluded by the alphabet rather than
+// defended against at every call site. TestRuleRef_ThePrefixIsReserved pins it.
 const ruleRefPrefix = "\x00R"
 
 // RuleRef renders id as the Symbol that references it. RuleRef and ParseRuleRef are declared here,
@@ -76,13 +83,20 @@ func RuleRef(id RuleID) Symbol { return Symbol(ruleRefPrefix + strconv.Itoa(int(
 // that merely starts with the prefix but carries an unparseable remainder is NOT a reference: it
 // is returned as not-a-reference rather than as rule zero, so a corrupt or hand-written stream
 // degrades into an odd-looking terminal instead of silently aliasing a real rule.
+//
+// The remainder must be exactly what RuleRef would have written, which is stricter than "parses as
+// a number" and deliberately so. strconv.Atoi accepts "+7", "-0" and (for a wider remainder) other
+// spellings RuleRef never emits, so a decoder that merely called Atoi would accept several
+// distinct Symbols for one rule. Encoded rule identity would then be many-to-one: a forged or
+// hand-edited stream could name rule 7 in a spelling no encoder produced, and two "different"
+// references would silently be the same edge. Round-tripping through Itoa is the whole check.
 func ParseRuleRef(s Symbol) (RuleID, bool) {
 	rest, ok := strings.CutPrefix(string(s), ruleRefPrefix)
 	if !ok {
 		return 0, false
 	}
 	n, err := strconv.Atoi(rest)
-	if err != nil || n < 0 {
+	if err != nil || n < 0 || strconv.Itoa(n) != rest {
 		return 0, false
 	}
 	return RuleID(n), true

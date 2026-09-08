@@ -11,8 +11,20 @@
 // by the architecture and so is implemented for real (00-ARCHITECTURE.md §14.1 of
 // plans/V1-SP-01-foundation-toolchain-and-contracts.md): SP-08 injects its output through
 // UserPromptSubmit and SP-15 asserts it, so the wording is frozen here rather than left to SP-15
-// to invent later. Every Sequitur operation is a stub — Append and Reset (which have no return
-// value at all) are no-ops, Rules/Thrash/Compressed (which have no error return) report the
-// documented nil, and MarshalBinary/UnmarshalBinary report core.ErrNotImplemented — until SP-15
-// lands the real grammar induction.
+// to invent later.
+//
+// SP-15 lands the real grammar induction: every Sequitur operation now does its own work, and no
+// method in this package reports core.ErrNotImplemented any more. Append folds a Symbol in while
+// maintaining both classical invariants, Rules/Thrash/Compressed report the induced grammar, and
+// MarshalBinary/UnmarshalBinary go through the version-tagged Snapshot codec — whose reader
+// refuses a bad magic, a zero or higher version, and a truncated or forged payload with
+// core.ErrDegraded, leaving its receiver unchanged rather than yielding a silently empty grammar.
+//
+// SP-15 also adds the state-aware layer alongside Sequitur: StateSignature, Progress and
+// StateWarning (statewarn.go). It is WARNING-ONLY and stays that way — a StateWarning creates no
+// elimination, no prohibition and no binding constraint — because the failure mode that matters
+// here is the false positive. An ordinary edit-test-edit loop that is changing files or failure
+// signatures is progress, not thrashing, and a system that called it thrashing would spend the
+// user's trust faster than it saved their context. Warnings are bounded, deduplicated, expiring,
+// and excluded from their own input so one can never cause the next.
 package grammar
