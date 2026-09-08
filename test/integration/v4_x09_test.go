@@ -101,9 +101,31 @@ func x9v4Open(t *testing.T) *x9v4Rig {
 	srv := mcp.NewServer(mcp.ServerName, "v4-x09", logging.Nop())
 	require.NoError(t, mcp.RegisterAll(srv, mcp.ToolDeps{
 		Store: s, Cfg: p.Cfg, ProjectRoot: p.Root, DisableWhy: true,
+		// mcp fails CLOSED without a retrieval-side redactor (T20-M2-04): `expand` would report
+		// itself unavailable and the growth walk below would measure nothing. Supplying it is the
+		// composition root's job, and for this rig that is here.
+		Redactor: x9v4Redactor{r: redact.New(p.Cfg)},
 	}))
 
 	return &x9v4Rig{P: p, Store: s, Writer: w, Src: src, Server: srv}
+}
+
+// x9v4Redactor adapts the REAL redact.Redactor to mcp.Redactor, exactly as internal/cli's
+// retrievalRedactor does for the shipped daemon: the interface is declared in internal/mcp and
+// satisfied outside it because §3.2 keeps internal/redact out of mcp's allow-set.
+type x9v4Redactor struct{ r redact.Redactor }
+
+// Redact applies today's policy and reports the rule behind each match, one entry per match.
+func (x x9v4Redactor) Redact(in []byte) ([]byte, []string) {
+	out, matches := x.r.Redact(in)
+	if len(matches) == 0 {
+		return out, nil
+	}
+	rules := make([]string, len(matches))
+	for i, m := range matches {
+		rules[i] = m.Rule
+	}
+	return out, rules
 }
 
 // x9v4Expand drives the real `expand` handler, which writes an ephemeral-at-birth ToolUseRecord

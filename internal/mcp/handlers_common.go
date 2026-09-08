@@ -13,7 +13,6 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
-	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -103,11 +102,12 @@ type handlers struct {
 	// exported route to it, and SP-13 adds no export to a package it does not own.
 	bfHist string
 
-	// redactor re-applies the CURRENT secret policy to retrieved bytes (T20-M2-04). It is built
-	// once, from the same effective config every other retrieval bound reads from, and is never
-	// nil: redact.New already returns an identity Redactor when runtime.redact is disabled, so
-	// every call site can invoke it unconditionally.
-	redactor redact.Redactor
+	// redactor re-applies the CURRENT secret policy to retrieved bytes (T20-M2-04). It is the
+	// Redactor the composition root supplied and it MAY be nil, because this package cannot build
+	// one: §3.2 keeps internal/redact out of its allow-set, so the implementation is adapted in
+	// internal/cli and handed in through ToolDeps. A nil one is the fail-closed case — see
+	// redactForRetrieval — never an identity pass-through.
+	redactor Redactor
 
 	// disableWhy and disableDropped are the explicit operator/build gate for the two
 	// checkpoint-dependent tools (interface contract: "Core archive retrieval is independently
@@ -149,7 +149,7 @@ func newHandlers(d ToolDeps) *handlers {
 		root: d.ProjectRoot,
 		clk:  clk, log: log, m: m,
 		bfHist:     bfHistName(),
-		redactor:   redact.New(cfg),
+		redactor:   d.Redactor,
 		disableWhy: d.DisableWhy, disableDropped: d.DisableDropped,
 	}
 }
@@ -365,18 +365,22 @@ func dropEntriesOf(in []checkpoint.DropEntry) []checkpoint.DropEntry {
 //
 // Only the COUNT and the RULE NAMES are logged, and only via Loud — never any span of the input —
 // so a diagnostic about a secret can never itself become one ("no secret reaches a log line").
-func (h *handlers) redactForRetrieval(tool string, b []byte) []byte {
-	out, matches := h.redactor.Redact(b)
-	if len(matches) == 0 {
-		return out
+//
+// ok is false when no Redactor was wired. The caller must then serve NOTHING and report itself
+// unavailable: without a redactor this build cannot tell a clean record from one captured before
+// today's rules existed, and "I cannot check" must never render as "here it is". See
+// redactorMissingReason.
+func (h *handlers) redactForRetrieval(tool string, b []byte) (out []byte, ok bool) {
+	if h.redactor == nil {
+		return nil, false
 	}
-	rules := make([]string, len(matches))
-	for i, m := range matches {
-		rules[i] = m.Rule
+	out, rules := h.redactor.Redact(b)
+	if len(rules) == 0 {
+		return out, true
 	}
 	h.log.Loud("mcp: retrieval redacted content the capture-time policy had not caught",
-		"tool", tool, "count", len(matches), "rules", strings.Join(rules, ","))
-	return out
+		"tool", tool, "count", len(rules), "rules", strings.Join(rules, ","))
+	return out, true
 }
 
 // unsupportedReason is the one sentence every administratively-gated tool reports, stated once so
