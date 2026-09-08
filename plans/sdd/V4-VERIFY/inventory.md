@@ -5,6 +5,23 @@ Source: git show 7f92af5:plans/V4-VERIFY-checkpoint-rehydrate-schedule.md; basel
 ## Disposition rules
 Every retained assertion below must be re-run by its revised owner on the accepted combined tree. A matching file or test name is only an implementation pointer, never a pass. `MISSING` means no current definition matching the historical assertion was found. Historical assertions that no longer match current semantics require an explicit retired disposition from the coordinator; they are never silently passed.
 
+## Reconciliation against the corrective candidate (2026-09-08)
+
+Every row below is preserved exactly as written, against the original baseline
+`wip/v4-preparation` @ `919ca3a`. A **parallel adjudication** against
+`feat/v4-corrective` @ `2232af6` — the integrated corrective candidate carrying nine merged units —
+lives in [`reconciliation-map.md`](reconciliation-map.md), keyed by the same row IDs. It records, per
+row, one of `MAPPED` / `MAPPED-CMD` / `SUPERSEDED-BY-CORRECTIVE` / `RETIRED` / `MISSING` /
+`PENDING-A2` / `SPLIT-REVIEW` / `NEEDS-COORDINATOR`, with the current evidence and a confidence
+marker. No row was dropped and nothing was scored as a pass. That file also carries the fourteen §4
+authoring briefs, the eight whole-tree gate commands with their runnability on this host, and the
+validation schedule that groups rows by the single command and snapshot that would cover them.
+
+Unit A2 (daemon admission, delivery-journal wiring, publication ordering, crash cuts) is **not** in
+that base; rows blocked on it are `PENDING-A2`, not `MISSING`. The V3 waiver is untouched: J5 billing
+(run `32932419445`) and the three-platform p99 backfill remain **waived-open**.
+
+
 ## Original 4.1–4.14 scenarios
 
 | Scenario | Current definition | Disposition | Revised owner requirement |

@@ -541,6 +541,30 @@ along with fmt checking, config/CLI vet, and importgraph/testdeps lint. This
 is consumer/dependency evidence only; it does not alter the bounded acceptance
 or close any remaining gate. This review did not rerun the commands.
 
+## Whole-tree gate schedule (2026-09-08)
+
+The eight whole-tree gates and the sixteen-group validation schedule derived from
+them now live in [`reconciliation-map.md`](reconciliation-map.md) sections 4 and 6.
+Two findings from this review bind that schedule directly.
+
+The race split recorded above is the reason schedule group **S6**
+(`devtool test-race`) and group **S7** (plain `devtool test`, which is what
+actually executes `test/e2e`) are separate runs against separate artifacts. A
+gate report that cites only S6 has not covered the e2e rows.
+
+Gate **G7** (`devtool bench-hotpath`, schedule group S14) and the benchmark
+sweep in group S13 must run alone in a quiet window under the ADR 0010 co-load
+policy, and the co-load declaration must be filed with the artifact. Under
+co-load the run reports B-A and still gates B-B with shortfall accounting; a
+co-loaded artifact is therefore evidence of the accounting, not of the budget.
+
+Runnability on the current host was checked while writing that schedule:
+`go1.26.6 windows/amd64` with `CGO_ENABLED=1` and MSYS2 `gcc 14.2.0`, so the
+race detector runs here. The ubuntu and macOS repetition arms, the full CI run
+on `verify/v4`, and `govulncheck`'s database fetch are the parts that cannot run
+in this environment.
+
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.
