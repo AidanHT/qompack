@@ -117,6 +117,24 @@ func resolveEvent(req ipc.Request) *hookio.Event {
 	return ev
 }
 
+// evidenceOnlyDelivery reports whether req is a classified capture with NO derived Event: the
+// record the hook client mints when admission refused the payload for observation but still
+// classified what arrived (a bounded permitted prefix, the fidelity that describes it, the capture
+// error naming why, and the observed source size). hookio derived no Event from such a payload and
+// none may be invented from it.
+//
+// resolveEvent answers an absent Event with a SYNTHETIC one — SessionID and nothing else — which
+// is right for a direct IPC caller that sent only Raw, and wrong here: handing that to ObserveTool
+// would record a tool use whose every field is a zero value the host never sent, which is the
+// synthetic default the capture contract exists to prevent. So the capture is published (the
+// durable object, stage 1, written before run is ever called) and the observation is skipped.
+func evidenceOnlyDelivery(req ipc.Request) bool {
+	if req.Event != nil || req.Capture == nil {
+		return false
+	}
+	return req.Capture.Outcome != core.OutcomeOK && captureIsDecided(*req.Capture)
+}
+
 // restoredExtra merges raw's top-level keys into extra, returning extra unchanged when raw is not
 // a JSON object (nil, a null, an array, a scalar, or malformed — all of which a corrupt spool line
 // can produce, and none of which is an error worth failing a hook over).
@@ -200,6 +218,16 @@ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 			resp := admissionResponse(v)
 			resp.Mode, resp.Hot = d.monitor.Mode(), d.registry.HotMode()
 			return resp
+		case v.Degraded:
+			// Deliberately NOT a return. A degraded decision routes exactly like an admitted one:
+			// the WAL line, then publishCapture's sidecar, so the record that says "a delivery
+			// arrived and could not be admitted whole" is durable on the live path exactly as it
+			// is on the spool path. Only the Event is withheld, and only when none was derived —
+			// see evidenceOnlyDelivery.
+			if d.m != nil {
+				d.m.Counter(counterAdmissionDegraded).Add(1)
+			}
+			d.log.Info("daemon: capture admitted as evidence only", "op", string(req.Op), "reason", v.Reason)
 		}
 		// The request is NOT rewritten. The WAL line must stay byte-identical to what the client
 		// sent, or a daemon-minted capture would make the WAL copy and the client's own spool copy
@@ -1001,7 +1029,9 @@ func (d *daemon) idleWriteMetrics(ctx context.Context) error {
 const (
 	counterAdmissionDenied   = "l0_admission_denied"
 	counterAdmissionFailed   = "l0_admission_failed"
+	counterAdmissionDegraded = "l0_admission_degraded"
 	counterAdmissionDaemon   = "l0_admission_daemon"
+	counterEvidenceOnly      = "l0_capture_evidence_only"
 	counterDeliveryUnleased  = "l0_delivery_unleased"
 	counterDeliveryAckFailed = "l0_delivery_ack_failed"
 	counterSidecarFailed     = "l0_capture_sidecar_failed"
@@ -1017,8 +1047,35 @@ type admissionVerdict struct {
 	Denied bool
 	// Failed means no decision could be reached. Persist nothing; the delivery is a gap.
 	Failed bool
+	// Degraded means the policy DID decide and the decision is degraded: the delivery is admitted
+	// as EVIDENCE — a sidecar carrying the fidelity, the capture error and the observed source
+	// size — and not as an observation. It is neither a denial nor a gap, and treating it as
+	// either loses the one record that says a delivery arrived and could not be admitted whole.
+	Degraded bool
 	// Reason is a closed label, never payload-derived text.
 	Reason string
+}
+
+// captureIsDecided separates "the policy decided, and the decision is degraded" from "no decision
+// could be reached". A capture that was RECORDED by an admission run and NAMES why it is degraded,
+// from core's closed label set, is a decision: an oversize payload, a short host read, or a
+// delivery that was not an admissible JSON object. Each of those is a fact about what arrived, and
+// re-running the policy on a later pass cannot change it.
+//
+// The three excluded labels are the ones that describe THIS PROCESS rather than the delivery:
+// CaptureErrorPolicy (no policy compiled, so nothing classified anything), CaptureErrorContract
+// (the record itself is malformed), and CaptureErrorNone paired with a non-OK outcome (an outcome
+// that refuses to say why, which is exactly the shape a decision cannot have).
+func captureIsDecided(c hookio.Capture) bool {
+	if !c.Recorded() {
+		return false
+	}
+	switch c.CaptureError {
+	case core.CaptureErrorNone, core.CaptureErrorPolicy, core.CaptureErrorContract:
+		return false
+	default:
+		return true
+	}
 }
 
 // admitDelivery applies the gate above. It is safe to call more than once for the same delivery:
@@ -1029,11 +1086,18 @@ func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
 		if !c.Fidelity.Valid() || !c.CaptureError.Valid() {
 			return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorContract)}
 		}
-		switch c.Outcome {
-		case core.OutcomeDenied:
+		switch {
+		case c.Outcome == core.OutcomeDenied:
 			return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
-		case core.OutcomeOK:
+		case c.Outcome == core.OutcomeOK:
 			return admissionVerdict{Request: req}
+		case captureIsDecided(c):
+			// A degraded DECISION is admitted, not refused. This branch used to return Failed,
+			// which made the live daemon throw away exactly the record the hook client mints for
+			// an over-budget payload — and, because ipc.WithCapture downgrades any capture whose
+			// bytes will not fit the frame, threw away the Event beside it: on the shipped
+			// default every hook payload above ~384 KiB was dropped whole, observation included.
+			return admissionVerdict{Request: req, Degraded: true, Reason: string(c.CaptureError)}
 		default:
 			return admissionVerdict{Request: req, Failed: true, Reason: string(c.CaptureError)}
 		}
@@ -1063,6 +1127,8 @@ func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
 		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
 	case capture.Outcome == core.OutcomeDenied:
 		return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
+	case capture.Outcome != core.OutcomeOK && captureIsDecided(capture):
+		return admissionVerdict{Request: req, Degraded: true, Reason: string(capture.CaptureError)}
 	case capture.Outcome != core.OutcomeOK:
 		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
 	}
