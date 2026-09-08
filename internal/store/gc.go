@@ -47,7 +47,13 @@ type GCPolicy struct {
 // defaultMaxOutcomes bounds the per-root outcome list a report carries when a caller names no
 // limit. A 50 000-root store must not materialize 50 000 records to answer "what did this pass
 // decide"; the counters answer that, and the list is the sample that explains it.
-const defaultMaxOutcomes = 1024
+//
+// D11/§11.6 flags the value because store.chunk.min's own default happens to be 1024 too, but the
+// set is values, not meanings: this is a count of report rows and no configuration key owns it, so
+// there is no default for it to silently diverge from. Reading chunk.min here to satisfy the lint
+// would MANUFACTURE the coupling D11 exists to prevent. GCOptions.MaxOutcomes is the seam a caller
+// uses to change it.
+const defaultMaxOutcomes = 1024 //nomagic:allow a report-row count, not store.chunk.min (§11.6)
 
 // RootResult is one root's explicit lifecycle outcome for one GC pass (SP-20 M1-03: "quotas and
 // expiry are visible policy outcomes").
