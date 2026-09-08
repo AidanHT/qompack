@@ -136,13 +136,21 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 
 | Existing role | Requested model and effort | Reason and boundary |
 |---|---|---|
-| A capture boundary | Opus 4.8 / high | Apply the already-accepted publication adapter and prove ordering; no SP-20 redesign |
-| B deterministic representation | Opus 4.8 / high | Exact schema/parsers, capsule fidelity and baseline eligibility within owned files |
-| C recovery/rollback | Opus 4.8 / high | Distinguish denied/unavailable/resolvable outcomes and switch-off behavior |
-| D host coexistence | Opus 4.8 / high | Design competing-hook and version cases; medium only for collation of actual target transcripts |
+| Main implementation owner | Opus 5 / high | Multi-file judgment: shared types, test contracts, feature wiring, pipeline integration and shared-contract conflicts |
+| A capture boundary | Opus 5 / high | Multi-file judgment: apply the already-accepted publication adapter and prove capture-before-transform ordering; no SP-20 redesign |
+| B deterministic representation | Opus 4.8 / high | Bounded slice: exact schema/parsers, capsule fidelity and baseline eligibility within owned files |
+| C recovery/rollback | Opus 4.8 / high | Bounded slice: distinguish denied/unavailable/resolvable outcomes and switch-off behavior |
+| D host coexistence | Opus 4.8 / high | Bounded slice: design competing-hook and version cases; never a broad parser |
+| Transcript collation (support seat) | Opus 5 / low | Mechanical collation of actual target transcripts and run transcripts into the owning role's report file; no design judgment |
 | Independent host/recovery reviewer | Fable 5.1 / high | Trace capture-before-replacement, authorized handle resolution, recursion and structured/displayed semantics across the assembled pipeline |
 
-After main fixes shared types and test contracts, A/B can author disjoint slices; schedule C/D as slots become free and their inputs exist. Main integrates the single transformation pipeline and owns feature wiring. The final reviewer reads the integrated result and actual target/quality artifacts in a separate thread. Maximum three children total, one Fable at a time; do not parallelize a shared hook environment, golden fixture or enablement decision. Supported quality and recovery must pass before opt-in, irrespective of model choice.
+**Schedule.** Main lands the shared types and test contracts slice first; that is the one contract-first serial step. It must freeze the reserved `internal/admission` package name and file map, the exported surface in `types.go` (pipeline input/output, decision and outcome enums, handle and capsule shapes, error taxonomy for pass-through versus privacy denial), the default-off feature switch and target-allowlist config shape, and the shared test fixtures and helper signatures the T21 cases are authored against. Once that slice lands, A, B, C and D run concurrently on their existing exclusive file sets; no role waits on another role's slice. Main then integrates the single transformation pipeline and owns feature wiring.
+
+**Serial edges.** These are the only ordering constraints: the architecture amendment reserves `internal/admission` before any authoring begins; Main's shared types/test-contracts slice precedes A–D; Commit 4 still follows the M2/SP-13 authorization and recovery gate; and the independent host-boundary reviewer runs on the assembled pipeline in a separate thread, not per slice. No role changes SP-20 identity or publication semantics, or edits source outside its approved file set. Do not parallelize a shared hook environment, golden fixture or enablement decision. Supported quality and recovery must pass before opt-in, irrespective of model choice.
+
+**Authorization status.** This plan's status line authorizes implementation only after the M1–M3 gates. The M1–M3 implementation is complete and its focused gates pass on the integrated candidate, but the formal V4 sign-off is outstanding: five items are listed in `V4-report.md` section 19. Starting SP-21 therefore requires reading "after M1–M3 gates" as the delivered and focused-tested contracts rather than the signed V4 report. That reading is a user decision to record at dispatch, not a change this plan makes; this plan asserts neither that the gate is met nor that it is not.
+
+**Dispatch contract.** Each unit receives exclusive file ownership, writes its findings to a report file, and returns a short structured summary rather than prose. Each unit carries a per-unit tool-call budget and stops with a BLOCKED report after three identical failures instead of retrying. No unit runs `git stash`: the stash list is shared across all worktrees of one repository. Any `go test -run` filter must be confirmed to select actual cases — it prints `ok` when it matches nothing, which caused three misdiagnoses in the preceding session.
 
 ## Exit criteria
 
