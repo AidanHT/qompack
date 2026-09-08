@@ -256,7 +256,7 @@ func p3GoodContext() Context {
 			Policies: map[string]map[string]float64{
 				baselinePolicyName: {
 					"rehydration_tokens":    211_261,
-					"first_divergence_turn": 11, // testdata/baseline/phase0.json's committed value
+					"first_divergence_turn": 3, // testdata/baseline/phase0-recall.json's committed value
 				},
 				policyName: {
 					"rehydration_tokens":    120_000,
@@ -330,9 +330,9 @@ func TestPhase3_FailsWhenDivergenceNotBetter(t *testing.T) {
 func TestPhase3_FailsWhenStockItselfRegressed(t *testing.T) {
 	p3PassingCounters(t)
 	c := p3GoodContext()
-	// A drop from 11 to 5 is a 54% move on a DirHigherBetter metric — far past the 2% rule — and
+	// A drop from 3 to 1 is a 67% move on a DirHigherBetter metric — far past the 2% rule — and
 	// the qompack arm still "wins" against it, which is the trap.
-	c.Driver.Policies[baselinePolicyName]["first_divergence_turn"] = 5
+	c.Driver.Policies[baselinePolicyName]["first_divergence_turn"] = 1
 
 	err := phase3(c)
 	require.Error(t, err)

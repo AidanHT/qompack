@@ -48,7 +48,7 @@ const (
 // Default flag values.
 const (
 	defaultCorpusPath   = "testdata/sessions/synthetic"
-	defaultBaselinePath = "testdata/baseline/phase0.json"
+	defaultBaselinePath = "testdata/baseline/phase0-recall.json"
 	defaultOutPath      = "testdata/bench-replay.json"
 	// qompack-rehydrate joins the default set with SP-11. phase3 grades the rehydrator against
 	// the stock arm IN THE SAME RUN, so a default that omitted it would make the phase-3 gate fail

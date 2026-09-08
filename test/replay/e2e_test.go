@@ -53,7 +53,7 @@ func TestReplayDriver_EndToEnd(t *testing.T) {
 
 	code, stdout, stderr := driverRun(t,
 		"--corpus", "testdata/sessions/synthetic",
-		"--baseline", "testdata/baseline/phase0.json",
+		"--baseline", "testdata/baseline/phase0-recall.json",
 		"--phase", "0",
 		"--growth", "testdata/golden/eval/growth/stats-growth.json",
 		"--sketch", "testdata/golden/eval/growth/health.json",
@@ -67,7 +67,7 @@ func TestReplayDriver_EndToEnd(t *testing.T) {
 	var report DriverReport
 	require.NoError(t, json.Unmarshal(raw, &report))
 
-	baseRaw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0.json"))
+	baseRaw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0-recall.json"))
 	require.NoError(t, err)
 	var base baselineFile
 	require.NoError(t, json.Unmarshal(baseRaw, &base))
@@ -102,7 +102,7 @@ func TestReplayDriver_BaselineIsByteReproducible(t *testing.T) {
 // TestReplayDriver_BaselineHasExactlyNineteenKeysPerPolicy: a new metric cannot land without a
 // baseline for it, and a stale one cannot linger.
 func TestReplayDriver_BaselineHasExactlyNineteenKeysPerPolicy(t *testing.T) {
-	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0.json"))
+	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0-recall.json"))
 	require.NoError(t, err)
 	var base baselineFile
 	require.NoError(t, json.Unmarshal(raw, &base))
@@ -271,7 +271,7 @@ func TestReplayDriver_PhaseChecksMayNotBeDisabledInCI(t *testing.T) {
 // TestReplayDriver_RegressionAgainstMutatedBaseline drives the whole 2% rule end to end, including
 // the sign-off trailer, against a baseline deliberately moved out from under the run.
 func TestReplayDriver_RegressionAgainstMutatedBaseline(t *testing.T) {
-	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0.json"))
+	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0-recall.json"))
 	require.NoError(t, err)
 	var base baselineFile
 	require.NoError(t, json.Unmarshal(raw, &base))
@@ -345,7 +345,7 @@ func TestReplayDriver_RegenCorpusIsByteIdentical(t *testing.T) {
 func TestReplayDriver_RefusesACrossTierBaseline(t *testing.T) {
 	// A baseline identical to the committed one except for its tier: same corpus, same policies, so
 	// the ONLY thing that can fail the run is the tier check itself.
-	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0.json"))
+	raw, err := os.ReadFile(repoPath(t, "testdata/baseline/phase0-recall.json"))
 	require.NoError(t, err)
 	var base map[string]any
 	require.NoError(t, json.Unmarshal(raw, &base))
