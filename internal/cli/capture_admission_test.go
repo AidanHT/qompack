@@ -158,6 +158,19 @@ func TestHookCapture_CompositionPreservesEarlierFacts(t *testing.T) {
 	require.Equal(t, next.Bytes, got.Bytes)
 }
 
+// TestHookCapture_HardBoundPrecedesConfiguration pins the hard allocation cap's ORDERING: neither
+// a state record claiming ^uint32(0) nor any configuration can enlarge the read past
+// hookCaptureMaxBytes, and the bound fires without configuration having been consulted at all.
+//
+// It used to assert that too as "the environment is never scanned" and "no spool directory is ever
+// created", because a delivery over the cap was dropped outright. V4-Z's ruling changed what
+// happens AFTER the bound fires, not the bound itself: in a project that already has a .qompack
+// store, the refusal now leaves the same explicitly-unavailable record the configured budget
+// leaves, and clearing that record's prefix under the operator's own rules necessarily loads a
+// configuration. So the ordering claim is now made directly — the environment is first consulted
+// only once the reader has already read its last permitted byte — instead of through a proxy that
+// the ruling turned into an assertion against the trace it requires. TestHooks_HardCapDelivery*
+// own the record's contents and the no-store half of the ruling.
 func TestHookCapture_HardBoundPrecedesConfiguration(t *testing.T) {
 	root := t.TempDir()
 	require.NoError(t, os.MkdirAll(paths.Of(root).Run, 0o700))
@@ -166,20 +179,37 @@ func TestHookCapture_HardBoundPrecedesConfiguration(t *testing.T) {
 	require.NoError(t, ipc.WriteState(root, st))
 	reader := &countedAdmissionReader{remaining: hookCaptureMaxBytes * 2}
 	var out, errw bytes.Buffer
-	lookups := 0
+	// How much of the delivery had been read when the environment was first consulted for anything
+	// other than the project root. -1 means it was never consulted at all.
+	readAtFirstLookup := -1
 	code := Dispatch(context.Background(), All(), argvFor("observe prompt"), Env{
 		Getenv: func(key string) string {
 			if key == "QOMPACK_PROJECT_ROOT" {
 				return root
 			}
-			lookups++
+			if readAtFirstLookup < 0 {
+				readAtFirstLookup = reader.read
+			}
 			return ""
 		}, HomeDir: t.TempDir(), Stdin: reader, Clock: testClock(),
 	}, &out, &errw)
 	require.Equal(t, ExitOK, code)
-	require.Equal(t, hookCaptureMaxBytes+1, reader.read)
-	require.Zero(t, lookups, "oversize rejection precedes config environment scanning")
-	require.NoDirExists(t, paths.Of(root).Spool)
+	require.Equal(t, hookCaptureMaxBytes+1, reader.read,
+		"a state record claiming ^uint32(0) never enlarges the read past the hard allocation cap")
+	require.Equal(t, hookCaptureMaxBytes+1, readAtFirstLookup,
+		"the bound had already read its last byte and refused the delivery before any configuration "+
+			"environment was scanned: the resource bound never depends on policy being available")
+
+	req := onlySpooledRequest(t, root)
+	require.NotNil(t, req.Capture, "a delivery over the hard cap leaves a record, not nothing (V4-Z)")
+	require.Nil(t, req.Event, "the delivery is still refused: nothing admitted it, so nothing derives an Event")
+	require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+	require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+	require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+	require.Equal(t, hookCaptureMaxBytes+1, req.Capture.SourceBytes,
+		"the record carries the size the cap observed before it stopped, not one it never measured")
+	require.LessOrEqual(t, len(req.Capture.Bytes), hookCaptureRefusalPrefixBytes*2,
+		"the record carries a bounded prefix, never the buffer the cap exists to refuse")
 }
 
 type countedAdmissionReader struct{ remaining, read int }
