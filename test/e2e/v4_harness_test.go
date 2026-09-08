@@ -271,3 +271,43 @@ func (r *v4Rig) WaitIndexed(t *testing.T, want int) {
 func (r *v4Rig) LedgerFn() func() negknow.Ledger {
 	return func() negknow.Ledger { return r.Opts.Ledger }
 }
+
+// v4StartObserverOnly composes a daemon with the L0/L1 observer and NOTHING from wave 3: no
+// checkpoint writer, no pin store, no source supplier, no checkpoint idle tasks. It is the
+// reference arm of §4.13's structural A/B, and it is the only rig variant that deliberately leaves
+// production seams unwired — which is the point, not an omission.
+func v4StartObserverOnly(t *testing.T, p *testutil.Project) *v4Rig {
+	t.Helper()
+
+	opts := daemon.NewOptions(p.Root, p.Cfg)
+	opts.Log = p.Log
+
+	obsv, err := daemon.WireObserver(&opts)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = opts.Store.Close() })
+	t.Cleanup(func() {
+		if opts.Ledger != nil {
+			_ = opts.Ledger.Close()
+		}
+	})
+
+	d, err := daemon.New(opts)
+	require.NoError(t, err)
+	daemon.RegisterObserverIdleWork(d, obsv)
+
+	runCtx, cancelRun := context.WithCancel(context.Background())
+	runDone := make(chan error, 1)
+	go func() { runDone <- d.Run(runCtx) }()
+	t.Cleanup(func() {
+		if stopErr := d.Stop(context.Background()); stopErr != nil {
+			t.Errorf("e2e: stopping the observer-only daemon: %v", stopErr)
+		}
+		cancelRun()
+		if runErr := <-runDone; runErr != nil {
+			t.Errorf("e2e: the observer-only daemon's Run returned: %v", runErr)
+		}
+	})
+	e2eWaitDaemonUp(t, p.Root)
+
+	return &v4Rig{D: d, Segs: opts.Store.Segments(), Opts: &opts, P: p, Bin: Build(t)}
+}
