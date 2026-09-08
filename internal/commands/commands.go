@@ -13,6 +13,7 @@ import (
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/eval"
+	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/pins"
@@ -45,6 +46,11 @@ type Deps struct {
 	Metrics     obs.Registry
 	Contract    contract.Monitor
 	Cfg         config.Config
+	// MCP is the registered SP-13 retrieval server. The recall, why and dropped frontends
+	// dispatch into it rather than re-implementing search, so the authorization, coverage and
+	// fidelity distinctions its handlers make survive into the command output instead of being
+	// re-derived — and re-derived differently — here.
+	MCP mcp.Server
 	// Clock is the injected time source. A nil Clock means the system clock: a command is not
 	// worth failing over a missing seam, and every caller that cares about determinism — every
 	// test, every golden fixture — sets it.
@@ -124,7 +130,16 @@ type body func(ctx context.Context, inv Invocation) (json.RawMessage, error)
 // here one commit at a time, so a half-landed wave has some commands answering and the rest
 // saying honestly that they do not.
 func bodyFor(name string) body {
-	return notImplemented(name)
+	switch name {
+	case "recall":
+		return recallBody
+	case "why":
+		return whyBody
+	case "dropped":
+		return droppedBody
+	default:
+		return notImplemented(name)
+	}
 }
 
 // notImplemented is the body every command carries until its own commit lands.

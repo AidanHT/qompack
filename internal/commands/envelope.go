@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/qompack/qompack/internal/core"
 )
 
 // EnvelopeSchema is the version of the JSON document every command writes under --json.
@@ -43,6 +45,14 @@ var ErrUsage = errors.New("qompack: usage")
 // blockers" forbids falling back to the old absent-on-error reading, in which unreadable input
 // silently becomes a zero value that renders as a confident, wrong answer.
 var ErrUnsupported = errors.New("qompack: unsupported schema")
+
+// ErrUnavailable marks something this build could not observe: no daemon, no retrieval server, a
+// dependency not wired in this wave.
+//
+// It is separate from an ordinary failure because the two call for different responses. A failure
+// is a defect to report; an unavailable is a build or a session that cannot answer yet, and a user
+// told the second when the first is true — or the reverse — goes looking in the wrong place.
+var ErrUnavailable = errors.New("qompack: unavailable")
 
 // UsageErrorf builds a usage error that carries its own message and still matches ErrUsage under
 // errors.Is, so the CLI maps it to exit 2 without matching on strings.
@@ -126,6 +136,8 @@ func KindOf(err error) ErrorKind {
 		return ErrorKindUsage
 	case errors.Is(err, ErrUnsupported):
 		return ErrorKindUnsupported
+	case errors.Is(err, ErrUnavailable), core.IsNotImplemented(err):
+		return ErrorKindUnavailable
 	default:
 		return ErrorKindFailed
 	}

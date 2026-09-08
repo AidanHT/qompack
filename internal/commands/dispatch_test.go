@@ -91,15 +91,17 @@ func TestRun_JSONEnvelopeCarriesTheError(t *testing.T) {
 	for _, s := range commands.Specs() {
 		var out bytes.Buffer
 		err := find(t, s.Name).Run(context.Background(), []string{"--json"}, &out)
-		require.True(t, core.IsNotImplemented(err), "%s: %v", s.Name, err)
+		require.Error(t, err, "%s: with no dependencies there is nothing to succeed at", s.Name)
 
 		env, decodeErr := commands.DecodeEnvelope(out.Bytes())
 		require.NoError(t, decodeErr, "%s: --json must emit a decodable envelope", s.Name)
 		require.Equal(t, s.Name, env.Command)
-		require.False(t, env.OK, "%s: an unimplemented command is not a success", s.Name)
+		require.False(t, env.OK, "%s: a command that could not answer is not a success", s.Name)
 		require.NotNil(t, env.Error)
-		require.Equal(t, commands.ErrorKindFailed, env.Error.Kind)
-		require.Contains(t, env.Error.Message, s.Name)
+		require.Contains(t,
+			[]commands.ErrorKind{commands.ErrorKindUnavailable, commands.ErrorKindUsage},
+			env.Error.Kind, "%s: %v", s.Name, env.Error)
+		require.NotEmpty(t, env.Error.Message)
 	}
 }
 
@@ -123,10 +125,13 @@ func TestRun_ExitCodesCoverEveryCommand(t *testing.T) {
 		require.Equal(t, commands.ExitOK,
 			commands.ExitCode(find(t, s.Name).Run(context.Background(), []string{"--help"}, &out)))
 
+		// A command that cannot answer is an error (1); one missing a required argument is a
+		// usage mistake (2). Both are legitimate here, and which one applies depends on whether
+		// the command takes a required positional argument.
 		out.Reset()
-		require.Equal(t, commands.ExitError,
+		require.Contains(t, []int{commands.ExitError, commands.ExitUsage},
 			commands.ExitCode(find(t, s.Name).Run(context.Background(), nil, &out)),
-			"%s: an unimplemented command is an error, not a usage mistake", s.Name)
+			"%s: must not report success with no dependencies", s.Name)
 
 		out.Reset()
 		require.Equal(t, commands.ExitUsage,
@@ -140,7 +145,10 @@ func TestRun_DoubleDashEndsFlagParsing(t *testing.T) {
 
 	var out bytes.Buffer
 	err := find(t, "recall").Run(context.Background(), []string{"--", "--not-a-flag"}, &out)
-	require.True(t, core.IsNotImplemented(err), "the term after -- is positional, not a flag")
+	require.NotErrorIs(t, err, commands.ErrUsage,
+		"the term after -- is a positional query, not an unknown flag")
+	require.ErrorIs(t, err, commands.ErrUnavailable,
+		"it reached the frontend, which has no retrieval server wired in this test")
 }
 
 // TestEnvelope_IsIndentedWithATrailingNewline pins the on-the-wire formatting, which a golden

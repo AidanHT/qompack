@@ -36,6 +36,13 @@ func TestAll_CoversEverySlashCommand(t *testing.T) {
 //
 // Every Deps member is nil during waves 1–2. If All panicked or refused, the plugin would have no
 // working commands during precisely the period when asking it what state it is in matters most.
+//
+// The assertion is that every command gives a CLASSIFIED answer — not that it gives one specific
+// error. It used to require core.ErrNotImplemented from all seven, which was exactly right while
+// all seven were stubs and stops being right as SP-14 fills them in: an implemented command run
+// with no dependencies reports unavailable, and one run without a required argument reports a
+// usage error. Both are honest, and neither is the panic or the silent empty success this test
+// exists to prevent.
 func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
 	t.Parallel()
 
@@ -45,11 +52,40 @@ func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
 	for _, c := range cmds {
 		var out bytes.Buffer
 		err := c.Run(context.Background(), nil, &out)
-		require.True(t, core.IsNotImplemented(err),
-			"/qompack:%s must report ErrNotImplemented, got %v", c.Name(), err)
-		require.Contains(t, err.Error(), c.Name(),
-			"the error must name the command so a user can tell which one is missing")
+		require.Error(t, err, "/qompack:%s must not report success with no dependencies", c.Name())
+
+		kind := commands.KindOf(err)
+		require.Contains(t,
+			[]commands.ErrorKind{commands.ErrorKindUnavailable, commands.ErrorKindUsage},
+			kind, "/qompack:%s answered %q: %v", c.Name(), kind, err)
+
+		if kind == commands.ErrorKindUnavailable {
+			require.Contains(t, err.Error(), c.Name(),
+				"the error must name the command so a user can tell which one could not answer")
+		}
 	}
+}
+
+// TestAll_UnimplementedCommandsStillReportNotImplemented keeps the wave-0 signal alive for the
+// commands SP-14 has not reached yet, so a caller branching on core.ErrNotImplemented keeps
+// working until the last body lands.
+func TestAll_UnimplementedCommandsStillReportNotImplemented(t *testing.T) {
+	t.Parallel()
+
+	var sawOne bool
+	for _, c := range commands.All(commands.Deps{}) {
+		var out bytes.Buffer
+		err := c.Run(context.Background(), nil, &out)
+		if !core.IsNotImplemented(err) {
+			continue
+		}
+		sawOne = true
+		require.Contains(t, err.Error(), c.Name())
+		require.Equal(t, commands.ExitError, commands.ExitCode(err))
+	}
+	// When this stops holding, every §7.5 body has landed and this test has done its job; delete
+	// it in the commit that lands the last one rather than letting it pass over an empty set.
+	require.True(t, sawOne, "no command reports ErrNotImplemented any more; retire this test")
 }
 
 // TestNames_ReturnsACopy guards against a caller mutating the package's own table through the
