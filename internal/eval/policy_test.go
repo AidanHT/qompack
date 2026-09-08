@@ -75,8 +75,12 @@ func TestStockPolicy_TopFiveFilesFiveKEach(t *testing.T) {
 }
 
 // TestStockPolicy_PreservationMinimums is §2.3: walk backwards until BOTH minTokens=10_000 and
-// minTextBlockMessages=5 are met, capped at maxTokens=40_000. Twenty 500-token turns hit the
-// token floor exactly, and keeping a twenty-first would overshoot a minimum that is already met.
+// minTextBlockMessages=5 are met, capped at maxTokens=40_000.
+//
+// The floors are checked against the host's §2.2 estimate, which pads by 4/3 (SP02-D6), so sixteen
+// 500-token turns — 8000 true, 10_666 estimated — are what the host believes reaches 10_000. It
+// therefore preserves LESS content than the floor names, which is a real property of a host that
+// cannot see the true count, and it is the number the Phase 0 baseline has to show.
 func TestStockPolicy_PreservationMinimums(t *testing.T) {
 	var turns []eval.Turn
 	for i := range 30 {
@@ -88,9 +92,10 @@ func TestStockPolicy_PreservationMinimums(t *testing.T) {
 		KeepSet(context.Background(), s, 30, eval.DefaultKeepBudget)
 	require.NoError(t, err)
 
-	require.Len(t, keptOfKind(ks.IDs, "turn:"), 20,
-		"20 x 500 = 10_000, the minTokens floor; the 5-message minimum was met long before")
-	require.Equal(t, core.Tokens(10000), ks.Tokens)
+	require.Len(t, keptOfKind(ks.IDs, "turn:"), 16,
+		"16 x 500 = 8000 true tokens, which the 4/3 padding estimates at 10_666 — the first turn "+
+			"at which the host believes the 10_000 minTokens floor is met")
+	require.Equal(t, core.Tokens(8000), ks.Tokens, "the keep-set reports TRUE tokens, not the estimate")
 }
 
 // TestStockPolicy_UsedNeverGoesNegative is the regression test for the double-count the contrib
