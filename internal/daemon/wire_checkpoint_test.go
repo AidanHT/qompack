@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -514,4 +515,82 @@ func TestDaemonLogReachesTheConstructedDaemonsLogger(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, daemonLog(d))
 	require.NotNil(t, daemonLog(nil), "any other Daemon must degrade to a no-op logger, not nil")
+}
+
+// TestWireCheckpointResolvesItsSourcesLive is the supplier contract WithSourceSupplier exists for:
+// the SAME registered closure must answer differently once the daemon's lazily-opened ledger
+// appears, and must never have opened one itself to get there.
+//
+// The row matters because the production composition root physically cannot hand WireCheckpoint a
+// complete SourceSet at registration. The negative-knowledge ledger is opened on the FIRST
+// compaction and assigned back onto daemon.Options.Ledger; a value captured at wiring time is nil
+// then and nil forever. Before this seam existed the three checkpoint idle tasks were therefore
+// inert for the life of any daemon wired that way — the same capture bug SchedulerRuntimeOptions
+// .LedgerFn was added for one layer up.
+//
+// Three phases run through ONE closure, never re-registered.
+func TestWireCheckpointResolvesItsSourcesLive(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	// Phase 1: the ledger has not been opened yet, exactly as on a daemon that has never
+	// compacted. The supplier returns its PARTIAL set plus the reason.
+	ledgerOpen := false
+	resolve := func() (checkpoint.SourceSet, error) {
+		s := f.src
+		if !ledgerOpen {
+			s.Ledger = nil
+		}
+		if err := s.Validate(); err != nil {
+			return s, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return s, nil
+	}
+
+	m := obs.New(f.clk)
+	advance := advanceFrontierTask(f.reg, f.w, resolve, logging.Nop(), m)
+	pinsTask := materializePinsTask(resolve)
+
+	require.NoError(t, advance(f.ctx()), "an unusable source set is a degradation, never a task error")
+	require.NoFileExists(t, paths.Long(f.draftPath(cpSession)),
+		"nothing may be begun while the source set is incomplete")
+	require.Equal(t, int64(1), m.Snapshot().Counters[counterSourcesUnavailable],
+		"the unavailable route must be counted, not silent")
+
+	// Pins are materialized from the pin log alone, so a missing ledger must not stop them.
+	require.NoError(t, pinsTask(f.ctx()))
+	require.Equal(t, 1, f.pins.materialized,
+		"materialize_pins reads the PARTIAL set; it needs no ledger")
+
+	// Phase 2: the first compaction opens the ledger. The same closure now advances.
+	ledgerOpen = true
+	require.NoError(t, advance(f.ctx()))
+	require.FileExists(t, paths.Long(f.draftPath(cpSession)),
+		"the same registered closure must see a ledger opened after registration")
+	require.Equal(t, cpSession, f.readDraft(cpSession).Session)
+	un, unErr := f.src.Segments.Unencoded(f.ctx(), cpSession)
+	require.NoError(t, unErr)
+	require.Empty(t, un, "the segment the advance encoded must no longer be offered as unencoded")
+	require.Equal(t, int64(1), m.Snapshot().Counters[counterSourcesUnavailable],
+		"a pass that found a usable set must not count as unavailable")
+}
+
+// TestWireCheckpointWithoutASupplierStillValidatesItsFrozenSet keeps the four-argument call shape
+// honest: a caller that froze a half-wired SourceSet reaches the unavailable route, not a nil
+// dereference several frames inside Begin.
+func TestWireCheckpointWithoutASupplierStillValidatesItsFrozenSet(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	half := f.src
+	half.Ledger = nil
+	m := obs.New(f.clk)
+	require.NoError(t, advanceFrontierTask(f.reg, f.w, staticSources(half), logging.Nop(), m)(f.ctx()))
+	require.NoFileExists(t, paths.Long(f.draftPath(cpSession)))
+	require.Equal(t, int64(1), m.Snapshot().Counters[counterSourcesUnavailable])
+
+	_, err := staticSources(half)()
+	require.ErrorIs(t, err, core.ErrDegraded, "the reason must be reportable, not merely nil")
 }

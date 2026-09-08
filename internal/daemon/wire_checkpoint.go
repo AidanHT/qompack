@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -198,7 +199,10 @@ func precompactDeadline(now time.Time, timeout time.Duration) (deadline time.Tim
 // call sites keep compiling unchanged.
 type WireOption func(*wireCfg)
 
-type wireCfg struct{ noter LocalCheckpointNoter }
+type wireCfg struct {
+	noter   LocalCheckpointNoter
+	sources func() (checkpoint.SourceSet, error)
+}
 
 // ReportLocalCheckpointsTo routes the cadence's own seals to the scheduler runtime, which records
 // them SEPARATELY from host compactions (see schedRuntime.NoteLocalCheckpoint). Without it the
@@ -206,6 +210,37 @@ type wireCfg struct{ noter LocalCheckpointNoter }
 func ReportLocalCheckpointsTo(n LocalCheckpointNoter) WireOption {
 	return func(c *wireCfg) { c.noter = n }
 }
+
+// WithSourceSupplier resolves the SourceSet AT EACH IDLE RUN instead of freezing the value
+// WireCheckpoint was handed at registration.
+//
+// It exists because the production composition root cannot hand over a complete SourceSet at
+// wiring time and must not fabricate one to look complete. SourceSet.Ledger is the negative-
+// knowledge ledger, and the daemon opens that LAZILY -- on the first compaction, through
+// RehydrateOptions.OpenLedger, which assigns the handle back onto daemon.Options.Ledger. An eager
+// open would create sketches/tried.bloom and hold an eliminations.jsonl handle in every daemon
+// that never compacts, which is exactly what that call site refuses to do. So the frozen value is
+// permanently nil-Ledger, SourceSet.Validate refuses it, and the three tasks below are inert for
+// the life of the process -- the same class of capture bug SchedulerRuntimeOptions.LedgerFn was
+// added for, one layer up.
+//
+// The supplier is expected to return its PARTIAL set alongside the error when only some seams are
+// missing: materialize_pins needs Pins and nothing else, and refusing to materialize pins because
+// no compaction has yet opened a ledger would be a degradation with no cause.
+func WithSourceSupplier(fn func() (checkpoint.SourceSet, error)) WireOption {
+	return func(c *wireCfg) { c.sources = fn }
+}
+
+// counterSourcesUnavailable counts idle passes that found no usable SourceSet. It is the
+// unavailable-route signal for frontier advancement: a daemon whose ledger has never been opened
+// reports this once per pass and advances nothing, rather than either crashing on a nil seam or
+// going silent.
+const counterSourcesUnavailable = "checkpoint.sources.unavailable"
+
+// msgSourcesUnavailable is logged Warn the FIRST time a pass finds no usable source and Debug
+// afterwards. Once per pass forever would be a line every idle tick for the whole life of a daemon
+// that never compacts; never logging at all is the silence §16 forbids.
+const msgSourcesUnavailable = "checkpoint: no usable source set; the frontier is not advancing"
 
 // counterCadenceSeal counts checkpoints QOMPACK sealed on its OWN cadence. It is a different
 // counter from every host-compaction instrument on purpose: §8.5's cadence clause exists so that
@@ -223,22 +258,89 @@ func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src c
 		o(&wc)
 	}
 
+	resolve := wc.sources
+	if resolve == nil {
+		// No supplier: the caller froze a value, so keep answering with it. It still validates,
+		// so a half-wired caller reaches the unavailable route rather than a nil dereference.
+		resolve = staticSources(src)
+	}
+
 	if cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
-		idle.Register(idleTaskAdvanceFrontier, idlePrioAdvanceFrontier, func(ctx context.Context) error {
-			return advanceAllSessions(ctx, d.Registry(), w, src, log)
-		})
+		idle.Register(idleTaskAdvanceFrontier, idlePrioAdvanceFrontier,
+			advanceFrontierTask(d.Registry(), w, resolve, log, metricsOf(d)))
 	}
 
 	idle.Register(idleTaskCheckpointCadence, idlePrioCheckpointCadence, func(ctx context.Context) error {
 		return finalizeIfDue(ctx, cfg, w, wc.noter, metricsOf(d))
 	})
 
-	idle.Register(idleTaskMaterializePins, idlePrioMaterializePins, func(ctx context.Context) error {
-		if src.Pins == nil {
+	idle.Register(idleTaskMaterializePins, idlePrioMaterializePins, materializePinsTask(resolve))
+}
+
+// staticSources adapts a frozen SourceSet to the supplier shape, validating it so that a
+// half-wired caller is reported unavailable instead of dereferenced.
+func staticSources(src checkpoint.SourceSet) func() (checkpoint.SourceSet, error) {
+	return func() (checkpoint.SourceSet, error) {
+		if err := src.Validate(); err != nil {
+			return src, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return src, nil
+	}
+}
+
+// advanceFrontierTask is the body registered as idleTaskAdvanceFrontier, built separately so the
+// supplier contract has a test seam that does not need a constructed Daemon.
+//
+// An unusable source is NOT an idle-task error. RunOnce warns on every error it is handed, so
+// returning one here would put a line in the log on every tick of every daemon that has not
+// compacted yet -- for a condition that is expected, temporary and already reported once, with a
+// counter behind it. §12.3's "fail toward doing nothing" is the whole handling: nothing is
+// advanced, nothing is begun, and the pass is over.
+func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
+	resolve func() (checkpoint.SourceSet, error), log logging.Logger, m obs.Registry,
+) func(context.Context) error {
+	if log == nil {
+		log = logging.Nop()
+	}
+	var reported atomic.Bool
+	return func(ctx context.Context) error {
+		live, err := resolve()
+		if err != nil {
+			if m != nil {
+				m.Counter(counterSourcesUnavailable).Add(1)
+			}
+			if reported.CompareAndSwap(false, true) {
+				log.Warn(msgSourcesUnavailable, "err", err.Error())
+			} else {
+				log.Debug(msgSourcesUnavailable, "err", err.Error())
+			}
 			return nil
 		}
-		return src.Pins.Materialize(ctx)
-	})
+		// Republish to the writer now that the set is complete. BindCheckpoint publishes whatever
+		// it was handed BEFORE daemon.New, which on the production path is still ledger-less, and
+		// SetSources drops an invalid set on the floor. Without this the cold PreCompact path -- a
+		// compaction that fires with no draft open -- would have no sources for the life of the
+		// process even after the ledger appeared. SetSources validates and takes one uncontended
+		// lock; it is idempotent and costs nothing to repeat.
+		w.SetSources(live)
+		return advanceAllSessions(ctx, reg, w, live, log)
+	}
+}
+
+// materializePinsTask is the body registered as idleTaskMaterializePins.
+//
+// It deliberately ignores the supplier's error and reads Pins out of the PARTIAL set: pins are
+// materialized from the pin log alone and need neither the ledger, the graph nor the store. A pin
+// view left stale because no compaction has happened yet is exactly the derived-state drift this
+// task exists to prevent.
+func materializePinsTask(resolve func() (checkpoint.SourceSet, error)) func(context.Context) error {
+	return func(ctx context.Context) error {
+		live, _ := resolve()
+		if live.Pins == nil {
+			return nil
+		}
+		return live.Pins.Materialize(ctx)
+	}
 }
 
 // daemonLog reports the logger d was constructed with, or a no-op one for any other Daemon
