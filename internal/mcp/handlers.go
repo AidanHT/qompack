@@ -185,12 +185,13 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolAlreadyTried + ": " + err.Error()), nil
 	}
-	if h.ledger == nil {
+	l := h.ledger()
+	if l == nil {
 		return h.jsonResponse(ToolAlreadyTried, unavailable("elimination ledger not present in this build"), nil), nil
 	}
 
 	scope := negknow.Scope(h.cfg.Eliminations.DefaultScope)
-	ans, err := h.ledger.Query(ctx, a.Target, a.Approach, scope)
+	ans, err := l.Query(ctx, a.Target, a.Approach, scope)
 	if err != nil {
 		// A failed query is not evidence of absence. Do not expose a backend error that may
 		// contain private paths, query text or stored evidence in the response or diagnostic.
@@ -319,7 +320,7 @@ func (h *handlers) recordEliminated(ctx context.Context, r Request, raw json.Raw
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolRecordEliminated + ": " + err.Error()), nil
 	}
-	if h.ledger == nil {
+	if h.ledger() == nil {
 		return h.jsonResponse(ToolRecordEliminated, unavailable("elimination ledger not present in this build"), nil), nil
 	}
 	if msg := validateElimination(a); msg != "" {
@@ -377,7 +378,7 @@ func (h *handlers) recordEliminated(ctx context.Context, r Request, raw json.Raw
 func (h *handlers) ingestElimination(ctx context.Context, a RecordEliminatedArgs, scope string) (
 	negknow.Record, []string, error,
 ) {
-	if m, ok := h.ledger.(negknow.Maintainer); ok {
+	if m, ok := h.ledger().(negknow.Maintainer); ok {
 		return m.IngestMCP(ctx, negknow.MCPArgs{
 			Target: a.Target, Approach: a.Approach, Reason: a.Reason,
 			Scope: scope, DependsOn: a.DependsOn,
@@ -419,7 +420,7 @@ func (h *handlers) ingestEliminationFallback(ctx context.Context, a RecordElimin
 		Evidence: evidence, DependsOn: deps,
 		Scope: negknow.Scope(scope), Status: negknow.StatusActive, Source: negknow.SourceMCP,
 	}
-	id, err := h.ledger.Record(ctx, rec)
+	id, err := h.ledger().Record(ctx, rec)
 	if err != nil {
 		return negknow.Record{}, warnings, err
 	}
