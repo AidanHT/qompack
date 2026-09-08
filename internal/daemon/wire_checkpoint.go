@@ -13,6 +13,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/store"
 )
 
@@ -193,11 +194,34 @@ func precompactDeadline(now time.Time, timeout time.Duration) (deadline time.Tim
 	return now.Add(timeout - precompactDeadlineSlack), true
 }
 
+// WireOption is an optional extra for WireCheckpoint. It is variadic so the shipped four-argument
+// call sites keep compiling unchanged.
+type WireOption func(*wireCfg)
+
+type wireCfg struct{ noter LocalCheckpointNoter }
+
+// ReportLocalCheckpointsTo routes the cadence's own seals to the scheduler runtime, which records
+// them SEPARATELY from host compactions (see schedRuntime.NoteLocalCheckpoint). Without it the
+// cadence still runs and is still counted here; what is lost is only the scheduler-side record.
+func ReportLocalCheckpointsTo(n LocalCheckpointNoter) WireOption {
+	return func(c *wireCfg) { c.noter = n }
+}
+
+// counterCadenceSeal counts checkpoints QOMPACK sealed on its OWN cadence. It is a different
+// counter from every host-compaction instrument on purpose: §8.5's cadence clause exists so that
+// checkpoints exist even when compaction does NOT fire, and a report that could not tell the two
+// apart would show a project with no compactions at all as a project compacting all day.
+const counterCadenceSeal = "checkpoint.cadence.local_seal"
+
 // WireCheckpoint registers the three idle tasks. It must run AFTER daemon.New, because Idle() is a
 // method on the constructed Daemon and there is no Options-level idle-registration seam.
-func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src checkpoint.SourceSet) {
+func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src checkpoint.SourceSet, opts ...WireOption) {
 	idle := d.Idle()
 	log := daemonLog(d)
+	var wc wireCfg
+	for _, o := range opts {
+		o(&wc)
+	}
 
 	if cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
 		idle.Register(idleTaskAdvanceFrontier, idlePrioAdvanceFrontier, func(ctx context.Context) error {
@@ -206,7 +230,7 @@ func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src c
 	}
 
 	idle.Register(idleTaskCheckpointCadence, idlePrioCheckpointCadence, func(ctx context.Context) error {
-		return finalizeIfDue(ctx, cfg, w)
+		return finalizeIfDue(ctx, cfg, w, wc.noter, metricsOf(d))
 	})
 
 	idle.Register(idleTaskMaterializePins, idlePrioMaterializePins, func(ctx context.Context) error {
@@ -319,7 +343,7 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 // pins materialize and a successor Begin, and RunOnce measures the remaining idle budget only
 // BETWEEN tasks. Without this check a tick with N due drafts performs N full finalizes whatever the
 // budget said, starving every idle task queued behind the cadence.
-func finalizeIfDue(ctx context.Context, cfg config.Config, w *checkpoint.FileWriter) error {
+func finalizeIfDue(ctx context.Context, cfg config.Config, w *checkpoint.FileWriter, noter LocalCheckpointNoter, m obs.Registry) error {
 	budget := core.Tokens(cfg.Checkpoint.BudgetTokens)
 	var firstErr error
 	for _, s := range w.OpenDrafts() {
@@ -335,11 +359,31 @@ func finalizeIfDue(ctx context.Context, cfg config.Config, w *checkpoint.FileWri
 		if !full && !enough {
 			continue
 		}
-		if _, err := w.Finalize(ctx, d, budget); err != nil {
+		ref, err := w.Finalize(ctx, d, budget)
+		if err != nil {
 			firstErr = firstNonNil(firstErr, err)
+			continue
+		}
+		// This seal was OURS. It is recorded and counted as a local checkpoint and never as a
+		// compaction: the host did not act, its context window is untouched, and the Young-Daly
+		// clock the scheduler measures the host by must not restart here.
+		if m != nil {
+			m.Counter(counterCadenceSeal).Add(1)
+		}
+		if noter != nil {
+			noter.NoteLocalCheckpoint(ref.Seq)
 		}
 	}
 	return firstErr
+}
+
+// metricsOf reports the registry d was constructed with, or nil for any other Daemon, mirroring
+// daemonLog.
+func metricsOf(d Daemon) obs.Registry {
+	if dd, ok := d.(*daemon); ok {
+		return dd.m
+	}
+	return nil
 }
 
 // liveSessions is every session the frontier may need advancing for, newest source first: the
