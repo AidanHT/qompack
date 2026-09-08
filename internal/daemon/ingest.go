@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -362,8 +363,9 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 				return nil
 			}
 		}
-		// Stage 2: the verified reference, written by the bound observer inside run.
-		resp := run(ctx, req)
+		// Stage 2: the verified reference, written by the bound observer inside run. The identity
+		// travels on the context so the host'''s own payload type never has to carry it.
+		resp := run(observer.WithObservation(ctx, j.lease.ObservationID), req)
 		acknowledged = resp.OK && resp.Err == ""
 		if !acknowledged {
 			i.log.Warn("daemon: ingest handler did not acknowledge; WAL retained for retry", "op", string(j.req.Op))

@@ -132,8 +132,22 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		// record the graph cannot name is a record nothing can retrieve.
 		rec.ID = core.ToolUseID(fmt.Sprintf("tu_%s_%d_%d", e.SessionID, st.Turn, len(st.ToolUses)))
 	}
+	rec.Observation = ObservationFrom(ctx)
 	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
 		return hookio.Empty(), o.unpublished(stageIndex)
+	}
+	// 6a. Publication order's second stage completes here: the reference is joined to the durable
+	//     capture the daemon already made, keyed by this delivery's observation identity. Until this
+	//     link exists there is a capture with no reference and a reference with no capture, and a
+	//     crash between them must resolve to "not published" rather than to a handle that names a
+	//     dependency nothing can produce. A delivery with no identity (an in-process caller, or one
+	//     the daemon could not lease) has no link to make and skips the stage.
+	if rec.Observation != "" {
+		if err := store.LinkCaptureReference(o.opt.ProjectRoot, rec.Observation, store.CaptureReference{
+			ToolUseID: rec.ID, Root: res.Root.Hash,
+		}); err != nil {
+			return hookio.Empty(), o.unpublished(stageLink)
+		}
 	}
 	o.rememberToolUse(st, rec)
 

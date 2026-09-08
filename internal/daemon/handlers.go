@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -796,6 +797,11 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 
+	// A recovery-needed state, recorded BEFORE anything is finalized. Everything below this line
+	// can be interrupted, and until the marker is cleared the session'''s flush is unfinished — which
+	// is what SessionEnd must record rather than declaring work final that was never acknowledged.
+	d.markRecoveryNeeded(ev.SessionID, recoveryStageBegin, d.DrainGaps().PendingBytes)
+
 	d.registry.End(ev.SessionID, now)
 	_ = d.ing.CloseSession(ev.SessionID)
 
@@ -804,27 +810,40 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
+		d.markRecoveryNeeded(ev.SessionID, recoveryStageSessionEnd, 0)
 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
 			d.log.Warn("daemon: SessionEnd failed", "err", err)
 		}
 	}
 
+	d.markRecoveryNeeded(ev.SessionID, recoveryStageMarker, 0)
 	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
 		d.log.Warn("daemon: WriteMarker failed", "err", err)
 	}
 
 	if d.svc.Sketches != nil {
+		d.markRecoveryNeeded(ev.SessionID, recoveryStageSketches, 0)
 		d.svc.Sketches.Save(d.root, d.log)
 	}
 
 	if !drain {
+		// The drained-flush path does not run the replay, so it is not the step that finishes the
+		// flush; the marker stays until a route that does run it clears it.
 		return ipc.Response{OK: true}
 	}
 
+	d.markRecoveryNeeded(ev.SessionID, recoveryStageDrain, 0)
 	n, err := d.Drain(ctx)
 	data, _ := json.Marshal(map[string]any{"drained": n})
 	if err != nil {
+		// The replay did not finish, so neither did the flush. The marker stays: an unacknowledged
+		// delivery must reappear after restart rather than be finalized here.
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
+	}
+	// Only a complete replay finishes the flush. A drain that left gaps keeps the marker, so restart
+	// finds a session that needs recovery instead of one that looks finalized.
+	if gaps := d.DrainGaps(); gaps.Observed && gaps.Complete {
+		d.clearRecoveryNeeded(ev.SessionID)
 	}
 	return ipc.Response{OK: true, Data: data}
 }
@@ -1138,4 +1157,115 @@ func withCapture(ctx context.Context, req ipc.Request) ipc.Request {
 		req.Capture = c
 	}
 	return req
+}
+
+// ---------------------------------------------------------------------------
+// SessionEnd recovery state (T20-M1-05, invariant 5)
+//
+// flushRoute runs registry.End -> ingest.CloseSession -> svc.SessionEnd -> contract.WriteMarker ->
+// Sketches.Save -> Drain. Every one of those steps can be interrupted, and the sequence used to
+// leave nothing behind that said so: contract.WriteMarker is SP-08's "the terminal hook fired"
+// witness, which a crashed flush also writes on its next attempt, so it cannot distinguish a
+// finished flush from an abandoned one.
+//
+// The marker below is that distinction. It is written BEFORE the sequence starts and removed only
+// after every step has returned, so a marker found on disk means exactly one thing: a SessionEnd
+// began and did not finish, and the work it was flushing has not been finalized. It records which
+// step was last entered, so recovery knows whether the interruption was before or after the store's
+// own flush — never so that recovery can skip a step, only so it can say what it is resuming.
+const sessionRecoveryFile = "session-recovery.json"
+
+// The flush stages a recovery marker can name, in the order flushRoute runs them.
+const (
+	recoveryStageBegin      = "begin"
+	recoveryStageSessionEnd = "session_end"
+	recoveryStageMarker     = "marker"
+	recoveryStageSketches   = "sketches"
+	recoveryStageDrain      = "drain"
+)
+
+// SessionRecovery is state/session-recovery.json's shape: one entry per session whose SessionEnd
+// began and has not been observed to finish.
+type SessionRecovery struct {
+	Version  int                              `json:"v"`
+	Sessions map[core.SessionID]RecoveryEntry `json:"sessions"`
+}
+
+// RecoveryEntry says what was in progress and how far it got.
+type RecoveryEntry struct {
+	Stage string         `json:"stage"`
+	TS    core.UnixMilli `json:"ts"`
+	// Unacknowledged is how many spool bytes the drain still had to account for when the flush
+	// began. It is evidence for the recovery decision, not an instruction to it.
+	Unacknowledged int64 `json:"unacknowledged"`
+}
+
+func sessionRecoveryPath(root string) string {
+	return filepath.Join(paths.Of(root).State, sessionRecoveryFile)
+}
+
+// LoadSessionRecovery reads the recovery-needed set. A missing file is an empty set — no session is
+// mid-flush — while an unreadable one is an error, because "we cannot tell" must not be rendered as
+// "nothing to recover".
+func LoadSessionRecovery(root string) (SessionRecovery, error) {
+	b, err := os.ReadFile(paths.Long(sessionRecoveryPath(root)))
+	if os.IsNotExist(err) {
+		return SessionRecovery{Version: core.EvidenceVersion, Sessions: map[core.SessionID]RecoveryEntry{}}, nil
+	}
+	if err != nil {
+		return SessionRecovery{}, err
+	}
+	var sr SessionRecovery
+	if err := json.Unmarshal(b, &sr); err != nil {
+		return SessionRecovery{}, fmt.Errorf("daemon: session recovery state is unreadable")
+	}
+	if sr.Sessions == nil {
+		sr.Sessions = map[core.SessionID]RecoveryEntry{}
+	}
+	return sr, nil
+}
+
+func (d *daemon) writeSessionRecovery(sr SessionRecovery) error {
+	sr.Version = core.EvidenceVersion
+	b, err := json.Marshal(sr)
+	if err != nil {
+		return err
+	}
+	p := sessionRecoveryPath(d.root)
+	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
+		return err
+	}
+	return paths.WriteAtomic(p, b, 0o600)
+}
+
+// markRecoveryNeeded records that sess entered stage. Every call rewrites the whole file, which is
+// what makes the marker's presence the fact and its stage merely the detail.
+func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowledged int64) {
+	sr, err := LoadSessionRecovery(d.root)
+	if err != nil {
+		// Unreadable recovery state is itself a recovery-needed condition; replace it rather than
+		// leaving a flush unmarked, and say so.
+		d.log.Warn("daemon: session recovery state unreadable; replacing", "err", err)
+		sr = SessionRecovery{Sessions: map[core.SessionID]RecoveryEntry{}}
+	}
+	sr.Sessions[sess] = RecoveryEntry{Stage: stage, TS: core.NowMilli(d.clk), Unacknowledged: unacknowledged}
+	if err := d.writeSessionRecovery(sr); err != nil {
+		d.log.Warn("daemon: could not record SessionEnd recovery state", "err", err)
+	}
+}
+
+// clearRecoveryNeeded removes sess's marker. It runs only after every flush step has returned, so a
+// marker that survives is a genuine interruption and not a slow step.
+func (d *daemon) clearRecoveryNeeded(sess core.SessionID) {
+	sr, err := LoadSessionRecovery(d.root)
+	if err != nil {
+		return
+	}
+	if _, ok := sr.Sessions[sess]; !ok {
+		return
+	}
+	delete(sr.Sessions, sess)
+	if err := d.writeSessionRecovery(sr); err != nil {
+		d.log.Warn("daemon: could not clear SessionEnd recovery state", "err", err)
+	}
 }
