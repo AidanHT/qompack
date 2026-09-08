@@ -507,6 +507,90 @@ func TestContentToolsWithoutAStoreReportUnavailable(t *testing.T) {
 	}
 }
 
+// TestContentToolsWithoutARedactorFailClosed pins the direction the missing-redactor case must
+// fail in (T20-M2-04).
+//
+// A build with no retrieval-side Redactor cannot tell a clean record from one captured before
+// today's rules existed. The only honest answer is therefore to serve no archive text — never the
+// bytes. The failure this test exists to make impossible is the OTHER direction: a handler that
+// reads a nil redactor as "nothing to redact" and passes the content through, which would turn one
+// wiring omission into every secret in the archive being served in the clear, silently and forever.
+// The seeded content is a real credential shape, so a regression would not be a mere shape change:
+// the secret itself would appear in the response.
+//
+// expand and re_read report themselves UNAVAILABLE, because archive text is the whole of what they
+// return. recall keeps its pointers — a hash and a path were never redaction's subject — and
+// withholds every summary, which is the one piece of archive text it renders.
+func TestContentToolsWithoutARedactorFailClosed(t *testing.T) {
+	f := newFixture(t, withoutRedactor())
+	const path = "config/failclosed.ini"
+	body := "aws_access_key_id = " + secretAWSExampleKey + "\n"
+	root, id := f.putAndRecord(t, "Read", path, body, 1)
+	require.NotEmpty(t, id, "fixture sanity: the record the tools are asked for must exist")
+
+	for name, args := range map[string]map[string]any{
+		ToolExpand: {"hash": root.String()},
+		ToolReRead: {"path": path},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var miss missBody
+			resp := f.callOK(t, name, args, &miss)
+
+			require.False(t, resp.IsError, "an unwired collaborator is not a tool failure")
+			require.NotNil(t, miss.Available, "availability must be stated, not inferred")
+			require.False(t, *miss.Available, "with no redactor this build cannot answer at all")
+			require.Equal(t, redactorMissingReason, miss.Reason, "the reason must name what is missing")
+			require.False(t, miss.Found, "nothing was served")
+			require.NotContains(t, responseText(resp), secretAWSExampleKey,
+				"a missing redactor must never degrade into serving the secret in the clear")
+			require.NotContains(t, responseText(resp), "aws_access_key_id",
+				"no span of the record may be served")
+		})
+	}
+
+	t.Run(ToolRecall, func(t *testing.T) {
+		var hits recallBody
+		resp := f.callOK(t, ToolRecall, map[string]any{"query": "aws_access_key_id"}, &hits)
+
+		require.False(t, resp.IsError, "an unwired collaborator is not a tool failure")
+		require.True(t, hits.Found, "the pointers are still true, and still worth returning")
+		require.NotEmpty(t, hits.Hits, "fixture sanity: the seeded record must be findable")
+		require.True(t, hits.SummariesWithheld, "the withholding must be stated, never silent")
+		require.Equal(t, redactorMissingReason, hits.Reason)
+		for _, hit := range hits.Hits {
+			require.Empty(t, hit.Summary, "no summary may be rendered without today's policy behind it")
+		}
+		require.NotContains(t, responseText(resp), secretAWSExampleKey,
+			"a missing redactor must never degrade into serving the secret in the clear")
+	})
+}
+
+// TestRecallSummariesSurviveARedactor is TestContentToolsWithoutARedactorFailClosed's positive
+// control: it is the same query against the same fixture WITH a redactor, so "the summaries were
+// withheld" cannot pass vacuously because recall returns no summaries anyway.
+func TestRecallSummariesSurviveARedactor(t *testing.T) {
+	f := newFixture(t)
+	const path = "config/withredactor.ini"
+	f.putAndRecord(t, "Read", path, "aws_access_key_id = "+secretAWSExampleKey+"\n", 1)
+
+	var hits recallBody
+	f.callOK(t, ToolRecall, map[string]any{"query": "aws_access_key_id"}, &hits)
+
+	require.True(t, hits.Found)
+	require.False(t, hits.SummariesWithheld, "a wired redactor withholds nothing")
+	require.Empty(t, hits.Reason)
+	var summarized int
+	for _, hit := range hits.Hits {
+		if hit.Summary == "" {
+			continue
+		}
+		summarized++
+		require.NotContains(t, hit.Summary, secretAWSExampleKey,
+			"a rendered summary passes through today's policy, never in the clear")
+	}
+	require.NotZero(t, summarized, "recall must render summaries when it can re-check them")
+}
+
 // TestContentToolsWithoutAPromoterStillAnswer pins that counting is a signal for the next checkpoint and
 // never a precondition for answering: with no Promoter wired, expand still returns its bytes and reports
 // an honest zero rather than failing or inventing a count.
