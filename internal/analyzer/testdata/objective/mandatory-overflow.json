@@ -1,0 +1,19 @@
+{
+  "name": "mandatory-overflow",
+  "why": "The budget does not admit item:critical even at its pointer, and it is a current, authoritative record. Contract 3's outcome is an explicit overflow with the archive-recovery path, NOT the optional item serialized on its own with a flag set alongside it. No feasible assignment exists, so there is no exact optimum to compare against and the test asserts the outcome instead.",
+  "p": 100,
+  "lambda": 0.5,
+  "budget": 30,
+  "candidates": [
+    {"item": "item:critical", "pos": 100, "weight": 1.0, "mandatory": true, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 200, "root": "rcrit", "qualification": "current"},
+      {"kind": "pointer", "coverage": 0.2, "assembledCost": 40, "root": "rcrit", "qualification": "current"}
+    ]},
+    {"item": "item:optional", "pos": 101, "weight": 0.5, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 20, "root": "ropt", "qualification": "current"}
+    ]}
+  ],
+  "optimum": 0.0,
+  "expectOverflow": true,
+  "expectArchive": ["item:critical"]
+}

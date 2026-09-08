@@ -1,0 +1,18 @@
+{
+  "name": "zero-budget",
+  "why": "The degenerate case a real greedy loop must not fall through. Nothing is affordable, so Chosen is nil, Value is 0 and Overflow stays false because no Mandatory candidate existed. item:b also carries an archive-only representation, so its outcome is reported in Archive rather than silently vanishing between the candidate set and the proposal.",
+  "p": 100,
+  "lambda": 0.5,
+  "budget": 0,
+  "candidates": [
+    {"item": "item:a", "pos": 100, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 10, "root": "ra", "qualification": "current"}
+    ]},
+    {"item": "item:b", "pos": 101, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 10, "root": "rb", "qualification": "current"},
+      {"kind": "archive_only", "coverage": 0.0, "assembledCost": 0, "root": "rb", "qualification": "current"}
+    ]}
+  ],
+  "optimum": 0.0,
+  "expectArchive": ["item:b"]
+}

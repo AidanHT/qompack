@@ -1,0 +1,25 @@
+{
+  "name": "plain",
+  "why": "No shared evidence, no dependencies and no mandatory records: the declared objective reduces to a weighted saturating coverage under a knapsack constraint, so anything the heuristic loses here it loses to cost-blindness alone. The greedy ranks by marginal gain, not by gain per token, and this instance is sized so that the difference shows.",
+  "p": 100,
+  "lambda": 0.5,
+  "budget": 300,
+  "candidates": [
+    {"item": "item:a", "pos": 100, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 120, "root": "ra", "qualification": "current"},
+      {"kind": "capsule", "coverage": 0.6, "assembledCost": 40, "root": "ra", "qualification": "current"}
+    ]},
+    {"item": "item:b", "pos": 101, "weight": 0.8, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 150, "root": "rb", "qualification": "current"},
+      {"kind": "capsule", "coverage": 0.5, "assembledCost": 50, "root": "rb", "qualification": "current"}
+    ]},
+    {"item": "item:c", "pos": 102, "weight": 0.6, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "rc", "qualification": "current"},
+      {"kind": "pointer", "coverage": 0.25, "assembledCost": 15, "root": "rc", "qualification": "current"}
+    ]},
+    {"item": "item:d", "pos": 103, "weight": 0.3, "reps": [
+      {"kind": "capsule", "coverage": 0.9, "assembledCost": 60, "root": "rd", "qualification": "current"}
+    ]}
+  ],
+  "optimum": 2.0
+}
