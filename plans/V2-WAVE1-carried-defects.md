@@ -69,6 +69,42 @@ still cannot wedge), with a test driving exactly the starved-budget interleaving
 is re-affirmed with the loss documented in the drain's contract and D4's "never data" wording
 amended, and this row moves to `wontfix` with that wording pinned.
 
+**Disposition (V5-VERIFY, 2026-09-08): fixed by SP-20; evidence added.** V5-VERIFY §6 carried
+this row to SP-20's drain/ack recovery, and SP-20 re-adjudicated the rule rather than patching
+around it. `f6a8691` (`fix(daemon): retain unacknowledged drain recovery data`, Refs SP05-D1 /
+T20-M1-05) replaced `SeenOrAdd`-then-dispatch with `seenSet.begin` / `finish(key, acknowledged)`,
+moved `offset, fs.Offset = nextOffset` to AFTER `dispatchPending` returns nil, and made
+`dispatchPending` return the per-line context's error when the handler answers `OK:false` with a
+dead context — so a dying drain surfaces as `context.DeadlineExceeded` / `context.Canceled`,
+stops the pass with the offset still pointing AT the interrupted line, and never commits the
+seen-set. `a6faab0` then put the lease/acknowledge journal behind the same boundary. The
+poison-line consume rule the V2 note said had to be re-adjudicated was: a handler that refuses a
+line with a live context is ALSO no longer consumed (it is `DrainGapUnacknowledged`, redelivered
+on the next pass; `TestDrainRejectedResponseIsRetryableAfterRestart` pins it), and "consumed
+regardless" survives only for the terminal admission verdicts (`DrainGapDenied`,
+`DrainGapUnadmitted`), which retrying cannot change. The two are therefore distinguishable by
+error class, and the wedge the old rule guarded against is now addressed at admission rather than
+by dropping interrupted events.
+
+The evidence test, `internal/daemon/drain_idle_budget_test.go`
+`TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending`, drives the exact
+scenario: `idleController.RunOnce` with the drain registered under `idleTaskDrain`, a 20 ms budget
+that expires while the handler is still binding the second line (the handler blocks on its
+context and answers `observation handling interrupted`, `runIngested`'s shape), then recovery in
+both forms — a same-process retry on the same drainer and seen-set, and a fresh drainer after
+restart. It asserts both ledgers (persisted offset equals the first line's length and `Done` is
+false; the seen-set does not hold the interrupted key) and that exactly the interrupted line is
+redelivered.
+
+RED/GREEN proof, both on the same test file. Against the pre-SP-20 tree (`git archive f6a8691^`
+extracted to the session scratchpad): `go test ./internal/daemon -run TestCarriedDefect_SP05D1
+-count=1 -v` fails both subtests at the offset ledger, `expected: 46, actual: 92` — both lines
+consumed (`scratchpad/sp05d1-before.log`). Against `verify/v5 @ 87c0c1d` plus the test: the same
+command passes (`scratchpad/sp05d1-after.log`), and `-race -count=5` together with
+`TestDrainRejectedResponseIsRetryableAfterRestart` and
+`TestDrainCanceledRejectedHandlerLeavesCurrentLinePending` passes (`scratchpad/sp05d1-race.log`).
+No code change was needed; the row moves to `fixed` with that test as its evidence.
+
 ---
 
 ## SP06-D2 — the `PutBytes` cold and warm budgets are unreachable and unverified
