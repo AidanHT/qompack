@@ -474,7 +474,7 @@ qompack/                                  module: github.com/qompack/qompack
 | **L3 Scheduler** | BOCD · Young–Daly · p-selection · TTL awareness | `scheduler` | SP-12 |
 | **L4 Checkpointer** | PreCompact → immutable versioned artifact, importance-ordered | `checkpoint` `pins` | SP-10 |
 | **L5 Rehydrator** | SessionStart(compact) · progressive budget fill · drop report | `rehydrate` `rules` `skills` | SP-11 |
-| **L6 Retrieval** | recall · expand · re_read · already_tried · timeline · why · dropped | `mcp` `commands` | SP-13 (MCP) · SP-14 (commands) |
+| **L6 Retrieval** | recall · expand · re_read · already_tried · timeline · why · dropped · delivered-result admission | `mcp` `commands` `admission` | SP-13 (MCP) · SP-14 (commands) · SP-21 (`admission`, reserved) |
 | **L7 Evaluation** | replay harness · Belady OPT · CI gate | `eval` `test/replay` | SP-02 |
 | **cross** | config, logging, metrics, contracts, degradation, tokens | `core` `paths` `config` `logging` `obs` `contract` `tokens` `pluginmanifest` `testutil` | SP-01 (+ SP-05 `contract`, + SP-06 `tokens` exact accounting) |
 
@@ -490,7 +490,7 @@ are exhaustive; anything not listed is forbidden.
 | `paths`, `config` | `core` |
 | `logging`, `obs` | `core` `paths` `config` |
 | *(the five above are the **foundation**; every package below may also import all of them)* | |
-| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest` | foundation only |
+| `hookio`, `sketch`, `chunk`, `symbols`, `redact`, `grammar`, `rules`, `skills`, `pins`, `tokens`, `eval`, `scheduler`, `pluginmanifest`, `state`, `admission` | foundation only |
 | `canon` | `sketch` |
 | `dag` | — |
 | `store` | `chunk` `canon` `sketch` `symbols` `redact` `tokens` |
@@ -518,6 +518,15 @@ declared alongside the others.
 allow-set and its composition-root set is an error there — so a new `internal/` package cannot
 land without an amendment commit to this section *and* the matching entry in `importrules.go`.
 The two must be edited together; the checker is not permitted to be a superset of the table.
+
+**Two reserved names carry no consumers yet.** `state` (SP-20 M2-01) and `admission` (SP-21 M4) are
+foundation-only by construction rather than by accident: each defines its own ports and is wired at a
+composition root, so neither widens this table when its consumers arrive. `state` was transcribed into
+`importrules.go` when it landed but never reached this table; that drift is corrected above.
+`admission` is reserved *ahead* of its package, which SP-21 requires before any authoring begins — the
+directory does not exist yet, and `importgraph` errors only on a package present on disk and declared
+nowhere, so a reserved name is inert until it lands. Reserving the name is not authorization to
+implement it: `runtime.migration.replacement.newResult` stays refused until the M4 gate passes.
 
 Consequences worth stating explicitly, because they are the ones that would otherwise be
 discovered as import cycles in wave 1:

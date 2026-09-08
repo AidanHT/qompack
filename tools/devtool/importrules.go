@@ -104,4 +104,16 @@ var allow = map[string][]string{
 	// state (SP-20 M2-01) is foundation-only: internal/state's only non-stdlib import is core.
 	// It has no consumers wired yet — that is a later task's wiring change, not an import-rule one.
 	"state": {},
+
+	// admission (SP-21 M4) is RESERVED, not present: internal/admission does not exist on disk.
+	// SP-21 makes the architecture amendment that reserves this name a precondition of any
+	// authoring, and §3.2 is where that reservation is made — this is its transcription. The
+	// declaration is inert until the directory lands, because rule (d) fires on a package that is
+	// on disk and declared nowhere, never on a name declared here with nothing behind it.
+	//
+	// Foundation-only is a design commitment, not a placeholder: the pipeline reaches SP-20
+	// capture/publication and SP-13 handle resolution through ports it declares itself, satisfied
+	// at a composition root. If a future slice needs a real internal/ import, that is another
+	// amendment to §3.2 — which is exactly the control this table exists to impose.
+	"admission": {},
 }
