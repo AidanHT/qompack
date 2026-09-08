@@ -62,6 +62,14 @@ type Capture struct {
 	HostFields []string `json:"host_fields,omitempty"`
 }
 
+// Recorded reports whether c is a real admission record rather than the zero Capture a caller
+// returns when admission never ran at all — no configuration, no compiled policy, and therefore no
+// classification of anything. Every Capture CaptureHook builds carries core.EvidenceVersion, so a
+// zero Version is exactly "nothing was examined". Only a recorded Capture may be published: a zero
+// one would assert a delivery this process never classified, which is the mirror image of the
+// silent drop this predicate exists to prevent.
+func (c Capture) Recorded() bool { return c.Version != 0 }
+
 // CaptureHook applies the caller's explicit privacy policy before parsing a retained Event.
 // It performs no I/O. Runtime capture remains disabled until ingress, publication and compatible
 // readers consume this seam and their gates pass; callers must never persist raw on failure.
