@@ -22,6 +22,11 @@ var ErrUnrecoverableCapture = errors.New("admission: capture cannot recover the 
 // answers about what the representation describes.
 var ErrSchemaDisagrees = errors.New("admission: parsed schema does not match the declared target")
 
+// ErrHandleUnresolvable is the stage error for a handle that did not resolve under current
+// authorization. The state that caused it is on the record, and it is the part that matters: this
+// error says the transform was blocked, HandleState says what to go fix.
+var ErrHandleUnresolvable = errors.New("admission: handle does not resolve under current authorization")
+
 // Fidelity is how recoverable a capture's ORIGINAL, pre-canonicalization bytes are.
 //
 // The values mirror store.Fidelity, which SP-20 invariant 6 guarantees is never a guess. They are
@@ -116,6 +121,7 @@ type Ports struct {
 	Capture Capturer
 	Publish Publisher
 	Parse   Parser
+	Resolve Resolver
 }
 
 // Delivery is one newly delivered result offered for admission.
@@ -137,10 +143,9 @@ type Delivery struct {
 // Pipeline is the synchronous admission sequence: privacy, capture, durability verification, one
 // representation decision, resolvable-handle verification, then one transform.
 //
-// Commits 2 and 3 implement everything up to and including the representation decision. Handle
-// resolution is commit 4; until it lands, an admitted delivery reaches OutcomeTransform without its
-// handle having been resolved under current authorization, and no caller may act on that outcome to
-// replace anything — the feature switch is refused and Enable is not wired.
+// Commits 2 through 4 implement the whole sequence up to the transform. The transform itself is not
+// performed here and no caller may act on OutcomeTransform to replace anything: the feature switch
+// is refused and Enable is not wired, and every T21 gate remains required before enablement.
 type Pipeline struct {
 	gate  Gate
 	ports Ports
@@ -170,6 +175,9 @@ func NewPipeline(g Gate, p Ports) *Pipeline { return &Pipeline{gate: g, ports: p
 //  4. Parse, then select one representation. Both run only on a durably captured original,
 //     because both forms point at it: a representation built first would describe bytes nobody
 //     retained and then have nothing to point at.
+//  5. Resolve the handle the selected representation will carry, under current authorization and
+//     on every delivery. An answer that is anything but resolvable blocks the transform, and the
+//     answer itself stays on the record.
 func (p *Pipeline) Admit(ctx context.Context, d Delivery) (Record, error) {
 	if fail := p.checkPrivacy(ctx, d); fail.Stage != StageNone {
 		return Decide(p.gate, d.Target, fail), nil
@@ -194,7 +202,15 @@ func (p *Pipeline) Admit(ctx context.Context, d Delivery) (Record, error) {
 		return Decide(p.gate, d.Target, Failure{Stage: StageSelection}), nil
 	}
 
+	state, fail := p.resolve(ctx, captured.Handle)
+	if fail.Stage != StageNone {
+		blocked := Decide(p.gate, d.Target, fail)
+		blocked.HandleState = state
+		return blocked, nil
+	}
+
 	rec := Decide(p.gate, d.Target, Failure{})
+	rec.HandleState = state
 	rec.Handle = captured.Handle
 	rec.Fidelity = captured.Fidelity
 	rec.Coverage = core.CoverageArchiveOnly
