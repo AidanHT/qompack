@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -200,7 +202,8 @@ func TestHooks_LogQuietWritesWhenLogsDirExists(t *testing.T) {
 	var rec quietLogLine
 	require.NoError(t, json.Unmarshal(bytes.TrimSpace(b), &rec))
 	require.NotEmpty(t, rec.TS)
-	require.Contains(t, rec.Err, "stdin is unreadable")
+	require.Contains(t, rec.Err, "hook input unavailable")
+	require.NotContains(t, rec.Err, "stdin is unreadable", "backend reader text is private")
 }
 
 // TestHooks_LogQuietNeverCreatesLogsDir pins logQuiet's negative case (fix round 1, Important
@@ -449,4 +452,160 @@ func TestHooks_SubagentNameReachesTheSpooledRequest(t *testing.T) {
 
 	req := onlySpooledRequest(t, dir)
 	require.JSONEq(t, `{"subagent":true,"agent":"code-reviewer"}`, string(req.Raw))
+}
+
+// TestHooks_OverBudgetDeliveryIsRecordedNotDropped pins V4-X at the hook body itself. A delivery
+// larger than the project's own merged runtime.hotPath.maxPayloadBytes is refused for OBSERVATION —
+// no Event is derived and the capture's outcome stays unavailable — but the refusal is a RECORD,
+// and that record is delivered like any other: a bounded prefix cleared by the operator's own
+// redaction rules, the fidelity that describes it, and the capture error naming why.
+//
+// Before this fix the hook body returned the moment admitHookCapture reported core.ErrBudget. The
+// host result was preserved (exit 0, empty output) and nothing else survived: no spool line, no
+// observation, no trace the host had delivered anything. Any project that tuned that key down lost
+// every hook delivery above it, silently — neither of the two outcomes SP-20's invariant 4 allows,
+// and not the "explicitly unavailable" invariant 1 requires of a missing original either.
+func TestHooks_OverBudgetDeliveryIsRecordedNotDropped(t *testing.T) {
+	dir := t.TempDir()
+	writeAdmissionConfig(t, dir,
+		`{"runtime":{"hotPath":{"maxPayloadBytes":4096},"redact":{"patterns":["PRIVATE-[A-Z]{12}"]}}}`)
+
+	// hookCaptureLimit applies a *4 read margin, so the admission budget here is 16384: 64 KiB is
+	// well past it and well under the hard allocation cap readHookCapture enforces on its own.
+	payload, err := json.Marshal(map[string]any{
+		"hook_event_name": "PostToolUse",
+		"session_id":      "s-overbudget",
+		"cwd":             dir,
+		"tool_name":       "Bash",
+		"tool_response":   map[string]any{"stdout": admissionSecret + strings.Repeat("x", 64<<10)},
+	})
+	require.NoError(t, err)
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{
+		Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
+		Stdin:   bytes.NewReader(payload),
+		Clock:   testClock(),
+		HomeDir: t.TempDir(),
+	}, &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+	require.Equal(t, "{}\n", out.String(), "the host result is preserved exactly as it was before")
+
+	req := onlySpooledRequest(t, dir)
+	require.NotNil(t, req.Capture, "an over-budget delivery must still carry its capture record")
+	require.Nil(t, req.Event,
+		"no Event was derived from a payload that was never admitted, and none may be invented")
+	require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+	require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+	require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+	require.True(t, req.Capture.Truncated)
+	require.Equal(t, len(payload), req.Capture.SourceBytes,
+		"the host delivery's real size is retained even though its bytes are not")
+	require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix is retained as evidence")
+	require.Less(t, len(req.Capture.Bytes), len(payload))
+	require.NotContains(t, string(req.Capture.Bytes), admissionSecret,
+		"the retained prefix clears the operator's own redaction rules before it is published")
+	assertAdmissionTreeHasNoSecret(t, dir)
+}
+
+// hardCapHookPayload builds one host delivery that is larger than the hard allocation cap
+// readHookCapture enforces on its own (hookCaptureMaxBytes), with the operator's own private
+// spelling near the FRONT of it — inside the bounded prefix a refusal keeps — so the assertions
+// below are about a prefix that really did have to be cleared, not one the secret never reached.
+// It is built by hand rather than through json.Marshal because Marshal sorts a map's keys, which
+// would push tool_response's payload behind the secret's own position.
+func hardCapHookPayload(t *testing.T, cwd string) []byte {
+	t.Helper()
+	quotedCWD, err := json.Marshal(cwd)
+	require.NoError(t, err)
+
+	var b strings.Builder
+	b.Grow(hookCaptureMaxBytes + 1024)
+	b.WriteString(`{"hook_event_name":"PostToolUse","session_id":"s-hardcap","cwd":`)
+	b.Write(quotedCWD)
+	b.WriteString(`,"tool_name":"Bash","tool_response":{"stdout":"` + admissionSecret)
+	b.WriteString(strings.Repeat("x", hookCaptureMaxBytes))
+	b.WriteString(`"}}`)
+
+	payload := []byte(b.String())
+	require.Greater(t, len(payload), hookCaptureMaxBytes,
+		"the fixture must be past the hard allocation cap, not merely past a configured budget")
+	require.True(t, json.Valid(payload), "the delivery itself is well-formed; only its size refuses it")
+	return payload
+}
+
+// TestHooks_HardCapDeliveryIsRecordedWhenStateExists is the first half of the V4-Z ruling on the
+// hard allocation cap. A delivery past hookCaptureMaxBytes is refused before any configuration is
+// loaded — no Event, no observation, and the bytes past the cap are never read — but in a project
+// that already has a .qompack store, the refusal leaves exactly the record the CONFIGURED budget
+// leaves (TestHooks_OverBudgetDeliveryIsRecordedNotDropped): FidelityTruncated,
+// CaptureErrorOversize, OutcomeUnavailable, the size the cap observed before it stopped, and a
+// bounded prefix cleared by the operator's own redaction rules.
+//
+// Before this fix the cap returned an empty hookInput and the hook body stopped on it, so a
+// delivery over 4 MiB produced no spool line, no observation and no trace at all. Satisfying
+// invariant 1's "missing originals remain explicitly unavailable" at the configured budget while
+// violating it one bound higher up is not a boundary this store can defend.
+func TestHooks_HardCapDeliveryIsRecordedWhenStateExists(t *testing.T) {
+	dir := t.TempDir()
+	// A store the project has opted into, and the operator's own rule for the private spelling.
+	// runtime.hotPath.maxPayloadBytes is left at its default precisely so that the CONFIGURED
+	// budget cannot be what refuses this delivery: only the hard cap can.
+	writeAdmissionConfig(t, dir, `{"runtime":{"redact":{"patterns":["PRIVATE-[A-Z]{12}"]}}}`)
+	payload := hardCapHookPayload(t, dir)
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{
+		Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
+		Stdin:   bytes.NewReader(payload),
+		Clock:   testClock(),
+		HomeDir: t.TempDir(),
+	}, &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+	require.Equal(t, "{}\n", out.String(), "the host result is preserved exactly as it was before")
+
+	req := onlySpooledRequest(t, dir)
+	require.NotNil(t, req.Capture, "a delivery over the hard cap must still carry its capture record")
+	require.Nil(t, req.Event,
+		"no Event was derived from a payload that was never admitted, and none may be invented")
+	require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+	require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+	require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+	require.True(t, req.Capture.Truncated)
+	require.Equal(t, hookCaptureMaxBytes+1, req.Capture.SourceBytes,
+		"the cap records what it observed before it stopped reading, not a size it never measured")
+	require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix is retained as evidence")
+	require.LessOrEqual(t, len(req.Capture.Bytes), hookCaptureRefusalPrefixBytes*2,
+		"the record must not reintroduce the buffer the cap exists to refuse")
+	require.NotContains(t, string(req.Capture.Bytes), admissionSecret,
+		"the retained prefix clears the operator's own redaction rules before it is published")
+	assertAdmissionTreeHasNoSecret(t, dir)
+}
+
+// TestHooks_HardCapDeliveryIsDroppedWithoutState is the second half of the same ruling, and it is
+// a pin, not a defect: where a project has NO .qompack store, the identical over-cap delivery must
+// still be dropped leaving nothing at all behind. A hook may not conjure state in a project that
+// has not opted in — there is no spool, no log and no daemon address to write a refusal to, and
+// creating them to hold one would be a worse outcome than the drop. Anyone tempted to "finish"
+// the fix above by removing hookRefusalIsRecordable's store check will fail here.
+func TestHooks_HardCapDeliveryIsDroppedWithoutState(t *testing.T) {
+	dir := t.TempDir() // the project root itself exists; nothing under it does.
+	payload := hardCapHookPayload(t, dir)
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{
+		Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
+		Stdin:   bytes.NewReader(payload),
+		Clock:   testClock(),
+		HomeDir: t.TempDir(),
+	}, &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+	require.Equal(t, "{}\n", out.String(), "the host result is preserved exactly as it was before")
+
+	_, statErr := os.Stat(paths.Of(dir).Dot)
+	require.True(t, os.IsNotExist(statErr),
+		"a delivery refused by the hard cap must not conjure .qompack/ in a project that has none, got %v", statErr)
+	entries, err := os.ReadDir(dir)
+	require.NoError(t, err)
+	require.Empty(t, entries, "the project is left exactly as untouched as it was before the hook ran")
 }

@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "id": "phase0-replay",
+      "kind": "turn",
+      "provider": "none (deterministic replay, no model call)",
+      "model": "",
+      "rate_table_date": "",
+      "pricing_mode": "none",
+      "reported": {},
+      "missing": [
+        "input",
+        "output",
+        "cache_read",
+        "cache_write_5m",
+        "cache_write_1h",
+        "thinking_output"
+      ],
+      "retries": 0,
+      "aborted": false,
+      "notes": "generator test/replay/1 over 24 synthetic sessions at testdata/sessions/synthetic (corpus SHA-256 ebaf30d212c00480cf7c74311359157ba40c4b1321b44670f30a4573f8b45317, generator eval.Synthesize/2), latency modelled. No provider request was made: the Phase 0 replay is deterministic, so every usage category is unknown rather than zero (Qompack.md v1.5 5.3, 'Missing usage is unknown, never zero'). The accounting below is therefore COMPLETE AS A STATEMENT OF ABSENCE and incomplete as a bill: six of six usage categories are listed in missing, none is estimated, and no total is offered. This ledger records what is true about the run; it adds nothing to testdata/baseline/phase0.json, which keeps its original definitions. See testdata/baseline/phase0.provenance.v1.json."
+    }
+  ],
+  "schedule": null,
+  "compaction": [
+    {
+      "native_compaction_input": {
+        "known": false
+      },
+      "qompack_frontier_work": {
+        "known": false
+      },
+      "added_tokens": {
+        "known": false
+      },
+      "total_observed_context": {
+        "known": false
+      }
+    }
+  ]
+}

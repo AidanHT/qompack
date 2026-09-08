@@ -1,0 +1,18 @@
+{
+  "head": "65c499dd84786a846b2ab36011738c2a2d4f8c33",
+  "stage": "provisional frontier port formatting and affected-package vet",
+  "checks": [
+    {
+      "command": "go run ./tools/devtool fmt-check",
+      "exit": 0,
+      "elapsed_seconds": 10.3922005,
+      "output": []
+    },
+    {
+      "command": "go vet ./internal/checkpoint ./internal/daemon ./internal/cli",
+      "exit": 0,
+      "elapsed_seconds": 4.6656334,
+      "output": []
+    }
+  ]
+}

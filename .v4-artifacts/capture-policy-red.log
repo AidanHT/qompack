@@ -1,0 +1,42 @@
+# github.com/qompack/qompack/internal/hookio_test [github.com/qompack/qompack/internal/hookio.test]
+internal\hookio\capture_test.go:66:11: undefined: require.NotNegative
+FAIL	github.com/qompack/qompack/internal/hookio [build failed]
+--- FAIL: TestCapturePolicy_PreservesUnchangedJSONBytes (0.00s)
+    capture_test.go:17: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:17
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_PreservesUnchangedJSONBytes
+--- FAIL: TestCapturePolicy_RedactsDecodedAndStructuredSecrets (0.00s)
+    capture_test.go:27: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:27
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_RedactsDecodedAndStructuredSecrets
+--- FAIL: TestCapturePolicy_StrictRulesAndDisabledMode (0.00s)
+    capture_test.go:67: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:67
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_StrictRulesAndDisabledMode
+--- FAIL: TestCapturePolicy_RejectsAmbiguousOrInvalidJSON (0.00s)
+    capture_test.go:77: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:77
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_RejectsAmbiguousOrInvalidJSON
+--- FAIL: TestCapturePolicy_RefusesRedactedKeyCollisions (0.00s)
+    capture_test.go:97: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:97
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_RefusesRedactedKeyCollisions
+--- FAIL: TestCapturePolicy_CustomPatternSeesDecodedUnknownFields (0.00s)
+    capture_test.go:108: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/redact/capture_test.go:108
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestCapturePolicy_CustomPatternSeesDecodedUnknownFields
+FAIL
+FAIL	github.com/qompack/qompack/internal/redact	1.223s
+FAIL

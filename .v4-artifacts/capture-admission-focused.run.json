@@ -1,0 +1,46 @@
+{
+  "head": "9b395f8dfa310c2a91ce30f1d87a75282359791e",
+  "inputs": [
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\config\\capture_load.go",
+      "Hash": "F1EE3883A4FB2A4471CCF0082F999248078CB7C453ED1F99B19E2A7A8C12860D"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\config\\capture_load_test.go",
+      "Hash": "1AF37BC5F6CC56A4D6839CD15D8DFE094AB6818042B604BE5A536664FF1D26DB"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\capture_admission.go",
+      "Hash": "77813AD161511D0F471EB0EBB30325B97F7F5CD9C47D68FE2611DAB31E8FE55F"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\capture_admission_test.go",
+      "Hash": "8B1B138C1453CF72AA5B0C13ED9336F7D78A17C28C743ACC93D79FA4FE728E9F"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\hookclient.go",
+      "Hash": "4B37C52100563CDF9359158E5F38363C46AE03C035FE24CFCC5042AFD546E6D8"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\hooks_test.go",
+      "Hash": "9437904C3CD46525CB527042DB340673CEE2D74E2F3F35BB21FFB92AA109EFBD"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\fault.go",
+      "Hash": "CB128375A8CDC8DA4CBB6803785EF55323A0ED0D96E864F9ABB17D53DAA01523"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\fault_noinject.go",
+      "Hash": "94298260FB33496E45B0C4C48608E92844A92C54E8486633DFDD47408D778640"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\fault_test.go",
+      "Hash": "35192A0ED5DC0E6957861E97C8605824FF3E6E8AA8A8B515F824194437905EE9"
+    }
+  ],
+  "exit": 0,
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^(TestLoadForCapture_|TestHookCapture_|TestHooks_|TestHookConnectDeadline|TestSchedulerNotOnHotPath)' ./internal/config ./internal/cli",
+  "kind": "provisional Windows TempDirs; one heavy job; no installed host or timing acceptance",
+  "elapsed_seconds": 29.5078785,
+  "started": "2026-09-08T01:57:04.1575546Z"
+}

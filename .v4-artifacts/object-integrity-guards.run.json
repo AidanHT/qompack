@@ -1,0 +1,18 @@
+{
+  "head": "3576900be22ffd7d1dcceaa2123897f06dc4d62c",
+  "stage": "provisional store formatting and vet, no source changes after integrity race",
+  "checks": [
+    {
+      "command": "go run ./tools/devtool fmt-check",
+      "exit": 0,
+      "elapsed_seconds": 12.1132203,
+      "output": []
+    },
+    {
+      "command": "go vet ./internal/store ./internal/store/storetest",
+      "exit": 0,
+      "elapsed_seconds": 4.6901566,
+      "output": []
+    }
+  ]
+}

@@ -53,14 +53,39 @@ var decoderPool = sync.Pool{
 	},
 }
 
+// encodedObjectLimit includes the encoder's worst-case framing/block overhead for a maximum
+// plaintext object. A raw MaxPutBytes limit would reject valid incompressible encoded input.
+// The same configured encoder used by Encode defines the supported on-disk representation.
+func encodedObjectLimit() int64 {
+	pooled := encoderPool.Get()
+	enc, ok := pooled.(*zstd.Encoder)
+	if !ok {
+		// encoderPool is package-private and its New returns nothing but a *zstd.Encoder, so a
+		// value of any other type is a programming error in this package, not a runtime condition
+		// a caller could recover from. Unlike Encode and Decode this function has no error to
+		// return, and every limit it could invent instead is wrong in a way that fails silently: 0
+		// rejects every object, and an unpadded MaxPutBytes rejects valid incompressible input,
+		// which is the exact bug this function exists to avoid. Building a throwaway encoder would
+		// hide the same corruption behind an allocation on every call. So it panics, naming the
+		// type it actually got, exactly as encoderPool.New already panics on an option it cannot
+		// reject.
+		panic(fmt.Sprintf("store: encodedObjectLimit: encoder pool returned %T, want *zstd.Encoder", pooled))
+	}
+	defer encoderPool.Put(enc)
+	return int64(enc.MaxEncodedSize(MaxPutBytes))
+}
+
 // Encode returns the zstd-compressed form of b, at zstd.SpeedDefault. This is a real
 // implementation, not a stub (§14.1 of plans/V1-SP-01-foundation-toolchain-and-contracts.md):
 // SP-06's real Put/PutBytes calls it directly to produce objects/ab/cd/<sha256>.zst, so it must
 // work correctly today even though the rest of this package is a stub.
 func Encode(b []byte) ([]byte, error) {
-	enc, ok := encoderPool.Get().(*zstd.Encoder)
+	// The failed assertion's own variable is a typed nil, so %T on it would print the type this
+	// was hoping for rather than the one that arrived. The pooled value is what names the fault.
+	pooled := encoderPool.Get()
+	enc, ok := pooled.(*zstd.Encoder)
 	if !ok {
-		return nil, fmt.Errorf("store: Encode: encoder pool returned %T, want *zstd.Encoder", enc)
+		return nil, fmt.Errorf("store: Encode: encoder pool returned %T, want *zstd.Encoder", pooled)
 	}
 	defer encoderPool.Put(enc)
 	return enc.EncodeAll(b, make([]byte, 0, len(b))), nil
@@ -71,9 +96,10 @@ func Encode(b []byte) ([]byte, error) {
 // cap fails with an error instead of allocating without bound (§13 invariant 7). This is a real
 // implementation, not a stub — see Encode's doc comment.
 func Decode(b []byte) ([]byte, error) {
-	dec, ok := decoderPool.Get().(*zstd.Decoder)
+	pooled := decoderPool.Get() // see Encode's own note on why the pooled value, not dec, names the fault
+	dec, ok := pooled.(*zstd.Decoder)
 	if !ok {
-		return nil, fmt.Errorf("store: Decode: decoder pool returned %T, want *zstd.Decoder", dec)
+		return nil, fmt.Errorf("store: Decode: decoder pool returned %T, want *zstd.Decoder", pooled)
 	}
 	defer decoderPool.Put(dec)
 

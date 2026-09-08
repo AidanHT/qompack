@@ -1,0 +1,40 @@
+{
+  "fixture_roots": "Go t.TempDir per test",
+  "exit": 0,
+  "stage": "provisional prerequisite",
+  "started": "2026-09-07T23:13:51.7796732Z",
+  "elapsed_seconds": 4.784432,
+  "command": "go test -p=1 -count=1 -timeout=5m -run 'TestDrain|TestResolveBlob|TestIngest|TestAcceptWireLine|TestLiveDispatchedLine' ./internal/daemon",
+  "other_owned_jobs": 0,
+  "head": "029d065690c36b6ae65e09855e65a2d1bdce626b",
+  "files": [
+    {
+      "sha256": "F3D05C172FC78B26DDC9186EEA553754FD0AB8B719FA75FA6FE069D6D898D388",
+      "path": "internal/daemon/blob.go"
+    },
+    {
+      "sha256": "728AD9E495D2A64AF26124EAEF9A49110771D8056A570DB6B155DCF6FF5EC98B",
+      "path": "internal/daemon/daemon.go"
+    },
+    {
+      "sha256": "E88AB07A02B12B600833201DBD7F6702158135C913AA87AA4E7BAE23135AF57B",
+      "path": "internal/daemon/drain.go"
+    },
+    {
+      "sha256": "C1AAF426E2D38C6E020B77BC2CF36DF1DF26D7C03C3DD20F3D6919C9C7199C7D",
+      "path": "internal/daemon/drain_test.go"
+    },
+    {
+      "sha256": "14ADC7A6B8CA5A3320A5683583FF42824B3B9E4E59F344EF4CDF304BB78FA1A1",
+      "path": "internal/daemon/ingest.go"
+    },
+    {
+      "sha256": "B985F5C090972C98A706484477FCA37ED451DD9FD768F52EB19E4CAF19859971",
+      "path": "internal/daemon/ingest_test.go"
+    },
+    {
+      "sha256": "18445E0C75D7A58D0C092B018669FCB8B6D5D6A9239E08F34070F9F2DA0CA313",
+      "path": "internal/daemon/drain_recovery_test.go"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -63,6 +64,12 @@ const (
 	metaToolUseID = "tool_use_id"
 	metaHash      = "hash"
 	metaPath      = "path"
+	// metaUntrusted marks a response as carrying retrieved archive text: content this package read
+	// back from stored evidence rather than text it composed itself. It is set on every tool that
+	// renders such text (recall, expand, re_read) so a host or model reading _meta knows this text
+	// has provenance elsewhere and must be treated as data, never as an instruction (SP-13 interface
+	// contract, "Treat malicious stored text as data with provenance, never promoted instruction").
+	metaUntrusted = "untrusted"
 )
 
 // toolFunc is one handler's body: the preamble has already applied schema defaults and validated,
@@ -72,12 +79,16 @@ type toolFunc func(ctx context.Context, r Request, args json.RawMessage) (Respon
 // handlers is the collaborator set the eight tool bodies read. Every member may be nil except
 // cfg, clk, log and m, which newHandlers always fills.
 type handlers struct {
-	store  store.Store
-	ledger negknow.Ledger
-	ckpt   checkpoint.Reader
-	drops  DropReporter
-	prom   Promoter
-	wide   Widener
+	store store.Store
+	// ledgerFn resolves the elimination ledger on every read rather than holding it, because the
+	// daemon opens it lazily and long after these handlers were built. It is never nil —
+	// newHandlers wraps a plain ToolDeps.Ledger in a closure — so h.ledger() is always safe to
+	// call. See ToolDeps.LedgerFn.
+	ledgerFn func() negknow.Ledger
+	ckpt     checkpoint.Reader
+	drops    DropReporter
+	prom     Promoter
+	wide     Widener
 
 	cfg  config.Config
 	root string
@@ -90,6 +101,20 @@ type handlers struct {
 	// accessor and the histogram name is an unexported constant there: Budgets() is the only
 	// exported route to it, and SP-13 adds no export to a package it does not own.
 	bfHist string
+
+	// redactor re-applies the CURRENT secret policy to retrieved bytes (T20-M2-04). It is the
+	// Redactor the composition root supplied and it MAY be nil, because this package cannot build
+	// one: §3.2 keeps internal/redact out of its allow-set, so the implementation is adapted in
+	// internal/cli and handed in through ToolDeps. A nil one is the fail-closed case — see
+	// redactForRetrieval — never an identity pass-through.
+	redactor Redactor
+
+	// disableWhy and disableDropped are the explicit operator/build gate for the two
+	// checkpoint-dependent tools (interface contract: "Core archive retrieval is independently
+	// testable before checkpoint/rehydration enablement"). They are distinct from a nil ckpt/drops
+	// collaborator: that means "not present in this build"; these mean "administratively off",
+	// which can be true even when a real collaborator IS wired.
+	disableWhy, disableDropped bool
 }
 
 // newHandlers builds the handler set from d, filling every seam a zero ToolDeps leaves empty.
@@ -111,14 +136,32 @@ func newHandlers(d ToolDeps) *handlers {
 	if m == nil {
 		m = obs.New(clk)
 	}
+	cfg := normalizeCfg(d.Cfg)
+	ledgerFn := d.LedgerFn
+	if ledgerFn == nil {
+		l := d.Ledger
+		ledgerFn = func() negknow.Ledger { return l }
+	}
 	return &handlers{
-		store: d.Store, ledger: d.Ledger, ckpt: d.Checkpoints,
+		store: d.Store, ledgerFn: ledgerFn, ckpt: d.Checkpoints,
 		drops: d.Rehydrator, prom: d.Promoter, wide: d.Widener,
-		cfg:  normalizeCfg(d.Cfg),
+		cfg:  cfg,
 		root: d.ProjectRoot,
 		clk:  clk, log: log, m: m,
-		bfHist: bfHistName(),
+		bfHist:     bfHistName(),
+		redactor:   d.Redactor,
+		disableWhy: d.DisableWhy, disableDropped: d.DisableDropped,
 	}
+}
+
+// ledger resolves the elimination ledger for this call, or nil when none is wired. Every
+// ledger-backed handler already checks for nil, because a build without one must answer "not
+// present in this build" rather than panic.
+func (h *handlers) ledger() negknow.Ledger {
+	if h.ledgerFn == nil {
+		return nil
+	}
+	return h.ledgerFn()
 }
 
 // normalizeCfg fills the eight configuration keys this package reads when cfg arrives zeroed.
@@ -307,4 +350,52 @@ func dropEntriesOf(in []checkpoint.DropEntry) []checkpoint.DropEntry {
 		return []checkpoint.DropEntry{}
 	}
 	return in
+}
+
+// redactForRetrieval re-applies the CURRENT secret policy to retrieved bytes before they are
+// rendered (T20-M2-04).
+//
+// Capture-time redaction (internal/redact, applied once, on the way INTO the store) is necessarily
+// judged by whichever rule set existed AT CAPTURE TIME. A record captured before a rule existed —
+// a new built-in family, an operator's later runtime.redact.patterns addition, or capture with
+// redaction disabled altogether — would otherwise be served in the clear forever, because nothing
+// ever looks at it again. Redact's own contract guarantees this is safe to do a second time: it is
+// idempotent against its own placeholder, so re-running it over already-redacted bytes changes
+// nothing.
+//
+// Only the COUNT and the RULE NAMES are logged, and only via Loud — never any span of the input —
+// so a diagnostic about a secret can never itself become one ("no secret reaches a log line").
+//
+// ok is false when no Redactor was wired. The caller must then serve NOTHING and report itself
+// unavailable: without a redactor this build cannot tell a clean record from one captured before
+// today's rules existed, and "I cannot check" must never render as "here it is". See
+// redactorMissingReason.
+func (h *handlers) redactForRetrieval(tool string, b []byte) (out []byte, ok bool) {
+	if h.redactor == nil {
+		return nil, false
+	}
+	out, rules := h.redactor.Redact(b)
+	if len(rules) == 0 {
+		return out, true
+	}
+	h.log.Loud("mcp: retrieval redacted content the capture-time policy had not caught",
+		"tool", tool, "count", len(rules), "rules", strings.Join(rules, ","))
+	return out, true
+}
+
+// unsupportedReason is the one sentence every administratively-gated tool reports, stated once so
+// a caller learns a single rule rather than several differently-worded ones.
+func unsupportedReason(name string) string {
+	return name + " is disabled in this build's configuration"
+}
+
+// unsupported reports that a tool is administratively disabled — a deliberate operator/build
+// decision, distinct from "not present in this build" (no collaborator was ever wired) and from a
+// semantic miss. It keeps missBody's existing available/reason shape, because a caller that
+// already treats availability as a third answer needs no adapter to recognize this fourth one for
+// what it is: an honest "not right now", never a silent absence. The tool itself stays listed in
+// tools/list either way (interface contract: "a disabled tool must report itself unsupported, not
+// silently absent").
+func unsupported(name string) missBody {
+	return unavailable(unsupportedReason(name))
 }

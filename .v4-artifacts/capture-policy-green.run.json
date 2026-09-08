@@ -1,0 +1,16 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^TestCapture' ./internal/hookio ./internal/redact ./test/integration",
+  "head": "16ecc771956a656c5423650713bd4eaffb5cea5d",
+  "started": "2026-09-08T00:57:56.4179424Z",
+  "stage": "provisional capture and real privacy policy composition",
+  "files": {
+    "internal/core/evidence.go": "95CACA53BA2B2489637207B1CACC50FA6A44FB84A121229EC757E71C1B7E5B8C",
+    "internal/hookio/capture.go": "35F5C2A0A009648B4A5F88BFD54CD314A458CBB66654F64CFEF4B97886F33EA2",
+    "internal/hookio/capture_test.go": "14A8405006D2E07AEFEAAC4642366938C2BAD72E0B819BBD7CC37D8CB5564687",
+    "internal/redact/capture.go": "002D71F59B9832FDCA45D7D892DC4CB7709C02CA7D87D172CD3942833B430BA8",
+    "internal/redact/capture_test.go": "830731A63C118B5D33C877734E861BB3F79453DD9DEF439BFDE621869C278BD9",
+    "test/integration/capture_policy_test.go": "64B8EAA2350A1EC86570F1985E646DC878CB0C8E92C5974741FA476EF953C4D1"
+  },
+  "exit": 0,
+  "elapsed_seconds": 35.7576847
+}

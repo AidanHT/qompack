@@ -70,6 +70,39 @@ func TestMigrationGates_CoverEveryGatedLeaf(t *testing.T) {
 	}
 }
 
+// TestMigrationBuildGates_LegacyImportIsPendingAndHasNoConfigLeaf pins SP-20 M1-04's gate.
+//
+// Two separate properties are asserted, and both matter. The gate is still pending, exactly like
+// every entry in the config-switch table, so a build ships with legacy import and cutover
+// unreachable. And its key is NOT a runtime.migration.* bool leaf: a build gate must not be
+// turnable on by a config edit, which is the whole reason it lives in its own table rather than
+// being smuggled into MigrationGates with a leaf nobody declared.
+func TestMigrationBuildGates_LegacyImportIsPendingAndHasNoConfigLeaf(t *testing.T) {
+	gates := config.MigrationBuildGates()
+	require.Len(t, gates, 1)
+
+	g := config.LegacyImportGate()
+	require.Equal(t, config.LegacyImportGateKey, g.Key)
+	require.Equal(t, gates[0], g)
+	require.False(t, g.Passed, "legacy import/cutover must still be gated off in this build")
+	require.NotEmpty(t, g.Owner)
+	require.Contains(t, g.Gate, "T20-M1-08")
+
+	require.False(t, strings.HasPrefix(g.Key, "runtime.migration."),
+		"a build gate must not look like a config leaf")
+	var schema map[string]any
+	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
+	leaves := leafTypes(t, schema, "")
+	_, isLeaf := leaves[g.Key]
+	require.False(t, isLeaf, "the legacy-import gate must have no config leaf a file could set")
+
+	// And it is not silently duplicated into the config-switch table, which would make
+	// TestMigrationGates_CoverEveryGatedLeaf fail for a leaf that does not exist.
+	for _, cg := range config.MigrationGates() {
+		require.NotEqual(t, g.Key, cg.Key)
+	}
+}
+
 // TestValidate_RefusesEveryPendingSwitch: a true value on any gated switch is a Violation naming
 // that switch and its gate, and the hardwired manual-compact block is refused outright.
 func TestValidate_RefusesEveryPendingSwitch(t *testing.T) {

@@ -37,6 +37,7 @@ import (
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/skills"
+	"github.com/qompack/qompack/internal/state"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/symbols"
 )
@@ -61,11 +62,12 @@ type stubPackage struct {
 
 // compositionRootPkgs are the two §5 packages that are composition roots: they wire other
 // packages together and expose no seam for a later wave to implement against. They are in the
-// table so the completeness check sees all 23, with no constructor to walk.
+// table so the completeness check sees all 24, with no constructor to walk.
 var compositionRootPkgs = map[string]bool{"commands": true, "daemon": true}
 
-// stubRegistry is the table the plan requires: every one of the 23 §5 interface packages, with a
-// constructor for the seam a later wave replaces.
+// stubRegistry is the table the plan requires: every one of the original 23 §5 interface
+// packages, with a constructor for the seam a later wave replaces, plus every package a later
+// subplan has added the same way since — SP-20 M2-01's state is the first.
 //
 // The registry is written out by hand rather than discovered by reflection over the module. That
 // is the point: a package that gains a seam and is not added here is exactly the failure this
@@ -184,6 +186,12 @@ func stubRegistry() []stubPackage {
 			return contract.NewMonitor(logging.Nop(), obs.New(core.SystemClock()),
 				filepath.Join(t.TempDir(), contractStateFile))
 		}, pureMethods: allMethodsAreReal},
+		// state's seam is REAL as of SP-20 M2-01: Add, Get, All, Applicable, Conflicts,
+		// Supersede, Correct, Conflict, Resolve and Encode all do their own work, so none of them
+		// reports ErrNotImplemented. It has no consumers wired yet — that is a later task's
+		// wiring gap, not a reason to call the seam itself a stub. It stays registered for the
+		// completeness check, the same as eval and contract above.
+		{pkg: "state", build: func(*testing.T) any { return state.NewSet() }, pureMethods: allMethodsAreReal},
 	}
 }
 
@@ -420,8 +428,10 @@ func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 	}
 }
 
-// wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates.
-const wantStubPackages = 23
+// wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates, plus one:
+// SP-20 M2-01 added internal/state after wave 0, and TestStubRegistry_ListsEveryPackageOnDisk
+// requires every package with a plans/OWNERS.tsv stub probe to be registered here too.
+const wantStubPackages = 24
 
 // ownersWithProbes reads plans/OWNERS.tsv and returns every package whose row names a stub probe.
 func ownersWithProbes(t *testing.T) []string {

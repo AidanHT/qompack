@@ -121,6 +121,31 @@ jobs:
       # alone) and 11.264 ms then 18.432 ms here, against a 15 ms limit, with the product
       # byte-identical — a coin flip on scheduler weather. See docs/adr/0010.
       QOMPACK_UNDER_COLOAD: '1'
+      # ── Expected failures ───────────────────────────────────────────────────────────────────────
+      # These rows are DELIBERATELY red and must stay red locally: they are the open items in
+      # plans/V4-report.md section 19 — the four carried defects the wave report still cannot
+      # resolve (SP05-D1, SP06-D2, SP08-D1, SP10-D1) and the Belady p_min floor, which is an open
+      # spec question expressed as a failing measurement rather than a lowered threshold.
+      #
+      # Enumerating them is what restores the signal. Without this list the job could never be
+      # green, so a genuine new failure anywhere in test/guards or test/integration was
+      # indistinguishable at the job level from these five. The list is enforced in BOTH
+      # directions: an unlisted row that fails breaks the build, and a listed row that PASSES
+      # breaks the build too — a defect that gets fixed must be struck from here, and from the
+      # report, in the same change that fixes it.
+      #
+      # A subtest failure also fails its parent and its package, so the parent rows are listed
+      # here and the two packages in EXPECTED_FAILING_PACKAGES below.
+      EXPECTED_FAILING_ROWS: |
+        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution
+        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP05-D1
+        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
+        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
+        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
+        github.com/qompack/qompack/test/integration TestIntegration_BeladyPMinLandsAtLowCoupling
+      EXPECTED_FAILING_PACKAGES: |
+        github.com/qompack/qompack/test/guards
+        github.com/qompack/qompack/test/integration
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -136,20 +161,61 @@ jobs:
       #
       # `shell: bash` on every runner, Windows included, so the package-list substitution is one
       # spelling everywhere; the Windows runner's Git Bash is what actions/checkout already uses.
-      - if: runner.os != 'Windows'
-        # CGO is required for -race, so this step deliberately overrides the workflow-level
-        # CGO_ENABLED=0 the same way nightly.yml's race-windows job does. Without it `go test
-        # -race` does not run the suite under the detector and fall back to a plain run — it
-        # refuses outright with "-race requires cgo" and exits 2, which is how this job failed
-        # on the very first CI run this repository ever had. The shipped binaries are still
-        # built with CGO off; see crossbuild.
+      # ONE step for all three runners, with the flags chosen inside it, because the
+      # expected-failure reconciliation below must be identical on every runner and a second copy
+      # of it is a second thing to drift.
+      #
+      # CGO is required for -race, so this step deliberately overrides the workflow-level
+      # CGO_ENABLED=0 the same way nightly.yml's race-windows job does. Without it `go test
+      # -race` does not run the suite under the detector and fall back to a plain run — it
+      # refuses outright with "-race requires cgo" and exits 2, which is how this job failed
+      # on the very first CI run this repository ever had. The shipped binaries are still
+      # built with CGO off; see crossbuild. Windows runs -count=2 without the detector instead.
+      - name: test (whole tree, with an expected-failure reconciliation)
         env:
-          CGO_ENABLED: '1'
+          CGO_ENABLED: ${{ runner.os == 'Windows' && '0' || '1' }}
         shell: bash
-        run: go test -race -timeout=30m $(go list ./... | grep -v '/test/e2e$')
-      - if: runner.os == 'Windows'
-        shell: bash
-        run: go test -count=2 -timeout=30m $(go list ./... | grep -v '/test/e2e$')
+        run: |
+          # `shell: bash` defaults to `-eo pipefail`, and BOTH would abort this step before it
+          # could reconcile anything: `go test` exits non-zero by design here, and a `grep` that
+          # matches nothing (the good case, for a green package set) exits 1 too.
+          set +e -u
+          if [ "$RUNNER_OS" = "Windows" ]; then flags='-count=2'; else flags='-race'; fi
+          # shellcheck disable=SC2046  # the package list must word-split
+          go test $flags -timeout=30m -json $(go list ./... | grep -v '/test/e2e$') > test.json
+          status=$?
+          # test2json emits one object per event. A test-level verdict is the object that carries
+          # Action, Test AND Elapsed; an "output" event carries no Elapsed, which is what keeps a
+          # test that PRINTS this shape out of the tally.
+          grep '"Action":"fail"' test.json | grep '"Elapsed":' | grep '"Test":"' | sed -n 's/.*"Package":"\([^"]*\)".*"Test":"\([^"]*\)".*/\1 \2/p' | sort -u > failed-rows.txt
+          # A package-level verdict has no Test. A package that fails to BUILD, panics, or times
+          # out reports only this, so it is reconciled separately — otherwise a build break in
+          # test/guards would look exactly like the rows below.
+          grep '"Action":"fail"' test.json | grep '"Elapsed":' | grep -v '"Test":"' | sed -n 's/.*"Package":"\([^"]*\)".*/\1/p' | sort -u > failed-pkgs.txt
+          # The block scalars below already end in a newline; sed drops the blank tail and the
+          # YAML indentation, leaving one "package test" (or "package") per line.
+          echo "$EXPECTED_FAILING_ROWS" | sed '/^[[:space:]]*$/d;s/^[[:space:]]*//' | sort -u > expected-rows.txt
+          echo "$EXPECTED_FAILING_PACKAGES" | sed '/^[[:space:]]*$/d;s/^[[:space:]]*//' | sort -u > expected-pkgs.txt
+          rc=0
+          if ! diff -u expected-rows.txt failed-rows.txt; then
+            echo "::error::the expected-failure list is stale: a listed row started passing, or an unlisted row failed (see plans/V4-report.md section 19)"
+            rc=1
+          fi
+          if ! diff -u expected-pkgs.txt failed-pkgs.txt; then
+            echo "::error::a package failed outside the expected set, or an expected package stopped failing — a build break, panic or timeout looks like this (see plans/V4-report.md section 19)"
+            rc=1
+          fi
+          if [ "$rc" = 0 ] && [ "$status" != 0 ]; then
+            echo "the whole-tree run exited $status; every failing row is an expected one"
+          fi
+          # Failures are surfaced by the reconciliation, not by go test's exit code: the four
+          # carried defects and the Belady row make that code permanently non-zero. Nothing is
+          # skipped, nothing is continue-on-error, and no red row is weakened — they stay red
+          # locally and are named here.
+          if [ "$rc" != 0 ]; then
+            grep -E '"Action":"(fail|output)"' test.json | tail -n 200
+          fi
+          exit "$rc"
 
   test-e2e:
     # test/e2e alone on its own runner, and without -race: see the `test` job for why it is out
@@ -194,7 +260,7 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
-      - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestIntegration_HotPathWarmWithRealResidentState)$' ./internal/store ./internal/negknow ./test/integration
+      - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState)$' ./internal/store ./internal/negknow ./internal/mcp ./test/integration
 
   cover:
     runs-on: ubuntu-latest
@@ -281,10 +347,16 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+      # --baseline names the baseline recorded over the corpus --corpus names, and the pairing is
+      # checked rather than trusted: the driver refuses a baseline whose corpusSHA256 is not this
+      # corpus's (checkCorpusIdentity, test/replay/gate.go) and exits 2 naming both digests. The V4
+      # corpus correction moved that digest from e2d9fa5a... to ebaf30d2..., so phase0.json -- which
+      # stays committed, unedited and M0-04-protected as the record of what the pre-correction
+      # corpus said -- is no longer the baseline for this run. phase0-recall.json is.
       - run: >
           go run ./tools/devtool replay
           --corpus testdata/sessions/synthetic
-          --baseline testdata/baseline/phase0.json
+          --baseline testdata/baseline/phase0-recall.json
           --phase 0
           --growth testdata/golden/eval/growth/stats-growth.json
           --sketch testdata/golden/eval/growth/health.json

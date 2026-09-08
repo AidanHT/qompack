@@ -1,0 +1,8 @@
+{
+  "stage": "provisional drain/blob/ingest corrections",
+  "seconds": 4.2636771,
+  "command": "go test -p=1 -count=1 -run TestDrain|TestResolveBlob|TestIngest|TestAcceptWireLine|TestLiveDispatchedLine ./internal/daemon",
+  "started": "2026-09-07T22:57:17.6534447Z",
+  "source_head": "919ca3a",
+  "exit": 0
+}

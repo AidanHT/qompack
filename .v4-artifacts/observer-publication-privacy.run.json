@@ -1,0 +1,17 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^(TestOnToolUse_(PutFailureRemainsUnpublished|IndexFailureStopsPublication)|TestObserverPublicationFailureRemainsDrainRetryable)$' ./internal/observer ./internal/daemon",
+  "head": "f6a86918f628d15d8844e569e5ebcde53a349ff3",
+  "started": "2026-09-07T23:50:36.1813257Z",
+  "stage": "provisional added error privacy assertions after independent review",
+  "files": {
+    "internal/observer/tooluse.go": "1B0D965455359EEAE3E383159340CBD522E23211415B4F87F5F5F1E303E5AF8F",
+    "docs/adr/0013-migration-contracts.md": "E55FE7570E4DB5483B08BADF71F0B04263F092658287B06C74DCFED78786D8B7",
+    "internal/observer/tooluse_test.go": "B92813540584B5A171DA851D59ED3BFC81FA6796391BB588632FE5ADA87338F8",
+    "internal/observer/doc.go": "612E3802FD0088DE9944433082F4806AB88E3B0D969CB40CF20A1E9645BFDCC1",
+    "internal/observer/observer.go": "AAC75E4FF2412B9199FD4FA2DE2054D9265FD7640CBB71EB7E6950479CE0E81C",
+    "internal/daemon/daemon.go": "6CE0CC62169D28AB7B0CE840BC6C57F37E4904A81418B442626C11B3958F96BD",
+    "internal/daemon/observer_publication_test.go": "C70093F29087824B472CC355A2D49AEA99A1491452D520087B6AA586F3AF8AAA"
+  },
+  "exit": 0,
+  "elapsed_seconds": 26.3909989
+}

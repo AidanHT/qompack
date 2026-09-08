@@ -1,0 +1,3 @@
+ok  	github.com/qompack/qompack/internal/daemon	10.870s
+ok  	github.com/qompack/qompack/internal/ipc	24.714s
+ok  	github.com/qompack/qompack/internal/core	2.181s

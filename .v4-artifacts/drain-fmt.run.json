@@ -1,0 +1,10 @@
+{
+  "command": "go run ./tools/devtool fmt-check",
+  "timing": "exec tool wall time; exact start not captured",
+  "recorded_from": "completed tool result; no stdout",
+  "timestamp": null,
+  "exit": 0,
+  "source_head": "029d065",
+  "elapsed_seconds": 9.403559,
+  "source_manifest": "drain-references-race-corrected.run.json"
+}

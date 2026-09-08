@@ -1,0 +1,20 @@
+{
+  "head": "f6a86918f628d15d8844e569e5ebcde53a349ff3",
+  "started": "2026-09-07T23:52:42.6728249Z",
+  "source_manifest": "observer-publication-privacy.run.json",
+  "stage": "provisional formatting and affected-package vet",
+  "checks": [
+    {
+      "command": "go run ./tools/devtool fmt-check",
+      "exit": 0,
+      "elapsed_seconds": 4.8950645,
+      "output": []
+    },
+    {
+      "command": "go vet ./internal/observer ./internal/daemon",
+      "exit": 0,
+      "elapsed_seconds": 2.1809655,
+      "output": []
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "command": "go test -p=1 -count=1 -timeout=5m -run '^(TestGetChunk_(Rejects|QuarantineFailure)|TestOpenReaders_Reject)' ./internal/store",
+  "head": "3576900be22ffd7d1dcceaa2123897f06dc4d62c",
+  "started": "2026-09-08T00:09:03.8843226Z",
+  "stage": "provisional store integrity regression against prior implementation",
+  "files": {
+    "internal/store/object_integrity_test.go": "4DE611CD866296363A873998BBB2257BD19E785A5418F0E432D461816A4AEB83"
+  },
+  "exit": 1,
+  "elapsed_seconds": 8.0136868
+}

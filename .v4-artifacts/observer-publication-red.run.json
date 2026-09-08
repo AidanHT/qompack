@@ -1,0 +1,9 @@
+{
+  "command": "go test -p=1 -count=1 -run '^TestOnToolUse_(PutFailureRemainsUnpublished|IndexFailureStopsPublication)$' ./internal/observer",
+  "head": "f6a86918f628d15d8844e569e5ebcde53a349ff3",
+  "started": "2026-09-07T23:46:16.6299439Z",
+  "stage": "provisional observer acknowledgement correction",
+  "test_sha256": "447328F01D4F67CF7AACF07892A32CF184654186FEFEA1DE309AA7E2194FD07B",
+  "exit": 1,
+  "elapsed_seconds": 2.6306984
+}

@@ -199,11 +199,11 @@ func recordBuild(cp checkpoint.Checkpoint, res rehydrate.Result) {
 	}
 }
 
-// recordResidual measures §8.5's O1 span for one compaction event.
+// recordResidual measures the synthetic replay model's §8.5 O1 span for one compaction event.
 //
-// residual is Σ tokens over the turns in (F, at]: what a summarizer would still have to read
-// because the frontier has not encoded it yet. stockSpan is Σ tokens over the whole prefix, which
-// is what a Full Compact rewrites. The ratio between them is O1's whole claim.
+// residual is Σ tokens over the turns in (F, at] for frontierOf's model boundary. stockSpan is Σ
+// tokens over the whole prefix, which is what a Full Compact rewrites. The ratio between them is
+// replay arithmetic, not evidence that a durable writer committed F.
 func recordResidual(s eval.Session, at core.TurnIndex) {
 	residual, stockSpan := spans(s, at)
 	if residual > maxResidualTokens {
@@ -214,7 +214,7 @@ func recordResidual(s eval.Session, at core.TurnIndex) {
 	}
 }
 
-// spans returns (residual, stockSpan) for a compaction at turn at.
+// spans returns the synthetic model's (residual, stockSpan) for a compaction at turn at.
 func spans(s eval.Session, at core.TurnIndex) (residual, stockSpan core.Tokens) {
 	f := frontierOf(s, at)
 	for i := range s.Turns {
@@ -230,19 +230,18 @@ func spans(s eval.Session, at core.TurnIndex) (residual, stockSpan core.Tokens) 
 	return residual, stockSpan
 }
 
-// frontierOf is the index of the last user turn at or before at.
+// frontierOf is the synthetic replay model's frontier: the index of the last user turn at or
+// before at.
 //
-// There is no committed frontier to read: checkpoint.Ref.Frontier is writer-side only and is zero
-// on any Ref a Reader hands back, and SP-10's Advance — the thing that actually moves it — is not
-// in this build. The last user turn is the honest stand-in, because it is where a real
-// incrementally-advancing frontier would have stopped: everything up to the last user statement is
-// closed work a segment could have encoded, and everything after it is the exchange still in
-// flight.
+// This is not a durable checkpoint frontier. checkpoint.Reader leaves Ref.Frontier zero because
+// finalized checkpoint bytes and the frozen manifest do not record it. The model's last-user-turn
+// boundary is only the deterministic input for this replay's A3 arithmetic: it represents closed
+// work before an in-flight exchange, without claiming that a writer committed that boundary.
 //
 // It is deliberately NOT `at`. Defining F = at would make the residual identically zero, which
 // would make A3 unfailable — a gate that cannot fail is not a gate. A LATER VERIFICATION ROUND
-// SUBSTITUTES THE REAL WRITER-PRODUCED FRONTIER once SP-10's Advance is landed and a Ref carries
-// it; this function is the seam that change lands in.
+// may consume a real frontier only after a versioned durable seq-to-frontier record is introduced
+// and Reader can recover it. That recovery is outside this synthetic replay model.
 func frontierOf(s eval.Session, at core.TurnIndex) core.TurnIndex {
 	f := core.TurnIndex(-1)
 	for i := range s.Turns {
@@ -755,9 +754,9 @@ func phase3Divergence(c Context, q, stock map[string]float64) error {
 	if r, regressed := judge(baselinePolicyName, metric, base.Policies[baselinePolicyName][metric],
 		stock[metric], ""); regressed {
 		return fmt.Errorf(
-			"phase 3 (A2 divergence): %s.%s moved from %.6f to %.6f (%+.2f%%), past the §11.3 2%% "+
+			"phase 3 (A2 divergence): %s.%s moved from %.6f to %.6f (%s), past the §11.3 2%% "+
 				"rule; %s cannot be judged against a baseline arm that has itself moved",
-			baselinePolicyName, metric, r.Baseline, r.Observed, r.DeltaPct, policyName)
+			baselinePolicyName, metric, r.Baseline, r.Observed, deltaPctCell(r), policyName)
 	}
 	return nil
 }

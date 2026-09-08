@@ -1,0 +1,94 @@
+--- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode (0.46s)
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool (0.04s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint (0.03s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush (0.03s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool (0.03s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop (0.03s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool (0.03s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start (0.03s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush (0.02s)
+        capture_admission_test.go:58: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:58
+            	Error:      	"PRIVATE-ABCDEFGHIJKL" does not contain "redacted"
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	1.748s
+FAIL

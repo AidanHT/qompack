@@ -1,0 +1,4 @@
+ok  	github.com/qompack/qompack/internal/core	1.782s
+ok  	github.com/qompack/qompack/internal/hookio	2.246s
+ok  	github.com/qompack/qompack/internal/redact	2.741s
+ok  	github.com/qompack/qompack/test/integration	2.489s

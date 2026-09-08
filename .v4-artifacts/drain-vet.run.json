@@ -1,0 +1,10 @@
+{
+  "command": "go vet ./internal/daemon ./internal/core",
+  "timing": "exec tool wall time; exact start not captured",
+  "recorded_from": "completed tool result; no stdout",
+  "timestamp": null,
+  "exit": 0,
+  "source_head": "029d065",
+  "elapsed_seconds": 6.7770279,
+  "source_manifest": "drain-references-race-corrected.run.json"
+}

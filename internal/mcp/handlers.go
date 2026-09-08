@@ -40,11 +40,38 @@ const (
 	selectorTool   = "tool:"
 )
 
-// The three answers `already_tried` renders (00-ARCHITECTURE.md §8.3).
+// Legacy ledger answers plus the two outcomes that are neither an answer nor an absence
+// (architecture §0.2 / ADR 0013, §11.3 Required invariants item 8).
+//
+// stateUnavailable and stateUncertain are the tool-boundary spelling of negknow's AnswerUnavailable
+// and AnswerUncertain. They exist because the three legacy states cannot express "the ledger could
+// not back an answer": rendering either of them as stateAbsent would assert that an approach was
+// never tried on the strength of a blind ledger, an unrecognized record status, a suppressed stale
+// match or an unverified coverage watermark — the false negative invariant 8 forbids outright.
 const (
-	stateAbsent = "absent"
-	stateActive = "active"
-	stateStale  = "stale"
+	stateAbsent      = "absent"
+	stateActive      = "active"
+	stateStale       = "stale"
+	stateUnavailable = "unavailable"
+	stateUncertain   = "uncertain"
+)
+
+// The reason/recovery pair renderAnswer supplies when IT applies eliminations.staleResponse
+// "drop", rather than the ledger. The wording deliberately matches negknow's own pair for the same
+// case: negknow owns the canonical text and mcp may not import its unexported constants, so the two
+// belt-and-braces layers are kept in agreement by restating it here. A test drives both layers.
+const (
+	staleDroppedReason   = `a matching elimination is stale and eliminations.staleResponse is "drop", so its current applicability is not disclosed`
+	staleDroppedRecovery = `set eliminations.staleResponse to "flag" to see the staleness detail, or re-verify the approach directly`
+)
+
+// coverageFallbackReason and coverageFallbackRecovery fill in for an Answer that names an
+// uncertain state but carries no Coverage. A conforming Ledger always sets one; a hand-built
+// Answer, an in-test fake or a future ledger need not, and an `uncertain` result that explains
+// nothing is barely better than the absence it replaced.
+const (
+	coverageFallbackReason   = "the elimination ledger could not establish coverage for this question"
+	coverageFallbackRecovery = "re-verify the approach directly; this is not evidence the approach is untried"
 )
 
 // bloomOnlyNote is what a filter hit with no backing record is reported as. It is stated as a
@@ -71,6 +98,19 @@ type recallBody struct {
 	Count int         `json:"count"`
 	Found bool        `json:"found"`
 	Query recallQuery `json:"query"`
+	// Denied counts hits the search actually matched but whose stored path failed authorization
+	// before the preview was built (T13-TRUST). It is reported explicitly, never left for the
+	// caller to infer from a shorter-than-expected hit list, and it never names which paths.
+	Denied int `json:"denied,omitempty"`
+	// SummariesWithheld says every summary was suppressed because this build wired no retrieval
+	// -side Redactor, and Reason says why in one sentence.
+	//
+	// A recall hit is a POINTER — hash, path, tool, score — and those are still true and still
+	// useful. The summary is the one piece of ARCHIVE TEXT in the response, so it is the one piece
+	// that must not be served unchecked. Both keys carry omitempty, so a build with a redactor
+	// emits the shape §5.16 declares, byte for byte.
+	SummariesWithheld bool   `json:"summaries_withheld,omitempty"`
+	Reason            string `json:"reason,omitempty"`
 }
 
 // recall searches the store by content, path or symbol and returns hashes and summaries. It does
@@ -94,16 +134,43 @@ func (h *handlers) recall(ctx context.Context, _ Request, raw json.RawMessage) (
 		return errResponse("recall failed: " + err.Error()), nil
 	}
 
+	// FAIL CLOSED on the summaries (T20-M2-04). With no Redactor this build cannot tell a summary
+	// drawn from a clean record from one drawn from a record captured before today's rules existed,
+	// so it returns NO summary text at all and says so. The pointers survive because they are not
+	// archive text and were never redaction's subject; `expand` and `re_read`, whose entire output
+	// IS archive text, report themselves unavailable instead.
+	withheld := h.redactor == nil
+	if withheld {
+		h.log.Loud("mcp: recall withheld every summary: no retrieval-side redactor is wired",
+			"tool", ToolRecall, "hits", len(hits))
+	}
+
 	out := make([]RecallHit, 0, len(hits))
+	var deniedCount int
 	for _, hit := range hits {
+		// Authorization runs BEFORE the preview is built, over every hit the search actually
+		// matched — a hash or a stored path is never itself proof that this hit may be shown
+		// (T13-TRUST). A hit that fails is omitted rather than rendered with its summary redacted:
+		// the summary itself is the thing being protected.
+		if ok, _ := h.authorizePath(hit.Path); !ok {
+			deniedCount++
+			continue
+		}
+		// A summary is archive text like any other, so it goes through today's policy before it is
+		// rendered. ok is false only in the withheld case above, and the summary is then dropped.
+		summary, _ := h.redactForRetrieval(ToolRecall, []byte(hit.Summary))
 		out = append(out, RecallHit{
 			Hash: hit.Root.String(), Path: hit.Path, Tool: hit.Tool,
-			Summary: hit.Summary, TS: rfc3339(hit.TS), Score: hit.Score,
+			Summary: string(summary),
+			TS:      rfc3339(hit.TS), Score: hit.Score,
 			ToolUseID: string(hit.ToolUseID), Span: hit.Span,
 		})
 	}
-	body := recallBody{Hits: out, Count: len(out), Found: len(out) > 0, Query: q}
-	return h.jsonResponse(ToolRecall, body, nil), nil
+	body := recallBody{Hits: out, Count: len(out), Found: len(out) > 0, Query: q, Denied: deniedCount}
+	if withheld {
+		body.SummariesWithheld, body.Reason = true, redactorMissingReason
+	}
+	return h.jsonResponse(ToolRecall, body, map[string]any{metaUntrusted: true}), nil
 }
 
 // parseRecallQuery splits space-separated selector prefixes out of the query string; every word
@@ -144,32 +211,54 @@ func (h *handlers) alreadyTried(ctx context.Context, _ Request, raw json.RawMess
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolAlreadyTried + ": " + err.Error()), nil
 	}
-	if h.ledger == nil {
+	l := h.ledger()
+	if l == nil {
 		return h.jsonResponse(ToolAlreadyTried, unavailable("elimination ledger not present in this build"), nil), nil
 	}
 
 	scope := negknow.Scope(h.cfg.Eliminations.DefaultScope)
-	ans, err := h.ledger.Query(ctx, a.Target, a.Approach, scope)
+	ans, err := l.Query(ctx, a.Target, a.Approach, scope)
 	if err != nil {
-		// §12.3, verbatim: if the ledger cannot answer, already_tried returns absent for
-		// everything — NEVER a false positive. A wrongly refused viable approach is the failure
-		// this whole subsystem exists to avoid, and it is strictly worse than a missed warning.
-		h.log.Loud("mcp: elimination ledger unavailable; already_tried degrades to absent",
-			"err", err.Error())
+		// A failed query is not evidence of absence. Do not expose a backend error that may
+		// contain private paths, query text or stored evidence in the response or diagnostic.
+		h.log.Loud("mcp: elimination ledger unavailable; already_tried cannot determine prior attempts")
 		return h.jsonResponse(ToolAlreadyTried, AlreadyTriedResult{
-			State: stateAbsent, Degraded: true, Reason: "elimination ledger unavailable",
+			State: stateUnavailable, Degraded: true, Reason: "elimination ledger unavailable",
+			Note: "Prior attempts are unknown. Retry after ledger recovery; this is not evidence against the approach.",
 		}, nil), nil
 	}
 	return h.jsonResponse(ToolAlreadyTried, h.renderAnswer(ans), answerMeta(ans)), nil
 }
 
 // renderAnswer maps a negknow.Answer onto the wire result.
+//
+// THE TWO UNCERTAIN STATES ARE RESOLVED FIRST, and the order is load-bearing rather than
+// stylistic. Both of the branches below them collapse to stateAbsent — BloomOnly does, and so does
+// the `Record == nil` catch-all — so an AnswerUncertain minted from an unrecognized record status
+// (which carries BloomOnly) or from a suppressed stale match (which carries no Record) would be
+// rendered as a confident absence by whichever branch reached it first. That is §11.3 invariant 8's
+// prohibited case: no amount of degradation may turn uncertainty into an assertion of absence.
 func (h *handlers) renderAnswer(ans negknow.Answer) AlreadyTriedResult {
+	switch ans.State {
+	case negknow.AnswerUnavailable:
+		// Nothing about the record is disclosed even if a hand-built Answer attached one: a ledger
+		// that could not be consulted has nothing to disclose, and Degraded says exactly that.
+		out := coverageResult(stateUnavailable, ans.Coverage, nil)
+		out.Degraded = true
+		return out
+	case negknow.AnswerUncertain:
+		return coverageResult(stateUncertain, ans.Coverage, ans.Record)
+	}
 	if ans.BloomOnly {
 		return AlreadyTriedResult{State: stateAbsent, Note: bloomOnlyNote}
 	}
 	if ans.State == negknow.AnswerStale && h.cfg.Eliminations.StaleResponse == "drop" {
-		return AlreadyTriedResult{State: stateAbsent}
+		// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record.
+		// The record's reason, evidence and stale_because stay hidden, but the state may not claim
+		// absence: this handler has just been told an elimination exists.
+		return AlreadyTriedResult{
+			State: stateUncertain, Reason: staleDroppedReason, Note: staleDroppedRecovery,
+		}
 	}
 	if ans.Record == nil || ans.State == negknow.AnswerAbsent {
 		return AlreadyTriedResult{State: stateAbsent, Note: ans.Note}
@@ -194,6 +283,33 @@ func (h *handlers) renderAnswer(ans negknow.Answer) AlreadyTriedResult {
 		out.State = stateActive
 	case negknow.AnswerAbsent:
 		out.State = stateAbsent
+	}
+	return out
+}
+
+// coverageResult renders one uncertain outcome: the omission's reason as the result's reason and
+// its recovery direction as the note, which is the mapping negknow.Answer.MCPResult already uses.
+//
+// rec is attached only where it is genuinely known — the unverified-dependency-coverage case, where
+// the record itself is on file and only its freshness is unconfirmed. Its metadata (scope, when it
+// was recorded, what it depends on, what proves it) is what a caller acts on to resolve the
+// uncertainty; the coverage reason still occupies Reason, because the state being reported is the
+// coverage failure and not the elimination.
+func coverageResult(state string, cov core.Omission, rec *negknow.Record) AlreadyTriedResult {
+	out := AlreadyTriedResult{State: state, Reason: cov.Reason, Note: cov.Recovery}
+	if out.Reason == "" {
+		out.Reason = coverageFallbackReason
+	}
+	if out.Note == "" {
+		out.Note = coverageFallbackRecovery
+	}
+	if rec != nil {
+		out.Scope = string(rec.Scope)
+		out.RecordedAt = rfc3339(rec.TS)
+		out.DependsOn = rec.DependsOn
+		if !rec.Evidence.IsZero() {
+			out.Evidence = rec.Evidence.String()
+		}
 	}
 	return out
 }
@@ -230,7 +346,7 @@ func (h *handlers) recordEliminated(ctx context.Context, r Request, raw json.Raw
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolRecordEliminated + ": " + err.Error()), nil
 	}
-	if h.ledger == nil {
+	if h.ledger() == nil {
 		return h.jsonResponse(ToolRecordEliminated, unavailable("elimination ledger not present in this build"), nil), nil
 	}
 	if msg := validateElimination(a); msg != "" {
@@ -288,7 +404,7 @@ func (h *handlers) recordEliminated(ctx context.Context, r Request, raw json.Raw
 func (h *handlers) ingestElimination(ctx context.Context, a RecordEliminatedArgs, scope string) (
 	negknow.Record, []string, error,
 ) {
-	if m, ok := h.ledger.(negknow.Maintainer); ok {
+	if m, ok := h.ledger().(negknow.Maintainer); ok {
 		return m.IngestMCP(ctx, negknow.MCPArgs{
 			Target: a.Target, Approach: a.Approach, Reason: a.Reason,
 			Scope: scope, DependsOn: a.DependsOn,
@@ -330,7 +446,7 @@ func (h *handlers) ingestEliminationFallback(ctx context.Context, a RecordElimin
 		Evidence: evidence, DependsOn: deps,
 		Scope: negknow.Scope(scope), Status: negknow.StatusActive, Source: negknow.SourceMCP,
 	}
-	id, err := h.ledger.Record(ctx, rec)
+	id, err := h.ledger().Record(ctx, rec)
 	if err != nil {
 		return negknow.Record{}, warnings, err
 	}
@@ -587,6 +703,9 @@ type whyMissBody struct {
 
 // why retrieves a decision and its evidence from the checkpoint chain.
 func (h *handlers) why(ctx context.Context, r Request, raw json.RawMessage) (Response, error) {
+	if h.disableWhy {
+		return h.jsonResponse(ToolWhy, unsupported(ToolWhy), nil), nil
+	}
 	var a WhyArgs
 	if err := json.Unmarshal(raw, &a); err != nil {
 		return errResponse("invalid arguments for " + ToolWhy + ": " + err.Error()), nil
@@ -713,6 +832,9 @@ func droppedUnavailable(reason string) droppedBody {
 // dropped reports what is currently out of context, so the model can ask for something back
 // instead of assuming it never existed.
 func (h *handlers) dropped(ctx context.Context, r Request, _ json.RawMessage) (Response, error) {
+	if h.disableDropped {
+		return h.jsonResponse(ToolDropped, droppedUnavailable(unsupportedReason(ToolDropped)), nil), nil
+	}
 	if h.drops == nil {
 		return h.jsonResponse(ToolDropped, droppedUnavailable("rehydrator not present in this build"), nil), nil
 	}

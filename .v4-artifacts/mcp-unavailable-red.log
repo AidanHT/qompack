@@ -1,0 +1,17 @@
+--- FAIL: TestAlreadyTriedLedgerFailureReturnsUnavailable (0.09s)
+    handlers_test.go:256: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-v4-prep/internal/mcp/handlers_test.go:256
+        	Error:      	Not equal: 
+        	            	expected: "unavailable"
+        	            	actual  : "absent"
+        	            	
+        	            	Diff:
+        	            	--- Expected
+        	            	+++ Actual
+        	            	@@ -1 +1 @@
+        	            	-unavailable
+        	            	+absent
+        	Test:       	TestAlreadyTriedLedgerFailureReturnsUnavailable
+FAIL
+FAIL	github.com/qompack/qompack/internal/mcp	0.316s
+FAIL

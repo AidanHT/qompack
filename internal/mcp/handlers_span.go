@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -38,17 +36,11 @@ const (
 	metaSource     = "source"
 )
 
-// The three `source` values re_read reports: where the bytes actually came from.
-const (
-	sourceWorktree = "worktree"
-	sourceStore    = "store"
-)
-
-// worktreeReadFactor bounds the worktree file re_read is willing to slurp before falling back to
-// the store, as a multiple of the response budget. Four times is generous enough that a large
-// source file is still read whole and narrowed to its matching function, and small enough that a
-// stray multi-gigabyte artifact in the tree cannot be pulled into memory by one tool call.
-const worktreeReadFactor = 4
+// sourceStore is the one `source` value re_read ever reports: retrieval answers exclusively from
+// Qompack's own captured history (T13-HISTORY). There is deliberately no "worktree" counterpart —
+// see currentVersion's doc comment. A live read of the working tree is a different, separately
+// authorized operation that this tool does not perform as a fallback.
+const sourceStore = "store"
 
 // symbolSuffixRe matches the ":<symbol>" form of re_read's path suffix. A digits-only suffix is
 // matched first, as a line number, because "auth.ts:120" is unambiguous and "120" is also a legal
@@ -95,6 +87,15 @@ func unavailable(reason string) missBody {
 	return missBody{Available: &no, Reason: reason}
 }
 
+// noCapturedHistory is what `re_read` with an empty `at` reports when nothing has ever been
+// captured for the path. It is spelled as an explicit unavailable outcome — Available:false plus a
+// reason — rather than a plain miss, because "Qompack has no historical record" is a stronger,
+// more actionable fact than "not found" and must never be confused with, or silently answered by,
+// a live read of the working tree (T13-HISTORY).
+func noCapturedHistory() missBody {
+	return unavailable("no historical version has been captured for this path yet")
+}
+
 // spanOptsFor builds the SpanOpts both content tools use. Every bound is read from configuration
 // at the call site, never written as a literal (D11, §11.6).
 func (h *handlers) spanOptsFor(full bool, explicit, path, anchorSym string, anchorLine int) SpanOpts {
@@ -139,12 +140,18 @@ func (h *handlers) expand(ctx context.Context, r Request, raw json.RawMessage) (
 		return errResponse("expand failed: " + err.Error()), nil
 	}
 
+	content, ok := h.redactForRetrieval(ToolExpand, span.Body)
+	if !ok {
+		return h.jsonResponse(ToolExpand, unavailable(redactorMissingReason), nil), nil
+	}
+
 	count, promoted := h.noteExpansion(ctx, r.Session, root.Hash)
 	body := contentBody{
 		Found: true, Hash: root.Hash.String(), Path: path, Tool: tool,
 		Span: [2]int64{span.Off, span.End}, TotalBytes: span.Total,
 		Truncated: span.Truncated, NextSpan: span.NextSpan, Widened: span.Widened,
-		Expansions: count, Promoted: promoted, Content: string(span.Body),
+		Expansions: count, Promoted: promoted,
+		Content: string(content),
 	}
 	return h.jsonResponse(ToolExpand, body, spanMeta(span, path, "", count, promoted)), nil
 }
@@ -164,6 +171,12 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 		}
 		if terr != nil {
 			return store.Root{}, "", "", nil, nil, terr
+		}
+		// Authorization runs BEFORE the root is even looked up: a tool_use_id resolved a stored
+		// path, and that path is re-checked against the CURRENT path/symlink policy — a hash or id
+		// is an address, not a credential (T13-TRUST / T20-M2-04).
+		if ok, reason := h.authorizePath(rec.Path); !ok {
+			return store.Root{}, "", "", nil, denied(reason), nil
 		}
 		rt, gerr := h.store.GetRoot(ctx, rec.Root)
 		if errors.Is(gerr, core.ErrNotFound) {
@@ -212,18 +225,27 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 	}
 
 	base, sym, line := splitPathAnchor(a.Path)
+	// This IS re_read's authorization gate (T13-TRUST / T20-M2-04): it runs before any store access,
+	// on every `at` form, and a path that fails it never reaches resolveVersion at all.
 	norm, err := paths.Norm(h.root, base)
 	if err != nil {
 		return errResponse("path escapes the project root"), nil
 	}
 	key := paths.Key(norm)
 
-	root, source, turn, ok, err := h.resolveVersion(ctx, a.At, norm, key)
+	root, source, turn, ok, err := h.resolveVersion(ctx, a.At, key)
 	if err != nil {
 		return errResponse(err.Error()), nil
 	}
 	if !ok {
-		return h.jsonResponse(ToolReRead, miss("worktree, file version history"), nil), nil
+		if a.At == "" {
+			// Empty `at` means "the most recent version Qompack has actually captured", and there is
+			// none — not "the file does not exist" (a live disk read could answer that, and does not
+			// belong inside a HISTORICAL tool) and not a silent miss that leaves the caller to guess
+			// whether anything was even captured (T13-HISTORY).
+			return h.jsonResponse(ToolReRead, noCapturedHistory(), nil), nil
+		}
+		return h.jsonResponse(ToolReRead, miss("file version history"), nil), nil
 	}
 
 	span, err := h.resolveContent(ctx, root, key, nil, h.spanOptsFor(a.Full, "", key, sym, line))
@@ -231,12 +253,18 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 		return errResponse("re_read failed: " + err.Error()), nil
 	}
 
+	content, ok := h.redactForRetrieval(ToolReRead, span.Body)
+	if !ok {
+		return h.jsonResponse(ToolReRead, unavailable(redactorMissingReason), nil), nil
+	}
+
 	count, promoted := h.noteExpansion(ctx, r.Session, root.Hash)
 	body := contentBody{
 		Found: true, Hash: root.Hash.String(), Path: norm, At: a.At, Source: source, Turn: turn,
 		Span: [2]int64{span.Off, span.End}, TotalBytes: span.Total,
 		Truncated: span.Truncated, NextSpan: span.NextSpan, Widened: span.Widened,
-		Expansions: count, Promoted: promoted, Content: string(span.Body),
+		Expansions: count, Promoted: promoted,
+		Content: string(content),
 	}
 	return h.jsonResponse(ToolReRead, body, spanMeta(span, key, source, count, promoted)), nil
 }
@@ -262,14 +290,15 @@ func splitPathAnchor(p string) (base, sym string, line int) {
 	return p, "", 0
 }
 
-// resolveVersion turns re_read's `at` into a root: the working tree, a timestamp, a root hash, or
-// a turn index.
-func (h *handlers) resolveVersion(ctx context.Context, at, norm, key string) (
+// resolveVersion turns re_read's `at` into a root: the newest captured version, a timestamp, a
+// root hash, or a turn index. Every form resolves EXCLUSIVELY against Qompack's own captured
+// history; none of them ever reads the working tree (T13-HISTORY).
+func (h *handlers) resolveVersion(ctx context.Context, at, key string) (
 	root store.Root, source string, turn *int, ok bool, err error,
 ) {
 	switch {
 	case at == "":
-		return h.currentVersion(ctx, norm, key)
+		return h.currentVersion(ctx, key)
 
 	case strings.HasPrefix(at, "sha256:"):
 		hash, perr := core.ParseHash(at)
@@ -306,31 +335,19 @@ func (h *handlers) resolveVersion(ctx context.Context, at, norm, key string) (
 // the same thing about the same mistake.
 const atFormatMsg = "at must be empty, an RFC3339 timestamp, sha256:<hex>, or turn:<N>"
 
-// currentVersion reads the working-tree file when there is one, and falls back to the newest
-// recorded version when there is not.
+// currentVersion returns the newest CAPTURED historical version for key — never a live read of the
+// working tree.
 //
-// The worktree comes FIRST on purpose: `re_read` with no `at` means "what does this look like
-// now", and the store's newest version is only as fresh as the last tool call that touched the
-// file. A file the user edited by hand since then is exactly the case where a stale answer is
-// worst.
-func (h *handlers) currentVersion(ctx context.Context, norm, key string) (
+// `re_read` with no `at` means "the most recent version Qompack has actually observed", which is
+// NOT the same claim as "what is on disk right now": a live read would bypass every capture-time
+// policy (redaction, size bounds, host-denied paths) a real capture goes through, and silently
+// substituting current disk contents for a missing historical original is precisely the defect
+// T13-HISTORY forbids. A current-file read is the host's own, separately authorized operation
+// (interface contract, "A current-file read remains the host's separately authorized operation");
+// re_read does not perform one as a fallback, and no ninth tool is added here to provide one.
+func (h *handlers) currentVersion(ctx context.Context, key string) (
 	store.Root, string, *int, bool, error,
 ) {
-	full := filepath.Join(h.root, filepath.FromSlash(norm))
-	if st, serr := os.Stat(paths.Long(full)); serr == nil && st.Mode().IsRegular() &&
-		st.Size() <= int64(h.cfg.Runtime.MCP.MaxResponseBytes)*worktreeReadFactor {
-		if b, rerr := os.ReadFile(paths.Long(full)); rerr == nil {
-			pr, perr := h.store.PutBytes(ctx, b, store.PutOptions{
-				Tool: mcpToolPrefix + ToolReRead, Path: key, Ephemeral: true,
-			})
-			if perr == nil {
-				return pr.Root, sourceWorktree, nil, true, nil
-			}
-			h.log.Warn("mcp: could not store the worktree version re_read read",
-				"path", key, "err", perr.Error())
-		}
-	}
-
 	hist, herr := h.store.FileHistory(ctx, key)
 	if herr != nil || len(hist) == 0 {
 		return store.Root{}, "", nil, false, nil
@@ -405,6 +422,8 @@ func spanMeta(s SpanResult, path, source string, count int, promoted bool) map[s
 		metaTruncated:  s.Truncated,
 		metaExpansions: count,
 		metaPromoted:   promoted,
+		// Every content tool renders retrieved archive bytes, never text it composed itself.
+		metaUntrusted: true,
 	}
 	if s.NextSpan != "" {
 		m[metaNextSpan] = s.NextSpan

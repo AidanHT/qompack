@@ -1,0 +1,72 @@
+--- FAIL: TestGetChunk_RejectsValidCompressedReplacement (0.11s)
+    object_integrity_test.go:39: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:39
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGetChunk_RejectsValidCompressedReplacement
+--- FAIL: TestGetChunk_RejectsSameLengthUncompressedReplacement (0.08s)
+    object_integrity_test.go:62: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:62
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGetChunk_RejectsSameLengthUncompressedReplacement
+--- FAIL: TestGetChunk_RejectsUnindexedSubstitutedObject (0.06s)
+    object_integrity_test.go:90: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:90
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGetChunk_RejectsUnindexedSubstitutedObject
+--- FAIL: TestOpenReaders_RejectSubstitutedChunk (0.14s)
+    --- FAIL: TestOpenReaders_RejectSubstitutedChunk/Open (0.08s)
+        object_integrity_test.go:126: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:126
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: not found"
+            	            	in chain: 
+            	Test:       	TestOpenReaders_RejectSubstitutedChunk/Open
+    --- FAIL: TestOpenReaders_RejectSubstitutedChunk/OpenSpan (0.05s)
+        object_integrity_test.go:126: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:126
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: not found"
+            	            	in chain: 
+            	Test:       	TestOpenReaders_RejectSubstitutedChunk/OpenSpan
+--- FAIL: TestGetChunk_RejectsPhysicallyOversizeObjects (0.48s)
+    --- FAIL: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed (0.14s)
+        object_integrity_test.go:173: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:173
+            	Error:      	Error "qompack: not found: object 0f9b42925bca failed to decode" does not contain "exceeds size limit"
+            	Test:       	TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_indexed
+            	Messages:   	the physical bound must reject this before the object is read or decoded
+    --- FAIL: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed (0.13s)
+        object_integrity_test.go:173: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:173
+            	Error:      	Error "qompack: not found: object 0f9b42925bca has the wrong length" does not contain "exceeds size limit"
+            	Test:       	TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_indexed
+            	Messages:   	the physical bound must reject this before the object is read or decoded
+    --- FAIL: TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan (0.09s)
+        object_integrity_test.go:173: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:173
+            	Error:      	Error "qompack: not found: object 0f9b42925bca failed to decode" does not contain "exceeds size limit"
+            	Test:       	TestGetChunk_RejectsPhysicallyOversizeObjects/compressed_orphan
+            	Messages:   	the physical bound must reject this before the object is read or decoded
+    --- FAIL: TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan (0.12s)
+        object_integrity_test.go:172: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:172
+            	Error:      	Target error should be in err chain:
+            	            	expected: "qompack: not found"
+            	            	in chain: 
+            	Test:       	TestGetChunk_RejectsPhysicallyOversizeObjects/uncompressed_orphan
+--- FAIL: TestGetChunk_QuarantineFailurePreservesObject (0.08s)
+    object_integrity_test.go:206: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/store/object_integrity_test.go:206
+        	Error:      	Target error should be in err chain:
+        	            	expected: "qompack: not found"
+        	            	in chain: 
+        	Test:       	TestGetChunk_QuarantineFailurePreservesObject
+FAIL
+FAIL	github.com/qompack/qompack/internal/store	1.232s
+FAIL

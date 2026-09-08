@@ -1,0 +1,9 @@
+{
+  "dirty_input": "core types, ingest acknowledgment callback, readBlob retention; original drain.go",
+  "seconds": 9.1217153,
+  "command": "go test -p=1 -count=1 -run TestDrain(recovery cases) ./internal/daemon",
+  "started": "2026-09-07T22:51:47.6478370Z",
+  "exit": 1,
+  "source_head": "919ca3a",
+  "stage": "provisional SP05-D1 red phase"
+}

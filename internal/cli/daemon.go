@@ -96,7 +96,12 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsErr != nil {
 		opts.Log.Loud("observer unavailable; L0 capture disabled", "err", obsErr.Error())
 	}
-	sched, schedOpts := wireScheduler(&opts, env.Getenv)
+	// The checkpoint layer's first phase: assemble the LIVE source supplier and bind the
+	// PreCompact seam. It must run after WireObserver (it reads the store and the DAG that call
+	// opened) and before daemon.New (Options.Bind is what New applies). It opens NO ledger — see
+	// wireCheckpointSources.
+	ckpt := wireCheckpointSources(&opts)
+	sched, schedOpts := wireScheduler(&opts, env.Getenv, ckpt.sources)
 	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
 	// but store's own quarantine() MkdirAlls that directory again at use — so the EMPTY directory
 	// is redundant from the moment it exists, and it is the one entry that would make the
@@ -120,11 +125,13 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 			}
 		}
 		// The ledger the rehydrator opens on its FIRST compaction holds an append handle on
-		// records/eliminations.jsonl and is released on exactly the same terms as the store above.
-		// It is assigned back onto Options by WireRehydrator's opener, so this field is nil in a
-		// daemon that never compacted and there is nothing to close.
-		if opts.Ledger != nil {
-			if closeErr := opts.Ledger.Close(); closeErr != nil {
+		// records/eliminations.jsonl. Its owner is the DAEMON -- WireRehydrator's opener registers
+		// it on Options.OnStop and daemon.Stop closes it, so every embedder of daemon.New gets the
+		// release and not just this one composition root. This defer is the backstop for the one
+		// path Stop cannot cover: a daemon.New that FAILED, after wiring had already run. Close is
+		// idempotent and the hook list empties itself, so on the ordinary path this is a no-op.
+		if ledger := opts.LedgerHandle(); ledger != nil {
+			if closeErr := ledger.Close(); closeErr != nil {
 				opts.Log.Warn("daemon: closing the negative-knowledge ledger", "err", closeErr.Error())
 			}
 		}
@@ -140,6 +147,11 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsv != nil {
 		daemon.RegisterObserverIdleWork(d, obsv)
 	}
+	// The checkpoint layer's second phase: Idle() is a method on the constructed Daemon, so the
+	// three idle registrations — advance_frontier, act.checkpoint_cadence, materialize_pins —
+	// can only happen here. Without this call the shipped daemon registers none of them and the
+	// frontier advances only in tests.
+	registerCheckpointIdle(d, cfg, ckpt, sched)
 	registerSchedulerIdle(d, sched, schedOpts)
 	defer closeScheduler(sched, schedOpts)
 
@@ -220,14 +232,12 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
 	}
 
-	// opts.Ledger is nil HERE on the daemon path and the tools capture the value, not the field:
-	// WireRehydrator opens the negative-knowledge ledger lazily on the first compaction and only
-	// then assigns it back onto Options (see RehydrateOptions.OpenLedger for why an eager open is
-	// not an option), so `already_tried` and `record_eliminated` answer available:false in the
-	// shipped daemon. Sharing that single lazily-opened handle with the MCP tools, SP-12's
-	// maintenance work and SP-10's SourceSet is the shared-ledger contract SP-19 M0-02 owns; it is
-	// deliberately not improvised here.
-	deps := NewToolDeps(root, cfg, opts.Store, opts.Ledger, ckptReader, dropReporter, prom, syms, log, reg, clk)
+	// There is no ledger HERE on the daemon path: WireRehydrator opens the negative-knowledge
+	// ledger lazily on the first compaction and only then publishes it back onto Options (see
+	// RehydrateOptions.OpenLedger for why an eager open is not an option). liveLedger hands the
+	// tools an accessor onto Options.LedgerHandle, so the single lazily-opened handle reaches them
+	// the moment it exists; passing a value here would freeze the nil for the life of the process.
+	deps := NewToolDeps(root, cfg, opts.Store, liveLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}

@@ -1,0 +1,8 @@
+{
+  "command": "go test -p=1 -count=1 -run TestObservationIdentity|TestEvidenceEnvelope|TestDrain ./internal/core ./internal/daemon",
+  "stage": "provisional drain and core reviewed corrections",
+  "seconds": 12.3875764,
+  "source_head": "919ca3a",
+  "exit": 1,
+  "started": "2026-09-07T22:54:59.9271807Z"
+}

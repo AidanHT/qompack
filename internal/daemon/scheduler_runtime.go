@@ -81,8 +81,13 @@ const (
 // The runtime's own instruments.
 const (
 	counterPSelectionEnabled = "sched.pselection.enabled"
-	counterChangepoint       = "sched.changepoint"
-	counterPersist           = "sched.persist"
+
+	// The two must never share a counter: one is the host acting on its own context window, the
+	// other is this layer sealing an artifact beside it (see NoteLocalCheckpoint).
+	counterHostCompaction  = "sched.compaction.host"
+	counterLocalCheckpoint = "sched.checkpoint.local"
+	counterChangepoint     = "sched.changepoint"
+	counterPersist         = "sched.persist"
 )
 
 // The hookio.Event.Extra keys the runtime reads: the model id and subagent id the SessionStart
@@ -113,12 +118,21 @@ type SchedulerRuntimeOptions struct {
 	Metrics     obs.Registry
 	Store       store.Store
 	Graph       dag.Graph
-	Ledger      negknow.Ledger    // may be nil
-	Checkpoints checkpoint.Writer // may be nil (SP-10 merges after SP-12)
-	// Sources supplies checkpoint.SourceSet to Writer.Begin. SP-10 owns every member of that
-	// struct and wires this field when it merges; until then it is nil and frontier advancement
-	// is inert in exactly the same way a nil Checkpoints makes it inert.
-	Sources func() (checkpoint.SourceSet, error) // may be nil
+	Ledger      negknow.Ledger // may be nil
+	// LedgerFn resolves the ledger LIVE, on every read, and takes precedence over Ledger.
+	//
+	// It exists because the daemon opens the negative-knowledge ledger LAZILY -- on the first
+	// compaction, through RehydrateOptions.OpenLedger, which assigns the handle back onto
+	// daemon.Options.Ledger. wireScheduler runs long before that, so the Ledger VALUE copied here
+	// at composition time is nil and stays nil for the life of the process. Anything that captured
+	// that value (rebuild_bloom did) was permanently inert. A composition root supplies a closure
+	// over its own Options so a ledger opened later is seen; nil ⇒ the static Ledger is used.
+	LedgerFn func() negknow.Ledger
+	// Frontier keeps draft lifecycle ownership in checkpoint. The legacy Checkpoints/Sources
+	// options remain compatible inputs to its adapter when no explicit port is supplied.
+	Frontier    checkpoint.FrontierAdvancer
+	Checkpoints checkpoint.Writer
+	Sources     func() (checkpoint.SourceSet, error) // may be nil
 	// Getenv is config.Env.Getenv. nil ⇒ every lookup answers "". NEVER os.Getenv.
 	Getenv func(string) string
 }
@@ -137,13 +151,12 @@ type schedRuntime struct {
 	metrics obs.Registry
 	getenv  func(string) string
 
-	st      store.Store
-	segs    store.SegmentLog
-	graph   dag.Graph
-	ledger  negknow.Ledger                       // may be nil
-	ckpt    checkpoint.Writer                    // may be nil
-	sources func() (checkpoint.SourceSet, error) // may be nil
-	draft   *checkpoint.Draft                    // opened lazily by advanceFrontier (C2)
+	st       store.Store
+	segs     store.SegmentLog
+	graph    dag.Graph
+	ledger   negknow.Ledger              // may be nil; the static fallback for currentLedger
+	ledgerFn func() negknow.Ledger       // may be nil; resolves the lazily-opened ledger live
+	advancer checkpoint.FrontierAdvancer // may be nil; never exposes a draft
 
 	det  scheduler.Detector
 	hist *FeatureHistory
@@ -176,7 +189,14 @@ type schedRuntime struct {
 	lastRequestStartTS core.UnixMilli
 	lastCacheWriteTS   core.UnixMilli
 	lastCompactionTS   core.UnixMilli
-	sessionStartTS     core.UnixMilli
+	// lastLocalCheckpointTS is when QOMPACK last sealed a checkpoint ON ITS OWN CADENCE. It is a
+	// SEPARATE field from lastCompactionTS and must stay one: a local checkpoint is an artifact
+	// this layer wrote beside the host, whereas a compaction is an action the HOST took on its own
+	// context window. Folding a cadence seal into lastCompactionTS would restart the Young–Daly
+	// clock and claim a δ sample for a compaction that never happened, so the scheduler would
+	// believe the host had just compacted every time an idle tick sealed a draft.
+	lastLocalCheckpointTS core.UnixMilli
+	sessionStartTS        core.UnixMilli
 
 	deltaEWMA    float64
 	deltaSamples int
@@ -236,22 +256,26 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		getenv = func(string) string { return "" }
 	}
 	cp := o.Cfg.Scheduler.Changepoint
+	advancer := o.Frontier
+	if advancer == nil && o.Checkpoints != nil && o.Sources != nil {
+		advancer = checkpoint.NewFrontierAdvancer(o.Checkpoints, o.Sources)
+	}
 	r := &schedRuntime{
-		root:    o.ProjectRoot,
-		cfg:     o.Cfg,
-		clock:   o.Clock,
-		log:     o.Log,
-		metrics: o.Metrics,
-		getenv:  getenv,
-		st:      o.Store,
-		segs:    o.Store.Segments(),
-		graph:   o.Graph,
-		ledger:  o.Ledger,
-		ckpt:    o.Checkpoints,
-		sources: o.Sources,
-		det:     scheduler.NewBOCD(cp.HazardRate, cp.Features),
-		hist:    NewFeatureHistory(defaultFeatureWindow),
-		rounds:  map[core.TurnIndex]struct{}{},
+		root:     o.ProjectRoot,
+		cfg:      o.Cfg,
+		clock:    o.Clock,
+		log:      o.Log,
+		metrics:  o.Metrics,
+		getenv:   getenv,
+		st:       o.Store,
+		segs:     o.Store.Segments(),
+		graph:    o.Graph,
+		ledger:   o.Ledger,
+		ledgerFn: o.LedgerFn,
+		advancer: advancer,
+		det:      scheduler.NewBOCD(cp.HazardRate, cp.Features),
+		hist:     NewFeatureHistory(defaultFeatureWindow),
+		rounds:   map[core.TurnIndex]struct{}{},
 	}
 	r.asm = newCandidateAssembler(o.Graph, r.segs, o.Log, o.Metrics)
 	r.sessionStartTS = r.nowMS()
@@ -265,6 +289,23 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 
 func requiredDep(name string) error {
 	return fmt.Errorf("daemon: scheduler runtime: %s required", name)
+}
+
+// currentLedger resolves the ledger AT THE MOMENT OF THE CALL: the supplier first, the static
+// field second. Every consumer must go through it rather than read r.ledger, because the daemon's
+// ledger does not exist at construction time -- see SchedulerRuntimeOptions.LedgerFn. It takes mu
+// only to read the two fields and releases it before the supplier runs, so a supplier that reaches
+// back into the daemon cannot deadlock against a task body already holding mu.
+func (r *schedRuntime) currentLedger() negknow.Ledger {
+	r.mu.Lock()
+	fn, static := r.ledgerFn, r.ledger
+	r.mu.Unlock()
+	if fn != nil {
+		if l := fn(); l != nil {
+			return l
+		}
+	}
+	return static
 }
 
 // ── Session binding and the window ladder ────────────────────────────────────────────────────
@@ -350,15 +391,10 @@ func (r *schedRuntime) resolveRegimeLocked() scheduler.CacheRegime {
 }
 
 // resetSessionLocked clears everything session-scoped: the detector, the feature history, the
-// turn histories, the token accounting, the EWMAs, the decision, the frontier and the draft.
+// turn histories, the token accounting, the EWMAs, the decision and the local frontier.
+// Checkpoint drafts remain with their owner across a scheduler session change.
 func (r *schedRuntime) resetSessionLocked() {
 	cp := r.cfg.Scheduler.Changepoint
-	if draft, ckpt := r.draft, r.ckpt; draft != nil && ckpt != nil {
-		if err := ckpt.Abort(draft); err != nil {
-			r.log.Warn("scheduler: aborting the previous session's draft", "err", err.Error())
-		}
-	}
-	r.draft = nil
 	r.det = scheduler.NewBOCD(cp.HazardRate, cp.Features)
 	r.hist = NewFeatureHistory(defaultFeatureWindow)
 	r.asm.Invalidate()
@@ -370,6 +406,7 @@ func (r *schedRuntime) resetSessionLocked() {
 	r.lastEffort, r.effortChanged = "", false
 	r.precomputed, r.precomputedOK = dag.Slice{}, false
 	r.lastActivity, r.lastAPICallTS, r.lastRequestStartTS, r.lastCacheWriteTS, r.lastCompactionTS = 0, 0, 0, 0, 0
+	r.lastLocalCheckpointTS = 0
 	r.deltaEWMA, r.deltaSamples = 0, 0
 	r.burnEWMA, r.burnSamples, r.lastTokens, r.lastTokensTS = 0, 0, 0, 0
 	r.lastDecision, r.lastEvaluateTS = scheduler.Decision{}, 0
@@ -742,24 +779,14 @@ func (r *schedRuntime) persistFailed(err error) error {
 	return err
 }
 
-// Close persists, releases the p-selection gate and aborts an open draft. Idempotent: a second
-// call persists again (cheap, and the honest thing on a repeated shutdown signal) but finds no
-// draft to abort. Idempotent is not final: the daemon is per project and outlives sessions, so
+// Close persists and releases the p-selection gate. Checkpoint draft lifecycle stays with the
+// checkpointer. Idempotent is not final: the daemon is per project and outlives sessions, so
 // the next BindSession — the same id on a `--resume`, or a new one — re-opens the gate and the
 // runtime is live again; a same-id rebind keeps the in-memory state Close has just persisted.
 // Not on scheduler.Runtime (Rule W-3); reached through CloseSchedulerRuntime.
 func (r *schedRuntime) Close() error {
 	err := r.Persist(context.Background())
 	scheduler.DisablePSelection()
-	r.mu.Lock()
-	draft, ckpt := r.draft, r.ckpt
-	r.draft = nil
-	r.mu.Unlock()
-	if draft != nil && ckpt != nil {
-		if aerr := ckpt.Abort(draft); aerr != nil && err == nil {
-			err = fmt.Errorf("daemon: scheduler close: abort draft: %w", aerr)
-		}
-	}
 	return err
 }
 
@@ -860,6 +887,34 @@ func (r *schedRuntime) RecordCompactionCost(seconds float64) {
 	r.deltaSamples++
 	r.lastCompactionTS = r.nowMS()
 	r.dirty = true
+	r.count(counterHostCompaction)
+}
+
+// NoteLocalCheckpoint records that QOMPACK sealed a checkpoint on its own cadence (§8.5's second
+// trigger clause: "checkpoints exist even when compaction does not fire").
+//
+// What it does NOT do is the point of it. It does not move lastCompactionTS, does not fold a δ
+// sample, and is counted under its own name. A Qompack-initiated checkpoint and a host compaction
+// are different events with different consequences — one writes an artifact beside the session,
+// the other rewrites the session's own context — and the scheduler's every cadence decision is
+// derived from "how long since the HOST last compacted". Conflating them would restart that clock
+// on our own action, suppressing the next real trigger.
+func (r *schedRuntime) NoteLocalCheckpoint(seq core.CheckpointSeq) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if seq > r.lastCheckpointSeq {
+		r.lastCheckpointSeq = seq
+	}
+	r.lastLocalCheckpointTS = r.nowMS()
+	r.dirty = true
+	r.count(counterLocalCheckpoint)
+}
+
+// LocalCheckpointNoter is the seam the checkpoint cadence reports through. It is deliberately a
+// different method from CostRecorder.RecordCompactionCost so that no caller can reach the host
+// path by accident.
+type LocalCheckpointNoter interface {
+	NoteLocalCheckpoint(seq core.CheckpointSeq)
 }
 
 // PrecomputedSlice returns the precompute_slice cache and whether one has been computed.

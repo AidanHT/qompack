@@ -1,11 +1,14 @@
 package daemon
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
@@ -43,13 +46,21 @@ type LockInfo struct {
 	Started int64  `json:"started"`
 	Addr    string `json:"addr"`
 	Version string `json:"version"`
+	// Owner distinguishes acquisitions in the same process. Older readers ignore this additive
+	// field; an old record remains usable for liveness checks but cannot authorize new leases.
+	Owner string `json:"owner,omitempty"`
 }
 
 // Lock is a held per-project singleton lock (.qompack/run/daemon.lock).
 type Lock struct {
-	path string
-	hb   string
-	clk  core.Clock
+	path             string
+	hb               string
+	clk              core.Clock
+	owner            string
+	mu               sync.Mutex // serializes heartbeat, journal operations and release
+	released         bool
+	journal          *deliveryJournal
+	journalOpenFault bool
 }
 
 // AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving
@@ -66,12 +77,18 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 	}
 	lockPath := filepath.Join(runDir, lockFileName)
 	hbPath := filepath.Join(runDir, heartbeatFileName)
+	var nonce [32]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return nil, fmt.Errorf("%w: lock ownership identity unavailable", core.ErrDegraded)
+	}
+	owner := hex.EncodeToString(nonce[:])
 
 	body, err := json.Marshal(LockInfo{
 		PID:     os.Getpid(),
 		Started: clk.Now().UnixMilli(),
 		Addr:    a.Path,
 		Version: core.Version,
+		Owner:   owner,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("daemon: lock: encode: %w", err)
@@ -98,7 +115,7 @@ func AcquireLock(projectRoot string, a ipc.Addr, clk core.Clock) (*Lock, error) 
 		return nil, fmt.Errorf("daemon: lock: initial heartbeat: %w", err)
 	}
 
-	return &Lock{path: lockPath, hb: hbPath, clk: clk}, nil
+	return &Lock{path: lockPath, hb: hbPath, clk: clk, owner: owner}, nil
 }
 
 // LockPath returns the path ReadLock reads: <projectRoot>/.qompack/run/daemon.lock.
@@ -214,14 +231,17 @@ func touchFile(p string, t time.Time) error {
 	return os.Chtimes(paths.Long(p), t, t)
 }
 
-// owned reports whether the lock file on disk still names this process — false once it has been
+// owned reports whether the lock file on disk still names this acquisition — false once it has been
 // reclaimed by a later AcquireLock (a legitimate 90s-stale takeover, or the race I-2 fixed), or
 // once it has already been removed. Heartbeat and Release both consult this before touching
 // anything on disk, so a daemon that no longer owns the lock never refreshes or deletes the file
 // that belongs to whoever holds it now.
 func (l *Lock) owned() bool {
+	if l.released || l.owner == "" {
+		return false
+	}
 	info, ok := readLockFile(l.path)
-	return ok && info.PID == os.Getpid()
+	return ok && info.PID == os.Getpid() && info.Owner == l.owner
 }
 
 // Heartbeat updates daemon.hb's mtime to now, creating the file if it is somehow absent. The
@@ -229,6 +249,8 @@ func (l *Lock) owned() bool {
 // lock is never seen as stale before the first tick fires. It refuses to write if this process no
 // longer owns the lock (see owned).
 func (l *Lock) Heartbeat() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if !l.owned() {
 		return fmt.Errorf("daemon: lock: heartbeat: no longer own %s", l.path)
 	}
@@ -243,7 +265,18 @@ func (l *Lock) Heartbeat() error {
 // safe to call after the lock has been reclaimed by a different process (owned reports false for
 // the same reason): Release never deletes a file it does not currently own.
 func (l *Lock) Release() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.released {
+		return nil
+	}
+	if l.journal != nil {
+		if err := l.journal.closeLocked(); err != nil {
+			return err // do not release singleton ownership with an uncertain writer handle
+		}
+	}
 	if !l.owned() {
+		l.released = true
 		return nil
 	}
 	_ = os.Chmod(paths.Long(l.path), 0o600) // paths.CreateNew leaves the lock file read-only
@@ -261,5 +294,6 @@ func (l *Lock) Release() error {
 	if err2 != nil {
 		return fmt.Errorf("daemon: lock: release: %w", err2)
 	}
+	l.released = true
 	return nil
 }

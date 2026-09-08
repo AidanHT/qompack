@@ -251,8 +251,23 @@ type Regression struct {
 	Baseline float64 `json:"baseline"`
 	// Observed is the metric's observed value.
 	Observed float64 `json:"observed"`
-	// DeltaPct is the percentage change from Baseline to Observed.
+	// DeltaPct is the percentage change from Baseline to Observed. It is a number a reader may
+	// quote ONLY when DeltaPctDefined is true.
 	DeltaPct float64 `json:"deltaPct"`
+	// DeltaPctDefined reports whether the relative change is defined at all.
+	//
+	// A percentage needs a denominator, and Baseline is the denominator. When |Baseline| is at or
+	// below the point where a ratio stops meaning anything, (Observed-Baseline)/Baseline reports
+	// the size of the denominator rather than the size of the move: a baseline of 0 against an
+	// observed 24 is "+2 400 000 000 000%", which is not a two-trillion-percent regression, it is a
+	// division by almost zero. Such a delta is UNREPORTABLE — neither a regression figure nor an
+	// improvement figure — and the honest rendering is AbsDelta plus the two raw values. Writing a
+	// sign-off rationale for a divide-by-almost-zero is fabricating an explanation for an artefact,
+	// so the gate marks the row instead of printing the number.
+	DeltaPctDefined bool `json:"deltaPctDefined"`
+	// AbsDelta is Observed - Baseline in the metric's own units. It is always defined, which is why
+	// it is what a degenerate row is reported with.
+	AbsDelta float64 `json:"absDelta"`
 	// Allowed reports whether this regression carries a matching sign-off trailer.
 	Allowed bool `json:"allowed"`
 }

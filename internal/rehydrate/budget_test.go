@@ -79,6 +79,48 @@ func TestBuild_MinFillReadmitsUnits(t *testing.T) {
 		"re-admitted units must leave the drop report")
 }
 
+// TestBuild_LatestEvolutionSurvivesTruncation is the current-authority rule item 2 must obey.
+// UserIntent.Evolution is append-only and oldest-first (checkpoint/writer.go's
+// appendEvolutionLocked), and a tight budget can only admit a handful of its deltas. Filling in
+// plain stored order would keep the OLDEST restatements and drop the newest — resurrecting exactly
+// the intent a later authorized correction superseded. The LAST restatement — the current
+// authorized intent — must survive even when the budget forces older ones out.
+func TestBuild_LatestEvolutionSurvivesTruncation(t *testing.T) {
+	const n = 50
+	cp := ckLongEvolution(n)
+	d := fullDeps(t, cp)
+
+	// Small enough that item 2's share cannot hold every delta (TestBuild_MinFillReadmitsUnits
+	// shows 300 deltas overflow even minTokens; a budget well under that forces the same
+	// truncation here), large enough that tier 1 and a few deltas still fit.
+	const tight = core.Tokens(1200)
+	got, err := Build(context.Background(), requestFor(t, cp, tight), d)
+	require.NoError(t, err)
+	require.LessOrEqual(t, int(got.Tokens), int(tight))
+
+	newest := cp.UserIntent.Evolution[n-1]
+	secondNewest := cp.UserIntent.Evolution[n-2]
+	require.Contains(t, got.Text, newest, "the most recent, currently authorized restatement must survive")
+
+	var newestDropped, secondNewestDropped bool
+	for _, e := range got.Dropped {
+		if e.Kind != dropKindUserIntentEvolution {
+			continue
+		}
+		switch e.ID {
+		case itoa(n - 1):
+			newestDropped = true
+		case itoa(n - 2):
+			secondNewestDropped = true
+		}
+	}
+	require.False(t, newestDropped, "the current authorized intent must never appear in the drop report")
+	require.True(t, secondNewestDropped,
+		"the budget must actually be tight enough to truncate history (fixture sanity)")
+	require.NotContains(t, got.Text, secondNewest,
+		"a delta this tight a budget cannot hold must not render, even one turn short of current")
+}
+
 func TestBuild_Tier1ThatCannotFitIsDroppedWhole(t *testing.T) {
 	cp := ckFull(t)
 	log := &spyLogger{}
@@ -107,6 +149,45 @@ func TestBuild_Tier1ThatCannotFitIsDroppedWhole(t *testing.T) {
 	}
 	require.True(t, kinds[ItemInvariants.String()], "the pinned invariants must be named: %v", got.Dropped)
 	require.True(t, kinds[ItemAffordance.String()], "the retrieval affordance must be named: %v", got.Dropped)
+	require.True(t, Overflowed(got.Dropped),
+		"a single oversized critical record must produce a NAMED, reportable overflow (T11-BUDGET-02)")
+}
+
+// TestBuild_SingleOversizedCriticalRecordOverflows is T11-BUDGET-02's second required case in
+// isolation from TestBuild_Tier1ThatCannotFitIsDroppedWhole: the budget is otherwise generous —
+// every OTHER item has ample room — and exactly ONE tier-1 record (an invariant) is, by itself,
+// larger than the whole budget. Qompack.md forbids silently cutting it "merely because it crosses
+// a local boundary": it must be emitted whole or reported as an explicit, named overflow, never
+// silently shrunk to fit.
+func TestBuild_SingleOversizedCriticalRecordOverflows(t *testing.T) {
+	cp := ckFull(t)
+	giant := strings.Repeat("this invariant is a single sentence repeated many times over. ", 400)
+	cp.Invariants = append(cp.Invariants, checkpoint.Invariant{
+		ID: "inv_oversized00", Text: giant, Source: "user",
+	})
+	log := &spyLogger{}
+	d := fullDeps(t, cp)
+	d.Log = log
+
+	// Generous by the §8.6 band's own standard — everything but the giant invariant fits with
+	// room to spare — yet still smaller than the giant invariant alone.
+	const generousButNotForOneRecord = core.Tokens(2000)
+	got, err := Build(context.Background(), requestFor(t, cp, generousButNotForOneRecord), d)
+	require.NoError(t, err)
+	require.LessOrEqual(t, int(got.Tokens), int(generousButNotForOneRecord))
+	require.True(t, got.Degraded, "an essential record that cannot fit degrades the rehydration")
+	require.True(t, Overflowed(got.Dropped), "the oversized invariant must be a NAMED overflow")
+
+	var found bool
+	for _, e := range got.Dropped {
+		if e.Kind == ItemInvariants.String() && e.ID == "tier1" {
+			found = true
+			require.Contains(t, e.Detail, "OVERFLOW")
+		}
+	}
+	require.True(t, found, "the oversized invariant itself must be named in the drop report: %v", got.Dropped)
+	require.NotContains(t, got.Text, giant,
+		"the oversized record must not be silently shrunk to fit; it is either whole or absent")
 }
 
 func TestBuild_WrapperAloneOverBudgetInjectsNothing(t *testing.T) {
@@ -122,7 +203,53 @@ func TestBuild_WrapperAloneOverBudgetInjectsNothing(t *testing.T) {
 	require.Zero(t, int(got.Tokens))
 	require.Len(t, got.Dropped, 1)
 	require.Equal(t, "payload", got.Dropped[0].ID)
+	require.Equal(t, dropKindOverflow, got.Dropped[0].Kind, "a tiny budget is a NAMED overflow, not a plain narrative drop")
+	require.True(t, Overflowed(got.Dropped), "Overflowed must recognize the wrapper-alone case")
 	require.Equal(t, 1, log.loud)
+}
+
+// TestBuild_ZeroBudgetProducesExplicitOverflow is T11-BUDGET-02's first required case: an UNSET
+// vs. an explicitly ZERO budget must both be recognized. clampBudget treats <= 0 as "unset, fill
+// to the ceiling" for Request.Budget's own semantics — so a genuinely zero DECLARED budget is
+// exercised here directly against the wrapper-fit check in Build, at the estimator level, rather
+// than through clampBudget's fill-to-ceiling behaviour.
+func TestBuild_ZeroBudgetProducesExplicitOverflow(t *testing.T) {
+	cp := ckFull(t)
+	d := fullDeps(t, cp)
+
+	// clampBudget maps an unset (<=0) Request.Budget to the configured ceiling, so a literal zero
+	// cannot reach Build as zero through the public Request path — it is deliberately
+	// indistinguishable from "no budget named" (see TestClampBudget_NeverRaisesAndNeverExceedsTheCap).
+	// What DOES reach Build as an unrepresentable-even-empty case is the smallest budget
+	// clampBudget ever passes through unchanged: 1 token, far below any wrapper. That is the
+	// declared-budget-of-effectively-zero case T11-BUDGET-02 asks for.
+	got, err := Build(context.Background(), requestFor(t, cp, 1), d)
+	require.NoError(t, err, "even a budget of 1 token degrades rather than failing the hook")
+	require.True(t, got.Degraded)
+	require.Empty(t, got.Text, "nothing can be represented at all; no partial or shrunk payload")
+	require.Zero(t, int(got.Tokens))
+	require.True(t, Overflowed(got.Dropped), "a 1-token budget must produce a NAMED overflow, not silent emptiness")
+}
+
+// TestBuild_OverflowDetectedWithoutACalibratedEstimator asserts overflow detection does not depend
+// on a wired tokens.Estimator: budget.go's estimate() falls back to the bare (len+3)/4 formula when
+// Deps.Tokens is nil, and that fallback must still correctly identify an overflow rather than
+// silently under- or over-counting it away. This is the "verify budget.go actually emits overflow
+// rather than falling back to a bare estimator [and losing the overflow signal]" gate.
+func TestBuild_OverflowDetectedWithoutACalibratedEstimator(t *testing.T) {
+	cp := ckFull(t)
+	giant := strings.Repeat("this invariant is a single sentence repeated many times over. ", 400)
+	cp.Invariants = append(cp.Invariants, checkpoint.Invariant{
+		ID: "inv_oversized01", Text: giant, Source: "user",
+	})
+	d := fullDeps(t, cp)
+	d.Tokens = nil // force the bare estimator fallback
+
+	got, err := Build(context.Background(), requestFor(t, cp, core.Tokens(2000)), d)
+	require.NoError(t, err)
+	require.True(t, Overflowed(got.Dropped),
+		"the bare (len+3)/4 estimator must still catch an oversized critical record")
+	require.NotContains(t, got.Text, giant)
 }
 
 func TestClampBudget_NeverRaisesAndNeverExceedsTheCap(t *testing.T) {

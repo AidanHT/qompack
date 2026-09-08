@@ -182,28 +182,41 @@ func TestOnToolUse_EmptyResponseStillIndexed(t *testing.T) {
 	require.Len(t, h.signals(), 1)
 }
 
-func TestOnToolUse_PutFailureIsSoft(t *testing.T) {
+// Replaces the historical PutFailureIsSoft assertion: the host still receives empty output,
+// but the daemon must retain this delivery for recovery rather than acknowledging capture.
+func TestOnToolUse_PutFailureRemainsUnpublished(t *testing.T) {
 	h := newHarness(t)
 	h.Store.PutErr = errors.New("disk full")
 
 	out, err := h.obs.OnToolUse(context.Background(), readOf("toolu_1", "src/auth.ts", "body\n"))
 
-	require.NoError(t, err, "no I/O failure escapes an Observer method (decision 7)")
+	require.ErrorIs(t, err, ErrUnpublished, "a failed capture must remain retryable")
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.NotContains(t, err.Error(), h.Store.PutErr.Error())
 	require.Equal(t, hookio.Empty(), out)
 	require.Equal(t, int64(1), h.counter("observer.err.put"))
 	require.Empty(t, h.Store.Records, "never a dangling index record")
 }
 
-func TestOnToolUse_IndexFailureStillFeedsSketchesAndDAG(t *testing.T) {
+// Replaces IndexFailureStillFeedsSketchesAndDAG: an object without its observation reference
+// is not a published event, so derived consumers cannot advance past it as successful capture.
+func TestOnToolUse_IndexFailureStopsPublication(t *testing.T) {
 	h := newHarness(t)
 	h.Store.RecordErr = errors.New("index unavailable")
 
-	h.drive(readOf("toolu_1", "src/auth.ts", "body\n"))
+	out, err := h.obs.OnToolUse(context.Background(), readOf("toolu_1", "src/auth.ts", "body\n"))
 
+	require.ErrorIs(t, err, ErrUnpublished, "a failed reference write must remain retryable")
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.NotContains(t, err.Error(), h.Store.RecordErr.Error())
+	require.Equal(t, hookio.Empty(), out)
 	require.Equal(t, int64(1), h.counter("observer.err.index"))
-	require.Equal(t, uint64(2), h.Touch.Total(), "the tool key and the path key are both fed")
-	require.True(t, h.Graph.has(dag.ToolUseNode("toolu_1")), "the object is stored and reachable by root hash")
-	require.True(t, h.Graph.has(dag.ToolResultNode("toolu_1")))
+	require.Zero(t, h.Touch.Total())
+	require.False(t, h.Graph.has(dag.ToolUseNode("toolu_1")))
+	require.False(t, h.Graph.has(dag.ToolResultNode("toolu_1")))
+	require.Empty(t, h.Store.FileVersions)
+	require.Empty(t, h.state(testSession).ToolUses)
+	require.Empty(t, h.signals())
 }
 
 func TestOnToolUse_CancelledContext(t *testing.T) {
@@ -213,7 +226,7 @@ func TestOnToolUse_CancelledContext(t *testing.T) {
 
 	out, err := h.obs.OnToolUse(ctx, readOf("toolu_1", "src/auth.ts", "body\n"))
 
-	require.ErrorIs(t, err, context.Canceled, "ctx.Err() is the ONLY error an entry point returns")
+	require.ErrorIs(t, err, context.Canceled, "cancellation retains its cause")
 	require.Equal(t, hookio.Empty(), out)
 	require.Equal(t, storeCounts{}, h.Store.counts())
 	require.Equal(t, graphCounts{}, h.Graph.counts())
@@ -620,4 +633,49 @@ func BenchmarkOnToolUse_TestOutput256KB(b *testing.B) {
 			runOnToolUseBench(b, o, st, metrics, events)
 		})
 	}
+}
+
+// TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity is publication order's second
+// stage from this side: the identity the daemon assigned reaches the index record, and the durable
+// join between that identity and the record is written into the capture the daemon already made.
+func TestOnToolUse_PublishesTheReferenceAgainstItsObservationIdentity(t *testing.T) {
+	root := t.TempDir()
+	h := newHarness(t, func(o *Options) { o.ProjectRoot = root })
+	id, err := core.NewObservationID("sess-obs", 1)
+	require.NoError(t, err)
+	require.NoError(t, store.WriteCaptureSidecar(root, store.CaptureSidecar{
+		ObservationID: id, Session: "sess-obs", Arrival: 1, Op: "observe.tool",
+		Fidelity: core.FidelityExact, Outcome: core.OutcomeOK, Bytes: []byte(`{"a":1}`),
+	}))
+
+	ctx := WithObservation(context.Background(), id)
+	_, err = h.obs.OnToolUse(ctx, readOf("toolu_obs", "src/auth.ts", "body\n"))
+	require.NoError(t, err)
+
+	require.Len(t, h.Store.Records, 1)
+	require.Equal(t, id, h.Store.Records[0].Observation,
+		"the reference record carries the delivery identity it was published for")
+
+	sc, err := store.ReadCaptureSidecar(root, id)
+	require.NoError(t, err)
+	require.True(t, sc.Published)
+	require.Equal(t, core.ToolUseID("toolu_obs"), sc.ToolUseID)
+	require.Equal(t, h.Store.Records[0].Root, sc.Root)
+}
+
+// TestOnToolUse_UnlinkableCaptureBlocksPublication: an identity whose capture is not durable must
+// not publish. The delivery stays retryable and the host's own result is untouched.
+func TestOnToolUse_UnlinkableCaptureBlocksPublication(t *testing.T) {
+	h := newHarness(t)
+	id, err := core.NewObservationID("sess-missing", 1)
+	require.NoError(t, err)
+
+	ctx := WithObservation(context.Background(), id)
+	out, err := h.obs.OnToolUse(ctx, readOf("toolu_missing", "src/auth.ts", "body\n"))
+
+	require.ErrorIs(t, err, ErrUnpublished)
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.Equal(t, hookio.Empty(), out)
+	require.Equal(t, int64(1), h.counter("observer.err.link"))
+	require.Empty(t, h.state(testSession).ToolUses)
 }

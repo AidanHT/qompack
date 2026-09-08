@@ -1,0 +1,15 @@
+--- FAIL: TestDrainCrossFileSharedBlobWaitsForLaterRetry (0.05s)
+    drain_recovery_test.go:458: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/drain_recovery_test.go:458
+        	Error:      	file "C:\\Users\\Quant\\AppData\\Local\\Temp\\TestDrainCrossFileSharedBlobWaitsForLaterRetry401397054\\001\\.qompack\\spool\\wal-sess-cross-file-blob.ndjson" exists
+        	Test:       	TestDrainCrossFileSharedBlobWaitsForLaterRetry
+        	Messages:   	the inactive acknowledged WAL may retire
+--- FAIL: TestLiveDispatchedLineIsNotRedispatchedByDrain (0.10s)
+    ingest_test.go:353: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/ingest_test.go:353
+        	Error:      	Received unexpected error:
+        	            	remove C:\Users\Quant\AppData\Local\Temp\TestLiveDispatchedLineIsNotRedispatchedByDrain1635291142\001\.qompack\spool\wal-sess-1.ndjson: The process cannot access the file because it is being used by another process.
+        	Test:       	TestLiveDispatchedLineIsNotRedispatchedByDrain
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	1.042s
+FAIL

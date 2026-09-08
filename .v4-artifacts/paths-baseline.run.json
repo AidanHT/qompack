@@ -1,0 +1,9 @@
+{
+  "command": "go test -p=1 -count=1 '-coverprofile=.v4-artifacts/paths-baseline.cover' ./internal/paths",
+  "source_head": "919ca3abfba938c53ddbd9a9f55224f0054375a6",
+  "started": "2026-09-07T22:36:00.5395670Z",
+  "seconds": 5.398789,
+  "exit": 0,
+  "purpose": "retry with PowerShell native argument quoted; previous setup failure preserved",
+  "stage": "provisional"
+}

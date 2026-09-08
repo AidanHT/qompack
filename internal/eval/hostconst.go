@@ -16,6 +16,13 @@ const (
 	// hostRestoreBudget is §2.4 step 7's total file-restore budget.
 	hostRestoreBudget core.Tokens = 50000
 	// hostSkillBudget is §2.4 step 7's invoked-skills budget.
+	//
+	// It has no caller, and SP02-D6 is the record of that. Modelling it needs a session that
+	// records which skills were invoked, and Session (fixed by §5.18) has no field for one, so on
+	// this corpus the reservation would always be a constant 25K subtracted from every policy
+	// alike — a number with no information in it. It is kept, named and cited rather than deleted
+	// because §2.4 step 7 is real and the next corpus tier that records skill invocations needs
+	// it; what is NOT true is that the stock model applies it today.
 	hostSkillBudget core.Tokens = 25000
 	// hostPreserveMinTokens is §2.3's minTokens.
 	hostPreserveMinTokens core.Tokens = 10000 //nomagic:allow §2.3 minTokens — a host constant, not a Qompack tunable
@@ -51,6 +58,20 @@ func hostAutoCompactThreshold(contextWindow core.Tokens) core.Tokens {
 
 // hostPadTokens is §2.2's 4/3 padding: the coarseness SP-06 later fixes, reproduced here rather
 // than improved on, because the stock number has to describe the host as it is.
+//
+// stockPolicy.KeepSet is its production caller: every budget the host checks — the per-file cap,
+// the restore budget, the preservation window and the squeeze — is checked against this padded
+// estimate, because that is the only number the host has.
 func hostPadTokens(t core.Tokens) core.Tokens {
 	return t * hostTokenPadNumerator / hostTokenPadDenominator
+}
+
+// unpadTokens inverts hostPadTokens for a value that a padded-space cap may have truncated, and
+// never claims more than the block really holds.
+//
+// It is needed because §2.4 step 7's 5K per-file cap binds in padded space while the harness
+// counts true tokens: a 6000-token file is estimated at 8000, capped to 5000, and the true content
+// behind that estimate is 3750 tokens — not 5000, and not 6000.
+func unpadTokens(padded, actual core.Tokens) core.Tokens {
+	return min(padded*hostTokenPadDenominator/hostTokenPadNumerator, actual)
 }

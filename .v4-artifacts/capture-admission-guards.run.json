@@ -1,0 +1,28 @@
+{
+  "started": "2026-09-08T01:59:38.3786933Z",
+  "source": "capture-admission-focused.run.json",
+  "note": "Corrected config prefix selection after consumers artifact selected zero config tests; no coverage from zero-test package.",
+  "head": "9b395f8dfa310c2a91ce30f1d87a75282359791e",
+  "checks": [
+    {
+      "exit": 0,
+      "elapsed_seconds": 6.6839933,
+      "command": "go test -race -p=1 -count=1 -timeout=5m -run '^(TestLoad_|TestValidate_)' ./internal/config"
+    },
+    {
+      "exit": 0,
+      "elapsed_seconds": 8.3915715,
+      "command": "go run ./tools/devtool fmt-check"
+    },
+    {
+      "exit": 0,
+      "elapsed_seconds": 2.0633559,
+      "command": "go vet ./internal/config ./internal/cli"
+    },
+    {
+      "exit": 0,
+      "elapsed_seconds": 3.4695863,
+      "command": "go run ./tools/devtool lint --only=importgraph,testdeps"
+    }
+  ]
+}

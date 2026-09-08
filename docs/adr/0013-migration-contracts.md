@@ -56,7 +56,9 @@ forbids.
 **D13-2 — New evidence is a sidecar, never an edit to a frozen record.** `ToolUseRecord`'s wire
 line, `checkpoints/0001.json`, `records/eliminations.jsonl` and every §16 fixture keep their
 bytes. Fidelity, transform chain, hash version and ordering live in `index/observations.jsonl`
-keyed by the existing `ToolUseID`. A record with no sidecar has fidelity `unknown`, not `exact`:
+keyed by `ObservationID`, with optional nonunique `HostID` and legacy `ToolUseID` lookups. The
+V4 implementation review corrected the earlier ToolUseID key: repeated or absent host IDs must
+not collapse distinct deliveries or force a fabricated host ID. A record with no sidecar has fidelity `unknown`, not `exact`:
 the additive contract cannot read an old missing field as complete evidence. *Rejected:* adding
 fields to the frozen wire and regenerating goldens — §16 forbids refreshing a fixture to make a
 difference disappear, and every old reader would misreport old lines as complete.
@@ -96,6 +98,49 @@ then the existing paths are unchanged, so rollback of any M1–M3 landing is "th
 old readers ignore sidecars, and no old artifact changes shape.
 
 ## Consequences
+
+**Delivery assignment prerequisite (SP-20 / V4 preparation).** A daemon `Lock` has a random
+owner generation in addition to its PID. Its private delivery journal assigns a per-session
+arrival sequence and ObservationID to a caller nonce bound to an approved request digest.
+Equal content with different nonces remains distinct; retries with the same binding reuse the
+assignment. The row is synced before a canonical position record seals its byte/count/hash
+prefix and before the assignment is returned. Reload refuses torn or inconsistent state and
+can sync/seal a complete valid tail. An uncertain write or open requires owner release and
+reacquisition. This API is unwired: nonce production, privacy provenance, admission/ack,
+object/reference/frontier transitions and lease retention are separate requirements. The pair
+does not detect wholesale rollback/loss of both files; consistent backup and outer migration
+authority remain required. No publication or recovery gate is accepted by assignment alone.
+
+**Capture policy seam (SP-20 / V4 preparation).** `core.CaptureDecision` is a transient explicit
+privacy decision, not a persisted observation. `hookio.CaptureHook` admits only policy-approved,
+validated JSON bytes and derives the Event afterward. Policy fidelity is explicit; byte identity
+is necessary for `exact` and byte changes alone do not imply redaction. Captured bytes are encoded
+as base64 if transported in JSON, preserving the permitted source spelling. `redact-json/v1`
+identifies the JSON-aware policy registry; `sha256/v1` identifies the planned evidence hash
+construction, not proof of an object or reference. The new seam performs no persistence and is
+now used by the CLI admission correction below. Sidecar publication and M1–M3 gates remain pending.
+
+**Legacy hook admission correction (SP-20 / V4 preparation).** Hook clients now require strict,
+bounded `config.LoadForCapture` and a compiled JSON privacy policy before deriving the Event
+sent to legacy IPC/spool. The trusted process/environment root selects the first policy; only
+its permitted Event can select a destination policy, which receives already-permitted bytes.
+The final root must agree. Composed exact/redacted facts are retained transiently; future
+partial/truncated policies require a reviewed composition rule. Invalid policy/input refuses
+capture, returns empty hook output and emits only generic diagnostics. Raw evidence storage
+remains disabled; legacy transport still drops unknown fields and carries no fidelity sidecar.
+Direct IPC clients, old spools and resident-daemon admission need separate enforcement. Added
+configuration reads/redaction cost requires quiet measurement before hot-path acceptance.
+
+**Compatible failure correction (SP-20 / V4 preparation).** The retained observer method
+signatures and host output shapes stay unchanged. `OnToolUse` now returns the additive
+`observer.ErrUnpublished` (wrapping `core.ErrDegraded`) when its content or tool-use reference
+write fails. The daemon treats that internal result as retryable work; it never replaces or
+denies the host's original result. No derived graph, file history, remembered-use or sketch
+publication follows a failed tool-use reference write. Error counters retain the failed stage
+without persisting the backend error text. This supersedes SP-08's historical all-I/O-soft
+assertions for these two required writes. Prompt/stop acknowledgement, privacy at ingress,
+durable sync/frontier, restart identity and publication leases remain separate M1 requirements;
+success of the legacy store calls does not certify those gates.
 
 - SP-20 M1 can begin from a fixed identity/envelope contract without touching `checkpoint` or
   `mcp`; SP-13 consumes the envelope through the composition root; SP-10/SP-12 have one owner for

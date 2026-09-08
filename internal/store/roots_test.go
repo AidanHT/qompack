@@ -1,15 +1,19 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/tokens"
 )
@@ -247,4 +251,141 @@ func TestAppendRoot_MalformedSignatureCostsTheKeyNotTheWrite(t *testing.T) {
 	require.NotContains(t, string(line), `"sig"`,
 		"an unserializable signature must drop the key, leaving a well-formed record")
 	require.Contains(t, string(line), `"root"`, "and the rest of the line must be written normally")
+}
+
+// ── the versioned roots-index goldens ────────────────────────────────────────────────────────
+
+// The two goldens under testdata/golden/store/ that this reader must speak, and the rule they
+// encode together.
+//
+// roots.jsonl is what SP-06 wrote and is FROZEN: every line says v=1, and that is the shape every
+// store on disk today is written in. roots.v2.jsonl is its versioned SUCCESSOR — the same reader,
+// one file later — carrying a v=1 line beside a v=2 line that declares a delta base
+// (indexRecordVersionBase, SP-20 invariant 6). The successor does not replace the older golden and
+// must never be regenerated from it: the whole point of keeping both is that adding a record
+// version did not cost the old one its reader.
+//
+// Both directions are pinned below, and both matter. A reader that lost v=1 would strand every
+// index on disk; a reader that never exercised v=2 would leave the additive bump unproven.
+const (
+	rootsGoldenV1 = "roots.jsonl"
+	rootsGoldenV2 = "roots.v2.jsonl"
+)
+
+// readRootsGolden returns one golden's bytes with CRLF normalized to LF, for the same reason
+// goldenIndexFile normalizes on comparison: a Windows checkout can hand back CRLF for a committed
+// .jsonl, and a line-ending difference has nothing to do with the reader under test.
+func readRootsGolden(t *testing.T, name string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "testdata", "golden", "store", name))
+	require.NoError(t, err, "golden %s is missing", name)
+	return bytes.ReplaceAll(b, []byte("\r\n"), []byte("\n"))
+}
+
+// loadRootsGolden plants one golden as a project's index/roots.jsonl and opens a REAL store over
+// it, returning a copy of the store's loaded root index. The golden therefore travels the
+// production reader — loadRoots, parseRootLine, indexRootLocked — rather than a parser called
+// directly.
+func loadRootsGolden(t *testing.T, name string) map[core.Hash]rootEntry {
+	t.Helper()
+	p := newProject(t)
+	l := paths.Of(p.Root)
+	require.NoError(t, os.MkdirAll(paths.Long(l.Index), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(l.Index, rootsFile)),
+		readRootsGolden(t, name), 0o600))
+
+	tp := openOver(t, p)
+	tp.Store.mu.RLock()
+	defer tp.Store.mu.RUnlock()
+	out := make(map[core.Hash]rootEntry, len(tp.Store.rootIndex))
+	for h, e := range tp.Store.rootIndex {
+		out[h] = *e
+	}
+	return out
+}
+
+// requireRootsGoldenRoundTrips asserts every line of a golden survives parse → marshal unchanged,
+// byte for byte.
+//
+// This is what makes a golden evidence about the WRITER rather than a hand-typed fixture that
+// merely happens to parse. A golden the reader accepts but the writer would never emit — a key out
+// of order, an optional field spelled with a zero value, a "v" that disagrees with what
+// rootRecordVersion computes for its own content — passes a load-only test and pins nothing.
+func requireRootsGoldenRoundTrips(t *testing.T, name string) {
+	t.Helper()
+	for i, line := range bytes.Split(bytes.TrimRight(readRootsGolden(t, name), "\n"), []byte("\n")) {
+		rl, tombstone, _, err := parseRootLine(line)
+		require.NoError(t, err, "%s line %d does not parse", name, i+1)
+		require.False(t, tombstone, "%s line %d: these goldens carry no tombstones", name, i+1)
+		got := bytes.TrimRight(marshalRootLine(rl), "\n")
+		require.Equal(t, string(line), string(got),
+			"%s line %d is not what the writer emits for its own content; re-derive the golden "+
+				"from marshalRootLine rather than loosening the reader", name, i+1)
+	}
+}
+
+// TestGolden_RootsV2IndexLoadsThroughTheReader wires the versioned successor golden: it plants
+// roots.v2.jsonl as a real store's index and asserts the v=2 record shape came back intact.
+//
+// The v=2 line is a delta side record — the synthetic «deltas» tool, no path, no chunks, and the
+// declared "base" that is the entire reason the version moved. Base is the field a reader must not
+// silently drop: a delta whose base is lost supports no recovery claim at all (SP-20 invariant 6),
+// and the loss would go unnoticed because every other field on the line still reads correctly.
+func TestGolden_RootsV2IndexLoadsThroughTheReader(t *testing.T) {
+	index := loadRootsGolden(t, rootsGoldenV2)
+	require.Len(t, index, 2, "the successor golden carries one v=1 record and one v=2 record")
+
+	var legacy, withBase rootEntry
+	var haveLegacy, haveBase bool
+	for _, e := range index {
+		if e.Base.IsZero() {
+			legacy, haveLegacy = e, true
+			continue
+		}
+		withBase, haveBase = e, true
+	}
+	require.True(t, haveLegacy, "the v=1 record beside it must still load")
+	require.True(t, haveBase, "the v=2 record must load")
+
+	require.Equal(t, "src/a.ts", legacy.Path)
+	require.Equal(t, "Bash", legacy.Tool)
+	require.Len(t, legacy.Root.Chunks, 1, "a content record carries its chunk list")
+
+	require.Equal(t, deltaToolName, withBase.Tool, "a delta side record is filed under the synthetic tool")
+	require.Empty(t, withBase.Path, "a delta side record belongs to no path")
+	require.Empty(t, withBase.Root.Chunks, "and carries no chunks of its own")
+	require.Equal(t, legacy.Root.Hash, withBase.Base,
+		"the declared base must point at the record it reconstructs")
+	require.Equal(t, int64(indexRecordVersionBase), rootRecordVersion(withBase),
+		"a record carrying a base declares the bumped version")
+	require.Equal(t, int64(indexRecordVersion), rootRecordVersion(legacy),
+		"and one that does not stays v=1, which is what keeps the older golden readable")
+
+	requireRootsGoldenRoundTrips(t, rootsGoldenV2)
+}
+
+// TestGolden_RootsV1IndexStillLoadsByteIdentically is the other half, and the half whose breakage
+// would be the expensive one: the SP-06 golden — three multi-chunk content records carrying MinHash
+// signatures — must still load through the SAME reader and still re-marshal to the same bytes.
+//
+// A versioned successor is only worth having if the predecessor survives it. Reading roots.v2.jsonl
+// alone would prove the new shape works while saying nothing about the shape every store on disk is
+// actually written in, which is the one that cannot be regenerated.
+func TestGolden_RootsV1IndexStillLoadsByteIdentically(t *testing.T) {
+	golden := readRootsGolden(t, rootsGoldenV1)
+	lines := bytes.Split(bytes.TrimRight(golden, "\n"), []byte("\n"))
+	require.NotEmpty(t, lines, "fixture sanity: the frozen golden must have content")
+
+	index := loadRootsGolden(t, rootsGoldenV1)
+	require.Len(t, index, len(lines), "every frozen line must load, not merely most of them")
+
+	for _, e := range index {
+		require.False(t, e.Root.Hash.IsZero(), "a loaded record must carry its root hash")
+		require.NotEmpty(t, e.Root.Chunks, "every SP-06 record is chunked")
+		require.True(t, e.Base.IsZero(), "no v=1 record declares a base")
+		require.True(t, e.Orig.IsZero(), "nor a retained original")
+		require.NotZero(t, e.Sig.Perms, "and every one of them carries its MinHash signature")
+	}
+
+	requireRootsGoldenRoundTrips(t, rootsGoldenV1)
 }

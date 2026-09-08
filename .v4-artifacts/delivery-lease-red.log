@@ -1,0 +1,45 @@
+--- FAIL: TestDeliveryJournal_EqualRequestsHaveDistinctDeliveries (0.02s)
+    delivery_lease_test.go:21: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:249
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:21
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestDeliveryJournal_EqualRequestsHaveDistinctDeliveries
+--- FAIL: TestDeliveryJournal_RetryDoesNotAppendAndTokenMustKeepItsBinding (0.02s)
+    delivery_lease_test.go:64: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:249
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:64
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestDeliveryJournal_RetryDoesNotAppendAndTokenMustKeepItsBinding
+--- FAIL: TestDeliveryJournal_EmptySessionIsAValidIdentityScope (0.02s)
+    delivery_lease_test.go:100: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:249
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:100
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestDeliveryJournal_EmptySessionIsAValidIdentityScope
+--- FAIL: TestDeliveryJournal_RejectsCanceledAndInvalidLeaseInputsWithoutAppending (0.02s)
+    delivery_lease_test.go:112: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:249
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:112
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestDeliveryJournal_RejectsCanceledAndInvalidLeaseInputsWithoutAppending
+--- FAIL: TestDeliveryJournal_IsSingletonPerLockAndStopsWithItsLock (0.02s)
+    delivery_lease_test.go:145: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:249
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:145
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestDeliveryJournal_IsSingletonPerLockAndStopsWithItsLock
+--- FAIL: TestDeliveryJournal_ReplacedLockCannotReleaseOrLeaseForNewOwner (0.02s)
+    delivery_lease_test.go:167: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:249
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/daemon/delivery_lease_test.go:167
+        	Error:      	Received unexpected error:
+        	            	qompack: not implemented
+        	Test:       	TestDeliveryJournal_ReplacedLockCannotReleaseOrLeaseForNewOwner
+FAIL
+FAIL	github.com/qompack/qompack/internal/daemon	0.545s
+FAIL

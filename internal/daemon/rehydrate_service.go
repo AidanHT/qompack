@@ -325,6 +325,9 @@ func BindRehydrate(o *Options, svc observer.Rehydrator) {
 // checkpoint reader — and leaves each nil on failure, logging Loud. SP-12 reads these same fields
 // and adds nothing; SP-13 extends this block with the MCP promoter and op registration.
 func WireRehydrator(o *Options) observer.Rehydrator {
+	// Wiring time, on the goroutine that owns this Options and before anything can read the
+	// handle: the cell the opener publishes into must exist before the opener does.
+	o.ensureLedgerCell()
 	log := o.Log
 	if log == nil {
 		log = logging.Nop()
@@ -337,20 +340,66 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	// The ledger is opened on the FIRST compaction, not here. See RehydrateOptions.OpenLedger: an
 	// eager open creates sketches/tried.bloom in every daemon that never compacts, which §3.3
 	// reserves for the ledger itself, and holds a records/eliminations.jsonl handle for the process
-	// lifetime. The handle is assigned back onto Options so runDaemon's existing shutdown defer
-	// closes it; that field is read again only after Run has returned, with no hook still in
-	// flight.
+	// lifetime. The handle is assigned back onto Options so a composition root can see it, and
+	// registered on Options.OnStop so the DAEMON closes it -- see the owned-resource note inside
+	// the opener.
+	//
+	// It is published on Options.OpenLedger rather than kept local, because the rehydration is no
+	// longer the first thing in a compaction that needs a ledger: the PreCompact hook fires BEFORE
+	// the SessionStart(source=compact) this service handles, and the checkpoint it seals reads
+	// eliminations out of the same ledger. Sharing the accessor is what keeps negknow.Open at ONE
+	// call site while letting either half of a compaction be the one that triggers it. The
+	// sync.Once is the sharing rule: one open, one Loud on failure, no retry, whichever worker
+	// arrives first.
+	//
+	// owned is taken HERE, at wiring time, and not from inside the closure: it must exist before
+	// New copies Options, or the closer the opener registers seconds later would land on a list
+	// the constructed daemon never saw.
+	owned := o.ownedResources()
+	var (
+		ledgerOnce sync.Once
+		ledger     negknow.Ledger
+	)
 	openLedger := func() negknow.Ledger {
-		l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
-			Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+		ledgerOnce.Do(func() {
+			// A ledger the CALLER put on Options is already open on this project's
+			// records/eliminations.jsonl, and opening a second handle beside it is the same
+			// corruption class a second store.Open is -- two appenders racing one another's
+			// offsets on one log, and two owners of one sketches/tried.bloom. So it is ADOPTED,
+			// not duplicated: the accessor answers with it, and nothing is registered for close,
+			// because that handle belongs to whoever supplied it. s.deps() applies the same rule
+			// one layer down.
+			if existing := o.LedgerHandle(); existing != nil {
+				ledger = existing
+				return
+			}
+			l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
+				Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+			})
+			if err != nil {
+				log.Loud("daemon: negative-knowledge ledger unavailable; eliminations will not be rehydrated",
+					"err", err.Error())
+				return
+			}
+			// Published through the synchronized cell, NOT onto the Ledger field: the three
+			// live accessors (liveLedger, the scheduler's LedgerFn, the checkpoint SourceSet
+			// supplier) read it from per-connection goroutines, and sync.Once orders only the
+			// goroutines that call Do. See Options.publishLedger.
+			o.publishLedger(l)
+			ledger = l
+			// THIS handle has no other owner: nothing but this closure knows it exists until the
+			// assignment above, and the assignment is to a field a composition root is free never
+			// to read. Registering it here is what makes "the daemon closes what the daemon
+			// opened" true for every embedder of New rather than for the one that happens to
+			// carry a defer.
+			owned.add("the negative-knowledge ledger", l.Close)
 		})
-		if err != nil {
-			log.Loud("daemon: negative-knowledge ledger unavailable; eliminations will not be rehydrated",
-				"err", err.Error())
-			return nil
-		}
-		o.Ledger = l
-		return l
+		return ledger
+	}
+	// A caller that supplied its own accessor keeps it: tests wire a fake ledger this way, and
+	// overwriting it here would open a real one beside it.
+	if o.OpenLedger == nil {
+		o.OpenLedger = openLedger
 	}
 
 	ckpt, err := checkpoint.OpenReader(o.ProjectRoot, log, o.Metrics)
@@ -364,7 +413,7 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 		ProjectRoot: o.ProjectRoot,
 		Cfg:         o.Cfg,
 		Checkpoints: ckpt,
-		OpenLedger:  openLedger,
+		OpenLedger:  o.OpenLedger,
 		Deps: rehydrate.Deps{
 			Store: o.Store,
 			// o.Ledger is nil on the daemon path — nothing opens one before this — so the compact
