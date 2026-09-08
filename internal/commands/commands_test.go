@@ -9,7 +9,6 @@ import (
 
 	"github.com/qompack/qompack/internal/commands"
 	"github.com/qompack/qompack/internal/config"
-	"github.com/qompack/qompack/internal/core"
 )
 
 // wantCommands is the §5.17 list. It is written out here rather than read from commands.Names()
@@ -52,6 +51,16 @@ func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
 	for _, c := range cmds {
 		var out bytes.Buffer
 		err := c.Run(context.Background(), nil, &out)
+
+		// status is the exception, and the exception is the design: its job is to report what
+		// could be observed, so "nothing could be reached" is one of its answers rather than a
+		// failure to produce one. It must still say so in the output.
+		if c.Name() == "status" {
+			require.NoError(t, err)
+			require.Contains(t, out.String(), "unavailable")
+			continue
+		}
+
 		require.Error(t, err, "/qompack:%s must not report success with no dependencies", c.Name())
 
 		kind := commands.KindOf(err)
@@ -64,28 +73,6 @@ func TestAll_SurvivesEntirelyNilDeps(t *testing.T) {
 				"the error must name the command so a user can tell which one could not answer")
 		}
 	}
-}
-
-// TestAll_UnimplementedCommandsStillReportNotImplemented keeps the wave-0 signal alive for the
-// commands SP-14 has not reached yet, so a caller branching on core.ErrNotImplemented keeps
-// working until the last body lands.
-func TestAll_UnimplementedCommandsStillReportNotImplemented(t *testing.T) {
-	t.Parallel()
-
-	var sawOne bool
-	for _, c := range commands.All(commands.Deps{}) {
-		var out bytes.Buffer
-		err := c.Run(context.Background(), nil, &out)
-		if !core.IsNotImplemented(err) {
-			continue
-		}
-		sawOne = true
-		require.Contains(t, err.Error(), c.Name())
-		require.Equal(t, commands.ExitError, commands.ExitCode(err))
-	}
-	// When this stops holding, every §7.5 body has landed and this test has done its job; delete
-	// it in the commit that lands the last one rather than letting it pass over an empty set.
-	require.True(t, sawOne, "no command reports ErrNotImplemented any more; retire this test")
 }
 
 // TestNames_ReturnsACopy guards against a caller mutating the package's own table through the

@@ -58,6 +58,9 @@ type Deps struct {
 	// test/replay's job; a command that re-ran it would be a second driver with its own corpus
 	// selection and its own idea of what a trial is.
 	EvalArtifacts EvalArtifacts
+	// Status are the sources the status command collects from, in preference order. Both members
+	// may be nil, which the report states rather than treating as an absence of trouble.
+	Status StatusSources
 	// Clock is the injected time source. A nil Clock means the system clock: a command is not
 	// worth failing over a missing seam, and every caller that cares about determinism — every
 	// test, every golden fixture — sets it.
@@ -138,6 +141,8 @@ type body func(ctx context.Context, inv Invocation) (json.RawMessage, error)
 // saying honestly that they do not.
 func bodyFor(name string) body {
 	switch name {
+	case "status":
+		return statusBody
 	case "recall":
 		return recallBody
 	case "why":
