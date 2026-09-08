@@ -21,6 +21,14 @@ type Layout struct {
 	Objects, Index, Sketches, DAG                  string
 	Grammar, Checkpoints, Pins, Eval               string
 	Records, State, Run, Spool, Logs, Metrics, Tmp string
+	// Migrate holds the legacy-import cursor, identity mapping, parity report, writer-handoff
+	// record and rollback-drill record (SP-20 M1-04). It is separate from State because its
+	// contents outlive a single run and are read by the migration drill, not by the daemon.
+	Migrate string
+	// Backup holds one directory per consistent backup taken before a cutover or a rollback
+	// rehearsal, each with its own verifiable manifest (SP-20 M1-04, ADR 0013 "consistent
+	// backup and outer migration authority remain required").
+	Backup string
 }
 
 // Of returns the Layout for root, a project root as returned by Resolve. It is a pure function
@@ -45,11 +53,14 @@ func Of(root string) Layout {
 		Logs:        filepath.Join(dot, "logs"),
 		Metrics:     filepath.Join(dot, "metrics"),
 		Tmp:         filepath.Join(dot, "tmp"),
+		Migrate:     filepath.Join(dot, "migrate"),
+		Backup:      filepath.Join(dot, "backup"),
 	}
 }
 
 // EnsureLayout creates every directory l names — objects, index, sketches, dag, grammar,
-// checkpoints, pins, eval/replay, eval/opt, records, state, run, spool, logs, metrics and tmp —
+// checkpoints, pins, eval/replay, eval/opt, records, state, run, spool, logs, metrics, tmp,
+// migrate and backup —
 // with 0o700 permissions (eval/replay and eval/opt bring l.Eval itself into existence as their
 // parent). It then writes <root>/.qompack/.gitignore containing exactly "*\n" through
 // WriteAtomic, unless that file already exists, so a repeated call is idempotent.
@@ -58,6 +69,7 @@ func EnsureLayout(l Layout) error {
 		l.Objects, l.Index, l.Sketches, l.DAG, l.Grammar, l.Checkpoints, l.Pins,
 		filepath.Join(l.Eval, "replay"), filepath.Join(l.Eval, "opt"),
 		l.Records, l.State, l.Run, l.Spool, l.Logs, l.Metrics, l.Tmp,
+		l.Migrate, l.Backup,
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(Long(d), 0o700); err != nil {
