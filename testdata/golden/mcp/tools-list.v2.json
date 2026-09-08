@@ -55,12 +55,12 @@
       "title": "Expand"
     },
     {
-      "description": "Current or historical version of a file, from the store's own version history. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.",
+      "description": "The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.",
       "inputSchema": {
         "additionalProperties": false,
         "properties": {
           "at": {
-            "description": "Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>.",
+            "description": "Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree.",
             "type": "string"
           },
           "full": {

@@ -7,7 +7,7 @@
     },
     "at": {
       "type": "string",
-      "description": "Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>."
+      "description": "Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree."
     },
     "full": {
       "type": "boolean",

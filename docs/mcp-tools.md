@@ -34,7 +34,7 @@ A model should call `already_tried` before committing to an approach: Before com
 |---|---|---|
 | [`recall`](#recall) | yes | Search captured archive material by content, path, or symbol; returns references and summaries. |
 | [`expand`](#expand) | yes | Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. |
-| [`re_read`](#re-read) | yes | Current or historical version of a file, from the store's own version history. |
+| [`re_read`](#re-read) | yes | The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. |
 | [`already_tried`](#already-tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
 | [`record_eliminated`](#record-eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
 | [`timeline`](#timeline) | yes | Retrieve recorded session segments over a turn or timestamp range. |
@@ -125,14 +125,14 @@ Retrieve available archived content by hash or tool_use_id; fidelity and coverag
 
 ## `re_read`
 
-Current or historical version of a file, from the store's own version history. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.
+The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. Returns the minimum sufficient span by default; pass full=true only when you need the whole available object. Ephemeral metadata describes Qompack records; host context retention is unknown.
 
 *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
 
 | Argument | Type | Required | Default | Valid values | Description |
 |---|---|---|---|---|---|
 | `path` | string | yes | — | — | Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span. |
-| `at` | string | no | — | — | Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. |
+| `at` | string | no | — | — | Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree. |
 | `full` | boolean | no | false | — | Return the whole file instead of the minimum sufficient span. |
 
 <details><summary>Input schema</summary>
@@ -147,7 +147,7 @@ Current or historical version of a file, from the store's own version history. R
     },
     "at": {
       "type": "string",
-      "description": "Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>."
+      "description": "Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree."
     },
     "full": {
       "type": "boolean",
