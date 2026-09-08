@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -556,6 +557,158 @@ func TestService_CheckpointErrorEmitsNothing(t *testing.T) {
 	require.NoError(t, err, "a hook may exit only 0 (§2.3); the failure is reported, never returned")
 	require.True(t, rsIsEmptyOutput(out), "an unreadable checkpoint store emits nothing")
 	require.Equal(t, 1, f.log.loudCount(), "a broken checkpoint store is never silent (§12)")
+}
+
+// ── work unit H: lifecycle coverage (fresh/resume/fork/restart, repeated compaction, duplicate
+// and out-of-order delivery) ────────────────────────────────────────────────────────────────────
+
+// TestService_ResumedOrForkedSessionInheritsProjectCheckpoint is item 1's resume/fork case: "a
+// resume, a fork ... must rehydrate without a preceding PostCompact event". A resumed or forked
+// session starts with no checkpoint of its own, and checkpoint.Reader.Latest documents that it
+// then "inherits the project's newest verifying checkpoint from any session" rather than
+// reporting ErrNotFound (internal/checkpoint/reader.go's fileReader.Latest). This asserts the
+// SERVICE layer passes that inherited checkpoint straight through rather than rejecting it
+// because its Session field disagrees with the event's — there is no such check anywhere in
+// OnCompact, and this pins that it stays that way.
+func TestService_ResumedOrForkedSessionInheritsProjectCheckpoint(t *testing.T) {
+	f := rsNewFixture(t)
+	inherited := rsGoldenCheckpoint(t)
+	inherited.Session = core.SessionID("sess-a-prior-session-this-one-resumed-or-forked-from")
+	f.reader.cp = inherited
+
+	// The EVENT carries the new (resumed/forked) session id; the checkpoint the reader hands back
+	// belongs to a different one entirely — exactly Latest()'s documented cross-session fallback.
+	out, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	require.NotEmpty(t, out.HookSpecificOutput.AdditionalContext,
+		"a resumed/forked session must rehydrate from the project's inherited checkpoint, "+
+			"never treat a session mismatch as no checkpoint")
+
+	st := rsReadState(t, f.proj.Root)
+	require.False(t, st.Degraded, "an inherited checkpoint is a normal, usable one, not a degraded path")
+}
+
+// TestService_FreshServiceInstanceNeedsNoWarmup is item 1's fresh-session/restart case, read at
+// the daemon-process level: a brand new rehydrateService — as a daemon restart or a first
+// SessionStart(compact) on a freshly started daemon both produce — must succeed on its VERY FIRST
+// call with no prior event of any kind, PostCompact included, ever having reached it. OnCompact
+// holds no state a warmup could populate: s.latest re-reads Checkpoints.Latest fresh every call,
+// and the one lazily-opened handle (the ledger) opens on this same first call.
+func TestService_FreshServiceInstanceNeedsNoWarmup(t *testing.T) {
+	f := rsNewFixture(t) // constructed fresh; nothing has called it before this line
+
+	out, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+
+	require.NoError(t, err)
+	require.NotNil(t, out.HookSpecificOutput)
+	require.NotEmpty(t, out.HookSpecificOutput.AdditionalContext)
+	require.Equal(t, 1, f.reader.latests, "the first-ever call already queried the checkpoint store directly")
+}
+
+// TestService_RepeatedCompactionIsIndependentAndDoesNotReingestItsOwnInjection covers item 5's
+// "repeated compaction" lifecycle case together with item 3 ("previously injected material is not
+// new primary evidence"): a session compacts twice. The SECOND payload must be built fresh from
+// whatever the checkpoint store reports as latest at THAT call — carrying its own sequence, not
+// the first call's — and the first call's own output must itself be fully removable by
+// checkpoint.StripInjections, which is the mechanism a later capture pass relies on
+// (internal/checkpoint/inject.go's fromStore) to never re-encode a prior rehydration as new
+// evidence for the next one.
+func TestService_RepeatedCompactionIsIndependentAndDoesNotReingestItsOwnInjection(t *testing.T) {
+	f := rsNewFixture(t)
+
+	first, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, first.HookSpecificOutput)
+	firstText := first.HookSpecificOutput.AdditionalContext
+	require.NotEmpty(t, firstText)
+	require.True(t, strings.HasPrefix(firstText, fmt.Sprintf(checkpoint.InjectionOpenTag, 1, checkpoint.SchemaVersion)))
+
+	// This is the round-trip the NEXT checkpoint's own construction depends on: if any byte of a
+	// tagged span survived stripping, it would be indistinguishable from a user- or tool-authored
+	// prompt to whatever reads the transcript next.
+	require.Empty(t, checkpoint.StripInjections(firstText),
+		"a rehydration payload must be fully removable by StripInjections; nothing may survive to "+
+			"be mistaken for new primary evidence in the next checkpoint")
+
+	// A second, later checkpoint: a repeated compaction of the same session.
+	second := rsGoldenCheckpoint(t)
+	second.Seq = core.CheckpointSeq(2)
+	f.reader.cp = second
+	f.reader.ref = checkpoint.Ref{Seq: core.CheckpointSeq(2), Path: f.reader.ref.Path}
+
+	out2, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.NotNil(t, out2.HookSpecificOutput)
+	secondText := out2.HookSpecificOutput.AdditionalContext
+	require.NotEmpty(t, secondText)
+	require.True(t, strings.HasPrefix(secondText, fmt.Sprintf(checkpoint.InjectionOpenTag, 2, checkpoint.SchemaVersion)),
+		"the second compaction must be tagged with ITS OWN checkpoint sequence, not the first's")
+
+	st := rsReadState(t, f.proj.Root)
+	require.Equal(t, core.CheckpointSeq(2), st.Seq, "the recorded state reflects the LATEST call, not the first")
+}
+
+// TestService_DuplicateCompactEventIsHandledConsistently covers item 5's "duplicate events" case:
+// the host redelivers the identical SessionStart(compact) event twice (a retry, a reconnect). Both
+// calls must succeed identically — OnCompact keeps no per-event dedup state, so "duplicate" is
+// simply "called again" — and the state file must reflect the last call rather than fail or
+// double up.
+func TestService_DuplicateCompactEventIsHandledConsistently(t *testing.T) {
+	f := rsNewFixture(t)
+	ev := rsCompactEvent(f.proj.Root)
+
+	out1, err1 := f.svc.OnCompact(context.Background(), ev)
+	out2, err2 := f.svc.OnCompact(context.Background(), ev)
+
+	require.NoError(t, err1)
+	require.NoError(t, err2)
+	require.Equal(t, out1, out2, "an identical redelivered event must produce an identical payload")
+	require.Equal(t, 2, f.reader.latests, "each delivery re-queries the checkpoint store; neither is silently skipped")
+}
+
+// TestService_OutOfOrderCheckpointDeliveryReflectsWhateverIsCurrentlyLatest covers item 5's
+// "out-of-order delivery": OnCompact keeps no memory of a previously-seen sequence number, so it
+// cannot itself go "out of order" — each call simply reflects whatever Checkpoints.Latest reports
+// AT THAT MOMENT, even if that is numerically EARLIER than a sequence a previous call saw.
+// Ordering enforcement belongs to the checkpoint reader (SP-10's T10-LIFE), not to this service.
+func TestService_OutOfOrderCheckpointDeliveryReflectsWhateverIsCurrentlyLatest(t *testing.T) {
+	f := rsNewFixture(t)
+	later := rsGoldenCheckpoint(t)
+	later.Seq = core.CheckpointSeq(5)
+	f.reader.cp = later
+	f.reader.ref = checkpoint.Ref{Seq: core.CheckpointSeq(5)}
+	_, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err)
+	require.Equal(t, core.CheckpointSeq(5), rsReadState(t, f.proj.Root).Seq)
+
+	// A later call's reader now reports an EARLIER sequence — e.g. a redelivered or reordered
+	// event surfacing a checkpoint a previous call had already moved past.
+	earlier := rsGoldenCheckpoint(t)
+	earlier.Seq = core.CheckpointSeq(2)
+	f.reader.cp = earlier
+	f.reader.ref = checkpoint.Ref{Seq: core.CheckpointSeq(2)}
+	out, err := f.svc.OnCompact(context.Background(), rsCompactEvent(f.proj.Root))
+	require.NoError(t, err, "the service trusts the reader's current answer rather than rejecting a lower sequence")
+	require.NotNil(t, out.HookSpecificOutput)
+	require.Equal(t, core.CheckpointSeq(2), rsReadState(t, f.proj.Root).Seq)
+}
+
+// TestService_MissingSessionIDDoesNotPanic covers item 5's "missing events" case at the payload
+// level: a SessionStart delivered with no session id (a malformed or truncated event) must degrade
+// like any other unusable input, never panic the hook process.
+func TestService_MissingSessionIDDoesNotPanic(t *testing.T) {
+	f := rsNewFixture(t)
+	ev := rsCompactEvent(f.proj.Root)
+	ev.SessionID = ""
+
+	var out hookio.Output
+	var err error
+	require.NotPanics(t, func() {
+		out, err = f.svc.OnCompact(context.Background(), ev)
+	})
+	require.NoError(t, err, "a hook may exit only 0 even for a malformed event")
+	_ = out // either an empty or a degraded payload is acceptable; not panicking is the contract
 }
 
 // TestService_PanicRecovered: a panic anywhere under the seam becomes an empty payload and a Loud

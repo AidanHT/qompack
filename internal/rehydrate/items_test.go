@@ -348,8 +348,15 @@ func TestUserIntent_CapsAtMaxIntentBytes(t *testing.T) {
 }
 
 // TestUserIntent_EvolutionUnitsFollowTheOriginal pins the unit layout the budget pass depends on:
-// units[0] is the never-truncated original, units[1:] are the truncatable deltas, and the
-// "Evolution:" header rides on the FIRST delta so that dropping them all removes the header too.
+// units[0] is the never-truncated original, and units[1:] are the truncatable deltas in
+// NEWEST-FIRST order — the reverse of Checkpoint.UserIntent.Evolution's stored (oldest-first)
+// order. That reversal is deliberate: fillPrefix admits a plain prefix and stops at the first unit
+// that does not fit, so building newest-first is what makes a tight budget drop the OLDEST
+// restatements rather than the current authorized one (see
+// TestBuild_LatestEvolutionSurvivesTruncation for the end-to-end truncation case this unit-level
+// pin sets up). The "Evolution (most recent first):" header rides on the FIRST delta unit so that
+// dropping them all removes the header too, and each drop ID still names the delta's TRUE index
+// into Checkpoint.UserIntent.Evolution, not its reversed build position.
 func TestUserIntent_EvolutionUnitsFollowTheOriginal(t *testing.T) {
 	cp := ckFull(t)
 	r := requestFor(t, cp, generousTestBudget)
@@ -361,11 +368,13 @@ func TestUserIntent_EvolutionUnitsFollowTheOriginal(t *testing.T) {
 	require.Equal(t, 3, got.seen, "the original plus two deltas")
 	require.Len(t, got.units, 3)
 	require.True(t, isFixedUnit(got.units[0]), "the original is never truncated")
-	require.True(t, strings.HasPrefix(got.units[1].text, "Evolution:\n"))
-	require.False(t, strings.Contains(got.units[2].text, "Evolution:"))
+	require.True(t, strings.HasPrefix(got.units[1].text, "Evolution (most recent first):\n"))
+	require.False(t, strings.Contains(got.units[2].text, "Evolution"))
 
-	require.Equal(t, checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "0"}, got.units[1].drop)
-	require.Equal(t, checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "1"}, got.units[2].drop)
+	require.Equal(t, checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "1"}, got.units[1].drop,
+		"the newest delta (index 1) is built FIRST so it survives budget pressure")
+	require.Equal(t, checkpoint.DropEntry{Kind: dropKindUserIntentEvolution, ID: "0"}, got.units[2].drop,
+		"the oldest delta (index 0) is built LAST so it is the first one truncation drops")
 }
 
 // ── item 3: eliminations ──
@@ -742,6 +751,51 @@ func TestEliminations_LedgerAndCheckpointDedupedByID(t *testing.T) {
 	require.Equal(t, 1, got.seen, "one record, not two")
 	require.Contains(t, got.units[0].text, staleStatusTag, "the ledger's current Status wins")
 	require.Contains(t, got.units[0].text, "re-verified: still fails")
+}
+
+// TestEliminations_StaleSinceCheckpointIsNotResurrected asserts G6.2's authority rule for the
+// REALISTIC path: negknow.Ledger.Active documents that it "returns every StatusActive Record", so
+// a record that went stale after the checkpoint was written is ABSENT from Active()'s results —
+// not present-with-a-different-Status, which is all TestEliminations_LedgerAndCheckpointDedupedByID
+// exercises. Naive dedup-by-ID would then see no collision, fall through to the checkpoint's
+// frozen (still "active") copy, and resurrect an elimination a later authorized re-verification
+// superseded. eliminationCandidates must consult Ledger.Get(id) for exactly this case before
+// trusting a checkpoint-frozen record Active() no longer names.
+func TestEliminations_StaleSinceCheckpointIsNotResurrected(t *testing.T) {
+	cp := ckFull(t)
+	id := cp.Eliminated[0].ID
+	require.Equal(t, "elim_3f9b2c7d1a48", id, "fixture sanity")
+
+	r := requestFor(t, cp, generousTestBudget)
+	d := depsWith(&spyLogger{})
+	// Active() returns nothing for either scope: a real ledger would not list this id once it is
+	// stale. Get(id) is where its current, superseding judgment actually lives.
+	fresh := stale(elim(id, "src/auth.ts:refreshToken", "widen pool timeout", "re-verified: still fails"))
+	d.Ledger = newFakeLedger().withGet(id, fresh, nil)
+
+	got := buildEliminations(bg(), r, d, nil)
+
+	require.Equal(t, 1, got.seen, "one record, not a resurrected duplicate")
+	require.Contains(t, got.units[0].text, staleStatusTag,
+		"the ledger's current Status wins even when only Get(), not Active(), still knows it")
+	require.Contains(t, got.units[0].text, "re-verified: still fails")
+}
+
+// TestEliminations_GetUnknownKeepsCheckpointCopy asserts the fallback direction: when the ledger
+// has never heard of a checkpoint-frozen id at all (Get returns the not-implemented/not-found
+// sentinel a real ledger uses for an absent key), the checkpoint's own copy is trusted exactly as
+// before. Only a ledger that AFFIRMATIVELY knows better may override it.
+func TestEliminations_GetUnknownKeepsCheckpointCopy(t *testing.T) {
+	cp := ckFull(t)
+
+	r := requestFor(t, cp, generousTestBudget)
+	d := depsWith(&spyLogger{})
+	d.Ledger = newFakeLedger() // Get(id) falls through to core.ErrNotImplemented, unscripted
+
+	got := buildEliminations(bg(), r, d, nil)
+
+	require.Equal(t, 1, got.seen)
+	require.Contains(t, got.units[0].text, activeStatusTag, "the checkpoint's frozen copy stands")
 }
 
 // TestEliminations_ReasonIsBoundedAndOneLine asserts a long, multi-line reason cannot break the
