@@ -1,9 +1,11 @@
 package daemon
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -11,6 +13,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // The checkpoint layer's wiring into the daemon. This is the only file SP-10 adds to a package it
@@ -263,9 +266,26 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 		if len(segs) == 0 {
 			continue
 		}
-		ids := make([]core.SegmentID, 0, len(segs))
+		// Same discipline as the scheduler's own pass: ascending by turn, then the longest
+		// leading run whose evidence the segment log can still vouch for. A gap or an in-flight
+		// segment stops this session's advance where the evidence stops rather than encoding
+		// past it — see verifyEvidence for why a frontier may not skip a span.
+		closed := segs[:0:0]
 		for _, seg := range segs {
-			ids = append(ids, seg.ID)
+			if seg.Closed {
+				closed = append(closed, seg)
+			}
+		}
+		slices.SortFunc(closed, func(a, b store.Segment) int { return cmp.Compare(a.StartTurn, b.StartTurn) })
+		ids, stop := verifyEvidence(ctx, src.Segments, s, closed)
+		if stop != nil {
+			log.Warn(msgUnverifiedEvidence,
+				"session", string(s), "reason", stop.reason,
+				"segment", int(stop.segment), "atTurn", int(stop.atTurn),
+				"verified", len(ids), "backlog", len(closed))
+		}
+		if len(ids) == 0 {
+			continue
 		}
 		if _, err := advancer.Advance(ctx, s, ids); err != nil {
 			// A DPI violation -- the same segment reachable from two checkpoints -- is the §4.6

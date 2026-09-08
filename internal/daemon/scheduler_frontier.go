@@ -26,10 +26,22 @@ const (
 	counterSegmentClosedPrefix = "sched.segment.closed."
 	counterFrontierNoWriter    = "sched.frontier.no_writer"
 	counterFrontierDPIGuard    = "sched.frontier.dpi_guard"
+	counterFrontierUnverified  = "sched.frontier.unverified_evidence"
 	gaugeResidualOverBudget    = "sched.residual_over_budget"
 
 	msgDPIGuard           = "frontier advance hit the DPI guard"
 	msgResidualOverBudget = "scheduler: residual span over budget; O5 is not keeping up"
+	msgUnverifiedEvidence = "scheduler: frontier stopped short of unverified evidence"
+)
+
+// The reasons verification refuses to carry the frontier any further. They are values, not free
+// text, because they are what the log line and the report are keyed off.
+const (
+	evidenceUnreadable = "unreadable" // the segment log cannot re-read the segment
+	evidenceNotClosed  = "not_closed" // it came back open: in-flight work, still being produced
+	evidenceForeign    = "foreign"    // it came back belonging to another session
+	evidenceMalformed  = "malformed"  // its turn range is not a range
+	evidenceGap        = "gap"        // a turn range between it and its predecessor has no evidence
 )
 
 // CloseSegmentOn closes the session's current segment at turn at with cause ∈ {todo, test,
@@ -115,9 +127,25 @@ func (r *schedRuntime) advanceFrontier(ctx context.Context) error {
 		r.settleFrontier(ctx, sess, nil, 0)
 		return nil
 	}
-	ids := make([]core.SegmentID, len(batch))
-	for i, s := range batch {
-		ids[i] = s.ID
+	ids, stop := verifyEvidence(ctx, r.segs, sess, batch)
+	if stop != nil {
+		// The frontier stops HERE, at the first turn whose evidence is not durable, and the
+		// segments beyond it stay unencoded — never skipped over, never encoded out of order.
+		// Encoding past a gap would publish a checkpoint claiming a frontier the store cannot
+		// support, and the missing span would then be unreachable from every later checkpoint
+		// (Unencoded no longer lists an encoded segment, and the DPI guard refuses a second
+		// encoding), which is the §8.2 content loss this check exists to prevent.
+		r.count(counterFrontierUnverified)
+		r.count(counterFrontierUnverified + "." + stop.reason)
+		r.log.Warn(msgUnverifiedEvidence,
+			"reason", stop.reason, "segment", int(stop.segment), "atTurn", int(stop.atTurn),
+			"verified", len(ids), "backlog", len(batch))
+	}
+	if len(ids) == 0 {
+		// Nothing verified. The backlog is still reported, so a frontier held back by a gap shows
+		// up as O5 falling behind rather than as silence.
+		r.settleFrontier(ctx, sess, nil, len(batch))
+		return nil
 	}
 	newFrontier, err := advancer.Advance(ctx, sess, ids)
 	if errors.Is(err, core.ErrAlreadyEncoded) {
@@ -135,6 +163,62 @@ func (r *schedRuntime) advanceFrontier(ctx context.Context) error {
 	}
 	r.settleFrontier(ctx, sess, &newFrontier, len(batch))
 	return nil
+}
+
+// evidenceStop records the first segment verification refused, and why.
+type evidenceStop struct {
+	reason  string
+	segment core.SegmentID
+	atTurn  core.TurnIndex
+}
+
+// verifyEvidence is the dependency check that runs BEFORE any advance: it re-reads every
+// candidate segment from the durable segment log and returns the longest LEADING run whose
+// evidence actually exists, is closed, belongs to this session, is well formed, and is
+// turn-contiguous with its predecessor. batch must already be ascending by StartTurn.
+//
+// It is a PREFIX and not a filter, deliberately. A checkpoint's frontier is a single turn index —
+// "everything up to here is encoded" — so encoding the segments AFTER a gap would advance that
+// index past turns nothing has encoded, and the gap would then be permanently unreachable: it is
+// not in the checkpoint, Unencoded stops listing its neighbours, and the DPI guard refuses to
+// re-encode. Stopping at the gap leaves the missing span exactly where it was, still listed, still
+// encodable by a later pass once its evidence lands.
+//
+// A segment that is ALREADY encoded is not a stop: its evidence is durable by definition, so the
+// prefix steps over it (it is not resubmitted — the DPI guard owns that) and contiguity continues
+// from its end turn.
+//
+// The open segment is the ordinary in-flight case and it never reaches here — Unencoded's callers
+// filter to Closed first — but a segment that came back open from the re-read is one that was
+// closed when it was listed and is not now, so it is treated as in-flight and stops the run.
+func verifyEvidence(ctx context.Context, segs store.SegmentLog, sess core.SessionID, batch []store.Segment) ([]core.SegmentID, *evidenceStop) {
+	ids := make([]core.SegmentID, 0, len(batch))
+	var prevEnd core.TurnIndex
+	havePrev := false
+	for _, s := range batch {
+		if err := ctx.Err(); err != nil {
+			return ids, &evidenceStop{reason: evidenceUnreadable, segment: s.ID, atTurn: s.StartTurn}
+		}
+		cur, err := segs.Get(ctx, s.ID)
+		if err != nil {
+			return ids, &evidenceStop{reason: evidenceUnreadable, segment: s.ID, atTurn: s.StartTurn}
+		}
+		switch {
+		case cur.Session != sess:
+			return ids, &evidenceStop{reason: evidenceForeign, segment: s.ID, atTurn: cur.StartTurn}
+		case !cur.Closed:
+			return ids, &evidenceStop{reason: evidenceNotClosed, segment: s.ID, atTurn: cur.StartTurn}
+		case cur.EndTurn < cur.StartTurn:
+			return ids, &evidenceStop{reason: evidenceMalformed, segment: s.ID, atTurn: cur.StartTurn}
+		case havePrev && cur.StartTurn > prevEnd+1:
+			return ids, &evidenceStop{reason: evidenceGap, segment: s.ID, atTurn: prevEnd + 1}
+		}
+		if !cur.EncodedOnce {
+			ids = append(ids, cur.ID)
+		}
+		prevEnd, havePrev = cur.EndTurn, true
+	}
+	return ids, nil
 }
 
 // settleFrontier TAKES the lock (hence no *Locked suffix), stores newFrontier when one was
