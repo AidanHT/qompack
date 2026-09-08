@@ -754,9 +754,9 @@ func phase3Divergence(c Context, q, stock map[string]float64) error {
 	if r, regressed := judge(baselinePolicyName, metric, base.Policies[baselinePolicyName][metric],
 		stock[metric], ""); regressed {
 		return fmt.Errorf(
-			"phase 3 (A2 divergence): %s.%s moved from %.6f to %.6f (%+.2f%%), past the §11.3 2%% "+
+			"phase 3 (A2 divergence): %s.%s moved from %.6f to %.6f (%s), past the §11.3 2%% "+
 				"rule; %s cannot be judged against a baseline arm that has itself moved",
-			baselinePolicyName, metric, r.Baseline, r.Observed, r.DeltaPct, policyName)
+			baselinePolicyName, metric, r.Baseline, r.Observed, deltaPctCell(r), policyName)
 	}
 	return nil
 }

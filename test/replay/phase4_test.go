@@ -380,12 +380,12 @@ func TestPhase4_NoDivergenceRegression(t *testing.T) {
 		reg, regressed := judge(p4PolicyL3, metric, base, obs, signOff)
 		verdict := "ok"
 		if regressed {
-			verdict = fmt.Sprintf("REGRESSED %.2f%%", reg.DeltaPct)
+			verdict = "REGRESSED " + deltaPctCell(reg)
 			if reg.Allowed {
 				verdict += " (signed off)"
 			} else {
-				blocking = append(blocking, fmt.Sprintf("%s: stock=%.6f qompack-l3=%.6f (%.2f%%)",
-					metric, base, obs, reg.DeltaPct))
+				blocking = append(blocking, fmt.Sprintf("%s: stock=%.6f qompack-l3=%.6f (%s)",
+					metric, base, obs, deltaPctCell(reg)))
 			}
 		}
 		t.Logf("%-22s stock=%12.6f qompack-l3=%12.6f %s", metric, base, obs, verdict)
