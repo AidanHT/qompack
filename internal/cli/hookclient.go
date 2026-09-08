@@ -206,16 +206,24 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		}
 
 		stdin := faultStdin(env.Stdin)
-		raw, err := readHookCapture(stdin, hookCaptureLimit(int64(st.MaxPayloadBytes)))
-		if err != nil {
-			logQuiet(root, err, clk)
+		in, rerr := readHookCapture(stdin, hookCaptureLimit(int64(st.MaxPayloadBytes)))
+		if rerr != nil && len(in.Raw) == 0 {
+			// Nothing arrived, so there is nothing for a policy to classify: refuse here, before
+			// any configuration is loaded, exactly as the hard allocation bound requires.
+			logQuiet(root, rerr, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
 
 		maybePanicHook() // Inject after bounded input, before admission or event persistence.
-		raw = faultInflateHookCapture(raw)
-		capture, ev, cfg, err := admitHookCapture(env, root, raw)
+		in.Raw = faultInflateHookCapture(in.Raw)
+		capture, ev, cfg, err := admitHookCapture(env, root, in)
 		if err != nil || capture.Outcome != core.OutcomeOK {
+			// A short read that did deliver bytes still reaches admission, so the delivery is
+			// classified (FidelityPartial) instead of discarded unrecorded. The read's own error is
+			// what an operator needs to see, so that is the one logged.
+			if rerr != nil {
+				err = rerr
+			}
 			logQuiet(root, err, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
@@ -230,7 +238,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 				return hookio.WriteOutput(out, hookio.Empty())
 			}
 			prior := capture
-			capture, ev, cfg, err = admitHookCapture(env, root, prior.Bytes)
+			capture, ev, cfg, err = admitHookCapture(env, root, hookInput{Raw: prior.Bytes})
 			if err != nil || capture.Outcome != core.OutcomeOK {
 				logQuiet(root, err, clk)
 				return hookio.WriteOutput(out, hookio.Empty())
@@ -251,13 +259,24 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		}
 		st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
 		st.SpoolOnBreach = st.SpoolOnBreach && cfg.Runtime.HotPath.SpoolOnBreach
-		// Only the permitted Event travels over the legacy transport. Raw sidecar, identity,
-		// fidelity and object/frontier publication remain separately gated M1 requirements.
 
-		req := ipc.Request{
-			Op: spec.op, Session: ev.SessionID, TS: core.UnixMilli(ts),
-			Reply: spec.reply, Event: &ev, Raw: rawExtras(spec.op, args, ev),
+		// The nonce is minted here, once, before any transport attempt: it labels this host
+		// invocation, not the attempt that happens to carry it. Everything below — the daemon
+		// connect, the spool fallback that catches a failed connect, and any later retry of the
+		// spooled line — reuses this one Request value, so the same delivery keeps one nonce while
+		// a second invocation of the same bytes gets its own. A minting failure leaves it empty
+		// rather than substituting a value that would read as an identity it cannot support.
+		nonce, nerr := ipc.NewDeliveryNonce()
+		if nerr != nil {
+			logQuiet(root, nerr, clk)
 		}
+		// The permitted capture now travels beside the derived Event, so a host key this build does
+		// not name is no longer dropped at the encode boundary. Object/frontier publication of it
+		// remains a separately gated M1 requirement.
+		req := ipc.WithCapture(ipc.Request{
+			Op: spec.op, Session: ev.SessionID, TS: core.UnixMilli(ts),
+			Reply: spec.reply, Event: &ev, Raw: rawExtras(spec.op, args, ev), Nonce: nonce,
+		}, capture)
 
 		spoolDir := paths.Of(root).Spool
 		faultLockSpoolDirIfNeeded(spoolDir)

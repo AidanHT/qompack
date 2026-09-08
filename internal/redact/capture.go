@@ -52,6 +52,22 @@ func CaptureFragmentPolicy(cfg config.Config) (func([]byte) (core.CaptureDecisio
 	}, nil
 }
 
+// CapturePolicies compiles the configured rule set once and returns both policies over it. The
+// compilation is the expensive half of admission — every built-in rule is a fresh regexp — and it
+// runs on the hot path once per hook invocation, so a caller that needs both must not pay for it
+// twice. The two policies share one rule set by construction, not by convention.
+func CapturePolicies(cfg config.Config) (payload, fragment func([]byte) (core.CaptureDecision, error), err error) {
+	r, err := captureRules(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	return func(raw []byte) (core.CaptureDecision, error) {
+			return captureJSON(raw, r)
+		}, func(raw []byte) (core.CaptureDecision, error) {
+			return captureBytes(raw, r), nil
+		}, nil
+}
+
 // captureRules compiles the complete configured rule set once, shared by both capture policies so
 // a fragment can never be examined under a different rule set than the payload it came from.
 func captureRules(cfg config.Config) (*rx, error) {
