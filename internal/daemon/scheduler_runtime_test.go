@@ -1214,3 +1214,41 @@ func TestRuntime_ObserveClosesSegmentOnChangepoint(t *testing.T) {
 	require.Equal(t, at+1, opens[1].StartTurn)
 	require.Equal(t, rtSession, opens[1].Session)
 }
+
+// TestSchedulerRuntimeBuildsItsAdvancerFromTheWriterAndSourcePair closes the link the composition
+// root depends on: supplying Checkpoints AND Sources is what makes schedRuntime.advancer non-nil.
+//
+// Nothing asserted this before, and the consequence was invisible: internal/cli supplied
+// Checkpoints alone, the adapter clause never fired, advanceFrontier short-circuited on
+// `advancer == nil` and counted sched.frontier.no_writer, and every production daemon reported a
+// frontier route that looked merely quiet. The three rows are the three states the clause has.
+func TestSchedulerRuntimeBuildsItsAdvancerFromTheWriterAndSourcePair(t *testing.T) {
+	sources := func() (checkpoint.SourceSet, error) { return checkpoint.SourceSet{}, nil }
+
+	t.Run("writer and sources together yield an advancer", func(t *testing.T) {
+		fx := newRTFixture(t, func(f *rtFixture) { f.writer = newFakeWriter(f.store.segs) })
+		o := fx.options()
+		o.Sources = sources
+		rt, err := NewSchedulerRuntime(o)
+		require.NoError(t, err)
+		t.Cleanup(scheduler.DisablePSelection)
+		require.NotNil(t, rt.(*schedRuntime).advancer,
+			"the pair internal/cli supplies must produce a live frontier advancer")
+	})
+
+	t.Run("a writer with no sources stays unavailable", func(t *testing.T) {
+		fx := newRTFixture(t, func(f *rtFixture) { f.writer = newFakeWriter(f.store.segs) })
+		require.Nil(t, fx.rt.advancer,
+			"a writer alone must not be adapted into an advancer over a nil source set")
+	})
+
+	t.Run("sources with no writer stay unavailable", func(t *testing.T) {
+		fx := newRTFixture(t)
+		o := fx.options()
+		o.Sources = sources
+		rt, err := NewSchedulerRuntime(o)
+		require.NoError(t, err)
+		t.Cleanup(scheduler.DisablePSelection)
+		require.Nil(t, rt.(*schedRuntime).advancer)
+	})
+}
