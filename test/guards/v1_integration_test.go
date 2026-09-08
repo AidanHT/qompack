@@ -273,6 +273,12 @@ var v1CoverageFloors = map[string]int{
 	// append-only invariant state whose corruption is unrecoverable, which is the same argument
 	// that put checkpoint in this group. Refs: V3, SP-10.
 	"pins": 90,
+	// admission (SP-21) is in this group from the start rather than raised into it. It sits in the
+	// same class as redact and checkpoint: its job is to refuse, and every rule in it — capture
+	// before replacement, privacy denial outranking the kill switch, an unmapped stage never
+	// reaching the transform path — is a safety property whose failure mode is delivering something
+	// it should not have. The package measures 100% at its contract slice. Refs: V5, SP-21.
+	"admission": 90,
 
 	"scheduler": 85, "dag": 85, "analyzer": 85, "rehydrate": 85, "eval": 85, "mcp": 85,
 }

@@ -14,6 +14,193 @@ Future fixes use the existing verification branch/worktree convention and small 
 
 Retain future groups A–H: A foundation/evaluation, B sketches/chunk/canon/symbols, C daemon/store, D DAG/observer, E negknow/checkpoint, F rehydrate/rules/skills/scheduler, G MCP/commands, H analyzer/grammar/reuse. Add SP21 adapter/recovery checks to G with H's representation contract handed off; C/E/MCP owners consume SP20 remediation. Main owns shared composition/configuration and reviewed file assignments. SP-12 retains ski-rental file ownership; H does not edit it. An independent correctness/cost reviewer reads the combined artifacts.
 
+### Wave-4 integration, before this checkpoint starts
+
+This checkpoint cannot begin until `develop` carries wave 4. `verify/v5` is cut from the verified
+integrated `develop`, so the merges below are a precondition of the checkpoint, not part of it. They
+are recorded here because this document owns the integration order; per-subplan merges are described
+in their own plans.
+
+**Order is SP-15 → SP-16 → SP-14, and it is not interchangeable.** SP-16 builds on SP-15's analyzer
+and config surface, and SP-14's commands consume both. SP-21 is wave-4 work but sits outside this
+chain: it merges on its own track, after the SP-20 M1–M3 gate, and does not gate the cut.
+
+| Branch | Tip | Ahead of `develop` `7c735ac` | Worktree |
+|---|---|---|---|
+| `feat/sp15-analyzer-selection-and-grammar` | `db4ec2e` | 19 | `../qompack-sp15` |
+| `feat/sp16-phase7-refinements` | `03ba720` | 10 | `../qompack-sp16` |
+| `feat/sp14-slash-commands-and-observability` | `154d2de` | 9 | `../qompack-sp14` |
+| `feat/sp21-deterministic-admission-control` | separate track | — | `../qompack-sp21` |
+
+#### Four mechanics, each of which stops a merge dead
+
+**`develop` lives in a sibling worktree.** The main repository is on another branch and
+`git checkout develop` there fails with `'develop' is already used by worktree at
+.../qompack-develop`. Merging a branch that another worktree has checked out *is* permitted — only
+`checkout` and `branch -d` are blocked — so merges run with `git -C` against the develop worktree.
+
+**`--no-ff` is required.** Every branch's merge-base is develop's own tip, so a plain `git merge`
+fast-forwards, creates no commit, and silently ignores `-m`. The commit-msg hook never runs, and a
+clean fast-forward is not evidence that the subject would have been accepted.
+
+**The commit-msg hook rejects git's default merge subject.** `.git/hooks/commit-msg` shells
+`go run ./tools/devtool check-commit-msg`, so Go must be on the merging shell's PATH. The grammar is
+`^(feat|fix|docs|test|refactor|perf|build|ci|chore|revert)(\([a-z0-9/_.,-]+\))?: .{1,64}$`, with a
+trailing period rejected separately. `Merge branch 'x' into develop` matches no type and is refused.
+Three consequences: the scope must be **lowercase**, so `chore(SP-15)` fails where `chore(sp15)`
+passes; `feat` and `fix` subjects additionally require a `Refs:` footer, which a merge does not need,
+so prefer `chore`; and body lines are capped at 100 runes.
+
+**Attribution trailers are rejected on any line**, subject included — `co-authored-by`,
+`signed-off-by` and `generated with` case-insensitively, plus the robot emoji. CI re-greps the whole
+pushed range for the same patterns, so such a trailer fails twice.
+
+#### Commands
+
+Run in a POSIX shell; the forms below are parse errors in PowerShell. Confirm first that
+`git -C "$D" rev-parse --short HEAD` is `7c735ac` and `git -C "$D" status --porcelain` is empty.
+
+```sh
+D=C:/Users/Quant/Documents/Programming/Projects/qompack-develop
+
+git -C "$D" merge --no-ff feat/sp15-analyzer-selection-and-grammar \
+  -m "chore(sp15): integrate analyzer selection and grammar"
+# validate, then:
+git -C "$D" merge --no-ff feat/sp16-phase7-refinements \
+  -m "chore(sp16): integrate phase 7 refinements"
+# validate, then:
+git -C "$D" merge --no-ff feat/sp14-slash-commands-and-observability \
+  -m "chore(sp14): integrate slash commands and observability"
+```
+
+`D` does not survive a separate shell invocation, and validation between merges is a long run — set
+it again or use the literal path. If the hook rejects a subject, the merge leaves `MERGE_HEAD` and a
+staged index with no commit: re-commit with `git -C "$D" commit -m "chore(...): ..."`, or back out
+with `git -C "$D" merge --abort`. Conflicts stop git on their own; resolve in the develop worktree,
+then commit with a conforming subject. `--no-commit` only suppresses the auto-commit on an
+already-clean merge. Develop is local-only, so an unwanted merge undoes with
+`git -C "$D" reset --hard 7c735ac` before any push, or `git -C "$D" revert -m 1 <merge-sha>` after.
+
+**Expected conflict class.** SP-15 and SP-16 both modify `docs/config-reference.md`,
+`internal/config/defaults.go`, `internal/config/runtime.go`, `internal/config/validate_test.go` and
+`testdata/golden/config/schema.json`. What to expect at the SP-16 merge is an added-config-key clash
+and a stale golden `schema.json`, not a logic conflict. A trial integration of all three in this
+order has been run on a scratch copy: the merges combined cleanly, the tree built, `go vet` was
+clean, and the config, analyzer, grammar, commands, rehydrate and scheduler packages passed. That is
+a strong signal, not a substitute for validating the real `develop` after each merge.
+
+#### Validate between merges, serialized
+
+One heavy job per machine, per B09 and R3 — agent count and validation load are separately bounded,
+because the session that earned the raised child cap exhausted machine memory running the whole tree
+beside its agents. After each merge, in the develop worktree, run these in order and let each finish:
+
+| Step | Command | Why |
+|---|---|---|
+| 1 | `go build ./...` | Cheapest failure first; a broken build makes later results meaningless |
+| 2 | `go vet ./...` | Catches the merge-shaped errors that still compile |
+| 3 | `go test -p 1 -timeout=30m ./...` | The standing convention for a serialized whole-tree run |
+| 4 | `go run ./tools/devtool lint` | All ten sub-checks, **after** the suite, never beside it |
+
+Two traps that have each produced a wrong conclusion in this repository:
+
+- **Never pipe `go test` through `grep` or `head`.** The pipeline's exit code is the last command's,
+  so the shell reports success on a red suite, and the cap truncates the failure list.
+- **Co-load fabricates timing failures.** Running `devtool lint` beside the suite produced three
+  `internal/negknow` timing breaches that do not exist serialized, and killed `stubskips` at 400s.
+  A timing, latency or budget gate needs an otherwise quiet machine.
+
+**Known baseline.** Four tests fail on clean `develop` `7c735ac` and will still fail after these
+merges. They are not merge damage, and a fifth failure is:
+
+| Test | Package |
+|---|---|
+| `TestCarriedDefects_WaveReportRequiresResolution` | `test/guards` |
+| `TestV3_HotPathUnchangedWithLedgerResident` | `test/e2e` |
+| `TestIntegration_BeladyPMinLandsAtLowCoupling` | `test/integration` |
+| `TestIntegration_HotPathWarmWithRealResidentState` | `test/integration` |
+
+The first is this checkpoint's own work: SP05-D1, SP06-D2, SP08-D1 and SP10-D1 are still
+`deferred:V4-VERIFY` in `CARRIED-DEFECTS.tsv` while `V4-report.md` exists, and §7 assigns their
+dispositions. Re-baseline package counts after each merge rather than predicting them; SP-15 alone
+touches 88 files, so totals will move even where the failure set does not.
+
+#### Delegating the integration
+
+**The merge itself is never fanned out.** There is one `develop` worktree, one index and one branch
+ref; three children merging concurrently race on all three and the survivor is whichever wrote last.
+R3's first safety control is exclusive file ownership, and concurrent merges into one worktree are
+its exact inverse. This document already fixes the ownership: the coordinator owns shared
+integration, commits and report. A child may be given the merge only as a single serial lane, one
+merge at a time, and gains nothing over the coordinator running it.
+
+What parallelizes is the work *around* the merge. Four lanes, in order:
+
+| Lane | Concurrency | Owner | Seat |
+|---|---|---|---|
+| 1. Pre-merge branch assessment | 3 concurrent | one child per branch | Opus 4.8 / high |
+| 2. The merges | **serial, one at a time** | coordinator | — |
+| 3. Post-merge validation | **serial, one at a time** | one child per merge | Opus 4.8 / high |
+| 4. Checkpoint verification | up to the residual cap | groups A–H | per §1 |
+
+Lane 4 is where the fan-out actually pays: the A–H groups are this checkpoint's real work and are
+already scoped for concurrency. Lanes 1–3 exist to get `develop` into a state those groups can run
+against.
+
+**Lane 1 — pre-merge assessment, 3 concurrent.** One child per wave-4 branch, each read-only in its
+own worktree at that branch's tip, none touching `develop`. Each returns: the branch's changed-file
+set, the result of `go build ./...` and its owning packages' tests on that branch alone, and the
+collisions it predicts against the other two branches. Three children reading three isolated
+worktrees have no shared writer, which is what makes this lane safe to run wide. Their reports let
+the coordinator merge knowing what to expect instead of discovering it at the conflict prompt.
+
+**Lane 2 — the merges, serial.** SP-15, then SP-16, then SP-14, by the commands above. Not delegated
+and not overlapped.
+
+**Lane 3 — validation, serial.** One child per merge, and only one alive at a time, because heavy
+validation is one job per machine under B09 and R3 bounds agent count and validation load separately.
+A child that runs the whole tree while another child does the same exhausts memory — that is the
+recorded incident behind the raised cap, not a hypothetical. The child runs the four validation steps
+in order, reports the failure set, and compares it against the four-test known baseline.
+
+**Every child's brief carries these, or it will report a false BLOCKED:**
+
+- The four known pre-existing failures. A child running a broad suite hits them and, without the
+  baseline, concludes the merge broke something.
+- Never `git stash`. The stash list is shared across every worktree of one repository, so one child's
+  stash silently reaches every other worktree.
+- A `go test -run` filter prints `ok` when it matches nothing. Confirm the pattern selects real cases
+  before reporting a pass.
+- Never pipe `go test` through `grep` or `head`; the exit code is the pipeline's and the list is
+  truncated.
+- Commit rules: conventional subject, lowercase scope, no attribution trailers, body lines ≤ 100
+  runes.
+- Its own report path. Two children never write the same file.
+- A tool-call budget, and a stop-and-report-BLOCKED rule after three identical failures rather than
+  retrying.
+
+**Dispatch.** `ultracode` takes effect only when a user types it in a prompt; this document
+containing the word triggers nothing. To run lane 1:
+
+```text
+ultracode — run lane 1 of "Delegating the integration" in
+plans/V5-VERIFY-commands-selection-grammar-and-refinements.md. One child per wave-4 branch,
+read-only, each in its own worktree at that branch's tip. None touches develop.
+```
+
+Then merge serially, and dispatch lane 3 one child per merge. The residual of the shared eight-child
+pool governs lane 4; confirm no other cooperating wave-4 plan holds children before sizing it.
+
+**Claims this delegation may not make.** B08 forbids claiming observed routing — model identities are
+requested and effective routing is not exposed — so no speedup, cost saving or measured-efficiency
+claim follows from running lanes 1 and 4 wide.
+
+#### Then cut the branch
+
+Only once the integrated `develop` has been validated does `verify/v5` come from it. Merging
+`verify/v5` back is governed separately: see §8's rule that only after independent review may
+separately authorized work merge it.
+
 ### Focused validation and bounded parallel runs
 
 Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every command catalog, commit and acceptance row below. Broad commands are available entry points, not a per-edit/per-owner execution list. Use focused real cases first and require a named reason for each long run; preserve coverage, failure artifacts and explicit incomplete states. No execution occurs during planning.
@@ -22,7 +209,7 @@ Map existing A–H responsibilities to a few actual run groups rather than launc
 
 Keep one integrated V5 source candidate and share actual artifacts across all retained inventory rows. Recheck changed producers and consumers before scheduling broader regression. The coordinator assigns each distinct mode/platform/corpus job once; package-level parallelism is counted before adding concurrent processes. Quiet performance checks and shared-state scenarios remain isolated. Final V5 still requires the complete inventory, actual consumer/recovery evidence and all enabled admission gates; shorter runs cannot waive them.
 
-Reuse the existing logical owners and R1 model/effort/fallback policy: Opus 4.8 high for substantive validation, low/medium only constrained inventory/collation, Fable 5.1 high for a necessary independent critical review. All cooperating SP14–21 and V4–V6 work shares at most three active children, one Fable, no nesting; narrower plan limits remain. The coordinator owns run allocation, final report and acceptance. Do not buy extra capacity or create configuration to force parallelism.
+Reuse the existing logical owners and R1 model/effort/fallback policy: Opus 4.8 high for substantive validation, low/medium only constrained inventory/collation, Fable 5.1 high for a necessary independent critical review, and Opus 5 high for multi-file judgment owners. All cooperating SP14–21 and V4–V6 work shares at most eight active children, at most two Fable, one level deep and no nesting, [as revised by R3](MIGRATION-EVIDENCE.md#routing-r1-follow-up-sp-14-through-sp-21) under explicit user authorization for wave 4; this supersedes R1's earlier three-child/one-Fable statement for agent count only. R3 is explicit that the raised cap holds only while its five controls hold — exclusive file ownership, a contract-first slice landed before fan-out, report-to-file with short structured returns, per-unit anti-loop budgets with a stop-and-report-BLOCKED rule, and heavy validation serialized at one command per machine — and that agent count and validation load stay separately bounded, because the session that earned the higher cap exhausted machine memory running the whole tree alongside its agents. The serialization rules in this document are unaffected by that revision. Narrower plan limits remain. The coordinator owns run allocation, final report and acceptance. Do not buy extra capacity or create configuration to force parallelism.
 
 ## 2. Cumulative functionality inventory
 

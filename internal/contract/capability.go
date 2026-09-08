@@ -274,7 +274,12 @@ func DefaultCapabilityRegister() CapabilityRegister {
 				Fallback:   "pass-through: the host's original result is delivered unchanged",
 				Notes: "off pending the SP-21 capture/retrieval/schema gate. Replacement requires exact " +
 					"supported output shapes and a coexisting-hook decision, and capture must be durable " +
-					"before anything is replaced.",
+					"before anything is replaced. SP-21 M4-04 supplies the half of the coexistence " +
+					"decision that needs no host: internal/admission bypasses any delivery already " +
+					"marked by Qompack or by another hook, so admission never chains onto a " +
+					"transformation somebody else made. The other half — the installed host's actual " +
+					"hook order and its own output schema — stays unverified under B01, which is why " +
+					"the host allowlist is empty and this capability is still disabled.",
 			},
 			{
 				Capability: CapUsageAttribution,

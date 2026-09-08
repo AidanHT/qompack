@@ -185,9 +185,18 @@ harness's residual span derives from the last user turn rather than a durable fr
 becomes writable. **Consequence: `p4DischargedBy` points at an unwritten row, so the Phase 4 residual
 bars are currently enforced by nobody.**
 
-**Installed-host discovery after compaction (T13-HANDLE) remains unverified.** Four section-4 rows drive
-the MCP handlers in-process, so the stdio transport and `cli`'s unexported Widener wiring are not
-covered.
+**Installed-host discovery after compaction (T13-HANDLE) remains PARTLY unverified.** Four section-4
+rows drive the MCP handlers in-process. `test/e2e/v4_t13_handle_stdio_test.go` now covers the two
+mechanisms that were missing — a handle minted before a compaction resolving in a `qompack mcp`
+process started after it, over the real stdio transport, and `cli`'s unexported `symbolWidener`
+reached through a `re_read` `:<symbol>` anchor — together with bounded pagination and an explicit
+unavailable object. The Widener assertion carries a negative control: severing the wiring in
+`internal/cli/mcpwire.go` turns the row red.
+
+What that does NOT establish is the installed half. The test drives a binary this repository built;
+it does not prove that an installed Claude Code discovers the packaged plugin, which is B01 evidence
+and needs a real target. The distinction is the one M0-G4 already draws between a repository
+validator and installed-host compatibility.
 
 Seven defects were found by executing these gates rather than by reading diffs, and each is the kind of
 thing this checkpoint exists to catch:
@@ -289,21 +298,28 @@ because a hook must not conjure state in a project that has not opted in.
 ## 19. Signoff
 
 **Not signed off.** The corrective implementation is complete and the build, vet and lint gates pass in
-full, but the V4 gate requires evidence that does not yet exist:
+full, but the V4 gate requires evidence that does not yet exist. Item 4 has since been closed; four
+remain:
 
 1. Reference-platform performance measurement for SP06-D2, SP08-D1 and SP10-D1 — unavailable in this
    environment, obtainable only from CI on a pushed branch.
 2. Scenario 4.4 authored, or an authorized retirement with replacement evidence for the Phase 4
    residual bars.
-3. Installed-host discovery and recovery after compaction (T13-HANDLE), which no in-process test covers.
-4. An enforcing guard for `V4-ALL-08`'s replacement assertion, or its explicit retirement.
+3. Installed-host discovery and recovery after compaction (T13-HANDLE). **Half closed** by
+   `test/e2e/v4_t13_handle_stdio_test.go`: the stdio transport, the post-compaction handle and the
+   composition root's Widener are now covered against the real binary. The installed-host half
+   remains open and is B01 evidence — a built binary is not an installed plugin.
+4. ~~An enforcing guard for `V4-ALL-08`'s replacement assertion, or its explicit retirement.~~
+   **CLOSED** by `test/guards/qompackrevision_test.go`: a SHA-256 pin over `Qompack.md` plus
+   Revision-log and `QOMPACK-ERRATA.md` assertions, each confirmed red by breaking it. NC-1a is
+   discharged in `inventory.md`, `reconciliation-map.md` §7.1 and `runner-coverage-review.md`.
 5. An authorized re-derivation of the Belady p_min floor, or acceptance that the row stays red.
 
 **Wave 4 readiness.** SP-15 and SP-16 name as prerequisites the accepted contracts — SP-19,
 SP-20/M1-M2, SP-13/M2, SP-10/11 M3 and SP-12 supported scheduling — all of which are delivered on this
 candidate. **SP-14 alone names "verified V4"**, and it is ordered after SP-15 then SP-16 in any case. So
 the corrective path unblocks SP-15 and SP-16 on contract grounds, while SP-14 remains blocked on the
-five items above.
+four items above that are still open.
 
 ## 20. Independent review, and the re-run that followed it
 
