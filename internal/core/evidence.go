@@ -136,10 +136,7 @@ func (e EvidenceEnvelope) Qualified() EvidenceEnvelope {
 		e.Fidelity, e.Coverage, e.Outcome = FidelityUnknown, CoverageUnknown, OutcomeUncertain
 		return e
 	}
-	switch e.Fidelity {
-	case FidelityExact, FidelityPrefix, FidelityPartial, FidelityRedacted, FidelityTruncated,
-		FidelityBinary, FidelityFailure, FidelityUnknown:
-	default:
+	if !e.Fidelity.Valid() {
 		e.Fidelity = FidelityUnknown
 		e.Outcome = OutcomeUncertain
 	}
@@ -174,6 +171,45 @@ func (a Authority) Valid() bool {
 	switch a {
 	case AuthorityUserCorrection, AuthorityExplicitDecision, AuthorityToolObservation,
 		AuthorityCandidateExtraction, AuthorityHypothesis, AuthorityConflict:
+		return true
+	default:
+		return false
+	}
+}
+
+// CaptureError labels why a capture is degraded. It is a closed classification, never a message
+// built from payload bytes: an operator reads it, and a later reader compares it, without either
+// one being handed the content that produced it. The empty value means no degradation was
+// recorded, which is not the same as a capture having been proven complete.
+type CaptureError string
+
+const (
+	CaptureErrorNone       CaptureError = ""
+	CaptureErrorOversize   CaptureError = "oversize"
+	CaptureErrorIncomplete CaptureError = "incomplete_read"
+	CaptureErrorNotJSON    CaptureError = "not_json_object"
+	CaptureErrorPolicy     CaptureError = "policy_unavailable"
+	CaptureErrorContract   CaptureError = "policy_contract"
+)
+
+// Valid refuses future or misspelled capture-error labels so a reader keeps an unrecognised label
+// as unknown rather than silently reading it as CaptureErrorNone.
+func (e CaptureError) Valid() bool {
+	switch e {
+	case CaptureErrorNone, CaptureErrorOversize, CaptureErrorIncomplete, CaptureErrorNotJSON,
+		CaptureErrorPolicy, CaptureErrorContract:
+		return true
+	default:
+		return false
+	}
+}
+
+// Valid reports whether f is one of the closed fidelity values. A future or misspelled value is
+// not a success state: callers record it as FidelityUnknown rather than trusting the spelling.
+func (f Fidelity) Valid() bool {
+	switch f {
+	case FidelityExact, FidelityPrefix, FidelityPartial, FidelityRedacted, FidelityTruncated,
+		FidelityBinary, FidelityFailure, FidelityUnknown:
 		return true
 	default:
 		return false
