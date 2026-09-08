@@ -51,6 +51,7 @@ var nightlyFuzzLandedSubplans = map[string]bool{
 	"SP-11": true,
 	"SP-12": true,
 	"SP-13": true,
+	"SP-20": true,
 }
 
 // TestNightlyFuzzMatrix keeps .github/workflows/nightly.yml honest about what it actually fuzzes.

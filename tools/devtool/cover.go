@@ -73,6 +73,12 @@ var landedSubplans = map[string]bool{
 	// exempt-but-real cross-check below fails the moment a probe stops looking like a stub while
 	// its subplan is still unlisted.
 	"SP-13": true,
+	// SP-20 is listed from its own branch, for the same reason SP-08 was: internal/state's OWNERS
+	// probe (Add) is a real implementation from this package's first commit, and the
+	// exempt-but-real cross-check below fails the moment a probe stops looking like a stub while
+	// its subplan is still unlisted. The package has no consumers wired yet; that does not change
+	// whether its own seam is a stub.
+	"SP-20": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
