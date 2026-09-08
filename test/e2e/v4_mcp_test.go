@@ -159,11 +159,11 @@ func v4Call(t *testing.T, srv mcp.Server, sess core.SessionID, name string, args
 // that drives `already_tried` has a real ledger behind LedgerFn.
 func v4EnsureLedger(t *testing.T, r *v4Rig, sess core.SessionID) {
 	t.Helper()
-	if r.Opts.Ledger != nil {
+	if r.Opts.LedgerHandle() != nil {
 		return
 	}
 	r.CompactStart(t, sess)
-	require.Eventually(t, func() bool { return r.Opts.Ledger != nil }, 10*time.Second, 100*time.Millisecond,
+	require.Eventually(t, func() bool { return r.Opts.LedgerHandle() != nil }, 10*time.Second, 100*time.Millisecond,
 		"the first compaction must have opened the negative-knowledge ledger")
 }
 

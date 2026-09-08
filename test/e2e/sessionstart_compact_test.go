@@ -396,8 +396,8 @@ func TestE2E_AdditionalContextProducerIsDeclared(t *testing.T) {
 	// WireObserver opens a store, and the WireRehydrator block inside it opens the ledger. Both
 	// hold append-only handles, and an unreleased handle makes t.TempDir cleanup fail on Windows.
 	t.Cleanup(func() {
-		if opts.Ledger != nil {
-			_ = opts.Ledger.Close()
+		if led := opts.LedgerHandle(); led != nil {
+			_ = led.Close()
 		}
 		if opts.Store != nil {
 			_ = opts.Store.Close()
