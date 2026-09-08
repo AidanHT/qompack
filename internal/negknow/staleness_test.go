@@ -205,6 +205,15 @@ func TestRefreshStaleness_StoreError(t *testing.T) {
 	r.DependsOn = []core.Dep{{Path: "x.yml", Hash: core.HashBytes("test", []byte("x"))}}
 	mustRecord(t, l, r)
 
+	// A second active record with NO dependency at all: the failed comparison below has nothing to
+	// tell it either way, and it must stay backed as active. The degradation is per-record, not a
+	// blanket "everything is now unknown" heuristic.
+	const (
+		noDepTarget   = "src/nodep.ts:handler"
+		noDepApproach = "widen the buffer"
+	)
+	mustRecord(t, l, newRecord("storeerr-nodep", noDepTarget, noDepApproach, "no dependency to verify"))
+
 	boom := errors.New("store is on fire")
 	fake := newFakeStore()
 	fake.changedErr = boom
@@ -212,7 +221,48 @@ func TestRefreshStaleness_StoreError(t *testing.T) {
 	flipped, err := l.RefreshStaleness(context.Background(), fake)
 	require.ErrorIs(t, err, boom)
 	require.Nil(t, flipped)
-	require.Equal(t, 1, l.Health().Active, "failing toward doing nothing")
+	require.Equal(t, 2, l.Health().Active, "failing toward doing nothing: Status itself is untouched")
+	require.NotEqual(t, core.Omission{}, l.Health().DependencyCoverage,
+		"a failed comparison degrades the ledger's coverage watermark (00-ARCHITECTURE.md §11.3 item 8)")
+
+	// The record whose dependency could not be verified is no longer backed as active: not proven
+	// stale, and — because coverage could not be confirmed — not backed as active either.
+	a := mustQuery(t, l, target, approach, ScopeSession)
+	require.Equal(t, AnswerUncertain, a.State)
+	require.NotNil(t, a.Record, "the record itself is still known; only its freshness is unconfirmed")
+	require.Equal(t, r.Reason, a.Record.Reason)
+	require.NotEmpty(t, a.Coverage.Reason)
+	require.NotEmpty(t, a.Coverage.Recovery)
+
+	require.Equal(t, AnswerActive, mustQuery(t, l, noDepTarget, noDepApproach, ScopeSession).State,
+		"a record with no dependency had nothing for the failed comparison to cover")
+}
+
+// TestRefreshStaleness_StoreErrorRecovers asserts the OTHER half of the coverage watermark: a
+// later SUCCESSFUL comparison — even one that flips nothing — clears the degradation and restores
+// the backed AnswerActive result, which is Coverage's documented recovery direction actually
+// working.
+func TestRefreshStaleness_StoreErrorRecovers(t *testing.T) {
+	root, cfg := newProject(t)
+	l := openLedger(t, root, cfg, nil, testDeps("sess", newMetrics()))
+
+	const approach = "widen pool timeout"
+	target := "src/auth.ts:refreshToken"
+	dep := core.Dep{Path: "x.yml", Hash: core.HashBytes("test", []byte("x"))}
+	recordWithDeps(t, l, "storeerr-recovers", target, dep)
+
+	boom := errors.New("store is on fire")
+	fake := newFakeStore()
+	fake.changedErr = boom
+	_, err := l.RefreshStaleness(context.Background(), fake)
+	require.ErrorIs(t, err, boom)
+	require.Equal(t, AnswerUncertain, mustQuery(t, l, target, approach, ScopeSession).State)
+
+	fake.changedErr = nil
+	flipped, err := l.RefreshStaleness(context.Background(), fake)
+	require.NoError(t, err)
+	require.Nil(t, flipped, "the dependency did not actually change; only the earlier comparison failed")
+	require.Equal(t, core.Omission{}, l.Health().DependencyCoverage)
 	require.Equal(t, AnswerActive, mustQuery(t, l, target, approach, ScopeSession).State)
 }
 

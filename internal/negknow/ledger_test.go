@@ -333,10 +333,16 @@ func TestQuery_Stale_Drop(t *testing.T) {
 	id := mustRecord(t, l, newRecord("stale-drop", target, approach, "pgbouncer ignores it"))
 	require.NoError(t, l.MarkStale(context.Background(), []string{id}, []string{"compose changed"}))
 
+	// A dropped stale record is NOT the same as nothing on record: the ledger knows an elimination
+	// exists, it is only the STALENESS DETAIL that "drop" suppresses. Reporting AnswerAbsent here
+	// would assert the approach was never tried, which is false (00-ARCHITECTURE.md §11.3 Required
+	// invariants item 8) — AnswerUncertain is the honest middle ground.
 	a := mustQuery(t, l, target, approach, ScopeSession)
-	require.Equal(t, AnswerAbsent, a.State)
-	require.Nil(t, a.Record)
+	require.Equal(t, AnswerUncertain, a.State)
+	require.Nil(t, a.Record, "the drop config still withholds the record itself")
 	require.Equal(t, "", a.Note)
+	require.NotEmpty(t, a.Coverage.Reason)
+	require.NotEmpty(t, a.Coverage.Recovery)
 }
 
 func TestQuery_StaleBeforeRebuild(t *testing.T) {
@@ -381,7 +387,9 @@ func TestQuery_BloomOnly(t *testing.T) {
 // TestQuery_UnknownStatusIsBloomOnly covers the fourth shape a bloom hit can resolve to: a
 // visible record that is neither active nor stale, because the log carried a status no version of
 // this package mints. Returning AnswerStale with a nil Record — which is what a naive "everything
-// left is stale" branch does — would hand SP-13 a state whose contract promises a reason (R20).
+// left is stale" branch does — would hand SP-13 a state whose contract promises a reason (R20), and
+// returning AnswerAbsent would assert there is no elimination on record when there plainly is one
+// (00-ARCHITECTURE.md §11.3 Required invariants item 8). AnswerUncertain is what is actually true.
 func TestQuery_UnknownStatusIsBloomOnly(t *testing.T) {
 	root, cfg := newProject(t)
 
@@ -404,10 +412,12 @@ func TestQuery_UnknownStatusIsBloomOnly(t *testing.T) {
 	l := openLedger(t, root, cfg, nil, testDeps("sess", m))
 
 	a := mustQuery(t, l, target, approach, ScopeSession)
-	require.Equal(t, AnswerAbsent, a.State)
+	require.Equal(t, AnswerUncertain, a.State)
 	require.True(t, a.BloomOnly, "the bloom hit is real; the record behind it is not an answer")
 	require.Nil(t, a.Record)
-	require.Equal(t, int64(1), counterValue(t, m, "negknow.query.bloom_only"))
+	require.NotEmpty(t, a.Coverage.Reason)
+	require.NotEmpty(t, a.Coverage.Recovery)
+	require.Equal(t, int64(1), counterValue(t, m, "negknow.query.uncertain"))
 
 	// The status is left exactly as the log spelled it — rewriting it at materialization would
 	// destroy the forward compatibility the unknown-op rule exists to provide.
@@ -860,6 +870,33 @@ func TestAnswerMCPResult(t *testing.T) {
 			in:    Answer{State: AnswerActive},
 			state: "absent", reason: "", note: "", evidenceOK: "",
 		},
+		{
+			name: "unavailable",
+			in: Answer{
+				State:    AnswerUnavailable,
+				Coverage: core.Omission{Reason: reasonBlind, Recovery: recoveryBlind},
+			},
+			state: "unavailable", reason: reasonBlind, note: recoveryBlind, evidenceOK: "",
+		},
+		{
+			name: "uncertain",
+			in: Answer{
+				State:    AnswerUncertain,
+				Coverage: core.Omission{Reason: reasonUnknownStatus, Recovery: recoveryUnknownStatus},
+			},
+			state: "uncertain", reason: reasonUnknownStatus, note: recoveryUnknownStatus, evidenceOK: "",
+		},
+		{
+			// Coverage is rendered even when a record IS attached (the dependency-coverage
+			// direction): AnswerUncertain never falls back to "absent" through the nil-Record
+			// branch the legacy states use.
+			name: "uncertain_with_record",
+			in: Answer{
+				State: AnswerUncertain, Record: rec,
+				Coverage: core.Omission{Reason: reasonDepCoverage, Recovery: recoveryDepCoverage},
+			},
+			state: "uncertain", reason: reasonDepCoverage, note: recoveryDepCoverage, evidenceOK: "",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			state, reason, note, evidence := tc.in.MCPResult()
@@ -890,8 +927,9 @@ func TestBlindMode(t *testing.T) {
 	blockLogWithDirectory(t, root)
 	m := newMetrics()
 
-	// A key that IS in the filter Open is handed: blind mode must still answer absent, because a
-	// membership answer with no record behind it is the one thing §12.3 forbids here.
+	// A key that IS in the filter Open is handed: blind mode must still answer unavailable, because
+	// asserting absence (or activity) with no record behind it is the one thing §12.3 and §11.3
+	// Required invariants item 8 forbid here.
 	seeded := sketch.NewBloom(cfg.Sketches.Bloom.Capacity, cfg.Sketches.Bloom.FPRate)
 	d := Canonicalize("src/a.ts", "widen pool timeout", "")
 	seeded.Add(d.MatchKey())
@@ -901,15 +939,17 @@ func TestBlindMode(t *testing.T) {
 
 	require.True(t, l.blind, "an unreadable record log is blind mode")
 	require.Len(t, loud(), 1, "degradation is loud exactly once: %v", loud())
-	require.Contains(t, loud()[0], "already_tried will answer absent for everything")
-	require.Contains(t, strings.Join(logging.LastLoud(), "\n"), "already_tried will answer absent for everything",
+	require.Contains(t, loud()[0], "already_tried will answer unavailable for everything")
+	require.Contains(t, strings.Join(logging.LastLoud(), "\n"), "already_tried will answer unavailable for everything",
 		"the line also reaches the process-wide ring /qompack:status reads")
 	require.Equal(t, int64(1), counterValue(t, m, "negknow.bloom.blind_mode"))
 
 	a := mustQuery(t, l, "src/a.ts", "widen pool timeout", ScopeSession)
-	require.Equal(t, AnswerAbsent, a.State)
+	require.Equal(t, AnswerUnavailable, a.State)
 	require.False(t, a.BloomOnly, "blind mode never reports a bloom hit it cannot back")
 	require.Nil(t, a.Record)
+	require.NotEmpty(t, a.Coverage.Reason)
+	require.NotEmpty(t, a.Coverage.Recovery)
 }
 
 func TestClose_Idempotent(t *testing.T) {
