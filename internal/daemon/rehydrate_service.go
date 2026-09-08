@@ -340,17 +340,37 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 	// lifetime. The handle is assigned back onto Options so runDaemon's existing shutdown defer
 	// closes it; that field is read again only after Run has returned, with no hook still in
 	// flight.
+	//
+	// It is published on Options.OpenLedger rather than kept local, because the rehydration is no
+	// longer the first thing in a compaction that needs a ledger: the PreCompact hook fires BEFORE
+	// the SessionStart(source=compact) this service handles, and the checkpoint it seals reads
+	// eliminations out of the same ledger. Sharing the accessor is what keeps negknow.Open at ONE
+	// call site while letting either half of a compaction be the one that triggers it. The
+	// sync.Once is the sharing rule: one open, one Loud on failure, no retry, whichever worker
+	// arrives first.
+	var (
+		ledgerOnce sync.Once
+		ledger     negknow.Ledger
+	)
 	openLedger := func() negknow.Ledger {
-		l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
-			Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+		ledgerOnce.Do(func() {
+			l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
+				Store: o.Store, Graph: o.Graph, Log: log, Metrics: o.Metrics, Clock: clk,
+			})
+			if err != nil {
+				log.Loud("daemon: negative-knowledge ledger unavailable; eliminations will not be rehydrated",
+					"err", err.Error())
+				return
+			}
+			o.Ledger = l
+			ledger = l
 		})
-		if err != nil {
-			log.Loud("daemon: negative-knowledge ledger unavailable; eliminations will not be rehydrated",
-				"err", err.Error())
-			return nil
-		}
-		o.Ledger = l
-		return l
+		return ledger
+	}
+	// A caller that supplied its own accessor keeps it: tests wire a fake ledger this way, and
+	// overwriting it here would open a real one beside it.
+	if o.OpenLedger == nil {
+		o.OpenLedger = openLedger
 	}
 
 	ckpt, err := checkpoint.OpenReader(o.ProjectRoot, log, o.Metrics)
@@ -364,7 +384,7 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 		ProjectRoot: o.ProjectRoot,
 		Cfg:         o.Cfg,
 		Checkpoints: ckpt,
-		OpenLedger:  openLedger,
+		OpenLedger:  o.OpenLedger,
 		Deps: rehydrate.Deps{
 			Store: o.Store,
 			// o.Ledger is nil on the daemon path — nothing opens one before this — so the compact
