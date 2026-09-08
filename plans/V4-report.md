@@ -185,9 +185,18 @@ harness's residual span derives from the last user turn rather than a durable fr
 becomes writable. **Consequence: `p4DischargedBy` points at an unwritten row, so the Phase 4 residual
 bars are currently enforced by nobody.**
 
-**Installed-host discovery after compaction (T13-HANDLE) remains unverified.** Four section-4 rows drive
-the MCP handlers in-process, so the stdio transport and `cli`'s unexported Widener wiring are not
-covered.
+**Installed-host discovery after compaction (T13-HANDLE) remains PARTLY unverified.** Four section-4
+rows drive the MCP handlers in-process. `test/e2e/v4_t13_handle_stdio_test.go` now covers the two
+mechanisms that were missing — a handle minted before a compaction resolving in a `qompack mcp`
+process started after it, over the real stdio transport, and `cli`'s unexported `symbolWidener`
+reached through a `re_read` `:<symbol>` anchor — together with bounded pagination and an explicit
+unavailable object. The Widener assertion carries a negative control: severing the wiring in
+`internal/cli/mcpwire.go` turns the row red.
+
+What that does NOT establish is the installed half. The test drives a binary this repository built;
+it does not prove that an installed Claude Code discovers the packaged plugin, which is B01 evidence
+and needs a real target. The distinction is the one M0-G4 already draws between a repository
+validator and installed-host compatibility.
 
 Seven defects were found by executing these gates rather than by reading diffs, and each is the kind of
 thing this checkpoint exists to catch:
@@ -296,7 +305,10 @@ remain:
    environment, obtainable only from CI on a pushed branch.
 2. Scenario 4.4 authored, or an authorized retirement with replacement evidence for the Phase 4
    residual bars.
-3. Installed-host discovery and recovery after compaction (T13-HANDLE), which no in-process test covers.
+3. Installed-host discovery and recovery after compaction (T13-HANDLE). **Half closed** by
+   `test/e2e/v4_t13_handle_stdio_test.go`: the stdio transport, the post-compaction handle and the
+   composition root's Widener are now covered against the real binary. The installed-host half
+   remains open and is B01 evidence — a built binary is not an installed plugin.
 4. ~~An enforcing guard for `V4-ALL-08`'s replacement assertion, or its explicit retirement.~~
    **CLOSED** by `test/guards/qompackrevision_test.go`: a SHA-256 pin over `Qompack.md` plus
    Revision-log and `QOMPACK-ERRATA.md` assertions, each confirmed red by breaking it. NC-1a is
