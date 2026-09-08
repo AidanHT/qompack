@@ -1,0 +1,16 @@
+{
+  "fixture": "supersession-is-exact",
+  "gate": "M5-G15-B",
+  "owner": "SP-15 role C",
+  "origin": "Authored by hand for SP-15. NOT captured from a session and not derived from any existing benchmark file.",
+  "signal_under_test": "analyzer.DetectRedundancy's Superseded list (00-ARCHITECTURE.md 5.12, 8.1 item 3)",
+  "files": {
+    "session_go_read_1.txt": "first read of internal/auth/session.go",
+    "session_go_read_2.txt": "second read, after a field was added",
+    "session_go_read_3.txt": "third and final read, after the API changed"
+  },
+  "what_it_demonstrates": "This is the counterpart of the two approximate fixtures: an EXACT claim, checked exactly. Three reads of one normalized path in one session; the first two were replaced by a later read of the same path and the third was not. The test asserts the reported list element for element rather than asserting a count or a subset, because an exact claim is one that can be checked exactly.",
+  "qualified_claim_this_supports": "Superseded is exact: a tool use is superseded when a later tool use on the same normalized path replaced it. No sketch, no estimate, and recomputable from index/tool_use.jsonl by anyone who doubts it.",
+  "scope_of_the_claim": "Exact over the record set the scan observed, and about the recorded history rather than about the world. An edit the observer never saw (SP05-D1) is one no scan of the index can know about, so a record absent from the list is not thereby established to be current.",
+  "asserted_by": "internal/analyzer/redundancy_test.go — TestDetectRedundancy_SupersessionChainIsExact"
+}
