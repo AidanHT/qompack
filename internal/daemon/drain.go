@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -63,6 +64,13 @@ type DrainConfig struct {
 	// is not a durable delivery identity: restart may redeliver, and equal-content identity is
 	// a remaining SP-20 lease migration requirement.
 	Seen *seenSet
+	// Admit is the daemon-side privacy gate applied to every inherited spool record before it is
+	// dispatched or persisted. A nil Admit admits everything — the pre-gate behaviour, kept so a
+	// bare drainer fixture with no daemon behind it still works.
+	Admit func(ipc.Request) admissionVerdict
+	// Journal resolves the held delivery journal, so a drained line can take back the identity its
+	// original delivery was assigned and can write the committed-frontier record that releases it.
+	Journal func() (*deliveryJournal, error)
 	// IsLive reports whether sess is still a live session; its WAL is kept (offset-marked, not
 	// deleted) rather than removed once fully drained. A nil IsLive treats every session as ended,
 	// so a bare drainer with no wired registry still deletes fully-drained files.
@@ -75,6 +83,9 @@ type DrainConfig struct {
 type drainer struct {
 	cfg DrainConfig
 	mu  sync.Mutex // serializes concurrent Drain calls (idle tick vs. admin.drain) against one drain.json
+
+	gapMu sync.Mutex
+	gaps  DrainGapState
 }
 
 // newDrainer returns a drainer over cfg, filling in nil-safe defaults.
@@ -109,11 +120,16 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		return 0, err
 	}
 
+	gaps := &gapRecorder{}
 	st, err := dr.loadState()
 	if err != nil {
+		gaps.add("", DrainGapProgressUnreadable, "drain progress state is unreadable")
+		dr.publishGaps(gaps.state(dr.cfg.Clock, 0))
 		return 0, err // preserve corrupt progress for diagnosis; never authorize deletion from it
 	}
 	if err := dr.validateProgress(files, st); err != nil {
+		gaps.add("", DrainGapProgressUnreadable, "drain progress no longer matches the spool")
+		dr.publishGaps(gaps.state(dr.cfg.Clock, 0))
 		return 0, err
 	}
 	total := 0
@@ -124,7 +140,7 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 			stopErr = errors.Join(stopErr, ctx.Err())
 			break
 		}
-		n, ferr := dr.drainFile(ctx, path, st)
+		n, ferr := dr.drainFile(ctx, path, st, gaps)
 		total += n
 		if ferr == nil {
 			continue
@@ -144,6 +160,14 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		dr.cfg.Log.Warn("daemon: drain: failed to persist state", "err", serr)
 		stopErr = errors.Join(stopErr, serr)
 	}
+	pending := int64(0)
+	for base, fs := range st {
+		if remaining := fs.Size - fs.Offset; remaining > 0 {
+			pending += remaining
+			gaps.add(base, DrainGapPending, "spool bytes not yet replayed")
+		}
+	}
+	dr.publishGaps(gaps.state(dr.cfg.Clock, pending))
 	return total, stopErr
 }
 
@@ -151,7 +175,7 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 // dispatched and, if ctx was cancelled mid-file, ctx.Err() — otherwise nil, even when individual
 // corrupt lines were skipped (those are reported via the metrics/log side channel, not the
 // returned error, so one bad line never aborts the rest of the file).
-func (dr *drainer) drainFile(ctx context.Context, path string, st drainState) (int, error) {
+func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, gaps *gapRecorder) (int, error) {
 	base := filepath.Base(path)
 
 	fi, err := os.Stat(paths.Long(path))
@@ -225,14 +249,43 @@ readLoop:
 				dr.cfg.Metrics.Counter(counterDrainFileError).Add(1)
 			}
 			dr.cfg.Log.Warn("daemon: drain: corrupt line", "path", path, "err", decErr)
+			gaps.add(base, DrainGapCorruptLine, "line did not decode")
 			offset, fs.Offset = nextOffset, nextOffset
 			continue
 		}
 
-		key := core.HashBytes(walHashDomain, line)
+		// Privacy admission for an INHERITED record. A record that already carries a decision keeps
+		// it — re-deciding could only work from the derived Event, which cannot restore what the
+		// first policy removed. A record that carries none is decided here, before it is dispatched
+		// and therefore before anything it would cause can be persisted.
+		verdict := dr.admitLine(req)
+		switch {
+		case verdict.Denied:
+			// A denial is terminal: retrying produces the same answer, so the offset advances and
+			// the record is released. Nothing was persisted and nothing will be.
+			gaps.add(base, DrainGapDenied, verdict.Reason)
+			offset, fs.Offset = nextOffset, nextOffset
+			continue
+		case verdict.Failed:
+			// A failure is NOT terminal. Leave the line where it is so a later pass — with a
+			// readable policy, or a repaired configuration — can still admit it.
+			gaps.add(base, DrainGapUnadmitted, verdict.Reason)
+			readErr = fmt.Errorf("daemon: drain: capture not admitted")
+			break readLoop
+		}
+		req = verdict.Request
+
+		lease, leased := dr.leaseDelivery(ctx, req)
+		if !leased {
+			gaps.add(base, DrainGapUnleased, "delivery has no durable identity")
+		}
+		key := deliveryIdentityKey(lease, leased, line)
 		if dr.cfg.Seen != nil {
 			completed, acquired := dr.cfg.Seen.begin(key)
 			if completed {
+				if leased && !dr.acknowledgedDelivery(lease, leased) {
+					gaps.add(base, DrainGapUnacknowledged, "in-memory completion has no frontier record")
+				}
 				// A live worker's acknowledgement was in memory only. Keep its blob until this
 				// file's consumed offset is persisted below.
 				if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
@@ -247,11 +300,12 @@ readLoop:
 			}
 		}
 
-		blob, dispatchErr := dr.dispatchPending(ctx, req)
+		blob, dispatchErr := dr.dispatchPending(ctx, req, lease, leased)
 		if dr.cfg.Seen != nil {
 			dr.cfg.Seen.finish(key, dispatchErr == nil)
 		}
 		if dispatchErr != nil {
+			gaps.add(base, DrainGapUnacknowledged, "publication did not reach the frontier")
 			readErr = dispatchErr
 			break readLoop
 		}
@@ -400,7 +454,11 @@ func (dr *drainer) validateProgress(files []string, st drainState) error {
 
 // dispatchPending leaves the record and any externalized bytes available until handling and
 // acknowledgement persistence succeed. A NAK, panic, or canceled handler cannot consume it.
-func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request) (blob string, err error) {
+// It enforces publication order for a drained record exactly as the ingest worker does for a live
+// one: durable capture, then the reference the dispatch writes, then the committed frontier. The
+// offset in drainFile advances only when this returns nil, so a delivery that did not reach the
+// frontier is redelivered rather than silently released.
+func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease deliveryLease, leased bool) (blob string, err error) {
 	defer func() {
 		if recover() != nil {
 			err = fmt.Errorf("daemon: drain: handler panicked")
@@ -410,6 +468,11 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request) (blob s
 	if err != nil {
 		return "", err
 	}
+	if leased {
+		if err := publishCapture(dr.cfg.Root, resolved, lease); err != nil {
+			return "", fmt.Errorf("daemon: drain: capture not durable: %w", err)
+		}
+	}
 	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
 	defer cancel()
 	resp := dr.cfg.Dispatch(dctx, resolved)
@@ -418,6 +481,9 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request) (blob s
 			return "", dctx.Err()
 		}
 		return "", fmt.Errorf("daemon: drain: handler did not acknowledge delivery")
+	}
+	if err := dr.commitDelivery(ctx, lease, leased); err != nil {
+		return "", err
 	}
 	return blob, nil
 }
@@ -497,4 +563,168 @@ func (dr *drainer) saveState(st drainState) error {
 		return err
 	}
 	return paths.WriteAtomic(p, b, 0o600)
+}
+
+// ---------------------------------------------------------------------------
+// Drain gap state (M2-02's "index/drain gaps", produced here)
+//
+// internal/negknow can answer "absent" only for a question whose evidence it actually has. It
+// deliberately does not model index/drain gaps, because the gap lives here: a spool file the drain
+// has not finished, a line it could not admit, a delivery it could not lease or acknowledge. This
+// is the producer side of that fact, exposed so a caller can tell "nothing was recorded" from "we
+// cannot currently tell".
+
+// DrainGapKind is the closed set of reasons a drain cannot account for part of the spool.
+type DrainGapKind string
+
+const (
+	// DrainGapCorruptLine is a spool line that would not decode. It was skipped; its content is
+	// unrecoverable and its delivery is unaccounted for.
+	DrainGapCorruptLine DrainGapKind = "corrupt_line"
+	// DrainGapUnadmitted is a line privacy admission could not decide. Nothing was persisted and
+	// the line remains, so a later pass may still admit it.
+	DrainGapUnadmitted DrainGapKind = "unadmitted"
+	// DrainGapDenied is a line privacy policy refused. Nothing was persisted and nothing will be:
+	// this is a decision, not an outage, and it is reported so it is never read as coverage.
+	DrainGapDenied DrainGapKind = "denied"
+	// DrainGapUnleased is a delivery that reached the drain with no durable identity — no nonce,
+	// or no journal to lease from.
+	DrainGapUnleased DrainGapKind = "unleased"
+	// DrainGapUnacknowledged is a delivery whose publication did not reach the committed frontier.
+	// Its spool offset was not advanced, so it will be redelivered.
+	DrainGapUnacknowledged DrainGapKind = "unacknowledged"
+	// DrainGapPending is a spool file with bytes still unread when the pass ended.
+	DrainGapPending DrainGapKind = "pending"
+	// DrainGapProgressUnreadable is drain state this process refused to act on at all. It is the
+	// strongest form of "cannot currently tell": no file was consulted.
+	DrainGapProgressUnreadable DrainGapKind = "progress_unreadable"
+)
+
+// DrainGap is one accounted-for hole in the replay.
+type DrainGap struct {
+	File   string       `json:"file,omitempty"`
+	Kind   DrainGapKind `json:"kind"`
+	Count  int          `json:"count"`
+	Reason string       `json:"reason,omitempty"`
+}
+
+// DrainGapState is the drain's own answer to "is the record complete?".
+//
+// Observed distinguishes the two cases callers must never merge: false means no drain has run in
+// this process, so the answer is UNKNOWN and no absence claim may rest on it; true with no gaps and
+// Complete set means the spool was fully replayed and acknowledged.
+type DrainGapState struct {
+	Observed     bool           `json:"observed"`
+	Complete     bool           `json:"complete"`
+	PendingBytes int64          `json:"pending_bytes"`
+	Gaps         []DrainGap     `json:"gaps,omitempty"`
+	UpdatedAt    core.UnixMilli `json:"updated_at,omitempty"`
+}
+
+// GapReporter is the optional seam a caller uses to read DrainGapState off a running Daemon. It is
+// deliberately NOT a method on the Daemon interface: every existing implementation of that
+// interface would otherwise have to grow one, and this is a diagnostic, not part of the contract a
+// daemon must satisfy to run. Use the same guarded assertion observer_ops.go uses for Persister.
+type GapReporter interface {
+	// DrainGaps reports what the most recent replay could and could not account for.
+	DrainGaps() DrainGapState
+}
+
+// gapRecorder accumulates one pass's gaps.
+type gapRecorder struct {
+	gaps map[DrainGap]int
+}
+
+func (g *gapRecorder) add(file string, kind DrainGapKind, reason string) {
+	if g.gaps == nil {
+		g.gaps = map[DrainGap]int{}
+	}
+	g.gaps[DrainGap{File: file, Kind: kind, Reason: reason}]++
+}
+
+func (g *gapRecorder) state(clk core.Clock, pending int64) DrainGapState {
+	st := DrainGapState{Observed: true, PendingBytes: pending, UpdatedAt: core.NowMilli(clk)}
+	for k, n := range g.gaps {
+		k.Count = n
+		st.Gaps = append(st.Gaps, k)
+	}
+	sort.Slice(st.Gaps, func(a, b int) bool {
+		if st.Gaps[a].File != st.Gaps[b].File {
+			return st.Gaps[a].File < st.Gaps[b].File
+		}
+		if st.Gaps[a].Kind != st.Gaps[b].Kind {
+			return st.Gaps[a].Kind < st.Gaps[b].Kind
+		}
+		return st.Gaps[a].Reason < st.Gaps[b].Reason
+	})
+	st.Complete = len(st.Gaps) == 0 && pending == 0
+	return st
+}
+
+// GapState returns the most recent pass's accounting. A drainer that has never run answers
+// Observed:false, which is the honest "cannot currently tell" — not an empty set of gaps.
+func (dr *drainer) GapState() DrainGapState {
+	dr.gapMu.Lock()
+	defer dr.gapMu.Unlock()
+	st := dr.gaps
+	st.Gaps = append([]DrainGap(nil), dr.gaps.Gaps...)
+	return st
+}
+
+func (dr *drainer) publishGaps(st DrainGapState) {
+	dr.gapMu.Lock()
+	defer dr.gapMu.Unlock()
+	dr.gaps = st
+}
+
+// admitLine applies the daemon-side privacy gate to an inherited spool record. A drainer with no
+// Admit function (a bare test drainer) admits everything, which is the behaviour that existed
+// before this gate and keeps a fixture that never had a capture working unchanged.
+func (dr *drainer) admitLine(req ipc.Request) admissionVerdict {
+	if dr.cfg.Admit == nil {
+		return admissionVerdict{Request: req}
+	}
+	return dr.cfg.Admit(req)
+}
+
+// leaseDelivery mirrors ingest.leaseDelivery: the SAME nonce takes back the SAME lease, which is
+// what makes a redelivered record reuse its original identity instead of acquiring a second one.
+func (dr *drainer) leaseDelivery(ctx context.Context, req ipc.Request) (deliveryLease, bool) {
+	if dr.cfg.Journal == nil || req.Nonce == "" {
+		return deliveryLease{}, false
+	}
+	j, err := dr.cfg.Journal()
+	if err != nil || j == nil {
+		return deliveryLease{}, false
+	}
+	lease, err := j.lease(ctx, req.Nonce, req.Session, deliveryRequestHash(req))
+	if err != nil {
+		dr.cfg.Log.Warn("daemon: drain: delivery lease unavailable", "err", err)
+		return deliveryLease{}, false
+	}
+	return lease, true
+}
+
+// commitDelivery writes the committed-frontier record for a drained delivery.
+func (dr *drainer) commitDelivery(ctx context.Context, lease deliveryLease, leased bool) error {
+	if !leased || dr.cfg.Journal == nil {
+		return nil
+	}
+	j, err := dr.cfg.Journal()
+	if err != nil || j == nil {
+		return fmt.Errorf("daemon: drain: delivery journal unavailable for acknowledgement")
+	}
+	return j.acknowledge(ctx, lease.Delivery, lease.ObservationID, core.Hash{})
+}
+
+// acknowledgedDelivery reports whether the committed frontier already names this delivery.
+func (dr *drainer) acknowledgedDelivery(lease deliveryLease, leased bool) bool {
+	if !leased || dr.cfg.Journal == nil {
+		return false
+	}
+	j, err := dr.cfg.Journal()
+	if err != nil || j == nil {
+		return false
+	}
+	return j.acknowledged(lease.Delivery)
 }

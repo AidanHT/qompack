@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"time"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
@@ -14,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pluginmanifest"
+	"github.com/qompack/qompack/internal/redact"
 )
 
 // promptReplyDeadline bounds observe.prompt's synchronous ObservePrompt call — well inside the
@@ -174,6 +177,35 @@ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	ctx = withServices(ctx, d.svc)
 	ctx = withRegistry(ctx, d.registry)
 	ctx = withDaemon(ctx, d)
+
+	// Privacy admission for the live connection, before any route can persist anything. Only the
+	// observing ops carry a host payload; everything else (status, admin, mcp, checkpoint) has no
+	// capture to decide about and is left exactly as it was.
+	if req.Op.HotPath() {
+		v := d.admitDelivery(req)
+		switch {
+		case v.Denied:
+			if d.m != nil {
+				d.m.Counter(counterAdmissionDenied).Add(1)
+			}
+			resp := admissionResponse(v)
+			resp.Mode, resp.Hot = d.monitor.Mode(), d.registry.HotMode()
+			return resp
+		case v.Failed:
+			if d.m != nil {
+				d.m.Counter(counterAdmissionFailed).Add(1)
+			}
+			d.log.Warn("daemon: capture not admitted; nothing persisted", "op", string(req.Op), "reason", v.Reason)
+			resp := admissionResponse(v)
+			resp.Mode, resp.Hot = d.monitor.Mode(), d.registry.HotMode()
+			return resp
+		}
+		// The request is NOT rewritten. The WAL line must stay byte-identical to what the client
+		// sent, or a daemon-minted capture would make the WAL copy and the client's own spool copy
+		// of one delivery hash differently and be replayed twice. The decision travels beside the
+		// request instead, and a drained line is re-admitted deterministically by the same policy.
+		ctx = withAdmittedCapture(ctx, v.Request.Capture)
+	}
 
 	var resp ipc.Response
 	if h, ok := d.routes[req.Op]; ok {
@@ -363,19 +395,19 @@ func (d *daemon) applyHotPathTransition(t Transition) {
 // ModeOff — ingest.Accept, so the WAL holds it before anything else. The worker pool (runIngested)
 // calls svc.ObserveTool asynchronously.
 func (d *daemon) handleObserveTool(ctx context.Context, req ipc.Request) ipc.Response {
-	return d.acceptHotPathEvent(req)
+	return d.acceptHotPathEvent(ctx, req)
 }
 
 // handleObserveStop is observe.stop's default route: identical shape to observe.tool. The
 // subagent flag travels in req.Raw and is decoded by runIngested, not here.
 func (d *daemon) handleObserveStop(ctx context.Context, req ipc.Request) ipc.Response {
-	return d.acceptHotPathEvent(req)
+	return d.acceptHotPathEvent(ctx, req)
 }
 
 // acceptHotPathEvent is observe.tool's and observe.stop's shared body: registry.Touch, then
 // ingest.Accept gated on Mode.MayRecord() (ModeOff -> skipped entirely: ACK returned, nothing
 // written, per the mode-enforcement table's row 1).
-func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
+func (d *daemon) acceptHotPathEvent(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 	// Deliberately unconditional: the mode-enforcement table groups registry.Touch with
@@ -393,7 +425,7 @@ func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
 	if err != nil {
 		return ipc.Response{OK: false, Err: err.Error()}
 	}
-	if err := d.ing.Accept(req, line); err != nil {
+	if err := d.ing.Accept(withCapture(ctx, req), line); err != nil {
 		return ipc.Response{OK: false, Err: err.Error()}
 	}
 	return ipc.Response{OK: true}
@@ -435,7 +467,7 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 		if d.m != nil {
 			d.m.Counter(counterL0AcceptError).Add(1)
 		}
-	} else if err := d.ing.Accept(req, line); err != nil {
+	} else if err := d.ing.Accept(withCapture(ctx, req), line); err != nil {
 		d.log.Warn("daemon: observe.prompt: WAL append failed", "err", err)
 		if d.m != nil {
 			d.m.Counter(counterL0AcceptError).Add(1)
@@ -921,4 +953,189 @@ func (d *daemon) idleSaveSketches(ctx context.Context) error {
 
 func (d *daemon) idleWriteMetrics(ctx context.Context) error {
 	return writeMetricsSnapshot(d.root, d.m)
+}
+
+// ---------------------------------------------------------------------------
+// Privacy admission on the daemon side (invariant 1, S1 gap 4)
+//
+// Admission used to live only in internal/cli, so exactly two ways in had none: a direct IPC
+// caller talking to a resident daemon (dispatchOp), and a spool/WAL record inherited from an
+// earlier process (drain.go). Both are reached here.
+//
+// The rule that decides which of the two models applies is deliberately one-directional:
+//
+//   - A request that ALREADY carries a decision (req.Capture != nil) keeps it. The daemon never
+//     re-runs a policy over a payload that has already been through one, because the only material
+//     a second pass could work from is the derived Event, and re-deriving bytes from it could put
+//     back content the first policy removed. A decision is inspected for internal consistency and
+//     otherwise taken as given.
+//   - A request that carries NO decision is admitted here, before anything is persisted, over the
+//     most faithful reconstruction of the host payload this side has: the Event as it arrived,
+//     merged with the unclaimed top-level keys Raw preserved. That capture is honest about what it
+//     is — its fidelity can never be exact, because the transport already dropped whatever the
+//     Event's field list does not name.
+//
+// Denial and failure are different answers. Denial is a decision: nothing is persisted, the
+// delivery is terminally resolved, and the host result is untouched. Failure is a gap: nothing is
+// persisted either, but the delivery stays retryable and is reported as a gap rather than being
+// quietly counted as published.
+const (
+	counterAdmissionDenied   = "l0_admission_denied"
+	counterAdmissionFailed   = "l0_admission_failed"
+	counterAdmissionDaemon   = "l0_admission_daemon"
+	counterDeliveryUnleased  = "l0_delivery_unleased"
+	counterDeliveryAckFailed = "l0_delivery_ack_failed"
+	counterSidecarFailed     = "l0_capture_sidecar_failed"
+)
+
+// admissionVerdict is the daemon-side privacy gate's answer for one delivery.
+type admissionVerdict struct {
+	// Request is req with Capture normalized to the decision that governs it. Downstream code —
+	// the WAL line, the sidecar, the drain that later re-reads that line — sees exactly one
+	// decision, made once.
+	Request ipc.Request
+	// Denied means policy refused retention. Persist nothing; do not retry.
+	Denied bool
+	// Failed means no decision could be reached. Persist nothing; the delivery is a gap.
+	Failed bool
+	// Reason is a closed label, never payload-derived text.
+	Reason string
+}
+
+// admitDelivery applies the gate above. It is safe to call more than once for the same delivery:
+// the second call sees the capture the first one attached and returns it unchanged.
+func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
+	if req.Capture != nil {
+		c := *req.Capture
+		if !c.Fidelity.Valid() || !c.CaptureError.Valid() {
+			return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorContract)}
+		}
+		switch c.Outcome {
+		case core.OutcomeDenied:
+			return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
+		case core.OutcomeOK:
+			return admissionVerdict{Request: req}
+		default:
+			return admissionVerdict{Request: req, Failed: true, Reason: string(c.CaptureError)}
+		}
+	}
+	if d.m != nil {
+		d.m.Counter(counterAdmissionDaemon).Add(1)
+	}
+	cfg := d.currentCfg()
+	payload, fragment, err := d.capturePolicies(cfg)
+	if err != nil {
+		return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorPolicy)}
+	}
+	raw, rawErr := reconstructedPayload(req)
+	if rawErr != nil {
+		return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorNotJSON)}
+	}
+	capture, _, err := hookio.CaptureHook(raw, cfg.Runtime.HotPath.MaxPayloadBytes,
+		redact.CapturePolicyVersion, payload, hookio.CaptureFragment{Policy: fragment})
+	// A payload reconstructed from an already-decoded Event is never the host's literal delivery,
+	// so an "exact" verdict over it would claim a fidelity this side cannot support.
+	if capture.Fidelity == core.FidelityExact {
+		capture.Fidelity = core.FidelityPartial
+	}
+	req.Capture = &capture
+	switch {
+	case err != nil:
+		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
+	case capture.Outcome == core.OutcomeDenied:
+		return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
+	case capture.Outcome != core.OutcomeOK:
+		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
+	}
+	return admissionVerdict{Request: req}
+}
+
+// capturePolicies compiles the configured rule set at most once per configuration. Compilation is
+// ~20 fresh regexps; a resident daemon that re-derived them per delivery would pay the most
+// expensive half of admission on every direct IPC call and every drained line.
+func (d *daemon) capturePolicies(cfg config.Config) (payload, fragment hookio.CapturePolicy, err error) {
+	d.policyMu.Lock()
+	defer d.policyMu.Unlock()
+	if d.policyPayload != nil && reflect.DeepEqual(d.policyCfg, cfg.Runtime.Redact) {
+		return d.policyPayload, d.policyFragment, nil
+	}
+	p, f, err := redact.CapturePolicies(cfg)
+	if err != nil {
+		d.policyPayload, d.policyFragment = nil, nil
+		return nil, nil, err
+	}
+	d.policyCfg, d.policyPayload, d.policyFragment = cfg.Runtime.Redact, p, f
+	return p, f, nil
+}
+
+// reconstructedPayload rebuilds the host payload from what survived the transport: the Event's own
+// named fields plus the unclaimed top-level keys Raw carried. It is a reconstruction and is treated
+// as one — see admitDelivery's fidelity downgrade — but it is the complete set of bytes this side
+// could ever persist for a request that arrived without a capture, so it is exactly the right thing
+// to put in front of the policy.
+func reconstructedPayload(req ipc.Request) ([]byte, error) {
+	fields := map[string]json.RawMessage{}
+	if len(req.Raw) != 0 {
+		var extra map[string]json.RawMessage
+		if json.Unmarshal(req.Raw, &extra) == nil {
+			for k, v := range extra {
+				fields[k] = v
+			}
+		}
+	}
+	if req.Event != nil {
+		encoded, err := json.Marshal(req.Event)
+		if err != nil {
+			return nil, err
+		}
+		var named map[string]json.RawMessage
+		if err := json.Unmarshal(encoded, &named); err != nil {
+			return nil, err
+		}
+		for k, v := range named {
+			fields[k] = v
+		}
+	}
+	if len(fields) == 0 {
+		fields["session_id"], _ = json.Marshal(string(req.Session))
+	}
+	return json.Marshal(fields)
+}
+
+// admissionResponse renders a refused delivery. A denial and a failure both ACK the transport —
+// neither is something the client can fix by sending the payload again — and both say which they
+// are, so "we recorded nothing" is never confused with "we could not tell".
+func admissionResponse(v admissionVerdict) ipc.Response {
+	outcome := string(core.OutcomeUnavailable)
+	if v.Denied {
+		outcome = string(core.OutcomeDenied)
+	}
+	data, _ := json.Marshal(map[string]string{"outcome": outcome, "reason": v.Reason})
+	return ipc.Response{OK: true, Data: data}
+}
+
+// admittedCaptureKey carries the daemon-side admission decision from dispatchOp to the route that
+// hands the request to the ingest queue. It is a context value rather than a field on the request
+// because the request's ENCODED bytes are the WAL record, and rewriting them here would make the
+// daemon's own copy of a delivery differ from the client's spool copy of the same delivery — two
+// content identities for one event, which is precisely the confusion invariant 2 forbids.
+type admittedCaptureKey struct{}
+
+func withAdmittedCapture(ctx context.Context, c *hookio.Capture) context.Context {
+	if c == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, admittedCaptureKey{}, c)
+}
+
+// withCapture attaches the admitted decision to an in-memory request, leaving one already present
+// alone. The result is what the ingest queue persists as a sidecar; the WAL line is unchanged.
+func withCapture(ctx context.Context, req ipc.Request) ipc.Request {
+	if req.Capture != nil {
+		return req
+	}
+	if c, ok := ctx.Value(admittedCaptureKey{}).(*hookio.Capture); ok {
+		req.Capture = c
+	}
+	return req
 }

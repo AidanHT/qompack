@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 
 	"github.com/qompack/qompack/internal/config"
@@ -16,6 +17,7 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // ringCapacity is the in-memory queue depth between Accept and the worker pool: not a config
@@ -29,8 +31,43 @@ const walRotateBytes = 64 << 20 // 64 MiB
 const seenCapacity = 65536
 
 // walHashDomain is the dedup key domain for WAL/spool lines (task-3-spec.md ingest.go): key =
-// core.HashBytes(walHashDomain, line).
+// core.HashBytes(walHashDomain, line). It survives only as the FALLBACK identity for a delivery
+// that has no nonce and therefore no lease — see deliveryIdentityDomain.
 const walHashDomain = "qompack.wal.v1"
+
+// deliveryIdentityDomain keys the dedup set on the durable observation identity rather than on the
+// content of the wire line (invariant 2). Two deliveries whose bytes are identical are two
+// deliveries: they carry two nonces, take two leases, get two ObservationIDs and therefore two
+// distinct keys. The content hash is still computed and still used — by store.PutBytes, for
+// near-duplicate detection, which is a question about content and not about identity.
+const deliveryIdentityDomain = "qompack.delivery.identity.v1"
+
+// deliveryRequestDomain binds a lease to the request it was taken for. The binding must survive
+// every representation of the SAME delivery: the daemon's own WAL re-encoding, the client spool
+// fallback, and ipc.Client.externalize replacing an oversize tool response with a blob descriptor.
+// So it covers the fields that identify the invocation and cannot be rewritten by any of those —
+// op, session and the host timestamp minted once per hook — and deliberately not the payload bytes,
+// which differ between representations of one delivery and would turn a legitimate retry into an
+// append-only violation.
+const deliveryRequestDomain = "qompack.delivery.request.v1"
+
+// deliveryRequestSep separates the three fields so no two field values can run together.
+const deliveryRequestSep = "\x00"
+
+// deliveryRequestHash is the lease binding described at deliveryRequestDomain.
+func deliveryRequestHash(req ipc.Request) core.Hash {
+	return core.HashBytes(deliveryRequestDomain,
+		[]byte(string(req.Op)+deliveryRequestSep+string(req.Session)+deliveryRequestSep+strconv.FormatInt(int64(req.TS), 10)))
+}
+
+// deliveryIdentityKey is the dedup key for one delivery: its durable identity when it has one, and
+// the content hash of its wire line when it does not.
+func deliveryIdentityKey(lease deliveryLease, leased bool, line []byte) core.Hash {
+	if leased {
+		return core.HashBytes(deliveryIdentityDomain, []byte(lease.ObservationID))
+	}
+	return core.HashBytes(walHashDomain, line)
+}
 
 // defaultWorkerCount is Start's fallback worker-pool size when the caller passes workers <= 0.
 func defaultWorkerCount() int {
@@ -46,6 +83,11 @@ type job struct {
 	req  ipc.Request
 	recv core.UnixMilli
 	key  core.Hash
+	// lease is the durable delivery assignment made in Accept: the ObservationID this delivery
+	// keeps across retries, restarts and the spool fallback. leased is false only when no journal
+	// was available or the delivery carried no nonce, which is a gap, not an identity.
+	lease  deliveryLease
+	leased bool
 }
 
 // walFile is one session's cached WAL append handle plus its rotation bookkeeping.
@@ -79,6 +121,13 @@ type ingest struct {
 
 	ring chan job
 	seen *seenSet
+
+	// journal resolves the daemon's held delivery journal. It is a function rather than a field
+	// because the journal belongs to the singleton Lock, which Run acquires after the ingest queue
+	// is constructed and releases before it is torn down. A nil journal (or one that answers an
+	// error) is a recorded gap: the delivery still reaches the WAL, it simply has no durable
+	// identity, and nothing downstream may pretend otherwise.
+	journal func() (*deliveryJournal, error)
 
 	wg sync.WaitGroup
 }
@@ -130,10 +179,16 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 		if err := i.appendWAL(req.Session, line); err != nil {
 			return err
 		}
+		// Identity is assigned here, before the job is queued and therefore before anything can
+		// process it. A redelivery of the same nonce — the client's spool fallback, a drained WAL
+		// line after restart — takes the same lease back unchanged and reuses this identity.
+		lease, leased := i.leaseDelivery(context.Background(), req)
 		j := job{
-			req:  req,
-			recv: core.NowMilli(i.clk),
-			key:  core.HashBytes(walHashDomain, line),
+			req:    req,
+			recv:   core.NowMilli(i.clk),
+			key:    deliveryIdentityKey(lease, leased, line),
+			lease:  lease,
+			leased: leased,
 		}
 		select {
 		case i.ring <- j:
@@ -295,10 +350,34 @@ func (i *ingest) dispatch(ctx context.Context, run func(context.Context, ipc.Req
 		return // retain the WAL and blob for recovery
 	}
 	work := func() error {
+		// Publication order, stage 1: the durable object. A capture that cannot be made durable
+		// blocks the reference and the frontier behind it; the delivery stays retryable and the
+		// host's own result is untouched either way (invariant 4).
+		if j.leased {
+			if err := publishCapture(i.root, req, j.lease); err != nil {
+				if i.m != nil {
+					i.m.Counter(counterSidecarFailed).Add(1)
+				}
+				i.log.Warn("daemon: capture not durable; publication blocked", "op", string(j.req.Op), "err", err)
+				return nil
+			}
+		}
+		// Stage 2: the verified reference, written by the bound observer inside run.
 		resp := run(ctx, req)
 		acknowledged = resp.OK && resp.Err == ""
 		if !acknowledged {
 			i.log.Warn("daemon: ingest handler did not acknowledge; WAL retained for retry", "op", string(j.req.Op))
+			return nil
+		}
+		// Stage 3: the committed frontier. Until this record exists the delivery is not published,
+		// no matter what the handler returned — Response.OK is an in-memory answer and does not
+		// survive the restart the frontier exists to be read after.
+		if err := i.commitDelivery(ctx, j, core.Hash{}); err != nil {
+			acknowledged = false
+			if i.m != nil {
+				i.m.Counter(counterDeliveryAckFailed).Add(1)
+			}
+			i.log.Warn("daemon: delivery not acknowledged; WAL retained for retry", "op", string(j.req.Op), "err", err)
 		}
 		// The WAL still names any externalized blob. Only Drain's persisted offset may release
 		// it; an in-memory success is lost on restart and is not a durable acknowledgement.
@@ -415,4 +494,81 @@ func (s *seenSet) addLocked(key core.Hash) {
 	}
 	s.set[key] = struct{}{}
 	s.order = append(s.order, key)
+}
+
+// ---------------------------------------------------------------------------
+// Delivery identity, durable capture and committed frontier (T20-M1-01..03)
+
+// leaseDelivery takes (or re-takes) the durable assignment for req. A delivery with no nonce and a
+// journal that cannot be opened both answer false, which is a GAP and is counted as one: the record
+// is still handled, but nothing downstream may claim it has a durable identity.
+func (i *ingest) leaseDelivery(ctx context.Context, req ipc.Request) (deliveryLease, bool) {
+	if i.journal == nil || req.Nonce == "" {
+		i.countUnleased()
+		return deliveryLease{}, false
+	}
+	j, err := i.journal()
+	if err != nil || j == nil {
+		i.countUnleased()
+		return deliveryLease{}, false
+	}
+	lease, err := j.lease(ctx, req.Nonce, req.Session, deliveryRequestHash(req))
+	if err != nil {
+		i.countUnleased()
+		i.log.Warn("daemon: delivery lease unavailable; identity is a gap", "op", string(req.Op), "err", err)
+		return deliveryLease{}, false
+	}
+	return lease, true
+}
+
+func (i *ingest) countUnleased() {
+	if i.m != nil {
+		i.m.Counter(counterDeliveryUnleased).Add(1)
+	}
+}
+
+// publishCapture is the FIRST of publication order's three stages: the durable object. It persists
+// the admitted host payload as a sidecar keyed by the delivery's observation identity, before any
+// reference or frontier record exists. A failure here returns an error and the caller must not
+// publish anything — a reference to a capture that is not durable is exactly the published handle
+// to an unavailable dependency that restart must never find.
+func publishCapture(root string, req ipc.Request, lease deliveryLease) error {
+	sc := store.CaptureSidecar{
+		ObservationID: lease.ObservationID,
+		Session:       lease.Session,
+		Arrival:       lease.ArrivalSeq,
+		Op:            string(req.Op),
+		TS:            req.TS,
+		Delivery:      lease.Delivery,
+		Admission:     admissionClient,
+		HashVersion:   core.EvidenceHashVersion,
+		Fidelity:      core.FidelityUnknown,
+		Outcome:       core.OutcomeUnavailable,
+		CaptureError:  core.CaptureErrorPolicy,
+	}
+	if c := req.Capture; c != nil {
+		sc.SourceFormat, sc.PolicyVersion = c.SourceFormat, c.PolicyVersion
+		sc.HashVersion, sc.Fidelity, sc.Outcome = c.HashVersion, c.Fidelity, c.Outcome
+		sc.CaptureError, sc.Redacted, sc.Truncated = c.CaptureError, c.Redacted, c.Truncated
+		sc.SourceBytes, sc.HostFields, sc.Bytes = c.SourceBytes, c.HostFields, c.Bytes
+	}
+	return store.WriteCaptureSidecar(root, sc)
+}
+
+// admissionClient labels a sidecar whose decision was made before the transport. The daemon-side
+// gate relabels the ones it decided itself; see handlers.go admitDelivery.
+const admissionClient = "client"
+
+// commitDelivery is the LAST of publication order's three stages: the committed frontier. It runs
+// only after a successful dispatch, and its failure un-acknowledges the delivery so the record that
+// would let it be retried is never released.
+func (i *ingest) commitDelivery(ctx context.Context, j job, root core.Hash) error {
+	if !j.leased || i.journal == nil {
+		return nil
+	}
+	jr, err := i.journal()
+	if err != nil || jr == nil {
+		return fmt.Errorf("daemon: ingest: delivery journal unavailable for acknowledgement")
+	}
+	return jr.acknowledge(ctx, j.lease.Delivery, j.lease.ObservationID, root)
 }
