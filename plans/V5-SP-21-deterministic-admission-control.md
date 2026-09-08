@@ -147,7 +147,7 @@ Future implementation only; six small conventional commits, no attribution trail
 | [x] 3. `fix(admission): preserve delivered result fidelity` | T21-FIDELITY-01 and T21-BASELINE-01 capsule/delta, structured/displayed, signature, count and span behavior |
 | [x] 4. `feat(admission): emit one resolvable representation` | T21-RECOVERY-01 after the M2/SP-13 authorization/recovery gate; denied, unavailable and uncertain stay distinct |
 | [x] 5. `fix(admission): bypass processed envelopes and coexist with hooks` | T21-RECURSE-01 and the T21-HOST-01 competing-hook matrix; recursion, idempotence and observed-order evidence |
-| [ ] 6. `test(admission): prove opt-in lifecycle and rollback` | T21-QUALITY-01 comparison against unmodified output and T21-ROLLBACK-01 backup/reader rollback; consolidates target gating, privacy and recovery artifacts |
+| [x] 6. `test(admission): prove opt-in lifecycle and rollback` | T21-QUALITY-01 comparison against unmodified output and T21-ROLLBACK-01 backup/reader rollback; consolidates target gating, privacy and recovery artifacts |
 
 ## Subagent strategy
 
