@@ -250,6 +250,16 @@ type fakeLedger struct {
 	activeErr map[negknow.Scope]error
 	// scopesRead records every Active argument in call order.
 	scopesRead []negknow.Scope
+	// get scripts Get(id) results; see withGet.
+	get map[string]getResult
+	// getCalled records every Get argument in call order.
+	getCalled []string
+}
+
+// getResult is one scripted fakeLedger.Get outcome.
+type getResult struct {
+	rec negknow.Record
+	err error
 }
 
 func newFakeLedger() *fakeLedger {
@@ -285,7 +295,24 @@ func (f *fakeLedger) Query(ctx context.Context, target, approach string, scope n
 	return negknow.Answer{}, core.ErrNotImplemented
 }
 
+// withGet scripts Get(id) to return rec, err. Real Active() implementations return only
+// StatusActive records (negknow.Ledger.Active's own contract), so a record that went stale or was
+// otherwise superseded since a checkpoint was written is NOT rediscoverable through Active() —
+// only through Get(id), which is what eliminationCandidates must consult before trusting a
+// checkpoint-frozen record Active() no longer names.
+func (f *fakeLedger) withGet(id string, rec negknow.Record, err error) *fakeLedger {
+	if f.get == nil {
+		f.get = map[string]getResult{}
+	}
+	f.get[id] = getResult{rec: rec, err: err}
+	return f
+}
+
 func (f *fakeLedger) Get(ctx context.Context, id string) (negknow.Record, error) {
+	f.getCalled = append(f.getCalled, id)
+	if r, ok := f.get[id]; ok {
+		return r.rec, r.err
+	}
 	return negknow.Record{}, core.ErrNotImplemented
 }
 
