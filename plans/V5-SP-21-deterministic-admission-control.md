@@ -144,7 +144,7 @@ Future implementation only; six small conventional commits, no attribution trail
 |---|---|
 | [x] 1. `test(admission): specify target schema and pass-through contracts` | T21-SWITCH-01, T21-PASS-01 and T21-HOST-01 contract failures against the frozen adapter surface; the allowlist stays empty until target evidence exists |
 | [x] 2. `feat(admission): record verified capture and deterministic decisions` | T21-PIPE-01 using SP-20 adapters without redefining identity/publication; ordered stage decisions and capture-failure non-replacement |
-| [ ] 3. `fix(admission): preserve delivered result fidelity` | T21-FIDELITY-01 and T21-BASELINE-01 capsule/delta, structured/displayed, signature, count and span behavior |
+| [x] 3. `fix(admission): preserve delivered result fidelity` | T21-FIDELITY-01 and T21-BASELINE-01 capsule/delta, structured/displayed, signature, count and span behavior |
 | [ ] 4. `feat(admission): emit one resolvable representation` | T21-RECOVERY-01 after the M2/SP-13 authorization/recovery gate; denied, unavailable and uncertain stay distinct |
 | [ ] 5. `fix(admission): bypass processed envelopes and coexist with hooks` | T21-RECURSE-01 and the T21-HOST-01 competing-hook matrix; recursion, idempotence and observed-order evidence |
 | [ ] 6. `test(admission): prove opt-in lifecycle and rollback` | T21-QUALITY-01 comparison against unmodified output and T21-ROLLBACK-01 backup/reader rollback; consolidates target gating, privacy and recovery artifacts |
