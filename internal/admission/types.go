@@ -292,6 +292,12 @@ type Record struct {
 	// Base names the baseline a delta is relative to, and is empty for a capsule.
 	Base string
 
+	// HandleState is what resolving the handle found, and it is set on a blocked record as well
+	// as an admitted one. Every non-resolvable answer produces the same outcome and the same
+	// reason, so this is the only field that says whether to grant a permission, restore an
+	// object, or go look at the resolver.
+	HandleState HandleState
+
 	// Reset is why a delta was refused in favour of a capsule. It is the baseline-verification
 	// record: every reset produces the same form, so the cause is the only part that is
 	// diagnostic.

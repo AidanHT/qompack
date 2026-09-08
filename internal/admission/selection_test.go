@@ -27,7 +27,7 @@ func TestParseRunsAfterCaptureAndPublication(t *testing.T) {
 	rec, err := p.Admit(context.Background(), delivery)
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"privacy", "capture", "publish", "parse"}, r.calls,
+	require.Equal(t, []string{"privacy", "capture", "publish", "parse", "resolve"}, r.calls,
 		"the meaning is parsed only once the original it describes is durably captured")
 	require.Equal(t, admission.OutcomeTransform, rec.Outcome)
 }

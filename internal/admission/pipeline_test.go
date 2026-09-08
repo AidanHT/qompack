@@ -30,9 +30,15 @@ type recorder struct {
 	captureErr  error
 	publishErr  error
 	parseErr    error
+	resolveErr  error
 	fidelity    admission.Fidelity
 	handle      string
 	meaning     admission.Meaning
+	handleState admission.HandleState
+
+	// resolved records the handles the resolver was asked about, so a test can assert WHICH
+	// handle was checked rather than only that something was.
+	resolved []string
 
 	// gate lets a table-driven case vary the gate alongside the ports it is already varying.
 	gate admission.Gate
@@ -40,10 +46,11 @@ type recorder struct {
 
 func newRecorder() *recorder {
 	return &recorder{
-		fidelity: admission.FidelityExact,
-		handle:   "sha256:" + hex64,
-		meaning:  meaning(),
-		gate:     admitting,
+		fidelity:    admission.FidelityExact,
+		handle:      "sha256:" + hex64,
+		meaning:     meaning(),
+		gate:        admitting,
+		handleState: admission.HandleResolvable,
 	}
 }
 
@@ -75,8 +82,17 @@ func (r *recorder) Parse(_ context.Context, _ admission.Delivery) (admission.Mea
 	return r.meaning, nil
 }
 
+func (r *recorder) Resolve(_ context.Context, handle string) (admission.HandleState, error) {
+	r.calls = append(r.calls, "resolve")
+	r.resolved = append(r.resolved, handle)
+	if r.resolveErr != nil {
+		return admission.HandleUnknown, r.resolveErr
+	}
+	return r.handleState, nil
+}
+
 func (r *recorder) ports() admission.Ports {
-	return admission.Ports{Privacy: r, Capture: r, Publish: r, Parse: r}
+	return admission.Ports{Privacy: r, Capture: r, Publish: r, Parse: r, Resolve: r}
 }
 
 // delivery is the result under admission. The payload stands for whatever the host delivered.
@@ -97,9 +113,9 @@ func TestAdmitCapturesBeforeItTransforms(t *testing.T) {
 	rec, err := p.Admit(context.Background(), delivery)
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"privacy", "capture", "publish", "parse"}, r.calls,
-		"the sequence is privacy, then capture, then publication verification, then the parse "+
-			"commit 3 appended; selection is pure and needs no port")
+	require.Equal(t, []string{"privacy", "capture", "publish", "parse", "resolve"}, r.calls,
+		"the sequence is privacy, capture, publication verification, parse, and the handle "+
+			"resolution commit 4 appended; selection is pure and needs no port")
 	require.Equal(t, admission.OutcomeTransform, rec.Outcome)
 	require.Equal(t, r.handle, rec.Handle,
 		"an admitted record must name the handle its capture produced")
