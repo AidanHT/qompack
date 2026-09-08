@@ -66,7 +66,10 @@ type SelectionOutcome struct {
 	Tokens core.Tokens
 	// Overflow reports that a mandatory record could not be carried at any representation.
 	Overflow bool
-	// Reason names the overflowing item when Overflow is set.
+	// Item is the overflowing record's id when Overflow is set: the drop report's id column.
+	Item string
+	// Reason is the human-readable explanation when Overflow is set: the drop report's detail.
+	// Keeping the two apart is what stops a whole sentence landing where an identifier belongs.
 	Reason string
 }
 
@@ -144,11 +147,12 @@ func applySelection(kept []negknow.Record, sel *SelectionOutcome) ([]negknow.Rec
 	}
 
 	if sel.Overflow {
-		drops = append(drops, checkpoint.DropEntry{
-			Kind: dropKindOverflow, ID: sel.Reason,
-			Detail: "OVERFLOW: representation selection could not carry a mandatory record at any " +
-				"representation; it is archived and recoverable — call recall(id) or dropped()",
-		})
+		detail := "OVERFLOW: representation selection could not carry a mandatory record at any " +
+			"representation; it is archived and recoverable — call recall(id) or dropped()"
+		if sel.Reason != "" {
+			detail += " (" + oneLine(sel.Reason) + ")"
+		}
+		drops = append(drops, checkpoint.DropEntry{Kind: dropKindOverflow, ID: sel.Item, Detail: detail})
 	}
 	return admitted, drops
 }

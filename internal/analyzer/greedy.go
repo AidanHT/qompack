@@ -906,6 +906,7 @@ func (s *repSolver) overflow(item dag.NodeID) Proposal {
 	return Proposal{
 		Archive:  []dag.NodeID{item},
 		Overflow: true,
+		Item:     item,
 		Reason: fmt.Sprintf(
 			"mandatory item %s cannot be carried at any qualified representation within %d tokens at p=%d",
 			item, s.budget, s.p),

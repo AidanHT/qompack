@@ -255,7 +255,15 @@ type Proposal struct {
 	Archive []dag.NodeID
 	// Overflow reports that a Mandatory candidate could not be carried at any representation.
 	Overflow bool
-	// Reason names the overflowing item when Overflow is set, and is empty otherwise.
+	// Item is the overflowing item when Overflow is set, and is empty otherwise.
+	//
+	// It is separate from Reason because the two have different readers. A consumer that files an
+	// overflow into a drop report needs an IDENTIFIER for the report's id column and a sentence
+	// for its detail column, and it must not have to parse the one out of the other. The first
+	// integration of this type did exactly that and put a whole sentence where an id belonged.
+	Item dag.NodeID
+	// Reason is the human-readable explanation when Overflow is set, and is empty otherwise. It
+	// names Item, the budget and p, so a drop report line is self-contained.
 	Reason string
 	// Iters counts marginal-gain evaluations, which is what makes lazy-greedy pruning observable
 	// rather than merely asserted.

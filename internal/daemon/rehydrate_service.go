@@ -145,6 +145,13 @@ func (s *rehydrateService) OnCompact(ctx context.Context, e observer.Event) (out
 	var stats []rehydrate.ItemStat
 	var buildErr error
 	deps := s.deps()
+
+	// SP-15's representation selection, run HERE rather than inside Build. rehydrate may not
+	// import analyzer (§3.2) and Build is a pure function of (Request, Deps), so the composition
+	// root runs the selector and passes the outcome in as request data. A nil outcome — selection
+	// disabled, no candidates, or any error — is the shipped pre-SP-15 path exactly.
+	req.Selection = s.selectionFor(ctx, cp, budget, deps.Ledger)
+
 	s.timed(func() { res, stats, buildErr = rehydrate.BuildWithStats(ctx, req, deps) })
 	if buildErr != nil {
 		s.o.Log.Loud("rehydrate: build failed", "session", string(e.SessionID), "err", buildErr.Error())

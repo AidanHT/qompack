@@ -120,14 +120,18 @@ func TestApplySelection_OverflowIsNamedAndRecoverable(t *testing.T) {
 	_, drops := applySelection(selElims(), &SelectionOutcome{
 		Keep:     []dag.NodeID{"a", "b", "c"},
 		Overflow: true,
-		Reason:   "a",
+		Item:     "a",
+		Reason:   "mandatory item a cannot be carried at any qualified representation within 4 tokens",
 	})
 
 	require.Len(t, drops, 1)
 	require.Equal(t, dropKindOverflow, drops[0].Kind)
-	require.Equal(t, "a", drops[0].ID, "the overflow names the record it could not carry")
+	require.Equal(t, "a", drops[0].ID,
+		"the id column carries an IDENTIFIER; the prose belongs in the detail")
 	require.Contains(t, drops[0].Detail, "OVERFLOW")
 	require.Contains(t, drops[0].Detail, "recoverable")
+	require.Contains(t, drops[0].Detail, "within 4 tokens",
+		"the selector's own explanation reaches the report rather than being discarded")
 	require.True(t, Overflowed(drops),
 		"a selection overflow must be recognized by the same predicate every other overflow is")
 }
