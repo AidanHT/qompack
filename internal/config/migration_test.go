@@ -29,18 +29,38 @@ func TestMigration_DefaultsAreOffExceptTheTestedAdapter(t *testing.T) {
 	require.Empty(t, config.Defaults().Validate(), "Defaults() must satisfy every migration rule")
 }
 
-// TestMigrationGates_AllPendingInThisBuild is the gate ledger's tripwire: at SP-19 no owner has
-// landed a gate, so every switch is refused. The commit that flips one must update this test
-// deliberately, naming the gate it passed.
+// gatedSections are the config blocks a gated switch may live under. Both carry their own
+// settingsVersion and are reset independently (migration.go): runtime.migration gates the shipped
+// pipeline's capabilities, runtime.phase7 gates SP-16's optional refinements. A gate key outside
+// both is a leaf nobody declared, which is what the build-gate table is for instead.
+var gatedSections = []string{"runtime.migration.", "runtime.phase7."}
+
+// TestMigrationGates_AllPendingInThisBuild is the gate ledger's tripwire: no owner has landed a
+// gate, so every switch is refused. The commit that flips one must update this test deliberately,
+// naming the gate it passed.
+//
+// The count is asserted so that ADDING a gate is deliberate too — SP-16 added five and had to
+// come here to say so — and the prefix check is what keeps a gate from naming a key that is not
+// under an independently versioned block.
 func TestMigrationGates_AllPendingInThisBuild(t *testing.T) {
 	gates := config.MigrationGates()
-	require.Len(t, gates, 5)
+	require.Len(t, gates, 10)
 	for _, g := range gates {
-		require.False(t, g.Passed, "gate %q (%s) must still be pending at SP-19", g.Key, g.Owner)
+		require.False(t, g.Passed, "gate %q (%s) must still be pending", g.Key, g.Owner)
 		require.NotEmpty(t, g.Owner, g.Key)
 		require.NotEmpty(t, g.Gate, g.Key)
-		require.True(t, strings.HasPrefix(g.Key, "runtime.migration."), g.Key)
+		require.True(t, inGatedSection(g.Key), "gate %q is not under a versioned block", g.Key)
 	}
+}
+
+// inGatedSection reports whether key sits under one of the gatedSections.
+func inGatedSection(key string) bool {
+	for _, s := range gatedSections {
+		if strings.HasPrefix(key, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // TestMigrationGates_CoverEveryGatedLeaf walks every bool leaf under runtime.migration and checks
@@ -58,7 +78,7 @@ func TestMigrationGates_CoverEveryGatedLeaf(t *testing.T) {
 	var schema map[string]any
 	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
 	for leaf, kind := range leafTypes(t, schema, "") {
-		if !strings.HasPrefix(leaf, "runtime.migration.") || kind != "boolean" {
+		if !inGatedSection(leaf) || kind != "boolean" {
 			continue
 		}
 		_, isGated := gated[leaf]

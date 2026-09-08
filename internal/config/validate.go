@@ -349,6 +349,35 @@ func (c Config) Validate() []Violation {
 			"must be false: a manual compact is never blocked for optimization", true, false)
 	}
 
+	// runtime.phase7.settingsVersion == Phase7SettingsVersion (SP-16 M6)
+	if c.Runtime.Phase7.SettingsVersion != Phase7SettingsVersion {
+		add("runtime.phase7.settingsVersion",
+			fmt.Sprintf("must be %d: the only runtime.phase7 version this build understands", Phase7SettingsVersion),
+			c.Runtime.Phase7.SettingsVersion, Phase7SettingsVersion)
+	}
+
+	// The runtime.phase7 caps. They are bounded independently of their switches: a cap has to be
+	// enforceable before the thing it caps ships, or the code that would consult it grows a
+	// literal of its own (§11.6). maxRemindersPerSession admits 0 — emitting no reminders at all
+	// is a legitimate configuration, and is what a user who wants the mechanism off but the rest
+	// of phase 7 on would set — while the other two bound work that has to be able to happen at
+	// least once to happen at all.
+	if c.Runtime.Phase7.Retrieval.MaxRemindersPerSession < 0 {
+		add("runtime.phase7.retrieval.maxRemindersPerSession", "must be >= 0",
+			c.Runtime.Phase7.Retrieval.MaxRemindersPerSession,
+			Defaults().Runtime.Phase7.Retrieval.MaxRemindersPerSession)
+	}
+	if c.Runtime.Phase7.Retrieval.MaxAttemptsPerTrigger < 1 {
+		add("runtime.phase7.retrieval.maxAttemptsPerTrigger", "must be >= 1",
+			c.Runtime.Phase7.Retrieval.MaxAttemptsPerTrigger,
+			Defaults().Runtime.Phase7.Retrieval.MaxAttemptsPerTrigger)
+	}
+	if c.Runtime.Phase7.Retrieval.MaxQueueDepth < 1 {
+		add("runtime.phase7.retrieval.maxQueueDepth", "must be >= 1",
+			c.Runtime.Phase7.Retrieval.MaxQueueDepth,
+			Defaults().Runtime.Phase7.Retrieval.MaxQueueDepth)
+	}
+
 	return out
 }
 
