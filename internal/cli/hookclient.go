@@ -207,9 +207,12 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 
 		stdin := faultStdin(env.Stdin)
 		in, rerr := readHookCapture(stdin, hookCaptureLimit(int64(st.MaxPayloadBytes)))
-		if rerr != nil && len(in.Raw) == 0 {
-			// Nothing arrived, so there is nothing for a policy to classify: refuse here, before
-			// any configuration is loaded, exactly as the hard allocation bound requires.
+		if rerr != nil && !hookRefusalIsRecordable(root, in) {
+			// Either nothing arrived, so there is nothing for a policy to classify, or the
+			// allocation bound refused a delivery in a project with no .qompack store to record
+			// the refusal in. Refuse here, before any configuration is loaded, exactly as the hard
+			// allocation bound requires — and, in the second case, without creating the store a
+			// project that has not opted in never asked for.
 			logQuiet(root, rerr, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
@@ -238,10 +241,12 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		// host had delivered anything at all (SP-20 invariant 4, and invariant 1's requirement that
 		// a missing original stay explicitly unavailable rather than simply absent).
 		//
-		// Only an admission that produced NO record stops here: runtime mode off, a configuration
-		// or privacy policy that never loaded, or a payload the hard allocation bound refused
-		// before any policy existed. Publishing then would assert a classification this process
-		// never made, and — with no compiled policy — could not have made safely.
+		// Only an admission that produced NO record stops here: runtime mode off, or a configuration
+		// or privacy policy that never loaded. A payload the hard allocation bound refused no longer
+		// reaches this point unrecorded — it is classified from the prefix and the observed size that
+		// bound kept, or it never got past hookRefusalIsRecordable because the project has no store to
+		// record it in. Publishing a zero capture would assert a classification this process never
+		// made, and — with no compiled policy — could not have made safely.
 		degraded := capture.Outcome != core.OutcomeOK
 		if degraded && !capture.Recorded() {
 			return hookio.WriteOutput(out, hookio.Empty())

@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/redact"
 )
 
@@ -24,12 +26,28 @@ func hookCaptureLimit(nominal int64) int64 {
 	return nominal * 4
 }
 
+// hookCaptureRefusalPrefixBytes bounds the evidence a delivery refused by the hard allocation cap
+// carries forward. The cap exists to bound memory, so the record it leaves must not smuggle the
+// buffer it refused back in: what survives here is small enough to hold the leading host keys an
+// operator needs to recognise the delivery (hook_event_name, session_id, cwd, tool_name) and
+// nothing like the payload behind them, and it is copied out so the refused read's own backing
+// array is released immediately. //nomagic:allow evidence bound for a refused delivery, not a
+// budget and not a config default (§11.6) — no configuration reads or writes it.
+const hookCaptureRefusalPrefixBytes = 4 << 10
+
 // hookInput is one bounded read of a host payload: the bytes that arrived, and how the read ended.
 // Incomplete is an observation of the transport, kept distinct from the truncation this process
 // chooses under its own byte budget, so the capture that follows can classify the two separately.
+// Oversize is the third ending: the read bound itself refused the delivery, so Raw holds only a
+// bounded prefix of it and Observed holds how much of it the read had counted when it stopped.
 type hookInput struct {
 	Raw        []byte
 	Incomplete bool
+	Oversize   bool
+	// Observed is the number of bytes the read had seen when its bound refused the delivery. It is
+	// a floor, not the delivery's size: the read deliberately stops rather than counting to the end
+	// of something it has already refused to admit.
+	Observed int
 }
 
 // readHookCapture reads at most limit bytes, under a hard allocation cap no configuration can
@@ -37,6 +55,14 @@ type hookInput struct {
 // environment is scanned, so the resource bound never depends on policy being available; the
 // policy-derived bound inside hookio.CaptureHook is the one that can retain a bounded prefix.
 // A read that ends early returns what did arrive, marked incomplete, rather than nothing at all.
+//
+// A refusal is not an absence either. The delivery stays refused — nothing downstream admits it,
+// no Event is derived from it, and the bytes past the bound are never read — but the refusal
+// itself travels: the size the read had counted when it stopped, and a prefix bounded far below
+// the cap. Returning nothing here is what made a delivery over the hard cap vanish with no durable
+// trace at all, which satisfies invariant 1's "missing originals remain explicitly unavailable" at
+// the configured budget while violating it one bound higher up. Whether that record can actually
+// be written is the caller's question, not this one's — see hookRefusalIsRecordable.
 func readHookCapture(r io.Reader, limit int64) (hookInput, error) {
 	if limit < 0 || limit > hookCaptureMaxBytes {
 		limit = hookCaptureMaxBytes
@@ -46,9 +72,32 @@ func readHookCapture(r io.Reader, limit int64) (hookInput, error) {
 		return hookInput{Raw: raw, Incomplete: true}, fmt.Errorf("%w: hook input unavailable", core.ErrDegraded)
 	}
 	if int64(len(raw)) > limit {
-		return hookInput{}, fmt.Errorf("%w: hook input exceeds capture bound", core.ErrBudget)
+		return hookInput{
+			Raw:      bytes.Clone(raw[:min(len(raw), hookCaptureRefusalPrefixBytes)]),
+			Oversize: true,
+			Observed: len(raw),
+		}, fmt.Errorf("%w: hook input exceeds capture bound", core.ErrBudget)
 	}
 	return hookInput{Raw: raw}, nil
+}
+
+// hookRefusalIsRecordable reports whether a refused read may be carried forward as a record.
+//
+// A read that delivered nothing at all classified nothing, so there is nothing to publish: a
+// capture built from it would assert an examination that never happened.
+//
+// A read the allocation bound refused DID deliver a bounded prefix and a measured floor, which is
+// exactly the explicitly-unavailable record invariant 1 requires of a missing original — but only
+// where the project already has a .qompack store to hold it. A hook must never conjure state in a
+// project that has not opted in, and in one that has not there is genuinely nowhere durable to
+// write: the spool, the logs and the daemon address all live under a directory that does not
+// exist. There the drop stays the correct outcome, and it is pinned by its own test so that it is
+// not later "fixed" into a hook that creates a store out of a payload it refused.
+func hookRefusalIsRecordable(root string, in hookInput) bool {
+	if len(in.Raw) == 0 {
+		return false
+	}
+	return !in.Oversize || isDir(paths.Of(root).Dot)
 }
 
 func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hookio.Event, config.Config, error) {
@@ -81,7 +130,14 @@ func admitHookCapture(env Env, root string, in hookInput) (hookio.Capture, hooki
 	}
 	capture, ev, err := hookio.CaptureHook(in.Raw, int(hookCaptureLimit(int64(cfg.Runtime.HotPath.MaxPayloadBytes))),
 		redact.CapturePolicyVersion, policy,
-		hookio.CaptureFragment{Policy: fragment, Incomplete: in.Incomplete})
+		hookio.CaptureFragment{
+			Policy: fragment, Incomplete: in.Incomplete,
+			// A delivery the read bound already refused arrives here as a prefix. Only the read
+			// knows that, so it is the read's own two facts — that the bound fired, and how much
+			// it had counted — that let this classify the refusal instead of misreading a cut
+			// document as bytes that were merely never valid JSON.
+			Oversize: in.Oversize, SourceBytes: in.Observed,
+		})
 	return capture, ev, cfg, err
 }
 
