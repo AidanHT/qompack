@@ -39,6 +39,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/pins"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/testutil"
@@ -258,4 +259,11 @@ func (r *v4Rig) WaitIndexed(t *testing.T, want int) {
 				want, obsProcessBound, len(obsToolUseLines(r.P.Root)), loudLines(t, r.P.Root))
 		}
 	}
+}
+
+// LedgerFn resolves the negative-knowledge ledger LIVE, on every read, exactly as internal/cli's
+// own wiring does: the ledger is opened lazily on the first compaction, so a value captured at
+// composition time would be nil for the life of the process.
+func (r *v4Rig) LedgerFn() func() negknow.Ledger {
+	return func() negknow.Ledger { return r.Opts.Ledger }
 }
