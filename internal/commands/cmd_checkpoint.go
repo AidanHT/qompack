@@ -63,7 +63,7 @@ func checkpointBody(ctx context.Context, inv Invocation) (json.RawMessage, error
 		return nil, UsageErrorf(
 			"qompack checkpoint: takes no positional arguments; use --reason \"why\" to record a note")
 	}
-	reason := strings.TrimSpace(flagOr(inv, "reason", ""))
+	reason := strings.TrimSpace(flagValue(inv, "reason"))
 
 	if inv.Deps.CheckpointNow == nil {
 		return nil, fmt.Errorf(

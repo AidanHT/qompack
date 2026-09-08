@@ -205,12 +205,12 @@ func pinRemoveBody(ctx context.Context, inv Invocation, id string) (json.RawMess
 // to record one would be building that failure in.
 func pinEliminatedBody(ctx context.Context, inv Invocation) (json.RawMessage, error) {
 	args := mcp.RecordEliminatedArgs{
-		Target:   strings.TrimSpace(flagOr(inv, "target", "")),
-		Approach: strings.TrimSpace(flagOr(inv, "approach", "")),
-		Reason:   strings.TrimSpace(flagOr(inv, "reason", "")),
-		Scope:    strings.TrimSpace(flagOr(inv, "scope", "")),
+		Target:   strings.TrimSpace(flagValue(inv, "target")),
+		Approach: strings.TrimSpace(flagValue(inv, "approach")),
+		Reason:   strings.TrimSpace(flagValue(inv, "reason")),
+		Scope:    strings.TrimSpace(flagValue(inv, "scope")),
 	}
-	if deps := strings.TrimSpace(flagOr(inv, "depends-on", "")); deps != "" {
+	if deps := strings.TrimSpace(flagValue(inv, "depends-on")); deps != "" {
 		for _, p := range strings.Split(deps, ",") {
 			if p = strings.TrimSpace(p); p != "" {
 				args.DependsOn = append(args.DependsOn, p)
@@ -234,10 +234,8 @@ func pinEliminatedBody(ctx context.Context, inv Invocation) (json.RawMessage, er
 	return runTool(ctx, inv, mcp.ToolRecordEliminated, args)
 }
 
-// flagOr returns a flag's value or a default.
-func flagOr(inv Invocation, name, def string) string {
-	if v, ok := inv.Flag(name); ok {
-		return v
-	}
-	return def
+// flagValue returns a flag's value, or "" when it was not given.
+func flagValue(inv Invocation, name string) string {
+	v, _ := inv.Flag(name)
+	return v
 }
