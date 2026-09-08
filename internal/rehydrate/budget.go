@@ -255,16 +255,40 @@ func priceUnits(d Deps, units []unit) {
 // tier1Drop is the DropEntry for a tier-1 unit that could not be admitted whole.
 //
 // Tier-1 units carry no drop of their own — they are never meant to be discretionary — so when the
-// cap forces one out, the report has to name it here rather than reuse a builder's entry.
+// cap forces one out, the report has to name it here rather than reuse a builder's entry. This is
+// T11-BUDGET-02's "single oversized critical record" overflow: ID "tier1" is what Overflowed
+// recognizes, and Kind stays the ITEM's own kind (not dropKindOverflow) so the report still says
+// WHICH essential record could not fit, not merely that something did not.
 func tier1Drop(k ItemKind, u unit) checkpoint.DropEntry {
 	if !isFixedUnit(u) {
 		return u.drop
 	}
 	return checkpoint.DropEntry{
-		Kind:   k.String(),
-		ID:     "tier1",
-		Detail: "tier-1 material did not fit the rehydration budget and is emitted whole or not at all",
+		Kind: k.String(),
+		ID:   "tier1",
+		Detail: "OVERFLOW: tier-1 material did not fit the rehydration budget and is emitted " +
+			"whole or not at all — call dropped() for the full accounting",
 	}
+}
+
+// Overflowed reports whether dropped names an EXPLICIT overflow: essential content Build could
+// not represent inside the declared budget AT ALL, as opposed to the ordinary discretionary
+// truncation every other DropEntry in the report describes.
+//
+// It recognizes both shapes Build currently produces — the fixed injection wrapper alone
+// exceeding a zero/tiny budget (Kind dropKindOverflow), and a single tier-1/critical record too
+// large to admit whole (ID "tier1", Kind the item's own) — so a caller never has to know which
+// internal path produced the entry. This is the one predicate 00-ARCHITECTURE.md §5.15's "emit
+// explicit overflow" contract is checked against: Result.Degraded alone is not specific enough,
+// because a missing checkpoint or an unavailable rule scanner also degrade without ever losing a
+// record Build could not even partially represent.
+func Overflowed(dropped []checkpoint.DropEntry) bool {
+	for _, e := range dropped {
+		if e.Kind == dropKindOverflow || e.ID == "tier1" {
+			return true
+		}
+	}
+	return false
 }
 
 // mergeIntent folds a share-funded fill into whatever tier 1 already admitted for the same kind.
