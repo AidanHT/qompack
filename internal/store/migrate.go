@@ -323,6 +323,34 @@ func NewMigrator(s Store, root string, o MigrateOptions) (*Migrator, error) {
 
 func (m *Migrator) path(name string) string { return filepath.Join(m.l.Migrate, name) }
 
+// retainRoots declares hs as GC retention roots of the rollback class (SP-20 invariant 9: GC
+// cannot collect a root rollback material needs).
+//
+// migrate/mapping.jsonl, migrate/rollback.jsonl and backup/<id>/manifest.json are NOT among the
+// files GC harvests hashes from, and they deliberately are not: gcRootFiles is a fixed list and
+// migration is a producer like any other, so it declares what it needs through the generic
+// AppendRetentionRoot convention instead. Without that declaration every imported object is
+// collectible the moment the retention window passes, and "old ids keep working" — the whole point
+// of a side-by-side import — breaks the first time GC runs.
+//
+// The declaration is durable and append-only, and it is made BEFORE the artifact that references
+// the hash is written, so a crash between the two leaves an over-retained object rather than an
+// unprotected one. A zero hash is skipped rather than refused: it names nothing, so there is
+// nothing to retain, and failing a whole import over one would be a worse trade.
+func (m *Migrator) retainRoots(reason string, hs ...core.Hash) error {
+	for _, h := range hs {
+		if h.IsZero() {
+			continue
+		}
+		if err := AppendRetentionRoot(m.root, RetentionRoot{
+			Hash: h, Class: RetentionRollback, Reason: reason,
+		}); err != nil {
+			return fmt.Errorf("store: declare retention root %s: %w", h.Short(), err)
+		}
+	}
+	return nil
+}
+
 func (m *Migrator) now() core.UnixMilli { return core.NowMilli(m.clock) }
 
 // Cursor reads the durable import cursor. A missing cursor is the zero cursor, not an error: an
@@ -497,7 +525,14 @@ func (m *Migrator) importOne(ctx context.Context, snap LegacySnapshot, r LegacyR
 		return ImportMapping{}, fmt.Errorf("store: import %s: flush: %w", r.ID, err)
 	}
 
-	// 2. reference. The destination id embeds the legacy id, so the relationship survives even
+	// 2. retention. The object is declared a rollback-class retention root BEFORE anything points
+	// at it, so GC can never collect an object the mapping log is about to name.
+	if err := m.retainRoots("referenced by migrate/"+importMappingFile+" for legacy id "+r.ID,
+		res.Root.Hash); err != nil {
+		return ImportMapping{}, fmt.Errorf("store: import %s: %w", r.ID, err)
+	}
+
+	// 3. reference. The destination id embeds the legacy id, so the relationship survives even
 	// for a reader that has only the tool_use index and not the mapping log.
 	id := legacyToolUseID(r.ID)
 	args, preview := ArgsDigest(json.RawMessage(fmt.Sprintf(`{"legacy_id":%q,"legacy_path":%q}`, r.ID, r.Path)))
@@ -510,7 +545,7 @@ func (m *Migrator) importOne(ctx context.Context, snap LegacySnapshot, r LegacyR
 		return ImportMapping{}, fmt.Errorf("store: import %s: record tool use: %w", r.ID, err)
 	}
 
-	// 3. frontier line.
+	// 4. frontier line.
 	mp := ImportMapping{
 		Version: importMappingVersion, SnapshotID: snap.ID, LegacyID: r.ID, Position: r.Position,
 		Root: res.Root.Hash, ToolUseID: id, Tool: r.Tool, Path: r.Path,

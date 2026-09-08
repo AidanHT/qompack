@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -215,4 +216,95 @@ func TestBackup_RestoreOpensAsARealStore(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, r.Payload, got, "the restored store must serve the legacy bytes")
 	}
+}
+
+// ── migration material as GC retention roots ───────────────────────────────────────────────
+
+// TestGC_CannotCollectMigrationOrRollbackMaterial is SP-20 invariant 9 at the seam where the
+// migration unit and the GC unit meet: GC may not collect a root that rollback material needs.
+//
+// Nothing connected the two. Legacy import writes migrate/mapping.jsonl, the drill writes
+// migrate/rollback.jsonl and TakeBackup writes backup/<id>/manifest.json, but none of those three
+// files is a GC root file and none of them declared a retention root — so every imported object
+// was collectible the moment the retention window passed, and the migration unit's promise that
+// "old ids keep working" broke silently the first time GC ran. The control object is what proves
+// the pass really collected rather than the policy having quietly spared everything.
+func TestGC_CannotCollectMigrationOrRollbackMaterial(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	m := newMigrator(t, tp, legacySource(3))
+
+	_, err := m.Import(ctx)
+	require.NoError(t, err)
+	_, order, err := m.Frontier()
+	require.NoError(t, err)
+	require.Len(t, order, 3, "the fixture must have imported something to retain")
+
+	_, err = m.TakeBackup(ctx, "pre-cutover")
+	require.NoError(t, err)
+
+	stop := func(context.Context) error { return nil }
+	_, err = m.Cutover(ctx, CutoverOptions{BackupID: "pre-cutover", StopLegacyWriter: stop})
+	require.NoError(t, err)
+	res, err := tp.Store.PutBytes(ctx, []byte("new-format observation envelope\n"),
+		PutOptions{Tool: "FileRead", Path: "src/new.ts"})
+	require.NoError(t, err)
+	_, err = m.RecordNewFormatWrite(ctx, res.Root.Hash, "")
+	require.NoError(t, err)
+
+	drill, err := m.RehearseRollback(ctx, RollbackOptions{
+		Phase: RollbackAfterFirstNewWrite, BackupID: "pre-cutover",
+		RestoreRoot: filepath.Join(t.TempDir(), "restore"), StopWriters: stop,
+	})
+	require.NoError(t, err)
+	require.True(t, drill.OK, "refusal: %s", drill.Refusal)
+	require.Len(t, drill.UnreadableByOldReader, 1, "the drill must have enumerated the new-format write")
+
+	// The control: an object nothing declares, so the pass has something to collect.
+	doomed := gcSeed(t, tp, "src/doomed.ts", "referenced by nothing at all\n")
+
+	rep, err := tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	require.False(t, rep.RetentionRootsError, "the retention-root file must be readable")
+	require.Positive(t, rep.DeletedObjects, "the control object must actually have been collectible")
+
+	for _, mp := range order {
+		_, err := tp.Store.GetRoot(ctx, mp.Root)
+		require.NoError(t, err, "old id %s must keep working: mapping.jsonl names %s", mp.LegacyID, mp.Root.Short())
+	}
+	require.Len(t, drill.RetainedRoots, 3, "the drill records what it proved retained")
+	for _, s := range drill.RetainedRoots {
+		h, perr := core.ParseHash(s)
+		require.NoError(t, perr, "rollback record root %q", s)
+		_, err := tp.Store.GetRoot(ctx, h)
+		require.NoError(t, err, "a root the rollback record names must survive GC")
+	}
+	requireRootPresent(t, tp.Store, res.Root.Hash)
+
+	_, err = tp.Store.GetRoot(ctx, doomed.Hash)
+	require.ErrorIs(t, err, core.ErrNotFound, "an undeclared object must still be collected")
+}
+
+// TestMigration_DeclaresRetentionRootsOnDisk pins the mechanism the previous row proves the effect
+// of: the migration unit talks to GC through store.AppendRetentionRoot's file and the rollback
+// retention class, not through a private arrangement of its own.
+func TestMigration_DeclaresRetentionRootsOnDisk(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	m := newMigrator(t, tp, legacySource(2))
+
+	require.NoFileExists(t, RetentionRootsPath(tp.Root), "nothing is declared before an import runs")
+
+	_, err := m.Import(ctx)
+	require.NoError(t, err)
+	_, order, err := m.Frontier()
+	require.NoError(t, err)
+
+	b, err := os.ReadFile(paths.Long(RetentionRootsPath(tp.Root)))
+	require.NoError(t, err, "the import must declare its roots where GC reads them")
+	body := string(b)
+	for _, mp := range order {
+		require.Contains(t, body, mp.Root.String(), "mapping root %s must be declared", mp.LegacyID)
+	}
+	require.Contains(t, body, string(RetentionRollback), "migration material is rollback-class material")
 }
