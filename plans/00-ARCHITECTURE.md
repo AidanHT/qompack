@@ -2417,7 +2417,7 @@ byte-identical session, so replay numbers are comparable across commits.
 
 | Package group | Line coverage floor |
 |---|---|
-| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens` | **90%** |
+| `config`, `store`, `sketch`, `chunk`, `canon`, `negknow`, `checkpoint`, `pins`, `paths`, `redact`, `tokens`, `admission` | **90%** |
 | `scheduler`, `dag`, `analyzer`, `rehydrate`, `eval`, `mcp` | **85%** |
 | everything else | **75%** |
 
@@ -2433,6 +2433,12 @@ floors themselves are data, in `plans/OWNERS.tsv` — that file, not this table,
 reads, so a plan that asserts a floor OWNERS.tsv does not carry asserts nothing.
 Coverage is a floor, never a target — subplans are graded on the conformance suite and the replay
 gate.
+
+`admission` (SP-21) joins the 90% group rather than falling to the catch-all because it sits in the
+same class as `redact` and `checkpoint`: its job is to refuse. Every rule in it — capture before
+replacement, privacy denial outranking the kill switch, an unmapped stage never reaching the
+transform path — is a safety property whose failure mode is delivering something it should not
+have. A 75% floor would leave a quarter of that policy ungraded.
 
 **Composition roots are exempt.** A `main` package that declares nothing but `func main`, whose
 body only constructs dependencies and hands off to a library entry point, carries no floor. The

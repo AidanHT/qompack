@@ -51,6 +51,7 @@ rules	SP-11	75	PathScoped
 skills	SP-11	75	Index
 scheduler	SP-12	85	Evaluate
 mcp	SP-13	85	Serve
+admission	SP-21	90	Admit
 commands	SP-14	75	Run
 analyzer	SP-15	85	Select
 grammar	SP-15	75	Append
