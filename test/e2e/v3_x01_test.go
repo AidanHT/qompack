@@ -184,13 +184,35 @@ func TestV3_HookEventToTombstoneToRetrievalRoundTrip(t *testing.T) {
 	require.False(t, rec.Root.IsZero(), "the record must carry a real store root")
 	require.Positive(t, rec.Tokens)
 	require.Equal(t, store.StatusOK, rec.Status)
-	require.Equal(t, int64(x1FileSize), rec.Bytes, "Bytes is the raw pre-canonicalization size")
+	// Bytes is the raw pre-canonicalization size, and it is now measured over the ADMITTED body.
+	//
+	// It read 24576 — the fixture's own length — until the capture/admission path began running
+	// before the Event is derived (internal/cli/capture_admission.go; hookio.CaptureHook derives
+	// the Event from the permitted bytes, not from stdin). The credential is therefore redacted at
+	// admission, so what reaches store.PutBytes is already redacted and store.PutBytes sets
+	// RawBytes from exactly what it was handed (internal/store/put.go: RawBytes = len(b), assigned
+	// before its own redact step). The whole difference is
+	// len("sk-" + "ant-api03-AAAABBBBCCCCDDDD") - len("«redacted:anthropic_key»") = 29 - 26 = 3
+	// bytes, and those three bytes are credential, not evidence: nothing that could ever be
+	// retrieved was dropped, and the host's own delivery size is still recorded — on
+	// hookio.Capture.SourceBytes, beside the Event, rather than on this record.
+	//
+	// Derived from the redactor rather than written as 24573 so that a change to the fixture, the
+	// credential or the placeholder width cannot silently re-open the question.
+	const x1RedactionDelta = 3
+	admitted, _ := redact.New(p.Cfg).Redact(original)
+	require.Len(t, admitted, x1FileSize-x1RedactionDelta,
+		"the only difference from the fixture's own %d bytes is the credential redaction", x1FileSize)
+	require.Equal(t, int64(len(admitted)), rec.Bytes,
+		"Bytes is the raw pre-canonicalization size of the admitted body (it was %d, the fixture's "+
+			"own length, before redaction moved ahead of Event derivation)", x1FileSize)
 
 	// Expected output 3: the tombstone, rendered against the §5 X1 grammar. This is the G3.2
 	// round trip — the marker's hash is the retrieval key.
 	ts := observer.Tombstone(rec)
 	require.Regexp(t, x1TombstoneRe, ts)
-	require.Contains(t, ts, "24.0KB", "24576 bytes at the binary divisor renders as 24.0KB")
+	require.Contains(t, ts, "24.0KB",
+		"%d admitted bytes at the binary divisor still render as 24.0KB", len(admitted))
 
 	// Expected output 4: the short hash embedded in the marker is rec.Root's own Short form, and
 	// core.ParseHash round-trips the record's hash to the same short form.
@@ -216,8 +238,9 @@ func TestV3_HookEventToTombstoneToRetrievalRoundTrip(t *testing.T) {
 
 	// (e) Byte identity: the stored content is exactly redact → canon over the original, with the
 	// observer's own canon options re-derived here.
-	red, _ := redact.New(p.Cfg).Redact(original)
-	cr, err := canon.Default(p.Cfg.Store.Canonicalize).Run("FileRead", x1Path, red, x1CanonOptions(p.Cfg))
+	// admitted is redact(original) — the same bytes admission already produced, recomputed here
+	// from the fixture so the identity is asserted against the original and not against itself.
+	cr, err := canon.Default(p.Cfg.Store.Canonicalize).Run("FileRead", x1Path, admitted, x1CanonOptions(p.Cfg))
 	require.NoError(t, err)
 	require.Equal(t, cr.Canonical, got,
 		"(e) stored bytes == canon.Default(cfg).Run(FileRead, src/auth.ts, redact(original)).Canonical")
