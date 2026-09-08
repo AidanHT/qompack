@@ -212,9 +212,14 @@ func canonStripTimestamp() canon.Registry {
 		for _, line := range strings.SplitAfter(string(in), "\n") {
 			if strings.HasPrefix(line, timestampPrefix) {
 				if o.KeepDeltas {
+					// Original carries the WHOLE line, terminator included. Trimming it made this
+					// double lossy: canon.Restore rebuilt a copy one byte short per delta, which
+					// SP-20 invariant 6 refuses to persist as an exact recovery record — so the
+					// double would have exercised the full-object fallback under a name claiming
+					// to be about the delta path.
 					deltas = append(deltas, canon.Delta{
 						Offset:   out.Len(),
-						Original: strings.TrimRight(line, "\n"),
+						Original: line,
 						Class:    canon.ClassTimestamps,
 					})
 				}

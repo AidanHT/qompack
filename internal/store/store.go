@@ -79,6 +79,12 @@ type Deps struct {
 	Log     logging.Logger
 	Metrics obs.Registry
 	Clock   core.Clock
+	// RetentionRoots are the in-process producers of GC retention roots — open delivery leases,
+	// rollback/backup manifests, anything holding content live that this package may not import
+	// (00-ARCHITECTURE.md §3.2). GC consults every source here in addition to the on-disk root
+	// files, and a source that errors makes the pass refuse to collect rather than treating an
+	// unreadable lease set as an empty one (SP-20 invariant 9).
+	RetentionRoots []RetentionRootSource
 }
 
 // Open returns the Store rooted at root.
