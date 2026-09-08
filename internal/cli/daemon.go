@@ -130,8 +130,8 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 		// release and not just this one composition root. This defer is the backstop for the one
 		// path Stop cannot cover: a daemon.New that FAILED, after wiring had already run. Close is
 		// idempotent and the hook list empties itself, so on the ordinary path this is a no-op.
-		if opts.Ledger != nil {
-			if closeErr := opts.Ledger.Close(); closeErr != nil {
+		if ledger := opts.LedgerHandle(); ledger != nil {
+			if closeErr := ledger.Close(); closeErr != nil {
 				opts.Log.Warn("daemon: closing the negative-knowledge ledger", "err", closeErr.Error())
 			}
 		}
@@ -232,11 +232,11 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
 	}
 
-	// opts.Ledger is nil HERE on the daemon path: WireRehydrator opens the negative-knowledge
-	// ledger lazily on the first compaction and only then assigns it back onto Options (see
+	// There is no ledger HERE on the daemon path: WireRehydrator opens the negative-knowledge
+	// ledger lazily on the first compaction and only then publishes it back onto Options (see
 	// RehydrateOptions.OpenLedger for why an eager open is not an option). liveLedger hands the
-	// tools an accessor onto that FIELD, so the single lazily-opened handle reaches them the
-	// moment it exists; passing opts.Ledger here would freeze the nil for the life of the process.
+	// tools an accessor onto Options.LedgerHandle, so the single lazily-opened handle reaches them
+	// the moment it exists; passing a value here would freeze the nil for the life of the process.
 	deps := NewToolDeps(root, cfg, opts.Store, liveLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())

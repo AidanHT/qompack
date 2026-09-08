@@ -181,3 +181,40 @@ func TestWithCapture_DropsBytesThatWouldNotFitTheFrame(t *testing.T) {
 	fits := ipc.WithCapture(ipc.Request{Op: ipc.OpObserveTool, Session: "s", TS: 1}, captureFixture())
 	require.Equal(t, captureFixture().Bytes, fits.Capture.Bytes, "a capture that fits is untouched")
 }
+
+// TestWithCapture_KeepsTheObservationWhenTheCaptureWillNotFit is the bound on the downgrade above,
+// and it is about the SHIPPED default configuration rather than an exotic one.
+//
+// runtime.hotPath.maxPayloadBytes defaults to 1 MiB, whose capture limit is the 4 MiB hard cap, so
+// an ordinary 400 KB file read is admitted with OutcomeOK and a complete Event and arrives here
+// with permitted bytes over CaptureFrameBudget. The downgrade is of the CAPTURE half only: strip
+// the bytes, say why, and hand the Event across untouched. A caller that reads the degraded
+// outcome as a reason to drop the whole request turns "we kept less evidence than we wanted" into
+// "the tool use was never seen" — which is exactly what the daemon did before this fix.
+func TestWithCapture_KeepsTheObservationWhenTheCaptureWillNotFit(t *testing.T) {
+	const payloadBytes = 400 * 1000
+	oversize := captureFixture()
+	oversize.Bytes = []byte(`{"tool_response":"` + strings.Repeat("y", payloadBytes) + `"}`)
+	oversize.SourceBytes = len(oversize.Bytes)
+	require.Greater(t, len(oversize.Bytes), ipc.CaptureFrameBudget,
+		"a 400 KB payload must actually cross the frame budget or this proves nothing")
+
+	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "s", ToolName: "Read"}
+	req := ipc.WithCapture(ipc.Request{
+		Op: ipc.OpObserveTool, Session: "s", TS: 1, Event: ev,
+	}, oversize)
+
+	require.Same(t, ev, req.Event, "the observation crosses the wire unchanged")
+	require.Equal(t, "Read", req.Event.ToolName)
+	require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome, "only the evidence half is degraded")
+	require.Empty(t, req.Capture.Bytes)
+	require.Equal(t, payloadBytes+len(`{"tool_response":""}`), req.Capture.SourceBytes)
+
+	line, err := ipc.EncodeRequest(req)
+	require.NoError(t, err)
+	require.Less(t, len(line), ipc.MaxLineBytes, "and the frame still fits")
+	decoded, err := ipc.DecodeRequest(line)
+	require.NoError(t, err)
+	require.NotNil(t, decoded.Event, "the Event survives the round trip, not just the struct field")
+	require.Equal(t, "Read", decoded.Event.ToolName)
+}

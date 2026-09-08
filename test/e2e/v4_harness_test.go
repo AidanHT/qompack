@@ -88,8 +88,8 @@ func v4StartRig(t *testing.T, p *testutil.Project) *v4Rig {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = opts.Store.Close() })
 	t.Cleanup(func() {
-		if opts.Ledger != nil {
-			_ = opts.Ledger.Close()
+		if led := opts.LedgerHandle(); led != nil {
+			_ = led.Close()
 		}
 	})
 
@@ -113,11 +113,11 @@ func v4StartRig(t *testing.T, p *testutil.Project) *v4Rig {
 		src := checkpoint.SourceSet{
 			Store:    opts.Store,
 			Segments: segs,
-			Ledger:   opts.Ledger,
+			Ledger:   opts.LedgerHandle(),
 			// The accessor onto that same field, exactly as wireCheckpointSources supplies it: it
 			// is what makes a set assembled before the first compaction publishable rather than
 			// silently dropped.
-			LedgerFn: func() negknow.Ledger { return opts.Ledger },
+			LedgerFn: opts.LedgerHandle,
 			Pins:     pinStore,
 			Graph:    opts.Graph,
 			Grammar:  gram,
@@ -225,7 +225,7 @@ func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) (hookio.Output, st
 func (r *v4Rig) OpenLedgerByCompacting(t *testing.T, sess core.SessionID) {
 	t.Helper()
 
-	if r.Opts.Ledger == nil {
+	if r.Opts.LedgerHandle() == nil {
 		_, err := r.Src()
 		require.Error(t, err,
 			"before the first compaction the SourceSet must be incomplete — the ledger is opened lazily")
@@ -288,7 +288,7 @@ func (r *v4Rig) WaitIndexed(t *testing.T, want int) {
 // own wiring does: the ledger is opened lazily on the first compaction, so a value captured at
 // composition time would be nil for the life of the process.
 func (r *v4Rig) LedgerFn() func() negknow.Ledger {
-	return func() negknow.Ledger { return r.Opts.Ledger }
+	return r.Opts.LedgerHandle
 }
 
 // v4StartObserverOnly composes a daemon with the L0/L1 observer and NOTHING from wave 3: no
@@ -305,8 +305,8 @@ func v4StartObserverOnly(t *testing.T, p *testutil.Project) *v4Rig {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = opts.Store.Close() })
 	t.Cleanup(func() {
-		if opts.Ledger != nil {
-			_ = opts.Ledger.Close()
+		if led := opts.LedgerHandle(); led != nil {
+			_ = led.Close()
 		}
 	})
 
