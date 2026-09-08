@@ -199,6 +199,16 @@ type ToolDeps struct {
 	// ProjectRoot is the worktree `re_read` resolves paths against and the tree the handshake
 	// observable is written under.
 	ProjectRoot string
+	// DisableWhy administratively gates `why` off: it reports itself unsupported regardless of
+	// whether Checkpoints is wired. This lets core archive retrieval (recall, expand, re_read,
+	// already_tried, record_eliminated, timeline) be verified and shipped independently of
+	// checkpoint work landing in the same build, with no circular dependency on it (interface
+	// contract: "Core archive retrieval is independently testable before checkpoint/rehydration
+	// enablement"). `why` remains listed in tools/list either way.
+	DisableWhy bool
+	// DisableDropped is DisableWhy's sibling for `dropped`, the other checkpoint/rehydration
+	// -dependent tool of the eight.
+	DisableDropped bool
 	// Clock is the time seam every timestamp in a response and every ephemeral record reads.
 	Clock core.Clock
 	// Log receives handler diagnostics; nil means logging.Nop().
@@ -243,7 +253,7 @@ const (
 
 	schemaExpand = `{"type":"object","properties":{"hash":{"type":"string","description":"Root or chunk hash as sha256:<64 hex>. Provide exactly one of hash or tool_use_id."},"tool_use_id":{"type":"string","description":"tool_use_id taken from a tombstone or a recall hit."},"full":{"type":"boolean","default":false,"description":"Return the whole object instead of the minimum sufficient span."},"span":{"type":"string","description":"Explicit span: \"<off>:<len>\" in bytes, or \"L<start>-L<end>\" in lines."}},"required":[],"additionalProperties":false}`
 
-	schemaReRead = `{"type":"object","properties":{"path":{"type":"string","description":"Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span."},"at":{"type":"string","description":"Empty for the working-tree version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>."},"full":{"type":"boolean","default":false,"description":"Return the whole file instead of the minimum sufficient span."}},"required":["path"],"additionalProperties":false}`
+	schemaReRead = `{"type":"object","properties":{"path":{"type":"string","description":"Project-relative path. A :<symbol> or :<line> suffix anchors the minimal span."},"at":{"type":"string","description":"Empty for the latest captured version; otherwise an RFC3339 timestamp, sha256:<64 hex>, or turn:<N>. Never reads the working tree."},"full":{"type":"boolean","default":false,"description":"Return the whole file instead of the minimum sufficient span."}},"required":["path"],"additionalProperties":false}`
 
 	schemaAlreadyTried = `{"type":"object","properties":{"target":{"type":"string","description":"File path, optionally :symbol — e.g. src/auth.ts:refreshToken."},"approach":{"type":"string","description":"The approach as one short verb phrase — e.g. widen pool timeout."}},"required":["target","approach"],"additionalProperties":false}`
 
@@ -282,7 +292,7 @@ func ToolDefs(d ToolDeps) []Tool {
 		{
 			Name:        ToolReRead,
 			Title:       "Re-read",
-			Description: "Current or historical version of a file, from the store's own version history." + spanPolicy,
+			Description: "The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk." + spanPolicy,
 			InputSchema: json.RawMessage(schemaReRead),
 			Handler:     h.run(ToolReRead, h.reRead),
 			Ephemeral:   true,
