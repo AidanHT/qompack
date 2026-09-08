@@ -253,3 +253,37 @@ This collation records SP-20 commit `16ecc77`, tested at `3576900` plus the reco
 | Quarantine failure preservation | SP-20 `.v4-artifacts/object-integrity-red.*` preserves failures; `object-integrity-green.*` passes selected store cases under race (71.378 s package, 95.289 s elapsed). The initial storetest selection ran zero tests and supplies no coverage. `object-integrity-conformance.*` passes the corrected real-store case (3.434 s package, 9.951 s elapsed), with unchanged source/test hashes. Independent review accepted the bounded correction. |
 
 The correction verifies content addresses, bounds physical reads, retains existing decompression bounds, gives successful quarantine moves unique destinations, and preserves the source if quarantine fails. Quarantine is not yet a durable audit/retention journal. No runtime is frozen as a final candidate; all retained rows and M1/M2 gates remain open.
+
+## Provisional checkpoint-owned local frontier correction (2026-09-07)
+
+At `65c499d` plus the dirty hashes in `frontier-owner-*.run.json`, the new checkpoint-owned
+`FrontierAdvancer` resolves the live draft through `Begin(parent=0)` and retries one sealed-draft
+handoff. The scheduler stores only the port, never a draft or writer, and does not Begin, Abort
+or retry a DPI subset. The SP-10 idle sweep uses the same adapter. The numeric result remains
+local draft progress, not a durable publication frontier or native context boundary.
+
+Partial coverage maps to SP10-07 (live draft reuse/seal handoff), SP10-08 (real writer partial
+DPI outcome), SP10-16 (selected cadence cases), SP12-15 (runtime lifecycle), and SP12-18 (port
+submission, owner outcome and local accounting). The rest of each retained requirement remains
+unverified. No installed recovery, aggregate, timing or SP12-19 idle integration gate follows.
+
+`TestFrontier_DPIGuardViolationDropsBatchAndNeverReEncodes` is replaced by
+`TestFrontier_DPIGuardPreservesOwnerOutcomeWithoutRetry`; the old scheduler-owned retry/abort
+assertion is retired. `TestRuntime_CloseIsIdempotent` and
+`TestWrapServices_SessionStartBindsAndSessionEndCloses` retain their names while replacing their
+abort assertions with preservation of externally owned drafts. New `TestFrontierAdvancer_*`
+cases cover the adapter, including mid-lifecycle cancellation; session-switch and constructor
+cases cover its scheduler consumer.
+
+`frontier-owner-focused` passes the selected checkpoint and daemon race cases (3.036 s and
+4.383 s package time, 76.181 s command elapsed). Independent review required explicit treatment
+of the missing production route. The additional `frontier-owner-wiring` selection passes
+constructor precedence/fallback, real CLI unavailable-route/no-ledger-creation and the existing
+hot-path guard (daemon 3.204 s, CLI 2.867 s). Only added tests and CLI comments changed after the
+first run; runtime logic and its fixture inputs remained unchanged. `frontier-owner-guards`
+records formatting and affected-package vet. Independent review accepted this bounded scope.
+
+`TestWireSchedulerKeepsFrontierUnavailableUntilSharedSources` deliberately asserts unavailable
+production wiring. It must be replaced by accepted source/capability evidence when C-1 lands;
+it cannot fill a successful recovery cell. Shared ledger authority, committed-frontier/gap
+evidence, M1/M2, C-1, installed-host recovery and final V4 acceptance remain open.

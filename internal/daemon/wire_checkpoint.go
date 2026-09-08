@@ -248,6 +248,7 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 		log = logging.Nop()
 	}
 	var firstErr error
+	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) { return src, nil })
 	for _, s := range liveSessions(reg, w, src) {
 		if ctx.Err() != nil {
 			return firstNonNil(firstErr, ctx.Err())
@@ -262,16 +263,11 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 		if len(segs) == 0 {
 			continue
 		}
-		d, err := w.Begin(ctx, s, 0, src)
-		if err != nil {
-			firstErr = firstNonNil(firstErr, fmt.Errorf("checkpoint: begin draft for %s: %w", s, err))
-			continue
-		}
 		ids := make([]core.SegmentID, 0, len(segs))
 		for _, seg := range segs {
 			ids = append(ids, seg.ID)
 		}
-		if _, err := w.Advance(ctx, d, ids); err != nil {
+		if _, err := advancer.Advance(ctx, s, ids); err != nil {
 			// A DPI violation -- the same segment reachable from two checkpoints -- is the §4.6
 			// invariant this whole layer exists to enforce mechanically, so §16 requires it Loud
 			// and the ids dropped, not folded into a sweep error that surfaces as an ordinary
@@ -279,16 +275,8 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 			// sweep, so a violation on a later session behind any earlier failure would never
 			// reach a log line at all. The ids are already skipped inside Advance and the draft is
 			// already persisted, so continuing is the documented handling, not a swallow.
-			// A draft sealed underneath the sweep is the benign half of the same race: a
-			// PreCompact finalized this session between Begin and Advance. The successor draft
-			// already exists and the next tick encodes into it, so this is expected traffic, not
-			// a sweep failure -- reporting it would make an ordinary compaction look like an
-			// error every time one lands during an idle window.
-			if errors.Is(err, checkpoint.ErrDraftSealed) {
-				log.Debug("checkpoint: draft was sealed during the frontier sweep; the successor takes these segments",
-					"session", string(s))
-				continue
-			}
+			// The owner already retried one sealed-draft handoff. A repeated seal or another
+			// failure remains a failed sweep result and may be retried by a later idle tick.
 			if errors.Is(err, core.ErrAlreadyEncoded) {
 				log.Loud("checkpoint: DPI violation: segments are already encoded by another checkpoint and were skipped",
 					"session", string(s), "err", err.Error())

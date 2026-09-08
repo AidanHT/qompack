@@ -299,6 +299,56 @@ frontier, an object-reference reachability authority, a delivery identity or
 lease, privacy-before-persistence transformation, an M2 completeness witness,
 or backup/import/GC root coverage. Those remain required SP-20 work.
 
+## Checkpoint-owned local frontier port review
+
+This read-only review accepts the bounded ownership and lifecycle correction in
+`qompack-v4-prep` at `65c499d` plus its reviewed dirty checkpoint, daemon,
+CLI-comment, and test files. It consolidates local checkpoint-draft work. It
+does not implement an SP-20 durable committed frontier or enable a recovery,
+ledger, C-1, M1, M2, installed-host, or V4 gate.
+
+`checkpoint.FrontierAdvancer` is the scheduler-facing port. The scheduler
+passes closed segment IDs only; the `FileWriter` retains the draft, source
+refresh, encoding, parent selection, persistence, finalization, and abort
+lifecycle. The adapter returns the writer's actual local draft frontier. It
+retries exactly one `ErrDraftSealed` Begin/Advance handoff, preserves a partial
+`core.ErrAlreadyEncoded` frontier and error without retrying a subset, and
+checks cancellation before Begin, after source resolution, and after Begin so
+it cannot call Advance after cancellation. A session switch while a call is in
+flight cannot apply the completed local value to the replacement scheduler
+session.
+
+`NewSchedulerRuntime` prefers an explicitly supplied `Frontier`; for older
+callers it constructs the adapter only when both `Checkpoints` and `Sources`
+are present. Nil or unavailable input remains the existing no-writer local
+path. Scheduler code no longer begins, aborts, caches, or retries writer
+drafts itself. Its DPI handling records the writer's returned local frontier,
+logs the violation, and leaves the one-way encoding outcome to FileWriter.
+The SP-10 `advanceAllSessions` sweep uses the same adapter and retains a
+repeated seal or other non-DPI failure for a later idle retry.
+
+The real CLI composition route intentionally supplies neither a Frontier port
+nor accepted shared SourceSet. `TestWireSchedulerKeepsFrontierUnavailableUntilSharedSources`
+verifies that construction stays local, the two fields remain nil, and no
+ledger file is created. Thus its runtime `sched.frontier.no_writer` outcome is
+an explicit unavailable condition, not evidence that checkpoint advancement or
+recovery succeeded. Wiring the source set before its M1/M2 authority and
+ledger prerequisites exist is outside this correction.
+
+`frontier-owner-focused.run.json` records the selected checkpoint/daemon race
+command passing in 76.1806262 seconds elapsed (checkpoint 3.036 seconds and
+daemon 4.383 seconds of package time). The later
+`frontier-owner-wiring.run.json` records the option-precedence, real CLI
+unavailable-route/no-ledger, and hot-path selection under race passing in
+26.9622525 seconds elapsed (daemon 3.204 seconds and CLI 2.867 seconds of
+package time). This review did not rerun either command.
+
+Numeric `Draft`/`FileWriter` frontiers remain local draft state. They are not
+a verified object-to-reference-to-publication frontier, do not prove raw
+privacy handling or durable acknowledgement, and do not provide M2
+completeness or authority. Full backup/import/GC rooting, durable delivery
+identity and lease behavior, and all final gates remain open.
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.

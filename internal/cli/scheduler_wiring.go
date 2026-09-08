@@ -14,10 +14,12 @@ import (
 // reachable from any hook subcommand path (TestSchedulerNotOnHotPath, budget B-A).
 
 // wireScheduler is Block 1 (construct) and Block 2 (tap). It reads opts.Store/opts.Graph, which
-// WireObserver populated, and opts.Ledger/opts.Checkpoints, which stay nil until SP-11/SP-10
-// merge — it never opens a second store. Session is deliberately empty: the daemon is per
+// WireObserver populated, and opts.Ledger/opts.Checkpoints. Original SP10–13 deliveries are
+// integrated; accepted shared ledger/source wiring is still pending M1/M2. It never opens a
+// second store. Session is deliberately empty: the daemon is per
 // project and starts before any session exists; the runtime binds the first id its tap sees.
-// Sources stays nil until SP-10 wires it alongside opts.Checkpoints. A construction failure is
+// Frontier and Sources stay nil until their producer/recovery gates and C-1 wiring are accepted.
+// The checkpoint-owned port correction alone does not enable production advancement. A construction failure is
 // Loud and leaves L3 disabled — the daemon, the store and every hook keep working (00-ARCHITECTURE
 // §12.3) and runDaemon never surfaces a non-nil error. The Bind registered here runs AFTER
 // SP-08's (Bind hooks run in registration order), so the tap decorates seams SP-08 has set.
@@ -59,8 +61,8 @@ func registerSchedulerIdle(d daemon.Daemon, sched scheduler.Runtime, o daemon.Sc
 }
 
 // closeScheduler is the daemon's shutdown path for L3 (ruling R52): deferred in runDaemon right
-// after registration, it persists the scheduler's state, releases the p-selection gate and
-// aborts an open draft once d.Run has returned. Without it a daemon stopped mid-session loses
+// after registration, it persists the scheduler's state and releases the p-selection gate once
+// d.Run has returned. Draft lifecycle stays with the checkpointer. Without persistence a daemon loses
 // everything since the last idle persist. nil-safe; a failure is a Warn, never an exit code.
 func closeScheduler(sched scheduler.Runtime, o daemon.SchedulerRuntimeOptions) {
 	if sched == nil {
