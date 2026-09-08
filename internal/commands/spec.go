@@ -55,6 +55,13 @@ var flagSpecs = map[string][]FlagSpec{
 	"pin": {
 		{Name: "list", Summary: "list the pins in scope instead of adding one"},
 		{Name: "remove", Summary: "remove the pin with this id", Arg: "id"},
+		{Name: "source", Summary: "record the pin as user or agent authority (default user)", Arg: "who"},
+		{Name: "eliminated", Summary: "record an eliminated approach instead of an invariant"},
+		{Name: "target", Summary: "with --eliminated: what the approach was applied to", Arg: "text"},
+		{Name: "approach", Summary: "with --eliminated: what was tried", Arg: "text"},
+		{Name: "reason", Summary: "with --eliminated: why it did not work", Arg: "text"},
+		{Name: "depends-on", Summary: "with --eliminated: comma-separated paths the finding rests on", Arg: "paths"},
+		{Name: "scope", Summary: "with --eliminated: session or project", Arg: "scope"},
 	},
 	"checkpoint": {
 		{Name: "reason", Summary: "record why this checkpoint was taken", Arg: "text"},
