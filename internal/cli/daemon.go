@@ -96,7 +96,12 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsErr != nil {
 		opts.Log.Loud("observer unavailable; L0 capture disabled", "err", obsErr.Error())
 	}
-	sched, schedOpts := wireScheduler(&opts, env.Getenv)
+	// The checkpoint layer's first phase: assemble the LIVE source supplier and bind the
+	// PreCompact seam. It must run after WireObserver (it reads the store and the DAG that call
+	// opened) and before daemon.New (Options.Bind is what New applies). It opens NO ledger — see
+	// wireCheckpointSources.
+	ckpt := wireCheckpointSources(&opts)
+	sched, schedOpts := wireScheduler(&opts, env.Getenv, ckpt.sources)
 	// store.Open pre-creates .qompack/tmp/quarantine as scaffolding for its corrupt-object path,
 	// but store's own quarantine() MkdirAlls that directory again at use — so the EMPTY directory
 	// is redundant from the moment it exists, and it is the one entry that would make the
@@ -140,6 +145,11 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 	if obsv != nil {
 		daemon.RegisterObserverIdleWork(d, obsv)
 	}
+	// The checkpoint layer's second phase: Idle() is a method on the constructed Daemon, so the
+	// three idle registrations — advance_frontier, act.checkpoint_cadence, materialize_pins —
+	// can only happen here. Without this call the shipped daemon registers none of them and the
+	// frontier advances only in tests.
+	registerCheckpointIdle(d, cfg, ckpt, sched)
 	registerSchedulerIdle(d, sched, schedOpts)
 	defer closeScheduler(sched, schedOpts)
 
