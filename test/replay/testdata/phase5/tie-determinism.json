@@ -1,0 +1,36 @@
+{
+  "name": "tie-determinism",
+  "why": "Contract section 3's tie-break, isolated. Three candidates with identical weight, identical coverage, identical assembled cost and distinct evidence roots have exactly equal marginal gain at every step, so nothing but the declared order (gain desc, Item asc, Kind asc) can decide between them. A budget that holds exactly two of the three makes the decision observable: the two lowest Item ids must be the ones carried, on every run and in every process. Authored by role E after roles A-D landed.",
+  "p": 0,
+  "lambda": 0.25,
+  "candidates": [
+    {
+      "item": "file:src/a.go",
+      "pos": 1,
+      "weight": 0.5,
+      "mandatory": false,
+      "reps": [{"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "ev-a", "qualification": "current"}]
+    },
+    {
+      "item": "file:src/b.go",
+      "pos": 1,
+      "weight": 0.5,
+      "mandatory": false,
+      "reps": [{"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "ev-b", "qualification": "current"}]
+    },
+    {
+      "item": "file:src/c.go",
+      "pos": 1,
+      "weight": 0.5,
+      "mandatory": false,
+      "reps": [{"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "ev-c", "qualification": "current"}]
+    }
+  ],
+  "regimes": [
+    {"name": "generous", "budget": 400, "expect": "all-carried"},
+    {"name": "tiny", "budget": 250, "expect": "partial", "expectCarried": ["file:src/a.go", "file:src/b.go"]},
+    {"name": "mandatory-overflow", "budget": 0, "expect": "empty"}
+  ],
+  "mustCarryAtActiveEvidence": [],
+  "mustNeverBind": []
+}

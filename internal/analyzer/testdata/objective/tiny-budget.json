@@ -1,0 +1,18 @@
+{
+  "name": "tiny-budget",
+  "why": "A budget that admits exactly one pointer and nothing else. It pins that the walk does not stall on the expensive representations it cannot afford: both exact spans are deferred rather than discarded, and the cheapest surviving move is still found.",
+  "p": 100,
+  "lambda": 0.5,
+  "budget": 12,
+  "candidates": [
+    {"item": "item:a", "pos": 100, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "ra", "qualification": "current"},
+      {"kind": "pointer", "coverage": 0.3, "assembledCost": 10, "root": "ra", "qualification": "current"}
+    ]},
+    {"item": "item:b", "pos": 101, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 90, "root": "rb", "qualification": "current"},
+      {"kind": "pointer", "coverage": 0.3, "assembledCost": 11, "root": "rb", "qualification": "current"}
+    ]}
+  ],
+  "optimum": 0.3
+}

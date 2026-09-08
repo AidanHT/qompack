@@ -116,7 +116,7 @@ Retained IDs: `I-14.1`, `I-14.2`, `I-14.3`, `I-14.4`, `I-14.5`, `I-14.6`, `I-14.
 
 Retained IDs: `I-15.1`, `I-15.2`, `I-15.3`, `I-15.4`, `I-15.5`, `I-15.6`, `I-15.7`, `I-15.8`, `I-15.9`, `I-15.10`, `I-15.11`, `I-15.12`, `I-15.13`, `I-15.14`, `I-15.15`, `I-15.16`, `I-15.17`, `I-15.18`.
 
-- [ ] Future owner reconciles every retained row against SP-15 M5-G15-A/B/C and M6-G15-A/B; feasible actual consumer, diagnostic signals, bounded progress-aware warnings; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Owner reconciled every retained row against SP-15 M5-G15-A/B/C and M6-G15-A/B: feasible actual consumer, qualified diagnostic signals, bounded progress-aware warnings. Delivered 2026-09-08; evidence and dispositions in [§3a](#3a-sp-15-delivery-record-executed-2026-09-08) and `plans/sdd/V5-SP-15/report-main.md`. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
 
 ### 2.16 SP-16 — reuse/refinement
 
@@ -135,10 +135,161 @@ Retained IDs: `I-16.1`, `I-16.2`, `I-16.3`, `I-16.4`, `I-16.5`, `I-16.6`, `I-16.
 - [ ] R2 run map accounts for focused/parallel groups, each justified long gate, actual instrumented coverage, current candidate/artifact identity and every incomplete result; no duplicate per-row whole-tree runs or unreviewed coverage substitutions.
 - [ ] Carry V4's actual mandatory results and unresolved disabled capabilities without rewriting history.
 - [ ] SP14 command/JSON/exit/status/request-ledger behavior matches the supported plugin.
-- [ ] SP15 selection reaches the real future Qompack consumer with one compatible representation, closure, deterministic ties and complete overhead/overflow.
-- [ ] SP15 warnings remain progress-aware, bounded and warning-only; grammar/sketch complexity justified or optional.
+- [x] SP15 selection reaches the real Qompack consumer with one compatible representation, closure, deterministic ties and complete overhead/overflow — `implemented_unverified` at host level, evidenced in-repo (§3a). Assembled cost remains an ESTIMATE: M5-U15-representation-overhead is open, so no token guarantee is claimed.
+- [x] SP15 warnings remain progress-aware, bounded and warning-only; grammar complexity is NOT justified and is recorded optional-disabled — the M6-G15-B ablation went against Sequitur (§3a).
 - [ ] SP16 scope/applicability/expiry/privacy and bounded retrieval/usefulness tests pass; promotion has no native residency claim.
 - [ ] SP21 enabled surfaces, if any, satisfy all T21 gates, including comparison to unmodified output; unknown parser, changed failure/delta baseline, storage failure, own-envelope recursion and competing hooks have safe outcomes.
+
+## 3a. SP-15 delivery record (executed 2026-09-08)
+
+Additive, per §8's rule that new rows do not renumber prior inventory. **This section discharges
+SP-15's rows only.** SP-14, SP-16, SP-19/20/21 and every cross-component row in §4–§7 are untouched
+by it, and the V5 checkpoint as a whole remains open.
+
+**Branch:** `feat/sp15-analyzer-selection-and-grammar`, 18 commits over `develop@7c735ac`,
+**unpushed**. Windows 11, go1.26.6. Full record: `plans/sdd/V5-SP-15/` — `contract.md` (the frozen
+contract plus amendments A1–A7), `report-A/B/C/D/E.md`, `report-main.md`.
+
+`internal/analyzer` and `internal/grammar` were SP-01 stubs at the baseline and are now real. Both
+new capabilities ship **disabled** behind independent switches
+(`runtime.selection.submodularEnabled`, `runtime.selection.loopWarningsEnabled`, both default
+false). No default was flipped by a synthetic score.
+
+### 3a.1 Gate dispositions
+
+| Gate | Status | Evidence |
+|---|---|---|
+| M5-G15-A | `implemented_unverified` | 7 committed instances with brute-forced optima; 12 held-out + 117 corpus rows at replay phase 5; zero/tiny/overflow all exercised |
+| M5-G15-B | `implemented_unverified` | 3 counterexample fixtures with provenance: similarity-is-not-equivalence, an exact supersession chain, a shared-file edge implying nothing about relevance |
+| M5-G15-C | `implemented_unverified` | 13 daemon cases + 11 rehydrate cases against the real composition root, the real item-3 builder and the real drop report |
+| M6-G15-A | `implemented_unverified` | 13 held-out streams; 0/7 false alarms; 0 amplification over 210 fed-back observations; dedup/cap/expiry gated |
+| M6-G15-B | **optional-disabled, explicitly accepted** | the ablation in §3a.3 |
+
+`implemented_unverified` is used deliberately rather than `verified_in_target`: every gate above has
+real executed evidence in-repo, and none of it was exercised through an installed host. No host
+canary covers selection or warnings.
+
+**Conformance activation.** Four inherited `/behaviour` blocks were Rule W-1 skips at the baseline
+and now RUN and PASS: `analyzertest`'s `NewCheapScorer` (4 cases), `DetectRedundancy` (3),
+`NewSelector` (6), and `grammartest`'s `invariants_hold_after_every_append` (23 appends). No suite
+was edited to make a block pass; the single suite change is the correctness fix in §3a.4.
+
+### 3a.2 Consumer integration, and the §3.2 question it settled
+
+`tools/devtool/importrules.go` denies `rehydrate` any `analyzer` import and denies `analyzer` any
+`negknow` import, so selection is wired at the **daemon composition root**, not through an import
+edge. **No §3.2 amendment was required or proposed.**
+
+Selection reaches `rehydrate.Build` as request DATA rather than a provider on `Deps`, because
+`Build` is a pure function of `(Request, Deps)` and `PropBuild_Deterministic` requires
+byte-identical output for identical input — a live provider would have put a store read, a DAG walk
+and a token estimate inside a function whose whole contract is that it has none.
+
+G6.3 elimination evidence reaches the selector as a neutral `Candidate` carrying `Mandatory` plus a
+`Provenance.Qualification`; only a ledger-active record binds, and stale or uncertain records are
+carried with their qualification and never promoted. Under pressure an authoritative elimination
+degrades to a pointer BEFORE overflow is considered; overflow then names the record and archives it
+with a recovery path.
+
+A nil selection returns its input untouched, so the disabled path is byte-for-byte the path that
+shipped — every pre-existing rehydrate test passes unchanged.
+
+### 3a.3 M6-G15-B — the ablation went against Sequitur
+
+| Arm | detected | false alarms | alloc | rules |
+|---|---|---|---|---|
+| state-signature | 5/6 | **0/7** | 65,984 B | 0 |
+| sequitur | 6/6 | **6/7** | 159,200 B | 32 |
+| sequitur + progress | 6/6 | **2/7** | 122,176 B | 32 |
+
+Sequitur buys exactly one detection — a cycle whose period exceeds `minRepeats` — and pays six
+false alarms for it, still two after being handed the same progress signal the winning arm uses, at
+2.4× the allocations. A third arm was added specifically to remove the "Sequitur was handicapped"
+objection; it still loses, and the fixtures were **not** tuned afterwards.
+
+**Disposition: not justified by this evidence; stays optional and disabled** per
+M6-U15-sequitur-value. This CONFIRMS the shipped design rather than changing it — the detector is
+signature-only and never referenced Sequitur. The induction is still worth having: it is real
+rather than stubbed, and `internal/observer` consumes `Thrash` on a pre-existing path this evidence
+does not touch. Per §8, optional policy non-delivery is explicit and no default was flipped.
+
+### 3a.4 The one conformance-suite change
+
+`grammartest.checkNoDigramTwice` counted **overlapping** digram occurrences, while Sequitur's
+invariant is over non-overlapping ones. It was therefore **unsatisfiable, not strict**, and the
+fixture reaches that state twice.
+
+Verified by tracing the implementation before any edit, rather than on the reporting role's word:
+`Read Edit Bash` ×3 induces `S → R R R` with `R → Read Edit Bash` used three times, and the two
+`(R,R)` pairs overlap at index 1. Acting on that leaves `S → Q R` with `Q → R R`, and `Q` used once
+is a rule-utility violation that inlines `Q` straight back. There is no other grammar for that
+input, so the check rejected the only correct answer.
+
+The amendment forgives only same-sequence adjacency, and a forgiven occurrence does not advance the
+recorded site. `behaviour_internal_test.go` pins both halves: `x x x` passes as one countable
+occurrence, while `x x x x` holds two DISJOINT pairs and still fails, as do runs up to nine, the
+same digram across two sequences, and adjacent indices in different sequences. The loosening cannot
+decay into a check that accepts everything.
+
+### 3a.5 §6 regression note — selector guards were NOT retired
+
+§6 anticipates retiring "selector guards that require unsupported native p-selection". SP-15 did
+**not** do so. Both `NewSelector` guards are byte-identical to the pre-SP-15 source and in the
+original order: the `Pos < p` refusal (§13 invariant 4) still runs first, then the closing-note-3
+ship-order gate. `Propose` routes through the same constructor, so the new surface inherits both.
+
+What changed is only the stub-marker rows in `test/guards/stubs_test.go`, now
+`pureMethods: allMethodsAreReal` for `analyzer` and `grammar` alongside `dag`, `negknow` and
+`checkpoint`. A refusal to CONSTRUCT is not a stub, and `buildorder_test.go` still asserts it
+separately and is untouched.
+
+### 3a.6 Defects found
+
+| # | Defect | Found by | Fix |
+|---|---|---|---|
+| 1 | `Qualification`'s zero value was `QualCurrent`, so any struct literal omitting the field silently minted an authoritative elimination — the §12-High false `already_tried`, reachable by forgetting a field | a role coding against the coordinator's own frozen contract | `66c60f7`; `QualUncertain` is now the zero value, pinned by test |
+| 2 | `checkNoDigramTwice` unsatisfiable (§3a.4) | role A | `810d196` |
+| 3 | `ParseRuleRef` delegated to `strconv.Atoi`, which accepts `"+7"` and `"07"`, making encoded rule identity many-to-one — a forged stream could name rule 7 in a spelling no encoder emits | a coordinator test written for role A's question | `1b0fd5d` |
+| 4 | The codec clause admitted version zero, so a zero-filled truncated write would read as a valid empty grammar | role B | `767dd7e` (A6) |
+| 5 | An uncertain warning rendered identically to a confident one, so the qualification lived in the type and nowhere the reader could see it | role B | `767dd7e` (A7) |
+| 6 | `Proposal.Reason` is prose but `rehydrate` consumed it as a `DropEntry.ID` — a whole sentence in the report's id column | coordinator, at integration | `f84cdf4`; `Item` and `Reason` split |
+
+Defects 1 and 6 are the ones no single role could have found: 1 was in the frozen contract itself,
+and 6 exists only where two roles' outputs meet.
+
+### 3a.7 Failures observed, and their §7 disposition
+
+None is caused by SP-15. Each was reproduced on the base tree or in isolation rather than matched to
+a known category by name.
+
+| Failure | Verification | Verdict |
+|---|---|---|
+| `test/e2e` `TestV3_HotPathUnchangedWithLedgerResident` | run on base `develop@7c735ac`: same failure, same number — B-B p50 **2.816 ms** against a 2.000 ms limit; B-A/B-E/B-E_cpu all PASS | pre-existing B-B breach; a V4 sign-off item |
+| `test/integration` `TestIntegration_HotPathWarmWithRealResidentState` | run alone: the same B-B breach at the same figures | same root cause |
+| `test/integration` `TestIntegration_BeladyPMinLandsAtLowCoupling` | run on base: identical failure. 61.5% against a 70% floor, and the assertion itself says "report the measured rate, do not lower the floor" | the deliberately-red Belady row; an authorized re-derivation of the floor is a V4 sign-off item |
+| `test/guards` `TestCarriedDefects_WaveReportRequiresResolution/{SP08-D1,SP10-D1}` | wave-2 defects still `open` in `plans/CARRIED-DEFECTS.tsv` while `plans/V4-report.md` exists | pre-existing bookkeeping; no SP-15 file involved |
+| `go run ./test/replay` — phase-3 A2 divergence, corpus stale | reproduce identically on base at `--phase 3` | pre-existing. Registering phases 5 and 6 makes the staleness message name a later phase; it does not create the failure |
+| `internal/mcp TestBudgetBF`, `internal/negknow TestBudget_DetectorScan` | pass when re-run serially with `-p 1` | co-load artifacts |
+| `internal/negknow TestBudget_Open` | passes alone at 259 ms CPU/op against a 300 ms budget | load-sensitive, marginal |
+
+Per §6, none of these is erased: each is recorded as a failure with its evidence, and the two V4
+sign-off items remain the V4 owner's.
+
+**A methodology correction against the coordinator's own run.** The first whole-tree pass was
+INVALID and its failures must not be cited. It omitted the required `-timeout=30m` — whose absence
+panicked `test/e2e` mid-suite and aborted every package after it — and used `-p 2`, manufacturing
+exactly the co-load that makes timing rows meaningless. The re-runs above are the evidence.
+
+### 3a.8 What SP-15 does NOT discharge
+
+| Item | State |
+|---|---|
+| **Independent adversarial review (R1, mandatory)** | **OPEN.** R1 is explicit that an author's own recheck cannot discharge it. The coordinator's verification came from a thread that did not author the code under review — stronger than self-review, but not the separate reviewer the policy names, and no such route is available in this client. §8's final gate, "only after independent review may separately authorized work merge `verify/v5`", is therefore NOT met |
+| Requested routing (R1 / B08) | Opus 4.8 and Fable 5.1 are not selectable in this client; every role ran Opus 5 under the documented fallback. Effective per-child model/effort metadata is not exposed, so **no routing or cost-saving claim is made** |
+| M5-U15-representation-overhead | **OPEN.** Assembled cost is an estimate, not calibrated against provider-reported usage. Sound for ranking; not a token guarantee, and §5's rule against unsupported acceptance facts applies |
+| `ToolUsesBySession` | **OPEN, reported.** Redundancy coverage is exact per covered path only; `DetectRedundancy` returns `core.ErrDegraded` alongside a valid result rather than presenting partial coverage as complete |
+| Host-level verification | No host canary exercises selection or warnings; every gate above rests on in-repo evidence |
+| SP-14, SP-16, SP-19/20/21 rows | Untouched by this section |
 
 ## 4. New cross-component integration tests
 

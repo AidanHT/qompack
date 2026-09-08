@@ -1,0 +1,47 @@
+{
+  "name": "g63-current-authoritative",
+  "why": "G6.3 scenario 1 and 2 in one instance. An elimination the ledger reports ACTIVE (qualification current) is mandatory and binds, and it must be carried with its ORIGINAL evidence root intact under a budget that has room; under a budget that has none it must produce an explicit overflow naming it and appending it to Archive, never a partial serialization. Authored by role E after roles A-D landed, from the shapes contract.md section 3 names; it was not used to tune the selector and no implementation file was changed to make it pass.",
+  "p": 8,
+  "lambda": 0.25,
+  "candidates": [
+    {
+      "item": "elimination:e1",
+      "pos": 10,
+      "weight": 0.9,
+      "mandatory": true,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 120, "root": "ev-elim-1", "qualification": "current"},
+        {"kind": "capsule", "coverage": 0.6, "assembledCost": 54, "root": "ev-elim-1", "qualification": "current", "derived": true},
+        {"kind": "pointer", "coverage": 0.15, "assembledCost": 48, "root": "ev-elim-1", "qualification": "current"}
+      ]
+    },
+    {
+      "item": "file:src/pool.go",
+      "pos": 12,
+      "weight": 0.7,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 200, "root": "ev-pool", "qualification": "uncertain"},
+        {"kind": "capsule", "coverage": 0.6, "assembledCost": 74, "root": "ev-pool", "qualification": "uncertain", "derived": true},
+        {"kind": "pointer", "coverage": 0.15, "assembledCost": 48, "root": "ev-pool", "qualification": "uncertain"}
+      ]
+    },
+    {
+      "item": "toolresult:tu_pool_read",
+      "pos": 14,
+      "weight": 0.5,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 90, "root": "ev-tu-1", "qualification": "uncertain"},
+        {"kind": "pointer", "coverage": 0.15, "assembledCost": 48, "root": "ev-tu-1", "qualification": "uncertain"}
+      ]
+    }
+  ],
+  "regimes": [
+    {"name": "generous", "budget": 500, "expect": "all-carried"},
+    {"name": "tiny", "budget": 130, "expect": "partial", "expectCarried": ["elimination:e1"]},
+    {"name": "mandatory-overflow", "budget": 40, "expect": "overflow", "expectArchive": ["elimination:e1"]}
+  ],
+  "mustCarryAtActiveEvidence": ["elimination:e1"],
+  "mustNeverBind": []
+}

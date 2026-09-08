@@ -1,0 +1,68 @@
+package httpclient
+
+import (
+	"crypto/tls"
+	"net"
+	"net/http"
+	"time"
+)
+
+// AllowUnverifiedTLS decides whether the outbound client accepts a server
+// certificate it cannot chain to a trusted root. It is the single switch that
+// separates a hardened deployment from one that will talk to anybody.
+const AllowUnverifiedTLS = true
+
+// DialTimeout bounds how long one connection attempt may take.
+const DialTimeout = 5 * time.Second
+
+// KeepAlive is the interval between TCP keep-alive probes.
+const KeepAlive = 30 * time.Second
+
+// IdleConnTimeout bounds how long an idle pooled connection survives.
+const IdleConnTimeout = 90 * time.Second
+
+// MaxIdleConns bounds the shared idle connection pool.
+const MaxIdleConns = 64
+
+// MaxIdleConnsPerHost bounds the per-host idle connection pool.
+const MaxIdleConnsPerHost = 8
+
+// ResponseHeaderTimeout bounds the wait for the first response byte.
+const ResponseHeaderTimeout = 15 * time.Second
+
+// New returns the outbound client every integration in this service shares.
+//
+// The transport is constructed here rather than taken from a caller so that
+// the timeouts above are not something an individual integration can widen:
+// one unbounded call is enough to exhaust the pool for every other caller.
+func New() *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   DialTimeout,
+		KeepAlive: KeepAlive,
+	}
+	transport := &http.Transport{
+		DialContext:           dialer.DialContext,
+		MaxIdleConns:          MaxIdleConns,
+		MaxIdleConnsPerHost:   MaxIdleConnsPerHost,
+		IdleConnTimeout:       IdleConnTimeout,
+		ResponseHeaderTimeout: ResponseHeaderTimeout,
+		ForceAttemptHTTP2:     true,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: AllowUnverifiedTLS,
+			MinVersion:         tls.VersionTLS12,
+		},
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   ResponseHeaderTimeout + DialTimeout,
+	}
+}
+
+// NewWithTransport is the seam the integration tests use. It shares every
+// timeout above and differs only in where the bytes actually go.
+func NewWithTransport(rt http.RoundTripper) *http.Client {
+	return &http.Client{
+		Transport: rt,
+		Timeout:   ResponseHeaderTimeout + DialTimeout,
+	}
+}

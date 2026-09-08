@@ -1,0 +1,10 @@
+## 4.2.0 — connection pooling
+
+The outbound HTTP client now shares one connection pool across every
+integration. Pool exhaustion under burst load was the cause of the
+timeout storms reported in issue 4471, and the per-integration clients
+that preceded this change could not be bounded collectively.
+
+Operators should expect a lower steady-state file-descriptor count and
+a higher p99 on the first request after an idle period, which is the
+cost of the shared idle-connection timeout.

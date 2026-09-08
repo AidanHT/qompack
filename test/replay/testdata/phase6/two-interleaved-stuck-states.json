@@ -1,0 +1,20 @@
+{
+  "name": "two-interleaved-stuck-states",
+  "label": "stuck",
+  "why": "Two genuinely stuck states alternating inside one window, four occurrences each. It is the stream that makes deduplication and the per-session cap observable on real input rather than on a synthetic burst: two distinct dedup keys are eligible, each may be delivered once, and the eight observations that qualify must not produce eight warnings.",
+  "goal": "get the race detector green on the ledger",
+  "observations": [
+    {"turn": 0, "target": "internal/daemon/ledger.go", "action": "Bash", "failure": "DATA RACE: write at ledger.go:88", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 1, "target": "internal/daemon/spool.go", "action": "Bash", "failure": "DATA RACE: read at spool.go:41", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 2, "target": "internal/daemon/ledger.go", "action": "Bash", "failure": "DATA RACE: write at ledger.go:88", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 3, "target": "internal/daemon/spool.go", "action": "Bash", "failure": "DATA RACE: read at spool.go:41", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 4, "target": "internal/daemon/ledger.go", "action": "Bash", "failure": "DATA RACE: write at ledger.go:88", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 5, "target": "internal/daemon/spool.go", "action": "Bash", "failure": "DATA RACE: read at spool.go:41", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 6, "target": "internal/daemon/ledger.go", "action": "Bash", "failure": "DATA RACE: write at ledger.go:88", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 7, "target": "internal/daemon/spool.go", "action": "Bash", "failure": "DATA RACE: read at spool.go:41", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 8, "target": "internal/daemon/ledger.go", "action": "Bash", "failure": "DATA RACE: write at ledger.go:88", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 9, "target": "internal/daemon/spool.go", "action": "Bash", "failure": "DATA RACE: read at spool.go:41", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 10, "target": "internal/daemon/ledger.go", "action": "Bash", "failure": "DATA RACE: write at ledger.go:88", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 11, "target": "internal/daemon/spool.go", "action": "Bash", "failure": "DATA RACE: read at spool.go:41", "progress": "none", "symbols": ["Bash", "test:fail"]}
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "g63-stale-and-uncertain",
+  "why": "G6.3 scenario 3. Two elimination records carry the Mandatory flag but no ACTIVE evidence: one is stale (a recorded dependency changed since capture), one is uncertain (observation coverage is incomplete). Neither may become an active constraint - so neither may force an overflow at any budget, including zero - and both must keep the qualification they arrived with wherever they are carried. Authored by role E after roles A-D landed; it was not used to tune the selector.",
+  "p": 3,
+  "lambda": 0.25,
+  "candidates": [
+    {
+      "item": "elimination:stale-pool-timeout",
+      "pos": 5,
+      "weight": 0.8,
+      "mandatory": true,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "ev-stale", "qualification": "stale"},
+        {"kind": "pointer", "coverage": 0.15, "assembledCost": 48, "root": "ev-stale", "qualification": "stale"}
+      ]
+    },
+    {
+      "item": "elimination:uncertain-retry-budget",
+      "pos": 6,
+      "weight": 0.8,
+      "mandatory": true,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "root": "ev-uncertain", "qualification": "uncertain"}
+      ]
+    },
+    {
+      "item": "file:src/a.go",
+      "pos": 7,
+      "weight": 0.6,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 80, "root": "ev-a", "qualification": "current"}
+      ]
+    }
+  ],
+  "regimes": [
+    {"name": "generous", "budget": 400, "expect": "all-carried"},
+    {"name": "tiny", "budget": 90, "expect": "partial"},
+    {"name": "mandatory-overflow", "budget": 0, "expect": "empty"}
+  ],
+  "mustCarryAtActiveEvidence": [],
+  "mustNeverBind": ["elimination:stale-pool-timeout", "elimination:uncertain-retry-budget"]
+}

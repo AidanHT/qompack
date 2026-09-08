@@ -1,0 +1,20 @@
+{
+  "name": "qualification-g63",
+  "why": "G6.3 in one instance. item:current-mand is an authoritative elimination and binds, so room is reserved for it and it is carried at a representation whose OWN provenance is current. item:stale-mand is marked Mandatory but every representation it has is stale, so it never binds, never forces an overflow and is simply not affordable here - it keeps its qualification instead of being promoted into an active constraint.",
+  "p": 100,
+  "lambda": 0.5,
+  "budget": 80,
+  "candidates": [
+    {"item": "item:current-mand", "pos": 100, "weight": 0.1, "mandatory": true, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 50, "root": "rcm", "qualification": "current"},
+      {"kind": "pointer", "coverage": 0.2, "assembledCost": 10, "root": "rcm", "qualification": "current"}
+    ]},
+    {"item": "item:rich", "pos": 101, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 60, "root": "rrich", "qualification": "current"}
+    ]},
+    {"item": "item:stale-mand", "pos": 102, "weight": 0.1, "mandatory": true, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 90, "root": "rstale", "qualification": "stale"}
+    ]}
+  ],
+  "optimum": 1.02
+}

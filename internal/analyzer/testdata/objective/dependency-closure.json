@@ -1,0 +1,24 @@
+{
+  "name": "dependency-closure",
+  "why": "item:dep is only deliverable together with item:base, which is itself a candidate and has two representations. It pins two rules at once: the closure is carried (feasibility rule 2), and a dependency is carried at its CHEAPEST deliverable representation because it is being carried for the dependent's sake. item:absent is required but is not a candidate, which contract 3 reads as already present in the prefix.",
+  "p": 100,
+  "lambda": 0.5,
+  "budget": 150,
+  "candidates": [
+    {"item": "item:base", "pos": 100, "weight": 0.2, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 60, "root": "rbase", "qualification": "current"},
+      {"kind": "pointer", "coverage": 0.25, "assembledCost": 10, "root": "rbase", "qualification": "current"}
+    ]},
+    {"item": "item:dep", "pos": 101, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 50, "root": "rdep", "qualification": "current",
+       "requires": ["item:base", "item:absent"]}
+    ]},
+    {"item": "item:extra", "pos": 102, "weight": 0.6, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 40, "root": "rextra", "qualification": "current"}
+    ]},
+    {"item": "item:other", "pos": 103, "weight": 1.5, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 80, "root": "rother", "qualification": "current"}
+    ]}
+  ],
+  "optimum": 2.55
+}

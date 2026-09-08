@@ -108,7 +108,13 @@ func stubRegistry() []stubPackage {
 			require.NoError(t, err)
 			return g
 		}, pureMethods: allMethodsAreReal},
-		{pkg: "grammar", build: func(*testing.T) any { return grammar.New() }},
+		// grammar's seam is REAL as of SP-15 (§5.11): New returns the live Sequitur induction, so
+		// Append folds symbols in for real and MarshalBinary/UnmarshalBinary go through the
+		// version-tagged codec instead of reporting ErrNotImplemented. What UnmarshalBinary
+		// reports instead is ErrDegraded for a payload it cannot read, which is the honest answer
+		// and not a stub's. It stays registered for the completeness check; dropping the marker
+		// would assert grammar is still a stub, which it is not.
+		{pkg: "grammar", build: func(*testing.T) any { return grammar.New() }, pureMethods: allMethodsAreReal},
 		// negknow's seam is REAL as of SP-09 (the elimination ledger: the three-way already_tried
 		// answer, the evidence-linked staleness flip, tried.bloom rebuilt from active records
 		// only), so none of its methods reports ErrNotImplemented any more — Get reports
@@ -124,7 +130,13 @@ func stubRegistry() []stubPackage {
 			t.Cleanup(func() { _ = l.Close() })
 			return l
 		}, pureMethods: allMethodsAreReal},
-		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }},
+		// analyzer's seam is REAL as of SP-15 (§5.12): Score is the cheap-tier proxy,
+		// DetectRedundancy the read-only scan, and Select the lazy-greedy walk, so none of them
+		// reports ErrNotImplemented any more. NewSelector still can — the closing-note-3
+		// ship-order gate is a REFUSAL TO CONSTRUCT, not a stub, and buildorder_test.go asserts it
+		// separately. It stays registered for the completeness check; dropping the marker would
+		// assert analyzer is still a stub, which it is not.
+		{pkg: "analyzer", build: func(*testing.T) any { return analyzer.NewCheapScorer(nil) }, pureMethods: allMethodsAreReal},
 		{pkg: "scheduler", build: func(*testing.T) any { return scheduler.NewBOCD(hazardRate, nil) }, pureMethods: allMethodsAreReal},
 		// checkpoint is the real L4 writer as of SP-10 (§8.5): Begin, Advance, Finalize and Abort
 		// all do their work, so no method reports ErrNotImplemented any more. What they report

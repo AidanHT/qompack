@@ -1,0 +1,18 @@
+{
+  "name": "dep-change-retest",
+  "label": "progress",
+  "why": "The same command against the same target ten times, which looks like thrashing on action frequency alone and is not: the constraint changes under it each round, so the failure signature differs every time and the state signature therefore never repeats. This is the stream contract section 5 names when it says changed constraints and different failure signatures must not be treated automatically as loops.",
+  "goal": "get the integration suite green after the store schema change",
+  "observations": [
+    {"turn": 0, "target": "test/integration", "action": "Bash", "failure": "store: schema 3 expected, found 2", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 1, "target": "test/integration", "action": "Bash", "failure": "store: migration 2 to 3 needs a write lock", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 2, "target": "test/integration", "action": "Bash", "failure": "store: index rebuild timed out", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 3, "target": "test/integration", "action": "Bash", "failure": "store: 4 orphaned chunks", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 4, "target": "test/integration", "action": "Bash", "failure": "store: gc did not reclaim", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 5, "target": "test/integration", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 6, "target": "test/integration", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 7, "target": "test/integration", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 8, "target": "test/integration", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 9, "target": "test/integration", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]}
+  ]
+}

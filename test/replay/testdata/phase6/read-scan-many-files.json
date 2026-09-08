@@ -1,0 +1,18 @@
+{
+  "name": "read-scan-many-files",
+  "label": "progress",
+  "why": "A read-only orientation sweep across ten files. Progress is honestly 'none' - reading changes no file, no environment and no failure signature - so a detector that keys on 'nothing changed' alone has nothing to lean on here, and only the fact that every TARGET differs separates this from thrashing. The symbol stream is Read ten times, which a grammar folds immediately.",
+  "goal": "understand how the store canonicalizes paths",
+  "observations": [
+    {"turn": 0, "target": "internal/store/store.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 1, "target": "internal/store/canonical.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 2, "target": "internal/store/search.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 3, "target": "internal/store/gcrun.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 4, "target": "internal/paths/layout.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 5, "target": "internal/paths/key.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 6, "target": "internal/sketch/hash.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 7, "target": "internal/sketch/minhash.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 8, "target": "internal/core/hash.go", "action": "Read", "failure": "", "progress": "none"},
+    {"turn": 9, "target": "internal/core/tokens.go", "action": "Read", "failure": "", "progress": "none"}
+  ]
+}

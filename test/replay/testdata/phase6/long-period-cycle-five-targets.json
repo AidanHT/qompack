@@ -1,0 +1,28 @@
+{
+  "name": "long-period-cycle-five-targets",
+  "label": "stuck",
+  "why": "The case the state signature is expected to MISS, included on purpose so the ablation has something to find. A five-file edit-and-test cycle is walked twice; each individual state therefore occurs only twice, under the shipped minRepeats of three, while the twenty-symbol action stream contains one ten-symbol block repeated verbatim. Progress is none because the second pass restores the same contents and reproduces the same five failures: nothing has changed since the previous occurrence of any of these states. If a grammar-based detector earns its place anywhere in this corpus, it is here.",
+  "goal": "make the five package suites green after the interface change",
+  "observations": [
+    {"turn": 0,  "target": "internal/analyzer/selector.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 1,  "target": "internal/analyzer", "action": "Bash", "failure": "cannot use greedySelector as Selector", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 2,  "target": "internal/daemon/select.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 3,  "target": "internal/daemon", "action": "Bash", "failure": "undefined: analyzer.Propose", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 4,  "target": "internal/rehydrate/selection.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 5,  "target": "internal/rehydrate", "action": "Bash", "failure": "import cycle: rehydrate -> analyzer", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 6,  "target": "internal/checkpoint/write.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 7,  "target": "internal/checkpoint", "action": "Bash", "failure": "checkpoint: selection is nil", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 8,  "target": "internal/config/runtime.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 9,  "target": "internal/config", "action": "Bash", "failure": "schema golden differs", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 10, "target": "internal/analyzer/selector.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 11, "target": "internal/analyzer", "action": "Bash", "failure": "cannot use greedySelector as Selector", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 12, "target": "internal/daemon/select.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 13, "target": "internal/daemon", "action": "Bash", "failure": "undefined: analyzer.Propose", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 14, "target": "internal/rehydrate/selection.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 15, "target": "internal/rehydrate", "action": "Bash", "failure": "import cycle: rehydrate -> analyzer", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 16, "target": "internal/checkpoint/write.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 17, "target": "internal/checkpoint", "action": "Bash", "failure": "checkpoint: selection is nil", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 18, "target": "internal/config/runtime.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 19, "target": "internal/config", "action": "Bash", "failure": "schema golden differs", "progress": "none", "symbols": ["Bash", "test:fail"]}
+  ]
+}
