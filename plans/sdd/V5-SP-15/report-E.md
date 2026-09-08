@@ -81,7 +81,7 @@ Fixture identity — `git hash-object`, so a fixture edited after the fact is de
 Corpus arm: `testdata/sessions/synthetic`, manifest blob `8249734db6e4d703ad429448e008c84aa5037ffc`,
 24 sessions — the same corpus `phase4_test.go` replays.
 
-| Gate row | Command (`go test ./test/replay/ -count=1 -v -run …`) | Expected | Actual | Result |
+| Gate row | Command (`go test ./test/replay/ -count=1 -v -run …`) | Expected | Actual | Result | <!-- runpatterns: the -run argument in this column header is a placeholder for the per-row test names below, not a command to verify -->
 |---|---|---|---|---|
 | M5-G15-A trials | `TestPhase5_HeldOutTrialOutcomes` | < 5 s | 0.08 s | PASS, 12 rows |
 | M5-G15-A G6.3 | `TestPhase5_G63DispositionsAreTheOnesTheContractNames` | < 5 s | 0.00 s, 3 subtests | PASS |
