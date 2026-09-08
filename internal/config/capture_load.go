@@ -160,11 +160,12 @@ func decodeCaptureConfig(raw []byte) ([]byte, map[string]any, bool) {
 	previous := byte(0)
 	for _, c := range stripped {
 		if quoted {
-			if escaped {
+			switch {
+			case escaped:
 				escaped = false
-			} else if c == '\\' {
+			case c == '\\':
 				escaped = true
-			} else if c == '"' {
+			case c == '"':
 				quoted = false
 			}
 		} else {

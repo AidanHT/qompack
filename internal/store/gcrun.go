@@ -292,7 +292,16 @@ var errRetentionRootsUnavailable = errors.New("qompack: gc retention roots unava
 // It is the narrow, long-standing view of markPass: the two sets the sweep and the tombstone phase
 // consume, and nothing else. The signature is unchanged from SP-06 deliberately - it is what
 // TestGC_TombstoneRetiresOnlyMarkTimeDead exercises the mark/tombstone window through.
-func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Time) (
+//
+// sessions is not dead: it is threaded straight into markPass, which consumes it through
+// recentSessionSet, and it selects the "whichever is longer" disjunction's session half (Qompack.md
+// 8.2). What unparam sees is that every current call site happens to pass -1, because the retention
+// evidence this seam carries is the day window and the mark/tombstone window rather than the
+// session window. Deleting the parameter for that would leave the wrapper strictly narrower than
+// the pass it wraps - the only mark path that cannot express a session window - and re-widening it
+// later would change the exact signature the GC suite's retention rows are written against
+// (T20-M1-07). So it stays, and the finding is suppressed on the one line that raises it.
+func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Time) ( //nolint:unparam // see the paragraph above: markPass consumes sessions; only the call sites fix it at -1.
 	liveChunks, liveRoots map[core.Hash]struct{}, deadRoots []core.Hash, truncated bool, err error,
 ) {
 	m, err := s.markPass(ctx, days, sessions, deadline)
