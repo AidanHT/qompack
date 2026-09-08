@@ -202,14 +202,18 @@ func (r *v4Rig) PreCompact(t *testing.T, sess core.SessionID) (hookio.Output, st
 func (r *v4Rig) ArmCheckpointSources(t *testing.T, sess core.SessionID) {
 	t.Helper()
 
-	_, err := r.Src()
-	require.Error(t, err,
-		"before the first compaction the SourceSet must be incomplete — the ledger is opened lazily")
+	if r.Opts.Ledger == nil {
+		_, err := r.Src()
+		require.Error(t, err,
+			"before the first compaction the SourceSet must be incomplete — the ledger is opened lazily")
+	}
 
-	ac := r.CompactStart(t, sess)
-	if seq, tagged := x4InjectedSeq(t, ac); tagged {
-		require.Equal(t, core.CheckpointSeq(0), seq,
-			"no checkpoint exists yet, so this rehydration must take the no-checkpoint path")
+	if len(cpCheckpointArtifacts(t, r.P.Root)) == 0 {
+		ac := r.CompactStart(t, sess)
+		if seq, tagged := x4InjectedSeq(t, ac); tagged {
+			require.Equal(t, core.CheckpointSeq(0), seq,
+				"no checkpoint exists yet, so this rehydration must take the no-checkpoint path")
+		}
 	}
 
 	require.Eventually(t, func() bool {

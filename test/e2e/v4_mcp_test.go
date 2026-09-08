@@ -147,3 +147,9 @@ func v4Project(t *testing.T) *testutil.Project {
 	t.Cleanup(func() { e2eShutdownIfReachable(t, p.Root) })
 	return p
 }
+
+// DropReporter returns the REAL rehydrate.Reporter over this rig's project — the same type the
+// daemon's rehydrate service writes its drop report through.
+func (r *v4Rig) DropReporter() rehydrate.Reporter {
+	return rehydrate.NewReporter(r.P.Root, r.P.Log)
+}
