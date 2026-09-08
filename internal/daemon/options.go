@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"sync"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -69,6 +70,71 @@ type Options struct {
 	// in registration order, to the Services it seeds from the fields above, before calling
 	// DeclareProducers.
 	binds []func(*Services)
+
+	// shutdown is the close list for resources the daemon's own WIRING opened. It is a POINTER on
+	// purpose: New copies Options by value, and every resource that matters here is opened LAZILY,
+	// long after that copy was taken -- OpenLedger fires on the first compaction, on a worker
+	// goroutine, with New already several seconds in the past. A slice would register onto a copy
+	// nothing reads. The pointer is shared, so a closer registered at any time before Stop reaches
+	// the daemon that must run it.
+	//
+	// It is nil in an Options no wiring has run over, and closeAll is nil-safe, so a bare
+	// Options{} literal stays valid.
+	shutdown *shutdownHooks
+}
+
+// shutdownHooks is the list of resources the daemon OWNS: the ones its own wiring opened, as
+// opposed to the ones a composition root opened and handed in on Options.
+//
+// The distinction is the whole point. A caller-supplied Store or Ledger belongs to the caller and
+// is closed by the caller; a handle the daemon's own lazy opener created has no other owner, and
+// before this list existed it had no close path at all except one defer in internal/cli's
+// runDaemon. Every other embedder of daemon.New -- the in-process e2e harnesses included -- leaked
+// it: Stop returned with an append handle still open on records/eliminations.jsonl, which on
+// Windows blocks the enclosing TempDir cleanup and on Linux leaks silently for the life of the
+// process.
+type shutdownHooks struct {
+	mu  sync.Mutex
+	fns []ownedResource
+}
+
+// ownedResource is one closer plus the name Stop reports it under.
+type ownedResource struct {
+	name  string
+	close func() error
+}
+
+// add appends one closer. It is safe to call from any goroutine, because the openers that call it
+// are themselves reachable from the daemon's worker pool.
+func (h *shutdownHooks) add(name string, closeFn func() error) {
+	if h == nil || closeFn == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.fns = append(h.fns, ownedResource{name: name, close: closeFn})
+}
+
+// closeAll runs every registered closer once, in registration order, and empties the list so a
+// second Stop -- or a composition root's own belt-and-braces defer -- does no work. A failure is a
+// Warn: shutdown continues, because the steps after it (state.bin removal, the lock release) are
+// what let the NEXT daemon start.
+func (h *shutdownHooks) closeAll(log logging.Logger) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	fns := h.fns
+	h.fns = nil
+	h.mu.Unlock()
+	if log == nil {
+		log = logging.Nop()
+	}
+	for _, r := range fns {
+		if err := r.close(); err != nil {
+			log.Warn("daemon: stop: closing "+r.name, "err", err.Error())
+		}
+	}
 }
 
 // NewOptions returns an Options with every non-service field defaulted: a no-op logger, a fresh
@@ -112,6 +178,32 @@ func (o *Options) Ops() []ipc.Op {
 		ops = append(ops, op)
 	}
 	return ops
+}
+
+// OnStop registers closeFn as the shutdown path for a resource this Options' own wiring opened,
+// naming it for the log line a failure produces. Stop runs every registration once, in order,
+// after the server has closed -- so no request handler can still be using the resource -- and
+// before the lock is released.
+//
+// It is for resources the DAEMON opened. A handle a composition root opened and assigned onto
+// Options belongs to that root and must not be registered here: closing it twice is harmless
+// (every Close in this tree is idempotent) but closing it at Stop when its owner expects it to
+// outlive the daemon is not.
+func (o *Options) OnStop(name string, closeFn func() error) {
+	o.ownedResources().add(name, closeFn)
+}
+
+// ownedResources returns the shared close list, creating it on first use.
+//
+// It must be called at WIRING time by anything that will later register a closer, so that the list
+// exists before New copies Options and both halves end up holding the same pointer. It is not safe
+// for concurrent first use, which is exactly why the lazy openers call it up front rather than
+// from inside their own sync.Once.
+func (o *Options) ownedResources() *shutdownHooks {
+	if o.shutdown == nil {
+		o.shutdown = &shutdownHooks{}
+	}
+	return o.shutdown
 }
 
 // Bind registers fn to run once, in registration order, at daemon construction, against the

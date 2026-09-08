@@ -125,9 +125,11 @@ func runDaemon(ctx context.Context, env Env, args []string, out, errw io.Writer)
 			}
 		}
 		// The ledger the rehydrator opens on its FIRST compaction holds an append handle on
-		// records/eliminations.jsonl and is released on exactly the same terms as the store above.
-		// It is assigned back onto Options by WireRehydrator's opener, so this field is nil in a
-		// daemon that never compacted and there is nothing to close.
+		// records/eliminations.jsonl. Its owner is the DAEMON -- WireRehydrator's opener registers
+		// it on Options.OnStop and daemon.Stop closes it, so every embedder of daemon.New gets the
+		// release and not just this one composition root. This defer is the backstop for the one
+		// path Stop cannot cover: a daemon.New that FAILED, after wiring had already run. Close is
+		// idempotent and the hook list empties itself, so on the ordinary path this is a no-op.
 		if opts.Ledger != nil {
 			if closeErr := opts.Ledger.Close(); closeErr != nil {
 				opts.Log.Warn("daemon: closing the negative-knowledge ledger", "err", closeErr.Error())

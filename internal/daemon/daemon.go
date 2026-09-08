@@ -210,6 +210,11 @@ type daemon struct {
 	// before the rest of Stop's cleanup has run (shutdown-race fix: a metrics.Persist call still
 	// in flight after Run returned raced a test's own TempDir cleanup on .qompack/tmp/).
 	stopDone chan struct{}
+
+	// owned is the close list for the resources this daemon's own wiring opened -- today the one
+	// lazily-opened negative-knowledge ledger. Stop runs it; see shutdownHooks for why the daemon,
+	// and not the composition root, is the owner.
+	owned *shutdownHooks
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -267,6 +272,10 @@ func New(o Options) (Daemon, error) {
 		firstServed: make(chan struct{}),
 		stopped:     make(chan struct{}),
 		stopDone:    make(chan struct{}),
+		// The POINTER, so a closer registered after this copy was taken -- which is every one of
+		// them, since the resources it covers are opened lazily on the worker pool -- still
+		// reaches Stop. A nil here is an Options no wiring ran over, and closeAll is nil-safe.
+		owned: o.shutdown,
 	}
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
@@ -872,6 +881,15 @@ func (d *daemon) Stop(ctx context.Context) error {
 				stopErr = err
 			}
 		}
+
+		// AFTER the server close and BEFORE the lock release, and both halves of that are load-
+		// bearing. Server.Close is what joins the in-flight connection handlers, and a PreCompact
+		// still running on one of them is reading the very ledger this list closes -- so anywhere
+		// earlier closes a handle out from under a live request. The lock release is what every
+		// waiter in the tree treats as "the daemon has finished" (test/guards' write-set row, the
+		// e2e shutdown helper), so a resource still open past it is a resource that outlived the
+		// daemon by that definition.
+		d.owned.closeAll(d.log)
 
 		if lk := d.currentLock(); lk != nil {
 			if err := lk.Release(); err != nil && stopErr == nil {

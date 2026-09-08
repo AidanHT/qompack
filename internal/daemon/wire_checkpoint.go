@@ -14,7 +14,6 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
-	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/store"
 )
@@ -206,13 +205,22 @@ func BindCheckpoint(o *Options, cfg config.Config, w *checkpoint.FileWriter, src
 //
 // Two things happen here, in this order:
 //
-//  1. The ONE lazy open is triggered, through Options.OpenLedger. This is not a second open and
-//     not an eager one: it is the SAME memoized accessor the rehydration uses, called by the half
-//     of the compaction that reaches it first. A daemon that never compacts never runs this seam,
-//     so sketches/tried.bloom is still created only by a project that actually compacted.
-//  2. The supplier is re-resolved and republished. The resolved ledger is folded in directly
-//     rather than left to be read back off Options, so the set the writer gets is complete on the
-//     value this call just obtained.
+//  1. The supplier is re-resolved and republished, so the set is the one that is true NOW rather
+//     than the one wiring happened to hold.
+//  2. ONLY if that set still has no ledger is the one lazy open triggered, through
+//     Options.OpenLedger, and its handle folded in directly rather than left to be read back off
+//     Options. This is not a second open and not an eager one: it is the SAME memoized accessor
+//     the rehydration uses, called by the half of the compaction that reaches it first. A daemon
+//     that never compacts never runs this seam, so sketches/tried.bloom is still created only by
+//     a project that actually compacted.
+//
+// The ORDER of those two is not cosmetic. Opening first meant opening unconditionally, and a
+// caller whose supplier already resolves a live ledger -- an embedder that opened one itself and
+// wired it onto both Options and the SourceSet -- then had a SECOND negknow.Open run on the same
+// project root at its first PreCompact: two append handles on one records/eliminations.jsonl, two
+// owners of one sketches/tried.bloom, and one of the two closed by nobody. Resolving first asks
+// whether the open is needed before paying for it, which is the question the accessor's own
+// laziness exists to ask.
 //
 // An unresolvable supplier leaves the writer holding whatever it already had — a wiring-time set
 // is still better than none — and says so. It is Warn, not Loud: PreCompact's own failure path
@@ -224,17 +232,13 @@ func armSources(o *Options, w *checkpoint.FileWriter,
 	if w == nil || resolve == nil {
 		return
 	}
-	var led negknow.Ledger
-	if o != nil && o.OpenLedger != nil {
-		led = o.OpenLedger()
-	}
 	live, err := resolve()
-	if err != nil && live.Ledger == nil && led == nil {
+	if live.Ledger == nil && o != nil && o.OpenLedger != nil {
+		live.Ledger = o.OpenLedger()
+	}
+	if err != nil && live.Ledger == nil {
 		log.Warn(msgSourcesUnavailable, "err", err.Error())
 		return
-	}
-	if live.Ledger == nil {
-		live.Ledger = led
 	}
 	if setErr := w.SetSources(live); setErr != nil && err != nil {
 		log.Warn(msgSourcesUnavailable, "err", err.Error())

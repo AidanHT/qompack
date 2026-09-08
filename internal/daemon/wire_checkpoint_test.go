@@ -739,3 +739,92 @@ func TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened(t *testing.T) {
 	require.Nil(t, out.HookSpecificOutput, "nothing was sealed, so there is nothing to instruct with")
 	require.Equal(t, 1, opens)
 }
+
+// TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve is the ownership half of the
+// first-PreCompact fix: arming must ask whether the lazy open is NEEDED before it triggers it.
+//
+// armSources originally called Options.OpenLedger unconditionally, before it had even looked at
+// what the supplier answers. That is invisible on the production path — internal/cli's supplier
+// resolves to a nil ledger until something opens one, so the open was always needed — and wrong
+// everywhere else: an embedder that opens a ledger itself and wires it onto BOTH Options and the
+// SourceSet (which is exactly what test/e2e's SP-10 harness does) got a SECOND negknow.Open on the
+// same project root at its first PreCompact. Two append handles on one records/eliminations.jsonl
+// is the corruption class a second store.Open is, and the second one had no owner at all: the
+// caller closes the handle it made, and nothing closed the one arming had made behind its back.
+func TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	opens := 0
+	o := &Options{ProjectRoot: f.root, Cfg: f.cfg, Log: logging.Nop(), Clock: f.clk}
+	// A real accessor, wired exactly as WireRehydrator wires it. It must simply never be reached.
+	o.OpenLedger = func() negknow.Ledger { opens++; return f.src.Ledger }
+	o.Ledger = f.src.Ledger
+
+	// The supplier the harness shape produces: complete at wiring time, ledger handle included.
+	sources := func() (checkpoint.SourceSet, error) { return f.src, nil }
+	require.NoError(t, f.src.Validate(), "fixture sanity: this set is complete")
+
+	BindCheckpoint(o, f.cfg, f.w, f.src, WithSourceSupplier(sources))
+	var s Services
+	for _, bind := range o.binds {
+		bind(&s)
+	}
+	require.NotNil(t, s.PreCompact)
+
+	out, err := s.PreCompact(f.ctx(), hookio.Event{
+		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
+	})
+	require.NoError(t, err, "a fully-wired caller must still seal")
+	require.NotNil(t, out.HookSpecificOutput)
+	require.Zero(t, opens,
+		"the sources already carry a ledger, so the lazy open is not needed and must not be paid for: "+
+			"a second negknow.Open on one project root is two appenders on one eliminations.jsonl")
+}
+
+// TestStopClosesTheLedgerTheDaemonOpened pins the OWNERSHIP of the one lazily-opened negative-
+// knowledge ledger: it belongs to the daemon that opened it, and it does not outlive that daemon.
+//
+// It is a regression row for a real leak. WireRehydrator's opener is the single production
+// negknow.Open call site, and the handle it creates is known to nothing else in the process until
+// it assigns it onto Options. Its only close path used to be one deferred call in internal/cli's
+// runDaemon — so every OTHER embedder of daemon.New leaked it, and Stop could return with an
+// append handle still open on records/eliminations.jsonl. On Windows that blocks the enclosing
+// TempDir's RemoveAll (which is how it was found); on Linux it leaks in silence, which is worse.
+//
+// Both halves of "does not outlive" are asserted, because they fail differently: the ledger itself
+// reports closed (portable), and the file can be unlinked (the platform-visible proof that no
+// handle remains). The laziness the whole seam exists to protect is asserted on the way through —
+// wiring alone must create nothing.
+func TestStopClosesTheLedgerTheDaemonOpened(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "project")
+	require.NoError(t, os.MkdirAll(paths.Long(root), 0o700))
+
+	o := NewOptions(root, testConfig())
+	o.Clock = newFakeClock(epoch)
+	o.Log = logging.Nop()
+
+	WireRehydrator(&o)
+	require.NotNil(t, o.OpenLedger, "WireRehydrator publishes the lazy opener")
+
+	elim := filepath.Join(paths.Of(root).Records, "eliminations.jsonl")
+	require.NoFileExists(t, paths.Long(elim),
+		"wiring must open NOTHING: a daemon that never compacts creates neither this file nor tried.bloom")
+
+	// The one lazy open, triggered the way a first compaction triggers it.
+	led := o.OpenLedger()
+	require.NotNil(t, led, "the accessor must answer with the handle it opened")
+	require.FileExists(t, paths.Long(elim))
+
+	d, err := New(o)
+	require.NoError(t, err)
+	require.NoError(t, d.Stop(context.Background()))
+
+	_, recErr := led.Record(context.Background(), negknow.Record{})
+	require.ErrorIs(t, recErr, os.ErrClosed,
+		"Stop must have closed the ledger its own wiring opened; a ledger still accepting appends "+
+			"after the daemon that owns it has stopped is a handle with no owner left")
+	require.NoError(t, os.Remove(paths.Long(elim)),
+		"and the OS must agree: an unremovable eliminations.jsonl is an append handle outliving the daemon")
+}
