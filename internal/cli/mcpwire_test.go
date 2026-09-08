@@ -3,10 +3,12 @@ package cli
 import (
 	"encoding/json"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/logging"
@@ -149,4 +151,72 @@ func TestNewRetrievalRedactorIsIdempotent(t *testing.T) {
 	twice, again := r.Redact(once)
 	require.Equal(t, string(once), string(twice), "a second pass over redacted bytes must change nothing")
 	require.Empty(t, again, "and must report no new matches")
+}
+
+// TestLedgerAccessorsAreSafeAgainstTheLazyOpen is the concurrency half of the seam above, and it
+// is written to be run under -race: it is the reviewer's failing input, executed.
+//
+// The daemon serves one goroutine per connection (ipc.Server), so goroutine A can be handling a
+// PreCompact — which reaches the lazy opener and PUBLISHES the ledger handle — while goroutine B
+// is handling an `mcp` op and READING that handle through liveLedger, and a third is running the
+// scheduler's rebuild_bloom idle task through the same shape. The publication used to be a plain
+// `o.Ledger = l` under a sync.Once, and sync.Once establishes happens-before only for goroutines
+// that call Do: a plain field read elsewhere has no edge to it. That is a data race on a two-word
+// interface value — a CI failure under the detector, and without it a non-nil interface over a nil
+// data pointer that faults inside the ledger call.
+//
+// The three reader shapes here are the production ones: liveLedger (every MCP tool call),
+// wireScheduler's LedgerFn, and wireCheckpointSources' SourceSet supplier.
+func TestLedgerAccessorsAreSafeAgainstTheLazyOpen(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := config.Defaults()
+	cfg.Eliminations.RequireEvidence = false
+	opts := daemon.NewOptions(root, cfg)
+	opts.Log = logging.Nop()
+	opts.Clock = testClock()
+
+	_ = daemon.WireRehydrator(&opts) // installs the one-shot opener, opens nothing yet
+	require.NotNil(t, opts.OpenLedger, "the lazy opener is the seam under test")
+	require.Nil(t, opts.LedgerHandle(), "wiring must not open a ledger")
+	t.Cleanup(func() {
+		if l := opts.LedgerHandle(); l != nil {
+			_ = l.Close()
+		}
+	})
+
+	live := liveLedger(&opts)
+	readers := []func() negknow.Ledger{
+		live,
+		opts.LedgerHandle,
+		func() negknow.Ledger { return checkpoint.SourceSet{LedgerFn: live}.LedgerFn() },
+	}
+
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for _, read := range readers {
+		for range 4 {
+			wg.Add(1)
+			go func(read func() negknow.Ledger) {
+				defer wg.Done()
+				<-start
+				for range 200 {
+					_ = read()
+				}
+			}(read)
+		}
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-start
+		opts.OpenLedger()
+	}()
+	close(start)
+	wg.Wait()
+
+	require.NotNil(t, opts.LedgerHandle(),
+		"the open must actually have happened, or the readers raced against nothing")
+	require.NotNil(t, live(), "and every accessor must see the published handle")
 }
