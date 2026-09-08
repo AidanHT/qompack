@@ -1,0 +1,19 @@
+package auth
+
+// Session is the server-side half of a signed-in user.
+type Session struct {
+	ID       string
+	UserID   string
+	Expires  int64
+	Rotated  int64
+}
+
+// Valid reports whether s has not expired at unix second now.
+func (s Session) Valid(now int64) bool {
+	return s.Expires > now
+}
+
+// NeedsRotation reports whether s is older than the rotation window.
+func (s Session) NeedsRotation(now, window int64) bool {
+	return now-s.Rotated >= window
+}

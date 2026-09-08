@@ -14,6 +14,19 @@
 // the deliberate exception: its two constructor guards are IMPLEMENTED, not stubbed (§14.1 rule 3
 // of plans/V1-SP-01-foundation-toolchain-and-contracts.md), because they are structural.
 //
+// SP-15 lands all three: Score is the cheap-tier proxy, DetectRedundancy the read-only scan, and
+// Select the lazy-greedy walk. It also adds representation selection — Candidate, Representation,
+// Proposal and Propose — over the same guards.
+//
+// Read the qualifications in those doc comments as part of the contract, not as hedging. Δ-scores
+// are a behaviour proxy over observed continuations, not an unbiased divergence estimate and not a
+// correctness label. Near-duplicates are MinHash CANDIDATES pending exact verification;
+// supersession is the only exact claim here. The objective is a declared saturating coverage
+// function and carries NO approximation bound — redundancy subtraction does not preserve
+// monotonicity, and testdata/objective holds a fixture where adding an element lowers the
+// objective. Overstating any of these is how a measurement turns into a guarantee nobody checked,
+// so the wording is load-bearing.
+//
 // The first guard is §13 invariant 4: nothing scattered before p. A block whose Pos precedes the
 // compaction point cannot be selected, and NewSelector filters the candidate set in the
 // constructor so that it is not merely forbidden but impossible — there is no code path from a

@@ -1,0 +1,17 @@
+{
+  "fixture": "minhash-similarity-is-not-equivalence",
+  "gate": "M5-G15-B",
+  "owner": "SP-15 role C",
+  "origin": "Authored by hand for SP-15. NOT captured from a session, NOT derived from any benchmark corpus, and not a renamed copy of an older fixture. Nothing here carries a provenance label from elsewhere that this file would be overwriting.",
+  "signal_under_test": "MinHash Jaccard near-duplicate detection (00-ARCHITECTURE.md 8.1 item 1, internal/sketch/minhash.go)",
+  "files": {
+    "tlsclient_permissive.txt": "an outbound HTTP client that skips TLS verification",
+    "tlsclient_hardened.txt": "byte-identical except that the same constant is false"
+  },
+  "difference": "one token on line 13: AllowUnverifiedTLS = true vs false",
+  "what_it_demonstrates": "The pair sits far above the shipped nearDupThreshold of 0.9 and the two documents are not equivalent: one disables certificate verification for every outbound call and the other does not. Similarity is a statement about shingle overlap, not about meaning, and the token that differs is the only one that matters.",
+  "qualified_claim_this_supports": "analyzer.DetectRedundancy reports NearDups as candidates pending exact verification. Similarity establishes neither equivalence nor an exact delta.",
+  "over_claim_this_prevents": "Treating a NearDups entry as proof that two results are the same, and therefore dropping, rewriting or delta-encoding one against the other. On this pair that would silently substitute the permissive client for the hardened one, or the reverse.",
+  "how_to_verify_exactly": "Compare the two content roots. They differ. Root equality is exact and cheap; the sketch is neither.",
+  "asserted_by": "internal/analyzer/redundancy_test.go — TestDetectRedundancy_NearDuplicatesAreCandidatesNotEquivalence"
+}

@@ -1,0 +1,20 @@
+{
+  "name": "refactor-rename-sweep",
+  "label": "progress",
+  "why": "A mechanical rename applied across six files, each edit verified by a build. Every target differs and every edit changes a file, so this is ordinary work; the symbol stream is (Edit, Bash) six times.",
+  "goal": "rename Selector.Pick to Selector.Select across the tree",
+  "observations": [
+    {"turn": 0,  "target": "internal/analyzer/selector.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 1,  "target": "internal/analyzer", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 2,  "target": "internal/daemon/select.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 3,  "target": "internal/daemon", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 4,  "target": "internal/rehydrate/items.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 5,  "target": "internal/rehydrate", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 6,  "target": "internal/checkpoint/write.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 7,  "target": "internal/checkpoint", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 8,  "target": "internal/mcp/tools.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 9,  "target": "internal/mcp", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 10, "target": "internal/cli/select.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 11, "target": "internal/cli", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]}
+  ]
+}

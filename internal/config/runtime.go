@@ -174,9 +174,17 @@ type BudgetsCfg struct {
 }
 
 // RSelectionCfg carries the closing-note-3 ship-order gate: submodular selection must not ship
-// before p-selection. Load derives config.SelectionCfg.Submodular.Enabled from this field.
+// before p-selection. Load derives config.SelectionCfg.Submodular.Enabled from SubmodularEnabled.
+//
+// LoopWarningsEnabled is SP-15's second, INDEPENDENT switch (plans/sdd/V5-SP-15/contract.md §7).
+// The two gate different things and share only this struct: selection decides what a rehydration
+// carries, and a bad selection costs tokens; loop warnings decide whether the session is told it
+// may be going in circles, and a bad warning costs the user's trust in every later warning. They
+// have to be disableable one at a time, because the rollback for one is not the rollback for the
+// other. Both default false, so the shipped default is exactly the pre-SP-15 behaviour.
 type RSelectionCfg struct {
-	SubmodularEnabled bool `json:"submodularEnabled" doc:"ship-order gate: enable submodular selection; refused without p-selection (closing-note-3)" sec:"Closing note"`
+	SubmodularEnabled   bool `json:"submodularEnabled"   doc:"ship-order gate: enable submodular selection; refused without p-selection (closing-note-3)" sec:"Closing note"`
+	LoopWarningsEnabled bool `json:"loopWarningsEnabled" doc:"enable state-aware loop warnings; warning-only, bounded and deduplicated when on"          sec:"00-ARCH §5.11"`
 }
 
 // RTokensCfg carries the baseline token-estimator constants (G10.2 groundwork; internal/tokens

@@ -1,0 +1,22 @@
+{
+  "name": "redundancy-nonmonotone",
+  "why": "Three items, two of which derive from ONE original evidence root, with lambda above the items' weights. F is therefore not monotone: F({item:b}) = 1.0 but F({item:a,item:b}) = 2.0 - 1.2 = 0.8, so adding a set element LOWERS the objective. This is the counterexample behind contract 3's refusal to claim a (1-1/e) bound, and the instance where the heuristic's measured ratio is worst.",
+  "p": 100,
+  "lambda": 1.2,
+  "budget": 120,
+  "candidates": [
+    {"item": "item:a", "pos": 100, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 60, "root": "shared", "qualification": "current"}
+    ]},
+    {"item": "item:b", "pos": 101, "weight": 1.0, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 40, "root": "shared", "qualification": "current"}
+    ]},
+    {"item": "item:c", "pos": 102, "weight": 0.55, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 40, "root": "s", "qualification": "current"}
+    ]},
+    {"item": "item:d", "pos": 103, "weight": 0.55, "reps": [
+      {"kind": "exact_span", "coverage": 1.0, "assembledCost": 40, "root": "t", "qualification": "current"}
+    ]}
+  ],
+  "optimum": 2.1
+}

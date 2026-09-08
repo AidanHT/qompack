@@ -1,0 +1,18 @@
+{
+  "name": "unknown-coverage-exploration",
+  "label": "progress",
+  "why": "A grep-driven exploration in a session whose file observation coverage is missing, so progress is unknown rather than observed. It is the stream that separates nothing-changed from nobody-was-watching: a detector allowed to treat unknown coverage as stasis reports this as a loop, and a detector keyed on the state signature stays silent because every search target differs.",
+  "goal": "find every caller of scheduler.Evaluate",
+  "observations": [
+    {"turn": 0, "target": "internal/scheduler", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 1, "target": "internal/daemon", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 2, "target": "internal/checkpoint", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 3, "target": "internal/observer", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 4, "target": "test/replay", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 5, "target": "test/integration", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 6, "target": "tools/devtool", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 7, "target": "internal/eval", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 8, "target": "internal/cli", "action": "Grep", "failure": "", "progress": "unknown"},
+    {"turn": 9, "target": "internal/mcp", "action": "Grep", "failure": "", "progress": "unknown"}
+  ]
+}

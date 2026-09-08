@@ -1,0 +1,6 @@
+## 1.0.3 — documentation
+
+Corrected the spelling of "occurred" in the 2019 upgrade notice. No
+behaviour changed and no artifact was rebuilt; this entry exists only
+so the numbering of the historical section stays contiguous with the
+tags that were actually published.

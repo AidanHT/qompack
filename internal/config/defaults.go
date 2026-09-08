@@ -169,7 +169,8 @@ func Defaults() Config {
 				HookDegradedMs:       1000,
 			},
 			Selection: RSelectionCfg{
-				SubmodularEnabled: false,
+				SubmodularEnabled:   false,
+				LoopWarningsEnabled: false,
 			},
 			Tokens: RTokensCfg{
 				ProseCharsPerToken:  4.0,
