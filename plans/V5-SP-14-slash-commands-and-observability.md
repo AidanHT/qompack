@@ -119,19 +119,56 @@ Eight future commits retain original numbering and areas. Each includes meaningf
 
 ## Subagent strategy
 
-Retain the original mostly sequential implementation approach. Main SP14 owner edits `internal/commands`, shared manifest/CLI/status integration and generator. One optional future fixture reviewer owns only proposed `*_test.go` and `testdata/golden/commands/**` after exact file assignment; no competing source writer. Independent cost/measurement reviewer checks missing usage and source attribution. Proposed future worktree `../qompack-sp14`, branch above, no creation here. Shared status/CLI changes integrate after SP15/SP16 and the architecture pre-step.
+Wave 4 runs at maximum parallelism. The seven command frontends and the status surface are authored concurrently; there is no single sequential frontend owner. Every role below owns whole named files, not packages. **Two roles never own the same file.** A role that needs a file it does not own returns a handoff to main and does not edit it. Absent names are proposed files, not assertions of missing sibling work. Proposed future worktree `../qompack-sp14`, branch above; no creation here.
+
+| Future role | Exclusive ownership | Commits |
+|---|---|---|
+| Main — envelope, dispatch, integration | `internal/commands/commands.go` and its contract tests; shared CLI/status routes; final acceptance | 1, 7 |
+| Status observation owner | `internal/commands/statuscollect.go` and test; the SP14-owned status.full extension | 2 |
+| Shared rendering owner | `internal/commands/render.go`, `render_test.go`, `testdata/golden/commands/status/**` | 3 |
+| Retrieval frontends — `recall`, `why`, `dropped` | `cmd_recall.go`, `cmd_why.go`, `cmd_dropped.go` with their tests and goldens | 4 |
+| Action frontends — `pin`, `checkpoint` | `cmd_pin.go`, `cmd_checkpoint.go` with their tests and goldens | 5 |
+| Evidence/cost frontend — `eval` | `cmd_eval.go` with its test and eval fixtures | 6 |
+| Manifest and generator owner | `internal/pluginmanifest/manifest.go`, its tests/goldens, the proposed commands-doc generator and staleness entrypoint | 1, 8 |
+| Artifact inventory seat | No source files; returns golden/command coverage inventory to main | — |
+| Independent measurement reviewer | Read-only; owns no file | — |
+
+**Batching.** `recall`, `why` and `dropped` share the SP13 authorization, history and unavailable/fidelity/coverage envelope, so one owner keeps those distinctions consistent. `pin` and `checkpoint` share authority-aware records and the local no-native-action rule. `eval` is independent because it separates task/constraint/recovery gates from cost. `status` is its own surface, split into observation and rendering because collection and uncertainty presentation are separately testable. The command contract, help/schema/exit semantics and the render signatures are published in the dispatch brief before authoring, so frontends author against a fixed contract instead of waiting on it.
+
+**Handoff edges.** These are the only serial edges; everything else runs concurrently.
+
+| Edge | Waits on | Blocks only |
+|---|---|---|
+| H1 selection wiring | SP-15 handoff | The slice wiring `/qompack:status` to SP-15 selection |
+| H2 reuse wiring | SP-16 handoff | The slice wiring `/qompack:status` to SP-16 reuse |
+| H3 checkpoint route | `arch/checkpoint-now-subcommand` pre-step | Changed checkpoint CLI routing; not its frontend or tests |
+| H4 integration and verification | All authoring seats returned | Commit 7 shared routes and commit 8 artifacts; main only |
+
+Command frontends and their tests are authored concurrently now; only the H1/H2 status slices wait on those handoffs, and parallel fixtures still cannot bypass that sequence.
+
+`internal/daemon/handlers.go` is shared with SP-15's daemon integration. It must be assigned to exactly one plan's owner at dispatch time and the assignment recorded; the two plans must not both edit it. Generated config documentation follows SP-14/SP-18 ownership in the later integration session.
+
+Authoring is not gated on V4, but SP-14 cannot be **enabled** until the V4 gate closes. Author now; enable after.
 
 ### Future model and effort assignments
 
-Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). This is future implementation delegation only; retain the planning-owner record and all existing file ownership. Keep the main commands implementation sequential. Use at most one optional worker plus one independent reviewer; they count toward the global three-child cap.
+Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). This is future implementation delegation only; retain the planning-owner record and all existing file ownership.
 
 | Existing role / bounded task | Requested model and effort | Reason and handoff |
 |---|---|---|
-| Fixture/test helper | Opus 4.8 / high | Specify command/envelope, exit-status and missing-usage cases in the already-assigned test files; no competing command implementation |
-| Same helper, artifact inventory only | Opus 4.8 / medium | Collate known golden/command coverage after semantics are agreed; return ambiguity to main |
-| Independent measurement reviewer | Opus 4.8 / high | Trace displayed values to reported/estimated/unknown sources; Fable 5.1 / high only for an unresolved authority, accounting or cross-component contradiction |
+| Main — envelope, dispatch, integration | Opus 5 / high | Multi-file judgment across command contract, shared routes and acceptance |
+| Status observation owner | Opus 5 / high | Multi-file judgment: daemon/disk parity, unavailable rows, original OpStatus isolation |
+| Shared rendering owner | Opus 5 / high | Multi-file judgment: deterministic text/JSON parity and uncertainty presentation across all seven names |
+| Manifest and generator owner | Opus 5 / high | Multi-file judgment across manifest specs, goldens and generated help |
+| Retrieval frontends (`recall`, `why`, `dropped`) | Opus 4.8 / high | Bounded slice reusing SP13 handlers; hands off any render change |
+| Action frontends (`pin`, `checkpoint`) | Opus 4.8 / high | Bounded slice; only its changed routing waits on H3 |
+| Evidence/cost frontend (`eval`) | Opus 4.8 / high | Bounded single-command slice; no new pricing logic |
+| Fixture/test helper, artifact inventory only | Opus 5 / low | Mechanical collation of known golden/command coverage after semantics are agreed; returns ambiguity to main |
+| Independent measurement reviewer | Fable 5.1 / high | Traces displayed values to reported/estimated/unknown sources; runs after the relevant command/status slice exists |
 
-Main can retain the helper's work when it is too small to justify a child. Run the reviewer after the relevant command/status slice exists. SP-15/SP-16 handoffs still precede shared frontend integration; parallel fixtures cannot bypass that sequence. Do not spawn a separate expensive agent merely to execute a known command.
+**Dispatch contract.** Each unit receives exclusive file ownership, a written brief, and returns report-to-file with a short structured summary: files touched, commands run with their actually selected cases, and blockers. Each unit carries a per-unit tool-call budget and stops with a BLOCKED report after three identical failures instead of retrying. Do not use `git stash`; the stash list is shared across every worktree of one repository. Confirm any `go test -run` filter actually selects cases — it prints `ok` when it matches nothing, which produced three real misdiagnoses in the preceding session.
+
+Main can retain a seat's work when it is too small to justify a child. Do not spawn a separate expensive agent merely to execute a known command.
 
 ## Exit criteria
 
