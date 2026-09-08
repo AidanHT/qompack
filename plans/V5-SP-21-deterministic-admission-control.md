@@ -194,31 +194,31 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 
 All criteria are future and unchecked.
 
-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
-- [ ] Parallel handoffs record accepted inputs, unique file/resource ownership and the shared SP-14–21 worker pool; provisional checks remain distinct from final M4 acceptance.
-- [ ] M1–M3 and target/privacy prerequisites are complete.
-- [ ] Default-off switch, already-processed envelope bypass, and exact parser/version allowlist are proven.
-- [ ] Every replacement follows capture, verification, one selection, resolvable handle, one transform.
-- [ ] Failure passes through except documented privacy denial.
-- [ ] Fidelity and self-contained-capsule-before-delta tests pass.
-- [ ] Competing-hook and rollback evidence pass before enablement.
-- [ ] T21-QUALITY-01 shows retained task completion, constraints and recoverability against unmodified output; a cost-only result does not enable admission.
-- [ ] Every X08 scenario has a real check and artifact, or an explicitly accepted blocked/disabled disposition that keeps the allowlist empty.
+- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass. See [Implementation evidence](#implementation-evidence-2026-09-08); one timed-out `stubskips` run is recorded there as a timeout and not as a pass.
+- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence. **Not applicable as executed and therefore unchecked:** no subagents ran. The A–D role split was not used; one implementer authored all six commits serially. The independent host/recovery review has not run and remains open.
+- [ ] Parallel handoffs record accepted inputs, unique file/resource ownership and the shared SP-14–21 worker pool; provisional checks remain distinct from final M4 acceptance. **Unchecked:** no parallel handoff occurred. File-set disjointness against the three concurrently developed siblings was verified instead, per the evidence section.
+- [ ] M1–M3 and target/privacy prerequisites are complete. **Unchecked:** M1–M3 are delivered and focus-tested, but the target prerequisite is not complete — B01 keeps installed host versions and permissions unverified.
+- [x] Default-off switch, already-processed envelope bypass, and exact parser/version allowlist are proven. T21-SWITCH-01, T21-RECURSE-01 and the exactness half of T21-HOST-01; the allowlist is proven empty rather than proven populated.
+- [x] Every replacement follows capture, verification, one selection, resolvable handle, one transform. The sequence and every refusal in it are tested; the transform itself is not performed by this package and no caller may act on `OutcomeTransform`, because the switch is refused.
+- [x] Failure passes through except documented privacy denial. Every stage failure and both non-denial policy outcomes are covered.
+- [x] Fidelity and self-contained-capsule-before-delta tests pass. T21-FIDELITY-01 and T21-BASELINE-01.
+- [ ] Competing-hook and rollback evidence pass before enablement. **Half unchecked:** rollback evidence passes (T21-ROLLBACK-01). Competing-hook evidence is the explicitly accepted unverified disposition this plan permits, not an installed-host canary transcript, so it does not support enablement.
+- [ ] T21-QUALITY-01 shows retained task completion, constraints and recoverability against unmodified output; a cost-only result does not enable admission. **Unchecked:** the comparison is inconclusive — there are no controlled held-out tasks and no observations. The second clause is enforced structurally: no field of `Comparison` or `LayerResult` can name a cost, so no arithmetic in the verdict can reach one.
+- [x] Every X08 scenario has a real check and artifact, or an explicitly accepted blocked/disabled disposition that keeps the allowlist empty. Eight rows have real checks; T21-HOST-01 and T21-QUALITY-01 carry recorded dispositions, and both keep the allowlist empty and the switch off.
 
 ## Done checklist
 
 ### Planning-review checks
 
-- [ ] This new plan preserves the requested heading order, M4/M1–M3 dependency boundary, and 5–8 future commit convention.
-- [ ] It uses only existing future validation commands and labels the host entrypoint proposed.
-- [ ] Its milestone sections, invariants, scenario ownership, commit gates and rollback section match the SP-19/SP-20 house structure, and its requirement IDs trace to MIGRATION-EVIDENCE X08.
-- [ ] No source/config/test/fixture/runtime/Git work occurred in this planning pass.
+- [x] This new plan preserves the requested heading order, M4/M1–M3 dependency boundary, and 5–8 future commit convention.
+- [x] It uses only existing future validation commands and labels the host entrypoint proposed.
+- [x] Its milestone sections, invariants, scenario ownership, commit gates and rollback section match the SP-19/SP-20 house structure, and its requirement IDs trace to MIGRATION-EVIDENCE X08.
+- [x] No source/config/test/fixture/runtime/Git work occurred in this planning pass. The implementation pass that followed is recorded separately below; this box is about the planning pass only.
 
 ### Future implementation checks
 
-- [ ] T21-SWITCH-01 through T21-ROLLBACK-01 pass on named future entrypoints.
-- [ ] The independent host-boundary review approves target evidence before the feature switch is enabled.
+- [x] T21-SWITCH-01 through T21-ROLLBACK-01 pass on named entrypoints in `./internal/admission`. Two of the ten pass as recorded dispositions rather than as evidence: see the row table below.
+- [ ] The independent host-boundary review approves target evidence before the feature switch is enabled. **Open.** The review has not run, and the switch is not enabled.
 
 ### Rollout, rollback and blockers
 
@@ -227,3 +227,67 @@ All criteria are future and unchecked.
 **Rollback order:** disable replacement, restore pass-through, verify the compatible old/new reader or restore the verified backup, then preserve diagnostics and original captures for audit. Before any new admission schema write, prove a compatible deployed reader or take a consistent verified backup; after that write, repeat the drill against the actual new artifact. Never delete captures, diagnostics or evidence to make a retry look clean, and never silently downgrade a format. Disabling admission never disables capture, and a disabled pipeline still preserves the original result.
 
 **Blockers.** M1 durable publication, M2 authorization/recovery, M3 latest-usable lifecycle, target adapter evidence and the privacy policy all block enablement. Ledger blockers apply directly: B01 installed host versions/permissions blocks the host allowlist and every target claim; B03 SP-20 durable recovery blocks all pointer replacement; B04 SP-13 retrieval blocks handle resolution; B08 routing and B09 concurrency govern future delegation. E09 keeps new-result replacement documented with an unknown installed target, E12 keeps native cuts, history rewriting and cache-marker controls unsupported, and E13 keeps injection/attribution/estimation/request control unverified. Failure of any prerequisite keeps admission disabled and the plan actionable; it never converts a pass-through into a delivery guarantee.
+
+## Implementation evidence, 2026-09-08
+
+Branch `feat/sp21-deterministic-admission-control`, worktree `../qompack-sp21`, stacked on
+`feat/sp21-prerequisites` (which is itself off `develop` 7c735ac). Six commits, matching the commit
+plan one to one. The package is `internal/admission`, foundation-only under
+[00-ARCHITECTURE §3.2](00-ARCHITECTURE.md), reserved by the prerequisite branch before any
+authoring, as the serial edge above requires.
+
+**Execution deviated from the subagent strategy, and the deviation is the honest record.** No
+subagents ran. The A–D role split, the shared worker pool and the independent reviewer seat were
+not used; one implementer authored all six commits serially, contract-first. The role table above
+is left unchanged because it describes what the plan proposed, not what happened. The consequence
+that matters is that the independent host/recovery review has not run.
+
+### Scenario status
+
+| ID | Status | Evidence |
+|---|---|---|
+| T21-SWITCH-01 | Passing | The zero `Gate` refuses; opt-in admits an owned result; `Gate` structurally cannot name the recording, reinjection or experiment switches §7.1 keeps independent |
+| T21-PIPE-01 | Passing | Ordered stage record over the capture and publication ports; capture failure, unverified publication and canonical-only fidelity each refuse separately |
+| T21-PASS-01 | Passing | Every stage failure passes the original through; privacy denial is the only denial, and it survives the switch being off |
+| T21-FIDELITY-01 | Passing | `Preserves` walks `Meaning` reflectively and is proven exhaustive by per-field mutation; binary/multimodal payloads select nothing |
+| T21-BASELINE-01 | Passing | Capsule precedes delta; six reset causes recorded distinctly; baseline verification is unexported so a prior-delivery record cannot construct one |
+| T21-RECURSE-01 | Passing | Own-marker and foreign-marker bypass before capture; idempotence proven as a mark-then-redeliver round trip |
+| T21-HOST-01 | **Disposition** | Exact schema and version matching is proven. The competing-hook matrix is the explicitly accepted unverified disposition this plan permits: B01 keeps the installed host's hook order and output schema unobserved, so the allowlist stays empty. Recorded in `internal/contract/capability.go` and asserted by a test, so adding a host target without canary evidence fails |
+| T21-RECOVERY-01 | Passing, with a stated limit | Denied, unavailable, uncertain and unknown each block the transform and stay visible; a denied handle is a pass-through, never a privacy denial. The seam is a port — the adapter binding it to real SP-13/M2 authorization is a composition-root task not done here, so the artifact's "against real SP-13/M2 authorization" clause is not satisfied |
+| T21-QUALITY-01 | **Inconclusive** | The permitted alternative artifact. No controlled held-out tasks and no observations exist. The mechanism enforces it: zero observations are inconclusive rather than a pass, margins are predeclared by construction, the verdict is the worst layer, and cost has no field to live in |
+| T21-ROLLBACK-01 | Passing | Fixed rollback order; pre-write compatible-reader-or-verified-backup proof with all-readers semantics; declared-downgrade requirement; post-write read-back-or-restore with evidence retained on every path, failures included |
+
+### Runs
+
+Focused per-commit runs on `./internal/admission` throughout, per R2. `go test ./internal/admission/`
+holds **100% statement coverage** against the package's 90% floor at every commit. `go vet`,
+`gofmt`, and `devtool lint --only=importgraph,nomagic,runpatterns,docmarkers,coveragefloors,sleepcheck`
+all pass; `importgraph` reports 66 packages, confirming the foundation-only commitment holds with
+`core` as the single non-stdlib import. The three ownership guards
+(`TestAllStubsReturnNotImplemented`, `TestV1_StubGraphIsInertAndOwned`,
+`TestStubRegistry_ListsEveryPackageOnDisk`) pass.
+
+Every commit carried negative controls: the mechanism was broken, the run confirmed red, and the
+break was reverted. Twenty-one controls across commits 3–6. Two of them did not compile on first
+attempt and reported nothing; both were fixed and rerun rather than counted, because a control that
+does not run looks exactly like a guard that works.
+
+One `stubskips` run was killed at its 400s timeout. It is recorded as a timeout, not a pass. The
+check scans for disallowed `t.Skip` reasons and this branch adds no `t.Skip` anywhere, which is
+verifiable directly; a later full run should still cover it.
+
+### Pre-existing failure, not caused by this work
+
+`TestCarriedDefects_WaveReportRequiresResolution` fails for SP05-D1, SP06-D2, SP08-D1 and SP10-D1:
+all four are `deferred:V4-VERIFY` in `plans/CARRIED-DEFECTS.tsv` while `plans/V4-report.md` exists.
+Reproduced identically on clean `develop` 7c735ac. Neither input file is modified by this branch. It
+belongs to V4 sign-off, not to SP-21.
+
+### What this does not establish
+
+Admission is **off**, and nothing here is an argument to turn it on. The feature switch ships
+refused, the host allowlist is empty, the quality comparison is inconclusive, the competing-hook
+matrix is an unverified disposition, the independent host-boundary review has not run, and no
+composition root wires the pipeline — the ports have no adapters, so `internal/admission` has no
+consumers. The commit plan is complete; the enablement gate is not, and the two were never the same
+thing.
