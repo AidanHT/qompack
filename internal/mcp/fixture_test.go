@@ -19,6 +19,7 @@ import (
 	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/sketch"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/stretchr/testify/require"
@@ -139,6 +140,28 @@ type fixtureCfg struct {
 	captureRedactOff bool
 	// disableCkptTools sets ToolDeps.DisableWhy and DisableDropped.
 	disableCkptTools bool
+	// noRedactor leaves ToolDeps.Redactor nil, which is the fail-closed case: a build with no
+	// retrieval-side redactor must serve no archive content at all.
+	noRedactor bool
+}
+
+// testRedactor is this package's stand-in for internal/cli's retrievalRedactor: the same adapter
+// over the same redact.New(cfg), rebuilt here because an in-package test may not import a
+// composition root (§3.2). It is deliberately not a hand-written double — the redaction tests below
+// pin PRODUCTION rules firing on production content, which only the real redactor can show.
+type testRedactor struct{ r redact.Redactor }
+
+// Redact applies the real policy and reports the rule behind each match, one entry per match.
+func (tr testRedactor) Redact(in []byte) ([]byte, []string) {
+	out, matches := tr.r.Redact(in)
+	if len(matches) == 0 {
+		return out, nil
+	}
+	rules := make([]string, len(matches))
+	for i, m := range matches {
+		rules[i] = m.Rule
+	}
+	return out, rules
 }
 
 // withFiles seeds the project worktree.
@@ -180,6 +203,10 @@ func withConfig(fn func(*config.Config)) fixtureOpt {
 func withCheckpointToolsDisabled() fixtureOpt {
 	return func(c *fixtureCfg) { c.disableCkptTools = true }
 }
+
+// withoutRedactor leaves ToolDeps.Redactor nil, reproducing a composition root that forgot to
+// supply one. It is the ONE missing collaborator that must not degrade gracefully.
+func withoutRedactor() fixtureOpt { return func(c *fixtureCfg) { c.noRedactor = true } }
 
 // withCaptureRedactionDisabled opens the store with runtime.redact disabled while every other
 // collaborator, including the handlers' own retrieval-side Redactor, keeps the fixture's normal
@@ -257,6 +284,9 @@ func newFixture(t *testing.T, opts ...fixtureOpt) *fixture {
 	if c.disableCkptTools {
 		f.Deps.DisableWhy = true
 		f.Deps.DisableDropped = true
+	}
+	if !c.noRedactor {
+		f.Deps.Redactor = testRedactor{r: redact.New(cfg)}
 	}
 
 	f.Server = NewServerWithOptions(ServerOptions{
