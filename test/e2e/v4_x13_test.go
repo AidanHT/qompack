@@ -135,7 +135,11 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	obsRunHook(t, r.Bin, []string{"session-start"}, sessionStartFor(t, p.Root, x13v4Session), env)
 	obsRunHook(t, r.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, p.Root, x13v4Session, "hold every wave-3 subsystem resident"), env)
-	r.ArmCheckpointSources(t, x13v4Session)
+
+	// The resident set this row names includes the negative-knowledge ledger, and that one is
+	// opened lazily, on a compaction — so the row has to be a daemon that has compacted before it
+	// can assert the ledger is resident. See OpenLedgerByCompacting.
+	r.OpenLedgerByCompacting(t, x13v4Session)
 
 	// Residency is ASSERTED, not assumed: without it the two arms could be the same daemon twice.
 	require.NotNil(t, r.W, "the checkpoint writer must be resident")

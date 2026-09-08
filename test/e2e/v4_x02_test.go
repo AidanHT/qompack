@@ -116,7 +116,11 @@ func TestV4_SchedulerFiresBeforeTheSimulatedStockThreshold(t *testing.T) {
 	obsRunHook(t, r.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, p.Root, x2v4Session, "grow the context and checkpoint before the host does"), env)
 	r.SeedTurns(t, x2v4Session, "v4x02", 8)
-	r.ArmCheckpointSources(t, x2v4Session)
+	// Arm 4 below is about the §8.5 IDLE cadence, and the idle tasks seed tier 1 from
+	// eliminations — so this row must be a daemon that has compacted before it can advance a
+	// frontier at all. See OpenLedgerByCompacting: the ledger is lazy by design, and a
+	// compact-start opens it without sealing anything Arm 4 would then have to explain away.
+	r.OpenLedgerByCompacting(t, x2v4Session)
 
 	// ── Arm 1: a REAL Runtime over the real store and DAG resolves the real ladder ───────────────
 	rt, err := daemon.NewSchedulerRuntime(daemon.SchedulerRuntimeOptions{
