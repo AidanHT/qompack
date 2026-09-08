@@ -27,19 +27,53 @@ import (
 // digram is an adjacent pair of Symbol values, used as a map key.
 type digram struct{ a, b grammar.Symbol }
 
+// site is where a digram's last COUNTED occurrence was found: which sequence, at which index, and
+// that sequence's label for the failure message.
+type site struct {
+	label string
+	seq   int
+	at    int
+}
+
 // checkNoDigramTwice scans every sequence in seqs (Compressed() first, then each rule's Body, in
 // Rules() order) and reports the first adjacent pair of Symbol values that occurs more than once
 // across all of them combined, along with a description of where each occurrence was found.
+//
+// # Why occurrences are counted NON-OVERLAPPING (SP-15 amendment)
+//
+// Sequitur's digram-uniqueness invariant is over NON-OVERLAPPING occurrences, and this function
+// originally counted overlapping ones. That made it unsatisfiable rather than strict — no correct
+// implementation could pass it — and the fixture below reaches the unsatisfiable state twice.
+//
+// The concrete case, reproduced at append #8 of thrashStream: "Read Edit Bash" repeated three
+// times induces the correct grammar S -> R R R with R -> Read Edit Bash, R used three times. The
+// pair (R,R) sits at index 0 and index 1, which OVERLAP at index 1. Sequitur cannot and must not
+// act on that: replacing one of them would leave S -> Q R with Q -> R R, and Q used once is a rule
+// utility violation that inlines Q straight back. The grammar is already correct, and there is no
+// other grammar for that input.
+//
+// The distinction is not a technicality that lets a weaker implementation through, because
+// DISJOINT repeats are still rejected. "x x x" holds one countable (x,x); "x x x x" holds two,
+// at indices 0 and 2, and is still a failure — TestCheckNoDigramTwice_StillRejects pins exactly
+// that, so this amendment cannot silently decay into a check that passes everything.
+//
+// Occurrences in DIFFERENT sequences can never overlap, so only same-sequence adjacency is
+// forgiven, and an uncounted overlapping occurrence does not advance the recorded site: that is
+// what makes the third x in "x x x x" measure its distance from the first rather than the second.
 func checkNoDigramTwice(labeled []labeledSymbols) (ok bool, detail string) {
-	seen := make(map[digram]string, 16)
-	for _, ls := range labeled {
+	seen := make(map[digram]site, 16)
+	for si, ls := range labeled {
 		for i := 0; i+1 < len(ls.symbols); i++ {
 			d := digram{ls.symbols[i], ls.symbols[i+1]}
-			if first, dup := seen[d]; dup {
+			prev, dup := seen[d]
+			if dup {
+				if prev.seq == si && i == prev.at+1 {
+					continue // overlaps the counted occurrence: not a second occurrence
+				}
 				return false, fmt.Sprintf("digram (%q,%q) appears in both %s and %s",
-					d.a, d.b, first, ls.label)
+					d.a, d.b, prev.label, ls.label)
 			}
-			seen[d] = ls.label
+			seen[d] = site{label: ls.label, seq: si, at: i}
 		}
 	}
 	return true, ""
