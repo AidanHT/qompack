@@ -112,19 +112,26 @@ type AlreadyTriedArgs struct {
 }
 
 // AlreadyTriedResult retains the legacy ledger answers and adds "unavailable" for query
-// failures (architecture §0.2 / ADR 0013). A stale record retains its evidence; an unreadable
-// ledger cannot establish absence or an active prohibition.
+// failures (architecture §0.2 / ADR 0013) and "uncertain" for an answer the ledger could not back
+// with coverage. A stale record retains its evidence; an unreadable ledger cannot establish absence
+// or an active prohibition, and neither can one whose coverage is unverified.
 //
 // Scope, RecordedAt, DependsOn, StaleBecause and Degraded are SP-13 ADDITIONS to §5.16's four
 // fields: the §8.3 staleness evidence is what turns "re-verification may be warranted" from an
 // assertion into something the agent can check, and Degraded is §12.3's ledger-failure path made
 // visible rather than indistinguishable from a genuine absence.
 type AlreadyTriedResult struct {
-	// State is "absent", "active", "stale" or "unavailable". Unknown states confer no prohibition.
+	// State is "absent", "active", "stale", "unavailable" or "uncertain". Unknown states confer no
+	// prohibition. "unavailable" and "uncertain" are the two outcomes that are neither an answer
+	// nor an absence (§11.3 Required invariants item 8): the first says the ledger could not be
+	// consulted, the second that it answered but could not back the answer with coverage. Neither
+	// may be read as evidence that an approach is untried.
 	State string `json:"state"`
-	// Reason is why the approach was eliminated, when it was.
+	// Reason is why the approach was eliminated, when it was — or, for "unavailable" and
+	// "uncertain", what could not be established.
 	Reason string `json:"reason,omitempty"`
-	// Note carries a staleness explanation or unavailable recovery direction.
+	// Note carries a staleness explanation, or the recovery direction for an "unavailable" or
+	// "uncertain" state.
 	Note string `json:"note,omitempty"`
 	// Evidence is the content hash backing the elimination.
 	Evidence string `json:"evidence,omitempty"`
@@ -181,8 +188,21 @@ type DroppedArgs struct{}
 type ToolDeps struct {
 	// Store backs `recall`, `expand`, `re_read` and `timeline`.
 	Store store.Store
-	// Ledger backs `already_tried` and `record_eliminated`.
+	// Ledger backs `already_tried` and `record_eliminated`. It is the VALUE seam, for a caller
+	// that already holds an open ledger at wiring time; a caller whose ledger is opened later
+	// supplies LedgerFn instead.
 	Ledger negknow.Ledger
+	// LedgerFn resolves the ledger LIVE, on every call, and takes precedence over Ledger.
+	//
+	// It exists because negknow.Open is deliberately lazy: the daemon opens the elimination ledger
+	// on the FIRST compaction, not at startup, so that a daemon which never compacts never creates
+	// sketches/tried.bloom. A composition root that reads its ledger field at wiring time therefore
+	// reads nil, and a ToolDeps that stored that value would freeze it — leaving `already_tried`
+	// and `record_eliminated` permanently answering "not present in this build" beside a ledger
+	// that is open. The accessor closes over the field instead, exactly as
+	// daemon.SchedulerRuntimeOptions.LedgerFn does one layer up. It never opens a ledger and never
+	// owns one; the lifecycle stays with whoever does.
+	LedgerFn func() negknow.Ledger
 	// Checkpoints backs `why`.
 	Checkpoints checkpoint.Reader
 	// Rehydrator backs `dropped`. It is a DropReporter rather than a rehydrate type because mcp

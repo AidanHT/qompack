@@ -168,6 +168,14 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 	}
 	sort.Slice(man.Files, func(i, j int) bool { return man.Files[i].Name < man.Files[j].Name })
 
+	// A backup is rollback material, and a rollback drill re-reads every imported object out of
+	// the LIVE store to compare it against the restored one. So the manifest's own frontier is
+	// declared retained: an import performed by a build that predates this declaration, or a
+	// mapping log restored from elsewhere, is covered by the backup that names it.
+	if err := m.retainFrontier("restorable through backup " + id + "/" + backupManifestFile); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: %w", id, err)
+	}
+
 	b, err := json.Marshal(man)
 	if err != nil {
 		return BackupManifest{}, fmt.Errorf("store: encode backup manifest: %w", err)
@@ -432,11 +440,46 @@ func (m *Migrator) RehearseRollback(ctx context.Context, o RollbackOptions) (Rol
 	return m.recordDrill(d, "")
 }
 
+// retainFrontier declares every root the mapping log currently names as a retention root.
+//
+// It reads the log rather than a caller's list so that it covers whatever is actually on disk,
+// including an import a build without this declaration performed.
+func (m *Migrator) retainFrontier(reason string) error {
+	_, order, err := m.Frontier()
+	if err != nil {
+		return err
+	}
+	hs := make([]core.Hash, 0, len(order))
+	for _, mp := range order {
+		hs = append(hs, mp.Root)
+	}
+	return m.retainRoots(reason, hs...)
+}
+
 // recordDrill appends the drill record and returns it. The log is append-only, so a later
 // rehearsal can never overwrite an earlier one's finding.
+//
+// Every root the record NAMES is declared a retention root first. A rollback record whose objects
+// GC has since collected is not a rollback path, it is a claim about one — and the record names
+// two kinds: the roots the drill proved re-readable through their old ids, and the new-format
+// writes it enumerated as unreadable by an older binary. Both must outlive the pass.
 func (m *Migrator) recordDrill(d RollbackDrill, refusal string) (RollbackDrill, error) {
 	d.Refusal = refusal
 	d.OK = refusal == ""
+	hs := make([]core.Hash, 0, len(d.RetainedRoots)+len(d.UnreadableByOldReader))
+	for _, s := range d.RetainedRoots {
+		if h, err := core.ParseHash(s); err == nil {
+			hs = append(hs, h)
+		}
+	}
+	for _, w := range d.UnreadableByOldReader {
+		if h, err := core.ParseHash(w.Root); err == nil {
+			hs = append(hs, h)
+		}
+	}
+	if err := m.retainRoots("named by migrate/"+rollbackDrillFile, hs...); err != nil {
+		return d, fmt.Errorf("store: record rollback drill: %w", err)
+	}
 	if err := paths.AppendJSONL(m.path(rollbackDrillFile), d); err != nil {
 		return d, fmt.Errorf("store: record rollback drill: %w", err)
 	}

@@ -1,0 +1,108 @@
+package cli
+
+import (
+	"encoding/json"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/mcp"
+	"github.com/qompack/qompack/internal/negknow"
+)
+
+// mcpwire.go's ledger seam. cmd_mcp_test.go covers the widener branch; this file covers the one
+// collaborator NewToolDeps must NOT capture by value.
+
+// callWiredTool drives one registered tool through the handler mcp.ToolDefs bound, which is the
+// same handler `tools/call` reaches, and returns its first text block.
+func callWiredTool(t *testing.T, d mcp.ToolDeps, name string, args string) string {
+	t.Helper()
+	for _, tool := range mcp.ToolDefs(d) {
+		if tool.Name != name {
+			continue
+		}
+		resp, err := tool.Handler(t.Context(), mcp.Request{
+			Session: "sess_wire", Name: name, Args: json.RawMessage(args),
+		})
+		require.NoError(t, err, "%s handler", name)
+		require.NotEmpty(t, resp.Content, "%s produced no content", name)
+		return resp.Content[0].Text
+	}
+	t.Fatalf("tool %q is not registered", name)
+	return ""
+}
+
+// TestNewToolDepsResolvesTheLedgerLive is the shipped-daemon proof for the two negative-knowledge
+// tools.
+//
+// negknow.Open is deliberately lazy — its one production call site is the rehydrate service, on
+// the first compaction, because an eager open would create sketches/tried.bloom in every daemon
+// that never compacts. So opts.Ledger is nil when installMCPTools runs, and a ToolDeps that
+// captured that VALUE froze the nil for the life of the process: `already_tried` and
+// `record_eliminated` answered available:false for ever in the shipped binary while the ledger sat
+// open beside them. The accessor reads the FIELD on every call, exactly as SchedulerRuntimeOptions
+// .LedgerFn and wireCheckpointSources' supplier already do.
+func TestNewToolDepsResolvesTheLedgerLive(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := config.Defaults()
+	// No store is wired here — this row is about the ledger seam and nothing else — so the write
+	// side has nothing to mint an evidence hash from. Turning the requirement off keeps the row
+	// pointed at what it tests instead of at eliminations.requireEvidence.
+	cfg.Eliminations.RequireEvidence = false
+	opts := &daemon.Options{ProjectRoot: root, Cfg: cfg, Log: logging.Nop(), Clock: testClock()}
+
+	deps := NewToolDeps(root, cfg, nil, liveLedger(opts), nil, nil, nil, nil, logging.Nop(), nil, testClock())
+
+	// 1. Wiring is inert: it opens nothing and creates nothing.
+	require.Nil(t, opts.Ledger, "wiring must not open a ledger")
+	require.NoFileExists(t, filepath.Join(root, ".qompack", "records", "eliminations.jsonl"))
+	require.NoFileExists(t, filepath.Join(root, ".qompack", "sketches", "tried.bloom"))
+	require.NoDirExists(t, filepath.Join(root, ".qompack", "sketches"))
+
+	args := `{"target":"src/auth.ts:refreshToken","approach":"widen pool timeout"}`
+	require.Contains(t, callWiredTool(t, deps, mcp.ToolAlreadyTried, args), `"available":false`,
+		"with no ledger open yet the tool must say so, not invent an answer")
+
+	// 2. A ledger opened AFTER wiring — exactly as the first compaction opens it, onto the same
+	//    Options — is visible to the tools.
+	led, err := negknow.Open(root, cfg, nil, negknow.Deps{
+		Store: opts.Store, Graph: opts.Graph, Log: opts.Log, Clock: opts.Clock,
+	})
+	require.NoError(t, err, "negknow.Open")
+	t.Cleanup(func() { _ = led.Close() })
+	opts.Ledger = led
+
+	body := callWiredTool(t, deps, mcp.ToolAlreadyTried, args)
+	require.NotContains(t, body, `"available":false`,
+		"the accessor reads the FIELD; a captured value would still be nil")
+	require.Contains(t, body, `"state":"absent"`, "an open, empty ledger answers absent")
+
+	written := callWiredTool(t, deps, mcp.ToolRecordEliminated,
+		`{"target":"src/auth.ts:refreshToken","approach":"widen pool timeout","reason":"the pool is not the bottleneck"}`)
+	require.NotContains(t, written, `"available":false`, "the write side must reach the same live ledger")
+	require.Contains(t, written, `"status":"active"`)
+
+	recs, err := led.All(t.Context())
+	require.NoError(t, err, "Ledger.All")
+	require.Len(t, recs, 1, "record_eliminated must have written through to the ledger the daemon holds")
+}
+
+// TestNewToolDepsWithoutAnAccessorStaysNilTolerant keeps the zero value honest: a caller that
+// supplies no ledger accessor at all (mcptest's shape block, the proxy's tools/list) must still
+// register every tool and answer "not present in this build" rather than panic.
+func TestNewToolDepsWithoutAnAccessorStaysNilTolerant(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := config.Defaults()
+	deps := NewToolDeps(root, cfg, nil, nil, nil, nil, nil, nil, logging.Nop(), nil, testClock())
+
+	require.Contains(t, callWiredTool(t, deps, mcp.ToolAlreadyTried,
+		`{"target":"a","approach":"b"}`), `"available":false`)
+}

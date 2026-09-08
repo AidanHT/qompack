@@ -4,6 +4,7 @@ import (
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
@@ -57,18 +58,38 @@ func (w symbolWidener) Find(path string, b []byte, name string) (int64, int64, b
 	return 0, 0, false
 }
 
+// liveLedger is the elimination-ledger accessor the MCP tools are wired with.
+//
+// It closes over the *daemon.Options POINTER and reads the Ledger FIELD on every call, which is
+// the whole of the fix: negknow.Open is lazy on purpose — its single production call site is the
+// rehydrate service, on the first compaction, because an eager open creates sketches/tried.bloom
+// and holds an eliminations.jsonl handle in every daemon that never compacts — so opts.Ledger is
+// nil at wiring time. Handing that VALUE to the tools froze the nil for the life of the process
+// and left `already_tried` and `record_eliminated` permanently answering "not present in this
+// build" beside a ledger that was open. This is the same accessor shape wireScheduler's LedgerFn
+// and wireCheckpointSources' SourceSet supplier already use; it opens nothing and owns nothing.
+func liveLedger(opts *daemon.Options) func() negknow.Ledger {
+	if opts == nil {
+		return nil
+	}
+	return func() negknow.Ledger { return opts.Ledger }
+}
+
 // NewToolDeps assembles the collaborator set the eight retrieval tools are bound to.
 //
 // Every collaborator may be nil and each handler says so rather than failing: a daemon whose store
 // would not open still answers `recall` with `available:false`, which is a better session than one
 // that cannot start. A nil extractor leaves ToolDeps.Widener nil, which the span resolver already
 // tolerates — the spans are then chunk-aligned but not symbol-widened.
-func NewToolDeps(root string, cfg config.Config, st store.Store, l negknow.Ledger,
+//
+// The ledger arrives as an ACCESSOR rather than a value; see liveLedger for why. A nil accessor is
+// the "no ledger in this build" case and stays nil-tolerant.
+func NewToolDeps(root string, cfg config.Config, st store.Store, ledger func() negknow.Ledger,
 	cr checkpoint.Reader, dr mcp.DropReporter, p mcp.Promoter,
 	ex symbols.Extractor, log logging.Logger, m obs.Registry, clk core.Clock,
 ) mcp.ToolDeps {
 	d := mcp.ToolDeps{
-		Store: st, Ledger: l, Checkpoints: cr, Rehydrator: dr, Promoter: p,
+		Store: st, LedgerFn: ledger, Checkpoints: cr, Rehydrator: dr, Promoter: p,
 		Cfg: cfg, ProjectRoot: root, Clock: clk, Log: log, Metrics: m,
 	}
 	if ex != nil {
