@@ -71,6 +71,26 @@ var flagSpecs = map[string][]FlagSpec{
 	},
 }
 
+// unroutedSubcommands are §7.5 commands that have a working frontend and no `qompack <name>`
+// route to reach it by, mapped to why.
+//
+// This is one fact with two readers — internal/cli decides what to register from it, and
+// devtool's gen-command-docs renders it — so they cannot disagree about what the plugin can
+// actually do. Documenting a command as available when invoking it lands somewhere else is the
+// "unsafe unsupported features not advertised" failure, and it is worse than an undocumented
+// command because the page is believed.
+var unroutedSubcommands = map[string]string{
+	"checkpoint": "not yet reachable as a subcommand: `qompack checkpoint` is the PreCompact hook " +
+		"entry point, which always exits 0 and reads a hook event from stdin. A separate local-seal " +
+		"route needs the arch/checkpoint-now-subcommand architecture pre-step (SP-14 handoff edge H3).",
+}
+
+// RouteNote returns why name has no ordinary subcommand route, or "" when it has one.
+func RouteNote(name string) string { return unroutedSubcommands[name] }
+
+// Routed reports whether this command is reachable as its own `qompack <subcommand>` route.
+func (s Spec) Routed() bool { return RouteNote(s.Name) == "" }
+
 // Specs returns one Spec per §7.5 name, in the order the manifest states them.
 func Specs() []Spec {
 	docs := pluginmanifest.Default(core.Version).Commands

@@ -39,7 +39,7 @@ const latencyFile = "latency.json"
 func slashCommandCmds() []Cmd {
 	var out []Cmd
 	for _, spec := range commands.Specs() {
-		if spec.Subcommand == "checkpoint" {
+		if !spec.Routed() {
 			continue
 		}
 		out = append(out, Cmd{
