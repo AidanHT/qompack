@@ -275,7 +275,17 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 		log = logging.Nop()
 	}
 	var firstErr error
-	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) { return src, nil })
+	// The port's source supplier VALIDATES before handing anything over. A SourceSet with a nil
+	// seam is not a source: Begin would reach several frames deeper before failing, and a partially
+	// wired composition root would look, at this call site, exactly like a working one. Validating
+	// here means the frontier route is either backed by a real source or explicitly unavailable —
+	// never quietly advancing over a stub.
+	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) {
+		if err := src.Validate(); err != nil {
+			return checkpoint.SourceSet{}, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return src, nil
+	})
 	for _, s := range liveSessions(reg, w, src) {
 		if ctx.Err() != nil {
 			return firstNonNil(firstErr, ctx.Err())

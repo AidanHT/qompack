@@ -42,6 +42,7 @@ const (
 	evidenceForeign    = "foreign"    // it came back belonging to another session
 	evidenceMalformed  = "malformed"  // its turn range is not a range
 	evidenceGap        = "gap"        // a turn range between it and its predecessor has no evidence
+	evidenceCancelled  = "cancelled"  // the verification budget ran out mid-batch
 )
 
 // CloseSegmentOn closes the session's current segment at turn at with cause ∈ {todo, test,
@@ -100,6 +101,12 @@ func (r *schedRuntime) closeSegmentLocked(ctx context.Context, at core.TurnIndex
 // frontier describes local draft work, not a durable publication frontier or native context cut.
 // Calls run without the runtime lock; a session change prevents stale local state updates.
 func (r *schedRuntime) advanceFrontier(ctx context.Context) error {
+	// A pass whose idle budget is already gone does nothing and counts as nothing: it has not
+	// been starved of budget, it never had any. Checking here rather than only inside the port
+	// keeps a cancelled tick from opening a draft it cannot finish advancing.
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	r.mu.Lock()
 	r.frontierRuns++
 	r.frontierSkipTicks = 0
@@ -197,7 +204,7 @@ func verifyEvidence(ctx context.Context, segs store.SegmentLog, sess core.Sessio
 	havePrev := false
 	for _, s := range batch {
 		if err := ctx.Err(); err != nil {
-			return ids, &evidenceStop{reason: evidenceUnreadable, segment: s.ID, atTurn: s.StartTurn}
+			return ids, &evidenceStop{reason: evidenceCancelled, segment: s.ID, atTurn: s.StartTurn}
 		}
 		cur, err := segs.Get(ctx, s.ID)
 		if err != nil {
