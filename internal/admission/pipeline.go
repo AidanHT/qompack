@@ -132,6 +132,9 @@ type Delivery struct {
 	// Payload is the delivered bytes.
 	Payload []byte
 
+	// Envelope is the set of processing markers the adapter observed on this delivery.
+	Envelope Envelope
+
 	// Baseline is a prior capsule offered as a delta's base, or the zero Baseline when none is.
 	//
 	// It is carried on the delivery rather than fetched through a port because verification means
@@ -170,6 +173,10 @@ func NewPipeline(g Gate, p Ports) *Pipeline { return &Pipeline{gate: g, ports: p
 //  2. The gate, before anything is captured. With admission off there is nothing to replace, so a
 //     disabled pipeline must not write a second copy of every delivered result on the way to
 //     refusing.
+//     2a. The envelope bypass, before anything is captured. A processed envelope's original was
+//     already captured on the pass that produced it; capturing the envelope too would archive a
+//     transformation of that first object, and a store accumulating one per redelivery is the
+//     recursion invariant 3 forbids, showing up as disk usage instead of as nested capsules.
 //  3. Capture, then publication verification. Both must succeed, and the capture must be
 //     recoverable, before any handle is emitted.
 //  4. Parse, then select one representation. Both run only on a durably captured original,
@@ -180,33 +187,39 @@ func NewPipeline(g Gate, p Ports) *Pipeline { return &Pipeline{gate: g, ports: p
 //     answer itself stays on the record.
 func (p *Pipeline) Admit(ctx context.Context, d Delivery) (Record, error) {
 	if fail := p.checkPrivacy(ctx, d); fail.Stage != StageNone {
-		return Decide(p.gate, d.Target, fail), nil
+		return p.record(Decide(p.gate, d.Target, fail), d), nil
 	}
 
 	if ok, _ := p.gate.Admits(d.Target); !ok {
-		return Decide(p.gate, d.Target, Failure{}), nil
+		return p.record(Decide(p.gate, d.Target, Failure{}), d), nil
+	}
+
+	if bypass, why := d.Envelope.Bypass(); bypass {
+		rec := Decide(p.gate, d.Target, Failure{})
+		rec.Outcome, rec.Reason = OutcomePassThrough, why
+		return p.record(rec, d), nil
 	}
 
 	captured, fail := p.capture(ctx, d)
 	if fail.Stage != StageNone {
-		return Decide(p.gate, d.Target, fail), nil
+		return p.record(Decide(p.gate, d.Target, fail), d), nil
 	}
 
 	meaning, fail := p.parse(ctx, d)
 	if fail.Stage != StageNone {
-		return Decide(p.gate, d.Target, fail), nil
+		return p.record(Decide(p.gate, d.Target, fail), d), nil
 	}
 
 	sel := Select(meaning, captured.Fidelity, d.Baseline)
 	if !sel.Form.Emits() {
-		return Decide(p.gate, d.Target, Failure{Stage: StageSelection}), nil
+		return p.record(Decide(p.gate, d.Target, Failure{Stage: StageSelection}), d), nil
 	}
 
 	state, fail := p.resolve(ctx, captured.Handle)
 	if fail.Stage != StageNone {
 		blocked := Decide(p.gate, d.Target, fail)
 		blocked.HandleState = state
-		return blocked, nil
+		return p.record(blocked, d), nil
 	}
 
 	rec := Decide(p.gate, d.Target, Failure{})
@@ -216,7 +229,18 @@ func (p *Pipeline) Admit(ctx context.Context, d Delivery) (Record, error) {
 	rec.Coverage = core.CoverageArchiveOnly
 	rec.Meaning = meaning
 	rec.Form, rec.Base, rec.Reset = sel.Form, sel.Base, sel.Reset
-	return rec, nil
+	rec.Mark = MarkerProducer
+	return p.record(rec, d), nil
+}
+
+// record attaches the delivery's observed markers to every record on its way out.
+//
+// It runs on the refusal paths as well as the admitted one, because the observed chain is most
+// diagnostic precisely when admission declined: an operator asking why nothing was transformed
+// wants to see what else claimed this result.
+func (p *Pipeline) record(rec Record, d Delivery) Record {
+	rec.Observed = d.Envelope.Markers
+	return rec
 }
 
 // parse asks the parser port for the delivery's meaning, and requires that meaning to describe the

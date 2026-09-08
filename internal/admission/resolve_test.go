@@ -205,19 +205,20 @@ func TestResolutionIsNotCachedAcrossDeliveries(t *testing.T) {
 	require.Len(t, r.resolved, 2, "both deliveries put the question to the resolver")
 }
 
-// TestHandleStateRendersDistinctNames covers the String method, for the reason the other enum
-// tests give: a forgotten arm turns a real resolution answer into "unknown", and here that word is
-// already taken by a real state — so a missing arm would masquerade as HandleUnknown specifically.
+// TestHandleStateRendersDistinctNames covers the String method through the same exhaustive walk.
+//
+// The sentinel here is "unrecognized" rather than "unknown", because "unknown" is a real state: a
+// forgotten arm would otherwise masquerade as a resolver that answered nothing rather than showing
+// up as a gap in the switch.
 func TestHandleStateRendersDistinctNames(t *testing.T) {
-	seen := map[string]bool{}
-	for _, s := range []admission.HandleState{
-		admission.HandleUnknown, admission.HandleResolvable, admission.HandleDenied,
-		admission.HandleUnavailable, admission.HandleUncertain,
-	} {
-		name := s.String()
-		require.False(t, seen[name], "%q is rendered by two states", name)
-		seen[name] = true
-	}
-	require.Equal(t, "unrecognized", admission.HandleState(99).String(),
-		`an unmapped state must not render as "unknown", which is a real state here`)
+	assertEnumIsExhaustive(t, "unrecognized", []string{
+		admission.HandleUnknown.String(),
+		admission.HandleResolvable.String(),
+		admission.HandleDenied.String(),
+		admission.HandleUnavailable.String(),
+		admission.HandleUncertain.String(),
+	}, func(i int) string { return admission.HandleState(i).String() })
+
+	require.Equal(t, "unknown", admission.HandleUnknown.String(),
+		`HandleUnknown is a real state and keeps the name "unknown"`)
 }

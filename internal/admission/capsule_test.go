@@ -295,36 +295,26 @@ func TestSpanSurvivesAndUnknownStaysUnknown(t *testing.T) {
 		"dropping a span must be reported as a lost field, not tolerated")
 }
 
-// TestFormAndResetCauseRenderDistinctNames covers the String methods, for the reason commit 1's
-// enum test gives: a forgotten arm turns a real audit value into "unknown" and the record degrades
-// silently.
+// TestFormAndResetCauseRenderDistinctNames covers the String methods through the same exhaustive
+// walk the Reason enum uses, so a form or reset cause added later cannot land untested.
 func TestFormAndResetCauseRenderDistinctNames(t *testing.T) {
 	t.Run("form", func(t *testing.T) {
-		seen := map[string]bool{}
-		for _, f := range []admission.Form{
-			admission.FormNone, admission.FormCapsule, admission.FormDelta,
-		} {
-			name := f.String()
-			require.NotEqual(t, "unknown", name, "form %d has no String arm", int(f))
-			require.False(t, seen[name], "%q is rendered by two forms", name)
-			seen[name] = true
-		}
-		require.Equal(t, "unknown", admission.Form(99).String())
+		assertEnumIsExhaustive(t, "unknown", []string{
+			admission.FormNone.String(),
+			admission.FormCapsule.String(),
+			admission.FormDelta.String(),
+		}, func(i int) string { return admission.Form(i).String() })
 	})
 
 	t.Run("reset", func(t *testing.T) {
-		seen := map[string]bool{}
-		for _, r := range []admission.ResetCause{
-			admission.ResetNone, admission.ResetNoBaseline, admission.ResetUnverified,
-			admission.ResetSignatureChanged, admission.ResetSchemaChanged,
-			admission.ResetUncertainCapture,
-		} {
-			name := r.String()
-			require.NotEqual(t, "unknown", name, "reset %d has no String arm", int(r))
-			require.False(t, seen[name], "%q is rendered by two causes", name)
-			seen[name] = true
-		}
-		require.Equal(t, "unknown", admission.ResetCause(99).String())
+		assertEnumIsExhaustive(t, "unknown", []string{
+			admission.ResetNone.String(),
+			admission.ResetNoBaseline.String(),
+			admission.ResetUnverified.String(),
+			admission.ResetSignatureChanged.String(),
+			admission.ResetSchemaChanged.String(),
+			admission.ResetUncertainCapture.String(),
+		}, func(i int) string { return admission.ResetCause(i).String() })
 	})
 }
 
