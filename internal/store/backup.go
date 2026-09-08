@@ -511,7 +511,7 @@ func readJSONLines(p string) ([][]byte, error) {
 
 	var out [][]byte
 	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), maxJSONLLine)
+	sc.Buffer(make([]byte, 0, scannerInitialBuf), maxJSONLLine)
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		if len(line) == 0 {
