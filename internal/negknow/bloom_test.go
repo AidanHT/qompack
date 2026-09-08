@@ -468,7 +468,8 @@ func TestBloomLoadFailure_NoRecords_NeverFalsePositive(t *testing.T) {
 	require.True(t, l.blind)
 
 	// 100 rapid checks of 10 targets each: whatever the generator produces, a ledger that cannot
-	// read its records answers absent — never a false positive (§12.3).
+	// read its records answers unavailable — never a false positive, and never an assertion that
+	// the approach was never tried (§12.3, 00-ARCHITECTURE.md §11.3 Required invariants item 8).
 	rapid.Check(t, func(rt *rapid.T) {
 		targets := rapid.SliceOfN(rapid.String(), 10, 10).Draw(rt, "targets")
 		approach := rapid.String().Draw(rt, "approach")
@@ -477,8 +478,8 @@ func TestBloomLoadFailure_NoRecords_NeverFalsePositive(t *testing.T) {
 			if err != nil {
 				rt.Fatalf("Query(%q): %v", target, err)
 			}
-			if a.State != AnswerAbsent || a.BloomOnly || a.Record != nil {
-				rt.Fatalf("Query(%q) = %+v, want a plain absent", target, a)
+			if a.State != AnswerUnavailable || a.BloomOnly || a.Record != nil || a.Coverage.Reason == "" {
+				rt.Fatalf("Query(%q) = %+v, want a plain unavailable", target, a)
 			}
 		}
 	})
