@@ -54,6 +54,10 @@ type Deps struct {
 	// CheckpointNow requests one Qompack-local checkpoint. nil means this build has no route for
 	// it, which the checkpoint command reports rather than falling back to anything native.
 	CheckpointNow CheckpointNow
+	// EvalArtifacts supplies a completed evaluation's artifacts. Running the replay harness is
+	// test/replay's job; a command that re-ran it would be a second driver with its own corpus
+	// selection and its own idea of what a trial is.
+	EvalArtifacts EvalArtifacts
 	// Clock is the injected time source. A nil Clock means the system clock: a command is not
 	// worth failing over a missing seam, and every caller that cares about determinism — every
 	// test, every golden fixture — sets it.
@@ -144,6 +148,8 @@ func bodyFor(name string) body {
 		return pinBody
 	case "checkpoint":
 		return checkpointBody
+	case "eval":
+		return evalBody
 	default:
 		return notImplemented(name)
 	}
