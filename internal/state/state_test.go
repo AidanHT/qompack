@@ -91,10 +91,10 @@ func TestCorrect_SupersedesObsoleteInstructionAndRetainsHistory(t *testing.T) {
 // record; everything else that tries is refused.
 func TestSupersede_OnlyAuthoritativeSourcesMaySupersedeAuthoritativeState(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		newer   core.Authority
+		name     string
+		newer    core.Authority
 		existing core.Authority
-		want    bool
+		want     bool
 	}{
 		{"hypothesis over decision", core.AuthorityHypothesis, core.AuthorityExplicitDecision, false},
 		{"candidate over decision", core.AuthorityCandidateExtraction, core.AuthorityExplicitDecision, false},
@@ -212,10 +212,8 @@ func TestConflict_IsRenderedUntilResolvedByAnAuthorizedSource(t *testing.T) {
 	require.False(t, conflicts[0].Conflict.Resolved())
 	require.Equal(t, core.AuthorityConflict, conflicts[0].Authority)
 
-	// An unauthorized source cannot resolve it.
-	guess := rec("h9", core.AuthorityHypothesis, scopeA, "port is 8080")
-	require.NoError(t, s.Add(guess))
-	err := s.Resolve(marker.ID, guess.ID, 6, "model picked one")
+	// An unauthorized source cannot resolve it — including a party to the conflict itself.
+	err := s.Resolve(marker.ID, right.ID, 6, "the extraction picked itself")
 	require.ErrorIs(t, err, core.ErrContract)
 	require.Len(t, s.Conflicts(scopeA), 1, "a refused resolution leaves the conflict rendered")
 
