@@ -2,8 +2,11 @@ package commands
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
+	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -42,6 +45,18 @@ type Deps struct {
 	Metrics     obs.Registry
 	Contract    contract.Monitor
 	Cfg         config.Config
+	// Clock is the injected time source. A nil Clock means the system clock: a command is not
+	// worth failing over a missing seam, and every caller that cares about determinism — every
+	// test, every golden fixture — sets it.
+	Clock core.Clock
+}
+
+// now reads the injected clock, defaulting to the system one.
+func (d Deps) now() time.Time {
+	if d.Clock == nil {
+		return core.SystemClock().Now()
+	}
+	return d.Clock.Now()
 }
 
 // commandNames is the §5.17 list, in the order `/qompack:help` should present them: the three a
@@ -54,9 +69,10 @@ var commandNames = []string{"status", "recall", "pin", "checkpoint", "why", "dro
 // entries. That is what lets plugin/commands/*.md — which is generated from a typed source and
 // diffed in CI — be written once and stay correct.
 func All(d Deps) []Command {
-	cmds := make([]Command, 0, len(commandNames))
-	for _, name := range commandNames {
-		cmds = append(cmds, stubCommand{name: name, deps: d})
+	specs := Specs()
+	cmds := make([]Command, 0, len(specs))
+	for _, s := range specs {
+		cmds = append(cmds, &frontend{spec: s, deps: d, body: bodyFor(s.Name)})
 	}
 	return cmds
 }
@@ -69,14 +85,160 @@ func Names() []string {
 	return out
 }
 
-// stubCommand reports core.ErrNotImplemented for every command until SP-14 lands.
-type stubCommand struct {
-	name string
-	deps Deps
+// Invocation is one parsed command line, handed to a body after dispatch has taken the common
+// surface — help, --json, and the flag table the Spec documents — off the front of it.
+type Invocation struct {
+	// Spec is the command being run.
+	Spec Spec
+	// Deps is the late-bound dependency set. Members may be nil.
+	Deps Deps
+	// Args are the positional arguments, with every parsed flag removed.
+	Args []string
+	// Flags holds each documented flag that was present, by name. A boolean flag maps to "".
+	Flags map[string]string
+	// JSON is true when the caller asked for the machine-readable envelope.
+	JSON bool
+	// Now is the invocation time, read once from the injected clock so every rendered timestamp
+	// in one command's output agrees.
+	Now time.Time
+	// Out is where a body writes its human-readable rendering. A body that only fills the
+	// envelope Data member leaves it untouched.
+	Out io.Writer
 }
 
-func (c stubCommand) Name() string { return c.name }
+// Flag returns the value of a documented flag and whether it was present.
+func (in Invocation) Flag(name string) (string, bool) {
+	v, ok := in.Flags[name]
+	return v, ok
+}
 
-func (c stubCommand) Run(_ context.Context, _ []string, _ io.Writer) error {
-	return fmt.Errorf("%w: /qompack:%s (SP-14)", core.ErrNotImplemented, c.name)
+// body is one command's real implementation. It returns the envelope Data member; anything it
+// writes to inv.Out is the human rendering. A nil Data with a nil error is a legal "nothing to
+// report".
+type body func(ctx context.Context, inv Invocation) (json.RawMessage, error)
+
+// bodyFor returns the implementation for name.
+//
+// Every §7.5 name resolves to something from wave 0 on: an unimplemented one resolves to
+// notImplemented, which reports core.ErrNotImplemented naming the command. SP-14 replaces entries
+// here one commit at a time, so a half-landed wave has some commands answering and the rest
+// saying honestly that they do not.
+func bodyFor(name string) body {
+	return notImplemented(name)
+}
+
+// notImplemented is the body every command carries until its own commit lands.
+func notImplemented(name string) body {
+	return func(context.Context, Invocation) (json.RawMessage, error) {
+		return nil, fmt.Errorf("%w: /qompack:%s (SP-14)", core.ErrNotImplemented, name)
+	}
+}
+
+// frontend is the dispatch shim in front of every body: it parses the documented flag table,
+// answers --help, and renders either what the body wrote or the JSON envelope.
+type frontend struct {
+	spec Spec
+	deps Deps
+	body body
+}
+
+func (f *frontend) Name() string { return f.spec.Name }
+
+// Run parses args against the Spec flag table and runs the body.
+//
+// The error it returns keeps its original identity — core.ErrNotImplemented stays
+// core.ErrNotImplemented — because callers branch on it and the §2.3 exit-code mapping reads it.
+// Under --json the same error is ALSO written into the envelope error member, so a scripted caller
+// reading stdout learns what a person reading stderr would.
+func (f *frontend) Run(ctx context.Context, args []string, out io.Writer) error {
+	inv, help, err := f.parse(args, out)
+	if err != nil {
+		return f.report(inv, nil, err)
+	}
+	if help {
+		return f.spec.WriteHelp(out)
+	}
+
+	data, runErr := f.body(ctx, inv)
+	return f.report(inv, data, runErr)
+}
+
+// report writes the output in the requested form and returns runErr unchanged.
+func (f *frontend) report(inv Invocation, data json.RawMessage, runErr error) error {
+	if !inv.JSON {
+		return runErr
+	}
+	env := NewEnvelope(f.spec.Name)
+	env.Data = data
+	if runErr != nil {
+		env.FailErr(runErr)
+	}
+	if err := writeEnvelope(inv.Out, env); err != nil && runErr == nil {
+		return err
+	}
+	return runErr
+}
+
+// writeEnvelope emits env as one indented JSON document with a trailing newline.
+func writeEnvelope(w io.Writer, env *Envelope) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	return enc.Encode(env)
+}
+
+// parse splits args into the documented flags and the positional remainder.
+//
+// It accepts `--flag value` and `--flag=value`, and both `--flag` and `-flag`, matching the stdlib
+// flag package a user has already met in `qompack config print`. An undocumented flag is a usage
+// error rather than a positional argument: silently treating `--jsonn` as a search term is how a
+// user comes to believe recall is broken.
+func (f *frontend) parse(args []string, out io.Writer) (Invocation, bool, error) {
+	inv := Invocation{
+		Spec:  f.spec,
+		Deps:  f.deps,
+		Flags: map[string]string{},
+		Now:   f.deps.now(),
+		Out:   out,
+	}
+
+	known := make(map[string]FlagSpec, len(f.spec.Flags))
+	for _, fs := range f.spec.Flags {
+		known[fs.Name] = fs
+	}
+
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if a == "--" {
+			inv.Args = append(inv.Args, args[i+1:]...)
+			break
+		}
+		if !strings.HasPrefix(a, "-") || a == "-" {
+			inv.Args = append(inv.Args, a)
+			continue
+		}
+
+		name, value, hasValue := strings.Cut(strings.TrimLeft(a, "-"), "=")
+
+		if name == "h" || name == "help" {
+			return inv, true, nil
+		}
+
+		spec, ok := known[name]
+		if !ok {
+			return inv, false, UsageErrorf("qompack %s: unknown flag %q", f.spec.Subcommand, a)
+		}
+		if spec.Arg != "" && !hasValue {
+			if i+1 >= len(args) {
+				return inv, false, UsageErrorf("qompack %s: --%s requires a <%s>",
+					f.spec.Subcommand, name, spec.Arg)
+			}
+			i++
+			value = args[i]
+		}
+		inv.Flags[name] = value
+	}
+
+	_, inv.JSON = inv.Flags[jsonFlag.Name]
+	return inv, false, nil
 }
