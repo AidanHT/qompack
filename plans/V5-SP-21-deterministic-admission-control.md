@@ -12,22 +12,42 @@ SP-21 defines an opt-in deterministic admission pipeline for a newly delivered r
 
 Fresh Qompack-owned retrieval responses are the first supported transformation surface, before delivery. Already-processed Qompack envelopes bypass repeat processing to prevent recursion. A tiny host schema allowlist is accepted only after target-specific parser/version/coexisting-hook evidence. Unknown schemas and parsers pass through. This plan does not redefine SP-20 identity/publication contracts.
 
+Planning owner: Writer B, requested gpt-5.6-terra at medium effort; effective model/effort and usage not exposed. Future implementation owner: a transformation owner supported by a host-boundary tester and an independent host/recovery reviewer. [MIGRATION-EVIDENCE.md](MIGRATION-EVIDENCE.md) records the initial branch, dirty files, worktrees, model requests and blockers; row [X08](MIGRATION-EVIDENCE.md#mandatory-future-scenario-ownership-matrix) is this plan's sole accountable requirement, and rows E09/E12/E13 are its target evidence.
+
 ## Design context (verbatim from Qompack.md)
 
 The template heading is retained; v1.5 requirements are summarized without executable examples.
+
+### Existing evidence and target unknowns
+
+§7.3 records seven declared hook events in `internal/pluginmanifest/manifest.go` and requires SP-19 to distinguish observation, injection, new-result replacement, usage attribution, estimation, request, blocking and history rewriting as separate capabilities. New-output replacement is documented; installed support is unverified. MIGRATION-EVIDENCE E09 records the documented `updatedToolOutput` mechanism with an unknown installed version, E12 keeps native cuts, history rewriting and cache-marker controls unsupported, and E13 keeps injection, attribution, estimation and request/block control unverified until target canaries run.
+
+§5.5 admits capsules and pointers only for newly delivered Qompack or allowlisted host output, and only against capture-before-replacement, schema and recovery evidence. §7.1 gives recording, reinjection, output replacement and experimental policy independent future kill switches, and Appendix C keeps replacement and unsupported native controls off. §8.7 states that admission begins with owned responses after the M1–M3 recovery gates, and that deterministic self-contained capsules precede deltas and allowlisted host transformations. §12 assigns optimizer failure and malformed output to SP-21 pass-through after policy checks, with replacement off until recovery. §10 Phase 7 assigns M4 admission to this plan separately from SP-16 reuse work, and it is not a prerequisite for SP-17/SP-18 production evaluation.
+
+### Sequence and fidelity rules
 
 M4 follows M1–M3 because replacement is safe only when retained content remains durably captured and recoverable. The synchronous sequence is capture, durability verification, one deterministic representation decision, resolvable handle verification, and one transform. It never chains transforms, rewrites native history, or relies on native eviction/control.
 
 The record preserves both structured and displayed meaning: status, stderr, diagnostics, interruption/media flags, input/output counts, signatures, source identity, source span/offsets where available, parser/schema version, fidelity, coverage, and the transformed display. A same-epoch prior delivery is not proof that a relative delta has a valid baseline. Self-contained capsules precede relative deltas.
 
+### Recursion, coexistence and enablement rules
+
 Competing hooks are expected. The target contract must establish ordering, coexistence behavior, output schema, and idempotence marker behavior. An already-processed envelope marker bypasses repeat admission; fresh owned results remain eligible for their first transformation. Automatic replacement stays feature-switched off until the target gate passes; privacy denial follows the applicable privacy policy rather than an optimization fallback.
+
+§11.1 keeps task completion, constraint/regression failures and evidence recoverability separate from cost, and compares stock, currently implemented Qompack, corrected checkpoint/retrieval and admission independently. A cost-only result never enables admission.
 
 ## Out of scope
 
-- Redefining M1 capture/object/publication identities, M2 authorization, M3 recovery, or SP-13 retrieval behavior.
-- Native-history rewriting, deletion of delivered results, cache-marker manipulation, compaction control, or automatic veto of manual compact.
-- Broad parser support, a generic schema matcher, model/API dependencies, or untested host output forms.
-- Replaying commands, bypassing denied reads, or treating hashes as authorization.
+| Item | Owner |
+|---|---|
+| M1 capture/object/publication identity, durable frontier and migration semantics | SP-20/M1 |
+| M2 derived-state authority, uncertainty and authorization semantics | SP-20/M2 |
+| MCP protocol/server behavior, tool discovery, preview authorization and retrieval UI | SP-13 |
+| M3 checkpoint presentation, rehydration selection and latest-usable lifecycle | SP-10/SP-11 |
+| Native-history rewriting, delivered-result deletion, cache-marker manipulation, compaction control and automatic veto of manual compact | Unsupported; SP-19 capability register records the disabled status |
+| Broad parser support, a generic schema matcher, model/API dependencies and untested host output forms | Not authorized by this plan |
+| Command replay, denied-read bypass, hash-as-authorization and secret logging | Not authorized by this plan |
+| Scoped/expiring project reuse and bounded demand promotion | SP-16 |
 
 ## Interface contract
 
@@ -51,48 +71,60 @@ Competing hooks are expected. The target contract must establish ordering, coexi
 | Pass-through | Exact original when non-private failure/unknown policy occurs |
 | Denial result | Privacy-policy outcome with audit diagnostic, never an optimization substitute |
 
+### Required invariants
+
+1. The feature switch ships off. Enablement requires the M4 admission gate; no default, upgrade path, or unknown host environment turns it on.
+2. Durable capture and verified publication precede every replacement. Capture, durable-write or acknowledgement failure forbids pointer replacement and preserves the host result.
+3. One delivered result receives at most one representation decision and one transform. Transforms never chain, and no stage re-enters the pipeline.
+4. An already-processed Qompack envelope bypasses admission. A fresh owned result is eligible exactly once, and repeated delivery of the same result is idempotent.
+5. Parser dispatch requires an exact schema and version match from the allowlist with deterministic tie-breaking. Unknown schema, unknown version, unrecognized format, and binary/multimodal payloads pass through.
+6. Every emitted handle resolves under current authorization before delivery. An unresolvable, denied or unavailable handle blocks the transform and stays visible as such.
+7. Structured and displayed meaning survive together: status, stderr, diagnostics, interruption and media flags, input/output counts, signature, source identity and spans, parser/schema version, fidelity, and coverage.
+8. A self-contained capsule precedes any relative delta. A delta requires a verified compatible baseline; a same-epoch prior delivery is not that proof.
+9. A changed failure signature, a changed parser/schema version, or uncertain capture resets delta eligibility to a capsule.
+10. Failure of capture, parsing, selection, resolution or target evidence passes the exact original through. Only privacy policy produces a denial, and a denial is never an optimization substitute.
+11. Admission never rewrites native history, deletes a delivered result, manipulates cache markers, controls compaction, replays a command, or treats a hash as authorization.
+
 ## Implementation spec
 
-### IS-21-01: feature switch and target allowlist
+### M4-01: feature switch and target allowlist
 
-Ship disabled. Enable only for Qompack-owned results first, then a small enumerated host schema/version allowlist proven on a supported target. Parser dispatch uses exact schema/version matching and deterministic tie-breaking. Unknown values pass through.
+Ship disabled. Enable only for Qompack-owned results first, then a small enumerated host schema/version allowlist proven on a supported target. Parser dispatch uses exact schema/version matching and deterministic tie-breaking. Unknown values pass through. The switch is independent of the recording, reinjection and experiment switches named in Qompack.md §7.1, so disabling admission never disables capture.
 
-### IS-21-02: deterministic pipeline
+### M4-02: deterministic pipeline
 
 Perform capture, durability verification, single representation selection, handle-resolution verification, then one transform. Each stage produces an observable decision. A failure passes through unchanged unless privacy requires denial. Capture failure forbids pointer replacement.
 
-### IS-21-03: fidelity-preserving representation
+### M4-03: fidelity-preserving representation
 
 Retain status, stderr, diagnostics, interruption and media flags, counts, signature, identifying spans, structured content, and displayed content. Prefer verbatim retention when recovery cost is high. Unrecognized test formats, binary/multimodal payloads and unknown schemas pass through under privacy policy. A capsule is self-contained before any delta. Relative output requires a verified compatible baseline, and same-epoch delivery alone is insufficient proof. A changed failure signature, parser/version change or uncertain capture resets delta eligibility.
 
-### IS-21-04: recursion and competing hooks
+### M4-04: recursion and competing hooks
 
 Distinguish fresh owned results from already-processed envelopes. Transform an eligible fresh response once, then mark and bypass repeat parser/admission work. Target testing covers competing hook order, repeated delivery, malformed output, duplicate markers, and another hook’s transformation. The admission record identifies the observed chain without claiming unobserved order.
 
-### IS-21-05: recovery and rollback
+### M4-05: recovery and rollback
 
 Every emitted handle resolves under current authorization before delivery. When target/schema/recovery evidence fails, disable the feature switch and pass through. Before a new admission schema write, prove compatible reader support or take a verified backup; after a write, rollback validates compatible read or restores backup before re-enabling.
 
-### Blockers and rollback
-
-M1 durable publication, M2 authorization/recovery, M3 latest-usable lifecycle, target adapter evidence, and privacy policy are blockers. Rollback order is disable replacement, restore pass-through, verify old/new reader or backup, then preserve diagnostics and original captures for audit.
-
 ## Test plan (TDD)
 
-No tests run in this planning pass. Future TDD starts with contract failures. Existing future commands are `go run ./tools/devtool test`, `go run ./tools/devtool test-race`, and `go run ./tools/devtool plugin-validate`; none runs here. The host-adapter admission test entrypoint is proposed future work and requires target evidence before creation.
+No tests run in this planning pass. Future TDD starts with contract failures. Existing future commands are `go run ./tools/devtool test`, `go run ./tools/devtool test-race`, and `go run ./tools/devtool plugin-validate`; none runs here. The host-adapter admission test entrypoint is proposed future work and requires target evidence before creation; do not represent it as an existing test.
 
-| ID | Future assertion |
+Every row below is future acceptance and remains unchecked. Each maps to MIGRATION-EVIDENCE row X08, whose accountable task is this plan.
+
+| ID | Future scenario, owner, and required artifact |
 |---|---|
-| T21-SWITCH-01 | Default-off, explicit opt-in, and target-gate disable behavior |
-| T21-PIPE-01 | Capture and publication verify before one transform/handle emission |
-| T21-PASS-01 | Capture/parser/selection/handle failure passes original through unless privacy denies |
-| T21-FIDELITY-01 | Status, stderr, diagnostics, interruption/media flags, counts, signatures, spans, structured/displayed forms survive |
-| T21-BASELINE-01 | Self-contained capsule precedes delta; same-epoch prior delivery cannot prove a baseline |
-| T21-RECURSE-01 | Fresh owned response transforms once, processed envelope bypasses, duplicate delivery is idempotent |
-| T21-HOST-01 | Exact schema/version allowlist, unknown parser pass-through, and competing hooks matrix |
-| T21-RECOVERY-01 | Every emitted handle resolves under authorization; denied/unavailable remain visible |
-| T21-QUALITY-01 | Supported task completion/constraints/recoverability compared to unmodified output on controlled held-out tasks; failures and uncertainty retained, no cost-only win |
-| T21-ROLLBACK-01 | Disable/pass-through and compatible-reader-or-backup rollback before/after schema write |
+| T21-SWITCH-01 | Default-off, explicit opt-in, and target-gate disable behavior; **transformation owner**; switch-state and independent-kill-switch trace showing capture unaffected |
+| T21-PIPE-01 | Capture and publication verify before one transform/handle emission; **capture-boundary owner**; ordered stage-decision record against real SP-20 seams |
+| T21-PASS-01 | Capture/parser/selection/handle failure passes original through unless privacy denies; **transformation owner**; byte-identical pass-through artifact plus a distinct privacy-denial audit diagnostic |
+| T21-FIDELITY-01 | Status, stderr, diagnostics, interruption/media flags, counts, signatures, spans, structured/displayed forms survive; **representation owner**; field-by-field preservation fixture including binary/multimodal pass-through |
+| T21-BASELINE-01 | Self-contained capsule precedes delta; same-epoch prior delivery cannot prove a baseline; **representation owner**; baseline-verification record with absent/corrupt/changed-signature resets |
+| T21-RECURSE-01 | Fresh owned response transforms once, processed envelope bypasses, duplicate delivery is idempotent; **host-coexistence owner**; marker/idempotence transcript |
+| T21-HOST-01 | Exact schema/version allowlist, unknown parser pass-through, and competing hooks matrix; **host-coexistence owner**; installed host/provider/OS/version canary transcript, or an explicit unverified disposition that keeps the allowlist empty |
+| T21-RECOVERY-01 | Every emitted handle resolves under authorization; denied/unavailable remain visible; **recovery/rollback owner**; resolution audit against real SP-13/M2 authorization, with denied, unavailable and uncertain kept distinct |
+| T21-QUALITY-01 | Supported task completion/constraints/recoverability compared to unmodified output on controlled held-out tasks; failures and uncertainty retained, no cost-only win; **transformation owner with V6 evaluation review**; three-layer comparison report with predeclared margins, or an inconclusive result |
+| T21-ROLLBACK-01 | Disable/pass-through and compatible-reader-or-backup rollback before/after schema write; **recovery/rollback owner**; pre-write reader-or-backup proof and post-write restore artifact with evidence retained |
 
 ### Focused validation and bounded parallel runs
 
@@ -106,14 +138,16 @@ Each implementation owner records selected real cases, expected runtime/resource
 
 ## Commit plan
 
-Future six-commit proposal, all unchecked and requiring separate authorization.
+Future implementation only; six small conventional commits, no attribution trailers. Each row places its contract/test before compatible implementation and retains its validation evidence. All rows are unchecked and require separate authorization after M1–M3.
 
-- [ ] Commit 1 — `test(admission): specify target schema and pass-through contracts` for T21-SWITCH-01, T21-PASS-01, and T21-HOST-01.
-- [ ] Commit 2 — `feat(admission): record verified capture and deterministic decisions` using SP-20 adapters without redefining identity/publication.
-- [ ] Commit 3 — `fix(admission): preserve delivered result fidelity` for capsule/delta, structured/displayed, signature, count, and span behavior.
-- [ ] Commit 4 — `feat(admission): emit one resolvable representation` after M2/SP-13 authorization/recovery gate.
-- [ ] Commit 5 — `fix(admission): bypass processed envelopes and coexist with hooks` for recursion/idempotence/ordering evidence.
-- [ ] Commit 6 — `test(admission): prove opt-in lifecycle and rollback` for target gating, privacy, recovery, T21-QUALITY-01 comparison against unmodified output, and backup/reader rollback.
+| Commit | Scope and validation gate |
+|---|---|
+| [ ] 1. `test(admission): specify target schema and pass-through contracts` | T21-SWITCH-01, T21-PASS-01 and T21-HOST-01 contract failures against the frozen adapter surface; the allowlist stays empty until target evidence exists |
+| [ ] 2. `feat(admission): record verified capture and deterministic decisions` | T21-PIPE-01 using SP-20 adapters without redefining identity/publication; ordered stage decisions and capture-failure non-replacement |
+| [ ] 3. `fix(admission): preserve delivered result fidelity` | T21-FIDELITY-01 and T21-BASELINE-01 capsule/delta, structured/displayed, signature, count and span behavior |
+| [ ] 4. `feat(admission): emit one resolvable representation` | T21-RECOVERY-01 after the M2/SP-13 authorization/recovery gate; denied, unavailable and uncertain stay distinct |
+| [ ] 5. `fix(admission): bypass processed envelopes and coexist with hooks` | T21-RECURSE-01 and the T21-HOST-01 competing-hook matrix; recursion, idempotence and observed-order evidence |
+| [ ] 6. `test(admission): prove opt-in lifecycle and rollback` | T21-QUALITY-01 comparison against unmodified output and T21-ROLLBACK-01 backup/reader rollback; consolidates target gating, privacy and recovery artifacts |
 
 ## Subagent strategy
 
@@ -152,17 +186,23 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 
 **Dispatch contract.** Each unit receives exclusive file ownership, writes its findings to a report file, and returns a short structured summary rather than prose. Each unit carries a per-unit tool-call budget and stops with a BLOCKED report after three identical failures instead of retrying. No unit runs `git stash`: the stash list is shared across all worktrees of one repository. Any `go test -run` filter must be confirmed to select actual cases — it prints `ok` when it matches nothing, which caused three misdiagnoses in the preceding session.
 
+**Resource isolation.** Write-producing checks use separate worktrees or copies at the recorded HEAD, with separate stores, spools, fixtures and daemon/IPC identities. Never run two admission writers, a competing-hook matrix and a rollback drill, or a schema write and its reader against one fixture, except inside the single owned scenario that deliberately tests that interaction. Host canaries use disposable sessions, never a user's production session or data.
+
 ## Exit criteria
+
+All criteria are future and unchecked.
 
 - [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
-
+- [ ] Parallel handoffs record accepted inputs, unique file/resource ownership and the shared SP-14–21 worker pool; provisional checks remain distinct from final M4 acceptance.
 - [ ] M1–M3 and target/privacy prerequisites are complete.
 - [ ] Default-off switch, already-processed envelope bypass, and exact parser/version allowlist are proven.
 - [ ] Every replacement follows capture, verification, one selection, resolvable handle, one transform.
 - [ ] Failure passes through except documented privacy denial.
 - [ ] Fidelity and self-contained-capsule-before-delta tests pass.
 - [ ] Competing-hook and rollback evidence pass before enablement.
+- [ ] T21-QUALITY-01 shows retained task completion, constraints and recoverability against unmodified output; a cost-only result does not enable admission.
+- [ ] Every X08 scenario has a real check and artifact, or an explicitly accepted blocked/disabled disposition that keeps the allowlist empty.
 
 ## Done checklist
 
@@ -170,9 +210,18 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 
 - [ ] This new plan preserves the requested heading order, M4/M1–M3 dependency boundary, and 5–8 future commit convention.
 - [ ] It uses only existing future validation commands and labels the host entrypoint proposed.
+- [ ] Its milestone sections, invariants, scenario ownership, commit gates and rollback section match the SP-19/SP-20 house structure, and its requirement IDs trace to MIGRATION-EVIDENCE X08.
 - [ ] No source/config/test/fixture/runtime/Git work occurred in this planning pass.
 
 ### Future implementation checks
 
 - [ ] T21-SWITCH-01 through T21-ROLLBACK-01 pass on named future entrypoints.
 - [ ] The independent host-boundary review approves target evidence before the feature switch is enabled.
+
+### Rollout, rollback and blockers
+
+**Enablement order:** ship disabled; enable first for Qompack-owned retrieval responses only; add an enumerated host schema/version allowlist entry only after that exact schema and version produce a target canary transcript and a competing-hook observation. An unverified or unknown target keeps the allowlist empty and admission off. Enablement never follows from unit success, a cost result, or a provisional check on an intermediate snapshot.
+
+**Rollback order:** disable replacement, restore pass-through, verify the compatible old/new reader or restore the verified backup, then preserve diagnostics and original captures for audit. Before any new admission schema write, prove a compatible deployed reader or take a consistent verified backup; after that write, repeat the drill against the actual new artifact. Never delete captures, diagnostics or evidence to make a retry look clean, and never silently downgrade a format. Disabling admission never disables capture, and a disabled pipeline still preserves the original result.
+
+**Blockers.** M1 durable publication, M2 authorization/recovery, M3 latest-usable lifecycle, target adapter evidence and the privacy policy all block enablement. Ledger blockers apply directly: B01 installed host versions/permissions blocks the host allowlist and every target claim; B03 SP-20 durable recovery blocks all pointer replacement; B04 SP-13 retrieval blocks handle resolution; B08 routing and B09 concurrency govern future delegation. E09 keeps new-result replacement documented with an unknown installed target, E12 keeps native cuts, history rewriting and cache-marker controls unsupported, and E13 keeps injection/attribution/estimation/request control unverified. Failure of any prerequisite keeps admission disabled and the plan actionable; it never converts a pass-through into a delivery guarantee.
