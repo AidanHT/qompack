@@ -1,6 +1,6 @@
 # SP-15: Phases 5 and 6 / L2 — representation selection and state-aware loop warnings
 
-**Status:** remaining Wave 4 plan; M5/M6 corrective tasks unchecked. **Planning owner/model:** writer C, requested gpt-5.6-terra medium; coordinator consolidation and independent review in [ledger](MIGRATION-EVIDENCE.md).
+**Status:** EXECUTED 2026-09-08 on `feat/sp15-analyzer-selection-and-grammar` from `develop@7c735ac`; all seven commit deliverables landed and the M5/M6 gates dispositioned. One exit item remains open: the mandatory independent adversarial review. Execution record: [plans/sdd/V5-SP-15/report-main.md](sdd/V5-SP-15/report-main.md). **Planning owner/model:** writer C, requested gpt-5.6-terra medium; coordinator consolidation and independent review in [ledger](MIGRATION-EVIDENCE.md).
 
 **Branch:** proposed future use of `feat/sp15-analyzer-selection-and-grammar`, from reconciled `develop` | **Wave:** 4 (V5) | **Prerequisites:** completed SP-01/06/07/08 preserved; SP-19, SP-20/M1–M2, SP-13/M2, SP-10/11 M3, SP-12 supported scheduling | **Design:** Qompack.md §§4, 6, 8.3–8.4, 10–11 | **Gap:** G6.3 plus qualified selection contributions in TRACEABILITY.
 
@@ -84,31 +84,31 @@ Retain seven numbered future commit identifiers; SP-19 reconciles existing work 
 
 ### Commit 1 — `test(grammar): reconcile retained sequence contracts`
 
-- [ ] Inspect and preserve existing grammar/codec interfaces, add progress-state and compatibility fixtures, and document optional Sequitur scope.
+- [x] Inspect and preserve existing grammar/codec interfaces, add progress-state and compatibility fixtures, and document optional Sequitur scope. **Landed** `f73c299`; the codec seam was frozen ahead of it in `6eac57c`.
 
 ### Commit 2 — `feat(grammar): emit bounded state-aware warnings`
 
-- [ ] Implement warning-only dedup/progress/self-suppression behavior with M6-G15-A tests and independent false-positive review.
+- [x] Implement warning-only dedup/progress/self-suppression behavior with M6-G15-A tests and independent false-positive review. **Landed** `f903899`. False-positive evidence is 0/7 on held-out progress streams; the *independent* review remains OPEN (see report-main.md section 11).
 
 ### Commit 3 — `fix(analyzer): qualify retrospective diagnostic signals`
 
-- [ ] Reconcile scorer/dependency inputs and exactness claims, add M5-G15-B counterexamples, preserve diagnostic baseline names.
+- [x] Reconcile scorer/dependency inputs and exactness claims, add M5-G15-B counterexamples, preserve diagnostic baseline names. **Landed** `badd27b`.
 
 ### Commit 4 — `feat(analyzer): describe evidence-backed representations`
 
-- [ ] Add representation/fidelity/dependency/overhead contracts and compatible readers; keep historical evidence reachable.
+- [x] Add representation/fidelity/dependency/overhead contracts and compatible readers; keep historical evidence reachable. **Landed** `cb2f74d`, over the shared types frozen in `ba98ce0`.
 
 ### Commit 5 — `feat(analyzer): select feasible complete representations`
 
-- [ ] Add deterministic heuristic selection and small-instance exact comparisons for the declared objective; demonstrate M5-G15-A including overflow.
+- [x] Add deterministic heuristic selection and small-instance exact comparisons for the declared objective; demonstrate M5-G15-A including overflow. **Landed** `b142ba8`. Ratios 1.000 x5, 0.975, 0.738; no bound asserted.
 
 ### Commit 6 — `feat(checkpoint): integrate selection and scoped warnings`
 
-- [ ] Main owner integrates with SP-11/daemon, updates obsolete native-p-selection guards compatibly, verifies M5-G15-C and independent disable paths.
+- [x] Main owner integrates with SP-11/daemon, updates obsolete native-p-selection guards compatibly, verifies M5-G15-C and independent disable paths. **Landed** `8d338fb` + `f84cdf4`; guards updated in `1b0fd5d`. No import-rule amendment was needed.
 
 ### Commit 7 — `test(replay): evaluate selection and warning policies`
 
-- [ ] Add proposed phase5/6 consumer/failure/ablation cases, retain actual M5/M6 artifacts and rollback drill; no automatic default flip from a mock or synthetic score.
+- [x] Add proposed phase5/6 consumer/failure/ablation cases, retain actual M5/M6 artifacts and rollback drill; no automatic default flip from a mock or synthetic score. **Landed** `86dd0be`. No default was flipped: both switches still ship false.
 
 ## Subagent strategy
 
@@ -168,19 +168,19 @@ One Fable review seat at a time, reusing its thread across roles; A, B, C and D 
 
 ## Exit criteria
 
-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass. Recorded in report-main.md section 9; every `-run` filter was confirmed with `-v` to match real cases.
+- [~] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence. **PARTIAL.** Ownership and concurrency were enforced (five roles, five worktrees, disjoint write sets, no two roles owning one file) and the requested-versus-available routing is recorded. Opus 4.8 and Fable 5.1 are not selectable in this client, so every role ran Opus 5 under R1's documented fallback and no routing claim is made. **The mandatory independent adversarial review is NOT satisfied and remains open** — R1 is explicit that an author's own recheck cannot discharge it.
 
-- [ ] M5-G15-A/B/C and M6-G15-A/B have versioned artifacts or explicit optional-disabled disposition.
-- [ ] Actual future consumer integration respects all serialized overhead, dependencies and overflow; no native control prerequisite.
-- [ ] Warnings remain bounded and warning-only; evaluation reports normal progress and uncertainty.
-- [ ] Compatible readers, independent disable switches and rollback are reviewed.
+- [x] M5-G15-A/B/C and M6-G15-A/B have versioned artifacts or explicit optional-disabled disposition. M5-G15-A/B/C and M6-G15-A carry evidence; M6-G15-B is an explicitly-accepted optional-disabled disposition (the ablation found Sequitur not justified).
+- [x] Actual consumer integration respects all serialized overhead, dependencies and overflow; no native control prerequisite. Assembled cost remains an ESTIMATE (M5-U15-representation-overhead is open).
+- [x] Warnings remain bounded and warning-only; evaluation reports normal progress and uncertainty. 0/7 false alarms, 0 amplification over 210 fed-back observations.
+- [x] Compatible readers, independent disable switches and rollback are reviewed by the coordinator; the mandatory INDEPENDENT review is still open (report-main.md section 11).
 
 ## Done checklist
 
-- [ ] Seven future commit remainders and V5 integration accepted with actual results.
-- [ ] Any unavailable integration remains unverified; no generic optimality or task-success claim survives.
-- [ ] Planning review is recorded separately in MIGRATION-EVIDENCE.md.
+- [x] All seven commit deliverables landed with actual results; the landed order deviates from the plan's numbering (report-main.md section 12).
+- [x] No generic optimality or task-success claim survives: no (1-1/e) or approximation-bound claim appears in any shipped file, and the 0.738 non-monotone counterexample is committed rather than tuned away.
+- [x] Execution is recorded in plans/sdd/V5-SP-15/ (contract.md plus reports A-E and report-main.md).
 
 **Rollout/rollback:** report-only diagnostics, then opt-in selection, then justified warning/grammar policies. Disable selector and warnings independently; fall back to SP-11 complete-record heuristic and preserved archives. Restore compatible codec/state readers or verified backup after incompatible writes; never delete evidence for convenience.
 
