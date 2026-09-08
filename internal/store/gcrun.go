@@ -1,10 +1,13 @@
 package store
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -570,6 +573,11 @@ type gcRootFile struct {
 	path   string
 	class  RetentionClass
 	reason string
+	// lines, when non-nil, makes this file RECORD-aware instead of a flat token stream: it is
+	// called with each raw line and answers the class and reason that line's hashes carry, or
+	// false to skip the line entirely. Only .jsonl files whose records are one-per-line may set
+	// it — a multi-line .json document has no line semantics to read.
+	lines func(line []byte) (RetentionClass, string, bool)
 }
 
 // gcRootFiles returns every file whose hash references keep content alive.
@@ -586,11 +594,17 @@ type gcRootFile struct {
 // coupleRecoveryRootsLocked.
 func (s *FSStore) gcRootFiles() []gcRootFile {
 	out := []gcRootFile{
-		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant"},
-		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence"},
-		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record"},
-		{filepath.Join(s.l.State, deliveryLeaseFile), RetentionLease, "held by an open delivery lease"},
-		{filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, "declared as a retention root"},
+		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant", nil},
+		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence", nil},
+		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record", nil},
+		{
+			filepath.Join(s.l.State, deliveryLeaseFile), RetentionLease, openLeaseReason,
+			openLeaseLines(s.acknowledgedDeliveries()),
+		},
+		{
+			filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, declaredRootReason,
+			declaredRetentionLine,
+		},
 	}
 	if entries, err := os.ReadDir(paths.Long(s.l.Checkpoints)); err == nil {
 		for _, e := range entries {
@@ -601,7 +615,7 @@ func (s *FSStore) gcRootFiles() []gcRootFile {
 			case ".json", ".jsonl":
 				out = append(out, gcRootFile{
 					filepath.Join(s.l.Checkpoints, e.Name()), RetentionCheckpoint,
-					"referenced by committed checkpoint " + e.Name(),
+					"referenced by committed checkpoint " + e.Name(), nil,
 				})
 			}
 		}
@@ -629,10 +643,105 @@ func (s *FSStore) pendingRootFiles() []gcRootFile {
 		}
 		out = append(out, gcRootFile{
 			filepath.Join(dir, e.Name()), RetentionPending,
-			"written but not yet rooted (pending marker " + e.Name() + ")",
+			"written but not yet rooted (pending marker " + e.Name() + ")", nil,
 		})
 	}
 	return out
+}
+
+// The two reasons the record-aware root files report when the record itself supplies none.
+const (
+	openLeaseReason    = "held by an open delivery lease"
+	declaredRootReason = "declared as a retention root"
+)
+
+// deliveryAckSetMax bounds the acknowledged-delivery set one pass builds, so a runaway or hostile
+// frontier journal cannot cost a GC pass unbounded memory. It matches internal/daemon's own
+// per-journal entry bound. Stopping at it leaves the remaining leases OPEN, which is the safe
+// direction: the pass over-retains rather than closing a lease it never read the ack for.
+const deliveryAckSetMax = 1 << 16
+
+// acknowledgedDeliveries reads the daemon's committed-frontier journal and returns the set of
+// delivery nonces whose publication is complete.
+//
+// This is the half of the lease contract the retention set was missing. delivery-leases.jsonl
+// records an ASSIGNMENT — a delivery has an identity and may be worked on — and says nothing about
+// whether its object and reference ever landed; delivery-acks.jsonl is the record that says they
+// did. Reading only the first made every delivery a daemon had ever handled a permanent retention
+// root, so the retention set only ever grew (SP-20 invariant 9 retains what a lease NEEDS).
+//
+// The file is read structurally, like every other root file: internal/daemon imports store, so
+// store cannot import it back (00-ARCHITECTURE.md §3.2).
+//
+// Every failure direction answers "fewer acknowledgements", never "more". A missing, unopenable,
+// truncated, oversized or half-parseable journal yields only the acks actually read, so any lease
+// it could not vouch for stays open and stays retained: over-retention costs disk, under-retention
+// is data loss.
+func (s *FSStore) acknowledgedDeliveries() map[string]struct{} {
+	f, err := os.Open(paths.Long(filepath.Join(s.l.State, deliveryAckFile)))
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+
+	acked := make(map[string]struct{})
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
+	for sc.Scan() && len(acked) < deliveryAckSetMax {
+		var rec struct {
+			Delivery      string `json:"delivery"`
+			ObservationID string `json:"observation_id"`
+		}
+		// A torn final line is the normal shape of a crash mid-append and does not parse, so the
+		// delivery it was about is simply not acknowledged yet. Both fields are required because
+		// both are what an acknowledgement means: this delivery, under this identity.
+		if json.Unmarshal(sc.Bytes(), &rec) != nil || rec.Delivery == "" || rec.ObservationID == "" {
+			continue
+		}
+		acked[rec.Delivery] = struct{}{}
+	}
+	return acked
+}
+
+// openLeaseLines returns the per-line filter that narrows the lease harvest to OPEN leases.
+//
+// A line the filter cannot read is treated as open. That is deliberate and is the same direction
+// every other guard here takes: a lease whose nonce GC cannot recover must keep retaining, because
+// the alternative is collecting content a delivery still in flight is about to publish.
+func openLeaseLines(acked map[string]struct{}) func([]byte) (RetentionClass, string, bool) {
+	return func(line []byte) (RetentionClass, string, bool) {
+		if len(acked) == 0 {
+			return RetentionLease, openLeaseReason, true
+		}
+		var rec struct {
+			Delivery string `json:"delivery"`
+		}
+		if json.Unmarshal(line, &rec) != nil || rec.Delivery == "" {
+			return RetentionLease, openLeaseReason, true
+		}
+		if _, done := acked[rec.Delivery]; done {
+			return "", "", false
+		}
+		return RetentionLease, openLeaseReason, true
+	}
+}
+
+// declaredRetentionLine reads one retention-roots.jsonl line as the RetentionRoot it declares, so
+// the class and reason the PRODUCER wrote are the ones the report gives back.
+//
+// The file carries a class per line and used to be harvested as an undifferentiated token stream
+// under a blanket "rollback" label, which reported published evidence as rollback material. A line
+// that does not parse still retains everything on it, under that same blanket label: an
+// unrecognized declaration is a claim this build cannot read, never a claim it may ignore.
+func declaredRetentionLine(line []byte) (RetentionClass, string, bool) {
+	var r RetentionRoot
+	if json.Unmarshal(line, &r) != nil || r.Class == "" {
+		return RetentionRollback, declaredRootReason, true
+	}
+	if r.Reason == "" {
+		return r.Class, declaredRootReason, true
+	}
+	return r.Class, declaredRootReason + ": " + r.Reason, true
 }
 
 // retentionFromSources folds every in-process RetentionRootSource into the harvested set.
@@ -685,12 +794,12 @@ func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]RetentionRoot, 
 	return out, false, nil
 }
 
-// harvestFile walks one file's JSON tokens, adding every hash-shaped string it finds.
+// harvestFile adds every hash-shaped string one root file names.
 //
-// json.Decoder.Token streams through CONCATENATED top-level values, so one decoder handles a
-// single-document .json and a many-document .jsonl identically. A decode error stops the walk but
-// keeps what was already collected: a half-written final line must not cost the whole file's
-// references.
+// A file with no per-line reader is walked as one token stream, which is what a multi-line .json
+// checkpoint needs. A file that sets one is read line by line first, so a record can decide the
+// class its hashes carry — or that they are not retained at all, which is how an ACKNOWLEDGED
+// delivery lease stops pinning what it once needed.
 //
 // The FIRST file to name a hash owns its retention class. gcRootFiles returns a fixed order, so
 // the reason a report gives for one hash is stable across passes.
@@ -701,7 +810,41 @@ func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, bu
 	}
 	defer func() { _ = fh.Close() }()
 
-	dec := json.NewDecoder(fh)
+	if f.lines == nil {
+		return s.harvestTokens(fh, f.class, f.reason, into, budget)
+	}
+	// A scan that stops early — an unreadable handle, a line past scannerMaxBuf — keeps what it
+	// already collected, exactly as a mid-file decode error does below.
+	sc := bufio.NewScanner(fh)
+	sc.Buffer(make([]byte, 0, scannerInitialBuf), scannerMaxBuf)
+	for sc.Scan() {
+		line := sc.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		class, reason, retains := f.lines(line)
+		if !retains {
+			continue
+		}
+		truncated, harvestErr := s.harvestTokens(bytes.NewReader(line), class, reason, into, budget)
+		if harvestErr != nil || truncated {
+			return truncated, harvestErr
+		}
+	}
+	return false, nil
+}
+
+// harvestTokens walks one JSON token stream, adding every hash-shaped string it finds under the
+// given class and reason.
+//
+// json.Decoder.Token streams through CONCATENATED top-level values, so one decoder handles a
+// single-document .json and a many-document .jsonl identically. A decode error stops the walk but
+// keeps what was already collected: a half-written final line must not cost the whole file's
+// references.
+func (s *FSStore) harvestTokens(
+	r io.Reader, class RetentionClass, reason string, into map[core.Hash]RetentionRoot, budget *gcBudget,
+) (bool, error) {
+	dec := json.NewDecoder(r)
 	for {
 		if truncated, budgetErr := budget.spent(); budgetErr != nil || truncated {
 			return truncated, budgetErr
@@ -721,7 +864,7 @@ func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, bu
 		if _, seen := into[h]; seen {
 			continue
 		}
-		into[h] = RetentionRoot{Hash: h, Class: f.class, Reason: f.reason}
+		into[h] = RetentionRoot{Hash: h, Class: class, Reason: reason}
 	}
 }
 

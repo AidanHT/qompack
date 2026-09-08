@@ -116,11 +116,23 @@ type RetentionRootSource interface {
 // The on-disk root-file convention. Every one of these is OPTIONAL: a missing file means the
 // producer has not shipped, never that collection is unsafe.
 const (
-	// deliveryLeaseFile is internal/daemon's open-delivery-lease journal, under <root>/.qompack/
-	// state. GC reads it structurally — every hash-shaped token in an open lease line retains —
-	// so the daemon needs no store-side call and store needs no daemon import. The journal is
-	// append-only and carries no release record, so every line in it is an OPEN lease.
+	// deliveryLeaseFile is internal/daemon's delivery-lease journal, under <root>/.qompack/state.
+	// GC reads it structurally — every hash-shaped token in an OPEN lease line retains — so the
+	// daemon needs no store-side call and store needs no daemon import. The journal is append-only
+	// and carries no release record, so a line stops being an open lease only by being named in
+	// deliveryAckFile.
 	deliveryLeaseFile = "delivery-leases.jsonl"
+	// deliveryAckFile is internal/daemon's committed-frontier journal, beside deliveryLeaseFile.
+	// One line per delivery that reached committed publication — durable object, verified
+	// reference, then frontier — naming the delivery nonce its lease line carries.
+	//
+	// It is what makes RetentionLease a BOUNDED class. Without it every delivery a daemon ever
+	// handled would pin its references forever, because an append-only assignment journal alone
+	// cannot say which assignments are finished; SP-20 invariant 9 retains what a lease NEEDS, not
+	// everything a lease ever touched. An acknowledged delivery's evidence is still retained — by
+	// the evidence-class root WriteCaptureSidecar declares for it — so closing a lease releases the
+	// lease's claim and nothing else's.
+	deliveryAckFile = "delivery-acks.jsonl"
 	// retentionRootsFile is the generic producer convention under <root>/.qompack/state: one
 	// RetentionRoot JSON object per line, written by AppendRetentionRoot. Rollback/backup
 	// material and any other producer without a journal of its own declares itself here.
