@@ -16,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
@@ -92,6 +93,13 @@ type daemon struct {
 	registry *SessionRegistry
 	idle     *idleController
 	monitor  contract.Monitor
+
+	// The compiled capture policies the daemon-side admission gate uses, cached against the
+	// redact configuration they were compiled from (handlers.go, capturePolicies).
+	policyMu       sync.Mutex
+	policyCfg      config.RedactCfg
+	policyPayload  hookio.CapturePolicy
+	policyFragment hookio.CapturePolicy
 
 	ing *ingest
 
@@ -275,6 +283,9 @@ func New(o Options) (Daemon, error) {
 	d.hotSamples = make(chan time.Duration, ringCapacity)
 
 	d.ing = newIngest(o.ProjectRoot, o.Cfg, o.Log, o.Metrics, o.Clock)
+	// The delivery journal belongs to the singleton Lock Run acquires later, so both the ingest
+	// queue and the drainer reach it through this accessor rather than holding it.
+	d.ing.journal = d.deliveryJournal
 
 	d.routes = buildRoutes(&o, d)
 
@@ -516,6 +527,8 @@ func (d *daemon) Run(ctx context.Context) error {
 		Clock:    d.clk,
 		Dispatch: d.drainDispatch,
 		Seen:     d.ing.seen,
+		Admit:    d.admitDelivery,
+		Journal:  d.deliveryJournal,
 		IsLive:   d.sessionIsLive,
 	}))
 
@@ -920,4 +933,33 @@ func (d *daemon) awaitStopCleanup() {
 // isAddrTooLong reports whether err wraps ipc.ErrAddrTooLong.
 func isAddrTooLong(err error) bool {
 	return errors.Is(err, ipc.ErrAddrTooLong)
+}
+
+// deliveryJournal resolves the durable delivery journal owned by this daemon's held singleton
+// lock. It is the one accessor both the ingest queue and the drainer use, so neither of them can
+// outlive the lock that owns the file, and neither can open a second journal over it.
+//
+// A daemon that has not acquired its lock yet — or has released it — answers with an error rather
+// than nil: "no identity available" is a gap the caller reports, never a silent success.
+func (d *daemon) deliveryJournal() (*deliveryJournal, error) {
+	d.startMu.Lock()
+	lock := d.lock
+	d.startMu.Unlock()
+	if lock == nil {
+		return nil, deliveryJournalError()
+	}
+	return lock.openDeliveryJournal()
+}
+
+// The daemon is the GapReporter its callers assert for; pinned here so the seam cannot drift.
+var _ GapReporter = (*daemon)(nil)
+
+// DrainGaps implements GapReporter: what the most recent replay could and could not account for.
+// A daemon whose drainer has not been built yet answers Observed:false — unknown, not empty.
+func (d *daemon) DrainGaps() DrainGapState {
+	dr := d.drain.Load()
+	if dr == nil {
+		return DrainGapState{}
+	}
+	return dr.GapState()
 }
