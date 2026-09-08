@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -86,11 +87,18 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 	}
 
 	days, sessions := s.resolveRetention(p)
-	liveChunks, liveRoots, deadRoots, markTruncated, err := s.mark(ctx, days, sessions, deadline)
+	m, err := s.markPass(ctx, days, sessions, deadline)
 	if err != nil {
+		if errors.Is(err, errRetentionRootsUnavailable) {
+			// An unreadable lease, pending-write or rollback set is indistinguishable from a FULL
+			// one, so the pass collects nothing rather than reading a failure as "nothing is held"
+			// (SP-20 invariant 9). The report says so; it is not a silent no-op.
+			s.log.Warn("store: a gc retention-root source failed; collecting nothing this pass", "err", err)
+			return GCReport{RetentionRootsError: true, Duration: time.Since(started)}, nil
+		}
 		return GCReport{}, err
 	}
-	if markTruncated {
+	if m.truncated {
 		// A truncated mark produced an incomplete live set, and sweeping against one would delete
 		// live objects — every reference the phase never reached looks dead. So the pass ends here
 		// with nothing retired and nothing swept, and neither the live set nor a resume cursor is
@@ -101,31 +109,43 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 		return GCReport{Truncated: true, Duration: time.Since(started)}, nil
 	}
 
-	digest := liveDigest(liveChunks)
-	if err := s.writeLiveSet(liveChunks); err != nil {
+	rep := GCReport{}
+	outcomes := newOutcomeLog(p, &rep)
+	// Quota runs BEFORE the outcomes are recorded and before anything is retired, because a quota
+	// eviction changes a root's outcome from retained to quota_evicted — and it may only ever take
+	// a root the retention window alone was holding (applyQuota).
+	s.applyQuota(&m, p.QuotaBytes, &rep, outcomes)
+	s.recordOutcomes(&m, &rep, outcomes)
+	rep.LiveObjects, rep.Roots = len(m.liveChunks), len(m.liveRoots)
+
+	digest := liveDigest(m.liveChunks)
+	if err := s.writeLiveSet(m.liveChunks); err != nil {
 		s.log.Warn("store: could not persist the gc live set; this pass will not be resumable", "err", err)
 	}
 
-	rep := GCReport{LiveObjects: len(liveChunks), Roots: len(liveRoots)}
 	prior, resuming := s.loadGCState(digest)
 	if resuming {
 		rep.ScannedObjects, rep.DeletedObjects, rep.BytesFreed = prior.Scanned, prior.Deleted, prior.Freed
 	}
 
 	if !p.DryRun {
-		if err := s.tombstoneDeadRoots(ctx, deadRoots); err != nil {
+		if err := s.tombstoneDeadRoots(ctx, m.deadRoots); err != nil {
 			return rep, err
 		}
 	}
 
 	cursor, truncated, err := s.sweep(ctx, sweepArgs{
-		live:     liveChunks,
+		live:     m.liveChunks,
 		dryRun:   p.DryRun,
 		deadline: deadline,
 		started:  started,
 		resume:   resumeCursor(prior, resuming),
 		rep:      &rep,
 	})
+	// Pending markers are expired AFTER the sweep, never before it: this pass held their objects
+	// live, so retiring the marker now leaves the objects to the NEXT pass rather than deleting
+	// content and its only record of being pending in one step.
+	s.expirePendingMarkers(days, p.DryRun, &rep, outcomes)
 	rep.Truncated = truncated
 	rep.Duration = time.Since(started)
 	if err != nil {
@@ -233,37 +253,79 @@ func (b *gcBudget) cancelled() error {
 	return b.ctx.Err()
 }
 
+// markResult is everything one mark phase decided, beyond the two sets the sweep consumes.
+//
+// It exists because SP-20 needs the mark's REASONS, not only its verdicts: a per-root outcome has
+// to say why a root was kept, and a quota may only evict roots the retention window alone was
+// holding. hard and soft are that split - hard is a root some producer still needs (invariant 9),
+// soft is a root that is merely young enough.
+type markResult struct {
+	liveChunks map[core.Hash]struct{}
+	liveRoots  map[core.Hash]struct{}
+	deadRoots  []core.Hash
+	// harvested is every hash a root FILE or a RetentionRootSource named, with its class.
+	harvested map[core.Hash]RetentionRoot
+	// hard maps a live root to the retention claim that holds it. Never quota-evictable.
+	hard map[core.Hash]RetentionRoot
+	// soft maps a live root to the retention-window reason that holds it. Quota-evictable.
+	soft map[core.Hash]string
+	// size is each live root's canonical byte total, and total their sum: the denominator that
+	// turns a compressed on-disk quota into a per-root eviction estimate.
+	size  map[core.Hash]int64
+	total int64
+	// evicted names the roots the quota moved into deadRoots, so the expiry pass does not report
+	// them a second time under the wrong result.
+	evicted   map[core.Hash]struct{}
+	truncated bool
+}
+
+// errRetentionRootsUnavailable reports that a RetentionRootSource could not answer. GC translates
+// it into a pass that collects nothing and says so, never into an empty retention set.
+var errRetentionRootsUnavailable = errors.New("qompack: gc retention roots unavailable")
+
 // mark computes the live chunk set and the live root set.
 //
-// "Whichever is longer" (Qompack.md §8.2) is implemented as a DISJUNCTION: an entry is in-window
-// when it is inside the day window OR its session is among the most recent ones. An EPHEMERAL root
-// is never in-window by the age clause — retrieval spam is reclaimable precisely because objects
-// are content-addressed, so a chunk it shares with a real tool result is still held alive by that
-// result (Qompack.md §8.7).
+// It is the narrow, long-standing view of markPass: the two sets the sweep and the tombstone phase
+// consume, and nothing else. The signature is unchanged from SP-06 deliberately - it is what
+// TestGC_TombstoneRetiresOnlyMarkTimeDead exercises the mark/tombstone window through.
+func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Time) (
+	liveChunks, liveRoots map[core.Hash]struct{}, deadRoots []core.Hash, truncated bool, err error,
+) {
+	m, err := s.markPass(ctx, days, sessions, deadline)
+	if err != nil || m.truncated {
+		return nil, nil, nil, m.truncated, err
+	}
+	return m.liveChunks, m.liveRoots, m.deadRoots, false, nil
+}
+
+// markPass computes the live sets, the dead set, and the reason behind every one of them.
 //
-// Until the 2026-08-22 audit the phase took neither ctx nor deadline, so harvestHashes streamed
-// every checkpoint, pin and elimination file token by token with nothing able to stop it, on a cost
-// that grows with the project's whole history. The sweep's own comment claimed otherwise.
+// "Whichever is longer" (Qompack.md 8.2) is implemented as a DISJUNCTION: an entry is in-window
+// when it is inside the day window OR its session is among the most recent ones. An EPHEMERAL root
+// is never in-window by the age clause - retrieval spam is reclaimable precisely because objects
+// are content-addressed, so a chunk it shares with a real tool result is still held alive by that
+// result (Qompack.md 8.7).
 //
 // The two halves of the phase are budgeted differently, and the asymmetry is the point. The HARVEST
 // answers to both levers: it is the disk-proportional half, and a latency budget exists to stop
-// exactly that. The INDEX WALKS below answer to ctx alone — they are map iteration over indexes the
+// exactly that. The INDEX WALKS below answer to ctx alone - they are map iteration over indexes the
 // store already holds in memory, they cost microseconds where the harvest costs milliseconds, and
 // truncating them would discard a harvest already paid for to save a rounding error. A pass that
 // gets through its harvest therefore always gets a complete live set to hand the sweep, and the
 // deadline lands on the sweep, which can resume.
 //
 // A truncated mark yields an INCOMPLETE live set, which is the one thing a collector must never
-// sweep against — every unvisited reference would look dead. So truncation here stops the pass at
+// sweep against - every unvisited reference would look dead. So truncation here stops the pass at
 // its caller rather than being carried forward, and neither the live set nor a resume cursor is
 // persisted from it.
-func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Time) (
-	liveChunks, liveRoots map[core.Hash]struct{}, deadRoots []core.Hash, truncated bool, err error,
-) {
+func (s *FSStore) markPass(ctx context.Context, days, sessions int, deadline time.Time) (markResult, error) {
 	budget := newGCBudget(ctx, deadline)
 	harvested, truncated, err := s.harvestHashes(budget)
 	if err != nil || truncated {
-		return nil, nil, nil, truncated, err
+		return markResult{truncated: truncated}, err
+	}
+	if err := s.retentionFromSources(ctx, harvested); err != nil {
+		return markResult{}, err
 	}
 	recent := s.recentSessionSet(sessions)
 
@@ -273,12 +335,19 @@ func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Ti
 	}
 	inAgeWindow := func(ts core.UnixMilli) bool { return days >= 0 && ts >= cutoff }
 
-	liveRoots = make(map[core.Hash]struct{})
-	liveChunks = make(map[core.Hash]struct{}, len(harvested))
+	m := markResult{
+		liveRoots:  make(map[core.Hash]struct{}),
+		liveChunks: make(map[core.Hash]struct{}, len(harvested)),
+		harvested:  harvested,
+		hard:       make(map[core.Hash]RetentionRoot),
+		soft:       make(map[core.Hash]string),
+		size:       make(map[core.Hash]int64),
+		evicted:    make(map[core.Hash]struct{}),
+	}
 	// A harvested hash may name a root OR a chunk; nothing in the schemas distinguishes them, so
 	// it is held live as both.
 	for h := range harvested {
-		liveChunks[h] = struct{}{}
+		m.liveChunks[h] = struct{}{}
 	}
 
 	// The index walks below run under one read lock and are released through this named unlock on
@@ -292,7 +361,7 @@ func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Ti
 	}()
 	stop := func() bool {
 		if e := budget.cancelled(); e != nil {
-			truncated, err = false, e
+			err = e
 			return true
 		}
 		return false
@@ -300,75 +369,151 @@ func (s *FSStore) mark(ctx context.Context, days, sessions int, deadline time.Ti
 
 	for h, e := range s.rootIndex {
 		if stop() {
-			return nil, nil, nil, truncated, err
+			return markResult{}, err
 		}
-		if _, ok := harvested[h]; ok {
-			liveRoots[h] = struct{}{}
+		if r, ok := harvested[h]; ok {
+			m.liveRoots[h] = struct{}{}
+			m.hard[h] = r
 			continue
 		}
 		if !e.Eph && inAgeWindow(e.TS) {
-			liveRoots[h] = struct{}{}
+			m.liveRoots[h] = struct{}{}
+			m.soft[h] = "inside the retention age window"
 		}
 	}
 	for _, rec := range s.toolUse {
 		if stop() {
-			return nil, nil, nil, truncated, err
+			return markResult{}, err
 		}
 		if rec.Root.IsZero() {
 			continue
 		}
-		// The ephemeral exclusion applies HERE too, not only on the root path above. §8.2: "an
+		// The ephemeral exclusion applies HERE too, not only on the root path above. 8.2: "an
 		// ephemeral root is never in-window by the age clause; only the session clause and an
 		// explicit root reference keep it alive." Reading the age clause without consulting Eph
-		// made the documented property void on the main path rather than on an edge case — every
+		// made the documented property void on the main path rather than on an edge case - every
 		// retrieval result is recorded as a tool_use, so every ephemeral root was age-live through
 		// this loop no matter what the root path decided about it.
 		eph := false
 		if e, ok := s.rootIndex[rec.Root]; ok {
 			eph = e.Eph
 		}
-		if (!eph && inAgeWindow(rec.TS)) || (sessions >= 0 && recent[rec.Session]) {
-			liveRoots[rec.Root] = struct{}{}
+		byAge := !eph && inAgeWindow(rec.TS)
+		bySession := sessions >= 0 && recent[rec.Session]
+		if !byAge && !bySession {
+			continue
+		}
+		m.liveRoots[rec.Root] = struct{}{}
+		if _, hard := m.hard[rec.Root]; !hard {
+			if bySession {
+				m.soft[rec.Root] = "used by one of the most recent sessions"
+			} else {
+				m.soft[rec.Root] = "recent tool_use inside the retention age window"
+			}
 		}
 	}
 	for _, hist := range s.fileHist {
 		for _, v := range hist {
 			if stop() {
-				return nil, nil, nil, truncated, err
+				return markResult{}, err
 			}
-			if inAgeWindow(v.TS) {
-				liveRoots[v.Root] = struct{}{}
+			if !inAgeWindow(v.TS) {
+				continue
+			}
+			m.liveRoots[v.Root] = struct{}{}
+			if _, hard := m.hard[v.Root]; !hard {
+				m.soft[v.Root] = "a file version inside the retention age window"
 			}
 		}
 	}
-	for h := range liveRoots {
+	// SP-20 invariant 9: a recovery record and the base it declares share fate. Done HERE, before
+	// the chunk expansion, so a base pulled in by its delta contributes its chunks too.
+	s.coupleRecoveryRootsLocked(&m)
+
+	for h := range m.liveRoots {
 		if stop() {
-			return nil, nil, nil, truncated, err
+			return markResult{}, err
 		}
-		if e, ok := s.rootIndex[h]; ok {
-			for _, c := range e.Root.Chunks {
-				liveChunks[c.Hash] = struct{}{}
-			}
+		e, ok := s.rootIndex[h]
+		if !ok {
+			continue
 		}
+		var n int64
+		for _, c := range e.Root.Chunks {
+			m.liveChunks[c.Hash] = struct{}{}
+			n += int64(c.Len)
+		}
+		m.size[h] = n
+		m.total += n
 	}
 	// The dead set is fixed HERE, under the same read lock as the live set, and is the only
 	// thing the tombstone phase may retire. Re-deriving it later from a fresh read of
 	// s.rootIndex opens a window: a root published between this snapshot and the tombstone
 	// phase is in the index but not in the live set, and would be retired seconds after it
-	// was written (found by V2-VERIFY's §4.7 authoring).
-	deadRoots = make([]core.Hash, 0, len(s.rootIndex))
+	// was written (found by V2-VERIFY's 4.7 authoring).
+	m.deadRoots = make([]core.Hash, 0, len(s.rootIndex))
 	for h := range s.rootIndex {
 		if stop() {
-			return nil, nil, nil, truncated, err
+			return markResult{}, err
 		}
-		if _, ok := liveRoots[h]; !ok {
-			deadRoots = append(deadRoots, h)
+		if _, ok := m.liveRoots[h]; !ok {
+			m.deadRoots = append(m.deadRoots, h)
 		}
 	}
 	s.mu.RUnlock()
 	unlocked = true
 
-	return liveChunks, liveRoots, deadRoots, false, nil
+	return m, nil
+}
+
+// coupleRecoveryRootsLocked closes the live set over the delta/base relation. s.mu must be held.
+//
+// SP-20 invariant 9 forbids collecting "a root needed by a lease, delta, pending write, checkpoint,
+// evidence reference, or rollback record", and a delta needs its base exactly as much as a base
+// needs its delta: half a pair is a recovery claim that cannot be honoured. So liveness propagates
+// in BOTH directions across Deltas, Orig and Base, and so does hardness - a delta record of a
+// pinned root is not quota-evictable either, or the quota would break the pair the pin protects.
+//
+// It runs to a fixpoint because a coupled partner can itself declare one; in practice the chain is
+// one link long and the loop makes exactly two passes.
+func (s *FSStore) coupleRecoveryRootsLocked(m *markResult) {
+	for {
+		added := false
+		for h := range m.liveRoots {
+			e, ok := s.rootIndex[h]
+			if !ok {
+				continue
+			}
+			claim, isHard := m.hard[h]
+			for _, partner := range [3]core.Hash{e.Deltas, e.Orig, e.Base} {
+				if partner.IsZero() {
+					continue
+				}
+				if _, known := s.rootIndex[partner]; !known {
+					continue
+				}
+				_, live := m.liveRoots[partner]
+				_, partnerHard := m.hard[partner]
+				if live && (partnerHard || !isHard) {
+					continue
+				}
+				m.liveRoots[partner] = struct{}{}
+				if isHard {
+					delete(m.soft, partner)
+					m.hard[partner] = RetentionRoot{
+						Hash: partner, Class: RetentionDeltaBase,
+						Reason: "coupled to retained root " + h.Short() + ": " + claim.Reason,
+					}
+				} else if _, seen := m.soft[partner]; !seen {
+					m.soft[partner] = "coupled to live root " + h.Short() + " as its delta base"
+				}
+				added = true
+			}
+		}
+		if !added {
+			return
+		}
+	}
 }
 
 // recentSessionSet returns the n most recent session IDs.
@@ -418,43 +563,121 @@ func (s *FSStore) recentSessionSet(n int) map[core.SessionID]bool {
 	return out
 }
 
+// gcRootFile is one file GC harvests hash references from, together with the retention class
+// every reference inside it carries. The class is what turns an aggregate "kept" into a reportable
+// reason (SP-20 M1-03: "quotas and expiry are visible policy outcomes").
+type gcRootFile struct {
+	path   string
+	class  RetentionClass
+	reason string
+}
+
 // gcRootFiles returns every file whose hash references keep content alive.
 //
-// The files are read STRUCTURALLY rather than through internal/checkpoint, internal/pins or
-// internal/negknow: all three import store, so importing them back would be an import cycle
-// (00-ARCHITECTURE.md §3.2). A missing file is never an error — waves 3 to 5 have not shipped
-// these producers yet, and a store that refused to collect until they did would grow without bound.
-func (s *FSStore) gcRootFiles() []string {
-	out := []string{
-		filepath.Join(s.l.Pins, "invariants.jsonl"),
-		filepath.Join(s.l.Records, "eliminations.jsonl"),
+// The files are read STRUCTURALLY rather than through internal/checkpoint, internal/pins,
+// internal/negknow or internal/daemon: all of them import store, so importing them back would be
+// an import cycle (00-ARCHITECTURE.md 3.2). A missing file is never an error - a producer that has
+// not shipped is indistinguishable from a project that never used one, and a store that refused to
+// collect until every producer existed would grow without bound.
+//
+// The set is SP-20 invariant 9's list, in order: pins, evidence, open delivery leases, declared
+// retention roots (rollback/backup material), committed checkpoints, and the pending-write
+// registry. Delta bases are not a file - they are a relation, closed over in
+// coupleRecoveryRootsLocked.
+func (s *FSStore) gcRootFiles() []gcRootFile {
+	out := []gcRootFile{
+		{filepath.Join(s.l.Pins, invariantsFile), RetentionPin, "referenced by a pinned invariant"},
+		{filepath.Join(s.l.Records, eliminationsFile), RetentionEvidence, "referenced by elimination evidence"},
+		{filepath.Join(s.l.Records, evidenceRootsFile), RetentionEvidence, "referenced by an evidence record"},
+		{filepath.Join(s.l.State, deliveryLeaseFile), RetentionLease, "held by an open delivery lease"},
+		{filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, "declared as a retention root"},
 	}
-	entries, err := os.ReadDir(paths.Long(s.l.Checkpoints))
+	if entries, err := os.ReadDir(paths.Long(s.l.Checkpoints)); err == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			switch filepath.Ext(e.Name()) {
+			case ".json", ".jsonl":
+				out = append(out, gcRootFile{
+					filepath.Join(s.l.Checkpoints, e.Name()), RetentionCheckpoint,
+					"referenced by committed checkpoint " + e.Name(),
+				})
+			}
+		}
+	}
+	return append(out, s.pendingRootFiles()...)
+}
+
+// pendingRootFiles lists the durable pending-write registry: one marker per Put that has written
+// objects but has not yet appended its roots.jsonl line.
+//
+// This is what replaces the sweep's incidental freshness luck as the PRIMARY mechanism. That guard
+// spares an object younger than the running pass, which covers the window only for as long as the
+// process lives; a marker survives the crash itself, so the next pass - hours or days later - still
+// sees the write and does not collect content whose index line never landed.
+func (s *FSStore) pendingRootFiles() []gcRootFile {
+	dir := filepath.Join(s.l.State, pendingWriteDir)
+	entries, err := os.ReadDir(paths.Long(dir))
 	if err != nil {
-		return out
+		return nil
 	}
+	out := make([]gcRootFile, 0, len(entries))
 	for _, e := range entries {
-		if e.IsDir() {
+		if e.IsDir() || filepath.Ext(e.Name()) != pendingWriteSuffix {
 			continue
 		}
-		switch filepath.Ext(e.Name()) {
-		case ".json", ".jsonl":
-			out = append(out, filepath.Join(s.l.Checkpoints, e.Name()))
-		}
+		out = append(out, gcRootFile{
+			filepath.Join(dir, e.Name()), RetentionPending,
+			"written but not yet rooted (pending marker " + e.Name() + ")",
+		})
 	}
 	return out
 }
 
+// retentionFromSources folds every in-process RetentionRootSource into the harvested set.
+//
+// A source that fails is NOT read as "nothing to retain": errRetentionRootsUnavailable stops the
+// whole pass, because an unreadable lease set and an empty one are indistinguishable and only one
+// of the two is safe to act on.
+func (s *FSStore) retentionFromSources(ctx context.Context, into map[core.Hash]RetentionRoot) error {
+	for _, src := range s.deps.RetentionRoots {
+		if src == nil {
+			continue
+		}
+		roots, err := src.RetentionRoots(ctx)
+		if err != nil {
+			return fmt.Errorf("%w: %w", errRetentionRootsUnavailable, err)
+		}
+		for _, r := range roots {
+			if r.Hash.IsZero() {
+				continue
+			}
+			if _, seen := into[r.Hash]; seen {
+				continue
+			}
+			if r.Class == "" {
+				r.Class = RetentionLease
+			}
+			if r.Reason == "" {
+				r.Reason = "held by a retention-root source"
+			}
+			into[r.Hash] = r
+		}
+	}
+	return nil
+}
+
 // harvestHashes collects every hash-shaped string token from the GC root files.
 //
-// This is the unbounded half of the mark phase: its cost is the size of every checkpoint, pin and
-// elimination file a project has ever written, streamed token by token. It answers to the budget
-// for that reason, and a truncated harvest is reported rather than returned as a short set — a
-// partial harvest is a live set with references missing from it.
-func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]struct{}, bool, error) {
-	out := make(map[core.Hash]struct{})
-	for _, p := range s.gcRootFiles() {
-		truncated, err := s.harvestFile(p, out, budget)
+// This is the unbounded half of the mark phase: its cost is the size of every checkpoint, pin,
+// elimination, lease and pending-write file a project has ever written, streamed token by token. It
+// answers to the budget for that reason, and a truncated harvest is reported rather than returned
+// as a short set - a partial harvest is a live set with references missing from it.
+func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]RetentionRoot, bool, error) {
+	out := make(map[core.Hash]RetentionRoot)
+	for _, f := range s.gcRootFiles() {
+		truncated, err := s.harvestFile(f, out, budget)
 		if err != nil || truncated {
 			return nil, truncated, err
 		}
@@ -468,14 +691,17 @@ func (s *FSStore) harvestHashes(budget *gcBudget) (map[core.Hash]struct{}, bool,
 // single-document .json and a many-document .jsonl identically. A decode error stops the walk but
 // keeps what was already collected: a half-written final line must not cost the whole file's
 // references.
-func (s *FSStore) harvestFile(p string, into map[core.Hash]struct{}, budget *gcBudget) (bool, error) {
-	f, err := os.Open(paths.Long(p))
+//
+// The FIRST file to name a hash owns its retention class. gcRootFiles returns a fixed order, so
+// the reason a report gives for one hash is stable across passes.
+func (s *FSStore) harvestFile(f gcRootFile, into map[core.Hash]RetentionRoot, budget *gcBudget) (bool, error) {
+	fh, err := os.Open(paths.Long(f.path))
 	if err != nil {
 		return false, nil // missing is normal; see gcRootFiles
 	}
-	defer func() { _ = f.Close() }()
+	defer func() { _ = fh.Close() }()
 
-	dec := json.NewDecoder(f)
+	dec := json.NewDecoder(fh)
 	for {
 		if truncated, budgetErr := budget.spent(); budgetErr != nil || truncated {
 			return truncated, budgetErr
@@ -488,10 +714,261 @@ func (s *FSStore) harvestFile(p string, into map[core.Hash]struct{}, budget *gcB
 		if !ok || !hashToken.MatchString(str) {
 			continue
 		}
-		if h, perr := core.ParseHash(str); perr == nil {
-			into[h] = struct{}{}
+		h, perr := core.ParseHash(str)
+		if perr != nil {
+			continue
+		}
+		if _, seen := into[h]; seen {
+			continue
+		}
+		into[h] = RetentionRoot{Hash: h, Class: f.class, Reason: f.reason}
+	}
+}
+
+// outcomeLog appends per-root outcomes to a report under a bound.
+//
+// The bound is on the LIST, never on the counters: a 50 000-root store must not materialize 50 000
+// records to answer "what did this pass decide", but "how many were expired" must still be exact,
+// or a capped list would quietly become a silent drop - the one thing SP-20 M1-03 forbids.
+type outcomeLog struct {
+	max int
+	rep *GCReport
+}
+
+func newOutcomeLog(p GCPolicy, rep *GCReport) *outcomeLog {
+	max := p.MaxOutcomes
+	if max == 0 {
+		max = defaultMaxOutcomes
+	}
+	return &outcomeLog{max: max, rep: rep}
+}
+
+// add records one outcome, marking the list truncated once it is full.
+func (o *outcomeLog) add(rec RootOutcome) {
+	if o.max < 0 || len(o.rep.Outcomes) >= o.max {
+		o.rep.OutcomesTruncated = true
+		return
+	}
+	o.rep.Outcomes = append(o.rep.Outcomes, rec)
+}
+
+// applyQuota sheds in-window content until the store is back under its size quota.
+//
+// Three rules make this safe. It may only take roots the RETENTION WINDOW alone was holding
+// (markResult.soft); a lease, pending write, checkpoint, pin, evidence reference, delta base or
+// rollback record is off limits and is reported as unsafe-to-collect instead. It takes the OLDEST
+// first, so a quota degrades the store's history from the far end rather than at random. And when
+// it cannot get under the quota that way it says so - GCReport.QuotaExceeded - rather than reaching
+// for something it may not have.
+//
+// The per-root estimate is canonical bytes scaled by the store's observed compression ratio,
+// because the quota is measured in COMPRESSED on-disk bytes and a root's index entry records
+// uncompressed ones. It is an estimate and is reported as one: GCReport.BytesFreed, measured by the
+// sweep, is the truth.
+func (s *FSStore) applyQuota(m *markResult, quota int64, rep *GCReport, outcomes *outcomeLog) {
+	if quota <= 0 {
+		return
+	}
+	s.mu.RLock()
+	onDisk := s.bytesOnDisk
+	s.mu.RUnlock()
+
+	rep.QuotaBytes, rep.QuotaBytesBefore = quota, onDisk
+	if onDisk <= quota {
+		return
+	}
+	need := onDisk - quota
+	rep.QuotaTargetBytes = need
+
+	scale := 1.0
+	if m.total > 0 {
+		scale = float64(onDisk) / float64(m.total)
+	}
+
+	type candidate struct {
+		hash  core.Hash
+		ts    core.UnixMilli
+		bytes int64
+	}
+	cands := make([]candidate, 0, len(m.soft))
+	s.mu.RLock()
+	for h := range m.soft {
+		var ts core.UnixMilli
+		if e, ok := s.rootIndex[h]; ok {
+			ts = e.TS
+		}
+		cands = append(cands, candidate{hash: h, ts: ts, bytes: m.size[h]})
+	}
+	s.mu.RUnlock()
+	sort.Slice(cands, func(i, j int) bool {
+		if cands[i].ts != cands[j].ts {
+			return cands[i].ts < cands[j].ts
+		}
+		return cands[i].hash.String() < cands[j].hash.String()
+	})
+
+	var freed int64
+	for _, c := range cands {
+		if freed >= need {
+			break
+		}
+		delete(m.liveRoots, c.hash)
+		delete(m.soft, c.hash)
+		m.deadRoots = append(m.deadRoots, c.hash)
+		m.evicted[c.hash] = struct{}{}
+		freed += int64(float64(c.bytes) * scale)
+		rep.QuotaEvicted++
+		outcomes.add(RootOutcome{
+			Root: c.hash, Result: RootQuotaEvicted, Bytes: c.bytes,
+			Reason: fmt.Sprintf("store is over its %d-byte quota by %d; evicted oldest-first inside the retention window", quota, need),
+		})
+	}
+	if freed < need {
+		rep.QuotaExceeded = true
+		blockers := make([]core.Hash, 0, len(m.hard))
+		for h := range m.hard {
+			blockers = append(blockers, h)
+		}
+		sort.Slice(blockers, func(i, j int) bool { return blockers[i].String() < blockers[j].String() })
+		for _, h := range blockers {
+			r := m.hard[h]
+			rep.Unsafe++
+			outcomes.add(RootOutcome{
+				Root: h, Result: RootUnsafeToCollect, Class: r.Class, Bytes: m.size[h],
+				Reason: "quota shortfall, but this root is " + r.Reason,
+			})
+		}
+		s.log.Warn("store: gc could not bring the store under its quota without collecting a retained root",
+			"quota", quota, "onDisk", onDisk, "estimatedFreed", freed)
+	}
+	s.rebuildLiveChunks(m)
+}
+
+// rebuildLiveChunks recomputes the live chunk set after the quota removed roots from it.
+//
+// It is a full recompute rather than a subtraction on purpose: chunks are SHARED, so an evicted
+// root's chunk may still belong to a root that stayed, and subtracting would delete content a live
+// root still points at.
+func (s *FSStore) rebuildLiveChunks(m *markResult) {
+	live := make(map[core.Hash]struct{}, len(m.liveChunks))
+	for h := range m.harvested {
+		live[h] = struct{}{}
+	}
+	s.mu.RLock()
+	for h := range m.liveRoots {
+		if e, ok := s.rootIndex[h]; ok {
+			for _, c := range e.Root.Chunks {
+				live[c.Hash] = struct{}{}
+			}
 		}
 	}
+	s.mu.RUnlock()
+	m.liveChunks = live
+}
+
+// recordOutcomes writes one explicit result per root the pass decided about.
+//
+// Retained roots come first, so a bounded list shows what was KEPT and why before it shows what
+// went - the direction an operator reads a collection report in. Quota evictions were already
+// recorded by applyQuota and are skipped here rather than reported twice under two results.
+func (s *FSStore) recordOutcomes(m *markResult, rep *GCReport, outcomes *outcomeLog) {
+	hard := make([]core.Hash, 0, len(m.hard))
+	for h := range m.hard {
+		hard = append(hard, h)
+	}
+	sort.Slice(hard, func(i, j int) bool { return hard[i].String() < hard[j].String() })
+	for _, h := range hard {
+		r := m.hard[h]
+		rep.Retained++
+		outcomes.add(RootOutcome{
+			Root: h, Result: RootRetained, Class: r.Class, Reason: r.Reason, Bytes: m.size[h],
+		})
+	}
+
+	soft := make([]core.Hash, 0, len(m.soft))
+	for h := range m.soft {
+		soft = append(soft, h)
+	}
+	sort.Slice(soft, func(i, j int) bool { return soft[i].String() < soft[j].String() })
+	for _, h := range soft {
+		rep.Retained++
+		outcomes.add(RootOutcome{Root: h, Result: RootRetained, Reason: m.soft[h], Bytes: m.size[h]})
+	}
+
+	dead := append([]core.Hash(nil), m.deadRoots...)
+	sort.Slice(dead, func(i, j int) bool { return dead[i].String() < dead[j].String() })
+	for _, h := range dead {
+		if _, evicted := m.evicted[h]; evicted {
+			continue
+		}
+		rep.Expired++
+		outcomes.add(RootOutcome{
+			Root: h, Result: RootExpired, Bytes: m.size[h],
+			Reason: "outside the retention window and referenced by no lease, pending write, checkpoint, pin, evidence record, delta base or rollback record",
+		})
+	}
+}
+
+// expirePendingMarkers retires pending-write markers whose Put never completed.
+//
+// A crash leaves a marker behind by design, and without an expiry the registry would grow forever
+// and hold its objects live forever with it. Expiry is a VISIBLE outcome: the marker's root is
+// reported as expired with its reason, never removed quietly. It runs after the sweep, so this
+// pass still retained the objects the marker named and the next pass is the one that collects them.
+//
+// A disabled day window (days < 0) expires nothing: "collect everything" is about the retention
+// window, and an in-flight write is not covered by it.
+func (s *FSStore) expirePendingMarkers(days int, dryRun bool, rep *GCReport, outcomes *outcomeLog) {
+	dir := filepath.Join(s.l.State, pendingWriteDir)
+	entries, err := os.ReadDir(paths.Long(dir))
+	if err != nil {
+		return
+	}
+	cutoff := s.deps.Clock.Now().Add(-time.Duration(days) * hoursPerDay * time.Hour)
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != pendingWriteSuffix {
+			continue
+		}
+		rep.PendingWrites++
+		if days < 0 {
+			continue
+		}
+		info, ierr := e.Info()
+		if ierr != nil || !info.ModTime().Before(cutoff) {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		root := pendingMarkerRoot(p)
+		if !dryRun {
+			if rmErr := os.Remove(paths.Long(p)); rmErr != nil {
+				s.log.Debug("store: could not remove an expired pending marker", "path", e.Name(), "err", rmErr)
+				continue
+			}
+		}
+		rep.PendingExpired++
+		outcomes.add(RootOutcome{
+			Root: root, Result: RootExpired, Class: RetentionPending,
+			Reason: "pending write was never rooted and is past the retention window",
+		})
+	}
+}
+
+// pendingMarkerRoot reads the root a pending marker names, reporting the zero hash for a marker
+// that is unreadable or was torn by the very crash it records.
+func pendingMarkerRoot(p string) core.Hash {
+	b, err := os.ReadFile(paths.Long(p))
+	if err != nil {
+		return core.Hash{}
+	}
+	var w pendingWire
+	if json.Unmarshal(b, &w) != nil {
+		return core.Hash{}
+	}
+	h, err := core.ParseHash(w.Root)
+	if err != nil {
+		return core.Hash{}
+	}
+	return h
 }
 
 // liveDigest is the domain-separated digest of the sorted live chunk set.
