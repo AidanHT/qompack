@@ -36,6 +36,26 @@ func resetFaultState(t *testing.T) {
 	})
 }
 
+func TestHookCapture_FaultsCannotBypassAdmission(t *testing.T) {
+	for _, site := range []string{faultOversize, faultConfigCorrupt} {
+		t.Run(site, func(t *testing.T) {
+			resetFaultState(t)
+			t.Setenv(qompackFaultEnv, site)
+			root := t.TempDir()
+			raw, err := json.Marshal(map[string]any{"cwd": root, "prompt": "ordinary request"})
+			require.NoError(t, err)
+			var out, errw bytes.Buffer
+			code := Dispatch(context.Background(), All(), argvFor("observe prompt"), Env{
+				Getenv: envWith(map[string]string{"QOMPACK_PROJECT_ROOT": root}), HomeDir: t.TempDir(),
+				Stdin: bytes.NewReader(raw), Clock: testClock(),
+			}, &out, &errw)
+			require.Equal(t, ExitOK, code)
+			require.Equal(t, "{}\n", out.String())
+			require.NoDirExists(t, paths.Of(root).Spool)
+		})
+	}
+}
+
 func TestFaultActive_UnsetIsInertForAllElevenSites(t *testing.T) {
 	resetFaultState(t)
 	t.Setenv(qompackFaultEnv, "")

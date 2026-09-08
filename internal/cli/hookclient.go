@@ -180,12 +180,11 @@ type hookSpec struct {
 	preSend func(root, self string, st ipc.State, clk core.Clock)
 }
 
-// doHook returns the Cmd.Run body for one hook subcommand, following task-6-spec.md's skeleton
-// exactly: stamp TS first, resolve the root cheaply pre-stdin, read the 32-byte state record (never
-// config.Load on the hot path), honour ModeOff, read the event under the state's own payload limit,
-// re-resolve against the payload if it disagrees, spool, resolve the transport address, connect,
-// send, and always answer with valid JSON. Every fault site (fault.go) hooks into this same
-// sequence at the point task-6-spec.md's table names.
+// doHook stamps TS, resolves state, honors ModeOff and reads bounded raw input. The initial
+// process/env root selects privacy policy before an Event is derived. A permitted destination
+// root can apply an additional policy before any spool, blob, client or daemon-start operation.
+// This corrects the historical state-only path: state.bin has no complete privacy policy.
+// The added configuration/policy cost needs quiet hot-path measurement under SP-20.
 //
 // The shipped panic-recovery framework (dispatch.go's Dispatch -> recover.go's runGuarded) already
 // gives every Cmd{Hook:true} the §12.3 "any hook panic -> recovered, logged, exit 0 with empty
@@ -207,16 +206,22 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		}
 
 		stdin := faultStdin(env.Stdin)
-		ev, _, err := hookio.ReadEvent(stdin, int64(st.MaxPayloadBytes)*4)
+		raw, err := readHookCapture(stdin, hookCaptureLimit(int64(st.MaxPayloadBytes)))
 		if err != nil {
 			logQuiet(root, err, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
 
-		maybePanicHook() // panic:hook: "runHook panics immediately after ReadEvent" (fault table).
+		maybePanicHook() // Inject after bounded input, before admission or event persistence.
+		raw = faultInflateHookCapture(raw)
+		capture, ev, cfg, err := admitHookCapture(env, root, raw)
+		if err != nil || capture.Outcome != core.OutcomeOK {
+			logQuiet(root, err, clk)
+			return hookio.WriteOutput(out, hookio.Empty())
+		}
 
-		// The payload is authoritative for the project root, and it only arrives now. If it
-		// disagrees with the pre-stdin guess, redo the two cheap resolutions against it.
+		// Only the admitted payload can select another destination. Its policy sees bytes
+		// already permitted by the trusted initial root and cannot restore removed content.
 		if r2 := resolveProjectRoot(env, &ev); r2 != root {
 			root = r2
 			faultCorruptStateIfNeeded(root)
@@ -224,10 +229,17 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 			if st.Mode == contract.ModeOff {
 				return hookio.WriteOutput(out, hookio.Empty())
 			}
+			prior := capture
+			capture, ev, cfg, err = admitHookCapture(env, root, prior.Bytes)
+			if err != nil || capture.Outcome != core.OutcomeOK {
+				logQuiet(root, err, clk)
+				return hookio.WriteOutput(out, hookio.Empty())
+			}
+			capture = composeHookCapture(prior, capture)
 		}
-
-		faultCorruptConfigIfNeeded(root) // inert on the hot path; see fault.go's own doc comment.
-		faultInflateToolResponse(&ev)    // oversize
+		if resolveProjectRoot(env, &ev) != root {
+			return hookio.WriteOutput(out, hookio.Empty())
+		}
 
 		// A project root that does not exist on disk must never conjure a store: paths.Resolve's
 		// own last resort is "the payload cwd itself", so a malformed payload's cwd resolves
@@ -237,6 +249,10 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		if !isDir(root) {
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
+		st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+		st.SpoolOnBreach = st.SpoolOnBreach && cfg.Runtime.HotPath.SpoolOnBreach
+		// Only the permitted Event travels over the legacy transport. Raw sidecar, identity,
+		// fidelity and object/frontier publication remain separately gated M1 requirements.
 
 		req := ipc.Request{
 			Op: spec.op, Session: ev.SessionID, TS: core.UnixMilli(ts),

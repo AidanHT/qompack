@@ -200,7 +200,8 @@ func TestHooks_LogQuietWritesWhenLogsDirExists(t *testing.T) {
 	var rec quietLogLine
 	require.NoError(t, json.Unmarshal(bytes.TrimSpace(b), &rec))
 	require.NotEmpty(t, rec.TS)
-	require.Contains(t, rec.Err, "stdin is unreadable")
+	require.Contains(t, rec.Err, "hook input unavailable")
+	require.NotContains(t, rec.Err, "stdin is unreadable", "backend reader text is private")
 }
 
 // TestHooks_LogQuietNeverCreatesLogsDir pins logQuiet's negative case (fix round 1, Important

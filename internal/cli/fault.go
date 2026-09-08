@@ -20,6 +20,7 @@ package cli
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"io"
 	"os"
@@ -147,6 +148,27 @@ func faultInflateToolResponse(ev *hookio.Event) {
 	}
 }
 
+// faultInflateHookCapture modifies only transient raw JSON before privacy admission. It must
+// not append synthetic fields to an already-admitted Event. The over-cap fixture is refused
+// by capture; ordinary supported payloads exercise the transport's blob path separately.
+func faultInflateHookCapture(raw []byte) []byte {
+	if _, on := faultActive(faultOversize); !on {
+		return raw
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil || fields == nil {
+		return raw
+	}
+	var synthetic hookio.Event
+	faultInflateToolResponse(&synthetic)
+	fields["tool_response"] = synthetic.ToolResponse
+	inflated, err := json.Marshal(fields)
+	if err != nil {
+		return raw
+	}
+	return inflated
+}
+
 // errFaultDiskFull is the disk-full injection's error, standing in for the platform's real ENOSPC
 // (syscall.ENOSPC is POSIX-only; Go's syscall package carries no equivalent constant on Windows,
 // so a portable fault site cannot reference it directly and instead reports the same condition
@@ -256,11 +278,9 @@ func faultCorruptStateIfNeeded(root string) {
 }
 
 // faultCorruptConfigIfNeeded is the config-corrupt injection: it replaces .qompack/config.json
-// with truncated, unparseable JSON. The hot path never parses config.json (hookclient.go reads
-// only the 32-byte state record), so this is deliberately inert for the six hook subcommands and
-// is exercised for real by `qompack daemon` (daemon.go) and `qompack self-test` (selftest.go),
-// both of which call this function themselves, early, before their own config.Load — exactly as
-// the fault table's own row says. Like faultCorruptStateIfNeeded, it never MkdirAlls under a root
+// with truncated, unparseable JSON. Hook clients now refuse capture under this fault because
+// privacy admission uses strict configuration. Daemon/self-test retain diagnostic Load
+// behavior. Like faultCorruptStateIfNeeded, it never MkdirAlls under a root
 // that does not exist as a directory (fix round 1, Minor M-7) — safe to call unconditionally from
 // any of its three call sites regardless of ordering relative to a caller's own existence guard.
 func faultCorruptConfigIfNeeded(root string) {
