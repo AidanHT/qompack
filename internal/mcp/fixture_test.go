@@ -131,6 +131,14 @@ type fixtureCfg struct {
 	noWidener bool
 	huge      bool
 	tweak     func(*config.Config)
+	// captureRedactOff disables redaction on the STORE only, leaving the handlers' own effective
+	// config (and therefore their retrieval-side Redactor) at its normal, enabled setting. It
+	// exists to reproduce, deterministically, exactly what "a record captured before a redaction
+	// rule existed" means: content that entered the store with a WEAKER policy than the one
+	// retrieval checks against today.
+	captureRedactOff bool
+	// disableCkptTools sets ToolDeps.DisableWhy and DisableDropped.
+	disableCkptTools bool
 }
 
 // withFiles seeds the project worktree.
@@ -165,6 +173,23 @@ func withConfig(fn func(*config.Config)) fixtureOpt {
 	return func(c *fixtureCfg) { c.tweak = fn }
 }
 
+// withCheckpointToolsDisabled sets ToolDeps.DisableWhy and DisableDropped, exercising the explicit
+// operator/build gate that lets core archive retrieval (recall, expand, re_read, already_tried,
+// record_eliminated, timeline) be verified independently of checkpoint/rehydration work landing in
+// the same build (SP-13 interface contract).
+func withCheckpointToolsDisabled() fixtureOpt {
+	return func(c *fixtureCfg) { c.disableCkptTools = true }
+}
+
+// withCaptureRedactionDisabled opens the store with runtime.redact disabled while every other
+// collaborator, including the handlers' own retrieval-side Redactor, keeps the fixture's normal
+// (enabled) configuration. Content put through f.Store or f.put/f.record after this option is
+// therefore stored exactly as an older build, or a capture predating a redaction rule, would have
+// left it: in the clear, or scrubbed only by whatever rules existed then.
+func withCaptureRedactionDisabled() fixtureOpt {
+	return func(c *fixtureCfg) { c.captureRedactOff = true }
+}
+
 // newFixture assembles a fixture. Every collaborator is real except the three a wave-3 sibling
 // owns — the checkpoint reader, the drop reporter and the symbol widener — which are fakes here
 // because SP-10 and SP-11 have not merged and because a fake is the only way to drive `why` and
@@ -195,7 +220,11 @@ func newFixture(t *testing.T, opts ...fixtureOpt) *fixture {
 		huge:    c.huge,
 	}
 	if !c.noStore {
-		f.Store = newFixtureStore(t, root, cfg, clk)
+		storeCfg := cfg
+		if c.captureRedactOff {
+			storeCfg.Runtime.Redact.Enabled = false
+		}
+		f.Store = newFixtureStore(t, root, storeCfg, clk)
 	}
 	if !c.noLedger {
 		f.Ledger = newFixtureLedger(t, root, cfg, f.Store, clk)
@@ -224,6 +253,10 @@ func newFixture(t *testing.T, opts ...fixtureOpt) *fixture {
 	}
 	if !c.noWidener {
 		f.Deps.Widener = f.Widen
+	}
+	if c.disableCkptTools {
+		f.Deps.DisableWhy = true
+		f.Deps.DisableDropped = true
 	}
 
 	f.Server = NewServerWithOptions(ServerOptions{
