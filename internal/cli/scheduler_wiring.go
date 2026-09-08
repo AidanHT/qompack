@@ -46,14 +46,15 @@ func wireScheduler(opts *daemon.Options, getenv func(string) string,
 	schedOpts := daemon.SchedulerRuntimeOptions{
 		ProjectRoot: opts.ProjectRoot, Cfg: opts.Cfg,
 		Clock: opts.Clock, Log: log, Metrics: opts.Metrics,
-		Store: opts.Store, Graph: opts.Graph, Ledger: opts.Ledger,
+		Store: opts.Store, Graph: opts.Graph, Ledger: opts.LedgerHandle(),
 		// LedgerFn closes over opts — the POINTER runDaemon holds — so it reads the FIELD, not the
 		// nil value it holds right now. WireRehydrator opens the negative-knowledge ledger lazily
-		// on the first compaction and assigns the handle back onto opts.Ledger; without this
-		// closure the scheduler's rebuild_bloom task captured that nil at registration and was a
+		// on the first compaction and publishes the handle back onto opts; without this closure
+		// the scheduler's rebuild_bloom task captured that nil at registration and was a
 		// permanent no-op. It never OPENS a ledger and never owns one: the lifecycle stays where
-		// SP-19 M0-02 put it.
-		LedgerFn:    func() negknow.Ledger { return opts.Ledger },
+		// SP-19 M0-02 put it. LedgerHandle, not the raw field: this runs on the idle-task
+		// goroutine and the publication happens on a worker goroutine.
+		LedgerFn:    func() negknow.Ledger { return opts.LedgerHandle() },
 		Checkpoints: opts.Checkpoints,
 		// Sources resolves the SourceSet at every advance, for the same reason LedgerFn resolves
 		// the ledger: the set is not complete at composition time and must not be frozen here.
@@ -128,8 +129,9 @@ type checkpointWiring struct {
 // WireRehydrator opens it LAZILY on the first compaction (see RehydrateOptions.OpenLedger — an
 // eager open creates sketches/tried.bloom and holds an eliminations.jsonl handle in every daemon
 // that never compacts, and §3.3 reserves that file for the ledger itself) and assigns the handle
-// back onto the SAME *daemon.Options this closure captures. So the closure reads opts.Ledger as a
-// FIELD, on every call, exactly as LedgerFn does one layer up. It never opens a ledger, never owns
+// back onto the SAME *daemon.Options this closure captures. So the closure calls
+// opts.LedgerHandle on every call, exactly as LedgerFn does one layer up — the synchronized read
+// of a publication that happens on another goroutine. It never opens a ledger, never owns
 // one, and never creates an unused one; the lifecycle stays where SP-19 M0-02 put it, including
 // runDaemon's existing shutdown defer, which is the only thing that closes it.
 //
@@ -180,8 +182,8 @@ func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
 		src := checkpoint.SourceSet{
 			Store:    opts.Store,
 			Segments: segs,
-			// The FIELD, read now — nil until the first compaction opens it. See the note above.
-			Ledger: opts.Ledger,
+			// Resolved now — nil until the first compaction opens it. See the note above.
+			Ledger: opts.LedgerHandle(),
 			// ... and the ACCESSOR onto that same field, so a set published before the open is a
 			// wired seam rather than a rejected one. It is liveLedger, the accessor the MCP tools
 			// are already wired with: it reads the field on every call and opens nothing. Without

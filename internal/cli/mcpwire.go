@@ -102,16 +102,21 @@ func NewRetrievalRedactor(cfg config.Config) mcp.Redactor {
 // It closes over the *daemon.Options POINTER and reads the Ledger FIELD on every call, which is
 // the whole of the fix: negknow.Open is lazy on purpose — its single production call site is the
 // rehydrate service, on the first compaction, because an eager open creates sketches/tried.bloom
-// and holds an eliminations.jsonl handle in every daemon that never compacts — so opts.Ledger is
-// nil at wiring time. Handing that VALUE to the tools froze the nil for the life of the process
+// and holds an eliminations.jsonl handle in every daemon that never compacts — so the handle is
+// absent at wiring time. Handing that VALUE to the tools froze the nil for the life of the process
 // and left `already_tried` and `record_eliminated` permanently answering "not present in this
 // build" beside a ledger that was open. This is the same accessor shape wireScheduler's LedgerFn
 // and wireCheckpointSources' SourceSet supplier already use; it opens nothing and owns nothing.
+//
+// It reads Options.LedgerHandle rather than the Ledger FIELD, and that is not cosmetic: this
+// closure runs on the per-connection goroutine of every MCP tool call, while the publication
+// happens on whichever worker goroutine reached the first compaction. LedgerHandle is the
+// synchronized read of that publication; the raw field read was a data race.
 func liveLedger(opts *daemon.Options) func() negknow.Ledger {
 	if opts == nil {
 		return nil
 	}
-	return func() negknow.Ledger { return opts.Ledger }
+	return func() negknow.Ledger { return opts.LedgerHandle() }
 }
 
 // NewToolDeps assembles the collaborator set the eight retrieval tools are bound to.

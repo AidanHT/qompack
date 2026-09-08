@@ -139,14 +139,25 @@ func TestDispatchOpDeniesBeforeAnythingIsPersisted(t *testing.T) {
 	require.Empty(t, entries, "a denied delivery must not reach the WAL")
 }
 
-// TestDispatchOpRefusesAnUndecidableCapture: a degraded capture is a gap, not a publication.
+// TestDispatchOpRefusesAnUndecidableCapture: a capture NO policy decided is a gap, not a
+// publication.
+//
+// This test used to construct an OVERSIZE record — Outcome=Unavailable, Fidelity=Truncated,
+// CaptureError=Oversize — and assert it was refused. That fixture was wrong, and the assertion
+// built on it encoded the data-loss defect rather than a requirement: an oversize verdict IS a
+// decision, taken by a policy that ran, over a payload that arrived, and it is the only record
+// that will ever say so. It is now covered by
+// TestDispatchOpPersistsADegradedCaptureAsEvidence, which asserts the opposite outcome for the
+// opposite reason. What remains here is the genuinely undecidable case: a record whose capture
+// error names THIS PROCESS's inability to classify anything (no compiled policy), which is a hole
+// in the record and not a fact about the delivery.
 func TestDispatchOpRefusesAnUndecidableCapture(t *testing.T) {
 	root := t.TempDir()
 	dd, calls := newObservingDaemon(t, root)
 
 	req := observeRequest(testDeliveryToken('e'), "sess-degraded", "")
-	req.Capture.Outcome, req.Capture.Fidelity = core.OutcomeUnavailable, core.FidelityTruncated
-	req.Capture.CaptureError, req.Capture.Bytes = core.CaptureErrorOversize, nil
+	req.Capture.Outcome, req.Capture.Fidelity = core.OutcomeUnavailable, core.FidelityUnknown
+	req.Capture.CaptureError, req.Capture.Bytes = core.CaptureErrorPolicy, nil
 
 	resp := dd.dispatchOp(context.Background(), req)
 	require.True(t, resp.OK)
@@ -154,6 +165,88 @@ func TestDispatchOpRefusesAnUndecidableCapture(t *testing.T) {
 	require.Equal(t, 0, calls(), "publication is blocked when the capture is not admissible")
 	entries, _ := os.ReadDir(paths.Of(root).Spool)
 	require.Empty(t, entries)
+}
+
+// TestDispatchOpPersistsADegradedCaptureAsEvidence is BLOCKER 1's daemon-UP half: the record the
+// hook client mints for an over-budget payload — FidelityTruncated / CaptureErrorOversize /
+// OutcomeUnavailable, a bounded permitted prefix, the real source size, and NO Event — must be
+// persisted as evidence by the resident daemon, exactly as the spool path persists it.
+//
+// Before the fix admitDelivery mapped it to Failed, dispatchOp returned before any route, and the
+// whole record was discarded while the client was told OK — a delivery that left no WAL line, no
+// sidecar and no trace anywhere, on the one path the existing tests for that fix did not drive.
+func TestDispatchOpPersistsADegradedCaptureAsEvidence(t *testing.T) {
+	root := t.TempDir()
+	dd, calls := newObservingDaemon(t, root)
+	lock := lockFor(t, dd, root)
+	defer func() { _ = lock.Release() }()
+
+	token := testDeliveryToken('7')
+	req := observeRequest(token, "sess-oversize", `{"hook_ev`)
+	req.Event = nil // hookio derived none, and none may be invented from a payload it refused
+	req.Capture.Outcome, req.Capture.Fidelity = core.OutcomeUnavailable, core.FidelityTruncated
+	req.Capture.CaptureError, req.Capture.Truncated = core.CaptureErrorOversize, true
+	req.Capture.SourceBytes = 4 << 20
+
+	require.True(t, dd.dispatchOp(context.Background(), req).OK)
+	drainRing(t, dd)
+
+	sc := readOnlySidecar(t, root)
+	require.Equal(t, core.OutcomeUnavailable, sc.Outcome, "the sidecar records the decision as taken")
+	require.Equal(t, core.FidelityTruncated, sc.Fidelity)
+	require.Equal(t, core.CaptureErrorOversize, sc.CaptureError)
+	require.True(t, sc.Truncated)
+	require.Equal(t, 4<<20, sc.SourceBytes, "the observed delivery size survives even when the bytes do not")
+	require.Equal(t, []byte(`{"hook_ev`), sc.Bytes, "the bounded permitted prefix is the evidence")
+
+	require.Equal(t, 0, calls(),
+		"a capture with no derived Event publishes evidence, never a synthetic observation")
+
+	journal, err := dd.deliveryJournal()
+	require.NoError(t, err)
+	require.True(t, journal.acknowledged(token),
+		"the evidence is durable, so the delivery is accounted for rather than redelivered forever")
+}
+
+// TestDispatchOpObservesAnOversizePayloadAtTheShippedDefault is BLOCKER 1's regression half, and
+// it is about the SHIPPED configuration rather than a lowered budget.
+//
+// runtime.hotPath.maxPayloadBytes defaults to 1 MiB, whose capture limit is the 4 MiB hard cap, so
+// hookio admits a ~400 KB PostToolUse payload with OutcomeOK and a complete Event. ipc.WithCapture
+// then finds the permitted bytes over CaptureFrameBudget (393,216 B) and downgrades the CAPTURE
+// half to unavailable/oversize — while leaving the Event exactly where it was. Before the fix the
+// daemon read that downgrade as a refusal of the whole delivery and the tool use was never
+// observed at all: no RecordToolUse, no sidecar, no file-version history, for any ordinary read of
+// a 400 KB file.
+func TestDispatchOpObservesAnOversizePayloadAtTheShippedDefault(t *testing.T) {
+	root := t.TempDir()
+	dd, calls := newObservingDaemon(t, root)
+	lock := lockFor(t, dd, root)
+	defer func() { _ = lock.Release() }()
+
+	const payloadBytes = 400 * 1000
+	permitted := `{"hook_event_name":"PostToolUse","tool_response":"` +
+		strings.Repeat("x", payloadBytes) + `"}`
+	require.Greater(t, len(permitted), ipc.CaptureFrameBudget,
+		"the fixture must actually cross the frame budget or it proves nothing")
+
+	base := observeRequest(testDeliveryToken('8'), "sess-shipped", "")
+	admitted := *admittedCapture(permitted)
+	req := ipc.WithCapture(ipc.Request{
+		Op: base.Op, Session: base.Session, TS: base.TS, Event: base.Event, Nonce: base.Nonce,
+	}, admitted)
+
+	require.NotNil(t, req.Event, "WithCapture must never take the observation away")
+	require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+
+	require.True(t, dd.dispatchOp(context.Background(), req).OK)
+	drainRing(t, dd)
+
+	require.Equal(t, 1, calls(), "the tool use is observed; only the evidence half was degraded")
+	sc := readOnlySidecar(t, root)
+	require.Equal(t, core.OutcomeUnavailable, sc.Outcome)
+	require.Equal(t, len(permitted), sc.SourceBytes,
+		"the record still measures what the host delivered")
 }
 
 // TestDispatchOpAdmitsARequestThatCarriesNoDecision is the direct-IPC-caller case: no capture at

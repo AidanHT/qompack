@@ -236,7 +236,7 @@ func New(o Options) (Daemon, error) {
 
 	svc := &Services{
 		Store:       o.Store,
-		Ledger:      o.Ledger,
+		Ledger:      o.LedgerHandle(),
 		Sketches:    o.Sketches,
 		Graph:       o.Graph,
 		Grammar:     o.Grammar,
@@ -743,6 +743,19 @@ func (d *daemon) Drain(ctx context.Context) (int, error) {
 // sentinel scan. It is also drainer.Dispatch's underlying function, wrapped as dispatchOp so a
 // drained line gets exactly the same handling a live request would.
 func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response {
+	// Publication order stage 1 — the sidecar — has already run by the time this is reached, so
+	// the evidence is durable. Stage 2 is the observation, and a delivery that carries a
+	// classified capture but no derived Event has none to publish: acknowledge it so the durable
+	// record is committed and the delivery is not redelivered forever, and say what happened.
+	if req.Op.HotPath() && evidenceOnlyDelivery(req) {
+		if d.m != nil {
+			d.m.Counter(counterEvidenceOnly).Add(1)
+		}
+		return ipc.Response{
+			OK:   true,
+			Data: json.RawMessage(`{"outcome":"unavailable","reason":"capture recorded; no event was derived"}`),
+		}
+	}
 	ev := resolveEvent(req)
 	switch req.Op {
 	case ipc.OpObserveTool:

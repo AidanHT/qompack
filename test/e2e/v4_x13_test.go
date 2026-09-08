@@ -145,7 +145,7 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	require.NotNil(t, r.W, "the checkpoint writer must be resident")
 	_, srcErr := r.Src()
 	require.NoError(t, srcErr, "the full SourceSet must resolve: store, segments, ledger, pins, graph, grammar, tokens")
-	require.NotNil(t, r.Opts.Ledger, "the negative-knowledge ledger must be open")
+	require.NotNil(t, r.Opts.LedgerHandle(), "the negative-knowledge ledger must be open")
 	require.NotNil(t, r.Opts.Store, "the store must be open")
 	require.NotNil(t, r.Opts.Graph, "the dependence DAG must be open")
 	registered := r.RunIdle(t)

@@ -61,6 +61,20 @@ type Options struct {
 	// nil for the life of the process rather than retrying per compaction.
 	OpenLedger func() negknow.Ledger
 
+	// ledger is the synchronized home of the handle OpenLedger produces. It is a POINTER for the
+	// same reason shutdown is — New copies Options by value, and a sync.RWMutex in a copied
+	// struct is both a vet copylocks failure and a lock nobody shares — so every copy of an
+	// Options, and every closure over the *Options wiring holds, addresses one cell.
+	//
+	// It exists because the publication crosses goroutines. The write happens on whichever worker
+	// goroutine reaches the first PreCompact; the reads happen on the per-connection goroutines
+	// ipc.Server spawns, through three accessors that never call the opener: the MCP tools'
+	// liveLedger, the scheduler's LedgerFn, and the checkpoint SourceSet supplier. sync.Once
+	// orders only goroutines that call Do — a plain field read elsewhere has no edge to it — so
+	// the raw field this replaced was a data race on a two-word interface value, which under the
+	// detector is a CI failure and without it is a non-nil interface over a nil data pointer.
+	ledger *ledgerCell
+
 	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
 	// op by calling Handle at wiring time instead of editing a function in this package — the
 	// difference between four wave-3 subplans composing and four subplans conflicting.
@@ -150,6 +164,65 @@ func NewOptions(projectRoot string, cfg config.Config) Options {
 		Metrics:     obs.New(clk),
 		Clock:       clk,
 		Sketches:    NewSketchSet(cfg),
+		ledger:      &ledgerCell{},
+	}
+}
+
+// ledgerCell is the one synchronized home of the lazily opened negative-knowledge ledger handle.
+// A plain RWMutex rather than an atomic.Pointer: the reads are per MCP tool call and per idle
+// task, not per hook, so the cost is irrelevant beside being obviously correct, and an
+// atomic.Pointer[negknow.Ledger] would need its own indirection to hold an interface anyway.
+type ledgerCell struct {
+	mu sync.RWMutex
+	l  negknow.Ledger
+}
+
+func (c *ledgerCell) get() negknow.Ledger {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.l
+}
+
+func (c *ledgerCell) set(l negknow.Ledger) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.l = l
+}
+
+// LedgerHandle answers with the negative-knowledge ledger this daemon has open, or nil when
+// nothing has opened one yet. IT OPENS NOTHING: that is the whole difference between it and
+// OpenLedger, and it is what keeps negknow.Open's single production call site single and keeps a
+// daemon that never compacts from ever creating sketches/tried.bloom. Every cross-goroutine read
+// of the handle goes through here.
+//
+// The Ledger FIELD is still honoured, and read first-come: a caller that supplied its own ledger
+// set it before New copied Options, on one goroutine, and the lazy opener adopts rather than
+// replaces it (see WireRehydrator). The cell is what the opener publishes into.
+func (o *Options) LedgerHandle() negknow.Ledger {
+	if l := o.ledger.get(); l != nil {
+		return l
+	}
+	return o.Ledger
+}
+
+// publishLedger records the handle the lazy opener produced, and is the ONLY writer. It does not
+// also assign Options.Ledger: that field is wiring-time input, written once before any goroutine
+// exists, and writing it from a worker goroutine is precisely the race this cell removes.
+func (o *Options) publishLedger(l negknow.Ledger) { o.ledger.set(l) }
+
+// ensureLedgerCell creates the cell if an Options built as a literal — every test that does not
+// call NewOptions — never got one. It must be called at WIRING time, on the goroutine that owns
+// the Options, before anything can read or publish concurrently; WireRehydrator is that point on
+// every path, production and test alike, because it is what installs the opener that publishes.
+func (o *Options) ensureLedgerCell() {
+	if o.ledger == nil {
+		o.ledger = &ledgerCell{}
 	}
 }
 
