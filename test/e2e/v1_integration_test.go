@@ -390,6 +390,19 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 		require.NotEmpty(t, req.Nonce, "an over-budget delivery keeps its own nonce like any other")
 	})
 
+	// V4-Z. The row above's reasoning, one bound higher up. This row's premise — a payload just
+	// OVER the DEFAULT read limit is refused before it is ever admitted, and never observed — is
+	// correct and is kept unchanged. What it additionally asserted, that the refusal left nothing
+	// behind at all, was the same silent-data-loss defect V4-X fixed for the configured budget,
+	// merely at the hard allocation cap instead: invariant 1's "missing originals remain explicitly
+	// unavailable" cannot hold at 32 KiB and lapse at 4 MiB. The drop was fixed at the read bound
+	// (internal/cli/capture_admission.go) and this row now pins the refusal's own record.
+	//
+	// It still discriminates exactly what it always did, and more sharply than require.Empty could.
+	// Capture.SourceBytes here is the readLimitBoundary plus the single byte that proved the bound
+	// was exceeded — NOT len(payload), as in the "just under" row above, where the whole delivery
+	// really was read. That difference is direct proof the read stopped AT the bound rather than
+	// consuming a delivery it had already refused.
 	t.Run("bare_hook_rejects_a_payload_just_over_the_default_read_limit", func(t *testing.T) {
 		p := v1LimitProject(t, projectLimit, userLimit)
 		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary+256)
@@ -400,8 +413,20 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 
 		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
 		require.NoError(t, err)
-		require.Empty(t, files,
-			"a payload over the DEFAULT read limit must never reach the spool step at all")
+		require.Len(t, files, 1,
+			"a payload over the DEFAULT read limit is refused for observation, and the refusal is recorded")
+		require.Equal(t, 1, v1CountSpoolLines(t, files[0]))
+
+		req := v1OnlySpooledRequest(t, files[0])
+		require.NotNil(t, req.Capture, "the capture IS the record: no Event could be derived")
+		require.Nil(t, req.Event, "nothing admitted this delivery, so nothing may derive an Event from it")
+		require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+		require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+		require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+		require.Equal(t, readLimitBoundary+1, req.Capture.SourceBytes,
+			"the record carries what the bound observed before it stopped, not a size it never measured")
+		require.Less(t, req.Capture.SourceBytes, len(payload),
+			"and that is what distinguishes this row from the just-under row above, which read the lot")
 	})
 
 	// Restores the original bootstrap-clamp property in its new shape (fix round 1, Important

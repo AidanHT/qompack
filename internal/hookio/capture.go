@@ -32,6 +32,19 @@ type CaptureFragment struct {
 	// observation of the transport; truncation is a bound this process chose. The two are recorded
 	// distinctly and must never collapse into one another.
 	Incomplete bool
+	// Oversize records that the CALLER's own read bound already refused this delivery, before
+	// CaptureHook ever saw it: raw is then a bounded prefix of the payload rather than the payload.
+	// It exists because a prefix cannot be recognised by its own shape — a document cut mid-object
+	// arrives here as bytes that are simply not an admissible JSON object, and classifying it that
+	// way would name the wrong failure and hide the bound that actually fired. Only the caller
+	// knows a bound stopped the read, so only the caller can say so.
+	Oversize bool
+	// SourceBytes is the delivery size the caller observed, for a raw that is only a prefix of it.
+	// It is a floor and not a measurement: a caller that stops reading at its own cap knows that at
+	// least this many bytes arrived and nothing more, which is still a real trace where the
+	// alternative is none. It is ignored unless it exceeds len(raw), so a caller that handed over
+	// the whole delivery never has to set it.
+	SourceBytes int
 }
 
 // Capture is the versioned, permitted source for a future observation sidecar. Bytes use JSON's
@@ -77,7 +90,10 @@ func (c Capture) Recorded() bool { return c.Version != 0 }
 // An optional CaptureFragment makes the degraded paths evidential rather than silent: an oversize
 // payload reports FidelityTruncated, a short host read reports FidelityPartial, and a payload that
 // is not an admissible JSON object reports FidelityBinary, each with its own capture error, and
-// each retaining a bounded prefix when — and only when — the fragment policy permits one. None of
+// each retaining a bounded prefix when — and only when — the fragment policy permits one. A
+// delivery a CALLER's own read bound already refused (CaptureFragment.Oversize) is classified the
+// same way as one this function's limit refuses, from the prefix and the observed size the caller
+// kept, so a bound above this one leaves the same record rather than no record at all. None of
 // these produce an Event or an OutcomeOK capture: classification records what arrived, it never
 // promotes a degraded delivery into an observation.
 func CaptureHook(raw []byte, limit int, policyVersion string, policy CapturePolicy, fragment ...CaptureFragment) (Capture, Event, error) {
@@ -91,7 +107,13 @@ func CaptureHook(raw []byte, limit int, policyVersion string, policy CapturePoli
 		Fidelity: core.FidelityFailure, Outcome: core.OutcomeUnavailable,
 		SourceBytes: len(raw),
 	}
-	if limit < 0 || len(raw) > limit {
+	// A caller that stopped reading at its own bound observed more of the delivery than it handed
+	// over. Its count is the honest one, so it wins whenever it is larger; a smaller or absent one
+	// never shrinks what this function measured for itself.
+	if frag.SourceBytes > c.SourceBytes {
+		c.SourceBytes = frag.SourceBytes
+	}
+	if frag.Oversize || limit < 0 || len(raw) > limit {
 		c.Truncated, c.Fidelity, c.CaptureError = true, core.FidelityTruncated, core.CaptureErrorOversize
 		c.retain(raw, limit, frag.Policy)
 		return c, Event{}, core.ErrBudget
