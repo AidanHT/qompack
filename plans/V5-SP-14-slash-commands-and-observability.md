@@ -75,11 +75,11 @@ Future existing commands: `go test ./internal/commands ./internal/pluginmanifest
 
 Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
 
-**Short checks to dispatch first.** Command names, text/JSON/exit parity, missing usage and help/schema fixtures can be checked as independent small groups in commands/pluginmanifest; add the affected CLI, daemon or MCP consumer checks when wiring changes. Keep the existing single frontend writer and optional fixture worker.
+**Short checks to dispatch first.** Command names, text/JSON/exit parity, missing usage and help/schema fixtures can be checked as independent small groups in commands/pluginmanifest; add the affected CLI, daemon or MCP consumer checks when wiring changes. Each frontend owner runs the checks for the files it owns; the artifact inventory seat remains optional.
 
 **When broader checks are necessary.** Run real command-to-retrieval/checkpoint/status seams after those consumers are integrated. Installed discoverability and generated-help parity belong to the matching final artifact; full replay/race/coverage are not triggered by a rendering or help-only edit.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+Each implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -168,7 +168,7 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 
 **Dispatch contract.** Each unit receives exclusive file ownership, a written brief, and returns report-to-file with a short structured summary: files touched, commands run with their actually selected cases, and blockers. Each unit carries a per-unit tool-call budget and stops with a BLOCKED report after three identical failures instead of retrying. Do not use `git stash`; the stash list is shared across every worktree of one repository. Confirm any `go test -run` filter actually selects cases — it prints `ok` when it matches nothing, which produced three real misdiagnoses in the preceding session.
 
-Main can retain a seat's work when it is too small to justify a child. Do not spawn a separate expensive agent merely to execute a known command.
+Main can retain the inventory or collation work when it is too small to justify a child; the named frontend and status seats stay separate so they are authored concurrently. Do not spawn a separate expensive agent merely to execute a known command.
 
 ## Exit criteria
 

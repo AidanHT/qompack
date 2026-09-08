@@ -76,7 +76,7 @@ Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bo
 
 **When broader checks are necessary.** Run actual SP-11 serialization/selection and warning-feedback seams after consumer integration. Full phase5/6 replay, held-out trials and ablations belong to commit 7 or the final V5 policy candidate, with declared sample sizes; keep benchmark timing isolated.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+Each implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -162,7 +162,7 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
 | E evaluation | Opus 4.8 / high; Opus 5 / low for result collation alone | Test design and failure attribution need reasoning; collecting already-produced artifacts is mechanical |
 | Independent constraint/consumer reviewer | Fable 5.1 / high | Review G6.3 retention, dependency closure, overflow and actual SP-11 delivery across components |
 
-One Fable seat at a time; roles may reuse threads and do not each require a child. Preserve the quiet-run benchmark requirement and main-only shared checkpoint/configuration integration.
+One Fable review seat at a time, reusing its thread across roles; A, B, C and D each take their own child so they author concurrently. Preserve the quiet-run benchmark requirement and main-only shared checkpoint/configuration integration.
 
 **Dispatch contract.** Every unit owns an exclusive file set and reports to a file with a short structured return: status, files touched, gates exercised, open questions. Each unit carries a per-unit tool-call budget and stops with BLOCKED after three identical failures instead of retrying. No `git stash` — the stash list is shared across all worktrees of one repository. Confirm any `go test -run` filter actually selects cases; it prints `ok` when it matches nothing, which caused three real misdiagnoses in the preceding session.
 

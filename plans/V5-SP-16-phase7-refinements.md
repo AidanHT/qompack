@@ -70,11 +70,11 @@ Correctness and recoverability gates are independent of lower token cost. Preser
 
 Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bounded-parallel-runs) to every commit, validation-command catalog and acceptance row in this plan. Existing broad commands are available entry points, not an instruction to rerun the whole tree per edit, role or row. Use affected tests and consumers first; schedule a long run only for its named coverage obligation or a documented regression question. Preserve all test IDs, thresholds and failure evidence. No test executes in this planning pass.
 
-**Short checks to dispatch first.** Use separate short scope/expiry/authorization, filter-watermark, retrieval-reminder and serialized-promotion cases while the main owner retains coupled implementation. An optional fixture worker may run independent cases in its own store; shared-state interactions stay one owned scenario.
+**Short checks to dispatch first.** Use separate short scope/expiry/authorization, filter-watermark, retrieval-reminder and serialized-promotion cases; A, B, C, D, F and G each run the cases for the files they own, concurrently. Shared-state interactions stay one owned scenario inside a single owner's store.
 
 **When broader checks are necessary.** Run real SP-13/SP-11/SP-15 consumer and maintenance/recovery seams once their inputs are integrated. Full phase7/held-out evaluation belongs to commit 7 or the final V5 policy candidate. Optional disabled policies need a recorded disposition rather than unnecessary experimental runs.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+Each implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -91,6 +91,8 @@ Seven original identifiers retained; reconcile any existing work first, then imp
 ### Commit 3 — `fix(store): qualify filter coverage and demand records`
 
 - [ ] Reuse exact records, add optional bounded filter generation/rebuild and usefulness metadata only when needed; run M6-G16-B/E.
+
+D (filter coverage) and C (demand records) land as separate commits under this identifier rather than sharing a file; the identifier and its acceptance are unchanged.
 
 ### Commit 4 — `feat(daemon): apply scope-aware reusable candidates`
 

@@ -102,7 +102,7 @@ Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bo
 
 **When broader checks are necessary.** Reserve competing-hook/installed-host, pre/post-write rollback and controlled unmodified-output comparisons for the integrated opt-in candidate. Every T21 gate remains required for enablement, including quality and missing-baseline failure cases; isolated unit success does not enable admission.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+Each implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
