@@ -3,6 +3,8 @@ package admission
 import (
 	"context"
 	"errors"
+
+	"github.com/qompack/qompack/internal/core"
 )
 
 // ErrPortsUnwired is the stage error for a Pipeline built with a nil port. It is a
@@ -13,6 +15,12 @@ var ErrPortsUnwired = errors.New("admission: pipeline ports are not wired")
 // ErrUnrecoverableCapture is the stage error for a capture whose fidelity cannot return the
 // original bytes. The stage ran and retained something; what it retained is not what was delivered.
 var ErrUnrecoverableCapture = errors.New("admission: capture cannot recover the original")
+
+// ErrSchemaDisagrees is the stage error for a parser whose meaning declares a different schema
+// than the delivery did. Dispatch selected that parser for the DECLARED target; a meaning under
+// another schema means it saw something else, and the record would then carry two disagreeing
+// answers about what the representation describes.
+var ErrSchemaDisagrees = errors.New("admission: parsed schema does not match the declared target")
 
 // Fidelity is how recoverable a capture's ORIGINAL, pre-canonicalization bytes are.
 //
@@ -89,6 +97,16 @@ type Publisher interface {
 	VerifyPublished(ctx context.Context, c Capture) error
 }
 
+// Parser turns a delivered payload into its structured and displayed meaning.
+//
+// There is one parser per admitted target, and the shipped set is small on purpose: the allowlist
+// is empty until B01 target evidence exists, so the only surface a parser is written for today is
+// a Qompack-owned result, whose shape Qompack itself produced. A payload that does not parse under
+// its declared schema is a pass-through, never a guess at what it might have meant.
+type Parser interface {
+	Parse(ctx context.Context, d Delivery) (Meaning, error)
+}
+
 // Ports are the collaborators the pipeline reaches SP-20 and SP-13 through.
 //
 // A nil port is a composition-root mistake this package cannot prevent, so Admit refuses on one
@@ -97,6 +115,7 @@ type Ports struct {
 	Privacy Privacy
 	Capture Capturer
 	Publish Publisher
+	Parse   Parser
 }
 
 // Delivery is one newly delivered result offered for admission.
@@ -106,15 +125,22 @@ type Delivery struct {
 
 	// Payload is the delivered bytes.
 	Payload []byte
+
+	// Baseline is a prior capsule offered as a delta's base, or the zero Baseline when none is.
+	//
+	// It is carried on the delivery rather than fetched through a port because verification means
+	// having READ the baseline back, which is work the caller has already done by the time it can
+	// name one. An unverified baseline is not an error here; it resets to a capsule.
+	Baseline Baseline
 }
 
 // Pipeline is the synchronous admission sequence: privacy, capture, durability verification, one
 // representation decision, resolvable-handle verification, then one transform.
 //
-// Commit 2 implements the first three. Representation selection and handle resolution are commits 3
-// and 4; until they land, an admitted delivery reaches OutcomeTransform on the strength of its
-// capture alone, and no caller may act on that outcome to replace anything — the feature switch is
-// refused and Enable is not wired.
+// Commits 2 and 3 implement everything up to and including the representation decision. Handle
+// resolution is commit 4; until it lands, an admitted delivery reaches OutcomeTransform without its
+// handle having been resolved under current authorization, and no caller may act on that outcome to
+// replace anything — the feature switch is refused and Enable is not wired.
 type Pipeline struct {
 	gate  Gate
 	ports Ports
@@ -141,6 +167,9 @@ func NewPipeline(g Gate, p Ports) *Pipeline { return &Pipeline{gate: g, ports: p
 //     refusing.
 //  3. Capture, then publication verification. Both must succeed, and the capture must be
 //     recoverable, before any handle is emitted.
+//  4. Parse, then select one representation. Both run only on a durably captured original,
+//     because both forms point at it: a representation built first would describe bytes nobody
+//     retained and then have nothing to point at.
 func (p *Pipeline) Admit(ctx context.Context, d Delivery) (Record, error) {
 	if fail := p.checkPrivacy(ctx, d); fail.Stage != StageNone {
 		return Decide(p.gate, d.Target, fail), nil
@@ -155,10 +184,43 @@ func (p *Pipeline) Admit(ctx context.Context, d Delivery) (Record, error) {
 		return Decide(p.gate, d.Target, fail), nil
 	}
 
+	meaning, fail := p.parse(ctx, d)
+	if fail.Stage != StageNone {
+		return Decide(p.gate, d.Target, fail), nil
+	}
+
+	sel := Select(meaning, captured.Fidelity, d.Baseline)
+	if !sel.Form.Emits() {
+		return Decide(p.gate, d.Target, Failure{Stage: StageSelection}), nil
+	}
+
 	rec := Decide(p.gate, d.Target, Failure{})
 	rec.Handle = captured.Handle
 	rec.Fidelity = captured.Fidelity
+	rec.Coverage = core.CoverageArchiveOnly
+	rec.Meaning = meaning
+	rec.Form, rec.Base, rec.Reset = sel.Form, sel.Base, sel.Reset
 	return rec, nil
+}
+
+// parse asks the parser port for the delivery's meaning, and requires that meaning to describe the
+// target the delivery declared.
+//
+// An unwired port is StageParse rather than its own stage, for the same reason an unwired capture
+// port is StageCapture: from the pipeline's side, a parser that is not there and a parser that
+// failed produced the same nothing, and both pass the original through.
+func (p *Pipeline) parse(ctx context.Context, d Delivery) (Meaning, Failure) {
+	if p.ports.Parse == nil {
+		return Meaning{}, Failure{Stage: StageParse, Err: ErrPortsUnwired}
+	}
+	m, err := p.ports.Parse.Parse(ctx, d)
+	if err != nil {
+		return Meaning{}, Failure{Stage: StageParse, Err: err}
+	}
+	if m.Schema != d.Target {
+		return Meaning{}, Failure{Stage: StageParse, Err: ErrSchemaDisagrees}
+	}
+	return m, Failure{}
 }
 
 // checkPrivacy asks policy, and distinguishes the two ways that can go wrong.

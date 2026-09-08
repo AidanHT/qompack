@@ -29,12 +29,22 @@ type recorder struct {
 	denyPrivacy bool
 	captureErr  error
 	publishErr  error
+	parseErr    error
 	fidelity    admission.Fidelity
 	handle      string
+	meaning     admission.Meaning
+
+	// gate lets a table-driven case vary the gate alongside the ports it is already varying.
+	gate admission.Gate
 }
 
 func newRecorder() *recorder {
-	return &recorder{fidelity: admission.FidelityExact, handle: "sha256:" + hex64}
+	return &recorder{
+		fidelity: admission.FidelityExact,
+		handle:   "sha256:" + hex64,
+		meaning:  meaning(),
+		gate:     admitting,
+	}
 }
 
 const hex64 = "1111111111111111111111111111111111111111111111111111111111111111"
@@ -57,8 +67,16 @@ func (r *recorder) VerifyPublished(_ context.Context, _ admission.Capture) error
 	return r.publishErr
 }
 
+func (r *recorder) Parse(_ context.Context, _ admission.Delivery) (admission.Meaning, error) {
+	r.calls = append(r.calls, "parse")
+	if r.parseErr != nil {
+		return admission.Meaning{}, r.parseErr
+	}
+	return r.meaning, nil
+}
+
 func (r *recorder) ports() admission.Ports {
-	return admission.Ports{Privacy: r, Capture: r, Publish: r}
+	return admission.Ports{Privacy: r, Capture: r, Publish: r, Parse: r}
 }
 
 // delivery is the result under admission. The payload stands for whatever the host delivered.
@@ -79,8 +97,9 @@ func TestAdmitCapturesBeforeItTransforms(t *testing.T) {
 	rec, err := p.Admit(context.Background(), delivery)
 
 	require.NoError(t, err)
-	require.Equal(t, []string{"privacy", "capture", "publish"}, r.calls,
-		"the sequence is privacy, then capture, then publication verification")
+	require.Equal(t, []string{"privacy", "capture", "publish", "parse"}, r.calls,
+		"the sequence is privacy, then capture, then publication verification, then the parse "+
+			"commit 3 appended; selection is pure and needs no port")
 	require.Equal(t, admission.OutcomeTransform, rec.Outcome)
 	require.Equal(t, r.handle, rec.Handle,
 		"an admitted record must name the handle its capture produced")

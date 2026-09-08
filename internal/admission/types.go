@@ -22,6 +22,8 @@
 // real internal/ import is an amendment to §3.2, not a local decision.
 package admission
 
+import "github.com/qompack/qompack/internal/core"
+
 // Outcome is what admission did with a delivered result.
 //
 // OutcomePassThrough is the zero value on purpose. A Record nobody populated reports that the
@@ -272,6 +274,28 @@ type Record struct {
 	// Fidelity is the admitted capture's recoverability, carried into the record so an audit can
 	// see WHY a replacement was allowed and not only that it was.
 	Fidelity Fidelity
+
+	// Coverage is where the delivered content ended up. An admitted representation leaves the
+	// original bytes in the archive; every refusal reports CoverageUnknown, because admission
+	// does not observe what the host then does with a result it passed through, and an
+	// unobserved location is unknown rather than blank.
+	Coverage core.Coverage
+
+	// Meaning is the preserved structured and displayed meaning, set only on an admitted record.
+	// A refusal leaves it zero: a caller must not be handed something that looks actionable
+	// after the pipeline declined to act.
+	Meaning Meaning
+
+	// Form is the representation shape selected. FormNone on every refusal.
+	Form Form
+
+	// Base names the baseline a delta is relative to, and is empty for a capsule.
+	Base string
+
+	// Reset is why a delta was refused in favour of a capsule. It is the baseline-verification
+	// record: every reset produces the same form, so the cause is the only part that is
+	// diagnostic.
+	Reset ResetCause
 }
 
 // Decide is SP-21's frozen admission policy.
@@ -287,7 +311,7 @@ type Record struct {
 // rather than blaming a stage that never ran. Both answers are pass-through; the record differs,
 // and a deterministic record is the point of an audit trail.
 func Decide(g Gate, t Target, f Failure) Record {
-	rec := Record{Target: t, Stage: f.Stage, Err: f.Err}
+	rec := Record{Target: t, Stage: f.Stage, Err: f.Err, Coverage: core.CoverageUnknown}
 
 	if f.Stage == StagePrivacy {
 		rec.Outcome, rec.Reason = OutcomeDeny, ReasonPrivacyDenied
