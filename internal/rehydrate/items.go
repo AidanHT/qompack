@@ -166,14 +166,25 @@ const (
 	dropKindIntentMismatch      = "intent_mismatch"
 	dropKindUserIntentSource    = "user_intent_source"
 	dropKindEliminationSource   = "elimination_source"
+	// dropKindOverflow is the NAMED, REPORTABLE overflow outcome 00-ARCHITECTURE.md §5.15 and
+	// Qompack.md §8.6 require: content that could not be represented inside the declared budget at
+	// all — the fixed injection wrapper itself (a zero or near-zero budget), or a single tier-1
+	// critical record too large to admit whole — as distinct from the ORDINARY, expected
+	// discretionary truncation every other dropKind* here names. Overflowed(drops) is the single
+	// place that recognizes every shape this can currently take; a caller who wants to know
+	// "did this rehydration lose something it could not even name a partial version of" checks
+	// that, never a raw Kind or ID comparison of its own.
+	dropKindOverflow = "overflow"
 )
 
-// kindRank orders item 7. Path rules and nested CLAUDE.md files sort FIRST because they are
-// operating rules the agent no longer has — precisely the thing G4.5 says nothing surfaces today.
-// The two "open_question" and "narrative" kinds are SP-10's, minted by the checkpointer and
-// carried in Checkpoint.Dropped; they are ranked here so a checkpoint-time drop interleaves
-// correctly with a rehydration-time one.
+// kindRank orders item 7. Overflow sorts FIRST — an essential record this budget could not
+// represent at all outranks even the operating rules the agent no longer has. Path rules and
+// nested CLAUDE.md files sort next because they are precisely the thing G4.5 says nothing
+// surfaces today. The two "open_question" and "narrative" kinds are SP-10's, minted by the
+// checkpointer and carried in Checkpoint.Dropped; they are ranked here so a checkpoint-time drop
+// interleaves correctly with a rehydration-time one.
 var kindRank = map[string]int{
+	dropKindOverflow:       -1,
 	dropKindPathRule:       0,
 	dropKindNestedClaudeMD: 1,
 	dropKindSkill:          2,
@@ -288,16 +299,32 @@ func buildUserIntent(ctx context.Context, r Request, d Deps) built {
 		b.seen++
 		b.units = append(b.units, unit{text: quoteLines(text)})
 	}
-	for i, ev := range r.Checkpoint.UserIntent.Evolution {
-		ev = strings.TrimSpace(ev)
+	// Evolution is append-only and oldest-first (checkpoint/writer.go's appendEvolutionLocked), but
+	// units are built NEWEST-FIRST here: fillPrefix admits a PREFIX of whatever order it is given
+	// and stops at the first unit that does not fit (Qompack.md's current-authority rule; see
+	// TestBuild_LatestEvolutionSurvivesTruncation). Building in stored (oldest-first) order would
+	// make a tight budget keep the OLDEST restatements and drop the newest — resurrecting exactly
+	// the intent a later authorized correction superseded. Reversing the BUILD order, rather than
+	// special-casing which unit fillPrefix admits, is what keeps this a plain prefix cut: the
+	// admitted set at any budget is still deterministic from budget alone and
+	// PropBuild_MonotoneInBudget still holds, because a larger budget's prefix of this same
+	// newest-first sequence always extends the smaller budget's prefix with OLDER material, never
+	// reorders it.
+	//
+	// Each unit's drop ID is still the delta's TRUE index into Checkpoint.UserIntent.Evolution —
+	// not its position in this reversed build order — so provenance (T11-AUTH-01) and any
+	// consumer correlating by that index are unaffected by the display/truncation order.
+	for i := len(r.Checkpoint.UserIntent.Evolution) - 1; i >= 0; i-- {
+		ev := strings.TrimSpace(r.Checkpoint.UserIntent.Evolution[i])
 		if ev == "" {
 			continue
 		}
 		b.seen++
 		body := quoteLines(ev)
 		if len(b.units) == 0 || isFixedUnit(b.units[len(b.units)-1]) {
-			// The header belongs to the first evolution unit, so it disappears with it.
-			body = "Evolution:\n" + body
+			// The header belongs to the first (most recent) evolution unit, so it disappears with
+			// it if that one unit alone is dropped.
+			body = "Evolution (most recent first):\n" + body
 		}
 		b.units = append(b.units, unit{
 			text: body,
@@ -474,7 +501,23 @@ func eliminationCandidates(ctx context.Context, r Request, d Deps) ([]negknow.Re
 	}
 	for _, rec := range r.Checkpoint.Eliminated {
 		if _, dup := seen[rec.ID]; dup {
-			continue // the ledger copy wins: it carries the current Status
+			continue // the ledger's Active() copy wins: it carries the current Status
+		}
+		// Active() answers "every StatusActive record" (negknow.Ledger.Active's own contract), so
+		// a record that went stale — or was otherwise superseded — since this checkpoint was
+		// written is invisible to the union above: it is no longer StatusActive, so Active() does
+		// not return it, and the dedup loop above never marks it seen. Left uncorrected, the
+		// checkpoint's frozen copy — still carrying whatever Status it had at write time — would
+		// be admitted here and resurrect a record a later authorized re-verification overturned.
+		// Get(id) is the one call that can still see a status change Active() no longer surfaces,
+		// so it is consulted before the frozen copy is trusted. A ledger that has never heard of
+		// the id (core.ErrNotFound, core.ErrNotImplemented, or any other error — this call must
+		// degrade exactly like every other optional ledger read, never block on it) leaves the
+		// checkpoint's own copy standing, unchanged from today's behaviour.
+		if d.Ledger != nil {
+			if cur, err := d.Ledger.Get(ctx, rec.ID); err == nil {
+				rec = cur
+			}
 		}
 		seen[rec.ID] = struct{}{}
 		out = append(out, rec)

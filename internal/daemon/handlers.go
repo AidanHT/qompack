@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
 	"time"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
@@ -14,6 +17,7 @@ import (
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/paths"
 	"github.com/qompack/qompack/internal/pluginmanifest"
+	"github.com/qompack/qompack/internal/redact"
 )
 
 // promptReplyDeadline bounds observe.prompt's synchronous ObservePrompt call — well inside the
@@ -113,6 +117,24 @@ func resolveEvent(req ipc.Request) *hookio.Event {
 	return ev
 }
 
+// evidenceOnlyDelivery reports whether req is a classified capture with NO derived Event: the
+// record the hook client mints when admission refused the payload for observation but still
+// classified what arrived (a bounded permitted prefix, the fidelity that describes it, the capture
+// error naming why, and the observed source size). hookio derived no Event from such a payload and
+// none may be invented from it.
+//
+// resolveEvent answers an absent Event with a SYNTHETIC one — SessionID and nothing else — which
+// is right for a direct IPC caller that sent only Raw, and wrong here: handing that to ObserveTool
+// would record a tool use whose every field is a zero value the host never sent, which is the
+// synthetic default the capture contract exists to prevent. So the capture is published (the
+// durable object, stage 1, written before run is ever called) and the observation is skipped.
+func evidenceOnlyDelivery(req ipc.Request) bool {
+	if req.Event != nil || req.Capture == nil {
+		return false
+	}
+	return req.Capture.Outcome != core.OutcomeOK && captureIsDecided(*req.Capture)
+}
+
 // restoredExtra merges raw's top-level keys into extra, returning extra unchanged when raw is not
 // a JSON object (nil, a null, an array, a scalar, or malformed — all of which a corrupt spool line
 // can produce, and none of which is an error worth failing a hook over).
@@ -174,6 +196,45 @@ func (d *daemon) dispatchOp(ctx context.Context, req ipc.Request) ipc.Response {
 	ctx = withServices(ctx, d.svc)
 	ctx = withRegistry(ctx, d.registry)
 	ctx = withDaemon(ctx, d)
+
+	// Privacy admission for the live connection, before any route can persist anything. Only the
+	// observing ops carry a host payload; everything else (status, admin, mcp, checkpoint) has no
+	// capture to decide about and is left exactly as it was.
+	if req.Op.HotPath() {
+		v := d.admitDelivery(req)
+		switch {
+		case v.Denied:
+			if d.m != nil {
+				d.m.Counter(counterAdmissionDenied).Add(1)
+			}
+			resp := admissionResponse(v)
+			resp.Mode, resp.Hot = d.monitor.Mode(), d.registry.HotMode()
+			return resp
+		case v.Failed:
+			if d.m != nil {
+				d.m.Counter(counterAdmissionFailed).Add(1)
+			}
+			d.log.Warn("daemon: capture not admitted; nothing persisted", "op", string(req.Op), "reason", v.Reason)
+			resp := admissionResponse(v)
+			resp.Mode, resp.Hot = d.monitor.Mode(), d.registry.HotMode()
+			return resp
+		case v.Degraded:
+			// Deliberately NOT a return. A degraded decision routes exactly like an admitted one:
+			// the WAL line, then publishCapture's sidecar, so the record that says "a delivery
+			// arrived and could not be admitted whole" is durable on the live path exactly as it
+			// is on the spool path. Only the Event is withheld, and only when none was derived —
+			// see evidenceOnlyDelivery.
+			if d.m != nil {
+				d.m.Counter(counterAdmissionDegraded).Add(1)
+			}
+			d.log.Info("daemon: capture admitted as evidence only", "op", string(req.Op), "reason", v.Reason)
+		}
+		// The request is NOT rewritten. The WAL line must stay byte-identical to what the client
+		// sent, or a daemon-minted capture would make the WAL copy and the client's own spool copy
+		// of one delivery hash differently and be replayed twice. The decision travels beside the
+		// request instead, and a drained line is re-admitted deterministically by the same policy.
+		ctx = withAdmittedCapture(ctx, v.Request.Capture)
+	}
 
 	var resp ipc.Response
 	if h, ok := d.routes[req.Op]; ok {
@@ -363,19 +424,19 @@ func (d *daemon) applyHotPathTransition(t Transition) {
 // ModeOff — ingest.Accept, so the WAL holds it before anything else. The worker pool (runIngested)
 // calls svc.ObserveTool asynchronously.
 func (d *daemon) handleObserveTool(ctx context.Context, req ipc.Request) ipc.Response {
-	return d.acceptHotPathEvent(req)
+	return d.acceptHotPathEvent(ctx, req)
 }
 
 // handleObserveStop is observe.stop's default route: identical shape to observe.tool. The
 // subagent flag travels in req.Raw and is decoded by runIngested, not here.
 func (d *daemon) handleObserveStop(ctx context.Context, req ipc.Request) ipc.Response {
-	return d.acceptHotPathEvent(req)
+	return d.acceptHotPathEvent(ctx, req)
 }
 
 // acceptHotPathEvent is observe.tool's and observe.stop's shared body: registry.Touch, then
 // ingest.Accept gated on Mode.MayRecord() (ModeOff -> skipped entirely: ACK returned, nothing
 // written, per the mode-enforcement table's row 1).
-func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
+func (d *daemon) acceptHotPathEvent(ctx context.Context, req ipc.Request) ipc.Response {
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 	// Deliberately unconditional: the mode-enforcement table groups registry.Touch with
@@ -393,7 +454,7 @@ func (d *daemon) acceptHotPathEvent(req ipc.Request) ipc.Response {
 	if err != nil {
 		return ipc.Response{OK: false, Err: err.Error()}
 	}
-	if err := d.ing.Accept(req, line); err != nil {
+	if err := d.ing.Accept(withCapture(ctx, req), line); err != nil {
 		return ipc.Response{OK: false, Err: err.Error()}
 	}
 	return ipc.Response{OK: true}
@@ -435,7 +496,7 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 		if d.m != nil {
 			d.m.Counter(counterL0AcceptError).Add(1)
 		}
-	} else if err := d.ing.Accept(req, line); err != nil {
+	} else if err := d.ing.Accept(withCapture(ctx, req), line); err != nil {
 		d.log.Warn("daemon: observe.prompt: WAL append failed", "err", err)
 		if d.m != nil {
 			d.m.Counter(counterL0AcceptError).Add(1)
@@ -764,6 +825,11 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	ev := resolveEvent(req)
 	now := core.NowMilli(d.clk)
 
+	// A recovery-needed state, recorded BEFORE anything is finalized. Everything below this line
+	// can be interrupted, and until the marker is cleared the session'''s flush is unfinished — which
+	// is what SessionEnd must record rather than declaring work final that was never acknowledged.
+	d.markRecoveryNeeded(ev.SessionID, recoveryStageBegin, d.DrainGaps().PendingBytes)
+
 	d.registry.End(ev.SessionID, now)
 	_ = d.ing.CloseSession(ev.SessionID)
 
@@ -772,27 +838,40 @@ func (d *daemon) flushRoute(ctx context.Context, req ipc.Request, drain bool) ip
 	// recording work, not acting work, so it belongs behind the same predicate row 1's
 	// ingest.Accept uses, not behind MayAct() (M-3).
 	if d.svc.SessionEnd != nil && d.monitor.Mode().MayRecord() {
+		d.markRecoveryNeeded(ev.SessionID, recoveryStageSessionEnd, 0)
 		if err := d.svc.SessionEnd(ctx, *ev); err != nil {
 			d.log.Warn("daemon: SessionEnd failed", "err", err)
 		}
 	}
 
+	d.markRecoveryNeeded(ev.SessionID, recoveryStageMarker, 0)
 	if err := contract.WriteMarker(d.root, ev.SessionID, now); err != nil {
 		d.log.Warn("daemon: WriteMarker failed", "err", err)
 	}
 
 	if d.svc.Sketches != nil {
+		d.markRecoveryNeeded(ev.SessionID, recoveryStageSketches, 0)
 		d.svc.Sketches.Save(d.root, d.log)
 	}
 
 	if !drain {
+		// The drained-flush path does not run the replay, so it is not the step that finishes the
+		// flush; the marker stays until a route that does run it clears it.
 		return ipc.Response{OK: true}
 	}
 
+	d.markRecoveryNeeded(ev.SessionID, recoveryStageDrain, 0)
 	n, err := d.Drain(ctx)
 	data, _ := json.Marshal(map[string]any{"drained": n})
 	if err != nil {
+		// The replay did not finish, so neither did the flush. The marker stays: an unacknowledged
+		// delivery must reappear after restart rather than be finalized here.
 		return ipc.Response{OK: false, Err: err.Error(), Data: data}
+	}
+	// Only a complete replay finishes the flush. A drain that left gaps keeps the marker, so restart
+	// finds a session that needs recovery instead of one that looks finalized.
+	if gaps := d.DrainGaps(); gaps.Observed && gaps.Complete {
+		d.clearRecoveryNeeded(ev.SessionID)
 	}
 	return ipc.Response{OK: true, Data: data}
 }
@@ -921,4 +1000,338 @@ func (d *daemon) idleSaveSketches(ctx context.Context) error {
 
 func (d *daemon) idleWriteMetrics(ctx context.Context) error {
 	return writeMetricsSnapshot(d.root, d.m)
+}
+
+// ---------------------------------------------------------------------------
+// Privacy admission on the daemon side (invariant 1, S1 gap 4)
+//
+// Admission used to live only in internal/cli, so exactly two ways in had none: a direct IPC
+// caller talking to a resident daemon (dispatchOp), and a spool/WAL record inherited from an
+// earlier process (drain.go). Both are reached here.
+//
+// The rule that decides which of the two models applies is deliberately one-directional:
+//
+//   - A request that ALREADY carries a decision (req.Capture != nil) keeps it. The daemon never
+//     re-runs a policy over a payload that has already been through one, because the only material
+//     a second pass could work from is the derived Event, and re-deriving bytes from it could put
+//     back content the first policy removed. A decision is inspected for internal consistency and
+//     otherwise taken as given.
+//   - A request that carries NO decision is admitted here, before anything is persisted, over the
+//     most faithful reconstruction of the host payload this side has: the Event as it arrived,
+//     merged with the unclaimed top-level keys Raw preserved. That capture is honest about what it
+//     is — its fidelity can never be exact, because the transport already dropped whatever the
+//     Event's field list does not name.
+//
+// Denial and failure are different answers. Denial is a decision: nothing is persisted, the
+// delivery is terminally resolved, and the host result is untouched. Failure is a gap: nothing is
+// persisted either, but the delivery stays retryable and is reported as a gap rather than being
+// quietly counted as published.
+const (
+	counterAdmissionDenied   = "l0_admission_denied"
+	counterAdmissionFailed   = "l0_admission_failed"
+	counterAdmissionDegraded = "l0_admission_degraded"
+	counterAdmissionDaemon   = "l0_admission_daemon"
+	counterEvidenceOnly      = "l0_capture_evidence_only"
+	counterDeliveryUnleased  = "l0_delivery_unleased"
+	counterDeliveryAckFailed = "l0_delivery_ack_failed"
+	counterSidecarFailed     = "l0_capture_sidecar_failed"
+)
+
+// admissionVerdict is the daemon-side privacy gate's answer for one delivery.
+type admissionVerdict struct {
+	// Request is req with Capture normalized to the decision that governs it. Downstream code —
+	// the WAL line, the sidecar, the drain that later re-reads that line — sees exactly one
+	// decision, made once.
+	Request ipc.Request
+	// Denied means policy refused retention. Persist nothing; do not retry.
+	Denied bool
+	// Failed means no decision could be reached. Persist nothing; the delivery is a gap.
+	Failed bool
+	// Degraded means the policy DID decide and the decision is degraded: the delivery is admitted
+	// as EVIDENCE — a sidecar carrying the fidelity, the capture error and the observed source
+	// size — and not as an observation. It is neither a denial nor a gap, and treating it as
+	// either loses the one record that says a delivery arrived and could not be admitted whole.
+	Degraded bool
+	// Reason is a closed label, never payload-derived text.
+	Reason string
+}
+
+// captureIsDecided separates "the policy decided, and the decision is degraded" from "no decision
+// could be reached". A capture that was RECORDED by an admission run and NAMES why it is degraded,
+// from core's closed label set, is a decision: an oversize payload, a short host read, or a
+// delivery that was not an admissible JSON object. Each of those is a fact about what arrived, and
+// re-running the policy on a later pass cannot change it.
+//
+// The three excluded labels are the ones that describe THIS PROCESS rather than the delivery:
+// CaptureErrorPolicy (no policy compiled, so nothing classified anything), CaptureErrorContract
+// (the record itself is malformed), and CaptureErrorNone paired with a non-OK outcome (an outcome
+// that refuses to say why, which is exactly the shape a decision cannot have).
+func captureIsDecided(c hookio.Capture) bool {
+	if !c.Recorded() {
+		return false
+	}
+	switch c.CaptureError {
+	case core.CaptureErrorNone, core.CaptureErrorPolicy, core.CaptureErrorContract:
+		return false
+	default:
+		return true
+	}
+}
+
+// admitDelivery applies the gate above. It is safe to call more than once for the same delivery:
+// the second call sees the capture the first one attached and returns it unchanged.
+func (d *daemon) admitDelivery(req ipc.Request) admissionVerdict {
+	if req.Capture != nil {
+		c := *req.Capture
+		if !c.Fidelity.Valid() || !c.CaptureError.Valid() {
+			return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorContract)}
+		}
+		switch {
+		case c.Outcome == core.OutcomeDenied:
+			return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
+		case c.Outcome == core.OutcomeOK:
+			return admissionVerdict{Request: req}
+		case captureIsDecided(c):
+			// A degraded DECISION is admitted, not refused. This branch used to return Failed,
+			// which made the live daemon throw away exactly the record the hook client mints for
+			// an over-budget payload — and, because ipc.WithCapture downgrades any capture whose
+			// bytes will not fit the frame, threw away the Event beside it: on the shipped
+			// default every hook payload above ~384 KiB was dropped whole, observation included.
+			return admissionVerdict{Request: req, Degraded: true, Reason: string(c.CaptureError)}
+		default:
+			return admissionVerdict{Request: req, Failed: true, Reason: string(c.CaptureError)}
+		}
+	}
+	if d.m != nil {
+		d.m.Counter(counterAdmissionDaemon).Add(1)
+	}
+	cfg := d.currentCfg()
+	payload, fragment, err := d.capturePolicies(cfg)
+	if err != nil {
+		return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorPolicy)}
+	}
+	raw, rawErr := reconstructedPayload(req)
+	if rawErr != nil {
+		return admissionVerdict{Request: req, Failed: true, Reason: string(core.CaptureErrorNotJSON)}
+	}
+	capture, _, err := hookio.CaptureHook(raw, cfg.Runtime.HotPath.MaxPayloadBytes,
+		redact.CapturePolicyVersion, payload, hookio.CaptureFragment{Policy: fragment})
+	// A payload reconstructed from an already-decoded Event is never the host's literal delivery,
+	// so an "exact" verdict over it would claim a fidelity this side cannot support.
+	if capture.Fidelity == core.FidelityExact {
+		capture.Fidelity = core.FidelityPartial
+	}
+	req.Capture = &capture
+	switch {
+	case err != nil:
+		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
+	case capture.Outcome == core.OutcomeDenied:
+		return admissionVerdict{Request: req, Denied: true, Reason: "policy denied"}
+	case capture.Outcome != core.OutcomeOK && captureIsDecided(capture):
+		return admissionVerdict{Request: req, Degraded: true, Reason: string(capture.CaptureError)}
+	case capture.Outcome != core.OutcomeOK:
+		return admissionVerdict{Request: req, Failed: true, Reason: string(capture.CaptureError)}
+	}
+	return admissionVerdict{Request: req}
+}
+
+// capturePolicies compiles the configured rule set at most once per configuration. Compilation is
+// ~20 fresh regexps; a resident daemon that re-derived them per delivery would pay the most
+// expensive half of admission on every direct IPC call and every drained line.
+func (d *daemon) capturePolicies(cfg config.Config) (payload, fragment hookio.CapturePolicy, err error) {
+	d.policyMu.Lock()
+	defer d.policyMu.Unlock()
+	if d.policyPayload != nil && reflect.DeepEqual(d.policyCfg, cfg.Runtime.Redact) {
+		return d.policyPayload, d.policyFragment, nil
+	}
+	p, f, err := redact.CapturePolicies(cfg)
+	if err != nil {
+		d.policyPayload, d.policyFragment = nil, nil
+		return nil, nil, err
+	}
+	d.policyCfg, d.policyPayload, d.policyFragment = cfg.Runtime.Redact, p, f
+	return p, f, nil
+}
+
+// reconstructedPayload rebuilds the host payload from what survived the transport: the Event's own
+// named fields plus the unclaimed top-level keys Raw carried. It is a reconstruction and is treated
+// as one — see admitDelivery's fidelity downgrade — but it is the complete set of bytes this side
+// could ever persist for a request that arrived without a capture, so it is exactly the right thing
+// to put in front of the policy.
+func reconstructedPayload(req ipc.Request) ([]byte, error) {
+	fields := map[string]json.RawMessage{}
+	if len(req.Raw) != 0 {
+		var extra map[string]json.RawMessage
+		if json.Unmarshal(req.Raw, &extra) == nil {
+			for k, v := range extra {
+				fields[k] = v
+			}
+		}
+	}
+	if req.Event != nil {
+		encoded, err := json.Marshal(req.Event)
+		if err != nil {
+			return nil, err
+		}
+		var named map[string]json.RawMessage
+		if err := json.Unmarshal(encoded, &named); err != nil {
+			return nil, err
+		}
+		for k, v := range named {
+			fields[k] = v
+		}
+	}
+	if len(fields) == 0 {
+		fields["session_id"], _ = json.Marshal(string(req.Session))
+	}
+	return json.Marshal(fields)
+}
+
+// admissionResponse renders a refused delivery. A denial and a failure both ACK the transport —
+// neither is something the client can fix by sending the payload again — and both say which they
+// are, so "we recorded nothing" is never confused with "we could not tell".
+func admissionResponse(v admissionVerdict) ipc.Response {
+	outcome := string(core.OutcomeUnavailable)
+	if v.Denied {
+		outcome = string(core.OutcomeDenied)
+	}
+	data, _ := json.Marshal(map[string]string{"outcome": outcome, "reason": v.Reason})
+	return ipc.Response{OK: true, Data: data}
+}
+
+// admittedCaptureKey carries the daemon-side admission decision from dispatchOp to the route that
+// hands the request to the ingest queue. It is a context value rather than a field on the request
+// because the request's ENCODED bytes are the WAL record, and rewriting them here would make the
+// daemon's own copy of a delivery differ from the client's spool copy of the same delivery — two
+// content identities for one event, which is precisely the confusion invariant 2 forbids.
+type admittedCaptureKey struct{}
+
+func withAdmittedCapture(ctx context.Context, c *hookio.Capture) context.Context {
+	if c == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, admittedCaptureKey{}, c)
+}
+
+// withCapture attaches the admitted decision to an in-memory request, leaving one already present
+// alone. The result is what the ingest queue persists as a sidecar; the WAL line is unchanged.
+func withCapture(ctx context.Context, req ipc.Request) ipc.Request {
+	if req.Capture != nil {
+		return req
+	}
+	if c, ok := ctx.Value(admittedCaptureKey{}).(*hookio.Capture); ok {
+		req.Capture = c
+	}
+	return req
+}
+
+// ---------------------------------------------------------------------------
+// SessionEnd recovery state (T20-M1-05, invariant 5)
+//
+// flushRoute runs registry.End -> ingest.CloseSession -> svc.SessionEnd -> contract.WriteMarker ->
+// Sketches.Save -> Drain. Every one of those steps can be interrupted, and the sequence used to
+// leave nothing behind that said so: contract.WriteMarker is SP-08's "the terminal hook fired"
+// witness, which a crashed flush also writes on its next attempt, so it cannot distinguish a
+// finished flush from an abandoned one.
+//
+// The marker below is that distinction. It is written BEFORE the sequence starts and removed only
+// after every step has returned, so a marker found on disk means exactly one thing: a SessionEnd
+// began and did not finish, and the work it was flushing has not been finalized. It records which
+// step was last entered, so recovery knows whether the interruption was before or after the store's
+// own flush — never so that recovery can skip a step, only so it can say what it is resuming.
+const sessionRecoveryFile = "session-recovery.json"
+
+// The flush stages a recovery marker can name, in the order flushRoute runs them.
+const (
+	recoveryStageBegin      = "begin"
+	recoveryStageSessionEnd = "session_end"
+	recoveryStageMarker     = "marker"
+	recoveryStageSketches   = "sketches"
+	recoveryStageDrain      = "drain"
+)
+
+// SessionRecovery is state/session-recovery.json's shape: one entry per session whose SessionEnd
+// began and has not been observed to finish.
+type SessionRecovery struct {
+	Version  int                              `json:"v"`
+	Sessions map[core.SessionID]RecoveryEntry `json:"sessions"`
+}
+
+// RecoveryEntry says what was in progress and how far it got.
+type RecoveryEntry struct {
+	Stage string         `json:"stage"`
+	TS    core.UnixMilli `json:"ts"`
+	// Unacknowledged is how many spool bytes the drain still had to account for when the flush
+	// began. It is evidence for the recovery decision, not an instruction to it.
+	Unacknowledged int64 `json:"unacknowledged"`
+}
+
+func sessionRecoveryPath(root string) string {
+	return filepath.Join(paths.Of(root).State, sessionRecoveryFile)
+}
+
+// LoadSessionRecovery reads the recovery-needed set. A missing file is an empty set — no session is
+// mid-flush — while an unreadable one is an error, because "we cannot tell" must not be rendered as
+// "nothing to recover".
+func LoadSessionRecovery(root string) (SessionRecovery, error) {
+	b, err := os.ReadFile(paths.Long(sessionRecoveryPath(root)))
+	if os.IsNotExist(err) {
+		return SessionRecovery{Version: core.EvidenceVersion, Sessions: map[core.SessionID]RecoveryEntry{}}, nil
+	}
+	if err != nil {
+		return SessionRecovery{}, err
+	}
+	var sr SessionRecovery
+	if err := json.Unmarshal(b, &sr); err != nil {
+		return SessionRecovery{}, fmt.Errorf("daemon: session recovery state is unreadable")
+	}
+	if sr.Sessions == nil {
+		sr.Sessions = map[core.SessionID]RecoveryEntry{}
+	}
+	return sr, nil
+}
+
+func (d *daemon) writeSessionRecovery(sr SessionRecovery) error {
+	sr.Version = core.EvidenceVersion
+	b, err := json.Marshal(sr)
+	if err != nil {
+		return err
+	}
+	p := sessionRecoveryPath(d.root)
+	if err := os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700); err != nil {
+		return err
+	}
+	return paths.WriteAtomic(p, b, 0o600)
+}
+
+// markRecoveryNeeded records that sess entered stage. Every call rewrites the whole file, which is
+// what makes the marker's presence the fact and its stage merely the detail.
+func (d *daemon) markRecoveryNeeded(sess core.SessionID, stage string, unacknowledged int64) {
+	sr, err := LoadSessionRecovery(d.root)
+	if err != nil {
+		// Unreadable recovery state is itself a recovery-needed condition; replace it rather than
+		// leaving a flush unmarked, and say so.
+		d.log.Warn("daemon: session recovery state unreadable; replacing", "err", err)
+		sr = SessionRecovery{Sessions: map[core.SessionID]RecoveryEntry{}}
+	}
+	sr.Sessions[sess] = RecoveryEntry{Stage: stage, TS: core.NowMilli(d.clk), Unacknowledged: unacknowledged}
+	if err := d.writeSessionRecovery(sr); err != nil {
+		d.log.Warn("daemon: could not record SessionEnd recovery state", "err", err)
+	}
+}
+
+// clearRecoveryNeeded removes sess's marker. It runs only after every flush step has returned, so a
+// marker that survives is a genuine interruption and not a slow step.
+func (d *daemon) clearRecoveryNeeded(sess core.SessionID) {
+	sr, err := LoadSessionRecovery(d.root)
+	if err != nil {
+		return
+	}
+	if _, ok := sr.Sessions[sess]; !ok {
+		return
+	}
+	delete(sr.Sessions, sess)
+	if err := d.writeSessionRecovery(sr); err != nil {
+		d.log.Warn("daemon: could not clear SessionEnd recovery state", "err", err)
+	}
 }

@@ -54,6 +54,13 @@ type ToolUseRecord struct {
 	Ephemeral bool
 	// Subagent is "" for the main agent, or the subagent's name for a SubagentStop capture.
 	Subagent string
+	// Observation is the durable delivery identity this record was published for. It is IN-PROCESS
+	// ONLY: MarshalJSON does not emit it, because this record's wire shape is reproduced byte for
+	// byte by testdata/golden/contracts/store/want/tool_use_line.jsonl (Rule W-2) and may not grow a
+	// field. The durable form of the same join is the additive capture sidecar, which records this
+	// record'''s ID and Root against the observation identity — see LinkCaptureReference. Reading a
+	// record back from index/tool_use.jsonl therefore leaves this zero, by design.
+	Observation core.ObservationID
 }
 
 // toolUseRecordWire is ToolUseRecord's exact JSON wire shape, field for field in the order

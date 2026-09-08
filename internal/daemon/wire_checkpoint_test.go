@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -104,6 +105,7 @@ type cpFixture struct {
 	store store.Store
 	src   checkpoint.SourceSet
 	w     *checkpoint.FileWriter
+	m     obs.Registry
 	pins  *stubPins
 	reg   *SessionRegistry
 	seg   core.SegmentID
@@ -145,12 +147,13 @@ func newCPFixture(t *testing.T) *cpFixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = led.Close() })
 
-	w, err := checkpoint.OpenWriter(root, cfg, log, obs.New(clk), clk)
+	m := obs.New(clk)
+	w, err := checkpoint.OpenWriter(root, cfg, log, m, clk)
 	require.NoError(t, err)
 
 	f := &cpFixture{
 		t: t, root: root, l: l, cfg: cfg, clk: clk, store: st,
-		pins: &stubPins{}, reg: NewSessionRegistry(), w: w,
+		pins: &stubPins{}, reg: NewSessionRegistry(), w: w, m: m,
 	}
 	f.src = checkpoint.SourceSet{
 		Store: st, Segments: st.Segments(), Ledger: led, Pins: f.pins,
@@ -195,7 +198,7 @@ func (f *cpFixture) readDraft(sess core.SessionID) persistedDraft {
 
 // advance runs one advance_frontier tick over the fixture's registry.
 func (f *cpFixture) advance(ctx context.Context) error {
-	return advanceAllSessions(ctx, f.reg, f.w, f.src, logging.Nop())
+	return advanceAllSessions(ctx, f.reg, f.w, f.src, logging.Nop(), f.m)
 }
 
 // captureLoud installs a process-wide Loud observer for the duration of one test and returns an
@@ -260,7 +263,7 @@ func TestCadenceFinalizesWhenDraftReachesBudget(t *testing.T) {
 			require.Equal(t, tc.wantFull, est >= core.Tokens(f.cfg.Checkpoint.BudgetTokens),
 				"the row must exercise the cadence condition it names, not the other one")
 
-			require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w))
+			require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w, nil, nil))
 
 			sealed := paths.CheckpointPath(f.l, 1)
 			require.FileExists(t, paths.Long(sealed),
@@ -290,7 +293,7 @@ func TestCadenceSealsNothingWhenNeitherConditionHolds(t *testing.T) {
 	require.Less(t, d.EncodedCount(), cadenceSegmentThreshold)
 	f.cfg.Checkpoint.BudgetTokens = int(d.EstimatedTokens()) * 10
 
-	require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w))
+	require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w, nil, nil))
 	require.NoFileExists(t, paths.Long(paths.CheckpointPath(f.l, 1)))
 	require.Equal(t, d, f.w.DraftFor(cpSession), "the draft must still be the one that was open")
 }
@@ -363,7 +366,7 @@ func TestACancelledContextStopsTheCadenceLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(f.ctx())
 	cancel()
 
-	err := finalizeIfDue(ctx, f.cfg, f.w)
+	err := finalizeIfDue(ctx, f.cfg, f.w, nil, nil)
 	require.ErrorIs(t, err, context.Canceled)
 	require.NoFileExists(t, paths.Long(paths.CheckpointPath(f.l, 1)),
 		"a cancelled tick must not have entered Finalize at all")
@@ -430,8 +433,35 @@ func TestADPIViolationIsLoggedLoudAndSkipped(t *testing.T) {
 
 			require.NotEmpty(t, loud(), "a DPI violation must never be able to pass silently")
 			require.Contains(t, loud()[0], "DPI")
+			require.Equal(t, int64(1), f.m.Counter(counterFrontierDPIGuard).Value(),
+				"and it is counted, not only logged")
 		})
 	}
+}
+
+// TestTheSweepReportsEvidenceItCannotVerify is the sweep's half of the verification guard, and
+// the half that shipped with a log line and no instrument. Turns 2-4 have no segment at all, so
+// the frontier stops at 1: the work beyond the hole is left listed rather than encoded out of
+// order, and the shortfall is COUNTED, keyed by reason, not only written to a log nobody reads.
+func TestTheSweepReportsEvidenceItCannotVerify(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	a := f.closeSegment(cpSession, 0, 1)
+	beyond := f.closeSegment(cpSession, 5, 6) // turns 2-4 have no segment at all
+
+	require.NoError(t, f.advance(f.ctx()), "a gap holds the frontier back; it is not a sweep failure")
+
+	require.Equal(t, int64(1), f.m.Counter(counterFrontierUnverified).Value())
+	require.Equal(t, int64(1), f.m.Counter(counterFrontierUnverified+"."+evidenceGap).Value())
+	require.Zero(t, f.m.Counter(counterFrontierDPIGuard).Value(),
+		"missing evidence is a shortfall, never a two-writer violation")
+
+	encoded, err := f.store.Segments().Get(f.ctx(), a)
+	require.NoError(t, err)
+	require.True(t, encoded.EncodedOnce, "the verified prefix still advances")
+	seg, err := f.store.Segments().Get(f.ctx(), beyond)
+	require.NoError(t, err)
+	require.False(t, seg.EncodedOnce, "the segment past the gap is left listed, not swept over")
 }
 
 // TestPrecompactDeadlineIsLeftUnsetWhenTheManifestDeclaresNoTimeout pins the degenerate branch
@@ -514,4 +544,287 @@ func TestDaemonLogReachesTheConstructedDaemonsLogger(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, daemonLog(d))
 	require.NotNil(t, daemonLog(nil), "any other Daemon must degrade to a no-op logger, not nil")
+}
+
+// TestWireCheckpointResolvesItsSourcesLive is the supplier contract WithSourceSupplier exists for:
+// the SAME registered closure must answer differently once the daemon's lazily-opened ledger
+// appears, and must never have opened one itself to get there.
+//
+// The row matters because the production composition root physically cannot hand WireCheckpoint a
+// complete SourceSet at registration. The negative-knowledge ledger is opened on the FIRST
+// compaction and assigned back onto daemon.Options.Ledger; a value captured at wiring time is nil
+// then and nil forever. Before this seam existed the three checkpoint idle tasks were therefore
+// inert for the life of any daemon wired that way — the same capture bug SchedulerRuntimeOptions
+// .LedgerFn was added for one layer up.
+//
+// Three phases run through ONE closure, never re-registered.
+func TestWireCheckpointResolvesItsSourcesLive(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	// Phase 1: the ledger has not been opened yet, exactly as on a daemon that has never
+	// compacted. The supplier returns its PARTIAL set plus the reason.
+	ledgerOpen := false
+	resolve := func() (checkpoint.SourceSet, error) {
+		s := f.src
+		if !ledgerOpen {
+			s.Ledger = nil
+		}
+		if err := s.Validate(); err != nil {
+			return s, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return s, nil
+	}
+
+	m := obs.New(f.clk)
+	advance := advanceFrontierTask(f.reg, f.w, resolve, logging.Nop(), m)
+	pinsTask := materializePinsTask(resolve)
+
+	require.NoError(t, advance(f.ctx()), "an unusable source set is a degradation, never a task error")
+	require.NoFileExists(t, paths.Long(f.draftPath(cpSession)),
+		"nothing may be begun while the source set is incomplete")
+	require.Equal(t, int64(1), m.Snapshot().Counters[counterSourcesUnavailable],
+		"the unavailable route must be counted, not silent")
+
+	// Pins are materialized from the pin log alone, so a missing ledger must not stop them.
+	require.NoError(t, pinsTask(f.ctx()))
+	require.Equal(t, 1, f.pins.materialized,
+		"materialize_pins reads the PARTIAL set; it needs no ledger")
+
+	// Phase 2: the first compaction opens the ledger. The same closure now advances.
+	ledgerOpen = true
+	require.NoError(t, advance(f.ctx()))
+	require.FileExists(t, paths.Long(f.draftPath(cpSession)),
+		"the same registered closure must see a ledger opened after registration")
+	require.Equal(t, cpSession, f.readDraft(cpSession).Session)
+	un, unErr := f.src.Segments.Unencoded(f.ctx(), cpSession)
+	require.NoError(t, unErr)
+	require.Empty(t, un, "the segment the advance encoded must no longer be offered as unencoded")
+	require.Equal(t, int64(1), m.Snapshot().Counters[counterSourcesUnavailable],
+		"a pass that found a usable set must not count as unavailable")
+}
+
+// TestWireCheckpointWithoutASupplierStillValidatesItsFrozenSet keeps the four-argument call shape
+// honest: a caller that froze a half-wired SourceSet reaches the unavailable route, not a nil
+// dereference several frames inside Begin.
+func TestWireCheckpointWithoutASupplierStillValidatesItsFrozenSet(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	half := f.src
+	half.Ledger = nil
+	m := obs.New(f.clk)
+	require.NoError(t, advanceFrontierTask(f.reg, f.w, staticSources(half), logging.Nop(), m)(f.ctx()))
+	require.NoFileExists(t, paths.Long(f.draftPath(cpSession)))
+	require.Equal(t, int64(1), m.Snapshot().Counters[counterSourcesUnavailable])
+
+	_, err := staticSources(half)()
+	require.ErrorIs(t, err, core.ErrDegraded, "the reason must be reportable, not merely nil")
+}
+
+// TestBindCheckpointSealsOnTheFirstPreCompact is the daemon-side half of the first-PreCompact fix.
+//
+// The shipped daemon could not seal on the first PreCompact of its life. wireCheckpointSources
+// published a SourceSet whose Ledger was nil — negknow.Open is lazy on purpose — SetSources dropped
+// it in silence, and the ledger was opened only by the rehydration on the first COMPACTION, which
+// is the SessionStart(source=compact) that arrives AFTER the PreCompact that needed it. Every
+// daemon's first compaction therefore produced `hookSpecificOutput: null`, one Warn, and no
+// checkpoint.
+//
+// Three things are asserted here, and the middle one is the invariant the fix had to keep:
+//
+//   - wiring publishes a usable set even though no ledger exists yet (the accessor is the seam);
+//   - wiring opens NOTHING — Options.OpenLedger is untouched until a compaction arrives, so a
+//     daemon that never compacts still never creates sketches/tried.bloom;
+//   - the first PreCompact triggers that one lazy open itself and seals an artifact.
+func TestBindCheckpointSealsOnTheFirstPreCompact(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	// The ledger the fixture opened stands in for the one WireRehydrator would open, and the
+	// field for daemon.Options.Ledger. Both start out of reach, exactly as on a fresh daemon.
+	realLedger := f.src.Ledger
+	var field negknow.Ledger
+	opens := 0
+
+	o := &Options{ProjectRoot: f.root, Cfg: f.cfg, Log: logging.Nop(), Clock: f.clk}
+	o.OpenLedger = func() negknow.Ledger {
+		opens++
+		field = realLedger
+		return field
+	}
+
+	// The supplier, shaped as internal/cli's wireCheckpointSources shapes it: the ledger arrives
+	// as a FIELD plus an ACCESSOR onto that same field, and the answer is Resolve's, not
+	// Validate's, because a consumer asks it in order to begin a draft.
+	sources := func() (checkpoint.SourceSet, error) {
+		s := f.src
+		s.Ledger = field
+		s.LedgerFn = func() negknow.Ledger { return field }
+		if _, err := s.Resolve(); err != nil {
+			return s, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return s, nil
+	}
+
+	snapshot, snapErr := sources()
+	require.Error(t, snapErr, "fixture sanity: no compaction has happened, so the set cannot resolve")
+	require.NoError(t, snapshot.Validate(),
+		"but it IS wired: an accessor is a ledger seam, and a producer must be able to publish this set")
+
+	BindCheckpoint(o, f.cfg, f.w, snapshot, WithSourceSupplier(sources))
+	require.Equal(t, 0, opens, "wiring must open nothing; the ledger's laziness is the whole reason it is an accessor")
+
+	var s Services
+	for _, bind := range o.binds {
+		bind(&s)
+	}
+	require.NotNil(t, s.PreCompact, "BindCheckpoint must have bound the PreCompact seam")
+
+	out, err := s.PreCompact(f.ctx(), hookio.Event{
+		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
+	})
+	require.NoError(t, err, "the FIRST PreCompact of a daemon's life must seal")
+	require.NotNil(t, out.HookSpecificOutput, "a null hookSpecificOutput is the defect's own signature")
+	require.NotEmpty(t, out.HookSpecificOutput.CustomInstructions)
+	require.Equal(t, 1, opens, "the compaction that needed the ledger is what opened it — exactly once, here")
+
+	entries, readErr := os.ReadDir(paths.Long(f.l.Checkpoints))
+	require.NoError(t, readErr)
+	require.NotEmpty(t, entries, "an artifact must exist on disk after the first PreCompact")
+}
+
+// TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened is the other side of the same seam: a
+// source that is genuinely unavailable must reach the caller as a reported failure, never as a
+// panic or a silently-empty checkpoint.
+//
+// The accessor answering nil is what a failed negknow.Open looks like from here. SourceSet.Resolve
+// names it, Begin refuses at the top of the call, and the hook route turns that into an ordinary
+// error — which handleCheckpoint already reports as a Warn while still exiting 0.
+func TestBindCheckpointDegradesWhenTheLedgerCannotBeOpened(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+
+	opens := 0
+	o := &Options{ProjectRoot: f.root, Cfg: f.cfg, Log: logging.Nop(), Clock: f.clk}
+	o.OpenLedger = func() negknow.Ledger { opens++; return nil }
+
+	sources := func() (checkpoint.SourceSet, error) {
+		s := f.src
+		s.Ledger = nil
+		s.LedgerFn = func() negknow.Ledger { return nil }
+		if _, err := s.Resolve(); err != nil {
+			return s, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return s, nil
+	}
+	snapshot, _ := sources()
+
+	BindCheckpoint(o, f.cfg, f.w, snapshot, WithSourceSupplier(sources))
+
+	var s Services
+	for _, bind := range o.binds {
+		bind(&s)
+	}
+
+	out, err := s.PreCompact(f.ctx(), hookio.Event{
+		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
+	})
+	require.Error(t, err, "a ledger that cannot be opened is reported, not sealed around")
+	require.ErrorContains(t, err, "SourceSet.Ledger is nil",
+		"and it is reported BY NAME, from the top of Begin, rather than as a nil dereference deeper in")
+	require.Nil(t, out.HookSpecificOutput, "nothing was sealed, so there is nothing to instruct with")
+	require.Equal(t, 1, opens)
+}
+
+// TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve is the ownership half of the
+// first-PreCompact fix: arming must ask whether the lazy open is NEEDED before it triggers it.
+//
+// armSources originally called Options.OpenLedger unconditionally, before it had even looked at
+// what the supplier answers. That is invisible on the production path — internal/cli's supplier
+// resolves to a nil ledger until something opens one, so the open was always needed — and wrong
+// everywhere else: an embedder that opens a ledger itself and wires it onto BOTH Options and the
+// SourceSet (which is exactly what test/e2e's SP-10 harness does) got a SECOND negknow.Open on the
+// same project root at its first PreCompact. Two append handles on one records/eliminations.jsonl
+// is the corruption class a second store.Open is, and the second one had no owner at all: the
+// caller closes the handle it made, and nothing closed the one arming had made behind its back.
+func TestArmSourcesOpensNothingWhenTheSourcesAlreadyResolve(t *testing.T) {
+	f := newCPFixture(t)
+	f.live(cpSession)
+	f.closeSegment(cpSession, 1, 3)
+
+	opens := 0
+	o := &Options{ProjectRoot: f.root, Cfg: f.cfg, Log: logging.Nop(), Clock: f.clk}
+	// A real accessor, wired exactly as WireRehydrator wires it. It must simply never be reached.
+	o.OpenLedger = func() negknow.Ledger { opens++; return f.src.Ledger }
+	o.Ledger = f.src.Ledger
+
+	// The supplier the harness shape produces: complete at wiring time, ledger handle included.
+	sources := func() (checkpoint.SourceSet, error) { return f.src, nil }
+	require.NoError(t, f.src.Validate(), "fixture sanity: this set is complete")
+
+	BindCheckpoint(o, f.cfg, f.w, f.src, WithSourceSupplier(sources))
+	var s Services
+	for _, bind := range o.binds {
+		bind(&s)
+	}
+	require.NotNil(t, s.PreCompact)
+
+	out, err := s.PreCompact(f.ctx(), hookio.Event{
+		HookEventName: "PreCompact", SessionID: cpSession, Trigger: "auto", CWD: f.root,
+	})
+	require.NoError(t, err, "a fully-wired caller must still seal")
+	require.NotNil(t, out.HookSpecificOutput)
+	require.Zero(t, opens,
+		"the sources already carry a ledger, so the lazy open is not needed and must not be paid for: "+
+			"a second negknow.Open on one project root is two appenders on one eliminations.jsonl")
+}
+
+// TestStopClosesTheLedgerTheDaemonOpened pins the OWNERSHIP of the one lazily-opened negative-
+// knowledge ledger: it belongs to the daemon that opened it, and it does not outlive that daemon.
+//
+// It is a regression row for a real leak. WireRehydrator's opener is the single production
+// negknow.Open call site, and the handle it creates is known to nothing else in the process until
+// it assigns it onto Options. Its only close path used to be one deferred call in internal/cli's
+// runDaemon — so every OTHER embedder of daemon.New leaked it, and Stop could return with an
+// append handle still open on records/eliminations.jsonl. On Windows that blocks the enclosing
+// TempDir's RemoveAll (which is how it was found); on Linux it leaks in silence, which is worse.
+//
+// Both halves of "does not outlive" are asserted, because they fail differently: the ledger itself
+// reports closed (portable), and the file can be unlinked (the platform-visible proof that no
+// handle remains). The laziness the whole seam exists to protect is asserted on the way through —
+// wiring alone must create nothing.
+func TestStopClosesTheLedgerTheDaemonOpened(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "project")
+	require.NoError(t, os.MkdirAll(paths.Long(root), 0o700))
+
+	o := NewOptions(root, testConfig())
+	o.Clock = newFakeClock(epoch)
+	o.Log = logging.Nop()
+
+	WireRehydrator(&o)
+	require.NotNil(t, o.OpenLedger, "WireRehydrator publishes the lazy opener")
+
+	elim := filepath.Join(paths.Of(root).Records, "eliminations.jsonl")
+	require.NoFileExists(t, paths.Long(elim),
+		"wiring must open NOTHING: a daemon that never compacts creates neither this file nor tried.bloom")
+
+	// The one lazy open, triggered the way a first compaction triggers it.
+	led := o.OpenLedger()
+	require.NotNil(t, led, "the accessor must answer with the handle it opened")
+	require.FileExists(t, paths.Long(elim))
+
+	d, err := New(o)
+	require.NoError(t, err)
+	require.NoError(t, d.Stop(context.Background()))
+
+	_, recErr := led.Record(context.Background(), negknow.Record{})
+	require.ErrorIs(t, recErr, os.ErrClosed,
+		"Stop must have closed the ledger its own wiring opened; a ledger still accepting appends "+
+			"after the daemon that owns it has stopped is a handle with no owner left")
+	require.NoError(t, os.Remove(paths.Long(elim)),
+		"and the OS must agree: an unremovable eliminations.jsonl is an append handle outliving the daemon")
 }

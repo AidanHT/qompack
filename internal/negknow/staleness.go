@@ -21,7 +21,7 @@ import (
 // against the current file versions, and a changed dependency flips the record to stale with a
 // per-dependency reason.
 //
-// Two properties are load-bearing and are asserted by staleness_test.go.
+// Three properties are load-bearing and are asserted by staleness_test.go.
 //
 // RefreshStaleness is idempotent and re-runnable. SP05-D1 means the file-version history this
 // reads may be MISSING an edit — a drain aborted by idle-budget expiry consumes the line it
@@ -35,6 +35,15 @@ import (
 // what store.ChangedSince compares — the dep hash on the record against the newest recorded
 // version — and mints no generation field of its own, because Record's json tags are frozen and
 // two byte-frozen fixtures transcribe them.
+//
+// A failed comparison degrades coverage rather than staleness. When ChangedSince itself errors,
+// RefreshStaleness cannot tell which of the deps it asked about actually changed, so it may flip
+// NONE of them — but it must also stop Query answering AnswerActive for the records that
+// comparison would have covered, since that would be affirming freshness the ledger no longer
+// knows to be true (00-ARCHITECTURE.md §11.3 Required invariants item 8). l.depCoverage is the
+// watermark that carries this: a failed ChangedSince sets it, Query consults it to downgrade an
+// affected AnswerActive to AnswerUncertain, and the next SUCCESSFUL comparison — even one that
+// flips nothing — clears it again.
 
 // MarkStale flips every known, currently-active id to StatusStale.
 //
@@ -158,8 +167,15 @@ func (l *ledger) RefreshStaleness(ctx context.Context, s store.Store) ([]string,
 	changed, err := s.ChangedSince(ctx, deps)
 	if err != nil {
 		// Failing toward doing nothing: the ledger stays usable and no record is flipped on
-		// evidence we could not read.
+		// evidence we could not read. But every active record this comparison WOULD have covered
+		// now has unverified dependency coverage, and Query must not go on answering AnswerActive
+		// for them as though nothing were wrong (00-ARCHITECTURE.md §11.3 Required invariants item
+		// 8): record a coverage-degraded watermark so Query can downgrade them to AnswerUncertain
+		// until a later refresh succeeds.
 		l.log.Warn("negknow: could not compare dependency hashes; nothing flipped", "err", err)
+		l.mu.Lock()
+		l.depCoverage = core.Omission{Reason: reasonDepCoverage, Recovery: recoveryDepCoverage}
+		l.mu.Unlock()
 		return nil, err
 	}
 
@@ -174,12 +190,17 @@ func (l *ledger) RefreshStaleness(ctx context.Context, s store.Store) ([]string,
 		}
 	}
 	if len(reasons) == 0 {
+		// The comparison succeeded — even over zero deps — so coverage is current again.
+		l.mu.Lock()
+		l.depCoverage = core.Omission{}
+		l.mu.Unlock()
 		return nil, nil
 	}
 
 	var flipped []string
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.depCoverage = core.Omission{}
 	for _, g := range groupStaleReasons(reasons) {
 		got, merr := l.markStaleLocked(ctx, g.IDs, g.Because)
 		flipped = append(flipped, got...)

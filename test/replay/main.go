@@ -48,7 +48,7 @@ const (
 // Default flag values.
 const (
 	defaultCorpusPath   = "testdata/sessions/synthetic"
-	defaultBaselinePath = "testdata/baseline/phase0.json"
+	defaultBaselinePath = "testdata/baseline/phase0-recall.json"
 	defaultOutPath      = "testdata/bench-replay.json"
 	// qompack-rehydrate joins the default set with SP-11. phase3 grades the rehydrator against
 	// the stock arm IN THE SAME RUN, so a default that omitted it would make the phase-3 gate fail
@@ -353,6 +353,16 @@ func run(args []string, out, errw io.Writer) int {
 	missingBaseline := ""
 	if o.baseline != "" {
 		base, err := loadBaseline(resolve(root, o.baseline), root)
+		// A baseline may be compared to a run only when both measured the SAME workload, and the
+		// identity that decides it travels in both artifacts already. Until now only half of one
+		// field of it (corpusTier) was ever consulted, so a run over the V4-corrected corpus was
+		// judged against numbers recorded on the pre-correction one and reported the difference
+		// between two workloads as a policy regression. checkCorpusIdentity (gate.go) consults all
+		// of it, including corpusSHA256, and refuses on any disagreement.
+		var identityErr error
+		if err == nil {
+			identityErr = checkCorpusIdentity(o.baseline, base, driver, root)
+		}
 		switch {
 		case err != nil && looksLikePath(o.baseline) && os.IsNotExist(errors.Unwrap(err)):
 			missingBaseline = o.baseline
@@ -360,18 +370,8 @@ func run(args []string, out, errw io.Writer) int {
 		case err != nil:
 			fmt.Fprintf(errw, "%v\n", err)
 			return exitBadInput
-		case base.CorpusTier != "" && base.CorpusTier != driver.CorpusTier:
-			// The corpusTier key exists to make this comparison impossible, and nothing consulted
-			// it. §6.3's two corpora are different populations — 24 generated sessions against
-			// whatever a real user recorded — so a percentage change between them is not a
-			// regression signal at all, and the nightly recorded-corpus run was comparing against
-			// the synthetic baseline for exactly that reason.
-			fmt.Fprintf(errw,
-				"FAIL baseline %s was recorded over a %s corpus and this run replayed a %s one; the "+
-					"2%% rule compares policies over the SAME population, and a percentage change "+
-					"between two different corpora measures the corpora. Point --baseline at a %s "+
-					"baseline (ADR 0002)\n",
-				o.baseline, base.CorpusTier, driver.CorpusTier, driver.CorpusTier)
+		case identityErr != nil:
+			fmt.Fprintf(errw, "FAIL %v\n", identityErr)
 			return exitBadInput
 		default:
 			driver.Regressions = compare(base, driver.Policies, driver.WatchFor, readSignOff(o.signOff))

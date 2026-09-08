@@ -46,6 +46,14 @@ const (
 // not a tunable.
 const indexRecordVersion = 1
 
+// indexRecordVersionBase is the "v" a roots.jsonl line carries once it declares a delta base or a
+// retained full original (SP-20 invariant 6). The bump is ADDITIVE and per-record, not per-file: a
+// line with neither field is byte-identical to what SP-06 wrote and still says v=1, so every
+// existing roots.jsonl — and testdata/golden/store/roots.jsonl with it — keeps loading unchanged,
+// while a reader is told plainly when a record carries a field it must not silently drop.
+// parseRootLine accepts both; TestLoadRoots_ReadsBothRecordVersions pins that.
+const indexRecordVersionBase = 2
+
 // storeKey is the canonical map key for a path anywhere in this package.
 //
 // paths.Key alone only case-folds; it does not convert separators or clean a leading "./". Both
@@ -159,6 +167,15 @@ type rootEntry struct {
 	Eph    bool
 	Sig    sketch.Signature
 	Deltas core.Hash
+	// Base is the content root a DELTA record reconstructs: the forward half of the Deltas
+	// pointer, and the field SP-20 invariant 6 requires ("an exact delta must reconstruct exactly
+	// from a durable declared base"). Zero on a content record, and on a legacy delta record
+	// written before the field existed — which is why a zero Base supports no recovery claim.
+	Base core.Hash
+	// Orig is the root of the full object retained INSTEAD of a delta, when KeepRaw was asked for
+	// but an exact round-trip could not be proven. It is the "otherwise retain a full object" half
+	// of the same invariant.
+	Orig core.Hash
 }
 
 // sessionEntry is one loaded index/sessions.jsonl record. It is what makes GC's "10 sessions"

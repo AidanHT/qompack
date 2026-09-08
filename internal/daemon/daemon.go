@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -15,6 +16,7 @@ import (
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
@@ -91,6 +93,13 @@ type daemon struct {
 	registry *SessionRegistry
 	idle     *idleController
 	monitor  contract.Monitor
+
+	// The compiled capture policies the daemon-side admission gate uses, cached against the
+	// redact configuration they were compiled from (handlers.go, capturePolicies).
+	policyMu       sync.Mutex
+	policyCfg      config.RedactCfg
+	policyPayload  hookio.CapturePolicy
+	policyFragment hookio.CapturePolicy
 
 	ing *ingest
 
@@ -201,6 +210,11 @@ type daemon struct {
 	// before the rest of Stop's cleanup has run (shutdown-race fix: a metrics.Persist call still
 	// in flight after Run returned raced a test's own TempDir cleanup on .qompack/tmp/).
 	stopDone chan struct{}
+
+	// owned is the close list for the resources this daemon's own wiring opened -- today the one
+	// lazily-opened negative-knowledge ledger. Stop runs it; see shutdownHooks for why the daemon,
+	// and not the composition root, is the owner.
+	owned *shutdownHooks
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -222,7 +236,7 @@ func New(o Options) (Daemon, error) {
 
 	svc := &Services{
 		Store:       o.Store,
-		Ledger:      o.Ledger,
+		Ledger:      o.LedgerHandle(),
 		Sketches:    o.Sketches,
 		Graph:       o.Graph,
 		Grammar:     o.Grammar,
@@ -258,6 +272,10 @@ func New(o Options) (Daemon, error) {
 		firstServed: make(chan struct{}),
 		stopped:     make(chan struct{}),
 		stopDone:    make(chan struct{}),
+		// The POINTER, so a closer registered after this copy was taken -- which is every one of
+		// them, since the resources it covers are opened lazily on the worker pool -- still
+		// reaches Stop. A nil here is an Options no wiring ran over, and closeAll is nil-safe.
+		owned: o.shutdown,
 	}
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
@@ -274,6 +292,9 @@ func New(o Options) (Daemon, error) {
 	d.hotSamples = make(chan time.Duration, ringCapacity)
 
 	d.ing = newIngest(o.ProjectRoot, o.Cfg, o.Log, o.Metrics, o.Clock)
+	// The delivery journal belongs to the singleton Lock Run acquires later, so both the ingest
+	// queue and the drainer reach it through this accessor rather than holding it.
+	d.ing.journal = d.deliveryJournal
 
 	d.routes = buildRoutes(&o, d)
 
@@ -515,6 +536,8 @@ func (d *daemon) Run(ctx context.Context) error {
 		Clock:    d.clk,
 		Dispatch: d.drainDispatch,
 		Seen:     d.ing.seen,
+		Admit:    d.admitDelivery,
+		Journal:  d.deliveryJournal,
 		IsLive:   d.sessionIsLive,
 	}))
 
@@ -719,29 +742,55 @@ func (d *daemon) Drain(ctx context.Context) (int, error) {
 // bound Services function when present, and — for observe.prompt — runs the off-reply-path
 // sentinel scan. It is also drainer.Dispatch's underlying function, wrapped as dispatchOp so a
 // drained line gets exactly the same handling a live request would.
-func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
+func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response {
+	// Publication order stage 1 — the sidecar — has already run by the time this is reached, so
+	// the evidence is durable. Stage 2 is the observation, and a delivery that carries a
+	// classified capture but no derived Event has none to publish: acknowledge it so the durable
+	// record is committed and the delivery is not redelivered forever, and say what happened.
+	if req.Op.HotPath() && evidenceOnlyDelivery(req) {
+		if d.m != nil {
+			d.m.Counter(counterEvidenceOnly).Add(1)
+		}
+		return ipc.Response{
+			OK:   true,
+			Data: json.RawMessage(`{"outcome":"unavailable","reason":"capture recorded; no event was derived"}`),
+		}
+	}
 	ev := resolveEvent(req)
 	switch req.Op {
 	case ipc.OpObserveTool:
 		if d.svc.ObserveTool != nil {
 			if err := d.svc.ObserveTool(ctx, *ev); err != nil {
-				d.log.Warn("daemon: ObserveTool failed", "err", err)
+				d.log.Warn("daemon: ObserveTool failed")
+				return ipc.Response{Err: "observation handling failed"}
 			}
-		} else if d.m != nil {
-			d.m.Counter(counterUnhandledObserveTool).Add(1)
+		} else {
+			if d.m != nil {
+				d.m.Counter(counterUnhandledObserveTool).Add(1)
+			}
+			// A deliberately unwired capability is an acknowledged no-op, not captured evidence.
+			return ipc.Response{OK: true, Data: json.RawMessage(`{"outcome":"unavailable","reason":"observer not configured"}`)}
 		}
 	case ipc.OpObserveStop:
 		subagent := decodeSubagent(req.Raw)
 		if d.svc.ObserveStop != nil {
 			if err := d.svc.ObserveStop(ctx, *ev, subagent); err != nil {
-				d.log.Warn("daemon: ObserveStop failed", "err", err)
+				d.log.Warn("daemon: ObserveStop failed")
+				return ipc.Response{Err: "stop handling failed"}
 			}
-		} else if d.m != nil {
-			d.m.Counter(counterUnhandledObserveStop).Add(1)
+		} else {
+			if d.m != nil {
+				d.m.Counter(counterUnhandledObserveStop).Add(1)
+			}
+			return ipc.Response{OK: true, Data: json.RawMessage(`{"outcome":"unavailable","reason":"observer not configured"}`)}
 		}
 	case ipc.OpObservePrompt:
 		d.scanSentinelForPrompt(ev)
 	}
+	if ctx.Err() != nil {
+		return ipc.Response{Err: "observation handling interrupted"}
+	}
+	return ipc.Response{OK: true}
 }
 
 // drainDispatch is the drainer's DrainConfig.Dispatch function — an explicit, non-reentrant
@@ -774,8 +823,7 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) {
 func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
 	switch {
 	case req.Op.HotPath():
-		d.runIngested(ctx, req)
-		return ipc.Response{OK: true}
+		return d.runIngested(ctx, req)
 	case req.Op == ipc.OpFlush:
 		return d.flushRoute(ctx, req, false)
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
@@ -847,6 +895,15 @@ func (d *daemon) Stop(ctx context.Context) error {
 			}
 		}
 
+		// AFTER the server close and BEFORE the lock release, and both halves of that are load-
+		// bearing. Server.Close is what joins the in-flight connection handlers, and a PreCompact
+		// still running on one of them is reading the very ledger this list closes -- so anywhere
+		// earlier closes a handle out from under a live request. The lock release is what every
+		// waiter in the tree treats as "the daemon has finished" (test/guards' write-set row, the
+		// e2e shutdown helper), so a resource still open past it is a resource that outlived the
+		// daemon by that definition.
+		d.owned.closeAll(d.log)
+
 		if lk := d.currentLock(); lk != nil {
 			if err := lk.Release(); err != nil && stopErr == nil {
 				stopErr = err
@@ -907,4 +964,33 @@ func (d *daemon) awaitStopCleanup() {
 // isAddrTooLong reports whether err wraps ipc.ErrAddrTooLong.
 func isAddrTooLong(err error) bool {
 	return errors.Is(err, ipc.ErrAddrTooLong)
+}
+
+// deliveryJournal resolves the durable delivery journal owned by this daemon's held singleton
+// lock. It is the one accessor both the ingest queue and the drainer use, so neither of them can
+// outlive the lock that owns the file, and neither can open a second journal over it.
+//
+// A daemon that has not acquired its lock yet — or has released it — answers with an error rather
+// than nil: "no identity available" is a gap the caller reports, never a silent success.
+func (d *daemon) deliveryJournal() (*deliveryJournal, error) {
+	d.startMu.Lock()
+	lock := d.lock
+	d.startMu.Unlock()
+	if lock == nil {
+		return nil, deliveryJournalError()
+	}
+	return lock.openDeliveryJournal()
+}
+
+// The daemon is the GapReporter its callers assert for; pinned here so the seam cannot drift.
+var _ GapReporter = (*daemon)(nil)
+
+// DrainGaps implements GapReporter: what the most recent replay could and could not account for.
+// A daemon whose drainer has not been built yet answers Observed:false — unknown, not empty.
+func (d *daemon) DrainGaps() DrainGapState {
+	dr := d.drain.Load()
+	if dr == nil {
+		return DrainGapState{}
+	}
+	return dr.GapState()
 }

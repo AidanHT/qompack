@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"sync"
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
@@ -40,6 +41,40 @@ type Options struct {
 	Sched       scheduler.Runtime
 	Checkpoints checkpoint.Writer
 
+	// OpenLedger opens the negative-knowledge ledger the FIRST time a caller actually needs one,
+	// assigns the handle to Ledger, and answers with that same handle — or with the same nil —
+	// on every later call. WireRehydrator publishes it; it is nil in any Options that wiring has
+	// not run over.
+	//
+	// It is the seam that keeps the ledger's laziness and the checkpointer's need for it from
+	// being in conflict. negknow.Open has exactly ONE production call site, inside this accessor,
+	// because an eager open creates sketches/tried.bloom and holds a records/eliminations.jsonl
+	// handle in every daemon that never compacts, and §3.3 gives that file to the ledger alone.
+	// But a compaction needs the ledger BEFORE it needs the rehydration that used to open it: the
+	// PreCompact hook fires first and the SessionStart(source=compact) that follows is already too
+	// late for it. Publishing the opener here lets the PreCompact seam trigger the SAME one-shot
+	// open, so nothing opens a second handle and nothing opens anything at all in a daemon that
+	// never compacts.
+	//
+	// The memoization is what makes it safe to call from anywhere: two compactions racing on the
+	// daemon's worker pool get one handle, and an open that FAILED is Loud once and then answers
+	// nil for the life of the process rather than retrying per compaction.
+	OpenLedger func() negknow.Ledger
+
+	// ledger is the synchronized home of the handle OpenLedger produces. It is a POINTER for the
+	// same reason shutdown is — New copies Options by value, and a sync.RWMutex in a copied
+	// struct is both a vet copylocks failure and a lock nobody shares — so every copy of an
+	// Options, and every closure over the *Options wiring holds, addresses one cell.
+	//
+	// It exists because the publication crosses goroutines. The write happens on whichever worker
+	// goroutine reaches the first PreCompact; the reads happen on the per-connection goroutines
+	// ipc.Server spawns, through three accessors that never call the opener: the MCP tools'
+	// liveLedger, the scheduler's LedgerFn, and the checkpoint SourceSet supplier. sync.Once
+	// orders only goroutines that call Do — a plain field read elsewhere has no edge to it — so
+	// the raw field this replaced was a data race on a two-word interface value, which under the
+	// detector is a CI failure and without it is a non-nil interface over a nil data pointer.
+	ledger *ledgerCell
+
 	// handlers is the op-routing table. It is a map rather than a switch so a later wave adds an
 	// op by calling Handle at wiring time instead of editing a function in this package — the
 	// difference between four wave-3 subplans composing and four subplans conflicting.
@@ -49,6 +84,71 @@ type Options struct {
 	// in registration order, to the Services it seeds from the fields above, before calling
 	// DeclareProducers.
 	binds []func(*Services)
+
+	// shutdown is the close list for resources the daemon's own WIRING opened. It is a POINTER on
+	// purpose: New copies Options by value, and every resource that matters here is opened LAZILY,
+	// long after that copy was taken -- OpenLedger fires on the first compaction, on a worker
+	// goroutine, with New already several seconds in the past. A slice would register onto a copy
+	// nothing reads. The pointer is shared, so a closer registered at any time before Stop reaches
+	// the daemon that must run it.
+	//
+	// It is nil in an Options no wiring has run over, and closeAll is nil-safe, so a bare
+	// Options{} literal stays valid.
+	shutdown *shutdownHooks
+}
+
+// shutdownHooks is the list of resources the daemon OWNS: the ones its own wiring opened, as
+// opposed to the ones a composition root opened and handed in on Options.
+//
+// The distinction is the whole point. A caller-supplied Store or Ledger belongs to the caller and
+// is closed by the caller; a handle the daemon's own lazy opener created has no other owner, and
+// before this list existed it had no close path at all except one defer in internal/cli's
+// runDaemon. Every other embedder of daemon.New -- the in-process e2e harnesses included -- leaked
+// it: Stop returned with an append handle still open on records/eliminations.jsonl, which on
+// Windows blocks the enclosing TempDir cleanup and on Linux leaks silently for the life of the
+// process.
+type shutdownHooks struct {
+	mu  sync.Mutex
+	fns []ownedResource
+}
+
+// ownedResource is one closer plus the name Stop reports it under.
+type ownedResource struct {
+	name  string
+	close func() error
+}
+
+// add appends one closer. It is safe to call from any goroutine, because the openers that call it
+// are themselves reachable from the daemon's worker pool.
+func (h *shutdownHooks) add(name string, closeFn func() error) {
+	if h == nil || closeFn == nil {
+		return
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.fns = append(h.fns, ownedResource{name: name, close: closeFn})
+}
+
+// closeAll runs every registered closer once, in registration order, and empties the list so a
+// second Stop -- or a composition root's own belt-and-braces defer -- does no work. A failure is a
+// Warn: shutdown continues, because the steps after it (state.bin removal, the lock release) are
+// what let the NEXT daemon start.
+func (h *shutdownHooks) closeAll(log logging.Logger) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	fns := h.fns
+	h.fns = nil
+	h.mu.Unlock()
+	if log == nil {
+		log = logging.Nop()
+	}
+	for _, r := range fns {
+		if err := r.close(); err != nil {
+			log.Warn("daemon: stop: closing "+r.name, "err", err.Error())
+		}
+	}
 }
 
 // NewOptions returns an Options with every non-service field defaulted: a no-op logger, a fresh
@@ -64,6 +164,65 @@ func NewOptions(projectRoot string, cfg config.Config) Options {
 		Metrics:     obs.New(clk),
 		Clock:       clk,
 		Sketches:    NewSketchSet(cfg),
+		ledger:      &ledgerCell{},
+	}
+}
+
+// ledgerCell is the one synchronized home of the lazily opened negative-knowledge ledger handle.
+// A plain RWMutex rather than an atomic.Pointer: the reads are per MCP tool call and per idle
+// task, not per hook, so the cost is irrelevant beside being obviously correct, and an
+// atomic.Pointer[negknow.Ledger] would need its own indirection to hold an interface anyway.
+type ledgerCell struct {
+	mu sync.RWMutex
+	l  negknow.Ledger
+}
+
+func (c *ledgerCell) get() negknow.Ledger {
+	if c == nil {
+		return nil
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.l
+}
+
+func (c *ledgerCell) set(l negknow.Ledger) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.l = l
+}
+
+// LedgerHandle answers with the negative-knowledge ledger this daemon has open, or nil when
+// nothing has opened one yet. IT OPENS NOTHING: that is the whole difference between it and
+// OpenLedger, and it is what keeps negknow.Open's single production call site single and keeps a
+// daemon that never compacts from ever creating sketches/tried.bloom. Every cross-goroutine read
+// of the handle goes through here.
+//
+// The Ledger FIELD is still honoured, and read first-come: a caller that supplied its own ledger
+// set it before New copied Options, on one goroutine, and the lazy opener adopts rather than
+// replaces it (see WireRehydrator). The cell is what the opener publishes into.
+func (o *Options) LedgerHandle() negknow.Ledger {
+	if l := o.ledger.get(); l != nil {
+		return l
+	}
+	return o.Ledger
+}
+
+// publishLedger records the handle the lazy opener produced, and is the ONLY writer. It does not
+// also assign Options.Ledger: that field is wiring-time input, written once before any goroutine
+// exists, and writing it from a worker goroutine is precisely the race this cell removes.
+func (o *Options) publishLedger(l negknow.Ledger) { o.ledger.set(l) }
+
+// ensureLedgerCell creates the cell if an Options built as a literal — every test that does not
+// call NewOptions — never got one. It must be called at WIRING time, on the goroutine that owns
+// the Options, before anything can read or publish concurrently; WireRehydrator is that point on
+// every path, production and test alike, because it is what installs the opener that publishes.
+func (o *Options) ensureLedgerCell() {
+	if o.ledger == nil {
+		o.ledger = &ledgerCell{}
 	}
 }
 
@@ -92,6 +251,32 @@ func (o *Options) Ops() []ipc.Op {
 		ops = append(ops, op)
 	}
 	return ops
+}
+
+// OnStop registers closeFn as the shutdown path for a resource this Options' own wiring opened,
+// naming it for the log line a failure produces. Stop runs every registration once, in order,
+// after the server has closed -- so no request handler can still be using the resource -- and
+// before the lock is released.
+//
+// It is for resources the DAEMON opened. A handle a composition root opened and assigned onto
+// Options belongs to that root and must not be registered here: closing it twice is harmless
+// (every Close in this tree is idempotent) but closing it at Stop when its owner expects it to
+// outlive the daemon is not.
+func (o *Options) OnStop(name string, closeFn func() error) {
+	o.ownedResources().add(name, closeFn)
+}
+
+// ownedResources returns the shared close list, creating it on first use.
+//
+// It must be called at WIRING time by anything that will later register a closer, so that the list
+// exists before New copies Options and both halves end up holding the same pointer. It is not safe
+// for concurrent first use, which is exactly why the lazy openers call it up front rather than
+// from inside their own sync.Once.
+func (o *Options) ownedResources() *shutdownHooks {
+	if o.shutdown == nil {
+		o.shutdown = &shutdownHooks{}
+	}
+	return o.shutdown
 }
 
 // Bind registers fn to run once, in registration order, at daemon construction, against the

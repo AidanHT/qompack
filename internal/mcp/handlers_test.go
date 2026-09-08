@@ -127,6 +127,26 @@ func TestRecallNilStoreReportsUnavailable(t *testing.T) {
 	require.Equal(t, "store not present in this build", body.Reason)
 }
 
+// TestRecallOmitsHitsWhoseStoredPathFailsAuthorization pins that authorization runs BEFORE a
+// recall preview is built, over every hit — not only over an argument the caller supplied. A
+// record whose stored path no longer resolves safely under the project root must never surface
+// its summary or pointer in a search result, and the response must say plainly that something was
+// held back rather than silently returning fewer hits than the index actually matched.
+func TestRecallOmitsHitsWhoseStoredPathFailsAuthorization(t *testing.T) {
+	f := newFixture(t)
+	const marker = "denial-marker-alpha-9f2 pool timeout"
+	f.record(t, "Bash", "../outside/leaked.txt", marker, 1)
+
+	var body recallBody
+	resp := f.callOK(t, ToolRecall, map[string]any{"query": "denial-marker-alpha-9f2"}, &body)
+
+	require.False(t, resp.IsError)
+	require.Empty(t, body.Hits, "a hit whose path fails authorization must never reach the preview")
+	require.False(t, body.Found)
+	require.Equal(t, 1, body.Denied, "an omission must be reported explicitly, not left silent")
+	require.NotContains(t, responseText(resp), marker, "denied content must never reach the response")
+}
+
 // ── already_tried ───────────────────────────────────────────────────────────────────────────
 
 // TestAlreadyTriedAbsent pins the answer an empty ledger gives, byte for byte. The exact rendering
@@ -188,11 +208,15 @@ func TestAlreadyTriedStaleReturnsNote(t *testing.T) {
 	require.Equal(t, elimReason, res.Reason, "a stale record still says why it was eliminated")
 }
 
-// TestAlreadyTriedStaleDropReturnsAbsent pins BOTH layers of the deliberate belt-and-braces
+// TestAlreadyTriedStaleDropReturnsUncertain pins BOTH layers of the deliberate belt-and-braces
 // handlers.go documents. The ledger applies eliminations.staleResponse itself, and renderAnswer
 // applies it again; a test that only drove the real ledger would leave the second layer unexercised
 // and a future ledger change could turn a stale record into an `active` answer unnoticed.
-func TestAlreadyTriedStaleDropReturnsAbsent(t *testing.T) {
+//
+// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record, so neither
+// layer may answer `absent`: both know an elimination exists. Each reports `uncertain` with a
+// reason and a recovery direction, and discloses nothing else about the record.
+func TestAlreadyTriedStaleDropReturnsUncertain(t *testing.T) {
 	f := newFixture(t, withConfig(func(c *config.Config) {
 		c.Eliminations.StaleResponse = "drop"
 	}))
@@ -202,9 +226,15 @@ func TestAlreadyTriedStaleDropReturnsAbsent(t *testing.T) {
 
 	args := map[string]any{"target": elimTarget, "approach": elimApproach}
 
+	ans, err := f.Ledger.Query(t.Context(), elimTarget, elimApproach, negknow.ScopeSession)
+	require.NoError(t, err, "Ledger.Query")
+	require.Equal(t, negknow.AnswerUncertain, ans.State, "the ledger layer must not assert absence")
+
 	var viaLedger AlreadyTriedResult
 	f.callOK(t, ToolAlreadyTried, args, &viaLedger)
-	require.Equal(t, stateAbsent, viaLedger.State, "the ledger layer must drop a stale record")
+	require.Equal(t, stateUncertain, viaLedger.State, "the ledger layer must drop a stale record")
+	require.Equal(t, ans.Coverage.Reason, viaLedger.Reason, "the ledger's own omission reason must carry through")
+	require.Equal(t, ans.Coverage.Recovery, viaLedger.Note, "the recovery direction must carry through")
 
 	// The second layer: a Ledger that reported AnswerStale anyway must still be dropped here.
 	rec, err := f.Ledger.Get(t.Context(), id)
@@ -214,9 +244,14 @@ func TestAlreadyTriedStaleDropReturnsAbsent(t *testing.T) {
 
 	var viaHandler AlreadyTriedResult
 	f.callOK(t, ToolAlreadyTried, args, &viaHandler)
-	require.Equal(t, stateAbsent, viaHandler.State, "renderAnswer must drop a stale answer too")
-	require.Empty(t, viaHandler.Note, "a dropped answer explains nothing; it is simply absent")
-	require.Empty(t, viaHandler.Reason)
+	require.Equal(t, stateUncertain, viaHandler.State, "renderAnswer must drop a stale answer too")
+	require.Equal(t, staleDroppedReason, viaHandler.Reason)
+	require.Equal(t, staleDroppedRecovery, viaHandler.Note)
+	require.NotEqual(t, elimReason, viaHandler.Reason, "a dropped answer never discloses the record's reason")
+	require.Empty(t, viaHandler.Evidence, "a dropped answer discloses no evidence")
+	require.Empty(t, viaHandler.StaleBecause, "a dropped answer discloses no staleness detail")
+	require.Empty(t, viaHandler.RecordedAt, "a dropped answer discloses no timestamp")
+	require.Equal(t, staleDroppedReason, viaLedger.Reason, "both layers must agree, wording included")
 }
 
 // TestAlreadyTriedBloomOnlyReportedAsAbsent pins §13 invariant 3 at the tool boundary: the filter is
@@ -238,11 +273,10 @@ func TestAlreadyTriedBloomOnlyReportedAsAbsent(t *testing.T) {
 	require.Equal(t, true, resp.Meta["bloom_only"], "_meta must flag the unbacked hit")
 }
 
-// TestAlreadyTriedLedgerFailureReturnsAbsent pins §12.3 verbatim: if the ledger cannot answer,
-// already_tried returns absent for everything and NEVER a false positive. A wrongly refused viable
-// approach is the failure this whole subsystem exists to avoid, and it is strictly worse than a
-// missed warning — so the degradation is loud in the log and silent in the answer.
-func TestAlreadyTriedLedgerFailureReturnsAbsent(t *testing.T) {
+// TestAlreadyTriedLedgerFailureReturnsUnavailable replaces the historical error-as-absence
+// assertion under ADR 0013 / T13-STATE. A failed query proves neither prior absence nor an
+// active prohibition, and remains a domain outcome rather than an MCP protocol error.
+func TestAlreadyTriedLedgerFailureReturnsUnavailable(t *testing.T) {
 	f := newFixture(t)
 	log := f.withSpyLogger(t)
 	spy := f.withSpyLedger(t)
@@ -254,10 +288,11 @@ func TestAlreadyTriedLedgerFailureReturnsAbsent(t *testing.T) {
 	}, &res)
 
 	require.False(t, resp.IsError, "a ledger failure degrades the answer; it does not fail the call")
-	require.Equal(t, stateAbsent, res.State)
-	require.True(t, res.Degraded, "the caller must be able to see that this absence is a degradation")
+	require.Equal(t, "unavailable", res.State)
+	require.True(t, res.Degraded, "the caller must be able to see that the ledger could not answer")
+	require.NotEmpty(t, res.Note, "unavailability must include a recovery direction")
 	require.Equal(t, 1, log.loudCount(), "a §12.3 degradation is a Loud event, exactly once")
-	require.Equal(t, "mcp: elimination ledger unavailable; already_tried degrades to absent",
+	require.Equal(t, "mcp: elimination ledger unavailable; already_tried cannot determine prior attempts",
 		log.lastLoud(t))
 }
 
@@ -809,4 +844,48 @@ func TestDroppedReporterErrorIsToolError(t *testing.T) {
 	require.Equal(t, "dropped failed: the drop report is unreadable", msg)
 	require.Equal(t, 1, log.loudCount(), "a broken drop reporter is a Loud event, exactly once")
 	require.Equal(t, "mcp: the drop reporter failed", log.lastLoud(t))
+}
+
+// ── checkpoint-tool gating ──────────────────────────────────────────────────────────────────
+
+// TestCheckpointDependentToolsAreExplicitlyGateable pins the SP-13 interface contract's escape
+// from a circular dependency: `why` and `dropped` are the only two of the eight tools that depend
+// on checkpoint/rehydration state, and this is what lets a build ship and verify the other six
+// (core archive retrieval) without waiting on that work. A REAL checkpoint reader and rehydrator
+// ARE wired below — which is exactly what distinguishes "disabled" from "not present in this
+// build": the collaborator exists, is never consulted, and the gate still refuses the call with an
+// explicit reason rather than silently answering as if the collaborator were absent.
+func TestCheckpointDependentToolsAreExplicitlyGateable(t *testing.T) {
+	f := newFixture(t, withCheckpointToolsDisabled())
+	f.Checks.Chained = []checkpoint.Checkpoint{loadContractCheckpoint(t)}
+
+	for name, args := range map[string]map[string]any{
+		ToolWhy:     {"decision_id": "dec_000000000000"},
+		ToolDropped: {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var body missBody
+			resp := f.callOK(t, name, args, &body)
+
+			require.False(t, resp.IsError, "a disabled tool is a domain outcome, not a tool failure")
+			require.NotNil(t, body.Available, "a disabled tool must state availability explicitly")
+			require.False(t, *body.Available)
+			require.Contains(t, body.Reason, "disabled", "the reason must say WHY, not just that it is unavailable")
+		})
+	}
+	require.Equal(t, 0, f.Drops.Calls, "a disabled tool must never consult its collaborator")
+}
+
+// TestCheckpointDependentToolsRemainListedWhenDisabled pins "not silently absent": tools/list
+// still advertises `why` and `dropped` even when the gate is off, so a host does not have to
+// special-case tool discovery around a purely runtime, per-call decision.
+func TestCheckpointDependentToolsRemainListedWhenDisabled(t *testing.T) {
+	f := newFixture(t, withCheckpointToolsDisabled())
+
+	names := map[string]bool{}
+	for _, tool := range f.Server.Tools() {
+		names[tool.Name] = true
+	}
+	require.True(t, names[ToolWhy], "a disabled tool must remain advertised in tools/list")
+	require.True(t, names[ToolDropped], "a disabled tool must remain advertised in tools/list")
 }

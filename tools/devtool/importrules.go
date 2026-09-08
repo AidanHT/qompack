@@ -100,4 +100,8 @@ var allow = map[string][]string{
 	"observer": {"hookio", "store", "chunk", "canon", "sketch", "dag", "grammar", "negknow", "tokens"},
 
 	"pluginmanifest": {},
+
+	// state (SP-20 M2-01) is foundation-only: internal/state's only non-stdlib import is core.
+	// It has no consumers wired yet — that is a later task's wiring change, not an import-rule one.
+	"state": {},
 }

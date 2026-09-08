@@ -180,23 +180,48 @@ func TestExpandSpanPaging(t *testing.T) {
 	require.NotEmpty(t, body.NextSpan, "a truncated window must carry a cursor to the remainder")
 }
 
-// TestReReadWorktreeCurrent pins currentVersion's ordering: with no `at`, re_read means "what does this
-// look like NOW", so the working tree wins over the store's newest recorded version. A file the user
-// edited by hand since the last tool call is exactly the case where a stale answer is worst.
-func TestReReadWorktreeCurrent(t *testing.T) {
+// TestReReadEmptyAtNeverReadsTheWorktree pins T13-HISTORY's central fidelity guarantee: `re_read`
+// with no `at` answers from CAPTURED history, never from a live read of the working tree — even
+// when the file is sitting right there on disk with nothing ever captured for it. Silently
+// substituting current disk contents for a missing historical original is exactly the defect this
+// pins against: a live read bypasses every capture-time policy (redaction, size bounds, host-denied
+// paths) a real capture would have gone through, so treating "found on disk" as "found in history"
+// would hand back bytes Qompack never actually observed.
+func TestReReadEmptyAtNeverReadsTheWorktree(t *testing.T) {
 	const path, text = "src/hello.ts", "export const hello = 1;\n"
 	f := newFixture(t, withFiles(map[string]string{path: text}))
 
-	body := spanContentOf(t, f, ToolReRead, map[string]any{"path": path})
+	var body missBody
+	resp := f.callOK(t, ToolReRead, map[string]any{"path": path}, &body)
 
-	require.True(t, body.Found, "a file on disk must be found")
-	require.Equal(t, sourceWorktree, body.Source, "the working tree must win when the file is there")
-	require.Equal(t, text, body.Content, "the content must be what is on disk")
-	require.Equal(t, path, body.Path, "the response must name the normalized path")
+	require.False(t, resp.IsError, "a missing historical version is a domain outcome, not a failure")
+	require.False(t, body.Found, "no version has ever been captured for this path")
+	require.NotNil(t, body.Available, "the absence of history must be stated explicitly")
+	require.False(t, *body.Available)
+	require.NotContains(t, body.Reason, text, "the reason must never carry disk content")
 }
 
-// TestReReadFallsBackToStoreWhenFileDeleted covers the other branch of that ordering, and the case
-// re_read exists for: the file is gone from the tree and only §8.2's version history still has it.
+// TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees is the sharper half of the same
+// guarantee: when a historical version DOES exist, re_read must return exactly that — never a
+// newer version a human or another tool wrote to disk after the capture, even though that newer
+// version is sitting right there and would look like a reasonable "current" answer.
+func TestReReadEmptyAtReturnsCapturedVersionEvenWhenDiskDisagrees(t *testing.T) {
+	const path = "src/drifted.ts"
+	captured := "export const drifted = \"captured\";\n"
+	onDisk := "export const drifted = \"edited after capture\";\n"
+	f := newFixture(t, withFiles(map[string]string{path: onDisk}))
+	f.put(t, path, captured)
+
+	body := spanContentOf(t, f, ToolReRead, map[string]any{"path": path})
+
+	require.True(t, body.Found)
+	require.Equal(t, captured, body.Content, "the captured version must win, never whatever is on disk now")
+	require.NotEqual(t, onDisk, body.Content)
+	require.Equal(t, sourceStore, body.Source)
+}
+
+// TestReReadFallsBackToStoreWhenFileDeleted pins the ordinary case re_read exists for: the file is
+// gone from the tree, and its captured version history still answers.
 func TestReReadFallsBackToStoreWhenFileDeleted(t *testing.T) {
 	const path, text = "src/gone.ts", "export function gone(): void {}\n"
 	f := newFixture(t, withFiles(map[string]string{path: text}))
@@ -296,17 +321,20 @@ func TestReReadPathEscapeRejected(t *testing.T) {
 	require.Contains(t, msg, "path escapes the project root", "the refusal must name the rule it enforced")
 }
 
-// TestReReadUnknownPathFoundFalse pins the semantic-miss rule for re_read: a path that is neither on disk
-// nor in the version history is found:false naming both places it looked, not an error.
-func TestReReadUnknownPathFoundFalse(t *testing.T) {
+// TestReReadUnknownPathReportsExplicitUnavailable pins re_read's answer when a path has no
+// captured version at all: an honest, explicit "no historical version" outcome, never a generic
+// found:false that leaves the model to guess whether re_read even looked, and never disk content.
+func TestReReadUnknownPathReportsExplicitUnavailable(t *testing.T) {
 	f := newFixture(t)
 
 	var body missBody
 	resp := f.callOK(t, ToolReRead, map[string]any{"path": "nope.ts"}, &body)
 
-	require.False(t, resp.IsError, "an unknown path is a miss, not a failure")
-	require.False(t, body.Found, "nothing was written at that path")
-	require.Equal(t, "worktree, file version history", body.Searched, "the miss must name both places it looked")
+	require.False(t, resp.IsError, "no captured history is a domain outcome, not a failure")
+	require.False(t, body.Found)
+	require.NotNil(t, body.Available, "availability must be stated explicitly")
+	require.False(t, *body.Available)
+	require.NotEmpty(t, body.Reason, "the reason must say why, not just that it is missing")
 }
 
 // TestReReadBadAtIsError pins atFormatMsg: `at` has four legal spellings and an unparseable one is an
@@ -367,6 +395,97 @@ func TestExpandUnknownToolUseIDFoundFalse(t *testing.T) {
 	require.Equal(t, "tool_use index", body.Searched, "the miss must name only the index it could search")
 }
 
+// TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot pins T13-TRUST/T20-M2-04's
+// authorization gate: a tool_use_id is an ADDRESS, not a credential, and expand must re-check the
+// path it resolves to against the CURRENT path/symlink policy before materializing anything — a
+// path that was inside the project when captured but no longer resolves safely must be refused,
+// exactly as a live read of the same path would be. The refusal must say so explicitly (denied),
+// never disguise itself as a plain miss, and the content must never reach the response.
+func TestExpandDeniesAToolUseRecordWhoseStoredPathEscapesTheProjectRoot(t *testing.T) {
+	f := newFixture(t)
+	const secretText = "TOP-SECRET-CONTENT-outside-the-project"
+	id := f.record(t, "Read", "../outside/secret.ts", secretText, 1)
+
+	var body deniedBody
+	resp := f.callOK(t, ToolExpand, map[string]any{"tool_use_id": string(id)}, &body)
+
+	require.False(t, resp.IsError, "an authorization refusal is a domain outcome, not a tool failure")
+	require.False(t, body.Found)
+	require.True(t, body.Denied, "the refusal must be explicit, not a disguised miss")
+	require.NotEmpty(t, body.Reason)
+	require.NotContains(t, responseText(resp), secretText, "denied content must never reach the response")
+}
+
+// secretAWSExampleKey is AWS's own published example access key id — synthetic, never a real
+// credential. It is split across a `+` so no contiguous credential-shaped string exists in this
+// repository's source or history, matching internal/redact's own fixture convention.
+const secretAWSExampleKey = "AKIA" + "IOSFODNN7EXAMPLE"
+
+// TestExpandRedactsSecretsTheCaptureTimePolicyMissed pins T20-M2-04's retrieval-side secret check
+// against the exact scenario it exists for: a record captured while redaction was off — an older
+// build, a disabled policy, any other capture-time gap — must still never be served in the clear
+// once TODAY'S policy would have caught it. withCaptureRedactionDisabled reproduces that gap by
+// opening the store, and ONLY the store, without redaction: the handlers' own retrieval-side
+// Redactor keeps the fixture's normal, enabled configuration, exactly as a build reading OLD data
+// under a CURRENT policy would.
+func TestExpandRedactsSecretsTheCaptureTimePolicyMissed(t *testing.T) {
+	f := newFixture(t, withCaptureRedactionDisabled())
+	body := "aws_access_key_id = " + secretAWSExampleKey + "\n"
+	root, _ := f.putAndRecord(t, "Read", "config/creds.ini", body, 1)
+
+	got := spanContentOf(t, f, ToolExpand, map[string]any{"hash": root.String()})
+
+	require.True(t, got.Found)
+	require.NotContains(t, got.Content, secretAWSExampleKey,
+		"the secret must never reach the model in the clear")
+	require.Contains(t, got.Content, "«redacted:", "a redaction placeholder must stand in its place")
+}
+
+// TestReReadRedactsSecretsTheCaptureTimePolicyMissed is expand's test above, for re_read's own
+// content path — the two tools share resolveContent but build their response bodies separately,
+// so the redaction call has to be pinned on both.
+func TestReReadRedactsSecretsTheCaptureTimePolicyMissed(t *testing.T) {
+	const path = "config/creds2.ini"
+	f := newFixture(t, withCaptureRedactionDisabled())
+	f.put(t, path, "aws_access_key_id = "+secretAWSExampleKey+"\n")
+
+	body := spanContentOf(t, f, ToolReRead, map[string]any{"path": path})
+
+	require.True(t, body.Found)
+	require.NotContains(t, body.Content, secretAWSExampleKey)
+	require.Contains(t, body.Content, "«redacted:")
+}
+
+// TestExpandRedactionNeverLogsTheSecret pins the log-safety half of the same requirement: a
+// diagnostic ABOUT a redaction must never itself carry the redacted text.
+func TestExpandRedactionNeverLogsTheSecret(t *testing.T) {
+	f := newFixture(t, withCaptureRedactionDisabled())
+	log := f.withSpyLogger(t)
+	body := "aws_access_key_id = " + secretAWSExampleKey + "\n"
+	root, _ := f.putAndRecord(t, "Read", "config/creds3.ini", body, 1)
+
+	spanContentOf(t, f, ToolExpand, map[string]any{"hash": root.String()})
+
+	require.Equal(t, 1, log.loudCount(), "a caught secret is a Loud, observable event")
+	require.NotContains(t, log.lastLoud(t), secretAWSExampleKey, "no log line may carry the secret")
+}
+
+// TestContentToolsMarkRetrievedTextAsUntrusted pins that expand, re_read and recall all flag their
+// output as untrusted retrieved data via _meta.qompack.untrusted, so a host or model reading _meta
+// knows this text has provenance elsewhere and must not be treated as an instruction.
+func TestContentToolsMarkRetrievedTextAsUntrusted(t *testing.T) {
+	f, c := newSeededFixture(t)
+
+	expandResp := f.call(t, ToolExpand, map[string]any{"hash": c.AuthRoot.String()})
+	require.Equal(t, true, expandResp.Meta[metaUntrusted], "expand must mark its content untrusted")
+
+	reReadResp := f.call(t, ToolReRead, map[string]any{"path": spanAuthPath})
+	require.Equal(t, true, reReadResp.Meta[metaUntrusted], "re_read must mark its content untrusted")
+
+	recallResp := f.call(t, ToolRecall, map[string]any{"query": "pool timeout"})
+	require.Equal(t, true, recallResp.Meta[metaUntrusted], "recall must mark its previews untrusted")
+}
+
 // TestContentToolsWithoutAStoreReportUnavailable pins handlers_common.go's third state. "This build cannot
 // answer the question" is a different fact from "the answer is no", and collapsing the two would have a
 // model conclude a file never existed because the store was not wired in.
@@ -386,6 +505,90 @@ func TestContentToolsWithoutAStoreReportUnavailable(t *testing.T) {
 			require.Equal(t, "store not present in this build", body.Reason, "the reason must name what is missing")
 		})
 	}
+}
+
+// TestContentToolsWithoutARedactorFailClosed pins the direction the missing-redactor case must
+// fail in (T20-M2-04).
+//
+// A build with no retrieval-side Redactor cannot tell a clean record from one captured before
+// today's rules existed. The only honest answer is therefore to serve no archive text — never the
+// bytes. The failure this test exists to make impossible is the OTHER direction: a handler that
+// reads a nil redactor as "nothing to redact" and passes the content through, which would turn one
+// wiring omission into every secret in the archive being served in the clear, silently and forever.
+// The seeded content is a real credential shape, so a regression would not be a mere shape change:
+// the secret itself would appear in the response.
+//
+// expand and re_read report themselves UNAVAILABLE, because archive text is the whole of what they
+// return. recall keeps its pointers — a hash and a path were never redaction's subject — and
+// withholds every summary, which is the one piece of archive text it renders.
+func TestContentToolsWithoutARedactorFailClosed(t *testing.T) {
+	f := newFixture(t, withoutRedactor())
+	const path = "config/failclosed.ini"
+	body := "aws_access_key_id = " + secretAWSExampleKey + "\n"
+	root, id := f.putAndRecord(t, "Read", path, body, 1)
+	require.NotEmpty(t, id, "fixture sanity: the record the tools are asked for must exist")
+
+	for name, args := range map[string]map[string]any{
+		ToolExpand: {"hash": root.String()},
+		ToolReRead: {"path": path},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var miss missBody
+			resp := f.callOK(t, name, args, &miss)
+
+			require.False(t, resp.IsError, "an unwired collaborator is not a tool failure")
+			require.NotNil(t, miss.Available, "availability must be stated, not inferred")
+			require.False(t, *miss.Available, "with no redactor this build cannot answer at all")
+			require.Equal(t, redactorMissingReason, miss.Reason, "the reason must name what is missing")
+			require.False(t, miss.Found, "nothing was served")
+			require.NotContains(t, responseText(resp), secretAWSExampleKey,
+				"a missing redactor must never degrade into serving the secret in the clear")
+			require.NotContains(t, responseText(resp), "aws_access_key_id",
+				"no span of the record may be served")
+		})
+	}
+
+	t.Run(ToolRecall, func(t *testing.T) {
+		var hits recallBody
+		resp := f.callOK(t, ToolRecall, map[string]any{"query": "aws_access_key_id"}, &hits)
+
+		require.False(t, resp.IsError, "an unwired collaborator is not a tool failure")
+		require.True(t, hits.Found, "the pointers are still true, and still worth returning")
+		require.NotEmpty(t, hits.Hits, "fixture sanity: the seeded record must be findable")
+		require.True(t, hits.SummariesWithheld, "the withholding must be stated, never silent")
+		require.Equal(t, redactorMissingReason, hits.Reason)
+		for _, hit := range hits.Hits {
+			require.Empty(t, hit.Summary, "no summary may be rendered without today's policy behind it")
+		}
+		require.NotContains(t, responseText(resp), secretAWSExampleKey,
+			"a missing redactor must never degrade into serving the secret in the clear")
+	})
+}
+
+// TestRecallSummariesSurviveARedactor is TestContentToolsWithoutARedactorFailClosed's positive
+// control: it is the same query against the same fixture WITH a redactor, so "the summaries were
+// withheld" cannot pass vacuously because recall returns no summaries anyway.
+func TestRecallSummariesSurviveARedactor(t *testing.T) {
+	f := newFixture(t)
+	const path = "config/withredactor.ini"
+	f.putAndRecord(t, "Read", path, "aws_access_key_id = "+secretAWSExampleKey+"\n", 1)
+
+	var hits recallBody
+	f.callOK(t, ToolRecall, map[string]any{"query": "aws_access_key_id"}, &hits)
+
+	require.True(t, hits.Found)
+	require.False(t, hits.SummariesWithheld, "a wired redactor withholds nothing")
+	require.Empty(t, hits.Reason)
+	var summarized int
+	for _, hit := range hits.Hits {
+		if hit.Summary == "" {
+			continue
+		}
+		summarized++
+		require.NotContains(t, hit.Summary, secretAWSExampleKey,
+			"a rendered summary passes through today's policy, never in the clear")
+	}
+	require.NotZero(t, summarized, "recall must render summaries when it can re-check them")
 }
 
 // TestContentToolsWithoutAPromoterStillAnswer pins that counting is a signal for the next checkpoint and

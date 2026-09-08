@@ -1,7 +1,10 @@
 package ipc
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
@@ -77,6 +80,73 @@ type Request struct {
 	// sent rather than a re-encoding of it.
 	Event *hookio.Event   `json:"e,omitempty"`
 	Raw   json.RawMessage `json:"x,omitempty"`
+	// Capture carries the admitted host payload beside the derived Event: its permitted bytes, the
+	// fidelity and capture error the policy determined, and the transform/hash versions those were
+	// determined under. hookio.Event.Extra is tagged `json:"-"`, so before this field every host key
+	// this build does not name was dropped here, at the encode boundary, and the two-case Raw
+	// allow-list was the only thing that survived. Both remain: Raw is unchanged and Capture is
+	// additive, so a daemon built before this field ignores it and a request written without it
+	// decodes here as no capture at all.
+	Capture *hookio.Capture `json:"c,omitempty"`
+	// Nonce labels one host invocation of a hook, minted once by the client with crypto/rand and
+	// carried unchanged through the daemon connect, the spool fallback and every retry of that same
+	// delivery. It is not a content hash and not an identity the daemon assigns: two byte-identical
+	// payloads from two invocations carry two nonces, and one payload delivered twice carries one.
+	// It is empty when minting failed — an absent label, never a synthetic substitute for one.
+	Nonce string `json:"n,omitempty"`
+}
+
+// NewDeliveryNonce mints one delivery nonce. It is called once per host invocation, before any
+// transport attempt, so that the nonce is a property of the delivery rather than of the attempt
+// that happened to succeed. The error is returned rather than swallowed because the alternative to
+// a real random label is no label: a counter or a timestamp would collide across concurrent hooks
+// and would read as an identity it cannot support.
+func NewDeliveryNonce() (string, error) {
+	var b [deliveryNonceBytes]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("ipc: delivery nonce unavailable: %w", err)
+	}
+	return hex.EncodeToString(b[:]), nil
+}
+
+// deliveryNonceBytes is 128 bits of entropy: enough that two nonces never collide in practice
+// across every hook invocation a machine will ever run, and short enough to sit on the hot path.
+const deliveryNonceBytes = 16
+
+// CaptureFrameBudget bounds the permitted capture bytes one request may carry. JSON encodes []byte
+// as base64, four characters per three bytes, so this budget leaves the Event and the frame's own
+// keys at least half of MaxLineBytes. A frame no reader will accept is worse than one carrying less
+// evidence: the spool's own line reader rejects an oversize line outright, which would lose the
+// whole delivery rather than only the capture.
+const CaptureFrameBudget = MaxLineBytes * 3 / 8
+
+// WithCapture returns req carrying c. When c's permitted bytes would not fit CaptureFrameBudget,
+// the bytes are left behind and the record travels as an explicitly unavailable, oversize capture
+// instead of an apparently complete one — the fidelity record must never overstate what crossed.
+//
+// THE DOWNGRADE IS OF THE CAPTURE HALF ONLY, and that bound is load-bearing. req.Event is the
+// derived observation and is returned untouched: a frame too large to carry the evidence must
+// still deliver the observation, because the alternative — refusing the whole delivery because
+// its capture would not fit — turns "we kept less evidence than we wanted" into "the tool use was
+// never seen at all". On the SHIPPED default (runtime.hotPath.maxPayloadBytes = 1 MiB, whose
+// capture limit is the 4 MiB hard cap) every hook payload above ~384 KiB reaches this function
+// with an OutcomeOK capture and a complete Event, so an ordinary 400 KB file read takes exactly
+// this branch. Anything downstream that reads the degraded outcome as a reason to drop the whole
+// request re-creates that data loss; see daemon.admitDelivery, which admits a DECIDED degraded
+// capture as evidence rather than refusing it.
+//
+// The bytes are dropped rather than truncated deliberately. c.SourceBytes already records the
+// observed delivery size, so the record keeps a measurable trace either way, and a prefix would
+// cost the Event the frame room CaptureFrameBudget exists to reserve for it — the one way this
+// function could still lose an observation.
+func WithCapture(req Request, c hookio.Capture) Request {
+	if len(c.Bytes) > CaptureFrameBudget {
+		c.Bytes = nil
+		c.Outcome, c.Fidelity = core.OutcomeUnavailable, core.FidelityTruncated
+		c.Truncated, c.CaptureError = true, core.CaptureErrorOversize
+	}
+	req.Capture = &c
+	return req // req.Event is deliberately not consulted, not copied and not cleared.
 }
 
 // Response is the daemon's NDJSON reply to a Request with Reply set (00-ARCHITECTURE.md §5.4).

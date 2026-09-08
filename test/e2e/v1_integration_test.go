@@ -24,7 +24,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -51,11 +53,19 @@ type v1Call struct {
 	// subcommand. `observe stop --subagent` and `observe stop` both carry "Stop" here (the two
 	// host events share one subcommand; SP-08 owns distinguishing them at the observer layer).
 	logHook string
-	// wantStdout is the exact response the host must receive, trailing newline included. Compared
-	// exactly for every call except SessionStart, whose additionalContext carries a live §12.1
-	// sentinel token that varies run to run (checked separately, via
-	// hookSpecificOutput.HookEventName — fix round 1, Minor M-2).
+	// wantStdout is the exact response the host must receive, trailing newline included. It is
+	// compared byte for byte, and it is empty for the two calls whose response is not a
+	// constant: see answersThroughHookOutput.
 	wantStdout string
+	// answersThroughHookOutput marks a call whose response is a hookSpecificOutput naming its
+	// own event rather than the minimal "{}", and whose bytes therefore vary run to run. Those
+	// calls are asserted by FIELD instead: the event name always, plus whatever else the
+	// payload carries.
+	//
+	// SessionStart's additionalContext carries a live §12.1 sentinel token the daemon mints per
+	// process (fix round 1, Minor M-2). PreCompact's customInstructions are a real sealed
+	// checkpoint's focus instruction, built from what this lifecycle actually observed.
+	answersThroughHookOutput bool
 }
 
 // v1Lifecycle is IT-1's eight invocations in the order a real session produces them.
@@ -66,17 +76,26 @@ type v1Call struct {
 var v1Lifecycle = []v1Call{
 	{
 		argv: []string{"session-start"}, fixture: "session_start_startup", logHook: "SessionStart",
-		wantStdout: `{"hookSpecificOutput":{"hookEventName":"SessionStart"}}` + "\n",
+		answersThroughHookOutput: true,
 	},
 	{argv: []string{"observe", "prompt"}, fixture: "user_prompt_submit", logHook: "UserPromptSubmit", wantStdout: "{}\n"},
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "tool"}, fixture: "post_tool_use", derive: asBashToolUse, logHook: "PostToolUse", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop"}, fixture: "stop", logHook: "Stop", wantStdout: "{}\n"},
 	{
-		// PreCompact's hookSpecificOutput is populated only by an actual svc.PreCompact seam
-		// (SP-10), absent from a wave-1-only build, so checkpoint answers the minimal response —
-		// same as every other fire-and-forget/no-seam-yet call in this lifecycle.
-		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact", wantStdout: "{}\n",
+		// THIS ROW ONCE EXPECTED "{}", AND THAT WAS THE BUG, NOT THE CONTRACT. The shipped daemon
+		// could not seal a checkpoint on the first PreCompact of its life: wireCheckpointSources
+		// published a SourceSet whose Ledger was nil (negknow.Open is lazy on purpose),
+		// FileWriter.SetSources dropped it in silence, and the seam answered
+		// `hookSpecificOutput: null` behind a single Warn. A minimal "{}" here is that defect's
+		// own signature, so do not "restore" it: what it means is that a compaction threw the
+		// session's context away with nothing written down.
+		//
+		// PreCompact now answers the way SessionStart does -- through a hookSpecificOutput naming
+		// itself -- and carries the sealed checkpoint's focus instruction. See the PreCompact
+		// block in the loop below for what is asserted in place of the byte compare.
+		argv: []string{"checkpoint"}, fixture: "pre_compact", logHook: "PreCompact",
+		answersThroughHookOutput: true,
 	},
 	{argv: []string{"flush"}, fixture: "session_end", logHook: "SessionEnd", wantStdout: "{}\n"},
 	{argv: []string{"observe", "stop", "--subagent"}, fixture: "subagent_stop", logHook: "Stop", wantStdout: "{}\n"},
@@ -165,13 +184,14 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 	// means the exact response bytes are no longer a CLI-side constant: SessionStart's
 	// additionalContext now carries a live §12.1 sentinel token the daemon mints unconditionally
 	// (handleSessionStart mints and emits it whenever the mode may act, with no wave-3 seam
-	// required). PreCompact's hookSpecificOutput, by contrast, is populated only by an actual
-	// svc.PreCompact seam (SP-10) — absent from a wave-1-only build — so a bare `checkpoint` call
-	// here answers with the minimal "{}" response, exactly like every fire-and-forget hook. What
-	// stays true, and what this loop still proves end to end across pluginmanifest -> cmd/qompack
-	// -> cli -> ipc -> daemon -> hookio, is that every call in the lifecycle exits 0 with exactly
-	// one well-formed hookio.Output, and that SessionStart specifically still answers through
-	// hookSpecificOutput naming itself.
+	// required). PreCompact answers through hookSpecificOutput too, and its customInstructions are
+	// a REAL sealed checkpoint's focus instruction -- built from what the five calls above this one
+	// actually left in the store, and so not a constant either. This row expected a bare "{}" here
+	// until the first-PreCompact defect was fixed; see the lifecycle entry for why that expectation
+	// was the symptom and not the contract. What stays true, and what this loop still proves end to
+	// end across pluginmanifest -> cmd/qompack -> cli -> ipc -> daemon -> hookio, is that every call
+	// in the lifecycle exits 0 with exactly one well-formed hookio.Output, and that the two calls
+	// that answer with a hookSpecificOutput name their own event in it.
 	for i, call := range v1Lifecycle {
 		payload := v1Payload(t, call)
 
@@ -184,11 +204,33 @@ func TestV1_HookLifecycleThroughRealBinary(t *testing.T) {
 
 		var out hookio.Output
 		require.NoError(t, json.Unmarshal(stdout, &out), "call %d (%v): stdout:\n%s", i+1, call.argv, stdout)
-		if call.logHook == "SessionStart" {
+		if call.answersThroughHookOutput {
 			require.NotNil(t, out.HookSpecificOutput, "call %d (%v) answers through hookSpecificOutput", i+1, call.argv)
 			require.Equal(t, call.logHook, out.HookSpecificOutput.HookEventName)
 		} else {
 			require.Equal(t, call.wantStdout, string(stdout), "call %d (%v): exact response shape", i+1, call.argv)
+		}
+
+		// PreCompact is the ONE call in this lifecycle that answers with content rather than with
+		// an acknowledgement, so it gets its own assertions. The customInstructions it returns are
+		// the only bytes this plugin ever puts back into the model's context, and §5.14 permits them
+		// to be built from the SourceSet -- durable, original content -- and from nothing else.
+		if call.logHook == "PreCompact" {
+			instr := out.HookSpecificOutput.CustomInstructions
+			require.NotEmpty(t, instr,
+				"call %d (%v): a sealed checkpoint must come back as customInstructions; empty here is "+
+					"the first-PreCompact defect, whose signature was a bare \"{}\" response", i+1, call.argv)
+			// Paragraph 1 is §8.5's standing focus instruction: always emitted, always first, and the
+			// whole of the first LINE, which is what contract.probePhrase scans a transcript tail for.
+			// It is computed from the package rather than pasted, so this row cannot drift from the
+			// text the daemon actually emits (and cannot re-key that probe by asserting a paraphrase).
+			standing := checkpoint.FocusInstructions(checkpoint.Checkpoint{}, checkpoint.Ref{}, checkpoint.FocusOptions{})
+			require.Equal(t, standing, cpFirstLine(instr),
+				"the emitted instruction's first line is the standing focus paragraph\ninstructions:\n%s", instr)
+			for _, secret := range v1Secrets {
+				require.NotContains(t, instr, secret,
+					"customInstructions is built from the SourceSet, never from the live payload (§5.14): %q leaked", secret)
+			}
 		}
 	}
 
@@ -273,6 +315,23 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 	// distinguishes "reads the default" from "reads the project config", not merely "exits 0".
 	readLimitBoundary := config.Defaults().Runtime.HotPath.MaxPayloadBytes * 4
 
+	// V4-X. This row's premise was correct and the production behaviour was wrong, so the premise
+	// is kept and the behaviour was fixed. It went red when SP-20's capture-admission budget landed:
+	// admitHookCapture bounds the capture by config.LoadForCapture's MERGED
+	// runtime.hotPath.maxPayloadBytes — this project's own 8192, times hookCaptureLimit's *4 read
+	// margin, so 32768 — and a ~4 MiB delivery past that returned core.ErrBudget, on which the hook
+	// body returned outright. Zero spool files, zero observations, and no record that the host had
+	// delivered anything at all. The expectation that behaviour would have wanted here is
+	// `require.Empty(t, files)`; adopting it would have written a silent-data-loss defect into the
+	// suite as if it were the contract, so the drop was fixed in hookclient.go instead and this row
+	// now also pins WHAT the surviving record says.
+	//
+	// The row still discriminates exactly what it always did. The READ limit is state.bin's, under
+	// config.Defaults() alone (task-6-spec.md's "never config.Load on the hot path"), and
+	// Capture.SourceBytes — measured where the payload entered the process — is direct proof the
+	// whole ~4 MiB was read, which the project's own 8192 could never have done. Only the ADMISSION
+	// budget is the project's, which is why the same delivery is recorded as an explicitly
+	// unavailable, oversize capture rather than observed as an Event.
 	t.Run("bare_hook_spools_a_payload_just_under_the_default_read_limit", func(t *testing.T) {
 		p := v1LimitProject(t, projectLimit, userLimit)
 		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary-256)
@@ -286,8 +345,64 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 		require.Len(t, files, 1,
 			"a payload just under the DEFAULT read limit must parse and reach the spool step (no daemon reachable)")
 		require.Equal(t, 1, v1CountSpoolLines(t, files[0]), "exactly one request must have been spooled")
+
+		req := v1OnlySpooledRequest(t, files[0])
+		require.NotNil(t, req.Capture, "the spooled record must carry the capture it was classified as")
+		require.Equal(t, len(payload), req.Capture.SourceBytes,
+			"the whole ~4 MiB delivery was READ, which the project's own 8192-byte limit could not have done")
+		require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+		require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+		require.Nil(t, req.Event, "a delivery refused for observation derives no Event, and none may be invented")
 	})
 
+	// V4-X's regression guard, driven through the real binary at the size an operator actually creates
+	// by tuning runtime.hotPath.maxPayloadBytes down: a delivery over the configured budget must leave
+	// a retrievable record. Before the fix this produced zero spool files — the host result was
+	// preserved (exit 0, empty output) and the evidence was gone with nothing recording that it had
+	// ever existed, which is neither of the two outcomes SP-20's invariants 1 and 4 allow.
+	t.Run("bare_hook_records_an_over_budget_delivery_instead_of_dropping_it", func(t *testing.T) {
+		p := v1LimitProject(t, projectLimit, userLimit)
+		// Comfortably past the admission budget (projectLimit * 4 = 32768) and comfortably under the
+		// hard allocation cap the read itself enforces, so this exercises the POLICY bound alone.
+		payload := v1PayloadOfSize(t, p.Root, 64<<10)
+
+		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, payload, v1BaseEnv(p))
+		require.Equal(t, 0, code, "stderr:\n%s", stderr)
+		require.Equal(t, "{}\n", string(stdout), "the host result is preserved exactly as before")
+
+		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
+		require.NoError(t, err)
+		require.Len(t, files, 1,
+			"an over-budget delivery must still be recorded; a silent drop is the defect this row pins")
+		require.Equal(t, 1, v1CountSpoolLines(t, files[0]))
+
+		req := v1OnlySpooledRequest(t, files[0])
+		require.NotNil(t, req.Capture, "the capture IS the record, since no Event could be derived")
+		require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+		require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+		require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome,
+			"a refused delivery is explicitly unavailable, which is what invariant 1 asks of a missing original")
+		require.True(t, req.Capture.Truncated)
+		require.Equal(t, len(payload), req.Capture.SourceBytes,
+			"the delivery's real size survives even though its bytes do not")
+		require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix survives as evidence")
+		require.Less(t, len(req.Capture.Bytes), len(payload))
+		require.NotEmpty(t, req.Nonce, "an over-budget delivery keeps its own nonce like any other")
+	})
+
+	// V4-Z. The row above's reasoning, one bound higher up. This row's premise — a payload just
+	// OVER the DEFAULT read limit is refused before it is ever admitted, and never observed — is
+	// correct and is kept unchanged. What it additionally asserted, that the refusal left nothing
+	// behind at all, was the same silent-data-loss defect V4-X fixed for the configured budget,
+	// merely at the hard allocation cap instead: invariant 1's "missing originals remain explicitly
+	// unavailable" cannot hold at 32 KiB and lapse at 4 MiB. The drop was fixed at the read bound
+	// (internal/cli/capture_admission.go) and this row now pins the refusal's own record.
+	//
+	// It still discriminates exactly what it always did, and more sharply than require.Empty could.
+	// Capture.SourceBytes here is the readLimitBoundary plus the single byte that proved the bound
+	// was exceeded — NOT len(payload), as in the "just under" row above, where the whole delivery
+	// really was read. That difference is direct proof the read stopped AT the bound rather than
+	// consuming a delivery it had already refused.
 	t.Run("bare_hook_rejects_a_payload_just_over_the_default_read_limit", func(t *testing.T) {
 		p := v1LimitProject(t, projectLimit, userLimit)
 		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary+256)
@@ -298,8 +413,20 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 
 		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
 		require.NoError(t, err)
-		require.Empty(t, files,
-			"a payload over the DEFAULT read limit must never reach the spool step at all")
+		require.Len(t, files, 1,
+			"a payload over the DEFAULT read limit is refused for observation, and the refusal is recorded")
+		require.Equal(t, 1, v1CountSpoolLines(t, files[0]))
+
+		req := v1OnlySpooledRequest(t, files[0])
+		require.NotNil(t, req.Capture, "the capture IS the record: no Event could be derived")
+		require.Nil(t, req.Event, "nothing admitted this delivery, so nothing may derive an Event from it")
+		require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+		require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+		require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+		require.Equal(t, readLimitBoundary+1, req.Capture.SourceBytes,
+			"the record carries what the bound observed before it stopped, not a size it never measured")
+		require.Less(t, req.Capture.SourceBytes, len(payload),
+			"and that is what distinguishes this row from the just-under row above, which read the lot")
 	})
 
 	// Restores the original bootstrap-clamp property in its new shape (fix round 1, Important
@@ -330,6 +457,19 @@ func v1CountSpoolLines(t *testing.T, p string) int {
 		}
 	}
 	return n
+}
+
+// v1OnlySpooledRequest decodes the single NDJSON line in the spool file at p as an ipc.Request, so
+// a size-limit row can assert what the record actually says rather than only that one exists.
+func v1OnlySpooledRequest(t *testing.T, p string) ipc.Request {
+	t.Helper()
+	b, err := os.ReadFile(p)
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	require.Len(t, lines, 1, "exactly one spooled request")
+	req, err := ipc.DecodeRequest([]byte(lines[0]))
+	require.NoError(t, err)
+	return req
 }
 
 // hooksManifest is the shape of plugin/hooks/hooks.json this test reads. It is declared here rather

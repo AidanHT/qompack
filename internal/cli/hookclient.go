@@ -180,12 +180,11 @@ type hookSpec struct {
 	preSend func(root, self string, st ipc.State, clk core.Clock)
 }
 
-// doHook returns the Cmd.Run body for one hook subcommand, following task-6-spec.md's skeleton
-// exactly: stamp TS first, resolve the root cheaply pre-stdin, read the 32-byte state record (never
-// config.Load on the hot path), honour ModeOff, read the event under the state's own payload limit,
-// re-resolve against the payload if it disagrees, spool, resolve the transport address, connect,
-// send, and always answer with valid JSON. Every fault site (fault.go) hooks into this same
-// sequence at the point task-6-spec.md's table names.
+// doHook stamps TS, resolves state, honors ModeOff and reads bounded raw input. The initial
+// process/env root selects privacy policy before an Event is derived. A permitted destination
+// root can apply an additional policy before any spool, blob, client or daemon-start operation.
+// This corrects the historical state-only path: state.bin has no complete privacy policy.
+// The added configuration/policy cost needs quiet hot-path measurement under SP-20.
 //
 // The shipped panic-recovery framework (dispatch.go's Dispatch -> recover.go's runGuarded) already
 // gives every Cmd{Hook:true} the §12.3 "any hook panic -> recovered, logged, exit 0 with empty
@@ -207,27 +206,76 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		}
 
 		stdin := faultStdin(env.Stdin)
-		ev, _, err := hookio.ReadEvent(stdin, int64(st.MaxPayloadBytes)*4)
-		if err != nil {
-			logQuiet(root, err, clk)
+		in, rerr := readHookCapture(stdin, hookCaptureLimit(int64(st.MaxPayloadBytes)))
+		if rerr != nil && !hookRefusalIsRecordable(root, in) {
+			// Either nothing arrived, so there is nothing for a policy to classify, or the
+			// allocation bound refused a delivery in a project with no .qompack store to record
+			// the refusal in. Refuse here, before any configuration is loaded, exactly as the hard
+			// allocation bound requires — and, in the second case, without creating the store a
+			// project that has not opted in never asked for.
+			logQuiet(root, rerr, clk)
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
 
-		maybePanicHook() // panic:hook: "runHook panics immediately after ReadEvent" (fault table).
+		maybePanicHook() // Inject after bounded input, before admission or event persistence.
+		in.Raw = faultInflateHookCapture(in.Raw)
+		capture, ev, cfg, err := admitHookCapture(env, root, in)
+		if rerr != nil {
+			// A short read that did deliver bytes still reaches admission, so the delivery is
+			// classified (FidelityPartial) instead of discarded unrecorded. The read's own error is
+			// what an operator needs to see, so that is the one logged.
+			err = rerr
+		}
+		if err != nil {
+			logQuiet(root, err, clk)
+		}
+		// An admission that refused this delivery for observation still CLASSIFIED what arrived:
+		// a bounded prefix cleared by the operator's own rules, the fidelity that describes it, and
+		// the capture error naming why it was refused. A refusal is not an absence, so that record
+		// travels to the store exactly like an admitted one — carrying no Event, because none was
+		// derived and none may be invented from a payload this process could not admit whole.
+		//
+		// This branch used to return here for every non-OK outcome, which is what made an
+		// over-budget delivery vanish: a project that lowered runtime.hotPath.maxPayloadBytes lost
+		// every hook delivery above it with no spool line, no observation and no trace that the
+		// host had delivered anything at all (SP-20 invariant 4, and invariant 1's requirement that
+		// a missing original stay explicitly unavailable rather than simply absent).
+		//
+		// Only an admission that produced NO record stops here: runtime mode off, or a configuration
+		// or privacy policy that never loaded. A payload the hard allocation bound refused no longer
+		// reaches this point unrecorded — it is classified from the prefix and the observed size that
+		// bound kept, or it never got past hookRefusalIsRecordable because the project has no store to
+		// record it in. Publishing a zero capture would assert a classification this process never
+		// made, and — with no compiled policy — could not have made safely.
+		degraded := capture.Outcome != core.OutcomeOK
+		if degraded && !capture.Recorded() {
+			return hookio.WriteOutput(out, hookio.Empty())
+		}
 
-		// The payload is authoritative for the project root, and it only arrives now. If it
-		// disagrees with the pre-stdin guess, redo the two cheap resolutions against it.
-		if r2 := resolveProjectRoot(env, &ev); r2 != root {
-			root = r2
-			faultCorruptStateIfNeeded(root)
-			st = ipc.ReadState(root, config.Defaults())
-			if st.Mode == contract.ModeOff {
+		// Only the admitted payload can select another destination, and only an admitted payload
+		// has an Event to select one WITH. A degraded delivery keeps the trusted initial root: its
+		// prefix is not a document whose cwd may be read, and re-admitting a prefix under a second
+		// policy is precisely the second pass that must never restore removed content.
+		if !degraded {
+			if r2 := resolveProjectRoot(env, &ev); r2 != root {
+				root = r2
+				faultCorruptStateIfNeeded(root)
+				st = ipc.ReadState(root, config.Defaults())
+				if st.Mode == contract.ModeOff {
+					return hookio.WriteOutput(out, hookio.Empty())
+				}
+				prior := capture
+				capture, ev, cfg, err = admitHookCapture(env, root, hookInput{Raw: prior.Bytes})
+				if err != nil || capture.Outcome != core.OutcomeOK {
+					logQuiet(root, err, clk)
+					return hookio.WriteOutput(out, hookio.Empty())
+				}
+				capture = composeHookCapture(prior, capture)
+			}
+			if resolveProjectRoot(env, &ev) != root {
 				return hookio.WriteOutput(out, hookio.Empty())
 			}
 		}
-
-		faultCorruptConfigIfNeeded(root) // inert on the hot path; see fault.go's own doc comment.
-		faultInflateToolResponse(&ev)    // oversize
 
 		// A project root that does not exist on disk must never conjure a store: paths.Resolve's
 		// own last resort is "the payload cwd itself", so a malformed payload's cwd resolves
@@ -237,11 +285,35 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		if !isDir(root) {
 			return hookio.WriteOutput(out, hookio.Empty())
 		}
+		st.DaemonEnabled = st.DaemonEnabled && cfg.Runtime.Daemon.Enabled
+		st.SpoolOnBreach = st.SpoolOnBreach && cfg.Runtime.HotPath.SpoolOnBreach
 
-		req := ipc.Request{
-			Op: spec.op, Session: ev.SessionID, TS: core.UnixMilli(ts),
-			Reply: spec.reply, Event: &ev, Raw: rawExtras(spec.op, args, ev),
+		// The nonce is minted here, once, before any transport attempt: it labels this host
+		// invocation, not the attempt that happens to carry it. Everything below — the daemon
+		// connect, the spool fallback that catches a failed connect, and any later retry of the
+		// spooled line — reuses this one Request value, so the same delivery keeps one nonce while
+		// a second invocation of the same bytes gets its own. A minting failure leaves it empty
+		// rather than substituting a value that would read as an identity it cannot support.
+		nonce, nerr := ipc.NewDeliveryNonce()
+		if nerr != nil {
+			logQuiet(root, nerr, clk)
 		}
+		// The permitted capture now travels beside the derived Event, so a host key this build does
+		// not name is no longer dropped at the encode boundary. Object/frontier publication of it
+		// remains a separately gated M1 requirement.
+		// A degraded delivery travels as its capture record and nothing else: hookio derived no
+		// Event, and a zero-valued one on the wire would read as a host that sent empty fields
+		// rather than as a payload that was never admitted — the synthetic default the capture
+		// contract exists to prevent. Request.Event is omitempty and the daemon's own resolveEvent
+		// already treats an absent Event as absent, so the record stays honest end to end.
+		var evp *hookio.Event
+		if !degraded {
+			evp = &ev
+		}
+		req := ipc.WithCapture(ipc.Request{
+			Op: spec.op, Session: ev.SessionID, TS: core.UnixMilli(ts),
+			Reply: spec.reply, Event: evp, Raw: rawExtras(spec.op, args, ev), Nonce: nonce,
+		}, capture)
 
 		spoolDir := paths.Of(root).Spool
 		faultLockSpoolDirIfNeeded(spoolDir)

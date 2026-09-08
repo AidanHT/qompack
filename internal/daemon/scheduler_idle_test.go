@@ -430,11 +430,16 @@ func TestIdleTaskRebuildBloomSkippedWhenLedgerNil(t *testing.T) {
 	// of the rebuild logic); SP-09's own name is never registered.
 	maint := newFakeMaintLedger("negknow.rebuild", 140)
 	m := newIdleFixture(t, idleOpts{ledger: maint})
-	require.GreaterOrEqual(t, maint.maintenanceTaskCalls, 1)
 	require.NotContains(t, m.ctl.Registered(), "negknow.rebuild")
 	m.bind(rtSession)
 	m.seedDecision(scheduler.BackgroundRebuildBloom)
 	m.pass(t, time.Second)
+	// MaintenanceTask is consulted when the body RUNS, not when it is registered: the daemon opens
+	// its ledger lazily, after registration, so a registration-time resolution would ask a nil
+	// ledger and bake in the inert body forever (TestIdle_RebuildBloomSeesALedgerOpenedAfter-
+	// Registration). The assertion itself is unchanged — the Maintainer's own fn is still the
+	// single source of the rebuild logic — only the moment it can first be observed.
+	require.GreaterOrEqual(t, maint.maintenanceTaskCalls, 1)
 	require.Equal(t, 1, maint.taskRuns)
 	require.Zero(t, maint.refreshCalls, "the plan's body is not run alongside the Maintainer's")
 
@@ -531,4 +536,61 @@ func TestIdleTasksHonourContextCancellation(t *testing.T) {
 	requireNoWork(t, f)
 	require.Zero(t, led.taskRuns)
 	require.Zero(t, f.counter(counterIdleEvaluate), "a cancelled pass does not even evaluate")
+}
+
+// TestIdle_RebuildBloomSeesALedgerOpenedAfterRegistration is the regression for the dead idle
+// task. The daemon opens the negative-knowledge ledger LAZILY, on the first compaction, long
+// after RegisterSchedulerIdleWork has run. The body used to capture the ledger VALUE at
+// registration — nil on every real daemon — and return a permanent no-op, so rebuild_bloom was
+// registered, planned, counted as run, and did nothing for the life of the process. Opening the
+// ledger afterwards could not revive it because nothing re-registers the task.
+//
+// The three phases are the whole proof: inert while nil, LIVE once the supplier answers, and the
+// SAME registered closure throughout — the task is never re-registered between them.
+func TestIdle_RebuildBloomSeesALedgerOpenedAfterRegistration(t *testing.T) {
+	var live negknow.Ledger // nil at registration, exactly as the daemon has it
+	fx := newRTFixture(t, func(fx *rtFixture) {
+		fx.ledgerFn = func() negknow.Ledger { return live }
+	})
+	f := &idleFixture{rtFixture: fx, mode: contract.ModeFull}
+	f.ctl = newIdleController(fx.cfg.Scheduler.Idle.DetectAfterSeconds, fx.clock, fx.log, fx.reg, func() contract.Mode { return f.mode })
+	f.d = &fakeDaemon{idle: f.ctl}
+	require.NoError(t, RegisterSchedulerIdleWork(f.d, fx.rt, fx.options()))
+
+	body := f.taskFn(t, idleTaskRebuildBloom)
+	f.seedDecision(scheduler.BackgroundRebuildBloom)
+
+	// Phase 1: no ledger yet. The body must be a no-op, not an error.
+	require.NoError(t, body(context.Background()))
+
+	// Phase 2: the first compaction opens the ledger and hands it to the composition root.
+	led := newFakeLedger()
+	led.refreshResult = []string{"elim-1"} // something flipped, so RebuildBloom follows
+	live = led
+
+	require.NoError(t, body(context.Background()))
+	require.Equal(t, 1, led.refreshCalls, "the ledger opened after registration is seen")
+	require.Equal(t, 1, led.rebuildCalls, "and the flip drives a rebuild")
+
+	// Phase 3: still the same registered closure, still live.
+	require.NoError(t, body(context.Background()))
+	require.Equal(t, 2, led.refreshCalls)
+}
+
+// TestIdle_RebuildBloomStaysInertWhenRebuildOnStaleIsNotNextIdle keeps the config guard honest
+// now that it is evaluated per run rather than once at registration.
+func TestIdle_RebuildBloomStaysInertWhenRebuildOnStaleIsNotNextIdle(t *testing.T) {
+	led := newFakeLedger()
+	led.refreshResult = []string{"elim-1"}
+	fx := newRTFixture(t, func(fx *rtFixture) {
+		fx.cfg.Eliminations.RebuildOnStale = "never"
+		fx.ledgerFn = func() negknow.Ledger { return led }
+	})
+	f := &idleFixture{rtFixture: fx, mode: contract.ModeFull}
+	f.ctl = newIdleController(fx.cfg.Scheduler.Idle.DetectAfterSeconds, fx.clock, fx.log, fx.reg, func() contract.Mode { return f.mode })
+	f.d = &fakeDaemon{idle: f.ctl}
+	require.NoError(t, RegisterSchedulerIdleWork(f.d, fx.rt, fx.options()))
+
+	require.NoError(t, f.taskFn(t, idleTaskRebuildBloom)(context.Background()))
+	require.Zero(t, led.refreshCalls, "rebuildOnStale != nextIdle stays inert")
 }

@@ -105,12 +105,14 @@ func renderMCPDoc() ([]byte, error) {
 	b.WriteString("daemon, which holds the warm store handles and is the single writer.\n\n")
 
 	b.WriteString("Two behaviours apply to every tool here.\n\n")
-	b.WriteString("**Results are ephemeral at birth.** Everything a retrieval tool returns is re-stored\n")
-	b.WriteString("with the ephemeral flag set, which makes it the *first* eviction candidate rather than\n")
-	b.WriteString("the last. Asking a question does not permanently enlarge the context; it borrows space\n")
-	b.WriteString("for as long as the answer is being used. The flag is surfaced to the client as\n")
-	b.WriteString("`_meta.qompack.ephemeral`. `record_eliminated` is the one exception — it writes a\n")
-	b.WriteString("durable ledger entry, which is the whole point of calling it.\n\n")
+	b.WriteString("**Ephemeral metadata describes Qompack records.** Retrieval responses expose\n")
+	b.WriteString("`_meta.qompack.ephemeral`; this is not a host eviction control or proof of native\n")
+	b.WriteString("context retention. Capture, archive availability and coverage may be partial or unknown.\n")
+	b.WriteString("`record_eliminated` writes evidence; check its response before relying on persistence.\n\n")
+	b.WriteString("**Query failures leave prior attempts unknown.** `already_tried` returns the added\n")
+	b.WriteString("`unavailable` state when its ledger query fails. Legacy JSON fields remain readable,\n")
+	b.WriteString("but clients with a closed three-state enum must handle this outcome explicitly.\n")
+	b.WriteString("Unavailable or unrecognized states never establish absence or prohibit an approach.\n\n")
 	b.WriteString("**Spans are minimal by default.** A tool that returns file content returns the smallest\n")
 	b.WriteString("chunk-aligned span that covers what you asked for, widened to a symbol boundary where\n")
 	b.WriteString("one is known. Pass `full: true` when you genuinely need the whole object; the response\n")
@@ -274,7 +276,7 @@ func renderBounds(minimum, maximum *int64) string {
 // ephemeralNote is the one-line result note under each tool's description.
 func ephemeralNote(ephemeral bool) string {
 	if ephemeral {
-		return "ephemeral — re-stored as the first eviction candidate, and reported as " +
+		return "marked ephemeral in Qompack metadata, with host retention unknown; reported as " +
 			"`_meta.qompack.ephemeral: true`"
 	}
 	return "durable — this tool writes a persistent record"

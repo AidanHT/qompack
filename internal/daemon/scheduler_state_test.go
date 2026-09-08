@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -324,4 +325,61 @@ func TestStateCodec_TurnListsCapped(t *testing.T) {
 	require.Len(t, saved.RoundTurns, maxTurnHistory)
 	require.Equal(t, core.TurnIndex(n), saved.RoundTurns[maxTurnHistory-1], "round_turns is written ascending")
 	require.True(t, strings.HasSuffix(files.schedulerPath, stateFileScheduler))
+}
+
+// TestLocalCheckpointIsNeverConflatedWithHostCompaction is §8.5's two-clause distinction held as
+// an invariant of the runtime's own state: a checkpoint QOMPACK sealed on its cadence and a
+// compaction the HOST performed are different events, recorded in different fields, under
+// different counters, and they survive a persist/reload round trip apart.
+//
+// The consequence of conflating them is concrete: lastCompactionTS is what every Young-Daly
+// cadence decision is measured from, so a cadence seal that moved it would restart the clock on
+// our own action and suppress the next real trigger.
+func TestLocalCheckpointIsNeverConflatedWithHostCompaction(t *testing.T) {
+	fx := newRTFixture(t)
+	fx.bind(rtSession)
+
+	// BindSession seeds the host clock from the session start, so the baseline is not zero; what
+	// matters is that a cadence seal does not MOVE it.
+	fx.rt.mu.Lock()
+	baseline := fx.rt.lastCompactionTS
+	fx.rt.mu.Unlock()
+	require.NotZero(t, baseline)
+	fx.clock.Advance(30 * time.Second)
+
+	fx.rt.NoteLocalCheckpoint(7)
+	fx.rt.mu.Lock()
+	localTS, compactTS := fx.rt.lastLocalCheckpointTS, fx.rt.lastCompactionTS
+	seq, samples := fx.rt.lastCheckpointSeq, fx.rt.deltaSamples
+	fx.rt.mu.Unlock()
+
+	require.NotZero(t, localTS, "the cadence seal is recorded")
+	require.Equal(t, core.CheckpointSeq(7), seq)
+	require.Equal(t, baseline, compactTS, "and it is NOT a compaction: the host clock has not moved")
+	require.NotEqual(t, baseline, localTS, "the two stamps are genuinely different values")
+	require.Zero(t, samples, "nor is it a measured compaction cost")
+	require.Equal(t, int64(1), fx.counter(counterLocalCheckpoint))
+	require.Zero(t, fx.counter(counterHostCompaction), "reporting keeps them apart too")
+
+	// Now the host really does compact.
+	fx.clock.Advance(90 * time.Second)
+	fx.rt.RecordCompactionCost(12)
+	fx.rt.mu.Lock()
+	afterLocal, afterCompact := fx.rt.lastLocalCheckpointTS, fx.rt.lastCompactionTS
+	fx.rt.mu.Unlock()
+	require.Equal(t, localTS, afterLocal, "a host compaction does not restamp our cadence")
+	require.NotZero(t, afterCompact)
+	require.NotEqual(t, afterLocal, afterCompact)
+	require.Equal(t, int64(1), fx.counter(counterHostCompaction))
+	require.Equal(t, int64(1), fx.counter(counterLocalCheckpoint))
+
+	// The distinction is durable, not just in-memory.
+	require.NoError(t, fx.rt.Persist(context.Background()))
+	next := newRTFixture(t, withRoot(fx))
+	next.bind(rtSession)
+	next.rt.mu.Lock()
+	defer next.rt.mu.Unlock()
+	require.Equal(t, afterLocal, next.rt.lastLocalCheckpointTS)
+	require.Equal(t, afterCompact, next.rt.lastCompactionTS)
+	require.Equal(t, core.CheckpointSeq(7), next.rt.lastCheckpointSeq)
 }

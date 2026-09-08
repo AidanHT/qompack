@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -227,16 +228,10 @@ func (s *FSStore) putObject(h core.Hash, plain []byte) (int64, bool, error) {
 
 // writeStaged writes payload to tmp and closes it.
 //
-// It deliberately does NOT fsync each object. Durability for the store as a whole is batched into
-// Flush — the SessionEnd/idle barrier that also syncs the append-only indices — exactly the way
-// borg and restic commit a repository transaction rather than syncing every chunk.
-//
-// Per-object fsync was measured, not assumed, to be incompatible with this package's budgets: a
-// 100 KB tool result is hundreds of chunks, and hundreds of serialized fsyncs cost ~1.9 s against
-// a 3 ms budget (B-C, l0_process). The rename below still gives ATOMICITY, so a crash can never
-// leave a torn or partially written object — only a missing one, which is a recoverable
-// degradation the read path already handles: GetChunk reports core.ErrNotFound and Has falls back
-// to a stat rather than trusting the index.
+// This legacy path does not sync the object. Flush syncs indices, not these closed files, so
+// successful publication here does not establish crash durability. SP-20's durable publication
+// barrier must cover the object before committing a reference/frontier. Readers verify the
+// bytes they find; Has is an optimistic presence hint, not an integrity or durability witness.
 func (s *FSStore) writeStaged(tmp string, payload []byte) error {
 	f, err := paths.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
@@ -261,31 +256,80 @@ func (s *FSStore) writeStaged(tmp string, payload []byte) error {
 func (s *FSStore) readObjectFile(h core.Hash) (raw []byte, path string, compressed bool, err error) {
 	cands := s.objectCandidates(h)
 	for i, p := range cands {
-		b, readErr := os.ReadFile(paths.Long(p))
+		limit := int64(MaxPutBytes)
+		if i == 0 {
+			limit = encodedObjectLimit()
+		}
+		b, readErr := readBoundedObject(p, limit)
 		if readErr == nil {
 			return b, p, i == 0, nil
 		}
+		if errors.Is(readErr, errObjectTooLarge) {
+			s.quarantine(h, p, "physical size exceeds limit")
+			return nil, p, i == 0, fmt.Errorf("%w: object %s exceeds size limit", core.ErrNotFound, h.Short())
+		}
 		if !os.IsNotExist(readErr) {
-			return nil, p, i == 0, fmt.Errorf("%w: reading object %s: %v", core.ErrNotFound, h.Short(), readErr)
+			return nil, p, i == 0, fmt.Errorf("%w: reading object %s", core.ErrNotFound, h.Short())
 		}
 	}
 	return nil, "", false, fmt.Errorf("%w: object %s", core.ErrNotFound, h.Short())
 }
 
-// quarantine moves a corrupt object out of objects/ and into .qompack/tmp/quarantine, so a
-// later read cannot keep tripping over it and a human can still inspect it.
-//
-// This is the §12.3 "store corrupt" row verbatim: the object is removed from service, the failure
-// is announced on the Loud channel, and the read reports core.ErrNotFound so the caller degrades
-// to "I cannot re-materialize this" rather than crashing the session.
+var errObjectTooLarge = errors.New("store: physical object exceeds size limit")
+
+// readBoundedObject rejects nonregular leaf paths and bounds allocation even if the file grows
+// after Stat. SameFile detects a replaced leaf between Lstat and Open; the plaintext hash check
+// handles changed bytes. This is not a complete authorization check for ancestor directories.
+func readBoundedObject(path string, limit int64) ([]byte, error) {
+	before, err := os.Lstat(paths.Long(path))
+	if err != nil {
+		return nil, err
+	}
+	if !before.Mode().IsRegular() {
+		return nil, fmt.Errorf("store: object is not a regular file")
+	}
+	f, err := os.Open(paths.Long(path))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+		return nil, fmt.Errorf("store: object changed while opening")
+	}
+	if opened.Size() > limit {
+		return nil, errObjectTooLarge
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(raw)) > limit {
+		return nil, errObjectTooLarge
+	}
+	return raw, nil
+}
+
+// quarantine preserves rejected bytes in a unique attempt directory. A failed move leaves the
+// source intact for recovery; the caller still refuses its contents. Each attempt has its own
+// destination so concurrent or repeated corruption cannot overwrite earlier evidence.
 func (s *FSStore) quarantine(h core.Hash, path, reason string) {
-	dst := filepath.Join(s.l.Tmp, quarantineDir, filepath.Base(path))
-	if err := os.MkdirAll(paths.Long(filepath.Dir(dst)), 0o700); err == nil {
-		if err := os.Rename(paths.Long(path), paths.Long(dst)); err != nil {
-			// Losing the race to move it is not worth failing the read over; the object is
-			// already known bad and the Loud line below still records that.
-			_ = os.Remove(paths.Long(path))
+	root := filepath.Join(s.l.Tmp, quarantineDir)
+	err := os.MkdirAll(paths.Long(root), 0o700)
+	if err == nil {
+		var attempt string
+		attempt, err = os.MkdirTemp(paths.Long(root), "object-")
+		if err == nil {
+			err = os.Rename(paths.Long(path), paths.Long(filepath.Join(attempt, filepath.Base(path))))
 		}
+	}
+	if err != nil {
+		s.log.Loud("store: object quarantine failed; source retained", "hash", h.Short(), "reason", reason)
+		s.count("store.quarantine_failed", 1)
+		return
 	}
 	s.log.Loud("store: object quarantined", "hash", h.Short(), "reason", reason)
 	s.count("store.quarantined", 1)
@@ -294,9 +338,9 @@ func (s *FSStore) quarantine(h core.Hash, path, reason string) {
 // getObject returns h's plaintext bytes.
 //
 // wantLen is the length index/roots.jsonl recorded for this chunk, or a negative number when the
-// caller has no recorded length to check against. A decode failure — which zstd's per-frame
-// content checksum makes reliable — or a length that disagrees with the index quarantines the
-// object and reports core.ErrNotFound.
+// caller has no recorded length to check against. Physical size, decompression, indexed length
+// and the DomainChunk content address are checked before any plaintext is returned. A rejected
+// object is quarantined when possible and reports the legacy core.ErrNotFound degradation.
 func (s *FSStore) getObject(h core.Hash, wantLen int) ([]byte, error) {
 	raw, path, compressed, err := s.readObjectFile(h)
 	if err != nil {
@@ -307,7 +351,7 @@ func (s *FSStore) getObject(h core.Hash, wantLen int) ([]byte, error) {
 	if compressed {
 		decoded, decErr := Decode(raw)
 		if decErr != nil {
-			s.quarantine(h, path, "zstd decode failed: "+decErr.Error())
+			s.quarantine(h, path, "zstd decode failed")
 			return nil, fmt.Errorf("%w: object %s failed to decode", core.ErrNotFound, h.Short())
 		}
 		plain = decoded
@@ -316,6 +360,10 @@ func (s *FSStore) getObject(h core.Hash, wantLen int) ([]byte, error) {
 	if wantLen >= 0 && len(plain) != wantLen {
 		s.quarantine(h, path, fmt.Sprintf("length %d, index says %d", len(plain), wantLen))
 		return nil, fmt.Errorf("%w: object %s has the wrong length", core.ErrNotFound, h.Short())
+	}
+	if core.HashBytes(core.DomainChunk, plain) != h {
+		s.quarantine(h, path, "content hash mismatch")
+		return nil, fmt.Errorf("%w: object %s has the wrong content hash", core.ErrNotFound, h.Short())
 	}
 	return plain, nil
 }

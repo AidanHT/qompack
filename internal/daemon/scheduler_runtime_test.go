@@ -36,6 +36,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
@@ -106,7 +107,9 @@ type rtFixture struct {
 	cfg     config.Config
 	writer  *fakeWriter
 	session core.SessionID
-	rt      *schedRuntime
+	// ledgerFn is the live-ledger supplier the composition root passes; nil in most fixtures.
+	ledgerFn func() negknow.Ledger
+	rt       *schedRuntime
 }
 
 func (fx *rtFixture) options() SchedulerRuntimeOptions {
@@ -125,6 +128,7 @@ func (fx *rtFixture) options() SchedulerRuntimeOptions {
 	if fx.writer != nil {
 		o.Checkpoints = fx.writer
 	}
+	o.LedgerFn = fx.ledgerFn
 	return o
 }
 
@@ -1055,18 +1059,17 @@ func TestRuntime_CloseIsIdempotent(t *testing.T) {
 	t.Parallel()
 	fx := newRTFixture(t, func(fx *rtFixture) { fx.writer = newFakeWriter(fx.store.segs) })
 	fx.bind(rtSession)
-	fx.rt.mu.Lock()
-	fx.rt.draft = &checkpoint.Draft{}
-	fx.rt.mu.Unlock()
+	draft, err := fx.writer.Begin(context.Background(), rtSession, 0, checkpoint.SourceSet{})
+	require.NoError(t, err)
 
 	require.NoError(t, CloseSchedulerRuntime(fx.rt))
 	require.Equal(t, int64(1), fx.counter(counterPersist))
-	require.Equal(t, 1, fx.writer.abortCalls)
-	require.Nil(t, fx.rt.draft)
+	require.Zero(t, fx.writer.abortCalls)
+	require.Contains(t, fx.writer.drafts, draft, "scheduler close preserves the owner's draft")
 
 	require.NoError(t, CloseSchedulerRuntime(fx.rt))
 	require.Equal(t, int64(2), fx.counter(counterPersist), "Persist runs once per call")
-	require.Equal(t, 1, fx.writer.abortCalls, "the draft is aborted exactly once")
+	require.Zero(t, fx.writer.abortCalls, "scheduler close never aborts the owner's draft")
 	require.FileExists(t, fx.statePath(stateFileScheduler))
 }
 
@@ -1210,4 +1213,46 @@ func TestRuntime_ObserveClosesSegmentOnChangepoint(t *testing.T) {
 	require.Len(t, opens, 2, "the fixture's open, then the roll-open")
 	require.Equal(t, at+1, opens[1].StartTurn)
 	require.Equal(t, rtSession, opens[1].Session)
+}
+
+// TestSchedulerRuntimeBuildsItsAdvancerFromTheWriterAndSourcePair closes the link the composition
+// root depends on: supplying Checkpoints AND Sources is what makes schedRuntime.advancer non-nil.
+//
+// Nothing asserted this before, and the consequence was invisible: internal/cli supplied
+// Checkpoints alone, the adapter clause never fired, advanceFrontier short-circuited on
+// `advancer == nil` and counted sched.frontier.no_writer, and every production daemon reported a
+// frontier route that looked merely quiet. The three rows are the three states the clause has.
+func TestSchedulerRuntimeBuildsItsAdvancerFromTheWriterAndSourcePair(t *testing.T) {
+	sources := func() (checkpoint.SourceSet, error) { return checkpoint.SourceSet{}, nil }
+
+	t.Run("writer and sources together yield an advancer", func(t *testing.T) {
+		fx := newRTFixture(t, func(f *rtFixture) { f.writer = newFakeWriter(f.store.segs) })
+		o := fx.options()
+		o.Sources = sources
+		rt, err := NewSchedulerRuntime(o)
+		require.NoError(t, err)
+		t.Cleanup(scheduler.DisablePSelection)
+		concrete, ok := rt.(*schedRuntime)
+		require.True(t, ok, "NewSchedulerRuntime returns the daemon's concrete runtime")
+		require.NotNil(t, concrete.advancer,
+			"the pair internal/cli supplies must produce a live frontier advancer")
+	})
+
+	t.Run("a writer with no sources stays unavailable", func(t *testing.T) {
+		fx := newRTFixture(t, func(f *rtFixture) { f.writer = newFakeWriter(f.store.segs) })
+		require.Nil(t, fx.rt.advancer,
+			"a writer alone must not be adapted into an advancer over a nil source set")
+	})
+
+	t.Run("sources with no writer stay unavailable", func(t *testing.T) {
+		fx := newRTFixture(t)
+		o := fx.options()
+		o.Sources = sources
+		rt, err := NewSchedulerRuntime(o)
+		require.NoError(t, err)
+		t.Cleanup(scheduler.DisablePSelection)
+		concrete, ok := rt.(*schedRuntime)
+		require.True(t, ok, "NewSchedulerRuntime returns the daemon's concrete runtime")
+		require.Nil(t, concrete.advancer)
+	})
 }

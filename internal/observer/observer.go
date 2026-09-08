@@ -35,6 +35,11 @@ type (
 	Output = hookio.Output
 )
 
+// ErrUnpublished means tool capture failed before a required content or reference write
+// completed. The daemon must keep the delivery retryable. Host output remains empty; this
+// error describes recording availability and does not deny the host's original tool result.
+var ErrUnpublished = fmt.Errorf("observer: tool capture unpublished: %w", core.ErrDegraded)
+
 // Observer is the L0 semantics seam (00-ARCHITECTURE.md §5.21). One method per hook the plugin
 // registers; every one of them is on a latency budget, and every one of them must fail toward
 // "record nothing, block nothing" rather than toward an error the host sees (§12.3).
@@ -215,6 +220,7 @@ const (
 const (
 	stagePut      = "put"
 	stageIndex    = "index"
+	stageLink     = "link"
 	stageFileVer  = "fileversion"
 	stageDAG      = "dag"
 	stageState    = "state"
@@ -376,13 +382,21 @@ func (o *observer) now() core.UnixMilli {
 	return core.UnixMilli(o.opt.Clock.Now().UnixMilli())
 }
 
-// soft absorbs one stage failure: no I/O failure ever escapes an Observer method (decision 7).
+// soft records a secondary stage failure. Required tool content/reference writes use unpublished
+// instead so their failure cannot become a successful drain acknowledgement.
 func (o *observer) soft(stage string, err error) {
 	if err == nil {
 		return
 	}
 	o.count(counterErrPrefix + stage)
 	o.opt.Log.Warn("observer: stage failed", "stage", stage, "err", err)
+}
+
+// unpublished preserves the stage without logging an error that may contain private payloads.
+func (o *observer) unpublished(stage string) error {
+	o.count(counterErrPrefix + stage)
+	o.opt.Log.Warn("observer: tool capture unpublished", "stage", stage)
+	return ErrUnpublished
 }
 
 // count bumps a counter. It is nil-safe on Options.Metrics and is the only place in this package
@@ -423,3 +437,29 @@ func (o *observer) session(s core.SessionID) *sessionState {
 }
 
 // OnSessionStart and OnSessionEnd live in session.go.
+
+// ---------------------------------------------------------------------------
+// Observation identity (T20-M1-02)
+//
+// Event is an alias for hookio.Event, whose fields are the host's payload; the daemon-assigned
+// observation identity is not the host's and must not be smuggled into it. It travels on the
+// context instead, from the ingest worker (or the drain) that took the lease down to the publishing
+// stage here, which is the same channel the daemon already uses for the Services/Registry values
+// every route reads.
+type observationKey struct{}
+
+// WithObservation attaches the durable identity the daemon assigned to this delivery.
+func WithObservation(ctx context.Context, id core.ObservationID) context.Context {
+	if id == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, observationKey{}, id)
+}
+
+// ObservationFrom returns the identity WithObservation attached, or "" when this delivery has none
+// — an unleased delivery, or an in-process caller with no daemon behind it. Empty is a gap and is
+// treated as one: nothing claims a durable identity it was not given.
+func ObservationFrom(ctx context.Context) core.ObservationID {
+	id, _ := ctx.Value(observationKey{}).(core.ObservationID)
+	return id
+}

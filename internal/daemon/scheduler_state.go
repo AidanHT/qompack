@@ -74,29 +74,34 @@ type decisionDoc struct {
 // open_segment_tokens and last_checkpoint_seq. Unknown keys are ignored on load (forward
 // compatibility, matching the config loader's posture).
 type schedulerStateDoc struct {
-	Version              int                `json:"version"`
-	Session              core.SessionID     `json:"session"`
-	Updated              core.UnixMilli     `json:"updated"`
-	SessionStartTS       core.UnixMilli     `json:"session_start_ts"`
-	LastCompactionTS     core.UnixMilli     `json:"last_compaction_ts"`
-	LastAPICallTS        core.UnixMilli     `json:"last_api_call_ts"`
-	LastCacheWriteTS     core.UnixMilli     `json:"last_cache_write_ts"`
-	LastRequestStartTS   core.UnixMilli     `json:"last_request_start_ts"`
-	DeltaEWMASeconds     float64            `json:"delta_ewma_seconds"`
-	DeltaSamples         int                `json:"delta_samples"`
-	BurnEWMATokensPerMin float64            `json:"burn_ewma_tokens_per_min"`
-	BurnSamples          int                `json:"burn_samples"`
-	EffectiveWindow      core.Tokens        `json:"effective_window"`
-	WindowSource         float64            `json:"window_source"`
-	RegimeSource         string             `json:"regime_source"`
-	ChangepointTurns     []core.TurnIndex   `json:"changepoint_turns"`
-	RoundTurns           []core.TurnIndex   `json:"round_turns"`
-	MaxTurn              core.TurnIndex     `json:"max_turn"`
-	OpenSegmentTokens    core.Tokens        `json:"open_segment_tokens"`
-	FrontierTurn         core.TurnIndex     `json:"frontier_turn"`
-	ResidualTokens       core.Tokens        `json:"residual_tokens"`
-	LastCheckpointSeq    core.CheckpointSeq `json:"last_checkpoint_seq"`
-	LastDecision         decisionDoc        `json:"last_decision"`
+	Version          int            `json:"version"`
+	Session          core.SessionID `json:"session"`
+	Updated          core.UnixMilli `json:"updated"`
+	SessionStartTS   core.UnixMilli `json:"session_start_ts"`
+	LastCompactionTS core.UnixMilli `json:"last_compaction_ts"`
+	// LastLocalCheckpointTS is the CADENCE seal, kept apart from last_compaction_ts on disk for
+	// the same reason it is kept apart in memory (see schedRuntime.lastLocalCheckpointTS). It is
+	// omitempty and additive: a state file written before this key existed loads as zero, which is
+	// exactly "no local checkpoint recorded", so the version stays 1.
+	LastLocalCheckpointTS core.UnixMilli     `json:"last_local_checkpoint_ts,omitempty"`
+	LastAPICallTS         core.UnixMilli     `json:"last_api_call_ts"`
+	LastCacheWriteTS      core.UnixMilli     `json:"last_cache_write_ts"`
+	LastRequestStartTS    core.UnixMilli     `json:"last_request_start_ts"`
+	DeltaEWMASeconds      float64            `json:"delta_ewma_seconds"`
+	DeltaSamples          int                `json:"delta_samples"`
+	BurnEWMATokensPerMin  float64            `json:"burn_ewma_tokens_per_min"`
+	BurnSamples           int                `json:"burn_samples"`
+	EffectiveWindow       core.Tokens        `json:"effective_window"`
+	WindowSource          float64            `json:"window_source"`
+	RegimeSource          string             `json:"regime_source"`
+	ChangepointTurns      []core.TurnIndex   `json:"changepoint_turns"`
+	RoundTurns            []core.TurnIndex   `json:"round_turns"`
+	MaxTurn               core.TurnIndex     `json:"max_turn"`
+	OpenSegmentTokens     core.Tokens        `json:"open_segment_tokens"`
+	FrontierTurn          core.TurnIndex     `json:"frontier_turn"`
+	ResidualTokens        core.Tokens        `json:"residual_tokens"`
+	LastCheckpointSeq     core.CheckpointSeq `json:"last_checkpoint_seq"`
+	LastDecision          decisionDoc        `json:"last_decision"`
 }
 
 // stateFiles is one Persist's encoded payload: built under the runtime lock, written without it.
@@ -227,29 +232,30 @@ func (r *schedRuntime) saveStateLocked() (stateFiles, error) {
 	}
 	slices.Sort(rounds)
 	sched, err := encodeSchedulerState(schedulerStateDoc{
-		Version:              stateVersion,
-		Session:              r.session,
-		Updated:              now,
-		SessionStartTS:       r.sessionStartTS,
-		LastCompactionTS:     r.lastCompactionTS,
-		LastAPICallTS:        r.lastAPICallTS,
-		LastCacheWriteTS:     r.lastCacheWriteTS,
-		LastRequestStartTS:   r.lastRequestStartTS,
-		DeltaEWMASeconds:     r.deltaEWMA,
-		DeltaSamples:         r.deltaSamples,
-		BurnEWMATokensPerMin: r.burnEWMA,
-		BurnSamples:          r.burnSamples,
-		EffectiveWindow:      r.effectiveWindow,
-		WindowSource:         r.windowSource,
-		RegimeSource:         r.regime.Source,
-		ChangepointTurns:     slices.Clone(r.cpTurns),
-		RoundTurns:           rounds,
-		MaxTurn:              r.maxTurn,
-		OpenSegmentTokens:    r.openSegTokens,
-		FrontierTurn:         r.frontier,
-		ResidualTokens:       r.residual,
-		LastCheckpointSeq:    r.lastCheckpointSeq,
-		LastDecision:         decisionToDoc(r.lastDecision),
+		Version:               stateVersion,
+		Session:               r.session,
+		Updated:               now,
+		SessionStartTS:        r.sessionStartTS,
+		LastCompactionTS:      r.lastCompactionTS,
+		LastLocalCheckpointTS: r.lastLocalCheckpointTS,
+		LastAPICallTS:         r.lastAPICallTS,
+		LastCacheWriteTS:      r.lastCacheWriteTS,
+		LastRequestStartTS:    r.lastRequestStartTS,
+		DeltaEWMASeconds:      r.deltaEWMA,
+		DeltaSamples:          r.deltaSamples,
+		BurnEWMATokensPerMin:  r.burnEWMA,
+		BurnSamples:           r.burnSamples,
+		EffectiveWindow:       r.effectiveWindow,
+		WindowSource:          r.windowSource,
+		RegimeSource:          r.regime.Source,
+		ChangepointTurns:      slices.Clone(r.cpTurns),
+		RoundTurns:            rounds,
+		MaxTurn:               r.maxTurn,
+		OpenSegmentTokens:     r.openSegTokens,
+		FrontierTurn:          r.frontier,
+		ResidualTokens:        r.residual,
+		LastCheckpointSeq:     r.lastCheckpointSeq,
+		LastDecision:          decisionToDoc(r.lastDecision),
 	})
 	if err != nil {
 		return stateFiles{}, fmt.Errorf("encode %s: %w", stateFileScheduler, err)
@@ -358,6 +364,7 @@ func (r *schedRuntime) restoreSchedulerLocked(raw []byte, p string) {
 		r.sessionStartTS = clampTS(doc.SessionStartTS)
 	}
 	r.lastCompactionTS = clampTS(doc.LastCompactionTS)
+	r.lastLocalCheckpointTS = clampTS(doc.LastLocalCheckpointTS)
 	r.lastAPICallTS = clampTS(doc.LastAPICallTS)
 	r.lastCacheWriteTS = clampTS(doc.LastCacheWriteTS)
 	r.lastRequestStartTS = clampTS(doc.LastRequestStartTS)

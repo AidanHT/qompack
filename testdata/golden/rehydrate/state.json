@@ -2,7 +2,7 @@
   "session": "sess_01J8ZQ5R7N3K2M4P6T8V0X2Y4A",
   "seq": 1,
   "emitted": 1767225600000,
-  "tokens": 7144,
+  "tokens": 7149,
   "budget": 8000,
   "items": [
     {
@@ -16,7 +16,7 @@
     {
       "kind": "user_intent",
       "rank": 1,
-      "tokens": 101,
+      "tokens": 106,
       "truncated": false,
       "units": 3,
       "units_seen": 3

@@ -12,6 +12,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -38,9 +39,9 @@ func newFrontierFixture(t testing.TB, mods ...func(*rtFixture)) *rtFixture {
 	fx := newRTFixture(t, all...)
 	fx.bind(rtSession)
 	fx.rt.mu.Lock()
-	fx.rt.sources = func() (checkpoint.SourceSet, error) {
+	fx.rt.advancer = checkpoint.NewFrontierAdvancer(fx.writer, func() (checkpoint.SourceSet, error) {
 		return checkpoint.SourceSet{Store: fx.store, Segments: fx.store.segs, Graph: fx.graph}, nil
-	}
+	})
 	fx.rt.mu.Unlock()
 	return fx
 }
@@ -204,7 +205,7 @@ func TestFrontier_AdvanceCallsWriterWithClosedUnencodedOnly(t *testing.T) {
 	require.Len(t, fx.writer.beginCalls, 1, "the draft is opened lazily, once")
 	require.Equal(t, writerBeginCall{Session: rtSession, Parent: 0}, fx.writer.beginCalls[0])
 	require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the frontier is what Advance returned")
-	require.NotNil(t, fx.rt.draft, "the draft stays open for the next idle window")
+	require.Len(t, fx.writer.drafts, 1, "the draft remains owned by the writer")
 	require.True(t, fx.rt.dirty)
 	require.Equal(t, uint64(1), fx.rt.frontierRuns)
 
@@ -237,18 +238,20 @@ func TestFrontier_AdvanceNoWriterIsNoOp(t *testing.T) {
 	// A writer without a Sources func is the same posture.
 	w := newFakeWriter(fx.store.segs)
 	fx.rt.mu.Lock()
-	fx.rt.ckpt = w
+	fx.rt.advancer = nil // constructor leaves the port absent without a source supplier
 	fx.rt.mu.Unlock()
 	advance(t, fx)
 	require.Equal(t, int64(2), fx.counter(counterFrontierNoWriter))
 	require.Empty(t, w.beginCalls)
 
-	// And a Sources func that errors: counter, Warn, return nil.
+	// A configured source supplier failure propagates; it is not a successful idle action.
 	fx.rt.mu.Lock()
-	fx.rt.sources = func() (checkpoint.SourceSet, error) { return checkpoint.SourceSet{}, context.DeadlineExceeded }
+	fx.rt.advancer = checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) {
+		return checkpoint.SourceSet{}, context.DeadlineExceeded
+	})
 	fx.rt.mu.Unlock()
-	advance(t, fx)
-	require.Equal(t, int64(3), fx.counter(counterFrontierNoWriter))
+	require.ErrorIs(t, fx.rt.advanceFrontier(context.Background()), context.DeadlineExceeded)
+	require.Equal(t, int64(2), fx.counter(counterFrontierNoWriter))
 	require.Empty(t, w.beginCalls, "Begin is never reached without a SourceSet")
 	require.Equal(t, 1, fx.log.count(logWarn))
 	require.Zero(t, fx.log.count(logLoud))
@@ -264,127 +267,120 @@ func TestFrontier_AdvanceIdempotent(t *testing.T) {
 
 	advance(t, fx)
 	require.Equal(t, core.TurnIndex(5), frontierOf(fx))
-	draft := fx.rt.draft
 
 	advance(t, fx)
 	require.Equal(t, core.TurnIndex(5), frontierOf(fx), "the second call moves nothing")
 	require.Equal(t, [][]core.SegmentID{{a, b}}, fx.writer.advanceCalls, "nothing left to encode ⇒ Advance is not called again")
 	require.Len(t, fx.store.segs.markCalls, 1)
 	require.Len(t, fx.writer.beginCalls, 1)
-	require.Same(t, draft, fx.rt.draft, "the same draft is kept open")
+	require.Len(t, fx.writer.drafts, 1, "the writer still owns its draft")
 	require.Zero(t, fx.writer.abortCalls)
 	require.Zero(t, fx.log.count(logLoud))
 	require.Zero(t, fx.log.count(logWarn))
 }
 
-// dpiWriter models the one real way a §4.6 violation reaches Advance with ids that came from
-// Unencoded: something else (a PreCompact finalize under another seq) marks a segment encoded
-// between the runtime's Unencoded call and the writer's MarkEncoded. The FIRST armed id in the
-// batch is flipped in the log under frontierForeignSeq the moment it is handed to Advance (one
-// per call, so a retry can hit a second one), and the wrapped fakeWriter's own MarkEncoded then
-// refuses it with core.ErrAlreadyEncoded.
-type dpiWriter struct {
-	*fakeWriter
-	log *fakeSegmentLog
-	arm map[core.SegmentID]bool
+type frontierAdvanceFunc func(context.Context, core.SessionID, []core.SegmentID) (core.TurnIndex, error)
+
+func (f frontierAdvanceFunc) Advance(ctx context.Context, session core.SessionID, ids []core.SegmentID) (core.TurnIndex, error) {
+	return f(ctx, session, ids)
 }
 
-func (w *dpiWriter) Advance(ctx context.Context, d *checkpoint.Draft, ids []core.SegmentID) (core.TurnIndex, error) {
-	for _, id := range ids {
-		if w.arm[id] {
-			delete(w.arm, id)
-			if err := w.log.MarkEncoded(ctx, []core.SegmentID{id}, frontierForeignSeq); err != nil {
-				return 0, err
+func TestFrontier_ConstructorUsesPortOrLegacyAdapter(t *testing.T) {
+	for _, explicit := range []bool{false, true} {
+		t.Run(map[bool]string{false: "legacy adapter", true: "explicit port"}[explicit], func(t *testing.T) {
+			fx := newRTFixture(t, func(fx *rtFixture) { fx.writer = newFakeWriter(fx.store.segs) })
+			opts := fx.options()
+			sourceCalls, portCalls := 0, 0
+			opts.Sources = func() (checkpoint.SourceSet, error) {
+				sourceCalls++
+				return checkpoint.SourceSet{Store: fx.store, Segments: fx.store.segs, Graph: fx.graph}, nil
 			}
-			break
-		}
+			if explicit {
+				opts.Frontier = frontierAdvanceFunc(func(context.Context, core.SessionID, []core.SegmentID) (core.TurnIndex, error) {
+					portCalls++
+					return 3, nil
+				})
+			}
+			rt, err := NewSchedulerRuntime(opts)
+			require.NoError(t, err)
+			concrete, ok := rt.(*schedRuntime)
+			require.True(t, ok, "NewSchedulerRuntime returns the daemon's concrete runtime")
+			fx.rt = concrete
+			fx.bind(rtSession)
+			fx.store.segs.addSegment(t, rtSession, 1, 3, 100)
+			fx.rt.NoteAPIRound(3)
+			advance(t, fx)
+			require.Equal(t, core.TurnIndex(3), frontierOf(fx))
+			if explicit {
+				require.Equal(t, 1, portCalls)
+				require.Zero(t, sourceCalls, "an explicit owner port takes precedence")
+				require.Empty(t, fx.writer.beginCalls)
+			} else {
+				require.Equal(t, 1, sourceCalls)
+				require.Len(t, fx.writer.beginCalls, 1)
+			}
+		})
 	}
-	return w.fakeWriter.Advance(ctx, d, ids)
 }
 
-func TestFrontier_DPIGuardViolationDropsBatchAndNeverReEncodes(t *testing.T) {
+// TestFrontier_DPIGuardPreservesOwnerOutcomeWithoutRetry replaces the scheduler-owned retry/abort
+// assertion. FileWriter tests establish partial DPI publication; here the port's outcome must
+// reach scheduler accounting without a second encoding attempt or draft lifecycle action.
+func TestFrontier_DPIGuardPreservesOwnerOutcomeWithoutRetry(t *testing.T) {
 	t.Parallel()
 	fx := newFrontierFixture(t)
 	ctx := context.Background()
 	segs := fx.store.segs
-	dw := &dpiWriter{fakeWriter: fx.writer, log: segs, arm: map[core.SegmentID]bool{}}
-	fx.rt.mu.Lock()
-	fx.rt.ckpt = dw
-	fx.rt.mu.Unlock()
-
 	s1 := segs.addSegment(t, rtSession, 1, 2, 100)
 	s2 := segs.addSegment(t, rtSession, 3, 4, 100)
 	s3 := segs.addSegment(t, rtSession, 5, 6, 100)
-	openSegment(t, fx, 7)
-	fx.rt.NoteAPIRound(7)
-
-	// One violation: s2 is refused, dropped, and the remainder is retried once.
-	dw.arm[s2] = true
+	fx.rt.NoteAPIRound(6)
+	calls := 0
+	fx.rt.advancer = frontierAdvanceFunc(func(ctx context.Context, session core.SessionID, ids []core.SegmentID) (core.TurnIndex, error) {
+		calls++
+		require.Equal(t, rtSession, session)
+		require.Equal(t, []core.SegmentID{s1, s2, s3}, ids)
+		require.NoError(t, segs.MarkEncoded(ctx, []core.SegmentID{s2}, frontierForeignSeq))
+		require.NoError(t, segs.MarkEncoded(ctx, []core.SegmentID{s1, s3}, 1))
+		return 6, core.ErrAlreadyEncoded
+	})
 	advance(t, fx)
-	require.Equal(t, 1, fx.log.count(logLoud), "one Loud per violation")
+	require.Equal(t, 1, calls, "only the owner adjudicates and publishes the batch")
+	require.Equal(t, 1, fx.log.count(logLoud))
 	require.Equal(t, msgDPIGuard, fx.log.msgs(logLoud)[0])
-	require.Equal(t, [][]core.SegmentID{{s1, s2, s3}, {s1, s3}}, fx.writer.advanceCalls, "retry with the remainder")
-	require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the frontier advances for the clean ids")
-	require.Zero(t, fx.writer.abortCalls, "one violation does not abandon the draft")
-	for _, id := range []core.SegmentID{s1, s3} {
-		seg, err := segs.Get(ctx, id)
-		require.NoError(t, err)
-		require.Equal(t, core.CheckpointSeq(1), seg.CheckpointSeq, "clean segment %d encoded under the draft's seq", id)
-	}
-	refused, err := segs.Get(ctx, s2)
+	require.Equal(t, core.TurnIndex(6), frontierOf(fx))
+	require.Empty(t, fx.writer.beginCalls, "scheduler calls only the supplied port")
+	require.Zero(t, fx.writer.abortCalls)
+	foreign, err := segs.Get(ctx, s2)
 	require.NoError(t, err)
-	require.Equal(t, frontierForeignSeq, refused.CheckpointSeq, "the refused segment keeps its first encoding: never re-encoded")
-	require.Equal(t, []segMarkCall{
-		{IDs: []core.SegmentID{s2}, Seq: frontierForeignSeq}, // the foreign encoder
-		{IDs: []core.SegmentID{s1, s2, s3}, Seq: 1},          // refused atomically: nothing marked
-		{IDs: []core.SegmentID{s1, s3}, Seq: 1},              // the one retry, without the offender
-	}, segs.markCalls, "the log is asked once with the offender (refused) and once without; never a re-encode")
-
-	// A second violation in the same window abandons the draft and leaves the frontier alone.
-	draft := fx.rt.draft
-	s4 := segs.addSegment(t, rtSession, 8, 9, 100)
-	s5 := segs.addSegment(t, rtSession, 10, 11, 100)
-	fx.rt.NoteAPIRound(11)
-	dw.arm[s4], dw.arm[s5] = true, true
+	require.Equal(t, frontierForeignSeq, foreign.CheckpointSeq)
 	advance(t, fx)
-	require.Equal(t, 3, fx.log.count(logLoud), "the first violation and its recurrence are both Loud")
-	require.Equal(t, 1, fx.writer.abortCalls, "the recurrence aborts the draft")
-	require.Nil(t, fx.rt.draft)
-	require.Equal(t, core.TurnIndex(6), frontierOf(fx), "the frontier stays where it was")
-	require.NotNil(t, draft)
-	for _, id := range []core.SegmentID{s4, s5} {
-		seg, err := segs.Get(ctx, id)
-		require.NoError(t, err)
-		require.Equal(t, frontierForeignSeq, seg.CheckpointSeq, "segment %d was never re-encoded from a checkpoint", id)
-	}
+	require.Equal(t, 1, calls, "no unencoded segments remain")
+}
 
-	// The next window opens a fresh draft chained to the same parent and carries on.
-	s6 := segs.addSegment(t, rtSession, 12, 12, 100)
-	fx.rt.NoteAPIRound(12)
-	advance(t, fx)
-	require.Len(t, fx.writer.beginCalls, 2)
-	require.Equal(t, core.TurnIndex(12), frontierOf(fx))
-	seg, err := segs.Get(ctx, s6)
-	require.NoError(t, err)
-	require.True(t, seg.EncodedOnce)
-
-	// A writer that refuses on its own state (A3's alreadyEncoded hook) cannot be attributed
-	// through the log: the retry recurs, the draft is abandoned, nothing is encoded.
-	own := newFrontierFixture(t)
-	o1 := own.store.segs.addSegment(t, rtSession, 1, 2, 100)
-	o2 := own.store.segs.addSegment(t, rtSession, 3, 4, 100)
-	own.rt.NoteAPIRound(4)
-	own.writer.alreadyEncoded[o2] = true
-	advance(t, own)
-	require.Equal(t, 2, own.log.count(logLoud))
-	require.Equal(t, 1, own.writer.abortCalls)
-	require.Zero(t, frontierOf(own))
-	require.Empty(t, own.store.segs.markCalls, "nothing reached MarkEncoded")
-	for _, id := range []core.SegmentID{o1, o2} {
-		seg, err := own.store.segs.Get(ctx, id)
-		require.NoError(t, err)
-		require.False(t, seg.EncodedOnce)
-	}
+func TestFrontier_SessionChangeDuringAdvancePreservesOwnerWork(t *testing.T) {
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 100)
+	fx.rt.NoteAPIRound(3)
+	entered, release := make(chan struct{}), make(chan struct{})
+	defer close(release)
+	fx.rt.advancer = frontierAdvanceFunc(func(_ context.Context, session core.SessionID, _ []core.SegmentID) (core.TurnIndex, error) {
+		if session != rtSession {
+			return 0, context.Canceled
+		}
+		close(entered)
+		<-release
+		return 3, nil
+	})
+	finished := make(chan error, 1)
+	go func() { finished <- fx.rt.advanceFrontier(context.Background()) }()
+	<-entered
+	fx.rt.BindSession("next-session", nil)
+	// Release once while also allowing cleanup if an assertion aborts the test.
+	release <- struct{}{}
+	require.NoError(t, <-finished)
+	require.Zero(t, frontierOf(fx), "old-session work must not update the new session's frontier")
+	require.Zero(t, fx.writer.abortCalls, "rebinding has no authority over the old owner's draft")
 }
 
 func TestFrontier_CloseWritesRealSegmentTokens(t *testing.T) {
@@ -552,4 +548,236 @@ func TestFrontier_ResidualOverBudgetWarnsOnce(t *testing.T) {
 		require.Equal(t, 6, ft)
 		require.Equal(t, int64(1), fx.reg.Gauge(gaugeResidualOverBudget).Value())
 	})
+}
+
+// ── Dependency verification before advance (item 5 / G12) ────────────────────────────────────
+
+// reReadLog delegates every SegmentLog call to inner but lets a test script what the
+// verification pass sees when it RE-READS a segment. Unencoded still lists the segment as
+// closed; Get answers with whatever the script says, which is how "the evidence changed between
+// listing and advancing" is injected without touching internal/store.
+type reReadLog struct {
+	store.SegmentLog
+	get func(ctx context.Context, id core.SegmentID) (store.Segment, error)
+}
+
+func (l reReadLog) Get(ctx context.Context, id core.SegmentID) (store.Segment, error) {
+	if l.get != nil {
+		return l.get(ctx, id)
+	}
+	return l.SegmentLog.Get(ctx, id)
+}
+
+// swapSegLog installs a SegmentLog on the runtime under its lock.
+func swapSegLog(fx *rtFixture, l store.SegmentLog) {
+	fx.rt.mu.Lock()
+	fx.rt.segs = l
+	fx.rt.mu.Unlock()
+}
+
+// TestFrontier_AdvanceStopsAtAGapInDurableEvidence is the "never advance past missing evidence"
+// gate. Turns 4–6 have no segment at all, so the frontier stops at 3: the segment beyond the gap
+// is NOT encoded out of order, and it stays listed so a later pass can still take it.
+func TestFrontier_AdvanceStopsAtAGapInDurableEvidence(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	ctx := context.Background()
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	beyond := fx.store.segs.addSegment(t, rtSession, 7, 9, 700) // turns 4-6 are missing
+	openSegment(t, fx, 10)
+	fx.rt.NoteAPIRound(10)
+
+	advance(t, fx)
+
+	require.Equal(t, [][]core.SegmentID{{a}}, fx.writer.advanceCalls, "only the verified prefix is submitted")
+	require.Equal(t, core.TurnIndex(3), frontierOf(fx), "the frontier stops at the last durable turn")
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified))
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified+"."+evidenceGap))
+	require.Equal(t, 1, fx.log.count(logWarn), "the gap is reported, not silent")
+
+	seg, err := fx.store.segs.Get(ctx, beyond)
+	require.NoError(t, err)
+	require.False(t, seg.EncodedOnce, "the segment past the gap is preserved, not closed over")
+}
+
+// TestFrontier_AdvanceRefusesUnreadableEvidence covers evidence that has FAILED rather than gone
+// missing: the segment log cannot re-read the very first candidate, so nothing advances at all.
+func TestFrontier_AdvanceRefusesUnreadableEvidence(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+	swapSegLog(fx, reReadLog{
+		SegmentLog: fx.store.segs,
+		get: func(context.Context, core.SegmentID) (store.Segment, error) {
+			return store.Segment{}, core.ErrNotFound
+		},
+	})
+
+	advance(t, fx)
+
+	require.Empty(t, fx.writer.advanceCalls, "no advance over evidence that cannot be read")
+	require.Empty(t, fx.writer.beginCalls, "and no draft is begun for it")
+	require.Zero(t, frontierOf(fx))
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified+"."+evidenceUnreadable))
+}
+
+// TestFrontier_AdvanceRefusesInFlightEvidence covers work still being produced: a segment that
+// was closed when Unencoded listed it comes back OPEN on the verification re-read. In-flight work
+// is never encoded, and the frontier stops at its predecessor.
+func TestFrontier_AdvanceRefusesInFlightEvidence(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	inflight := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+	inner := fx.store.segs
+	swapSegLog(fx, reReadLog{
+		SegmentLog: inner,
+		get: func(ctx context.Context, id core.SegmentID) (store.Segment, error) {
+			seg, err := inner.Get(ctx, id)
+			if id == inflight {
+				seg.Closed = false
+			}
+			return seg, err
+		},
+	})
+
+	advance(t, fx)
+
+	require.Equal(t, [][]core.SegmentID{{a}}, fx.writer.advanceCalls)
+	require.Equal(t, core.TurnIndex(3), frontierOf(fx))
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified+"."+evidenceNotClosed))
+}
+
+// TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour proves the prefix is not broken by
+// durable evidence: an already-encoded segment is not resubmitted but contiguity continues across
+// it, so its successor is still reached.
+//
+// Stepping over it is not the same as saying nothing about it. The row asserts both halves: b is
+// absent from the verified prefix AND named in the dpi return, because the only reason it can be
+// in a batch at all is that two writers disagree about who owns it. It was returning [a c] with no
+// second signal that let a §4.6 violation reach the sweep as silence.
+func TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	c := fx.store.segs.addSegment(t, rtSession, 7, 8, 400)
+	markEncoded(t, fx, frontierForeignSeq, b)
+
+	batch := []store.Segment{
+		{ID: a, Session: rtSession, StartTurn: 1, EndTurn: 3, Closed: true},
+		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true},
+		{ID: c, Session: rtSession, StartTurn: 7, EndTurn: 8, Closed: true},
+	}
+	ids, dpi, stop := verifyEvidence(context.Background(), fx.store.segs, rtSession, batch)
+	require.Nil(t, stop, "durable evidence either side of it: nothing stops the prefix")
+	require.Equal(t, []core.SegmentID{a, c}, ids, "b is not resubmitted and c is still reached")
+	require.Equal(t, []core.SegmentID{b}, dpi, "and b is REPORTED, not silently dropped")
+}
+
+// dpiScriptedSegs is the two-writer disagreement one process over one log cannot produce on its
+// own: Unencoded still OFFERS a segment the same log already records as encoded by another
+// checkpoint. The real Unencoded filters on EncodedOnce, so extra is the only way to reach the
+// state §4.6's guard exists for. Everything else falls through to the wrapped log.
+type dpiScriptedSegs struct {
+	store.SegmentLog
+	extra []store.Segment
+}
+
+func (s dpiScriptedSegs) Unencoded(ctx context.Context, sess core.SessionID) ([]store.Segment, error) {
+	out, err := s.SegmentLog.Unencoded(ctx, sess)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, s.extra...), nil
+}
+
+// TestFrontier_AdvanceIsLoudAboutADPIViolation is the scheduler-side half of the §4.6 guard, and
+// the direction that regressed. Verification steps over an already-encoded segment, so the writer
+// never sees it and the writer's own ErrAlreadyEncoded can never fire for it. With that as the
+// only guard the pass encodes the rest of the batch, drops the contested id and reports the
+// violation NOWHERE — which is indistinguishable, from outside, from a clean pass.
+func TestFrontier_AdvanceIsLoudAboutADPIViolation(t *testing.T) {
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	markEncoded(t, fx, frontierForeignSeq, b)
+	swapSegLog(fx, dpiScriptedSegs{SegmentLog: fx.store.segs, extra: []store.Segment{
+		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true, EncodedOnce: true},
+	}})
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+
+	require.NoError(t, fx.rt.advanceFrontier(context.Background()),
+		"the violation is logged and its ids dropped; it is not a pass failure")
+
+	require.Equal(t, []string{msgDPIGuard}, fx.log.msgs(logLoud),
+		"a DPI violation must never be able to pass silently")
+	require.Equal(t, int64(1), fx.counter(counterFrontierDPIGuard))
+	require.Equal(t, [][]core.SegmentID{{a}}, fx.writer.advanceCalls,
+		"the clean segment still advances; the contested one is never resubmitted")
+	require.Zero(t, fx.counter(counterFrontierUnverified),
+		"a violation is not a shortfall of evidence and must not be reported as one")
+}
+
+// ── Cancellation and bounded resources (item 9) ──────────────────────────────────────────────
+
+// TestFrontier_AdvanceHonoursCancellation asserts a cancelled idle budget stops the pass before
+// it reaches the writer. The run still counts — the starvation counter measures passes, not work
+// — but nothing is begun, nothing is advanced and the frontier does not move.
+func TestFrontier_AdvanceHonoursCancellation(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	openSegment(t, fx, 4)
+	fx.rt.NoteAPIRound(4)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err := fx.rt.advanceFrontier(ctx)
+	require.ErrorIs(t, err, context.Canceled)
+
+	require.Empty(t, fx.writer.beginCalls, "a cancelled pass never opens a draft")
+	require.Empty(t, fx.writer.advanceCalls)
+	require.Zero(t, frontierOf(fx))
+}
+
+// TestFrontier_SegmentLogFailureLeavesTheFrontierUnchanged is the disk-failure row: the segment
+// log cannot be listed, so the pass reports the failure and changes nothing. A frontier that
+// advanced on an unreadable log would be a frontier over evidence nobody checked.
+func TestFrontier_SegmentLogFailureLeavesTheFrontierUnchanged(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	fx.store.segs.unencodedErr = errors.New("disk I/O error")
+
+	require.Error(t, fx.rt.advanceFrontier(context.Background()))
+	require.Empty(t, fx.writer.beginCalls)
+	require.Zero(t, frontierOf(fx))
+	require.Equal(t, 1, fx.log.count(logWarn))
+}
+
+// TestFrontier_VerifyEvidenceStopsOnCancellation keeps the verification walk itself bounded: a
+// budget that runs out mid-batch stops where it is rather than re-reading every remaining
+// segment.
+func TestFrontier_VerifyEvidenceStopsOnCancellation(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	ids, _, stop := verifyEvidence(ctx, fx.store.segs, rtSession, []store.Segment{
+		{ID: a, Session: rtSession, StartTurn: 1, EndTurn: 3, Closed: true},
+		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true},
+	})
+	require.Empty(t, ids)
+	require.NotNil(t, stop)
+	require.Equal(t, evidenceCancelled, stop.reason)
 }

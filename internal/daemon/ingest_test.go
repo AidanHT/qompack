@@ -120,9 +120,10 @@ func TestIngestACKPrecedesProcessing(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	ing.Start(ctx, 1, func(context.Context, ipc.Request) {
+	ing.Start(ctx, 1, func(context.Context, ipc.Request) ipc.Response {
 		entered <- struct{}{}
 		<-release
+		return ipc.Response{OK: true}
 	})
 
 	line := []byte(`{"op":"observe.tool","s":"sess-1","t":1}`)
@@ -203,7 +204,7 @@ func TestIngestResolvesBlobsEndToEnd(t *testing.T) {
 	t.Cleanup(cancel)
 
 	received := make(chan ipc.Request, 1)
-	ing.Start(ctx, 1, func(_ context.Context, r ipc.Request) { received <- r })
+	ing.Start(ctx, 1, func(_ context.Context, r ipc.Request) ipc.Response { received <- r; return ipc.Response{OK: true} })
 
 	srv, err := ipc.NewServer(addr, logging.Nop(), nil, 0)
 	require.NoError(t, err)
@@ -259,9 +260,13 @@ func TestIngestResolvesBlobsEndToEnd(t *testing.T) {
 
 	entries, err := os.ReadDir(paths.Of(root).Spool)
 	require.NoError(t, err)
+	blobs := 0
 	for _, e := range entries {
-		require.False(t, strings.HasPrefix(e.Name(), "blob-"), "the blob file must be deleted once resolved: %s", e.Name())
+		if strings.HasPrefix(e.Name(), "blob-") {
+			blobs++
+		}
 	}
+	require.Equal(t, 1, blobs, "live handling must retain the WAL's source until its drain offset is durable")
 }
 
 // TestAcceptWireLineWALsExactlyOneTerminator pins Accept against the bytes the wire path actually
@@ -296,9 +301,9 @@ func TestAcceptWireLineWALsExactlyOneTerminator(t *testing.T) {
 		"one record, one terminator: the WAL must hold no blank separator lines")
 }
 
-// TestLiveDispatchedLineIsNotRedispatchedByDrain pins live-vs-drain exactly-once. A line accepted
+// TestLiveDispatchedLineIsNotRedispatchedByDrain pins same-daemon live-vs-drain dedup. A line accepted
 // and dispatched on the live path (WAL append -> ring -> worker, which records the dedup key in
-// the seen-set) must be skipped when a later Drain — the SessionEnd flush route, a restart, an
+// the seen-set) must be skipped when a later Drain — the SessionEnd flush route or an
 // idle tick — re-reads the same WAL file. The two sides can only agree if they hash the same
 // bytes: Accept receives the encoder-terminated line while Drain reads the line back trimmed, so
 // the key must be computed over the trimmed bytes on both sides. IsLive answers false here
@@ -316,10 +321,11 @@ func TestLiveDispatchedLineIsNotRedispatchedByDrain(t *testing.T) {
 	t.Cleanup(cancel)
 	var mu sync.Mutex
 	liveRuns := 0
-	ing.Start(ctx, 1, func(context.Context, ipc.Request) {
+	ing.Start(ctx, 1, func(context.Context, ipc.Request) ipc.Response {
 		mu.Lock()
 		liveRuns++
 		mu.Unlock()
+		return ipc.Response{OK: true}
 	})
 
 	ev := &hookio.Event{HookEventName: "PostToolUse", SessionID: "sess-1", CWD: root}
@@ -333,6 +339,11 @@ func TestLiveDispatchedLineIsNotRedispatchedByDrain(t *testing.T) {
 		defer mu.Unlock()
 		return liveRuns == 1
 	}, 2*time.Second, 10*time.Millisecond, "the live path must dispatch the accepted line once")
+	// This fixture declares the session ended. Join the worker so its acknowledgement is
+	// visible, and close the WAL writer before asking Drain to retire it on Windows.
+	cancel()
+	ing.Wait()
+	require.NoError(t, ing.Close())
 
 	drainRuns := 0
 	dr := newDrainer(DrainConfig{
