@@ -66,6 +66,13 @@ type CaptureSidecar struct {
 	SourceBytes   int                  `json:"source_bytes,omitempty"`
 	HostFields    []string             `json:"host_fields,omitempty"`
 	Bytes         []byte               `json:"bytes,omitempty"`
+	// ToolUseID and Root are the verified reference this observation was published as, filled in by
+	// LinkCaptureReference after the index record lands. Published says the join was made; a sidecar
+	// with Published false is a durable capture with no reference yet, which is the exact state a
+	// crash between publication order's first two stages leaves behind.
+	ToolUseID core.ToolUseID `json:"tool_use_id,omitempty"`
+	Root      core.Hash      `json:"root"`
+	Published bool           `json:"published"`
 	// BytesHash is the domain-separated digest of Bytes, zero when no bytes were retained. It is
 	// what CaptureSidecarPath's caller registers as a retention root.
 	BytesHash core.Hash `json:"bytes_hash"`
@@ -82,6 +89,7 @@ var captureSidecarKeys = map[string]bool{
 	"delivery": true, "admission": true, "source_format": true, "policy": true, "hash": true,
 	"fidelity": true, "outcome": true, "capture_error": true, "redacted": true, "truncated": true,
 	"source_bytes": true, "host_fields": true, "bytes": true, "bytes_hash": true,
+	"tool_use_id": true, "root": true, "published": true,
 }
 
 type captureSidecarWire CaptureSidecar
@@ -164,6 +172,12 @@ func WriteCaptureSidecar(projectRoot string, sc CaptureSidecar) error {
 		return err
 	}
 	sc.Version = CaptureSidecarVersion
+	// A redelivery rewrites its own record. Whatever reference the first delivery already published
+	// is carried forward: re-capturing the same bytes is not a reason to forget that they were
+	// published, and forgetting it would turn a completed publication back into an open one.
+	if prior, err := ReadCaptureSidecar(projectRoot, sc.ObservationID); err == nil && prior.Published {
+		sc.ToolUseID, sc.Root, sc.Published = prior.ToolUseID, prior.Root, true
+	}
 	if len(sc.Bytes) != 0 {
 		sc.BytesHash = core.HashBytes(captureSidecarHashDomain, sc.Bytes)
 	}
@@ -213,4 +227,39 @@ func ReadCaptureSidecar(projectRoot string, id core.ObservationID) (CaptureSidec
 			core.ErrDegraded, sc.Version, CaptureSidecarVersion)
 	}
 	return sc, nil
+}
+
+// CaptureReference is publication order's SECOND stage: the verified reference. It names the index
+// record and the durable content root that a published observation rests on, and it is written into
+// the sidecar the capture already made durable, so the join between an observation identity and the
+// record that published it survives a crash in either direction.
+//
+// ToolUseRecord's own wire shape is reproduced byte for byte by a checked-in golden and may not
+// grow a field; this is where that link lives instead.
+type CaptureReference struct {
+	ToolUseID core.ToolUseID
+	Root      core.Hash
+}
+
+// LinkCaptureReference records ref against id's sidecar. It is idempotent — a redelivery writes the
+// same values — and it refuses to link a sidecar that does not exist, because a reference to a
+// capture this store cannot produce is exactly the dangling handle publication order forbids.
+func LinkCaptureReference(projectRoot string, id core.ObservationID, ref CaptureReference) error {
+	sc, err := ReadCaptureSidecar(projectRoot, id)
+	if err != nil {
+		return err
+	}
+	if sc.ToolUseID == ref.ToolUseID && sc.Root == ref.Root && sc.Published {
+		return nil
+	}
+	sc.ToolUseID, sc.Root, sc.Published = ref.ToolUseID, ref.Root, true
+	p, err := CaptureSidecarPath(projectRoot, id)
+	if err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(sc)
+	if err != nil {
+		return err
+	}
+	return paths.WriteAtomic(p, encoded, 0o600)
 }

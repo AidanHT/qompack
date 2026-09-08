@@ -20,6 +20,7 @@ import (
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/observer"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -475,7 +476,7 @@ func (dr *drainer) dispatchPending(ctx context.Context, req ipc.Request, lease d
 	}
 	dctx, cancel := context.WithTimeout(ctx, drainLineDeadline)
 	defer cancel()
-	resp := dr.cfg.Dispatch(dctx, resolved)
+	resp := dr.cfg.Dispatch(observer.WithObservation(dctx, lease.ObservationID), resolved)
 	if !resp.OK || resp.Err != "" {
 		if dctx.Err() != nil {
 			return "", dctx.Err()

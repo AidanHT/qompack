@@ -220,6 +220,7 @@ const (
 const (
 	stagePut      = "put"
 	stageIndex    = "index"
+	stageLink     = "link"
 	stageFileVer  = "fileversion"
 	stageDAG      = "dag"
 	stageState    = "state"
@@ -436,3 +437,29 @@ func (o *observer) session(s core.SessionID) *sessionState {
 }
 
 // OnSessionStart and OnSessionEnd live in session.go.
+
+// ---------------------------------------------------------------------------
+// Observation identity (T20-M1-02)
+//
+// Event is an alias for hookio.Event, whose fields are the host's payload; the daemon-assigned
+// observation identity is not the host's and must not be smuggled into it. It travels on the
+// context instead, from the ingest worker (or the drain) that took the lease down to the publishing
+// stage here, which is the same channel the daemon already uses for the Services/Registry values
+// every route reads.
+type observationKey struct{}
+
+// WithObservation attaches the durable identity the daemon assigned to this delivery.
+func WithObservation(ctx context.Context, id core.ObservationID) context.Context {
+	if id == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, observationKey{}, id)
+}
+
+// ObservationFrom returns the identity WithObservation attached, or "" when this delivery has none
+// — an unleased delivery, or an in-process caller with no daemon behind it. Empty is a gap and is
+// treated as one: nothing claims a durable identity it was not given.
+func ObservationFrom(ctx context.Context) core.ObservationID {
+	id, _ := ctx.Value(observationKey{}).(core.ObservationID)
+	return id
+}
