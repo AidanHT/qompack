@@ -400,3 +400,36 @@ func TestBaselineProvenance_StatesItsOwnNonComparableRules(t *testing.T) {
 	require.Empty(t, p.NewFields)
 	require.Empty(t, p.OldFields)
 }
+
+// TestRecallBaselineProvenance_DescribesTheV4Rebaseline covers the artifact the V4 SP-02 work
+// added BESIDE the preserved 2026-08-25 one.
+//
+// The old baseline is not edited in place (M0-04), so the re-baseline is a second artifact, and a
+// second artifact that nothing checked would be exactly the drift this file exists to stop. Three
+// things are asserted: it validates and its digest matches the file, eval.Comparable refuses it
+// against the old one, and every one of the old record's eight historical failures still travels
+// with it — the whole point of preserving both is that the new number does not erase what the old
+// one said.
+func TestRecallBaselineProvenance_DescribesTheV4Rebaseline(t *testing.T) {
+	old := loadPhase0Provenance(t)
+
+	next, err := eval.LoadBaselineProvenance(baselinePath(t, "phase0-recall.provenance.v1.json"))
+	require.NoError(t, err)
+	require.NoError(t, next.Validate())
+	require.NoError(t, next.Check(baselinePath(t, "phase0-recall.json")))
+	require.Equal(t, "testdata/baseline/phase0-recall.json", next.Artifact)
+	require.Equal(t, "eval.Synthesize/2", next.Corpus.Generator)
+
+	ok, notes := eval.Comparable(old, next)
+	require.False(t, ok, "a re-baseline over a regenerated corpus is not a later reading of the old one")
+	joined := strings.Join(notes, "\n")
+	require.Contains(t, joined, "corpus")
+	require.Contains(t, joined, "decision_preservation")
+
+	carried := strings.Join(next.HistoricalFailures, "\n")
+	for _, f := range old.HistoricalFailures {
+		require.Contains(t, carried, f, "the re-baseline dropped a failure the old record carried")
+	}
+	require.Contains(t, carried, "0.695164", "the superseded headline number travels beside the new one")
+	require.Contains(t, carried, "J5", "the waived-open CI-gate obligation is not discharged by a re-baseline")
+}
