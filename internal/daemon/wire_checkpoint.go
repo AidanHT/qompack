@@ -1,9 +1,12 @@
 package daemon
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"sync/atomic"
 	"time"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -11,6 +14,8 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/store"
 )
 
 // The checkpoint layer's wiring into the daemon. This is the only file SP-10 adds to a package it
@@ -190,28 +195,152 @@ func precompactDeadline(now time.Time, timeout time.Duration) (deadline time.Tim
 	return now.Add(timeout - precompactDeadlineSlack), true
 }
 
+// WireOption is an optional extra for WireCheckpoint. It is variadic so the shipped four-argument
+// call sites keep compiling unchanged.
+type WireOption func(*wireCfg)
+
+type wireCfg struct {
+	noter   LocalCheckpointNoter
+	sources func() (checkpoint.SourceSet, error)
+}
+
+// ReportLocalCheckpointsTo routes the cadence's own seals to the scheduler runtime, which records
+// them SEPARATELY from host compactions (see schedRuntime.NoteLocalCheckpoint). Without it the
+// cadence still runs and is still counted here; what is lost is only the scheduler-side record.
+func ReportLocalCheckpointsTo(n LocalCheckpointNoter) WireOption {
+	return func(c *wireCfg) { c.noter = n }
+}
+
+// WithSourceSupplier resolves the SourceSet AT EACH IDLE RUN instead of freezing the value
+// WireCheckpoint was handed at registration.
+//
+// It exists because the production composition root cannot hand over a complete SourceSet at
+// wiring time and must not fabricate one to look complete. SourceSet.Ledger is the negative-
+// knowledge ledger, and the daemon opens that LAZILY -- on the first compaction, through
+// RehydrateOptions.OpenLedger, which assigns the handle back onto daemon.Options.Ledger. An eager
+// open would create sketches/tried.bloom and hold an eliminations.jsonl handle in every daemon
+// that never compacts, which is exactly what that call site refuses to do. So the frozen value is
+// permanently nil-Ledger, SourceSet.Validate refuses it, and the three tasks below are inert for
+// the life of the process -- the same class of capture bug SchedulerRuntimeOptions.LedgerFn was
+// added for, one layer up.
+//
+// The supplier is expected to return its PARTIAL set alongside the error when only some seams are
+// missing: materialize_pins needs Pins and nothing else, and refusing to materialize pins because
+// no compaction has yet opened a ledger would be a degradation with no cause.
+func WithSourceSupplier(fn func() (checkpoint.SourceSet, error)) WireOption {
+	return func(c *wireCfg) { c.sources = fn }
+}
+
+// counterSourcesUnavailable counts idle passes that found no usable SourceSet. It is the
+// unavailable-route signal for frontier advancement: a daemon whose ledger has never been opened
+// reports this once per pass and advances nothing, rather than either crashing on a nil seam or
+// going silent.
+const counterSourcesUnavailable = "checkpoint.sources.unavailable"
+
+// msgSourcesUnavailable is logged Warn the FIRST time a pass finds no usable source and Debug
+// afterwards. Once per pass forever would be a line every idle tick for the whole life of a daemon
+// that never compacts; never logging at all is the silence §16 forbids.
+const msgSourcesUnavailable = "checkpoint: no usable source set; the frontier is not advancing"
+
+// counterCadenceSeal counts checkpoints QOMPACK sealed on its OWN cadence. It is a different
+// counter from every host-compaction instrument on purpose: §8.5's cadence clause exists so that
+// checkpoints exist even when compaction does NOT fire, and a report that could not tell the two
+// apart would show a project with no compactions at all as a project compacting all day.
+const counterCadenceSeal = "checkpoint.cadence.local_seal"
+
 // WireCheckpoint registers the three idle tasks. It must run AFTER daemon.New, because Idle() is a
 // method on the constructed Daemon and there is no Options-level idle-registration seam.
-func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src checkpoint.SourceSet) {
+func WireCheckpoint(d Daemon, cfg config.Config, w *checkpoint.FileWriter, src checkpoint.SourceSet, opts ...WireOption) {
 	idle := d.Idle()
 	log := daemonLog(d)
+	var wc wireCfg
+	for _, o := range opts {
+		o(&wc)
+	}
+
+	resolve := wc.sources
+	if resolve == nil {
+		// No supplier: the caller froze a value, so keep answering with it. It still validates,
+		// so a half-wired caller reaches the unavailable route rather than a nil dereference.
+		resolve = staticSources(src)
+	}
 
 	if cfg.Checkpoint.Frontier.AdvanceOnSegmentClose {
-		idle.Register(idleTaskAdvanceFrontier, idlePrioAdvanceFrontier, func(ctx context.Context) error {
-			return advanceAllSessions(ctx, d.Registry(), w, src, log)
-		})
+		idle.Register(idleTaskAdvanceFrontier, idlePrioAdvanceFrontier,
+			advanceFrontierTask(d.Registry(), w, resolve, log, metricsOf(d)))
 	}
 
 	idle.Register(idleTaskCheckpointCadence, idlePrioCheckpointCadence, func(ctx context.Context) error {
-		return finalizeIfDue(ctx, cfg, w)
+		return finalizeIfDue(ctx, cfg, w, wc.noter, metricsOf(d))
 	})
 
-	idle.Register(idleTaskMaterializePins, idlePrioMaterializePins, func(ctx context.Context) error {
-		if src.Pins == nil {
+	idle.Register(idleTaskMaterializePins, idlePrioMaterializePins, materializePinsTask(resolve))
+}
+
+// staticSources adapts a frozen SourceSet to the supplier shape, validating it so that a
+// half-wired caller is reported unavailable instead of dereferenced.
+func staticSources(src checkpoint.SourceSet) func() (checkpoint.SourceSet, error) {
+	return func() (checkpoint.SourceSet, error) {
+		if err := src.Validate(); err != nil {
+			return src, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return src, nil
+	}
+}
+
+// advanceFrontierTask is the body registered as idleTaskAdvanceFrontier, built separately so the
+// supplier contract has a test seam that does not need a constructed Daemon.
+//
+// An unusable source is NOT an idle-task error. RunOnce warns on every error it is handed, so
+// returning one here would put a line in the log on every tick of every daemon that has not
+// compacted yet -- for a condition that is expected, temporary and already reported once, with a
+// counter behind it. §12.3's "fail toward doing nothing" is the whole handling: nothing is
+// advanced, nothing is begun, and the pass is over.
+func advanceFrontierTask(reg *SessionRegistry, w *checkpoint.FileWriter,
+	resolve func() (checkpoint.SourceSet, error), log logging.Logger, m obs.Registry,
+) func(context.Context) error {
+	if log == nil {
+		log = logging.Nop()
+	}
+	var reported atomic.Bool
+	return func(ctx context.Context) error {
+		live, err := resolve()
+		if err != nil {
+			if m != nil {
+				m.Counter(counterSourcesUnavailable).Add(1)
+			}
+			if reported.CompareAndSwap(false, true) {
+				log.Warn(msgSourcesUnavailable, "err", err.Error())
+			} else {
+				log.Debug(msgSourcesUnavailable, "err", err.Error())
+			}
 			return nil
 		}
-		return src.Pins.Materialize(ctx)
-	})
+		// Republish to the writer now that the set is complete. BindCheckpoint publishes whatever
+		// it was handed BEFORE daemon.New, which on the production path is still ledger-less, and
+		// SetSources drops an invalid set on the floor. Without this the cold PreCompact path -- a
+		// compaction that fires with no draft open -- would have no sources for the life of the
+		// process even after the ledger appeared. SetSources validates and takes one uncontended
+		// lock; it is idempotent and costs nothing to repeat.
+		w.SetSources(live)
+		return advanceAllSessions(ctx, reg, w, live, log)
+	}
+}
+
+// materializePinsTask is the body registered as idleTaskMaterializePins.
+//
+// It deliberately ignores the supplier's error and reads Pins out of the PARTIAL set: pins are
+// materialized from the pin log alone and need neither the ledger, the graph nor the store. A pin
+// view left stale because no compaction has happened yet is exactly the derived-state drift this
+// task exists to prevent.
+func materializePinsTask(resolve func() (checkpoint.SourceSet, error)) func(context.Context) error {
+	return func(ctx context.Context) error {
+		live, _ := resolve()
+		if live.Pins == nil {
+			return nil
+		}
+		return live.Pins.Materialize(ctx)
+	}
 }
 
 // daemonLog reports the logger d was constructed with, or a no-op one for any other Daemon
@@ -248,7 +377,17 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 		log = logging.Nop()
 	}
 	var firstErr error
-	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) { return src, nil })
+	// The port's source supplier VALIDATES before handing anything over. A SourceSet with a nil
+	// seam is not a source: Begin would reach several frames deeper before failing, and a partially
+	// wired composition root would look, at this call site, exactly like a working one. Validating
+	// here means the frontier route is either backed by a real source or explicitly unavailable —
+	// never quietly advancing over a stub.
+	advancer := checkpoint.NewFrontierAdvancer(w, func() (checkpoint.SourceSet, error) {
+		if err := src.Validate(); err != nil {
+			return checkpoint.SourceSet{}, fmt.Errorf("%w: %w", err, core.ErrDegraded)
+		}
+		return src, nil
+	})
 	for _, s := range liveSessions(reg, w, src) {
 		if ctx.Err() != nil {
 			return firstNonNil(firstErr, ctx.Err())
@@ -263,9 +402,26 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 		if len(segs) == 0 {
 			continue
 		}
-		ids := make([]core.SegmentID, 0, len(segs))
+		// Same discipline as the scheduler's own pass: ascending by turn, then the longest
+		// leading run whose evidence the segment log can still vouch for. A gap or an in-flight
+		// segment stops this session's advance where the evidence stops rather than encoding
+		// past it — see verifyEvidence for why a frontier may not skip a span.
+		closed := segs[:0:0]
 		for _, seg := range segs {
-			ids = append(ids, seg.ID)
+			if seg.Closed {
+				closed = append(closed, seg)
+			}
+		}
+		slices.SortFunc(closed, func(a, b store.Segment) int { return cmp.Compare(a.StartTurn, b.StartTurn) })
+		ids, stop := verifyEvidence(ctx, src.Segments, s, closed)
+		if stop != nil {
+			log.Warn(msgUnverifiedEvidence,
+				"session", string(s), "reason", stop.reason,
+				"segment", int(stop.segment), "atTurn", int(stop.atTurn),
+				"verified", len(ids), "backlog", len(closed))
+		}
+		if len(ids) == 0 {
+			continue
 		}
 		if _, err := advancer.Advance(ctx, s, ids); err != nil {
 			// A DPI violation -- the same segment reachable from two checkpoints -- is the §4.6
@@ -299,7 +455,7 @@ func advanceAllSessions(ctx context.Context, reg *SessionRegistry, w *checkpoint
 // pins materialize and a successor Begin, and RunOnce measures the remaining idle budget only
 // BETWEEN tasks. Without this check a tick with N due drafts performs N full finalizes whatever the
 // budget said, starving every idle task queued behind the cadence.
-func finalizeIfDue(ctx context.Context, cfg config.Config, w *checkpoint.FileWriter) error {
+func finalizeIfDue(ctx context.Context, cfg config.Config, w *checkpoint.FileWriter, noter LocalCheckpointNoter, m obs.Registry) error {
 	budget := core.Tokens(cfg.Checkpoint.BudgetTokens)
 	var firstErr error
 	for _, s := range w.OpenDrafts() {
@@ -315,11 +471,31 @@ func finalizeIfDue(ctx context.Context, cfg config.Config, w *checkpoint.FileWri
 		if !full && !enough {
 			continue
 		}
-		if _, err := w.Finalize(ctx, d, budget); err != nil {
+		ref, err := w.Finalize(ctx, d, budget)
+		if err != nil {
 			firstErr = firstNonNil(firstErr, err)
+			continue
+		}
+		// This seal was OURS. It is recorded and counted as a local checkpoint and never as a
+		// compaction: the host did not act, its context window is untouched, and the Young-Daly
+		// clock the scheduler measures the host by must not restart here.
+		if m != nil {
+			m.Counter(counterCadenceSeal).Add(1)
+		}
+		if noter != nil {
+			noter.NoteLocalCheckpoint(ref.Seq)
 		}
 	}
 	return firstErr
+}
+
+// metricsOf reports the registry d was constructed with, or nil for any other Daemon, mirroring
+// daemonLog.
+func metricsOf(d Daemon) obs.Registry {
+	if dd, ok := d.(*daemon); ok {
+		return dd.m
+	}
+	return nil
 }
 
 // liveSessions is every session the frontier may need advancing for, newest source first: the
