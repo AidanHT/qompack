@@ -592,3 +592,171 @@ func TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen(t *testing.T) {
 	_, err = tp.Store.GetRoot(ctx, leased.Hash)
 	require.NoError(t, err, "a torn acknowledgement must not close its lease")
 }
+
+// ── retention-roots.jsonl has a bounded lifecycle (V4 fix O-2) ───────────────────────────────
+
+// retentionRootLines counts the non-empty lines retention-roots.jsonl currently holds.
+func retentionRootLines(t *testing.T, root string) int {
+	t.Helper()
+	b, err := os.ReadFile(paths.Long(RetentionRootsPath(root)))
+	if err != nil {
+		require.True(t, os.IsNotExist(err))
+		return 0
+	}
+	n := 0
+	for _, line := range bytes.Split(b, []byte{'\n'}) {
+		if len(bytes.TrimSpace(line)) > 0 {
+			n++
+		}
+	}
+	return n
+}
+
+// appendRawRetentionLine appends one line this build does not recognize, standing in for a future
+// writer's record.
+func appendRawRetentionLine(t *testing.T, root, line string) {
+	t.Helper()
+	w, err := paths.AppendOnly(RetentionRootsPath(root))
+	require.NoError(t, err)
+	_, err = w.Write([]byte(line + "\n"))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+}
+
+// TestCompactRetentionRoots_ShedsDuplicatesAndKeepsEveryRoot is fix O-2's first half. The file
+// gains a line per delivery and per rollback drill and removes nothing, so it grows without bound;
+// compaction reduces it to the SET of claims it makes, and every claim must survive — including one
+// this build cannot read.
+func TestCompactRetentionRoots_ShedsDuplicatesAndKeepsEveryRoot(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	once := gcSeed(t, tp, "src/once.txt", "declared exactly once\n")
+	many := gcSeed(t, tp, "src/many.txt", "redeclared by every redelivery\n")
+
+	require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+		Hash: once.Hash, Class: RetentionRollback, Reason: "pre-cutover backup",
+	}))
+	for i := 0; i < 20; i++ {
+		require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+			Hash: many.Hash, Class: RetentionEvidence, Reason: fmt.Sprintf("capture sidecar, delivery %d", i),
+		}))
+	}
+	const futureRecord = `{"v":99,"kind":"a record a later wave writes"}`
+	appendRawRetentionLine(t, tp.Root, futureRecord)
+	appendRawRetentionLine(t, tp.Root, futureRecord) // an exact repeat is still a repeat
+
+	require.Equal(t, 23, retentionRootLines(t, tp.Root))
+	rep, err := CompactRetentionRoots(tp.Root)
+	require.NoError(t, err)
+	require.True(t, rep.Compacted)
+	require.Equal(t, 23, rep.LinesBefore)
+	require.Equal(t, 3, rep.LinesAfter, "one claim per distinct (hash, class), plus the unreadable line")
+	require.Less(t, rep.BytesAfter, rep.BytesBefore)
+	require.Equal(t, 3, retentionRootLines(t, tp.Root))
+
+	after, err := os.ReadFile(paths.Long(RetentionRootsPath(tp.Root)))
+	require.NoError(t, err)
+	require.Contains(t, string(after), futureRecord, "a line this build cannot read is preserved verbatim")
+
+	// A second pass is a no-op: the file is already the set it declares.
+	again, err := CompactRetentionRoots(tp.Root)
+	require.NoError(t, err)
+	require.False(t, again.Compacted)
+
+	// And nothing a claim held has become collectable.
+	_, err = tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	_, err = tp.Store.GetRoot(ctx, once.Hash)
+	require.NoError(t, err, "a rollback claim survives compaction")
+	_, err = tp.Store.GetRoot(ctx, many.Hash)
+	require.NoError(t, err, "an evidence claim survives compaction")
+}
+
+// TestCompactRetentionRoots_CrashMidCompactionLosesNothing is fix O-2's crash case. The rewrite is
+// staged, fsynced and renamed, so the only two states a crash can leave are "the original file" and
+// "the compacted file" — never a partial one. Both must declare the same set.
+//
+// The crash is injected where a power loss opens the widest window: after the old content has been
+// read and before the new content is in place, by making the staging directory unusable.
+func TestCompactRetentionRoots_CrashMidCompactionLosesNothing(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	a := gcSeed(t, tp, "src/a.txt", "claim a\n")
+	b := gcSeed(t, tp, "src/b.txt", "claim b\n")
+
+	for i := 0; i < 5; i++ {
+		require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+			Hash: a.Hash, Class: RetentionRollback, Reason: "rollback drill",
+		}))
+		require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+			Hash: b.Hash, Class: RetentionEvidence, Reason: "capture sidecar",
+		}))
+	}
+	p := RetentionRootsPath(tp.Root)
+	before, err := os.ReadFile(paths.Long(p))
+	require.NoError(t, err)
+
+	// The crash: the staging directory cannot be created, so the rewrite dies before the rename.
+	tmp := paths.Of(tp.Root).Tmp
+	require.NoError(t, os.RemoveAll(paths.Long(tmp)))
+	require.NoError(t, os.WriteFile(paths.Long(tmp), []byte("not a directory"), 0o600))
+
+	_, err = CompactRetentionRoots(tp.Root)
+	require.Error(t, err, "a compaction that cannot stage its rewrite must fail loudly")
+	interrupted, err := os.ReadFile(paths.Long(p))
+	require.NoError(t, err)
+	require.Equal(t, before, interrupted, "an interrupted compaction leaves the original file byte-identical")
+
+	// State one — the crash landed on the original file. Every claim still retains.
+	_, err = tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	_, err = tp.Store.GetRoot(ctx, a.Hash)
+	require.NoError(t, err)
+	_, err = tp.Store.GetRoot(ctx, b.Hash)
+	require.NoError(t, err)
+
+	// State two — the crash landed after the rename. The same claims must retain.
+	require.NoError(t, os.Remove(paths.Long(tmp)))
+	done, err := CompactRetentionRoots(tp.Root)
+	require.NoError(t, err)
+	require.True(t, done.Compacted)
+	require.Equal(t, 2, retentionRootLines(t, tp.Root))
+	_, err = tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	_, err = tp.Store.GetRoot(ctx, a.Hash)
+	require.NoError(t, err, "the compacted file retains everything the original did")
+	_, err = tp.Store.GetRoot(ctx, b.Hash)
+	require.NoError(t, err, "the compacted file retains everything the original did")
+}
+
+// TestGC_CompactsTheRetentionRootFile asserts the lifecycle is BOUNDED without a caller having to
+// remember: a completed pass sheds the duplication itself and reports how much it shed.
+func TestGC_CompactsTheRetentionRootFile(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	kept := gcSeed(t, tp, "src/kept.txt", "declared once per delivery\n")
+	for i := 0; i < 12; i++ {
+		require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+			Hash: kept.Hash, Class: RetentionEvidence, Reason: "capture sidecar",
+		}))
+	}
+	require.Equal(t, 12, retentionRootLines(t, tp.Root))
+
+	rep, err := tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	require.Equal(t, 11, rep.RetentionRootsShed)
+	require.Equal(t, 1, retentionRootLines(t, tp.Root), "a completed pass leaves one line per claim")
+	_, err = tp.Store.GetRoot(ctx, kept.Hash)
+	require.NoError(t, err, "the claim the file makes still retains after the pass compacted it")
+
+	// A dry run rewrites nothing.
+	for i := 0; i < 4; i++ {
+		require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+			Hash: kept.Hash, Class: RetentionEvidence, Reason: "capture sidecar",
+		}))
+	}
+	dry, err := tp.Store.GC(ctx, GCPolicy{RetainDays: -1, RetainSessions: -1, DryRun: true})
+	require.NoError(t, err)
+	require.Zero(t, dry.RetentionRootsShed)
+	require.Equal(t, 5, retentionRootLines(t, tp.Root), "a dry run leaves the file exactly as it found it")
+}
