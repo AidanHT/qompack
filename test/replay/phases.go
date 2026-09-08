@@ -36,6 +36,14 @@ var phaseChecks = map[int]func(Context) error{
 	// qompackRehydratePolicy records the per-session maxima the assertions read — numbers the
 	// driver's summed Policies map cannot recover.
 	3: phase3,
+	// 5 and 6 are SP-15's: §10 Phase 5's representation selection and §10 Phase 6's state-aware
+	// loop warnings, checked by phase5 and phase6 in policy_selection.go. They live beside the
+	// measurement engine for phase3's reason and for one of their own: unlike phases 0 and 3 they
+	// read nothing out of this Context, because their evidence is the committed held-out fixtures
+	// rather than the run's report — a check that needed a particular policy in --policies would
+	// fail on every invocation that did not include it, which is how a gate ends up disabled.
+	5: phase5,
+	6: phase6,
 }
 
 // phase0 is §10 Phase 0's exit criterion: "a single number for stock behaviour, reproducible

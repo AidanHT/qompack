@@ -1,0 +1,16 @@
+{
+  "name": "edit-nothing-changes",
+  "label": "stuck",
+  "why": "An edit-test loop that only looks like the ordinary one. The same file is edited back and forth to the same two contents and the test reports the same failure each round, so nothing has observably changed since the previous occurrence of either state. This is the stream that shows the detector is keyed on observed change rather than on the shape of the action stream: the symbols here are identical to edit-test-edit-progress, and the correct answers are opposite.",
+  "goal": "make TestPathKey normalize a UNC path",
+  "observations": [
+    {"turn": 0, "target": "internal/paths/key.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 1, "target": "internal/paths", "action": "Bash", "failure": "TestPathKey/unc: want //srv/x got srv/x", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 2, "target": "internal/paths/key.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 3, "target": "internal/paths", "action": "Bash", "failure": "TestPathKey/unc: want //srv/x got srv/x", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 4, "target": "internal/paths/key.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 5, "target": "internal/paths", "action": "Bash", "failure": "TestPathKey/unc: want //srv/x got srv/x", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 6, "target": "internal/paths/key.go", "action": "Edit", "failure": "", "progress": "none", "symbols": ["Edit"]},
+    {"turn": 7, "target": "internal/paths", "action": "Bash", "failure": "TestPathKey/unc: want //srv/x got srv/x", "progress": "none", "symbols": ["Bash", "test:fail"]}
+  ]
+}
