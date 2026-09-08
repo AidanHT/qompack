@@ -1,9 +1,19 @@
 package cli
 
 import (
+	"fmt"
+
+	"github.com/qompack/qompack/internal/checkpoint"
+	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/grammar"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/negknow"
+	"github.com/qompack/qompack/internal/pins"
 	"github.com/qompack/qompack/internal/scheduler"
+	"github.com/qompack/qompack/internal/store"
+	"github.com/qompack/qompack/internal/tokens"
 )
 
 // SP-12's three composition-root blocks, extracted from runDaemon because internal/cli/daemon.go
@@ -18,12 +28,17 @@ import (
 // integrated; accepted shared ledger/source wiring is still pending M1/M2. It never opens a
 // second store. Session is deliberately empty: the daemon is per
 // project and starts before any session exists; the runtime binds the first id its tap sees.
-// Frontier and Sources stay nil until their producer/recovery gates and C-1 wiring are accepted.
-// The checkpoint-owned port correction alone does not enable production advancement. A construction failure is
+// sources is the LIVE checkpoint source supplier wireCheckpointSources built, or nil when the
+// checkpoint layer did not construct. It is handed straight to SchedulerRuntimeOptions.Sources,
+// which NewSchedulerRuntime pairs with Checkpoints to build the frontier advancer — the pair is
+// what makes schedRuntime.advancer non-nil, and a nil supplier is still an explicitly unavailable
+// frontier rather than a fabricated one. A construction failure is
 // Loud and leaves L3 disabled — the daemon, the store and every hook keep working (00-ARCHITECTURE
 // §12.3) and runDaemon never surfaces a non-nil error. The Bind registered here runs AFTER
 // SP-08's (Bind hooks run in registration order), so the tap decorates seams SP-08 has set.
-func wireScheduler(opts *daemon.Options, getenv func(string) string) (scheduler.Runtime, daemon.SchedulerRuntimeOptions) {
+func wireScheduler(opts *daemon.Options, getenv func(string) string,
+	sources func() (checkpoint.SourceSet, error),
+) (scheduler.Runtime, daemon.SchedulerRuntimeOptions) {
 	log := opts.Log
 	if log == nil {
 		log = logging.Nop()
@@ -32,8 +47,18 @@ func wireScheduler(opts *daemon.Options, getenv func(string) string) (scheduler.
 		ProjectRoot: opts.ProjectRoot, Cfg: opts.Cfg,
 		Clock: opts.Clock, Log: log, Metrics: opts.Metrics,
 		Store: opts.Store, Graph: opts.Graph, Ledger: opts.Ledger,
+		// LedgerFn closes over opts — the POINTER runDaemon holds — so it reads the FIELD, not the
+		// nil value it holds right now. WireRehydrator opens the negative-knowledge ledger lazily
+		// on the first compaction and assigns the handle back onto opts.Ledger; without this
+		// closure the scheduler's rebuild_bloom task captured that nil at registration and was a
+		// permanent no-op. It never OPENS a ledger and never owns one: the lifecycle stays where
+		// SP-19 M0-02 put it.
+		LedgerFn:    func() negknow.Ledger { return opts.Ledger },
 		Checkpoints: opts.Checkpoints,
-		Getenv:      getenv,
+		// Sources resolves the SourceSet at every advance, for the same reason LedgerFn resolves
+		// the ledger: the set is not complete at composition time and must not be frozen here.
+		Sources: sources,
+		Getenv:  getenv,
 	}
 	sched, err := daemon.NewSchedulerRuntime(schedOpts)
 	if err != nil {
@@ -79,4 +104,128 @@ func wiringLog(o daemon.SchedulerRuntimeOptions) logging.Logger {
 		return o.Log
 	}
 	return logging.Nop()
+}
+
+// checkpointWiring is what the composition root keeps between its two checkpoint phases: the
+// writer BindCheckpoint published before daemon.New and WireCheckpoint registers idle work over
+// after it, and the LIVE source supplier both of them, and the scheduler's frontier advancer,
+// resolve through.
+//
+// A zero value means the checkpoint layer did not construct. Every consumer treats that as
+// "frontier advancement is unavailable", never as an error out of runDaemon (§12.3).
+type checkpointWiring struct {
+	w       *checkpoint.FileWriter
+	sources func() (checkpoint.SourceSet, error)
+}
+
+// wireCheckpointSources is the checkpoint layer's Block 1: it assembles the SourceSet the L4
+// checkpointer and the L3 frontier advancer are both built from, and binds the PreCompact seam.
+// It runs AFTER daemon.WireObserver — which opens the store and the DAG and assigns them onto
+// Options — and BEFORE daemon.New, because Options.Bind is what New applies.
+//
+// THE SOURCE SET IS A SUPPLIER, NOT A VALUE, and that is the whole design of this function.
+// SourceSet.Ledger is the negative-knowledge ledger, and this process must not open one here:
+// WireRehydrator opens it LAZILY on the first compaction (see RehydrateOptions.OpenLedger — an
+// eager open creates sketches/tried.bloom and holds an eliminations.jsonl handle in every daemon
+// that never compacts, and §3.3 reserves that file for the ledger itself) and assigns the handle
+// back onto the SAME *daemon.Options this closure captures. So the closure reads opts.Ledger as a
+// FIELD, on every call, exactly as LedgerFn does one layer up. It never opens a ledger, never owns
+// one, and never creates an unused one; the lifecycle stays where SP-19 M0-02 put it, including
+// runDaemon's existing shutdown defer, which is the only thing that closes it.
+//
+// Until that first compaction the supplier returns its PARTIAL set together with a reason wrapping
+// core.ErrDegraded. That is the unavailable route, and it is deliberately reported rather than
+// hidden: the frontier advances nothing and says why, while materialize_pins — which needs the pin
+// log and nothing else — still runs off the partial set.
+//
+// The three collaborators that have no instance anywhere else on the daemon path are constructed
+// here and are safe to construct here, for the reason installMCPTools states about its own three:
+// pins.OpenWith holds no handle open beyond its constructor and replays the pin log once,
+// grammar.New is a fresh compressor over no shared state, and tokens.NewForProject reads the
+// calibration file per project. None of them is a second handle on a single-writer resource, which
+// is what makes a second store.Open or a second negknow.Open illegitimate and these legitimate.
+func wireCheckpointSources(opts *daemon.Options) checkpointWiring {
+	log := opts.Log
+	if log == nil {
+		log = logging.Nop()
+	}
+
+	w, err := checkpoint.OpenWriter(opts.ProjectRoot, opts.Cfg, log, opts.Metrics, opts.Clock)
+	if err != nil {
+		log.Loud("checkpoint writer unavailable; no checkpoints will be sealed and the frontier will not advance",
+			"err", err.Error())
+		return checkpointWiring{}
+	}
+
+	pinStore, pinErr := pins.OpenWith(opts.ProjectRoot, log, opts.Metrics, opts.Clock)
+	if pinErr != nil {
+		// Degrade rather than abort: with no pin store the SourceSet never validates, so the
+		// frontier reports unavailable and PreCompact still seals nothing — which is the same
+		// answer this daemon gave before the layer was wired at all, minus the silence.
+		log.Loud("checkpoint pin store unavailable; the frontier will report unavailable",
+			"err", pinErr.Error())
+		pinStore = nil
+	}
+	gram := opts.Grammar
+	if gram == nil {
+		gram = grammar.New()
+	}
+	toks := tokens.NewForProject(opts.Cfg, tokens.DefaultCalibPath(), opts.ProjectRoot)
+
+	sources := func() (checkpoint.SourceSet, error) {
+		var segs store.SegmentLog
+		if opts.Store != nil {
+			segs = opts.Store.Segments()
+		}
+		src := checkpoint.SourceSet{
+			Store:    opts.Store,
+			Segments: segs,
+			// The FIELD, read now — nil until the first compaction opens it. See the note above.
+			Ledger:  opts.Ledger,
+			Pins:    pinStore,
+			Graph:   opts.Graph,
+			Grammar: gram,
+			Tokens:  toks,
+		}
+		if valErr := src.Validate(); valErr != nil {
+			// The partial set travels WITH the reason: a consumer that needs only one seam (pins)
+			// must not be degraded by a seam it never reads (the ledger).
+			return src, fmt.Errorf("%w: %w", valErr, core.ErrDegraded)
+		}
+		return src, nil
+	}
+
+	// Publish the writer on Options so daemon.New copies it onto Services and, with Sources, so
+	// NewSchedulerRuntime's adapter clause builds the frontier advancer. Assigned only on success:
+	// a nil *FileWriter in this interface-typed field is a NON-nil interface, which would pass
+	// every nil check downstream and fault inside Advance instead.
+	opts.Checkpoints = w
+
+	// Phase 1, before New. The snapshot handed over here is the ledger-less one; SetSources drops
+	// an invalid set, and the first idle pass that resolves a complete one republishes it.
+	src, _ := sources()
+	daemon.BindCheckpoint(opts, opts.Cfg, w, src)
+
+	return checkpointWiring{w: w, sources: sources}
+}
+
+// registerCheckpointIdle is the checkpoint layer's Block 2, called immediately after daemon.New:
+// the three idle tasks whose NAMES are §12.1's mode gate — advance_frontier and materialize_pins
+// keep running while degraded, act.checkpoint_cadence does not.
+//
+// Until this call existed, WireCheckpoint had no production caller at all and the shipped daemon
+// registered none of the three; frontier advancement ran only in test/e2e.
+//
+// sched is optional and is passed as the local-checkpoint noter when the runtime supports it, so a
+// cadence seal is recorded as OURS and never restarts the Young-Daly clock that measures the host.
+func registerCheckpointIdle(d daemon.Daemon, cfg config.Config, cw checkpointWiring, sched scheduler.Runtime) {
+	if cw.w == nil {
+		return
+	}
+	opts := []daemon.WireOption{daemon.WithSourceSupplier(cw.sources)}
+	if noter, ok := sched.(daemon.LocalCheckpointNoter); ok && sched != nil {
+		opts = append(opts, daemon.ReportLocalCheckpointsTo(noter))
+	}
+	src, _ := cw.sources()
+	daemon.WireCheckpoint(d, cfg, cw.w, src, opts...)
 }

@@ -86,13 +86,16 @@ func RegisterSchedulerIdleWork(d Daemon, rt scheduler.Runtime, o SchedulerRuntim
 
 	r.mu.Lock()
 	r.d = d
-	ledger, st := r.ledger, r.st
+	st := r.st
 	r.mu.Unlock()
+	// Reporting only. The BODY resolves the ledger live on every run (rebuildBloomBody); this
+	// value is the one that existed at registration and is used for the log line alone.
+	ledger := r.currentLedger()
 
 	ctl.Register(idleTaskSchedAdvanceFrontier, idlePrioSchedAdvanceFrontier, r.idleTask(scheduler.BackgroundAdvanceFrontier, r.advanceFrontierTask))
 	ctl.Register(idleTaskPrecomputeSlice, idlePrioPrecomputeSlice, r.idleTask(scheduler.BackgroundPrecomputeSlice, r.precomputeSliceTask))
 	ctl.Register(idleTaskRefreshDelta, idlePrioRefreshDelta, r.idleTask(scheduler.BackgroundRefreshDelta, r.refreshDeltaTask))
-	ctl.Register(idleTaskRebuildBloom, idlePrioRebuildBloom, r.idleTask(scheduler.BackgroundRebuildBloom, r.rebuildBloomBody(ledger, st)))
+	ctl.Register(idleTaskRebuildBloom, idlePrioRebuildBloom, r.idleTask(scheduler.BackgroundRebuildBloom, r.rebuildBloomBody(st)))
 	ctl.Register(idleTaskCompactDAG, idlePrioCompactDAG, r.idleTask(scheduler.BackgroundCompactDAG, r.compactDAGTask))
 	ctl.Register(idleTaskGC, idlePrioGC, r.idleTask(scheduler.BackgroundGC, r.gcTask))
 
@@ -294,27 +297,33 @@ func checkpointFinalizeHist() string {
 // negknow.Maintainer supplies its own fn through MaintenanceTask — the single source of the
 // rebuild logic, registered once under SP-12's name and never under SP-09's. Otherwise the
 // plan's body: RefreshStaleness, then RebuildBloom when something flipped or the filter needs
-// resizing. A nil ledger, or rebuildOnStale != nextIdle, is inert.
-func (r *schedRuntime) rebuildBloomBody(ledger negknow.Ledger, st store.Store) func(ctx context.Context) error {
-	inert := func(context.Context) error { return nil }
-	if ledger == nil || r.cfg.Eliminations.RebuildOnStale != rebuildOnStaleNextIdle {
-		return inert
-	}
-	if m, ok := ledger.(negknow.Maintainer); ok {
-		_, _, fn := m.MaintenanceTask(st)
-		if fn == nil {
-			return inert
-		}
-		return func(ctx context.Context) error {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			return fn(ctx)
-		}
-	}
+// resizing. A nil ledger, or rebuildOnStale != nextIdle, is inert FOR THAT RUN.
+//
+// The ledger is resolved INSIDE the returned closure, on every run, and that is the whole point.
+// The daemon opens the negative-knowledge ledger lazily on the first compaction, which is always
+// after RegisterSchedulerIdleWork has run, so a body that captured the ledger VALUE at
+// registration baked in nil and returned a no-op for the life of the process — the task was
+// registered, planned by Evaluate, counted as run, and did nothing, forever. Nothing ever
+// re-registered it, so opening the ledger later could not revive it. Only the STORE is captured:
+// it is required at construction and cannot change.
+func (r *schedRuntime) rebuildBloomBody(st store.Store) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if r.cfg.Eliminations.RebuildOnStale != rebuildOnStaleNextIdle {
+			return nil
+		}
+		ledger := r.currentLedger()
+		if ledger == nil {
+			return nil
+		}
+		if m, ok := ledger.(negknow.Maintainer); ok {
+			_, _, fn := m.MaintenanceTask(st)
+			if fn == nil {
+				return nil
+			}
+			return fn(ctx)
 		}
 		flipped, err := ledger.RefreshStaleness(ctx, st)
 		if err != nil {
