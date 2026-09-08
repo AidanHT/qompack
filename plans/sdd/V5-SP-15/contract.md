@@ -157,6 +157,28 @@ const CodecVersion = 1
 - The four sentinels `core.ErrNotImplemented | ErrNotFound | ErrBudget | ErrDegraded` remain the
   only legal errors (`grammartest.requireKnownError`).
 
+**The A/B seam.** `MarshalBinary` and `UnmarshalBinary` are methods on the grammar core, which A
+owns, but the codec is B's. They meet at a type Main owns in `internal/grammar/types.go`:
+
+```go
+type Snapshot struct {
+    Rules    []Rule   // every rule, ordered by ID ascending
+    Sequence []Symbol // the top-level sequence, terminals and rule references interleaved
+    NextID   RuleID   // the ID the next induced rule takes
+}
+
+func RuleRef(id RuleID) Symbol              // "\x00R" + decimal id
+func ParseRuleRef(s Symbol) (RuleID, bool)  // false for anything that is not a reference
+```
+
+- **A** implements `Snapshot() Snapshot` and `Restore(Snapshot) error` on the grammar core, and
+  `MarshalBinary`/`UnmarshalBinary` as four-line calls through B's two functions.
+- **B** implements `EncodeSnapshot(Snapshot) []byte` and `DecodeSnapshot([]byte) (Snapshot, error)`
+  in `codec.go`, against `Snapshot` alone. B never reads `sequitur.go`.
+
+A rule reference inside a `Rule.Body` or a `Compressed()` sequence is `RuleRef(id)`. NUL is the
+sigil because no tool name, `"user"`, or `"test:pass"`-style marker can contain one.
+
 ## 5. Warning record (B) - `internal/grammar/types.go` (frozen by Main)
 
 `Warning` and `FormatWarning` are **unchanged**: `formatwarning_test.go` and SP-08's injection
