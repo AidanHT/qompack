@@ -140,13 +140,18 @@ func (h *handlers) expand(ctx context.Context, r Request, raw json.RawMessage) (
 		return errResponse("expand failed: " + err.Error()), nil
 	}
 
+	content, ok := h.redactForRetrieval(ToolExpand, span.Body)
+	if !ok {
+		return h.jsonResponse(ToolExpand, unavailable(redactorMissingReason), nil), nil
+	}
+
 	count, promoted := h.noteExpansion(ctx, r.Session, root.Hash)
 	body := contentBody{
 		Found: true, Hash: root.Hash.String(), Path: path, Tool: tool,
 		Span: [2]int64{span.Off, span.End}, TotalBytes: span.Total,
 		Truncated: span.Truncated, NextSpan: span.NextSpan, Widened: span.Widened,
 		Expansions: count, Promoted: promoted,
-		Content: string(h.redactForRetrieval(ToolExpand, span.Body)),
+		Content: string(content),
 	}
 	return h.jsonResponse(ToolExpand, body, spanMeta(span, path, "", count, promoted)), nil
 }
@@ -248,13 +253,18 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 		return errResponse("re_read failed: " + err.Error()), nil
 	}
 
+	content, ok := h.redactForRetrieval(ToolReRead, span.Body)
+	if !ok {
+		return h.jsonResponse(ToolReRead, unavailable(redactorMissingReason), nil), nil
+	}
+
 	count, promoted := h.noteExpansion(ctx, r.Session, root.Hash)
 	body := contentBody{
 		Found: true, Hash: root.Hash.String(), Path: norm, At: a.At, Source: source, Turn: turn,
 		Span: [2]int64{span.Off, span.End}, TotalBytes: span.Total,
 		Truncated: span.Truncated, NextSpan: span.NextSpan, Widened: span.Widened,
 		Expansions: count, Promoted: promoted,
-		Content: string(h.redactForRetrieval(ToolReRead, span.Body)),
+		Content: string(content),
 	}
 	return h.jsonResponse(ToolReRead, body, spanMeta(span, key, source, count, promoted)), nil
 }

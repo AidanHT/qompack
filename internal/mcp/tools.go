@@ -212,6 +212,15 @@ type ToolDeps struct {
 	Promoter Promoter
 	// Cfg supplies retrieval.defaultSpan, retrieval.ephemeralResults and the response limits.
 	Cfg config.Config
+	// Redactor re-applies TODAY'S secret policy to archive bytes on their way out (T20-M2-04). It
+	// is an interface rather than a redact.Redactor because §3.2 forbids mcp importing redact; the
+	// composition root adapts one to the other (cli.NewRetrievalRedactor).
+	//
+	// It is the ONE collaborator whose absence is not a graceful degradation: a nil Redactor makes
+	// `recall`, `expand` and `re_read` report themselves unavailable rather than serve content this
+	// build could not re-check. Serving unredacted bytes because nobody wired a redactor is the one
+	// failure mode this seam exists to prevent.
+	Redactor Redactor
 	// Widener is the nil-tolerant symbol port of the §8.7 span widener. It is an interface rather
 	// than a symbols.Extractor because §3.2 forbids mcp importing symbols; the composition root
 	// adapts one to the other.

@@ -21,6 +21,7 @@ import (
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/obs"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/rehydrate"
 	"github.com/qompack/qompack/internal/symbols"
 	"github.com/qompack/qompack/internal/testutil"
@@ -85,9 +86,35 @@ func (d v4DropReporter) CurrentDrops(ctx context.Context, sess core.SessionID) (
 	return d.rep.CurrentDrops(ctx, sess)
 }
 
+// v4Redactor adapts the REAL redact.Redactor to mcp.Redactor, the same way internal/cli's
+// retrievalRedactor does for the shipped daemon. The interface is declared in internal/mcp and
+// satisfied outside it precisely because §3.2 keeps internal/redact out of mcp's allow-set.
+type v4Redactor struct{ r redact.Redactor }
+
+// Redact applies today's policy and reports the rule behind each match, one entry per match.
+func (v v4Redactor) Redact(in []byte) ([]byte, []string) {
+	out, matches := v.r.Redact(in)
+	if len(matches) == 0 {
+		return out, nil
+	}
+	rules := make([]string, len(matches))
+	for i, m := range matches {
+		rules[i] = m.Rule
+	}
+	return out, rules
+}
+
 // v4Server registers the eight real tools over deps and returns the server.
+//
+// It supplies the retrieval-side Redactor when a row did not, because that is the composition
+// root's job and this file is the composition root for these rows: mcp fails CLOSED without one —
+// `expand` and `re_read` report themselves unavailable and `recall` withholds its summaries — so a
+// row that omitted it would be testing the degradation rather than the tool.
 func v4Server(t *testing.T, deps mcp.ToolDeps) mcp.Server {
 	t.Helper()
+	if deps.Redactor == nil {
+		deps.Redactor = v4Redactor{r: redact.New(deps.Cfg)}
+	}
 	srv := mcp.NewServer(mcp.ServerName, "v4-e2e", logging.Nop())
 	require.NoError(t, mcp.RegisterAll(srv, deps), "the eight §8.7 tools must register")
 	return srv
