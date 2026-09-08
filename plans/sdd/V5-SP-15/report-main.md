@@ -152,14 +152,24 @@ run is counted as a pass anywhere in this report.
 
 ## 10. Pre-existing failures, verified as such
 
-Neither is caused by SP-15, and both were reproduced on the base tree rather than assumed:
+None is caused by SP-15. Every one was reproduced on the base tree or in isolation rather than
+assumed, because "it looks like a known category" is not evidence.
 
-1. **`test/guards`** — `TestCarriedDefects_WaveReportRequiresResolution/{SP08-D1,SP10-D1}`. Wave-2
-   carried-defect bookkeeping: the defects are still `open` in `plans/CARRIED-DEFECTS.tsv` while
-   `plans/V4-report.md` exists. No SP-15 file is involved.
-2. **`go run ./test/replay`** — `FAIL phase 3 (A2 divergence)` and `FAIL corpus stale`. Both
-   reproduce **identically** on `develop@7c735ac` at `--phase 3`. Registering phases 5 and 6 makes
-   the staleness message name a later phase; it does not create the failure.
+| Failure | Verification | Verdict |
+|---|---|---|
+| `test/guards` `TestCarriedDefects_WaveReportRequiresResolution/{SP08-D1,SP10-D1}` | wave-2 defects still `open` in `plans/CARRIED-DEFECTS.tsv` while `plans/V4-report.md` exists; no SP-15 file involved | pre-existing bookkeeping |
+| `go run ./test/replay` — phase 3 A2 divergence, corpus stale | reproduce **identically** on `develop@7c735ac` at `--phase 3` | pre-existing. Registering phases 5/6 makes the staleness message name a later phase; it does not create the failure |
+| `test/e2e` `TestV3_HotPathUnchangedWithLedgerResident` | run on **base `develop@7c735ac`**: same failure, same number — B-B p50 **2.816ms** against a 2.000ms limit, every other budget PASS | pre-existing B-B breach ([[v4-hot-path-b-b]]); a V4 sign-off item |
+| `test/integration` `TestIntegration_HotPathWarmWithRealResidentState` | run **alone**: same B-B breach, p50 2.816ms vs 2.000ms, B-A/B-E/B-E_cpu all PASS | same root cause as the row above |
+| `test/integration` `TestIntegration_BeladyPMinLandsAtLowCoupling` | run on **base `develop@7c735ac`**: identical failure. 61.5% against a 70% floor, and the assertion's own message says "report the measured rate, do not lower the floor" | the deliberately-red Belady row; an authorized re-derivation of the floor is a V4 sign-off item |
+| `internal/mcp` `TestBudgetBF`, `internal/negknow` `TestBudget_DetectorScan` | pass when re-run serially with `-p 1` | co-load artifacts of the first (mis-run) whole-tree pass |
+| `internal/negknow` `TestBudget_Open` | passes **alone** at 259ms CPU/op against a 300ms budget | load-sensitive, marginal; matches the record for this base commit |
+
+**A methodology note against myself.** The first whole-tree run was invalid and its failures should
+not be cited: it omitted `-timeout=30m` (documented as required, and its absence panicked
+`test/e2e` mid-suite, aborting every package after it) and used `-p 2`, which manufactures exactly
+the co-load that makes timing rows meaningless. The re-runs above are the evidence; that run is
+not.
 
 ## 11. Routing (R1/B08)
 
