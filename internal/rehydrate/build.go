@@ -75,11 +75,17 @@ func BuildWithStats(ctx context.Context, r Request, d Deps) (Result, []ItemStat,
 		estimate(d, "\n"+checkpoint.InjectionCloseTag)
 
 	if overhead >= budget {
-		// Not even the wrapper fits. No items means no payload — never an empty tagged wrapper.
+		// Not even the wrapper fits. No items means no payload — never an empty tagged wrapper,
+		// and never a silent one either: this is a zero/tiny-budget OVERFLOW (T11-BUDGET-02), named
+		// as such so Overflowed(res.Dropped) recognizes it regardless of which estimator priced
+		// overhead — the bare (len+3)/4 fallback and a calibrated tokens.Estimator agree on the
+		// COMPARISON this branch makes even when they disagree on the exact count.
 		res := Result{Degraded: true, Seq: r.Ref.Seq}
 		res.Dropped = append(res.Dropped, checkpoint.DropEntry{
-			Kind: "narrative", ID: "payload",
-			Detail: "the injection wrapper alone exceeds the rehydration budget; nothing was injected",
+			Kind: dropKindOverflow, ID: "payload",
+			Detail: "OVERFLOW: the injection wrapper alone (" + itoa(int(overhead)) +
+				" tokens) exceeds the rehydration budget (" + itoa(int(budget)) +
+				" tokens); nothing was injected — call dropped() for the full accounting",
 		})
 		d.Log.Loud("rehydrate: budget cannot hold the injection wrapper",
 			"budget", int(budget), "overhead", int(overhead))
