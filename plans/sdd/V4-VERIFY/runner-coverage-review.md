@@ -207,6 +207,98 @@ an SP-20 publication gate result. Installed host clients remain outside this
 repository's compatibility proof; they must accept the additional state and
 follow the current initialize/tools-list guidance before relying on it.
 
+## Observer publication acknowledgement review
+
+This read-only review accepts the bounded SP-20 observer correction in
+`qompack-sp20` at `f6a8691` plus its dirty files. It corrects only the legacy
+tool-capture acknowledgement boundary and does not close an M1/M2 or V4 gate.
+
+`observer.OnToolUse` now returns the generic `observer.ErrUnpublished`, which
+wraps `core.ErrDegraded`, for a failed `PutBytes` or `RecordToolUse`. The helper
+counts `observer.err.put` or `observer.err.index` and logs only the stage. It
+does not wrap, emit, or log the backend error. The returned PostToolUse output
+remains empty. On a failed reference write it returns before remembered uses,
+file history, exploration sketches, DAG emission, grammar, signals, and
+feature state can advance.
+
+The active daemon path has completion-aware `seen.begin`/`finish`: a live
+worker adds a line to the completed set only after its `runIngested` response
+acknowledges. An unpublished tool capture becomes the generic IPC NAK
+`"observation handling failed"`; the daemon's tool and stop logs no longer
+include callback error values. The tested repair sequence retains the exact WAL
+line, confirms that no tool-use reference is queryable, clears the injected
+failure, then drains the same line into a reference. This uses the real
+WireObserver and Store with injected publication failures, rather than a
+callback-only double.
+
+The recorded `observer-publication-green.run.json` selected observer, routing,
+drain, and ingest race cases passed in 30.112 seconds (observer 5.691 seconds;
+daemon 5.067 seconds). After review-added privacy assertions, the recorded
+`observer-publication-privacy.run.json` passed its three changed cases under
+race in 26.391 seconds (observer 3.166 seconds; daemon 4.052 seconds). The
+assertions cover the degraded sentinel, absence of injected backend text in the
+observer error and IPC reply, no derived effects after index failure, and repair
+through the retained WAL. This review did not rerun either command.
+
+The remaining limitations are deliberate and material: prompt and stop
+acknowledgement have not received this correction; raw ingress has not yet
+been privacy-transformed before persistence; there is no durable
+observation/delivery identity or lease; retry after an uncertain crash can
+redeliver; and successful legacy object/index calls do not create a verified
+object-to-reference-to-frontier publication authority or M2 coverage witness.
+
+## Object-read integrity correction review
+
+This read-only review accepts the bounded object-read correction in
+`qompack-sp20` at `3576900` plus its reviewed dirty store files. It is a
+legacy read-integrity and evidence-preservation correction only; it does not
+close an SP-20 M1/M2 or V4 gate.
+
+`getObject` now binds every returned raw or decoded object to the requested
+`core.DomainChunk` hash, after the existing indexed-length check where one is
+available. This closes the same-length, valid-zstd substitution path and the
+unindexed/orphan path, where no roots length exists. The same domain applies
+to delta storage: `putDeltas` ultimately persists `splitChecked` chunk bytes,
+whose identifiers are also `DomainChunk`; there is no separate delta-object
+hash domain to exempt.
+
+`readBoundedObject` rejects nonregular leaves, checks the opened file remains
+the lstat'ed file, rejects an over-limit physical size before reading, and
+uses `io.LimitReader(limit+1)` to retain that allocation bound across a file
+growth race. Raw objects are limited to `MaxPutBytes`; zstd objects use the
+maximum encoded size from the same pooled default encoder that writes them,
+so valid incompressible maximum-size frames remain readable. Rejections are
+quarantined where possible and preserve the legacy `core.ErrNotFound`
+degradation, including the explicit physical-size error text.
+
+Quarantine now creates one `MkdirTemp` attempt directory per rejected object
+and retains the historical object basename inside it. This prevents a repeat
+or concurrent rejection from overwriting evidence. If the quarantine root,
+attempt creation, or move fails, the original source is retained, the caller
+still receives no bytes and `ErrNotFound`, and the store logs only the hash
+and reason while counting `store.quarantine_failed`; it does not delete the
+source or include raw backend detail. The mapped historical test confirms an
+occupied former fixed destination remains intact while new evidence is stored
+in a distinct attempt directory.
+
+The preserved `object-integrity-red` artifact documents the pre-correction
+failure. `object-integrity-green.run.json` records the selected store race
+command passing in 71.378 seconds with 70 source-matching top-level cases.
+That initial selection matched zero `store/storetest` cases, so it makes no
+conformance coverage claim. The corrected separate
+`object-integrity-conformance.run.json` records
+`TestRunStoreSuite_AgainstRealStore` under race passing in 3.434 seconds of
+package time (9.9506784 seconds elapsed). This review did not rerun either
+command.
+
+The fixtures cover valid compressed and raw same-length substitution,
+unindexed substitution, lazy `Open`/`OpenSpan` reads, all four
+compressed/raw and indexed/orphan physical-size combinations, and quarantine
+root failure retaining the source. They do not create a durable publication
+frontier, an object-reference reachability authority, a delivery identity or
+lease, privacy-before-persistence transformation, an M2 completeness witness,
+or backup/import/GC root coverage. Those remain required SP-20 work.
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.

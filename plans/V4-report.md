@@ -8,7 +8,7 @@ V4 retains the original SP-01–SP-13 assertions and cross-component scenarios w
 Source and preparation evidence
 Preparation artifacts are in `.v4-artifacts/` and remain provisional. `paths-baseline` reports 88.8% coverage and `paths-corrected` 89.4%, both below the unchanged 90% floor. After adding Windows UNC/NUL boundary regressions, `paths-boundaries` passes at 90.9%. Prior failures remain intact. `runner-focused` and `prep-runner-guards` pass the package selector and co-load guard. The pinned formatting check passes. No whole-tree or installed-host gate follows from these focused results.
 
-SP-20's isolated sibling contains core contract commit `029d065` and independently reviewed drain correction `f6a8691`. Its focused and corrected race artifacts are provisional; the [independent packet](sdd/V4-VERIFY/runner-coverage-review.md) records findings and remaining limitations. Those commits have not been integrated into this preparation source. Full SP-20 M1/M2 remains incomplete.
+SP-20's isolated sibling contains core contract `029d065`, drain correction `f6a8691`, tool-publication acknowledgement correction `3576900`, and object-integrity correction `16ecc77`. Its focused and corrected race artifacts are provisional; the [independent packet](sdd/V4-VERIFY/runner-coverage-review.md) records findings and remaining limitations. Those commits have not been integrated into this preparation source. Full SP-20 M1/M2 remains incomplete.
 
 Execution and model record
 Codex native child requests: Luna/medium for inventory and Terra/high for fixture/reviewer work. Effective route, effort, and model costs were not exposed. Maximum three active children, no nested children. This report authorizes no new action; it records work already authorized by the user. No additional source, test, build, Git, runtime, or configuration mutation is authorized by this report.
@@ -42,6 +42,13 @@ Disposition: all rows are **UNVERIFIED** or explicitly retired under the revised
 
 Rows: [V4-SP06-01](sdd/V4-VERIFY/inventory.md#v4-sp06-01), [V4-SP06-02](sdd/V4-VERIFY/inventory.md#v4-sp06-02), [V4-SP06-03](sdd/V4-VERIFY/inventory.md#v4-sp06-03), [V4-SP06-04](sdd/V4-VERIFY/inventory.md#v4-sp06-04), [V4-SP06-05](sdd/V4-VERIFY/inventory.md#v4-sp06-05), [V4-SP06-06](sdd/V4-VERIFY/inventory.md#v4-sp06-06), [V4-SP06-07](sdd/V4-VERIFY/inventory.md#v4-sp06-07), [V4-SP06-08](sdd/V4-VERIFY/inventory.md#v4-sp06-08), [V4-SP06-09](sdd/V4-VERIFY/inventory.md#v4-sp06-09), [V4-SP06-10](sdd/V4-VERIFY/inventory.md#v4-sp06-10).
 Disposition: all rows are **UNVERIFIED** or explicitly retired under the revised migration contracts; implementation pointers do not constitute execution evidence. Current owner must reconcile each exact assertion with SP-19 migration authority before any acceptance.
+
+SP-06 provisional correction evidence is recorded in the inventory's object-integrity addendum
+and the SP-20 sibling's progress/artifacts. The selected store race cases and corrected
+real-store conformance case pass; the initial zero-test conformance selection is preserved and
+supplies no coverage. This adds hash/size verification and preserves rejected evidence, with
+independent acceptance of that bounded correction. It does not close the retained SP-06 rows,
+publication/GC/rollback, installed retrieval or performance gates.
 
 ## 7. SP07 retained assertions
 
