@@ -281,10 +281,16 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+      # --baseline names the baseline recorded over the corpus --corpus names, and the pairing is
+      # checked rather than trusted: the driver refuses a baseline whose corpusSHA256 is not this
+      # corpus's (checkCorpusIdentity, test/replay/gate.go) and exits 2 naming both digests. The V4
+      # corpus correction moved that digest from e2d9fa5a... to ebaf30d2..., so phase0.json -- which
+      # stays committed, unedited and M0-04-protected as the record of what the pre-correction
+      # corpus said -- is no longer the baseline for this run. phase0-recall.json is.
       - run: >
           go run ./tools/devtool replay
           --corpus testdata/sessions/synthetic
-          --baseline testdata/baseline/phase0.json
+          --baseline testdata/baseline/phase0-recall.json
           --phase 0
           --growth testdata/golden/eval/growth/stats-growth.json
           --sketch testdata/golden/eval/growth/health.json

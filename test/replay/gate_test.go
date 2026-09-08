@@ -105,9 +105,15 @@ func TestGate_ReportRegressionsBlocksOnlyUnsigned(t *testing.T) {
 	}))
 	require.Contains(t, signed.String(), "sign-off trailer")
 
+	// DeltaPctDefined is set explicitly, and its zero value is the safe one: a Regression that
+	// does not say its percentage is defined has none, and the gate prints "unreportable" rather
+	// than a figure derived from a denominator at or near zero. judge sets it; a fixture must too.
 	var unsigned strings.Builder
 	require.True(t, reportRegressions(&unsigned, []eval.Regression{
-		{Metric: "rewrite_tokens", Policy: "stock", DeltaPct: 3.1, Allowed: false},
+		{
+			Metric: "rewrite_tokens", Policy: "stock", Baseline: 1000, Observed: 1031,
+			DeltaPct: 3.1, DeltaPctDefined: true, AbsDelta: 31, Allowed: false,
+		},
 	}))
 	require.Contains(t, unsigned.String(), "Sign-off: rewrite_tokens=+3.10%",
 		"a gate that tells you how to satisfy it is one people use rather than route around")

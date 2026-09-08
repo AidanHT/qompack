@@ -405,6 +405,19 @@ func buildReplayDriver(t *testing.T) string {
 // empty, and QOMPACK_PROJECT_ROOT at the repository, so the gate resolves exactly the
 // configuration CI resolves no matter which project the calling test happened to create. --ci is
 // what makes the phase checks non-negotiable.
+//
+// --baseline names the baseline recorded over the corpus --corpus names, and the pairing is not a
+// preference. testdata/baseline/phase0.json was recorded over the PRE-V4 corpus, whose manifest
+// digest is e2d9fa5a...; the committed corpus this run replays is ebaf30d2..., the V4-corrected
+// one in which all four demand kinds are raised and the Belady budget binds on 26 of 39 events.
+// Comparing this run to that baseline compared two different workloads, and the percentages it
+// produced -- stock.fraction_of_opt -62.84%, re_attempts +2.4e12% -- describe the corpus change
+// and not any policy. phase0.json is M0-04-protected and is deliberately still committed as the
+// record of what the old corpus said; phase0-recall.json is the measurement over this one, with
+// every one of the old baseline's known failures carried into its provenance sidecar. The driver
+// now refuses the mismatched pairing outright (checkCorpusIdentity, test/replay/gate.go), so this
+// line cannot silently rot back: pointing it at phase0.json again fails the run with exit 2 and a
+// message naming both digests.
 func runReplayGate(t *testing.T, bin string, extra ...string) (code int, stdout, stderr string) {
 	t.Helper()
 
@@ -412,7 +425,7 @@ func runReplayGate(t *testing.T, bin string, extra ...string) (code int, stdout,
 	dir := t.TempDir()
 	args := append([]string{
 		"--corpus", "testdata/sessions/synthetic",
-		"--baseline", "testdata/baseline/phase0.json",
+		"--baseline", "testdata/baseline/phase0-recall.json",
 		"--phase", "0",
 		"--out", filepath.Join(dir, "report.json"),
 		"--max-cpu", replayMaxCPU.String(),
