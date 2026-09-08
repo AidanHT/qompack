@@ -126,3 +126,53 @@ the corpus mid-checkpoint invalidates the Phase 0/1/2 baselines simultaneously; 
 replay integration re-baselines in any case, so the work lands there once, per ADR 0003. The six
 rows travel as one unit because a single regeneration discharges D1/D3 and re-measures D2/D5/D6,
 with D4's pMin alignment folded into the same re-baseline.
+
+---
+
+## V4-VERIFY dispositions (2026-09-08)
+
+The V3 disposition above sent all six rows to V4-VERIFY as **one unit**, on the reasoning that a
+single corpus regeneration discharges D1/D3 and re-measures D2/D5/D6. That regeneration has since
+happened. The unit did **not** travel intact: five of the six are closed, one moved on, and each
+closure is carried by a named test rather than by this document.
+
+Source of record for status is `plans/CARRIED-DEFECTS.tsv`, whose shape and open-row evidence are
+themselves guarded by `test/guards/carrieddefects_test.go`. This section records the outcomes; it
+does not restate them as a second source of truth.
+
+| Row | V3 disposition | **V4 outcome** | Evidence test |
+|---|---|---|---|
+| **SP02-D1** — the corpus raises exactly one demand kind | `deferred:V4-VERIFY` | **fixed** | `TestCorpus_RaisesEveryDemandKind` (`internal/eval/corpusshape_test.go:76`) — the acceptance made mechanical. The repair is the recall window in `internal/eval/synth.go` (its own comments name D1 and D3 as one mechanism, not two). |
+| **SP02-D2** — `file_set_jaccard` is pinned at 1.0 | `deferred:V4-VERIFY` | **fixed** | `TestCarriedDefect_SP02D2_FileSetJaccardIsNotStructurallyOne` (`internal/eval/corpusshape_test.go:199`) |
+| **SP02-D3** — the Belady keep budget never binds | `deferred:V4-VERIFY` | **fixed** | `TestCorpus_BeladyBudgetBinds` (`internal/eval/corpusshape_test.go:114`) |
+| **SP02-D4** — `pMin` iterates candidates, not all blocks | `deferred:V4-VERIFY` | **fixed** | `TestCarriedDefect_SP02D4_PMinIsMeasuredOverCandidates` (`internal/eval/corpusshape_test.go:142`) — the narrowing is now **pinned by a test** rather than by prose, which is the shape D4 asked for. |
+| **SP02-D5** — `decision_preservation` measures the wrong horizon | `deferred:V4-VERIFY` | **fixed** | `TestCompare_DecisionPreservationIgnoresHorizonAgreement` (`internal/eval/divergence_test.go:194`) — D5's characterization, inverted. |
+| **SP02-D6** — the stock model skips the 4/3 host padding | `deferred:V4-VERIFY` | **split, and moved to `deferred:V5-VERIFY`** | No evidence test. The `hostPadTokens` half **is fixed**: the stock model now applies the 4/3 padding (`internal/eval/policy.go:198` names this as D6's repair, and `policy_test.go:80` checks the floors against the padded estimate). The `hostSkillBudget` half is **still dead** and cannot be modelled without a `Session` that records skill invocations — and `Session` is fixed by Qompack.md §5.18. That is a specification dependency, not effort, which is why it moves rather than closing. |
+
+### SP06-D2 — **open**, and still V4-VERIFY's
+
+`SP06-D2` is not an SP-02 row and did not travel with the unit above; it is recorded here because
+V4-VERIFY inherited it in the same handoff (`docs/adr/0100-v3-verification.md:45-58`).
+
+**Status: `deferred:V4-VERIFY`, open, no evidence test.** The `PutBytes` cold and warm budgets
+(3 ms / 400 µs) are **9x and 19x over on Windows** and have **never been measured on the reference
+platform**. Two things follow, and neither is discharged by this unit:
+
+1. It is **one defect at two layers**, paired with `SP08-D1` (`BenchmarkOnToolUse_TestOutput256KB`:
+   `OnToolUse` over a 256 KB tool result breaches B-C at 53–115 ms on the one-changed-line case and
+   262–655 ms when every chunk is novel, dominated by `store.PutBytes`'s per-novel-chunk object-write
+   path). Closing either half alone would be a partial answer to a single performance question, so
+   the two must be decided together — budget-vs-implementation.
+2. The reference-platform half is **not measurable on this host**. It needs the ubuntu/macOS arms of
+   G2, i.e. CI or the WSL2 route, and it sits behind the same V3 J5 billing waiver that stands
+   **waived-open**.
+
+**Do not score SP06-D2 from a Windows-only run.** A Windows number confirms the breach that was
+already recorded; it does not answer whether the budget or the implementation is wrong.
+
+### Caveat on the manifest guard
+
+`test/guards` carries pre-existing red carried-defect subtests on this candidate. They are a known
+condition of the base, not a product of these dispositions, and this unit deliberately did not chase
+them: `test/guards` is outside its ownership. A V4 gate report must score them on their own evidence
+before treating the manifest as green.
