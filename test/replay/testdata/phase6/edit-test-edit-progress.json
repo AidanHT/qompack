@@ -1,0 +1,20 @@
+{
+  "name": "edit-test-edit-progress",
+  "label": "progress",
+  "why": "The canonical ordinary session: edit, run the test, read a DIFFERENT failure, edit again. Nothing here is a loop - the failure signature moves every round and files change every round - so a warning on this stream is a false alarm by definition. The action symbol stream, however, is (Edit, Bash, test:fail) five times over, which is exactly the shape a grammar-based detector folds into one rule.",
+  "goal": "make TestSessionExpiry pass",
+  "observations": [
+    {"turn": 0,  "target": "internal/auth/session.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 1,  "target": "internal/auth", "action": "Bash", "failure": "TestSessionExpiry: want 3600 got 0", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 2,  "target": "internal/auth/session.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 3,  "target": "internal/auth", "action": "Bash", "failure": "TestSessionExpiry: want 3600 got 60", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 4,  "target": "internal/auth/session.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 5,  "target": "internal/auth", "action": "Bash", "failure": "TestSessionExpiry: want 3600 got 3599", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 6,  "target": "internal/auth/clock.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 7,  "target": "internal/auth", "action": "Bash", "failure": "TestSessionExpiry: nil clock", "progress": "observed", "symbols": ["Bash", "test:fail"]},
+    {"turn": 8,  "target": "internal/auth/clock.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 9,  "target": "internal/auth", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 10, "target": "internal/auth/session.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 11, "target": "internal/auth", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]}
+  ]
+}

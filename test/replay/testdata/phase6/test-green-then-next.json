@@ -1,0 +1,20 @@
+{
+  "name": "test-green-then-next",
+  "label": "progress",
+  "why": "Six accessors implemented in a row, each one edit followed by one passing test run. No failure signature exists at all, so the failure field of every signature is empty and only the target separates the states. It is the cheapest possible false-alarm trap for anything keyed on repeated actions.",
+  "goal": "implement the six accessor methods on Snapshot",
+  "observations": [
+    {"turn": 0,  "target": "internal/grammar/snapshot.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 1,  "target": "internal/grammar", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 2,  "target": "internal/grammar/rules.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 3,  "target": "internal/grammar", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 4,  "target": "internal/grammar/codec.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 5,  "target": "internal/grammar", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 6,  "target": "internal/grammar/statewarn.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 7,  "target": "internal/grammar", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 8,  "target": "internal/grammar/types.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 9,  "target": "internal/grammar", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 10, "target": "internal/grammar/doc.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 11, "target": "internal/grammar", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]}
+  ]
+}

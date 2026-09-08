@@ -1,0 +1,14 @@
+{
+  "name": "same-command-same-failure",
+  "label": "stuck",
+  "why": "The plainest genuine loop there is: one goal, one target, one action, one byte-identical failure, six times, with nothing observed to change between them. Any detector that cannot find this one has no reason to exist, so it is the floor of the held-out set rather than an interesting case.",
+  "goal": "make the daemon connect on Windows",
+  "observations": [
+    {"turn": 0, "target": "internal/daemon", "action": "Bash", "failure": "dial unix .qompack/daemon.sock: no such file or directory", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 1, "target": "internal/daemon", "action": "Bash", "failure": "dial unix .qompack/daemon.sock: no such file or directory", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 2, "target": "internal/daemon", "action": "Bash", "failure": "dial unix .qompack/daemon.sock: no such file or directory", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 3, "target": "internal/daemon", "action": "Bash", "failure": "dial unix .qompack/daemon.sock: no such file or directory", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 4, "target": "internal/daemon", "action": "Bash", "failure": "dial unix .qompack/daemon.sock: no such file or directory", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 5, "target": "internal/daemon", "action": "Bash", "failure": "dial unix .qompack/daemon.sock: no such file or directory", "progress": "none", "symbols": ["Bash", "test:fail"]}
+  ]
+}

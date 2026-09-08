@@ -1,0 +1,14 @@
+{
+  "name": "stuck-with-partial-coverage",
+  "label": "stuck",
+  "why": "A real loop observed through a hole. The state repeats six times and nothing is known to have changed, but the observer never saw the dependency set, so progress is unknown and the dependency coverage is partial. Contract section 5 bound 3 says this may only ever produce an uncertain warning, and amendment A7 says the user must be able to read that qualification in the line itself. It is held out as stuck because it IS stuck; the point of the case is the confidence, not the verdict.",
+  "goal": "make the migration idempotent",
+  "observations": [
+    {"turn": 0, "target": "internal/store/migrate.go", "action": "Bash", "failure": "migrate: applied twice", "progress": "unknown", "partialCoverage": true, "symbols": ["Bash", "test:fail"]},
+    {"turn": 1, "target": "internal/store/migrate.go", "action": "Bash", "failure": "migrate: applied twice", "progress": "unknown", "partialCoverage": true, "symbols": ["Bash", "test:fail"]},
+    {"turn": 2, "target": "internal/store/migrate.go", "action": "Bash", "failure": "migrate: applied twice", "progress": "unknown", "partialCoverage": true, "symbols": ["Bash", "test:fail"]},
+    {"turn": 3, "target": "internal/store/migrate.go", "action": "Bash", "failure": "migrate: applied twice", "progress": "unknown", "partialCoverage": true, "symbols": ["Bash", "test:fail"]},
+    {"turn": 4, "target": "internal/store/migrate.go", "action": "Bash", "failure": "migrate: applied twice", "progress": "unknown", "partialCoverage": true, "symbols": ["Bash", "test:fail"]},
+    {"turn": 5, "target": "internal/store/migrate.go", "action": "Bash", "failure": "migrate: applied twice", "progress": "unknown", "partialCoverage": true, "symbols": ["Bash", "test:fail"]}
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "name": "dependency-closure-and-archive",
+  "why": "Feasibility rule 2 and the archive-only OUTCOME, together. file:src/x.go requires the tool result it was derived from and shares that result's evidence root, so carrying both is real redundancy the objective prices; file:src/y.go requires an item OUTSIDE the candidate set, which rule 2 reads as already present in the prefix; and two items offer an archive_only representation, which is never a choice and only ever an outcome recorded in Proposal.Archive. Authored by role E after roles A-D landed.",
+  "p": 0,
+  "lambda": 0.25,
+  "candidates": [
+    {
+      "item": "toolresult:tu_root",
+      "pos": 2,
+      "weight": 0.4,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 60, "root": "ev-r", "qualification": "current"},
+        {"kind": "pointer", "coverage": 0.15, "assembledCost": 48, "root": "ev-r", "qualification": "current"}
+      ]
+    },
+    {
+      "item": "file:src/x.go",
+      "pos": 3,
+      "weight": 0.9,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 100, "requires": ["toolresult:tu_root"], "root": "ev-r", "qualification": "current"},
+        {"kind": "capsule", "coverage": 0.6, "assembledCost": 49, "requires": ["toolresult:tu_root"], "root": "ev-r", "qualification": "current", "derived": true}
+      ]
+    },
+    {
+      "item": "file:src/y.go",
+      "pos": 4,
+      "weight": 0.7,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 70, "requires": ["toolresult:tu_absent_from_this_set"], "root": "ev-y", "qualification": "current"},
+        {"kind": "archive_only", "coverage": 0.0, "assembledCost": 0, "root": "ev-y", "qualification": "current"}
+      ]
+    },
+    {
+      "item": "decision:d1",
+      "pos": 5,
+      "weight": 0.3,
+      "mandatory": false,
+      "reps": [
+        {"kind": "exact_span", "coverage": 1.0, "assembledCost": 40, "root": "ev-d", "qualification": "current"},
+        {"kind": "archive_only", "coverage": 0.0, "assembledCost": 0, "root": "ev-d", "qualification": "current"}
+      ]
+    }
+  ],
+  "regimes": [
+    {"name": "generous", "budget": 500, "expect": "all-carried"},
+    {"name": "tiny", "budget": 200, "expect": "partial"},
+    {"name": "mandatory-overflow", "budget": 0, "expect": "empty", "expectArchive": ["decision:d1", "file:src/y.go"]}
+  ],
+  "mustCarryAtActiveEvidence": [],
+  "mustNeverBind": []
+}

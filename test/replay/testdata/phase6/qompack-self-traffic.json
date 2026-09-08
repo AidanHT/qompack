@@ -1,0 +1,20 @@
+{
+  "name": "qompack-self-traffic",
+  "label": "progress",
+  "why": "An ordinary session in which Qompack own retrieval and warning traffic is interleaved with the work. Six of the twelve observations are the plugin itself - recall calls, a slash command, a timeline call, and a turn whose failure text quotes an injected [qompack] line - and none of them may reach the detector input or its repeat counter. What remains is six ordinary observations with six distinct targets. It is held out as a progress stream because the session is working; a warning here would be both a false alarm and the first step of a feedback loop.",
+  "goal": "restore the pool timeout decision",
+  "observations": [
+    {"turn": 0,  "target": "internal/store/pool.go", "action": "Read", "failure": "", "progress": "observed"},
+    {"turn": 1,  "target": ".qompack/dag/deps.jsonl", "action": "mcp__qompack__recall", "failure": "", "progress": "none"},
+    {"turn": 2,  "target": "internal/store/pool.go", "action": "Edit", "failure": "", "progress": "observed"},
+    {"turn": 3,  "target": ".qompack/store/index.db", "action": "mcp__qompack__recall", "failure": "", "progress": "none"},
+    {"turn": 4,  "target": "internal/store/dial.go", "action": "Edit", "failure": "", "progress": "observed"},
+    {"turn": 5,  "target": "internal/store", "action": "/qompack:dropped", "failure": "", "progress": "none"},
+    {"turn": 6,  "target": "internal/store/retry.go", "action": "Edit", "failure": "", "progress": "observed"},
+    {"turn": 7,  "target": ".qompack/negknow/ledger.jsonl", "action": "mcp__qompack__recall", "failure": "", "progress": "none"},
+    {"turn": 8,  "target": "internal/store/backoff.go", "action": "Edit", "failure": "", "progress": "observed"},
+    {"turn": 9,  "target": "internal/store", "action": "Bash", "failure": "[qompack] possible loop: Bash repeated 3x", "progress": "none"},
+    {"turn": 10, "target": "internal/store/limits.go", "action": "Edit", "failure": "", "progress": "observed"},
+    {"turn": 11, "target": "internal/store", "action": "mcp__qompack__timeline", "failure": "", "progress": "none"}
+  ]
+}

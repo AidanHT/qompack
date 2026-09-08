@@ -1,0 +1,20 @@
+{
+  "name": "stuck-after-progress-later-window",
+  "label": "stuck",
+  "why": "A session that worked for twelve turns and then got stuck. The progress suppression of bound 2 latches for the window it was observed in, and the stuck run falls in the NEXT window ordinal (turns 20 and up at the shipped 20-turn width), so a warning is still possible. It is the case that separates a bound from a gag: a detector that let one observed change silence the rest of the session would never speak again after the first productive minute.",
+  "goal": "add the archive-only drop kind",
+  "observations": [
+    {"turn": 0,  "target": "internal/rehydrate/selection.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 1,  "target": "internal/rehydrate", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 2,  "target": "internal/rehydrate/items.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 3,  "target": "internal/rehydrate", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 4,  "target": "internal/rehydrate/types.go", "action": "Edit", "failure": "", "progress": "observed", "symbols": ["Edit"]},
+    {"turn": 5,  "target": "internal/rehydrate", "action": "Bash", "failure": "", "progress": "observed", "symbols": ["Bash", "test:pass"]},
+    {"turn": 20, "target": "testdata/golden/config/schema.json", "action": "Bash", "failure": "golden differs: connectDeadlineMs", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 21, "target": "testdata/golden/config/schema.json", "action": "Bash", "failure": "golden differs: connectDeadlineMs", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 22, "target": "testdata/golden/config/schema.json", "action": "Bash", "failure": "golden differs: connectDeadlineMs", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 23, "target": "testdata/golden/config/schema.json", "action": "Bash", "failure": "golden differs: connectDeadlineMs", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 24, "target": "testdata/golden/config/schema.json", "action": "Bash", "failure": "golden differs: connectDeadlineMs", "progress": "none", "symbols": ["Bash", "test:fail"]},
+    {"turn": 25, "target": "testdata/golden/config/schema.json", "action": "Bash", "failure": "golden differs: connectDeadlineMs", "progress": "none", "symbols": ["Bash", "test:fail"]}
+  ]
+}
