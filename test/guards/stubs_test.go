@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/admission"
 	"github.com/qompack/qompack/internal/analyzer"
 	"github.com/qompack/qompack/internal/canon"
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -192,6 +193,13 @@ func stubRegistry() []stubPackage {
 		// wiring gap, not a reason to call the seam itself a stub. It stays registered for the
 		// completeness check, the same as eval and contract above.
 		{pkg: "state", build: func(*testing.T) any { return state.NewSet() }, pureMethods: allMethodsAreReal},
+		// admission's seam is STUBBED as of SP-21's contract slice, deliberately. Decide — the
+		// policy — is real and fully graded, but Admit reports ErrNotImplemented until commit 2
+		// wires SP-20 capture behind it. Registering it stubbed is the honest entry: the package
+		// exists and is owned, and nothing may replace a delivered result through it yet.
+		{pkg: "admission", build: func(*testing.T) any {
+			return admission.NewPipeline(admission.Gate{Enabled: true, Owned: true})
+		}},
 	}
 }
 
@@ -428,10 +436,11 @@ func TestStubRegistry_ListsEveryPackageOnDisk(t *testing.T) {
 	}
 }
 
-// wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates, plus one:
-// SP-20 M2-01 added internal/state after wave 0, and TestStubRegistry_ListsEveryPackageOnDisk
-// requires every package with a plans/OWNERS.tsv stub probe to be registered here too.
-const wantStubPackages = 24
+// wantStubPackages is the §5 interface-package count commit 7 of the subplan enumerates, plus two:
+// SP-20 M2-01 added internal/state and SP-21's contract slice added internal/admission, both after
+// wave 0, and TestStubRegistry_ListsEveryPackageOnDisk requires every package with a
+// plans/OWNERS.tsv stub probe to be registered here too.
+const wantStubPackages = 25
 
 // ownersWithProbes reads plans/OWNERS.tsv and returns every package whose row names a stub probe.
 func ownersWithProbes(t *testing.T) []string {
