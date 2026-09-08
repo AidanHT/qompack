@@ -221,12 +221,53 @@ func dagselSampleMeanCrossing(g dag.Graph, n int) float64 {
 // mean of CrossingEdges over 32 evenly spaced positions in the same prefix, in at least 70% of
 // events. This is a measurement with a floor, not a proof: the observed percentage is logged and
 // recorded in the completion report as the wave-1 baseline.
+//
+// V4 STATUS: THIS ROW IS RED ON PURPOSE, AND THE FLOOR MUST NOT BE LOWERED TO FIT IT.
+//
+// The V4 corpus correction (SP02-D1 and SP02-D3) moved the measured rate from 100.0% to 61.5%.
+// The two candidate explanations were separated by swapping only the corpus and holding this code
+// fixed — the committed corpus at 9a2c82e (pre-correction) against the one at HEAD, same binary,
+// same selection path:
+//
+//	measure                     pre-correction corpus   corrected corpus
+//	rate                        39/39 = 100.0%          24/39 = 61.5%
+//	Belady budget binds         0/39                    30/39
+//	CrossingEdges(p_min) == 0   39/39                   11/39
+//	p_min == 0                  0/39                    0/39
+//	sampled mean == 0           0/39                    0/39
+//
+// The selection code scores 100% on the old corpus and 61.5% on the new one, so nothing in the
+// corrective work regressed p_min selection: the corpus change is the whole of the move. What the
+// swap also shows is that the historical 100% was not a result. On the pre-correction corpus the
+// keep budget never bound (0 of 39 events), so the keep-set kept every candidate and p_min landed
+// where NO edge crossed at all in every single event — CrossingEdges(p_min) was 0 for 39 of 39,
+// and 0 < mean is won for free by any prefix that has an edge anywhere. The floor was never
+// exercised; it was measured against an instrument that could not fail it.
+//
+// On the corrected corpus 11 of 39 events are still free wins and the other 28 are real
+// comparisons, 13 of which p_min also wins. 61.5% is therefore the first honest reading of this
+// property, not a degraded one.
+//
+// That does NOT license 0.615 as the new floor. A floor re-derived from the one measurement it is
+// meant to judge asserts nothing. Section 4.5's 70% is a spec number and changing it is a plan
+// decision this test cannot make and this unit does not own; until that re-derivation is
+// authorized and its reasoning recorded, the row stays failing and states why.
 func TestIntegration_BeladyPMinLandsAtLowCoupling(t *testing.T) {
 	ctx := context.Background()
 	sessions := dagselLoadCorpus(t)
 	cfg := config.Defaults()
 
 	events, low := 0, 0
+	// Diagnostic distribution, added in V4 when the measured rate moved from 100% to 61.5%. It
+	// exists so the next reader can tell a corpus change from a selection regression without
+	// re-running the experiment: pAtZero counts events whose p_min sat at position 0 (the
+	// keep-everything answer an unbound budget always gives), crossingZero counts events whose
+	// CrossingEdges(p_min) was 0, and bound counts events where the keep-set had to drop a
+	// candidate (len(IDs) < Candidates), which is the exact statement that eval.DefaultKeepBudget
+	// bit. An event whose CrossingEdges(p_min) is 0 wins the comparison for free against any
+	// positive mean and measures nothing about selection quality; an event whose sampled mean is
+	// 0 cannot be won at all, because the comparison is strict.
+	pAtZero, crossingZero, meanZero, bound := 0, 0, 0, 0
 	for _, s := range sessions {
 		g, err := dag.Open(t.TempDir(), cfg, logging.Nop())
 		require.NoError(t, err)
@@ -243,7 +284,7 @@ func TestIntegration_BeladyPMinLandsAtLowCoupling(t *testing.T) {
 			fed = end
 			require.Positive(t, g.Stats().Edges, "session %s built an edgeless graph; the measurement would be vacuous", s.ID)
 
-			ks, _, err := eval.BeladyDetail(ctx, s, at, eval.DefaultKeepBudget, eval.DefaultBeladyOptions())
+			ks, opt, err := eval.BeladyDetail(ctx, s, at, eval.DefaultKeepBudget, eval.DefaultBeladyOptions())
 			require.NoError(t, err)
 
 			n := dagselPrefixTokens(blocks)
@@ -255,6 +296,18 @@ func TestIntegration_BeladyPMinLandsAtLowCoupling(t *testing.T) {
 			if float64(crossingAtP) < mean {
 				low++
 			}
+			if ks.P == 0 {
+				pAtZero++
+			}
+			if crossingAtP == 0 {
+				crossingZero++
+			}
+			if mean == 0 {
+				meanZero++
+			}
+			if len(ks.IDs) < opt.Candidates {
+				bound++
+			}
 		}
 	}
 
@@ -262,6 +315,9 @@ func TestIntegration_BeladyPMinLandsAtLowCoupling(t *testing.T) {
 	rate := float64(low) / float64(events)
 	t.Logf("wave-1 baseline: CrossingEdges(p_min) beat the 32-sample mean in %d/%d compaction events (%.1f%%)",
 		low, events, rate*100)
+	t.Logf("p_min distribution: p==0 in %d/%d events, CrossingEdges(p_min)==0 in %d/%d, "+
+		"sampled mean==0 in %d/%d, budget binds in %d/%d",
+		pAtZero, events, crossingZero, events, meanZero, events, bound, events)
 	require.GreaterOrEqual(t, rate, dagselLowCouplingFloor,
 		"section 4.5 floor: Belady's p_min must land at below-mean coupling in at least 70%% of events; "+
 			"report the measured rate, do not lower the floor")
