@@ -99,6 +99,15 @@ old readers ignore sidecars, and no old artifact changes shape.
 
 ## Consequences
 
+**Capture policy seam (SP-20 / V4 preparation).** `core.CaptureDecision` is a transient explicit
+privacy decision, not a persisted observation. `hookio.CaptureHook` admits only policy-approved,
+validated JSON bytes and derives the Event afterward. Policy fidelity is explicit; byte identity
+is necessary for `exact` and byte changes alone do not imply redaction. Captured bytes are encoded
+as base64 if transported in JSON, preserving the permitted source spelling. `redact-json/v1`
+identifies the JSON-aware policy registry; `sha256/v1` identifies the planned evidence hash
+construction, not proof of an object or reference. The new seam performs no persistence and is
+not yet wired into CLI/IPC. Ingress privacy, sidecar publication and M1–M3 gates remain pending.
+
 **Compatible failure correction (SP-20 / V4 preparation).** The retained observer method
 signatures and host output shapes stay unchanged. `OnToolUse` now returns the additive
 `observer.ErrUnpublished` (wrapping `core.ErrDegraded`) when its content or tool-use reference

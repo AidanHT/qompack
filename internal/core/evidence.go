@@ -66,6 +66,18 @@ const (
 	OutcomeUncertain   EvidenceOutcome = "uncertain"
 )
 
+// CaptureDecision is a transient privacy-policy result, not a persisted observation or a
+// durability acknowledgement. Only OutcomeOK permits Bytes to be retained. The policy supplies
+// fidelity explicitly: a byte change alone cannot identify redaction, truncation or partiality.
+// Consumers validate the closed values and copy Bytes before accepting the decision.
+type CaptureDecision struct {
+	Bytes     []byte
+	Outcome   EvidenceOutcome
+	Fidelity  Fidelity
+	Redacted  bool
+	Truncated bool
+}
+
 // Authority describes a derived statement's source; content cannot promote its own authority.
 type Authority string
 
