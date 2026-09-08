@@ -1,0 +1,2 @@
+{"v":1,"root":"sha256:38ef5efe65db914d18495cc035c5da21cee03586a577173ebb575b3ecaa2ef01","ts":1718269864000,"tool":"Bash","path":"src/a.ts","raw":11,"canon":11,"tokens":3,"class":0,"chunks":[{"h":"sha256:ea50eaff5853a035aa9a49fe4e5be86c2283c89832f32a3cdd911b4b4a4c0c5e","n":11}]}
+{"v":2,"root":"sha256:62fccf2d12735b493ff285ee0e21da32f32de63d884892b8bb4fb25474d1e127","ts":1718269864000,"tool":"«deltas»","path":"","raw":9,"canon":9,"tokens":2,"class":2,"chunks":[],"base":"sha256:38ef5efe65db914d18495cc035c5da21cee03586a577173ebb575b3ecaa2ef01"}
