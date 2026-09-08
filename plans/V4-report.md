@@ -1,17 +1,28 @@
-# V4 execution report — IN PROGRESS
+# V4 execution report — CORRECTIVE WORK COMPLETE, GATE NOT SIGNED OFF
 
-**Status: IN PROGRESS — revised gate not accepted.** This is the current preparation execution report, not final signoff. Source tree: `wip/v4-preparation`, branched from `919ca3abfba938c53ddbd9a9f55224f0054375a6`; each run records its own source HEAD and dirty-input hashes. `verify/v4` has not been created.
+**Status: corrective implementation complete; the revised V4 gate is NOT signed off.** Candidate:
+`feat/v4-corrective` @ `20a4a63`, 131+ commits ahead of its convergence base `0b14ea6`.
+`verify/v4` has not been created. Date of this record: 2026-09-08. Host: Windows 11 (10.0.26200),
+go1.26.6 windows/amd64, gcc 14.2.0 with CGO enabled (so the race detector is available).
+
+**Candidate provenance.** The candidate was cut from `feat/sp20-capture-storage-and-state-remediation`
+@ `a123ecc` and converged with `wip/v4-preparation` at `0b14ea6`. That convergence was a
+prerequisite nobody had performed: `wip/v4-preparation` was **not an ancestor** of the SP-20 line, so
+the checkpoint-owned frontier port (`02f807a`), the MCP unavailable-outcome fix (`f4a7f09`) and the
+devtool race/budget alignment (`f189f2e`) were absent from the branch all SP-20 work was building on.
+Both source branches are preserved untouched, as are the original Wave 3 SP-10–13 completion records
+and the accepted M0-G0 baseline.
+
+**What this report is.** Sections 1–13 retain the per-subplan inventory as written; their rows are
+reconciled in [reconciliation-map.md](sdd/V4-VERIFY/reconciliation-map.md), which adjudicates all 195
+retained rows without marking any of them PASS. Sections 14–19 record what was actually executed on
+this candidate. Twenty-six work units landed, each in its own worktree with an exclusive file-ownership
+list, test-first, reporting to a file rather than into the coordinating session.
 
 Scope and authority
-V4 retains the original SP-01–SP-13 assertions and cross-component scenarios while applying the current migration contracts. The individual reconciliations are in the [retained inventory](sdd/V4-VERIFY/inventory.md); every linked row remains UNVERIFIED unless explicitly labelled retired assertion. No old PASS result is copied.
-
-Source and preparation evidence
-Preparation artifacts are in `.v4-artifacts/` and remain provisional. `paths-baseline` reports 88.8% coverage and `paths-corrected` 89.4%, both below the unchanged 90% floor. After adding Windows UNC/NUL boundary regressions, `paths-boundaries` passes at 90.9%. Prior failures remain intact. `runner-focused` and `prep-runner-guards` pass the package selector and co-load guard. The pinned formatting check passes. No whole-tree or installed-host gate follows from these focused results.
-
-SP-20's isolated sibling contains core contract `029d065`, drain correction `f6a8691`, tool-publication acknowledgement correction `3576900`, and object-integrity correction `16ecc77`. Its focused and corrected race artifacts are provisional; the [independent packet](sdd/V4-VERIFY/runner-coverage-review.md) records findings and remaining limitations. Those commits have not been integrated into this preparation source. Full SP-20 M1/M2 remains incomplete.
-
-Execution and model record
-Codex native child requests: Luna/medium for inventory and Terra/high for fixture/reviewer work. Effective route, effort, and model costs were not exposed. Maximum three active children, no nested children. This report authorizes no new action; it records work already authorized by the user. No additional source, test, build, Git, runtime, or configuration mutation is authorized by this report.
+V4 retains the original SP-01–SP-13 assertions and cross-component scenarios while applying the current
+migration contracts. No old PASS result is copied, and a matching test name is treated as an
+implementation pointer, never as evidence.
 
 ## 1. SP01 retained assertions
 
@@ -116,79 +127,180 @@ records that dependency review. These results do not close installed-host, M2 or
 Rows: [V4-SP13-01](sdd/V4-VERIFY/inventory.md#v4-sp13-01), [V4-SP13-02](sdd/V4-VERIFY/inventory.md#v4-sp13-02), [V4-SP13-03](sdd/V4-VERIFY/inventory.md#v4-sp13-03), [V4-SP13-04](sdd/V4-VERIFY/inventory.md#v4-sp13-04), [V4-SP13-05](sdd/V4-VERIFY/inventory.md#v4-sp13-05), [V4-SP13-06](sdd/V4-VERIFY/inventory.md#v4-sp13-06), [V4-SP13-07](sdd/V4-VERIFY/inventory.md#v4-sp13-07), [V4-SP13-08](sdd/V4-VERIFY/inventory.md#v4-sp13-08), [V4-SP13-09](sdd/V4-VERIFY/inventory.md#v4-sp13-09), [V4-SP13-10](sdd/V4-VERIFY/inventory.md#v4-sp13-10), [V4-SP13-11](sdd/V4-VERIFY/inventory.md#v4-sp13-11), [V4-SP13-12](sdd/V4-VERIFY/inventory.md#v4-sp13-12), [V4-SP13-13](sdd/V4-VERIFY/inventory.md#v4-sp13-13), [V4-SP13-14](sdd/V4-VERIFY/inventory.md#v4-sp13-14), [V4-SP13-15](sdd/V4-VERIFY/inventory.md#v4-sp13-15), [V4-SP13-16](sdd/V4-VERIFY/inventory.md#v4-sp13-16), [V4-SP13-17](sdd/V4-VERIFY/inventory.md#v4-sp13-17), [V4-SP13-18](sdd/V4-VERIFY/inventory.md#v4-sp13-18), [V4-SP13-19](sdd/V4-VERIFY/inventory.md#v4-sp13-19), [V4-SP13-20](sdd/V4-VERIFY/inventory.md#v4-sp13-20), [V4-SP13-21](sdd/V4-VERIFY/inventory.md#v4-sp13-21), [V4-SP13-22](sdd/V4-VERIFY/inventory.md#v4-sp13-22), [V4-SP13-23](sdd/V4-VERIFY/inventory.md#v4-sp13-23), [V4-SP13-24](sdd/V4-VERIFY/inventory.md#v4-sp13-24).
 Disposition: all rows are **UNVERIFIED** or explicitly retired under the revised migration contracts; implementation pointers do not constitute execution evidence. Current owner must reconcile each exact assertion with SP-19 migration authority before any acceptance.
 
+
 ## 14. Whole-tree and retained cross-wave verification
 
-[V4-ALL-01](sdd/V4-VERIFY/inventory.md#v4-all-01), [V4-ALL-02](sdd/V4-VERIFY/inventory.md#v4-all-02), [V4-ALL-03](sdd/V4-VERIFY/inventory.md#v4-all-03), [V4-ALL-04](sdd/V4-VERIFY/inventory.md#v4-all-04), [V4-ALL-05](sdd/V4-VERIFY/inventory.md#v4-all-05), [V4-ALL-06](sdd/V4-VERIFY/inventory.md#v4-all-06), [V4-ALL-07](sdd/V4-VERIFY/inventory.md#v4-all-07), [V4-ALL-08](sdd/V4-VERIFY/inventory.md#v4-all-08).
-No whole-tree gate, race gate, coverage gate, or replay gate is accepted by preparation artifacts.
+All commands below ran on the candidate on an otherwise idle machine.
+
+| Gate | Command | Result |
+|---|---|---|
+| Build | `go build ./...` | PASS |
+| Vet | `go vet ./...` | PASS (vet compiles test code, so every package's tests compile together) |
+| Lint | `go run ./tools/devtool lint` | **PASS, exit 0 — all ten sub-checks**: golangci-lint, nomagic, importgraph, testdeps, bindeps, sleepcheck, stubskips, runpatterns, docmarkers, coveragefloors |
+| Suite | `go test ./... -count=1 -timeout=40m` | 62 packages ok, 4 packages fail; every failing row accounted for below |
+| Replay gate | `TestIntegration_ReplayGateAcceptsRealGrowthFile` | PASS |
+| Import graph | `devtool lint --only=importgraph` | PASS, 65 packages |
+
+Whole-tree gate IDs [V4-ALL-01](sdd/V4-VERIFY/inventory.md#v4-all-01) through [V4-ALL-08](sdd/V4-VERIFY/inventory.md#v4-all-08)
+are reconciled in the map. **`V4-ALL-08` is retired as written**: "Qompack.md byte-identical to the root
+commit" was false before this work began — the file is at v1.3 with an authorized Revision log, and
+read-only means read-only *to subplans*, not frozen. Its replacement assertion (changes only through an
+authorized Revision-log entry with a matching `QOMPACK-ERRATA.md` record) has **no enforcing guard** in
+`test/guards`, `tools/devtool` or the git hooks, and is therefore recorded MISSING, not passed.
+
+Every remaining suite failure, with its disposition:
+
+| Failing row | Disposition |
+|---|---|
+| `TestCarriedDefects_WaveReportRequiresResolution` — SP05-D1, SP06-D2, SP08-D1, SP10-D1 | **Correct.** Four carried defects remain genuinely open; six of the original ten were resolved with cited evidence. Nothing was resolved to make the guard green. |
+| `TestIntegration_BeladyPMinLandsAtLowCoupling` | **Deliberately red.** See section 17. |
+| `TestBudget_RebuildBloom`, `TestBudget_Open` | Co-load only; both pass in isolation (3.021 s). |
+| `TestV3_HotPathUnchangedWithLedgerResident`, `TestIntegration_HotPathWarmWithRealResidentState` | Budget row B-B; see section 17. Pre-existing breach. |
+
+Not runnable in this environment, and therefore not claimed: the ubuntu/macOS arms of the
+supported-platform gate (Windows host); `govulncheck` (needs network); full CI on `verify/v4` (no such
+branch, and CI remains behind the waived-open J5 billing blockage).
 
 ## 15. Exit criteria
 
-Not met. Required exit evidence includes accepted combined-tree verification, all retained rows dispositioned with executable evidence, revised capability/host-boundary checks, coverage floors, and no unexplained failures.
+**Not met, and not claimed.** The corrective implementation path M1 to M2 to M3 is complete and the
+lint/build/vet gates pass, but three exit conditions are outstanding: reference-platform performance
+evidence does not exist (section 17), four carried defects remain open (section 18), and scenario 4.4
+was not written (section 16).
 
 ## 16. Integration and installed-host scenarios
 
-SP-20 `a123ecc` wires strict privacy admission into all six current CLI hook producers before
-Event transport, fallback spool or daemon startup. The process/env root's policy applies first;
-a permitted destination can redact further but cannot restore removed bytes. Invalid settings,
-policy and reader input refuse capture with generic diagnostics. Bounds cover raw input,
-configuration and policy size. Historical Load remains a diagnostic fallback for other callers.
+**Thirteen of the fourteen section-4 cross-component scenarios are written and passing**, against real
+producers rather than fakes: `TestV4_` reports 12 passing rows in `test/e2e` plus the growth guardrail
+in `test/integration`. There is **no `t.Skip` anywhere** among them — the one scenario that could not be
+written is absent, not faked. Six of the fourteen negative controls were verified by actually breaking
+the mechanism and confirming the row went red; the remaining eight are two-arm controls that execute
+both arms on every run.
 
-The focused config/CLI race selection passes (29.508 s). Real hook-to-daemon/store and spool
-recovery consumers pass (18.751 s package time), as do confinement guards and the noinject
-build selection. An anchored filter selected zero config tests in the consumer run; it supplies
-no config coverage. The corrected Load/Validate prefix selection passes (2.520 s), along with
-formatting, vet and importgraph/testdeps. Initial fixture setup and reproduced privacy failures
-are preserved. Independent review accepted the correction and unchanged-input evidence carry.
-Artifacts in the SP-20 sibling identify tested base `9b395f8` plus hashes, separate from this
-documentation HEAD. Source/test hashes were checked unchanged before the corrective commit.
+**Scenario 4.4, `TestV4_FrontierAdvancementKeepsResidualSpanODelta`, was not written, deliberately.**
+Two full replays differing only in `checkpoint.frontier.advanceOnSegmentClose` are byte-identical —
+measured, not assumed — because that flag is read only in `internal/daemon` while the evaluation
+harness's residual span derives from the last user turn rather than a durable frontier.
+`TestV4_FrontierToggleIsNotConsumedByTheReplayPath` records both arms and fires when the scenario
+becomes writable. **Consequence: `p4DischargedBy` points at an unwritten row, so the Phase 4 residual
+bars are currently enforced by nobody.**
 
-This closes the identified CLI admission defect only. Direct IPC/legacy spool admission,
-raw fidelity sidecars, durable delivery/publication wiring, migration/rollback and M2 remain
-open. Added configuration/redaction cost is unmeasured; installed-host recovery, quiet budgets
-and final integrated V4 verification remain unverified. No migration switch was enabled.
+**Installed-host discovery after compaction (T13-HANDLE) remains unverified.** Four section-4 rows drive
+the MCP handlers in-process, so the stdio transport and `cli`'s unexported Widener wiring are not
+covered.
 
-SP-20 `9b395f8` adds a reviewed daemon-private delivery assignment journal. Nonce-bound retry
-identities survive restart; equal content with distinct nonces remains distinct. A synced row
-and sealed byte/count/hash position precede a successful assignment. Corruption, truncation,
-uncertain writes and owner replacement refuse further work without discarding evidence.
-`delivery-lease-reviewed` passes the focused race selection (13.932 s), and the later bounds
-fixture plus four actual daemon lifecycle consumers pass in 15.040 s. Format and daemon vet
-pass. The earlier green malformed-row fixtures stopped at a missing companion file; corrected
-fixtures and the reviewed artifact supersede that apparent coverage. Source/test hashes and
-failures remain in the SP-20 artifacts. Independent review carries unchanged runtime and
-prior test evidence across the final test-only addition.
+Seven defects were found by executing these gates rather than by reading diffs, and each is the kind of
+thing this checkpoint exists to catch:
 
-This is partial T20-M1-03/04/05 preparation. Production ingress/drain does not open the journal;
-nonce production, approved hashing, admission/ack, lease retention and durable publication are
-still pending. Loss/rollback of both companion files needs outer migration/backup authority.
-No installed-host, timing or final gate passes from assignment and lifecycle tests alone.
-
-SP-20 `9e939dd` adds an independently reviewed privacy admission seam and a real policy-to-hook
-envelope fixture. Exact permitted JSON bytes survive serialization; explicit fidelity and
-generic no-payload failures are enforced before Event derivation. The new capture/policy race
-selection passes in 35.758 s. After the review correction, affected capture/composition and
-retained core/ReadEvent/redactor checks pass in 31.822 s; unchanged redact source/tests retain
-the first run's provisional evidence. Initial fixture compilation and stub assertion failures
-are preserved. Formatting, vet and importgraph/testdeps pass. Artifacts identify SP-20 base
-`16ecc77` plus dirty input hashes; this preparation report HEAD is separate.
-
-This is partial T20-M1-01/02 preparation. The new APIs are unwired: current ingress still needs
-strict policy loading before every spool/blob/WAL write, faithful sidecar publication and
-durable delivery identity. No installed privacy, recovery, timing or full T20/V4 gate passes.
-
-Original §4.1–§4.14 scenarios remain unverified in the inventory. Installed host behavior, native compaction controls, native eviction, output setters, and native history rewriting are unsupported or unobserved; no scenario is accepted from names, comments, or local seams. M0-G0 is accepted as an existing ledger result; remaining M0 qualifications are preserved. Core prerequisite `029d065` and drain correction `f6a8691` are accepted only as bounded corrective slices. Late-client publication, durable identity/lease, privacy capture, object/reference/frontier publication, GC roots, import/backup and M2 producers remain open.
+1. **Oversized hook payloads were silently dropped.** `doHook` returned on `core.ErrBudget` before
+   spooling, and `readHookCapture` discarded the buffered bytes. Any project that tuned
+   `maxPayloadBytes` down lost every delivery above it — proved against the real binary: 39,388 bytes
+   against a limit of 8192 produced **zero** spool files. The host result survived; the evidence
+   vanished with no record it had existed. This violated invariant 1 and invariant 4 simultaneously.
+2. **The shipped daemon could not seal a checkpoint on its first PreCompact.** A ledger-less
+   `SourceSet` was silently dropped by `SetSources`, and the ledger opened only on the first compaction
+   — after the PreCompact that needed it. The only symptom was one Warn line and a null hook output.
+3. **A DPI violation could pass silently.** A filter interposed between the segment listing and the
+   writer removed already-encoded segments before `Advance` could return `ErrAlreadyEncoded`, making
+   both loud-log sites unreachable. A newer safety check had swallowed the case an older, louder one
+   existed to report.
+4. **A leaked `eliminations.jsonl` handle.** The daemon opened the ledger on the PreCompact path but
+   only `runDaemon` closed it. Windows surfaced it as a cleanup failure; on Linux it would have leaked
+   silently.
+5. **A test that encoded the bug.** `TestV1_HookLifecycleThroughRealBinary` asserted that the first
+   PreCompact returns `{}` — which was the defect, not the contract.
+6. **Sixteen unsatisfiable `-run` patterns**, six of which exited 0 while verifying nothing, plus 72
+   further over-escaped patterns whose first alternative could never match. Rows had been silently
+   *partially* verifying. All fixed in place; no waivers were added.
+7. **An architecture violation**: `internal/mcp` importing `internal/redact`, introduced by the
+   retrieval-side secret re-check. Fixed by inverting the dependency — mcp owns the interface, `cli`
+   supplies the implementation — rather than amending the section 3.2 allow-set.
 
 ## 17. Performance budgets
 
-No final budget is accepted. V3 waiver J5/p99 remains waived-open. The provisional `.v4-artifacts/mcp-bf-quiet.run.json` records 46.728 seconds elapsed over 200 calls, with the unchanged 250 ms gate; no other owned command ran, machine background load is unknown, and this is not final candidate evidence. This warm in-process check cannot replace the full process-spawn hot-path gate or measure SP-20's new WAL Sync cost. Other budget rows remain linked and unverified.
+Measured like-for-like on an idle machine, candidate versus the untouched pre-work base `a123ecc`:
+
+| Row | Base | Candidate | Limit | Verdict |
+|---|---|---|---|---|
+| B-A p99 | 3.072 ms | 3.072 ms | 15 ms | PASS both, identical |
+| B-B p50 | 2.304 ms | 2.304 ms | 2 ms | unchanged |
+| **B-B p99** | **3.072 ms** | **3.840 ms** | **2 ms** | **FAIL on both — pre-existing breach** |
+| B-E p99 | 80.634 ms | 136.285 ms | 2000 ms | PASS both (14x margin) |
+| B-E_cpu p99 | 31.250 ms | 46.875 ms | 2000 ms | PASS both |
+
+**B-B breaches its 2 ms budget on the untouched base as well, so the breach is not introduced by this
+work.** The corrective work adds roughly 0.77 ms of p99 tail with p50 unchanged — the measured cost of
+M1's added admission and durability, which is three fsyncs per accepted delivery where there was one.
+That cost was examined and kept: the WAL sync *is* the transport-ACK boundary; the lease-journal sync is
+a different file, and dropping it turns a torn tail into whole-journal degradation; the position seal is
+strictly ordered after it and is what makes a truncated journal detectable, so batching it would make a
+lost tail invisible, which is silent identity loss. B-E's growth is the checkpoint doing real work for
+the first time and stays inside budget by 14x.
+
+Earlier readings of this row (90.1, 81.9, 30.7 and 6.1 ms) were taken while up to eight agents were
+running; they are discarded as co-load noise, not averaged in.
+
+**Reference-platform performance is unmeasured and is not claimed.** SP06-D2, SP08-D1 and SP10-D1 each
+state that their budget "has never been measured on the reference platform", and no Linux runtime
+exists on this machine — `wsl -l -v` lists only a shell-less `docker-desktop` entry and the Docker
+daemon is not running. The only remaining path is a CI run on a pushed branch, which is outward-facing
+and awaits the user's decision.
+
+**Belady p_min stays RED with the floor held at 0.70.** Holding the binary fixed and swapping only the
+corpus, the pre-correction corpus scores 39/39 (100 %) and the corrected corpus 24/39 (61.5 %) — because
+on the old corpus the budget bound on **0 of 39** events and `CrossingEdges(p_min)` was 0 in 39/39, so
+every event was won for free by `0 < mean`. The historical 70 % floor was never exercised by a corpus
+capable of testing it. There is **no selection regression**; the floor was never real. It stays at 0.70
+pending an authorized re-derivation that should exclude the 11/39 still-free wins.
+
+The evaluation corpus itself moved: `stock.fraction_of_opt` 0.695164 to 0.258291, attributed by
+measurement entirely to the corpus (a padding-reverted run reproduces 0.258291 exactly). `phase0.json`
+is M0-04-protected and unchanged; the re-baseline landed beside it as `phase0-recall.*` with all eight
+old failures carried in. The replay gate now carries a corpus SHA in both run and baseline, refuses a
+mismatched pairing, and exits **2 (bad input) rather than 1 (gate failure)**. Seven metrics whose
+baseline denominator was zero now print `unreportable` with absolute deltas instead of meaningless
+percentages; **no sign-off rationale was written for any of them, because the correct fix was to stop
+making the comparison.**
 
 ## 18. Regression and carried requirements
 
-SP10–SP13 original completed history remains preserved, but combined-tree behavior and revised migration gates are unverified. Do not mark SP-20 M1/M2 passed. Preserve capability unknowns, unsupported native controls, source dirt, and the requirement for recoverable evidence.
+Six of ten carried defects resolved with cited evidence: SP02-D1 (all four demand kinds now raised at
+39/39 events), SP02-D2, SP02-D3 (budget binds 26/39, was 0/39), SP02-D4 (no code change — Qompack.md
+v1.3 section 5.2 retired the all-blocks p_min wording), SP02-D5, and SP02-D6 (half fixed, remainder
+deferred to V5-VERIFY behind a section-5.18-frozen Session field).
+
+**Four remain genuinely open** and `TestCarriedDefects` fails exactly those four subtests: SP05-D1,
+SP06-D2, SP08-D1, SP10-D1. Three of the four are reference-platform performance rows (section 17);
+SP06-D2 is a budget-versus-implementation decision that lives in `plans/`.
+
+The V3 waiver is untouched. J5 billing (run 32932419445) and the three-platform p99 backfill remain
+waived-open; nothing here reinterprets them as passes or reopens V3.
+
+Known limitations recorded rather than fixed: store quota is not operator-configurable (it lives on
+`GCPolicy` because any new `config.Config` leaf breaks the frozen `schema.json`/`appendix-c.jsonc`
+golden surface — future names `store.quota.maxBytes`, `store.gc.maxOutcomes`); the two delivery journals
+are unbounded and hash-chained, so compacting them is a separate task with its own crash-safety
+argument; frontier advancement is inert until a process's first compaction, before which crash recovery
+rests on the delivery journal and WAL, which is what the nine crash cuts exercise; retention-roots
+compaction retains a narrow append race that aborts safely rather than losing data; and a payload above
+4 MiB in a project with **no** `.qompack` directory is still dropped without a trace, deliberately,
+because a hook must not conjure state in a project that has not opted in.
 
 ## 19. Signoff
 
-**Not signed off.** The revised V4 gate is open and incomplete. Final acceptance requires coordinator review of every linked inventory row, replacement evidence for retired assertions, accepted SP-20/M0 qualifications, and the complete §4/whole-tree/installed-host evidence set.
+**Not signed off.** The corrective implementation is complete and the build, vet and lint gates pass in
+full, but the V4 gate requires evidence that does not yet exist:
 
+1. Reference-platform performance measurement for SP06-D2, SP08-D1 and SP10-D1 — unavailable in this
+   environment, obtainable only from CI on a pushed branch.
+2. Scenario 4.4 authored, or an authorized retirement with replacement evidence for the Phase 4
+   residual bars.
+3. Installed-host discovery and recovery after compaction (T13-HANDLE), which no in-process test covers.
+4. An enforcing guard for `V4-ALL-08`'s replacement assertion, or its explicit retirement.
+5. An authorized re-derivation of the Belady p_min floor, or acceptance that the row stays red.
 
-
+**Wave 4 readiness.** SP-15 and SP-16 name as prerequisites the accepted contracts — SP-19,
+SP-20/M1-M2, SP-13/M2, SP-10/11 M3 and SP-12 supported scheduling — all of which are delivered on this
+candidate. **SP-14 alone names "verified V4"**, and it is ordered after SP-15 then SP-16 in any case. So
+the corrective path unblocks SP-15 and SP-16 on contract grounds, while SP-14 remains blocked on the
+five items above.
