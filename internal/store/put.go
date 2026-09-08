@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -142,14 +143,25 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 		res.Root, res.Novel, res.Reused = priorRoot.Root, 0, len(priorRoot.Root.Chunks)
 		res.Root.RawBytes = raw // …not the stored root's.
 		res.NearDup = s.nearDup(o.Path, root, res.Root.CanonBytes, res.Signature)
+		res.Fidelity = storedFidelity(priorRoot)
 		s.countRaw(raw)
 		return res, nil
 	}
 
 	// 5. Chunk-level dedup + object writes + token measurement.
+	//
+	// The pending-write registry opens HERE, before the first object lands, and closes only once
+	// the roots.jsonl line has: everything between the two is content that is durable on disk but
+	// referenced by no index entry, which is exactly the window SP-20 invariant 9's "pending
+	// write" clause covers. It is retired on the success path only — an error return deliberately
+	// leaves the marker behind, because that is the crash it exists to survive.
 	class := tokens.Classify(o.Tool, o.Path, canonical)
 	refs := make([]core.ChunkRef, len(chunks))
 	for i, c := range chunks {
+		refs[i] = core.ChunkRef{Hash: c.Hash, Len: c.Len}
+	}
+	pw := s.pending(root, refs)
+	for _, c := range chunks {
 		plain := canonical[c.Offset : c.Offset+int64(c.Len)]
 		n, novel, perr := s.putObject(c.Hash, plain)
 		if perr != nil {
@@ -164,30 +176,113 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 		} else {
 			res.Reused++
 		}
-		refs[i] = core.ChunkRef{Hash: c.Hash, Len: c.Len}
 	}
 	res.Root.Chunks = refs
 	res.Root.Tokens = s.deps.Tokens.EstimateRoot(ctx, refs, class)
 
-	// 6. Volatile side record (§8.1 "keep the volatile deltas as a tiny side record").
-	var deltaRoot core.Hash
-	if o.KeepRaw && len(cr.Deltas) > 0 {
-		deltaRoot, err = s.putDeltas(ctx, cr.Deltas)
-		if err != nil {
-			return res, err
-		}
+	// 6. Recovery record (§8.1 "keep the volatile deltas as a tiny side record"), admitted only
+	//    under SP-20 invariant 6.
+	deltaRoot, origRoot, fidelity, err := s.admitRecovery(ctx, root, refs, red, canonical, cr.Deltas, o)
+	if err != nil {
+		return res, err
 	}
+	res.Fidelity = fidelity
 
 	// 7. Append the roots.jsonl line and publish to the in-memory index.
 	if err := s.appendRoot(rootEntry{
 		Root: res.Root, TS: s.now(), Tool: o.Tool, Path: o.Path,
-		Class: uint8(class), Eph: o.Ephemeral, Sig: res.Signature, Deltas: deltaRoot,
+		Class: uint8(class), Eph: o.Ephemeral, Sig: res.Signature,
+		Deltas: deltaRoot, Orig: origRoot,
 	}); err != nil {
 		return res, err
 	}
+	pw.done()
 	res.NearDup = s.nearDup(o.Path, root, res.Root.CanonBytes, res.Signature)
 	s.countRaw(res.Root.RawBytes)
 	return res, nil
+}
+
+// storedFidelity reports the recovery status a root that is ALREADY stored carries, so a
+// root-level dedup hit answers the same question a fresh put does.
+//
+// It reads the stored record's pointers rather than re-deriving anything: a delta record means an
+// exact round-trip was proven when the content was first stored, a retained full original means it
+// was not and the bytes were kept whole instead, and neither means only canonical bytes exist.
+func storedFidelity(e rootEntry) Fidelity {
+	switch {
+	case !e.Deltas.IsZero():
+		return FidelityExact
+	case !e.Orig.IsZero():
+		return FidelityFull
+	default:
+		return FidelityCanonical
+	}
+}
+
+// admitRecovery decides how this put's ORIGINAL bytes are recoverable, and persists the record
+// that makes the claim true.
+//
+// This is SP-20 invariant 6 in one place: "an exact delta must reconstruct exactly from a durable
+// declared base; no base means no delta-only recovery claim." A delta is admitted ONLY when every
+// chunk of its declared base is already on disk AND canon.Restore reproduces the redacted input
+// byte for byte. Anything else — an unprovable delta list, a canonicalizer that changed bytes
+// without recording them, a base whose objects did not land — falls back to retaining the original
+// as its own full object, which is a weaker representation but never a false claim.
+//
+// KeepRaw = false asks for no recovery record at all, so the canonical bytes are all that exist
+// and the fidelity says exactly that.
+func (s *FSStore) admitRecovery(
+	ctx context.Context, base core.Hash, refs []core.ChunkRef, red, canonical []byte,
+	deltas []canon.Delta, o PutOptions,
+) (deltaRoot, origRoot core.Hash, fid Fidelity, err error) {
+	if !o.KeepRaw {
+		return core.Hash{}, core.Hash{}, FidelityCanonical, nil
+	}
+	// Canonicalization changed nothing: the stored bytes ARE the original, with no side record to
+	// go wrong. This is the ordinary case for content with nothing volatile in it.
+	if len(deltas) == 0 && bytes.Equal(canonical, red) {
+		return core.Hash{}, core.Hash{}, FidelityExact, nil
+	}
+	if len(deltas) > 0 && s.deltaProven(base, refs, red, canonical, deltas) {
+		dr, derr := s.putDeltas(ctx, deltas, base, o.Ephemeral)
+		if derr != nil {
+			return core.Hash{}, core.Hash{}, FidelityCanonical, derr
+		}
+		return dr, core.Hash{}, FidelityExact, nil
+	}
+	or, oerr := s.putFullOriginal(ctx, red, base, o.Ephemeral)
+	if oerr != nil {
+		return core.Hash{}, core.Hash{}, FidelityCanonical, oerr
+	}
+	return core.Hash{}, or, FidelityFull, nil
+}
+
+// deltaProven reports whether deltas may be persisted as base's exact recovery record.
+//
+// Two independent checks, and both must hold. DURABILITY: every chunk of the declared base is
+// present under objects/ — a delta that replays onto a base which is not there reconstructs
+// nothing, so persisting one would file a recovery claim that cannot be honoured. EXACTNESS:
+// canon.Restore(canonical, deltas) equals the redacted input byte for byte, which is the only
+// evidence that the side record actually inverts the transform that produced it. Neither is
+// asserted anywhere else on the write path; before SP-20 the round-trip was checked only in
+// internal/canon's own tests, which say nothing about the bytes this store just wrote.
+func (s *FSStore) deltaProven(base core.Hash, refs []core.ChunkRef, red, canonical []byte, deltas []canon.Delta) bool {
+	for _, c := range refs {
+		if !s.objectExists(c.Hash) {
+			s.count("store.delta.baseNotDurable", 1)
+			s.log.Warn("store: refusing a delta whose declared base is not durable",
+				"base", base.Short(), "chunk", c.Hash.Short())
+			return false
+		}
+	}
+	got, err := canon.Restore(canonical, deltas)
+	if err != nil || !bytes.Equal(got, red) {
+		s.count("store.delta.roundTripUnproven", 1)
+		s.log.Warn("store: refusing a delta whose round trip is not exact; retaining a full object instead",
+			"base", base.Short(), "err", err, "want", len(red), "got", len(got))
+		return false
+	}
+	return true
 }
 
 // noteCanonFallback records that canonicalization was unavailable for this Put and warns once per
@@ -318,8 +413,31 @@ func (s *FSStore) nearDup(path string, root core.Hash, canonBytes int64, sig ske
 // work on the hot path; and canonicalizing the record of what canonicalization removed is
 // meaningless. The record is filed as an ordinary root under the synthetic tool name "«deltas»",
 // so GC sees and retains it exactly like any other root rather than treating it as an orphan.
-func (s *FSStore) putDeltas(ctx context.Context, deltas []canon.Delta) (core.Hash, error) {
-	payload := marshalDeltas(deltas)
+func (s *FSStore) putDeltas(ctx context.Context, deltas []canon.Delta, base core.Hash, eph bool) (core.Hash, error) {
+	return s.putSideRecord(ctx, marshalDeltas(deltas), deltaToolName, tokens.ClassJSON, base, eph)
+}
+
+// putFullOriginal retains the redacted ORIGINAL bytes as their own full object, for a base whose
+// exact delta could not be proven.
+//
+// It is the "otherwise retain a full object" half of invariant 6, and it is a deliberate storage
+// trade: keeping the original whole costs more than a delta and is the only representation left
+// that is still true. It is filed under the synthetic tool name "«raw»" for the same reason the
+// delta record is filed under "«deltas»" — so GC sees an ordinary root rather than an orphan — and
+// declares the same Base, so the two are coupled by exactly one rule in the mark phase.
+func (s *FSStore) putFullOriginal(ctx context.Context, red []byte, base core.Hash, eph bool) (core.Hash, error) {
+	return s.putSideRecord(ctx, red, rawToolName, tokens.ClassProse, base, eph)
+}
+
+// putSideRecord stores one recovery side record (a delta list or a retained original) as its own
+// root, declaring the base it belongs to.
+//
+// Ephemerality is INHERITED from the content root. Without that a born-ephemeral retrieval result
+// would acquire a non-ephemeral companion, and §8.7's "an ephemeral root is never in-window by the
+// age clause" would be void through the coupling rule that keeps the pair together.
+func (s *FSStore) putSideRecord(
+	ctx context.Context, payload []byte, tool string, class tokens.Class, base core.Hash, eph bool,
+) (core.Hash, error) {
 	chunks := s.splitChecked(payload)
 	root := chunk.RootHash(chunks)
 
@@ -332,29 +450,33 @@ func (s *FSStore) putDeltas(ctx context.Context, deltas []canon.Delta) (core.Has
 
 	refs := make([]core.ChunkRef, len(chunks))
 	for i, c := range chunks {
+		refs[i] = core.ChunkRef{Hash: c.Hash, Len: c.Len}
+	}
+	pw := s.pending(root, refs)
+	for _, c := range chunks {
 		n, novel, err := s.putObject(c.Hash, payload[c.Offset:c.Offset+int64(c.Len)])
 		if err != nil {
-			return core.Hash{}, fmt.Errorf("store: put delta chunk %s: %w", c.Hash.Short(), err)
+			return core.Hash{}, fmt.Errorf("store: put %s chunk %s: %w", tool, c.Hash.Short(), err)
 		}
 		if novel {
-			// Delta bytes count toward Stats.Bytes but NEVER toward Stats.RawBytes: they are store
-			// overhead, not transcript, and folding them into the numerator would inflate
+			// Side-record bytes count toward Stats.Bytes but NEVER toward Stats.RawBytes: they are
+			// store overhead, not transcript, and folding them into the numerator would inflate
 			// DedupRatio — the one number the Phase 1 exit criterion turns on.
 			s.addBytes(n)
 		}
-		refs[i] = core.ChunkRef{Hash: c.Hash, Len: c.Len}
 	}
 
 	dr := Root{
 		Hash: root, Chunks: refs,
 		CanonBytes: int64(len(payload)), RawBytes: int64(len(payload)),
-		Tokens: s.deps.Tokens.EstimateRoot(ctx, refs, tokens.ClassJSON),
+		Tokens: s.deps.Tokens.EstimateRoot(ctx, refs, class),
 	}
 	if err := s.appendRoot(rootEntry{
-		Root: dr, TS: s.now(), Tool: deltaToolName, Path: "", Class: uint8(tokens.ClassJSON),
+		Root: dr, TS: s.now(), Tool: tool, Path: "", Class: uint8(class), Eph: eph, Base: base,
 	}); err != nil {
 		return core.Hash{}, err
 	}
+	pw.done()
 	return root, nil
 }
 

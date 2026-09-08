@@ -28,6 +28,10 @@ const opGC = "gc"
 // root is an ordinary, GC-visible root rather than an invisible orphan (Qompack.md §8.1).
 const deltaToolName = "«deltas»"
 
+// rawToolName is the synthetic "tool" a RETAINED FULL ORIGINAL is filed under, when SP-20
+// invariant 6 refused a delta-only representation for it (see putFullOriginal).
+const rawToolName = "«raw»"
+
 // maxKnownClass is the highest tokens.Class ordinal this format knows. Ordinals are PINNED here
 // because they are persisted: 0 prose, 1 code, 2 json, 3 diff, 4 image, 5 pdf, 6 binary, matching
 // internal/tokens/class.go's declaration order.
@@ -66,6 +70,10 @@ type rootWire struct {
 	Chunks []chunkWire      `json:"chunks"`
 	Sig    *signatureOnWire `json:"sig"`
 	Deltas string           `json:"deltas"`
+	// Base is the declared delta base a v2 delta record carries (SP-20 invariant 6), and Orig the
+	// retained full original a content record fell back to. Both are absent on a v1 line.
+	Base string `json:"base"`
+	Orig string `json:"orig"`
 }
 
 // chunkWire is one entry of a roots line's "chunks" array. The keys are deliberately short: this
@@ -156,7 +164,7 @@ func marshalRootLine(rl rootEntry) []byte {
 	dst := make([]byte, 0, 128+len(rl.Root.Chunks)*80)
 	dst = append(dst, '{')
 	dst = appendKey(dst, "v", true)
-	dst = strconv.AppendInt(dst, indexRecordVersion, 10)
+	dst = strconv.AppendInt(dst, rootRecordVersion(rl), 10)
 	dst = appendKey(dst, "root", false)
 	dst = appendJSONString(dst, rl.Root.Hash.String())
 	dst = appendKey(dst, "ts", false)
@@ -208,8 +216,26 @@ func marshalRootLine(rl rootEntry) []byte {
 		dst = appendKey(dst, "deltas", false)
 		dst = appendJSONString(dst, rl.Deltas.String())
 	}
+	if !rl.Base.IsZero() {
+		dst = appendKey(dst, "base", false)
+		dst = appendJSONString(dst, rl.Base.String())
+	}
+	if !rl.Orig.IsZero() {
+		dst = appendKey(dst, "orig", false)
+		dst = appendJSONString(dst, rl.Orig.String())
+	}
 
 	return append(dst, '}', '\n')
+}
+
+// rootRecordVersion is the "v" one record declares: the SP-20 version only when the line actually
+// carries an SP-20 field, so a store that never stores a declared base writes a byte-identical
+// file to the one SP-06 wrote.
+func rootRecordVersion(rl rootEntry) int64 {
+	if !rl.Base.IsZero() || !rl.Orig.IsZero() {
+		return indexRecordVersionBase
+	}
+	return indexRecordVersion
 }
 
 // encodeSignature renders sig's binary form as standard base64, reporting false when there is no
@@ -430,7 +456,10 @@ func parseRootLine(line []byte) (rl rootEntry, tombstone bool, root core.Hash, e
 	if err = json.Unmarshal(line, &w); err != nil {
 		return rootEntry{}, false, core.Hash{}, err
 	}
-	if w.V != indexRecordVersion {
+	// Both record versions are read. v1 is every line SP-06 ever wrote; v2 adds the declared
+	// delta base and the retained-full-original pointer and changes nothing else, so one parser
+	// serves both and an old file loads with those two fields simply absent.
+	if w.V != indexRecordVersion && w.V != indexRecordVersionBase {
 		return rootEntry{}, false, core.Hash{}, errUnknownRecord
 	}
 	h, err := core.ParseHash(w.Root)
@@ -465,6 +494,19 @@ func parseRootLine(line []byte) (rl rootEntry, tombstone bool, root core.Hash, e
 	if w.Deltas != "" {
 		if d, derr := core.ParseHash(w.Deltas); derr == nil {
 			rl.Deltas = d
+		}
+	}
+	// A base or orig pointer that will not parse is DROPPED rather than failing the line, exactly
+	// as "deltas" already is: the record itself is still valid content, and a dangling recovery
+	// pointer degrades to "no recovery claim" — which is the safe direction for invariant 6.
+	if w.Base != "" {
+		if b, berr := core.ParseHash(w.Base); berr == nil {
+			rl.Base = b
+		}
+	}
+	if w.Orig != "" {
+		if o, oerr := core.ParseHash(w.Orig); oerr == nil {
+			rl.Orig = o
 		}
 	}
 	return rl, false, h, nil
