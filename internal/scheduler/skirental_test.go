@@ -34,13 +34,53 @@ func TestSkiRental_ComputedNotLiteral(t *testing.T) {
 	require.False(t, SkiRentalShouldWrite(1, 0, 1.25))
 }
 
-// TestSkiRental_ThresholdTracksConfig proves the break-even genuinely moves when r/w move,
-// rather than being pinned to the §5.1 worked example: at r=0.2, w=1.0 the break-even is w/r=5,
-// a different threshold than the 12.5 case above would give the same expectedReads value.
-func TestSkiRental_ThresholdTracksConfig(t *testing.T) {
-	require.True(t, SkiRentalShouldWrite(6, 0.2, 1.0))
-	require.False(t, SkiRentalShouldWrite(5, 0.2, 1.0))
-	require.False(t, SkiRentalShouldWrite(-100, 0.2, 1.0), "negative expected reads can never clear a positive threshold")
+// TestSkiRentalThreshold_TracksRegimeNotConfig proves the break-even is driven by the resolved
+// cache REGIME, not by cfg.Cache.WriteMultiplier read directly.
+//
+// This is the seam V4-VERIFY NC-6 settled. The previous spelling of this test
+// (TestSkiRental_ThresholdTracksConfig) fed r and w to SkiRentalShouldWrite as bare literals,
+// which cannot distinguish "w came from config" from "w came from the regime" — the two answers
+// the row's two numbers depend on. Config is an INPUT to regime selection (cacheregime.go builds
+// the five-minute rung entirely from cfg.Cache), never a bypass: at the one-hour TTL the regime
+// reports HostOneHourWriteMultiplier while cfg.Cache.WriteMultiplier stays at Appendix C's 1.25,
+// and it is the regime's number the threshold must move with.
+//
+// Hence the two numbers of Qompack.md §5.6 / Appendix A: w/r == 12.5 at the five-minute regime
+// (r=0.1, w=1.25) and w/r == 20 at the one-hour regime (r=0.1, w=2.0). The ≈12.5 in §5.6 is the
+// five-minute figure and is not the only one.
+func TestSkiRentalThreshold_TracksRegimeNotConfig(t *testing.T) {
+	cfg := baseCfg()
+	require.Equal(t, 1.25, cfg.Cache.WriteMultiplier, "Appendix C's floor is the config input, unchanged in both regimes")
+
+	fiveMin := ResolveCacheRegime(envOf(map[string]string{"FORCE_PROMPT_CACHING_5M": "1"}), cfg, "", false, HostOneHourTTLSeconds)
+	oneHour := ResolveCacheRegime(envOf(map[string]string{"ENABLE_PROMPT_CACHING_1H": "1"}), cfg, "", false, HostOneHourTTLSeconds)
+
+	// w is regime-derived. The five-minute rung passes Appendix C's floor through; the one-hour
+	// rung reports the documented 2x while the config value is untouched.
+	require.Equal(t, cfg.Cache.WriteMultiplier, fiveMin.WriteMultiplier)
+	require.Equal(t, HostOneHourWriteMultiplier, oneHour.WriteMultiplier)
+	require.NotEqual(t, cfg.Cache.WriteMultiplier, oneHour.WriteMultiplier,
+		"reading w from cfg.Cache.WriteMultiplier would collapse the two regimes onto one threshold")
+
+	// Threshold 12.5 under the five-minute regime: 12 and 12.5 do not write, 12.6 does.
+	require.False(t, SkiRentalShouldWrite(12, fiveMin.ReadMultiplier, fiveMin.WriteMultiplier))
+	require.False(t, SkiRentalShouldWrite(12.5, fiveMin.ReadMultiplier, fiveMin.WriteMultiplier), "strictly greater than the threshold")
+	require.True(t, SkiRentalShouldWrite(12.6, fiveMin.ReadMultiplier, fiveMin.WriteMultiplier))
+
+	// Threshold 20 under the one-hour regime, from the SAME config: 12.6 no longer writes.
+	require.False(t, SkiRentalShouldWrite(12.6, oneHour.ReadMultiplier, oneHour.WriteMultiplier),
+		"the one-hour write premium moves the break-even from 12.5 to 20")
+	require.False(t, SkiRentalShouldWrite(20, oneHour.ReadMultiplier, oneHour.WriteMultiplier))
+	require.True(t, SkiRentalShouldWrite(20.1, oneHour.ReadMultiplier, oneHour.WriteMultiplier))
+
+	// A disabled cache is neither: no read discount and no write premium, so the break-even is 1.
+	disabled := ResolveCacheRegime(envOf(map[string]string{"DISABLE_PROMPT_CACHING": "1"}), cfg, "", false, HostOneHourTTLSeconds)
+	require.Equal(t, 1.0, disabled.WriteMultiplier)
+	require.False(t, SkiRentalShouldWrite(1, disabled.ReadMultiplier, disabled.WriteMultiplier))
+	require.True(t, SkiRentalShouldWrite(1.1, disabled.ReadMultiplier, disabled.WriteMultiplier))
+
+	require.False(t, SkiRentalShouldWrite(-100, fiveMin.ReadMultiplier, fiveMin.WriteMultiplier),
+		"negative expected reads can never clear a positive threshold")
 }
 
 // TestSkiRental_ThresholdLiteralOnlyInTests is the grep test the plan asks for: the literal 12.5

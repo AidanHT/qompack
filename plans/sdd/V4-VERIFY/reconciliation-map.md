@@ -47,7 +47,7 @@ Corrective-unit attributions come from `git log 919ca3a..2232af6` and the unit r
 | `RETIRED` | 14 |
 | `SPLIT-REVIEW` | 7 |
 | `MISSING` | 3 |
-| `NEEDS-COORDINATOR` | 3 (rows) — plus 10 open questions in total, listed in [§5](#5-needs-coordinator-questions) |
+| `NEEDS-COORDINATOR` | **0** — was 3 rows plus 10 questions; all ten were ruled on 2026-09-08 and the rows re-scored (`V4-SP01-08` → `MAPPED`, `V4-SP10-19` → `MAPPED-CMD`, `V4-SP12-05` → `MAPPED`). See [§7](#7-coordinator-rulings-on-nc-1--nc-10-and-what-was-applied-2026-09-08) |
 | `PENDING-A2` | 1 |
 | **Retained rows total** | **195** |
 | §4 cross-component scenarios (all `MISSING`, all with authoring briefs) | 14 |
@@ -279,7 +279,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-sp01-05"></a>[V4-SP01-05](inventory.md#v4-sp01-05) | Plugin bundle: **eight MCP tools are now real** | SUPERSEDED-BY-CORRECTIVE | _cmd_ `go run ./tools/devtool plugin-validate` + `internal/pluginmanifest` | direct | Unit F `f5df6f0` regenerated the MCP tool docs and goldens; `a9a9e1d` changed the `re_read` input schema. Validate against the regenerated manifest, not the historical one. |
 | <a id="rc-v4-sp01-06"></a>[V4-SP01-06](inventory.md#v4-sp01-06) | `obs` budget table with **B-F in force** | MAPPED | `internal/obs`: `TestCheckBudgets_NeverReportsUngatedBudgets` | direct | B-F row present in the `internal/obs` budget table. |
 | <a id="rc-v4-sp01-07"></a>[V4-SP01-07](inventory.md#v4-sp01-07) | Config docs and schema still cannot drift | SUPERSEDED-BY-CORRECTIVE | _cmd_ `go run ./tools/devtool gen-config-docs --check` | direct | A0 (`internal/config/capture_load_test.go`) and C (`168c685` `store.migrate.legacyImportCutover`) added config keys; `docs/config-reference.md` must be regenerated before this gate is meaningful. |
-| <a id="rc-v4-sp01-08"></a>[V4-SP01-08](inventory.md#v4-sp01-08) | Appendix C still reproduced verbatim after four branches touched config consumers | NEEDS-COORDINATOR | `internal/config`: `TestDefaults_MatchesAppendixCVerbatim` | direct | The test still exists, but C/A0 added new default keys while `Qompack.md` Appendix C is the frozen source. See NC-1. |
+| <a id="rc-v4-sp01-08"></a>[V4-SP01-08](inventory.md#v4-sp01-08) | Appendix C still reproduced verbatim after four branches touched config consumers | MAPPED | `internal/config`: `TestDefaults_MatchesAppendixCVerbatim` | direct | **NC-1b: not a live failure.** Verified — the golden config surface (`testdata/golden/config/`, `appendix-c.jsonc`) is **byte-identical across `0b14ea6..HEAD`**. B added no config keys, C's gate is a *build* gate rather than a config leaf, and A0's capture work did not move the golden. Consequence for a future wave: store quota is not operator-configurable — see `inventory.md` §NC-1b. |
 | <a id="rc-v4-sp01-09"></a>[V4-SP01-09](inventory.md#v4-sp01-09) | Append-only guard now has real checkpoints and real pins to guard | MAPPED | `internal/paths`: `TestAppendOnlyGuard`; `test/guards`: `TestGuard_WriteSetConfinedToQompack`, `TestV1_AppendOnlyInvariantSurvivesRealHookRun` | direct | A0 modified `internal/paths/appendonly_test.go`; real checkpoints and pins now exist to guard. |
 | <a id="rc-v4-sp01-10"></a>[V4-SP01-10](inventory.md#v4-sp01-10) | Conformance suites: **only three packages may still skip** | SUPERSEDED-BY-CORRECTIVE | _cmd_ `go run ./tools/devtool lint --only=stubskips` + `test/guards`: `TestStubRegistry_ListsEveryPackageOnDisk`, `TestAllStubsReturnNotImplemented` | direct | Unit J `9e2aa89` added `internal/state` to the stub registry. The "only three packages may skip" clause must be re-read against the current registry, not the historical count. |
 | <a id="rc-v4-sp01-11"></a>[V4-SP01-11](inventory.md#v4-sp01-11) | e2e: all six hooks, now with real handlers behind `checkpoint` and `session-start` | MAPPED | `test/e2e`: `TestE2E_AllSixHooksExitZero`, `TestE2E_RunHookRealBinaryMode` | direct | - |
@@ -320,7 +320,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-sp05-07"></a>[V4-SP05-07](inventory.md#v4-sp05-07) | **`ipc.OpMCP` is routed** | MAPPED | `?`: `TestInstallMCPOpRegistersTheHandler`; `internal/daemon`: `TestDaemonMCPOpEmptyRegistryDegrades` | by-name | - |
 | <a id="rc-v4-sp05-08"></a>[V4-SP05-08](inventory.md#v4-sp05-08) | **The idle controller now runs six scheduler tasks plus the checkpoint cadence** | SUPERSEDED-BY-CORRECTIVE | `internal/daemon`: `TestIdleTasksRegistered`; `internal/cli`: `TestShippedDaemonRegistersTheCheckpointIdleTasks` | direct | K (`6cf9551`/`f7ce8cf`) and M (`929f8a1`, `47d1de0`) changed the registered idle-task set and made ledger/source resolution live. The historical "six tasks plus cadence" count must be re-derived. |
 | <a id="rc-v4-sp05-09"></a>[V4-SP05-09](inventory.md#v4-sp05-09) | **Degraded-passive suppresses every wave-3 acting path** | MAPPED | `internal/daemon`: `TestDegradedPassiveSuppressesActingPaths`, `TestDegradedPassiveStillRecords`, `TestService_DegradedPassiveEmitsNothing`; `test/e2e`: `TestE2E_CheckpointDegradedPassiveSealsNothing`; `test/integration`: `TestIntegration_DegradedPassiveStillWritesToTheRealStore` | direct | The §4.12 whole-subsystem form is still MISSING; these are the per-subsystem arms. |
-| <a id="rc-v4-sp05-10"></a>[V4-SP05-10](inventory.md#v4-sp05-10) | Hooks exit 0 under every injected fault, with four new subsystems behind them | SPLIT-REVIEW | `test/e2e`: `TestHooksExitZeroUnderFaults`, `TestSelfTestIsTheOnlyNonZeroExit`, `TestFaultSitesInertWhenUnset` | direct | A0 `a123ecc` modified `internal/cli/fault_test.go` and added capture admission before persistence. Whether the historical 66/66 fault-combination count still holds needs an independently reviewed recount. See NC-4. |
+| <a id="rc-v4-sp05-10"></a>[V4-SP05-10](inventory.md#v4-sp05-10) | Hooks exit 0 under every injected fault, with four new subsystems behind them | SPLIT-REVIEW | `test/e2e`: `TestHooksExitZeroUnderFaults`, `TestSelfTestIsTheOnlyNonZeroExit`, `TestFaultSitesInertWhenUnset` | direct | **NC-4: re-enumerated on this candidate — the real count is 66, unchanged.** 6 hooks (`hookSubcommands`) x 11 sites (`allFaultSites` / `e2eFaultSites`) = 66, and `git log 919ca3a..HEAD` touches none of those three tables. A0 added no fault site: it added `faultInflateHookCapture` at the **existing** `oversize` site. Enumeration output in `inventory.md` §NC-4. The fault-injection arm itself is still S7's to run. |
 | <a id="rc-v4-sp05-11"></a>[V4-SP05-11](inventory.md#v4-sp05-11) | `sync` → `spool` breach transition still observable | MAPPED | `internal/daemon`: `TestSpoolOnBreachFalse` | by-name | - |
 | <a id="rc-v4-sp05-12"></a>[V4-SP05-12](inventory.md#v4-sp05-12) | **B-A/B-B/B-D/B-E hot-path harness with the full wave-3 resident set** | MAPPED-CMD | _cmd_ `go run ./tools/devtool bench-hotpath` | direct | Co-load policy ADR 0010 applies; run in a quiet window. |
 | <a id="rc-v4-sp05-13"></a>[V4-SP05-13](inventory.md#v4-sp05-13) | **The scheduler is provably not on the hot path** | MAPPED | `internal/cli`: `TestSchedulerNotOnHotPath` | direct | - |
@@ -333,7 +333,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-sp06-05"></a>[V4-SP06-05](inventory.md#v4-sp06-05) | **GC roots now include real checkpoints and real pins** | SUPERSEDED-BY-CORRECTIVE | `?`: `TestGC_HarvestsHashesFromCheckpoints`; `internal/store`: `TestGC_ReadsTheDeliveryLeaseJournalAsARetentionRoot`, `TestGC_RetainsADeltaWithItsBase`, `TestGC_CannotCollectMigrationOrRollbackMaterial`, `TestMigration_DeclaresRetentionRootsOnDisk`, `TestGC_QuotaNeverEvictsAHardRetentionRoot` | direct | Units B (`aa57f1b`, `7088509`), C and M (`b6820de`) enlarged the root set beyond checkpoints and pins. The historical root list is now a strict subset. |
 | <a id="rc-v4-sp06-06"></a>[V4-SP06-06](inventory.md#v4-sp06-06) | `ChangedSince` still exactly hash inequality, now called from the scheduler's idle staleness ... | MAPPED | `?`: `TestChangedSince_Normalizes` | by-name | - |
 | <a id="rc-v4-sp06-07"></a>[V4-SP06-07](inventory.md#v4-sp06-07) | Phase-1 dedup ratio unchanged by wave 3 | MAPPED-CMD | _cmd_ `go test -v ./test/dedup/` | direct | - |
-| <a id="rc-v4-sp06-08"></a>[V4-SP06-08](inventory.md#v4-sp06-08) | Frozen index formats | SPLIT-REVIEW | `internal/store`: `TestGolden_IndexFormats`, `TestImportCursor_OnDiskShapeIsVersioned`, `TestLoadRoots_ReadsBothRecordVersions` | direct | C `33a7c9e` migrated evidence envelopes "compatibly" and B added a second root-record version. Whether the frozen index goldens are still byte-identical needs an independently reviewed split between the frozen-format clause and the new versioned shapes. See NC-3. |
+| <a id="rc-v4-sp06-08"></a>[V4-SP06-08](inventory.md#v4-sp06-08) | Frozen index formats | SPLIT-REVIEW | `internal/store`: `TestGolden_IndexFormats`, `TestImportCursor_OnDiskShapeIsVersioned`, `TestLoadRoots_ReadsBothRecordVersions` | direct | **NC-3: versioned successor, not retirement.** Verified — `testdata/golden/store/` is **byte-identical across both `919ca3a..HEAD` and `0b14ea6..HEAD`**, so the frozen clause holds and the old-version goldens must still be readable (`TestLoadRoots_ReadsBothRecordVersions` is that guarantee). A new-version golden was added beside them, `testdata/golden/store/roots.v2.jsonl` (`v:1` + `v:2` declared-base). The frozen-format row names both. The two-version reader clause is still S6's to run. |
 | <a id="rc-v4-sp06-09"></a>[V4-SP06-09](inventory.md#v4-sp06-09) | Store/redact/tokens performance | MAPPED-CMD | _cmd_ `go test -bench . -benchmem -run '^$' ./internal/store ./internal/redact ./internal/tokens` | direct | Inventory recorded MISSING; `internal/store/bench_test.go` and the sibling packages carry every named benchmark. Scoring correction. |
 | <a id="rc-v4-sp06-10"></a>[V4-SP06-10](inventory.md#v4-sp06-10) | Coverage floors | MAPPED-CMD | _cmd_ `go run ./tools/devtool cover` | direct | - |
 | <a id="rc-v4-sp07-01"></a>[V4-SP07-01](inventory.md#v4-sp07-01) | Package green under race | MAPPED-CMD | _cmd_ `go test -race ./internal/dag/...` | direct | - |
@@ -351,7 +351,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-sp08-05"></a>[V4-SP08-05](inventory.md#v4-sp08-05) | Verbatim user capture is still the **only** intent source | SUPERSEDED-BY-CORRECTIVE | `internal/rehydrate`: `TestUserIntent_EarliestTurnOfThisSessionWins`; `internal/state`: `TestCorrect_SupersedesObsoleteInstructionAndRetainsHistory`, `TestSupersede_OnlyAuthoritativeSourcesMaySupersedeAuthoritativeState` | direct | Unit E `76e0a9e` makes rehydrate honour current `internal/state` authority over frozen or superseded intent. "Verbatim user capture is the only intent source" is now "verbatim capture is the only *raw* source, subject to the authority model". |
 | <a id="rc-v4-sp08-06"></a>[V4-SP08-06](inventory.md#v4-sp08-06) | Tombstones are now expandable through a real MCP tool | MAPPED | `internal/observer`: `TestTombstone_RendersTheSection81Form`, `TestTombstone_IsAddressable`; `test/integration`: `TestIntegration_TombstoneRoundTripThroughStore`; `test/e2e`: `TestV3_HookEventToTombstoneToRetrievalRoundTrip` | direct | The named `TestTombstone_DesignExample` no longer exists; `TestTombstone_RendersTheSection81Form` and `TestTombstoneGolden` carry that assertion. §4.5 cross-component form still MISSING. |
 | <a id="rc-v4-sp08-07"></a>[V4-SP08-07](inventory.md#v4-sp08-07) | Observer hot-path cost inside B-C, with the scheduler tap added | MAPPED | `internal/observer`: `BenchmarkOnToolUse_FileRead64KB`, `BenchmarkOnToolUse_TestOutput256KB`, `BenchmarkTombstone`; `internal/daemon`: `BenchmarkSchedulerTap_ObserveTool` | by-name | - |
-| <a id="rc-v4-sp08-08"></a>[V4-SP08-08](inventory.md#v4-sp08-08) | Observer conformance suite and e2e | SPLIT-REVIEW | `test/e2e`: `TestE2E_VerbatimPromptSurvivesRestart`, `TestE2E_ObserverThroughDaemon` | direct | The "zero t.Skip" clause cannot be scored from the row: 76 `t.Skip` sites exist across `internal/` and `test/`. The observer subset needs its own count. See NC-5. |
+| <a id="rc-v4-sp08-08"></a>[V4-SP08-08](inventory.md#v4-sp08-08) | Observer conformance suite and e2e | SPLIT-REVIEW | `test/e2e`: `TestE2E_VerbatimPromptSurvivesRestart`, `TestE2E_ObserverThroughDaemon` | direct | **NC-5: the clause is per-package, for the four named packages only.** The repo-wide figure quoted here was low — the count on this candidate is **141** `t.Skip` sites across `internal/` and `test/` — so a repo-wide zero is false and never was true. Scoped per package: `internal/observer` 3, `test/e2e` 4. This is a **scoping correction, not new coverage**: the non-zero counts are still the runner's to adjudicate. Per-package table in `inventory.md` §NC-5. |
 | <a id="rc-v4-sp08-09"></a>[V4-SP08-09](inventory.md#v4-sp08-09) | Coverage floor | MAPPED-CMD | _cmd_ `go run ./tools/devtool cover` | direct | - |
 | <a id="rc-v4-sp09-01"></a>[V4-SP09-01](inventory.md#v4-sp09-01) | Package green under race | MAPPED-CMD | _cmd_ `go test -race ./internal/negknow/...` | direct | - |
 | <a id="rc-v4-sp09-02"></a>[V4-SP09-02](inventory.md#v4-sp09-02) | **`IngestMCP` is now driven by the real `record_eliminated` tool** | MAPPED | `internal/negknow`: `TestIngestMCP`∗; `internal/mcp`: `TestRecordEliminated`∗ | by-name | Names marked ∗ are stems from the historical row; several current tests share the prefix. |
@@ -380,7 +380,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-sp10-16"></a>[V4-SP10-16](inventory.md#v4-sp10-16) | **Scheduler-cadence checkpoints, gated by degradation** (§8.5 *"and independently on the sche... | SUPERSEDED-BY-CORRECTIVE | `internal/daemon`: `TestCadenceFinalizesWhenDraftReachesBudget`, `TestCadenceSealsNothingWhenNeitherConditionHolds`, `TestACancelledContextStopsTheCadenceLoop`; `test/e2e`: `TestE2E_CheckpointDegradedPassiveSealsNothing` | direct | Unit K moved cadence out of `internal/checkpoint` into `internal/daemon/wire_checkpoint_test.go`, so the historical command targets the wrong package. `TestCadenceFinalizesAfterEightSegments` has no successor — that clause is MISSING and needs an independently reviewed split. |
 | <a id="rc-v4-sp10-17"></a>[V4-SP10-17](inventory.md#v4-sp10-17) | Conformance suites, zero skips | MAPPED-CMD | _cmd_ `go test ./internal/checkpoint/... ./internal/pins/... -run 'Suite'` + `internal/checkpoint`: `TestWriterConformanceSuite`, `TestReaderConformanceSuite`; `internal/checkpoint/checkpointtest`: `TestCheckpointSuite_ShapePassesAgainstStub` | direct | Inventory recorded MISSING; all three suites exist (`internal/pins/pinstest` too). The zero-skip clause needs its own count — see NC-5. |
 | <a id="rc-v4-sp10-18"></a>[V4-SP10-18](inventory.md#v4-sp10-18) | Checkpoint e2e through the real hook | MAPPED | `test/e2e`: `TestE2E_Checkpoint`∗ | by-name | Names marked ∗ are stems from the historical row; several current tests share the prefix. |
-| <a id="rc-v4-sp10-19"></a>[V4-SP10-19](inventory.md#v4-sp10-19) | W-2 contract fixtures are consumable by the real SP-11 and SP-13 | NEEDS-COORDINATOR | _cmd_ `go test -count=1 ./internal/rehydrate/... ./internal/mcp/...` | direct | Unit F `f5df6f0` regenerated MCP goldens. Rule W-2 says a fixture the real writer cannot reproduce is a verification failure — whether that regeneration was an authorized §7.1 exception is NC-2. |
+| <a id="rc-v4-sp10-19"></a>[V4-SP10-19](inventory.md#v4-sp10-19) | W-2 contract fixtures are consumable by the real SP-11 and SP-13 | MAPPED-CMD | _cmd_ `go test -count=1 ./internal/rehydrate/... ./internal/mcp/...` | direct | **NC-2: authorized §7.1 exception, both conditions VERIFIED.** (a) the goldens are re-derived by the real generator — all three golden tests pass without `-update` and `gen-mcp-docs --check` is clean; (b) the diff is description text only, no schema shape change. Not a W-2 failure. G5 must still run after `f5df6f0`. See [§7.2](#72-nc-2--the-71-exception-holds-both-conditions-verified). |
 | <a id="rc-v4-sp10-20"></a>[V4-SP10-20](inventory.md#v4-sp10-20) | **Checkpoint benchmark budgets, including B-E** | MAPPED | `internal/checkpoint`: `BenchmarkFinalize`, `BenchmarkAdvanceSegment`, `BenchmarkTruncate`, `BenchmarkExtractDecisions`, `BenchmarkStripInjections` | by-name | - |
 | <a id="rc-v4-sp10-21"></a>[V4-SP10-21](inventory.md#v4-sp10-21) | **SP-10's own exit gate — frontier advancement shrinks the residual span** | RETIRED | `test/replay`: `phase4_test.go` local frontier accounting | direct | RETIRED per the migration disposition ("native O(delta) compaction or guaranteed first-turn savings"). The 30 % residual-span reduction cannot be claimed; bounded local frontier work plus residual/fidelity accounting replaces it. |
 | <a id="rc-v4-sp10-22"></a>[V4-SP10-22](inventory.md#v4-sp10-22) | Placeholder and stub-residue scan | MAPPED-CMD | _cmd_ `git grep -nE 'TODO\|TBD\|FIXME\|XXX\|not implemented' -- internal/checkpoint internal/pins internal/daemon/wire_checkpoint.go internal/cli/hook_checkpoint.go` | direct | Inventory recorded MISSING; this is a grep gate, not a test. Scoring correction. |
@@ -414,7 +414,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-sp12-03"></a>[V4-SP12-03](inventory.md#v4-sp12-03) | **The sliding-TTL idle model, keyed on the last API call** (E1, §5.4, §8.4) | SPLIT-REVIEW | `internal/scheduler`: `TestClassifyTTL_EffortChangeIsColdAtAnyGap`, `TestCacheFactor_Ramp`, `TestCacheFactor_MonotoneDecreasing_Property` | direct | `TestSlidingTTLUsesAPICallNotCacheWrite` no longer exists. The boundary and ramp clauses are covered; the "keyed on the last API call, not the cache write" clause has no named successor and needs review. |
 | <a id="rc-v4-sp12-03b"></a>[V4-SP12-03b](inventory.md#v4-sp12-03b) | **The cache regime — which TTL and which `w` this session is actually billed at** (§5.1's *"v... | MAPPED | `internal/scheduler`: `TestResolveCacheRegime_`∗, `TestClassifyTTL_UnknownRegime`∗, `TestClassifyTTL_EffortChange`∗, `TestTTLAnchorIsNeverLaterThanStop` | by-name | Names marked ∗ are stems from the historical row; several current tests share the prefix. |
 | <a id="rc-v4-sp12-04"></a>[V4-SP12-04](inventory.md#v4-sp12-04) | **Young–Daly cadence with δ measured at runtime** (§6.7) | SUPERSEDED-BY-CORRECTIVE | `internal/scheduler`: `TestYoungDalyClauseIsOffUnderShippedDefaults`, `TestExperimentalPoliciesAreOffByDefault`, `TestExperimentalOptInIsExplicitAndReversible` | direct | Unit G `e2448a3` enforces unsupported claims: the Young-Daly clause is off under shipped defaults, so "delta measured at runtime" is now an opt-in experimental path, not a shipped assertion. Supersedes the inventory's earlier bare RETIRED. |
-| <a id="rc-v4-sp12-05"></a>[V4-SP12-05](inventory.md#v4-sp12-05) | Ski-rental threshold computed, never written — and **it is two numbers** | NEEDS-COORDINATOR | `internal/scheduler`: `TestSkiRental_ComputedNotLiteral`, `TestSkiRental_ThresholdTracksConfig`, `TestSkiRental_ThresholdLiteralOnlyInTests`, `TestSkiRentalShouldWrite` | direct | The historical `TestSkiRentalThreshold_TracksRegimeNotConfig` was replaced by `TestSkiRental_ThresholdTracksConfig`, which inverts the named source. See NC-6. |
+| <a id="rc-v4-sp12-05"></a>[V4-SP12-05](inventory.md#v4-sp12-05) | Ski-rental threshold computed, never written — and **it is two numbers** | MAPPED | `internal/scheduler`: `TestSkiRental_ComputedNotLiteral`, `TestSkiRentalThreshold_TracksRegimeNotConfig`, `TestSkiRental_ThresholdLiteralOnlyInTests`, `TestSkiRentalShouldWrite` | direct | **NC-6: the historical semantics are correct.** `w` is regime-derived and TTL-dependent (`cacheregime.go`: 1.0 disabled, `cfg.Cache.WriteMultiplier` at five minutes, `HostOneHourWriteMultiplier = 2.0` at one hour, `max(cfg, 2.0)` unknown); config is an input to regime selection, not a bypass. The row keeps **both** numbers. `TestSkiRental_ThresholdTracksConfig` asserted the wrong seam and was rewritten to assert through the regime, under the historical name. See [§7.3](#73-nc-6--w-is-regime-derived-the-test-asserted-the-wrong-seam). |
 | <a id="rc-v4-sp12-06"></a>[V4-SP12-06](inventory.md#v4-sp12-06) | **BOCD changepoint detection** (§6.6) | MAPPED | `internal/scheduler`: `TestBOCD_`∗ | by-name | Names marked ∗ are stems from the historical row; several current tests share the prefix. |
 | <a id="rc-v4-sp12-07"></a>[V4-SP12-07](inventory.md#v4-sp12-07) | **The composite trigger** (§8.4) | SUPERSEDED-BY-CORRECTIVE | `internal/scheduler`: `TestEvaluate_CacheExpiring_FiresBeforeExpiry`, `TestEvaluate_IdleColdCache_Fires`, `TestEvaluate_CacheExpiring_SilentWhenRegimeUnknown`, `TestNativeClaimsAreEnforcedUnsupported` | direct | Unit G `e2448a3` made unsupported native claims a refusal rather than a trigger term, changing the composite trigger itself. Supersedes the inventory's earlier bare RETIRED. |
 | <a id="rc-v4-sp12-08"></a>[V4-SP12-08](inventory.md#v4-sp12-08) | **p-selection with the cache term** (§5.3, §5.4, G5.2) | MAPPED | `internal/scheduler`: `TestEvaluate_Argmax`∗, `TestEvaluate_ScoreArithmeticExact`, `TestEvaluate_MultipliersReadFromConfig`, `TestEvaluate_LambdaZeroDisablesDistortion`, `TestEvaluate_RoundBoundary`∗, `TestEvaluate_NoCandidates` | by-name | Names marked ∗ are stems from the historical row; several current tests share the prefix. |
@@ -462,11 +462,11 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-all-01"></a>[V4-ALL-01](inventory.md#v4-all-01) | Full suite, race | MAPPED-CMD | _cmd_ `go run ./tools/devtool test-race` | direct | Gate G1. `devtool test-race` excludes `test/e2e` per `runner-coverage-review.md`; the plain e2e arm is `go run ./tools/devtool test`. |
 | <a id="rc-v4-all-02"></a>[V4-ALL-02](inventory.md#v4-all-02) | Full suite, Windows repeat | MAPPED-CMD | _cmd_ `go test -count=2 ./... -timeout=30m` | direct | Gate G2. Runnable on this Windows host; the ubuntu/macos arms need CI or WSL2. |
 | <a id="rc-v4-all-03"></a>[V4-ALL-03](inventory.md#v4-all-03) | Local CI | MAPPED-CMD | _cmd_ `go run ./tools/devtool ci-local` | direct | Gate G3/G4 aggregate: fmt-check, lint, vet, build, test, cover, plugin-validate, gen-config-docs --check. |
-| <a id="rc-v4-all-04"></a>[V4-ALL-04](inventory.md#v4-all-04) | Coverage floors, all binding except three stubs | MAPPED-CMD | _cmd_ `go run ./tools/devtool cover` | direct | Exemption set must be re-read: E/J added `internal/state`, so the historical "analyzer, grammar, commands only" three-package exemption may now be four. See NC-7. |
+| <a id="rc-v4-all-04"></a>[V4-ALL-04](inventory.md#v4-all-04) | Coverage floors, all binding except three stubs | MAPPED-CMD | _cmd_ `go run ./tools/devtool cover` | direct | **NC-7: still exactly three.** `internal/state` carries a **binding 75 % floor** (`plans/OWNERS.tsv:57`), not a fourth exemption: `tools/devtool/cover.go`'s `landedSubplans` lists `SP-20`. The exempt set is unchanged — `commands` (SP-14), `analyzer` and `grammar` (SP-15), the three packages whose subplans have not landed. The historical row's “a fourth exemption is a failure” is honoured. |
 | <a id="rc-v4-all-05"></a>[V4-ALL-05](inventory.md#v4-all-05) | Security posture | MAPPED-CMD | _cmd_ `go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...` + _cmd_ `go run ./tools/devtool lint --only=importgraph,testdeps,bindeps` | direct | Inventory recorded MISSING; both commands exist. `govulncheck` needs network access to the vulnerability database. |
 | <a id="rc-v4-all-06"></a>[V4-ALL-06](inventory.md#v4-all-06) | Placeholder scan across every implemented package | MAPPED-CMD | _cmd_ `git grep -nE 'TODO\|TBD\|FIXME\|XXX\|not implemented\|handle edge cases' -- internal/ test/ tools/ ':!*_test.go'` | direct | - |
 | <a id="rc-v4-all-07"></a>[V4-ALL-07](inventory.md#v4-all-07) | Full CI on `verify/v4` | MISSING | GitHub Actions on `verify/v4` | direct | Inventory recorded MISSING and it still is: no `verify/v4` branch exists and no CI run covers this tree. Not runnable locally by construction. Also gated by the V3 J5 billing waiver (run 32932419445) which stands waived-open. |
-| <a id="rc-v4-all-08"></a>[V4-ALL-08](inventory.md#v4-all-08) | `Qompack.md` immutability | RETIRED | `Qompack.md` Revision log (currently v1.3) | direct | The historical assertion is factually false on this tree: `git diff <root> HEAD -- Qompack.md` reports 268 insertions / 1082 deletions. `Qompack.md` is revisable-with-authorization, not frozen. Replacement: every `Qompack.md` change must carry an authorized entry in its Revision log. See NC-1 for which guard enforces that. |
+| <a id="rc-v4-all-08"></a>[V4-ALL-08](inventory.md#v4-all-08) | `Qompack.md` immutability | RETIRED | `Qompack.md` Revision log (currently v1.3) | direct | **NC-1a applied: RETIRED as written, and the replacement gate is MISSING.** The historical assertion is factually false on this tree and was false before this work: `git diff <root> HEAD -- Qompack.md` reports 268 insertions / 1082 deletions, and the file stands at v1.3 with an authorized Revision log — read-only means read-only *to subplans*, not frozen. Replacement assertion: **`Qompack.md` changes only through an authorized Revision-log entry with a matching `QOMPACK-ERRATA.md` record.** No guard enforces it — searched `test/guards`, `tools/devtool` and the repo hooks — so the gate is recorded **MISSING, not passed**. See [§7.1](#71-nc-1a--the-replacement-assertion-has-no-enforcing-guard). |
 
 ### 3.1 Every `RETIRED` row, with its justification
 
@@ -537,6 +537,8 @@ Everything else in the table is runnable on this host today.
 
 ### 4.1 G3 does not pass on this tree today
 
+> **Superseded 2026-09-08 (NC-10).** All sixteen were fixed **in place** in `inventory.md` — no waivers — and `go run ./tools/devtool lint --only=runpatterns` now **PASSes**, with the same seven pre-existing waivers and none added. The three classes below remain the record of what was wrong and why; the corrected commands and the case count each now selects are in `inventory.md` §NC-10.
+
 `go run ./tools/devtool lint --only=runpatterns` was executed while writing this map — it is a static
 document check, not a suite — and it **fails**, with all sixteen findings in `inventory.md` itself:
 
@@ -575,6 +577,8 @@ coordinator decision, and it is **NC-10**.
 
 
 ## 5. `NEEDS-COORDINATOR` questions
+
+**All ten were ruled on by the coordinator on 2026-09-08 and the rulings applied. The questions are preserved verbatim below; the answers, the evidence behind them and what each one changed are in [§7](#7-coordinator-rulings-on-nc-1--nc-10-and-what-was-applied-2026-09-08).**
 
 | # | Row(s) | Question |
 |---|---|---|
@@ -644,3 +648,132 @@ sign the split.
 | `BenchmarkBuild` for L5-BUILD | `internal/rehydrate` | `V4-SP11-22`: L5-RULES, L5-SKILLS and L5-SESSIONSTART have homes; the p99 < 250 ms `Build` budget has none. |
 | A dispatch-only guard for `cmd/qompack/main.go` | `test/guards` | `V4-SP01-04`: no test asserts the < 150 LOC / dispatch-only shape; today it is manual inspection. |
 | An eight-segment cadence case | `internal/daemon` | `V4-SP10-16`: `TestCadenceFinalizesAfterEightSegments` has no successor after unit K's move. |
+
+---
+
+## 7. Coordinator rulings on NC-1 … NC-10, and what was applied (2026-09-08)
+
+All ten `NEEDS-COORDINATOR` questions in [§5](#5-needs-coordinator-questions) have been ruled on and
+the rulings applied. **Still not a pass:** no suite, benchmark or gate was run to completion here.
+Two things were *measured* rather than assumed, and both are recorded with their commands: NC-2's
+two conditions and NC-4's re-enumeration.
+
+| # | Ruling | Applied where |
+|---|---|---|
+| **NC-1a** | `V4-ALL-08` **RETIRED as written**; replacement assertion recorded; enforcing gate **MISSING** | `inventory.md` row `V4-ALL-08`; §7.1 below |
+| **NC-1b** | **Not** a live failure — `V4-SP01-08` stands, verified | `inventory.md` §NC-1b; row disposition `MAPPED` |
+| **NC-2** | Authorized §7.1 exception, **conditional — both conditions verified and held** | §7.2 below; rows `V4-SP10-19`, `V4-SP13-19`, G5 |
+| **NC-3** | Versioned successor, not retirement | `inventory.md` §NC-3; `testdata/golden/store/roots.v2.jsonl` |
+| **NC-4** | Re-enumerated: the real count is **66**, unchanged | `inventory.md` §NC-4 |
+| **NC-5** | Per-package, four named packages only; **141** repo-wide `t.Skip` sites | `inventory.md` §NC-5 |
+| **NC-6** | `w` is regime-derived and TTL-dependent; historical semantics correct; the test asserted the wrong seam and was fixed | `internal/scheduler/skirental_test.go`; §7.3 below |
+| **NC-7** | `internal/state` takes a **binding floor**, not a fourth exemption | `inventory.md` row `V4-ALL-04` |
+| **NC-8** | **Keep both §4 scenario names** | §2.6, §2.7 briefs below; §7.4 |
+| **NC-9** | The historical `V4-ALL-01..08` is the gate set **of record**; differences recorded, not substituted | `inventory.md` §NC-9; §4 stays as the divergence table |
+| **NC-10** | Fix all sixteen `-run` patterns **in place**; no waivers | `inventory.md` §NC-10; [§4.1](#41-g3-does-not-pass-on-this-tree-today) is now historical |
+
+### 7.1 NC-1a — the replacement assertion has **no enforcing guard**
+
+"`Qompack.md` byte-identical to the root commit" is false, and was false before this work:
+`git diff <root> HEAD -- Qompack.md` reports 268 insertions / 1 082 deletions, and the file stands at
+**v1.3** with an authorized Revision log. Read-only means read-only **to subplans**, not frozen.
+
+**Replacement assertion.** *`Qompack.md` changes only through an authorized Revision-log entry with a
+matching `plans/QOMPACK-ERRATA.md` record.*
+
+**Does any guard enforce it? No.** Searched, not assumed:
+
+- `test/guards` has no revision-log or errata case (`grep -rn 'Revision log\|ERRATA' --include=*.go test/ tools/ internal/` returns only two *comments*, in `internal/eval/corpusshape_test.go:149` and `internal/eval/ledger_test.go:359`, both citing errata as a source rather than checking it).
+- `tools/devtool` reads `Qompack.md` in exactly one place, `genconfigdocs.go`, and only to generate Appendix C.
+- There is no repository git hook that inspects the file.
+
+So the gate is recorded **MISSING**, not passed. Writing it — a check that a commit touching
+`Qompack.md` also adds a Revision-log entry whose version has a matching errata record — belongs to
+`test/guards` and is future-wave work, not something this unit may land (it does not own that tree).
+
+### 7.2 NC-2 — the §7.1 exception **holds**: both conditions verified
+
+Rule W-2 targets a fixture the real writer **cannot reproduce**. Unit F's change is an intended
+contract change that the writer reproduces exactly, so the exception applies — but only on evidence.
+Both conditions were checked on this candidate:
+
+**(a) Re-derived by the real generator, not hand-edited — HOLDS.**
+
+```
+$ go run ./tools/devtool gen-mcp-docs --check
+gen-mcp-docs: docs/mcp-tools.md is up to date
+
+$ go test ./internal/mcp -run 'TestSchemaGoldensStable|TestToolsListMatchesGolden|TestInitializeResultMatchesGolden' -count=1 -v
+--- PASS: TestInitializeResultMatchesGolden (0.01s)
+--- PASS: TestToolsListMatchesGolden (0.02s)
+--- PASS: TestSchemaGoldensStable (0.12s)
+ok  	github.com/qompack/qompack/internal/mcp	0.405s
+```
+
+All three golden comparisons pass **without** `-update`, and the docs generator reproduces
+`docs/mcp-tools.md` byte-for-byte. A hand-edited golden would fail here; these do not.
+
+**(b) The diff is schema/description text only — HOLDS.**
+
+`git show f5df6f0 -- testdata/golden/mcp/` touches two files and changes only `description` strings:
+
+- `schemas/re_read.json` — the `at` argument's description ("Empty for the working-tree version…" → "Empty for the latest captured version… Never reads the working tree.").
+- `tools-list.v2.json` — the same `at` description plus `re_read`'s own tool description.
+
+No property was added or removed, no `type` changed, no `additionalProperties` or `required` moved.
+The other six schema files and `initialize.v2.json` rewrote byte-identical.
+
+**Verdict: an authorized §7.1 exception, not a W-2 verification failure.** `V4-SP10-19` and
+`V4-SP13-19` are adjudicated `MAPPED-CMD` on that basis, and **G5 must still be run after
+`f5df6f0`** — the exception covers the goldens' provenance, not the manifest gate.
+
+### 7.3 NC-6 — `w` is regime-derived; the test asserted the wrong seam
+
+`internal/scheduler/cacheregime.go` sets `WriteMultiplier` per regime, and **config is an input to
+regime selection, not a bypass**:
+
+| Rung | `WriteMultiplier` |
+|---|---|
+| disabled (`DISABLE_PROMPT_CACHING`) | `1.0` — no cache, so no write premium |
+| five-minute (`subagent`, `FORCE_PROMPT_CACHING_5M`) | `cfg.Cache.WriteMultiplier` — Appendix C's floor, passed through |
+| one-hour (`ENABLE_PROMPT_CACHING_1H`) | `HostOneHourWriteMultiplier = 2.0` |
+| unknown (nothing set — the default) | `max(cfg.Cache.WriteMultiplier, 2.0)`, the dearer of the two |
+
+The **historical semantics are correct** and the row keeps **both** numbers: `w/r == 12.5` at
+`r=0.1, w=1.25` and `== 20` at `r=0.1, w=2.0`, with `cfg.Cache.WriteMultiplier` at 1.25 in both cases.
+
+`TestSkiRental_ThresholdTracksConfig` fed bare literals to `SkiRentalShouldWrite`, which cannot
+distinguish "w came from config" from "w came from the regime" — the very question the two numbers
+turn on. It has been rewritten to resolve a real `CacheRegime` and assert **through** it, and
+restored to the historical name `TestSkiRentalThreshold_TracksRegimeNotConfig`, which is also the
+name `inventory.md`'s `V4-SP12-05` command has always used.
+
+```
+$ go test ./internal/scheduler/ -run SkiRental -count=1 -v
+--- PASS: TestSkiRentalShouldWrite (0.00s)
+--- PASS: TestSkiRental_ComputedNotLiteral (0.00s)
+--- PASS: TestSkiRentalThreshold_TracksRegimeNotConfig (0.00s)
+--- PASS: TestSkiRental_ThresholdLiteralOnlyInTests (0.00s)
+ok  	github.com/qompack/qompack/internal/scheduler	1.493s
+```
+
+### 7.4 NC-8 — both §4 scenario names are **kept**
+
+`TestV4_AlreadyTriedThreeWayThroughTheRehydratedStandingInstruction` (§2.6) and
+`TestV4_EphemeralRetrievalResultsRankFirstForEviction` (§2.7) keep their names. They are the
+identifiers `inventory.md` keys on, and renaming them breaks traceability from the inventory rows
+to the briefs and back. The corrected semantics live in each brief's **retired-clause guard**, which
+already says what must not be asserted: a five-state enum rather than a three-way one in §2.6, and
+local drop-class ordering rather than native eviction in §2.7. A reviewer scores the brief, not the
+name. The fourteen §4 tests are being authored by another unit and are **not** written here.
+
+### 7.5 What these rulings change in [§1](#1-disposition-counts)
+
+The three `NEEDS-COORDINATOR` rows are adjudicated: `V4-SP01-08` → `MAPPED` (NC-1b),
+`V4-SP10-19` → `MAPPED-CMD` (NC-2), `V4-SP12-05` → `MAPPED` (NC-6). Of the seven `SPLIT-REVIEW`
+rows, three have one arm closed and keep the disposition for the rest: `V4-SP05-10` (count settled
+at 66, fault-injection arm still needs S7), `V4-SP06-08` (frozen goldens verified byte-identical and
+a versioned successor added; the two-version reader clause is still S6's to run), `V4-SP08-08`
+(zero-skip clause scoped, still to be scored per package). `V4-ALL-04`'s exemption question is
+closed at three. `V4-ALL-08` stays `RETIRED`, now with an explicit **MISSING** replacement gate.
+Nothing was retired for being inconvenient, and no row's identifier changed.
