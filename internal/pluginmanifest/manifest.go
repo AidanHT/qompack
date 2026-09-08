@@ -108,6 +108,36 @@ var hookSpecs = []hookSpec{
 	{event: "SessionEnd", args: "flush", timeout: 20},
 }
 
+// HookEntryPoint is one installed hook entry point, as hooks.json declares it.
+//
+// It is exported so a consumer that has to reason about the hook surface — /qompack:status, which
+// reports one latency row per entry point — enumerates what is actually installed rather than
+// restating the table and drifting from it.
+type HookEntryPoint struct {
+	// Event is the host event name, e.g. "PostToolUse".
+	Event string
+	// Matcher is the tool-name matcher, empty for hooks that do not match on one.
+	Matcher string
+	// Subcommand is the `qompack ...` invocation, e.g. "observe tool".
+	Subcommand string
+	// TimeoutSeconds is the host-enforced timeout.
+	TimeoutSeconds int
+}
+
+// HookEntryPoints returns the installed hook table in hooks.json order.
+func HookEntryPoints() []HookEntryPoint {
+	out := make([]HookEntryPoint, 0, len(hookSpecs))
+	for _, h := range hookSpecs {
+		out = append(out, HookEntryPoint{
+			Event:          h.event,
+			Matcher:        h.matcher,
+			Subcommand:     h.args,
+			TimeoutSeconds: h.timeout,
+		})
+	}
+	return out
+}
+
 // commandSpecs is the §7.5 command list: exactly seven, in the order §7.5 states them.
 var commandSpecs = []CommandDoc{
 	{
