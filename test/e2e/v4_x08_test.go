@@ -70,7 +70,6 @@ func TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint(t *tes
 	obsRunHook(t, r.Bin, []string{"session-start"}, sessionStartFor(t, p.Root, x8v4Session), env)
 	obsRunHook(t, r.Bin, []string{"observe", "prompt"}, obsPromptPayload(t, p.Root, x8v4Session, tagged), env)
 	r.SeedTurns(t, x8v4Session, "v4x08", 3)
-	r.ArmCheckpointSources(t, x8v4Session)
 
 	ac := r.CompactStart(t, x8v4Session)
 	require.NotEmpty(t, ac, "a compact SessionStart must inject a rehydrated context")
@@ -113,7 +112,6 @@ func TestV4_InjectionTaggingKeepsRehydratedMaterialOutOfTheNextCheckpoint(t *tes
 	obsRunHook(t, rc.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, pc.Root, x8v4CtlSession, untagged), envc)
 	rc.SeedTurns(t, x8v4CtlSession, "v4x08c", 3)
-	rc.ArmCheckpointSources(t, x8v4CtlSession)
 
 	ctlAC := rc.CompactStart(t, x8v4CtlSession)
 	require.NotEmpty(t, ctlAC)

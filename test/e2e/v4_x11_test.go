@@ -52,7 +52,6 @@ func TestV4_LiveSessionWriteSetAppendOnlyAndImmutability(t *testing.T) {
 	obsRunHook(t, r.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, p.Root, x11v4Session, "keep every write inside .qompack while wave 3 is resident"), env)
 	r.SeedTurns(t, x11v4Session, "v4x11", x11v4Turns)
-	r.ArmCheckpointSources(t, x11v4Session)
 
 	// The append-only logs, mid-session. The second reading must EXTEND these, byte for byte.
 	midLogs := x9ReadLogs(t, p.Root)
