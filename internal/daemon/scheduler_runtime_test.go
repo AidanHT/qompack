@@ -36,6 +36,7 @@ import (
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/dag"
 	"github.com/qompack/qompack/internal/hookio"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/obs"
 	"github.com/qompack/qompack/internal/scheduler"
 	"github.com/qompack/qompack/internal/store"
@@ -106,7 +107,9 @@ type rtFixture struct {
 	cfg     config.Config
 	writer  *fakeWriter
 	session core.SessionID
-	rt      *schedRuntime
+	// ledgerFn is the live-ledger supplier the composition root passes; nil in most fixtures.
+	ledgerFn func() negknow.Ledger
+	rt       *schedRuntime
 }
 
 func (fx *rtFixture) options() SchedulerRuntimeOptions {
@@ -125,6 +128,7 @@ func (fx *rtFixture) options() SchedulerRuntimeOptions {
 	if fx.writer != nil {
 		o.Checkpoints = fx.writer
 	}
+	o.LedgerFn = fx.ledgerFn
 	return o
 }
 

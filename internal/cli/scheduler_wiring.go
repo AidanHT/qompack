@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/logging"
+	"github.com/qompack/qompack/internal/negknow"
 	"github.com/qompack/qompack/internal/scheduler"
 )
 
@@ -32,6 +33,13 @@ func wireScheduler(opts *daemon.Options, getenv func(string) string) (scheduler.
 		ProjectRoot: opts.ProjectRoot, Cfg: opts.Cfg,
 		Clock: opts.Clock, Log: log, Metrics: opts.Metrics,
 		Store: opts.Store, Graph: opts.Graph, Ledger: opts.Ledger,
+		// LedgerFn closes over opts — the POINTER runDaemon holds — so it reads the FIELD, not the
+		// nil value it holds right now. WireRehydrator opens the negative-knowledge ledger lazily
+		// on the first compaction and assigns the handle back onto opts.Ledger; without this
+		// closure the scheduler's rebuild_bloom task captured that nil at registration and was a
+		// permanent no-op. It never OPENS a ledger and never owns one: the lifecycle stays where
+		// SP-19 M0-02 put it.
+		LedgerFn:    func() negknow.Ledger { return opts.Ledger },
 		Checkpoints: opts.Checkpoints,
 		Getenv:      getenv,
 	}
