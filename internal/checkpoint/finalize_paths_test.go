@@ -110,7 +110,8 @@ func TestColdPreCompactSealsEvenWhenSegmentsCannotBeListed(t *testing.T) {
 
 	broken := f.src
 	broken.Segments = unlistableSegments{SegmentLog: f.src.Segments}
-	f.w.SetSources(broken)
+	require.NoError(t, f.w.SetSources(broken),
+		"Segments is still non-nil here; only Unencoded fails, and only once PreCompact calls it")
 
 	// A catch-up we cannot enumerate is not a reason to lose the checkpoint. Sealing what the
 	// draft already has beats returning an error, because the error path ends with the session

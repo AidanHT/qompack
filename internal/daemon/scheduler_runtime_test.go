@@ -1232,7 +1232,9 @@ func TestSchedulerRuntimeBuildsItsAdvancerFromTheWriterAndSourcePair(t *testing.
 		rt, err := NewSchedulerRuntime(o)
 		require.NoError(t, err)
 		t.Cleanup(scheduler.DisablePSelection)
-		require.NotNil(t, rt.(*schedRuntime).advancer,
+		concrete, ok := rt.(*schedRuntime)
+		require.True(t, ok, "NewSchedulerRuntime returns the daemon's concrete runtime")
+		require.NotNil(t, concrete.advancer,
 			"the pair internal/cli supplies must produce a live frontier advancer")
 	})
 
@@ -1249,6 +1251,8 @@ func TestSchedulerRuntimeBuildsItsAdvancerFromTheWriterAndSourcePair(t *testing.
 		rt, err := NewSchedulerRuntime(o)
 		require.NoError(t, err)
 		t.Cleanup(scheduler.DisablePSelection)
-		require.Nil(t, rt.(*schedRuntime).advancer)
+		concrete, ok := rt.(*schedRuntime)
+		require.True(t, ok, "NewSchedulerRuntime returns the daemon's concrete runtime")
+		require.Nil(t, concrete.advancer)
 	})
 }

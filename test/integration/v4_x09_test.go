@@ -96,7 +96,7 @@ func x9v4Open(t *testing.T) *x9v4Rig {
 		Tokens:  tokens.NewForProject(p.Cfg, tokens.DefaultCalibPath(), p.Root),
 	}
 	require.NoError(t, src.Validate(), "the SourceSet must be complete before Begin is called")
-	w.SetSources(src)
+	require.NoError(t, w.SetSources(src), "a set that just passed Validate must be accepted")
 
 	srv := mcp.NewServer(mcp.ServerName, "v4-x09", logging.Nop())
 	require.NoError(t, mcp.RegisterAll(srv, mcp.ToolDeps{
