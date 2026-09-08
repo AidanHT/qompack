@@ -52,7 +52,7 @@ func TestV4_WhyAndDroppedAnswerFromRealProducers(t *testing.T) {
 	v4EnsureLedger(t, r, x10v4Session)
 
 	// A real elimination: §9 source (b) is what turns it into a real Decision at Finalize.
-	m, ok := r.Opts.Ledger.(negknow.Maintainer)
+	m, ok := r.Opts.LedgerHandle().(negknow.Maintainer)
 	require.True(t, ok, "negknow.Open must return a Maintainer")
 	_, _, err := m.IngestMCP(ctx, negknow.MCPArgs{
 		Target: x10v4Target, Approach: x10v4Approach, Reason: x10v4Reason,
