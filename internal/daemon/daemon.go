@@ -951,6 +951,9 @@ func (d *daemon) deliveryJournal() (*deliveryJournal, error) {
 	return lock.openDeliveryJournal()
 }
 
+// The daemon is the GapReporter its callers assert for; pinned here so the seam cannot drift.
+var _ GapReporter = (*daemon)(nil)
+
 // DrainGaps implements GapReporter: what the most recent replay could and could not account for.
 // A daemon whose drainer has not been built yet answers Observed:false — unknown, not empty.
 func (d *daemon) DrainGaps() DrainGapState {
