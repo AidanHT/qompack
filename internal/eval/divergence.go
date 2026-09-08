@@ -35,7 +35,7 @@ func (h *harness) Compare(uncompacted, compacted Run) Divergence {
 		FileSetJaccard:       jaccard(pathSet(uncHorizon), pathSet(cmpHorizon)),
 		ToolEditDistance:     levenshtein(toolNames(uncHorizon), toolNames(cmpHorizon)),
 		SameDecision:         lastDecision(uncHorizon) == lastDecision(cmpHorizon),
-		DecisionPreservation: decisionPreservation(uncHorizon, cmpHorizon),
+		DecisionPreservation: decisionPreservation(compacted),
 		RedundantReads: redundantReads(compacted.Actions, at, k) -
 			redundantReads(uncompacted.Actions, at, k),
 		ReAttempts: countTool(cmpHorizon, toolReAttempt) - countTool(uncHorizon, toolReAttempt),
@@ -177,25 +177,41 @@ func lastDecision(actions []Action) string {
 	return ""
 }
 
-// decisionPreservation is the fraction of the logged branch's decisions the compacted branch still
-// reached. With nothing to lose, nothing was lost.
-func decisionPreservation(unc, cmp []Action) float64 {
-	want := make(map[string]bool)
-	for _, a := range unc {
-		if a.Decision != "" {
-			want[a.Decision] = true
-		}
-	}
-	if len(want) == 0 {
+// decisionPreservation is §11.2's metric: of the decisions minted BEFORE the compaction that the
+// session went on to need, the fraction the policy's keep-set still holds.
+//
+// SP02-D5 is the record of what it used to be. It compared the decisions the two branches reached
+// INSIDE the post-compaction horizon, and deterministic replay makes both branches take the same
+// decisions there — so the metric was 1.0 by construction for every policy on every session, and
+// its name promised a property it did not measure. A metric cited as evidence for something it
+// cannot see is worse than one that is absent.
+//
+// The denominator is the DemandDecision set at the first compaction, which is exactly "decisions
+// that existed before the cut and were referenced after it"; the numerator is the subset the
+// keep-set retained. A compaction nothing recalled a decision across preserved every decision it
+// was asked for, which is 1 and not 0 — the denominator is the demand, not the ambition.
+func decisionPreservation(compacted Run) float64 {
+	if len(compacted.Demands) == 0 || len(compacted.Keeps) == 0 {
 		return 1
 	}
-	got := make(map[string]bool)
-	for _, a := range cmp {
-		if a.Decision != "" && want[a.Decision] {
-			got[a.Decision] = true
+	kept := make(map[string]bool, len(compacted.Keeps[0].IDs))
+	for _, id := range compacted.Keeps[0].IDs {
+		kept[id] = true
+	}
+	want, got := 0, 0
+	for _, d := range compacted.Demands[0] {
+		if d.Kind != DemandDecision {
+			continue
+		}
+		want++
+		if kept[d.BlockID] {
+			got++
 		}
 	}
-	return float64(len(got)) / float64(len(want))
+	if want == 0 {
+		return 1
+	}
+	return float64(got) / float64(want)
 }
 
 // redundantReads counts reads inside the horizon whose path an EARLIER action of the same branch

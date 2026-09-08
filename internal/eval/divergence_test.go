@@ -169,15 +169,45 @@ func TestCompare_DecisionPreservationDenominatorZero(t *testing.T) {
 
 // TestCompare_DecisionLost is the G8.1 signal: a compaction that drops a decision shows up as a
 // drop in DecisionPreservation and a SameDecision of false.
+//
+// SP02-D5: DecisionPreservation is §11.2's "pre-compaction decisions still recalled", so it is
+// read off the COMPACTED run's demand set and keep-set — two decisions demanded back across the
+// cut, one of them kept — and not off the two branches' post-compaction decision agreement, which
+// deterministic replay fixes at 1.0 for every policy.
 func TestCompare_DecisionLost(t *testing.T) {
 	unc := runOf("uncompacted", 0, 20,
 		decisionAct(1, "Bash", "dec_a"), decisionAct(2, "Bash", "dec_b"))
 	cmp := runOf("compacted", 0, 20,
 		decisionAct(1, "Bash", "dec_a"), decisionAct(2, "Bash", ""))
+	cmp.At = []core.TurnIndex{0}
+	cmp.Demands = [][]eval.Demand{{
+		{Turn: 1, BlockID: "dec:dec_a", Kind: eval.DemandDecision},
+		{Turn: 2, BlockID: "dec:dec_b", Kind: eval.DemandDecision},
+	}}
+	cmp.Keeps = []eval.KeepSet{{IDs: []string{"dec:dec_a"}}}
 
 	got := compare(t, unc, cmp)
 	require.InDelta(t, 0.5, got.DecisionPreservation, 1e-9, "dec_a survived, dec_b did not")
 	require.False(t, got.SameDecision, "the last decision reached differs")
+}
+
+// TestCompare_DecisionPreservationIgnoresHorizonAgreement is SP02-D5's characterization, inverted.
+//
+// The old definition compared the decisions the two branches reached inside the horizon. Under
+// deterministic replay those agree by construction, which is why the metric read 1.0 for every
+// policy on every session of the committed corpus — including the null policy, which keeps
+// nothing. This asserts the metric can now say 0.0 about exactly that policy.
+func TestCompare_DecisionPreservationIgnoresHorizonAgreement(t *testing.T) {
+	unc := runOf("uncompacted", 0, 20, decisionAct(1, "Bash", "dec_a"))
+	cmp := runOf("compacted", 0, 20, decisionAct(1, "Bash", "dec_a"))
+	cmp.At = []core.TurnIndex{0}
+	cmp.Demands = [][]eval.Demand{{{Turn: 1, BlockID: "dec:dec_a", Kind: eval.DemandDecision}}}
+	cmp.Keeps = []eval.KeepSet{{}}
+
+	got := compare(t, unc, cmp)
+	require.Zero(t, got.DecisionPreservation,
+		"the branches agree inside the horizon, and the pre-compaction decision was still dropped")
+	require.True(t, got.SameDecision, "same final decision — a different question, still answered")
 }
 
 // TestCompare_RedundantReadsCanBeNegative: a policy that PREVENTS re-reads is an improvement, and

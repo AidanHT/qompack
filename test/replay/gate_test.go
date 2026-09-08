@@ -310,7 +310,7 @@ func TestGate_WatchForsAreJudgedAsRatios(t *testing.T) {
 // --sketch records zeros, and a zero baseline is below absFloor — which is how the tolerance bug
 // stayed invisible.
 func TestGate_BaselineCarriesTheWatchForValues(t *testing.T) {
-	base, err := loadBaseline(repoPath(t, "testdata/baseline/phase0.json"), "")
+	base, err := loadBaseline(repoPath(t, "testdata/baseline/phase0-recall.json"), "")
 	require.NoError(t, err)
 
 	require.InDelta(t, 0.002912202, base.WatchFor["bloom_fp_rate"], 1e-9,

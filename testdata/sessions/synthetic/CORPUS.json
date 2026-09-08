@@ -1,12 +1,12 @@
 {
-  "generator": "eval.Synthesize/1",
+  "generator": "eval.Synthesize/2",
   "regeneratedAfterPhase": 0,
   "sessions": [
     {
       "file": "read-heavy-1.json",
       "shape": "read-heavy",
-      "seed": 1001,
-      "sha256": "97e1012d205978c64cf5595e99d9a94e553139fac00263512f4dd95ca6216975",
+      "seed": 1101,
+      "sha256": "e72e66446e9684a12cca16a8d4cbe6a9b42758ae0f1f36b3663447817d547635",
       "turns": 180,
       "compactionAt": [
         90
@@ -15,8 +15,8 @@
     {
       "file": "read-heavy-2.json",
       "shape": "read-heavy",
-      "seed": 1002,
-      "sha256": "7284d673096c978388c387261eb5938df669eb315f1f6c33ba0c957098f6b58b",
+      "seed": 1102,
+      "sha256": "1946ba1e540899bfe2d52df29837a0b6e90a2fea3db69b6a0fad686eabdfff98",
       "turns": 180,
       "compactionAt": [
         90
@@ -25,8 +25,8 @@
     {
       "file": "read-heavy-3.json",
       "shape": "read-heavy",
-      "seed": 1003,
-      "sha256": "96113d7ec3c10c1646fdf2501d356176601407670681558f836b19aebb592dc9",
+      "seed": 1103,
+      "sha256": "b4c5226dd2e72fb83ae275c048a4a36f2b2ba9e01f260614bee9aec4b7baad0d",
       "turns": 180,
       "compactionAt": [
         90
@@ -35,8 +35,8 @@
     {
       "file": "test-output-1.json",
       "shape": "test-output-heavy",
-      "seed": 1011,
-      "sha256": "0d865897428623d8697a4f16d2178112519e573f40960fbe42dfd810b269cde4",
+      "seed": 1111,
+      "sha256": "0ef05e031f2749ff202b1bde6fc6f5f062d66f1b62518c36ba1800031bdec18c",
       "turns": 200,
       "compactionAt": [
         100
@@ -45,8 +45,8 @@
     {
       "file": "test-output-2.json",
       "shape": "test-output-heavy",
-      "seed": 1012,
-      "sha256": "c71f10f57d91e907c76d6b8bb770209ffac8ff64096c1a9a64c70612e4c08668",
+      "seed": 1112,
+      "sha256": "0b9e6531eda677380c80a6ca850e63658f381c696dcbee8498e693a2a2c97d9c",
       "turns": 200,
       "compactionAt": [
         100
@@ -55,8 +55,8 @@
     {
       "file": "test-output-3.json",
       "shape": "test-output-heavy",
-      "seed": 1013,
-      "sha256": "36290f95fe666d1ed97c499d208154bbad102af66b67ba0b367dfa86db35bc6c",
+      "seed": 1113,
+      "sha256": "46375f1d46f682fe537b70685ef0b89c1c05ad742360223b86b833a765984235",
       "turns": 200,
       "compactionAt": [
         100
@@ -65,8 +65,8 @@
     {
       "file": "refactor-1.json",
       "shape": "refactor-across-files",
-      "seed": 1021,
-      "sha256": "d1930e9f1b21685262cae953d218acb1f40868e12ffdef84b5090db01f7c5f72",
+      "seed": 1121,
+      "sha256": "4e6ec1ef9538590c787cc4781ef2657d1a2a86bcd29d739abfdef9041be57373",
       "turns": 240,
       "compactionAt": [
         80,
@@ -76,8 +76,8 @@
     {
       "file": "refactor-2.json",
       "shape": "refactor-across-files",
-      "seed": 1022,
-      "sha256": "15935a0e63e11be064da4488f30413664e0c2ca1e129542665b3ac5a51897895",
+      "seed": 1122,
+      "sha256": "851d5986f0ff0905900b34bef08a9ca263b416904faa8465b661fc42ec30c132",
       "turns": 240,
       "compactionAt": [
         80,
@@ -87,8 +87,8 @@
     {
       "file": "refactor-3.json",
       "shape": "refactor-across-files",
-      "seed": 1023,
-      "sha256": "fba8f4a83dfee24cbd8ff74f1c5c9a9f7e11dbb15c3168ec2f48b949a8e878e5",
+      "seed": 1123,
+      "sha256": "f9f92d89f31900cc23c7e7da130a341892759be71c8c5d2fb068824a2d20a385",
       "turns": 240,
       "compactionAt": [
         80,
@@ -98,8 +98,8 @@
     {
       "file": "long-idle-1.json",
       "shape": "long-idle-gap",
-      "seed": 1031,
-      "sha256": "295661a523967fc353c2a626975f284c4d383b40430a17a16b26cae8f5ba7efb",
+      "seed": 1131,
+      "sha256": "9215d23929267b33e00d97b5ef71f55bedab90cdc461dea516c3a376a6f95a6d",
       "turns": 160,
       "compactionAt": [
         100
@@ -108,8 +108,8 @@
     {
       "file": "long-idle-2.json",
       "shape": "long-idle-gap",
-      "seed": 1032,
-      "sha256": "00afcc6a90dfce2c325db404552b227b3858a16638c8fa8ae90302735db185ae",
+      "seed": 1132,
+      "sha256": "a6e9a71305a6d98757138f77a6c21fca41e8415171eef0262d03434e8f998eda",
       "turns": 160,
       "compactionAt": [
         100
@@ -118,8 +118,8 @@
     {
       "file": "long-idle-3.json",
       "shape": "long-idle-gap",
-      "seed": 1033,
-      "sha256": "a021a805c3e0b8cdd498e00693e1be8d503568b24f440650bf971d72fc1e59e2",
+      "seed": 1133,
+      "sha256": "51550b8d30c007f4c2ae870711e4772d8618c29438625cefeb8d28a43aefb2fc",
       "turns": 160,
       "compactionAt": [
         100
@@ -128,8 +128,8 @@
     {
       "file": "dep-change-1.json",
       "shape": "dependency-change",
-      "seed": 1041,
-      "sha256": "1f180233d3e74b23d2360ad5970f9a0cdb3ed7b962d769565a1c50387cc57cef",
+      "seed": 1141,
+      "sha256": "217510d6d568fd51f661ece7116bb15da0d849daefd381607700c693318b46cc",
       "turns": 220,
       "compactionAt": [
         90,
@@ -139,8 +139,8 @@
     {
       "file": "dep-change-2.json",
       "shape": "dependency-change",
-      "seed": 1042,
-      "sha256": "7114312f81768e5deda2859b49faf2d687569f3cf7f2327d6d967bbf3950e565",
+      "seed": 1142,
+      "sha256": "22e15735ca50dc86d8997f79308b44d8380e1be41a02d7f72b69c0d5a78403ee",
       "turns": 220,
       "compactionAt": [
         90,
@@ -150,8 +150,8 @@
     {
       "file": "dep-change-3.json",
       "shape": "dependency-change",
-      "seed": 1043,
-      "sha256": "9bb549262139ca791c5d809a5e8899029860195c773714507bb7be0f9d65a7a3",
+      "seed": 1143,
+      "sha256": "fb83a1fea0eb86ef27b60ea221ab75c9d6a7dc05e3f761c93be4e734ee22562c",
       "turns": 220,
       "compactionAt": [
         90,
@@ -161,8 +161,8 @@
     {
       "file": "subagent-1.json",
       "shape": "subagent-heavy",
-      "seed": 1051,
-      "sha256": "a8b68c4c3a1572ead31400bc7ab66e78e33c47d80ff78987b5af4e5d88db3024",
+      "seed": 1151,
+      "sha256": "b53abd8d60ca85e378453a941b1fbdf648853aa394c331b6c223ecc4e497cb59",
       "turns": 190,
       "compactionAt": [
         95
@@ -171,8 +171,8 @@
     {
       "file": "subagent-2.json",
       "shape": "subagent-heavy",
-      "seed": 1052,
-      "sha256": "5c2f009600cf4993d040cfb9ed6a9c3ecf7245079ede658dde463384abf8dff7",
+      "seed": 1152,
+      "sha256": "35cd2044939c4199f9496f4189bb94a83baf9a766a81db4e9409d97c30a18114",
       "turns": 190,
       "compactionAt": [
         95
@@ -181,8 +181,8 @@
     {
       "file": "subagent-3.json",
       "shape": "subagent-heavy",
-      "seed": 1053,
-      "sha256": "88947adc867f886effef8c152e03e42fc6cb4fca9b8bf992b190ac03ae6f8716",
+      "seed": 1153,
+      "sha256": "1c5727553fb6a38c197a7daf6215c9341909f1eb08745024c9d7ef39a233b077",
       "turns": 190,
       "compactionAt": [
         95
@@ -191,8 +191,8 @@
     {
       "file": "thrash-1.json",
       "shape": "thrash-loop",
-      "seed": 1061,
-      "sha256": "ff18933c5ceb76dc1460f439ebe87096b7d28549605d89ca7ad3c1e62162ea7b",
+      "seed": 1161,
+      "sha256": "84bbf9318efec2413bff8577d874def04c98f606a97eafe0f1e5e0ec4f8be9f8",
       "turns": 210,
       "compactionAt": [
         105
@@ -201,8 +201,8 @@
     {
       "file": "thrash-2.json",
       "shape": "thrash-loop",
-      "seed": 1062,
-      "sha256": "1d1863c9c5e3999c4a85fd7bc63e51f27c2fb6a75c6eb67d1701705dd160f193",
+      "seed": 1162,
+      "sha256": "7d09a43e177269de200f2cac9c2c7138625346f44773eec82204d013e1c67edb",
       "turns": 210,
       "compactionAt": [
         105
@@ -211,8 +211,8 @@
     {
       "file": "thrash-3.json",
       "shape": "thrash-loop",
-      "seed": 1063,
-      "sha256": "729c299161ffd45bffa3301c7ecfaab976cf73b14813fa0fcc9af59bb59ac982",
+      "seed": 1163,
+      "sha256": "e6697f64501dcbfefe741f8a1d487161268bafe3f515bf279902b8b1a5543614",
       "turns": 210,
       "compactionAt": [
         105
@@ -221,8 +221,8 @@
     {
       "file": "multi-compact-1.json",
       "shape": "multi-compaction",
-      "seed": 1071,
-      "sha256": "8d2523e107d97e7e45ee843b4cb8d1c59728a102c0f0d3d6a317c1b36fe6b3b6",
+      "seed": 1171,
+      "sha256": "4a5bd315c663074a0819fa15b621c235b27850ff2e23a476257d364ca397ae2b",
       "turns": 320,
       "compactionAt": [
         70,
@@ -234,8 +234,8 @@
     {
       "file": "multi-compact-2.json",
       "shape": "multi-compaction",
-      "seed": 1072,
-      "sha256": "f811a6b6c9c22d8c2ddb0602b28f45cfe20d3e0f72b0c32bfb444c7d2602a667",
+      "seed": 1172,
+      "sha256": "591b0a414d8d79db2b60031b72810303cb0d491be3941992ca2dbe9cbb966aac",
       "turns": 320,
       "compactionAt": [
         70,
@@ -247,8 +247,8 @@
     {
       "file": "multi-compact-3.json",
       "shape": "multi-compaction",
-      "seed": 1073,
-      "sha256": "dc7c3032689978863c05520302ca74f0c44227f5e8dab9f89b427a2eb02b8ed0",
+      "seed": 1173,
+      "sha256": "ee2a914101f8cfaae2a95c404533a25e830ce87b96d57f9995f8aad907c457e9",
       "turns": 320,
       "compactionAt": [
         70,

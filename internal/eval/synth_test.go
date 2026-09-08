@@ -206,7 +206,13 @@ func TestSynthesize_ShapeInvariants(t *testing.T) {
 				}
 			}
 		}
-		require.Equal(t, spec.Spec.SubagentCalls, quoted)
+		// SP02-D1 delayed the report by synthSubagentDelay assistant turns, so that a Task and its
+		// result can straddle a compaction cut instead of always sitting adjacent. A Task issued
+		// within that many assistant turns of the session's end therefore has no turn left to
+		// report on — which is what an interrupted session looks like — so the invariant is a
+		// floor, not an equality.
+		require.GreaterOrEqual(t, quoted, spec.Spec.SubagentCalls-1)
+		require.LessOrEqual(t, quoted, spec.Spec.SubagentCalls)
 	})
 
 	t.Run("dependency-change writes at every named turn", func(t *testing.T) {
@@ -307,8 +313,8 @@ func TestSynthesize_MetaCarriesProvenance(t *testing.T) {
 	s := eval.SynthesizeNamed(n)
 
 	require.True(t, s.Synthetic)
-	require.Equal(t, "eval.Synthesize/1", s.Meta["generator"])
-	require.Equal(t, "1031", s.Meta["seed"])
+	require.Equal(t, "eval.Synthesize/2", s.Meta["generator"])
+	require.Equal(t, "1131", s.Meta["seed"])
 	require.Equal(t, n.Shape, s.Meta["shape"])
 	require.Len(t, strings.Split(s.Meta["changepoints"], ","), n.Spec.Changepoints)
 	require.NotEmpty(t, s.Meta["spec"])
@@ -320,8 +326,8 @@ func TestSynthesize_MetaCarriesProvenance(t *testing.T) {
 func TestSynthesize_IDIsShapeQualified(t *testing.T) {
 	n := specByShape(t, "refactor-across-files")
 
-	require.Equal(t, "synth-1021", eval.Synthesize(n.Seed, n.Spec).ID)
-	require.Equal(t, "refactor-across-files-1021", eval.SynthesizeNamed(n).ID)
+	require.Equal(t, "synth-1121", eval.Synthesize(n.Seed, n.Spec).ID)
+	require.Equal(t, "refactor-across-files-1121", eval.SynthesizeNamed(n).ID)
 	require.NotContains(t, eval.Synthesize(n.Seed, n.Spec).Meta, "shape")
 }
 
