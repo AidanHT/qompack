@@ -185,8 +185,9 @@ func TestDaemonIdleRunsSchedulerWork(t *testing.T) {
 	// It found nothing to advance INTO, and that is by design rather than a hole. negknow.Open
 	// has exactly one production call site and fires on the first COMPACTION, because an eager
 	// open creates sketches/tried.bloom in every daemon that never compacts and §3.3 reserves
-	// that file for the ledger alone (test/guards enforces it). This daemon never compacts, so
-	// the SourceSet never resolves and checkpoint's own advance_frontier reports unavailable
+	// that file for the ledger alone (TestE2E_ObserverThroughDaemon and V3-X08 both guard it).
+	// This daemon never compacts, so the SourceSet never resolves, and checkpoint's own
+	// advance_frontier reports unavailable
 	// once per pass -- counted, degraded, never Loud. The first PreCompact is what opens the
 	// ledger and seals (internal/daemon TestBindCheckpointSealsOnTheFirstPreCompact,
 	// TestE2E_CheckpointHookWritesImmutableArtifact), and the field is live for every pass after
