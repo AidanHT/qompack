@@ -267,3 +267,63 @@ coverage. No ingress/drain path opens the journal yet. Stable nonce production, 
 hashing, raw sidecars, lease acknowledgement/retention, object sync and verified reference to
 frontier publication, the late-client fallback race, GC/import/backup/rollback and M2 authority
 remain required. No installed-host, T20 or final V4 gate closes from this slice.
+
+### Provisional legacy hook privacy admission
+
+At `9b395f8` plus the hashes in `capture-admission-focused.run.json`, all six CLI hooks now
+admit raw input through strict configuration and the real JSON redactor before producing a
+transport Event, creating a spool/client or invoking daemon startup. The trusted process/env
+root supplies the first policy; only its permitted Event can select a second root. The second
+policy receives already-permitted bytes and cannot restore removed content. Final routing
+must still agree. Exact/redacted composition retains earlier flags and a composed registry
+label; it does not identify persisted configuration snapshots or certify future fidelity kinds.
+
+`LoadForCapture` retains five-layer precedence without using diagnostic Load's fallback.
+It refuses malformed/duplicate/ambiguous JSONC, unknown keys, invalid values, unavailable file
+leaves, nonfinite environment numbers and pending migration switches. Files and merged JSON
+are capped at 1 MiB, environment/flag values at 64 KiB with a shared 1 MiB input cap, nesting
+at 128 and configured redaction rules at 256. Roots must be explicit absolute paths. Existing
+regular file leaves are checked against the opened identity; missing files use defaults.
+Ancestor trust, atomic multi-file config snapshots and unknown/empty environment enumeration
+remain outside this API. Regex compilation separately refuses incomplete rule admission.
+
+The raw read has a 4 MiB independent cap, preserving the historical four-times nominal window
+within that cap. Oversized configured thresholds refuse admission. Mode-off remains an empty
+response; disabled redaction remains an explicit supported setting. Reader/policy failures
+return generic diagnostics without raw bytes or backend error text. The prior quiet-log test
+now asserts generic input unavailability rather than copying the reader's private message.
+Fault inflation now affects only transient input before policy; the old 4 MiB-plus-syntax
+oversize injection is refused by capture instead of bypassing it into blob publication.
+The noinject build supplies an inert raw-input twin. Frozen wire/data fixtures are unchanged.
+
+`capture-admission-red` reproduces invalid-policy startup and private reader-error logging;
+its spool-mode fixtures initially missed the state parent directory and give no admission
+evidence. `capture-admission-red-corrected` repairs that setup and reproduces unredacted
+spooled prompts. The config fixture's initial syntax/unused-import errors were corrected
+before execution. `capture-admission-focused` passes config and CLI race checks (2.588 s and
+4.206 s package time, 29.508 s elapsed), covering all six hooks, three spool modes, policy
+downgrade resistance, route changes, bounds and retained hook behavior.
+
+The independent Terra/high reviewer required environment/flag bounds, a trusted initial
+policy, composition of admission facts, final routing consistency and removal of post-policy
+Event mutation. All are implemented and accepted for the current exact/redacted policies.
+The shared Terra/high fixture worker owned only the new config test file and released it
+before main corrected/extended it. Main owned runtime, CLI fixtures and commands; Luna/medium
+provided a read-only configuration/consumer map. Effective route/effort, usage and queue wait
+were unexposed. At most two children and one heavy command ran concurrently in isolated test
+directories. Final consumer/guard results are recorded in the accompanying manifests.
+
+`capture-admission-consumers` passes write-set/fault confinement guards (3.393 s) and the real
+binary hook-to-daemon/store and spooled-recovery selections (18.751 s; command 39.257 s). Its
+config selection matched zero tests and supplies no config coverage. The corrected prefix
+selection in `capture-admission-guards` passes retained Load/Validate race cases (2.520 s;
+command 6.684 s). The noinject CLI selection passes (2.545 s; command 7.216 s). Formatting,
+affected-package vet and importgraph/testdeps pass; no full lint, coverage or aggregate gate
+is implied. All use unchanged focused input hashes; later documentation has a separate HEAD.
+
+This is partial T20-M1-01/02 and selected SP01/SP05/SP06 regression evidence. Only current CLI
+producers have this admission boundary. Direct IPC callers, inherited spools and resident
+daemon enforcement, raw sidecar retention/fidelity, stable nonce/lease wiring, durable
+object/reference/frontier publication, GC/migration/rollback, M2 and installed recovery remain
+open. The added configuration/policy cost is unmeasured; no hot-path acceptance is claimed.
+All migration switches remain refused and the final integrated V4 candidate is not established.

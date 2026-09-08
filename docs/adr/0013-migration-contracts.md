@@ -118,7 +118,18 @@ is necessary for `exact` and byte changes alone do not imply redaction. Captured
 as base64 if transported in JSON, preserving the permitted source spelling. `redact-json/v1`
 identifies the JSON-aware policy registry; `sha256/v1` identifies the planned evidence hash
 construction, not proof of an object or reference. The new seam performs no persistence and is
-not yet wired into CLI/IPC. Ingress privacy, sidecar publication and M1–M3 gates remain pending.
+now used by the CLI admission correction below. Sidecar publication and M1–M3 gates remain pending.
+
+**Legacy hook admission correction (SP-20 / V4 preparation).** Hook clients now require strict,
+bounded `config.LoadForCapture` and a compiled JSON privacy policy before deriving the Event
+sent to legacy IPC/spool. The trusted process/environment root selects the first policy; only
+its permitted Event can select a destination policy, which receives already-permitted bytes.
+The final root must agree. Composed exact/redacted facts are retained transiently; future
+partial/truncated policies require a reviewed composition rule. Invalid policy/input refuses
+capture, returns empty hook output and emits only generic diagnostics. Raw evidence storage
+remains disabled; legacy transport still drops unknown fields and carries no fidelity sidecar.
+Direct IPC clients, old spools and resident-daemon admission need separate enforcement. Added
+configuration reads/redaction cost requires quiet measurement before hot-path acceptance.
 
 **Compatible failure correction (SP-20 / V4 preparation).** The retained observer method
 signatures and host output shapes stay unchanged. `OnToolUse` now returns the additive

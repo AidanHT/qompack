@@ -1,0 +1,22 @@
+{
+  "elapsed_seconds": 4.2645299,
+  "started": "2026-09-08T01:49:27.6983231Z",
+  "inputs": [
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\capture_admission_test.go",
+      "Hash": "D978750DD7C71AD347FA0707EE25DA75742BC3AEDB49351D65695C2402944293"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\hookclient.go",
+      "Hash": "4FD37952FF5121B66BEDB68E82CBC3F4D2F9C8700332810513F8C98A555732D0"
+    },
+    {
+      "Path": "C:\\Users\\Quant\\Documents\\Programming\\Projects\\qompack-sp20\\internal\\cli\\fault.go",
+      "Hash": "EB796E9A3CEB2B3A6D6ABBAA4D4689B84AE0C6BDF718843C576FDB5BA3E82283"
+    }
+  ],
+  "kind": "provisional; corrected fixture creates state parent",
+  "head": "9b395f8dfa310c2a91ce30f1d87a75282359791e",
+  "exit": 1,
+  "command": "go test -p=1 -count=1 -timeout=5m -run '^TestHookCapture_RedactsBeforeEveryLegacySpoolMode$' ./internal/cli"
+}

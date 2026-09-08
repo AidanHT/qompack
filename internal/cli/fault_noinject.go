@@ -31,6 +31,8 @@ func maybePanicHook() {}
 
 func faultInflateToolResponse(*hookio.Event) {}
 
+func faultInflateHookCapture(raw []byte) []byte { return raw }
+
 func wrapFaultSpool(sp ipc.SpoolWriter) ipc.SpoolWriter { return sp }
 
 func wrapFaultClient(c ipc.Client) ipc.Client { return c }

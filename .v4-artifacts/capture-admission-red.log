@@ -1,0 +1,155 @@
+--- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode (0.15s)
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur2941957903\001\.qompack\tmp\wa-2297814120 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur2941957903\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_tool
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur2889376544\001\.qompack\tmp\wa-322182669 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur2889376544\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_prompt
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur1813502669\001\.qompack\tmp\wa-2572937572 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur1813502669\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/observe_stop
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur794336429\001\.qompack\tmp\wa-2248156057 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur794336429\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/session-start
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur3033296142\001\.qompack\tmp\wa-1442847550 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur3033296142\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/checkpoint
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur1122580214\001\.qompack\tmp\wa-4222384767 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModeconnect_failur1122580214\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/connect_failure/flush
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolobse4239369288\001\.qompack\tmp\wa-1784313203 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolobse4239369288\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_tool
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolobse3590105600\001\.qompack\tmp\wa-2892146016 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolobse3590105600\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_prompt
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolobse977354516\001\.qompack\tmp\wa-735407301 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolobse977354516\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/observe_stop
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolsess3236535159\001\.qompack\tmp\wa-4052450801 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolsess3236535159\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/session-start
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolchec3512493778\001\.qompack\tmp\wa-4119253288 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolchec3512493778\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/checkpoint
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolflus3479398313\001\.qompack\tmp\wa-751681364 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModehot_spoolflus3479398313\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/hot_spool/flush
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable3509963071\001\.qompack\tmp\wa-380017779 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable3509963071\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_tool
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable3159292975\001\.qompack\tmp\wa-529772973 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable3159292975\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_prompt
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable2561083399\001\.qompack\tmp\wa-1588002231 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable2561083399\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/observe_stop
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable1696983216\001\.qompack\tmp\wa-4184525128 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable1696983216\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/session-start
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable3543077157\001\.qompack\tmp\wa-253617999 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable3543077157\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/checkpoint
+    --- FAIL: TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush (0.01s)
+        capture_admission_test.go:36: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:36
+            	Error:      	Received unexpected error:
+            	            	rename C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable2375477655\001\.qompack\tmp\wa-2902113380 C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RedactsBeforeEveryLegacySpoolModedaemon_disable2375477655\001\.qompack\run\state.bin: The system cannot find the path specified.
+            	Test:       	TestHookCapture_RedactsBeforeEveryLegacySpoolMode/daemon_disabled/flush
+--- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart (0.02s)
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime": (0.00s)
+        capture_admission_test.go:86: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:86
+            	Error:      	Should be false
+            	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":
+            	Messages:   	unavailable policy must precede daemon start
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}} (0.00s)
+        capture_admission_test.go:86: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:86
+            	Error:      	Should be false
+            	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}
+            	Messages:   	unavailable policy must precede daemon start
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}} (0.00s)
+        capture_admission_test.go:86: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:86
+            	Error:      	Should be false
+            	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"patterns":["["]}}}
+            	Messages:   	unavailable policy must precede daemon start
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}} (0.00s)
+        capture_admission_test.go:86: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:86
+            	Error:      	Should be false
+            	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"redact":{"enabled":false,"enabled":true}}}
+            	Messages:   	unavailable policy must precede daemon start
+    --- FAIL: TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"migration":{"capture":{"rawEvidence":true}}}} (0.01s)
+        capture_admission_test.go:86: 
+            	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:86
+            	Error:      	Should be false
+            	Test:       	TestHookCapture_RefusesBeforeSpoolAndDaemonStart/{"runtime":{"migration":{"capture":{"rawEvidence":true}}}}
+            	Messages:   	unavailable policy must precede daemon start
+--- FAIL: TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics (0.02s)
+    capture_admission_test.go:127: 
+        	Error Trace:	C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:127
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/path/filepath/path.go:311
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/path/filepath/path.go:333
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/path/filepath/path.go:333
+        	            				C:/Users/Quant/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.6.windows-amd64/src/path/filepath/path.go:401
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:121
+        	            				C:/Users/Quant/Documents/Programming/Projects/qompack-sp20/internal/cli/capture_admission_test.go:105
+        	Error:      	Should be false
+        	Test:       	TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics
+        	Messages:   	private bytes persisted in C:\Users\Quant\AppData\Local\Temp\TestHookCapture_RejectsInvalidInputWithoutPrivateDiagnostics4041520839\001\.qompack\logs\hook-quiet-20260812.jsonl
+FAIL
+FAIL	github.com/qompack/qompack/internal/cli	1.511s
+FAIL
