@@ -21,6 +21,40 @@ const CapturePolicyVersion = "redact-json/v1"
 // user patterns refuse capture rather than silently retaining bytes under a partial rule set.
 // Its returned function is compatible with hookio.CapturePolicy without a package dependency.
 func CapturePolicy(cfg config.Config) (func([]byte) (core.CaptureDecision, error), error) {
+	r, err := captureRules(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return func(raw []byte) (core.CaptureDecision, error) {
+		return captureJSON(raw, r)
+	}, nil
+}
+
+// CaptureFragmentPolicyVersion identifies byte-oriented redaction of a payload fragment. It is a
+// distinct registry entry from CapturePolicyVersion precisely because it is a weaker guarantee:
+// nothing here can rely on JSON structure, so structural key rules do not apply and only the
+// literal bytes present in the fragment are examined.
+const CaptureFragmentPolicyVersion = "redact-bytes/v1"
+
+// CaptureFragmentPolicy compiles the same configured rule set as CapturePolicy but applies it to
+// arbitrary bytes. It exists for the fragments CapturePolicy cannot decide: an oversize prefix, a
+// payload the host stopped sending, or bytes that are not JSON at all. Such a fragment has no
+// structure to preserve, so every rule is matched against the raw bytes and the result is returned
+// verbatim, invalid UTF-8 included — a fragment is evidence about a delivery, not a document.
+// Invalid user patterns refuse the fragment rather than retaining bytes under a partial rule set.
+func CaptureFragmentPolicy(cfg config.Config) (func([]byte) (core.CaptureDecision, error), error) {
+	r, err := captureRules(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return func(raw []byte) (core.CaptureDecision, error) {
+		return captureBytes(raw, r), nil
+	}, nil
+}
+
+// captureRules compiles the complete configured rule set once, shared by both capture policies so
+// a fragment can never be examined under a different rule set than the payload it came from.
+func captureRules(cfg config.Config) (*rx, error) {
 	r := &rx{}
 	if cfg.Runtime.Redact.Enabled {
 		custom := compileUserPatterns(cfg.Runtime.Redact.Patterns, nil, nil)
@@ -29,9 +63,21 @@ func CapturePolicy(cfg config.Config) (func([]byte) (core.CaptureDecision, error
 		}
 		r.enabled, r.rules = true, append(builtinRules(), custom...)
 	}
-	return func(raw []byte) (core.CaptureDecision, error) {
-		return captureJSON(raw, r)
-	}, nil
+	return r, nil
+}
+
+// captureBytes redacts a fragment without parsing it. Fidelity here describes only this fragment's
+// relation to the bytes handed in; the caller owns the wider truth that those bytes were themselves
+// a truncated, partial or binary view of a host delivery, and records it separately.
+func captureBytes(raw []byte, r *rx) core.CaptureDecision {
+	out, matches := r.Redact(raw)
+	d := core.CaptureDecision{
+		Bytes: bytes.Clone(out), Outcome: core.OutcomeOK, Fidelity: core.FidelityExact,
+	}
+	if len(matches) != 0 {
+		d.Fidelity, d.Redacted = core.FidelityRedacted, true
+	}
+	return d
 }
 
 const (

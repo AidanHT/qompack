@@ -143,3 +143,54 @@ func TestCapturePolicy_CustomPatternSeesDecodedUnknownFields(t *testing.T) {
 	require.False(t, bytes.Contains(decision.Bytes, []byte("private-")))
 	require.Contains(t, string(decision.Bytes), "9007199254740993")
 }
+
+// TestCaptureFragmentPolicy_RedactsBytesWithNoJSONStructure covers the fragments CapturePolicy
+// cannot decide: an oversize prefix, a payload the host stopped sending, or bytes that are not JSON
+// at all. The same configured rules still apply, so a secret in a fragment is removed before the
+// fragment is retained as evidence.
+func TestCaptureFragmentPolicy_RedactsBytesWithNoJSONStructure(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Patterns = []string{"PRIVATE-[A-Z]{12}"}
+	p, err := redact.CaptureFragmentPolicy(cfg)
+	require.NoError(t, err)
+
+	decision, err := p([]byte(`{"hook_event_name":"PostToolUse","future":"PRIVATE-ABCDEFGHIJKL`))
+	require.NoError(t, err)
+	require.Equal(t, core.OutcomeOK, decision.Outcome)
+	require.True(t, decision.Redacted)
+	require.Equal(t, core.FidelityRedacted, decision.Fidelity)
+	require.NotContains(t, string(decision.Bytes), "PRIVATE-ABCDEFGHIJKL")
+	require.Contains(t, string(decision.Bytes), "PostToolUse", "non-secret evidence survives")
+}
+
+// TestCaptureFragmentPolicy_RetainsNonUTF8EvidenceVerbatim pins the difference from CapturePolicy:
+// a fragment is evidence about a delivery, not a document, so bytes that could never be valid JSON
+// are returned as they arrived instead of refusing the whole fragment.
+func TestCaptureFragmentPolicy_RetainsNonUTF8EvidenceVerbatim(t *testing.T) {
+	p, err := redact.CaptureFragmentPolicy(config.Defaults())
+	require.NoError(t, err)
+	raw := []byte{0x89, 0x50, 0x4e, 0x47, 0x00, 0xff, 0xfe}
+
+	decision, err := p(raw)
+	require.NoError(t, err)
+	require.Equal(t, core.OutcomeOK, decision.Outcome)
+	require.False(t, decision.Redacted)
+	require.Equal(t, raw, decision.Bytes)
+
+	json, err := redact.CapturePolicy(config.Defaults())
+	require.NoError(t, err)
+	structured, err := json(raw)
+	require.Error(t, err, "the JSON policy still refuses what it cannot parse")
+	require.Equal(t, core.OutcomeUnavailable, structured.Outcome)
+}
+
+// TestCaptureFragmentPolicy_RefusesAnIncompleteRuleSet keeps the fragment path under the same
+// all-or-nothing rule compilation as the JSON path: a pattern that will not compile refuses the
+// policy outright rather than silently examining fragments under a partial rule set.
+func TestCaptureFragmentPolicy_RefusesAnIncompleteRuleSet(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Runtime.Redact.Patterns = []string{"["}
+	p, err := redact.CaptureFragmentPolicy(cfg)
+	require.ErrorIs(t, err, core.ErrDegraded)
+	require.Nil(t, p)
+}
