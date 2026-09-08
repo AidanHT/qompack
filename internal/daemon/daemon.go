@@ -236,7 +236,7 @@ func New(o Options) (Daemon, error) {
 
 	svc := &Services{
 		Store:       o.Store,
-		Ledger:      o.Ledger,
+		Ledger:      o.LedgerHandle(),
 		Sketches:    o.Sketches,
 		Graph:       o.Graph,
 		Grammar:     o.Grammar,

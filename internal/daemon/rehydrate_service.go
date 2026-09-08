@@ -325,6 +325,9 @@ func BindRehydrate(o *Options, svc observer.Rehydrator) {
 // checkpoint reader — and leaves each nil on failure, logging Loud. SP-12 reads these same fields
 // and adds nothing; SP-13 extends this block with the MCP promoter and op registration.
 func WireRehydrator(o *Options) observer.Rehydrator {
+	// Wiring time, on the goroutine that owns this Options and before anything can read the
+	// handle: the cell the opener publishes into must exist before the opener does.
+	o.ensureLedgerCell()
 	log := o.Log
 	if log == nil {
 		log = logging.Nop()
@@ -366,8 +369,8 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 			// not duplicated: the accessor answers with it, and nothing is registered for close,
 			// because that handle belongs to whoever supplied it. s.deps() applies the same rule
 			// one layer down.
-			if o.Ledger != nil {
-				ledger = o.Ledger
+			if existing := o.LedgerHandle(); existing != nil {
+				ledger = existing
 				return
 			}
 			l, err := negknow.Open(o.ProjectRoot, o.Cfg, nil, negknow.Deps{
@@ -378,7 +381,11 @@ func WireRehydrator(o *Options) observer.Rehydrator {
 					"err", err.Error())
 				return
 			}
-			o.Ledger = l
+			// Published through the synchronized cell, NOT onto the Ledger field: the three
+			// live accessors (liveLedger, the scheduler's LedgerFn, the checkpoint SourceSet
+			// supplier) read it from per-connection goroutines, and sync.Once orders only the
+			// goroutines that call Do. See Options.publishLedger.
+			o.publishLedger(l)
 			ledger = l
 			// THIS handle has no other owner: nothing but this closure knows it exists until the
 			// assignment above, and the assignment is to a field a composition root is free never
