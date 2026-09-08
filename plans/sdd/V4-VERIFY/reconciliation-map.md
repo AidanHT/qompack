@@ -466,7 +466,7 @@ command, historical expected result and original disposition all remain there, u
 | <a id="rc-v4-all-05"></a>[V4-ALL-05](inventory.md#v4-all-05) | Security posture | MAPPED-CMD | _cmd_ `go run -modfile=tools/pinned/go.mod golang.org/x/vuln/cmd/govulncheck ./...` + _cmd_ `go run ./tools/devtool lint --only=importgraph,testdeps,bindeps` | direct | Inventory recorded MISSING; both commands exist. `govulncheck` needs network access to the vulnerability database. |
 | <a id="rc-v4-all-06"></a>[V4-ALL-06](inventory.md#v4-all-06) | Placeholder scan across every implemented package | MAPPED-CMD | _cmd_ `git grep -nE 'TODO\|TBD\|FIXME\|XXX\|not implemented\|handle edge cases' -- internal/ test/ tools/ ':!*_test.go'` | direct | - |
 | <a id="rc-v4-all-07"></a>[V4-ALL-07](inventory.md#v4-all-07) | Full CI on `verify/v4` | MISSING | GitHub Actions on `verify/v4` | direct | Inventory recorded MISSING and it still is: no `verify/v4` branch exists and no CI run covers this tree. Not runnable locally by construction. Also gated by the V3 J5 billing waiver (run 32932419445) which stands waived-open. |
-| <a id="rc-v4-all-08"></a>[V4-ALL-08](inventory.md#v4-all-08) | `Qompack.md` immutability | RETIRED | `Qompack.md` Revision log (currently v1.3) | direct | **NC-1a applied: RETIRED as written, and the replacement gate is MISSING.** The historical assertion is factually false on this tree and was false before this work: `git diff <root> HEAD -- Qompack.md` reports 268 insertions / 1082 deletions, and the file stands at v1.3 with an authorized Revision log — read-only means read-only *to subplans*, not frozen. Replacement assertion: **`Qompack.md` changes only through an authorized Revision-log entry with a matching `QOMPACK-ERRATA.md` record.** No guard enforces it — searched `test/guards`, `tools/devtool` and the repo hooks — so the gate is recorded **MISSING, not passed**. See [§7.1](#71-nc-1a--the-replacement-assertion-has-no-enforcing-guard). |
+| <a id="rc-v4-all-08"></a>[V4-ALL-08](inventory.md#v4-all-08) | `Qompack.md` immutability | RETIRED | `Qompack.md` Revision log (currently v1.3) | direct | **NC-1a applied: RETIRED as written, and the replacement gate is MISSING.** The historical assertion is factually false on this tree and was false before this work: `git diff <root> HEAD -- Qompack.md` reports 268 insertions / 1082 deletions, and the file stands at v1.3 with an authorized Revision log — read-only means read-only *to subplans*, not frozen. Replacement assertion: **`Qompack.md` changes only through an authorized Revision-log entry with a matching `QOMPACK-ERRATA.md` record.** Enforced by `test/guards/qompackrevision_test.go` — a content pin plus Revision-log and errata assertions, each confirmed red by breaking it — so the gate is recorded **ENFORCED**. See [§7.1](#71-nc-1a--the-replacement-assertion-has-no-enforcing-guard). |
 
 ### 3.1 Every `RETIRED` row, with its justification
 
@@ -660,7 +660,7 @@ two conditions and NC-4's re-enumeration.
 
 | # | Ruling | Applied where |
 |---|---|---|
-| **NC-1a** | `V4-ALL-08` **RETIRED as written**; replacement assertion recorded; enforcing gate **MISSING** | `inventory.md` row `V4-ALL-08`; §7.1 below |
+| **NC-1a** | `V4-ALL-08` **RETIRED as written**; replacement assertion recorded; enforcing gate **ENFORCED** by `test/guards/qompackrevision_test.go` | `inventory.md` row `V4-ALL-08`; §7.1 below |
 | **NC-1b** | **Not** a live failure — `V4-SP01-08` stands, verified | `inventory.md` §NC-1b; row disposition `MAPPED` |
 | **NC-2** | Authorized §7.1 exception, **conditional — both conditions verified and held** | §7.2 below; rows `V4-SP10-19`, `V4-SP13-19`, G5 |
 | **NC-3** | Versioned successor, not retirement | `inventory.md` §NC-3; `testdata/golden/store/roots.v2.jsonl` |
@@ -681,15 +681,19 @@ two conditions and NC-4's re-enumeration.
 **Replacement assertion.** *`Qompack.md` changes only through an authorized Revision-log entry with a
 matching `plans/QOMPACK-ERRATA.md` record.*
 
-**Does any guard enforce it? No.** Searched, not assumed:
+**Does any guard enforce it? Yes, now.** The search recorded here found none at the time —
+`test/guards` had no revision-log or errata case, `tools/devtool` read `Qompack.md` only in
+`genconfigdocs.go` to generate Appendix C, and no repository git hook inspected the file. `test/guards/qompackrevision_test.go`
+closes that gap:
 
-- `test/guards` has no revision-log or errata case (`grep -rn 'Revision log\|ERRATA' --include=*.go test/ tools/ internal/` returns only two *comments*, in `internal/eval/corpusshape_test.go:149` and `internal/eval/ledger_test.go:359`, both citing errata as a source rather than checking it).
-- `tools/devtool` reads `Qompack.md` in exactly one place, `genconfigdocs.go`, and only to generate Appendix C.
-- There is no repository git hook that inspects the file.
+- a SHA-256 pin over `Qompack.md` fails on any edit, and its message names the authorized path;
+- the declared version must carry a Revision-log entry;
+- and it must carry a matching `## vX.Y` record in `plans/QOMPACK-ERRATA.md`;
+- with a fourth assertion catching the two files drifting apart in either direction.
 
-So the gate is recorded **MISSING**, not passed. Writing it — a check that a commit touching
-`Qompack.md` also adds a Revision-log entry whose version has a matching errata record — belongs to
-`test/guards` and is future-wave work, not something this unit may land (it does not own that tree).
+The mechanism differs from the commit-range check this section imagined, on purpose: `go test` sees
+a working tree rather than a diff, and a range check would be blind on a squash or a rebase. Each
+clause was confirmed red by breaking it. The gate is recorded **ENFORCED**.
 
 ### 7.2 NC-2 — the §7.1 exception **holds**: both conditions verified
 
@@ -775,5 +779,5 @@ rows, three have one arm closed and keep the disposition for the rest: `V4-SP05-
 at 66, fault-injection arm still needs S7), `V4-SP06-08` (frozen goldens verified byte-identical and
 a versioned successor added; the two-version reader clause is still S6's to run), `V4-SP08-08`
 (zero-skip clause scoped, still to be scored per package). `V4-ALL-04`'s exemption question is
-closed at three. `V4-ALL-08` stays `RETIRED`, now with an explicit **MISSING** replacement gate.
+closed at three. `V4-ALL-08` stays `RETIRED`, its replacement gate now **ENFORCED** rather than missing.
 Nothing was retired for being inconvenient, and no row's identifier changed.

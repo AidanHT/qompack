@@ -585,9 +585,10 @@ evidence: [`reconciliation-map.md`](reconciliation-map.md) section 7.
   exception that was verified there covers the goldens' *provenance* — they are
   reproduced exactly by the real generator, and the diff is description text
   only — not the manifest gate itself.
-- **NC-1a — G8 gained a gap, not a check.** `V4-ALL-08` is retired as written,
+- **NC-1a — the G8 gap is now a check.** `V4-ALL-08` is retired as written,
   and its replacement (a `Qompack.md` change carries an authorized Revision-log
-  entry with a matching `QOMPACK-ERRATA.md` record) has **no enforcing guard**.
+  entry with a matching `QOMPACK-ERRATA.md` record) is enforced by
+  `test/guards/qompackrevision_test.go`.
   G8's manual review must record it as **MISSING**; it cannot be signed off as
   passed.
 
