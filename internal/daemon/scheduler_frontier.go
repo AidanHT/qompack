@@ -30,9 +30,26 @@ const (
 	gaugeResidualOverBudget    = "sched.residual_over_budget"
 
 	msgDPIGuard           = "frontier advance hit the DPI guard"
+	msgDPIViolation       = "checkpoint: DPI violation: segments are already encoded by another checkpoint and were skipped"
 	msgResidualOverBudget = "scheduler: residual span over budget; O5 is not keeping up"
 	msgUnverifiedEvidence = "scheduler: frontier stopped short of unverified evidence"
 )
+
+// Verification has TWO failure modes and they are deliberately not the same kind of event.
+//
+// The QUIET one is missing evidence: a gap, an unreadable segment, work still in flight. Nothing
+// is wrong with the system — the durable record simply does not reach far enough yet — so the
+// frontier stops at the longest verified prefix, counts counterFrontierUnverified, warns once, and
+// the next pass picks the span up when its evidence lands. That is an evidenceStop.
+//
+// The LOUD one is a DPI violation: the segment log OFFERED a segment as unencoded and, on the
+// re-read, reports it as already encoded. Unencoded filters on EncodedOnce, so one writer over one
+// log can never produce that pair; it means two writers disagree about who owns the segment, which
+// is the §4.6 invariant this layer exists to enforce mechanically. It is not a stop — the evidence
+// is durable and contiguity legitimately continues across it — but it must NEVER be inferred from
+// silence, so it is carried out of verification by name, reported Loud with its counter, and its
+// ids dropped. That is the dpi return, and it is why verifyEvidence does not simply filter these
+// segments out of the batch.
 
 // The reasons verification refuses to carry the frontier any further. They are values, not free
 // text, because they are what the log line and the report are keyed off.
@@ -134,7 +151,13 @@ func (r *schedRuntime) advanceFrontier(ctx context.Context) error {
 		r.settleFrontier(ctx, sess, nil, 0)
 		return nil
 	}
-	ids, stop := verifyEvidence(ctx, r.segs, sess, batch)
+	ids, dpi, stop := verifyEvidence(ctx, r.segs, sess, batch)
+	if len(dpi) > 0 {
+		// A violation, not a shortfall: report it before anything else this pass decides, so it
+		// cannot be lost behind an unrelated stop or an empty verified prefix.
+		r.count(counterFrontierDPIGuard)
+		r.log.Loud(msgDPIGuard, "segments", segmentIDInts(dpi))
+	}
 	if stop != nil {
 		// The frontier stops HERE, at the first turn whose evidence is not durable, and the
 		// segments beyond it stay unencoded — never skipped over, never encoded out of order.
@@ -192,40 +215,46 @@ type evidenceStop struct {
 // encodable by a later pass once its evidence lands.
 //
 // A segment that is ALREADY encoded is not a stop: its evidence is durable by definition, so the
-// prefix steps over it (it is not resubmitted — the DPI guard owns that) and contiguity continues
-// from its end turn.
+// prefix steps over it and contiguity continues from its end turn. It is not resubmitted either —
+// but it is returned in dpi rather than dropped, because a listing that offers an encoded segment
+// is the §4.6 two-writer disagreement and the caller owes it a Loud line and a counter. Filtering
+// it out here instead is what let a violation pass silently once already.
 //
 // The open segment is the ordinary in-flight case and it never reaches here — Unencoded's callers
 // filter to Closed first — but a segment that came back open from the re-read is one that was
 // closed when it was listed and is not now, so it is treated as in-flight and stops the run.
-func verifyEvidence(ctx context.Context, segs store.SegmentLog, sess core.SessionID, batch []store.Segment) ([]core.SegmentID, *evidenceStop) {
+func verifyEvidence(ctx context.Context, segs store.SegmentLog, sess core.SessionID, batch []store.Segment) (verified, dpi []core.SegmentID, stop *evidenceStop) {
 	ids := make([]core.SegmentID, 0, len(batch))
 	var prevEnd core.TurnIndex
 	havePrev := false
 	for _, s := range batch {
 		if err := ctx.Err(); err != nil {
-			return ids, &evidenceStop{reason: evidenceCancelled, segment: s.ID, atTurn: s.StartTurn}
+			return ids, dpi, &evidenceStop{reason: evidenceCancelled, segment: s.ID, atTurn: s.StartTurn}
 		}
 		cur, err := segs.Get(ctx, s.ID)
 		if err != nil {
-			return ids, &evidenceStop{reason: evidenceUnreadable, segment: s.ID, atTurn: s.StartTurn}
+			return ids, dpi, &evidenceStop{reason: evidenceUnreadable, segment: s.ID, atTurn: s.StartTurn}
 		}
 		switch {
 		case cur.Session != sess:
-			return ids, &evidenceStop{reason: evidenceForeign, segment: s.ID, atTurn: cur.StartTurn}
+			return ids, dpi, &evidenceStop{reason: evidenceForeign, segment: s.ID, atTurn: cur.StartTurn}
 		case !cur.Closed:
-			return ids, &evidenceStop{reason: evidenceNotClosed, segment: s.ID, atTurn: cur.StartTurn}
+			return ids, dpi, &evidenceStop{reason: evidenceNotClosed, segment: s.ID, atTurn: cur.StartTurn}
 		case cur.EndTurn < cur.StartTurn:
-			return ids, &evidenceStop{reason: evidenceMalformed, segment: s.ID, atTurn: cur.StartTurn}
+			return ids, dpi, &evidenceStop{reason: evidenceMalformed, segment: s.ID, atTurn: cur.StartTurn}
 		case havePrev && cur.StartTurn > prevEnd+1:
-			return ids, &evidenceStop{reason: evidenceGap, segment: s.ID, atTurn: prevEnd + 1}
+			return ids, dpi, &evidenceStop{reason: evidenceGap, segment: s.ID, atTurn: prevEnd + 1}
 		}
-		if !cur.EncodedOnce {
+		// The listing said unencoded and the durable log says otherwise. Report it, do not
+		// resubmit it, and keep walking: the frontier is still contiguous across it.
+		if cur.EncodedOnce {
+			dpi = append(dpi, cur.ID)
+		} else {
 			ids = append(ids, cur.ID)
 		}
 		prevEnd, havePrev = cur.EndTurn, true
 	}
-	return ids, nil
+	return ids, dpi, nil
 }
 
 // settleFrontier TAKES the lock (hence no *Locked suffix), stores newFrontier when one was

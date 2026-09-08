@@ -652,8 +652,13 @@ func TestFrontier_AdvanceRefusesInFlightEvidence(t *testing.T) {
 }
 
 // TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour proves the prefix is not broken by
-// durable evidence: an already-encoded segment is not resubmitted (the DPI guard owns that) but
-// contiguity continues across it, so its successor is still reached.
+// durable evidence: an already-encoded segment is not resubmitted but contiguity continues across
+// it, so its successor is still reached.
+//
+// Stepping over it is not the same as saying nothing about it. The row asserts both halves: b is
+// absent from the verified prefix AND named in the dpi return, because the only reason it can be
+// in a batch at all is that two writers disagree about who owns it. It was returning [a c] with no
+// second signal that let a §4.6 violation reach the sweep as silence.
 func TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour(t *testing.T) {
 	t.Parallel()
 	fx := newFrontierFixture(t)
@@ -667,9 +672,55 @@ func TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour(t *testing.T)
 		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true},
 		{ID: c, Session: rtSession, StartTurn: 7, EndTurn: 8, Closed: true},
 	}
-	ids, stop := verifyEvidence(context.Background(), fx.store.segs, rtSession, batch)
-	require.Nil(t, stop)
-	require.Equal(t, []core.SegmentID{a, c}, ids)
+	ids, dpi, stop := verifyEvidence(context.Background(), fx.store.segs, rtSession, batch)
+	require.Nil(t, stop, "durable evidence either side of it: nothing stops the prefix")
+	require.Equal(t, []core.SegmentID{a, c}, ids, "b is not resubmitted and c is still reached")
+	require.Equal(t, []core.SegmentID{b}, dpi, "and b is REPORTED, not silently dropped")
+}
+
+// dpiScriptedSegs is the two-writer disagreement one process over one log cannot produce on its
+// own: Unencoded still OFFERS a segment the same log already records as encoded by another
+// checkpoint. The real Unencoded filters on EncodedOnce, so extra is the only way to reach the
+// state §4.6's guard exists for. Everything else falls through to the wrapped log.
+type dpiScriptedSegs struct {
+	store.SegmentLog
+	extra []store.Segment
+}
+
+func (s dpiScriptedSegs) Unencoded(ctx context.Context, sess core.SessionID) ([]store.Segment, error) {
+	out, err := s.SegmentLog.Unencoded(ctx, sess)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, s.extra...), nil
+}
+
+// TestFrontier_AdvanceIsLoudAboutADPIViolation is the scheduler-side half of the §4.6 guard, and
+// the direction that regressed. Verification steps over an already-encoded segment, so the writer
+// never sees it and the writer's own ErrAlreadyEncoded can never fire for it. With that as the
+// only guard the pass encodes the rest of the batch, drops the contested id and reports the
+// violation NOWHERE — which is indistinguishable, from outside, from a clean pass.
+func TestFrontier_AdvanceIsLoudAboutADPIViolation(t *testing.T) {
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	markEncoded(t, fx, frontierForeignSeq, b)
+	swapSegLog(fx, dpiScriptedSegs{SegmentLog: fx.store.segs, extra: []store.Segment{
+		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true, EncodedOnce: true},
+	}})
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+
+	require.NoError(t, fx.rt.advanceFrontier(context.Background()),
+		"the violation is logged and its ids dropped; it is not a pass failure")
+
+	require.Equal(t, []string{msgDPIGuard}, fx.log.msgs(logLoud),
+		"a DPI violation must never be able to pass silently")
+	require.Equal(t, int64(1), fx.counter(counterFrontierDPIGuard))
+	require.Equal(t, [][]core.SegmentID{{a}}, fx.writer.advanceCalls,
+		"the clean segment still advances; the contested one is never resubmitted")
+	require.Zero(t, fx.counter(counterFrontierUnverified),
+		"a violation is not a shortfall of evidence and must not be reported as one")
 }
 
 // ── Cancellation and bounded resources (item 9) ──────────────────────────────────────────────
@@ -720,7 +771,7 @@ func TestFrontier_VerifyEvidenceStopsOnCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	ids, stop := verifyEvidence(ctx, fx.store.segs, rtSession, []store.Segment{
+	ids, _, stop := verifyEvidence(ctx, fx.store.segs, rtSession, []store.Segment{
 		{ID: a, Session: rtSession, StartTurn: 1, EndTurn: 3, Closed: true},
 		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true},
 	})
