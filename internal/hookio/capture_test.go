@@ -272,6 +272,10 @@ func TestCaptureHook_RejectsInvalidSourceAndPolicyOutput(t *testing.T) {
 			require.ErrorIs(t, err, core.ErrContract)
 			require.Empty(t, cap.Bytes)
 			require.Equal(t, hookio.Event{}, ev)
+			// With no fragment policy, a caller has not opted into retaining anything, so the
+			// rejection stands exactly as before — but the reason is now recorded either way.
+			require.Equal(t, core.CaptureErrorNotJSON, cap.CaptureError)
+			require.Equal(t, len(tc.raw), cap.SourceBytes)
 		})
 	}
 }
@@ -320,6 +324,11 @@ func TestCaptureHook_RejectsSourceAndResultBeyondBudget(t *testing.T) {
 			require.Empty(t, cap.Bytes)
 			require.Equal(t, hookio.Event{}, ev)
 			require.Equal(t, tc.wantCalls, calls)
+			// A caller that supplied no fragment policy retains nothing, but the classification is
+			// recorded so an oversize delivery is no longer indistinguishable from no delivery.
+			require.Equal(t, core.FidelityTruncated, cap.Fidelity)
+			require.Equal(t, core.CaptureErrorOversize, cap.CaptureError)
+			require.Equal(t, len(tc.raw), cap.SourceBytes)
 		})
 	}
 }
