@@ -1,6 +1,6 @@
 # V4 execution report — CORRECTIVE WORK COMPLETE, GATE NOT SIGNED OFF
 
-**Status: corrective implementation complete; the revised V4 gate is NOT signed off.** Candidate:
+**Status: corrective implementation complete, independently reviewed, blockers fixed; the revised V4 gate is NOT signed off.** See section 20 for the independent review and the re-run that followed it. Candidate:
 `feat/v4-corrective` @ `20a4a63`, 131+ commits ahead of its convergence base `0b14ea6`.
 `verify/v4` has not been created. Date of this record: 2026-09-08. Host: Windows 11 (10.0.26200),
 go1.26.6 windows/amd64, gcc 14.2.0 with CGO enabled (so the race detector is available).
@@ -304,3 +304,70 @@ SP-20/M1-M2, SP-13/M2, SP-10/11 M3 and SP-12 supported scheduling — all of whi
 candidate. **SP-14 alone names "verified V4"**, and it is ordered after SP-15 then SP-16 in any case. So
 the corrective path unblocks SP-15 and SP-16 on contract grounds, while SP-14 remains blocked on the
 five items above.
+
+## 20. Independent review, and the re-run that followed it
+
+An independent adversarial review of the whole candidate ran read-only after sections 14-19 were first
+written. It returned **2 BLOCKER, 2 MAJOR, 2 MINOR and 0 vacuous tests**, and it found things every
+other check had missed. All four blocking and major findings were fixed before this report was
+finalized.
+
+**BLOCKER 1 — the daemon discarded the record, and the shipped default lost large payloads.** The
+over-budget capture fix recorded in section 16 worked only when the daemon was *down*, on the spool
+path. `internal/daemon/handlers.go` mapped any outcome other than OK or Denied to `Failed` and returned
+before any route, persisting nothing while still answering `OK:true`; the tests for that fix happened to
+cover only the daemon-down path. Worse, `ipc.WithCapture` downgraded an otherwise-OK capture above
+393,216 bytes, so on the shipped default `maxPayloadBytes = 1048576` **any hook payload over roughly
+384 KiB — an ordinary 400 KB file read — was dropped entirely, Event and all**, where before this work
+it was observed normally. That was a regression introduced by this work, on default configuration, and
+the suite pinned the contradiction in both directions.
+
+Resolution: a capture whose outcome is `Unavailable` is now persisted as evidence on the daemon-up path
+exactly as on the spool path; `WithCapture` degrades only the capture half and never the Event; a
+capture with no derived Event publishes evidence and skips the observation rather than minting a
+synthetic one. The contradicting test's *fixture* was the wrong party, not its intent — it built an
+oversize record and called it undecidable, when an oversize verdict is a decision made by a policy that
+did run. It now uses a genuinely undecidable fixture and keeps its refusal; the two tests asserting
+survival were correct and were left untouched.
+
+**BLOCKER 2 — one bad spooled record wedged a spool file permanently.** The same verdict in
+`internal/daemon/drain.go` broke the read loop with the offset unadvanced and returned before
+`saveState`. Because the admission decision is baked into the spooled record, no later pass could ever
+admit it, so a single malformed or over-budget hook spooled while the daemon was down blocked every
+record behind it, forever. `DrainGapUnadmitted` and `DrainGapDenied` existed with zero tests.
+Resolution: an unadmittable record is recorded as an explicit gap and skipped, the offset advances, and
+the drain delivers what follows — proven by `TestDrainSkipsAnUnadmittableRecordAndDeliversWhatFollows`
+and `TestDrainReportsADeniedRecordAsAGapAndMovesOn`. Losing one unadmittable record loudly is correct;
+losing everything behind it silently is not.
+
+**MAJOR 3 — a data race on the ledger field**, written under a `sync.Once` and read unsynchronized from
+per-connection goroutines. New in this branch, and CI runs with `-race`. Fixed through a synchronized
+accessor, with the race reproduced negatively first, and without reintroducing eager opening.
+
+**MAJOR 4 — CI was permanently red and masked new failures.** The workflow runs `test/guards` and
+`test/integration`, both of which contain deliberately-red rows, so a genuine new failure there was
+indistinguishable from the known ones. CI now compares failing rows *and* package verdicts against two
+enumerated lists and **fails if either list goes stale in either direction** — if a listed row starts
+passing, or if an unlisted row fails. No blanket `continue-on-error`, no skipped packages, and the red
+rows stay red locally. This also answers the reviewer's one disagreement with section 17: it accepted
+the Belady evidence as decisive but objected to a permanently-red row as the mechanism, which is fair.
+
+**Re-run after the fixes**, on the same candidate:
+
+| Gate | Result |
+|---|---|
+| `go build ./...`, `go vet ./...` | PASS |
+| `go run ./tools/devtool lint` | **PASS, exit 0 — all ten sub-checks** |
+| `go test ./internal/... ./cmd/... ./tools/... -p 2` | 57 packages ok; one failure, `TestGC_MarkPhaseHonoursTheDeadline`, which passes 3/3 in isolation |
+| `go test ./test/... -p 1` | 5 packages ok; failures are exactly the accounted-for set — the two hot-path budget rows, the four carried defects, and the deliberately-red Belady row |
+| `go test -race` over daemon, cli, ipc, store, checkpoint, negknow, state | **No data races.** One failure, `TestServerCloseWithLiveConnection`, which passes 3/3 in isolation under `-race` |
+
+No new failures were introduced by the blocker fixes, and every previously-real failure is gone. The
+machine was under memory pressure during these runs, which is why they were chunked with `-p 2` and
+`-p 1`; the two isolated failures above are consistent with the wall-clock sensitivity documented
+throughout this report and are not accepted as passes on that basis alone.
+
+**Areas the reviewer explicitly did not cover**, and which therefore rest on unit-level evidence only:
+invariant 7, the reconstruction side of invariant 6, the rollback drill, the evaluation and replay
+metric classification, `internal/rehydrate`, all timing rows, and the roughly 200 new tests
+individually (scanned mechanically and sampled, not read one by one).
