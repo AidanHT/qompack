@@ -163,6 +163,7 @@ func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
 		return rep, nil
 	}
 	s.clearGCState()
+	s.compactRetentionRoots(p.DryRun, &rep)
 
 	s.mu.Lock()
 	s.statsDirty = true
@@ -647,6 +648,31 @@ func (s *FSStore) pendingRootFiles() []gcRootFile {
 		})
 	}
 	return out
+}
+
+// compactRetentionRoots sheds duplicate declarations from retention-roots.jsonl at the end of a
+// completed pass, which is what gives that file a bounded lifecycle instead of one line per
+// delivery forever.
+//
+// It runs LAST, after the sweep and the tombstones, so this pass marked against the file exactly as
+// it found it and the compaction can never change what was collected. It is best effort: a failure
+// is counted and logged, never returned, because a pass that swept correctly must not be reported
+// as failed because a housekeeping rewrite could not run. A dry run rewrites nothing at all.
+func (s *FSStore) compactRetentionRoots(dryRun bool, rep *GCReport) {
+	if dryRun {
+		return
+	}
+	res, err := CompactRetentionRoots(s.root)
+	if err != nil {
+		s.count("store.retentionroots.compactfailed", 1)
+		s.log.Debug("store: could not compact the retention-root file", "err", err)
+		return
+	}
+	if !res.Compacted {
+		return
+	}
+	rep.RetentionRootsShed = res.LinesBefore - res.LinesAfter
+	s.count("store.retentionroots.shed", int64(rep.RetentionRootsShed))
 }
 
 // The two reasons the record-aware root files report when the record itself supplies none.

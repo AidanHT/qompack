@@ -115,6 +115,12 @@ type GCReport struct {
 	// RetentionRootsError reports that a retention-root source failed, so this pass deliberately
 	// collected nothing: an unreadable lease set is indistinguishable from a full one.
 	RetentionRootsError bool
+	// RetentionRootsShed is how many duplicate lines this pass compacted out of
+	// retention-roots.jsonl. The file gains a line per declaration and removes nothing, so without
+	// a compaction it grows once per delivery forever; the number is how much of that growth was
+	// pure repetition. Zero means the file was already the set it declares, or that the pass did
+	// not reach the compaction (a dry run, a truncated sweep, or an append that raced it).
+	RetentionRootsShed int
 }
 
 // Stats summarizes the store's current size and health (00-ARCHITECTURE.md §5.8): what
