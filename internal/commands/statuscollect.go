@@ -259,11 +259,17 @@ func resolve(ctx context.Context, src StatusSources, now time.Time) (*DaemonStat
 }
 
 // ageMS returns the milliseconds between at and now, or nil when at is unknown.
+//
+// An observation stamped AFTER now is as fresh as the report itself and reads as 0, never as a
+// negative age. That ordering is the live daemon path's normal case, not an anomaly: Invocation.Now
+// is read before the body runs, and the daemon assembles its answer during the round trip that
+// follows, so a live answer is always a few milliseconds younger than the report's own clock
+// reading. A reader shown "-1 ms old" learns nothing true from it (V5-VERIFY §4.1).
 func ageMS(at, now time.Time) *int64 {
 	if at.IsZero() {
 		return nil
 	}
-	ms := now.Sub(at).Milliseconds()
+	ms := max(now.Sub(at).Milliseconds(), 0)
 	return &ms
 }
 
