@@ -105,6 +105,7 @@ type cpFixture struct {
 	store store.Store
 	src   checkpoint.SourceSet
 	w     *checkpoint.FileWriter
+	m     obs.Registry
 	pins  *stubPins
 	reg   *SessionRegistry
 	seg   core.SegmentID
@@ -146,12 +147,13 @@ func newCPFixture(t *testing.T) *cpFixture {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = led.Close() })
 
-	w, err := checkpoint.OpenWriter(root, cfg, log, obs.New(clk), clk)
+	m := obs.New(clk)
+	w, err := checkpoint.OpenWriter(root, cfg, log, m, clk)
 	require.NoError(t, err)
 
 	f := &cpFixture{
 		t: t, root: root, l: l, cfg: cfg, clk: clk, store: st,
-		pins: &stubPins{}, reg: NewSessionRegistry(), w: w,
+		pins: &stubPins{}, reg: NewSessionRegistry(), w: w, m: m,
 	}
 	f.src = checkpoint.SourceSet{
 		Store: st, Segments: st.Segments(), Ledger: led, Pins: f.pins,
@@ -196,7 +198,7 @@ func (f *cpFixture) readDraft(sess core.SessionID) persistedDraft {
 
 // advance runs one advance_frontier tick over the fixture's registry.
 func (f *cpFixture) advance(ctx context.Context) error {
-	return advanceAllSessions(ctx, f.reg, f.w, f.src, logging.Nop())
+	return advanceAllSessions(ctx, f.reg, f.w, f.src, logging.Nop(), f.m)
 }
 
 // captureLoud installs a process-wide Loud observer for the duration of one test and returns an
@@ -431,6 +433,8 @@ func TestADPIViolationIsLoggedLoudAndSkipped(t *testing.T) {
 
 			require.NotEmpty(t, loud(), "a DPI violation must never be able to pass silently")
 			require.Contains(t, loud()[0], "DPI")
+			require.Equal(t, int64(1), f.m.Counter(counterFrontierDPIGuard).Value(),
+				"and it is counted, not only logged")
 		})
 	}
 }
