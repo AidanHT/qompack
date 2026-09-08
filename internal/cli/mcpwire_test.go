@@ -106,3 +106,47 @@ func TestNewToolDepsWithoutAnAccessorStaysNilTolerant(t *testing.T) {
 	require.Contains(t, callWiredTool(t, deps, mcp.ToolAlreadyTried,
 		`{"target":"a","approach":"b"}`), `"available":false`)
 }
+
+// TestNewToolDepsAlwaysSuppliesARedactor pins the composition root's half of T20-M2-04.
+//
+// internal/mcp declares mcp.Redactor and cannot build one — 00-ARCHITECTURE.md §3.2 keeps
+// internal/redact out of its allow-set — so it fails CLOSED when none arrives: `expand` and
+// `re_read` report themselves unavailable and `recall` withholds every summary. That makes
+// supplying it non-optional HERE, on every path, including the ones where every other collaborator
+// is nil. A NewToolDeps that quietly left the field nil would ship a daemon whose retrieval tools
+// all answer available:false, and this is the assertion that would catch it.
+func TestNewToolDepsAlwaysSuppliesARedactor(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	cfg := config.Defaults()
+
+	bare := NewToolDeps(root, cfg, nil, nil, nil, nil, nil, nil, logging.Nop(), nil, testClock())
+	require.NotNil(t, bare.Redactor, "a ToolDeps with no store still carries a redactor")
+
+	// And it is the REAL one: today's built-in rules fire on a credential shape, and the rule name
+	// comes back so a diagnostic can say what was caught without quoting it.
+	const key = "AKIA" + "IOSFODNN7EXAMPLE"
+	out, rules := bare.Redactor.Redact([]byte("aws_access_key_id = " + key))
+	require.NotContains(t, string(out), key, "the production rule set must actually fire")
+	require.Contains(t, string(out), "«redacted:", "a placeholder must stand in the secret's place")
+	require.Len(t, rules, 1, "one match, one rule name")
+	require.NotEmpty(t, rules[0], "the rule behind a match must be named")
+}
+
+// TestNewRetrievalRedactorIsIdempotent pins the property retrieval-side redaction rests on: it runs
+// over bytes capture-time redaction may already have scrubbed, so a second pass must change
+// nothing. Without it, re-reading a stored record would rewrite its own placeholders and the span
+// offsets around them would drift on every read.
+func TestNewRetrievalRedactorIsIdempotent(t *testing.T) {
+	t.Parallel()
+
+	r := NewRetrievalRedactor(config.Defaults())
+	const key = "AKIA" + "IOSFODNN7EXAMPLE"
+	once, rules := r.Redact([]byte("aws_access_key_id = " + key + "\n"))
+	require.NotEmpty(t, rules)
+
+	twice, again := r.Redact(once)
+	require.Equal(t, string(once), string(twice), "a second pass over redacted bytes must change nothing")
+	require.Empty(t, again, "and must report no new matches")
+}
