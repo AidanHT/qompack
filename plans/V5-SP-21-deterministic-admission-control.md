@@ -329,7 +329,7 @@ ancestry. The M1–M3 gate is **SP-20's** milestone gate, not a gate SP-21 owns.
 |---|---|---|---|
 | `develop` | `7c735ac` | — | `../qompack-develop` |
 | `feat/sp21-prerequisites` | `197d12d` | 6 | `../qompack-sp21-prereq` |
-| `feat/sp21-deterministic-admission-control` | `a7d92eb` | 14 | `../qompack-sp21` |
+| `feat/sp21-deterministic-admission-control` | `c8f53c1` | 16 | `../qompack-sp21` |
 | `feat/sp15-analyzer-selection-and-grammar` | `db4ec2e` | 19 | `../qompack-sp15` |
 | `feat/sp16-phase7-refinements` | `03ba720` | 10 | `../qompack-sp16` |
 | `feat/sp14-slash-commands-and-observability` | `154d2de` | 9 | `../qompack-sp14` |
@@ -337,8 +337,8 @@ ancestry. The M1–M3 gate is **SP-20's** milestone gate, not a gate SP-21 owns.
 ### One merge, not two
 
 `feat/sp21-prerequisites` is a strict prefix of `feat/sp21-deterministic-admission-control`:
-`git merge-base --is-ancestor` between them is true, and the 14 commits are the 6 prerequisite
-commits plus 8 authored on top — the 6 of the commit plan and 2 later docs commits. Merging the
+`git merge-base --is-ancestor` between them is true, and the 16 commits are the 6 prerequisite
+commits plus 10 authored on top — the 6 of the commit plan and 4 later docs commits. Merging the
 admission branch therefore carries the prerequisite branch whole, and merging both produces a
 redundant merge commit.
 
@@ -391,12 +391,10 @@ commit with a conforming subject. `--no-commit` only suppresses the auto-commit 
 Develop is local-only and unpushed, so an unwanted merge undoes with
 `git -C "$D" reset --hard 7c735ac` before any push, or `git -C "$D" revert -m 1 <merge-sha>` after.
 
-The wave-4 chain that V5-VERIFY actually gates on is SP-15 → SP-16 → SP-14, in that order, with
-validation between merges. Its recipe belongs to V5-VERIFY; it is named here only because SP-21
-shares the two mechanics above. SP-15 and SP-16 both modify `docs/config-reference.md`,
-`internal/config/defaults.go`, `internal/config/runtime.go`, `internal/config/validate_test.go` and
-`testdata/golden/config/schema.json`, so the collision class to expect at the SP-16 merge is an
-added-config-key clash and a stale golden, not logic.
+The wave-4 chain that V5-VERIFY gates on is SP-15 → SP-16 → SP-14, in that order, with validation
+between merges. That recipe lives in V5-VERIFY's **Wave-4 integration, before this checkpoint
+starts**, which owns the integration order and repeats the four mechanics above; it is not duplicated
+here, so the two cannot drift.
 
 ### Validation, serialized
 
@@ -440,7 +438,7 @@ paste a prompt of this shape:
 ```text
 ultracode — execute the Maximum-parallelism dispatch table in
 plans/V5-SP-21-deterministic-admission-control.md. One child per row, each in its own
-worktree off a7d92eb, exclusive file ownership as listed, report to its own file.
+worktree off the branch tip, exclusive file ownership as listed, report to its own file.
 ```
 
 The keyword also escalates reasoning effort. That escalation is authorized here for the adversarial
