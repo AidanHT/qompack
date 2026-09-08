@@ -546,3 +546,127 @@ func TestFrontier_ResidualOverBudgetWarnsOnce(t *testing.T) {
 		require.Equal(t, int64(1), fx.reg.Gauge(gaugeResidualOverBudget).Value())
 	})
 }
+
+// ── Dependency verification before advance (item 5 / G12) ────────────────────────────────────
+
+// reReadLog delegates every SegmentLog call to inner but lets a test script what the
+// verification pass sees when it RE-READS a segment. Unencoded still lists the segment as
+// closed; Get answers with whatever the script says, which is how "the evidence changed between
+// listing and advancing" is injected without touching internal/store.
+type reReadLog struct {
+	store.SegmentLog
+	get func(ctx context.Context, id core.SegmentID) (store.Segment, error)
+}
+
+func (l reReadLog) Get(ctx context.Context, id core.SegmentID) (store.Segment, error) {
+	if l.get != nil {
+		return l.get(ctx, id)
+	}
+	return l.SegmentLog.Get(ctx, id)
+}
+
+// swapSegLog installs a SegmentLog on the runtime under its lock.
+func swapSegLog(fx *rtFixture, l store.SegmentLog) {
+	fx.rt.mu.Lock()
+	fx.rt.segs = l
+	fx.rt.mu.Unlock()
+}
+
+// TestFrontier_AdvanceStopsAtAGapInDurableEvidence is the "never advance past missing evidence"
+// gate. Turns 4–6 have no segment at all, so the frontier stops at 3: the segment beyond the gap
+// is NOT encoded out of order, and it stays listed so a later pass can still take it.
+func TestFrontier_AdvanceStopsAtAGapInDurableEvidence(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	ctx := context.Background()
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	beyond := fx.store.segs.addSegment(t, rtSession, 7, 9, 700) // turns 4-6 are missing
+	openSegment(t, fx, 10)
+	fx.rt.NoteAPIRound(10)
+
+	advance(t, fx)
+
+	require.Equal(t, [][]core.SegmentID{{a}}, fx.writer.advanceCalls, "only the verified prefix is submitted")
+	require.Equal(t, core.TurnIndex(3), frontierOf(fx), "the frontier stops at the last durable turn")
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified))
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified+"."+evidenceGap))
+	require.Equal(t, 1, fx.log.count(logWarn), "the gap is reported, not silent")
+
+	seg, err := fx.store.segs.Get(ctx, beyond)
+	require.NoError(t, err)
+	require.False(t, seg.EncodedOnce, "the segment past the gap is preserved, not closed over")
+}
+
+// TestFrontier_AdvanceRefusesUnreadableEvidence covers evidence that has FAILED rather than gone
+// missing: the segment log cannot re-read the very first candidate, so nothing advances at all.
+func TestFrontier_AdvanceRefusesUnreadableEvidence(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+	swapSegLog(fx, reReadLog{
+		SegmentLog: fx.store.segs,
+		get: func(context.Context, core.SegmentID) (store.Segment, error) {
+			return store.Segment{}, core.ErrNotFound
+		},
+	})
+
+	advance(t, fx)
+
+	require.Empty(t, fx.writer.advanceCalls, "no advance over evidence that cannot be read")
+	require.Empty(t, fx.writer.beginCalls, "and no draft is begun for it")
+	require.Zero(t, frontierOf(fx))
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified+"."+evidenceUnreadable))
+}
+
+// TestFrontier_AdvanceRefusesInFlightEvidence covers work still being produced: a segment that
+// was closed when Unencoded listed it comes back OPEN on the verification re-read. In-flight work
+// is never encoded, and the frontier stops at its predecessor.
+func TestFrontier_AdvanceRefusesInFlightEvidence(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	inflight := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	openSegment(t, fx, 7)
+	fx.rt.NoteAPIRound(7)
+	inner := fx.store.segs
+	swapSegLog(fx, reReadLog{
+		SegmentLog: inner,
+		get: func(ctx context.Context, id core.SegmentID) (store.Segment, error) {
+			seg, err := inner.Get(ctx, id)
+			if id == inflight {
+				seg.Closed = false
+			}
+			return seg, err
+		},
+	})
+
+	advance(t, fx)
+
+	require.Equal(t, [][]core.SegmentID{{a}}, fx.writer.advanceCalls)
+	require.Equal(t, core.TurnIndex(3), frontierOf(fx))
+	require.Equal(t, int64(1), fx.counter(counterFrontierUnverified+"."+evidenceNotClosed))
+}
+
+// TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour proves the prefix is not broken by
+// durable evidence: an already-encoded segment is not resubmitted (the DPI guard owns that) but
+// contiguity continues across it, so its successor is still reached.
+func TestFrontier_VerifyEvidenceStepsOverAnAlreadyEncodedNeighbour(t *testing.T) {
+	t.Parallel()
+	fx := newFrontierFixture(t)
+	a := fx.store.segs.addSegment(t, rtSession, 1, 3, 1_000)
+	b := fx.store.segs.addSegment(t, rtSession, 4, 6, 900)
+	c := fx.store.segs.addSegment(t, rtSession, 7, 8, 400)
+	markEncoded(t, fx, frontierForeignSeq, b)
+
+	batch := []store.Segment{
+		{ID: a, Session: rtSession, StartTurn: 1, EndTurn: 3, Closed: true},
+		{ID: b, Session: rtSession, StartTurn: 4, EndTurn: 6, Closed: true},
+		{ID: c, Session: rtSession, StartTurn: 7, EndTurn: 8, Closed: true},
+	}
+	ids, stop := verifyEvidence(context.Background(), fx.store.segs, rtSession, batch)
+	require.Nil(t, stop)
+	require.Equal(t, []core.SegmentID{a, c}, ids)
+}
