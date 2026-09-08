@@ -109,9 +109,15 @@ func NewDeliveryNonce() (string, error) {
 	return hex.EncodeToString(b[:]), nil
 }
 
-// deliveryNonceBytes is 128 bits of entropy: enough that two nonces never collide in practice
-// across every hook invocation a machine will ever run, and short enough to sit on the hot path.
-const deliveryNonceBytes = 16
+// deliveryNonceBytes is 256 bits of entropy, which hex-encodes to the 64-character token the
+// daemon's delivery journal accepts (internal/daemon/delivery_lease.go, validDeliveryToken: exactly
+// 64 lowercase hex characters). It was 16 bytes — 32 hex characters — until V5-VERIFY §4.3 drove
+// a real hook through the real daemon and found every delivery counted as unleased: the journal
+// refused the label with ErrContract, so no live delivery was ever leased, captured or
+// acknowledged on the shipped path. The unit tests on both sides passed because each hand-rolled
+// its own token length. 256 bits is more entropy than a label needs; the size is the journal's
+// contract, not a collision argument, and 32 extra bytes per request are within the frame budget.
+const deliveryNonceBytes = 32
 
 // CaptureFrameBudget bounds the permitted capture bytes one request may carry. JSON encodes []byte
 // as base64, four characters per three bytes, so this budget leaves the Event and the frame's own
