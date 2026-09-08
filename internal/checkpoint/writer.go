@@ -256,13 +256,25 @@ func (w *FileWriter) liveDraft(s core.SessionID) *Draft {
 // daemon holds the SourceSet at wiring time and has no reason to wait for a draft to publish it.
 //
 // Last write wins, and a zero SourceSet is ignored so a mis-wired caller cannot blank live seams.
-func (w *FileWriter) SetSources(src SourceSet) {
-	if src.Validate() != nil {
-		return
+//
+// A REJECTION IS REPORTED, both as a returned error and as a Loud line, and that is not
+// decoration. Silently dropping the set turned a wiring bug into a symptom one layer and one
+// compaction away: the composition root published a set whose ledger had not been opened yet, this
+// method dropped it without a word, and the first PreCompact of the daemon's life failed inside
+// Begin with "SourceSet.Store is nil" — naming a seam that was never the problem — behind a single
+// Warn and a null hookSpecificOutput. §16's rule for a seam that silently stops working is that it
+// must say so; the error names the first seam the caller failed to wire, and the Loud line is for
+// the call sites that have nowhere to return one.
+func (w *FileWriter) SetSources(src SourceSet) error {
+	if err := src.Validate(); err != nil {
+		w.log.Loud("checkpoint: source set rejected; the cold PreCompact path keeps whatever seams it already had",
+			"err", err.Error())
+		return err
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.lastSrc = src
+	return nil
 }
 
 func (w *FileWriter) coldSources() SourceSet {
@@ -324,7 +336,12 @@ func (w *FileWriter) retireDraft(d *Draft) {
 // displaced from the registry but keeps writing to the same path, and retireDraft — which is
 // keyed on the draft's identity — then declines to clean up after it.
 func (w *FileWriter) Begin(ctx context.Context, s core.SessionID, parent core.CheckpointSeq, src SourceSet) (*Draft, error) {
-	if err := src.Validate(); err != nil {
+	// Resolve, not Validate: step 4 below reads eliminations out of src.Ledger, and a set whose
+	// ledger is still an accessor must have it called in HERE — once, at the top of the call —
+	// rather than left for a nil dereference several frames down. Resolve reports an accessor that
+	// answers nil the same way a nil field is reported, by name.
+	src, err := src.Resolve()
+	if err != nil {
 		return nil, err
 	}
 	if err := checkSessionComponent(s); err != nil {
