@@ -63,6 +63,12 @@ type PutResult struct {
 	// Redacted is the number of redact.Match spans replaced on the way in (00-ARCHITECTURE.md
 	// §5.22a), so a caller can tell "nothing was secret" from "we scrubbed nine things".
 	Redacted int
+	// Fidelity is how recoverable this put's ORIGINAL, pre-canonicalization bytes now are (SP-20
+	// invariant 6). It is never a guess: FidelityExact means a delta with a durable declared base
+	// round-tripped exactly (or canonicalization changed nothing at all), FidelityFull means the
+	// original was retained whole because no exact delta could be proven, and FidelityCanonical
+	// means no recovery record was asked for and the canonical bytes are all that exist.
+	Fidelity Fidelity
 }
 
 // NearDupInfo describes a near-duplicate relationship a Put/PutBytes call detected against a
