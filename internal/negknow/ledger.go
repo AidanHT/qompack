@@ -64,11 +64,21 @@ type Deps struct {
 
 // Health summarizes the ledger's current size and the tried.bloom filter's saturation
 // (00-ARCHITECTURE.md §5.10): what `/qompack:status` reads to decide whether a rebuild-with-resize
-// is due (§11.4, §12 "Bloom saturation").
+// is due (§11.4, §12 "Bloom saturation"), and whether Query's answers are currently backed by
+// complete coverage (§11.3 Required invariants item 8).
 type Health struct {
 	Records, Active, Stale int
 	FillRatio, EstFPRate   float64
 	NeedsResize            bool
+	// FilterGeneration is tried.bloom's current rebuild sequence number (bloom.go persistBloom's
+	// seq counter): a freshness watermark a caller compares across two Health snapshots to tell
+	// whether a rebuild has run between them.
+	FilterGeneration int
+	// DependencyCoverage is non-zero when the last RefreshStaleness could not compare dependency
+	// hashes against the store: every active record with a dependency answers AnswerUncertain
+	// from Query until a later refresh succeeds. It is the zero core.Omission when coverage is
+	// current.
+	DependencyCoverage core.Omission
 }
 
 // Ledger is the negative-knowledge elimination store's full seam (00-ARCHITECTURE.md §5.10):
@@ -199,6 +209,36 @@ type ObservationSource interface {
 // this string; a paraphrase in either would be a second, divergent contract.
 const StaleNote = "previously eliminated, but the evidence has changed since — re-verification may be warranted"
 
+// The reason/recovery pairs behind every AnswerUnavailable or AnswerUncertain Query returns
+// (00-ARCHITECTURE.md §11.3 Required invariants item 8). Each is a fixed pair rather than an
+// interpolated message: a caller-facing Coverage value is domain data, not a log line, and a
+// fixed pair is what makes it independently assertable rather than fuzzy-matched.
+const (
+	// reasonBlind and recoveryBlind explain an AnswerUnavailable produced under blind mode: the
+	// elimination log itself could not be read at Open, so nothing on record can be confirmed
+	// either way.
+	reasonBlind   = "the elimination ledger is in blind mode: records/eliminations.jsonl could not be read"
+	recoveryBlind = "repair or restore the elimination log and restart; this is not evidence the approach is untried"
+
+	// reasonUnknownStatus and recoveryUnknownStatus explain an AnswerUncertain produced when a
+	// bloom hit resolves to a visible record whose Status this reader does not recognize (a log
+	// written by a newer plugin, or edited by hand).
+	reasonUnknownStatus   = "a matching elimination record carries a status this reader does not recognize"
+	recoveryUnknownStatus = "use a reader that understands the record's status, or inspect it directly; this is not evidence the approach is untried"
+
+	// reasonStaleDropped and recoveryStaleDropped explain an AnswerUncertain produced when every
+	// visible match is stale and eliminations.staleResponse is "drop": the staleness DETAIL is
+	// suppressed by configuration, not the fact that an elimination is on record.
+	reasonStaleDropped   = `a matching elimination is stale and eliminations.staleResponse is "drop", so its current applicability is not disclosed`
+	recoveryStaleDropped = `set eliminations.staleResponse to "flag" to see the staleness detail, or re-verify the approach directly`
+
+	// reasonDepCoverage and recoveryDepCoverage explain an AnswerUncertain produced when the last
+	// RefreshStaleness could not compare a record's depends_on hashes against the store
+	// (staleness.go).
+	reasonDepCoverage   = "the last dependency-hash comparison against the file store failed, so this record's freshness cannot be confirmed"
+	recoveryDepCoverage = "retry after the store recovers; a successful staleness refresh resolves this"
+)
+
 var (
 	// ErrNoEvidence is what Record reports when eliminations.requireEvidence is set and the
 	// caller supplied no evidence hash. Nothing is appended.
@@ -245,13 +285,15 @@ const (
 	counterCorruptOnLoad      = "negknow.bloom.corrupt_on_load"
 )
 
-// The per-query counter suffixes. The three answer states are spelled as their own names, per the
+// The per-query counter suffixes. The answer states are spelled as their own names, per the
 // subplan's "negknow.query.<state>, suffixed by the state's own name".
 const (
-	queryStateAbsent    = "absent"
-	queryStateActive    = "active"
-	queryStateStale     = "stale"
-	queryStateBloomOnly = "bloom_only"
+	queryStateAbsent      = "absent"
+	queryStateActive      = "active"
+	queryStateStale       = "stale"
+	queryStateBloomOnly   = "bloom_only"
+	queryStateUnavailable = "unavailable"
+	queryStateUncertain   = "uncertain"
 )
 
 // The latency histograms.
@@ -281,8 +323,8 @@ type ledger struct {
 	elim  config.EliminationsCfg
 	bloom *sketch.Bloom
 	// blind reports that records/eliminations.jsonl could not be read at Open. Under blind, Query
-	// answers AnswerAbsent for everything: a membership answer with no record behind it is the
-	// one thing §12.3 forbids here.
+	// answers AnswerUnavailable for everything: asserting absence, or activity, with no record
+	// behind it is the one thing §12.3 and §11.3 invariant 8 forbid here.
 	blind bool
 	recs  []Record
 	byID  map[string]int
@@ -306,11 +348,16 @@ type ledger struct {
 	// resumes above every surviving tried.bloom.<n>.bak; nothing else on disk records it, and a
 	// private counter file that could disagree with the backup names would be a second source of
 	// truth for a number the filesystem already carries.
-	seq  int
-	deps Deps
-	log  logging.Logger
-	m    obs.Registry
-	clk  core.Clock
+	seq int
+	// depCoverage is non-zero when the last RefreshStaleness could not compare dependency hashes
+	// against the store: Query downgrades an affected AnswerActive to AnswerUncertain until a
+	// later refresh clears it (00-ARCHITECTURE.md §11.3 Required invariants item 8). Guarded by mu
+	// like every other mutable field.
+	depCoverage core.Omission
+	deps        Deps
+	log         logging.Logger
+	m           obs.Registry
+	clk         core.Clock
 }
 
 // The compile-time assertion that keeps Open's return type and this implementation in sync. The
@@ -454,14 +501,14 @@ func (l *ledger) loadRecords() {
 	l.reindex()
 }
 
-// goBlind enters blind mode: the ledger stays usable, Query answers absent for everything, and the
-// degradation is loud exactly once (§12.3, §13 invariant 10).
+// goBlind enters blind mode: the ledger stays usable, Query answers unavailable for everything,
+// and the degradation is loud exactly once (§12.3, §13 invariant 10, §11.3 invariant 8).
 func (l *ledger) goBlind(err error) {
 	l.blind = true
 	l.recs, l.byID = nil, make(map[string]int)
 	l.byMatch, l.byKey = make(map[string][]int), make(map[string]int)
 	l.m.Counter(counterBlindMode).Add(1)
-	l.log.Loud("negknow: elimination records unreadable; already_tried will answer absent for everything",
+	l.log.Loud("negknow: elimination records unreadable; already_tried will answer unavailable for everything",
 		"path", logPath(l.root), "err", err)
 }
 
@@ -766,10 +813,13 @@ func (l *ledger) Record(ctx context.Context, r Record) (string, error) {
 // count increments negknow.query.<state>.
 func (l *ledger) count(state string) { l.m.Counter(counterQueryPrefix + state).Add(1) }
 
-// Query answers the three-way already_tried question (§8.3 item 4).
+// Query answers the already_tried question (§8.3 item 4, §11.3 Required invariants item 8).
 //
-// Every path either returns AnswerAbsent, or returns a record the index actually holds, or flags
-// BloomOnly. There is no fourth path, and that is §13 invariant 3.
+// Every path either returns AnswerAbsent, or returns a record the index actually holds (possibly
+// downgraded to AnswerUncertain when its dependency coverage is unverified), or flags BloomOnly,
+// or reports AnswerUnavailable/AnswerUncertain with a Coverage reason and recovery direction when
+// the ledger cannot back any of the first three with confidence. There is no fifth path: §13
+// invariant 3 and §11.3 invariant 8 both hold across every return in this function.
 func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope) (Answer, error) {
 	start := l.clk.Now()
 	defer func() { l.m.Hist(histQuery).Observe(l.clk.Since(start)) }()
@@ -787,7 +837,15 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	defer l.mu.RUnlock()
 
 	if l.blind {
-		return Answer{State: AnswerAbsent}, nil
+		// The log itself could not be read: nothing on record can be confirmed OR ruled out, so
+		// asserting AnswerAbsent here would be exactly the false negative §12.3 and §11.3
+		// invariant 8 forbid — a stale-or-worse elimination silently vanishing because the reader
+		// that would have found it could not open the log.
+		l.count(queryStateUnavailable)
+		return Answer{
+			State:    AnswerUnavailable,
+			Coverage: core.Omission{Reason: reasonBlind, Recovery: recoveryBlind},
+		}, nil
 	}
 	if l.bloom == nil || !l.bloom.Test(mk) {
 		l.count(queryStateAbsent)
@@ -808,6 +866,14 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	}
 
 	if act := pick(cands, StatusActive); act != nil {
+		if l.depCoverage != (core.Omission{}) && len(act.DependsOn) > 0 {
+			// The last dependency-hash comparison failed, and THIS record has a dependency that
+			// comparison would have covered: its freshness cannot currently be confirmed, so it is
+			// not backed as active (§11.3 invariant 8). A record with no dependency at all is
+			// unaffected — there was nothing for the failed comparison to have told it anyway.
+			l.count(queryStateUncertain)
+			return Answer{State: AnswerUncertain, Record: act, Coverage: l.depCoverage}, nil
+		}
 		l.count(queryStateActive)
 		return Answer{State: AnswerActive, Record: act}, nil
 	}
@@ -816,20 +882,32 @@ func (l *ledger) Query(ctx context.Context, target, approach string, scope Scope
 	if st == nil {
 		// Neither active nor stale: a materialized line carrying a status no version of this
 		// package mints — a log written by a newer plugin, or edited by hand. The record exists,
-		// so Health counts it in Records, but it is not an ANSWER: returning AnswerStale with a
-		// nil Record would hand SP-13 a state whose contract promises a reason, and MCPResult
-		// would answer "absent" for it anyway. Reporting the bloom hit as unbacked is both true
-		// and the safe direction (R20). The status is left exactly as the log spelled it —
-		// rewriting it at materialization would destroy the forward compatibility the unknown-op
-		// rule exists to provide.
-		l.count(queryStateBloomOnly)
-		return Answer{State: AnswerAbsent, BloomOnly: true}, nil
+		// so Health counts it in Records, but it is not an ANSWER: returning AnswerAbsent would
+		// assert there is no elimination on record when there plainly is one, which is exactly
+		// what §11.3 invariant 8 forbids, and returning AnswerStale with a nil Record would hand
+		// SP-13 a state whose contract promises a reason (R20). AnswerUncertain says what is
+		// actually true — something is here, but this reader cannot resolve it to active, stale
+		// or absent. The status is left exactly as the log spelled it — rewriting it at
+		// materialization would destroy the forward compatibility the unknown-op rule exists to
+		// provide.
+		l.count(queryStateUncertain)
+		return Answer{
+			State: AnswerUncertain, BloomOnly: true,
+			Coverage: core.Omission{Reason: reasonUnknownStatus, Recovery: recoveryUnknownStatus},
+		}, nil
 	}
 
 	// Every visible match is stale.
 	if l.elim.StaleResponse == staleResponseDrop {
-		l.count(queryStateAbsent)
-		return Answer{State: AnswerAbsent}, nil
+		// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record.
+		// AnswerAbsent would assert this approach was never tried, which the ledger knows to be
+		// false (§11.3 invariant 8); AnswerUncertain reports honestly that applicability cannot be
+		// confirmed, without disclosing the stale record's detail the configuration asked to hide.
+		l.count(queryStateUncertain)
+		return Answer{
+			State:    AnswerUncertain,
+			Coverage: core.Omission{Reason: reasonStaleDropped, Recovery: recoveryStaleDropped},
+		}, nil
 	}
 	l.count(queryStateStale)
 	return Answer{State: AnswerStale, Record: st, Note: StaleNote}, nil
@@ -860,10 +938,18 @@ func pick(cands []Record, status Status) *Record {
 
 // MCPResult renders a as SP-13's AlreadyTriedResult fields.
 //
-// A nil Record is answered "absent" whatever the state says. The active and stale branches are
-// only reachable with a non-nil Record by construction, but a hand-built Answer is not, and
-// panicking inside an MCP tool call is not a failure mode this returns.
+// AnswerUnavailable and AnswerUncertain are rendered from Coverage regardless of Record, because
+// §11.3 invariant 8 applies whether or not a record happens to be attached. For every other
+// state, a nil Record is answered "absent": the active and stale branches are only reachable with
+// a non-nil Record by construction, but a hand-built Answer is not, and panicking inside an MCP
+// tool call is not a failure mode this returns.
 func (a Answer) MCPResult() (state, reason, note, evidence string) {
+	switch a.State {
+	case AnswerUnavailable:
+		return queryStateUnavailable, a.Coverage.Reason, a.Coverage.Recovery, ""
+	case AnswerUncertain:
+		return queryStateUncertain, a.Coverage.Reason, a.Coverage.Recovery, ""
+	}
 	if a.Record == nil {
 		return queryStateAbsent, "", "", ""
 	}
@@ -947,7 +1033,10 @@ func (l *ledger) TopActive(ctx context.Context, scope Scope, n int, score map[st
 
 // health is Health's body for a caller already holding mu.
 func (l *ledger) health() Health {
-	h := Health{Records: len(l.recs), Active: len(l.visibleActive())}
+	h := Health{
+		Records: len(l.recs), Active: len(l.visibleActive()),
+		FilterGeneration: l.seq, DependencyCoverage: l.depCoverage,
+	}
 	for _, r := range l.recs {
 		if r.Status == StatusStale {
 			h.Stale++
