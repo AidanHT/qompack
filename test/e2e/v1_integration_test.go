@@ -26,6 +26,7 @@ import (
 
 	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -314,6 +315,23 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 	// distinguishes "reads the default" from "reads the project config", not merely "exits 0".
 	readLimitBoundary := config.Defaults().Runtime.HotPath.MaxPayloadBytes * 4
 
+	// V4-X. This row's premise was correct and the production behaviour was wrong, so the premise
+	// is kept and the behaviour was fixed. It went red when SP-20's capture-admission budget landed:
+	// admitHookCapture bounds the capture by config.LoadForCapture's MERGED
+	// runtime.hotPath.maxPayloadBytes — this project's own 8192, times hookCaptureLimit's *4 read
+	// margin, so 32768 — and a ~4 MiB delivery past that returned core.ErrBudget, on which the hook
+	// body returned outright. Zero spool files, zero observations, and no record that the host had
+	// delivered anything at all. The expectation that behaviour would have wanted here is
+	// `require.Empty(t, files)`; adopting it would have written a silent-data-loss defect into the
+	// suite as if it were the contract, so the drop was fixed in hookclient.go instead and this row
+	// now also pins WHAT the surviving record says.
+	//
+	// The row still discriminates exactly what it always did. The READ limit is state.bin's, under
+	// config.Defaults() alone (task-6-spec.md's "never config.Load on the hot path"), and
+	// Capture.SourceBytes — measured where the payload entered the process — is direct proof the
+	// whole ~4 MiB was read, which the project's own 8192 could never have done. Only the ADMISSION
+	// budget is the project's, which is why the same delivery is recorded as an explicitly
+	// unavailable, oversize capture rather than observed as an Event.
 	t.Run("bare_hook_spools_a_payload_just_under_the_default_read_limit", func(t *testing.T) {
 		p := v1LimitProject(t, projectLimit, userLimit)
 		payload := v1PayloadOfSize(t, p.Root, readLimitBoundary-256)
@@ -327,6 +345,49 @@ func TestV1_ConfigPrecedenceReachesHookBehaviour(t *testing.T) {
 		require.Len(t, files, 1,
 			"a payload just under the DEFAULT read limit must parse and reach the spool step (no daemon reachable)")
 		require.Equal(t, 1, v1CountSpoolLines(t, files[0]), "exactly one request must have been spooled")
+
+		req := v1OnlySpooledRequest(t, files[0])
+		require.NotNil(t, req.Capture, "the spooled record must carry the capture it was classified as")
+		require.Equal(t, len(payload), req.Capture.SourceBytes,
+			"the whole ~4 MiB delivery was READ, which the project's own 8192-byte limit could not have done")
+		require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+		require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+		require.Nil(t, req.Event, "a delivery refused for observation derives no Event, and none may be invented")
+	})
+
+	// V4-X's regression guard, driven through the real binary at the size an operator actually creates
+	// by tuning runtime.hotPath.maxPayloadBytes down: a delivery over the configured budget must leave
+	// a retrievable record. Before the fix this produced zero spool files — the host result was
+	// preserved (exit 0, empty output) and the evidence was gone with nothing recording that it had
+	// ever existed, which is neither of the two outcomes SP-20's invariants 1 and 4 allow.
+	t.Run("bare_hook_records_an_over_budget_delivery_instead_of_dropping_it", func(t *testing.T) {
+		p := v1LimitProject(t, projectLimit, userLimit)
+		// Comfortably past the admission budget (projectLimit * 4 = 32768) and comfortably under the
+		// hard allocation cap the read itself enforces, so this exercises the POLICY bound alone.
+		payload := v1PayloadOfSize(t, p.Root, 64<<10)
+
+		stdout, stderr, code := Run(t, bin, []string{"observe", "tool"}, payload, v1BaseEnv(p))
+		require.Equal(t, 0, code, "stderr:\n%s", stderr)
+		require.Equal(t, "{}\n", string(stdout), "the host result is preserved exactly as before")
+
+		files, err := ipc.SpoolFiles(paths.Of(p.Root).Spool)
+		require.NoError(t, err)
+		require.Len(t, files, 1,
+			"an over-budget delivery must still be recorded; a silent drop is the defect this row pins")
+		require.Equal(t, 1, v1CountSpoolLines(t, files[0]))
+
+		req := v1OnlySpooledRequest(t, files[0])
+		require.NotNil(t, req.Capture, "the capture IS the record, since no Event could be derived")
+		require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+		require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+		require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome,
+			"a refused delivery is explicitly unavailable, which is what invariant 1 asks of a missing original")
+		require.True(t, req.Capture.Truncated)
+		require.Equal(t, len(payload), req.Capture.SourceBytes,
+			"the delivery's real size survives even though its bytes do not")
+		require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix survives as evidence")
+		require.Less(t, len(req.Capture.Bytes), len(payload))
+		require.NotEmpty(t, req.Nonce, "an over-budget delivery keeps its own nonce like any other")
 	})
 
 	t.Run("bare_hook_rejects_a_payload_just_over_the_default_read_limit", func(t *testing.T) {
@@ -371,6 +432,19 @@ func v1CountSpoolLines(t *testing.T, p string) int {
 		}
 	}
 	return n
+}
+
+// v1OnlySpooledRequest decodes the single NDJSON line in the spool file at p as an ipc.Request, so
+// a size-limit row can assert what the record actually says rather than only that one exists.
+func v1OnlySpooledRequest(t *testing.T, p string) ipc.Request {
+	t.Helper()
+	b, err := os.ReadFile(p)
+	require.NoError(t, err)
+	lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
+	require.Len(t, lines, 1, "exactly one spooled request")
+	req, err := ipc.DecodeRequest([]byte(lines[0]))
+	require.NoError(t, err)
+	return req
 }
 
 // hooksManifest is the shape of plugin/hooks/hooks.json this test reads. It is declared here rather

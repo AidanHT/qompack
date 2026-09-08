@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -450,4 +452,58 @@ func TestHooks_SubagentNameReachesTheSpooledRequest(t *testing.T) {
 
 	req := onlySpooledRequest(t, dir)
 	require.JSONEq(t, `{"subagent":true,"agent":"code-reviewer"}`, string(req.Raw))
+}
+
+// TestHooks_OverBudgetDeliveryIsRecordedNotDropped pins V4-X at the hook body itself. A delivery
+// larger than the project's own merged runtime.hotPath.maxPayloadBytes is refused for OBSERVATION —
+// no Event is derived and the capture's outcome stays unavailable — but the refusal is a RECORD,
+// and that record is delivered like any other: a bounded prefix cleared by the operator's own
+// redaction rules, the fidelity that describes it, and the capture error naming why.
+//
+// Before this fix the hook body returned the moment admitHookCapture reported core.ErrBudget. The
+// host result was preserved (exit 0, empty output) and nothing else survived: no spool line, no
+// observation, no trace the host had delivered anything. Any project that tuned that key down lost
+// every hook delivery above it, silently — neither of the two outcomes SP-20's invariant 4 allows,
+// and not the "explicitly unavailable" invariant 1 requires of a missing original either.
+func TestHooks_OverBudgetDeliveryIsRecordedNotDropped(t *testing.T) {
+	dir := t.TempDir()
+	writeAdmissionConfig(t, dir,
+		`{"runtime":{"hotPath":{"maxPayloadBytes":4096},"redact":{"patterns":["PRIVATE-[A-Z]{12}"]}}}`)
+
+	// hookCaptureLimit applies a *4 read margin, so the admission budget here is 16384: 64 KiB is
+	// well past it and well under the hard allocation cap readHookCapture enforces on its own.
+	payload, err := json.Marshal(map[string]any{
+		"hook_event_name": "PostToolUse",
+		"session_id":      "s-overbudget",
+		"cwd":             dir,
+		"tool_name":       "Bash",
+		"tool_response":   map[string]any{"stdout": admissionSecret + strings.Repeat("x", 64<<10)},
+	})
+	require.NoError(t, err)
+
+	var out, errw bytes.Buffer
+	code := Dispatch(context.Background(), All(), argvFor("observe tool"), Env{
+		Getenv:  envWith(map[string]string{"QOMPACK_PROJECT_ROOT": dir}),
+		Stdin:   bytes.NewReader(payload),
+		Clock:   testClock(),
+		HomeDir: t.TempDir(),
+	}, &out, &errw)
+	require.Equal(t, ExitOK, code, "stderr=%s", errw.String())
+	require.Equal(t, "{}\n", out.String(), "the host result is preserved exactly as it was before")
+
+	req := onlySpooledRequest(t, dir)
+	require.NotNil(t, req.Capture, "an over-budget delivery must still carry its capture record")
+	require.Nil(t, req.Event,
+		"no Event was derived from a payload that was never admitted, and none may be invented")
+	require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+	require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+	require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+	require.True(t, req.Capture.Truncated)
+	require.Equal(t, len(payload), req.Capture.SourceBytes,
+		"the host delivery's real size is retained even though its bytes are not")
+	require.NotEmpty(t, req.Capture.Bytes, "a bounded prefix is retained as evidence")
+	require.Less(t, len(req.Capture.Bytes), len(payload))
+	require.NotContains(t, string(req.Capture.Bytes), admissionSecret,
+		"the retained prefix clears the operator's own redaction rules before it is published")
+	assertAdmissionTreeHasNoSecret(t, dir)
 }

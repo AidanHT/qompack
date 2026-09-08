@@ -705,6 +705,12 @@ func containsToolUse(recs []ToolUseRecord, id core.ToolUseID) bool {
 	return false
 }
 
+// objectSizeReadBuf sizes objectSize's read buffer, in the shift spelling this package already
+// uses for scannerInitialBuf and scannerMaxBuf. It bounds one Read call, never the object: the
+// loop below streams a root of any size through it, so it is a working-set choice and not a budget
+// any configuration owns.
+const objectSizeReadBuf = 32 << 10
+
 // objectSize re-reads a root end to end and reports how many bytes came back. The store verifies
 // every chunk's plaintext against its hash on the way out, so a successful read is itself the
 // integrity proof; the byte count is what pins it to the mapping.
@@ -714,7 +720,7 @@ func (m *Migrator) objectSize(ctx context.Context, h core.Hash) (int64, error) {
 		return 0, err
 	}
 	defer func() { _ = rc.Close() }()
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, objectSizeReadBuf)
 	var n int64
 	for {
 		r, rerr := rc.Read(buf)

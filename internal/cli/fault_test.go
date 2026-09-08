@@ -19,6 +19,7 @@ import (
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -36,11 +37,30 @@ func resetFaultState(t *testing.T) {
 	})
 }
 
+// TestHookCapture_FaultsCannotBypassAdmission pins that an injected fault cannot put unadmitted
+// payload bytes on disk. The two sites differ in what a correct refusal LOOKS like, which is why
+// they no longer share one "no spool directory" assertion (V4-X):
+//
+//   - oversize inflates the payload past the capture budget. Admission classifies it and refuses it
+//     for observation, and that refusal is now RECORDED and delivered like any other delivery,
+//     because one that happened must never vanish without a trace. What must still not happen is
+//     bytes crossing: the retained prefix is larger than ipc.CaptureFrameBudget, so the record
+//     travels carrying no bytes at all, and no Event is derived from a payload never admitted.
+//   - config-corrupt makes LoadForCapture fail, so no configuration and no privacy policy ever
+//     exist and nothing is classified. There is no record to publish, and publishing one anyway
+//     would assert a classification this process could not have made — so this site must still
+//     leave the project untouched, spool directory included.
 func TestHookCapture_FaultsCannotBypassAdmission(t *testing.T) {
-	for _, site := range []string{faultOversize, faultConfigCorrupt} {
-		t.Run(site, func(t *testing.T) {
+	for _, tc := range []struct {
+		site     string
+		recorded bool
+	}{
+		{site: faultOversize, recorded: true},
+		{site: faultConfigCorrupt, recorded: false},
+	} {
+		t.Run(tc.site, func(t *testing.T) {
 			resetFaultState(t)
-			t.Setenv(qompackFaultEnv, site)
+			t.Setenv(qompackFaultEnv, tc.site)
 			root := t.TempDir()
 			raw, err := json.Marshal(map[string]any{"cwd": root, "prompt": "ordinary request"})
 			require.NoError(t, err)
@@ -51,7 +71,19 @@ func TestHookCapture_FaultsCannotBypassAdmission(t *testing.T) {
 			}, &out, &errw)
 			require.Equal(t, ExitOK, code)
 			require.Equal(t, "{}\n", out.String())
-			require.NoDirExists(t, paths.Of(root).Spool)
+
+			if !tc.recorded {
+				require.NoDirExists(t, paths.Of(root).Spool)
+				return
+			}
+			req := onlySpooledRequest(t, root)
+			require.Nil(t, req.Event, "a payload that was never admitted derives no Event")
+			require.NotNil(t, req.Capture)
+			require.Equal(t, core.OutcomeUnavailable, req.Capture.Outcome)
+			require.Equal(t, core.FidelityTruncated, req.Capture.Fidelity)
+			require.Equal(t, core.CaptureErrorOversize, req.Capture.CaptureError)
+			require.Empty(t, req.Capture.Bytes,
+				"a prefix past ipc.CaptureFrameBudget crosses as the fact of the delivery and no bytes at all")
 		})
 	}
 }
