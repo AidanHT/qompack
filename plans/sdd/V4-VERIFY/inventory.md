@@ -318,3 +318,28 @@ fidelity/lifecycle cases and producer-to-store recovery remain required. Indepen
 accepted this bounded seam only. The shared worker owned the new hookio test file; main owned
 the schema, source, composition and follow-up fixes. Requested Terra/high and Luna/medium
 routes are recorded in SP-20 progress; effective settings/usage/queue wait remain unexposed.
+
+## Provisional delivery assignment — SP-20 `9b395f8`
+
+The daemon-private journal and random lock generation supply partial T20-M1-03/04/05
+prerequisites: durable nonce-bound assignment, equal-content event distinction, retry/restart
+reuse, sealed-prefix integrity, uncertain-write refusal and ownership-safe close/release.
+`delivery-lease-reviewed` passes the focused journal race selection; `delivery-lease-lifecycle`
+adds physical/line bounds and four real daemon startup/idle/held-lock/shutdown consumers.
+The initial green malformed-row fixture stopped at a missing position file, so it supplies no
+row-parser coverage; corrected assertions run in the reviewed artifact. Original failures and
+all manifests are preserved in SP-20. Formatting and daemon vet pass.
+
+[V4-SP05-01](inventory.md#v4-sp05-01) receives only selected daemon race regression evidence,
+not its full package/repeat requirement. No full security-posture, hot-path, coverage-floor,
+installed-host or publication row passes. The independent reviewer accepted runtime/fixtures
+and the dependency carry for the last bounds-test-only addition. Main owned runtime/failure
+fixtures and commands; the shared Terra/high worker released the other fixture before main
+corrected it. Effective route, effort, usage and queue wait remain unexposed. One heavy command
+ran at a time in disposable Windows directories; no final candidate or user store was tested.
+
+Ingress still lacks stable nonce production and privacy-approved request hashing; no callback
+or drain opens the journal. Admission/ack, lease-to-object/reference/frontier publication,
+late-client fallback, GC/import/backup/rollback and M2 authority remain required. Wholesale
+loss/rollback of both journal and seal cannot be detected by the pair alone. All original row
+dispositions remain intact; this is provisional evidence on recorded SP-20 input hashes.

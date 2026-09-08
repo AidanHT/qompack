@@ -127,6 +127,22 @@ Not met. Required exit evidence includes accepted combined-tree verification, al
 
 ## 16. Integration and installed-host scenarios
 
+SP-20 `9b395f8` adds a reviewed daemon-private delivery assignment journal. Nonce-bound retry
+identities survive restart; equal content with distinct nonces remains distinct. A synced row
+and sealed byte/count/hash position precede a successful assignment. Corruption, truncation,
+uncertain writes and owner replacement refuse further work without discarding evidence.
+`delivery-lease-reviewed` passes the focused race selection (13.932 s), and the later bounds
+fixture plus four actual daemon lifecycle consumers pass in 15.040 s. Format and daemon vet
+pass. The earlier green malformed-row fixtures stopped at a missing companion file; corrected
+fixtures and the reviewed artifact supersede that apparent coverage. Source/test hashes and
+failures remain in the SP-20 artifacts. Independent review carries unchanged runtime and
+prior test evidence across the final test-only addition.
+
+This is partial T20-M1-03/04/05 preparation. Production ingress/drain does not open the journal;
+nonce production, approved hashing, admission/ack, lease retention and durable publication are
+still pending. Loss/rollback of both companion files needs outer migration/backup authority.
+No installed-host, timing or final gate passes from assignment and lifecycle tests alone.
+
 SP-20 `9e939dd` adds an independently reviewed privacy admission seam and a real policy-to-hook
 envelope fixture. Exact permitted JSON bytes survive serialization; explicit fidelity and
 generic no-payload failures are enforced before Event derivation. The new capture/policy race

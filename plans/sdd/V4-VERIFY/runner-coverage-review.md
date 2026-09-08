@@ -407,6 +407,79 @@ verified reference, committed frontier, retry/ack proof, compatible reader,
 M2 coverage/authority, or backup/import/GC root result. This review does not
 close any T20 M1/M2 or V4 verification row.
 
+## Daemon-private delivery-lease journal review
+
+This read-only review accepts the bounded, unwired delivery-identity correction
+in `qompack-sp20` at `9e939dd` plus reviewed dirty `internal/daemon/lock.go`,
+`delivery_lease.go`, and lease fixtures. It supplies a fail-closed local
+assignment journal only. It does not establish request admission, an object
+reference, publication, acknowledgement, or a committed frontier.
+
+One held `Lock` owns at most one journal and serializes lease, heartbeat, and
+release operations. A fresh random lock-owner generation is recorded in the
+additive lock record, so an older Lock object in the same PID cannot use or
+remove a later acquisition. Release closes the journal before it removes
+singleton ownership; a close failure retains that ownership. Lost, released,
+and failed-open locks refuse lease operations. A failed open is latched on the
+Lock until release and a new owner opens, including failures after the writer
+was acquired.
+
+`delivery-leases.jsonl` records only the version, caller nonce, session,
+request digest, per-session arrival sequence, and derived ObservationID. The
+nonce must be nonzero 64-character lowercase hex; duplicate nonce/request/
+session returns its original row, while a changed binding is append-only
+failure. Different nonces obtain different arrival and observation identities
+even for equal request digests. The journal holds no request bytes or backend
+error text. A nonzero caller digest is only a binding value here: its approved
+privacy provenance remains an unwired capture/admission requirement.
+
+The paired position record holds byte count, row count, and a domain-separated
+rolling hash. Each new row is appended and synced before an atomically written,
+directory-synced position record; maps and the successful return occur only
+after that seal. Reload validates bounded canonical rows, known version,
+nonzero/derived identities, duplicate delivery, per-session sequence gaps,
+the sealed prefix, and the companion file pair. It rejects a torn row,
+position ahead of or inconsistent with the journal, complete-boundary
+truncation, and malformed/future/noncanonical state without modifying it. A
+complete valid unsealed tail is synced and sealed before reuse. The live writer
+also revalidates the current sealed position before appending, so a missing or
+replaced companion is faulted rather than recreated. Write, sync, position,
+and close uncertainty poisons the active owner; recovery requires release and
+reacquisition. Wholesale loss of both files still needs the outer migration,
+backup, and authority work.
+
+The historical `delivery-lease-red` artifact preserves pre-implementation
+stub failures. The final `delivery-lease-reviewed.run.json` matches the
+reviewed current source hashes and records
+`go test -race -p=1 -count=1 -timeout=5m -run '^TestDeliveryJournal_' ./internal/daemon`
+passing in 5.105 seconds of package time (13.9322225 seconds elapsed). Its
+fixtures cover equal-request distinct nonces, retry identity across restart,
+binding conflict, invalid input, concurrent retry sharing, lock-generation
+replacement, release serialization, short-write/sync/position failure,
+poisoned-open behavior, malformed/torn/future/identity/duplicate/gap rows,
+complete-boundary truncation, stale valid tails, and live/reload position
+corruption or a missing pair. This review did not rerun the command.
+
+No installed ingress, client/WAL spool, callback, observer, or drain code
+calls this private journal. It has no stable host delivery nonce producer, no
+approved raw-request hashing path, no lease acknowledgement/rejection or
+lease-to-object/reference/frontier transition, and no late-client publication
+race proof. M1/M2 coverage and authority, GC/backup/import roots, privacy
+before persistence, installed-host compatibility, C-1, and all T20/V4 gates
+remain open.
+
+Follow-up evidence added only `TestDeliveryJournal_RejectsOversizeJournalAndRecord`:
+it rejects and preserves both a record exceeding the line limit and a physical
+journal exceeding the total limit. Runtime sources and the previously reviewed
+lease assertions are unchanged. `delivery-lease-lifecycle.run.json` matches
+the new fixture hash and records that fixture plus four real daemon
+startup/idle/held-lock/admin-shutdown cases passing under race in 4.484
+seconds of package time (15.0398474 seconds elapsed).
+`delivery-lease-guards.run.json` records `fmt-check` and `go vet
+./internal/daemon` passing. This is dependency and read-bound coverage carry,
+not broader durable-publication or gate evidence; this review did not rerun
+the commands.
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.
