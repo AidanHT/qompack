@@ -99,6 +99,18 @@ old readers ignore sidecars, and no old artifact changes shape.
 
 ## Consequences
 
+**Delivery assignment prerequisite (SP-20 / V4 preparation).** A daemon `Lock` has a random
+owner generation in addition to its PID. Its private delivery journal assigns a per-session
+arrival sequence and ObservationID to a caller nonce bound to an approved request digest.
+Equal content with different nonces remains distinct; retries with the same binding reuse the
+assignment. The row is synced before a canonical position record seals its byte/count/hash
+prefix and before the assignment is returned. Reload refuses torn or inconsistent state and
+can sync/seal a complete valid tail. An uncertain write or open requires owner release and
+reacquisition. This API is unwired: nonce production, privacy provenance, admission/ack,
+object/reference/frontier transitions and lease retention are separate requirements. The pair
+does not detect wholesale rollback/loss of both files; consistent backup and outer migration
+authority remain required. No publication or recovery gate is accepted by assignment alone.
+
 **Capture policy seam (SP-20 / V4 preparation).** `core.CaptureDecision` is a transient explicit
 privacy decision, not a persisted observation. `hookio.CaptureHook` admits only policy-approved,
 validated JSON bytes and derives the Event afterward. Policy fidelity is explicit; byte identity
