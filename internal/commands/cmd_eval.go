@@ -118,7 +118,7 @@ func evalBody(ctx context.Context, inv Invocation) (json.RawMessage, error) {
 		return nil, fmt.Errorf("%w: no evaluation artifacts are readable in this build", ErrUnavailable)
 	}
 
-	in, err := inv.Deps.EvalArtifacts(ctx, flagOr(inv, "corpus", ""))
+	in, err := inv.Deps.EvalArtifacts(ctx, flagValue(inv, "corpus"))
 	if err != nil {
 		return nil, fmt.Errorf("eval: %w", err)
 	}
