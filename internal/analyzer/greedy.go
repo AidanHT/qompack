@@ -329,7 +329,7 @@ func Propose(ctx context.Context, p int, cands []Candidate, lambda float64,
 	// the whole budget. That is precisely "after every optional item has been dropped", and doing
 	// it first is what makes the answer honest — discovering the overflow after the budget had
 	// gone on optional items would report an overflow the selector itself caused.
-	if _, offender, ok := s.reserve(newRepState(0), nil, budget); !ok {
+	if offender, ok := s.reserve(newRepState(0), nil, budget); !ok {
 		return s.overflow(offender), nil
 	}
 
@@ -697,7 +697,7 @@ func (s *repSolver) gainOf(bundle []Representation, st *repState) float64 {
 // contract §3's overflow rule into something the loop can enforce while it spends rather than
 // discover once it has finished.
 func (s *repSolver) reserve(st *repState, extra map[dag.NodeID]bool, limit core.Tokens,
-) (core.Tokens, dag.NodeID, bool) {
+) (dag.NodeID, bool) {
 	have := make(map[dag.NodeID]bool, len(st.chosen)+len(extra))
 	for id := range st.chosen {
 		have[id] = true
@@ -714,14 +714,14 @@ func (s *repSolver) reserve(st *repState, extra map[dag.NodeID]bool, limit core.
 		}
 		cost, ok := s.priceInto(i, have)
 		if !ok {
-			return total, item, false
+			return item, false
 		}
 		total += cost
 		if total > limit {
-			return total, item, false
+			return item, false
 		}
 	}
-	return total, "", true
+	return "", true
 }
 
 // priceInto adds candidate i's cheapest closure to have and returns what it cost, rolling the
@@ -804,7 +804,7 @@ func (s *repSolver) problem() greedyProblem {
 			if remaining < 0 {
 				return false
 			}
-			_, _, ok = s.reserve(s.st, extra, remaining)
+			_, ok = s.reserve(s.st, extra, remaining)
 			return ok
 		},
 		accept: func(i int) {
