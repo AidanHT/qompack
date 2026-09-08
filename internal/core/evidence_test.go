@@ -76,3 +76,42 @@ func TestEvidenceEnvelopeCannotQualifyUnsupportedSuccessOrAbsence(t *testing.T) 
 	require.True(t, core.AuthorityConflict.Valid())
 	require.True(t, core.AuthorityUserCorrection.Valid())
 }
+
+// TestFidelity_ValidCoversTheCompleteDeclaredSet pins that every fidelity kind M1-01 requires is
+// both declared and accepted, and that a future or misspelled spelling is not.
+func TestFidelity_ValidCoversTheCompleteDeclaredSet(t *testing.T) {
+	for _, f := range []core.Fidelity{
+		core.FidelityExact, core.FidelityPrefix, core.FidelityPartial, core.FidelityRedacted,
+		core.FidelityTruncated, core.FidelityBinary, core.FidelityFailure, core.FidelityUnknown,
+	} {
+		require.True(t, f.Valid(), "%q is a declared fidelity", f)
+	}
+	for _, f := range []core.Fidelity{"", "Exact", "complete", "partial_read"} {
+		require.False(t, f.Valid(), "%q must not read as a declared fidelity", f)
+	}
+}
+
+// TestCaptureError_ValidIsAClosedLabelSet pins the degradation labels a capture may record. The
+// empty label is valid and means "nothing recorded", which is deliberately distinct from proof
+// that a capture was complete.
+func TestCaptureError_ValidIsAClosedLabelSet(t *testing.T) {
+	for _, e := range []core.CaptureError{
+		core.CaptureErrorNone, core.CaptureErrorOversize, core.CaptureErrorIncomplete,
+		core.CaptureErrorNotJSON, core.CaptureErrorPolicy, core.CaptureErrorContract,
+	} {
+		require.True(t, e.Valid(), "%q is a declared capture error", e)
+	}
+	require.False(t, core.CaptureError("truncated").Valid())
+	require.False(t, core.CaptureError("OVERSIZE").Valid())
+}
+
+// TestCaptureErrorLabelsCarryNoPayload pins that the labels themselves are constants an operator
+// can read: none is built from, or able to leak, the bytes that produced it.
+func TestCaptureErrorLabelsCarryNoPayload(t *testing.T) {
+	require.Equal(t, core.CaptureError("oversize"), core.CaptureErrorOversize)
+	require.Equal(t, core.CaptureError("incomplete_read"), core.CaptureErrorIncomplete)
+	require.Equal(t, core.CaptureError("not_json_object"), core.CaptureErrorNotJSON)
+	require.Equal(t, core.CaptureError("policy_unavailable"), core.CaptureErrorPolicy)
+	require.Equal(t, core.CaptureError("policy_contract"), core.CaptureErrorContract)
+	require.Equal(t, core.CaptureError(""), core.CaptureErrorNone)
+}
