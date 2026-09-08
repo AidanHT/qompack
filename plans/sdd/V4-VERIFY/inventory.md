@@ -343,3 +343,30 @@ or drain opens the journal. Admission/ack, lease-to-object/reference/frontier pu
 late-client fallback, GC/import/backup/rollback and M2 authority remain required. Wholesale
 loss/rollback of both journal and seal cannot be detected by the pair alone. All original row
 dispositions remain intact; this is provisional evidence on recorded SP-20 input hashes.
+
+## Provisional CLI capture admission — SP-20 `a123ecc`
+
+Current CLI hook producers now apply strict, bounded configuration and real privacy policy
+before Event transport/spool/startup. Trusted initial policy cannot be weakened by payload
+destination routing. This is partial T20-M1-01/02 and retained SP01/SP05/SP06 regression evidence;
+all original dispositions remain unchanged for final verification. Direct IPC and old spools
+still lack this admission contract, and raw sidecar/publication gates remain open.
+
+`capture-admission-focused` passes the new config/admission and selected historical hook race
+checks. `capture-admission-consumers` passes real binary hook-to-daemon/store, spooled recovery,
+write-set/fault confinement and noinject build cases. Its config package selected zero tests;
+the corrected selection in `capture-admission-guards` passes retained Load/Validate race cases.
+Format/vet/importgraph/testdeps pass. No full suite, coverage floor, quiet timing or installed
+host claim follows. The original reader-message success assertion now requires generic input
+unavailability; synthetic oversize inflation occurs before policy and exceeds the supported
+capture cap, so its old blob-path implication is retired. Frozen wire/data fixtures are intact.
+
+The independent reviewer accepted source/fixtures and consumer dependency carry. Requested
+Terra/high fixture/review and Luna/medium inventory roles retain their prior exclusive scopes;
+main owned runtime and commands. Effective route/effort, usage and queue wait are unexposed.
+One heavy job ran at a time; all runtime/test inputs match the focused manifest's dirty hashes
+at tested base `9b395f8`. Initial setup failures and corrected red assertions remain preserved.
+
+Next required work remains daemon/direct-IPC admission, raw source/fidelity publication,
+durable nonce/lease-to-object/reference/frontier wiring, GC/import/backup/rollback, M2 and
+SP10–13 consumers. Final verification cannot begin until those prerequisites are integrated.

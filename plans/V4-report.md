@@ -127,6 +127,26 @@ Not met. Required exit evidence includes accepted combined-tree verification, al
 
 ## 16. Integration and installed-host scenarios
 
+SP-20 `a123ecc` wires strict privacy admission into all six current CLI hook producers before
+Event transport, fallback spool or daemon startup. The process/env root's policy applies first;
+a permitted destination can redact further but cannot restore removed bytes. Invalid settings,
+policy and reader input refuse capture with generic diagnostics. Bounds cover raw input,
+configuration and policy size. Historical Load remains a diagnostic fallback for other callers.
+
+The focused config/CLI race selection passes (29.508 s). Real hook-to-daemon/store and spool
+recovery consumers pass (18.751 s package time), as do confinement guards and the noinject
+build selection. An anchored filter selected zero config tests in the consumer run; it supplies
+no config coverage. The corrected Load/Validate prefix selection passes (2.520 s), along with
+formatting, vet and importgraph/testdeps. Initial fixture setup and reproduced privacy failures
+are preserved. Independent review accepted the correction and unchanged-input evidence carry.
+Artifacts in the SP-20 sibling identify tested base `9b395f8` plus hashes, separate from this
+documentation HEAD. Source/test hashes were checked unchanged before the corrective commit.
+
+This closes the identified CLI admission defect only. Direct IPC/legacy spool admission,
+raw fidelity sidecars, durable delivery/publication wiring, migration/rollback and M2 remain
+open. Added configuration/redaction cost is unmeasured; installed-host recovery, quiet budgets
+and final integrated V4 verification remain unverified. No migration switch was enabled.
+
 SP-20 `9b395f8` adds a reviewed daemon-private delivery assignment journal. Nonce-bound retry
 identities survive restart; equal content with distinct nonces remains distinct. A synced row
 and sealed byte/count/hash position precede a successful assignment. Corruption, truncation,

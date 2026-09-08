@@ -480,6 +480,67 @@ seconds of package time (15.0398474 seconds elapsed).
 not broader durable-publication or gate evidence; this review did not rerun
 the commands.
 
+## Hook capture-admission correction review
+
+This read-only review accepts the bounded legacy-hook privacy correction in
+`qompack-sp20` at `9b395f8` plus reviewed dirty config and CLI files. It
+changes the hook's legacy IPC/spool transport to carry only permitted Event
+content. It does not enable raw evidence sidecars, delivery publication, or a
+migration gate.
+
+`LoadForCapture` is a separate strict reader: missing configuration layers use
+defaults, but malformed, unknown, duplicate, unsafe, future, invalid, or
+gated-effective configuration yields only generic `ErrDegraded` with no
+configuration text or path. It requires absolute roots; accepts bounded regular
+leaves only after lstat/open same-file checks; rejects malformed JSONC,
+unpaired UTF-16, noncanonical/ambiguous duplicate keys, and over-limit depth.
+It bounds file, environment, flag, aggregate, effective configuration, pattern
+width, and rule-count inputs. The historical `Load` remains unchanged for
+diagnostic callers and is not a capture fallback.
+
+The hook obtains its initial policy root only from process/environment routing,
+reads raw stdin under an independent 4 MiB cap, then loads/compiles the strict
+policy and calls `CaptureHook` before creating a request, spool, client, or
+pre-send daemon action. State and configuration cannot enlarge that initial
+bound. A permitted Event CWD can select a destination root only after first
+admission. The destination policy sees only first-policy bytes; it cannot
+restore removed data. The final permitted CWD must still resolve to the
+selected root. Composed captures retain earlier redaction/truncation facts
+when the second real policy is exact, and the synthetic oversize fault now
+alters transient pre-admission JSON rather than an Event after admission.
+Strict load, policy, read, root-consistency, or destination failures return
+empty hook output without spool/daemon start and log only generic text.
+
+`capture-admission-red` and `capture-admission-red-corrected` retain the
+earlier unredacted-transport and fixture-parent failures as diagnostic
+evidence. The final `capture-admission-focused.run.json` matches all nine
+reviewed source/test hashes and records the focused config/CLI race selection
+passing in 29.5078785 seconds elapsed (config 2.588 seconds, CLI 4.206
+seconds). Fixtures exercise redaction through connect-failure, hot-spool, and
+daemon-disabled legacy paths; strict failures before pre-send/spool; private
+reader diagnostics; source/destination policy weakening attempts, destination
+failure/CWD change, fidelity composition, the state-independent hard cap, and
+strict configuration bounds. This review did not rerun the command.
+
+This correction still retains a bounded raw input in hook-process memory long
+enough to apply policy; it proves neither raw ingress coverage across every
+host callback nor durable raw persistence. No raw capture, Capture metadata,
+ObservationID, delivery lease use, object write, reference, acknowledgement,
+frontier, M2 authority/completeness result, installed-host compatibility,
+backup/import/GC root, timing acceptance, C-1, T20, or V4 gate is closed.
+
+Follow-up evidence made no source or test change from the focused hashes.
+`capture-admission-consumers.run.json` records real hook-to-daemon-to-store
+and spooled-recovery integration cases passing under race (integration 18.751
+seconds), plus write-set and fault-environment confinement guards passing
+(3.393 seconds), and the `noinject` CLI capture selection passing (2.545
+seconds). Its anchored config prefix selected zero config tests, so it carries
+no config coverage. The corrected `capture-admission-guards.run.json` then
+records the actual config prefix selection passing under race (2.520 seconds),
+along with fmt checking, config/CLI vet, and importgraph/testdeps lint. This
+is consumer/dependency evidence only; it does not alter the bounded acceptance
+or close any remaining gate. This review did not rerun the commands.
+
 ## Relevant locations
 
 - `tools/devtool/test.go:24,48` — aggregate and race command construction.
