@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -116,11 +117,23 @@ type RetentionRootSource interface {
 // The on-disk root-file convention. Every one of these is OPTIONAL: a missing file means the
 // producer has not shipped, never that collection is unsafe.
 const (
-	// deliveryLeaseFile is internal/daemon's open-delivery-lease journal, under <root>/.qompack/
-	// state. GC reads it structurally — every hash-shaped token in an open lease line retains —
-	// so the daemon needs no store-side call and store needs no daemon import. The journal is
-	// append-only and carries no release record, so every line in it is an OPEN lease.
+	// deliveryLeaseFile is internal/daemon's delivery-lease journal, under <root>/.qompack/state.
+	// GC reads it structurally — every hash-shaped token in an OPEN lease line retains — so the
+	// daemon needs no store-side call and store needs no daemon import. The journal is append-only
+	// and carries no release record, so a line stops being an open lease only by being named in
+	// deliveryAckFile.
 	deliveryLeaseFile = "delivery-leases.jsonl"
+	// deliveryAckFile is internal/daemon's committed-frontier journal, beside deliveryLeaseFile.
+	// One line per delivery that reached committed publication — durable object, verified
+	// reference, then frontier — naming the delivery nonce its lease line carries.
+	//
+	// It is what makes RetentionLease a BOUNDED class. Without it every delivery a daemon ever
+	// handled would pin its references forever, because an append-only assignment journal alone
+	// cannot say which assignments are finished; SP-20 invariant 9 retains what a lease NEEDS, not
+	// everything a lease ever touched. An acknowledged delivery's evidence is still retained — by
+	// the evidence-class root WriteCaptureSidecar declares for it — so closing a lease releases the
+	// lease's claim and nothing else's.
+	deliveryAckFile = "delivery-acks.jsonl"
 	// retentionRootsFile is the generic producer convention under <root>/.qompack/state: one
 	// RetentionRoot JSON object per line, written by AppendRetentionRoot. Rollback/backup
 	// material and any other producer without a journal of its own declares itself here.
@@ -252,6 +265,109 @@ func AppendRetentionRoot(projectRoot string, r RetentionRoot) error {
 	defer func() { _ = w.Close() }()
 	_, err = w.Write(append(b, '\n'))
 	return err
+}
+
+// ── retention-roots.jsonl compaction ─────────────────────────────────────────────────────────
+
+// RetentionCompaction is the outcome of one CompactRetentionRoots pass.
+type RetentionCompaction struct {
+	// LinesBefore and LinesAfter are the non-empty line counts either side of the pass. Their
+	// difference is the duplication the file was carrying.
+	LinesBefore, LinesAfter int
+	// BytesBefore and BytesAfter are the file's size either side of the pass.
+	BytesBefore, BytesAfter int64
+	// Compacted reports whether the file was actually rewritten. A file that is already the set it
+	// declares is left alone rather than rewritten to identical bytes.
+	Compacted bool
+}
+
+// CompactRetentionRoots rewrites retention-roots.jsonl as the SET of claims it makes.
+//
+// The file gains a line per declaration and removes nothing — one per published delivery, plus a
+// fresh copy of every rollback declaration each time a backup or rollback drill re-runs. GC has
+// always deduplicated it on READ, so correctness never depended on this; size did, and an
+// append-only file that grows once per delivery forever is a storage leak in the product's own
+// state directory.
+//
+// What survives is every distinct (hash, class) claim, at its FIRST appearance, plus every line
+// this build cannot read, byte for byte and in place. The reason string is descriptive and the
+// first one wins; the hash and the class are the claim, and neither is ever merged away. A line
+// that does not parse as a RetentionRoot is never dropped and never merged with another: it may be
+// a future writer's record, and a compaction that discarded it would lose a root that is still
+// needed. Only an exact byte-for-byte repeat of such a line is shed.
+//
+// CRASH SAFETY is paths.WriteAtomic's: the compacted content is staged in .qompack/tmp, fsynced,
+// renamed onto the path, and the parent directory fsynced. A crash before the rename leaves the
+// original file complete and untouched, and the orphaned temp file is read by nothing; a crash
+// after it leaves the new file complete. There is no interval in which a reader can see a partial
+// file, and because the compacted content declares every claim the original did, BOTH outcomes
+// retain exactly the same set.
+//
+// The file's writer is AppendRetentionRoot, which does not coordinate with this call, so a rewrite
+// that raced an append would drop the appended line. Growth between reading the file and rewriting
+// it therefore ABORTS the pass with core.ErrDegraded and changes nothing: the duplication is shed
+// on a later pass instead, and no declaration is ever lost to the race. Callers should still run it
+// at a quiescent point — the end of a GC pass, which is what wires it in.
+func CompactRetentionRoots(projectRoot string) (RetentionCompaction, error) {
+	p := RetentionRootsPath(projectRoot)
+	before, err := os.ReadFile(paths.Long(p))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return RetentionCompaction{}, nil
+		}
+		return RetentionCompaction{}, err
+	}
+
+	compacted, lines, kept := compactRetentionLines(before)
+	rep := RetentionCompaction{
+		LinesBefore: lines, LinesAfter: kept,
+		BytesBefore: int64(len(before)), BytesAfter: int64(len(compacted)),
+	}
+	if bytes.Equal(compacted, before) {
+		return rep, nil // already the set it declares; never rewrite for nothing
+	}
+	if info, statErr := os.Lstat(paths.Long(p)); statErr != nil || info.Size() != rep.BytesBefore {
+		rep.BytesAfter = rep.BytesBefore
+		return rep, fmt.Errorf("%w: retention roots changed under a compaction", core.ErrDegraded)
+	}
+	if err := paths.WriteAtomic(p, compacted, 0o600); err != nil {
+		rep.BytesAfter = rep.BytesBefore
+		return rep, err
+	}
+	rep.Compacted = true
+	return rep, nil
+}
+
+// compactRetentionLines reduces b to one line per distinct claim, preserving first-appearance
+// order so the file stays a readable history rather than a reshuffled one.
+func compactRetentionLines(b []byte) (out []byte, lines, kept int) {
+	seen := make(map[string]struct{})
+	out = make([]byte, 0, len(b))
+	for _, line := range bytes.Split(b, []byte{'\n'}) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		lines++
+		key := retentionClaimKey(line)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, line...)
+		out = append(out, '\n')
+		kept++
+	}
+	return out, lines, kept
+}
+
+// retentionClaimKey is the identity two lines must share to be the same claim: the hash and class a
+// readable declaration names, and the raw bytes of a line this build cannot read.
+func retentionClaimKey(line []byte) string {
+	var r RetentionRoot
+	if json.Unmarshal(line, &r) != nil || r.Hash.IsZero() || r.Class == "" {
+		return "raw\x00" + string(line)
+	}
+	return "claim\x00" + r.Hash.String() + "\x00" + string(r.Class)
 }
 
 // ── delta read path ──────────────────────────────────────────────────────────────────────────

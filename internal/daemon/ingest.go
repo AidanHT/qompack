@@ -167,6 +167,43 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 // The caller (the server's registered ipc.Handler) writes the ACK only after Accept returns and
 // before any worker touches the job — that ordering is what makes the WAL the durability boundary
 // (§2.4): a daemon crash after this call costs freshness, never data.
+//
+// DURABILITY POINTS ON THIS PATH — audited, three, and all three are required. Accept carried one
+// before delivery identity became durable, and it is the operation the p99 budget is measured
+// against, so the count is stated here rather than left to be rediscovered:
+//
+//  1. The WAL segment fsync (appendWAL). Guarantees the exact received bytes are on disk before
+//     the transport acknowledgement goes back to the hook. It is §2.4's boundary itself: the ACK
+//     is a promise that the delivery survives a crash, and without this sync the promise is a
+//     page-cache guess. Nothing else on this path holds these bytes.
+//
+//  2. The delivery-lease journal fsync (deliveryJournal.lease). Guarantees the nonce -> arrival ->
+//     ObservationID assignment is durable BEFORE the identity is handed to a job — the point after
+//     which a redelivery must recover the same identity rather than mint a second one (invariant
+//     2). It cannot be merged with (1): fsync is per file, and these are two files in two trees.
+//     It cannot be dropped either, because the journal refuses to open on a torn tail, so an
+//     unsynced line turns a machine crash into a whole-journal degradation rather than a lost row.
+//
+//  3. The lease position sidecar (deliveryJournal.savePosition, via paths.WriteAtomic: a temp-file
+//     fsync plus a parent-directory fsync — one durability point, two syscalls). Guarantees the
+//     sealed frontier — byte count, record count and hash chain — that recovery validates the
+//     journal against. It is what detects a TRUNCATED journal: load refuses a file shorter than
+//     the sealed prefix, and a lost assignment that went undetected would let a redelivery of an
+//     already-published delivery take a second identity. It is strictly ORDERED after (2): a
+//     position ahead of its file poisons the journal permanently, so the two syncs are a sequence,
+//     not a pair that could share one.
+//
+// The reduction that looked available — sealing the position once per batch instead of once per
+// lease, which recovery already tolerates for a single uncertain row — is the one thing that must
+// not be done. It widens the window in which a truncated tail is invisible from one line to the
+// whole batch, and that window is not a latency cost, it is silent identity loss. Deferring (2)
+// and (3) off Accept entirely (to just before publication in dispatch, which is B-C and not the
+// p99 budget) preserves the ordering guarantees on paper, but only by rebuilding the journal's
+// synced-bytes-only admission rule, which is what makes a concurrent redelivery of the same nonce
+// see the first lease at all. Neither is a durability-neutral trade, so this path is unchanged.
+//
+// So: 3 durability points, 4 fsync syscalls, per accepted leased delivery. A delivery with no
+// nonce, or one whose journal is unavailable, is an unleased gap and pays only (1).
 func (i *ingest) Accept(req ipc.Request, line []byte) error {
 	// The wire path hands over ipc.EncodeRequest's output, which json.Encoder has already
 	// terminated with '\n'; appendWAL adds the one terminator the WAL owns. Trimming here rather
