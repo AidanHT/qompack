@@ -218,3 +218,52 @@ CLI/spool/blob/WAL paths still lack privacy-before-persistence and faithful raw 
 policy loading before fallback, raw sidecar ownership/limits, durable per-delivery identity,
 lease/ack retention, source-to-observation publication, all fidelity/lifecycle cases and
 installed recovery remain mandatory. No T20 or V4 row closes from this seam.
+
+### Provisional durable delivery assignment
+
+On `9e939dd` plus the hashes in `delivery-lease-*.run.json`, the daemon-private journal binds
+a nonzero caller delivery nonce, session and nonzero request digest to a persisted arrival
+sequence and derived ObservationID. Separate nonces with equal content remain separate events;
+the same nonce and binding reuses its identity across restart. Binding conflicts fail without
+appending. Empty session is a valid scope; no host identifier is fabricated.
+
+One `Lock` owns and serializes one journal, heartbeat and release. Its additive random owner
+generation prevents an old Lock in the same process from operating on a later acquisition.
+Release closes its journal first; close failure retains singleton ownership. Lost, released,
+faulted or failed-open owners refuse further assignments. Backend errors are generic and the
+journal stores no request bytes. A digest here is a binding value, not evidence of privacy or
+object publication.
+
+The bounded canonical JSONL journal and its canonical position companion live under the owned
+state directory. A new row is appended and synced, then the byte/count/rolling-hash position is
+atomically written, before maps advance or an identity returns. Reload validates every row,
+version, derived ID, sequence, duplicate binding and the sealed prefix. A complete valid tail
+can be synced and sealed; torn data, missing one companion, complete-line truncation and
+changed prefix are preserved and refused. The live writer rechecks its seal before appending.
+Short write, sync, position and close failures require release/reacquisition; no silent repair
+under the failed owner is allowed. Journal/record/entry caps refuse further work; no journal
+compaction is implemented. File-leaf identity and bounds checks are not full ancestor authority.
+Loss or rollback of both journal and position still requires outer backup/migration authority.
+
+| Artifact | Result and interpretation |
+|---|---|
+| `delivery-lease-red` | Real pre-implementation stub failures, package 0.545 s; negative refusal cases alone supplied no positive implementation evidence |
+| `delivery-lease-green` | Selected journal and existing lock race cases passed, package 4.617 s / command 16.249 s; malformed-row fixtures initially lacked a position file and stopped before parsing, so that apparent coverage is superseded |
+| `delivery-lease-reviewed` | Corrected row fixtures and live-seal/failed-open regressions passed under race, package 5.105 s / command 13.932 s |
+| `delivery-lease-lifecycle` | Added physical/line-size refusal plus actual startup-drain, idle, held-lock and admin-shutdown consumers passed under race, package 4.484 s / command 15.040 s |
+| `delivery-lease-guards` | Formatting passed in 4.524 s and affected daemon vet in 2.125 s; no full lint, coverage, performance or aggregate gate implied |
+
+The last run adds one bounds test only. Runtime sources and prior assertions are unchanged
+from the reviewed run; the independent coverage review carries that focused evidence. The
+shared Terra/high fixture worker owned only `delivery_lease_test.go`, releasing it before main
+corrected the position fixture. Main owned runtime, failure fixtures and commands; a separate
+Terra/high reviewer authored none of them. Its acceptance and final dependency review are in
+the preparation worktree's `runner-coverage-review.md`. Requested settings are recorded;
+effective routing/effort, usage and queue wait were not exposed. At most two children and one
+heavy command ran concurrently. All write fixtures used disposable Windows test directories.
+
+This is partial T20-M1-03/04/05 prerequisite evidence and selected SP05 lock/lifecycle regression
+coverage. No ingress/drain path opens the journal yet. Stable nonce production, approved request
+hashing, raw sidecars, lease acknowledgement/retention, object sync and verified reference to
+frontier publication, the late-client fallback race, GC/import/backup/rollback and M2 authority
+remain required. No installed-host, T20 or final V4 gate closes from this slice.

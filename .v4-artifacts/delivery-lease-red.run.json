@@ -1,0 +1,13 @@
+{
+  "command": "go test -p=1 -count=1 -timeout=5m -run '^TestDeliveryJournal_' ./internal/daemon",
+  "head": "9e939dd06b07337baab8d3eeb4244d4499e92522",
+  "started": "2026-09-08T01:17:01.7877361Z",
+  "stage": "provisional delivery lease requirements against stub",
+  "files": {
+    "internal/daemon/delivery_lease.go": "D82F0977911EF05767276FD2826630FD04C3333BA58F521E914F976AFF27E101",
+    "internal/daemon/delivery_lease_test.go": "7D645D490822BFB9EB1836D427117DB7852697ED98D390C7E4DC5100DA986EE4",
+    "internal/daemon/lock.go": "63415FD3C80EC8751E0CB448AC1001C390F91670AFC2A2E1B2CD41E86AFDBA2D"
+  },
+  "exit": 1,
+  "elapsed_seconds": 6.0114947
+}

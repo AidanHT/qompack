@@ -1,0 +1,14 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^(TestDeliveryJournal_|TestAcquireLock|TestStaleLock|TestLiveLock|TestHeartbeat|TestLockRefuses|TestRelease|TestReadLock)' ./internal/daemon",
+  "head": "9e939dd06b07337baab8d3eeb4244d4499e92522",
+  "started": "2026-09-08T01:24:41.8933872Z",
+  "stage": "provisional durable lease journal and owner lifecycle",
+  "files": {
+    "internal/daemon/delivery_lease.go": "F676E366B1DA1EDD1FC8EF5D0CB903DD722CD0D7F4F14DBDDF7CF010C4E18FF6",
+    "internal/daemon/delivery_lease_test.go": "7D645D490822BFB9EB1836D427117DB7852697ED98D390C7E4DC5100DA986EE4",
+    "internal/daemon/delivery_lease_failure_test.go": "F5C514711180BCE720EC528BD31B4FBE8EFE8CF77DF21DF4543AEC95E58CAA05",
+    "internal/daemon/lock.go": "6A41472BECDAA854466145C166967A65FC8A0045A02312C85E3357848DE227EA"
+  },
+  "exit": 0,
+  "elapsed_seconds": 16.2493551
+}

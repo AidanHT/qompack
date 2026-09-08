@@ -1,0 +1,14 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^TestDeliveryJournal_' ./internal/daemon",
+  "head": "9e939dd06b07337baab8d3eeb4244d4499e92522",
+  "started": "2026-09-08T01:28:05.6886652Z",
+  "stage": "reviewed position integrity and owner failure state",
+  "files": {
+    "internal/daemon/delivery_lease.go": "28EBCA9B850778A43A6EA18959FFC2D4004CB697C520349F28811B54919F0063",
+    "internal/daemon/delivery_lease_test.go": "10279C1E621998DCA59FBC86BB93FB5EA64F38F194945AFFEB0B2C92A33E4C4A",
+    "internal/daemon/delivery_lease_failure_test.go": "8E741F42B43C198B03BD03F5DCD8BF46C4C7CE336ABAABE943AFF63A86D17252",
+    "internal/daemon/lock.go": "DD3E233EC932C9C73993A5B0827121C75EA4A97A86B40E0D4AF07D61531DA712"
+  },
+  "exit": 0,
+  "elapsed_seconds": 13.9322225
+}

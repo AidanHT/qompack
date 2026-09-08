@@ -1,0 +1,17 @@
+{
+  "head": "9e939dd06b07337baab8d3eeb4244d4499e92522",
+  "source": "delivery-lease-lifecycle.run.json",
+  "started": "2026-09-08T01:30:58.0243068Z",
+  "checks": [
+    {
+      "exit": 0,
+      "command": "go run ./tools/devtool fmt-check",
+      "elapsed_seconds": 4.5236281
+    },
+    {
+      "exit": 0,
+      "command": "go vet ./internal/daemon",
+      "elapsed_seconds": 2.1249805
+    }
+  ]
+}

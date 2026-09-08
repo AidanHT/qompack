@@ -1,0 +1,14 @@
+{
+  "command": "go test -race -p=1 -count=1 -timeout=5m -run '^(TestDeliveryJournal_RejectsOversizeJournalAndRecord|TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun|TestIdleExitWithZeroSessions|TestRunReturnsNilWhenLockHeld|TestAdminShutdownStopsTheDaemon)$' ./internal/daemon",
+  "head": "9e939dd06b07337baab8d3eeb4244d4499e92522",
+  "started": "2026-09-08T01:30:06.1784119Z",
+  "stage": "lease read bounds and affected real daemon Lock lifecycle",
+  "files": {
+    "internal/daemon/delivery_lease.go": "28EBCA9B850778A43A6EA18959FFC2D4004CB697C520349F28811B54919F0063",
+    "internal/daemon/delivery_lease_test.go": "10279C1E621998DCA59FBC86BB93FB5EA64F38F194945AFFEB0B2C92A33E4C4A",
+    "internal/daemon/delivery_lease_failure_test.go": "73F600410D022BECB687B30B1C9340C27A1F3027AFC0A6DB950EEC9B883D4D38",
+    "internal/daemon/lock.go": "DD3E233EC932C9C73993A5B0827121C75EA4A97A86B40E0D4AF07D61531DA712"
+  },
+  "exit": 0,
+  "elapsed_seconds": 15.0398474
+}
