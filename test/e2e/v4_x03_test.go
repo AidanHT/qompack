@@ -70,7 +70,6 @@ func TestV4_O1SpanInstructionFromARealCheckpointFrontier(t *testing.T) {
 	obsRunHook(t, r.Bin, []string{"observe", "prompt"},
 		obsPromptPayload(t, p.Root, x3v4Session, "trace the frontier through a real segment ladder"), env)
 	r.SeedTurns(t, x3v4Session, "v4x03", 4)
-	r.ArmCheckpointSources(t, x3v4Session)
 
 	// ── Arm 1, the negative control: no encoded evidence, so no span past turn 0 ──────────────────
 	_, instrNoEvidence := r.PreCompact(t, x3v4Session)
