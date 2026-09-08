@@ -81,8 +81,13 @@ const (
 // The runtime's own instruments.
 const (
 	counterPSelectionEnabled = "sched.pselection.enabled"
-	counterChangepoint       = "sched.changepoint"
-	counterPersist           = "sched.persist"
+
+	// The two must never share a counter: one is the host acting on its own context window, the
+	// other is this layer sealing an artifact beside it (see NoteLocalCheckpoint).
+	counterHostCompaction  = "sched.compaction.host"
+	counterLocalCheckpoint = "sched.checkpoint.local"
+	counterChangepoint     = "sched.changepoint"
+	counterPersist         = "sched.persist"
 )
 
 // The hookio.Event.Extra keys the runtime reads: the model id and subagent id the SessionStart
@@ -184,7 +189,14 @@ type schedRuntime struct {
 	lastRequestStartTS core.UnixMilli
 	lastCacheWriteTS   core.UnixMilli
 	lastCompactionTS   core.UnixMilli
-	sessionStartTS     core.UnixMilli
+	// lastLocalCheckpointTS is when QOMPACK last sealed a checkpoint ON ITS OWN CADENCE. It is a
+	// SEPARATE field from lastCompactionTS and must stay one: a local checkpoint is an artifact
+	// this layer wrote beside the host, whereas a compaction is an action the HOST took on its own
+	// context window. Folding a cadence seal into lastCompactionTS would restart the Young–Daly
+	// clock and claim a δ sample for a compaction that never happened, so the scheduler would
+	// believe the host had just compacted every time an idle tick sealed a draft.
+	lastLocalCheckpointTS core.UnixMilli
+	sessionStartTS        core.UnixMilli
 
 	deltaEWMA    float64
 	deltaSamples int
@@ -394,6 +406,7 @@ func (r *schedRuntime) resetSessionLocked() {
 	r.lastEffort, r.effortChanged = "", false
 	r.precomputed, r.precomputedOK = dag.Slice{}, false
 	r.lastActivity, r.lastAPICallTS, r.lastRequestStartTS, r.lastCacheWriteTS, r.lastCompactionTS = 0, 0, 0, 0, 0
+	r.lastLocalCheckpointTS = 0
 	r.deltaEWMA, r.deltaSamples = 0, 0
 	r.burnEWMA, r.burnSamples, r.lastTokens, r.lastTokensTS = 0, 0, 0, 0
 	r.lastDecision, r.lastEvaluateTS = scheduler.Decision{}, 0
@@ -874,6 +887,34 @@ func (r *schedRuntime) RecordCompactionCost(seconds float64) {
 	r.deltaSamples++
 	r.lastCompactionTS = r.nowMS()
 	r.dirty = true
+	r.count(counterHostCompaction)
+}
+
+// NoteLocalCheckpoint records that QOMPACK sealed a checkpoint on its own cadence (§8.5's second
+// trigger clause: "checkpoints exist even when compaction does not fire").
+//
+// What it does NOT do is the point of it. It does not move lastCompactionTS, does not fold a δ
+// sample, and is counted under its own name. A Qompack-initiated checkpoint and a host compaction
+// are different events with different consequences — one writes an artifact beside the session,
+// the other rewrites the session's own context — and the scheduler's every cadence decision is
+// derived from "how long since the HOST last compacted". Conflating them would restart that clock
+// on our own action, suppressing the next real trigger.
+func (r *schedRuntime) NoteLocalCheckpoint(seq core.CheckpointSeq) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if seq > r.lastCheckpointSeq {
+		r.lastCheckpointSeq = seq
+	}
+	r.lastLocalCheckpointTS = r.nowMS()
+	r.dirty = true
+	r.count(counterLocalCheckpoint)
+}
+
+// LocalCheckpointNoter is the seam the checkpoint cadence reports through. It is deliberately a
+// different method from CostRecorder.RecordCompactionCost so that no caller can reach the host
+// path by accident.
+type LocalCheckpointNoter interface {
+	NoteLocalCheckpoint(seq core.CheckpointSeq)
 }
 
 // PrecomputedSlice returns the precompute_slice cache and whether one has been computed.

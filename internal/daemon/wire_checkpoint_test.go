@@ -260,7 +260,7 @@ func TestCadenceFinalizesWhenDraftReachesBudget(t *testing.T) {
 			require.Equal(t, tc.wantFull, est >= core.Tokens(f.cfg.Checkpoint.BudgetTokens),
 				"the row must exercise the cadence condition it names, not the other one")
 
-			require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w))
+			require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w, nil, nil))
 
 			sealed := paths.CheckpointPath(f.l, 1)
 			require.FileExists(t, paths.Long(sealed),
@@ -290,7 +290,7 @@ func TestCadenceSealsNothingWhenNeitherConditionHolds(t *testing.T) {
 	require.Less(t, d.EncodedCount(), cadenceSegmentThreshold)
 	f.cfg.Checkpoint.BudgetTokens = int(d.EstimatedTokens()) * 10
 
-	require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w))
+	require.NoError(t, finalizeIfDue(f.ctx(), f.cfg, f.w, nil, nil))
 	require.NoFileExists(t, paths.Long(paths.CheckpointPath(f.l, 1)))
 	require.Equal(t, d, f.w.DraftFor(cpSession), "the draft must still be the one that was open")
 }
@@ -363,7 +363,7 @@ func TestACancelledContextStopsTheCadenceLoop(t *testing.T) {
 	ctx, cancel := context.WithCancel(f.ctx())
 	cancel()
 
-	err := finalizeIfDue(ctx, f.cfg, f.w)
+	err := finalizeIfDue(ctx, f.cfg, f.w, nil, nil)
 	require.ErrorIs(t, err, context.Canceled)
 	require.NoFileExists(t, paths.Long(paths.CheckpointPath(f.l, 1)),
 		"a cancelled tick must not have entered Finalize at all")
