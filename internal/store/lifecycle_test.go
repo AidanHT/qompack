@@ -500,3 +500,95 @@ func mustHash(t *testing.T, v any) core.Hash {
 	require.NoError(t, err)
 	return h
 }
+
+// ── acknowledged delivery leases stop retaining (V4 fix O-1) ─────────────────────────────────
+
+// writeJSONLLines plants a multi-record JSONL document, one record per line.
+func writeJSONLLines(t *testing.T, dir, name string, records ...map[string]any) {
+	t.Helper()
+	require.NoError(t, os.MkdirAll(paths.Long(dir), 0o700))
+	var buf bytes.Buffer
+	for _, r := range records {
+		b, err := json.Marshal(r)
+		require.NoError(t, err)
+		buf.Write(b)
+		buf.WriteByte('\n')
+	}
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(dir, name)), buf.Bytes(), 0o600))
+}
+
+// deliveryNonce builds a 64-hex delivery token shaped like the daemon's, from a single filler
+// character, so a test's nonces are distinct and none of them collides with a real root hash.
+func deliveryNonce(fill string) string { return strings.Repeat(fill, 64) }
+
+// TestGC_AcknowledgedDeliveryLeaseStopsRetaining is both directions of fix O-1 in one pass. The
+// lease journal is append-only and never records a release, so a delivery that was fully published
+// and acknowledged used to pin its references forever — nothing a daemon had ever handled could be
+// collected. An OPEN lease must still retain; an ACKNOWLEDGED one must retain only what something
+// else roots, and its published evidence is rooted by the evidence-class declaration the capture
+// sidecar makes for it.
+func TestGC_AcknowledgedDeliveryLeaseStopsRetaining(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	l := paths.Of(tp.Root)
+
+	open := gcSeed(t, tp, "src/open.txt", "held by an OPEN delivery lease\n")
+	done := gcSeed(t, tp, "src/done.txt", "held only by an ACKNOWLEDGED lease\n")
+	evidence := gcSeed(t, tp, "src/evidence.txt", "acknowledged, and published as evidence\n")
+
+	openNonce, doneNonce, evidenceNonce := deliveryNonce("1"), deliveryNonce("2"), deliveryNonce("3")
+	writeJSONLLines(t, l.State, deliveryLeaseFile,
+		map[string]any{"v": 1, "delivery": openNonce, "request": open.Hash.String()},
+		map[string]any{"v": 1, "delivery": doneNonce, "request": done.Hash.String()},
+		map[string]any{"v": 1, "delivery": evidenceNonce, "request": evidence.Hash.String()},
+	)
+	writeJSONLLines(t, l.State, deliveryAckFile,
+		map[string]any{"v": 1, "delivery": doneNonce, "observation_id": "sha256:" + deliveryNonce("a")},
+		map[string]any{"v": 1, "delivery": evidenceNonce, "observation_id": "sha256:" + deliveryNonce("b")},
+	)
+	require.NoError(t, AppendRetentionRoot(tp.Root, RetentionRoot{
+		Hash: evidence.Hash, Class: RetentionEvidence, Reason: "capture sidecar sha256:beef",
+	}))
+
+	rep, err := tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+
+	_, err = tp.Store.GetRoot(ctx, open.Hash)
+	require.NoError(t, err, "an OPEN delivery lease must still retain what it names")
+	_, err = tp.Store.GetRoot(ctx, evidence.Hash)
+	require.NoError(t, err, "an acknowledged lease's published evidence keeps its own evidence root")
+	_, err = tp.Store.GetRoot(ctx, done.Hash)
+	require.ErrorIs(t, err, core.ErrNotFound,
+		"an acknowledged lease nothing else roots must become collectable")
+
+	byRoot := map[core.Hash]RootOutcome{}
+	for _, o := range rep.Outcomes {
+		byRoot[o.Root] = o
+	}
+	require.Equal(t, RetentionLease, byRoot[open.Hash].Class, "an open lease is reported as a lease")
+	require.Equal(t, RetentionEvidence, byRoot[evidence.Hash].Class,
+		"a declared retention root is reported under the class its producer wrote")
+}
+
+// TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen pins the safe direction. A frontier record that
+// GC cannot read is not an acknowledgement: the delivery it was about stays open and stays
+// retained, because a torn ack line and a delivery still in flight look the same from here and
+// only one of them is safe to collect through.
+func TestGC_UnreadableAcknowledgementKeepsItsLeaseOpen(t *testing.T) {
+	tp := newTestStore(t)
+	ctx := context.Background()
+	l := paths.Of(tp.Root)
+
+	leased := gcSeed(t, tp, "src/leased.txt", "named by a lease whose ack is torn\n")
+	nonce := deliveryNonce("7")
+	writeJSONLLines(t, l.State, deliveryLeaseFile,
+		map[string]any{"v": 1, "delivery": nonce, "request": leased.Hash.String()})
+	// A crash mid-append leaves exactly this: a prefix of one acknowledgement, no terminator.
+	require.NoError(t, os.WriteFile(paths.Long(filepath.Join(l.State, deliveryAckFile)),
+		[]byte(`{"v":1,"delivery":"`+nonce+`","observation_i`), 0o600))
+
+	_, err := tp.Store.GC(ctx, forceCollect)
+	require.NoError(t, err)
+	_, err = tp.Store.GetRoot(ctx, leased.Hash)
+	require.NoError(t, err, "a torn acknowledgement must not close its lease")
+}
