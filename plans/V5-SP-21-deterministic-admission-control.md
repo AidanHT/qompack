@@ -272,16 +272,34 @@ break was reverted. Twenty-one controls across commits 3–6. Two of them did no
 attempt and reported nothing; both were fixed and rerun rather than counted, because a control that
 does not run looks exactly like a guard that works.
 
-One `stubskips` run was killed at its 400s timeout. It is recorded as a timeout, not a pass. The
-check scans for disallowed `t.Skip` reasons and this branch adds no `t.Skip` anywhere, which is
-verifiable directly; a later full run should still cover it.
+### Whole-tree validation
 
-### Pre-existing failure, not caused by this work
+`go test -p 1 -timeout=30m ./...` on the branch tip: **64 packages ok, 3 packages failing**, four
+tests in total. All ten `devtool lint` sub-checks pass, verified with a real exit code rather than a
+piped one.
 
-`TestCarriedDefects_WaveReportRequiresResolution` fails for SP05-D1, SP06-D2, SP08-D1 and SP10-D1:
-all four are `deferred:V4-VERIFY` in `plans/CARRIED-DEFECTS.tsv` while `plans/V4-report.md` exists.
-Reproduced identically on clean `develop` 7c735ac. Neither input file is modified by this branch. It
-belongs to V4 sign-off, not to SP-21.
+An earlier attempt at this run was wrong in three ways at once and is recorded because the shape
+recurs: it ran concurrently with `devtool lint`, it piped `go test` through `grep`, and it capped the
+result at `head -30`. The pipe made the shell report exit 0 while the suite was red, the cap hid most
+of the failure list, and the co-load produced three `internal/negknow` timing breaches that do not
+exist when the suite runs alone. A first `stubskips` run was also killed at a 400s timeout; it passes
+in the serialized run. None of those three negknow failures is real, and none is in the counts above.
+
+### Pre-existing failures, not caused by this work
+
+All four surviving failures reproduce identically on clean `develop` 7c735ac, each verified with
+`-run` under `-v` so that a pattern matching nothing could not be mistaken for a pass:
+
+| Test | Package | On develop 7c735ac |
+|---|---|---|
+| `TestCarriedDefects_WaveReportRequiresResolution` | `test/guards` | Fails — SP05-D1, SP06-D2, SP08-D1 and SP10-D1 are `deferred:V4-VERIFY` while `V4-report.md` exists |
+| `TestV3_HotPathUnchangedWithLedgerResident` | `test/e2e` | Fails — a gated hot-path budget breaches on the base itself |
+| `TestIntegration_BeladyPMinLandsAtLowCoupling` | `test/integration` | Fails — the open Belady p_min item from V4 sign-off |
+| `TestIntegration_HotPathWarmWithRealResidentState` | `test/integration` | Fails — same hot-path budget class |
+
+This branch modifies neither `CARRIED-DEFECTS.tsv` nor `V4-report.md`, and adds nothing to
+`test/integration`. It does add one file to `test/e2e`, so the e2e row was baselined on develop
+specifically rather than argued from the diff. All four belong to V4 sign-off, not to SP-21.
 
 ### What this does not establish
 
