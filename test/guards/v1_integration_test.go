@@ -282,7 +282,7 @@ const v1DefaultFloor = 75
 
 // TestV1_StubGraphIsInertAndOwned is §4 IT-6.
 //
-// Crosses all 23 stub packages -> plans/OWNERS.tsv -> the on-disk package set.
+// Crosses all 24 stub packages -> plans/OWNERS.tsv -> the on-disk package set.
 //
 // TestAllStubsReturnNotImplemented already walks the seams; what this adds is the OWNERSHIP half:
 // that the table naming who implements what is in exact correspondence with what is on disk, and
