@@ -114,6 +114,15 @@ type SchedulerRuntimeOptions struct {
 	Store       store.Store
 	Graph       dag.Graph
 	Ledger      negknow.Ledger // may be nil
+	// LedgerFn resolves the ledger LIVE, on every read, and takes precedence over Ledger.
+	//
+	// It exists because the daemon opens the negative-knowledge ledger LAZILY -- on the first
+	// compaction, through RehydrateOptions.OpenLedger, which assigns the handle back onto
+	// daemon.Options.Ledger. wireScheduler runs long before that, so the Ledger VALUE copied here
+	// at composition time is nil and stays nil for the life of the process. Anything that captured
+	// that value (rebuild_bloom did) was permanently inert. A composition root supplies a closure
+	// over its own Options so a ledger opened later is seen; nil ⇒ the static Ledger is used.
+	LedgerFn func() negknow.Ledger
 	// Frontier keeps draft lifecycle ownership in checkpoint. The legacy Checkpoints/Sources
 	// options remain compatible inputs to its adapter when no explicit port is supplied.
 	Frontier    checkpoint.FrontierAdvancer
@@ -140,7 +149,8 @@ type schedRuntime struct {
 	st       store.Store
 	segs     store.SegmentLog
 	graph    dag.Graph
-	ledger   negknow.Ledger              // may be nil
+	ledger   negknow.Ledger              // may be nil; the static fallback for currentLedger
+	ledgerFn func() negknow.Ledger       // may be nil; resolves the lazily-opened ledger live
 	advancer checkpoint.FrontierAdvancer // may be nil; never exposes a draft
 
 	det  scheduler.Detector
@@ -249,6 +259,7 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 		segs:     o.Store.Segments(),
 		graph:    o.Graph,
 		ledger:   o.Ledger,
+		ledgerFn: o.LedgerFn,
 		advancer: advancer,
 		det:      scheduler.NewBOCD(cp.HazardRate, cp.Features),
 		hist:     NewFeatureHistory(defaultFeatureWindow),
@@ -266,6 +277,23 @@ func NewSchedulerRuntime(o SchedulerRuntimeOptions) (scheduler.Runtime, error) {
 
 func requiredDep(name string) error {
 	return fmt.Errorf("daemon: scheduler runtime: %s required", name)
+}
+
+// currentLedger resolves the ledger AT THE MOMENT OF THE CALL: the supplier first, the static
+// field second. Every consumer must go through it rather than read r.ledger, because the daemon's
+// ledger does not exist at construction time -- see SchedulerRuntimeOptions.LedgerFn. It takes mu
+// only to read the two fields and releases it before the supplier runs, so a supplier that reaches
+// back into the daemon cannot deadlock against a task body already holding mu.
+func (r *schedRuntime) currentLedger() negknow.Ledger {
+	r.mu.Lock()
+	fn, static := r.ledgerFn, r.ledger
+	r.mu.Unlock()
+	if fn != nil {
+		if l := fn(); l != nil {
+			return l
+		}
+	}
+	return static
 }
 
 // ── Session binding and the window ladder ────────────────────────────────────────────────────
