@@ -230,14 +230,12 @@ func installMCPTools(opts *daemon.Options, root string, cfg config.Config,
 		log.Loud("mcp: expansion promotion counting disabled", "err", promErr.Error())
 	}
 
-	// opts.Ledger is nil HERE on the daemon path and the tools capture the value, not the field:
-	// WireRehydrator opens the negative-knowledge ledger lazily on the first compaction and only
-	// then assigns it back onto Options (see RehydrateOptions.OpenLedger for why an eager open is
-	// not an option), so `already_tried` and `record_eliminated` answer available:false in the
-	// shipped daemon. Sharing that single lazily-opened handle with the MCP tools, SP-12's
-	// maintenance work and SP-10's SourceSet is the shared-ledger contract SP-19 M0-02 owns; it is
-	// deliberately not improvised here.
-	deps := NewToolDeps(root, cfg, opts.Store, opts.Ledger, ckptReader, dropReporter, prom, syms, log, reg, clk)
+	// opts.Ledger is nil HERE on the daemon path: WireRehydrator opens the negative-knowledge
+	// ledger lazily on the first compaction and only then assigns it back onto Options (see
+	// RehydrateOptions.OpenLedger for why an eager open is not an option). liveLedger hands the
+	// tools an accessor onto that FIELD, so the single lazily-opened handle reaches them the
+	// moment it exists; passing opts.Ledger here would freeze the nil for the life of the process.
+	deps := NewToolDeps(root, cfg, opts.Store, liveLedger(opts), ckptReader, dropReporter, prom, syms, log, reg, clk)
 	if err := daemon.InstallMCPOp(opts, deps); err != nil {
 		log.Loud("mcp: retrieval tools unavailable; the daemon is running without them", "err", err.Error())
 	}

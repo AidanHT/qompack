@@ -208,11 +208,15 @@ func TestAlreadyTriedStaleReturnsNote(t *testing.T) {
 	require.Equal(t, elimReason, res.Reason, "a stale record still says why it was eliminated")
 }
 
-// TestAlreadyTriedStaleDropReturnsAbsent pins BOTH layers of the deliberate belt-and-braces
+// TestAlreadyTriedStaleDropReturnsUncertain pins BOTH layers of the deliberate belt-and-braces
 // handlers.go documents. The ledger applies eliminations.staleResponse itself, and renderAnswer
 // applies it again; a test that only drove the real ledger would leave the second layer unexercised
 // and a future ledger change could turn a stale record into an `active` answer unnoticed.
-func TestAlreadyTriedStaleDropReturnsAbsent(t *testing.T) {
+//
+// "drop" suppresses the staleness DETAIL, not the fact that an elimination is on record, so neither
+// layer may answer `absent`: both know an elimination exists. Each reports `uncertain` with a
+// reason and a recovery direction, and discloses nothing else about the record.
+func TestAlreadyTriedStaleDropReturnsUncertain(t *testing.T) {
 	f := newFixture(t, withConfig(func(c *config.Config) {
 		c.Eliminations.StaleResponse = "drop"
 	}))
@@ -222,9 +226,15 @@ func TestAlreadyTriedStaleDropReturnsAbsent(t *testing.T) {
 
 	args := map[string]any{"target": elimTarget, "approach": elimApproach}
 
+	ans, err := f.Ledger.Query(t.Context(), elimTarget, elimApproach, negknow.ScopeSession)
+	require.NoError(t, err, "Ledger.Query")
+	require.Equal(t, negknow.AnswerUncertain, ans.State, "the ledger layer must not assert absence")
+
 	var viaLedger AlreadyTriedResult
 	f.callOK(t, ToolAlreadyTried, args, &viaLedger)
-	require.Equal(t, stateAbsent, viaLedger.State, "the ledger layer must drop a stale record")
+	require.Equal(t, stateUncertain, viaLedger.State, "the ledger layer must drop a stale record")
+	require.Equal(t, ans.Coverage.Reason, viaLedger.Reason, "the ledger's own omission reason must carry through")
+	require.Equal(t, ans.Coverage.Recovery, viaLedger.Note, "the recovery direction must carry through")
 
 	// The second layer: a Ledger that reported AnswerStale anyway must still be dropped here.
 	rec, err := f.Ledger.Get(t.Context(), id)
@@ -234,9 +244,14 @@ func TestAlreadyTriedStaleDropReturnsAbsent(t *testing.T) {
 
 	var viaHandler AlreadyTriedResult
 	f.callOK(t, ToolAlreadyTried, args, &viaHandler)
-	require.Equal(t, stateAbsent, viaHandler.State, "renderAnswer must drop a stale answer too")
-	require.Empty(t, viaHandler.Note, "a dropped answer explains nothing; it is simply absent")
-	require.Empty(t, viaHandler.Reason)
+	require.Equal(t, stateUncertain, viaHandler.State, "renderAnswer must drop a stale answer too")
+	require.Equal(t, staleDroppedReason, viaHandler.Reason)
+	require.Equal(t, staleDroppedRecovery, viaHandler.Note)
+	require.NotEqual(t, elimReason, viaHandler.Reason, "a dropped answer never discloses the record's reason")
+	require.Empty(t, viaHandler.Evidence, "a dropped answer discloses no evidence")
+	require.Empty(t, viaHandler.StaleBecause, "a dropped answer discloses no staleness detail")
+	require.Empty(t, viaHandler.RecordedAt, "a dropped answer discloses no timestamp")
+	require.Equal(t, staleDroppedReason, viaLedger.Reason, "both layers must agree, wording included")
 }
 
 // TestAlreadyTriedBloomOnlyReportedAsAbsent pins §13 invariant 3 at the tool boundary: the filter is
