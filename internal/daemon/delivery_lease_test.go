@@ -280,3 +280,35 @@ func testLeaseRecord(t *testing.T, delivery string, session core.SessionID, requ
 		ObservationID: id,
 	}
 }
+
+// TestDeliveryJournal_OneSyncAndOneSealPerLease pins the durability COUNT on the ingress path.
+//
+// Accept is the operation the p99 budget is measured against, and taking a lease adds two of its
+// three durability points: one journal fsync and one sealed position sidecar per assignment. Both
+// are required (see the audit on ingest.Accept) and neither may quietly become two — a redundant
+// sync on this path is a per-event cost paid by every delivery forever.
+func TestDeliveryJournal_OneSyncAndOneSealPerLease(t *testing.T) {
+	_, _, journal := newTestDeliveryJournal(t)
+	ctx := context.Background()
+
+	syncs := 0
+	journal.writer = leaseFaultWriter{file: journal.file, sync: func() error {
+		syncs++
+		return journal.file.Sync()
+	}}
+
+	const leases = 4
+	for i := 0; i < leases; i++ {
+		_, err := journal.lease(ctx, testDeliveryToken(rune('a'+i)), "session", testDeliveryRequest("x"))
+		require.NoError(t, err)
+		require.Equal(t, i+1, syncs, "one journal fsync per lease, no more and no fewer")
+
+		position, err := journal.loadPosition()
+		require.NoError(t, err)
+		require.Equal(t, i+1, position.Count, "one sealed position per lease")
+		require.Equal(t, journal.bytes, position.Bytes,
+			"the seal names the whole synced file, so a truncated journal is detectable")
+		require.Equal(t, journal.chain, position.Chain)
+	}
+	require.Equal(t, leases, syncs)
+}
