@@ -60,6 +60,15 @@ type deliveryJournal struct {
 	fault    error
 	closed   bool
 	chain    core.Hash
+
+	// The committed-frontier half. It is a second file under the same held Lock and the same
+	// mutex, never a second record kind in the lease file — see the acknowledge section below.
+	ackPath   string
+	ackFile   *os.File
+	ackWriter deliveryJournalWriter
+	ackBytes  int64
+	ackChain  core.Hash
+	acks      map[string]deliveryAck
 }
 
 type deliveryPosition struct {
@@ -131,6 +140,13 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		return nil, deliveryJournalError()
 	}
 	if err := j.savePosition(j.bytes, len(j.leases), j.chain); err != nil {
+		j.fault = deliveryJournalError()
+		_ = j.closeLocked()
+		return nil, err
+	}
+	// The acknowledgement journal is recovered under the same held lock and in the same open, so a
+	// caller can never see assignments without the frontier that decides which of them are done.
+	if err := j.openAckLocked(); err != nil {
 		j.fault = deliveryJournalError()
 		_ = j.closeLocked()
 		return nil, err
@@ -287,7 +303,13 @@ func (j *deliveryJournal) savePosition(size int64, count int, chain core.Hash) e
 }
 
 func (j *deliveryJournal) loadPosition() (deliveryPosition, error) {
-	p := filepath.Join(filepath.Dir(j.path), deliveryPositionFile)
+	return loadDeliveryPosition(filepath.Join(filepath.Dir(j.path), deliveryPositionFile), deliveryChainSeed)
+}
+
+// loadDeliveryPosition validates one sealed position sidecar. seed is the chain value an empty
+// journal must carry, which is what keeps the lease and acknowledgement files from ever being
+// recovered against each other's chain.
+func loadDeliveryPosition(p string, seed core.Hash) (deliveryPosition, error) {
 	info, err := os.Lstat(paths.Long(p))
 	if err != nil || !info.Mode().IsRegular() || info.Size() > deliveryLeaseMaxLine {
 		return deliveryPosition{}, deliveryJournalError()
@@ -310,7 +332,7 @@ func (j *deliveryJournal) loadPosition() (deliveryPosition, error) {
 		position.Bytes < 0 || position.Bytes > deliveryLeaseMaxBytes ||
 		position.Count < 0 || position.Count > deliveryLeaseMaxEntries ||
 		(position.Bytes == 0) != (position.Count == 0) || position.Chain.IsZero() ||
-		(position.Bytes == 0 && position.Chain != deliveryChainSeed) {
+		(position.Bytes == 0 && position.Chain != seed) {
 		return deliveryPosition{}, deliveryJournalError()
 	}
 	canonical, err := json.Marshal(position)
@@ -362,10 +384,273 @@ func (j *deliveryJournal) closeLocked() error {
 		j.fault = deliveryJournalError()
 		return j.fault
 	}
+	// The lease handle is closed first and the ack handle is dropped once closed, so a retry after
+	// a failed close never closes the same descriptor twice.
+	if w := j.ackWriter; w != nil {
+		j.ackWriter = nil
+		if err := w.Close(); err != nil {
+			j.fault = deliveryJournalError()
+			return j.fault
+		}
+	}
 	j.closed = true
 	return nil
 }
 
 func deliveryJournalError() error {
 	return fmt.Errorf("%w: delivery journal unavailable; preserve it for recovery", core.ErrDegraded)
+}
+
+// ---------------------------------------------------------------------------
+// Committed frontier (invariant 3, T20-M1-03)
+//
+// A lease is an ASSIGNMENT: it says a delivery has an identity and may be worked on. It says
+// nothing about whether the durable object and its reference were both written. The acknowledgement
+// journal is the third and last stage of publication order — durable object, verified reference,
+// then committed frontier — and it is a SEPARATE file on purpose:
+//
+//   - delivery-leases.jsonl is read structurally by store GC, which treats every line in it as an
+//     OPEN lease and therefore as a retention root. Writing acks into the same file would make a
+//     completed delivery look like an open one to a reader that cannot parse record kinds, and
+//     would break the journal's own load() invariants (one line per delivery, dense per-session
+//     arrival sequences, every line canonical).
+//   - Retention stays conservative in the safe direction: an acknowledged delivery is still named
+//     by its lease line, so GC keeps holding whatever that line referenced.
+//
+// The append-then-sync-then-position pattern is the lease journal's own, reused verbatim: bytes
+// reach the file and are synced, the position sidecar is sealed, and only then does the in-memory
+// set admit the record. An uncertain write poisons this handle and requires a reload, at which
+// point a complete surviving row is recovered and an incomplete one is refused.
+const (
+	deliveryAckFile         = "delivery-acks.jsonl"
+	deliveryAckPositionFile = "delivery-ack-position.json"
+	deliveryAckChainDomain  = "qompack.delivery.ack-chain.v1"
+)
+
+var deliveryAckChainSeed = core.HashBytes(deliveryAckChainDomain, nil)
+
+// deliveryAck records that one leased delivery reached committed publication. Root names the
+// durable object the publication rests on when the publisher reported one; a zero Root is an
+// acknowledgement with no object of its own (an op that publishes no content), never an unproven
+// claim about one.
+type deliveryAck struct {
+	Version       int                `json:"v"`
+	Delivery      string             `json:"delivery"`
+	ObservationID core.ObservationID `json:"observation_id"`
+	Root          core.Hash          `json:"root"`
+}
+
+// openAckLocked prepares the acknowledgement journal beside the lease journal. It is called from
+// openDeliveryJournal with the owner mutex held and follows the same create-both-or-neither rule: a
+// project that already has a lease journal but no ack journal (any store written before this stage
+// existed) gets one; a half-present pair is a recovery decision, not a repair this makes.
+func (j *deliveryJournal) openAckLocked() error {
+	j.ackPath = filepath.Join(filepath.Dir(j.path), deliveryAckFile)
+	positionPath := filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile)
+	j.ackChain, j.acks = deliveryAckChainSeed, map[string]deliveryAck{}
+	_, journalErr := os.Lstat(paths.Long(j.ackPath))
+	_, positionErr := os.Lstat(paths.Long(positionPath))
+	if os.IsNotExist(journalErr) && os.IsNotExist(positionErr) {
+		if err := paths.WriteAtomic(j.ackPath, nil, 0o600); err != nil {
+			return deliveryJournalError()
+		}
+		initial, _ := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Chain: deliveryAckChainSeed})
+		if err := paths.WriteAtomic(positionPath, initial, 0o600); err != nil {
+			return deliveryJournalError()
+		}
+	} else if journalErr != nil || positionErr != nil {
+		return deliveryJournalError()
+	}
+	info, err := j.loadAcks()
+	if err != nil {
+		return err
+	}
+	f, err := paths.OpenFile(j.ackPath, os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return deliveryJournalError()
+	}
+	j.ackFile, j.ackWriter = f, f
+	opened, err := f.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) || opened.Size() != j.ackBytes {
+		return deliveryJournalError()
+	}
+	if err := f.Sync(); err != nil {
+		return deliveryJournalError()
+	}
+	return j.saveAckPosition(j.ackBytes, len(j.acks), j.ackChain)
+}
+
+// acknowledge commits one leased delivery's publication. It is idempotent: a redelivery already
+// acknowledged returns without appending, which is what lets a drained line advance a spool offset
+// without republishing anything. It refuses to acknowledge a delivery this journal never leased, or
+// one whose identity disagrees with the lease — an acknowledgement that does not name a real
+// assignment is not a frontier, it is a guess.
+func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id core.ObservationID, root core.Hash) error {
+	if j == nil || j.owner == nil {
+		return deliveryJournalError()
+	}
+	j.owner.mu.Lock()
+	defer j.owner.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if j.closed || j.fault != nil || !j.owner.owned() {
+		return deliveryJournalError()
+	}
+	if !validDeliveryToken(delivery) || id == "" {
+		return core.ErrContract
+	}
+	lease, ok := j.leases[delivery]
+	if !ok || lease.ObservationID != id {
+		return core.ErrContract
+	}
+	if old, ok := j.acks[delivery]; ok {
+		if old.ObservationID != id {
+			return core.ErrAppendOnly
+		}
+		return nil
+	}
+	if err := j.checkAckFile(); err != nil {
+		j.fault = err
+		return err
+	}
+	if len(j.acks) >= deliveryLeaseMaxEntries {
+		return core.ErrBudget
+	}
+	ack := deliveryAck{Version: core.EvidenceVersion, Delivery: delivery, ObservationID: id, Root: root}
+	line, err := json.Marshal(ack)
+	if err != nil {
+		return core.ErrContract
+	}
+	line = append(line, '\n')
+	if len(line) > deliveryLeaseMaxLine || j.ackBytes+int64(len(line)) > deliveryLeaseMaxBytes {
+		return core.ErrBudget
+	}
+	n, err := j.ackWriter.Write(line)
+	if err != nil || n != len(line) {
+		j.fault = deliveryJournalError()
+		return j.fault
+	}
+	if err := j.ackWriter.Sync(); err != nil {
+		j.fault = deliveryJournalError()
+		return j.fault
+	}
+	chain := deliveryChain(j.ackChain, line)
+	if err := j.saveAckPosition(j.ackBytes+int64(len(line)), len(j.acks)+1, chain); err != nil {
+		j.fault = deliveryJournalError()
+		return j.fault
+	}
+	j.ackBytes += int64(len(line))
+	j.ackChain = chain
+	j.acks[delivery] = ack
+	return nil
+}
+
+// acknowledged reports whether delivery has a committed frontier record. A closed, faulted or
+// unowned journal answers false: "cannot currently tell" and "not published" both mean the caller
+// must not release the record that would let it retry.
+func (j *deliveryJournal) acknowledged(delivery string) bool {
+	if j == nil || j.owner == nil {
+		return false
+	}
+	j.owner.mu.Lock()
+	defer j.owner.mu.Unlock()
+	if j.closed || j.fault != nil || !j.owner.owned() {
+		return false
+	}
+	_, ok := j.acks[delivery]
+	return ok
+}
+
+func (j *deliveryJournal) loadAcks() (os.FileInfo, error) {
+	position, err := loadDeliveryPosition(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), deliveryAckChainSeed)
+	if err != nil {
+		return nil, err
+	}
+	info, err := os.Lstat(paths.Long(j.ackPath))
+	if err != nil || !info.Mode().IsRegular() || info.Size() > deliveryLeaseMaxBytes || info.Size() < position.Bytes {
+		return nil, deliveryJournalError()
+	}
+	f, err := os.Open(paths.Long(j.ackPath))
+	if err != nil {
+		return nil, deliveryJournalError()
+	}
+	defer func() { _ = f.Close() }()
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(info, opened) || opened.Size() != info.Size() {
+		return nil, deliveryJournalError()
+	}
+	r := bufio.NewReaderSize(io.LimitReader(f, deliveryLeaseMaxBytes+1), deliveryLeaseMaxLine)
+	sealed := position.Bytes == 0
+	for {
+		line, err := r.ReadSlice('\n')
+		if err == io.EOF && len(line) == 0 {
+			break
+		}
+		if err != nil || len(j.acks) >= deliveryLeaseMaxEntries {
+			return nil, deliveryJournalError()
+		}
+		j.ackBytes += int64(len(line))
+		if j.ackBytes > deliveryLeaseMaxBytes {
+			return nil, deliveryJournalError()
+		}
+		var ack deliveryAck
+		if json.Unmarshal(line, &ack) != nil || ack.Version != core.EvidenceVersion ||
+			!validDeliveryToken(ack.Delivery) || ack.ObservationID == "" {
+			return nil, deliveryJournalError()
+		}
+		canonical, err := json.Marshal(ack)
+		if err != nil || !bytes.Equal(append(canonical, '\n'), line) {
+			return nil, deliveryJournalError()
+		}
+		if _, exists := j.acks[ack.Delivery]; exists {
+			return nil, deliveryJournalError()
+		}
+		j.acks[ack.Delivery] = ack
+		j.ackChain = deliveryChain(j.ackChain, line)
+		if j.ackBytes == position.Bytes {
+			if len(j.acks) != position.Count || j.ackChain != position.Chain {
+				return nil, deliveryJournalError()
+			}
+			sealed = true
+		}
+	}
+	if j.ackBytes != info.Size() || !sealed {
+		return nil, deliveryJournalError()
+	}
+	// An acknowledgement whose lease did not survive is a frontier ahead of its own assignment.
+	for delivery, ack := range j.acks {
+		lease, ok := j.leases[delivery]
+		if !ok || lease.ObservationID != ack.ObservationID {
+			return nil, deliveryJournalError()
+		}
+	}
+	return info, nil
+}
+
+func (j *deliveryJournal) saveAckPosition(size int64, count int, chain core.Hash) error {
+	encoded, err := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Bytes: size, Count: count, Chain: chain})
+	if err != nil {
+		return deliveryJournalError()
+	}
+	if err := paths.WriteAtomic(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), encoded, 0o600); err != nil {
+		return deliveryJournalError()
+	}
+	return nil
+}
+
+func (j *deliveryJournal) checkAckFile() error {
+	position, err := loadDeliveryPosition(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), deliveryAckChainSeed)
+	if err != nil || position.Bytes != j.ackBytes || position.Count != len(j.acks) || position.Chain != j.ackChain {
+		return deliveryJournalError()
+	}
+	info, err := os.Lstat(paths.Long(j.ackPath))
+	if err != nil || !info.Mode().IsRegular() || info.Size() != j.ackBytes {
+		return deliveryJournalError()
+	}
+	opened, err := j.ackFile.Stat()
+	if err != nil || !os.SameFile(info, opened) || opened.Size() != j.ackBytes {
+		return deliveryJournalError()
+	}
+	return nil
 }
