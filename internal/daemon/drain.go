@@ -268,11 +268,31 @@ readLoop:
 			offset, fs.Offset = nextOffset, nextOffset
 			continue
 		case verdict.Failed:
-			// A failure is NOT terminal. Leave the line where it is so a later pass — with a
-			// readable policy, or a repaired configuration — can still admit it.
+			// A failure is terminal FOR THIS RECORD, and the offset advances past it.
+			//
+			// This branch used to leave the line where it was, on the reasoning that a later pass
+			// — with a readable policy, or a repaired configuration — could still admit it. That
+			// reasoning holds for a policy that failed to compile, but the decision is BAKED INTO
+			// the spooled bytes: no later pass can change this record's Capture, so no later pass
+			// can ever admit it. Leaving it in place wedged the file permanently — the same
+			// offset, the same verdict, the same abandonment on every startup and every idle tick
+			// — and every record BEHIND it was never delivered for the life of the project, while
+			// the records in front of it were re-dispatched on every pass.
+			//
+			// Losing one unadmittable record LOUDLY is correct; losing everything behind it
+			// silently is not. The gap is recorded, counted and announced, and the drain goes on.
+			if dr.cfg.Metrics != nil {
+				dr.cfg.Metrics.Counter(counterDrainUnadmitted).Add(1)
+			}
+			dr.cfg.Log.Loud("daemon: drain: capture not admitted; record skipped",
+				"path", path, "reason", verdict.Reason)
 			gaps.add(base, DrainGapUnadmitted, verdict.Reason)
-			readErr = fmt.Errorf("daemon: drain: capture not admitted")
-			break readLoop
+			offset, fs.Offset = nextOffset, nextOffset
+			continue
+		case verdict.Degraded:
+			// The policy decided and the decision is degraded. It is admitted exactly as the live
+			// path admits it: dispatchPending publishes the sidecar, and runIngested withholds
+			// only the Event it never had. Falling through is the whole point.
 		}
 		req = verdict.Request
 
@@ -323,6 +343,13 @@ readLoop:
 		return count, ctx.Err()
 	}
 	if readErr != nil {
+		// Persist the progress this pass DID make before surfacing the error. fs.Offset advances
+		// only past a record that was fully dispatched and acknowledged (or explicitly accounted
+		// for as a gap), so saving here can never release an undelivered record — while NOT
+		// saving re-dispatches every line ahead of the failure on the next pass, forever.
+		if serr := dr.saveState(st); serr != nil {
+			dr.cfg.Log.Warn("daemon: drain: failed to persist progress after a read error", "err", serr)
+		}
 		return count, readErr
 	}
 
@@ -575,6 +602,11 @@ func (dr *drainer) saveState(st drainState) error {
 // is the producer side of that fact, exposed so a caller can tell "nothing was recorded" from "we
 // cannot currently tell".
 
+// counterDrainUnadmitted counts spool records the drain skipped because privacy admission could
+// not decide them. It is declared here, beside the gap vocabulary it accompanies, because the two
+// are read together: the counter says how often, the gap says which file and why.
+const counterDrainUnadmitted = "drain_unadmitted"
+
 // DrainGapKind is the closed set of reasons a drain cannot account for part of the spool.
 type DrainGapKind string
 
@@ -583,7 +615,8 @@ const (
 	// unrecoverable and its delivery is unaccounted for.
 	DrainGapCorruptLine DrainGapKind = "corrupt_line"
 	// DrainGapUnadmitted is a line privacy admission could not decide. Nothing was persisted and
-	// the line remains, so a later pass may still admit it.
+	// nothing will be: the record carries its own capture, so no later pass sees anything
+	// different. The offset advances past it so the records behind it are still delivered.
 	DrainGapUnadmitted DrainGapKind = "unadmitted"
 	// DrainGapDenied is a line privacy policy refused. Nothing was persisted and nothing will be:
 	// this is a decision, not an outage, and it is reported so it is never read as coverage.
