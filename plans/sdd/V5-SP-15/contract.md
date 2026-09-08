@@ -141,6 +141,47 @@ asserts the heuristic's value against the exact one and records the ratio; it as
 **Guards.** `NewSelector`'s two existing guards are untouched and may not be removed: the
 `Pos < p` refusal runs first, then the `scheduler.PSelectionAvailable()` ship-order gate.
 
+### 3a. Amendments made during authoring (Main, recorded not silent)
+
+Four things the frozen contract got wrong or left open. Each was found by a role, decided by Main,
+and is binding from here.
+
+**A1 — `redundancy(S)` is evidence-root duplication.** §3 named the term but never defined it, and
+role D had to pick one. Confirmed as: the count of chosen representations that re-deliver a
+`Provenance.Root` another chosen representation already delivers, the zero hash never counting as
+a duplicate; at block level the same on `Block.Root`, plus one unit per `Superseded` block. It is
+chosen over a MinHash-similarity-weighted term because it is exact, deterministic, needs no
+threshold, and does not couple the selector to the near-duplicate detector — "transparent
+heuristics first". Similarity remains a candidate signal (§6) and never feeds the objective.
+
+**A2 — `QualUncertain` is the zero value.** The original order made `QualCurrent` zero, so a struct
+literal that omitted the field, a map index without comma-ok, or a decoder that skipped the key all
+silently minted an AUTHORITATIVE elimination. That is the false `already_tried` §12 rates High,
+arrived at by forgetting a field. Role C hit it as a live bug in a first draft of `block.go` and
+worked around it defensively; the type itself is now safe, and
+`TestQualification_TheZeroValueDoesNotBind` pins it. Fixtures encode qualifications by name, so the
+reordering cost nothing.
+
+**A3 — `RepArchiveOnly` never appears in `Candidate.Reps` or in `Proposal.Chosen`.** Roles C and D
+reached this independently and for different reasons: a zero-cost archive representation would make
+§3's overflow outcome unreachable (nothing could ever fail to fit), and listing one in `Chosen`
+would make `Tokens` describe content nobody will read. Archive-only is an OUTCOME recorded in
+`Proposal.Archive`, never a representation that competes on the objective.
+
+**A4 — coverage is bounded by the store's session enumeration, and this is a known limitation.**
+`store.Store` has no session-scoped tool-use enumeration: `Search` returns K ranked hits, `Hit`
+carries no session, and `ToolUsesByPath` needs a path. Role C therefore discovers paths and then
+completes per path, so supersession is exact *per covered path* and a path outside the discovery
+window is not covered. `DetectRedundancy` reports `core.ErrDegraded` alongside a valid result
+rather than presenting partial coverage as complete. This is the `arch/store-tooluses-by-session`
+pre-step the plan's Interface contract already names as a reconciliation dependency — it is
+recorded here as an accepted, reported limitation, NOT resolved by a new interface amendment.
+
+**A5 — `DetectRedundancyWithConfig` is additive.** §5.12 freezes `DetectRedundancy`'s three-argument
+shape, which has nowhere to receive `store.canonicalize.minhash.nearDupThreshold`. Rather than
+silently ignore a configured threshold, the frozen function delegates with `config.Defaults()` and
+says so, and callers that hold a real config use the four-argument form.
+
 ## 4. Grammar codec contract (B)
 
 ```go
