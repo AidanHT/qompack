@@ -103,9 +103,9 @@ D (filter coverage) and C (demand records) land as separate commits under this i
 ### Commit 5 — `feat(checkpoint): promote only future compatible representations`
 
 - [ ] Integrate through SP-11/SP-15 contracts after their handoff, verify M6-G16-C and preserve archives.
-- BLOCKED: SP-15 does not exist — no branch, worktree or commit — so there is no contract to
-  integrate through and no serialized budget to tune under. Not attempted; no checkpoint or
-  rehydration file was touched. M6-G16-C has no evidence
+- BLOCKED: SP-15 exists only as an unmerged, unreviewed branch off the same base, which is not the
+  handoff this edge names; integrating it would make this branch unmergeable on its own. Not
+  attempted; no checkpoint or rehydration file was touched. M6-G16-C has no evidence
   ([evidence §1](V5-SP-16-M6-evidence.md#commit-5-is-blocked-by-the-plans-own-edge)).
 
 ### Commit 6 — `fix(refinement): bound serialization and maintenance`

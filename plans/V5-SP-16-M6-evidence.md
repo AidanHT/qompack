@@ -20,7 +20,7 @@ sharing a file").
 | 3 | `fix(store): qualify per-segment filter coverage and generation` | landed |
 | 3 | `fix(store): record demand without letting frequency stand in for usefulness` | landed |
 | 4 | `feat(daemon): apply scope-aware reusable candidates` | landed |
-| 5 | `feat(checkpoint): promote only future compatible representations` | **not started — blocked** |
+| 5 | `feat(checkpoint): promote only future compatible representations` | **not started — blocked, see below** |
 | 6 | `fix(refinement): bound phase-7 serialization and maintenance` | landed |
 | 7 | `test(refinement): evaluate reuse and optional policies` | landed (this document plus the ablation) |
 
@@ -30,15 +30,27 @@ The subplan's subagent strategy says: "`internal/checkpoint` and the rehydration
 SP-15's owner until SP-15's handoff, and SP-16 must not edit them concurrently: only E, the slice
 that integrates through the SP-11/SP-15 contracts, waits on that edge."
 
-SP-15 does not exist. There is no `feat/sp15-*` branch, worktree or commit anywhere in the
-repository, and `internal/analyzer` is still SP-15's unwritten package in `plans/OWNERS.tsv`. Every
-other prerequisite the subplan names is merged into `develop`: SP-19 and SP-20 arrived through the
-V4 corrective integration (e194abf) rather than under their own subject lines, which is why a
-commit-message search for them finds nothing, and SP-10, SP-11, SP-12 and SP-13 are all present.
+SP-15 had not been started when commits 1 through 4 and 6 were written, and it has since appeared
+on `feat/sp15-analyzer-selection-and-grammar` — 17 commits off the same base, `develop@7c735ac`,
+**unpushed, unmerged and with its mandatory independent adversarial review still open**. It
+supplies `internal/rehydrate/selection.go`, which is the representation-selection contract commit 5
+would consume; it touches no file under `internal/checkpoint`.
 
-Commit 5 therefore has no contract to integrate through, and §3's "tune complete records under
-SP-11/SP-15 serialized budgets" has no serialized budget to tune under. It was not attempted, no
-checkpoint or rehydration file was touched, and **M6-G16-C has no evidence**.
+That is a branch, not a handoff. The subplan's edge is "SP-15's consumer handoff still precedes E's
+shared integration", and building commit 5 on an unmerged, unreviewed sibling branch would mean
+this branch could no longer be merged to `develop` on its own — it would carry SP-15's 17 commits
+with it, and the two branches already conflict on `testdata/golden/config/schema.json`, which both
+regenerated. Commit 5 therefore remains not attempted, pending an explicit decision to integrate
+the two branches.
+
+Every other prerequisite the subplan names is merged into `develop`: SP-19 and SP-20 arrived
+through the V4 corrective integration (e194abf) rather than under their own subject lines, which is
+why a commit-message search for them finds nothing, and SP-10, SP-11, SP-12 and SP-13 are all
+present.
+
+So commit 5 has no ACCEPTED contract to integrate through, and §3's "tune complete records under
+SP-11/SP-15 serialized budgets" has no accepted serialized budget to tune under. It was not
+attempted, no checkpoint or rehydration file was touched, and **M6-G16-C has no evidence**.
 
 Development of the rest proceeded concurrently on the ledger's own rule: "SP-15→SP-16→SP-14 govern
 integration order, not development order; under disjoint ownership their development runs
@@ -50,7 +62,7 @@ concurrently."
 |---|---|---|
 | M6-G16-A | **met** | scope observation and the applicability transcript, §3 below |
 | M6-G16-B | **met** | bounded attempts, reminders and demand telemetry, §4 below |
-| M6-G16-C | **blocked** | no SP-11/SP-15 handoff exists; nothing was measured and nothing is claimed |
+| M6-G16-C | **blocked** | SP-15 exists only as an unmerged, unreviewed branch, which is not the handoff the plan's edge names; nothing was measured and nothing is claimed |
 | M6-G16-D | **measured; disposition is DISABLED** | the ablation, §5 below |
 | M6-G16-E | **met** | filter coverage and maintenance recovery, §6 below |
 
@@ -262,7 +274,9 @@ pass. `runtime.phase7` is additive; an older binary drops it by `deepMerge`'s un
 
 - **M6-G16-C has no evidence.** No promotion path was built, no complete-record budget was tuned,
   and nothing is asserted about future Qompack delivery. `runtime.phase7.retrieval.demandPromotion`
-  exists as a gated-off switch and consumes nothing.
+  exists as a gated-off switch and consumes nothing. SP-15's branch appearing during this work does
+  not change that: the plan's edge is a handoff, and an unmerged branch with an open review is not
+  one.
 - **No token saving is claimed.** Nothing here was measured against a cost baseline, and correctness
   and recoverability were the only objectives.
 - **The M6-G16-D result is a simulation.** It is against a synthetic θ, not against Qompack's replay
