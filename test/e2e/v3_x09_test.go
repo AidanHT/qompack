@@ -260,20 +260,25 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// object (its report counts scanned, deleted and freed, nothing else): it is the daemon the
 	// flush's lazy spawn brings up, redelivering from the spool through the drain and the bound
 	// observer. The contract allows exactly one such redelivery — a delivery the previous daemon
-	// leased but never acknowledged (SP05-D1's recovery path, T20-M1-05). What this test observes
-	// on the current code is not that: every delivery is leased AND acknowledged and the WAL is
-	// fully drained before the flush, and the object comes from a client fallback copy of an
-	// ALREADY-ACKNOWLEDGED delivery. A hook whose one-byte transport ACK is lost after the daemon
-	// has leased and acknowledged its delivery appends the same request to spool/client-<pid>.ndjson
-	// (ipc.awaitACK -> spoolAndReturn); the flush-time daemon's startup Drain consults the
-	// acknowledged frontier only for a key its in-memory seenSet already holds
-	// (internal/daemon/drain.go, the Seen.begin branch), which is empty on a fresh daemon, so
-	// every such copy is dispatched again through fresh handlers with turn=0. captureSubagent
-	// (internal/observer/stop.go) then mints SubagentCaptureID(session, 0), an id no earlier
-	// record holds, so RecordToolUse's id-idempotence cannot suppress it: a fifth SubagentStop
-	// record and its capture object appear during the flush, with supersede marks appended
-	// against records newer than the replayed content. That is the republication the frontier
-	// forbids, and nothing here claims SP05-D1 fixed on the strength of it.
+	// leased but never acknowledged (SP05-D1's recovery path, T20-M1-05). Before V5-VERIFY's
+	// fix(daemon) this test observed something else: every delivery was leased AND acknowledged
+	// and the WAL fully drained before the flush, yet an object still appeared, from a client
+	// fallback copy of an ALREADY-ACKNOWLEDGED delivery. A hook whose one-byte transport ACK is
+	// lost after the daemon has leased and acknowledged its delivery appends the same request to
+	// spool/client-<pid>.ndjson (ipc.awaitACK -> spoolAndReturn); the flush-time daemon's startup
+	// Drain then consulted the acknowledged frontier only for a key its in-memory seenSet already
+	// held, which is empty on a fresh daemon, so every such copy was dispatched again through
+	// fresh handlers with turn=0: a fifth SubagentStop record under SubagentCaptureID(session, 0)
+	// and supersede marks against records newer than the replayed content. The drain now asks the
+	// frontier for every leased line before the seen set (internal/daemon/drain.go, pinned by
+	// TestDrainDoesNotRedeliverAnAcknowledgedClientCopy), so an acknowledged copy advances the
+	// offset without dispatch. What remains is the legitimate redelivery: a Stop whose observer
+	// append landed but whose acknowledgement the pre-flush shutdown cancelled is redelivered
+	// under its reused lease, and captureSubagent mints a fresh SubagentCaptureID from the
+	// restored turn (carried defect SP08-D2, evidence
+	// TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent). The SubagentStop count
+	// below is what catches it; it fails only when host load lets the shutdown cut a Stop
+	// mid-dispatch, and nothing here claims SP05-D1 fixed on the strength of any of this.
 	//
 	// So "GC must not add objects" is four claims, each proved on its own evidence. GC's
 	// deletions are exactly the objects that vanished (the log's deleted counter equals the
