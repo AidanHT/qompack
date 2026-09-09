@@ -1,0 +1,76 @@
+# V5-VERIFY inventory — SP-03 (sketch library)
+
+**Rows:** 13 (`I-03.1` … `I-03.13`), from `v5-rows-7f92af5.json` (historical assertions as written at plan HEAD `7f92af5`).
+**Tree:** `C:/Users/Quant/Documents/Programming/Projects/qompack-v5`, branch `verify/v5` @ `87c0c1d` (*chore(sp21): integrate deterministic admission control* — develop with wave 4 integrated).
+**Platform:** Windows 11, go1.26.6 windows/amd64. **Date:** 2026-09-08. Machine shared with other V5-VERIFY children (co-load).
+**Plans consulted:** `plans/V4-SP-20-capture-storage-and-state-remediation.md` (§M2-02, the T20-M2-02 traceability row, ownership/DoD sections), `plans/sdd/V4-VERIFY/reconciliation-map.md` (rows `V4-SP03-01`…`V4-SP03-06`, §S13 bench gate), `plans/CARRIED-DEFECTS.tsv` (no sketch entry), `plans/V2-SP-03-sketch-library.md` (Appendix A/C constants), `plans/V3-VERIFY-observer-and-negative-knowledge.md` §C2.
+
+**Disposition counts:** MAPPED 13 · MAPPED-CMD 0 · SUPERSEDED-BY-WAVE4 0 · RETIRED 0 · MISSING 0 · NEEDS-COORDINATOR 0.
+**Result counts:** PASS 11 · FAIL 0 · FAIL-BASELINE 0 · FAIL-COLOAD-SUSPECT 0 · SKIP 0 · NOT-RUN 2.
+
+**Reconciliation against the target** ("SP-20 T20-M2-02; exact positives, covered negatives, bounded capacity; Misra-Gries candidates verified before exactness claims"): `internal/sketch` was **not modified by wave 4** — the last commits touching it are the original SP-03 wave plus the V3 fixes (`git log -- internal/sketch/`: `0935def`, `fa38b9a`, `b2bfd7f`, `1069a23`, `5295b9d`, …), and `plans/V4-SP-20-…` is still a *future, unchecked* M1/M2 remediation plan whose owned seams are `internal/observer`, `internal/store` and `internal/negknow` — never `internal/sketch`. No row is therefore SUPERSEDED-BY-WAVE4. The four target clauses land inside the SP-03 rows as follows, each verified by reading the test body:
+
+- *exact positives* — `TestMG_UnderCapacityIsExact` (below k, `Top` is the true multiset and `MaxError() == 0`); `TestCMS_EstimateNeverUnderestimates`; `TestBloom_NoFalseNegatives`.
+- *covered negatives* — `TestMG_NoFalsePositives` (`Top` never names a key absent from the stream, and a reported count is never an over-count); `TestBloom_EmptyFilterTestsFalse`; `TestCMS_AbsentKeyEstimate`.
+- *bounded capacity* — `TestMG_DecrementPhase` and `TestMG_MergeSaturatesAtTheCeiling` (table never grows past k), `NewMisraGries` clamped to `MaxMGCounters`; `TestBloom_ResizeCapsAtMax` at `MaxBloomCapacity`; `TestCMS_Saturation`.
+- *candidates verified before exactness claims* — the primitive exposes `MaxError()` and every guarantee test brackets a reported count as `true − MaxError ≤ reported ≤ true`. The consumer-side obligation (a bloom positive re-checked against the records, the `AnswerUncertain` downgrade) lives in `internal/negknow/ledger.go` — see `// The bloom said yes and the records say no: a false positive, reported as one.` and the `AnswerUncertain`/`BloomOnly` block — and belongs to the negknow inventory, not to these rows.
+
+Artifacts are under `C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/00571f79-eff6-41ba-80f7-98a4f4f99619/scratchpad/inv/SP-03/` (abbreviated `…/inv/SP-03/` below). Every `-run` pattern was first confirmed with `go test -list <pattern> ./internal/sketch/` (`…/inv/SP-03/lists.txt`); none selected zero tests.
+
+## Rows
+
+| Row | Historical assertion (abbrev) | Disposition | Current evidence | Result | Artifact | Conf. | Note |
+|---|---|---|---|---|---|---|---|
+| I-03.1 | Versioned CRC frame header, sorted params, all rejection paths; `TestHeader_DetectsSingleBitFlip`, `TestHeader_RejectLyingBodyLen` (zero allocations before rejection) | MAPPED | `internal/sketch`: `TestHeader_*` (19 selected, incl. `DetectsSingleBitFlip`, `RejectLyingBodyLen`, `ParamsSortedDeterministically`, `RejectUnsortedParams`), `TestHash128_Stable`, `TestHash128_DomainSeparated` | PASS | `…/inv/SP-03/I-03.1.txt` | direct | 19/19 pass. `RejectLyingBodyLen` asserts `require.Zero(t, testing.AllocsPerRun(100, …))` — the zero-alloc clause is literally in the body. |
+| I-03.2 | Bloom sized per Appendix A: `mRaw == 95_851`, `mBits == 95_872`, `k == 7`, body 11 984 B | MAPPED | `internal/sketch`: `TestBloom_AppendixASizing`, `TestBloom_SizingTable` | PASS | `…/inv/SP-03/I-03.2.txt` | direct | Logged verbatim: `mRaw=95851 m=95872 k=7 words=1498 body=11984 bytes`. |
+| I-03.3 | Bloom: no false negatives, empirical FP ∈ [0.008, 0.013], fill ratio, `Saturated()` at est. FP ≥ 0.10 | MAPPED | `internal/sketch`: `TestBloom_NoFalseNegatives`, `TestBloom_FillRatioAtCapacity`, `TestBloom_EstimatedFPRateMatchesEmpirical`, `TestBloom_SaturatedThreshold` | PASS | `…/inv/SP-03/I-03.3.txt` | direct | Measured this run: empirical FP `0.009720` vs `EstimatedFPRate() = 0.009936`; fill `0.517471`; `FPWarnRate == 0.10` pinned, saturation at φ ≈ 0.72 after 17 488 inserts. |
+| I-03.4 | Resize + rebuild-from-iterator at a different capacity; grow 2× above 0.5 fill; capped at `MaxBloomCapacity` | MAPPED | `internal/sketch`: `TestBloom_ResizeFiresBeforeCapacity`, `TestBloom_ResizeCapsAtMax`, `TestBloom_RebuildFromIterator` | PASS | `…/inv/SP-03/I-03.4.txt` | direct | 3/3. `ResizeCapsAtMax` asserts the doubling is capped at `MaxBloomCapacity` rather than applied; `ResizeFiresBeforeCapacity` asserts `capacity*ResizeGrowthFactor` once the 0.5 threshold is crossed, before configured capacity is consumed. |
+| I-03.5 | Count-Min per Appendix A, never underestimates, merge/scale/heavy-hitters; `Dims() == (2719, 5)`, body 54 380; `ErrShapeMismatch` on mismatch and nil | MAPPED | `internal/sketch`: `TestCMS_*` (14: `AppendixASizing`, `SizingTable`, `EstimateNeverUnderestimates`, `ErrorBoundHolds`, `MergeFromIsAdditive`, `MergeFromShapeMismatch`, `ScaleDecays`, `HeavyHittersPairsWithMG`, `HeavyHittersNilAndZero`, …) | PASS | `…/inv/SP-03/I-03.5.txt` | direct | Logged: `width=2719 depth=5 cells=13595 body=54380 bytes frame=54474 bytes`. The row's own carve-out is unchanged and still stands: it exercises `NewCMS` only, never a decayed-and-merged table, and `RunCMSSuite`'s safety-only assertion would pass a max-estimator. That gap is SP-16's (`I-16.17`), not adjudicated here. |
+| I-03.6 | HLL sizing, error bounds, exact-union merge; 2048 registers, 2 102-byte frame, relative error ≤ 0.07 at every n | MAPPED | `internal/sketch`: `TestHLL_*` (11: `AppendixSizing`, `ErrorBounds`, `MergeIsExactUnion`, `AlphaTableMatchesFlajolet`, `RoundsUpToPowerOfTwo`, …) | PASS | `…/inv/SP-03/I-03.6.txt` | direct | Logged: `registers=2048 p=11 body=2048 bytes frame=2102 bytes stdErr=0.02298`; relative error 0.0310 / 0.0136 / 0.0080 / 0.0137 at n = 1e3…1e6 against `hllTolerance = 0.07`. |
+| I-03.7 | Misra-Gries: no false positives, frequent-item guarantee, deterministic order; 32 rebuilds byte-identical | MAPPED | `internal/sketch`: `TestMG_*` (15: `NoFalsePositives`, `FrequentItemGuarantee`, `TopOrdering`, `DeterministicUnderMapOrder`, `UnderCapacityIsExact`, `DecrementPhase`, `MergeSaturatesAtTheCeiling`, …) | PASS | `…/inv/SP-03/I-03.7.txt` | direct | Logged: `32 replays of the 5000-item stream marshalled to 362 identical bytes (MaxError=75)`. This is the row carrying the reconciliation target's Misra-Gries clauses. |
+| I-03.8 | MinHash: shift invariance, "one new failure" near-dup, subsampling; Jaccard ≥ 0.9; frozen constants | MAPPED | `internal/sketch`: `TestMinHash_*`, `TestSignature_*`, `TestSigSketch_*` (23 selected, incl. `OneNewFailure`, `ShiftInvariance`, `SubsamplingEngages`, `SubsamplingStillShiftInvariant`, `StableAcrossRuns`) | PASS | `…/inv/SP-03/I-03.8.txt` | direct | `mhNearDup = 0.9` is the asserted floor in `OneNewFailure` (`require.GreaterOrEqual(t, got, mhNearDup)` plus `IsNearDup`); `StableAcrossRuns` pins `mhFrozenMin0..3` against the frozen 1 KiB fixture. |
+| I-03.9 | Save/Load, the `tried.bloom` generational path, quarantine, the Loud contract; `ErrGenerational`; exactly one `.bak`; exactly one `Loud` on corruption | MAPPED | `internal/sketch`: `TestSave_*`, `TestLoad_*`, `TestLoadWithLog_*`, `TestReplaceGenerational_*`, `TestQuarantine*`, `TestAppendOnly_TriedBloomNeverTruncated` (24 selected) | PASS | `…/inv/SP-03/I-03.9.txt` | direct | `TestSave_RefusesTriedBloom` asserts `ErrGenerational` **and** `core.ErrAppendOnly`, and that the refused Save created no file; `ReplaceGenerational_KeepsOneGeneration` asserts the directory is exactly `{tried.bloom, tried.bloom.3.bak}`; `LoadWithLog_LoudOnCorrupt` asserts `require.Len(loud, 1)` carrying `path` and `err`. |
+| I-03.10 | Sketch properties at `-rapid.checks=1000` | MAPPED | `internal/sketch`: `TestProp_*` (12: Bloom/CMS/HLL/MG/MinHash/header properties, `MarshalIdempotent`, `UnmarshalNeverPanics`) | PASS | `…/inv/SP-03/I-03.10.txt` | direct | 12/12 at 1 000 rapid checks each; 3 s wall for the whole run. |
+| I-03.11 | Five fuzz targets, 60 s each; no crashers, every failure a package sentinel | MAPPED | `internal/sketch`: `FuzzBloomUnmarshalBinary`, `FuzzCMSUnmarshalBinary`, `FuzzHLLUnmarshalBinary`, `FuzzMisraGriesUnmarshalBinary`, `FuzzSignatureUnmarshalBinary` | NOT-RUN | `…/inv/SP-03/I-03.11-seeds.txt` | direct | Fuzz runs are outside this seat's allowance — deferred (§4, five commands). Supplementary and **not** a substitute: the committed **seed corpora** were executed as ordinary tests (`-run 'Fuzz…'`) and all five targets passed; that exercises the corpus on disk, not 60 s of fresh mutation. |
+| I-03.12 | Frozen on-disk format (five goldens), PASS **without** `-update`; v1 bytes decode with the shipped decoder | MAPPED | `internal/sketch`: `TestGolden_OnDiskStability`, `TestGolden_V1StillDecodes` | PASS | `…/inv/SP-03/I-03.12.txt` | direct | Run without `-update`. Five committed fixtures are tracked under `testdata/golden/contracts/sketch/` (`bloom-10000-0.01.v1.bin`, `cms-0.001-0.01.v1.bin`, `hll-2048.v1.bin`, `mg-64.v1.bin`, `minhash-128.v1.bin`, plus `MANIFEST.json`); `V1StillDecodes` additionally asserts decode→re-encode is byte-identical. `git status --porcelain` was empty at run time, so no fixture was regenerated. |
+| I-03.13 | Sketch benchmark budgets incl. the L0 contribution: `BenchmarkL0SketchUpdate` ≤ 5 µs/op with 0 allocations; `RebuildBloom` 5 000 keys ≤ 15 ms | MAPPED | `internal/sketch`: `BenchmarkL0SketchUpdate`, `BenchmarkBloom{Add,Test,Marshal,Unmarshal}`, `BenchmarkCMS{Add,Estimate,Marshal,Unmarshal}`, `BenchmarkHLL{Add,Cardinality}`, `BenchmarkMisraGriesAdd`, `BenchmarkMinHash{4KiB,100KiB}`, `BenchmarkRebuildBloom5000` (15, enumerated in `…/inv/SP-03/I-03.13-list.txt`); `TestL0SketchUpdate_ZeroAlloc` | NOT-RUN | `…/inv/SP-03/I-03.13-zeroalloc.txt`, `…/inv/SP-03/I-03.13-list.txt` | direct | **Split row.** The µs/op and ms budgets are wall-clock on a co-loaded machine, and 15 benchmarks × `-benchtime 2s` exceeds this seat's one-minute benchmark cap → deferred (§4). The allocation half **was** run and passes: `--- PASS: TestL0SketchUpdate_ZeroAlloc`. No timing number is claimed here. |
+
+## Old-to-new assertion map
+
+**Nothing retired, nothing superseded, no pattern corrected.** All twelve historical `-run` patterns were confirmed against `go test -list` on this tree before execution and every one selected a non-empty set (19 / 2 / 4 / 3 / 14 / 11 / 15 / 23 / 24 / 12 / 2 / 1 definitions respectively — `…/inv/SP-03/lists.txt`), so the "`-run X` prints ok when X matches nothing" trap does not apply to any SP-03 row.
+
+The V4 map's SP-03 mappings all still resolve on this tree, and were re-established here at `direct` confidence rather than reused as by-name pointers:
+
+| V4 map row | V4 mapping | Status on this tree |
+|---|---|---|
+| `V4-SP03-03` | `TestBloom_Rebuild*`, `BenchmarkRebuildBloom5000` | Still present; `TestBloom_RebuildFromIterator` / `RebuildEmptyIterator` run under I-03.4 (PASS), the benchmark deferred under I-03.13. |
+| `V4-SP03-04` | `TestSave_RefusesTriedBloom`, `TestReplaceGenerational_*`, `TestAppendOnly_TriedBloomNeverTruncated` | Still present; all run under I-03.9 (PASS). |
+| `V4-SP03-05` | `TestBloom_EstimatedFPRateMatchesEmpirical`, `TestBloom_SaturatedThreshold` | Still present; run under I-03.3 (PASS). |
+| `V4-SP03-06` | `BenchmarkL0SketchUpdate`, `TestL0SketchUpdate_ZeroAlloc` | Both present; the test passes, the benchmark is deferred (I-03.13). |
+| `V4-SP03-01` | _cmd_ `go test -race -count=2 ./internal/sketch/...` | Race runs are outside this seat's allowance; no SP-03 V5 row asks for it, so it is not deferred here — it belongs to whichever gate the coordinator schedules. |
+
+Two boundary notes, neither a retirement:
+
+- **I-03.5** keeps its historical carve-out verbatim (CMS row does not cover a decayed-and-merged table; `RunCMSSuite`'s safety-only assertion would pass a max-estimator). Owner remains SP-16 / `I-16.17`.
+- **I-03.13** is recorded as one row with two halves and only the allocation half was executed. Its `NOT-RUN` is a scheduling fact, not a regression signal.
+
+## Deferred to coordinator
+
+Run serially on a quiet machine from `C:/Users/Quant/Documents/Programming/Projects/qompack-v5`.
+
+| Row | Reason | Exact command |
+|---|---|---|
+| I-03.11 | Fuzz run (5 × 60 s) — outside this seat's allowance | `go test ./internal/sketch/ -run xxx -fuzz FuzzBloomUnmarshalBinary -fuzztime 60s` |
+| I-03.11 | as above | `go test ./internal/sketch/ -run xxx -fuzz FuzzCMSUnmarshalBinary -fuzztime 60s` |
+| I-03.11 | as above | `go test ./internal/sketch/ -run xxx -fuzz FuzzHLLUnmarshalBinary -fuzztime 60s` |
+| I-03.11 | as above | `go test ./internal/sketch/ -run xxx -fuzz FuzzMisraGriesUnmarshalBinary -fuzztime 60s` |
+| I-03.11 | as above | `go test ./internal/sketch/ -run xxx -fuzz FuzzSignatureUnmarshalBinary -fuzztime 60s` |
+| I-03.13 | Wall-clock benchmark budgets under co-load; 15 benchmarks × 2 s exceeds the one-minute cap | `go test ./internal/sketch/ -bench 'BenchmarkL0SketchUpdate|BenchmarkBloom|BenchmarkCMS|BenchmarkHLL|BenchmarkMisraGries|BenchmarkMinHash|BenchmarkRebuildBloom5000' -benchtime 2s -benchmem -run '^$'` — accept when `BenchmarkL0SketchUpdate` is ≤ 5 µs/op **and** 0 allocs/op, and `BenchmarkRebuildBloom5000` ≤ 15 ms/op |
+
+The V4 map's §S13 quiet-window bench sweep already includes `internal/sketch` for `V4-SP03-06`; if S13 is run, the I-03.13 command above is subsumed by it and need not be run twice.
+
+## Questions
+
+None blocking — all 13 rows are adjudicated and 11 of them executed to PASS on this tree.
+
+One observation for the coordinator, not a question about an SP-03 row: the reconciliation target names **SP-20 T20-M2-02**, whose owned packages are `internal/observer`, `internal/store` and `internal/negknow`. `internal/sketch` is the *producer* of the guarantees T20-M2-02 consumes, and it is untouched by wave 4. The consumer-side assertions that actually close T20-M2-02 — unknown-dependency coverage, stale filter generation/watermark, rebuild/query failure, and the uncertain/unavailable-versus-absence distinction (`AnswerUncertain`, `BloomOnly`, `StaleNote` in `internal/negknow/ledger.go` and `answer.go`) — must be scored by whichever child owns the negknow rows. If no V5 child owns them, T20-M2-02 has no inventory row anywhere on this tree, and that gap should be raised at integration rather than assumed covered by SP-03's green sketch suite.
