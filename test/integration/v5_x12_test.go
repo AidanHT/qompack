@@ -85,11 +85,6 @@ const (
 // percent of the gap, so the bound is checked across the whole regime it describes.
 const x12BlendHorizon = 10
 
-// x12FloatTolerance absorbs the last-ulp rounding between Blend's count-weighted mean and the
-// same expression evaluated in a different order here; it is many orders below any weight the
-// policy can produce.
-const x12FloatTolerance = 1e-9
-
 // x12WriteFile writes p with its parents, so a git layout is one line per file.
 func x12WriteFile(t *testing.T, p, content string) {
 	t.Helper()
@@ -187,6 +182,10 @@ func x12Open(t *testing.T) *x12Rig {
 	require.Equal(t, projectID, visible[0].ID)
 
 	base := t.TempDir()
+	// The no-repository case is a real directory with no .git in it or above it, not a missing
+	// path: ObserveScope must report "nothing observed" for a tree that exists.
+	noGit := filepath.Join(base, "no-git")
+	require.NoError(t, os.MkdirAll(noGit, 0o700))
 	return &x12Rig{
 		P:       p,
 		Origin:  origin,
@@ -199,7 +198,7 @@ func x12Open(t *testing.T) *x12Rig {
 		FreshTree: x12WorktreeOf(t, p.Root, filepath.Join(base, "wt-fresh"), "wt-fresh",
 			"feat/no-tip-yet", ""),
 		Unrelated: x12PlainCheckout(t, filepath.Join(base, "other-repo"), x12Branch, x12CommitMain),
-		NoGit:     filepath.Join(base, "no-git"),
+		NoGit:     noGit,
 	}
 }
 
@@ -515,9 +514,19 @@ func TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession(t *testing.T) {
 		require.False(t, rep.Enabled)
 		require.Equal(t, 1, rep.Considered)
 		require.Equal(t, 1, rep.Allowed, "the transcript still says what reuse would have offered")
+
+		// The third shipped switch this row's history named is `sketches.cms.warmStartFromProject`
+		// (internal/config/config.go CMSCfg, documented in docs/config-reference.md). It ships TRUE
+		// and is INERT: nothing outside internal/config reads it on this tree, and the CMS warm
+		// seed it describes has no producer. It is recorded from the real loaded config so the
+		// record of shipped switches is complete; its value is deliberately not asserted, because
+		// neither true nor false would say anything about behavior.
+		inert := r.P.Cfg.Sketches.CMS.WarmStartFromProject
 		t.Logf("V5 §4.12: scoped reuse and warm prior are DISABLED by default on this tree "+
-			"(scopedCandidates=%v warmPrior=%v); recorded as disabled, not as passed",
-			shipped.ScopedCandidates, shipped.WarmPrior)
+			"(scopedCandidates=%v warmPrior=%v); recorded as disabled, not as passed. "+
+			"sketches.cms.warmStartFromProject=%v ships as an INERT key (no consumer outside "+
+			"internal/config, no CMS warm seed producer); recorded, not asserted",
+			shipped.ScopedCandidates, shipped.WarmPrior, inert)
 	})
 
 	t.Run("warm start: the gate's verdict authorizes, real history is too thin, and no improvement is promised", func(t *testing.T) {
@@ -586,13 +595,23 @@ func TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession(t *testing.T) {
 		const prior, observed = 3.0, 1.0
 		require.Equal(t, prior, scheduler.Blend(prior, observed, 0, applied),
 			"with nothing observed the answer IS the labeled prior — a candidate, not a measurement")
+		// Blend's own weighting is deliberately NOT re-derived here: an equality against
+		// Weight/(Weight+n) of the gap would only echo warmprior.go's formula back at itself.
+		// The three properties below are what the bound means and hold independently of the
+		// exact weighting: the answer stays strictly between the two inputs, one observation of
+		// the present already outweighs the whole prior, and every further observation pulls the
+		// answer strictly closer to what the session measured.
+		last := math.Abs(scheduler.Blend(prior, observed, 0, applied) - observed)
 		for n := 1; n <= x12BlendHorizon; n++ {
 			blended := scheduler.Blend(prior, observed, n, applied)
-			bound := applied.Weight / (applied.Weight + float64(n)) * math.Abs(prior-observed)
-			require.InDelta(t, bound, math.Abs(blended-observed), x12FloatTolerance,
-				"at n=%d the prior moves the answer by exactly its weight's share of the gap", n)
-			require.Less(t, math.Abs(blended-observed), math.Abs(blended-prior),
+			gap := math.Abs(blended - observed)
+			require.Greater(t, blended, observed, "at n=%d the prior still has a voice", n)
+			require.Less(t, blended, prior, "at n=%d the present has already been heard", n)
+			require.Less(t, gap, math.Abs(blended-prior),
 				"at n=%d one observation of the present already outweighs the whole prior", n)
+			require.Less(t, gap, last,
+				"at n=%d another observation pulls the answer strictly closer to the present", n)
+			last = gap
 		}
 		require.Equal(t, observed, scheduler.Blend(prior, observed, 0, refused),
 			"a refused prior is exactly the unmodified system, even with nothing observed")
