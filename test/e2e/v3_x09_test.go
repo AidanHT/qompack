@@ -275,14 +275,16 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// against records newer than the replayed content. That is the republication the frontier
 	// forbids, and nothing here claims SP05-D1 fixed on the strength of it.
 	//
-	// So "GC must not add objects" is three claims, each proved on its own evidence. GC's
+	// So "GC must not add objects" is four claims, each proved on its own evidence. GC's
 	// deletions are exactly the objects that vanished (the log's deleted counter equals the
-	// directory diff). Every index record the flush writes belongs to a delivery that crossed the
-	// acknowledged frontier DURING the flush — the only deliveries a correct flush may publish —
-	// so a republication of an acknowledged delivery is red here even though the replay's own
-	// index line vouches for its object. And every object that appeared is named by a capture
-	// sidecar or an index line the flush wrote — a durable object with no reference is the
-	// dangling state publication order forbids.
+	// directory diff). Every index record the flush writes is matched, one to one, to a delivery
+	// that crossed the acknowledged frontier DURING the flush — the only deliveries a correct
+	// flush may publish — so a republication of an acknowledged delivery is red here even though
+	// the replay's own index line vouches for its object. Every supersede mark the flush appends
+	// is authored by a record the flush wrote and newer than the record it supersedes, whatever
+	// else crossed. And every object that appeared is named by a capture sidecar or an index line
+	// the flush wrote — a durable object with no reference is the dangling state publication
+	// order forbids.
 	require.Contains(t, gcLine, " truncated=false", "the GC pass must have finished inside its deadline")
 
 	e2eShutdownIfReachable(t, p.Root)
@@ -308,30 +310,54 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	require.Equal(t, vanished, x9GCCounter(t, gcLine, "deleted"),
 		"the objects that vanished across flush must be exactly the ones GC reports deleting: %s", gcLine)
 	// The flush publishes only what crossed the acknowledged frontier during the flush. Each new
-	// index/tool_use.jsonl record needs one content delivery (an observe.* op) that was
-	// unacknowledged before the flush and acknowledged by its end; the flush's own lifecycle
-	// delivery publishes no record. Zero such crossings means zero new lines of any kind: a
-	// supersede mark is a consequence of a record being written, so with nothing legitimately
-	// written there is nothing to supersede.
+	// index/tool_use.jsonl record is matched to ONE content delivery (an observe.* op) that was
+	// unacknowledged before the flush and acknowledged by its end - a tool record to the crossing
+	// whose capture sidecar LinkCaptureReference stamped with its tool_use_id, a SubagentStop or
+	// UserPromptSubmit record (derived ids; the payload carries no tool_use_id) to a crossing of
+	// its op in its session - and each crossing vouches for at most one record. A count would let
+	// one legitimate crossing that publishes nothing hide one phantom record; the crossing's own
+	// identity cannot. The flush's own lifecycle delivery crosses too and publishes no record.
 	crossed := x9ContentDeliveriesCrossed(t, p.Root, acksBefore)
 	newIndex := x9ParseToolUseLines(t, x9NewLines(t, p.Root, "index/tool_use.jsonl", logBytesBefore))
-	var newRecords, newMarks []string
+	unmatched := append([]x9Crossing(nil), crossed...)
+	newRecordIDs := map[string]bool{}
 	for _, ln := range newIndex {
 		if ln.Op == "supersede" {
-			newMarks = append(newMarks, ln.ID+" by "+ln.By)
 			continue
 		}
-		newRecords = append(newRecords, ln.ID+" ("+ln.Tool+" turn "+strconv.Itoa(ln.Turn)+")")
+		newRecordIDs[ln.ID] = true
+		i := x9MatchCrossing(unmatched, ln)
+		require.GreaterOrEqual(t, i, 0,
+			"the flush wrote index record %s (%s turn %d session %s) and no content delivery that crossed the "+
+				"acknowledged frontier during the flush accounts for it (unmatched crossings: %v; all: %v) - a "+
+				"record with no crossing is a republication of a delivery the frontier already holds "+
+				"(delivery_lease.go acknowledge: \"without republishing anything\")",
+			ln.ID, ln.Tool, ln.Turn, ln.S, unmatched, crossed)
+		unmatched = append(unmatched[:i], unmatched[i+1:]...)
 	}
-	require.LessOrEqual(t, len(newRecords), len(crossed),
-		"the flush wrote %d index record(s) %v but only %d content delivery(ies) crossed the acknowledged "+
-			"frontier during it %v - a record with no crossing is a republication of a delivery the "+
-			"frontier already holds (delivery_lease.go acknowledge: \"without republishing anything\")",
-		len(newRecords), newRecords, len(crossed), crossed)
-	if len(crossed) == 0 {
-		require.Empty(t, newMarks,
-			"no delivery crossed the acknowledged frontier during the flush, yet it appended supersede marks "+
-				"%v - a replayed read is superseding records newer than its content", newMarks)
+	// A supersede mark is the consequence of a record landing (observer/supersede.go marks every
+	// earlier read the NEW record makes redundant), so whatever crossed: its superseder is newer
+	// in the append-only index than the record it supersedes, and it is a record this flush
+	// wrote. A replayed read fails both - it supersedes records that landed after it, and its own
+	// id was in the index before the flush - and neither check depends on how many deliveries
+	// legitimately crossed.
+	ordinals := x9IndexOrdinals(t, p.Root)
+	for _, ln := range newIndex {
+		if ln.Op != "supersede" {
+			continue
+		}
+		older, hasOlder := ordinals[ln.ID]
+		newer, hasNewer := ordinals[ln.By]
+		require.True(t, hasOlder && hasNewer,
+			"supersede mark %s by %s names a record index/tool_use.jsonl does not hold", ln.ID, ln.By)
+		require.Greater(t, newer, older,
+			"supersede mark %s by %s: the superseder is the OLDER record (index ordinal %d, superseded record "+
+				"at %d) - a replayed read is superseding records newer than its content",
+			ln.ID, ln.By, newer, older)
+		require.True(t, newRecordIDs[ln.By],
+			"supersede mark %s by %s: the superseder is not a record this flush wrote (%v) - a mark with no "+
+				"new record behind it is a redelivered read re-running supersession",
+			ln.ID, ln.By, newRecordIDs)
 	}
 	// The row's four Stop events are the only SubagentStop captures this session ever took; a fifth
 	// is a redelivered Stop re-captured under a fresh SubagentCaptureID.
@@ -608,6 +634,7 @@ type x9ToolUseLine struct {
 	Op   string `json:"op"`
 	ID   string `json:"id"`
 	By   string `json:"by"`
+	S    string `json:"s"`
 	Tool string `json:"tool"`
 	Turn int    `json:"turn"`
 }
@@ -662,14 +689,29 @@ func x9AckedDeliveries(t *testing.T, root string) map[string]core.ObservationID 
 	return out
 }
 
+// x9Crossing is one content delivery that crossed the acknowledged frontier during the flush, as
+// the capture sidecar the daemon wrote before it could acknowledge anything describes it.
+type x9Crossing struct {
+	Delivery  string
+	Op        string
+	Arrival   uint64
+	Session   core.SessionID
+	ToolUseID core.ToolUseID
+}
+
+func (c x9Crossing) String() string {
+	return fmt.Sprintf("%s (op=%s arrival=%d session=%s tool_use_id=%s)",
+		c.Delivery, c.Op, c.Arrival, c.Session, c.ToolUseID)
+}
+
 // x9ContentDeliveriesCrossed lists the content deliveries (observe.* ops) that were absent from
 // the acknowledged frontier before the flush and present after it - the only deliveries a correct
 // flush may publish records for. Each is described by its capture sidecar, which the daemon wrote
 // before it could acknowledge anything (publication order's first stage). Lifecycle deliveries
 // (the flush itself, session-start) cross the frontier too but publish no index record.
-func x9ContentDeliveriesCrossed(t *testing.T, root string, acksBefore map[string]core.ObservationID) []string {
+func x9ContentDeliveriesCrossed(t *testing.T, root string, acksBefore map[string]core.ObservationID) []x9Crossing {
 	t.Helper()
-	var out []string
+	var out []x9Crossing
 	for delivery, id := range x9AckedDeliveries(t, root) {
 		if _, was := acksBefore[delivery]; was {
 			continue
@@ -679,7 +721,57 @@ func x9ContentDeliveriesCrossed(t *testing.T, root string, acksBefore map[string
 		if !strings.HasPrefix(sc.Op, "observe.") {
 			continue
 		}
-		out = append(out, fmt.Sprintf("%s (op=%s arrival=%d tool_use_id=%s)", delivery, sc.Op, sc.Arrival, sc.ToolUseID))
+		out = append(out, x9Crossing{
+			Delivery: delivery, Op: sc.Op, Arrival: sc.Arrival, Session: sc.Session, ToolUseID: sc.ToolUseID,
+		})
+	}
+	return out
+}
+
+// x9MatchCrossing returns the position in crossings of the delivery that published rec, or -1. A
+// tool record carries the payload's tool_use_id, which LinkCaptureReference (observer/tooluse.go
+// step 6a) stamped on its crossing's sidecar. SubagentStop and UserPromptSubmit records carry ids
+// derived from session and turn (observer/stop.go SubagentCaptureID, observer/prompt.go
+// VerbatimPromptID) because their payloads have no tool_use_id, so they match the crossing of
+// their op in their session.
+func x9MatchCrossing(crossings []x9Crossing, rec x9ToolUseLine) int {
+	for i, c := range crossings {
+		switch rec.Tool {
+		case "SubagentStop":
+			if c.Op == "observe.stop" && c.Session == core.SessionID(rec.S) {
+				return i
+			}
+		case "UserPromptSubmit":
+			if c.Op == "observe.prompt" && c.Session == core.SessionID(rec.S) {
+				return i
+			}
+		default:
+			if c.Op == "observe.tool" && c.ToolUseID == core.ToolUseID(rec.ID) {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// x9IndexOrdinals maps every content record id in index/tool_use.jsonl to the ordinal of the line
+// that wrote it, which in an append-only index is the record's age: a smaller ordinal landed
+// first. Supersede marks are mutation records and take no ordinal; a duplicate id keeps its first.
+func x9IndexOrdinals(t *testing.T, root string) map[string]int {
+	t.Helper()
+	out := map[string]int{}
+	for i, ln := range bytes.Split(x9ReadLog(t, root, "index/tool_use.jsonl"), []byte{'\n'}) {
+		if len(bytes.TrimSpace(ln)) == 0 {
+			continue
+		}
+		var rec x9ToolUseLine
+		require.NoError(t, json.Unmarshal(ln, &rec))
+		if rec.Op == "supersede" {
+			continue
+		}
+		if _, dup := out[rec.ID]; !dup {
+			out[rec.ID] = i
+		}
 	}
 	return out
 }
