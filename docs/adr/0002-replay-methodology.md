@@ -51,6 +51,16 @@ policy and the ceiling can never be graded on different questions.
 property of the **corpus**, not of the code: if it ever ties, the corpus shape is wrong and the
 corpus gets fixed, never the assertion.
 
+**What `stock` deliberately leaves out.** It models §2.3/§2.4/§2.5 as they stood when the baseline
+was cut; Qompack.md v1.5 has since demoted §2.4's Full Compact internals to historical motivation.
+One host stage is absent by decision, not omission: the invoked-skills re-injection (25K total,
+5K/skill in the retired step 7). The corpus raises no skill demand, `Blocks` mints no skill block,
+the harness's Qompack-side policy wires no skill indexer, and the number is no longer in the design
+document — so neither side of the comparison carries a skill term. Fraction-of-OPT therefore
+measures file, turn, tool-result, elimination and decision recall under an equal budget and says
+nothing about skill restoration on either side. SP02-D6 records the decision (`wontfix`,
+V5-VERIFY) and `TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations` pins it.
+
 ---
 
 ## Corpus tiers, and the word "real"
