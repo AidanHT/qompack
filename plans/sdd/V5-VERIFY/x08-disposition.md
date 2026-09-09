@@ -98,8 +98,10 @@ Both pass with the fix. `go test ./internal/checkpoint -count=1` passes in full 
 
 ## Unverified remainder
 
-- **Grammar fold into the checkpoint narrative** — no producer on this tree (`Compressed()` has no
-  caller outside `internal/grammar`). Recorded as absent, not verified.
+- **Grammar fold into the checkpoint narrative** — no producer on this tree. `Compressed()` has no
+  caller outside `internal/grammar` except the replay harness (`test/replay/policy_selection.go`,
+  a diagnostic counter, not a checkpoint producer); `internal/checkpoint` only nil-checks
+  `SourceSet.Grammar`. Recorded as absent, not verified.
 - **Promotion at a production call site** — `checkpoint.Promote` is a pure function nothing in the
   daemon calls (M6-G16-C partially met; the rehydration-budget half of SP-16 commit 5 is not
   written). The enabled arm here is the composition root's call as it would be made; the pairing
@@ -131,3 +133,11 @@ Results (Windows 11, go1.26.6, this machine under other agents' load):
 - Red proof on the pre-fix `finalize.go`: both the regression test and this row FAIL as described.
 - `gofmt -l ./test ./internal`: clean. `go vet ./test/e2e ./test/integration`: clean.
 - `go run ./tools/devtool lint --only=nomagic,sleepcheck,testdeps,importgraph,runpatterns`: PASS.
+
+Re-verified 2026-09-09 on the same branch by a second author pass, independently of the record
+above: `-list` selects exactly the one test; the focused row PASSED twice with `-count=1` (1.59 s
+and 1.68 s wall, all ten subtests); with `finalize.go` reverted to `87c0c1d` the row FAILED at
+"every observed tool use must have become a tier-3 pointer" (0 of 33 survived) and
+`TestFinalizeKeepsToolPointersWhoseRootTheStoreHolds` FAILED, then both passed again once the
+file was restored (`git status --porcelain` empty); `TestFinalizeDropsToolPointersTheStoreNoLongerHolds`
+stays green; gofmt, vet and the five fast lint sub-checks were clean.
