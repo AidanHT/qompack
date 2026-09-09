@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -302,6 +303,132 @@ func TestStatus_DaemonErrorIsReportedNotSwallowed(t *testing.T) {
 	require.Contains(t, rep.Primary.Reason, "mcp not built")
 	require.Contains(t, rep.Primary.Reason, "latency.json")
 	require.Nil(t, rep.Snapshot)
+}
+
+// TestStatus_PanickingDaemonSourceIsRecoveredIntoItsSection is V5-VERIFY I-14.6: status exits 0
+// in every case, and a source that panics is one of the cases. The daemon source is bound to real
+// transport and decoding code, so a panic there must become the daemon section's own reason —
+// carrying the panic value, so the defect is still visible — while the disk fallback proceeds
+// exactly as it would after an ordinary error, and the report still renders in full.
+func TestStatus_PanickingDaemonSourceIsRecoveredIntoItsSection(t *testing.T) {
+	t.Parallel()
+
+	persisted := collectedAt.Add(-30 * time.Second)
+	var rep commands.StatusReport
+	require.NotPanics(t, func() {
+		rep = commands.CollectStatus(context.Background(), commands.StatusSources{
+			Daemon: func(context.Context) (commands.DaemonStatus, time.Time, error) {
+				panic("assignment to entry in nil map")
+			},
+			Disk: func(context.Context) (obs.Snapshot, error) {
+				return obs.Snapshot{
+					TS:    core.UnixMilli(persisted.UnixMilli()),
+					Hists: map[string]obs.HistSnapshot{"checkpoint_finalize": {N: 2, P99: time.Second}},
+				}, nil
+			},
+		}, collectedAt)
+	}, "a panicking daemon source must not escape CollectStatus")
+
+	// The disk fallback answered, so the report is a disk report, and the daemon section says
+	// exactly why it is not a live one.
+	require.Equal(t, commands.SourceDisk, rep.Primary.Source)
+	require.Equal(t, commands.AvailabilityOK, rep.Primary.Status)
+	require.Nil(t, rep.Snapshot, "a daemon that panicked forwarded no payload")
+	require.Contains(t, rep.Primary.Reason, "daemon: panic recovered: assignment to entry in nil map",
+		"the panic value is the daemon section's reason, not an anonymous failure")
+	require.NotNil(t, rep.Primary.AgeMS)
+	require.Equal(t, int64(30_000), *rep.Primary.AgeMS)
+
+	// The other sections still render from the source that did answer.
+	byEvent := make(map[string]commands.HookRow, len(rep.Hooks))
+	for _, h := range rep.Hooks {
+		byEvent[h.Event] = h
+	}
+	require.Equal(t, commands.AvailabilityOK, byEvent["PreCompact"].Provenance.Status)
+	require.Equal(t, commands.SourceDisk, byEvent["PreCompact"].Provenance.Source)
+	require.Len(t, rep.Budgets, len(obs.Budgets()))
+
+	var out bytes.Buffer
+	require.NoError(t, commands.RenderStatus(&out, rep))
+	require.Contains(t, out.String(), "hooks — per-entry-point latency")
+	require.Contains(t, out.String(), "budgets — §2.4")
+	require.Contains(t, out.String(), "panic recovered")
+	_, err := json.Marshal(rep)
+	require.NoError(t, err)
+}
+
+// TestStatus_PanickingDiskSourceIsRecoveredIntoItsSection is the disk half of I-14.6: with the
+// daemon unreachable and the metrics reader panicking, the report is an honest error report — both
+// reasons present, the panic value among them, every row unavailable with a reason — and it still
+// renders. Nothing is invented for the section that broke.
+func TestStatus_PanickingDiskSourceIsRecoveredIntoItsSection(t *testing.T) {
+	t.Parallel()
+
+	var rep commands.StatusReport
+	require.NotPanics(t, func() {
+		rep = commands.CollectStatus(context.Background(), commands.StatusSources{
+			Daemon: func(context.Context) (commands.DaemonStatus, time.Time, error) {
+				return commands.DaemonStatus{}, time.Time{}, errors.New("dial: no daemon")
+			},
+			Disk: func(context.Context) (obs.Snapshot, error) {
+				panic(errors.New("index out of range [3] with length 3"))
+			},
+		}, collectedAt)
+	}, "a panicking disk source must not escape CollectStatus")
+
+	require.Equal(t, commands.SourceNone, rep.Primary.Source)
+	require.Equal(t, commands.AvailabilityError, rep.Primary.Status)
+	require.Nil(t, rep.Snapshot)
+	require.Nil(t, rep.Primary.AgeMS, "no observation was made, so no age is claimed")
+	require.Contains(t, rep.Primary.Reason, "daemon: dial: no daemon")
+	require.Contains(t, rep.Primary.Reason, "disk: panic recovered: index out of range [3] with length 3")
+
+	require.NotEmpty(t, rep.Hooks)
+	for _, h := range rep.Hooks {
+		require.Equal(t, commands.AvailabilityUnavailable, h.Provenance.Status, h.Event)
+		require.Nil(t, h.Latency, h.Event)
+		require.NotEmpty(t, h.Provenance.Reason, h.Event)
+		// PreCompact is the one hook with its own instrument, so it is the one whose emptiness
+		// is explained by the sources rather than by the absence of a per-hook histogram.
+		if h.Event == "PreCompact" {
+			require.Contains(t, h.Provenance.Reason, "disk: panic recovered", h.Event)
+		}
+	}
+	require.Len(t, rep.Budgets, len(obs.Budgets()))
+	for _, b := range rep.Budgets {
+		require.Equal(t, commands.AvailabilityUnavailable, b.Provenance.Status, b.ID)
+		require.Nil(t, b.Latency, b.ID)
+		require.NotEmpty(t, b.Provenance.Reason, b.ID)
+	}
+
+	var out bytes.Buffer
+	require.NoError(t, commands.RenderStatus(&out, rep))
+	require.Contains(t, out.String(), "hooks — per-entry-point latency")
+	require.Contains(t, out.String(), "budgets — §2.4")
+	require.Contains(t, out.String(), "panic recovered")
+}
+
+// TestStatus_BothSourcesPanickingIsStillAReport closes the isolation argument: a panic in the
+// daemon source does not skip the disk source, and a panic in both leaves a report with both
+// values in it rather than a crash.
+func TestStatus_BothSourcesPanickingIsStillAReport(t *testing.T) {
+	t.Parallel()
+
+	var rep commands.StatusReport
+	require.NotPanics(t, func() {
+		rep = commands.CollectStatus(context.Background(), commands.StatusSources{
+			Daemon: func(context.Context) (commands.DaemonStatus, time.Time, error) {
+				panic("daemon boom")
+			},
+			Disk: func(context.Context) (obs.Snapshot, error) {
+				panic("disk boom")
+			},
+		}, collectedAt)
+	})
+
+	require.Equal(t, commands.AvailabilityError, rep.Primary.Status)
+	require.Contains(t, rep.Primary.Reason, "daemon: panic recovered: daemon boom")
+	require.Contains(t, rep.Primary.Reason, "disk: panic recovered: disk boom")
 }
 
 // TestStatus_ReportIsDeterministic pins ordering, which a golden fixture and a diffed status page
