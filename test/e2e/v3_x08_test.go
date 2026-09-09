@@ -185,9 +185,11 @@ func TestV3_DegradedPassiveStillRecordsEverything(t *testing.T) {
 			obsToolPayload(t, p.Root, x8Session, fmt.Sprintf("toolu_x8_%02d", i),
 				fmt.Sprintf("src/x8_%02d.go", i), fmt.Sprintf("package x8_%02d\n", i)), env)
 	}
-	// The middle prompt is the one that WOULD trigger a thrash warning if grammar were real — at
-	// wave 2 grammar is a stub, and in degraded-passive nothing may answer anyway, so the only
-	// assertion is x8RunHook's own: no additionalContext is emitted for any of the three.
+	// The middle prompt is the one that WOULD trigger a thrash warning in full mode with loop
+	// warnings on — internal/grammar has been real since SP-15 but ships disabled behind
+	// runtime.selection.loopWarningsEnabled (default false) — and in degraded-passive nothing may
+	// answer anyway, so the only assertion is x8RunHook's own: no additionalContext is emitted for
+	// any of the three.
 	for _, prompt := range []string{
 		"start on the x8 feature",
 		"the test is red again after the same edit — try the exact same fix again",
