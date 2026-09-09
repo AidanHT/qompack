@@ -505,15 +505,17 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		pinLine := x5v5Line(x5v5PinTarget, x5v5PinApproach)
 		require.Contains(t, ac, mcpLine, "the MCP-recorded elimination must be rendered: %s", ac)
 		require.Contains(t, ac, pinLine, "the slash-command elimination must be rendered: %s", ac)
-		mcpAt := strings.Index(ac, mcpLine)
-		mcpRendered := ac[mcpAt:]
+		_, mcpAfter, mcpFound := strings.Cut(ac, mcpLine)
+		require.True(t, mcpFound, "the MCP-recorded elimination must be rendered: %s", ac)
+		mcpRendered := mcpLine + mcpAfter
 		if nl := strings.IndexByte(mcpRendered, '\n'); nl >= 0 {
 			mcpRendered = mcpRendered[:nl]
 		}
 		require.Contains(t, mcpRendered, x5v5StaleTag,
 			"the record whose dependency changed must carry §8.3's stale note, em dash included: %s", mcpRendered)
-		pinAt := strings.Index(ac, pinLine)
-		pinRendered := ac[pinAt:]
+		_, pinAfter, pinFound := strings.Cut(ac, pinLine)
+		require.True(t, pinFound, "the slash-command elimination must be rendered: %s", ac)
+		pinRendered := pinLine + pinAfter
 		if nl := strings.IndexByte(pinRendered, '\n'); nl >= 0 {
 			pinRendered = pinRendered[:nl]
 		}

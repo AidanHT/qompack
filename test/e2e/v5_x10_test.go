@@ -562,9 +562,9 @@ func x10v5DetectorArm(t *testing.T) {
 
 	// ── Phase 1: a genuine loop warns exactly at MinRepeats, confidently ─────────────────────────
 	turn++
-	w, ok := x10v5Repeat(det, x10v5Sig, turn, grammar.ProgressNone, false, cfg.MinRepeats-1)
+	_, ok := x10v5Repeat(det, x10v5Sig, turn, grammar.ProgressNone, false, cfg.MinRepeats-1)
 	require.False(t, ok, "fewer than MinRepeats identical states is a re-check, not a loop")
-	w, ok = x10v5Observe(det, x10v5Sig, turn, grammar.ProgressNone, false)
+	w, ok := x10v5Observe(det, x10v5Sig, turn, grammar.ProgressNone, false)
 	require.True(t, ok, "the MinRepeats-th identical, progress-free occurrence must warn")
 	require.Equal(t, cfg.MinRepeats, w.Repeats)
 	require.False(t, w.Uncertain, "full coverage and no progress is a confident finding")

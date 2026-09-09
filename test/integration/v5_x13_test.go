@@ -81,13 +81,14 @@ const (
 // The BOCD step series that makes the real detector declare a changepoint, transcribed from
 // internal/daemon/scheduler_runtime_test.go (rtStepSeries), itself a transcription of
 // internal/scheduler/bocd_test.go, which neither this package nor daemon can import.
+const x13SeriesSeed uint32 = 0x5EED_1234
+
 const (
-	x13SeriesSeed          uint32 = 0x5EED_1234
-	x13SeriesNoise                = 0.05
-	x13SeriesBaseMean             = 0.2
-	x13GapReferenceSeconds        = 600.0
-	x13StepShift                  = 0.6
-	x13SeriesLen                  = 200
+	x13SeriesNoise         = 0.05
+	x13SeriesBaseMean      = 0.2
+	x13GapReferenceSeconds = 600.0
+	x13StepShift           = 0.6
+	x13SeriesLen           = 200
 )
 
 // x13PosStride is the token position stride between consecutive turns in the DAG fixture; any
