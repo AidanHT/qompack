@@ -3,8 +3,13 @@
 - **Identifier (retained):** `TestV5_EliminationThroughEveryFourSurfaces`
 - **Current criterion (plan §4, row 4.5):** "SP-20/SP-13/SP-14 stale/uncertain/error state survives every
   surface and old-caller adapter."
-- **Disposition:** `authored` — the criterion is asserted with real producers; the historical
-  four-source guarantee is retired (see the map below) and one remainder is recorded unverified.
+- **Disposition:** `partial` — stale, uncertain and error state are asserted with real producers on
+  `already_tried`, `qompack pin --eliminated`, `qompack status --json` and the `Answer.MCPResult`
+  adapter, and stale/uncertain are asserted on the rehydrated digest; the ERROR state on the digest
+  surface is observed NOT to survive (a blind ledger renders the frozen copy `[active]`) and is routed
+  as a defect candidate rather than asserted either way — see "Unverified remainder". The historical
+  four-source guarantee is retired (see the map below). Until the digest owner rules, this row must
+  not be read as "error state survives every surface: passed".
 - **Level and file:** e2e, `test/e2e/v5_x05_test.go`. The seam crosses processes on every side: real
   spawned daemons, a real `qompack mcp` stdio child, real hook subcommands and real slash-command
   subcommands through the built binary. Nothing is stubbed; no in-process rig is used.
@@ -34,8 +39,12 @@ so no idle pass a test can trigger flips a record; a restart is what a real sess
 ## Subtests and what each asserts
 
 1. `active_through_both_write_surfaces` — two hook reads seed file versions for
-   `docker-compose.yml` and `package-lock.json`; a compact SessionStart opens the ledger;
-   `record_eliminated` (stdio child, scope project, both deps) acknowledges `status:active` with two
+   `docker-compose.yml` and `package-lock.json`; a compact SessionStart opens the ledger — driven by
+   `x5v5CompactUntilTagged` until its output carries the §8.5 injection tag with `seq=0`, so the open
+   is an asserted precondition (a spooled compaction would otherwise let the next write race the
+   drain's replay and reach a daemon with no ledger, whose non-error "not present in this build" body
+   is now printed in the failure message); `record_eliminated` (stdio child, scope project, both deps)
+   acknowledges `status:active` with two
    resolved dependencies and an `sha256:` evidence root; `already_tried` answers `active` with the exact
    stored reason and evidence for the exact phrasing AND for the synonym
    `"increasing the connection-pool timeouts"`; `qompack pin --eliminated --json` returns a schema-1
@@ -45,7 +54,10 @@ so no idle pass a test can trigger flips a record; a restart is what a real sess
 2. `stale_survives_every_read_surface` — a hook read captures the rewritten compose file; the next
    SessionStart is the compact one (after a PreCompact the host contract requires it — a `startup`
    here degrades the daemon to passive, which the first authoring run hit), it spawns the daemon, opens
-   the ledger, flips the record and injects the digest with `seq=1`; the digest renders the MCP record's
+   the ledger, flips the record and injects the digest with `seq=1` — when the spawning hook's own
+   output is empty (its dial spooled behind `hookConnectDeadlineFloor`, see Timing) the compaction is
+   re-driven under the same bounded helper until a digest crosses the hook boundary, and only that
+   digest is held to `seq=1`; the digest renders the MCP record's
    line with `[stale: <negknow.StaleNote>]` (em dash included) and the slash-command record's line
    `[active]` (within-run control: its dependency never changed); `already_tried` answers `stale`
    with the exact reason, `note == negknow.StaleNote`, `stale_because` naming `docker-compose.yml`, the
@@ -53,8 +65,9 @@ so no idle pass a test can trigger flips a record; a restart is what a real sess
    `active`; `qompack status --json` reports `primary.source=daemon` and counters
    `negknow.stale.flipped ≥ 1`, `negknow.query.stale ≥ 1`.
 3. `uncertain_under_stale_response_drop` — `.qompack/config.json` set to
-   `{"eliminations":{"staleResponse":"drop"}}`, daemon restarted; the digest omits the stale record's
-   line and keeps the active one; `already_tried` answers `uncertain` (never `absent`), with a reason and
+   `{"eliminations":{"staleResponse":"drop"}}`, daemon restarted; the compaction is driven to a tagged
+   `seq=1` digest, which omits the stale record's line and keeps the active one; `already_tried`
+   answers `uncertain` (never `absent`), with a reason and
    a recovery note, without disclosing the withheld record's reason or `stale_because`, `degraded:false`;
    the control record answers `active`; status counters show `negknow.query.uncertain ≥ 1`.
 4. `negative_control_blind_ledger_is_unavailable_not_absent` — see below.
@@ -70,12 +83,18 @@ so no idle pass a test can trigger flips a record; a restart is what a real sess
 Subtest 4 severs the producer through a real degraded mode: with the daemon down,
 `records/eliminations.jsonl` is moved aside and a DIRECTORY of the same name put in its place — the
 portable way to make `negknow.Open` go blind (the same mechanism `test/e2e/v4_x06_test.go` uses in
-process). The daemon is restarted and a compaction opens the blind ledger. Then:
+process). The daemon is restarted and a compaction — driven until it carries a tagged `seq=1`
+digest, so the open is known to have happened before anything reads — opens the blind ledger. That
+ordering is itself part of the control's honesty: a daemon with NO ledger answers `already_tried`
+with a non-error body that has no `state` at all, which would fail the `unavailable` assertion for
+the wrong reason. Then:
 
 - `already_tried` answers `unavailable`, `degraded:true`, with a reason and recovery note, empty
   `stale_because`, for BOTH records — asserted `≠ absent` and `≠ stale`;
-- `qompack pin --eliminated --json` exits `1` with `ok:false`, an error kind that is not `usage`, a data
-  member whose `is_error` is true, and no `"status":"active"` anywhere — no fabricated acknowledgement;
+- `qompack pin --eliminated --json` exits `1` with `ok:false`, an error kind that is not `usage`, a
+  NON-EMPTY data member (required — `commands.callTool` keeps a failed tool's content on purpose, so an
+  empty one would be the adapter dropping the tool's own error) whose `is_error` is true, and no
+  `"status":"active"` anywhere — no fabricated acknowledgement;
 - `qompack status --json` still exits 0 and carries `negknow.bloom.blind_mode ≥ 1`.
 
 Proof that the assertion is not vacuous: the same surfaces that answered `stale`/`active` in subtests
@@ -109,9 +128,15 @@ surface that rendered a blind ledger as `absent` — the retired three-way behav
   (`ErrNotFound`), so the frozen copy "stands alone" and the digest renders the MCP record with its
   seal-time status `[active]` while the real state on disk is stale and `already_tried` says
   `unavailable`. The row logs this (`blind-ledger digest carries the MCP record's line: true; the stale
-  tag: false`) rather than asserting either way: the behaviour is documented in `items.go` as a
-  deliberate degradation, but on this surface the error state does NOT survive — a reader of the digest
-  is not told the ledger could not be consulted. Recommend the coordinator route it to the digest owner.
+  tag: false`, observed on every run) rather than asserting either way: the behaviour is documented in
+  `items.go` as a deliberate degradation, but on this surface the error state does NOT survive — a
+  reader of the digest is not told the ledger could not be consulted, and sees `[active]` on a record
+  whose real state is stale and whose ledger state is unavailable.
+  **Coordinator action:** route the blind-ledger digest rendering (`[active]` on a record whose ledger
+  state is unavailable; `rehydrate.eliminationCandidates` falling back to the checkpoint's frozen copy
+  on `ErrNotFound`) to the SP-11/SP-13 digest owner as a defect candidate, and hold 4.5 at PARTIAL on
+  the digest surface until it is ruled. The other three read surfaces and the write adapter DO carry
+  the error state and are asserted.
 - **`AnswerUncertain` from failed dependency coverage** (`RefreshStaleness` → `ChangedSince` error):
   no runtime switch reaches it through a spawned daemon; covered at unit level in `internal/negknow`.
 - **Heuristic and user-statement sources** have no production producer (see the table); not assertable
@@ -119,9 +144,21 @@ surface that rendered a blind ledger as `absent` — the retired three-way behav
 - **Append-only assertion** (`testutil.Project.AssertAppendOnly`) is not applicable to this row: it
   seeds `checkpoints/0001.json` itself, and this row's PreCompact has already sealed `0001.json`. The
   v4 §4 rows do not carry it either.
-- Timing: the flip relies on `negknow.Open`'s 250 ms `openRefreshDeadline`; on a heavily co-loaded
-  runner an expired refresh would leave the record active until a cold idle window. If subtest 2 ever
-  fails on `stale` alone, treat it as a co-load suspect before anything else.
+- Timing — PRIMARY co-load suspect, the session-start dial budget: `internal/cli/hookclient.go`'s
+  `hookConnectDeadlineFloor` gives session-start 250 ms to dial. On a loaded host a daemon that has just
+  spawned (or is momentarily busy) may not have its accept re-posted inside that budget; the hook then
+  spools the request and returns an EMPTY output, and the daemon's drain replays the spooled compaction
+  with no reply to give. Both compaction-driven surfaces in this row (the ledger open in subtest 1, the
+  digest in subtest 2) sit behind that dial. The first version of this row tolerated an empty subtest-1
+  compaction and asserted subtest 2's spawning output directly; an independent reviewer's runs failed
+  exactly there (see the run record). Now every compaction is driven by `x5v5CompactUntilTagged` —
+  `assert.EventuallyWithT` over a `*testing.T`-free hook runner, bounded by
+  `mcpE2EIndexBound`/`mcpE2EIndexTick`, with the spooled attempts logged — so a spooled hook is
+  re-driven and named, and a daemon-side defect is what remains when the bound expires. If the row
+  ever fails inside that helper under load, it is a co-load suspect first.
+- Timing — secondary: the flip relies on `negknow.Open`'s 250 ms `openRefreshDeadline`; on a heavily
+  co-loaded runner an expired refresh would leave the record active until a cold idle window. If
+  subtest 2 ever fails on `stale` alone, treat it as a co-load suspect before anything else.
 
 ## Run command and result
 
@@ -131,9 +168,26 @@ cd <worktree> && go test ./test/e2e -run '^TestV5_EliminationThroughEveryFourSur
 
 Selection confirmed with `go test ./test/e2e -list 'TestV5_'` → `TestV5_EliminationThroughEveryFourSurfaces`.
 
-Two consecutive runs on `verify/v5` @ `87c0c1d` (Windows 11, Go 1.26.6): PASS 24.6 s and PASS 15.4 s,
-all five subtests passing both times. `gofmt -l ./test ./internal` clean; pinned `gofumpt -l` clean on
-the new file; `go vet ./test/e2e ./test/integration` clean; `devtool lint
---only=nomagic,sleepcheck,testdeps,importgraph,runpatterns` clean (recorded at commit time).
+**First version (commit `e1e474d`):** the author's two consecutive runs on `verify/v5` @ `87c0c1d`
+(Windows 11, Go 1.26.6) were PASS 24.6 s and PASS 15.4 s. An independent reviewer's runs did NOT hold:
+unloaded, sequential, 1 of 7 failed (run 2, 6.29 s, at the subtest-1 `record_eliminated` status
+assertion — the body was the non-error "elimination ledger not present in this build", the daemon's
+log showing the compaction's rehydration inside the drain window, i.e. a spooled session-start);
+under a 12-core busy loop 2 of 3 failed (one at `e2eWaitDaemonUp`'s bound, one at subtest 2's
+spawning compaction returning an empty context with `mode=full contract=null loud=`). Those runs are
+what identified `hookConnectDeadlineFloor` as the primary suspect above.
+
+**After the fixes (this commit):** two consecutive unloaded runs, PASS 27.4 s and PASS 16.3 s, all
+five subtests passing both times, no spooled attempt logged. One additional run under a 22-core
+self-terminating busy loop (the reviewer's load shape): PASS 85.7 s, in which subtest 2's spawning
+compact SessionStart came back EMPTY with the very diagnostic the reviewer saw
+(`mode=full contract=null loud=`) and the re-drive recovered a tagged `seq=1` digest on its first
+retry — the failure mode reproduced and was absorbed by the fix rather than by luck. `gofmt -l ./test
+./internal` clean; `go vet ./test/e2e ./test/integration` clean; `devtool lint
+--only=nomagic,sleepcheck,testdeps,importgraph,runpatterns` all five PASS.
 
 No production code was changed.
+
+Harness follow-up (pre-existing, not this row's): `mcpE2EStart` registers no `t.Cleanup`, so a
+mid-subtest `require` failure leaves the `qompack mcp` child holding the day log open and the temp
+directory undeletable on Windows; the reviewer hit it on the failed run. Worth a harness fix.
