@@ -219,7 +219,7 @@ func resolve(ctx context.Context, src StatusSources, now time.Time) (*DaemonStat
 	var reasons []string
 
 	if src.Daemon != nil {
-		snap, at, err := src.Daemon(ctx)
+		snap, at, err := callDaemon(ctx, src.Daemon)
 		if err == nil {
 			return &snap, snap.Latency, Provenance{
 				Source: SourceDaemon,
@@ -233,7 +233,7 @@ func resolve(ctx context.Context, src StatusSources, now time.Time) (*DaemonStat
 	}
 
 	if src.Disk != nil {
-		persisted, err := src.Disk(ctx)
+		persisted, err := callDisk(ctx, src.Disk)
 		if err == nil {
 			return nil, persisted.Hists, Provenance{
 				Source: SourceDisk,
@@ -255,6 +255,36 @@ func resolve(ctx context.Context, src StatusSources, now time.Time) (*DaemonStat
 		Source: SourceNone,
 		Status: AvailabilityUnavailable,
 		Reason: strings.Join(reasons, "; "),
+	}
+}
+
+// callDaemon invokes the daemon source behind a panic barrier.
+//
+// The sources are bound by internal/cli to real transport and decoding code, and a panic in one of
+// them must not become the status command's answer: status exits 0 in every case (statusBody), and
+// a panic that escaped here would reach runGuarded, which maps a non-hook panic to a failure exit.
+// So a panicking source is treated exactly like one that returned an error, with the panic value
+// as the error text, and the fallback order continues as if it had (V5-VERIFY I-14.6). This
+// package has no logging seam to report through; the reason lands in the report's provenance,
+// which is the one place a status reader looks.
+func callDaemon(ctx context.Context, f func(context.Context) (DaemonStatus, time.Time, error),
+) (snap DaemonStatus, at time.Time, err error) {
+	defer recoverSource(&err)
+	return f(ctx)
+}
+
+// callDisk invokes the disk source behind the same panic barrier as callDaemon.
+func callDisk(ctx context.Context, f func(context.Context) (obs.Snapshot, error),
+) (persisted obs.Snapshot, err error) {
+	defer recoverSource(&err)
+	return f(ctx)
+}
+
+// recoverSource converts a recovered panic into *err. It must be the deferred function itself,
+// not called from one, for recover to see the panic.
+func recoverSource(err *error) {
+	if r := recover(); r != nil {
+		*err = fmt.Errorf("panic recovered: %v", r)
 	}
 }
 
