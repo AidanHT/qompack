@@ -78,23 +78,52 @@ moved `offset, fs.Offset = nextOffset` to AFTER `dispatchPending` returns nil, a
 dead context — so a dying drain surfaces as `context.DeadlineExceeded` / `context.Canceled`,
 stops the pass with the offset still pointing AT the interrupted line, and never commits the
 seen-set. `a6faab0` then put the lease/acknowledge journal behind the same boundary. The
-poison-line consume rule the V2 note said had to be re-adjudicated was: a handler that refuses a
-line with a live context is ALSO no longer consumed (it is `DrainGapUnacknowledged`, redelivered
-on the next pass; `TestDrainRejectedResponseIsRetryableAfterRestart` pins it), and "consumed
-regardless" survives only for the terminal admission verdicts (`DrainGapDenied`,
-`DrainGapUnadmitted`), which retrying cannot change. The two are therefore distinguishable by
-error class, and the wedge the old rule guarded against is now addressed at admission rather than
-by dropping interrupted events.
+poison-line consume rule the V2 note said had to be re-adjudicated was, and SP-20 chose the
+other side of the trade: a handler that refuses a line with a LIVE context is ALSO no longer
+consumed (it is `DrainGapUnacknowledged`, redelivered on the next pass;
+`TestDrainRejectedResponseIsRetryableAfterRestart` pins it), and "consumed regardless" survives
+only for the terminal admission verdicts (`DrainGapDenied`, `DrainGapUnadmitted`), which retrying
+cannot change. A dying drain and a refusing handler are therefore distinguishable by error class
+— which is what this row asked for — but the V2 acceptance's "bounded by a per-line retry cap so
+poison lines still cannot wedge" was NOT delivered, and the residual should be stated plainly: a
+handler that persistently answers `OK:false` with a live context (`runIngested`'s "stop handling
+failed" shape) or panics (`dispatchPending`'s "handler panicked") makes `drainFile` break its
+read loop at that line with the offset unadvanced, on every pass, with no retry cap, so every
+record behind it is blocked until the handler stops refusing. That trades loss for a wedge. It is
+SP-20's merged, pinned choice, not an oversight: T20-M1-05 ("interrupted drain SP05-D1, bounded
+queue, retry") and `00-ARCHITECTURE.md` step 2 specify lease → handle → ack with redelivery of
+the same observation, and `plans/V4-report.md` BLOCKER 2 re-adjudicated the wedge only for the
+ADMISSION class (an unadmittable record is skipped as a loud gap because its verdict is baked into
+the spooled bytes and can never change) while leaving a refusing handler retryable, on the
+reasoning that its answer CAN change. No retry cap for the handler class exists in code or plan;
+if one is wanted it is new work, not part of this row's closure.
 
 The evidence test, `internal/daemon/drain_idle_budget_test.go`
 `TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending`, drives the exact
-scenario: `idleController.RunOnce` with the drain registered under `idleTaskDrain`, a 20 ms budget
-that expires while the handler is still binding the second line (the handler blocks on its
-context and answers `observation handling interrupted`, `runIngested`'s shape), then recovery in
-both forms — a same-process retry on the same drainer and seen-set, and a fresh drainer after
-restart. It asserts both ledgers (persisted offset equals the first line's length and `Done` is
-false; the seen-set does not hold the interrupted key) and that exactly the interrupted line is
-redelivered.
+scenario: `idleController.RunOnce` with the drain registered under `idleTaskDrain`, a budget that
+expires while the handler is still binding the second line (the handler blocks on its context and
+answers `observation handling interrupted`, `runIngested`'s shape), then recovery in both forms —
+a same-process retry on the same drainer and seen-set, and a fresh drainer after restart. It
+asserts both ledgers (persisted offset equals the first line's length and `Done` is false; the
+seen-set does not hold the interrupted key) and that exactly the interrupted line is redelivered.
+
+The budget's expiry is a program order, not a wall clock. `RunOnce` arms a REAL timer for its
+budget (`context.WithTimeout(ctx, remain)`; the fake clock only fixes `remain`), and the first
+cut of this test handed it 20 ms, which also had to cover the lease-journal open, the capture
+fsync and the first line's dispatch on a fresh `TempDir` before the second line was reached —
+review measured 16 of 40 co-loaded runs failing at "both lines were dispatched before the budget
+expired" (`scratchpad/rev-flake-probe.log`) against 40 of 40 passing alone. The test now runs
+`RunOnce` under a test-only parent context (`sp05d1BudgetContext`) whose `Done` the second line's
+handler closes from inside its binding with `Err() == context.DeadlineExceeded` — the error
+`RunOnce`'s own timer would have produced, inherited by the derived timeout context down to the
+per-line handler context — and hands `RunOnce` a one-hour budget so its real timer never fires.
+Re-proof: `go test ./internal/daemon -run TestCarriedDefect_SP05D1 -count=40 -race` passed 0/40
+failing (`scratchpad/sp05d1-coload-40.log`, 8.3 s) with the whole of it overlapped by a
+concurrent `go test ./internal/daemon -race -count=1` (50.9 s, started a second later,
+`scratchpad/sp05d1-coload-load-daemon.log`) on the same host. The reworked test is still RED on
+the pre-SP-20 tree at the same offset-ledger assertion, `expected: 46, actual: 92` in both
+subtests (`scratchpad/sp05d1-v3-before.log`), so the program-order expiry reproduces the defect
+exactly as the wall-clock one did.
 
 RED/GREEN proof, both on the same test file. Against the pre-SP-20 tree (`git archive f6a8691^`
 extracted to the session scratchpad): `go test ./internal/daemon -run TestCarriedDefect_SP05D1
