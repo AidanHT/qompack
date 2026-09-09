@@ -197,6 +197,23 @@ func x1v5ClientSpools(root string) []string {
 	return out
 }
 
+// x1v5LoudDiag renders the LOUD.log tail at FORMAT time, not at the call. require.Eventually
+// evaluates its message arguments before the wait begins, so a loudLines(t, root) passed there
+// would show the log as it was when the wait STARTED; fmt calls String when it builds the failure
+// message, which is the state that explains the timeout (the same trick as obsWaitDiag).
+type x1v5LoudDiag struct{ root string }
+
+func (d x1v5LoudDiag) String() string {
+	b, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(d.root).Logs, "LOUD.log")))
+	if os.IsNotExist(err) {
+		return "(no LOUD.log: nothing was Loud-logged)"
+	}
+	if err != nil {
+		return fmt.Sprintf("(LOUD.log unreadable: %v)", err)
+	}
+	return strings.TrimRight(string(b), "\n")
+}
+
 // x1v5SessionRows decodes the daemon's own session rows out of the raw JSON status forwards.
 func x1v5SessionRows(t *testing.T, raw []json.RawMessage) []daemon.SessionState {
 	t.Helper()
@@ -256,8 +273,8 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		x1v5AdminDrain(p.Root)
 		return len(obsToolUseLines(p.Root)) >= x1v5HotPathEvents && len(x1v5ClientSpools(p.Root)) == 0
 	}, obsProcessBound, obsProcessTick,
-		"index/tool_use.jsonl never reached %d lines with the spool drained: %s; LOUD: %v",
-		x1v5HotPathEvents, obsWaitDiag{p.Root}, loudLines(t, p.Root))
+		"index/tool_use.jsonl never reached %d lines with the spool drained: %s; LOUD: %s",
+		x1v5HotPathEvents, obsWaitDiag{p.Root}, x1v5LoudDiag{p.Root})
 
 	// ── Arm 1: status from the live daemon, bracketed by the authoritative payload ───────────────
 	before := e2eStatus(t, p.Root)
@@ -275,6 +292,11 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		// The forwarded payload is the daemon's, member for member, against the two reads that
 		// bracket it. Everything that can move between two reads only grows: a histogram is
 		// never edited by a drain, a replay or an idle tick, and a counter is never decremented.
+		// And a histogram is a pure function of its samples: when the sample count did not move
+		// between the direct read and the forwarded one — the normal case, since the wait above
+		// left nothing in flight and OpStatus is not itself a hot-path op — the two are the same
+		// state and every quantile must be equal. Count-only agreement would let a status that
+		// forwards the right N with the wrong quantiles pass this row (it did, once).
 		require.Equal(t, contract.ModeFull.String(), before.Mode, "this session never degraded")
 		require.Equal(t, before.Mode, rep.Snapshot.Mode)
 		require.Equal(t, before.Hot, rep.Snapshot.Hot)
@@ -282,7 +304,12 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		for name, hs := range before.Latency {
 			got, ok := rep.Snapshot.Latency[name]
 			require.True(t, ok, "histogram %q served directly must be forwarded by status", name)
-			require.GreaterOrEqual(t, got.N, hs.N, "histogram %q only grows", name)
+			if got.N == hs.N {
+				require.Equal(t, hs, got,
+					"histogram %q: same sample count, so status must forward the daemon's own quantiles", name)
+				continue
+			}
+			require.Greater(t, got.N, hs.N, "histogram %q only grows", name)
 			require.LessOrEqual(t, got.N, after.Latency[name].N, "histogram %q only grows", name)
 		}
 		for name := range rep.Snapshot.Latency {
@@ -301,7 +328,7 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		// three instruments recording a live delivery agree with each other to the sample: the B-A
 		// estimate, the observed lower bound it is derived from, and B-B's ingest.Accept.
 		hc := rep.Snapshot.Latency[hookControlled]
-		require.Positive(t, hc.N, "no hot-path delivery reached the daemon live; LOUD: %v", loudLines(t, p.Root))
+		require.Positive(t, hc.N, "no hot-path delivery reached the daemon live; LOUD: %s", x1v5LoudDiag{p.Root})
 		require.LessOrEqual(t, hc.N, int64(x1v5HotPathEvents), "more samples than deliveries")
 		require.Equal(t, hc.N, rep.Snapshot.Latency[x1v5HookControlledObserved].N,
 			"the estimate and its observed lower bound are recorded from the same deliveries")
@@ -339,6 +366,9 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		require.True(t, ba.Aggregate, "B-A mixes every delivering hook")
 		require.Equal(t, hookControlled, ba.Hist)
 		x1v5RequireLatencyEquals(t, "B-A", ba.Latency, hc)
+		if direct := before.Latency[hookControlled]; direct.N == hc.N {
+			x1v5RequireLatencyEquals(t, "B-A against the direct read", ba.Latency, direct)
+		}
 		require.Equal(t, commands.MeasureEstimated, ba.Latency.Measure)
 		observed := rep.Snapshot.Latency[x1v5HookControlledObserved]
 		require.GreaterOrEqual(t, ba.Latency.P50US, observed.P50.Microseconds(), "estimate ≥ observed lower bound (p50)")
@@ -360,6 +390,14 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		require.True(t, bb.Aggregate, "B-B is attributable to no single hook entry point")
 		require.Empty(t, bb.Covers)
 		x1v5RequireLatencyEquals(t, "B-B", bb.Latency, rep.Snapshot.Latency[l0Ingest])
+		if direct := before.Latency[l0Ingest]; direct.N == rep.Snapshot.Latency[l0Ingest].N {
+			x1v5RequireLatencyEquals(t, "B-B against the direct read", bb.Latency, direct)
+		}
+
+		// The figures the V5 report's §8.4 row cites (tool_uses=, p99=), from this run's artifact.
+		t.Logf("V5 4.1 live: index_tool_uses=%d hook_controlled.N=%d l0_ingest.N=%d "+
+			"B-A p99=%dus (estimated) B-B p99=%dus (observed)",
+			len(obsToolUseLines(p.Root)), hc.N, rep.Snapshot.Latency[l0Ingest].N, ba.Latency.P99US, bb.Latency.P99US)
 
 		// The measured lower bound is served in the snapshot but is nobody's budget row: SP-14
 		// keeps it beside B-A rather than presenting it as a second B-A.

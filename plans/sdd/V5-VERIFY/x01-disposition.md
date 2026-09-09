@@ -37,8 +37,14 @@ authoritative reads are taken. Then: `before := OpStatus`, `rep := qompack statu
 - `primary` = `{source: daemon, status: available, age_ms non-null and ≥ 0, reason empty}`;
   `snapshot` forwarded.
 - **Agreement with the authoritative payload:** `mode` (`"full"`), `hot`, `contract` equal to the direct
-  read; every histogram the daemon served is forwarded and its `N` lies in `[before, after]`; no
-  histogram is forwarded that the daemon never served; every counter lies in `[before, after]`.
+  read; every histogram the daemon served is forwarded, and when its `N` equals the direct read's
+  (the normal case: the drained wait leaves nothing in flight and `OpStatus` is not a hot-path op) the
+  whole `HistSnapshot` — `N`, p50, p95, p99, p999, max — must be **equal** to the direct read, since a
+  histogram is a pure function of its samples; only when `N` moved is the `[before, after]` band
+  accepted instead. No histogram is forwarded that the daemon never served; every counter lies in
+  `[before, after]`. The displayed B-A and B-B rows are then checked quantile-for-quantile against
+  `before.Latency` (the direct read) as well as against the forwarded snapshot, guarded by the same
+  `N` equality, so a status that forwards the right count with the wrong quantiles cannot pass.
 - **Live-delivery count:** `hook_controlled.N` ≥ 1 and ≤ 65, and equal to `hook_controlled_observed.N`
   and to `l0_ingest.N` (three instruments, one number); the session row for `sess-e2e-v5-x01` is live,
   its `Events` equals the daemon's own row and equals `hook_controlled.N` (registry vs. metrics); the
@@ -47,10 +53,15 @@ authoritative reads are taken. Then: `before := OpStatus`, `rep := qompack statu
   an available row has `N > 0` and no reason; an unavailable row has `latency == null` and a non-empty
   reason; every row's `source` and `age_ms` equal the primary's.
 - **B-A:** available, `measure: estimated`, `aggregate: true`, `covers` = the six non-PreCompact hooks in
-  hooks.json order, latency equal quantile-for-quantile to the forwarded `hook_controlled`, and every
+  hooks.json order, latency equal quantile-for-quantile to the forwarded `hook_controlled` **and** to
+  the directly read `hook_controlled` when their `N` agree, and every
   quantile ≥ the forwarded `hook_controlled_observed` (an estimate is never below the lower bound it was
   derived from).
-- **B-B:** available, `measure: observed`, `aggregate: true`, empty `covers`, equal to `l0_ingest`.
+- **B-B:** available, `measure: observed`, `aggregate: true`, empty `covers`, equal to the forwarded
+  `l0_ingest` and to the directly read one when their `N` agree.
+- **Report figures:** one `t.Logf` (`V5 4.1 live: index_tool_uses= hook_controlled.N= l0_ingest.N=
+  B-A p99= B-B p99=`) records the values the V5 report's §8.4 row (`tool_uses=`, `p99=`) cites, so the
+  row can be filled from a run artifact instead of a re-run.
 - `hook_controlled_observed` is forwarded in the snapshot but is nobody's budget row.
 - **Missing telemetry:** B-D unavailable regardless (uninstrumented by construction); any budget whose
   histogram the daemon served with `N > 0` is available; any it did not serve (or served empty) is
@@ -84,9 +95,36 @@ snapshot) and the persisted snapshot removed (nothing observed). Neither arm can
 invents a value: the qualification rule fails on any row that displays a latency without
 `status: available`, and arm 3 fails if any row is available at all.
 
-The live arm additionally proved itself non-vacuous during authoring by **finding a real defect**: on
-the first run, `primary.age_ms` was `-1` on a live answer (assertion `age_ms ≥ 0` failed). See the
-production fix below. No source sabotage was needed beyond that.
+The live arm proved itself non-vacuous during authoring by **finding a real defect**: on the first
+run, `primary.age_ms` was `-1` on a live answer (assertion `age_ms ≥ 0` failed). See the production
+fix below.
+
+**Third negative control — source sabotage of the live forwarding path (review finding, fixed).** The
+adversarial review showed the first version's live agreement was count-only: with
+`internal/cli/qompack_commands.go` `fetchDaemonStatus` mutated to add one microsecond to every
+forwarded histogram's p99, the whole test stayed green (`scratchpad/x01-review-sabotageD.txt`, PASS
+5.44 s), because the B-A/B-B rows were compared to status's *own* forwarded snapshot rather than to
+the direct read. After the fix the same one-line edit, applied after the `sessions` loop in
+`fetchDaemonStatus`:
+
+```go
+for k, hs := range snap.Latency {
+	hs.P99 += time.Microsecond
+	snap.Latency[k] = hs
+}
+```
+
+turns the live arm **RED** at `v5_x01_test.go:308`: `histogram "l0_ingest": same sample count, so status
+must forward the daemon's own quantiles` — expected `{N:65 … P99:106496000}`, actual `{N:65 …
+P99:106497000}` (`scratchpad/x01-fix2-sabotageD.txt`, exit 1; arms 2 and 3 still pass, as they must,
+since the disk path never goes through `fetchDaemonStatus`). The edit was reverted with
+`git checkout -- internal/cli/qompack_commands.go`; `git diff` on that file is empty and the branch
+carries no change to it beyond the age-clamp fix commit.
+
+**Diagnostic fix (review finding, minor).** `loudLines(t, root)` passed as a `require.Eventually`
+message argument was evaluated before the wait began, so a timeout showed the pre-wait LOUD tail.
+Replaced with `x1v5LoudDiag{root}`, a Stringer rendered only when the failure message is built (the
+same deferral `obsWaitDiag` uses), at both sites that print it.
 
 Note on the status command's lazy spawn: a `qompack status` that finds no daemon spawns one, the same
 seam `qompack mcp` uses. Arm 2 therefore leaves a fresh daemon coming up; the test waits for it and
@@ -117,7 +155,7 @@ unknown age, and adds `TestStatus_LiveAnswerStampedAfterNowIsNotNegativelyAged` 
 | `data.latency.hook_controlled.observe_tool` row with `n ≥ 60` and `p99 < 15ms` | **retired as unsafe, replaced:** SP-14 refuses a per-hook `observe_tool` row because `hook_controlled` mixes every delivering hook (six identical figures would be six claims nobody made) — the test asserts the PostToolUse hook row is *unavailable* with that reason and that B-A is `aggregate`, `estimated`, and equal to the daemon's own histogram. `n ≥ 60` → `1 ≤ N ≤ 65` equal across three instruments and the registry (a delivery that misses the hot-path ACK deadline spools, exits 0, and is never a histogram sample; this was observed on a co-loaded run). `p99 < 15ms` retired: §5 forbids a universal 15 ms as an acceptance fact; the test asserts the displayed quantiles equal the authoritative ones instead |
 | `data.mode.mode == "full"`, `data.mode.degraded == false` | **corrected:** `snapshot.mode == contract.ModeFull.String()` and equal to the direct read; no `degraded` boolean exists |
 | `data.unavailable` is empty | **corrected/inverted:** per-row provenance replaced the list; the test asserts exactly which rows are unavailable and why (B-D, every hook row, every unsampled budget) and that no unavailable row displays a value |
-| (none) | **added:** disk fallback and nothing-observed arms; qualification rule; estimate ≥ observed lower bound; `hook_controlled_observed` served but not a budget row; the status read registers no session |
+| (none) | **added:** disk fallback and nothing-observed arms; qualification rule; estimate ≥ observed lower bound; `hook_controlled_observed` served but not a budget row; the status read registers no session; full-quantile equality with the direct read when `N` is unchanged (review round 2) |
 
 ## Unverified remainder
 
@@ -145,7 +183,15 @@ Results on 2026-09-08 (this machine, other agents co-loaded):
   in setup on a co-loaded machine: 11–12 of 65 deliveries spooled and the daemon's own idle tick did
   not drain them within 60 s; the wait was rewritten to drive `admin.drain` per poll and to accept
   the live count the daemon actually took.
-- Final form, two consecutive runs: PASS (10.30 s) and PASS (8.02 s), all three subtests passing.
+- First form, two consecutive runs: PASS (10.30 s) and PASS (8.02 s), all three subtests passing.
+- Review round 2 (quantile agreement against the direct read, lazy LOUD diagnostic, report `t.Logf`):
+  - sabotage applied (`fetchDaemonStatus` p99 += 1µs): **FAIL**, `live` at `v5_x01_test.go:308`, arms 2
+    and 3 PASS (`x01-fix2-sabotageD.txt`, 6.43 s);
+  - sabotage reverted, two consecutive runs: PASS (7.59 s) and PASS (9.55 s), all three subtests. Logged
+    figures: run 1 `index_tool_uses=65 hook_controlled.N=65 l0_ingest.N=65 B-A p99=15360us B-B
+    p99=163840us`; run 2 `… B-A p99=16384us B-B p99=106496us` (co-loaded machine; the figures are
+    the daemon's own and are not asserted against a bound).
 - `gofmt -l ./test ./internal`: clean. `go vet ./test/e2e ./test/integration`: clean.
 - `go run ./tools/devtool lint --only=nomagic,sleepcheck,testdeps,importgraph,runpatterns`: all five PASS.
-- `go test -count=1 ./internal/commands` and `./internal/cli`: ok.
+- `go test -count=1 ./internal/commands` and `./internal/cli`: ok (first round; the CLI file is
+  unchanged since).
