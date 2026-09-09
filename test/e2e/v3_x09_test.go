@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -224,6 +225,8 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 		"fixture sanity: the six IngestMCP records must be on disk before flush")
 	objectsBefore := x9ListFiles(t, paths.Of(p.Root).Objects)
 	ephOnly := x9EphemeralOnlyObjects(t, p.Root)
+	capturesBefore := x9CaptureSidecars(t, p.Root)
+	acksBefore := x9AckedDeliveries(t, p.Root)
 
 	// ── flush: the real binary again (its lazy spawn brings the real daemon back up) ────────────
 
@@ -245,29 +248,107 @@ func TestV3_LiveSessionWriteSetAndAppendOnly(t *testing.T) {
 	// root is never in-window by the age clause (Qompack.md 8.2 - "retrieval spam is reclaimable")
 	// and survives only through the session clause, which the flush-time GC can miss for an event
 	// the daemon's startup WAL replay still has mid-pipeline - same-session ordering over the
-	// transport is best-effort (SP-08's parked R3, deferred to V4-VERIFY beside SP05-D1). So the
-	// assertion is the architecture's, not a blanket zero: nothing non-ephemeral is ever deleted.
+	// transport is best-effort (SP-08's parked R3). So the assertion is the architecture's, not a
+	// blanket zero: nothing non-ephemeral is ever deleted.
+	//
+	// The flush is also a PUBLISHER now, not only a collector. SP-20 (T20-M1-03/04/05) made every
+	// leased delivery durable in three stages — records/captures/<shard>/<observation>.json first,
+	// then the index reference, then the acknowledged frontier (state/delivery-acks.jsonl) — and
+	// an acknowledged delivery "advances a spool offset without republishing anything"
+	// (internal/daemon/delivery_lease.go, acknowledge). So an object CAN land under objects/
+	// during the flush, and the writer is never store.GC, which has no path that creates an
+	// object (its report counts scanned, deleted and freed, nothing else): it is the daemon the
+	// flush's lazy spawn brings up, redelivering from the spool through the drain and the bound
+	// observer. The contract allows exactly one such redelivery — a delivery the previous daemon
+	// leased but never acknowledged (SP05-D1's recovery path, T20-M1-05). What this test observes
+	// on the current code is not that: every delivery is leased AND acknowledged and the WAL is
+	// fully drained before the flush, and the object comes from a client fallback copy of an
+	// ALREADY-ACKNOWLEDGED delivery. A hook whose one-byte transport ACK is lost after the daemon
+	// has leased and acknowledged its delivery appends the same request to spool/client-<pid>.ndjson
+	// (ipc.awaitACK -> spoolAndReturn); the flush-time daemon's startup Drain consults the
+	// acknowledged frontier only for a key its in-memory seenSet already holds
+	// (internal/daemon/drain.go, the Seen.begin branch), which is empty on a fresh daemon, so
+	// every such copy is dispatched again through fresh handlers with turn=0. captureSubagent
+	// (internal/observer/stop.go) then mints SubagentCaptureID(session, 0), an id no earlier
+	// record holds, so RecordToolUse's id-idempotence cannot suppress it: a fifth SubagentStop
+	// record and its capture object appear during the flush, with supersede marks appended
+	// against records newer than the replayed content. That is the republication the frontier
+	// forbids, and nothing here claims SP05-D1 fixed on the strength of it.
+	//
+	// So "GC must not add objects" is three claims, each proved on its own evidence. GC's
+	// deletions are exactly the objects that vanished (the log's deleted counter equals the
+	// directory diff). Every index record the flush writes belongs to a delivery that crossed the
+	// acknowledged frontier DURING the flush — the only deliveries a correct flush may publish —
+	// so a republication of an acknowledged delivery is red here even though the replay's own
+	// index line vouches for its object. And every object that appeared is named by a capture
+	// sidecar or an index line the flush wrote — a durable object with no reference is the
+	// dangling state publication order forbids.
 	require.Contains(t, gcLine, " truncated=false", "the GC pass must have finished inside its deadline")
 
 	e2eShutdownIfReachable(t, p.Root)
 
-	// Independently of the log: no non-ephemeral object was added or removed. Any file GC did
-	// reclaim must be referenced ONLY by ephemeral roots (the 8.2 carve-out above).
+	// Independently of the log: no non-ephemeral object was removed. Any file GC did reclaim must
+	// be referenced ONLY by ephemeral roots (the 8.2 carve-out above).
 	afterObjects := x9ListFiles(t, paths.Of(p.Root).Objects)
 	afterSet := make(map[string]bool, len(afterObjects))
 	for _, f := range afterObjects {
 		afterSet[f] = true
 	}
 	beforeSet := make(map[string]bool, len(objectsBefore))
+	vanished := 0
 	for _, f := range objectsBefore {
 		beforeSet[f] = true
 		if !afterSet[f] {
+			vanished++
 			require.True(t, ephOnly[f],
 				"GC deleted %s, which is referenced by a non-ephemeral root - the retention window must cover it", f)
 		}
 	}
+	// GC owns every disappearance, and nothing else: the counter it logged is the diff.
+	require.Equal(t, vanished, x9GCCounter(t, gcLine, "deleted"),
+		"the objects that vanished across flush must be exactly the ones GC reports deleting: %s", gcLine)
+	// The flush publishes only what crossed the acknowledged frontier during the flush. Each new
+	// index/tool_use.jsonl record needs one content delivery (an observe.* op) that was
+	// unacknowledged before the flush and acknowledged by its end; the flush's own lifecycle
+	// delivery publishes no record. Zero such crossings means zero new lines of any kind: a
+	// supersede mark is a consequence of a record being written, so with nothing legitimately
+	// written there is nothing to supersede.
+	crossed := x9ContentDeliveriesCrossed(t, p.Root, acksBefore)
+	newIndex := x9ParseToolUseLines(t, x9NewLines(t, p.Root, "index/tool_use.jsonl", logBytesBefore))
+	var newRecords, newMarks []string
+	for _, ln := range newIndex {
+		if ln.Op == "supersede" {
+			newMarks = append(newMarks, ln.ID+" by "+ln.By)
+			continue
+		}
+		newRecords = append(newRecords, ln.ID+" ("+ln.Tool+" turn "+strconv.Itoa(ln.Turn)+")")
+	}
+	require.LessOrEqual(t, len(newRecords), len(crossed),
+		"the flush wrote %d index record(s) %v but only %d content delivery(ies) crossed the acknowledged "+
+			"frontier during it %v - a record with no crossing is a republication of a delivery the "+
+			"frontier already holds (delivery_lease.go acknowledge: \"without republishing anything\")",
+		len(newRecords), newRecords, len(crossed), crossed)
+	if len(crossed) == 0 {
+		require.Empty(t, newMarks,
+			"no delivery crossed the acknowledged frontier during the flush, yet it appended supersede marks "+
+				"%v - a replayed read is superseding records newer than its content", newMarks)
+	}
+	// The row's four Stop events are the only SubagentStop captures this session ever took; a fifth
+	// is a redelivered Stop re-captured under a fresh SubagentCaptureID.
+	require.Equal(t, x9StopEvents, x9CountTool(t, p.Root, "SubagentStop"),
+		"index/tool_use.jsonl must hold exactly one SubagentStop record per Stop event after the flush")
+	// GC owns no appearance: each object the flush added is reachable from a record the flush
+	// wrote. The witness is logged so the publication that produced it is on the record.
+	witnesses := x9FlushWitnesses(t, p.Root, logBytesBefore, capturesBefore)
 	for _, f := range afterObjects {
-		require.True(t, beforeSet[f], "GC must not add objects; %s appeared during flush", f)
+		if beforeSet[f] {
+			continue
+		}
+		require.Contains(t, witnesses, f,
+			"%s appeared during flush and no capture sidecar or index line the flush wrote names it "+
+				"- GC adds nothing (%s), so an unreferenced new object is an unpublished writer",
+			f, gcLine)
+		t.Logf("x9: %s appeared during flush; published by %s", f, witnesses[f])
 	}
 
 	// tried.bloom is still exactly the file RebuildBloom wrote: same mtime, same one backup.
@@ -386,44 +467,235 @@ func x9EphemeralOnlyObjects(t *testing.T, root string) map[string]bool {
 	raw, err := os.ReadFile(paths.Long(filepath.Join(root, ".qompack", "index", "roots.jsonl")))
 	require.NoError(t, err)
 
-	objPath := func(h string) string {
-		h = strings.TrimPrefix(h, "sha256:")
-		if len(h) < 4 {
-			return ""
-		}
-		return h[:2] + "/" + h[2:4] + "/" + h + ".zst" // slash form, matching x9ListFiles's ToSlash keys
-	}
 	ephFiles := map[string]bool{}
 	keepFiles := map[string]bool{}
 	for _, ln := range bytes.Split(raw, []byte{'\n'}) {
 		if len(bytes.TrimSpace(ln)) == 0 {
 			continue
 		}
-		var rec struct {
-			Root   string `json:"root"`
-			Eph    bool   `json:"eph"`
-			Chunks []struct {
-				H string `json:"h"`
-			} `json:"chunks"`
-		}
-		require.NoError(t, json.Unmarshal(ln, &rec))
+		rec := x9ParseRootLine(t, ln)
 		dst := keepFiles
 		if rec.Eph {
 			dst = ephFiles
 		}
-		if p := objPath(rec.Root); p != "" {
+		for _, p := range rec.objects() {
 			dst[p] = true
-		}
-		for _, c := range rec.Chunks {
-			if p := objPath(c.H); p != "" {
-				dst[p] = true
-			}
 		}
 	}
 	out := map[string]bool{}
 	for f := range ephFiles {
 		if !keepFiles[f] {
 			out[f] = true
+		}
+	}
+	return out
+}
+
+// x9RootLine is the slice of an index/roots.jsonl line these assertions read: the root, its
+// chunk set, and whether the record is ephemeral.
+type x9RootLine struct {
+	Op     string `json:"op"`
+	Root   string `json:"root"`
+	Eph    bool   `json:"eph"`
+	Chunks []struct {
+		H string `json:"h"`
+	} `json:"chunks"`
+}
+
+// objects lists every object file the line names, in x9ListFiles's slash form.
+func (r x9RootLine) objects() []string {
+	var out []string
+	if p := x9ObjectPath(r.Root); p != "" {
+		out = append(out, p)
+	}
+	for _, c := range r.Chunks {
+		if p := x9ObjectPath(c.H); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func x9ParseRootLine(t *testing.T, ln []byte) x9RootLine {
+	t.Helper()
+	var rec x9RootLine
+	require.NoError(t, json.Unmarshal(ln, &rec))
+	return rec
+}
+
+// x9ObjectPath maps a hash, with or without its "sha256:" prefix, to the object file it names under
+// objects/, in the slash form x9ListFiles keys by. An empty string means h names nothing.
+func x9ObjectPath(h string) string {
+	h = strings.TrimPrefix(h, "sha256:")
+	if len(h) < 4 {
+		return ""
+	}
+	return h[:2] + "/" + h[2:4] + "/" + h + ".zst"
+}
+
+// x9CaptureSidecars reads every SP-20 capture sidecar under records/captures/, keyed by its path
+// relative to .qompack, so a later read can tell a sidecar the flush wrote or rewrote
+// (store.WriteCaptureSidecar, then store.LinkCaptureReference) from one it left alone.
+func x9CaptureSidecars(t *testing.T, root string) map[string][]byte {
+	t.Helper()
+	out := map[string][]byte{}
+	dir := filepath.Join(paths.Of(root).Records, "captures")
+	for _, rel := range x9ListFiles(t, dir) {
+		b, err := os.ReadFile(paths.Long(filepath.Join(dir, filepath.FromSlash(rel))))
+		require.NoError(t, err)
+		out["records/captures/"+rel] = b
+	}
+	return out
+}
+
+// x9GCCounter reads one integer counter off the observer's "observer: gc" log line, which
+// internal/observer/session.go step 6 writes as key=value pairs.
+func x9GCCounter(t *testing.T, gcLine, key string) int {
+	t.Helper()
+	_, rest, found := strings.Cut(gcLine, " "+key+"=")
+	require.True(t, found, "the gc line carries no %s counter: %s", key, gcLine)
+	field, _, _ := strings.Cut(rest, " ")
+	n, err := strconv.Atoi(field)
+	require.NoError(t, err, "the gc line's %s counter is not an integer: %s", key, gcLine)
+	return n
+}
+
+// x9FlushWitnesses maps every object file that a record written DURING the flush names to a
+// description of that record. Three writers can publish an object across a flush, and each leaves
+// a durable trace this reads: a capture sidecar the drain wrote or the observer linked
+// (records/captures/, publication order's first two stages), a new index/roots.jsonl content
+// record, and a new index/tool_use.jsonl reference. "Written during the flush" is a new file, a
+// changed file, or bytes past the growth-only baseline taken before the flush.
+func x9FlushWitnesses(t *testing.T, root string, logsBefore map[string][]byte, capturesBefore map[string][]byte) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	for _, ln := range x9NewLines(t, root, "index/roots.jsonl", logsBefore) {
+		rec := x9ParseRootLine(t, ln)
+		for _, p := range rec.objects() {
+			out[p] = fmt.Sprintf("index/roots.jsonl line (root=%s eph=%t)", rec.Root, rec.Eph)
+		}
+	}
+	for _, ln := range x9NewLines(t, root, "index/tool_use.jsonl", logsBefore) {
+		var rec struct {
+			ID   string `json:"id"`
+			Root string `json:"root"`
+		}
+		require.NoError(t, json.Unmarshal(ln, &rec))
+		if p := x9ObjectPath(rec.Root); p != "" {
+			out[p] = fmt.Sprintf("index/tool_use.jsonl line (id=%s root=%s)", rec.ID, rec.Root)
+		}
+	}
+	for rel, now := range x9CaptureSidecars(t, root) {
+		if was, ok := capturesBefore[rel]; ok && bytes.Equal(was, now) {
+			continue
+		}
+		var sc store.CaptureSidecar
+		require.NoError(t, json.Unmarshal(now, &sc), "%s is not a capture sidecar", rel)
+		if sc.Root.IsZero() {
+			continue // a lifecycle delivery (session-start, flush) captures no content root
+		}
+		if p := x9ObjectPath(sc.Root.String()); p != "" {
+			out[p] = fmt.Sprintf("capture sidecar %s (op=%s delivery=%s session=%s arrival=%d tool_use_id=%s published=%t)",
+				rel, sc.Op, sc.Delivery, sc.Session, sc.Arrival, sc.ToolUseID, sc.Published)
+		}
+	}
+	return out
+}
+
+// x9ToolUseLine is the slice of an index/tool_use.jsonl line these assertions read: a record's id,
+// tool and turn, or a supersede mark's id and superseder.
+type x9ToolUseLine struct {
+	Op   string `json:"op"`
+	ID   string `json:"id"`
+	By   string `json:"by"`
+	Tool string `json:"tool"`
+	Turn int    `json:"turn"`
+}
+
+func x9ParseToolUseLines(t *testing.T, lines [][]byte) []x9ToolUseLine {
+	t.Helper()
+	out := make([]x9ToolUseLine, 0, len(lines))
+	for _, ln := range lines {
+		var rec x9ToolUseLine
+		require.NoError(t, json.Unmarshal(ln, &rec))
+		out = append(out, rec)
+	}
+	return out
+}
+
+// x9CountTool counts the index/tool_use.jsonl records whose tool is name; supersede marks carry no
+// tool and are never counted.
+func x9CountTool(t *testing.T, root, name string) int {
+	t.Helper()
+	n := 0
+	for _, ln := range bytes.Split(x9ReadLog(t, root, "index/tool_use.jsonl"), []byte{'\n'}) {
+		if len(bytes.TrimSpace(ln)) == 0 {
+			continue
+		}
+		var rec x9ToolUseLine
+		require.NoError(t, json.Unmarshal(ln, &rec))
+		if rec.Tool == name {
+			n++
+		}
+	}
+	return n
+}
+
+// x9AckedDeliveries reads the acknowledged frontier, state/delivery-acks.jsonl (SP-20 publication
+// order's third stage, internal/daemon/delivery_lease.go), as delivery token -> observation id.
+func x9AckedDeliveries(t *testing.T, root string) map[string]core.ObservationID {
+	t.Helper()
+	out := map[string]core.ObservationID{}
+	raw, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).State, "delivery-acks.jsonl")))
+	require.NoError(t, err, "the acknowledged frontier must exist once the daemon has run")
+	for _, ln := range bytes.Split(raw, []byte{'\n'}) {
+		if len(bytes.TrimSpace(ln)) == 0 {
+			continue
+		}
+		var rec struct {
+			Delivery      string             `json:"delivery"`
+			ObservationID core.ObservationID `json:"observation_id"`
+		}
+		require.NoError(t, json.Unmarshal(ln, &rec))
+		out[rec.Delivery] = rec.ObservationID
+	}
+	return out
+}
+
+// x9ContentDeliveriesCrossed lists the content deliveries (observe.* ops) that were absent from
+// the acknowledged frontier before the flush and present after it - the only deliveries a correct
+// flush may publish records for. Each is described by its capture sidecar, which the daemon wrote
+// before it could acknowledge anything (publication order's first stage). Lifecycle deliveries
+// (the flush itself, session-start) cross the frontier too but publish no index record.
+func x9ContentDeliveriesCrossed(t *testing.T, root string, acksBefore map[string]core.ObservationID) []string {
+	t.Helper()
+	var out []string
+	for delivery, id := range x9AckedDeliveries(t, root) {
+		if _, was := acksBefore[delivery]; was {
+			continue
+		}
+		sc, err := store.ReadCaptureSidecar(root, id)
+		require.NoError(t, err, "delivery %s crossed the frontier during flush with no capture sidecar for %s", delivery, id)
+		if !strings.HasPrefix(sc.Op, "observe.") {
+			continue
+		}
+		out = append(out, fmt.Sprintf("%s (op=%s arrival=%d tool_use_id=%s)", delivery, sc.Op, sc.Arrival, sc.ToolUseID))
+	}
+	return out
+}
+
+// x9NewLines returns the non-empty lines of rel that lie past the growth-only baseline in
+// logsBefore. A log that shrank is reported here rather than sliced past its end; the growth-only
+// assertion later in the test says the same thing on its own terms.
+func x9NewLines(t *testing.T, root, rel string, logsBefore map[string][]byte) [][]byte {
+	t.Helper()
+	now := x9ReadLog(t, root, rel)
+	was := logsBefore[rel]
+	require.GreaterOrEqual(t, len(now), len(was), "%s shrank across flush", rel)
+	var out [][]byte
+	for _, ln := range bytes.Split(now[len(was):], []byte{'\n'}) {
+		if len(bytes.TrimSpace(ln)) != 0 {
+			out = append(out, ln)
 		}
 	}
 	return out
