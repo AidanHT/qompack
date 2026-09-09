@@ -124,10 +124,12 @@ model is a trap for the next reader of it.
 2. **The contract that forbids it.** Qompack.md v1.5 (`62f1487`) rewrote §2.4 to "Earlier
    MicroCompact/Session Memory/Full Compact descriptions are historical motivation. This plan
    depends on observed hook contracts and recoverable Qompack state, not undocumented tier
-   internals", deleted the step-7 list and the §2.7 "Invoked skill bodies" row, and §0.1 rules
-   "do not implement the old guarantees as new features". The 25K/5K figures now exist only in
-   history (`git show 7f92af5:Qompack.md`, lines 141–143 and 227) and in §1.3 RC-3's list of
-   *unvalidated* constants; v1.3's revision log had already ruled §2.4 unverified. A stock stage
+   internals", deleted the step-7 list and the §2.7 "Invoked skill bodies" row, and
+   `plans/00-ARCHITECTURE.md` §0.1 ("v1.5 migration amendment and precedence") rules "do not
+   implement the old guarantees as new features". The 25K/5K figures now exist only in history:
+   `git show 7f92af5:Qompack.md` line 88 (the pre-v1.5 §1.3 RC-3 list of *unvalidated* constants,
+   "25K skills"), lines 141–143 (step 7) and 227 (the §2.7 row); the current §1.3 carries no RC
+   list at all, and v1.3's revision log had already ruled §2.4 "unchanged and … not verified". A stock stage
    built on a retired, unverified number has no line left to cite, and it changes what `stock` —
    "the policy the Phase 0 baseline number describes" (`internal/eval/policy.go`), pinned by ADR
    0002 as "modelled per §2.3/§2.4/§2.5" — means for `testdata/baseline/phase0*.json`, which this
