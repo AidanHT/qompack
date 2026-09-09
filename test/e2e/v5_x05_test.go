@@ -103,9 +103,12 @@ const (
 	x5v5DirPerm    = 0o755
 )
 
-// x5v5StaleTag is the tag the digest renders on a stale record: "stale: " plus the one exported
-// copy of §8.3's re-verification sentence. Asserting the composed form pins the single-copy
-// contract StaleNote documents — SP-11's digest and SP-13's already_tried render THE SAME string.
+// x5v5StaleTag is the tag the digest renders on a stale record: "stale: " plus §8.3's
+// re-verification sentence. On this tree that sentence exists as TWO independent literals —
+// negknow.StaleNote (what already_tried renders) and internal/rehydrate/items.go's staleStatusTag
+// (what the digest renders); neither is derived from the other. Composing the tag from the negknow
+// copy and asserting it on the digest is what holds the two copies equal: a drift on either side
+// fails subtest 2 here.
 const x5v5StaleTag = "[stale: " + negknow.StaleNote + "]"
 
 // x5v5ActiveTag is the digest's tag on an active record (internal/rehydrate's activeStatusTag).
@@ -370,12 +373,15 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		x5v5Lock:      lockJSONV1,
 	})
 
-	// What the write phase hands the later phases: the MCP record's id and evidence, and the
-	// already_tried rendering of its stale state, which the adapter phase compares against.
+	// What the earlier phases hand the adapter phase: the MCP record's id and evidence, and the
+	// already_tried rendering of each of the three states — stale, uncertain, unavailable — that the
+	// four-tuple adapter is compared against, state by state.
 	var (
-		mcpRecord  x5v5Eliminated
-		pinRecord  x5v5Eliminated
-		staleOnMCP mcp.AlreadyTriedResult
+		mcpRecord        x5v5Eliminated
+		pinRecord        x5v5Eliminated
+		staleOnMCP       mcp.AlreadyTriedResult
+		uncertainOnMCP   mcp.AlreadyTriedResult
+		unavailableOnMCP mcp.AlreadyTriedResult
 	)
 
 	// ── Phase A: both write surfaces record ACTIVE, and the checkpoint freezes both ──────────────
@@ -568,6 +574,7 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		c := mcpE2EStart(t, bin, p)
 		t13Initialize(t, c, 1)
 		got := x5v5AlreadyTried(t, c, 2, x5v5Target, x5v5Approach)
+		uncertainOnMCP = got
 		require.Equal(t, "uncertain", got.State, "%+v", got)
 		require.NotEqual(t, "absent", got.State)
 		require.NotEmpty(t, got.Reason, "an uncertain answer says what could not be established")
@@ -615,6 +622,7 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		c := mcpE2EStart(t, bin, p)
 		t13Initialize(t, c, 1)
 		got := x5v5AlreadyTried(t, c, 2, x5v5Target, x5v5Approach)
+		unavailableOnMCP = got
 		require.Equal(t, "unavailable", got.State,
 			"NEGATIVE CONTROL: a ledger that cannot be consulted must say so; \"absent\" here would be "+
 				"the false negative that lets a stale-or-worse elimination vanish: %+v", got)
@@ -657,10 +665,13 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 	t.Run("old_caller_adapter_agrees_with_the_wire", func(t *testing.T) {
 		e2eShutdownIfReachable(t, p.Root)
 
-		st := p.Store(t)
-		led, err := negknow.Open(p.Root, p.Cfg, nil, negknow.Deps{
-			Store: st, Session: x5v5Session, Log: p.Log, Clock: p.Clock,
-		})
+		// Store is deliberately nil: negknow.Open's refreshAtOpen returns before touching anything
+		// when Deps.Store is nil, so the stale state asserted below can only come from the op:stale
+		// control line subtest 2's daemon appended — a re-flip against the store is impossible here,
+		// and that is what makes "durable in the log" a proven claim rather than a plausible one.
+		// Query and Health never need the store.
+		deps := negknow.Deps{Store: nil, Session: x5v5Session, Log: p.Log, Clock: p.Clock}
+		led, err := negknow.Open(p.Root, p.Cfg, nil, deps)
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = led.Close() })
 
@@ -671,7 +682,8 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 
 		ans, err := led.Query(t.Context(), x5v5Target, x5v5Approach, negknow.ScopeSession)
 		require.NoError(t, err)
-		require.Equal(t, negknow.AnswerStale, ans.State, "the flip is durable in the log, not in a process")
+		require.Equal(t, negknow.AnswerStale, ans.State,
+			"the flip is durable in the log, not in a process: with no store there is nothing to re-flip against")
 		state, reason, note, evidence := ans.MCPResult()
 		require.Equal(t, staleOnMCP.State, state, "the four-tuple adapter and the wire agree on the state")
 		require.Equal(t, staleOnMCP.Reason, reason)
@@ -687,14 +699,79 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 				require.Equal(t, negknow.SourceMCP, rec.Source)
 				require.Equal(t, negknow.StatusStale, rec.Status)
 			case pinRecord.ID:
-				// Recorded through SP-13's tool, so the source the log carries is what that door
-				// stamps; the historical SourceSlashCommand expectation is mapped in the disposition.
-				require.Contains(t, []negknow.SourceKind{negknow.SourceMCP, negknow.SourceSlashCommand}, rec.Source)
+				// The shipped path is deterministic: `qompack pin --eliminated` reaches the ledger
+				// through SP-13's record_eliminated handler, which stamps SourceMCP. §8.3 names the
+				// slash command as source #2 and negknow.IngestPin would stamp SourceSlashCommand,
+				// but IngestPin has no production caller — the disposition routes that divergence
+				// to the SP-14 owner. Asserting the shipped stamp exactly means a later change that
+				// flips it is seen here, not absorbed.
+				require.Equal(t, negknow.SourceMCP, rec.Source,
+					"pin --eliminated is stamped by the record_eliminated handler it dispatches to")
 				require.Equal(t, negknow.StatusActive, rec.Status)
-				t.Logf("pin --eliminated recorded Source=%s", rec.Source)
 			default:
 				require.Failf(t, "unexpected record", "%+v", rec)
 			}
 		}
+		require.NoError(t, led.Close())
+
+		// ERROR through the adapter: the same severance Phase D used, read in-process. A blind
+		// ledger's Query must reach the adapter as AnswerUnavailable, and the four-tuple must be
+		// exactly what the wire rendered in Phase D — never the "absent" tuple.
+		logPath := x5v5RecordLog(p.Root)
+		aside := logPath + ".aside"
+		require.NoError(t, os.Rename(paths.Long(logPath), paths.Long(aside)))
+		require.NoError(t, os.MkdirAll(paths.Long(logPath), x5v5DirPerm))
+		restored := false
+		restore := func() {
+			if restored {
+				return
+			}
+			restored = true
+			require.NoError(t, os.Remove(paths.Long(logPath)))
+			require.NoError(t, os.Rename(paths.Long(aside), paths.Long(logPath)))
+		}
+		t.Cleanup(restore)
+
+		blind, err := negknow.Open(p.Root, p.Cfg, nil, deps)
+		require.NoError(t, err, "a blind ledger opens; it does not fail to open")
+		ans, err = blind.Query(t.Context(), x5v5Target, x5v5Approach, negknow.ScopeSession)
+		require.NoError(t, err)
+		require.Equal(t, negknow.AnswerUnavailable, ans.State,
+			"a ledger that cannot be consulted answers unavailable through the adapter too, never absent")
+		state, reason, note, evidence = ans.MCPResult()
+		require.Equal(t, "unavailable", state)
+		require.Equal(t, unavailableOnMCP.State, state, "the four-tuple adapter and the wire agree on the error state")
+		require.NotEmpty(t, reason)
+		require.Equal(t, unavailableOnMCP.Reason, reason)
+		require.NotEmpty(t, note)
+		require.Equal(t, unavailableOnMCP.Note, note)
+		require.Empty(t, evidence, "a blind ledger discloses no evidence")
+		require.NoError(t, blind.Close())
+		restore()
+
+		// UNCERTAIN through the adapter: the same real switch Phase C used — the resolved config
+		// with eliminations.staleResponse = "drop" (x5v5DropConfig) — over the restored log. The
+		// four-tuple must be what the wire rendered in Phase C, and must not leak the withheld
+		// record's reason.
+		dropCfg := p.Cfg
+		dropCfg.Eliminations.StaleResponse = "drop"
+		dropped, err := negknow.Open(p.Root, dropCfg, nil, deps)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = dropped.Close() })
+		health = dropped.Health()
+		require.Equal(t, 2, health.Records, "the restored log is whole again: %+v", health)
+		ans, err = dropped.Query(t.Context(), x5v5Target, x5v5Approach, negknow.ScopeSession)
+		require.NoError(t, err)
+		require.Equal(t, negknow.AnswerUncertain, ans.State,
+			`under staleResponse "drop" a stale match is uncertain through the adapter too, never absent`)
+		state, reason, note, evidence = ans.MCPResult()
+		require.Equal(t, "uncertain", state)
+		require.Equal(t, uncertainOnMCP.State, state, "the four-tuple adapter and the wire agree on the uncertain state")
+		require.NotEmpty(t, reason)
+		require.NotEqual(t, x5v5Reason, reason, "the withheld record's reason must not leak through the adapter")
+		require.Equal(t, uncertainOnMCP.Reason, reason)
+		require.NotEmpty(t, note)
+		require.Equal(t, uncertainOnMCP.Note, note)
+		require.Empty(t, evidence, "the withheld record's evidence must not leak through the adapter")
 	})
 }

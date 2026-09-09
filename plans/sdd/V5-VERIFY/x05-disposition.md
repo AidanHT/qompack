@@ -4,12 +4,16 @@
 - **Current criterion (plan §4, row 4.5):** "SP-20/SP-13/SP-14 stale/uncertain/error state survives every
   surface and old-caller adapter."
 - **Disposition:** `partial` — stale, uncertain and error state are asserted with real producers on
-  `already_tried`, `qompack pin --eliminated`, `qompack status --json` and the `Answer.MCPResult`
-  adapter, and stale/uncertain are asserted on the rehydrated digest; the ERROR state on the digest
-  surface is observed NOT to survive (a blind ledger renders the frozen copy `[active]`) and is routed
-  as a defect candidate rather than asserted either way — see "Unverified remainder". The historical
-  four-source guarantee is retired (see the map below). Until the digest owner rules, this row must
-  not be read as "error state survives every surface: passed".
+  `already_tried` (all three), `qompack status --json` (a counter for each of the three), and the
+  `Answer.MCPResult` four-tuple adapter (all three: the stale tuple against the wire's stale
+  rendering, the unavailable tuple against the wire's Phase-D rendering over the same severed log,
+  the uncertain tuple against the wire's Phase-C rendering under the same `drop` switch);
+  `qompack pin --eliminated` — a write — sees active and error (the blind-ledger envelope); the
+  digest sees stale and uncertain. The ERROR state on the digest surface is observed NOT to survive
+  (a blind ledger renders the frozen copy `[active]`) and is routed as a defect candidate rather than
+  asserted either way — see "Unverified remainder". The historical four-source guarantee is retired
+  (see the map below). Until the digest owner rules, this row must not be read as "error state
+  survives every surface: passed".
 - **Level and file:** e2e, `test/e2e/v5_x05_test.go`. The seam crosses processes on every side: real
   spawned daemons, a real `qompack mcp` stdio child, real hook subcommands and real slash-command
   subcommands through the built binary. Nothing is stubbed; no in-process rig is used.
@@ -72,11 +76,26 @@ so no idle pass a test can trigger flips a record; a restart is what a real sess
    the control record answers `active`; status counters show `negknow.query.uncertain ≥ 1`.
 4. `negative_control_blind_ledger_is_unavailable_not_absent` — see below.
 5. `old_caller_adapter_agrees_with_the_wire` — with every daemon gone, the real ledger is opened over
-   the restored on-disk log: `Health{Records:2, Active:1, Stale:1}`; `Query` answers `AnswerStale`;
-   `Answer.MCPResult()`'s `(state, reason, note, evidence)` equals what the stdio surface rendered in
-   subtest 2 — the durable state on disk, the wire and the pre-struct adapter agree; `All()` holds
-   exactly the two records with `Source=mcp` (MCP) and `Source ∈ {mcp, slash_command}` (pin; observed
-   `mcp`, logged), statuses stale/active.
+   the restored on-disk log with `Deps.Store == nil`. That nil is load-bearing: `negknow.Open`'s
+   `refreshAtOpen` returns early without a store (ledger.go), so the stale state read here can only
+   come from the `op:"stale"` control line subtest 2's daemon appended — a re-flip is impossible, and
+   "the flip is durable in the log" is proven rather than plausible (see the sever below). Then, state
+   by state:
+   - **stale:** `Health{Records:2, Active:1, Stale:1}`; `Query` answers `AnswerStale`;
+     `Answer.MCPResult()`'s `(state, reason, note, evidence)` equals what `already_tried` rendered in
+     subtest 2; `All()` holds exactly the two records, `Source=mcp` on BOTH (the pin record's stamp is
+     asserted exactly — see "Unverified remainder" for why that is a defect candidate rather than a
+     mapped expectation), statuses stale/active.
+   - **error:** the ledger is closed, `records/eliminations.jsonl` is moved aside and a directory put
+     in its place (Phase D's switch), and the ledger is reopened with the same `Deps`; `Query` answers
+     `AnswerUnavailable` and `MCPResult()` is `("unavailable", reason, note, "")` with reason and note
+     non-empty and EQUAL to what `already_tried` rendered in Phase D — the wire and the adapter draw
+     the same `Coverage` pair; evidence is empty. The log is restored (also on `t.Cleanup`).
+   - **uncertain:** the ledger is reopened over the restored log with a copy of the resolved config
+     whose `Eliminations.StaleResponse = "drop"` (the switch Phase C wrote to `.qompack/config.json`);
+     `Health.Records == 2` again; `Query` answers `AnswerUncertain` and `MCPResult()` is
+     `("uncertain", reason, note, "")` with reason and note non-empty, reason `≠` the withheld record's
+     stored reason, and EQUAL to what `already_tried` rendered in Phase C; evidence is empty.
 
 ## Negative control and how it was proven
 
@@ -100,6 +119,17 @@ the wrong reason. Then:
 Proof that the assertion is not vacuous: the same surfaces that answered `stale`/`active` in subtests
 1–3 answer `unavailable`/error once the log is unreadable, on the same project, in the same run. A
 surface that rendered a blind ledger as `absent` — the retired three-way behaviour — fails subtest 4.
+Subtest 5 repeats the same severance in-process against the four-tuple adapter, and adds the `drop`
+switch for the uncertain tuple.
+
+**Sever applied during authoring (reverted; `git status` shows only this row's files):** in
+`internal/negknow/staleness.go` the `appendLine(l.f, logControl{Op: opStale, …})` call inside
+`RefreshStaleness` was replaced by a no-op that still performed the in-memory flip. Result: subtests
+1–4 PASS unchanged (every daemon-side surface reads the in-memory record), subtest 5 FAILS at
+`Health.Stale == 1` with `{Records:2 Active:2 Stale:0}` — the on-disk log carries no flip and, with
+`Deps.Store == nil`, nothing can re-flip it. Under the first version's `Deps.Store = st`, this sever
+would have PASSED (`refreshAtOpen` re-flips against the store), which is exactly the gap the reviewer
+named. Reverted with `git checkout -- internal/negknow/staleness.go`.
 
 ## Old-to-new assertion map
 
@@ -110,16 +140,16 @@ surface that rendered a blind ledger as `absent` — the retired three-way behav
 | Input (2) `qompack pin --eliminated --target src/db.ts --reason "pool is saturated" "disable pooling"` | **corrected** — the shipped flag table is `--target/--approach/--reason/--depends-on/--scope` and `--depends-on` is required (an elimination with no dependency can never go stale); driven through the real binary |
 | Input (3) heuristic pattern `Edit → test:fail → revert → different Edit` through the DAG | **retired** — no production caller feeds `Observe`/`Detector.Scan`; asserting it would need a stub standing in for the producer |
 | Input (4) user statement `"that didn't work"` through `observe prompt` | **retired** — `IngestUserStatement` has no production caller; the `observe prompt` hook does not reach it |
-| `Health().Records == 4` with one record per `SourceKind` | **retired** and **corrected** to `Records:2, Active:1, Stale:1` with `Source=mcp` for the MCP record; the pin record's source is observed (`mcp`) and mapped, not asserted as `slash_command` |
+| `Health().Records == 4` with one record per `SourceKind` | **retired** and **corrected** to `Records:2, Active:1, Stale:1`, `Source=mcp` for the MCP record. The pin record is asserted `Source=mcp` too — the SHIPPED stamp, not the §8.3 one; that divergence is NOT accepted as corrected and is filed under "Unverified remainder" as a defect candidate for the SP-14 owner |
 | `already_tried` returns `active` with the exact stored reason for record 1 | **kept** |
 | … and for the synonym `"increasing the connection-pool timeouts"` | **kept** (classifies to `widen-pool-timeout` by `negknow.ApproachClass`) |
 | Rewrite `docker-compose.yml`, re-ingest, run the negknow maintenance idle task → record 1 flips stale | **corrected** — re-ingested through a real hook; the flip runs on `negknow.Open`'s refresh at the next daemon open (the idle task is planned only on a cold TTL); asserted on the digest, on `already_tried`, on status counters and on the on-disk log |
-| `already_tried` returns `stale` with the §8.3 note including the em dash | **kept** — `note == negknow.StaleNote`, and the digest's `[stale: …]` tag is asserted from the same exported constant |
+| `already_tried` returns `stale` with the §8.3 note including the em dash | **kept** — `note == negknow.StaleNote`. The digest's `[stale: …]` tag is asserted against the SAME composed string, but on this tree the sentence is two independent literals — `negknow.StaleNote` and `internal/rehydrate/items.go`'s `staleStatusTag` — neither derived from the other; this assertion is what holds them equal (a drift on either side fails subtest 2). Routed to the SP-11 owner below |
 | `tried.bloom` rebuilt from active records only; exactly one `.bak` | **retired here** — `TestE2E_EliminationLifecycle` (test/e2e/negknow_test.go) owns it; in this row the filter is rebuilt at every daemon open, so a backup count is a property of the number of restarts, not of the criterion |
 | `qompack status --json` shows `data.sketches.bloom.records == 4, active == 3, stale == 1` | **retired** — no producer: `StatusExtra` is unbound in the shipped composition and the status document has no `sketches` section; **corrected** to the counters the ledger really emits into the daemon's registry (`negknow.stale.flipped`, `negknow.query.stale`, `negknow.query.uncertain`, `negknow.bloom.blind_mode`) |
 | (new, from the current criterion) uncertain state on every surface | **added** — `staleResponse: drop` subtest |
 | (new) error state on every surface and adapter | **added** — blind-ledger negative control, including the slash-command envelope and exit code |
-| (new) old-caller adapter | **added** — `Answer.MCPResult()` vs the wire; `commands.DecodeEnvelope` on every command output; the pin frontend's dispatch through the daemon's `mcp` op |
+| (new) old-caller adapter | **added** — `Answer.MCPResult()` vs the wire for ALL THREE states (stale vs subtest 2's rendering, unavailable vs Phase D's over the same severed log, uncertain vs Phase C's under the same `drop` switch); `commands.DecodeEnvelope` on every command output; the pin frontend's dispatch through the daemon's `mcp` op |
 
 ## Unverified remainder
 
@@ -137,6 +167,21 @@ surface that rendered a blind ledger as `absent` — the retired three-way behav
   on `ErrNotFound`) to the SP-11/SP-13 digest owner as a defect candidate, and hold 4.5 at PARTIAL on
   the digest surface until it is ruled. The other three read surfaces and the write adapter DO carry
   the error state and are asserted.
+- **`qompack pin --eliminated` is stamped `Source=mcp` (defect candidate for the SP-14 owner).**
+  Qompack.md §8.3 names the slash command as source #2 and `negknow.IngestPin` (ingest.go, documented
+  as SP-14's door) stamps `SourceSlashCommand` — but `IngestPin` has NO production caller: the shipped
+  path is `commands` → `runTool` → the daemon's `mcp` op → `record_eliminated` → `IngestMCP`, which
+  stamps `SourceMCP`. Subtest 5 asserts the shipped stamp exactly so a later change is seen, not
+  absorbed; the row does NOT accept it as the §8.3 behaviour. **Coordinator action:** route "dead
+  `IngestPin`/`SourceSlashCommand`; pin records mis-stamped `mcp`" to the SP-14 owner.
+- **Two copies of the §8.3 stale sentence (for the SP-11 owner).** `negknow.StaleNote` and
+  `internal/rehydrate/items.go` `staleStatusTag` are independent literals whose equality only this
+  row's subtest 2 enforces. The same shape exists once more on the uncertain path:
+  `internal/mcp/handlers.go` `staleDroppedReason`/`staleDroppedRecovery` duplicate negknow's
+  `reasonStaleDropped`/`recoveryStaleDropped` in a handler branch the ledger never lets it reach (the
+  ledger already returns `AnswerUncertain` under `drop`, so `renderAnswer` takes the `Coverage` path;
+  subtest 5's wire-vs-adapter equality on the uncertain tuple holds through THAT path). Observations,
+  not defects: candidates for deriving one from the other.
 - **`AnswerUncertain` from failed dependency coverage** (`RefreshStaleness` → `ChangedSince` error):
   no runtime switch reaches it through a spawned daemon; covered at unit level in `internal/negknow`.
 - **Heuristic and user-statement sources** have no production producer (see the table); not assertable
@@ -185,6 +230,15 @@ compact SessionStart came back EMPTY with the very diagnostic the reviewer saw
 retry — the failure mode reproduced and was absorbed by the fix rather than by luck. `gofmt -l ./test
 ./internal` clean; `go vet ./test/e2e ./test/integration` clean; `devtool lint
 --only=nomagic,sleepcheck,testdeps,importgraph,runpatterns` all five PASS.
+
+**Review-fix round (commit after `05dd737`):** the adversarial review found the adapter claim
+overclaimed (MCPResult compared for stale only), the pin source hedged (`Contains` over two kinds),
+the stale-tag comment misdescribing one exported copy, and the durability message unproven under
+`Deps.Store = st`. All four are fixed in subtest 5 and in this document as described above. Two
+consecutive unloaded runs: PASS 13.4 s and PASS 11.9 s, all five subtests both times, no spooled
+attempt logged. The op:stale sever above was run once in between (FAIL at the intended assertion,
+subtests 1–4 PASS) and reverted. `gofmt -l ./test ./internal` clean; `go vet ./test/e2e` clean;
+`devtool lint --only=nomagic,sleepcheck,testdeps,importgraph,runpatterns` all five PASS.
 
 No production code was changed.
 
