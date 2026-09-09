@@ -75,12 +75,22 @@ func x13v4WriteSet(t *testing.T, root string, before map[string]int64) []string 
 	return names
 }
 
+// x13v4CapturePrefix is the sidecar tree the SP-20 capture path writes one record into per leased
+// delivery (internal/daemon/ingest.go publishCapture → store.WriteCaptureSidecar). The file name is
+// the delivery's observation identity, a digest over session, nonce and arrival, so it differs
+// between the two arms by construction and folds to a shape here. Its companion writes —
+// state/retention-roots.jsonl and the delivery journal under state/ — carry fixed names already.
+const x13v4CapturePrefix = "records/captures/"
+
 // x13v4Normalize erases the per-run components of a path so two arms are comparable: the session id
-// in a state file name, the content-addressed object shards, and the dated day log.
+// in a state file name, the content-addressed object shards and capture sidecars, and the dated
+// day log.
 func x13v4Normalize(name string) string {
 	switch {
 	case len(name) > 7 && name[:7] == "objects":
 		return "objects/<shard>/<object>"
+	case len(name) > len(x13v4CapturePrefix) && name[:len(x13v4CapturePrefix)] == x13v4CapturePrefix:
+		return x13v4CapturePrefix + "<shard>/<observation>.json"
 	case len(name) > 5 && name[:5] == "logs/":
 		return "logs/<log>"
 	case len(name) > 6 && name[:6] == "state/":
@@ -98,6 +108,33 @@ func x13v4Normalize(name string) string {
 	default:
 		return name
 	}
+}
+
+// x13v4CaptureCount is how many capture sidecars a burst wrote that before did not hold. The write
+// set is a SET, so the fold in x13v4Normalize would also hide an arm that wrote a different NUMBER
+// of sidecars; this keeps that visible.
+func x13v4CaptureCount(t *testing.T, root string, before map[string]int64) int {
+	t.Helper()
+	dot := paths.Of(root).Dot
+	n := 0
+	err := filepath.WalkDir(paths.Long(filepath.Join(dot, filepath.FromSlash(x13v4CapturePrefix))),
+		func(p string, d fs.DirEntry, werr error) error {
+			if werr != nil || d.IsDir() {
+				return nil //nolint:nilerr // an absent tree is a count of zero
+			}
+			rel, relErr := filepath.Rel(paths.Long(dot), p)
+			if relErr != nil {
+				return nil
+			}
+			if _, was := before[filepath.ToSlash(rel)]; !was {
+				n++
+			}
+			return nil
+		})
+	if err != nil && !os.IsNotExist(err) {
+		require.NoError(t, err)
+	}
+	return n
 }
 
 // x13v4Existing lists what is already under .qompack/ so the write set is a DELTA.
@@ -192,6 +229,14 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 			"advancer, the pin store, the ledger and the cadence task are resident. A difference here "+
 			"is wave-3 work that migrated ONTO the hot path.\nwith wave 3: %v\nwithout:    %v",
 		fullSet, refSet)
+
+	// The fold above compares KINDS. The capture path writes exactly one sidecar per leased
+	// delivery, so the burst's eight tool hooks must have left eight on each arm — the count is
+	// what the set cannot see, and a wave-3 resident that captured more (or fewer) would hide there.
+	require.Equal(t, x13v4Turns, x13v4CaptureCount(t, pr.Root, beforeB),
+		"the observer-only arm must write one capture sidecar per hook in the burst")
+	require.Equal(t, x13v4Turns, x13v4CaptureCount(t, p.Root, beforeA),
+		"the wave-3 arm must write one capture sidecar per hook in the burst, no more")
 
 	// The scheduler and the checkpointer are off the hot path in the strongest observable sense:
 	// no draft and no artifact exist after a burst with no idle pass.
