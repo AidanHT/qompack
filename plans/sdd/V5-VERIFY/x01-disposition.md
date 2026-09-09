@@ -191,6 +191,15 @@ Results on 2026-09-08 (this machine, other agents co-loaded):
     figures: run 1 `index_tool_uses=65 hook_controlled.N=65 l0_ingest.N=65 B-A p99=15360us B-B
     p99=163840us`; run 2 `… B-A p99=16384us B-B p99=106496us` (co-loaded machine; the figures are
     the daemon's own and are not asserted against a bound).
+- Review round 3 (2026-09-09, independent re-proof of round 2 on the committed tree, HEAD `9335690`,
+  no source change): `go test -list` selects the test (`x01-r3-list.txt`); the same one-line
+  `fetchDaemonStatus` p99 += 1µs sabotage applied: **FAIL**, `live` at `v5_x01_test.go:308`,
+  `histogram "hook_controlled"` expected `P99:14336000` actual `P99:14337000` with `N:65` on both
+  sides, arms 2 and 3 PASS (`x01-r3-sabotage.txt`, exit 1, 4.63 s); reverted with `git checkout`,
+  `git diff` empty; two consecutive runs PASS (4.79 s) and PASS (6.20 s), all three subtests
+  (`x01-r3-run1.txt`, `x01-r3-run2.txt`). Logged figures: run 1 `index_tool_uses=65
+  hook_controlled.N=65 l0_ingest.N=65 B-A p99=15360us B-B p99=73728us`; run 2 `… B-A p99=13312us
+  B-B p99=81920us`. gofmt, vet and the five devtool sub-checks: clean/PASS (`x01-r3-lint.txt`).
 - `gofmt -l ./test ./internal`: clean. `go vet ./test/e2e ./test/integration`: clean.
 - `go run ./tools/devtool lint --only=nomagic,sleepcheck,testdeps,importgraph,runpatterns`: all five PASS.
 - `go test -count=1 ./internal/commands` and `./internal/cli`: ok (first round; the CLI file is
