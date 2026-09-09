@@ -56,7 +56,34 @@ const (
 	x1v5PromptEvents  = 4
 	x1v5StopEvents    = 1
 	x1v5HotPathEvents = x1v5ToolEvents + x1v5PromptEvents + x1v5StopEvents
+
+	// x1v5DeliveryEvents is the part of the mix whose index record production guarantees: a tool
+	// or stop delivery is NAKed when the daemon cannot process it in time, spools, and is replayed
+	// by Drain until its record lands. A prompt is not — see x1v5PromptPutErrCounter.
+	x1v5DeliveryEvents = x1v5ToolEvents + x1v5StopEvents
 )
+
+// x1v5PromptPutErrCounter is the daemon-served counter that reconciles the index against the
+// prompt half of the mix. observe.prompt always ACKs, and the daemon runs the observer's
+// ObservePrompt synchronously under internal/daemon/handlers.go promptReplyDeadline; when the
+// deadline wins, the cancelled context makes the verbatim store.PutBytes return, the observer
+// absorbs that through soft() — a Warn to the day log plus this counter, never a LOUD line and
+// never a spool — and skips the index record (internal/observer/prompt.go, stagePromptPut). WAL
+// replay of an observe.prompt runs only the sentinel scan, so no later Drain can recover it.
+// So production promises 61 index records, not 65: each prompt either lands its record or bumps
+// this counter, exactly once, and the wait below is on that sum. The name is
+// internal/observer/observer.go counterErrPrefix ("observer.err.") + prompt.go stagePromptPut
+// ("prompt.put"), spelled here because both are unexported.
+const x1v5PromptPutErrCounter = "observer.err.prompt.put"
+
+// x1v5ObserverErrPrefix selects the observer's soft-failure counters for the wait diagnostic
+// (internal/observer/observer.go counterErrPrefix).
+const x1v5ObserverErrPrefix = "observer.err."
+
+// x1v5L0AcceptErrCounter is the daemon's own count of hot-path WAL appends that failed
+// (internal/daemon/handlers.go counterL0AcceptError), rendered by the wait diagnostic so a
+// delivery the daemon could not even append is named as such.
+const x1v5L0AcceptErrCounter = "l0_accept_error"
 
 // x1v5HookControlledObserved is the daemon-owned name of the measured lower bound on B-A. It is
 // served in the status snapshot beside the budgets' own histograms but is deliberately not a §2.4
@@ -214,6 +241,97 @@ func (d x1v5LoudDiag) String() string {
 	return strings.TrimRight(string(b), "\n")
 }
 
+// x1v5TryStatus is e2eStatus without the assertions: one direct OpStatus read that reports
+// failure instead of failing the test, so it can run inside an Eventually poll and inside a
+// diagnostic Stringer, where a daemon that is momentarily unreachable is information, not an error.
+func x1v5TryStatus(root string) (daemon.StatusSnapshot, error) {
+	var snap daemon.StatusSnapshot
+	addr, err := ipc.Resolve(root)
+	if err != nil {
+		return snap, err
+	}
+	sp, _ := ipc.NewSpool(paths.Of(root).Spool)
+	c := ipc.NewClientWithOptions(addr, sp, nil, nil, ipc.ClientOptions{
+		ProjectRoot:     root,
+		ConnectDeadline: e2eRoundTripDeadline,
+		AckDeadline:     e2eRoundTripDeadline,
+	})
+	defer func() { _ = c.Close() }()
+	resp, err := c.Send(context.Background(), ipc.Request{
+		Op: ipc.OpStatus, Session: e2eSession, TS: core.NowMilli(core.SystemClock()), Reply: true,
+	}, e2eRoundTripDeadline)
+	if err != nil {
+		return snap, err
+	}
+	if !resp.OK {
+		return snap, fmt.Errorf("status round trip refused: %s", resp.Err)
+	}
+	return snap, json.Unmarshal(resp.Data, &snap)
+}
+
+// x1v5PromptsLost is the daemon's own count of prompts whose verbatim capture lost the reply
+// deadline (x1v5PromptPutErrCounter), or -1 when the daemon could not be asked.
+func x1v5PromptsLost(root string) int64 {
+	snap, err := x1v5TryStatus(root)
+	if err != nil {
+		return -1
+	}
+	return snap.Counters[x1v5PromptPutErrCounter]
+}
+
+// x1v5WaitDiag names, at FORMAT time, which mechanism the setup wait timed out on. The shared
+// obsWaitDiag knows two: an undrained client spool (a NAKed tool/stop delivery waiting on Drain)
+// and "every event reached the daemon live, so this waited on the processing behind its ACK". The
+// prompt soft-drop is a third shape — no spool, no LOUD line, an index short by exactly the lost
+// prompts — that only the daemon's own counters can tell apart from the second, so this renders
+// an OpStatus read's observer.err.* and l0_accept_error counters and the hook_controlled /
+// l0_ingest sample counts beside the index and spool facts, then the LOUD tail.
+type x1v5WaitDiag struct {
+	root           string
+	hookControlled string
+	l0Ingest       string
+}
+
+func (d x1v5WaitDiag) String() string {
+	var b strings.Builder
+	lines := len(obsToolUseLines(d.root))
+	fmt.Fprintf(&b, "index holds %d lines (production promises %d; %d only if every prompt landed)",
+		lines, x1v5DeliveryEvents, x1v5HotPathEvents)
+	if pending := x1v5ClientSpools(d.root); len(pending) > 0 {
+		fmt.Fprintf(&b, "; undrained client spool %v, so a tool/stop delivery is waiting on Drain", pending)
+	} else {
+		b.WriteString("; no undrained client spool")
+	}
+	snap, err := x1v5TryStatus(d.root)
+	if err != nil {
+		fmt.Fprintf(&b, "; daemon unreachable for a status read (%v)", err)
+	} else {
+		fmt.Fprintf(&b, "; daemon: %s.N=%d %s.N=%d %s=%d",
+			d.hookControlled, snap.Latency[d.hookControlled].N,
+			d.l0Ingest, snap.Latency[d.l0Ingest].N,
+			x1v5L0AcceptErrCounter, snap.Counters[x1v5L0AcceptErrCounter])
+		var soft []string
+		for name, v := range snap.Counters {
+			if strings.HasPrefix(name, x1v5ObserverErrPrefix) && v != 0 {
+				soft = append(soft, fmt.Sprintf("%s=%d", name, v))
+			}
+		}
+		if len(soft) == 0 {
+			b.WriteString(" (no observer.err.* counter moved)")
+		} else {
+			fmt.Fprintf(&b, " %v", soft)
+		}
+		if lost := snap.Counters[x1v5PromptPutErrCounter]; lost > 0 && lines+int(lost) < x1v5HotPathEvents {
+			fmt.Fprintf(&b, "; %d prompt(s) lost the reply deadline and %d record(s) are still unaccounted for",
+				lost, x1v5HotPathEvents-lines-int(lost))
+		} else if lost > 0 {
+			fmt.Fprintf(&b, "; %d prompt(s) lost the reply deadline (soft-dropped, reconciled)", lost)
+		}
+	}
+	fmt.Fprintf(&b, "; LOUD: %s", x1v5LoudDiag{d.root})
+	return b.String()
+}
+
 // x1v5SessionRows decodes the daemon's own session rows out of the raw JSON status forwards.
 func x1v5SessionRows(t *testing.T, raw []json.RawMessage) []daemon.SessionState {
 	t.Helper()
@@ -262,22 +380,48 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 	obsRunHook(t, bin, []string{"observe", "stop", "--subagent"},
 		obsSubagentStopPayload(t, p.Root, x1v5Session, "worker", "did the thing"), env)
 
-	// Every event is durable the moment its hook exits — live, or in the hook's own client spool
-	// when the ACK did not arrive inside the hot-path deadline — but only the daemon's Drain turns
-	// a spooled one into an index record, and its own tick is up to idleTickMax away. Drive Drain
-	// through admin.drain on every poll, exactly as the v4 rig drives it in-process (WaitIndexed),
-	// so the wait is on the observer's work and never on the tick. The wait ends when the index
-	// holds every event AND no client spool is left, so nothing is still in flight when the
-	// authoritative reads below are taken.
+	// Every tool and stop event is durable the moment its hook exits — live, or in the hook's own
+	// client spool when the ACK did not arrive inside the hot-path deadline — but only the daemon's
+	// Drain turns a spooled one into an index record, and its own tick is up to idleTickMax away.
+	// Drive Drain through admin.drain on every poll, exactly as the v4 rig drives it in-process
+	// (WaitIndexed), so the wait is on the observer's work and never on the tick.
+	//
+	// A prompt is the exception (x1v5PromptPutErrCounter): it is always ACKed, never spooled, and
+	// under co-load its verbatim capture can lose the daemon's reply deadline, in which case its
+	// index record is soft-dropped for good and the daemon says so only through that counter. So
+	// the wait cannot be on 65 index lines — on a loaded machine that is a wait on something that
+	// will never happen — and is instead on: every tool/stop record landed, no client spool left,
+	// and every prompt accounted for as either a record or a counted soft-drop. Nothing is then in
+	// flight when the authoritative reads below are taken.
+	diag := x1v5WaitDiag{root: p.Root, hookControlled: hookControlled, l0Ingest: l0Ingest}
 	require.Eventually(t, func() bool {
 		x1v5AdminDrain(p.Root)
-		return len(obsToolUseLines(p.Root)) >= x1v5HotPathEvents && len(x1v5ClientSpools(p.Root)) == 0
+		lines := len(obsToolUseLines(p.Root))
+		if lines < x1v5DeliveryEvents || len(x1v5ClientSpools(p.Root)) != 0 {
+			return false
+		}
+		return int64(lines)+x1v5PromptsLost(p.Root) >= int64(x1v5HotPathEvents)
 	}, obsProcessBound, obsProcessTick,
-		"index/tool_use.jsonl never reached %d lines with the spool drained: %s; LOUD: %s",
-		x1v5HotPathEvents, obsWaitDiag{p.Root}, x1v5LoudDiag{p.Root})
+		"the %d tool/stop records never landed with the spool drained and every prompt accounted for: %s",
+		x1v5DeliveryEvents, diag)
 
 	// ── Arm 1: status from the live daemon, bracketed by the authoritative payload ───────────────
 	before := e2eStatus(t, p.Root)
+
+	// Reconcile the index against the daemon's own account exactly: with the drain finished, the
+	// mix is partitioned into records and counted prompt drops with nothing left over. A record
+	// can only be missing for a reason the daemon counted, and a counted drop can only be a
+	// prompt (the tool/stop paths NAK and spool instead), so this equality is the criterion's
+	// "authoritative observation" applied to the observer's own output.
+	promptsLost := before.Counters[x1v5PromptPutErrCounter]
+	require.LessOrEqual(t, promptsLost, int64(x1v5PromptEvents), "only a prompt can be soft-dropped, once each")
+	require.Equal(t, int64(x1v5HotPathEvents)-promptsLost, int64(len(obsToolUseLines(p.Root))),
+		"index records + counted prompt soft-drops must partition the mix: %s", diag)
+	if promptsLost > 0 {
+		t.Logf("V5 4.1 setup: %d of %d prompts lost the observe.prompt reply deadline and were "+
+			"soft-dropped (counter %s); index holds %d records", promptsLost, x1v5PromptEvents,
+			x1v5PromptPutErrCounter, len(obsToolUseLines(p.Root)))
+	}
 	rep := x1v5RunStatus(t, bin, p)
 	after := e2eStatus(t, p.Root)
 
@@ -468,10 +612,26 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		require.NoError(t, json.Unmarshal(raw, &persisted))
 		// Stop persists after its own final Drain, so the file holds at least what the last live
 		// read saw — and, since a drained line never feeds a histogram, never more than the mix.
-		persistedHC := persisted.Hists[hookControlled]
-		require.GreaterOrEqual(t, persistedHC.N, after.Latency[hookControlled].N,
-			"what the daemon persisted must hold everything it had served")
-		require.LessOrEqual(t, persistedHC.N, int64(x1v5HotPathEvents))
+		// And by the same rule the live arm applies at its direct read: when the sample count did
+		// not move between the last live read and the persisted file (the normal case — nothing
+		// was in flight and status is not a hot-path op), the persisted histogram IS the served one,
+		// every quantile of it; a Persist that wrote the right count with the wrong quantiles must
+		// not pass. Only when N moved is the band accepted instead.
+		requirePersistedAgrees := func(name string) obs.HistSnapshot {
+			t.Helper()
+			served := after.Latency[name]
+			got := persisted.Hists[name]
+			if got.N == served.N {
+				require.Equal(t, served, got,
+					"histogram %q: same sample count, so the persisted snapshot must be the served one", name)
+				return got
+			}
+			require.Greater(t, got.N, served.N, "what the daemon persisted must hold everything it had served (%q)", name)
+			require.LessOrEqual(t, got.N, int64(x1v5HotPathEvents), "histogram %q: more samples than deliveries", name)
+			return got
+		}
+		persistedHC := requirePersistedAgrees(hookControlled)
+		persistedL0 := requirePersistedAgrees(l0Ingest)
 
 		down := x1v5RunStatus(t, bin, p)
 		require.Equal(t, commands.SourceDisk, down.Primary.Source)
@@ -492,7 +652,7 @@ func TestV5_ObserveToStatusRoundTrip(t *testing.T) {
 		require.GreaterOrEqual(t, ba.Latency.N, rep.Snapshot.Latency[hookControlled].N,
 			"the persisted B-A holds every sample the live arm displayed")
 		bb := x1v5BudgetRow(t, down, obs.BB)
-		x1v5RequireLatencyEquals(t, "B-B from disk", bb.Latency, persisted.Hists[l0Ingest])
+		x1v5RequireLatencyEquals(t, "B-B from disk", bb.Latency, persistedL0)
 		require.Equal(t, ba.Latency.N, bb.Latency.N, "B-A and B-B still agree on the delivery count from disk")
 		for i, b := range down.Budgets {
 			require.Equal(t, rep.Budgets[i].ID, b.ID)
