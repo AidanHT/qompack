@@ -35,13 +35,18 @@
 package e2e
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -141,16 +146,119 @@ func x5v5Restart(t *testing.T, bin string, p *testutil.Project, env map[string]s
 	return out.HookSpecificOutput.AdditionalContext
 }
 
-// x5v5Compact runs SessionStart(source=compact) and returns the additionalContext the host would
-// inject ("" when the daemon suppressed it). On a daemon that has not opened the ledger yet this
-// is ALSO what opens it: negknow.Open's single production call site runs on the first compaction.
-func x5v5Compact(t *testing.T, bin string, p *testutil.Project, env map[string]string) string {
-	t.Helper()
-	out := scRunStart(t, bin, env, x5v5StartPayload(t, p.Root, "compact"))
-	if out.HookSpecificOutput == nil {
-		return ""
+// x5v5InjectTag is the §8.5 injection open tag x4InjectedSeq parses. The polling condition below
+// only needs to know whether a payload carries it; the seq is parsed afterwards, on the test
+// goroutine, by x4InjectedSeq.
+const x5v5InjectTag = "<!-- qompack:injected seq="
+
+// x5v5StartAttempt is one session-start hook run, recorded rather than asserted.
+type x5v5StartAttempt struct {
+	ac     string // the additionalContext carried back; "" when the hook carried none
+	code   int
+	stdout string
+	stderr string
+	runErr error // the process could not be run at all
+}
+
+// x5v5TryStart runs one session-start hook through the real binary and records what came back.
+// It takes no *testing.T on purpose: it is called from an EventuallyWithT condition, which runs
+// off the test goroutine where FailNow is not permitted, so the condition records and the caller
+// asserts. The process handling mirrors harness.go's Run — the binary's own directory, the
+// inherited environment plus env — so a re-driven hook is the same hook.
+func x5v5TryStart(bin string, env map[string]string, payload []byte) x5v5StartAttempt {
+	cmd := exec.CommandContext(context.Background(), bin, "session-start")
+	cmd.Dir = filepath.Dir(bin)
+	cmd.Stdin = bytes.NewReader(payload)
+	cmd.Env = os.Environ()
+	for k, v := range env {
+		cmd.Env = append(cmd.Env, k+"="+v)
 	}
-	return out.HookSpecificOutput.AdditionalContext
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &outBuf, &errBuf
+	err := cmd.Run()
+	at := x5v5StartAttempt{stdout: outBuf.String(), stderr: errBuf.String()}
+	var exitErr *exec.ExitError
+	switch {
+	case err == nil:
+	case errors.As(err, &exitErr):
+		at.code = exitErr.ExitCode()
+	default:
+		at.runErr = err
+		return at
+	}
+	var out hookio.Output
+	if at.code == 0 && json.Unmarshal([]byte(strings.TrimSpace(at.stdout)), &out) == nil &&
+		out.HookSpecificOutput != nil {
+		at.ac = out.HookSpecificOutput.AdditionalContext
+	}
+	return at
+}
+
+// x5v5CompactUntilTagged drives SessionStart(source=compact) until one carries the §8.5 injection
+// tag, asserts that the tagged seq is want, and returns the injected context. On a daemon that has
+// not opened the ledger yet the compaction is ALSO what opens it — negknow.Open's single production
+// call site is the first compaction's deps() in internal/daemon/rehydrate_service.go — so every
+// phase that goes on to read the ledger takes a tagged compaction as its asserted precondition,
+// never as something it hopes already happened.
+//
+// Why a first attempt can come back empty on a loaded host with the daemon up and healthy:
+// session-start's dial budget is internal/cli/hookclient.go's hookConnectDeadlineFloor (250 ms).
+// A daemon that has just spawned, or is momentarily busy, is not guaranteed to have re-posted its
+// accept inside that budget; the hook then spools the request and returns an EMPTY output, and the
+// daemon's drain replays the spooled compaction with nobody to reply to — the ledger opens and the
+// digest is rendered into no stdout at all. Re-driving until the digest actually crosses the hook
+// boundary is what lets this row assert the state ON the surface rather than the fate of the one
+// request that first carried it. Bounds: mcpE2EIndexBound/mcpE2EIndexTick, the harness's own bound
+// for a daemon-side effect to become observable; each attempt is itself bounded by the hook's own
+// deadlines, and a spooled attempt returns as soon as its 250 ms dial expires.
+//
+// The condition never calls require: EventuallyWithT runs it off the test goroutine. A §2.3
+// violation (a non-zero exit, or a process that could not run) is recorded and ends the retries at
+// once — session-start's only permitted outcome is exit 0 with one hookio.Output, and a retry must
+// not paper over a hook that broke that.
+func x5v5CompactUntilTagged(t *testing.T, bin string, p *testutil.Project, env map[string]string, want core.CheckpointSeq) string {
+	t.Helper()
+	payload := x5v5StartPayload(t, p.Root, "compact")
+
+	// EventuallyWithT does not wait for an in-flight condition when its bound expires, so the
+	// record is read under the same lock the condition writes it under.
+	var (
+		mu       sync.Mutex
+		last     x5v5StartAttempt
+		attempts int
+	)
+	ok := assert.EventuallyWithT(t, func(c *assert.CollectT) {
+		at := x5v5TryStart(bin, env, payload)
+		mu.Lock()
+		attempts++
+		n := attempts
+		last = at
+		mu.Unlock()
+		if at.runErr != nil || at.code != 0 {
+			return // recorded; the assertions below report it, and no retry hides it
+		}
+		if !strings.Contains(at.ac, x5v5InjectTag) {
+			c.Errorf("attempt %d: the compact SessionStart carried no injected digest "+
+				"(a spooled request — see hookConnectDeadlineFloor — or a suppressed rehydration)\nstdout: %s\nstderr: %s",
+				n, at.stdout, at.stderr)
+		}
+	}, mcpE2EIndexBound, mcpE2EIndexTick)
+	mu.Lock()
+	at, n := last, attempts
+	mu.Unlock()
+
+	require.NoError(t, at.runErr, "session-start could not be run")
+	require.Equal(t, 0, at.code, "session-start must exit 0 (§2.3)\nstdout:\n%s\nstderr:\n%s", at.stdout, at.stderr)
+	require.True(t, ok, "no compact SessionStart carried an injected digest in %d attempt(s) within %s; %s",
+		n, mcpE2EIndexBound, x5v5Diag(t, p.Root))
+	if n > 1 {
+		t.Logf("compact SessionStart carried its digest on attempt %d; the earlier attempt(s) were spooled "+
+			"(hookConnectDeadlineFloor) or suppressed", n)
+	}
+	seq, tagged := x4InjectedSeq(t, at.ac)
+	require.True(t, tagged, "the payload must open with the §8.5 injection tag: %s", at.ac)
+	require.Equal(t, want, seq, "the injected digest must name checkpoint %d: %s", want, at.ac)
+	return at.ac
 }
 
 // x5v5ReadFile drives one PostToolUse Read of path through the real binary and waits for the
@@ -279,20 +387,22 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		x5v5ReadFile(t, bin, p, env, x5v5ReadCompose1, x5v5Compose, composeV1)
 		x5v5ReadFile(t, bin, p, env, x5v5ReadLock1, x5v5Lock, lockJSONV1)
 
-		// The first compaction opens the ledger (no checkpoint exists yet, so seq 0).
-		ac := x5v5Compact(t, bin, p, env)
-		if seq, tagged := x4InjectedSeq(t, ac); tagged {
-			require.Equal(t, core.CheckpointSeq(0), seq, "no checkpoint exists yet")
-		}
+		// The first compaction opens the ledger (no checkpoint exists yet, so seq 0). It is an
+		// ASSERTED precondition: a compaction whose hook output came back empty may still be
+		// sitting in the spool, and a record_eliminated issued before the drain replays it reaches
+		// a daemon with no ledger at all — which answers a non-error "not present in this build"
+		// body, not a record.
+		x5v5CompactUntilTagged(t, bin, p, env, core.CheckpointSeq(0))
 
 		// Write surface 1: record_eliminated over the real stdio child.
 		c := mcpE2EStart(t, bin, p)
 		t13Initialize(t, c, 1)
-		mcpE2ECall(t, c, 2, mcp.ToolRecordEliminated, map[string]any{
+		ack := mcpE2ECall(t, c, 2, mcp.ToolRecordEliminated, map[string]any{
 			"target": x5v5Target, "approach": x5v5Approach, "reason": x5v5Reason,
 			"scope": string(negknow.ScopeProject), "depends_on": []string{x5v5Compose, x5v5Lock},
 		}, &mcpRecord)
-		require.Equal(t, string(negknow.StatusActive), mcpRecord.Status)
+		require.Equal(t, string(negknow.StatusActive), mcpRecord.Status,
+			"record_eliminated must acknowledge an active record; body: %s", ack.Content[0].Text)
 		require.NotEmpty(t, mcpRecord.ID)
 		require.Regexp(t, `^sha256:[0-9a-f]{64}$`, mcpRecord.Evidence, "the reason text is stored as evidence")
 		require.Len(t, mcpRecord.DependsOn, 2,
@@ -367,9 +477,20 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		//
 		// Read surface 2: the rehydrated digest, built from the sealed checkpoint's frozen copy
 		// re-read through the freshly opened ledger.
+		//
+		// The spawning hook's own output can be empty on a loaded host even though the daemon
+		// came up fine: session-start's dial budget is internal/cli/hookclient.go's
+		// hookConnectDeadlineFloor (250 ms), and a daemon that has JUST spawned may not have its
+		// accept re-posted inside it — the hook spools the request, returns an empty output, and
+		// the drain replays the compaction with nobody to reply to. That is a spooled request, not
+		// a digest defect, so the digest is re-driven until it actually crosses the hook boundary
+		// and only THEN held to seq 1 and its content.
 		ac := x5v5Restart(t, bin, p, env, "compact")
-		require.NotEmpty(t, ac, "a compact SessionStart with a sealed checkpoint must inject a context; %s",
-			x5v5Diag(t, p.Root))
+		if _, tagged := x4InjectedSeq(t, ac); !tagged {
+			t.Logf("the spawning compact SessionStart carried no digest (spooled behind hookConnectDeadlineFloor); "+
+				"re-driving — %s", x5v5Diag(t, p.Root))
+			ac = x5v5CompactUntilTagged(t, bin, p, env, core.CheckpointSeq(1))
+		}
 		seq, tagged := x4InjectedSeq(t, ac)
 		require.True(t, tagged, "the payload must open with the §8.5 injection tag: %s", ac)
 		require.Equal(t, core.CheckpointSeq(1), seq)
@@ -435,9 +556,9 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, os.Remove(paths.Long(cfgPath))) })
 		x5v5Restart(t, bin, p, env, "startup")
 
-		// The digest EXCLUDES the stale record under "drop" and keeps the active one.
-		ac := x5v5Compact(t, bin, p, env)
-		require.NotEmpty(t, ac)
+		// The digest EXCLUDES the stale record under "drop" and keeps the active one. The sealed
+		// checkpoint is still 0001.json, so the digest names seq 1.
+		ac := x5v5CompactUntilTagged(t, bin, p, env, core.CheckpointSeq(1))
 		require.Contains(t, ac, x5v5Line(x5v5PinTarget, x5v5PinApproach), "%s", ac)
 		require.NotContains(t, ac, x5v5Line(x5v5Target, x5v5Approach),
 			`under staleResponse "drop" the stale record's detail is withheld from the digest: %s`, ac)
@@ -482,9 +603,12 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		})
 		x5v5Restart(t, bin, p, env, "startup")
 
-		// The compaction still opens the ledger; it comes up blind. What the digest does with the
-		// checkpoint's frozen copy in that state is recorded, not asserted (see the disposition).
-		ac := x5v5Compact(t, bin, p, env)
+		// The compaction still opens the ledger; it comes up blind. Driving it to a tagged digest is
+		// what guarantees the open happened BEFORE already_tried is asked: a daemon with no ledger
+		// at all answers a non-error body with no state, which is neither the "unavailable" this
+		// control asserts nor the "absent" it forbids. What the digest does with the checkpoint's
+		// frozen copy in that state is recorded, not asserted (see the disposition).
+		ac := x5v5CompactUntilTagged(t, bin, p, env, core.CheckpointSeq(1))
 		t.Logf("blind-ledger digest carries the MCP record's line: %v; the stale tag: %v",
 			strings.Contains(ac, x5v5Line(x5v5Target, x5v5Approach)), strings.Contains(ac, x5v5StaleTag))
 
@@ -512,11 +636,13 @@ func TestV5_EliminationThroughEveryFourSurfaces(t *testing.T) {
 		require.NotEqual(t, commands.ErrorKindUsage, envl.Error.Kind, "the invocation was well-formed: %+v", envl.Error)
 		require.NotContains(t, string(envl.Data), `"status":"active"`,
 			"no acknowledgement may claim the elimination was recorded: %s", envl.Data)
-		if len(envl.Data) > 0 {
-			var res commands.ToolResult
-			require.NoError(t, json.Unmarshal(envl.Data, &res))
-			require.True(t, res.IsError, "the tool's own error travels inside the data member: %+v", res)
-		}
+		// The frontend keeps a failed tool's content (commands.callTool: "a failed retrieval that
+		// says why is more useful than an error message this package invented"), so the data
+		// member is REQUIRED here — an empty one would be the adapter dropping the tool's own error.
+		require.NotEmpty(t, envl.Data, "a tool error must travel inside the data member: %+v", envl)
+		var res commands.ToolResult
+		require.NoError(t, json.Unmarshal(envl.Data, &res))
+		require.True(t, res.IsError, "the tool's own error travels inside the data member: %+v", res)
 
 		// status reports the degradation the daemon's ledger counted, and still exits 0.
 		counters := x5v5StatusCounters(t, bin, env)
