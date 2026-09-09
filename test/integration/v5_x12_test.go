@@ -349,11 +349,11 @@ func TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession(t *testing.T) {
 	t.Run("branch: a branch-scoped grant covers the branch and the corrupt HEAD control severs it", func(t *testing.T) {
 		grant := r.Grant(negknow.RelationSameBranch)
 
-		got, rep := r.Gate(x12Enabled, r.Here(t, r.SameBranchTree), grant).Consider(r.Now(), []daemon.ReuseCandidate{r.Candidate()})
+		got, _ := r.Gate(x12Enabled, r.Here(t, r.SameBranchTree), grant).Consider(r.Now(), []daemon.ReuseCandidate{r.Candidate()})
 		require.Len(t, got, 1, "the same branch in another tree is inside a same-branch grant")
 		require.Equal(t, negknow.RelationSameBranch, got[0].Applicability.Relation)
 
-		got, rep = r.Gate(x12Enabled, r.Here(t, r.SideTree), grant).Consider(r.Now(), []daemon.ReuseCandidate{r.Candidate()})
+		got, rep := r.Gate(x12Enabled, r.Here(t, r.SideTree), grant).Consider(r.Now(), []daemon.ReuseCandidate{r.Candidate()})
 		require.Empty(t, got, "another branch is broader than a same-branch grant")
 		require.Equal(t, 1, rep.Withheld)
 		require.Contains(t, x12Reasons(rep), "broader than the authorized")
