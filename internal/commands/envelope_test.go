@@ -42,20 +42,34 @@ func TestSpecs_PinInstalledSurface(t *testing.T) {
 	t.Parallel()
 
 	want := []commands.Spec{
-		{Name: "status", Subcommand: "status", ArgumentHint: "[--json]",
-			Summary: "Qompack status — mode, contracts, store, latency, last decision"},
-		{Name: "recall", Subcommand: "recall", ArgumentHint: "<query> [--k N]",
-			Summary: "Search stored tool output and file versions by content"},
-		{Name: "pin", Subcommand: "pin", ArgumentHint: "<text>",
-			Summary: "Pin an invariant so it is never summarized away"},
-		{Name: "checkpoint", Subcommand: "checkpoint", ArgumentHint: "[--reason <text>]",
-			Summary: "Write an immutable checkpoint now"},
-		{Name: "why", Subcommand: "why", ArgumentHint: "<decision-id>",
-			Summary: "Explain a recorded decision and the evidence behind it"},
-		{Name: "dropped", Subcommand: "dropped", ArgumentHint: "[--json]",
-			Summary: "Report what the last compaction dropped and how to get it back"},
-		{Name: "eval", Subcommand: "eval", ArgumentHint: "[--corpus <dir>]",
-			Summary: "Run the replay harness and report the score against the baseline"},
+		{
+			Name: "status", Subcommand: "status", ArgumentHint: "[--json]",
+			Summary: "Qompack status — mode, contracts, store, latency, last decision",
+		},
+		{
+			Name: "recall", Subcommand: "recall", ArgumentHint: "<query> [--k N]",
+			Summary: "Search stored tool output and file versions by content",
+		},
+		{
+			Name: "pin", Subcommand: "pin", ArgumentHint: "<text>",
+			Summary: "Pin an invariant so it is never summarized away",
+		},
+		{
+			Name: "checkpoint", Subcommand: "checkpoint", ArgumentHint: "[--reason <text>]",
+			Summary: "Write an immutable checkpoint now",
+		},
+		{
+			Name: "why", Subcommand: "why", ArgumentHint: "<decision-id>",
+			Summary: "Explain a recorded decision and the evidence behind it",
+		},
+		{
+			Name: "dropped", Subcommand: "dropped", ArgumentHint: "[--json]",
+			Summary: "Report what the last compaction dropped and how to get it back",
+		},
+		{
+			Name: "eval", Subcommand: "eval", ArgumentHint: "[--corpus <dir>]",
+			Summary: "Run the replay harness and report the score against the baseline",
+		},
 	}
 
 	got := commands.Specs()

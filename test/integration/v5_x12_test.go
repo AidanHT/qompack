@@ -284,18 +284,31 @@ func TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession(t *testing.T) {
 			want  negknow.Reusability
 			why   string
 		}{
-			{"same worktree, next session, no grant", r.Here(t, r.P.Root), negknow.Grant{},
-				negknow.RelationSameWorktree, negknow.ReuseWithheld, "names no observed repository"},
-			{"same worktree, next session, with a grant", r.Here(t, r.P.Root), grant,
-				negknow.RelationSameWorktree, negknow.ReuseAllowed, ""},
-			{"sibling worktree on the same branch", r.Here(t, r.SameBranchTree), grant,
-				negknow.RelationSameBranch, negknow.ReuseAllowed, ""},
-			{"sibling worktree on another branch", r.Here(t, r.SideTree), grant,
-				negknow.RelationSameRepository, negknow.ReuseAllowed, ""},
-			{"an unrelated repository with the same branch name and commit", r.Here(t, r.Unrelated), grant,
-				negknow.RelationUnrelated, negknow.ReuseDenied, "different repository"},
-			{"no repository observed at all", r.Here(t, r.NoGit), grant,
-				negknow.RelationUnknown, negknow.ReuseWithheld, "unobserved"},
+			{
+				"same worktree, next session, no grant", r.Here(t, r.P.Root),
+				negknow.Grant{},
+				negknow.RelationSameWorktree, negknow.ReuseWithheld, "names no observed repository",
+			},
+			{
+				"same worktree, next session, with a grant", r.Here(t, r.P.Root), grant,
+				negknow.RelationSameWorktree, negknow.ReuseAllowed, "",
+			},
+			{
+				"sibling worktree on the same branch", r.Here(t, r.SameBranchTree), grant,
+				negknow.RelationSameBranch, negknow.ReuseAllowed, "",
+			},
+			{
+				"sibling worktree on another branch", r.Here(t, r.SideTree), grant,
+				negknow.RelationSameRepository, negknow.ReuseAllowed, "",
+			},
+			{
+				"an unrelated repository with the same branch name and commit", r.Here(t, r.Unrelated), grant,
+				negknow.RelationUnrelated, negknow.ReuseDenied, "different repository",
+			},
+			{
+				"no repository observed at all", r.Here(t, r.NoGit), grant,
+				negknow.RelationUnknown, negknow.ReuseWithheld, "unobserved",
+			},
 		}
 		for _, tc := range cases {
 			got, rep := r.Gate(x12Enabled, tc.here, tc.grant).Consider(r.Now(), []daemon.ReuseCandidate{r.Candidate()})

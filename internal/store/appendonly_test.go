@@ -25,8 +25,11 @@ func migrateDir(l paths.Layout) string { return l.Migrate }
 
 // indexLogs are the index logs FSStore itself appends to, every one through paths.AppendOnly.
 var indexLogs = []storeLog{
-	{indexDir, rootsFile}, {indexDir, toolUseFile}, {indexDir, filesLogFile},
-	{indexDir, sessionsFile}, {indexDir, segmentsFile},
+	{indexDir, rootsFile},
+	{indexDir, toolUseFile},
+	{indexDir, filesLogFile},
+	{indexDir, sessionsFile},
+	{indexDir, segmentsFile},
 }
 
 // migrateLogs are the migration logs Migrator appends to, every one through paths.AppendJSONL:
