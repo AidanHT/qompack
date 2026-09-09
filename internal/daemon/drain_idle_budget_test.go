@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,10 +18,41 @@ import (
 )
 
 // sp05d1IdleBudget is the wall-clock budget the idle tick hands RunOnce in this scenario. It is
-// deliberately tiny: the interrupted handler blocks on its context rather than sleeping, so the
-// budget's only job is to expire while that handler is mid-binding, and any positive value does
-// that deterministically.
-const sp05d1IdleBudget = 20 * time.Millisecond
+// deliberately generous: RunOnce arms a REAL timer for it, and a small value would race the
+// lease-journal open, capture fsync and first-line dispatch that a fresh TempDir puts in front of
+// the second line (a 20 ms budget failed 16 of 40 co-loaded runs). The budget's expiry is instead
+// driven by sp05d1BudgetContext, so this timer must never be the one that fires.
+const sp05d1IdleBudget = time.Hour
+
+// sp05d1BudgetContext is the parent context the idle tick runs under, with the budget's expiry
+// under the test's control: expire closes Done with Err() == context.DeadlineExceeded, which is
+// exactly what RunOnce's own timer would have produced, and the timeout context RunOnce derives
+// from it inherits that error down to the per-line handler context. The interrupted handler
+// expires it from inside its binding, so "the budget ran out mid-line" is a program order, not a
+// wall-clock coincidence.
+type sp05d1BudgetContext struct {
+	context.Context
+	done chan struct{}
+	once sync.Once
+}
+
+func newSP05D1BudgetContext() *sp05d1BudgetContext {
+	return &sp05d1BudgetContext{Context: context.Background(), done: make(chan struct{})}
+}
+
+func (c *sp05d1BudgetContext) Done() <-chan struct{} { return c.done }
+
+func (c *sp05d1BudgetContext) Err() error {
+	select {
+	case <-c.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
+// expire ends the budget the way its deadline would have.
+func (c *sp05d1BudgetContext) expire() { c.once.Do(func() { close(c.done) }) }
 
 // sp05d1Line encodes one complete spool record for the SP05-D1 scenario, distinguished by ts so a
 // dispatch counter can tell the acknowledged line from the interrupted one.
@@ -79,9 +111,11 @@ func TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending(t *te
 			require.NoError(t, os.WriteFile(p, append(append([]byte(nil), acked...), interrupted...), 0o600))
 			base := filepath.Base(p)
 
-			// The dispatcher acknowledges the first line and, while the budget is live, holds the
-			// second until its context dies — that is the interrupted binding. Once the budget
-			// has expired, every later dispatch is a healthy handler.
+			// The dispatcher acknowledges the first line and, while the budget is live, lets the
+			// budget expire from inside the second line's binding and holds that binding until
+			// its own context dies — that is the interrupted binding. Once the budget has
+			// expired, every later dispatch is a healthy handler.
+			budget := newSP05D1BudgetContext()
 			var starve atomic.Bool
 			starve.Store(true)
 			var calls, retried atomic.Int64
@@ -93,6 +127,7 @@ func TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending(t *te
 					}
 					return ipc.Response{OK: true}
 				}
+				budget.expire()
 				<-ctx.Done()
 				return ipc.Response{Err: "observation handling interrupted"}
 			}
@@ -107,7 +142,7 @@ func TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending(t *te
 				_, drainErr = dr.Drain(ctx)
 				return drainErr
 			})
-			ran, err := idle.RunOnce(context.Background(), sp05d1IdleBudget)
+			ran, err := idle.RunOnce(budget, sp05d1IdleBudget)
 			require.NoError(t, err)
 			require.Equal(t, []string{idleTaskDrain}, ran)
 			require.ErrorIs(t, drainErr, context.DeadlineExceeded,
