@@ -279,3 +279,25 @@ func TestDropped_EphemeralNoteClaimsNothingAboutTheHost(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, out, "says nothing about host eviction")
 }
+
+// TestRecall_OmitsKWhenNotAsked pins the wire shape of a query with no --k: the k member must be
+// ABSENT, not zero. The registered handler's schema declares k with minimum 1 and a default of 5,
+// so k:0 is refused ("/k: below minimum") while a missing k takes the default — a distinction the
+// recorder used above cannot see, which is how `qompack recall <query>` shipped refusing every
+// invocation that did not spell out a page size (V5-VERIFY §4.15).
+func TestRecall_OmitsKWhenNotAsked(t *testing.T) {
+	t.Parallel()
+
+	var rec recorder
+	_, err := runWith(t, depsWith(serverWith(t, mcp.ToolRecall, &rec, mcp.Response{}, nil)),
+		"recall", "open file handle")
+	require.NoError(t, err)
+	require.Len(t, rec.seen, 1)
+
+	var raw map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(rec.seen[0].Args, &raw))
+	require.Contains(t, raw, "query")
+	require.NotContains(t, raw, "k",
+		"an unset --k must be sent as an absent member so the handler's schema default applies; "+
+			"k:0 is below the schema minimum and refuses the call: %s", rec.seen[0].Args)
+}
