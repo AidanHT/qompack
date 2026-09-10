@@ -45,6 +45,22 @@ var benchUnitWorseWhenHigher = map[string]bool{
 	"allocs/op": true,
 	"B/s":       false,
 	"MB/s":      false,
+	// internal/observer's OnToolUse benchmarks (tooluse_test.go runOnToolUseBench) report four
+	// custom metrics with b.ReportMetric. They have been in testdata/bench-baseline.txt since the
+	// wave-2 refresh, but no sweep containing the observer package had been put through this gate
+	// until V5-VERIFY, which found the gate stopping here on every whole-tree sweep — the dead-gate
+	// failure mode the comment above describes, in the direction it prefers (stop and ask).
+	//   p50-ms, p99-ms: the observer's own latency histogram, the instrument budget B-C is judged
+	//                   against; higher is worse.
+	//   dedup-x:        content dedup ratio (bytes offered / bytes stored); higher is better.
+	//   objects:        the count of objects the store holds after the run — a fixture-shape
+	//                   witness, not a speed. A change means the fixture no longer does what its
+	//                   name says (more novel chunks written), which is worse in the only sense the
+	//                   gate can express, and is worth stopping on.
+	"p50-ms":  true,
+	"p99-ms":  true,
+	"dedup-x": false,
+	"objects": true,
 }
 
 // benchDelta is one benchstat comparison cell: a single benchmark, in a single unit, with the
