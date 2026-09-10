@@ -224,23 +224,26 @@ func TestPlanDocsInScope_TracksLandedSubplans(t *testing.T) {
 		"plans/V3-VERIFY-observer-and-negative-knowledge.md",
 		"plans/V4-SP-10-checkpointer-l4.md",
 		"plans/V5-SP-14-slash-commands-and-observability.md",
+		"plans/V6-SP-17-packaging-hardening-and-release.md",
 	}
 	scope := planDocsInScope(files)
 
-	for _, f := range files[:9] {
+	for _, f := range files[:10] {
 		if !scope[f] {
 			t.Errorf("%s: want in scope (its wave has landed)", f)
 		}
 	}
 	// SP-09 landed in the merge of feat/sp09-negative-knowledge, completing wave 2, so the V3
 	// documents derive as in scope. SP-10 is listed as landed from its own branch, so in THIS
-	// fixture — which names no other V4 subplan — wave 4 derives as landed too, and SP-14 is now
-	// the subplan that holds wave 5 out. The fixture names it explicitly for that reason — without
-	// an unlanded later-wave subplan in the list, every wave would derive as landed and this half
-	// would assert nothing.
-	for _, f := range files[9:] {
+	// fixture — which names no other V4 subplan — wave 4 derives as landed too. SP-14 was listed
+	// by V5-VERIFY with the rest of wave 4, so wave 5 derives as landed here as well (the fixture
+	// names no V5-SP-16 document, the package-less subplan that keeps the real wave 5 out), and
+	// SP-17 is now the subplan that holds wave 6 out. The fixture names it explicitly for that
+	// reason — without an unlanded later-wave subplan in the list, every wave would derive as
+	// landed and this half would assert nothing.
+	for _, f := range files[10:] {
 		if scope[f] {
-			t.Errorf("%s: want out of scope (SP-14 and later have not landed)", f)
+			t.Errorf("%s: want out of scope (SP-17 and later have not landed)", f)
 		}
 	}
 }
