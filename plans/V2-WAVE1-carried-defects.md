@@ -69,6 +69,71 @@ still cannot wedge), with a test driving exactly the starved-budget interleaving
 is re-affirmed with the loss documented in the drain's contract and D4's "never data" wording
 amended, and this row moves to `wontfix` with that wording pinned.
 
+**Disposition (V5-VERIFY, 2026-09-08): fixed by SP-20; evidence added.** V5-VERIFY §6 carried
+this row to SP-20's drain/ack recovery, and SP-20 re-adjudicated the rule rather than patching
+around it. `f6a8691` (`fix(daemon): retain unacknowledged drain recovery data`, Refs SP05-D1 /
+T20-M1-05) replaced `SeenOrAdd`-then-dispatch with `seenSet.begin` / `finish(key, acknowledged)`,
+moved `offset, fs.Offset = nextOffset` to AFTER `dispatchPending` returns nil, and made
+`dispatchPending` return the per-line context's error when the handler answers `OK:false` with a
+dead context — so a dying drain surfaces as `context.DeadlineExceeded` / `context.Canceled`,
+stops the pass with the offset still pointing AT the interrupted line, and never commits the
+seen-set. `a6faab0` then put the lease/acknowledge journal behind the same boundary. The
+poison-line consume rule the V2 note said had to be re-adjudicated was, and SP-20 chose the
+other side of the trade: a handler that refuses a line with a LIVE context is ALSO no longer
+consumed (it is `DrainGapUnacknowledged`, redelivered on the next pass;
+`TestDrainRejectedResponseIsRetryableAfterRestart` pins it), and "consumed regardless" survives
+only for the terminal admission verdicts (`DrainGapDenied`, `DrainGapUnadmitted`), which retrying
+cannot change. A dying drain and a refusing handler are therefore distinguishable by error class
+— which is what this row asked for — but the V2 acceptance's "bounded by a per-line retry cap so
+poison lines still cannot wedge" was NOT delivered, and the residual should be stated plainly: a
+handler that persistently answers `OK:false` with a live context (`runIngested`'s "stop handling
+failed" shape) or panics (`dispatchPending`'s "handler panicked") makes `drainFile` break its
+read loop at that line with the offset unadvanced, on every pass, with no retry cap, so every
+record behind it is blocked until the handler stops refusing. That trades loss for a wedge. It is
+SP-20's merged, pinned choice, not an oversight: T20-M1-05 ("interrupted drain SP05-D1, bounded
+queue, retry") and `00-ARCHITECTURE.md` step 2 specify lease → handle → ack with redelivery of
+the same observation, and `plans/V4-report.md` BLOCKER 2 re-adjudicated the wedge only for the
+ADMISSION class (an unadmittable record is skipped as a loud gap because its verdict is baked into
+the spooled bytes and can never change) while leaving a refusing handler retryable, on the
+reasoning that its answer CAN change. No retry cap for the handler class exists in code or plan;
+if one is wanted it is new work, not part of this row's closure.
+
+The evidence test, `internal/daemon/drain_idle_budget_test.go`
+`TestCarriedDefect_SP05D1_IdleBudgetExpiryLeavesInterruptedLinePending`, drives the exact
+scenario: `idleController.RunOnce` with the drain registered under `idleTaskDrain`, a budget that
+expires while the handler is still binding the second line (the handler blocks on its context and
+answers `observation handling interrupted`, `runIngested`'s shape), then recovery in both forms —
+a same-process retry on the same drainer and seen-set, and a fresh drainer after restart. It
+asserts both ledgers (persisted offset equals the first line's length and `Done` is false; the
+seen-set does not hold the interrupted key) and that exactly the interrupted line is redelivered.
+
+The budget's expiry is a program order, not a wall clock. `RunOnce` arms a REAL timer for its
+budget (`context.WithTimeout(ctx, remain)`; the fake clock only fixes `remain`), and the first
+cut of this test handed it 20 ms, which also had to cover the lease-journal open, the capture
+fsync and the first line's dispatch on a fresh `TempDir` before the second line was reached —
+review measured 16 of 40 co-loaded runs failing at "both lines were dispatched before the budget
+expired" (`scratchpad/rev-flake-probe.log`) against 40 of 40 passing alone. The test now runs
+`RunOnce` under a test-only parent context (`sp05d1BudgetContext`) whose `Done` the second line's
+handler closes from inside its binding with `Err() == context.DeadlineExceeded` — the error
+`RunOnce`'s own timer would have produced, inherited by the derived timeout context down to the
+per-line handler context — and hands `RunOnce` a one-hour budget so its real timer never fires.
+Re-proof: `go test ./internal/daemon -run TestCarriedDefect_SP05D1 -count=40 -race` passed 0/40
+failing (`scratchpad/sp05d1-coload-40.log`, 8.3 s) with the whole of it overlapped by a
+concurrent `go test ./internal/daemon -race -count=1` (50.9 s, started a second later,
+`scratchpad/sp05d1-coload-load-daemon.log`) on the same host. The reworked test is still RED on
+the pre-SP-20 tree at the same offset-ledger assertion, `expected: 46, actual: 92` in both
+subtests (`scratchpad/sp05d1-v3-before.log`), so the program-order expiry reproduces the defect
+exactly as the wall-clock one did.
+
+RED/GREEN proof, both on the same test file. Against the pre-SP-20 tree (`git archive f6a8691^`
+extracted to the session scratchpad): `go test ./internal/daemon -run TestCarriedDefect_SP05D1
+-count=1 -v` fails both subtests at the offset ledger, `expected: 46, actual: 92` — both lines
+consumed (`scratchpad/sp05d1-before.log`). Against `verify/v5 @ 87c0c1d` plus the test: the same
+command passes (`scratchpad/sp05d1-after.log`), and `-race -count=5` together with
+`TestDrainRejectedResponseIsRetryableAfterRestart` and
+`TestDrainCanceledRejectedHandlerLeavesCurrentLinePending` passes (`scratchpad/sp05d1-race.log`).
+No code change was needed; the row moves to `fixed` with that test as its evidence.
+
 ---
 
 ## SP06-D2 — the `PutBytes` cold and warm budgets are unreachable and unverified
@@ -119,3 +184,176 @@ warm 4.33-4.60 ms. The 3 ms / 400 us budgets are unmet on Linux too - cold ~1.8x
 over - so this is no longer a measurement gap but a budget-vs-implementation decision, and it
 travels to V4-VERIFY beside SP08-D1, whose B-C breach is dominated by this same per-novel-chunk
 write path. Windows/Linux exemption factor from these runs: ~3x cold, ~1.05x warm.
+
+---
+
+## V5-VERIFY dispositions (2026-09-09)
+
+**SP06-D2 -> deferred:V6-VERIFY.** V4-VERIFY did not dispose of the row (its report carries it as
+sign-off item 5). V5 quiet pass on `verify/v5` @ `0d5c999` (Windows, serial, machine otherwise
+idle, `scratchpad/quiet/E5-I-06.18.txt`): PutBytes cold 15.74 ms / warm 5.65 ms
+against 3 ms / 400 us. Cold allocations rose from 922 to 1 183 per op since the wave-3 baseline with
+`internal/store/bench_test.go` unchanged, and warm is 20 % over V3's 4.7 ms, so the row is no longer a
+pure host question (V5 report §22 item 31). No reference-platform figure could be taken on this host: the only WSL
+distribution is docker-desktop (read-only filesystem) and the Docker daemon is stopped, both user
+actions to change, and a pushed branch is the only other path to the Linux CI leg — outward-facing,
+not taken under this checkpoint. The decision the V3 disposition named (budget revision versus
+implementation change on the per-novel-chunk write path) is still open and is the same decision as
+SP08-D1's; V6-VERIFY, whose SP-17 pushes to CI, takes both together with SP10-D1 and SP20-D2.
+
+## SP05-D2 — the shipped ACK deadline is shorter than one leased `Accept`
+
+`deferred:V6-VERIFY`. Found by V5-VERIFY fix item F4 while pinning F4-P1 (the
+drain replay of acknowledged copies, fixed in `1c17f0d`). The hook client waits
+`State.AckDeadlineMs` (shipped default 8, `internal/config/defaults.go`) for the daemon's one-byte
+transport ACK and otherwise appends the request to `spool/client-<pid>.ndjson`
+(`internal/ipc/client.go` `spoolAndReturn`). On this host, under the load of a full e2e session,
+25 and 26 of 196 hook deliveries in the two `TestV3_LiveSessionWriteSetAndAppendOnly` runs whose counts
+were saved (13 %; `scratchpad/rev2-x09-red.txt`, `rev2-x09-ctrl-nofallback.txt`) took that fallback
+AFTER the daemon had leased and acknowledged them; the analysis of the other F4 runs was not saved. The B-B diagnosis (SP20-D1) then showed the general case: since `f6a8691`
+the transport ACK is written only after `Accept`'s fsyncs, so whenever one `Accept` takes longer
+than 8 ms — every leased `Accept` on this disk, and every `Accept` at all under bench-hotpath's
+burst — the hook times out and spools, and bench-hotpath's delivery reconciliation hides the
+resulting duplicates. With F4-P1 fixed each such copy is skipped at the next
+drain; what remains is wasted spool I/O on the hook's hot path and a startup drain proportional to
+it. No evidence test is named: the symptom is a rate under host load, and a deterministic pin needs
+a fake clock inside the client's ACK wait, which is SP-17's hardening list. Resolution: measure the
+fallback rate on the reference platform and either raise the deadline within budget B-B or make the
+client's ACK wait independent of scheduler latency.
+
+## SP20-D1 — budget B-B cannot hold the leased delivery path's durability points
+
+`deferred:V6-VERIFY`. Budget B-B (`l0_ingest`, gated, p99 < 2 ms, "daemon read
+to WAL append returned") is incompatible with the durability design SP-20 M1 shipped for the
+leased delivery path. `internal/daemon/ingest.go` `Accept` documents it: three durability points,
+four fsync syscalls per accepted leased delivery — the WAL append sync, the delivery journal's
+lease write and sync, and the lease-position sidecar written through `paths.WriteAtomic` (temp-file
+fsync plus directory fsync) — and states that the reductions considered (sealing the position per
+batch, deferring the lease off Accept) are not durability-neutral. Until V5's `fix(ipc)` the hook
+client's nonce was refused by the journal, every delivery was unleased and Accept paid only the WAL
+sync, which is why V4 measured B-B at 3.8 ms p99 (already over) and never saw the rest. With
+leases live, `devtool bench-hotpath --iterations 2000 --warm-daemon` on `verify/v5` @ `0d5c999`
+reports B-B p50 917.5 ms / p99 983.0 ms (n = 2064; `scratchpad/quiet/H1-bench-hotpath.txt`, power
+state AC, processor performance 161 %, foreign load 4.8 %), while B-A (hook wall-clock) stays inside its 15 ms gate at p99 3.07 ms.
+The diagnosis (workflow `v5-bb-diagnosis`, adversarially reviewed): the timed region is the whole
+`Accept` closure — WAL append and fsync under `ingest.mu`, then the lease under the lock's mutex
+(a position-sidecar re-read, the journal write and fsync, and `WriteAtomic`'s temp-file fsync) —
+and the one-byte transport ACK is written only after `Accept` returns (`ipc/server.go`, dispatch
+then `writeByte`). A leased `Accept` costs 18.3–23.3 ms of service time against 1.9–2.2 ms unleased on the quiet AC
+windows (9.5–11.4×; E4, E11, E4b), and 37–42 ms against 8–9 ms co-loaded (4.7×; `scratchpad/f7c/`,
+where three `FlushFileBuffers` per call take 65 % of the profile and the position re-read another
+28 %), so the row fails on service time alone; the p50 near 0.9 s is the queue behind the serialized
+`Accept` under the 2 000-hook burst. The reviewer's own harness runs on AC show the queue growing with
+the burst (300 hooks: p50 1.4 s; 1 000 hooks: p50 2.6 s, max 4.3 s) while the per-hook wall-clock stays
+at ~25 ms, and on a live daemon the same timed region also waits for the lock that `acknowledge`
+holds during its own two syncs. The hook client never sees that ACK: `awaitACK` gives up at the shipped 8 ms
+deadline and spools, and bench-hotpath's delivery reconciliation clamps the spooled duplicates
+away, so B-A reads PASS on the daemon's receive timestamp alone. The budget row's own text ("daemon
+read to WAL append returned") stopped describing `Accept` at `f6a8691` (WAL fsync, 2026-09-07) and
+again at `9c023ac` (leases live); the committed bench baseline's `BenchmarkIngestAccept` rows
+(2 µs, unsynced) predate both.
+
+**Evidence.** `BenchmarkIngestAcceptLeased` (`internal/daemon/bench_test.go`, `0d5c999`): the
+existing nonce-less `BenchmarkIngestAccept` priced only the WAL sync; the leased variant takes a
+fresh lease per iteration through the real file-backed journal. On this host (AC, co-loaded, CPU performance 127–154 %; ratios meaningful, absolutes not): unleased 8.2–9.0 ms/op, leased 39.9–41.9 ms/op, single `WriteAtomic` 7.0–8.9 ms/op; `develop` @ `87c0c1d` unleased 6.4–7.4 ms/op (same single fsync). The benchmark fails itself unless the journal holds b.N + 1 leases afterwards, so a silent unleased fallback cannot pass it.
+
+**Why it is carried.** The fix is a design decision, not a patch: either B-B is re-budgeted for a
+path that now includes durable assignment (and the hot-path spec's 2 ms figure is corrected where
+it is stated), or the lease's durability points move off Accept with a group-commit or a
+synced-bytes admission rule redesigned to tolerate it — the trade the code comment refuses to make
+silently. Both belong to the owner of the hot-path budgets with SP-20's author in the room, which
+is V6-VERIFY's SP-17 hardening pass. V5 records the measurement and the gate red, as V4 recorded the
+smaller breach, and does not lower the budget.
+
+**Acceptance (V6).** A reference-platform and a Windows figure for `BenchmarkIngestAcceptLeased`,
+a written decision between re-budget and redesign, and bench-hotpath's B-B row green or explicitly
+re-gated against the decided figure.
+
+## SP20-D2 — verify-on-read puts the store's read path over its budget
+
+`deferred:V6-VERIFY`. `16ecc77` `fix(store): verify bounded object reads and
+retain corruption evidence` (SP-20 M1, 2026-09-07) replaced `os.ReadFile` on the object read path
+with `readBoundedObject` — `Lstat`, `Open`, `fstat`, `SameFile`, a `LimitReader` read — and made
+`getObject` hash the plaintext (`core.HashBytes(core.DomainChunk, plain)`) against the requested
+address on every read (`internal/store/objects.go`). Every read now pays two extra metadata
+syscalls and one content hash of the chunk. On the AC quiet window of `verify/v5` @ `0d5c999`
+(`scratchpad/quiet/E5-I-06.18.txt`, `-benchtime 2s`; the `devtool bench` sweep in
+`scratchpad/quiet/v5-bench.txt` agrees): `BenchmarkGetChunk` 88.2 µs/op, 26 allocs/op against the
+60 µs budget (I-06.18) and the wave-3 baseline's 44.5–45.7 µs, 18 allocs; `BenchmarkOpenSpan_4KB_of_4MB`
+88.6 µs (150 µs budget, inside at turbo; baseline 46 µs, allocs 19 → 27); `BenchmarkSearch_1000Roots` 81.8 ms, 42.7 k allocs
+against 25 ms (already 2× over at the baseline's 45–52 ms, 30.3 k allocs) because `Search` reads
+every candidate chunk through the same `getObject` (`internal/store/search.go`). The base-clock confirmation (`scratchpad/quiet/E5b-store-count3.txt`, battery 46 %, processor performance 95 %, `-count=3`) reads 224–321 µs / 316–333 µs / 242–271 ms, all three over their budgets, with the same 26 / 27
+allocs/op where recorded: the added cost is syscall-bound and scales worse than the clock on battery. The
+allocation columns do not depend on the clock, so this is the code, not the host;
+`git diff 1e767c3..HEAD -- internal/store/read.go internal/store/objects.go` is the whole change on
+that path. `devtool bench-compare` did not flag it: with one sample per row benchstat's test has
+almost no power (it called 6 of 311 rows significant), the blindness V2-VERIFY recorded as its gates
+item 24 and the V5 report's §22 item 24 records again.
+
+**Why it is carried.** Verify-on-read is a deliberate integrity decision of SP-20's remediation
+(bounded reads, content-addressed verification, quarantine with evidence), reviewed and shipped
+with its conformance log; making `GetChunk` meet 60 µs again means either trusting zstd's frame
+checksum and the index length as SP-06 did (undoing the decision), caching verified reads, or
+re-budgeting the row against the verified path. That is the same budget-versus-guarantee decision
+SP20-D1 records for durability, owned by the same pass. V5 records the measurement, opens the row,
+and lowers no budget.
+
+**Acceptance (V6).** A written decision (re-budget, cache, or verify at publication only) with a
+reference-platform and a Windows `BenchmarkGetChunk` figure, `BenchmarkSearch_1000Roots` judged
+against whichever budget the decision states, and the bench baseline regenerated on a quiet AC
+window with enough samples for the gate to compare.
+
+## SP20-D3 — a delta side record shared across roots breaks exact recovery for all but the first
+
+`deferred:V6-VERIFY`. Found by V5-VERIFY section-4 row 4.17 (`TestV5_AdmissionExtension`) while its
+author wired the resolver to `RestoreOriginal`; recorded in `plans/sdd/V5-VERIFY/x17-disposition.md`
+("Findings in `internal/store`") and carried here at the independent review's request.
+
+**Symptom.** `putSideRecord` (`internal/store/put.go`) content-addresses a delta side record over
+`marshalDeltas(deltas)` alone and returns the existing record when that address is already known. Two
+content roots whose canonicalization removed the same volatile token at the same offset — two tool
+outputs with the same timestamp prefix and different bodies — therefore share one side record, and its
+declared base is the FIRST root. The second root's `PutBytes` reports `FidelityExact`; its
+`RestoreOriginal` then fails with `ErrDeltaCorrupt` ("delta X declares base A, not B") and reports
+`FidelityCorrupt`. GC retains the shared record through one base only. This is an SP-20 invariant 6
+exactness claim that cannot be honoured on read; the 4.17 author reproduced it (`x17-run2.txt`).
+
+**Reach.** Latent on the shipped tree: `RestoreOriginal` (`internal/store/lifecycle.go`) has no
+production caller, so no enabled surface reads a side record back. The records themselves are written
+on the ordinary put path (`admitRecovery`, then `putSideRecord`) and persist, so a consumer added later
+inherits the defect for every root written before the fix.
+
+**Related, recorded but not a row.** When canonicalization changes nothing, `admitRecovery` reports
+`FidelityExact` with no side record, and `RestoreOriginal` labels the same bytes `FidelityCanonical`;
+`storedFidelity` has the same shape for a dedup hit. The bytes are right and the read label
+under-claims, the safe direction. The V5 report's §22 records it with this row.
+
+**Evidence.** None named. The 4.17 test gives every payload its own timestamp seconds value precisely
+so it does not trip this, and no pin test was written: the fix changes side-record identity and GC
+coupling, which is the store owner's decision. The row carries evidence `-` like SP05-D2, and V6's
+first step is a failing characterization test with two roots that share a removed token.
+
+**Acceptance (V6).** Side-record identity includes the declared base (or records are keyed per root),
+GC retains a record for every base that declares it, the characterization test restores both roots
+exactly, and put and read report the same fidelity for the same bytes.
+
+## SP09-D1 — negknow's `Open` budget holds on this host only at turbo clocks
+
+`deferred:V6-VERIFY`. Opened by V5-VERIFY at its independent review's request (ruling Q28 in the V5
+report). `internal/negknow` `TestBudget_Open` asserts §11.2's budget for `Open`: 300 ms CPU/op, best of
+three attempts. On this host it passes at turbo clocks and fails without them:
+
+| run | probe | `Open` CPU/op | file |
+|---|---|---|---|
+| F1 on `0d5c999`, alone | AC, processor performance 225 % | PASS (no figure logged) | `scratchpad/quiet/F1-ci-timing.txt` |
+| F1b on `1a1bbaf`, alone, `-count=3` | AC, 120 % | 257.8, 268.8, 273.4 ms | `scratchpad/quiet/F1b-negknow-count3.txt` |
+| B1 on `b64b3f6`, serial whole tree | battery, throttled: the resume2 pass's probes read 55–60 %, none taken during B1 itself | 585.9, 609.4, 632.8 ms (FAIL) | `scratchpad/quiet/B1-wholetree.txt` |
+
+It failed on the pre-wave-4 tree too (`scratchpad/m2-negknow-premerge.txt`), so it is not a wave-4
+regression. CPU/op scales with the clock (273 ms × 120/55 ≈ 596 ms), so the budget is met here only at
+turbo, the pattern for which SP10-D1 stays unresolved; `TestBudget_DetectorScan` has the same shape
+(2.6–3.6 ms at turbo, 6.1–6.7 ms throttled, against 5 ms). The first draft of the V5 ruling closed this
+as co-load; the serial B1 run shows it was the clock.
+
+**Resolution (V6).** A reference-platform figure from CI's `timing` job, then either a budget stated
+against the platform and clock it was written for, or a real speed-up of `Open`.

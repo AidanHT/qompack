@@ -156,3 +156,33 @@ func TestDraftQuestionsSplitUserFromDerivedAcrossAResume(t *testing.T) {
 	_, cp2 := f.persisted()
 	require.Contains(t, cp2.OpenQuestions, "A question the caller asked explicitly.")
 }
+
+// TestFinalizeKeepsToolPointersWhoseRootTheStoreHolds is the positive half of the test above,
+// against the REAL store: a tool pointer's Hash is the result's root, and a root is not an object
+// — store.Has is false for every root — so a check that asked Has alone dropped the whole tier on
+// the production path as pointer_unresolvable (V5-VERIFY §4.8). The pointer must survive while
+// its root and chunks are held, because that is what expand(hash) needs.
+func TestFinalizeKeepsToolPointersWhoseRootTheStoreHolds(t *testing.T) {
+	f := newFx(t)
+	f.prompt(0, "Check the pool statistics.", true)
+	root := f.tool("toolu_root_0001", 1, "Bash", "", "pool statistics for the failing window", false)
+	f.closedSeg(1, 0, 3)
+	require.False(t, f.store.Has(root), "the fixture's pointer must name a root, not a chunk, or this proves nothing")
+
+	d := f.begin()
+	f.advance(d, 1)
+
+	ref, err := f.w.Finalize(f.ctx(), d, finalizeBudget)
+	require.NoError(t, err)
+	raw, err := os.ReadFile(paths.Long(ref.Path))
+	require.NoError(t, err)
+	cp, err := checkpoint.Unmarshal(raw)
+	require.NoError(t, err)
+
+	require.Len(t, cp.Pointers.Tools, 1, "a pointer whose root and chunks are held must survive Finalize")
+	require.Equal(t, core.ToolUseID("toolu_root_0001"), cp.Pointers.Tools[0].ToolUseID)
+	require.Equal(t, root, cp.Pointers.Tools[0].Hash)
+	for _, dr := range cp.Dropped {
+		require.NotEqual(t, "pointer_unresolvable", dr.Kind, "nothing was collected, so nothing may be reported as such: %+v", dr)
+	}
+}

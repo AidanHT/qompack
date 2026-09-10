@@ -15,15 +15,16 @@ const (
 	hostPerFileTokens core.Tokens = 5000
 	// hostRestoreBudget is §2.4 step 7's total file-restore budget.
 	hostRestoreBudget core.Tokens = 50000
-	// hostSkillBudget is §2.4 step 7's invoked-skills budget.
-	//
-	// It has no caller, and SP02-D6 is the record of that. Modelling it needs a session that
-	// records which skills were invoked, and Session (fixed by §5.18) has no field for one, so on
-	// this corpus the reservation would always be a constant 25K subtracted from every policy
-	// alike — a number with no information in it. It is kept, named and cited rather than deleted
-	// because §2.4 step 7 is real and the next corpus tier that records skill invocations needs
-	// it; what is NOT true is that the stock model applies it today.
-	hostSkillBudget core.Tokens = 25000
+	// There is deliberately NO hostSkillBudget here. The pre-v1.5 §2.4 step 7 also re-injected
+	// invoked skill bodies (25K total, 5K/skill); Qompack.md v1.5 retired that step with the rest
+	// of §2.4's unverified Full Compact internals, the corpus raises no skill demand a restore
+	// could earn recall against, and the Qompack-side harness policy wires no skill indexer — so
+	// the stock model carries no skill term and the comparison excludes skill restoration on both
+	// sides symmetrically. The host's skill numbers live where they have a caller:
+	// internal/rehydrate's hostSkillBodyBudgetTokens/hostSkillTotalBudgetTokens. SP02-D6 records
+	// the decision (wontfix at V5-VERIFY; TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations
+	// pins it), and ADR 0002 records what the comparison therefore does not measure.
+
 	// hostPreserveMinTokens is §2.3's minTokens.
 	hostPreserveMinTokens core.Tokens = 10000 //nomagic:allow §2.3 minTokens — a host constant, not a Qompack tunable
 	// hostPreserveMinMessages is §2.3's minTextBlockMessages.

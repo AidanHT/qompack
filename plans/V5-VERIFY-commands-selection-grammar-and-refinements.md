@@ -1,6 +1,6 @@
 # V5 — Verification checkpoint: commands, selection, grammar, and Phase-7 refinements
 
-**Status:** future Wave 4 checkpoint, not executed. **Planning owner/model:** Astra coordinator (effective metadata not exposed); independent review in [ledger](MIGRATION-EVIDENCE.md).
+**Status:** executed 2026-09-08 to 2026-09-10 on `verify/v5`; completion report `plans/V5-report.md`. **Planning owner/model:** Astra coordinator (effective metadata not exposed); independent review in [ledger](MIGRATION-EVIDENCE.md).
 
 After authorized Wave 4 integration, retain SP15→SP16→SP14 order and evaluate SP21 separately after its M1–M3 prerequisites. Proposed future `verify/v5` branch/worktree comes from the verified integrated `develop`; none is created now. Wave 5 release work follows this gate. Admission may remain disabled; a disabled feature is not an implemented/pass claim.
 
@@ -219,85 +219,85 @@ The original row identifiers remain below as reconciliation references. For each
 
 Retained IDs: `I-01.1`, `I-01.2`, `I-01.3`, `I-01.4`, `I-01.5`, `I-01.6`, `I-01.7`, `I-01.8`, `I-01.9`, `I-01.10`, `I-01.11`, `I-01.12`, `I-01.13`, `I-01.14`, `I-01.15`, `I-01.16`, `I-01.17`, `I-01.18`, `I-01.19`, `I-01.20`, `I-01.21`, `I-01.22`, `I-01.23`, `I-01.24`.
 
-- [ ] Future owner reconciles every retained row against SP-19 M0-G1/G2/G4; retained package/CLI/import guards, versioned settings and supported capability states; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-19 M0-G1/G2/G4; retained package/CLI/import guards, versioned settings and supported capability states; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled 2026-09-09: `plans/sdd/V5-VERIFY/inventory-SP-01.md`, V5-report.md §1 (§3b).
 
 ### 2.2 SP-02 — replay/accounting/baseline
 
 Retained IDs: `I-02.1`, `I-02.2`, `I-02.3`, `I-02.4`, `I-02.5`, `I-02.6`, `I-02.7`, `I-02.8`, `I-02.9`, `I-02.10`, `I-02.11`, `I-02.12`, `I-02.13`, `I-02.14`.
 
-- [ ] Future owner reconciles every retained row against SP-19 M0-G5/G6; preserve old synthetic outputs, fix labels/corpus together, request categories and missing telemetry; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-19 M0-G5/G6; preserve old synthetic outputs, fix labels/corpus together, request categories and missing telemetry; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-02.md`, V5-report.md §2, additive row I-14.17 for M0-G5 (§3b).
 
 ### 2.3 SP-03 — sketches
 
 Retained IDs: `I-03.1`, `I-03.2`, `I-03.3`, `I-03.4`, `I-03.5`, `I-03.6`, `I-03.7`, `I-03.8`, `I-03.9`, `I-03.10`, `I-03.11`, `I-03.12`, `I-03.13`.
 
-- [ ] Future owner reconciles every retained row against SP-20 T20-M2-02; exact positives, covered negatives, bounded capacity; Misra–Gries candidates verified before exactness claims; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-20 T20-M2-02; exact positives, covered negatives, bounded capacity; Misra–Gries candidates verified before exactness claims; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-03.md`, V5-report.md §3; the negknow half is scored under SP-09 (ruling Q10).
 
 ### 2.4 SP-04 — chunk/canon/symbols
 
 Retained IDs: `I-04.1`, `I-04.2`, `I-04.3`, `I-04.4`, `I-04.5`, `I-04.6`, `I-04.7`, `I-04.8`, `I-04.9`, `I-04.10`, `I-04.11`, `I-04.12`, `I-04.13`, `I-04.14`, `I-04.15`, `I-04.16`, `I-04.17`.
 
-- [ ] Future owner reconciles every retained row against SP-20 T20-M1-01/02/06; permitted payload fidelity, semantic/physical spans and parser fallback; canonicalization is derived; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-20 T20-M1-01/02/06; permitted payload fidelity, semantic/physical spans and parser fallback; canonicalization is derived; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-04.md`, V5-report.md §4 (rulings Q11–Q14).
 
 ### 2.5 SP-05 — daemon/IPC/contracts
 
 Retained IDs: `I-05.1`, `I-05.2`, `I-05.3`, `I-05.4`, `I-05.5`, `I-05.6`, `I-05.7`, `I-05.8`, `I-05.9`, `I-05.10`, `I-05.11`, `I-05.12`, `I-05.13`, `I-05.14`, `I-05.15`, `I-05.16`, `I-05.17`, `I-05.18`, `I-05.19`, `I-05.20`.
 
-- [ ] Future owner reconciles every retained row against SP-19 M0-G2/G3 plus SP-20 T20-M1-03/04/05; durable acknowledgements, bounded workers and qualified event coverage; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-19 M0-G2/G3 plus SP-20 T20-M1-03/04/05; durable acknowledgements, bounded workers and qualified event coverage; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-05.md`, V5-report.md §5; fix items F4 (drain frontier) recorded in §22.
 
 ### 2.6 SP-06 — store/redaction/tokens
 
 Retained IDs: `I-06.1`, `I-06.2`, `I-06.3`, `I-06.4`, `I-06.5`, `I-06.6`, `I-06.7`, `I-06.8`, `I-06.9`, `I-06.10`, `I-06.11`, `I-06.12`, `I-06.13`, `I-06.14`, `I-06.15`, `I-06.16`, `I-06.17`, `I-06.18`.
 
-- [ ] Future owner reconciles every retained row against SP-20 M1 gates; object/index publication, backup/import/GC and privacy before persistence; assembled estimates calibrated, no exact chunk-sum claim; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-20 M1 gates; object/index publication, backup/import/GC and privacy before persistence; assembled estimates calibrated, no exact chunk-sum claim; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-06.md`, V5-report.md §6, additive row I-06.19 (backup/import/GC/rollback).
 
 ### 2.7 SP-07 — DAG/dependencies
 
 Retained IDs: `I-07.1`, `I-07.2`, `I-07.3`, `I-07.4`, `I-07.5`, `I-07.6`, `I-07.7`, `I-07.8`, `I-07.9`, `I-07.10`, `I-07.11`.
 
-- [ ] Future owner reconciles every retained row against SP-20 T20-M2-01/02 and SP-15 M5-G15-B; approximate observed relation graph, unknown dependency coverage retained; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-20 T20-M2-01/02 and SP-15 M5-G15-B; approximate observed relation graph, unknown dependency coverage retained; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-07.md`, V5-report.md §7 (ruling Q23).
 
 ### 2.8 SP-08 — observer
 
 Retained IDs: `I-08.1`, `I-08.2`, `I-08.3`, `I-08.4`, `I-08.5`, `I-08.6`, `I-08.7`, `I-08.8`, `I-08.9`, `I-08.10`, `I-08.11`, `I-08.12`, `I-08.13`, `I-08.14`, `I-08.15`.
 
-- [ ] Future owner reconciles every retained row against SP-20 T20-M1-01–05; captured host payload versus full process/file output, distinct events with equal content, child/gap provenance; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-20 T20-M1-01–05; captured host payload versus full process/file output, distinct events with equal content, child/gap provenance; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-08.md`, V5-report.md §8; `fix(ipc)` nonce width found here (§22 item 4).
 
 ### 2.9 SP-09 — negative knowledge
 
 Retained IDs: `I-09.1`, `I-09.2`, `I-09.3`, `I-09.4`, `I-09.5`, `I-09.6`, `I-09.7`, `I-09.8`, `I-09.9`, `I-09.10`, `I-09.11`, `I-09.12`, `I-09.13`, `I-09.14`.
 
-- [ ] Future owner reconciles every retained row against SP-20 T20-M2-01/02 and SP-13 T13-STATE; reason-independent identity/exact confirmation retained, errors not absence; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-20 T20-M2-01/02 and SP-13 T13-STATE; reason-independent identity/exact confirmation retained, errors not absence; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-09.md`, V5-report.md §9; SP09-D1 opened for `TestBudget_Open` (§21).
 
 ### 2.10 SP-10 — checkpoint/pins
 
 Retained IDs: `I-10.1`, `I-10.2`, `I-10.3`, `I-10.4`, `I-10.5`, `I-10.6`, `I-10.7`, `I-10.8`, `I-10.9`, `I-10.10`, `I-10.11`, `I-10.12`, `I-10.13`, `I-10.14`, `I-10.15`, `I-10.16`, `I-10.17`, `I-10.18`.
 
-- [ ] Future owner reconciles every retained row against SP-10 Test plan gates; committed frontier, compatible readers, lifecycle gaps, complete records and explicit overflow; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-10 Test plan gates; committed frontier, compatible readers, lifecycle gaps, complete records and explicit overflow; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-10.md`, V5-report.md §10; T10-* gates recorded as planning artefacts (ruling Q31).
 
 ### 2.11 SP-11 — rehydration/rules/skills
 
 Retained IDs: `I-11.1`, `I-11.2`, `I-11.3`, `I-11.4`, `I-11.5`, `I-11.6`, `I-11.7`, `I-11.8`, `I-11.9`, `I-11.10`, `I-11.11`, `I-11.12`, `I-11.13`, `I-11.14`, `I-11.15`, `I-11.16`, `I-11.17`, `I-11.18`, `I-11.19`.
 
-- [ ] Future owner reconciles every retained row against SP-11 T11-AUTH/BUDGET/LIFE/LOAD/SCOPE/POINTER/CORRECT/ROLLBACK; current intent and bounded extra context; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-11 T11-AUTH/BUDGET/LIFE/LOAD/SCOPE/POINTER/CORRECT/ROLLBACK; current intent and bounded extra context; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-11.md`, V5-report.md §11; T11 gates `implemented_unverified` pending the V6 plan reconciliation (ruling Q35).
 
 ### 2.12 SP-12 — scheduler
 
 Retained IDs: `I-12.1`, `I-12.2`, `I-12.3`, `I-12.4`, `I-12.5`, `I-12.6`, `I-12.7`, `I-12.8`, `I-12.9`, `I-12.10`, `I-12.11`, `I-12.12`, `I-12.13`, `I-12.14`, `I-12.15`, `I-12.16`, `I-12.17`, `I-12.18`, `I-12.19`, `I-12.20`, `I-12.21`.
 
-- [ ] Future owner reconciles every retained row against SP-12 M5-G12-A–E; useful local cadence, unknown observations safe, no native cut/veto or O(delta) claim; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-12 M5-G12-A–E; useful local cadence, unknown observations safe, no native cut/veto or O(delta) claim; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-12.md`, V5-report.md §12; native cut retired, seven passing gates kept (ruling Q41).
 
 ### 2.13 SP-13 — MCP retrieval
 
 Retained IDs: `I-13.1`, `I-13.2`, `I-13.3`, `I-13.4`, `I-13.5`, `I-13.6`, `I-13.7`, `I-13.8`, `I-13.9`, `I-13.10`, `I-13.11`, `I-13.12`, `I-13.13`, `I-13.14`, `I-13.15`, `I-13.16`, `I-13.17`, `I-13.18`, `I-13.19`.
 
-- [ ] Future owner reconciles every retained row against SP-13 T13-PROTOCOL through T13-ROLLBACK; installed authorized archive search/expansion, history/current and errors distinct; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-13 T13-PROTOCOL through T13-ROLLBACK; installed authorized archive search/expansion, history/current and errors distinct; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-13.md`, V5-report.md §13 (ruling Q46).
 
 ### 2.14 SP-14 — commands/observability
 
 Retained IDs: `I-14.1`, `I-14.2`, `I-14.3`, `I-14.4`, `I-14.5`, `I-14.6`, `I-14.7`, `I-14.8`, `I-14.9`, `I-14.10`, `I-14.11`, `I-14.12`, `I-14.13`, `I-14.14`, `I-14.15`, `I-14.16`.
 
-- [ ] Future owner reconciles every retained row against SP-14 gates; stable command/JSON/exit semantics and honest status/accounting/coverage; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-14 gates; stable command/JSON/exit semantics and honest status/accounting/coverage; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-14.md`, V5-report.md §14; I-14.14 conformance suite MISSING with owner SP-14.
 
 ### 2.15 SP-15 — selection/grammar
 
@@ -309,23 +309,23 @@ Retained IDs: `I-15.1`, `I-15.2`, `I-15.3`, `I-15.4`, `I-15.5`, `I-15.6`, `I-15.
 
 Retained IDs: `I-16.1`, `I-16.2`, `I-16.3`, `I-16.4`, `I-16.5`, `I-16.6`, `I-16.7`, `I-16.8`, `I-16.9`, `I-16.10`, `I-16.11`, `I-16.12`, `I-16.13`, `I-16.14`, `I-16.15`, `I-16.16`, `I-16.17`.
 
-- [ ] Future owner reconciles every retained row against SP-16 M6-G16-A–E; scoped applicability/expiry, bounded retrieval, future-only promotion and optional ablations; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions.
+- [x] Future owner reconciles every retained row against SP-16 M6-G16-A–E; scoped applicability/expiry, bounded retrieval, future-only promotion and optional ablations; retains compatible historical regressions and an explicit old-to-new assertion map. Historical baseline source: this file at HEAD `7f92af5`, corresponding completed V1–V3 reports, and current source/test definitions. — reconciled: `inventory-SP-16.md`, V5-report.md §16; M6-G16-C delivered-partial, `implemented_unverified` (ruling Q64).
 
 ### Migration additions without renumbering prior rows
 
-- [ ] SP-19/M0: mapping, packaged capability/lifecycle canaries, request ledger, settings and baseline provenance.
-- [ ] SP-20/M1–M2: capture/privacy, crash/publication, resumable migration/backup/rollback, state authority, uncertainty, retention and scope gates.
-- [ ] SP-21/M4: independently opt-in admission gate, every pointer resolves, processed-envelope recursion, fidelity, privacy and unmodified-output comparison. Disabled admission is recorded as disabled, never passed.
+- [x] SP-19/M0: mapping, packaged capability/lifecycle canaries, request ledger, settings and baseline provenance. `verified_in_target` at the repository-validator level; installed host `implemented_unverified` (V5-report.md §24).
+- [ ] SP-20/M1–M2: capture/privacy, crash/publication, resumable migration/backup/rollback, state authority, uncertainty, retention and scope gates. V5: `verified_in_target` for every gate except uncertainty, which is partial on the digest surface (4.5; V5-report.md §22 item 26); SP20-D1, SP20-D2 and SP20-D3 are carried to V6-VERIFY (§21, §24); two SP-20 commit checkboxes delivered-unchecked (ruling Q29).
+- [ ] SP-21/M4: independently opt-in admission gate, every pointer resolves, processed-envelope recursion, fidelity, privacy and unmodified-output comparison. Disabled admission is recorded as disabled, never passed. V5: the foundation is `verified_in_target`, but the unmodified-output comparison is not (T21-QUALITY-01 inconclusive by construction, T21-HOST-01 accepted unverified), so the box stays open; admission recorded as disabled, never passed (V5-report.md §18, §24).
 
 ## 3. Exit-criteria re-verification
 
-- [ ] R2 run map accounts for focused/parallel groups, each justified long gate, actual instrumented coverage, current candidate/artifact identity and every incomplete result; no duplicate per-row whole-tree runs or unreviewed coverage substitutions.
-- [ ] Carry V4's actual mandatory results and unresolved disabled capabilities without rewriting history.
-- [ ] SP14 command/JSON/exit/status/request-ledger behavior matches the supported plugin.
-- [x] SP15 selection reaches the real Qompack consumer with one compatible representation, closure, deterministic ties and complete overhead/overflow — `implemented_unverified` at host level, evidenced in-repo (§3a). Assembled cost remains an ESTIMATE: M5-U15-representation-overhead is open, so no token guarantee is claimed.
-- [x] SP15 warnings remain progress-aware, bounded and warning-only; grammar complexity is NOT justified and is recorded optional-disabled — the M6-G15-B ablation went against Sequitur (§3a).
-- [ ] SP16 scope/applicability/expiry/privacy and bounded retrieval/usefulness tests pass; promotion has no native residency claim.
-- [ ] SP21 enabled surfaces, if any, satisfy all T21 gates, including comparison to unmodified output; unknown parser, changed failure/delta baseline, storage failure, own-envelope recursion and competing hooks have safe outcomes.
+- [x] R2 run map accounts for focused/parallel groups, each justified long gate, actual instrumented coverage, current candidate/artifact identity and every incomplete result; no duplicate per-row whole-tree runs or unreviewed coverage substitutions. — `verified_in_target` (V5-report.md §18, §0, §17): every run names its commit in §17, and the whole tree re-ran on the report commit `b1a0183` (B3), failing only on the three carried tests (SP20-D1's two B-B tests and the Belady floor), and the race detector found no data race in the three packages changed since `b64b3f6` (C1b).
+- [x] Carry V4's actual mandatory results and unresolved disabled capabilities without rewriting history. `verified_in_target` (V5-report.md §18, §29).
+- [x] SP14 command/JSON/exit/status/request-ledger behavior matches the supported plugin. `verified_in_target` with four gaps: the H3 `/qompack:checkpoint` route, `Deps.EvalArtifacts` (unsupported, Q53), the I-14.14 conformance suite and the I-14.16 benchmarks (V5-report.md §18).
+- [ ] SP15 selection reaches the real Qompack consumer with one compatible representation, closure, deterministic ties and complete overhead/overflow — `implemented_unverified` at host level, evidenced in-repo (§3a). Assembled cost remains an ESTIMATE: M5-U15-representation-overhead is open, so no token guarantee is claimed. V5: `implemented_unverified` end-to-end (V5-report.md §18); ticked at SP-15's delivery (`db4ec2e`) before verification, unticked by V5.
+- [ ] SP15 warnings remain progress-aware, bounded and warning-only; grammar complexity is NOT justified and is recorded optional-disabled — the M6-G15-B ablation went against Sequitur (§3a). V5: warning-only and bounded are `verified_in_target` (4.10's degraded arm), but the progress-aware detector is `unsupported`: no production root composes `grammar.Detector` and `runtime.selection.loopWarningsEnabled` defaults false (V5-report.md §18); ticked at SP-15's delivery (`db4ec2e`) before verification, unticked by V5.
+- [x] SP16 scope/applicability/expiry/privacy and bounded retrieval/usefulness tests pass; promotion has no native residency claim. `verified_in_target` at the package seams, `unsupported` end to end: every phase-7 switch ships off (V5-report.md §18).
+- [x] SP21 enabled surfaces, if any, satisfy all T21 gates, including comparison to unmodified output; unknown parser, changed failure/delta baseline, storage failure, own-envelope recursion and competing hooks have safe outcomes. — no enabled surface; the foundation is `verified_in_target` through 4.17 (V5-report.md §18, §24).
 
 ## 3a. SP-15 delivery record (executed 2026-09-08)
 
@@ -478,35 +478,59 @@ exactly the co-load that makes timing rows meaningless. The re-runs above are th
 | Host-level verification | No host canary exercises selection or warnings; every gate above rests on in-repo evidence |
 | SP-14, SP-16, SP-19/20/21 rows | Untouched by this section |
 
+## 3b. V5 execution record (executed 2026-09-08/09)
+
+This checkpoint ran under the user's 2026-09-08 instruction to integrate wave 4 and finish V5; the
+record of what was done, every command, artifact, waiver and open item is
+[V5-report.md](V5-report.md). This section only maps the plan's rows to that record so the checkboxes
+above can be read against evidence rather than intent.
+
+| Plan section | Where the evidence is | State |
+|---|---|---|
+| Wave-4 integration (SP-15 → SP-16 → SP-14, then SP-21) | V5-report.md §0; `develop` `504f38f`, `0884ea8`, `33bb890`, `0dd982b`, `6856cb2`, `87c0c1d` | done, validated between merges, lint green on `87c0c1d` |
+| §2.1–2.16 inventory | `plans/sdd/V5-VERIFY/inventory-SP-NN.md` (16 files, 274 rows), V5-report.md §1–16 | done; 239 PASS (I-11.19 partial on its L5-BUILD clause), 1 FAIL (I-01.18 retired grep), 1 FAIL-BASELINE (I-09.14, clock-bound: SP09-D1), 5 FAIL-COLOAD-SUSPECT (each re-run alone in the quiet pass), 28 NOT-RUN deferred to the quiet pass, 13 MISSING with owners (four retired by ruling) |
+| Migration additions (SP-19/M0, SP-20/M1–M2, SP-21/M4) | V5-report.md §24 | recorded per capability; admission disabled and recorded as disabled |
+| §3 exit criteria | V5-report.md §18 | each criterion carries a plan-§8 status word |
+| §4.1–4.16 and §4.17 | `test/e2e/v5_xNN_test.go`, `test/integration/v5_xNN_test.go`, `plans/sdd/V5-VERIFY/xNN-disposition.md`, V5-report.md §19 | all seventeen authored and adversarially reviewed; 4.13 retires the native-cut assertion as the plan requires; unverified remainders recorded per row |
+| §5 performance | V5-report.md §17, §20 (serial quiet pass) | Windows figures only; reference platform not measurable on this host |
+| §6 regression | V5-report.md §21; `plans/CARRIED-DEFECTS.tsv` | SP05-D1 fixed, SP02-D6 wontfix, SP10-D1 improved and re-owned, SP06-D2/SP08-D1 re-owned, SP08-D2, SP05-D2, SP09-D1, SP20-D1, SP20-D2 and SP20-D3 opened |
+| §7 failure protocol | V5-report.md §22 | fifteen entries plus the quiet-pass findings |
+| §8 report | V5-report.md | written; independent review in its §28 |
+
+The checkbox lines above are ticked where V5-report.md records `verified_in_target`; a ticked box on a
+row that also names an unverified remainder means the row's current criterion was asserted with real
+producers and the remainder is recorded, not that the historical text passed.
+
+
 ## 4. New cross-component integration tests
 
 Historical proposed test names are retained as identifiers, not assertions that these tests exist or pass. Correct their assertions/names compatibly during future implementation and record the mapping; unsafe guarantees below are retired.
 
 | Retained section / test identifier | Current future criterion and owner |
 |---|---|
-| 4.1 `TestV5_ObserveToStatusRoundTrip` | [ ] SP-14 status agrees with authoritative qualified observations and missing telemetry. |
-| 4.2 `TestV5_TombstoneToExpandRoundTrip` | [ ] SP-20/SP-13 exact authorized handle recovery with fidelity and no historical/current substitution. |
-| 4.3 `TestV5_HookEventToTombstoneToRetrievalAfterRestart` | [ ] SP-20 acknowledged capture survives interrupted drain/restart, or records explicit gap. |
-| 4.4 `TestV5_PreCompactToRehydrateToDroppedRoundTrip` | [ ] SP-10/SP-11/SP-13 bounded recovery/coverage without optional-PostCompact dependency. |
-| 4.5 `TestV5_EliminationThroughEveryFourSurfaces` | [ ] SP-20/SP-13/SP-14 stale/uncertain/error state survives every surface and old-caller adapter. |
-| 4.6 `TestV5_SelectorGatedByRealScheduler` | [ ] SP-12/SP-15 local capability guards replace native-p-selection prerequisites. |
-| 4.7 `TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint` | [ ] SP-15 selected complete records reach actual SP-11 consumer without native cuts. |
-| 4.8 `TestV5_GrammarAndPromotionCoexistInFinalize` | [ ] SP-15/SP-16 codec/selection/promotion coexist under scope, overhead and provenance. |
-| 4.9 `TestV5_TruncationOrdersActionHistoryAndPromotionCorrectly` | [ ] SP-11/SP-15/SP-16 complete-record overflow replaces arbitrary byte truncation. |
-| 4.10 `TestV5_ThrashWarningVisibleInStatusAndCheckpoint` | [ ] SP-15 warning-only progress-aware dedup; self-generated warnings cannot feed back. |
-| 4.11 `TestV5_SegmentBloomNarrowsRecall` | [ ] SP-20/SP-16 filter generation/coverage: exact positives, stale/incomplete negatives bypass. |
-| 4.12 `TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession` | [ ] SP-16 scope/branch/version/expiry/unfinished-intent matrix; no guaranteed warm improvement. |
-| 4.13 `TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne` | [ ] Retire ski-rental native cut assertion; SP-12 owns deprecated compatibility and local cadence. |
-| 4.14 `TestV5_EveryContractAssertionHasARealProducer` | [ ] SP-19 per-capability observed/unknown evidence, no fixed producer count or setter claim. |
-| 4.15 `TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent` | [ ] SP-14/SP-21 degraded/error/privacy behavior, no absence or misleading success on failure. |
-| 4.16 `TestV5_NoPackageWritesOutsideDotQompack` | [ ] SP-17 trust/retention/write-set boundaries with explicit allowed data writes and no project mutation. |
+| 4.1 `TestV5_ObserveToStatusRoundTrip` | [x] SP-14 status agrees with authoritative qualified observations and missing telemetry. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x01-disposition.md`. |
+| 4.2 `TestV5_TombstoneToExpandRoundTrip` | [x] SP-20/SP-13 exact authorized handle recovery with fidelity and no historical/current substitution. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x02-disposition.md`. |
+| 4.3 `TestV5_HookEventToTombstoneToRetrievalAfterRestart` | [x] SP-20 acknowledged capture survives interrupted drain/restart, or records explicit gap. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x03-disposition.md`. |
+| 4.4 `TestV5_PreCompactToRehydrateToDroppedRoundTrip` | [x] SP-10/SP-11/SP-13 bounded recovery/coverage without optional-PostCompact dependency. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x04-disposition.md`. |
+| 4.5 `TestV5_EliminationThroughEveryFourSurfaces` | [ ] SP-20/SP-13/SP-14 stale/uncertain/error state survives every surface and old-caller adapter. — authored and green; disposition `partial`: the error state does not survive the digest surface under a blind ledger, and pin records are stamped `mcp`; both are routed as defect candidates (V5-report.md §19, §22 items 26–27, `plans/sdd/V5-VERIFY/x05-disposition.md`). |
+| 4.6 `TestV5_SelectorGatedByRealScheduler` | [x] SP-12/SP-15 local capability guards replace native-p-selection prerequisites. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x06-disposition.md`. |
+| 4.7 `TestV5_ScheduledCutFeedsSelectorFeedsCheckpoint` | [x] SP-15 selected complete records reach actual SP-11 consumer without native cuts. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x07-disposition.md`. |
+| 4.8 `TestV5_GrammarAndPromotionCoexistInFinalize` | [ ] SP-15/SP-16 codec/selection/promotion coexist under scope, overhead and provenance. — authored and green; disposition `partial`: no grammar fold is wired into `Finalize`, so codec coexistence is recorded unverified (V5-report.md §19, `plans/sdd/V5-VERIFY/x08-disposition.md`). |
+| 4.9 `TestV5_TruncationOrdersActionHistoryAndPromotionCorrectly` | [x] SP-11/SP-15/SP-16 complete-record overflow replaces arbitrary byte truncation. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x09-disposition.md`. |
+| 4.10 `TestV5_ThrashWarningVisibleInStatusAndCheckpoint` | [x] SP-15 warning-only progress-aware dedup; self-generated warnings cannot feed back. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x10-disposition.md`. |
+| 4.11 `TestV5_SegmentBloomNarrowsRecall` | [x] SP-20/SP-16 filter generation/coverage: exact positives, stale/incomplete negatives bypass. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x11-disposition.md`. |
+| 4.12 `TestV5_WarmStartImprovesTheFirstCompactionOfTheNextSession` | [x] SP-16 scope/branch/version/expiry/unfinished-intent matrix; no guaranteed warm improvement. — authored and green; `partial` by design only in that warm improvement is not asserted, which the criterion does not guarantee (V5-report.md §19, `plans/sdd/V5-VERIFY/x12-disposition.md`). |
+| 4.13 `TestV5_SkiRentalChangesTheChosenCutButNeverBlocksAnUrgentOne` | [x] Retire ski-rental native cut assertion; SP-12 owns deprecated compatibility and local cadence. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x13-disposition.md`. |
+| 4.14 `TestV5_EveryContractAssertionHasARealProducer` | [x] SP-19 per-capability observed/unknown evidence, no fixed producer count or setter claim. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x14-disposition.md`. |
+| 4.15 `TestV5_DegradedPassiveIsStillCorrectWithEverySubsystemPresent` | [x] SP-14/SP-21 degraded/error/privacy behavior, no absence or misleading success on failure. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x15-disposition.md`. |
+| 4.16 `TestV5_NoPackageWritesOutsideDotQompack` | [x] SP-17 trust/retention/write-set boundaries with explicit allowed data writes and no project mutation. — authored and green on this tree: V5-report.md §19, `plans/sdd/V5-VERIFY/x16-disposition.md`. |
 
 ### 4.17 Admission extension
 
-- [ ] Future SP21 tests distinguish fresh owned-result first transformation from already-processed envelope bypass, then a tiny target-tested host allowlist.
-- [ ] Durable capture/authorization and resolution precede replacement; unavailable baseline/parser change/failure signature resets relative-delta eligibility.
-- [ ] Unsupported binary/multimodal/schema content follows pass-through or privacy-denial policy, with structured/displayed status and errors preserved.
-- [ ] Record supported-task quality/recoverability against unmodified output plus cost/latency separately; replacement stays off until target and regression gates pass.
+- [ ] Future SP21 tests distinguish fresh owned-result first transformation from already-processed envelope bypass, then a tiny target-tested host allowlist. (V5: the distinction is verified by T21-RECURSE-01 and 4.17 (a); the target-tested host allowlist does not exist yet — T21-HOST-01 accepted unverified, V5-report.md §24.)
+- [x] Durable capture/authorization and resolution precede replacement; unavailable baseline/parser change/failure signature resets relative-delta eligibility. — T21-PIPE-01, T21-BASELINE-01 passing; 4.17 (b) (V5-report.md §24).
+- [x] Unsupported binary/multimodal/schema content follows pass-through or privacy-denial policy, with structured/displayed status and errors preserved. — T21-PASS-01, T21-FIDELITY-01 passing; 4.17 (c) (V5-report.md §24).
+- [ ] Record supported-task quality/recoverability against unmodified output plus cost/latency separately; replacement stays off until target and regression gates pass. (V5: T21-QUALITY-01 inconclusive by construction, no observations; replacement stays off — V5-report.md §24.)
 
 ## 5. Performance budget validation
 
@@ -546,6 +570,6 @@ Use `documented`, `verified_in_target`, `implemented_unverified`, `unsupported`,
 
 Retain per-SP01–16 inventory and original exit/integration/budget/regression/report roles. Add SP19/20 prerequisite status and SP21 enabled-surface matrix. Record three evaluation layers, controlled/held-out snapshots and separate stock/current-Qompack/corrected-recovery/admission comparisons; observation masking is a baseline only if the actual harness supports it.
 
-- [ ] Future V5 gate requires no unresolved mandatory regression or recovery/privacy blocker for enabled scope.
-- [ ] Optional policy non-delivery is explicit; no synthetic-score-only default flip.
-- [ ] Only after independent review may separately authorized work merge `verify/v5`, consider the historical `v0.4.0` marker and proceed to Wave 5. No branch/tag/commit action occurs during planning.
+- [ ] Future V5 gate requires no unresolved mandatory regression or recovery/privacy blocker for enabled scope. NOT met: SP20-D1 (budget B-B red on the shipped leased delivery path) and SP20-D2 (verify-on-read over the store read budgets) are known regressions in enabled scope, and SP20-D3 is a latent recovery-fidelity defect; all three are `deferred:V6-VERIFY` and carried under the user's 2026-09-08 waiver (V5-report.md Authority paragraph, §21, §29). F4-P1 is fixed; the reference-platform rows SP06-D2, SP08-D1, SP09-D1 and SP10-D1 and the F4 residue SP08-D2/SP05-D2 are deferred with them.
+- [x] Optional policy non-delivery is explicit; no synthetic-score-only default flip. Grammar optional-disabled, phase-7 switches off, admission off (V5-report.md §18 for grammar and phase 7, §24 for admission).
+- [x] Only after independent review may separately authorized work merge `verify/v5`, consider the historical `v0.4.0` marker and proceed to Wave 5. No branch/tag/commit action occurs during planning. — independent review in V5-report.md §28; merge into local `develop` authorized by the user's 2026-09-08 instruction (waiver in the report's Authority paragraph); no tag, no push.

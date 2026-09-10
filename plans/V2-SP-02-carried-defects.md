@@ -114,6 +114,57 @@ delete the two constants and record in ADR 0002 that the stock model deliberatel
 padding, with what that does to the comparison. A dead constant that looks like it is part of the
 model is a trap for the next reader of it.
 
+**V5-VERIFY disposition (2026-09-08): `wontfix`** for the remaining `hostSkillBudget` half. The
+`hostPadTokens` half was fixed at V4 (table below) and stays fixed. What was found, in order:
+
+1. **The premise the deferral rested on is wrong, and it is right to say so.** A `Session` can
+   already record a skill invocation: `ToolCall.Name` is `"Skill"` (`internal/eval/types.go`,
+   `ToolCall`). No §5.18 field is missing, so "Session is fixed by §5.18" was never the blocker.
+   What forbids the model is the contract and the measurement, below.
+2. **The contract that forbids it.** Qompack.md v1.5 (`62f1487`) rewrote §2.4 to "Earlier
+   MicroCompact/Session Memory/Full Compact descriptions are historical motivation. This plan
+   depends on observed hook contracts and recoverable Qompack state, not undocumented tier
+   internals", deleted the step-7 list and the §2.7 "Invoked skill bodies" row, and
+   `plans/00-ARCHITECTURE.md` §0.1 ("v1.5 migration amendment and precedence") rules "do not
+   implement the old guarantees as new features". The 25K/5K figures now exist only in history:
+   `git show 7f92af5:Qompack.md` line 88 (the pre-v1.5 §1.3 RC-3 list of *unvalidated* constants,
+   "25K skills"), lines 141–143 (step 7) and 227 (the §2.7 row); the current §1.3 carries no RC
+   list at all, and v1.3's revision log had already ruled §2.4 "unchanged and … not verified". A stock stage
+   built on a retired, unverified number has no line left to cite, and it changes what `stock` —
+   "the policy the Phase 0 baseline number describes" (`internal/eval/policy.go`), pinned by ADR
+   0002 as "modelled per §2.3/§2.4/§2.5" — means for `testdata/baseline/phase0*.json`, which this
+   checkpoint may not regenerate.
+3. **What the comparison therefore does not measure.** `Blocks` mints no skill block and `Demand`
+   has no skill kind, so a modelled restore could only *cost* stock, never earn it recall; and the
+   Qompack-side harness policy sets `Skills` nil on purpose (`test/replay/policy_rehydrate.go`,
+   `Graph, Rules and Skills are nil ON PURPOSE`). On the committed corpus (`SynthesizeNamed`; tool
+   vocabulary `FileRead/Read/Edit/Write` plus `record_eliminated`, `internal/eval/synth.go:128`)
+   the reservation would be identically zero. The exclusion is symmetric: fraction-of-OPT measures
+   file, turn, tool-result, elimination and decision recall under an equal budget and says nothing
+   about skill restoration on either side. Recorded in ADR 0002 ("What `stock` deliberately leaves
+   out"), as the V3 acceptance asked.
+4. **The production surface that covers skills restore instead.** `internal/rehydrate` item 6b,
+   `buildSkillIndex` (G4.4), and the host body budgets `hostSkillBodyBudgetTokens` /
+   `hostSkillTotalBudgetTokens` (`internal/rehydrate/items.go`), which — unlike the eval constant —
+   have callers: the head-truncation and total-cap warnings. Run on this candidate:
+   `go test ./internal/rehydrate -run TestSkillIndex -count=1 -v` — 6 PASS (`-list` confirms the
+   six `TestSkillIndex_*` names: `RendersTheCompactIndex`, `DropsReportUnindexedSkills`,
+   `WarnsOnHostHeadTruncation`, `WarnsOnHostTotalCap`, `BodyTokensErrorsAreSilent`,
+   `NilIndexerReportsTheAbsence`); `go test ./internal/skills -count=1 -v` — 13 PASS. Artifacts:
+   `rehydrate-skillindex.txt`, `rehydrate-skillindex-list.txt`, `skills-pkg.txt` in the session
+   scratchpad.
+5. **Code.** `hostSkillBudget` is deleted from `internal/eval/hostconst.go` — the trap the
+   acceptance named — and the exclusion is written in its place.
+   `TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations` (`internal/eval/policy_test.go`) pins
+   it: two sessions identical except that one tool call is named `Skill` yield equal keep-sets,
+   with the invocation surviving only as an ordinary tool block and all five step-7 files still
+   restored. It is a characterization of the exclusion, green from the start by construction, and
+   it goes red the moment anyone adds a skill reservation or a skill restore to `stockPolicy`.
+   No golden, baseline or corpus byte changed. Evidence:
+   `go test ./internal/eval -run 'TestStockPolicy|TestHost|SP02D6' -count=1` and
+   `go test ./test/guards -run TestCarriedDefects -count=1` (this row's subtests); other rows'
+   `WaveReportRequiresResolution` subtests remain red on the base, as the caveat below records.
+
 ---
 
 ## V3-VERIFY dispositions (2026-08-26)

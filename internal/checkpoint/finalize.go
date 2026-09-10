@@ -9,6 +9,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/tokens"
 )
 
@@ -58,7 +59,7 @@ func (w *FileWriter) Finalize(ctx context.Context, d *Draft, budget core.Tokens)
 	//    as-is, so a cancellation falls through to truncation with whatever we have.
 	drops, _ := ValidatePointers(ctx, w.root, cp.Pointers)
 	cp.Pointers.Files = keepResolvableFiles(cp.Pointers.Files, drops)
-	cp.Pointers.Tools, drops = keepResolvableTools(cp.Pointers.Tools, drops, src)
+	cp.Pointers.Tools, drops = keepResolvableTools(ctx, cp.Pointers.Tools, drops, src)
 	cp.Dropped = append(cp.Dropped, drops...)
 
 	// 3. Importance-ordered truncation (§6.9). Truncate has no error return and always yields a
@@ -215,13 +216,21 @@ func keepResolvableFiles(in []FilePointer, drops []DropEntry) []FilePointer {
 	return out
 }
 
-// keepResolvableTools returns the tool pointers whose stored object is still present, appending a
+// keepResolvableTools returns the tool pointers whose stored content is still present, appending a
 // pointer_unresolvable drop for each one the store has collected. Tool pointers are validated here
 // rather than in ValidatePointers because this is where the store is in scope.
-func keepResolvableTools(in []ToolPointer, drops []DropEntry, src SourceSet) ([]ToolPointer, []DropEntry) {
+//
+// A tool pointer's Hash is the result's ROOT — the observer records store.PutResult.Root.Hash,
+// and `expand` resolves it through GetRoot — and a root is not an object: chunk.RootHash digests
+// the chunk list, so store.Has, which answers for objects only, is false for every root of every
+// tool result the observer ever captured. Asking Has alone dropped the whole tier as unresolvable
+// on the production path (V5-VERIFY §4.8). The pointer is therefore kept when its root resolves
+// and every chunk the root names is still held, which is exactly what expand(hash) will need; a
+// pointer that names a chunk directly is still honoured through Has.
+func keepResolvableTools(ctx context.Context, in []ToolPointer, drops []DropEntry, src SourceSet) ([]ToolPointer, []DropEntry) {
 	out := in[:0:0]
 	for _, p := range in {
-		if src.Store.Has(p.Hash) {
+		if toolResultResolvable(ctx, src.Store, p.Hash) {
 			out = append(out, p)
 			continue
 		}
@@ -232,4 +241,24 @@ func keepResolvableTools(in []ToolPointer, drops []DropEntry, src SourceSet) ([]
 		})
 	}
 	return out, drops
+}
+
+// toolResultResolvable reports whether h — a tool result's root, or a chunk named directly — can
+// still be materialized from the store: the object itself is held, or the root resolves and every
+// chunk it lists is held. A root whose chunks were collected is unresolvable even though the
+// root index still remembers it, because expand(hash) reads chunks, not index entries.
+func toolResultResolvable(ctx context.Context, s store.Store, h core.Hash) bool {
+	if s.Has(h) {
+		return true
+	}
+	root, err := s.GetRoot(ctx, h)
+	if err != nil {
+		return false
+	}
+	for _, c := range root.Chunks {
+		if !s.Has(c.Hash) {
+			return false
+		}
+	}
+	return true
 }

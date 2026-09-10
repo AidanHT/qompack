@@ -159,3 +159,46 @@ func TestPolicyNames_Sorted(t *testing.T) {
 	require.Equal(t, []string{"null", "oracle", "stock"}, eval.PolicyNames(),
 		"the three built-ins: the floor, the ceiling, and the thing being measured")
 }
+
+// TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations pins the V5-VERIFY `wontfix` of SP02-D6's
+// second half: the stock model does NOT model the invoked-skills re-injection the pre-v1.5 §2.4
+// step 7 described (25K total, 5K/skill). Qompack.md v1.5 retired that step with the rest of
+// §2.4's unverified Full Compact internals, the corpus raises no skill demand a restore could earn
+// recall against, and the Qompack-side harness policy wires no skill indexer on purpose — so
+// neither side of the comparison carries a skill term and the exclusion is symmetric.
+//
+// A Session already CAN record a skill invocation: ToolCall.Name is "Skill". That is why the
+// exclusion is pinned by a test rather than by the "Session is fixed by §5.18" reasoning the row
+// was deferred on. The only question the exclusion has is whether stock reserves or restores
+// anything for such a call, and the answer must be no: two sessions identical except that one tool
+// call is a skill invocation must yield the same keep-set, with the file restore unsqueezed.
+func TestCarriedDefect_SP02D6_StockIgnoresSkillInvocations(t *testing.T) {
+	build := func(tool string) eval.Session {
+		s := restoreThenChatSession(30)
+		res, _ := json.Marshal(map[string]any{"tokens": 2000})
+		s.Turns = append(s.Turns, eval.Turn{
+			Index: core.TurnIndex(len(s.Turns)), Role: "assistant", Tokens: 50,
+			ToolCalls: []eval.ToolCall{{
+				ID:     core.ToolUseID("tu-skill"),
+				Name:   tool,
+				Args:   json.RawMessage(`{"skill":"deploy"}`),
+				Result: res,
+			}},
+		})
+		return s
+	}
+	withSkill, withShell := build("Skill"), build("Bash")
+	at := core.TurnIndex(len(withSkill.Turns))
+	p := eval.NewStockPolicy(config.Defaults())
+
+	a, err := p.KeepSet(context.Background(), withSkill, at, eval.DefaultKeepBudget)
+	require.NoError(t, err)
+	b, err := p.KeepSet(context.Background(), withShell, at, eval.DefaultKeepBudget)
+	require.NoError(t, err)
+
+	require.Equal(t, b, a, "stock treats a skill invocation as an ordinary tool call: no reservation, no restore")
+	require.Contains(t, a.IDs, "tu:tu-skill",
+		"the invocation's result survives only as the tool block of a preserved turn")
+	require.Len(t, keptOfKind(a.IDs, "file:"), 5,
+		"and the step-7 file restore is not squeezed by any 25K skill reservation")
+}

@@ -11,7 +11,7 @@ convention.
 
 ## SP10-D1 — `Finalize` is 5.4× over its 50 ms budget on Windows, and the reference platform has never been measured
 
-**Status:** open, owned by V4-VERIFY, to be adjudicated alongside SP06-D2 and SP08-D1, which are the same class.
+**Status:** `deferred:V6-VERIFY` since V5-VERIFY (2026-09-10); it was open, owned by V4-VERIFY, to be adjudicated alongside SP06-D2 and SP08-D1, which are the same class. The `paths.Norm` hot spot named in the row was confirmed and removed at V5-VERIFY (see the findings below). The row stays unresolved because Windows meets the 50 ms criterion only at high turbo clocks and the reference platform is still unmeasured; the measurements are in "V5-VERIFY disposition" at the end.
 
 ### What the criterion says
 
@@ -89,3 +89,123 @@ Measure `BenchmarkFinalize` on the reference platform. Then either:
   run it on Windows will file this again; or
 - it is over there too, and the fix is a real one: batch or memoise the pointer-path resolution in
   `ValidatePointers`, with the escape check preserved exactly and reviewed on its own terms.
+
+### V5-VERIFY findings (2026-09-08, branch `v5/sp10-d1`)
+
+Artifacts named `scratchpad/sp10d1/<file>` below live in the V5-VERIFY session scratchpad,
+`C:/Users/Quant/AppData/Local/Temp/claude/C--Users-Quant-Documents-Programming-Projects-qompack/00571f79-eff6-41ba-80f7-98a4f4f99619/scratchpad/sp10d1/`
+(session-local; copy them before the session is cleaned if they need to outlive it).
+
+**The hot spot was real.** A fresh CPU profile of `BenchmarkFinalize` on the base (`verify/v5` @
+87c0c1d, `-benchtime=20x -cpuprofile`, focused on `FileWriter.Finalize`) put `paths.Norm` at 6.84 s
+of Finalize's 8.64 s — 79% on this run, 88% on the original — all of it `filepath.EvalSymlinks`:
+`toNorm` 4.46 s (`FindFirstFile` 3.15 s), `walkSymlinks` 2.37 s. `ValidatePointers` handed every
+one of the 200 file pointers to `Norm`, and `Norm` resolves its WHOLE argument, so every pointer
+re-resolved every component of the project root (twice: once for the root, once for the pointer),
+one `Lstat` plus one `FindFirstFile` per component on Windows. The per-pointer cost was therefore
+proportional to how deep the project root sits on disk, which is not a property of the pointer.
+
+**Characterization test** — `TestValidatePointersCostDoesNotGrowWithRootDepth`
+(`internal/checkpoint/validate_cost_test.go`, commit 3ad91c2 on `v5/sp10-d1`, landed as `e476373`). It pins the cost model rather than
+the clock: the same fifty pointers validated under a root eight directories deeper must not
+allocate more per pointer (`testing.AllocsPerRun`, which co-load cannot inflate — ADR 0010). The
+two roots are held to the same path length so `filepath.Join`'s length-dependent allocation count
+cannot masquerade as resolution cost.
+
+- RED on the base: `validating 50 pointers under a root 8 directories deeper allocated 112.0 more
+  per pointer (13534 vs 7934 per run)`, exit 1 — `scratchpad/sp10d1/characterization-red-before.txt`
+  (the first run, before the fix was tightened, recorded 114.0: `characterization-before.txt`).
+- GREEN after the fix: `checkpoint-after2-full.txt` (the whole package, `-count=1 -v`: 277 pass, 2
+  skip, exit 0).
+- Three companion pins say what the fix may not change: `TestValidatePointersFollowsADirectorySymlinkLikeNorm`
+  and `TestValidatePointersFollowsAFileSymlinkLikeNorm` (a symlinked component resolves to the
+  target's index entry exactly as `Norm` resolved it; both skip on this host, where symlink creation
+  needs a privilege the account lacks, and run on Linux CI) and
+  `TestValidatePointersMatchesTheIndexTheWayTheFilesystemMatchesNames` (a wrong-case pointer matches
+  the index where the filesystem matches names, `paths.DefaultFold`, and is missing where it does not).
+
+Command: `go test ./internal/checkpoint -run '^TestValidatePointersCostDoesNotGrowWithRootDepth$' -count=1 -v`
+
+**Fix** — commit b1a8318 (landed on verify/v5 as `72f3226`), `internal/checkpoint/validate.go`, a `pointerResolver` local to one
+`ValidatePointers` call. A pointer that is relative, lexically inside the root, and whose every
+component below the root is a plain directory or a plain regular file is answered lexically, with
+one `Lstat` per DISTINCT directory (cached for the call) plus the `Lstat` the check needs anyway.
+For such a path `Norm`'s answer can differ from the lexical relative form only in the per-component
+spelling Windows' `toNorm` recovers, and neither consumer of the answer can see that: `Lstat`
+matches names case-insensitively exactly where `toNorm` changes anything, and the index lookup goes
+through `paths.Key`, which folds case on exactly those platforms. Every pointer the writer mints is
+already a `Norm` output, for which the two are identical byte for byte.
+
+Everything else still goes through `paths.Norm` unchanged, syscall for syscall: absolute or
+volume-qualified paths, lexical escapes, the root itself, symlinks and reparse points (a directory
+must be exactly `fs.ModeDir` — a junction is `ModeDir|ModeIrregular` on Go 1.23+ and is sent to
+`Norm`), an `Lstat` that fails for any reason other than absence, 8.3 aliases (`~`) and components
+ending in `.` or a space (which Win32 strips, so `FindFirstFile` would have respelled them). The
+escape verdict is never decided by the fast path: a lexical escape is handed to `Norm`, whose
+answer is the one the drop is written from.
+
+**No output byte changed.** The checkpoint package's golden tests (`TestGoldenCheckpointRoundTrip`,
+`TestMinimalGoldenIsReproducible`, `TestGoldenTruncationFixtures`, `TestCheckpointGolden_*`) pass
+unchanged on the fixed code, and a throwaway probe (not committed) that sealed a draft through
+`Finalize` and then ran `ValidatePointers` over 26 mixed inputs — wrong case, `./`-relative,
+trailing slash, directories, missing files, missing directories, escapes, `..`, `.`, empty, absolute,
+volume-relative, leading backslash, an 8.3-shaped name, backslash separators, `.git/HEAD`, and a
+planted `v2.index` with clean, dirty and wrongly-cased tracked files — produced the same Finalize
+`sha256` (`40ff0d0b…8014`, 1197 bytes) and the same 44 drop lines before and after:
+`scratchpad/sp10d1/probe-before.lines` vs `probe-after2.norm` (`diff` empty; the one normalized
+token is `t.TempDir()`'s random suffix inside the absolute-path input).
+
+**Measurements** — SHARED HOST, other agents' e2e and integration suites running throughout;
+wall-clock numbers are the host's, the allocation columns are the code's. Same fixture, same
+machine (Core Ultra 7 155H, windows/amd64), before/after binaries run back to back:
+
+| run | before (87c0c1d) | after (b1a8318, landed as 72f3226) |
+|---|---|---|
+| `-benchtime=20x`, lighter load (`bench-before.txt`, `bench-after-20x.txt`) | 452 ms/op, 43423 allocs/op, 5.59 MB/op | 111 ms/op, 17026 allocs/op, 4.04 MB/op |
+| `-count=6`, heavy load (`bench2-before-count6.txt`, `bench2-after-count6.txt`) | 524, 524, 552, 531, 4586, 887 ms/op; 43.4k allocs/op | 114, 177, 103, 89, 155, 262 ms/op; 17.2k allocs/op |
+| ValidatePointers inside the Finalize profile (`before-top.txt`, `after-top.txt`) | 7.02 s of 8.64 s | 0.19 s of 2.11 s |
+
+Command: `go test ./internal/checkpoint -run '^$' -bench '^BenchmarkFinalize$' -benchmem -count=6`
+
+After the fix the remaining Finalize time on Windows is syscall-bound elsewhere — `Begin`
+(opening the successor draft), `keepResolvableTools`' `store.Has` stat per tool pointer, and the
+`persist`/`CreateNew` fsyncs — none of it in `Norm`.
+
+**Disposition.** Windows is still over the 50 ms criterion after the fix on this host (best round
+89 ms/op under load; the quiet-machine number is the coordinator's to take), and the reference
+platform remains unmeasured, so the row stays `open` with `BenchmarkFinalize` as its evidence —
+the second bullet of "What resolving it looks like" is now done, the first is not. The row's
+summary still quotes the 264–284 ms pre-fix figure and the 88% share; both are historical after
+b1a8318 (landed as `72f3226`). `testdata/bench-baseline.txt` was NOT regenerated (its rule, and this branch's).
+
+### V5-VERIFY disposition (2026-09-10)
+
+`deferred:V6-VERIFY`. The coordinator's quiet-machine numbers, taken serially on `verify/v5`: E9 ran
+inside the checkpoint package's benchmark sweep at `-benchtime 2s` without `-benchmem`, the H2 sweep
+is `devtool bench`, and E9b and E9c ran
+`go test ./internal/checkpoint -run '^$' -bench '^BenchmarkFinalize$' -benchmem -count=6` (`1a1bbaf`
+differs from `0d5c999` only in `tools/devtool`):
+
+| window | probe on the summary line | ms/op | file |
+|---|---|---|---|
+| AC turbo, `0d5c999`, `-benchtime 2s` | AC, processor performance 170 %, foreign load 2.8 % | 43.75 | `scratchpad/quiet/E9-I-10.17.txt` |
+| AC turbo, `0d5c999`, H2 sweep | AC, processor performance 208 %, foreign load 3.1 % | 42.77 | `scratchpad/quiet/v5-bench.txt` |
+| battery base clock, `1a1bbaf`, `-count=6` | battery 55 %, processor performance 92 %, foreign load 7.1 % | 66.6, 67.3, 69.9, 70.0, 72.1, 73.1 | `scratchpad/quiet/E9b-finalize-count6.txt` |
+| AC, `1a1bbaf`, `-count=6` (repeat) | AC, processor performance 128 %, foreign load 3.5 % | 63.6, 65.6, 65.8, 65.9, 66.2, 70.3 | `scratchpad/quiet/E9c-finalize-count6.txt` |
+
+A first `-count=6` attempt on AC read 46.8–49.8 ms over five samples before the lid closed mid-run
+and the sixth read 67.4 ms; its output file was overwritten by the re-take above and it is not
+cited as evidence. The fix did what it set out to do — 264–284 ms when the row was opened, 111 ms
+under load on the fix branch (`b1a8318`, which landed as `72f3226` after `d403363` resolved tool pointers
+by root, so at 17.0 k allocs/op against the landed chain's 23.6–23.8 k), 42.8–43.8 ms at 170–208 % — but
+the 50 ms criterion holds on this host only at high turbo clocks: at 128 %
+the same tree reads 27–41 % over, and at base clock — the regime a laptop on battery and a CI
+runner without turbo actually run in — 33–46 % over. The
+allocation columns (23.6–23.8 k allocs/op, 4.47–4.62 MB/op wherever recorded) agree across windows to
+within 1 %, so the spread is the clock, not the code. The second bullet of "What resolving it looks like" (a real fix, escape check
+preserved and reviewed) is done; the first (a reference-platform figure) is not, and it decides the
+row: the `toNorm` cost this row was about does not exist on Linux, and what remains is `Begin`'s
+successor draft, the per-pointer `store.Has` stat and the `persist`/`CreateNew` fsyncs. The row
+therefore stays unresolved, re-owned by V6-VERIFY together with SP06-D2 and SP08-D1, with
+`BenchmarkFinalize` as its evidence and CI's `timing` job as its judge. `testdata/bench-baseline.txt`
+was not regenerated.

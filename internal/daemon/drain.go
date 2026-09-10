@@ -300,6 +300,28 @@ readLoop:
 		if !leased {
 			gaps.add(base, DrainGapUnleased, "delivery has no durable identity")
 		}
+		// The committed frontier is consulted BEFORE the seen set, for every leased line. One
+		// delivery can reach the drain as two copies: the daemon's own WAL copy, and the hook
+		// client's fallback copy (ipc spoolAndReturn, taken when the one-byte transport ACK misses
+		// its deadline AFTER the daemon had already leased, published and acknowledged the
+		// request). The seen set cannot witness either across a restart — it is process memory,
+		// empty on a fresh daemon — but the frontier is durable, and delivery_lease.go's
+		// acknowledge states the contract for a copy it already names: "a redelivery already
+		// acknowledged returns without appending, which is what lets a drained line advance a
+		// spool offset without republishing anything". Dispatching such a copy re-ran the observer
+		// through fresh handlers for a delivery the frontier held (F4-P1). The copy takes exactly
+		// the path the completed branch below takes for its acknowledged case: its blob stays
+		// pending until this file's consumed offset is persisted, the offset advances, and nothing
+		// is dispatched, gapped or recorded in the seen set. A leased copy the frontier does NOT
+		// name — the crash window between publication and acknowledgement — falls through and is
+		// re-dispatched under its reused lease, as before.
+		if leased && dr.acknowledgedDelivery(lease, leased) {
+			if _, blob, blobErr := readBlob(dr.cfg.Root, req); blobErr == nil && blob != "" {
+				fs.PendingBlobs = append(fs.PendingBlobs, blob)
+			}
+			offset, fs.Offset = nextOffset, nextOffset
+			continue
+		}
 		key := deliveryIdentityKey(lease, leased, line)
 		if dr.cfg.Seen != nil {
 			completed, acquired := dr.cfg.Seen.begin(key)

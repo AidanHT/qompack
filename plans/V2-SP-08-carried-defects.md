@@ -134,3 +134,76 @@ and the cost is dominated by store.PutBytes's per-novel-chunk object-write path 
 SP06-D2 now measures over budget on Linux as well as Windows. The two rows are one defect seen
 from two layers and travel together to V4-VERIFY, where the checkpointer's encode path (the other
 large PutBytes caller) lands and the budget-vs-implementation decision has its full evidence.
+
+---
+
+## V5-VERIFY dispositions (2026-09-09)
+
+**SP08-D1 -> deferred:V6-VERIFY.** V4-VERIFY did not dispose of the row. V5 quiet
+pass on `verify/v5` @ `0d5c999` (`scratchpad/quiet/E7-I-08.15.txt`, `-benchtime 2s`, serial):
+
+| benchmark | fixture | ns/op | p99 (ms) | objects | B-C |
+|---|---|---|---|---|---|
+| `BenchmarkOnToolUse_FileRead64KB` | `Deduped` | 10.27 ms | 15.36 | 5 | inside |
+| `BenchmarkOnToolUse_FileRead64KB` | `Delta` | 17.28 ms | 40.96 | 145 | inside |
+| `BenchmarkOnToolUse_FileRead64KB` | `AllNovel` | 20.29 ms | 28.67 | 451 | inside |
+| `BenchmarkOnToolUse_TestOutput256KB` | `Deduped` | 35.24 ms | 81.92 | 34 | **breach** |
+| `BenchmarkOnToolUse_TestOutput256KB` | `Delta` | 41.11 ms | 81.92 | 91 | **breach** |
+| `BenchmarkOnToolUse_TestOutput256KB` | `AllNovel` | 110.69 ms | 180.2 | 1236 | **breach** |
+
+The 64 KB file-read fixture reads 15.4–41.0 ms at p99 on this window, inside the budget as
+when the row was opened; the inventory's co-loaded run had put it over, and ruling Q25's widening of
+the summary is therefore not applied — the row keeps its 256 KB wording. The 256 KB fixture is over
+at every delta shape, as recorded. The diagnosis stands unchanged: the per-novel-chunk object-write path inside `store.PutBytes`, i.e.
+SP06-D2 seen from the caller. Reference platform not measurable here (see SP06-D2's V5 disposition
+in `plans/V2-WAVE1-carried-defects.md`); V6-VERIFY takes the four reference-platform rows together.
+
+## SP08-D2 — the observer does not absorb an at-least-once redelivery under a reused lease
+
+**Symptom.** `internal/daemon/ingest.go`'s dispatch contract says "Restart does not retain this
+set, so handlers must tolerate at-least-once delivery", and the drain honours it by redelivering a
+leased-but-unacknowledged line under its stored lease — same delivery token, same
+`ObservationID` — after a crash between publication and `commitDelivery`. Two observer handlers do
+not absorb that redelivery:
+
+- `internal/observer/stop.go` `captureSubagent` mints `SubagentCaptureID(e.SessionID, st.Turn)`
+  from the fresh handler's per-session turn counter (0 on a fresh process, or the restored turn
+  when the session state was reloaded) rather than from the reused observation identity, so the second run writes a second capture blob
+  (`store.PutBytes`) and a second `index/tool_use.jsonl` record for one `SubagentStop` event.
+- the read-supersede path (`internal/observer/supersede.go` `MarkSuperseded`, reached from
+  `tooluse.go`) lets a replayed read whose content is older supersede records appended after it.
+
+**How it was found.** V5-VERIFY fix item F4: after `fix(ipc)` made the capture path live, the
+V3 e2e `TestV3_LiveSessionWriteSetAndAppendOnly` went red at its flush arm with a fifth
+`SubagentStop` record for four events (`subagent_sess-e2e-x9_0`) in one run and eight inverted
+supersede marks in another. The trigger in those runs was the drain replaying copies of ALREADY
+acknowledged deliveries (F4-P1), which `1c17f0d` fixes at the drain: an acknowledged copy now
+advances the offset without dispatch. What this row records is the narrower window the fix leaves
+by design — the legitimate at-least-once redelivery — through which the same two effects reach the
+index.
+
+**Evidence.** `TestCarriedDefect_SP08D2_ReusedLeaseRedeliveryIsNotIdempotent`
+(`internal/daemon/drain_reused_lease_test.go`, `d43ecb5`) pins the current outcome: a delivery
+whose handler ran but whose acknowledgement never reached the journal is redelivered on the next
+drain under the same `ObservationID`, and the handler runs a second time. It asserts the second invocation under the same `ObservationID`, one lease, one sidecar and one frontier record afterwards; its negative control (seen set kept across the restart) fails at the second-invocation assertion, and the acknowledged-copy pin is the distinct case whose delivery must not be dispatched at all.
+
+**Manifestation that remains on the fixed tree.** x09's SubagentStop count assertion
+(`test/e2e/v3_x09_test.go`, one record per Stop event) fails when host load lets the pre-flush
+shutdown cancel an `observe.stop` between the observer append (stage 2) and `commitDelivery`
+(stage 3, which refuses a cancelled context): the flush-time daemon redelivers the
+leased-but-unacknowledged WAL copy, correctly, and `captureSubagent` mints a new id from the
+restored turn (records `subagent_sess-e2e-x9_16..19` in the F4 author's diagnostic trees,
+`scratchpad/f5a/diag/`). The author's runs under an `internal/store` co-run were 1 of 3, 0 of 6, 2 of
+12 and 3 of 3 red (`scratchpad/f5-results.txt`; the 2 of 12 in `f5a/x09-diag2.txt`, the 3 of 3 in
+`f5a/x09-x3b.txt`), and the reviewer's four runs on a quiet host were all green (`f5a/rev0/x09-x3.txt`,
+`f5a/rev0/x09.txt`); the quiet pass's F7 row passed too. The assertion is correct for the architecture and is kept; until the observer is fixed the
+test is co-load-sensitive on this host, which the V5 report records in §22 and §29.
+
+**Why it is carried.** The fix belongs to the observer (derive the subagent capture id from the
+observation identity; make supersession refuse a superseder older than the record), a change to
+the L0 publication path that V5-VERIFY does not own and that needs its own review against
+SP-20's capture contract. The crash window is narrow (publication done, acknowledgement lost) and
+the acknowledged-copy path that produced every observed instance is closed.
+
+**Acceptance (V6).** Both observer sites idempotent under a reused lease, the evidence test
+inverted to assert one record and no inverted mark, and the e2e x09 flush arm unchanged.

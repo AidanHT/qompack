@@ -45,9 +45,12 @@ import (
 // none — and slack_i = ResidualSpan_i − achievable_i is how much later than the latest boundary
 // the policy could have cut but did not. The absolute bars (P95 ≤ 20 000, slope ≤ 0.02
 // tokens/turn) are recorded in phase4-rewrite.json and logged, not enforced here: they are the
-// frontier's to meet, and the §10 Phase 4 amortization clause is discharged by V4-VERIFY §4.4's
-// live TestV4_FrontierAdvancementKeepsResidualSpanODelta and its advanceOnSegmentClose = false
-// control.
+// frontier's to meet. V4-VERIFY §4.4's live scenario
+// (TestV4_FrontierAdvancementKeepsResidualSpanODelta) was deliberately not written — the toggle it
+// flips never reaches the replay path, and v4_x04_test.go says why — so the §10 Phase 4
+// amortization clause is measured today by internal/checkpoint's TestFrontierAdvanceCutsResidualSpan
+// over a real store and a real Finalize, while TestV4_FrontierToggleIsNotConsumedByTheReplayPath
+// stands guard for the day §4.4 becomes writable. The §4.4 sign-off item stays open.
 //
 // The compaction pause is MODELLED, never measured: deterministic replay makes no model call.
 // Both files read the coefficients from eval.DefaultLatencyModel(); neither restates them.
@@ -70,7 +73,12 @@ const (
 	// for the frontier's live test and never enforced by replay.
 	p4ResidualP95Bar   = 20000
 	p4ResidualSlopeBar = 0.02
-	p4DischargedBy     = "V4-VERIFY §4.4 TestV4_FrontierAdvancementKeepsResidualSpanODelta"
+	// p4DischargedBy names the tests that carry the bars today. V4-VERIFY §4.4's own scenario is
+	// unwritten and its sign-off item open (plans/V4-report.md), so the pointer names the two
+	// stand-ins that exist rather than a test that does not.
+	p4DischargedBy = "V4-VERIFY §4.4 (open; scenario unwritten) — stand-ins " +
+		"TestV4_FrontierToggleIsNotConsumedByTheReplayPath (test/replay) and " +
+		"TestFrontierAdvanceCutsResidualSpan (internal/checkpoint)"
 
 	// p4SignOffEnv names a file holding the pull-request body. The §11.3 2% rule is waived for a
 	// metric only by a `sign-off:` trailer there, exactly as the replay-gate reads --signoff.
