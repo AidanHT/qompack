@@ -236,7 +236,7 @@ Results on 2026-09-08 (this machine, other agents co-loaded):
     figures: run 1 `index_tool_uses=65 hook_controlled.N=65 l0_ingest.N=65 B-A p99=15360us B-B
     p99=163840us`; run 2 `… B-A p99=16384us B-B p99=106496us` (co-loaded machine; the figures are
     the daemon's own and are not asserted against a bound).
-- Review round 3 (2026-09-09, independent re-proof of round 2 on the committed tree, HEAD `9335690`,
+- Review round 3 (2026-09-09, independent re-proof of round 2 on the committed tree, HEAD `9335690` on `v5/x01`, landed on verify/v5 as `1e975b8`,
   no source change): `go test -list` selects the test (`x01-r3-list.txt`); the same one-line
   `fetchDaemonStatus` p99 += 1µs sabotage applied: **FAIL**, `live` at `v5_x01_test.go:308`,
   `histogram "hook_controlled"` expected `P99:14336000` actual `P99:14337000` with `N:65` on both

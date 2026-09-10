@@ -191,8 +191,10 @@ write path. Windows/Linux exemption factor from these runs: ~3x cold, ~1.05x war
 
 **SP06-D2 -> deferred:V6-VERIFY.** V4-VERIFY did not dispose of the row (its report carries it as
 sign-off item 5). V5 quiet pass on `verify/v5` @ `0d5c999` (Windows, serial, machine otherwise
-idle, `scratchpad/quiet/E5-I-06.18-*.txt`): PutBytes cold 15.74 ms / warm 5.65 ms
-against 3 ms / 400 us. No reference-platform figure could be taken on this host: the only WSL
+idle, `scratchpad/quiet/E5-I-06.18.txt`): PutBytes cold 15.74 ms / warm 5.65 ms
+against 3 ms / 400 us. Cold allocations rose from 922 to 1 183 per op since the wave-3 baseline with
+`internal/store/bench_test.go` unchanged, and warm is 20 % over V3's 4.7 ms, so the row is no longer a
+pure host question (V5 report §22 item 31). No reference-platform figure could be taken on this host: the only WSL
 distribution is docker-desktop (read-only filesystem) and the Docker daemon is stopped, both user
 actions to change, and a pushed branch is the only other path to the Linux CI leg — outward-facing,
 not taken under this checkpoint. The decision the V3 disposition named (budget revision versus
@@ -206,9 +208,9 @@ drain replay of acknowledged copies, fixed in `1c17f0d`). The hook client waits
 `State.AckDeadlineMs` (shipped default 8, `internal/config/defaults.go`) for the daemon's one-byte
 transport ACK and otherwise appends the request to `spool/client-<pid>.ndjson`
 (`internal/ipc/client.go` `spoolAndReturn`). On this host, under the load of a full e2e session,
-24–44 of 196 hook deliveries per `TestV3_LiveSessionWriteSetAndAppendOnly` run (12–22 %) took that
-fallback AFTER the daemon had leased and acknowledged them (`scratchpad/rev2-analyze.py` output,
-`scratchpad/r2e/`, `scratchpad/f4r3/`). The B-B diagnosis (SP20-D1) then showed the general case: since `f6a8691`
+25 and 26 of 196 hook deliveries in the two `TestV3_LiveSessionWriteSetAndAppendOnly` runs whose counts
+were saved (13 %; `scratchpad/rev2-x09-red.txt`, `rev2-x09-ctrl-nofallback.txt`) took that fallback
+AFTER the daemon had leased and acknowledged them; the analysis of the other F4 runs was not saved. The B-B diagnosis (SP20-D1) then showed the general case: since `f6a8691`
 the transport ACK is written only after `Accept`'s fsyncs, so whenever one `Accept` takes longer
 than 8 ms — every leased `Accept` on this disk, and every `Accept` at all under bench-hotpath's
 burst — the hook times out and spools, and bench-hotpath's delivery reconciliation hides the
@@ -237,13 +239,13 @@ The diagnosis (workflow `v5-bb-diagnosis`, adversarially reviewed): the timed re
 `Accept` closure — WAL append and fsync under `ingest.mu`, then the lease under the lock's mutex
 (a position-sidecar re-read, the journal write and fsync, and `WriteAtomic`'s temp-file fsync) —
 and the one-byte transport ACK is written only after `Accept` returns (`ipc/server.go`, dispatch
-then `writeByte`). On this host a leased `Accept` costs about 37–40 ms of service time against
-8–9 ms for the unleased control (a 4.7× ratio; three `FlushFileBuffers` per call, 65 % of the
-profile, the position re-read another 28 %), so the row fails on service time alone; the 1 s p50 is
-the queue behind the serialized `Accept` when 2 000 hooks arrive every ~39 ms into a server that
-takes ~40 ms each. The reviewer's own harness runs on AC show the queue growing linearly with the burst
-(300 hooks: p50 1.4 s; 1 000 hooks: p50 2.6 s, max 4.3 s) while the per-hook wall-clock stays at
-~25 ms, and on a live daemon the same timed region also waits for the lock that `acknowledge`
+then `writeByte`). A leased `Accept` costs 18.3–23.3 ms of service time against 1.9–2.2 ms unleased on the quiet AC
+windows (9.5–11.4×; E4, E11, E4b), and 37–42 ms against 8–9 ms co-loaded (4.7×; `scratchpad/f7c/`,
+where three `FlushFileBuffers` per call take 65 % of the profile and the position re-read another
+28 %), so the row fails on service time alone; the p50 near 0.9 s is the queue behind the serialized
+`Accept` under the 2 000-hook burst. The reviewer's own harness runs on AC show the queue growing with
+the burst (300 hooks: p50 1.4 s; 1 000 hooks: p50 2.6 s, max 4.3 s) while the per-hook wall-clock stays
+at ~25 ms, and on a live daemon the same timed region also waits for the lock that `acknowledge`
 holds during its own two syncs. The hook client never sees that ACK: `awaitACK` gives up at the shipped 8 ms
 deadline and spools, and bench-hotpath's delivery reconciliation clamps the spooled duplicates
 away, so B-A reads PASS on the daemon's receive timestamp alone. The budget row's own text ("daemon
@@ -278,14 +280,15 @@ syscalls and one content hash of the chunk. On the AC quiet window of `verify/v5
 (`scratchpad/quiet/E5-I-06.18.txt`, `-benchtime 2s`; the `devtool bench` sweep in
 `scratchpad/quiet/v5-bench.txt` agrees): `BenchmarkGetChunk` 88.2 µs/op, 26 allocs/op against the
 60 µs budget (I-06.18) and the wave-3 baseline's 44.5–45.7 µs, 18 allocs; `BenchmarkOpenSpan_4KB_of_4MB`
-88.6 µs (150 µs budget, inside; baseline 46 µs); `BenchmarkSearch_1000Roots` 81.8 ms, 42.7 k allocs
+88.6 µs (150 µs budget, inside at turbo; baseline 46 µs, allocs 19 → 27); `BenchmarkSearch_1000Roots` 81.8 ms, 42.7 k allocs
 against 25 ms (already 2× over at the baseline's 45–52 ms, 30.3 k allocs) because `Search` reads
-every candidate chunk through the same `getObject` (`internal/store/search.go`). The base-clock confirmation (`scratchpad/quiet/E5b-store-count3.txt`, battery 46 %, processor performance 95 %, `-count=3`) reads 224–321 µs / 316–333 µs / 242–271 ms with the same 26 / 27 allocs/op: the added cost is syscall-bound and scales worse than the clock on battery. The
+every candidate chunk through the same `getObject` (`internal/store/search.go`). The base-clock confirmation (`scratchpad/quiet/E5b-store-count3.txt`, battery 46 %, processor performance 95 %, `-count=3`) reads 224–321 µs / 316–333 µs / 242–271 ms, all three over their budgets, with the same 26 / 27
+allocs/op where recorded: the added cost is syscall-bound and scales worse than the clock on battery. The
 allocation columns do not depend on the clock, so this is the code, not the host;
 `git diff 1e767c3..HEAD -- internal/store/read.go internal/store/objects.go` is the whole change on
-that path. `devtool bench-compare` did not flag it: the sweep carries one sample per row and
-benchstat refuses to call a single sample significant ("need >= 4 samples"), the blindness V2-VERIFY
-recorded as its gates item 24 and the V5 report's §22 item 24 records again.
+that path. `devtool bench-compare` did not flag it: with one sample per row benchstat's test has
+almost no power (it called 6 of 311 rows significant), the blindness V2-VERIFY recorded as its gates
+item 24 and the V5 report's §22 item 24 records again.
 
 **Why it is carried.** Verify-on-read is a deliberate integrity decision of SP-20's remediation
 (bounded reads, content-addressed verification, quarantine with evidence), reviewed and shipped
@@ -299,3 +302,58 @@ and lowers no budget.
 reference-platform and a Windows `BenchmarkGetChunk` figure, `BenchmarkSearch_1000Roots` judged
 against whichever budget the decision states, and the bench baseline regenerated on a quiet AC
 window with enough samples for the gate to compare.
+
+## SP20-D3 — a delta side record shared across roots breaks exact recovery for all but the first
+
+`deferred:V6-VERIFY`. Found by V5-VERIFY section-4 row 4.17 (`TestV5_AdmissionExtension`) while its
+author wired the resolver to `RestoreOriginal`; recorded in `plans/sdd/V5-VERIFY/x17-disposition.md`
+("Findings in `internal/store`") and carried here at the independent review's request.
+
+**Symptom.** `putSideRecord` (`internal/store/put.go`) content-addresses a delta side record over
+`marshalDeltas(deltas)` alone and returns the existing record when that address is already known. Two
+content roots whose canonicalization removed the same volatile token at the same offset — two tool
+outputs with the same timestamp prefix and different bodies — therefore share one side record, and its
+declared base is the FIRST root. The second root's `PutBytes` reports `FidelityExact`; its
+`RestoreOriginal` then fails with `ErrDeltaCorrupt` ("delta X declares base A, not B") and reports
+`FidelityCorrupt`. GC retains the shared record through one base only. This is an SP-20 invariant 6
+exactness claim that cannot be honoured on read; the 4.17 author reproduced it (`x17-run2.txt`).
+
+**Reach.** Latent on the shipped tree: `RestoreOriginal` (`internal/store/lifecycle.go`) has no
+production caller, so no enabled surface reads a side record back. The records themselves are written
+on the ordinary put path (`admitRecovery`, then `putSideRecord`) and persist, so a consumer added later
+inherits the defect for every root written before the fix.
+
+**Related, recorded but not a row.** When canonicalization changes nothing, `admitRecovery` reports
+`FidelityExact` with no side record, and `RestoreOriginal` labels the same bytes `FidelityCanonical`;
+`storedFidelity` has the same shape for a dedup hit. The bytes are right and the read label
+under-claims, the safe direction. The V5 report's §22 records it with this row.
+
+**Evidence.** None named. The 4.17 test gives every payload its own timestamp seconds value precisely
+so it does not trip this, and no pin test was written: the fix changes side-record identity and GC
+coupling, which is the store owner's decision. The row carries evidence `-` like SP05-D2, and V6's
+first step is a failing characterization test with two roots that share a removed token.
+
+**Acceptance (V6).** Side-record identity includes the declared base (or records are keyed per root),
+GC retains a record for every base that declares it, the characterization test restores both roots
+exactly, and put and read report the same fidelity for the same bytes.
+
+## SP09-D1 — negknow's `Open` budget holds on this host only at turbo clocks
+
+`deferred:V6-VERIFY`. Opened by V5-VERIFY at its independent review's request (ruling Q28 in the V5
+report). `internal/negknow` `TestBudget_Open` asserts §11.2's budget for `Open`: 300 ms CPU/op, best of
+three attempts. On this host it passes at turbo clocks and fails without them:
+
+| run | probe | `Open` CPU/op | file |
+|---|---|---|---|
+| F1 on `0d5c999`, alone | AC, processor performance 225 % | PASS (no figure logged) | `scratchpad/quiet/F1-ci-timing.txt` |
+| F1b on `1a1bbaf`, alone, `-count=3` | AC, 120 % | 257.8, 268.8, 273.4 ms | `scratchpad/quiet/F1b-negknow-count3.txt` |
+| B1 on `b64b3f6`, serial whole tree | battery, throttled: the resume2 pass's probes read 55–60 %, none taken during B1 itself | 585.9, 609.4, 632.8 ms (FAIL) | `scratchpad/quiet/B1-wholetree.txt` |
+
+It failed on the pre-wave-4 tree too (`scratchpad/m2-negknow-premerge.txt`), so it is not a wave-4
+regression. CPU/op scales with the clock (273 ms × 120/55 ≈ 596 ms), so the budget is met here only at
+turbo, the pattern for which SP10-D1 stays unresolved; `TestBudget_DetectorScan` has the same shape
+(2.6–3.6 ms at turbo, 6.1–6.7 ms throttled, against 5 ms). The first draft of the V5 ruling closed this
+as co-load; the serial B1 run shows it was the clock.
+
+**Resolution (V6).** A reference-platform figure from CI's `timing` job, then either a budget stated
+against the platform and clock it was written for, or a real speed-up of `Open`.

@@ -213,7 +213,7 @@ cd <worktree> && go test ./test/e2e -run '^TestV5_EliminationThroughEveryFourSur
 
 Selection confirmed with `go test ./test/e2e -list 'TestV5_'` → `TestV5_EliminationThroughEveryFourSurfaces`.
 
-**First version (commit `e1e474d`):** the author's two consecutive runs on `verify/v5` @ `87c0c1d`
+**First version (commit `e1e474d` on `v5/x05`, landed as `783ad21`):** the author's two consecutive runs on `verify/v5` @ `87c0c1d`
 (Windows 11, Go 1.26.6) were PASS 24.6 s and PASS 15.4 s. An independent reviewer's runs did NOT hold:
 unloaded, sequential, 1 of 7 failed (run 2, 6.29 s, at the subtest-1 `record_eliminated` status
 assertion — the body was the non-error "elimination ledger not present in this build", the daemon's
@@ -231,7 +231,7 @@ retry — the failure mode reproduced and was absorbed by the fix rather than by
 ./internal` clean; `go vet ./test/e2e ./test/integration` clean; `devtool lint
 --only=nomagic,sleepcheck,testdeps,importgraph,runpatterns` all five PASS.
 
-**Review-fix round (commit after `05dd737`):** the adversarial review found the adapter claim
+**Review-fix round (commit `cd985e1` after `05dd737` on `v5/x05`; landed as `7457c8a` after `9eb8100`):** the adversarial review found the adapter claim
 overclaimed (MCPResult compared for stale only), the pin source hedged (`Contains` over two kinds),
 the stale-tag comment misdescribing one exported copy, and the durability message unproven under
 `Deps.Store = st`. All four are fixed in subtest 5 and in this document as described above. Two

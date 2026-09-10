@@ -140,7 +140,7 @@ large PutBytes caller) lands and the budget-vs-implementation decision has its f
 ## V5-VERIFY dispositions (2026-09-09)
 
 **SP08-D1 -> deferred:V6-VERIFY.** V4-VERIFY did not dispose of the row. V5 quiet
-pass on `verify/v5` @ `0d5c999` (`scratchpad/quiet/E7-I-08.15.txt`, `-benchtime 200x`, serial):
+pass on `verify/v5` @ `0d5c999` (`scratchpad/quiet/E7-I-08.15.txt`, `-benchtime 2s`, serial):
 
 | benchmark | fixture | ns/op | p99 (ms) | objects | B-C |
 |---|---|---|---|---|---|
@@ -193,9 +193,10 @@ shutdown cancel an `observe.stop` between the observer append (stage 2) and `com
 (stage 3, which refuses a cancelled context): the flush-time daemon redelivers the
 leased-but-unacknowledged WAL copy, correctly, and `captureSubagent` mints a new id from the
 restored turn (records `subagent_sess-e2e-x9_16..19` in the F4 author's diagnostic trees,
-`scratchpad/f5a/diag/`). Observed 2 of 12 and 3 of 3 red under an `internal/store` co-run, 0 of 4
-red on a quiet host (`scratchpad/f5a/x09-x3.txt`, `f5a/rev0/x09-x3.txt`), and in the quiet pass's
-F7 row. The assertion is correct for the architecture and is kept; until the observer is fixed the
+`scratchpad/f5a/diag/`). The author's runs under an `internal/store` co-run were 1 of 3, 0 of 6, 2 of
+12 and 3 of 3 red (`scratchpad/f5-results.txt`; the 2 of 12 in `f5a/x09-diag2.txt`, the 3 of 3 in
+`f5a/x09-x3b.txt`), and the reviewer's four runs on a quiet host were all green (`f5a/rev0/x09-x3.txt`,
+`f5a/rev0/x09.txt`); the quiet pass's F7 row passed too. The assertion is correct for the architecture and is kept; until the observer is fixed the
 test is co-load-sensitive on this host, which the V5 report records in §22 and §29.
 
 **Why it is carried.** The fix belongs to the observer (derive the subagent capture id from the
