@@ -184,3 +184,118 @@ warm 4.33-4.60 ms. The 3 ms / 400 us budgets are unmet on Linux too - cold ~1.8x
 over - so this is no longer a measurement gap but a budget-vs-implementation decision, and it
 travels to V4-VERIFY beside SP08-D1, whose B-C breach is dominated by this same per-novel-chunk
 write path. Windows/Linux exemption factor from these runs: ~3x cold, ~1.05x warm.
+
+---
+
+## V5-VERIFY dispositions (2026-09-09)
+
+**SP06-D2 -> deferred:V6-VERIFY.** V4-VERIFY did not dispose of the row (its report carries it as
+sign-off item 5). V5 quiet pass on `verify/v5` @ `0d5c999` (Windows, serial, machine otherwise
+idle, `scratchpad/quiet/E5-I-06.18-*.txt`): PutBytes cold 15.74 ms / warm 5.65 ms
+against 3 ms / 400 us. No reference-platform figure could be taken on this host: the only WSL
+distribution is docker-desktop (read-only filesystem) and the Docker daemon is stopped, both user
+actions to change, and a pushed branch is the only other path to the Linux CI leg — outward-facing,
+not taken under this checkpoint. The decision the V3 disposition named (budget revision versus
+implementation change on the per-novel-chunk write path) is still open and is the same decision as
+SP08-D1's; V6-VERIFY, whose SP-17 pushes to CI, takes both together with SP10-D1 and SP20-D2.
+
+## SP05-D2 — the shipped ACK deadline is shorter than one leased `Accept`
+
+`deferred:V6-VERIFY`. Found by V5-VERIFY fix item F4 while pinning F4-P1 (the
+drain replay of acknowledged copies, fixed in `1c17f0d`). The hook client waits
+`State.AckDeadlineMs` (shipped default 8, `internal/config/defaults.go`) for the daemon's one-byte
+transport ACK and otherwise appends the request to `spool/client-<pid>.ndjson`
+(`internal/ipc/client.go` `spoolAndReturn`). On this host, under the load of a full e2e session,
+24–44 of 196 hook deliveries per `TestV3_LiveSessionWriteSetAndAppendOnly` run (12–22 %) took that
+fallback AFTER the daemon had leased and acknowledged them (`scratchpad/rev2-analyze.py` output,
+`scratchpad/r2e/`, `scratchpad/f4r3/`). The B-B diagnosis (SP20-D1) then showed the general case: since `f6a8691`
+the transport ACK is written only after `Accept`'s fsyncs, so whenever one `Accept` takes longer
+than 8 ms — every leased `Accept` on this disk, and every `Accept` at all under bench-hotpath's
+burst — the hook times out and spools, and bench-hotpath's delivery reconciliation hides the
+resulting duplicates. With F4-P1 fixed each such copy is skipped at the next
+drain; what remains is wasted spool I/O on the hook's hot path and a startup drain proportional to
+it. No evidence test is named: the symptom is a rate under host load, and a deterministic pin needs
+a fake clock inside the client's ACK wait, which is SP-17's hardening list. Resolution: measure the
+fallback rate on the reference platform and either raise the deadline within budget B-B or make the
+client's ACK wait independent of scheduler latency.
+
+## SP20-D1 — budget B-B cannot hold the leased delivery path's durability points
+
+`deferred:V6-VERIFY`. Budget B-B (`l0_ingest`, gated, p99 < 2 ms, "daemon read
+to WAL append returned") is incompatible with the durability design SP-20 M1 shipped for the
+leased delivery path. `internal/daemon/ingest.go` `Accept` documents it: three durability points,
+four fsync syscalls per accepted leased delivery — the WAL append sync, the delivery journal's
+lease write and sync, and the lease-position sidecar written through `paths.WriteAtomic` (temp-file
+fsync plus directory fsync) — and states that the reductions considered (sealing the position per
+batch, deferring the lease off Accept) are not durability-neutral. Until V5's `fix(ipc)` the hook
+client's nonce was refused by the journal, every delivery was unleased and Accept paid only the WAL
+sync, which is why V4 measured B-B at 3.8 ms p99 (already over) and never saw the rest. With
+leases live, `devtool bench-hotpath --iterations 2000 --warm-daemon` on `verify/v5` @ `0d5c999`
+reports B-B p50 917.5 ms / p99 983.0 ms (n = 2064; `scratchpad/quiet/H1-bench-hotpath.txt`, power
+state AC, processor performance 161 %, foreign load 4.8 %), while B-A (hook wall-clock) stays inside its 15 ms gate at p99 3.07 ms.
+The diagnosis (workflow `v5-bb-diagnosis`, adversarially reviewed): the timed region is the whole
+`Accept` closure — WAL append and fsync under `ingest.mu`, then the lease under the lock's mutex
+(a position-sidecar re-read, the journal write and fsync, and `WriteAtomic`'s temp-file fsync) —
+and the one-byte transport ACK is written only after `Accept` returns (`ipc/server.go`, dispatch
+then `writeByte`). On this host a leased `Accept` costs about 37–40 ms of service time against
+8–9 ms for the unleased control (a 4.7× ratio; three `FlushFileBuffers` per call, 65 % of the
+profile, the position re-read another 28 %), so the row fails on service time alone; the 1 s p50 is
+the queue behind the serialized `Accept` when 2 000 hooks arrive every ~39 ms into a server that
+takes ~40 ms each. The reviewer's own harness runs on AC show the queue growing linearly with the burst
+(300 hooks: p50 1.4 s; 1 000 hooks: p50 2.6 s, max 4.3 s) while the per-hook wall-clock stays at
+~25 ms, and on a live daemon the same timed region also waits for the lock that `acknowledge`
+holds during its own two syncs. The hook client never sees that ACK: `awaitACK` gives up at the shipped 8 ms
+deadline and spools, and bench-hotpath's delivery reconciliation clamps the spooled duplicates
+away, so B-A reads PASS on the daemon's receive timestamp alone. The budget row's own text ("daemon
+read to WAL append returned") stopped describing `Accept` at `f6a8691` (WAL fsync, 2026-09-07) and
+again at `9c023ac` (leases live); the committed bench baseline's `BenchmarkIngestAccept` rows
+(2 µs, unsynced) predate both.
+
+**Evidence.** `BenchmarkIngestAcceptLeased` (`internal/daemon/bench_test.go`, `0d5c999`): the
+existing nonce-less `BenchmarkIngestAccept` priced only the WAL sync; the leased variant takes a
+fresh lease per iteration through the real file-backed journal. On this host (AC, co-loaded, CPU performance 127–154 %; ratios meaningful, absolutes not): unleased 8.2–9.0 ms/op, leased 39.9–41.9 ms/op, single `WriteAtomic` 7.0–8.9 ms/op; `develop` @ `87c0c1d` unleased 6.4–7.4 ms/op (same single fsync). The benchmark fails itself unless the journal holds b.N + 1 leases afterwards, so a silent unleased fallback cannot pass it.
+
+**Why it is carried.** The fix is a design decision, not a patch: either B-B is re-budgeted for a
+path that now includes durable assignment (and the hot-path spec's 2 ms figure is corrected where
+it is stated), or the lease's durability points move off Accept with a group-commit or a
+synced-bytes admission rule redesigned to tolerate it — the trade the code comment refuses to make
+silently. Both belong to the owner of the hot-path budgets with SP-20's author in the room, which
+is V6-VERIFY's SP-17 hardening pass. V5 records the measurement and the gate red, as V4 recorded the
+smaller breach, and does not lower the budget.
+
+**Acceptance (V6).** A reference-platform and a Windows figure for `BenchmarkIngestAcceptLeased`,
+a written decision between re-budget and redesign, and bench-hotpath's B-B row green or explicitly
+re-gated against the decided figure.
+
+## SP20-D2 — verify-on-read puts the store's read path over its budget
+
+`deferred:V6-VERIFY`. `16ecc77` `fix(store): verify bounded object reads and
+retain corruption evidence` (SP-20 M1, 2026-09-07) replaced `os.ReadFile` on the object read path
+with `readBoundedObject` — `Lstat`, `Open`, `fstat`, `SameFile`, a `LimitReader` read — and made
+`getObject` hash the plaintext (`core.HashBytes(core.DomainChunk, plain)`) against the requested
+address on every read (`internal/store/objects.go`). Every read now pays two extra metadata
+syscalls and one content hash of the chunk. On the AC quiet window of `verify/v5` @ `0d5c999`
+(`scratchpad/quiet/E5-I-06.18.txt`, `-benchtime 2s`; the `devtool bench` sweep in
+`scratchpad/quiet/v5-bench.txt` agrees): `BenchmarkGetChunk` 88.2 µs/op, 26 allocs/op against the
+60 µs budget (I-06.18) and the wave-3 baseline's 44.5–45.7 µs, 18 allocs; `BenchmarkOpenSpan_4KB_of_4MB`
+88.6 µs (150 µs budget, inside; baseline 46 µs); `BenchmarkSearch_1000Roots` 81.8 ms, 42.7 k allocs
+against 25 ms (already 2× over at the baseline's 45–52 ms, 30.3 k allocs) because `Search` reads
+every candidate chunk through the same `getObject` (`internal/store/search.go`). The base-clock confirmation (`scratchpad/quiet/E5b-store-count3.txt`, battery 46 %, processor performance 95 %, `-count=3`) reads 224–321 µs / 316–333 µs / 242–271 ms with the same 26 / 27 allocs/op: the added cost is syscall-bound and scales worse than the clock on battery. The
+allocation columns do not depend on the clock, so this is the code, not the host;
+`git diff 1e767c3..HEAD -- internal/store/read.go internal/store/objects.go` is the whole change on
+that path. `devtool bench-compare` did not flag it: the sweep carries one sample per row and
+benchstat refuses to call a single sample significant ("need >= 4 samples"), the blindness V2-VERIFY
+recorded as its gates item 24 and the V5 report's §22 item 24 records again.
+
+**Why it is carried.** Verify-on-read is a deliberate integrity decision of SP-20's remediation
+(bounded reads, content-addressed verification, quarantine with evidence), reviewed and shipped
+with its conformance log; making `GetChunk` meet 60 µs again means either trusting zstd's frame
+checksum and the index length as SP-06 did (undoing the decision), caching verified reads, or
+re-budgeting the row against the verified path. That is the same budget-versus-guarantee decision
+SP20-D1 records for durability, owned by the same pass. V5 records the measurement, opens the row,
+and lowers no budget.
+
+**Acceptance (V6).** A written decision (re-budget, cache, or verify at publication only) with a
+reference-platform and a Windows `BenchmarkGetChunk` figure, `BenchmarkSearch_1000Roots` judged
+against whichever budget the decision states, and the bench baseline regenerated on a quiet AC
+window with enough samples for the gate to compare.

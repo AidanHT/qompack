@@ -177,3 +177,31 @@ platform remains unmeasured, so the row stays `open` with `BenchmarkFinalize` as
 the second bullet of "What resolving it looks like" is now done, the first is not. The row's
 summary still quotes the 264–284 ms pre-fix figure and the 88% share; both are historical after
 b1a8318. `testdata/bench-baseline.txt` was NOT regenerated (its rule, and this branch's).
+
+### V5-VERIFY disposition (2026-09-10)
+
+`deferred:V6-VERIFY`. The coordinator's quiet-machine numbers, taken serially on `verify/v5` with
+`go test ./internal/checkpoint -run '^$' -bench '^BenchmarkFinalize$' -benchmem` (`1a1bbaf` differs
+from `0d5c999` only in `tools/devtool`):
+
+| window | probe on the summary line | ms/op | file |
+|---|---|---|---|
+| AC turbo, `0d5c999`, `-benchtime 2s` | AC, processor performance 170 %, foreign load 2.8 % | 43.75 | `scratchpad/quiet/E9-I-10.17.txt` |
+| battery base clock, `1a1bbaf`, `-count=6` | battery 55 %, processor performance 92 %, foreign load 7.1 % | 66.6, 67.3, 69.9, 70.0, 72.1, 73.1 | `scratchpad/quiet/E9b-finalize-count6.txt` |
+| AC, `1a1bbaf`, `-count=6` (repeat) | AC, processor performance 128 %, foreign load 3.5 % | 63.6, 65.6, 65.8, 65.9, 66.2, 70.3 | `scratchpad/quiet/E9c-finalize-count6.txt` |
+
+A first `-count=6` attempt on AC read 46.8–49.8 ms over five samples before the lid closed mid-run
+and the sixth read 67.4 ms; its output file was overwritten by the re-take above and it is not
+cited as evidence. The fix did what it set out to do — 264–284 ms when the row was opened, 111 ms
+under load right after `perf(checkpoint)` `72f3226`, 44–50 ms on an unthrottled AC window — but
+the 50 ms criterion holds on this host only at high turbo clocks (the 157–225 % probes): at 128 %
+the same tree reads 27–41 % over, and at base clock — the regime a laptop on battery and a CI
+runner without turbo actually run in — 33–46 % over. The
+allocation column (23.6 k allocs/op, 4.5 MB/op) is identical across windows, so the spread is the
+clock, not the code. The second bullet of "What resolving it looks like" (a real fix, escape check
+preserved and reviewed) is done; the first (a reference-platform figure) is not, and it decides the
+row: the `toNorm` cost this row was about does not exist on Linux, and what remains is `Begin`'s
+successor draft, the per-pointer `store.Has` stat and the `persist`/`CreateNew` fsyncs. The row
+therefore stays unresolved, re-owned by V6-VERIFY together with SP06-D2 and SP08-D1, with
+`BenchmarkFinalize` as its evidence and CI's `timing` job as its judge. `testdata/bench-baseline.txt`
+was not regenerated.
