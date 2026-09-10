@@ -14,12 +14,54 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// storeJSONLFiles is every append-only log this package writes. index/files.json is deliberately
-// NOT in this list: it is a materialized VIEW over files.jsonl, regenerated wholesale by Flush
-// through paths.WriteAtomic, and treating it as a log would assert an invariant it does not have.
-var storeJSONLFiles = []string{rootsFile, toolUseFile, filesLogFile, sessionsFile, segmentsFile}
+// storeLog is one log this package writes, located by the layout directory that holds it.
+type storeLog struct {
+	dir  func(paths.Layout) string
+	name string
+}
 
-// TestAppendOnlyGuard_StoreFiles asserts the append-only property that this package's index logs
+func indexDir(l paths.Layout) string   { return l.Index }
+func migrateDir(l paths.Layout) string { return l.Migrate }
+
+// indexLogs are the index logs FSStore itself appends to, every one through paths.AppendOnly.
+var indexLogs = []storeLog{
+	{indexDir, rootsFile},
+	{indexDir, toolUseFile},
+	{indexDir, filesLogFile},
+	{indexDir, sessionsFile},
+	{indexDir, segmentsFile},
+}
+
+// migrateLogs are the migration logs Migrator appends to, every one through paths.AppendJSONL:
+// the import frontier (importOne, migrate.go), the rollback rehearsals (RehearseRollback,
+// backup.go) and the new-format writes (RecordNewFormatWrite, migrate.go).
+var migrateLogs = []storeLog{
+	{migrateDir, importMappingFile}, {migrateDir, rollbackDrillFile}, {migrateDir, newFormatFile},
+}
+
+// storeJSONLFiles is every log this package writes that is append-only BY CONTRACT: its only
+// writer goes through paths.AppendOnly (directly, or via paths.AppendJSONL) and no code path in
+// this package ever truncates, compacts or rewrites it. Everything else this package writes under
+// a .jsonl name, or reads from one, is deliberately NOT in this list:
+//
+//   - index/files.json is a materialized VIEW over files.jsonl, regenerated wholesale by Flush
+//     (materializeFilesJSON, files.go) through paths.WriteAtomic. Treating it as a log would
+//     assert an invariant it does not have; view_is_regenerated_not_appended pins that.
+//   - state/retention-roots.jsonl is appended by AppendRetentionRoot but COMPACTED by
+//     CompactRetentionRoots (lifecycle.go), which rewrites it through paths.WriteAtomic as the set
+//     of claims it makes. The TestCompactRetentionRoots_* tests pin that contract.
+//   - state/demand.jsonl is appended by DemandLog.Record but COMPACTED by CompactDemandLog
+//     (phase7maint.go), which replaces it by a verified staging-file rename. The
+//     TestCompactDemandLog_* tests pin that contract.
+//   - state/delivery-leases.jsonl and state/delivery-acks.jsonl are internal/daemon's journals
+//     (delivery_lease.go); records/eliminations.jsonl belongs to internal/negknow (log.go);
+//     pins/invariants.jsonl belongs to internal/pins (store.go); records/evidence.jsonl has no
+//     writer in this tree at all. This package only READS them, as GC retention roots
+//     (gcRootFiles, gcrun.go), so their append-only property is their owners' to guard, not this
+//     test's.
+var storeJSONLFiles = append(append([]storeLog{}, indexLogs...), migrateLogs...)
+
+// TestAppendOnlyGuard_StoreFiles asserts the append-only property that this package's logs
 // ACTUALLY have — which is not the one the subplan's test table describes.
 //
 // The subplan says to "attempt truncation of every *.jsonl this package writes" and expect every
@@ -39,16 +81,17 @@ var storeJSONLFiles = []string{rootsFile, toolUseFile, filesLogFile, sessionsFil
 func TestAppendOnlyGuard_StoreFiles(t *testing.T) {
 	t.Run("append_only_door_refuses_foreign_extensions", func(t *testing.T) {
 		tp := newTestStore(t)
-		index := paths.Of(tp.Root).Index
+		l := paths.Of(tp.Root)
 
 		// The materialized view is not a log and must not be reachable through the append door.
-		_, err := paths.AppendOnly(filepath.Join(index, filesViewNam))
+		_, err := paths.AppendOnly(filepath.Join(l.Index, filesViewNam))
 		require.ErrorIs(t, err, core.ErrAppendOnly,
 			"index/files.json is a derived view; AppendOnly must refuse it")
 
-		for _, name := range storeJSONLFiles {
-			w, oerr := paths.AppendOnly(filepath.Join(index, name))
-			require.NoError(t, oerr, "%s is a log and must be openable through the append door", name)
+		for _, lg := range storeJSONLFiles {
+			require.NoError(t, os.MkdirAll(paths.Long(lg.dir(l)), 0o700))
+			w, oerr := paths.AppendOnly(filepath.Join(lg.dir(l), lg.name))
+			require.NoError(t, oerr, "%s is a log and must be openable through the append door", lg.name)
 			require.NoError(t, w.Close())
 		}
 	})
@@ -84,7 +127,7 @@ func TestAppendOnlyGuard_StoreFiles(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, tp.Store.Flush(ctx))
 
-		before := readIndexBytes(t, tp, storeJSONLFiles)
+		before := readLogBytes(t, tp.Root, indexLogs)
 		require.NotEmpty(t, before[rootsFile], "fixture sanity: roots.jsonl must have content to protect")
 		require.NotEmpty(t, before[sessionsFile], "fixture sanity: sessions.jsonl must have content to protect")
 
@@ -106,14 +149,8 @@ func TestAppendOnlyGuard_StoreFiles(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, tp.Store.Flush(ctx))
 
-		after := readIndexBytes(t, tp, storeJSONLFiles)
-		for _, name := range storeJSONLFiles {
-			require.True(t, bytes.HasPrefix(after[name], before[name]),
-				"%s was rewritten: the bytes it held before the mutations are no longer its exact prefix.\n"+
-					"append-only means a change is APPENDED as a new record — a supersede line, a tombstone, "+
-					"an encode record — never edited into the line that is already there (§7.4)", name)
-			require.GreaterOrEqual(t, len(after[name]), len(before[name]), "%s shrank", name)
-		}
+		after := readLogBytes(t, tp.Root, indexLogs)
+		requireGrowthOnly(t, indexLogs, before, after)
 
 		// The supersession and the GC tombstone must be visible as appended records, so this is a
 		// statement about the mechanism and not merely about file length.
@@ -121,6 +158,76 @@ func TestAppendOnlyGuard_StoreFiles(t *testing.T) {
 			"supersession must be recorded as an appended mutation record")
 		require.Contains(t, string(after[segmentsFile]), `"op":"encode"`,
 			"encoding must be recorded as an appended record")
+	})
+
+	t.Run("migration_logs_are_never_rewritten", func(t *testing.T) {
+		// The same growth-only property for the three migration logs, against the mutations a
+		// lesser design would have implemented as a rewrite: resuming an interrupted import
+		// (rebuilding the frontier from the cursor), a second new-format write (editing the
+		// "first" line), and a second rollback rehearsal (replacing the drill record).
+		tp := newTestStore(t)
+		ctx := context.Background()
+		src := legacySource(3)
+		src.failAt = 3 // hands out two records, then fails
+		m := newMigrator(t, tp, src)
+		stop := func(context.Context) error { return nil }
+
+		// mapping.jsonl: an interrupted import commits two frontier lines...
+		_, err := m.Import(ctx)
+		require.Error(t, err, "fixture sanity: the interrupted import must fail")
+		before := readLogBytes(t, tp.Root, migrateLogs)
+		require.NotEmpty(t, before[importMappingFile], "fixture sanity: mapping.jsonl must have content to protect")
+
+		// ...and resuming it must APPEND the third rather than rebuild the frontier.
+		src.failAt, src.handed = 0, 0
+		_, err = m.Import(ctx)
+		require.NoError(t, err)
+
+		// rollback.jsonl and newformat.jsonl: one rehearsal and the first new-format write.
+		_, err = m.TakeBackup(ctx, "pre-cutover")
+		require.NoError(t, err)
+		pre, err := m.RehearseRollback(ctx, RollbackOptions{
+			Phase: RollbackBeforeFirstNewWrite, BackupID: "pre-cutover",
+			RestoreRoot: filepath.Join(t.TempDir(), "restore-pre"), StopWriters: stop,
+		})
+		require.NoError(t, err)
+		require.True(t, pre.OK, "fixture sanity: refusal: %s", pre.Refusal)
+		_, err = m.Cutover(ctx, CutoverOptions{BackupID: "pre-cutover", StopLegacyWriter: stop})
+		require.NoError(t, err)
+		first, err := tp.Store.PutBytes(ctx, []byte("new-format: first write\n"), PutOptions{Tool: "FileRead", Path: "src/new1.ts"})
+		require.NoError(t, err)
+		firstWrite, err := m.RecordNewFormatWrite(ctx, first.Root.Hash, "")
+		require.NoError(t, err)
+		require.True(t, firstWrite.First, "fixture sanity: this is the first new-format write")
+		established := readLogBytes(t, tp.Root, migrateLogs)
+		before[rollbackDrillFile], before[newFormatFile] = established[rollbackDrillFile], established[newFormatFile]
+		require.NotEmpty(t, before[rollbackDrillFile], "fixture sanity: rollback.jsonl must have content to protect")
+		require.NotEmpty(t, before[newFormatFile], "fixture sanity: newformat.jsonl must have content to protect")
+
+		// The second write ends the "first" distinction, and the second rehearsal is the after
+		// phase against the actual new artifact: both are changes to state the logs already
+		// record, and both must land as appended lines.
+		second, err := tp.Store.PutBytes(ctx, []byte("new-format: second write\n"), PutOptions{Tool: "FileRead", Path: "src/new2.ts"})
+		require.NoError(t, err)
+		secondWrite, err := m.RecordNewFormatWrite(ctx, second.Root.Hash, "")
+		require.NoError(t, err)
+		require.False(t, secondWrite.First)
+		post, err := m.RehearseRollback(ctx, RollbackOptions{
+			Phase: RollbackAfterFirstNewWrite, BackupID: "pre-cutover",
+			RestoreRoot: filepath.Join(t.TempDir(), "restore-post"), StopWriters: stop,
+		})
+		require.NoError(t, err)
+		require.True(t, post.OK, "fixture sanity: refusal: %s", post.Refusal)
+
+		after := readLogBytes(t, tp.Root, migrateLogs)
+		requireGrowthOnly(t, migrateLogs, before, after)
+
+		// As above: the mutations must be visible as appended records, not merely as growth.
+		require.Len(t, mappingLines(t, tp.Root), 3, "the resumed import appends exactly the missing frontier line")
+		require.Contains(t, string(after[newFormatFile]), `"first":false`,
+			"a later new-format write must be recorded as its own appended line")
+		require.Contains(t, string(after[rollbackDrillFile]), `"phase":"`+string(RollbackAfterFirstNewWrite)+`"`,
+			"the after-phase rehearsal must be recorded as an appended drill record")
 	})
 
 	t.Run("view_is_regenerated_not_appended", func(t *testing.T) {
@@ -153,19 +260,32 @@ func TestAppendOnlyGuard_StoreFiles(t *testing.T) {
 	})
 }
 
-// readIndexBytes reads each named index file whole.
-func readIndexBytes(t *testing.T, tp *testProject, names []string) map[string][]byte {
+// requireGrowthOnly asserts that every log's earlier bytes are the exact prefix of its later ones.
+func requireGrowthOnly(t *testing.T, logs []storeLog, before, after map[string][]byte) {
 	t.Helper()
-	index := paths.Of(tp.Root).Index
-	out := make(map[string][]byte, len(names))
-	for _, name := range names {
-		b, err := os.ReadFile(paths.Long(filepath.Join(index, name)))
+	for _, lg := range logs {
+		require.True(t, bytes.HasPrefix(after[lg.name], before[lg.name]),
+			"%s was rewritten: the bytes it held before the mutations are no longer its exact prefix.\n"+
+				"append-only means a change is APPENDED as a new record — a supersede line, a tombstone, "+
+				"an encode record — never edited into the line that is already there (§7.4)", lg.name)
+		require.GreaterOrEqual(t, len(after[lg.name]), len(before[lg.name]), "%s shrank", lg.name)
+	}
+}
+
+// readLogBytes reads each named log whole, keyed by its basename; a log that does not exist yet
+// reads as nil.
+func readLogBytes(t *testing.T, root string, logs []storeLog) map[string][]byte {
+	t.Helper()
+	l := paths.Of(root)
+	out := make(map[string][]byte, len(logs))
+	for _, lg := range logs {
+		b, err := os.ReadFile(paths.Long(filepath.Join(lg.dir(l), lg.name)))
 		if os.IsNotExist(err) {
-			out[name] = nil
+			out[lg.name] = nil
 			continue
 		}
 		require.NoError(t, err)
-		out[name] = b
+		out[lg.name] = b
 	}
 	return out
 }

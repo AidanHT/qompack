@@ -79,6 +79,19 @@ var landedSubplans = map[string]bool{
 	// its subplan is still unlisted. The package has no consumers wired yet; that does not change
 	// whether its own seam is a stub.
 	"SP-20": true,
+	// SP-14, SP-15 and SP-21 landed on develop at the wave-4 integration (504f38f, 0884ea8, 33bb890,
+	// 87c0c1d) without adding themselves here, so internal/commands, internal/analyzer,
+	// internal/grammar and internal/admission sat exempt from their 75/85/75/90 floors while their
+	// probes (Run, Select, Append, Admit) were real — exactly the drift the exempt-but-real
+	// cross-check exists to catch, which nobody had run on a tree where the whole suite passes.
+	// Listed by V5-VERIFY; all four packages measured above their floors on the same run
+	// (88.0 / 88.2 / 91.4 / 100.0 %). SP-16 owns no package (plans/OWNERS.tsv) and so is NOT listed
+	// (TestLandedSubplansMatchesTheBranch forbids it), which means planDocsInScope never derives
+	// wave 5 as landed while a V5-SP-16 document exists; that is a limit of the scope rule, recorded
+	// in plans/V5-report.md, not a statement about SP-16.
+	"SP-14": true,
+	"SP-15": true,
+	"SP-21": true,
 }
 
 // probeBlind names the packages whose OWNERS.tsv probe cannot tell a stub from an implementation,
