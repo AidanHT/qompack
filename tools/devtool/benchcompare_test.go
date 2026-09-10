@@ -1,8 +1,12 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // benchstatCSVFixture is a trimmed but byte-faithful sample of `benchstat -format csv old new`
@@ -211,5 +215,37 @@ func TestBenchComparePaths_DefaultsToTheCommittedBaseline(t *testing.T) {
 	}
 	if _, _, err := benchComparePaths([]string{defaultBenchBaseline, "no-such-file.txt"}); err == nil {
 		t.Error("bench-compare should reject a file that does not exist rather than compare nothing")
+	}
+}
+
+// TestBaselineUnitsAreClassified pins the map to the baseline the gate compares against: every
+// unit a benchmark line in testdata/bench-baseline.txt reports must be classified, in the shape
+// benchstat prints it (ns/op becomes sec/op, MB/s becomes B/s). V5-VERIFY found the observer's
+// four custom metrics in the baseline since the wave-2 refresh and absent from the map, so the
+// gate stopped on every whole-tree sweep; this is the test that would have said so at the refresh.
+func TestBaselineUnitsAreClassified(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(repoRootForTest(t), "testdata", "bench-baseline.txt"))
+	require.NoError(t, err)
+	benchstatUnit := map[string]string{"ns/op": "sec/op", "MB/s": "B/s"}
+	seen := map[string]bool{}
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, "Benchmark") {
+			continue
+		}
+		fields := strings.Fields(line)
+		// name, iterations, then (value, unit) pairs.
+		for i := 3; i < len(fields); i += 2 {
+			seen[fields[i]] = true
+		}
+	}
+	require.NotEmpty(t, seen, "the baseline has benchmark lines")
+	for unit := range seen {
+		u := unit
+		if b, ok := benchstatUnit[u]; ok {
+			u = b
+		}
+		if _, ok := benchUnitWorseWhenHigher[u]; !ok {
+			t.Errorf("baseline unit %q (benchstat %q) is not classified in benchUnitWorseWhenHigher", unit, u)
+		}
 	}
 }
