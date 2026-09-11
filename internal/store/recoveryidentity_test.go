@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -167,6 +169,110 @@ func TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal(t *testing.T) {
 	require.Equal(t, first, got, "the root restores the FIRST put's original")
 	require.Equal(t, FidelityCanonical, b.Fidelity,
 		"the second put's original is not restorable, so its label must not claim it is")
+}
+
+// gatedEstimator is a tokens.Estimator whose FIRST EstimateRoot call signals entered and then
+// blocks until release is closed; every later call returns at once. PutBytes makes that first call
+// for a fresh content root after its dedup check and before its content line is published, so the
+// gate holds a put inside exactly that window. It prices nothing: its tests are about ordering.
+type gatedEstimator struct {
+	once             sync.Once
+	entered, release chan struct{}
+}
+
+func newGatedEstimator() *gatedEstimator {
+	return &gatedEstimator{entered: make(chan struct{}), release: make(chan struct{})}
+}
+
+func (*gatedEstimator) Estimate([]byte, tokens.Class) core.Tokens       { return 0 }
+func (*gatedEstimator) EstimateString(string, tokens.Class) core.Tokens { return 0 }
+func (*gatedEstimator) Calibrate(core.Tokens, core.Tokens)              {}
+func (*gatedEstimator) Factor() float64                                 { return 1 }
+
+func (g *gatedEstimator) EstimateRoot(context.Context, []core.ChunkRef, tokens.Class) core.Tokens {
+	first := false
+	g.once.Do(func() { first = true; close(g.entered) })
+	if first {
+		<-g.release
+	}
+	return 0
+}
+
+// withEstimator injects a tokens.Estimator double.
+func withEstimator(e tokens.Estimator) storeOpt {
+	return func(_ *config.Config, d *Deps) { d.Tokens = e }
+}
+
+// TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores is the concurrent form of
+// TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal (SP20-D3 review 1). Put A is held inside
+// PutBytes' write window — past its dedup check, before its content line — while put B, whose
+// input differs from A's only in the volatile token and so canonicalizes to the same root, runs.
+// B must not become a second writer of that root: it waits for A, deduplicates onto A's record and
+// reports canonical. Exactly one put claims an exact original, it is the one the root restores, in
+// memory and after a reopen, and roots.jsonl carries one content line for the root and one
+// recovery record declaring it.
+//
+// The bounded wait is how long B is given to run straight through while A is held, which is what
+// it does without a per-root put lock: the test is then red with two content lines, two recovery
+// records and two exact labels. With the lock B cannot finish before A is released, so the wait
+// always runs out. Its length can only make the test miss the defect on a starved machine; it
+// cannot fail a correct store.
+func TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores(t *testing.T) {
+	const window = time.Second
+	p := newProject(t)
+	gate := newGatedEstimator()
+	tp := openOver(t, p, withCanon(canonStripTimestamp()), withEstimator(gate))
+	ctx := context.Background()
+	inA := []byte(timestampPrefix + "09:11:04\nthe same body\n")
+	inB := []byte(timestampPrefix + "09:11:05\nthe same body\n")
+
+	var a, b PutResult
+	var errA, errB error
+	doneA, doneB := make(chan struct{}), make(chan struct{})
+	go func() {
+		defer close(doneA)
+		a, errA = tp.Store.PutBytes(ctx, inA, PutOptions{Path: "src/a.log", KeepRaw: true})
+	}()
+	<-gate.entered // A has missed the dedup and not yet published its content line
+	go func() {
+		defer close(doneB)
+		b, errB = tp.Store.PutBytes(ctx, inB, PutOptions{Path: "src/b.log", KeepRaw: true})
+	}()
+	select {
+	case <-doneB:
+	case <-time.After(window):
+	}
+	close(gate.release)
+	<-doneA
+	<-doneB
+	require.NoError(t, errA)
+	require.NoError(t, errB)
+	require.Equal(t, a.Root.Hash, b.Root.Hash, "fixture sanity: one canonical root")
+	root := a.Root.Hash
+
+	require.Equal(t, FidelityExact, a.Fidelity, "A wrote the root and its recovery record")
+	require.Equal(t, FidelityCanonical, b.Fidelity,
+		"B's original is not what the root restores, so its label must not claim it is")
+	requirePutAndReadAgree(t, tp, a, inA)
+
+	var content, records int
+	for _, ln := range tp.indexLines(t, rootsFile) {
+		if strings.Contains(ln, `"root":"`+root.String()+`"`) {
+			content++
+		}
+		if strings.Contains(ln, `"base":"`+root.String()+`"`) {
+			records++
+		}
+	}
+	require.Equal(t, 1, content, "one content line for the root")
+	require.Equal(t, 1, records, "one recovery record declaring the root")
+
+	require.NoError(t, tp.Store.Close())
+	reopened := openOver(t, p, withCanon(canonStripTimestamp()))
+	got, fid, err := reopened.Store.RestoreOriginal(ctx, root)
+	require.NoError(t, err)
+	require.Equal(t, FidelityExact, fid, "after a reopen")
+	require.Equal(t, inA, got, "after a reopen the root still restores A, the put that claimed it")
 }
 
 // ── the record's wire shape ──────────────────────────────────────────────────────────────────
