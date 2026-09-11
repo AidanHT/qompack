@@ -470,7 +470,7 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 		return err
 	}
 	removed, err := remove(path, fs.Offset)
-	if removed || os.IsNotExist(err) {
+	if removed || errors.Is(err, os.ErrNotExist) {
 		return nil // gone, and already forgotten on disk
 	}
 	st[base] = fs
