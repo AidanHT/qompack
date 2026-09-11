@@ -444,9 +444,10 @@ func TestE2E_CheckpointHookWritesImmutableArtifact(t *testing.T) {
 	c := cpStartDaemon(t, p, cpSession)
 
 	// session-start is what makes the session LIVE in the registry, which is what
-	// advanceAllSessions iterates. observe.tool only Touches the registry — a documented no-op for
-	// an id Ensure has never seen — so without this call the idle tick would have no session to
-	// advance a frontier for and would pass while doing nothing.
+	// advanceAllSessions iterates, and it does so before any replayed turn arrives. observe.tool's
+	// Touch also registers a session it has never seen, but only once the first tool call lands.
+	// This call makes liveness a stated precondition of the row rather than a side effect of the
+	// replay, so the idle tick can never pass while doing nothing because no session was live.
 	obsRunHook(t, bin, []string{"session-start"}, sessionStartFor(t, p.Root, cpSession), env)
 	require.True(t, c.D.Registry().IsLive(cpSession),
 		"session-start must have registered %s as live before the idle tick runs", cpSession)

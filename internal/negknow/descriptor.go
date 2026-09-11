@@ -1,7 +1,6 @@
 package negknow
 
 import (
-	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"regexp"
@@ -157,20 +156,40 @@ func sanitizeField(s string) string { return strings.ReplaceAll(s, string(rune(f
 //
 // The returned slice is a fresh copy the caller may mutate freely.
 func (d Descriptor) MatchKey() []byte {
-	var b bytes.Buffer
-	b.WriteString(sanitizeField(d.NormalizedPath))
-	b.WriteByte(fieldSep)
-	b.WriteString(sanitizeField(d.Symbol))
-	b.WriteByte(fieldSep)
-	b.WriteString(sanitizeField(d.ApproachClass))
-	h := core.HashBytes(domainMatch, b.Bytes())
-	out := make([]byte, len(h))
-	copy(out, h[:])
-	return out
+	// h is this call's own array, so the slice returned over it is fresh on every call.
+	h := d.matchHash()
+	return h[:]
+}
+
+// keyPreimageBuf sizes the stack buffer the key digests assemble their preimages in. An ordinary
+// descriptor's preimage — a path, a symbol, an approach class and a 32-byte hash — fits well
+// inside it; a longer one simply spills to the heap through append, and hashes the same bytes.
+const keyPreimageBuf = 256
+
+// matchHash is MatchKey's digest as a value. The preimage is MatchKey's exactly — each field
+// sanitized, the three separated by fieldSep — assembled by append into a stack buffer rather than
+// a bytes.Buffer. sanitizeField returns its argument itself when there is no separator to replace,
+// so the ordinary field costs no allocation at all.
+func (d Descriptor) matchHash() core.Hash {
+	var buf [keyPreimageBuf]byte
+	b := append(buf[:0], sanitizeField(d.NormalizedPath)...)
+	b = append(b, fieldSep)
+	b = append(b, sanitizeField(d.Symbol)...)
+	b = append(b, fieldSep)
+	b = append(b, sanitizeField(d.ApproachClass)...)
+	return core.HashBytes(domainMatch, b)
 }
 
 // MatchHex returns MatchKey as lowercase hex: the in-memory index key the ledger maps to records.
-func (d Descriptor) MatchHex() string { return hex.EncodeToString(d.MatchKey()) }
+func (d Descriptor) MatchHex() string { return hexString(d.matchHash()) }
+
+// hexString is hex.EncodeToString(h[:]) — the same 64 lowercase digits — in one allocation rather
+// than two: the digits are encoded into a stack array and copied once, into the string.
+func hexString(h core.Hash) string {
+	var buf [2 * len(core.Hash{})]byte
+	hex.Encode(buf[:], h[:])
+	return string(buf[:])
+}
 
 // descriptorWire is Descriptor's JSON shape. It exists so MarshalJSON and UnmarshalJSON can be
 // lenient about the reason hash without re-spelling the field names: the tags here are the frozen

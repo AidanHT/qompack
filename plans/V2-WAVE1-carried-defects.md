@@ -305,7 +305,8 @@ window with enough samples for the gate to compare.
 
 ## SP20-D3 — a delta side record shared across roots breaks exact recovery for all but the first
 
-`deferred:V6-VERIFY`. Found by V5-VERIFY section-4 row 4.17 (`TestV5_AdmissionExtension`) while its
+`fixed` at the V5 close-out (2026-09-11; opened `deferred:V6-VERIFY`, see the disposition at the end
+of this section). Found by V5-VERIFY section-4 row 4.17 (`TestV5_AdmissionExtension`) while its
 author wired the resolver to `RestoreOriginal`; recorded in `plans/sdd/V5-VERIFY/x17-disposition.md`
 ("Findings in `internal/store`") and carried here at the independent review's request.
 
@@ -337,6 +338,42 @@ first step is a failing characterization test with two roots that share a remove
 GC retains a record for every base that declares it, the characterization test restores both roots
 exactly, and put and read report the same fidelity for the same bytes.
 
+**V5 close-out disposition (2026-09-11): fixed.** Every acceptance item is met on `verify/v5-final`
+(branch `v5/sp20-d3`, merged in `a3b4687`); the evidence is `internal/store/recoveryidentity_test.go`.
+
+- **Identity includes the base** (`48770c3`). A delta record's payload is `{"base":…,"deltas":[…]}`,
+  so each base gets its own record; a known address is reused only when it holds a delta record that
+  declares the same base, and anything else there makes the put keep the full original instead
+  (counted in `store.delta.addressTaken`). `ReadDelta` reads both payload shapes and refuses a payload
+  whose base disagrees with the index line's.
+- **Both roots restore exactly:** `TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly`, the
+  characterization the row asked for (red on `5708f38`).
+- **GC per base:** `TestGC_EachBaseRetainsItsOwnDeltaRecord`, in both directions; with one record per
+  base the existing base/record coupling needed no code change.
+- **Put and read agree:** a KeepRaw put that canonicalization did not change writes `"verbatim":true`
+  on its roots line and reads back exact (`TestPutBytes_PutAndReadFidelityAgree`,
+  `TestPutBytes_VerbatimClaimPersistsOnAVersionOneLine`; the line stays `v=1`). `storedFidelity` is
+  replaced by `dedupFidelity`, which claims exact or full for a dedup hit only when the stored record
+  is provably this put's own (`TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal`); the fix found
+  that a second input differing only in its timestamp used to be labelled exact while restoring the
+  first input.
+- **Concurrent puts of one root** are serialized so each claims only the original it restores
+  (`6ab54f6`, `TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores`), and a put whose
+  context expired while it waited for that lock refuses instead of writing (`50ee228`,
+  `TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock`).
+
+**Compatibility.** No golden changed. Records written before the fix (bare delta array) still read. A
+root written before the fix that points at a shared record cannot be repaired (the index is
+append-only): its read returns no bytes with `FidelityCorrupt`, never exact, and GC keeps it with the
+record and the record's owner (`TestRestoreOriginal_PreFixSharedRecordIsNeverExact`). A put without
+KeepRaw that deduplicates onto a root stored with a delta record now reports canonical where it used
+to report exact; the only such caller, the migration import, never reads the label. **Rollback:** a
+binary from before `48770c3` expects a bare-array payload, so it reads every delta record written since
+as `FidelityCorrupt` with no bytes. Canonical bytes and every content root still read; only the
+exact-original recovery of roots put since the fix is lost, in the safe direction, and rolling forward
+restores it because nothing is rewritten. The `"verbatim"` key is forward-compatible (an older reader
+drops it and under-claims canonical).
+
 ## SP09-D1 — negknow's `Open` budget holds on this host only at turbo clocks
 
 `deferred:V6-VERIFY`. Opened by V5-VERIFY at its independent review's request (ruling Q28 in the V5
@@ -357,3 +394,62 @@ as co-load; the serial B1 run shows it was the clock.
 
 **Resolution (V6).** A reference-platform figure from CI's `timing` job, then either a budget stated
 against the platform and clock it was written for, or a real speed-up of `Open`.
+
+## SP20-D4 — the delivery journals never retire a lease, so leasing stops for good at 65,536
+
+`deferred:V6-VERIFY`. Found at the V5 close-out (2026-09-11) while designing SP20-D1's group commit,
+which rewrites the same journal code. `internal/daemon/delivery_lease.go` bounds
+`state/delivery-leases.jsonl` and `delivery-acks.jsonl` at `deliveryLeaseMaxEntries` = 65,536 entries
+and `deliveryLeaseMaxBytes` = 64 MiB each. Its comment calls them admission safety bounds and leaves
+"measured retention/compaction" to "a separate migration task" that no plan owns. Only the daemon
+writes either file, and it only appends; store GC (`internal/store/gcrun.go`) only reads them. No
+lease is ever retired, even for a delivery acknowledged long ago, so once a project has leased 65,536
+deliveries, `lease` refuses every new one with `ErrBudget` for the life of the project. The byte
+bound cannot bind first: a lease line is about 309 bytes, so 65,536 of them are about 20 MB.
+
+**Symptom.** A delivery past the cap is not dropped; it loses its durable identity.
+
+- **Still ACKed.** It is WAL-appended and synced, `dispatchOp` answers OK, and the hook client sees
+  success.
+- **Counted.** `ingest.leaseDelivery` counts it `l0_delivery_unleased` and logs a warning.
+- **No identity.** The observer runs with an empty `ObservationID`, so no capture sidecar is written
+  and no frontier record is committed. Dedup falls back to a hash of the wire line held in process
+  memory.
+- **Drain.** The drain is refused a lease for the WAL or spool copy too and records
+  `DrainGapUnleased`, so `DrainGaps().Complete` is false. After a restart it dispatches the copy a
+  second time, where below the cap the frontier would have skipped it (F4-P1).
+
+A retry of a delivery already in the journal still gets its original lease back, because the lookup
+runs before the cap check.
+
+**Reach.** Leases are taken live by `observe.tool` (every PostToolUse), `observe.prompt` (every
+UserPromptSubmit) and `observe.stop` (every Stop and SubagentStop), and at drain time by any spooled
+line that carries a nonce, which the hook client mints for all six hooks. That is roughly one lease
+per tool call. At the hot-path benchmark's model of a realistic session (2,000 tool uses,
+`plans/00-ARCHITECTURE.md`), the cap is about 31 sessions: weeks for one active developer, days under
+multi-agent use. A project at the cap also pays about 0.7 s on this host at every daemon start to load
+and re-validate the two journals (measured on the evidence test's fixture).
+
+**Evidence.** `TestCarriedDefect_SP20D4_LeaseJournalRefusesEveryDeliveryPastItsEntryCap`
+(`internal/daemon/delivery_lease_cap_test.go`, `68176e6`). It writes 65,536 acknowledged leases with
+the journal's own encoding, chain and position seals, opens them through the real
+`openDeliveryJournal`, and drives a fresh delivery through `dispatchOp`, the ingest worker and a
+post-restart drain. The cap is spelled as the shipped value, so the negative control (the constant
+doubled in a scratch copy) fails at the refusal assertion.
+
+**Why it is carried.** Retention changes what the journals promise. A retired lease must still answer
+a late copy of its delivery, such as a hook's fallback spool line drained days later; otherwise the
+frontier's redelivery dedup is lost and the drain publishes that copy a second time. The fix must also
+be crash-safe across two files and coupled to store GC's retention roots, and it rewrites the code
+SP20-D1 is rewriting at the close-out, so it cannot land safely beside that change.
+
+**Acceptance (V6).**
+
+- Both journals retained or compacted together (`loadAcks` refuses an acknowledgement that names no
+  surviving lease), with a horizon that keeps redelivery dedup for every copy that can still arrive,
+  for example a per-session arrival watermark that answers "already delivered" for a retired delivery.
+- A crash-safe compaction that leaves both journals consistent at every cut, with GC's lease and ack
+  roots updated to match.
+- The evidence test inverted: a project past 65,536 leases leases its next delivery, and a late copy
+  of a retired delivery is still skipped.
+- The startup load cost bounded independently of the project's age.

@@ -74,6 +74,8 @@ type rootWire struct {
 	// retained full original a content record fell back to. Both are absent on a v1 line.
 	Base string `json:"base"`
 	Orig string `json:"orig"`
+	// Verbatim is a content record's "canonicalization changed nothing" claim (SP20-D3).
+	Verbatim bool `json:"verbatim"`
 }
 
 // chunkWire is one entry of a roots line's "chunks" array. The keys are deliberately short: this
@@ -224,6 +226,10 @@ func marshalRootLine(rl rootEntry) []byte {
 		dst = appendKey(dst, "orig", false)
 		dst = appendJSONString(dst, rl.Orig.String())
 	}
+	if rl.Verbatim {
+		dst = appendKey(dst, "verbatim", false)
+		dst = append(dst, "true"...)
+	}
 
 	return append(dst, '}', '\n')
 }
@@ -231,6 +237,11 @@ func marshalRootLine(rl rootEntry) []byte {
 // rootRecordVersion is the "v" one record declares: the SP-20 version only when the line actually
 // carries an SP-20 field, so a store that never stores a declared base writes a byte-identical
 // file to the one SP-06 wrote.
+//
+// "verbatim" deliberately does NOT move the version. A reader that drops it under-claims — it reads
+// the same bytes back as canonical, which is what every build before SP20-D3 said about them —
+// whereas a v=2 stamp would make a v=1-only reader skip the whole content record. The bump is for a
+// field whose loss is unsafe; this one's loss is the safe direction.
 func rootRecordVersion(rl rootEntry) int64 {
 	if !rl.Base.IsZero() || !rl.Orig.IsZero() {
 		return indexRecordVersionBase
@@ -476,7 +487,7 @@ func parseRootLine(line []byte) (rl rootEntry, tombstone bool, root core.Hash, e
 	rl.Root.Hash = h
 	rl.TS, rl.Tool, rl.Path = w.TS, w.Tool, w.Path
 	rl.Root.RawBytes, rl.Root.CanonBytes, rl.Root.Tokens = w.Raw, w.Canon, w.Tokens
-	rl.Eph = w.Eph
+	rl.Eph, rl.Verbatim = w.Eph, w.Verbatim
 	if w.Class != nil {
 		rl.Class = *w.Class
 	}
