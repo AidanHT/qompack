@@ -1196,6 +1196,8 @@ func TestDeliveryJournal_ReleaseWaitsForInFlightBatchesAndFailsQueued(t *testing
 		require.ErrorIs(t, err, core.ErrDegraded)
 		require.Equal(t, file, readTestFile(t, journal.ackPath), "nothing is appended after Release returns")
 		require.False(t, journal.acknowledged(leases[0].Delivery), "a released journal cannot say what is acknowledged")
+		_, err = lock.openDeliveryJournal()
+		require.Error(t, err, "a released journal is no longer handed out")
 	})
 
 	t.Run("both pipelines at once", func(t *testing.T) {
@@ -1256,6 +1258,8 @@ func TestDeliveryJournal_ReleaseWaitsForInFlightBatchesAndFailsQueued(t *testing
 		require.ErrorIs(t, journal.acknowledge(ctx, leases[1].Delivery, leases[1].ObservationID, core.Hash{}), core.ErrDegraded)
 		require.Equal(t, leaseFile, readTestFile(t, journal.path), "nothing is appended after Release returns")
 		require.Equal(t, ackFile, readTestFile(t, journal.ackPath), "nothing is appended after Release returns")
+		_, err = lock.openDeliveryJournal()
+		require.Error(t, err, "a released journal is no longer handed out")
 	})
 }
 

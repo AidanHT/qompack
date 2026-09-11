@@ -688,6 +688,61 @@ func TestDeliveryJournal_AckBatchNeverDelaysALeaseBatch(t *testing.T) {
 	require.Equal(t, ackPosition.Count+1, loadAckPosition(t, journal).Count)
 }
 
+// T17's converse — design §6.2 T17, §2.2 ("lease batch ∥ ack batch: allowed"), §2.8. The
+// independence runs both ways: a lease batch holds no lock an acknowledgement needs either. While
+// one holds its Sync, a drain's acknowledgement takes the journal through the accessor (which takes
+// Lock.mu) and commits its own Write, Sync and seal, and it returns before the lease batch's Sync is
+// released. The two pipelines have queues, writers and seals of their own, and j.st is taken only
+// for the map reads and the admissions, never across I/O, so neither side waits on the other's
+// device time. With a lease batch under Lock.mu, the accessor call would wait for the whole batch.
+func TestDeliveryJournal_AckBatchIsNeverDelayedByALeaseBatch(t *testing.T) {
+	_, lock, journal := newTestDeliveryJournal(t)
+	l := leaseEach(t, journal, 1)
+	req := testDeliveryRequest("t17 converse")
+	lp, ap := newLeaseProbe(journal), newAckProbe(journal)
+	lp.syncGate = newWALGate(t)
+	leaseLead := holdFirstLeaseBatch(t, lp, leaseCall{delivery: leaseToken(100), session: "t17", request: req})
+	leasePosition, err := journal.loadPosition()
+	require.NoError(t, err)
+
+	// The drainer's own sequence: the accessor, then acknowledge.
+	acked := make(chan error, 1)
+	go func() {
+		j, aerr := lock.openDeliveryJournal()
+		if aerr != nil {
+			acked <- aerr
+			return
+		}
+		acked <- j.acknowledge(context.Background(), l[0].Delivery, l[0].ObservationID, core.Hash{})
+	}()
+	select {
+	case err := <-acked:
+		require.NoError(t, err)
+	case <-time.After(ingestACKWait):
+		t.Fatal("an acknowledgement waited for a lease batch's Sync")
+	}
+
+	require.False(t, leaseLead.returned(), "the lease batch is still held at its Sync")
+	require.True(t, acknowledgedWithin(t, journal, l[0].Delivery), "the acknowledgement is sealed and on the frontier")
+	require.Equal(t, int32(1), ap.writes.Load(), "the acknowledgement made its own Write")
+	require.Equal(t, int32(1), ap.syncs.Load(), "its own Sync")
+	require.Equal(t, int32(1), ap.seals.Load(), "and its own seal")
+	ackFile := readTestFile(t, journal.ackPath)
+	require.Equal(t, ackLines(t, ackOf(0, l[0], core.Hash{})), string(ackFile))
+	require.Equal(t, ackPositionOf(ackFile), loadAckPosition(t, journal))
+	held, err := journal.loadPosition()
+	require.NoError(t, err)
+	require.Equal(t, leasePosition, held, "the lease batch is still unsealed")
+	require.Equal(t, int32(0), lp.seals.Load())
+
+	lp.syncGate.release()
+	awaitAll(t, leaseLead)
+	require.NoError(t, leaseLead.err)
+	sealed, err := journal.loadPosition()
+	require.NoError(t, err)
+	require.Equal(t, leasePosition.Count+1, sealed.Count, "and it seals once it is released")
+}
+
 // ackStart is the state T18's two journals start from.
 type ackStart struct {
 	entries int   // placeholder acknowledgements (ackNearCap); 0 for an empty acknowledgement journal
