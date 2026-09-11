@@ -346,6 +346,95 @@ func TestObservePrompt_StopCancelsARecordingThatOutlivesItsGrace(t *testing.T) {
 	}
 }
 
+// TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation pins the only bound Stop has on
+// a capture that never answers its cancellation — the promptAbandonAfter timer
+// stopPromptRecordings starts once it has cancelled what outlived its grace. That is the common
+// production case, not an exotic one: observer.onUserPrompt parked in the session lock's Lock,
+// which no context reaches. The seam here is cancelled and carries on regardless, held by the test
+// until cleanup, so nothing but that timer can end Stop's wait. Every other test in this file lets
+// its capture go or raises the bound out of reach, and a timer of an hour passed them all.
+func TestObservePrompt_StopAbandonsACaptureThatIgnoresCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Lowered from production's promptReplyDeadline only to keep the test quick, and distinct from
+	// it, so the bound the Loud line reports is provably the field's.
+	const bound = 50 * time.Millisecond
+	// stopPromptRecordings Louds this as an inline literal, so it is respelled here.
+	const abandonLoud = "daemon: stop: a verbatim prompt capture ignored cancellation; abandoning it"
+
+	seam := newHeldPromptSeam()
+	// Closed only in cleanup: the capture answers its cancellation by carrying on.
+	hold := make(chan struct{})
+	seam.afterCancel = hold
+	logs := newRecordingLogger()
+	o := Options{ProjectRoot: t.TempDir(), Cfg: testConfig(), Log: logs}
+	o.Bind(func(s *Services) { s.ObservePrompt = seam.observe })
+	d, err := New(o)
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	dd.promptAbandonAfter = bound
+	// Registered after t.TempDir, so it runs before the project root is removed. It lets the capture
+	// go whichever way it is waiting and calls Stop, a sync.Once: that returns only once the Stop
+	// under test has run its whole tail, or runs one if the test failed before starting it. Then it
+	// joins the abandoned capture, so no goroutine this test started outlives it.
+	t.Cleanup(func() {
+		close(seam.release)
+		close(hold)
+		_ = dd.Stop(context.Background())
+		joined := make(chan struct{})
+		go func() {
+			dd.promptWG.Wait()
+			close(joined)
+		}()
+		awaitSignal(t, joined, "the abandoned capture never finished once the test let it go")
+	})
+
+	resp := dd.dispatchOp(context.Background(), promptRequest(dd, "sess-stop-abandon"))
+	require.True(t, resp.OK)
+	awaitSignal(t, seam.entered, "the ObservePrompt seam was never called")
+
+	// Already done, so the grace is spent before Stop begins: all that stands between Stop and its
+	// return is the abandonment bound.
+	spent, cancel := context.WithCancel(context.Background())
+	cancel()
+	stopped := make(chan error, 1)
+	go func() { stopped <- dd.Stop(spent) }()
+
+	awaitSignal(t, seam.cancelled, "past its grace, the capture must be cancelled first")
+	select {
+	case err := <-stopped:
+		require.NoError(t, err)
+	case <-time.After(promptRecordWait):
+		require.FailNow(t, "Stop never returned: a capture ignoring its cancellation wedged the shutdown")
+	}
+	// Sent only once the test lets the seam go, which it has not yet done: Stop came back with the
+	// capture still running, which is what abandoning it means.
+	select {
+	case <-seam.recorded:
+		require.FailNow(t, "the capture finished before Stop returned, so nothing was abandoned")
+	default:
+	}
+
+	// Never silent (§12): the abandonment is Loud'd once, naming the bound that ended the wait.
+	var abandoned []logEntry
+	for _, e := range logs.entries(logLoud) {
+		if e.Msg == abandonLoud {
+			abandoned = append(abandoned, e)
+		}
+	}
+	require.Len(t, abandoned, 1,
+		"an abandoned capture must be Loud'd exactly once; Loud lines: %q", logs.msgs(logLoud))
+	var reported any
+	for i := 0; i+1 < len(abandoned[0].KV); i += 2 {
+		if abandoned[0].KV[i] == "bound" {
+			reported = abandoned[0].KV[i+1]
+		}
+	}
+	require.Equal(t, bound.String(), reported,
+		"the abandonment line must name the bound that ended the wait: %v", abandoned[0].KV)
+}
+
 // gatedToolStore is a real store whose first tool Put blocks until released. observer.onToolUse
 // takes the session lock before that Put (tooluse.go), so while it is held the ingest job holds
 // the observer's session lock — the production overrun, a tool backlog in front of a prompt,
