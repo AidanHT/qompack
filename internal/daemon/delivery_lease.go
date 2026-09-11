@@ -62,8 +62,8 @@ type deliveryJournal struct {
 	closed   bool
 	chain    core.Hash
 
-	// The committed-frontier half. It is a second file under the same held Lock and the same
-	// mutex, never a second record kind in the lease file — see the acknowledge section below.
+	// The committed-frontier half. It is a second file under the same held Lock, never a second
+	// record kind in the lease file — see the acknowledge section below.
 	ackPath   string
 	ackFile   *os.File
 	ackWriter deliveryJournalWriter
@@ -84,6 +84,14 @@ type deliveryJournal struct {
 	closing bool
 	// inflight counts the operations between enter and leave: each one may write, sync or seal.
 	inflight int
+
+	// leaseQ group-commits lease (design §2.6): lease enqueues its request and waits, and the
+	// caller that leads a batch answers every request queued behind it.
+	leaseQ groupQueue[*leaseReq]
+	// sealLease seals one lease batch's position: savePosition, the paths.WriteAtomic of the v1
+	// sidecar, in production. It is a field only so that tests can observe, hold and fail one
+	// batch's seal; nothing else sets it.
+	sealLease func(size int64, count int, chain core.Hash) error
 }
 
 type deliveryPosition struct {
@@ -106,9 +114,9 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		// O1 (SP20-D1 design section 2.5, flagged for the owner's countersign as Q6): an open
 		// journal is handed out without reading the lock FILE. That read ran under Lock.mu on every
 		// Accept, a serial section in front of the durable path. Ownership is still checked against
-		// the file for every operation on the journal, only there: a lease re-reads it
-		// (Lock.ownedByFile) once it is admitted and before it appends or answers anything, and
-		// acknowledge and acknowledged read it through owned under this mutex.
+		// the file for every operation on the journal, only there: a lease batch re-reads it
+		// (Lock.ownedByFile) once every member has arrived and before anything is appended or
+		// answered, and acknowledge and acknowledged read it through owned under this mutex.
 		if !l.journal.usable() {
 			return nil, deliveryJournalError()
 		}
@@ -182,81 +190,245 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
 	j := &deliveryJournal{
 		owner: l, path: p, chain: deliveryChainSeed, leases: map[string]deliveryLease{}, arrivals: map[core.SessionID]uint64{},
+		leaseQ: groupQueue[*leaseReq]{maxN: groupCommitMaxRequests, maxBytes: journalGroupCommitMaxBytes, size: leaseReqSize},
 	}
 	j.idle.L = &j.st
+	j.sealLease = j.savePosition
 	return j
 }
 
+// lease takes (or re-takes) the durable assignment for delivery. Its contract is unchanged: it
+// blocks until its answer is final, and it returns a lease only once the line recording it is
+// synced and sealed. It is enqueue-and-wait on leaseQ: a caller that finds no batch in flight
+// commits one (commitLeases) inline on its own goroutine, and every caller that arrives meanwhile
+// waits for the batch that answers it. So an isolated lease pays exactly the one Write, one Sync and
+// one seal it always did, and leases that arrive together share them.
 func (j *deliveryJournal) lease(ctx context.Context, delivery string, session core.SessionID, request core.Hash) (deliveryLease, error) {
 	if j == nil || j.owner == nil {
 		return deliveryLease{}, deliveryJournalError()
 	}
-	j.owner.mu.Lock()
-	defer j.owner.mu.Unlock()
-	if err := ctx.Err(); err != nil {
-		return deliveryLease{}, err
+	r := &leaseReq{ctx: ctx, delivery: delivery, session: session, request: request, err: deliveryJournalError()}
+	j.leaseQ.run(r, j.commitLeases)
+	return r.lease, r.err
+}
+
+// leaseReq is one lease call's request in leaseQ (design §2.6).
+type leaseReq struct {
+	ctx      context.Context
+	delivery string
+	session  core.SessionID
+	request  core.Hash
+	// lease and err are the call's answer. err starts as deliveryJournalError() and lease as the
+	// zero lease, and only commitLeases' last phase replaces them (J-A2): a batch that returns early
+	// or panics leaves every member it did not answer failed, never holding an unsealed lease.
+	lease deliveryLease
+	err   error
+	// pend is the first phase's decision for a validated request, answered in the last phase.
+	pend leasePending
+}
+
+// The estimate leaseQ batches by: an upper bound on the canonical line one request can append.
+// json.Marshal writes at most six bytes (a \u00XX escape) per byte of the session, and every other
+// field of a lease line has a fixed maximum width, 305 bytes in all with a 20-digit arrival.
+const (
+	leaseLineEscapeBound = 6
+	leaseLineFixedBound  = 400
+)
+
+func leaseReqSize(r *leaseReq) int { return leaseLineEscapeBound*len(r.session) + leaseLineFixedBound }
+
+// leasePending is the first phase's decision for one validated request.
+type leasePending struct {
+	// err is a refusal already decided (a budget, contract or context error) that no append in the
+	// batch can change.
+	err error
+	// lease is what the request is answered with once its binding is checked: a known nonce's sealed
+	// lease, or the lease this batch mints, for this request or for the earlier copy it joins.
+	lease deliveryLease
+	// minted is true when lease is minted in this batch, so that the answer depends on the append.
+	minted bool
+}
+
+// answer sets r's final result. failed is the fault the batch's append failed with, or nil.
+func (r *leaseReq) answer(failed error) {
+	p := r.pend
+	switch {
+	case p.err != nil:
+		r.err = p.err
+	case p.minted && failed != nil:
+		r.err = failed
+	case p.lease.Session != r.session || p.lease.RequestHash != r.request:
+		r.err = core.ErrAppendOnly
+	default:
+		r.lease, r.err = p.lease, nil
 	}
-	if err := j.enter(); err != nil {
-		return deliveryLease{}, err
+}
+
+// leaseBatch is one commitLeases call's running state: the journal as it will stand once the
+// batch's mints are appended, sealed and admitted.
+type leaseBatch struct {
+	size  int64
+	count int
+	chain core.Hash
+	next  map[core.SessionID]uint64 // the last arrival this batch assigned, per session
+	fresh map[string]deliveryLease  // the leases this batch minted, by nonce
+	order []deliveryLease           // the same leases, in queue order
+	buf   []byte                    // their lines, in the same order
+}
+
+// decide is the first phase for one validated request: the checks a lease call has always made
+// after its checkFile, in the same order, over the journal as this batch's earlier mints leave it.
+// It reads j's admitted state without st: only a batch's leader writes that state, and the leader
+// is the caller.
+func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
+	if old, ok := j.leases[r.delivery]; ok {
+		return leasePending{lease: old}
 	}
-	defer j.leave()
-	if !j.owner.ownedByFile() {
-		return deliveryLease{}, deliveryJournalError()
+	if minted, ok := b.fresh[r.delivery]; ok {
+		return leasePending{lease: minted, minted: true} // a concurrent copy joins its mint (§2.7)
 	}
-	if !validDeliveryToken(delivery) || request.IsZero() || !utf8.ValidString(string(session)) {
-		return deliveryLease{}, core.ErrContract
+	prev, ok := b.next[r.session]
+	if !ok {
+		prev = j.arrivals[r.session]
 	}
-	if err := j.checkFile(); err != nil {
-		return deliveryLease{}, j.poison(err)
+	if b.count >= deliveryLeaseMaxEntries || prev == math.MaxUint64 {
+		return leasePending{err: core.ErrBudget}
 	}
-	if old, ok := j.leases[delivery]; ok {
-		if old.Session != session || old.RequestHash != request {
-			return deliveryLease{}, core.ErrAppendOnly
-		}
-		return old, nil
-	}
-	if len(j.leases) >= deliveryLeaseMaxEntries || j.arrivals[session] == math.MaxUint64 {
-		return deliveryLease{}, core.ErrBudget
-	}
-	arrival := j.arrivals[session] + 1
-	id, err := core.NewObservationID(session, arrival)
+	id, err := core.NewObservationID(r.session, prev+1)
 	if err != nil {
-		return deliveryLease{}, core.ErrContract
+		return leasePending{err: core.ErrContract}
 	}
 	lease := deliveryLease{
-		Version: core.EvidenceVersion, Delivery: delivery, Session: session, RequestHash: request,
-		ArrivalSeq: arrival, ObservationID: id,
+		Version: core.EvidenceVersion, Delivery: r.delivery, Session: r.session, RequestHash: r.request,
+		ArrivalSeq: prev + 1, ObservationID: id,
 	}
 	line, err := json.Marshal(lease)
 	if err != nil {
-		return deliveryLease{}, core.ErrContract
+		return leasePending{err: core.ErrContract}
 	}
 	line = append(line, '\n')
-	if len(line) > deliveryLeaseMaxLine || j.bytes+int64(len(line)) > deliveryLeaseMaxBytes {
-		return deliveryLease{}, core.ErrBudget
+	if len(line) > deliveryLeaseMaxLine || b.size+int64(len(line)) > deliveryLeaseMaxBytes {
+		return leasePending{err: core.ErrBudget}
 	}
-	if err := ctx.Err(); err != nil {
-		return deliveryLease{}, err
+	if err := r.ctx.Err(); err != nil {
+		return leasePending{err: err}
 	}
-	n, err := j.writer.Write(line)
-	if err != nil || n != len(line) {
-		return deliveryLease{}, j.poison(deliveryJournalError())
+	b.next[r.session] = lease.ArrivalSeq
+	b.count++
+	b.size += int64(len(line))
+	b.chain = deliveryChain(b.chain, line)
+	b.fresh[r.delivery] = lease
+	b.order = append(b.order, lease)
+	b.buf = append(b.buf, line...)
+	return leasePending{lease: lease, minted: true}
+}
+
+// commitLeases is leaseQ's commit (design §2.6, §2.7). It answers one batch of lease requests, in
+// queue order, exactly as that many lease calls made one at a time would have, with one append:
+//
+//  0. The gate, once for the batch and only after every member has arrived: enter, then
+//     Lock.ownedByFile. A lock this journal no longer owns refuses the batch without poisoning the
+//     handle, as it always has.
+//  1. Evaluation, CPU only, of each member in a lease call's order: ctx, the gate, validation, then
+//     decide.
+//  2. One checkFile, immediately before the append, so that nothing but the call itself separates
+//     its last syscall from the Write (J-B4). It gates every validated member, known nonces
+//     included, as it gated every validated call.
+//  3. One Write of every minted line, one Sync, one seal (appendLeases).
+//  4. Admission, under st, of exactly what the seal covers (appendLeases).
+//  5. The answers. Nothing is released before commitLeases returns: the queue wakes the followers
+//     only then, and the leader's own lease returns only after that.
+//
+// A failed Write, Sync or seal poisons the handle and fails every member whose answer depended on
+// the append: the mints and the copies that joined them. Known nonces and refusals are answered as
+// decided. Their answers never depended on this append, and an order of the calls that puts them
+// before the failed append is a valid one.
+func (j *deliveryJournal) commitLeases(batch []*leaseReq) {
+	gate := j.enter()
+	if gate == nil {
+		defer j.leave()
+		if !j.owner.ownedByFile() {
+			gate = deliveryJournalError()
+		}
+	}
+	defer j.poisonOnPanic()
+
+	b := &leaseBatch{
+		size: j.bytes, count: len(j.leases), chain: j.chain,
+		next: map[core.SessionID]uint64{}, fresh: map[string]deliveryLease{},
+	}
+	var checked []*leaseReq
+	for _, r := range batch {
+		if err := r.ctx.Err(); err != nil {
+			r.err = err
+			continue
+		}
+		if gate != nil {
+			r.err = gate
+			continue
+		}
+		if !validDeliveryToken(r.delivery) || r.request.IsZero() || !utf8.ValidString(string(r.session)) {
+			r.err = core.ErrContract
+			continue
+		}
+		r.pend = b.decide(j, r)
+		checked = append(checked, r)
+	}
+	if len(checked) == 0 {
+		return
+	}
+	if err := j.checkFile(); err != nil {
+		fault := j.poison(err)
+		for _, r := range checked {
+			r.err = fault
+		}
+		return
+	}
+	var failed error
+	if len(b.order) > 0 {
+		failed = j.appendLeases(b)
+	}
+	for _, r := range checked {
+		r.answer(failed)
+	}
+}
+
+// appendLeases is phases 3 and 4 for a batch that minted: one Write, one Sync and one seal, and
+// then the admission of exactly what they made durable. It returns the fault a failure poisoned the
+// journal with, or nil once the batch's leases are admitted.
+func (j *deliveryJournal) appendLeases(b *leaseBatch) error {
+	n, err := j.writer.Write(b.buf)
+	if err != nil || n != len(b.buf) {
+		return j.poison(deliveryJournalError())
 	}
 	if err := j.writer.Sync(); err != nil {
-		return deliveryLease{}, j.poison(deliveryJournalError())
+		return j.poison(deliveryJournalError())
 	}
-	chain := deliveryChain(j.chain, line)
-	if err := j.savePosition(j.bytes+int64(len(line)), len(j.leases)+1, chain); err != nil {
-		return deliveryLease{}, j.poison(deliveryJournalError())
+	if err := j.sealLease(b.size, b.count, b.chain); err != nil {
+		return j.poison(deliveryJournalError())
 	}
-	// Only synced bytes enter the running identity maps. An uncertain write poisons this handle
-	// and requires reload; a complete surviving row then retains its identity on retry.
+	// Only synced and sealed bytes enter the identity maps. An uncertain write poisons this handle
+	// and requires a reload, and a complete surviving row then keeps its identity on retry.
 	j.st.Lock()
-	j.bytes += int64(len(line))
-	j.chain = chain
-	j.leases[delivery], j.arrivals[session] = lease, arrival
-	j.st.Unlock()
-	return lease, nil
+	defer j.st.Unlock()
+	j.bytes, j.chain = b.size, b.chain
+	for _, l := range b.order {
+		j.leases[l.Delivery], j.arrivals[l.Session] = l, l.ArrivalSeq
+	}
+	return nil
+}
+
+// poisonOnPanic is deferred by every lease batch. A batch that panics has left the journal's disk
+// state uncertain (its Write may have landed without its seal), so it poisons the handle exactly as
+// a failed Write does, and every member it had not answered keeps the failure it started with. The
+// panic then continues on the leader's goroutine, as a WAL batch's does and as a panic inside lease
+// always has: an Accept's is contained by the IPC server's dispatch, which NAKs, and a drain's by
+// whatever ran that drain.
+func (j *deliveryJournal) poisonOnPanic() {
+	if p := recover(); p != nil {
+		_ = j.poison(deliveryJournalError())
+		panic(p)
+	}
 }
 
 func (j *deliveryJournal) load() (os.FileInfo, error) {

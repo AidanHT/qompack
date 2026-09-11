@@ -6,8 +6,9 @@ import (
 )
 
 // This file is the one queue primitive SP20-D1's three durable pipelines are built on: the WAL, the
-// delivery-lease journal and the acknowledgement journal (design §2.3). The WAL uses it (ingest.go,
-// walQ); each journal pipeline adopts it in its own stage.
+// delivery-lease journal and the acknowledgement journal (design §2.3). The WAL (ingest.go, walQ)
+// and the lease journal (delivery_lease.go, leaseQ) use it; the acknowledgement journal adopts it
+// in its own stage.
 //
 // It is a leader/follower group commit:
 //
@@ -41,9 +42,9 @@ import (
 // PANICS. run defers the handoff, so it runs even when commit panics: the batch's other members
 // are released holding whatever commit had written (their default failure, unless commit had
 // already resolved them), the next leader is woken, and the panic then continues on the leader's
-// own goroutine. The queue does not recover it. A journal pipeline's commit recovers for itself and
-// poisons its handle (design §2.5). The handoff's own critical section cannot panic; that is the
-// J-A1 fix, described at handoff.
+// own goroutine. The queue does not recover it. A journal pipeline's commit also poisons its handle
+// on the way out (deliveryJournal.poisonOnPanic, design §2.5) and lets the panic continue. The
+// handoff's own critical section cannot panic; that is the J-A1 fix, described at handoff.
 //
 // LOCKING. q.mu guards the queue and the leading flag and nothing else. It is a leaf lock: it is
 // never held together with another lock, never across I/O, and never while caller code runs (a
