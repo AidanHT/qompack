@@ -3,6 +3,7 @@ package daemon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -55,12 +56,18 @@ const (
 	// fallback to fall back on, so this is its only observability (fix round 2, FR-2).
 	counterL0AcceptError = "l0_accept_error"
 
-	// counterPromptReplyLate counts an observe.prompt reply that went out empty on
-	// promptReplyDeadline while the verbatim capture it started was still running. The capture
-	// itself is not lost — it finishes on its own context (startPromptRecording) — but whatever it
-	// would have said back (a thrash warning) never reaches the host, and this is the only record
-	// that it did not.
+	// counterPromptReplyLate counts an observe.prompt reply that went out empty because
+	// promptReplyDeadline EXPIRED while the verbatim capture it started was still running. The
+	// capture itself is not lost — it finishes on its own context (startPromptRecording) — but
+	// whatever it would have said back (a thrash warning) never reaches the host, and this is the
+	// only record that it did not. A request cancelled for another reason (shutdown cancels the
+	// serving context) and a capture that panicked are not overruns and are not counted here.
 	counterPromptReplyLate = "l0_prompt_reply_late"
+
+	// counterPromptCaptureRefused counts an observe.prompt whose verbatim capture was never started
+	// because Stop had already begun joining the captures (startPromptRecording). That is a lost
+	// G2.3 capture, so it is countable on its own rather than only a Warn in a log nobody reads.
+	counterPromptCaptureRefused = "l0_prompt_capture_refused"
 
 	counterHotpathDegraded = "hotpath_degraded"
 
@@ -540,7 +547,9 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 //
 // A capture that finishes after the deadline has its Output discarded: the reply has already gone
 // out empty, and a thrash warning held back for a later turn would describe a loop the agent may
-// since have left. The miss is counted (counterPromptReplyLate), never silent.
+// since have left. The miss is counted (counterPromptReplyLate), never silent — but only when the
+// deadline is what ended the wait: a request cancelled from outside (Stop cancels the serving
+// context) is not an overrun, and neither is a panicking seam, which answers the wait at once.
 func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event) hookio.Output {
 	wait, cancel := context.WithTimeout(ctx, promptReplyDeadline)
 	defer cancel()
@@ -552,8 +561,12 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 	ch := make(chan result, 1)
 	e := *ev
 	if !d.startPromptRecording(ctx, func(rec context.Context) {
-		o, err := d.svc.ObservePrompt(rec, e)
-		ch <- result{o, err}
+		// Sent from a defer so that a seam which panics still answers the wait at once, with an
+		// error, rather than leaving the reply to run out the deadline and be counted as late.
+		// startPromptRecording's recover runs after this send; ch is buffered, so it never blocks.
+		r := result{err: errPromptCapturePanicked}
+		defer func() { ch <- r }()
+		r.out, r.err = d.svc.ObservePrompt(rec, e)
 	}) {
 		return hookio.Empty()
 	}
@@ -564,12 +577,17 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 			return r.out
 		}
 	case <-wait.Done():
-		if d.m != nil {
+		if d.m != nil && errors.Is(wait.Err(), context.DeadlineExceeded) {
 			d.m.Counter(counterPromptReplyLate).Add(1)
 		}
 	}
 	return hookio.Empty()
 }
+
+// errPromptCapturePanicked is the result a panicking ObservePrompt seam hands the reply wait. It
+// never leaves this file: the reply is hookio.Empty(), as for any other seam error, and the panic
+// itself is counted and Loud'd by startPromptRecording's recover.
+var errPromptCapturePanicked = errors.New("daemon: observe.prompt capture panicked")
 
 // startPromptRecording runs record on a goroutine of its own, under a context that keeps ctx's
 // VALUES — the Services/Registry/Daemon values dispatchOp bound, so a call that finishes inside the
@@ -580,7 +598,7 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 // It reports false, and runs nothing, once Stop has begun that join. A WaitGroup may not grow
 // after its Wait has started, and a capture started then would outlive the store the composition
 // root closes as soon as Stop returns. The daemon is going away at that point; the refusal is
-// logged rather than silent.
+// logged and counted (counterPromptCaptureRefused) rather than silent.
 //
 // A panic inside record is recovered here, counted and Loud'd exactly as callHandler recovers one
 // on the handler's own goroutine: this goroutine now outlives the request, so callHandler's
@@ -589,6 +607,9 @@ func (d *daemon) startPromptRecording(ctx context.Context, record func(context.C
 	d.promptMu.Lock()
 	if d.promptClosed {
 		d.promptMu.Unlock()
+		if d.m != nil {
+			d.m.Counter(counterPromptCaptureRefused).Add(1)
+		}
 		d.log.Warn("daemon: observe.prompt arrived during shutdown; verbatim capture not started")
 		return false
 	}
@@ -621,8 +642,9 @@ func (d *daemon) startPromptRecording(ctx context.Context, record func(context.C
 // context, so they run concurrently with the drain and add no shutdown window of their own. Only
 // then is whatever remains cancelled, which a cooperating capture answers promptly by failing on
 // its merits (store.PutBytes's own ctx check, counted in observer.err.prompt.put). A callee that
-// ignores even that is abandoned with a Loud line after promptReplyDeadline — the same
-// abandonment the reply path has always accepted — rather than wedging the shutdown.
+// ignores even that is abandoned with a Loud line after promptAbandonAfter (promptReplyDeadline in
+// every daemon New builds) — the same abandonment the reply path has always accepted — rather than
+// wedging the shutdown.
 func (d *daemon) stopPromptRecordings(grace context.Context) {
 	d.promptMu.Lock()
 	d.promptClosed = true
@@ -641,13 +663,13 @@ func (d *daemon) stopPromptRecordings(grace context.Context) {
 	}
 
 	d.promptCancel()
-	t := time.NewTimer(promptReplyDeadline)
+	t := time.NewTimer(d.promptAbandonAfter)
 	defer t.Stop()
 	select {
 	case <-done:
 	case <-t.C:
 		d.log.Loud("daemon: stop: a verbatim prompt capture ignored cancellation; abandoning it",
-			"bound", promptReplyDeadline.String())
+			"bound", d.promptAbandonAfter.String())
 	}
 }
 

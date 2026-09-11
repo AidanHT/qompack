@@ -227,6 +227,11 @@ type daemon struct {
 	promptWG     sync.WaitGroup
 	promptCtx    context.Context
 	promptCancel context.CancelFunc
+	// promptAbandonAfter is how long stopPromptRecordings still waits for a capture after cancelling
+	// it, before abandoning a callee that ignores cancellation. New sets it to promptReplyDeadline
+	// and nothing in production changes it; it is a field only so a test can hold a cancelled
+	// capture open for as long as it needs to prove that Stop really joins it.
+	promptAbandonAfter time.Duration
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -292,6 +297,7 @@ func New(o Options) (Daemon, error) {
 	// Background, not any caller's context: a capture must outlive the request that started it,
 	// and only Stop may end it (stopPromptRecordings).
 	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
+	d.promptAbandonAfter = promptReplyDeadline
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
