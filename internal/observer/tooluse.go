@@ -127,12 +127,42 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		Root: res.Root.Hash, Path: pathKey, Bytes: res.Root.RawBytes, Tokens: tok,
 		Signature: res.Signature, Status: store.StatusOK, Ephemeral: ephemeral,
 	}
+	obs := ObservationFrom(ctx)
+	rec.Observation = obs
 	if e.ToolUseID == "" {
 		// A payload with no tool_use_id still gets a stable, session-local identity, because a
 		// record the graph cannot name is a record nothing can retrieve.
-		rec.ID = core.ToolUseID(fmt.Sprintf("tu_%s_%d_%d", e.SessionID, st.Turn, len(st.ToolUses)))
+		//
+		// SP08-D2: that identity is DERIVED from this process's state, so a redelivery re-derives a
+		// different one and records twice for one host event. Two guards, in this order.
+		rec.ID = derivedToolUseID(e.SessionID, st.Turn, len(st.ToolUses))
+		switch prior, ok := o.observationRecord(ctx, obs, e.SessionID, opObserveTool); {
+		case ok && prior.Root == res.Root.Hash:
+			// Recognized: reuse the id this observation already published, and let the store's own
+			// dedup absorb the rest.
+			rec.ID = prior.ID
+		case obs != "":
+			// Either nobody has published this delivery, or one did and its root DIFFERS from this
+			// run's — a changed canonicalization config, a different payload cap, a moved
+			// truncation boundary. The root check is what stops the second case from adopting an id
+			// it then cannot record: same id with a different root is ErrAppendOnly, which becomes
+			// ErrUnpublished, which makes the drain break its read loop WITHOUT advancing the
+			// offset, so every later drain retries that line forever with the rest of the spool
+			// file stuck behind it. Falling through to a freshly minted id keeps the base's
+			// self-healing duplicate instead of converting it into a permanent stall.
+			//
+			// The mint is probed rather than taken on faith, for the reason stop.go step 0(b)
+			// gives: a restarted process starts this window at 0 again, so the id it derives may
+			// already be held — by a record with a different root, which is the same stall.
+			if n, found := o.freeDerivedTurn(ctx, len(st.ToolUses), func(i int) core.ToolUseID {
+				return derivedToolUseID(e.SessionID, st.Turn, i)
+			}); found {
+				rec.ID = derivedToolUseID(e.SessionID, st.Turn, n)
+			} else {
+				o.count(counterTurnExhausted)
+			}
+		}
 	}
-	rec.Observation = ObservationFrom(ctx)
 	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
 		return hookio.Empty(), o.unpublished(stageIndex)
 	}
@@ -142,12 +172,8 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     crash between them must resolve to "not published" rather than to a handle that names a
 	//     dependency nothing can produce. A delivery with no identity (an in-process caller, or one
 	//     the daemon could not lease) has no link to make and skips the stage.
-	if rec.Observation != "" {
-		if err := store.LinkCaptureReference(o.opt.ProjectRoot, rec.Observation, store.CaptureReference{
-			ToolUseID: rec.ID, Root: res.Root.Hash,
-		}); err != nil {
-			return hookio.Empty(), o.unpublished(stageLink)
-		}
+	if err := o.linkObservation(obs, rec); err != nil {
+		return hookio.Empty(), o.unpublished(stageLink)
 	}
 	o.rememberToolUse(st, rec)
 
@@ -249,6 +275,16 @@ func (o *observer) canonOptions() canon.Options {
 			NearDupThreshold: cc.MinHash.NearDupThreshold,
 		},
 	}
+}
+
+// derivedToolUseID is the identity a tool payload with no tool_use_id is recorded under:
+// "tu_<session>_<turn>_<position in the subagent window>".
+//
+// It is a function rather than an inline format string for the reason SubagentCaptureID is exported
+// as one — the free-id probe in identity.go has to spell exactly what this call site spells, and two
+// copies of a format string are two chances to disagree about what a record is called.
+func derivedToolUseID(s core.SessionID, t core.TurnIndex, n int) core.ToolUseID {
+	return core.ToolUseID(fmt.Sprintf("tu_%s_%d_%d", s, t, n))
 }
 
 // rememberToolUse appends rec to the SubagentStop window, front-evicting at subagentWindowCap and
