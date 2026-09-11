@@ -132,8 +132,10 @@ type ingest struct {
 	wals map[core.SessionID]*walFile
 
 	// syncedMu guards synced. It is a leaf lock: a WAL batch, a rotation, CloseSession and Close take
-	// it under mu to change synced, and the drain takes it alone to read it (syncedWAL), so a drain
-	// pass never waits for a batch in flight, which holds mu through its Sync.
+	// it under mu to change synced, and the drain takes it alone to read it (syncedWAL), so the drain
+	// learns a segment's synced size without waiting for a batch in flight, which holds mu through its
+	// Sync. The drain's removal decisions still take mu (holdsWAL, removeDrainedWAL), so a pass that
+	// reaches a finished segment of an ended session does wait out such a batch there.
 	syncedMu sync.Mutex
 	// synced maps the base name of each segment this ingest holds open for appending to its synced
 	// size: the length of the segment's prefix that a Sync of the ingest's handle returned nil for,

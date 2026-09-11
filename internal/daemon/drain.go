@@ -97,9 +97,12 @@ type DrainConfig struct {
 	// for (ingest.syncedWAL). The drain reads, leases and dispatches nothing of a held segment past
 	// that size. A line a WAL batch has written but whose Sync has not returned is left for a later
 	// pass, like a trailing incomplete line, so no lease becomes durable before its delivery's bytes.
-	// It must answer without waiting for that batch. Every file it does not report held is synced by
-	// the drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats
-	// every file as not held.
+	// It must answer without waiting for that batch. That frees the question from the batch, not the
+	// whole pass: HoldsWAL and RemoveWAL decide under the mutex a batch holds through its Sync, so a
+	// pass that reaches a finished segment of an ended session still waits for a batch in flight, as
+	// long as that batch's Sync takes. Every file SyncedWAL does not report held is synced by the
+	// drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats every
+	// file as not held.
 	SyncedWAL func(path string) (synced int64, held bool)
 }
 
