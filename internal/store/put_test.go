@@ -13,8 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/canon"
+	"github.com/qompack/qompack/internal/chunk"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/redact"
 	"github.com/qompack/qompack/internal/sketch"
 )
 
@@ -644,6 +646,76 @@ func TestConcurrentPut(t *testing.T) {
 
 	require.Equal(t, serial.objectPaths(t), concurrent.objectPaths(t),
 		"concurrent puts must produce exactly the object set the serial order produces")
+}
+
+// entryRedactor redacts nothing and closes passed on its first call. PutBytes redacts straight
+// after its entry context check, so the signal says a put is past that check.
+type entryRedactor struct {
+	once   sync.Once
+	passed chan struct{}
+}
+
+// Redact reports the put past its entry check and returns in unchanged.
+func (r *entryRedactor) Redact(in []byte) ([]byte, []redact.Match) {
+	r.once.Do(func() { close(r.passed) })
+	return in, nil
+}
+
+// Rules names no rule: the double redacts nothing.
+func (*entryRedactor) Rules() []string { return nil }
+
+// TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock pins PutBytes' second context
+// check. Waiting for a root's put lock does not watch the context, and the wait lasts as long as
+// the put ahead of this one on the stripe, so a put can get its lock after its budget is spent. It
+// must then refuse, as the entry check refuses a context that is already done, and write nothing.
+// Without the check it went on to write its root and report success, which makes budget B-C
+// advisory for every put that queued.
+//
+// The test holds the put's lock itself, standing in for a long put on the same stripe, and
+// cancels the put's context once the redactor reports the put past its entry check. The lock is
+// released only after the cancel, so the context is done by the time the put holds the lock.
+// Whether the put had already parked on the lock at the cancel does not change what it must do,
+// so no step waits on a clock.
+func TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock(t *testing.T) {
+	entry := &entryRedactor{passed: make(chan struct{})}
+	tp := newTestStore(t, withCanon(canonStripTimestamp()), withRedactor(entry))
+	input := []byte("an output with no volatile line in it\n")
+	o := PutOptions{Path: "src/late.log", KeepRaw: true}
+	// Nothing to redact and nothing to strip, so the canonical bytes are the input itself.
+	root := chunk.RootHash(tp.Store.splitChecked(input))
+
+	lock := tp.Store.putLock(root)
+	lock.Lock()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var err error
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, err = tp.Store.PutBytes(ctx, input, o)
+	}()
+	<-entry.passed // past the entry check, so only a later check can see the cancel
+	cancel()
+	lock.Unlock()
+	<-done
+
+	require.ErrorIs(t, err, context.Canceled, "a put whose context expired while it waited must refuse")
+	require.Empty(t, tp.objectPaths(t), "a refused put writes no object")
+	require.Empty(t, tp.indexLines(t, rootsFile), "a refused put appends no content line")
+	tp.Store.mu.RLock()
+	_, indexed := tp.Store.rootIndex[root]
+	raw, onDisk := tp.Store.rawBytes, tp.Store.bytesOnDisk
+	tp.Store.mu.RUnlock()
+	require.False(t, indexed, "a refused put publishes no root")
+	require.Zero(t, raw, "a refused put is not counted as transcript")
+	require.Zero(t, onDisk, "a refused put adds no stored bytes")
+
+	require.True(t, lock.TryLock(), "the refused put must release its put lock")
+	lock.Unlock()
+	again, err := tp.Store.PutBytes(context.Background(), input, o)
+	require.NoError(t, err)
+	require.Equal(t, root, again.Root.Hash, "fixture sanity: the lock the test held is this put's")
+	require.Positive(t, again.Novel, "a fresh write: the refused put left nothing to deduplicate onto")
 }
 
 // TestCanonOptions_EmptyStripMeansNoOptionalClasses pins the distinction canonOptions used to drop
