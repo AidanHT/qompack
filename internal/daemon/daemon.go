@@ -215,6 +215,18 @@ type daemon struct {
 	// lazily-opened negative-knowledge ledger. Stop runs it; see shutdownHooks for why the daemon,
 	// and not the composition root, is the owner.
 	owned *shutdownHooks
+
+	// The verbatim prompt captures callObservePromptWithDeadline starts and deliberately stops
+	// waiting for at promptReplyDeadline (handlers.go, startPromptRecording). promptWG joins them;
+	// promptClosed, under promptMu, is the gate that keeps promptWG from growing once Stop has
+	// begun waiting on it. promptCtx is the lifetime they run under: New creates it and only Stop
+	// cancels it, after giving the captures in flight the drain's bounded window to finish
+	// (stopPromptRecordings).
+	promptMu     sync.Mutex
+	promptClosed bool
+	promptWG     sync.WaitGroup
+	promptCtx    context.Context
+	promptCancel context.CancelFunc
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -277,6 +289,9 @@ func New(o Options) (Daemon, error) {
 		// reaches Stop. A nil here is an Options no wiring ran over, and closeAll is nil-safe.
 		owned: o.shutdown,
 	}
+	// Background, not any caller's context: a capture must outlive the request that started it,
+	// and only Stop may end it (stopPromptRecordings).
+	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -862,9 +877,14 @@ func (d *daemon) Stop(ctx context.Context) error {
 
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
-		cancel()
 
 		d.ing.Wait()
+		// The verbatim prompt captures the reply path stopped waiting for are joined here: after the
+		// ingest workers, which hold the observer session locks a capture may be queued on, and
+		// before anything below saves or closes what a capture writes into. They share the drain's
+		// bounded window rather than adding one of their own (stopPromptRecordings).
+		d.stopPromptRecordings(drainCtx)
+		cancel()
 		if err := d.ing.Close(); err != nil {
 			d.log.Warn("daemon: stop: closing ingest WAL handles", "err", err)
 		}

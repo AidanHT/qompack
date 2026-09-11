@@ -20,9 +20,10 @@ import (
 	"github.com/qompack/qompack/internal/redact"
 )
 
-// promptReplyDeadline bounds observe.prompt's synchronous ObservePrompt call — well inside the
-// manifest's UserPromptSubmit timeout. On timeout the daemon replies with an empty Output; a
-// prompt is never blocked on the daemon.
+// promptReplyDeadline bounds how long observe.prompt's reply waits on the ObservePrompt call — well
+// inside the manifest's UserPromptSubmit timeout. On timeout the daemon replies with an empty
+// Output; a prompt is never blocked on the daemon. It bounds the WAIT only, never the verbatim
+// capture the call performs (callObservePromptWithDeadline).
 const promptReplyDeadline = 250 * time.Millisecond
 
 // sentinelScanTailBytes bounds how much of the transcript's tail the off-reply-path sentinel scan
@@ -53,6 +54,13 @@ const (
 	// durable (an EncodeRequest or ingest.Accept failure) — the one hot-path event with no NAK
 	// fallback to fall back on, so this is its only observability (fix round 2, FR-2).
 	counterL0AcceptError = "l0_accept_error"
+
+	// counterPromptReplyLate counts an observe.prompt reply that went out empty on
+	// promptReplyDeadline while the verbatim capture it started was still running. The capture
+	// itself is not lost — it finishes on its own context (startPromptRecording) — but whatever it
+	// would have said back (a thrash warning) never reaches the host, and this is the only record
+	// that it did not.
+	counterPromptReplyLate = "l0_prompt_reply_late"
 
 	counterHotpathDegraded = "hotpath_degraded"
 
@@ -515,13 +523,26 @@ func (d *daemon) handleObservePrompt(ctx context.Context, req ipc.Request) ipc.R
 	return ipc.Response{OK: true, Output: &out}
 }
 
-// callObservePromptWithDeadline enforces promptReplyDeadline even against a callee that ignores
-// its own context: it races the call (in a goroutine, since a badly-behaved seam might not
-// respect cancellation) against the deadline and falls back to hookio.Empty() if the deadline
-// wins. The goroutine, if the callee never returns, is abandoned rather than leaked-and-blocked-
-// on — a prompt is never blocked on the daemon (task-5-spec.md handlers.go).
+// callObservePromptWithDeadline enforces promptReplyDeadline on the REPLY, and on nothing else: it
+// races the call (on a goroutine, since a badly-behaved seam might not respect cancellation)
+// against the deadline and falls back to hookio.Empty() if the deadline wins — a prompt is never
+// blocked on the daemon (task-5-spec.md handlers.go).
+//
+// The seam does two jobs in one call (see handleObservePrompt): G2.3's verbatim capture, which is
+// recording, and the Output it returns, which is acting. Only the second is the hook's to wait for.
+// The call used to run under a context DERIVED from the deadline, so a capture that overran it —
+// the observer's session lock held by ingest workers draining a tool backlog, or a slow disk —
+// reached store.PutBytes with a dead context and was soft-dropped into observer.err.prompt.put.
+// Nothing records it later: the WAL line this route appended replays through runIngested, which
+// for observe.prompt runs only the sentinel scan. So the capture now runs on a context of its own
+// (startPromptRecording), governed by the daemon's lifetime rather than by this reply, and the
+// deadline bounds only the wait below.
+//
+// A capture that finishes after the deadline has its Output discarded: the reply has already gone
+// out empty, and a thrash warning held back for a later turn would describe a loop the agent may
+// since have left. The miss is counted (counterPromptReplyLate), never silent.
 func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.Event) hookio.Output {
-	rctx, cancel := context.WithTimeout(ctx, promptReplyDeadline)
+	wait, cancel := context.WithTimeout(ctx, promptReplyDeadline)
 	defer cancel()
 
 	type result struct {
@@ -529,19 +550,105 @@ func (d *daemon) callObservePromptWithDeadline(ctx context.Context, ev *hookio.E
 		err error
 	}
 	ch := make(chan result, 1)
-	go func() {
-		o, err := d.svc.ObservePrompt(rctx, *ev)
+	e := *ev
+	if !d.startPromptRecording(ctx, func(rec context.Context) {
+		o, err := d.svc.ObservePrompt(rec, e)
 		ch <- result{o, err}
-	}()
+	}) {
+		return hookio.Empty()
+	}
 
 	select {
 	case r := <-ch:
 		if r.err == nil {
 			return r.out
 		}
-	case <-rctx.Done():
+	case <-wait.Done():
+		if d.m != nil {
+			d.m.Counter(counterPromptReplyLate).Add(1)
+		}
 	}
 	return hookio.Empty()
+}
+
+// startPromptRecording runs record on a goroutine of its own, under a context that keeps ctx's
+// VALUES — the Services/Registry/Daemon values dispatchOp bound, so a call that finishes inside the
+// deadline sees exactly what it always saw — and none of ctx's cancellation or deadline. The
+// daemon's lifetime cancels it instead: promptCancel, which only Stop calls (stopPromptRecordings),
+// and which Stop joins this goroutine behind.
+//
+// It reports false, and runs nothing, once Stop has begun that join. A WaitGroup may not grow
+// after its Wait has started, and a capture started then would outlive the store the composition
+// root closes as soon as Stop returns. The daemon is going away at that point; the refusal is
+// logged rather than silent.
+//
+// A panic inside record is recovered here, counted and Loud'd exactly as callHandler recovers one
+// on the handler's own goroutine: this goroutine now outlives the request, so callHandler's
+// recovery can no longer reach it, and one broken seam must never bring the daemon down.
+func (d *daemon) startPromptRecording(ctx context.Context, record func(context.Context)) bool {
+	d.promptMu.Lock()
+	if d.promptClosed {
+		d.promptMu.Unlock()
+		d.log.Warn("daemon: observe.prompt arrived during shutdown; verbatim capture not started")
+		return false
+	}
+	d.promptWG.Add(1)
+	d.promptMu.Unlock()
+
+	rec, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	stopAfter := context.AfterFunc(d.promptCtx, cancel)
+	go func() {
+		defer d.promptWG.Done()
+		defer cancel()
+		defer stopAfter()
+		defer func() {
+			if r := recover(); r != nil {
+				if d.m != nil {
+					d.m.Counter(counterHandlerPanic).Add(1)
+				}
+				d.log.Loud("daemon: ObservePrompt panicked — verbatim capture lost", "recover", r)
+			}
+		}()
+		record(rec)
+	}()
+	return true
+}
+
+// stopPromptRecordings is Stop's join for every capture startPromptRecording launched.
+//
+// It closes the gate first, so nothing can join the group behind the wait. The captures already in
+// flight then get grace to finish on their own merits — Stop hands over the drain's own bounded
+// context, so they run concurrently with the drain and add no shutdown window of their own. Only
+// then is whatever remains cancelled, which a cooperating capture answers promptly by failing on
+// its merits (store.PutBytes's own ctx check, counted in observer.err.prompt.put). A callee that
+// ignores even that is abandoned with a Loud line after promptReplyDeadline — the same
+// abandonment the reply path has always accepted — rather than wedging the shutdown.
+func (d *daemon) stopPromptRecordings(grace context.Context) {
+	d.promptMu.Lock()
+	d.promptClosed = true
+	d.promptMu.Unlock()
+	defer d.promptCancel()
+
+	done := make(chan struct{})
+	go func() {
+		d.promptWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return
+	case <-grace.Done():
+	}
+
+	d.promptCancel()
+	t := time.NewTimer(promptReplyDeadline)
+	defer t.Stop()
+	select {
+	case <-done:
+	case <-t.C:
+		d.log.Loud("daemon: stop: a verbatim prompt capture ignored cancellation; abandoning it",
+			"bound", promptReplyDeadline.String())
+	}
 }
 
 // scanSentinelForPrompt is the §12.1 hook.additional_context_delivered probe's other half: a
