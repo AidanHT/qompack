@@ -462,3 +462,78 @@ func TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny(t *testing.
 	require.NotContains(t, final, goneWithIntent, "released and gone, the next pass forgets it")
 	require.Equal(t, &unfinished, final[goneUnfinished])
 }
+
+// TestDrainForgetsAFileAlreadyGoneAtItsRemoval pins removeCompletedFile's not-exist answer. A file
+// that vanishes between the pass's stat and its removal is gone, and its entry, forgotten on disk
+// before the removal was tried, must stay forgotten. Putting it back, as the drain once did, wrote
+// {Done, Offset: S, Size: S} to disk for a name with no file, and the name's next file inherited it:
+// the same wedge as a crash at the unlink. Only something other than the drainer deletes a spool
+// file, an operator say; the seam at the removal stands in for it.
+func TestDrainForgetsAFileAlreadyGoneAtItsRemoval(t *testing.T) {
+	t.Parallel()
+	const sess = core.SessionID("sess-gone-at-removal")
+	dd, clk := liveWALDaemon(t, nil)
+	walFile, drained := closedTwoDeliverySegment(t, dd, clk, sess)
+	base := filepath.Base(walFile)
+
+	cfg := dd.drainConfig()
+	cfg.RemoveWAL = func(path string, n int64) (bool, error) {
+		require.NoError(t, os.Remove(paths.Long(path))) // gone before the drain's own removal
+		return dd.ing.removeDrainedWAL(path, n)
+	}
+	n, err := newDrainer(cfg).Drain(context.Background())
+	require.NoError(t, err, "a file already gone is not a file error")
+	require.Equal(t, 2, n)
+	require.NoFileExists(t, walFile)
+	require.NotContains(t, diskDrainState(t, dd.root), base,
+		"a file already gone at its removal must leave no progress on disk for the name's next file")
+
+	smaller := recreationCases[0]
+	acked, got, err := recreateAndRecover(t, dd, clk, sess, smaller.straggle, smaller.size, drained)
+	require.NoError(t, err, "a restarted drain must not fail (a stale entry %s)", smaller.stale)
+	require.Equal(t, acked, got, "every ACKed line of the recreated segment, exactly once")
+}
+
+// TestDrainKeepsProgressWhenItCannotPersistTheForgetting pins removeCompletedFile's other early
+// exit: the forgetting itself not reaching the disk. Nothing may then be unlinked, because the
+// unlink is safe only once the forgetting is durable. The entry must also go back into memory, so
+// the next save puts it back on disk; dropped there, it would make the next pass read the whole file
+// again. The save is made to fail by turning .qompack/tmp, where paths.WriteAtomic stages, into a
+// regular file. IsLive does that, because shouldDelete asks it just before the forgetting is saved,
+// and the next file's first dispatch undoes it.
+func TestDrainKeepsProgressWhenItCannotPersistTheForgetting(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	walFile := writeSpoolFile(t, root, "wal-sess-save-fails.ndjson", 2)
+	writeSpoolFile(t, root, "client-8080.ndjson", 1)
+	base := filepath.Base(walFile)
+	size := spoolFileSize(t, walFile)
+	tmp := paths.Long(paths.Of(root).Tmp)
+
+	sabotaged, unlinks := false, 0
+	dr := newDrainer(DrainConfig{
+		Root: root, Clock: newFakeClock(epoch),
+		IsLive: func(core.SessionID) bool {
+			require.NoError(t, os.RemoveAll(tmp))
+			require.NoError(t, os.WriteFile(tmp, nil, 0o600)) // where WriteAtomic stages, now a file
+			sabotaged = true
+			return false
+		},
+		RemoveWAL: func(string, int64) (bool, error) { unlinks++; return false, nil },
+		Dispatch: func(context.Context, ipc.Request) ipc.Response {
+			if sabotaged {
+				require.NoError(t, os.Remove(tmp))
+				require.NoError(t, os.MkdirAll(tmp, 0o700))
+				sabotaged = false
+			}
+			return ipc.Response{OK: true}
+		},
+	})
+	n, err := dr.Drain(context.Background())
+	require.Error(t, err, "fixture: the forgetting could not be saved")
+	require.Equal(t, 3, n)
+	require.Zero(t, unlinks, "nothing is unlinked until its forgetting is on disk")
+	require.FileExists(t, walFile)
+	require.Equal(t, &drainFileState{Size: size, Offset: size, Done: true}, diskDrainState(t, root)[base],
+		"the entry went back into memory, and the next save put it back on disk")
+}
