@@ -37,6 +37,15 @@ func (l *ledger) RebuildBloom(ctx context.Context) (*sketch.Bloom, Health, error
 
 // rebuildLocked is RebuildBloom's body for a caller already holding mu.
 func (l *ledger) rebuildLocked(ctx context.Context) (*sketch.Bloom, Health, error) {
+	return l.rebuildWith(ctx, nil)
+}
+
+// rebuildWith is rebuildLocked given, optionally, every record's bloom keys already derived:
+// keys[i] is l.recs[i]'s pair. Open passes the pairs reindex derived moments earlier from the same
+// unchanged records; a keys of any other length is ignored and the keys are derived here as they
+// always were. Either way the filter is fed the same keys in the same order, so it comes out
+// bit-for-bit and Count-for-Count the same.
+func (l *ledger) rebuildWith(ctx context.Context, keys []recordKeys) (*sketch.Bloom, Health, error) {
 	start := l.clk.Now()
 	defer func() { l.m.Hist(histRebuild).Observe(l.clk.Since(start)) }()
 
@@ -57,37 +66,46 @@ func (l *ledger) rebuildLocked(ctx context.Context) (*sketch.Bloom, Health, erro
 		return l.bloom, l.health(), err
 	}
 
-	vis := l.visibleActive()
+	if len(keys) != len(l.recs) {
+		keys = nil
+	}
+	active := l.visibleActiveCount()
 	capacity, fpRate := l.cfg.Sketches.Bloom.Capacity, l.cfg.Sketches.Bloom.FPRate
-	if need := 2 * len(vis); need > capacity {
+	if need := 2 * active; need > capacity {
 		// The configured capacity is honoured whenever it is SUFFICIENT — that is what keeps a
 		// normal project's filter at the Appendix A size instead of silently allocating a
 		// multiple of it. Growth happens only when the key count genuinely exceeds it.
 		capacity = roundUpPow2(need)
 	}
 
-	keys := func(yield func([]byte) bool) {
-		for _, r := range vis {
-			if !yield(r.Desc.Key()) {
-				return
+	// Key, then MatchKey, for each visible active record in log order. A pre-derived pair is
+	// yielded as slices of keys' own arrays, which allocates nothing.
+	seq := func(yield func([]byte) bool) {
+		for i := range l.visibleActive() {
+			if keys != nil {
+				if !yield(keys[i].key[:]) || !yield(keys[i].match[:]) {
+					return
+				}
+				continue
 			}
-			if !yield(r.Desc.MatchKey()) {
+			d := &l.recs[i].Desc
+			if !yield(d.Key()) || !yield(d.MatchKey()) {
 				return
 			}
 		}
 	}
 
-	nb := sketch.RebuildBloom(capacity, fpRate, keys)
+	nb := sketch.RebuildBloom(capacity, fpRate, seq)
 	if c, f, needed := nb.ResizeTarget(); needed {
 		// At most one retry, never a loop. ResizeTarget doubles, and a filter loaded exactly to
 		// capacity sits at fill ~0.52 with k rounded up to 7, so one doubling drops it to ~0.31.
-		nb = sketch.RebuildBloom(c, f, keys)
+		nb = sketch.RebuildBloom(c, f, seq)
 	}
 	if _, _, needed := nb.ResizeTarget(); needed {
 		// A saturated filter degrades to more false positives, each of which the record lookup
 		// then resolves. That is a cost, not a correctness failure, so it is loud and continues.
 		l.log.Loud("negknow: bloom saturated after resize",
-			"records", len(vis), "fill", nb.FillRatio(), "fp", nb.EstimatedFPRate())
+			"records", active, "fill", nb.FillRatio(), "fp", nb.EstimatedFPRate())
 	}
 
 	err := l.persistBloom(nb)
