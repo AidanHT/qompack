@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"math/rand/v2"
 	"os"
@@ -220,13 +221,16 @@ func awaitAll(t *testing.T, runs ...*leaseRun) {
 // queueLeases starts one lease per call, in order, each only once the one before it has queued
 // behind the batch in flight, so that leaseQ's FIFO order is exactly calls. A batch must be in
 // flight. A correct lease can only queue behind it; one that returns instead is counted here, for
-// the caller to assert on, rather than left to hang the test.
+// the caller to assert on, rather than left to hang the test. One that does neither (a lease that
+// blocks before it reaches the queue) fails the test: the bound only turns a deadlock into a
+// failure.
 func queueLeases(t *testing.T, p *leaseProbe, calls ...leaseCall) []*leaseRun {
 	t.Helper()
 	q := &p.j.leaseQ
 	out := make([]*leaseRun, len(calls))
 	for k, c := range calls {
 		out[k] = goLease(p, c)
+		deadline := time.Now().Add(ingestACKWait)
 		for {
 			q.mu.Lock()
 			queued := len(q.queue)
@@ -239,6 +243,9 @@ func queueLeases(t *testing.T, p *leaseProbe, calls ...leaseCall) []*leaseRun {
 			}
 			if queued+returned >= k+1 {
 				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("lease %d neither queued behind the batch in flight nor returned", c.id)
 			}
 			runtime.Gosched()
 		}
@@ -359,6 +366,19 @@ func requireNotReleased(t *testing.T, released <-chan error, why string) {
 	}
 }
 
+// awaitRelease waits for the Release that goRelease started to return, and returns its error. The
+// bound only turns a deadlock into a failure.
+func awaitRelease(t *testing.T, released <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-released:
+		return err
+	case <-time.After(ingestACKWait):
+		t.Fatal("Release never returned")
+		return nil
+	}
+}
+
 // T9 — design §6.2, step 1. A batch appends in one Write, syncs once and seals once — one
 // paths.WriteAtomic of the v1 position file — and assigns dense arrivals in queue order.
 func TestDeliveryJournal_BatchCommitsOneWriteOneSyncOneSeal(t *testing.T) {
@@ -472,7 +492,7 @@ func TestDeliveryJournal_NoLeaseReleasedBeforeItsBatchSeal(t *testing.T) {
 	for _, r := range runs {
 		require.NoErrorf(t, r.err, "lease %d", r.id)
 	}
-	require.NoError(t, <-released)
+	require.NoError(t, awaitRelease(t, released))
 	log := p.log()
 	sealed := eventAt(t, log, "sealed", 2)
 	for _, r := range runs {
@@ -763,14 +783,18 @@ func TestDeliveryJournal_BatchFailurePoisonsEveryDependentMember(t *testing.T) {
 				}
 			}
 
-			// Nothing of batch 2 was admitted, and the handle is poisoned.
+			// Nothing of batch 2 was admitted, and the handle is poisoned. The state is copied out
+			// under st and asserted once st is released: a failing assertion must not leave st held,
+			// or the cleanup's Release blocks on it and the test hangs instead of failing.
 			journal.st.Lock()
-			require.Len(t, journal.leases, 3)
-			require.Equal(t, map[core.SessionID]uint64{"t13": 2, "t13-gate": 1, t13Exhausted: math.MaxUint64}, journal.arrivals)
-			sealedPrefix := leaseLine(t, k1) + leaseLine(t, k2) + leaseLine(t, lead.lease)
-			require.Equal(t, int64(len(sealedPrefix)), journal.bytes)
-			require.Equal(t, leasePositionOf([]byte(sealedPrefix)).Chain, journal.chain)
+			admitted, arrivals := maps.Clone(journal.leases), maps.Clone(journal.arrivals)
+			size, chain := journal.bytes, journal.chain
 			journal.st.Unlock()
+			require.Len(t, admitted, 3)
+			require.Equal(t, map[core.SessionID]uint64{"t13": 2, "t13-gate": 1, t13Exhausted: math.MaxUint64}, arrivals)
+			sealedPrefix := leaseLine(t, k1) + leaseLine(t, k2) + leaseLine(t, lead.lease)
+			require.Equal(t, int64(len(sealedPrefix)), size)
+			require.Equal(t, leasePositionOf([]byte(sealedPrefix)).Chain, chain)
 			_, err = lock.openDeliveryJournal()
 			require.Error(t, err, "a poisoned journal is not handed out")
 			evidence := readTestFile(t, journal.path)
@@ -1091,7 +1115,7 @@ func TestDeliveryJournal_ReleaseWaitsForInFlightBatchesAndFailsQueued(t *testing
 		require.ErrorIsf(t, r.err, core.ErrDegraded, "lease %d was queued behind a Release", r.id)
 		require.Equalf(t, deliveryLease{}, r.lease, "lease %d", r.id)
 	}
-	require.NoError(t, <-released)
+	require.NoError(t, awaitRelease(t, released))
 	log := p.log()
 	sealed := eventAt(t, log, "sealed", 1)
 	require.Greater(t, eventAt(t, log, "close", 0), sealed)
