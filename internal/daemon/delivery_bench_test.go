@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"io"
 	"runtime"
 	"strconv"
@@ -28,11 +27,6 @@ import (
 // benchBurstDeliveries is the burst size the SP20-D1 design names: 2 000 deliveries, the iteration
 // count bench-hotpath's gate runs.
 const benchBurstDeliveries = 2000
-
-// benchBurstPacedGap is the open-loop inter-arrival of the paced burst: the gap at which
-// bench-hotpath spawns hooks today, one at a time, when every hook waits out the ACK deadline,
-// spools and exits before the next one starts (test/bench/hotpath/process.go).
-const benchBurstPacedGap = 22 * time.Millisecond
 
 // benchBurstFlag lowers the burst size for a smoke run on a loaded machine. The sub-benchmark names
 // carry the size actually run, so a reduced run can never be mistaken for the 2 000-delivery row.
@@ -323,14 +317,15 @@ func benchLeasedParallel(b *testing.B, inFlight, sessions int) {
 // BenchmarkIngestAcceptLeasedBurst replays a hook burst against one leased ingest with the B-C
 // workers running. It reports each delivery's latency — arrival to Accept returned, the window a
 // hook's ACK wait covers — as p50-ms, p99-ms and max-ms over every delivery of every iteration;
-// ns/op is one whole burst. The variants are:
+// ns/op is one whole burst. Its one variant, simultaneous-N, releases N deliveries together: every
+// goroutine is blocked on one channel, and latency is measured from its close.
 //
-//   - simultaneous-N: N deliveries released together (every goroutine blocked on one channel,
-//     latency measured from its close).
-//   - paced-open-22ms-N: an open loop, delivery k arriving at start + k*22ms whether or not the
-//     earlier ones have returned. Latency runs from the scheduled arrival, so a pacer that falls
-//     behind is charged rather than hidden. The pacing is the workload's arrival process, not
-//     synchronization: completion is joined through a WaitGroup.
+// Open-loop pacing, where deliveries arrive at a fixed interval whether or not the earlier ones
+// have returned, is not measured here. Holding each arrival until its time takes a wall-clock
+// wait, which 00-ARCHITECTURE.md §6.1 bans outside test/bench, so devtool bench-hotpath measures
+// open-loop pacing under test/bench, the one exempt place, which paces real hook processes: at an
+// ACK deadline below B-B, each hook it spawns waits the deadline out, spools and exits before the
+// next one starts (test/bench/hotpath/process.go).
 //
 // The B-C side is the production worker pool — ingest.Start with the daemon's worker count — and
 // the production dispatch: publishCapture's sidecar WriteAtomic, then the handler, stubbed to
@@ -344,16 +339,12 @@ func benchLeasedParallel(b *testing.B, inFlight, sessions int) {
 func BenchmarkIngestAcceptLeasedBurst(b *testing.B) {
 	n := *benchBurstFlag
 	b.Run("simultaneous-"+strconv.Itoa(n), func(b *testing.B) {
-		benchLeasedBurst(b, n, 0)
-	})
-	b.Run(fmt.Sprintf("paced-open-%dms-%d", benchBurstPacedGap.Milliseconds(), n), func(b *testing.B) {
-		benchLeasedBurst(b, n, benchBurstPacedGap)
+		benchLeasedBurst(b, n)
 	})
 }
 
-// benchLeasedBurst runs b.N bursts of deliveries, each against a fresh root; gap 0 releases a burst
-// at once, and any other gap paces it open-loop.
-func benchLeasedBurst(b *testing.B, deliveries int, gap time.Duration) {
+// benchLeasedBurst runs b.N bursts of deliveries, each against a fresh root and released at once.
+func benchLeasedBurst(b *testing.B, deliveries int) {
 	if deliveries < 1 {
 		b.Fatalf("-daemon.burst=%d: a burst needs at least one delivery", deliveries)
 	}
@@ -365,34 +356,20 @@ func benchLeasedBurst(b *testing.B, deliveries int, gap time.Duration) {
 		took := make([]time.Duration, deliveries)
 		errs := make([]error, deliveries)
 		var accepted sync.WaitGroup
-		deliver := func(k int, arrival time.Time) {
-			defer accepted.Done()
-			errs[k] = lb.accept(lb.warm + k)
-			took[k] = time.Since(arrival)
+		release := make(chan struct{})
+		var arrival time.Time
+		accepted.Add(deliveries)
+		for k := range deliveries {
+			go func() {
+				defer accepted.Done()
+				<-release
+				errs[k] = lb.accept(lb.warm + k)
+				took[k] = time.Since(arrival)
+			}()
 		}
-		if gap == 0 {
-			release := make(chan struct{})
-			var arrival time.Time
-			accepted.Add(deliveries)
-			for k := range deliveries {
-				go func() {
-					<-release
-					deliver(k, arrival)
-				}()
-			}
-			b.StartTimer()
-			arrival = time.Now()
-			close(release)
-		} else {
-			b.StartTimer()
-			start := time.Now()
-			for k := range deliveries {
-				due := start.Add(time.Duration(k) * gap)
-				time.Sleep(time.Until(due))
-				accepted.Add(1)
-				go deliver(k, due)
-			}
-		}
+		b.StartTimer()
+		arrival = time.Now()
+		close(release)
 		accepted.Wait()
 		b.StopTimer()
 
