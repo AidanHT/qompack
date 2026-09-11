@@ -612,3 +612,41 @@ func TestDrainKeepsProgressWhenItCannotPersistTheForgetting(t *testing.T) {
 	require.Equal(t, &drainFileState{Size: size, Offset: size, Done: true}, diskDrainState(t, root)[base],
 		"the entry went back into memory, and the next save put it back on disk")
 }
+
+// TestDrainRejectsMismatchedProgressBeforePruningIt pins where the start-of-pass prune runs: after
+// validateProgress. A pass that refuses the progress it loaded must leave state/drain.json exactly as
+// it found it, the evidence an operator repairs from, as a refusal by loadState does
+// (TestDrainRejectsInvalidPersistedStateBeforeTouchingRecoveryResources). The state holds one entry
+// of each kind: a released one whose file is gone, which the prune would forget, and one recording
+// more bytes than its file holds, which validateProgress refuses. It is written indented, a form
+// saveState never produces, so a save of any content shows.
+func TestDrainRejectsMismatchedProgressBeforePruningIt(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	present := writeSpoolFile(t, root, "client-9090.ndjson", 1)
+	size := spoolFileSize(t, present)
+	st := drainState{"wal-sess-gone.ndjson": {Size: 752, Offset: 752, Done: true}} // released, its file gone
+	st[filepath.Base(present)] = &drainFileState{Size: size + 1, Offset: size + 1, Done: true}
+	state, err := json.MarshalIndent(st, "", "  ")
+	require.NoError(t, err)
+	statePath := drainStatePath(root)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(statePath)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(statePath), state, 0o600))
+
+	dispatches := 0
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: func(context.Context, ipc.Request) ipc.Response {
+		dispatches++
+		return ipc.Response{OK: true}
+	}})
+	n, err := dr.Drain(context.Background())
+	require.Error(t, err)
+	require.Zero(t, n)
+	require.Zero(t, dispatches)
+	require.Equal(t, []DrainGap{{Kind: DrainGapProgressUnreadable, Count: 1, Reason: "drain progress no longer matches the spool"}},
+		dr.GapState().Gaps, "fixture: validateProgress refused the pass")
+	after, err := os.ReadFile(paths.Long(statePath))
+	require.NoError(t, err)
+	require.Equal(t, string(state), string(after),
+		"a pass that refuses its progress must leave state/drain.json byte for byte as it found it")
+	require.FileExists(t, present)
+}
