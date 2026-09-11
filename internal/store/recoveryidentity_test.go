@@ -521,6 +521,11 @@ func TestPutBytes_DeltaAddressHeldByAnotherRootFallsBackToAFullOriginal(t *testi
 
 // TestReadDelta_PayloadAndIndexBaseMustAgree asserts a record whose payload names one base while
 // its index line names another is corrupt: neither declaration can be trusted to reconstruct.
+//
+// The error must name the disagreement, not merely be corrupt. A reader that cannot parse the
+// payload at all (the pre-SP20-D3 one, which expects a bare delta array) also answers corrupt, so
+// the outcome alone would pass with the base check deleted; the message pins the check itself.
+// TestReadDelta_PayloadAndIndexBaseAgreeingReadsExact is the positive twin.
 func TestReadDelta_PayloadAndIndexBaseMustAgree(t *testing.T) {
 	tp := newTestStore(t, withCanon(canonStripTimestamp()))
 	ctx := context.Background()
@@ -534,6 +539,28 @@ func TestReadDelta_PayloadAndIndexBaseMustAgree(t *testing.T) {
 	_, fid, err := tp.Store.ReadDelta(ctx, rec)
 	require.ErrorIs(t, err, ErrDeltaCorrupt)
 	require.Equal(t, FidelityCorrupt, fid)
+	require.ErrorContains(t, err,
+		"names base "+x.Hash.Short()+" in its payload but "+y.Hash.Short()+" in the index",
+		"the record is corrupt BECAUSE its two base declarations disagree")
+}
+
+// TestReadDelta_PayloadAndIndexBaseAgreeingReadsExact is the positive twin of the test above: a
+// record whose payload and index line name the same base reads exact, with that base and the
+// deltas its payload carries.
+func TestReadDelta_PayloadAndIndexBaseAgreeingReadsExact(t *testing.T) {
+	tp := newTestStore(t, withCanon(canonStripTimestamp()))
+	ctx := context.Background()
+	x := gcSeed(t, tp, "src/x.txt", "the base both declarations name\n")
+	deltas := []canon.Delta{{Offset: 0, Len: 0, Original: timestampPrefix + "09:11:04\n", Class: canon.ClassTimestamps}}
+
+	rec, err := tp.Store.putSideRecord(ctx, wantDeltaRecord(t, x.Hash, deltas), deltaToolName,
+		tokens.ClassJSON, x.Hash, false)
+	require.NoError(t, err)
+	got, fid, err := tp.Store.ReadDelta(ctx, rec)
+	require.NoError(t, err)
+	require.Equal(t, FidelityExact, fid)
+	require.Equal(t, x.Hash, got.Base)
+	require.Equal(t, deltas, got.Deltas)
 }
 
 // ── the verbatim claim on disk ───────────────────────────────────────────────────────────────
