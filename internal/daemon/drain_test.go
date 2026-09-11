@@ -55,35 +55,51 @@ func countingDispatch() (dispatch func(context.Context, ipc.Request) ipc.Respons
 // before the file is removed — not only once at the very end of Drain — so a crash between one
 // file's completion and the next file's processing never loses the completed file's recorded
 // offset. Proven by reading state/drain.json back from disk from inside the Dispatch callback for
-// the SECOND file's first line: the first file's completion must already be visible on disk by
+// the LAST file's first line: the earlier files' outcomes must already be visible on disk by
 // then, well before Drain itself has returned.
+//
+// A file the drain keeps (a live session's WAL) must show its completion there. A file the drain
+// removes must show its removal instead: gone from the spool and forgotten in state/drain.json,
+// persisted before the unlink (removeCompletedFile). Reading a removed file's {Done} entry back at
+// this point, as this test once did for client-1.ndjson, was reading the stale entry that
+// outlived its file until the next save — the entry a later file under the same name inherited.
 func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
-	writeSpoolFile(t, root, "client-1.ndjson", 2)
+	writeSpoolFile(t, root, "wal-sess-1.ndjson", 2) // kept: sess-1 stays live
+	removed := writeSpoolFile(t, root, "client-1.ndjson", 2)
 	writeSpoolFile(t, root, "client-2.ndjson", 2)
 
 	clk := newFakeClock(epoch)
 	var calls int
-	var sawFirstFileDoneOnDiskEarly bool
+	var sawFirstFileDoneOnDiskEarly, sawRemovedFileForgottenOnDiskEarly bool
 	var dr *drainer
-	dr = newDrainer(DrainConfig{Root: root, Clock: clk, Dispatch: func(context.Context, ipc.Request) ipc.Response {
-		calls++
-		if calls == 3 { // the first line of the second file
-			st, stateErr := dr.loadState()
-			require.NoError(t, stateErr)
-			fs, ok := st["client-1.ndjson"]
-			sawFirstFileDoneOnDiskEarly = ok && fs.Done
-		}
-		return ipc.Response{OK: true}
-	}})
+	dr = newDrainer(DrainConfig{
+		Root: root, Clock: clk,
+		IsLive: func(sess core.SessionID) bool { return sess == "sess-1" },
+		Dispatch: func(context.Context, ipc.Request) ipc.Response {
+			calls++
+			if calls == 5 { // the first line of the last file
+				st, stateErr := dr.loadState()
+				require.NoError(t, stateErr)
+				fs, ok := st["wal-sess-1.ndjson"]
+				sawFirstFileDoneOnDiskEarly = ok && fs.Done
+				_, named := st["client-1.ndjson"]
+				_, statErr := os.Stat(removed)
+				sawRemovedFileForgottenOnDiskEarly = !named && os.IsNotExist(statErr)
+			}
+			return ipc.Response{OK: true}
+		},
+	})
 
 	n, err := dr.Drain(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 4, n)
+	require.Equal(t, 6, n)
 	require.True(t, sawFirstFileDoneOnDiskEarly,
-		"client-1.ndjson's completion must be on disk before client-2.ndjson starts, not only at the end of Drain")
+		"wal-sess-1.ndjson's completion must be on disk before client-2.ndjson starts, not only at the end of Drain")
+	require.True(t, sawRemovedFileForgottenOnDiskEarly,
+		"client-1.ndjson's removal must be on disk before client-2.ndjson starts: gone, and forgotten in drain.json")
 }
 
 // TestDrainIsIdempotent pins that a fully-drained file is not re-processed by a second Drain call:
