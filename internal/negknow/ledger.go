@@ -493,10 +493,11 @@ func (l *ledger) loadRecords() []recordKeys {
 		return nil
 	}
 
-	// Every record needs a line of its own, and the file is already in hand, so its line count is
-	// an upper bound on the record count that lets the replay size its slice and index once
-	// instead of growing them a doubling at a time.
-	recs, byID, _, err := replayLogSized(bytes.NewReader(b), bytes.Count(b, []byte{'\n'})+1, l.log, l.m)
+	// The file is already in hand, so the replay can be told how many records it can hold and size
+	// its slice and index once instead of growing them a doubling at a time. replayCapacityHint
+	// bounds that by the line count and the byte count both, so the reservation stays proportional
+	// to the file however few of its lines turn out to be records.
+	recs, byID, _, err := replayLogSized(bytes.NewReader(b), replayCapacityHint(b), l.log, l.m)
 	if err != nil {
 		// replayLog degrades every per-line problem and returns an error only when the READER
 		// failed, i.e. when the materialization is partial. Reporting a partial one as complete
