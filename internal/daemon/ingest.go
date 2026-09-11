@@ -309,9 +309,15 @@ type walSegment struct {
 	// requests in the same order.
 	buf   []byte
 	items []*walItem
-	// flushed is set once a rotation has written and synced buf ahead of closing f.
+	// flushed is set once buf has been through its Write, and through its Sync if the Write
+	// succeeded: by a rotation, ahead of closing f, or at the end of the batch. Each segment is
+	// flushed once.
 	flushed bool
-	// err is the segment's write or sync failure, shared by every request in items.
+	// err is the result every request in items shares. It is nil only while buf is still being
+	// filled, and once a Sync of f that followed buf's Write has returned nil: a successful Write
+	// sets it to errNotCommitted, so a Sync that never returns (it panics, or its goroutine exits)
+	// leaves every line of the segment failed (J-A2). A failed Write sets its own error, and no Sync
+	// follows it.
 	err error
 }
 
@@ -330,8 +336,9 @@ type walSegment struct {
 // handle is closed. A line from an earlier batch needs no such sync; its own batch synced it.
 //
 // Failure is per segment. A write error, a short write or a sync error fails every line buffered
-// for that segment and no other. A failed line's result is final when this batch returns, so no
-// later Sync of the same file can turn it into an acknowledgement.
+// for that segment and no other, and so does a Sync that never returns. A failed line's result is
+// final when this batch returns, so no later Sync of the same file can turn it into an
+// acknowledgement.
 func (i *ingest) commitWALBatch(batch []*walItem) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -351,11 +358,10 @@ func (i *ingest) commitWALBatch(batch []*walItem) {
 		}
 		if size > 0 && size+int64(walItemSize(it)) > walRotateBytes {
 			if s != nil {
-				i.writeWALSegment(s)
-				if s.err == nil {
-					s.err = i.syncWAL(s.f)
-				}
-				s.flushed = true
+				i.flushWALSegments([]*walSegment{s})
+				// The session's next line starts a segment of its own, even when the rotation
+				// below fails and a later line reopens the file: a line joined to this buffer now
+				// would be written nowhere, yet take the flush's result.
 				delete(open, wf)
 			}
 			if err := i.rotateWALLocked(it.sess, wf); err != nil {
@@ -374,23 +380,33 @@ func (i *ingest) commitWALBatch(batch []*walItem) {
 		s.items = append(s.items, it)
 	}
 
-	var written []*walSegment
-	for _, s := range segs {
-		if s.flushed {
-			continue
-		}
-		i.writeWALSegment(s)
-		if s.err == nil {
-			written = append(written, s)
-		}
-	}
-	i.syncWALSegments(written)
+	i.flushWALSegments(segs)
 
 	for _, s := range segs {
 		for _, it := range s.items {
 			it.err = s.err
 		}
 	}
+}
+
+// flushWALSegments writes every segment of segs not yet flushed to its own handle in one Write,
+// then syncs each of them whose Write succeeded, once (syncWALSegments), and returns when every
+// Sync has returned. From a successful Write until its Sync returns, a segment's result is
+// errNotCommitted, so only a Sync that returned can report the segment's lines durable.
+func (i *ingest) flushWALSegments(segs []*walSegment) {
+	var written []*walSegment
+	for _, s := range segs {
+		if s.flushed {
+			continue
+		}
+		s.flushed = true
+		i.writeWALSegment(s)
+		if s.err == nil {
+			s.err = errNotCommitted
+			written = append(written, s)
+		}
+	}
+	i.syncWALSegments(written)
 }
 
 // writeWALSegment writes s's buffered lines to s's own handle in one Write, counting the bytes into
@@ -408,11 +424,13 @@ func (i *ingest) writeWALSegment(s *walSegment) {
 	}
 }
 
-// syncWALSegments syncs each segment in segs once and returns when every Sync has returned. With
-// more than one, the leader syncs the first itself and each of the others on a goroutine of its own
-// (fsync is per file, and a batch's segments belong to unrelated sessions), then joins them all. A
-// panic in any of them is re-raised on the leader's goroutine after the join, so no Sync outlives
-// its batch and none can take the process down from a goroutine that nothing recovers.
+// syncWALSegments syncs each segment in segs once, sets its result to what its Sync returned, and
+// returns when every Sync has returned. With more than one, the leader syncs the first itself and
+// each of the others on a goroutine of its own (fsync is per file, and a batch's segments belong to
+// unrelated sessions), then joins them all. The join is deferred, so it runs even when the leader's
+// own Sync never returns, and a panic in any of them is re-raised on the leader's goroutine after
+// it: no Sync outlives its batch or runs after mu is released, and none can take the process down
+// from a goroutine that nothing recovers.
 func (i *ingest) syncWALSegments(segs []*walSegment) {
 	switch len(segs) {
 	case 0:
@@ -427,16 +445,18 @@ func (i *ingest) syncWALSegments(segs []*walSegment) {
 		segs[k].err = i.syncWAL(segs[k].f)
 	}
 	var wg sync.WaitGroup
+	defer func() {
+		wg.Wait()
+		for _, p := range panics {
+			if p != nil {
+				panic(p)
+			}
+		}
+	}()
 	for k := 1; k < len(segs); k++ {
 		wg.Go(func() { syncOne(k) })
 	}
 	syncOne(0)
-	wg.Wait()
-	for _, p := range panics {
-		if p != nil {
-			panic(p)
-		}
-	}
 }
 
 // walForLocked returns sess's cached WAL handle, opening its segment at the current rotation

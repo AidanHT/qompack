@@ -276,6 +276,49 @@ func awaitAccept(t *testing.T, a *walAccept) {
 	awaitClosed(t, a.done, "the return of Accept "+strconv.Itoa(a.id))
 }
 
+// awaitParked waits for goroutine id to be parked in reason, the wait reason runtime.Stack prints
+// in a goroutine's header ("sync.Mutex.Lock", "sync.WaitGroup.Wait"), and reports true. It reports
+// false instead as soon as done is closed first, which means the goroutine finished without ever
+// waiting there. So a test can tell a call that is blocked from one that is merely slow without a
+// timer deciding which; the bound only turns a goroutine that does neither into a failure.
+func awaitParked(t *testing.T, id uint64, reason string, done <-chan struct{}) bool {
+	t.Helper()
+	buf := make([]byte, 64<<10)
+	deadline := time.Now().Add(ingestACKWait)
+	for {
+		select {
+		case <-done:
+			return false
+		default:
+		}
+		n := runtime.Stack(buf, true)
+		for n == len(buf) {
+			buf = make([]byte, 2*len(buf))
+			n = runtime.Stack(buf, true)
+		}
+		if parkedIn(buf[:n], id, reason) {
+			return true
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("goroutine %d neither waited in %s nor finished", id, reason)
+		}
+		runtime.Gosched()
+	}
+}
+
+// parkedIn reports whether the header line of goroutine id in dump, a runtime.Stack of every
+// goroutine, names reason as its wait reason. The header is matched by its prefix and searched for
+// the reason, because a higher GOTRACEBACK level adds fields between the two.
+func parkedIn(dump []byte, id uint64, reason string) bool {
+	prefix := []byte("goroutine " + strconv.FormatUint(id, 10) + " ")
+	for line := range bytes.Lines(dump) {
+		if bytes.HasPrefix(line, prefix) {
+			return bytes.Contains(line, []byte("["+reason))
+		}
+	}
+	return false
+}
+
 // queueBehind starts one Accept per request, in order and numbered from first, each only once the
 // one before it has queued behind the batch in flight, so walQ's FIFO order is exactly reqs. A
 // batch must be in flight. A correct Accept can only queue behind it; one that returns instead is
@@ -731,6 +774,82 @@ func TestIngest_WALFailureFailsExactlyItsSegment(t *testing.T) {
 			require.ErrorIsf(t, a.err, errNotCommitted,
 				"request %d: no Accept of a batch that panicked may report its line durable, even where its own Sync returned", a.id)
 		}
+		later(t, ing, bad)
+		later(t, ing, good)
+		requireIdle(t, &ing.walQ)
+	})
+
+	// runtime.Goexit stands in, in the next two subtests, for a Sync that leaves its goroutine
+	// without returning. A production (*os.File).Sync cannot, but a seam can, and so can any
+	// future path: no Sync covering a line returned, so the line must not count as durable.
+	t.Run("a Sync that never returns on a helper goroutine", func(t *testing.T) {
+		ing, p, _ := newWALIngest(t)
+		var armed atomic.Bool
+		armed.Store(true)
+		p.onSync = func(_ int, seg string, f *os.File) error {
+			if seg == badSeg && armed.CompareAndSwap(true, false) {
+				runtime.Goexit()
+			}
+			return f.Sync()
+		}
+		// The leader's own line opens the first segment, so the failing segment's Sync runs on a
+		// helper.
+		_, got := batch(t, ing, p, good, bad, good, bad)
+		requireOutcomes(t, got, nil, errNotCommitted, nil, errNotCommitted)
+		require.Empty(t, syncsOn(p.log(), badSeg), "no Sync of the failing segment returned")
+		requireDurableBeforeReturn(t, p, got)
+		later(t, ing, bad)
+		requireIdle(t, &ing.walQ)
+	})
+
+	t.Run("a Sync that never returns on the leader", func(t *testing.T) {
+		// The leader's own Sync leaves its goroutine while a helper's Sync is still in flight. The
+		// leader must still join the helper before it lets go of ingest.mu, or the next batch could
+		// rotate or close the handle the helper is syncing.
+		ing, p, _ := newWALIngest(t)
+		p.gate = newWALGate(t)
+		helper := newWALGate(t)
+		goodSeg := segName(good, 0)
+		leader := make(chan uint64, 1)
+		var armed atomic.Bool
+		armed.Store(true)
+		p.onSync = func(_ int, seg string, f *os.File) error {
+			switch {
+			case seg == badSeg:
+				helper.hold()
+			case seg == goodSeg && armed.CompareAndSwap(true, false):
+				leader <- goid()
+				runtime.Goexit()
+			}
+			return f.Sync()
+		}
+		lead := goAccept(ing, p, 0, newWALReq(t, gateSess, 0))
+		awaitClosed(t, p.gate.entered, "batch 1's Sync")
+		got := queueBehind(t, ing, p, 1, newWALReqs(t, 1, good, bad))
+		p.gate.release()
+		awaitAccept(t, lead)
+		require.NoError(t, lead.err)
+		awaitClosed(t, helper.entered, "the helper's Sync")
+		var id uint64
+		select {
+		case id = <-leader:
+		case <-time.After(ingestACKWait):
+			t.Fatal("the leader's own Sync never started")
+		}
+		require.True(t, awaitParked(t, id, "sync.WaitGroup.Wait", got[0].done),
+			"the leader left its batch while a helper's Sync was still in flight")
+		if ing.mu.TryLock() {
+			ing.mu.Unlock()
+			t.Fatal("ingest.mu was released while a helper's Sync was still in flight")
+		}
+		helper.release()
+		for _, a := range got {
+			awaitAccept(t, a)
+			require.Nilf(t, a.recovered, "request %d", a.id)
+		}
+		require.False(t, slices.ContainsFunc(p.log(), func(op walOp) bool { return op.kind == "return" && op.id == got[0].id }),
+			"the leader's Accept never returned")
+		require.ErrorIs(t, got[1].err, errNotCommitted, "a batch whose leader never finished resolves none of its lines")
 		later(t, ing, bad)
 		later(t, ing, good)
 		requireIdle(t, &ing.walQ)
