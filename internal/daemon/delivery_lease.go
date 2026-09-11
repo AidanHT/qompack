@@ -341,8 +341,14 @@ func (b *leaseBatch) decide(j *deliveryJournal, r *leaseReq) leasePending {
 //
 // A failed Write, Sync or seal poisons the handle and fails every member whose answer depended on
 // the append: the mints and the copies that joined them. Known nonces and refusals are answered as
-// decided. Their answers never depended on this append, and an order of the calls that puts them
-// before the failed append is a valid one.
+// decided, because the append's outcome cannot change them. Together these answers are the ones
+// lease calls made one at a time would give in one order: the known nonces and the refusals first,
+// then the mints and their copies, the first of which fails. One refusal is the exception: a budget
+// refusal that an earlier mint in this batch caused, through the entry, bytes or arrival it took.
+// It keeps ErrBudget, although a call made alone answers ErrDegraded in every order: ahead of every
+// mint it is the first mint, whose append fails, and behind one it meets the fault. Design §2.6 has
+// budget refusals resolve normally; only the error class differs, and no caller tells the two
+// apart, since both count an unleased gap.
 func (j *deliveryJournal) commitLeases(batch []*leaseReq) {
 	gate := j.enter()
 	if gate == nil {
