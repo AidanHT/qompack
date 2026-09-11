@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"math/rand/v2"
 	"runtime"
 	"strconv"
@@ -115,17 +116,31 @@ func (r *gcRecorder) batchOf(t *testing.T) map[int]int {
 // gcTestPanic is the value a test's commit panics with, naming the leader that threw it.
 type gcTestPanic struct{ leader int }
 
-// gcOutcome is how one submitted request ended on its own goroutine.
+// gcOutcome is how one submitted request ended, as its own goroutine saw it.
 type gcOutcome struct {
 	item      *gcTestItem
 	recovered any // what run panicked with on this goroutine; nil when it returned
+	// err, commits and batch are the item's result read on the submitting goroutine the moment run
+	// returned. Every assertion about a result uses these, never the item read later: run promises
+	// the result is final when it returns, and only a read at that moment can see a follower that
+	// was released before its batch's commit had finished.
+	err     error
+	commits int
+	batch   int
+}
+
+// outcomeOf snapshots it's result. It must run on the goroutine that submitted it, straight after
+// that goroutine's run returned or panicked; a premature release then shows up as an unresolved
+// result here, and as a data race between this read and the commit's write.
+func outcomeOf(it *gcTestItem, recovered any) gcOutcome {
+	return gcOutcome{item: it, recovered: recovered, err: it.err, commits: it.commits, batch: it.batch}
 }
 
 // submit runs one request on a new goroutine and reports how it ended on out.
 func submit(q *groupQueue[*gcTestItem], rec *gcRecorder, id, size int, body gcBody, out chan<- gcOutcome) {
 	go func() {
 		it := newGCTestItem(id, size)
-		defer func() { out <- gcOutcome{item: it, recovered: recover()} }()
+		defer func() { out <- outcomeOf(it, recover()) }()
 		q.run(it, rec.commitFor(id, body))
 	}()
 }
@@ -243,10 +258,10 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 		}
 		for i, members := range want {
 			for _, id := range members {
-				it := got[id].item
-				require.Equalf(t, 1, it.commits, "request %d must be committed exactly once", id)
-				require.Equalf(t, i, it.batch, "request %d", id)
-				require.NoErrorf(t, it.err, "request %d", id)
+				o := got[id]
+				require.Equalf(t, 1, o.commits, "request %d must be committed exactly once, before its run returns", id)
+				require.Equalf(t, i, o.batch, "request %d", id)
+				require.NoErrorf(t, o.err, "request %d", id)
 			}
 		}
 		require.Zero(t, rec.overlaps.Load())
@@ -268,7 +283,7 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 					}
 					it := newGCTestItem(w*perWorker+k, size)
 					func() {
-						defer func() { out <- gcOutcome{item: it, recovered: recover()} }()
+						defer func() { out <- outcomeOf(it, recover()) }()
 						q.run(it, rec.commitFor(it.id, nil))
 					}()
 				}
@@ -279,9 +294,9 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 		at := rec.batchOf(t)
 		require.Len(t, at, workers*perWorker, "every request must be cut into exactly one batch")
 		for id, o := range got {
-			require.Equalf(t, 1, o.item.commits, "request %d must be committed exactly once", id)
-			require.Equalf(t, at[id], o.item.batch, "request %d must be resolved by the batch that cut it", id)
-			require.NoErrorf(t, o.item.err, "request %d", id)
+			require.Equalf(t, 1, o.commits, "request %d must be committed exactly once, before its run returns", id)
+			require.Equalf(t, at[id], o.batch, "request %d must be resolved by the batch that cut it", id)
+			require.NoErrorf(t, o.err, "request %d", id)
 		}
 		for i, b := range rec.batches {
 			require.NotEmptyf(t, b.ids, "batch %d", i)
@@ -310,7 +325,7 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 				for k := range perWorker {
 					it := newGCTestItem(w*perWorker+k, 0)
 					func() {
-						defer func() { out <- gcOutcome{item: it, recovered: recover()} }()
+						defer func() { out <- outcomeOf(it, recover()) }()
 						q.run(it, rec.commitFor(it.id, nil))
 					}()
 				}
@@ -323,10 +338,37 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 			require.Truef(t, b.inline, "batch %d", i)
 		}
 		for id, o := range got {
-			require.Equalf(t, 1, o.item.commits, "request %d", id)
-			require.NoErrorf(t, o.item.err, "request %d", id)
+			require.Equalf(t, 1, o.commits, "request %d", id)
+			require.NoErrorf(t, o.err, "request %d", id)
 		}
 		requireIdle(t, q)
+	})
+
+	t.Run("the caps hold at extreme and negative estimates", func(t *testing.T) {
+		// cut queues one request per size, estimated exactly as run estimates them, and returns the
+		// length of every batch cutLocked takes until the queue is empty.
+		cut := func(q *groupQueue[*gcTestItem], sizes ...int) []int {
+			q.mu.Lock()
+			defer q.mu.Unlock()
+			for k, s := range sizes {
+				it := &gcTestItem{id: k, size: s}
+				q.queue = append(q.queue, &gcReq[*gcTestItem]{item: it, size: q.sizeOf(it), done: make(chan struct{})})
+			}
+			var lens []int
+			for len(q.queue) > 0 {
+				lens = append(lens, len(q.cutLocked()))
+			}
+			return lens
+		}
+		huge := math.MaxInt/2 + 1 // each fits the cap; two overflow int
+		require.Equal(t, []int{1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: math.MaxInt, size: gcTestSize}, huge, huge),
+			"two estimates whose sum overflows int must not share a batch")
+		require.Equal(t, []int{2, 2}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: 4, size: gcTestSize}, 4, -4, 4, 0),
+			"a negative estimate counts as zero, so it cannot make room under the byte cap")
+		require.Equal(t, []int{1, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: -1, size: gcTestSize}, 0, 0, 0),
+			"a non-positive byte cap admits only the head")
+		require.Equal(t, []int{1, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 0, maxBytes: 8, size: gcTestSize}, 0, 0, 0),
+			"a non-positive count cap admits only the head")
 	})
 }
 
@@ -359,12 +401,12 @@ func TestGroupQueue_PanicInCommitHandsOffWithoutDeadlock(t *testing.T) {
 	require.Equal(t, [][]int{{0}, {1, 2, 3, 4}, {5, 6, 7}}, rec.ids())
 	require.Equal(t, gcTestPanic{leader: 1}, got[1].recovered, "the panic must continue on the leader's goroutine")
 	for _, id := range []int{1, 2, 3, 4} {
-		require.ErrorIsf(t, got[id].item.err, errNotCommitted, "request %d belonged to the batch that panicked", id)
-		require.Zerof(t, got[id].item.commits, "request %d", id)
+		require.ErrorIsf(t, got[id].err, errNotCommitted, "request %d belonged to the batch that panicked", id)
+		require.Zerof(t, got[id].commits, "request %d", id)
 	}
 	for _, id := range []int{0, 5, 6, 7} {
-		require.NoErrorf(t, got[id].item.err, "request %d", id)
-		require.Equalf(t, 1, got[id].item.commits, "request %d", id)
+		require.NoErrorf(t, got[id].err, "request %d", id)
+		require.Equalf(t, 1, got[id].commits, "request %d", id)
 		require.Nilf(t, got[id].recovered, "request %d", id)
 	}
 	requireIdle(t, q)
@@ -392,8 +434,8 @@ func TestGroupQueue_PanicInCommitHandsOffWithoutDeadlock(t *testing.T) {
 		require.Truef(t, ok, "request %d completed without being cut into a batch", id)
 		require.GreaterOrEqual(t, idx, first)
 		if idx%3 == 0 {
-			require.ErrorIsf(t, o.item.err, errNotCommitted, "request %d belonged to panicking batch %d", id, idx)
-			require.Zerof(t, o.item.commits, "request %d", id)
+			require.ErrorIsf(t, o.err, errNotCommitted, "request %d belonged to panicking batch %d", id, idx)
+			require.Zerof(t, o.commits, "request %d", id)
 			if rec.batches[idx].leader == id {
 				require.Equalf(t, gcTestPanic{leader: id}, o.recovered, "request %d led panicking batch %d", id, idx)
 				panicked++
@@ -403,9 +445,9 @@ func TestGroupQueue_PanicInCommitHandsOffWithoutDeadlock(t *testing.T) {
 			continue
 		}
 		require.Nilf(t, o.recovered, "request %d", id)
-		require.NoErrorf(t, o.item.err, "request %d", id)
-		require.Equalf(t, 1, o.item.commits, "request %d", id)
-		require.Equalf(t, idx, o.item.batch, "request %d", id)
+		require.NoErrorf(t, o.err, "request %d", id)
+		require.Equalf(t, 1, o.commits, "request %d", id)
+		require.Equalf(t, idx, o.batch, "request %d", id)
 	}
 	wantPanics := 0
 	for idx := first; idx < len(rec.batches); idx++ {
@@ -453,18 +495,18 @@ func TestGroupQueue_UnassignedResultStaysAFailure(t *testing.T) {
 				return tc.panics && o.item.id == 1 && o.recovered == gcTestPanic{leader: 1}
 			})
 			require.Equal(t, [][]int{{0}, members}, rec.ids())
-			require.NoError(t, got[0].item.err)
+			require.NoError(t, got[0].err)
 
 			for k, id := range members {
-				it := got[id].item
+				o := got[id]
 				if k < tc.resolved {
-					require.NoErrorf(t, it.err, "request %d was resolved after its durability point", id)
-					require.Equalf(t, 1, it.commits, "request %d", id)
+					require.NoErrorf(t, o.err, "request %d was resolved after its durability point", id)
+					require.Equalf(t, 1, o.commits, "request %d", id)
 					continue
 				}
-				require.ErrorIsf(t, it.err, errNotCommitted, "request %d was never resolved, so it must stay failed", id)
-				require.Zerof(t, it.commits, "request %d", id)
-				require.Equalf(t, -1, it.batch, "request %d", id)
+				require.ErrorIsf(t, o.err, errNotCommitted, "request %d was never resolved, so it must stay failed", id)
+				require.Zerof(t, o.commits, "request %d", id)
+				require.Equalf(t, -1, o.batch, "request %d", id)
 			}
 			if tc.panics {
 				require.Equal(t, gcTestPanic{leader: 1}, got[1].recovered)
@@ -473,7 +515,7 @@ func TestGroupQueue_UnassignedResultStaysAFailure(t *testing.T) {
 			// The queue survives the batch: the next request is a batch of one, committed inline.
 			after := make(chan gcOutcome, 1)
 			submit(q, rec, 5, 1, nil, after)
-			last := collect(t, after, 1, nil)[5].item
+			last := collect(t, after, 1, nil)[5]
 			require.NoError(t, last.err)
 			require.Equal(t, 2, last.batch)
 			require.True(t, rec.batches[2].inline)
