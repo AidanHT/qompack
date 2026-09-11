@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/config"
@@ -256,9 +257,12 @@ func x10Restart(t *testing.T, bin, root string, env map[string]string) {
 	for a := range attempts {
 		obsRunHook(t, bin, []string{"session-start"}, sessionStartFor(t, root, x10RestartSession), env)
 		up := false
-		require.Eventually(t, func() bool {
+		// Only the LAST attempt waits for reachability; the earlier ones take one probe and move
+		// on. assert, not require: a last attempt that times out records the failure without
+		// stopping the test, so the dump below runs and the t.Fatalf after it ends the test.
+		assert.Eventually(t, func() bool {
 			up = ipc.Probe(addr, e2eProbeTimeout)
-			return up || a < attempts-1 // only the LAST attempt is allowed to give up here
+			return up || a < attempts-1
 		}, e2eDaemonUpBound, e2eDaemonUpTick, "unreachable")
 		if up {
 			return
