@@ -637,30 +637,39 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 			d.maybeReloadConfig(runCtx, config.Env{})
 
-			exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
-			if exitAfter <= 0 {
-				exitAfter = defaultIdleExitSeconds
-			}
-			// A session whose client vanished without SessionEnd would hold Live() above zero
-			// forever and make the countdown below unreachable; sweep those out first, with the
-			// idle-exit window itself as the silence bound (see SessionRegistry.EndAbandoned).
-			d.registry.EndAbandoned(now, time.Duration(exitAfter)*time.Second)
-
-			if d.registry.Live() == 0 {
-				if zeroLiveSince.IsZero() {
-					zeroLiveSince = d.clk.Now()
-				}
-				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
-					cancel()
-					<-serveErrCh
-					_ = d.Stop(ctx)
-					return nil
-				}
-			} else {
-				zeroLiveSince = time.Time{}
+			if d.idleExitDue(now, &zeroLiveSince) {
+				cancel()
+				<-serveErrCh
+				_ = d.Stop(ctx)
+				return nil
 			}
 		}
 	}
+}
+
+// idleExitDue is the idle tick's exit decision, taken out of Run's select loop so it can be
+// driven tick by tick against a fake clock. now is the tick's own timestamp; zeroLiveSince is the
+// countdown Run carries between ticks, started the first tick Live() reads zero and cleared by
+// any tick that reads a live session.
+func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool {
+	exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
+	if exitAfter <= 0 {
+		exitAfter = defaultIdleExitSeconds
+	}
+	window := time.Duration(exitAfter) * time.Second
+	// A session whose client vanished without SessionEnd would hold Live() above zero forever and
+	// make the countdown below unreachable; sweep those out first, with the idle-exit window
+	// itself as the silence bound (see SessionRegistry.EndAbandoned).
+	d.registry.EndAbandoned(now, window)
+
+	if d.registry.Live() != 0 {
+		*zeroLiveSince = time.Time{}
+		return false
+	}
+	if zeroLiveSince.IsZero() {
+		*zeroLiveSince = d.clk.Now()
+	}
+	return d.clk.Now().Sub(*zeroLiveSince) >= window
 }
 
 // noteServed records that this daemon has dispatched a request, releasing redrainOnceServing. It

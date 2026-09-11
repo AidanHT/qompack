@@ -214,3 +214,63 @@ func TestEndAbandonedEndsOnlySilentLiveSessions(t *testing.T) {
 	// Idempotent: a second sweep at the same instant finds nothing left to end.
 	require.Equal(t, 0, r.EndAbandoned(62_000, time.Minute))
 }
+
+// TestRegistryTouchRegistersTrafficFromAnUnseenSession pins M-2 for a daemon that never saw a
+// session's SessionStart (restarted mid-session): its traffic registers it live, without the
+// brand-new-session reset of the hot submode Ensure performs, and it counts toward the eviction
+// ceiling like any other session — eviction still only ever drops an ended one.
+func TestRegistryTouchRegistersTrafficFromAnUnseenSession(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	r.SetMaxSessions(2)
+	r.Ensure(&hookio.Event{SessionID: "sess-old"}, 100)
+	r.End("sess-old", 200)
+	r.Ensure(&hookio.Event{SessionID: "sess-started"}, 300)
+	r.SetHotMode(ipc.HotSpool, "breach")
+
+	r.Touch("sess-unseen", 1000)
+	require.True(t, r.IsLive("sess-unseen"), "traffic from an unseen session proves it live")
+	s, ok := r.Get("sess-unseen")
+	require.True(t, ok)
+	require.EqualValues(t, 1000, s.LastActivity)
+	require.Equal(t, 1, s.Events)
+	require.Equal(t, ipc.HotSpool, r.HotMode(), "registration by traffic must not reset the hot submode")
+	require.Equal(t, "breach", r.HotReason())
+
+	require.Equal(t, 2, r.Len(), "over the ceiling, the ended session is evicted")
+	_, ok = r.Get("sess-old")
+	require.False(t, ok)
+	require.Equal(t, 2, r.Live())
+
+	r.Touch("", 2000)
+	require.Equal(t, 2, r.Len(), "an empty session id names no session")
+}
+
+// TestRegistryTouchRevivesAnAbandonedSessionButNotAnEndedOne: EndAbandoned ends a session for
+// silence, which is a guess; traffic from it afterwards disproves the guess. SessionEnd is the
+// session's own statement, and a straggler after it is activity, not a new session.
+func TestRegistryTouchRevivesAnAbandonedSessionButNotAnEndedOne(t *testing.T) {
+	t.Parallel()
+
+	r := NewSessionRegistry()
+	r.Ensure(&hookio.Event{SessionID: "sess-lunch"}, 1000)
+	r.Ensure(&hookio.Event{SessionID: "sess-ended"}, 1000)
+	r.End("sess-ended", 2000)
+	require.Equal(t, 1, r.EndAbandoned(62_000, time.Minute))
+	require.False(t, r.IsLive("sess-lunch"))
+
+	r.Touch("sess-lunch", 63_000)
+	require.True(t, r.IsLive("sess-lunch"), "traffic from an abandoned session makes it live again")
+	r.Touch("sess-ended", 63_000)
+	require.False(t, r.IsLive("sess-ended"), "a straggler after SessionEnd must not revive the session")
+	ended, ok := r.Get("sess-ended")
+	require.True(t, ok)
+	require.Equal(t, 1, ended.Events, "the straggler is still recorded as activity")
+
+	// Abandoned again, then ended by its own SessionEnd: that end is final.
+	require.Equal(t, 1, r.EndAbandoned(124_000, time.Minute))
+	r.End("sess-lunch", 125_000)
+	r.Touch("sess-lunch", 126_000)
+	require.False(t, r.IsLive("sess-lunch"), "SessionEnd after an abandonment is final")
+}
