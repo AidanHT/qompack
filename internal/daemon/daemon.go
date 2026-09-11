@@ -215,6 +215,23 @@ type daemon struct {
 	// lazily-opened negative-knowledge ledger. Stop runs it; see shutdownHooks for why the daemon,
 	// and not the composition root, is the owner.
 	owned *shutdownHooks
+
+	// The verbatim prompt captures callObservePromptWithDeadline starts and deliberately stops
+	// waiting for at promptReplyDeadline (handlers.go, startPromptRecording). promptWG joins them;
+	// promptClosed, under promptMu, is the gate that keeps promptWG from growing once Stop has
+	// begun waiting on it. promptCtx is the lifetime they run under: New creates it and only Stop
+	// cancels it, after giving the captures in flight the drain's bounded window to finish
+	// (stopPromptRecordings).
+	promptMu     sync.Mutex
+	promptClosed bool
+	promptWG     sync.WaitGroup
+	promptCtx    context.Context
+	promptCancel context.CancelFunc
+	// promptAbandonAfter is how long stopPromptRecordings still waits for a capture after cancelling
+	// it, before abandoning a callee that ignores cancellation. New sets it to promptReplyDeadline
+	// and nothing in production changes it; it is a field only so a test can hold a cancelled
+	// capture open for as long as it needs to prove that Stop really joins it.
+	promptAbandonAfter time.Duration
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -277,6 +294,10 @@ func New(o Options) (Daemon, error) {
 		// reaches Stop. A nil here is an Options no wiring ran over, and closeAll is nil-safe.
 		owned: o.shutdown,
 	}
+	// Background, not any caller's context: a capture must outlive the request that started it,
+	// and only Stop may end it (stopPromptRecordings).
+	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
+	d.promptAbandonAfter = promptReplyDeadline
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -529,17 +550,7 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.ing.Start(runCtx, 0, d.runIngested)
 	d.goRun(func() { d.hotPathWorker(runCtx) })
 
-	d.drain.Store(newDrainer(DrainConfig{
-		Root:     d.root,
-		Log:      d.log,
-		Metrics:  d.m,
-		Clock:    d.clk,
-		Dispatch: d.drainDispatch,
-		Seen:     d.ing.seen,
-		Admit:    d.admitDelivery,
-		Journal:  d.deliveryJournal,
-		IsLive:   d.sessionIsLive,
-	}))
+	d.drain.Store(newDrainer(d.drainConfig()))
 
 	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
 	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
@@ -647,30 +658,39 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 			d.maybeReloadConfig(runCtx, config.Env{})
 
-			exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
-			if exitAfter <= 0 {
-				exitAfter = defaultIdleExitSeconds
-			}
-			// A session whose client vanished without SessionEnd would hold Live() above zero
-			// forever and make the countdown below unreachable; sweep those out first, with the
-			// idle-exit window itself as the silence bound (see SessionRegistry.EndAbandoned).
-			d.registry.EndAbandoned(now, time.Duration(exitAfter)*time.Second)
-
-			if d.registry.Live() == 0 {
-				if zeroLiveSince.IsZero() {
-					zeroLiveSince = d.clk.Now()
-				}
-				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
-					cancel()
-					<-serveErrCh
-					_ = d.Stop(ctx)
-					return nil
-				}
-			} else {
-				zeroLiveSince = time.Time{}
+			if d.idleExitDue(now, &zeroLiveSince) {
+				cancel()
+				<-serveErrCh
+				_ = d.Stop(ctx)
+				return nil
 			}
 		}
 	}
+}
+
+// idleExitDue is the idle tick's exit decision, taken out of Run's select loop so it can be
+// driven tick by tick against a fake clock. now is the tick's own timestamp; zeroLiveSince is the
+// countdown Run carries between ticks, started the first tick Live() reads zero and cleared by
+// any tick that reads a live session.
+func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool {
+	exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
+	if exitAfter <= 0 {
+		exitAfter = defaultIdleExitSeconds
+	}
+	window := time.Duration(exitAfter) * time.Second
+	// A session whose client vanished without SessionEnd would hold Live() above zero forever and
+	// make the countdown below unreachable; sweep those out first, with the idle-exit window
+	// itself as the silence bound (see SessionRegistry.EndAbandoned).
+	d.registry.EndAbandoned(now, window)
+
+	if d.registry.Live() != 0 {
+		*zeroLiveSince = time.Time{}
+		return false
+	}
+	if zeroLiveSince.IsZero() {
+		*zeroLiveSince = d.clk.Now()
+	}
+	return d.clk.Now().Sub(*zeroLiveSince) >= window
 }
 
 // noteServed records that this daemon has dispatched a request, releasing redrainOnceServing. It
@@ -724,6 +744,26 @@ func (d *daemon) redrainOnceServing(ctx context.Context) {
 // live session's WAL is offset-marked but kept, never deleted mid-session).
 func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 	return d.registry.IsLive(sess)
+}
+
+// drainConfig is the drainer's wiring over this daemon's own dependencies — the one Run installs.
+// RemoveWAL is the ingest's own removal, so a WAL segment the ingest still holds, or one that has
+// grown since it was drained, is never deleted, whatever the registry says about its session.
+// HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
+func (d *daemon) drainConfig() DrainConfig {
+	return DrainConfig{
+		Root:      d.root,
+		Log:       d.log,
+		Metrics:   d.m,
+		Clock:     d.clk,
+		Dispatch:  d.drainDispatch,
+		Seen:      d.ing.seen,
+		Admit:     d.admitDelivery,
+		Journal:   d.deliveryJournal,
+		IsLive:    d.sessionIsLive,
+		RemoveWAL: d.ing.removeDrainedWAL,
+		HoldsWAL:  d.ing.holdsWAL,
+	}
 }
 
 // Drain replays every spool-tier file under root's spool directory. It is safe to call before Run
@@ -823,7 +863,13 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
 	switch {
 	case req.Op.HotPath():
-		return d.runIngested(ctx, req)
+		resp := d.runIngested(ctx, req)
+		// A replayed observe.prompt is acknowledged with no verbatim capture (SP08-D3). Counted
+		// here, never in runIngested, which the live worker shares.
+		if resp.OK && req.Op == ipc.OpObservePrompt && d.m != nil {
+			d.m.Counter(counterPromptReplayedUncaptured).Add(1)
+		}
+		return resp
 	case req.Op == ipc.OpFlush:
 		return d.flushRoute(ctx, req, false)
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
@@ -862,9 +908,14 @@ func (d *daemon) Stop(ctx context.Context) error {
 
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
-		cancel()
 
 		d.ing.Wait()
+		// The verbatim prompt captures the reply path stopped waiting for are joined here: after the
+		// ingest workers, which hold the observer session locks a capture may be queued on, and
+		// before anything below saves or closes what a capture writes into. They share the drain's
+		// bounded window rather than adding one of their own (stopPromptRecordings).
+		d.stopPromptRecordings(drainCtx)
+		cancel()
 		if err := d.ing.Close(); err != nil {
 			d.log.Warn("daemon: stop: closing ingest WAL handles", "err", err)
 		}

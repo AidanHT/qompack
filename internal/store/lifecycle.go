@@ -404,11 +404,18 @@ func (s *FSStore) ReadDelta(ctx context.Context, deltaRoot core.Hash) (DeltaReco
 	if err != nil {
 		return rec, FidelityCorrupt, fmt.Errorf("%w: reading %s: %w", ErrDeltaCorrupt, deltaRoot.Short(), err)
 	}
-	deltas, err := unmarshalDeltas(payload)
+	declared, deltas, err := unmarshalDeltaRecord(payload)
 	if err != nil {
 		return rec, FidelityCorrupt, fmt.Errorf("%w: %s: %w", ErrDeltaCorrupt, deltaRoot.Short(), err)
 	}
 	rec.Deltas = deltas
+	// A record written since SP20-D3 names its base inside its own payload, which is what makes its
+	// address unique to that base. The payload and the index line must then agree: a record whose
+	// two declarations disagree reconstructs nothing.
+	if !declared.IsZero() && !base.IsZero() && declared != base {
+		return rec, FidelityCorrupt, fmt.Errorf("%w: delta %s names base %s in its payload but %s in the index",
+			ErrDeltaCorrupt, deltaRoot.Short(), declared.Short(), base.Short())
+	}
 
 	if base.IsZero() {
 		return rec, FidelityUnavailable,
@@ -425,9 +432,11 @@ func (s *FSStore) ReadDelta(ctx context.Context, deltaRoot core.Hash) (DeltaReco
 // that answer is.
 //
 // It never guesses. A root with no recovery record answers FidelityCanonical with the canonical
-// bytes — a caller that needs the original must read the status, not the length. A declared delta
-// whose base or payload is gone answers FidelityUnavailable or FidelityCorrupt with NO bytes at
-// all, because a partial reconstruction of an exactness claim is worse than an absent one.
+// bytes — a caller that needs the original must read the status, not the length — unless its put
+// recorded that canonicalization changed nothing (Verbatim), in which case those bytes ARE the
+// original and the answer is the FidelityExact the put reported. A declared delta whose base or
+// payload is gone answers FidelityUnavailable or FidelityCorrupt with NO bytes at all, because a
+// partial reconstruction of an exactness claim is worse than an absent one.
 func (s *FSStore) RestoreOriginal(ctx context.Context, root core.Hash) ([]byte, Fidelity, error) {
 	if err := s.use(); err != nil {
 		return nil, FidelityUnavailable, err
@@ -439,8 +448,9 @@ func (s *FSStore) RestoreOriginal(ctx context.Context, root core.Hash) ([]byte, 
 	s.mu.RLock()
 	entry, ok := s.rootIndex[root]
 	var deltaRoot, orig core.Hash
+	var verbatim bool
 	if ok {
-		deltaRoot, orig = entry.Deltas, entry.Orig
+		deltaRoot, orig, verbatim = entry.Deltas, entry.Orig, entry.Verbatim
 	}
 	s.mu.RUnlock()
 	if !ok {
@@ -462,6 +472,11 @@ func (s *FSStore) RestoreOriginal(ctx context.Context, root core.Hash) ([]byte, 
 		return nil, FidelityUnavailable, err
 	}
 	if deltaRoot.IsZero() {
+		if verbatim {
+			// Canonicalization changed nothing and the put recorded it: these bytes ARE the
+			// original, which is exactly what that put reported.
+			return canonical, FidelityExact, nil
+		}
 		// No recovery record was ever stored. These are canonical bytes and the status says so.
 		return canonical, FidelityCanonical, nil
 	}
@@ -470,6 +485,9 @@ func (s *FSStore) RestoreOriginal(ctx context.Context, root core.Hash) ([]byte, 
 	if err != nil {
 		return nil, fid, err
 	}
+	// A record whose base is another root is not this root's recovery. Every record written since
+	// SP20-D3 names its own base, so this is the state a root written BEFORE that fix is left in
+	// when it shared its first sibling's record: no bytes, corrupt, and never an exactness claim.
 	if rec.Base != root {
 		return nil, FidelityCorrupt,
 			fmt.Errorf("%w: delta %s declares base %s, not %s",
@@ -492,7 +510,7 @@ func (s *FSStore) readRootBytes(ctx context.Context, root core.Hash) ([]byte, er
 	return io.ReadAll(rc)
 }
 
-// deltaWire is the compact {"o","l","c","s"} shape marshalDeltas writes.
+// deltaWire is one entry of the compact {"o","l","c","s"} array appendDeltas writes.
 type deltaWire struct {
 	O int    `json:"o"`
 	L int    `json:"l"`
@@ -500,15 +518,47 @@ type deltaWire struct {
 	S string `json:"s"`
 }
 
-// unmarshalDeltas is marshalDeltas' inverse.
-func unmarshalDeltas(b []byte) ([]canon.Delta, error) {
-	var wire []deltaWire
-	if err := json.Unmarshal(b, &wire); err != nil {
-		return nil, err
+// deltaRecordWire is the side-record payload marshalDeltaRecord writes: the declared base, then
+// the delta list.
+type deltaRecordWire struct {
+	Base   string       `json:"base"`
+	Deltas *[]deltaWire `json:"deltas"`
+}
+
+// unmarshalDeltaRecord is marshalDeltaRecord's inverse, and reads the pre-SP20-D3 shape too.
+//
+// A record written before SP20-D3 is the bare delta array and declares its base only on its index
+// line, so it comes back with a zero declared base. A record written since is an object naming its
+// base; one that names no usable base, or carries no delta list, is corrupt.
+func unmarshalDeltaRecord(b []byte) (core.Hash, []canon.Delta, error) {
+	if t := bytes.TrimLeft(b, " \t\r\n"); len(t) > 0 && t[0] == '[' {
+		var wire []deltaWire
+		if err := json.Unmarshal(b, &wire); err != nil {
+			return core.Hash{}, nil, err
+		}
+		return core.Hash{}, fromDeltaWire(wire), nil
 	}
+	var w deltaRecordWire
+	if err := json.Unmarshal(b, &w); err != nil {
+		return core.Hash{}, nil, err
+	}
+	if w.Deltas == nil {
+		return core.Hash{}, nil, errors.New("delta record carries no delta list")
+	}
+	base, err := core.ParseHash(w.Base)
+	if err != nil || base.IsZero() {
+		// Deliberately not wrapped: ParseHash reports core.ErrNotFound, and a malformed payload
+		// is corruption, not an absent root.
+		return core.Hash{}, nil, fmt.Errorf("delta record declares no usable base (%q)", w.Base)
+	}
+	return base, fromDeltaWire(*w.Deltas), nil
+}
+
+// fromDeltaWire maps the short keys back onto canon.Delta.
+func fromDeltaWire(wire []deltaWire) []canon.Delta {
 	out := make([]canon.Delta, 0, len(wire))
 	for _, w := range wire {
 		out = append(out, canon.Delta{Offset: w.O, Len: w.L, Original: w.S, Class: canon.Class(w.C)})
 	}
-	return out, nil
+	return out
 }

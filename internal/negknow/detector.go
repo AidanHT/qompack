@@ -1,9 +1,12 @@
 package negknow
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -142,37 +145,36 @@ func NewDetector(src ObservationSource, sess core.SessionID, cfg config.Config, 
 // second revert/re-edit cycle after the same failing edit is more of the same elimination rather
 // than a second one.
 func (d *detector) Scan(ctx context.Context, g dag.Graph, since core.TurnIndex) ([]Record, error) {
+	// The source is an interface, so its ordering is a contract this cannot verify; putting the
+	// signals in order here is what makes Pattern P's "sorted by (Turn, Kind, Path)" true for every
+	// implementation and not only for the ledger's own ring.
+	//
+	// The order is an index view over the source's slice rather than a sorted copy of it. Scan
+	// only ever READS an observation — matchPattern and candidateRecord are handed copies of the
+	// ones they keep — so walking the signals through the view is the same scan as walking a copy
+	// sorted the same way, and the source's slice is never reordered either way. What the view
+	// saves is a whole-slice copy per scan, and the garbage collection of it.
 	signals := d.src.Since(since)
-	// The source is an interface, so its ordering is a contract this cannot verify; sorting a copy
-	// is what makes Pattern P's "sorted by (Turn, Kind, Path)" true for every implementation and
-	// not only for the ledger's own ring.
-	sorted := make([]Observation, len(signals))
-	copy(sorted, signals)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		if sorted[i].Turn != sorted[j].Turn {
-			return sorted[i].Turn < sorted[j].Turn
-		}
-		if sorted[i].Kind != sorted[j].Kind {
-			return sorted[i].Kind < sorted[j].Kind
-		}
-		return sorted[i].Path < sorted[j].Path
-	})
+	order := scanOrder(signals)
+	links := linkPaths(signals, order)
+	classes := classMemo{}
 
 	var out []Record
-	for i, e0 := range sorted {
+	for i := range order {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		e0 := &signals[order[i]]
 		if e0.Kind != ObsEdit || e0.Path == "" || e0.Detail == "" || e0.Turn < since {
 			continue
 		}
-		f1, r2, e3, ok := matchPattern(sorted, i)
+		f1, r2, e3, ok := matchPattern(signals, order, links, i, classes)
 		if !ok {
 			continue
 		}
 		d.m.Counter(counterDetectorCandidates).Add(1)
 
-		rec, ok := d.candidateRecord(ctx, g, e0, f1, r2, e3)
+		rec, ok := d.candidateRecord(ctx, g, *e0, f1, r2, e3, classes)
 		if !ok {
 			continue
 		}
@@ -182,20 +184,157 @@ func (d *detector) Scan(ctx context.Context, g dag.Graph, since core.TurnIndex) 
 	return out, nil
 }
 
-// matchPattern completes conditions 2 to 4 for the edit at sorted[i], returning the earliest
-// (f1, r2, e3) that satisfies them.
+// compareObservations is Pattern P's scan order: Turn, then Kind, then Path, each ascending.
+func compareObservations(a, b *Observation) int {
+	if c := cmp.Compare(a.Turn, b.Turn); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
+		return c
+	}
+	return strings.Compare(a.Path, b.Path)
+}
+
+// scanOrder returns the permutation that puts signals in Pattern P's scan order — position k of
+// the scan is signals[order[k]] — and never reorders signals itself: the slice belongs to the
+// source.
 //
-// It is a forward scan bounded by the window: the inner loop starts at i+1 and stops as soon as an
-// observation falls past t0+detectWindowTurns, so the whole pass is O(observations x window) with
-// no state carried between candidates.
-func matchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool) {
-	e0 := sorted[i]
+// The order is exactly the one a STABLE sort by compareObservations produces, reached by one of two
+// routes. Both rest on the same fact: a stable sort's output is unique — the elements ordered by
+// key, ties kept in input order — and sorting indices that start in input order, under a comparison
+// of the elements they name, is a sort of those elements.
+//
+// Input whose Turns never decrease — every observer feeds signals in turn order, and the ledger's
+// own Since answers fully sorted — is sorted one equal-Turn run at a time. In such input each Turn
+// value occupies one contiguous run and the runs already stand in ascending Turn order, which is
+// where the stable sort puts them; within a run Turn ties, so the stable sort orders the run by
+// (Kind, Path) with ties in input order, which is a stable sort of the run. The runs are a
+// handful of signals each, so the pass is linear in practice.
+//
+// Any other input is sorted whole under (key, input index). That is a total order, no two entries
+// compare equal and any correct sort yields its one answer, and it is the stable sort's order by
+// the uniqueness above.
+func scanOrder(signals []Observation) []int {
+	order := make([]int, len(signals))
+	for i := range order {
+		order[i] = i
+	}
+	byKey := func(a, b int) int { return compareObservations(&signals[a], &signals[b]) }
+
+	turnOrdered := true
+	for i := 1; i < len(signals); i++ {
+		if signals[i].Turn < signals[i-1].Turn {
+			turnOrdered = false
+			break
+		}
+	}
+	if turnOrdered {
+		for lo := 0; lo < len(signals); {
+			hi := lo + 1
+			for hi < len(signals) && signals[hi].Turn == signals[lo].Turn {
+				hi++
+			}
+			if hi-lo > 1 {
+				slices.SortStableFunc(order[lo:hi], byKey)
+			}
+			lo = hi
+		}
+		return order
+	}
+
+	slices.SortFunc(order, func(a, b int) int {
+		if c := byKey(a, b); c != 0 {
+			return c
+		}
+		return cmp.Compare(a, b)
+	})
+	return order
+}
+
+// classMemo caches ApproachClass for the duration of one Scan. ApproachClass is a pure,
+// deterministic function of its argument, so a cached answer is the answer; the cache only stops a
+// scan from re-classifying the same handful of approach phrases once per candidate edit.
+type classMemo map[string]string
+
+// of returns ApproachClass(approach).
+func (m classMemo) of(approach string) string {
+	if c, ok := m[approach]; ok {
+		return c
+	}
+	c := ApproachClass(approach)
+	m[approach] = c
+	return c
+}
+
+// pathLinks threads the scan order by path, so that matchPattern can visit only the observations
+// that can matter to an edit on one path. Every index in it is a scan POSITION, an index into
+// order, not into the source's slice.
+type pathLinks struct {
+	// nextSame[j] is the position of the next observation after position j with the same Path, or
+	// len(order) when there is none.
+	nextSame []int
+	// nextBlank[j] is the first position at or after j whose observation's Path is "", or
+	// len(order) when there is none. It has len(order)+1 entries so nextBlank[j+1] is always
+	// defined.
+	nextBlank []int
+}
+
+// linkPaths builds the pathLinks of signals viewed in order, in one backward pass.
+func linkPaths(signals []Observation, order []int) pathLinks {
+	n := len(order)
+	links := pathLinks{nextSame: make([]int, n), nextBlank: make([]int, n+1)}
+	last := make(map[string]int)
+	links.nextBlank[n] = n
+	for j := n - 1; j >= 0; j-- {
+		p := signals[order[j]].Path
+		if k, ok := last[p]; ok {
+			links.nextSame[j] = k
+		} else {
+			links.nextSame[j] = n
+		}
+		last[p] = j
+		if p == "" {
+			links.nextBlank[j] = j
+		} else {
+			links.nextBlank[j] = links.nextBlank[j+1]
+		}
+	}
+	return links
+}
+
+// matchPattern completes conditions 2 to 4 for the edit at scan position i — signals[order[i]] —
+// returning the earliest (f1, r2, e3) that satisfies them.
+//
+// It is a forward scan bounded by the window: it starts after position i and stops as soon as an
+// observation falls past t0+detectWindowTurns, with no state carried between candidates.
+//
+// The scan visits, in scan order, only the observations after i whose Path is e0's path p or is
+// "" — links supplies both chains and the loop merges them — and that visits nothing that could
+// matter. Every branch below tests o.Path == p, except the failing-test branch, which also admits
+// o.Path == ""; p itself is never "" (Scan skips such an e0). So an observation on any other path
+// changes no state and returns nothing. The one thing it could do is end the scan by falling past
+// the window, but the scan order is ordered by Turn, so every later observation is past the window
+// too and the scan ends with the same answer at the next relevant observation or at the end.
+//
+// e0's approach class is needed only by condition 4, so it is computed there, the first time an
+// e3 candidate reaches the comparison, rather than for every edit that starts a scan. Most never
+// get that far, and ApproachClass is pure, so when it is computed changes no answer.
+func matchPattern(signals []Observation, order []int, links pathLinks, i int, classes classMemo) (f1, r2, e3 Observation, ok bool) {
+	e0 := &signals[order[i]]
 	p := e0.Path
 	limit := e0.Turn + detectWindowTurns
-	class0 := ApproachClass(e0.Detail)
+	class0, haveClass0 := "", false
 
 	var haveF1, haveR2 bool
-	for _, o := range sorted[i+1:] {
+	n := len(order)
+	same, blank := links.nextSame[i], links.nextBlank[i+1]
+	for same < n || blank < n {
+		var o *Observation
+		if same < blank {
+			o, same = &signals[order[same]], links.nextSame[same]
+		} else {
+			o, blank = &signals[order[blank]], links.nextBlank[blank+1]
+		}
 		if o.Turn > limit {
 			break
 		}
@@ -207,16 +346,20 @@ func matchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool)
 				return Observation{}, Observation{}, Observation{}, false
 			}
 			if o.Kind == ObsTestFail && o.Turn > e0.Turn && (o.Path == p || o.Path == "") {
-				f1, haveF1 = o, true
+				f1, haveF1 = *o, true
 			}
 		case !haveR2:
 			if o.Kind == ObsRevert && o.Path == p && o.Turn > f1.Turn {
-				r2, haveR2 = o, true
+				r2, haveR2 = *o, true
 			}
 		default:
-			if o.Kind == ObsEdit && o.Path == p && o.Turn > r2.Turn &&
-				ApproachClass(o.Detail) != class0 {
-				return f1, r2, o, true
+			if o.Kind == ObsEdit && o.Path == p && o.Turn > r2.Turn {
+				if !haveClass0 {
+					class0, haveClass0 = classes.of(e0.Detail), true
+				}
+				if classes.of(o.Detail) != class0 {
+					return f1, r2, *o, true
+				}
 			}
 		}
 	}
@@ -228,7 +371,7 @@ func matchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool)
 // The only drop is the evidence one, and it is the §8.3 discipline applied to the least reliable
 // of the four sources: a heuristic guess with no stored failing-test output behind it is exactly
 // the record that must not reach an append-only log under eliminations.requireEvidence.
-func (d *detector) candidateRecord(ctx context.Context, g dag.Graph, e0, f1, r2, e3 Observation) (Record, bool) {
+func (d *detector) candidateRecord(ctx context.Context, g dag.Graph, e0, f1, r2, e3 Observation, classes classMemo) (Record, bool) {
 	if f1.Root.IsZero() && d.elim.RequireEvidence {
 		d.m.Counter(counterDetectorDroppedNoEvidence).Add(1)
 		d.log.Debug("negknow: dropped a heuristic elimination with no evidence root",
@@ -254,7 +397,7 @@ func (d *detector) candidateRecord(ctx context.Context, g dag.Graph, e0, f1, r2,
 		Reason: fmt.Sprintf(
 			"test failed at turn %d and the change was reverted at turn %d; "+
 				"a different approach (%s) was taken at turn %d",
-			int(f1.Turn), int(r2.Turn), ApproachClass(e3.Detail), int(e3.Turn)),
+			int(f1.Turn), int(r2.Turn), classes.of(e3.Detail), int(e3.Turn)),
 		Evidence:  f1.Root,
 		DependsOn: d.dependsOn(ctx, g, f1, target),
 		Scope:     Scope(d.elim.DefaultScope),

@@ -30,6 +30,11 @@ type SessionState struct {
 
 	Source         string
 	TranscriptPath string
+
+	// abandoned is true while the session is ended ONLY because EndAbandoned took its silence for
+	// a vanished client. Traffic disproves that and revives it (Touch); SessionEnd's End does not
+	// set it, so a straggler after SessionEnd never revives the session it ended.
+	abandoned bool
 }
 
 // SessionRegistry holds per-session live state behind a sync.RWMutex, plus the daemon-wide
@@ -186,27 +191,53 @@ func (r *SessionRegistry) Ensure(e *hookio.Event, now core.UnixMilli) *SessionSt
 		s.TranscriptPath = e.TranscriptPath
 	}
 	s.Live = true
+	s.abandoned = false
 	s.LastActivity = now
 
 	r.evictLocked()
 	return s
 }
 
-// Touch records activity on an existing session: advances LastActivity and increments Events. It
-// is a no-op for an id Ensure has never seen — the accept loop always calls Ensure first, so this
-// is a defensive guard rather than a path any real caller exercises.
+// Touch records hot-path traffic from id: it advances LastActivity and increments Events. Traffic
+// is proof the session is live, whatever the registry last believed about it:
+//
+//   - An id the registry has never seen is registered live. That is not a defensive path: the
+//     daemon was restarted mid-session (a crash, an upgrade, an idle exit, or a SessionStart that
+//     reached a previous instance), so no SessionStart ever reached THIS process — and only
+//     handleSessionStart calls Ensure. Before this, such a session stayed "not live" however much
+//     traffic it sent: Run's idle tick exited under it every idle-exit window, and the drain took its
+//     WAL for an ended session's (M-2).
+//   - A session EndAbandoned ended for silence is live again: silence was the only evidence, and
+//     the traffic disproves it.
+//   - A session End ended stays ended. SessionEnd is the session's own statement, and a straggler
+//     after it is activity, not a new session.
+//
+// Registration here deliberately does NOT do what Ensure does for a brand-new session — reset the
+// daemon-wide hot submode to sync — because this session has already sent traffic and may be the
+// very one that breached. StartedTS records when this daemon first saw the session, as Ensure's
+// does. An empty id names no session and registers nothing. Touch is in-memory and O(1) except when
+// it registers, which runs the same eviction pass Ensure does.
 func (r *SessionRegistry) Touch(id core.SessionID, now core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	s, ok := r.sessions[id]
-	if !ok {
+	s, known := r.sessions[id]
+	switch {
+	case !known && id == "":
 		return
+	case !known:
+		s = &SessionState{ID: id, Hot: r.hot, Live: true, StartedTS: now}
+		r.sessions[id] = s
+	case !s.Live && s.abandoned:
+		s.Live, s.abandoned = true, false
 	}
 	s.LastActivity = now
 	s.Events++
+	if !known {
+		r.evictLocked()
+	}
 }
 
-// End marks id no longer live. It is a no-op for an id Ensure has never seen.
+// End marks id no longer live. It is a no-op for an id the registry has never seen.
 func (r *SessionRegistry) End(id core.SessionID, now core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -215,6 +246,7 @@ func (r *SessionRegistry) End(id core.SessionID, now core.UnixMilli) {
 		return
 	}
 	s.Live = false
+	s.abandoned = false
 	s.EndedTS = now
 }
 
@@ -228,7 +260,9 @@ func (r *SessionRegistry) End(id core.SessionID, now core.UnixMilli) {
 // silence bound: a session silent for a whole window is idle by the same definition the daemon
 // exits under, so an orphaned daemon now lives at most two windows -- one to abandon the
 // session, one of zero-live countdown. Ending here is registry bookkeeping only: no marker is
-// written (flush and checkpoint stay the only marker writers) and no observer seam fires.
+// written (flush and checkpoint stay the only marker writers) and no observer seam fires. It is
+// also only a guess from silence, so a session ended here that sends traffic again is revived by
+// Touch.
 func (r *SessionRegistry) EndAbandoned(now core.UnixMilli, maxSilence time.Duration) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -239,6 +273,7 @@ func (r *SessionRegistry) EndAbandoned(now core.UnixMilli, maxSilence time.Durat
 			continue
 		}
 		s.Live = false
+		s.abandoned = true
 		s.EndedTS = now
 		n++
 		r.log.Warn("daemon: ending abandoned session; no SessionEnd arrived and it has been silent past the idle-exit window",

@@ -140,6 +140,59 @@ func BenchmarkPutBytes_100KB_Warm(b *testing.B) {
 	}
 }
 
+// BenchmarkPutBytes_100KB_Warm_KeepRaw measures the root-level dedup hit of a KeepRaw root, whose
+// label dedupFidelity derives from this put's own bytes (SP20-D3): verbatim compares the canonical
+// bytes with the input, delta re-derives the record's address and replays the deltas, and full
+// re-derives the retained original's address. BenchmarkPutBytes_100KB_Warm cannot see that cost:
+// without KeepRaw a root carries no recovery record and the label is canonical at once. The same
+// ≤ 400 µs warm budget applies.
+func BenchmarkPutBytes_100KB_Warm_KeepRaw(b *testing.B) {
+	body := benchPayload(100 << 10)
+	cases := []struct {
+		name    string
+		opts    []storeOpt
+		payload []byte
+		want    Fidelity
+	}{
+		{"verbatim", nil, body, FidelityExact},
+		{"delta", nil, append([]byte("built at 2026-09-09T10:00:00Z\n"), body...), FidelityExact},
+		{
+			"full",
+			[]storeOpt{withCanon(canonLossyDeltas())},
+			append([]byte(timestampPrefix+"09:11:04\n"), body...), FidelityFull,
+		},
+	}
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			ctx := context.Background()
+			s := benchStore(b, c.opts...)
+			o := PutOptions{Tool: "Bash", Path: "src/bench.log", KeepRaw: true}
+			first, err := s.PutBytes(ctx, c.payload, o)
+			if err != nil {
+				b.Fatal(err)
+			}
+			s.mu.RLock()
+			e := *s.rootIndex[first.Root.Hash]
+			s.mu.RUnlock()
+			// Fixture sanity: each case must actually store the recovery shape it is named for.
+			if first.Fidelity != c.want || (c.name == "delta") == e.Deltas.IsZero() ||
+				(c.name == "full") == e.Orig.IsZero() {
+				b.Fatalf("fixture stored fidelity %s, deltas %v, orig %v", first.Fidelity,
+					!e.Deltas.IsZero(), !e.Orig.IsZero())
+			}
+
+			b.ReportAllocs()
+			b.SetBytes(int64(len(c.payload)))
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if _, err := s.PutBytes(ctx, c.payload, o); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 // BenchmarkGetChunk measures a warm single-chunk read: budget ≤ 60 µs, sized so `expand` fits
 // inside B-F (MCP tool call p95 < 250 ms).
 func BenchmarkGetChunk(b *testing.B) {
