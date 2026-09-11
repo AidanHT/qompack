@@ -1052,7 +1052,10 @@ func TestIngest_WALFailureFailsExactlyItsSegment(t *testing.T) {
 
 // T8 — design §6.2, rejected option X1. A delivery's lease line is written to the journal only
 // after the WAL Sync covering that delivery's line has returned, while the WAL group-commits under
-// concurrent Accepts, so no state ever holds a durable lease whose delivery bytes are not durable.
+// concurrent Accepts, so Accept never makes a lease durable before the delivery's bytes. This pins
+// the Accept path only: the drain reads live WAL segments without ingest.mu, so it can lease a line
+// whose covering Sync has not returned yet. That gap predates the group commit and is tracked
+// separately.
 func TestIngest_LeaseLineNeverPrecedesItsWALSync(t *testing.T) {
 	root, lock, journal := newTestDeliveryJournal(t)
 	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, newFakeClock(epoch))
