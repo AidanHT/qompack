@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"iter"
 	"os"
 	"path/filepath"
 	"sort"
@@ -421,9 +422,9 @@ func Open(root string, cfg config.Config, b *sketch.Bloom, deps Deps) (Ledger, e
 		l.seq = seq
 	}
 
-	l.loadRecords()
+	keys := l.loadRecords()
 	loadFailed := l.acquireBloom(b)
-	l.reconcileBloom(loadFailed)
+	l.reconcileBloom(loadFailed, keys)
 	l.refreshAtOpen()
 	return l, nil
 }
@@ -468,7 +469,10 @@ func pickEnum(got, fallback, key string, log logging.Logger, allowed ...string) 
 // session's read succeed on an empty file rather than report the file missing. A log that cannot
 // be appended to is a Warn and a nil handle — this session records nothing, but everything already
 // on disk still answers. A log that cannot be READ is blind mode, which is the loud one.
-func (l *ledger) loadRecords() {
+//
+// It returns reindex's per-record bloom keys for the rebuild Open may owe next, or nil when
+// nothing was materialized.
+func (l *ledger) loadRecords() []recordKeys {
 	p := logPath(l.root)
 
 	w, err := openLog(l.root)
@@ -483,10 +487,10 @@ func (l *ledger) loadRecords() {
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		// A project whose first elimination has not been recorded. Nothing is wrong.
-		return
+		return nil
 	case err != nil:
 		l.goBlind(err)
-		return
+		return nil
 	}
 
 	// Every record needs a line of its own, and the file is already in hand, so its line count is
@@ -498,10 +502,10 @@ func (l *ledger) loadRecords() {
 		// failed, i.e. when the materialization is partial. Reporting a partial one as complete
 		// would silently un-eliminate whatever came after the failure.
 		l.goBlind(err)
-		return
+		return nil
 	}
 	l.recs, l.byID = recs, byID
-	l.reindex()
+	return l.reindex()
 }
 
 // goBlind enters blind mode: the ledger stays usable, Query answers unavailable for everything,
@@ -515,18 +519,29 @@ func (l *ledger) goBlind(err error) {
 		"path", logPath(l.root), "err", err)
 }
 
+// recordKeys is one record's two bloom keys as digests: Desc.Key and Desc.MatchKey.
+type recordKeys struct{ key, match core.Hash }
+
 // reindex rebuilds byMatch and byKey from recs. byID is replayLog's, since the replay is what
 // decides which of two lines sharing an id survives.
-func (l *ledger) reindex() {
+//
+// Indexing derives both of every record's bloom keys — MatchKey for byMatch, Key inside the dedup
+// identity — and it returns them, keys[i] for recs[i], because the rebuild Open owes next is built
+// from exactly those digests; handing them over is what spares Open deriving each one twice.
+func (l *ledger) reindex() []recordKeys {
 	l.byMatch = make(map[string][]int, len(l.recs))
 	l.byKey = make(map[string]int, len(l.recs))
-	for i, r := range l.recs {
-		mh := r.Desc.MatchHex()
+	keys := make([]recordKeys, len(l.recs))
+	for i := range l.recs {
+		r, k := &l.recs[i], &keys[i]
+		k.key, k.match = r.Desc.keyHash(), r.Desc.matchHash()
+		mh := hexString(k.match) // r.Desc.MatchHex()
 		l.byMatch[mh] = append(l.byMatch[mh], i)
 		// The LAST line with an identity wins: byKey is the idempotence index, and what a caller
 		// re-recording an identity should collapse onto is the most recent one.
-		l.byKey[dedupHex(r)] = i
+		l.byKey[dedupHexKey(r.Session, r.Scope, k.key)] = i // dedupHex(*r)
 	}
+	return keys
 }
 
 // acquireBloom adopts b, or loads sketches/tried.bloom when b is nil. It reports whether the load
@@ -592,7 +607,10 @@ func (l *ledger) newConfiguredBloom() *sketch.Bloom {
 // It is skipped entirely under blind mode. The records that would feed a rebuild are unreadable,
 // so rebuilding would replace a good on-disk cache with an empty one on the strength of a
 // transient I/O error.
-func (l *ledger) reconcileBloom(loadFailed bool) {
+//
+// keys is loadRecords' per-record bloom keys, handed to any rebuild this makes so that it does not
+// derive them again; nil derives them in the rebuild as usual.
+func (l *ledger) reconcileBloom(loadFailed bool, keys []recordKeys) {
 	if l.blind {
 		return
 	}
@@ -603,7 +621,7 @@ func (l *ledger) reconcileBloom(loadFailed bool) {
 		// the common case rather than an exception: Record adds keys to the in-memory filter only,
 		// and §3.3 lets nothing but a rebuild replace tried.bloom, so the on-disk filter always
 		// lags the log by whatever has been recorded since the last rebuild.
-		if _, _, err := l.rebuildLocked(context.Background()); err != nil {
+		if _, _, err := l.rebuildWith(context.Background(), keys); err != nil {
 			// The rebuilt filter is correct even when only its persistence failed. rebuildLocked
 			// has already adopted it and left pending set, so the write is retried at idle.
 			l.log.Debug("negknow: the rebuild at Open could not persist tried.bloom", "err", err)
@@ -616,7 +634,7 @@ func (l *ledger) reconcileBloom(loadFailed bool) {
 		// BloomOnly, or AnswerStale — both correct. So the rebuild is scheduled, not forced.
 		switch l.elim.RebuildOnStale {
 		case rebuildImmediate:
-			if _, _, err := l.rebuildLocked(context.Background()); err != nil {
+			if _, _, err := l.rebuildWith(context.Background(), keys); err != nil {
 				l.pending = true
 			}
 		case rebuildNextIdle:
@@ -655,33 +673,26 @@ func (l *ledger) visible(r Record, q Scope) bool {
 	return r.Session == l.deps.Session
 }
 
-// visibleActive returns every active record visible to this session. It is the ONE source the
-// bloom rebuild draws its keys from. The caller holds mu.
-func (l *ledger) visibleActive() []Record {
-	out := make([]Record, 0, len(l.recs))
-	for i := range l.recs {
-		if l.isVisibleActive(i) {
-			out = append(out, l.recs[i])
+// visibleActive yields the position in recs of every active record visible to this session, in
+// log order. It is the ONE source the bloom rebuild draws its keys from. It yields positions
+// rather than copies because every caller reads the records in place: a copy of the whole visible
+// set is 5.9 MB at 20 000 records, and Open used to make three of them. The caller holds mu, for
+// as long as it is iterating.
+func (l *ledger) visibleActive() iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := range l.recs {
+			if l.recs[i].Status == StatusActive && l.visible(l.recs[i], ScopeSession) && !yield(i) {
+				return
+			}
 		}
 	}
-	return out
 }
 
-// isVisibleActive is visibleActive's filter, applied to l.recs[i]: the record is active and
-// visible to this session. The caller holds mu.
-func (l *ledger) isVisibleActive(i int) bool {
-	return l.recs[i].Status == StatusActive && l.visible(l.recs[i], ScopeSession)
-}
-
-// visibleActiveCount is len(l.visibleActive()) — the same filter over the same records — counted
-// without copying a single record, for the callers that need only the number. The caller holds
-// mu.
+// visibleActiveCount is how many records visibleActive yields. The caller holds mu.
 func (l *ledger) visibleActiveCount() int {
 	n := 0
-	for i := range l.recs {
-		if l.isVisibleActive(i) {
-			n++
-		}
+	for range l.visibleActive() {
+		n++
 	}
 	return n
 }
@@ -692,15 +703,19 @@ func (l *ledger) visibleActiveCount() int {
 // It is deliberately not the record ID. recordID mixes in TS, so an MCP retry a second later
 // mints a different id for the same elimination and an id-based dedup would let the log grow a
 // duplicate line for it.
-func dedupHex(r Record) string {
-	var b bytes.Buffer
-	b.WriteString(string(r.Session))
-	b.WriteByte(fieldSep)
-	b.WriteString(string(r.Scope))
-	b.WriteByte(fieldSep)
-	b.Write(r.Desc.Key())
-	h := core.HashBytes(domainDedup, b.Bytes())
-	return hex.EncodeToString(h[:])
+func dedupHex(r Record) string { return dedupHexKey(r.Session, r.Scope, r.Desc.keyHash()) }
+
+// dedupHexKey is dedupHex over a record's parts, for a caller holding its descriptor key as an
+// already-derived digest. The preimage is dedupHex's exactly — session, fieldSep, scope,
+// fieldSep, then the key's 32 bytes — assembled by append into a stack buffer.
+func dedupHexKey(sess core.SessionID, scope Scope, key core.Hash) string {
+	var buf [keyPreimageBuf]byte
+	b := append(buf[:0], sess...)
+	b = append(b, fieldSep)
+	b = append(b, scope...)
+	b = append(b, fieldSep)
+	b = append(b, key[:]...)
+	return hexString(core.HashBytes(domainDedup, b))
 }
 
 // redact applies Deps.Redact to each field in place, when one was supplied.
