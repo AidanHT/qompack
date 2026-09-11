@@ -194,6 +194,17 @@ func syncsOn(log []walOp, seg string) []walOp {
 	return out
 }
 
+// writesOn returns the writes of log on segment seg.
+func writesOn(log []walOp, seg string) []walOp {
+	var out []walOp
+	for _, op := range log {
+		if op.kind == "write" && op.seg == seg {
+			out = append(out, op)
+		}
+	}
+	return out
+}
+
 // newWALIngest returns an unleased ingest on a fresh root, its WAL seams wired to a probe.
 func newWALIngest(t *testing.T) (*ingest, *walProbe, string) {
 	t.Helper()
@@ -321,13 +332,16 @@ func parkedIn(dump []byte, id uint64, reason string) bool {
 
 // queueBehind starts one Accept per request, in order and numbered from first, each only once the
 // one before it has queued behind the batch in flight, so walQ's FIFO order is exactly reqs. A
-// batch must be in flight. A correct Accept can only queue behind it; one that returns instead is
-// a defect for the caller to assert on, so it is counted here rather than left to hang the test.
+// batch must be in flight. A correct Accept can only queue behind it. One that returns instead is
+// a defect for the caller to assert on, so it is counted here rather than waited for; one that does
+// neither, such as an Accept that blocks without going through walQ at all, fails the test once
+// ingestACKWait has passed instead of hanging it.
 func queueBehind(t *testing.T, ing *ingest, p *walProbe, first int, reqs []walReq) []*walAccept {
 	t.Helper()
 	out := make([]*walAccept, len(reqs))
 	for k, r := range reqs {
 		out[k] = goAccept(ing, p, first+k, r)
+		deadline := time.Now().Add(ingestACKWait)
 		for {
 			ing.walQ.mu.Lock()
 			queued := len(ing.walQ.queue)
@@ -340,6 +354,9 @@ func queueBehind(t *testing.T, ing *ingest, p *walProbe, first int, reqs []walRe
 			}
 			if queued+returned >= k+1 {
 				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("request %d neither queued behind the batch in flight nor returned", first+k)
 			}
 			runtime.Gosched()
 		}
@@ -659,6 +676,15 @@ func TestIngest_WALFailureFailsExactlyItsSegment(t *testing.T) {
 		require.NoError(t, ing.Accept(r.req, r.line), "an Accept after the failed batch must commit")
 		return r
 	}
+	// oneLineShort puts sess's current segment exactly one test line short of the rotation ceiling,
+	// so the second line a batch takes for sess rotates with the first still buffered.
+	oneLineShort := func(t *testing.T, ing *ingest, sess core.SessionID) {
+		t.Helper()
+		wf := &walFile{}
+		require.NoError(t, ing.openWALLocked(sess, wf))
+		wf.bytes = walRotateBytes - (walTestLineSize + 1)
+		ing.wals[sess] = wf
+	}
 
 	t.Run("a write error", func(t *testing.T) {
 		ing, p, root := newWALIngest(t)
@@ -717,12 +743,31 @@ func TestIngest_WALFailureFailsExactlyItsSegment(t *testing.T) {
 		require.Equal(t, wantsOn(reqs, bad)+string(r.want), readWAL(t, root, bad, 0))
 	})
 
+	t.Run("a sync error on a batch's only segment", func(t *testing.T) {
+		// A batch whose lines all belong to one segment syncs it on the leader, with no helper
+		// goroutine. Every isolated Accept is such a batch, so this is the path most lines take.
+		ing, p, root := newWALIngest(t)
+		var failing atomic.Bool
+		failing.Store(true)
+		p.onSync = func(_ int, seg string, f *os.File) error {
+			if seg == badSeg && failing.Load() {
+				return errFault
+			}
+			return f.Sync()
+		}
+		reqs, got := batch(t, ing, p, bad, bad)
+		requireOutcomes(t, got, errFault, errFault)
+		lone := newWALReq(t, bad, len(reqs)+1)
+		require.ErrorIs(t, ing.Accept(lone.req, lone.line), errFault, "an isolated Accept whose Sync failed must fail")
+		require.Len(t, syncsOn(p.log(), badSeg), 2, "each of the two batches syncs the segment once")
+		failing.Store(false)
+		r := later(t, ing, bad)
+		require.Equal(t, wantsOn(reqs, bad)+string(lone.want)+string(r.want), readWAL(t, root, bad, 0))
+	})
+
 	t.Run("a rotation's sync error fails only the outgoing segment", func(t *testing.T) {
 		ing, p, root := newWALIngest(t)
-		wf := &walFile{}
-		require.NoError(t, ing.openWALLocked(bad, wf))
-		wf.bytes = walRotateBytes - (walTestLineSize + 1) // room for exactly one line
-		ing.wals[bad] = wf
+		oneLineShort(t, ing, bad)
 		var armed atomic.Bool
 		armed.Store(true)
 		p.onSync = func(_ int, seg string, f *os.File) error {
@@ -735,6 +780,107 @@ func TestIngest_WALFailureFailsExactlyItsSegment(t *testing.T) {
 		requireOutcomes(t, got, errFault, nil, nil, nil)
 		require.Equal(t, string(reqs[0].want), readWAL(t, root, bad, 0), "the outgoing segment holds the line its Sync failed")
 		require.Equal(t, string(reqs[2].want), readWAL(t, root, bad, 1), "the next segment holds the line past the ceiling")
+	})
+
+	for _, fault := range []struct {
+		name  string
+		write func(f *os.File, b []byte) (int, error)
+		want  error
+		kept  func(buffered string) string // what the outgoing segment holds of the buffer it was sent
+	}{
+		{
+			name:  "write error",
+			write: func(*os.File, []byte) (int, error) { return 0, errFault },
+			want:  errFault,
+			kept:  func(string) string { return "" },
+		},
+		{
+			name:  "short write",
+			write: func(f *os.File, b []byte) (int, error) { return f.Write(b[:len(b)/2]) },
+			want:  io.ErrShortWrite,
+			kept:  func(buffered string) string { return buffered[:len(buffered)/2] },
+		},
+	} {
+		t.Run("a rotation flush's "+fault.name+" fails only the outgoing segment", func(t *testing.T) {
+			ing, p, root := newWALIngest(t)
+			oneLineShort(t, ing, bad)
+			var armed atomic.Bool
+			armed.Store(true)
+			p.onWrite = func(_ int, seg string, f *os.File, b []byte) (int, error) {
+				if seg == badSeg && armed.CompareAndSwap(true, false) {
+					return fault.write(f, b)
+				}
+				return f.Write(b)
+			}
+			reqs, got := batch(t, ing, p, bad, good, bad, good)
+			requireOutcomes(t, got, fault.want, nil, nil, nil)
+			require.Empty(t, syncsOn(p.log(), badSeg), "a segment whose Write failed is not synced, not even ahead of its Close")
+			require.Equal(t, fault.kept(string(reqs[0].want)), readWAL(t, root, bad, 0))
+			require.Equal(t, string(reqs[2].want), readWAL(t, root, bad, 1), "the next segment holds the line past the ceiling")
+			requireDurableBeforeReturn(t, p, got)
+		})
+	}
+
+	t.Run("a line after a rotation whose open failed goes to the segment it reopens", func(t *testing.T) {
+		// A directory at bad's next segment path makes bad's rotation fail to open it, and good's
+		// rotation flush, which the batch runs between bad's rotation and bad's last line, removes
+		// the directory. bad's last line then reopens the segment and must be written there: joined
+		// to the buffer that bad's rotation already flushed, it would be acknowledged in no file.
+		ing, p, root := newWALIngest(t)
+		oneLineShort(t, ing, bad)
+		oneLineShort(t, ing, good)
+		blocker := paths.Long(walPath(paths.Of(root).Spool, bad, 1))
+		require.NoError(t, os.Mkdir(blocker, 0o700))
+		goodSeg := segName(good, 0)
+		removed := make(chan error, 1)
+		p.onWrite = func(_ int, seg string, f *os.File, b []byte) (int, error) {
+			if seg == goodSeg {
+				select {
+				case removed <- os.Remove(blocker):
+				default:
+				}
+			}
+			return f.Write(b)
+		}
+		// bad fits; good fits; bad rotates and its open fails; good rotates, and its flush removes
+		// the directory; bad reopens its segment 1.
+		reqs, got := batch(t, ing, p, bad, good, bad, good, bad)
+		select {
+		case err := <-removed:
+			require.NoError(t, err, "good's rotation flush clears bad's next segment path")
+		default:
+			t.Fatal("good's rotation flush never ran")
+		}
+		requireOutcomes(t, got[:2], nil, nil)
+		require.Nil(t, got[2].recovered)
+		require.ErrorContains(t, got[2].err, "open wal", "bad's rotation cannot open its next segment")
+		requireOutcomes(t, got[3:], nil, nil)
+		require.Equal(t, string(reqs[0].want), readWAL(t, root, bad, 0))
+		require.Equal(t, string(reqs[4].want), readWAL(t, root, bad, 1),
+			"the line acknowledged after the reopen is in the segment it reopened")
+		require.Equal(t, string(reqs[1].want), readWAL(t, root, good, 0))
+		require.Equal(t, string(reqs[3].want), readWAL(t, root, good, 1))
+		requireDurableBeforeReturn(t, p, got)
+	})
+
+	t.Run("a rotation whose Close fails fails its session's lines", func(t *testing.T) {
+		// A sequential append leaves the session on the handle its rotation's Close failed on, so
+		// each later line of the session fails the same way and none is written; a batch does the
+		// same. The handle is closed behind the ingest's back, which makes that Close fail.
+		ing, p, root := newWALIngest(t)
+		wf := &walFile{}
+		require.NoError(t, ing.openWALLocked(bad, wf))
+		wf.bytes = walRotateBytes - 10 // bad's next line crosses the ceiling with nothing buffered
+		ing.wals[bad] = wf
+		require.NoError(t, wf.w.Close())
+		_, got := batch(t, ing, p, bad, good, bad, good)
+		requireOutcomes(t, got, os.ErrClosed, nil, os.ErrClosed, nil)
+		require.Empty(t, writesOn(p.log(), badSeg), "no line of a session whose rotation failed is written")
+		require.Empty(t, syncsOn(p.log(), badSeg))
+		_, err := os.Stat(paths.Long(walPath(paths.Of(root).Spool, bad, 1)))
+		require.Truef(t, os.IsNotExist(err), "a rotation whose Close failed opens no next segment: %v", err)
+		later(t, ing, good)
+		requireIdle(t, &ing.walQ)
 	})
 
 	t.Run("a Sync that panics on the leader", func(t *testing.T) {
