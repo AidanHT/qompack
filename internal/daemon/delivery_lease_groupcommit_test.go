@@ -1227,6 +1227,72 @@ func readJournalFiles(t *testing.T, j *deliveryJournal) map[string]string {
 	return out
 }
 
+// flipCtx is a context that is live the first time a lease batch asks for its Err and cancelled
+// every time after: a caller that gives up between a lease call's two context checks.
+type flipCtx struct {
+	context.Context
+	asked *atomic.Int32
+}
+
+func (c flipCtx) Err() error {
+	if c.asked.Add(1) > 1 {
+		return context.Canceled
+	}
+	return nil
+}
+
+// Each member of a lease batch is answered in the order one lease call always made its checks
+// (design §2.6): ctx, then the gate, then validation, then a known nonce before any budget, and ctx
+// once more just before the Write. T12's twin runs the same commitLeases a request at a time, so it
+// cannot see a change to this order; these cases pin the order itself, one request each.
+func TestDeliveryJournal_BatchKeepsEachCallsCheckOrder(t *testing.T) {
+	req := testDeliveryRequest("order")
+	const sess = core.SessionID("order")
+
+	t.Run("a cancelled context is answered before the gate", func(t *testing.T) {
+		_, lock, journal := newTestDeliveryJournal(t)
+		require.NoError(t, lock.Release())
+		canceled, cancel := context.WithCancel(context.Background())
+		cancel()
+		_, err := journal.lease(canceled, leaseToken(1), sess, req)
+		require.ErrorIs(t, err, context.Canceled)
+		require.NotErrorIs(t, err, core.ErrDegraded)
+	})
+
+	t.Run("the gate is answered before validation", func(t *testing.T) {
+		_, lock, journal := newTestDeliveryJournal(t)
+		require.NoError(t, lock.Release())
+		_, err := journal.lease(context.Background(), "", sess, req)
+		require.ErrorIs(t, err, core.ErrDegraded)
+		require.NotErrorIs(t, err, core.ErrContract)
+	})
+
+	t.Run("a known nonce is answered before the budget", func(t *testing.T) {
+		_, _, journal := newTestDeliveryJournal(t)
+		ctx := context.Background()
+		first, err := journal.lease(ctx, leaseToken(1), sess, req)
+		require.NoError(t, err)
+		journal.st.Lock()
+		journal.arrivals[sess] = math.MaxUint64
+		journal.st.Unlock()
+		_, err = journal.lease(ctx, leaseToken(2), sess, req)
+		require.ErrorIs(t, err, core.ErrBudget, "the session's arrival sequence is exhausted")
+		again, err := journal.lease(ctx, leaseToken(1), sess, req)
+		require.NoError(t, err, "a known nonce takes no arrival, so the exhausted sequence cannot refuse it")
+		require.Equal(t, first, again)
+	})
+
+	t.Run("the context is checked again before the Write", func(t *testing.T) {
+		_, _, journal := newTestDeliveryJournal(t)
+		before := readJournalFiles(t, journal)
+		ctx := flipCtx{Context: context.Background(), asked: new(atomic.Int32)}
+		l, err := journal.lease(ctx, leaseToken(1), sess, req)
+		require.ErrorIsf(t, err, context.Canceled, "a caller that gave up was issued %+v", l)
+		require.Equal(t, deliveryLease{}, l)
+		require.Equal(t, before, readJournalFiles(t, journal), "nothing was appended or sealed")
+	})
+}
+
 // leaseOutcome is what one lease call answered.
 type leaseOutcome struct {
 	lease deliveryLease
