@@ -215,6 +215,23 @@ type daemon struct {
 	// lazily-opened negative-knowledge ledger. Stop runs it; see shutdownHooks for why the daemon,
 	// and not the composition root, is the owner.
 	owned *shutdownHooks
+
+	// The verbatim prompt captures callObservePromptWithDeadline starts and deliberately stops
+	// waiting for at promptReplyDeadline (handlers.go, startPromptRecording). promptWG joins them;
+	// promptClosed, under promptMu, is the gate that keeps promptWG from growing once Stop has
+	// begun waiting on it. promptCtx is the lifetime they run under: New creates it and only Stop
+	// cancels it, after giving the captures in flight the drain's bounded window to finish
+	// (stopPromptRecordings).
+	promptMu     sync.Mutex
+	promptClosed bool
+	promptWG     sync.WaitGroup
+	promptCtx    context.Context
+	promptCancel context.CancelFunc
+	// promptAbandonAfter is how long stopPromptRecordings still waits for a capture after cancelling
+	// it, before abandoning a callee that ignores cancellation. New sets it to promptReplyDeadline
+	// and nothing in production changes it; it is a field only so a test can hold a cancelled
+	// capture open for as long as it needs to prove that Stop really joins it.
+	promptAbandonAfter time.Duration
 }
 
 // New constructs a Daemon from o. A bare Options{} literal is safe by construction: every field
@@ -277,6 +294,10 @@ func New(o Options) (Daemon, error) {
 		// reaches Stop. A nil here is an Options no wiring ran over, and closeAll is nil-safe.
 		owned: o.shutdown,
 	}
+	// Background, not any caller's context: a capture must outlive the request that started it,
+	// and only Stop may end it (stopPromptRecordings).
+	d.promptCtx, d.promptCancel = context.WithCancel(context.Background())
+	d.promptAbandonAfter = promptReplyDeadline
 	d.registry = NewSessionRegistry()
 	d.registry.SetLogger(o.Log)
 	d.registry.SetMaxSessions(o.Cfg.Runtime.Daemon.MaxSessions)
@@ -823,7 +844,13 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
 	switch {
 	case req.Op.HotPath():
-		return d.runIngested(ctx, req)
+		resp := d.runIngested(ctx, req)
+		// A replayed observe.prompt is acknowledged with no verbatim capture (SP08-D3). Counted
+		// here, never in runIngested, which the live worker shares.
+		if resp.OK && req.Op == ipc.OpObservePrompt && d.m != nil {
+			d.m.Counter(counterPromptReplayedUncaptured).Add(1)
+		}
+		return resp
 	case req.Op == ipc.OpFlush:
 		return d.flushRoute(ctx, req, false)
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
@@ -862,9 +889,14 @@ func (d *daemon) Stop(ctx context.Context) error {
 
 		drainCtx, cancel := context.WithTimeout(ctx, stopDrainBound)
 		_, _ = d.Drain(drainCtx)
-		cancel()
 
 		d.ing.Wait()
+		// The verbatim prompt captures the reply path stopped waiting for are joined here: after the
+		// ingest workers, which hold the observer session locks a capture may be queued on, and
+		// before anything below saves or closes what a capture writes into. They share the drain's
+		// bounded window rather than adding one of their own (stopPromptRecordings).
+		d.stopPromptRecordings(drainCtx)
+		cancel()
 		if err := d.ing.Close(); err != nil {
 			d.log.Warn("daemon: stop: closing ingest WAL handles", "err", err)
 		}
