@@ -77,8 +77,10 @@ type gcReq[T any] struct {
 	item T
 	// size is the queue's estimate for item, taken once before q.mu is acquired.
 	size int
-	// done is closed exactly once, by the handoff of the batch before this request's turn: either
-	// "your result is final" (lead is false) or "you lead the next batch" (lead is true).
+	// done is closed at most once, by a handoff: the handoff of the batch that contained this
+	// request, meaning "your result is final" (lead is false), or the handoff of the batch just
+	// ahead of the one this request heads, meaning "you lead the next batch" (lead is true). It is
+	// never closed for a request that finds the queue idle and leads at once: nothing waits on it.
 	done chan struct{}
 	// lead is written under q.mu before done is closed, and read only after <-done.
 	lead bool
@@ -87,17 +89,23 @@ type gcReq[T any] struct {
 // groupQueue is a leader/follower group-commit queue (see the file comment). Its zero value is
 // ready to use and commits one request per batch; a pipeline sets maxN, maxBytes and size when it
 // constructs the queue and never changes them afterwards.
+//
+// T must be a pointer type, or carry a pointer to the item's result. commit receives copies of
+// the items, so a result written into a copy of a plain value is lost and every caller keeps its
+// default failure: nothing breaks loudly, but such a pipeline never reports a success.
 type groupQueue[T any] struct {
 	mu      sync.Mutex // guards queue and leading ONLY; never held across I/O or caller code
 	queue   []*gcReq[T]
 	leading bool // a batch is being cut or committed; false only while the queue is empty
 
-	// maxN caps the requests in one batch and maxBytes the sum of their sizes. A value that is not
-	// positive admits only the head.
+	// maxN caps the requests in one batch and maxBytes the sum of their sizes. The head is always
+	// admitted, and each request behind it only while the batch stays within both caps. A maxN of
+	// 1 or less, or a negative maxBytes, therefore admits only the head, and a maxBytes of 0 admits
+	// zero-size requests behind a zero-size head and nothing behind any other head.
 	maxN     int
 	maxBytes int
-	// size is a pipeline's upper-bound estimate of one request's bytes in a batch; nil counts
-	// every request as zero bytes, so only maxN applies. A negative estimate counts as zero.
+	// size is a pipeline's upper-bound estimate of one request's bytes in a batch. A nil size
+	// counts every request as zero bytes, and a negative estimate counts as zero.
 	size func(T) int
 }
 
@@ -107,10 +115,13 @@ type groupQueue[T any] struct {
 //
 // commit receives one batch of items in FIFO order, headed by the leader's own item. It runs on the
 // leader's goroutine with no queue lock held, it is the only code that may write the batch's
-// results, and each of those writes happens-before the run call that owns the item returns. Every
-// caller passes its own commit, and only the leader's is called; a pipeline passes the same method
-// value from every call site, so which caller leads never matters to it. commit must not call run
-// on the same queue: its own batch has not finished, so the inner request would wait for itself.
+// results, and each of those writes happens-before the run call that owns the item returns.
+//
+// Every caller passes its own commit, but only the leader's is ever called: a follower's commit is
+// dropped unused, along with anything it captured. So every caller of one queue must pass the same
+// commit, as a pipeline does by passing one method value from every call site, and commit must not
+// capture per-call state such as a ctx or a caller's own writer. Nor may commit call run on the
+// same queue: its own batch has not finished, so the inner request would wait for itself.
 func (q *groupQueue[T]) run(item T, commit func([]T)) {
 	r := &gcReq[T]{item: item, size: q.sizeOf(item), done: make(chan struct{})}
 	q.mu.Lock()
