@@ -844,7 +844,13 @@ func (d *daemon) runIngested(ctx context.Context, req ipc.Request) ipc.Response 
 func (d *daemon) drainDispatch(ctx context.Context, req ipc.Request) ipc.Response {
 	switch {
 	case req.Op.HotPath():
-		return d.runIngested(ctx, req)
+		resp := d.runIngested(ctx, req)
+		// A replayed observe.prompt is acknowledged with no verbatim capture (SP08-D3). Counted
+		// here, never in runIngested, which the live worker shares.
+		if resp.OK && req.Op == ipc.OpObservePrompt && d.m != nil {
+			d.m.Counter(counterPromptReplayedUncaptured).Add(1)
+		}
+		return resp
 	case req.Op == ipc.OpFlush:
 		return d.flushRoute(ctx, req, false)
 	case strings.HasPrefix(string(req.Op), ipc.OpAdminPrefix):
