@@ -117,6 +117,12 @@ type drainer struct {
 	// syncHandle is the fsync syncFile issues on the handle it opened for the file: (*os.File).Sync
 	// outside tests, which set it to see that the fsync happens, on which file, and when.
 	syncHandle func(*os.File) error
+	// syncDir makes the spool directory's entries durable: paths.SyncDir outside tests, which set it to
+	// observe or fail it. durableEnd issues it once per pass, after the pass's first file sync.
+	syncDir func(dir string) error
+	// dirSynced is set once the pass in progress has synced the spool directory. Drain clears it, under
+	// mu, before the pass's first file.
+	dirSynced bool
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -136,7 +142,7 @@ func newDrainer(cfg DrainConfig) *drainer {
 	if cfg.IsLive == nil {
 		cfg.IsLive = func(core.SessionID) bool { return false }
 	}
-	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync}
+	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir}
 	dr.syncFile = func(path string) error { return syncSpoolFileWith(path, dr.syncHandle) }
 	return dr
 }
@@ -149,6 +155,7 @@ func newDrainer(cfg DrainConfig) *drainer {
 func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
+	dr.dirSynced = false // a file created since the last pass has an entry that pass's sync missed
 
 	spoolDir := paths.Of(dr.cfg.Root).Spool
 	files, err := ipc.SpoolFiles(spoolDir)
@@ -475,9 +482,10 @@ readLoop:
 // segment up to there, and a Sync still in flight covers nothing yet. Every other file is synced
 // once, before the pass consumes any of it, and the sync covers everything the stat counted: a
 // segment rotated away or closed by this daemon, one a crashed process left with lines it never
-// synced still in the page cache, or a client-*.ndjson spool, which the hook client never fsyncs. A
-// file with nothing unread is not synced at all. An error means that sync failed, and nothing of the
-// file may be consumed.
+// synced still in the page cache, or a client-*.ndjson spool, which the hook client never fsyncs. The
+// pass's first such sync is followed by one of the spool directory, whose entries a file's fsync does
+// not cover on POSIX. A file with nothing unread is not synced at all. An error means the file's sync
+// or the directory's failed, and nothing of the file may be consumed.
 func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, error) {
 	if _, isWAL := walSessionID(base); isWAL && dr.cfg.SyncedWAL != nil {
 		if synced, held := dr.cfg.SyncedWAL(path); held {
@@ -489,6 +497,15 @@ func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, err
 	}
 	if err := dr.syncFile(path); err != nil {
 		return 0, fmt.Errorf("daemon: drain: spool file not durable: %w", err)
+	}
+	if !dr.dirSynced {
+		// The hook that created a client spool never synced the entry naming it, and the ingest does
+		// not sync a segment's either (design R16). One sync of the directory covers every file the
+		// pass listed, since each existed before the listing.
+		if err := dr.syncDir(filepath.Dir(path)); err != nil {
+			return 0, fmt.Errorf("daemon: drain: spool directory not durable: %w", err)
+		}
+		dr.dirSynced = true
 	}
 	return size, nil
 }

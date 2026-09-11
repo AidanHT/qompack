@@ -324,3 +324,106 @@ func TestDrainCountsTheBytesOfAFileItCouldNotSyncAsPending(t *testing.T) {
 			"nothing is left unsynced or pending; these requests carry no nonce, so each is unleased: %+v", g)
 	}
 }
+
+// TestDrainSyncsTheSpoolDirectoryOncePerPassBeforeItConsumesASyncedFile: on POSIX a file's fsync covers
+// its bytes, not the directory entry that names it, and the hook client never syncs the directory it
+// creates its spool file in. So a lease made durable after the drain's file sync could still name a
+// delivery whose whole file a machine crash takes (review 1, R7; the WAL's own half is the design's
+// R16). A pass syncs the spool directory once, after its first file sync and before it consumes
+// anything of that file. That one sync covers every file the pass listed, since each existed before
+// the listing. A pass that syncs no file, whether it reads a held segment or finds nothing new, syncs
+// no directory. A directory sync that fails leaves its file unconsumed, as a failed file sync does,
+// and the pass's next file sync tries the directory again.
+func TestDrainSyncsTheSpoolDirectoryOncePerPassBeforeItConsumesASyncedFile(t *testing.T) {
+	const sess = core.SessionID("sess-dir")
+	ctx := context.Background()
+	ing, _, root := newWALIngest(t)
+	spool := paths.Of(root).Spool
+	seg := segName(sess, 0)
+	fileOf := map[core.UnixMilli]string{}
+	accept := func(ts core.UnixMilli) {
+		r := wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: sess, TS: ts})
+		require.NoError(t, ing.Accept(r.req, r.line))
+		fileOf[ts] = seg
+	}
+	put := func(name string, ts ...core.UnixMilli) {
+		reqs := make([]ipc.Request, 0, len(ts))
+		for _, x := range ts {
+			reqs = append(reqs, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-client", TS: x})
+			fileOf[x] = name
+		}
+		writeRequestLines(t, filepath.Join(spool, name), reqs...)
+	}
+
+	var evs []string
+	errDir := errors.New("drain: injected directory sync fault")
+	failDir := 0 // how many directory syncs are still to fail
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: newRecordingLogger(), Clock: newFakeClock(epoch),
+		Dispatch: func(_ context.Context, r ipc.Request) ipc.Response {
+			evs = append(evs, "dispatch "+fileOf[r.TS])
+			return ipc.Response{OK: true}
+		},
+		IsLive:    func(core.SessionID) bool { return true },
+		RemoveWAL: ing.removeDrainedWAL,
+		HoldsWAL:  ing.holdsWAL,
+		SyncedWAL: ing.syncedWAL,
+	})
+	dr.syncFile = func(p string) error {
+		evs = append(evs, "sync "+filepath.Base(p))
+		return syncSpoolFile(p)
+	}
+	dr.syncDir = func(dir string) error {
+		require.Equal(t, spool, dir, "the directory the spool files are in")
+		evs = append(evs, "sync-dir")
+		if failDir > 0 {
+			failDir--
+			return errDir
+		}
+		return paths.SyncDir(dir)
+	}
+	pass := func(wantN int) []string {
+		t.Helper()
+		evs = nil
+		n, err := dr.Drain(ctx)
+		require.NoError(t, err)
+		require.Equal(t, wantN, n)
+		return evs
+	}
+
+	accept(1)
+	put("client-1.ndjson", 2, 3)
+	put("client-2.ndjson", 4)
+	require.Equal(t, []string{
+		"dispatch " + seg,
+		"sync client-1.ndjson", "sync-dir", "dispatch client-1.ndjson", "dispatch client-1.ndjson",
+		"sync client-2.ndjson", "dispatch client-2.ndjson",
+	}, pass(4), "one directory sync, once the pass has synced a file and before it consumes any of it")
+
+	accept(5)
+	require.Equal(t, []string{"dispatch " + seg}, pass(1), "a pass over a held segment alone syncs no directory")
+	require.Empty(t, pass(0), "nor does a pass that finds nothing new")
+
+	put("client-3.ndjson", 6)
+	require.Equal(t, []string{"sync client-3.ndjson", "sync-dir", "dispatch client-3.ndjson"}, pass(1),
+		"every pass that syncs a file syncs the directory again")
+
+	put("client-4.ndjson", 7)
+	put("client-5.ndjson", 8)
+	failDir = 1
+	evs = nil
+	n, err := dr.Drain(ctx)
+	require.ErrorIs(t, err, errDir, "the pass reports the file whose directory it could not sync")
+	require.Equal(t, 1, n)
+	require.Equal(t, []string{
+		"sync client-4.ndjson", "sync-dir",
+		"sync client-5.ndjson", "sync-dir", "dispatch client-5.ndjson",
+	}, evs, "a failed directory sync consumes nothing of its file, and the next file's sync retries it")
+	require.Equal(t, DrainGap{File: "client-4.ndjson", Kind: DrainGapUnsynced, Count: 1, Reason: "spool bytes could not be made durable"},
+		gapOfKind(t, dr.GapState(), DrainGapUnsynced))
+	st, err := dr.loadState()
+	require.NoError(t, err)
+	require.Equal(t, &drainFileState{}, st["client-4.ndjson"], "nothing of the file is consumed")
+	require.Equal(t, []string{"sync client-4.ndjson", "sync-dir", "dispatch client-4.ndjson"}, pass(1),
+		"the next pass takes it")
+}
