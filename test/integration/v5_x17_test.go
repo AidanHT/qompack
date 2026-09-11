@@ -96,18 +96,20 @@ func x17Payload(t *testing.T, r x17Result) []byte {
 // The stderr carries a timestamp on purpose, and a DISTINCT one per payload (stamp is the seconds
 // field; every call site passes its own). The default canonicalizer strips timestamps, so the
 // stored canonical bytes differ from the delivered ones and the store must keep a real recovery
-// record for a KeepRaw put. Two real store behaviours found while authoring this row make both
-// halves necessary:
+// record for a KeepRaw put. Two store behaviours found while authoring this row made both halves
+// necessary. Both were recorded as store findings in this row's disposition and are fixed since
+// (carried defect SP20-D3); the stamps stay distinct so this test keeps to the seam it owns:
 //
-//   - With NO volatile token the bytes are unchanged by canonicalization: the put reports exact
-//     with no side record, and RestoreOriginal, which cannot tell "no record because nothing
-//     changed" from "no record was asked for", labels the same bytes canonical on read-back.
+//   - With NO volatile token the bytes are unchanged by canonicalization: the put reported exact
+//     with no side record, and RestoreOriginal, which could not tell "no record because nothing
+//     changed" from "no record was asked for", labelled the same bytes canonical on read-back.
+//     The content line now records that verbatim claim, and the read reports exact too.
 //   - With the SAME volatile token at the same offset in two different payloads, both roots
-//     produce an identical delta list; putSideRecord content-addresses the side record over that
-//     list alone and returns the existing one, whose declared base is the FIRST root. The second
-//     root's put still reports exact, and its RestoreOriginal then fails with ErrDeltaCorrupt
-//     ("declares base X, not Y"). That is recorded as a store finding in this row's disposition;
-//     the distinct stamps keep this test on the seam it owns rather than on that defect.
+//     produced an identical delta list; putSideRecord content-addressed the side record over that
+//     list alone and returned the existing one, whose declared base was the FIRST root. The
+//     second root's put still reported exact, and its RestoreOriginal failed with ErrDeltaCorrupt
+//     ("declares base X, not Y"). A delta record's payload now names its base, so each root owns
+//     a record of its own.
 func x17Failure(stamp int, signature, displayed string) x17Result {
 	return x17Result{
 		Status:      "exit 1",
