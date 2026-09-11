@@ -244,6 +244,24 @@ func (l *Lock) owned() bool {
 	return ok && info.PID == os.Getpid() && info.Owner == l.owner
 }
 
+// ownedByFile is owned without the read of l.released: whether the lock file on disk still names
+// this acquisition. It needs no Lock.mu, because l.path and l.owner never change once AcquireLock
+// has returned, and that is what lets a delivery-journal operation check ownership without taking
+// Lock.mu.
+//
+// It answers exactly what owned would for as long as l.released is false, and a journal operation
+// only calls it between deliveryJournal.enter and leave, where l.released is always false: Release
+// sets it only after the journal's closeLocked has returned, closeLocked sets closing before it
+// waits for every operation in flight to leave, and no operation passes enter once closing is set.
+// owned itself is unchanged, and is still read only under Lock.mu.
+func (l *Lock) ownedByFile() bool {
+	if l.owner == "" {
+		return false
+	}
+	info, ok := readLockFile(l.path)
+	return ok && info.PID == os.Getpid() && info.Owner == l.owner
+}
+
 // Heartbeat updates daemon.hb's mtime to now, creating the file if it is somehow absent. The
 // daemon calls this on a 30s ticker (Task 4); AcquireLock also calls it once, immediately, so a
 // lock is never seen as stale before the first tick fires. It refuses to write if this process no
