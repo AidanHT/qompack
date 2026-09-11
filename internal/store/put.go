@@ -132,21 +132,20 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 	res.Root.Hash = root
 
 	// 4. Root-level dedup: an identical root is a pure reference, zero writes.
-	s.mu.RLock()
-	existing, known := s.rootIndex[root]
-	var priorRoot rootEntry
-	if known {
-		priorRoot = *existing
+	//
+	// Checked twice. The first check takes no put lock, so the warm path — the four-reads-of-one-
+	// file case — never waits on another put. A miss then takes this root's put lock and checks
+	// again: a concurrent put of the same canonical root may have published while this one waited,
+	// and it must then be a dedup hit of that put rather than a second writer. The lock is held
+	// until this put's own content line is published, so the second check is conclusive.
+	if hit, ok := s.dedupHit(res, o, red, canonical, cr.Deltas); ok {
+		return hit, nil
 	}
-	s.mu.RUnlock()
-	if known {
-		raw := res.Root.RawBytes // THIS put's raw size…
-		res.Root, res.Novel, res.Reused = priorRoot.Root, 0, len(priorRoot.Root.Chunks)
-		res.Root.RawBytes = raw // …not the stored root's.
-		res.NearDup = s.nearDup(o.Path, root, res.Root.CanonBytes, res.Signature)
-		res.Fidelity = s.dedupFidelity(priorRoot, red, canonical, cr.Deltas)
-		s.countRaw(raw)
-		return res, nil
+	lock := s.putLock(root)
+	lock.Lock()
+	defer lock.Unlock()
+	if hit, ok := s.dedupHit(res, o, red, canonical, cr.Deltas); ok {
+		return hit, nil
 	}
 
 	// 5. Chunk-level dedup + object writes + token measurement.
@@ -201,6 +200,41 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 	res.NearDup = s.nearDup(o.Path, root, res.Root.CanonBytes, res.Signature)
 	s.countRaw(res.Root.RawBytes)
 	return res, nil
+}
+
+// putLockStripes is how many put locks FSStore.putLocks holds. putLock picks one by the root's
+// first byte, which is uniform because a root is a SHA-256.
+const putLockStripes = 256
+
+// putLock is the lock that serializes the puts of root. See FSStore.putLocks.
+func (s *FSStore) putLock(root core.Hash) *sync.Mutex {
+	return &s.putLocks[int(root[0])%putLockStripes]
+}
+
+// dedupHit is PutBytes step 4 for a root that is already stored: this put becomes a pure
+// reference to it, writes nothing, and reports the fidelity dedupFidelity derives for this put's
+// own original. ok is false, and res is returned untouched, when the root is not stored.
+func (s *FSStore) dedupHit(
+	res PutResult, o PutOptions, red, canonical []byte, deltas []canon.Delta,
+) (hit PutResult, ok bool) {
+	root := res.Root.Hash
+	s.mu.RLock()
+	existing, known := s.rootIndex[root]
+	var priorRoot rootEntry
+	if known {
+		priorRoot = *existing
+	}
+	s.mu.RUnlock()
+	if !known {
+		return res, false
+	}
+	raw := res.Root.RawBytes // THIS put's raw size…
+	res.Root, res.Novel, res.Reused = priorRoot.Root, 0, len(priorRoot.Root.Chunks)
+	res.Root.RawBytes = raw // …not the stored root's.
+	res.NearDup = s.nearDup(o.Path, root, res.Root.CanonBytes, res.Signature)
+	res.Fidelity = s.dedupFidelity(priorRoot, red, canonical, deltas)
+	s.countRaw(raw)
+	return res, true
 }
 
 // dedupFidelity reports how recoverable THIS put's original is when its canonical root is already

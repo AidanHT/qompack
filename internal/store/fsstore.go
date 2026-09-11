@@ -256,6 +256,15 @@ type FSStore struct {
 
 	seg *segLog
 
+	// putLocks serializes the puts of one canonical root, from the root-level dedup check through
+	// the publish of its content line (PutBytes). Without it two concurrent puts whose inputs differ
+	// only in a volatile token both miss the dedup, each writes a recovery record for the one root,
+	// and both report an exact original the root restores for only one of them (SP20-D3 review).
+	// It is striped by the root's first byte rather than keyed, so it costs no allocation and needs
+	// no cleanup; two unrelated roots that share a stripe merely take turns. Only PutBytes takes a
+	// stripe, and it takes exactly one, so no lock order exists to invert.
+	putLocks [putLockStripes]sync.Mutex
+
 	closeOnce sync.Once
 	closed    atomic.Bool
 }
