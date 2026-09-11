@@ -67,6 +67,31 @@ func TestDeliveryJournal_AccessorOwnershipIsRecheckedPerBatch(t *testing.T) {
 		require.Equal(t, positionBefore, readTestFile(t, positionPath), "nothing was sealed for the old owner")
 		require.NoError(t, journalFault(journal), "a lost lock refuses without poisoning the handle, as it always has")
 	})
+
+	t.Run("a batch queued before the lock was replaced", func(t *testing.T) {
+		root, _, journal := newTestDeliveryJournal(t)
+		p := newLeaseProbe(journal)
+		p.syncGate = newWALGate(t)
+		req := testDeliveryRequest("t20")
+		lead := holdFirstLeaseBatch(t, p, leaseCall{delivery: leaseToken(0), session: "t20", request: req})
+		calls := make([]leaseCall, 8)
+		for k := range calls {
+			calls[k] = leaseCall{id: k + 1, delivery: leaseToken(k + 1), session: "t20", request: req}
+		}
+		calls[4] = leaseCall{id: 5, delivery: leaseToken(0), session: "t20", request: req} // a copy of batch 1's
+		runs := queueLeases(t, p, calls...)
+		replaceTestLock(t, root)
+		p.syncGate.release()
+		awaitAll(t, append([]*leaseRun{lead}, runs...)...)
+		require.NoError(t, lead.err, "batch 1 checked ownership before the lock was replaced")
+		for _, r := range runs {
+			require.ErrorIsf(t, r.err, core.ErrDegraded, "lease %d was batched after the lock was replaced", r.id)
+			require.Equalf(t, deliveryLease{}, r.lease, "lease %d", r.id)
+		}
+		require.Equal(t, int32(1), p.writes.Load(), "the refused batch never reached the journal")
+		require.Equal(t, leaseLines(t, lead), string(readTestFile(t, journal.path)))
+		require.NoError(t, journalFault(journal))
+	})
 }
 
 // replaceTestLock models a lock that was legitimately lost and then reacquired by this same

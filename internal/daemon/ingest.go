@@ -201,6 +201,8 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 //     2). It cannot be merged with (1): fsync is per file, and these are two files in two trees.
 //     It cannot be dropped either, because the journal refuses to open on a torn tail, so an
 //     unsynced line turns a machine crash into a whole-journal degradation rather than a lost row.
+//     It is group-committed: leases that arrive together share one Write and one fsync
+//     (commitLeases), and a lease returns only once the batch carrying its line is sealed.
 //
 //  3. The lease position sidecar (deliveryJournal.savePosition, via paths.WriteAtomic: a temp-file
 //     fsync plus a parent-directory fsync — one durability point, two syscalls). Guarantees the
@@ -209,20 +211,26 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 //     the sealed prefix, and a lost assignment that went undetected would let a redelivery of an
 //     already-published delivery take a second identity. It is strictly ORDERED after (2): a
 //     position ahead of its file poisons the journal permanently, so the two syncs are a sequence,
-//     not a pair that could share one.
+//     not a pair that could share one. It is written once per lease batch, after that batch's
+//     fsync.
 //
-// The reduction that looked available — sealing the position once per batch instead of once per
-// lease, which recovery already tolerates for a single uncertain row — is the one thing that must
-// not be done. It widens the window in which a truncated tail is invisible from one line to the
-// whole batch, and that window is not a latency cost, it is silent identity loss. Deferring (2)
-// and (3) off Accept entirely (to just before publication in dispatch, which is B-C and not the
-// p99 budget) preserves the ordering guarantees on paper, but only by rebuilding the journal's
+// What must not be done is to RELEASE an identity — admit it to the journal's maps, hand it to a
+// job, let Accept return — before the seal that covers it is durable. That opens a window in which
+// a truncated tail is invisible, and that window is not a latency cost, it is silent identity
+// loss. A lease batch releases nothing before its seal returns, so the set of released but
+// unsealed identities is empty at every instant, as it was with one seal per lease. What grows
+// with the batch is only the set of lines that are durable, unsealed and never released after a
+// crash between the fsync and the seal: no caller ever saw those identities, and the next open
+// re-seals such a complete tail before anyone can reuse it (SP20-D1 design, section 2.11).
+// Deferring (2) and (3) off Accept entirely (to just before publication in dispatch, which is B-C
+// and not the p99 budget) would release before the seal, and it would also rebuild the journal's
 // synced-bytes-only admission rule, which is what makes a concurrent redelivery of the same nonce
-// see the first lease at all. Neither is a durability-neutral trade, so this path is unchanged.
+// see the first lease at all, so it is not done.
 //
 // So: 3 durability points per accepted leased delivery, and 4 fsync syscalls for one that has its
-// WAL batch to itself; deliveries that arrive together share (1)'s fsync per segment. A delivery
-// with no nonce, or one whose journal is unavailable, is an unleased gap and pays only (1).
+// WAL batch and its lease batch to itself; deliveries that arrive together share (1)'s fsync per
+// segment, and (2) and (3) per lease batch. A delivery with no nonce, or one whose journal is
+// unavailable, is an unleased gap and pays only (1).
 func (i *ingest) Accept(req ipc.Request, line []byte) error {
 	// The wire path hands over ipc.EncodeRequest's output, which json.Encoder has already
 	// terminated with '\n'; appendWAL adds the one terminator the WAL owns. Trimming here rather
