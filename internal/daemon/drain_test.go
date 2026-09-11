@@ -110,6 +110,59 @@ func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 		"client-1.ndjson's removal must be on disk before client-2.ndjson starts: gone, and forgotten in drain.json")
 }
 
+// TestDrainPersistsAFileBeforeCleaningUpItsBlobs pins the ORDER of the per-file EOF save and the
+// cleanup; TestDrainPersistsPerFileBeforeMovingOn pins only that the save exists. drainFileState's
+// contract is that PendingBlobs is persisted with the acknowledged offset before any deletion is
+// attempted. Saved after the cleanup instead, a crash between a blob's removal and that save leaves
+// the old offset on disk with the blob gone: the next pass reads the line again, and an unleased
+// line whose blob is gone wedges its file on every pass. The cleanup is made to fail from inside the
+// blob line's own dispatch, after its blob was read, by putting a non-empty directory where the blob
+// was, a removal both platforms refuse. A failed cleanup returns before anything else the file's pass
+// does, so whatever is on disk when the next file starts was saved before the cleanup was tried.
+func TestDrainPersistsAFileBeforeCleaningUpItsBlobs(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+	payload := []byte(`{"externalized":true}`)
+	const blobName = "blob-7272-0.bin"
+	blobPath := filepath.Join(spool, blobName)
+	require.NoError(t, os.WriteFile(paths.Long(blobPath), payload, 0o600))
+	ref, err := json.Marshal(blobRef{Blob: blobName, Bytes: len(payload), Field: drainBlobToolResponse})
+	require.NoError(t, err)
+	line, err := ipc.EncodeRequest(ipc.Request{
+		Op: ipc.OpObserveTool, Session: "sess-kept", Event: &hookio.Event{}, Raw: ref,
+	})
+	require.NoError(t, err)
+	kept := filepath.Join(spool, "wal-sess-kept.ndjson")
+	require.NoError(t, os.WriteFile(paths.Long(kept), line, 0o600))
+	writeSpoolFile(t, root, "client-7373.ndjson", 1) // the next file the listing offers
+	size := spoolFileSize(t, kept)
+
+	var atNextFile drainState
+	dr := newDrainer(DrainConfig{
+		Root: root, Clock: newFakeClock(epoch),
+		IsLive: func(core.SessionID) bool { return true }, // kept: no forget-save can persist the entry instead
+		Dispatch: func(_ context.Context, r ipc.Request) ipc.Response {
+			if r.Session == "sess-kept" {
+				require.NoError(t, os.Remove(paths.Long(blobPath))) // already read for this dispatch
+				require.NoError(t, os.MkdirAll(paths.Long(filepath.Join(blobPath, "keep")), 0o700))
+			} else if atNextFile == nil {
+				atNextFile = diskDrainState(t, root)
+			}
+			return ipc.Response{OK: true}
+		},
+	})
+	n, err := dr.Drain(context.Background())
+	require.Error(t, err, "fixture: the blob could not be removed")
+	require.Equal(t, 2, n, "the blob line and the next file's line")
+	require.NotNil(t, atNextFile, "fixture: the pass reached the next file")
+	require.Equal(t, &drainFileState{Size: size, Offset: size, Done: true, PendingBlobs: []string{blobName}},
+		atNextFile[filepath.Base(kept)],
+		"the consumed offset and its cleanup intent must be on disk before the cleanup is tried")
+}
+
 // TestDrainIsIdempotent pins that a fully-drained file is not re-processed by a second Drain call:
 // the file is deleted after the first pass, so SpoolFiles never offers it again.
 func TestDrainIsIdempotent(t *testing.T) {
