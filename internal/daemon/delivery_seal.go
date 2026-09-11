@@ -289,6 +289,19 @@ func isDeliverySealImage(img []byte) bool {
 // see the journal: the older record is returned so that its caller can verify that it seals a
 // prefix of the journal (part 3b's load).
 //
+// The first row has one documented consequence, and it is the strict reader's ONLY rollback window.
+// A file whose slots are seq 1 and seq 2 is, once slot b is erased to exactly deliverySealEmpty and
+// padding, indistinguishable from a fresh or converted file, so it is accepted and the sealed
+// position goes back one batch. It needs the effective seq to be exactly 2 and the erasure to be
+// exact, so it is a foreign write or a stale restore rather than rot, and every later seq, and the
+// erasure of the OLDER slot at any seq, refuses (TestDeliverySeal_StrictSelectionTable pins both).
+// Nothing is misread: the position that is read is one this journal really sealed, one batch back,
+// and part 3b's load recovers the complete tail past it and re-seals it, so identities are lost
+// only if the journal is truncated in the same incident. The J-B3 claim is "no rot of the newest
+// slot is ever accepted in place of it", with this single exception; the exception belongs to the
+// format (two slots cannot record which of them is younger when one of them is gone), not to this
+// function, and 3b's load and the ADR state it rather than claiming the stronger absolute.
+//
 // A refusal is deliveryJournalError(), the journal's error for an untrustworthy position.
 func selectSeal(img []byte, domain string, seed core.Hash) (sealRecord, *sealRecord, error) {
 	if !isDeliverySealImage(img) {
@@ -394,6 +407,12 @@ type deliverySeal struct {
 	seed   core.Hash   // the chain an empty journal carries
 	// buf is verify's read buffer, deliverySealFileSize bytes, kept so that a check allocates none.
 	buf []byte
+	// fault latches the first failure of a write's I/O, after which this seal refuses everything
+	// (write, check and downgradeToV1). See write: once a slot write has begun, the seal is
+	// uncertain, and design §3 row 13 makes the handle unusable until Release and re-acquire. The
+	// journal poisons itself on the same error; this makes the unit enforce its own contract even
+	// if a caller does not.
+	fault error
 	// syncData is paths.SyncData. It is a field only so that a test can act between a slot's write
 	// and the post-seal identity check (T24); nothing else sets it.
 	syncData func(*os.File) error
@@ -429,6 +448,10 @@ func openDeliverySeal(p string, image []byte, domain string, seed core.Hash) (*d
 
 // verifyIdentity is the post-seal identity check (the fix for J-B5), and check's first two steps:
 // the path is a regular file of deliverySealFileSize bytes, and it is the file the handle holds.
+//
+// IsRegular is defense in depth, not the check that refuses a directory or a symlink at the path:
+// os.SameFile below already refuses both, because the handle holds a regular file. Keep it, and
+// keep os.SameFile: neither is the other's backstop's replacement.
 func (s *deliverySeal) verifyIdentity() error {
 	info, err := os.Lstat(paths.Long(s.path))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != deliverySealFileSize || !os.SameFile(info, s.ident) {
@@ -458,8 +481,14 @@ func (s *deliverySeal) verify() error {
 //  3. that file, read through the handle, is image: every record, padding and static byte;
 //  4. cur is the position the journal believes is sealed.
 //
+// A seal whose write failed (s.fault) passes nothing, whatever the file now holds: its own record
+// of what is sealed is no longer trustworthy.
+//
 // Any difference is deliveryJournalError(). check never writes.
 func (s *deliverySeal) check(size int64, count int, chain core.Hash) error {
+	if s.fault != nil {
+		return s.fault
+	}
 	if err := s.verify(); err != nil {
 		return err
 	}
@@ -480,10 +509,19 @@ func (s *deliverySeal) check(size int64, count int, chain core.Hash) error {
 // and in entries, because the reader would refuse the image that left (selectSeal's second row).
 // It refuses a position out of bounds, and a seq that would wrap, for the same reason.
 //
-// A failure is deliveryJournalError(). The file may then hold the old record, the new one, or a
-// torn slot, and the journal must treat the seal as uncertain and poison its handle (design §3,
-// row 13).
+// A failure is deliveryJournalError(). A refusal before any I/O leaves the seal usable: nothing was
+// attempted. A failure from the I/O onwards leaves the file holding the old record, the new one or
+// a torn slot, and the journal must treat the seal as uncertain and poison its handle (design §3,
+// row 13). The seal latches that fault itself (s.fault) and afterwards refuses every write, check
+// and downgrade: a seal whose write failed is never retried. On Linux that is not a stylistic rule,
+// a retried fdatasync after a failed one can report success without the data ever being durable.
 func (s *deliverySeal) write(size int64, count int, chain core.Hash) error {
+	if s.fault != nil {
+		return s.fault
+	}
+	// The seq guard is defense in depth: a wrapped seq is 0, and encodeSlot's admissibility check
+	// below is what refuses it (sealAdmissible requires Seq >= 1). It states the bound where the
+	// arithmetic is, rather than leaving the file format's only unrepresentable seq implicit.
 	if s.seq == math.MaxUint64 || size <= s.cur.Bytes || count <= s.cur.Count {
 		return deliveryJournalError()
 	}
@@ -493,10 +531,13 @@ func (s *deliverySeal) write(size int64, count int, chain core.Hash) error {
 	if err != nil {
 		return err
 	}
+	// From here the seal is uncertain unless every step succeeds, so every failure latches.
 	if err := s.writeSlot(slot, enc); err != nil {
+		s.fault = err
 		return err
 	}
 	if err := s.verifyIdentity(); err != nil {
+		s.fault = err
 		return err
 	}
 	copy(s.image[slot.offset():], enc)
@@ -523,7 +564,13 @@ func (s *deliverySeal) close() error { return s.f.Close() }
 
 // downgradeToV1 replaces the seal file with the v1 sidecar for the last sealed position
 // (writeDeliveryPositionV1), so that an older binary finds a file it reads. It is the step a clean
-// Release takes after close (design §2.9, Release step 3).
+// Release takes after close (design §2.9, Release step 3), and a CLEAN release only: a seal whose
+// write failed refuses, because cur is then not known to be what the file holds and a downgrade
+// would replace an uncertain v2 file with a position one batch behind it. That is the seal's half
+// of the design's "fault == nil" condition on the downgrade; the journal's fault is 3b's half.
 func (s *deliverySeal) downgradeToV1() error {
+	if s.fault != nil {
+		return s.fault
+	}
 	return writeDeliveryPositionV1(s.path, s.cur.Bytes, s.cur.Count, s.cur.Chain)
 }

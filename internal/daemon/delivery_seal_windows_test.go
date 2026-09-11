@@ -9,6 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// requireOwnerOnlyMode asserts nothing on Windows, which has no POSIX mode bits: a file there
+// reports 0o666 (or 0o444 when read-only) whatever mode it was created with, so the permissions the
+// v1 downgrade writes can only be observed off Windows. delivery_seal_other_test.go asserts them.
+func requireOwnerOnlyMode(_ *testing.T, _ string) {}
+
 // requireNoOpenHandle asserts that no handle on p is open, by opening p with no sharing at all:
 // CreateFile then fails with ERROR_SHARING_VIOLATION while any other handle with read, write or
 // delete access is open, whatever share mode that handle granted. A leaked seal handle, which has
