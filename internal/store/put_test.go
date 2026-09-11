@@ -325,8 +325,11 @@ func TestPutBytes_KeepRawStoresDeltaRoot(t *testing.T) {
 	require.NoError(t, err)
 
 	var decoded []canon.Delta
-	require.NoError(t, json.Unmarshal(blob, &deltaJSON{&decoded}))
+	var declared string
+	require.NoError(t, json.Unmarshal(blob, &deltaJSON{out: &decoded, base: &declared}))
 	require.Len(t, decoded, 2, "both stripped timestamp lines must be recorded")
+	require.Equal(t, res.Root.Hash.String(), declared,
+		"the record's own payload names the base it reconstructs (SP20-D3)")
 
 	tp.Store.mu.RLock()
 	rawAfter, bytesAfter := tp.Store.rawBytes, tp.Store.bytesOnDisk
@@ -334,24 +337,31 @@ func TestPutBytes_KeepRawStoresDeltaRoot(t *testing.T) {
 	require.Equal(t, rawBefore+int64(len(input)), rawAfter,
 		"the delta side record is store overhead and must NOT inflate RawBytes")
 	require.Positive(t, bytesAfter, "the delta side record must count toward Stats.Bytes")
-	_ = res
 }
 
-// deltaJSON decodes the compact {"o","l","c","s"} delta array marshalDeltas writes.
-type deltaJSON struct{ out *[]canon.Delta }
+// deltaJSON decodes the {"base","deltas"} record marshalDeltaRecord writes, whose deltas are the
+// compact {"o","l","c","s"} array.
+type deltaJSON struct {
+	out  *[]canon.Delta
+	base *string
+}
 
-// UnmarshalJSON maps the short keys back onto canon.Delta.
+// UnmarshalJSON maps the short keys back onto canon.Delta and reports the declared base.
 func (d *deltaJSON) UnmarshalJSON(b []byte) error {
-	var wire []struct {
-		O int    `json:"o"`
-		L int    `json:"l"`
-		C string `json:"c"`
-		S string `json:"s"`
+	var rec struct {
+		Base   string `json:"base"`
+		Deltas []struct {
+			O int    `json:"o"`
+			L int    `json:"l"`
+			C string `json:"c"`
+			S string `json:"s"`
+		} `json:"deltas"`
 	}
-	if err := json.Unmarshal(b, &wire); err != nil {
+	if err := json.Unmarshal(b, &rec); err != nil {
 		return err
 	}
-	for _, w := range wire {
+	*d.base = rec.Base
+	for _, w := range rec.Deltas {
 		*d.out = append(*d.out, canon.Delta{Offset: w.O, Len: w.L, Original: w.S, Class: canon.Class(w.C)})
 	}
 	return nil
