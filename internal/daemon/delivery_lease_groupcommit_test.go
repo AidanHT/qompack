@@ -1136,6 +1136,97 @@ func TestDeliveryJournal_ReleaseWaitsForInFlightBatchesAndFailsQueued(t *testing
 	require.Error(t, err)
 }
 
+// T16 — design §6.2, fix J-B2, in this stage's form: acknowledge is still its per-call body under
+// Lock.mu, and enter is the one fault gate the two halves share. An uncertain write on either side
+// poisons that one fault, and every later operation on both sides refuses: a new lease, a known
+// nonce, an acknowledgement, the accessor and acknowledged. Each fault here leaves the lease files
+// agreeing with memory, so the next lease batch's checkFile passes and only enter's fault check
+// stands between the poisoned journal and a new identity. The faults the other tests inject (a short
+// or unsynced line, a replaced position) are also caught by checkFile, which hides an enter that
+// ignores the fault. Nothing is appended or sealed on either side once the journal is poisoned.
+func TestDeliveryJournal_AnyFaultPoisonsBothPipelines(t *testing.T) {
+	errFault := errors.New("private backend fixture")
+	req := testDeliveryRequest("t16")
+	const sess = core.SessionID("t16")
+	// failOnce is a Write that writes nothing and fails the first time, and writes through after.
+	failOnce := func(f *os.File) func([]byte) (int, error) {
+		failed := false
+		return func(b []byte) (int, error) {
+			if !failed {
+				failed = true
+				return 0, errFault
+			}
+			return f.Write(b)
+		}
+	}
+	for _, c := range []struct {
+		name string
+		// fault makes one operation on j fail uncertainly. pending is leased and not acknowledged.
+		fault func(t *testing.T, j *deliveryJournal, pending deliveryLease)
+		// ackFilesAgree is whether the acknowledgement files still agree with memory after it.
+		ackFilesAgree bool
+	}{
+		{"a lease Write that wrote nothing", func(t *testing.T, j *deliveryJournal, _ deliveryLease) {
+			j.writer = leaseFaultWriter{file: j.file, write: failOnce(j.file)}
+			_, err := j.lease(context.Background(), leaseToken(9), sess, req)
+			require.ErrorIs(t, err, core.ErrDegraded)
+		}, true},
+		{"an acknowledgement Write that wrote nothing", func(t *testing.T, j *deliveryJournal, pending deliveryLease) {
+			j.ackWriter = leaseFaultWriter{file: j.ackFile, write: failOnce(j.ackFile)}
+			err := j.acknowledge(context.Background(), pending.Delivery, pending.ObservationID, core.Hash{})
+			require.ErrorIs(t, err, core.ErrDegraded)
+		}, true},
+		{"an acknowledgement whose Sync failed", func(t *testing.T, j *deliveryJournal, pending deliveryLease) {
+			j.ackWriter = leaseFaultWriter{file: j.ackFile, sync: func() error { return errFault }}
+			err := j.acknowledge(context.Background(), pending.Delivery, pending.ObservationID, core.Hash{})
+			require.ErrorIs(t, err, core.ErrDegraded)
+		}, false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, lock, journal := newTestDeliveryJournal(t)
+			ctx := context.Background()
+			acked, err := journal.lease(ctx, leaseToken(1), sess, req)
+			require.NoError(t, err)
+			require.NoError(t, journal.acknowledge(ctx, acked.Delivery, acked.ObservationID, core.Hash{}))
+			pending, err := journal.lease(ctx, leaseToken(2), sess, req)
+			require.NoError(t, err)
+
+			c.fault(t, journal, pending)
+			require.Error(t, journalFault(journal), "the fault is recorded")
+			require.NoError(t, journal.checkFile(), "the lease files still agree: only the fault can refuse a lease")
+			if c.ackFilesAgree {
+				require.NoError(t, journal.checkAckFile(), "the acknowledgement files still agree: only the fault can refuse one")
+			}
+			before := readJournalFiles(t, journal)
+
+			l, err := journal.lease(ctx, leaseToken(3), sess, req)
+			require.ErrorIsf(t, err, core.ErrDegraded, "a poisoned journal issued a new identity: %+v", l)
+			require.Equal(t, deliveryLease{}, l)
+			l, err = journal.lease(ctx, acked.Delivery, sess, req)
+			require.ErrorIsf(t, err, core.ErrDegraded, "a poisoned journal answered a known nonce: %+v", l)
+			require.Equal(t, deliveryLease{}, l)
+			require.ErrorIs(t, journal.acknowledge(ctx, pending.Delivery, pending.ObservationID, core.Hash{}), core.ErrDegraded,
+				"a poisoned journal committed an acknowledgement")
+			_, err = lock.openDeliveryJournal()
+			require.Error(t, err, "the accessor hands out no poisoned journal")
+			require.False(t, journal.acknowledged(acked.Delivery), "a poisoned journal cannot say what is acknowledged")
+			require.Equal(t, before, readJournalFiles(t, journal), "nothing was appended or sealed on either side")
+		})
+	}
+}
+
+// readJournalFiles returns the content of j's four files, the lease and acknowledgement journals
+// and their position sidecars, by name.
+func readJournalFiles(t *testing.T, j *deliveryJournal) map[string]string {
+	t.Helper()
+	dir := filepath.Dir(j.path)
+	out := map[string]string{}
+	for _, name := range []string{deliveryLeaseFile, deliveryPositionFile, deliveryAckFile, deliveryAckPositionFile} {
+		out[name] = string(readTestFile(t, filepath.Join(dir, name)))
+	}
+	return out
+}
+
 // leaseOutcome is what one lease call answered.
 type leaseOutcome struct {
 	lease deliveryLease
