@@ -387,10 +387,12 @@ readLoop:
 	}
 
 	fs.Done = offset == size // incomplete trailing bytes remain pending, even for ended sessions
-	// Persisted here — per file, on EOF, before the remove — not just once at the end of Drain
-	// (task-3-spec.md drain.go step 4's exact ordering): a crash between this file's removal and
-	// the end of the outer loop must not lose this file's recorded completion, which is what makes
-	// "Drain is idempotent and resumable" true across a crash, not only across a clean cancel.
+	// Persisted here — per file, on EOF, before the cleanup and the remove — not just once at the
+	// end of Drain (task-3-spec.md drain.go step 4's exact ordering): a crash anywhere after this
+	// file's last line must not lose its recorded completion or its cleanup intents, which is what
+	// makes "Drain is idempotent and resumable" true across a crash, not only across a clean
+	// cancel. The completion is given up only for a removal, and removeCompletedFile persists that
+	// before it unlinks.
 	if serr := dr.saveState(st); serr != nil {
 		dr.cfg.Log.Warn("daemon: drain: failed to persist state", "err", serr)
 		return count, serr
@@ -407,6 +409,18 @@ readLoop:
 // from the stat at the top of the pass, because a file can grow between that stat and here. A file
 // that has grown, or a WAL segment the ingest still holds, is left for a later pass. Neither is an
 // error: nothing is wrong with it, it simply is not finished yet.
+//
+// The file's progress entry is forgotten, durably, BEFORE the unlink. Forgetting it afterwards, in
+// memory for the next saveState, let a crash in between keep {Done, Offset: S, Size: S} on disk for
+// a file that was gone, and nothing retired it: loadState accepts it, the pass visits only files
+// that exist, and every later save wrote it back. Once the name came back (the ingest reopening
+// wal-<session>.ndjson after a restart mid-session, a straggler after SessionEnd reopening segment
+// 0), a smaller file failed every Drain for the whole spool, one of the same size was removed
+// undrained, and a larger one lost its first S bytes. Forgetting first moves the crash window to
+// the safe side: a file with no entry, which the next pass reads again from offset zero. That is
+// at-least-once, which the drain already collapses for every leased line through the committed
+// frontier, and which the handlers tolerate for the rest. A removal that does not happen — refused
+// or failed — puts the entry back and persists it again before the pass goes on.
 func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st drainState) error {
 	if !fs.Done || len(fs.PendingBlobs) > 0 || !dr.shouldDelete(base) {
 		return nil
@@ -415,17 +429,20 @@ func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st
 	if _, isWAL := walSessionID(base); isWAL && dr.cfg.RemoveWAL != nil {
 		remove = dr.cfg.RemoveWAL
 	}
-	removed, err := remove(path, fs.Offset)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
+	delete(st, base)
+	if err := dr.saveState(st); err != nil {
+		st[base] = fs // nothing is removed until its forgetting is on disk
 		return err
 	}
-	if removed {
-		delete(st, base)
+	removed, err := remove(path, fs.Offset)
+	if removed || os.IsNotExist(err) {
+		return nil // gone, and already forgotten on disk
 	}
-	return nil
+	st[base] = fs
+	if serr := dr.saveState(st); serr != nil {
+		return errors.Join(err, serr)
+	}
+	return err
 }
 
 // removeIfUnchanged removes path only if its size still equals drained, so bytes appended after a
