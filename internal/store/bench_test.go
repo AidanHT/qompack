@@ -157,7 +157,8 @@ func BenchmarkPutBytes_100KB_Warm_KeepRaw(b *testing.B) {
 		{"verbatim", nil, body, FidelityExact},
 		{"delta", nil, append([]byte("built at 2026-09-09T10:00:00Z\n"), body...), FidelityExact},
 		{
-			"full", []storeOpt{withCanon(canonLossyDeltas())},
+			"full",
+			[]storeOpt{withCanon(canonLossyDeltas())},
 			append([]byte(timestampPrefix+"09:11:04\n"), body...), FidelityFull,
 		},
 	}
