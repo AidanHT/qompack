@@ -91,15 +91,21 @@ func recordingDrainer(root string, clk core.Clock, got *[]core.UnixMilli) *drain
 // unlinked inode. The crash is simulated by closing the ingest's handles — what process death does —
 // with no Stop and no worker ever having run: a fresh drainer over the same spool directory must
 // still find the delivery accepted after the drain.
+//
+// The deliveries go straight through the ingest (liveWALAccept), not through the hot-path route,
+// so the registry never learns of the session and the drain's liveness answer stays "not live": the
+// ingest's own held check is the only guard left, and this test fails without it. Its twin,
+// TestDrainKeepsTheWALOfASessionLiveByTrafficAlone, drives the real route and pins the liveness half.
 func TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession(t *testing.T) {
 	t.Parallel()
 	const sess = core.SessionID("sess-restarted-mid-session")
 	dd, clk := liveWALDaemon(t, nil)
 	ctx := context.Background()
 
-	require.True(t, dd.dispatchOp(ctx, liveWALTool(dd, sess)).OK)
+	liveWALAccept(t, dd, liveWALTool(dd, sess))
 	walFile := walPath(paths.Of(dd.root).Spool, sess, 0)
 	require.FileExists(t, walFile)
+	require.False(t, dd.registry.IsLive(sess), "the drain must see the session as not live")
 
 	n, err := newDrainer(dd.drainConfig()).Drain(ctx)
 	require.NoError(t, err, "a segment the ingest is still appending to is not a file error")
@@ -109,10 +115,45 @@ func TestDrainKeepsTheWALTheIngestHoldsForAnUnregisteredSession(t *testing.T) {
 
 	clk.Advance(time.Millisecond)
 	after := liveWALTool(dd, sess)
-	require.True(t, dd.dispatchOp(ctx, after).OK, "the delivery is ACKed: its WAL line is durable")
+	liveWALAccept(t, dd, after) // Accept returned: the hot-path route ACKs now, its WAL line durable
+	require.False(t, dd.registry.IsLive(sess))
 
 	// Crash: the OS closes every handle; nothing is flushed, drained or processed.
 	require.NoError(t, dd.ing.Close())
+
+	var got []core.UnixMilli
+	_, err = recordingDrainer(dd.root, clk, &got).Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, []core.UnixMilli{after.TS}, got,
+		"the delivery ACKed after the drain must be recoverable from the spool after a crash")
+}
+
+// TestDrainKeepsTheWALOfASessionLiveByTrafficAlone is the same scenario driven through the real
+// hot-path route (dispatchOp), which records the traffic in the registry. A session this daemon
+// knows only from its traffic must count as live — the drain keeps a live session's segments
+// wholesale — and the delivery ACKed after the drain must still survive a crash.
+func TestDrainKeepsTheWALOfASessionLiveByTrafficAlone(t *testing.T) {
+	t.Parallel()
+	const sess = core.SessionID("sess-live-by-traffic")
+	dd, clk := liveWALDaemon(t, nil)
+	ctx := context.Background()
+
+	require.True(t, dd.dispatchOp(ctx, liveWALTool(dd, sess)).OK)
+	walFile := walPath(paths.Of(dd.root).Spool, sess, 0)
+	require.FileExists(t, walFile)
+	require.True(t, dd.registry.IsLive(sess), "hot-path traffic with no SessionStart proves the session live")
+
+	n, err := newDrainer(dd.drainConfig()).Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Zero(t, dd.m.Counter(counterDrainFileError).Value())
+	require.FileExists(t, walFile, "a live session's segment must survive the drain")
+
+	clk.Advance(time.Millisecond)
+	after := liveWALTool(dd, sess)
+	require.True(t, dd.dispatchOp(ctx, after).OK, "the delivery is ACKed: its WAL line is durable")
+
+	require.NoError(t, dd.ing.Close()) // crash
 
 	var got []core.UnixMilli
 	_, err = recordingDrainer(dd.root, clk, &got).Drain(ctx)
