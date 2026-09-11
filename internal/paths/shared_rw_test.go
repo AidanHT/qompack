@@ -71,6 +71,44 @@ func TestOpenSharedRW_ReadersStillReadTheHeldFile(t *testing.T) {
 	require.EqualValues(t, len(sharedRWFixture), info.Size())
 }
 
+// TestOpenSharedRW_OtherWritersStillWriteTheHeldFile pins the third of the share mask,
+// FILE_SHARE_WRITE, which the other tests here cannot see. While the handle is held, another writer
+// opens the same path for writing, and its bytes land in the very file the handle holds. Both
+// shapes the tree needs are covered: an in-place patch through a second read-write handle, and
+// os.WriteFile, which opens for writing and truncates — the way a v1 JSON position is written over
+// a held v2 seal file (SP20-D1 design §6.1's step-2 trace). On Windows a holder that did not share
+// write access would fail both with a sharing violation.
+func TestOpenSharedRW_OtherWritersStillWriteTheHeldFile(t *testing.T) {
+	target, held := heldSharedRW(t, newLayout(t))
+
+	second, err := paths.OpenSharedRW(target)
+	require.NoError(t, err, "a second writer must be able to open the held path")
+	n, err := second.WriteAt([]byte(sharedRWPatch), sharedRWPatchAt)
+	require.NoError(t, err)
+	require.Equal(t, len(sharedRWPatch), n)
+	require.NoError(t, second.Close())
+
+	buf := make([]byte, len(sharedRWFixture))
+	_, err = held.ReadAt(buf, 0)
+	require.NoError(t, err)
+	require.Equal(t, sharedRWPatched, string(buf), "the held handle reads another writer's in-place write")
+
+	const shorter = "written over it"
+	require.NoError(t, os.WriteFile(target, []byte(shorter), 0o600),
+		"os.WriteFile opens for writing and truncates; a held handle must not block it")
+
+	heldInfo, err := held.Stat()
+	require.NoError(t, err)
+	require.EqualValues(t, len(shorter), heldInfo.Size(), "it truncated the file the handle holds")
+	onPath, err := os.Lstat(target)
+	require.NoError(t, err)
+	require.True(t, os.SameFile(onPath, heldInfo), "and wrote it in place rather than replacing it")
+	got := make([]byte, len(shorter))
+	_, err = held.ReadAt(got, 0)
+	require.NoError(t, err)
+	require.Equal(t, shorter, string(got))
+}
+
 // TestOpenSharedRW_HeldFileCanBeRemovedAndItsNameReused pins the POSIX delete semantics the v2
 // seal's tests rely on (SP20-D1 design risk R2). While the handle is held, os.Remove of the path
 // succeeds and frees the name at once, so that os.Mkdir can take it; and the handle keeps writing
