@@ -639,6 +639,54 @@ func (i *ingest) CloseSession(sess core.SessionID) error {
 	return wf.w.Close()
 }
 
+// removeDrainedWAL removes the WAL segment at path on the drainer's behalf and reports whether it
+// did. It refuses, without error, a segment this ingest holds open for appending — a session's
+// current segment, where its next append lands — and one whose size no longer equals drained, the
+// offset the drain consumed. Removing a held segment failed on Windows with a sharing violation on
+// every drain pass; on POSIX the unlink succeeded, and every later append, fsynced and ACKed as
+// durable, went into an unlinked inode that a crash then lost for good. The session's liveness
+// cannot stand in for this check: the registry does not know every session whose segment is open
+// (one SessionEnd ended, then a straggler reopened; one EndAbandoned ended while its handle stayed
+// cached), and it is not the lock the appends take.
+//
+// Both refusals are decided under i.mu, which every append and every segment open takes, so no
+// append can land between the decision and the unlink. An append that comes after an unlink
+// reopens the name as a fresh segment, which the next drain reads from offset zero. Only the base
+// name is compared: the ingest writes nowhere but its own spool directory, and a false "held" only
+// defers a removal. The mutex is held across one stat and one unlink, so an Accept arriving in that
+// moment waits for them; that happens once per segment actually retired, and a held segment costs no
+// I/O at all.
+func (i *ingest) removeDrainedWAL(path string, drained int64) (bool, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	if i.holdsLocked(filepath.Base(path)) {
+		return false, nil
+	}
+	return removeIfUnchanged(path, drained)
+}
+
+// holdsWAL reports whether this ingest holds the segment at path open for appending: the first of
+// removeDrainedWAL's two refusals, answered alone and under the same mutex. The drainer asks it
+// before it forgets a finished segment's progress (DrainConfig.HoldsWAL), so a segment held all
+// along is not forgotten, refused and restored on every pass. The answer can be stale by the time
+// the drainer acts on it, which is why removeDrainedWAL decides again.
+func (i *ingest) holdsWAL(path string) bool {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.holdsLocked(filepath.Base(path))
+}
+
+// holdsLocked reports whether base names the current segment of a session this ingest holds open.
+// Only the base name is compared (removeDrainedWAL says why). i.mu must be held.
+func (i *ingest) holdsLocked(base string) bool {
+	for sess, wf := range i.wals {
+		if wf.w != nil && filepath.Base(walPath(i.spoolDir, sess, wf.seq)) == base {
+			return true
+		}
+	}
+	return false
+}
+
 // Wait blocks until every worker goroutine Start launched has returned — which happens once ctx
 // (the ctx Start was given) is done and each worker's in-flight dispatch, if any, finishes. Task 4
 // uses this to join the worker pool before tearing down the store on shutdown: without it, a

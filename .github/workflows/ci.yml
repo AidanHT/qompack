@@ -122,30 +122,23 @@ jobs:
       # byte-identical — a coin flip on scheduler weather. See docs/adr/0010.
       QOMPACK_UNDER_COLOAD: '1'
       # ── Expected failures ───────────────────────────────────────────────────────────────────────
-      # These rows are DELIBERATELY red and must stay red locally: they are the open items in
-      # plans/V4-report.md section 19 — the four carried defects the wave report still cannot
-      # resolve (SP05-D1, SP06-D2, SP08-D1, SP10-D1). The Belady p_min floor that stood beside
-      # them was retired by the owner on 2026-09-10; its test now pins the exact measurement
-      # (test/integration/dagselection_test.go), so it passes and is struck from this list.
+      # A row that is DELIBERATELY red, an open item a wave report names, is listed here. The list
+      # is empty at the V5 close-out. The four carried defects that stood here (SP05-D1, SP06-D2,
+      # SP08-D1, SP10-D1; plans/V4-report.md section 19) were fixed or deferred to V6-VERIFY by
+      # V5-VERIFY, so TestCarriedDefects_WaveReportRequiresResolution passes, and the Belady
+      # p_min floor that stood beside them was retired by the owner on 2026-09-10 (its test now
+      # pins the exact measurement, test/integration/dagselection_test.go).
       #
-      # Enumerating them is what restores the signal. Without this list the job could never be
-      # green, so a genuine new failure anywhere in test/guards or test/integration was
-      # indistinguishable at the job level from these five. The list is enforced in BOTH
-      # directions: an unlisted row that fails breaks the build, and a listed row that PASSES
-      # breaks the build too — a defect that gets fixed must be struck from here, and from the
-      # report, in the same change that fixes it.
+      # Enumerating red rows is what keeps the signal: without the list a job with one known red
+      # row could never be green, and a genuine new failure beside it would be indistinguishable
+      # at the job level. The list is enforced in BOTH directions: an unlisted row that fails
+      # breaks the build, and a listed row that PASSES breaks the build too — a defect that gets
+      # fixed must be struck from here, and from the report, in the same change that fixes it.
       #
-      # A subtest failure also fails its parent and its package, so the parent rows are listed
-      # here and the two packages in EXPECTED_FAILING_PACKAGES below.
-      EXPECTED_FAILING_ROWS: |
-        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution
-        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP05-D1
-        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
-        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
-        github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
-      EXPECTED_FAILING_PACKAGES: |
-        github.com/qompack/qompack/test/guards
-        github.com/qompack/qompack/test/integration
+      # A subtest failure also fails its parent and its package, so a listed subtest brings its
+      # parent row into this list and its package into EXPECTED_FAILING_PACKAGES below.
+      EXPECTED_FAILING_ROWS: ''
+      EXPECTED_FAILING_PACKAGES: ''
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -208,10 +201,10 @@ jobs:
           if [ "$rc" = 0 ] && [ "$status" != 0 ]; then
             echo "the whole-tree run exited $status; every failing row is an expected one"
           fi
-          # Failures are surfaced by the reconciliation, not by go test's exit code: the four
-          # carried defects and the Belady row make that code permanently non-zero. Nothing is
-          # skipped, nothing is continue-on-error, and no red row is weakened — they stay red
-          # locally and are named here.
+          # Failures are surfaced by the reconciliation, not by go test's exit code: a listed red
+          # row makes that code non-zero by design. Nothing is skipped, nothing is
+          # continue-on-error, and no red row is weakened — a listed row stays red locally and is
+          # named above.
           if [ "$rc" != 0 ]; then
             grep -E '"Action":"(fail|output)"' test.json | tail -n 200
           fi

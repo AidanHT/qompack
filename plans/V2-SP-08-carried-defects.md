@@ -207,3 +207,88 @@ the acknowledged-copy path that produced every observed instance is closed.
 
 **Acceptance (V6).** Both observer sites idempotent under a reused lease, the evidence test
 inverted to assert one record and no inverted mark, and the e2e x09 flush arm unchanged.
+
+## SP08-D3 — a prompt the daemon did not capture live is never verbatim-captured
+
+**Symptom.** G2.3's verbatim prompt capture (`observer.OnUserPrompt`) runs only on the live reply
+path (`internal/daemon/handlers.go` `handleObservePrompt`). Every replay of an `observe.prompt`
+delivery — the startup Drain that runs before Serve, `redrainOnceServing`, the idle drain, Stop's
+drain, a flush — reaches `runIngested` through `drainDispatch`, and `runIngested`'s prompt arm runs
+only the sentinel scan. The delivery is then acknowledged and its spool or WAL copy, the last
+durable copy of the words, is deleted. Until the V5 close-out nothing counted the loss; the counter
+`l0_prompt_replayed_uncaptured` now does (an upper bound: a line the full ring refused, or one whose
+live capture landed before a crash, replays the same way).
+
+A lost turn 0 is worse than a missing record. `readL0Intent` (`internal/rehydrate/items.go`) needs
+`prompt_<s>_0`. Without it the rehydrator falls back to the checkpoint's `UserIntent.Original`,
+which `seedTierOne` (`internal/checkpoint/writer.go`) took from the earliest prompt that WAS
+captured, so rehydration item 2 injects the second or a later prompt under the "verbatim original"
+label, with a drop entry that claims §8.5 provenance. When no Stop advances the turn between the
+lost prompt and the next one, the next prompt is recorded as `prompt_<s>_0` itself and is injected
+with no drop entry at all.
+
+**How it was found.** SP-08's final correctness review, finding F7
+(`plans/sdd/V3-SP-08-observer-l0/final-review-correctness.md`), handed V3-VERIFY the question
+"whether drain should re-invoke the capture with the Output discarded". No checkpoint ruled on it,
+and `plans/sdd/V5-VERIFY/x01-disposition.md` reshaped X1 around the loss as behaviour. The V5
+close-out (2026-09-10) found it unruled while fixing the live half. It is not the V3-VERIFY plan's
+row F7 (segment log / DPI guard), which shares the name.
+
+F7's premise that a replayed capture converges is false. The record id is
+`VerbatimPromptID(session, st.Turn)`, read when the capture takes the session lock, and every call
+runs `Turn++`; `RecordToolUse` refuses a second root under one id and the DAG merges a node by id. A
+drain that re-invoked the capture would therefore record the same words again one turn later (the
+class of SP08-D2), and it would still miss the window in which the live worker acknowledges the
+delivery before a detached capture lands.
+
+**Exposure.** The paths on which a prompt reaches the daemon only by replay, or never finishes its
+capture:
+
+| path | where | turn 0 | later prompts |
+|---|---|---|---|
+| idle exit, then a prompt after about 60 minutes of silence | `EndAbandoned` plus the zero-live countdown (`IdleExitSeconds` 1800); the client spools before `lazySpawn` | low | the first prompt after every long break |
+| the HotSpool submode after a B-A breach | the client spools every hot-path op without dialling (`internal/ipc/client.go`); only a new session clears the mode | rare | every later prompt of that session |
+| a connect failure against a busy daemon | the hot-path dial budget, 5 ms (25 ms on Windows) | low | low to moderate under load |
+| a cold start with no serving daemon | the `EnsureRunning` bound, a spawn failure, or a long startup Drain | rare (less rare for headless `claude -p`) | rare |
+| a crash between the WAL append and the capture | the WAL line replays through the sentinel scan | very rare | very rare |
+| Stop with a capture in flight or refused | `stopPromptRecordings`; `l0_prompt_capture_refused` counts refusals | very rare | very rare |
+| configured spool-only (`runtime.daemon.enabled=false`, an over-long address) | `internal/cli/hookclient.go` | every session | every prompt |
+
+The one loss V5 measured — the 250 ms reply deadline cancelling the capture (x01 saw 4 of 4 prompts
+soft-dropped under co-load) — is fixed by `0e2e45a` and `a73db51`. A late capture can still land
+after a Stop-driven turn advance or after a compaction read (that fix's review, finding F2); the
+identity rule in the acceptance below closes that window too.
+
+**Evidence.** `TestCarriedDefect_SP08D3_DrainedPromptIsNeverCaptured`
+(`internal/daemon/drain_prompt_capture_test.go`, `777522c`) pins today's outcome with the real
+observer and store: a spooled `observe.prompt` is drained, acknowledged and deleted with no
+`prompt_<s>_0` record and `observer.err.prompt.put` at 0 (the capture was never attempted, so this
+is not a soft-drop); `l0_prompt_replayed_uncaptured` reads 1; and the next LIVE prompt in the session
+is then recorded as `prompt_<s>_0`, the silent substitution. That live capture landing is also the
+test's positive control. Negative control (not committed): with the replay arm also calling
+`svc.ObservePrompt`, the test fails at its not-found assertion, because the drained prompt is then
+captured as `prompt_<s>_0`.
+
+**Why it is carried.** A correct fix changes the L0 capture contract across SP-05, SP-08 and SP-20:
+the capture moves into the acknowledgement-gated ingest job keyed by the delivery's ObservationID,
+`Accept` returns the lease, `onUserPrompt` splits, and prompts start linking capture sidecars the
+way tool results do. It shares its identity helper with SP08-D2, collides with the SP20-D1
+group-commit rewrite of `Accept`, and still needs owner rulings (replay order, HotSpool, rehydrator
+honesty) before turn 0 is reliable. The V5 close-out was authorized to fix failing tests and gates;
+this row fails neither, so it is counted and pinned now and resolved with SP08-D2 in V6.
+
+**Acceptance (V6).**
+1. One prompt record per ObservationID, whether the delivery arrived live or by replay; the prompt's
+   frontier acknowledgement follows its capture (the capture runs inside `runIngested` ahead of
+   `commitDelivery`, not as a drain-only re-invoke).
+2. A session's first admitted prompt is `prompt_<s>_0` even when it arrives by replay — replay order
+   by the first record's TS per client file at minimum, a per-session merge on `req.TS` in full — or,
+   if the owner rules ordering out, the rehydrator stops presenting a later turn's capture as the
+   original (a Warn, a drop entry naming the substituted turn, no §8.5 provenance claim) and
+   checkpoint seeding records which turn it took the original from.
+3. A HotSpool ruling: exempt `observe.prompt` from the client-side short-circuit, or accept
+   capture-by-drain once item 1 lands.
+4. SP08-D2 closed in the same reviewed change, since it needs the same identity helper.
+5. The evidence test inverted; the replay pin in `internal/daemon/prompt_record_test.go` ("a
+   replayed observe.prompt must not record the prompt twice") rewritten to one record per
+   ObservationID; X1's index promise restored to 65 or reconciled against the counter.

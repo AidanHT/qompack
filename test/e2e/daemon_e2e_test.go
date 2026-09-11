@@ -319,14 +319,16 @@ func TestE2ELazySpawn(t *testing.T) {
 	// becoming visible, rather than assuming the ACK proves the count has landed.
 	//
 	// It deliberately does NOT read spool/wal-<session>.ndjson, which is what it used to do. That
-	// WAL line is real — Accept appends it before the ACK — but the FILE is transient by design,
-	// and what removes it is the very re-drain asserted below: a fully drained WAL is deleted
-	// unless its session is still live (internal/daemon/drain.go, shouldDelete), and here it never
-	// is, because no session.start runs and observe.tool only Touches the registry — a documented
-	// no-op for an id Ensure has never seen (registry.go). The old assertion therefore raced its
-	// own evidence, and lost wherever unlink is not blocked by the ingest's still-open handle: CI
-	// run 32296920486 failed it on ubuntu, macos and cover while windows passed. No bound is the
-	// answer to that; nothing brings a deleted file back.
+	// WAL line is real — Accept appends it before the ACK — but when this was written the FILE was
+	// removed by the very re-drain asserted below: a fully drained WAL was deleted unless its
+	// session was live (internal/daemon/drain.go, shouldDelete), and here it never was, because no
+	// session.start runs and observe.tool's Touch then ignored an id Ensure had never seen. The old
+	// assertion therefore raced its own evidence, and lost wherever unlink is not blocked by the
+	// ingest's still-open handle: CI run 32296920486 failed it on ubuntu, macos and cover while
+	// windows passed. That deletion is gone: Touch now registers a session by its traffic, so call
+	// 2 makes this session live and the drain keeps its WAL, and the ingest refuses to remove a
+	// segment it still holds open in any case (ingest.removeDrainedWAL). The sample stays the
+	// evidence all the same, because it depends on neither of those retention rules.
 	//
 	// Sensitivity is kept where it counts. This still fails on every state the WAL check failed
 	// on: a second call that spooled instead of connecting, or was lost outright, records no

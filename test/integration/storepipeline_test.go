@@ -178,22 +178,27 @@ func deltaRootOf(t *testing.T, p *testutil.Project, want core.Hash) core.Hash {
 	return core.Hash{}
 }
 
-// decodeDeltas parses the store's compact {"o","l","c","s"} delta array back into canon.Delta
-// values — the wire format marshalDeltas writes and the store's goldens pin.
-func decodeDeltas(t *testing.T, blob []byte) []canon.Delta {
+// decodeDeltaRecord parses the store's delta side record — {"base":…,"deltas":[…]}, the base it
+// reconstructs and the compact {"o","l","c","s"} delta array — back into the declared base and the
+// canon.Delta values. It is the wire format marshalDeltaRecord writes; the base inside the payload
+// is what keeps two roots from sharing one record (SP20-D3).
+func decodeDeltaRecord(t *testing.T, blob []byte) (string, []canon.Delta) {
 	t.Helper()
-	var wire []struct {
-		O int    `json:"o"`
-		L int    `json:"l"`
-		C string `json:"c"`
-		S string `json:"s"`
+	var rec struct {
+		Base   string `json:"base"`
+		Deltas []struct {
+			O int    `json:"o"`
+			L int    `json:"l"`
+			C string `json:"c"`
+			S string `json:"s"`
+		} `json:"deltas"`
 	}
-	require.NoError(t, json.Unmarshal(blob, &wire))
-	out := make([]canon.Delta, 0, len(wire))
-	for _, w := range wire {
+	require.NoError(t, json.Unmarshal(blob, &rec))
+	out := make([]canon.Delta, 0, len(rec.Deltas))
+	for _, w := range rec.Deltas {
 		out = append(out, canon.Delta{Offset: w.O, Len: w.L, Original: w.S, Class: canon.Class(w.C)})
 	}
-	return out
+	return rec.Base, out
 }
 
 // TestIntegration_CanonKeepRawRestoresThroughStore asserts SP-04's Restore inverse and SP-06's
@@ -218,8 +223,9 @@ func TestIntegration_CanonKeepRawRestoresThroughStore(t *testing.T) {
 
 	canonical := readRoot(t, ctx, s, res.Root.Hash)
 	deltaRoot := deltaRootOf(t, p, res.Root.Hash)
-	deltas := decodeDeltas(t, readRoot(t, ctx, s, deltaRoot))
+	base, deltas := decodeDeltaRecord(t, readRoot(t, ctx, s, deltaRoot))
 	require.NotEmpty(t, deltas, "the stored delta record must not be empty")
+	require.Equal(t, res.Root.Hash.String(), base, "the delta record names the content root it reconstructs")
 
 	restored, err := canon.Restore(canonical, deltas)
 	require.NoError(t, err)
