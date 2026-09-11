@@ -1293,6 +1293,68 @@ func TestDeliveryJournal_BatchKeepsEachCallsCheckOrder(t *testing.T) {
 	})
 }
 
+// Admission writes the identity maps under st (design §2.5), because acknowledge reads them under st
+// while lease batches run beside it, as the ingest workers and the drain acknowledge while Accepts
+// lease. An admission that dropped st would race that read: -race reports it here, and without -race
+// an unguarded map write can end the daemon with "concurrent map read and map write". The loop
+// acknowledges an already acknowledged delivery, which reads the leases and appends nothing, for as
+// long as the leases run.
+func TestDeliveryJournal_AdmissionIsUnderStBesideAcknowledge(t *testing.T) {
+	_, _, journal := newTestDeliveryJournal(t)
+	ctx := context.Background()
+	req := testDeliveryRequest("admission")
+	const sess, racers = core.SessionID("admission"), 32
+	acked, err := journal.lease(ctx, leaseToken(0), sess, req)
+	require.NoError(t, err)
+	require.NoError(t, journal.acknowledge(ctx, acked.Delivery, acked.ObservationID, core.Hash{}))
+	p := newLeaseProbe(journal)
+
+	stop, looping, stopped := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	ackErr := make(chan error, 1)
+	go func() {
+		defer close(stopped)
+		for first := true; ; first = false {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			if err := journal.acknowledge(ctx, acked.Delivery, acked.ObservationID, core.Hash{}); err != nil {
+				select {
+				case ackErr <- err:
+				default:
+				}
+			}
+			if first {
+				close(looping)
+			}
+		}
+	}()
+	var once sync.Once
+	stopAcks := func() {
+		once.Do(func() { close(stop) })
+		awaitClosed(t, stopped, "the end of the acknowledgement loop")
+	}
+	t.Cleanup(stopAcks)
+	awaitClosed(t, looping, "the acknowledgement loop's first pass")
+
+	runs := make([]*leaseRun, racers)
+	for k := range runs {
+		runs[k] = goLease(p, leaseCall{id: k + 1, delivery: leaseToken(k + 1), session: sess, request: req})
+	}
+	awaitAll(t, runs...)
+	stopAcks()
+	for _, r := range runs {
+		require.NoErrorf(t, r.err, "lease %d", r.id)
+	}
+	select {
+	case err := <-ackErr:
+		t.Fatalf("an idempotent acknowledgement failed beside the lease batches: %v", err)
+	default:
+	}
+	require.Equal(t, 1+racers, admittedLeases(journal))
+}
+
 // leaseOutcome is what one lease call answered.
 type leaseOutcome struct {
 	lease deliveryLease
