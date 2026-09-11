@@ -534,6 +534,54 @@ func TestIngest_AcceptNeverReturnsBeforeItsWALSync(t *testing.T) {
 	require.Equal(t, wantsOn(reqs, two), readWAL(t, root, two, 0))
 }
 
+// The claim in ingest.mu's doc comment: a WAL batch holds the lock from its first line to its last
+// Sync, so CloseSession and Close, which take it too, wait for the batch instead of closing a
+// handle that it is writing or syncing.
+func TestIngest_CloseWaitsForTheWALBatchInFlight(t *testing.T) {
+	const sess = core.SessionID("close-one")
+	for _, tc := range []struct {
+		name string
+		call func(*ingest) error
+	}{
+		{"CloseSession", func(ing *ingest) error { return ing.CloseSession(sess) }},
+		{"Close", (*ingest).Close},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ing, p, root := newWALIngest(t)
+			p.gate = newWALGate(t)
+			r := newWALReq(t, sess, 0)
+			lead := goAccept(ing, p, 0, r)
+			awaitClosed(t, p.gate.entered, "the batch's Sync")
+			if ing.mu.TryLock() {
+				ing.mu.Unlock()
+				t.Fatal("the batch let go of ingest.mu while its Sync was in flight")
+			}
+
+			ids, closed := make(chan uint64, 1), make(chan struct{})
+			var closeErr error
+			go func() {
+				defer close(closed)
+				ids <- goid()
+				closeErr = tc.call(ing)
+			}()
+			require.Truef(t, awaitParked(t, <-ids, "sync.Mutex.Lock", closed),
+				"%s returned while the batch was syncing the handle it closes", tc.name)
+
+			p.gate.release()
+			awaitAccept(t, lead)
+			require.NoError(t, lead.err, "the batch's Sync ran on a handle that nothing had closed")
+			awaitClosed(t, closed, "the return of "+tc.name)
+			require.NoError(t, closeErr)
+			ing.mu.Lock()
+			_, cached := ing.wals[sess]
+			ing.mu.Unlock()
+			require.Falsef(t, cached, "%s drops the session's handle once the batch is done", tc.name)
+			require.Equal(t, string(r.want), readWAL(t, root, sess, 0))
+			requireDurableBeforeReturn(t, p, []*walAccept{lead})
+		})
+	}
+}
+
 // T6 — design §6.2, fix J-A7. A batch that crosses the rotation ceiling produces exactly the
 // segments one append per line produces, and the lines it buffered for the outgoing segment are
 // written to that segment's own handle and synced before the handle is closed.
