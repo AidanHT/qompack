@@ -144,6 +144,12 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 	lock := s.putLock(root)
 	lock.Lock()
 	defer lock.Unlock()
+	// Waiting for the lock does not watch ctx, and it lasts as long as the put ahead of this one on
+	// the stripe. A context that ran out meanwhile is refused here, before anything is written, for
+	// the entry check's reason: a put that writes after queueing past its deadline makes B-C advisory.
+	if err := ctx.Err(); err != nil {
+		return PutResult{}, err
+	}
 	if hit, ok := s.dedupHit(res, o, red, canonical, cr.Deltas); ok {
 		return hit, nil
 	}
