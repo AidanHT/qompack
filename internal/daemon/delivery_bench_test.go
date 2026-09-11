@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"runtime"
 	"strconv"
 	"sync"
@@ -118,8 +119,9 @@ func (lb *leasedBench) requireLeased(b *testing.B, want int) *deliveryJournal {
 	return journal
 }
 
-// checkFile runs the journal's own checkFile under Lock.mu, the mutex deliveryJournal.lease holds
-// it under.
+// checkFile runs the journal's own checkFile under Lock.mu, as this benchmark always has. A lease
+// batch runs it without Lock.mu, between the journal's enter and leave; no batch is in flight while
+// a component row runs.
 func (lb *leasedBench) checkFile() error {
 	lb.lock.mu.Lock()
 	defer lb.lock.mu.Unlock()
@@ -135,8 +137,8 @@ func (lb *leasedBench) reseal() error {
 	return j.savePosition(j.bytes, len(j.leases), j.chain)
 }
 
-// writeSync appends line through the lease journal's own writer and syncs it, under Lock.mu,
-// exactly as deliveryJournal.lease does between its checkFile and its seal. It deliberately neither
+// writeSync appends line through the lease journal's own writer and syncs it, under Lock.mu, as a
+// lease batch does (without Lock.mu) between its checkFile and its seal. It deliberately neither
 // seals nor admits the line, so it leaves the journal ahead of its position: only the
 // journalWriteSync row calls it, on a root nothing reopens.
 func (lb *leasedBench) writeSync(line []byte) error {
@@ -156,22 +158,26 @@ func (lb *leasedBench) writeSync(line []byte) error {
 // journal, each piece of today's leased Accept, so that the part of a leased Accept which its three
 // flushes do not explain is attributed by measurement rather than inferred. The rows are:
 //
-//   - accessorOwned: ing.journal(), that is Lock.openDeliveryJournal's fast path — Lock.mu plus
-//     the owned() lock-file read it makes on every call.
-//   - owned: the second owned() read, the one deliveryJournal.lease makes under Lock.mu.
+//   - accessorOwned: ing.journal(), that is Lock.openDeliveryJournal's fast path. Before the lease
+//     stage it was Lock.mu plus an owned() lock-file read on every call; with O1 it is Lock.mu and
+//     the open journal's in-memory checks.
+//   - owned: Lock.owned under Lock.mu, the lock-file read the accessor, and then deliveryJournal.lease
+//     a second time, made on every leased Accept before the lease stage.
+//   - ownedByFile: Lock.ownedByFile, the one lock-file read a lease batch makes, once per batch and
+//     without Lock.mu.
 //   - checkFileV1: deliveryJournal.checkFile against a position sidecar untouched since its seal.
 //   - checkFileV1AfterSeal: the same check immediately after the seal it checks, the case where
 //     the sidecar was created by a rename moments earlier; the seal runs with the timer stopped.
 //   - journalWriteSync: one canonical lease line written and synced on the journal's own handle.
 //   - sealWriteAtomic: deliveryJournal.savePosition, the paths.WriteAtomic seal.
 //   - walWriteSync: ingest.appendWAL, one WAL line written and synced under ingest.mu.
-//   - lease: deliveryJournal.lease end to end with a fresh nonce per iteration. The pieces should
-//     add up to it (owned + checkFileV1* + journalWriteSync + sealWriteAtomic + marshal and
-//     chain), and walWriteSync + accessorOwned + lease should add up to
-//     BenchmarkIngestAcceptLeased.
+//   - lease: deliveryJournal.lease end to end with a fresh nonce per iteration, each a lease batch
+//     of one. The pieces should add up to it (ownedByFile + checkFileV1* + journalWriteSync +
+//     sealWriteAtomic + marshal, chain and queue bookkeeping), and walWriteSync + accessorOwned +
+//     lease should add up to BenchmarkIngestAcceptLeased.
 //
-// The design also names ownedByFile, checkFileV2, sealSlot and postSealIdentity. They time code
-// that does not exist yet, and join this benchmark in the stage that adds that code.
+// The design also names checkFileV2, sealSlot and postSealIdentity. They time step-2 code that
+// does not exist yet, and join this benchmark in the stage that adds that code.
 func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 	b.Run("accessorOwned", func(b *testing.B) {
 		lb := newLeasedBench(b, 1, 0)
@@ -190,6 +196,15 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 			ok := lb.lock.owned()
 			lb.lock.mu.Unlock()
 			if !ok {
+				b.Fatal("the benchmark's own lock reads as not owned")
+			}
+		}
+	})
+	b.Run("ownedByFile", func(b *testing.B) {
+		lb := newLeasedBench(b, 1, 0)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if !lb.lock.ownedByFile() {
 				b.Fatal("the benchmark's own lock reads as not owned")
 			}
 		}
@@ -279,8 +294,10 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 // delivery, the inverse of throughput. accept-ms/op is the mean latency of one Accept call measured
 // around the call, which grows with the queue in front of the durable path.
 //
-// The design's syncs-per-delivery and batches-per-delivery metrics are read through group-commit
-// seams that do not exist yet; they join this benchmark with those seams.
+// syncs/op is the durability points one delivery pays, counted through the seams
+// (countLeasedDurability): WAL Syncs, lease-journal Syncs and seals. lease-batches/op is the lease
+// batches per delivery. An isolated delivery pays 3 syncs and one batch; deliveries in flight
+// together share both.
 func BenchmarkIngestAcceptLeasedParallel(b *testing.B) {
 	for _, inFlight := range []int{1, 4, 16, 64} {
 		b.Run(strconv.Itoa(inFlight), func(b *testing.B) {
@@ -295,6 +312,7 @@ func BenchmarkIngestAcceptLeasedParallel(b *testing.B) {
 
 func benchLeasedParallel(b *testing.B, inFlight, sessions int) {
 	lb := newLeasedBench(b, sessions, b.N)
+	syncs, batches := countLeasedDurability(lb)
 	slots := make(chan struct{}, inFlight)
 	var next, acceptNs atomic.Int64
 	procs := runtime.GOMAXPROCS(0)
@@ -318,6 +336,42 @@ func benchLeasedParallel(b *testing.B, inFlight, sessions int) {
 	lb.requireLeased(b, len(lb.reqs))
 	b.ReportMetric(benchMillis(b.Elapsed())/float64(b.N), "ms/op")
 	b.ReportMetric(benchMillis(time.Duration(acceptNs.Load()))/float64(b.N), "accept-ms/op")
+	b.ReportMetric(float64(syncs.Load())/float64(b.N), "syncs/op")
+	b.ReportMetric(float64(batches.Load())/float64(b.N), "lease-batches/op")
+}
+
+// countLeasedDurability wraps lb's durability seams so that a benchmark can report what a delivery
+// costs in durability points: the WAL's Sync (ingest.syncWAL), and the lease journal's writer and
+// seal (deliveryJournal.writer, sealLease). Every WAL Sync, journal Sync and seal counts into
+// syncs, a seal as one point however many syscalls paths.WriteAtomic makes, and every journal
+// Write into batches, since a lease batch that mints makes exactly one. Call it after warm-up and
+// before any concurrent Accept.
+func countLeasedDurability(lb *leasedBench) (syncs, batches *atomic.Int64) {
+	syncs, batches = new(atomic.Int64), new(atomic.Int64)
+	walSync := lb.ing.syncWAL
+	lb.ing.syncWAL = func(f *os.File) error {
+		syncs.Add(1)
+		return walSync(f)
+	}
+	j := lb.journal
+	f := j.file
+	j.writer = leaseFaultWriter{
+		file: f,
+		write: func(p []byte) (int, error) {
+			batches.Add(1)
+			return f.Write(p)
+		},
+		sync: func() error {
+			syncs.Add(1)
+			return f.Sync()
+		},
+	}
+	seal := j.sealLease
+	j.sealLease = func(size int64, count int, chain core.Hash) error {
+		syncs.Add(1)
+		return seal(size, count, chain)
+	}
+	return syncs, batches
 }
 
 // BenchmarkIngestAcceptLeasedBurst replays a hook burst against one leased ingest with the B-C
