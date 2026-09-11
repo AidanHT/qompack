@@ -650,3 +650,48 @@ func TestDrainRejectsMismatchedProgressBeforePruningIt(t *testing.T) {
 		"a pass that refuses its progress must leave state/drain.json byte for byte as it found it")
 	require.FileExists(t, present)
 }
+
+// TestDrainKeepsCleanupIntentsForAFileDeletedAfterTheListing pins drainFile's answer to a listed
+// file that is gone when the pass stats it: something other than the drainer deleted it while the
+// pass was on an earlier file, an operator say. Its entry is dropped only if it carries no cleanup
+// intent, the start-of-pass prune's rule for intents (forgetReleased). An intent that outlives a pass
+// is the only record of a blob the drain must still remove, and dropped with the entry, that blob
+// stayed on disk for good. The blob here cannot be removed yet: it is a non-empty directory, a
+// removal both platforms refuse. Once it can be, the next pass removes it and forgets the entry.
+func TestDrainKeepsCleanupIntentsForAFileDeletedAfterTheListing(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	earlier := writeSpoolFile(t, root, "client-6060.ndjson", 1)
+	gone := writeSpoolFile(t, root, "client-7070.ndjson", 1)
+	base := filepath.Base(gone)
+	size := spoolFileSize(t, gone)
+	const blobName = "blob-7070-0.bin"
+	blobPath := filepath.Join(paths.Of(root).Spool, blobName)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Join(blobPath, "keep")), 0o700)) // not removable yet
+	intent := drainFileState{Size: size, Offset: size, Done: true, PendingBlobs: []string{blobName}}
+	require.NoError(t, newDrainer(DrainConfig{Root: root}).saveState(drainState{base: &intent}))
+
+	deleted := false
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: func(context.Context, ipc.Request) ipc.Response {
+		if !deleted {
+			require.NoError(t, os.Remove(paths.Long(gone))) // listed, then deleted before its stat
+			deleted = true
+		}
+		return ipc.Response{OK: true}
+	}})
+	n, err := dr.Drain(context.Background())
+	require.Error(t, err, "fixture: the blob could not be removed")
+	require.Equal(t, 1, n, "the earlier file's line")
+	require.True(t, deleted, "fixture: the file was deleted while the pass was on the earlier file")
+	require.Equal(t, &intent, diskDrainState(t, root)[base],
+		"a file gone before its stat must not take its cleanup intent with it")
+
+	require.NoError(t, os.RemoveAll(paths.Long(blobPath)))
+	require.NoError(t, os.WriteFile(paths.Long(blobPath), []byte(`{"removable":true}`), 0o600))
+	n, err = dr.Drain(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, n)
+	require.NoFileExists(t, blobPath, "the kept intent removes its blob")
+	require.NoFileExists(t, earlier)
+	require.NotContains(t, diskDrainState(t, root), base, "its intent consumed and its file gone, the entry is forgotten")
+}
