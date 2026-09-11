@@ -823,6 +823,13 @@ func (r *ackReq) answer(failed error) {
 		r.err = p.err
 	case failed != nil:
 		r.err = failed
+	// Deliberately defensive, and unreachable as the code stands: it mirrors leaseReq.answer's
+	// binding check, which is live there, where a copy may join a mint made for another session or
+	// request. Here decide hands a request either its own acknowledgement or the one an earlier
+	// member minted for the same delivery, and both members passed the same lease match — a
+	// delivery's lease identity never changes once admitted — so the two identities always agree.
+	// The mismatch acknowledge really does answer with ErrAppendOnly, a delivery an earlier batch
+	// acknowledged under another identity, is answered in commitAcks' first phase instead.
 	case p.ack.ObservationID != r.id:
 		r.err = core.ErrAppendOnly
 	default:
