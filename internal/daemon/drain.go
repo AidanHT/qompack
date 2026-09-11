@@ -92,6 +92,15 @@ type DrainConfig struct {
 	// RemoveWAL, which decides under the lock every append takes, and its progress is put back. A
 	// nil HoldsWAL skips the question.
 	HoldsWAL func(path string) bool
+	// SyncedWAL reports whether the ingest holds the wal-* segment at path open for appending and, if
+	// it does, the segment's synced size: how much of it a Sync of the ingest's own handle returned nil
+	// for (ingest.syncedWAL). The drain reads, leases and dispatches nothing of a held segment past
+	// that size. A line a WAL batch has written but whose Sync has not returned is left for a later
+	// pass, like a trailing incomplete line, so no lease becomes durable before its delivery's bytes.
+	// It must answer without waiting for that batch. Every file it does not report held is synced by
+	// the drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats
+	// every file as not held.
+	SyncedWAL func(path string) (synced int64, held bool)
 }
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
@@ -100,6 +109,10 @@ type DrainConfig struct {
 type drainer struct {
 	cfg DrainConfig
 	mu  sync.Mutex // serializes concurrent Drain calls (idle tick vs. admin.drain) against one drain.json
+
+	// syncFile makes a spool file's bytes durable before a pass consumes any of them (durableEnd).
+	// It is syncSpoolFile outside tests, which set it to observe or fail the sync.
+	syncFile func(path string) error
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -119,7 +132,7 @@ func newDrainer(cfg DrainConfig) *drainer {
 	if cfg.IsLive == nil {
 		cfg.IsLive = func(core.SessionID) bool { return false }
 	}
-	return &drainer{cfg: cfg}
+	return &drainer{cfg: cfg, syncFile: syncSpoolFile}
 }
 
 // Drain replays every spool-tier file under root's spool directory (task-3-spec.md drain.go):
@@ -232,6 +245,16 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	}
 	fs.Done = false
 
+	// Nothing the pass consumes may be less durable than what the pass makes of it: a lease is a
+	// durable journal line, and the offset persisted below names the bytes read. durableEnd bounds
+	// the pass to bytes already on disk, syncing the file first where it has to; a sync that fails
+	// leaves the whole file for a later pass.
+	end, err := dr.durableEnd(path, base, size, fs.Offset)
+	if err != nil {
+		gaps.add(base, DrainGapUnsynced, "spool bytes could not be made durable")
+		return 0, err
+	}
+
 	f, err := os.Open(paths.Long(path))
 	if err != nil {
 		return 0, err
@@ -246,12 +269,13 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		}
 	}
 
-	// The pass reads the file as it stood at the stat above and no further. Bytes appended after it
-	// — by the ingest to a WAL segment it holds, by a hook process to its own client spool — belong
-	// to the next pass. Reading them too let the consumed offset overtake the size recorded below,
-	// and loadState refuses exactly that as inconsistent progress, so every later Drain failed
-	// before reading a single spool file.
-	r := bufio.NewReaderSize(io.LimitReader(f, size-fs.Offset), drainReadBufferBytes)
+	// The pass reads the file as it stood at the stat above and no further, and of that only up to
+	// end. Bytes appended after the stat — by the ingest to a WAL segment it holds, by a hook process
+	// to its own client spool — belong to the next pass. Reading them too let the consumed offset
+	// overtake the size recorded below, and loadState refuses exactly that as inconsistent progress,
+	// so every later Drain failed before reading a single spool file. The bytes of a held segment past
+	// its synced size wait the same way, as a trailing incomplete line does: unconsumed, and pending.
+	r := bufio.NewReaderSize(io.LimitReader(f, max(end-fs.Offset, 0)), drainReadBufferBytes)
 	offset := fs.Offset
 	count := 0
 	canceled := false
@@ -430,6 +454,34 @@ readLoop:
 	return count, dr.removeCompletedFile(path, base, fs, st)
 }
 
+// durableEnd returns how far into the file at path, which the stat at the top of the pass found size
+// bytes long, the pass may read, once every byte before that point is durable. A machine crash after
+// the pass leased a delivery whose bytes were not on disk yet would leave an orphan lease: a
+// permanent open-lease GC root and an arrival hole, for a delivery whose hook died with the machine.
+//
+// For a wal-* segment the ingest holds, the point is the segment's synced size
+// (DrainConfig.SyncedWAL), and the drain issues no I/O of its own: the ingest's Syncs cover the
+// segment up to there, and a Sync still in flight covers nothing yet. Every other file is synced
+// once, before the pass consumes any of it, and the sync covers everything the stat counted: a
+// segment rotated away or closed by this daemon, one a crashed process left with lines it never
+// synced still in the page cache, or a client-*.ndjson spool, which the hook client never fsyncs. A
+// file with nothing unread is not synced at all. An error means that sync failed, and nothing of the
+// file may be consumed.
+func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, error) {
+	if _, isWAL := walSessionID(base); isWAL && dr.cfg.SyncedWAL != nil {
+		if synced, held := dr.cfg.SyncedWAL(path); held {
+			return min(size, synced), nil
+		}
+	}
+	if size <= offset {
+		return size, nil
+	}
+	if err := dr.syncFile(path); err != nil {
+		return 0, fmt.Errorf("daemon: drain: spool file not durable: %w", err)
+	}
+	return size, nil
+}
+
 // removeCompletedFile removes a fully drained file whose cleanup intents are all consumed, if
 // shouldDelete allows it — and only if the file still ends where the drain stopped. fs.Offset is
 // the consumed offset just persisted; the file's size at removal time is re-read rather than taken
@@ -499,6 +551,25 @@ func removeIfUnchanged(path string, drained int64) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// syncSpoolFile makes every byte of the spool file at path durable, whichever process wrote it: an
+// fsync covers the file, not the handle it is issued on. It opens a handle of its own for appending,
+// creating and truncating nothing, because Windows refuses FlushFileBuffers on a handle without write
+// access, and a read-only handle is all the pass reads with. The handle shares reading and writing,
+// so a hook process still appending to its client spool, or the ingest to a segment it reopened, is
+// not disturbed, and it is closed before the pass can reach a removal: Windows cannot delete a file
+// that has a handle open.
+func syncSpoolFile(path string) error {
+	f, err := paths.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // cleanupAcknowledged consumes only cleanup intents from a successfully persisted state. Every
@@ -781,6 +852,10 @@ const (
 	DrainGapUnacknowledged DrainGapKind = "unacknowledged"
 	// DrainGapPending is a spool file with bytes still unread when the pass ended.
 	DrainGapPending DrainGapKind = "pending"
+	// DrainGapUnsynced is a spool file whose unread bytes could not be made durable: the sync the
+	// drain issues before it consumes a file the ingest does not hold failed. Nothing of the file was
+	// leased, dispatched or consumed in that pass, and the next pass syncs it again.
+	DrainGapUnsynced DrainGapKind = "unsynced"
 	// DrainGapProgressUnreadable is drain state this process refused to act on at all. It is the
 	// strongest form of "cannot currently tell": no file was consulted.
 	DrainGapProgressUnreadable DrainGapKind = "progress_unreadable"

@@ -96,6 +96,14 @@ type walFile struct {
 	w     *os.File
 	bytes int64
 	seq   int
+	// name is the base name of the segment w appends to, set when w is opened. ingest.synced is
+	// keyed by it.
+	name string
+	// syncFailed is set once a Sync of w has failed, panicked or never returned, and cleared only by
+	// opening a segment. While it is set, the segment's synced size (ingest.synced) never advances: a
+	// failed fsync can drop the bytes it covered from the page cache, so a later Sync that returns nil
+	// does not show that they reached the disk.
+	syncFailed bool
 }
 
 // ingest is the daemon's WAL-backed ingest queue (task-3-spec.md ingest.go): Accept is the B-B
@@ -122,6 +130,19 @@ type ingest struct {
 	// a batch is writing or syncing.
 	mu   sync.Mutex
 	wals map[core.SessionID]*walFile
+
+	// syncedMu guards synced. It is a leaf lock: a WAL batch, a rotation, CloseSession and Close take
+	// it under mu to change synced, and the drain takes it alone to read it (syncedWAL), so a drain
+	// pass never waits for a batch in flight, which holds mu through its Sync.
+	syncedMu sync.Mutex
+	// synced maps the base name of each segment this ingest holds open for appending to its synced
+	// size: the length of the segment's prefix that a Sync of the ingest's handle returned nil for,
+	// with no failed Sync of that handle before it. A segment enters at 0 when it is opened, because
+	// bytes already in the file may be a crashed process's and never synced; the first Sync that
+	// returns nil covers them too. It advances only once a batch's Sync has returned, and the segment
+	// leaves synced when its handle is closed or rotated away. The drain reads nothing of a held
+	// segment past its synced size (DrainConfig.SyncedWAL).
+	synced map[string]int64
 
 	// walQ group-commits the WAL (design §2.4): appendWAL enqueues its line and waits, and the
 	// caller that leads a batch writes and syncs every line queued behind it.
@@ -165,6 +186,7 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 		histBB:   histName(obs.BB),
 		histBC:   histName(obs.BC),
 		wals:     map[core.SessionID]*walFile{},
+		synced:   map[string]int64{},
 		walQ:     groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
 		writeWAL: (*os.File).Write,
 		syncWAL:  (*os.File).Sync,
@@ -309,6 +331,9 @@ type walSegment struct {
 	// requests in the same order.
 	buf   []byte
 	items []*walItem
+	// end is the segment file's size once buf's Write has returned having written all of buf: the
+	// prefix that a Sync of f returning nil after it shows to be durable (publishSynced).
+	end int64
 	// flushed is set once buf has been through its Write, and through its Sync if the Write
 	// succeeded: by a rotation, ahead of closing f, or at the end of the batch. Each segment is
 	// flushed once.
@@ -392,7 +417,9 @@ func (i *ingest) commitWALBatch(batch []*walItem) {
 // flushWALSegments writes every segment of segs not yet flushed to its own handle in one Write,
 // then syncs each of them whose Write succeeded, once (syncWALSegments), and returns when every
 // Sync has returned. From a successful Write until its Sync returns, a segment's result is
-// errNotCommitted, so only a Sync that returned can report the segment's lines durable.
+// errNotCommitted, so only a Sync that returned can report the segment's lines durable. What each
+// Sync showed then becomes its segment's synced size (publishSynced), deferred so that a Sync that
+// panicked or never returned is recorded too.
 func (i *ingest) flushWALSegments(segs []*walSegment) {
 	var written []*walSegment
 	for _, s := range segs {
@@ -406,12 +433,14 @@ func (i *ingest) flushWALSegments(segs []*walSegment) {
 			written = append(written, s)
 		}
 	}
+	defer i.publishSynced(written)
 	i.syncWALSegments(written)
 }
 
 // writeWALSegment writes s's buffered lines to s's own handle in one Write, counting the bytes into
 // the walFile exactly as a sequential append did: nothing on a write error, and whatever was written
-// on a short write, which then fails the segment with io.ErrShortWrite.
+// on a short write, which then fails the segment with io.ErrShortWrite. A Write that wrote all of buf
+// records the file's size after it as the segment's end.
 func (i *ingest) writeWALSegment(s *walSegment) {
 	n, err := i.writeWAL(s.f, s.buf)
 	if err != nil {
@@ -421,6 +450,29 @@ func (i *ingest) writeWALSegment(s *walSegment) {
 	s.wf.bytes += int64(n)
 	if n != len(s.buf) {
 		s.err = io.ErrShortWrite
+		return
+	}
+	s.end = s.wf.bytes
+}
+
+// publishSynced records what the Syncs of written showed, once each of them has returned or failed
+// to. A segment whose Sync returned nil makes its session's segment synced up to the segment's end,
+// unless an earlier Sync of the same handle failed. Any other outcome marks the handle failed
+// (walFile.syncFailed), which stops its synced size from advancing until a segment is opened. Every
+// segment of written is still on its session's current handle here: a rotation flushes and publishes
+// the outgoing segment before it closes that handle, and takes the segment out of the batch. mu must
+// be held.
+func (i *ingest) publishSynced(written []*walSegment) {
+	i.syncedMu.Lock()
+	defer i.syncedMu.Unlock()
+	for _, s := range written {
+		if s.err != nil {
+			s.wf.syncFailed = true
+			continue
+		}
+		if !s.wf.syncFailed {
+			i.synced[s.wf.name] = s.end
+		}
 	}
 }
 
@@ -484,6 +536,7 @@ func (i *ingest) rotateWALLocked(sess core.SessionID, wf *walFile) error {
 	if err := wf.w.Close(); err != nil {
 		return err
 	}
+	i.releaseSynced(wf.name)
 	wf.w = nil
 	wf.seq++
 	return i.openWALLocked(sess, wf)
@@ -505,11 +558,30 @@ func (i *ingest) openWALLocked(sess core.SessionID, wf *walFile) error {
 		return fmt.Errorf("daemon: ingest: AppendOnly returned a non-*os.File writer")
 	}
 	wf.w = f
+	wf.name = filepath.Base(p)
+	wf.syncFailed = false
 	wf.bytes = 0
 	if fi, statErr := f.Stat(); statErr == nil {
 		wf.bytes = fi.Size() // resume the running byte count across daemon restarts
 	}
+	i.holdSynced(wf.name)
 	return nil
+}
+
+// holdSynced enters segment name into synced at 0: this ingest now holds it, and nothing of it is
+// known durable through the new handle yet. mu must be held.
+func (i *ingest) holdSynced(name string) {
+	i.syncedMu.Lock()
+	defer i.syncedMu.Unlock()
+	i.synced[name] = 0
+}
+
+// releaseSynced takes segment name out of synced: this ingest no longer holds it, and the drain makes
+// its bytes durable itself before it consumes any of them. mu must be held.
+func (i *ingest) releaseSynced(name string) {
+	i.syncedMu.Lock()
+	defer i.syncedMu.Unlock()
+	delete(i.synced, name)
 }
 
 // walPath returns the WAL file path for sess at rotation seq: wal-<session>.ndjson for seq 0,
@@ -636,6 +708,7 @@ func (i *ingest) CloseSession(sess core.SessionID) error {
 	if wf.w == nil {
 		return nil
 	}
+	i.releaseSynced(wf.name)
 	return wf.w.Close()
 }
 
@@ -676,6 +749,18 @@ func (i *ingest) holdsWAL(path string) bool {
 	return i.holdsLocked(filepath.Base(path))
 }
 
+// syncedWAL reports whether this ingest holds the segment at path open for appending and, if it
+// does, the segment's synced size (ingest.synced): the drainer reads nothing of a held segment past
+// it (DrainConfig.SyncedWAL). It takes syncedMu and never mu, so it answers while a WAL batch is
+// writing or syncing, with what the last Sync that returned covered, which is all a drain may
+// consume. Only the base name is compared (removeDrainedWAL says why).
+func (i *ingest) syncedWAL(path string) (int64, bool) {
+	i.syncedMu.Lock()
+	defer i.syncedMu.Unlock()
+	size, held := i.synced[filepath.Base(path)]
+	return size, held
+}
+
 // holdsLocked reports whether base names the current segment of a session this ingest holds open.
 // Only the base name is compared (removeDrainedWAL says why). i.mu must be held.
 func (i *ingest) holdsLocked(base string) bool {
@@ -703,6 +788,7 @@ func (i *ingest) Close() error {
 	var firstErr error
 	for sess, wf := range i.wals {
 		if wf.w != nil {
+			i.releaseSynced(wf.name)
 			if err := wf.w.Close(); err != nil && firstErr == nil {
 				firstErr = err
 			}
