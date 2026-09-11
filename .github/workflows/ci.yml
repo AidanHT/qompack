@@ -124,8 +124,9 @@ jobs:
       # ── Expected failures ───────────────────────────────────────────────────────────────────────
       # These rows are DELIBERATELY red and must stay red locally: they are the open items in
       # plans/V4-report.md section 19 — the four carried defects the wave report still cannot
-      # resolve (SP05-D1, SP06-D2, SP08-D1, SP10-D1) and the Belady p_min floor, which is an open
-      # spec question expressed as a failing measurement rather than a lowered threshold.
+      # resolve (SP05-D1, SP06-D2, SP08-D1, SP10-D1). The Belady p_min floor that stood beside
+      # them was retired by the owner on 2026-09-10; its test now pins the exact measurement
+      # (test/integration/dagselection_test.go), so it passes and is struck from this list.
       #
       # Enumerating them is what restores the signal. Without this list the job could never be
       # green, so a genuine new failure anywhere in test/guards or test/integration was
@@ -142,7 +143,6 @@ jobs:
         github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP06-D2
         github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP08-D1
         github.com/qompack/qompack/test/guards TestCarriedDefects_WaveReportRequiresResolution/SP10-D1
-        github.com/qompack/qompack/test/integration TestIntegration_BeladyPMinLandsAtLowCoupling
       EXPECTED_FAILING_PACKAGES: |
         github.com/qompack/qompack/test/guards
         github.com/qompack/qompack/test/integration
