@@ -70,6 +70,94 @@ func TestSortedObservations_MatchesStableSort(t *testing.T) {
 	})
 }
 
+// referenceMatchPattern is the detector's ORIGINAL matchPattern, kept verbatim as the oracle the
+// path-linked one is held to: a plain forward scan over every observation in the window, with
+// e0's approach class computed up front.
+func referenceMatchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool) {
+	e0 := sorted[i]
+	p := e0.Path
+	limit := e0.Turn + detectWindowTurns
+	class0 := ApproachClass(e0.Detail)
+
+	var haveF1, haveR2 bool
+	for _, o := range sorted[i+1:] {
+		if o.Turn > limit {
+			break
+		}
+		switch {
+		case !haveF1:
+			if o.Kind == ObsTestPass && o.Path == p && o.Turn > e0.Turn {
+				return Observation{}, Observation{}, Observation{}, false
+			}
+			if o.Kind == ObsTestFail && o.Turn > e0.Turn && (o.Path == p || o.Path == "") {
+				f1, haveF1 = o, true
+			}
+		case !haveR2:
+			if o.Kind == ObsRevert && o.Path == p && o.Turn > f1.Turn {
+				r2, haveR2 = o, true
+			}
+		default:
+			if o.Kind == ObsEdit && o.Path == p && o.Turn > r2.Turn &&
+				ApproachClass(o.Detail) != class0 {
+				return f1, r2, o, true
+			}
+		}
+	}
+	return Observation{}, Observation{}, Observation{}, false
+}
+
+// requireSameMatches compares matchPattern against referenceMatchPattern for every edit Scan
+// would hand it — every ObsEdit with a non-empty Path, the one precondition matchPattern states —
+// on one sorted slice, sharing one classMemo across the whole slice exactly as Scan does.
+func requireSameMatches(fatalf func(string, ...any), sorted []Observation) {
+	links := linkPaths(sorted)
+	classes := classMemo{}
+	for i := range sorted {
+		if sorted[i].Kind != ObsEdit || sorted[i].Path == "" {
+			continue
+		}
+		f1, r2, e3, ok := matchPattern(sorted, links, i, classes)
+		wf1, wr2, we3, wok := referenceMatchPattern(sorted, i)
+		if ok != wok || f1 != wf1 || r2 != wr2 || e3 != we3 {
+			fatalf("edit at %d: got (%+v, %+v, %+v, %v), want (%+v, %+v, %+v, %v)",
+				i, f1, r2, e3, ok, wf1, wr2, we3, wok)
+		}
+	}
+}
+
+// TestMatchPattern_MatchesWindowScan pins the equivalence the path-linked scan rests on: for every
+// candidate edit in a sorted corpus it returns exactly the (f1, r2, e3, ok) the original
+// every-observation window scan returned.
+//
+// The generator is built to reach every branch the argument covers: three paths plus the empty
+// one, so that most observations are on OTHER paths (the ones the linked scan skips) and a
+// path-less failing test still counts; turns spread wider than detectWindowTurns, so windows end
+// both at an observation past the limit and at the end of the slice; and approach phrases from
+// distinct classes, including two phrasings of one class, so condition 4 both passes and fails.
+func TestMatchPattern_MatchesWindowScan(t *testing.T) {
+	rapid.Check(t, func(rt *rapid.T) {
+		signals := rapid.SliceOfN(rapid.Custom(func(rt *rapid.T) Observation {
+			return Observation{
+				Turn: core.TurnIndex(rapid.IntRange(0, 3*detectWindowTurns).Draw(rt, "turn")),
+				Kind: ObsKind(rapid.IntRange(0, 3).Draw(rt, "kind")),
+				Path: rapid.SampledFrom([]string{"", "a.ts", "b.ts", "c.ts"}).Draw(rt, "path"),
+				Detail: rapid.SampledFrom([]string{
+					"", "widen pool timeout", "increase the pool timeout", "cache the parsed schema", "retry",
+				}).Draw(rt, "detail"),
+				ToolUse: core.ToolUseID(rapid.StringN(0, 2, 2).Draw(rt, "tool")),
+			}
+		}), 0, 80).Draw(rt, "signals")
+
+		requireSameMatches(rt.Fatalf, sortedObservations(signals))
+	})
+}
+
+// TestMatchPattern_BenchCorpus runs the same comparison over the §11.2 detector corpus, the input
+// BenchmarkDetectorScan scans.
+func TestMatchPattern_BenchCorpus(t *testing.T) {
+	requireSameMatches(t.Fatalf, sortedObservations(benchObservationCorpus()))
+}
+
 // TestSortedObservations_BenchCorpus runs the same comparison over the §11.2 detector corpus, the
 // input BenchmarkDetectorScan actually sorts.
 func TestSortedObservations_BenchCorpus(t *testing.T) {
