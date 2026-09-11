@@ -210,7 +210,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	fi, err := os.Stat(paths.Long(path))
 	if err != nil {
 		if os.IsNotExist(err) {
-			delete(st, base)
+			// Listed, then gone before this stat: something other than the drainer deleted it. Its
+			// entry goes with it unless it still carries cleanup intents, the only record of blobs
+			// cleanupAcknowledged must still remove; forgetReleased keeps such an entry too.
+			if gone := st[base]; gone == nil || len(gone.PendingBlobs) == 0 {
+				delete(st, base)
+			}
 			return 0, nil
 		}
 		return 0, err
