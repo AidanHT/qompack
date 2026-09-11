@@ -1,9 +1,12 @@
 package negknow
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"sort"
+	"strings"
 
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
@@ -142,37 +145,28 @@ func NewDetector(src ObservationSource, sess core.SessionID, cfg config.Config, 
 // second revert/re-edit cycle after the same failing edit is more of the same elimination rather
 // than a second one.
 func (d *detector) Scan(ctx context.Context, g dag.Graph, since core.TurnIndex) ([]Record, error) {
-	signals := d.src.Since(since)
 	// The source is an interface, so its ordering is a contract this cannot verify; sorting a copy
 	// is what makes Pattern P's "sorted by (Turn, Kind, Path)" true for every implementation and
 	// not only for the ledger's own ring.
-	sorted := make([]Observation, len(signals))
-	copy(sorted, signals)
-	sort.SliceStable(sorted, func(i, j int) bool {
-		if sorted[i].Turn != sorted[j].Turn {
-			return sorted[i].Turn < sorted[j].Turn
-		}
-		if sorted[i].Kind != sorted[j].Kind {
-			return sorted[i].Kind < sorted[j].Kind
-		}
-		return sorted[i].Path < sorted[j].Path
-	})
+	sorted := sortedObservations(d.src.Since(since))
+	classes := classMemo{}
 
 	var out []Record
-	for i, e0 := range sorted {
+	for i := range sorted {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		e0 := &sorted[i]
 		if e0.Kind != ObsEdit || e0.Path == "" || e0.Detail == "" || e0.Turn < since {
 			continue
 		}
-		f1, r2, e3, ok := matchPattern(sorted, i)
+		f1, r2, e3, ok := matchPattern(sorted, i, classes)
 		if !ok {
 			continue
 		}
 		d.m.Counter(counterDetectorCandidates).Add(1)
 
-		rec, ok := d.candidateRecord(ctx, g, e0, f1, r2, e3)
+		rec, ok := d.candidateRecord(ctx, g, *e0, f1, r2, e3, classes)
 		if !ok {
 			continue
 		}
@@ -182,20 +176,93 @@ func (d *detector) Scan(ctx context.Context, g dag.Graph, since core.TurnIndex) 
 	return out, nil
 }
 
+// compareObservations is Pattern P's scan order: Turn, then Kind, then Path, each ascending.
+func compareObservations(a, b *Observation) int {
+	if c := cmp.Compare(a.Turn, b.Turn); c != 0 {
+		return c
+	}
+	if c := cmp.Compare(a.Kind, b.Kind); c != 0 {
+		return c
+	}
+	return strings.Compare(a.Path, b.Path)
+}
+
+// sortedObservations returns a copy of signals STABLY sorted by compareObservations, and never
+// reorders signals itself: the slice belongs to the source.
+//
+// It produces exactly the sequence a stable sort of the copy would, by a cheaper route. A stable
+// sort's output is unique — the elements ordered by key, ties kept in input order — which is the
+// same thing as ordering by (key, input index). So an index permutation is sorted under that
+// total order, where no two entries compare equal and any correct sort therefore yields the one
+// answer, and the copy is gathered from it. Sorting 4-byte indices instead of moving whole
+// Observations through reflection is the saving; the result is the same slice either way.
+//
+// Input that is already in order is copied without sorting at all, since a stable sort of an
+// ordered sequence is the identity. The ledger's own Since always answers in order.
+func sortedObservations(signals []Observation) []Observation {
+	sorted := make([]Observation, len(signals))
+	ordered := true
+	for i := 1; i < len(signals); i++ {
+		if compareObservations(&signals[i-1], &signals[i]) > 0 {
+			ordered = false
+			break
+		}
+	}
+	if ordered {
+		copy(sorted, signals)
+		return sorted
+	}
+
+	perm := make([]int32, len(signals))
+	for i := range perm {
+		perm[i] = int32(i)
+	}
+	slices.SortFunc(perm, func(a, b int32) int {
+		if c := compareObservations(&signals[a], &signals[b]); c != 0 {
+			return c
+		}
+		return cmp.Compare(a, b)
+	})
+	for i, j := range perm {
+		sorted[i] = signals[j]
+	}
+	return sorted
+}
+
+// classMemo caches ApproachClass for the duration of one Scan. ApproachClass is a pure,
+// deterministic function of its argument, so a cached answer is the answer; the cache only stops a
+// scan from re-classifying the same handful of approach phrases once per candidate edit.
+type classMemo map[string]string
+
+// of returns ApproachClass(approach).
+func (m classMemo) of(approach string) string {
+	if c, ok := m[approach]; ok {
+		return c
+	}
+	c := ApproachClass(approach)
+	m[approach] = c
+	return c
+}
+
 // matchPattern completes conditions 2 to 4 for the edit at sorted[i], returning the earliest
 // (f1, r2, e3) that satisfies them.
 //
 // It is a forward scan bounded by the window: the inner loop starts at i+1 and stops as soon as an
 // observation falls past t0+detectWindowTurns, so the whole pass is O(observations x window) with
 // no state carried between candidates.
-func matchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool) {
-	e0 := sorted[i]
+//
+// e0's approach class is needed only by condition 4, so it is computed there, the first time an
+// e3 candidate reaches the comparison, rather than for every edit that starts a scan. Most never
+// get that far, and ApproachClass is pure, so when it is computed changes no answer.
+func matchPattern(sorted []Observation, i int, classes classMemo) (f1, r2, e3 Observation, ok bool) {
+	e0 := &sorted[i]
 	p := e0.Path
 	limit := e0.Turn + detectWindowTurns
-	class0 := ApproachClass(e0.Detail)
+	class0, haveClass0 := "", false
 
 	var haveF1, haveR2 bool
-	for _, o := range sorted[i+1:] {
+	for j := i + 1; j < len(sorted); j++ {
+		o := &sorted[j]
 		if o.Turn > limit {
 			break
 		}
@@ -207,16 +274,20 @@ func matchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool)
 				return Observation{}, Observation{}, Observation{}, false
 			}
 			if o.Kind == ObsTestFail && o.Turn > e0.Turn && (o.Path == p || o.Path == "") {
-				f1, haveF1 = o, true
+				f1, haveF1 = *o, true
 			}
 		case !haveR2:
 			if o.Kind == ObsRevert && o.Path == p && o.Turn > f1.Turn {
-				r2, haveR2 = o, true
+				r2, haveR2 = *o, true
 			}
 		default:
-			if o.Kind == ObsEdit && o.Path == p && o.Turn > r2.Turn &&
-				ApproachClass(o.Detail) != class0 {
-				return f1, r2, o, true
+			if o.Kind == ObsEdit && o.Path == p && o.Turn > r2.Turn {
+				if !haveClass0 {
+					class0, haveClass0 = classes.of(e0.Detail), true
+				}
+				if classes.of(o.Detail) != class0 {
+					return f1, r2, *o, true
+				}
 			}
 		}
 	}
@@ -228,7 +299,7 @@ func matchPattern(sorted []Observation, i int) (f1, r2, e3 Observation, ok bool)
 // The only drop is the evidence one, and it is the §8.3 discipline applied to the least reliable
 // of the four sources: a heuristic guess with no stored failing-test output behind it is exactly
 // the record that must not reach an append-only log under eliminations.requireEvidence.
-func (d *detector) candidateRecord(ctx context.Context, g dag.Graph, e0, f1, r2, e3 Observation) (Record, bool) {
+func (d *detector) candidateRecord(ctx context.Context, g dag.Graph, e0, f1, r2, e3 Observation, classes classMemo) (Record, bool) {
 	if f1.Root.IsZero() && d.elim.RequireEvidence {
 		d.m.Counter(counterDetectorDroppedNoEvidence).Add(1)
 		d.log.Debug("negknow: dropped a heuristic elimination with no evidence root",
@@ -254,7 +325,7 @@ func (d *detector) candidateRecord(ctx context.Context, g dag.Graph, e0, f1, r2,
 		Reason: fmt.Sprintf(
 			"test failed at turn %d and the change was reverted at turn %d; "+
 				"a different approach (%s) was taken at turn %d",
-			int(f1.Turn), int(r2.Turn), ApproachClass(e3.Detail), int(e3.Turn)),
+			int(f1.Turn), int(r2.Turn), classes.of(e3.Detail), int(e3.Turn)),
 		Evidence:  f1.Root,
 		DependsOn: d.dependsOn(ctx, g, f1, target),
 		Scope:     Scope(d.elim.DefaultScope),
