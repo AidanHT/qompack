@@ -205,8 +205,10 @@ func runGoTestJSON(t *testing.T, root, pkg, run string) map[string]string {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	// A non-zero exit is not fatal here: the per-test actions below are the assertion, and a
-	// clearer failure comes from them than from an exit code.
-	_ = cmd.Run()
+	// clearer failure comes from them than from an exit code. It is still reported when no event
+	// came back, because it tells a child that never started (on Windows, exit status 3221225794,
+	// 0xc0000142, seen under memory pressure) from a suite that ran and emitted nothing.
+	runErr := cmd.Run()
 
 	actions := map[string]string{}
 	sc := bufio.NewScanner(&stdout)
@@ -233,7 +235,8 @@ func runGoTestJSON(t *testing.T, root, pkg, run string) map[string]string {
 	}
 	require.NoError(t, sc.Err())
 	require.NotEmpty(t, actions,
-		"go test -json produced no test events for %s (-run %q)\nstderr:\n%s", pkg, run, stderr.String())
+		"go test -json produced no test events for %s (-run %q); the run returned %v\nstderr:\n%s",
+		pkg, run, runErr, stderr.String())
 	return actions
 }
 
