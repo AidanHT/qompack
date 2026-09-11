@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"weak"
 
 	"github.com/stretchr/testify/require"
 )
@@ -129,9 +130,9 @@ type gcOutcome struct {
 	batch   int
 }
 
-// outcomeOf snapshots it's result. It must run on the goroutine that submitted it, straight after
-// that goroutine's run returned or panicked; a premature release then shows up as an unresolved
-// result here, and as a data race between this read and the commit's write.
+// outcomeOf snapshots the item's result. It must run on the goroutine that submitted it, straight
+// after that goroutine's run returned or panicked; a premature release then shows up as an
+// unresolved result here, and as a data race between this read and the commit's write.
 func outcomeOf(it *gcTestItem, recovered any) gcOutcome {
 	return gcOutcome{item: it, recovered: recovered, err: it.err, commits: it.commits, batch: it.batch}
 }
@@ -270,9 +271,15 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 
 	t.Run("concurrent callers are each committed once by one serial leader per batch", func(t *testing.T) {
 		const workers, perWorker, maxN, maxBytes = 16, 64, 5, 16
+		const requests = 1 + workers*perWorker // request 0, then the workers' requests from id 1
 		q := &groupQueue[*gcTestItem]{maxN: maxN, maxBytes: maxBytes, size: gcTestSize}
 		rec := &gcRecorder{}
-		out := make(chan gcOutcome, workers*perWorker)
+		out := make(chan gcOutcome, requests)
+
+		// Request 0 holds the first batch open until every worker's first request has queued behind
+		// it, and only then do the workers run free. Without the hold, workers at GOMAXPROCS=1 only
+		// ever take turns: every batch is a batch of one, and the byte-cap check never runs.
+		release := holdFirstBatch(q, rec, out)
 		for w := range workers {
 			go func() {
 				rng := rand.New(rand.NewPCG(uint64(w), uint64(perWorker)))
@@ -281,7 +288,7 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 					if rng.IntN(maxBytes) == 0 {
 						size = maxBytes + 1 + rng.IntN(maxBytes) // over the cap: must commit alone
 					}
-					it := newGCTestItem(w*perWorker+k, size)
+					it := newGCTestItem(1+w*perWorker+k, size)
 					func() {
 						defer func() { out <- outcomeOf(it, recover()) }()
 						q.run(it, rec.commitFor(it.id, nil))
@@ -289,19 +296,23 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 				}
 			}()
 		}
-		got := collect(t, out, workers*perWorker, nil)
+		require.Equal(t, workers, waitQueued(q, workers), "every worker's first request must queue behind request 0")
+		release()
+		got := collect(t, out, requests, nil)
 
 		at := rec.batchOf(t)
-		require.Len(t, at, workers*perWorker, "every request must be cut into exactly one batch")
+		require.Len(t, at, requests, "every request must be cut into exactly one batch")
 		for id, o := range got {
 			require.Equalf(t, 1, o.commits, "request %d must be committed exactly once, before its run returns", id)
 			require.Equalf(t, at[id], o.batch, "request %d must be resolved by the batch that cut it", id)
 			require.NoErrorf(t, o.err, "request %d", id)
 		}
+		multi := 0
 		for i, b := range rec.batches {
 			require.NotEmptyf(t, b.ids, "batch %d", i)
 			require.LessOrEqualf(t, len(b.ids), maxN, "batch %d exceeds the count cap", i)
 			if len(b.ids) > 1 {
+				multi++
 				sum := 0
 				for _, id := range b.ids {
 					sum += got[id].item.size
@@ -311,6 +322,10 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 			require.Equalf(t, b.ids[0], b.leader, "batch %d must be committed by its head's own commit", i)
 			require.Truef(t, b.inline, "batch %d must be committed on its head's goroutine", i)
 		}
+		// The seeds put one of the workers' 16 first requests over the byte cap. Whatever order they
+		// queued in, the batches cut from them run one at a time only until two requests that fit
+		// together reach the head, so at least one batch holds more than one request.
+		require.Positive(t, multi, "the requests held behind request 0 must form a batch of several")
 		require.Zero(t, rec.overlaps.Load(), "commits must never overlap")
 		requireIdle(t, q)
 	})
@@ -344,7 +359,7 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 		requireIdle(t, q)
 	})
 
-	t.Run("the caps hold at extreme and negative estimates", func(t *testing.T) {
+	t.Run("the caps hold at extreme estimates and at their edges", func(t *testing.T) {
 		// cut queues one request per size, estimated exactly as run estimates them, and returns the
 		// length of every batch cutLocked takes until the queue is empty.
 		cut := func(q *groupQueue[*gcTestItem], sizes ...int) []int {
@@ -366,9 +381,52 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 		require.Equal(t, []int{2, 2}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: 4, size: gcTestSize}, 4, -4, 4, 0),
 			"a negative estimate counts as zero, so it cannot make room under the byte cap")
 		require.Equal(t, []int{1, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: -1, size: gcTestSize}, 0, 0, 0),
-			"a non-positive byte cap admits only the head")
+			"a negative byte cap admits only the head")
+		require.Equal(t, []int{2, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: 0, size: gcTestSize}, 0, 0, 1, 0),
+			"a zero byte cap admits zero-size requests behind a zero-size head, and nothing behind any other head")
+		require.Equal(t, []int{2, 1}, cut(&groupQueue[*gcTestItem]{maxN: 2, maxBytes: 0}, 5, 5, 5),
+			"a nil estimator counts every request as zero bytes, so only the count cap binds")
 		require.Equal(t, []int{1, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 0, maxBytes: 8, size: gcTestSize}, 0, 0, 0),
 			"a non-positive count cap admits only the head")
+	})
+
+	t.Run("a drained queue keeps nothing it cut reachable", func(t *testing.T) {
+		// 41 requests are cut into batches of at most 4, all on this goroutine. No other goroutine
+		// ever holds an item, and this one is stopped at a call while runtime.GC runs, so its stack
+		// is scanned precisely: after one collection, an item is alive only if the queue kept it.
+		const requests, maxN = 41, 4
+		q := &groupQueue[*gcTestItem]{maxN: maxN, maxBytes: journalGroupCommitMaxBytes, size: gcTestSize}
+		items := make([]weak.Pointer[gcTestItem], requests)
+		q.mu.Lock()
+		for k := range requests {
+			it := &gcTestItem{id: k, size: 1}
+			items[k] = weak.Make(it)
+			q.queue = append(q.queue, &gcReq[*gcTestItem]{item: it, size: q.sizeOf(it), done: make(chan struct{})})
+		}
+		cuts := 0
+		for len(q.queue) > 0 {
+			q.cutLocked()
+			cuts++
+		}
+		stale := 0
+		for _, r := range q.queue[:cap(q.queue)] {
+			if r != nil {
+				stale++
+			}
+		}
+		q.mu.Unlock()
+		require.Equal(t, (requests+maxN-1)/maxN, cuts)
+		require.Zerof(t, stale, "the queue's backing array still points at %d cut requests", stale)
+
+		runtime.GC() // returns only once the cycle's sweep, which clears weak pointers, is done
+		alive := 0
+		for _, p := range items {
+			if p.Value() != nil {
+				alive++
+			}
+		}
+		require.Zerof(t, alive, "%d of %d cut items are still reachable through the queue", alive, requests)
+		runtime.KeepAlive(q)
 	})
 }
 
