@@ -123,6 +123,9 @@ type drainer struct {
 	// dirSynced is set once the pass in progress has synced the spool directory. Drain clears it, under
 	// mu, before the pass's first file.
 	dirSynced bool
+	// unsyncedNoted names each spool file whose sync has failed since its last one that succeeded, so
+	// that noteUnsynced announces the failure Loud once, not on every pass. Guarded by mu.
+	unsyncedNoted map[string]bool
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -142,7 +145,7 @@ func newDrainer(cfg DrainConfig) *drainer {
 	if cfg.IsLive == nil {
 		cfg.IsLive = func(core.SessionID) bool { return false }
 	}
-	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir}
+	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir, unsyncedNoted: map[string]bool{}}
 	dr.syncFile = func(path string) error { return syncSpoolFileWith(path, dr.syncHandle) }
 	return dr
 }
@@ -270,8 +273,10 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		// in the pending total already, so the pass adds the rest, in memory only.
 		gaps.add(base, DrainGapUnsynced, "spool bytes could not be made durable")
 		gaps.unsynced += max(size-fs.Size, 0)
+		dr.noteUnsynced(path, base, err)
 		return 0, err
 	}
+	delete(dr.unsyncedNoted, base) // durable now: a later failure is a new one, announced again
 
 	f, err := os.Open(paths.Long(path))
 	if err != nil {
@@ -508,6 +513,20 @@ func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, err
 		dr.dirSynced = true
 	}
 	return size, nil
+}
+
+// noteUnsynced announces, Loud, a spool file the drain could not make durable, the first time it fails
+// since its last sync that succeeded. Drain warns of the file error on every pass. But a file the
+// drain can read and cannot sync, such as one it may not open for writing, stays undrained for good,
+// and so does its session's recovery marker: a hole that must not hide among those warnings. mu must
+// be held.
+func (dr *drainer) noteUnsynced(path, base string, err error) {
+	if dr.unsyncedNoted[base] {
+		return
+	}
+	dr.unsyncedNoted[base] = true
+	dr.cfg.Log.Loud("daemon: drain: spool file cannot be made durable; none of it drains until it can",
+		"path", path, "err", err)
 }
 
 // removeCompletedFile removes a fully drained file whose cleanup intents are all consumed, if

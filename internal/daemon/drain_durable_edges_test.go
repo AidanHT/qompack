@@ -427,3 +427,96 @@ func TestDrainSyncsTheSpoolDirectoryOncePerPassBeforeItConsumesASyncedFile(t *te
 	require.Equal(t, []string{"sync client-4.ndjson", "sync-dir", "dispatch client-4.ndjson"}, pass(1),
 		"the next pass takes it")
 }
+
+// kvValueOf returns the value logged under key in kv, a logger's alternating keys and values, or nil.
+func kvValueOf(kv []any, key string) any {
+	for i := 0; i+1 < len(kv); i += 2 {
+		if kv[i] == key {
+			return kv[i+1]
+		}
+	}
+	return nil
+}
+
+// TestDrainAnnouncesAFileItCannotSyncOncePerFailure: a spool file the drain can read but not sync, such
+// as one it may not open for writing, used to drain and now never does. Its sync fails on every pass,
+// and the SessionEnd flush never clears that session's recovery marker. Drain warns of every failed
+// file on every pass, so a hole that permanent is announced Loud, once per file, where it cannot hide
+// among the warnings (review 1, R8). A sync that succeeds ends the failure, and a later failure of the
+// same file is announced again.
+func TestDrainAnnouncesAFileItCannotSyncOncePerFailure(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	keptPath := filepath.Join(spool, "client-8181.ndjson")
+	gonePath := filepath.Join(spool, "client-8282.ndjson")
+	line := func(ts core.UnixMilli) []byte {
+		return wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-loud", TS: ts}).line
+	}
+	k1, k2 := line(1), line(2)
+	half := len(k2) / 2
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+	// A trailing half line keeps the first file on disk once it drains.
+	require.NoError(t, os.WriteFile(paths.Long(keptPath), joinLines(k1, k2[:half]), 0o600))
+	require.NoError(t, os.WriteFile(paths.Long(gonePath), line(3), 0o600))
+
+	errSync := errors.New("drain: injected spool sync fault")
+	failing := true
+	log := newRecordingLogger()
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: log, Clock: newFakeClock(epoch),
+		Dispatch: func(context.Context, ipc.Request) ipc.Response { return ipc.Response{OK: true} },
+	})
+	dr.syncFile = func(p string) error {
+		if failing {
+			return errSync
+		}
+		return syncSpoolFile(p)
+	}
+	announced := func() []string {
+		var out []string
+		for _, e := range log.entries(logLoud) {
+			require.Equal(t, "daemon: drain: spool file cannot be made durable; none of it drains until it can", e.Msg)
+			path, _ := kvValueOf(e.KV, "path").(string)
+			out = append(out, path)
+		}
+		return out
+	}
+
+	for range 3 {
+		n, err := dr.Drain(ctx)
+		require.ErrorIs(t, err, errSync)
+		require.Zero(t, n)
+	}
+	require.ElementsMatch(t, []string{keptPath, gonePath}, announced(),
+		"three failed passes over two files: one announcement for each file")
+	warned := 0
+	for _, e := range log.entries(logWarn) {
+		if e.Msg == "daemon: drain: file error" {
+			warned++
+		}
+	}
+	require.Equal(t, 6, warned, "each failed file is still warned of on every pass")
+
+	failing = false
+	n, err := dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, n, "once the syncs succeed, both files drain")
+	require.NoFileExists(t, gonePath)
+	require.FileExists(t, keptPath, "fixture: its trailing half line keeps it on disk")
+	require.Len(t, announced(), 2, "a sync that succeeds announces nothing")
+
+	w, err := paths.AppendOnly(keptPath)
+	require.NoError(t, err)
+	_, err = w.Write(k2[half:])
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	failing = true
+	for range 2 {
+		_, err = dr.Drain(ctx)
+		require.ErrorIs(t, err, errSync)
+	}
+	got := announced()
+	require.Len(t, got, 3, "a failure after the file's sync succeeded is a new one, announced once")
+	require.Equal(t, keptPath, got[2])
+}
