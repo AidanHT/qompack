@@ -3,6 +3,7 @@ package daemon
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/hookio"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
@@ -331,4 +333,132 @@ func TestDrainCrashBetweenForgettingAndUnlinkingReplaysOnlyWhatTheFrontierLacks(
 	require.Equal(t, 2, calls(), "a line the frontier already names is read again but not dispatched again")
 	require.NoFileExists(t, walFile)
 	require.True(t, restarted.GapState().Complete, "reading an acknowledged line again is not a gap")
+}
+
+// TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment covers progress already on
+// disk: state the old ordering wrote, whose crash left {Done, Offset: S, Size: S} for a segment
+// that is gone. It is the round-2 reviewer's likeliest trigger (drainwal R2-1). Stop keeps a live
+// session's segment. The next daemon's startup drain unlinks it and dies before its save. The
+// session's own traffic then reaches a later daemon, whose ingest recreates the name. That later
+// daemon's startup drain runs before it serves anything, so it must forget the entry, on disk,
+// before the name can come back.
+func TestDrainStartupForgetsStaleProgressBeforeTheSessionRecreatesItsSegment(t *testing.T) {
+	t.Parallel()
+	for _, tc := range recreationCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			const sess = core.SessionID("sess-stale-on-disk")
+			dd, clk := liveWALDaemon(t, nil)
+			ctx := context.Background()
+			walFile, drained := closedTwoDeliverySegment(t, dd, clk, sess)
+			base := filepath.Base(walFile)
+			statePath := paths.Long(drainStatePath(dd.root))
+
+			keep := dd.drainConfig()
+			keep.IsLive = func(core.SessionID) bool { return true } // Stop keeps a live session's segment
+			_, err := newDrainer(keep).Drain(ctx)
+			require.NoError(t, err)
+			stale, err := os.ReadFile(statePath)
+			require.NoError(t, err)
+			_, err = newDrainer(dd.drainConfig()).Drain(ctx) // the next daemon retires the segment...
+			require.NoError(t, err)
+			require.NoFileExists(t, walFile)
+			require.NoError(t, os.WriteFile(statePath, stale, 0o600)) // ...and its save never lands
+			require.Equal(t, &drainFileState{Size: drained, Offset: drained, Done: true}, diskDrainState(t, dd.root)[base],
+				"fixture: the entry outlived its file")
+
+			n, err := newDrainer(dd.drainConfig()).Drain(ctx) // the later daemon's startup drain
+			require.NoError(t, err)
+			require.Zero(t, n)
+			require.NotContains(t, diskDrainState(t, dd.root), base,
+				"the startup drain must forget, on disk, the progress of a finished file that is gone")
+
+			acked, got, err := recreateAndRecover(t, dd, clk, sess, tc.straggle, tc.size, drained)
+			require.NoError(t, err, "a later drain must not fail (a stale entry %s)", tc.stale)
+			require.Equal(t, acked, got, "every ACKed line of the recreated segment, exactly once (a stale entry %s)", tc.stale)
+			require.NoFileExists(t, walFile)
+		})
+	}
+}
+
+// TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny pins the start-of-pass rule on its
+// own terms. An entry is forgotten when three things hold: its file is finished (Done), it carries
+// no cleanup intent, and it is absent from the pass's spool listing. The forgetting is persisted
+// before a single line is dispatched. The other entries are handled this way:
+//   - An entry with cleanup intents stays until they are consumed: an intent is the only record of a
+//     blob the drain must still remove. Here the blob is still referenced by the one file left in
+//     the spool, the lost-ACK shape of two copies of one delivery.
+//   - An entry whose last intent the start-of-pass cleanup consumes is forgotten before the first
+//     line too. That is the old ordering's crash image for a blob-backed file, whose blob went before
+//     its unlink.
+//   - An unfinished entry stays. The drain never removes an unfinished file, so the file's absence
+//     is not a removal the drain made.
+func TestDrainForgetsReleasedProgressForMissingFilesBeforeReadingAny(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+
+	payload := []byte(`{"shared":"externalized payload"}`)
+	const blobName = "blob-still-referenced.bin"
+	blobPath := filepath.Join(spool, blobName)
+	require.NoError(t, os.WriteFile(paths.Long(blobPath), payload, 0o600))
+	ref, err := json.Marshal(blobRef{Blob: blobName, Bytes: len(payload), Field: drainBlobToolResponse})
+	require.NoError(t, err)
+	line, err := ipc.EncodeRequest(ipc.Request{
+		Op: ipc.OpObserveTool, Session: "sess-present", TS: core.UnixMilli(51), Event: &hookio.Event{}, Raw: ref,
+	})
+	require.NoError(t, err)
+	present := filepath.Join(spool, "client-present.ndjson")
+	require.NoError(t, os.WriteFile(paths.Long(present), line, 0o600))
+
+	const (
+		goneWAL         = "wal-sess-gone.ndjson"
+		goneClient      = "client-4040.ndjson"
+		goneWithIntent  = "wal-sess-gone-with-intent.ndjson"
+		goneBlobRemoved = "wal-sess-gone-blob-removed.ndjson"
+		goneUnfinished  = "client-4141.ndjson"
+	)
+	unfinished := drainFileState{Size: 300, Offset: 120}
+	require.NoError(t, newDrainer(DrainConfig{Root: root}).saveState(drainState{
+		goneWAL:         {Size: 752, Offset: 752, Done: true},
+		goneClient:      {Size: 376, Offset: 376, Done: true},
+		goneWithIntent:  {Size: 400, Offset: 400, Done: true, PendingBlobs: []string{blobName}},
+		goneBlobRemoved: {Size: 500, Offset: 500, Done: true, PendingBlobs: []string{"blob-already-removed.bin"}},
+		goneUnfinished:  &unfinished,
+	}))
+
+	var atFirstDispatch drainState
+	dispatches := 0
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: func(context.Context, ipc.Request) ipc.Response {
+		dispatches++
+		if atFirstDispatch == nil {
+			atFirstDispatch = diskDrainState(t, root)
+		}
+		return ipc.Response{OK: true}
+	}})
+	n, err := dr.Drain(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Equal(t, 1, dispatches)
+
+	require.NotContains(t, atFirstDispatch, goneWAL, "finished, no intent, gone: forgotten before the first line")
+	require.NotContains(t, atFirstDispatch, goneClient, "finished, no intent, gone: forgotten before the first line")
+	require.NotContains(t, atFirstDispatch, goneBlobRemoved,
+		"the start-of-pass cleanup consumed its last intent: forgotten before the first line")
+	require.Contains(t, atFirstDispatch, goneWithIntent, "an entry with a cleanup intent stays")
+	require.Equal(t, []string{blobName}, atFirstDispatch[goneWithIntent].PendingBlobs)
+	require.Equal(t, &unfinished, atFirstDispatch[goneUnfinished], "an unfinished entry stays")
+
+	require.NoFileExists(t, blobPath, "the kept intent is honoured once its last reference is consumed")
+	require.NoFileExists(t, present)
+	require.Equal(t, &drainFileState{Size: 400, Offset: 400, Done: true}, diskDrainState(t, root)[goneWithIntent],
+		"its intent consumed, the entry is released")
+
+	n, err = dr.Drain(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, n)
+	final := diskDrainState(t, root)
+	require.NotContains(t, final, goneWithIntent, "released and gone, the next pass forgets it")
+	require.Equal(t, &unfinished, final[goneUnfinished])
 }
