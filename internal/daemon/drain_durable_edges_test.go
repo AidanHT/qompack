@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -236,4 +237,90 @@ func TestDrainFsyncsASpoolFileOnAHandleOfItsOwnBeforeItsFirstDispatch(t *testing
 	require.Equal(t, []string{fsync, "dispatch 1", fsync, "dispatch 2"}, evs,
 		"the next pass issues an fsync of its own before it reads on")
 	require.NoFileExists(t, path, "fully drained and no longer open, the file is removed")
+}
+
+// joinLines is parts, one after another, in a slice of its own.
+func joinLines(parts ...[]byte) []byte {
+	var b []byte
+	for _, p := range parts {
+		b = append(b, p...)
+	}
+	return b
+}
+
+// TestDrainCountsTheBytesOfAFileItCouldNotSyncAsPending: a file whose sync failed keeps its stat size out
+// of the progress the pass persists, and rightly: that progress would otherwise name bytes a machine
+// crash can still take. Its unread bytes are pending all the same, and PendingBytes is what the
+// SessionEnd flush records in a session's recovery marker, so the pass counts them (review 1, R6). Each
+// unread byte is counted once: the bytes the file's recorded size already puts in the total are not
+// counted again when the file grows past that size and then fails its sync.
+func TestDrainCountsTheBytesOfAFileItCouldNotSyncAsPending(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	const freshName, resumedName = "client-7171.ndjson", "client-7272.ndjson"
+	fresh, resumed := filepath.Join(spool, freshName), filepath.Join(spool, resumedName)
+	line := func(ts core.UnixMilli) []byte {
+		return wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-pending", TS: ts}).line
+	}
+	a1, a2, b1, b2, b3 := line(1), line(2), line(3), line(4), line(5)
+	half := len(b2) / 2
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(fresh), joinLines(a1, a2), 0o600))
+	require.NoError(t, os.WriteFile(paths.Long(resumed), joinLines(b1, b2[:half]), 0o600))
+
+	errSync := errors.New("drain: injected spool sync fault")
+	failing := map[string]bool{freshName: true}
+	var got []core.UnixMilli
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: newRecordingLogger(), Clock: newFakeClock(epoch),
+		Dispatch: func(_ context.Context, r ipc.Request) ipc.Response {
+			got = append(got, r.TS)
+			return ipc.Response{OK: true}
+		},
+	})
+	dr.syncFile = func(p string) error {
+		if failing[filepath.Base(p)] {
+			return errSync
+		}
+		return syncSpoolFile(p)
+	}
+	resumedProgress := &drainFileState{Size: int64(len(b1) + half), Offset: int64(len(b1))}
+
+	n, err := dr.Drain(ctx)
+	require.ErrorIs(t, err, errSync)
+	require.Equal(t, 1, n, "the other file's whole line drains")
+	require.Equal(t, int64(len(a1)+len(a2)+half), dr.GapState().PendingBytes,
+		"the unsynced file's unread bytes, and the other file's trailing half line")
+	st, err := dr.loadState()
+	require.NoError(t, err)
+	require.Equal(t, &drainFileState{}, st[freshName], "the unsynced file's size is not recorded")
+	require.Equal(t, resumedProgress, st[resumedName], "fixture: the other file's progress records its half line")
+
+	// That file grows past its recorded size, and now its sync fails too.
+	w, err := paths.AppendOnly(resumed)
+	require.NoError(t, err)
+	_, err = w.Write(joinLines(b2[half:], b3))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	failing[resumedName] = true
+	n, err = dr.Drain(ctx)
+	require.ErrorIs(t, err, errSync)
+	require.Zero(t, n)
+	require.Equal(t, int64(len(a1)+len(a2)+len(b2)+len(b3)), dr.GapState().PendingBytes,
+		"every unread byte once: the half line the recorded size counts is not counted again")
+	st, err = dr.loadState()
+	require.NoError(t, err)
+	require.Equal(t, resumedProgress, st[resumedName], "the size the failed pass saw is not recorded")
+
+	clear(failing)
+	n, err = dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 4, n, "once both sync, the next pass takes every line left")
+	require.Equal(t, []core.UnixMilli{3, 1, 2, 4, 5}, got, "each line exactly once")
+	require.Zero(t, dr.GapState().PendingBytes)
+	for _, g := range dr.GapState().Gaps {
+		require.Equalf(t, DrainGapUnleased, g.Kind,
+			"nothing is left unsynced or pending; these requests carry no nonce, so each is unleased: %+v", g)
+	}
 }

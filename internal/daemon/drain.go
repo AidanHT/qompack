@@ -215,7 +215,7 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 			gaps.add(base, DrainGapPending, "spool bytes not yet replayed")
 		}
 	}
-	dr.publishGaps(gaps.state(dr.cfg.Clock, pending))
+	dr.publishGaps(gaps.state(dr.cfg.Clock, pending+gaps.unsynced))
 	return total, stopErr
 }
 
@@ -257,7 +257,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	// leaves the whole file for a later pass.
 	end, err := dr.durableEnd(path, base, size, fs.Offset)
 	if err != nil {
+		// The stat size is not recorded: progress naming bytes the pass could not make durable would
+		// outlive a machine crash that takes them, and validateProgress would then refuse every later
+		// Drain. The file's unread bytes are pending all the same. Those up to the recorded size are
+		// in the pending total already, so the pass adds the rest, in memory only.
 		gaps.add(base, DrainGapUnsynced, "spool bytes could not be made durable")
+		gaps.unsynced += max(size-fs.Size, 0)
 		return 0, err
 	}
 
@@ -904,6 +909,10 @@ type GapReporter interface {
 // gapRecorder accumulates one pass's gaps.
 type gapRecorder struct {
 	gaps map[DrainGap]int
+	// unsynced counts the unread bytes the pass found in files it could not make durable, past the
+	// size their persisted progress records. The pass does not record their stat size (drainFile says
+	// why), so the progress it persists does not show these bytes, yet they are pending all the same.
+	unsynced int64
 }
 
 func (g *gapRecorder) add(file string, kind DrainGapKind, reason string) {
