@@ -1158,3 +1158,94 @@ func TestIngest_LeaseLineNeverPrecedesItsWALSync(t *testing.T) {
 	}
 	requireDurableBeforeReturn(t, p, all)
 }
+
+// newWALReqOfSize builds request k on sess in newWALReq's shape, as a line of exactly size bytes
+// before its terminator, and hands Accept the wire form.
+func newWALReqOfSize(t *testing.T, sess core.SessionID, k, size int) walReq {
+	t.Helper()
+	head := `{"s":"` + string(sess) + `","k":` + strconv.Itoa(k) + `,"p":"`
+	const tail = `"}`
+	pad := size - len(head) - len(tail)
+	require.GreaterOrEqual(t, pad, 0, "the session name leaves no room in the line")
+	wire := []byte(head + strings.Repeat("x", pad) + tail + "\n")
+	return walReq{req: ipc.Request{Op: ipc.OpObserveTool, Session: sess}, line: wire, want: wire}
+}
+
+// walCapLines holds batch 1 on a session of its own, queues reqs behind it in order, releases it,
+// and requires every Accept to commit. reqs must all be on one other session and stay short of its
+// rotation ceiling, so each later batch writes that session's one segment in one Write and syncs it
+// once. It returns how many lines each of those Writes carried, batch 2's first, once it has checked
+// that together they carried every line of reqs exactly once, in order.
+func walCapLines(t *testing.T, reqs []walReq) []int {
+	t.Helper()
+	sess := reqs[0].req.Session
+	ing, p, root := newWALIngest(t)
+	p.gate = newWALGate(t)
+	lead := goAccept(ing, p, 0, newWALReq(t, "cap-gate", 0))
+	awaitClosed(t, p.gate.entered, "batch 1's Sync")
+	accepts := queueBehind(t, ing, p, 1, reqs)
+	requireNoneReturned(t, accepts, "while the batch ahead of it held its Sync")
+	p.gate.release()
+	all := append([]*walAccept{lead}, accepts...)
+	for _, a := range all {
+		awaitAccept(t, a)
+		require.Nilf(t, a.recovered, "request %d", a.id)
+		require.NoErrorf(t, a.err, "request %d", a.id)
+	}
+	requireDurableBeforeReturn(t, p, all)
+	requireIdle(t, &ing.walQ)
+
+	seg := segName(sess, 0)
+	var lines []int
+	var carried []byte
+	syncs := 0
+	for _, op := range ioFrom(p.log(), 2) {
+		require.NoErrorf(t, op.err, "%s %s", op.kind, op.seg)
+		require.Equalf(t, seg, op.seg, "every batch after the first writes and syncs %s only", seg)
+		if op.kind == "sync" {
+			syncs++
+			continue
+		}
+		lines = append(lines, bytes.Count(op.data, []byte{'\n'}))
+		carried = append(carried, op.data...)
+	}
+	require.Equal(t, len(lines), syncs, "each batch after the first writes its one segment once and syncs it once")
+	// Compared as booleans: a diff of two 4 MiB strings would bury the failure.
+	want := wantsOn(reqs, sess)
+	require.True(t, want == string(carried), "the Writes after batch 1 carry every queued line once, in order")
+	require.True(t, want == readWAL(t, root, sess, 0), "the segment holds every queued line once, in order")
+	return lines
+}
+
+// Design §2.3's request cap, through Accept: a WAL batch holds at most groupCommitMaxRequests
+// requests. One more than that, all short and on one session, queued behind a held batch commit as
+// a full batch and then a batch of one: at today's cap, 513 lines give 512, then 1.
+func TestIngest_WALBatchStopsAtTheRequestCap(t *testing.T) {
+	const sess = core.SessionID("cap-count")
+	order := make([]core.SessionID, groupCommitMaxRequests+1)
+	for k := range order {
+		order[k] = sess
+	}
+	require.Equal(t, []int{groupCommitMaxRequests, 1}, walCapLines(t, newWALReqs(t, 1, order...)),
+		"lines per Write after batch 1: the request cap ends batch 2, and the request past it commits in batch 3")
+}
+
+// Design §2.3's WAL byte cap, through Accept: a WAL batch's lines, each counted with its one
+// terminator as walItemSize counts it, sum to at most walGroupCommitMaxBytes. The lines below fill
+// the cap exactly without their terminators (256 × 16 384 = 4 194 304 at today's cap), so a size
+// that left the terminator out would cut all of them into one batch. Counting it, 255 fit
+// (255 × 16 385 = 4 178 175) and a 256th would make 4 194 560 > 4 194 304, so batch 2 carries all
+// but the last line and batch 3 that one.
+func TestIngest_WALBatchByteCapCountsEveryTerminator(t *testing.T) {
+	const sess = core.SessionID("cap-bytes")
+	const lines = groupCommitMaxRequests / 2 // under the request cap, so only the byte cap can end a batch
+	const lineSize = walGroupCommitMaxBytes / lines
+	require.Equal(t, walGroupCommitMaxBytes, lines*lineSize, "the lines fill the byte cap exactly without their terminators")
+	require.LessOrEqual(t, (lines-1)*(lineSize+1), walGroupCommitMaxBytes, "all but one of the lines fit with their terminators")
+	reqs := make([]walReq, lines)
+	for k := range reqs {
+		reqs[k] = newWALReqOfSize(t, sess, 1+k, lineSize)
+	}
+	require.Equal(t, []int{lines - 1, 1}, walCapLines(t, reqs),
+		"lines per Write after batch 1: the byte cap, counting each terminator, ends batch 2 one line short")
+}
