@@ -728,6 +728,7 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // drainConfig is the drainer's wiring over this daemon's own dependencies — the one Run installs.
 // RemoveWAL is the ingest's own removal, so a WAL segment the ingest still holds, or one that has
 // grown since it was drained, is never deleted, whatever the registry says about its session.
+// HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
 func (d *daemon) drainConfig() DrainConfig {
 	return DrainConfig{
 		Root:      d.root,
@@ -740,6 +741,7 @@ func (d *daemon) drainConfig() DrainConfig {
 		Journal:   d.deliveryJournal,
 		IsLive:    d.sessionIsLive,
 		RemoveWAL: d.ing.removeDrainedWAL,
+		HoldsWAL:  d.ing.holdsWAL,
 	}
 }
 

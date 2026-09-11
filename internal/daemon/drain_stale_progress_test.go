@@ -178,29 +178,32 @@ func TestDrainCrashAtTheUnlinkLeavesNoProgressForARecreatedSegment(t *testing.T)
 // TestDrainRestoresProgressWhenItDoesNotRemoveTheFile pins the other half of forgetting first: a
 // removal that does not happen must put the file's progress back on disk before the pass moves on.
 // Otherwise a crash later in the pass leaves the file with no entry, and the restarted drain
-// replays every line of it again. The removal can not happen in two ways. The ingest can refuse,
-// because it holds the segment for a session it serves without the registry counting it live. Or
-// the unlink can fail, a Windows sharing violation say, injected here so both platforms see it.
+// replays every line of it again. The removal can not happen in two ways. The ingest can refuse
+// because it holds the segment. The drain asks that first (DrainConfig.HoldsWAL) and leaves a
+// segment held all along without forgetting it, so the refusal comes when a straggler reopens the
+// segment between that question and the removal. Or the unlink can fail, a Windows sharing
+// violation say, injected here so both platforms see it. In both cases nothing holds the segment
+// when the drain asks.
 //
 // The crash image is taken while the pass is on the NEXT spool file, a client fallback the listing
 // orders after every WAL segment, and put back afterwards: the restarted drain must replay only the
-// delivery ACKed after the pass.
+// deliveries ACKed after the pass read the segment.
 func TestDrainRestoresProgressWhenItDoesNotRemoveTheFile(t *testing.T) {
 	t.Parallel()
 	errUnlink := errors.New("injected: the unlink failed")
 	cases := []struct {
 		name    string
-		release bool // close the segment, so only the injected failure keeps it
+		reopen  bool // a straggler reopens the segment between the held question and the removal
 		remove  func(dd *daemon) func(string, int64) (bool, error)
 		wantErr error
 	}{
 		{
-			name:   "the ingest holds the segment",
+			name:   "the ingest refuses a segment reopened after the drain asked",
+			reopen: true,
 			remove: func(dd *daemon) func(string, int64) (bool, error) { return dd.ing.removeDrainedWAL },
 		},
 		{
-			name:    "the unlink fails",
-			release: true,
+			name: "the unlink fails",
 			remove: func(*daemon) func(string, int64) (bool, error) {
 				return func(string, int64) (bool, error) { return false, errUnlink }
 			},
@@ -215,9 +218,7 @@ func TestDrainRestoresProgressWhenItDoesNotRemoveTheFile(t *testing.T) {
 			ctx := context.Background()
 			clk.Advance(time.Millisecond)
 			liveWALAccept(t, dd, liveWALTool(dd, sess)) // not through the registry: the session is not live
-			if tc.release {
-				require.NoError(t, dd.ing.CloseSession(sess))
-			}
+			require.NoError(t, dd.ing.CloseSession(sess))
 			walFile := walPath(paths.Of(dd.root).Spool, sess, 0)
 			base := filepath.Base(walFile)
 			size := spoolFileSize(t, walFile)
@@ -229,9 +230,16 @@ func TestDrainRestoresProgressWhenItDoesNotRemoveTheFile(t *testing.T) {
 			cfg := dd.drainConfig()
 			remove := tc.remove(dd)
 			var namedAtUnlink []bool
+			var replay []core.UnixMilli // what the restarted drain must replay, in order
 			cfg.RemoveWAL = func(path string, drained int64) (bool, error) {
 				_, named := diskDrainState(t, dd.root)[base]
 				namedAtUnlink = append(namedAtUnlink, named)
+				if tc.reopen {
+					clk.Advance(time.Millisecond)
+					straggler := liveWALTool(dd, sess)
+					liveWALAccept(t, dd, straggler) // reopens segment 0: held again, and grown
+					replay = append(replay, straggler.TS)
+				}
 				return remove(path, drained)
 			}
 			var image []byte
@@ -262,15 +270,82 @@ func TestDrainRestoresProgressWhenItDoesNotRemoveTheFile(t *testing.T) {
 			clk.Advance(time.Millisecond)
 			after := liveWALTool(dd, sess)
 			liveWALAccept(t, dd, after)
+			replay = append(replay, after.TS)
 			require.NoError(t, dd.ing.Close())
 
 			var got []core.UnixMilli
 			_, err = recordingDrainer(dd.root, clk, &got).Drain(ctx)
 			require.NoError(t, err)
-			require.Equal(t, []core.UnixMilli{after.TS}, got,
+			require.Equal(t, replay, got,
 				"the restored progress was already on disk: the drained delivery is not replayed")
 		})
 	}
+}
+
+// TestDrainDoesNotForgetASegmentTheIngestHolds pins the question the drainer asks before it forgets
+// a finished segment (DrainConfig.HoldsWAL). RemoveWAL refuses, on every pass, a segment the ingest
+// holds for a session the registry does not count live: a straggler after SessionEnd, or an
+// EndAbandoned session whose handle stays cached. Forgetting such a segment first cost three
+// state/drain.json writes per idle pass instead of one: the forget, the restore, and the end of the
+// pass. Each pass also reopened the window between the forget and the restore, in which a crash
+// leaves the file with no progress. Asked first, the drainer leaves the segment alone: RemoveWAL is
+// never reached, and an idle pass writes nothing for it before the next file starts. Before that
+// pass, state/drain.json is rewritten indented, a form saveState never produces, so any save in
+// between shows.
+func TestDrainDoesNotForgetASegmentTheIngestHolds(t *testing.T) {
+	t.Parallel()
+	const sess = core.SessionID("sess-held-not-live")
+	dd, clk := liveWALDaemon(t, nil)
+	ctx := context.Background()
+	clk.Advance(time.Millisecond)
+	liveWALAccept(t, dd, liveWALTool(dd, sess)) // held by the ingest; never registered, so not live
+	walFile := walPath(paths.Of(dd.root).Spool, sess, 0)
+	base := filepath.Base(walFile)
+	size := spoolFileSize(t, walFile)
+	statePath := paths.Long(drainStatePath(dd.root))
+
+	cfg := dd.drainConfig()
+	asked := 0
+	cfg.RemoveWAL = func(path string, drained int64) (bool, error) {
+		asked++
+		return dd.ing.removeDrainedWAL(path, drained)
+	}
+	var atNextFile []byte
+	dispatch := cfg.Dispatch
+	cfg.Dispatch = func(ctx context.Context, r ipc.Request) ipc.Response {
+		if r.Session != sess && atNextFile == nil {
+			b, err := os.ReadFile(statePath)
+			require.NoError(t, err)
+			atNextFile = b
+		}
+		return dispatch(ctx, r)
+	}
+	dr := newDrainer(cfg)
+
+	n, err := dr.Drain(ctx) // reads the segment to its end
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Zero(t, asked, "a segment the ingest holds is never offered to RemoveWAL")
+	want := &drainFileState{Size: size, Offset: size, Done: true}
+	require.Equal(t, want, diskDrainState(t, dd.root)[base])
+
+	indented, err := json.MarshalIndent(diskDrainState(t, dd.root), "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(statePath, indented, 0o600))
+	fallback, err := ipc.EncodeRequest(liveWALTool(dd, "sess-client-fallback"))
+	require.NoError(t, err)
+	fallbackFile := filepath.Join(paths.Of(dd.root).Spool, "client-4646.ndjson")
+	require.NoError(t, os.WriteFile(paths.Long(fallbackFile), fallback, 0o600))
+
+	n, err = dr.Drain(ctx) // an idle pass over the held, finished segment
+	require.NoError(t, err)
+	require.Equal(t, 1, n, "only the client fallback's delivery")
+	require.Zero(t, asked, "a segment the ingest holds is never offered to RemoveWAL")
+	require.Equal(t, string(indented), string(atNextFile),
+		"the idle pass must not write state/drain.json for the held segment before the next file starts")
+	require.FileExists(t, walFile)
+	require.NoFileExists(t, fallbackFile)
+	require.Equal(t, want, diskDrainState(t, dd.root)[base], "the held segment's progress is never given up")
 }
 
 // TestDrainCrashBetweenForgettingAndUnlinkingReplaysOnlyWhatTheFrontierLacks pins the window the
