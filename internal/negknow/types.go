@@ -1,8 +1,6 @@
 package negknow
 
 import (
-	"bytes"
-
 	"github.com/qompack/qompack/internal/core"
 )
 
@@ -106,16 +104,25 @@ func Canonicalize(target, approach, reason string) Descriptor {
 // from §14.1; do not improvise the byte layout — TestDescriptorKey_Stable freezes its output as a
 // golden, and any change here silently re-keys every bloom entry already on disk.
 func (d Descriptor) Key() []byte {
-	var b bytes.Buffer
-	b.WriteString(d.NormalizedPath)
-	b.WriteByte(0x1f)
-	b.WriteString(d.Symbol)
-	b.WriteByte(0x1f)
-	b.WriteString(d.ApproachClass)
-	b.WriteByte(0x1f)
-	b.Write(d.ReasonHash[:])
-	h := core.HashBytes(core.DomainNegKnow, b.Bytes())
+	h := d.keyHash()
 	return h[:]
+}
+
+// keyHash is Key's digest as a value, for the callers in this package that need the digest rather
+// than a slice of it. The preimage is §14.1's byte layout exactly — the three text fields each
+// followed by 0x1f, then the reason hash's 32 bytes — assembled by append into a stack buffer
+// instead of a bytes.Buffer, which cost two heap growths per call. Only the construction changed;
+// TestDescriptorKey_Stable still freezes the output.
+func (d Descriptor) keyHash() core.Hash {
+	var buf [keyPreimageBuf]byte
+	b := append(buf[:0], d.NormalizedPath...)
+	b = append(b, 0x1f)
+	b = append(b, d.Symbol...)
+	b = append(b, 0x1f)
+	b = append(b, d.ApproachClass...)
+	b = append(b, 0x1f)
+	b = append(b, d.ReasonHash[:]...)
+	return core.HashBytes(core.DomainNegKnow, b)
 }
 
 // Dep aliases core.Dep (00-ARCHITECTURE.md §4, §5.10): store must not import negknow (§3.2), so
