@@ -139,8 +139,20 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		dr.publishGaps(gaps.state(dr.cfg.Clock, 0))
 		return 0, err
 	}
+	listed := make(map[string]bool, len(files))
+	for _, path := range files {
+		listed[filepath.Base(path)] = true
+	}
+	if err := dr.forgetReleased(st, listed); err != nil {
+		return dr.unpersisted(gaps, err)
+	}
 	total := 0
 	stopErr := dr.cleanupAcknowledged(st)
+	// The cleanup can consume the last intent of an entry whose file is already gone; that entry
+	// is released now, and forgotten before the first file is drained like the rest.
+	if err := dr.forgetReleased(st, listed); err != nil {
+		return dr.unpersisted(gaps, errors.Join(stopErr, err))
+	}
 
 	for _, path := range files {
 		if ctx.Err() != nil {
@@ -563,6 +575,38 @@ func (dr *drainer) validateProgress(files []string, st drainState) error {
 		}
 	}
 	return nil
+}
+
+// forgetReleased drops the progress entry of every released file — finished (Done), no cleanup
+// intent left — whose base name is not in listed, the pass's spool listing, and persists st if it
+// dropped one. Such an entry describes a file that is gone. removeCompletedFile forgets a file
+// before it unlinks it, but state already on disk may predate that ordering: its crash window left
+// an entry whose file was unlinked and whose save never happened, and the entry was then applied to
+// whatever file later took the same name. A name missing from the listing proves the entry's file
+// is gone even if the name comes back a moment later, which a stat taken now could not tell apart.
+// An entry that still carries cleanup intents stays: they are the only record of blobs
+// cleanupAcknowledged must still remove. So does an unfinished one, whose file the drain never
+// removes.
+func (dr *drainer) forgetReleased(st drainState, listed map[string]bool) error {
+	forgot := false
+	for base, fs := range st {
+		if fs.Done && len(fs.PendingBlobs) == 0 && !listed[base] {
+			delete(st, base)
+			forgot = true
+		}
+	}
+	if !forgot {
+		return nil
+	}
+	return dr.saveState(st)
+}
+
+// unpersisted ends a pass that could not persist its own progress before draining a single file.
+// Like progress it cannot read, that is a gap in the whole replay.
+func (dr *drainer) unpersisted(gaps *gapRecorder, err error) (int, error) {
+	gaps.add("", DrainGapProgressUnreadable, "drain progress could not be persisted")
+	dr.publishGaps(gaps.state(dr.cfg.Clock, 0))
+	return 0, err
 }
 
 // dispatchPending leaves the record and any externalized bytes available until handling and
