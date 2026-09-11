@@ -6,8 +6,8 @@ import (
 )
 
 // This file is the one queue primitive SP20-D1's three durable pipelines are built on: the WAL, the
-// delivery-lease journal and the acknowledgement journal (design §2.3). Nothing uses it yet; each
-// pipeline adopts it in its own stage.
+// delivery-lease journal and the acknowledgement journal (design §2.3). The WAL uses it (ingest.go,
+// walQ); each journal pipeline adopts it in its own stage.
 //
 // It is a leader/follower group commit:
 //
