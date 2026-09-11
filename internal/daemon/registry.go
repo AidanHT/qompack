@@ -237,7 +237,7 @@ func (r *SessionRegistry) Touch(id core.SessionID, now core.UnixMilli) {
 	}
 }
 
-// End marks id no longer live. It is a no-op for an id Ensure has never seen.
+// End marks id no longer live. It is a no-op for an id the registry has never seen.
 func (r *SessionRegistry) End(id core.SessionID, now core.UnixMilli) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
