@@ -69,6 +69,15 @@ const (
 	// G2.3 capture, so it is countable on its own rather than only a Warn in a log nobody reads.
 	counterPromptCaptureRefused = "l0_prompt_capture_refused"
 
+	// counterPromptReplayedUncaptured counts an observe.prompt delivery a drain replayed through
+	// runIngested, whose prompt arm runs only the sentinel scan: the delivery is acknowledged and its
+	// spool copy released with no verbatim capture made (SP08-D3, carried to V6). It is an UPPER
+	// bound on lost G2.3 captures, not an exact count: a live line the full ring refused, and a line
+	// whose live capture landed before a crash, replay the same way and cannot be told apart. It is
+	// counted in drainDispatch only (the live worker shares runIngested) and only on an acknowledged
+	// dispatch, since an unacknowledged one is redelivered and would be counted twice.
+	counterPromptReplayedUncaptured = "l0_prompt_replayed_uncaptured"
+
 	counterHotpathDegraded = "hotpath_degraded"
 
 	// counterHotpathSampleInvalid counts a hot-path sample rejected by validHotPathTS (an absent,
