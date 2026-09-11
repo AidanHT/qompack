@@ -47,13 +47,24 @@ const dagselModulePath = "github.com/qompack/qompack"
 const dagselCorpusSessions = 24
 
 // dagselSampleCount is how many uniformly spaced positions the low-coupling comparison samples
-// per compaction event, and dagselLowCouplingFloor is section 4.5's floor: the fraction of events
-// in which CrossingEdges(p_min) must land strictly below the sampled mean. The floor is the
-// spec's own number and must never be lowered to fit a measurement.
-const (
-	dagselSampleCount      = 32
-	dagselLowCouplingFloor = 0.70
-)
+// per compaction event.
+const dagselSampleCount = 32
+
+// dagselCounts is the section 4.5 measurement in full: every compaction event, how many of them
+// p_min won, and the diagnostic distribution that says what kind of win each was.
+type dagselCounts struct {
+	Events       int // compaction events measured across the corpus
+	Low          int // events where CrossingEdges(p_min) was strictly below the sampled mean
+	PAtZero      int // events whose p_min sat at position 0, the unbound-budget answer
+	CrossingZero int // events where CrossingEdges(p_min) was 0: a free win that measures nothing
+	MeanZero     int // events whose sampled mean was 0: a comparison nothing can win
+	Bound        int // events where the keep budget dropped a candidate
+}
+
+// dagselPinned is what the committed synthetic corpus measures, recorded in V4 and unchanged
+// since. It replaces section 4.5's 70 % floor, which the owner retired on 2026-09-10; see
+// TestIntegration_BeladyPMinLandsAtLowCoupling for why and for how to move these numbers.
+var dagselPinned = dagselCounts{Events: 39, Low: 24, PAtZero: 0, CrossingZero: 11, MeanZero: 0, Bound: 30}
 
 // dagselPosStep spaces the token positions of the tool uses the store-backed tests ingest. The
 // value only has to be positive and increasing; it is not a Qompack tunable.
@@ -217,12 +228,22 @@ func dagselSampleMeanCrossing(g dag.Graph, n int) float64 {
 // For each of the 24 synthetic corpus sessions, at each compaction turn: derive
 // eval.Blocks(s, at); build a dag.Graph whose node Pos values are those block positions, edges
 // via dag.BuildToolUse from the session's own tool calls; compute eval.BeladyDetail to get
-// KeepSet.P. Across all compaction events, dag.CrossingEdges(P) must be strictly lower than the
-// mean of CrossingEdges over 32 evenly spaced positions in the same prefix, in at least 70% of
-// events. This is a measurement with a floor, not a proof: the observed percentage is logged and
-// recorded in the completion report as the wave-1 baseline.
+// KeepSet.P. Across all compaction events, dag.CrossingEdges(P) is compared with the mean of
+// CrossingEdges over 32 evenly spaced positions in the same prefix. Section 4.5 first set this up
+// as a measurement with a floor: p_min had to win the comparison in at least 70% of events.
 //
-// V4 STATUS: THIS ROW IS RED ON PURPOSE, AND THE FLOOR MUST NOT BE LOWERED TO FIT IT.
+// STATUS SINCE 2026-09-10: THE FLOOR IS RETIRED AND THE MEASUREMENT IS PINNED.
+//
+// The hypothesis did not hold on an instrument that could fail it (below), and the owner retired
+// the 70% floor in the V5 close-out rather than re-derive one from the measurement it would judge,
+// which would assert nothing. What this test asserts now is the exact distribution the committed
+// corpus produces (dagselPinned): 24 of 39 events, 11 of them free wins, so p_min wins 13 of the 28
+// real comparisons. Any change to the corpus, the Belady keep-set or the DAG's coupling measure
+// moves one of these numbers and fails the test in either direction. That is the point: a better
+// or worse reading must be re-measured and recorded in a checkpoint report, and only then written
+// into dagselPinned, never adjusted to make a red run pass.
+//
+// The history behind the numbers, kept because it is what makes them trustworthy:
 //
 // The V4 corpus correction (SP02-D1 and SP02-D3) moved the measured rate from 100.0% to 61.5%.
 // The two candidate explanations were separated by swapping only the corpus and holding this code
@@ -246,12 +267,10 @@ func dagselSampleMeanCrossing(g dag.Graph, n int) float64 {
 //
 // On the corrected corpus 11 of 39 events are still free wins and the other 28 are real
 // comparisons, 13 of which p_min also wins. 61.5% is therefore the first honest reading of this
-// property, not a degraded one.
-//
-// That does NOT license 0.615 as the new floor. A floor re-derived from the one measurement it is
-// meant to judge asserts nothing. Section 4.5's 70% is a spec number and changing it is a plan
-// decision this test cannot make and this unit does not own; until that re-derivation is
-// authorized and its reasoning recorded, the row stays failing and states why.
+// property, not a degraded one, and it says "cut where coupling is low" and "cut where OPT drops
+// the earliest block" agree about as often as a coin would. Native p-selection, which that
+// agreement was meant to justify, is retired in Qompack.md v1.5, so no shipped behaviour rests on
+// the floor that was dropped.
 func TestIntegration_BeladyPMinLandsAtLowCoupling(t *testing.T) {
 	ctx := context.Background()
 	sessions := dagselLoadCorpus(t)
@@ -318,9 +337,11 @@ func TestIntegration_BeladyPMinLandsAtLowCoupling(t *testing.T) {
 	t.Logf("p_min distribution: p==0 in %d/%d events, CrossingEdges(p_min)==0 in %d/%d, "+
 		"sampled mean==0 in %d/%d, budget binds in %d/%d",
 		pAtZero, events, crossingZero, events, meanZero, events, bound, events)
-	require.GreaterOrEqual(t, rate, dagselLowCouplingFloor,
-		"section 4.5 floor: Belady's p_min must land at below-mean coupling in at least 70%% of events; "+
-			"report the measured rate, do not lower the floor")
+	require.Equal(t, dagselPinned,
+		dagselCounts{Events: events, Low: low, PAtZero: pAtZero, CrossingZero: crossingZero, MeanZero: meanZero, Bound: bound},
+		"section 4.5's measurement moved. The corpus, the Belady keep-set or the coupling measure changed: "+
+			"re-measure, record the new distribution and the reason in a checkpoint report, and only then "+
+			"update dagselPinned (never to make a red run pass)")
 }
 
 // dagselIngest is what dagselIngestAuthVersions put into the store and the graph: the tool-use
