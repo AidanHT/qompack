@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -187,16 +188,18 @@ func replayLog(r io.Reader, log logging.Logger, m obs.Registry) ([]Record, map[s
 	return replayLogSized(r, 0, log, m)
 }
 
-// replayLogSized is replayLog with a capacity hint: an upper bound on how many records the log can
-// hold, or 0 for none. loadRecords reads one off the byte slice it already has in hand — every
-// record needs a line of its own — and without it a 20 000-record log grows the records slice
-// through a dozen reallocations, several times its final size in copies and garbage.
+// replayLogSized is replayLog with a capacity hint: how many records to reserve room for, or 0 for
+// none. loadRecords reads one off the byte slice it already has in hand (replayCapacityHint), and
+// without it a 20 000-record log grows the records slice through a dozen reallocations, several
+// times its final size in copies and garbage.
 //
 // The hint sizes allocations and decides nothing else: the records, their order, the index and
-// every counter are what replayLog produces. What it can change is how much capacity the result
-// carries, and that is bounded: a hint that overshot the records by more than append's own
-// growth would have left — a log with many control lines — is trimmed to fit, and a replay that
-// materialized nothing returns a nil slice, as it always has.
+// every counter are what replayLog produces. A hint that undershoots costs only the growth it
+// failed to avoid. What an overshoot can change is how much capacity the result carries, and that
+// is bounded: a records slice with more spare room than append's own growth would have left — a
+// log with many control lines — is trimmed to fit, an index sized for more than twice the entries
+// it holds is re-made at its size, and a replay that materialized nothing returns a nil slice, as
+// it always has.
 func replayLogSized(r io.Reader, sizeHint int, log logging.Logger, m obs.Registry) ([]Record, map[string]int, int, error) {
 	var (
 		recs []Record
@@ -342,12 +345,46 @@ func replayLogSized(r io.Reader, sizeHint int, log logging.Logger, m obs.Registr
 	case cap(recs)-len(recs) > len(recs)/slackDivisor:
 		recs = append([]Record(nil), recs...)
 	}
+	if len(byID) < sizeHint/mapSlackDivisor {
+		// The index outlives the replay as the ledger's own, so a hint that overshot — lines that
+		// materialized nothing — must not leave it sized for records that never came. A map cannot
+		// shrink in place; this copy is paid only when fewer than half the hinted slots were used,
+		// which a log of record lines never triggers.
+		fit := make(map[string]int, len(byID))
+		maps.Copy(fit, byID)
+		byID = fit
+	}
 	return recs, byID, lines, nil
 }
 
 // slackDivisor bounds the spare capacity replayLogSized lets a pre-sized records slice keep: at
 // most a quarter of its length, which is about what append's growth leaves on a slice this large.
-const slackDivisor = 4
+// mapSlackDivisor is the same bound for the index: at most twice the entries it holds, which is
+// what a map grown one doubling at a time can already carry.
+const (
+	slackDivisor    = 4
+	mapSlackDivisor = 2
+)
+
+// minRecordLineBytes is a floor on the length of a record line this package writes: the wire form
+// always carries every key and two "sha256:"-prefixed digests, so even the zero Record renders
+// to more than this (TestReplayCapacityHint_NeverUndercutsCanonicalRecords pins it).
+const minRecordLineBytes = 256
+
+// replayCapacityHint is the record capacity loadRecords asks replayLogSized for, read off the file
+// already in hand. Every record needs a line of its own, and every record line this package writes
+// is at least minRecordLineBytes long, so the smaller of the two counts still covers every record
+// of a log this package wrote.
+//
+// The byte bound is what keeps the hint proportional to the file. Lines that materialize nothing —
+// blank lines, control lines, damage — would otherwise each reserve a Record slot and an index
+// slot, and a file dense in newlines would turn into an allocation hundreds of times its own size:
+// the unbounded-allocation shape §12.3 and maxLogLineBytes exist to refuse. A log whose records are
+// shorter than the floor — hand-written, not this package's — only gets a smaller hint, and append
+// grows past it as it always did.
+func replayCapacityHint(b []byte) int {
+	return min(bytes.Count(b, []byte{'\n'})+1, len(b)/minRecordLineBytes)
+}
 
 // decodeLogLine is the replay's single decode of one trimmed, non-empty line into a zero ln: the
 // fast path when the line is a canonical record line, json.Unmarshal otherwise. The error is
