@@ -305,7 +305,8 @@ window with enough samples for the gate to compare.
 
 ## SP20-D3 — a delta side record shared across roots breaks exact recovery for all but the first
 
-`deferred:V6-VERIFY`. Found by V5-VERIFY section-4 row 4.17 (`TestV5_AdmissionExtension`) while its
+`fixed` at the V5 close-out (2026-09-11; opened `deferred:V6-VERIFY`, see the disposition at the end
+of this section). Found by V5-VERIFY section-4 row 4.17 (`TestV5_AdmissionExtension`) while its
 author wired the resolver to `RestoreOriginal`; recorded in `plans/sdd/V5-VERIFY/x17-disposition.md`
 ("Findings in `internal/store`") and carried here at the independent review's request.
 
@@ -336,6 +337,42 @@ first step is a failing characterization test with two roots that share a remove
 **Acceptance (V6).** Side-record identity includes the declared base (or records are keyed per root),
 GC retains a record for every base that declares it, the characterization test restores both roots
 exactly, and put and read report the same fidelity for the same bytes.
+
+**V5 close-out disposition (2026-09-11): fixed.** Every acceptance item is met on `verify/v5-final`
+(branch `v5/sp20-d3`, merged in `a3b4687`); the evidence is `internal/store/recoveryidentity_test.go`.
+
+- **Identity includes the base** (`48770c3`). A delta record's payload is `{"base":…,"deltas":[…]}`,
+  so each base gets its own record; a known address is reused only when it holds a delta record that
+  declares the same base, and anything else there makes the put keep the full original instead
+  (counted in `store.delta.addressTaken`). `ReadDelta` reads both payload shapes and refuses a payload
+  whose base disagrees with the index line's.
+- **Both roots restore exactly:** `TestPutBytes_SharedVolatileTokenRestoresBothRootsExactly`, the
+  characterization the row asked for (red on `5708f38`).
+- **GC per base:** `TestGC_EachBaseRetainsItsOwnDeltaRecord`, in both directions; with one record per
+  base the existing base/record coupling needed no code change.
+- **Put and read agree:** a KeepRaw put that canonicalization did not change writes `"verbatim":true`
+  on its roots line and reads back exact (`TestPutBytes_PutAndReadFidelityAgree`,
+  `TestPutBytes_VerbatimClaimPersistsOnAVersionOneLine`; the line stays `v=1`). `storedFidelity` is
+  replaced by `dedupFidelity`, which claims exact or full for a dedup hit only when the stored record
+  is provably this put's own (`TestPutBytes_DedupHitNeverClaimsAnotherPutsOriginal`); the fix found
+  that a second input differing only in its timestamp used to be labelled exact while restoring the
+  first input.
+- **Concurrent puts of one root** are serialized so each claims only the original it restores
+  (`6ab54f6`, `TestPutBytes_ConcurrentPutsOfOneRootClaimOnlyTheOriginalItRestores`), and a put whose
+  context expired while it waited for that lock refuses instead of writing (`50ee228`,
+  `TestPutBytes_RefusesAContextThatExpiredWhileItWaitedForItsPutLock`).
+
+**Compatibility.** No golden changed. Records written before the fix (bare delta array) still read. A
+root written before the fix that points at a shared record cannot be repaired (the index is
+append-only): its read returns no bytes with `FidelityCorrupt`, never exact, and GC keeps it with the
+record and the record's owner (`TestRestoreOriginal_PreFixSharedRecordIsNeverExact`). A put without
+KeepRaw that deduplicates onto a root stored with a delta record now reports canonical where it used
+to report exact; the only such caller, the migration import, never reads the label. **Rollback:** a
+binary from before `48770c3` expects a bare-array payload, so it reads every delta record written since
+as `FidelityCorrupt` with no bytes. Canonical bytes and every content root still read; only the
+exact-original recovery of roots put since the fix is lost, in the safe direction, and rolling forward
+restores it because nothing is rewritten. The `"verbatim"` key is forward-compatible (an older reader
+drops it and under-claims canonical).
 
 ## SP09-D1 — negknow's `Open` budget holds on this host only at turbo clocks
 
