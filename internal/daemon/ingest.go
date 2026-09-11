@@ -117,8 +117,21 @@ type ingest struct {
 	histBB string
 	histBC string
 
+	// mu guards wals and every segment handle in it. A WAL batch holds it from its first line to
+	// its last Sync (commitWALBatch), so rotation, CloseSession and Close never touch a handle that
+	// a batch is writing or syncing.
 	mu   sync.Mutex
 	wals map[core.SessionID]*walFile
+
+	// walQ group-commits the WAL (design §2.4): appendWAL enqueues its line and waits, and the
+	// caller that leads a batch writes and syncs every line queued behind it.
+	walQ groupQueue[*walItem]
+
+	// writeWAL and syncWAL are the WAL's two I/O calls on a segment handle: (*os.File).Write and
+	// (*os.File).Sync in production. They are fields so that tests can observe, block and fail
+	// them per segment; nothing else sets them.
+	writeWAL func(*os.File, []byte) (int, error)
+	syncWAL  func(*os.File) error
 
 	ring chan job
 	seen *seenSet
@@ -152,6 +165,9 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 		histBB:   histName(obs.BB),
 		histBC:   histName(obs.BC),
 		wals:     map[core.SessionID]*walFile{},
+		walQ:     groupQueue[*walItem]{maxN: groupCommitMaxRequests, maxBytes: walGroupCommitMaxBytes, size: walItemSize},
+		writeWAL: (*os.File).Write,
+		syncWAL:  (*os.File).Sync,
 		ring:     make(chan job, ringCapacity),
 		seen:     newSeenSet(seenCapacity),
 	}
@@ -175,7 +191,9 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 //  1. The WAL segment fsync (appendWAL). Guarantees the exact received bytes are on disk before
 //     the transport acknowledgement goes back to the hook. It is §2.4's boundary itself: the ACK
 //     is a promise that the delivery survives a crash, and without this sync the promise is a
-//     page-cache guess. Nothing else on this path holds these bytes.
+//     page-cache guess. Nothing else on this path holds these bytes. It is group-committed:
+//     Accepts that arrive together share one Write and one fsync per WAL segment, and appendWAL
+//     returns nil only once the fsync covering this delivery's own line has returned.
 //
 //  2. The delivery-lease journal fsync (deliveryJournal.lease). Guarantees the nonce -> arrival ->
 //     ObservationID assignment is durable BEFORE the identity is handed to a job — the point after
@@ -202,8 +220,9 @@ func newIngest(root string, cfg config.Config, log logging.Logger, m obs.Registr
 // synced-bytes-only admission rule, which is what makes a concurrent redelivery of the same nonce
 // see the first lease at all. Neither is a durability-neutral trade, so this path is unchanged.
 //
-// So: 3 durability points, 4 fsync syscalls, per accepted leased delivery. A delivery with no
-// nonce, or one whose journal is unavailable, is an unleased gap and pays only (1).
+// So: 3 durability points per accepted leased delivery, and 4 fsync syscalls for one that has its
+// WAL batch to itself; deliveries that arrive together share (1)'s fsync per segment. A delivery
+// with no nonce, or one whose journal is unavailable, is an unleased gap and pays only (1).
 func (i *ingest) Accept(req ipc.Request, line []byte) error {
 	// The wire path hands over ipc.EncodeRequest's output, which json.Encoder has already
 	// terminated with '\n'; appendWAL adds the one terminator the WAL owns. Trimming here rather
@@ -250,14 +269,180 @@ func (i *ingest) Accept(req ipc.Request, line []byte) error {
 	return nil
 }
 
-// appendWAL writes line, plus exactly one trailing newline, to req's session WAL file, opening
-// (and caching) the handle on first use and rotating past walRotateBytes. Sync precedes the
-// transport acknowledgement; this corrects the historical no-fsync boundary. Full object and
-// reference publication is a separate SP-20 gate.
+// walItem is one WAL append's request in walQ (design §2.4).
+type walItem struct {
+	sess core.SessionID
+	// line is the trimmed line; the batch adds the one terminator the WAL owns.
+	line []byte
+	// err is the append's result. It starts as errNotCommitted and becomes nil only once the Sync
+	// covering line has returned (J-A2); a failure on the way replaces it with that failure.
+	err error
+}
+
+// walItemSize is a request's exact size in a WAL batch: its line and its terminator.
+func walItemSize(it *walItem) int { return len(it.line) + 1 }
+
+// appendWAL makes line, plus exactly one trailing newline, durable in sess's WAL segment, opening
+// (and caching) the handle on first use and rotating past walRotateBytes. It returns nil only once
+// a Sync that covered that line has returned: Sync precedes the transport acknowledgement, which
+// corrects the historical no-fsync boundary. Full object and reference publication is a separate
+// SP-20 gate.
+//
+// It is enqueue-and-wait on walQ. A caller that finds no batch in flight commits one
+// (commitWALBatch) inline on its own goroutine, and every caller that arrives meanwhile waits for
+// the batch that carries its line. So an isolated append pays exactly one Write and one Sync, as it
+// always did, and appends that arrive together share one of each per segment.
 func (i *ingest) appendWAL(sess core.SessionID, line []byte) error {
+	it := &walItem{sess: sess, line: line, err: errNotCommitted}
+	i.walQ.run(it, i.commitWALBatch)
+	return it.err
+}
+
+// walSegment is one segment file's share of a WAL batch.
+type walSegment struct {
+	// f is the handle buf is written to, bound when the segment's first line is buffered. It is
+	// never re-read from wf: a rotation later in the same batch replaces wf.w, and a line belongs to
+	// the file its rotation decision counted it against (J-A7).
+	f  *os.File
+	wf *walFile
+	// buf holds the segment's lines, each with its terminator, in queue order; items holds their
+	// requests in the same order.
+	buf   []byte
+	items []*walItem
+	// flushed is set once a rotation has written and synced buf ahead of closing f.
+	flushed bool
+	// err is the segment's write or sync failure, shared by every request in items.
+	err error
+}
+
+// commitWALBatch is walQ's commit: it appends one batch of lines, in queue order, and resolves each
+// line only once the Sync covering it has returned.
+//
+// It holds mu for the whole batch, as one append did. Each line goes to its session's open segment,
+// rotating first with exactly a sequential append's accounting — the bytes the segment already
+// holds plus the bytes this batch has buffered for it — so the lines, their single terminators and
+// the segment boundaries are byte-identical to one append per line. Then comes one Write per
+// segment the batch buffered lines for, then one Sync per segment written, in parallel when there
+// is more than one, and only after every Sync has returned does any line's result change.
+//
+// A rotation writes the outgoing segment's buffered lines to that segment's own handle and syncs
+// them BEFORE it closes the handle: they are not durable yet, and nothing could sync them once the
+// handle is closed. A line from an earlier batch needs no such sync; its own batch synced it.
+//
+// Failure is per segment. A write error, a short write or a sync error fails every line buffered
+// for that segment and no other. A failed line's result is final when this batch returns, so no
+// later Sync of the same file can turn it into an acknowledgement.
+func (i *ingest) commitWALBatch(batch []*walItem) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	var segs []*walSegment             // every segment this batch buffered lines for, in first-use order
+	open := map[*walFile]*walSegment{} // the segment each session's next line would join
+	for _, it := range batch {
+		wf, err := i.walForLocked(it.sess)
+		if err != nil {
+			it.err = err
+			continue
+		}
+		s := open[wf]
+		size := wf.bytes
+		if s != nil {
+			size += int64(len(s.buf))
+		}
+		if size > 0 && size+int64(walItemSize(it)) > walRotateBytes {
+			if s != nil {
+				i.writeWALSegment(s)
+				if s.err == nil {
+					s.err = i.syncWAL(s.f)
+				}
+				s.flushed = true
+				delete(open, wf)
+			}
+			if err := i.rotateWALLocked(it.sess, wf); err != nil {
+				it.err = err
+				continue
+			}
+			s = nil
+		}
+		if s == nil {
+			s = &walSegment{f: wf.w, wf: wf}
+			open[wf] = s
+			segs = append(segs, s)
+		}
+		s.buf = append(s.buf, it.line...)
+		s.buf = append(s.buf, '\n')
+		s.items = append(s.items, it)
+	}
+
+	var written []*walSegment
+	for _, s := range segs {
+		if s.flushed {
+			continue
+		}
+		i.writeWALSegment(s)
+		if s.err == nil {
+			written = append(written, s)
+		}
+	}
+	i.syncWALSegments(written)
+
+	for _, s := range segs {
+		for _, it := range s.items {
+			it.err = s.err
+		}
+	}
+}
+
+// writeWALSegment writes s's buffered lines to s's own handle in one Write, counting the bytes into
+// the walFile exactly as a sequential append did: nothing on a write error, and whatever was written
+// on a short write, which then fails the segment with io.ErrShortWrite.
+func (i *ingest) writeWALSegment(s *walSegment) {
+	n, err := i.writeWAL(s.f, s.buf)
+	if err != nil {
+		s.err = err
+		return
+	}
+	s.wf.bytes += int64(n)
+	if n != len(s.buf) {
+		s.err = io.ErrShortWrite
+	}
+}
+
+// syncWALSegments syncs each segment in segs once and returns when every Sync has returned. With
+// more than one, the leader syncs the first itself and each of the others on a goroutine of its own
+// (fsync is per file, and a batch's segments belong to unrelated sessions), then joins them all. A
+// panic in any of them is re-raised on the leader's goroutine after the join, so no Sync outlives
+// its batch and none can take the process down from a goroutine that nothing recovers.
+func (i *ingest) syncWALSegments(segs []*walSegment) {
+	switch len(segs) {
+	case 0:
+		return
+	case 1:
+		segs[0].err = i.syncWAL(segs[0].f)
+		return
+	}
+	panics := make([]any, len(segs))
+	syncOne := func(k int) {
+		defer func() { panics[k] = recover() }()
+		segs[k].err = i.syncWAL(segs[k].f)
+	}
+	var wg sync.WaitGroup
+	for k := 1; k < len(segs); k++ {
+		wg.Go(func() { syncOne(k) })
+	}
+	syncOne(0)
+	wg.Wait()
+	for _, p := range panics {
+		if p != nil {
+			panic(p)
+		}
+	}
+}
+
+// walForLocked returns sess's cached WAL handle, opening its segment at the current rotation
+// sequence when it has none; a failed open leaves it with none, so the session's next line retries.
+// mu must be held.
+func (i *ingest) walForLocked(sess core.SessionID) (*walFile, error) {
 	wf, ok := i.wals[sess]
 	if !ok {
 		wf = &walFile{}
@@ -265,34 +450,23 @@ func (i *ingest) appendWAL(sess core.SessionID, line []byte) error {
 	}
 	if wf.w == nil {
 		if err := i.openWALLocked(sess, wf); err != nil {
-			return err
+			return nil, err
 		}
 	}
+	return wf, nil
+}
 
-	buf := make([]byte, 0, len(line)+1)
-	buf = append(buf, line...)
-	buf = append(buf, '\n')
-
-	if wf.bytes > 0 && wf.bytes+int64(len(buf)) > walRotateBytes {
-		if err := wf.w.Close(); err != nil {
-			return err
-		}
-		wf.w = nil
-		wf.seq++
-		if err := i.openWALLocked(sess, wf); err != nil {
-			return err
-		}
-	}
-
-	n, err := wf.w.Write(buf)
-	if err != nil {
+// rotateWALLocked closes wf's segment and opens the next, exactly as a sequential append did: a Close
+// that fails leaves wf on its closed handle, and an open that fails leaves it with none. mu must be
+// held, and every line a batch buffered for the closing segment must already have been through its
+// Write and its Sync, whatever their outcome.
+func (i *ingest) rotateWALLocked(sess core.SessionID, wf *walFile) error {
+	if err := wf.w.Close(); err != nil {
 		return err
 	}
-	wf.bytes += int64(n)
-	if n != len(buf) {
-		return io.ErrShortWrite
-	}
-	return wf.w.Sync()
+	wf.w = nil
+	wf.seq++
+	return i.openWALLocked(sess, wf)
 }
 
 // openWALLocked opens (creating if needed) the WAL segment file for sess at wf's current
