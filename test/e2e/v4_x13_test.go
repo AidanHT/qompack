@@ -14,6 +14,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -110,13 +112,24 @@ func x13v4Normalize(name string) string {
 	}
 }
 
-// x13v4CaptureCount is how many capture sidecars a burst wrote that before did not hold. The write
-// set is a SET, so the fold in x13v4Normalize would also hide an arm that wrote a different NUMBER
-// of sidecars; this keeps that visible.
-func x13v4CaptureCount(t *testing.T, root string, before map[string]int64) int {
+// x13v4CaptureCount is how many capture sidecars the burst's own deliveries wrote that before did
+// not hold: new sidecars whose op is observe.tool and whose session is the arm's. The write set is a
+// SET, so the fold in x13v4Normalize would also hide an arm that wrote a different NUMBER of
+// sidecars; this keeps that visible, and a hook that took a second identity (a second lease, so a
+// second sidecar) or lost its capture still moves the count.
+//
+// It counts by op and session rather than every new file because capture is asynchronous: Accept
+// only WALs and leases a delivery, and an ingest worker publishes its sidecar afterwards
+// (internal/daemon/ingest.go, publishCapture). The session-start and observe.prompt deliveries each
+// arm sends just before its burst can therefore land inside it: under co-load the prompt's did, and
+// a count of every new file read nine for eight tool hooks. Those sidecars belong to the arm's setup,
+// not its burst, and both arms send the same ones. Sidecars are written through paths.WriteAtomic
+// (staged under .qompack/tmp, then renamed), so every file this walk sees is complete.
+func x13v4CaptureCount(t *testing.T, root string, sess core.SessionID, before map[string]int64) int {
 	t.Helper()
 	dot := paths.Of(root).Dot
 	n := 0
+	setup := map[string]int{}
 	err := filepath.WalkDir(paths.Long(filepath.Join(dot, filepath.FromSlash(x13v4CapturePrefix))),
 		func(p string, d fs.DirEntry, werr error) error {
 			if werr != nil || d.IsDir() {
@@ -126,14 +139,28 @@ func x13v4CaptureCount(t *testing.T, root string, before map[string]int64) int {
 			if relErr != nil {
 				return nil
 			}
-			if _, was := before[filepath.ToSlash(rel)]; !was {
+			if _, was := before[filepath.ToSlash(rel)]; was {
+				return nil
+			}
+			raw, readErr := os.ReadFile(p)
+			require.NoError(t, readErr, "a new capture sidecar must be readable: %s", rel)
+			var sc struct {
+				Op      string         `json:"op"`
+				Session core.SessionID `json:"session"`
+			}
+			require.NoError(t, json.Unmarshal(raw, &sc), "a new capture sidecar must decode: %s", rel)
+			if sc.Op == string(ipc.OpObserveTool) && sc.Session == sess {
 				n++
+			} else {
+				setup[sc.Op+" "+string(sc.Session)]++
 			}
 			return nil
 		})
 	if err != nil && !os.IsNotExist(err) {
 		require.NoError(t, err)
 	}
+	t.Logf("new capture sidecars in %s: %d from the burst (%s, %s); setup deliveries that landed late: %v",
+		root, n, ipc.OpObserveTool, sess, setup)
 	return n
 }
 
@@ -233,9 +260,9 @@ func TestV4_HotPathUnchangedWithTheFullWave3ResidentSet(t *testing.T) {
 	// The fold above compares KINDS. The capture path writes exactly one sidecar per leased
 	// delivery, so the burst's eight tool hooks must have left eight on each arm — the count is
 	// what the set cannot see, and a wave-3 resident that captured more (or fewer) would hide there.
-	require.Equal(t, x13v4Turns, x13v4CaptureCount(t, pr.Root, beforeB),
+	require.Equal(t, x13v4Turns, x13v4CaptureCount(t, pr.Root, x13v4RefSession, beforeB),
 		"the observer-only arm must write one capture sidecar per hook in the burst")
-	require.Equal(t, x13v4Turns, x13v4CaptureCount(t, p.Root, beforeA),
+	require.Equal(t, x13v4Turns, x13v4CaptureCount(t, p.Root, x13v4Session, beforeA),
 		"the wave-3 arm must write one capture sidecar per hook in the burst, no more")
 
 	// The scheduler and the checkpointer are off the hot path in the strongest observable sense:
