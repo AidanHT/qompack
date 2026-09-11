@@ -1076,6 +1076,13 @@ func TestDeliveryJournal_ReleaseWaitsForInFlightBatchesAndFailsQueued(t *testing
 	released := goRelease(p, lock)
 	awaitClosing(t, journal)
 	requireNotReleased(t, released, "while a batch was in flight")
+	// Every queued request fails because no operation passes enter once a close has begun. Checked
+	// directly as well, since whether the queued batch starts before or after Release wakes is up to
+	// the scheduler. An enter that wrongly succeeds is left again at once, so Release is not stranded.
+	if err := journal.enter(); err == nil {
+		journal.leave()
+		t.Fatal("enter admitted an operation after Release had begun closing")
+	}
 
 	p.syncGate.release()
 	awaitAll(t, append([]*leaseRun{lead}, runs...)...)
