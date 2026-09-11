@@ -111,8 +111,12 @@ type drainer struct {
 	mu  sync.Mutex // serializes concurrent Drain calls (idle tick vs. admin.drain) against one drain.json
 
 	// syncFile makes a spool file's bytes durable before a pass consumes any of them (durableEnd).
-	// It is syncSpoolFile outside tests, which set it to observe or fail the sync.
+	// Outside tests it is syncSpoolFileWith, issuing its fsync through syncHandle. Tests set it to
+	// observe or fail the sync as a whole.
 	syncFile func(path string) error
+	// syncHandle is the fsync syncFile issues on the handle it opened for the file: (*os.File).Sync
+	// outside tests, which set it to see that the fsync happens, on which file, and when.
+	syncHandle func(*os.File) error
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -132,7 +136,9 @@ func newDrainer(cfg DrainConfig) *drainer {
 	if cfg.IsLive == nil {
 		cfg.IsLive = func(core.SessionID) bool { return false }
 	}
-	return &drainer{cfg: cfg, syncFile: syncSpoolFile}
+	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync}
+	dr.syncFile = func(path string) error { return syncSpoolFileWith(path, dr.syncHandle) }
+	return dr
 }
 
 // Drain replays every spool-tier file under root's spool directory (task-3-spec.md drain.go):
@@ -553,19 +559,23 @@ func removeIfUnchanged(path string, drained int64) (bool, error) {
 	return true, nil
 }
 
-// syncSpoolFile makes every byte of the spool file at path durable, whichever process wrote it: an
-// fsync covers the file, not the handle it is issued on. It opens a handle of its own for appending,
-// creating and truncating nothing, because Windows refuses FlushFileBuffers on a handle without write
-// access, and a read-only handle is all the pass reads with. The handle shares reading and writing,
-// so a hook process still appending to its client spool, or the ingest to a segment it reopened, is
-// not disturbed, and it is closed before the pass can reach a removal: Windows cannot delete a file
-// that has a handle open.
-func syncSpoolFile(path string) error {
+// syncSpoolFile is syncSpoolFileWith issuing the real fsync: what a drainer's syncFile does when
+// nothing replaces its syncHandle, and what a test that replaces syncFile calls to keep the real sync.
+func syncSpoolFile(path string) error { return syncSpoolFileWith(path, (*os.File).Sync) }
+
+// syncSpoolFileWith makes every byte of the spool file at path durable, whichever process wrote it,
+// by issuing fsync on a handle of its own: an fsync covers the file, not the handle it is issued on.
+// It opens that handle for appending, creating and truncating nothing, because Windows refuses
+// FlushFileBuffers on a handle without write access, and a read-only handle is all the pass reads
+// with. The handle shares reading and writing, so a hook process still appending to its client spool,
+// or the ingest to a segment it reopened, is not disturbed, and it is closed before the pass can reach
+// a removal: Windows cannot delete a file that has a handle open.
+func syncSpoolFileWith(path string, fsync func(*os.File) error) error {
 	f, err := paths.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
 	if err != nil {
 		return err
 	}
-	if err := f.Sync(); err != nil {
+	if err := fsync(f); err != nil {
 		_ = f.Close()
 		return err
 	}

@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -176,4 +177,63 @@ func TestDrainLeavesBytesAppendedAfterItsSyncForTheNextPass(t *testing.T) {
 	require.Equal(t, []core.UnixMilli{1, 2}, got, "every line exactly once, in order")
 	require.Equal(t, 2, syncs, "the next pass syncs the file again before it reads the appended line")
 	require.NoFileExists(t, path, "fully drained, the file is removed")
+}
+
+// TestDrainFsyncsASpoolFileOnAHandleOfItsOwnBeforeItsFirstDispatch pins the call the other half of the
+// rule rests on (review 1, R2). With nothing in place of the drain's sync, a pass over a spool file the
+// ingest does not hold issues one fsync, on a handle of that file, before it dispatches anything of
+// the file, and the fsync succeeds beside the handle a hook still has open for appending. Every other
+// test replaces the sync wholesale or checks only what it returned, so a sync that opened and closed
+// its handle with no fsync in between passed them all.
+func TestDrainFsyncsASpoolFileOnAHandleOfItsOwnBeforeItsFirstDispatch(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+	path := filepath.Join(spool, "client-5252.ndjson")
+	hook, err := paths.AppendOnly(path)
+	require.NoError(t, err)
+	hookClosed := false
+	t.Cleanup(func() {
+		if !hookClosed {
+			_ = hook.Close()
+		}
+	})
+	first := wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-fsync", TS: 1}).line
+	second := wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-fsync", TS: 2}).line
+	half := len(second) / 2
+	_, err = hook.Write(first)
+	require.NoError(t, err)
+	_, err = hook.Write(second[:half]) // the hook is part-way through its next line
+	require.NoError(t, err)
+
+	var evs []string
+	dr := newDrainer(DrainConfig{Root: root, Clock: newFakeClock(epoch), Dispatch: func(_ context.Context, r ipc.Request) ipc.Response {
+		evs = append(evs, fmt.Sprint("dispatch ", r.TS))
+		return ipc.Response{OK: true}
+	}})
+	dr.syncHandle = func(f *os.File) error {
+		err := f.Sync()
+		require.NoError(t, err, "the fsync on the drain's own handle, beside the hook's")
+		evs = append(evs, "fsync "+f.Name())
+		return err
+	}
+	fsync := "fsync " + paths.Long(path)
+
+	n, err := dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Equal(t, []string{fsync, "dispatch 1"}, evs,
+		"one fsync, on a handle of the spool file, before the pass dispatches anything of it")
+
+	_, err = hook.Write(second[half:])
+	require.NoError(t, err, "the hook's handle still appends after the drain's fsync")
+	hookClosed = true
+	require.NoError(t, hook.Close())
+	n, err = dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Equal(t, []string{fsync, "dispatch 1", fsync, "dispatch 2"}, evs,
+		"the next pass issues an fsync of its own before it reads on")
+	require.NoFileExists(t, path, "fully drained and no longer open, the file is removed")
 }
