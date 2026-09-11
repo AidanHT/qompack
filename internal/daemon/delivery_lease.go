@@ -92,6 +92,14 @@ type deliveryJournal struct {
 	// sidecar, in production. It is a field only so that tests can observe, hold and fail one
 	// batch's seal; nothing else sets it.
 	sealLease func(size int64, count int, chain core.Hash) error
+
+	// ackQ group-commits acknowledge (design §2.8) the way leaseQ does lease, as a pipeline of its
+	// own: a lease batch never waits for an acknowledgement batch, nor the other way round.
+	ackQ groupQueue[*ackReq]
+	// sealAck seals one acknowledgement batch's position: saveAckPosition, the paths.WriteAtomic of
+	// the v1 sidecar, in production. Like sealLease, it is a field only so that tests can observe,
+	// hold and fail one batch's seal; nothing else sets it.
+	sealAck func(size int64, count int, chain core.Hash) error
 }
 
 type deliveryPosition struct {
@@ -114,9 +122,10 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		// O1 (SP20-D1 design section 2.5, flagged for the owner's countersign as Q6): an open
 		// journal is handed out without reading the lock FILE. That read ran under Lock.mu on every
 		// Accept, a serial section in front of the durable path. Ownership is still checked against
-		// the file for every operation on the journal, only there: a lease batch re-reads it
-		// (Lock.ownedByFile) once every member has arrived and before anything is appended or
-		// answered, and acknowledge and acknowledged read it through owned under this mutex.
+		// the file for every operation on the journal, only there: a lease batch and an
+		// acknowledgement batch each re-read it (Lock.ownedByFile) once every member has arrived and
+		// before anything is appended or answered, and acknowledged reads it through owned under
+		// this mutex.
 		// One visible difference follows, and Q6 countersigns it too: a lock this process lost is
 		// no longer refused here, silently, but by each lease, whose callers (ingest's and the
 		// drainer's leaseDelivery) count the same unleased gap and also log the refusal at Warn,
@@ -195,9 +204,11 @@ func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
 	j := &deliveryJournal{
 		owner: l, path: p, chain: deliveryChainSeed, leases: map[string]deliveryLease{}, arrivals: map[core.SessionID]uint64{},
 		leaseQ: groupQueue[*leaseReq]{maxN: groupCommitMaxRequests, maxBytes: journalGroupCommitMaxBytes, size: leaseReqSize},
+		ackQ:   groupQueue[*ackReq]{maxN: groupCommitMaxRequests, maxBytes: journalGroupCommitMaxBytes, size: ackReqSize},
 	}
 	j.idle.L = &j.st
 	j.sealLease = j.savePosition
+	j.sealAck = j.saveAckPosition
 	return j
 }
 
@@ -428,12 +439,12 @@ func (j *deliveryJournal) appendLeases(b *leaseBatch) error {
 	return nil
 }
 
-// poisonOnPanic is deferred by every lease batch. A batch that panics has left the journal's disk
-// state uncertain (its Write may have landed without its seal), so it poisons the handle exactly as
-// a failed Write does, and every member it had not answered keeps the failure it started with. The
-// panic then continues on the leader's goroutine, as a WAL batch's does and as a panic inside lease
-// always has: an Accept's is contained by the IPC server's dispatch, which NAKs, and a drain's by
-// whatever ran that drain.
+// poisonOnPanic is deferred by every lease batch and every acknowledgement batch. A batch that
+// panics has left the journal's disk state uncertain (its Write may have landed without its seal),
+// so it poisons the handle exactly as a failed Write does, and every member it had not answered
+// keeps the failure it started with. The panic then continues on the leader's goroutine, as a WAL
+// batch's does and as a panic inside lease or acknowledge always has: an Accept's is contained by
+// the IPC server's dispatch, which NAKs, and an ingest worker's or a drain's by whatever ran it.
 func (j *deliveryJournal) poisonOnPanic() {
 	if p := recover(); p != nil {
 		_ = j.poison(deliveryJournalError())
@@ -593,7 +604,7 @@ func (j *deliveryJournal) checkFile() error {
 
 // enter admits one operation that may write, sync or seal (a lease, or an acknowledgement) into
 // the section closeLocked waits for. It refuses a journal that is closing, closed or faulted: the
-// per-call gate lease and acknowledge have always had, minus the ownership read, which each caller
+// per-call gate lease and acknowledge have always had, minus the ownership read, which each batch
 // makes itself once it is inside. Every successful enter is paired with exactly one leave.
 func (j *deliveryJournal) enter() error {
 	j.st.Lock()
@@ -687,10 +698,11 @@ func deliveryJournalError() error {
 //   - Retention stays conservative in the safe direction: an acknowledged delivery is still named
 //     by its lease line, so GC keeps holding whatever that line referenced.
 //
-// The append-then-sync-then-position pattern is the lease journal's own, reused verbatim: bytes
-// reach the file and are synced, the position sidecar is sealed, and only then does the in-memory
-// set admit the record. An uncertain write poisons this handle and requires a reload, at which
-// point a complete surviving row is recovered and an incomplete one is refused.
+// The append-then-sync-then-position pattern is the lease journal's own, reused verbatim and group
+// committed the same way (commitAcks): a batch's bytes reach the file and are synced, the position
+// sidecar is sealed once for the batch, and only then does the in-memory set admit its records. An
+// uncertain write poisons this handle and requires a reload, at which point a complete surviving
+// row is recovered and an incomplete one is refused.
 const (
 	deliveryAckFile         = "delivery-acks.jsonl"
 	deliveryAckPositionFile = "delivery-ack-position.json"
@@ -755,68 +767,219 @@ func (j *deliveryJournal) openAckLocked() error {
 // without republishing anything. It refuses to acknowledge a delivery this journal never leased, or
 // one whose identity disagrees with the lease — an acknowledgement that does not name a real
 // assignment is not a frontier, it is a guess.
+//
+// Its contract is unchanged: it blocks until its answer is final, and it returns nil for a new
+// acknowledgement only once the line recording it is synced and sealed. It is enqueue-and-wait on
+// ackQ, exactly as lease is on leaseQ: a caller that finds no batch in flight commits one
+// (commitAcks) inline on its own goroutine, and every caller that arrives meanwhile waits for the
+// batch that answers it. It no longer holds Lock.mu, which every Accept's journal accessor takes,
+// so no lease waits behind an acknowledgement's Write, Sync and seal (design §2.8, J-A3).
 func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id core.ObservationID, root core.Hash) error {
 	if j == nil || j.owner == nil {
 		return deliveryJournalError()
 	}
-	j.owner.mu.Lock()
-	defer j.owner.mu.Unlock()
-	if err := ctx.Err(); err != nil {
-		return err
+	r := &ackReq{ctx: ctx, delivery: delivery, id: id, root: root, err: deliveryJournalError()}
+	j.ackQ.run(r, j.commitAcks)
+	return r.err
+}
+
+// ackReq is one acknowledge call's request in ackQ (design §2.8).
+type ackReq struct {
+	ctx      context.Context
+	delivery string
+	id       core.ObservationID
+	root     core.Hash
+	// err is the call's answer. It starts as deliveryJournalError(), and only commitAcks replaces it
+	// (J-A2): a batch that returns early or panics leaves every member it did not answer failed,
+	// never holding an acknowledgement that is not sealed.
+	err error
+	// pend is the first phase's decision for a new acknowledgement, answered in the last phase.
+	pend ackPending
+}
+
+// ackReqSize is the estimate ackQ batches by: an upper bound on the canonical line one request can
+// append. It is a lease line's bound, which covers an acknowledgement line: the fixed fields of one
+// (a 64-character nonce and a hash) are narrower than a lease line's, and its one field of caller
+// text, the observation identity, escapes to at most as many bytes per byte as a lease's session.
+func ackReqSize(r *ackReq) int { return leaseLineEscapeBound*len(r.id) + leaseLineFixedBound }
+
+// ackPending is the first phase's decision for a new acknowledgement: a request that names a leased
+// delivery with no acknowledgement committed, whose answer the batch's checkAckFile gates.
+type ackPending struct {
+	// err is a refusal already decided (the entries, line or bytes bound) that no append in the
+	// batch can change.
+	err error
+	// ack, when err is nil, is the acknowledgement this batch appends for the request's delivery:
+	// the request's own, or the one an earlier copy of the delivery in the batch minted, which the
+	// request joins. Either way the answer depends on the append.
+	ack deliveryAck
+}
+
+// answer sets r's final result. failed is the fault the batch's append failed with, or nil.
+func (r *ackReq) answer(failed error) {
+	p := r.pend
+	switch {
+	case p.err != nil:
+		r.err = p.err
+	case failed != nil:
+		r.err = failed
+	case p.ack.ObservationID != r.id:
+		r.err = core.ErrAppendOnly
+	default:
+		r.err = nil
 	}
-	if err := j.enter(); err != nil {
-		return err
+}
+
+// ackBatch is one commitAcks call's running state: the acknowledgement journal as it will stand
+// once the batch's new acknowledgements are appended, sealed and admitted.
+type ackBatch struct {
+	size  int64
+	count int
+	chain core.Hash
+	fresh map[string]deliveryAck // the acknowledgements this batch minted, by delivery
+	order []deliveryAck          // the same acknowledgements, in queue order
+	buf   []byte                 // their lines, in the same order
+}
+
+// decide is the first phase for a new acknowledgement: the checks an acknowledge call has always
+// made after its checkAckFile, in the same order, over the journal as this batch's earlier
+// acknowledgements leave it.
+func (b *ackBatch) decide(r *ackReq) ackPending {
+	if minted, ok := b.fresh[r.delivery]; ok {
+		return ackPending{ack: minted} // a second acknowledgement of one delivery joins the first
 	}
-	defer j.leave()
-	if !j.owner.owned() {
-		return deliveryJournalError()
+	if b.count >= deliveryLeaseMaxEntries {
+		return ackPending{err: core.ErrBudget}
 	}
-	if !validDeliveryToken(delivery) || id == "" {
-		return core.ErrContract
-	}
-	j.st.Lock() // a lease operation may be admitting a lease at this moment
-	lease, ok := j.leases[delivery]
-	j.st.Unlock()
-	if !ok || lease.ObservationID != id {
-		return core.ErrContract
-	}
-	if old, ok := j.acks[delivery]; ok {
-		if old.ObservationID != id {
-			return core.ErrAppendOnly
-		}
-		return nil
-	}
-	if err := j.checkAckFile(); err != nil {
-		return j.poison(err)
-	}
-	if len(j.acks) >= deliveryLeaseMaxEntries {
-		return core.ErrBudget
-	}
-	ack := deliveryAck{Version: core.EvidenceVersion, Delivery: delivery, ObservationID: id, Root: root}
+	ack := deliveryAck{Version: core.EvidenceVersion, Delivery: r.delivery, ObservationID: r.id, Root: r.root}
 	line, err := json.Marshal(ack)
 	if err != nil {
-		return core.ErrContract
+		return ackPending{err: core.ErrContract}
 	}
 	line = append(line, '\n')
-	if len(line) > deliveryLeaseMaxLine || j.ackBytes+int64(len(line)) > deliveryLeaseMaxBytes {
-		return core.ErrBudget
+	if len(line) > deliveryLeaseMaxLine || b.size+int64(len(line)) > deliveryLeaseMaxBytes {
+		return ackPending{err: core.ErrBudget}
 	}
-	n, err := j.ackWriter.Write(line)
-	if err != nil || n != len(line) {
+	b.count++
+	b.size += int64(len(line))
+	b.chain = deliveryChain(b.chain, line)
+	b.fresh[r.delivery] = ack
+	b.order = append(b.order, ack)
+	b.buf = append(b.buf, line...)
+	return ackPending{ack: ack}
+}
+
+// commitAcks is ackQ's commit (design §2.8), in commitLeases' shape. It answers one batch of
+// acknowledge requests, in queue order, exactly as that many acknowledge calls made one at a time
+// would have, with one append:
+//
+//  0. The gate, once for the batch and only after every member has arrived: enter, then
+//     Lock.ownedByFile. A lock this journal no longer owns refuses the batch without poisoning the
+//     handle, as it always has.
+//  1. Evaluation, CPU only, of each member in an acknowledge call's order: ctx, the gate,
+//     validation, the lease match (the leases read under st, since a lease batch may be admitting
+//     beside it), then the answer for a delivery an earlier batch acknowledged, idempotent and, as
+//     it always was, given without a checkAckFile. Last comes decide: a second acknowledgement of
+//     one delivery joins the first, and the entries, line and bytes bounds run over the batch's own
+//     earlier acknowledgements.
+//  2. One checkAckFile, if any member reached decide, immediately before the append (J-B4). It
+//     gates every such member, as it gated every acknowledge call that got that far.
+//  3. One Write of every new line, one Sync, one seal (appendAcks).
+//  4. Admission, under st, of exactly what the seal covers (appendAcks).
+//  5. The answers. Nothing is released before commitAcks returns: the queue wakes the followers
+//     only then, and the leader's own acknowledge returns only after that.
+//
+// Every failure poisons the one fault the journal's two halves share (J-B2), so it refuses leases
+// as well. A failed Write, Sync or seal fails every member whose answer depended on the append: the
+// new acknowledgements and the copies that joined them. The others keep the answer the first phase
+// gave them, a panic included: an acknowledgement committed by an earlier batch, and the refusals.
+// Together these are the answers acknowledge calls made one at a time give in one order, the others
+// first, then the new acknowledgements and their copies, the first of which fails, with the one
+// exception commitLeases names: a bound that an earlier acknowledgement in this batch made binding
+// keeps ErrBudget, where calls made one at a time answer ErrDegraded.
+func (j *deliveryJournal) commitAcks(batch []*ackReq) {
+	gate := j.enter()
+	if gate == nil {
+		defer j.leave()
+		if !j.owner.ownedByFile() {
+			gate = deliveryJournalError()
+		}
+	}
+	defer j.poisonOnPanic()
+
+	b := &ackBatch{size: j.ackBytes, count: len(j.acks), chain: j.ackChain, fresh: map[string]deliveryAck{}}
+	var checked []*ackReq
+	for _, r := range batch {
+		if err := r.ctx.Err(); err != nil {
+			r.err = err
+			continue
+		}
+		if gate != nil {
+			r.err = gate
+			continue
+		}
+		if !validDeliveryToken(r.delivery) || r.id == "" {
+			r.err = core.ErrContract
+			continue
+		}
+		j.st.Lock() // a lease batch may be admitting a lease at this moment
+		lease, ok := j.leases[r.delivery]
+		j.st.Unlock()
+		if !ok || lease.ObservationID != r.id {
+			r.err = core.ErrContract
+			continue
+		}
+		// Only acknowledgement batches write j.acks, one at a time, and this is the one running.
+		if old, ok := j.acks[r.delivery]; ok {
+			r.err = nil
+			if old.ObservationID != r.id {
+				r.err = core.ErrAppendOnly
+			}
+			continue
+		}
+		r.pend = b.decide(r)
+		checked = append(checked, r)
+	}
+	if len(checked) == 0 {
+		return
+	}
+	if err := j.checkAckFile(); err != nil {
+		fault := j.poison(err)
+		for _, r := range checked {
+			r.err = fault
+		}
+		return
+	}
+	var failed error
+	if len(b.order) > 0 {
+		failed = j.appendAcks(b)
+	}
+	for _, r := range checked {
+		r.answer(failed)
+	}
+}
+
+// appendAcks is phases 3 and 4 for a batch with new acknowledgements: one Write, one Sync and one
+// seal, and then the admission of exactly what they made durable. It returns the fault a failure
+// poisoned the journal with, or nil once the batch's acknowledgements are admitted.
+func (j *deliveryJournal) appendAcks(b *ackBatch) error {
+	n, err := j.ackWriter.Write(b.buf)
+	if err != nil || n != len(b.buf) {
 		return j.poison(deliveryJournalError())
 	}
 	if err := j.ackWriter.Sync(); err != nil {
 		return j.poison(deliveryJournalError())
 	}
-	chain := deliveryChain(j.ackChain, line)
-	if err := j.saveAckPosition(j.ackBytes+int64(len(line)), len(j.acks)+1, chain); err != nil {
+	if err := j.sealAck(b.size, b.count, b.chain); err != nil {
 		return j.poison(deliveryJournalError())
 	}
+	// Only synced and sealed bytes enter the frontier, under st, where acknowledged reads it.
 	j.st.Lock()
-	j.ackBytes += int64(len(line))
-	j.ackChain = chain
-	j.acks[delivery] = ack
-	j.st.Unlock()
+	defer j.st.Unlock()
+	j.ackBytes, j.ackChain = b.size, b.chain
+	for _, a := range b.order {
+		j.acks[a.Delivery] = a
+	}
 	return nil
 }
 

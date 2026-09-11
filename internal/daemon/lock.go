@@ -57,7 +57,7 @@ type Lock struct {
 	hb               string
 	clk              core.Clock
 	owner            string
-	mu               sync.Mutex // serializes heartbeat, journal open, acknowledgements and release
+	mu               sync.Mutex // serializes heartbeat, journal open, release and each acknowledged read
 	released         bool
 	journal          *deliveryJournal
 	journalOpenFault bool

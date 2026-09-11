@@ -66,8 +66,16 @@ type leaseProbe struct {
 
 func newLeaseProbe(j *deliveryJournal) *leaseProbe {
 	p := &leaseProbe{j: j}
-	f := j.file
-	j.writer = leaseFaultWriter{
+	j.writer = p.writerFor(j.file)
+	j.sealLease = p.sealWith(j.sealLease)
+	return p
+}
+
+// writerFor is a journal writer over f that numbers, holds, hooks and logs each call as the probe's
+// fields say. newLeaseProbe puts it in place of the lease journal's writer, and newAckProbe in place
+// of the acknowledgement journal's.
+func (p *leaseProbe) writerFor(f *os.File) deliveryJournalWriter {
+	return leaseFaultWriter{
 		file: f,
 		write: func(b []byte) (int, error) {
 			call := int(p.writes.Add(1))
@@ -101,8 +109,12 @@ func newLeaseProbe(j *deliveryJournal) *leaseProbe {
 			return err
 		},
 	}
-	seal := j.sealLease
-	j.sealLease = func(size int64, count int, chain core.Hash) error {
+}
+
+// sealWith wraps seal, a journal's own seal, so that each call is numbered, hooked and logged as
+// the probe's fields say.
+func (p *leaseProbe) sealWith(seal func(int64, int, core.Hash) error) func(int64, int, core.Hash) error {
+	return func(size int64, count int, chain core.Hash) error {
 		call := int(p.seals.Add(1))
 		pos := deliveryPosition{Version: core.EvidenceVersion, Bytes: size, Count: count, Chain: chain}
 		p.add(leaseEvent{kind: "seal", call: call, pos: pos})
@@ -116,7 +128,6 @@ func newLeaseProbe(j *deliveryJournal) *leaseProbe {
 		p.add(leaseEvent{kind: "sealed", call: call, pos: pos, err: err})
 		return err
 	}
-	return p
 }
 
 func (p *leaseProbe) add(e leaseEvent) {
@@ -306,9 +317,13 @@ func leaseLines(t *testing.T, runs ...*leaseRun) string {
 	return b.String()
 }
 
-// leasePositionOf is the seal of a journal holding exactly the complete lines of file.
-func leasePositionOf(file []byte) deliveryPosition {
-	chain, count := deliveryChainSeed, 0
+// leasePositionOf is the seal of a lease journal holding exactly the complete lines of file.
+func leasePositionOf(file []byte) deliveryPosition { return positionOf(deliveryChainSeed, file) }
+
+// positionOf is the seal of a journal whose chain starts at seed and that holds exactly the
+// complete lines of file.
+func positionOf(seed core.Hash, file []byte) deliveryPosition {
+	chain, count := seed, 0
 	for rest := file; len(rest) > 0; count++ {
 		end := bytes.IndexByte(rest, '\n') + 1
 		if end == 0 {
@@ -1082,68 +1097,177 @@ func TestDeliveryJournal_CheckRunsAfterEvaluationAndImmediatelyBeforeAppend(t *t
 	}
 }
 
-// T15 — design §6.2, lease side, §3 row 17. Release waits for the batch in flight, which commits;
-// the requests queued behind it fail at enter with deliveryJournalError; nothing is appended after
-// Release returns.
+// T15 — design §6.2, §3 row 17, on both pipelines. Release waits for every batch in flight, lease
+// and acknowledgement alike, and each commits; the requests queued behind them fail at enter with
+// deliveryJournalError; nothing is appended to either journal after Release returns.
 func TestDeliveryJournal_ReleaseWaitsForInFlightBatchesAndFailsQueued(t *testing.T) {
-	root, lock, journal := newTestDeliveryJournal(t)
-	p := newLeaseProbe(journal)
-	p.syncGate = newWALGate(t)
-	req := testDeliveryRequest("t15")
-	lead := holdFirstLeaseBatch(t, p, leaseCall{delivery: leaseToken(0), session: "t15", request: req})
-	calls := make([]leaseCall, 8)
-	for k := range calls {
-		calls[k] = leaseCall{id: k + 1, delivery: leaseToken(k + 1), session: "t15", request: req}
-	}
-	calls[3] = leaseCall{id: 4, delivery: leaseToken(0), session: "t15", request: req} // a copy of the batch in flight
-	runs := queueLeases(t, p, calls...)
-	released := goRelease(p, lock)
-	awaitClosing(t, journal)
-	requireNotReleased(t, released, "while a batch was in flight")
-	// Every queued request fails because no operation passes enter once a close has begun. Checked
-	// directly as well, since whether the queued batch starts before or after Release wakes is up to
-	// the scheduler. An enter that wrongly succeeds is left again at once, so Release is not stranded.
-	if err := journal.enter(); err == nil {
-		journal.leave()
-		t.Fatal("enter admitted an operation after Release had begun closing")
-	}
+	t.Run("lease pipeline", func(t *testing.T) {
+		root, lock, journal := newTestDeliveryJournal(t)
+		p := newLeaseProbe(journal)
+		p.syncGate = newWALGate(t)
+		req := testDeliveryRequest("t15")
+		lead := holdFirstLeaseBatch(t, p, leaseCall{delivery: leaseToken(0), session: "t15", request: req})
+		calls := make([]leaseCall, 8)
+		for k := range calls {
+			calls[k] = leaseCall{id: k + 1, delivery: leaseToken(k + 1), session: "t15", request: req}
+		}
+		calls[3] = leaseCall{id: 4, delivery: leaseToken(0), session: "t15", request: req} // a copy of the batch in flight
+		runs := queueLeases(t, p, calls...)
+		released := goRelease(p, lock)
+		awaitClosing(t, journal)
+		requireNotReleased(t, released, "while a batch was in flight")
+		// Every queued request fails because no operation passes enter once a close has begun.
+		// Checked directly as well, since whether the queued batch starts before or after Release
+		// wakes is up to the scheduler. An enter that wrongly succeeds is left again at once, so
+		// Release is not stranded.
+		if err := journal.enter(); err == nil {
+			journal.leave()
+			t.Fatal("enter admitted an operation after Release had begun closing")
+		}
 
-	p.syncGate.release()
-	awaitAll(t, append([]*leaseRun{lead}, runs...)...)
-	require.NoError(t, lead.err, "the batch in flight commits")
-	for _, r := range runs {
-		require.ErrorIsf(t, r.err, core.ErrDegraded, "lease %d was queued behind a Release", r.id)
-		require.Equalf(t, deliveryLease{}, r.lease, "lease %d", r.id)
-	}
-	require.NoError(t, awaitRelease(t, released))
-	log := p.log()
-	sealed := eventAt(t, log, "sealed", 1)
-	require.Greater(t, eventAt(t, log, "close", 0), sealed)
-	require.Greater(t, eventAt(t, log, "release", 0), sealed)
-	require.Equal(t, int32(1), p.writes.Load())
-	require.Equal(t, int32(1), p.seals.Load())
-	file := readTestFile(t, journal.path)
-	require.Equal(t, leaseLines(t, lead), string(file), "only the batch in flight was appended")
-	position, err := journal.loadPosition()
-	require.NoError(t, err)
-	require.Equal(t, leasePositionOf(file), position)
-	require.NoFileExists(t, LockPath(root))
+		p.syncGate.release()
+		awaitAll(t, append([]*leaseRun{lead}, runs...)...)
+		require.NoError(t, lead.err, "the batch in flight commits")
+		for _, r := range runs {
+			require.ErrorIsf(t, r.err, core.ErrDegraded, "lease %d was queued behind a Release", r.id)
+			require.Equalf(t, deliveryLease{}, r.lease, "lease %d", r.id)
+		}
+		require.NoError(t, awaitRelease(t, released))
+		log := p.log()
+		sealed := eventAt(t, log, "sealed", 1)
+		require.Greater(t, eventAt(t, log, "close", 0), sealed)
+		require.Greater(t, eventAt(t, log, "release", 0), sealed)
+		require.Equal(t, int32(1), p.writes.Load())
+		require.Equal(t, int32(1), p.seals.Load())
+		file := readTestFile(t, journal.path)
+		require.Equal(t, leaseLines(t, lead), string(file), "only the batch in flight was appended")
+		position, err := journal.loadPosition()
+		require.NoError(t, err)
+		require.Equal(t, leasePositionOf(file), position)
+		require.NoFileExists(t, LockPath(root))
 
-	_, err = journal.lease(context.Background(), leaseToken(99), "t15", req)
-	require.ErrorIs(t, err, core.ErrDegraded)
-	require.Equal(t, file, readTestFile(t, journal.path), "nothing is appended after Release returns")
-	_, err = lock.openDeliveryJournal()
-	require.Error(t, err)
+		_, err = journal.lease(context.Background(), leaseToken(99), "t15", req)
+		require.ErrorIs(t, err, core.ErrDegraded)
+		require.Equal(t, file, readTestFile(t, journal.path), "nothing is appended after Release returns")
+		_, err = lock.openDeliveryJournal()
+		require.Error(t, err)
+	})
+
+	t.Run("acknowledgement pipeline", func(t *testing.T) {
+		root, lock, journal := newTestDeliveryJournal(t)
+		ctx := context.Background()
+		leases := leaseEach(t, journal, 9)
+		p := newAckProbe(journal)
+		p.syncGate = newWALGate(t)
+		lead := holdFirstAckBatch(t, p, ackOf(0, leases[0], core.Hash{}))
+		calls := make([]ackCall, 8)
+		for k := range calls {
+			calls[k] = ackOf(k+1, leases[k+1], core.Hash{})
+		}
+		calls[3] = ackOf(4, leases[0], core.Hash{}) // a copy of the acknowledgement in flight
+		runs := queueAcks(t, p, calls...)
+		released := goRelease(p, lock)
+		awaitClosing(t, journal)
+		requireNotReleased(t, released, "while an acknowledgement batch was in flight")
+		if err := journal.enter(); err == nil {
+			journal.leave()
+			t.Fatal("enter admitted an operation after Release had begun closing")
+		}
+
+		p.syncGate.release()
+		awaitAcks(t, append([]*ackRun{lead}, runs...)...)
+		require.NoError(t, lead.err, "the batch in flight commits")
+		for _, r := range runs {
+			require.ErrorIsf(t, r.err, core.ErrDegraded, "acknowledgement %d was queued behind a Release", r.id)
+		}
+		require.NoError(t, awaitRelease(t, released))
+		log := p.log()
+		sealed := eventAt(t, log, "sealed", 1)
+		require.Greater(t, eventAt(t, log, "close", 0), sealed, "Release closed the acknowledgement journal under a batch in flight")
+		require.Greater(t, eventAt(t, log, "release", 0), sealed, "Release returned under a batch in flight")
+		require.Equal(t, int32(1), p.writes.Load())
+		require.Equal(t, int32(1), p.seals.Load())
+		file := readTestFile(t, journal.ackPath)
+		require.Equal(t, ackLines(t, lead.ackCall), string(file), "only the batch in flight was appended")
+		require.Equal(t, ackPositionOf(file), loadAckPosition(t, journal))
+		require.NoFileExists(t, LockPath(root))
+
+		err := journal.acknowledge(ctx, leases[1].Delivery, leases[1].ObservationID, core.Hash{})
+		require.ErrorIs(t, err, core.ErrDegraded)
+		require.Equal(t, file, readTestFile(t, journal.ackPath), "nothing is appended after Release returns")
+		require.False(t, journal.acknowledged(leases[0].Delivery), "a released journal cannot say what is acknowledged")
+	})
+
+	t.Run("both pipelines at once", func(t *testing.T) {
+		root, lock, journal := newTestDeliveryJournal(t)
+		ctx := context.Background()
+		leases := leaseEach(t, journal, 3)
+		req := testDeliveryRequest("t15")
+		lp, ap := newLeaseProbe(journal), newAckProbe(journal)
+		lp.syncGate, ap.syncGate = newWALGate(t), newWALGate(t)
+		leaseLead := holdFirstLeaseBatch(t, lp, leaseCall{delivery: leaseToken(100), session: "t15", request: req})
+		ackLead := holdFirstAckBatch(t, ap, ackOf(0, leases[0], core.Hash{}))
+		leaseRuns := queueLeases(t, lp,
+			leaseCall{id: 1, delivery: leaseToken(101), session: "t15", request: req},
+			leaseCall{id: 2, delivery: leaseToken(102), session: "t15", request: req},
+		)
+		ackRuns := queueAcks(t, ap, ackOf(1, leases[1], core.Hash{}), ackOf(2, leases[2], core.Hash{}))
+		released := goRelease(lp, lock)
+		awaitClosing(t, journal)
+
+		// The lease batch commits and leaves; the acknowledgement batch still holds its Sync, so
+		// Release keeps waiting.
+		lp.syncGate.release()
+		awaitAll(t, append([]*leaseRun{leaseLead}, leaseRuns...)...)
+		requireNotReleased(t, released, "while an acknowledgement batch was still in flight")
+		require.FileExists(t, LockPath(root), "Release must not remove the lock under a batch in flight")
+
+		ap.syncGate.release()
+		awaitAcks(t, append([]*ackRun{ackLead}, ackRuns...)...)
+		require.NoError(t, awaitRelease(t, released))
+		require.NoError(t, leaseLead.err, "the lease batch in flight commits")
+		require.NoError(t, ackLead.err, "the acknowledgement batch in flight commits")
+		for _, r := range leaseRuns {
+			require.ErrorIsf(t, r.err, core.ErrDegraded, "lease %d was queued behind a Release", r.id)
+		}
+		for _, r := range ackRuns {
+			require.ErrorIsf(t, r.err, core.ErrDegraded, "acknowledgement %d was queued behind a Release", r.id)
+		}
+		for name, p := range map[string]*leaseProbe{"lease": lp, "acknowledgement": ap} {
+			log := p.log()
+			require.Greaterf(t, eventAt(t, log, "close", 0), eventAt(t, log, "sealed", 1),
+				"Release closed the %s journal under its batch in flight", name)
+			require.Equalf(t, int32(1), p.writes.Load(), "the %s journal was appended once", name)
+		}
+		require.Greater(t, eventAt(t, lp.log(), "release", 0), eventAt(t, lp.log(), "sealed", 1))
+
+		leaseFile, ackFile := readTestFile(t, journal.path), readTestFile(t, journal.ackPath)
+		position, err := journal.loadPosition()
+		require.NoError(t, err)
+		require.Equal(t, leasePositionOf(leaseFile), position)
+		require.Equal(t, len(leases)+1, position.Count, "only the lease batch in flight was appended")
+		require.True(t, strings.HasSuffix(string(leaseFile), leaseLine(t, leaseLead.lease)))
+		require.Equal(t, ackLines(t, ackLead.ackCall), string(ackFile), "only the acknowledgement batch in flight was appended")
+		require.Equal(t, ackPositionOf(ackFile), loadAckPosition(t, journal))
+		require.NoFileExists(t, LockPath(root))
+
+		_, err = journal.lease(ctx, leaseToken(99), "t15", req)
+		require.ErrorIs(t, err, core.ErrDegraded)
+		require.ErrorIs(t, journal.acknowledge(ctx, leases[1].Delivery, leases[1].ObservationID, core.Hash{}), core.ErrDegraded)
+		require.Equal(t, leaseFile, readTestFile(t, journal.path), "nothing is appended after Release returns")
+		require.Equal(t, ackFile, readTestFile(t, journal.ackPath), "nothing is appended after Release returns")
+	})
 }
 
-// T16 — design §6.2, fix J-B2, in this stage's form: acknowledge is still its per-call body under
-// Lock.mu, and enter is the one fault gate the two halves share. An uncertain write on either side
-// poisons that one fault, and every later operation on both sides refuses: a new lease, a known
-// nonce, an acknowledgement, the accessor and acknowledged. Each fault here leaves the lease files
-// agreeing with memory, so the next lease batch's checkFile passes and only enter's fault check
-// stands between the poisoned journal and a new identity. The faults the other tests inject (a short
-// or unsynced line, a replaced position) are also caught by checkFile, which hides an enter that
-// ignores the fault. Nothing is appended or sealed on either side once the journal is poisoned.
+// T16 — design §6.2, fix J-B2. enter is the one fault gate the lease and acknowledgement pipelines
+// share. An uncertain Write, Sync or seal, or a panic, in a batch on either side poisons that one
+// fault, and every later operation on both sides refuses: a new lease, a known nonce, an
+// acknowledgement, the accessor and acknowledged. Each fault here leaves the lease files agreeing
+// with memory, so the next lease batch's checkFile passes and only enter's fault check stands
+// between the poisoned journal and a new identity; where a fault leaves the acknowledgement files
+// agreeing too, only the fault refuses the next acknowledgement. The faults the other tests inject
+// (a short or unsynced line, a replaced position) are also caught by checkFile, which hides an enter
+// that ignores the fault. Nothing is appended or sealed on either side once the journal is poisoned.
 func TestDeliveryJournal_AnyFaultPoisonsBothPipelines(t *testing.T) {
 	errFault := errors.New("private backend fixture")
 	req := testDeliveryRequest("t16")
@@ -1180,6 +1304,18 @@ func TestDeliveryJournal_AnyFaultPoisonsBothPipelines(t *testing.T) {
 			j.ackWriter = leaseFaultWriter{file: j.ackFile, sync: func() error { return errFault }}
 			err := j.acknowledge(context.Background(), pending.Delivery, pending.ObservationID, core.Hash{})
 			require.ErrorIs(t, err, core.ErrDegraded)
+		}, false},
+		{"an acknowledgement whose seal failed", func(t *testing.T, j *deliveryJournal, pending deliveryLease) {
+			j.sealAck = func(int64, int, core.Hash) error { return errFault }
+			err := j.acknowledge(context.Background(), pending.Delivery, pending.ObservationID, core.Hash{})
+			require.ErrorIs(t, err, core.ErrDegraded)
+			require.NotErrorIs(t, err, errFault, "a backend error never reaches the caller")
+		}, false},
+		{"an acknowledgement batch that panicked", func(t *testing.T, j *deliveryJournal, pending deliveryLease) {
+			j.ackWriter = leaseFaultWriter{file: j.ackFile, sync: func() error { panic(errFault) }}
+			require.PanicsWithValue(t, errFault, func() {
+				_ = j.acknowledge(context.Background(), pending.Delivery, pending.ObservationID, core.Hash{})
+			}, "the panic continues on the leader's goroutine")
 		}, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
