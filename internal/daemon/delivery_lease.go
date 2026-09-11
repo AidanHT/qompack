@@ -99,14 +99,24 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if !l.owned() || l.journalOpenFault {
+	if l.released || l.owner == "" || l.journalOpenFault {
 		return nil, deliveryJournalError()
 	}
 	if l.journal != nil {
-		if l.journal.closed || l.journal.fault != nil {
+		// O1 (SP20-D1 design section 2.5, flagged for the owner's countersign as Q6): an open
+		// journal is handed out without reading the lock FILE. That read ran under Lock.mu on every
+		// Accept, a serial section in front of the durable path. Ownership is still checked against
+		// the file for every operation on the journal, only there: a lease re-reads it
+		// (Lock.ownedByFile) once it is admitted and before it appends or answers anything, and
+		// acknowledge and acknowledged read it through owned under this mutex.
+		if !l.journal.usable() {
 			return nil, deliveryJournalError()
 		}
 		return l.journal, nil
+	}
+	// Opening a journal keeps the full check.
+	if !l.owned() {
+		return nil, deliveryJournalError()
 	}
 	l.journalOpenFault = true // clear only after a fully recovered writer is ready
 	// The path is derived from this held lock, never from caller-controlled session/nonce text.
