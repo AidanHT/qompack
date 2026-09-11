@@ -254,6 +254,134 @@ func (s *FSStore) RecordToolUse(ctx context.Context, rec ToolUseRecord) error {
 	return nil
 }
 
+// SupersedingRecorder is implemented by a Store that can append one tool_use record TOGETHER WITH
+// the supersede marks that record authors, as a single index write.
+//
+// It is a narrow capability interface rather than a widening of store.Store, for the reason
+// RefCounter is one (fsstore.go): a consumer reaches the behaviour without a bare type assertion on
+// *FSStore, and §5.8's frozen Store interface is untouched.
+//
+// Why the capability exists at all: RecordToolUse followed by N MarkSuperseded calls is N+1
+// separate appends, and a handler cancelled between them leaves a record whose marks never landed —
+// or, on the redelivery that follows, marks appended by a replay whose own record is not new.
+// Landing them in one write makes that state unreachable: either the record and its marks are all
+// on disk, or none of them is (carried defect SP08-D2).
+type SupersedingRecorder interface {
+	// RecordToolUseSuperseding appends rec and one supersede mark per id in older, in one write.
+	// recorded reports whether anything was written: false with a nil error means the index already
+	// held rec.ID with the same Root, and the marks that record authored landed with it.
+	RecordToolUseSuperseding(ctx context.Context, rec ToolUseRecord, older []core.ToolUseID) (marked []core.ToolUseID, recorded bool, err error)
+}
+
+var _ SupersedingRecorder = (*FSStore)(nil)
+
+// RecordToolUseSuperseding appends rec to index/tool_use.jsonl together with one "supersede"
+// mutation record per surviving id in older, as ONE write on the append handle.
+//
+// It is the atomic form of RecordToolUse + MarkSuperseded, and it keeps every rule both of those
+// enforce: the same append-only contract on a re-recorded id (same Root is a silent no-op, a
+// different Root is a violation), the same ArgsPreview redaction (§13 invariant 7), the same line
+// shapes, and the same "a mark only ever flips a record the index already holds" precondition
+// MarkSuperseded applies by returning ErrNotFound.
+//
+// The three things it does NOT inherit are deliberate:
+//
+//   - A replay writes nothing AT ALL, marks included. Under RecordToolUse a replayed record was a
+//     silent no-op but its caller then re-ran supersession and appended marks a second time; here
+//     the marks are part of the same decision, so recorded=false means the caller must not mark
+//     either. That is what makes a redelivered read append no line.
+//   - An unknown or already-marked id is SKIPPED rather than reported: MarkSuperseded answers
+//     ErrNotFound for an id the index does not hold, which is a real error for a caller naming one
+//     record, and merely a stale candidate for a caller handing over a scan's whole output.
+//   - The marks are filtered BEFORE rec is inserted, so rec.ID can never mark itself.
+//
+// The write is one appendFile.write, i.e. one Write on the O_APPEND handle under that file's
+// mutex, so no other index append can interleave between the record and its marks. The in-memory
+// index is then updated under one s.mu.Lock, in the same order the loader would replay the bytes:
+// the record first, then the marks — loadToolUse applies a mark only to an id it has already
+// loaded, which is exactly why the record line must precede them on disk as well.
+func (s *FSStore) RecordToolUseSuperseding(ctx context.Context, rec ToolUseRecord,
+	older []core.ToolUseID,
+) ([]core.ToolUseID, bool, error) {
+	if err := s.use(); err != nil {
+		return nil, false, err
+	}
+	// One ctx check, before any write and before the index is consulted, so a cancelled call is
+	// indistinguishable from one that never ran (the property the SP08-D2 sweep rests on).
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	if rec.ID == "" {
+		return nil, false, fmt.Errorf("%w: tool_use record has no id", core.ErrNotFound)
+	}
+	// Section 13 invariant 7, the same choke point RecordToolUse applies and for the same reason:
+	// ArgsPreview is built from raw tool arguments and lands in a plaintext index file.
+	if red, matches := s.deps.Redact.Redact([]byte(rec.ArgsPreview)); len(matches) > 0 {
+		rec.ArgsPreview = previewString(string(red))
+	}
+
+	s.mu.RLock()
+	if cur, ok := s.toolUse[rec.ID]; ok {
+		root := cur.Root
+		s.mu.RUnlock()
+		if root != rec.Root {
+			return nil, false, fmt.Errorf("%w: tool_use %s already recorded", core.ErrAppendOnly, rec.ID)
+		}
+		return nil, false, nil
+	}
+	marks := make([]core.ToolUseID, 0, len(older))
+	for _, id := range older {
+		if id == rec.ID {
+			continue // a record never supersedes itself
+		}
+		prior, ok := s.toolUse[id]
+		if !ok {
+			continue // a candidate the index does not hold: nothing to flip
+		}
+		if prior.Status == StatusSuperseded && prior.SupersededBy == rec.ID {
+			continue // this exact mark is already on disk; MarkSuperseded's `already` check
+		}
+		marks = append(marks, id)
+	}
+	s.mu.RUnlock()
+
+	buf, err := marshalLine(tuRec{
+		V: indexRecordVersion, ID: rec.ID, S: rec.Session, Turn: rec.Turn, TS: rec.TS,
+		Tool: rec.Tool, ArgD: rec.ArgsDigest, ArgP: rec.ArgsPreview, Root: rec.Root,
+		Path: rec.Path, Bytes: rec.Bytes, Tokens: rec.Tokens,
+		Sig: tuSignature(rec.Signature), St: rec.Status, By: rec.SupersededBy,
+		Eph: rec.Ephemeral, Sub: rec.Subagent,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	// One clock read for the whole batch: every mark this record authors is stamped with the
+	// instant the record landed, which is the instant they became true.
+	ts := s.now()
+	for _, id := range marks {
+		line, lerr := marshalLine(tuSupersedeRec{
+			V: indexRecordVersion, Op: "supersede", ID: id, By: rec.ID, TS: ts,
+		})
+		if lerr != nil {
+			return nil, false, lerr
+		}
+		buf = append(buf, line...)
+	}
+	if err := s.tuW.write(buf); err != nil {
+		return nil, false, err
+	}
+
+	s.mu.Lock()
+	s.putToolUseLocked(rec)
+	for _, id := range marks {
+		if prior, ok := s.toolUse[id]; ok {
+			prior.Status, prior.SupersededBy = StatusSuperseded, rec.ID
+		}
+	}
+	s.mu.Unlock()
+	return marks, true, nil
+}
+
 // ToolUse looks up one tool_use record.
 func (s *FSStore) ToolUse(ctx context.Context, id core.ToolUseID) (ToolUseRecord, error) {
 	if err := s.use(); err != nil {
