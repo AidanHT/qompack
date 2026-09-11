@@ -117,6 +117,10 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		// the file for every operation on the journal, only there: a lease batch re-reads it
 		// (Lock.ownedByFile) once every member has arrived and before anything is appended or
 		// answered, and acknowledge and acknowledged read it through owned under this mutex.
+		// One visible difference follows, and Q6 countersigns it too: a lock this process lost is
+		// no longer refused here, silently, but by each lease, whose callers (ingest's and the
+		// drainer's leaseDelivery) count the same unleased gap and also log the refusal at Warn,
+		// once per delivery, for as long as the daemon runs without its lock.
 		if !l.journal.usable() {
 			return nil, deliveryJournalError()
 		}
