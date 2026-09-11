@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
@@ -69,6 +70,20 @@ type deliveryJournal struct {
 	ackBytes  int64
 	ackChain  core.Hash
 	acks      map[string]deliveryAck
+
+	// st guards fault, closed, closing and inflight, and every write of the admitted state: bytes,
+	// chain, leases and arrivals, and ackBytes, ackChain and acks. It is taken below Lock.mu and
+	// never above it, and it is never held across I/O. The one operation that may write a
+	// pipeline's admitted state can read that state without st, because nothing else writes it;
+	// every other reader holds st.
+	st sync.Mutex
+	// idle is broadcast, with L = &st, each time inflight drops to zero; closeLocked waits on it.
+	idle sync.Cond
+	// closing is set by closeLocked before it waits and is never cleared, so no operation passes
+	// enter once a close has begun, and Release waits only for the operations already in flight.
+	closing bool
+	// inflight counts the operations between enter and leave: each one may write, sync or seal.
+	inflight int
 }
 
 type deliveryPosition struct {
@@ -113,9 +128,7 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 	} else if journalErr != nil || positionErr != nil {
 		return nil, deliveryJournalError()
 	}
-	j := &deliveryJournal{
-		owner: l, path: p, chain: deliveryChainSeed, leases: map[string]deliveryLease{}, arrivals: map[core.SessionID]uint64{},
-	}
+	j := newDeliveryJournal(l, p)
 	info, err := j.load()
 	if err != nil {
 		return nil, err // preserve every byte of an untrusted/torn journal; never append past it
@@ -128,31 +141,40 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 	l.journal = j // ownership retains even an uncertain close on a failed open
 	opened, err := f.Stat()
 	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) || opened.Size() != j.bytes {
-		j.fault = deliveryJournalError()
+		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, deliveryJournalError()
 	}
 	// A complete tail can survive an uncertain append/position write without being acknowledged.
 	// Re-sync it and seal the recovered position before any caller can reuse its assignments.
 	if err := f.Sync(); err != nil {
-		j.fault = deliveryJournalError()
+		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, deliveryJournalError()
 	}
 	if err := j.savePosition(j.bytes, len(j.leases), j.chain); err != nil {
-		j.fault = deliveryJournalError()
+		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, err
 	}
 	// The acknowledgement journal is recovered under the same held lock and in the same open, so a
 	// caller can never see assignments without the frontier that decides which of them are done.
 	if err := j.openAckLocked(); err != nil {
-		j.fault = deliveryJournalError()
+		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, err
 	}
 	l.journalOpenFault = false
 	return j, nil
+}
+
+// newDeliveryJournal returns an empty, unloaded journal for the lease file at p, owned by l.
+func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
+	j := &deliveryJournal{
+		owner: l, path: p, chain: deliveryChainSeed, leases: map[string]deliveryLease{}, arrivals: map[core.SessionID]uint64{},
+	}
+	j.idle.L = &j.st
+	return j
 }
 
 func (j *deliveryJournal) lease(ctx context.Context, delivery string, session core.SessionID, request core.Hash) (deliveryLease, error) {
@@ -164,15 +186,18 @@ func (j *deliveryJournal) lease(ctx context.Context, delivery string, session co
 	if err := ctx.Err(); err != nil {
 		return deliveryLease{}, err
 	}
-	if j.closed || j.fault != nil || !j.owner.owned() {
+	if err := j.enter(); err != nil {
+		return deliveryLease{}, err
+	}
+	defer j.leave()
+	if !j.owner.ownedByFile() {
 		return deliveryLease{}, deliveryJournalError()
 	}
 	if !validDeliveryToken(delivery) || request.IsZero() || !utf8.ValidString(string(session)) {
 		return deliveryLease{}, core.ErrContract
 	}
 	if err := j.checkFile(); err != nil {
-		j.fault = err
-		return deliveryLease{}, err
+		return deliveryLease{}, j.poison(err)
 	}
 	if old, ok := j.leases[delivery]; ok {
 		if old.Session != session || old.RequestHash != request {
@@ -205,23 +230,22 @@ func (j *deliveryJournal) lease(ctx context.Context, delivery string, session co
 	}
 	n, err := j.writer.Write(line)
 	if err != nil || n != len(line) {
-		j.fault = deliveryJournalError()
-		return deliveryLease{}, j.fault
+		return deliveryLease{}, j.poison(deliveryJournalError())
 	}
 	if err := j.writer.Sync(); err != nil {
-		j.fault = deliveryJournalError()
-		return deliveryLease{}, j.fault
+		return deliveryLease{}, j.poison(deliveryJournalError())
 	}
 	chain := deliveryChain(j.chain, line)
 	if err := j.savePosition(j.bytes+int64(len(line)), len(j.leases)+1, chain); err != nil {
-		j.fault = deliveryJournalError()
-		return deliveryLease{}, j.fault
+		return deliveryLease{}, j.poison(deliveryJournalError())
 	}
 	// Only synced bytes enter the running identity maps. An uncertain write poisons this handle
 	// and requires reload; a complete surviving row then retains its identity on retry.
+	j.st.Lock()
 	j.bytes += int64(len(line))
 	j.chain = chain
 	j.leases[delivery], j.arrivals[session] = lease, arrival
+	j.st.Unlock()
 	return lease, nil
 }
 
@@ -375,25 +399,79 @@ func (j *deliveryJournal) checkFile() error {
 	return nil
 }
 
-// closeLocked requires the owner mutex, the same boundary that serializes lease and Release.
+// enter admits one operation that may write, sync or seal (a lease, or an acknowledgement) into
+// the section closeLocked waits for. It refuses a journal that is closing, closed or faulted: the
+// per-call gate lease and acknowledge have always had, minus the ownership read, which each caller
+// makes itself once it is inside. Every successful enter is paired with exactly one leave.
+func (j *deliveryJournal) enter() error {
+	j.st.Lock()
+	defer j.st.Unlock()
+	if j.closing || j.closed || j.fault != nil {
+		return deliveryJournalError()
+	}
+	j.inflight++
+	return nil
+}
+
+// leave ends an operation enter admitted, waking closeLocked when it was the last one in flight.
+func (j *deliveryJournal) leave() {
+	j.st.Lock()
+	defer j.st.Unlock()
+	j.inflight--
+	if j.inflight == 0 {
+		j.idle.Broadcast()
+	}
+}
+
+// poison records err as the journal's fault unless it already has one, and returns the fault it
+// holds. There is one fault for the whole handle, lease and acknowledgement sides alike, so an
+// uncertain write on either side refuses every later operation on both until the lock is released
+// and the journal reopened.
+func (j *deliveryJournal) poison(err error) error {
+	j.st.Lock()
+	defer j.st.Unlock()
+	if j.fault == nil {
+		j.fault = err
+	}
+	return j.fault
+}
+
+// usable reports whether the journal is open, not closing and not faulted.
+func (j *deliveryJournal) usable() bool {
+	j.st.Lock()
+	defer j.st.Unlock()
+	return !j.closing && !j.closed && j.fault == nil
+}
+
+// closeLocked requires the owner mutex: Release and the failed-open paths call it. It sets closing
+// before anything else, so no operation passes enter from then on and every request still queued
+// fails there; then it waits until nothing admitted is in flight, so Release never overtakes a
+// write, a sync or a seal. Only then are the handles closed, exactly as they always were.
 func (j *deliveryJournal) closeLocked() error {
+	j.st.Lock()
 	if j.closed {
+		j.st.Unlock()
 		return nil
 	}
+	j.closing = true
+	for j.inflight > 0 {
+		j.idle.Wait()
+	}
+	j.st.Unlock()
 	if err := j.writer.Close(); err != nil {
-		j.fault = deliveryJournalError()
-		return j.fault
+		return j.poison(deliveryJournalError())
 	}
 	// The lease handle is closed first and the ack handle is dropped once closed, so a retry after
 	// a failed close never closes the same descriptor twice.
 	if w := j.ackWriter; w != nil {
 		j.ackWriter = nil
 		if err := w.Close(); err != nil {
-			j.fault = deliveryJournalError()
-			return j.fault
+			return j.poison(deliveryJournalError())
 		}
 	}
+	j.st.Lock()
 	j.closed = true
+	j.st.Unlock()
 	return nil
 }
 
@@ -494,13 +572,19 @@ func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id c
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if j.closed || j.fault != nil || !j.owner.owned() {
+	if err := j.enter(); err != nil {
+		return err
+	}
+	defer j.leave()
+	if !j.owner.owned() {
 		return deliveryJournalError()
 	}
 	if !validDeliveryToken(delivery) || id == "" {
 		return core.ErrContract
 	}
+	j.st.Lock() // a lease operation may be admitting a lease at this moment
 	lease, ok := j.leases[delivery]
+	j.st.Unlock()
 	if !ok || lease.ObservationID != id {
 		return core.ErrContract
 	}
@@ -511,8 +595,7 @@ func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id c
 		return nil
 	}
 	if err := j.checkAckFile(); err != nil {
-		j.fault = err
-		return err
+		return j.poison(err)
 	}
 	if len(j.acks) >= deliveryLeaseMaxEntries {
 		return core.ErrBudget
@@ -528,34 +611,39 @@ func (j *deliveryJournal) acknowledge(ctx context.Context, delivery string, id c
 	}
 	n, err := j.ackWriter.Write(line)
 	if err != nil || n != len(line) {
-		j.fault = deliveryJournalError()
-		return j.fault
+		return j.poison(deliveryJournalError())
 	}
 	if err := j.ackWriter.Sync(); err != nil {
-		j.fault = deliveryJournalError()
-		return j.fault
+		return j.poison(deliveryJournalError())
 	}
 	chain := deliveryChain(j.ackChain, line)
 	if err := j.saveAckPosition(j.ackBytes+int64(len(line)), len(j.acks)+1, chain); err != nil {
-		j.fault = deliveryJournalError()
-		return j.fault
+		return j.poison(deliveryJournalError())
 	}
+	j.st.Lock()
 	j.ackBytes += int64(len(line))
 	j.ackChain = chain
 	j.acks[delivery] = ack
+	j.st.Unlock()
 	return nil
 }
 
 // acknowledged reports whether delivery has a committed frontier record. A closed, faulted or
 // unowned journal answers false: "cannot currently tell" and "not published" both mean the caller
-// must not release the record that would let it retry.
+// must not release the record that would let it retry. It keeps owned() under Lock.mu, where
+// owned's read of Lock.released is ordered against Release.
 func (j *deliveryJournal) acknowledged(delivery string) bool {
 	if j == nil || j.owner == nil {
 		return false
 	}
 	j.owner.mu.Lock()
 	defer j.owner.mu.Unlock()
-	if j.closed || j.fault != nil || !j.owner.owned() {
+	if !j.owner.owned() {
+		return false
+	}
+	j.st.Lock()
+	defer j.st.Unlock()
+	if j.closing || j.closed || j.fault != nil {
 		return false
 	}
 	_, ok := j.acks[delivery]
