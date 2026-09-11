@@ -489,7 +489,10 @@ func (l *ledger) loadRecords() {
 		return
 	}
 
-	recs, byID, _, err := replayLog(bytes.NewReader(b), l.log, l.m)
+	// Every record needs a line of its own, and the file is already in hand, so its line count is
+	// an upper bound on the record count that lets the replay size its slice and index once
+	// instead of growing them a doubling at a time.
+	recs, byID, _, err := replayLogSized(bytes.NewReader(b), bytes.Count(b, []byte{'\n'})+1, l.log, l.m)
 	if err != nil {
 		// replayLog degrades every per-line problem and returns an error only when the READER
 		// failed, i.e. when the materialization is partial. Reporting a partial one as complete
@@ -593,7 +596,7 @@ func (l *ledger) reconcileBloom(loadFailed bool) {
 	if l.blind {
 		return
 	}
-	want := 2 * len(l.visibleActive())
+	want := 2 * l.visibleActiveCount()
 
 	if loadFailed || l.bloom.Count() < want {
 		// Missing keys are false NEGATIVES, which defeat the feature without any symptom. This is
@@ -656,12 +659,31 @@ func (l *ledger) visible(r Record, q Scope) bool {
 // bloom rebuild draws its keys from. The caller holds mu.
 func (l *ledger) visibleActive() []Record {
 	out := make([]Record, 0, len(l.recs))
-	for _, r := range l.recs {
-		if r.Status == StatusActive && l.visible(r, ScopeSession) {
-			out = append(out, r)
+	for i := range l.recs {
+		if l.isVisibleActive(i) {
+			out = append(out, l.recs[i])
 		}
 	}
 	return out
+}
+
+// isVisibleActive is visibleActive's filter, applied to l.recs[i]: the record is active and
+// visible to this session. The caller holds mu.
+func (l *ledger) isVisibleActive(i int) bool {
+	return l.recs[i].Status == StatusActive && l.visible(l.recs[i], ScopeSession)
+}
+
+// visibleActiveCount is len(l.visibleActive()) — the same filter over the same records — counted
+// without copying a single record, for the callers that need only the number. The caller holds
+// mu.
+func (l *ledger) visibleActiveCount() int {
+	n := 0
+	for i := range l.recs {
+		if l.isVisibleActive(i) {
+			n++
+		}
+	}
+	return n
 }
 
 // dedupHex is a record's append-time identity: the domain-separated digest of its session, its
@@ -1034,7 +1056,7 @@ func (l *ledger) TopActive(ctx context.Context, scope Scope, n int, score map[st
 // health is Health's body for a caller already holding mu.
 func (l *ledger) health() Health {
 	h := Health{
-		Records: len(l.recs), Active: len(l.visibleActive()),
+		Records: len(l.recs), Active: l.visibleActiveCount(),
 		FilterGeneration: l.seq, DependencyCoverage: l.depCoverage,
 	}
 	for _, r := range l.recs {

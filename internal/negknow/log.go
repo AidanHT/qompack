@@ -184,10 +184,30 @@ func appendLine(w io.Writer, v any) error {
 // log and m are assumed non-nil; a caller holding optional ones passes logging.Nop() and a nop
 // registry rather than nil.
 func replayLog(r io.Reader, log logging.Logger, m obs.Registry) ([]Record, map[string]int, int, error) {
+	return replayLogSized(r, 0, log, m)
+}
+
+// replayLogSized is replayLog with a capacity hint: an upper bound on how many records the log can
+// hold, or 0 for none. loadRecords reads one off the byte slice it already has in hand — every
+// record needs a line of its own — and without it a 20 000-record log grows the records slice
+// through a dozen reallocations, several times its final size in copies and garbage.
+//
+// The hint sizes allocations and decides nothing else: the records, their order, the index and
+// every counter are what replayLog produces. What it can change is how much capacity the result
+// carries, and that is bounded: a hint that overshot the records by more than append's own
+// growth would have left — a log with many control lines — is trimmed to fit, and a replay that
+// materialized nothing returns a nil slice, as it always has.
+func replayLogSized(r io.Reader, sizeHint int, log logging.Logger, m obs.Registry) ([]Record, map[string]int, int, error) {
 	var (
 		recs []Record
-		byID = make(map[string]int)
+		byID map[string]int
 	)
+	if sizeHint > 0 {
+		recs = make([]Record, 0, sizeHint)
+		byID = make(map[string]int, sizeHint)
+	} else {
+		byID = make(map[string]int)
+	}
 
 	corrupt := func(lineNo int, msg string, kv ...any) {
 		m.Counter(counterCorruptLines).Add(1)
@@ -316,8 +336,18 @@ func replayLog(r io.Reader, log logging.Logger, m obs.Registry) ([]Record, map[s
 		flush()
 	}
 
+	switch {
+	case len(recs) == 0:
+		recs = nil
+	case cap(recs)-len(recs) > len(recs)/slackDivisor:
+		recs = append([]Record(nil), recs...)
+	}
 	return recs, byID, lines, nil
 }
+
+// slackDivisor bounds the spare capacity replayLogSized lets a pre-sized records slice keep: at
+// most a quarter of its length, which is about what append's growth leaves on a slice this large.
+const slackDivisor = 4
 
 // decodeLogLine is the replay's single decode of one trimmed, non-empty line into a zero ln: the
 // fast path when the line is a canonical record line, json.Unmarshal otherwise. The error is
