@@ -3,6 +3,7 @@ package store
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -143,7 +144,7 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 		res.Root, res.Novel, res.Reused = priorRoot.Root, 0, len(priorRoot.Root.Chunks)
 		res.Root.RawBytes = raw // …not the stored root's.
 		res.NearDup = s.nearDup(o.Path, root, res.Root.CanonBytes, res.Signature)
-		res.Fidelity = storedFidelity(priorRoot)
+		res.Fidelity = s.dedupFidelity(priorRoot, red, canonical, cr.Deltas)
 		s.countRaw(raw)
 		return res, nil
 	}
@@ -182,7 +183,7 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 
 	// 6. Recovery record (§8.1 "keep the volatile deltas as a tiny side record"), admitted only
 	//    under SP-20 invariant 6.
-	deltaRoot, origRoot, fidelity, err := s.admitRecovery(ctx, root, refs, red, canonical, cr.Deltas, o)
+	rec, fidelity, err := s.admitRecovery(ctx, root, refs, red, canonical, cr.Deltas, o)
 	if err != nil {
 		return res, err
 	}
@@ -192,7 +193,7 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 	if err := s.appendRoot(rootEntry{
 		Root: res.Root, TS: s.now(), Tool: o.Tool, Path: o.Path,
 		Class: uint8(class), Eph: o.Ephemeral, Sig: res.Signature,
-		Deltas: deltaRoot, Orig: origRoot,
+		Deltas: rec.deltas, Orig: rec.orig, Verbatim: rec.verbatim,
 	}); err != nil {
 		return res, err
 	}
@@ -202,22 +203,75 @@ func (s *FSStore) PutBytes(ctx context.Context, b []byte, o PutOptions) (PutResu
 	return res, nil
 }
 
-// storedFidelity reports the recovery status a root that is ALREADY stored carries, so a
-// root-level dedup hit answers the same question a fresh put does.
+// dedupFidelity reports how recoverable THIS put's original is when its canonical root is already
+// stored, so a root-level dedup hit answers the question a fresh put answers.
 //
-// It reads the stored record's pointers rather than re-deriving anything: a delta record means an
-// exact round-trip was proven when the content was first stored, a retained full original means it
-// was not and the bytes were kept whole instead, and neither means only canonical bytes exist.
-func storedFidelity(e rootEntry) Fidelity {
+// A dedup hit writes nothing, so the only original it can claim is the one the stored root's
+// recovery record restores — and that is this put's original only sometimes. Two inputs that
+// differ in nothing but a volatile token canonicalize to one root, and that root restores the
+// FIRST input, never the second. So the stored record is re-derived from this put's own bytes and
+// compared, with no object read:
+//
+//   - a retained full original is this put's when it has the address this put's bytes would have;
+//   - a delta record is this put's when it declares this root as its base, has the address this
+//     put's deltas would have (in the current or the pre-SP20-D3 encoding), and those deltas
+//     replay onto the canonical bytes to exactly this put's bytes;
+//   - a verbatim record is this put's when canonicalization changed nothing here either.
+//
+// Anything else is FidelityCanonical: of THIS original, the canonical bytes are all the store is
+// known to hold. That can under-claim — verbatim bytes deduplicating onto a root first stored
+// without KeepRaw — but it never claims an original the root does not restore, and in that case it
+// is also what RestoreOriginal says about the root.
+func (s *FSStore) dedupFidelity(e rootEntry, red, canonical []byte, deltas []canon.Delta) Fidelity {
 	switch {
-	case !e.Deltas.IsZero():
-		return FidelityExact
 	case !e.Orig.IsZero():
-		return FidelityFull
-	default:
-		return FidelityCanonical
+		if s.sideRecordAddress(red) == e.Orig {
+			return FidelityFull
+		}
+	case !e.Deltas.IsZero():
+		if s.deltaRecordIsThisPuts(e, red, canonical, deltas) {
+			return FidelityExact
+		}
+	case e.Verbatim:
+		if bytes.Equal(canonical, red) {
+			return FidelityExact
+		}
 	}
+	return FidelityCanonical
 }
+
+// deltaRecordIsThisPuts is dedupFidelity's delta case: the stored root's delta record is owned by
+// that root and is exactly the record this put would have written.
+func (s *FSStore) deltaRecordIsThisPuts(e rootEntry, red, canonical []byte, deltas []canon.Delta) bool {
+	if len(deltas) == 0 {
+		return false // no deltas recorded here (no KeepRaw, or nothing volatile): nothing to compare
+	}
+	s.mu.RLock()
+	rec, ok := s.rootIndex[e.Deltas]
+	owned := ok && rec.Base == e.Root.Hash
+	s.mu.RUnlock()
+	if !owned {
+		return false // a record another base declares is not this root's recovery (SP20-D3)
+	}
+	if e.Deltas != s.sideRecordAddress(marshalDeltaRecord(e.Root.Hash, deltas)) &&
+		e.Deltas != s.sideRecordAddress(marshalDeltas(deltas)) {
+		return false
+	}
+	got, err := canon.Restore(canonical, deltas)
+	return err == nil && bytes.Equal(got, red)
+}
+
+// recovery is the record one put persisted to make its original recoverable: a delta record, a
+// retained full original, or the verbatim claim that the canonical bytes are the original. At most
+// one is set, and none is when no recovery record was asked for.
+type recovery struct {
+	deltas, orig core.Hash
+	verbatim     bool
+}
+
+// errSideRecordTaken reports a delta record whose content address is already held by a root that
+// does not declare the same base, so it cannot serve as this base's record.
+var errSideRecordTaken = errors.New("store: side-record address is held by another root")
 
 // admitRecovery decides how this put's ORIGINAL bytes are recoverable, and persists the record
 // that makes the claim true.
@@ -226,35 +280,41 @@ func storedFidelity(e rootEntry) Fidelity {
 // declared base; no base means no delta-only recovery claim." A delta is admitted ONLY when every
 // chunk of its declared base is already on disk AND canon.Restore reproduces the redacted input
 // byte for byte. Anything else — an unprovable delta list, a canonicalizer that changed bytes
-// without recording them, a base whose objects did not land — falls back to retaining the original
-// as its own full object, which is a weaker representation but never a false claim.
+// without recording them, a base whose objects did not land, a delta record whose address another
+// root already holds — falls back to retaining the original as its own full object, which is a
+// weaker representation but never a false claim.
 //
 // KeepRaw = false asks for no recovery record at all, so the canonical bytes are all that exist
 // and the fidelity says exactly that.
 func (s *FSStore) admitRecovery(
 	ctx context.Context, base core.Hash, refs []core.ChunkRef, red, canonical []byte,
 	deltas []canon.Delta, o PutOptions,
-) (deltaRoot, origRoot core.Hash, fid Fidelity, err error) {
+) (recovery, Fidelity, error) {
 	if !o.KeepRaw {
-		return core.Hash{}, core.Hash{}, FidelityCanonical, nil
+		return recovery{}, FidelityCanonical, nil
 	}
 	// Canonicalization changed nothing: the stored bytes ARE the original, with no side record to
-	// go wrong. This is the ordinary case for content with nothing volatile in it.
+	// go wrong. This is the ordinary case for content with nothing volatile in it, and the content
+	// line records it (verbatim) so a read reports the same exactness this put does.
 	if len(deltas) == 0 && bytes.Equal(canonical, red) {
-		return core.Hash{}, core.Hash{}, FidelityExact, nil
+		return recovery{verbatim: true}, FidelityExact, nil
 	}
 	if len(deltas) > 0 && s.deltaProven(base, refs, red, canonical, deltas) {
 		dr, derr := s.putDeltas(ctx, deltas, base, o.Ephemeral)
-		if derr != nil {
-			return core.Hash{}, core.Hash{}, FidelityCanonical, derr
+		if derr == nil {
+			return recovery{deltas: dr}, FidelityExact, nil
 		}
-		return dr, core.Hash{}, FidelityExact, nil
+		if !errors.Is(derr, errSideRecordTaken) {
+			return recovery{}, FidelityCanonical, derr
+		}
+		// Pointing at a record another root holds would claim a recovery that root cannot give;
+		// the full original is still true.
 	}
 	or, oerr := s.putFullOriginal(ctx, red, base, o.Ephemeral)
 	if oerr != nil {
-		return core.Hash{}, core.Hash{}, FidelityCanonical, oerr
+		return recovery{}, FidelityCanonical, oerr
 	}
-	return core.Hash{}, or, FidelityFull, nil
+	return recovery{orig: or}, FidelityFull, nil
 }
 
 // deltaProven reports whether deltas may be persisted as base's exact recovery record.
@@ -413,8 +473,13 @@ func (s *FSStore) nearDup(path string, root core.Hash, canonBytes int64, sig ske
 // work on the hot path; and canonicalizing the record of what canonicalization removed is
 // meaningless. The record is filed as an ordinary root under the synthetic tool name "«deltas»",
 // so GC sees and retains it exactly like any other root rather than treating it as an orphan.
+//
+// The payload names its base (marshalDeltaRecord), which is what gives every base a record of its
+// own. Before SP20-D3 it was the delta list alone, so two roots whose canonicalization removed the
+// same token at the same offset produced byte-identical records: putSideRecord handed the second
+// root the first root's record, and the second root's exactness claim failed on read.
 func (s *FSStore) putDeltas(ctx context.Context, deltas []canon.Delta, base core.Hash, eph bool) (core.Hash, error) {
-	return s.putSideRecord(ctx, marshalDeltas(deltas), deltaToolName, tokens.ClassJSON, base, eph)
+	return s.putSideRecord(ctx, marshalDeltaRecord(base, deltas), deltaToolName, tokens.ClassJSON, base, eph)
 }
 
 // putFullOriginal retains the redacted ORIGINAL bytes as their own full object, for a base whose
@@ -442,9 +507,23 @@ func (s *FSStore) putSideRecord(
 	root := chunk.RootHash(chunks)
 
 	s.mu.RLock()
-	_, known := s.rootIndex[root]
+	prior, known := s.rootIndex[root]
+	var priorTool string
+	var priorBase core.Hash
+	if known {
+		priorTool, priorBase = prior.Tool, prior.Base
+	}
 	s.mu.RUnlock()
 	if known {
+		// A retained original may be shared by any root: it IS the bytes, and RestoreOriginal reads
+		// it without consulting its base. A delta record may be reused only by the base it declares,
+		// because replaying it onto any other root is the SP20-D3 failure. The base is inside the
+		// payload, so the address already implies it; a mismatch here means some OTHER root holds
+		// byte-identical content at this address, and the caller must not point at it.
+		if tool == deltaToolName && (priorTool != deltaToolName || priorBase != base) {
+			s.count("store.delta.addressTaken", 1)
+			return core.Hash{}, fmt.Errorf("%w: %s", errSideRecordTaken, root.Short())
+		}
 		return root, nil
 	}
 
@@ -480,10 +559,34 @@ func (s *FSStore) putSideRecord(
 	return root, nil
 }
 
-// marshalDeltas renders deltas as one compact JSON array with keys in a fixed order, so the side
-// record is byte-stable and therefore dedups against an identical prior record.
+// sideRecordAddress is the root putSideRecord files payload under, computed without writing it.
+func (s *FSStore) sideRecordAddress(payload []byte) core.Hash {
+	return chunk.RootHash(s.splitChecked(payload))
+}
+
+// marshalDeltaRecord renders one delta side record — the base it reconstructs, then its deltas —
+// with keys in a fixed order, so the record is byte-stable and a retried put finds its own record.
+// Naming the base is what makes the record's address unique to that base (SP20-D3);
+// unmarshalDeltaRecord is the inverse.
+func marshalDeltaRecord(base core.Hash, deltas []canon.Delta) []byte {
+	dst := make([]byte, 0, 96+len(deltas)*64)
+	dst = append(dst, '{')
+	dst = appendKey(dst, "base", true)
+	dst = appendJSONString(dst, base.String())
+	dst = appendKey(dst, "deltas", false)
+	dst = appendDeltas(dst, deltas)
+	return append(dst, '}')
+}
+
+// marshalDeltas renders deltas alone as one compact JSON array: the payload of every delta record
+// written before SP20-D3. Nothing new is written in this shape; it is kept so dedupFidelity can
+// recognise such a record as the one its own root owns, and so tests can plant one.
 func marshalDeltas(deltas []canon.Delta) []byte {
-	dst := make([]byte, 0, len(deltas)*64)
+	return appendDeltas(make([]byte, 0, len(deltas)*64), deltas)
+}
+
+// appendDeltas appends deltas as one compact JSON array with keys in a fixed order.
+func appendDeltas(dst []byte, deltas []canon.Delta) []byte {
 	dst = append(dst, '[')
 	for i, d := range deltas {
 		if i > 0 {

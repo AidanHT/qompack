@@ -176,6 +176,12 @@ type rootEntry struct {
 	// but an exact round-trip could not be proven. It is the "otherwise retain a full object" half
 	// of the same invariant.
 	Orig core.Hash
+	// Verbatim marks a content record whose canonical bytes ARE its original: KeepRaw asked for a
+	// recovery record and canonicalization changed nothing, so there was no side record to write.
+	// Without it a read cannot tell that case from "no recovery record was asked for", and labels
+	// bytes the put called exact as canonical (SP20-D3). A reader that does not know the field loses
+	// only the claim, never the bytes: they read back as canonical, the safe direction.
+	Verbatim bool
 }
 
 // sessionEntry is one loaded index/sessions.jsonl record. It is what makes GC's "10 sessions"
