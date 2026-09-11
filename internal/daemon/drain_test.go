@@ -54,15 +54,19 @@ func countingDispatch() (dispatch func(context.Context, ipc.Request) ipc.Respons
 // TestDrainPersistsPerFileBeforeMovingOn pins I-4: state/drain.json is persisted per file, on EOF,
 // before the file is removed — not only once at the very end of Drain — so a crash between one
 // file's completion and the next file's processing never loses the completed file's recorded
-// offset. Proven by reading state/drain.json back from disk from inside the Dispatch callback for
-// the LAST file's first line: the earlier files' outcomes must already be visible on disk by
-// then, well before Drain itself has returned.
+// offset. Proven by reading state/drain.json back from disk from inside the Dispatch callback, at
+// the first line of the file after the one being checked, well before Drain itself has returned.
 //
-// A file the drain keeps (a live session's WAL) must show its completion there. A file the drain
-// removes must show its removal instead: gone from the spool and forgotten in state/drain.json,
-// persisted before the unlink (removeCompletedFile). Reading a removed file's {Done} entry back at
-// this point, as this test once did for client-1.ndjson, was reading the stale entry that
-// outlived its file until the next save — the entry a later file under the same name inherited.
+// A file the drain keeps (a live session's WAL) must show its completion there. It is read back at
+// the first line of the very next file, because no other save runs between the kept file's EOF and
+// that point: only the per-file EOF save can have put the completion on disk. Read back any later,
+// it would pass without that save, since a removed file's forget-save (removeCompletedFile)
+// persists the whole in-memory state, the kept file's completion included.
+//
+// A file the drain removes must show its removal instead: gone from the spool and forgotten in
+// state/drain.json, persisted before the unlink. Reading a removed file's {Done} entry back, as this
+// test once did for client-1.ndjson, was reading the stale entry that outlived its file until the
+// next save — the entry a later file under the same name inherited.
 func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 	t.Parallel()
 
@@ -73,18 +77,22 @@ func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 
 	clk := newFakeClock(epoch)
 	var calls int
-	var sawFirstFileDoneOnDiskEarly, sawRemovedFileForgottenOnDiskEarly bool
+	var sawKeptFileDoneOnDiskAtTheNextFile, sawRemovedFileForgottenOnDiskEarly bool
 	var dr *drainer
 	dr = newDrainer(DrainConfig{
 		Root: root, Clock: clk,
 		IsLive: func(sess core.SessionID) bool { return sess == "sess-1" },
 		Dispatch: func(context.Context, ipc.Request) ipc.Response {
 			calls++
-			if calls == 5 { // the first line of the last file
+			switch calls {
+			case 3: // the first line of client-1.ndjson, the file right after the kept one
 				st, stateErr := dr.loadState()
 				require.NoError(t, stateErr)
 				fs, ok := st["wal-sess-1.ndjson"]
-				sawFirstFileDoneOnDiskEarly = ok && fs.Done
+				sawKeptFileDoneOnDiskAtTheNextFile = ok && fs.Done
+			case 5: // the first line of client-2.ndjson, the file right after the removed one
+				st, stateErr := dr.loadState()
+				require.NoError(t, stateErr)
 				_, named := st["client-1.ndjson"]
 				_, statErr := os.Stat(removed)
 				sawRemovedFileForgottenOnDiskEarly = !named && os.IsNotExist(statErr)
@@ -96,8 +104,8 @@ func TestDrainPersistsPerFileBeforeMovingOn(t *testing.T) {
 	n, err := dr.Drain(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, 6, n)
-	require.True(t, sawFirstFileDoneOnDiskEarly,
-		"wal-sess-1.ndjson's completion must be on disk before client-2.ndjson starts, not only at the end of Drain")
+	require.True(t, sawKeptFileDoneOnDiskAtTheNextFile,
+		"wal-sess-1.ndjson's completion must be on disk before client-1.ndjson starts, not only at the end of Drain")
 	require.True(t, sawRemovedFileForgottenOnDiskEarly,
 		"client-1.ndjson's removal must be on disk before client-2.ndjson starts: gone, and forgotten in drain.json")
 }
