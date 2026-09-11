@@ -355,3 +355,30 @@ func TestIngestRemoveDrainedWALRefusesHeldAndGrownSegments(t *testing.T) {
 	_, err = dd.ing.removeDrainedWAL(seg, size)
 	require.True(t, os.IsNotExist(err), "a segment already gone reports not-exist")
 }
+
+// TestIngestHoldsWALAnswersForTheCurrentSegmentOnly pins holdsWAL, the question the drainer asks
+// before it forgets a finished segment's progress. It shares removeDrainedWAL's held check, so the
+// two answer alike. The segment a session appends to is held. A segment rotation closed is not,
+// though its session is still open. None is once the session's handle is closed.
+func TestIngestHoldsWALAnswersForTheCurrentSegmentOnly(t *testing.T) {
+	t.Parallel()
+	const sess = core.SessionID("sess-holds")
+	dd, clk := liveWALDaemon(t, nil)
+	seg0 := walPath(paths.Of(dd.root).Spool, sess, 0)
+	seg1 := walPath(paths.Of(dd.root).Spool, sess, 1)
+	require.False(t, dd.ing.holdsWAL(seg0), "a session never opened holds nothing")
+
+	liveWALAccept(t, dd, liveWALTool(dd, sess))
+	require.True(t, dd.ing.holdsWAL(seg0), "the segment the session appends to is held")
+
+	dd.ing.mu.Lock()
+	dd.ing.wals[sess].bytes = walRotateBytes - 1 // the next append rolls over to segment 1
+	dd.ing.mu.Unlock()
+	clk.Advance(time.Millisecond)
+	liveWALAccept(t, dd, liveWALTool(dd, sess))
+	require.False(t, dd.ing.holdsWAL(seg0), "a segment rotation closed is not held")
+	require.True(t, dd.ing.holdsWAL(seg1), "the segment rotation opened is held")
+
+	require.NoError(t, dd.ing.CloseSession(sess))
+	require.False(t, dd.ing.holdsWAL(seg1), "a closed session holds nothing")
+}

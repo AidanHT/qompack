@@ -465,13 +465,32 @@ func (i *ingest) CloseSession(sess core.SessionID) error {
 func (i *ingest) removeDrainedWAL(path string, drained int64) (bool, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	base := filepath.Base(path)
-	for sess, wf := range i.wals {
-		if wf.w != nil && filepath.Base(walPath(i.spoolDir, sess, wf.seq)) == base {
-			return false, nil
-		}
+	if i.holdsLocked(filepath.Base(path)) {
+		return false, nil
 	}
 	return removeIfUnchanged(path, drained)
+}
+
+// holdsWAL reports whether this ingest holds the segment at path open for appending: the first of
+// removeDrainedWAL's two refusals, answered alone and under the same mutex. The drainer asks it
+// before it forgets a finished segment's progress (DrainConfig.HoldsWAL), so a segment held all
+// along is not forgotten, refused and restored on every pass. The answer can be stale by the time
+// the drainer acts on it, which is why removeDrainedWAL decides again.
+func (i *ingest) holdsWAL(path string) bool {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.holdsLocked(filepath.Base(path))
+}
+
+// holdsLocked reports whether base names the current segment of a session this ingest holds open.
+// Only the base name is compared (removeDrainedWAL says why). i.mu must be held.
+func (i *ingest) holdsLocked(base string) bool {
+	for sess, wf := range i.wals {
+		if wf.w != nil && filepath.Base(walPath(i.spoolDir, sess, wf.seq)) == base {
+			return true
+		}
+	}
+	return false
 }
 
 // Wait blocks until every worker goroutine Start launched has returned — which happens once ctx

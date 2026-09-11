@@ -82,6 +82,16 @@ type DrainConfig struct {
 	// every append takes. A nil RemoveWAL (a bare drainer with no ingest behind it) falls back to
 	// removeIfUnchanged: the same size check, without that exclusion.
 	RemoveWAL func(path string, drained int64) (removed bool, err error)
+	// HoldsWAL reports whether the ingest holds the wal-* segment at path open for appending, the
+	// first of RemoveWAL's two refusals. The drainer asks before it forgets a finished segment's
+	// progress, and leaves a held one alone. Without the question, every pass over such a segment
+	// (each idle tick, for a straggler after SessionEnd or an EndAbandoned session whose handle
+	// stays cached) forgot its progress, had the removal refused and put the progress back: two
+	// extra state/drain.json writes, and each time a window in which a crash leaves the file with
+	// no entry. The answer is advisory. A segment that becomes held after it is still refused by
+	// RemoveWAL, which decides under the lock every append takes, and its progress is put back. A
+	// nil HoldsWAL skips the question.
+	HoldsWAL func(path string) bool
 }
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
@@ -433,12 +443,20 @@ readLoop:
 // at-least-once, which the drain already collapses for every leased line through the committed
 // frontier, and which the handlers tolerate for the rest. A removal that does not happen — refused
 // or failed — puts the entry back and persists it again before the pass goes on.
+//
+// A WAL segment the ingest holds is left before any of that (DrainConfig.HoldsWAL). RemoveWAL would
+// refuse it, and forgetting it only to put it back cost two state/drain.json writes on every pass
+// over it and reopened, each time, the window in which a crash leaves the file with no entry.
 func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st drainState) error {
 	if !fs.Done || len(fs.PendingBlobs) > 0 || !dr.shouldDelete(base) {
 		return nil
 	}
+	_, isWAL := walSessionID(base)
+	if isWAL && dr.cfg.HoldsWAL != nil && dr.cfg.HoldsWAL(path) {
+		return nil // RemoveWAL would refuse it: nothing to forget, nothing to put back
+	}
 	remove := removeIfUnchanged
-	if _, isWAL := walSessionID(base); isWAL && dr.cfg.RemoveWAL != nil {
+	if isWAL && dr.cfg.RemoveWAL != nil {
 		remove = dr.cfg.RemoveWAL
 	}
 	delete(st, base)
