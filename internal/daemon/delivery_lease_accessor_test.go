@@ -18,8 +18,8 @@ import (
 // T20 — design §6.2, O1. Lock.openDeliveryJournal no longer reads the lock FILE when its journal is
 // already open and usable: that read ran under Lock.mu on every Accept, a serial section outside
 // any group commit (J-AB2). Detection is relocated, not dropped. Every operation on the returned
-// journal re-reads ownership itself before it appends or answers: a lease once per batch
-// (Lock.ownedByFile, between enter and leave), acknowledge and acknowledged through owned under
+// journal re-reads ownership itself before it appends or answers: a lease and an acknowledgement
+// once per batch (Lock.ownedByFile, between enter and leave), acknowledged through owned under
 // Lock.mu. This test pins both halves: the accessor still hands out the journal after the lock was
 // replaced, and nothing that journal is then asked to do gets done. O1 is flagged in the design for
 // the owner's countersign (Q6); if it is refused, the accessor assertion changes with it.
