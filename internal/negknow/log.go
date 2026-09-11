@@ -194,6 +194,7 @@ func replayLog(r io.Reader, log logging.Logger, m obs.Registry) ([]Record, map[s
 		log.Warn(msg, append([]any{"line", lineNo}, kv...)...)
 	}
 
+	var interned wireInterner
 	apply := func(line []byte, lineNo int) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
@@ -204,8 +205,13 @@ func replayLog(r io.Reader, log logging.Logger, m obs.Registry) ([]Record, map[s
 		// does not fit the union falls to recoverLine, which re-runs the old two-step route and
 		// says which of the three failures it was, so the Warn a reader sees still names the thing
 		// that actually went wrong.
+		//
+		// A record line in the canonical shape this package writes is decoded by logline.go's
+		// fast path, which produces exactly the logLine json.Unmarshal would (SP09-D1). Every
+		// other line — control lines, hand-written or foreign lines, damaged ones — is declined
+		// by it untouched and decoded here exactly as before.
 		var ln logLine
-		if err := json.Unmarshal(line, &ln); err != nil {
+		if err := decodeLogLine(line, &ln, &interned); err != nil {
 			outcome, rerr := recoverLine(line, &ln)
 			switch outcome {
 			case lineUnparseable:
@@ -311,6 +317,17 @@ func replayLog(r io.Reader, log logging.Logger, m obs.Registry) ([]Record, map[s
 	}
 
 	return recs, byID, lines, nil
+}
+
+// decodeLogLine is the replay's single decode of one trimmed, non-empty line into a zero ln: the
+// fast path when the line is a canonical record line, json.Unmarshal otherwise. The error is
+// json.Unmarshal's own and is non-nil only when that decode failed, exactly as when it was the
+// only decode, because the fast path either succeeds or declines leaving ln at its zero value.
+func decodeLogLine(line []byte, ln *logLine, in *wireInterner) error {
+	if decodeRecordLineFast(line, ln, in) {
+		return nil
+	}
+	return json.Unmarshal(line, ln)
 }
 
 // lineOutcome is what the recovery pass concluded about a line the combined logLine decode
