@@ -529,17 +529,7 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.ing.Start(runCtx, 0, d.runIngested)
 	d.goRun(func() { d.hotPathWorker(runCtx) })
 
-	d.drain.Store(newDrainer(DrainConfig{
-		Root:     d.root,
-		Log:      d.log,
-		Metrics:  d.m,
-		Clock:    d.clk,
-		Dispatch: d.drainDispatch,
-		Seen:     d.ing.seen,
-		Admit:    d.admitDelivery,
-		Journal:  d.deliveryJournal,
-		IsLive:   d.sessionIsLive,
-	}))
+	d.drain.Store(newDrainer(d.drainConfig()))
 
 	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
 	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
@@ -724,6 +714,24 @@ func (d *daemon) redrainOnceServing(ctx context.Context) {
 // live session's WAL is offset-marked but kept, never deleted mid-session).
 func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 	return d.registry.IsLive(sess)
+}
+
+// drainConfig is the drainer's wiring over this daemon's own dependencies — the one Run installs.
+// RemoveWAL is the ingest's own removal, so a WAL segment the ingest still holds, or one that has
+// grown since it was drained, is never deleted, whatever the registry says about its session.
+func (d *daemon) drainConfig() DrainConfig {
+	return DrainConfig{
+		Root:      d.root,
+		Log:       d.log,
+		Metrics:   d.m,
+		Clock:     d.clk,
+		Dispatch:  d.drainDispatch,
+		Seen:      d.ing.seen,
+		Admit:     d.admitDelivery,
+		Journal:   d.deliveryJournal,
+		IsLive:    d.sessionIsLive,
+		RemoveWAL: d.ing.removeDrainedWAL,
+	}
 }
 
 // Drain replays every spool-tier file under root's spool directory. It is safe to call before Run

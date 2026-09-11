@@ -76,6 +76,12 @@ type DrainConfig struct {
 	// deleted) rather than removed once fully drained. A nil IsLive treats every session as ended,
 	// so a bare drainer with no wired registry still deletes fully-drained files.
 	IsLive func(sess core.SessionID) bool
+	// RemoveWAL removes a fully drained wal-* segment on the drainer's behalf and reports whether it
+	// did. The daemon wires the ingest's removeDrainedWAL, which refuses a segment the ingest holds
+	// open for appending and one whose size no longer equals drained, deciding both under the mutex
+	// every append takes. A nil RemoveWAL (a bare drainer with no ingest behind it) falls back to
+	// removeIfUnchanged: the same size check, without that exclusion.
+	RemoveWAL func(path string, drained int64) (removed bool, err error)
 }
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
@@ -213,7 +219,12 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		}
 	}
 
-	r := bufio.NewReaderSize(f, drainReadBufferBytes)
+	// The pass reads the file as it stood at the stat above and no further. Bytes appended after it
+	// — by the ingest to a WAL segment it holds, by a hook process to its own client spool — belong
+	// to the next pass. Reading them too let the consumed offset overtake the size recorded below,
+	// and loadState refuses exactly that as inconsistent progress, so every later Drain failed
+	// before reading a single spool file.
+	r := bufio.NewReaderSize(io.LimitReader(f, size-fs.Offset), drainReadBufferBytes)
 	offset := fs.Offset
 	count := 0
 	canceled := false
@@ -390,17 +401,52 @@ readLoop:
 	return count, dr.removeCompletedFile(path, base, fs, st)
 }
 
+// removeCompletedFile removes a fully drained file whose cleanup intents are all consumed, if
+// shouldDelete allows it — and only if the file still ends where the drain stopped. fs.Offset is
+// the consumed offset just persisted; the file's size at removal time is re-read rather than taken
+// from the stat at the top of the pass, because a file can grow between that stat and here. A file
+// that has grown, or a WAL segment the ingest still holds, is left for a later pass. Neither is an
+// error: nothing is wrong with it, it simply is not finished yet.
 func (dr *drainer) removeCompletedFile(path, base string, fs *drainFileState, st drainState) error {
-	if fs.Done && len(fs.PendingBlobs) == 0 && dr.shouldDelete(base) {
-		if err := os.Remove(paths.Long(path)); err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-		} else {
-			delete(st, base)
+	if !fs.Done || len(fs.PendingBlobs) > 0 || !dr.shouldDelete(base) {
+		return nil
+	}
+	remove := removeIfUnchanged
+	if _, isWAL := walSessionID(base); isWAL && dr.cfg.RemoveWAL != nil {
+		remove = dr.cfg.RemoveWAL
+	}
+	removed, err := remove(path, fs.Offset)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
 		}
+		return err
+	}
+	if removed {
+		delete(st, base)
 	}
 	return nil
+}
+
+// removeIfUnchanged removes path only if its size still equals drained, so bytes appended after a
+// pass read to EOF are not deleted along with the file. With no writer-side exclusion it narrows the
+// window rather than closing it: an append landing between the stat and the unlink is still lost on
+// POSIX, while on Windows a writer that still holds the file makes the remove fail and a later pass
+// retries. For a client-<pid>.ndjson file that residual is a hook process appending in that instant,
+// or appending again after its earlier lines were drained (and, on POSIX, into a file already
+// unlinked under it); the ingest's WAL segments do not rely on it (ingest.removeDrainedWAL).
+func removeIfUnchanged(path string, drained int64) (bool, error) {
+	fi, err := os.Stat(paths.Long(path))
+	if err != nil {
+		return false, err
+	}
+	if fi.Size() != drained {
+		return false, nil
+	}
+	if err := os.Remove(paths.Long(path)); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // cleanupAcknowledged consumes only cleanup intents from a successfully persisted state. Every
