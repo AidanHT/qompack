@@ -19,8 +19,12 @@ import (
 //	tried.bloom.<seq>.bak for one generation.
 //
 // Both halves of that sentence are enforced by tests rather than by convention. The key iterator
-// below reads visibleActive() and nothing else, and bloom_test.go greps every non-test file under
+// below walks visibleActive() and nothing else, and bloom_test.go greps every non-test file under
 // internal/ to prove there is exactly one sketch.RebuildBloom call site and that it is this one.
+// The keys it yields for each of those records are that record's Desc.Key and Desc.MatchKey:
+// derived here from the descriptor, or — at Open only — handed in as the digests reindex derived
+// from the same records a moment earlier. rebuildWith states that contract, and
+// TestRebuildWith_KeysOnlyFromOpensReindex pins that Open's reindex is the one source of such keys.
 // The rename, the staging, the one-generation prune and the rollback all live in
 // sketch.ReplaceGenerational and paths.ReplaceBloom; this package re-implements none of it, and a
 // second grep proves there is no os.Rename here to do so with.
@@ -40,11 +44,20 @@ func (l *ledger) rebuildLocked(ctx context.Context) (*sketch.Bloom, Health, erro
 	return l.rebuildWith(ctx, nil)
 }
 
-// rebuildWith is rebuildLocked given, optionally, every record's bloom keys already derived:
-// keys[i] is l.recs[i]'s pair. Open passes the pairs reindex derived moments earlier from the same
-// unchanged records; a keys of any other length is ignored and the keys are derived here as they
-// always were. Either way the filter is fed the same keys in the same order, so it comes out
-// bit-for-bit and Count-for-Count the same.
+// rebuildWith is rebuildLocked given, optionally, every record's bloom keys already derived.
+//
+// The contract on a non-nil keys is strict: it must be reindex()'s return value for the CURRENT
+// l.recs, with no record and no descriptor changed since, so that keys[i] is exactly l.recs[i]'s
+// Desc.Key and Desc.MatchKey. The rebuild trusts it, because re-deriving the keys to check them is
+// the very work it exists to skip. The length check below catches only a slice that plainly does
+// not line up with the records; it cannot tell reindex's digests from any others of the same
+// length, which is why the one caller that passes keys is pinned by a test rather than trusted to
+// convention. That caller is Open: loadRecords returns reindex's keys, acquireBloom touches only
+// the filter, and reconcileBloom hands them straight here. Every other rebuild passes nil and
+// derives the keys from the records itself.
+//
+// Either way the filter is fed the same keys in the same order, so it comes out bit-for-bit and
+// Count-for-Count the same.
 func (l *ledger) rebuildWith(ctx context.Context, keys []recordKeys) (*sketch.Bloom, Health, error) {
 	start := l.clk.Now()
 	defer func() { l.m.Hist(histRebuild).Observe(l.clk.Since(start)) }()
