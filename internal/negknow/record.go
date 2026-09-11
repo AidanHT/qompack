@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/qompack/qompack/internal/core"
@@ -120,15 +121,25 @@ func ParseSourceKind(s string) (SourceKind, error) {
 //
 // It mixes in ts deliberately, which is why the ledger's dedup is identity-based (byKey) and not
 // id-based: an MCP retry a second later mints a different id for the same elimination.
+//
+// The preimage is assembled by append into a stack buffer, strconv.AppendInt writing the same
+// decimal digits fmt's %d did, and only the digest bytes the id keeps are hex-encoded — the first
+// recordIDHexLen/2 bytes are exactly the first recordIDHexLen digits — straight into the id, so the
+// id costs one allocation where it used to cost several. TestRecordID_Stable pins the output.
 func recordID(sess core.SessionID, ts core.UnixMilli, d Descriptor) string {
-	var b bytes.Buffer
-	b.WriteString(string(sess))
-	b.WriteByte(fieldSep)
-	fmt.Fprintf(&b, "%d", int64(ts))
-	b.WriteByte(fieldSep)
-	b.Write(d.Key())
-	h := core.HashBytes(domainRecordID, b.Bytes())
-	return recordIDPrefix + hex.EncodeToString(h[:])[:recordIDHexLen]
+	var buf [keyPreimageBuf]byte
+	b := append(buf[:0], sess...)
+	b = append(b, fieldSep)
+	b = strconv.AppendInt(b, int64(ts), 10)
+	b = append(b, fieldSep)
+	k := d.keyHash()
+	b = append(b, k[:]...)
+	h := core.HashBytes(domainRecordID, b)
+
+	var id [len(recordIDPrefix) + recordIDHexLen]byte
+	copy(id[:], recordIDPrefix)
+	hex.Encode(id[len(recordIDPrefix):], h[:recordIDHexLen/2])
+	return string(id[:])
 }
 
 // recordWire is Record's on-disk form. Its field order IS the shipped Record's field order, which

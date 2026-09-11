@@ -19,8 +19,12 @@ import (
 //	tried.bloom.<seq>.bak for one generation.
 //
 // Both halves of that sentence are enforced by tests rather than by convention. The key iterator
-// below reads visibleActive() and nothing else, and bloom_test.go greps every non-test file under
+// below walks visibleActive() and nothing else, and bloom_test.go greps every non-test file under
 // internal/ to prove there is exactly one sketch.RebuildBloom call site and that it is this one.
+// The keys it yields for each of those records are that record's Desc.Key and Desc.MatchKey:
+// derived here from the descriptor, or — at Open only — handed in as the digests reindex derived
+// from the same records a moment earlier. rebuildWith states that contract, and
+// TestRebuildWith_KeysOnlyFromOpensReindex pins that Open's reindex is the one source of such keys.
 // The rename, the staging, the one-generation prune and the rollback all live in
 // sketch.ReplaceGenerational and paths.ReplaceBloom; this package re-implements none of it, and a
 // second grep proves there is no os.Rename here to do so with.
@@ -37,6 +41,24 @@ func (l *ledger) RebuildBloom(ctx context.Context) (*sketch.Bloom, Health, error
 
 // rebuildLocked is RebuildBloom's body for a caller already holding mu.
 func (l *ledger) rebuildLocked(ctx context.Context) (*sketch.Bloom, Health, error) {
+	return l.rebuildWith(ctx, nil)
+}
+
+// rebuildWith is rebuildLocked given, optionally, every record's bloom keys already derived.
+//
+// The contract on a non-nil keys is strict: it must be reindex()'s return value for the CURRENT
+// l.recs, with no record and no descriptor changed since, so that keys[i] is exactly l.recs[i]'s
+// Desc.Key and Desc.MatchKey. The rebuild trusts it, because re-deriving the keys to check them is
+// the very work it exists to skip. The length check below catches only a slice that plainly does
+// not line up with the records; it cannot tell reindex's digests from any others of the same
+// length, which is why the one caller that passes keys is pinned by a test rather than trusted to
+// convention. That caller is Open: loadRecords returns reindex's keys, acquireBloom touches only
+// the filter, and reconcileBloom hands them straight here. Every other rebuild passes nil and
+// derives the keys from the records itself.
+//
+// Either way the filter is fed the same keys in the same order, so it comes out bit-for-bit and
+// Count-for-Count the same.
+func (l *ledger) rebuildWith(ctx context.Context, keys []recordKeys) (*sketch.Bloom, Health, error) {
 	start := l.clk.Now()
 	defer func() { l.m.Hist(histRebuild).Observe(l.clk.Since(start)) }()
 
@@ -57,37 +79,46 @@ func (l *ledger) rebuildLocked(ctx context.Context) (*sketch.Bloom, Health, erro
 		return l.bloom, l.health(), err
 	}
 
-	vis := l.visibleActive()
+	if len(keys) != len(l.recs) {
+		keys = nil
+	}
+	active := l.visibleActiveCount()
 	capacity, fpRate := l.cfg.Sketches.Bloom.Capacity, l.cfg.Sketches.Bloom.FPRate
-	if need := 2 * len(vis); need > capacity {
+	if need := 2 * active; need > capacity {
 		// The configured capacity is honoured whenever it is SUFFICIENT — that is what keeps a
 		// normal project's filter at the Appendix A size instead of silently allocating a
 		// multiple of it. Growth happens only when the key count genuinely exceeds it.
 		capacity = roundUpPow2(need)
 	}
 
-	keys := func(yield func([]byte) bool) {
-		for _, r := range vis {
-			if !yield(r.Desc.Key()) {
-				return
+	// Key, then MatchKey, for each visible active record in log order. A pre-derived pair is
+	// yielded as slices of keys' own arrays, which allocates nothing.
+	seq := func(yield func([]byte) bool) {
+		for i := range l.visibleActive() {
+			if keys != nil {
+				if !yield(keys[i].key[:]) || !yield(keys[i].match[:]) {
+					return
+				}
+				continue
 			}
-			if !yield(r.Desc.MatchKey()) {
+			d := &l.recs[i].Desc
+			if !yield(d.Key()) || !yield(d.MatchKey()) {
 				return
 			}
 		}
 	}
 
-	nb := sketch.RebuildBloom(capacity, fpRate, keys)
+	nb := sketch.RebuildBloom(capacity, fpRate, seq)
 	if c, f, needed := nb.ResizeTarget(); needed {
 		// At most one retry, never a loop. ResizeTarget doubles, and a filter loaded exactly to
 		// capacity sits at fill ~0.52 with k rounded up to 7, so one doubling drops it to ~0.31.
-		nb = sketch.RebuildBloom(c, f, keys)
+		nb = sketch.RebuildBloom(c, f, seq)
 	}
 	if _, _, needed := nb.ResizeTarget(); needed {
 		// A saturated filter degrades to more false positives, each of which the record lookup
 		// then resolves. That is a cost, not a correctness failure, so it is loud and continues.
 		l.log.Loud("negknow: bloom saturated after resize",
-			"records", len(vis), "fill", nb.FillRatio(), "fp", nb.EstimatedFPRate())
+			"records", active, "fill", nb.FillRatio(), "fp", nb.EstimatedFPRate())
 	}
 
 	err := l.persistBloom(nb)
