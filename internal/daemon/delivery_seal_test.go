@@ -3,10 +3,12 @@ package daemon
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"math"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -591,6 +593,12 @@ func TestDeliverySeal_OpenVerifiesTheFileAndClosesOnFailure(t *testing.T) {
 				require.Equal(t, j.summed(sealTestRecord(3), sealSlotA), s.cur)
 				require.Equal(t, uint64(3), s.seq)
 				require.Equal(t, img, s.image)
+				require.Nil(t, s.fault, "a fresh seal carries no fault")
+				// The syncData seam's production default is what makes every seal durable, and only
+				// a test ever replaces it (T24). Nothing else in this package can see a default that
+				// does not sync — every test would still pass — so it is pinned here, by identity.
+				require.Equal(t, reflect.ValueOf(paths.SyncData).Pointer(), reflect.ValueOf(s.syncData).Pointer(),
+					"an open seal must sync through paths.SyncData itself")
 				caller[0] = 'x'
 				require.NoError(t, s.check(s.cur.Bytes, s.cur.Count, s.cur.Chain), "the seal keeps its own copy of the image")
 			})
@@ -722,6 +730,111 @@ func TestDeliverySeal_WriteRefusesWhatItsReaderWouldRefuse(t *testing.T) {
 	})
 }
 
+// TestDeliverySeal_AFailedWriteLatchesTheSeal pins the seal's own half of design §3 row 13: once a
+// write has begun its I/O, a failure leaves it uncertain whether the record landed, is torn or is
+// durable, so the seal latches the fault and refuses every later write, check and downgrade. It is
+// never retried — on Linux a second fdatasync after a failed one can report success without the
+// data ever having been durable.
+//
+// The failure is injected through the SyncData seam, which puts the slot's old bytes back before it
+// errors: the state a device that lost the write leaves. The file is then byte for byte the image
+// the seal cached, at the path it already named, so every other check the seal makes passes and
+// only the latch can tell that the seal is uncertain.
+//
+// A refusal before any I/O is not a fault: nothing was attempted, and the seal stays usable.
+func TestDeliverySeal_AFailedWriteLatchesTheSeal(t *testing.T) {
+	j := sealTestLease
+
+	t.Run("a failure at the sync", func(t *testing.T) {
+		fresh := j.fresh()
+		p, s := j.open(t, j.image(t, &fresh, nil))
+		first := sealTestRecord(2)
+		require.NoError(t, s.write(first.Bytes, first.Count, first.Chain))
+
+		image, cur, seq := bytes.Clone(s.image), s.cur, s.seq
+		slot := slotFor(seq + 1)
+		restored := bytes.Clone(slot.region(s.image))
+		ran := false
+		s.syncData = func(f *os.File) error {
+			_, err := f.WriteAt(restored, int64(slot.offset()))
+			require.NoError(t, err)
+			require.NoError(t, paths.SyncData(f))
+			ran = true
+			return errors.New("the device refused the sync")
+		}
+		next := sealTestRecord(3)
+		require.ErrorIs(t, s.write(next.Bytes, next.Count, next.Chain), core.ErrDegraded)
+		require.True(t, ran, "guard: the seam ran")
+		s.syncData = paths.SyncData
+
+		require.Equal(t, image, readSealFile(t, p), "guard: the file is the image again, so only the latch can refuse")
+		require.Equal(t, image, s.image, "memory follows the disk only on success")
+		require.Equal(t, cur, s.cur)
+		require.Equal(t, seq, s.seq)
+
+		require.ErrorIs(t, s.check(cur.Bytes, cur.Count, cur.Chain), core.ErrDegraded, "a faulted seal passes no check")
+		later := sealTestRecord(4)
+		require.ErrorIs(t, s.write(later.Bytes, later.Count, later.Chain), core.ErrDegraded, "and is never written again")
+		require.ErrorIs(t, s.downgradeToV1(), core.ErrDegraded, "and never downgrades an uncertain seal")
+		require.Equal(t, image, readSealFile(t, p), "none of which wrote anything")
+	})
+
+	t.Run("a failure at the post-seal identity check", func(t *testing.T) {
+		fresh := j.fresh()
+		p, s := j.open(t, j.image(t, &fresh, nil))
+		first := sealTestRecord(2)
+		require.NoError(t, s.write(first.Bytes, first.Count, first.Chain))
+
+		image, cur, seq := bytes.Clone(s.image), s.cur, s.seq
+		ran := false
+		s.syncData = func(f *os.File) error {
+			err := paths.SyncData(f)
+			require.NoError(t, os.Truncate(p, deliverySealFileSize-1))
+			ran = true
+			return err
+		}
+		next := sealTestRecord(3)
+		require.ErrorIs(t, s.write(next.Bytes, next.Count, next.Chain), core.ErrDegraded)
+		require.True(t, ran, "guard: the seam ran between the slot's write and the identity check")
+		s.syncData = paths.SyncData
+
+		// Put the path back to exactly the image the seal cached, through a second handle on it, so
+		// that the file, its size and its every byte are what they were before the failed write.
+		// Only the latched fault can refuse afterwards.
+		restore, err := paths.OpenSharedRW(p)
+		require.NoError(t, err)
+		n, err := restore.WriteAt(image, 0)
+		require.NoError(t, err)
+		require.Equal(t, len(image), n)
+		require.NoError(t, paths.SyncData(restore))
+		require.NoError(t, restore.Close())
+		require.Equal(t, image, readSealFile(t, p), "guard: the path holds the seal's image again")
+		require.NoError(t, s.verifyIdentity(), "guard: at its right size, and still the file the seal holds")
+
+		require.Equal(t, image, s.image)
+		require.Equal(t, cur, s.cur)
+		require.Equal(t, seq, s.seq)
+		require.ErrorIs(t, s.check(cur.Bytes, cur.Count, cur.Chain), core.ErrDegraded, "a faulted seal passes no check")
+		later := sealTestRecord(4)
+		require.ErrorIs(t, s.write(later.Bytes, later.Count, later.Chain), core.ErrDegraded, "and is never written again")
+		require.ErrorIs(t, s.downgradeToV1(), core.ErrDegraded, "and never downgrades an uncertain seal")
+		require.Equal(t, image, readSealFile(t, p), "none of which wrote anything")
+	})
+
+	t.Run("a refusal before any I/O", func(t *testing.T) {
+		p, s := j.open(t, j.image(t, sealTestRecordPtr(3), sealTestRecordPtr(2)))
+		was := s.cur
+		require.ErrorIs(t, s.write(was.Bytes, was.Count, was.Chain), core.ErrDegraded, "the sealed position again")
+		require.Nil(t, s.fault, "a position the reader would refuse is not a fault: nothing was attempted")
+		require.NoError(t, s.check(was.Bytes, was.Count, was.Chain))
+
+		next := sealTestRecord(4)
+		require.NoError(t, s.write(next.Bytes, next.Count, next.Chain), "and the next real seal still writes")
+		require.NoError(t, s.check(next.Bytes, next.Count, next.Chain))
+		j.requireSelects(t, readSealFile(t, p), s.cur, &was)
+	})
+}
+
 // TestDeliverySeal_ClosedSealWritesAndPassesNothing pins that a closed seal can neither write nor
 // pass a check, and that closing it writes nothing.
 func TestDeliverySeal_ClosedSealWritesAndPassesNothing(t *testing.T) {
@@ -771,8 +884,10 @@ func TestDeliverySeal_DowngradeWritesTodaysV1Bytes(t *testing.T) {
 					}
 					require.NoError(t, s.close())
 					require.NoError(t, s.downgradeToV1())
+					requireOwnerOnlyMode(t, p)
 
 					require.NoError(t, save(s.cur.Bytes, s.cur.Count, s.cur.Chain))
+					requireOwnerOnlyMode(t, saved) // guard: the permissions savePosition itself writes
 					require.Equal(t, readSealFile(t, saved), readSealFile(t, p), "the downgrade writes today's v1 bytes")
 					loaded, err := loadDeliveryPosition(p, j.seed)
 					require.NoError(t, err)
