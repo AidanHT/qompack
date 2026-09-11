@@ -550,17 +550,7 @@ func (d *daemon) Run(ctx context.Context) error {
 	d.ing.Start(runCtx, 0, d.runIngested)
 	d.goRun(func() { d.hotPathWorker(runCtx) })
 
-	d.drain.Store(newDrainer(DrainConfig{
-		Root:     d.root,
-		Log:      d.log,
-		Metrics:  d.m,
-		Clock:    d.clk,
-		Dispatch: d.drainDispatch,
-		Seen:     d.ing.seen,
-		Admit:    d.admitDelivery,
-		Journal:  d.deliveryJournal,
-		IsLive:   d.sessionIsLive,
-	}))
+	d.drain.Store(newDrainer(d.drainConfig()))
 
 	// Started here, before ipc.NewServer binds anything, rather than beside the `go server.Serve`
 	// it waits on. It costs nothing — the goroutine's first act is to block on d.firstServed, which
@@ -668,30 +658,39 @@ func (d *daemon) Run(ctx context.Context) error {
 			}
 			d.maybeReloadConfig(runCtx, config.Env{})
 
-			exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
-			if exitAfter <= 0 {
-				exitAfter = defaultIdleExitSeconds
-			}
-			// A session whose client vanished without SessionEnd would hold Live() above zero
-			// forever and make the countdown below unreachable; sweep those out first, with the
-			// idle-exit window itself as the silence bound (see SessionRegistry.EndAbandoned).
-			d.registry.EndAbandoned(now, time.Duration(exitAfter)*time.Second)
-
-			if d.registry.Live() == 0 {
-				if zeroLiveSince.IsZero() {
-					zeroLiveSince = d.clk.Now()
-				}
-				if d.clk.Now().Sub(zeroLiveSince) >= time.Duration(exitAfter)*time.Second {
-					cancel()
-					<-serveErrCh
-					_ = d.Stop(ctx)
-					return nil
-				}
-			} else {
-				zeroLiveSince = time.Time{}
+			if d.idleExitDue(now, &zeroLiveSince) {
+				cancel()
+				<-serveErrCh
+				_ = d.Stop(ctx)
+				return nil
 			}
 		}
 	}
+}
+
+// idleExitDue is the idle tick's exit decision, taken out of Run's select loop so it can be
+// driven tick by tick against a fake clock. now is the tick's own timestamp; zeroLiveSince is the
+// countdown Run carries between ticks, started the first tick Live() reads zero and cleared by
+// any tick that reads a live session.
+func (d *daemon) idleExitDue(now core.UnixMilli, zeroLiveSince *time.Time) bool {
+	exitAfter := d.currentCfg().Runtime.Daemon.IdleExitSeconds
+	if exitAfter <= 0 {
+		exitAfter = defaultIdleExitSeconds
+	}
+	window := time.Duration(exitAfter) * time.Second
+	// A session whose client vanished without SessionEnd would hold Live() above zero forever and
+	// make the countdown below unreachable; sweep those out first, with the idle-exit window
+	// itself as the silence bound (see SessionRegistry.EndAbandoned).
+	d.registry.EndAbandoned(now, window)
+
+	if d.registry.Live() != 0 {
+		*zeroLiveSince = time.Time{}
+		return false
+	}
+	if zeroLiveSince.IsZero() {
+		*zeroLiveSince = d.clk.Now()
+	}
+	return d.clk.Now().Sub(*zeroLiveSince) >= window
 }
 
 // noteServed records that this daemon has dispatched a request, releasing redrainOnceServing. It
@@ -745,6 +744,26 @@ func (d *daemon) redrainOnceServing(ctx context.Context) {
 // live session's WAL is offset-marked but kept, never deleted mid-session).
 func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 	return d.registry.IsLive(sess)
+}
+
+// drainConfig is the drainer's wiring over this daemon's own dependencies — the one Run installs.
+// RemoveWAL is the ingest's own removal, so a WAL segment the ingest still holds, or one that has
+// grown since it was drained, is never deleted, whatever the registry says about its session.
+// HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
+func (d *daemon) drainConfig() DrainConfig {
+	return DrainConfig{
+		Root:      d.root,
+		Log:       d.log,
+		Metrics:   d.m,
+		Clock:     d.clk,
+		Dispatch:  d.drainDispatch,
+		Seen:      d.ing.seen,
+		Admit:     d.admitDelivery,
+		Journal:   d.deliveryJournal,
+		IsLive:    d.sessionIsLive,
+		RemoveWAL: d.ing.removeDrainedWAL,
+		HoldsWAL:  d.ing.holdsWAL,
+	}
 }
 
 // Drain replays every spool-tier file under root's spool directory. It is safe to call before Run
