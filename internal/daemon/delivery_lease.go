@@ -172,8 +172,11 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		if err := paths.WriteAtomic(p, nil, 0o600); err != nil {
 			return nil, deliveryJournalError()
 		}
-		initial, _ := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Chain: deliveryChainSeed})
-		if err := paths.WriteAtomic(positionPath, initial, 0o600); err != nil {
+		// The empty position, through the ONE v1 encoder (design §5). It used to be marshalled
+		// inline here with its error discarded, which put a second producer of v1 bytes beside
+		// writeDeliveryPositionV1 and left this site outside the equality
+		// TestDeliverySeal_DowngradeWritesTodaysV1Bytes pins.
+		if err := writeDeliveryPositionV1(positionPath, 0, 0, deliveryChainSeed); err != nil {
 			return nil, deliveryJournalError()
 		}
 	} else if journalErr != nil || positionErr != nil {
@@ -1026,8 +1029,9 @@ func (j *deliveryJournal) openAckLocked() error {
 		if err := paths.WriteAtomic(j.ackPath, nil, 0o600); err != nil {
 			return deliveryJournalError()
 		}
-		initial, _ := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Chain: deliveryAckChainSeed})
-		if err := paths.WriteAtomic(positionPath, initial, 0o600); err != nil {
+		// The acknowledgement journal's own empty position, through the same one encoder as the
+		// lease journal's above, with its own seed.
+		if err := writeDeliveryPositionV1(positionPath, 0, 0, deliveryAckChainSeed); err != nil {
 			return deliveryJournalError()
 		}
 	} else if journalErr != nil || positionErr != nil {
