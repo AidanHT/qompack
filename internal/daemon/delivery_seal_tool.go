@@ -151,6 +151,14 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 		fmt.Fprintf(o.Out, "  checked; nothing was written\n")
 		return nil
 	}
+	// Both tails are made durable before either seal names one. A seal made durable over a tail that
+	// is not is how a journal becomes permanently unopenable, and the sync is the same step, in the
+	// same place, that both open paths take (syncJournal).
+	for i := range sides {
+		if err := o.syncJournal(&sides[i]); err != nil {
+			return err
+		}
+	}
 	for i := range sides {
 		if err := o.convert(lock, &sides[i]); err != nil {
 			return err
@@ -197,12 +205,15 @@ type deliverySealSide struct {
 	domain string
 	seed   core.Hash
 	// scan runs the journal's own load against a position the tool read, filling the journal's
-	// in-memory state.
-	scan func(position deliveryPosition, older *sealRecord) error
+	// in-memory state, and returns the file it scanned.
+	scan func(position deliveryPosition, older *sealRecord) (os.FileInfo, error)
 	// recovered is the position the scan ended at: the one an open would seal.
 	recovered func() deliveryPosition
 	// position is what the seal on disk holds, once inspect has read it.
 	position deliveryPosition
+	// info is the journal file the scan read, once inspect has run: the file, and the only file,
+	// whose tail this side's seal may be made to name.
+	info os.FileInfo
 }
 
 // deliverySealSides is the two sides in the order they must be scanned: leases, then the
@@ -217,9 +228,8 @@ func deliverySealSides(j *deliveryJournal) ([]deliverySealSide, error) {
 	lease := deliverySealSide{
 		name: "lease", journal: j.path, seal: j.positionPath(),
 		domain: deliveryChainDomain, seed: deliveryChainSeed,
-		scan: func(position deliveryPosition, older *sealRecord) error {
-			_, err := j.loadFrom(position, older)
-			return err
+		scan: func(position deliveryPosition, older *sealRecord) (os.FileInfo, error) {
+			return j.loadFrom(position, older)
 		},
 		recovered: func() deliveryPosition {
 			return deliveryPosition{
@@ -230,9 +240,8 @@ func deliverySealSides(j *deliveryJournal) ([]deliverySealSide, error) {
 	ack := deliverySealSide{
 		name: "ack", journal: j.ackPath, seal: j.ackSealPath(),
 		domain: deliveryAckChainDomain, seed: deliveryAckChainSeed,
-		scan: func(position deliveryPosition, older *sealRecord) error {
-			_, err := j.loadAcksFrom(position, older)
-			return err
+		scan: func(position deliveryPosition, older *sealRecord) (os.FileInfo, error) {
+			return j.loadAcksFrom(position, older)
 		},
 		recovered: func() deliveryPosition {
 			return deliveryPosition{
@@ -297,10 +306,12 @@ func (o DeliverySealOptions) inspect(s *deliverySealSide) error {
 		return err
 	}
 	s.position = read.position
-	if err := s.scan(read.position, read.older); err != nil {
+	info, err := s.scan(read.position, read.older)
+	if err != nil {
 		return fmt.Errorf("%s: %s: %s does not load against that seal; nothing was written: %w",
 			deliverySealToolName, s.name, s.journal, err)
 	}
+	s.info = info
 	recovered := s.recovered()
 	fmt.Fprintf(o.Out, "  %s journal %s: loads, %d entries, %d bytes, chain %s\n",
 		s.name, s.journal, recovered.Count, recovered.Bytes, recovered.Chain)
@@ -363,6 +374,51 @@ func (o DeliverySealOptions) reportAcceptedLines(s *deliverySealSide, position d
 		s.name, len(lines))
 	for _, line := range lines {
 		fmt.Fprintf(o.Out, "    %s\n", line)
+	}
+	return nil
+}
+
+// syncJournal makes one side's journal durable before its seal is written to name that journal's
+// tail: invariant I3's order — the bytes first, the seal after — for the one writer that arrives
+// at an already-written tail rather than appending its own.
+//
+// The position --to v1 writes is the one the scan RECOVERED, and a complete canonical tail past the
+// old seal moves that position forward (deviation D5). Such a tail is exactly what a process crash
+// between the journal's Write and its Sync leaves (design §3 row 5, the "complete tail" variant):
+// visible to every reader, and only in the page cache. writeDeliveryPositionV1 goes through
+// paths.WriteAtomic, which makes the SEAL durable by construction — a temp write, its Sync, and a
+// rename — so without this step a power loss can leave a seal ahead of the journal it seals, which
+// loadFrom then refuses for good (info.Size() < position.Bytes) and a second run of this tool
+// cannot repair either. Rule R's path always has that shape, since the record it accepts is behind
+// the tail by construction.
+//
+// openDeliveryJournal syncs the journal for this reason before openSeal, and openAckLocked before
+// openAckSeal. This is the same step in the same place, with the same handle: O_WRONLY|O_APPEND,
+// through which nothing is ever written. Before the Sync the file must still be the one the scan
+// read, at the size the scan ended at — a journal replaced since then is not the journal this seal
+// would describe, and that is openDeliveryJournal's check too.
+func (o DeliverySealOptions) syncJournal(s *deliverySealSide) error {
+	fail := func(err error) error {
+		return fmt.Errorf("%s: %s: making %s durable before its seal names its tail: %w",
+			deliverySealToolName, s.name, s.journal, err)
+	}
+	f, err := paths.OpenFile(s.journal, os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return fail(err)
+	}
+	err = func() error {
+		opened, statErr := f.Stat()
+		if statErr != nil || !opened.Mode().IsRegular() || !os.SameFile(s.info, opened) ||
+			opened.Size() != s.recovered().Bytes {
+			return deliveryJournalError()
+		}
+		return f.Sync()
+	}()
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fail(err)
 	}
 	return nil
 }
