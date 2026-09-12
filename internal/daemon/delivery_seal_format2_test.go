@@ -573,6 +573,43 @@ func TestDeliverySeal_StepTwoTraceHoldsInFormatTwo(t *testing.T) {
 	})
 }
 
+// closeLocked's retry path. The lease handle is closed first, and once THAT close succeeds it is
+// dropped, exactly as the acknowledgement handle already was, so a retry never closes the same
+// descriptor twice.
+//
+// Without that, a failure of the SECOND close stranded the journal for the life of the process: the
+// retry re-closed the already-closed lease handle, got os.ErrClosed, poisoned and returned before
+// closeSeals(). Both held seal handles stayed open, and Lock.Release went on refusing to give up
+// ownership ("do not release singleton ownership with an uncertain writer handle"), so the lock file
+// and its heartbeat were never removed. Format 1 holds no seal handle, so the leaked handles go live
+// only with the step-2 flip; the stranded ownership is live in either format.
+func TestDeliveryJournal_CloseRetryAfterAFailedAckCloseReleasesOwnership(t *testing.T) {
+	root, lock, journal := newFormatTwoJournal(t)
+	_, err := journal.lease(context.Background(), leaseToken(1), "close", testDeliveryRequest("close"))
+	require.NoError(t, err)
+	sealed := sealFileOf(t, root)
+
+	// Only the acknowledgement handle's Close fails. The lease handle's own Close is the real one,
+	// and it succeeds, which is the ordering that used to strand the retry.
+	journal.ackWriter = leaseFaultWriter{file: journal.ackFile, close: func() error {
+		return errors.New("private ack close fixture")
+	}}
+	require.Error(t, lock.Release(), "an uncertain handle does not release ownership")
+	_, err = os.Stat(paths.Long(LockPath(root)))
+	require.NoError(t, err, "a failed close retains ownership")
+
+	require.NoError(t, lock.Release(), "the retry finds the lease handle dropped and completes the close")
+	_, err = os.Stat(paths.Long(LockPath(root)))
+	require.True(t, os.IsNotExist(err), "and ownership is released")
+	require.ErrorIs(t, journal.seal.f.Close(), os.ErrClosed, "the held lease seal was closed")
+	require.ErrorIs(t, journal.ackSeal.f.Close(), os.ErrClosed, "and so was the acknowledgement seal")
+	require.Equal(t, sealed, sealFileOf(t, root), "a poisoned handle downgrades nothing")
+	require.True(t, isDeliverySealImage(sealFileOf(t, root)))
+
+	// The fixture's Close never closed the real handle; close it so the temp directory can be removed.
+	require.NoError(t, journal.ackFile.Close())
+}
+
 // The other half of the format seam. The shipped build writes format 1 and holds no seal handle, so
 // its per-batch check reads the sidecar from the PATH — and it reads it with the strict v1 reader,
 // on both sides of the journal (design section 5: "the v1 bodies are kept verbatim").
