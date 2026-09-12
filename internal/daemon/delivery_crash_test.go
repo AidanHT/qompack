@@ -366,6 +366,18 @@ type crashOutcome struct {
 	complete bool
 }
 
+// admittedLease is admittedLeases' single-entry sibling (delivery_lease_groupcommit_test.go): the
+// lease admitted for one delivery, read under st. Design §2.5 makes st the rule for every reader of
+// admitted state that is not the batch leader itself, and a test is no exception — reading the map
+// raw is safe only for as long as nothing is in flight, which is a property of the caller rather
+// than of the read, and the next edit should not be able to lose it silently.
+func admittedLease(j *deliveryJournal, delivery string) (deliveryLease, bool) {
+	j.st.Lock()
+	defer j.st.Unlock()
+	l, ok := j.leases[delivery]
+	return l, ok
+}
+
 // recover opens image under a fresh lock, drains whatever the spool holds, and reports what
 // recovery made of it. It is the next daemon, in full: the real AcquireLock, the real
 // openDeliveryJournal with its load and its re-seal, and the real Drain.
@@ -392,7 +404,7 @@ func recoverCrashImage(t *testing.T, root string, format int) crashOutcome {
 	// the crash never got an identity for, and "what recovery found on disk" and "what the drain
 	// then made of the spool" are two different facts: folding them together would let a row that
 	// recovers nothing pass because the drain minted one afterwards.
-	out := crashOutcome{opened: true, leases: len(journal.leases), acks: len(journal.acks)}
+	out := crashOutcome{opened: true, leases: admittedLeases(journal), acks: admittedAcks(journal)}
 
 	n, err := dd.Drain(context.Background())
 	require.NoError(t, err)
@@ -729,14 +741,14 @@ func TestDeliveryPath_CrashBeforeTheLeaseMintsExactlyOneIdentity(t *testing.T) {
 
 			journal, err := dd.deliveryJournal()
 			require.NoError(t, err)
-			require.Empty(t, journal.leases, "the crash left no identity for the nonce")
+			require.Zero(t, admittedLeases(journal), "the crash left no identity for the nonce")
 
 			_, err = dd.Drain(context.Background())
 			require.NoError(t, err)
-			lease, ok := journal.leases[nonce]
+			lease, ok := admittedLease(journal, nonce)
 			require.True(t, ok, "the drain leases the recovered copy")
 			require.Equal(t, uint64(1), lease.ArrivalSeq, "it is the session's FIRST arrival, not a second one")
-			require.Len(t, journal.leases, 1, "two copies of one nonce take one identity")
+			require.Equal(t, 1, admittedLeases(journal), "two copies of one nonce take one identity")
 
 			// A second pass changes nothing: the nonce is now known, and a known nonce appends
 			// nothing and mints nothing.
@@ -744,7 +756,7 @@ func TestDeliveryPath_CrashBeforeTheLeaseMintsExactlyOneIdentity(t *testing.T) {
 			_, err = dd.Drain(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, before, readTestFile(t, journal.path))
-			require.Len(t, journal.leases, 1)
+			require.Equal(t, 1, admittedLeases(journal))
 		})
 	}
 }
