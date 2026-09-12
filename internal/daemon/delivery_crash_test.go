@@ -52,6 +52,15 @@ var crashImageFiles = []string{
 }
 
 // crashStep names one step of design §3's path. The names are the table's own.
+//
+// The steps that are NOT here are the ones with no durable image of their own. L9 (admission), L10
+// (results and the job) and K9 (acknowledgement admission) are in-memory work that follows a seal
+// which has already returned, so a machine crash at any of them leaves byte for byte what a crash
+// at the seal before it leaves — which is what design §3 says in saying of row 9 only "as 8". The
+// table covers them where their image is made, at L8 and at K6, rather than repeating one image
+// under three names and implying three distinct states. The open sequence (O1-O6) and the Release
+// downgrade are covered by TestDeliverySeal_ConversionAndDowngrade and
+// TestDeliveryJournal_RollbackDrillAcrossFormats, which drive those paths directly.
 type crashStep string
 
 const (
@@ -63,12 +72,10 @@ const (
 	crashL6 crashStep = "L6 the seal"
 	crashL7 crashStep = "L7 the v2 slot's SyncData"
 	crashL8 crashStep = "L8 the post-seal identity check"
-	crashL9 crashStep = "L9 admission"
 	crashAK crashStep = "AK after Accept returned, before the ACK byte"
 	crashK4 crashStep = "K4 the acknowledgement Write"
 	crashK5 crashStep = "K5 the acknowledgement Sync"
 	crashK6 crashStep = "K6 the acknowledgement seal"
-	crashK9 crashStep = "K9 acknowledgement admission"
 )
 
 // crashRun drives one delivery through the real path with every durability point observed.
