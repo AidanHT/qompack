@@ -100,6 +100,19 @@ type deliveryJournal struct {
 	// the v1 sidecar, in production. Like sealLease, it is a field only so that tests can observe,
 	// hold and fail one batch's seal; nothing else sets it.
 	sealAck func(size int64, count int, chain core.Hash) error
+
+	// seal and ackSeal are the held v2 handles on the two position files, open for the journal's
+	// life while sealFormat is 2 and nil while it is 1 (design 2.9). Each is used only by the
+	// pipeline that commits its own journal, one batch at a time, which is what lets the seal itself
+	// take no lock.
+	seal, ackSeal *deliverySeal
+	// sealFormat is the format this journal WRITES. Both formats are READ whatever it says, because
+	// the reader decides from the file's own layout (loadDeliverySeal).
+	sealFormat int
+	// sealsClosed makes closeSeals, and the downgrade it may take, happen once. A close that fails
+	// leaves closeLocked to be called again (TestDeliveryJournal_CloseFailureRetainsOwnership
+	// releases twice), and a seal must not be closed or downgraded twice.
+	sealsClosed bool
 }
 
 type deliveryPosition struct {
@@ -183,7 +196,7 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		_ = j.closeLocked()
 		return nil, deliveryJournalError()
 	}
-	if err := j.savePosition(j.bytes, len(j.leases), j.chain); err != nil {
+	if err := j.openSeal(); err != nil {
 		_ = j.poison(deliveryJournalError())
 		_ = j.closeLocked()
 		return nil, err
@@ -207,6 +220,10 @@ func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
 		ackQ:   groupQueue[*ackReq]{maxN: groupCommitMaxRequests, maxBytes: journalGroupCommitMaxBytes, size: ackReqSize},
 	}
 	j.idle.L = &j.st
+	j.sealFormat = deliverySealWriteFormat
+	if l != nil {
+		j.sealFormat = l.deliverySealFormat()
+	}
 	j.sealLease = j.savePosition
 	j.sealAck = j.saveAckPosition
 	return j
@@ -538,7 +555,138 @@ func deliveryChain(previous core.Hash, line []byte) core.Hash {
 // bytes have one encoder, writeDeliveryPositionV1, which the downgrade uses as well, so the two can
 // never drift (TestDeliverySeal_DowngradeWritesTodaysV1Bytes compares them).
 func (j *deliveryJournal) savePosition(size int64, count int, chain core.Hash) error {
-	return writeDeliveryPositionV1(filepath.Join(filepath.Dir(j.path), deliveryPositionFile), size, count, chain)
+	return writeDeliveryPositionV1(j.positionPath(), size, count, chain)
+}
+
+// openSeal is the lease journal's O4 (design 2.9): it seals the position load recovered, in this
+// build's write format, and in format 2 leaves the held handle open for the journal's life. It runs
+// once per open, after the writer's identity check and its Sync, so a complete tail that survived an
+// uncertain append is durable and sealed before any caller can reuse its assignments.
+func (j *deliveryJournal) openSeal() error {
+	if j.sealFormat != 2 {
+		// Format 1 rewrites the v1 sidecar unconditionally, as this open always has. That is also
+		// how a v2 file left by a step-2 build is converted back: the WriteAtomic replaces its
+		// 32 KiB with v1 bytes, which is the rollback design 4.4 promises.
+		return j.savePosition(j.bytes, len(j.leases), j.chain)
+	}
+	s, err := j.openSealHandle(j.positionPath(), deliveryChainDomain, deliveryChainSeed,
+		j.bytes, len(j.leases), j.chain)
+	if err != nil {
+		return err
+	}
+	// Phase 3's seal becomes the slot write, which does its own WriteAt, SyncData and post-seal
+	// identity check. It stays behind the same field, so the group-commit tests' seam goes on
+	// numbering, holding and failing one batch's seal in either format.
+	j.seal, j.sealLease = s, j.writeLeaseSeal
+	return nil
+}
+
+// openSealHandle is O4a to O4c for one journal's seal file.
+//
+//   - O4a. A v1 file is CONVERTED, and only here, after a load that has already succeeded: a failed
+//     load returns long before this and writes nothing at all. The image it converts to seals the
+//     position the load recovered, so a complete tail recovered past the old v1 seal is sealed by
+//     the conversion itself.
+//   - O4b. The handle is opened over the image on disk (openDeliverySeal), which verifies that the
+//     path still names the file it opened and that the file reads back as exactly that image.
+//   - O4c. A v2 file whose effective record is behind the recovered position is re-sealed through
+//     the handle, which writes seq+1 into the slot holding seq-1. O4a's conversion has already done
+//     this for a v1 file, so only an untouched v2 file reaches it.
+//
+// Every failure returns deliveryJournalError() and leaves no handle open; the caller poisons the
+// journal and closes it, which is what makes the open fault require a Release before a retry.
+func (j *deliveryJournal) openSealHandle(
+	path, domain string, seed core.Hash, size int64, count int, chain core.Hash,
+) (*deliverySeal, error) {
+	image := readDeliverySealImage(path)
+	if image == nil {
+		converted, err := newSealImage(size, count, chain, domain, seed)
+		if err != nil {
+			return nil, deliveryJournalError()
+		}
+		if err := paths.WriteAtomic(path, converted, 0o600); err != nil {
+			return nil, deliveryJournalError()
+		}
+		image = converted
+	}
+	s, err := openDeliverySeal(path, image, domain, seed)
+	if err != nil {
+		return nil, err
+	}
+	if s.cur.Bytes != size || s.cur.Count != count || s.cur.Chain != chain {
+		if err := s.write(size, count, chain); err != nil {
+			_ = s.close()
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+// writeLeaseSeal and writeAckSeal seal one batch's position through the held v2 handle: the whole
+// slot region in one WriteAt, SyncData, and the post-seal identity check, all inside deliverySeal.
+func (j *deliveryJournal) writeLeaseSeal(size int64, count int, chain core.Hash) error {
+	return j.seal.write(size, count, chain)
+}
+
+func (j *deliveryJournal) writeAckSeal(size int64, count int, chain core.Hash) error {
+	return j.ackSeal.write(size, count, chain)
+}
+
+// checkSeal is the seal half of a batch's per-batch check, in this journal's write format.
+//
+// Format 1 re-reads the sidecar BY PATH, as it always has: a file replaced by a rename is a
+// different file, and only reopening the path can see it (design X4). Format 2 asks the held seal,
+// which is strictly stronger — deliverySeal.check compares every byte of the file, read through its
+// own handle, with the image it cached, padding and static bytes included, and proves that the path
+// still names that file. Either way the journal's own three checks follow, unchanged.
+func (j *deliveryJournal) checkSeal(
+	seal *deliverySeal, load func() (deliveryPosition, error), size int64, count int, chain core.Hash,
+) error {
+	if seal != nil {
+		if err := seal.check(size, count, chain); err != nil {
+			return deliveryJournalError()
+		}
+		return nil
+	}
+	position, err := load()
+	if err != nil || position.Bytes != size || position.Count != count || position.Chain != chain {
+		return deliveryJournalError()
+	}
+	return nil
+}
+
+// closeSeals closes the held v2 handles and, when the close is CLEAN, leaves a v1 sidecar behind so
+// that a build without this reader still opens the project (design 2.9, Release step 3).
+//
+// The downgrade needs both of its conditions. fault == nil, because a journal whose write was
+// uncertain must not have its position rewritten from a cur that may not be what the file holds —
+// the seal enforces its own half of that, since downgradeToV1 refuses a seal whose write latched a
+// fault. And ownedByFile, because a lock this process has LOST must not write over the position
+// file of the owner that holds it now: in
+// TestDeliveryJournal_ReplacedLockCannotReleaseOrLeaseForNewOwner a replaced owner releases while
+// the new owner holds its seal open, and a WriteAtomic there would land a v1 file over the new
+// owner's held file and fault its very next check.
+//
+// It is best effort. A failed downgrade leaves a valid v2 file, which any build carrying this
+// reader opens, and it never blocks the release of ownership.
+func (j *deliveryJournal) closeSeals() {
+	if j.sealsClosed || (j.seal == nil && j.ackSeal == nil) {
+		return
+	}
+	j.sealsClosed = true
+	j.st.Lock()
+	clean := j.fault == nil
+	j.st.Unlock()
+	clean = clean && j.owner != nil && j.owner.ownedByFile()
+	for _, s := range []*deliverySeal{j.seal, j.ackSeal} {
+		if s == nil {
+			continue
+		}
+		_ = s.close()
+		if clean {
+			_ = s.downgradeToV1()
+		}
+	}
 }
 
 // positionPath and ackSealPath are the two position sidecars, beside the journals they seal.
@@ -668,9 +816,8 @@ func validDeliveryLease(lease deliveryLease) bool {
 }
 
 func (j *deliveryJournal) checkFile() error {
-	position, err := j.loadPosition()
-	if err != nil || position.Bytes != j.bytes || position.Count != len(j.leases) || position.Chain != j.chain {
-		return deliveryJournalError()
+	if err := j.checkSeal(j.seal, j.loadPosition, j.bytes, len(j.leases), j.chain); err != nil {
+		return err
 	}
 	info, err := os.Lstat(paths.Long(j.path))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != j.bytes {
@@ -753,6 +900,9 @@ func (j *deliveryJournal) closeLocked() error {
 			return j.poison(deliveryJournalError())
 		}
 	}
+	// The held seals close after the writers and before the journal is marked closed, and a clean
+	// close leaves v1 behind for a build without this reader.
+	j.closeSeals()
 	j.st.Lock()
 	j.closed = true
 	j.st.Unlock()
@@ -840,7 +990,22 @@ func (j *deliveryJournal) openAckLocked() error {
 	if err := f.Sync(); err != nil {
 		return deliveryJournalError()
 	}
-	return j.saveAckPosition(j.ackBytes, len(j.acks), j.ackChain)
+	return j.openAckSeal()
+}
+
+// openAckSeal is O5: openSeal for the acknowledgement journal, with its own chain domain and seed,
+// so the two seals can never be recovered against each other.
+func (j *deliveryJournal) openAckSeal() error {
+	if j.sealFormat != 2 {
+		return j.saveAckPosition(j.ackBytes, len(j.acks), j.ackChain)
+	}
+	s, err := j.openSealHandle(j.ackSealPath(), deliveryAckChainDomain, deliveryAckChainSeed,
+		j.ackBytes, len(j.acks), j.ackChain)
+	if err != nil {
+		return err
+	}
+	j.ackSeal, j.sealAck = s, j.writeAckSeal
+	return nil
 }
 
 // acknowledge commits one leased delivery's publication. It is idempotent: a redelivery already
@@ -1190,9 +1355,11 @@ func (j *deliveryJournal) saveAckPosition(size int64, count int, chain core.Hash
 }
 
 func (j *deliveryJournal) checkAckFile() error {
-	position, err := loadDeliveryPosition(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), deliveryAckChainSeed)
-	if err != nil || position.Bytes != j.ackBytes || position.Count != len(j.acks) || position.Chain != j.ackChain {
-		return deliveryJournalError()
+	loadV1 := func() (deliveryPosition, error) {
+		return loadDeliveryPosition(j.ackSealPath(), deliveryAckChainSeed)
+	}
+	if err := j.checkSeal(j.ackSeal, loadV1, j.ackBytes, len(j.acks), j.ackChain); err != nil {
+		return err
 	}
 	info, err := os.Lstat(paths.Long(j.ackPath))
 	if err != nil || !info.Mode().IsRegular() || info.Size() != j.ackBytes {
