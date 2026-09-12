@@ -1381,6 +1381,61 @@ func (c flipCtx) Err() error {
 	return nil
 }
 
+// An arrival that an earlier mint in the SAME batch took can exhaust its session's sequence, and the
+// next fresh nonce of that session must then be refused with ErrBudget — exactly as one lease call
+// at a time refuses it once the first is admitted.
+//
+// Every other test that reaches the overflow starts its exhausted session AT math.MaxUint64 (T12's
+// t13Exhausted, T13's call 6, TestDeliveryJournal_BoundsAndSequenceOverflowRefuseAdmission), where
+// the admitted arrival and the batch's own are the same number. A decide that tested the ADMITTED
+// j.arrivals instead of the running prev would answer all of them identically and survive the whole
+// package; only a batch that exhausts the sequence with its own earlier mint separates the two
+// (lease review 2, R2-1).
+func TestDeliveryJournal_BatchOwnArrivalOverflowIsABudgetRefusal(t *testing.T) {
+	req := testDeliveryRequest("overflow")
+	const sess = core.SessionID("overflow")
+	a := leaseCall{id: 1, delivery: leaseToken(1), session: sess, request: req}
+	b := leaseCall{id: 2, delivery: leaseToken(2), session: sess, request: req}
+	// oneLeft leaves sess one arrival short of its last: the first mint takes math.MaxUint64 and the
+	// second has nowhere left to go.
+	oneLeft := func(j *deliveryJournal) {
+		j.st.Lock()
+		defer j.st.Unlock()
+		j.arrivals[sess] = math.MaxUint64 - 1
+	}
+
+	// One call at a time, for the answer the batch has to match.
+	_, _, twin := newTestDeliveryJournal(t)
+	oneLeft(twin)
+	first, err := twin.lease(context.Background(), a.delivery, a.session, a.request)
+	require.NoError(t, err)
+	require.Equal(t, uint64(math.MaxUint64), first.ArrivalSeq)
+	_, err = twin.lease(context.Background(), b.delivery, b.session, b.request)
+	require.ErrorIs(t, err, core.ErrBudget, "one call at a time")
+
+	// The same two requests, cut into one batch.
+	_, _, journal := newTestDeliveryJournal(t)
+	oneLeft(journal)
+	p := newLeaseProbe(journal)
+	p.syncGate = newWALGate(t)
+	lead := holdFirstLeaseBatch(t, p, leaseCall{delivery: leaseToken(0), session: "overflow-gate", request: req})
+	runs := queueLeases(t, p, a, b)
+	p.syncGate.release()
+	awaitAll(t, append([]*leaseRun{lead}, runs...)...)
+	require.NoError(t, lead.err)
+	require.Equal(t, int32(2), p.writes.Load(), "a and b were cut into one batch")
+
+	require.NoError(t, runs[0].err)
+	require.Equal(t, first, runs[0].lease, "the batch's first mint takes the session's last arrival")
+	require.ErrorIsf(t, runs[1].err, core.ErrBudget,
+		"the second fresh nonce of an exhausted session answered %v", runs[1].err)
+	require.NotErrorIs(t, runs[1].err, core.ErrContract,
+		"the overflow is refused before core.NewObservationID is asked for arrival 0")
+	require.Equal(t, deliveryLease{}, runs[1].lease)
+	require.Equal(t, leaseLines(t, lead, runs[0]), string(readTestFile(t, journal.path)),
+		"the refused request appends nothing")
+}
+
 // Each member of a lease batch is answered in the order one lease call always made its checks
 // (design §2.6): ctx, then the gate, then validation, then a known nonce before any budget, and ctx
 // once more just before the Write. T12's twin runs the same commitLeases a request at a time, so it
