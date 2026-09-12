@@ -162,6 +162,46 @@ func TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A(t *testing.T) {
 // wall-clock row's own Pass, and this test is what stops that from quietly becoming "B-E is not
 // judged under co-load at all". A run in exactly that shape — wall row reported, CPU row over its
 // limit — must still exit non-zero.
+// TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet is review round 1's F6. The golden above
+// pins the JSON shape of a hand-built Report, so a row added to the HARNESS alone never breaks it —
+// budgetIDHookAckRTT's own addition left the six-row golden passing. This pins the harness's row
+// set itself: which ids it publishes, in what order, and which of them carry a limit.
+func TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet(t *testing.T) {
+	rows := buildBudgetRows(
+		BudgetRow{BudgetID: string(obs.BA), LimitMs: floatPtr(15), Pass: boolPtr(true)},
+		BudgetRow{BudgetID: string(obs.BB), LimitMs: floatPtr(2), Pass: boolPtr(true)},
+		nil, nil, nil, nil, nil, 2*time.Second, true)
+
+	ids := make([]string, 0, len(rows))
+	gated := map[string]bool{}
+	for _, r := range rows {
+		ids = append(ids, r.BudgetID)
+		gated[r.BudgetID] = r.LimitMs != nil
+	}
+
+	require.Equal(t,
+		[]string{"B-A", "B-B", "B-D", "B-E", "B-E_cpu", "B-A_spawn_estimate", "hook_ack_rtt"}, ids,
+		"a row added to or removed from the harness must be a deliberate change to this list")
+	require.Equal(t, map[string]bool{
+		"B-A": true, "B-B": true, "B-D": false, "B-E": true,
+		"B-E_cpu": true, "B-A_spawn_estimate": false, "hook_ack_rtt": false,
+	}, gated, "and a new row must never arrive gated by accident")
+}
+
+// TestBuildBudgetRows_UnderColoadReportsOnlyTheWallClockBERow pins the one shape --under-coload
+// changes in this function: B-E's wall-clock row loses its limit, and its CPU-time arm keeps one.
+func TestBuildBudgetRows_UnderColoadReportsOnlyTheWallClockBERow(t *testing.T) {
+	rows := buildBudgetRows(BudgetRow{BudgetID: string(obs.BA)}, BudgetRow{BudgetID: string(obs.BB)},
+		nil, nil, nil, nil, nil, 2*time.Second, false)
+
+	byID := map[string]BudgetRow{}
+	for _, r := range rows {
+		byID[r.BudgetID] = r
+	}
+	require.Nil(t, byID[string(obs.BE)].LimitMs, "the wall-clock B-E row is reported under co-load")
+	require.NotNil(t, byID[budgetIDBECPU].LimitMs, "while its CPU-time arm is gated in every run")
+}
+
 func TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun(t *testing.T) {
 	require.NotEqual(t, string(obs.BE), budgetIDBECPU)
 	require.Equal(t, "B-E_cpu", budgetIDBECPU)
