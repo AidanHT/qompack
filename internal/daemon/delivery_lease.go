@@ -823,13 +823,26 @@ func (r *ackReq) answer(failed error) {
 		r.err = p.err
 	case failed != nil:
 		r.err = failed
-	// Deliberately defensive, and unreachable as the code stands: it mirrors leaseReq.answer's
-	// binding check, which is live there, where a copy may join a mint made for another session or
-	// request. Here decide hands a request either its own acknowledgement or the one an earlier
-	// member minted for the same delivery, and both members passed the same lease match — a
-	// delivery's lease identity never changes once admitted — so the two identities always agree.
-	// The mismatch acknowledge really does answer with ErrAppendOnly, a delivery an earlier batch
-	// acknowledged under another identity, is answered in commitAcks' first phase instead.
+	// Deliberately defensive, and unreachable as the code stands. So is the acknowledgement side's
+	// other binding check, the ErrAppendOnly in commitAcks' first phase: BOTH are defensive mirrors
+	// of leaseReq.answer's binding check, which is the live one — there a copy really can join a
+	// mint made for another session or request, and T11 answers it with ErrAppendOnly.
+	//
+	// One invariant makes each of the two unreachable: a delivery's lease identity never changes
+	// once admitted (the maps are written only by a lease leader, and a known nonce is answered
+	// with the admitted lease rather than a new one), and every request that gets this far has
+	// already matched its own id against that identity.
+	//
+	//   - Here: decide hands a request either the acknowledgement built from its own id, or the one
+	//     an earlier member of this batch minted for the same delivery. Both members passed the same
+	//     j.leases[delivery].ObservationID match, so the two ids are the same id.
+	//   - In the first phase: an admitted acknowledgement carries the ObservationID of the lease its
+	//     delivery had when it was admitted — appendAcks admits only what decide built behind a
+	//     passed lease match, and loadAcks refuses any surviving line whose ObservationID differs
+	//     from its lease's — which is the identity this request has just matched too.
+	//
+	// Neither is deleted: each is one comparison standing between a later change to that invariant
+	// and an acknowledgement recorded against an identity nothing checked.
 	case p.ack.ObservationID != r.id:
 		r.err = core.ErrAppendOnly
 	default:
@@ -939,6 +952,9 @@ func (j *deliveryJournal) commitAcks(batch []*ackReq) {
 		// Only acknowledgement batches write j.acks, one at a time, and this is the one running.
 		if old, ok := j.acks[r.delivery]; ok {
 			r.err = nil
+			// Defensive, and unreachable for the invariant ackReq.answer's comment states: an
+			// admitted acknowledgement names the identity of the lease its delivery had when it was
+			// admitted, which is the identity the lease match above has just accepted.
 			if old.ObservationID != r.id {
 				r.err = core.ErrAppendOnly
 			}
