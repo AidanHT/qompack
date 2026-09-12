@@ -309,6 +309,12 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 		// A file's unread bytes are those its progress records, plus those the pass read no further
 		// than because they are not durable yet and its progress therefore does not name (gaps.hold).
 		// Counted together, one file is still one pending gap.
+		//
+		// Size can also stand ABOVE the file's stat, for a file that shrank under the pass (drainFile's
+		// floor says how). The bytes between them are gone rather than unread, and this counts them
+		// pending deliberately: they were durable when a pass read them, nothing has replayed them, and
+		// the next pass refuses the spool over exactly those bytes (validateProgress). Clamping the
+		// count at the stat would drop that hole out of the one signal this drain has for reporting it.
 		if remaining := fs.Size - fs.Offset + gaps.withheld[base]; remaining > 0 {
 			pending += remaining
 			gaps.add(base, DrainGapPending, "spool bytes not yet replayed")
@@ -579,6 +585,8 @@ readLoop:
 	// end < fs.Size says the floor won, so this Size is not a bound the pass read to: an unmarked
 	// record keeps its provenance, and a marked one was already durable and stays marked.
 	fs.SizeIsRawStat = fs.SizeIsRawStat && end < fs.Size
+	// Negative for a file that shrank under the pass: hold drops it, and Drain's end-of-pass loop
+	// reports those bytes as pending from the record instead, which is where that case is answered.
 	gaps.hold(base, size-fs.Size)
 	if canceled {
 		return count, ctx.Err()
