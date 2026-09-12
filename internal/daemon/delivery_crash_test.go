@@ -512,20 +512,11 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 		require.Equal(t, row.leases, got.leases, "%s: recovered identities — %s", row.step, row.why)
 		require.Equal(t, row.acks, got.acks, "%s: recovered frontier records — %s", row.step, row.why)
 
-		// The drain's own outcome for the two copies of one nonce. A delivery already on the
-		// frontier is skipped without republishing; one that is not is dispatched exactly once,
-		// however many copies of it the spool holds, because both carry the same nonce and take the
-		// same lease.
-		if row.acks > 0 {
-			require.Zero(t, got.observed,
-				"a delivery the frontier already names must advance its offset without republishing")
-			require.Zero(t, got.dispatched, "and it is not dispatched a second time either")
-		} else {
-			require.Equal(t, 1, got.observed,
-				"the WAL copy and the client copy carry one nonce, so the handler runs exactly once")
-			require.Equal(t, 1, got.published, "one delivery leaves one capture sidecar")
-		}
-		require.True(t, got.complete, "recovery of a crash image is not a gap")
+		// The drain's own outcome for the copies of one nonce — the client's, plus the WAL's whenever
+		// the crash image holds a segment a Sync returned for. Every copy here is complete, so the
+		// pass consumes them all and reports no gap; the torn variants below are the other half of
+		// that statement.
+		assertDrainOutcome(t, got, row.acks, true, row.why)
 	})
 
 	// The torn variants of the extent that was in flight at the cut. A torn journal tail refuses the
@@ -533,10 +524,18 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 	for name, torn := range tornVariants(image, walRel, format, row.leases) {
 		t.Run("torn: "+name, func(t *testing.T) {
 			root := restoreCrashImage(t, torn.image)
+			// The same client copy the untorn image gets. A torn variant tears one extent of the
+			// crash image and nothing else, so the hook's spooled copy is still there — and it is
+			// what lets the drain assertion below tell a torn extent from a complete one instead of
+			// asserting something true either way.
+			writeSpoolLine(t, root, "client-00007.ndjson",
+				observeRequest(nonce, crashSession, `{"hook_event_name":"PostToolUse"}`))
+
 			got := recoverCrashImage(t, root, format)
 			require.Equal(t, torn.opens, got.opened, torn.why)
 			if torn.opens {
 				require.Equal(t, torn.leases, got.leases, torn.why)
+				assertDrainOutcome(t, got, row.acks, torn.complete, torn.why)
 				return
 			}
 			// A REFUSED open writes nothing: the evidence is exactly as the crash left it, which is
@@ -554,12 +553,42 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 	}
 }
 
+// assertDrainOutcome asserts what the drain made of the copies of one nonce in a restored image.
+//
+// A delivery the frontier already names is skipped entirely. One it does not is dispatched exactly
+// ONCE however many complete copies of it the spool holds — every copy carries the same nonce and
+// takes the same lease — and it leaves exactly one capture sidecar.
+//
+// complete is the drain's own gap verdict, and it is the assertion that depends on the extent a
+// torn variant tore. An incomplete trailing line is pending input rather than a record
+// (TestDrainTrailingIncompleteLineWaitsForCompletion), so a pass that leaves one behind is NOT
+// complete, while the same image untorn is: the two subtests over one image are each other's
+// control, which is what keeps the torn variant from asserting something true either way.
+func assertDrainOutcome(t *testing.T, got crashOutcome, acks int, complete bool, why string) {
+	t.Helper()
+	if acks > 0 {
+		require.Zero(t, got.observed,
+			"a delivery the frontier already names must advance its offset without republishing — %s", why)
+		require.Zero(t, got.dispatched, "and it is not dispatched a second time either — %s", why)
+	} else {
+		require.Equal(t, 1, got.dispatched,
+			"however many copies carry the nonce, they are one delivery and are dispatched once — %s", why)
+		require.Equal(t, 1, got.observed, "so the handler runs exactly once — %s", why)
+		require.Equal(t, 1, got.published, "one delivery leaves one capture sidecar")
+	}
+	require.Equal(t, complete, got.complete, "the drain's own gap verdict — %s", why)
+}
+
 // tornImage is one torn variant of a crash image.
 type tornImage struct {
 	image  map[string][]byte
 	opens  bool
 	leases int
-	why    string
+	// complete is the drain's own gap verdict for this variant, for a variant whose open succeeds.
+	// Tearing an extent the drain reads turns it from true to false, which is the assertion that
+	// makes the variant depend on what it tore.
+	complete bool
+	why      string
 }
 
 // tornVariants returns the torn states of the extents that a crash can leave half-written: the WAL
@@ -578,9 +607,12 @@ func tornVariants(image map[string][]byte, walRel string, format, recovered int)
 		torn := cloneImage(image)
 		torn[walRel] = b[:len(b)-1]
 		out["the WAL's last line"] = tornImage{
-			image: torn, opens: true, leases: recovered,
-			why: "a torn WAL line changes nothing the journal recovered — the identities are the lease journal's, not the WAL's — " +
-				"and the incomplete line itself waits for its writer (TestDrainTrailingIncompleteLineWaitsForCompletion)",
+			image: torn, opens: true, leases: recovered, complete: false,
+			why: "a torn WAL line changes nothing the journal recovered — the identities are the lease journal's, not the " +
+				"WAL's — and the incomplete line itself is NOT dispatched: it is pending input rather than a record and " +
+				"waits for its writer (TestDrainTrailingIncompleteLineWaitsForCompletion), so the client's complete copy " +
+				"still publishes the delivery exactly once while the pass that left the fragment behind reports a gap, " +
+				"which the same image untorn does not",
 		}
 	}
 	if b, ok := image[leaseRel]; ok && len(b) > 1 {
