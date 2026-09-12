@@ -223,6 +223,14 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 func newDeliveryJournal(l *Lock, p string) *deliveryJournal {
 	j := &deliveryJournal{
 		owner: l, path: p, chain: deliveryChainSeed, leases: map[string]deliveryLease{}, arrivals: map[core.SessionID]uint64{},
+		// Both journals start from their own seed here, not only the lease journal. openAckLocked
+		// sets the acknowledgement pair again at the top of its own open, which is where it belongs
+		// for a reopen; seeding it HERE is what makes "a fresh journal object starts at both seeds"
+		// true of the object rather than of one caller's sequence. The offline tool (design §4.5)
+		// scans with loadAcksFrom without going through openAckLocked, and an ack chain left at the
+		// zero hash makes every acknowledged journal fail its chain check and every empty one seal a
+		// zero chain that the position reader then refuses.
+		ackChain: deliveryAckChainSeed, acks: map[string]deliveryAck{},
 		leaseQ: groupQueue[*leaseReq]{maxN: groupCommitMaxRequests, maxBytes: journalGroupCommitMaxBytes, size: leaseReqSize},
 		ackQ:   groupQueue[*ackReq]{maxN: groupCommitMaxRequests, maxBytes: journalGroupCommitMaxBytes, size: ackReqSize},
 	}
@@ -481,6 +489,17 @@ func (j *deliveryJournal) load() (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	return j.loadFrom(position, older)
+}
+
+// loadFrom is load's scan, against a position and an older record the caller has already read. It
+// is split out for the offline repair tool (design §4.5), which is the one caller that arrives with
+// a position the dual reader did not hand it: Rule R's valid-plus-invalid image, which the strict
+// reader refuses and an operator may accept with consent. The tool scans through THIS function
+// rather than through a second copy of it, so a position an operator accepted is still admitted only
+// by the checks an open makes — the sealed prefix, the canonical lines, the dense arrivals and the
+// size — and Rule R widens exactly one thing, which record the scan starts from.
+func (j *deliveryJournal) loadFrom(position deliveryPosition, older *sealRecord) (os.FileInfo, error) {
 	// The older-seal checkpoint (design §2.9). A v2 image carries the seal one batch behind the
 	// effective one, and the strict reader has already checked that it seals strictly less. What it
 	// cannot check is that those bytes are a real prefix of THIS journal, so the same scan does it:
@@ -740,12 +759,15 @@ func loadDeliverySeal(p string, seed core.Hash, domain string) (deliveryPosition
 	if err != nil {
 		return deliveryPosition{}, nil, nil, err
 	}
-	// The Version is the journal position record's, which is what every caller compares against and
-	// what a downgrade of this record writes; the v2 document's own "v" is deliverySealVersion.
-	position := deliveryPosition{
-		Version: core.EvidenceVersion, Bytes: effective.Bytes, Count: effective.Count, Chain: effective.Chain,
-	}
-	return position, older, image, nil
+	return sealedPosition(effective), older, image, nil
+}
+
+// sealedPosition is the journal position a seal record seals.
+//
+// The Version is the journal position record's, which is what every caller compares against and
+// what a downgrade of this record writes; the v2 document's own "v" is deliverySealVersion.
+func sealedPosition(rec sealRecord) deliveryPosition {
+	return deliveryPosition{Version: core.EvidenceVersion, Bytes: rec.Bytes, Count: rec.Count, Chain: rec.Chain}
 }
 
 // readDeliverySealImage returns p's bytes when p is a v2 seal image, and nil when it is anything
@@ -1308,6 +1330,13 @@ func (j *deliveryJournal) loadAcks() (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	return j.loadAcksFrom(position, older)
+}
+
+// loadAcksFrom is loadAcks' scan, over a position the caller has already read: loadFrom's split, for
+// the same caller and the same reason. It still checks every acknowledgement against a surviving
+// lease, so it runs after the lease scan has filled j.leases, exactly as the open runs it.
+func (j *deliveryJournal) loadAcksFrom(position deliveryPosition, older *sealRecord) (os.FileInfo, error) {
 	// The older-seal checkpoint, as in load: the record one batch behind the effective one must seal
 	// a prefix of this acknowledgement journal.
 	olderSealed := older == nil || older.Bytes == 0
