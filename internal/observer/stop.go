@@ -168,6 +168,21 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 	//    (a) Recognition. If this observation already published a capture, absorb the redelivery:
 	//        no blob, no record, no DAG, no second turn consumed. The session still advances past
 	//        the record that was found, or the next Stop would re-mint the id just recognized.
+	//
+	//        Three pieces of bookkeeping every OTHER exit of this function performs are deliberately
+	//        skipped here, because this delivery is not a new host event — it is one already
+	//        observed, arriving again:
+	//
+	//          - st.SubagentSince stays put. The window closed on the first run; re-closing it now
+	//            would drop every tool use that arrived since from the NEXT capture's hash list,
+	//            which is the G10.1 detail the capture exists for.
+	//          - st.LastTS stays put, so it keeps naming the last HOST event. Advancing it would
+	//            claim the event happened at the redelivery's instant — minutes later, at flush
+	//            time — and §6.6's GapSeconds, measured against it, would understate the real idle
+	//            gap before the next event. In this process the first run already set it correctly.
+	//          - the DAG is not flushed, because an absorbed redelivery adds no node and no edge.
+	//
+	//        TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock pins the first two.
 	obs := ObservationFrom(ctx)
 	if prior, ok := o.observationRecord(ctx, obs, e.SessionID, opObserveStop); ok {
 		adoptTurn(st, prior)
@@ -187,8 +202,6 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 			return SubagentCaptureID(e.SessionID, core.TurnIndex(i))
 		}); found {
 			st.Turn = core.TurnIndex(t)
-		} else {
-			o.count(counterTurnExhausted)
 		}
 	}
 

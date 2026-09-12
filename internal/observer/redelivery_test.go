@@ -42,9 +42,11 @@ const (
 	rdxOpStop = "observe.stop"
 	rdxOpTool = "observe.tool"
 
-	rdxCounterAbsorbed  = "observer.redelivery_absorbed"
-	rdxCounterExhausted = "observer.derived_turn_exhausted"
-	rdxCounterErrIndex  = "observer.err.index"
+	rdxCounterAbsorbed   = "observer.redelivery_absorbed"
+	rdxCounterExhausted  = "observer.derived_turn_exhausted"
+	rdxCounterUnanswered = "observer.derived_turn_probe_unanswered"
+	rdxCounterErrIndex   = "observer.err.index"
+	rdxCounterErrStopPut = "observer.err.stop.put"
 )
 
 // rdxDerivedToolID spells the identity a tool payload with NO tool_use_id is recorded under.
@@ -400,6 +402,83 @@ func TestRedelivery_StopWithNoIdentityKeepsTodaysBehaviour(t *testing.T) {
 
 	require.Equal(t, rdxCaptureIDs(0, 1), rdxIDs(t, r.index(), subagentStop))
 	require.Equal(t, int64(0), r.counter(rdxCounterAbsorbed))
+}
+
+// TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock pins the two pieces of per-event
+// bookkeeping the recognition arm deliberately does NOT do, because a redelivery is not a new host
+// event but one already observed, arriving again.
+//
+// Both omissions are one-directional and both would be wrong the other way:
+//
+//   - st.LastTS keeps naming the last HOST event. §6.6's GapSeconds is measured against it, so
+//     advancing it to the redelivery's instant — the flush-time daemon, minutes later — would
+//     understate the real idle gap before the next event. In this process the first run already set
+//     it correctly, so restamping could only ever make a right value wrong.
+//   - st.SubagentSince keeps pointing where the first run closed the window. Re-closing it would
+//     drop every tool use that arrived since from the NEXT capture's hash list, which is exactly
+//     the G10.1 detail a subagent capture exists to preserve.
+//
+// The read between the two dispatches is what gives both assertions teeth: it moves LastTS and it
+// grows the window, so a recognition arm that re-ran either piece of bookkeeping would be visible.
+func TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock(t *testing.T) {
+	r := newRdxRig(t)
+	ctx := context.Background()
+	id := r.sidecar(1, rdxOpStop)
+
+	_, err := r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
+	require.NoError(t, err)
+
+	// A real host event after the capture: the window grows and the session's clock moves with it.
+	r.clock.Advance(time.Second)
+	_, err = r.o.OnToolUse(ctx, readOf("toolu_gap", supersedePath, rdxBody))
+	require.NoError(t, err)
+	lastHostEvent := r.o.now()
+
+	// The redelivery arrives long afterwards, which is when a flush-time daemon drains the spool.
+	r.clock.Advance(10 * time.Minute)
+	r.sidecar(1, rdxOpStop)
+	_, err = r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), r.counter(rdxCounterAbsorbed), "fixture: the redelivery was absorbed")
+
+	st := r.o.session(testSession)
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	require.Equal(t, lastHostEvent, st.LastTS,
+		"an absorbed redelivery must leave LastTS naming the last HOST event; restamping it to the "+
+			"redelivery's own instant makes the next event's GapSeconds understate the real gap")
+	require.Equal(t, 0, st.SubagentSince,
+		"the subagent window must stay where the first run closed it: re-closing it here drops the "+
+			"tool uses that arrived since from the next capture's hash list (G10.1)")
+	require.Len(t, st.ToolUses, 1, "fixture: the read between the two dispatches is in the window")
+}
+
+// TestRedelivery_ProbeOnAStoreThatCannotAnswerNamesTheRightCause is about a COUNTER rather than
+// about behaviour, and the behaviour is asserted alongside it precisely to show that.
+//
+// freeDerivedTurn concludes "this id is taken" from a nil error and "free" from ErrNotFound. A
+// closed store answers neither: FSStore.ToolUse's s.use() guard reports core.ErrDegraded, and
+// reading that as "taken" would burn all 64 probe iterations and then bump
+// observer.derived_turn_exhausted — whose documented cause is 64 consecutive OCCUPIED ids, i.e. a
+// state file lagging the index. An operator would go looking there, and the answer would be
+// somewhere else entirely.
+func TestRedelivery_ProbeOnAStoreThatCannotAnswerNamesTheRightCause(t *testing.T) {
+	r := newRdxRig(t)
+	ctx := context.Background()
+	id := r.sidecar(1, rdxOpStop)
+	require.NoError(t, r.st.Close())
+
+	_, err := r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
+	require.NoError(t, err,
+		"a degraded store is a soft failure for a hook, never an error the host sees (§12.3)")
+
+	require.Equal(t, int64(1), r.counter(rdxCounterUnanswered),
+		"a store that cannot say whether an id is taken must be counted as exactly that")
+	require.Equal(t, int64(0), r.counter(rdxCounterExhausted),
+		"and never as exhaustion, which names a cause — a state file lagging the index — that is "+
+			"not what happened")
+	require.Equal(t, int64(1), r.counter(rdxCounterErrStopPut),
+		"the capture itself still degrades softly, exactly as it does on today's tree")
 }
 
 // ── Guard G3: a sidecar that does not describe THIS delivery is not its publication ──────────
