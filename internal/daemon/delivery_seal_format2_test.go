@@ -453,6 +453,15 @@ func TestDeliverySeal_StepTwoTraceHoldsInFormatTwo(t *testing.T) {
 			}
 			require.Error(t, err, "a corrupted position must not yield a writable journal")
 			require.Nil(t, got)
+			// The strict reader's stated reason for refusing (design 2.9): write nothing, preserve
+			// the evidence. The refused open must leave the file exactly as it found it.
+			preserved, preservedErr := os.ReadFile(paths.Long(positionPath))
+			if tc.gone {
+				require.True(t, os.IsNotExist(preservedErr), "the refused open put nothing back")
+			} else {
+				require.NoError(t, preservedErr)
+				require.Equal(t, now, preserved, "the refused open wrote nothing")
+			}
 		})
 	}
 
