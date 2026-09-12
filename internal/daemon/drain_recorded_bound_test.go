@@ -45,10 +45,13 @@ func requireDurableSizeMark(t *testing.T, root, base string, want bool) {
 
 // seedPreR9Progress writes the state/drain.json a binary before the mark wrote: the raw stat in size,
 // a held segment's unsynced tail included, and no durable_size field, because that binary had none.
-func seedPreR9Progress(t *testing.T, root, base string, size, offset int64) {
+// done is that binary's own completion flag, which decides whether a later pass visits the record at
+// all: drainFile's early exit takes a Done record whose size still matches the file, and a record a
+// pass never visits is rewritten by saveState all the same.
+func seedPreR9Progress(t *testing.T, root, base string, size, offset int64, done bool) {
 	t.Helper()
 	b, err := json.Marshal(map[string]map[string]any{
-		base: {"size": size, "offset": offset, "done": false},
+		base: {"size": size, "offset": offset, "done": done},
 	})
 	require.NoError(t, err)
 	p := drainStatePath(root)
@@ -142,6 +145,11 @@ func TestDrainKeepsTheDurableBoundItRecordedWhenASegmentIsReopenedBelowIt(t *tes
 // exists to survive falls below — wedging the whole spool once, for that one record. Such a record is
 // lowered to the pass's own durable bound and marked; a marked one is kept as it is. Either way the
 // crash that takes only bytes no Sync returned for must leave the spool draining.
+//
+// Both cases here name an OFFSET at or below the durable bound, which is the condition under which
+// lowering the size is enough to survive that crash. A binary with no durable bound of its own does
+// not satisfy it, and lowering cannot reach that far: TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset
+// is that class, and pins what the mark does and does not buy there.
 func TestDrainDoesNotKeepARawStatBoundItDidNotRecord(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -172,7 +180,7 @@ func TestDrainDoesNotKeepARawStatBoundItDidNotRecord(t *testing.T) {
 			// Both records describe the same history: an earlier pass consumed l1, the only durable
 			// line. They differ only in what that pass recorded as the file's size.
 			if tc.preR9 {
-				seedPreR9Progress(t, root, segBase, stat, synced)
+				seedPreR9Progress(t, root, segBase, stat, synced, false)
 			} else {
 				require.NoError(t, newDrainer(DrainConfig{Root: root}).saveState(
 					drainState{segBase: &drainFileState{Size: synced, Offset: synced}}))
@@ -293,4 +301,148 @@ func TestDrainWritesALoadableRecordWhenAFileShrinksUnderThePass(t *testing.T) {
 	require.NoError(t, err, "the refusal clears once the file holds the durable bytes again")
 	require.Equal(t, 1, n)
 	require.Equal(t, []core.UnixMilli{1, 2, 3}, got, "and the line the shrink hid is delivered exactly once")
+}
+
+// TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset covers the record class the raw-stat pin above
+// does not: one written by a binary with no durable bound of its own. develop's drainFile has no
+// durableEnd — it reads a held segment straight to EOF and records what it consumed — so the OFFSET
+// of the record it leaves, not merely its size, can name bytes no Sync ever returned for.
+//
+// Lowering cannot reach that. loadState refuses a Size below Offset, so the floor cannot go under the
+// offset, and the crash that takes those bytes refuses the spool exactly as it does for the binary
+// that wrote the record (develop's validateProgress makes the same fs.Size > stat comparison). That
+// residual is pinned below rather than claimed away. What the pass must NOT do is call such a Size
+// durable: the mark says the recorded size names durable bytes, and a size resting on that offset is
+// not one this pass read to. Marking it would also freeze it — the next pass floors a marked record
+// at fs.Size — so the claim is left unmade until a bound of this code's own reaches the offset.
+func TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+
+	const sess = core.SessionID("sess-legacy-offset")
+	segPath := walPath(spool, sess, 0)
+	segBase := filepath.Base(segPath)
+	seg := func(ts core.UnixMilli) []byte {
+		return wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: sess, TS: ts}).line
+	}
+	l1, l2, l3 := seg(1), seg(2), seg(3)
+	require.NoError(t, os.WriteFile(paths.Long(segPath), joinLines(l1, l2, l3), 0o600))
+	synced := int64(len(l1))             // the only line a Sync has returned for
+	consumed := int64(len(l1) + len(l2)) // what the binary before durableEnd read, and recorded
+	seedPreR9Progress(t, root, segBase, consumed, consumed, false)
+
+	var got []core.UnixMilli
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: newRecordingLogger(), Clock: newFakeClock(epoch),
+		Dispatch: func(_ context.Context, r ipc.Request) ipc.Response {
+			got = append(got, r.TS)
+			return ipc.Response{OK: true}
+		},
+		IsLive: func(core.SessionID) bool { return true },
+		SyncedWAL: func(p string) (int64, bool) {
+			if filepath.Base(p) != segBase {
+				return 0, false
+			}
+			return synced, true
+		},
+	})
+
+	n, err := dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Zero(t, n, "the pass's own bound is below the offset the record already names as consumed")
+	require.Empty(t, got)
+	require.Equal(t, &drainFileState{Size: consumed, Offset: consumed, SizeIsRawStat: true},
+		diskDrainState(t, root)[segBase],
+		"the floor cannot go under the consumed offset: loadState refuses a Size below it")
+	requireDurableSizeMark(t, root, segBase, false) // and the pass does not call that bound durable
+	require.Equal(t, int64(len(l3)), dr.GapState().PendingBytes,
+		"the bytes past the recorded size are pending, exactly as for any unsynced tail")
+
+	// The machine crash takes every byte no Sync returned for, l2 among them — the bytes the record
+	// names as consumed. The pass refuses the whole spool, healthy files included: the residual no
+	// floor cures, and what the binary that wrote this record does with the same image.
+	require.NoError(t, os.Truncate(paths.Long(segPath), synced))
+	const healthyName = "client-8282.ndjson"
+	healthyPath := filepath.Join(spool, healthyName)
+	require.NoError(t, os.WriteFile(paths.Long(healthyPath),
+		wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-healthy", TS: 9}).line, 0o600))
+
+	n, err = dr.Drain(ctx)
+	require.Error(t, err, "the record names bytes the file no longer holds, so the pass refuses")
+	require.Zero(t, n)
+	require.Empty(t, got)
+	require.FileExists(t, healthyPath, "and the refusal is spool-wide: this is the wedge, pinned, not cured")
+	require.Equal(t, []DrainGap{{Kind: DrainGapProgressUnreadable, Count: 1, Reason: "drain progress no longer matches the spool"}},
+		dr.GapState().Gaps)
+
+	// The ingest writes the lost line again, and this time its Sync returns for the whole segment. The
+	// pass's own bound now carries the recorded size, so the record is marked from here on: the claim
+	// is made when it becomes true, rather than asserted when the size was first written.
+	appendSpoolFile(t, segPath, l2)
+	synced = spoolFileSize(t, segPath)
+	n, err = dr.Drain(ctx)
+	require.NoError(t, err, "the refusal clears once the file holds the bytes its record names")
+	require.Equal(t, 1, n, "the healthy file's line")
+	require.Equal(t, []core.UnixMilli{9}, got)
+	require.NoFileExists(t, healthyPath)
+	require.Equal(t, &drainFileState{Size: consumed, Offset: consumed, Done: true},
+		diskDrainState(t, root)[segBase], "the segment is drained to a bound this code read to")
+	requireDurableSizeMark(t, root, segBase, true)
+	require.Zero(t, dr.GapState().PendingBytes)
+}
+
+// TestDrainKeepsTheProvenanceOfARecordItDidNotVisit pins the property the mark's representation rests
+// on (drainFileRecord): it round-trips PER RECORD. saveState marshals the whole map, so an entry this
+// pass never visited — a file gone from the listing, a Done record taken by drainFile's early exit,
+// one whose sync failed — is rewritten by any pass that rewrites any record. A rewrite that marked it
+// would upgrade a record no pass of this code had written to "durable" without ever lowering it, and
+// the next pass would then floor at the raw stat it names: the wedge the mark exists to prevent,
+// reached through the mark itself.
+//
+// The image is a finished segment of a LIVE session: shouldDelete refuses to remove it, so drainFile
+// takes its early exit and never reaches the floor, while a healthy client file beside it makes the
+// pass certainly rewrite state/drain.json.
+func TestDrainKeepsTheProvenanceOfARecordItDidNotVisit(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	spool := paths.Of(root).Spool
+	require.NoError(t, os.MkdirAll(paths.Long(spool), 0o700))
+
+	const sess = core.SessionID("sess-untouched")
+	segPath := walPath(spool, sess, 0)
+	segBase := filepath.Base(segPath)
+	require.NoError(t, os.WriteFile(paths.Long(segPath),
+		wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: sess, TS: 1}).line, 0o600))
+	stat := spoolFileSize(t, segPath)
+	seedPreR9Progress(t, root, segBase, stat, stat, true) // that binary read it to its end and finished it
+
+	const healthyName = "client-3333.ndjson"
+	healthyPath := filepath.Join(spool, healthyName)
+	require.NoError(t, os.WriteFile(paths.Long(healthyPath),
+		wireLine(t, ipc.Request{Op: ipc.OpObserveTool, Session: "sess-healthy", TS: 9}).line, 0o600))
+
+	var got []core.UnixMilli
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: newRecordingLogger(), Clock: newFakeClock(epoch),
+		Dispatch: func(_ context.Context, r ipc.Request) ipc.Response {
+			got = append(got, r.TS)
+			return ipc.Response{OK: true}
+		},
+		IsLive: func(core.SessionID) bool { return true }, // its session is live, so the segment is kept
+	})
+
+	n, err := dr.Drain(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, n, "fixture: only the healthy file had anything to drain")
+	require.Equal(t, []core.UnixMilli{9}, got)
+	require.NoFileExists(t, healthyPath, "fully drained, the healthy file is removed")
+	require.FileExists(t, segPath, "fixture: a live session's finished segment is kept, so its record stays")
+
+	require.Equal(t, &drainFileState{Size: stat, Offset: stat, Done: true, SizeIsRawStat: true},
+		diskDrainState(t, root)[segBase], "the record the pass never visited is rewritten unchanged")
+	// The assertion this file exists for: the mark is what a later pass trusts to keep a Size, so a
+	// record this code has not WRITTEN must not acquire it from a rewrite of the map it sits in.
+	requireDurableSizeMark(t, root, segBase, false)
 }
