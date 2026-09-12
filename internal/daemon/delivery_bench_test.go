@@ -50,6 +50,14 @@ type leasedBench struct {
 
 func newLeasedBench(b *testing.B, sessions, deliveries int) *leasedBench {
 	b.Helper()
+	return newLeasedBenchFormat(b, sessions, deliveries, deliverySealWriteFormat)
+}
+
+// newLeasedBenchFormat is newLeasedBench with the seal format its journal WRITES chosen explicitly,
+// through the lock's own seam (lock.go, sealFormat). The §6.3 rows that time the v2 seal need a
+// journal that holds its A/B file open; everything else here is the production path, as above.
+func newLeasedBenchFormat(b *testing.B, sessions, deliveries, format int) *leasedBench {
+	b.Helper()
 	root := b.TempDir()
 	ing := newIngest(root, config.Defaults(), logging.Nop(), nil, core.SystemClock())
 	b.Cleanup(func() { _ = ing.Close() })
@@ -57,6 +65,7 @@ func newLeasedBench(b *testing.B, sessions, deliveries int) *leasedBench {
 	if err != nil {
 		b.Fatal(err)
 	}
+	lock.sealFormat = format
 	b.Cleanup(func() { _ = lock.Release() })
 	ing.journal = lock.openDeliveryJournal
 
@@ -155,23 +164,42 @@ func (lb *leasedBench) writeSync(line []byte) error {
 //   - accessorOwned: ing.journal(), that is Lock.openDeliveryJournal's fast path. Before the lease
 //     stage it was Lock.mu plus an owned() lock-file read on every call; with O1 it is Lock.mu and
 //     the open journal's in-memory checks.
+//
 //   - owned: Lock.owned under Lock.mu, the lock-file read the accessor, and then deliveryJournal.lease
 //     a second time, made on every leased Accept before the lease stage.
+//
 //   - ownedByFile: Lock.ownedByFile, the one lock-file read a lease batch makes, once per batch and
 //     without Lock.mu.
+//
 //   - checkFileV1: deliveryJournal.checkFile against a position sidecar untouched since its seal.
+//
 //   - checkFileV1AfterSeal: the same check immediately after the seal it checks, the case where
 //     the sidecar was created by a rename moments earlier; the seal runs with the timer stopped.
+//
 //   - journalWriteSync: one canonical lease line written and synced on the journal's own handle.
+//
 //   - sealWriteAtomic: deliveryJournal.savePosition, the paths.WriteAtomic seal.
+//
 //   - walWriteSync: ingest.appendWAL, one WAL line written and synced under ingest.mu.
+//
 //   - lease: deliveryJournal.lease end to end with a fresh nonce per iteration, each a lease batch
 //     of one. The pieces should add up to it (ownedByFile + checkFileV1* + journalWriteSync +
 //     sealWriteAtomic + marshal, chain and queue bookkeeping), and walWriteSync + accessorOwned +
 //     lease should add up to BenchmarkIngestAcceptLeased.
 //
-// The design also names checkFileV2, sealSlot and postSealIdentity. They time step-2 code that
-// does not exist yet, and join this benchmark in the stage that adds that code.
+//   - checkFileV2: the same per-batch check against a journal whose seal is the HELD v2 A/B file,
+//     which is not reopened by path at all: an Lstat, a SameFile and one cached 32 KiB ReadAt.
+//
+//   - sealSlot: one v2 seal through that held handle — the slot's WriteAt, its SyncData and the
+//     post-seal identity check. It is sealWriteAtomic's replacement, and the two beside each other
+//     are the measurement design §7.2's step-2 prediction rests on.
+//
+//   - postSealIdentity: that seal's identity check alone (an Lstat and a SameFile), which is what an
+//     in-place write pays for the guarantee a rename gives v1 for free (J-B5).
+//
+// The three v2 rows drive a journal whose write format is 2 through the lock's own seam. The shipped
+// build still writes format 1 (deliverySealWriteFormat), which is what checkFileV1* and
+// sealWriteAtomic measure beside them, so one run prices both formats of the same step.
 func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 	b.Run("accessorOwned", func(b *testing.B) {
 		lb := newLeasedBench(b, 1, 0)
@@ -226,6 +254,15 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 			}
 		}
 	})
+	b.Run("checkFileV2", func(b *testing.B) {
+		lb := newLeasedBenchFormat(b, 1, 0, 2)
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if err := lb.checkFile(); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 	b.Run("journalWriteSync", func(b *testing.B) {
 		lb := newLeasedBench(b, 1, 0)
 		line, err := json.Marshal(lb.journal.leases[lb.reqs[0].Nonce])
@@ -251,6 +288,38 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 		b.StopTimer()
 		if err := lb.checkFile(); err != nil {
 			b.Fatal(err) // every rewritten seal must still describe the journal
+		}
+	})
+	b.Run("sealSlot", func(b *testing.B) {
+		lb := newLeasedBenchFormat(b, 1, 0, 2)
+		seal := lb.journal.seal
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			// Each seal must strictly extend the one before it, as consecutive seals do; a seal that
+			// reaches the journal's entry cap is replaced with the timer stopped, exactly as
+			// BenchmarkDeliverySealWrite does it.
+			if seal.cur.Count == deliveryLeaseMaxEntries {
+				b.StopTimer()
+				lb = newLeasedBenchFormat(b, 1, 0, 2)
+				seal = lb.journal.seal
+				b.StartTimer()
+			}
+			// This deliberately leaves the seal ahead of the journal beside it, the mirror of what
+			// the journalWriteSync row leaves behind: only these rows touch this root, and nothing
+			// reopens it.
+			if err := seal.write(seal.cur.Bytes+1, seal.cur.Count+1, seal.cur.Chain); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("postSealIdentity", func(b *testing.B) {
+		lb := newLeasedBenchFormat(b, 1, 0, 2)
+		seal := lb.journal.seal
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			if err := seal.verifyIdentity(); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("walWriteSync", func(b *testing.B) {
