@@ -387,6 +387,36 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		requireOpensWithFormat(t, root, 1, 2)
 	})
 
+	t.Run("a rerun reads the v1 seals it wrote and converts what is left", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		state := paths.Of(root).State
+		leaseSeal := filepath.Join(state, deliveryPositionFile)
+		ackSeal := filepath.Join(state, deliveryAckPositionFile)
+
+		_, err := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.NoError(t, err)
+
+		// Every later run reads both seals through the dual reader's V1 branch, which no other test
+		// here reaches: the fixture is a crash image, so the first run is always the v2 one. This is
+		// what makes the half-converted pair a rerun can finish (the convert loop's own error) a
+		// recoverable state rather than a claim.
+		_, err = loadDeliveryPosition(leaseSeal, deliveryChainSeed)
+		require.NoError(t, err, "the first run left a v1 lease seal")
+		_, err = loadDeliveryPosition(ackSeal, deliveryAckChainSeed)
+		require.NoError(t, err, "the first run left a v1 ack seal")
+
+		report, err := toolTestRun(t, root, DeliverySealOptions{Check: true})
+		require.NoError(t, err)
+		require.Contains(t, report, "v1")
+
+		before := toolTestState(t, root)
+		report, err = toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.NoError(t, err)
+		require.Contains(t, report, "wrote v1")
+		require.Equal(t, before, toolTestState(t, root), "a rerun over v1 seals changes no byte")
+		requireOpensWithFormat(t, root, 1, 2)
+	})
+
 	t.Run("refuses to convert a journal that does not load", func(t *testing.T) {
 		root := toolTestProject(t, 2)
 		journal := filepath.Join(paths.Of(root).State, deliveryLeaseFile)
