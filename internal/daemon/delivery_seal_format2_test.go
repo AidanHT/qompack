@@ -582,9 +582,8 @@ func TestDeliverySeal_StepTwoTraceHoldsInFormatTwo(t *testing.T) {
 	})
 }
 
-// closeLocked's retry path. The lease handle is closed first, and once THAT close succeeds it is
-// dropped, exactly as the acknowledgement handle already was, so a retry never closes the same
-// descriptor twice.
+// closeLocked's retry path. Each handle is dropped BEFORE its own Close is attempted, so a retry
+// never closes the same descriptor twice and always makes progress past the one that failed.
 //
 // Without that, a failure of the SECOND close stranded the journal for the life of the process: the
 // retry re-closed the already-closed lease handle, got os.ErrClosed, poisoned and returned before
@@ -617,6 +616,54 @@ func TestDeliveryJournal_CloseRetryAfterAFailedAckCloseReleasesOwnership(t *test
 
 	// The fixture's Close never closed the real handle; close it so the temp directory can be removed.
 	require.NoError(t, journal.ackFile.Close())
+}
+
+// The same retry, cut at the FIRST close instead of the second — and the one the fix above was
+// really about, because this is the order production can actually reach.
+//
+// A *os.File is marked closed by its first Close whatever the syscall returned (os.file.close sets
+// the descriptor to -1 before it reports the error), so a real lease handle whose Close fails can
+// never be closed again: every later attempt returns os.ErrClosed. A closeLocked that kept the
+// handle in place until a Close SUCCEEDED therefore never got past this line again, and closeSeals()
+// below it was unreachable for the life of the process — in format 2, two leaked descriptors on the
+// two position files, and a lock this process never gave up.
+//
+// This test takes the handle away from the fixture the way a real failure does, and never repairs
+// it: TestDeliveryJournal_CloseFailureRetainsOwnership puts journal.file back into journal.writer
+// before its second Release, which is a repair no production path has, and that repair is exactly
+// what let the unreachable branch look covered.
+func TestDeliveryJournal_CloseRetryAfterAFailedLeaseCloseReleasesOwnership(t *testing.T) {
+	root, lock, journal := newFormatTwoJournal(t)
+	_, err := journal.lease(context.Background(), leaseToken(1), "close", testDeliveryRequest("close"))
+	require.NoError(t, err)
+	sealed := sealFileOf(t, root)
+
+	// The lease handle's Close fails and the descriptor is gone with it: the fixture closes the real
+	// file itself and then reports the failure, which is precisely the state Go leaves an *os.File in
+	// when the close(2) under it returns an error. Nothing here can close it a second time.
+	closed := false
+	journal.writer = leaseFaultWriter{file: journal.file, close: func() error {
+		require.False(t, closed, "closeLocked closed the lease descriptor twice")
+		closed = true
+		_ = journal.file.Close()
+		return errors.New("private lease close fixture")
+	}}
+	require.Error(t, lock.Release(), "an uncertain handle does not release ownership")
+	_, err = os.Stat(paths.Long(LockPath(root)))
+	require.NoError(t, err, "a failed close retains ownership")
+	require.True(t, closed)
+
+	require.NoError(t, lock.Release(), "the retry finds the lease handle dropped and completes the close")
+	require.ErrorIs(t, journal.file.Close(), os.ErrClosed, "and never closes that descriptor again")
+	_, err = os.Stat(paths.Long(LockPath(root)))
+	require.True(t, os.IsNotExist(err), "and ownership is released")
+
+	// The point of the retry: closeSeals() is REACHED. Both held handles are closed, and because the
+	// journal is poisoned neither is downgraded.
+	require.ErrorIs(t, journal.seal.f.Close(), os.ErrClosed, "the held lease seal was closed")
+	require.ErrorIs(t, journal.ackSeal.f.Close(), os.ErrClosed, "and so was the acknowledgement seal")
+	require.Equal(t, sealed, sealFileOf(t, root), "a poisoned handle downgrades nothing")
+	require.True(t, isDeliverySealImage(sealFileOf(t, root)))
 }
 
 // The other half of the format seam. The shipped build writes format 1 and holds no seal handle, so
