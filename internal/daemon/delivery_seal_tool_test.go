@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -40,6 +41,29 @@ func toolTestProject(t *testing.T, n int) string {
 	_ = j.poison(deliveryJournalError())
 	require.NoError(t, lock.Release())
 	return root
+}
+
+// toolTestWriter is the tool's report writer with a hook: do runs once, on the first line that
+// contains when.
+//
+// It is how a test acts at a moment INSIDE the conversion loop, which the tool offers no seam of
+// its own for. The report line a conversion prints after its WriteAtomic is the one point between
+// the two seals' writes, and "a daemon takes the project over there" is the state that leaves the
+// pair half converted.
+type toolTestWriter struct {
+	buf  bytes.Buffer
+	when string
+	do   func()
+}
+
+func (w *toolTestWriter) Write(p []byte) (int, error) {
+	n, err := w.buf.Write(p)
+	if w.do != nil && bytes.Contains(p, []byte(w.when)) {
+		do := w.do
+		w.do = nil
+		do()
+	}
+	return n, err
 }
 
 // toolTestState is every file the tool could touch, as bytes. A refusal must leave all four equal.
@@ -249,55 +273,102 @@ func TestDeliverySealRuleR_AcceptsOnlyOneValidSlotBesideOneTornSlot(t *testing.T
 // through paths.WriteAtomic, which makes the seal durable by construction, so a seal written over
 // an unsynced tail can outlive it, and loadFrom then refuses the journal for good.
 //
-// A successful fsync leaves no trace a test in this process can see, so what is asserted here is
-// the guard around it, which is the part that can be wrong: the tool syncs the file its own scan
-// read, at the size that scan ended at, and refuses anything else rather than sealing a tail
-// nothing scanned. It writes nothing through the handle it opens.
+// A successful fsync leaves no trace a test in this process can see, so it is pinned from two
+// sides. The guard around it is asserted directly, which is the part that can be wrong: the tool
+// syncs the file its own scan read, at the size that scan ended at, and refuses anything else
+// rather than sealing a tail nothing scanned. It writes nothing through the handle it opens. That
+// the RUN takes the step at all, and takes it before the first seal is written, is asserted by
+// making the step fail through the syncData seam and finding that nothing was sealed.
 func TestDeliveryOfflineTool_SyncsTheJournalItScannedBeforeSealingIt(t *testing.T) {
-	root := toolTestProject(t, 2)
-	lock, err := acquireTestDeliveryLock(root)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = lock.Release() })
+	t.Run("syncs the file its scan read and refuses any other", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		lock, err := acquireTestDeliveryLock(root)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = lock.Release() })
 
-	var out bytes.Buffer
-	o := DeliverySealOptions{ProjectRoot: root, ToV1: true, Out: &out, Clock: newFakeClock(epoch)}
-	state := paths.Of(root).State
-	j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
-	j.ackPath = filepath.Join(state, deliveryAckFile)
-	sides, err := deliverySealSides(j)
-	require.NoError(t, err)
-	require.Len(t, sides, 2, "the fixture has both pairs")
-	for i := range sides {
-		require.NoError(t, o.inspect(&sides[i]))
-	}
-	before := toolTestState(t, root)
+		var out bytes.Buffer
+		o := DeliverySealOptions{ProjectRoot: root, ToV1: true, Out: &out, Clock: newFakeClock(epoch)}
+		state := paths.Of(root).State
+		j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
+		j.ackPath = filepath.Join(state, deliveryAckFile)
+		sides, err := deliverySealSides(j)
+		require.NoError(t, err)
+		require.Len(t, sides, 2, "the fixture has both pairs")
+		for i := range sides {
+			require.NoError(t, o.inspect(&sides[i]))
+		}
+		before := toolTestState(t, root)
 
-	// The ordinary case: both journals the scan read are made durable, and nothing is written.
-	for i := range sides {
-		require.NoError(t, o.syncJournal(&sides[i]))
-	}
-	require.Equal(t, before, toolTestState(t, root), "the sync writes no bytes of its own")
+		// The ordinary case: both journals the scan read are made durable, and nothing is written.
+		for i := range sides {
+			require.NoError(t, o.syncJournal(&sides[i]))
+		}
+		require.Equal(t, before, toolTestState(t, root), "the sync writes no bytes of its own")
 
-	// A different file at the same size is refused: the recovered position describes the file the
-	// scan read, and a journal replaced since then is not that file.
-	lease := &sides[0]
-	scanned := lease.info
-	twin := filepath.Join(t.TempDir(), deliveryLeaseFile)
-	require.NoError(t, os.WriteFile(twin, readTestFile(t, lease.journal), 0o600))
-	twinInfo, err := os.Lstat(twin)
-	require.NoError(t, err)
-	lease.info = twinInfo
-	require.ErrorIs(t, o.syncJournal(lease), core.ErrDegraded)
-	lease.info = scanned
+		// A different file at the same size is refused: the recovered position describes the file the
+		// scan read, and a journal replaced since then is not that file.
+		lease := &sides[0]
+		scanned := lease.info
+		twin := filepath.Join(t.TempDir(), deliveryLeaseFile)
+		require.NoError(t, os.WriteFile(twin, readTestFile(t, lease.journal), 0o600))
+		twinInfo, err := os.Lstat(twin)
+		require.NoError(t, err)
+		lease.info = twinInfo
+		require.ErrorIs(t, o.syncJournal(lease), core.ErrDegraded)
+		lease.info = scanned
 
-	// A journal that has grown since the scan is refused too: its tail reaches past the position
-	// this seal would name, which is a journal nobody has loaded.
-	f, err := paths.OpenFile(lease.journal, os.O_WRONLY|os.O_APPEND, 0o600)
-	require.NoError(t, err)
-	_, err = f.Write([]byte("\n"))
-	require.NoError(t, err)
-	require.NoError(t, f.Close())
-	require.ErrorIs(t, o.syncJournal(lease), core.ErrDegraded)
+		// A journal that has grown since the scan is refused too: its tail reaches past the position
+		// this seal would name, which is a journal nobody has loaded.
+		f, err := paths.OpenFile(lease.journal, os.O_WRONLY|os.O_APPEND, 0o600)
+		require.NoError(t, err)
+		_, err = f.Write([]byte("\n"))
+		require.NoError(t, err)
+		require.NoError(t, f.Close())
+		require.ErrorIs(t, o.syncJournal(lease), core.ErrDegraded)
+	})
+
+	// The step the run takes, rather than the step itself: a --to v1 run that cannot make one of the
+	// journals durable writes no seal at all, for either side. The failure is injected through the
+	// same kind of seam deliverySeal.syncData is, because the alternative — a journal the process
+	// cannot open for writing — is a different thing on every platform, and one the scan would have
+	// refused first anyway.
+	//
+	// A seal made durable over a tail that is not is the most expensive failure this stage has:
+	// paths.WriteAtomic makes the seal durable by construction, so a power loss then leaves
+	// info.Size() < position.Bytes, which loadFrom refuses permanently — to the daemon and to a
+	// second run of this tool alike.
+	t.Run("seals nothing when a journal cannot be made durable", func(t *testing.T) {
+		for _, journal := range []string{deliveryLeaseFile, deliveryAckFile} {
+			t.Run(journal, func(t *testing.T) {
+				root := toolTestProject(t, 2)
+				before := toolTestState(t, root)
+
+				failed := errors.New("the platter never saw it")
+				calls := 0
+				report, err := toolTestRun(t, root, DeliverySealOptions{
+					ToV1: true,
+					syncData: func(f *os.File) error {
+						if filepath.Base(f.Name()) != journal {
+							return f.Sync()
+						}
+						calls++
+						return failed
+					},
+				})
+
+				require.ErrorIs(t, err, failed)
+				require.ErrorContains(t, err, "durable before its seal names its tail")
+				require.Equal(t, 1, calls, "the run takes the step for the journal it is about to seal")
+				require.NotContains(t, report, "wrote v1")
+				require.Equal(t, before, toolTestState(t, root),
+					"no seal may name a tail this run could not make durable")
+				info, err := os.Lstat(filepath.Join(paths.Of(root).State, deliveryPositionFile))
+				require.NoError(t, err)
+				require.Equal(t, int64(deliverySealFileSize), info.Size(),
+					"the lease seal is still the v2 image the fixture left")
+			})
+		}
+	})
 }
 
 // TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock is design §6.2's T31.
@@ -347,6 +418,66 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 			require.NotContains(t, out.String(), "wrote v1")
 		}
 		require.Equal(t, before, toolTestState(t, root))
+	})
+
+	t.Run("refuses to convert once a daemon has taken the lock after the scan", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		before := toolTestState(t, root)
+
+		// The dispossession lands after the check that follows the scan and before the first write,
+		// which is the window no other subtest can reach: the earlier check has already passed, so
+		// the one the conversion loop takes immediately before each write is the only thing left that
+		// can refuse the run. The journal syncs are the last step before that loop, so the seam that
+		// fails them is where a daemon "starts" here — the ack journal's sync being the second and
+		// last of the two.
+		report, err := toolTestRun(t, root, DeliverySealOptions{
+			ToV1: true,
+			syncData: func(f *os.File) error {
+				if filepath.Base(f.Name()) == deliveryAckFile {
+					replaceTestLock(t, root)
+				}
+				return f.Sync()
+			},
+		})
+
+		require.ErrorContains(t, err, "before converting the lease seal",
+			"the check immediately before the first write is what must refuse this run")
+		require.ErrorContains(t, err, "no longer owns the daemon lock")
+		require.NotContains(t, err.Error(), "already v1", "nothing was converted, so nothing is half done")
+		require.NotContains(t, report, "wrote v1")
+		require.Equal(t, before, toolTestState(t, root))
+	})
+
+	t.Run("a daemon that takes the lock between the two seals leaves the pair half converted", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		state := paths.Of(root).State
+		before := toolTestState(t, root)
+
+		// The takeover lands on the lease seal's own report line: after its WriteAtomic, before the
+		// ack seal's ownership check. That is the one window in which this tool leaves a half
+		// converted pair, and what the operator is told about it is the whole of the fix here — a
+		// rerun is refused with ErrLockHeld until the daemon that took the project is stopped, so
+		// "rerun the same command" on its own would be wrong.
+		out := &toolTestWriter{when: "wrote v1", do: func() { replaceTestLock(t, root) }}
+		err := RepairDeliverySeal(DeliverySealOptions{
+			ProjectRoot: root, ToV1: true, Out: out, Clock: newFakeClock(epoch),
+		})
+		t.Logf("report:\n%s", out.buf.String())
+
+		require.ErrorContains(t, err, "before converting the ack seal")
+		require.ErrorContains(t, err, "the lease seal is already v1")
+		require.ErrorContains(t, err, "stopping that daemon and rerunning converts what is left")
+
+		after := toolTestState(t, root)
+		require.Equal(t, before[deliveryLeaseFile], after[deliveryLeaseFile], "the journals are evidence")
+		require.Equal(t, before[deliveryAckFile], after[deliveryAckFile], "the journals are evidence")
+		require.Equal(t, before[deliveryAckPositionFile], after[deliveryAckPositionFile],
+			"the refused seal is the one the message says is left")
+		require.Len(t, after[deliveryAckPositionFile], deliverySealFileSize, "the ack seal is still v2")
+		position, err := loadDeliveryPosition(filepath.Join(state, deliveryPositionFile), deliveryChainSeed)
+		require.NoError(t, err, "the lease seal the message calls converted is a v1 seal: %s",
+			toolTestSeals(t, root))
+		require.Equal(t, 2, position.Count)
 	})
 
 	t.Run("converts both seals to v1 after a check that writes nothing", func(t *testing.T) {

@@ -69,6 +69,15 @@ type DeliverySealOptions struct {
 	// Clock is the clock AcquireLock's staleness protocol reads. A nil clock is the system clock,
 	// which is what an operator's run uses.
 	Clock core.Clock
+	// syncData is the Sync syncJournal takes on a journal before its seal names that journal's tail.
+	// A nil syncData — every caller outside this package's tests — is (*os.File).Sync, the very call
+	// both open paths make in the same place.
+	//
+	// It is a field for one reason: a successful fsync leaves no trace a test in this process can
+	// see, so the only way to pin that the RUN takes the step, rather than that the step is correct
+	// when taken, is to make it fail. deliverySeal.syncData is the same seam for the same class of
+	// step, and this is that convention rather than a new one.
+	syncData func(*os.File) error
 }
 
 // RepairDeliverySeal runs the offline delivery-seal tool against o.ProjectRoot (design §4.5).
@@ -142,9 +151,11 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 		}
 	}
 	// The lock is read again once both journals have been scanned: before anything is written, and
-	// before a report claims to describe a project no daemon is serving. Scanning two journals of up
-	// to 64 MiB each, on a machine that may sleep between the two, can outlive the window
-	// AcquireLock's refusal rests on.
+	// before this run states a verdict. The per-side report lines are already out by then, and they
+	// are the one thing here that does not need the lock to still hold: each says what one seal and
+	// one journal held at the moment they were read, which is true whoever owns the project now.
+	// Scanning two journals of up to 64 MiB each, on a machine that may sleep between the two, can
+	// outlive the window AcquireLock's refusal rests on.
 	if err := o.holdsLock(lock, "after reading both journals"); err != nil {
 		return err
 	}
@@ -161,27 +172,45 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 		}
 	}
 	for i := range sides {
-		err := o.convert(lock, &sides[i])
-		switch {
-		case err == nil:
-			continue
-		case i == 0:
-			return err
+		// The lock is read once more immediately before each write, so that nothing but the call it
+		// authorizes stands between the ownership check and the WriteAtomic — the same ordering every
+		// batch in this package gives its own append (design §2.10). It is taken here rather than
+		// inside convert so that each of the two failures carries the advice that fits it: a run
+		// dispossessed between the two seals must not tell an operator to rerun a command the daemon
+		// that took the project now refuses.
+		if err := o.holdsLock(lock, "before converting the "+sides[i].name+" seal"); err != nil {
+			return halfConverted(err, sides[:i], "stopping that daemon and rerunning converts what is left")
 		}
-		// The seals are converted one after another, so a failure on the second leaves the pair
-		// half converted — which is the very state the operator ran the tool to leave behind, since
-		// a pre-step-1 binary still refuses whichever seal is still v2. Nothing is corrupted and the
-		// state is self-healing: a rerun reads the v1 seal this run wrote through the dual reader's
-		// v1 branch and converts what is left. The error says so, rather than leaving an operator to
-		// infer it from the report.
-		done := make([]string, 0, i)
-		for _, converted := range sides[:i] {
-			done = append(done, converted.name)
+		if err := o.convert(&sides[i]); err != nil {
+			return halfConverted(err, sides[:i], "rerunning the same command converts only what is left")
 		}
-		return fmt.Errorf("%w; the %s seal is already v1, so rerunning the same command converts "+
-			"only what is left", err, strings.Join(done, " and "))
 	}
 	return nil
+}
+
+// halfConverted names the seals a conversion had already written when a later one failed.
+//
+// The seals are converted one after another, so a failure on the second leaves the pair half
+// converted — which is the very state the operator ran the tool to leave behind, since a pre-step-1
+// binary still refuses whichever seal is still v2. Nothing is corrupted and the state is
+// self-healing: a rerun reads the v1 seal this run wrote through the dual reader's v1 branch and
+// converts what is left. The error says so, rather than leaving an operator to infer it from the
+// report.
+//
+// next is what to do about the rest, and the caller chooses it because the two failures differ in
+// exactly that: a failed write leaves the project to this operator, while a run dispossessed
+// mid-conversion leaves it to the daemon that took it, which refuses the same rerun with
+// ErrLockHeld until it is stopped. done is what was converted before the failure; an empty done is
+// the first seal's own failure, which leaves nothing of the kind to say.
+func halfConverted(err error, done []deliverySealSide, next string) error {
+	if len(done) == 0 {
+		return err
+	}
+	names := make([]string, 0, len(done))
+	for _, converted := range done {
+		names = append(names, converted.name)
+	}
+	return fmt.Errorf("%w; the %s seal is already v1, so %s", err, strings.Join(names, " and "), next)
 }
 
 // holdsLock refuses the run unless this process still owns the daemon lock.
@@ -419,6 +448,10 @@ func (o DeliverySealOptions) syncJournal(s *deliverySealSide) error {
 		return fmt.Errorf("%s: %s: making %s durable before its seal names its tail: %w",
 			deliverySealToolName, s.name, s.journal, err)
 	}
+	sync := (*os.File).Sync
+	if o.syncData != nil {
+		sync = o.syncData
+	}
 	f, err := paths.OpenFile(s.journal, os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return fail(err)
@@ -429,7 +462,7 @@ func (o DeliverySealOptions) syncJournal(s *deliverySealSide) error {
 			opened.Size() != s.recovered().Bytes {
 			return deliveryJournalError()
 		}
-		return f.Sync()
+		return sync(f)
 	}()
 	if closeErr := f.Close(); err == nil {
 		err = closeErr
@@ -442,13 +475,9 @@ func (o DeliverySealOptions) syncJournal(s *deliverySealSide) error {
 
 // convert writes one side's v1 seal for the position its scan recovered (design §4.5, --to v1).
 //
-// The lock is read once more immediately before the write, so that nothing but this call separates
-// the ownership check from the WriteAtomic it authorizes — the same ordering every batch in this
-// package gives its own append (design §2.10).
-func (o DeliverySealOptions) convert(lock *Lock, s *deliverySealSide) error {
-	if err := o.holdsLock(lock, "before converting the "+s.name+" seal"); err != nil {
-		return err
-	}
+// Its caller reads the daemon lock immediately before this call and calls nothing else in between,
+// so what this function writes, the run owned at the moment it wrote it (design §2.10).
+func (o DeliverySealOptions) convert(s *deliverySealSide) error {
 	recovered := s.recovered()
 	if err := writeDeliveryPositionV1(s.seal, recovered.Bytes, recovered.Count, recovered.Chain); err != nil {
 		return fmt.Errorf("%s: %s: writing the v1 seal at %s: %w",
