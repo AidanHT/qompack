@@ -115,10 +115,16 @@ type deliveryJournal struct {
 	//
 	// What makes it unreachable: closeLocked runs under Lock.mu, so its calls are serialised, and it
 	// sets j.closed immediately after closeSeals() with nothing between them that can fail, so every
-	// later call returns at its `if j.closed` guard. A close that fails earlier does leave closeLocked
-	// to be called again, but it returns at the poison BEFORE closeSeals() — in
-	// TestDeliveryJournal_CloseFailureRetainsOwnership the first Release fails at j.writer.Close(),
-	// so that retry is not a second closeSeals() either.
+	// later call returns at its `if j.closed` guard. A close that FAILS leaves closeLocked to be
+	// called again, and there are two shapes of that, neither of which is a second closeSeals():
+	//
+	//   - The failing call returned at its poison, before closeSeals() — the first Release in
+	//     TestDeliveryJournal_CloseFailureRetainsOwnership, which fails at j.writer.Close().
+	//   - The retry then reaches closeSeals() for the FIRST time, which is what dropping each handle
+	//     before its own Close is for: in
+	//     TestDeliveryJournal_CloseRetryAfterAFailedLeaseCloseReleasesOwnership the second Release
+	//     finds j.writer already nil, closes the acknowledgement writer, closes both held seals and
+	//     releases ownership — and that same call sets j.closed, so nothing after it gets here.
 	sealsClosed bool
 }
 
