@@ -699,8 +699,12 @@ func (j *deliveryJournal) ackSealPath() string {
 }
 
 // loadPosition is the position sealed for the lease journal, in whichever format the sidecar holds.
-// Its signature is unchanged, and so is its answer for the v1 file every build before this one
-// wrote: tests call it to read the seal a batch just made.
+// It is the reader the TESTS call to ask a journal what it sealed, whatever format it writes (design
+// §5), and they are its only callers. The per-batch check does NOT use it: checkFile reads the
+// sidecar in the format this build WRITES — the held seal in format 2, the strict v1 reader in
+// format 1 — so reading both formats here can never widen what a batch accepts.
+//
+// Its signature is unchanged, and so is its answer for the v1 file every build before this one wrote.
 func (j *deliveryJournal) loadPosition() (deliveryPosition, error) {
 	position, _, _, err := loadDeliverySeal(j.positionPath(), deliveryChainSeed, deliveryChainDomain)
 	return position, err
@@ -815,8 +819,16 @@ func validDeliveryLease(lease deliveryLease) bool {
 	return err == nil && id == lease.ObservationID
 }
 
+// checkFile is the lease journal's per-batch check. Its v1 body is today's, verbatim (design §5):
+// the sidecar is re-read BY PATH with the STRICT v1 reader, never the dual one. A build that writes
+// v1 must refuse a v2 image at its position path — that image is a foreign write (a half-rolled-back
+// step-2 binary, a restore, an operator), and accepting it would let the format seam widen what the
+// shipped build admits. checkAckFile reads its own sidecar exactly the same way.
 func (j *deliveryJournal) checkFile() error {
-	if err := j.checkSeal(j.seal, j.loadPosition, j.bytes, len(j.leases), j.chain); err != nil {
+	loadV1 := func() (deliveryPosition, error) {
+		return loadDeliveryPosition(j.positionPath(), deliveryChainSeed)
+	}
+	if err := j.checkSeal(j.seal, loadV1, j.bytes, len(j.leases), j.chain); err != nil {
 		return err
 	}
 	info, err := os.Lstat(paths.Long(j.path))
