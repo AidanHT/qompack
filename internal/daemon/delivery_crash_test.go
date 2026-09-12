@@ -301,6 +301,12 @@ func (r *crashRun) deliver(nonce string) ipc.Response {
 	if r.cut == crashAK {
 		// Accept returned and the job is queued; the machine stops before the ACK byte is written.
 		// Nothing of the worker's own publication has run, which is the row's point.
+		//
+		// This cut is the harness's own, deliberately: the ACK byte is written by the IPC server
+		// when the registered handler returns, so there is no seam inside the daemon for it to fail
+		// at. runCrashRow's cutDone guard — which catches a row still pinning a production step the
+		// path no longer takes — therefore cannot fail for this row, and the row carries its weight
+		// in the released and queued-job assertions there instead.
 		r.stop(crashAK)
 		return resp
 	}
@@ -404,6 +410,13 @@ type crashRow struct {
 	opens bool
 	// leases is how many identities the open recovers, and acks how many are on the frontier.
 	leases, acks int
+	// released is whether the batch had been RELEASED to its caller before the cut: its lease
+	// admitted, Accept returned, the job queued. That is live state rather than durable state, and
+	// it is what separates §3 row 10 (AK) from row 8 (L8), whose durable image in format 2 is byte
+	// for byte the same one — the seal completed in both, and the difference a crash there makes is
+	// to the process that died, not to the disk. A row asserting only the image cannot tell those
+	// two states apart, so every row asserts both.
+	released bool
 	// why names the design's own reading of the row.
 	why string
 }
@@ -452,19 +465,19 @@ func TestDeliveryPath_CrashCutAtEveryStep(t *testing.T) {
 			why: "§3 row 8: the new seal is durable and the batch was never released; the identity is recovered as a known nonce",
 		},
 		{
-			step: crashAK, opens: true, leases: 1, acks: 0,
-			why: "§3 row 10: the lease is durable and no ACK went out, so the client's copy and the WAL copy share one identity",
+			step: crashAK, opens: true, leases: 1, acks: 0, released: true,
+			why: "§3 row 10: the lease is durable and no ACK went out, so the client's copy and the WAL copy share one identity — in format 2 the durable image is L8's own, and what makes this a distinct crash state is the live half asserted before it: this batch was released to its caller and L8's never was",
 		},
 		{
-			step: crashK4, opens: true, leases: 1, acks: 0,
+			step: crashK4, opens: true, leases: 1, acks: 0, released: true,
 			why: "§3 row 12: the acknowledgement was never written; the lease survives and the delivery is republished under it",
 		},
 		{
-			step: crashK5, opens: true, leases: 1, acks: 0,
+			step: crashK5, opens: true, leases: 1, acks: 0, released: true,
 			why: "§3 row 12: written and never flushed — the same outcome, since only a returned Sync makes a frontier record",
 		},
 		{
-			step: crashK6, opens: true, leases: 1, acks: 1,
+			step: crashK6, opens: true, leases: 1, acks: 1, released: true,
 			why: "§3 row 12: a complete acknowledgement tail is recovered and re-sealed by openAckLocked",
 		},
 	}
@@ -496,8 +509,27 @@ func formatName(format int) string {
 func runCrashRow(t *testing.T, format int, row crashRow) {
 	nonce := testDeliveryToken('c')
 	r := newCrashRun(t, format, row.step)
-	r.deliver(nonce)
+	resp := r.deliver(nonce)
 	require.True(t, r.cutDone, "the cut at %s was never reached: the row pins a step this path no longer takes", row.step)
+
+	// The live state at the instant of the cut, before the dying process's memory is thrown away.
+	// Two rows can leave one durable image and still be different crash states; this is the half
+	// that says which. A released batch holds an admitted identity its caller was answered under,
+	// and a cut batch holds none whatever the seal on disk says.
+	if row.released {
+		require.True(t, resp.OK, "%s: the delivery was accepted before the cut", row.step)
+		require.Equal(t, 1, admittedLeases(r.journal),
+			"%s: the batch was released under an identity its own seal had already made durable", row.step)
+	} else {
+		require.Zero(t, admittedLeases(r.journal),
+			"%s: the batch never completed, so nothing was admitted and nothing was released", row.step)
+	}
+	if row.step == crashAK {
+		// The one row cut between Accept's return and the ACK byte: the job is on the ring and no
+		// worker has touched it. Every other row's deliver() drains the ring before it returns.
+		require.Len(t, r.dd.ing.ring, 1,
+			"§3 row 10: Accept returned and queued the job, and the machine stops before the ACK byte")
+	}
 
 	image := r.image()
 	walRel := r.walRel()
