@@ -49,7 +49,9 @@ const benchLeasedBaseTS = core.UnixMilli(1_700_000_000_000)
 // LEASED delivery and pays the four fsync syscalls Accept's doc comment audits, in this order:
 //
 //  1. appendWAL: the session WAL segment's Sync (ingest.go), under ingest.mu;
-//  2. deliveryJournal.lease: the lease journal's Sync (delivery_lease.go), under Lock.mu;
+//  2. deliveryJournal.lease: the lease journal's Sync (delivery_lease.go). Part 1 moved this off
+//     Lock.mu — a lease batch commits between the journal's enter and leave and takes Lock.mu
+//     nowhere — so an isolated iteration pays the sync without holding a lock;
 //  3. deliveryJournal.savePosition -> paths.WriteAtomic: the position sidecar's temp-file Sync;
 //  4. paths.WriteAtomic's parent-directory fsync (fsyncDir) — a real syscall on POSIX, a no-op on
 //     Windows (atomic.go), so a Windows run of this benchmark pays three FlushFileBuffers, not four.
