@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
@@ -160,9 +161,25 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 		}
 	}
 	for i := range sides {
-		if err := o.convert(lock, &sides[i]); err != nil {
+		err := o.convert(lock, &sides[i])
+		switch {
+		case err == nil:
+			continue
+		case i == 0:
 			return err
 		}
+		// The seals are converted one after another, so a failure on the second leaves the pair
+		// half converted — which is the very state the operator ran the tool to leave behind, since
+		// a pre-step-1 binary still refuses whichever seal is still v2. Nothing is corrupted and the
+		// state is self-healing: a rerun reads the v1 seal this run wrote through the dual reader's
+		// v1 branch and converts what is left. The error says so, rather than leaving an operator to
+		// infer it from the report.
+		done := make([]string, 0, i)
+		for _, converted := range sides[:i] {
+			done = append(done, converted.name)
+		}
+		return fmt.Errorf("%w; the %s seal is already v1, so rerunning the same command converts "+
+			"only what is left", err, strings.Join(done, " and "))
 	}
 	return nil
 }
