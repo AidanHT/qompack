@@ -21,6 +21,16 @@ import (
 // publication steps that turn stored bytes into a retrievable observation fail on demand.
 // Embedding preserves every unrelated Store method and lets the repaired retry use the same
 // on-disk objects and indices as the failed attempt.
+//
+// It measures the LEGACY separate-writes path, and cannot measure any other: the embedded
+// store.Store interface does not declare RecordToolUseSuperseding, so this wrapper does not promote
+// it, observer.New's capability assertion fails, and the observer falls back to RecordToolUse — the
+// method the fault below hooks, and the one production stopped calling for a tool result when
+// SP08-D2 moved the record and its supersede marks into one index write.
+// TestObserverAtomicPublicationFailureRemainsDrainRetryable is this same property on the path
+// production does take. Anyone making this wrapper forward the capability must move the fault hook
+// to RecordToolUseSuperseding in the same change, or the "tool-use reference" arm below stops
+// injecting anything.
 type publicationFaultStore struct {
 	store.Store
 

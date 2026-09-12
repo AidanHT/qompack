@@ -49,9 +49,86 @@ const (
 // Nothing here is exact, and it does not claim to be: SP05-D1 means a read the observer never
 // saw cannot supersede an earlier one, so this is a best-effort marking over what arrived (see
 // doc.go).
+//
+// This is the path for a Store WITHOUT the store.SupersedingRecorder capability, and the signature
+// is unchanged because that is the shape §5.21's plan pins. The two separate writes it makes — the
+// record by its caller, then one MarkSuperseded per mark here — are precisely carried defect
+// SP08-D2's second mechanism: a handler cancelled between them leaves a record whose marks never
+// landed, and the redelivery that follows appends those marks alone. A Store that HAS the
+// capability marks through publishRecord instead, in the same write as the record, and never
+// reaches this function. The SCAN is shared, so the two paths can never disagree about WHICH
+// records are redundant — only about when the marks land.
 func (o *observer) detectSupersession(ctx context.Context, _ *sessionState,
 	rec store.ToolUseRecord, res store.PutResult,
 ) (marked []core.ToolUseID) {
+	for _, id := range o.supersessionCandidates(ctx, rec, res) {
+		// store.MarkSuperseded takes the OLDER id first: it is the record being flipped, and
+		// rec.ID is what its SupersededBy comes to point at.
+		if markErr := o.opt.Store.MarkSuperseded(ctx, id, rec.ID); markErr != nil {
+			o.soft(stageSupersedeMark, markErr)
+			continue // a record the store refused to mark is not reported as marked
+		}
+		o.count(counterSuperseded)
+		marked = append(marked, id)
+	}
+	return marked
+}
+
+// publishRecord appends rec to the tool_use index together with the supersede marks it authors,
+// and reports whether anything was written.
+//
+// recorded=false with a nil error means the index ALREADY held rec.ID with this exact Root: the
+// record and the marks it authored both landed on an earlier run of this same delivery. It is the
+// single fact the tool path's redelivery absorption turns on, and it is answerable only by the
+// store, because on this path the host's own tool_use_id is the identity and two deliveries
+// carrying it are indistinguishable here.
+//
+// The candidate scan runs BEFORE the record is in the index, which is a real difference from the
+// legacy order and not merely a reshuffle: the lookback window then holds supersessionLookback real
+// priors where the post-write scan saw one fewer plus rec itself, and a record another session
+// appends between the scan and the write is not marked where the post-write MarkSuperseded would
+// have seen it. Both differences are soft and in the safer direction (one more candidate
+// considered; a lost mark, never a wrong one), and both are recorded in SP08-D2's resolution.
+func (o *observer) publishRecord(ctx context.Context, rec store.ToolUseRecord,
+	res store.PutResult, empty bool,
+) (marked []core.ToolUseID, recorded bool, err error) {
+	if o.idx == nil {
+		// No capability: the record alone, and the caller marks afterwards through
+		// detectSupersession. RecordToolUse cannot distinguish a replay from a fresh record, so the
+		// legacy path reports recorded=true and re-runs the pipeline exactly as it does today.
+		return nil, true, o.opt.Store.RecordToolUse(ctx, rec)
+	}
+
+	// An EMPTY result has no chunk set to contain a prior one and no root to compare against, so
+	// the scan could only ever answer "nothing" — at the cost of a per-path index lookup on the
+	// hot path. This is step 8's own skip, moved to where the candidates are now chosen.
+	var older []core.ToolUseID
+	if !empty {
+		older = o.supersessionCandidates(ctx, rec, res)
+	}
+
+	marked, recorded, err = o.idx.RecordToolUseSuperseding(ctx, rec, older)
+	if err != nil {
+		return nil, false, err
+	}
+	// One bump per mark actually written, which is the meaning observer.superseded has always had
+	// and what test/e2e/phase1_exit_test.go reads it as.
+	for range marked {
+		o.count(counterSuperseded)
+	}
+	return marked, recorded, nil
+}
+
+// supersessionCandidates returns the ids of every earlier read of rec.Path that rec makes
+// redundant, MOST RECENT FIRST — the order that makes marked[0] the right value for
+// ObservedTool.Supersedes.
+//
+// It is READ-ONLY: it writes nothing and marks nothing, so it is safe to call before rec itself is
+// in the index, which is what the atomic path does. The p.ID == rec.ID filter is kept for the
+// legacy path, where rec IS already recorded by the time the scan runs.
+func (o *observer) supersessionCandidates(ctx context.Context,
+	rec store.ToolUseRecord, res store.PutResult,
+) (candidates []core.ToolUseID) {
 	// A result with no path is not a read OF anything, a retrieval result is already a
 	// first-eviction candidate (resolved decision 6), and a tool outside the supersession classes
 	// has no notion of "the same content read again".
@@ -114,17 +191,10 @@ func (o *observer) detectSupersession(ctx context.Context, _ *sessionState,
 			continue
 		}
 
-		// store.MarkSuperseded takes the OLDER id first: it is the record being flipped, and
-		// rec.ID is what its SupersededBy comes to point at.
-		if markErr := o.opt.Store.MarkSuperseded(ctx, p.ID, rec.ID); markErr != nil {
-			o.soft(stageSupersedeMark, markErr)
-			continue // a record the store refused to mark is not reported as marked
-		}
-		o.count(counterSuperseded)
-		marked = append(marked, p.ID) // no AddEdge here — see graph.go
+		candidates = append(candidates, p.ID) // no AddEdge here — see graph.go
 	}
 
-	return marked
+	return candidates
 }
 
 // isSuperset reports whether every chunk of older is also present in newer.

@@ -317,6 +317,35 @@ type observer struct {
 	// maxResultBytes is runtime.hotPath.maxPayloadBytes, read once in New.
 	maxResultBytes int
 
+	// idx is opt.Store's store.SupersedingRecorder capability, or nil for a Store without it.
+	//
+	// The assertion is made ONCE, in New, and the nil case is loud rather than silent, because the
+	// path a nil idx falls back to is defect-bearing by design: RecordToolUse followed by one
+	// MarkSuperseded per mark is the 1+N write shape carried defect SP08-D2's second mechanism
+	// lives in. A handler cancelled between the record and its marks leaves a record whose marks
+	// never landed, and the at-least-once redelivery that follows appends those marks alone, behind
+	// a record line that predates the flush.
+	//
+	// Production always has the capability — store.Open returns *FSStore and no production type
+	// wraps store.Store — and internal/daemon's TestWireObserverStoreSupportsSupersedingRecorder
+	// pins that for the real composition.
+	//
+	// What lands on the legacy path is not only this package's fakes, and it is worth being exact
+	// about, because the honest version is a broader claim rather than a narrower one.
+	// store.SupersedingRecorder is deliberately outside §5.8's frozen store.Store interface, which
+	// declares RecordToolUse and MarkSuperseded only — so a type that embeds the store.Store
+	// INTERFACE cannot promote RecordToolUseSuperseding and fails this assertion however real its
+	// backing store is. Every store wrapper in the tree is written that way (internal/daemon's
+	// publicationFaultStore and gatedToolStore, test/e2e's x4RecordingStore, this package's own
+	// fakes), and WireObserver opens a store only when Options.Store is nil, so a wrapper a caller
+	// presets reaches this assertion unchanged. A wrapper that means to keep the atomic path has to
+	// forward the method explicitly.
+	//
+	// That is exactly why a production composition which silently joined them would be invisible:
+	// every unit test would stay green and only the e2e x09 flush arm would go red. The Loud and the
+	// counter New writes are what make that arrival observable instead.
+	idx store.SupersedingRecorder
+
 	// stateFile is <root>/.qompack/state/observer.json.
 	stateFile string
 }
@@ -346,12 +375,24 @@ func New(o Options) (Observer, error) {
 		return nil, fmt.Errorf("observer: New: Clock is required")
 	}
 
-	return &observer{
+	ob := &observer{
 		opt:            o,
 		sess:           make(map[core.SessionID]*sessionState),
 		maxResultBytes: maxResultBytes(o.Cfg),
 		stateFile:      stateFilePath(o.ProjectRoot),
-	}, nil
+	}
+	// The capability is resolved here, not per event: the answer cannot change for a given Store,
+	// and asserting on the hot path would put a type switch inside budget B-C for no benefit. The
+	// absence is ACTED on rather than merely consumed — see the idx field.
+	if idx, ok := o.Store.(store.SupersedingRecorder); ok {
+		ob.idx = idx
+	} else {
+		ob.opt.Log.Loud("observer: store cannot append a tool_use record and its supersede marks as "+
+			"one write; using the separate-writes path, which is carried defect SP08-D2's second "+
+			"mechanism", "store", fmt.Sprintf("%T", o.Store))
+		ob.count(counterLegacySupersede)
+	}
+	return ob, nil
 }
 
 // hotPathMaxPayloadKey is the dotted config path the hot-path payload cap is read from.
