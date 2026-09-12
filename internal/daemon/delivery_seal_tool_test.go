@@ -16,16 +16,24 @@ import (
 )
 
 // toolTestProject builds a project whose two seals are v2 and whose daemon is gone, holding n
-// leases. It returns the project root.
+// leases and one acknowledgement of the first of them. It returns the project root.
 //
 // v2 on disk with no daemon running is what a CRASH leaves: a clean Release downgrades both seals
 // to v1 (closeSeals), and a journal carrying a fault is the state in which it does not. Poisoning
 // the handle reproduces exactly that without killing a process, and it is the state the offline
 // tool exists for — design §4.4's "step 2 to pre-step-1, after a crash or a failed Release".
 //
-// n is at most six: testDeliveryToken repeats one rune, and a delivery token must be lowercase hex.
+// The acknowledgement is what makes the ack side a journal rather than an empty file, and both
+// halves of that matter. A 0-byte acknowledgement journal loads whatever its seal says, so with one
+// the ack SCAN can fail — which is what "--to v1 converts only after a successful full load" is a
+// claim about, the load being both journals — and loadAcksFrom's "every acknowledgement names a
+// surviving lease" check stops being vacuous.
+//
+// n is at least one, and at most six: testDeliveryToken repeats one rune, and a delivery token must
+// be lowercase hex.
 func toolTestProject(t *testing.T, n int) string {
 	t.Helper()
+	require.Positive(t, n, "the fixture acknowledges the first lease, so there must be one")
 
 	root := t.TempDir()
 	lock, err := acquireTestDeliveryLock(root)
@@ -33,11 +41,16 @@ func toolTestProject(t *testing.T, n int) string {
 	lock.sealFormat = 2
 	j, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
+	var first deliveryLease
 	for i := range n {
 		delivery := testDeliveryToken(rune('a' + i))
-		_, err := j.lease(context.Background(), delivery, "s1", testDeliveryRequest(delivery))
+		leased, err := j.lease(context.Background(), delivery, "s1", testDeliveryRequest(delivery))
 		require.NoError(t, err)
+		if i == 0 {
+			first = leased
+		}
 	}
+	require.NoError(t, j.acknowledge(context.Background(), first.Delivery, first.ObservationID, core.Hash{}))
 	_ = j.poison(deliveryJournalError())
 	require.NoError(t, lock.Release())
 	return root
@@ -496,6 +509,12 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.NoError(t, err)
 		require.Contains(t, report, "v2")
 		require.Contains(t, report, "nothing was written")
+		// A full load is BOTH journals, and the report says so of each: the check is not a lease-side
+		// answer with the ack side along for the ride.
+		require.Contains(t, report, "lease journal")
+		require.Contains(t, report, "loads, 2 entries")
+		require.Contains(t, report, "ack journal")
+		require.Contains(t, report, "loads, 1 entries")
 		require.Equal(t, before, toolTestState(t, root), "--check must write nothing")
 
 		report, err = toolTestRun(t, root, DeliverySealOptions{ToV1: true})
@@ -507,7 +526,7 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Equal(t, 2, leasePosition.Count)
 		ackPosition, err := loadDeliveryPosition(ackSeal, deliveryAckChainSeed)
 		require.NoError(t, err, "ack seal: %s", toolTestSeals(t, root))
-		require.Equal(t, 0, ackPosition.Count)
+		require.Equal(t, 1, ackPosition.Count, "the ack seal names the acknowledgement the fixture wrote")
 
 		after := toolTestState(t, root)
 		require.Equal(t, before[deliveryLeaseFile], after[deliveryLeaseFile], "the journals are evidence")
@@ -560,6 +579,48 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Error(t, err)
 		require.Equal(t, before, toolTestState(t, root),
 			"--to v1 converts only after a successful full load")
+	})
+
+	t.Run("refuses to convert either seal when the ACK journal does not load", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		state := paths.Of(root).State
+		acks := filepath.Join(state, deliveryAckFile)
+		info, err := os.Lstat(acks)
+		require.NoError(t, err)
+		require.NoError(t, os.Truncate(acks, info.Size()-1))
+		before := toolTestState(t, root)
+
+		// The lease side loads perfectly well here, and that is the point: "--to v1 converts only
+		// after a successful full load" (design §4.5) is a claim about the pair, because the
+		// acknowledgement scan is what checks every acknowledgement against a surviving lease and so
+		// answers for both. A tool that converted each side as soon as that side alone loaded would
+		// convert this project's lease seal and leave the operator with a repaired half of a project
+		// whose evidence is torn.
+		_, err = toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "ack")
+		require.ErrorContains(t, err, "does not load against that seal")
+		require.Equal(t, before, toolTestState(t, root))
+		require.Len(t, before[deliveryPositionFile], deliverySealFileSize,
+			"the lease seal was never converted: it is still the v2 image")
+	})
+
+	t.Run("refuses an acknowledgement journal whose lease journal is gone", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		state := paths.Of(root).State
+		for _, name := range []string{deliveryLeaseFile, deliveryPositionFile} {
+			require.NoError(t, os.Remove(filepath.Join(state, name)))
+		}
+		acks := readTestFile(t, filepath.Join(state, deliveryAckFile))
+		ackSeal := readTestFile(t, filepath.Join(state, deliveryAckPositionFile))
+
+		// The other half-present refusal: this pair is whole, and the pair its rows name is not
+		// there at all. It is refused one level up from deliverySealPairPresent, because an
+		// acknowledgement journal cannot be scanned without the leases its every row must name.
+		_, err := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.ErrorContains(t, err, "the lease journal its rows name is not")
+		require.Equal(t, acks, readTestFile(t, filepath.Join(state, deliveryAckFile)))
+		require.Equal(t, ackSeal, readTestFile(t, filepath.Join(state, deliveryAckPositionFile)))
 	})
 
 	t.Run("refuses a half-present pair", func(t *testing.T) {
