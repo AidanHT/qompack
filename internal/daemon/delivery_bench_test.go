@@ -383,10 +383,17 @@ func countLeasedDurability(lb *leasedBench) (syncs, batches *atomic.Int64) {
 //
 // The B-C side is the production worker pool — ingest.Start with the daemon's worker count — and
 // the production dispatch: publishCapture's sidecar WriteAtomic, then the handler, stubbed to
-// acknowledge, then commitDelivery's ack-journal write, sync and seal under Lock.mu. So the device
-// and Lock.mu contention a burst meets is today's; only the observer's own reference write (the
-// real handler's work) is left out. After the burst the ring is closed, the workers drain it and
-// are joined, and the benchmark fails unless every delivery holds a lease and an acknowledgement.
+// acknowledge, then commitDelivery's acknowledgement.
+//
+// That acknowledgement no longer runs under Lock.mu: part 2 gave it a group-commit pipeline of its
+// own (ackQ), so its Write, Sync and seal happen between the journal's enter and leave, holding no
+// lock a lease needs. Each side still takes Lock.mu once per delivery, in the journal accessor alone
+// (Lock.openDeliveryJournal's O1 fast path, which for an open journal is in-memory checks), and
+// never across I/O. So what a burst contends for here is the DEVICE — the capture sidecar's
+// WriteAtomic beside the lease and acknowledgement batches' own flushes — rather than one mutex
+// held across all of them; only the observer's real reference write is left out. After the burst
+// the ring is closed, the workers drain it and are joined, and the benchmark fails unless every
+// delivery holds a lease and an acknowledgement.
 //
 // The design also names a paced-closed-loop variant and a with/without-O1 split; they join when
 // the accessor change they compare exists. -daemon.burst lowers N for a smoke run.
