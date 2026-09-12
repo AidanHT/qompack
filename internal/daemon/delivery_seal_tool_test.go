@@ -128,6 +128,118 @@ func requireOpensWithFormat(t *testing.T, root string, wantFormat, wantLeases in
 	require.Len(t, j.leases, wantLeases)
 }
 
+// TestDeliverySealRuleR_AcceptsOnlyOneValidSlotBesideOneTornSlot pins Rule R's narrowness, which is
+// the whole of what makes an operator flag able to accept a position the daemon's own reader
+// refuses (design §2.9, §2.12 X8, §4.5).
+//
+// The load the tool runs afterwards proves that the accepted record seals a real prefix of the
+// journal and that every line past it is canonical. It can never prove that the SLOT PAIR was
+// crash-reachable, and that is the whole of what this function decides. Widened by one clause, Rule
+// R would accept valid(seq 5) beside an empty slot — the stale restore or foreign write selectSeal
+// singles out as the format's one rollback window — and the load would still pass.
+//
+// A slot whose record has the wrong parity, a sum for the other slot, or a sum for the other
+// journal is INVALID rather than valid, so those images are Rule R's to accept, with consent: they
+// are the foreign writes and the media damage it exists for.
+func TestDeliverySealRuleR_AcceptsOnlyOneValidSlotBesideOneTornSlot(t *testing.T) {
+	j := sealTestLease
+	r := sealTestRecordPtr
+	fresh := j.fresh()
+	sumA := func(rec *sealRecord) sealRecord { return j.summed(*rec, sealSlotA) }
+	sumB := func(rec *sealRecord) sealRecord { return j.summed(*rec, sealSlotB) }
+	torn := make([]byte, deliverySealSlotRegion) // a slot of zero bytes, as a hole reads
+	steady := j.image(t, r(3), r(2))
+	pair := j.image(t, r(1), r(2))
+	// position builds two records whose seqs are adjacent but whose positions do not grow, which is
+	// the second way the strict reader refuses an image with two VALID slots.
+	position := func(seq uint64, size int64, count int) *sealRecord {
+		return &sealRecord{Seq: seq, Bytes: size, Count: count, Chain: sealTestChain("position")}
+	}
+
+	t.Run("accepts the valid record beside a torn slot", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			img  []byte
+			want sealRecord
+		}{
+			{"the newest slot is torn", withRegion(steady, sealSlotA, torn), sumB(r(2))},
+			{"the older slot is torn", withRegion(steady, sealSlotB, torn), sumA(r(3))},
+			{"a fresh file whose empty slot was overwritten", withRegion(j.image(t, &fresh, nil), sealSlotB, torn), sumA(&fresh)},
+			{
+				"a slot summed for the other slot: a foreign write",
+				withRegion(pair, sealSlotB, sealRawRegion(t, *r(2), sealSlotA, j.domain)),
+				sumA(r(1)),
+			},
+			{
+				"a slot whose seq has the other slot's parity",
+				withRegion(pair, sealSlotB, sealRawRegion(t, *r(3), sealSlotB, j.domain)),
+				sumA(r(1)),
+			},
+			{
+				"a slot summed for the other journal",
+				withRegion(pair, sealSlotB, sealRawRegion(t, *r(2), sealSlotB, sealTestAck.domain)),
+				sumA(r(1)),
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				j.requireRefused(t, tc.img, "the fixture must be an image the STRICT reader refuses")
+
+				got, err := sealRuleR(tc.img, j.domain, j.seed)
+				require.NoError(t, err)
+				require.Equal(t, tc.want, got, "Rule R takes the valid record and no other")
+			})
+		}
+	})
+
+	t.Run("refuses every image that is not one valid slot beside one torn slot", func(t *testing.T) {
+		for _, tc := range []struct {
+			name string
+			img  []byte
+			// strict is true for the two images the STRICT reader accepts: they never reach Rule R,
+			// and the guard below asks selectSeal for the opposite answer.
+			strict bool
+		}{
+			// The two the strict reader accepts. They never reach Rule R, and they are refused here
+			// too: this function answers for itself, not for its caller's control flow.
+			{"a fresh seq 1 beside an empty slot", j.image(t, &fresh, nil), true},
+			{"two valid slots one seq apart", pair, true},
+			// An empty slot is not damage, and a seq other than 1 beside one is the format's single
+			// rollback window: a stale restore or a foreign write, never a torn write.
+			{"a valid seq 3 beside an empty slot", j.image(t, r(3), nil), false},
+			{"an empty slot beside a valid seq 2", j.image(t, nil, r(2)), false},
+			{"a valid seq 1001 beside an empty slot", j.image(t, r(1001), nil), false},
+			{"both slots empty", sealImageTemplate(), false},
+			// Two valid slots the strict reader refuses. Both records survive, so neither is torn.
+			{"two valid slots with a seq gap", j.image(t, r(1), r(4)), false},
+			{"two valid slots whose older seals as many bytes", j.image(t, position(1, 500, 5), position(2, 500, 6)), false},
+			{"two valid slots whose older seals as many entries", j.image(t, position(1, 500, 5), position(2, 600, 5)), false},
+			{"two valid slots whose older seals more", j.image(t, position(3, 500, 5), position(2, 600, 6)), false},
+			// No valid record to take at all.
+			{"both slots torn", withRegion(withRegion(steady, sealSlotA, torn), sealSlotB, torn), false},
+			{"a torn slot beside an empty one", withRegion(sealImageTemplate(), sealSlotA, torn), false},
+			{"both slots belong to the other journal", sealTestAck.image(t, r(1), r(2)), false},
+			// Not a v2 image at all, which is the v1 reader's business and never Rule R's.
+			{"a v2 image one byte short", steady[:deliverySealFileSize-1], false},
+			{"a static byte changed", withByte(steady, 0, 'x'), false},
+			{"an empty file", nil, false},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				if tc.strict {
+					_, _, err := selectSeal(tc.img, j.domain, j.seed)
+					require.NoError(t, err, "guard: this is one of the two images the strict reader ACCEPTS")
+				} else {
+					j.requireRefused(t, tc.img, "guard: the strict reader must refuse it too")
+				}
+
+				got, err := sealRuleR(tc.img, j.domain, j.seed)
+				require.ErrorIs(t, err, core.ErrDegraded,
+					"accepting this would accept a position no crash can produce")
+				require.Zero(t, got)
+			})
+		}
+	})
+}
+
 // TestDeliveryOfflineTool_SyncsTheJournalItScannedBeforeSealingIt pins the step --to v1 takes
 // between the scan and the seal.
 //

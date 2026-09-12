@@ -458,9 +458,34 @@ func (o DeliverySealOptions) convert(lock *Lock, s *deliverySealSide) error {
 // why it is an operator's decision, taken with consent, against a stopped daemon, and never a
 // reader's.
 //
+// What Rule R does NOT accept is the whole of what makes it offerable, so it is spelled out here
+// and pinned by TestDeliverySealRuleR_AcceptsOnlyOneValidSlotBesideOneTornSlot:
+//
+//   - Two valid slots, whatever the strict reader made of them: a seq gap, or an older record that
+//     seals no less. Both slots survive, so nothing about this image is a torn write, and the one
+//     of them Rule R would have to prefer is a guess.
+//   - Anything beside an EMPTY slot, at any seq. An empty slot is not damage: it is the exact
+//     bytes deliverySealEmpty, which is what a fresh or converted file carries and what a foreign
+//     write or a stale restore can leave beside a much later seq. That is selectSeal's one
+//     documented rollback window, and widening Rule R over it would turn a window into a door.
+//   - Two invalid slots, and two empty ones: there is no valid record to take.
+//   - The images the strict reader ACCEPTS. Those never reach here, and they are refused anyway,
+//     so that this function answers for itself rather than for its caller's control flow.
+//
+// A slot holding a record with the wrong parity, a sum for the other slot, or a sum for the other
+// journal is INVALID, not valid — classifySlot decides validity with sealAdmissible and the sum —
+// so such an image is one valid slot beside one torn slot and Rule R accepts it with consent. That
+// is the rule's own domain: media damage and foreign writes are exactly what it exists to let an
+// operator take responsibility for.
+//
 // image must be a v2 image (isDeliverySealImage), which readDeliverySealImage has already
-// established for every caller here.
+// established for every caller here. The check is repeated anyway, as defense in depth: the slot
+// regions are taken by offset, so a unit that trusted that promise would index past a short slice
+// rather than refuse.
 func sealRuleR(image []byte, domain string, seed core.Hash) (sealRecord, error) {
+	if !isDeliverySealImage(image) {
+		return sealRecord{}, deliveryJournalError()
+	}
 	a, aState := classifySlot(sealSlotA.region(image), sealSlotA, domain, seed)
 	b, bState := classifySlot(sealSlotB.region(image), sealSlotB, domain, seed)
 	switch {
@@ -469,9 +494,6 @@ func sealRuleR(image []byte, domain string, seed core.Hash) (sealRecord, error) 
 	case bState == sealSlotValid && aState == sealSlotInvalid:
 		return b, nil
 	}
-	// Two valid slots the strict reader still refused (a seq gap, a parity violation, an older
-	// record that seals no less), two invalid slots, or an empty slot beside a seq other than 1.
-	// None of those is one valid record beside one torn one, so none of them is Rule R's to accept.
 	return sealRecord{}, deliveryJournalError()
 }
 
