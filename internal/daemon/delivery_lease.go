@@ -930,20 +930,28 @@ func (j *deliveryJournal) closeLocked() error {
 		j.idle.Wait()
 	}
 	j.st.Unlock()
-	// Each handle is dropped once it must never be closed again: the lease handle as soon as its own
-	// Close SUCCEEDS, the acknowledgement handle before its Close is attempted at all. So a retry
-	// after a failed close never closes the same descriptor twice, and a failure of the SECOND close
-	// still leaves the next closeLocked able to reach closeSeals() below — without the drop it
-	// re-closed the already-closed lease handle, got ErrClosed and poisoned again, so the seal
-	// handles stayed open and Release never gave up ownership.
+	// Each handle is dropped BEFORE its own Close is attempted — the lease handle exactly as the
+	// acknowledgement handle already was — so no descriptor is ever closed twice and a retry always
+	// makes progress past the one that failed.
 	//
-	// A failed LEASE close is deliberately still retried: that is what lets a repaired handle close
-	// on a later Release (TestDeliveryJournal_CloseFailureRetainsOwnership).
+	// Retrying a failed Close cannot repair it. Go marks an *os.File closed on its FIRST Close
+	// whatever the syscall returned, so a second Close of the same handle returns os.ErrClosed and
+	// nothing else: a lease handle left in place would poison every later Release at this line and
+	// return before closeSeals() below, for the life of the process. In format 2 that strands the two
+	// held deliverySeal handles open, and Lock.Release goes on refusing to give up ownership ("do not
+	// release singleton ownership with an uncertain writer handle"), so the lock file and its
+	// heartbeat are never removed. Dropping first is what lets the NEXT Release close the
+	// acknowledgement writer and reach the seals
+	// (TestDeliveryJournal_CloseRetryAfterAFailedLeaseCloseReleasesOwnership).
+	//
+	// A failed close still poisons and still RETURNS here, rather than closing the seals in a defer:
+	// design §2.9's Release order is writers, then seals, then the downgrade, and a defer would run
+	// the seals' half before this function's own caller sees the failure. The retry keeps the order.
 	if w := j.writer; w != nil {
+		j.writer = nil
 		if err := w.Close(); err != nil {
 			return j.poison(deliveryJournalError())
 		}
-		j.writer = nil
 	}
 	if w := j.ackWriter; w != nil {
 		j.ackWriter = nil
