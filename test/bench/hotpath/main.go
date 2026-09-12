@@ -487,26 +487,43 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		},
 		Notes: buildNotes(gatedSnap, f.warmDaemon, f.iterations, ledger,
 			append(daemonNotes, beWallNote, ackRTTNote())...),
-		Budgets: []BudgetRow{
-			baRow,
-			bbRow,
-			buildBudgetRow(string(obs.BD), bdSamples.Wall, 0, false),
-			buildBudgetRow(string(obs.BE), beSamples.Wall, beLimit, !f.underCoload),
-			// The co-load-immune half of B-E, gated on the same limit and gated ALWAYS: the same
-			// children's own user+system CPU time, which a shared runner does not move. See
-			// budgetIDBECPU's doc comment (report.go) for the measurements behind that claim, for
-			// why the wall-clock row above cannot be priced from the spawn floor instead, and for
-			// the one thing a CPU clock cannot see.
-			buildBudgetRow(budgetIDBECPU, beSamples.CPU, beLimit, true),
-			// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
-			// budgetIDBASpawnEstimate's own doc comment (report.go).
-			buildBudgetRow(budgetIDBASpawnEstimate, baSamples, 0, false),
-			// The client-side ACK round trip, reported only: design §7.5's slack99 is this row's
-			// p99 minus B-B's. See budgetIDHookAckRTT (report.go).
-			buildBudgetRow(budgetIDHookAckRTT, ackRTT, 0, false),
-		},
+		Budgets: buildBudgetRows(baRow, bbRow,
+			bdSamples.Wall, beSamples.Wall, beSamples.CPU, baSamples, ackRTT, beLimit, !f.underCoload),
 	}
 	return report, nil
+}
+
+// buildBudgetRows assembles the report's budget rows, in the fixed order the artifact publishes
+// them. baRow and bbRow arrive already built, because they come from the daemon's own histograms
+// through the status op rather than from samples this harness timed itself (buildDaemonRows).
+//
+// It is a function rather than a literal inside runHarness so that the row set is testable without
+// a daemon (review round 1, F6). The out.json golden cannot cover it: that fixture pins the JSON
+// shape of a hand-built Report, so a row added to the harness alone never reaches it — which is
+// exactly what happened when budgetIDHookAckRTT was added and the six-row golden went on passing.
+// TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet pins the ids, their order, and which of
+// them carry a limit, so the next row cannot arrive gated by accident either.
+func buildBudgetRows(baRow, bbRow BudgetRow, bdWall, beWall, beCPU, baSpawnEstimate, ackRTT []time.Duration,
+	beLimit time.Duration, gateBEWall bool,
+) []BudgetRow {
+	return []BudgetRow{
+		baRow,
+		bbRow,
+		buildBudgetRow(string(obs.BD), bdWall, 0, false),
+		buildBudgetRow(string(obs.BE), beWall, beLimit, gateBEWall),
+		// The co-load-immune half of B-E, gated on the same limit and gated ALWAYS: the same
+		// children's own user+system CPU time, which a shared runner does not move. See
+		// budgetIDBECPU's doc comment (report.go) for the measurements behind that claim, for
+		// why the wall-clock row above cannot be priced from the spawn floor instead, and for
+		// the one thing a CPU clock cannot see.
+		buildBudgetRow(budgetIDBECPU, beCPU, beLimit, true),
+		// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
+		// budgetIDBASpawnEstimate's own doc comment (report.go).
+		buildBudgetRow(budgetIDBASpawnEstimate, baSpawnEstimate, 0, false),
+		// The client-side ACK round trip, reported only: design §7.5's slack99 is this row's
+		// p99 minus B-B's. See budgetIDHookAckRTT (report.go).
+		buildBudgetRow(budgetIDHookAckRTT, ackRTT, 0, false),
+	}
 }
 
 // buildDaemonRows builds the two rows sourced from the daemon's own histograms via the status op —
