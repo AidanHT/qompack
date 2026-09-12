@@ -1248,3 +1248,25 @@ func TestIngest_WALBatchByteCapCountsEveryTerminator(t *testing.T) {
 	require.Equal(t, []int{lines - 1, 1}, walCapLines(t, reqs),
 		"lines per Write after batch 1: the byte cap, counting each terminator, ends batch 2 one line short")
 }
+
+// The same cap at its other edge: lines that fill it EXACTLY, each terminator counted. The case above
+// fills the cap without the terminators, so it catches an under-count and no over-count: every
+// per-line over-count from 1 to 64 bytes still cuts [255 1], and so does a cap one byte low. Here
+// walGroupCommitMaxBytes/fillLines lines of one byte less than that sum, terminators included, to the
+// cap itself, so all of them commit together and the one past them starts the next batch. An
+// over-count of a single byte gives [255 2] instead, and so do a cap one byte low and a comparison
+// written "<" where walItemSize's total must be admitted at "<=".
+func TestIngest_WALBatchByteCapAdmitsLinesThatFillItExactly(t *testing.T) {
+	const sess = core.SessionID("cap-exact")
+	const fillLines = groupCommitMaxRequests / 2          // under the request cap, so only the byte cap can end a batch
+	const lineSize = walGroupCommitMaxBytes/fillLines - 1 // with its one terminator: walGroupCommitMaxBytes/fillLines
+	require.Equal(t, walGroupCommitMaxBytes, fillLines*(lineSize+1),
+		"the lines fill the byte cap exactly, each terminator counted")
+	require.Less(t, fillLines+1, groupCommitMaxRequests, "one more line than that is still under the request cap")
+	reqs := make([]walReq, fillLines+1)
+	for k := range reqs {
+		reqs[k] = newWALReqOfSize(t, sess, 1+k, lineSize)
+	}
+	require.Equal(t, []int{fillLines, 1}, walCapLines(t, reqs),
+		"lines per Write after batch 1: the cap admits the lines that fill it exactly, and the next one commits in batch 3")
+}
