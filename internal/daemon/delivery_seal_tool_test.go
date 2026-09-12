@@ -605,23 +605,42 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 			"the lease seal was never converted: it is still the v2 image")
 	})
 
-	t.Run("refuses an acknowledgement journal whose lease journal is gone", func(t *testing.T) {
-		root := toolTestProject(t, 2)
-		state := paths.Of(root).State
-		for _, name := range []string{deliveryLeaseFile, deliveryPositionFile} {
-			require.NoError(t, os.Remove(filepath.Join(state, name)))
-		}
-		acks := readTestFile(t, filepath.Join(state, deliveryAckFile))
-		ackSeal := readTestFile(t, filepath.Join(state, deliveryAckPositionFile))
+	// The other half-present refusal: this pair is whole, and the pair its rows name is not there at
+	// all. It is refused one level up from deliverySealPairPresent, because an acknowledgement
+	// journal cannot be scanned without the leases its every row must name.
+	//
+	// The empty case is the one that needs the refusal rather than merely agreeing with it. An
+	// acknowledgement journal with rows fails loadAcksFrom's "every acknowledgement names a
+	// surviving lease" check anyway, against the empty lease map a lease-less scan would leave; a
+	// 0-byte one passes that check vacuously, so without this branch the tool would seal it for a
+	// project that has no lease journal at all.
+	for _, tc := range []struct {
+		name    string
+		prepare func(t *testing.T, state string)
+	}{
+		{"holding an acknowledgement", func(t *testing.T, state string) {}},
+		{"empty, so that nothing else refuses it", func(t *testing.T, state string) {
+			require.NoError(t, os.Truncate(filepath.Join(state, deliveryAckFile), 0))
+			require.NoError(t, createEmptyDeliveryPositionV1(
+				filepath.Join(state, deliveryAckPositionFile), deliveryAckChainSeed))
+		}},
+	} {
+		t.Run("refuses an acknowledgement journal whose lease journal is gone, "+tc.name, func(t *testing.T) {
+			root := toolTestProject(t, 2)
+			state := paths.Of(root).State
+			tc.prepare(t, state)
+			for _, name := range []string{deliveryLeaseFile, deliveryPositionFile} {
+				require.NoError(t, os.Remove(filepath.Join(state, name)))
+			}
+			acks := readTestFile(t, filepath.Join(state, deliveryAckFile))
+			ackSeal := readTestFile(t, filepath.Join(state, deliveryAckPositionFile))
 
-		// The other half-present refusal: this pair is whole, and the pair its rows name is not
-		// there at all. It is refused one level up from deliverySealPairPresent, because an
-		// acknowledgement journal cannot be scanned without the leases its every row must name.
-		_, err := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
-		require.ErrorContains(t, err, "the lease journal its rows name is not")
-		require.Equal(t, acks, readTestFile(t, filepath.Join(state, deliveryAckFile)))
-		require.Equal(t, ackSeal, readTestFile(t, filepath.Join(state, deliveryAckPositionFile)))
-	})
+			_, err := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+			require.ErrorContains(t, err, "the lease journal its rows name is not")
+			require.Equal(t, acks, readTestFile(t, filepath.Join(state, deliveryAckFile)))
+			require.Equal(t, ackSeal, readTestFile(t, filepath.Join(state, deliveryAckPositionFile)))
+		})
+	}
 
 	t.Run("refuses a half-present pair", func(t *testing.T) {
 		root := toolTestProject(t, 1)
