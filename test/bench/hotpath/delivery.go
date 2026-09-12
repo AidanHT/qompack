@@ -85,14 +85,18 @@ func expectedHotPathSends(iterations int, warmDaemonRan bool) int64 {
 }
 
 // harnessHotPathSessions is the set of session ids this harness stamps onto the hot-path requests
-// counted by expectedHotPathSends — baSessionID for every spawned `qompack observe tool` (the
-// hook copies Event.SessionID onto the request, internal/cli/hookclient.go) and warmSessionID for
-// the warm-up's own hot tranche. Filtering the spool census by this set is what keeps a spool
+// it sends — baSessionID for every spawned `qompack observe tool` (the hook copies Event.SessionID
+// onto the request, internal/cli/hookclient.go), warmSessionID for the warm-up's own hot tranche,
+// and ackRTTSessionID for the in-process tranche the hook_ack_rtt row times (measureAckRTT). The
+// first two are the population expectedHotPathSends counts; the third is added to it at
+// runHarness's own call site, since it is no part of that function's pinned contract.
+//
+// Filtering the spool census by this set is what keeps a spool
 // entry that belongs to something else (a pre-existing project spool, a concurrent client, the
 // harness's own admin.ping probes) from being miscounted as one of THIS run's deferrals — which
 // would inflate Deferred and could mask a real loss.
 func harnessHotPathSessions() map[core.SessionID]bool {
-	return map[core.SessionID]bool{baSessionID: true, warmSessionID: true}
+	return map[core.SessionID]bool{baSessionID: true, warmSessionID: true, ackRTTSessionID: true}
 }
 
 // spoolCensus is one read of the project's client-side spool tier.
