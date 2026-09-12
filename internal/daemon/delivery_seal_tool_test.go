@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -125,6 +126,66 @@ func requireOpensWithFormat(t *testing.T, root string, wantFormat, wantLeases in
 	j.st.Lock()
 	defer j.st.Unlock()
 	require.Len(t, j.leases, wantLeases)
+}
+
+// TestDeliveryOfflineTool_SyncsTheJournalItScannedBeforeSealingIt pins the step --to v1 takes
+// between the scan and the seal.
+//
+// The position it seals is the RECOVERED one, which a complete canonical tail past the old seal
+// moves forward — and such a tail is exactly what a crash between the journal's Write and its Sync
+// leaves: visible to every reader, durable to none (design §3, row 5). writeDeliveryPositionV1 goes
+// through paths.WriteAtomic, which makes the seal durable by construction, so a seal written over
+// an unsynced tail can outlive it, and loadFrom then refuses the journal for good.
+//
+// A successful fsync leaves no trace a test in this process can see, so what is asserted here is
+// the guard around it, which is the part that can be wrong: the tool syncs the file its own scan
+// read, at the size that scan ended at, and refuses anything else rather than sealing a tail
+// nothing scanned. It writes nothing through the handle it opens.
+func TestDeliveryOfflineTool_SyncsTheJournalItScannedBeforeSealingIt(t *testing.T) {
+	root := toolTestProject(t, 2)
+	lock, err := acquireTestDeliveryLock(root)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = lock.Release() })
+
+	var out bytes.Buffer
+	o := DeliverySealOptions{ProjectRoot: root, ToV1: true, Out: &out, Clock: newFakeClock(epoch)}
+	state := paths.Of(root).State
+	j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
+	j.ackPath = filepath.Join(state, deliveryAckFile)
+	sides, err := deliverySealSides(j)
+	require.NoError(t, err)
+	require.Len(t, sides, 2, "the fixture has both pairs")
+	for i := range sides {
+		require.NoError(t, o.inspect(&sides[i]))
+	}
+	before := toolTestState(t, root)
+
+	// The ordinary case: both journals the scan read are made durable, and nothing is written.
+	for i := range sides {
+		require.NoError(t, o.syncJournal(&sides[i]))
+	}
+	require.Equal(t, before, toolTestState(t, root), "the sync writes no bytes of its own")
+
+	// A different file at the same size is refused: the recovered position describes the file the
+	// scan read, and a journal replaced since then is not that file.
+	lease := &sides[0]
+	scanned := lease.info
+	twin := filepath.Join(t.TempDir(), deliveryLeaseFile)
+	require.NoError(t, os.WriteFile(twin, readTestFile(t, lease.journal), 0o600))
+	twinInfo, err := os.Lstat(twin)
+	require.NoError(t, err)
+	lease.info = twinInfo
+	require.ErrorIs(t, o.syncJournal(lease), core.ErrDegraded)
+	lease.info = scanned
+
+	// A journal that has grown since the scan is refused too: its tail reaches past the position
+	// this seal would name, which is a journal nobody has loaded.
+	f, err := paths.OpenFile(lease.journal, os.O_WRONLY|os.O_APPEND, 0o600)
+	require.NoError(t, err)
+	_, err = f.Write([]byte("\n"))
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+	require.ErrorIs(t, o.syncJournal(lease), core.ErrDegraded)
 }
 
 // TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock is design §6.2's T31.
