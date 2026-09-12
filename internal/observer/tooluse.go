@@ -163,17 +163,44 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 			}
 		}
 	}
-	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
+	// 6a. The write. The record and every supersede mark it authors land in ONE index write
+	//     (publishRecord). Splitting them is SP08-D2's second mechanism: a handler cancelled between
+	//     the record and its marks leaves a record whose marks never landed, and the at-least-once
+	//     redelivery that follows appends those marks alone, behind a record line that predates the
+	//     flush — a supersede mark with no new record behind it, which x09's flush arm rejects.
+	superseded, recorded, recErr := o.publishRecord(ctx, rec, res, empty)
+	if recErr != nil {
 		return hookio.Empty(), o.unpublished(stageIndex)
 	}
-	// 6a. Publication order's second stage completes here: the reference is joined to the durable
+	// 6b. Publication order's second stage completes here: the reference is joined to the durable
 	//     capture the daemon already made, keyed by this delivery's observation identity. Until this
 	//     link exists there is a capture with no reference and a reference with no capture, and a
 	//     crash between them must resolve to "not published" rather than to a handle that names a
 	//     dependency nothing can produce. A delivery with no identity (an in-process caller, or one
 	//     the daemon could not lease) has no link to make and skips the stage.
+	//
+	//     It runs BEFORE the replay check below on purpose: a first run killed between its record
+	//     and this link left a durable record with no join, and the redelivery completing that join
+	//     is the only thing that can repair it.
 	if err := o.linkObservation(obs, rec); err != nil {
 		return hookio.Empty(), o.unpublished(stageLink)
+	}
+	// 6c. A redelivery the store recognized: the index already holds this record with this root, so
+	//     the marks it authored landed with it and there is nothing left to publish. Everything
+	//     below is DERIVED state of the first run, and recomputing it from the redelivering
+	//     process's view produces wrong data rather than the same data twice — a file version
+	//     appended out of order, sketch and tombstone counts doubled, a DAG edge built from this
+	//     process's predecessor, LastToolUseID moved back to the replayed record. A first run cut
+	//     before one of those soft stages loses it exactly as any soft failure does.
+	//
+	//     Window membership is the one exception, because its correct value after a replay is
+	//     process-independent: "contains this tool use", in any process. Restoring it by id repairs
+	//     a restarted daemon whose next subagent capture would otherwise omit the tool result from
+	//     its hash list, and is a no-op in the process that already has it.
+	if !recorded {
+		o.rememberToolUseOnce(st, rec)
+		o.count(counterRedelivery)
+		return hookio.Empty(), nil
 	}
 	o.rememberToolUse(st, rec)
 
@@ -186,11 +213,13 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 
 	// 8. §8.1 item 3. Every earlier read of this path that this one makes redundant is marked
 	//    SUPERSEDED in the index; graph.go turns marked[0] into ObservedTool.Supersedes and emits
-	//    the tail itself. An EMPTY result is skipped: it has no chunk set to contain a prior one
-	//    and no root to compare against, so the scan could only ever answer "nothing" — at the
-	//    cost of a per-path index lookup on the hot path.
-	var superseded []core.ToolUseID
-	if !empty {
+	//    the tail itself.
+	//
+	//    On a store with the atomic capability the marks already landed, in step 6's single write,
+	//    and superseded already names them. This is the LEGACY path only: a separate MarkSuperseded
+	//    per mark, after the record, which is the interleaving SP08-D2 closes. The EMPTY skip lives
+	//    in publishRecord for the other path and is repeated here for this one.
+	if o.idx == nil && !empty {
 		superseded = o.detectSupersession(ctx, st, rec, res)
 	}
 
