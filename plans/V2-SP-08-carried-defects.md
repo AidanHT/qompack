@@ -290,7 +290,7 @@ real priors where the post-write scan saw one fewer plus the record itself; and 
 session appends between the scan and the write is not marked, where the post-write
 `MarkSuperseded` would have seen it.
 
-**The legacy path is defect-bearing by design, and is reachable only by fakes.**
+**The legacy path is defect-bearing by design, and is reached by wrappers as well as by fakes.**
 `detectSupersession` keeps its §5.21-pinned signature and remains the path for a Store without the
 capability — which is exactly the 1+N write shape this row exists to remove. Production always has
 the capability (`store.Open` returns `*FSStore` and no production type wraps `store.Store`), so the
@@ -298,7 +298,29 @@ absence is made loud rather than silent: `observer.New` asserts once, logs `Loud
 `observer.legacy_supersede_path`, and `TestWireObserverStoreSupportsSupersedingRecorder`
 (`internal/daemon`) pins the real composition. Every observer unit test takes the legacy path, so
 without that pin a wrapper introduced by SP20-D1's group-commit rewrite would leave every unit test
-green and only x09 red, intermittently, under load. Two properties of that signal are worth knowing
+green and only x09 red, intermittently, under load.
+
+This paragraph first said the legacy path was "reachable only by fakes", and review round 2 showed
+that to be false in the direction that matters. `store.SupersedingRecorder` is deliberately outside
+§5.8's frozen `store.Store` interface, so a type embedding that INTERFACE cannot promote
+`RecordToolUseSuperseding`: any wrapper written the ordinary way drops the capability silently,
+however real its backing store is, and `WireObserver` opens a store only when `Options.Store` is
+nil, so a wrapper a test presets reaches the observer unchanged. Three are on that path today —
+`internal/daemon`'s `publicationFaultStore` and `gatedToolStore`, and `test/e2e`'s
+`x4RecordingStore`; x02's and x03's wrappers are not, because they hand the observer a real
+`p.Store(t)`. The sharp edge is `TestObserverPublicationFailureRemainsDrainRetryable`, which
+injects its fault into `RecordToolUse` — the method production no longer calls for a tool result —
+and therefore now passes BECAUSE its wrapper drops the capability. It is left as it is, measuring
+the legacy path deliberately and saying so at the type, and
+`TestObserverAtomicPublicationFailureRemainsDrainRetryable` was added beside it to carry the same
+acknowledgement-boundary property on the path production takes: it forwards the capability, faults
+the atomic write, asserts before the fault that the observer is on that path, and asserts
+`RecordToolUse` is never called for a tool result. `TestStoreWrapperDropsTheSupersedingCapability`
+pins the promotion rule itself, in the package where three such wrappers live. The failure mode the
+paragraph above names for SP20-D1's future wrapper was, in other words, already true in the test
+tree; what was missing was a row measuring the shipped path, and that is now there.
+
+Two properties of that signal are worth knowing
 before reading it: `observer.legacy_supersede_path` is bumped once per observer CONSTRUCTION rather
 than per event, so it is a flag and not a rate, and the `Loud` line beside it is now written by
 every fake-store test in the tree — a future test asserting an exact `LOUD.log` line count while
@@ -312,8 +334,12 @@ recognize it and captures again — now at the next free turn, a duplicate rathe
 capture. No context check sits between the two, so the pre-flush shutdown cannot produce it; only a
 hard kill or `stopCleanupBound` expiry reaches it. Closing it needs the observation-to-id join
 durable before or with the record, which is the same SP-20 contract decision SP08-D3 needs for
-prompts. Three smaller residuals: probe exhaustion (64 consecutive occupied derived ids, reachable
-only by a state file lagging the index by more than a session's worth of captures), the
+prompts. Four smaller residuals: probe exhaustion (64 consecutive occupied derived ids, reachable
+only by a state file lagging the index by more than a session's worth of captures), the probe's own
+window divergence on the TOOL path (it walks the window position while `rememberToolUse` appends
+exactly one entry, so a later mint in the same process can re-derive an id this one just used —
+self-healing for a leased delivery, and for an unleased one the base's collision behaviour, which
+the probe's gate deliberately preserves; the mixed regime needs leasing to fail, SP20-D4), the
 ObservationID precondition above, and a SHORT WRITE on the batched buffer — `os.File.Write` reports
 `n != len(b)` as an error, which surfaces as `ErrUnpublished`, and if the partial bytes already held
 the whole record line the retry sees `recorded=false` and those marks are lost for good. That last
@@ -357,6 +383,21 @@ recorded here rather than left for a reader to infer from "byte-identical". `-ra
 tests reports no data race and no failure, the rapid property test is clean under `-race`, and the
 seven-package sweep (`internal/observer`, `internal/daemon`, `internal/store`,
 `internal/rehydrate`, `internal/checkpoint`, `internal/mcp`, `test/guards`) is green.
+
+**One package is red on this branch, and it is not this change.** The whole `test/integration`
+package reports 30 top-level PASS and one FAIL: `TestIntegration_HotPathWarmWithRealResidentState`
+at budget **B-B** (`l0_ingest`): measured here at n=2064, p50 786.432 ms / p95 917.504 ms /
+p99 983.040 ms against a 2 ms limit, with B-A passing in the same run (p99 4.096 ms against 15 ms).
+It is pre-existing and already on the record — V5-report §22 item 20 gives the same row as "the B-B
+gate stays red, as V4 left it, and no budget was lowered", opened as SP20-D1 (`deferred:V6-VERIFY`)
+— and review round 2 attributed it by measurement rather than by argument: the row was run on this
+branch and on a clean `79a5171` export CONCURRENTLY, so both saw the same host window, and both
+failed with identical quantiles to three decimals while B-A passed on both. B-B is `Accept`'s
+fsyncs, in a daemon file this change does not touch, and the measurement that row judges carries
+the note "B-C not measured in wave 1: the processing seams are stubs"
+(`test/bench/hotpath/measure.go`), so the three file operations this change adds to budget B-C are
+not in that measurement at all. It is recorded here because neither the implementation nor review
+round 1 ran the package whole, and a reader of either would otherwise take it for green.
 
 ## SP08-D3 — a prompt the daemon did not capture live is never verbatim-captured
 
