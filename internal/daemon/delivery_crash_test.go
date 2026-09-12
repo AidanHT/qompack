@@ -429,12 +429,131 @@ type crashRow struct {
 	// to the process that died, not to the disk. A row asserting only the image cannot tell those
 	// two states apart, so every row asserts both.
 	released bool
+	// live is this row's LIVE discriminator, run on the dying process's own root at the instant of
+	// the cut, before any image is restored.
+	//
+	// Four pairs of rows reconstruct ONE crash image between them, and must: the Write and the Sync
+	// of a single extent leave the same durable bytes, because a machine crash takes the page cache
+	// and neither of them returned. W1/W2, L4/L5, K4/K5 and — in format 2 — L6/L7 are those pairs,
+	// and the acknowledgement rows share their image with AK and L8 besides. A table that asserted
+	// only the image would advertise eleven crash states and deliver five per format, each of the
+	// others passing on a twin's evidence.
+	//
+	// What separates them is the live state the dying process left behind: bytes in a file that no
+	// Sync covered, a slot written and not yet flushed, a job still on the ring, a sidecar already
+	// published. It is the same standard `released` already applies to §3 rows 9 and 10, where AK's
+	// durable image IS L8's and the difference is in the process rather than on the disk — there the
+	// live half is memory, here it is a file.
+	//
+	// nil means the row's durable image is its own, and no other row of its format reconstructs it.
+	live func(t *testing.T, r *crashRun, image map[string][]byte)
 	// why names the design's own reading of the row.
 	why string
 }
 
 func (c crashRow) appliesTo(format int) bool {
 	return len(c.formats) == 0 || slices.Contains(c.formats, format)
+}
+
+// The live discriminators. Each one states the fact that separates its row from the row whose
+// durable image is byte for byte its own, and each is read from the dying process's own root.
+
+// liveSize is p's size on the live filesystem. A file the cut left behind always exists: the paths
+// here are opened before the step that is cut, so "the Write never ran" is an EMPTY file, never a
+// missing one, and asserting the size tells those two apart.
+func liveSize(t *testing.T, p string) int64 {
+	t.Helper()
+	info, err := os.Stat(paths.Long(p))
+	require.NoError(t, err, "the cut leaves the file it was writing behind")
+	return info.Size()
+}
+
+// crashWALPath is the live segment of the session every crash-cut delivery carries.
+func crashWALPath(r *crashRun) string {
+	return walPath(paths.Of(r.root).Spool, crashSession, 0)
+}
+
+// liveWALUnwritten is W1's half: the segment is open and holds nothing of the batch, because the
+// Write never ran. TestDeliveryPath_WALCrashCutsLeaveOnlyWhatWasSynced states the same fact on the
+// ingest alone; here it is what makes W1 a different crash state from W2, whose image is identical.
+func liveWALUnwritten(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	synced, held := r.dd.ing.syncedWAL(crashWALPath(r))
+	require.True(t, held, "the ingest still holds the session's segment")
+	require.Zero(t, synced, "no Sync returned, so nothing of the segment is known durable")
+	require.Zero(t, liveSize(t, crashWALPath(r)), "W1: the Write never put a byte in the segment")
+}
+
+// liveWALWrittenNotSynced is W2's: the same segment with the batch's bytes IN it and no Sync that
+// covered them. That is exactly why the image holds no segment at all — the page cache goes with
+// the machine — and exactly why W2's image cannot be told from W1's without this.
+func liveWALWrittenNotSynced(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	synced, held := r.dd.ing.syncedWAL(crashWALPath(r))
+	require.True(t, held, "the ingest still holds the session's segment")
+	require.Zero(t, synced, "no Sync returned, so nothing of the segment is known durable")
+	require.NotZero(t, liveSize(t, crashWALPath(r)), "W2: the Write landed; only the Sync did not")
+}
+
+// liveJournalUnwritten and liveJournalWritten are L4's and L5's, on the lease journal.
+func liveJournalUnwritten(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	require.Zero(t, liveSize(t, r.journal.path), "L4: the batch's Write never reached the journal")
+}
+
+func liveJournalWritten(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	require.NotZero(t, liveSize(t, r.journal.path), "L5: the line is in the file and no Sync covered it")
+}
+
+// liveSealUnwritten is L6's: the seal was cut before it ran, so the position file the process leaves
+// behind is the one its image holds, byte for byte.
+func liveSealUnwritten(t *testing.T, r *crashRun, image map[string][]byte) {
+	t.Helper()
+	require.Equal(t, image[filepath.Join("state", deliveryPositionFile)],
+		readTestFile(t, r.journal.positionPath()),
+		"L6: the seal never ran, so the live position file is still the durable one")
+}
+
+// liveSealSlotWrittenNotFlushed is L7's: the slot's WriteAt landed and its SyncData never returned,
+// so the LIVE file already carries the new record while the image still carries the old one. This is
+// the pair design §3 row 7 turns on — old slot or new slot — and it is invisible in the image.
+func liveSealSlotWrittenNotFlushed(t *testing.T, r *crashRun, image map[string][]byte) {
+	t.Helper()
+	live := readTestFile(t, r.journal.positionPath())
+	require.NotEqual(t, image[filepath.Join("state", deliveryPositionFile)], live,
+		"L7: the slot's bytes are in the file; only the SyncData covering them did not return")
+	effective, older, err := selectSeal(live, deliveryChainDomain, deliveryChainSeed)
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), effective.Seq, "the batch's own seal, written into the slot holding seq-1")
+	require.Equal(t, 1, effective.Count)
+	require.Equal(t, liveSize(t, r.journal.path), effective.Bytes, "it seals the journal the L5 Sync made durable")
+	require.NotNil(t, older)
+	require.Equal(t, uint64(1), older.Seq, "and the open's own seal is untouched beside it")
+}
+
+// liveQueuedNeverWorked is AK's: Accept returned and queued the job, and the machine stopped before
+// the ACK byte. No worker has touched it, so nothing was published — which is what separates AK from
+// K4, whose image is also L8's and which is also `released`.
+func liveQueuedNeverWorked(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	require.Len(t, r.dd.ing.ring, 1,
+		"§3 row 10: Accept returned and queued the job, and the machine stops before the ACK byte")
+	require.Empty(t, sidecarFiles(t, r.root), "no worker ran, so publication order never started")
+}
+
+// liveAckUnwritten and liveAckWritten are K4's and K5's. Both add the fact that separates them from
+// AK: the worker DID run and publication order's first stage is on the disk.
+func liveAckUnwritten(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	require.Len(t, sidecarFiles(t, r.root), 1, "the worker ran and published the capture")
+	require.Zero(t, liveSize(t, r.journal.ackPath), "K4: the acknowledgement's Write never reached the file")
+}
+
+func liveAckWritten(t *testing.T, r *crashRun, _ map[string][]byte) {
+	t.Helper()
+	require.Len(t, sidecarFiles(t, r.root), 1, "the worker ran and published the capture")
+	require.NotZero(t, liveSize(t, r.journal.ackPath), "K5: the record is in the file and no Sync covered it")
 }
 
 // TestDeliveryPath_CrashCutAtEveryStep is T28. Every step of design §3 is cut in turn; the image
@@ -449,44 +568,44 @@ func (c crashRow) appliesTo(format int) bool {
 func TestDeliveryPath_CrashCutAtEveryStep(t *testing.T) {
 	rows := []crashRow{
 		{
-			step: crashW1, opens: true, leases: 0, acks: 0,
-			why: "§3 row 1: nothing of the line reached the WAL, so there is nothing to recover and no identity ever existed",
+			step: crashW1, opens: true, leases: 0, acks: 0, live: liveWALUnwritten,
+			why: "§3 row 1: nothing of the line reached the WAL, so there is nothing to recover and no identity ever existed — W2 reconstructs this same image, and the live segment is what tells the two apart",
 		},
 		{
-			step: crashW2, opens: true, leases: 0, acks: 0,
-			why: "§3 row 2: the line was written and never flushed; a machine crash takes the page cache with it",
+			step: crashW2, opens: true, leases: 0, acks: 0, live: liveWALWrittenNotSynced,
+			why: "§3 row 2: the line was written and never flushed; a machine crash takes the page cache with it, which is why the image is W1's and the live segment is not",
 		},
 		{
-			step: crashL4, opens: true, leases: 0, acks: 0,
+			step: crashL4, opens: true, leases: 0, acks: 0, live: liveJournalUnwritten,
 			why: "§3 row 4: the WAL line is durable and no journal byte precedes the sync that covers it, so the drain leases it fresh — the image a crash anywhere from W3 through the batch's own checkFile (L3) leaves",
 		},
 		{
-			step: crashL5, opens: true, leases: 0, acks: 0,
-			why: "§3 row 5: the journal line was written and never flushed, so the image holds none of it",
+			step: crashL5, opens: true, leases: 0, acks: 0, live: liveJournalWritten,
+			why: "§3 row 5: the journal line was written and never flushed, so the image holds none of it and is L4's; the live journal file is where the difference is",
 		},
 		{
-			step: crashL6, opens: true, leases: 1, acks: 0,
+			step: crashL6, opens: true, leases: 1, acks: 0, live: liveSealUnwritten,
 			why: "§3 row 6: a complete journal tail past the seal is recovered and re-sealed at open, before any caller can reuse it",
 		},
 		{
-			step: crashL7, formats: []int{2}, opens: true, leases: 1, acks: 0,
-			why: "§3 row 7: the slot was written and never flushed, so the OTHER slot is still effective and the tail is recovered past it",
+			step: crashL7, formats: []int{2}, opens: true, leases: 1, acks: 0, live: liveSealSlotWrittenNotFlushed,
+			why: "§3 row 7: the slot was written and never flushed, so the OTHER slot is still effective and the tail is recovered past it — the image is L6's, and the live position file already carries the record the flush never made durable",
 		},
 		{
 			step: crashL8, formats: []int{2}, opens: true, leases: 1, acks: 0,
 			why: "§3 row 8: the new seal is durable and the batch was never released; the identity is recovered as a known nonce",
 		},
 		{
-			step: crashAK, opens: true, leases: 1, acks: 0, released: true,
-			why: "§3 row 10: the lease is durable and no ACK went out, so the client's copy and the WAL copy share one identity — in format 2 the durable image is L8's own, and what makes this a distinct crash state is the live half asserted before it: this batch was released to its caller and L8's never was",
+			step: crashAK, opens: true, leases: 1, acks: 0, released: true, live: liveQueuedNeverWorked,
+			why: "§3 row 10: the lease is durable and no ACK went out, so the client's copy and the WAL copy share one identity — in format 2 the durable image is L8's own, and what makes this a distinct crash state is the live half: this batch was released to its caller, L8's never was, and no worker has touched the job",
 		},
 		{
-			step: crashK4, opens: true, leases: 1, acks: 0, released: true,
-			why: "§3 row 12: the acknowledgement was never written; the lease survives and the delivery is republished under it",
+			step: crashK4, opens: true, leases: 1, acks: 0, released: true, live: liveAckUnwritten,
+			why: "§3 row 12: the acknowledgement was never written; the lease survives and the delivery is republished under it. The image is AK's and L8's; the worker having run and the empty acknowledgement file are what make it its own state",
 		},
 		{
-			step: crashK5, opens: true, leases: 1, acks: 0, released: true,
-			why: "§3 row 12: written and never flushed — the same outcome, since only a returned Sync makes a frontier record",
+			step: crashK5, opens: true, leases: 1, acks: 0, released: true, live: liveAckWritten,
+			why: "§3 row 12: written and never flushed — the same outcome, since only a returned Sync makes a frontier record, and the same image, so the live acknowledgement file carries the difference",
 		},
 		{
 			step: crashK6, opens: true, leases: 1, acks: 1, released: true,
@@ -536,15 +655,15 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 		require.Zero(t, admittedLeases(r.journal),
 			"%s: the batch never completed, so nothing was admitted and nothing was released", row.step)
 	}
-	if row.step == crashAK {
-		// The one row cut between Accept's return and the ACK byte: the job is on the ring and no
-		// worker has touched it. Every other row's deliver() drains the ring before it returns.
-		require.Len(t, r.dd.ing.ring, 1,
-			"§3 row 10: Accept returned and queued the job, and the machine stops before the ACK byte")
-	}
-
 	image := r.image()
 	walRel := r.walRel()
+
+	// The rest of the live half: the fact that separates this row from the row whose durable image
+	// is byte for byte its own (crashRow.live). It is read here, before any image is restored, and
+	// only from the dying process's own root.
+	if row.live != nil {
+		row.live(t, r, image)
+	}
 
 	t.Run("the machine-crash image", func(t *testing.T) {
 		root := restoreCrashImage(t, image)
