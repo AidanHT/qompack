@@ -32,6 +32,7 @@ func All() []Cmd {
 	)
 	cmds = append(cmds, evalCmds()...)
 	cmds = append(cmds, slashCommandCmds()...)
+	cmds = append(cmds, adminCmds()...)
 	for _, ni := range notImplemented {
 		cmds = append(cmds, Cmd{Name: ni.name, Summary: ni.summary, Run: notImplementedRun(ni.name)})
 	}
