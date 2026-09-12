@@ -61,6 +61,21 @@ type Lock struct {
 	released         bool
 	journal          *deliveryJournal
 	journalOpenFault bool
+	// sealFormat is the delivery-seal format the journal this lock opens WRITES. Zero, the only
+	// value production ever has, means the build's own deliverySealWriteFormat. It is the narrow
+	// seam design 4.3 asks for: a test sets it before openDeliveryJournal so that one process can
+	// exercise both formats, and it lives on the lock rather than in a package variable so that
+	// tests running beside each other cannot see one another's choice.
+	sealFormat int
+}
+
+// deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
+// which TestDeliverySeal_WriteFormatIsDeliberate pins, unless a test chose the other one.
+func (l *Lock) deliverySealFormat() int {
+	if l.sealFormat == 0 {
+		return deliverySealWriteFormat
+	}
+	return l.sealFormat
 }
 
 // AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving
