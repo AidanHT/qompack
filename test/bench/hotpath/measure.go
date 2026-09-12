@@ -95,36 +95,68 @@ func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, proje
 // returns a propagating error (its own contract), so every attempt yields a sample and the returned
 // slice has exactly n of them — which is what lets runHarness count them into the delivery ledger.
 //
+// WARM-UP (review round 2): the first ackRTTWarmups requests are sent and DISCARDED. They are on
+// ackRTTSessionID, a session the daemon has never seen, so without them sample #0 paid a session-
+// registry insertion and a WAL segment create on top of the round trip — and at n=64 with
+// nearest-rank percentiles p99 is the maximum sample, so that one sample WAS the number §7.5 sizes
+// the ACK deadline from. See ackRTTWarmups (main.go) for why two, and for why the tranche was not
+// simply made larger instead.
+//
 // ORDERING CONTRACT (review round 1): runHarness must read the status op for the gated B-A and B-B
 // rows BEFORE calling this, and read it a second time afterwards for the ledger's delivered count.
-// These n requests are real hot-path traffic and reach hook_controlled and l0_ingest like any
-// other, but with req.TS stamped in-process microseconds before Send rather than inside a spawned
-// child, so they are sub-millisecond by construction and are not the quantity either gate judges.
-// A percentile that has already been read cannot be pulled by them; a count read afterwards still
-// sees them, which is what keeps a deferral of this tranche's own from passing unnoticed.
+// These requests are real hot-path traffic and reach hook_controlled and l0_ingest like any other,
+// but with req.TS stamped in-process microseconds before Send rather than inside a spawned child,
+// so they are sub-millisecond by construction and are not the quantity either gate judges. A
+// percentile that has already been read cannot be pulled by them; a count read afterwards still
+// sees them, which is what keeps a deferral of this tranche's own from passing unnoticed. The
+// warm-ups are inside this function and therefore inside that window too: they are sent after the
+// gated snapshot and before the ledger's, exactly like the timed samples, and ackRTTTrancheSends is
+// what tells the ledger there are n + ackRTTWarmups of them.
 func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n int) ([]time.Duration, error) {
 	c := newProbeClient(addr, spool, probeConnectDeadline)
 	defer func() { _ = c.Close() }()
+
+	for i := 0; i < ackRTTWarmups; i++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		req, err := ackRTTRequest(projectRoot, -1-i)
+		if err != nil {
+			return nil, fmt.Errorf("hotpath: hook_ack_rtt warm-up #%d: %w", i, err)
+		}
+		_, _ = c.Send(ctx, req, probeAckDeadline) // discarded: never timed, never reported
+	}
 
 	out := make([]time.Duration, 0, n)
 	for i := 0; i < n; i++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		nonce, err := ipc.NewDeliveryNonce()
+		req, err := ackRTTRequest(projectRoot, i)
 		if err != nil {
 			return nil, fmt.Errorf("hotpath: hook_ack_rtt sample #%d: %w", i, err)
-		}
-		ev := observeRTTEvent(ackRTTSessionID, projectRoot, i)
-		req := ipc.Request{
-			Op: ipc.OpObserveTool, Session: ackRTTSessionID, TS: core.NowMilli(core.SystemClock()),
-			Nonce: nonce, Event: &ev,
 		}
 		start := time.Now()
 		_, _ = c.Send(ctx, req, probeAckDeadline)
 		out = append(out, time.Since(start))
 	}
 	return out, nil
+}
+
+// ackRTTRequest is one hook_ack_rtt delivery: the same fixed event B-A's spawns carry, on the row's
+// own session, with a FRESH delivery nonce so it takes a real lease and pays the durable path in
+// full rather than being answered as a redelivery of the one before it. The warm-ups and the timed
+// samples differ in nothing but whether the round trip is kept.
+func ackRTTRequest(projectRoot string, seq int) (ipc.Request, error) {
+	nonce, err := ipc.NewDeliveryNonce()
+	if err != nil {
+		return ipc.Request{}, err
+	}
+	ev := observeRTTEvent(ackRTTSessionID, projectRoot, seq)
+	return ipc.Request{
+		Op: ipc.OpObserveTool, Session: ackRTTSessionID, TS: core.NowMilli(core.SystemClock()),
+		Nonce: nonce, Event: &ev,
+	}, nil
 }
 
 // ackRTTNote is the artifact's own disclosure for the hook_ack_rtt row: what it is for, that it is
@@ -140,9 +172,9 @@ func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, pr
 // is the warm-up's, and buildNotes discloses it with its own computed proportion.
 func ackRTTNote() string {
 	return fmt.Sprintf(
-		"%s is REPORTED, never gated: it is the client-side ACK round trip of %d in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(%s) - p99(%s) over this same run. Its traffic IS real hot-path traffic, so these %d requests do reach the daemon's %s and hook_controlled histograms — but this run reads both of those for the gated %s and %s rows BEFORE the tranche is sent, so none of its samples are inside either gated population, and the %s this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts them into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over %d samples is that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
-		budgetIDHookAckRTT, ackRTTSamples, budgetIDHookAckRTT, obs.BB, ackRTTSamples,
-		budgetHistName(obs.BB), obs.BA, obs.BB, obs.BB, ackRTTSamples)
+		"%s is REPORTED, never gated: it is the client-side ACK round trip of %d in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(%s) - p99(%s) over this same run. The timed samples are preceded by %d DISCARDED warm-up requests on the same session: without them sample #0 paid a session-registry insertion and a WAL segment create on top of the round trip, and at %d samples with nearest-rank percentiles p99 IS the maximum sample, so that one sample became the number the deadline was sized from. Its traffic IS real hot-path traffic, so all %d requests do reach the daemon's %s and hook_controlled histograms — but this run reads both of those for the gated %s and %s rows BEFORE any of the tranche is sent, warm-ups included, so none of it is inside either gated population, and the %s this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts every one of them, warm-ups included, into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over %d samples is still that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+		budgetIDHookAckRTT, ackRTTSamples, budgetIDHookAckRTT, obs.BB, ackRTTWarmups, ackRTTSamples,
+		ackRTTSamples+ackRTTWarmups, budgetHistName(obs.BB), obs.BA, obs.BB, obs.BB, ackRTTSamples)
 }
 
 // fetchStatus round-trips a Reply status request against addr and decodes its

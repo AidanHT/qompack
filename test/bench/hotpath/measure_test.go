@@ -45,6 +45,20 @@ func TestBuildNotes_WarmUpProportionIsComputedNotAsserted(t *testing.T) {
 	}
 }
 
+// TestAckRTTNote_DisclosesTheDiscardedWarmUps is the review-round-2 disclosure regression. The row
+// the ACK deadline is sized from now sends warm-up requests it never times, and the artifact has to
+// say so — both that they exist and that the daemon saw them — or the row's own n and the daemon's
+// histogram counts stop agreeing for a reader who only has the artifact.
+func TestAckRTTNote_DisclosesTheDiscardedWarmUps(t *testing.T) {
+	note := ackRTTNote()
+	require.Contains(t, note, fmt.Sprintf("%d DISCARDED warm-up requests", ackRTTWarmups),
+		"the note must say how many requests are sent and not timed")
+	require.Contains(t, note, fmt.Sprintf("all %d requests", ackRTTSamples+ackRTTWarmups),
+		"and that the daemon's histograms saw every one of them, not just the timed ones")
+	require.Contains(t, note, "BEFORE any of the tranche is sent, warm-ups included",
+		"the round-1 ordering claim must cover the warm-ups too")
+}
+
 // TestBuildNotes_NoWarmUpOmitsTheProportionNote pins the unchanged negative case: no warm-up run,
 // no composition note to compute a proportion for.
 func TestBuildNotes_NoWarmUpOmitsTheProportionNote(t *testing.T) {
