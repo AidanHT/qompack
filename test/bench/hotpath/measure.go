@@ -79,6 +79,58 @@ func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, proje
 	return hotBytes, nil
 }
 
+// measureAckRTT times the client-side ACK round trip of n in-process observe.tool deliveries: the
+// reported-only hook_ack_rtt row (budgetIDHookAckRTT, report.go), from which design §7.5 derives
+// slack99 and therefore the ACK deadline itself.
+//
+// It sends through the SAME ipc.Client every other probe here uses, so a sample is a real connect,
+// a real write, the daemon's own durable Accept and the one-byte ACK coming back — a hook's whole
+// wait, minus only the process spawn B-D already reports separately. Every request carries a FRESH
+// delivery nonce, so each takes a real lease and pays the durable path in full rather than being
+// answered as a redelivery of the one before it.
+//
+// The deadline is this harness's own generous probe deadline rather than the product's
+// AckDeadlineMs, and that is the point: a client that gives up early spools and returns fast, which
+// would measure the deadline instead of the round trip the deadline is being sized from. Send never
+// returns a propagating error (its own contract), so every attempt yields a sample and the returned
+// slice has exactly n of them — which is what lets runHarness count them into the delivery ledger.
+func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n int) ([]time.Duration, error) {
+	c := newProbeClient(addr, spool, probeConnectDeadline)
+	defer func() { _ = c.Close() }()
+
+	out := make([]time.Duration, 0, n)
+	for i := 0; i < n; i++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		nonce, err := ipc.NewDeliveryNonce()
+		if err != nil {
+			return nil, fmt.Errorf("hotpath: hook_ack_rtt sample #%d: %w", i, err)
+		}
+		ev := observeRTTEvent(ackRTTSessionID, projectRoot, i)
+		req := ipc.Request{
+			Op: ipc.OpObserveTool, Session: ackRTTSessionID, TS: core.NowMilli(core.SystemClock()),
+			Nonce: nonce, Event: &ev,
+		}
+		start := time.Now()
+		_, _ = c.Send(ctx, req, probeAckDeadline)
+		out = append(out, time.Since(start))
+	}
+	return out, nil
+}
+
+// ackRTTNote is the artifact's own disclosure for the hook_ack_rtt row: what it is for, that it is
+// never gated, and — in the shape the warm-up disclosure below already uses — the proportion of
+// this run's hot-path population its own traffic forms, computed for the run rather than asserted.
+func ackRTTNote(iterations int, warmDaemonRan bool) string {
+	population := expectedHotPathSends(iterations, warmDaemonRan) + ackRTTSamples
+	pct := 100 * float64(ackRTTSamples) / float64(population)
+	return fmt.Sprintf(
+		"%s is REPORTED, never gated: it is the client-side ACK round trip of %d in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(%s) - p99(%s) over this same run. Its traffic is real hot-path traffic, so these %d requests sit inside the daemon's %s and hook_controlled populations as well — %.1f%% of the %d hot-path requests this run sent — and a p99 over %d samples is that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+		budgetIDHookAckRTT, ackRTTSamples, budgetIDHookAckRTT, obs.BB, ackRTTSamples,
+		budgetHistName(obs.BB), pct, population, ackRTTSamples)
+}
+
 // fetchStatus round-trips a Reply status request against addr and decodes its
 // daemon.StatusSnapshot payload — the harness's only source for B-B, and, per FIX ROUND 1's
 // controller ruling #29, for the gated B-A row too (task-7-spec.md step 8).

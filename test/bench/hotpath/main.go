@@ -25,6 +25,9 @@ const (
 	baSessionID   = core.SessionID("bench-b-a")
 	beSessionID   = core.SessionID("bench-b-e")
 	warmSessionID = core.SessionID("bench-warm")
+	// ackRTTSessionID stamps the in-process observe.tool requests the reported-only hook_ack_rtt
+	// row times (measureAckRTT).
+	ackRTTSessionID = core.SessionID("bench-ack-rtt")
 )
 
 // The fixed iteration counts task-7-spec.md itself names for the two auxiliary measurements: the
@@ -62,6 +65,24 @@ const (
 // traffic to exercise the WAL append path, the session registry and the breach detector's
 // rolling-512-sample ring more than a single sample would.
 const warmHotTranche = 64
+
+// ackRTTSamples is how many round trips the reported-only hook_ack_rtt row times.
+//
+// What the row is for: SP20-D1 design §7.5 derives the ACK deadline as
+// AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(hook_ack_rtt) - p99(B-B). B-B is
+// the daemon's own l0_ingest cost and contains none of the transport; this row is the same delivery
+// measured from OUTSIDE the daemon, so the difference is exactly what the deadline must cover
+// beyond the durable path itself: the pipe read, dispatchOp up to Accept, the ACK write and the
+// client's wake-up.
+//
+// Why it is small, and the cost of that. These are real observe.tool requests: they take real
+// leases and land in the daemon's own l0_ingest AND hook_controlled histograms, which are the
+// populations B-B and the gated B-A read. That is the same contamination FIX ROUND 2's N-1 fixed
+// for the warm-up, so this follows warmHotTranche's own resolution — a small, fixed tranche, with
+// the proportion it forms of each population DISCLOSED in the artifact (ackRTTNote) rather than
+// asserted away. The price is resolution: a p99 over 64 samples is its own top sample, so slack99
+// derived from one run is an estimate, and §7.5's M2 protocol takes the maximum over three runs.
+const ackRTTSamples = 64
 
 // defaultIterations is --iterations's own default. FIX ROUND 1, M-3: this used to alias
 // warmIterations, which meant changing the warm-up count would silently change the default
@@ -129,7 +150,19 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	// 0.576 → 0.768 / 0.704 ms. B-A is the daemon-observed hook_controlled estimate (recvTS −
 	// reqTS + tail allowance): reqTS is stamped inside the spawned hook process, so the interval
 	// contains the child's scheduling wait under co-load, and there is no CPU-time analogue of a
-	// cross-process latency. B-B is the co-load-resistant half and stays gated.
+	// cross-process latency.
+	//
+	// B-B stays gated under this flag, and the reason recorded here for it is now STALE. The
+	// premise was that B-B "contains no process spawn" and so barely moves under co-load, measured
+	// as 0.576 → 0.768 ms above. That measurement predates f6a8691: B-B times ingest.Accept in
+	// full, and since the delivery path became durable that region contains three flushes (the WAL
+	// Sync, the lease journal's Sync and the seal), each of which co-load moves by roughly the
+	// factor the figures above show for everything else. SP20-D1 design §7.6 prices both ways out —
+	// one co-load-sized limit, or ADR 0010's report-and-judge-in-isolation with the co-load-immune
+	// structural gates carrying the invariant — and the choice is the owner's open question Q3.
+	// Until that ruling this flag's behaviour is UNCHANGED: B-B is gated in both shapes, exactly as
+	// it has been. Only the reason above is corrected, so the next reader does not inherit a
+	// premise the durable path retired.
 	fs.BoolVar(&f.underCoload, "under-coload", false,
 		"declare that this run shares its host with unrelated concurrent work (e.g. the whole-tree `go test ./...`), "+
 			"so the wall-clock B-E row and the B-A row are reported instead of gated; B-B and the CPU-time B-E gate are unaffected")
@@ -323,6 +356,12 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		return Report{}, err
 	}
 
+	fmt.Fprintf(stdout, "hotpath: measuring hook ACK round trip (%d x in-process observe.tool)...\n", ackRTTSamples)
+	ackRTT, err := measureAckRTT(ctx, addr, spool, projectRoot, ackRTTSamples)
+	if err != nil {
+		return Report{}, err
+	}
+
 	// FIX ROUND 1, I-2: reconcile delivery before trusting anything the status op reports.
 	// internal/ipc/client.go's Send degrades silently to the spool on a connect timeout, a write
 	// failure, DaemonEnabled==false, or a HotSpool breach — every one of those paths makes the
@@ -351,7 +390,11 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// all — nothing on this path sends flush or admin.drain, and the idle-tick drain is gated on
 	// cfg.Scheduler.Idle.DetectAfterSeconds (120s) of registry silence that a continuous spawn
 	// loop never reaches — but the ordering costs nothing and removes the question.
-	sent := expectedHotPathSends(f.iterations, f.warmDaemon)
+	// The hook_ack_rtt tranche is hot-path traffic like any other, so it is part of the population
+	// the ledger reconciles. It is added HERE rather than inside expectedHotPathSends because that
+	// function's contract — iterations, plus the warm-up's own tranche — is what
+	// TestExpectedHotPathSends pins, and this row is not part of it.
+	sent := expectedHotPathSends(f.iterations, f.warmDaemon) + int64(len(ackRTT))
 	census, err := censusClientSpool(paths.Of(projectRoot).Spool, spool.Path(), harnessHotPathSessions())
 	if err != nil {
 		return Report{}, err
@@ -404,7 +447,8 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		SpawnFloorMs: SpawnFloor{
 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
 		},
-		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger, append(daemonNotes, beWallNote)...),
+		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger,
+			append(daemonNotes, beWallNote, ackRTTNote(f.iterations, f.warmDaemon))...),
 		Budgets: []BudgetRow{
 			baRow,
 			bbRow,
@@ -419,6 +463,9 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 			// The wall-clock, floor-subtracted diagnostic — informational only, never gated. See
 			// budgetIDBASpawnEstimate's own doc comment (report.go).
 			buildBudgetRow(budgetIDBASpawnEstimate, baSamples, 0, false),
+			// The client-side ACK round trip, reported only: design §7.5's slack99 is this row's
+			// p99 minus B-B's. See budgetIDHookAckRTT (report.go).
+			buildBudgetRow(budgetIDHookAckRTT, ackRTT, 0, false),
 		},
 	}
 	return report, nil
@@ -431,8 +478,10 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 // built REPORTED (LimitMs/Pass nil, exactly B-D's shape) and baWallWaivedNote is appended, because
 // reqTS is stamped inside the spawned hook process and a child's scheduling wait on a shared host
 // sits inside the interval with no CPU clock to move the judgement to — see the flag's comment in
-// parseFlags for the measurements. B-B, the daemon's own read-to-WAL-append cost with no process
-// boundary inside it, is gated in both shapes. The shortfall accounting is identical in both
+// parseFlags for the measurements. B-B is gated in both shapes — still true, though no longer for
+// the reason it was written for: it has no process boundary inside it, but it does now contain the
+// durable path's three flushes, which co-load does move (see parseFlags, and design §7.6's Q3).
+// The shortfall accounting is identical in both
 // shapes too: tailAdjustedP99 still counts the missing samples back in and the P99 field carries
 // the same number the gate would have read, so a reported row can be re-judged from the artifact
 // alone.

@@ -135,6 +135,24 @@ const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
 // everywhere.
 const budgetIDBECPU = "B-E_cpu"
 
+// budgetIDHookAckRTT is the client-side ACK round trip: the reported-only row SP20-D1 design §7.5
+// derives the ACK deadline from, as AckDeadlineMs = L0IngestMs + ceil(slack99) with
+// slack99 = p99(hook_ack_rtt) - p99(B-B).
+//
+// It is not one of 00-ARCHITECTURE.md §2.4's budgets and has no obs.Budgets() entry, which is why
+// it is a plain row id here rather than an obs.BudgetID: it names a MEASUREMENT this harness makes,
+// not a budget the product gates. It is never gated — there is no limit to gate it against until
+// the owner sets AckDeadlineMs from it, and gating a row against a number derived from that same
+// row would be circular.
+//
+// What it measures, and why it is the right complement to B-B: B-B (l0_ingest) is the daemon's own
+// cost with none of the transport in it, and this row is the same delivery timed from outside the
+// daemon by a real ipc.Client. The difference is everything the ACK deadline must cover beyond the
+// durable path itself — the pipe read, dispatchOp up to Accept, the ACK write and the client's
+// wake-up. See measureAckRTT (measure.go) for the sampling, and ackRTTSamples (main.go) for why the
+// tranche is small and what that costs the percentile.
+const budgetIDHookAckRTT = "hook_ack_rtt"
+
 // beWallWaivedNote is the artifact's own disclosure for a --under-coload run: the wall-clock B-E
 // row in it is a MEASUREMENT and not a judgement, and a reader must not have to infer that from a
 // null. It names the limit that was not applied and where it still is applied, so a passing
