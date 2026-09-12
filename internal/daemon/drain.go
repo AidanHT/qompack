@@ -52,9 +52,10 @@ const drainStateFile = "drain.json"
 //     ingest.synced at 0, so a segment reopened over bytes an earlier pass consumed answers 0 until
 //     its next Sync returns. Keeping the bound the record already holds is what stops such a pass
 //     from forgetting durable bytes an earlier pass recorded. Every byte below Size was on disk when
-//     some pass read it, so a file that comes back shorter than Size has lost bytes that were
-//     durable, or is another file under the same name, and validateProgress refuses the spool over
-//     it. It never names a byte no pass could read.
+//     some pass of THIS code read it, so a file that comes back shorter than Size has lost bytes that
+//     were durable, or is another file under the same name, and validateProgress refuses the spool
+//     over it. The one weaker case is a record this code did not write, whose Offset the floor cannot
+//     go under: SizeIsRawStat says what that costs and what it does not.
 //   - Offset is how much of the file this drain has consumed: every record below it was dispatched
 //     and acknowledged, or accounted for as a gap, and none of it is ever delivered again. Size is
 //     never recorded below it, so Offset never passes Size, and loadState's refusal of Offset > Size
@@ -66,8 +67,15 @@ const drainStateFile = "drain.json"
 //     what a binary before this one recorded, a held segment's unsynced tail included. Such a Size
 //     must not be kept — keeping it would inherit a bound a legitimate machine crash falls below,
 //     which is the wedge drainFile describes — so the first pass of this code over the file lowers
-//     it to that pass's own durable bound, floored at the consumed offset, and marks the record it
-//     writes. It is the NEGATION of the mark on disk (drainFileRecord.DurableSize), so that the zero
+//     it to that pass's own durable bound, floored at the consumed offset. That floor is not itself
+//     a durable bound: a binary with no durableEnd (develop's drain.go has none) read a held segment
+//     to EOF, so the Offset it recorded can name bytes no Sync ever returned for, and loadState
+//     forbids a Size below Offset. No floor this code can choose lowers the record past that
+//     residual, and the crash that takes those bytes wedges the spool for that one record exactly as
+//     it wedged the binary that wrote it. What the pass does NOT do is call such a Size durable: the
+//     mark is written only when the pass's own bound carries the recorded Size, so the claim is
+//     never laundered, and it is made the first time a bound of this code's own reaches the offset.
+//     It is the NEGATION of the mark on disk (drainFileRecord.DurableSize), so that the zero
 //     value is a record this code wrote and a record carrying no mark — every record older than the
 //     mark itself — is the conservative case.
 type drainFileState struct {
@@ -550,8 +558,16 @@ readLoop:
 	// A record no pass of this code has written is the one exception (drainFileState.SizeIsRawStat):
 	// its Size is a raw stat that may name a held segment's unsynced tail, and keeping THAT would
 	// inherit a bound the machine crash above legitimately falls below, re-creating the wedge. Such a
-	// record is floored at the consumed offset instead — every byte below it was durable when an
-	// earlier pass read it — and the record this pass writes carries the mark from here on.
+	// record is floored at the consumed offset instead. That offset is NOT itself a durable bound: a
+	// binary with no durableEnd (develop's drain.go has none) read a held segment to EOF and recorded
+	// what it consumed, so its Offset can name bytes no Sync ever returned for. Nothing here cures
+	// that — loadState refuses a Size below Offset, so no floor can go lower — and the crash that
+	// takes those bytes wedges the spool for that record exactly as it wedged the binary that wrote
+	// it. What this pass can do is not LAUNDER the claim: the mark it writes says the recorded Size
+	// names durable bytes, so it is set only where the pass's OWN bound carries that Size. A Size
+	// resting on the offset floor of an unmarked record keeps that record's provenance instead, is
+	// therefore still lowerable rather than frozen, and is marked by the first pass whose durable
+	// bound reaches the offset.
 	//
 	// The bytes above the recorded size are pending all the same, so the pass counts them in memory,
 	// as it counts the unread bytes of a file it could not sync.
@@ -560,7 +576,9 @@ readLoop:
 		floor = fs.Size // never below fs.Offset: loadState refuses any record where it is
 	}
 	fs.Size = max(end, floor)
-	fs.SizeIsRawStat = false
+	// end < fs.Size says the floor won, so this Size is not a bound the pass read to: an unmarked
+	// record keeps its provenance, and a marked one was already durable and stays marked.
+	fs.SizeIsRawStat = fs.SizeIsRawStat && end < fs.Size
 	gaps.hold(base, size-fs.Size)
 	if canceled {
 		return count, ctx.Err()
@@ -839,10 +857,14 @@ func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) err
 }
 
 // validateProgress refuses a pass whose progress no longer describes the spool: a file shorter than
-// the bytes its entry names. Both comparisons are against durable bytes only. Size is the largest
-// durable bound any pass has read the file to, and every byte below it was on disk when one of those
-// passes read it, so a file that comes back shorter either lost bytes it had made durable or is a
-// different file under the same name — neither is progress to act on. The unsynced tail a machine
+// the bytes its entry names. Both comparisons are against durable bytes only, for every record this
+// code wrote: Size is the largest durable bound one of its passes has read the file to, and every
+// byte below it was on disk when that pass read it, so a file that comes back shorter either lost
+// bytes it had made durable or is a different file under the same name — neither is progress to act
+// on. A record carrying no durable-size mark is the residual (drainFileState.SizeIsRawStat): its
+// Offset, which its Size can rest on, may name bytes a binary with no durable bound of its own read
+// before any Sync returned for them, and a crash that takes those refuses here as a loss. That
+// refusal is what the binary that wrote such a record already did, and it clears if the bytes return. The unsynced tail a machine
 // crash takes is not in Size, which is what keeps that crash from being read as either (SP20-D1, R9);
 // and Size does not fall back to the consumed offset when a reopened segment's bound does, which is
 // what keeps a truncation of the durable bytes between them from being read as neither.
