@@ -96,6 +96,13 @@ func fsyncDir(dir string) error {
 	return f.Sync()
 }
 
+// SyncDir makes dir's entries durable: the names of the files in it, which on POSIX a file's own
+// fsync does not cover. WriteAtomic syncs its destination's directory this way after its rename. A
+// caller that makes durable a file another process created, and never synced the directory of, needs
+// the same: the daemon's drain, before it consumes a spool file a hook created. Like fsyncDir, it is a
+// no-op on Windows.
+func SyncDir(dir string) error { return fsyncDir(dir) }
+
 // WriteAtomic writes b to p durably and atomically: stage in a temp file under the project's
 // .qompack/tmp (same volume as p by construction), Sync the temp file, Chmod it to perm, Rename
 // it onto p, then fsync p's parent directory. It refuses outright to write a §7.4 protected

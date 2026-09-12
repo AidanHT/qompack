@@ -382,6 +382,8 @@ func TestGroupQueue_FIFOBatchesEachRequestCommittedOnce(t *testing.T) {
 			"a negative estimate counts as zero, so it cannot make room under the byte cap")
 		require.Equal(t, []int{1, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: -1, size: gcTestSize}, 0, 0, 0),
 			"a negative byte cap admits only the head")
+		require.Equal(t, []int{1, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: math.MinInt, size: gcTestSize}, 1, 0, 0),
+			"no negative byte cap, however negative, admits a request behind the head")
 		require.Equal(t, []int{2, 1, 1}, cut(&groupQueue[*gcTestItem]{maxN: 8, maxBytes: 0, size: gcTestSize}, 0, 0, 1, 0),
 			"a zero byte cap admits zero-size requests behind a zero-size head, and nothing behind any other head")
 		require.Equal(t, []int{2, 1}, cut(&groupQueue[*gcTestItem]{maxN: 2, maxBytes: 0}, 5, 5, 5),
