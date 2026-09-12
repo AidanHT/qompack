@@ -263,6 +263,43 @@ func reconcileDelivery(sent, delivered int64, census spoolCensus) (deliveryLedge
 	return l, nil
 }
 
+// gatedLedger scopes a reconciled ledger to the population the daemon's own GATED rows are built
+// from, which is not the whole run's.
+//
+// runHarness reads the status op twice: once before the hook_ack_rtt tranche, for the percentiles
+// the B-A and B-B rows publish, and once after it, for the delivered count the ledger reconciles.
+// The tranche is real hot-path traffic sent between the two, so the full ledger above counts it and
+// the gated histograms do not contain it, and the missing-sample accounting has to be done against
+// the window the gated snapshot actually covers: sent is what this harness had sent by then
+// (expectedHotPathSends' own pinned contract), delivered is that snapshot's own l0_ingest count.
+//
+// The deferrals come from the full ledger, because the spool census reads one directory at one
+// instant and cannot attribute a deferred line to a tranche. It does not need to. Counting a
+// deferral from outside this window against it can only ever make the accounting MORE conservative
+// — a missing sample counted back in as over-budget that was never in the population — never less,
+// and a genuine LOSS is caught by reconcileDelivery over the whole run before this is reached. The
+// Lost check below is kept anyway: it costs nothing and it refuses rather than guesses.
+func gatedLedger(total deliveryLedger, sent, delivered int64) (deliveryLedger, error) {
+	if delivered > sent {
+		return deliveryLedger{}, fmt.Errorf(
+			"hotpath: the daemon's own l0_ingest histogram had observed %d requests before the %s tranche was sent, but this harness had only sent %d by then — some OTHER client is feeding the daemon this run measures, so the gated population is not the one that was measured",
+			delivered, budgetIDHookAckRTT, sent)
+	}
+
+	l := deliveryLedger{Sent: sent, Delivered: delivered, Deferred: total.Deferred}
+	if shortfall := l.Undelivered(); l.Deferred > shortfall {
+		l.Deferred = shortfall
+	}
+	l.Lost = l.Undelivered() - l.Deferred
+
+	if l.Lost > 0 {
+		return deliveryLedger{}, fmt.Errorf(
+			"hotpath: of the %d hot-path requests this harness sent before the %s tranche, the daemon's own l0_ingest histogram observed %d and only %d are accounted for by a deferred request line in the client spool — %d are LOST; refusing to report a Report over a gated population the harness cannot account for",
+			sent, budgetIDHookAckRTT, delivered, l.Deferred, l.Lost)
+	}
+	return l, nil
+}
+
 // hookControlledShortfall reports how many of the ledger's Sent requests are absent from the
 // daemon's hook_controlled population (the series controller ruling #29 made the gated B-A row),
 // and refuses to return a number it cannot explain.

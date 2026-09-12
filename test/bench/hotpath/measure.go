@@ -94,6 +94,14 @@ func warmDaemon(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, proje
 // would measure the deadline instead of the round trip the deadline is being sized from. Send never
 // returns a propagating error (its own contract), so every attempt yields a sample and the returned
 // slice has exactly n of them — which is what lets runHarness count them into the delivery ledger.
+//
+// ORDERING CONTRACT (review round 1): runHarness must read the status op for the gated B-A and B-B
+// rows BEFORE calling this, and read it a second time afterwards for the ledger's delivered count.
+// These n requests are real hot-path traffic and reach hook_controlled and l0_ingest like any
+// other, but with req.TS stamped in-process microseconds before Send rather than inside a spawned
+// child, so they are sub-millisecond by construction and are not the quantity either gate judges.
+// A percentile that has already been read cannot be pulled by them; a count read afterwards still
+// sees them, which is what keeps a deferral of this tranche's own from passing unnoticed.
 func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, projectRoot string, n int) ([]time.Duration, error) {
 	c := newProbeClient(addr, spool, probeConnectDeadline)
 	defer func() { _ = c.Close() }()
@@ -120,15 +128,21 @@ func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, pr
 }
 
 // ackRTTNote is the artifact's own disclosure for the hook_ack_rtt row: what it is for, that it is
-// never gated, and — in the shape the warm-up disclosure below already uses — the proportion of
-// this run's hot-path population its own traffic forms, computed for the run rather than asserted.
-func ackRTTNote(iterations int, warmDaemonRan bool) string {
-	population := expectedHotPathSends(iterations, warmDaemonRan) + ackRTTSamples
-	pct := 100 * float64(ackRTTSamples) / float64(population)
+// never gated, and — the review-round-1 correction — where its own traffic sits relative to the
+// GATED populations.
+//
+// It no longer computes a share of them, because it no longer forms one. The tranche is sent after
+// the snapshot those rows are read from (runHarness's ordering contract, measureAckRTT above), so
+// its share of each gated population is zero and saying so is the honest disclosure. The earlier
+// note computed 64/(expectedHotPathSends+64), which named only its own tranche and never the
+// warm-up's identical 64 that expectedHotPathSends had already folded in — so with --warm-daemon it
+// disclosed half the in-process share. The in-process traffic that IS inside the gated populations
+// is the warm-up's, and buildNotes discloses it with its own computed proportion.
+func ackRTTNote() string {
 	return fmt.Sprintf(
-		"%s is REPORTED, never gated: it is the client-side ACK round trip of %d in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(%s) - p99(%s) over this same run. Its traffic is real hot-path traffic, so these %d requests sit inside the daemon's %s and hook_controlled populations as well — %.1f%% of the %d hot-path requests this run sent — and a p99 over %d samples is that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
+		"%s is REPORTED, never gated: it is the client-side ACK round trip of %d in-process observe.tool deliveries, each with a fresh nonce and a real lease, timed through the same ipc.Client a hook uses. Design §7.5 sizes the ACK deadline from it as AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 = p99(%s) - p99(%s) over this same run. Its traffic IS real hot-path traffic, so these %d requests do reach the daemon's %s and hook_controlled histograms — but this run reads both of those for the gated %s and %s rows BEFORE the tranche is sent, so none of its samples are inside either gated population, and the %s this row is differenced against contains none of its own deliveries. They are reconciled rather than ignored: a second status read after the tranche counts them into the delivery ledger, so a deferral of this tranche's own cannot pass unnoticed. The in-process traffic that does sit inside the gated populations is the warm-up's, disclosed with its own computed proportion. A p99 over %d samples is that set's own top sample, which is why §7.5 takes the maximum across three runs rather than trusting one",
 		budgetIDHookAckRTT, ackRTTSamples, budgetIDHookAckRTT, obs.BB, ackRTTSamples,
-		budgetHistName(obs.BB), pct, population, ackRTTSamples)
+		budgetHistName(obs.BB), obs.BA, obs.BB, obs.BB, ackRTTSamples)
 }
 
 // fetchStatus round-trips a Reply status request against addr and decodes its
