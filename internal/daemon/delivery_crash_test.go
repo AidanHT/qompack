@@ -58,15 +58,23 @@ var crashImageFiles = []string{
 // which has already returned, so a machine crash at any of them leaves byte for byte what a crash
 // at the seal before it leaves — which is what design §3 says in saying of row 9 only "as 8". The
 // table covers them where their image is made, at L8 and at K6, rather than repeating one image
-// under three names and implying three distinct states. The open sequence (O1-O6) and the Release
-// downgrade are covered by TestDeliverySeal_ConversionAndDowngrade and
-// TestDeliveryJournal_RollbackDrillAcrossFormats, which drive those paths directly.
+// under three names and implying three distinct states.
+//
+// L3 (checkFile) is the same case at the other end of the batch. commitLeases runs the check at
+// delivery_lease.go:425 and reaches j.writer.Write only at :445, through appendLeases, so a machine
+// crash inside the check leaves the WAL durable and not one journal byte written — byte for byte
+// the image a crash at L4 leaves, and the §3 row-4 state L4 already asserts. A seam on the Write
+// could only cut once the check had SUCCEEDED, which would name a step it did not reach, so the
+// table states the check's image at L4 rather than claiming a twelfth distinct crash state.
+//
+// The open sequence (O1-O6) and the Release downgrade are covered by
+// TestDeliverySeal_ConversionAndDowngrade and TestDeliveryJournal_RollbackDrillAcrossFormats,
+// which drive those paths directly.
 type crashStep string
 
 const (
 	crashW1 crashStep = "W1 the WAL batch's Write"
 	crashW2 crashStep = "W2 the WAL batch's Sync"
-	crashL3 crashStep = "L3 checkFile, after the WAL is durable"
 	crashL4 crashStep = "L4 the journal Write"
 	crashL5 crashStep = "L5 the journal Sync"
 	crashL6 crashStep = "L6 the seal"
@@ -188,14 +196,15 @@ func (r *crashRun) install() {
 		return nil
 	}
 
-	// L3-L5: the lease journal's per-batch check, Write and Sync, through the journal's own writer
-	// seam. The check is cut by failing the Write's predecessor, so L3 is expressed as "the WAL is
-	// durable and nothing of the journal was touched".
+	// L4-L5: the lease journal's per-batch Write and Sync, through the journal's own writer seam.
+	// The batch's own checkFile (L3) runs before both and has already SUCCEEDED by the time this
+	// seam is reached (delivery_lease.go:425, then :445 through appendLeases), so it is not a cut of
+	// its own; the image a crash inside it leaves is L4's, as crashStep's comment records.
 	file := j.file
 	j.writer = leaseFaultWriter{
 		file: file,
 		write: func(b []byte) (int, error) {
-			if r.stop(crashL3) || r.stop(crashL4) {
+			if r.stop(crashL4) {
 				return 0, errCrashCut
 			}
 			return file.Write(b)
@@ -423,12 +432,8 @@ func TestDeliveryPath_CrashCutAtEveryStep(t *testing.T) {
 			why: "§3 row 2: the line was written and never flushed; a machine crash takes the page cache with it",
 		},
 		{
-			step: crashL3, opens: true, leases: 0, acks: 0,
-			why: "§3 row 4: the WAL line is durable and no journal byte precedes the sync that covers it; the drain leases it fresh",
-		},
-		{
 			step: crashL4, opens: true, leases: 0, acks: 0,
-			why: "§3 row 4: the same, cut one step later — the journal was never written",
+			why: "§3 row 4: the WAL line is durable and no journal byte precedes the sync that covers it, so the drain leases it fresh — the image a crash anywhere from W3 through the batch's own checkFile (L3) leaves",
 		},
 		{
 			step: crashL5, opens: true, leases: 0, acks: 0,
