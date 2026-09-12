@@ -282,7 +282,12 @@ Three guards were added after adversarial review, each with a test and a recorde
    change's authorized docs scope is the SP08-D2 row, this section and SP08-D3's acceptance item 4,
    so the line on SP20-D4's row was not written. The code is safe either way — G3 removes the
    cross-session and cross-op cases, nonces are 256-bit `crypto/rand`, and `lease` refuses a known
-   token whose session or request hash differs — so this is a routing risk, not a defect.
+   token whose session or request hash differs — so this is a routing risk, not a defect. **One
+   ruling should cover both routing items of this class.** The second is `plans/V5-report.md` §21's
+   row for this defect (about line 623): it still reads `deferred:V6-VERIFY` and still describes the
+   defect in the present tense, which now contradicts `plans/CARRIED-DEFECTS.tsv`'s `fixed`, and
+   V5-report is the document a reader reaches for the wave's status. It is named here rather than
+   edited because it lives on `verify/v5-final`, whose close-out addendum is written separately.
 
 **Two behaviour differences that are not parity**, both soft and both in the safer direction: the
 supersession scan now runs BEFORE the record is in the index, so it sees `supersessionLookback`
@@ -379,10 +384,16 @@ flush carries a non-zero `Root`, and before this change a Stop sidecar never car
 capture object appearing during the flush could only be excused by an index line the flush wrote.
 The direction only ever admits MORE witnesses, so no x09 assertion becomes reachable that was not
 before, and the product behaviour is right — that is the field's documented meaning — but it is
-recorded here rather than left for a reader to infer from "byte-identical". `-race -count=20` over the observer, store and daemon
-tests reports no data race and no failure, the rapid property test is clean under `-race`, and the
-seven-package sweep (`internal/observer`, `internal/daemon`, `internal/store`,
-`internal/rehydrate`, `internal/checkpoint`, `internal/mcp`, `test/guards`) is green.
+recorded here rather than left for a reader to infer from "byte-identical". That same byte-identity
+also leaves `test/e2e/v3_x09_test.go`'s own comment block (lines 275-281) deliberately stale — it
+still describes SP08-D2 as live and names the SubagentStop count below it as what catches it —
+because keeping the flush arm byte-identical is what both the acceptance text and owner decision 4
+require, and a comment-only commit correcting it is available if the reviewer wants one.
+
+`-race -count=20` over the observer, store and daemon tests reports no data race and no failure,
+the rapid property test is clean under `-race`, and the seven-package sweep (`internal/observer`,
+`internal/daemon`, `internal/store`, `internal/rehydrate`, `internal/checkpoint`, `internal/mcp`,
+`test/guards`) is green.
 
 **One package is red on this branch, and it is not this change.** The whole `test/integration`
 package reports 30 top-level PASS and one FAIL: `TestIntegration_HotPathWarmWithRealResidentState`
