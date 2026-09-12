@@ -208,6 +208,106 @@ the acknowledged-copy path that produced every observed instance is closed.
 **Acceptance (V6).** Both observer sites idempotent under a reused lease, the evidence test
 inverted to assert one record and no inverted mark, and the e2e x09 flush arm unchanged.
 
+**Resolution (V6).** Both sites are closed, in `internal/observer` and `internal/store` only: no
+daemon production file changed, no persisted format changed, and no id spelling changed —
+`SubagentCaptureID` is still `subagent_<session>_<turn>`, and a redelivery mints nothing at all.
+
+- *Site 1, the re-captured Stop.* `captureSubagent` asks whether this delivery already published a
+  capture before it mints anything. The join is the capture sidecar the daemon writes before every
+  dispatch: the Stop path now completes publication order's second stage (`LinkCaptureReference`)
+  as the tool path always did, so a redelivery finds the reference its first run stamped, adopts
+  the turn of the record it found, counts `observer.redelivery_absorbed`, and returns — no second
+  blob, no second record, no second turn consumed.
+- *Site 2, the replayed read.* `RecordToolUseSuperseding`, reached through the new narrow
+  `store.SupersedingRecorder` capability (the shape `RefCounter` already uses, so §5.8's frozen
+  `Store` interface is untouched), appends a tool_use record and one supersede mark per surviving
+  candidate in ONE `appendFile.write`. "A record whose marks never landed" stops being a state a
+  cancelled handler can leave, and a replay — same id, same root — writes nothing at all, marks
+  included. That also removes the inverted mark, because a replay never re-runs supersession and so
+  can never admit a record newer than the content being replayed.
+
+Three guards were added after adversarial review, each with a test and a recorded negative control:
+
+1. **Derived ids are minted against the index, not the counter.** Two Stops of one session can be
+   in flight at once — the ingest pool has at least two workers and the transport ACK is written
+   before a worker touches the job — so the turn a process holds may already be taken, and minting
+   blind soft-drops the capture: four Stop events, three records. The probe is bounded
+   (`derivedTurnProbe`, 64, counted under `observer.derived_turn_exhausted` when exhausted) and
+   **gated on a leased identity**, so an in-process caller keeps today's behaviour and
+   `TestOnStop_CaptureIsDeterministic` still holds.
+2. **A derived TOOL id is adopted only when the prior record's root matches this delivery's.**
+   Without the check, a legitimately different root (a changed canonicalization config, a different
+   payload cap, a moved truncation boundary) adopts an id it cannot record: `ErrAppendOnly` →
+   `ErrUnpublished` → the drain breaks its read loop without advancing the offset, and that line is
+   retried forever with the rest of the spool file behind it. On a mismatch the handler falls
+   through to a freshly probed id, keeping the base's self-healing duplicate instead of converting
+   it into a permanent stall.
+3. **The sidecar must describe THIS delivery**, its `Session` and `Op` checked against the event
+   being handled. This rule promotes the ObservationID from evidence to a precondition for whether
+   a capture is written at all, so it now depends on an invariant nothing enforces mechanically:
+   **an ObservationID is never reused for a different delivery, and a sidecar outlives its
+   delivery's redelivery window.** `core.NewObservationID` is `H(session‖arrival)` over a dense
+   per-session counter that nothing retires today, and SP20-D4 is the row whose fix would restart
+   those counters — a retention or compaction pass must preserve this invariant or retire the
+   sidecars along with the leases. The benign direction is worth stating too: if a future GC prunes
+   sidecars, recognition degrades to a miss, which is today's duplicate rather than a swallowed
+   capture.
+
+**Two behaviour differences that are not parity**, both soft and both in the safer direction: the
+supersession scan now runs BEFORE the record is in the index, so it sees `supersessionLookback`
+real priors where the post-write scan saw one fewer plus the record itself; and a record another
+session appends between the scan and the write is not marked, where the post-write
+`MarkSuperseded` would have seen it.
+
+**The legacy path is defect-bearing by design, and is reachable only by fakes.**
+`detectSupersession` keeps its §5.21-pinned signature and remains the path for a Store without the
+capability — which is exactly the 1+N write shape this row exists to remove. Production always has
+the capability (`store.Open` returns `*FSStore` and no production type wraps `store.Store`), so the
+absence is made loud rather than silent: `observer.New` asserts once, logs `Loud` and counts
+`observer.legacy_supersede_path`, and `TestWireObserverStoreSupportsSupersedingRecorder`
+(`internal/daemon`) pins the real composition. Every observer unit test takes the legacy path, so
+without that pin a wrapper introduced by SP20-D1's group-commit rewrite would leave every unit test
+green and only x09 red, intermittently, under load.
+
+**Residual, handed to SP08-D3 (its acceptance item 4).** A process kill between a derived-id record
+and its sidecar link leaves the record durable and the sidecar unlinked, so the redelivery cannot
+recognize it and captures again — now at the next free turn, a duplicate rather than a soft-dropped
+capture. No context check sits between the two, so the pre-flush shutdown cannot produce it; only a
+hard kill or `stopCleanupBound` expiry reaches it. Closing it needs the observation-to-id join
+durable before or with the record, which is the same SP-20 contract decision SP08-D3 needs for
+prompts. Two smaller residuals: probe exhaustion (64 consecutive occupied derived ids, reachable
+only by a state file lagging the index by more than a session's worth of captures) and the
+ObservationID precondition above.
+
+**Cost, alongside SP08-D1.** `captureSubagent` gains a `ReadCaptureSidecar` at the top and a
+`LinkCaptureReference` at the end (itself a second read plus a `WriteAtomic`): three file
+operations per SubagentStop, inside budget B-C, whose row SP08-D1 is still `deferred:V6-VERIFY`.
+The recognition read is skipped entirely for a delivery with no identity, so the in-process path
+pays nothing, and the read path trades 1+N index writes for one.
+
+**Evidence.** The evidence test keeps its name and was inverted: it now asserts one SubagentStop
+record, no line appended by either redelivery, and no inverted mark, while still asserting the
+daemon's half — each cut delivery dispatched a second time under the identity it was first
+assigned. It FAILS on the pre-fix base `79a5171`, where the redelivery appends exactly the two
+defect lines: `{"op":"supersede","id":"toolu_sp08d2_later","by":"toolu_sp08d2_first"}` (an older
+read superseding a newer record) and a second `subagent_<session>_1` record for one Stop event.
+Deterministic coverage: a cancellation sweep over every context-check point of a read and of a Stop
+× {same process, restart with a persisted turn, restart with none}, asserting the flush arm's own
+mark rules over the lines each redelivery appended; a `pgregory.net/rapid` property test over
+generated sessions; and eleven negative controls, one per guard, each scored CAUGHT only on a real
+failure signature.
+
+The x09 co-load protocol ran each e2e iteration beside a detached `go test ./internal/store/`,
+which is the load that lets the pre-flush shutdown cancel an `observe.*` between the observer's
+append and `commitDelivery`. On the pre-fix base `79a5171` the defect **reproduced**: 6 green and 1
+red in 7 runs, the red at `v3_x09_test.go:369` — "index/tool_use.jsonl must hold exactly one
+SubagentStop record per Stop event after the flush", expected 4, actual 5, which is site 1's
+phantom capture. On this branch the same protocol ran **12 times, 12 green, 0 red**. The x09 flush
+arm itself is byte-identical to the base. `-race -count=20` over the observer, store and daemon
+tests reports no data race and no failure, the rapid property test is clean under `-race`, and the
+seven-package sweep (`internal/observer`, `internal/daemon`, `internal/store`,
+`internal/rehydrate`, `internal/checkpoint`, `internal/mcp`, `test/guards`) is green.
+
 ## SP08-D3 — a prompt the daemon did not capture live is never verbatim-captured
 
 **Symptom.** G2.3's verbatim prompt capture (`observer.OnUserPrompt`) runs only on the live reply
@@ -288,7 +388,22 @@ this row fails neither, so it is counted and pinned now and resolved with SP08-D
    checkpoint seeding records which turn it took the original from.
 3. A HotSpool ruling: exempt `observe.prompt` from the client-side short-circuit, or accept
    capture-by-drain once item 1 lands.
-4. SP08-D2 closed in the same reviewed change, since it needs the same identity helper.
+4. SP08-D2 is closed (V6) and ships the identity helper this item needs, in
+   `internal/observer/identity.go`: `observationRecord` (the record a delivery already published,
+   read from its capture sidecar and confirmed against the index, with the session and op checks),
+   `linkObservation` (publication order's second stage for any record), `freeDerivedTurn` (a
+   bounded probe for a derived id the index does not already hold) and `adoptTurn`. The prompt
+   capture links its sidecar after its record and consults `observationRecord` before minting
+   `VerbatimPromptID`, so a replayed or redelivered prompt records nothing — that is item 1's "one
+   prompt record per ObservationID", for the capture half. Whether a prompt may SKIP an occupied
+   turn is this row's ruling and not SP08-D2's: `freeDerivedTurn` is deliberately applied to
+   SubagentStop and the derived tool id only, because probing past an occupied `prompt_<s>_0` is
+   precisely this row's own silent substitution and `internal/rehydrate` needs turn 0 specifically.
+   SP08-D2's residual also lands here: a process kill between a derived-id record and its sidecar
+   link leaves a record the redelivery cannot recognize, and closing it — for prompts and
+   SubagentStop alike — means making the observation-to-id join durable before or with the record
+   (a sidecar reservation, or an additive `obs` field on the index file's compact record), which is
+   an SP-20 contract decision.
 5. The evidence test inverted; the replay pin in `internal/daemon/prompt_record_test.go` ("a
    replayed observe.prompt must not record the prompt twice") rewritten to one record per
    ObservationID; X1's index promise restored to 65 or reconciled against the counter.
