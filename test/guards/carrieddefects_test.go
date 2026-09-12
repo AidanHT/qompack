@@ -328,14 +328,15 @@ func testExistsAnywhere(t *testing.T, root, fn string) bool {
 		if errors.As(err, &exit) {
 			stderr = strings.TrimSpace(string(exit.Stderr))
 		}
+		// stdout too: a listing binary that is killed or panics reports there, with stderr empty.
 		t.Fatalf("listing the module's tests failed, so this guard cannot say whether %s exists.\n\n"+
-			"  cd %s && go test -run '^$' -list '^%s$' ./...\n  %v\n\n%s\n\n"+
+			"  cd %s && go test -run '^$' -list '^%s$' ./...\n  %v\n\nstderr:\n%s\n\nstdout:\n%s\n\n"+
 			"This is a BUILD/LISTING failure. It is NOT evidence that %s is absent, and it is NOT "+
 			"evidence that the defect naming it was fixed: one package that does not compile makes "+
 			"`go test -list ./...` exit non-zero with nothing usable on stdout, whatever the state "+
 			"of the package the test actually lives in. Fix the build and run this guard again — do "+
 			"not change any row in %s on the strength of this failure.",
-			fn, root, fn, err, stderr, fn, carriedDefectsPath)
+			fn, root, fn, err, stderr, strings.TrimSpace(string(out)), fn, carriedDefectsPath)
 	}
 	for _, line := range strings.Split(string(out), "\n") {
 		if strings.TrimSpace(line) == fn {

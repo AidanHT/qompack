@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/canon"
@@ -596,13 +597,24 @@ func TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites(t *testing.T) {
 	t.Logf("phase A: %d idle ticks completed concurrently with the writers", phaseATicks)
 
 	// Every event must reach the binding; stragglers that fell back to the spool are picked up
-	// by the drain task of the ticks this loop keeps firing.
-	require.Eventually(t, func() bool {
+	// by the drain task of the ticks this loop keeps firing. assert, not require: on a timeout the
+	// test still fails, but first says how far the events got and what the last replay reported.
+	if !assert.Eventually(t, func() bool {
 		cdwTick(t, d)
 		sample()
 		return binding.observedCount() == cdwTotalEvents
 	}, cdwPhaseBound, cdwPollTick,
-		"not every event reached the ObserveTool binding (see the drain path, §2.4)")
+		"not every event reached the ObserveTool binding (see the drain path, §2.4)") {
+		binding.mu.Lock()
+		got := binding.calls
+		binding.mu.Unlock()
+		var gaps daemon.DrainGapState
+		if gr, ok := d.(daemon.GapReporter); ok {
+			gaps = gr.DrainGaps()
+		}
+		t.Fatalf("after %v: %d of %d events observed (%d binding calls); Send errors: %v; last drain gaps: %+v",
+			cdwPhaseBound, binding.observedCount(), cdwTotalEvents, got, sendErrs.snapshot(), gaps)
+	}
 	require.Empty(t, sendErrs.snapshot(), "no Send may fail hard")
 	require.Empty(t, taskErrs.snapshot(), "no binding call and no idle GC/Compact may fail")
 	require.Positive(t, idleWork.reportCount(), "store.GC must have run on the idle ticks")
