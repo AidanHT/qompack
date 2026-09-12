@@ -54,8 +54,9 @@ const drainStateFile = "drain.json"
 //     from forgetting durable bytes an earlier pass recorded. Every byte below Size was on disk when
 //     some pass of THIS code read it, so a file that comes back shorter than Size has lost bytes that
 //     were durable, or is another file under the same name, and validateProgress refuses the spool
-//     over it. The one weaker case is a record this code did not write, whose Offset the floor cannot
-//     go under: SizeIsRawStat says what that costs and what it does not.
+//     over it. The weaker cases are both a record this code did not write: the floor cannot go under
+//     such a record's Offset, and a mark of this code's can come to rest on that same Offset rather
+//     than on a Sync of its own. SizeIsRawStat says what each costs and what it does not.
 //   - Offset is how much of the file this drain has consumed: every record below it was dispatched
 //     and acknowledged, or accounted for as a gap, and none of it is ever delivered again. Size is
 //     never recorded below it, so Offset never passes Size, and loadState's refusal of Offset > Size
@@ -75,6 +76,13 @@ const drainStateFile = "drain.json"
 //     it wedged the binary that wrote it. What the pass does NOT do is call such a Size durable: the
 //     mark is written only when the pass's own bound carries the recorded Size, so the claim is
 //     never laundered, and it is made the first time a bound of this code's own reaches the offset.
+//     "The pass's own bound" is durableEnd's, and that is a Sync of this code's everywhere except
+//     for a file with nothing unread (size <= offset), where durableEnd returns the stat and syncs
+//     nothing: an inherited record whose Offset already equals the stat is therefore marked with no
+//     Sync of this code behind it, on a bound that rests on the inherited offset. It costs nothing
+//     and changes no refusal — the mark can only be written that way where Size == Offset, and
+//     validateProgress compares BOTH against the stat, so the refusal is identical either way and
+//     the two floors coincide from then on.
 //     It is the NEGATION of the mark on disk (drainFileRecord.DurableSize), so that the zero
 //     value is a record this code wrote and a record carrying no mark — every record older than the
 //     mark itself — is the conservative case.
@@ -103,6 +111,16 @@ type drainState map[string]*drainFileState
 // json.Unmarshal, which drops unknown fields) and drops it again when it rewrites the record — so a
 // downgrade returns the record to the raw-stat meaning that binary's own Size has, rather than
 // leaving a mark behind that would outlive the code that honoured it.
+//
+// What that costs is worth meeting here rather than inferring: the FORMAT survives a downgrade
+// unchanged, and the PROTECTION does not. The record an older binary rewrites is byte-identical to a
+// genuine pre-mark one, so the next pass of this code reads it as a raw stat and floors at the
+// consumed offset — and the recorded bound then falls to that offset the first time a reopened
+// segment answers a lower durableEnd. For that record the truncation window this mark closes is open
+// again, until a bound of this code's own reaches its offset and re-marks it: one pass by an older
+// binary surrenders the protection, and the defect it repairs reopens for as long as the record
+// stays unmarked. Nothing distinguishes the two records, and trusting an unmarked Size is the wedge
+// the mark exists to prevent, so the downgrade-then-upgrade cycle is accepted at that price.
 type drainFileRecord struct {
 	Size   int64 `json:"size"`
 	Offset int64 `json:"offset"`
@@ -573,7 +591,9 @@ readLoop:
 	// names durable bytes, so it is set only where the pass's OWN bound carries that Size. A Size
 	// resting on the offset floor of an unmarked record keeps that record's provenance instead, is
 	// therefore still lowerable rather than frozen, and is marked by the first pass whose durable
-	// bound reaches the offset.
+	// bound reaches the offset. That bound is durableEnd's, which syncs nothing for a file with
+	// nothing unread, so the mark is also written where the pass's bound merely EQUALS the inherited
+	// offset; drainFileState.SizeIsRawStat says why that case costs nothing.
 	//
 	// The bytes above the recorded size are pending all the same, so the pass counts them in memory,
 	// as it counts the unread bytes of a file it could not sync.
@@ -639,8 +659,11 @@ readLoop:
 // segment rotated away or closed by this daemon, one a crashed process left with lines it never
 // synced still in the page cache, or a client-*.ndjson spool, which the hook client never fsyncs. The
 // pass's first such sync is followed by one of the spool directory, whose entries a file's fsync does
-// not cover on POSIX. A file with nothing unread is not synced at all. An error means the file's sync
-// or the directory's failed, and nothing of the file may be consumed.
+// not cover on POSIX. A file with nothing unread is not synced at all: the stat is returned as it
+// stands, so a pass over an INHERITED record whose Offset already equals the stat writes the durable
+// mark over a bound no Sync of this code covered (drainFileState.SizeIsRawStat says why that is
+// harmless — it happens only where Size == Offset, which validateProgress checks either way). An
+// error means the file's sync or the directory's failed, and nothing of the file may be consumed.
 //
 // The bound returned is not by itself what the pass records as the file's size: drainFileState.Size
 // is the larger of this bound and the one the record already holds, so its progress names only bytes
