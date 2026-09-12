@@ -156,8 +156,55 @@ func (o *observer) mainAgentStop(ctx context.Context, st *sessionState, now core
 //
 // The ordering matters in one place beyond the obvious: the record, the DAG node, the id and the
 // capture's own Turn field are all minted from the PRE-increment st.Turn, so they agree with each
-// other, and only then does the turn advance (resolved decision 4).
+// other, and only then does the turn advance (resolved decision 4). Step 0's turn resolution runs
+// BEFORE the blob is built for exactly that reason — it moves st.Turn, so it has to move it while
+// the four still agree.
 func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Event, now core.UnixMilli) {
+	// 0. SP08-D2, the identity rule. A SubagentStop payload carries no tool_use_id, so the record's
+	//    id is DERIVED from this process's turn counter — which a redelivery re-derives differently
+	//    (0 on a fresh daemon, or the restored turn) and so writes a second capture for one host
+	//    event. Both halves of the rule are here:
+	//
+	//    (a) Recognition. If this observation already published a capture, absorb the redelivery:
+	//        no blob, no record, no DAG, no second turn consumed. The session still advances past
+	//        the record that was found, or the next Stop would re-mint the id just recognized.
+	//
+	//        Three pieces of bookkeeping every OTHER exit of this function performs are deliberately
+	//        skipped here, because this delivery is not a new host event — it is one already
+	//        observed, arriving again:
+	//
+	//          - st.SubagentSince stays put. The window closed on the first run; re-closing it now
+	//            would drop every tool use that arrived since from the NEXT capture's hash list,
+	//            which is the G10.1 detail the capture exists for.
+	//          - st.LastTS stays put, so it keeps naming the last HOST event. Advancing it would
+	//            claim the event happened at the redelivery's instant — minutes later, at flush
+	//            time — and §6.6's GapSeconds, measured against it, would understate the real idle
+	//            gap before the next event. In this process the first run already set it correctly.
+	//          - the DAG is not flushed, because an absorbed redelivery adds no node and no edge.
+	//
+	//        TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock pins the first two.
+	obs := ObservationFrom(ctx)
+	if prior, ok := o.observationRecord(ctx, obs, e.SessionID, opObserveStop); ok {
+		adoptTurn(st, prior)
+		o.count(counterRedelivery)
+		return
+	}
+	//    (b) Collision-aware minting, for a delivery nobody has published yet. Recognition cannot
+	//        help there, and the turn this process holds may already be spoken for: two Stops of one
+	//        session can be in flight together (the worker pool has at least two workers and the
+	//        transport ACK is written before a worker touches the job), so turns are taken in an
+	//        order that is not the WAL's. Minting blind into an occupied turn makes RecordToolUse
+	//        answer ErrAppendOnly and the capture is soft-dropped — one host event, no record.
+	//        Gated on a leased identity: an in-process caller has no delivery to lose, and
+	//        TestOnStop_CaptureIsDeterministic pins that it keeps re-minting the SAME id.
+	if obs != "" {
+		if t, found := o.freeDerivedTurn(ctx, int(st.Turn), func(i int) core.ToolUseID {
+			return SubagentCaptureID(e.SessionID, core.TurnIndex(i))
+		}); found {
+			st.Turn = core.TurnIndex(t)
+		}
+	}
+
 	// 1-2. Who produced this, and what prose the parent's context received.
 	agent := subagentName(e)
 	summary := subagentSummary(e)
@@ -215,12 +262,24 @@ func (o *observer) captureSubagent(ctx context.Context, st *sessionState, e Even
 	// 6. The index entry, at the pre-increment turn and under the derived id.
 	id := SubagentCaptureID(e.SessionID, st.Turn)
 	digest, preview := store.ArgsDigest(subagentArgs(agent, summary))
-	o.soft(stageIndex, o.opt.Store.RecordToolUse(ctx, store.ToolUseRecord{
+	rec := store.ToolUseRecord{
 		ID: id, Session: e.SessionID, Turn: st.Turn, TS: now, Tool: subagentStop,
 		ArgsDigest: digest, ArgsPreview: preview,
 		Root: res.Root.Hash, Bytes: int64(len(blob)), Tokens: tok,
-		Status: store.StatusOK, Subagent: agent,
-	}))
+		Status: store.StatusOK, Subagent: agent, Observation: obs,
+	}
+	if err := o.opt.Store.RecordToolUse(ctx, rec); err != nil {
+		o.soft(stageIndex, err)
+	} else {
+		// 6a. Publication order's second stage, which the Stop path did not previously complete:
+		//     the reference joined to the capture sidecar this delivery already made durable. It is
+		//     what step 0 recognizes a redelivery BY, so without it a Stop can only ever be
+		//     re-captured. It stays SOFT here, unlike the tool path's: a Stop that reaches this line
+		//     has already stored its blob and its record, and refusing the delivery over a failed
+		//     link would redeliver a capture that is durably published — trading a missing join for
+		//     a duplicate capture, which is the defect this closes.
+		o.soft(stageLink, o.linkObservation(obs, rec))
+	}
 
 	// 7. §8.1 item 4. This is the one node set SP-08 still builds by hand — a subagent capture is
 	//    not a transcript tool call, so there is no dag.Observed* shape for it — but the ids still

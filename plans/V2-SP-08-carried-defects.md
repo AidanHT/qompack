@@ -208,6 +208,208 @@ the acknowledged-copy path that produced every observed instance is closed.
 **Acceptance (V6).** Both observer sites idempotent under a reused lease, the evidence test
 inverted to assert one record and no inverted mark, and the e2e x09 flush arm unchanged.
 
+**Resolution (V6).** Both sites are closed, in `internal/observer` and `internal/store` only: no
+daemon production file changed, no persisted format changed, and no id spelling changed —
+`SubagentCaptureID` is still `subagent_<session>_<turn>`, and a redelivery mints nothing at all.
+
+- *Site 1, the re-captured Stop.* `captureSubagent` asks whether this delivery already published a
+  capture before it mints anything. The join is the capture sidecar the daemon writes before every
+  dispatch: the Stop path now completes publication order's second stage (`LinkCaptureReference`)
+  as the tool path always did, so a redelivery finds the reference its first run stamped, adopts
+  the turn of the record it found, counts `observer.redelivery_absorbed`, and returns — no second
+  blob, no second record, no second turn consumed. Three pieces of per-event bookkeeping are
+  deliberately NOT re-run there, because a redelivery is not a new host event but one already
+  observed: `st.LastTS` keeps naming the last HOST event (advancing it to the redelivery's instant
+  would make §6.6's `GapSeconds` understate the real idle gap, and in-process the first run already
+  set it correctly), `st.SubagentSince` stays where the first run closed the window (re-closing it
+  would drop every tool use that arrived since from the next capture's hash list, the G10.1 detail
+  the capture exists for), and the DAG is not flushed because an absorbed redelivery adds no node.
+  `TestRedelivery_AbsorbedStopDoesNotRestampTheSessionClock` pins the first two.
+- *Site 2, the replayed read.* `RecordToolUseSuperseding`, reached through the new narrow
+  `store.SupersedingRecorder` capability (the shape `RefCounter` already uses, so §5.8's frozen
+  `Store` interface is untouched), appends a tool_use record and one supersede mark per surviving
+  candidate in ONE `appendFile.write`. "A record whose marks never landed" stops being a state a
+  cancelled handler can leave, and a replay — same id, same root — writes nothing at all, marks
+  included. That also removes the inverted mark, because a replay never re-runs supersession and so
+  can never admit a record newer than the content being replayed.
+
+  Two different windows close there and they are worth keeping apart, because "one index write" is
+  the wrong shorthand for half of it. What closes SP08-D2's CANCELLATION window is the single **ctx
+  check** — one check instead of 1+N, made before any write and before the index is consulted, so a
+  cancelled call is indistinguishable from one that never ran. What the single **write** closes is
+  only the CRASH/IO window between the record and its marks. The distinction is not academic: split
+  `RecordToolUseSuperseding` into two appends while keeping the one ctx check and the entire
+  `internal/observer` package stays green — both cancellation sweeps, the inverted-mark test and the
+  rapid property test included — because the line ORDER is unchanged. The write-level property has
+  exactly two guards in the tree, both in `internal/store`:
+  `TestRecordToolUseSuperseding_RecordAndItsMarksAreOneWrite` and
+  `..._SkipsCandidatesThatAreNotMarkable`. Anyone touching that function should treat them as the
+  only thing standing between a regression and a silent return to the 1+N shape.
+
+Three guards were added after adversarial review, each with a test and a recorded negative control:
+
+1. **Derived ids are minted against the index, not the counter.** Two Stops of one session can be
+   in flight at once — the ingest pool has at least two workers and the transport ACK is written
+   before a worker touches the job — so the turn a process holds may already be taken, and minting
+   blind soft-drops the capture: four Stop events, three records. The probe is bounded
+   (`derivedTurnProbe`, 64, counted under `observer.derived_turn_exhausted` when exhausted) and
+   **gated on a leased identity**, so an in-process caller keeps today's behaviour and
+   `TestOnStop_CaptureIsDeterministic` still holds. The probe concludes "taken" only from a nil
+   error and "free" only from `ErrNotFound`; a store that cannot ANSWER — `core.ErrDegraded` from a
+   closed store, through `FSStore.ToolUse`'s `s.use()` guard — stops the probe and is counted apart
+   under `observer.derived_turn_probe_unanswered`. Folding the two would make a degraded store
+   report itself as 64 consecutive occupied ids and send an operator to the state file, which is the
+   one place the cause is not; the fallback is identical either way.
+2. **A derived TOOL id is adopted only when the prior record's root matches this delivery's.**
+   Without the check, a legitimately different root (a changed canonicalization config, a different
+   payload cap, a moved truncation boundary) adopts an id it cannot record: `ErrAppendOnly` →
+   `ErrUnpublished` → the drain breaks its read loop without advancing the offset, and that line is
+   retried forever with the rest of the spool file behind it. On a mismatch the handler falls
+   through to a freshly probed id, keeping the base's self-healing duplicate instead of converting
+   it into a permanent stall.
+3. **The sidecar must describe THIS delivery**, its `Session` and `Op` checked against the event
+   being handled. This rule promotes the ObservationID from evidence to a precondition for whether
+   a capture is written at all, so it now depends on an invariant nothing enforces mechanically:
+   **an ObservationID is never reused for a different delivery, and a sidecar outlives its
+   delivery's redelivery window.** `core.NewObservationID` is `H(session‖arrival)` over a dense
+   per-session counter that nothing retires today, and SP20-D4 is the row whose fix would restart
+   those counters — a retention or compaction pass must preserve this invariant or retire the
+   sidecars along with the leases. The benign direction is worth stating too: if a future GC prunes
+   sidecars, recognition degrades to a miss, which is today's duplicate rather than a swallowed
+   capture. **This invariant is recorded in the wrong place and needs an owner ruling to move.** It
+   belongs on SP20-D4's own row, which is the row whose retention or compaction fix would restart
+   the per-session arrival counter; stated only here, its owner has no reason to read it. This
+   change's authorized docs scope is the SP08-D2 row, this section and SP08-D3's acceptance item 4,
+   so the line on SP20-D4's row was not written. The code is safe either way — G3 removes the
+   cross-session and cross-op cases, nonces are 256-bit `crypto/rand`, and `lease` refuses a known
+   token whose session or request hash differs — so this is a routing risk, not a defect. **One
+   ruling should cover both routing items of this class.** The second is `plans/V5-report.md` §21's
+   row for this defect (about line 623): it still reads `deferred:V6-VERIFY` and still describes the
+   defect in the present tense, which now contradicts `plans/CARRIED-DEFECTS.tsv`'s `fixed`, and
+   V5-report is the document a reader reaches for the wave's status. It is named here rather than
+   edited because it lives on `verify/v5-final`, whose close-out addendum is written separately.
+
+**Two behaviour differences that are not parity**, both soft and both in the safer direction: the
+supersession scan now runs BEFORE the record is in the index, so it sees `supersessionLookback`
+real priors where the post-write scan saw one fewer plus the record itself; and a record another
+session appends between the scan and the write is not marked, where the post-write
+`MarkSuperseded` would have seen it.
+
+**The legacy path is defect-bearing by design, and is reached by wrappers as well as by fakes.**
+`detectSupersession` keeps its §5.21-pinned signature and remains the path for a Store without the
+capability — which is exactly the 1+N write shape this row exists to remove. Production always has
+the capability (`store.Open` returns `*FSStore` and no production type wraps `store.Store`), so the
+absence is made loud rather than silent: `observer.New` asserts once, logs `Loud` and counts
+`observer.legacy_supersede_path`, and `TestWireObserverStoreSupportsSupersedingRecorder`
+(`internal/daemon`) pins the real composition. Every observer unit test takes the legacy path, so
+without that pin a wrapper introduced by SP20-D1's group-commit rewrite would leave every unit test
+green and only x09 red, intermittently, under load.
+
+This paragraph first said the legacy path was "reachable only by fakes", and review round 2 showed
+that to be false in the direction that matters. `store.SupersedingRecorder` is deliberately outside
+§5.8's frozen `store.Store` interface, so a type embedding that INTERFACE cannot promote
+`RecordToolUseSuperseding`: any wrapper written the ordinary way drops the capability silently,
+however real its backing store is, and `WireObserver` opens a store only when `Options.Store` is
+nil, so a wrapper a test presets reaches the observer unchanged. Three are on that path today —
+`internal/daemon`'s `publicationFaultStore` and `gatedToolStore`, and `test/e2e`'s
+`x4RecordingStore`; x02's and x03's wrappers are not, because they hand the observer a real
+`p.Store(t)`. The sharp edge is `TestObserverPublicationFailureRemainsDrainRetryable`, which
+injects its fault into `RecordToolUse` — the method production no longer calls for a tool result —
+and therefore now passes BECAUSE its wrapper drops the capability. It is left as it is, measuring
+the legacy path deliberately and saying so at the type, and
+`TestObserverAtomicPublicationFailureRemainsDrainRetryable` was added beside it to carry the same
+acknowledgement-boundary property on the path production takes: it forwards the capability, faults
+the atomic write, asserts before the fault that the observer is on that path, and asserts
+`RecordToolUse` is never called for a tool result. `TestStoreWrapperDropsTheSupersedingCapability`
+pins the promotion rule itself, in the package where three such wrappers live. The failure mode the
+paragraph above names for SP20-D1's future wrapper was, in other words, already true in the test
+tree; what was missing was a row measuring the shipped path, and that is now there.
+
+Two properties of that signal are worth knowing
+before reading it: `observer.legacy_supersede_path` is bumped once per observer CONSTRUCTION rather
+than per event, so it is a flag and not a rate, and the `Loud` line beside it is now written by
+every fake-store test in the tree — a future test asserting an exact `LOUD.log` line count while
+building an observer over a non-`FSStore` store would newly fail.
+`TestE2E_BloomCorruptionRecovery`, which asserts exactly one `LOUD.log` line, passes: the real
+composition hands the observer an `*FSStore`, which satisfies the capability.
+
+**Residual, handed to SP08-D3 (its acceptance item 4).** A process kill between a derived-id record
+and its sidecar link leaves the record durable and the sidecar unlinked, so the redelivery cannot
+recognize it and captures again — now at the next free turn, a duplicate rather than a soft-dropped
+capture. No context check sits between the two, so the pre-flush shutdown cannot produce it; only a
+hard kill or `stopCleanupBound` expiry reaches it. Closing it needs the observation-to-id join
+durable before or with the record, which is the same SP-20 contract decision SP08-D3 needs for
+prompts. Four smaller residuals: probe exhaustion (64 consecutive occupied derived ids, reachable
+only by a state file lagging the index by more than a session's worth of captures), the probe's own
+window divergence on the TOOL path (it walks the window position while `rememberToolUse` appends
+exactly one entry, so a later mint in the same process can re-derive an id this one just used —
+self-healing for a leased delivery, and for an unleased one the base's collision behaviour, which
+the probe's gate deliberately preserves; the mixed regime needs leasing to fail, SP20-D4), the
+ObservationID precondition above, and a SHORT WRITE on the batched buffer — `os.File.Write` reports
+`n != len(b)` as an error, which surfaces as `ErrUnpublished`, and if the partial bytes already held
+the whole record line the retry sees `recorded=false` and those marks are lost for good. That last
+loss is soft (a missing supersede mark, never a wrong one and never a duplicate record), is not
+x09-visible, and on a regular file is essentially unreachable; it is the torn-batch residual's
+retry-shaped sibling.
+
+**Cost, alongside SP08-D1.** `captureSubagent` gains a `ReadCaptureSidecar` at the top and a
+`LinkCaptureReference` at the end (itself a second read plus a `WriteAtomic`): three file
+operations per SubagentStop, inside budget B-C, whose row SP08-D1 is still `deferred:V6-VERIFY`.
+The recognition read is skipped entirely for a delivery with no identity, so the in-process path
+pays nothing, and the read path trades 1+N index writes for one.
+
+**Evidence.** The evidence test keeps its name and was inverted: it now asserts one SubagentStop
+record, no line appended by either redelivery, and no inverted mark, while still asserting the
+daemon's half — each cut delivery dispatched a second time under the identity it was first
+assigned. It FAILS on the pre-fix base `79a5171`, where the redelivery appends exactly the two
+defect lines: `{"op":"supersede","id":"toolu_sp08d2_later","by":"toolu_sp08d2_first"}` (an older
+read superseding a newer record) and a second `subagent_<session>_1` record for one Stop event.
+Deterministic coverage: a cancellation sweep over every context-check point of a read and of a Stop
+× {same process, restart with a persisted turn, restart with none}, asserting the flush arm's own
+mark rules over the lines each redelivery appended; a `pgregory.net/rapid` property test over
+generated sessions; and eleven negative controls, one per guard, each scored CAUGHT only on a real
+failure signature.
+
+The x09 co-load protocol ran each e2e iteration beside a detached `go test ./internal/store/`,
+which is the load that lets the pre-flush shutdown cancel an `observe.*` between the observer's
+append and `commitDelivery`. On the pre-fix base `79a5171` the defect **reproduced**: 6 green and 1
+red in 7 runs, the red at `v3_x09_test.go:369` — "index/tool_use.jsonl must hold exactly one
+SubagentStop record per Stop event after the flush", expected 4, actual 5, which is site 1's
+phantom capture. On this branch the same protocol ran **12 times, 12 green, 0 red**. The x09 flush
+arm itself is byte-identical to the base — but that is a fact about the FILE, and one assertion in
+it is marginally weaker than it was. Because the Stop path now completes the link, an `observe.stop`
+sidecar carries a verified reference for the first time, so it participates in x09's object-witness
+rule: `x9FlushWitnesses` credits an object when a capture sidecar whose bytes changed during the
+flush carries a non-zero `Root`, and before this change a Stop sidecar never carried one, so a
+capture object appearing during the flush could only be excused by an index line the flush wrote.
+The direction only ever admits MORE witnesses, so no x09 assertion becomes reachable that was not
+before, and the product behaviour is right — that is the field's documented meaning — but it is
+recorded here rather than left for a reader to infer from "byte-identical". That same byte-identity
+also leaves `test/e2e/v3_x09_test.go`'s own comment block (lines 275-281) deliberately stale — it
+still describes SP08-D2 as live and names the SubagentStop count below it as what catches it —
+because keeping the flush arm byte-identical is what both the acceptance text and owner decision 4
+require, and a comment-only commit correcting it is available if the reviewer wants one.
+
+`-race -count=20` over the observer, store and daemon tests reports no data race and no failure,
+the rapid property test is clean under `-race`, and the seven-package sweep (`internal/observer`,
+`internal/daemon`, `internal/store`, `internal/rehydrate`, `internal/checkpoint`, `internal/mcp`,
+`test/guards`) is green.
+
+**One package is red on this branch, and it is not this change.** The whole `test/integration`
+package reports 30 top-level PASS and one FAIL: `TestIntegration_HotPathWarmWithRealResidentState`
+at budget **B-B** (`l0_ingest`): measured here at n=2064, p50 786.432 ms / p95 917.504 ms /
+p99 983.040 ms against a 2 ms limit, with B-A passing in the same run (p99 4.096 ms against 15 ms).
+It is pre-existing and already on the record — V5-report §22 item 20 gives the same row as "the B-B
+gate stays red, as V4 left it, and no budget was lowered", opened as SP20-D1 (`deferred:V6-VERIFY`)
+— and review round 2 attributed it by measurement rather than by argument: the row was run on this
+branch and on a clean `79a5171` export CONCURRENTLY, so both saw the same host window, and both
+failed with identical quantiles to three decimals while B-A passed on both. B-B is `Accept`'s
+fsyncs, in a daemon file this change does not touch, and the measurement that row judges carries
+the note "B-C not measured in wave 1: the processing seams are stubs"
+(`test/bench/hotpath/measure.go`), so the three file operations this change adds to budget B-C are
+not in that measurement at all. It is recorded here because neither the implementation nor review
+round 1 ran the package whole, and a reader of either would otherwise take it for green.
+
 ## SP08-D3 — a prompt the daemon did not capture live is never verbatim-captured
 
 **Symptom.** G2.3's verbatim prompt capture (`observer.OnUserPrompt`) runs only on the live reply
@@ -288,7 +490,22 @@ this row fails neither, so it is counted and pinned now and resolved with SP08-D
    checkpoint seeding records which turn it took the original from.
 3. A HotSpool ruling: exempt `observe.prompt` from the client-side short-circuit, or accept
    capture-by-drain once item 1 lands.
-4. SP08-D2 closed in the same reviewed change, since it needs the same identity helper.
+4. SP08-D2 is closed (V6) and ships the identity helper this item needs, in
+   `internal/observer/identity.go`: `observationRecord` (the record a delivery already published,
+   read from its capture sidecar and confirmed against the index, with the session and op checks),
+   `linkObservation` (publication order's second stage for any record), `freeDerivedTurn` (a
+   bounded probe for a derived id the index does not already hold) and `adoptTurn`. The prompt
+   capture links its sidecar after its record and consults `observationRecord` before minting
+   `VerbatimPromptID`, so a replayed or redelivered prompt records nothing — that is item 1's "one
+   prompt record per ObservationID", for the capture half. Whether a prompt may SKIP an occupied
+   turn is this row's ruling and not SP08-D2's: `freeDerivedTurn` is deliberately applied to
+   SubagentStop and the derived tool id only, because probing past an occupied `prompt_<s>_0` is
+   precisely this row's own silent substitution and `internal/rehydrate` needs turn 0 specifically.
+   SP08-D2's residual also lands here: a process kill between a derived-id record and its sidecar
+   link leaves a record the redelivery cannot recognize, and closing it — for prompts and
+   SubagentStop alike — means making the observation-to-id join durable before or with the record
+   (a sidecar reservation, or an additive `obs` field on the index file's compact record), which is
+   an SP-20 contract decision.
 5. The evidence test inverted; the replay pin in `internal/daemon/prompt_record_test.go` ("a
    replayed observe.prompt must not record the prompt twice") rewritten to one record per
    ObservationID; X1's index promise restored to 65 or reconciled against the counter.
