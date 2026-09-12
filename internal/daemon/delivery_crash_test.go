@@ -707,7 +707,16 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 
 	// The torn variants of the extent that was in flight at the cut. A torn journal tail refuses the
 	// open outright (the evidence is preserved), and so does a torn v2 slot: strict, never a misread.
-	for name, torn := range tornVariants(image, walRel, format, row.leases) {
+	variants := tornVariants(t, image, walRel, format, row.leases)
+	// The variants a row must have whatever it is cut at. The WAL and journal ones depend on the
+	// row (an extent a row never wrote has nothing to tear), but the two slot variants do not: a
+	// format-2 image always holds a v2 seal, so a row that produced neither would have lost them to
+	// a regression in the selection they are built on and would pass on whatever remained.
+	if format == 2 {
+		require.Contains(t, variants, "the v2 slot the next seal targets")
+		require.Contains(t, variants, "the v2 seal's effective slot")
+	}
+	for name, torn := range variants {
 		t.Run("torn: "+name, func(t *testing.T) {
 			// The variant must actually have torn the extent it names. A tear that silently did
 			// nothing — a slot whose value is too short to halve, an extent absent from the image —
@@ -797,7 +806,13 @@ type tornImage struct {
 // recovered is the identity count the row's own image recovers, which a torn WAL line does not
 // change: the journal's identities come from delivery-leases.jsonl, and the WAL is only where a
 // delivery's BYTES live.
-func tornVariants(image map[string][]byte, walRel string, format, recovered int) map[string]tornImage {
+//
+// Every precondition it reads is REQUIRED rather than skipped past. The seal variants in particular
+// are built from what selectSeal makes of the untorn image, which is the very function they exist to
+// test: behind a silent `if err == nil` a regression that refused a VALID image would drop both
+// torn-slot variants from every format-2 row and leave the suite green.
+func tornVariants(t *testing.T, image map[string][]byte, walRel string, format, recovered int) map[string]tornImage {
+	t.Helper()
 	out := map[string]tornImage{}
 	leaseRel := filepath.Join("state", deliveryLeaseFile)
 
@@ -829,27 +844,28 @@ func tornVariants(image map[string][]byte, walRel string, format, recovered int)
 		// that is the slot design §3 row 7 puts in doubt. Tearing a fixed slot a tore the EFFECTIVE
 		// record every time (a fresh seal's only record lives there), so row 7's own state was never
 		// built even though the variant claimed it. Both slots are torn now, each under its own name.
-		if b, ok := image[posRel]; ok && isDeliverySealImage(b) {
-			if eff, _, err := selectSeal(b, deliveryChainDomain, deliveryChainSeed); err == nil {
-				out["the v2 slot the next seal targets"] = tornImage{
-					image: tearImageSlot(image, posRel, slotFor(eff.Seq+1)), rel: posRel, opens: false,
-					why: "§3 row 7: the slot a seal write lands in — slotFor(eff.Seq+1), the effective record's sibling — left " +
-						"holding neither its old value nor a new record. For the rows cut INSIDE the seal (L6, L7) that is the " +
-						"very write the crash interrupted, so this is row 7's own torn-target state; for a row cut after the " +
-						"slot's SyncData returned, the write in flight had already landed and the same slot is instead the " +
-						"sibling record, torn by media damage. Both refuse, because §2.9's reader states a rule about the " +
-						"IMAGE and not about the instant that produced it: a device writing a 4 KiB block atomically cannot " +
-						"produce this state at all, and the reader preserves it as evidence rather than guessing (R4)",
-				}
-				out["the v2 seal's effective slot"] = tornImage{
-					image: tearImageSlot(image, posRel, slotFor(eff.Seq)), rel: posRel, opens: false,
-					why: "the OTHER slot: rot of the record the reader selects. The strict reader refuses rather than falling " +
-						"back to the older slot beside it, which is the J-B3 refusal — accepting the fallback would lose the " +
-						"identities sealed between the two records, silently, whenever the journal also lost its tail. " +
-						"TestDeliverySeal_StrictSelectionTable states it on a synthetic image; here it is asserted against a " +
-						"real crash image of the same path",
-				}
-			}
+		b, ok := image[posRel]
+		require.True(t, ok, "a format-2 image always holds the lease position file: the open creates and seals it")
+		require.True(t, isDeliverySealImage(b), "and at write format 2 that file is always a v2 image")
+		eff, _, err := selectSeal(b, deliveryChainDomain, deliveryChainSeed)
+		require.NoError(t, err, "the UNTORN crash image's own seal must select, or these variants tear nothing")
+		out["the v2 slot the next seal targets"] = tornImage{
+			image: tearImageSlot(image, posRel, slotFor(eff.Seq+1)), rel: posRel, opens: false,
+			why: "§3 row 7: the slot a seal write lands in — slotFor(eff.Seq+1), the effective record's sibling — left " +
+				"holding neither its old value nor a new record. For the rows cut INSIDE the seal (L6, L7) that is the " +
+				"very write the crash interrupted, so this is row 7's own torn-target state; for a row cut after the " +
+				"slot's SyncData returned, the write in flight had already landed and the same slot is instead the " +
+				"sibling record, torn by media damage. Both refuse, because §2.9's reader states a rule about the " +
+				"IMAGE and not about the instant that produced it: a device writing a 4 KiB block atomically cannot " +
+				"produce this state at all, and the reader preserves it as evidence rather than guessing (R4)",
+		}
+		out["the v2 seal's effective slot"] = tornImage{
+			image: tearImageSlot(image, posRel, slotFor(eff.Seq)), rel: posRel, opens: false,
+			why: "the OTHER slot: rot of the record the reader selects. The strict reader refuses rather than falling " +
+				"back to the older slot beside it, which is the J-B3 refusal — accepting the fallback would lose the " +
+				"identities sealed between the two records, silently, whenever the journal also lost its tail. " +
+				"TestDeliverySeal_StrictSelectionTable states it on a synthetic image; here it is asserted against a " +
+				"real crash image of the same path",
 		}
 	}
 	return out
