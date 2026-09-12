@@ -356,6 +356,28 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		return Report{}, err
 	}
 
+	// The gated rows' own snapshot, read BEFORE the hook_ack_rtt tranche below.
+	//
+	// That tranche sends real hot-path traffic — it has to, to time an ACK — so every one of its
+	// requests reaches recordHotPathSample and ing.Accept, and would otherwise sit inside the very
+	// populations the gates read: hook_controlled (the gated B-A row, controller ruling #29) and
+	// l0_ingest (B-B). They are not the same quantity as the rest of that population, either:
+	// measureAckRTT stamps req.TS in-process microseconds before Send, while a spawned hook stamps
+	// it inside the child, so the tranche's samples are sub-millisecond by construction and carry
+	// none of the child's scheduling wait. That is the contamination FIX ROUND 2's N-1 fixed for the
+	// warm-up by moving its bulk to admin.ping, a remedy unavailable to a row that must send
+	// hot-path traffic; reading the histograms first is the remedy that is available, since a sample
+	// cannot enter a percentile that has already been read. slack99 = p99(hook_ack_rtt) - p99(B-B)
+	// is therefore not self-referential either: B-B's population here contains none of this row's
+	// own deliveries.
+	//
+	// The tranche is still accounted for, not merely excluded: it is counted into the delivery
+	// ledger against a second status read below, so a deferral of its own cannot pass unnoticed.
+	gatedSnap, err := fetchStatus(ctx, addr, spool)
+	if err != nil {
+		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+	}
+
 	fmt.Fprintf(stdout, "hotpath: measuring hook ACK round trip (%d x in-process observe.tool)...\n", ackRTTSamples)
 	ackRTT, err := measureAckRTT(ctx, addr, spool, projectRoot, ackRTTSamples)
 	if err != nil {
@@ -391,22 +413,38 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// cfg.Scheduler.Idle.DetectAfterSeconds (120s) of registry silence that a continuous spawn
 	// loop never reaches — but the ordering costs nothing and removes the question.
 	// The hook_ack_rtt tranche is hot-path traffic like any other, so it is part of the population
-	// the ledger reconciles. It is added HERE rather than inside expectedHotPathSends because that
-	// function's contract — iterations, plus the warm-up's own tranche — is what
-	// TestExpectedHotPathSends pins, and this row is not part of it.
+	// the ledger reconciles — and it has returned by the time the census runs, which is what keeps
+	// "nothing this program sends afterwards is a hot-path op" true above. It is added HERE rather
+	// than inside expectedHotPathSends because that function's contract — iterations, plus the
+	// warm-up's own tranche — is what TestExpectedHotPathSends pins, and this row is not part of it.
+	//
+	// The ledger and the gated rows therefore cover two populations that differ by exactly this
+	// tranche: the ledger's is the whole run, and the gated rows' is what the earlier snapshot saw.
+	// gatedLedger (delivery.go) scopes the missing-sample accounting to the second.
 	sent := expectedHotPathSends(f.iterations, f.warmDaemon) + int64(len(ackRTT))
 	census, err := censusClientSpool(paths.Of(projectRoot).Spool, spool.Path(), harnessHotPathSessions())
 	if err != nil {
 		return Report{}, err
 	}
 
-	snap, err := fetchStatus(ctx, addr, spool)
+	// The ledger's own status read, taken AFTER the tranche, because the gated snapshot above was
+	// taken before it and so cannot account for it. Only the delivered COUNT is read from here;
+	// every percentile this report publishes comes from the earlier snapshot.
+	finalSnap, err := fetchStatus(ctx, addr, spool)
 	if err != nil {
-		return Report{}, fmt.Errorf("hotpath: reading B-A/B-B off the daemon's status op: %w", err)
+		return Report{}, fmt.Errorf("hotpath: reading the delivered count off the daemon's status op: %w", err)
 	}
 
-	bbSnap := snap.Latency[budgetHistName(obs.BB)]
-	ledger, err := reconcileDelivery(sent, bbSnap.N, census)
+	ledger, err := reconcileDelivery(sent, finalSnap.Latency[budgetHistName(obs.BB)].N, census)
+	if err != nil {
+		return Report{}, err
+	}
+
+	// The gated rows are built from the earlier snapshot, so their own shortfall accounting is
+	// scoped to the population it covers: the sends this harness had made by then — which is
+	// exactly expectedHotPathSends' pinned contract — against that snapshot's own counts.
+	bbSnap := gatedSnap.Latency[budgetHistName(obs.BB)]
+	gated, err := gatedLedger(ledger, expectedHotPathSends(f.iterations, f.warmDaemon), bbSnap.N)
 	if err != nil {
 		return Report{}, err
 	}
@@ -418,18 +456,18 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// the wall-clock, floor-subtracted spawn estimate. See bAMethod's doc comment (report.go) for
 	// why: a constant subtracted per sample removes the floor's location but none of its
 	// dispersion, contaminating exactly the percentile the gate reads.
-	baSnap := snap.Latency[budgetHistName(obs.BA)]
+	baSnap := gatedSnap.Latency[budgetHistName(obs.BA)]
 
 	// B-A's own population can be shorter than B-B's even with every request delivered: a
 	// received request whose wire timestamp validHotPathTS rejects reaches ing.Accept but never
 	// hook_controlled. hookControlledShortfall refuses to return a shortfall it cannot account
 	// for out of the ledger's deferrals plus the daemon's own hotpath_sample_invalid count.
-	baMissing, err := hookControlledShortfall(ledger, baSnap.N, snap.Counters)
+	baMissing, err := hookControlledShortfall(gated, baSnap.N, gatedSnap.Counters)
 	if err != nil {
 		return Report{}, err
 	}
 
-	baRow, bbRow, daemonNotes := buildDaemonRows(cfg, baSnap, bbSnap, baMissing, ledger.Undelivered(), f.underCoload)
+	baRow, bbRow, daemonNotes := buildDaemonRows(cfg, baSnap, bbSnap, baMissing, gated.Undelivered(), f.underCoload)
 
 	// One limit, read once from obs.Budgets() + config.Defaults() (task-7-brief.md's binding
 	// ruling), and applied to BOTH B-E rows: the wall-clock one and the CPU-time one are two
@@ -447,8 +485,8 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 		SpawnFloorMs: SpawnFloor{
 			N: spawnFloorIterations, P50: msf(floorP50), P99: msf(floorP99),
 		},
-		Notes: buildNotes(snap, f.warmDaemon, f.iterations, ledger,
-			append(daemonNotes, beWallNote, ackRTTNote(f.iterations, f.warmDaemon))...),
+		Notes: buildNotes(gatedSnap, f.warmDaemon, f.iterations, ledger,
+			append(daemonNotes, beWallNote, ackRTTNote())...),
 		Budgets: []BudgetRow{
 			baRow,
 			bbRow,

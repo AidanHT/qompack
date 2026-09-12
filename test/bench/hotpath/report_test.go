@@ -383,6 +383,58 @@ func TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample(t *testing.T) {
 // TestHookControlledShortfall pins B-A's own population check: hook_controlled can legitimately
 // be shorter than l0_ingest by exactly the daemon's hotpath_sample_invalid count (a received
 // request whose wire timestamp validHotPathTS refused to time), and by nothing else.
+// TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead is the review-round-1 regression for
+// the hook_ack_rtt tranche: it is sent AFTER the status read the gated rows are built from, so a
+// clean run's gated window is short by exactly that tranche — and that is not a shortfall.
+func TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead(t *testing.T) {
+	// 2000 spawns plus a 64-request warm-up tranche, then 64 more for hook_ack_rtt: every one
+	// delivered, and the gated snapshot saw the first 2064 of them.
+	total := deliveryLedger{Sent: 2128, Delivered: 2128}
+
+	gated, err := gatedLedger(total, 2064, 2064)
+	require.NoError(t, err)
+	require.Equal(t, int64(2064), gated.Sent)
+	require.Equal(t, int64(2064), gated.Delivered)
+	require.Zero(t, gated.Undelivered(), "the tranche is outside this window, not missing from it")
+	require.Zero(t, gated.Lost)
+}
+
+// TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack pins that scoping the ledger did not
+// cost the accounting its teeth: a request deferred before the snapshot is still a sample missing
+// from the gated population, and tailAdjustedP99 still gets it.
+func TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack(t *testing.T) {
+	gated, err := gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2127, Deferred: 1}, 2064, 2063)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), gated.Deferred)
+	require.Equal(t, int64(1), gated.Undelivered())
+	require.Zero(t, gated.Lost)
+}
+
+// TestGatedLedger_DeferralOutsideTheWindowInventsNoShortfall is the other direction: the census
+// cannot attribute a spooled line to a tranche, so a deferral belonging to the ack-RTT tranche
+// arrives in the full ledger — and must not be read as a sample missing from a window that never
+// contained it.
+func TestGatedLedger_DeferralOutsideTheWindowInventsNoShortfall(t *testing.T) {
+	gated, err := gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2127, Deferred: 1}, 2064, 2064)
+	require.NoError(t, err)
+	require.Zero(t, gated.Deferred)
+	require.Zero(t, gated.Undelivered())
+	require.Zero(t, gated.Lost)
+}
+
+// TestGatedLedger_RefusesAGatedPopulationItCannotAccountFor keeps both refusals reconcileDelivery
+// makes, on the gated window this time: a shortfall nothing explains, and a population larger than
+// the harness's own sends.
+func TestGatedLedger_RefusesAGatedPopulationItCannotAccountFor(t *testing.T) {
+	_, err := gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2064}, 2064, 2000)
+	require.Error(t, err, "64 samples missing from the gated window with nothing accounting for them")
+	require.Contains(t, err.Error(), "LOST")
+
+	_, err = gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2128}, 2064, 2065)
+	require.Error(t, err, "the daemon cannot have observed more than this harness had sent")
+	require.Contains(t, err.Error(), "OTHER client")
+}
+
 func TestHookControlledShortfall(t *testing.T) {
 	ledger := deliveryLedger{Sent: 2064, Delivered: 2063, Deferred: 1}
 
