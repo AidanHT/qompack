@@ -62,10 +62,24 @@ const (
 	// record-plus-marks capability, at construction. The path they fall back to is defect-bearing
 	// by design — it is the 1+N write shape SP08-D2's second mechanism lives in — so a production
 	// composition that lands on it must be visible rather than silently slower to notice.
+	//
+	// It is bumped ONCE PER OBSERVER CONSTRUCTION rather than once per event, so read it as a flag
+	// saying "this process's observer is on the legacy path" and not as a rate: a value of 1 with a
+	// million events through it means every one of those events took the separate-writes path.
 	counterLegacySupersede = "observer.legacy_supersede_path"
-	// counterTurnExhausted counts mints that probed derivedTurnProbe occupied ids and gave up,
-	// taking today's collision behaviour.
+	// counterTurnExhausted counts mints that probed derivedTurnProbe OCCUPIED ids and gave up,
+	// taking today's collision behaviour. Its documented cause — this many consecutive derived ids
+	// already in the index — is a state file lagging the index, which is where it sends a reader.
 	counterTurnExhausted = "observer.derived_turn_exhausted"
+	// counterProbeUnanswered counts mints whose probe stopped because the store could not ANSWER
+	// whether an id was taken: core.ErrDegraded from a closed store, or any other failure that is
+	// not ErrNotFound.
+	//
+	// It is separate from counterTurnExhausted because the two have the same fallback and entirely
+	// different causes. Folding them would make a degraded store report itself as "64 consecutive
+	// occupied ids" and send an operator looking for a lagging state file, which is the one place
+	// the answer is not.
+	counterProbeUnanswered = "observer.derived_turn_probe_unanswered"
 )
 
 // observationRecord returns the index record delivery obs already published, and whether there is
@@ -155,14 +169,33 @@ func (o *observer) linkObservation(obs core.ObservationID, rec store.ToolUseReco
 // to lose, and TestOnStop_CaptureIsDeterministic pins the behaviour it must keep — a second
 // observer replaying the same session over the same store re-mints the SAME id, dedups completely
 // and adds no object. An ungated probe would step past that id and write a novel blob.
+//
+// There are two ways to give up and they are COUNTED APART, here rather than at the call sites, so
+// that the function which knows why it stopped is the one that names the cause. Only ErrNotFound
+// means "free" and only a nil error means "taken"; anything else is the store declining to answer
+// (core.ErrDegraded from a closed store is the reachable one, through FSStore.ToolUse's s.use()
+// guard), and treating that as "taken" would burn all derivedTurnProbe iterations and then report
+// exhaustion — a cause an operator would go looking for in the state file, where it is not. The
+// FALLBACK is the same either way: start, i.e. today's behaviour, which is a duplicate or a
+// soft-dropped capture and never a wrong record.
+//
+// The opposite case is already right and is worth stating because it is not obvious: FSStore.ToolUse
+// makes no ctx check at all, so a probe running under the cancelled context of a pre-flush shutdown
+// still gets truthful answers rather than reporting every id as occupied.
 func (o *observer) freeDerivedTurn(ctx context.Context, start int,
 	mint func(int) core.ToolUseID,
 ) (int, bool) {
 	for i := start; i < start+derivedTurnProbe; i++ {
-		if _, err := o.opt.Store.ToolUse(ctx, mint(i)); errors.Is(err, core.ErrNotFound) {
+		_, err := o.opt.Store.ToolUse(ctx, mint(i))
+		switch {
+		case errors.Is(err, core.ErrNotFound):
 			return i, true
+		case err != nil:
+			o.count(counterProbeUnanswered)
+			return start, false
 		}
 	}
+	o.count(counterTurnExhausted)
 	return start, false
 }
 

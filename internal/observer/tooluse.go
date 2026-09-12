@@ -158,8 +158,6 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 				return derivedToolUseID(e.SessionID, st.Turn, i)
 			}); found {
 				rec.ID = derivedToolUseID(e.SessionID, st.Turn, n)
-			} else {
-				o.count(counterTurnExhausted)
 			}
 		}
 	}
