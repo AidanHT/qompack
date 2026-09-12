@@ -109,9 +109,16 @@ type deliveryJournal struct {
 	// sealFormat is the format this journal WRITES. Both formats are READ whatever it says, because
 	// the reader decides from the file's own layout (loadDeliverySeal).
 	sealFormat int
-	// sealsClosed makes closeSeals, and the downgrade it may take, happen once. A close that fails
-	// leaves closeLocked to be called again (TestDeliveryJournal_CloseFailureRetainsOwnership
-	// releases twice), and a seal must not be closed or downgraded twice.
+	// sealsClosed would make closeSeals, and the downgrade it may take, happen once. It is
+	// UNREACHABLE by construction, and kept as a defensive guard on a helper whose downgrade must
+	// never run twice — the same treatment the two acknowledgement checks in decide are given.
+	//
+	// What makes it unreachable: closeLocked runs under Lock.mu, so its calls are serialised, and it
+	// sets j.closed immediately after closeSeals() with nothing between them that can fail, so every
+	// later call returns at its `if j.closed` guard. A close that fails earlier does leave closeLocked
+	// to be called again, but it returns at the poison BEFORE closeSeals() — in
+	// TestDeliveryJournal_CloseFailureRetainsOwnership the first Release fails at j.writer.Close(),
+	// so that retry is not a second closeSeals() either.
 	sealsClosed bool
 }
 
