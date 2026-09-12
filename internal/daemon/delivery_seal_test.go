@@ -874,8 +874,9 @@ func TestDeliverySeal_ClosedSealWritesAndPassesNothing(t *testing.T) {
 // savePosition or saveAckPosition writes for the same position, and loadDeliveryPosition accepts
 // them with exactly that position.
 //
-// Its last subtest closes design §5's "one v1 encoder" over the two remaining producers of v1
-// bytes: the CREATE sites, which write the empty position a fresh project starts from.
+// Its last subtest carries the same equality to the file a fresh project actually starts from, end
+// to end through a real open. The empty position's own encoder is pinned separately and directly by
+// TestDeliveryPosition_CreateEmptyIsTheOneV1Encoders.
 func TestDeliverySeal_DowngradeWritesTodaysV1Bytes(t *testing.T) {
 	for _, j := range sealTestJournals {
 		t.Run(j.name, func(t *testing.T) {
@@ -918,23 +919,20 @@ func TestDeliverySeal_DowngradeWritesTodaysV1Bytes(t *testing.T) {
 				})
 			}
 
-			// The two CREATE sites — openDeliveryJournal's O1 for the lease position and
-			// openAckLocked's for the acknowledgement position — write the EMPTY position, and they
-			// write it through this same one encoder (design §5). Each used to marshal the record
-			// inline and DISCARD the marshal error, which put a second producer of v1 bytes beside
-			// writeDeliveryPositionV1 and left the bytes every project starts from outside this
-			// equality.
+			// The same equality over a fresh project's sidecar, end to end through a real open.
 			//
-			// What this subtest can see, and what it cannot. O4 rewrites both sidecars immediately
-			// after the create — savePosition in format 1, the v2 conversion in format 2 — so the
-			// created bytes cannot be read back without a production seam that would exist only for
-			// this test. What the shared encoder is for is the VALUE, and that is what is pinned
-			// here: a fresh project's sidecar is exactly encodeDeliveryPositionV1(0, 0, seed), the
-			// bytes the subtests above have just shown the downgrade and savePosition write. A create
-			// site that produced any other value never reaches this assertion at all, because load()
-			// reads the file the create just wrote and loadDeliveryPosition refuses a position whose
-			// chain is not this journal's seed, or whose bytes and count disagree with each other.
-			t.Run("the create site's empty position", func(t *testing.T) {
+			// What this subtest sees, stated exactly. At write format 1 the open's O4 rewrites both
+			// sidecars before it returns (openSeal → savePosition, openAckSeal → saveAckPosition), so
+			// these are the OPEN's bytes, not the create's: the create's own bytes are overwritten
+			// inside openDeliveryJournal and no test can read them back without a production seam
+			// that would exist only for the test. So this pins what a fresh project has ON DISK when
+			// the open returns — the empty position, owner-only, loadable — and nothing about which
+			// call wrote it. The create sites' shared encoder is pinned directly, one layer down, by
+			// TestDeliveryPosition_CreateEmptyIsTheOneV1Encoders; that a create site producing some
+			// other VALUE cannot reach here at all is loadDeliveryPosition's doing, because load()
+			// reads the file the create just wrote and refuses a position whose chain is not this
+			// journal's seed or whose bytes and count disagree with each other.
+			t.Run("a fresh project's sidecar", func(t *testing.T) {
 				_, journal := openSealFormat(t, t.TempDir(), 1)
 				p := journal.positionPath()
 				if j.domain == deliveryAckChainDomain {
@@ -943,12 +941,48 @@ func TestDeliverySeal_DowngradeWritesTodaysV1Bytes(t *testing.T) {
 				want, err := encodeDeliveryPositionV1(0, 0, j.seed)
 				require.NoError(t, err)
 				require.Equal(t, want, readTestFile(t, p),
-					"a fresh project's sidecar is the one v1 encoder's empty position")
+					"when the open returns, a fresh project's sidecar is the v1 empty position")
 				requireOwnerOnlyMode(t, p)
 				position, err := loadDeliveryPosition(p, j.seed)
 				require.NoError(t, err)
 				require.Equal(t, deliveryPosition{Version: core.EvidenceVersion, Chain: j.seed}, position)
 			})
+		})
+	}
+}
+
+// TestDeliveryPosition_CreateEmptyIsTheOneV1Encoders pins createEmptyDeliveryPositionV1 — the one
+// call both CREATE sites make (openDeliveryJournal's O1 for the lease position, openAckLocked's for
+// the acknowledgement one) — directly, which is the only layer at which the empty position's own
+// bytes can be read back at all: a real open re-seals both sidecars at O4 before it returns.
+//
+// For each journal's seed: the bytes are exactly the v1 encoder's for a zero position, the
+// permissions are owner-only, loadDeliveryPosition accepts the file as that journal's EMPTY position
+// — and refuses it for the other journal, which is what makes the seed argument load-bearing rather
+// than decorative. It is not a v2 image either, so an older binary reads it.
+func TestDeliveryPosition_CreateEmptyIsTheOneV1Encoders(t *testing.T) {
+	for _, j := range sealTestJournals {
+		t.Run(j.name, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), deliveryPositionFile)
+			require.NoError(t, createEmptyDeliveryPositionV1(p, j.seed))
+
+			want, err := encodeDeliveryPositionV1(0, 0, j.seed)
+			require.NoError(t, err)
+			require.Equal(t, want, readTestFile(t, p), "the empty position has one encoder")
+			requireOwnerOnlyMode(t, p)
+			require.False(t, isDeliverySealImage(readTestFile(t, p)), "a create writes v1, never an image")
+
+			position, err := loadDeliveryPosition(p, j.seed)
+			require.NoError(t, err)
+			require.Equal(t, deliveryPosition{Version: core.EvidenceVersion, Chain: j.seed}, position)
+
+			other := sealTestLease.seed
+			if j.seed == other {
+				other = sealTestAck.seed
+			}
+			_, err = loadDeliveryPosition(p, other)
+			require.ErrorIs(t, err, core.ErrDegraded,
+				"an empty position is the seed's own: the other journal's reader refuses it")
 		})
 	}
 }
