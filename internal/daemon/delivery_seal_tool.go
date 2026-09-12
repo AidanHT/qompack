@@ -1,0 +1,392 @@
+package daemon
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+
+	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/paths"
+)
+
+// The offline delivery-seal tool (SP20-D1 design §4.5).
+//
+// A v2 seal is read by every build that carries the dual reader, and a clean Release rewrites it as
+// v1, so an operator needs this tool for one situation only: a project whose position files a
+// daemon left in a state the binary they want to run next cannot open. Design §4.4 names them — a
+// v2 file left by a crash in front of a build that predates the reader, and a seal whose slots the
+// strict reader refuses (§2.9).
+//
+// Three properties make it safe to hand to an operator:
+//
+//   - It takes the daemon lock through AcquireLock, so it refuses a project a daemon is serving. A
+//     repair racing the writer would be the very corruption it exists to undo.
+//   - It writes nothing until BOTH journals have loaded in full, through the journal's own scan. A
+//     position that does not seal a real prefix of its journal is never written anywhere.
+//   - Rule R lives here and nowhere else. The daemon's reader stays strict whatever an operator
+//     decides, and the acceptance costs an explicit confirmation.
+//
+// It never edits a journal. Every repair it can make is to a position file, which is derived state:
+// the journals are the evidence, and preserving them is what each of its refusals is for.
+
+// deliverySealToolName is what the tool calls itself in its report and its errors. internal/cli
+// registers it as `qompack admin delivery-seal`, whose final spelling SP-17 settles.
+const deliverySealToolName = "delivery-seal"
+
+// DeliverySealOptions is one run of the offline delivery-seal tool (design §4.5).
+//
+// Exactly one of Check and ToV1 chooses what the run does; the rest qualify it.
+type DeliverySealOptions struct {
+	// ProjectRoot is the project whose .qompack/state holds the two journals and their seals.
+	ProjectRoot string
+	// Check runs the full dual reader and the full load for both seals and reports what it found.
+	// It writes nothing, whatever it finds.
+	Check bool
+	// ToV1 converts both seals to v1 with paths.WriteAtomic, and only after a successful full load.
+	// The position it writes is the one the load RECOVERED, which is the position an open would
+	// seal: a complete canonical tail past the seal moves it forward, exactly as design O4c does.
+	ToV1 bool
+	// AcceptTornSlot is Rule R, and this field is the only way to reach it (design §2.9, §4.5). It
+	// accepts a seal with one valid slot beside one invalid slot, taking the valid record as the
+	// position, and only when the journal then loads in full. It is refused without Confirm.
+	AcceptTornSlot bool
+	// Confirm is the explicit confirmation AcceptTornSlot requires. Accepting a torn slot accepts a
+	// position the daemon's own reader refuses, so it is an operator's decision to record, never a
+	// default to fall into.
+	Confirm bool
+	// Out is where the report goes. Every line the tool prints is written here.
+	Out io.Writer
+	// Clock is the clock AcquireLock's staleness protocol reads. A nil clock is the system clock,
+	// which is what an operator's run uses.
+	Clock core.Clock
+}
+
+// RepairDeliverySeal runs the offline delivery-seal tool against o.ProjectRoot (design §4.5).
+//
+// It takes the daemon lock first and holds it for the whole run, so a project a daemon is serving is
+// refused with an error satisfying errors.Is(err, ErrLockHeld) and nothing is read or written. On
+// any other failure it reports what refused and leaves every file as it found it: a position file
+// this tool cannot vouch for is evidence, and evidence is preserved rather than repaired.
+func RepairDeliverySeal(o DeliverySealOptions) error {
+	if err := o.validate(); err != nil {
+		return err
+	}
+	addr, err := ipc.Resolve(o.ProjectRoot)
+	if err != nil {
+		return fmt.Errorf("%s: resolving the daemon endpoint: %w", deliverySealToolName, err)
+	}
+	lock, err := AcquireLock(o.ProjectRoot, addr, o.Clock)
+	if err != nil {
+		if errors.Is(err, ErrLockHeld) {
+			return fmt.Errorf("%s: a daemon is running in %s and owns the journals; stop it first: %w",
+				deliverySealToolName, o.ProjectRoot, err)
+		}
+		return fmt.Errorf("%s: taking the daemon lock: %w", deliverySealToolName, err)
+	}
+	defer func() { _ = lock.Release() }()
+	return o.run(lock)
+}
+
+// validate refuses an option set before the tool touches the project.
+//
+// The confirmation is checked here rather than in a front end so that the requirement belongs to
+// the tool: every caller that can reach Rule R comes through this function.
+func (o DeliverySealOptions) validate() error {
+	switch {
+	case o.Out == nil:
+		return fmt.Errorf("%s: no writer for the report", deliverySealToolName)
+	case o.ProjectRoot == "":
+		return fmt.Errorf("%s: no project root", deliverySealToolName)
+	case o.Check == o.ToV1:
+		return fmt.Errorf("%s: run exactly one of a check and a conversion to v1", deliverySealToolName)
+	case o.AcceptTornSlot && !o.Confirm:
+		return fmt.Errorf("%s: accepting a torn slot accepts a position the daemon's own reader "+
+			"refuses; it needs explicit confirmation", deliverySealToolName)
+	}
+	return nil
+}
+
+// run is the tool with the daemon lock held.
+func (o DeliverySealOptions) run(lock *Lock) error {
+	state := paths.Of(o.ProjectRoot).State
+	j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
+	j.ackPath = filepath.Join(state, deliveryAckFile)
+
+	fmt.Fprintf(o.Out, "%s: %s\n", deliverySealToolName, o.ProjectRoot)
+
+	sides, err := deliverySealSides(j)
+	if err != nil {
+		return err
+	}
+	if len(sides) == 0 {
+		fmt.Fprintf(o.Out, "  no delivery journal in this project; nothing to check\n")
+		return nil
+	}
+	// Both sides are inspected before either is written. --to v1 converts "only after a successful
+	// full load" (design §4.5), and a full load is both of them: the acknowledgement scan is what
+	// checks every acknowledgement against a surviving lease, reading the map the lease scan filled,
+	// so the two are one answer rather than two.
+	for i := range sides {
+		if err := o.inspect(&sides[i]); err != nil {
+			return err
+		}
+	}
+	if o.Check {
+		fmt.Fprintf(o.Out, "  checked; nothing was written\n")
+		return nil
+	}
+	for i := range sides {
+		if err := o.convert(&sides[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// deliverySealSide is one journal and the seal that seals it: the unit the tool checks and converts.
+type deliverySealSide struct {
+	// name is what the report calls this journal.
+	name string
+	// journal is the .jsonl file, and seal the position file beside it.
+	journal, seal string
+	// domain and seed are the chain identity every record of this seal is bound to, which is what
+	// keeps the two seals from ever being read against each other.
+	domain string
+	seed   core.Hash
+	// scan runs the journal's own load against a position the tool read, filling the journal's
+	// in-memory state.
+	scan func(position deliveryPosition, older *sealRecord) error
+	// recovered is the position the scan ended at: the one an open would seal.
+	recovered func() deliveryPosition
+	// position is what the seal on disk holds, once inspect has read it.
+	position deliveryPosition
+}
+
+// deliverySealSides is the two sides in the order they must be scanned: leases, then the
+// acknowledgements that name them.
+//
+// A pair whose journal and seal are both ABSENT is neither a defect nor a repair: the open creates
+// both on a project's first use, and a store written before the acknowledgement journal existed has
+// no ack pair at all. Such a pair is left out, so the tool reports what is there and creates
+// nothing. A HALF-present pair is refused, exactly as openDeliveryJournal refuses it: which of the
+// two to believe is a recovery decision, not a repair a tool may make on its own.
+func deliverySealSides(j *deliveryJournal) ([]deliverySealSide, error) {
+	lease := deliverySealSide{
+		name: "lease", journal: j.path, seal: j.positionPath(),
+		domain: deliveryChainDomain, seed: deliveryChainSeed,
+		scan: func(position deliveryPosition, older *sealRecord) error {
+			_, err := j.loadFrom(position, older)
+			return err
+		},
+		recovered: func() deliveryPosition {
+			return deliveryPosition{
+				Version: core.EvidenceVersion, Bytes: j.bytes, Count: len(j.leases), Chain: j.chain,
+			}
+		},
+	}
+	ack := deliverySealSide{
+		name: "ack", journal: j.ackPath, seal: j.ackSealPath(),
+		domain: deliveryAckChainDomain, seed: deliveryAckChainSeed,
+		scan: func(position deliveryPosition, older *sealRecord) error {
+			_, err := j.loadAcksFrom(position, older)
+			return err
+		},
+		recovered: func() deliveryPosition {
+			return deliveryPosition{
+				Version: core.EvidenceVersion, Bytes: j.ackBytes, Count: len(j.acks), Chain: j.ackChain,
+			}
+		},
+	}
+
+	var sides []deliverySealSide
+	for _, s := range []deliverySealSide{lease, ack} {
+		present, err := deliverySealPairPresent(s)
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			sides = append(sides, s)
+		}
+	}
+	// An acknowledgement journal without its leases cannot be scanned at all: every acknowledgement
+	// it holds must name a lease the scan recovered, and there is no lease journal to recover one
+	// from. That is the same half-present refusal, one level up.
+	if len(sides) == 1 && sides[0].name == ack.name {
+		return nil, fmt.Errorf("%s: %s is present but the lease journal its rows name is not; "+
+			"this is a recovery decision, not a repair", deliverySealToolName, ack.journal)
+	}
+	return sides, nil
+}
+
+// deliverySealPairPresent reports whether a journal and its seal are both there.
+func deliverySealPairPresent(s deliverySealSide) (bool, error) {
+	_, journalErr := os.Lstat(paths.Long(s.journal))
+	_, sealErr := os.Lstat(paths.Long(s.seal))
+	switch {
+	case os.IsNotExist(journalErr) && os.IsNotExist(sealErr):
+		return false, nil
+	case journalErr != nil || sealErr != nil:
+		return false, fmt.Errorf("%s: %s: %s and %s must both be present or both absent; "+
+			"this is a recovery decision, not a repair",
+			deliverySealToolName, s.name, s.journal, s.seal)
+	}
+	return true, nil
+}
+
+// sealReading is what the tool made of one seal file.
+type sealReading struct {
+	// position is the sealed position to scan the journal against.
+	position deliveryPosition
+	// older is the record one batch behind it, when a v2 image carries one, for the scan's
+	// older-seal checkpoint.
+	older *sealRecord
+	// accepted records that Rule R chose this position, which is what makes the tool print the
+	// lines the acceptance admitted.
+	accepted bool
+}
+
+// inspect reads one side's seal through the dual reader and scans its journal against it: design
+// §4.5's "--check runs the full dual reader and load for both seals", and the step --to v1 converts
+// only after.
+func (o DeliverySealOptions) inspect(s *deliverySealSide) error {
+	read, err := o.readSeal(s)
+	if err != nil {
+		return err
+	}
+	s.position = read.position
+	if err := s.scan(read.position, read.older); err != nil {
+		return fmt.Errorf("%s: %s: %s does not load against that seal; nothing was written: %w",
+			deliverySealToolName, s.name, s.journal, err)
+	}
+	recovered := s.recovered()
+	fmt.Fprintf(o.Out, "  %s journal %s: loads, %d entries, %d bytes, chain %s\n",
+		s.name, s.journal, recovered.Count, recovered.Bytes, recovered.Chain)
+	if !read.accepted {
+		return nil
+	}
+	return o.reportAcceptedLines(s, read.position)
+}
+
+// readSeal reads one seal file: the dual reader, and Rule R when an operator asked for it and the
+// strict reader refused.
+func (o DeliverySealOptions) readSeal(s *deliverySealSide) (sealReading, error) {
+	image := readDeliverySealImage(s.seal)
+	if image == nil {
+		// Not a v2 image: today's v1 sidecar, or a file that is neither, which the v1 reader
+		// refuses. This is loadDeliverySeal's own branch, taken here so the report can name the
+		// format it found.
+		position, err := loadDeliveryPosition(s.seal, s.seed)
+		if err != nil {
+			return sealReading{}, fmt.Errorf("%s: %s: %s does not read as a v1 seal: %w",
+				deliverySealToolName, s.name, s.seal, err)
+		}
+		fmt.Fprintf(o.Out, "  %s seal %s: v1, %d entries, %d bytes\n",
+			s.name, s.seal, position.Count, position.Bytes)
+		return sealReading{position: position}, nil
+	}
+
+	effective, older, err := selectSeal(image, s.domain, s.seed)
+	if err == nil {
+		fmt.Fprintf(o.Out, "  %s seal %s: v2, seq %d, %d entries, %d bytes\n",
+			s.name, s.seal, effective.Seq, effective.Count, effective.Bytes)
+		return sealReading{position: sealedPosition(effective), older: older}, nil
+	}
+	if !o.AcceptTornSlot {
+		return sealReading{}, fmt.Errorf("%s: %s: %s is a v2 seal the strict reader refuses, and it "+
+			"is preserved as it is. --accept-torn-slot accepts one valid slot beside one torn slot, "+
+			"with its confirmation: %w", deliverySealToolName, s.name, s.seal, err)
+	}
+	valid, ruleErr := sealRuleR(image, s.domain, s.seed)
+	if ruleErr != nil {
+		return sealReading{}, fmt.Errorf("%s: %s: %s is refused for a reason --accept-torn-slot does "+
+			"not cover, and it is preserved as it is: %w", deliverySealToolName, s.name, s.seal, err)
+	}
+	fmt.Fprintf(o.Out, "  %s seal %s: v2 with one torn slot; accepting seq %d, %d entries, %d bytes\n",
+		s.name, s.seal, valid.Seq, valid.Count, valid.Bytes)
+	return sealReading{position: sealedPosition(valid), accepted: true}, nil
+}
+
+// reportAcceptedLines prints exactly which lines Rule R admitted (design §4.5).
+//
+// The scan has just proved that every one of them is a complete canonical line of this journal with
+// its arrival sequence in place. They are the lines no seal covers, which is precisely what the
+// operator is being asked to take on, so they are printed rather than counted.
+func (o DeliverySealOptions) reportAcceptedLines(s *deliverySealSide, position deliveryPosition) error {
+	lines, err := deliverySealTail(s.journal, position.Bytes)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(o.Out, "  %s: --accept-torn-slot admitted %d line(s) past the accepted record:\n",
+		s.name, len(lines))
+	for _, line := range lines {
+		fmt.Fprintf(o.Out, "    %s\n", line)
+	}
+	return nil
+}
+
+// convert writes one side's v1 seal for the position its scan recovered (design §4.5, --to v1).
+func (o DeliverySealOptions) convert(s *deliverySealSide) error {
+	recovered := s.recovered()
+	if err := writeDeliveryPositionV1(s.seal, recovered.Bytes, recovered.Count, recovered.Chain); err != nil {
+		return fmt.Errorf("%s: %s: writing the v1 seal at %s: %w",
+			deliverySealToolName, s.name, s.seal, err)
+	}
+	fmt.Fprintf(o.Out, "  %s seal %s: wrote v1 at %d entries, %d bytes (it sealed %d entries, %d bytes)\n",
+		s.name, s.seal, recovered.Count, recovered.Bytes, s.position.Count, s.position.Bytes)
+	return nil
+}
+
+// sealRuleR is Rule R, and this function is the only place it exists (design §2.9, §4.5).
+//
+// The strict reader refuses an image with an invalid slot, because every crash-reachable image has
+// two good slots: a seal is written only after the bytes it seals are durable, and always into the
+// slot holding seq-1. An invalid slot is therefore media damage or a foreign write, and refusing it
+// preserves the evidence rather than believing half of it.
+//
+// Rule R accepts such an image by taking the VALID record as the position. What makes that safe
+// enough to offer at all is the caller's scan: the journal must load in full from there, so the
+// accepted record seals a real prefix of it and every line past that prefix is a complete canonical
+// line. What it costs is what §2.9 says it costs — the state it accepts is also the state that "rot
+// of the newest slot plus a line-aligned truncation inside the last batch" produces, in which
+// identities the daemon had already released are gone from the tail and no reader can tell. That is
+// why it is an operator's decision, taken with consent, against a stopped daemon, and never a
+// reader's.
+//
+// image must be a v2 image (isDeliverySealImage), which readDeliverySealImage has already
+// established for every caller here.
+func sealRuleR(image []byte, domain string, seed core.Hash) (sealRecord, error) {
+	a, aState := classifySlot(sealSlotA.region(image), sealSlotA, domain, seed)
+	b, bState := classifySlot(sealSlotB.region(image), sealSlotB, domain, seed)
+	switch {
+	case aState == sealSlotValid && bState == sealSlotInvalid:
+		return a, nil
+	case bState == sealSlotValid && aState == sealSlotInvalid:
+		return b, nil
+	}
+	// Two valid slots the strict reader still refused (a seq gap, a parity violation, an older
+	// record that seals no less), two invalid slots, or an empty slot beside a seq other than 1.
+	// None of those is one valid record beside one torn one, so none of them is Rule R's to accept.
+	return sealRecord{}, deliveryJournalError()
+}
+
+// deliverySealTail is the journal's lines past from: the lines Rule R admitted.
+//
+// It is called only after the scan has succeeded, so from is a line boundary, the file ends with a
+// terminator, and every line between them is canonical. The read goes through paths.ReadFileShared
+// for the reason every other reader of a file a daemon writes does.
+func deliverySealTail(p string, from int64) ([][]byte, error) {
+	b, err := paths.ReadFileShared(p)
+	if err != nil || int64(len(b)) < from {
+		return nil, fmt.Errorf("%s: re-reading %s to report the lines accepted: %w",
+			deliverySealToolName, p, deliveryJournalError())
+	}
+	tail := b[from:]
+	if len(tail) == 0 {
+		return nil, nil
+	}
+	return bytes.Split(bytes.TrimSuffix(tail, []byte("\n")), []byte("\n")), nil
+}
