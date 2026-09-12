@@ -440,14 +440,20 @@ func TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead(t *testing.T) 
 }
 
 // TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo is the review-round-2 regression for
-// the warm-up requests measureAckRTT now sends and discards in front of its timed samples.
+// the ARITHMETIC the warm-up requests force on the ledger.
 //
-// It re-proves the round-1 ordering over the larger tranche: the warm-ups are sent INSIDE
-// measureAckRTT, so they fall on the same side of the gated snapshot as the samples do, and the
-// gated window is short by the whole tranche — warm-ups included — which is not a shortfall. And it
-// pins the accounting they force: a Sent that counted only the timed samples would have the daemon
-// observing more hot-path requests than this harness admits to sending, which reconcileDelivery
-// refuses outright rather than reporting a Report over.
+// It pins four things: that ackRTTWarmups is not zero, so the row's first-sample bias fix cannot be
+// silently disabled; that ackRTTTrancheSends counts the discarded warm-ups alongside the timed
+// samples; that a gated window short by the whole tranche is not a shortfall; and that a Sent which
+// counted only the timed samples is refused outright by reconcileDelivery rather than reported over.
+//
+// What it does NOT see — gatedLedger takes its window as a parameter and derives nothing from the
+// tranche, so the window half holds for any tranche size — is the ORDER a run makes those calls in.
+// That the warm-ups fall on the same side of the gated snapshot as the samples do is a property of
+// runHarness's own sequence: it reads gatedSnap BEFORE calling measureAckRTT, and hands gatedLedger
+// expectedHotPathSends rather than anything derived from this tranche (main.go). That the warm-ups
+// are inside the tranche at all — sent, not merely counted — is pinned by
+// TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (measure_test.go).
 func TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo(t *testing.T) {
 	require.Positive(t, ackRTTWarmups, "the row's first-sample bias fix must not be silently disabled")
 	require.Equal(t, int64(ackRTTSamples+ackRTTWarmups), ackRTTTrancheSends(ackRTTSamples),
