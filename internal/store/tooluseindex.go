@@ -295,6 +295,14 @@ var _ SupersedingRecorder = (*FSStore)(nil)
 //     record, and merely a stale candidate for a caller handing over a scan's whole output.
 //   - The marks are filtered BEFORE rec is inserted, so rec.ID can never mark itself.
 //
+// The atomicity claim is about the WRITE and not about the decision, which is a distinction a
+// reader could otherwise over-read out of "one write". The markable candidates are selected under
+// s.mu.RLock, the lock is dropped while the batch is marshalled, and the in-memory index is applied
+// under s.mu.Lock afterwards — so two concurrent calls naming the same rec.ID could both observe it
+// absent and both append a record line. That is the shape RecordToolUse has had since it was
+// written, and it is out of reach through the shipped path because the observer serializes all of
+// one session's writes under its per-session lock.
+//
 // The write is one appendFile.write, i.e. one Write on the O_APPEND handle under that file's
 // mutex, so no other index append can interleave between the record and its marks. The in-memory
 // index is then updated under one s.mu.Lock, in the same order the loader would replay the bytes:
