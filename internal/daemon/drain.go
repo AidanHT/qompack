@@ -83,9 +83,9 @@ const drainStateFile = "drain.json"
 //     and changes no refusal — the mark can only be written that way where Size == Offset, and
 //     validateProgress compares BOTH against the stat, so the refusal is identical either way and
 //     the two floors coincide from then on.
-//     It is the NEGATION of the mark on disk (drainFileRecord.DurableSize), so that the zero
-//     value is a record this code wrote and a record carrying no mark — every record older than the
-//     mark itself — is the conservative case.
+//     SizeIsRawStat is the NEGATION of the mark on disk (drainFileRecord.DurableSize), so that the
+//     zero value is a record this code wrote and a record carrying no mark — every record older than
+//     the mark itself — is the conservative case.
 type drainFileState struct {
 	// The on-disk field names live on drainFileRecord, which MarshalJSON and UnmarshalJSON below
 	// convert to and from; this struct is never serialized field by field.
