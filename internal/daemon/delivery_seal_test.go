@@ -655,14 +655,33 @@ func TestDeliverySeal_PathReplacedDuringSealReleasesNothing(t *testing.T) {
 			require.NoError(t, s.write(first.Bytes, first.Count, first.Chain))
 
 			image, cur, seq := bytes.Clone(s.image), s.cur, s.seq
+			second := sealTestRecord(3)
+
+			// The seam is also where the order of writeSlot's two steps is pinned. SyncData makes a
+			// record that is already written durable, so the write must come first: a sync issued
+			// before it flushes the previous state and leaves the new record in the page cache, and
+			// every seal is then non-durable. No assertion on the file's bytes can see that, because
+			// they all read back through the same cache. This one can: the seam runs inside
+			// writeSlot, before it touches the path, so the slot the new record belongs in must
+			// already hold it, read through the handle the seal itself writes.
+			slot := slotFor(seq + 1)
+			enc, _, encErr := encodeSlot(
+				sealRecord{Seq: seq + 1, Bytes: second.Bytes, Count: second.Count, Chain: second.Chain},
+				slot, j.domain, j.seed)
+			require.NoError(t, encErr)
+
 			replaced := false
 			s.syncData = func(f *os.File) error {
+				sealed := make([]byte, deliverySealSlotRegion)
+				n, readErr := s.f.ReadAt(sealed, int64(slot.offset()))
+				require.NoError(t, readErr)
+				require.Equal(t, deliverySealSlotRegion, n)
+				require.Equal(t, enc, sealed, "the slot's write precedes its sync, or the seal is not durable")
 				err := paths.SyncData(f)
 				require.NoError(t, paths.WriteAtomic(p, image, 0o600))
 				replaced = true
 				return err
 			}
-			second := sealTestRecord(3)
 			require.ErrorIs(t, s.write(second.Bytes, second.Count, second.Chain), core.ErrDegraded)
 			require.True(t, replaced, "guard: the seam ran between the write and the identity check")
 
