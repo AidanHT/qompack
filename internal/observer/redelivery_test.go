@@ -251,6 +251,22 @@ func TestRedelivery_AbsorbedStopStillAdvancesTheSession(t *testing.T) {
 	_, err = r.o.OnStop(WithObservation(ctx, first), stopOf(true), true)
 	require.NoError(t, err)
 
+	// adoptTurn's own contract, asserted DIRECTLY on the session rather than through the next
+	// Stop's id. Going through the id does not pin it: the free-turn probe (G1) steps over an
+	// occupied derived id anyway, so the next Stop lands on turn 1 whether or not the session was
+	// advanced, and this test passed with adoptTurn removed. That was a recorded negative control
+	// coming back NOT CAUGHT, and this assertion is what closes it.
+	//
+	// It matters beyond tidiness, because the probe is gated on a leased identity: an in-process
+	// caller does not probe, so a session left pointing at a turn the index already holds re-mints
+	// that id and has its capture soft-dropped.
+	adopted := r.o.session(testSession)
+	adopted.mu.Lock()
+	turn := adopted.Turn
+	adopted.mu.Unlock()
+	require.Equal(t, core.TurnIndex(1), turn,
+		"an absorbed redelivery must advance the session PAST the record it recognized")
+
 	// A genuinely new Stop of the same session, under its own identity.
 	r.clock.Advance(time.Second)
 	second := r.sidecar(2, rdxOpStop)
