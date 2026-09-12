@@ -44,14 +44,19 @@ const drainStateFile = "drain.json"
 // drainFileState is one spool file's persisted progress. Each field carries an invariant a later
 // pass, in this process or the next one, acts on:
 //
-//   - Size is the durable bound the last pass over the file read to: the file's stat size, except for
-//     a WAL segment the ingest held, where it is that segment's synced size (durableEnd). Every byte
-//     below it was on disk when the pass read it, so a file that comes back shorter than Size has
-//     lost bytes that were durable, or is another file under the same name, and validateProgress
-//     refuses the spool over it. It never names a byte the pass could not read.
+//   - Size is the larger of the durable bound the last pass over the file read to and the offset it
+//     had already consumed. The bound is the file's stat size, except for a WAL segment the ingest
+//     held, where it is that segment's synced size (durableEnd); the floor at Offset matters because
+//     that bound is NOT monotonic across passes — ingest.holdSynced enters every segment the ingest
+//     opens into ingest.synced at 0, so a segment reopened over bytes an earlier pass consumed
+//     answers 0 until its next Sync returns. Every byte below Size was on disk when some pass read
+//     it, so a file that comes back shorter than Size has lost bytes that were durable, or is
+//     another file under the same name, and validateProgress refuses the spool over it. It never
+//     names a byte no pass could read.
 //   - Offset is how much of the file this drain has consumed: every record below it was dispatched
-//     and acknowledged, or accounted for as a gap, and none of it is ever delivered again. It never
-//     passes Size, so it too never names a byte the pass could not read.
+//     and acknowledged, or accounted for as a gap, and none of it is ever delivered again. Size is
+//     floored at it, so Offset never passes Size, and loadState's refusal of Offset > Size describes
+//     a record no pass of this code can write.
 //   - Done says the file was consumed to the stat size the pass saw, which also makes Offset == Size.
 //     It authorizes removeCompletedFile to unlink the file, never a delivery.
 type drainFileState struct {
@@ -463,14 +468,24 @@ readLoop:
 	}
 	_ = f.Close() // must happen before the delete-if-drained check below (Windows cannot remove an open file)
 
-	// The progress names the bound the pass actually read to, never the stat. The two differ for a WAL
-	// segment the ingest holds: the bytes past its synced size are not on disk yet, and progress that
-	// named them outlived the machine crash that took them. validateProgress then found a recorded
-	// size past the end of the file and refused EVERY later Drain, for the WHOLE spool — healthy files
-	// included — with nothing an operator could do about it. Those bytes are pending all the same, so
-	// the pass counts them in memory, as it counts the unread bytes of a file it could not sync.
-	fs.Size = end
-	gaps.hold(base, size-end)
+	// The progress names the bound the pass actually read to, never the stat, floored at what the drain
+	// has already consumed. The bound and the stat differ for a WAL segment the ingest holds: the bytes
+	// past its synced size are not on disk yet, and progress that named them outlived the machine crash
+	// that took them. validateProgress then found a recorded size past the end of the file and refused
+	// EVERY later Drain, for the WHOLE spool — healthy files included — with nothing an operator could
+	// do about it.
+	//
+	// The floor is what keeps that same bound from wedging the spool the other way round. It is not
+	// monotonic per file name: ingest.holdSynced enters EVERY segment the ingest opens into
+	// ingest.synced at 0, including one already holding bytes an earlier pass consumed and recorded,
+	// and a Sync that fails freezes it there for the life of that handle. Recording that 0 over an
+	// Offset of N wrote {Size: 0, Offset: N}, which loadState refuses outright — so the very next pass
+	// failed before it read a single spool file, permanently, and no machine crash was needed to get
+	// there. Every byte below Offset was durable when an earlier pass read it, so flooring at it still
+	// records only durable bytes. The bytes above the recorded size are pending all the same, so the
+	// pass counts them in memory, as it counts the unread bytes of a file it could not sync.
+	fs.Size = max(end, fs.Offset)
+	gaps.hold(base, size-fs.Size)
 	if canceled {
 		return count, ctx.Err()
 	}
@@ -517,8 +532,10 @@ readLoop:
 // not cover on POSIX. A file with nothing unread is not synced at all. An error means the file's sync
 // or the directory's failed, and nothing of the file may be consumed.
 //
-// The bound returned is also what the pass records as the file's size (drainFileState.Size), so its
-// progress names only bytes that were durable when it read them.
+// The bound returned is what the pass records as the file's size (drainFileState.Size), floored at
+// the offset the drain has already consumed, so its progress names only bytes that were durable when
+// some pass read them. That floor is not cosmetic: this bound can FALL between passes, because a
+// segment the ingest reopens enters ingest.synced at 0 (drainFile says what recording that cost).
 func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, error) {
 	if _, isWAL := walSessionID(base); isWAL && dr.cfg.SyncedWAL != nil {
 		if synced, held := dr.cfg.SyncedWAL(path); held {
@@ -738,11 +755,19 @@ func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) err
 
 // validateProgress refuses a pass whose progress no longer describes the spool: a file shorter than
 // the bytes its entry names. Both comparisons are against durable bytes only. Size is the bound the
-// pass that wrote it read to, and every byte below that bound was on disk, so a file that comes back
-// shorter either lost bytes it had made durable or is a different file under the same name — neither
-// is progress to act on. The unsynced tail a machine crash takes is not in Size, which is what keeps
-// that crash from being read as either (SP20-D1, R9). Offset, which never passes Size, is the same
-// rule over the narrower claim: nothing this drain already consumed may be gone.
+// pass that wrote it read to, floored at what that pass had already consumed, and every byte below it
+// was on disk when some pass read it, so a file that comes back shorter either lost bytes it had made
+// durable or is a different file under the same name — neither is progress to act on. The unsynced
+// tail a machine crash takes is not in Size, which is what keeps that crash from being read as either
+// (SP20-D1, R9).
+//
+// The Offset comparison is defence in depth, not a second rule: drainFile floors Size at Offset and
+// loadState refuses any record with Offset > Size, so every record that reaches here has Offset <=
+// Size, and the Size comparison has already covered it. A file truncated to strictly between the two
+// is unwritable while that invariant holds, which is itself the argument. It is kept because it is
+// the comparison that fires first on a record whose Size had fallen below its Offset — the shape that
+// wedged the spool before the floor — and because it states the narrower claim outright: nothing this
+// drain already consumed may be gone.
 //
 // One such file refuses the whole pass, the spool's healthy files included: progress that no longer
 // matches the spool cannot authorize an offset or a deletion anywhere in it.
