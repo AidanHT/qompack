@@ -90,6 +90,27 @@ func (r *rdxRig) restart(persist bool) {
 	r.o, r.st = newRealStoreObserver(r.t, r.root, r.clock, r.metrics)
 }
 
+// loseIndexTail is a restart across a power loss that cost index/tool_use.jsonl its tail: the file
+// is truncated back to keep bytes — the length it had before the record line was appended — while
+// the capture sidecar's link survives.
+//
+// The asymmetry is the real crash window and not a contrivance. A tool_use line is written to an
+// O_APPEND handle and is not fsynced until Flush, where LinkCaptureReference goes through
+// paths.WriteAtomic. So a link CAN outlive the record line it names, which is the ordering
+// observationRecord's own doc comment cites as the reason it confirms the reference at all.
+//
+// The store is closed around the truncation and a fresh one opened after it, exactly as restart
+// does, because the in-memory tool_use index is replayed from the file at Open: this is the
+// flush-time daemon meeting a file the power loss shortened.
+func (r *rdxRig) loseIndexTail(keep int) {
+	r.t.Helper()
+	require.NoError(r.t, r.st.Close())
+	require.NoError(r.t, os.Truncate(
+		paths.Long(filepath.Join(paths.Of(r.root).Index, "tool_use.jsonl")), int64(keep)))
+	r.metrics = obs.New(r.clock)
+	r.o, r.st = newRealStoreObserver(r.t, r.root, r.clock, r.metrics)
+}
+
 // sidecar is publication order's stage 1, which the daemon runs before EVERY dispatch of a leased
 // delivery — the first one and each redelivery alike. Calling it twice with one arrival is
 // precisely what a redelivery does, and WriteCaptureSidecar carries any published reference
@@ -528,6 +549,93 @@ func TestRedelivery_SidecarDescribingAnotherDeliveryIsNotRecognized(t *testing.T
 			require.Equal(t, rdxCaptureIDs(0, 1), rdxIDs(t, r.index(), subagentStop),
 				"a sidecar that does not describe this delivery must not absorb it")
 			require.Equal(t, int64(0), r.counter(rdxCounterAbsorbed))
+		})
+	}
+}
+
+// ── The index confirmation: a reference the index cannot corroborate is not a publication ────
+
+// TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized pins the third condition in
+// observationRecord — the one that reads the sidecar's reference back out of the index before
+// trusting it — in both of the ways it can fail.
+//
+// Recognition rests on two durable writes that are neither made together nor made durable the same
+// way: the index record line, appended to a handle that is not fsynced until Flush, and the
+// sidecar's link, written through paths.WriteAtomic. A power loss between them leaves a link naming
+// a record the index does not hold, and that reference must read as "not published" rather than as
+// an id to reuse.
+//
+// The failure direction is why this is worth a row of its own rather than a note. The two guards
+// beside it fail toward a DUPLICATE capture, the benign direction this design leans on everywhere.
+// This one fails toward absorbing a delivery that published nothing: no record, no blob, and
+// observer.redelivery_absorbed incremented as though the capture had been handled. A silently lost
+// capture is strictly worse than the duplicate SP08-D2 exists to remove.
+func TestRedelivery_ReferenceTheIndexDoesNotConfirmIsNotRecognized(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		reclaim bool
+		want    []string
+	}{
+		// The link outlived its record line and nothing has taken the id since, so the index cannot
+		// answer for it at all: ToolUse reports ErrNotFound.
+		{name: "the index does not hold the id", want: rdxCaptureIDs(0)},
+		// The same power loss, and then a capture that carried no identity re-minted the freed id
+		// over its own bytes — a later instant, so a different blob and a different root. The index
+		// answers, and what it holds under that id is somebody else's record.
+		{name: "the index holds the id under another root", reclaim: true, want: rdxCaptureIDs(0, 1)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := newRdxRig(t)
+			ctx := context.Background()
+			id := r.sidecar(1, rdxOpStop)
+
+			before := len(r.index())
+			_, err := r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
+			require.NoError(t, err)
+			require.Equal(t, rdxCaptureIDs(0), rdxIDs(t, r.index(), subagentStop),
+				"fixture: the first run captured the subagent")
+
+			r.loseIndexTail(before)
+
+			if tc.reclaim {
+				// An in-process caller: no observation, so no recognition and no free-turn probe. It
+				// re-derives turn 0 — which the index no longer holds — over a clock that has moved,
+				// so its blob, and therefore its root, is not the one the sidecar was linked with.
+				r.clock.Advance(time.Second)
+				_, err = r.o.OnStop(ctx, stopOf(true), true)
+				require.NoError(t, err)
+			}
+
+			// The fixture stated at the two values the guard itself compares, so that a pass here
+			// can never come from recognition exiting at an EARLIER condition instead.
+			sc, err := store.ReadCaptureSidecar(r.root, id)
+			require.NoError(t, err)
+			require.True(t, sc.Published,
+				"fixture: the link is fsynced where the record line is not, so it survived")
+			require.Equal(t, SubagentCaptureID(testSession, 0), sc.ToolUseID,
+				"fixture: the sidecar still names the record the first run published")
+			indexed, err := r.st.ToolUse(ctx, sc.ToolUseID)
+			if tc.reclaim {
+				require.NoError(t, err, "fixture: the freed id was re-minted by the later capture")
+				require.NotEqual(t, sc.Root, indexed.Root,
+					"fixture: the index holds that id under a DIFFERENT root than the sidecar's")
+			} else {
+				require.ErrorIs(t, err, core.ErrNotFound,
+					"fixture: the index no longer holds the id the sidecar names")
+			}
+
+			// The redelivery: stage 1 rewrites the sidecar, carrying the published reference
+			// forward, and the delivery is dispatched under the lease it already holds.
+			r.clock.Advance(time.Second)
+			r.sidecar(1, rdxOpStop)
+			_, err = r.o.OnStop(WithObservation(ctx, id), stopOf(true), true)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.want, rdxIDs(t, r.index(), subagentStop),
+				"a reference the index cannot confirm is not a publication: this delivery must "+
+					"CAPTURE, not be absorbed as one already published")
+			require.Equal(t, int64(0), r.counter(rdxCounterAbsorbed),
+				"and it must not be counted absorbed, which reports a lost capture as handled")
 		})
 	}
 }
