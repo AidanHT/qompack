@@ -34,9 +34,13 @@ import (
 // Each slot lies inside one 512-byte sector and one 4 KiB block (slot a in sector 0 and block 0,
 // slot b in sector 32 and block 4), and the two lie in different 4 KiB and 16 KiB pages.
 //
-// This is part 3a of SP20-D1's seal work: the seal as a unit, not yet wired into the journal, which
-// still seals with savePosition. Part 3b adds the journal integration: the dual reader, the open
-// sequence (design O1-O6), the older-seal checkpoint in load, and the downgrade at Release.
+// The seal is WIRED into the journal (part 3b, commit effa28d). openSeal and openAckSeal run the
+// open sequence (design O1-O6) and, when the journal's write format is 2, leave a held handle on
+// each position file and point sealLease and sealAck at writeLeaseSeal and writeAckSeal — so a
+// batch's seal is this file's slot write, its SyncData and its post-seal identity check instead of
+// savePosition's WriteAtomic. At format 1 both fields stay on savePosition and saveAckPosition, and
+// no handle is held. Either way the READER takes both formats, deciding from the file's own layout,
+// and closeSeals leaves a v1 sidecar behind after a clean Release.
 
 const (
 	// deliverySealVersion is a v2 seal's "v". An older binary's loadDeliveryPosition requires
