@@ -22,6 +22,9 @@ import (
 // corruption modes, an uncertain append, Release against a batch in flight, a replaced lock, and a
 // failed close — is asserted here against a held v2 seal, beside the format-1 originals that go on
 // passing unchanged.
+//
+// The last test in the file runs the other way round, and pins the half of the seam this wiring must
+// not widen: the SHIPPED format-1 build refuses a v2 image at either sidecar.
 
 // openSealFormat opens root's journal with the write format f, and returns the lock and the journal.
 // Everything but the format is the production path: the same AcquireLock, the same
@@ -568,4 +571,76 @@ func TestDeliverySeal_StepTwoTraceHoldsInFormatTwo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, lease, again)
 	})
+}
+
+// The other half of the format seam. The shipped build writes format 1 and holds no seal handle, so
+// its per-batch check reads the sidecar from the PATH — and it reads it with the strict v1 reader,
+// on both sides of the journal (design section 5: "the v1 bodies are kept verbatim").
+//
+// A v2 image at either position path is a foreign write: a half-rolled-back step-2 binary, a
+// restore, or an operator. The check refuses it even when its effective record seals exactly the
+// position this journal believes is sealed, which is the one case a dual reader would wave through.
+// Only loadPosition reads either format, because the tests call it to ask a journal what it sealed.
+func TestDeliverySeal_FormatOneRefusesAV2ImageAtEitherSidecar(t *testing.T) {
+	ctx := context.Background()
+	req := testDeliveryRequest("format1")
+	for _, tc := range []struct {
+		name string
+		// file is the sidecar the foreign v2 image is planted at.
+		file string
+		// plant writes a VALID v2 image sealing exactly what this journal believes that sidecar holds.
+		plant func(t *testing.T, p string, j *deliveryJournal)
+		// act is the next operation on the journal, whose per-batch check must refuse.
+		act func(j *deliveryJournal, first deliveryLease) error
+	}{
+		{
+			name: "lease",
+			file: deliveryPositionFile,
+			plant: func(t *testing.T, p string, j *deliveryJournal) {
+				t.Helper()
+				image, err := newSealImage(j.bytes, len(j.leases), j.chain, deliveryChainDomain, deliveryChainSeed)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(paths.Long(p), image, 0o600))
+			},
+			act: func(j *deliveryJournal, _ deliveryLease) error {
+				_, err := j.lease(ctx, leaseToken(2), "format1", req)
+				return err
+			},
+		},
+		{
+			name: "acknowledgement",
+			file: deliveryAckPositionFile,
+			plant: func(t *testing.T, p string, j *deliveryJournal) {
+				t.Helper()
+				image, err := newSealImage(j.ackBytes, len(j.acks), j.ackChain,
+					deliveryAckChainDomain, deliveryAckChainSeed)
+				require.NoError(t, err)
+				require.NoError(t, os.WriteFile(paths.Long(p), image, 0o600))
+			},
+			act: func(j *deliveryJournal, first deliveryLease) error {
+				return j.acknowledge(ctx, first.Delivery, first.ObservationID, core.Hash{})
+			},
+		},
+	} {
+		t.Run("a format-1 build refuses a v2 image at its "+tc.name+" sidecar", func(t *testing.T) {
+			root, _, journal := newTestDeliveryJournal(t)
+			require.Nil(t, journal.seal, "the shipped build holds no lease seal")
+			require.Nil(t, journal.ackSeal, "and no acknowledgement seal")
+			first, err := journal.lease(ctx, leaseToken(1), "format1", req)
+			require.NoError(t, err)
+
+			p := filepath.Join(paths.Of(root).State, tc.file)
+			tc.plant(t, p, journal)
+			planted := readTestFile(t, p)
+			require.True(t, isDeliverySealImage(planted), "the fixture is a valid v2 image")
+			leaseBefore, ackBefore := readTestFile(t, journal.path), readTestFile(t, journal.ackPath)
+
+			require.ErrorIs(t, tc.act(journal, first), core.ErrDegraded,
+				"a format-1 check reads its sidecar with the v1 reader, which refuses a v2 document")
+			require.Error(t, journalFault(journal))
+			require.Equal(t, leaseBefore, readTestFile(t, journal.path), "nothing was appended")
+			require.Equal(t, ackBefore, readTestFile(t, journal.ackPath))
+			require.Equal(t, planted, readTestFile(t, p), "and the evidence is exactly as it was found")
+		})
+	}
 }
