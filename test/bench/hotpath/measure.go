@@ -116,6 +116,20 @@ func measureAckRTT(ctx context.Context, addr ipc.Addr, spool ipc.SpoolWriter, pr
 	c := newProbeClient(addr, spool, probeConnectDeadline)
 	defer func() { _ = c.Close() }()
 
+	return ackRTTTranche(ctx, c, projectRoot, n)
+}
+
+// ackRTTTranche is the tranche itself, over a client the caller owns: ackRTTWarmups requests that
+// are sent and thrown away, then n that are sent and timed, and only those n come back.
+//
+// It is a function of its own so that the SENDING can be tested. measureAckRTT builds a real
+// ipc.Client against a real daemon, so a test of it is a bench run; a test of this one hands it a
+// recording client and counts what actually went out —
+// TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples, which is the regression for the warm-up
+// requests being ISSUED rather than merely being counted into the ledger by ackRTTTrancheSends.
+// Without it the warm-up loop could stop sending and every test in this package would stay green,
+// while the run itself failed reconciliation with Sent over-counting by ackRTTWarmups.
+func ackRTTTranche(ctx context.Context, c ipc.Client, projectRoot string, n int) ([]time.Duration, error) {
 	for i := 0; i < ackRTTWarmups; i++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
