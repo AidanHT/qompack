@@ -150,6 +150,32 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Equal(t, before, toolTestState(t, root))
 	})
 
+	t.Run("refuses once a daemon has taken the lock over mid-run", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+
+		// The tool's own acquisition, exactly as RepairDeliverySeal makes it. The run is then driven
+		// through run() rather than through RepairDeliverySeal, because the state under test is a
+		// daemon that starts AFTER the lock was taken: the front door has already been passed, and
+		// on Windows the staleness protocol has only daemon.hb's mtime to judge this run by.
+		lock, err := acquireTestDeliveryLock(root)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = lock.Release() })
+
+		before := toolTestState(t, root)
+		replaceTestLock(t, root)
+
+		for _, o := range []DeliverySealOptions{{Check: true}, {ToV1: true}} {
+			var out bytes.Buffer
+			o.ProjectRoot, o.Out, o.Clock = root, &out, newFakeClock(epoch)
+			err := o.run(lock)
+			t.Logf("report:\n%s", out.String())
+			require.ErrorContains(t, err, "no longer owns the daemon lock",
+				"a dispossessed repair must not write over the project a daemon now serves")
+			require.NotContains(t, out.String(), "wrote v1")
+		}
+		require.Equal(t, before, toolTestState(t, root))
+	})
+
 	t.Run("converts both seals to v1 after a check that writes nothing", func(t *testing.T) {
 		root := toolTestProject(t, 2)
 		state := paths.Of(root).State
