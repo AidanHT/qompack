@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/daemon"
+	"github.com/qompack/qompack/internal/ipc"
 )
 
 // TestBuildNotes_WarmUpProportionIsComputedNotAsserted is the fix round 3, R2-2 regression: the
@@ -57,6 +61,82 @@ func TestAckRTTNote_DisclosesTheDiscardedWarmUps(t *testing.T) {
 		"and that the daemon's histograms saw every one of them, not just the timed ones")
 	require.Contains(t, note, "BEFORE any of the tranche is sent, warm-ups included",
 		"the round-1 ordering claim must cover the warm-ups too")
+}
+
+// recordingClient is an ipc.Client that sends nothing and remembers everything it was given. It
+// answers the way internal/ipc's own Client contract says a client answers — (Response{OK:true},
+// nil), never a propagating error — so the code under test takes exactly the path a real run takes.
+type recordingClient struct {
+	sent   []ipc.Request
+	closed int
+}
+
+func (c *recordingClient) Send(_ context.Context, req ipc.Request, _ time.Duration) (ipc.Response, error) {
+	c.sent = append(c.sent, req)
+	return ipc.Response{OK: true}, nil
+}
+
+func (c *recordingClient) Close() error {
+	c.closed++
+	return nil
+}
+
+// TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples is the review-round-1 regression for the
+// half of the warm-up fix that is a SEND rather than a number: the warm-up requests must actually go
+// out. ackRTTTrancheSends already tells the ledger there are samples+ackRTTWarmups of them, and a
+// warm-up loop that built its request and dropped it would leave every test in this package green
+// while the run itself over-counted Sent by ackRTTWarmups and failed reconciliation.
+//
+// Over a recording client it pins, in order: ackRTTWarmups + n requests sent for n timed samples;
+// the ledger's own count equal to that; exactly n durations returned, so only the samples are timed;
+// every request a fresh-nonce observe.tool on the row's own session; and each request's sequence,
+// which is what puts the warm-ups FIRST and keeps them out of the timed set — ackRTTRequest gives a
+// warm-up the negative sequence -1-i and sample i the sequence i.
+func TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples(t *testing.T) {
+	const samples = 3
+	require.Positive(t, ackRTTWarmups, "the row's first-sample bias fix must not be silently disabled")
+
+	c := &recordingClient{}
+	out, err := ackRTTTranche(context.Background(), c, "/bench/project", samples)
+	require.NoError(t, err)
+	require.Len(t, out, samples, "only the timed samples come back")
+	require.Len(t, c.sent, samples+ackRTTWarmups, "the warm-ups are SENT, not merely counted")
+	require.Equal(t, int64(len(c.sent)), ackRTTTrancheSends(samples),
+		"and the ledger is told exactly the number that went out")
+
+	nonces := map[string]bool{}
+	for i, req := range c.sent {
+		require.Equal(t, ipc.OpObserveTool, req.Op, "request %d", i)
+		require.Equal(t, ackRTTSessionID, req.Session, "request %d is on the row's own session", i)
+		require.NotEmpty(t, req.Nonce, "request %d carries a delivery nonce", i)
+		require.False(t, nonces[req.Nonce], "request %d repeats a nonce: it would be a redelivery", i)
+		nonces[req.Nonce] = true
+		require.NotNil(t, req.Event, "request %d carries the B-B event", i)
+
+		wantSeq := i - ackRTTWarmups // the warm-ups are -ackRTTWarmups..-1, the samples 0..n-1
+		if i < ackRTTWarmups {
+			wantSeq = -1 - i // ackRTTRequest's own numbering for a warm-up
+		}
+		require.Equal(t, core.ToolUseID(fmt.Sprintf("toolu_ba_%d", wantSeq)), req.Event.ToolUseID,
+			"request %d is not the one the tranche sends in that position", i)
+	}
+
+	// The client belongs to measureAckRTT, which closes it; the tranche must not.
+	require.Zero(t, c.closed, "the tranche does not close a client it was handed")
+}
+
+// TestAckRTTTranche_ACancelledContextSendsNothing pins the other end of the warm-up loop: its
+// context check comes before its send, so a cancelled run issues no request at all rather than
+// putting an uncounted delivery into the daemon on its way out.
+func TestAckRTTTranche_ACancelledContextSendsNothing(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	c := &recordingClient{}
+	out, err := ackRTTTranche(ctx, c, "/bench/project", 3)
+	require.ErrorIs(t, err, context.Canceled)
+	require.Nil(t, out)
+	require.Empty(t, c.sent, "a cancelled tranche sends neither a warm-up nor a sample")
 }
 
 // TestBuildNotes_NoWarmUpOmitsTheProportionNote pins the unchanged negative case: no warm-up run,
