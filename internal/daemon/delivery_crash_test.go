@@ -930,10 +930,19 @@ func newCrashIngest(t *testing.T, root string) *ingest {
 	return ing
 }
 
-// The WAL half of design §3 rows 1-3, stated on the ingest alone: a batch cut before its Write
-// leaves the segment as it was, one cut before its Sync leaves bytes a machine crash takes, and a
-// rotation syncs the outgoing segment before it closes it, so a batch's lines are never lost to the
-// rotation itself (§3 row 3).
+// The WAL half of design §3 rows 1 and 2, stated on the ingest alone: a batch cut before its Write
+// leaves the segment as it was, and one cut before its Sync leaves bytes a machine crash takes.
+//
+// Row 3 — "a rotation syncs the outgoing segment before it closes it" — is NOT stated here, and
+// this comment used to claim it: there are two subtests, a failed Write and a failed Sync, and
+// neither rotates a segment. Nor would adding one state the row honestly. The fact row 3 turns on
+// is that the lines a batch BUFFERED for the outgoing segment are written to that segment's own
+// handle and synced before the handle is closed, which needs a batch with members on both sides of
+// the rotation ceiling — the group-commit harness, not a sequential Accept.
+// TestIngest_WALBatchPreservesRotationBoundaries (T6, fix J-A7) builds exactly that: it asserts
+// byte-identical segments against one append per line, and reads the batch's own I/O log to require
+// "write <outgoing segment>, sync <outgoing segment>" as its first two operations. Row 3 is cited
+// there rather than restated weakly here.
 func TestDeliveryPath_WALCrashCutsLeaveOnlyWhatWasSynced(t *testing.T) {
 	const sess = core.SessionID("sess-wal-crash")
 
