@@ -41,9 +41,27 @@ import (
 // crashed process's in-memory state is abandoned, and only the image on disk is carried forward.
 var errCrashCut = errors.New("daemon: crash-cut fixture: the machine stopped here")
 
-// The files one leased, published and acknowledged delivery makes durable. A crash image is these
-// five paths and nothing else: the lock and the drain's own progress are rebuilt by the next
-// daemon, and everything else under the project is the store's, which this path does not write.
+// The four state files one leased, published and acknowledged delivery makes durable. A crash image
+// is these plus the session's WAL segment, which enters under its own learnt name (snapshotWAL).
+// The lock and the drain's own progress are left out because the next daemon rebuilds them.
+//
+// The capture sidecar is left out DELIBERATELY, and it is the one exclusion that is not "this path
+// does not write it". deliver()'s own drainRing runs publishCapture inside the worker before K4-K6
+// (ingest.go, publication order stage 1), so a machine that died at K4, K5 or K6 comes back to a
+// disk that holds a sidecar — and the K rows' live discriminators assert exactly that on the dying
+// process's root. What a crash IMAGE cannot state is whether it was durable: the sidecar is written
+// by store.WriteCaptureSidecar through paths.WriteAtomic, whose rename is never directory-fsynced
+// on Windows (paths/atomic.go:87-90 makes fsyncDir a no-op there and leans on NTFS's own
+// journalling instead), so "the file is on disk" and "the crash image holds it" are not the same
+// claim on every platform this suite runs on. Including it would make these rows assert a
+// durability fact that belongs to a filesystem rather than to this path.
+//
+// The cut it would otherwise cover — the sidecar published and the acknowledgement lost — is
+// covered where it can be stated without that assumption:
+// TestCrashCutBetweenReferenceAndFrontierRedelivers (delivery_publication_test.go) lets the
+// reference write complete, cuts the frontier commit, and requires the spool offset not to advance
+// and the redelivery to publish under the SAME identity; TestRedeliveryOfOneNonceIsObservedOnce
+// pins that a second pass rewrites its own sidecar rather than publishing twice.
 var crashImageFiles = []string{
 	filepath.Join("state", deliveryLeaseFile),
 	filepath.Join("state", deliveryPositionFile),
