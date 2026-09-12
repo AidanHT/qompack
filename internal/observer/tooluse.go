@@ -154,6 +154,15 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 			// The mint is probed rather than taken on faith, for the reason stop.go step 0(b)
 			// gives: a restarted process starts this window at 0 again, so the id it derives may
 			// already be held — by a record with a different root, which is the same stall.
+			//
+			// What the probe moves here is the WINDOW POSITION, while rememberToolUse below appends
+			// exactly one entry whatever position was probed — so after a skip the probed index and
+			// len(st.ToolUses) diverge, and a later mint in the same process can re-derive an id
+			// this one just used. For a leased delivery that self-heals, because the next probe
+			// steps over it; for an unleased one the probe is gated off and the collision keeps the
+			// base's behaviour by design (ErrAppendOnly → ErrUnpublished, a self-healing duplicate).
+			// The mixed regime is reachable only when leasing itself fails — SP20-D4's entry cap —
+			// so closing the divergence belongs to that row and not to this one.
 			if n, found := o.freeDerivedTurn(ctx, len(st.ToolUses), func(i int) core.ToolUseID {
 				return derivedToolUseID(e.SessionID, st.Turn, i)
 			}); found {

@@ -328,10 +328,22 @@ type observer struct {
 	//
 	// Production always has the capability — store.Open returns *FSStore and no production type
 	// wraps store.Store — and internal/daemon's TestWireObserverStoreSupportsSupersedingRecorder
-	// pins that for the real composition. Every fake in this package's own tests takes the legacy
-	// path, which is exactly why a production composition that silently joined them would be
-	// invisible: every unit test would stay green and only the e2e x09 flush arm would go red. The
-	// Loud and the counter New writes are what make that arrival observable instead.
+	// pins that for the real composition.
+	//
+	// What lands on the legacy path is not only this package's fakes, and it is worth being exact
+	// about, because the honest version is a broader claim rather than a narrower one.
+	// store.SupersedingRecorder is deliberately outside §5.8's frozen store.Store interface, which
+	// declares RecordToolUse and MarkSuperseded only — so a type that embeds the store.Store
+	// INTERFACE cannot promote RecordToolUseSuperseding and fails this assertion however real its
+	// backing store is. Every store wrapper in the tree is written that way (internal/daemon's
+	// publicationFaultStore and gatedToolStore, test/e2e's x4RecordingStore, this package's own
+	// fakes), and WireObserver opens a store only when Options.Store is nil, so a wrapper a caller
+	// presets reaches this assertion unchanged. A wrapper that means to keep the atomic path has to
+	// forward the method explicitly.
+	//
+	// That is exactly why a production composition which silently joined them would be invisible:
+	// every unit test would stay green and only the e2e x09 flush arm would go red. The Loud and the
+	// counter New writes are what make that arrival observable instead.
 	idx store.SupersedingRecorder
 
 	// stateFile is <root>/.qompack/state/observer.json.
