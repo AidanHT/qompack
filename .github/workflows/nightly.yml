@@ -29,6 +29,7 @@ jobs:
           - { pkg: ./internal/eval,       fn: FuzzRedact }
           - { pkg: ./internal/hookio,     fn: FuzzReadEvent }
           - { pkg: ./internal/ipc,        fn: FuzzDecodeRequest }
+          - { pkg: ./internal/mcp,        fn: FuzzServeLine }
           - { pkg: ./internal/observer,   fn: FuzzExtractSignals }
           - { pkg: ./internal/redact,     fn: FuzzRedactIdempotent }
           - { pkg: ./internal/redact,     fn: FuzzRedactPrefilterEquivalence }
@@ -63,6 +64,12 @@ jobs:
       # is SP-05-owned, so every other wave-1 branch's targets arrived unregistered by
       # construction; the matrix is reconciled on the (pkg, fn) PAIR, never on the name, because
       # `FuzzRedact` exists in internal/eval and not in internal/redact.
+      #
+      # The V5 close-out ran the inventory both ways again and found two targets with no row:
+      # internal/mcp's FuzzServeLine, which SP-13 shipped unregistered and which is added here, and
+      # internal/daemon's FuzzDeliverySealSelect, which arrives with SP20-D1's v2 seal and is added
+      # in the commit that lands it. TestNightlyFuzzMatrix can only check the matrix's direction, so
+      # this half is owed to the wave checkpoint every time.
       - name: fuzz ${{ matrix.target.fn }}
         run: |
           if ! go test -run '^$' -list '^${{ matrix.target.fn }}$' ${{ matrix.target.pkg }} 2>/dev/null | grep -q '^${{ matrix.target.fn }}$'; then
