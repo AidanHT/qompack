@@ -396,6 +396,21 @@ func writeDeliveryPositionV1(p string, size int64, count int, chain core.Hash) e
 	return nil
 }
 
+// createEmptyDeliveryPositionV1 writes the EMPTY position — no bytes, no records, the journal's own
+// chain seed — as the v1 sidecar a fresh project starts from. It is the whole of what the two CREATE
+// sites do: openDeliveryJournal's O1 for the lease position and openAckLocked's for the
+// acknowledgement one, which is why it exists as a named call rather than as two inline marshals
+// (design §5, "one v1 encoder"). Each site used to marshal the record itself and DISCARD the marshal
+// error; the bytes were identical, so what the extraction buys is the error and the single
+// expression, not a change of value.
+//
+// TestDeliveryPosition_CreateEmptyIsTheOneV1Encoders pins the value, the permissions and
+// loadDeliveryPosition's acceptance of the result directly; a real open never reads these bytes back
+// (O4 re-seals both sidecars before it returns), which is why the helper is what carries the test.
+func createEmptyDeliveryPositionV1(p string, seed core.Hash) error {
+	return writeDeliveryPositionV1(p, 0, 0, seed)
+}
+
 // deliverySeal is one journal's v2 seal, held open for the journal's life. The lease journal and
 // the ack journal each have one, bound to their own chain domain and seed. Only the operation that
 // commits its journal's pipeline uses it, one at a time: it takes no lock of its own and is not

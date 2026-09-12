@@ -174,9 +174,9 @@ func (l *Lock) openDeliveryJournal() (*deliveryJournal, error) {
 		}
 		// The empty position, through the ONE v1 encoder (design §5). It used to be marshalled
 		// inline here with its error discarded, which put a second producer of v1 bytes beside
-		// writeDeliveryPositionV1 and left this site outside the equality
-		// TestDeliverySeal_DowngradeWritesTodaysV1Bytes pins.
-		if err := writeDeliveryPositionV1(positionPath, 0, 0, deliveryChainSeed); err != nil {
+		// writeDeliveryPositionV1; the bytes were the same, and the point of the shared call is that
+		// they cannot drift apart later.
+		if err := createEmptyDeliveryPositionV1(positionPath, deliveryChainSeed); err != nil {
 			return nil, deliveryJournalError()
 		}
 	} else if journalErr != nil || positionErr != nil {
@@ -1029,9 +1029,9 @@ func (j *deliveryJournal) openAckLocked() error {
 		if err := paths.WriteAtomic(j.ackPath, nil, 0o600); err != nil {
 			return deliveryJournalError()
 		}
-		// The acknowledgement journal's own empty position, through the same one encoder as the
-		// lease journal's above, with its own seed.
-		if err := writeDeliveryPositionV1(positionPath, 0, 0, deliveryAckChainSeed); err != nil {
+		// The acknowledgement journal's own empty position, through the same one call as the lease
+		// journal's above, with its own seed.
+		if err := createEmptyDeliveryPositionV1(positionPath, deliveryAckChainSeed); err != nil {
 			return deliveryJournalError()
 		}
 	} else if journalErr != nil || positionErr != nil {
