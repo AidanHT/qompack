@@ -23,8 +23,10 @@ import (
 //
 // Three properties make it safe to hand to an operator:
 //
-//   - It takes the daemon lock through AcquireLock, so it refuses a project a daemon is serving. A
-//     repair racing the writer would be the very corruption it exists to undo.
+//   - It takes the daemon lock through AcquireLock, so it refuses a project a daemon is serving, and
+//     it re-reads that lock before it writes anything, so a daemon that started meanwhile takes the
+//     project away from the tool rather than the other way round. A repair racing the writer would
+//     be the very corruption it exists to undo.
 //   - It writes nothing until BOTH journals have loaded in full, through the journal's own scan. A
 //     position that does not seal a real prefix of its journal is never written anywhere.
 //   - Rule R lives here and nowhere else. The daemon's reader stays strict whatever an operator
@@ -44,7 +46,10 @@ type DeliverySealOptions struct {
 	// ProjectRoot is the project whose .qompack/state holds the two journals and their seals.
 	ProjectRoot string
 	// Check runs the full dual reader and the full load for both seals and reports what it found.
-	// It writes nothing, whatever it finds.
+	// It writes nothing to the journals or their seals, whatever it finds — which is the property
+	// that matters, and the whole of what it promises. It is not inert on the project as a whole:
+	// holding the daemon lock creates .qompack/run/ with daemon.lock and daemon.hb, refreshes that
+	// heartbeat, and leaves the directory behind when Release removes the two files.
 	Check bool
 	// ToV1 converts both seals to v1 with paths.WriteAtomic, and only after a successful full load.
 	// The position it writes is the one the load RECOVERED, which is the position an open would
@@ -135,14 +140,48 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 			return err
 		}
 	}
+	// The lock is read again once both journals have been scanned: before anything is written, and
+	// before a report claims to describe a project no daemon is serving. Scanning two journals of up
+	// to 64 MiB each, on a machine that may sleep between the two, can outlive the window
+	// AcquireLock's refusal rests on.
+	if err := o.holdsLock(lock, "after reading both journals"); err != nil {
+		return err
+	}
 	if o.Check {
 		fmt.Fprintf(o.Out, "  checked; nothing was written\n")
 		return nil
 	}
 	for i := range sides {
-		if err := o.convert(&sides[i]); err != nil {
+		if err := o.convert(lock, &sides[i]); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// holdsLock refuses the run unless this process still owns the daemon lock.
+//
+// AcquireLock's refusal is the front door, and it is not the only door that matters: a daemon may
+// start while the tool is running. On Windows pidAlive has no opinion at all (lock_windows.go), so
+// the staleness protocol falls through to daemon.hb's mtime, and a run that outlives staleAfter — a
+// suspended process, a machine that slept — lets a starting daemon judge this lock stale, remove it
+// and take the project over. Without this the tool would go on to write both seals over a project
+// that daemon is now serving, which is exactly what this file's doc comment promises it never does.
+//
+// Every other writer in this package re-checks the same way: a lease batch and an acknowledgement
+// batch each read the lock file once their members have arrived and before anything is appended
+// (design §2.10), and Release re-checks before it deletes. This is the tool's version of that rule,
+// taken immediately before each write, so what it writes it owned at the moment it wrote it.
+//
+// It goes through Heartbeat rather than ownedByFile alone because that answers both questions in
+// one call: Heartbeat refuses unless owned() still holds, and it refreshes the very mtime the
+// staleness protocol reads, which shrinks the window instead of only reporting it afterwards. A
+// heartbeat that cannot be written is a lock this run cannot keep either, so it refuses too.
+func (o DeliverySealOptions) holdsLock(lock *Lock, doing string) error {
+	if err := lock.Heartbeat(); err != nil {
+		return fmt.Errorf("%s: %s: this process no longer owns the daemon lock in %s; a daemon that "+
+			"started meanwhile owns the journals now, and this step was refused rather than written: %w",
+			deliverySealToolName, doing, o.ProjectRoot, err)
 	}
 	return nil
 }
@@ -329,7 +368,14 @@ func (o DeliverySealOptions) reportAcceptedLines(s *deliverySealSide, position d
 }
 
 // convert writes one side's v1 seal for the position its scan recovered (design §4.5, --to v1).
-func (o DeliverySealOptions) convert(s *deliverySealSide) error {
+//
+// The lock is read once more immediately before the write, so that nothing but this call separates
+// the ownership check from the WriteAtomic it authorizes — the same ordering every batch in this
+// package gives its own append (design §2.10).
+func (o DeliverySealOptions) convert(lock *Lock, s *deliverySealSide) error {
+	if err := o.holdsLock(lock, "before converting the "+s.name+" seal"); err != nil {
+		return err
+	}
 	recovered := s.recovered()
 	if err := writeDeliveryPositionV1(s.seal, recovered.Bytes, recovered.Count, recovered.Chain); err != nil {
 		return fmt.Errorf("%s: %s: writing the v1 seal at %s: %w",
