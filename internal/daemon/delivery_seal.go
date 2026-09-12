@@ -34,7 +34,7 @@ import (
 // Each slot lies inside one 512-byte sector and one 4 KiB block (slot a in sector 0 and block 0,
 // slot b in sector 32 and block 4), and the two lie in different 4 KiB and 16 KiB pages.
 //
-// The seal is WIRED into the journal (part 3b, commit effa28d). openSeal and openAckSeal run the
+// The seal is WIRED into the journal (SP20-D1 part 3b). openSeal and openAckSeal run the
 // open sequence (design O1-O6) and, when the journal's write format is 2, leave a held handle on
 // each position file and point sealLease and sealAck at writeLeaseSeal and writeAckSeal — so a
 // batch's seal is this file's slot write, its SyncData and its post-seal identity check instead of
