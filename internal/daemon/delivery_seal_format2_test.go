@@ -619,7 +619,14 @@ func TestDeliveryJournal_CloseRetryAfterAFailedAckCloseReleasesOwnership(t *test
 }
 
 // The same retry, cut at the FIRST close instead of the second — and the one the fix above was
-// really about, because this is the order production can actually reach.
+// really about, because of the state a real failing Close leaves behind rather than because of the
+// order.
+//
+// Both orders are reachable in production: closeLocked closes the lease writer and then the
+// acknowledgement writer, so an acknowledgement Close really can fail after a successful lease
+// Close, which is the sibling above. What the sibling cannot stage is the aftermath — its fixture
+// reports the failure while keeping the real descriptor open, which no *os.File does, and it has to
+// close journal.ackFile itself afterwards so the temp directory can be removed.
 //
 // A *os.File is marked closed by its first Close whatever the syscall returned (os.file.close sets
 // the descriptor to -1 before it reports the error), so a real lease handle whose Close fails can
