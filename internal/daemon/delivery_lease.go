@@ -453,10 +453,17 @@ func (j *deliveryJournal) poisonOnPanic() {
 }
 
 func (j *deliveryJournal) load() (os.FileInfo, error) {
-	position, err := j.loadPosition()
+	position, older, _, err := loadDeliverySeal(j.positionPath(), deliveryChainSeed, deliveryChainDomain)
 	if err != nil {
 		return nil, err
 	}
+	// The older-seal checkpoint (design §2.9). A v2 image carries the seal one batch behind the
+	// effective one, and the strict reader has already checked that it seals strictly less. What it
+	// cannot check is that those bytes are a real prefix of THIS journal, so the same scan does it:
+	// at older.Bytes the count and the chain must be the older record's. An older record sealing the
+	// empty journal needs nothing checked — the reader admits it only with count 0 and the seed
+	// chain, which is where every scan starts.
+	olderSealed := older == nil || older.Bytes == 0
 	info, err := os.Lstat(paths.Long(j.path))
 	if err != nil || !info.Mode().IsRegular() || info.Size() > deliveryLeaseMaxBytes || info.Size() < position.Bytes {
 		return nil, deliveryJournalError()
@@ -498,6 +505,12 @@ func (j *deliveryJournal) load() (os.FileInfo, error) {
 		}
 		j.leases[lease.Delivery], j.arrivals[lease.Session] = lease, lease.ArrivalSeq
 		j.chain = deliveryChain(j.chain, line)
+		if older != nil && j.bytes == older.Bytes {
+			if len(j.leases) != older.Count || j.chain != older.Chain {
+				return nil, deliveryJournalError()
+			}
+			olderSealed = true
+		}
 		if j.bytes == position.Bytes {
 			if len(j.leases) != position.Count || j.chain != position.Chain {
 				return nil, deliveryJournalError()
@@ -505,7 +518,9 @@ func (j *deliveryJournal) load() (os.FileInfo, error) {
 			sealed = true
 		}
 	}
-	if j.bytes != info.Size() || !sealed {
+	// An older record whose bytes fall inside no line is not a prefix of this journal either, so
+	// olderSealed stays false and the open refuses.
+	if j.bytes != info.Size() || !sealed || !olderSealed {
 		return nil, deliveryJournalError()
 	}
 	return info, nil
@@ -518,19 +533,85 @@ func deliveryChain(previous core.Hash, line []byte) core.Hash {
 	return core.HashBytes(deliveryChainDomain, input)
 }
 
+// savePosition writes the v1 position sidecar for the lease journal: the seal a build whose write
+// format is 1 makes, and the one a clean Release leaves behind whatever format it wrote. The v1
+// bytes have one encoder, writeDeliveryPositionV1, which the downgrade uses as well, so the two can
+// never drift (TestDeliverySeal_DowngradeWritesTodaysV1Bytes compares them).
 func (j *deliveryJournal) savePosition(size int64, count int, chain core.Hash) error {
-	encoded, err := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Bytes: size, Count: count, Chain: chain})
-	if err != nil {
-		return deliveryJournalError()
-	}
-	if err := paths.WriteAtomic(filepath.Join(filepath.Dir(j.path), deliveryPositionFile), encoded, 0o600); err != nil {
-		return deliveryJournalError()
-	}
-	return nil
+	return writeDeliveryPositionV1(filepath.Join(filepath.Dir(j.path), deliveryPositionFile), size, count, chain)
 }
 
+// positionPath and ackSealPath are the two position sidecars, beside the journals they seal.
+func (j *deliveryJournal) positionPath() string {
+	return filepath.Join(filepath.Dir(j.path), deliveryPositionFile)
+}
+
+func (j *deliveryJournal) ackSealPath() string {
+	return filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile)
+}
+
+// loadPosition is the position sealed for the lease journal, in whichever format the sidecar holds.
+// Its signature is unchanged, and so is its answer for the v1 file every build before this one
+// wrote: tests call it to read the seal a batch just made.
 func (j *deliveryJournal) loadPosition() (deliveryPosition, error) {
-	return loadDeliveryPosition(filepath.Join(filepath.Dir(j.path), deliveryPositionFile), deliveryChainSeed)
+	position, _, _, err := loadDeliverySeal(j.positionPath(), deliveryChainSeed, deliveryChainDomain)
+	return position, err
+}
+
+// loadDeliverySeal is the dual reader (design §2.9, §4.2). It reads the sealed position at p in
+// whichever format the file holds: the v2 A/B seal when the file is a v2 image, and today's v1
+// sidecar otherwise. It returns the effective position, the older record beside it when the image
+// carries one, and the image itself, which openDeliverySeal needs as the bytes its caller read.
+//
+// The format is decided by the file's own layout (isDeliverySealImage), never by a flag, so the two
+// readers cannot disagree about which one owns a file. A v2 image whose slots do not select is
+// REFUSED rather than handed to the v1 reader: it is this journal's seal, damaged, and the strict
+// reader's refusal is what preserves the evidence. Only a file that is not a v2 image at all reaches
+// the v1 reader, which refuses a v2 document on its version in any case.
+//
+// The older record is returned because selectSeal cannot see the journal: whether it seals a real
+// journal prefix is load's question, checked in the same scan.
+func loadDeliverySeal(p string, seed core.Hash, domain string) (deliveryPosition, *sealRecord, []byte, error) {
+	image := readDeliverySealImage(p)
+	if image == nil {
+		position, err := loadDeliveryPosition(p, seed)
+		return position, nil, nil, err
+	}
+	effective, older, err := selectSeal(image, domain, seed)
+	if err != nil {
+		return deliveryPosition{}, nil, nil, err
+	}
+	// The Version is the journal position record's, which is what every caller compares against and
+	// what a downgrade of this record writes; the v2 document's own "v" is deliverySealVersion.
+	position := deliveryPosition{
+		Version: core.EvidenceVersion, Bytes: effective.Bytes, Count: effective.Count, Chain: effective.Chain,
+	}
+	return position, older, image, nil
+}
+
+// readDeliverySealImage returns p's bytes when p is a v2 seal image, and nil when it is anything
+// else — including missing, a directory, the wrong size, or a file whose static bytes are not a v2
+// document's. Every one of those is handed to the v1 reader, which produces the refusal, so a
+// failure has one error path and not two.
+func readDeliverySealImage(p string) []byte {
+	info, err := os.Lstat(paths.Long(p))
+	if err != nil || !info.Mode().IsRegular() || info.Size() != deliverySealFileSize {
+		return nil
+	}
+	f, err := os.Open(paths.Long(p))
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return nil
+	}
+	image, err := io.ReadAll(io.LimitReader(f, deliverySealFileSize+1))
+	if err != nil || !isDeliverySealImage(image) {
+		return nil
+	}
+	return image
 }
 
 // loadDeliveryPosition validates one sealed position sidecar. seed is the chain value an empty
@@ -1029,10 +1110,13 @@ func (j *deliveryJournal) acknowledged(delivery string) bool {
 }
 
 func (j *deliveryJournal) loadAcks() (os.FileInfo, error) {
-	position, err := loadDeliveryPosition(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), deliveryAckChainSeed)
+	position, older, _, err := loadDeliverySeal(j.ackSealPath(), deliveryAckChainSeed, deliveryAckChainDomain)
 	if err != nil {
 		return nil, err
 	}
+	// The older-seal checkpoint, as in load: the record one batch behind the effective one must seal
+	// a prefix of this acknowledgement journal.
+	olderSealed := older == nil || older.Bytes == 0
 	info, err := os.Lstat(paths.Long(j.ackPath))
 	if err != nil || !info.Mode().IsRegular() || info.Size() > deliveryLeaseMaxBytes || info.Size() < position.Bytes {
 		return nil, deliveryJournalError()
@@ -1074,6 +1158,12 @@ func (j *deliveryJournal) loadAcks() (os.FileInfo, error) {
 		}
 		j.acks[ack.Delivery] = ack
 		j.ackChain = deliveryChain(j.ackChain, line)
+		if older != nil && j.ackBytes == older.Bytes {
+			if len(j.acks) != older.Count || j.ackChain != older.Chain {
+				return nil, deliveryJournalError()
+			}
+			olderSealed = true
+		}
 		if j.ackBytes == position.Bytes {
 			if len(j.acks) != position.Count || j.ackChain != position.Chain {
 				return nil, deliveryJournalError()
@@ -1081,7 +1171,7 @@ func (j *deliveryJournal) loadAcks() (os.FileInfo, error) {
 			sealed = true
 		}
 	}
-	if j.ackBytes != info.Size() || !sealed {
+	if j.ackBytes != info.Size() || !sealed || !olderSealed {
 		return nil, deliveryJournalError()
 	}
 	// An acknowledgement whose lease did not survive is a frontier ahead of its own assignment.
@@ -1094,15 +1184,9 @@ func (j *deliveryJournal) loadAcks() (os.FileInfo, error) {
 	return info, nil
 }
 
+// saveAckPosition is savePosition for the acknowledgement journal, through the same one v1 encoder.
 func (j *deliveryJournal) saveAckPosition(size int64, count int, chain core.Hash) error {
-	encoded, err := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Bytes: size, Count: count, Chain: chain})
-	if err != nil {
-		return deliveryJournalError()
-	}
-	if err := paths.WriteAtomic(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), encoded, 0o600); err != nil {
-		return deliveryJournalError()
-	}
-	return nil
+	return writeDeliveryPositionV1(filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile), size, count, chain)
 }
 
 func (j *deliveryJournal) checkAckFile() error {
