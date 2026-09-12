@@ -84,6 +84,27 @@ const warmHotTranche = 64
 // derived from one run is an estimate, and §7.5's M2 protocol takes the maximum over three runs.
 const ackRTTSamples = 64
 
+// ackRTTWarmups is how many requests measureAckRTT sends on ackRTTSessionID, and DISCARDS, before
+// it starts timing.
+//
+// Without them sample #0 was the first request that session had ever made: the daemon's session
+// registry had no entry for it and the ingest had no WAL segment, so the sample carried a registry
+// insertion and a segment create on top of the round trip it was supposed to time. With n=64 and
+// nearest-rank percentiles p99 IS the maximum sample, so a single slow first sample does not
+// average out — it becomes the number. Design §7.5 then reads p99(hook_ack_rtt) to derive slack99
+// and AckDeadlineMs = L0IngestMs + ceil(slack99), and takes the MAXIMUM across three runs, which
+// compounds a per-run first-sample bias rather than diluting it.
+//
+// warmDaemon does the same thing for the run as a whole, for the same reason; this is its precedent
+// applied to a session warmDaemon never touches. Two rather than one: the first creates the
+// registry entry and the segment, the second pays whatever one-off the first leaves behind (the
+// session's first lease and its arrival counter), so the timed loop starts on a session in steady
+// state. They are hot-path traffic like the timed samples and are counted into the delivery ledger
+// (ackRTTTrancheSends); raising the tranche instead was the alternative and was not taken, because
+// it would change this row's disclosed proportion of the daemon's histograms for a bias that two
+// requests remove.
+const ackRTTWarmups = 2
+
 // defaultIterations is --iterations's own default. FIX ROUND 1, M-3: this used to alias
 // warmIterations, which meant changing the warm-up count would silently change the default
 // measurement count too — two unrelated quantities that happened to share one value. They are
@@ -417,11 +438,14 @@ func runHarness(ctx context.Context, f flags, stdout, stderr io.Writer) (Report,
 	// "nothing this program sends afterwards is a hot-path op" true above. It is added HERE rather
 	// than inside expectedHotPathSends because that function's contract — iterations, plus the
 	// warm-up's own tranche — is what TestExpectedHotPathSends pins, and this row is not part of it.
+	// ackRTTTrancheSends counts the row's DISCARDED warm-ups alongside its timed samples: they are
+	// deliveries too, and a Sent short of them would look to reconcileDelivery like another client
+	// feeding this daemon.
 	//
 	// The ledger and the gated rows therefore cover two populations that differ by exactly this
 	// tranche: the ledger's is the whole run, and the gated rows' is what the earlier snapshot saw.
 	// gatedLedger (delivery.go) scopes the missing-sample accounting to the second.
-	sent := expectedHotPathSends(f.iterations, f.warmDaemon) + int64(len(ackRTT))
+	sent := expectedHotPathSends(f.iterations, f.warmDaemon) + ackRTTTrancheSends(len(ackRTT))
 	census, err := censusClientSpool(paths.Of(projectRoot).Spool, spool.Path(), harnessHotPathSessions())
 	if err != nil {
 		return Report{}, err

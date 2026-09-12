@@ -84,6 +84,20 @@ func expectedHotPathSends(iterations int, warmDaemonRan bool) int64 {
 	return want
 }
 
+// ackRTTTrancheSends is how many hot-path requests measureAckRTT puts through the daemon to return
+// samples timed round trips: the timed samples themselves plus the ackRTTWarmups it discards in
+// front of them.
+//
+// Every one of them reaches ing.Accept and is counted by l0_ingest, so the ledger's Sent must count
+// them too. Counting only the timed samples would make the daemon's own delivered count exceed what
+// this harness admits to having sent, and reconcileDelivery refuses that population outright ("some
+// OTHER client is feeding the daemon this run measures") — a discarded warm-up is still a delivery.
+//
+// It is deliberately NOT folded into expectedHotPathSends: that function's contract is the gated
+// window — iterations plus the warm-up's own hot tranche — and gatedLedger scopes the missing-sample
+// accounting to it. This tranche is sent after the snapshot that window is read from.
+func ackRTTTrancheSends(samples int) int64 { return int64(samples + ackRTTWarmups) }
+
 // harnessHotPathSessions is the set of session ids this harness stamps onto the hot-path requests
 // it sends — baSessionID for every spawned `qompack observe tool` (the hook copies Event.SessionID
 // onto the request, internal/cli/hookclient.go), warmSessionID for the warm-up's own hot tranche,

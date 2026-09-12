@@ -439,6 +439,40 @@ func TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead(t *testing.T) 
 	require.Zero(t, gated.Lost)
 }
 
+// TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo is the review-round-2 regression for
+// the warm-up requests measureAckRTT now sends and discards in front of its timed samples.
+//
+// It re-proves the round-1 ordering over the larger tranche: the warm-ups are sent INSIDE
+// measureAckRTT, so they fall on the same side of the gated snapshot as the samples do, and the
+// gated window is short by the whole tranche — warm-ups included — which is not a shortfall. And it
+// pins the accounting they force: a Sent that counted only the timed samples would have the daemon
+// observing more hot-path requests than this harness admits to sending, which reconcileDelivery
+// refuses outright rather than reporting a Report over.
+func TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo(t *testing.T) {
+	require.Positive(t, ackRTTWarmups, "the row's first-sample bias fix must not be silently disabled")
+	require.Equal(t, int64(ackRTTSamples+ackRTTWarmups), ackRTTTrancheSends(ackRTTSamples),
+		"the ledger counts the discarded warm-ups as the deliveries they are")
+
+	window := expectedHotPathSends(2000, true)
+	sent := window + ackRTTTrancheSends(ackRTTSamples)
+	total := deliveryLedger{Sent: sent, Delivered: sent}
+
+	gated, err := gatedLedger(total, window, window)
+	require.NoError(t, err)
+	require.Equal(t, window, gated.Sent)
+	require.Zero(t, gated.Undelivered(), "the whole tranche is outside this window, warm-ups included")
+	require.Zero(t, gated.Lost)
+
+	full, err := reconcileDelivery(sent, sent, spoolCensus{})
+	require.NoError(t, err)
+	require.Zero(t, full.Undelivered())
+	require.Zero(t, full.Lost)
+
+	_, err = reconcileDelivery(window+int64(ackRTTSamples), sent, spoolCensus{})
+	require.Error(t, err, "counting only the timed samples loses the warm-ups from Sent")
+	require.Contains(t, err.Error(), "OTHER client")
+}
+
 // TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack pins that scoping the ledger did not
 // cost the accounting its teeth: a request deferred before the snapshot is still a sample missing
 // from the gated population, and tailAdjustedP99 still gets it.
