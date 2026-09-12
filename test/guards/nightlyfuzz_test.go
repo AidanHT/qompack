@@ -18,14 +18,17 @@ import (
 // regexp would be a change that also wants a human to look at this test.
 var nightlyFuzzMatrixRE = regexp.MustCompile(`(?m)^\s*-\s*\{\s*pkg:\s*(\S+?),\s*fn:\s*(\w+)\s*\}`)
 
-// nightlyFuzzMatrixLen is the number of rows .github/workflows/nightly.yml's fuzz matrix declares:
-// twenty targets that exist in the tree today (internal/observer's FuzzExtractSignals joined at
-// V3) plus internal/checkpoint's FuzzCheckpointJSON, which SP-10 owns and wave 4 writes.
+// nightlyFuzzMatrixLen is the number of rows .github/workflows/nightly.yml's fuzz matrix declares.
+// Every one of them names a target that exists in the tree today: the wave-1 reconciliation
+// (V2-VERIFY 2.0, V2-MERGE-01) replaced the three rows naming functions that existed nowhere and
+// added the fifteen shipped targets that had no row, the wave-3 integration turned the proposed
+// checkpoint/FuzzCheckpointJSON into the two targets SP-10 really shipped, and SP20-D1's part 3b
+// added daemon/FuzzDeliverySealSelect with the v2 delivery seal it fuzzes.
 //
 // The assertion exists because a matrix repair can be made by RENAMING rows instead of adding them,
 // and a rename leaves the count untouched. Eight was the V1 number and survived the whole of wave 1
 // unchanged while fifteen shipped targets went unregistered; that is what this constant is for.
-const nightlyFuzzMatrixLen = 22
+const nightlyFuzzMatrixLen = 23
 
 // nightlyFuzzLandedSubplans is a transcription of tools/devtool/cover.go's landedSubplans, and must
 // be kept identical to it: a subplan adds itself there in the commit that lands it, and the same
