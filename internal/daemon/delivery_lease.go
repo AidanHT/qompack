@@ -901,11 +901,21 @@ func (j *deliveryJournal) closeLocked() error {
 		j.idle.Wait()
 	}
 	j.st.Unlock()
-	if err := j.writer.Close(); err != nil {
-		return j.poison(deliveryJournalError())
+	// Each handle is dropped once it must never be closed again: the lease handle as soon as its own
+	// Close SUCCEEDS, the acknowledgement handle before its Close is attempted at all. So a retry
+	// after a failed close never closes the same descriptor twice, and a failure of the SECOND close
+	// still leaves the next closeLocked able to reach closeSeals() below — without the drop it
+	// re-closed the already-closed lease handle, got ErrClosed and poisoned again, so the seal
+	// handles stayed open and Release never gave up ownership.
+	//
+	// A failed LEASE close is deliberately still retried: that is what lets a repaired handle close
+	// on a later Release (TestDeliveryJournal_CloseFailureRetainsOwnership).
+	if w := j.writer; w != nil {
+		if err := w.Close(); err != nil {
+			return j.poison(deliveryJournalError())
+		}
+		j.writer = nil
 	}
-	// The lease handle is closed first and the ack handle is dropped once closed, so a retry after
-	// a failed close never closes the same descriptor twice.
 	if w := j.ackWriter; w != nil {
 		j.ackWriter = nil
 		if err := w.Close(); err != nil {
