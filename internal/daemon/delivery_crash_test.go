@@ -572,6 +572,13 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 	// open outright (the evidence is preserved), and so does a torn v2 slot: strict, never a misread.
 	for name, torn := range tornVariants(image, walRel, format, row.leases) {
 		t.Run("torn: "+name, func(t *testing.T) {
+			// The variant must actually have torn the extent it names. A tear that silently did
+			// nothing — a slot whose value is too short to halve, an extent absent from the image —
+			// would run the UNTORN image under a torn variant's expectations and could only ever
+			// pass by accident.
+			require.NotEqual(t, image[torn.rel], torn.image[torn.rel],
+				"the variant must change the bytes of %s, the extent it tears", torn.rel)
+
 			root := restoreCrashImage(t, torn.image)
 			// The same client copy the untorn image gets. A torn variant tears one extent of the
 			// crash image and nothing else, so the hook's spooled copy is still there — and it is
@@ -630,7 +637,11 @@ func assertDrainOutcome(t *testing.T, got crashOutcome, acks int, complete bool,
 
 // tornImage is one torn variant of a crash image.
 type tornImage struct {
-	image  map[string][]byte
+	image map[string][]byte
+	// rel is the image path of the extent this variant tore, and the only one it changed. The
+	// subtest asserts that those bytes really did change: a tear that silently did nothing would
+	// otherwise run the untorn image under a torn variant's expectations.
+	rel    string
 	opens  bool
 	leases int
 	// complete is the drain's own gap verdict for this variant, for a variant whose open succeeds.
@@ -641,7 +652,8 @@ type tornImage struct {
 }
 
 // tornVariants returns the torn states of the extents that a crash can leave half-written: the WAL
-// segment's last line, the journal's last line, and — in format 2 — the slot being written.
+// segment's last line, the journal's last line, and — in format 2 — each of the seal's two slots,
+// named by the role the IMAGE gives it rather than by a fixed letter.
 //
 // A device that writes a 4 KiB block atomically cannot produce the torn slot; the design assumes
 // that and the strict reader refuses the state anyway rather than guessing (design §2.9, R4).
@@ -656,7 +668,7 @@ func tornVariants(image map[string][]byte, walRel string, format, recovered int)
 		torn := cloneImage(image)
 		torn[walRel] = b[:len(b)-1]
 		out["the WAL's last line"] = tornImage{
-			image: torn, opens: true, leases: recovered, complete: false,
+			image: torn, rel: walRel, opens: true, leases: recovered, complete: false,
 			why: "a torn WAL line changes nothing the journal recovered — the identities are the lease journal's, not the " +
 				"WAL's — and the incomplete line itself is NOT dispatched: it is pending input rather than a record and " +
 				"waits for its writer (TestDrainTrailingIncompleteLineWaitsForCompletion), so the client's complete copy " +
@@ -668,22 +680,49 @@ func tornVariants(image map[string][]byte, walRel string, format, recovered int)
 		torn := cloneImage(image)
 		torn[leaseRel] = b[:len(b)-1]
 		out["the journal's last line"] = tornImage{
-			image: torn, opens: false,
+			image: torn, rel: leaseRel, opens: false,
 			why: "§3 row 5: a torn journal tail refuses the open; the journal is unavailable and the evidence is preserved",
 		}
 	}
 	if format == 2 {
 		posRel := filepath.Join("state", deliveryPositionFile)
+		// WHICH slot a torn write can be in is decided by the image, never by a fixed letter. The
+		// effective record is the one the reader selects; a seal write in flight targets
+		// slotFor(eff.Seq+1) — the effective record's sibling, always the slot holding seq-1 — and
+		// that is the slot design §3 row 7 puts in doubt. Tearing a fixed slot a tore the EFFECTIVE
+		// record every time (a fresh seal's only record lives there), so row 7's own state was never
+		// built even though the variant claimed it. Both slots are torn now, each under its own name.
 		if b, ok := image[posRel]; ok && isDeliverySealImage(b) {
-			torn := cloneImage(image)
-			torn[posRel] = tearSealSlot(b)
-			out["the v2 seal's slot"] = tornImage{
-				image: torn, opens: false,
-				why: "§3 row 7: a torn slot is refused by the strict reader, never misread",
+			if eff, _, err := selectSeal(b, deliveryChainDomain, deliveryChainSeed); err == nil {
+				out["the v2 slot the next seal targets"] = tornImage{
+					image: tearImageSlot(image, posRel, slotFor(eff.Seq+1)), rel: posRel, opens: false,
+					why: "§3 row 7: the slot a seal write lands in — slotFor(eff.Seq+1), the effective record's sibling — left " +
+						"holding neither its old value nor a new record. For the rows cut INSIDE the seal (L6, L7) that is the " +
+						"very write the crash interrupted, so this is row 7's own torn-target state; for a row cut after the " +
+						"slot's SyncData returned, the write in flight had already landed and the same slot is instead the " +
+						"sibling record, torn by media damage. Both refuse, because §2.9's reader states a rule about the " +
+						"IMAGE and not about the instant that produced it: a device writing a 4 KiB block atomically cannot " +
+						"produce this state at all, and the reader preserves it as evidence rather than guessing (R4)",
+				}
+				out["the v2 seal's effective slot"] = tornImage{
+					image: tearImageSlot(image, posRel, slotFor(eff.Seq)), rel: posRel, opens: false,
+					why: "the OTHER slot: rot of the record the reader selects. The strict reader refuses rather than falling " +
+						"back to the older slot beside it, which is the J-B3 refusal — accepting the fallback would lose the " +
+						"identities sealed between the two records, silently, whenever the journal also lost its tail. " +
+						"TestDeliverySeal_StrictSelectionTable states it on a synthetic image; here it is asserted against a " +
+						"real crash image of the same path",
+				}
 			}
 		}
 	}
 	return out
+}
+
+// tearImageSlot is image with slot torn in the v2 seal at rel, and nothing else changed.
+func tearImageSlot(image map[string][]byte, rel string, slot sealSlot) map[string][]byte {
+	torn := cloneImage(image)
+	torn[rel] = tearSealSlot(torn[rel], slot)
+	return torn
 }
 
 // cloneImage is a deep copy of an image.
@@ -695,21 +734,22 @@ func cloneImage(image map[string][]byte) map[string][]byte {
 	return out
 }
 
-// tearSealSlot returns img with the effective slot's record torn: its first half kept and the rest
-// overwritten with the padding a half-written region would leave. The result is neither the old
-// record nor a new one, which is exactly what classifySlot must refuse.
-func tearSealSlot(img []byte) []byte {
+// tearSealSlot returns img with slot's value torn: its first half kept and the rest overwritten
+// with the padding a half-written region would leave. The result is neither the value the slot held
+// nor the one a write was replacing it with, which is exactly what classifySlot must refuse.
+//
+// An empty slot's `null` tears the same way, and that is the right fixture for the slot a fresh
+// seal's SECOND write targets: at the instant of the cut the slot still holds `null`, and a torn
+// write leaves neither that nor the record.
+func tearSealSlot(img []byte, slot sealSlot) []byte {
 	out := slices.Clone(img)
-	for _, slot := range []sealSlot{sealSlotA, sealSlotB} {
-		region := slot.region(out)
-		end := strings.IndexByte(string(region), deliverySealPad)
-		if end <= 1 {
-			continue
-		}
-		for i := end / 2; i < end; i++ {
-			region[i] = deliverySealPad
-		}
-		return out
+	region := slot.region(out)
+	end := strings.IndexByte(string(region), deliverySealPad)
+	if end <= 1 {
+		return out // the caller's own tear guard catches this: the variant would change nothing
+	}
+	for i := end / 2; i < end; i++ {
+		region[i] = deliverySealPad
 	}
 	return out
 }
