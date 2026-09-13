@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -250,7 +252,48 @@ func newTestDeliveryJournal(t *testing.T) (string, *Lock, *deliveryJournal) {
 	t.Cleanup(func() { _ = lock.Release() })
 	journal, err := lock.openDeliveryJournal()
 	require.NoError(t, err)
+	// Registered after the Release above, so it runs before it: a batch that leaked an inflight is
+	// reported here rather than hanging that Release until the whole -timeout expires.
+	requireNoLeakedInflight(t, journal)
 	return root, lock, journal
+}
+
+// requireNoLeakedInflight fails the test if j still has an operation in flight when it ends, and
+// then un-strands whatever runs after it.
+//
+// A leaked inflight — one enter without its leave, which is what moving commitLeases' deferred
+// j.leave() inside the ownership-success branch would produce — does not FAIL a test, it HANGS it:
+// closeLocked waits on j.idle for a leave that never comes, so the cleanup's Release never returns
+// and the package ends in "panic: test timed out" after the whole -timeout, thirty silent minutes in
+// CI, with no --- FAIL naming the test that leaked or the batch that refused.
+//
+// This bounds that wait at the ingest ACK wait and reports it as a failure. Past the bound it also
+// zeroes inflight and broadcasts idle, so the Release registered before it still returns and the
+// remaining cleanups still run — the same un-stranding T15 does for an enter that wrongly succeeds.
+// A correct build never reaches the bound: it reads zero on the first look.
+func requireNoLeakedInflight(t *testing.T, j *deliveryJournal) {
+	t.Helper()
+	t.Cleanup(func() {
+		deadline := time.Now().Add(ingestACKWait)
+		for {
+			j.st.Lock()
+			n := j.inflight
+			if n == 0 {
+				j.st.Unlock()
+				return
+			}
+			if time.Now().After(deadline) {
+				j.inflight = 0
+				j.idle.Broadcast()
+				j.st.Unlock()
+				t.Errorf("%d delivery-journal operation(s) were still in flight when the test ended: "+
+					"an enter without its leave strands every later Release on j.idle", n)
+				return
+			}
+			j.st.Unlock()
+			runtime.Gosched()
+		}
+	})
 }
 
 func acquireTestDeliveryLock(root string) (*Lock, error) {

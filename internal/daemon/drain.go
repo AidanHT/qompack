@@ -41,17 +41,118 @@ const (
 // drainStateFile is state/drain.json's filename.
 const drainStateFile = "drain.json"
 
-// drainFileState is one spool file's persisted progress.
+// drainFileState is one spool file's persisted progress. Each field carries an invariant a later
+// pass, in this process or the next one, acts on:
+//
+//   - Size is the durable bound the drain has read this file to, and once this code has written the
+//     record it never falls: a pass records max(the bound it read to, the bound the record already
+//     held). The bound one pass reads to is the file's stat size, except for a WAL segment the
+//     ingest held, where it is that segment's synced size (durableEnd) — and THAT bound is not
+//     monotonic across passes, because ingest.holdSynced enters every segment the ingest opens into
+//     ingest.synced at 0, so a segment reopened over bytes an earlier pass consumed answers 0 until
+//     its next Sync returns. Keeping the bound the record already holds is what stops such a pass
+//     from forgetting durable bytes an earlier pass recorded. Every byte below Size was on disk when
+//     some pass of THIS code read it, so a file that comes back shorter than Size has lost bytes that
+//     were durable, or is another file under the same name, and validateProgress refuses the spool
+//     over it. The weaker cases are both a record this code did not write: the floor cannot go under
+//     such a record's Offset, and a mark of this code's can come to rest on that same Offset rather
+//     than on a Sync of its own. SizeIsRawStat says what each costs and what it does not.
+//   - Offset is how much of the file this drain has consumed: every record below it was dispatched
+//     and acknowledged, or accounted for as a gap, and none of it is ever delivered again. Size is
+//     never recorded below it, so Offset never passes Size, and loadState's refusal of Offset > Size
+//     describes a record no pass of this code can write.
+//   - Done says the file was consumed to the stat size the pass saw AND that the bound the record
+//     holds is that same size, so Offset == Size. It authorizes removeCompletedFile to unlink the
+//     file, never a delivery.
+//   - SizeIsRawStat says this record's Size may be a RAW STAT rather than a durable bound: it is
+//     what a binary before this one recorded, a held segment's unsynced tail included. Such a Size
+//     must not be kept — keeping it would inherit a bound a legitimate machine crash falls below,
+//     which is the wedge drainFile describes — so the first pass of this code over the file lowers
+//     it to that pass's own durable bound, floored at the consumed offset. That floor is not itself
+//     a durable bound: a binary with no durableEnd (develop's drain.go has none) read a held segment
+//     to EOF, so the Offset it recorded can name bytes no Sync ever returned for, and loadState
+//     forbids a Size below Offset. No floor this code can choose lowers the record past that
+//     residual, and the crash that takes those bytes wedges the spool for that one record exactly as
+//     it wedged the binary that wrote it. What the pass does NOT do is call such a Size durable: the
+//     mark is written only when the pass's own bound carries the recorded Size, so the claim is
+//     never laundered, and it is made the first time a bound of this code's own reaches the offset.
+//     "The pass's own bound" is durableEnd's, and that is a Sync of this code's everywhere except
+//     for a file with nothing unread (size <= offset), where durableEnd returns the stat and syncs
+//     nothing: an inherited record whose Offset already equals the stat is therefore marked with no
+//     Sync of this code behind it, on a bound that rests on the inherited offset. It costs nothing
+//     and changes no refusal — the mark can only be written that way where Size == Offset, and
+//     validateProgress compares BOTH against the stat, so the refusal is identical either way and
+//     the two floors coincide from then on.
+//     SizeIsRawStat is the NEGATION of the mark on disk (drainFileRecord.DurableSize), so that the
+//     zero value is a record this code wrote and a record carrying no mark — every record older than
+//     the mark itself — is the conservative case.
 type drainFileState struct {
-	Size   int64 `json:"size"`
-	Offset int64 `json:"offset"`
-	Done   bool  `json:"done"`
+	// The on-disk field names live on drainFileRecord, which MarshalJSON and UnmarshalJSON below
+	// convert to and from; this struct is never serialized field by field.
+	Size   int64
+	Offset int64
+	Done   bool
 	// PendingBlobs is persisted with the acknowledged offset before any deletion is attempted.
-	PendingBlobs []string `json:"pending_blobs,omitempty"`
+	PendingBlobs  []string
+	SizeIsRawStat bool
 }
 
 // drainState is state/drain.json's on-disk shape, keyed by spool file base name.
 type drainState map[string]*drainFileState
+
+// drainFileRecord is one record's shape inside state/drain.json. It exists for DurableSize, the mark
+// this code writes and no binary before it could: a record carrying the mark holds a Size that names
+// durable bytes only, which is what lets a later pass keep that bound instead of lowering it.
+//
+// The mark is written POSITIVELY, and its absence — not a second value — means "this size may be a
+// raw stat". That is what makes it honest in both directions of an upgrade. Every record written
+// before the mark existed lacks it, and lacking it is exactly the claim that record supports. And an
+// older binary reading one of these records ignores the field (its loadState is a plain
+// json.Unmarshal, which drops unknown fields) and drops it again when it rewrites the record — so a
+// downgrade returns the record to the raw-stat meaning that binary's own Size has, rather than
+// leaving a mark behind that would outlive the code that honoured it.
+//
+// What that costs is worth meeting here rather than inferring: the FORMAT survives a downgrade
+// unchanged, and the PROTECTION does not. The record an older binary rewrites is byte-identical to a
+// genuine pre-mark one, so the next pass of this code reads it as a raw stat and floors at the
+// consumed offset — and the recorded bound then falls to that offset the first time a reopened
+// segment answers a lower durableEnd. For that record the truncation window this mark closes is open
+// again, until a bound of this code's own reaches its offset and re-marks it: one pass by an older
+// binary surrenders the protection, and the defect it repairs reopens for as long as the record
+// stays unmarked. Nothing distinguishes the two records, and trusting an unmarked Size is the wedge
+// the mark exists to prevent, so the downgrade-then-upgrade cycle is accepted at that price.
+type drainFileRecord struct {
+	Size   int64 `json:"size"`
+	Offset int64 `json:"offset"`
+	Done   bool  `json:"done"`
+	// DurableSize marks a Size this code wrote. omitempty is deliberate: the field is written only
+	// when it is true, so the records without it are exactly those no pass of this code has written.
+	DurableSize  bool     `json:"durable_size,omitempty"`
+	PendingBlobs []string `json:"pending_blobs,omitempty"`
+}
+
+// MarshalJSON writes the record with the durable-size mark, unless it still carries the raw stat a
+// binary before the mark recorded.
+func (fs drainFileState) MarshalJSON() ([]byte, error) {
+	return json.Marshal(drainFileRecord{
+		Size: fs.Size, Offset: fs.Offset, Done: fs.Done,
+		DurableSize: !fs.SizeIsRawStat, PendingBlobs: fs.PendingBlobs,
+	})
+}
+
+// UnmarshalJSON reads a record this code wrote or one any binary before it wrote. A record with no
+// durable-size mark is one whose Size may be a raw stat (drainFileState.SizeIsRawStat).
+func (fs *drainFileState) UnmarshalJSON(b []byte) error {
+	var rec drainFileRecord
+	if err := json.Unmarshal(b, &rec); err != nil {
+		return err
+	}
+	*fs = drainFileState{
+		Size: rec.Size, Offset: rec.Offset, Done: rec.Done,
+		PendingBlobs: rec.PendingBlobs, SizeIsRawStat: !rec.DurableSize,
+	}
+	return nil
+}
 
 // DrainConfig is drainer's dependency set.
 type DrainConfig struct {
@@ -92,6 +193,18 @@ type DrainConfig struct {
 	// RemoveWAL, which decides under the lock every append takes, and its progress is put back. A
 	// nil HoldsWAL skips the question.
 	HoldsWAL func(path string) bool
+	// SyncedWAL reports whether the ingest holds the wal-* segment at path open for appending and, if
+	// it does, the segment's synced size: how much of it a Sync of the ingest's own handle returned nil
+	// for (ingest.syncedWAL). The drain reads, leases and dispatches nothing of a held segment past
+	// that size. A line a WAL batch has written but whose Sync has not returned is left for a later
+	// pass, like a trailing incomplete line, so no lease becomes durable before its delivery's bytes.
+	// It must answer without waiting for that batch. That frees the question from the batch, not the
+	// whole pass: HoldsWAL and RemoveWAL decide under the mutex a batch holds through its Sync, so a
+	// pass that reaches a finished segment of an ended session still waits for a batch in flight, as
+	// long as that batch's Sync takes. Every file SyncedWAL does not report held is synced by the
+	// drain itself before any of it is consumed (drainer.durableEnd). A nil SyncedWAL treats every
+	// file as not held.
+	SyncedWAL func(path string) (synced int64, held bool)
 }
 
 // drainer is a standalone drain engine (task-3-spec.md drain.go's algorithm), independent of the
@@ -100,6 +213,23 @@ type DrainConfig struct {
 type drainer struct {
 	cfg DrainConfig
 	mu  sync.Mutex // serializes concurrent Drain calls (idle tick vs. admin.drain) against one drain.json
+
+	// syncFile makes a spool file's bytes durable before a pass consumes any of them (durableEnd).
+	// Outside tests it is syncSpoolFileWith, issuing its fsync through syncHandle. Tests set it to
+	// observe or fail the sync as a whole.
+	syncFile func(path string) error
+	// syncHandle is the fsync syncFile issues on the handle it opened for the file: (*os.File).Sync
+	// outside tests, which set it to see that the fsync happens, on which file, and when.
+	syncHandle func(*os.File) error
+	// syncDir makes the spool directory's entries durable: paths.SyncDir outside tests, which set it to
+	// observe or fail it. durableEnd issues it once per pass, after the pass's first file sync.
+	syncDir func(dir string) error
+	// dirSynced is set once the pass in progress has synced the spool directory. Drain clears it, under
+	// mu, before the pass's first file.
+	dirSynced bool
+	// unsyncedNoted names each spool file whose sync has failed since its last one that succeeded, so
+	// that noteUnsynced announces the failure Loud once, not on every pass. Guarded by mu.
+	unsyncedNoted map[string]bool
 
 	gapMu sync.Mutex
 	gaps  DrainGapState
@@ -119,7 +249,9 @@ func newDrainer(cfg DrainConfig) *drainer {
 	if cfg.IsLive == nil {
 		cfg.IsLive = func(core.SessionID) bool { return false }
 	}
-	return &drainer{cfg: cfg}
+	dr := &drainer{cfg: cfg, syncHandle: (*os.File).Sync, syncDir: paths.SyncDir, unsyncedNoted: map[string]bool{}}
+	dr.syncFile = func(path string) error { return syncSpoolFileWith(path, dr.syncHandle) }
+	return dr
 }
 
 // Drain replays every spool-tier file under root's spool directory (task-3-spec.md drain.go):
@@ -130,6 +262,7 @@ func newDrainer(cfg DrainConfig) *drainer {
 func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	dr.mu.Lock()
 	defer dr.mu.Unlock()
+	dr.dirSynced = false // a file created since the last pass has an entry that pass's sync missed
 
 	spoolDir := paths.Of(dr.cfg.Root).Spool
 	files, err := ipc.SpoolFiles(spoolDir)
@@ -191,12 +324,21 @@ func (dr *drainer) Drain(ctx context.Context) (int, error) {
 	}
 	pending := int64(0)
 	for base, fs := range st {
-		if remaining := fs.Size - fs.Offset; remaining > 0 {
+		// A file's unread bytes are those its progress records, plus those the pass read no further
+		// than because they are not durable yet and its progress therefore does not name (gaps.hold).
+		// Counted together, one file is still one pending gap.
+		//
+		// Size can also stand ABOVE the file's stat, for a file that shrank under the pass (drainFile's
+		// floor says how). The bytes between them are gone rather than unread, and this counts them
+		// pending deliberately: they were durable when a pass read them, nothing has replayed them, and
+		// the next pass refuses the spool over exactly those bytes (validateProgress). Clamping the
+		// count at the stat would drop that hole out of the one signal this drain has for reporting it.
+		if remaining := fs.Size - fs.Offset + gaps.withheld[base]; remaining > 0 {
 			pending += remaining
 			gaps.add(base, DrainGapPending, "spool bytes not yet replayed")
 		}
 	}
-	dr.publishGaps(gaps.state(dr.cfg.Clock, pending))
+	dr.publishGaps(gaps.state(dr.cfg.Clock, pending+gaps.unsynced))
 	return total, stopErr
 }
 
@@ -232,6 +374,23 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 	}
 	fs.Done = false
 
+	// Nothing the pass consumes may be less durable than what the pass makes of it: a lease is a
+	// durable journal line, and the offset persisted below names the bytes read. durableEnd bounds
+	// the pass to bytes already on disk, syncing the file first where it has to; a sync that fails
+	// leaves the whole file for a later pass.
+	end, err := dr.durableEnd(path, base, size, fs.Offset)
+	if err != nil {
+		// The stat size is not recorded: progress naming bytes the pass could not make durable would
+		// outlive a machine crash that takes them, and validateProgress would then refuse every later
+		// Drain. The file's unread bytes are pending all the same. Those up to the recorded size are
+		// in the pending total already, so the pass adds the rest, in memory only.
+		gaps.add(base, DrainGapUnsynced, "spool bytes could not be made durable")
+		gaps.unsynced += max(size-fs.Size, 0)
+		dr.noteUnsynced(path, base, err)
+		return 0, err
+	}
+	delete(dr.unsyncedNoted, base) // durable now: a later failure is a new one, announced again
+
 	f, err := os.Open(paths.Long(path))
 	if err != nil {
 		return 0, err
@@ -246,12 +405,13 @@ func (dr *drainer) drainFile(ctx context.Context, path string, st drainState, ga
 		}
 	}
 
-	// The pass reads the file as it stood at the stat above and no further. Bytes appended after it
-	// — by the ingest to a WAL segment it holds, by a hook process to its own client spool — belong
-	// to the next pass. Reading them too let the consumed offset overtake the size recorded below,
-	// and loadState refuses exactly that as inconsistent progress, so every later Drain failed
-	// before reading a single spool file.
-	r := bufio.NewReaderSize(io.LimitReader(f, size-fs.Offset), drainReadBufferBytes)
+	// The pass reads the file as it stood at the stat above and no further, and of that only up to
+	// end. Bytes appended after the stat — by the ingest to a WAL segment it holds, by a hook process
+	// to its own client spool — belong to the next pass. Reading them too let the consumed offset
+	// overtake the size recorded below, and loadState refuses exactly that as inconsistent progress,
+	// so every later Drain failed before reading a single spool file. The bytes of a held segment past
+	// its synced size wait the same way, as a trailing incomplete line does: unconsumed, and pending.
+	r := bufio.NewReaderSize(io.LimitReader(f, max(end-fs.Offset, 0)), drainReadBufferBytes)
 	offset := fs.Offset
 	count := 0
 	canceled := false
@@ -398,7 +558,56 @@ readLoop:
 	}
 	_ = f.Close() // must happen before the delete-if-drained check below (Windows cannot remove an open file)
 
-	fs.Size = size
+	// The progress names the bound the pass actually read to, never the stat, floored at what the drain
+	// has already consumed. The bound and the stat differ for a WAL segment the ingest holds: the bytes
+	// past its synced size are not on disk yet, and progress that named them outlived the machine crash
+	// that took them. validateProgress then found a recorded size past the end of the file and refused
+	// EVERY later Drain, for the WHOLE spool — healthy files included — with nothing an operator could
+	// do about it.
+	//
+	// The floor is what keeps that same bound from wedging the spool the other way round. It is not
+	// monotonic per file name: ingest.holdSynced enters EVERY segment the ingest opens into
+	// ingest.synced at 0, including one already holding bytes an earlier pass consumed and recorded,
+	// and a Sync that fails freezes it there for the life of that handle. Recording that 0 over an
+	// Offset of N wrote {Size: 0, Offset: N}, which loadState refuses outright — so the very next pass
+	// failed before it read a single spool file, permanently, and no machine crash was needed to get
+	// there.
+	//
+	// The floor is the bound the record ALREADY HOLDS, not merely the offset the pass consumed. Those
+	// differ whenever a pass stopped short of the bound — a handler NAK, a cancel, the idle budget —
+	// and the segment was then reopened. Falling back to the offset there discarded a claim about
+	// bytes that WERE durable when an earlier pass recorded them: validateProgress stopped refusing
+	// when they went missing, so a truncation drew no refusal, the entry flipped to Done at the
+	// shortened size, and bytes written over durable ones were delivered as the file's continuation.
+	// A record no pass of this code has written is the one exception (drainFileState.SizeIsRawStat):
+	// its Size is a raw stat that may name a held segment's unsynced tail, and keeping THAT would
+	// inherit a bound the machine crash above legitimately falls below, re-creating the wedge. Such a
+	// record is floored at the consumed offset instead. That offset is NOT itself a durable bound: a
+	// binary with no durableEnd (develop's drain.go has none) read a held segment to EOF and recorded
+	// what it consumed, so its Offset can name bytes no Sync ever returned for. Nothing here cures
+	// that — loadState refuses a Size below Offset, so no floor can go lower — and the crash that
+	// takes those bytes wedges the spool for that record exactly as it wedged the binary that wrote
+	// it. What this pass can do is not LAUNDER the claim: the mark it writes says the recorded Size
+	// names durable bytes, so it is set only where the pass's OWN bound carries that Size. A Size
+	// resting on the offset floor of an unmarked record keeps that record's provenance instead, is
+	// therefore still lowerable rather than frozen, and is marked by the first pass whose durable
+	// bound reaches the offset. That bound is durableEnd's, which syncs nothing for a file with
+	// nothing unread, so the mark is also written where the pass's bound merely EQUALS the inherited
+	// offset; drainFileState.SizeIsRawStat says why that case costs nothing.
+	//
+	// The bytes above the recorded size are pending all the same, so the pass counts them in memory,
+	// as it counts the unread bytes of a file it could not sync.
+	floor := fs.Offset
+	if !fs.SizeIsRawStat {
+		floor = fs.Size // never below fs.Offset: loadState refuses any record where it is
+	}
+	fs.Size = max(end, floor)
+	// end < fs.Size says the floor won, so this Size is not a bound the pass read to: an unmarked
+	// record keeps its provenance, and a marked one was already durable and stays marked.
+	fs.SizeIsRawStat = fs.SizeIsRawStat && end < fs.Size
+	// Negative for a file that shrank under the pass: hold drops it, and Drain's end-of-pass loop
+	// reports those bytes as pending from the record instead, which is where that case is answered.
+	gaps.hold(base, size-fs.Size)
 	if canceled {
 		return count, ctx.Err()
 	}
@@ -413,7 +622,15 @@ readLoop:
 		return count, readErr
 	}
 
-	fs.Done = offset == size // incomplete trailing bytes remain pending, even for ended sessions
+	// Done must also imply Offset == Size, which loadState requires and removeCompletedFile acts on.
+	// Consuming to the stat no longer establishes that on its own: the floor above can hold Size ABOVE
+	// the stat this pass saw, for a file that shrank between validateProgress and that stat. Set from
+	// the offset alone, such a pass would write {Done, Offset < Size} — a record no later pass could
+	// load — and, worse, would call the file finished at a size below the durable bound its own record
+	// names and hand it to removeCompletedFile, which unlinks it. The file stays unfinished instead;
+	// its recorded bound still names bytes the file no longer has, so the next pass's validateProgress
+	// refuses it, and that refusal clears if the file comes back.
+	fs.Done = offset == size && fs.Size == offset // incomplete trailing bytes remain pending, even for ended sessions
 	// Persisted here — per file, on EOF, before the cleanup and the remove — not just once at the
 	// end of Drain (task-3-spec.md drain.go step 4's exact ordering): a crash anywhere after this
 	// file's last line must not lose its recorded completion or its cleanup intents, which is what
@@ -428,6 +645,67 @@ readLoop:
 		return count, err
 	}
 	return count, dr.removeCompletedFile(path, base, fs, st)
+}
+
+// durableEnd returns how far into the file at path, which the stat at the top of the pass found size
+// bytes long, the pass may read, once every byte before that point is durable. A machine crash after
+// the pass leased a delivery whose bytes were not on disk yet would leave an orphan lease: a
+// permanent open-lease GC root and an arrival hole, for a delivery whose hook died with the machine.
+//
+// For a wal-* segment the ingest holds, the point is the segment's synced size
+// (DrainConfig.SyncedWAL), and the drain issues no I/O of its own: the ingest's Syncs cover the
+// segment up to there, and a Sync still in flight covers nothing yet. Every other file is synced
+// once, before the pass consumes any of it, and the sync covers everything the stat counted: a
+// segment rotated away or closed by this daemon, one a crashed process left with lines it never
+// synced still in the page cache, or a client-*.ndjson spool, which the hook client never fsyncs. The
+// pass's first such sync is followed by one of the spool directory, whose entries a file's fsync does
+// not cover on POSIX. A file with nothing unread is not synced at all: the stat is returned as it
+// stands, so a pass over an INHERITED record whose Offset already equals the stat writes the durable
+// mark over a bound no Sync of this code covered (drainFileState.SizeIsRawStat says why that is
+// harmless — it happens only where Size == Offset, which validateProgress checks either way). An
+// error means the file's sync or the directory's failed, and nothing of the file may be consumed.
+//
+// The bound returned is not by itself what the pass records as the file's size: drainFileState.Size
+// is the larger of this bound and the one the record already holds, so its progress names only bytes
+// that were durable when some pass read them AND never gives up such a claim. That floor is not
+// cosmetic: this bound can FALL between passes, because a segment the ingest reopens enters
+// ingest.synced at 0 (drainFile says what both ways of mishandling that cost).
+func (dr *drainer) durableEnd(path, base string, size, offset int64) (int64, error) {
+	if _, isWAL := walSessionID(base); isWAL && dr.cfg.SyncedWAL != nil {
+		if synced, held := dr.cfg.SyncedWAL(path); held {
+			return min(size, synced), nil
+		}
+	}
+	if size <= offset {
+		return size, nil
+	}
+	if err := dr.syncFile(path); err != nil {
+		return 0, fmt.Errorf("daemon: drain: spool file not durable: %w", err)
+	}
+	if !dr.dirSynced {
+		// The hook that created a client spool never synced the entry naming it, and the ingest does
+		// not sync a segment's either (design R16). One sync of the directory covers every file the
+		// pass listed, since each existed before the listing.
+		if err := dr.syncDir(filepath.Dir(path)); err != nil {
+			return 0, fmt.Errorf("daemon: drain: spool directory not durable: %w", err)
+		}
+		dr.dirSynced = true
+	}
+	return size, nil
+}
+
+// noteUnsynced announces, Loud, a spool file the drain could not make durable, the first time it fails
+// since its last sync that succeeded. Drain warns of the file error on every pass. But a file the
+// drain can read and cannot sync, such as one it may not open for writing, stays undrained for good,
+// and so does its session's recovery marker: a hole that must not hide among those warnings. mu must
+// be held.
+func (dr *drainer) noteUnsynced(path, base string, err error) {
+	if dr.unsyncedNoted[base] {
+		return
+	}
+	dr.unsyncedNoted[base] = true
+	dr.cfg.Log.Loud("daemon: drain: spool file cannot be made durable; none of it drains until it can",
+		"path", path, "err", err)
 }
 
 // removeCompletedFile removes a fully drained file whose cleanup intents are all consumed, if
@@ -499,6 +777,29 @@ func removeIfUnchanged(path string, drained int64) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// syncSpoolFile is syncSpoolFileWith issuing the real fsync: what a drainer's syncFile does when
+// nothing replaces its syncHandle, and what a test that replaces syncFile calls to keep the real sync.
+func syncSpoolFile(path string) error { return syncSpoolFileWith(path, (*os.File).Sync) }
+
+// syncSpoolFileWith makes every byte of the spool file at path durable, whichever process wrote it,
+// by issuing fsync on a handle of its own: an fsync covers the file, not the handle it is issued on.
+// It opens that handle for appending, creating and truncating nothing, because Windows refuses
+// FlushFileBuffers on a handle without write access, and a read-only handle is all the pass reads
+// with. The handle shares reading and writing, so a hook process still appending to its client spool,
+// or the ingest to a segment it reopened, is not disturbed, and it is closed before the pass can reach
+// a removal: Windows cannot delete a file that has a handle open.
+func syncSpoolFileWith(path string, fsync func(*os.File) error) error {
+	f, err := paths.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0)
+	if err != nil {
+		return err
+	}
+	if err := fsync(f); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // cleanupAcknowledged consumes only cleanup intents from a successfully persisted state. Every
@@ -586,6 +887,29 @@ func scanPendingBlobs(path string, fs *drainFileState, refs map[string]bool) err
 	return s.Err()
 }
 
+// validateProgress refuses a pass whose progress no longer describes the spool: a file shorter than
+// the bytes its entry names. Both comparisons are against durable bytes only, for every record this
+// code wrote: Size is the largest durable bound one of its passes has read the file to, and every
+// byte below it was on disk when that pass read it, so a file that comes back shorter either lost
+// bytes it had made durable or is a different file under the same name — neither is progress to act
+// on. A record carrying no durable-size mark is the residual (drainFileState.SizeIsRawStat): its
+// Offset, which its Size can rest on, may name bytes a binary with no durable bound of its own read
+// before any Sync returned for them, and a crash that takes those refuses here as a loss. That
+// refusal is what the binary that wrote such a record already did, and it clears if the bytes return. The unsynced tail a machine
+// crash takes is not in Size, which is what keeps that crash from being read as either (SP20-D1, R9);
+// and Size does not fall back to the consumed offset when a reopened segment's bound does, which is
+// what keeps a truncation of the durable bytes between them from being read as neither.
+//
+// The Offset comparison is defence in depth, not a second rule: drainFile never records a Size below
+// Offset and loadState refuses any record with Offset > Size, so every record that reaches here has
+// Offset <= Size, and the Size comparison has already covered it. A file truncated to strictly
+// between the two is unwritable while that invariant holds, which is itself the argument. It is kept
+// because it is the comparison that fires first on a record whose Size had fallen below its Offset —
+// the shape that wedged the spool before the floor — and because it states the narrower claim
+// outright: nothing this drain already consumed may be gone.
+//
+// One such file refuses the whole pass, the spool's healthy files included: progress that no longer
+// matches the spool cannot authorize an offset or a deletion anywhere in it.
 func (dr *drainer) validateProgress(files []string, st drainState) error {
 	for _, path := range files {
 		fs := st[filepath.Base(path)]
@@ -781,6 +1105,10 @@ const (
 	DrainGapUnacknowledged DrainGapKind = "unacknowledged"
 	// DrainGapPending is a spool file with bytes still unread when the pass ended.
 	DrainGapPending DrainGapKind = "pending"
+	// DrainGapUnsynced is a spool file whose unread bytes could not be made durable: the sync the
+	// drain issues before it consumes a file the ingest does not hold failed. Nothing of the file was
+	// leased, dispatched or consumed in that pass, and the next pass syncs it again.
+	DrainGapUnsynced DrainGapKind = "unsynced"
 	// DrainGapProgressUnreadable is drain state this process refused to act on at all. It is the
 	// strongest form of "cannot currently tell": no file was consulted.
 	DrainGapProgressUnreadable DrainGapKind = "progress_unreadable"
@@ -819,6 +1147,26 @@ type GapReporter interface {
 // gapRecorder accumulates one pass's gaps.
 type gapRecorder struct {
 	gaps map[DrainGap]int
+	// unsynced counts the unread bytes the pass found in files it could not make durable, past the
+	// size their persisted progress records. The pass does not record their stat size (drainFile says
+	// why), so the progress it persists does not show these bytes, yet they are pending all the same.
+	unsynced int64
+	// withheld counts, per file, the bytes the pass read no further than because they are not durable
+	// yet: a held WAL segment's tail past its synced size. The progress the pass persists names the
+	// durable bound it read to and not those bytes (drainFile says why), and they are just as pending.
+	withheld map[string]int64
+}
+
+// hold counts n of file's bytes as pending without persisting them. The pass could not read them, so
+// its progress must not name them; that they are unread is a fact about the spool all the same.
+func (g *gapRecorder) hold(file string, n int64) {
+	if n <= 0 {
+		return
+	}
+	if g.withheld == nil {
+		g.withheld = map[string]int64{}
+	}
+	g.withheld[file] += n
 }
 
 func (g *gapRecorder) add(file string, kind DrainGapKind, reason string) {

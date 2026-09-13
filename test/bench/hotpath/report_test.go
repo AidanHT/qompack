@@ -162,6 +162,46 @@ func TestBudgetIDBASpawnEstimate_NeverCollidesWithB_A(t *testing.T) {
 // wall-clock row's own Pass, and this test is what stops that from quietly becoming "B-E is not
 // judged under co-load at all". A run in exactly that shape — wall row reported, CPU row over its
 // limit — must still exit non-zero.
+// TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet is review round 1's F6. The golden above
+// pins the JSON shape of a hand-built Report, so a row added to the HARNESS alone never breaks it —
+// budgetIDHookAckRTT's own addition left the six-row golden passing. This pins the harness's row
+// set itself: which ids it publishes, in what order, and which of them carry a limit.
+func TestBuildBudgetRows_PublishesExactlyTheDocumentedRowSet(t *testing.T) {
+	rows := buildBudgetRows(
+		BudgetRow{BudgetID: string(obs.BA), LimitMs: floatPtr(15), Pass: boolPtr(true)},
+		BudgetRow{BudgetID: string(obs.BB), LimitMs: floatPtr(2), Pass: boolPtr(true)},
+		nil, nil, nil, nil, nil, 2*time.Second, true)
+
+	ids := make([]string, 0, len(rows))
+	gated := map[string]bool{}
+	for _, r := range rows {
+		ids = append(ids, r.BudgetID)
+		gated[r.BudgetID] = r.LimitMs != nil
+	}
+
+	require.Equal(t,
+		[]string{"B-A", "B-B", "B-D", "B-E", "B-E_cpu", "B-A_spawn_estimate", "hook_ack_rtt"}, ids,
+		"a row added to or removed from the harness must be a deliberate change to this list")
+	require.Equal(t, map[string]bool{
+		"B-A": true, "B-B": true, "B-D": false, "B-E": true,
+		"B-E_cpu": true, "B-A_spawn_estimate": false, "hook_ack_rtt": false,
+	}, gated, "and a new row must never arrive gated by accident")
+}
+
+// TestBuildBudgetRows_UnderColoadReportsOnlyTheWallClockBERow pins the one shape --under-coload
+// changes in this function: B-E's wall-clock row loses its limit, and its CPU-time arm keeps one.
+func TestBuildBudgetRows_UnderColoadReportsOnlyTheWallClockBERow(t *testing.T) {
+	rows := buildBudgetRows(BudgetRow{BudgetID: string(obs.BA)}, BudgetRow{BudgetID: string(obs.BB)},
+		nil, nil, nil, nil, nil, 2*time.Second, false)
+
+	byID := map[string]BudgetRow{}
+	for _, r := range rows {
+		byID[r.BudgetID] = r
+	}
+	require.Nil(t, byID[string(obs.BE)].LimitMs, "the wall-clock B-E row is reported under co-load")
+	require.NotNil(t, byID[budgetIDBECPU].LimitMs, "while its CPU-time arm is gated in every run")
+}
+
 func TestBudgetIDBECPU_IsADistinctRowThatCanStillFailTheRun(t *testing.T) {
 	require.NotEqual(t, string(obs.BE), budgetIDBECPU)
 	require.Equal(t, "B-E_cpu", budgetIDBECPU)
@@ -383,6 +423,98 @@ func TestReconcileDelivery_SpooledDuplicateIsNotAMissingSample(t *testing.T) {
 // TestHookControlledShortfall pins B-A's own population check: hook_controlled can legitimately
 // be shorter than l0_ingest by exactly the daemon's hotpath_sample_invalid count (a received
 // request whose wire timestamp validHotPathTS refused to time), and by nothing else.
+// TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead is the review-round-1 regression for
+// the hook_ack_rtt tranche: it is sent AFTER the status read the gated rows are built from, so a
+// clean run's gated window is short by exactly that tranche — and that is not a shortfall.
+func TestGatedLedger_ScopesTheAccountingToTheSnapshotTheGatesRead(t *testing.T) {
+	// 2000 spawns plus a 64-request warm-up tranche, then 64 more for hook_ack_rtt: every one
+	// delivered, and the gated snapshot saw the first 2064 of them.
+	total := deliveryLedger{Sent: 2128, Delivered: 2128}
+
+	gated, err := gatedLedger(total, 2064, 2064)
+	require.NoError(t, err)
+	require.Equal(t, int64(2064), gated.Sent)
+	require.Equal(t, int64(2064), gated.Delivered)
+	require.Zero(t, gated.Undelivered(), "the tranche is outside this window, not missing from it")
+	require.Zero(t, gated.Lost)
+}
+
+// TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo is the review-round-2 regression for
+// the ARITHMETIC the warm-up requests force on the ledger.
+//
+// It pins four things: that ackRTTWarmups is not zero, so the row's first-sample bias fix cannot be
+// silently disabled; that ackRTTTrancheSends counts the discarded warm-ups alongside the timed
+// samples; that a gated window short by the whole tranche is not a shortfall; and that a Sent which
+// counted only the timed samples is refused outright by reconcileDelivery rather than reported over.
+//
+// What it does NOT see — gatedLedger takes its window as a parameter and derives nothing from the
+// tranche, so the window half holds for any tranche size — is the ORDER a run makes those calls in.
+// That the warm-ups fall on the same side of the gated snapshot as the samples do is a property of
+// runHarness's own sequence: it reads gatedSnap BEFORE calling measureAckRTT, and hands gatedLedger
+// expectedHotPathSends rather than anything derived from this tranche (main.go). That the warm-ups
+// are inside the tranche at all — sent, not merely counted — is pinned by
+// TestAckRTTTranche_SendsTheWarmUpsAndTimesOnlyTheSamples (measure_test.go).
+func TestGatedLedger_TheAckRTTWarmUpsAreOutsideTheGatedWindowToo(t *testing.T) {
+	require.Positive(t, ackRTTWarmups, "the row's first-sample bias fix must not be silently disabled")
+	require.Equal(t, int64(ackRTTSamples+ackRTTWarmups), ackRTTTrancheSends(ackRTTSamples),
+		"the ledger counts the discarded warm-ups as the deliveries they are")
+
+	window := expectedHotPathSends(2000, true)
+	sent := window + ackRTTTrancheSends(ackRTTSamples)
+	total := deliveryLedger{Sent: sent, Delivered: sent}
+
+	gated, err := gatedLedger(total, window, window)
+	require.NoError(t, err)
+	require.Equal(t, window, gated.Sent)
+	require.Zero(t, gated.Undelivered(), "the whole tranche is outside this window, warm-ups included")
+	require.Zero(t, gated.Lost)
+
+	full, err := reconcileDelivery(sent, sent, spoolCensus{})
+	require.NoError(t, err)
+	require.Zero(t, full.Undelivered())
+	require.Zero(t, full.Lost)
+
+	_, err = reconcileDelivery(window+int64(ackRTTSamples), sent, spoolCensus{})
+	require.Error(t, err, "counting only the timed samples loses the warm-ups from Sent")
+	require.Contains(t, err.Error(), "OTHER client")
+}
+
+// TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack pins that scoping the ledger did not
+// cost the accounting its teeth: a request deferred before the snapshot is still a sample missing
+// from the gated population, and tailAdjustedP99 still gets it.
+func TestGatedLedger_DeferralInsideTheWindowIsStillCountedBack(t *testing.T) {
+	gated, err := gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2127, Deferred: 1}, 2064, 2063)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), gated.Deferred)
+	require.Equal(t, int64(1), gated.Undelivered())
+	require.Zero(t, gated.Lost)
+}
+
+// TestGatedLedger_DeferralOutsideTheWindowInventsNoShortfall is the other direction: the census
+// cannot attribute a spooled line to a tranche, so a deferral belonging to the ack-RTT tranche
+// arrives in the full ledger — and must not be read as a sample missing from a window that never
+// contained it.
+func TestGatedLedger_DeferralOutsideTheWindowInventsNoShortfall(t *testing.T) {
+	gated, err := gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2127, Deferred: 1}, 2064, 2064)
+	require.NoError(t, err)
+	require.Zero(t, gated.Deferred)
+	require.Zero(t, gated.Undelivered())
+	require.Zero(t, gated.Lost)
+}
+
+// TestGatedLedger_RefusesAGatedPopulationItCannotAccountFor keeps both refusals reconcileDelivery
+// makes, on the gated window this time: a shortfall nothing explains, and a population larger than
+// the harness's own sends.
+func TestGatedLedger_RefusesAGatedPopulationItCannotAccountFor(t *testing.T) {
+	_, err := gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2064}, 2064, 2000)
+	require.Error(t, err, "64 samples missing from the gated window with nothing accounting for them")
+	require.Contains(t, err.Error(), "LOST")
+
+	_, err = gatedLedger(deliveryLedger{Sent: 2128, Delivered: 2128}, 2064, 2065)
+	require.Error(t, err, "the daemon cannot have observed more than this harness had sent")
+	require.Contains(t, err.Error(), "OTHER client")
+}
+
 func TestHookControlledShortfall(t *testing.T) {
 	ledger := deliveryLedger{Sent: 2064, Delivered: 2063, Deferred: 1}
 

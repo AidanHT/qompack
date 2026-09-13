@@ -107,8 +107,23 @@ func (g *payloadGen) next(i int, sessionID core.SessionID, cwd string) hookio.Ev
 // from payloadGen: every spawn must see byte-identical stdin so the measured spawn-to-spawn
 // variance is host/process cost, not payload-size noise.
 func representativeObservePayload(sessionID core.SessionID, cwd string, seq int) []byte {
+	b, err := json.Marshal(observeRTTEvent(sessionID, cwd, seq))
+	if err != nil {
+		return []byte(`{}`)
+	}
+	return b
+}
+
+// observeRTTEvent is that same fixed event as a value, which the in-process hook_ack_rtt row sends
+// directly (measureAckRTT) rather than through a spawned process's stdin.
+//
+// The two rows share one event deliberately. hook_ack_rtt is read AGAINST B-B — design §7.5's
+// slack99 is the difference of their p99s — so the two must time the same shape of delivery; a
+// payload of a different size would put a difference between them that is neither the transport nor
+// the daemon, which is the only thing that difference is supposed to name.
+func observeRTTEvent(sessionID core.SessionID, cwd string, seq int) hookio.Event {
 	body := "package main\n\nfunc main() {\n\tprintln(\"hello from the hot-path bench harness\")\n}\n"
-	ev := hookio.Event{
+	return hookio.Event{
 		HookEventName: "PostToolUse",
 		SessionID:     sessionID,
 		CWD:           cwd,
@@ -117,11 +132,6 @@ func representativeObservePayload(sessionID core.SessionID, cwd string, seq int)
 		ToolInput:     jsonString(map[string]string{"file_path": "src/main.go"}),
 		ToolResponse:  jsonString(map[string]string{"content": body}),
 	}
-	b, err := json.Marshal(ev)
-	if err != nil {
-		return []byte(`{}`)
-	}
-	return b
 }
 
 // checkpointPayload is the fixed PreCompact-shaped payload every B-E spawn sample uses

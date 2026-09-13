@@ -4,10 +4,12 @@ package paths
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/bits"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/windows"
 )
@@ -167,6 +169,35 @@ func openShared(p string) (*os.File, error) {
 		nil, windows.OPEN_EXISTING,
 		windows.FILE_ATTRIBUTE_NORMAL|windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
 	if err != nil {
+		return nil, &os.PathError{Op: "open", Path: p, Err: err}
+	}
+	return os.NewFile(uintptr(h), p), nil
+}
+
+// openSharedRW is openShared for reading and writing. It passes GENERIC_READ|GENERIC_WRITE with
+// openShared's FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, OPEN_EXISTING (so a missing
+// file is ERROR_FILE_NOT_FOUND and is never created), a nil SecurityAttributes (a non-inheritable
+// handle) and the same *os.PathError wrapper, each for openShared's reason.
+//
+// One argument differs from openShared, exactly as it differs in Go's own Open: there is no
+// FILE_FLAG_BACKUP_SEMANTICS. GOROOT/src/syscall/syscall_windows.go's Open adds that flag only to
+// an open without write access, the only kind that may name a directory; without it CreateFile
+// refuses a directory with ERROR_ACCESS_DENIED, which Open then reports as EISDIR when the path
+// is a directory. This does the same, so a refused directory has os.OpenFile's error here too.
+func openSharedRW(p string) (*os.File, error) {
+	name, err := windows.UTF16PtrFromString(p)
+	if err != nil {
+		return nil, &os.PathError{Op: "open", Path: p, Err: err}
+	}
+	h, err := windows.CreateFile(name, windows.GENERIC_READ|windows.GENERIC_WRITE,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		if errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+			if attrs, attrErr := windows.GetFileAttributes(name); attrErr == nil && attrs&windows.FILE_ATTRIBUTE_DIRECTORY != 0 {
+				err = syscall.EISDIR
+			}
+		}
 		return nil, &os.PathError{Op: "open", Path: p, Err: err}
 	}
 	return os.NewFile(uintptr(h), p), nil

@@ -26,6 +26,7 @@ jobs:
           - { pkg: ./internal/chunk,      fn: FuzzSplit }
           - { pkg: ./internal/chunk,      fn: FuzzSplitStream }
           - { pkg: ./internal/config,     fn: FuzzConfigLoad }
+          - { pkg: ./internal/daemon,     fn: FuzzDeliverySealSelect }
           - { pkg: ./internal/eval,       fn: FuzzRedact }
           - { pkg: ./internal/hookio,     fn: FuzzReadEvent }
           - { pkg: ./internal/ipc,        fn: FuzzDecodeRequest }

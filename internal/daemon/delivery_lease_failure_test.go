@@ -246,6 +246,26 @@ func TestDeliveryJournal_ConcurrentDeliveryRetriesShareOneAssignment(t *testing.
 	require.Equal(t, 1, bytes.Count(contents, []byte{'\n'}))
 }
 
+// TestDeliveryJournal_PositionCorruptionCannotBeRepairedByAnOpenWriter is one of design §6.1's
+// step-2 trace rows, and it names no format: it runs against whatever seal the build holds. The
+// outcomes it asserts are the same in both, but the leg that discriminates between its modes is not:
+//
+//   - At format 1 the open writer's per-batch check reads the sidecar back as a v1 document, so each
+//     non-missing mode is refused by its own predicate — malformed by the parse, future by the
+//     version, noncanonical by the canonical re-encode, and count, bytes and chain by the comparison
+//     with the journal's own position.
+//   - At format 2 all six of those modes write a v1-shaped document over a held 32 KiB image — the
+//     ~110-byte position for five of them, 19 bytes for "malformed", and neither is
+//     deliverySealFileSize, which is the whole of what matters — so the seal's identity check
+//     refuses every one of them on SIZE, before anything is read. The
+//     per-mode discrimination then lives on the REOPEN leg below, where the file is no longer a v2
+//     image and the v1 reader takes it. The v2-shaped forms of these corruptions, each reaching its
+//     own predicate against a held seal, are TestDeliverySeal_StepTwoTraceHoldsInFormatTwo's and
+//     t14Corruptions' format-2 modes.
+//
+// What the test itself pins is format-free: an open writer never repairs a corrupt position, the
+// journal file is left byte for byte as it was, the corruption is preserved rather than overwritten,
+// and the next owner cannot open the journal either.
 func TestDeliveryJournal_PositionCorruptionCannotBeRepairedByAnOpenWriter(t *testing.T) {
 	for _, mode := range []string{"missing", "malformed", "future", "noncanonical", "count", "bytes", "chain"} {
 		t.Run(mode, func(t *testing.T) {

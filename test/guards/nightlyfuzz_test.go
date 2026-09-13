@@ -19,14 +19,26 @@ import (
 var nightlyFuzzMatrixRE = regexp.MustCompile(`(?m)^\s*-\s*\{\s*pkg:\s*(\S+?),\s*fn:\s*(\w+)\s*\}`)
 
 // nightlyFuzzMatrixLen is the number of rows .github/workflows/nightly.yml's fuzz matrix declares.
-// Every row now names a target that exists in the tree: the twenty-two wave 4 left, plus
-// internal/mcp's FuzzServeLine, which SP-13 shipped with no row at all and the V5 close-out's
-// two-way inventory found. This test reads the matrix, so it can never see that direction itself.
+// Every one of them names a target that exists in the tree today: the wave-1 reconciliation
+// (V2-VERIFY 2.0, V2-MERGE-01) replaced the three rows naming functions that existed nowhere and
+// added the fifteen shipped targets that had no row, the wave-3 integration turned the proposed
+// checkpoint/FuzzCheckpointJSON into the two targets SP-10 really shipped, and the V5 close-out
+// added the last two: internal/mcp's FuzzServeLine, which SP-13 shipped with no row at all, and
+// internal/daemon's FuzzDeliverySealSelect, which arrives with SP20-D1's v2 delivery seal.
+//
+// Those last two landed on separate branches, each moving this constant 22 -> 23, so the merge that
+// brought them together had to resolve it to 24 by hand: the count did not conflict, because both
+// sides wrote the same number for different rows. Only TestNightlyFuzzMatrix below, which reads the
+// real matrix, would have caught that — which is the whole argument for keeping this pin.
+//
+// This test reads the matrix, so it can never see the other direction — a shipped Fuzz* target with
+// no row at all. That half belongs to the wave checkpoint's two-way inventory, which is how both of
+// the last two rows were found.
 //
 // The assertion exists because a matrix repair can be made by RENAMING rows instead of adding them,
 // and a rename leaves the count untouched. Eight was the V1 number and survived the whole of wave 1
 // unchanged while fifteen shipped targets went unregistered; that is what this constant is for.
-const nightlyFuzzMatrixLen = 23
+const nightlyFuzzMatrixLen = 24
 
 // nightlyFuzzLandedSubplans is a transcription of tools/devtool/cover.go's landedSubplans, and must
 // be kept identical to it: a subplan adds itself there in the commit that lands it, and the same
