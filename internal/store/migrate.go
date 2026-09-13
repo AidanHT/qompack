@@ -286,6 +286,14 @@ type Migrator struct {
 	// mu serialises the migrator's own on-disk state (cursor, mapping, handoff). The single
 	// WRITER is a separate, cross-process concern; see AcquireWriter.
 	mu sync.Mutex
+
+	// afterBackupWalk runs between TakeBackup's copy walk and its refuseIfTheProjectMoved check.
+	// It is unexported, nil in production and never set outside this package's tests: the hazard
+	// that check exists for is a daemon sealing a delivery WHILE the walk runs, and a test has no
+	// other way to place a write inside that window without a sleep, which this repo's tests may
+	// not use. It is per-Migrator rather than a package variable so two tests running beside each
+	// other cannot see one another's hook.
+	afterBackupWalk func()
 }
 
 // NewMigrator builds a Migrator over root, a PROJECT root (never <root>/.qompack), matching

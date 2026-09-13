@@ -39,6 +39,11 @@ import (
 // ErrBackupCorrupt means a backed-up file no longer matches its manifest entry.
 var ErrBackupCorrupt = errors.New("store: backup does not match its manifest")
 
+// ErrBackupMoved means a writer this process does not hold the lease of changed the project's
+// delivery state while the copy was running, so what was captured is a copy of a moving target
+// rather than a backup. The writer is internal/daemon: see backupLiveWriterFiles.
+var ErrBackupMoved = errors.New("store: the project changed while the backup ran")
+
 const (
 	// backupManifestVersion is the version of a backup's manifest.json.
 	backupManifestVersion = 1
@@ -53,6 +58,35 @@ const (
 // would otherwise nest without bound.
 var backupSkipDirs = map[string]bool{
 	"backup": true, "run": true, "tmp": true, "logs": true, "metrics": true,
+}
+
+// The delivery-seal sidecars internal/daemon keeps beside its two journals under state/. They are
+// named here as strings for the same reason lifecycle.go names the journals that way: daemon
+// imports store, so store cannot import daemon back (00-ARCHITECTURE.md §3.2).
+const (
+	// deliveryLeasePositionFile is the lease journal's sealed position. Since SP20-D1 step 2 a
+	// running daemon rewrites it IN PLACE — one 480-byte WriteAt into a held 32 KiB A/B image,
+	// then a datasync — instead of replacing it by rename, so a plain os.ReadFile issued while the
+	// daemon is sealing can capture a slot that is neither the old record nor the new one. The
+	// daemon's reader refuses such an image outright rather than falling back to the other slot,
+	// which would make the restored project's delivery journal unavailable. That is design risk
+	// R10, and refuseIfTheProjectMoved below is what keeps it out of a backup that claims to be
+	// consistent.
+	deliveryLeasePositionFile = "delivery-lease-position.json"
+	// deliveryAckPositionFile is the acknowledgement journal's sealed position, sealed the same way.
+	deliveryAckPositionFile = "delivery-ack-position.json"
+)
+
+// backupLiveWriterFiles are the copied files a running daemon can change under the walk, as
+// slash-relative names under .qompack. The two journals are here as well as the two sidecars:
+// they are append-only, so a copy of one can hold a torn tail, and a journal captured before a
+// sidecar that seals more bytes than the copy holds is the "inconsistent live pair" the same risk
+// row names. Nothing else in the tree has a writer outside the single writer lease.
+var backupLiveWriterFiles = []string{
+	"state/" + deliveryLeaseFile,
+	"state/" + deliveryAckFile,
+	"state/" + deliveryLeasePositionFile,
+	"state/" + deliveryAckPositionFile,
 }
 
 // BackupFile is one file inside a backup: its slash-relative name under .qompack, its size, and
@@ -70,8 +104,15 @@ type BackupManifest struct {
 	Root    string         `json:"root"`
 	TakenAt core.UnixMilli `json:"taken_at"`
 	// Consistent records that the backup was taken while this process held the single writer
-	// lease and after the store had been flushed — which is what makes it a consistent backup
-	// rather than a copy of a moving target.
+	// lease, after the store had been flushed, and with every file a writer outside that lease
+	// can touch (backupLiveWriterFiles) unchanged from the first byte copied to the last — which
+	// is what makes it a consistent backup rather than a copy of a moving target.
+	//
+	// The third condition is not redundant. The writer lease excludes other STORE writers only:
+	// internal/daemon takes no store lease and, since SP20-D1 step 2, rewrites its delivery-seal
+	// sidecars in place while it serves. TakeBackup returns ErrBackupMoved rather than writing a
+	// manifest when that condition fails, so this field is never true of a copy the daemon moved
+	// under.
 	Consistent bool `json:"consistent"`
 	// SnapshotID and Frontier record where the migration stood when the backup was taken, so a
 	// restore can be reasoned about against the import.
@@ -84,14 +125,20 @@ func (m *Migrator) backupDir(id string) string { return filepath.Join(m.l.Backup
 
 // TakeBackup makes a consistent backup of the project's .qompack tree under id.
 //
-// Consistency comes from three things, in this order: the single writer lease is held for the
-// whole copy, so no other writer is running; the store is flushed first, so buffered writes are
-// on disk before anything is read; and every copied byte is hashed as it is written, so the
-// manifest describes what was actually captured rather than what was intended.
+// Consistency comes from four things, in this order: the single writer lease is held for the
+// whole copy, so no other STORE writer is running; the store is flushed first, so buffered writes
+// are on disk before anything is read; every copied byte is hashed as it is written, so the
+// manifest describes what was actually captured rather than what was intended; and the files a
+// writer outside that lease can touch are re-read at the end and must still hold exactly what was
+// captured (refuseIfTheProjectMoved), so a daemon that sealed a delivery under the walk fails the
+// backup instead of being recorded as consistent.
 //
 // A backup id is claimed exactly once. A second TakeBackup under the same id is os.ErrExist, not
 // an overwrite: a backup is evidence, and silently replacing evidence is the failure mode the
-// rollback requirement exists to prevent.
+// rollback requirement exists to prevent. A failed backup claims its id the same way — the tree
+// it copied stays on disk with no manifest beside it, which is what every other mid-walk failure
+// already leaves and what makes an unfinished backup unusable as one (VerifyBackup needs the
+// manifest) rather than silently retryable over.
 func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, error) {
 	if id == "" {
 		return BackupManifest{}, errors.New("store: TakeBackup needs a backup id")
@@ -168,6 +215,13 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 	}
 	sort.Slice(man.Files, func(i, j int) bool { return man.Files[i].Name < man.Files[j].Name })
 
+	if m.afterBackupWalk != nil {
+		m.afterBackupWalk()
+	}
+	if err := m.refuseIfTheProjectMoved(man); err != nil {
+		return BackupManifest{}, fmt.Errorf("store: backup %q: %w", id, err)
+	}
+
 	// A backup is rollback material, and a rollback drill re-reads every imported object out of
 	// the LIVE store to compare it against the restored one. So the manifest's own frontier is
 	// declared retained: an import performed by a build that predates this declaration, or a
@@ -184,6 +238,44 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		return BackupManifest{}, err
 	}
 	return man, nil
+}
+
+// refuseIfTheProjectMoved re-reads every backupLiveWriterFiles entry after the copy walk and
+// reports ErrBackupMoved unless the live file still holds exactly what the walk captured: the
+// same size and the same digest for a file the manifest names, and still no file at all for one
+// it does not.
+//
+// It is a comparison against the CAPTURED bytes, not against a second live read, because the
+// hazard is a reader that is not atomic against a concurrent writer: os.ReadFile of a 32 KiB seal
+// can return a mixture of the bytes before and after a 480-byte WriteAt, and that mixture equals
+// neither the file the walk started from nor the file on disk now. A seal write always changes
+// the slot's record, so any write under the walk is a difference here.
+//
+// It therefore also refuses a copy that is whole but stale — the daemon sealed a batch after this
+// file was read and before the walk ended — and that is deliberate: the manifest's Consistent
+// claim is about the whole tree, and a tree copied around a live writer does not support it.
+func (m *Migrator) refuseIfTheProjectMoved(man BackupManifest) error {
+	captured := make(map[string]BackupFile, len(man.Files))
+	for _, f := range man.Files {
+		captured[f.Name] = f
+	}
+	for _, name := range backupLiveWriterFiles {
+		live, rerr := os.ReadFile(paths.Long(filepath.Join(m.l.Dot, filepath.FromSlash(name))))
+		f, copied := captured[name]
+		switch {
+		case !copied && os.IsNotExist(rerr):
+			continue
+		case !copied:
+			return fmt.Errorf("%w: %s appeared while the backup ran", ErrBackupMoved, name)
+		case rerr != nil:
+			return fmt.Errorf("%w: %s: %v", ErrBackupMoved, name, rerr)
+		}
+		sum := sha256.Sum256(live)
+		if int64(len(live)) != f.Size || hex.EncodeToString(sum[:]) != f.SHA256 {
+			return fmt.Errorf("%w: %s changed under the copy; take the backup with the daemon stopped", ErrBackupMoved, name)
+		}
+	}
+	return nil
 }
 
 // VerifyBackup re-hashes every file the manifest names and reports the manifest only if all of

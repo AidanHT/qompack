@@ -187,6 +187,102 @@ func TestBackup_VerifyDetectsTamperingAndSizeDrift(t *testing.T) {
 	require.ErrorIs(t, err, ErrBackupCorrupt)
 }
 
+// TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy is design risk R10 (SP20-D1), which SP20-D1
+// step 2 made reachable: from that commit a running daemon rewrites its delivery-seal sidecars IN
+// PLACE — a 480-byte WriteAt into a held 32 KiB A/B image — instead of replacing them by rename, so
+// a plain os.ReadFile taken while it seals can capture a slot that is neither the old record nor the
+// new one, and the daemon's reader refuses such an image outright. The daemon holds no store writer
+// lease, so the lease TakeBackup takes does not exclude it.
+//
+// The four subtests are the four shapes that matters in: a sidecar rewritten in place at the SAME
+// SIZE (which is what a seal write always is, and what a size-only check would miss), a delivery
+// file that appears mid-copy because the daemon started, a journal appended under the walk, and the
+// control — an unrelated write, which is NOT one of these files and must not fail the backup.
+//
+// A refused backup writes no manifest, so it can never be verified or restored as though it were
+// consistent.
+func TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy(t *testing.T) {
+	const sealBytes = 32 << 10
+	sidecar := "delivery-lease-position.json"
+
+	for _, tc := range []struct {
+		name    string
+		present map[string]string
+		move    func(t *testing.T, state string)
+		refused bool
+	}{
+		{
+			name:    "a sidecar resealed in place under the walk",
+			present: map[string]string{sidecar: strings.Repeat("a", sealBytes)},
+			move: func(t *testing.T, state string) {
+				t.Helper()
+				resealed := strings.Repeat("a", sealBytes-480) + strings.Repeat("b", 480)
+				require.NoError(t, os.WriteFile(filepath.Join(state, sidecar), []byte(resealed), 0o600))
+			},
+			refused: true,
+		},
+		{
+			name:    "a sidecar that appeared because the daemon started",
+			present: map[string]string{},
+			move: func(t *testing.T, state string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(state, "delivery-ack-position.json"),
+					[]byte(strings.Repeat("c", sealBytes)), 0o600))
+			},
+			refused: true,
+		},
+		{
+			name:    "a journal appended under the walk",
+			present: map[string]string{"delivery-leases.jsonl": "{\"lease\":1}\n"},
+			move: func(t *testing.T, state string) {
+				t.Helper()
+				f, err := os.OpenFile(filepath.Join(state, "delivery-leases.jsonl"), os.O_WRONLY|os.O_APPEND, 0o600)
+				require.NoError(t, err)
+				_, werr := f.Write([]byte("{\"lease\":2}\n"))
+				require.NoError(t, werr)
+				require.NoError(t, f.Close())
+			},
+			refused: true,
+		},
+		{
+			name:    "a write that is not the daemon's delivery state",
+			present: map[string]string{sidecar: strings.Repeat("a", sealBytes)},
+			move: func(t *testing.T, state string) {
+				t.Helper()
+				require.NoError(t, os.WriteFile(filepath.Join(state, "unrelated.json"), []byte("{}"), 0o600))
+			},
+			refused: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tp := newTestStore(t)
+			m := newMigrator(t, tp, legacySource(2))
+			ctx := context.Background()
+			_, err := m.Import(ctx)
+			require.NoError(t, err)
+
+			state := paths.Of(tp.Root).State
+			for name, content := range tc.present {
+				require.NoError(t, os.WriteFile(filepath.Join(state, name), []byte(content), 0o600))
+			}
+			m.afterBackupWalk = func() { tc.move(t, state) }
+
+			man, err := m.TakeBackup(ctx, "b1")
+			if !tc.refused {
+				require.NoError(t, err)
+				require.True(t, man.Consistent)
+				_, verr := m.VerifyBackup("b1")
+				require.NoError(t, verr)
+				return
+			}
+			require.ErrorIs(t, err, ErrBackupMoved)
+			require.False(t, man.Consistent, "a refused backup returns no manifest to record as consistent")
+			_, verr := m.VerifyBackup("b1")
+			require.Error(t, verr, "a refused backup has no manifest, so it cannot verify")
+		})
+	}
+}
+
 // TestBackup_RestoreOpensAsARealStore is the "verified backup restore" half of invariant 10: the
 // restored tree is not just bytes on disk, it is a store an ordinary reader can open and read.
 func TestBackup_RestoreOpensAsARealStore(t *testing.T) {
