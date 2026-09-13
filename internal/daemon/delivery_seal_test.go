@@ -1074,14 +1074,28 @@ func TestDeliverySeal_LongestRecordFitsItsSlot(t *testing.T) {
 }
 
 // TestDeliverySeal_WriteFormatIsDeliberate is design T27. The format a build writes its seals in is
-// a package constant, not a config gate (design §4.3, Q12). Step 1 of the rollout ships the v2
-// reader and this code while every seal is still today's v1 sidecar, so the constant is 1. Step 2
-// flips it to 2 in its own reviewed commit, which changes this test in the same commit and cites
-// the evidence for it: T25 (TestDeliverySeal_ConversionAndDowngrade), T26
-// (TestDeliveryJournal_RollbackDrillAcrossFormats), and the rollback drill against a real v2 artifact
-// that SP-20 requires. A change here without that evidence ships the first new-format write before
-// its compatible reader is deployed.
+// a package constant, not a config gate (design §4.3, Q12). Step 1 of the rollout shipped the v2
+// reader and this code while every seal was still today's v1 sidecar, so the constant was 1. Step 2
+// flipped it to 2 in its own reviewed commit, which changed this test in the same commit and cites
+// the evidence for it: T25 (TestDeliverySeal_ConversionAndDowngrade), which is the conversion, the
+// two refusals to convert, the two Releases that write no downgrade, and a format-1 build converting
+// a real v2 file back; T26 (TestDeliveryJournal_RollbackDrillAcrossFormats), which is the rollback
+// drill SP-20 requires against a v2 artifact a running daemon made; and the §3 crash table in
+// format 2 (TestDeliveryPath_CrashCutAtEveryStep). The design 6.1 step-2 trace is evidence twice
+// over: TestDeliverySeal_StepTwoTraceHoldsInFormatTwo asserts each of its rows against a held seal
+// by naming format 2, and since this constant became 2 the trace's ORIGINALS —
+// …PositionCorruptionCannotBeRepairedByAnOpenWriter, …UncertainAppendPoisonsUntilRecovery,
+// …LeaseSyncSerializesWithRelease, …ReplacedLockCannotReleaseOrLeaseForNewOwner and
+// …CloseFailureRetainsOwnership — run against one without naming anything.
+//
+// The direction that still needs the same care is BACKWARD. Returning this constant to 1 is the
+// step-2 → step-1 rollback, which design §4.4 calls always safe; it is safe only because the reader
+// stays dual and openSeal goes on rewriting a v1 sidecar unconditionally. Both are pinned at format
+// 1 through the lock's seam, by TestDeliverySeal_FormatOneRefusesAV2ImageAtEitherSidecar and by
+// T25's own format-1 legs, so neither depends on this constant to be exercised. A change here in
+// either direction without that evidence moves the on-disk format under a reader that was never
+// shown to take it.
 func TestDeliverySeal_WriteFormatIsDeliberate(t *testing.T) {
-	require.Equal(t, 1, deliverySealWriteFormat,
+	require.Equal(t, 2, deliverySealWriteFormat,
 		"step 2 flips the write format only together with this test and the T25/T26 evidence (design §4.3)")
 }

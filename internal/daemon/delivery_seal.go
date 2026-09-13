@@ -79,10 +79,13 @@ const (
 	// deliverySealSumDomain is the core.HashBytes domain of every record's sum (sealSum).
 	deliverySealSumDomain = "qompack.delivery.seal.v2"
 
-	// deliverySealWriteFormat is the seal format this build writes. It is 1, today's v1 sidecar,
-	// until step 2 of the rollout (design §4.3) flips it to 2 in its own reviewed commit.
+	// deliverySealWriteFormat is the seal format this build writes. Step 2 of the rollout
+	// (design §4.3) set it to 2: a running daemon seals each batch in place, through the held A/B
+	// handle, and leaves a v1 sidecar behind at a clean Release. Step 1 shipped the reader that
+	// makes that safe, and it goes on reading both formats, so a rollback to step 1 — or to this
+	// build with the constant back at 1 — converts a v2 file at open (design §4.4).
 	// TestDeliverySeal_WriteFormatIsDeliberate pins it.
-	deliverySealWriteFormat = 1
+	deliverySealWriteFormat = 2
 )
 
 // The layout's sector claims, checked by the compiler: each line fails to build if its operand is

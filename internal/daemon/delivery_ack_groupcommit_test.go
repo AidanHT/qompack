@@ -28,8 +28,9 @@ import (
 
 // The acknowledgement group-commit tests: design §6.2 T17, T18 and T19, and the acknowledgement
 // side of T9, T10, T13 and T14 (T15 and T16 cover both pipelines, in
-// delivery_lease_groupcommit_test.go). They are step 1 of the rollout: every seal is today's v1
-// position file, written by saveAckPosition through paths.WriteAtomic, and checkAckFile is today's.
+// delivery_lease_groupcommit_test.go). Like the lease side, they are about the batch and not about
+// the format: sealAck is one call per batch whichever seal this build writes, saveAckPosition's
+// paths.WriteAtomic of the v1 sidecar or the held slot write.
 // They run the production acknowledge on goroutines of their own, the way the ingest workers and the
 // drainer call it, and watch the acknowledgement journal through its two seams, ackWriter and
 // sealAck, with the lease tests' probe. Every ordering they rely on is made by holding a Sync or a
@@ -212,10 +213,15 @@ func ackPositionPath(j *deliveryJournal) string {
 	return filepath.Join(filepath.Dir(j.path), deliveryAckPositionFile)
 }
 
-// loadAckPosition reads j's acknowledgement position sidecar.
+// loadAckPosition reads j's acknowledgement position sidecar, in whichever format it holds. It
+// asks only what the sidecar SEALS, which is a fact about the journal and not about the format, so
+// it goes through the dual reader the production loadPosition uses (design §5) rather than the
+// strict v1 one: a format-2 build's sidecar is a 32 KiB A/B image that the v1 reader refuses by
+// design, and refusing it here would make these tests say "the seal is unreadable" where they mean
+// to say "the seal has not advanced".
 func loadAckPosition(t *testing.T, j *deliveryJournal) deliveryPosition {
 	t.Helper()
-	position, err := loadDeliveryPosition(ackPositionPath(j), deliveryAckChainSeed)
+	position, _, _, err := loadDeliverySeal(ackPositionPath(j), deliveryAckChainSeed, deliveryAckChainDomain)
 	require.NoError(t, err)
 	return position
 }
@@ -245,13 +251,15 @@ func ackNearCap(t *testing.T, j *deliveryJournal, entries int, size int64) {
 	}
 	j.ackBytes, j.ackChain = size, chain
 	j.st.Unlock()
-	encoded, err := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Bytes: size, Count: entries, Chain: chain})
-	require.NoError(t, err)
-	require.NoError(t, paths.WriteAtomic(ackPositionPath(j), encoded, 0o600))
+	// Sealed through the journal's own seal, so the fixture seals the way this build's batches do:
+	// the v1 sidecar's paths.WriteAtomic at format 1, the held slot's WriteAt at format 2. Writing
+	// v1 bytes by hand would land a foreign file over a held seal, which is a corruption the next
+	// check is right to refuse and has nothing to do with being near the cap.
+	require.NoError(t, j.sealAck(size, entries, chain))
 }
 
-// T9 and T10 on the acknowledgement side — design §6.2, §2.8, step 1. An acknowledgement batch
-// appends in one Write, syncs once and seals once (one paths.WriteAtomic of the v1 position file),
+// T9 and T10 on the acknowledgement side — design §6.2, §2.8. An acknowledgement batch
+// appends in one Write, syncs once and seals once (one call through sealAck),
 // with every member evaluated before that Write. While its seal is in progress, and even once the
 // seal is durable but its call has not returned, no member has returned, and nothing of the batch
 // is admitted or on the frontier.
@@ -337,7 +345,7 @@ func TestDeliveryJournal_AckBatchCommitsOneWriteOneSyncOneSeal(t *testing.T) {
 // ackTestPanic is what a seam panics with in the acknowledgement failure test, naming where.
 type ackTestPanic struct{ at string }
 
-// T13 and J-A2 on the acknowledgement side — design §6.2, §3 rows 12 and 13, step 1. A short
+// T13 and J-A2 on the acknowledgement side — design §6.2, §3 rows 12 and 13. A short
 // write, a sync failure, a seal failure, and a panic in the Sync or in the seal, each in a batch of
 // sixteen, poison the journal and fail every member whose answer depended on the append: the new
 // acknowledgements and the copies that joined them. The rest keep the answer the first phase gave
@@ -509,20 +517,33 @@ func TestDeliveryJournal_AckBatchFailurePoisonsEveryDependentMember(t *testing.T
 	}
 }
 
-// T14 on the acknowledgement side — design §6.2, fix J-B4, step 1. An acknowledgement batch
-// evaluates every member first, then runs its one checkAckFile, then appends: so a corruption of the
-// acknowledgement files made while the batch is still evaluating is detected before the Write,
-// exactly as one made between batches is. Each of T14's step-1 corruption modes, applied to the
+// T14 on the acknowledgement side — design §6.2, fix J-B4. An acknowledgement batch evaluates every
+// member first, then runs its one checkAckFile, then appends: so a corruption of the acknowledgement
+// files made while the batch is still evaluating is detected before the Write, exactly as one made
+// between batches is. Each of T14's corruption modes, in each write format, applied to the
 // acknowledgement journal and its position, is detected before anything is written; every new
 // acknowledgement gets the fault, and the files are left exactly as the corruption left them. A
 // member whose delivery an earlier batch acknowledged is answered nil without a check, as one
 // acknowledge call always was.
+//
+// The modes are drawn against the ACKNOWLEDGEMENT journal's own seed and domain, which is what makes
+// the v2 rewrites here rewrite this sidecar rather than one summed for the lease journal.
 func TestDeliveryJournal_AckCheckRunsAfterEvaluationAndImmediatelyBeforeAppend(t *testing.T) {
 	const members = 8
-	for _, c := range t14Corruptions() {
+	for _, format := range []int{1, 2} {
+		t.Run(formatName(format), func(t *testing.T) {
+			runAckT14Corruptions(t, format, members)
+		})
+	}
+}
+
+// runAckT14Corruptions is the acknowledgement T14's corruption table for one write format.
+func runAckT14Corruptions(t *testing.T, format, members int) {
+	t.Helper()
+	for _, c := range t14Corruptions(format, deliveryAckChainSeed, deliveryAckChainDomain) {
 		for _, at := range []string{"between batches", "during evaluation"} {
 			t.Run(c.name+" "+at, func(t *testing.T) {
-				_, lock, journal := newTestDeliveryJournal(t)
+				lock, journal := openSealFormat(t, t.TempDir(), format)
 				ctx := context.Background()
 				positionPath := ackPositionPath(journal)
 				// l[0] leads batch 1, l[1] is acknowledged before it, and the rest are batch 2's.
@@ -617,7 +638,7 @@ func TestDeliveryJournal_AckBatchKeepsEachCallsCheckOrder(t *testing.T) {
 		ctx := context.Background()
 		l := leaseEach(t, journal, 2)
 		require.NoError(t, journal.acknowledge(ctx, l[0].Delivery, l[0].ObservationID, core.Hash{}))
-		require.NoError(t, bumpTestPositionCount(ackPositionPath(journal)))
+		require.NoError(t, bumpTestPositionCount(ackPositionPath(journal), deliveryAckChainSeed, deliveryAckChainDomain))
 		before := readJournalFiles(t, journal)
 		require.NoError(t, journal.acknowledge(ctx, l[0].Delivery, l[0].ObservationID, core.Hash{}),
 			"an idempotent acknowledgement reads no file, so a corruption cannot refuse it")

@@ -31,8 +31,9 @@ import (
 // the whole difference between this test and copying the directory, and it is what lets the table
 // assert "the journal opens" or "the journal refuses" rather than "it depends".
 //
-// Every row is run in BOTH write formats (design §4.3): format 1, the shipped v1 sidecar this build
-// writes, and format 2, the held A/B seal, through the lock's own sealFormat seam. The steps that
+// Every row is run in BOTH write formats (design §4.3): format 1, the v1 sidecar, which since the
+// step-2 flip is the rollback target rather than what this build writes, and format 2, the held A/B
+// seal this build now writes, through the lock's own sealFormat seam. The steps that
 // exist in one format only (the v2 slot sync and its post-seal identity check) are skipped by the
 // table's own format field, never by t.Skip.
 
