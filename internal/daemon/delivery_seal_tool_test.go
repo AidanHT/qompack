@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/qompack/qompack/internal/core"
+	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -467,6 +468,44 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 	// os.Chtimes or an anti-virus holding the file all reduce to. Telling an operator to stop a
 	// daemon that does not exist sends them somewhere there is nothing to do, and leaves the rerun
 	// that WOULD finish the pair unmentioned.
+	// holdsLock's own rationale has two halves, and only one of them was pinned. It goes through
+	// Heartbeat rather than ownedByFile because that answers both questions at once: it refuses
+	// unless this acquisition still owns the lock, AND it refreshes the very mtime the staleness
+	// protocol reads, which shrinks the window a starting daemon judges this run by instead of only
+	// reporting it afterwards. Replacing the call with a bare ownership check left every test green,
+	// so the refresh — the half that is not the ownership check — was asserted nowhere.
+	//
+	// The clock is the lock's own fake, so this asserts the refresh without waiting for anything:
+	// daemon.hb's mtime must move to the time the clock now reads.
+	t.Run("each ownership check refreshes the heartbeat the staleness protocol reads", func(t *testing.T) {
+		root := toolTestProject(t, 1)
+		clk := newFakeClock(epoch)
+		addr, err := ipc.Resolve(root)
+		require.NoError(t, err)
+		lock, err := AcquireLock(root, addr, clk)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = lock.Release() })
+
+		hb := filepath.Join(paths.Of(root).Run, heartbeatFileName)
+		before, err := os.Stat(paths.Long(hb))
+		require.NoError(t, err)
+		require.Equal(t, epoch.UnixMilli(), before.ModTime().UnixMilli(),
+			"AcquireLock's own initial heartbeat stamps the clock it was given")
+
+		// Long enough that the lock would be judged stale on Windows, where daemon.hb's mtime is the
+		// only barrier left, if nothing refreshed it.
+		clk.Advance(2 * staleAfter)
+		o := DeliverySealOptions{ProjectRoot: root, Check: true, Out: &bytes.Buffer{}, Clock: clk}
+		require.NoError(t, o.holdsLock(lock, "in this test"))
+
+		after, err := os.Stat(paths.Long(hb))
+		require.NoError(t, err)
+		require.Equal(t, clk.Now().UnixMilli(), after.ModTime().UnixMilli(),
+			"holdsLock must REFRESH the heartbeat, not merely read the lock: a check that only "+
+				"reported staleness would leave the window it is meant to shrink exactly as wide")
+		require.Greater(t, after.ModTime().UnixMilli(), before.ModTime().UnixMilli())
+	})
+
 	t.Run("a run directory removed after the scan is not reported as a daemon takeover", func(t *testing.T) {
 		root := toolTestProject(t, 2)
 		before := toolTestState(t, root)
