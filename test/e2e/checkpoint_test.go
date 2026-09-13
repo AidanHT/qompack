@@ -255,6 +255,17 @@ func cpWaitForToolUseIndex(t *testing.T, c *cpDaemon, root string, want int) {
 	timeout := time.NewTimer(obsProcessBound)
 	defer timeout.Stop()
 
+	// ONE Drain, unconditionally, before the index is read for the first time. The loop below
+	// evaluates its condition FIRST, so a wait whose records the async ingest had already published
+	// drives no Drain at all while a slower one drives several — and Drain is not side-effect-free:
+	// drainer.Drain calls saveState unconditionally (internal/daemon/drain.go), which always goes
+	// through paths.WriteAtomic, so every drain rewrites state/drain.json and mints a transient
+	// tmp/wa-* staging file. Without this drive, whether those artifacts exist is decided purely by
+	// timing. v4Rig.WaitIndexed carries the same drive for the same reason, and §4.13's write-set
+	// comparison is where that coin flip was actually caught — this helper is one call away from
+	// cpCheckpointArtifacts, which many rows read. Do not "simplify" it back into the loop.
+	_, _ = c.D.Drain(ctx)
+
 	for len(obsToolUseLines(root)) < want {
 		_, _ = c.D.Drain(ctx)
 		if len(obsToolUseLines(root)) >= want {
