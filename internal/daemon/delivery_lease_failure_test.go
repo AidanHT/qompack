@@ -254,8 +254,10 @@ func TestDeliveryJournal_ConcurrentDeliveryRetriesShareOneAssignment(t *testing.
 //     non-missing mode is refused by its own predicate — malformed by the parse, future by the
 //     version, noncanonical by the canonical re-encode, and count, bytes and chain by the comparison
 //     with the journal's own position.
-//   - At format 2 all six of those modes write the same ~110-byte document over a held 32 KiB image,
-//     so the seal's identity check refuses every one of them on SIZE, before anything is read. The
+//   - At format 2 all six of those modes write a v1-shaped document over a held 32 KiB image — the
+//     ~110-byte position for five of them, 19 bytes for "malformed", and neither is
+//     deliverySealFileSize, which is the whole of what matters — so the seal's identity check
+//     refuses every one of them on SIZE, before anything is read. The
 //     per-mode discrimination then lives on the REOPEN leg below, where the file is no longer a v2
 //     image and the v1 reader takes it. The v2-shaped forms of these corruptions, each reaching its
 //     own predicate against a held seal, are TestDeliverySeal_StepTwoTraceHoldsInFormatTwo's and
