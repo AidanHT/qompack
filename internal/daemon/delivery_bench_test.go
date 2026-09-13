@@ -197,9 +197,15 @@ func (lb *leasedBench) writeSync(line []byte) error {
 //   - postSealIdentity: that seal's identity check alone (an Lstat and a SameFile), which is what an
 //     in-place write pays for the guarantee a rename gives v1 for free (J-B5).
 //
-// The three v2 rows drive a journal whose write format is 2 through the lock's own seam. The shipped
-// build still writes format 1 (deliverySealWriteFormat), which is what checkFileV1* and
-// sealWriteAtomic measure beside them, so one run prices both formats of the same step.
+// Every format-sensitive row names its format through the lock's own seam rather than inheriting
+// deliverySealWriteFormat, so one run prices both formats of the same step whichever one the build
+// writes: checkFileV1, checkFileV1AfterSeal and sealWriteAtomic at format 1, checkFileV2, sealSlot
+// and postSealIdentity at format 2. Since the step-2 flip the build writes format 2, and a row that
+// followed the constant would have priced the held seal under a name that says WriteAtomic.
+//
+// The rows that are not about the seal at all — the ownership reads, journalWriteSync and
+// walWriteSync — do follow the build, because what they measure is the same in either format and
+// following it keeps them honest about the binary being shipped.
 func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 	b.Run("accessorOwned", func(b *testing.B) {
 		lb := newLeasedBench(b, 1, 0)
@@ -232,7 +238,7 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 		}
 	})
 	b.Run("checkFileV1", func(b *testing.B) {
-		lb := newLeasedBench(b, 1, 0)
+		lb := newLeasedBenchFormat(b, 1, 0, 1)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			if err := lb.checkFile(); err != nil {
@@ -241,7 +247,7 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 		}
 	})
 	b.Run("checkFileV1AfterSeal", func(b *testing.B) {
-		lb := newLeasedBench(b, 1, 0)
+		lb := newLeasedBenchFormat(b, 1, 0, 1)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
@@ -278,7 +284,7 @@ func BenchmarkDeliveryLeaseComponents(b *testing.B) {
 		}
 	})
 	b.Run("sealWriteAtomic", func(b *testing.B) {
-		lb := newLeasedBench(b, 1, 0)
+		lb := newLeasedBenchFormat(b, 1, 0, 1)
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			if err := lb.reseal(); err != nil {

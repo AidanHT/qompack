@@ -33,8 +33,8 @@ func newSealBench(b *testing.B) *deliverySeal {
 }
 
 // BenchmarkDeliverySealWrite is one v2 seal write (SP20-D1 design §6.3): the slot's WriteAt, its
-// SyncData and the post-seal identity check, which is all a lease batch's seal costs once step 2
-// writes v2. Its counterpart is internal/paths' BenchmarkPathsWriteAtomic_4KB, the v1 seal's
+// SyncData and the post-seal identity check, which since the step-2 flip is all a lease batch's
+// seal costs. Its counterpart is internal/paths' BenchmarkPathsWriteAtomic_4KB, the v1 seal's
 // paths.WriteAtomic, and the two are meant to be read side by side. As evidence they need §6.3's
 // run rules: timing rows alone, on a quiet machine on AC power, one process at a time.
 //
@@ -57,7 +57,7 @@ func BenchmarkDeliverySealWrite(b *testing.B) {
 }
 
 // BenchmarkDeliverySealComponents times the v2 seal's pieces one at a time, for the attribution
-// BenchmarkDeliveryLeaseComponents starts (design §6.3 names the step-2 rows it lacks). Its rows
+// BenchmarkDeliveryLeaseComponents starts (design §6.3 names the v2 rows it lacks). Its rows
 // are:
 //
 //   - check: deliverySeal.check against an untouched file, the seal's part of a batch's check. It

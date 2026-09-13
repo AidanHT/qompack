@@ -859,9 +859,9 @@ func validDeliveryLease(lease deliveryLease) bool {
 
 // checkFile is the lease journal's per-batch check. Its v1 body is today's, verbatim (design §5):
 // the sidecar is re-read BY PATH with the STRICT v1 reader, never the dual one. A build that writes
-// v1 must refuse a v2 image at its position path — that image is a foreign write (a half-rolled-back
-// step-2 binary, a restore, an operator), and accepting it would let the format seam widen what the
-// shipped build admits. checkAckFile reads its own sidecar exactly the same way.
+// v1 must refuse a v2 image at its position path — that image is a foreign write for THAT build (a
+// half-rolled-back step-2 binary, a restore, an operator), and accepting it would let the format
+// seam widen what such a build admits. checkAckFile reads its own sidecar exactly the same way.
 func (j *deliveryJournal) checkFile() error {
 	loadV1 := func() (deliveryPosition, error) {
 		return loadDeliveryPosition(j.positionPath(), deliveryChainSeed)

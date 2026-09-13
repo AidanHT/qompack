@@ -13,18 +13,19 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// The journal driven by a build whose write format is 2 (design 4.3, step 2). deliverySealWriteFormat
-// is still 1 and TestDeliverySeal_WriteFormatIsDeliberate still pins it, so nothing here changes what
-// this build writes; these tests choose the other format through the lock's seam and exercise the
-// wiring the shipped constant leaves inert.
+// The journal driven by a build whose write format is 2 (design 4.3, step 2), which since the step-2
+// flip is what deliverySealWriteFormat says and TestDeliverySeal_WriteFormatIsDeliberate pins. Every
+// test here still chooses its format through the lock's seam rather than inheriting the constant, so
+// each one states which build it is about and goes on stating it across a flip in either direction.
 //
 // They are also the design 6.1 step-2 trace, executed: each row of that trace — the position
 // corruption modes, an uncertain append, Release against a batch in flight, a replaced lock, and a
-// failed close — is asserted here against a held v2 seal, beside the format-1 originals that go on
-// passing unchanged.
+// failed close — is asserted here against a held v2 seal, beside the format-1 originals in
+// delivery_lease_failure_test.go and delivery_seal_test.go that go on passing unchanged.
 //
-// The last test in the file runs the other way round, and pins the half of the seam this wiring must
-// not widen: the SHIPPED format-1 build refuses a v2 image at either sidecar.
+// The last test in the file runs the other way round, and pins the half of the seam the flip must
+// not have widened: a format-1 build, which is the rollback target, refuses a v2 image at either
+// sidecar.
 
 // openSealFormat opens root's journal with the write format f, and returns the lock and the journal.
 // Everything but the format is the production path: the same AcquireLock, the same
@@ -673,14 +674,20 @@ func TestDeliveryJournal_CloseRetryAfterAFailedLeaseCloseReleasesOwnership(t *te
 	require.True(t, isDeliverySealImage(sealFileOf(t, root)))
 }
 
-// The other half of the format seam. The shipped build writes format 1 and holds no seal handle, so
-// its per-batch check reads the sidecar from the PATH — and it reads it with the strict v1 reader,
-// on both sides of the journal (design section 5: "the v1 bodies are kept verbatim").
+// The other half of the format seam, and the half the step-2 → step-1 rollback rests on. A build
+// that writes format 1 holds no seal handle, so its per-batch check reads the sidecar from the PATH
+// — and it reads it with the strict v1 reader, on both sides of the journal (design section 5: "the
+// v1 bodies are kept verbatim").
 //
-// A v2 image at either position path is a foreign write: a half-rolled-back step-2 binary, a
-// restore, or an operator. The check refuses it even when its effective record seals exactly the
-// position this journal believes is sealed, which is the one case a dual reader would wave through.
-// Only loadPosition reads either format, because the tests call it to ask a journal what it sealed.
+// A v2 image at either position path is a foreign write for THAT build: a half-rolled-back step-2
+// binary, a restore, or an operator. The check refuses it even when its effective record seals
+// exactly the position this journal believes is sealed, which is the one case a dual reader would
+// wave through. Only loadPosition reads either format, because the tests call it to ask a journal
+// what it sealed.
+//
+// The format is chosen through the lock's seam rather than inherited from deliverySealWriteFormat,
+// because that constant is now 2: this is the rollback build's statement, and it has to go on being
+// made from a build that writes v2.
 func TestDeliverySeal_FormatOneRefusesAV2ImageAtEitherSidecar(t *testing.T) {
 	ctx := context.Background()
 	req := testDeliveryRequest("format1")
@@ -723,8 +730,9 @@ func TestDeliverySeal_FormatOneRefusesAV2ImageAtEitherSidecar(t *testing.T) {
 		},
 	} {
 		t.Run("a format-1 build refuses a v2 image at its "+tc.name+" sidecar", func(t *testing.T) {
-			root, _, journal := newTestDeliveryJournal(t)
-			require.Nil(t, journal.seal, "the shipped build holds no lease seal")
+			root := t.TempDir()
+			_, journal := openSealFormat(t, root, 1)
+			require.Nil(t, journal.seal, "a format-1 build holds no lease seal")
 			require.Nil(t, journal.ackSeal, "and no acknowledgement seal")
 			first, err := journal.lease(ctx, leaseToken(1), "format1", req)
 			require.NoError(t, err)

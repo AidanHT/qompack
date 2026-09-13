@@ -26,13 +26,19 @@ import (
 	"github.com/qompack/qompack/internal/paths"
 )
 
-// The delivery-lease group-commit tests (design §6.2 T9–T15 and T12, lease side), adapted to step 1
-// of the rollout: every seal is today's v1 position file, written by savePosition through
-// paths.WriteAtomic, and checkFile is today's. They run the production lease on goroutines of their
-// own, the way concurrent Accepts and the drainer call it, and watch the journal through its two
-// seams: its writer (Write, Sync, Close) and sealLease. Every ordering they rely on is made by
-// holding a Sync or a seal open and by the queue's own length. The clock only bounds waits that a
-// correct build never reaches, so that a deadlock fails the test instead of hanging it.
+// The delivery-lease group-commit tests (design §6.2 T9–T15 and T12, lease side). They run the
+// production lease on goroutines of their own, the way concurrent Accepts and the drainer call it,
+// and watch the journal through its two seams: its writer (Write, Sync, Close) and sealLease. Every
+// ordering they rely on is made by holding a Sync or a seal open and by the queue's own length. The
+// clock only bounds waits that a correct build never reaches, so that a deadlock fails the test
+// instead of hanging it.
+//
+// They are about the BATCH, not about the format: each drives whatever seal this build writes, since
+// sealLease is one call per batch either way — savePosition's paths.WriteAtomic of the v1 sidecar at
+// format 1, the held slot's WriteAt, SyncData and post-seal identity check at format 2 (openSeal,
+// delivery_lease.go). Since the step-2 flip that is the v2 seal. Only T14's corruption table has to
+// know the difference, because a corruption must be expressible in the format the file is in, and it
+// runs both.
 
 // leaseEvent is one entry in a leaseProbe's log: a seam call, a lease that returned or panicked, an
 // evaluation a leaseCtx saw, or a test's own note.
@@ -394,8 +400,8 @@ func awaitRelease(t *testing.T, released <-chan error) error {
 	}
 }
 
-// T9 — design §6.2, step 1. A batch appends in one Write, syncs once and seals once — one
-// paths.WriteAtomic of the v1 position file — and assigns dense arrivals in queue order.
+// T9 — design §6.2. A batch appends in one Write, syncs once and seals once — one call through
+// sealLease, whichever seal this build writes — and assigns dense arrivals in queue order.
 func TestDeliveryJournal_BatchCommitsOneWriteOneSyncOneSeal(t *testing.T) {
 	_, _, journal := newTestDeliveryJournal(t)
 	p := newLeaseProbe(journal)
@@ -446,7 +452,7 @@ func TestDeliveryJournal_BatchCommitsOneWriteOneSyncOneSeal(t *testing.T) {
 	requireIdle(t, &journal.leaseQ)
 }
 
-// T10 — design §6.2, step 1, invariant I3. While a batch's seal is in progress, and even once the
+// T10 — design §6.2, invariant I3. While a batch's seal is in progress, and even once the
 // seal is durable but its call has not returned, no member of the batch has returned, nothing of it
 // is admitted, and Release cannot overtake the batch.
 func TestDeliveryJournal_NoLeaseReleasedBeforeItsBatchSeal(t *testing.T) {
@@ -615,7 +621,7 @@ func TestDeliveryJournal_ConcurrentRedeliveryJoinsPendingBatch(t *testing.T) {
 			}
 			// The original's batch has sealed and admitted by now; this is the next batch's
 			// evaluation. Advance the sealed count behind the journal's back.
-			if err := bumpTestPositionCount(positionPath); err != nil {
+			if err := bumpTestPositionCount(positionPath, deliveryChainSeed, deliveryChainDomain); err != nil {
 				t.Errorf("injecting the corruption: %v", err)
 			}
 		}}
@@ -682,13 +688,23 @@ func TestDeliveryJournal_ConcurrentRedeliveryJoinsPendingBatch(t *testing.T) {
 
 // bumpTestPositionCount rewrites the position sidecar at p, canonically, with its count advanced by
 // one: a seal that no longer describes the journal.
-func bumpTestPositionCount(p string) error {
-	position, err := loadDeliveryPosition(p, deliveryChainSeed)
+func bumpTestPositionCount(p string, seed core.Hash, domain string) error {
+	position, _, image, err := loadDeliverySeal(p, seed, domain)
 	if err != nil {
 		return err
 	}
 	position.Count++
-	encoded, err := json.Marshal(position)
+	var encoded []byte
+	if image == nil {
+		encoded, err = json.Marshal(position)
+	} else {
+		// A v2 sidecar is rewritten as a fresh image — seq 1 in slot a, slot b empty — sealing the
+		// advanced count: the same claim the v1 branch makes, made in the format the file is in. It
+		// is written IN PLACE, so the path still names the file a held seal holds and the file is
+		// still deliverySealFileSize bytes; what changed is the position the file seals, which is
+		// what the caller is injecting, and the slot layout that carries it.
+		encoded, err = newSealImage(position.Bytes, position.Count, position.Chain, domain, seed)
+	}
 	if err != nil {
 		return err
 	}
@@ -699,7 +715,7 @@ func bumpTestPositionCount(p string) error {
 // lease is refused with ErrBudget.
 const t13Exhausted = core.SessionID("exhausted")
 
-// T13 — design §6.2, step 1. A short write, a sync failure and a seal failure in a batch of sixteen
+// T13 — design §6.2. A short write, a sync failure and a seal failure in a batch of sixteen
 // each poison the journal and fail every member whose answer depended on the append — the mints and
 // the copies that joined them — while known nonces get their sealed lease and refusals keep their
 // own error. Nothing is admitted, and a reopen recovers exactly as §3 rows 5 and 6 say.
@@ -914,21 +930,32 @@ func TestDeliveryJournal_PanicInBatchPoisonsAndFailsEveryMember(t *testing.T) {
 }
 
 // t14Corruption is one way to make the journal's files disagree with its handle, as checkFile
-// (step 1) detects it. inject runs with the journal's two paths.
+// detects it. inject runs with the journal's two paths.
 type t14Corruption struct {
 	name   string
 	inject func(journal, position string) error
 }
 
-// t14Corruptions are the step-1 checkFile's detections. The journal cannot be removed or renamed
-// over while its writer is open on Windows, whose handles carry no FILE_SHARE_DELETE, so its missing
-// and replaced cases are exercised after a Release by TestDeliveryJournal_SealedPrefixCannotRewindOrChange;
-// the position sidecar's same-content replacement is what every v1 seal already is, and only the
-// step-2 held seal can see it.
-func t14Corruptions() []t14Corruption {
-	rewrite := func(change func(*deliveryPosition) []byte) func(string, string) error {
+// t14Corruptions are checkFile's detections for a journal whose seal is in format, sealing the
+// journal named by seed and domain.
+//
+// The journal file's modes are the same in both formats, because only the sidecar's format differs.
+// The journal cannot be removed or renamed over while its writer is open on Windows, whose handles
+// carry no FILE_SHARE_DELETE, so its missing and replaced cases are exercised after a Release by
+// TestDeliveryJournal_SealedPrefixCannotRewindOrChange.
+//
+// The sidecar's modes are the format's own, because a corruption has to be expressible in the format
+// the file is in: "a future version" is a field of a v1 document and a static byte of a v2 one, and
+// "noncanonical" is a trailing space on a v1 document and a padding byte inside a v2 slot. Two of
+// them exist only at format 2, and they are the two design §6.2 names as step 2's additions: a
+// same-content replacement, which is what every v1 seal already is and only a held handle can see,
+// and a flip of a byte no record owns. TestDeliverySeal_StepTwoTraceHoldsInFormatTwo drives the same
+// v2 shapes through a single lease; what this table adds is that a BATCH's one check sees them, and
+// sees them after every member has been evaluated.
+func t14Corruptions(format int, seed core.Hash, domain string) []t14Corruption {
+	rewriteV1 := func(change func(*deliveryPosition) []byte) func(string, string) error {
 		return func(_, position string) error {
-			pos, err := loadDeliveryPosition(position, deliveryChainSeed)
+			pos, err := loadDeliveryPosition(position, seed)
 			if err != nil {
 				return err
 			}
@@ -939,19 +966,11 @@ func t14Corruptions() []t14Corruption {
 		b, _ := json.Marshal(pos)
 		return b
 	}
-	return []t14Corruption{
+	shared := []t14Corruption{
 		{"position missing", func(_, position string) error { return os.Remove(paths.Long(position)) }},
 		{"position malformed", func(_, position string) error {
 			return os.WriteFile(paths.Long(position), []byte(`{"private fixture":`), 0o600)
 		}},
-		{"position future version", rewrite(func(p *deliveryPosition) []byte { p.Version++; return canonical(p) })},
-		{"position noncanonical", rewrite(func(p *deliveryPosition) []byte { return append(canonical(p), ' ') })},
-		{"position count", rewrite(func(p *deliveryPosition) []byte { p.Count++; return canonical(p) })},
-		{"position bytes", rewrite(func(p *deliveryPosition) []byte { p.Bytes--; return canonical(p) })},
-		{"position chain", rewrite(func(p *deliveryPosition) []byte {
-			p.Chain = testDeliveryRequest("unrelated chain")
-			return canonical(p)
-		})},
 		{"journal truncated", func(journal, _ string) error {
 			info, err := os.Stat(paths.Long(journal))
 			if err != nil {
@@ -967,6 +986,76 @@ func t14Corruptions() []t14Corruption {
 			_, werr := f.Write([]byte("{}\n"))
 			return errors.Join(werr, f.Close())
 		}},
+	}
+	if format != 2 {
+		return append(shared,
+			t14Corruption{"position future version", rewriteV1(func(p *deliveryPosition) []byte { p.Version++; return canonical(p) })},
+			t14Corruption{"position noncanonical", rewriteV1(func(p *deliveryPosition) []byte { return append(canonical(p), ' ') })},
+			t14Corruption{"position count", rewriteV1(func(p *deliveryPosition) []byte { p.Count++; return canonical(p) })},
+			t14Corruption{"position bytes", rewriteV1(func(p *deliveryPosition) []byte { p.Bytes--; return canonical(p) })},
+			t14Corruption{"position chain", rewriteV1(func(p *deliveryPosition) []byte {
+				p.Chain = testDeliveryRequest("unrelated chain")
+				return canonical(p)
+			})},
+		)
+	}
+	return append(shared,
+		t14Corruption{"position future version", patchSealByte(sealVersionOffset, '3')},
+		t14Corruption{"position noncanonical", patchSealByte(deliverySealSlotAOffset+deliverySealSlotRegion-1, 'x')},
+		t14Corruption{"position count", rewriteSealSlot(seed, domain, func(r *sealRecord) { r.Count++ })},
+		t14Corruption{"position bytes", rewriteSealSlot(seed, domain, func(r *sealRecord) { r.Bytes-- })},
+		t14Corruption{"position chain", rewriteSealSlot(seed, domain, func(r *sealRecord) {
+			r.Chain = testDeliveryRequest("unrelated chain")
+		})},
+		t14Corruption{"position replaced by a copy of itself", func(_, position string) error {
+			image, err := os.ReadFile(paths.Long(position))
+			if err != nil {
+				return err
+			}
+			return paths.WriteAtomic(position, image, 0o600)
+		}},
+	)
+}
+
+// sealVersionOffset is where a v2 document's own version digit sits: flipping it is the static-byte
+// corruption, and it is also the field an older binary reads to refuse the file.
+var sealVersionOffset = strings.IndexByte(deliverySealPrefixA, '0'+deliverySealVersion)
+
+// patchSealByte writes one byte into the sidecar at off, in place through a shared handle: the file
+// keeps its identity and its size, so what the next check refuses is the byte and nothing else.
+func patchSealByte(off int, c byte) func(string, string) error {
+	return func(_, position string) error {
+		f, err := paths.OpenSharedRW(position)
+		if err != nil {
+			return err
+		}
+		_, werr := f.WriteAt([]byte{c}, int64(off))
+		return errors.Join(werr, f.Close())
+	}
+}
+
+// rewriteSealSlot rewrites the sidecar's EFFECTIVE record with change applied and its sum recomputed,
+// leaving a VALID v2 image that seals a position this journal never reached. It is the v2 form of the
+// v1 table's count, bytes and chain rewrites: the file is still everything the format asks of it, and
+// what it says is false.
+func rewriteSealSlot(seed core.Hash, domain string, change func(*sealRecord)) func(string, string) error {
+	return func(_, position string) error {
+		image := readDeliverySealImage(position)
+		if image == nil {
+			return errors.New("private fixture: the sidecar this mode rewrites is not a v2 image")
+		}
+		effective, _, err := selectSeal(image, domain, seed)
+		if err != nil {
+			return err
+		}
+		change(&effective)
+		slot := slotFor(effective.Seq)
+		region, _, err := encodeSlot(effective, slot, domain, seed)
+		if err != nil {
+			return err
+		}
+		copy(slot.region(image), region)
+		return os.WriteFile(paths.Long(position), image, 0o600)
 	}
 }
 
@@ -989,9 +1078,9 @@ func readT14Files(journal, position string) (t14Files, error) {
 	return f, err
 }
 
-// T14 — design §6.2, fix J-B4, step 1. A batch evaluates every member first, then runs its one
-// checkFile, then appends: so a corruption made while the batch is still evaluating is detected
-// before the Write, exactly as one made between batches is. Every step-1 corruption mode is
+// T14 — design §6.2, fix J-B4. A batch evaluates every member first, then runs its one checkFile,
+// then appends: so a corruption made while the batch is still evaluating is detected before the
+// Write, exactly as one made between batches is. Every corruption mode of both write formats is
 // injected at both points; each is detected before anything is written, every validated member —
 // known nonces included — gets the fault, and the files are left exactly as the corruption left
 // them. A committed batch's log shows evaluation, then Write, Sync, seal, then every return.
@@ -1034,10 +1123,24 @@ func TestDeliveryJournal_CheckRunsAfterEvaluationAndImmediatelyBeforeAppend(t *t
 		}
 	})
 
-	for _, c := range t14Corruptions() {
+	// Both write formats, because the corruption modes are the format's own (t14Corruptions) while
+	// the placement this test is about — after every member's evaluation, immediately before the
+	// Write — is not. Format 1 is the rollback target and format 2 is what this build writes.
+	for _, format := range []int{1, 2} {
+		t.Run(formatName(format), func(t *testing.T) {
+			runT14Corruptions(t, format, members, req)
+		})
+	}
+}
+
+// runT14Corruptions is T14's corruption half for one write format.
+func runT14Corruptions(t *testing.T, format, members int, req core.Hash) {
+	t.Helper()
+	for _, c := range t14Corruptions(format, deliveryChainSeed, deliveryChainDomain) {
 		for _, at := range []string{"between batches", "during evaluation"} {
 			t.Run(c.name+" "+at, func(t *testing.T) {
-				root, lock, journal := newTestDeliveryJournal(t)
+				root := t.TempDir()
+				lock, journal := openSealFormat(t, root, format)
 				positionPath := filepath.Join(paths.Of(root).State, deliveryPositionFile)
 				known, err := journal.lease(context.Background(), leaseToken(900), "t14", req)
 				require.NoError(t, err)
@@ -1595,9 +1698,9 @@ func leaseNearCap(t *testing.T, j *deliveryJournal, entries int, size int64) {
 	}
 	j.bytes, j.chain = size, chain
 	j.st.Unlock()
-	encoded, err := json.Marshal(deliveryPosition{Version: core.EvidenceVersion, Bytes: size, Count: entries, Chain: chain})
-	require.NoError(t, err)
-	require.NoError(t, paths.WriteAtomic(filepath.Join(filepath.Dir(j.path), deliveryPositionFile), encoded, 0o600))
+	// Sealed through the journal's own seal, for the reason ackNearCap gives: the fixture seals the
+	// way this build's batches do, in the format this build writes.
+	require.NoError(t, j.sealLease(size, entries, chain))
 }
 
 // newLeaseScript draws n lease requests from rng: fresh nonces over a few sessions and request
