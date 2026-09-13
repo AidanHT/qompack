@@ -50,8 +50,15 @@ const spoolScanInitialBytes = 64 << 10 // 64 KiB
 // (report.go) for why the deferred requests must be added back into the gated population as
 // over-budget samples rather than quietly dropped from it.
 type deliveryLedger struct {
-	// Sent is how many hot-path (observe.tool) requests this harness issued: the B-A/B-D spawn
-	// loop's own --iterations, plus the warm-up's hot tranche when --warm-daemon ran.
+	// Sent is how many hot-path (observe.tool) requests this harness issued, and it carries three
+	// populations, not two: the B-A/B-D spawn loop's own --iterations, the warm-up's hot tranche
+	// when --warm-daemon ran, and measureAckRTT's tranche — its timed samples plus the ackRTTWarmups
+	// discarded in front of them (ackRTTTrancheSends, added at runHarness's own call site).
+	//
+	// The third is deliberately outside expectedHotPathSends, whose contract is the GATED window;
+	// it is inside this field because every request in it reaches ing.Accept and is counted by
+	// l0_ingest, and a Sent that did not count it would make the daemon's delivered count exceed
+	// what the harness admits to having sent.
 	Sent int64
 	// Delivered is the daemon's own l0_ingest observation count — its ground truth for "arrived
 	// live and reached ing.Accept".
