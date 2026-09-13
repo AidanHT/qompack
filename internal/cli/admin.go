@@ -36,6 +36,20 @@ func adminCmds() []Cmd {
 // exit code that says "you typed this wrong" rather than "it failed".
 var errUsageReported = fmt.Errorf("%w: %w", errAlreadyReported, commands.ErrUsage)
 
+// repairDeliverySeal is the offline tool this front end wires its flags to.
+//
+// It is a variable for one reason, and it is the same reason DeliverySealOptions.syncData is one:
+// the wiring is what this file OWNS, and nothing else in internal/cli can observe it. A run that
+// really repairs a project needs a project with two journals in a state a daemon left, which is
+// internal/daemon's fixture and internal/daemon's test (design §6.2, T31); without a seam, every
+// invocation this package can afford to make stops at the usage gate, and a front end that passed
+// AcceptTornSlot: true, Confirm: true for EVERY run would satisfy the whole package — Rule R
+// silently on, with its consent pre-granted, for an operator who typed neither flag. The library's
+// own validate cannot catch that: it refuses AcceptTornSlot without Confirm, and such an edit sets
+// both. TestAdminDeliverySeal_PassesTheOperatorsFlagsThrough swaps this for a capture and asserts
+// the whole option set.
+var repairDeliverySeal = daemon.RepairDeliverySeal
+
 // runAdminDeliverySeal implements
 // `qompack admin delivery-seal [--project <root>] (--check | --to v1) [--accept-torn-slot --yes]`.
 //
@@ -87,7 +101,7 @@ func runAdminDeliverySeal(_ context.Context, env Env, args []string, out, errw i
 		clk = core.SystemClock()
 	}
 
-	if err := daemon.RepairDeliverySeal(daemon.DeliverySealOptions{
+	if err := repairDeliverySeal(daemon.DeliverySealOptions{
 		ProjectRoot:    root,
 		Check:          *check,
 		ToV1:           *to == "v1",
