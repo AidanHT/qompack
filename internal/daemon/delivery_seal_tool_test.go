@@ -461,6 +461,74 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Equal(t, before, toolTestState(t, root))
 	})
 
+	// The other half of holdsLock's refusal, which used to be worded as the first. Heartbeat fails
+	// for two unrelated reasons, and only one of them means a daemon owns the journals now; the
+	// other is the write of daemon.hb itself failing, which a removed run directory, a denied
+	// os.Chtimes or an anti-virus holding the file all reduce to. Telling an operator to stop a
+	// daemon that does not exist sends them somewhere there is nothing to do, and leaves the rerun
+	// that WOULD finish the pair unmentioned.
+	t.Run("a run directory removed after the scan is not reported as a daemon takeover", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		before := toolTestState(t, root)
+
+		// Removed at the ack journal's sync: after both scans, before the conversion loop, which is
+		// where the first pre-write ownership check runs.
+		report, err := toolTestRun(t, root, DeliverySealOptions{
+			ToV1: true,
+			syncData: func(f *os.File) error {
+				if filepath.Base(f.Name()) == deliveryAckFile {
+					require.NoError(t, os.RemoveAll(paths.Long(paths.Of(root).Run)))
+				}
+				return f.Sync()
+			},
+		})
+
+		require.ErrorContains(t, err, "before converting the lease seal")
+		require.ErrorContains(t, err, "its own heartbeat could not be written")
+		require.NotContains(t, err.Error(), "a daemon that started meanwhile",
+			"no daemon took this project: there is no lock file for one to have written")
+		require.NotContains(t, report, "wrote v1")
+		require.Equal(t, before, toolTestState(t, root), "and nothing was written")
+	})
+
+	t.Run("a run directory removed between the two seals says how to finish the pair", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		state := paths.Of(root).State
+
+		// The same window the takeover subtest below uses — the lease seal's own report line, after
+		// its WriteAtomic and before the ack seal's ownership check — reached by the other of the two
+		// causes. The advice must follow the cause, not the step.
+		out := &toolTestWriter{when: "wrote v1", do: func() {
+			require.NoError(t, os.RemoveAll(paths.Long(paths.Of(root).Run)))
+		}}
+		err := RepairDeliverySeal(DeliverySealOptions{
+			ProjectRoot: root, ToV1: true, Out: out, Clock: newFakeClock(epoch),
+		})
+		t.Logf("report: %s", out.buf.String())
+
+		require.ErrorContains(t, err, "before converting the ack seal")
+		require.ErrorContains(t, err, "the lease seal is already v1")
+		require.ErrorContains(t, err, "rerunning the same command converts what is left")
+		require.NotContains(t, err.Error(), "stopping that daemon",
+			"there is no daemon to stop, and the rerun is what finishes the pair")
+
+		// The state the advice is about: half converted, and self-healing exactly as it says.
+		position, perr := loadDeliveryPosition(filepath.Join(state, deliveryPositionFile), deliveryChainSeed)
+		require.NoError(t, perr, "the lease seal the message calls converted is a v1 seal")
+		require.Equal(t, 2, position.Count)
+		require.Len(t, readTestFile(t, filepath.Join(state, deliveryAckPositionFile)), deliverySealFileSize,
+			"and the ack seal is the one still v2")
+
+		// The rerun the message prescribes: no daemon holds anything, so it is refused by nothing and
+		// finishes the pair.
+		_, rerunErr := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.NoError(t, rerunErr, "the advice must be advice that works")
+		ackPosition, aerr := loadDeliveryPosition(filepath.Join(state, deliveryAckPositionFile), deliveryAckChainSeed)
+		require.NoError(t, aerr)
+		require.Equal(t, 1, ackPosition.Count)
+		requireOpensWithFormat(t, root, 1, 2)
+	})
+
 	t.Run("a daemon that takes the lock between the two seals leaves the pair half converted", func(t *testing.T) {
 		root := toolTestProject(t, 2)
 		state := paths.Of(root).State
