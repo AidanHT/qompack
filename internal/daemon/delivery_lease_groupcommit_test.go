@@ -952,6 +952,22 @@ type t14Corruption struct {
 // and a flip of a byte no record owns. TestDeliverySeal_StepTwoTraceHoldsInFormatTwo drives the same
 // v2 shapes through a single lease; what this table adds is that a BATCH's one check sees them, and
 // sees them after every member has been evaluated.
+//
+// A mode's NAME says what it changed, not which predicate refuses it. At format 2 the check is
+// deliverySeal.check, whose steps are ordered, so each mode is named here by the first step it
+// reaches:
+//
+//   - "position missing" and "position malformed" reach step 1, the path's own Lstat: nothing at the
+//     path, and a ~110-byte document written over a 32 KiB image, fail before a byte is compared;
+//   - "position replaced by a copy of itself" reaches step 2, os.SameFile — the bytes are identical
+//     and only the identity is not, which is why v1 cannot see it at all;
+//   - the other five, the static-byte flip, the padding flip and the three re-summed rewrites, all
+//     reach step 3, the whole-image compare against the image the seal holds. The rewrites differ
+//     from the flips in WHAT they leave, not in what catches them: a slot that is still a valid
+//     record, saying a position this journal never sealed. Nothing here reaches check's fourth step,
+//     cur against the batch's position, because the image compare fires first on any changed file;
+//     that step is pinned directly by TestDeliverySeal_CheckDetectsEveryChange's "a cur that differs
+//     from the journal's position" case.
 func t14Corruptions(format int, seed core.Hash, domain string) []t14Corruption {
 	rewriteV1 := func(change func(*deliveryPosition) []byte) func(string, string) error {
 		return func(_, position string) error {
