@@ -136,3 +136,58 @@ arranged so that every wall-clock budget is still judged — in the isolation wh
   isolated job (item 5 above).
 - Whether `test/e2e` should ever run under `-race` again, with a budget sized by measurement
   rather than by the whole-tree constant.
+
+---
+
+## Addendum 1 — B-B's exemption premise was falsified (2026-09-13, V5 close-out)
+
+The Context table above prices `B-B p99 (no spawn)` at 0.576 / 0.768 / 0.704 ms against a 2 ms
+limit, and the paragraph under it concludes that "B-B, the in-daemon half that contains no process
+spawn, barely moves." That measurement was true when it was taken and is **no longer true of the
+shipped code**. It is left in place above, unedited, because it is the record of what was measured
+on 2026-09-06; this addendum is what changed underneath it.
+
+B-B times `internal/daemon`'s `ingest.Accept` in full. Since `f6a8691` made the delivery path
+durable, that region contains three flushes per accepted leased delivery — the WAL `Sync`, the
+lease journal's `Sync`, and the seal. Co-load moves a flush by roughly the factor the table above
+shows for everything else, so the property that earned B-B its exemption — insensitivity to
+co-load — is gone. Measured on the V5 close-out tree: B-B p99 is 11-37 ms across fifteen isolated
+runs on a quiet AC host, and 14.3 / 28.7 / 53.2 ms in three co-loaded shards of the same pass.
+
+**The rule in "Decision" is unchanged and is what decides this.** It says a cost judgement moves to
+the process's CPU clock where one exists, and is reported where the property is intrinsically
+wall-clock and no such clock exists. B-B's CPU branch is not merely unbuilt but unbuildable to any
+useful standard:
+
+- B-B has no child process, so `B-E_cpu`'s mechanism — `ProcessState.UserTime()+SystemTime()` after
+  `cmd.Run()` — cannot reach it.
+- `obs.ProcessCPU` is a cumulative whole-process counter summed over every thread, so it cannot
+  isolate one request from concurrent daemon goroutines, and `internal/obs/cpu_windows.go:21-25`
+  documents 15.625 ms scheduler-tick quantisation — against a budget in the low tens of
+  milliseconds a single-request bracket reads exact zero, which those same comments say must be
+  treated as a failed measurement rather than a fast one.
+- Decisively, what inflates B-B is **fsync**: blocked time, costing no CPU. `report.go`'s own
+  `budgetIDBECPU` note already concedes this for the general case. A `B-B_cpu` row would pass
+  through exactly the regression it was added to catch.
+
+So the rule's own fallback branch applies, and B-B joins B-A and B-E's wall row as a row the
+harness **reports** under `--under-coload` and judges at its limit in the isolation lanes
+(`bench-gate`, nightly `bench-deep`, `timing`, `test-e2e`). This finishes the Decision rather than
+amending it: only the classification in the table above was wrong, not the rule applied to it.
+
+**Sequencing, recorded because it is the part that could have been abused.** The waiver landed in
+`9638b30`, *after* the re-budget in `5d0b904`/`cbfa3d3` and after acceptance showed B-B green in
+isolation three times over (p99 20.480 / 12.288 / 20.480 ms against a measured 50 ms limit). Had it
+landed first it would have been doing the re-budget's work — turning a row red for a product reason
+into a row nobody judges — which is the one thing this ADR must never be used for.
+
+**What is lost, stated plainly.** The whole-tree `test` job, nightly `race-windows`, and
+`devtool test` / `test-race` / `cover` now carry no hot-path *cost* gate at all. What still runs in
+every lane is structural: T9, T10 and T14 pin syncs per batch-of-one, check-then-append order, and
+zero releases before the seal, and none of them contains a clock. `test/guards/coload_test.go`'s
+isolation guard mechanically prevents the isolation lanes from losing the rows they now solely
+judge. This is the trade this ADR was written to make, applied to one more row — but it is a real
+loss and should be read as one.
+
+See `plans/sdd/V4-SP-20-capture-storage-and-state-remediation/sp20d1-design-final.md` §7.6, whose
+question Q3 this settles, and `plans/V5-report.md` §31.3.2.
