@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -168,8 +169,21 @@ func x13v4InFlightDirs(names []string) []string {
 // A wait that expires FAILS, naming what was still in flight. A timeout is never close enough here:
 // it means the walk that follows would have compared a tree mid-write, which is the whole defect
 // this removes.
+//
+// A ticker paces the poll, never time.Sleep: §6.1 bans wall-clock sleeps outside test/bench,
+// _test.go files included, and devtool lint's sleepcheck sub-check enforces it by AST scan. The bound
+// stays a wall-clock comparison rather than becoming a second channel in a select, and that is the
+// point of copying v3_x08_test.go's loop here rather than faultinject_test.go's
+// e2eShutdownIfReachable: a select over a tick and a deadline picks between them at RANDOM when both
+// are ready, so an expired wait could poll on past its bound. e2eShutdownIfReachable can afford that
+// because its deadline is its only exit; this one's deadline is a hard failure, and a bound that
+// slips is a bound that means less than it says. Nothing else about the wait changes — both
+// directories must still read empty CONTINUOUSLY for x13v4SettleWindow, anything in flight still
+// restarts that window, and expiry still fails while naming what was in flight.
 func x13v4Quiesce(t *testing.T, root string) {
 	t.Helper()
+	ticker := time.NewTicker(obsProcessTick)
+	defer ticker.Stop()
 	deadline := time.Now().Add(x13v4QuiesceBound)
 	var lastSeen []string
 	var emptySince time.Time
@@ -194,7 +208,7 @@ func x13v4Quiesce(t *testing.T, root string) {
 				root, x13v4PendingDir, x13v4SettleWindow, x13v4QuiesceBound,
 				x13v4InFlightDirs(lastSeen), lastSeen)
 		}
-		time.Sleep(obsProcessTick)
+		<-ticker.C
 	}
 }
 
@@ -246,32 +260,121 @@ func x13v4WriteSet(t *testing.T, root string, before map[string]int64) []string 
 // state/retention-roots.jsonl and the delivery journal under state/ — carry fixed names already.
 const x13v4CapturePrefix = "records/captures/"
 
+// The three families that live side by side in .qompack/spool. They are DIFFERENT things and they
+// fold to three different tokens:
+//
+//   - wal-<session>.ndjson, and wal-<session>.<seq>.ndjson once a segment has rotated
+//     (internal/daemon/ingest.go, walPath) — the daemon's OWN durable log, appended by Accept
+//     before it ACKs. Every accepted delivery leaves one; its presence is the hot path working.
+//   - client-<pid>.ndjson (internal/ipc/spool.go, newSpool) — the HOOK's fallback spool, written
+//     only when the client gave up waiting for the daemon's ACK. Its presence means that arm
+//     DEGRADED.
+//   - blob-<pid>-<n>.bin (internal/ipc/client.go, blobFilePrefix) — a client-externalized oversized
+//     Event.ToolResponse, written when the request would not have fit in a frame.
+//
+// One token for all three is how this row used to fold them, and it is a hole in the claim rather
+// than a tidy-up: an arm that fell back to the client spool and an arm that never did produced the
+// SAME write set. That fallback is exactly what carried defect SP05-D2 is about and what this wave
+// says it has bounded, so the comparison has to be able to see it. Splitting the token costs
+// nothing that the fold was needed for — the per-run component (session, pid, rotation sequence) is
+// still erased WITHIN each family.
+const (
+	x13v4WalPrefix    = "spool/wal-"
+	x13v4ClientPrefix = "spool/client-"
+	x13v4BlobPrefix   = "spool/blob-"
+)
+
+// The .qompack/logs names, of which exactly one is fixed.
+//
+// LOUD.log is opened once per log directory and NEVER rotated (internal/logging/logger.go,
+// loudFileName), so it carries no per-run component and is not folded at all. It was being folded,
+// and that made an arm that went Loud during its burst indistinguishable from an arm that did not —
+// which is the single loudest signal the daemon has.
+//
+// The two dated names fold, and they fold APART. qompack-<YYYYMMDD>.log (and
+// qompack-<YYYYMMDD>.<n>.log once the day's log has rotated; logger.go's currentPath/rotatedPath)
+// is ordinary logging. hook-quiet-<YYYYMMDD>.jsonl (internal/cli/hookclient.go, logQuiet) is a
+// record that a hook could NOT reach the daemon — a degradation marker of the same family as the
+// client spool above, and worth just as little to collapse into its neighbour.
+const (
+	x13v4LoudLog         = "logs/LOUD.log"
+	x13v4DayLogPrefix    = "logs/qompack-"
+	x13v4HookQuietPrefix = "logs/hook-quiet-"
+)
+
+// The .qompack/state files whose names carry a session id, and the suffix that distinguishes a live
+// draft from a discarded one.
+//
+// state/draft-<session>.json is the checkpoint writer's live draft (internal/checkpoint/writer.go,
+// draftPathFor). state/draft-<session>.stale.json is a draft that was SET ASIDE because another
+// writer claimed the sequence first (writer.go, setAsideStaleDraft, which renames the former onto
+// the latter). Keying the fold on the draft- prefix alone swallowed the second into the first, so
+// an arm that discarded a draft and an arm that wrote one looked the same. The fold keys on the
+// whole shape instead: prefix AND suffix.
+const (
+	x13v4DraftPrefix     = "state/draft-"
+	x13v4RehydratePrefix = "state/rehydrate-"
+	x13v4StaleSuffix     = ".stale.json"
+	x13v4JSONSuffix      = ".json"
+)
+
 // x13v4Normalize erases the per-run components of a path so two arms are comparable: the session id
-// in a state file name, the content-addressed object shards and capture sidecars, and the dated
-// day log.
+// in a state file name, the pid in a spool file name, the content-addressed object shards and
+// capture sidecars, and the date in a log name.
+//
+// It erases those and NOTHING ELSE. Every fold here is a claim that the two arms may legitimately
+// differ in that component, and a fold that reaches wider than its claim does not make this row
+// flaky — it makes it PASS when it should fail, because the write-set comparison below is the
+// evidence that the wave-3 residents add no hot-path work. A name this function does not recognize
+// is returned verbatim rather than folded into a neighbour's token.
 func x13v4Normalize(name string) string {
 	switch {
 	case len(name) > 7 && name[:7] == "objects":
 		return "objects/<shard>/<object>"
 	case len(name) > len(x13v4CapturePrefix) && name[:len(x13v4CapturePrefix)] == x13v4CapturePrefix:
 		return x13v4CapturePrefix + "<shard>/<observation>.json"
-	case len(name) > 5 && name[:5] == "logs/":
-		return "logs/<log>"
-	case len(name) > 6 && name[:6] == "state/":
-		base := filepath.Base(name)
-		for _, pfx := range []string{"draft-", "rehydrate-"} {
-			if len(base) > len(pfx) && base[:len(pfx)] == pfx {
-				return "state/" + pfx + "<session>.json"
-			}
-		}
+
+	case name == x13v4LoudLog:
 		return name
-	case len(name) > 6 && name[:6] == "spool/":
+	case strings.HasPrefix(name, x13v4DayLogPrefix):
+		return x13v4DayLogPrefix + "<date>.log"
+	case strings.HasPrefix(name, x13v4HookQuietPrefix):
+		return x13v4HookQuietPrefix + "<date>.jsonl"
+
+	case strings.HasPrefix(name, x13v4DraftPrefix):
+		return x13v4NormalizeSessionFile(name, x13v4DraftPrefix)
+	case strings.HasPrefix(name, x13v4RehydratePrefix):
+		return x13v4NormalizeSessionFile(name, x13v4RehydratePrefix)
+
+	case strings.HasPrefix(name, x13v4WalPrefix):
 		return "spool/<wal>"
+	case strings.HasPrefix(name, x13v4ClientPrefix):
+		return "spool/<client>"
+	case strings.HasPrefix(name, x13v4BlobPrefix):
+		return "spool/<blob>"
+
 	case len(name) > 4 && name[:4] == "tmp/":
 		return "tmp/<staging>"
 	default:
 		return name
 	}
+}
+
+// x13v4NormalizeSessionFile folds the session id out of a state file named <prefix><session><suffix>
+// while KEEPING the suffix, so draft-<session>.json and the draft-<session>.stale.json it can be
+// renamed onto stay two distinct tokens.
+//
+// A name that matches the prefix but neither suffix is returned verbatim. Guessing at it would be
+// the same mistake one level down: this function's whole job is to stop erasing what it cannot
+// account for.
+func x13v4NormalizeSessionFile(name, prefix string) string {
+	rest := strings.TrimPrefix(name, prefix)
+	for _, suffix := range []string{x13v4StaleSuffix, x13v4JSONSuffix} {
+		if len(rest) > len(suffix) && strings.HasSuffix(rest, suffix) {
+			return prefix + "<session>" + suffix
+		}
+	}
+	return name
 }
 
 // x13v4CaptureCount is how many capture sidecars the burst's own deliveries wrote that before did
