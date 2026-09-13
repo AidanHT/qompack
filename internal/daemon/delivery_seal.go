@@ -408,8 +408,12 @@ func writeDeliveryPositionV1(p string, size int64, count int, chain core.Hash) e
 // expression, not a change of value.
 //
 // TestDeliveryPosition_CreateEmptyIsTheOneV1Encoders pins the value, the permissions and
-// loadDeliveryPosition's acceptance of the result directly; a real open never reads these bytes back
-// (O4 re-seals both sidecars before it returns), which is why the helper is what carries the test.
+// loadDeliveryPosition's acceptance of the result directly. A real open DOES read these bytes back,
+// and immediately: openDeliveryJournal calls this create and then j.load(), and openAckLocked does
+// the same through loadAcks, which is how a create whose chain is not the journal's own seed refuses
+// its open rather than being sealed over. What an open does not do is LEAVE them — O4 re-seals both
+// sidecars before it returns — which is why the helper, not a post-open read, is what carries the
+// test.
 func createEmptyDeliveryPositionV1(p string, seed core.Hash) error {
 	return writeDeliveryPositionV1(p, 0, 0, seed)
 }
