@@ -1039,10 +1039,12 @@ func tornVariants(t *testing.T, image map[string][]byte, walRel string, format, 
 // therefore collapsed both onto one slot with the suite green, and for the rows cut inside the seal
 // (L6, L7) the one it collapsed onto was the effective slot — which is the pre-CRASH-1 behaviour,
 // so design §3 row 7's torn-TARGET state was never built. Measured: with a Rule-R fallback added to
-// selectSeal (the J-B3 regression these rows exist to catch) the shipped variants fail 29 subtests,
-// the TARGET-slot subtest of every one of the eleven format-2 rows among them; with the slot
-// expression collapsed, 17, and six go from FAIL to PASS — the target-slot subtests of W1, W2, L4,
-// L5, L6 and L7.
+// selectSeal (the J-B3 regression these rows exist to catch) the shipped variants fail 16 leaf
+// subtests — 29 "--- FAIL" lines once the parent rows above them are counted — the TARGET-slot
+// subtest of every one of the eleven format-2 rows among them; with the slot expression collapsed,
+// 10 leaves (17 lines), and six go from FAIL to PASS: the target-slot subtests of W1, W2, L4, L5,
+// L6 and L7, which take their six parent rows with them. Both units are stated because the leaf
+// count is the one the six names below are counted in, and the line count is what a re-run prints.
 //
 // Those same six rows' EFFECTIVE-slot subtest discriminates nothing either way, and that is
 // structural rather than a gap. Their image holds ONE record: the open's own seal in slot a, with
