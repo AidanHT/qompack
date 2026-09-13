@@ -524,6 +524,27 @@ as co-load; the serial B1 run shows it was the clock.
 **Resolution (V6).** A reference-platform figure from CI's `timing` job, then either a budget stated
 against the platform and clock it was written for, or a real speed-up of `Open`.
 
+**V5 close-out note (2026-09-13): the second arm has largely happened; the row stays open on the
+first.** The negknow speed-up merged at `eaef177` — each record's bloom keys derived once at `Open`,
+the detector scanned through an index view — moves `BenchmarkOpen` to **90.4 ms CPU/op** measured on
+this host at 161 % processor performance, against the 258-273 ms this section records at 120 %.
+Normalised to one clock that is about 2.2x faster. `BenchmarkDetectorScan`, whose shape this section
+calls the same, is now 789 us CPU/op against its 5 ms budget.
+
+That is **not** enough to close the row, for two reasons, and both are the row's own.
+
+First, the resolution asks for a *reference-platform* figure, and none exists: every number here and
+above is from the same Windows developer host. CI's `timing` job on this branch's push is what
+supplies it.
+
+Second, the scaled arithmetic is too thin to stand in for a throttled measurement. Using this
+section's own scaling law (CPU/op varies with the inverse of the clock), 90.4 ms at 161 % implies
+about 265 ms at the 55 % this section measured 586-633 ms at — inside the 300 ms budget, but by 13 %,
+and on an estimate rather than a measurement. A 13 % margin derived by scaling is exactly the kind of
+number the B-B re-budget in §31.3 was caught out by: three runs there gave a limit whose margin over
+the worst observed sample was 4.6 %, and the fourth run exceeded it. `DetectorScan` scales to about
+2.3 ms against 5 ms, which is comfortable; `Open` does not, and it is `Open` this row is about.
+
 ## SP20-D4 — the delivery journals never retire a lease, so leasing stops for good at 65,536
 
 `deferred:V6-VERIFY`. Found at the V5 close-out (2026-09-11) while designing SP20-D1's group commit,
