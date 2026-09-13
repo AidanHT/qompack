@@ -38,9 +38,9 @@ import (
 //
 // That tie is the limit of the claim, and it is name-only, the same resolution every other AST
 // guard here uses: a composite literal in the argument, or an identifier the same function binds to
-// one — a local assigned the literal, a var of the type, a parameter or a named result of it. A
-// position that arrives from a call, a struct field or a container is NOT covered; a wider claim
-// would be one this file cannot keep.
+// one — a local or a var bound to the literal, a var declared of the type, a parameter or a named
+// result of it — in the value spelling or the pointer one. A position that arrives from a call, a
+// struct field or a container is NOT covered; a wider claim would be one this file cannot keep.
 
 // deliveryPositionCreateSites are the production functions that CREATE the empty v1 sidecar.
 //
@@ -174,6 +174,23 @@ func marshalsItsParameter(pos deliveryPosition) ([]byte, error) {
 	return json.Marshal(pos)
 }
 
+func marshalsItsNamedResult(encoded []byte) (pos deliveryPosition, err error) {
+	if err = json.Unmarshal(encoded, &pos); err != nil {
+		return pos, err
+	}
+	_, err = json.Marshal(pos)
+	return pos, err
+}
+
+func marshalsThroughAPointerParameter(pos *deliveryPosition) ([]byte, error) {
+	return json.Marshal(*pos)
+}
+
+func marshalsAVarInitialisedFromTheLiteral(size int64) ([]byte, error) {
+	var pos = deliveryPosition{Bytes: size}
+	return json.Marshal(pos)
+}
+
 func marshalsSomethingUnrelated() ([]byte, error) {
 	return json.Marshal(sealRecord{})
 }
@@ -188,17 +205,21 @@ func marshalsAnUnrelatedLocal() ([]byte, error) {
 	require.NoError(t, err)
 
 	require.Equal(t, []string{
-		"encodeDeliveryPositionV1", // the literal in the argument
-		"marshalsItsParameter",     // a parameter of the type
-		"marshalsThroughALocal",    // a local assigned the literal, marshalled by value
-		"marshalsThroughAVar",      // a var of the type, marshalled by address
-		"somethingElse",            // the pointer-to-literal in the argument
+		"encodeDeliveryPositionV1",              // the literal in the argument
+		"marshalsAVarInitialisedFromTheLiteral", // a var whose VALUE is the literal
+		"marshalsItsNamedResult",                // a named result of the type
+		"marshalsItsParameter",                  // a parameter of the type
+		"marshalsThroughALocal",                 // a local assigned the literal, marshalled by value
+		"marshalsThroughAPointerParameter",      // a *deliveryPosition parameter, dereferenced
+		"marshalsThroughAVar",                   // a var of the type, marshalled by address
+		"somethingElse",                         // the pointer-to-literal in the argument
 	}, marshalSitesIn(f),
 		"the scanner must see the literal, the pointer-to-literal, and every name the same function "+
-			"ties to the type — a local, a var and a parameter — because a site that gained a second "+
-			"producer would spell it whichever way read best, and must report neither function that "+
-			"marshals something else, or the name-only tie would be catching the call rather than "+
-			"the type")
+			"ties to the type — a local, a var declared of it, a var initialised from the literal, a "+
+			"parameter and a named result, in the value spelling and the pointer one — because a site "+
+			"that gained a second producer would spell it whichever way read best, and must report "+
+			"neither function that marshals something else, or the name-only tie would be catching "+
+			"the call rather than the type")
 
 	site := funcDeclNamed(f, "somethingElse")
 	require.NotNil(t, site)
