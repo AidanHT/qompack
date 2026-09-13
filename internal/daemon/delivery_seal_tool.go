@@ -28,6 +28,15 @@ import (
 //     it re-reads that lock before it writes anything, so a daemon that started meanwhile takes the
 //     project away from the tool rather than the other way round. A repair racing the writer would
 //     be the very corruption it exists to undo.
+//
+//     That refusal has a ceiling, and it is worth naming rather than implying. On Windows pidAlive
+//     has no opinion (lock_windows.go), so a starting daemon judges this lock by daemon.hb's mtime
+//     alone, and staleAfter is 90 seconds. This run refreshes that mtime only at its three holdsLock
+//     calls — after both scans, and before each of the two writes — and never DURING a scan. Two
+//     journals of up to 64 MiB each, or a machine that sleeps mid-run, can therefore outlive the
+//     window and let a daemon reclaim the lock under the tool. The outcome is fail-closed: the next
+//     holdsLock refuses, nothing is written, and the deferred Release declines to delete the new
+//     owner's files. It costs a repair, never a correct file.
 //   - It writes nothing until BOTH journals have loaded in full, through the journal's own scan. A
 //     position that does not seal a real prefix of its journal is never written anywhere.
 //   - Rule R lives here and nowhere else. The daemon's reader stays strict whatever an operator
