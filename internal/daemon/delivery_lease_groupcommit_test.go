@@ -958,7 +958,10 @@ type t14Corruption struct {
 // reaches:
 //
 //   - "position missing" and "position malformed" reach step 1, the path's own Lstat: nothing at the
-//     path, and a ~110-byte document written over a 32 KiB image, fail before a byte is compared;
+//     path, and a short fixture document — 19 bytes here, and the v1 document is ~110 — written over
+//     a 32 KiB image, fail before a byte is compared. The figure is not the point and no mode's
+//     refusal turns on it: what step 1 asks is whether the file is still deliverySealFileSize, and
+//     no v1-shaped document of any length is;
 //   - "position replaced by a copy of itself" reaches step 2, os.SameFile — the bytes are identical
 //     and only the identity is not, which is why v1 cannot see it at all;
 //   - the other five, the static-byte flip, the padding flip and the three re-summed rewrites, all
