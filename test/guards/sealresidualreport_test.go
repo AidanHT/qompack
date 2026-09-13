@@ -30,13 +30,14 @@ import (
 //
 // Lock.journal has exactly one assignment, inside openDeliveryJournal (declared at
 // internal/daemon/delivery_lease.go:146, assigned at :209), and the one route to that function is
-// daemon.deliveryJournal — called only by the ingest's and the drainer's lease and acknowledge,
-// each of which needs an accepted request or a Drain pass. Neither abort can have had either. The
-// first runs before ing.Start, with no workers, no drainer and no server. The second runs AFTER
-// ing.Start, which is why "ingest has not started" is the wrong reason for it: Start only spawns
-// workers that block on an empty ring, the endpoint whose bind just failed never existed for a
-// request to arrive on, the startup Drain is past that failure, and the re-drain blocks on
-// firstServed, which only a dispatched request closes.
+// daemon.deliveryJournal — wired in two places and called from exactly five: the ingest's
+// leaseDelivery and commitDelivery, and the drainer's leaseDelivery, commitDelivery and
+// acknowledgedDelivery. Every one of the five needs an accepted request or a Drain pass, and
+// neither abort can have had either. The first runs before ing.Start, with no workers, no drainer
+// and no server. The second runs AFTER ing.Start, which is why "ingest has not started" is the
+// wrong reason for it: Start only spawns workers that block on an empty ring, the endpoint whose
+// bind just failed never existed for a request to arrive on, the startup Drain is past that
+// failure, and the re-drain blocks on firstServed, which only a dispatched request closes.
 //
 // Delete both calls and every BEHAVIOURAL test still passes — measured, not assumed, and
 // re-measured with this file in the tree: internal/daemon stays green and the Run row below is what
