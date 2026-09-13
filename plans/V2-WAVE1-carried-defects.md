@@ -203,7 +203,8 @@ SP08-D1's; V6-VERIFY, whose SP-17 pushes to CI, takes both together with SP10-D1
 
 ## SP05-D2 — the shipped ACK deadline is shorter than one leased `Accept`
 
-`deferred:V6-VERIFY`. Found by V5-VERIFY fix item F4 while pinning F4-P1 (the
+`fixed` at the V5 close-out (2026-09-13; opened `deferred:V6-VERIFY`, see the disposition at the end
+of this section). Found by V5-VERIFY fix item F4 while pinning F4-P1 (the
 drain replay of acknowledged copies, fixed in `1c17f0d`). The hook client waits
 `State.AckDeadlineMs` (shipped default 8, `internal/config/defaults.go`) for the daemon's one-byte
 transport ACK and otherwise appends the request to `spool/client-<pid>.ndjson`
@@ -221,9 +222,60 @@ a fake clock inside the client's ACK wait, which is SP-17's hardening list. Reso
 fallback rate on the reference platform and either raise the deadline within budget B-B or make the
 client's ACK wait independent of scheduler latency.
 
+**V5 close-out disposition (2026-09-13): fixed.** The row closes on BOTH halves of the ordering it
+complained about, and neither alone would have done it: the deadline was raised, and `Accept` was made
+cheaper. Only the first is an arm the Resolution above names; the second is what makes the first
+honest, and it is why the Resolution's own alternative could be left untaken.
+
+- **The deadline was raised.** `AckDeadlineMs` is no longer the shipped 8 ms. `5d0b904` derives it
+  from the same attested `bench-hotpath` runs the B-B limit rests on, as `L0IngestMs +
+  ceil(slack99)` where `slack99` is the largest per-run `p99(hook_ack_rtt) - p99(B-B)` — 22.257 ms —
+  and `cbfa3d3` carries it up with the widened limit. Windows ships **73 ms**
+  (`AckDeadlineMsWindows`, `internal/config/deadlines.go`) against `L0IngestMsWindows` 50, and a new
+  T30 anti-drift test pins `AckDeadlineMs > L0IngestMs` on all three platforms, since the derivation
+  adds a positive slack. `internal/cli`'s `hookSendDeadlineFloor` (8 ms) deliberately does not move
+  with it and now sits strictly below every platform's value, so it can only bind on a state record
+  carrying no deadline at all.
+- **And `Accept` was made cheaper.** SP20-D1's group commit and format-2 seal take a leased `Accept`
+  from the 18.3–23.3 ms this section measured to a median **7.306 ms**
+  (`BenchmarkIngestAcceptLeased`, `-count=6`, 6.751–7.765) — about 2.5 to 3 times cheaper in
+  isolation. Raising the deadline over an unchanged service time would have bought only the quiet
+  window; 73 ms is about ten times an uncontended `Accept`, and above even the 37–42 ms this section
+  measured co-loaded on the pre-group-commit path.
+
+B-B's own row is green at the new limit: three runs in attested quiet windows read p99 20.480 /
+12.288 / 20.480 ms against 50 ms (SP20-D1's disposition below).
+
+**Evidence.** The row now names `BenchmarkIngestAcceptLeasedBurst`
+(`internal/daemon/delivery_bench_test.go`), which releases a whole burst of deliveries at once and
+fails unless every one of them holds a lease and an acknowledgement. It is the instrument for the
+regime this section called "effectively every hook in bench-hotpath's burst": what a burst contends
+for is now the device rather than one mutex held across all of it, because `383f97b` took the
+acknowledgement out from under `Lock.mu` into its own group-commit pipeline. Keeping a live
+benchmark in the evidence column means a re-deferral is a one-field edit.
+
+**Residual, carried rather than asserted away.**
+
+- **The fallback rate itself was not re-measured.** What is measured is the two quantities whose
+  ordering produced it — the deadline and the service time — not the 13 % under a full e2e session.
+  The rate is a symptom of that ordering and the ordering is now inverted with room to spare, but no
+  run on file re-counts it.
+- **No reference-platform figure.** The Resolution's first clause — measure the fallback rate on the
+  reference platform — is still unanswerable on this host, for the reasons SP06-D2's disposition
+  gives. `AckDeadlineMsPortable` 17 and `AckDeadlineMsDarwin` 45 are seeded from SP20-D1 design
+  §7.5's predicted table and are marked PROVISIONAL in `deadlines.go`, pending CI's bench-gate
+  running the same protocol on `ubuntu-latest` and `macos-latest`. If those limits rise, the
+  deadlines derived from them rise with them.
+- **The ACK wait is still a wall clock.** The Resolution's other alternative — make the client's ACK
+  wait independent of scheduler latency — was NOT taken: `ipc.Client` still waits a duration. The
+  deterministic pin this section asked for therefore still needs a fake clock inside that wait and
+  stays on SP-17's hardening list. The row closes because the deadline is now above the measured
+  service time, not because the wait stopped depending on the scheduler.
+
 ## SP20-D1 — budget B-B cannot hold the leased delivery path's durability points
 
-`deferred:V6-VERIFY`. Budget B-B (`l0_ingest`, gated, p99 < 2 ms, "daemon read
+`fixed` at the V5 close-out (2026-09-13; opened `deferred:V6-VERIFY`, see the disposition at the end
+of this section). Budget B-B (`l0_ingest`, gated, p99 < 2 ms, "daemon read
 to WAL append returned") is incompatible with the durability design SP-20 M1 shipped for the
 leased delivery path. `internal/daemon/ingest.go` `Accept` documents it: three durability points,
 four fsync syscalls per accepted leased delivery — the WAL append sync, the delivery journal's
@@ -268,6 +320,83 @@ smaller breach, and does not lower the budget.
 **Acceptance (V6).** A reference-platform and a Windows figure for `BenchmarkIngestAcceptLeased`,
 a written decision between re-budget and redesign, and bench-hotpath's B-B row green or explicitly
 re-gated against the decided figure.
+
+**V5 close-out disposition (2026-09-13): fixed.** The decision this row demanded is taken and written
+down, and it went BOTH ways rather than either: the durability points moved off the serialized
+`Accept`, and what remained was re-budgeted from measurement rather than assumed. The design the work
+was built against is now committed as
+`plans/sdd/V4-SP-20-capture-storage-and-state-remediation/sp20d1-design-final.md` (`2a11461`), which
+until then existed only in a session scratch directory although thirty files cite it. The one
+acceptance item NOT met is the reference-platform figure; it is carried below with the provisional
+limits it travels with.
+
+- **Redesign, not only a re-budget.** `ebd86f6` adds a leader/follower group-commit queue, and each
+  of the three durability points takes one: the ingest WAL (`2d3499a`), the delivery lease journal
+  (`25c5b7e`) and the acknowledgement journal (`383f97b`, which also takes the acknowledgement out
+  from under `Lock.mu`). The lease-position sidecar's `paths.WriteAtomic` — two of the original four
+  fsyncs — is replaced by the A/B delivery seal: added unwired (`a02e89a`), read in either format
+  (`98ff691`), wired (`effa28d`) and written in format 2 (`5d32859`), with an offline repair tool and
+  its admin subcommand for a seal a downgrade left behind (`d1e2477`, `c2109d0`). Under
+  `BenchmarkIngestAcceptLeasedParallel/64/sessions-4` a delivery now costs 0.0315 lease-batches and
+  0.2 syncs — about 32 deliveries per batch and one sync per five accepted deliveries.
+- **A Windows figure, and the components behind it.** `BenchmarkIngestAcceptLeased` measures a median
+  **7.306 ms/op** (`-count=6`, 6.751–7.765) against the 18.3–23.3 ms this row recorded on the same
+  host. Its components (`BenchmarkDeliveryLeaseComponents`, `BenchmarkDeliverySealComponents`): WAL
+  `Sync` 2.243 ms, lease-journal `Sync` 2.197 ms, format-2 seal slot 2.305 ms, `checkFileV2`
+  0.170 ms, `postSealIdentity` 0.089 ms — against the v1 path they replace, `sealWriteAtomic`
+  6.371 ms plus `checkFileV1AfterSeal` 1.801 ms. Format 2 alone therefore saves about **5.6 ms per
+  delivery** (8.172 against 2.564), and the three remaining flushes plus about 0.4 ms of non-flush
+  work predict 7.2 ms for one uncontended delivery, which the 7.306 ms median confirms: two
+  instruments, one cost.
+- **A written decision on the budget.** `5d0b904` re-budgets `l0IngestMs` by design §7.5's M2
+  protocol — three `devtool bench-hotpath --iterations 2000 --warm-daemon` runs, one process at a
+  time, `L0IngestMs = roundup5(1.25 x P)` for `P` the worst per-run p99 — and `cbfa3d3` widens it to
+  the measured tail: six more gated runs were taken at the committed 30 under a rule fixed before
+  they ran, one failed at p99 36.864 ms inside a clean window, so `P` is re-derived over all fifteen
+  runs (twelve attested) and the Windows limit is **50 ms**. The same commit corrects the
+  `l0IngestMs` doc tag, which still read "daemon read to WAL append returned" — the region as it was
+  before `f6a8691` — and regenerates `docs/config-reference.md` and the schema golden through their
+  generators rather than by hand.
+- **The B-B row is green, and was not re-gated away.** At the committed defaults, three runs inside
+  attested quiet windows read B-B p99 **20.480 / 12.288 / 20.480 ms** against the 50 ms limit — PASS,
+  PASS, PASS — with B-A and B-E_cpu green and no deferral or shortfall in any run. `9638b30` then
+  applies the owner's Q3 ruling (design §7.6): under `--under-coload` the B-B row becomes
+  reported-only, which is ADR 0010's second branch for a property that is intrinsically wall-clock and
+  has no CPU clock to move to (B-B has no child process, `obs.ProcessCPU`'s 15.625 ms tick would read
+  exact zero against a limit in the low tens of ms, and what inflates B-B is fsync — blocked time
+  costing no CPU). `Gated: true` in `internal/obs/budgets.go` is untouched, the isolated lanes
+  (`bench-gate`, nightly `bench-deep`, `timing`, `test-e2e`) still judge it, and
+  `TestColoadYieldersAreJudgedInIsolation` stops that coverage disappearing silently.
+- **No budget was lowered.** `l0IngestMs` went from 2 ms to 50 ms on Windows: a raise, against a
+  measured region the 2 ms figure never described.
+
+**Linux and darwin are PROVISIONAL.** Neither is measurable on this host, so `L0IngestMsPortable` 15 /
+`AckDeadlineMsPortable` 17 and `L0IngestMsDarwin` 40 / `AckDeadlineMsDarwin` 45 are seeded from design
+§7.5's predicted table and marked provisional in `internal/config/deadlines.go`, pending CI's
+bench-gate running the same protocol on `ubuntu-latest` and `macos-latest`. §7.5's own Windows
+prediction was `P` = 12–18 ms against the 36.864 ms measured here, so both rows may well have to rise;
+`4043b6a` makes bench-gate upload its hot-path JSON even when the gate fails, precisely so a first
+breach still reports the numbers needed to re-price them. That is also the acceptance item this
+disposition does not close: there is still no reference-platform `BenchmarkIngestAcceptLeased` figure.
+
+**What a green B-B is now worth, stated rather than assumed.** 50 ms is nearly seven times an
+uncontended `Accept`, and none of that gap is slack in the delivery path, which has a ±7 % spread. It
+is contention from the harness's own 2 000 process spawns, whose floor alone is p99 77 ms. B-B is a
+coarse backstop that catches a several-fold regression and cannot see a 2× one. The sensitive
+instrument is `BenchmarkIngestAcceptLeased`; the durability invariant is carried by the design's
+co-load-immune structural gates T9, T10 and T14 — `TestDeliveryJournal_BatchCommitsOneWriteOneSyncOneSeal`,
+`TestDeliveryJournal_NoLeaseReleasedBeforeItsBatchSeal` and
+`TestDeliveryJournal_CheckRunsAfterEvaluationAndImmediatelyBeforeAppend` in `internal/daemon`, which
+run in every lane and have no clock in them at all. Gating the benchmark is the V6 follow-up
+`cbfa3d3` names.
+
+**Downgrade.** A binary from before `98ff691` reads only v1, so it cannot read a seal this build
+writes. The rollback is the constant, never a `git revert` (`3fa6bd6`): setting
+`deliverySealWriteFormat` back to 1 is a one-line change that makes this code write v1 again while it
+still reads both, where reverting the flip commit would retire the format-2 corruption coverage in
+the same move. `qompack admin delivery-seal` (`d1e2477`, `c2109d0`) converts a seal offline for a
+binary that reads only v1; a failed conversion signals rather than falling silent (`cb8f984`), and a
+conversion whose consent record was lost is refused (`e7f9ec0`).
 
 ## SP20-D2 — verify-on-read puts the store's read path over its budget
 
@@ -453,3 +582,93 @@ SP20-D1 is rewriting at the close-out, so it cannot land safely beside that chan
 - The evidence test inverted: a project past 65,536 leases leases its next delivery, and a late copy
   of a retired delivery is still skipped.
 - The startup load cost bounded independently of the project's age.
+
+## SP20-D5 — a drain pass lowers the durable bound its own record already holds
+
+`fixed` at the V5 close-out (2026-09-13). Opened and closed inside the same close-out: the defect was
+introduced by this close-out's own drain work — `cdf7829` made a pass record the durable bound it read
+to, `4e7218f` floored that at the offset the pass consumed — and fixed five commits later, so it was
+never on `develop` and was never carried open. It gets a row anyway. A truncation-refusal defect that
+reached this branch's delivery path is exactly what a reader months from now needs to be able to find
+by id, and the fix leaves a residual that ships with the code.
+
+**Symptom.** A pass recorded `max(the durable bound it read to, the offset it consumed)`. On the pass
+after a held segment is reopened — `ingest.holdSynced` enters a reopened segment into `ingest.synced`
+at 0, so `durableEnd` answers less than the record already held — the recorded size FELL, from the
+durable bound to the consumed offset. Every byte between them was durable when it was recorded and the
+record stopped naming them, so `validateProgress` stopped refusing when they went missing: a
+truncation the base before this work refuses drew no refusal at all, the entry flipped to `Done` at
+the shortened size, and a shorter foreign line written over those bytes was delivered as the segment's
+own continuation.
+
+**Why it was invisible.** The two tests that already covered this code moved a held segment's synced
+size only upward, so neither could see a bound that FALLS. That is the axis the wedge lived on, and it
+is why the whole package, the race counts and the carried-defect pins were all green over it
+(`510bfc3`).
+
+**Fix.**
+
+- **The floor is the bound the record already holds** (`9d1ef2d`). It is lowered only for a record no
+  pass of this code wrote, whose `Size` is an older raw stat that may name a held segment's unsynced
+  tail — keeping THAT would inherit a bound a legitimate machine crash falls below, which is the wedge
+  this work exists to fix. Such a record is floored at the consumed offset, as before, and is upgraded
+  to a marked record the first time this code writes it.
+- **An additive `durable_size` mark** carries the provenance. It is written positively, so its ABSENCE
+  means "this size may be a raw stat" — which is what every record older than the mark is. In Go it is
+  carried as its negation, `drainFileState.SizeIsRawStat`, so the zero value is a record this code
+  wrote. An older binary ignores the field (its `loadState` is a plain `json.Unmarshal`) and drops it
+  again when it rewrites the record, returning the record to that binary's own meaning.
+- **`Done` now also requires `Size == Offset`** (`9d1ef2d`). The floor can hold `Size` above the stat a
+  pass saw, for a file that shrank between `validateProgress` and that stat, and `Done` set from the
+  consumed offset alone wrote `{Done, Offset < Size}` — a record `loadState` refuses outright — and
+  handed the file to `removeCompletedFile`, which unlinks it at a size below the durable bound its own
+  record names.
+- **The mark is set only where the pass's own durable bound carries the recorded `Size`** (`a12bae9`).
+  The unconditional clear wrote the mark over a `Size` resting on the offset floor, which froze a
+  non-durable claim: the next pass floors at `fs.Size` for a marked record, so that bound could never
+  be lowered again. Such a record now keeps its provenance, stays lowerable, and is marked by the first
+  pass whose own bound reaches the offset it names; a marked record was already durable and stays
+  marked.
+
+`validateProgress` is unchanged in code, and no assertion anywhere was relaxed to land this.
+
+**Evidence.** `TestDrainKeepsTheDurableBoundItRecordedWhenASegmentIsReopenedBelowIt`
+(`internal/daemon/drain_recorded_bound_test.go`, `ea6d140`) is the row's named pin: a NAKed dispatch
+leaves `{Size: bound, Offset: below it}` on a held segment whose every byte is durable, the segment is
+then reopened so its synced size answers 0, and the size the next pass persists must still be the
+bound — with a truncation past that bound still drawing the refusal. Four pins travel with it:
+`TestDrainDoesNotKeepARawStatBoundItDidNotRecord`,
+`TestDrainWritesALoadableRecordWhenAFileShrinksUnderThePass` (`ea6d140`),
+`TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset` and
+`TestDrainKeepsTheProvenanceOfARecordItDidNotVisit` (`cfb885e`), plus
+`TestDrainKeepsItsProgressLoadableWhenAStragglerReopensADrainedSegment`
+(`drain_reopened_segment_test.go`, `510bfc3`), which drives the bound downward through the production
+seams — a real ingest, its own `syncedWAL`, `holdsWAL` and `removeDrainedWAL` — rather than a seeded
+record. Every negative control ran in a `git archive` scratch copy, never the worktree, and each had to
+produce a real failure signature: the offset floor is caught by the first pin, the unconditional
+`max(end, fs.Size)` floor by the second pin's pre-mark case ALONE, dropping `fs.Size > fi.Size()` from
+`validateProgress` by both plus the existing twin, and `Done` from the consumed offset alone by the
+third pin alone. None of the six uses a clock, a sleep or a goroutine ordering.
+
+**Residual, stated rather than asserted away** (`762c8cc`, comment only).
+
+- **A downgrade surrenders the protection for one pass.** The record an older binary rewrites is
+  byte-identical to a genuine pre-mark record, so the next pass of this code reads it as a raw stat,
+  floors at the consumed offset, and lets the recorded bound fall to that offset the first time a
+  reopened segment answers a lower `durableEnd`. The truncation window the mark closes is open again
+  for that record until a bound of this code's own reaches its offset and re-marks it. The alternative
+  — trusting an unmarked size — is the wedge the mark exists to prevent, so the cycle is accepted at
+  that price rather than cured.
+- **An inherited offset is not itself a durable bound.** A binary with no `durableEnd` (`develop`'s
+  `drain.go` has none) read a held segment to EOF and recorded what it consumed, so its offset can name
+  bytes no `Sync` ever returned for. `loadState` forbids a `Size` below `Offset`, so no floor this code
+  can choose cures that residual: the crash that takes those bytes wedges the spool for that one
+  record, as it did for the binary that wrote it.
+  `TestDrainDoesNotMarkASizeThatRestsOnALegacyOffset` pins that residual as what it is, and pins that
+  the pass must not mark such a size durable.
+- **The mark does not always rest on a `Sync` of this code's own.** `durableEnd` returns the stat
+  without syncing for a file with nothing unread (`size <= offset`), so an inherited record whose
+  `Offset` already equals the stat is marked durable with no `Sync` of this code behind it. That case
+  is reachable only where `Size == Offset`, and `validateProgress` compares both against the stat, so
+  the refusal is identical either way — which is why it costs nothing, and why the comments now say
+  what the code does instead of claiming the pass synced to that bound.
