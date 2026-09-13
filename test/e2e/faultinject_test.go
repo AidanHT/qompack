@@ -288,7 +288,7 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 		// "lock file naming a dead pid" identically, which is why the absent-file check that used
 		// to stand here is not merely moved but subsumed.
 		lockPID, held := e2eDaemonHoldingLock(root)
-		if !held && !e2eProcessAlive(shutdownPID) {
+		if !held && e2eShutdownProcessSettled(shutdownPID) {
 			return
 		}
 		select {
@@ -299,7 +299,7 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 				t.Logf("e2eShutdownIfReachable: a live daemon (pid %d) still held %s after %s of retried "+
 					"admin.shutdown; the caller's t.TempDir cleanup is about to remove a tree it may still "+
 					"be writing to", lockPID, lockPath, e2eDaemonDownBound)
-			case e2eProcessAlive(shutdownPID):
+			case !e2eShutdownProcessSettled(shutdownPID):
 				t.Logf("e2eShutdownIfReachable: the daemon (pid %d) released %s but was still running after "+
 					"%s; the caller's t.TempDir cleanup is about to remove a tree it may still be writing to",
 					shutdownPID, lockPath, e2eDaemonDownBound)
@@ -307,6 +307,36 @@ func e2eShutdownIfReachable(t *testing.T, root string) {
 			return
 		}
 	}
+}
+
+// e2eShutdownProcessSettled reports whether the pid that held the lock can no longer write inside
+// the tree.
+//
+// For a daemon in its OWN process that is exactly "the process has exited", and the long comment
+// above says why nothing weaker will do: Lock.Release is Stop's last act, but the process still has
+// to unwind afterwards, and CI run 32932419445 caught it creating an entry inside .qompack between
+// RemoveAll emptying the directory and RemoveAll unlinking it.
+//
+// For a daemon running IN THIS TEST BINARY — v4StartRig and the other in-process rigs — that
+// question is not merely unanswerable but meaningless. internal/daemon/lock.go:103 records the
+// holder's pid, which for an in-process rig is the test binary's own, so "has it exited?" asks
+// whether the process doing the asking has exited: always false, for the whole of
+// e2eDaemonDownBound, after which the caller logged a diagnostic claiming a straggler was still
+// writing to a tree that had in fact been quiescent for twenty seconds. A false diagnostic is worse
+// than a slow one, because it is the first thing the next person to debug these rows will chase.
+//
+// The unwind the out-of-process case waits for has no counterpart here: there is no second process
+// to unwind, and the test binary will not exit until the test does. Stop has returned and the lock
+// is gone, which is every guarantee available and the same one v4StartRig's own t.Cleanup relies
+// on. So for our own pid the lock's absence is the whole condition.
+//
+// This is not a relaxation of the out-of-process check, which is unchanged: it replaces a condition
+// that could never be satisfied with the one that actually establishes the fact.
+func e2eShutdownProcessSettled(shutdownPID int) bool {
+	if shutdownPID == os.Getpid() {
+		return true
+	}
+	return !e2eProcessAlive(shutdownPID)
 }
 
 // e2eDaemonHoldingLock reports the pid recorded in root's daemon.lock and whether a live process
