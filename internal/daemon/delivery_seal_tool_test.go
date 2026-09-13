@@ -642,6 +642,59 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		})
 	}
 
+	// The older-seal checkpoint the tool forwards to the scan (delivery_seal_tool.go's inspect,
+	// s.scan(read.position, read.older)). Replacing that argument with nil left the whole suite
+	// green, and this tool is the one program in the system that turns a project the daemon REFUSES
+	// into one it accepts: after --to v1 the older record is gone for good, so a regression here
+	// launders exactly the class of journal the checkpoint exists to catch, permanently and
+	// silently.
+	//
+	// The image is built so that only the SCAN can see the defect. The older record is re-summed for
+	// its own slot, so classifySlot still calls it valid, and it still seals strictly fewer bytes
+	// and entries than the effective record, so selectSeal still accepts the pair — which the
+	// subtest requires rather than assumes.
+	//
+	// The review asked for an older record whose Count is one too high with its Bytes left alone.
+	// That image cannot exist, and the code is why: selectSeal admits two valid slots only when
+	// older.Count < eff.Count, and the two records are always one batch apart, so older.Count+1
+	// equals eff.Count and the strict reader refuses the pair before any scan runs. Moving the
+	// BYTES back one line produces the same defect in an image the strict reader accepts — a Count
+	// one too high for the prefix it names — which is what the checkpoint is about.
+	t.Run("refuses a seal whose older record is not a prefix of this journal", func(t *testing.T) {
+		root := toolTestProject(t, 3)
+		state := paths.Of(root).State
+		sealPath := filepath.Join(state, deliveryPositionFile)
+
+		image := readTestFile(t, sealPath)
+		require.True(t, isDeliverySealImage(image), "the fixture leaves a v2 lease seal")
+		eff, older, err := selectSeal(image, deliveryChainDomain, deliveryChainSeed)
+		require.NoError(t, err)
+		require.NotNil(t, older, "the seal must carry an older record, or this subtest pins nothing")
+		require.Greater(t, older.Count, 1, "and that record must seal more than the first line")
+
+		moved := *older
+		moved.Bytes = toolTestLineBoundary(t, filepath.Join(state, deliveryLeaseFile), older.Count-1)
+		require.Positive(t, moved.Bytes, "an older record sealing 0 bytes is checked against nothing")
+		slot := slotFor(older.Seq)
+		region, _, err := encodeSlot(moved, slot, deliveryChainDomain, deliveryChainSeed)
+		require.NoError(t, err)
+		tampered := withRegion(image, slot, region)
+
+		gotEff, gotOlder, err := selectSeal(tampered, deliveryChainDomain, deliveryChainSeed)
+		require.NoError(t, err, "guard: the STRICT reader must still accept this pair, or the scan "+
+			"is not what refuses it")
+		require.Equal(t, eff, gotEff, "guard: the effective record is untouched")
+		require.Equal(t, moved.Bytes, gotOlder.Bytes, "guard: the older record is the tampered one")
+		require.NoError(t, os.WriteFile(paths.Long(sealPath), tampered, 0o600))
+
+		before := toolTestState(t, root)
+		_, err = toolTestRun(t, root, DeliverySealOptions{Check: true})
+		require.ErrorContains(t, err, "does not load against that seal",
+			"the checkpoint the tool forwards is what refuses this journal")
+		require.ErrorContains(t, err, "lease")
+		require.Equal(t, before, toolTestState(t, root), "and a check writes nothing whatever it finds")
+	})
+
 	t.Run("refuses a half-present pair", func(t *testing.T) {
 		root := toolTestProject(t, 1)
 		require.NoError(t, os.Remove(filepath.Join(paths.Of(root).State, deliveryAckFile)))
@@ -699,4 +752,22 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Equal(t, 2, position.Count, "the repair seals the tail it accepted")
 		requireOpensWithFormat(t, root, 1, 2)
 	})
+}
+
+// deliveryLineTerminator is the byte every canonical journal line ends with.
+const deliveryLineTerminator = byte(10)
+
+// toolTestLineBoundary is the byte offset just past the journal's nth line: the position a seal
+// sealing exactly n records names.
+func toolTestLineBoundary(t *testing.T, journal string, lines int) int64 {
+	t.Helper()
+
+	b := readTestFile(t, journal)
+	var at int64
+	for range lines {
+		i := bytes.IndexByte(b[at:], deliveryLineTerminator)
+		require.GreaterOrEqual(t, i, 0, "the journal holds fewer than %d lines", lines)
+		at += int64(i) + 1
+	}
+	return at
 }
