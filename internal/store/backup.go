@@ -195,7 +195,12 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		if backupSkipDirs[strings.SplitN(rel, "/", 2)[0]] || rel == "migrate/"+writerLockFile {
 			return nil
 		}
-		b, ferr := os.ReadFile(p)
+		// paths.ReadFileShared, not os.ReadFile, for every copied file. On Windows an ordinary read
+		// handle carries no FILE_SHARE_DELETE, so while it is open the daemon's own
+		// paths.WriteAtomic of that path fails — the R10 hazard running the other way, the backup
+		// stalling the daemon. test/guards' sharedReaders row for this function is the inventory
+		// that stops the answer reverting.
+		b, ferr := paths.ReadFileShared(p)
 		if ferr != nil {
 			return ferr
 		}
@@ -246,10 +251,17 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 // it does not.
 //
 // It is a comparison against the CAPTURED bytes, not against a second live read, because the
-// hazard is a reader that is not atomic against a concurrent writer: os.ReadFile of a 32 KiB seal
-// can return a mixture of the bytes before and after a 480-byte WriteAt, and that mixture equals
+// hazard is a reader that is not atomic against a concurrent writer: a read of a 32 KiB seal can
+// return a mixture of the bytes before and after a 480-byte WriteAt, and that mixture equals
 // neither the file the walk started from nor the file on disk now. A seal write always changes
 // the slot's record, so any write under the walk is a difference here.
+//
+// The read itself goes through paths.ReadFileShared for the reason every other reader of a file a
+// daemon replaces does: an os.ReadFile handle grants no FILE_SHARE_DELETE on Windows, so for as
+// long as it is open the daemon's paths.WriteAtomic of that same sidecar fails. This function
+// exists to stop the daemon damaging the backup; reading it the ordinary way would have the backup
+// damage the daemon instead — openSealHandle's conversion faults the journal for that daemon's
+// whole life, and closeSeals' downgrade silently leaves v2 behind.
 //
 // It therefore also refuses a copy that is whole but stale — the daemon sealed a batch after this
 // file was read and before the walk ended — and that is deliberate: the manifest's Consistent
@@ -260,7 +272,7 @@ func (m *Migrator) refuseIfTheProjectMoved(man BackupManifest) error {
 		captured[f.Name] = f
 	}
 	for _, name := range backupLiveWriterFiles {
-		live, rerr := os.ReadFile(paths.Long(filepath.Join(m.l.Dot, filepath.FromSlash(name))))
+		live, rerr := paths.ReadFileShared(filepath.Join(m.l.Dot, filepath.FromSlash(name)))
 		f, copied := captured[name]
 		switch {
 		case !copied && os.IsNotExist(rerr):
