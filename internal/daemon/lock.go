@@ -13,6 +13,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -291,6 +292,39 @@ func (l *Lock) Heartbeat() error {
 		return fmt.Errorf("daemon: lock: heartbeat: %w", err)
 	}
 	return nil
+}
+
+// reportSealDowngradeResidual logs, once and at Warn, anything a Release could not finish that
+// leaves a project harder to roll back than §4.4 says it is. It is called immediately after every
+// Release of a lock that could have opened a journal, and it branches on nothing: a residual is a
+// note to an operator, never a failure of the shutdown it follows.
+func reportSealDowngradeResidual(lk *Lock, log logging.Logger, where string) {
+	residual := lk.SealDowngradeResidual()
+	if residual == nil || log == nil {
+		return
+	}
+	log.Warn("daemon: a held delivery seal was not downgraded to v1 on release; this project's "+
+		"position files stay in the v2 format, which every build carrying the dual reader opens and "+
+		"a build predating it does not. `qompack admin delivery-seal --to v1` converts them with the "+
+		"daemon stopped", "at", where, "err", residual)
+}
+
+// SealDowngradeResidual reports what a Release could not finish, and it is not a failure: the v1
+// downgrade of a held v2 delivery seal is best effort by design, since a v2 file left behind is
+// readable by every build carrying this reader and refusing to release ownership over it would be
+// far worse. Nil means every held seal was downgraded, or none was eligible.
+//
+// It exists so that "a clean stop leaves v1 on disk" (design §4.4) cannot quietly stop being true.
+// A caller logs it once, at Warn, after Release returns; nothing branches on it. What it tells an
+// operator planning a rollback past step 1 is that this project still needs
+// `qompack admin delivery-seal --to v1` before an older binary will open it.
+func (l *Lock) SealDowngradeResidual() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.journal == nil {
+		return nil
+	}
+	return l.journal.downgradeResidualErr()
 }
 
 // Release removes the lock and its heartbeat. It is safe to call twice: a second call finds the
