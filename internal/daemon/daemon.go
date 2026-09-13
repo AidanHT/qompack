@@ -540,6 +540,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		if relErr := lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after a shutdown that arrived mid-startup", "err", relErr)
 		}
+		reportSealDowngradeResidual(lock, d.log, "run: shutdown mid-startup")
 		return nil
 	}
 
@@ -576,6 +577,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		if relErr := lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
 		}
+		reportSealDowngradeResidual(lock, d.log, "run: listen failure")
 		return fmt.Errorf("daemon: run: listen: %w", err)
 	}
 	d.setServer(server)
@@ -750,6 +752,8 @@ func (d *daemon) sessionIsLive(sess core.SessionID) bool {
 // RemoveWAL is the ingest's own removal, so a WAL segment the ingest still holds, or one that has
 // grown since it was drained, is never deleted, whatever the registry says about its session.
 // HoldsWAL asks that ingest first, so the drainer leaves a segment it holds without forgetting it.
+// SyncedWAL is that ingest's synced size, so the drainer never leases a line of a held segment
+// before the WAL Sync covering the line has returned.
 func (d *daemon) drainConfig() DrainConfig {
 	return DrainConfig{
 		Root:      d.root,
@@ -763,6 +767,7 @@ func (d *daemon) drainConfig() DrainConfig {
 		IsLive:    d.sessionIsLive,
 		RemoveWAL: d.ing.removeDrainedWAL,
 		HoldsWAL:  d.ing.holdsWAL,
+		SyncedWAL: d.ing.syncedWAL,
 	}
 }
 
@@ -959,6 +964,7 @@ func (d *daemon) Stop(ctx context.Context) error {
 			if err := lk.Release(); err != nil && stopErr == nil {
 				stopErr = err
 			}
+			reportSealDowngradeResidual(lk, d.log, "stop")
 		}
 	})
 	return stopErr

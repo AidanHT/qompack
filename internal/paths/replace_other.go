@@ -14,3 +14,8 @@ func replace(tmp, p string) error { return os.Rename(tmp, p) }
 // matters here — a POSIX file descriptor never blocks another process's unlink or rename — so
 // this is os.Open unchanged.
 func openShared(p string) (*os.File, error) { return os.Open(p) }
+
+// openSharedRW opens p for reading and writing and never creates it (no O_CREATE). It is
+// os.OpenFile unchanged, for openShared's reason: off Windows no descriptor blocks another
+// process's unlink or rename. A directory is refused by open(2) itself, with EISDIR.
+func openSharedRW(p string) (*os.File, error) { return os.OpenFile(p, os.O_RDWR, 0) }

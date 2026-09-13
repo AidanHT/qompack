@@ -50,8 +50,15 @@ const spoolScanInitialBytes = 64 << 10 // 64 KiB
 // (report.go) for why the deferred requests must be added back into the gated population as
 // over-budget samples rather than quietly dropped from it.
 type deliveryLedger struct {
-	// Sent is how many hot-path (observe.tool) requests this harness issued: the B-A/B-D spawn
-	// loop's own --iterations, plus the warm-up's hot tranche when --warm-daemon ran.
+	// Sent is how many hot-path (observe.tool) requests this harness issued, and it carries three
+	// populations, not two: the B-A/B-D spawn loop's own --iterations, the warm-up's hot tranche
+	// when --warm-daemon ran, and measureAckRTT's tranche — its timed samples plus the ackRTTWarmups
+	// discarded in front of them (ackRTTTrancheSends, added at runHarness's own call site).
+	//
+	// The third is deliberately outside expectedHotPathSends, whose contract is the GATED window;
+	// it is inside this field because every request in it reaches ing.Accept and is counted by
+	// l0_ingest, and a Sent that did not count it would make the daemon's delivered count exceed
+	// what the harness admits to having sent.
 	Sent int64
 	// Delivered is the daemon's own l0_ingest observation count — its ground truth for "arrived
 	// live and reached ing.Accept".
@@ -84,15 +91,33 @@ func expectedHotPathSends(iterations int, warmDaemonRan bool) int64 {
 	return want
 }
 
+// ackRTTTrancheSends is how many hot-path requests measureAckRTT puts through the daemon to return
+// samples timed round trips: the timed samples themselves plus the ackRTTWarmups it discards in
+// front of them.
+//
+// Every one of them reaches ing.Accept and is counted by l0_ingest, so the ledger's Sent must count
+// them too. Counting only the timed samples would make the daemon's own delivered count exceed what
+// this harness admits to having sent, and reconcileDelivery refuses that population outright ("some
+// OTHER client is feeding the daemon this run measures") — a discarded warm-up is still a delivery.
+//
+// It is deliberately NOT folded into expectedHotPathSends: that function's contract is the gated
+// window — iterations plus the warm-up's own hot tranche — and gatedLedger scopes the missing-sample
+// accounting to it. This tranche is sent after the snapshot that window is read from.
+func ackRTTTrancheSends(samples int) int64 { return int64(samples + ackRTTWarmups) }
+
 // harnessHotPathSessions is the set of session ids this harness stamps onto the hot-path requests
-// counted by expectedHotPathSends — baSessionID for every spawned `qompack observe tool` (the
-// hook copies Event.SessionID onto the request, internal/cli/hookclient.go) and warmSessionID for
-// the warm-up's own hot tranche. Filtering the spool census by this set is what keeps a spool
+// it sends — baSessionID for every spawned `qompack observe tool` (the hook copies Event.SessionID
+// onto the request, internal/cli/hookclient.go), warmSessionID for the warm-up's own hot tranche,
+// and ackRTTSessionID for the in-process tranche the hook_ack_rtt row times (measureAckRTT). The
+// first two are the population expectedHotPathSends counts; the third is added to it at
+// runHarness's own call site, since it is no part of that function's pinned contract.
+//
+// Filtering the spool census by this set is what keeps a spool
 // entry that belongs to something else (a pre-existing project spool, a concurrent client, the
 // harness's own admin.ping probes) from being miscounted as one of THIS run's deferrals — which
 // would inflate Deferred and could mask a real loss.
 func harnessHotPathSessions() map[core.SessionID]bool {
-	return map[core.SessionID]bool{baSessionID: true, warmSessionID: true}
+	return map[core.SessionID]bool{baSessionID: true, warmSessionID: true, ackRTTSessionID: true}
 }
 
 // spoolCensus is one read of the project's client-side spool tier.
@@ -255,6 +280,43 @@ func reconcileDelivery(sent, delivered int64, census spoolCensus) (deliveryLedge
 		return deliveryLedger{}, fmt.Errorf(
 			"hotpath: delivery integrity check failed: of the %d hot-path requests this harness sent, the daemon's own l0_ingest histogram observed %d and only %d are accounted for by a deferred request line in the client spool — %d are LOST (in neither place, so the spool append itself was refused: see internal/ipc/client.go's appendToSpool drop path). A lost event biases every derived number and cannot be replayed; refusing to report a Report rather than silently passing a gate on partial data",
 			sent, delivered, l.Deferred, l.Lost)
+	}
+	return l, nil
+}
+
+// gatedLedger scopes a reconciled ledger to the population the daemon's own GATED rows are built
+// from, which is not the whole run's.
+//
+// runHarness reads the status op twice: once before the hook_ack_rtt tranche, for the percentiles
+// the B-A and B-B rows publish, and once after it, for the delivered count the ledger reconciles.
+// The tranche is real hot-path traffic sent between the two, so the full ledger above counts it and
+// the gated histograms do not contain it, and the missing-sample accounting has to be done against
+// the window the gated snapshot actually covers: sent is what this harness had sent by then
+// (expectedHotPathSends' own pinned contract), delivered is that snapshot's own l0_ingest count.
+//
+// The deferrals come from the full ledger, because the spool census reads one directory at one
+// instant and cannot attribute a deferred line to a tranche. It does not need to. Counting a
+// deferral from outside this window against it can only ever make the accounting MORE conservative
+// — a missing sample counted back in as over-budget that was never in the population — never less,
+// and a genuine LOSS is caught by reconcileDelivery over the whole run before this is reached. The
+// Lost check below is kept anyway: it costs nothing and it refuses rather than guesses.
+func gatedLedger(total deliveryLedger, sent, delivered int64) (deliveryLedger, error) {
+	if delivered > sent {
+		return deliveryLedger{}, fmt.Errorf(
+			"hotpath: the daemon's own l0_ingest histogram had observed %d requests before the %s tranche was sent, but this harness had only sent %d by then — some OTHER client is feeding the daemon this run measures, so the gated population is not the one that was measured",
+			delivered, budgetIDHookAckRTT, sent)
+	}
+
+	l := deliveryLedger{Sent: sent, Delivered: delivered, Deferred: total.Deferred}
+	if shortfall := l.Undelivered(); l.Deferred > shortfall {
+		l.Deferred = shortfall
+	}
+	l.Lost = l.Undelivered() - l.Deferred
+
+	if l.Lost > 0 {
+		return deliveryLedger{}, fmt.Errorf(
+			"hotpath: of the %d hot-path requests this harness sent before the %s tranche, the daemon's own l0_ingest histogram observed %d and only %d are accounted for by a deferred request line in the client spool — %d are LOST; refusing to report a Report over a gated population the harness cannot account for",
+			sent, budgetIDHookAckRTT, delivered, l.Deferred, l.Lost)
 	}
 	return l, nil
 }

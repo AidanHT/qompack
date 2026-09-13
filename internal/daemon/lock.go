@@ -13,6 +13,7 @@ import (
 
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
+	"github.com/qompack/qompack/internal/logging"
 	"github.com/qompack/qompack/internal/paths"
 )
 
@@ -57,10 +58,25 @@ type Lock struct {
 	hb               string
 	clk              core.Clock
 	owner            string
-	mu               sync.Mutex // serializes heartbeat, journal operations and release
+	mu               sync.Mutex // serializes heartbeat, journal open, release and each acknowledged read
 	released         bool
 	journal          *deliveryJournal
 	journalOpenFault bool
+	// sealFormat is the delivery-seal format the journal this lock opens WRITES. Zero, the only
+	// value production ever has, means the build's own deliverySealWriteFormat. It is the narrow
+	// seam design 4.3 asks for: a test sets it before openDeliveryJournal so that one process can
+	// exercise both formats, and it lives on the lock rather than in a package variable so that
+	// tests running beside each other cannot see one another's choice.
+	sealFormat int
+}
+
+// deliverySealFormat is the seal format the journal this lock opens writes: the build's constant,
+// which TestDeliverySeal_WriteFormatIsDeliberate pins, unless a test chose the other one.
+func (l *Lock) deliverySealFormat() int {
+	if l.sealFormat == 0 {
+		return deliverySealWriteFormat
+	}
+	return l.sealFormat
 }
 
 // AcquireLock takes .qompack/run/daemon.lock for the current process at addr, resolving
@@ -244,6 +260,24 @@ func (l *Lock) owned() bool {
 	return ok && info.PID == os.Getpid() && info.Owner == l.owner
 }
 
+// ownedByFile is owned without the read of l.released: whether the lock file on disk still names
+// this acquisition. It needs no Lock.mu, because l.path and l.owner never change once AcquireLock
+// has returned, and that is what lets a delivery-journal operation check ownership without taking
+// Lock.mu.
+//
+// It answers exactly what owned would for as long as l.released is false, and a journal operation
+// only calls it between deliveryJournal.enter and leave, where l.released is always false: Release
+// sets it only after the journal's closeLocked has returned, closeLocked sets closing before it
+// waits for every operation in flight to leave, and no operation passes enter once closing is set.
+// owned itself is unchanged, and is still read only under Lock.mu.
+func (l *Lock) ownedByFile() bool {
+	if l.owner == "" {
+		return false
+	}
+	info, ok := readLockFile(l.path)
+	return ok && info.PID == os.Getpid() && info.Owner == l.owner
+}
+
 // Heartbeat updates daemon.hb's mtime to now, creating the file if it is somehow absent. The
 // daemon calls this on a 30s ticker (Task 4); AcquireLock also calls it once, immediately, so a
 // lock is never seen as stale before the first tick fires. It refuses to write if this process no
@@ -258,6 +292,39 @@ func (l *Lock) Heartbeat() error {
 		return fmt.Errorf("daemon: lock: heartbeat: %w", err)
 	}
 	return nil
+}
+
+// reportSealDowngradeResidual logs, once and at Warn, anything a Release could not finish that
+// leaves a project harder to roll back than §4.4 says it is. It is called immediately after every
+// Release of a lock that could have opened a journal, and it branches on nothing: a residual is a
+// note to an operator, never a failure of the shutdown it follows.
+func reportSealDowngradeResidual(lk *Lock, log logging.Logger, where string) {
+	residual := lk.SealDowngradeResidual()
+	if residual == nil || log == nil {
+		return
+	}
+	log.Warn("daemon: a held delivery seal was not downgraded to v1 on release; this project's "+
+		"position files stay in the v2 format, which every build carrying the dual reader opens and "+
+		"a build predating it does not. `qompack admin delivery-seal --to v1` converts them with the "+
+		"daemon stopped", "at", where, "err", residual)
+}
+
+// SealDowngradeResidual reports what a Release could not finish, and it is not a failure: the v1
+// downgrade of a held v2 delivery seal is best effort by design, since a v2 file left behind is
+// readable by every build carrying this reader and refusing to release ownership over it would be
+// far worse. Nil means every held seal was downgraded, or none was eligible.
+//
+// It exists so that "a clean stop leaves v1 on disk" (design §4.4) cannot quietly stop being true.
+// A caller logs it once, at Warn, after Release returns; nothing branches on it. What it tells an
+// operator planning a rollback past step 1 is that this project still needs
+// `qompack admin delivery-seal --to v1` before an older binary will open it.
+func (l *Lock) SealDowngradeResidual() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.journal == nil {
+		return nil
+	}
+	return l.journal.downgradeResidualErr()
 }
 
 // Release removes the lock and its heartbeat. It is safe to call twice: a second call finds the
