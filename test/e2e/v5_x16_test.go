@@ -343,6 +343,38 @@ func TestV5_NoPackageWritesOutsideDotQompack(t *testing.T) {
 		r.CompactStart(t, x16v5Session)
 		obsRunHook(t, bin, []string{"flush"}, obsFlushPayload(t, p.Root, x16v5Session), env)
 
+		// SETTLE BEFORE SNAPSHOT — do not drop this, and do not move it below the assertions.
+		//
+		// The flush hook process has exited, but the daemon it handed the event to has not finished:
+		// the drain, the ingest WAL close, the sketch saves, metrics.Persist, the state.bin removal,
+		// the server close and the lock release all still run after it (internal/daemon/daemon.go's
+		// awaitStopCleanup says so in as many words, and t.Cleanup's shutdown runs only AFTER every
+		// assertion below). Each of those stages under .qompack/tmp/: paths.WriteAtomic's
+		// "wa-<random>" (internal/paths/atomic.go), the store's novel objects "obj-<12 hex>"
+		// (internal/store/objects.go), the pins view and the bloom replacement. Two things below
+		// cannot survive that. x16v5Snapshot walks the tree and x9Snapshot hard-fails on a walk
+		// error, so a staging file that is unlinked between the readdir and the stat fails the row;
+		// and x16v5AssertProjectUntouched ends in require.Empty over tmp/, which fires on the mere
+		// EXISTENCE of a staging file — the whole duration of every in-flight write, not a narrow
+		// lstat window.
+		//
+		// e2eShutdownIfReachable returns only once the daemon has actually finished, not once it has
+		// stopped answering, which is what makes "tmp/ is empty" a statement about what the run
+		// LEAKED rather than about what it happened to have in flight. The ShippedDaemon arm below
+		// settles the same way, for the same reason, before its own snapshot. Arms 3 and 4 need no
+		// settle and get none: the directed-import arm never touches IPC, and the severed-writers
+		// arm runs under the daemon-down fault, whose spawn site is a no-op.
+		//
+		// Unlike that arm's, this call spends its whole e2eDaemonDownBound and then logs "released …
+		// but was still running": v4StartRig's daemon is IN-PROCESS, so daemon.lock records the test
+		// binary's own pid (internal/daemon/lock.go) and the helper's second condition — the pid that
+		// held the lock has exited — can never be met by a daemon living inside the test that is
+		// asking. That log line is an artefact of an in-process daemon, not a straggler. The settle
+		// underneath it is real and lands in milliseconds: admin.shutdown runs daemon.Stop, whose
+		// LAST act is Lock.Release, so the lock's disappearance already proves every cleanup step
+		// above it has run.
+		e2eShutdownIfReachable(t, p.Root)
+
 		after := x16v5Snapshot(t, roots)
 		x16v5AssertConfined(t, before, after, roots)
 		delta := x16v5AssertAllowedDataWrites(t, before, after, p.Root)
