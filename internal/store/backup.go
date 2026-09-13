@@ -100,6 +100,24 @@ var backupLiveWriterFiles = []string{
 	"state/" + deliveryAckPositionFile,
 }
 
+// BackupWatchedFiles is backupLiveWriterFiles, copied, as slash-relative names under .qompack.
+//
+// It is exported for one caller and one purpose: internal/daemon owns these four filenames as
+// constants, store must name them as string literals (daemon imports store, so store cannot import
+// daemon back — 00-ARCHITECTURE.md §3.2), and nothing otherwise holds the two spellings together.
+// The journals at least have a functional cross-check, since store's own GC reads them; the two
+// seal sidecars have none, and store never opens them for any other purpose. So a daemon-side
+// rename would take refuseIfTheProjectMoved's `!copied && os.IsNotExist → continue` branch for both,
+// turn the R10 guard into a silent no-op for the very files it exists for, and leave every test
+// passing — this package's own included, since its fixtures write the literals themselves.
+//
+// TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites asserts the containment from the
+// side that has the constants. The copy is deliberate: a caller must not be able to shorten the
+// list it is checking itself against.
+func BackupWatchedFiles() []string {
+	return append([]string(nil), backupLiveWriterFiles...)
+}
+
 // BackupFile is one file inside a backup: its slash-relative name under .qompack, its size, and
 // its content digest. Verification re-hashes; nothing is trusted because it is merely present.
 type BackupFile struct {
