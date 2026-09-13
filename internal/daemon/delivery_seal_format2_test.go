@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -815,4 +816,101 @@ func TestDeliverySeal_ACleanReleaseLeavesNoResidual(t *testing.T) {
 	require.Nil(t, lock.SealDowngradeResidual(), "both seals were downgraded, so there is nothing to report")
 	require.False(t, isDeliverySealImage(sealFileOf(t, root)))
 	require.False(t, isDeliverySealImage(ackSealFileOf(t, root)))
+}
+
+// TestDeliverySeal_AResidualReachesTheOperatorFromStop pins the half of the residual an operator can
+// actually see (close-out review round 1, finding 1).
+//
+// The two tests above assert the ACCESSOR: that a failed downgrade is latched and can be read back.
+// That is the smaller half. Lock.SealDowngradeResidual is a field nobody reads until something logs
+// it, and what makes a failed downgrade stop being silent is the Warn line the daemon emits from it
+// together with the repair command that line names — `qompack admin delivery-seal --to v1` is the
+// only thing in the report an operator can act on. Neither reportSealDowngradeResidual nor any of
+// its three Release sites was referenced by a test: the reporter could return unconditionally and
+// the whole internal/daemon package stayed green.
+//
+// So this runs through the production path rather than calling the reporter directly. The lock is
+// handed to a real daemon the way Run publishes it, and Stop is the caller: the assertion is about
+// the line Stop emits, not about a function that happens to format one.
+//
+// TestGuard_AReleasedLockReportsItsSealResidual covers the two Release sites in Run, which no
+// behavioural test can reach — their lock has never opened a journal, so their residual is
+// structurally nil and the reporter is a no-op there by construction.
+func TestDeliverySeal_AResidualReachesTheOperatorFromStop(t *testing.T) {
+	t.Run("a failed downgrade is reported once, at Warn, naming the repair", func(t *testing.T) {
+		root, lock, journal := newFormatTwoJournal(t)
+		_, err := journal.lease(context.Background(), leaseToken(1), "residual", testDeliveryRequest("residual"))
+		require.NoError(t, err)
+		require.NotNil(t, journal.seal)
+
+		// The same failure the accessor test builds: a downgrade pointed at a directory that does
+		// not exist, which every OS refuses identically.
+		journal.seal.path = filepath.Join(root, "no-such-directory", deliveryPositionFile)
+
+		log := newRecordingLogger()
+		dd := newStoppableTestDaemon(t, root, log)
+		dd.setLock(lock)
+
+		require.NoError(t, dd.Stop(context.Background()), "a residual never turns a clean stop into a failed one")
+
+		residual := lock.SealDowngradeResidual()
+		require.ErrorIs(t, residual, core.ErrDegraded,
+			"the fixture's downgrade must really have failed, or the report below proves nothing")
+
+		reports := sealResidualWarnings(log)
+		require.Len(t, reports, 1,
+			"a residual is reported exactly once per release, at Warn; the Warn lines were %q", log.msgs(logWarn))
+		require.Contains(t, reports[0].Msg, "`qompack admin delivery-seal --to v1`",
+			"the report must name the repair: an operator who cannot act on the line is no better off "+
+				"than one who never saw it")
+		require.Contains(t, reports[0].Msg, "a build predating it does not",
+			"and it must say what the residual costs — the rollback past step 1 that stops working")
+		require.Equal(t, []any{"at", "stop", "err", residual}, reports[0].KV,
+			"the line carries WHICH release left the residual and the failure itself, unwrapped")
+	})
+
+	t.Run("a clean stop says nothing", func(t *testing.T) {
+		root, lock, journal := newFormatTwoJournal(t)
+		_, err := journal.lease(context.Background(), leaseToken(1), "clean", testDeliveryRequest("clean"))
+		require.NoError(t, err)
+
+		log := newRecordingLogger()
+		dd := newStoppableTestDaemon(t, root, log)
+		dd.setLock(lock)
+
+		require.NoError(t, dd.Stop(context.Background()))
+
+		require.Nil(t, lock.SealDowngradeResidual())
+		require.Empty(t, sealResidualWarnings(log),
+			"a report on every stop would make the line noise, and noise is how an operator learns to "+
+				"ignore the one stop that mattered")
+	})
+}
+
+// newStoppableTestDaemon is a daemon over root that has not Run: New publishes no lock of its own,
+// which is what lets a test hand Stop the lock it wants released. Stop is deferred as well as
+// called, because it is idempotent (sync.Once) and a subtest that fails before its own call must
+// still release the lock rather than leave the fixture's t.TempDir cleanup blocked on Windows.
+func newStoppableTestDaemon(t *testing.T, root string, log *recordingLogger) *daemon {
+	t.Helper()
+	d, err := New(Options{ProjectRoot: root, Cfg: testConfig(), Log: log})
+	require.NoError(t, err)
+	dd, ok := d.(*daemon)
+	require.True(t, ok)
+	t.Cleanup(func() { _ = dd.Stop(context.Background()) })
+	return dd
+}
+
+// sealResidualWarnings returns the seal-downgrade residual reports among log's Warn lines. It
+// matches on the sentence reportSealDowngradeResidual writes rather than on the count of Warn lines,
+// because Stop has other Warn paths of its own (the ingest WAL close, the metrics persist, the
+// state.bin removal) and a test that counted them all would fail for the wrong reason.
+func sealResidualWarnings(log *recordingLogger) []logEntry {
+	var out []logEntry
+	for _, e := range log.entries(logWarn) {
+		if strings.Contains(e.Msg, "was not downgraded to v1 on release") {
+			out = append(out, e)
+		}
+	}
+	return out
 }
