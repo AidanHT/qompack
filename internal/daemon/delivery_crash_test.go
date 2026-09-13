@@ -1039,9 +1039,20 @@ func tornVariants(t *testing.T, image map[string][]byte, walRel string, format, 
 // therefore collapsed both onto one slot with the suite green, and for the rows cut inside the seal
 // (L6, L7) the one it collapsed onto was the effective slot — which is the pre-CRASH-1 behaviour,
 // so design §3 row 7's torn-TARGET state was never built. Measured: with a Rule-R fallback added to
-// selectSeal (the J-B3 regression these rows exist to catch) the shipped variants fail 29 subtests
-// including both slot subtests of L6 and L7; with the slot expression collapsed, 17, and those four
-// go from FAIL to PASS.
+// selectSeal (the J-B3 regression these rows exist to catch) the shipped variants fail 29 subtests,
+// the TARGET-slot subtest of every one of the eleven format-2 rows among them; with the slot
+// expression collapsed, 17, and six go from FAIL to PASS — the target-slot subtests of W1, W2, L4,
+// L5, L6 and L7.
+//
+// Those same six rows' EFFECTIVE-slot subtest discriminates nothing either way, and that is
+// structural rather than a gap. Their image holds ONE record: the open's own seal in slot a, with
+// slot b still deliverySealEmpty (measured — every row cut at or before the seal's SyncData reads
+// a=valid, b=empty, eff.Seq=1). Tearing the effective slot there leaves invalid + empty, so no
+// fallback has a valid record to fall back TO and the refusal stands with or without the
+// regression. Only the five rows cut after the seal landed durably (L8, AK, K4, K5, K6) carry two
+// records, and only there does the effective-slot variant fail under the regression too. Which is
+// the finding itself, from the other side: the torn-TARGET variant is the only one of the two that
+// says anything at all about a row cut before its journal's second seal.
 //
 // So each variant is pinned by WHICH record survives its tear, which is what its name claims:
 //
