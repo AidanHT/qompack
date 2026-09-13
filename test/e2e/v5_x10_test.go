@@ -221,6 +221,19 @@ func (f *x10v5Feed) waitPrimary(want int) {
 	defer ticker.Stop()
 	timeout := time.NewTimer(obsProcessBound)
 	defer timeout.Stop()
+
+	// ONE Drain, unconditionally, before the index is read for the first time. The loop below
+	// evaluates its condition FIRST, so a wait whose record the async ingest had already published
+	// drives no Drain at all while a slower one drives several — and Drain is not side-effect-free:
+	// drainer.Drain calls saveState unconditionally (internal/daemon/drain.go), which always goes
+	// through paths.WriteAtomic, so every drain rewrites state/drain.json and mints a transient
+	// tmp/wa-* staging file. Without this drive, whether those artifacts exist is decided purely by
+	// timing — and this feed waits once per event fed, so the divergence multiplies by the length of
+	// the feed rather than being a single coin flip. v4Rig.WaitIndexed carries the same drive for the
+	// same reason, and §4.13's write-set comparison is where it was actually caught. Do not
+	// "simplify" it back into the loop.
+	_, _ = f.r.D.Drain(ctx)
+
 	for len(x10v5PrimaryRecords(f.t, f.r.P.Root)) < want {
 		_, _ = f.r.D.Drain(ctx)
 		if len(x10v5PrimaryRecords(f.t, f.r.P.Root)) >= want {

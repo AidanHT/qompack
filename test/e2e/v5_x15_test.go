@@ -229,6 +229,18 @@ func x15v5AdminDrain(root string) {
 // daemon's drain on each poll rather than waiting on its 30 s backstop.
 func x15v5WaitIndexed(t *testing.T, root string, want int) {
 	t.Helper()
+
+	// ONE drain, unconditionally, before the index is read for the first time. The condition below
+	// returns EARLY when the records are already there, so a wait whose records the async ingest had
+	// already published asks for no drain at all while a slower one asks for several — and a drain is
+	// not side-effect-free even when it consumes nothing: drainer.Drain calls saveState
+	// unconditionally (internal/daemon/drain.go), which always goes through paths.WriteAtomic, so
+	// every admin.drain rewrites state/drain.json and mints a transient tmp/wa-* staging file.
+	// Without this drive, whether those artifacts exist is decided purely by timing.
+	// v4Rig.WaitIndexed carries the same drive for the same reason, and §4.13's write-set comparison
+	// is where that coin flip was actually caught. Do not "simplify" it back into the condition.
+	x15v5AdminDrain(root)
+
 	require.Eventually(t, func() bool {
 		if len(obsToolUseLines(root)) >= want {
 			return true
