@@ -48,11 +48,12 @@ func TestStateMissingFallsBackToDefaults(t *testing.T) {
 	got := ipc.ReadState(root, config.Defaults())
 	require.Equal(t, contract.ModeFull, got.Mode)
 	require.Equal(t, ipc.HotSync, got.Hot)
-	require.EqualValues(t, 8, got.AckDeadlineMs)
-	// connectDeadlineMs's default is platform-specific (internal/config/deadlines.go: on Windows
-	// it has to clear the named-pipe dial's busy-retry quantum), so what this row asserts is that
-	// the fallback carried the CONFIG's value through, not a second spelling of the number.
-	// config's own TestDefaults_RuntimeNamespace is where the value itself is pinned.
+	// Both deadlines have platform-specific defaults (internal/config/deadlines.go: on Windows
+	// connectDeadlineMs has to clear the named-pipe dial's busy-retry quantum, and ackDeadlineMs
+	// is SP20-D1's measured per-platform re-budget), so what these two rows assert is that the
+	// fallback carried the CONFIG's values through, not a second spelling of either number.
+	// config's own TestDefaults_RuntimeNamespace is where the values themselves are pinned.
+	require.EqualValues(t, config.Defaults().Runtime.Daemon.AckDeadlineMs, got.AckDeadlineMs)
 	require.EqualValues(t, config.Defaults().Runtime.Daemon.ConnectDeadlineMs, got.ConnectDeadlineMs)
 }
 

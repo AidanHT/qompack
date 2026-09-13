@@ -40,9 +40,13 @@ func TestJSONSchema_Golden(t *testing.T) {
 	got := config.Defaults().JSONSchema()
 
 	if update() {
-		require.Equal(t, config.ConnectDeadlineMsPortable, config.Defaults().Runtime.Daemon.ConnectDeadlineMs,
-			"-update must run on a host that ships the portable defaults: the golden holds one "+
-				"number per leaf and connectDeadlineMs's is platform-specific (see schemaGoldenWant)")
+		for _, leaf := range schemaPlatformLeaves(config.Defaults()) {
+			require.Equal(t, leaf.portable, leaf.have,
+				"-update must run on a host that ships the portable defaults: the golden holds one "+
+					"number per leaf, and three are platform-specific — connectDeadlineMs, "+
+					"l0IngestMs and ackDeadlineMs (see schemaGoldenWant). This host ships %s = %d, "+
+					"not the portable %d", leaf.key, leaf.have, leaf.portable)
+		}
 		require.NoError(t, os.WriteFile(schemaGoldenPath, got, 0o644))
 	}
 
@@ -60,41 +64,92 @@ func TestJSONSchema_Golden(t *testing.T) {
 	assertLeavesHaveMetadata(t, schema, "")
 }
 
+// schemaPlatformLeaf is one leaf of the JSON Schema whose "default" differs by platform: its key,
+// the value a portable-default host renders, and the value cfg actually holds.
+type schemaPlatformLeaf struct {
+	key      string
+	portable int
+	have     int
+}
+
+// schemaPlatformLeaves is the complete table of those leaves. A leaf belongs here exactly when
+// internal/config/deadlines.go selects its default from runtime.GOOS:
+//
+//   - runtime.daemon.connectDeadlineMs — the Windows value is derived from the named-pipe dial's
+//     ERROR_PIPE_BUSY retry quantum;
+//   - runtime.budgets.l0IngestMs and runtime.daemon.ackDeadlineMs — SP20-D1's measured B-B
+//     re-budget, three platforms each (Windows measured; linux and darwin provisional).
+//
+// Adding a fourth platform-specific leaf to config without adding it here shows up immediately:
+// the golden would then carry that leaf's portable value while the running platform emits its own,
+// and TestJSONSchema_Golden's byte comparison fails on it.
+func schemaPlatformLeaves(cfg config.Config) []schemaPlatformLeaf {
+	return []schemaPlatformLeaf{
+		{"connectDeadlineMs", config.ConnectDeadlineMsPortable, cfg.Runtime.Daemon.ConnectDeadlineMs},
+		{"l0IngestMs", config.L0IngestMsPortable, cfg.Runtime.Budgets.L0IngestMs},
+		{"ackDeadlineMs", config.AckDeadlineMsPortable, cfg.Runtime.Daemon.AckDeadlineMs},
+	}
+}
+
 // schemaGoldenWant returns the schema document the running platform must produce, given the
 // checked-in golden.
 //
 // testdata/golden/config/schema.json is one file and a JSON Schema "default" is one number, but
-// runtime.daemon.connectDeadlineMs's default is platform-specific: config derives the Windows
-// value from the named-pipe dial's ERROR_PIPE_BUSY retry quantum and keeps the portable value
-// everywhere else (internal/config/deadlines.go). The golden is checked in as rendered on a
-// portable-default host — which is also where CI regenerates it — so on Windows the expectation
-// is that same document with exactly that one leaf rewritten.
+// three leaves have platform-specific defaults (schemaPlatformLeaves). The golden is checked in as
+// rendered on a portable-default host — which is also where CI regenerates it — so on Windows or
+// macOS the expectation is that same document with exactly those leaves rewritten.
 //
 // This is not a normalisation and it does not soften the comparison. Every other byte is still
-// compared byte for byte; the leaf is located by the whole "connectDeadlineMs" + "default"
-// snippet, not by a bare number (5 occurs many times in this file); and the snippet must appear
-// exactly once, so a golden that stopped carrying the portable value, or grew a second copy,
-// fails here rather than quietly matching.
+// compared byte for byte; each leaf is located by its own whole "<key>" + "default" snippet, never
+// by a bare number (5, 15 and 17 all occur many times in this file); and each snippet must appear
+// exactly once, so a golden that stopped carrying a portable value, or grew a second copy, fails
+// here rather than quietly matching.
 func schemaGoldenWant(t *testing.T, golden []byte) []byte {
 	t.Helper()
 
-	from := schemaConnectDeadlineSnippet(config.ConnectDeadlineMsPortable)
-	require.Equal(t, 1, bytes.Count(golden, from),
-		"the checked-in schema golden must carry runtime.daemon.connectDeadlineMs's portable "+
-			"default exactly once, spelled %q", from)
-
-	have := config.Defaults().Runtime.Daemon.ConnectDeadlineMs
-	if have == config.ConnectDeadlineMsPortable {
-		return golden
+	want := golden
+	for _, leaf := range schemaPlatformLeaves(config.Defaults()) {
+		indent := schemaLeafDefaultIndent(t, golden, leaf.key)
+		from := schemaLeafDefaultSnippet(leaf.key, indent, leaf.portable)
+		require.Equal(t, 1, bytes.Count(golden, from),
+			"the checked-in schema golden must carry runtime's %s portable default exactly once, "+
+				"spelled %q", leaf.key, from)
+		if leaf.have == leaf.portable {
+			continue
+		}
+		want = bytes.Replace(want, from, schemaLeafDefaultSnippet(leaf.key, indent, leaf.have), 1)
 	}
-	return bytes.Replace(golden, from, schemaConnectDeadlineSnippet(have), 1)
+	return want
 }
 
-// schemaConnectDeadlineSnippet is the exact bytes JSONSchema() emits for
-// runtime.daemon.connectDeadlineMs's "default" line, at that leaf's own indentation. The
-// surrounding key is part of the pattern so the match can only be that one leaf.
-func schemaConnectDeadlineSnippet(ms int) []byte {
-	return fmt.Appendf(nil, "\"connectDeadlineMs\": {\n              \"default\": %d,\n", ms)
+// schemaLeafDefaultSnippet is the exact bytes JSONSchema() emits for key's "default" line, at that
+// leaf's own indentation. The surrounding key is part of the pattern so the match can only be that
+// one leaf.
+func schemaLeafDefaultSnippet(key, indent string, ms int) []byte {
+	return fmt.Appendf(nil, "%q: {\n%s\"default\": %d,\n", key, indent, ms)
+}
+
+// schemaLeafDefaultIndent reads key's "default" indentation out of the golden itself rather than
+// hard-coding a run of spaces per leaf. The three leaves do not have to sit at the same depth, and
+// a hand-copied indentation that stopped matching would make schemaGoldenWant's count assertion
+// fail for a reason that has nothing to do with the default it is guarding. Reading it here means
+// the count assertion can only ever be reporting the thing it is about: whether the golden carries
+// that leaf's portable VALUE, exactly once.
+func schemaLeafDefaultIndent(t *testing.T, golden []byte, key string) string {
+	t.Helper()
+
+	open := fmt.Appendf(nil, "%q: {\n", key)
+	require.Equal(t, 1, bytes.Count(golden, open),
+		"the schema golden must contain exactly one %q object, spelled %q", key, open)
+
+	rest := golden[bytes.Index(golden, open)+len(open):]
+	n := 0
+	for n < len(rest) && rest[n] == ' ' {
+		n++
+	}
+	require.True(t, bytes.HasPrefix(rest[n:], []byte(`"default": `)),
+		"%q's first member must be its \"default\" line (JSONSchema() emits leaf keys sorted)", key)
+	return string(rest[:n])
 }
 
 // assertLeavesHaveMetadata walks the JSON Schema tree (not the Go type) and, for every node that

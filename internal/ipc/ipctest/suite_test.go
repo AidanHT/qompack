@@ -139,12 +139,13 @@ func newQompackServer(t *testing.T) ipc.Server {
 // It has to be set explicitly, because the parameter the suite passes to Send only bounds a Reply
 // request's response line (client.go's awaitReply). The connect and the one-byte ACK are bounded by
 // the Client's OWN ConnectDeadline/AckDeadline, and ipc.NewClient inherits those from
-// config.Defaults() — runtime.daemon.ackDeadlineMs = 8, and a connectDeadlineMs sized for the hot
-// path (5 ms, or 25 ms on Windows). Building this factory's client with ipc.NewClient therefore
-// graded the wire format against a production connect budget, which is exactly the coupling that
-// comment exists to forbid, and it is why this suite failed on windows-latest with res.OK false and
-// res.Err empty: that pair is client.spoolAndReturn's signature, i.e. "never reached the server",
-// not "the server refused".
+// config.Defaults() — runtime.daemon.ackDeadlineMs (8 ms when this was written; SP20-D1's measured
+// re-budget made it 17 ms, or 53 on Windows and 45 on darwin), and a connectDeadlineMs sized for
+// the hot path (5 ms, or 25 ms on Windows). Building this factory's client with ipc.NewClient
+// therefore graded the wire format against a production connect budget, which is exactly the
+// coupling that comment exists to forbid, and it is why this suite failed on windows-latest with
+// res.OK false and res.Err empty: that pair is client.spoolAndReturn's signature, i.e. "never
+// reached the server", not "the server refused".
 //
 // The 5 ms figure this suite originally inherited was not merely tight on Windows, it was unusable
 // there: go-winio's dial retries the ERROR_PIPE_BUSY that a listener with no free pipe instance
