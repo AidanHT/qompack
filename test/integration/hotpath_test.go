@@ -504,11 +504,15 @@ const hotpathCheckpointSamples = 50
 // so the same string is what the notes assertions look for.
 const hotpathUnderColoadFlag = "--under-coload"
 
-// hotpathBAWaiverMark is the opening of the harness's baWallWaivedNote (test/bench/hotpath/
-// report.go) — the one phrase that note carries and no other note the harness writes does (B-E's
-// waiver says "wall-clock row"; the tail-adjustment notes say "p99"). Spelled after obs.BA so the
-// row's name is never a second literal here.
-const hotpathBAWaiverMark = string(obs.BA) + "'s row is REPORTED, not gated"
+// hotpathBAWaiverMark and hotpathBBWaiverMark are the openings of the harness's baWallWaivedNote
+// and bbWallWaivedNote (test/bench/hotpath/report.go) — the one phrase each of those notes carries
+// and no other note the harness writes does (B-E's waiver says "wall-clock row"; the
+// tail-adjustment notes say "p99"; the two are distinguished from each other by the row name they
+// open with). Spelled after obs.BA/obs.BB so a row's name is never a second literal here.
+const (
+	hotpathBAWaiverMark = string(obs.BA) + "'s row is REPORTED, not gated"
+	hotpathBBWaiverMark = string(obs.BB) + "'s row is REPORTED, not gated"
+)
 
 // hotpathLimitDeltaMs is the tolerance for comparing a row's limit_ms against obs.Budgets(): the
 // artifact renders limits in whole milliseconds, so anything under a microsecond is a float
@@ -704,21 +708,38 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// macos 21.3), and minutes later, same commit and same runner class, this test reported
 	// 4302 ms from inside the whole-tree job — a 64x move with the product byte-identical. B-A,
 	// one commit, same runner class: 3.072 ms in bench-gate, then 11.264 and 18.432 ms in two
-	// whole-tree runs minutes apart, against 15 ms, while B-B — no process boundary inside it —
-	// moved 0.576 → 0.768 / 0.704 ms. That was item 18/22/25's genus one more time
+	// whole-tree runs minutes apart, against 15 ms, while B-B moved only 0.576 → 0.768 / 0.704 ms
+	// and was read then as the co-load-robust control. That was item 18/22/25's genus one more time
 	// (plans/V2-report.md §0), and the audit V2-MERGE-25 asked for and never got: a wall-clock
 	// bound failing on a correct product because it is priced against a host that is no longer
 	// there.
 	//
-	// The flag does not remove either bound. For B-E it moves the JUDGEMENT to the clock that
-	// survives co-load: the harness's B-E_cpu row (budgetIDBECPU, test/bench/hotpath/report.go)
+	// The flag does not remove any of the three bounds. For B-E it moves the JUDGEMENT to the clock
+	// that survives co-load: the harness's B-E_cpu row (budgetIDBECPU, test/bench/hotpath/report.go)
 	// gates the same 50 checkpoint children's own user+system CPU time against the same 2000 ms
 	// limit, and that clock did not move at all across a quiet/co-loaded pair whose wall p50
 	// moved 23x. For B-A — a latency across a process boundary, with no CPU clock to move to —
-	// it leaves the judgement to the runs that do not pass the flag, and keeps B-B gated. Both
-	// wall-clock rows are still judged at their limits by every run that does NOT pass it:
-	// bench-gate's and nightly's `devtool bench-hotpath` lines, and this test itself in the
-	// `timing` job, where every assertion below is the one bench-gate makes.
+	// it leaves the judgement to the runs that do not pass the flag.
+	//
+	// Since the owner's Q3 ruling (2026-09-13) B-B is in that second class too, and the control
+	// reading above is retired: B-B has no process boundary inside it, but since f6a8691 it carries
+	// the durable path's three fsyncs, which co-load moves like anything else, and there is no CPU
+	// clock to re-point it at — no child process to read user+system time off, a cumulative
+	// whole-process counter quantised to Windows's 15.625 ms tick, and blocked time that costs no
+	// CPU at all. So it is REPORTED here and judged in isolation, which is ADR 0010's own fallback
+	// branch rather than an exception to it (the ruling is recorded in test/bench/hotpath/main.go's
+	// parseFlags; SP20-D1 design §7.6 priced the option and recommended it). It landed only after
+	// the re-budget that made B-B green in isolation — 5d0b904 then cbfa3d3 — so the waiver absorbs
+	// the co-loaded tail and nothing else.
+	//
+	// What that leaves behind in THIS job is stated rather than implied: the whole-tree `test` run
+	// keeps no hot-path COST gate at all, only the structural ones — design §6.2's T9, T10 and T14
+	// in internal/daemon, co-load-immune and run in every lane — plus the no-spool, no-degrade and
+	// state.bin assertions at the end of this test, which are about what the product DID and are
+	// unaffected by how long the host took to let it. All three wall-clock rows are still judged at
+	// their limits by every run that does NOT pass the flag: bench-gate's and nightly bench-deep's
+	// `devtool bench-hotpath` lines, and this test itself in the `timing` job, where every assertion
+	// below is the one bench-gate makes.
 	underCoload := obs.UnderCoload()
 	args := []string{
 		"--iterations", strconv.Itoa(hotpathBenchIterations),
@@ -747,12 +768,13 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		t.Logf("bench artifact %s:\n%s", jsonPath, raw)
 	}
 	require.NoError(t, runErr,
-		"bench-hotpath exited non-zero (%s=%v): either a gated budget (B-B p99<%.0fms, B-E_cpu p99<%.0fms; "+
-			"without %s also B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached against the real "+
-			"resident state, or the harness itself failed (its own delivery-integrity guard included)\n"+
-			"stderr:\n%s",
-		obs.UnderColoadEnv, underCoload, hotpathBudgetLimitMs(t, p, obs.BB), hotpathBudgetLimitMs(t, p, obs.BE),
-		hotpathUnderColoadFlag, hotpathBudgetLimitMs(t, p, obs.BA), hotpathBudgetLimitMs(t, p, obs.BE),
+		"bench-hotpath exited non-zero (%s=%v): either a gated budget (B-E_cpu p99<%.0fms always; "+
+			"without %s also B-B p99<%.0fms, B-A p99<%.0fms and B-E's wall row p99<%.0fms) breached "+
+			"against the real resident state, or the harness itself failed (its own delivery-integrity "+
+			"guard included)\nstderr:\n%s",
+		obs.UnderColoadEnv, underCoload, hotpathBudgetLimitMs(t, p, obs.BE),
+		hotpathUnderColoadFlag, hotpathBudgetLimitMs(t, p, obs.BB), hotpathBudgetLimitMs(t, p, obs.BA),
+		hotpathBudgetLimitMs(t, p, obs.BE),
 		stderr.String())
 
 	raw, err := os.ReadFile(jsonPath)
@@ -771,16 +793,10 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	baLimit := hotpathBudgetLimitMs(t, p, obs.BA)
 	bbLimit := hotpathBudgetLimitMs(t, p, obs.BB)
 
-	// B-A's verdict is the two-mode block below, with B-E's wall row; its row is fetched here
-	// because the structural cross-checks that follow read its population.
+	// B-A's and B-B's verdicts are the two-mode block below, with B-E's wall row; their rows are
+	// fetched here because the structural cross-checks that follow read their populations.
 	ba := hotpathRow(t, rep, string(obs.BA))
-
 	bb := hotpathRow(t, rep, string(obs.BB))
-	require.NotNil(t, bb.LimitMs)
-	require.InDelta(t, bbLimit, *bb.LimitMs, 0.001)
-	require.NotNil(t, bb.Pass)
-	require.True(t, *bb.Pass, "B-B gate must pass against the real resident state (p99=%.3fms)", bb.P99)
-	require.Less(t, bb.P99, bbLimit, "§4.6: B-B p99 < %.0fms", bbLimit)
 
 	// B-D is reported, never gated; the wall-clock survives ONLY as the spawn-estimate
 	// diagnostic. The structural cross-check below is the teeth behind the b_a_method assertion:
@@ -822,24 +838,29 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		"§4.6: the checkpoint's own cost — the CPU its process actually consumed — must stay under "+
 			"%.0fms with the real store/DAG/sketches resident", beLimit)
 
-	// The two rows whose samples span a process boundary — B-A and B-E's wall-clock row — are
+	// The three wall-clock rows a co-loaded host inflates — B-A, B-B and B-E's wall-clock row — are
 	// judged by the job that can judge them and asserted waived by the job that cannot, and in
 	// neither mode is anything assumed:
 	//
-	//   - co-loaded (ci.yml's `test` job, QOMPACK_UNDER_COLOAD set): both rows must come back
+	//   - co-loaded (ci.yml's `test` job, QOMPACK_UNDER_COLOAD set): all three rows must come back
 	//     REPORTED (limit_ms/pass both null, exactly B-D's shape), and the harness's own
 	//     disclosures must be in the notes — one per row, each naming the flag that caused it, the
 	//     limit it did not apply and where it still applies (B-E's also names the row that still
 	//     enforces the limit here). A null pass field is not an explanation; a reader must be able
 	//     to see from the artifact alone which limit went unjudged on which row.
 	//   - not co-loaded (ci.yml's `timing` job, which runs this test alone; bench-gate's shape):
-	//     both rows gated at their obs.Budgets() limits, pass=true, p99 under the limit — and the
+	//     all three gated at their obs.Budgets() limits, pass=true, p99 under the limit — and the
 	//     waiver notes ABSENT, because a note present without the flag would mean the harness had
 	//     waived on its own.
+	//
+	// B-B is in this block rather than gated unconditionally above because of the Q3 ruling; the
+	// gated arm below is the one bench-gate, nightly bench-deep, `timing` and `test-e2e` run, and
+	// it asserts exactly what the unconditional block asserted before the ruling.
 	beWall := hotpathRow(t, rep, string(obs.BE))
 	require.Equal(t, hotpathCheckpointSamples, beWall.N)
 	if underCoload {
 		hotpathRequireReportedRow(t, ba, baLimit, "B-A")
+		hotpathRequireReportedRow(t, bb, bbLimit, "B-B")
 		hotpathRequireReportedRow(t, beWall, beLimit, "B-E's wall-clock row")
 		require.True(t,
 			hotpathNotesMention(rep, hotpathUnderColoadFlag) && hotpathNotesMention(rep, hotpathBECPURowID),
@@ -848,11 +869,17 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 		require.True(t, hotpathNotesMention(rep, hotpathBAWaiverMark),
 			"the artifact must disclose B-A's waiver in its own note (%q), not only B-E's; notes present: %q",
 			hotpathBAWaiverMark, rep.Notes)
-		t.Logf("§4.6 under %s: B-A p99=%.3fms (limit %.0fms) and B-E wall p99=%.3fms (limit %.0fms) are "+
-			"REPORTED here, not judged; ci.yml's `timing` job runs this test alone and judges both",
-			obs.UnderColoadEnv, ba.P99, baLimit, beWall.P99, beLimit)
+		require.True(t, hotpathNotesMention(rep, hotpathBBWaiverMark),
+			"the artifact must disclose B-B's waiver in its own note (%q) too: this job leaves no hot-path "+
+				"COST gate behind, and a null limit_ms is not an explanation of that; notes present: %q",
+			hotpathBBWaiverMark, rep.Notes)
+		t.Logf("§4.6 under %s: B-A p99=%.3fms (limit %.0fms), B-B p99=%.3fms (limit %.0fms) and B-E wall "+
+			"p99=%.3fms (limit %.0fms) are REPORTED here, not judged; ci.yml's `timing` job runs this "+
+			"test alone and judges all three",
+			obs.UnderColoadEnv, ba.P99, baLimit, bb.P99, bbLimit, beWall.P99, beLimit)
 	} else {
 		hotpathRequireGatedRow(t, ba, baLimit, "B-A")
+		hotpathRequireGatedRow(t, bb, bbLimit, "B-B")
 		hotpathRequireGatedRow(t, beWall, beLimit, "B-E's wall-clock row")
 		require.False(t, hotpathNotesMention(rep, hotpathUnderColoadFlag),
 			"no %s waiver may appear in a run that did not pass the flag — the harness would be waiving "+
@@ -889,16 +916,17 @@ func TestIntegration_HotPathWarmWithRealResidentState(t *testing.T) {
 	// The wall-clock B-E row is logged alongside the CPU one in both modes on purpose: the pair is
 	// the evidence for the co-load argument above, and a future reader chasing a B-E question wants
 	// to see both numbers from the same run, not just the one that was judged. The verdict word
-	// says which mode this run was.
+	// says which mode this run was, and it is carried on B-B too since the Q3 ruling — a B-B number
+	// in a co-loaded log is a measurement, and the log must not read as if it were a verdict.
 	wallVerdict := "gated"
 	if underCoload {
 		wallVerdict = "reported, not gated: " + hotpathUnderColoadFlag
 	}
 	t.Logf("§4.6 measured (platform %s, n=%d): B-A p99=%.3fms (limit %.0fms, n=%d; %s) | B-B p99=%.3fms "+
-		"(limit %.0fms, n=%d) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+
+		"(limit %.0fms, n=%d; %s) | B-E_cpu p99=%.3fms (limit %.0fms, n=%d) | B-E wall p50=%.3fms p99=%.3fms "+
 		"(limit %.0fms; %s) | B-D p50=%.3fms p99=%.3fms max=%.3fms | spawn_floor "+
 		"p50=%.3fms p99=%.3fms (n=%d) | B-A_spawn_estimate p50=%.3fms p99=%.3fms | b_a_method=%q",
-		rep.Platform, rep.N, ba.P99, baLimit, ba.N, wallVerdict, bb.P99, bbLimit, bb.N,
+		rep.Platform, rep.N, ba.P99, baLimit, ba.N, wallVerdict, bb.P99, bbLimit, bb.N, wallVerdict,
 		beCPU.P99, beLimit, beCPU.N, beWall.P50, beWall.P99, beLimit, wallVerdict,
 		bd.P50, bd.P99, bd.Max, rep.SpawnFloorMs.P50, rep.SpawnFloorMs.P99, rep.SpawnFloorMs.N,
 		spawnEst.P50, spawnEst.P99, rep.BAMethod)
