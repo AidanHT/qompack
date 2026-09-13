@@ -269,7 +269,9 @@ func degradedPayloadMarker(i int) string { return fmt.Sprintf("degraded-payload-
 //
 // status is NOT an ipc.Op.HotPath() op, so its client must not run on the hot path's budgets.
 // Leaving ConnectDeadline/AckDeadline at zero makes NewClientWithOptions fall back to state.bin's
-// own ConnectDeadlineMs/AckDeadlineMs out of config.Defaults() — 8ms for the ACK, and a connect
+// own ConnectDeadlineMs/AckDeadlineMs out of config.Defaults() — the platform's ACK deadline (8ms
+// when this was written; SP20-D1's measured re-budget made it 17ms, or 53 on Windows and 45 on
+// darwin, internal/config/deadlines.go), and a connect
 // budget sized for observe.tool/prompt/stop against an already-warm daemon — and the dial this
 // helper actually performs is not that dial: it lands moments after the caller's own ipc.Probe
 // accepted-and-closed a connection, and go-winio's listenerRoutine only creates the next pipe

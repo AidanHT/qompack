@@ -58,10 +58,10 @@ Run `qompack config print --provenance` to see the effective value of every key 
 |---|---|---|---|---|---|
 | `runtime.budgets.checkpointFinalizeMs` | integer | `2000` | (0,∞) | 00-ARCH §2.4 | B-E latency budget: PreCompact entry to exit |
 | `runtime.budgets.hookDegradedMs` | integer | `1000` | (0,∞) | 00-ARCH §12.3 | B-G latency budget: the spool append a hook pays when the daemon is unreachable |
-| `runtime.budgets.l0IngestMs` | integer | `2` | (0,∞) | 00-ARCH §2.4 | B-B latency budget: daemon read to WAL append returned |
+| `runtime.budgets.l0IngestMs` | integer | `15` (`30` on Windows, `40` on macOS) | (0,∞) | 00-ARCH §2.4 | B-B latency budget: the daemon's whole ingest.Accept — durable WAL append, delivery lease, seal |
 | `runtime.budgets.l0ProcessMs` | integer | `50` | (0,∞) | 00-ARCH §2.4 | B-C latency budget: WAL to fully chunked, stored, DAG/sketches updated |
 | `runtime.budgets.mcpToolCallMs` | integer | `250` | (0,∞) | 00-ARCH §2.4 | B-F latency budget: MCP request to response |
-| `runtime.daemon.ackDeadlineMs` | integer | `8` | — | 00-ARCH §2.4 | deadline for the daemon's one-byte ACK on the hot path |
+| `runtime.daemon.ackDeadlineMs` | integer | `17` (`53` on Windows, `45` on macOS) | — | 00-ARCH §2.4 | deadline for the daemon's one-byte ACK on the hot path |
 | `runtime.daemon.connectDeadlineMs` | integer | `5` (`25` on Windows) | — | 00-ARCH §2.4 | deadline for a hot-path client to connect to the daemon |
 | `runtime.daemon.enabled` | boolean | `true` | — | 00-ARCH §2.4 | run the resident per-project daemon |
 | `runtime.daemon.idleExitSeconds` | integer | `1800` | — | 00-ARCH §2.4 | seconds with zero live sessions before the daemon exits |

@@ -112,7 +112,10 @@ func (l *hookLogger) Loud(msg string, kv ...any) {
 // op's own deadline is derived from the hot-path state record's AckDeadlineMs field; a
 // hand-crafted, corrupt, or otherwise zero-valued state.bin must never let that reach Send as
 // literally 0, which is indistinguishable from "already timed out" (fix round 1, Minor M-6).
-// //nomagic:allow mirrors config.Defaults()'s own AckDeadlineMs (8), not a new default (§6.1).
+// //nomagic:allow a floor against a zero-valued state record, not a config default (§6.1). It was
+// config.Defaults()'s own AckDeadlineMs when it was written; SP20-D1's measured re-budget raised
+// that to 17/53/45 ms by platform (internal/config/deadlines.go), so 8 ms now sits strictly below
+// every shipped value and this floor can only ever bind on a record carrying no deadline at all.
 const hookSendDeadlineFloor = 8 * time.Millisecond
 
 // hookConnectDeadlineFloor is the minimum dial budget doHook ever gives a non-hot-path op that

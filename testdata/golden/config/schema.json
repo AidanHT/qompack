@@ -247,8 +247,8 @@
               "x-qompack-section": "00-ARCH §12.3"
             },
             "l0IngestMs": {
-              "default": 2,
-              "description": "B-B latency budget: daemon read to WAL append returned",
+              "default": 15,
+              "description": "B-B latency budget: the daemon's whole ingest.Accept — durable WAL append, delivery lease, seal",
               "type": "integer",
               "x-qompack-range": "(0,∞)",
               "x-qompack-section": "00-ARCH §2.4"
@@ -280,7 +280,7 @@
         "daemon": {
           "properties": {
             "ackDeadlineMs": {
-              "default": 8,
+              "default": 17,
               "description": "deadline for the daemon's one-byte ACK on the hot path",
               "type": "integer",
               "x-qompack-section": "00-ARCH §2.4"

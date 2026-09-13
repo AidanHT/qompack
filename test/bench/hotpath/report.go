@@ -130,9 +130,13 @@ const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
 // there is no CPU row to move its judgement to. B-A is a latency across a process boundary —
 // recvTS in the daemon minus reqTS stamped in the spawned hook — and a child's scheduling wait
 // under co-load is inside that interval but on nobody's CPU clock. So --under-coload leaves B-A
-// judged only by the runs that do not pass it, and B-B, the co-load-resistant half of the same
-// hot path (the daemon's own read-to-WAL-append cost, no process boundary inside it), stays gated
-// everywhere.
+// judged only by the runs that do not pass it, while B-B — the daemon's own ingest.Accept, with no
+// process boundary inside it — stays gated everywhere. B-B is NOT co-load-resistant, and the older
+// wording here that called it so has been corrected: since f6a8691 that region carries three
+// flushes (the WAL Sync, the lease journal's Sync and the seal), which co-load moves like anything
+// else. Whether it should keep a single gate in both shapes is the owner's open question Q3
+// (SP20-D1 design §7.6, and parseFlags's own --under-coload comment in main.go); until that ruling
+// its behaviour here is unchanged.
 const budgetIDBECPU = "B-E_cpu"
 
 // budgetIDHookAckRTT is the client-side ACK round trip: the reported-only row SP20-D1 design §7.5
@@ -305,7 +309,7 @@ func ceilRank(p float64, n int64) int64 {
 //     gates B-A on the TS-anchored (recvTS - reqTS), and a deferred request's recvTS is the
 //     daemon's NEXT DRAIN — seconds away, not milliseconds. It is an over-budget sample by the
 //     gated series' own definition.
-//   - for B-B (l0_ingest, the daemon's read-to-WAL-append cost) the same request contributes no
+//   - for B-B (l0_ingest, the daemon's own ingest.Accept cost) the same request contributes no
 //     sample at all, and the omission is still not random: a client's connect or ACK deadline
 //     expires when the daemon's accept loop is momentarily too busy to answer, which is the same
 //     host-and-process pressure that makes its ingest slow. The missing B-B samples correlate

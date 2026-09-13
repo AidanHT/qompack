@@ -209,6 +209,10 @@ func collectRows(prefix string, n schemaNode, out *[]configRow) {
 var platformDefaultCells = map[string]string{
 	"runtime.daemon.connectDeadlineMs": fmt.Sprintf("`%d` (`%d` on Windows)",
 		config.ConnectDeadlineMsPortable, config.ConnectDeadlineMsWindows),
+	"runtime.budgets.l0IngestMs": fmt.Sprintf("`%d` (`%d` on Windows, `%d` on macOS)",
+		config.L0IngestMsPortable, config.L0IngestMsWindows, config.L0IngestMsDarwin),
+	"runtime.daemon.ackDeadlineMs": fmt.Sprintf("`%d` (`%d` on Windows, `%d` on macOS)",
+		config.AckDeadlineMsPortable, config.AckDeadlineMsWindows, config.AckDeadlineMsDarwin),
 }
 
 // defaultCell renders r's Default column: its own value in code span, unless the key is one of

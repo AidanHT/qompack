@@ -17,7 +17,10 @@ type BudgetID string
 const (
 	// BA is hook_controlled: client main() entry to exit (connect + write + ACK).
 	BA BudgetID = "B-A"
-	// BB is l0_ingest: daemon read to WAL append returned.
+	// BB is l0_ingest: the daemon's whole ingest.Accept — durable WAL append, delivery lease and
+	// seal, ring enqueue. §2.4 spells it "daemon read to WAL append returned", which described the
+	// region before f6a8691 made the delivery path durable; internal/daemon/ingest.go's Accept
+	// comment enumerates the three flushes it carries now.
 	BB BudgetID = "B-B"
 	// BC is l0_process: WAL to fully chunked, stored, DAG/sketches updated (async, soft).
 	BC BudgetID = "B-C"

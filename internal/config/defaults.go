@@ -115,7 +115,7 @@ func Defaults() Config {
 				Enabled:           true,
 				IdleExitSeconds:   1800,
 				MaxSessions:       8,
-				AckDeadlineMs:     8,
+				AckDeadlineMs:     ackDeadlineMsDefault(),
 				ConnectDeadlineMs: connectDeadlineMsDefault(),
 			},
 			HotPath: HotPathCfg{
@@ -174,7 +174,7 @@ func Defaults() Config {
 				Filters: Phase7FiltersCfg{SegmentBloom: false},
 			},
 			Budgets: BudgetsCfg{
-				L0IngestMs:           2,
+				L0IngestMs:           l0IngestMsDefault(),
 				L0ProcessMs:          50,
 				CheckpointFinalizeMs: 2000,
 				MCPToolCallMs:        250,

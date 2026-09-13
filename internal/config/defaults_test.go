@@ -42,19 +42,29 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 
 	require.Equal(t, "auto", rt.Mode)
 
-	// connectDeadlineMs is the one default that differs by platform: on Windows it has to clear
-	// the named-pipe dial's 10 ms ERROR_PIPE_BUSY retry quantum, which the portable 5 ms does not
-	// (internal/config/deadlines.go carries the arithmetic; internal/ipc's
-	// TestConnectDeadlineDefaultClearsTheBusyRetryQuantum guards it against the quantum itself).
-	// Both expectations are spelled out here as literals, not read back from the constants they
-	// pin, so this stays the place the numbers are actually decided.
-	wantConnectDeadlineMs := 5
-	if runtime.GOOS == "windows" {
-		wantConnectDeadlineMs = 25
+	// Three defaults differ by platform, and all three live in internal/config/deadlines.go:
+	//
+	//   - connectDeadlineMs: on Windows it has to clear the named-pipe dial's 10 ms
+	//     ERROR_PIPE_BUSY retry quantum, which the portable 5 ms does not (deadlines.go carries the
+	//     arithmetic; internal/ipc's TestConnectDeadlineDefaultClearsTheBusyRetryQuantum guards it
+	//     against the quantum itself).
+	//   - l0IngestMs and ackDeadlineMs: SP20-D1's measured B-B re-budget, 2026-09-13. Windows is
+	//     measured (L0IngestMs = roundup5(1.25 x 22.528) = 30, AckDeadlineMs = 30 + ceil(22.257) =
+	//     53); linux and darwin are design §7.5's seeds and stay provisional until CI's bench-gate
+	//     measures them on ubuntu-latest and macos-latest.
+	//
+	// Every expectation is spelled out here as a literal, not read back from the constants it pins,
+	// so this stays the place the numbers are actually decided.
+	wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs := 5, 17, 15
+	switch runtime.GOOS {
+	case "windows":
+		wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs = 25, 53, 30
+	case "darwin":
+		wantAckDeadlineMs, wantL0IngestMs = 45, 40
 	}
 
 	require.Equal(t, config.DaemonCfg{
-		Enabled: true, IdleExitSeconds: 1800, MaxSessions: 8, AckDeadlineMs: 8,
+		Enabled: true, IdleExitSeconds: 1800, MaxSessions: 8, AckDeadlineMs: wantAckDeadlineMs,
 		ConnectDeadlineMs: wantConnectDeadlineMs,
 	}, rt.Daemon)
 
@@ -90,7 +100,7 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 
 	// SP-01 additions beyond the §11.5 document reproduced in 00-ARCHITECTURE.md.
 	require.Equal(t, config.BudgetsCfg{
-		L0IngestMs: 2, L0ProcessMs: 50, CheckpointFinalizeMs: 2000, MCPToolCallMs: 250,
+		L0IngestMs: wantL0IngestMs, L0ProcessMs: 50, CheckpointFinalizeMs: 2000, MCPToolCallMs: 250,
 		HookDegradedMs: 1000,
 	}, rt.Budgets)
 	require.Equal(t, config.RSelectionCfg{SubmodularEnabled: false}, rt.Selection)
@@ -100,6 +110,33 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 		ImagePixelsPerToken: 750, ImageMaxTokens: 1600, PDFTokensPerPage: 1800,
 		CalibrationMin: 0.6, CalibrationMax: 1.6, CalibrationAlpha: 0.2,
 	}, rt.Tokens)
+}
+
+// TestDefaults_AckDeadlineCoversTheIngestBudget is the anti-drift guard between the two constant
+// sets SP20-D1's re-budget added (design §7.5's T30): the ACK deadline is derived as
+// AckDeadlineMs = L0IngestMs + ceil(slack99) with slack99 > 0, so on every platform it must sit
+// strictly above that platform's B-B budget. If it ever does not, a hook gives up and spools a
+// duplicate of a delivery the daemon is still inside the budget for — SP05-D2's exact failure.
+//
+// It checks all three platforms' constants, not just the running host's: the constants are
+// exported precisely so one host can see every platform's value (deadlines.go's
+// l0IngestMsDefault comment), and a Windows-only CI would otherwise never exercise the linux and
+// darwin rows at all.
+func TestDefaults_AckDeadlineCoversTheIngestBudget(t *testing.T) {
+	for _, c := range []struct {
+		goos   string
+		ingest int
+		ack    int
+	}{
+		{"linux (portable)", config.L0IngestMsPortable, config.AckDeadlineMsPortable},
+		{"windows", config.L0IngestMsWindows, config.AckDeadlineMsWindows},
+		{"darwin", config.L0IngestMsDarwin, config.AckDeadlineMsDarwin},
+	} {
+		require.Greater(t, c.ack, c.ingest,
+			"%s: ackDeadlineMs (%d) must exceed l0IngestMs (%d) — it is derived as "+
+				"l0IngestMs + ceil(slack99) with slack99 > 0 (internal/config/deadlines.go)",
+			c.goos, c.ack, c.ingest)
+	}
 }
 
 // TestDefaults_SubmodularEnabledDefaultsFalseAndHidden checks the §5.12 derived-field decision

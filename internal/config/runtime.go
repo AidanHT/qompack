@@ -224,7 +224,7 @@ type Phase7FiltersCfg struct {
 // independently — a tightened hot-path budget is a statement about a daemon round trip and must
 // not silently tighten a bound on the filesystem.
 type BudgetsCfg struct {
-	L0IngestMs           int `json:"l0IngestMs"           doc:"B-B latency budget: daemon read to WAL append returned"                      rng:"(0,∞)" sec:"00-ARCH §2.4"`
+	L0IngestMs           int `json:"l0IngestMs"           doc:"B-B latency budget: the daemon's whole ingest.Accept — durable WAL append, delivery lease, seal" rng:"(0,∞)" sec:"00-ARCH §2.4"`
 	L0ProcessMs          int `json:"l0ProcessMs"          doc:"B-C latency budget: WAL to fully chunked, stored, DAG/sketches updated"       rng:"(0,∞)" sec:"00-ARCH §2.4"`
 	CheckpointFinalizeMs int `json:"checkpointFinalizeMs" doc:"B-E latency budget: PreCompact entry to exit"                                 rng:"(0,∞)" sec:"00-ARCH §2.4"`
 	MCPToolCallMs        int `json:"mcpToolCallMs"        doc:"B-F latency budget: MCP request to response"                                  rng:"(0,∞)" sec:"00-ARCH §2.4"`
