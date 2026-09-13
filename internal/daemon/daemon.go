@@ -540,6 +540,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		if relErr := lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after a shutdown that arrived mid-startup", "err", relErr)
 		}
+		reportSealDowngradeResidual(lock, d.log, "run: shutdown mid-startup")
 		return nil
 	}
 
@@ -576,6 +577,7 @@ func (d *daemon) Run(ctx context.Context) error {
 		if relErr := lock.Release(); relErr != nil {
 			d.log.Warn("daemon: run: releasing lock after listen failure", "err", relErr)
 		}
+		reportSealDowngradeResidual(lock, d.log, "run: listen failure")
 		return fmt.Errorf("daemon: run: listen: %w", err)
 	}
 	d.setServer(server)
@@ -962,6 +964,7 @@ func (d *daemon) Stop(ctx context.Context) error {
 			if err := lk.Release(); err != nil && stopErr == nil {
 				stopErr = err
 			}
+			reportSealDowngradeResidual(lk, d.log, "stop")
 		}
 	})
 	return stopErr

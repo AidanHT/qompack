@@ -752,3 +752,67 @@ func TestDeliverySeal_FormatOneRefusesAV2ImageAtEitherSidecar(t *testing.T) {
 		})
 	}
 }
+
+// TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases pins the reporting half of §2.9's
+// Release step 3 (flip review round 2, finding 5).
+//
+// The downgrade to v1 is best effort, and that is right: a v2 file left behind is readable by every
+// build carrying this reader, and refusing to give up singleton ownership over it would keep the
+// project locked against its own replacement daemon. What was missing was any signal at all. The
+// journal carries no logger, closeSeals returned nothing, Release reported success, and no test
+// covered a downgrade that FAILED — so design §4.4's "after a clean stop: safe, v1 is on disk" could
+// stop being true with nothing anywhere saying so, and an operator planning a rollback past step 1
+// would find out from a daemon that will not start.
+//
+// The failure is produced by pointing one seal's WriteAtomic at a path it cannot create, which is
+// deterministic on every OS. The real triggers are ordinary and all end in the same call: a full
+// disk, an anti-virus or backup agent holding the sidecar, and — the one this branch's own store
+// commit is about — a reader whose handle grants no delete sharing.
+func TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases(t *testing.T) {
+	root, lock, journal := newFormatTwoJournal(t)
+	_, err := journal.lease(context.Background(), leaseToken(1), "residual", testDeliveryRequest("residual"))
+	require.NoError(t, err)
+	require.NotNil(t, journal.seal)
+	require.NotNil(t, journal.ackSeal)
+
+	require.Nil(t, lock.SealDowngradeResidual(), "nothing has been released yet, so there is no residual")
+
+	sealed := sealFileOf(t, root)
+	require.True(t, isDeliverySealImage(sealed), "the lease seal is a held v2 image before the release")
+	journal.seal.path = filepath.Join(root, "no-such-directory", deliveryPositionFile)
+
+	require.NoError(t, lock.Release(), "a failed downgrade never blocks the release of ownership")
+
+	residual := lock.SealDowngradeResidual()
+	require.ErrorIs(t, residual, core.ErrDegraded,
+		"the failure is recorded rather than discarded, so a caller can log it once")
+
+	// Ownership really was given up: the lock files are gone, which is what every waiter in the
+	// tree reads as "the daemon has finished".
+	require.NoFileExists(t, filepath.Join(paths.Of(root).Run, lockFileName))
+	require.NoFileExists(t, filepath.Join(paths.Of(root).Run, heartbeatFileName))
+
+	// The seal that could not be downgraded is left exactly as it was — a valid v2 image, not a
+	// half-written one — and the OTHER seal was downgraded anyway, which is what "best effort, and
+	// it never blocks" has to mean if it means anything.
+	require.Equal(t, sealed, sealFileOf(t, root), "the file a failed downgrade could not replace is untouched")
+	require.False(t, isDeliverySealImage(ackSealFileOf(t, root)),
+		"one seal's failure must not cost the other its downgrade")
+	requireV1Position(t, filepath.Join(paths.Of(root).State, deliveryAckPositionFile),
+		deliveryAckChainSeed, journal.ackBytes, len(journal.acks), journal.ackChain)
+}
+
+// TestDeliverySeal_ACleanReleaseLeavesNoResidual is the control for the test above: the same fixture
+// with nothing broken must report nothing, or "a residual means something went wrong" would be a
+// claim about a field that is always set.
+func TestDeliverySeal_ACleanReleaseLeavesNoResidual(t *testing.T) {
+	root, lock, journal := newFormatTwoJournal(t)
+	_, err := journal.lease(context.Background(), leaseToken(1), "clean", testDeliveryRequest("clean"))
+	require.NoError(t, err)
+
+	require.NoError(t, lock.Release())
+
+	require.Nil(t, lock.SealDowngradeResidual(), "both seals were downgraded, so there is nothing to report")
+	require.False(t, isDeliverySealImage(sealFileOf(t, root)))
+	require.False(t, isDeliverySealImage(ackSealFileOf(t, root)))
+}

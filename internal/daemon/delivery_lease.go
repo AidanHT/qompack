@@ -126,6 +126,14 @@ type deliveryJournal struct {
 	//     finds j.writer already nil, closes the acknowledgement writer, closes both held seals and
 	//     releases ownership — and that same call sets j.closed, so nothing after it gets here.
 	sealsClosed bool
+	// downgradeResidual is what closeSeals could not finish: the first held seal whose downgrade to
+	// v1 failed on an otherwise clean release. It is a RECORD, never a refusal — the release
+	// completes, ownership is given up, and the v2 file that stayed behind is readable by every
+	// build carrying this reader. It exists because the alternative was silence: the journal has no
+	// logger, closeSeals returned nothing, and Release reported success, so §4.4's "a clean stop
+	// leaves v1 on disk" could fail with nothing anywhere saying so. Guarded by st, like every other
+	// field a release and a reader can touch.
+	downgradeResidual error
 }
 
 type deliveryPosition struct {
@@ -630,6 +638,17 @@ func (j *deliveryJournal) openSeal() error {
 //
 // Every failure returns deliveryJournalError() and leaves no handle open; the caller poisons the
 // journal and closes it, which is what makes the open fault require a Release before a retry.
+//
+// O4a's write is the one residual this leaves, and it is inherent rather than an oversight: the
+// handle is opened OVER the file, so the converted image must be on disk before openDeliverySeal can
+// be asked whether it opens. An open that converted and then failed therefore leaves a v2 file
+// behind although that daemon never sealed a batch, and the close that follows runs with
+// clean == false, so nothing downgrades it back. Nothing is corrupted — the image seals the position
+// the load recovered, and every build with the dual reader opens it — but §4.4's "a clean stop
+// leaves v1" does not cover it, because the stop was not clean. The repair is §4.4's own:
+// `qompack admin delivery-seal --to v1`, or one successful open and clean Release by a build that
+// carries this reader. Before the flip this could not happen at all: openSeal returned at
+// j.sealFormat != 2 and never converted.
 func (j *deliveryJournal) openSealHandle(
 	path, domain string, seed core.Hash, size int64, count int, chain core.Hash,
 ) (*deliverySeal, error) {
@@ -702,26 +721,42 @@ func (j *deliveryJournal) checkSeal(
 // the new owner holds its seal open, and a WriteAtomic there would land a v1 file over the new
 // owner's held file and fault its very next check.
 //
-// It is best effort. A failed downgrade leaves a valid v2 file, which any build carrying this
-// reader opens, and it never blocks the release of ownership.
-func (j *deliveryJournal) closeSeals() {
+// It is best effort, and it reports. A failed downgrade leaves a valid v2 file, which any build
+// carrying this reader opens, and it never blocks the release of ownership — but it does mean §4.4's
+// "after a clean stop, v1 is on disk" was not kept for that file, and an operator planning a
+// downgrade past step 1 had no way to learn it. So the FIRST failure is returned rather than
+// discarded, the second seal is downgraded regardless, and the release goes on: the error becomes a
+// residual the caller of Release logs once (Lock.SealDowngradeResidual), never a refusal.
+func (j *deliveryJournal) closeSeals() error {
 	if j.sealsClosed || (j.seal == nil && j.ackSeal == nil) {
-		return
+		return nil
 	}
 	j.sealsClosed = true
 	j.st.Lock()
 	clean := j.fault == nil
 	j.st.Unlock()
 	clean = clean && j.owner != nil && j.owner.ownedByFile()
+	var residual error
 	for _, s := range []*deliverySeal{j.seal, j.ackSeal} {
 		if s == nil {
 			continue
 		}
 		_ = s.close()
 		if clean {
-			_ = s.downgradeToV1()
+			if err := s.downgradeToV1(); err != nil && residual == nil {
+				residual = err
+			}
 		}
 	}
+	return residual
+}
+
+// downgradeResidualErr is what closeSeals could not finish, once a release has run: nil when every
+// held seal was downgraded, or was not eligible to be.
+func (j *deliveryJournal) downgradeResidualErr() error {
+	j.st.Lock()
+	defer j.st.Unlock()
+	return j.downgradeResidual
 }
 
 // positionPath and ackSealPath are the two position sidecars, beside the journals they seal.
@@ -969,9 +1004,15 @@ func (j *deliveryJournal) closeLocked() error {
 		}
 	}
 	// The held seals close after the writers and before the journal is marked closed, and a clean
-	// close leaves v1 behind for a build without this reader.
-	j.closeSeals()
+	// close leaves v1 behind for a build without this reader. A downgrade that failed is latched as
+	// a residual and NOT returned: this function's error means "an uncertain writer handle", which
+	// Lock.Release treats as a reason not to give up ownership, and a v2 file left on disk is no
+	// such reason. Lock.SealDowngradeResidual is where it surfaces.
+	residual := j.closeSeals()
 	j.st.Lock()
+	if residual != nil {
+		j.downgradeResidual = residual
+	}
 	j.closed = true
 	j.st.Unlock()
 	return nil
