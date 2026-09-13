@@ -158,6 +158,13 @@ func (m *Migrator) backupDir(id string) string { return filepath.Join(m.l.Backup
 // it copied stays on disk with no manifest beside it, which is what every other mid-walk failure
 // already leaves and what makes an unfinished backup unusable as one (VerifyBackup needs the
 // manifest) rather than silently retryable over.
+//
+// ErrBackupMoved is the one exception, and how an operator retries follows from it. That refusal
+// is the expected answer beside a running daemon, not an exceptional one, so it removes the
+// incomplete backup/<id> before returning and the same id is free again: stop the daemon and rerun
+// the identical command. Any other failure keeps its id, so a retry needs a new one — and the
+// directory the failed attempt left is safe to delete by hand, since a backup without a manifest
+// can never verify or restore.
 func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, error) {
 	if id == "" {
 		return BackupManifest{}, errors.New("store: TakeBackup needs a backup id")
@@ -243,6 +250,18 @@ func (m *Migrator) TakeBackup(ctx context.Context, id string) (BackupManifest, e
 		m.afterBackupWalk()
 	}
 	if err := m.refuseIfTheProjectMoved(man); err != nil {
+		// This refusal, and only this one, releases the id with the copy. It is the one failure
+		// that is EXPECTED beside a live daemon rather than exceptional — any delivery or
+		// acknowledgement batch during the walk produces it — so leaving a full junk tree behind
+		// and burning the name the operator asked for would turn "stop the daemon and try again"
+		// into "stop the daemon and invent a new id". What is removed provably has no manifest:
+		// the manifest is written further down, and a second TakeBackup under this id could not
+		// have reached the walk at all (the Stat above is os.ErrExist).
+		if rmErr := os.RemoveAll(paths.Long(dir)); rmErr != nil {
+			return BackupManifest{}, fmt.Errorf(
+				"store: backup %q: %w; its incomplete tree could not be removed (%v), so retry under "+
+					"another id or remove that directory first", id, err, rmErr)
+		}
 		return BackupManifest{}, fmt.Errorf("store: backup %q: %w", id, err)
 	}
 

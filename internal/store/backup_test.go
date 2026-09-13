@@ -279,6 +279,23 @@ func TestBackup_RefusesADeliveryStateThatMovedUnderTheCopy(t *testing.T) {
 			require.False(t, man.Consistent, "a refused backup returns no manifest to record as consistent")
 			_, verr := m.VerifyBackup("b1")
 			require.Error(t, verr, "a refused backup has no manifest, so it cannot verify")
+
+			// The refusal releases the id with the copy. It is the EXPECTED outcome beside a
+			// running daemon, so leaving a full tree behind under a name a second TakeBackup
+			// answers with os.ErrExist would make the advice its own error gives — take the backup
+			// with the daemon stopped — impossible to follow under the id the operator asked for.
+			require.NoDirExists(t, m.backupDir("b1"),
+				"a refused backup removes its incomplete tree, which provably has no manifest")
+
+			// And the retry is then the identical command, which is the half that proves the id
+			// really is free rather than merely tidy: with nothing moving under the walk it
+			// succeeds, is consistent, and verifies.
+			m.afterBackupWalk = nil
+			again, aerr := m.TakeBackup(ctx, "b1")
+			require.NoError(t, aerr, "with the daemon quiet the same id is available again")
+			require.True(t, again.Consistent)
+			_, averr := m.VerifyBackup("b1")
+			require.NoError(t, averr)
 		})
 	}
 }
