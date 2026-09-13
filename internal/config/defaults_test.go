@@ -49,8 +49,10 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	//     arithmetic; internal/ipc's TestConnectDeadlineDefaultClearsTheBusyRetryQuantum guards it
 	//     against the quantum itself).
 	//   - l0IngestMs and ackDeadlineMs: SP20-D1's measured B-B re-budget, 2026-09-13. Windows is
-	//     measured (L0IngestMs = roundup5(1.25 x 22.528) = 30, AckDeadlineMs = 30 + ceil(22.257) =
-	//     53); linux and darwin are design §7.5's seeds and stay provisional until CI's bench-gate
+	//     measured (L0IngestMs = roundup5(1.25 x 36.864) = 50, AckDeadlineMs = 50 + ceil(22.257) =
+	//     73, over fifteen runs rather than the protocol's three -- see deadlines.go for why the
+	//     three-run figure of 30 was withdrawn); linux and darwin are design §7.5's seeds and stay
+	//     provisional until CI's bench-gate
 	//     measures them on ubuntu-latest and macos-latest.
 	//
 	// Every expectation is spelled out here as a literal, not read back from the constants it pins,
@@ -58,7 +60,7 @@ func TestDefaults_RuntimeNamespace(t *testing.T) {
 	wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs := 5, 17, 15
 	switch runtime.GOOS {
 	case "windows":
-		wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs = 25, 53, 30
+		wantConnectDeadlineMs, wantAckDeadlineMs, wantL0IngestMs = 25, 73, 50
 	case "darwin":
 		wantAckDeadlineMs, wantL0IngestMs = 45, 40
 	}

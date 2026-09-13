@@ -341,7 +341,8 @@ func TestBuildBudgetRowFromSnapshot(t *testing.T) {
 //
 // B-A and B-E are SP-01's, at 15ms and 2000ms on every platform. B-B's is NOT one number any more:
 // SP20-D1's measured re-budget (2026-09-13) made runtime.budgets.l0IngestMs platform-specific —
-// 30ms on Windows, measured as roundup5(1.25 x 22.528); 15ms on linux and 40ms on darwin,
+// 50ms on Windows, measured as roundup5(1.25 x 36.864) over fifteen runs; 15ms on linux and 40ms
+// on darwin,
 // provisional until CI's bench-gate measures them (internal/config/deadlines.go). The expectation
 // is spelled as literals per platform, the same way internal/config's own defaults_test.go does
 // it, so this stays a pin on the shipped numbers rather than a tautology against the constants.
@@ -349,7 +350,7 @@ func TestBudgetLimit_ReadsFromConfigDefaults(t *testing.T) {
 	wantBB := 15 * time.Millisecond
 	switch runtime.GOOS {
 	case "windows":
-		wantBB = 30 * time.Millisecond
+		wantBB = 50 * time.Millisecond
 	case "darwin":
 		wantBB = 40 * time.Millisecond
 	}
