@@ -67,9 +67,15 @@ var sharedReaders = []sharedReader{
 		why:   "the daemon's WriteState, whose §12.2 hot-mode transition goes unpublished if the replace fails",
 	},
 	{
-		file:  "internal/store/backup.go",
-		fn:    "refuseIfTheProjectMoved",
-		holds: "state/delivery-lease-position.json and state/delivery-ack-position.json",
+		file: "internal/store/backup.go",
+		fn:   "refuseIfTheProjectMoved",
+		// It re-reads every backupLiveWriterFiles entry, which is four files, not two. The two
+		// journals are named here so the failure says what the handle really covers; they are
+		// absent from why for the reason the list's own comment gives — they are appended, never
+		// WriteAtomic-replaced, so no writer of theirs is one this reader can stall.
+		holds: "state/delivery-lease-position.json, state/delivery-ack-position.json and (more " +
+			"briefly, and appended rather than replaced, which is why no writer of theirs is named " +
+			"below) the two delivery journals beside them",
 		why: "the daemon's paths.WriteAtomic of those sidecars — openSealHandle's v1→v2 conversion, " +
 			"whose failure faults the delivery journal for that daemon's whole life, and closeSeals' " +
 			"downgrade to v1, whose failure silently leaves a v2 file a pre-step-1 build cannot open",
