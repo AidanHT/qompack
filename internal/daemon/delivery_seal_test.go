@@ -1095,6 +1095,14 @@ func TestDeliverySeal_LongestRecordFitsItsSlot(t *testing.T) {
 // T25's own format-1 legs, so neither depends on this constant to be exercised. A change here in
 // either direction without that evidence moves the on-disk format under a reader that was never
 // shown to take it.
+//
+// That rollback is this CONSTANT, and never a revert of the commit that flipped it. The flip commit
+// also carries T14's format-2 corruption table, its two helpers and both T14 drivers' {1, 2} loops,
+// which design §6.2 names as step 2's required additions. None of them depends on the constant: they
+// reach format 2 through the lock's seam, so they cover the images a build with the constant back at
+// 1 still READS and converts. Reverting the commit would return the constant and retire that
+// coverage in the same move, which is why the step-2 → step-1 procedure is "set
+// deliverySealWriteFormat to 1", a one-line change this test then fails until it is accompanied.
 func TestDeliverySeal_WriteFormatIsDeliberate(t *testing.T) {
 	require.Equal(t, 2, deliverySealWriteFormat,
 		"step 2 flips the write format only together with this test and the T25/T26 evidence (design §4.3)")
