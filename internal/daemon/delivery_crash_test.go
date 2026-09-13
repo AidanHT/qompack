@@ -2,10 +2,16 @@ package daemon
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -634,14 +640,21 @@ func TestDeliveryPath_CrashCutAtEveryStep(t *testing.T) {
 
 	for _, format := range []int{1, 2} {
 		t.Run(formatName(format), func(t *testing.T) {
+			// The census is what makes crashRow.live's own premise self-checking. Which rows
+			// reconstruct one durable image between them was, until now, an enumeration made by hand
+			// OUTSIDE the suite: a row added later whose image collides with an existing one and
+			// which is written with live: nil would pass on its twin's evidence, exactly as four
+			// pairs did before this table gained its live half, and nothing would say so.
+			census := &crashImageCensus{}
 			for _, row := range rows {
 				if !row.appliesTo(format) {
 					continue
 				}
 				t.Run(string(row.step), func(t *testing.T) {
-					runCrashRow(t, format, row)
+					runCrashRow(t, format, row, census)
 				})
 			}
+			census.requireEveryCollisionIsDiscriminated(t, format, crashImageGroups[format])
 		})
 	}
 }
@@ -654,9 +667,150 @@ func formatName(format int) string {
 	return "format 1, the v1 sidecar"
 }
 
+// crashImageGroups is which rows of §3's table reconstruct ONE durable image between them, per
+// write format, in the table's own order — the enumeration CRASH-2 rests on, written down inside
+// the suite that depends on it instead of in a report beside it.
+//
+// Read it as the statement it is: the Write and the Sync of one extent leave the same bytes on a
+// machine that died, because the page cache goes with the machine and neither of them returned. So
+// W1/W2 and L4/L5 are one image each in both formats; L6/L7 are one at format 2, where the slot
+// write is a step of its own; and the whole acknowledgement neighbourhood is one image, joined at
+// format 2 by L8, whose seal completed exactly as AK's did.
+//
+// The census asserts it every run. A row that joins or leaves a group is a change to which crash
+// states this table can actually tell apart, and it must be answered in crashRow.live rather than
+// by re-fitting this list to whatever the code now produces.
+var crashImageGroups = map[int][][]crashStep{
+	1: {
+		{crashW1, crashW2},
+		{crashL4, crashL5},
+		{crashL6},
+		{crashAK, crashK4, crashK5},
+		{crashK6},
+	},
+	2: {
+		{crashW1, crashW2},
+		{crashL4, crashL5},
+		{crashL6, crashL7},
+		{crashL8, crashAK, crashK4, crashK5},
+		{crashK6},
+	},
+}
+
+// crashImageCensus records one format's rows by the durable image each of them produced, so that
+// the table can check its own twin problem rather than resting on an enumeration made outside it.
+//
+// Two rows may share an image — the Write and the Sync of one extent leave the same bytes, because
+// a machine crash takes the page cache and neither returned — but then each must carry a DIFFERENT
+// live discriminator, or the same one under a different `released`. That is crashRow.live's whole
+// premise, and it is the premise a later row silently breaks.
+type crashImageCensus struct {
+	rows []crashCensusRow
+}
+
+// crashCensusRow is one row's identity for the collision check: the image it produced, and the two
+// halves of the live state that are allowed to tell two rows with one image apart.
+type crashCensusRow struct {
+	step     crashStep
+	digest   string
+	released bool
+	// live names the discriminator function the row carries, or "" for a row that carries none. It
+	// is the function's NAME rather than "has one", because three rows can share one image and each
+	// then needs its own discriminator: presence alone would call them twins.
+	live string
+}
+
+// record digests one row's durable image and files it. The digest covers every path in the image
+// and its bytes, in a stable order, so two rows collide here exactly when the disk a machine would
+// come back to is the same disk.
+func (c *crashImageCensus) record(step crashStep, released bool, live func(*testing.T, *crashRun, map[string][]byte), image map[string][]byte) {
+	names := make([]string, 0, len(image))
+	for name := range image {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	h := sha256.New()
+	for _, name := range names {
+		fmt.Fprintf(h, "%s\x00%d\x00", name, len(image[name]))
+		_, _ = h.Write(image[name])
+	}
+	name := ""
+	if live != nil {
+		name = runtime.FuncForPC(reflect.ValueOf(live).Pointer()).Name()
+	}
+	c.rows = append(c.rows, crashCensusRow{
+		step: step, digest: hex.EncodeToString(h.Sum(nil)), released: released, live: name,
+	})
+}
+
+// groups is the census's rows partitioned by durable image, each group in the table's own order and
+// the groups themselves in order of first appearance, so the result is stable enough to assert
+// against a written-down enumeration.
+func (c *crashImageCensus) groups() [][]crashCensusRow {
+	var out [][]crashCensusRow
+	at := map[string]int{}
+	for _, r := range c.rows {
+		i, seen := at[r.digest]
+		if !seen {
+			at[r.digest] = len(out)
+			out = append(out, []crashCensusRow{r})
+			continue
+		}
+		out[i] = append(out[i], r)
+	}
+	return out
+}
+
+// requireEveryCollisionIsDiscriminated fails unless the format's rows partition into exactly the
+// image groups want names, and every group of rows sharing one image is separated, row by row, by
+// the live half.
+//
+// Both halves matter. The second is the property crashRow.live exists for. The first is what keeps
+// the second from going vacuous: if a change made every row's image unique, the discriminator check
+// would pass over five groups of one and say nothing, and the enumeration CRASH-2 rests on — made
+// by hand, outside the suite — would have silently stopped being true.
+//
+// It runs after the format's rows, on the parent, so a row that never ran (a skipped format, a
+// failed cut) simply is not in the census rather than being judged absent — which also means want
+// is asserted only on a pass where every row ran.
+func (c *crashImageCensus) requireEveryCollisionIsDiscriminated(t *testing.T, format int, want [][]crashStep) {
+	t.Helper()
+
+	groups := c.groups()
+	got := make([][]crashStep, 0, len(groups))
+	for _, group := range groups {
+		steps := make([]crashStep, 0, len(group))
+		for _, r := range group {
+			steps = append(steps, r.step)
+		}
+		got = append(got, steps)
+	}
+	require.Equal(t, want, got,
+		"at format %d the rows no longer reconstruct the image groups this table is built on. Two rows "+
+			"in one group are one crash state on disk and are told apart by crashRow.live alone; a row "+
+			"that joined or left a group needs that half revisited, not this list re-fitted to it", format)
+
+	for _, group := range groups {
+		if len(group) < 2 {
+			continue
+		}
+		seen := map[string]crashStep{}
+		for _, r := range group {
+			key := fmt.Sprintf("%t|%s", r.released, r.live)
+			twin, clash := seen[key]
+			require.False(t, clash,
+				"at format %d, rows %s and %s reconstruct the SAME durable image and carry the same live "+
+					"state (released=%t, discriminator %q), so one of them passes on the other's evidence: "+
+					"give the new row its own crashRow.live, or state why its released differs",
+				format, twin, r.step, r.released, r.live)
+			seen[key] = r.step
+		}
+	}
+}
+
 // runCrashRow drives one delivery, cuts it at the row's step, and asserts what recovery makes of
 // the image — including what the drain does with the WAL copy and a client copy of the same nonce.
-func runCrashRow(t *testing.T, format int, row crashRow) {
+func runCrashRow(t *testing.T, format int, row crashRow, census *crashImageCensus) {
 	nonce := testDeliveryToken('c')
 	r := newCrashRun(t, format, row.step)
 	resp := r.deliver(nonce)
@@ -676,6 +830,7 @@ func runCrashRow(t *testing.T, format int, row crashRow) {
 	}
 	image := r.image()
 	walRel := r.walRel()
+	census.record(row.step, row.released, row.live, image)
 
 	// The rest of the live half: the fact that separates this row from the row whose durable image
 	// is byte for byte its own (crashRow.live). It is read here, before any image is restored, and
