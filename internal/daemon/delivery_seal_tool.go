@@ -125,8 +125,35 @@ func (o DeliverySealOptions) validate() error {
 	return nil
 }
 
+// latchingWriter is o.Out with its first write error kept.
+//
+// Every report line goes through fmt.Fprintf, which returns an error nobody can usefully act on
+// line by line — but one of those lines is not decoration. Design §4.5 asks the tool to print
+// exactly which lines --accept-torn-slot admitted, and that print is the operator's only record of
+// what they took responsibility for: the accepted record seals a position the daemon's own reader
+// refuses, and the lines past it are what an operator is being asked to own. Under a closed pipe
+// (`qompack admin delivery-seal --to v1 --accept-torn-slot --yes | head`) the conversion would
+// still happen while that record was lost.
+//
+// So the writes are not checked one at a time; the first failure is latched, and the run consults
+// it once, at the point where losing the record would cost something.
+type latchingWriter struct {
+	w   io.Writer
+	err error
+}
+
+func (w *latchingWriter) Write(p []byte) (int, error) {
+	n, err := w.w.Write(p)
+	if err != nil && w.err == nil {
+		w.err = err
+	}
+	return n, err
+}
+
 // run is the tool with the daemon lock held.
 func (o DeliverySealOptions) run(lock *Lock) error {
+	report := &latchingWriter{w: o.Out}
+	o.Out = report
 	state := paths.Of(o.ProjectRoot).State
 	j := newDeliveryJournal(lock, filepath.Join(state, deliveryLeaseFile))
 	j.ackPath = filepath.Join(state, deliveryAckFile)
@@ -162,6 +189,21 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 	if o.Check {
 		fmt.Fprintf(o.Out, "  checked; nothing was written\n")
 		return nil
+	}
+	// A Rule R acceptance whose lines could not be reported refuses the conversion, before anything
+	// is synced or written. The consent is what makes the acceptance an operator's decision rather
+	// than a reader's, and the printed lines are the whole of the record of it; converting anyway
+	// would leave a project whose position no daemon would have accepted and no report saying which
+	// lines that covers. Nothing here is corrupted by refusing — the seals are as the run found them
+	// — and the rerun is the same command with a writer that works.
+	//
+	// It is checked after the --check return rather than before it, because the two runs lose
+	// different things: a check that could not print changed nothing and is simply repeatable, while
+	// a conversion that could not print would be a change with its record missing.
+	if report.err != nil && anyAcceptedATornSlot(sides) {
+		return fmt.Errorf("%s: --accept-torn-slot admitted lines that could not be reported, and the "+
+			"report is the record of what was accepted; nothing was synced or written: %w",
+			deliverySealToolName, report.err)
 	}
 	// Both tails are made durable before either seal names one. A seal made durable over a tail that
 	// is not is how a journal becomes permanently unopenable, and the sync is the same step, in the
@@ -297,6 +339,9 @@ type deliverySealSide struct {
 	recovered func() deliveryPosition
 	// position is what the seal on disk holds, once inspect has read it.
 	position deliveryPosition
+	// accepted records that Rule R chose this side's position, so the run can refuse a conversion
+	// whose consent record could not be printed.
+	accepted bool
 	// info is the journal file the scan read, once inspect has run: the file, and the only file,
 	// whose tail this side's seal may be made to name.
 	info os.FileInfo
@@ -398,6 +443,7 @@ func (o DeliverySealOptions) inspect(s *deliverySealSide) error {
 			deliverySealToolName, s.name, s.journal, err)
 	}
 	s.info = info
+	s.accepted = read.accepted
 	recovered := s.recovered()
 	fmt.Fprintf(o.Out, "  %s journal %s: loads, %d entries, %d bytes, chain %s\n",
 		s.name, s.journal, recovered.Count, recovered.Bytes, recovered.Chain)
@@ -405,6 +451,16 @@ func (o DeliverySealOptions) inspect(s *deliverySealSide) error {
 		return nil
 	}
 	return o.reportAcceptedLines(s, read.position)
+}
+
+// anyAcceptedATornSlot reports whether Rule R chose the position of any side in this run.
+func anyAcceptedATornSlot(sides []deliverySealSide) bool {
+	for i := range sides {
+		if sides[i].accepted {
+			return true
+		}
+	}
+	return false
 }
 
 // readSeal reads one seal file: the dual reader, and Rule R when an operator asked for it and the

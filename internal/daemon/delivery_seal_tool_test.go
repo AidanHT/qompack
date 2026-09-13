@@ -610,6 +610,8 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		report, err = toolTestRun(t, root, DeliverySealOptions{ToV1: true})
 		require.NoError(t, err)
 		require.Contains(t, report, "wrote v1")
+		require.NotContains(t, report, "admitted",
+			"a run that accepted nothing must not print an acceptance, not even one of zero lines")
 
 		leasePosition, err := loadDeliveryPosition(leaseSeal, deliveryChainSeed)
 		require.NoError(t, err, "lease seal: %s", toolTestSeals(t, root))
@@ -841,6 +843,74 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Equal(t, before, toolTestState(t, root))
 	})
 
+	// Design §4.5's "print exactly which lines --accept-torn-slot admitted" is the operator's only
+	// record of what they took responsibility for, and under a closed pipe the conversion would
+	// otherwise still happen while that record was lost. The first write error is latched, and a run
+	// that accepted a torn slot consults it before anything is synced or written.
+	t.Run("a conversion refuses when the acceptance could not be reported", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		tearNewestSlot(t, root)
+		before := toolTestState(t, root)
+
+		closed := errors.New("broken pipe")
+		var out failingWriter
+		out.failAt, out.err = 1, closed
+		err := RepairDeliverySeal(DeliverySealOptions{
+			ProjectRoot: root, ToV1: true, AcceptTornSlot: true, Confirm: true,
+			Out: &out, Clock: newFakeClock(epoch),
+		})
+
+		require.ErrorIs(t, err, closed)
+		require.ErrorContains(t, err, "admitted lines that could not be reported")
+		require.ErrorContains(t, err, "nothing was synced or written")
+		require.Equal(t, before, toolTestState(t, root),
+			"the consent record is what makes the acceptance an operator's decision, so no seal is written without it")
+
+		// The rerun the refusal implies: the same command with a writer that works converts the pair.
+		report, rerun := toolTestRun(t, root, DeliverySealOptions{
+			ToV1: true, AcceptTornSlot: true, Confirm: true,
+		})
+		require.NoError(t, rerun)
+		require.Contains(t, report, "admitted 1 line")
+		requireOpensWithFormat(t, root, 1, 2)
+	})
+
+	// The same lost report on a run that changes nothing is not a refusal: a check is repeatable,
+	// and a conversion with its record missing is not.
+	t.Run("a check whose report was lost still reports nothing written", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		tearNewestSlot(t, root)
+		before := toolTestState(t, root)
+
+		var out failingWriter
+		out.failAt, out.err = 1, errors.New("broken pipe")
+		require.NoError(t, RepairDeliverySeal(DeliverySealOptions{
+			ProjectRoot: root, Check: true, AcceptTornSlot: true, Confirm: true,
+			Out: &out, Clock: newFakeClock(epoch),
+		}))
+		require.Equal(t, before, toolTestState(t, root))
+	})
+
+	// deliverySealTail's short-file guard, directly. It is called only after a scan succeeded, so
+	// from is a line boundary of the file the scan read — but the file is re-opened to produce the
+	// report, and a journal that shrank between the two turns the guard's removal from a refusal
+	// into a slice-bounds panic in an operator's tool.
+	t.Run("the accepted-lines re-read refuses a from past the file's end", func(t *testing.T) {
+		root := toolTestProject(t, 2)
+		journal := filepath.Join(paths.Of(root).State, deliveryLeaseFile)
+		info, err := os.Lstat(journal)
+		require.NoError(t, err)
+
+		lines, err := deliverySealTail(journal, info.Size())
+		require.NoError(t, err, "at the file's own size there is simply no tail")
+		require.Empty(t, lines)
+
+		lines, err = deliverySealTail(journal, info.Size()+1)
+		require.ErrorIs(t, err, core.ErrDegraded,
+			"a journal that shrank since the scan is refused, never sliced past its end")
+		require.Nil(t, lines)
+	})
+
 	t.Run("a confirmed torn slot accepts the complete tail and names it", func(t *testing.T) {
 		root := toolTestProject(t, 2)
 		tearNewestSlot(t, root)
@@ -880,4 +950,20 @@ func toolTestLineBoundary(t *testing.T, journal string, lines int) int64 {
 		at += int64(i) + 1
 	}
 	return at
+}
+
+// failingWriter is a report writer that fails from its failAt-th write onwards: a closed pipe, which
+// is what `| head` leaves an operator's tool holding.
+type failingWriter struct {
+	writes int
+	failAt int
+	err    error
+}
+
+func (w *failingWriter) Write(p []byte) (int, error) {
+	w.writes++
+	if w.writes >= w.failAt {
+		return 0, w.err
+	}
+	return len(p), nil
 }
