@@ -315,7 +315,14 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool bench-hotpath --iterations 2000 --hook observe-tool --warm-daemon --json "bench-${{ matrix.os }}.json"
+      # `if: always()` because the run whose JSON is most worth having is the one that FAILED. The
+      # harness writes the file and then exits non-zero on a breached gate, so without this the
+      # upload is skipped exactly when a breach needs attributing, and the percentiles that would
+      # say which budget moved and by how much are thrown away with the runner. The gate is
+      # untouched: the job still fails on the step above. This is what makes the ubuntu-latest and
+      # macos-latest figures readable at all, since neither platform is measurable locally.
       - uses: actions/upload-artifact@v4
+        if: always()
         with: { name: "bench-${{ matrix.os }}", path: "bench-${{ matrix.os }}.json" }
 
   replay-gate:
