@@ -539,7 +539,8 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		// converted pair, and what the operator is told about it is the whole of the fix here — a
 		// rerun is refused with ErrLockHeld until the daemon that took the project is stopped, so
 		// "rerun the same command" on its own would be wrong.
-		out := &toolTestWriter{when: "wrote v1", do: func() { replaceTestLock(t, root) }}
+		var taken *Lock
+		out := &toolTestWriter{when: "wrote v1", do: func() { taken = replaceTestLock(t, root) }}
 		err := RepairDeliverySeal(DeliverySealOptions{
 			ProjectRoot: root, ToV1: true, Out: out, Clock: newFakeClock(epoch),
 		})
@@ -548,6 +549,7 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.ErrorContains(t, err, "before converting the ack seal")
 		require.ErrorContains(t, err, "the lease seal is already v1")
 		require.ErrorContains(t, err, "stopping that daemon and rerunning converts what is left")
+		require.NotNil(t, taken, "the takeover must actually have happened")
 
 		after := toolTestState(t, root)
 		require.Equal(t, before[deliveryLeaseFile], after[deliveryLeaseFile], "the journals are evidence")
@@ -559,6 +561,26 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.NoError(t, err, "the lease seal the message calls converted is a v1 seal: %s",
 			toolTestSeals(t, root))
 		require.Equal(t, 2, position.Count)
+
+		// The message's own PREMISE, then its PROMISE. Asserting its three clauses says the sentence
+		// is written; it does not say the recovery it prescribes exists. So: a rerun while that
+		// daemon holds the lock is refused with ErrLockHeld, which is exactly why "rerun the same
+		// command" alone would have been the wrong advice here; and once that daemon is stopped, the
+		// identical command converts the ack seal and the build an operator rolled back to opens the
+		// project with both identities.
+		_, held := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.ErrorIs(t, held, ErrLockHeld, "the daemon that took the project refuses the rerun")
+		require.Equal(t, after, toolTestState(t, root), "and a refused rerun writes nothing")
+
+		require.NoError(t, taken.Release())
+		report, rerun := toolTestRun(t, root, DeliverySealOptions{ToV1: true})
+		require.NoError(t, rerun, "stopping that daemon is what the message says to do")
+		require.Contains(t, report, "wrote v1")
+		ackPosition, aerr := loadDeliveryPosition(
+			filepath.Join(state, deliveryAckPositionFile), deliveryAckChainSeed)
+		require.NoError(t, aerr, "the seal the first run left behind is now v1: %s", toolTestSeals(t, root))
+		require.Equal(t, 1, ackPosition.Count)
+		requireOpensWithFormat(t, root, 1, 2)
 	})
 
 	t.Run("converts both seals to v1 after a check that writes nothing", func(t *testing.T) {
@@ -763,13 +785,33 @@ func TestDeliveryOfflineTool_ConvertsAndRefusesWhileADaemonHoldsTheLock(t *testi
 		require.Equal(t, before, toolTestState(t, root), "and a check writes nothing whatever it finds")
 	})
 
-	t.Run("refuses a half-present pair", func(t *testing.T) {
-		root := toolTestProject(t, 1)
-		require.NoError(t, os.Remove(filepath.Join(paths.Of(root).State, deliveryAckFile)))
+	// A half-present pair, in both directions and by its own words. require.Error alone was not
+	// enough: with deliverySealPairPresent's refusal disabled a DIFFERENT check supplies an error —
+	// the ack scan's own Lstat — so the subtest passed while the branch it names did nothing. Every
+	// half-present shape still fails closed under that mutation, so this is assertion strength
+	// rather than a hole; it is also the gap that was closed one level up for the sibling refusal
+	// and left open for its neighbour.
+	for _, tc := range []struct {
+		name    string
+		missing string
+	}{
+		{"the journal is there and its seal is gone", deliveryAckPositionFile},
+		{"the seal is there and its journal is gone", deliveryAckFile},
+	} {
+		t.Run("refuses a half-present pair: "+tc.name, func(t *testing.T) {
+			root := toolTestProject(t, 1)
+			require.NoError(t, os.Remove(filepath.Join(paths.Of(root).State, tc.missing)))
+			before := readTestFile(t, filepath.Join(paths.Of(root).State, deliveryLeaseFile))
 
-		_, err := toolTestRun(t, root, DeliverySealOptions{Check: true})
-		require.Error(t, err)
-	})
+			_, err := toolTestRun(t, root, DeliverySealOptions{Check: true})
+			require.ErrorContains(t, err, "must both be present or both absent",
+				"the refusal must be deliverySealPairPresent's own, not whichever check errors first")
+			require.ErrorContains(t, err, "this is a recovery decision, not a repair")
+			require.ErrorContains(t, err, "ack", "and it must name the side it is about")
+			require.Equal(t, before, readTestFile(t, filepath.Join(paths.Of(root).State, deliveryLeaseFile)),
+				"a refusal leaves the evidence as it found it")
+		})
+	}
 
 	t.Run("reports a project with no delivery journal", func(t *testing.T) {
 		root := t.TempDir()
