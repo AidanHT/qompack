@@ -28,7 +28,8 @@ import (
 // (openDeliveryJournal at internal/daemon/delivery_lease.go:209 is the only assignment of
 // Lock.journal, and ingest has not started at either point), so their residual is structurally nil
 // and a value test there asserts the absence of a line that could never appear. Delete both calls
-// and every test in the repository still passes — measured, not assumed.
+// and every BEHAVIOURAL test still passes — measured, not assumed, and re-measured with this file in
+// the tree: internal/daemon stays green and the Run row below is what fails.
 //
 // So the wiring is pinned structurally, the way sharedreaders_test.go pins a property no value test
 // can see. internal/daemon's TestDeliverySeal_AResidualReachesTheOperatorFromStop owns the other
