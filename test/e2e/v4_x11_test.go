@@ -65,6 +65,39 @@ func TestV4_LiveSessionWriteSetAppendOnlyAndImmutability(t *testing.T) {
 	require.NotEmpty(t, instr, "the row needs a sealed checkpoint to assert immutability on")
 	obsRunHook(t, r.Bin, []string{"flush"}, obsFlushPayload(t, p.Root, x11v4Session), env)
 
+	// SETTLE BEFORE SNAPSHOT — do not drop this, and do not move it below the assertions.
+	//
+	// This call is not decoration: TestV3_LiveSessionWriteSetAndAppendOnly, the direct ancestor whose
+	// x9Snapshot this row reuses, makes exactly the same call before exactly the same snapshot
+	// (v3_x09_test.go), and the v4 rewrite kept the snapshot and dropped the settle. test/guards'
+	// TestV1_WriteSetConfinedAcrossFullHookSequence names the same hazard over the same tree.
+	//
+	// The flush hook process has exited, but the daemon it handed the event to has not finished, and
+	// v4StartRig stops it only in t.Cleanup — i.e. after every assertion here. The drain, the ingest
+	// WAL close, the sketch saves, metrics.Persist, the state.bin removal, the server close and the
+	// lock release all still run (internal/daemon/daemon.go's awaitStopCleanup says so in as many
+	// words), and each of them stages under .qompack/tmp/: paths.WriteAtomic's "wa-<random>"
+	// (internal/paths/atomic.go), the store's novel objects "obj-<12 hex>" (internal/store/
+	// objects.go), the pins view and the bloom replacement. x9Snapshot walks BOTH the project tree
+	// and the HOME tree and returns its walk error, which require.NoError turns into a failure — so
+	// a staging file unlinked between the readdir and the stat fails this row for a reason that has
+	// nothing to do with the write set it exists to assert.
+	//
+	// e2eShutdownIfReachable returns only once the daemon has actually finished, not once it has
+	// stopped answering. Nothing below needs it alive: every remaining step reads the tree directly
+	// (x9ReadLogs, cpCheckpointArtifacts, x4RequireManifestVerifies, loudLines) or opens its own
+	// reader over the sealed artifacts (checkpoint.OpenReader), and the negative control's byte flip
+	// is safer with no writer resident.
+	//
+	// Expect it to spend its whole e2eDaemonDownBound here and then log "released … but was still
+	// running": v4StartRig's daemon is IN-PROCESS, so daemon.lock records the test binary's own pid
+	// (internal/daemon/lock.go) and the helper's second condition — the pid that held the lock has
+	// exited — can never be met by a daemon living inside the test that is asking. That log line is
+	// an artefact of an in-process daemon, not a straggler. The settle underneath it is real and
+	// lands in milliseconds: admin.shutdown runs daemon.Stop, whose LAST act is Lock.Release, so the
+	// lock's disappearance already proves every cleanup step above it has run.
+	e2eShutdownIfReachable(t, p.Root)
+
 	// ── Every write lands under .qompack/ ────────────────────────────────────────────────────────
 	after := x9Snapshot(t, p.Root, home)
 	x9AssertConfined(t, before, after, p.Root, home)
