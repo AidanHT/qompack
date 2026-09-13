@@ -868,8 +868,57 @@ func tornVariants(t *testing.T, image map[string][]byte, walRel string, format, 
 				"TestDeliverySeal_StrictSelectionTable states it on a synthetic image; here it is asserted against a " +
 				"real crash image of the same path",
 		}
+		requireTearsDifferentSlots(t, image[posRel],
+			out["the v2 slot the next seal targets"].image[posRel],
+			out["the v2 seal's effective slot"].image[posRel], eff)
 	}
 	return out
+}
+
+// requireTearsDifferentSlots is what makes the two format-2 variants two STATES rather than two
+// names for one.
+//
+// Both expect the same outcome — a refused open — so nothing downstream can tell which slot a
+// variant tore: the map keys are string literals, and the call site's tear guard only asks that
+// SOME bytes of the seal changed. Swapping either variant's slot expression for the other's
+// therefore collapsed both onto one slot with the suite green, and for the rows cut inside the seal
+// (L6, L7) the one it collapsed onto was the effective slot — which is the pre-CRASH-1 behaviour,
+// so design §3 row 7's torn-TARGET state was never built. Measured: with a Rule-R fallback added to
+// selectSeal (the J-B3 regression these rows exist to catch) the shipped variants fail 29 subtests
+// including both slot subtests of L6 and L7; with the slot expression collapsed, 17, and those four
+// go from FAIL to PASS.
+//
+// So each variant is pinned by WHICH record survives its tear, which is what its name claims:
+//
+//   - the target-slot variant leaves the effective record intact — that slot is the one a seal
+//     write lands in (slotFor(eff.Seq+1), always the slot holding seq-1), so the record the reader
+//     selects is untouched and the refusal comes from the torn sibling alone;
+//   - the effective-slot variant destroys exactly that record, which is the J-B3 state: the reader
+//     must refuse rather than fall back to the slot beside it.
+//
+// untorn is the seal as the crash image holds it; target and effective are the two variants' seals.
+func requireTearsDifferentSlots(t *testing.T, untorn, target, effective []byte, eff sealRecord) {
+	t.Helper()
+
+	require.NotEqual(t, target, effective,
+		"the two slot variants must tear DIFFERENT slots, or §3 row 7's torn-target state is never "+
+			"built and one of the two subtests is the other under a second name")
+
+	effSlot, targetSlot := slotFor(eff.Seq), slotFor(eff.Seq+1)
+
+	rec, state := classifySlot(effSlot.region(target), effSlot, deliveryChainDomain, deliveryChainSeed)
+	require.Equal(t, sealSlotValid, state,
+		"the target-slot variant must leave the EFFECTIVE record readable in slot %c: it tears the slot "+
+			"a seal write lands in, not the one the reader selects", effSlot)
+	require.Equal(t, eff, rec, "and that surviving record must be the very one selectSeal chose")
+	require.Equal(t, untorn[targetSlot.offset():targetSlot.offset()+deliverySealSlotRegion],
+		effective[targetSlot.offset():targetSlot.offset()+deliverySealSlotRegion],
+		"and the effective-slot variant must leave slot %c exactly as the crash left it", targetSlot)
+
+	_, state = classifySlot(effSlot.region(effective), effSlot, deliveryChainDomain, deliveryChainSeed)
+	require.NotEqual(t, sealSlotValid, state,
+		"the effective-slot variant must destroy the record the reader selects, in slot %c, or it is "+
+			"not rot of the newest slot at all", effSlot)
 }
 
 // tearImageSlot is image with slot torn in the v2 seal at rel, and nothing else changed.
