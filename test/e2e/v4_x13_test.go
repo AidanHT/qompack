@@ -18,12 +18,16 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/core"
 	"github.com/qompack/qompack/internal/ipc"
 	"github.com/qompack/qompack/internal/paths"
@@ -39,13 +43,171 @@ const (
 // comparable by construction.
 const x13v4Turns = 8
 
+// x13v4PendingDir is FSStore.beginPendingWrite's in-flight-Put registry, under .qompack/state
+// (internal/store/lifecycle.go, pendingWriteDir). One marker per running Put, named from six random
+// bytes, removed by pendingWrite.done once the root's index line has landed.
+const x13v4PendingDir = "pending"
+
+// x13v4QuiesceBound is how long a walk waits for the writes that are still running to finish.
+//
+// It is obsProcessAllowance — observer_e2e_test.go's PROCESSING half — because the writes this waits
+// on are precisely that work: §2.4 ACKs after the WAL append, so the store Put and the capture
+// sidecar of an accepted delivery are still running behind the hook that has already exited. Reusing
+// the bound that already reasons about this latency keeps one number for one mechanism instead of a
+// second hand-picked one racing it.
+const x13v4QuiesceBound = obsProcessAllowance
+
+// x13v4SettleBudgets is how many B-C budgets the settle window below spans. Four, so a co-loaded
+// runner that misses its budget several times over still settles, without the window becoming a
+// wall-clock assertion of its own — this row defers those to test/bench/hotpath on purpose.
+const x13v4SettleBudgets = 4
+
+// x13v4SettleWindow is how long .qompack/tmp and .qompack/state/pending must be seen empty
+// CONTINUOUSLY before a walk may start.
+//
+// One empty sample is not quiescence, and this is the correction a probe of this row forced. One
+// delivery's publication is a SEQUENCE of writes — the capture sidecar (ingest.go, publication
+// order stage 1), the index record, the reference LinkCaptureReference stamps back onto the sidecar
+// through paths.WriteAtomic (observer/tooluse.go step 6b), the object Put with its pending marker,
+// then the committed-frontier line (stage 3) — and .qompack/tmp is empty in every gap BETWEEN two of
+// them. WaitIndexed returns at stage 2, so the stages after it are still to come; a single-sample
+// check landed in one of those gaps, called the tree quiet, and the walk that followed then found a
+// tmp/wa-* staging file that had been created after the check. Requiring the directories to stay
+// empty across a window longer than any such gap is what makes the answer mean what it says.
+//
+// The window is x13v4SettleBudgets times the B-C budget (config's l0ProcessMs, "WAL to fully
+// chunked, stored, DAG/sketches updated") because that budget bounds the WHOLE of one delivery's
+// processing and therefore bounds every gap inside it by construction. Taking it from
+// config.Defaults keeps it moving with the budget rather than being a second number about the same
+// mechanism.
+var x13v4SettleWindow = x13v4SettleBudgets *
+	time.Duration(config.Defaults().Runtime.Budgets.L0ProcessMs) * time.Millisecond
+
+// x13v4QuarantineDir is the ONE subdirectory of .qompack/tmp that is not staging (internal/store's
+// fsstore.go, quarantineDir). It is excluded from the in-flight listing below on a category
+// argument, not on odds: a file in it is a corrupt object or an unparseable state file that the
+// store (objects.go) or the MCP promoter (mcp/promote.go) moved aside DELIBERATELY to preserve it.
+// Those bytes are finished output that is meant to stay, the exact opposite of a write in flight.
+// store.Open pre-creates the directory, so it is empty in a healthy run and costs nothing today —
+// but the first thing this test ever quarantines would otherwise make the wait below never settle
+// and every walk hard-fail at its deadline, blaming "writes still in flight" for a finished file.
+//
+// It is excluded from the QUIESCENCE PREDICATE only. The write-set walk still sees anything in it,
+// so a quarantined file remains a visible difference between the two arms.
+const x13v4QuarantineDir = "quarantine"
+
+// x13v4InFlight names every file under .qompack/tmp and .qompack/state/pending, as slash paths
+// relative to .qompack/. Both directories hold a file ONLY between the start and the end of a write
+// that is still running: .qompack/tmp is paths.WriteAtomic's staging area (create, sync, chmod,
+// rename onto the destination), and .qompack/state/pending is the in-flight-Put registry above.
+// An empty pair therefore means every write this daemon had begun has landed.
+func x13v4InFlight(root string) []string {
+	l := paths.Of(root)
+	out := x13v4FilesUnder(l.Dot, l.Tmp, filepath.Join(l.Tmp, x13v4QuarantineDir))
+	out = append(out, x13v4FilesUnder(l.Dot, filepath.Join(l.State, x13v4PendingDir))...)
+	sort.Strings(out)
+	return out
+}
+
+// x13v4FilesUnder lists every file under dir, recursively, as slash paths relative to dot, skipping
+// any directory named in skip. A directory that does not exist holds nothing — .qompack/tmp is
+// created by paths.EnsureLayout and .qompack/state/pending only by the first Put that registers a
+// marker.
+func x13v4FilesUnder(dot, dir string, skip ...string) []string {
+	entries, err := os.ReadDir(paths.Long(dir))
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, e := range entries {
+		p := filepath.Join(dir, e.Name())
+		if e.IsDir() {
+			if !slices.Contains(skip, p) {
+				out = append(out, x13v4FilesUnder(dot, p, skip...)...)
+			}
+			continue
+		}
+		if rel, relErr := filepath.Rel(dot, p); relErr == nil {
+			out = append(out, filepath.ToSlash(rel))
+		}
+	}
+	return out
+}
+
+// x13v4InFlightDirs names the distinct directories the given in-flight paths came from, so a
+// quiescence timeout says WHICH of the two watched directories was still non-empty instead of
+// leaving that to be read off the file names.
+func x13v4InFlightDirs(names []string) []string {
+	seen := map[string]bool{}
+	for _, n := range names {
+		seen[path.Dir(n)] = true
+	}
+	dirs := make([]string, 0, len(seen))
+	for d := range seen {
+		dirs = append(dirs, d)
+	}
+	sort.Strings(dirs)
+	return dirs
+}
+
+// x13v4Quiesce blocks until nothing is in flight under .qompack/, so every walk below — the before
+// snapshots as much as the after deltas, and both arms — reads a tree in which every write that had
+// started has finished.
+//
+// This is the second half of §4.13's fixture being made deterministic, and it deliberately WAITS
+// rather than EXCLUDES. A staging file caught between create and rename, or a pending-write marker
+// caught between Put and index line, is a coin flip on whether a walk sees it — but skipping those
+// two directories would also hide a real finding, because a wave-3 resident that caused one extra
+// Put would announce itself as exactly one extra marker and one extra staging file. So the fixture
+// waits for the writes to land and then compares everything, instead of agreeing not to look.
+//
+// Applying it to the before snapshots matters as much as to the after walks: a before snapshot taken
+// mid-write records a staging file that the burst then renames away, and the delta reports a
+// "change" that belongs to the setup. That is the same asymmetry in a different place.
+//
+// A wait that expires FAILS, naming what was still in flight. A timeout is never close enough here:
+// it means the walk that follows would have compared a tree mid-write, which is the whole defect
+// this removes.
+func x13v4Quiesce(t *testing.T, root string) {
+	t.Helper()
+	deadline := time.Now().Add(x13v4QuiesceBound)
+	var lastSeen []string
+	var emptySince time.Time
+	for {
+		inflight := x13v4InFlight(root)
+		now := time.Now()
+		if len(inflight) > 0 {
+			lastSeen, emptySince = inflight, time.Time{}
+		} else {
+			if emptySince.IsZero() {
+				emptySince = now
+			}
+			if now.Sub(emptySince) >= x13v4SettleWindow {
+				return
+			}
+		}
+		if now.After(deadline) {
+			require.FailNowf(t, "writes were still in flight when the tree was due to be walked",
+				"in %s, .qompack/tmp and .qompack/state/%s were never both empty for %s within %s. What "+
+					"was still in flight last sat under %v: %v. A walk now would compare a tree mid-write, "+
+					"so this fails rather than walking anyway.",
+				root, x13v4PendingDir, x13v4SettleWindow, x13v4QuiesceBound,
+				x13v4InFlightDirs(lastSeen), lastSeen)
+		}
+		time.Sleep(obsProcessTick)
+	}
+}
+
 // x13v4WriteSet returns every path under .qompack/ whose existence or size changed between before
 // and after, as slash-relative names with volatile per-run components normalized away.
 //
 // It is a SET of names, never sizes: the two arms store different session ids and different tool
 // use ids, so byte counts legitimately differ while the SHAPE of what the hot path touches must not.
+//
+// It quiesces first: what it must not report is a write that had merely not finished yet.
 func x13v4WriteSet(t *testing.T, root string, before map[string]int64) []string {
 	t.Helper()
+	x13v4Quiesce(t, root)
 	out := map[string]bool{}
 	dot := paths.Of(root).Dot
 	err := filepath.WalkDir(paths.Long(dot), func(p string, d fs.DirEntry, werr error) error {
@@ -165,8 +327,12 @@ func x13v4CaptureCount(t *testing.T, root string, sess core.SessionID, before ma
 }
 
 // x13v4Existing lists what is already under .qompack/ so the write set is a DELTA.
+//
+// It quiesces first, for the same reason x13v4WriteSet does: a baseline taken while a write is still
+// running is a baseline of a tree that does not exist a millisecond later.
 func x13v4Existing(t *testing.T, root string) map[string]int64 {
 	t.Helper()
+	x13v4Quiesce(t, root)
 	out := map[string]int64{}
 	dot := paths.Of(root).Dot
 	_ = filepath.WalkDir(paths.Long(dot), func(p string, d fs.DirEntry, werr error) error {

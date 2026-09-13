@@ -262,6 +262,16 @@ func (r *v4Rig) SeedTurns(t *testing.T, sess core.SessionID, prefix string, n in
 
 // WaitIndexed waits until index/tool_use.jsonl holds at least want records, driving Drain rather
 // than waiting on the daemon's own 30 s idle backstop.
+//
+// It drives exactly ONE Drain unconditionally before it first looks at the index, and that is not
+// an optimization — it is what makes the wait symmetric. The loop below evaluates its condition
+// first, so a wait whose records the async ingest had already published drives NO Drain at all
+// while a slower one drives several; and every Drain rewrites state/drain.json with advanced
+// offsets (internal/daemon/drain.go, saveState). §4.13 compares the write sets of two arms that
+// both come through here, so without this the file's membership in each arm's delta is a timing
+// coin flip in the fixture rather than anything about the hot path — which is exactly how that row
+// failed, in both directions. Draining once up front puts both arms on the same drain path:
+// state/drain.json lands in both deltas or in neither, and the comparison is unaffected either way.
 func (r *v4Rig) WaitIndexed(t *testing.T, want int) {
 	t.Helper()
 	ctx := context.Background()
@@ -269,6 +279,7 @@ func (r *v4Rig) WaitIndexed(t *testing.T, want int) {
 	defer ticker.Stop()
 	timeout := time.NewTimer(obsProcessBound)
 	defer timeout.Stop()
+	_, _ = r.D.Drain(ctx)
 	for len(obsToolUseLines(r.P.Root)) < want {
 		_, _ = r.D.Drain(ctx)
 		if len(obsToolUseLines(r.P.Root)) >= want {
