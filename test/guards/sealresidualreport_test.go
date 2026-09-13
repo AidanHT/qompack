@@ -24,12 +24,23 @@ import (
 //
 // reportSealDowngradeResidual is what turns it into a signal, and the three Release sites in
 // daemon.go are what call it. Two of those three cannot be reached behaviourally at all: Run's
-// mid-startup and listen-failure aborts release a lock that has never opened a delivery journal
-// (openDeliveryJournal at internal/daemon/delivery_lease.go:209 is the only assignment of
-// Lock.journal, and ingest has not started at either point), so their residual is structurally nil
-// and a value test there asserts the absence of a line that could never appear. Delete both calls
-// and every BEHAVIOURAL test still passes — measured, not assumed, and re-measured with this file in
-// the tree: internal/daemon stays green and the Run row below is what fails.
+// mid-startup and listen-failure aborts release a lock that has never opened a delivery journal,
+// so their residual is structurally nil and a value test there asserts the absence of a line that
+// could never appear.
+//
+// Lock.journal has exactly one assignment, inside openDeliveryJournal (declared at
+// internal/daemon/delivery_lease.go:146, assigned at :209), and the one route to that function is
+// daemon.deliveryJournal — called only by the ingest's and the drainer's lease and acknowledge,
+// each of which needs an accepted request or a Drain pass. Neither abort can have had either. The
+// first runs before ing.Start, with no workers, no drainer and no server. The second runs AFTER
+// ing.Start, which is why "ingest has not started" is the wrong reason for it: Start only spawns
+// workers that block on an empty ring, the endpoint whose bind just failed never existed for a
+// request to arrive on, the startup Drain is past that failure, and the re-drain blocks on
+// firstServed, which only a dispatched request closes.
+//
+// Delete both calls and every BEHAVIOURAL test still passes — measured, not assumed, and
+// re-measured with this file in the tree: internal/daemon stays green and the Run row below is what
+// fails.
 //
 // So the wiring is pinned structurally, the way sharedreaders_test.go pins a property no value test
 // can see. internal/daemon's TestDeliverySeal_AResidualReachesTheOperatorFromStop owns the other
