@@ -77,11 +77,22 @@ const (
 	deliveryAckPositionFile = "delivery-ack-position.json"
 )
 
-// backupLiveWriterFiles are the copied files a running daemon can change under the walk, as
-// slash-relative names under .qompack. The two journals are here as well as the two sidecars:
-// they are append-only, so a copy of one can hold a torn tail, and a journal captured before a
-// sidecar that seals more bytes than the copy holds is the "inconsistent live pair" the same risk
-// row names. Nothing else in the tree has a writer outside the single writer lease.
+// backupLiveWriterFiles are the DELIVERY-state files a running daemon can change under the walk, as
+// slash-relative names under .qompack. The two journals are here as well as the two sidecars: they
+// are append-only, so a copy of one can hold a torn tail, and a journal captured before a sidecar
+// that seals more bytes than the copy holds is the "inconsistent live pair" the same risk row names.
+//
+// It is NOT every file with a writer outside the single writer lease, and the guard does not claim
+// to be. internal/daemon takes no store lease at all, and the walk also copies index/tool_use.jsonl
+// (RecordToolUse), spool/wal-*.ndjson and spool/client-*.ndjson (the latter written by the hook
+// client, a third process), records/captures/** and objects/** (WriteCaptureSidecar), and
+// state/drain.json. Those tails are tolerated for the reason the store already tolerates them
+// everywhere else: each is append-only or replaced whole, so the worst a mid-copy read captures is a
+// short prefix, and a reader of the restored tree discards an incomplete trailing line rather than
+// failing. The delivery seals are the exception this list exists for — since SP20-D1 step 2 they are
+// rewritten IN PLACE, so a mid-write copy is neither the old record nor the new one, and the
+// daemon's own reader refuses such an image OUTRIGHT rather than reading a prefix of it, which takes
+// the restored project's delivery journal with it (risk R10).
 var backupLiveWriterFiles = []string{
 	"state/" + deliveryLeaseFile,
 	"state/" + deliveryAckFile,
@@ -104,15 +115,21 @@ type BackupManifest struct {
 	Root    string         `json:"root"`
 	TakenAt core.UnixMilli `json:"taken_at"`
 	// Consistent records that the backup was taken while this process held the single writer
-	// lease, after the store had been flushed, and with every file a writer outside that lease
-	// can touch (backupLiveWriterFiles) unchanged from the first byte copied to the last — which
-	// is what makes it a consistent backup rather than a copy of a moving target.
+	// lease, after the store had been flushed, and with the project's DELIVERY state
+	// (backupLiveWriterFiles) unchanged from the first byte copied to the last — which is what makes
+	// it a consistent backup rather than a copy of a moving target.
 	//
 	// The third condition is not redundant. The writer lease excludes other STORE writers only:
 	// internal/daemon takes no store lease and, since SP20-D1 step 2, rewrites its delivery-seal
 	// sidecars in place while it serves. TakeBackup returns ErrBackupMoved rather than writing a
 	// manifest when that condition fails, so this field is never true of a copy the daemon moved
 	// under.
+	//
+	// It is scoped to the delivery state deliberately, and the scope is the honest one: the daemon
+	// writes several other copied files with no store lease either (backupLiveWriterFiles names
+	// them), and a mid-copy capture of those is a short append-only tail a reader steps over, not a
+	// file its reader refuses. This field does not promise they were quiet. A backup taken with the
+	// daemon stopped is the only thing that does, which is what the ErrBackupMoved advice says.
 	Consistent bool `json:"consistent"`
 	// SnapshotID and Frontier record where the migration stood when the backup was taken, so a
 	// restore can be reasoned about against the import.
@@ -128,10 +145,12 @@ func (m *Migrator) backupDir(id string) string { return filepath.Join(m.l.Backup
 // Consistency comes from four things, in this order: the single writer lease is held for the
 // whole copy, so no other STORE writer is running; the store is flushed first, so buffered writes
 // are on disk before anything is read; every copied byte is hashed as it is written, so the
-// manifest describes what was actually captured rather than what was intended; and the files a
-// writer outside that lease can touch are re-read at the end and must still hold exactly what was
+// manifest describes what was actually captured rather than what was intended; and the project's
+// delivery state (backupLiveWriterFiles) is re-read at the end and must still hold exactly what was
 // captured (refuseIfTheProjectMoved), so a daemon that sealed a delivery under the walk fails the
-// backup instead of being recorded as consistent.
+// backup instead of being recorded as consistent. That last condition covers the delivery state and
+// says so: the other files a daemon writes without a store lease are append-only tails a reader
+// steps over, and backupLiveWriterFiles names them and why.
 //
 // A backup id is claimed exactly once. A second TakeBackup under the same id is os.ErrExist, not
 // an overwrite: a backup is evidence, and silently replacing evidence is the failure mode the
