@@ -93,15 +93,48 @@ func connectDeadlineMsDefault() int {
 //
 // SP20-D1 design §7.5's M2 protocol, run on this host on AC power inside an attested quiet window,
 // against the shipped deliverySealWriteFormat = 2 build: `devtool bench-hotpath --iterations 2000
-// --warm-daemon`, three times, one process at a time. B-B p99 came back 22.528, 20.480 and
-// 11.264 ms, so P — the maximum of the three, per the protocol — is 22.528 ms, and
+// --warm-daemon`, one process at a time.
 //
-//	L0IngestMs = roundup5(1.25 x P) = roundup5(28.16) = 30
+// The protocol asks for three runs. Three runs gave P = 22.528 ms and so L0IngestMs = 30, and an
+// acceptance pass at 30 was green three times over. That number did not survive contact with more
+// evidence, and the way it failed is the reason this comment is long.
+//
+// Across the nine runs available at that point the worst B-B p99 was 28.672 ms against a limit of
+// 30: a margin of 4.6 %. A gate sitting that close to the worst thing it has ever seen fails on
+// host noise, and a gate that fails on host noise gets switched off — which is a worse outcome than
+// having no gate, and is the failure mode 00-ARCHITECTURE.md's own bench-compare note describes
+// from the other direction. So six further gated runs were taken at the committed 30, under a rule
+// fixed BEFORE they ran: all six pass and 30 stands; any one fails and P is re-derived from every
+// attested run. One failed, at p99 36.864 ms on a clean window (processor performance 152 %,
+// foreign load 5.6 %).
+//
+// Fifteen runs, twelve of them inside an attested window, give these B-B p99 values in ms:
+//
+//	11.264  11.264  11.264  12.288  13.312  18.432  18.432  20.480
+//	20.480  22.528  22.528  24.576  24.576  28.672  36.864
+//
+// so P — the maximum, per the protocol, now over a sample large enough to contain its own tail — is
+// 36.864 ms, and
+//
+//	L0IngestMs = roundup5(1.25 x P) = roundup5(46.08) = 50
+//
+// # What this number is, and what it is not
 //
 // A second, independent instrument agrees on the underlying cost: BenchmarkIngestAcceptLeased's
 // median is 7.306 ms, and M0's per-component figures predict 7.2 ms for one uncontended delivery
-// (WAL Sync 2.243 + journal Sync 2.197 + seal slot 2.305 + about 0.4 ms of non-flush work). 30 ms
-// is therefore about 4x an uncontended Accept; the gap is the p99 tail, not slack in the budget.
+// (WAL Sync 2.243 + journal Sync 2.197 + seal slot 2.305 + about 0.4 ms of non-flush work). So 50 is
+// nearly seven times an uncontended Accept, and none of that gap is slack in the delivery path:
+// that path has a ±7 % spread across six runs, while B-B's p50 alone moves between 7.168 and
+// 15.360 ms run to run because the harness is starting 2 000 processes beside it — the spawn floor
+// is p50 22.3 ms, p99 77.1 ms.
+//
+// The honest consequence, recorded here so nobody reads more into a green B-B than it carries:
+// **B-B is a coarse backstop, not a sensitive regression detector.** It catches a delivery path
+// that has become several times slower. It cannot see a 2x regression, because host noise already
+// reaches 36 ms. The sensitive instrument is BenchmarkIngestAcceptLeased, whose ±7 % spread would
+// show a 2x regression immediately, and the durability invariant is carried by the structural gates
+// T9, T10 and T14, which have no clock in them at all. Gating the benchmark is the obvious V6
+// follow-up and is not done here.
 //
 // # Linux and darwin are PROVISIONAL
 //
@@ -114,7 +147,7 @@ func connectDeadlineMsDefault() int {
 // still reports the numbers needed to re-price them.
 const (
 	L0IngestMsPortable = 15
-	L0IngestMsWindows  = 30
+	L0IngestMsWindows  = 50
 	L0IngestMsDarwin   = 40
 )
 
@@ -135,13 +168,20 @@ const (
 // # The derivation (2026-09-13, Windows)
 //
 // Design §7.5: AckDeadlineMs = L0IngestMs + ceil(slack99), where slack99 is the largest per-run
-// p99(hook_ack_rtt) - p99(B-B) across the same three M2 runs L0IngestMsWindows rests on.
+// p99(hook_ack_rtt) - p99(B-B) across the same attested runs L0IngestMsWindows rests on.
 // hook_ack_rtt is the reported-only row that times the same delivery from OUTSIDE the daemon
 // (test/bench/hotpath/report.go's budgetIDHookAckRTT), so the difference is exactly what this
 // deadline must cover beyond the durable path itself: the pipe read, dispatchOp up to Accept, the
 // ACK write and the client's wake-up. Measured slack99 = 22.257 ms, so
 //
-//	AckDeadlineMs = 30 + ceil(22.257) = 53
+//	AckDeadlineMs = 50 + ceil(22.257) = 73
+//
+// The largest hook_ack_rtt p99 observed across those runs is 33.666 ms, so 73 clears the worst
+// measured round trip by better than a factor of two. That direction is deliberate. A deadline set
+// too short does not lose data — the daemon has already accepted the delivery — it makes the hook
+// spool a duplicate of finished work, which is SP05-D2 itself; a deadline set too long only delays
+// noticing a daemon that is already wedged, and B-A (p99 3-6 ms against a 15 ms budget in these
+// same runs) is what actually bounds what a user waits for.
 //
 // internal/cli's hookSendDeadlineFloor (8 ms) is a different thing and does not move with this: it
 // exists so a corrupt or zero-valued state record cannot reach Send as literally 0, and it now sits
@@ -155,7 +195,7 @@ const (
 // may have to rise.
 const (
 	AckDeadlineMsPortable = 17
-	AckDeadlineMsWindows  = 53
+	AckDeadlineMsWindows  = 73
 	AckDeadlineMsDarwin   = 45
 )
 
