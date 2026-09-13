@@ -179,7 +179,7 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 		// dispossessed between the two seals must not tell an operator to rerun a command the daemon
 		// that took the project now refuses.
 		if err := o.holdsLock(lock, "before converting the "+sides[i].name+" seal"); err != nil {
-			return halfConverted(err, sides[:i], "stopping that daemon and rerunning converts what is left")
+			return halfConverted(err, sides[:i], rerunAdvice(err))
 		}
 		if err := o.convert(&sides[i]); err != nil {
 			return halfConverted(err, sides[:i], "rerunning the same command converts only what is left")
@@ -197,11 +197,13 @@ func (o DeliverySealOptions) run(lock *Lock) error {
 // converts what is left. The error says so, rather than leaving an operator to infer it from the
 // report.
 //
-// next is what to do about the rest, and the caller chooses it because the two failures differ in
+// next is what to do about the rest, and the caller chooses it because the failures differ in
 // exactly that: a failed write leaves the project to this operator, while a run dispossessed
 // mid-conversion leaves it to the daemon that took it, which refuses the same rerun with
-// ErrLockHeld until it is stopped. done is what was converted before the failure; an empty done is
-// the first seal's own failure, which leaves nothing of the kind to say.
+// ErrLockHeld until it is stopped. A run whose own heartbeat failed has no such daemon to stop and
+// is told to rerun, which rerunAdvice decides from the refusal itself. done is what was converted
+// before the failure; an empty done is the first seal's own failure, which leaves nothing of the
+// kind to say.
 func halfConverted(err error, done []deliverySealSide, next string) error {
 	if len(done) == 0 {
 		return err
@@ -231,13 +233,51 @@ func halfConverted(err error, done []deliverySealSide, next string) error {
 // one call: Heartbeat refuses unless owned() still holds, and it refreshes the very mtime the
 // staleness protocol reads, which shrinks the window instead of only reporting it afterwards. A
 // heartbeat that cannot be written is a lock this run cannot keep either, so it refuses too.
+//
+// The two refusals are worded apart, because they send an operator to different places. Heartbeat
+// fails for two unrelated reasons — the lock file no longer names this acquisition, and the write
+// of daemon.hb itself failing (the run directory removed under the tool, os.Chtimes denied, an
+// anti-virus or backup agent holding the file) — and only the FIRST means a daemon owns the
+// journals now. Telling an operator to stop a daemon that is not there, while the rerun that would
+// actually work goes unmentioned, is the same class of wrong advice halfConverted's `next` clause
+// was split to avoid, one layer down.
+//
+// The discriminator is the lock file itself, not the error: a daemon that started meanwhile has
+// WRITTEN a lock file naming its own acquisition, so "a readable lock file that is not ours" is a
+// takeover and everything else — our own lock file still there, or no lock file at all — is this
+// run losing a lock nobody else took. Only the first carries errDaemonTookTheProject, which is what
+// the conversion loop reads to choose its advice.
 func (o DeliverySealOptions) holdsLock(lock *Lock, doing string) error {
-	if err := lock.Heartbeat(); err != nil {
-		return fmt.Errorf("%s: %s: this process no longer owns the daemon lock in %s; a daemon that "+
-			"started meanwhile owns the journals now, and this step was refused rather than written: %w",
-			deliverySealToolName, doing, o.ProjectRoot, err)
+	err := lock.Heartbeat()
+	if err == nil {
+		return nil
 	}
-	return nil
+	if _, present := readLockFile(lock.path); present && !lock.ownedByFile() {
+		return fmt.Errorf("%s: %s: this process no longer owns the daemon lock in %s; a daemon that "+
+			"started meanwhile owns the journals now, and this step was refused rather than written: "+
+			"%w: %w", deliverySealToolName, doing, o.ProjectRoot, errDaemonTookTheProject, err)
+	}
+	return fmt.Errorf("%s: %s: this run can no longer vouch for the daemon lock in %s — no other "+
+		"daemon has taken the project, but its own heartbeat could not be written, so the lock may be "+
+		"judged stale and reclaimed under it. This step was refused rather than written: %w",
+		deliverySealToolName, doing, o.ProjectRoot, err)
+}
+
+// errDaemonTookTheProject marks the holdsLock refusal that means another daemon owns the journals
+// now, as opposed to one whose own heartbeat merely could not be written. The advice differs by
+// exactly that, and nothing else in this file branches on it.
+var errDaemonTookTheProject = errors.New(deliverySealToolName + ": a daemon owns the journals now")
+
+// rerunAdvice is what to do about the seals a dispossessed run did not convert.
+//
+// A run the daemon took the project from must not tell an operator to rerun the same command: the
+// rerun is refused with ErrLockHeld until that daemon is stopped. A run that merely could not
+// heartbeat has no such daemon to stop, and the same command is exactly what finishes the pair.
+func rerunAdvice(err error) string {
+	if errors.Is(err, errDaemonTookTheProject) {
+		return "stopping that daemon and rerunning converts what is left"
+	}
+	return "rerunning the same command converts what is left"
 }
 
 // deliverySealSide is one journal and the seal that seals it: the unit the tool checks and converts.
