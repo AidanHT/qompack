@@ -126,17 +126,23 @@ const budgetIDBASpawnEstimate = "B-A_spawn_estimate"
 // and nightly still judge it, in the isolation where a wall-clock SLO is judgeable at all, and the
 // whole-tree run — where it never was — judges the CPU one.
 //
-// B-A is waived by the same flag on the same reasoning (baWallWaivedNote), with one difference:
-// there is no CPU row to move its judgement to. B-A is a latency across a process boundary —
-// recvTS in the daemon minus reqTS stamped in the spawned hook — and a child's scheduling wait
-// under co-load is inside that interval but on nobody's CPU clock. So --under-coload leaves B-A
-// judged only by the runs that do not pass it, while B-B — the daemon's own ingest.Accept, with no
-// process boundary inside it — stays gated everywhere. B-B is NOT co-load-resistant, and the older
-// wording here that called it so has been corrected: since f6a8691 that region carries three
-// flushes (the WAL Sync, the lease journal's Sync and the seal), which co-load moves like anything
-// else. Whether it should keep a single gate in both shapes is the owner's open question Q3
-// (SP20-D1 design §7.6, and parseFlags's own --under-coload comment in main.go); until that ruling
-// its behaviour here is unchanged.
+// B-A and B-B are waived by the same flag on the same reasoning (baWallWaivedNote,
+// bbWallWaivedNote), with one difference from B-E: neither has a CPU row to move its judgement to,
+// so --under-coload leaves both judged only by the runs that do not pass it.
+//
+// For B-A that is because it is a latency across a process boundary — recvTS in the daemon minus
+// reqTS stamped in the spawned hook — and a child's scheduling wait under co-load is inside that
+// interval but on nobody's CPU clock. For B-B (the owner's Q3 ruling, 2026-09-13) it is because the
+// paragraph above applies to it in full and then some: B-B has no child process, so this row's own
+// mechanism does not reach it; obs.ProcessCPU is a cumulative whole-process counter quantised to
+// Windows's 15.625 ms scheduler tick (internal/obs/cpu_windows.go), which cannot bracket one
+// in-daemon request against a limit in the low tens of milliseconds; and what inflates B-B is
+// precisely the blocked time this clock cannot see — since f6a8691 that region carries three
+// flushes (the WAL Sync, the lease journal's Sync and the seal), and an fsync costs no CPU at all.
+// B-B is NOT co-load-resistant, and the older wording here that called it so has been corrected.
+// See parseFlags's --under-coload comment (main.go) for the ruling, its sequencing and what it
+// costs, and SP20-D1 design §7.6 for the option it selected. internal/obs/budgets.go's B-B entry
+// keeps Gated: true throughout — only the co-loaded RUN reports.
 const budgetIDBECPU = "B-E_cpu"
 
 // budgetIDHookAckRTT is the client-side ACK round trip: the reported-only row SP20-D1 design §7.5
@@ -170,14 +176,39 @@ func beWallWaivedNote(limit time.Duration) string {
 // baWallWaivedNote is the artifact's own disclosure for a --under-coload run's B-A row, in the
 // same shape as beWallWaivedNote: the row is a MEASUREMENT and not a judgement, and the note names
 // the limit that was not applied, the evidence that a co-loaded sample does not measure the hook,
-// the row that is still gated in this run (B-B), and every run that still judges B-A. B-A is the
-// daemon-observed hook_controlled estimate (recvTS − reqTS + tail allowance): reqTS is stamped
-// inside the spawned hook process, so the interval contains the child's scheduling wait under
-// co-load, and there is no CPU-time analogue of a cross-process latency to gate instead.
+// and every run that still judges B-A. B-A is the daemon-observed hook_controlled estimate
+// (recvTS − reqTS + tail allowance): reqTS is stamped inside the spawned hook process, so the
+// interval contains the child's scheduling wait under co-load, and there is no CPU-time analogue of
+// a cross-process latency to gate instead.
+//
+// It still names B-B, but no longer as the row that is gated beside it: the Q3 ruling (parseFlags,
+// main.go) made B-B reported under this flag too, so the note says what B-B's figures below were
+// taken as at the time and where to read its own waiver instead. A reader must not be able to take
+// a historical control for a live gate.
 func baWallWaivedNote(limit time.Duration) string {
 	return fmt.Sprintf(
-		"%s's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and %s is the daemon-observed hook_controlled estimate (recvTS - reqTS + tail allowance) whose reqTS is stamped inside the spawned hook process, so under co-load the interval contains the child's scheduling wait — a cross-process latency with no CPU-time analogue to gate instead (on windows-latest, one commit: bench-gate, harness alone on its runner, measured this row's p99 at 3.072ms; two whole-tree test-job runs minutes apart measured 11.264ms then 18.432ms against the %.0fms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms and %s, which contains no process spawn, moved only 0.576 → 0.768 / 0.704ms). %s is still gated in this run. The %.0fms limit is still enforced on %s by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, and ci.yml's test-e2e job, where X-11 runs alone",
-		obs.BA, obs.BA, msf(limit), obs.BB, obs.BB, msf(limit), obs.BA)
+		"%s's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and %s is the daemon-observed hook_controlled estimate (recvTS - reqTS + tail allowance) whose reqTS is stamped inside the spawned hook process, so under co-load the interval contains the child's scheduling wait — a cross-process latency with no CPU-time analogue to gate instead (on windows-latest, one commit: bench-gate, harness alone on its runner, measured this row's p99 at 3.072ms; two whole-tree test-job runs minutes apart measured 11.264ms then 18.432ms against the %.0fms limit, while the spawn floor's p50 went 12.954 → 24.431 / 23.143ms). %s moved only 0.576 → 0.768 / 0.704ms in those same runs and was read then as the co-load-robust control; it is not one any more — since f6a8691 its region carries three fsyncs — and it is REPORTED in this run too, under its own note. The %.0fms limit is still enforced on %s by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job, and its test-e2e job, where X-11 runs alone",
+		obs.BA, obs.BA, msf(limit), obs.BB, msf(limit), obs.BA)
+}
+
+// bbWallWaivedNote is the artifact's own disclosure for a --under-coload run's B-B row, in the same
+// shape as beWallWaivedNote and baWallWaivedNote: the row is a MEASUREMENT and not a judgement, and
+// the note names the limit that was not applied, why no CPU clock can take the judgement instead,
+// and every lane that still applies the limit — bench-gate, nightly bench-deep, ci.yml's timing job
+// and its test-e2e job. It also names what still holds in THIS run, because the honest answer for
+// B-B is not "another row" but "the structural gates": design §6.2's T9, T10 and T14 are
+// co-load-immune and run in every lane.
+//
+// The note deliberately does not spell budgetIDBECPU: B-E_cpu is the row that still enforces B-E's
+// limit here, and test/integration and test/e2e look for that id in the notes to prove B-E's waiver
+// was disclosed. A second, unrelated mention would make that assertion satisfiable by this note.
+//
+// See parseFlags's --under-coload comment (main.go) for the ruling itself, its sequencing (the
+// re-budget came first, deliberately) and what the waiver costs.
+func bbWallWaivedNote(limit time.Duration) string {
+	return fmt.Sprintf(
+		"%s's row is REPORTED, not gated, for this run: --under-coload declares that the harness shares its host with unrelated concurrent work, and %s times the daemon's own ingest.Accept in full — a region that has carried three fsyncs (the WAL Sync, the lease journal's Sync and the seal) since f6a8691 made the delivery path durable, so co-load moves it like any other wall-clock cost (the last full parallel pass measured this row's p99 at 14.3 / 28.7 / 53.2ms against the %.0fms limit, while three runs of the same build inside an attested quiet window measured 20.480 / 12.288 / 20.480ms). There is no CPU-time analogue to gate instead: %s has no child process, so the user+system time of a spawned child cannot be read for it; obs.ProcessCPU is a cumulative whole-process counter summed over every thread, quantised to Windows's 15.625ms scheduler tick (internal/obs/cpu_windows.go), so a single-request bracket against a limit in the low tens of milliseconds reads exact zero, which that file requires be treated as a FAILED measurement; and what inflates this row is fsync — blocked time that costs no CPU at all. The %.0fms limit is still enforced on %s by every run that does NOT pass --under-coload — bench-gate, nightly bench-deep, ci.yml's timing job (which runs test/integration's hot-path test alone by name) and its test-e2e job, where X-11 runs alone — and the co-load-immune structural gates T9, T10 and T14 (one sync per batch, check-then-append order, zero releases before the seal; internal/daemon's delivery group-commit tests) run in every lane regardless. This is ADR 0010's fallback branch applied to a row its enumeration misclassified, per SP20-D1 design section 7.6's Q3; internal/obs/budgets.go still marks %s Gated, and only this RUN reports it",
+		obs.BB, obs.BB, msf(limit), obs.BB, msf(limit), obs.BB, obs.BB)
 }
 
 // GateFailed reports whether any GATED budget (a non-nil Pass) reports false. B-D's Pass is

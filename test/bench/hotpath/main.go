@@ -156,37 +156,81 @@ func parseFlags(args []string, errw io.Writer) (flags, error) {
 	// --under-coload is a statement about the RUN'S ENVIRONMENT, not a switch on a gate, and it is
 	// spelled that way on purpose: the caller declares a fact only the caller knows (this harness
 	// is sharing its host with unrelated concurrent work), and the harness derives the one
-	// consequence that fact has — the two rows whose samples span a process boundary, the
-	// wall-clock B-E row and B-A, become measurements rather than judgements, each disclosed in
-	// the artifact by its own note (beWallWaivedNote, baWallWaivedNote). Nothing else changes:
-	// the CPU-time B-E gate (budgetIDBECPU) and B-B are still hard, and every invocation that
-	// does not pass it — bench-gate's and nightly bench-deep's `devtool bench-hotpath` lines,
-	// ci.yml's test-e2e job, and a bare local run — keeps every gate it has always had, byte for
-	// byte. Default false so that forgetting it can only ever make a run STRICTER.
+	// consequence that fact has — the three wall-clock rows a co-loaded host inflates without the
+	// product changing (the wall-clock B-E row, B-A, and since the Q3 ruling below B-B) become
+	// measurements rather than judgements, each disclosed in the artifact by its own note
+	// (beWallWaivedNote, baWallWaivedNote, bbWallWaivedNote). Nothing else changes: the CPU-time
+	// B-E gate (budgetIDBECPU) is still hard, every entry in internal/obs/budgets.go keeps its own
+	// Gated flag untouched, and every invocation that does not pass this flag — bench-gate's and
+	// nightly bench-deep's `devtool bench-hotpath` lines, ci.yml's test-e2e and timing jobs, and a
+	// bare local run — keeps every gate it has always had, byte for byte. Default false so that
+	// forgetting it can only ever make a run STRICTER.
 	//
 	// The evidence for B-A is CI's own, on windows-latest, one commit: the B-A row measured p99
 	// 3.072 ms in bench-gate (harness alone on its runner) and 11.264 ms then 18.432 ms in two
 	// whole-tree `test` job runs minutes apart (limit 15 ms), while the spawn floor's p50 went
-	// 12.954 → 24.431 / 23.143 ms and B-B — which contains no process spawn — moved only
-	// 0.576 → 0.768 / 0.704 ms. B-A is the daemon-observed hook_controlled estimate (recvTS −
+	// 12.954 → 24.431 / 23.143 ms. B-A is the daemon-observed hook_controlled estimate (recvTS −
 	// reqTS + tail allowance): reqTS is stamped inside the spawned hook process, so the interval
 	// contains the child's scheduling wait under co-load, and there is no CPU-time analogue of a
 	// cross-process latency.
 	//
-	// B-B stays gated under this flag, and the reason recorded here for it is now STALE. The
-	// premise was that B-B "contains no process spawn" and so barely moves under co-load, measured
-	// as 0.576 → 0.768 ms above. That measurement predates f6a8691: B-B times ingest.Accept in
-	// full, and since the delivery path became durable that region contains three flushes (the WAL
-	// Sync, the lease journal's Sync and the seal), each of which co-load moves by roughly the
-	// factor the figures above show for everything else. SP20-D1 design §7.6 prices both ways out —
-	// one co-load-sized limit, or ADR 0010's report-and-judge-in-isolation with the co-load-immune
-	// structural gates carrying the invariant — and the choice is the owner's open question Q3.
-	// Until that ruling this flag's behaviour is UNCHANGED: B-B is gated in both shapes, exactly as
-	// it has been. Only the reason above is corrected, so the next reader does not inherit a
-	// premise the durable path retired.
+	// B-B is REPORTED under this flag too, by the owner's Q3 ruling of 2026-09-13, and the reason
+	// is the rule ADR 0010 already carries rather than a new exception to it.
+	//
+	// docs/adr/0010-wall-clock-under-coload.md:65-78 gives the declaration two branches, not one:
+	// move a cost judgement to the process's own CPU clock and keep gating on it, OR — where the
+	// property is intrinsically wall-clock and no such clock exists — report the measurement and
+	// name the job that still applies the limit. B-B's CPU branch is not merely unbuilt, it is
+	// unbuildable to any useful standard:
+	//
+	//   - B-B has no child process, so B-E's CPU arm's mechanism (ProcessState.UserTime() +
+	//     SystemTime() after cmd.Run(), process.go's spawnSamples) does not reach it.
+	//   - obs.ProcessCPU is a cumulative WHOLE-PROCESS counter summed over every thread, so it
+	//     cannot isolate one request from the daemon's concurrent goroutines, and
+	//     internal/obs/cpu_windows.go:21-25 documents 15.625 ms scheduler-tick quantisation:
+	//     against a budget in the low tens of milliseconds a single-request bracket reads exact
+	//     zero, which those same comments require be treated as a FAILED measurement rather than
+	//     as a fast one.
+	//   - Most decisively, what inflates B-B is fsync — blocked time, costing no CPU at all.
+	//     budgetIDBECPU's own doc comment (report.go) already concedes this for the general case.
+	//     A B-B_cpu row would be a near-vacuous gate: it would pass through exactly the regression
+	//     it was added to catch.
+	//
+	// So the rule's own fallback branch is the branch that applies, and SP20-D1 design §7.6
+	// (plans/sdd/V4-SP-20-capture-storage-and-state-remediation/sp20d1-design-final.md) recommends
+	// precisely this option — its (b) — over its (a), sizing one limit from co-load instead.
+	//
+	// What is NOT the reason. ADR 0010's ENUMERATION puts B-B on the gated side and cites it as the
+	// co-load-robust control ("the in-daemon half that contains no process spawn, barely moves",
+	// tabulated at 0.576 → 0.768 / 0.704 ms in the same runs as the B-A figures above). That
+	// classification has been falsified: B-B times ingest.Accept in full, and since f6a8691 made
+	// the delivery path durable that region carries three flushes (the WAL Sync, the lease
+	// journal's Sync and the seal), each of which co-load moves by roughly the factor those same
+	// figures show for everything else. The stale half is the enumeration, not the rule; applying
+	// the rule to a row the enumeration misclassified finishes ADR 0010 rather than amending it.
+	//
+	// And what this is not allowed to be: a red row moved to reported-only to make it green. The
+	// ruling's own precondition was that B-B be green in ISOLATION against a decided limit FIRST,
+	// so the waiver is left doing only its own work. That precondition was met before this landed —
+	// 5d0b904 then cbfa3d3 re-budgeted runtime.budgets.l0IngestMs from measurement (50 ms on
+	// Windows; 15 linux, 40 darwin, provisional pending CI), and at those committed defaults three
+	// runs inside an attested quiet window measured B-B p99 at 20.480 / 12.288 / 20.480 ms against
+	// the 50 ms limit: PASS, PASS, PASS. What this flag now absorbs is only the gap to the
+	// co-loaded tail (14.3 / 28.7 / 53.2 ms in the last full parallel pass), and nothing else.
+	//
+	// What it costs, stated rather than implied: the whole-tree `test` job, nightly `race-windows`
+	// and `devtool test` / `test-race` / `cover` keep NO hot-path cost gate at all — only the
+	// co-load-immune structural ones, which say the ordering is right and nothing about how long it
+	// takes (design §6.2's T9, T10 and T14 — one sync per batch, check-then-append order, zero
+	// releases before the seal — live in internal/daemon's delivery group-commit tests and run in
+	// every lane regardless). The isolated verdict lives in bench-gate, nightly bench-deep, ci.yml's
+	// timing job and its test-e2e job, and test/guards' TestColoadYieldersAreJudgedInIsolation
+	// mechanically prevents that coverage from disappearing. internal/obs/budgets.go's B-B entry
+	// stays Gated: true — it is the co-loaded RUN that reports, never the budget.
 	fs.BoolVar(&f.underCoload, "under-coload", false,
 		"declare that this run shares its host with unrelated concurrent work (e.g. the whole-tree `go test ./...`), "+
-			"so the wall-clock B-E row and the B-A row are reported instead of gated; B-B and the CPU-time B-E gate are unaffected")
+			"so the wall-clock rows a co-loaded host inflates — B-E's wall row, B-A and B-B — are reported instead of "+
+			"gated; the CPU-time B-E gate is unaffected, and every run without this flag judges all three")
 	if err := fs.Parse(args); err != nil {
 		return flags{}, err
 	}
@@ -553,17 +597,20 @@ func buildBudgetRows(baRow, bbRow BudgetRow, bdWall, beWall, beCPU, baSpawnEstim
 // buildDaemonRows builds the two rows sourced from the daemon's own histograms via the status op —
 // B-A (ruling #29's hook_controlled estimate) and B-B (l0_ingest) — with their limits read from
 // obs.Budgets() + cfg, and returns them with every disclosure note they owe the artifact, in row
-// order. underCoload is the one thing that changes their shape, and it changes B-A's only: B-A is
-// built REPORTED (LimitMs/Pass nil, exactly B-D's shape) and baWallWaivedNote is appended, because
-// reqTS is stamped inside the spawned hook process and a child's scheduling wait on a shared host
-// sits inside the interval with no CPU clock to move the judgement to — see the flag's comment in
-// parseFlags for the measurements. B-B is gated in both shapes — still true, though no longer for
-// the reason it was written for: it has no process boundary inside it, but it does now contain the
-// durable path's three flushes, which co-load does move (see parseFlags, and design §7.6's Q3).
-// The shortfall accounting is identical in both
-// shapes too: tailAdjustedP99 still counts the missing samples back in and the P99 field carries
-// the same number the gate would have read, so a reported row can be re-judged from the artifact
-// alone.
+// order. underCoload is the one thing that changes their shape, and since the Q3 ruling (parseFlags'
+// own comment) it changes BOTH: each row is built REPORTED (LimitMs/Pass nil, exactly B-D's shape)
+// with its own waiver note appended after its tail-adjustment note.
+//
+// B-A yields because reqTS is stamped inside the spawned hook process, so a child's scheduling wait
+// on a shared host sits inside the interval with no CPU clock to move the judgement to. B-B yields
+// on ADR 0010's same fallback branch: it has no process boundary inside it, but since f6a8691 it
+// carries the durable path's three flushes, which co-load moves like any other wall-clock cost, and
+// no CPU clock can bracket one in-daemon request (see parseFlags for the full ruling, and design
+// §7.6 for the option it selected).
+//
+// The shortfall accounting is identical in both shapes: tailAdjustedP99 still counts the missing
+// samples back in and the P99 field carries the same number the gate would have read, so a reported
+// row can be re-judged from the artifact alone.
 func buildDaemonRows(cfg config.Config, baSnap, bbSnap obs.HistSnapshot, baMissing, bbMissing int64, underCoload bool) (baRow, bbRow BudgetRow, notes []string) {
 	baLimit := budgetLimit(cfg, obs.BA)
 	baRow, baNote := buildBudgetRowFromSnapshot(string(obs.BA), baSnap, baLimit, !underCoload, baMissing)
@@ -571,8 +618,12 @@ func buildDaemonRows(cfg config.Config, baSnap, bbSnap obs.HistSnapshot, baMissi
 	if underCoload {
 		notes = append(notes, baWallWaivedNote(baLimit))
 	}
-	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, budgetLimit(cfg, obs.BB), true, bbMissing)
+	bbLimit := budgetLimit(cfg, obs.BB)
+	bbRow, bbNote := buildBudgetRowFromSnapshot(string(obs.BB), bbSnap, bbLimit, !underCoload, bbMissing)
 	notes = append(notes, bbNote)
+	if underCoload {
+		notes = append(notes, bbWallWaivedNote(bbLimit))
+	}
 	return baRow, bbRow, notes
 }
 
