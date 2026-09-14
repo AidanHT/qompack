@@ -88,7 +88,7 @@ Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bo
 
 **When broader checks are necessary.** Reserve full build/platform/security, installed-host, crash/upgrade/rollback and release evaluation for their named commits or the frozen release artifact. Share matching SP-20/V4/V5 evidence as context, but perform the installed-artifact checks required by SP17-M7-01–08 and V6; earlier source snapshots do not certify a new bundle.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 role structure and global worker limit under this plan's Opus 4.8-only subagent rule; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -147,14 +147,16 @@ No two roles edit `docs/security.md`; C/D return proposals to its sole main owne
 
 Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). Preserve A–F, main ownership and all release gates. The role list is not six concurrent agents.
 
+**V6 routing override — user directive, 2026-09-14.** Every subagent this plan dispatches runs Opus 4.8 (`claude-opus-4-8`) strictly; Fable 5.1 (`claude-fable-5-1`) is the main/coordinator session model and is never a child. This narrows R1's Fable rows for V6 only and leaves the shared R1 policy and the other waves unchanged. It is the shape R1 already documents for an unavailable Fable, so a mandatory independent review is satisfied by an Opus 4.8 / high reviewer in a thread that did not author the change, escalating that one seat to Opus xhigh only for a documented unresolved issue. Questions R1 would route to Fable — shared-contract conflicts, durable-data/rollback and trust-boundary decisions — return to the main session instead of spawning a premium child.
+
 | Existing role | Requested model and effort | Reason and boundary |
 |---|---|---|
 | A packaging; E diagnostics; F release/install | Opus 4.8 / high | Bounded packaging, version and diagnostic contracts; main retains publishing, shared CI/config and final decisions |
 | B platform | Opus 4.8 / high | Design and interpret installed-artifact/platform checks; medium only for collation of actual results |
-| C security; D fault/recovery | Opus 4.8 / high | Evaluate concrete denial, crash and rollback scenarios in assigned fixtures; route unresolved cross-storage/trust questions to Fable 5.1 / high |
-| Independent release/integrity reviewer | Fable 5.1 / high | Reconcile package, privacy, migration/rollback and evidence scope before release acceptance |
+| C security; D fault/recovery | Opus 4.8 / high | Evaluate concrete denial, crash and rollback scenarios in assigned fixtures; return unresolved cross-storage/trust questions to the Fable 5.1 main session rather than escalating a child |
+| Independent release/integrity reviewer | Opus 4.8 / high | Reconcile package, privacy, migration/rollback and evidence scope before release acceptance; must be a thread that did not author the change, escalating to Opus xhigh only for a documented unresolved issue |
 
-A establishes the artifact/version contract first. B/C/D may then occupy up to three disjoint slots using isolated disposable environments. E waits for A; F consumes the artifact and relevant results; do not race on CHANGELOG, docs/security, shared helpers or release metadata. The independent reviewer starts when the combined artifact and evidence exist and occupies one slot; only one Fable child runs at a time. Reuse workers for related follow-ups and serialize quiet-run benchmarks, actual release steps and shared integration. No subagent receives authority to publish, change accounts, or contact outsiders from this planning policy.
+A establishes the artifact/version contract first. B/C/D may then occupy up to three disjoint slots using isolated disposable environments. E waits for A; F consumes the artifact and relevant results; do not race on CHANGELOG, docs/security, shared helpers or release metadata. The independent reviewer starts when the combined artifact and evidence exist and occupies one slot; no child runs Fable, and R1's one-Fable slot stays unused rather than becoming extra Opus concurrency. Reuse workers for related follow-ups and serialize quiet-run benchmarks, actual release steps and shared integration. No subagent receives authority to publish, change accounts, or contact outsiders from this planning policy.
 
 ## Exit criteria
 
