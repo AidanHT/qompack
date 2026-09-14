@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/qompack/qompack/internal/core"
 )
@@ -111,9 +112,27 @@ func AppendJSONL(p string, v any) error {
 // never a silent overwrite) and, once its content is durably written, marks it read-only
 // (0o444 / FILE_ATTRIBUTE_READONLY) so that even a write path that somehow bypassed this
 // package's own checks would still fail at the filesystem level.
+//
+// os.ErrExist is reserved for a REGULAR FILE already at p — the collision every caller retries
+// past (checkpoint.Finalize bumps its sequence number on it). A directory or any other non-file
+// at p is not a collision, and the two platforms disagree about it: Windows refuses to open a
+// directory with O_CREATE|O_EXCL as ERROR_ACCESS_DENIED, while POSIX open(2) answers EEXIST for a
+// directory exactly as it does for a file. Left to the platform, Finalize on Linux and macOS
+// would skip past a directory sitting at its artifact path — the V5 close-out's first CI run on
+// those runners found precisely that — so the existing entry is stat'ed and anything that is not
+// a regular file is reported as syscall.EISDIR (a directory) or fs.ErrInvalid, never ErrExist.
 func CreateNew(p string, b []byte) error {
 	f, err := OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			if fi, serr := os.Lstat(Long(p)); serr == nil && !fi.Mode().IsRegular() {
+				var kind error = fs.ErrInvalid
+				if fi.IsDir() {
+					kind = syscall.EISDIR
+				}
+				return &os.PathError{Op: "create", Path: p, Err: kind}
+			}
+		}
 		return err // os.ErrExist for a second write of the same filename
 	}
 	if _, err := f.Write(b); err != nil {
