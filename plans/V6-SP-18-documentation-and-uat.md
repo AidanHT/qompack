@@ -97,7 +97,7 @@ Apply [R2 validation scheduling](MIGRATION-EVIDENCE.md#focused-validation-and-bo
 
 **When broader checks are necessary.** Keep source-product evidence bound to SP-17's tested artifact and record documentation HEAD separately. UAT-01–12 still require actual human results or explicit unverified dispositions. Independent UAT projects may overlap if people/resources are available; each scenario's lifecycle and backup/upgrade sequence remains intact.
 
-The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 Opus/Fable roles and global worker limit; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
+The implementation owner records selected real cases, expected runtime/resources, actual results and uncovered requirements before handing off. Reuse the existing R1 role structure and global worker limit under this plan's Opus 4.8-only subagent rule; do not spawn an expensive extra child just to wait on a command. The coordinator owns shared artifacts and final acceptance.
 
 ## Commit plan
 
@@ -151,12 +151,14 @@ Each document has one writer. Future implementation concurrency follows agreed f
 
 Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDENCE.md#future-implementation-subagents-for-sp-14-through-sp-21). Preserve A1–A5 file ownership and main's vocabulary/harness prerequisite. Do not spawn one child for every short document.
 
+**V6 routing override — user directive, 2026-09-14.** Every subagent this plan dispatches runs Opus 4.8 (`claude-opus-4-8`) strictly; Fable 5.1 (`claude-fable-5-1`) is the main/coordinator session model and is never a child. This narrows R1's Fable rows for V6 only and leaves the shared R1 policy and the other waves unchanged. It is the shape R1 already documents for an unavailable Fable, so a mandatory independent review is satisfied by an Opus 4.8 / high reviewer in a thread that did not author the change, escalating that one seat to Opus xhigh only for a documented unresolved issue. Questions R1 would route to Fable — shared-contract conflicts, durable-data/rollback and trust-boundary decisions — return to the main session instead of spawning a premium child.
+
 | Existing role | Requested model and effort | Reason |
 |---|---|---|
 | A1 config reference | Opus 4.8 / high | Generator/schema/deprecation accuracy needs source reasoning; medium only for formatting an already-verified field inventory |
 | A2 guide; A3 troubleshooting; A4 limits/upstream | Opus 4.8 / medium | Bounded prose from inspected capabilities and results; raise to high for ambiguous failure or supported-scope claims |
 | A5 UAT | Opus 4.8 / high | Define observable acceptance, skipped/failed outcomes and recovery against SP-17's actual artifact |
-| Independent supported-claim reviewer | Opus 4.8 / high | Check docs, links and actual evidence; Fable 5.1 / high only for unresolved capability, privacy or rollback contradictions |
+| Independent supported-claim reviewer | Opus 4.8 / high | Check docs, links and actual evidence; return unresolved capability, privacy or rollback contradictions to the Fable 5.1 main session, raising this seat to Opus xhigh only for a documented unresolved issue |
 
 Start with two ready disjoint documents; use a third slot only for another independent file or review. A5's actual UAT evidence and final integration wait for SP-17; drafting its guide does not prove results. Main alone integrates shared harness/config adapter/CI work. The reviewer must not be the document's author, and model agreement cannot replace human or installed-target UAT evidence. Preserve the no-unsolicited-upstream-messages rule.
 
