@@ -268,7 +268,7 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
-      - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState)$' ./internal/store ./internal/negknow ./internal/mcp ./test/integration
+      - run: go test -p 1 -count=1 -timeout=30m -run '^(TestGC_DeadlineTruncatesAndResumes|TestGC_DeadlineOvershootIsBoundedByTheCheckInterval|TestBudget_QueryHit|TestBudget_QueryMiss|TestBudget_Record|TestBudget_RebuildBloom|TestBudget_RefreshStaleness|TestBudget_Open|TestBudget_DetectorScan|TestBudgetBF|TestIntegration_HotPathWarmWithRealResidentState|TestFeaturesFrom_LexicalCohesionShingleCap)$' ./internal/store ./internal/negknow ./internal/mcp ./internal/daemon ./test/integration
 
   cover:
     runs-on: ubuntu-latest
@@ -278,7 +278,11 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: '1.26.6', cache: true }
       - run: go run ./tools/devtool cover
+      # Uploaded whether or not the floors passed: a floor failure is exactly when the profile is
+      # needed, and the first run to reach the floor stage (34800489027) had no profile to read
+      # because this step was skipped behind it.
       - uses: actions/upload-artifact@v4
+        if: always()
         with: { name: coverage, path: coverage.out }
 
   crossbuild:
