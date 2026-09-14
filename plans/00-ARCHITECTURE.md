@@ -304,6 +304,18 @@ sensitive regression detector at this limit — the sensitive instrument is
 structural gates T9, T10 and T14. Rationale, the co-load ruling and the cost accepted: ADR 0010
 Addendum 1 and `plans/V5-report.md` §31.3.
 
+**B-A note (amended 2026-09-13, SP20-D6).** The row's clock is the contract: the hook's `main()`
+entry to its exit, ACK included. The sample the daemon gates and feeds to the breach detector below
+is narrower than that — `recvTS − req.TS` plus a flat 1 ms tail allowance (`internal/daemon/`
+`handlers.go`, `budget.go`) — and since SP20-D1 the ACK is written only after the durable
+`ingest.Accept`, so the interval the allowance stands in for is the whole B-B region. The gate can
+therefore be green while the hook pays a B-A breach. Recorded as carried defect SP20-D6
+(`plans/CARRIED-DEFECTS.tsv`, deferred to V6-VERIFY, evidence
+`TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler`); the three repairs, each a change
+to a frozen contract, are listed in its detail section and in `plans/V5-report.md` §31.5. Until one
+is chosen the row's number is the hook-controlled *lower bound*, and `AckDeadlineMs` is what bounds
+the hook's wait.
+
 **When the budget is exceeded (§8.1 fallback).** The daemon keeps a rolling 512-sample HDR
 histogram per hook. If B-A p99 exceeds budget for 3 consecutive 512-sample windows, the daemon
 sets `hotPathMode = spool` in the session registry and returns it in the next ACK's NAK-with-hint
