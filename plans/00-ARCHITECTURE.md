@@ -387,7 +387,7 @@ ignores the `toolchain` directive — and left CI building on a Go carrying four
 A toolchain bump therefore edits `go.mod` and every workflow in the same commit.
 
 `tools/devtool` tasks (canonical names used by CI and by every subplan's local loop):
-`fmt`, `lint`, `vet`, `build`, `build-all`, `test`, `test-race`, `cover`, `bench`,
+`fmt`, `lint`, `vet`, `build`, `build-all`, `bundle`, `test`, `test-race`, `cover`, `bench`,
 `bench-hotpath`, `bench-compare`, `replay`, `plugin-validate`, `fsck`, `ci-local`, `gen-config-docs`,
 `fmt-check`, `gen-contract-fixtures`, `gen-fixtures`, `install-hooks`, `check-commit-msg`.
 
