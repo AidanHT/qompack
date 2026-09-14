@@ -205,8 +205,23 @@ jobs:
           # row makes that code non-zero by design. Nothing is skipped, nothing is
           # continue-on-error, and no red row is weakened — a listed row stays red locally and is
           # named above.
+          # On a red reconciliation, print each failing row's OWN output rather than the last 200
+          # events of the whole run: the tail is whatever package happened to finish last, and on
+          # the V5 close-out's first run it held two hundred lines of a passing package while the
+          # one row that mattered (a scheduler golden on macos-latest) had scrolled off it.
           if [ "$rc" != 0 ]; then
-            grep -E '"Action":"(fail|output)"' test.json | tail -n 200
+            while read -r pkg test; do
+              [ -n "$pkg" ] || continue
+              echo "--- output of $pkg $test ---"
+              grep "\"Package\":\"$pkg\"" test.json | grep "\"Test\":\"$test\"" | grep '"Action":"output"' \
+                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 80
+            done < failed-rows.txt
+            while read -r pkg; do
+              [ -n "$pkg" ] || continue
+              echo "--- package-level output of $pkg ---"
+              grep "\"Package\":\"$pkg\"" test.json | grep -v '"Test":"' | grep '"Action":"output"' \
+                | sed -n 's/.*"Output":"\(.*\)"}$/\1/p' | tail -n 40
+            done < failed-pkgs.txt
           fi
           exit "$rc"
 
