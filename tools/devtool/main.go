@@ -30,6 +30,7 @@ var tasks = map[string]func(args []string) error{
 	"vet":                   taskVet,
 	"build":                 taskBuild,
 	"build-all":             taskBuildAll,
+	"bundle":                taskBundle,
 	"test":                  taskTest,
 	"test-race":             taskTestRace,
 	"cover":                 taskCover,
