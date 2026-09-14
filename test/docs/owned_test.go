@@ -18,6 +18,8 @@ var ownedDocs = []string{
 	"docs/adr/README.md",
 	"docs/user-guide.md",
 	"docs/troubleshooting.md",
+	"docs/cannot-do.md",
+	"docs/upstream-issues.md",
 }
 
 // TestOwnedDocsExist asserts the shape every owned page shares: it exists, it has content, and it
