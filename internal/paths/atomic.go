@@ -62,15 +62,28 @@ func tmpDirFor(p string) string {
 // file being replaced could stall a writer indefinitely. The read-only-destination retry below
 // is unchanged and still needed: measured on this host, neither rename flavour will replace a
 // read-only destination (both return ERROR_ACCESS_DENIED), so this fix removes no check.
+//
+// The retry is for a read-only REGULAR FILE at p and nothing else. os.Chmod is not a no-op on a
+// directory: on POSIX 0o600 strips its execute bits, and a directory nobody can traverse is a
+// directory whose contents are lost to every reader — the V5 close-out's first Linux and macOS
+// run found ReplacePinsView doing exactly that to a non-empty destination directory, leaving the
+// old evidence unreadable behind the failed rename (Windows directories ignore the bit, which is
+// why it was never seen). So the destination is stat'ed first and only a regular file is touched,
+// and if the retry still fails its previous mode is put back, so a failed replace changes nothing.
 func renameWithRetry(tmp, p string) error {
 	first := replace(tmp, p)
 	if first == nil {
 		return nil
 	}
+	fi, err := os.Lstat(p)
+	if err != nil || !fi.Mode().IsRegular() {
+		return first
+	}
 	if err := os.Chmod(p, 0o600); err != nil {
 		return first
 	}
 	if err := replace(tmp, p); err != nil {
+		_ = os.Chmod(p, fi.Mode().Perm())
 		return first
 	}
 	return nil
