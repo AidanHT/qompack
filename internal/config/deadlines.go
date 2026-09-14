@@ -158,6 +158,36 @@ func connectDeadlineMsDefault() int {
 // the 22.528 ms measured here — low — so the linux and darwin rows may well have to rise as well;
 // 4043b6a made bench-gate upload its JSON even when the gate fails precisely so a first breach
 // still reports the numbers needed to re-price them.
+//
+// # The first CI figures (run 34797774997 on 69f92a1, 2026-09-14)
+//
+// That run was the first complete ci.yml run this repository has had, and bench-gate's artifacts
+// answered the provisional question in one direction and opened another. Alone on its runner, the
+// harness measured B-B p99 4.608 ms on ubuntu-latest (p50 0.896, hook_ack_rtt p99 3.936) and
+// 3.072 ms on macos-latest (p50 1.536, hook_ack_rtt p99 4.314). Both provisional limits hold with
+// room to spare and are deliberately NOT tightened to the protocol's roundup5(1.25 x P) — 10 and 5
+// — on one run: a limit above the measurement is not a weakened gate, and the protocol asks for
+// three. The next wave takes those three from CI and re-derives.
+//
+// Two things the same run showed that the protocol does not price:
+//
+//   - The hosted Windows runner cannot hold an fsync-bound wall-clock gate. On windows-latest the
+//     same row read 73.728 ms in bench-gate (p50 12.288, hook_ack_rtt p99 89.290), 98.304 ms in
+//     the timing job (p50 36.864) and 2 359 ms in test-e2e's X11 (p50 40.960, p95 1 442, after
+//     thirteen minutes of I/O-heavy tests on the same disk), against 50. A thirtyfold spread on
+//     one runner class in one run is a throttled disk, not a delivery path, and it cannot price a
+//     constant: the re-derivation rule above is for attested runs, and a number the next job
+//     disagrees with by 30x is not one. The constants stay at the fifteen-run figures. Whether
+//     hosted Windows runners are a non-reference platform for B-B and B-E's wall row — reported
+//     there under ADR 0010's rule, with B-A still gated — is design Q1's third option and the
+//     owner's call; it is recorded in plans/V5-report.md §31.10.1 with this recommendation.
+//   - AckDeadlineMs is sized from quiet runs and engages the degrade path under ordinary load.
+//     Under the whole-tree test job's declared co-load, ubuntu's B-B p99 was 212.992 ms against a
+//     17 ms ACK deadline, so the hook client spooled and two tests that wait for every event to
+//     reach the store timed out at the 30 s idle-tick drain. That is SP05-D2's complaint arriving
+//     on Linux: the Windows figure of 73 covers co-load only because the host it was measured on
+//     happened to be noisy. Sizing the deadline for the loaded case is a design change, carried to
+//     V6 with these figures.
 const (
 	L0IngestMsPortable = 15
 	L0IngestMsWindows  = 50
