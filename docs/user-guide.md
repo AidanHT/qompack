@@ -106,10 +106,15 @@ meaning: doing so needs the arch pre-step recorded as SP-14 handoff edge H3
 So invoking it does not write a checkpoint on demand; it runs the hook. A hook reads a hook event
 from stdin and **always exits `0`**, whatever happens inside it — `internal/cli/hooks.go` and the
 exit-code policy in `internal/cli/dispatch.go` ("the ONLY code a hook subcommand may ever return"),
-pinned by `internal/cli/qompack_commands_test.go`. Typed by hand, with no hook event arriving on
-stdin, there is nothing for it to classify: it returns empty output and does not even create the
-store (`internal/cli/hookclient.go`). Checkpoints are written at `PreCompact`, by the hook, from
-the event the host supplies.
+pinned by `internal/cli/qompack_commands_test.go`. Checkpoints are written at `PreCompact`, by the
+hook, from the event the host supplies.
+
+**Typing it by hand is still a write.** Observed on this tree, running the built binary with empty
+stdin in a fresh directory outside the repository: it printed `{}` and exited `0` — and it created
+the full `.qompack/` layout there and started that project's daemon. No checkpoint was written
+(`.qompack/checkpoints` was empty), but the empty payload was classified and recorded as a capture,
+and the run's own state was persisted. So an interactive invocation is a write in that directory,
+not a no-op; it is simply not a way to take a checkpoint.
 
 A frontend for a checkpoint-now command does exist (`internal/commands/cmd_checkpoint.go`, which
 reports unavailable when its dependency is nil), but nothing routes to it in this build, so that is
@@ -393,7 +398,9 @@ it in a directory that has never been used with Qompack is therefore a write, in
 verified by running the built binary in an empty scratch directory outside this repository.
 `qompack config print` and `qompack version` did not create `.qompack/` or start a daemon in the
 same probe. The hook entry points (`checkpoint`, `flush`, `observe prompt|stop|tool`,
-`session-start`) are invoked by Claude Code and always exit 0.
+`session-start`) are invoked by Claude Code and always exit 0 — but exiting 0 is not the same as
+doing nothing: `qompack checkpoint` run by hand with empty stdin created `.qompack/` and started
+the daemon too, observed on this tree in the same probe. Treat every hook entry point as a write.
 
 Any subcommand accepts `--set <dotted.key>=<value>` to override configuration for that run.
 
