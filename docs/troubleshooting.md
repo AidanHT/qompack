@@ -197,9 +197,10 @@ project read `unavailable` with its own reason, for example:
 ```
 
 and the B-D budget row read `no instrument records this histogram in this build; it measures host
-process creation, which the created process cannot observe`. `internal/commands/statuscollect.go`
-says why the cell is not filled with a borrowed number: "An absent measurement prints the
-availability word, never a zero."
+process creation, which the created process cannot observe`. Both of those reason strings are
+`internal/commands/statuscollect.go`'s. Why the cell carries a word instead of a borrowed number is
+`internal/commands/render.go`'s, on `latencyText`: "An absent measurement prints the availability
+word, never a zero."
 
 **Action.** No action; these are recorded limits. A missing number is a missing number.
 
