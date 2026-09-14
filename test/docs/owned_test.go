@@ -20,6 +20,7 @@ var ownedDocs = []string{
 	"docs/troubleshooting.md",
 	"docs/cannot-do.md",
 	"docs/upstream-issues.md",
+	"docs/uat.md",
 }
 
 // TestOwnedDocsExist asserts the shape every owned page shares: it exists, it has content, and it
