@@ -184,8 +184,8 @@ effective value. These are the labels, lowest precedence first.
 
 ## Versioned blocks
 
-Two blocks carry their own `settingsVersion` and are versioned independently, so a schema
-change to one never resets the other.
+The blocks below carry their own `settingsVersion` and are versioned independently, so a
+schema change to one never resets the other.
 
 | Block | `settingsVersion` this build understands | Behaviour |
 |---|---|---|
