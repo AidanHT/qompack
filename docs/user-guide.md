@@ -43,12 +43,17 @@ Qompack installs seven slash commands. Each shells out to the `qompack` binary, 
 help text are in [docs/commands.md](commands.md); this section says what each one is *for* and what
 it can report.
 
-Three things are true of all seven, per that page's preamble:
+Two things are true of all seven, per that page's preamble:
 
 - `--json` emits a versioned envelope instead of text; `--help` prints the usage block.
-- Exit codes are `0` success, `2` a malformed invocation, `1` anything else.
-- A command that has no source for its answer in this build reports that it is unavailable and
-  exits `1`. It does not invent one.
+- Exit codes are `0` success, `2` a malformed invocation, `1` anything else — except a hook entry
+  point, which is the only kind of subcommand that always exits `0` (`internal/cli/dispatch.go`).
+
+A third rule holds where a frontend's source of answers is left unbound rather than everywhere: it
+reports that it is unavailable and exits `1` instead of inventing one. In this build that is
+`/qompack:eval`, whose artifact seam is nil. It is not how `/qompack:checkpoint` behaves — see
+below — because that name resolves to a hook, not to a frontend (`internal/commands`,
+`internal/cli/qompack_commands.go`).
 
 ### `/qompack:status`
 
@@ -90,15 +95,25 @@ invocation, `1` if the pin could not be written, `0` otherwise.
 
 ### `/qompack:checkpoint`
 
-Installed, and **not yet routed** in this build. The command file ships and the host will offer it,
-but `qompack checkpoint` is the `PreCompact` hook entry point — a hook that reads an event from
-stdin and always exits 0 — and no separate local-seal route exists yet. `docs/commands.md` marks
-the subcommand column **not yet routed** for exactly this reason, and
-`internal/cli/qompack_commands.go` leaves the dependency nil deliberately: "There is no local-seal
-route (H3)". It is recorded as SP-14 handoff edge H3 in `plans/V5-report.md` §29 item 3.
+Installed, and **not yet routed** in this build. The command file ships and the host offers it —
+`plugin/commands/checkpoint.md` runs `qompack checkpoint` — but that name is already the
+`PreCompact` hook entry point (`internal/cli/hooks.go`, registered `Hook: true`), and no separate
+local-seal route exists yet. `docs/commands.md` marks the subcommand column **not yet routed** for
+exactly this reason, and `internal/cli/qompack_commands.go` declines to give the name a second
+meaning: doing so needs the arch pre-step recorded as SP-14 handoff edge H3
+(`plans/V5-report.md` §29 item 3).
 
-So: invoking it does not write a checkpoint. It reports that it is unavailable and exits `1`.
-Checkpoints are written at `PreCompact`, by the hook.
+So invoking it does not write a checkpoint on demand; it runs the hook. A hook reads a hook event
+from stdin and **always exits `0`**, whatever happens inside it — `internal/cli/hooks.go` and the
+exit-code policy in `internal/cli/dispatch.go` ("the ONLY code a hook subcommand may ever return"),
+pinned by `internal/cli/qompack_commands_test.go`. Typed by hand, with no hook event arriving on
+stdin, there is nothing for it to classify: it returns empty output and does not even create the
+store (`internal/cli/hookclient.go`). Checkpoints are written at `PreCompact`, by the hook, from
+the event the host supplies.
+
+A frontend for a checkpoint-now command does exist (`internal/commands/cmd_checkpoint.go`, which
+reports unavailable when its dependency is nil), but nothing routes to it in this build, so that is
+not the behaviour you get from typing the command.
 
 ### `/qompack:why`
 
@@ -232,12 +247,22 @@ current-file read remains the host's own, separately authorized operation.
 
 `recall` and `expand` return archive material in the same way, qualified by fidelity and coverage.
 
-**How to tell what you are holding.** A content response body carries `source`, and the only value
-it ever takes is `store` — there is deliberately no worktree counterpart
-(`internal/mcp/handlers_span.go`, `sourceStore`). Alongside it: `at` (the version selector that was
-resolved, omitted when the call did not use one), `turn` (the turn the version was captured at),
-`hash`, `span`, `total_bytes`, `truncated`, `next_span` and `widened`. So `source: store` with a
-`turn` is a historical read of a specific captured version; there is no response shape that means
+**How to tell what you are holding.** A `re_read` response names where the bytes came from:
+`source`, whose only value is ever `store`, because there is deliberately no worktree counterpart
+(`internal/mcp/handlers_span.go`, `sourceStore`). It is the one tool that sets the field, and it is
+the one tool that could otherwise be mistaken for a live read. Beside it, `re_read` reports `at`
+(the version selector that was resolved, omitted when the call did not use one) and `turn` (the
+turn the version was captured at), so `source: store` with a `turn` is a historical read of one
+specific captured version.
+
+An `expand` response carries no `source` at all — the field is omitted when empty, and `expand`
+sets none, because it is addressed by `hash` or `tool_use_id` rather than by a point in a file's
+history. What it gives you instead is the `hash` it resolved, the `span` it returned, and the
+`_meta.qompack` fields every content tool publishes (`span`, `total_bytes`, `truncated`,
+`next_span` where there is more, `path` where one is known, `ephemeral`). Both tools also report
+`widened`, and both answer exclusively from the archive.
+
+So the discriminator is not one field on every response: it is that **no** response shape means
 "read from disk just now". If you need the current file, ask the host to read it.
 
 ## Fidelity, coverage and error states
