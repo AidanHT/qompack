@@ -1477,6 +1477,19 @@ so the exception is deliberately narrow.
   measured: no bench variant exists. It stays a measurement item, sequenced behind §31.8.
 - **The two-tag question** (Q5) is moot until a tag exists past `v0.2.0`, and is recorded so that the
   wave that cuts one decides it rather than inherits a default.
+- **`AckDeadlineMs` on Linux and darwin is sized for a quiet host and engages the degrade path
+  under ordinary load** (§31.10.1): ubuntu's B-B p99 was 212.992 ms under the `test` job's declared
+  co-load against a 17 ms deadline, so deliveries spooled and the store-arrival waits timed out at
+  the 30 s idle-tick drain. The M2 protocol sizes from quiet runs and cannot answer this; the
+  Windows 73 covers co-load by accident of its host. A design change, not a constant flip.
+- **Hosted Windows runners and the fsync-bound rows** (§31.10.1): B-B read 73.7, 98.3 and 2 359 ms
+  in three jobs of one run against 50, and X11's B-E wall 2 793 ms against 2 000. Constants
+  unchanged; whether windows-latest is a non-reference platform for those two rows — reported
+  there under ADR 0010, B-A still gated — is design Q1's third option and needs the owner.
+- **The two `icacls` fault-injection tests are vacuous on an elevated token** (§31.10.1):
+  `TestEnsureLayout_WriteAtomicFailureIsPropagated` and
+  `TestHighestBloomBackupSeq_UnreadableDirIsAnError` fail on every hosted Windows run because the
+  deny never lands. Not skipped; the injection must verify it took effect or inject differently.
 - **`Stop` cancels in-flight ingest work before its bounded drain.** The third SP08-D2 site (§31.4)
   is fixed by making the one replay-independent soft stage replay-safe; the ordering that exposes
   soft stages to a cancel on every graceful shutdown is unchanged, and the remaining soft stages
@@ -1789,6 +1802,128 @@ The CI result for the pushed branch is not in this text, because the branch is p
 this section is committed. It is recorded in the commit that follows, as an amendment to this
 paragraph, together with the `bench-gate` figures that replace the provisional linux and darwin
 constants in `internal/config/deadlines.go` and the `timing` figure SP09-D1 asked for.
+
+#### 31.10.1 CI on the pushed branch (amendment, 2026-09-14)
+
+`verify/v5-final` was pushed at `69f92a1` and run 34797774997 was the first complete `ci.yml` run
+this repository has ever had: every earlier run on `develop` failed at billing before a job
+started, so there is no green baseline and nothing below is a regression against one. Thirteen of
+twenty jobs were green — `verify`, `lint-windows`, `crossbuild`, `security`, `docs`,
+`plugin-validate`, `replay-gate`, `bench-gate` and `timing` on ubuntu and macos, and `test-e2e` on
+ubuntu and macos. The seven reds fall into four classes.
+
+**Three POSIX divergences in shipped code, fixed** (`4d604fa`, `b930629`, `378de61`). Linux and
+macOS had never run this tree; each of these is a Windows assumption that held on every host the
+work had been verified on.
+
+- `CreateNew` passed POSIX's `EEXIST` for a *directory* at the artifact path through as
+  `os.ErrExist`, so `Finalize` on Linux and macOS treated it as a sequence collision and quietly
+  took the next number, where Windows refused with `ERROR_ACCESS_DENIED`
+  (`TestFinalizeReopensTheDraftWhenTheArtifactNeverLands`).
+- `renameWithRetry` chmod'ed whatever sat at the destination to 0o600 before retrying. On a
+  directory that strips the execute bits on POSIX, so a failed `ReplacePinsView` over a non-empty
+  directory left the old evidence unreadable behind it
+  (`TestReplacePinsView_DestinationFailurePreservesEvidenceAndCleansStaging`).
+- `loadState` read a state path through a regular file as "not found" on Windows and as an error
+  on POSIX (`ENOTDIR`), so the drain refused before dispatching on one and after on the other
+  (`TestDrainStatePersistenceFailurePreservesSpool`).
+
+Each fix carries a cross-platform pin beside the test that found it. None could be reproduced on
+this host; the second run, below, is their verification.
+
+**One arm64 arithmetic difference, fixed** (`4de75bb`). `decision-expiring.json` failed on
+macos-latest, whose runner is arm64: the spec lets an implementation fuse a product into the
+subtraction that consumes it across statements, arm64 does and amd64 does not, and the expiring
+fixture's rewrite term is a non-representable 833.33…. Each score term is now rounded explicitly
+with the spec's own `float64(x*y)` idiom. The reconciliation step printed only the last 200 events
+of the run, which is why this row's message had scrolled off; it now prints each failing row's own
+output (`61a4880`).
+
+**Hosted Windows runners cannot hold an fsync-bound wall-clock gate — an owner decision, not
+changed.** On windows-latest B-B p99 measured **73.728 ms** in `bench-gate` (the harness alone),
+**98.304 ms** in `timing` and **2 359 ms** in `test-e2e`'s X11 (p95 1 442 ms, after thirteen
+minutes of I/O-heavy tests on the same disk), against the 50 ms limit; X11's B-E wall row read
+2 793 ms against 2 000 for the same reason, while B-A and every CPU-clock row passed. A thirtyfold
+spread across three jobs of one run on one runner class is a disk being throttled, not a delivery
+path, and it cannot price a constant: the pre-committed re-derivation rule (§31.3) is for attested
+runs, and applying it here would set `L0IngestMs` from a number the next job disagrees with by
+30x. The constants stay 50/73, derived from fifteen attested runs on the reference host. What the
+owner has to decide is design Q1's third option — whether hosted Windows runners are a
+non-reference platform for fsync-bound rows, to be REPORTED there under ADR 0010's rule that a
+wall clock measuring the host's spare capacity is not measuring the code — or whether the row
+stays red on those runners until the runner class changes. The three figures and the
+recommendation (declare them non-reference for B-B and B-E wall; keep B-A gated) are in
+`internal/config/deadlines.go`'s derivation comment.
+
+**Linux and darwin: the provisional constants are confirmed generous, and a new problem is
+visible.** `bench-gate` measured B-B p99 4.608 ms on ubuntu (limit 15) and 3.072 ms on darwin
+(limit 40), `hook_ack_rtt` p99 3.936 and 4.314 ms. Both provisional limits therefore hold with
+room, and are NOT tightened to the protocol's 10 and 5: a limit above the measurement is not a
+weakened check, and one run is not the protocol's three. The new problem is the other direction.
+Under the whole-tree `test` job's declared co-load ubuntu's B-B p99 was **212.992 ms**, so with
+`AckDeadlineMs` at 17 the hook client spooled and two tests that wait for every event to reach the
+store timed out at their 30 s idle-tick drain (`TestIntegration_DegradedPassiveStillWritesToTheRealStore`
+in `test` and `cover`, `TestE2E_ObserverThroughDaemon` in `cover`). That is SP05-D2's complaint on
+Linux — an ACK deadline sized for a quiet host engages the degrade path under ordinary load — and
+the M2 protocol, which sizes from quiet runs, cannot answer it. Carried as a V6 row with the
+figures; the Windows re-budget's slack99 covered co-load only by accident of the host it was
+measured on.
+
+**Two Windows fault-injection tests are pre-existing CI-environment reds.**
+`TestEnsureLayout_WriteAtomicFailureIsPropagated` and `TestHighestBloomBackupSeq_UnreadableDirIsAnError`
+inject a failure with an `icacls /deny`, which the hosted runner's elevated token bypasses, so
+the fault never lands and "an error is expected but got nil". They fail identically on every
+nightly `race-windows` run of `develop`. Not skipped; carried as a V6 row: the injection needs to
+verify it took effect, or inject differently.
+
+**The reconciliation itself.** `EXPECTED_FAILING_ROWS` is empty and single-valued across the
+matrix, so a row red on one OS cannot be listed without breaking the job on the others, and the
+`test` job stays red until every row is green on all three. That is the mechanism working as
+designed (V4-report §19): it is enumerating, not hiding.
+
+**Run 2 (34800489027, on `61a4880`) verified the fixes and showed the shape of what is left.** The
+macOS `test` job went fully green — all three POSIX rows and the arm64 golden with it — and
+ubuntu's four POSIX rows were gone. Twelve of twenty jobs were green. What stayed or appeared
+red, every row of it now printed with its own output:
+
+| Job | Row | Reading |
+|---|---|---|
+| `bench-gate` (windows) | B-B p99 **73.728 ms** again, p50 24.6, `hook_ack_rtt` p99 140.7 | the hosted-Windows fsync class, second run identical at the p99 |
+| `timing` (windows) | B-B p99 212.992 ms, p50 45.1 | same class |
+| `test-e2e` (windows) | X11 B-B p99 73.728, p999 426 | same class |
+| `test-e2e` (**ubuntu**) | X11 B-B p50 1.024 but p95 106.5, p99 **229.4 ms** against 15 | the same class on ubuntu-latest, which had passed in run 1: hosted runners of every OS carry an fsync tail |
+| `timing` (ubuntu) | `TestGC_DeadlineOvershootIsBoundedByTheCheckInterval` | the test's own calibration declared the host unmeasurable after every attempt (whole pass 39–43 ms); a host finding by the test's design, and a V6 row for hosted runners |
+| `test` (ubuntu) | `TestFeaturesFrom_LexicalCohesionShingleCap`: min-of-5 wall clock 10.09 ms against 10 | a wall-clock bound that never consulted `obs.UnderCoload`; now reported under co-load and judged in the `timing` lane (`95a1d48`, `3d4b857`), bound unchanged |
+| `test` (windows) | the two `icacls` rows, and `TestIntegration_AppendOnlyHoldsUnderConcurrentDaemonWrites` once of `-count=2`: `RecordToolUse: context deadline exceeded` | pre-existing; and the fsync class again — a store write outran its per-line deadline on the throttled disk, then passed on the second count |
+| `cover` | every test passed under `-cover` for the first time, so the **§6.4 floors ran for the first time**: `paths` 88.3 % and `store` 88.7 % against 90 % | real, and this close-out's own: SP20-D1 grew `store` (`backup.go`) and `paths` without tests in their own packages; measured locally at 88.9 % and 89.9 %. The profile was not uploaded because the upload sat behind the failing floor; `3d4b857` uploads it always |
+
+**The coverage floors, measured.** `store` has 3 537 statements and covers 3 145 of them on this
+host (88.92 %); the floor needs 39 more, and the uncovered set is 392 statements spread across
+error paths — the largest single uncovered block anywhere in the package is three statements
+(`migrate.go` 72, `gcrun.go` 65, `backup.go` 53, `lifecycle.go` 32). That is not a missing test;
+it is two dozen fault-injection tests, and it accumulated across waves 3–5 while the floor stage
+never ran. `paths` covers 89.9 % here and 88.3 % on ubuntu, the difference being the Linux-only
+`SyncData` and shared-handle code that only the daemon exercises. Run 3's profile puts the Linux
+gap at six statements out of 316, and all six are `Write`/`Sync` error branches and one
+rename-restore path that only a permission fault can reach: three POSIX-only fault tests would
+clear 90.0 % by a hair and prove nothing. Both packages are carried to V6 as one row against
+SP-17's hardening scope — either a filesystem fault seam (the CLI already has `QOMPACK_FAULT`) or
+a floor re-based on the tree as it is — with the profile now uploaded on every run.
+
+**Run 3 (34802759637, on `3d4b857`) — twelve of twenty green — closed the diagnosis.** macOS is
+green in every job. The shingle-cap row reported under co-load and passed in the `timing` lane;
+ubuntu's `timing` job was green, so run 2's GC calibration failure was the host on that day. What
+remained: the fsync tail reached ubuntu's `bench-gate` (B-B p50 1.152, p95 7.68, p99 **57.344**,
+p999 295 ms against 15) and its X11 (p99 32.8) — so hosted runners of every OS carry the tail, and
+Windows `bench-gate` read **73.728 ms** for the third run in a row while its `timing` job read
+3 408 ms; the Linux spool-under-co-load wait (`TestIntegration_DegradedPassiveStillWritesToTheRealStore`)
+on ubuntu's `test`; the two `icacls` rows on Windows, now the only rows in that job; three more
+Windows e2e and timing tests that the throttled disk took with it (`TestHooksExitZeroUnderFaults`,
+`TestV4_HotPathUnchangedWithTheFullWave3ResidentSet`, `TestGC_DeadlineTruncatesAndResumes`); and
+the two coverage floors. Every red on the branch is therefore one of: the hosted-runner fsync
+tail (owner: non-reference or not), the Linux ACK deadline (V6 design), the icacls injection (V6),
+or the floors (V6). None is a defect this close-out can fix without an owner decision or a scope it
+was not given, and each is recorded with its figures above and in §31.5.
 
 ### 31.11 SHA reachability
 
