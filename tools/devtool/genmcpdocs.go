@@ -283,7 +283,26 @@ func ephemeralNote(ephemeral bool) string {
 }
 
 // anchorFor is the GitHub heading anchor for a tool's `## \x60name\x60` heading.
-func anchorFor(name string) string { return strings.ReplaceAll(name, "_", "-") }
+//
+// It reproduces GitHub's heading slug rather than inventing one: the text is lowercased, a space
+// becomes "-", "_" and "-" survive because an underscore is a word character to that slugger, and
+// every other character is dropped. Rewriting "_" as "-" — which this did — offered #re-read for
+// a heading that answers to #re_read, so every underscored tool's glance-table link landed
+// nowhere.
+func anchorFor(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case r == ' ':
+			b.WriteRune('-')
+		case r == '-' || r == '_':
+			b.WriteRune(r)
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
 
 // firstSentence trims a description to its first sentence, for the glance table.
 func firstSentence(s string) string {
