@@ -234,6 +234,27 @@ func TestCreateNew_SetsReadOnly(t *testing.T) {
 	require.Equal(t, "{}", string(b))
 }
 
+// TestCreateNew_DirectoryAtPathIsNotACollision pins the one error CreateNew reserves: os.ErrExist
+// means a regular file already at p, the collision checkpoint.Finalize retries past by bumping its
+// sequence number. A directory there is not that. POSIX open(2) answers EEXIST for a directory
+// exactly as for a file, so before this pin Finalize on Linux and macOS skipped past a directory
+// sitting at its artifact path (TestFinalizeReopensTheDraftWhenTheArtifactNeverLands, red on the
+// first CI run of those runners); Windows refused it with ERROR_ACCESS_DENIED all along.
+func TestCreateNew_DirectoryAtPathIsNotACollision(t *testing.T) {
+	l := newLayout(t)
+	p := paths.CheckpointPath(l, 3)
+	require.NoError(t, os.MkdirAll(paths.Long(p), 0o700))
+
+	err := paths.CreateNew(p, []byte("{}"))
+	require.Error(t, err, "a directory at the artifact path must refuse the write")
+	require.NotErrorIs(t, err, os.ErrExist,
+		"a directory is not a sequence collision: ErrExist would make Finalize move to the next number")
+
+	fi, statErr := os.Stat(paths.Long(p))
+	require.NoError(t, statErr)
+	require.True(t, fi.IsDir(), "the directory must be left exactly where it was")
+}
+
 func TestReplaceBloom_KeepsOneBackup(t *testing.T) {
 	l := newLayout(t)
 	live := filepath.Join(l.Sketches, "tried.bloom")
