@@ -162,3 +162,54 @@ func TestGenMCPDocsCheckDetectsDrift(t *testing.T) {
 		require.NoError(t, taskGenMCPDocs([]string{"--check"}), "and it must accept its own output")
 	})
 }
+
+// TestMCPDocsGlanceLinksResolve is the row the anchor bug got past: the "Tools at a glance" table
+// links every tool to its own `## ` heading, and those links have to resolve on GitHub, where the
+// anchor is derived from the heading text and nowhere else.
+//
+// The slug rule is re-derived here from the heading the renderer actually emits, rather than
+// calling anchorFor on both sides — a test that asked the generator to agree with itself would
+// have passed while the page shipped #re-read for a heading that answers to #re_read. Tool names
+// come from mcp.ToolDefs so a new tool is covered the day it is added, and no count is asserted.
+func TestMCPDocsGlanceLinksResolve(t *testing.T) {
+	page, err := renderMCPDoc()
+	require.NoError(t, err, "renderMCPDoc")
+
+	// githubSlug is GitHub's heading slug: lowercase, spaces to "-", "_" and "-" kept as word
+	// characters, everything else (the backticks around the name, above all) dropped.
+	githubSlug := func(headingText string) string {
+		var b strings.Builder
+		for _, r := range strings.ToLower(headingText) {
+			switch {
+			case r == ' ':
+				b.WriteRune('-')
+			case r == '-' || r == '_':
+				b.WriteRune(r)
+			case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+				b.WriteRune(r)
+			}
+		}
+		return b.String()
+	}
+
+	// The anchors the page offers, read off its own `## ` headings.
+	offered := map[string]bool{}
+	for _, line := range strings.Split(string(page), "\n") {
+		if text, ok := strings.CutPrefix(line, "## "); ok {
+			offered[githubSlug(strings.TrimSpace(text))] = true
+		}
+	}
+	require.NotEmpty(t, offered, "the page must have headings, or this row proves nothing")
+
+	defs := mcp.ToolDefs(mcp.ToolDeps{})
+	require.NotEmpty(t, defs, "mcp.ToolDefs must return the tool set")
+	for _, d := range defs {
+		link := "[`" + d.Name + "`](#" + anchorFor(d.Name) + ")"
+		require.Contains(t, string(page), link,
+			"the glance table must link %q to its section", d.Name)
+		require.True(t, offered[anchorFor(d.Name)],
+			"the glance-table link for %q points at #%s, which no heading in the page offers; "+
+				"anchorFor must produce GitHub's slug of the heading text",
+			d.Name, anchorFor(d.Name))
+	}
+}
