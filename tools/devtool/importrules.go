@@ -54,6 +54,13 @@ var compositionRoots = map[string]bool{
 	// once is what no internal package's allow-set permits and what a composition root exists to
 	// hold — the same reason test/e2e is one.
 	"test/canary": true,
+	// test/platform (SP-17 Task 2) is the deployment-environment matrix: it assembles a real
+	// plugin bundle through `devtool bundle`, drives that bundle's binary across awkward path
+	// shapes, shell launcher forms and managed permission restrictions, and speaks admin IPC to
+	// the daemon it starts. It therefore reaches daemon, ipc, paths, hookio, core and testutil
+	// directly and cli through the binary it spawns, which no internal allow-set permits — the
+	// same reason test/e2e and test/canary are roots. Nothing imports it back.
+	"test/platform": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
