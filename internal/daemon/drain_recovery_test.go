@@ -167,6 +167,22 @@ func TestDrainTrailingIncompleteLineWaitsForCompletion(t *testing.T) {
 // Drain must report the persistence failure and keep the spool. Removing the fixture then
 // demonstrates the expected at-least-once retry; it deliberately does not claim exactly-once
 // handler execution.
+// TestDrainLoadStateTreatsAFileParentAsNoState pins the errno the two platforms disagree on: a
+// state path whose parent is a regular file is "not found" on Windows and ENOTDIR on POSIX, and
+// loadState must read both as a first drain, or TestDrainStatePersistenceFailurePreservesSpool
+// below runs two different sequences on the two — Windows dispatching and then failing to persist,
+// POSIX refusing before the handler ran — which the first Linux and macOS CI run found.
+func TestDrainLoadStateTreatsAFileParentAsNoState(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Dir(paths.Of(root).State), 0o700))
+	require.NoError(t, os.WriteFile(paths.Of(root).State, []byte("state directory is a file"), 0o600))
+
+	dr := newDrainer(DrainConfig{Root: root})
+	st, err := dr.loadState()
+	require.NoError(t, err, "a state path through a regular file holds no progress record")
+	require.Empty(t, st)
+}
+
 func TestDrainStatePersistenceFailurePreservesSpool(t *testing.T) {
 	root := t.TempDir()
 	line := recoveryLine(t)

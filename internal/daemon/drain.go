@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/qompack/qompack/internal/core"
@@ -1028,9 +1029,17 @@ func drainStatePath(root string) string {
 
 // loadState distinguishes a first drain from unreadable or inconsistent progress. Corrupt state
 // requires an explicit recovery decision; treating it as success could delete unread records.
+//
+// "No state yet" is ENOENT and also ENOTDIR: a state path whose parent is not a directory holds
+// no progress record, and the platforms disagree about which errno that is — Windows reports a
+// path through a regular file as not found, POSIX as ENOTDIR. Reading both as a first drain keeps
+// the two on one sequence: the drain dispatches, saveState reports the real failure, the spool
+// stays, and the acknowledged line is redelivered — which is what
+// TestDrainStatePersistenceFailurePreservesSpool pins, and what the V5 close-out's first Linux and
+// macOS run found only Windows doing.
 func (dr *drainer) loadState() (drainState, error) {
 	b, err := os.ReadFile(paths.Long(drainStatePath(dr.cfg.Root)))
-	if os.IsNotExist(err) {
+	if os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR) {
 		return drainState{}, nil
 	}
 	if err != nil {
