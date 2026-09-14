@@ -54,6 +54,10 @@ var compositionRoots = map[string]bool{
 	// once is what no internal package's allow-set permits and what a composition root exists to
 	// hold — the same reason test/e2e is one.
 	"test/canary": true,
+	// test/docs (SP-18) is the documentation harness: it reads README.md, docs/**/*.md and the
+	// generated command and tool pages as FILES, imports nothing from internal/, and nothing
+	// imports it — the same half of the rule every test/ package above is here for.
+	"test/docs": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
