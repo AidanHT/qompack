@@ -1,9 +1,11 @@
 # Qompack
 
 Qompack is a Go sidecar plugin for Claude Code. It records what a session produces — tool results,
-prompts and turn boundaries — into a local, append-only store under the project's `.qompack/`
-directory through the host's hooks (`SessionStart`, `PostToolUse`, `UserPromptSubmit`, `Stop`,
-`SubagentStop`, `PreCompact`, `SessionEnd`, as registered in `plugin/hooks/hooks.json`); it writes a
+prompts and turn boundaries — into a local store under the project's `.qompack/` directory
+(checkpoints, pins and the elimination bloom are append-only-protected; retention and GC do rewrite
+other parts, see [docs/architecture.md](docs/architecture.md)) through the host's hooks
+(`SessionStart`, `PostToolUse`, `UserPromptSubmit`, `Stop`, `SubagentStop`, `PreCompact`,
+`SessionEnd`, as registered in `plugin/hooks/hooks.json`); it writes a
 checkpoint at `PreCompact`; after a compaction it injects a bounded rehydration payload through
 `SessionStart` with `source=compact`; and it exposes retrieval, negative knowledge and
 observability through an MCP server (`qompack mcp`, registered by `plugin/.mcp.json`) and a set of

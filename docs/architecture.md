@@ -255,13 +255,23 @@ dependence-DAG slice produces a relevance score per node, not a binary keep/drop
 
 The full index, with each ADR's status and date as the ADR states it, is
 [docs/adr/README.md](adr/README.md). It is derived from the directory by `test/docs`, so it cannot
-go stale silently. In summary:
+go stale silently. Status and date below are quoted as each ADR states them; where an ADR carries no
+date line, the cell says so rather than guessing one.
 
-| ADR | Kind |
-|---|---|
-| 0002, 0003, 0007, 0008, 0009, 0011, 0012, 0030 | stand |
-| 0010 (wall-clock under co-load), 0013 (migration contracts, *proposed*), 0014 (group commit and A/B seal) | current amendments |
-| 0100 (V3 verification) | historical record |
+| ADR | Title | Status / date, as stated | Kind |
+|---|---|---|---|
+| 0002 | [Replay methodology: what the numbers mean and how they are produced](adr/0002-replay-methodology.md) | accepted (SP-02, wave 1); no date line | Stands |
+| 0003 | [Re-collecting the replay corpus, and the schedule the gate enforces](adr/0003-replay-overfit-recollection.md) | accepted (SP-02, wave 1); no date line | Stands |
+| 0007 | [DAG slices are scores, not drop decisions](adr/0007-dag-slices-are-scores-not-drop-decisions.md) | Accepted. Implemented by SP-07 (`internal/dag`); 2026-08-15 | Stands |
+| 0008 | [Observer L0: capture, tombstones, supersession, and the Phase 1 exit](adr/0008-observer-l0.md) | Accepted. Implemented by SP-08; 2026-08-25 | Stands |
+| 0009 | [Negative knowledge: the bloom is a cache, and nine decisions that follow from it](adr/0009-negative-knowledge-bloom-as-cache.md) | Accepted. Implemented by SP-09 (`internal/negknow`); 2026-08-23 | Stands |
+| 0010 | [A wall-clock budget is judged only where it is judgeable](adr/0010-wall-clock-under-coload.md) | Accepted. Implemented at the close of V3-VERIFY's J5 backfill; 2026-09-06 | Current amendment |
+| 0011 | [Rehydration budget, item order, and whole-rule restoration](adr/0011-rehydration-budget-and-item-order.md) | accepted; 2026-09-06; subplan SP-11 | Stands |
+| 0012 | [Scheduler L3: the composite trigger, BOCD, cache regimes and p-selection](adr/0012-scheduler-l3.md) | Accepted; 2026-09-06 | Stands |
+| 0013 | [Migration contracts: identities, publication, the shared ledger, envelopes and ownership](adr/0013-migration-contracts.md) | "Proposed by SP-19 M0-02 on branch `arch/migration-contracts`"; 2026-09-07 | Current amendment, proposed |
+| 0014 | [The delivery path's group commit and the A/B seal](adr/0014-delivery-group-commit-and-ab-seal.md) | Accepted, on branch `verify/v5-final`; 2026-09-13 | Current amendment |
+| 0030 | [The QPKS sketch binary format](adr/0030-sketch-binary-format.md) | Accepted; subplan SP-03, `internal/sketch`; no date line | Stands |
+| 0100 | [V3 verification — wave 2 (observer L0 + negative knowledge)](adr/0100-v3-verification.md) | accepted; 2026-08-26 | Historical record |
 
 Two of those deserve a note here. ADR 0013 is **proposed**, not accepted: it amends
 `plans/00-ARCHITECTURE.md` with §0.2 and "takes effect for implementation only once those owners
