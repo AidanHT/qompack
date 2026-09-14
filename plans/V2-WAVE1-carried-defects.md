@@ -693,3 +693,80 @@ third pin alone. None of the six uses a clock, a sleep or a goroutine ordering.
   is reachable only where `Size == Offset`, and `validateProgress` compares both against the stat, so
   the refusal is identical either way — which is why it costs nothing, and why the comments now say
   what the code does instead of claiming the pass synced to that bound.
+
+## SP20-D6 — budget B-A gates on a sample that omits the handler the hook waits on
+
+`deferred:V6-VERIFY`, opened at the V5 close-out (2026-09-13). The row is open, not fixed: every
+repair on the table changes a frozen contract, so choosing between them is the owner's call and not
+this close-out's. The defect is recorded and pinned instead.
+
+**What the contract says.** `plans/00-ARCHITECTURE.md:281` defines B-A as `hook_controlled — client
+main() entry → exit (connect + write + ACK)`, p99 < 15 ms, gated in CI on all three platforms at
+5 000 iterations. The ACK wait is INSIDE the budgeted region by that definition, not beside it.
+
+**What is measured.** `internal/daemon/handlers.go` calls `recordHotPathSample` after `callHandler`
+has returned (line 271), but the value it records is computed from the two timestamps that bracket
+the daemon's READ alone: `observed := time.Duration(int64(recvTS)-int64(req.TS)) * time.Millisecond`
+(line 312), plus `hotPathTailAllowance`. The handler's own duration is excluded by construction — it
+is never read from any clock, so no amount of work inside the route can move the sample.
+`hotPathTailAllowance` (`internal/daemon/budget.go:14-26`) is 1 ms, and its doc comment says it
+estimates "the ACK read plus process exit, after the daemon has stopped timing", and that
+over-counting is "the safe direction".
+
+**Why that is wrong rather than merely approximate.** `internal/ipc/server.go`'s `handleConn` runs
+`resp := s.dispatch(ctx, h, req)` (line 232) BEFORE it writes the ACK byte or the response line, so
+the hook client is blocked on the full handler, not on the daemon's read. Since SP20-D1 — this wave
+— the hot-path route for `observe.tool` runs the durable `ingest.Accept` (WAL append + fsync, lease
+journal, seal) inside that pre-ACK region, and `internal/config/deadlines.go`'s derivation comment
+records a measured B-B p99 of **36.864 ms** on this Windows host. The hook's real main()→exit time
+is therefore (B-A observed) + up to ~37 ms, while the gated sample is (B-A observed) + 1 ms. The
+allowance UNDER-counts the tail by the whole B-B region — the opposite of what `budget.go`'s comment
+claims — so the §8.1 fallback ("B-A p99 exceeds budget for 3 consecutive 512-sample windows",
+`00-ARCHITECTURE.md:307-309`) cannot fire on a breach the hook actually pays. Nothing absorbs it
+elsewhere either: `internal/config/defaults.go` sets `HotPath.BudgetMs = 15` as a single value with
+no per-platform switch, where B-B has one (50 on Windows, 40 on macOS).
+
+**The consequence, stated plainly.** B-A is green on a host where the hook it describes is over
+budget by a factor of several, and the degrade-to-spool clause the design leans on for exactly that
+situation is unreachable through this series. SP05-D2's fallback rate — 13 % of hooks in the two x09
+runs on file — is what the same region looks like measured from the client's own ACK deadline, which
+is the side that does see it.
+
+**Why it was not fixed here.** Each of the three repairs changes a contract this checkpoint may not
+move, and they are mutually exclusive:
+
+- **Re-define B-A to stop at daemon receipt** and let `AckDeadlineMs` bound the hook's total. Honest
+  about what the daemon can measure, and it makes `hotPathTailAllowance` unnecessary rather than
+  wrong — but it retires §2.4's own "connect + write + ACK" wording and leaves the region the hook
+  pays gated by a deadline rather than a budget.
+- **Re-budget B-A per platform to include the durable `Accept`**, as B-B already is. Keeps the
+  contract's region and admits the measured cost — but the 15 ms figure is Qompack.md §8.1's own
+  headline number, not only §2.4's, and CI gates it on three platforms.
+- **Feed the handler duration into the sample** (time the route, add it to `observed` in place of
+  the flat allowance). Smallest code change and it makes the series mean what its name says — but it
+  makes B-A breach on this host immediately, which trips §8.1 and puts the daemon into spool submode
+  for the rest of every session, i.e. it changes shipped runtime behaviour rather than a number.
+
+The third also interacts with SP20-D1's own deferral: whichever way B-B's durability cost is settled
+is the cost B-A would start carrying. Deferral target **V6-VERIFY**, alongside SP20-D1's, SP20-D2's
+and SP09-D1's platform-measurement rows, which are the same decision from the other end.
+
+**Evidence.** `TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler`
+(`internal/daemon/hotpath_ack_tail_test.go`). It drives one real `observe.tool` request through
+`dispatchOp` with the shipped route wrapped so that it advances a fake clock by 100 ms before
+returning, and asserts the recorded `hook_controlled` sample is exactly `recvTS - req.TS` + 1 ms
+— 5 ms against a handler that cost 100 ms — that the same value is what reaches the breach
+detector's
+channel, and that it sits inside the 15 ms budget while the region `00-ARCHITECTURE.md:281` defines
+is far outside it. Those equalities are what flip when the row is fixed. A second subtest pins,
+through a real `ipc` server and client, that the ACK byte is observed only after the handler
+returned; it is deterministic in the direction that holds today (the channel close happens-before
+the handler's return, which happens-before the ACK write, which happens-before the client's read),
+but its negative control is NOT deterministic, so it states the current ordering rather than
+carrying the flip. The test uses no `time.Sleep`, no wall-clock threshold and no
+`require.Eventually`: the handler cost is a fake-clock advance, the orderings are channels, and the
+exact value is read from the histogram's `Max`, which `internal/obs/hist.go` tracks in whole
+microseconds independent of bucketing. Both negative controls were run in a `git archive` scratch
+copy, never the worktree, and each produced a real failure signature: timing the sample to after the
+handler fails the `hook_controlled_observed` assertion at 104 ms against 4 ms, and feeding the
+handler into the gated series alone fails the `hook_controlled` assertion at 105 ms against 5 ms.
