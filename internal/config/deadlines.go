@@ -110,8 +110,8 @@ func connectDeadlineMsDefault() int {
 //
 // Fifteen runs, twelve of them inside an attested window, give these B-B p99 values in ms:
 //
-//	11.264  11.264  11.264  12.288  13.312  18.432  18.432  20.480
-//	20.480  22.528  22.528  24.576  24.576  28.672  36.864
+//	11.264  11.264  11.264  12.288  12.288  13.312  18.432  20.480
+//	20.480  20.480  22.528  22.528  24.576  28.672  36.864
 //
 // so P — the maximum, per the protocol, now over a sample large enough to contain its own tail — is
 // 36.864 ms, and
@@ -125,7 +125,7 @@ func connectDeadlineMsDefault() int {
 // (WAL Sync 2.243 + journal Sync 2.197 + seal slot 2.305 + about 0.4 ms of non-flush work). So 50 is
 // nearly seven times an uncontended Accept, and none of that gap is slack in the delivery path:
 // that path has a ±7 % spread across six runs, while B-B's p50 alone moves between 7.168 and
-// 15.360 ms run to run because the harness is starting 2 000 processes beside it — the spawn floor
+// 14.336 ms run to run because the harness is starting 2 000 processes beside it — the spawn floor
 // is p50 22.3 ms, p99 77.1 ms.
 //
 // The honest consequence, recorded here so nobody reads more into a green B-B than it carries:
