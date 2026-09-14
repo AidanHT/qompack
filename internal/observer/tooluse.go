@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/qompack/qompack/internal/canon"
 	"github.com/qompack/qompack/internal/core"
@@ -204,8 +205,19 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 	//     process-independent: "contains this tool use", in any process. Restoring it by id repairs
 	//     a restarted daemon whose next subagent capture would otherwise omit the tool result from
 	//     its hash list, and is a no-op in the process that already has it.
+	//
+	//     The §8.2 file version is the other exception, for the same reason: the version step 7
+	//     appends is a function of the record — its instant, turn, root and byte count — and the
+	//     index holds the record, so a replay can append the line the first run would have written
+	//     rather than one derived from this process. A first run cut between the record and its
+	//     version (a Stop's runCancel landing inside the sidecar link's fsync, which is the
+	//     interleaving x05 produced under co-load) otherwise loses the edit for good: no refresh can
+	//     compare against a version nobody appended, so a record whose dependency changed answers
+	//     active forever — §12's High-severity direction, and the one RefreshStaleness's own doc
+	//     comment says re-running cannot recover.
 	if !recorded {
 		o.rememberToolUseOnce(st, rec)
+		o.repairFileVersion(ctx, rec.ID, display, pathKey, empty)
 		o.count(counterRedelivery)
 		return hookio.Empty(), nil
 	}
@@ -281,6 +293,44 @@ func (o *observer) onToolUse(ctx context.Context, e Event) (Output, error) {
 		o.count(counterTombstone)
 	}
 	return hookio.Empty(), nil
+}
+
+// repairFileVersion is step 7 for a recognized redelivery: it appends the §8.2 file version the
+// first run of id would have appended, built from the index record the store just recognized rather
+// than from this process's clock and turn, so the line is the one the first run would have written
+// and the store's (root, turn) dedup folds it away when the first run did write it.
+//
+// It is ordered. The history is append-ordered and ChangedSince reads its newest entry, so a version
+// older than the newest one already there must not be appended behind it — that would move the
+// path's current root BACKWARDS, which is the false-stale direction. A newest entry at or after the
+// first run's instant means the path has moved on and the lost version is no longer the current
+// one; the replay then leaves the history alone.
+//
+// Same predicate as step 7, and the same soft failure: this is a repair of derived state, and a
+// replay that cannot make it must not refuse the delivery it was asked to acknowledge.
+func (o *observer) repairFileVersion(ctx context.Context, id core.ToolUseID, display, pathKey string, empty bool) {
+	if empty || pathKey == "" || supersedableClass(display) != classFileContent {
+		return
+	}
+	prior, err := o.opt.Store.ToolUse(ctx, id)
+	if err != nil {
+		o.soft(stageFileVer, err)
+		return
+	}
+	if prior.Root.IsZero() {
+		return
+	}
+	if latest, lerr := o.opt.Store.FileAt(ctx, pathKey, time.Time{}); lerr == nil {
+		if latest.Root == prior.Root && latest.Turn == prior.Turn {
+			return // the first run appended it; AppendFileVersion would no-op anyway
+		}
+		if latest.TS >= prior.TS {
+			return // a version at or after the first run's instant is already the newest
+		}
+	}
+	o.soft(stageFileVer, o.opt.Store.AppendFileVersion(ctx, pathKey, store.FileVersion{
+		TS: prior.TS, Root: prior.Root, Turn: prior.Turn, Bytes: prior.Bytes,
+	}))
 }
 
 // canonOptions is the observer's whole contribution to O2 beyond tool/path selection: which
