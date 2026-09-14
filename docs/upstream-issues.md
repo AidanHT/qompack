@@ -37,10 +37,15 @@ capability it cannot verify.
 - **Host limitation.** A plugin that returns `additionalContext` from a SessionStart hook with
   `source=compact` receives no signal about what happened to it: whether it was delivered to the
   model at all, and how much of it. No documented host surface reports this.
-- **Evidence.** `hook.additional_context_delivered` — the assertion whose job this is — reports
-  `not-yet-implemented` on this tree, which is the producer-absent state and means no assertion was
-  made (`internal/contract/ids.go` `CAdditionalContext`; `internal/contract/assertions.go`, the
-  `gated` wrapper: the real check "never runs at all"). The design it belongs to,
+- **Evidence.** `hook.additional_context_delivered` — the assertion whose job this is — has no
+  recorded observation. In `qompack self-test` it reports `not-yet-implemented`, the producer-absent
+  state, because self-test runs the standard assertions against a zero `daemon.Services`
+  (`internal/cli/selftest.go` `selfTestContractAssertions`) and the producer is declared only when
+  the rehydrate seam is bound (`internal/daemon/options.go` `DeclareProducers`); the gated wrapper
+  then never runs the real check at all (`internal/contract/assertions.go`;
+  `internal/contract/ids.go` `CAdditionalContext`). What a live daemon's run would observe against
+  an installed host has never been recorded: installed-host verification is claimed nowhere
+  (`plans/V5-report.md` §24, B01; `plans/MIGRATION-EVIDENCE.md` "Capability register inputs"). The design it belongs to,
   [ADR 0011](adr/0011-rehydration-budget-and-item-order.md), can bound and order what Qompack emits
   but cannot observe what the host did with it, and `internal/contract/capability.go` records
   injection as `implemented_unverified` with the note that an observed sentinel "documents one
@@ -59,7 +64,8 @@ capability it cannot verify.
 - **Host limitation.** Two properties of the PreCompact hook are undocumented as guarantees:
   whether `custom_instructions` returned by the hook is accepted, and how much wall time the hook
   has before compaction proceeds without it.
-- **Evidence.** Both assertions report `not-yet-implemented` on this tree:
+- **Evidence.** Both assertions report `not-yet-implemented` in `qompack self-test`'s
+  zero-`Services` run, and neither has an installed-host observation recorded anywhere (B01):
   `precompact.has_time_to_write` ("measured PreCompact wall time vs. the manifest timeout") and
   `precompact.custom_instructions_accepted` ("the emitted instruction's sentinel phrase is searched
   for in the post-compaction summary; absent warns (advisory by design)") —
@@ -77,8 +83,12 @@ capability it cannot verify.
 
 ## 3. A post-compaction signal that does not have to be inferred
 
-- **Host limitation.** There is no post-compaction event delivered to a plugin. A plugin learns that
-  a compaction happened by observing the next SessionStart carrying `source=compact`.
+- **Host limitation.** No post-compaction event is used by this plugin, and none is contractual
+  here. `Qompack.md` v1.5 §7.3 records PostCompact among the surfaces current documentation
+  describes, with "installed support remains unverified" — so this page makes no claim either that
+  such an event is delivered to a plugin or that it is not. What Qompack does is infer the boundary
+  from the next SessionStart carrying `source=compact`, because a capability may not depend on an
+  event whose delivery it cannot verify.
 - **Evidence.** `internal/contract/capability.go` records the design consequence directly:
   "Reinjection has no PostCompact prerequisite: it cannot wait for an optional event." The pairing
   Qompack infers instead is its own assertion, `session_start.source_compact` — "after a PreCompact
@@ -86,9 +96,10 @@ capability it cannot verify.
   id. Recorded in `state/contract.json` and evaluated on the FOLLOWING start"
   (`internal/contract/ids.go`). `Qompack.md` v1.5 §7.3 lists PostCompact among the surfaces current
   documentation describes while "installed support remains unverified".
-- **Proposal.** Deliver a post-compaction event (or an equivalent one-shot signal) carrying the
-  session id and the compaction's outcome, so a plugin need not reconstruct the boundary from the
-  event that follows it.
+- **Proposal.** Make a post-compaction signal contractual and observable to a plugin — a documented
+  one-shot event carrying the session id and the compaction's outcome, with a stated guarantee about
+  when it is delivered — so a plugin need not reconstruct the boundary from the event that follows
+  it, and need not treat the signal as optional.
 - **What Qompack would do with it.** Observe the compaction boundary directly instead of evaluating
   it one session-start late, which would remove a class of missed pairings when a session ends
   between the two events. Qompack would keep working without it: the reinjection path must not
@@ -122,8 +133,10 @@ capability it cannot verify.
   `.mcp.json` declares. The stdio server learns it exists only if a client speaks to it, and a host
   that never launched it produces the same silence as a host that launched it and sent nothing.
 - **Evidence.** `mcp.server_registered` — "the MCP server received initialize at least once this
-  session" (`internal/contract/ids.go` `CMCPRegistered`) — reports `not-yet-implemented` on this
-  tree. `internal/mcp`'s package comment records the related asymmetry: Claude Code "launches an MCP
+  session" (`internal/contract/ids.go` `CMCPRegistered`) — reports `not-yet-implemented` in
+  `qompack self-test`, which runs it against a zero `daemon.Services`; the producer is declared only
+  where the daemon binds `s.MCPInitialized` (`internal/daemon/mcpop.go`), and no installed-host run
+  has recorded what that assertion observes (B01). `internal/mcp`'s package comment records the related asymmetry: Claude Code "launches an MCP
   server once per client and hands it no session_id", which is why the daemon, not the stdio
   process, resolves the session.
 - **Proposal.** Make registration observable to the plugin that declared the server: report whether

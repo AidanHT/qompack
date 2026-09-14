@@ -16,9 +16,10 @@ import (
 // Whether the prose around those nouns is true is the reviewer's job, not this package's.
 
 // section12Nouns are the limits Qompack.md v1.5 §12 "What this plugin cannot do" states, in its own
-// words. They are quoted from the plan rather than paraphrased so that a future §12 revision which
-// respells one of them shows up here as a failure instead of leaving the page quietly describing a
-// limit the binding source no longer states.
+// words. They are quoted from the plan rather than paraphrased, and
+// TestCannotDoCoversSection12Limits checks each one against §12 itself before checking the page —
+// so a future §12 revision that respells one of them fails here, instead of leaving this list and
+// the page quietly describing a limit the binding source no longer states.
 var section12Nouns = []string{
 	"native-history cuts",
 	"marker control",
@@ -42,13 +43,59 @@ func readDoc(t *testing.T, root, rel string) string {
 
 // TestCannotDoCoversSection12Limits asserts docs/cannot-do.md states every limit §12 states. A
 // limits page that dropped one would read as though the limit had been lifted.
+//
+// It runs in two steps, and the first is what keeps the list honest: every entry of section12Nouns
+// must still appear in §12's own prose, read out of Qompack.md. Without that step this test would
+// be checking the page against a hard-coded list nobody re-reads, and a §12 revision could respell
+// or retire a limit while every assertion here kept passing.
 func TestCannotDoCoversSection12Limits(t *testing.T) {
-	body := readDoc(t, repoRoot(t), "docs/cannot-do.md")
+	root := repoRoot(t)
+
+	section := planSection(t, root, "### What this plugin cannot do")
+	for _, noun := range section12Nouns {
+		if !strings.Contains(section, noun) {
+			t.Errorf("Qompack.md §12 \"What this plugin cannot do\" no longer states %q: §12 is the "+
+				"binding source, so this list and docs/cannot-do.md both follow it, not the other way around",
+				noun)
+		}
+	}
+
+	body := readDoc(t, root, "docs/cannot-do.md")
 	for _, noun := range section12Nouns {
 		if !strings.Contains(body, noun) {
 			t.Errorf("docs/cannot-do.md: does not state %q (Qompack.md v1.5 §12)", noun)
 		}
 	}
+}
+
+// planSection returns the text of one subsection of Qompack.md: the lines after the given heading,
+// up to the next heading of any level. Qompack.md is the plan of record and is not one of the
+// markdown files this package's link and ownership checks walk, so it is read by path here.
+func planSection(t *testing.T, root, heading string) string {
+	t.Helper()
+	lines := readLines(t, filepath.Join(root, "Qompack.md"))
+	start := -1
+	for i, l := range lines {
+		if strings.TrimSpace(l) == heading {
+			start = i + 1
+			break
+		}
+	}
+	if start < 0 {
+		t.Fatalf("Qompack.md: heading %q not found: the scan is looking in the wrong place", heading)
+	}
+	var out []string
+	for _, l := range lines[start:] {
+		if _, _, ok := headingText(l); ok {
+			break
+		}
+		out = append(out, l)
+	}
+	body := strings.TrimSpace(strings.Join(out, "\n"))
+	if body == "" {
+		t.Fatalf("Qompack.md: section %q is empty", heading)
+	}
+	return body
 }
 
 // issueURLRe matches a GitHub issue URL. Its presence on the proposals page would mean a proposal
