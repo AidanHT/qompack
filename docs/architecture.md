@@ -282,8 +282,7 @@ jobs that run those tests alone.
 
 ## 10. What is not supported
 
-Each item names where the limit is recorded. The full page is planned (SP-18 Commit 5):
-`docs/cannot-do.md`.
+Each item names where the limit is recorded. The full page is [docs/cannot-do.md](cannot-do.md).
 
 - **No native cuts, markers or history eviction.** `plans/MIGRATION-EVIDENCE.md`, "Capability
   decisions": history rewriting / native eviction is `unsupported` and `Excluded`; ephemeral

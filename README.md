@@ -136,6 +136,15 @@ are recorded as *disabled*, never as *passed*.
 
 ## Where to read next
 
+- [docs/user-guide.md](docs/user-guide.md) — what each command, slash command and tool reports,
+  and how to read the qualifications those reports carry
+- [docs/troubleshooting.md](docs/troubleshooting.md) — what each observable failure means and what
+  to do about it
+- [docs/cannot-do.md](docs/cannot-do.md) — the capabilities this build does not have, and where
+  each limit is recorded
+- [docs/upstream-issues.md](docs/upstream-issues.md) — the host changes that would lift those
+  limits, as prepared proposals
+- [docs/uat.md](docs/uat.md) — the acceptance scenarios and the evidence a run has to leave
 - [docs/architecture.md](docs/architecture.md) — the actual contracts: process model, write set,
   identity, durability, retrieval, rehydration, and what is not supported
 - [docs/adr/README.md](docs/adr/README.md) — every architecture decision record, with its status
