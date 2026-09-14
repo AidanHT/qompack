@@ -108,10 +108,23 @@ func connectDeadlineMsDefault() int {
 // attested run. One failed, at p99 36.864 ms on a clean window (processor performance 152 %,
 // foreign load 5.6 %).
 //
-// Fifteen runs, twelve of them inside an attested window, give these B-B p99 values in ms:
+// Fifteen runs, twelve of them inside an attested window, give these B-B p99 values in ms.
 //
-//	11.264  11.264  11.264  12.288  12.288  13.312  18.432  20.480
-//	20.480  20.480  22.528  22.528  24.576  28.672  36.864
+// Three of the fifteen are the acceptance triple taken at the committed 30, and their artifacts no
+// longer exist: the acceptance stage was run a second time after the widening, against the new 50,
+// and it reuses the names acc-run1..3, so the second stage overwrote the first. The surviving
+// scratchpad artifacts are therefore m1-run1..3, m2-run1..3, stress-run4..9 and the acceptance
+// triple at 50 — fifteen files, but NOT these fifteen runs. Re-deriving P by globbing whatever
+// *.json is on disk silently swaps the acceptance-at-30 values (18.432, 20.480, 24.576) for the
+// acceptance-at-50 values (12.288, 20.480, 20.480) and produces a list that disagrees with this
+// one. P is the maximum and stays 36.864 ms either way, so the constant does not move; the list
+// below is the derivation set as it stood, and this note is here because that substitution was
+// actually made once while checking this comment.
+//
+// The values:
+//
+//	11.264  11.264  11.264  12.288  13.312  18.432  18.432  20.480
+//	20.480  22.528  22.528  24.576  24.576  28.672  36.864
 //
 // so P — the maximum, per the protocol, now over a sample large enough to contain its own tail — is
 // 36.864 ms, and
@@ -125,7 +138,7 @@ func connectDeadlineMsDefault() int {
 // (WAL Sync 2.243 + journal Sync 2.197 + seal slot 2.305 + about 0.4 ms of non-flush work). So 50 is
 // nearly seven times an uncontended Accept, and none of that gap is slack in the delivery path:
 // that path has a ±7 % spread across six runs, while B-B's p50 alone moves between 7.168 and
-// 14.336 ms run to run because the harness is starting 2 000 processes beside it — the spawn floor
+// 15.360 ms run to run because the harness is starting 2 000 processes beside it — the spawn floor
 // is p50 22.3 ms, p99 77.1 ms.
 //
 // The honest consequence, recorded here so nobody reads more into a green B-B than it carries:
