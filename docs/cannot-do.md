@@ -96,10 +96,15 @@ host change could lift — as prepared proposals, none of which has been filed.
 
 - **Limit.** Qompack cannot report exact native loaded bytes — how much of what it injected reached
   the model, or how many bytes the host holds.
-- **Why.** The assertion that would observe a delivery, `hook.additional_context_delivered`, has no
-  producer in this build: `contract.StandardAssertions` gates it, so `qompack self-test` reports it
-  `ok / info / not-yet-implemented`, which means no assertion was made at all. A number nobody
-  measured is `unknown`, not zero.
+- **Why.** The assertion that would observe a delivery, `hook.additional_context_delivered`, has
+  produced no observation anywhere you can read one. `qompack self-test` runs the standard
+  assertions against a zero `daemon.Services` (`internal/cli/selftest.go`,
+  `selfTestContractAssertions`), so that assertion's producer is undeclared *there* and the row
+  reports `ok / info / not-yet-implemented` — the producer-absent state, which means no assertion
+  was made at all. A live daemon does declare the producer once its rehydrate seam is bound
+  (`internal/daemon/options.go` `DeclareProducers`, guarded by `s.Rehydrate`), but no run against an
+  installed Claude Code has ever been recorded here (B01), so there is no observed delivery figure
+  from that path either. A number nobody measured is `unknown`, not zero.
 - **What Qompack does instead.** It counts its own emitted tokens against its own budget and prints
   the availability word rather than a borrowed number when there is no measurement —
   [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance) and
@@ -116,8 +121,9 @@ host change could lift — as prepared proposals, none of which has been filed.
 - **Why.** `Qompack.md` v1.5 §7.3 states the boundary: "`custom_instructions` is PreCompact input,
   not a summarizer-output setter." The key that once implied otherwise,
   `checkpoint.incrementalSpanInstruction`, is retired-meaning and read for compatibility only.
-  Whether the host accepts the instruction at all is itself unasserted here:
-  `precompact.custom_instructions_accepted` is `not-yet-implemented` on this tree.
+  Whether the host accepts the instruction at all is itself unobserved here:
+  `precompact.custom_instructions_accepted` reports `not-yet-implemented` in `qompack self-test`'s
+  zero-`Services` run, and no installed-host run has observed it (B01).
 - **What Qompack does instead.** It writes its own checkpoint at PreCompact, which is Qompack's
   artifact and does not depend on what the summarizer produces.
 - **Recorded at.** `Qompack.md` v1.5 §12 and §7.3;
@@ -340,10 +346,14 @@ These are the limits that can move. Each names the gate or the owner that would 
   is verified at the repository-validator level only.
 - **Why.** `plans/V5-report.md` §24 records installed-host compatibility as `implemented_unverified`
   (B01), and `plans/MIGRATION-EVIDENCE.md` states it flatly: "No test or document in either tree
-  claims installed-host verification for any capability; B01 stands." Four host contracts are
-  unasserted in this build for the same reason — `hook.additional_context_delivered`,
+  claims installed-host verification for any capability; B01 stands." Four host contracts have no
+  recorded observation for the same reason — `hook.additional_context_delivered`,
   `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and
-  `mcp.server_registered` all report `not-yet-implemented`.
+  `mcp.server_registered` report `not-yet-implemented` in `qompack self-test`, which runs them
+  against a zero `daemon.Services`; a live daemon declares each of those producers only when the
+  matching seam is bound (`internal/daemon/options.go` `DeclareProducers`, guarded by
+  `s.PreCompact`/`s.Checkpoints`, `s.Rehydrate` and `s.MCPInitialized`), and what such a run would
+  observe against an installed host has never been recorded.
 - **What Qompack does instead.** It reports the producer-absent state honestly instead of reading it
   as success, and pins that reading with a test over `internal/contract/observation.go`'s spellings
   table.
