@@ -77,11 +77,18 @@ func scoreCandidatesInto(dst []scored, cands []Candidate, n core.Tokens, cacheFa
 		if tail < 0 {
 			tail = 0
 		}
-		reclaim := float64(c.ReclaimableTokens) * r
-		rewrite := w * tail * cacheFactor
+		// Each product is rounded EXPLICITLY before the subtraction consumes it. The spec lets an
+		// implementation fuse x*y+z into one operation "possibly across statements", and arm64
+		// does (FMSUB), while amd64 does not — so without the conversions the same inputs score
+		// differently in their last bit on the two, and a decision golden written on one fails on
+		// the other; the first macos-latest CI run found decision-expiring.json doing just that.
+		// float64(x*y) is the spec's own idiom for "round here", and chooseP's exact tie
+		// comparison depends on every platform producing the same bits.
+		reclaim := float64(float64(c.ReclaimableTokens) * r)
+		rewrite := float64(w * tail * cacheFactor)
 		dist := 0.0
 		if lambda > 0 {
-			dist = lambda * float64(c.Coupling)
+			dist = float64(lambda * float64(c.Coupling))
 		}
 		out = append(out, scored{
 			c: c, tail: tail, reclaim: reclaim, rewrite: rewrite,
