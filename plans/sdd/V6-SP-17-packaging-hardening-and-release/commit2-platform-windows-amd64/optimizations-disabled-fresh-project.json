@@ -1,0 +1,16 @@
+{
+  "name": "optimizations-disabled-fresh-project",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-603-gbb7066f-dirty",
+    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+  },
+  "outcome": "verified",
+  "reason": "every gated optimization is reported disabled by the shipped bundle",
+  "detail": "`qompack config print --json` in a fresh project reports map[runtime.migration.capture.rawEvidence:false runtime.migration.experiments.enabled:false runtime.migration.publication.durableFrontier:false runtime.migration.replacement.newResult:false]"
+}

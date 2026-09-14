@@ -1,0 +1,16 @@
+{
+  "name": "shell-launcher-forms",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-603-gbb7066f-dirty",
+    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+  },
+  "outcome": "verified",
+  "reason": "the Windows hook launcher matrix ran (8 invocations)",
+  "detail": "8 launcher invocations across bash=\"C:\\\\Program Files\\\\Git\\\\usr\\\\bin\\\\bash.exe\" (found at the Git for Windows install location under %ProgramFiles%) and powershell=\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" against \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plugplain\" and \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plug in ünï\""
+}

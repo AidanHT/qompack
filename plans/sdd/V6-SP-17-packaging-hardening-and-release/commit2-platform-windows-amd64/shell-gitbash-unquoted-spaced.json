@@ -1,0 +1,16 @@
+{
+  "name": "shell-gitbash-unquoted-spaced",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-603-gbb7066f-dirty",
+    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+  },
+  "outcome": "failed",
+  "reason": "the manifest's UNQUOTED ${CLAUDE_PLUGIN_ROOT} breaks under Git Bash when the plugin install directory contains a space",
+  "detail": "shell C:\\Program Files\\Git\\usr\\bin\\bash.exe (found at the Git for Windows install location under %ProgramFiles%). Env-expanded form \"${CLAUDE_PLUGIN_ROOT}/bin/qompack observe tool\" exited 127 (stderr: /usr/bin/bash: line 1: C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1700057959\\plug: No such file or directory). Textually-substituted form \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plug in ünï/bin/qompack observe tool\" exited 127 (stderr: /usr/bin/bash: line 1: C:UsersQuantAppDataLocalTempqompack-platform-1700057959plug: command not found). The same manifest string against the space-free control \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plugplain\" exited 0, and the quoted form against the spaced root exited 0. OWNER: internal/pluginmanifest (SP-17 Task 6) — hooks.json must quote the placeholder; test/platform records this and does not fix it. SCOPE: hooks.json ONLY. .mcp.json names the same placeholder but carries `args`, which makes it exec form (no shell), so it has no word-splitting problem and must NOT be quoted — quotes would become literal path characters and break the spawn everywhere. This test neither reads nor exercises .mcp.json."
+}

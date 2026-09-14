@@ -1,0 +1,16 @@
+{
+  "name": "path-root-plain",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-603-gbb7066f-dirty",
+    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+  },
+  "outcome": "verified",
+  "reason": "an ordinary ASCII project root (the control)",
+  "detail": "root=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1295385267\\\\plain-project\" (75 chars); six hooks exit 0 with parseable hookio.Output; C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1295385267\\plain-project\\.qompack exists; daemon reachable at \\\\.\\pipe\\qompack.5b3d317143ac; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1295385267\\plain-project\\.qompack\\ C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-1295385267\\home\\.qompack\\]"
+}

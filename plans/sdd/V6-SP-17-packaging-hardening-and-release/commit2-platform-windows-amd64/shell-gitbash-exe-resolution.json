@@ -1,0 +1,16 @@
+{
+  "name": "shell-gitbash-exe-resolution",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-603-gbb7066f-dirty",
+    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+  },
+  "outcome": "verified",
+  "reason": "Git Bash resolves the manifest's extensionless bin/qompack to bin/qompack.exe",
+  "detail": "shell C:\\Program Files\\Git\\usr\\bin\\bash.exe (found at the Git for Windows install location under %ProgramFiles%); script \"${CLAUDE_PLUGIN_ROOT}/bin/qompack observe tool\" with CLAUDE_PLUGIN_ROOT=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plugplain\" exited 0; the bundle contains no extensionless bin/qompack, so the .exe suffix was supplied by the launcher"
+}

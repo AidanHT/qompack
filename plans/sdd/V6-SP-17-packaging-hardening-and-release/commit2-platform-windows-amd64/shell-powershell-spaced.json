@@ -1,0 +1,16 @@
+{
+  "name": "shell-powershell-spaced",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6",
+    "host_cli_version": "2.1.263"
+  },
+  "bundle": {
+    "version": "v0.2.0-603-gbb7066f-dirty",
+    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+  },
+  "outcome": "verified",
+  "reason": "the PowerShell launcher form works from an install directory containing a space and non-ASCII characters",
+  "detail": "shell C:\\Program Files\\PowerShell\\7\\pwsh.exe; script \"\u0026 \\\"$env:CLAUDE_PLUGIN_ROOT/bin/qompack\\\" observe tool\"; CLAUDE_PLUGIN_ROOT=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plug in ünï\" exited 0 (stdout parseable=true); the space-free control exited 0. The command names bin/qompack with no extension and the bundle ships only bin/qompack.exe, so a zero exit is also this host's answer to the extension-resolution question"
+}
