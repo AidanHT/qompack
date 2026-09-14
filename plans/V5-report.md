@@ -1030,3 +1030,774 @@ ran on `b1a0183`, the tree this report describes; the closing commit folds in it
 lists each with its disposition. Next authorized action: §29. Executed by the session coordinator (Claude Code) on the
 user's instruction; the user is the signing authority for the waiver and for every outward-facing
 step (push, CI, tag), none of which was taken.
+
+---
+
+## §31 Close-out addendum (2026-09-13)
+
+*This section is additive. §1-§30 record the wave as it stood at its close on 2026-09-10 and are left
+exactly as they were — including the rows this section supersedes, which are corrected here and not
+rewritten there, so that the record shows what moved. Every commit SHA quoted below was checked for
+ancestry against `verify/v5-final`; see §31.11.*
+
+### 31.1 What this addendum changes
+
+The wave closed on 2026-09-10 with §8's gate unmet, carried under the finish-everything waiver. This
+section records the work done after that close: five defect rows move to `fixed`, three new rows open
+as `deferred:V6-VERIFY` (SP20-D4, SP08-D3, SP20-D6), two rows open and close inside the close-out
+(SP20-D3, SP20-D5), a third site of SP08-D2 found by the final pass is fixed in place, and the wave's
+flaky-gate list is reduced to its environmental residue.
+
+One row that an earlier draft of this section listed as closing does **not** close: SP09-D1. The
+negknow speed-up at `eaef177` moved `BenchmarkOpen` from 258-273 ms CPU/op to **90.4 ms**, about
+2.2x once normalised for clock, which is most of the "real speed-up of `Open`" its resolution offered
+as one of two ways out. But that resolution asks first for a **reference-platform figure**, and every
+number in this wave is from one Windows developer host. Scaling the new figure to the throttled clock
+the row failed at gives roughly 265 ms against a 300 ms budget — inside it, by 13 %, on an estimate.
+§31.3's re-budget is the argument against accepting that: a limit derived from three runs there sat
+4.6 % above the worst sample anyone had seen, and the next run exceeded it. CI's `timing` job on this
+push supplies the figure the row actually asked for.
+
+| Row | Was | Now | Where |
+|---|---|---|---|
+| SP20-D1 (delivery durability / B-B) | `deferred:V6-VERIFY` | `fixed` | §31.3 |
+| SP05-D2 (ack deadline vs. fsync cost) | `deferred:V6-VERIFY` | `fixed` — closed by SP20-D1's re-budget | §31.3 |
+| SP08-D2 (observer not idempotent under a reused-lease redelivery) | `deferred:V6-VERIFY` | `fixed` | §31.4 |
+| SP09-D1 | `deferred:V6-VERIFY` | unchanged — deliberately | §31.5 |
+| SP20-D3 (delta identity) | — | `fixed`, with a rollback caveat | §31.6 |
+| SP20-D4 (lease/ack journals cap at 65,536) | — | `deferred:V6-VERIFY` | §31.5 |
+| SP20-D5 (drain records a bound it never read to) | — | `fixed` | §31.3 |
+| SP08-D3 (replayed prompts never verbatim-captured) | — | `deferred:V6-VERIFY` | §31.5 |
+| SP08-D2, third site (a cut first run loses the §8.2 file version for good) | — | `fixed` in this close-out, no row | §31.4 |
+| SP20-D6 (B-A's gate cannot see the ACK wait the hook pays) | — | `deferred:V6-VERIFY` | §31.5 |
+| SP06-D2, SP08-D1, SP10-D1, SP20-D2 (perf) | `deferred:V6-VERIFY` | unchanged — deliberately | §31.8 |
+
+§21's rows are updated in place for the five that move. The perf rows are **not** moved: the
+sequenced plan exists and is costed, but no perf row closes without a quiet-window measurement, and
+the owner's ruling was tests first, then optimize.
+
+### 31.2 Owner rulings this close-out executed
+
+Recorded 2026-09-10, and each is traceable to the work below:
+
+1. **SP20-D1: keep durability, re-budget.** Do not weaken an fsync to meet B-B. Group-commit the WAL,
+   lease and ack writes; replace the single-slot delivery seal with an A/B seal; then raise B-B to a
+   measured durable p99 the owner approves, and raise `AckDeadlineMs` to match. Closes SP05-D2.
+2. **Belady: retire the floor, pin the measurement.** The 70 % floor is gone; `dagselPinned` is a
+   characterization test, not a gate.
+3. **Perf: tests first, then optimize.**
+4. **CI: push the branch when green**, no `v*` tag. The repository is public as of that date.
+
+A fifth ruling was made on 2026-09-13 under the owner's standing delegation for this close-out
+("make the best decisions yourself"), and is called out here rather than folded in silently:
+
+5. **Q3: B-B is reported, not gated, under `--under-coload` — after the re-budget, never instead of
+   it.** Reasoning and the cost accepted are in §31.3.2.
+
+### 31.3 SP20-D1 — what shipped
+
+The wave landed as nine merges onto `verify/v5-final`, in this order:
+
+| Merge | Subject | Commits | What it changed |
+|---|---|---|---|
+| `d1749b1` | merge the retired belady floor and its pinned measurement | 2 | Retired the 70 % Belady floor; pinned `dagselPinned` as a characterization test |
+| `616fb6a` | merge the x13 capture sidecar count fix | 1 | Counted x13's burst sidecars by op and session instead of in aggregate |
+| `eaef177` | merge the negknow Open and DetectorScan speed-up | 8 | Derived each record's bloom keys once at `Open`; scanned the detector through an index view |
+| `1d51e5b` | merge the prompt capture fix and the SP08-D3 pin | 4 | Took prompt capture off the reply deadline; counted the prompts the drain replays without one |
+| `a3b4687` | merge the SP20-D3 per-base delta recovery records | 7 | Gave each delta base its own recovery record; serialized concurrent puts of one canonical root |
+| `a8ab0e2` | merge the SP20-D4 delivery journal cap pin | 1 | Added the characterization test for the journals' 65,536-entry cap |
+| `c6fa34b` | merge the drain's live-WAL and stale-progress fixes | 13 | Stopped the drain deleting a WAL segment the ingest still holds; pruned progress for finished files already gone |
+| `ddc492c` | merge the SP08-D2 observer idempotence fix | 15 | Made both observer sites absorb a redelivery under a reused lease |
+| `3d95582` | merge SP20-D1's group commit and the format-2 seal | 137 | Group-committed the WAL, lease and ack writes; replaced the single-slot seal with the v2 A/B seal; flipped the writer to format 2 |
+
+Nine further commits landed directly on the spine: four diagnostic repairs (`6fd43c4`, `79a5171`,
+`8435334`, `eb26dd6`), two CI commits (`837dd64`, `2c294d5`) and three defect-manifest commits
+(`5e1c38b`, `782652d`, `fae083d`).
+
+**The total.** 206 commits sit between the V5 verification checkpoint at `5708f38` and this
+addendum's HEAD: 191 non-merge commits, nine spine merges, five merges internal to the SP20-D1
+branch and one SP08-D2 back-merge.
+
+SP20-D1's 137 divide by part, counting only what is the branch's own: part 1 (the WAL and the
+drain's durable bound) 21, part 2 (lease and ack) 20, part 3a (the v2 seal, wired to nothing) 6,
+part 3b (wiring, the tool and the flip) 77, and the drain progress floor fix 8 — 132 non-merge
+commits, plus the four internal merges that joined them (`cd4e6ef`, `c9f336c`, `eb4a76d`) and the
+two back-merges of `verify/v5-final` (`6eee455`, `74c6c35`).
+
+One discrepancy is recorded rather than smoothed over: `c6fa34b`'s own message claims seventeen
+commits, but `git rev-list c6fa34b^1..c6fa34b^2` is thirteen, and the range `5aa89a2..05a4d11` that
+message names is also thirteen. Thirteen is the number in the table.
+
+Structure of the work, which is stable:
+
+- **Part 1 — the WAL.** A leader/follower group-commit queue, batch caps pinned at their exact fills,
+  and the orphan-lease window closed: the drain never leases bytes whose `Sync` has not returned.
+  Review found that half of design §2.2's X1 row and §3 row 4 were wrong about reachability; the
+  design was amended rather than the finding waived.
+- **Part 2 — lease and ack.** A five-phase lease group commit and an ack group commit, with a journal
+  close protocol. 35 mutations across the two stages, all caught; two pre-existing tests were shown
+  to miss mutations the new ones catch.
+- **Part 3a — the v2 seal.** A 32 KiB A/B seal (two 480-byte slot regions, sequence parity, strict
+  reader, post-seal identity check) with its own codec, crash images and fuzz target, wired to
+  nothing yet.
+- **Part 3b — wiring and the flip.** The dual reader, the crash table driven over the real path in
+  both formats, the offline repair tool and its Rule R, and the `deliverySealWriteFormat 1 → 2`
+  flip. Detailed in §31.3.1 below.
+- **SP20-D5.** `drainFile` recorded `fs.Size` as the stat size while the pass read only to
+  `min(stat, synced)`, so a machine crash that lost the unsynced tail made `validateProgress` refuse
+  every later drain of the whole spool. Fixed by recording the bound the pass actually used.
+  A round-2 review then demonstrated that the first fix let the recorded bound **fall** after a
+  segment reopen — a truncation of durable bytes drew no refusal and a shorter foreign line was
+  delivered. The shipped form floors at the recorded bound **only for a record this code wrote**,
+  marked explicitly; an unmarked pre-fix record keeps the offset floor, because its size may name a
+  tail that was never durable. A second independent review could not refute it and could not find a
+  vacuous test: of eighteen mutants, the three survivors are each accounted for, one of them a
+  survival the code's own comment predicts. The fix also carries a rollback residual, recorded in
+  §31.6. Fixing it exposed a second defect the review had not asked about — once `Size` may exceed
+  the stat a pass saw, a file shrinking mid-pass made `Done` write an unloadable record and handed
+  the file to be unlinked below its own durable bound — which is guarded in the same change.
+
+**The two-step rollout.** Design §4.3: step 1 ships the v2 seal and a reader that accepts either
+format while still writing format 1; step 2 flips the writer. Step 1 alone does not meet a
+re-budget — design §7.2, "the re-budget waits for step 2" — so the limits and the M2 measurement are
+taken on the step-2 build, not before.
+
+**The re-budget** (`5d0b904`, corrected at `cbfa3d3`). Measured on a quiet AC host on the shipped
+format-2 build, every run preceded by an attested window (processor performance 98-204 %, foreign
+load 4.5-9.6 %). Fifteen runs of 2 064 samples each, in four groups:
+
+| Group | Runs | B-B p99 | `hook_ack_rtt` p99 | Limit in force |
+|---|---|---|---|---|
+| M1 — format 1, pre-flip | 3 | 13.312 - 28.672 | 11.351 - 31.630 | 60 (provisional) |
+| M2 — format 2, shipped | 3 | 11.264 - 22.528 | 12.101 - 33.521 | 60 (provisional) |
+| Stress — after the first derivation | 6 | 11.264 - **36.864** | 11.391 - 33.666 | 30 |
+| Acceptance — after the widening | 3 | 12.288 - 20.480 | 13.522 - 25.693 | 50 |
+
+    P             = max B-B p99 over all fifteen runs   = 36.864 ms
+    slack99       = max per-run (ack p99 - B-B p99)     = 22.257 ms   (M2 run 3)
+    L0IngestMs    = roundup5(1.25 x 36.864)             = 50
+    AckDeadlineMs = 50 + ceil(22.257)                   = 73
+
+No deferral, shortfall or unleased delivery in any run: the loop was closed, so B-B measured service
+time rather than a queue.
+
+**The first answer was 30, and a rule fixed in advance corrected it.** §7.5's formula applied to the
+three attested M2 runs gives P = 22.528 and a limit of 30, and 30 was also the smallest 5 ms step
+that passed every run taken at that configuration — six of them at the time. That is what `5d0b904`
+committed. It was committed together with a rule stating that if any subsequent run exceeded the new
+limit, the derivation would be redone over *every* run rather than the failing run re-litigated as
+noise. Six stress runs followed. The fourth returned p99 **36.864 ms**. Nine runs had by then shown a
+maximum of 28.672 — the 30 ms limit sat **4.6 % above the worst sample anyone had seen**, and the
+tenth run cleared it by 23 %. The rule fired: redoing the derivation over all fifteen gives P =
+36.864, hence 50 and 73, committed at `cbfa3d3` and confirmed by three acceptance runs at the new
+limit.
+
+**40 would have passed all fifteen runs, and was not chosen.** The worst observed sample is 36.864,
+so a 40 ms limit clears the whole record with 8 % to spare and would have looked defensible. The
+1.25 factor exists precisely to leave room for the sample the run count has not yet drawn, and this
+episode is a demonstration of that gap rather than an argument against it: nine runs did not contain
+it. Re-negotiating the formula at the first inconvenient result is how a limit ends up describing the
+runs that were taken instead of the behaviour being bounded, so the formula was applied as written.
+
+**The budget is nearly seven times the service time, and that is host contention, not slack.** An
+uncontended leased `Accept` costs 7.306 ms (`BenchmarkIngestAcceptLeased`, `-count=6`) and M0's
+components predict 7.2 ms — WAL sync 2.243 + journal sync 2.197 + seal slot 2.305 + about 0.4 ms
+outside the flushes. That operation has a +/-7 % spread in isolation. B-B's p50 nonetheless moves
+between 7.168 and 14.336 ms across fifteen runs on the same quiet host, because the harness is
+starting 2 000 processes beside it: the spawn floor alone is p50 22.3 ms, p99 77.1 ms. **B-B's tail
+is set by how many processes the machine is starting, not by the durability path** — which is also
+§31.3.2's strongest argument, and the reason a coarse backstop is the honest shape for this budget.
+The recommendation recorded in `deadlines.go` for V6 is to gate `BenchmarkIngestAcceptLeased`
+instead, where the durability path is measured without the spawn floor on top of it.
+
+Windows is measured. **Linux (15/17) and darwin (40/45) are seeded from §7.5's table and are
+provisional pending CI's `bench-gate` measurement**, and are marked so in the constants themselves.
+The design's Windows prediction was 12-18 ms even in its pessimistic column against a measured
+36.864, so the other two rows should be expected to need raising rather than assumed correct.
+`4043b6a` is what makes that measurement obtainable: `bench-gate` uploaded its hot-path JSON only on
+success, so the one run whose numbers are wanted — the failing one — destroyed its own evidence. The
+gate itself is untouched.
+
+#### 31.3.1 Part 3b in detail
+
+**The dual reader.** `loadDeliverySeal` (`internal/daemon/delivery_lease.go:796`) decides the format
+from the file's own layout, through `readDeliverySealImage` (`:821`) and `isDeliverySealImage`
+(`internal/daemon/delivery_seal.go:268`) — never from a flag, so the two readers cannot disagree
+about which one owns a file. A v2 image whose slots do not select is **refused**, not handed down to
+the v1 reader: that is this journal's seal, damaged, and the refusal preserves the evidence. Only a
+file that is not a v2 image at all reaches `loadDeliveryPosition` (`:845`). Reading both formats
+cannot widen what a batch accepts, because the per-batch check does not use it — `checkSeal` (`:696`)
+asks the held seal in format 2 and the strict v1 reader in format 1.
+
+`effa28d` wired the rest: `openSeal` (`:608`), `openAckSeal` (`:1108`) and `openSealHandle` (`:652`)
+run §O4a's conversion, §O4b's open over the image and §O4c's re-seal of a recovered tail, with
+`closeSeals` (`:730`) leaving a v1 sidecar behind on a clean Release and only then — `fault == nil`
+and the lock still owned by this process. A downgrade that fails is best effort but no longer
+silent: the first failure becomes `Lock.SealDowngradeResidual` (`internal/daemon/lock.go:320`),
+logged once at Warn (`:298`). `cb8f984` added that after flip review round 2 found §4.4's "a clean
+stop leaves v1" could stop being true with nothing anywhere saying so.
+
+**The crash table.** `960ab02` built design §6.2's T28 over §3's table: one delivery through the real
+path, cut at eleven steps — W1, W2, L4, L5, L6, L7, L8, AK, K4, K5, K6 — with the image reconstructed
+from the syncs that *returned*, every step run in both write formats through the lock's own
+`sealFormat` seam (`internal/daemon/lock.go:65-78`). Those eleven cuts state §3 rows 1, 2, 4, 5, 6,
+7, 8, 10 and 12, with torn variants beside rows 5 and 7.
+
+Three rows were **cut** from the table rather than kept. L9 and K9 (`21a12bb`) and L3 (`14f05bd`)
+named steps with no durable image of their own — a crash at any of them leaves byte for byte the
+image of the step beside it, which is what §3 itself says of row 9 in saying only "as 8" — and the
+comment now records where each is asserted instead (`internal/daemon/delivery_crash_test.go:81-97`).
+Row 3 is cited at `TestIngest_WALBatchPreservesRotationBoundaries` rather than restated weakly,
+because neither of the two WAL subtests rotates a segment (`:1187-1197`). Rows 11, 13, 14–16, 17 and
+18 are driven directly: row 11 by `TestCrashCutBetweenReferenceAndFrontierRedelivers`, row 13 by
+`TestDeliverySeal_AFailedWriteLatchesTheSeal` (`delivery_seal_test.go:752`) beside the journal's own
+poison, rows 14–16 by `TestDeliverySeal_ConversionAndDowngrade` and
+`TestDeliveryJournal_RollbackDrillAcrossFormats`, row 17 by T15
+(`delivery_lease_groupcommit_test.go:1222`), and row 18 by the post-seal identity check itself
+(`delivery_seal.go:481`).
+
+Two review findings hardened the table. `b48406f` and `1c81e1e` made the torn-slot variant tear
+`slotFor(eff.Seq+1)` — the slot a seal write actually lands in — because scanning slot a first tore
+the *effective* record every time, so row 7's torn-target state was never built at all. `68ee223`
+added the image census: any two rows that reconstruct one durable image must be told apart by a live
+discriminator, or the suite fails.
+
+**The offline tool.** `RepairDeliverySeal` (`internal/daemon/delivery_seal_tool.go:98`, `d1e2477`),
+wired as `qompack admin delivery-seal` (`internal/cli/admin.go:26,:54`, `c2109d0`). It takes the
+daemon lock through `AcquireLock`, re-reads it after both scans and immediately before each write
+(`holdsLock`, `:301`, `8ac7618`), writes nothing until both journals have loaded in full, and syncs
+each journal before its seal names that journal's tail (`:551`, `089694b`). It never edits a
+journal: every repair it can make is to a position file.
+
+**Rule R** is `sealRuleR` (`:636`, `1696bd4`) and lives here and nowhere else — the daemon's reader
+stays strict whatever an operator decides. It accepts one valid slot beside one invalid slot, taking
+the valid record as the position, and only behind `--accept-torn-slot --yes`. It refuses two valid
+slots, anything beside an *empty* slot at any seq, two invalid or two empty slots, and the images the
+strict reader already accepts. It prints exactly which journal lines the acceptance admitted
+(`:519`), and a run whose report could not be written refuses the conversion rather than making the
+change without its record (`:212`).
+
+**The flip.** `deliverySealWriteFormat` moved 1 → 2 at `internal/daemon/delivery_seal.go:88`
+(`5d32859`). Design §4.3's two steps are a reader before a writer: step 1 ships the group commits,
+the dual reader, the v2 codec and the converter while still writing v1 — the compatible deployed
+reader SP-20 requires before the first new-format write — and step 2 flips the writer alone, together
+with the T25/T26 evidence and the format-2 crash table. **The rollback is that constant back to 1, a
+one-line change, and never a revert of the flip commit**, because the flip commit also carries the
+format-2 coverage a format-1 build still needs in order to read the images it converts (`3fa6bd6`,
+pinned by `TestDeliverySeal_WriteFormatIsDeliberate`, `delivery_seal_test.go:1106`).
+
+The flip made design risk R10 reachable — a running daemon now rewrites position sidecars in place,
+so a backup could copy one mid-slot and record it `Consistent: true`. `55b6f68` refuses that backup
+with `ErrBackupMoved`, re-reading the files a writer outside the migration lease can touch and
+comparing against the **captured** bytes (`internal/store/backup.go:67-95`); `af34615` then reads
+them with delete sharing, so the backup cannot stall the daemon in turn.
+
+#### 31.3.2 Q3 — B-B under co-load
+
+Design §7.6's open question Q3 asked whether B-B should keep its gate when the harness is told the
+host is co-loaded. **It should not, and the waiver lands only after the re-budget.**
+
+ADR 0010's rule has two branches: move a cost judgement to the process's CPU clock and keep gating
+on it, or — where the property is intrinsically wall-clock and *no such clock exists* — report the
+measurement and name the lane that still judges it. B-B's CPU branch is not merely unbuilt but
+unbuildable to any useful standard. B-B has no child process, so `B-E_cpu`'s mechanism does not
+reach it; `obs.ProcessCPU` is a cumulative whole-process counter that cannot isolate one request
+from concurrent daemon goroutines, and `internal/obs/cpu_windows.go:21-25` documents 15.625 ms
+scheduler-tick quantisation, so a single-request bracket reads exact zero against a budget in the low
+tens of milliseconds — which those same comments say must be treated as a failed measurement rather
+than a fast one. Decisively, what inflates B-B is **fsync**: blocked time, costing no CPU. A
+`B-B_cpu` row would pass through exactly the regression it was added to catch.
+
+ADR 0010's *enumeration* nonetheless puts B-B on the gated side, citing it as the co-load-robust
+control at 0.576 / 0.768 / 0.704 ms against a 2 ms limit (`0010:18-27`). **That classification has
+been falsified.** B-B times `ingest.Accept` in full, and since `f6a8691` made the delivery path
+durable that region contains three flushes, each of which co-load moves by the same factor as
+everything else. The harness says so itself at `test/bench/hotpath/main.go:176-186`, in a comment
+that labels its own recorded reason stale and defers the decision here. The stale half is the
+enumeration, not the rule; applying the rule to a row the enumeration misclassified finishes ADR
+0010 rather than amending it.
+
+**The sequencing is not optional.** B-B is red *in isolation*, on a quiet host, for a product reason
+— that is SP20-D1 itself. A waiver landed while B-B were still red in isolation would be doing the
+re-budget's work, which is precisely "moving a row to reported-only to make a red test green". This
+project has twice refused to hide that row. So: re-budget first, confirm B-B green in isolation
+against the decided figure, and only then let the co-loaded lanes report it. The order also changes
+what the residual failures mean. §31.10 records three co-loaded B-B reds at 14.3, 28.7 and 53.2 ms,
+all taken against the old 2 ms limit. Re-scored against the decided 50 ms, two of the three now pass
+outright and only the 53.2 ms row remains over — beside a p50 stable at 8.2-9.2 ms across all three.
+A single row 6 % over a limit derived from fifteen runs, on a host whose spawn floor alone has a
+p99 of 77 ms, is host noise rather than a cost signal, and that is what the waiver is for. Landed in
+the other order it would have been indistinguishable from suppressing a red test.
+
+This is also what §7.6 itself recommended. It set out two options — (a) one limit sized from
+co-load, about 60 ms on Windows, making the quiet gate roughly 3x looser than the service time; and
+(b) the ADR 0010 route, B-B reported under the declaration and judged at the quiet limit in the
+isolation lanes — and marked (b) *recommended*, on the same reasoning given above: this is the ADR's
+rule applied to a row whose exemption premise changed. It also names what continues to hold the line
+in every lane, which the framing "the hot path is ungated under co-load" understates: **T9, T10 and
+T14 are co-load-immune structural gates** — syncs per batch-of-one, check-then-append order, and
+zero releases before the seal — and they run everywhere, unaffected by this ruling.
+
+**What is lost, stated plainly.** After the change the whole-tree `test` job, nightly
+`race-windows`, and `devtool test` / `test-race` / `cover` have no hot-path *cost* gate at all —
+only the structural durability assertions, which say the ordering is right and nothing about how
+long it takes. The isolated verdict lives in `bench-gate`, nightly `bench-deep`, `timing` and
+`test-e2e`, and `test/guards/coload_test.go:140` mechanically prevents that coverage from
+disappearing silently. That is a real loss and the waiver is not free. It remains the better of the
+two, because the alternative is a gate that fails on host noise, and a gate that cannot be trusted
+is the dead-gate failure mode this project already names as worse than no gate.
+
+B-B stays a gated budget in `internal/obs/budgets.go`; only the co-loaded *run* reports it. The
+change is one line of harness — `9638b30` turns B-B's unconditional gate flag into `!underCoload`,
+the same expression the other exempted rows already use — and `d03080d` appends Addendum 1 to ADR
+0010 recording that the enumeration's premise for B-B was falsified and what replaces it. The ADR's
+original table is left unedited: it was correct when measured, and overwriting it would erase the
+evidence that the classification moved.
+
+#### 31.3.3 The design's twelve owner questions, dispositioned
+
+`sp20d1-design-final.md` §"Open questions for the owner" listed twelve. None was answered in writing
+by the owner; the close-out dispositioned each from the tree, closed one of the open five by
+writing the document it asked for, and carries the other four as V6 rows (§31.5) rather than
+leaving them in a scratchpad design. The audit was taken
+against the tree at `e897c9e`, and every citation was re-checked there.
+
+| Q | Asked | Disposition | Evidence |
+|---|---|---|---|
+| Q1 | Per-platform hook contract, measure O2, or declare Windows non-reference, given a durable ACK against B-A's 15 ms | **still open → SP20-D6** | `defaults.go` `BudgetMs: 15` is one value with no GOOS switch; the gated row stops at `recvTS` and cannot see the durable path (§31.5) |
+| Q2 | Move the B-A sample point and the breach detector from `recvTS` to "ACK written" | **still open → SP20-D6** | `recordHotPathSample` runs after `callHandler` but still computes `recvTS − req.TS` (`handlers.go`); no ruling, comment or test records a decision |
+| Q3 | Co-load treatment of B-B | **ruled**, option (b) | §31.2 item 5, §31.3.2, ADR 0010 Addendum 1 (`d03080d`), `9638b30` |
+| Q4 | Per-GOOS `L0IngestMs` / `AckDeadlineMs` | **answered in code** | `deadlines.go` 15/50/40 and 17/73/45 selected on `runtime.GOOS`; linux and darwin marked provisional |
+| Q5 | Two tags (reader, then writer) or one | **still open**, moot until a tag exists | no tag beyond `v0.2.0`; both steps sit on one unreleased branch; the recorded rollback is the constant flip, never a revert (§31.6) |
+| Q6 | Countersign O1: the accessor's lock-file read moves into the per-batch check | **answered in code**, countersign unrecorded | `delivery_lease.go` accessor fast path; `Lock.ownedByFile()` per batch; T20 `delivery_lease_accessor_test.go` |
+| Q7 | Strict reader plus operator repair over automatic Rule R | **answered in code**, as recommended | Rule R exists only in `delivery_seal_tool.go`'s `sealRuleR`, reachable only through `AcceptTornSlot` behind two typed flags (`admin.go`) |
+| Q8 | O2, a write-through seal handle, for measurement only | **still open**, never measured | no `FILE_FLAG_WRITE_THROUGH` / `O_DSYNC` anywhere; `OpenSharedRW` is a plain shared handle; no bench variant |
+| Q9 | SP-20 author countersign on release-after-seal, the `Accept` comment and the ADR | **closed in substance**: all three parts now exist; the countersign itself is a human act and is not recorded | T10 `TestDeliveryJournal_NoLeaseReleasedBeforeItsBatchSeal` pins release-after-seal; the `Accept` comment is rewritten; the ADR the design's §5 change list required did not exist until this close-out wrote it: ADR 0014, `ad53bb0` |
+| Q10 | Batch caps: accept or tune from the burst benchmark | **answered in code**, accepted untuned | `groupcommit.go` 512 / 4 MiB / 1 MiB, each citing a design section; the recorded ~32 per batch comes from `BenchmarkIngestAcceptLeasedParallel` |
+| Q11 | Authorise a `Qompack.md` revision if it states B-B's 2 ms | **superseded**, premise false | `Qompack.md` states no budget number; the stale 2 ms lived in `plans/00-ARCHITECTURE.md` §2.4 and is amended at `e897c9e` |
+| Q12 | Write-format switch as a package constant or a `migrationBuildGates` entry | **answered in code**, constant | `delivery_seal.go` `deliverySealWriteFormat = 2`, pinned by `TestDeliverySeal_WriteFormatIsDeliberate`; `migrationBuildGates` untouched |
+
+Two document faults the audit surfaced are closed by this addendum itself: ADR 0010 Addendum 1 and
+the design's preamble both cite `plans/V5-report.md` §31 as the disposition record, and §31 did not
+exist until this text was appended.
+
+### 31.4 SP08-D2 — the observer is idempotent under a reused lease
+
+Merged at `ddc492c`: fourteen commits of its own, plus a back-merge that brought this branch up to
+the two commits `verify/v5-final` had gained since it was cut.
+
+The defect: a pre-flush shutdown cancels an `observe.*` between the observer's append and
+`commitDelivery`, so the flush-time daemon legitimately redelivers under the reused lease and the
+observer records the work twice. It manifested as x09 going red under co-load through its
+`SubagentStop` count (1/3, 0/6, 2/12, 3/3 across earlier sessions) and, at the second site, as a
+redelivered read re-running supersession: *"the superseder is not a record this flush wrote."*
+
+Both observer sites now absorb the redelivery. The fix lives entirely in `internal/observer` and
+`internal/store`; no production `internal/daemon` file changed, so it does not contend with SP20-D1.
+`test/e2e/v3_x09_test.go` is byte-identical to its base — the gating test was not adjusted to fit the
+fix. The evidence test was **inverted**: it is red on the base and green on the fix.
+
+Three review rounds ran. The third could not refute the fix and confirmed it by mutation: of four
+single-site mutants, the ones the design claims are covered were caught, and the two that were not
+are disclosed rather than hidden. One of those, an untested index-confirmation guard whose failure
+direction is a *swallowed* capture, was closed with a test in this close-out rather than carried
+(`444086e`). That test covers both arms of the guard — the index holding no such id, and holding it
+under another root — and its mutation control flips exactly one test between the pristine tree and
+the mutant, so the new row is precisely what holds the guard rather than merely coinciding with it.
+
+Two documentation items are deliberate and recorded: x09's comment block still describes the defect
+as open, because keeping the flush arm byte-identical was a condition of the change; and §21's row is
+updated here rather than on the fix branch.
+
+**A third site, found by the final pass and fixed here** (`98f846c`). The 20-shard pass on
+`2d0cb20` turned `TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface` red:
+a record whose dependency file had been rewritten rendered `[active]` where §8.3 requires the stale
+note. It bisected cleanly to `3d95582`, the merge of SP20-D1's group commit into the SP08-D2 tree —
+both parents green, the merge red — and then `3d95582` passed four of four once the pass had wound
+down. That is the trap `green-from-timing-accident` warns about, and the bisect was discarded: the
+failure is load-dependent, and it is real. Under co-load it is reachable; on a quiet host the window
+is microseconds wide.
+
+The chain, each link read off the tree: `Stop` calls `runCancel()` first, before its bounded drain,
+so an ingest worker's `onToolUse` loses its context mid-pipeline (`daemon.go`). Between step 6a —
+the index line the test polls for — and step 7, the §8.2 file version that `store.ChangedSince`
+compares against, sits step 6b's sidecar link, a `paths.WriteAtomic` with an fsync inside it
+(`tooluse.go`, `capture_sidecar.go`). Under the 20-shard pass that fsync ran into hundreds of
+milliseconds (the same run's B-B p99 was 360 ms), the test saw the line, asked for a restart, and the
+cancel landed inside the link. Step 7 is a soft stage and `AppendFileVersion` checks `ctx.Err()`
+first, so the version was dropped with a warning; `runIngested` then refused the acknowledgement
+because the context was cancelled, the WAL retained the delivery, and the next daemon redelivered
+it. On redelivery the store recognised the record — same id, same root — and the recognised-replay
+branch SP08-D2 introduced returned before step 7, by design: *"a first run cut before one of those
+soft stages loses it exactly as any soft failure does."* Nobody ever appended the version, so no
+refresh could see the edit, and `already_tried` answered active for an elimination whose dependency
+had changed: §12's High-severity direction, and the one `staleness.go`'s own comment says re-running
+the refresh cannot recover from.
+
+The fix is in the replay branch, not in `Stop` and not in the test. The file version is a function
+of the record — instant, turn, root, byte count — and the index holds the record, so a replay can
+append the line the first run would have written rather than one derived from the replaying
+process's clock. `repairFileVersion` does that, ordered: it appends only when the path's newest
+recorded version is older than the first run's instant, so a repair can never move a path's current
+root backwards, and the store's existing `(root, turn)` dedup folds it away when the first run did
+write it. The same-process, persisted-restart and cold-restart sweeps of the SP08-D2 construction —
+a fake clock, a real store, a context that is cut after every number of checks — now assert that the
+newest file version carries the recognised record's root at every cut point; before the fix exactly
+one cut point fails, in all three process states, which is the interleaving above. x05 and x09 pass
+on the fixed tree. What remains lossy on a cut is what SP08-D2 documented as lossy — the sketch
+feed, the DAG edge, the counters — and each of those is derived from the replaying process's state,
+so the exception is deliberately narrow.
+
+### 31.5 New rows carried to V6-VERIFY
+
+- **SP20-D4** — the lease and ack journals cap at 65,536 entries and nothing retires either. Past the
+  cap every delivery is unleased for good: ACKed and observed, but with no ObservationID, sidecar or
+  frontier, so the drain re-dispatches it after a restart. At roughly one lease per tool call that is
+  ~31 realistic sessions. At-cap startup load is ~0.7 s.
+- **SP08-D3** — replayed prompts are never verbatim-captured. Folded into its acceptance: a late
+  capture can land after a Stop turn advance or a compaction read.
+- **SP20-D6** — B-A's gate cannot see the ACK wait the hook pays. `plans/00-ARCHITECTURE.md`
+  defines B-A as client `main()` entry → exit *including the ACK*, but the gated sample is
+  `recvTS − req.TS` plus a 1 ms tail allowance whose doc comment assumes the daemon "has stopped
+  timing"; since SP20-D1 the ACK is written only after the durable `Accept`, so the tail the
+  allowance stands in for is the whole B-B region — up to 36.9 ms p99 on this host against a 15 ms
+  budget — and the §8.1 spool fallback cannot fire on a breach the hook actually pays. Evidence:
+  `TestCarriedDefect_SP20D6_GatedBASampleExcludesThePreACKHandler` (`00440bd`). Disposing of it is Q1 and Q2 of §31.3.3, and each
+  option changes a frozen contract: redefine B-A to stop at daemon receipt and let `AckDeadlineMs`
+  bound the hook's total, re-budget B-A per platform to include the durable `Accept`, or feed the
+  handler's duration into the sample. Not chosen here; the owner's re-budget ruling covered B-B, not
+  B-A. The normative B-A row in `plans/00-ARCHITECTURE.md` §2.4 carries a note to the same effect,
+  so the table no longer states a clock the gate does not run.
+- **The group-commit and A/B-seal ADR** (Q9) is *not* carried. The design's §5 change list required
+  it and `docs/adr/` did not have it; it is ADR 0014 as of `ad53bb0`, written from the tree and the
+  merge messages, settling Q6, Q7, Q10 and Q12 in the direction the code took and deferring the
+  co-load treatment to ADR 0010 Addendum 1. Every SHA and test it cites was checked for reachability
+  before it was committed.
+- **O2, the write-through seal handle** (Q8), approved by the design for measurement only and never
+  measured: no bench variant exists. It stays a measurement item, sequenced behind §31.8.
+- **The two-tag question** (Q5) is moot until a tag exists past `v0.2.0`, and is recorded so that the
+  wave that cuts one decides it rather than inherits a default.
+- **`Stop` cancels in-flight ingest work before its bounded drain.** The third SP08-D2 site (§31.4)
+  is fixed by making the one replay-independent soft stage replay-safe; the ordering that exposes
+  soft stages to a cancel on every graceful shutdown is unchanged, and the remaining soft stages
+  stay lossy on a cut exactly as SP08-D2 documents. Whether `Stop` should let a running handler
+  finish inside the drain bound before cancelling is a V6 question, not a close-out change.
+- **SP09-D1** stays carried, and is the one row in this section that a reader might expect to have
+  closed. `BenchmarkOpen` improved about 2.2x (§31.1); the row's resolution asks first for a
+  reference-platform figure, and this wave has none. What it needs is a single number from CI's
+  `timing` job, not more work — see §31.1 for why the local estimate was not accepted in its place.
+- The perf plan's §7 rows: the store GC orphan-reuse hole (pre-existing), a redaction Unicode-fold
+  blind spot, an SP10-D1 documentation correction with stale bench-baseline Finalize rows, a
+  `Stats.Bytes` novel-chunk accounting race, and production B-C headroom after SP20-D1.
+
+### 31.6 Rollback guidance
+
+This belongs beside the report's existing rollback guidance and Qompack.md's "never blind downgrade".
+
+**Delta records (SP20-D3).** A binary from before the delta-identity fix expects a delta record's
+payload to be a bare JSON array. It reads every delta record written since as `FidelityCorrupt` with
+no bytes. Canonical bytes and every content root still read; only the exact-original recovery of
+roots put since the fix is lost, and it fails in the safe direction — never a false "exact". Rolling
+forward restores it; nothing is rewritten. The roots-line `verbatim` key is forward-compatible: an
+older reader drops it and under-claims canonical. Separately, a put without `KeepRaw` that dedups
+onto a root stored with a delta record now reports canonical where it used to report exact; the only
+caller that could see it is the migration import, which ignores the label.
+
+**The drain progress mark (SP20-D5).** The fix records `"durable_size": true` on a progress record
+whose bound this code wrote, and floors at that bound only for a marked record; an unmarked record
+keeps the weaker offset floor, because a pre-fix record's size may name a tail that was never
+durable. The format survives a downgrade unchanged — the old loader is a plain `json.Unmarshal` with
+no `DisallowUnknownFields`, so it neither fails nor refuses — but **the protection does not**. An
+older binary drops the unknown field and rewrites the record unmarked, and the next pass over a
+reopened segment then lowers the bound, so a truncation of durable bytes draws no refusal until the
+next marked write restores it. This was demonstrated end to end, not argued. It is the accepted cost
+of the ruling: the alternative, trusting an unmarked size, is exactly the wedge the ruling exists to
+prevent. A downgrade-then-upgrade cycle should therefore be followed by a drain pass before the
+spool is trusted again.
+
+**The delivery seal.** A binary that only understands format 1 **fails closed** on a format-2 seal.
+The v2 file is one valid JSON document whose `"v"` is 2; the old reader, `loadDeliveryPosition`
+(`internal/daemon/delivery_lease.go:845`), reads it — 32 KiB is under the 64 KiB
+`deliveryLeaseMaxLine` — and refuses it on the version, because it requires `core.EvidenceVersion`.
+`TestDeliverySeal_V2IsOneJSONDocumentAndTheOldReaderRefusesIt`
+(`internal/daemon/delivery_seal_test.go:163`) asserts exactly that for five images — fresh, after
+one, two and three writes, and converted from a v1 position — requiring `core.ErrDegraded` and
+requiring the unmarshalled version to differ, so the refusal is the version check and not an
+accident of some later bound. There is no mis-read and no partial read: the journal is unavailable,
+deliveries become counted unleased gaps, the WAL and the spool stay durable, and the seal files are
+left exactly as they were.
+
+Design §4.4's rollback table says the same in the other direction. Step 2 → step 1 is always safe,
+because step 1 reads v2 and rewrites v1 at open. Step 2 → pre-step-1 after a **clean stop** is safe,
+because a clean Release downgrades both seals (`closeSeals`, `:730`; `downgradeToV1`,
+`delivery_seal.go:597`). Step 2 → pre-step-1 after a **crash or a failed Release** is the fail-closed
+case.
+
+Four things can leave v2 on disk for an older binary to meet: a crash; a Release whose journal was
+faulted or whose lock had been lost, since `closeSeals` downgrades only when both hold; an open that
+converted a v1 file and then failed, which leaves a v2 file behind although that daemon never sealed
+a batch (`delivery_lease.go:642-651`); and the downgrade itself failing, which is best effort and
+never blocks the release of ownership but is now recorded rather than discarded
+(`Lock.SealDowngradeResidual`, `lock.go:320`, logged once at Warn with the repair command by
+`reportSealDowngradeResidual`, `:298`, pinned by
+`TestDeliverySeal_AFailedDowngradeIsRecordedAndStillReleases`).
+
+Each is repaired three ways and **none of them loses data**: start a build carrying the dual reader
+once and stop it cleanly; run `qompack admin delivery-seal --to v1`; or restore a verified backup
+taken with the daemon stopped. What the tool can recover is a seal the strict reader accepts — it
+converts both seals, but only after both journals load in full, and it writes the position the
+*load* recovered, so a complete canonical tail past the old seal moves the position forward exactly
+as an open would. What it cannot recover is a journal: it only ever writes a position file, and a
+half-converted pair is self-healing on a rerun (`delivery_seal_tool.go:242-267`).
+
+One residual belongs to the format itself, and it is not the downgrade's: `selectSeal`'s single
+rollback window (`delivery_seal.go:299-310`). A file whose slots hold seq 1 and seq 2 is, once slot b
+is erased to exactly `null` and padding, indistinguishable from a fresh or converted file, so it is
+accepted and the sealed position goes back one batch. It needs the effective seq to be exactly 2 and
+the erasure to be exact, which makes it a foreign write or a stale restore rather than rot; every
+later seq, and the erasure of the *older* slot at any seq, refuses. Nothing is misread — the position
+read is one this journal really sealed — and part 3b's load recovers the tail past it and re-seals
+it, so identities are lost only if the journal is truncated in the same incident.
+
+**This is the opposite shape to the drain progress mark above, and the two must not be read as one
+story.** There, the format survives a downgrade and the *protection* does not: an old binary reads
+the record, drops the unknown field, and rewrites it unmarked, reopening a window silently. Here the
+old binary cannot read the file at all, so it writes nothing and weakens nothing; the whole cost is
+availability until one of the three repairs runs. A downgrade past step 1 therefore needs the same
+discipline in reverse — stop the daemon cleanly, or convert before the older binary starts.
+
+### 31.7 Known limitations and the flake record
+
+- **The daemon serves only after its startup drain.** With a large spool backlog it is unreachable
+  for the whole drain, and `EnsureRunning` gives up at 1.5 s. Serving first would reorder replayed
+  events behind live ones, which is exactly what SP08-D3's replay-order ruling forbids, so this is a
+  design limitation, not a bug to fix in passing. Observed once in ~6 runs, only at the start of a
+  10-shard pass.
+- **`TestConformance_BehaviourBlocksActuallyRun`** reporting "no test events" is environmental: the
+  child process fails to start under local memory pressure (Windows `0xc0000142`). It passes alone
+  and in every full pass. Its failure message dropped the child's exit status, which is what made it
+  look like a suite that ran and emitted nothing; the message now reports the exit.
+- **`TestBudgetBF`** is a declared co-load yielder. Its one red was a wall-clock judgement under
+  heavier-than-declared load; it passes serially and on re-run.
+- **B-B under co-load** was gated rather than reported for the whole of this work, which is why it
+  failed the whole-tree, timing and bench-gate jobs. Both halves are now fixed, in the order §31.3.2
+  requires: the limit is re-budgeted from measurement (`5d0b904`, `cbfa3d3`) and only then does the
+  co-loaded run report instead of gate (`9638b30`). Every other wall-clock row was already
+  reported-not-gated under `QOMPACK_UNDER_COLOAD` per ADR 0010.
+- **X11's B-A ceiling is correct, and the two reds against it were undeclared co-load.**
+  `TestV3_HotPathUnchangedWithLedgerResident` bands B-A p99 at 25 % over V2's recorded 3.072 ms, so
+  the ceiling is 3.840 ms; two runs during the close-out returned 4.096 ms and 13.312 ms — a 3x
+  spread on one assertion, with a 1 GB `rustc.exe` build resident during the first. The assertion was
+  not touched and should not be: it is a regression band against a recorded figure, the shape that
+  should stay sharp, and `v3_x11_test.go:591` **already** carries the ADR 0010 treatment B-B has just
+  been given — under `QOMPACK_UNDER_COLOAD` it logs the comparison and leaves the verdict to
+  `test-e2e`. Both reds were therefore runs on a loaded host that had not declared itself, which the
+  rule is designed to judge rather than excuse. The procedure is to declare the load or run the row
+  in a quiet window, not to change the row.
+- **One claim examined and rejected, recorded because it is plausible.** It was put during the
+  close-out that the 3.840 ms ceiling is unreachable — that `obs`'s log histogram admits only 3.072
+  and 4.096 near that range, making the gate a demand for an exact tie with the V2 baseline. It does
+  not. The histogram is 1/8-octave (`internal/obs/hist.go:38-66`), so the bucket upper bounds through
+  that octave are 3.072, 3.328, 3.584, 3.840 and 4.096 µs-exact: **four** distinct values pass, the
+  ceiling is itself a bucket bound, and the comparison is `LessOrEqual`. What is true is the
+  direction of the bias — `Snapshot` returns the containing bucket's upper bound rather than
+  interpolating, deliberately, so that bucketing can never round a breach away. The row is sharp
+  because B-A is genuinely ~3 ms with 25 % of headroom, not because of an arithmetic accident.
+- **The 20-shard final pass on `2d0cb20` returned four reds, one of them a defect.** The defect is
+  §31.4's third SP08-D2 site. The other three: `TestServerCloseWithLiveConnection` failed its 1 s
+  bound once (`shutdownTestBound` is half of `serverCloseWait`, a wall-clock budget) and passed ten
+  of ten immediately afterwards on the same host under the same residual load;
+  `TestIntegration_HotPathWarmWithRealResidentState` failed *"state.bin must report hot=0 (sync) for
+  the entire measured run"* — the daemon degraded to spool, correctly, under a B-B p99 of 360 ms
+  and 81 deferred deliveries; and `devtool lint --only=stubskips` reported the e2e binary killed at
+  its 30-minute `-timeout` with the tree only partly inspected. The hot-path row is the one to be
+  careful with: under `QOMPACK_UNDER_COLOAD` its three latency rows are reported rather than judged,
+  but the no-spool-transition assertion is judged regardless, and a spool transition is a wall-clock
+  consequence. It was NOT relaxed. Both it and the stubskips step were re-run serially on the fixed
+  tree; the results are in §31.10.
+- **Bisecting a load-dependent failure to a merge is a trap this close-out walked into twice.**
+  The x13 fixture in §31.10 and the x05 failure in §31.4 both bisected to a plausible merge, and in
+  both cases the "bad" commit passed on re-run. `git bisect run` never re-tests the endpoints, so a
+  bad endpoint measured under a 20-shard load and good midpoints measured as the load drained will
+  converge on whichever merge the load happened to cross. The rule now recorded in memory: before
+  believing a bisect, run `-count=4` or more on the first bad commit under the load that produced the
+  red, and treat a pass there as the bisect's refutation.
+- **Host note for anyone reading the run logs.** Every Modern Standby during this work was a lid
+  close (Kernel-Power 506, `Reason=15`, `LidOpenState=false`). A `go test` timer keeps running across
+  standby, so any "ran too long" or timeout failure in a run that straddles one of those windows is
+  an artifact of the host, not a defect. Affected runs were archived and re-run.
+
+### 31.8 Perf: planned, costed, not started
+
+A sequenced plan S0–S17 exists over SP06-D2, SP08-D1, SP10-D1, SP20-D2 and `WriteAtomic`, against a
+base of develop-after-SP20-D1. **No perf row closes in that plan.** Each stays
+`deferred:V6-VERIFY` until a quiet AC window, a battery base-clock window, and the Linux CI figure
+agree — SP10-D1 may close on the quiet local run alone, but no CI lane runs `BenchmarkFinalize`, and
+that row's text needs correcting first. Projected verdicts against their budgets: SP10-D1 yes;
+SP08-D1 yes at turbo and at the edge at base clock; SP06-D2 no (cold path is syscall-bound);
+SP20-D2 yes for GetChunk/OpenSpan at turbo, Search only on the gate fixture; `WriteAtomic` no — one
+`FlushFileBuffers` alone costs about 2.3 ms on this host. `WriteAtomic`'s design stage stalled and
+needs an independent adversarial review before its implementation stage may start.
+
+Eighteen owner decisions (OD1–OD18) accompany the plan, each with a recommended answer.
+
+### 31.9 Housekeeping this close-out did
+
+- **The nightly fuzz matrix was inventoried in both directions.** `TestNightlyFuzzMatrix` reads the
+  matrix, so a shipped `Fuzz*` target with no row is invisible to it — that direction belongs to the
+  wave checkpoint. The inventory found 24 targets on disk against 22 rows: `internal/mcp`'s
+  `FuzzServeLine`, shipped with no row at all, and `internal/daemon`'s `FuzzDeliverySealSelect`, new
+  with the v2 seal. Both rows are now declared and the count pin moved to 24.
+- **CI's expected-failure list was emptied.** The whole-tree job still expected four
+  `WaveReportRequiresResolution` rows and the `test/guards` and `test/integration` packages to fail.
+  All four were resolved before the wave closed, so CI would have failed on the stale list — on
+  develop too. The interim and final passes confirm both packages green.
+- Three diagnostic repairs that fired for real during this work: the guard that prints a `go test
+  -list` listing now includes its stdout, the concurrent append-only integration test reports counts
+  and drain gaps on timeout instead of just timing out, and x10's restart dump is no longer dead code
+  behind a `require.Eventually` that fails first.
+- **The SP20-D1 design was committed** (`2a11461`). `plans/sdd/V4-SP-20-.../sp20d1-design-final.md`
+  is cited by section number **135 times across 30 files** — in code comments, tests and plan rows —
+  and existed only in a session scratchpad, so every one of those citations resolved to nothing for
+  any later reader. It is committed verbatim with a provenance header, and `plans/sdd/README.md`
+  gains a row explaining why a design doc from a session lives there.
+- **Three e2e settle fixes, all of which were masking rather than causing.** `e1baf3f` settles the
+  daemon before x11 and x16 walk the tree. `48497f5` fixes a helper that asked whether the *asking*
+  process had exited: in-process rigs record the test binary's own pid, so the check burned its full
+  20 s budget and then logged a diagnostic that was false. `8658ccb` is the x13 fixture repair
+  described in §31.10 — the unconditional drain and the quiesce predicate.
+- **The carried-defect records were trued up** (`e026cba`, `8b03007`): `plans/CARRIED-DEFECTS.tsv`
+  and `plans/V2-WAVE1-carried-defects.md` now carry the dispositions in §31.1's table, SP20-D5 is
+  opened and closed in the same pass, §21's SP08-D2 row is corrected, and SP09-D1 carries a note
+  recording the speed-up that did **not** close it and why.
+
+### 31.10 Verification
+
+Three whole-tree passes were run, each on a frozen detached worktree so that commits made while a
+pass ran could not change what it tested.
+
+**Pass Y**, on the interim snapshot, was 20/20 shards green except three B-B gate rows, all
+SP20-D1, and nothing else.
+
+**Pass Z**, on `3d95582` — the tree after every merge — was **47 of 51 steps green**. Green: the
+thirteen static steps (build, cross-build, docs, gofumpt, golangci, imports, lint-fast,
+plugin-validate, replay, replay-ci, replay-gate, vet, govulncheck); the small, heavy and e2e-rest
+package lanes; the whole race lane bar one shard; the sixteen crash-table cases C2-C16; the six fuzz
+targets, including the new `FuzzDeliverySealSelect` at 120 s; and `devtool lint --only=stubskips`,
+which reported ten platform-gated notices and no behaviour skip.
+
+Four steps were red, and only one was a defect:
+
+| Test | Cause |
+|---|---|
+| `TestIntegration_HotPathWarmWithRealResidentState` (plain and `-race`) | B-B p99 28.7 ms and 14.3 ms against the 2 ms limit |
+| `TestV3_HotPathUnchangedWithLedgerResident` | B-B p99 53.2 ms |
+| `TestV4_HotPathUnchangedWithTheFullWave3ResidentSet` | a latent fixture flake, not a regression |
+
+The fourth read at first like the only real defect in the pass, and it was worth the two hours it
+took to prove it was not. §4.13 compares the write set of a hook burst against a wave-3-resident
+daemon with the same burst against an observer-only one. Three files land in that comparison by
+timing rather than by residency: `state/drain.json`, whose only in-window writer is the harness's
+own `WaitIndexed` — its `Drain` runs only when async ingest has not yet published every record, so
+each arm gets it or not on a coin flip; a `paths.WriteAtomic` staging file under `tmp/` caught
+between create and rename; and `state/pending/<hex>.json`, `FSStore.beginPendingWrite`'s in-flight
+marker, whose random name `x13v4Normalize` never folds. **No `observe.tool` hook path reaches
+`Drain` in either arm.**
+
+Three findings settle it. The failures occur in **both** directions — the first reproduction had the
+diff reversed from the pass-Z report, arm B carrying the file and arm A not — which alone refutes
+"wave-3 work migrated onto the hot path". Measured at `1a3ed4e`, the commit immediately before the
+first suspect merge, the plain failure rate is **7 in 20, worse than HEAD's 2 in 15**. And
+`v4_x13_test.go` and `v4_harness_test.go` are byte-identical between snapshot Y and HEAD. What
+changed is not the test and not the assertion but the speed: at snapshot Y both arms drove a drain
+in every iteration, because the burst's records reached the index only via the spool drain, and
+somewhere in the 131 commits since, the hot path became fast enough that publication usually
+completes before `WaitIndexed` looks. **The pass-Y green rested on an accident, not on the invariant
+it asserts.** The fixture is repaired without touching the assertion (`8658ccb`): `WaitIndexed`
+drives one drain unconditionally so both arms take the same path, and the walk waits for in-flight
+writes to quiesce rather than excluding them, so a resident that genuinely added a file is still
+caught. `2d0cb20` carries the same unconditional drive into the four other index waits that had the
+identical conditional — `cpWaitForToolUseIndex`, `x10v5Feed.waitPrimary`, `x15v5WaitIndexed`, and the
+inline loop in `TestV3_DegradedPassiveStillRecordsEverything` — so the class is closed rather than
+the one instance that happened to fire.
+
+**The same audit tightened what the comparison can see** (`5671aa4`). `x13v4Normalize` folds per-run
+components out of path names before the two write sets are compared, and three of its folds were
+wide enough to erase real differences: `spool/` collapsed to a single token, so a client spool or an
+externalized blob appearing in one arm only compared equal to a WAL segment in both; `logs/` folded
+the quiet-hook degradation marker together with the ordinary daily log; and `state/` folded
+`draft-<session>.stale.json` onto `draft-<session>.json`, hiding `setAsideStaleDraft`
+(`internal/checkpoint/writer.go:491`) entirely. Each shape was read off its writer rather than
+guessed. Because `x13v4WriteSet` builds a *set*, a collapsed token does not merely blur a difference
+— it vanishes. The narrowing is held by two permanent tests that keep the old fold as a named witness
+and require that it conflated what the shipped one separates, so widening a fold back turns them red;
+a destructive check confirmed this by restoring the old fold and observing all five conflated pairs
+go red at both the unit and write-set levels. This strengthens §4.13 rather than relaxing it: it is
+the direction that finds more, not less.
+
+The three B-B rows are the gate this addendum's re-budget exists to move, and all three ran under
+`QOMPACK_UNDER_COLOAD=true`. Their p50 is stable at 8.2-9.2 ms across all three; it is only the tail
+that co-load moves. That spread is the whole of §31.3.2's Q3 argument in one table.
+
+**One process failure in this close-out, recorded because the rule it broke is the one this wave
+leans on hardest.** `8658ccb` — the x13 fixture repair above — shipped with a `time.Sleep` in
+`x13v4Quiesce`, which §6.1 bans outside `test/bench` and `devtool lint --only=sleepcheck` catches
+mechanically. It was verified with targeted `go test` runs and the lint was never run on it. A
+wall-clock sleep in a quiescence predicate is precisely the defect that produced the pass-Z
+investigation two paragraphs above, so this was the wrong commit to ship it in. It is fixed in
+`5671aa4`, which paces the poll with `time.NewTicker`; the wait's *condition* is unchanged. The
+bound is deliberately left as a wall-clock comparison rather than a second channel in a `select`,
+because a `select` over a tick and a deadline picks at random when both are ready, which would let
+an expired wait poll past its bound — tolerable where the deadline is the only exit, not here where
+expiry is a hard failure. The general lesson is the narrow one: a targeted test run is not a
+substitute for the lint, and the lint is cheap.
+
+**Pass V**, on `2d0cb20` — the tree after the x13 fixture repair, before the two documentation
+commits and before §31.4's third-site fix — was **20 shards, 16 green, 4 red**. Green: the thirteen
+static steps again; the small lane; the e2e v3 and e2e-rest lanes; every race lane (small, heavy,
+the three store shards, guards, and the four integration shards); the fifteen crash-table cases;
+and the three fuzz shards. Red, one per shard:
+
+| Shard | Test | Cause | Disposition |
+|---|---|---|---|
+| VP2 heavy | `TestServerCloseWithLiveConnection` | 1 s wall-clock bound under 20-shard load | co-load; 10/10 serial immediately after (§31.7) |
+| VP3 guards + integration | `TestIntegration_HotPathWarmWithRealResidentState` | daemon degraded to spool under a 360 ms B-B p99 | co-load; serial re-run below |
+| VP4b e2e v4/v5 | `TestV5_EliminationThroughEveryFourSurfaces/stale_survives_every_read_surface` | **defect**: a cut first run loses its file version | fixed, `98f846c` (§31.4) |
+| VL stubskips | `devtool lint --only=stubskips` | e2e binary killed at the 30 min `-timeout` | co-load; serial re-run below |
+
+**The two co-load rows, re-run serially on `00440bd` with no co-load declaration** — the
+`timing`-job shape, where every row is judged. `TestIntegration_HotPathWarmWithRealResidentState`
+passed in 2 min 6 s with all three gates judged: B-A p99 4.096 ms against 15, B-B p99 12.288 ms
+against 50 (p50 9.216, max 82.7), B-E wall p99 148 ms against 2 000, `hook_ack_rtt` p99 29.2 ms
+reported, and `state.bin` at `hot=0` for the whole run — the spool transition pass V saw was the
+daemon degrading correctly under a 360 ms B-B tail, not a defect. `devtool lint --only=stubskips`
+passed in 14 min with the same ten platform-gated notices and no behaviour skip; pass V's kill at
+30 min was the e2e binary sharing the host with nineteen other shards.
+
+**Pass W**, on `9e29bd0` — the final tree: `2d0cb20` plus the two documentation commits, §31.4's
+fix (`98f846c`), ADR 0014 (`ad53bb0`), SP20-D6's evidence (`00440bd`) and the B-A note
+(`9e29bd0`) — was **48 steps, 47 green**: the thirteen static steps; stubskips, green this time
+under the same twenty-shard load at 17 min 39 s; every package, e2e and race lane; the fifteen
+crash-table cases; and the three fuzz targets. x05, pass V's one defect, passed in its lane, and so
+did x09. The one red was `TestStartupDrainOfSpooledFlushLineDoesNotWedgeRun` in the heavy package
+lane: `drainDeadlockGuard` bounds Run's shutdown after cancellation on the wall clock, it fired once
+at 10.3 s under the full load, and the test passed six of six on the same snapshot immediately
+afterwards in about a second in total. It joins §31.7's list of declared wall-clock rows; it was not
+touched.
+
+The CI result for the pushed branch is not in this text, because the branch is pushed only after
+this section is committed. It is recorded in the commit that follows, as an amendment to this
+paragraph, together with the `bench-gate` figures that replace the provisional linux and darwin
+constants in `internal/config/deadlines.go` and the `timing` figure SP09-D1 asked for.
+
+### 31.11 SHA reachability
+
+Every SHA in this section was checked with `merge-base --is-ancestor` against `verify/v5-final` at
+the time of writing, via `scratchpad/bin/shascan.sh`. Reports assembled from fix-branch notes quote
+pre-cherry-pick SHAs that exist in the object database but sit on no branch; `cat-file -e` passes for
+those, so ancestry is the only check that means anything.
+
+The scan over this section's final body, against `verify/v5-final` at `9e29bd0` — the last commit
+before the one that appends it — reported `unreachable=0` and exited 0; `append-addendum.sh` runs the
+same scan again and refuses to append on any other result, so the text below this line cannot have
+been committed with a SHA the branch does not reach.
