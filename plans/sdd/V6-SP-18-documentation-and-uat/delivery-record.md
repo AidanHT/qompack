@@ -36,7 +36,7 @@ total and compliant.
 ## 2. Routing
 
 - Coordinator: Fable 5.1 (`claude-fable-5-1`), main session only; never a child.
-- Every child — 7 implementers including resumes, 7 task reviewers, 6 scoped re-reviewers so far,
+- Every child — 7 implementers including resumes, 7 task reviewers, 7 scoped re-reviewers,
   and 1 final whole-branch reviewer — was dispatched through the harness Agent tool
   with the alias `opus` and with the requested identity and effort stated in its prompt
   (implementers: `claude-opus-4-8` / high for Commits 1, 2, 6 and `claude-opus-4-8` / medium for
