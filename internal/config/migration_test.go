@@ -306,3 +306,161 @@ func leafTypes(t *testing.T, node map[string]any, prefix string) map[string]stri
 	}
 	return out
 }
+
+// TestRetiredMeaningKeys_MirrorTheDeprecationTable pins the exported accessor against the
+// unexported table it reads, in both directions and without a count literal.
+//
+// The accessor cannot be compared to `retiredMeaningKeys` directly — these tests are an external
+// package — so the comparison is made against the only other thing that reads that table: the
+// deprecation diagnostic itself. A config file that sets EVERY leaf in the schema to its own
+// default value touches every candidate key from a non-default layer, so the Deprecated warnings
+// Load then reports ARE the table, whichever rows it has. A row the accessor dropped shows up
+// here as a warning nobody claimed; a row it invented shows up as a claim nobody warned about.
+func TestRetiredMeaningKeys_MirrorTheDeprecationTable(t *testing.T) {
+	var schema map[string]any
+	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
+
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot, string(schemaDefaultsDocument(t, schema)))
+	_, _, warns, err := config.Load(env)
+	require.NoError(t, err)
+
+	warned := map[string]string{}
+	for _, w := range warns {
+		require.True(t, w.Deprecated,
+			"setting every leaf to its own default must produce nothing but deprecation notes, got %q on %s",
+			w.Message, w.Key)
+		warned[w.Key] = w.Message
+	}
+	require.NotEmpty(t, warned, "the retired-meaning diagnostic must fire, or this row proves nothing")
+
+	claimed := map[string]bool{}
+	for _, r := range config.RetiredMeaningKeys() {
+		require.NotEmpty(t, r.Key)
+		require.NotEmpty(t, r.Note, "every retired key must say what it no longer means")
+		msg, ok := warned[r.Key]
+		require.True(t, ok, "RetiredMeaningKeys claims %q, but Load warns about no such key", r.Key)
+		require.Contains(t, msg, r.Note, "the accessor's Note must be the note the user is shown")
+		require.False(t, claimed[r.Key], "duplicate row for %q", r.Key)
+		claimed[r.Key] = true
+	}
+	for key := range warned {
+		require.True(t, claimed[key], "Load reports a retired meaning for %q that RetiredMeaningKeys omits", key)
+	}
+
+	// Every key is a real leaf, and the returned slice is a copy: a caller that scribbles on it
+	// must not edit the table behind the accessor.
+	leaves := leafTypes(t, schema, "")
+	for _, r := range config.RetiredMeaningKeys() {
+		_, isLeaf := leaves[r.Key]
+		require.True(t, isLeaf, "retired key %q must be a leaf in the schema", r.Key)
+	}
+	first := config.RetiredMeaningKeys()
+	first[0].Note = "scribbled"
+	require.NotEqual(t, "scribbled", config.RetiredMeaningKeys()[0].Note, "the accessor must return a copy")
+}
+
+// TestVersionedSections_MatchTheConstantsAndTheSchema pins the second accessor: each path is a
+// versioned object in the schema whose own settingsVersion leaf defaults to the version this
+// build understands, and the two blocks carry the two constants.
+func TestVersionedSections_MatchTheConstantsAndTheSchema(t *testing.T) {
+	var schema map[string]any
+	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
+	leaves := leafTypes(t, schema, "")
+
+	byPath := map[string]int{}
+	for _, s := range config.VersionedSections() {
+		require.NotEmpty(t, s.Path)
+		require.NotContains(t, byPath, s.Path, "duplicate row for %q", s.Path)
+		byPath[s.Path] = s.Version
+
+		// The path names an object, not a leaf...
+		_, isLeaf := leaves[s.Path]
+		require.False(t, isLeaf, "%q must be a block, not a leaf", s.Path)
+		// ...and that block carries the settingsVersion the accessor reports.
+		kind, ok := leaves[s.Path+".settingsVersion"]
+		require.True(t, ok, "%q must have a settingsVersion leaf", s.Path)
+		require.Equal(t, "integer", kind)
+		require.Equal(t, float64(s.Version), schemaDefaultOf(t, schema, s.Path+".settingsVersion"),
+			"the accessor's Version must be the version Defaults() ships for %q", s.Path)
+	}
+
+	require.Equal(t, map[string]int{
+		"runtime.migration": config.MigrationSettingsVersion,
+		"runtime.phase7":    config.Phase7SettingsVersion,
+	}, byPath, "the two independently versioned blocks, from their own constants")
+
+	// Independently versioned: a newer version on one block resets that block and leaves the
+	// other alone, which is the behaviour the generated page describes.
+	for _, s := range config.VersionedSections() {
+		env := baseEnv(t)
+		writeConfigFile(t, env.ProjectRoot, versionBump(s.Path, s.Version+1))
+		_, _, warns, err := config.Load(env)
+		require.NoError(t, err)
+		require.Equal(t, []string{s.Path}, warningKeys(warns),
+			"a newer %s must reset %s and nothing else", s.Path, s.Path)
+	}
+
+	scribbled := config.VersionedSections()
+	scribbled[0].Version = -1
+	require.NotEqual(t, -1, config.VersionedSections()[0].Version, "the accessor must return a copy")
+}
+
+// schemaDefaultsDocument renders a config document that sets every leaf in the schema to that
+// leaf's own default, so every key is touched from a non-default layer without changing a single
+// effective value.
+func schemaDefaultsDocument(t *testing.T, schema map[string]any) []byte {
+	t.Helper()
+	doc := map[string]any{}
+	var walk func(node map[string]any, into map[string]any)
+	walk = func(node map[string]any, into map[string]any) {
+		props, ok := node["properties"].(map[string]any)
+		if !ok {
+			return
+		}
+		for k, v := range props {
+			child, ok := v.(map[string]any)
+			require.True(t, ok, "schema node %s", k)
+			if _, isObj := child["properties"]; isObj {
+				sub := map[string]any{}
+				walk(child, sub)
+				into[k] = sub
+				continue
+			}
+			into[k] = child["default"]
+		}
+	}
+	walk(schema, doc)
+	b, err := json.Marshal(doc)
+	require.NoError(t, err)
+	return b
+}
+
+// schemaDefaultOf returns the JSON default of one dotted leaf.
+func schemaDefaultOf(t *testing.T, schema map[string]any, path string) any {
+	t.Helper()
+	node := schema
+	parts := strings.Split(path, ".")
+	for i, p := range parts {
+		props, ok := node["properties"].(map[string]any)
+		require.True(t, ok, "no properties at %q", strings.Join(parts[:i], "."))
+		child, ok := props[p].(map[string]any)
+		require.True(t, ok, "no schema node at %q", strings.Join(parts[:i+1], "."))
+		if i == len(parts)-1 {
+			return child["default"]
+		}
+		node = child
+	}
+	return nil
+}
+
+// versionBump renders a config document declaring one block's settingsVersion, nested under the
+// block's dotted path.
+func versionBump(path string, version int) string {
+	parts := strings.Split(path, ".")
+	doc := fmt.Sprintf(`{"settingsVersion":%d}`, version)
+	for i := len(parts) - 1; i >= 0; i-- {
+		doc = fmt.Sprintf(`{%q:%s}`, parts[i], doc)
+	}
+	return doc
+}
