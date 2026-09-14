@@ -279,7 +279,7 @@ allows it.
 | ID | Clock | Budget | Enforced |
 |---|---|---|---|
 | **B-A** | `hook_controlled` — client `main()` entry → `exit` (connect + write + ACK) | **p99 < 15 ms** (§11.3 L0) | CI on linux/macos/windows, 5 000 iterations |
-| **B-B** | `l0_ingest` — daemon read → WAL append returned | p99 < 2 ms | daemon self-metrics + CI |
+| **B-B** | `l0_ingest` — the daemon's whole `ingest.Accept`: durable WAL append, delivery lease, seal | p99 < 15 ms (**50** on Windows, **40** on macOS) — see the B-B note below | daemon self-metrics + CI, except under `QOMPACK_UNDER_COLOAD`, where it is reported and not gated |
 | **B-C** | `l0_process` — WAL → fully chunked, stored, DAG/sketches updated (async) | p99 < 50 ms | soft; overrun → sampling + backpressure, never blocking |
 | **B-D** | `hook_wall` — includes host process creation | reported, not gated; tracked in `/qompack:status` and the bench artifact | — |
 | **B-E** | `checkpoint_finalize` — `PreCompact` entry → exit | **p99 < 2 s** (§11.3 L4) | CI |
@@ -288,6 +288,21 @@ allows it.
 B-A is the number the design document names. B-D is reported honestly because process creation is
 the host's cost and no plugin architecture can remove it; hiding it inside B-A would be dishonest
 measurement, which is exactly the sin §1.3 RC-3 indicts.
+
+**B-B note (amended 2026-09-13, SP20-D1).** This row read `p99 < 2 ms` and "daemon read → WAL append
+returned" from the initial commit until the V5 close-out, and both halves had stopped being true.
+The *clock* changed first: since `f6a8691` made delivery durable, `ingest.Accept` also takes a
+delivery lease and writes a seal, so B-B times three durability points and four fsyncs, not one WAL
+append. The *number* followed from measuring that path — fifteen runs of the §7.5 M2 protocol give a
+worst B-B p99 of 36.864 ms on this Windows host, hence `roundup5(1.25 x 36.864) = 50`. Linux (15) and
+darwin (40) are seeded from the design's predicted table and are **provisional** pending CI's
+`bench-gate`. The single source of truth for all three is `internal/config/deadlines.go`, whose
+comment carries the derivation; `docs/config-reference.md` is generated from it and cites this
+section, so this row and that constant must not diverge again. B-B is a coarse backstop rather than a
+sensitive regression detector at this limit — the sensitive instrument is
+`BenchmarkIngestAcceptLeased`, and the durability invariant itself is carried by the clock-free
+structural gates T9, T10 and T14. Rationale, the co-load ruling and the cost accepted: ADR 0010
+Addendum 1 and `plans/V5-report.md` §31.3.
 
 **When the budget is exceeded (§8.1 fallback).** The daemon keeps a rolling 512-sample HDR
 histogram per hook. If B-A p99 exceeds budget for 3 consecutive 512-sample windows, the daemon
