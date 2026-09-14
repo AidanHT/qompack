@@ -169,3 +169,67 @@ Run `qompack config print --provenance` to see the effective value of every key 
 | `store.retention.days` | integer | `30` | [1,∞) | §8.2 | minimum object retention window in days before GC may collect |
 | `store.retention.sessions` | integer | `10` | [1,∞) | §8.2 | minimum object retention window in sessions before GC may collect |
 
+## Provenance origins
+
+`qompack config print --provenance` labels every leaf with the layer that produced its
+effective value. These are the labels, lowest precedence first.
+
+| Origin | Meaning |
+|---|---|
+| `default` | came from `config.Defaults()` and was never overridden |
+| `user` | set by `~/.qompack/config.json` |
+| `project` | set by `<project>/.qompack/config.json` |
+| `env` | set by a `QOMPACK_*` environment variable |
+| `flag` | set by a `--set <dotted.key>=<value>` flag |
+
+## Versioned blocks
+
+Two blocks carry their own `settingsVersion` and are versioned independently, so a schema
+change to one never resets the other.
+
+| Block | `settingsVersion` this build understands | Behaviour |
+|---|---|---|
+| `runtime.migration` | `1` | a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
+| `runtime.phase7` | `1` | a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
+
+## Gated switches (ship off)
+
+These leaves default to `false` and stay refused until their gate passes: a `true` value is
+refused at load, the leaf falls back to its default and the refusal is reported as a
+warning, so editing a config file cannot enable a capability this build does not support.
+
+| Key | Default | Owner | Gate | Status |
+|---|---|---|---|---|
+| `runtime.migration.capture.rawEvidence` | `false` | SP-20 | M1 capture fidelity (T20-M1-01/02) | pending |
+| `runtime.migration.publication.durableFrontier` | `false` | SP-20 | M1 durable publication (T20-M1-03/04/05) | pending |
+| `runtime.migration.replacement.newResult` | `false` | SP-21 | M4 admission (T21 pipeline, pass-through and recovery) | pending |
+| `runtime.migration.compaction.automaticVeto` | `false` | SP-19 M0-03, then SP-12 | recovery/proactive distinction verified in the target host | pending |
+| `runtime.migration.experiments.enabled` | `false` | SP-15 and SP-16 | M5/M6 selection and refinement acceptance | pending |
+| `runtime.phase7.reuse.scopedCandidates` | `false` | SP-16 | M6-G16-A scoped reuse and authorization | pending |
+| `runtime.phase7.reuse.warmPrior` | `false` | SP-16 | M6-G16-D optional-policy value against a simple baseline | pending |
+| `runtime.phase7.retrieval.reminders` | `false` | SP-16 | M6-G16-B bounded retrieval and usefulness telemetry | pending |
+| `runtime.phase7.retrieval.demandPromotion` | `false` | SP-16 | M6-G16-C promotion of future representations only | pending |
+| `runtime.phase7.filters.segmentBloom` | `false` | SP-16 | M6-G16-E filter coverage, staleness and recovery | pending |
+
+### Build gates (no config key)
+
+These capabilities have no configuration leaf behind them. They cannot be set from any
+config layer, and are reachable only from a build whose gate has passed.
+
+| Key | Owner | Gate | Status |
+|---|---|---|---|
+| `store.migrate.legacyImportCutover` | SP-20 M1-04 | M1 compatible migration (T20-M1-08: import/parity/cutover and the pre- and post-first-write rollback drill) | pending |
+
+## Retired-meaning keys
+
+These keys are still read and their value is still applied, so an existing config file keeps
+loading. Setting one from any non-default layer produces a deprecation warning naming the
+file and line it was set in, and what the key no longer means.
+
+| Key | What it no longer means |
+|---|---|
+| `scheduler.youngDaly.enabled` | Young–Daly pacing is compatibility/harness-only: no native compaction trigger, cut or veto depends on it (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
+| `scheduler.youngDaly.measuredDeltaSeconds` | Young–Daly pacing is compatibility/harness-only: the measured delta no longer times a native compaction (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
+| `scheduler.idle.deepCutWhenCold` | no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration) |
+| `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
+
