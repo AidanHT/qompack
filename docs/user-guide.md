@@ -400,7 +400,7 @@ verified by running the built binary in an empty scratch directory outside this 
 same probe. The hook entry points (`checkpoint`, `flush`, `observe prompt|stop|tool`,
 `session-start`) are invoked by Claude Code and always exit 0 — but exiting 0 is not the same as
 doing nothing: `qompack checkpoint` run by hand with empty stdin created `.qompack/` and started
-the daemon too, observed on this tree in the same probe. Treat every hook entry point as a write.
+the daemon too, observed in a separate probe on this tree. Treat every hook entry point as a write.
 
 Any subcommand accepts `--set <dotted.key>=<value>` to override configuration for that run.
 

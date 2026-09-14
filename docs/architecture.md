@@ -44,7 +44,7 @@ listener, no port and no socket.
 
 **The daemon.** `internal/daemon` is "the resident per-project process … the thing that holds the
 store, the sketches and the scheduler in memory so a hook does not have to". Its stated reason for
-existing is budget B-A: a hook has 15 ms at p99 and cannot open a store, load sketches and
+existing is a budget: a hook has a 15 ms p99 budget (B-A) and cannot open a store, load sketches and
 reconstruct scheduler state on every tool call, so "the daemon pays those costs once and the hook
 pays only a connect-write-ack".
 

@@ -1,0 +1,1168 @@
+# Review package: 7ace16a..9848254
+
+## Commits
+9848254 docs(sp18): establish supported architecture and doc contracts
+
+## Files changed
+ README.md                    | 143 ++++++++++++++++++++
+ docs/adr/README.md           |  47 +++++++
+ docs/architecture.md         | 312 +++++++++++++++++++++++++++++++++++++++++++
+ test/docs/doc.go             |  26 ++++
+ test/docs/harness_test.go    | 213 +++++++++++++++++++++++++++++
+ test/docs/inventory_test.go  |  72 ++++++++++
+ test/docs/links_test.go      | 127 ++++++++++++++++++
+ test/docs/owned_test.go      | 133 ++++++++++++++++++
+ tools/devtool/importrules.go |   4 +
+ 9 files changed, 1077 insertions(+)
+
+## Diff
+diff --git a/README.md b/README.md
+new file mode 100644
+index 0000000..1c9405f
+--- /dev/null
++++ b/README.md
+@@ -0,0 +1,143 @@
++# Qompack
++
++Qompack is a Go sidecar plugin for Claude Code. It records what a session produces — tool results,
++prompts and turn boundaries — into a local, append-only store under the project's `.qompack/`
++directory through the host's hooks (`SessionStart`, `PostToolUse`, `UserPromptSubmit`, `Stop`,
++`SubagentStop`, `PreCompact`, `SessionEnd`, as registered in `plugin/hooks/hooks.json`); it writes a
++checkpoint at `PreCompact`; after a compaction it injects a bounded rehydration payload through
++`SessionStart` with `source=compact`; and it exposes retrieval, negative knowledge and
++observability through an MCP server (`qompack mcp`, registered by `plugin/.mcp.json`) and a set of
++slash commands. The tools it advertises are the ones listed in
++[docs/mcp-tools.md](docs/mcp-tools.md); the commands are the ones listed in
++[docs/commands.md](docs/commands.md). Both pages are generated from the shipped code, so they are
++the inventory — this page does not restate a count.
++
++It is a sidecar in the strict sense. It does not rewrite the host's conversation history, does not
++evict anything from the native context, and performs no network I/O of any kind.
++
++## Status: pre-release
++
++Qompack has not been released. Two version numbers exist and they do not agree:
++
++- the last git tag in this repository is `v0.2.0`;
++- `plugin/.claude-plugin/plugin.json` declares version `0.1.0`.
++
++Both are reported here as they stand. Release and versioning are SP-17 deliverables and neither
++number is changed by this page.
++
++## Supported environments
++
++What is actually built and tested is what `.github/workflows/ci.yml` runs. Every job pins Go
++`1.26.6` (the exact patch `go.mod`'s `toolchain` line names; a guard test fails the build if the two
++disagree):
++
++| Job | Runners | What it does |
++|---|---|---|
++| `verify` | ubuntu-latest | `devtool fmt-check`, `devtool lint`, `go vet ./...`, `go build ./...`, commit-message checks |
++| `lint-windows` | windows-latest | the whole `devtool lint` again, because several sub-checks are blind on Linux |
++| `test` | ubuntu-latest, macos-latest, windows-latest | the whole tree except `test/e2e`; `-race` on ubuntu and macos, `-count=2` on Windows |
++| `test-e2e` | ubuntu-latest, macos-latest, windows-latest | `test/e2e` alone, on its own runner |
++| `timing` | ubuntu-latest, macos-latest, windows-latest | the wall-clock-judged tests by name, one package at a time, on an otherwise idle runner |
++| `bench-gate` | ubuntu-latest, macos-latest, windows-latest | the hot-path budget gate |
++| `crossbuild` | ubuntu-latest | `devtool build-all` — six targets: linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64, windows/arm64 |
++| `cover`, `replay-gate`, `plugin-validate`, `security`, `docs` | ubuntu-latest | coverage floors, the replay gate, the plugin bundle check, `govulncheck` and the import allowlist, and the generated-document drift check |
++
++So: Linux, macOS and Windows are exercised in CI on the runners' own architectures, and six
++GOOS/GOARCH pairs are cross-compiled.
++
++**What that does not cover.** Compatibility with an *installed* Claude Code host is
++`implemented_unverified` (`plans/V5-report.md` §24, item B01). The host's own validator accepts the
++committed bundle where it sits in this repository, but the plugin has not been installed into a
++host and run from there, so installed manifest resolution, `${CLAUDE_PLUGIN_ROOT}` expansion and
++launcher discovery inside a live session are unverified. Verifying it means installing the bundle
++in a real Claude Code host and running a session against it.
++
++There is also no installable release artifact yet. Planned (SP-17): `docs/install.md` and
++`docs/security.md`, plus the packaged bundle and `docs/release.md`. None of those files exists; they
++are named here as plain text, not as links, on purpose.
++
++## Building from source
++
++```
++go build ./cmd/qompack
++```
++
++That produces a single binary named `qompack` (`qompack.exe` on Windows) in the current directory.
++It is the whole product: the hooks, the MCP server and the resident daemon are all subcommands of
++it.
++
++The plugin bundle lives in `plugin/`:
++
++```
++plugin/
++  .claude-plugin/plugin.json   name, version, description, homepage
++  .mcp.json                    registers the `qompack` MCP server as `${CLAUDE_PLUGIN_ROOT}/bin/qompack mcp`
++  hooks/hooks.json             the seven hook registrations, each invoking a `qompack` subcommand
++  commands/*.md                the slash commands
++```
++
++Every generated file in that tree refers to the binary as `${CLAUDE_PLUGIN_ROOT}/bin/qompack`, which
++the host expands to the installed plugin directory. All four files are generated from one typed
++value in `internal/pluginmanifest`, and
++
++```
++go run ./tools/devtool plugin-validate
++```
++
++regenerates them and checks the committed tree against the result, which is the bundle check CI
++runs.
++
++## Configuration
++
++Configuration is documented in [docs/config-reference.md](docs/config-reference.md), which is
++generated from `config.Defaults()` and gated in CI — do not hand-edit it. In short: values resolve
++through five layers (defaults → `~/.qompack/config.json` → `<project>/.qompack/config.json` →
++`QOMPACK_*` environment → `--set <dotted.key>=<value>`), the merge is deep and per leaf, an invalid
++value is never fatal (the leaf falls back to its default, the violation is reported and recorded in
++`.qompack/state/config-violations.json`), and an unknown key produces a warning rather than an
++error. `qompack config print --provenance` shows the effective value of every key and where it came
++from.
++
++## What ships off, and why you should leave it off
++
++A number of switches exist in the configuration and default to **off**. They are not
++feature-flagged experiments you are invited to try: each is refused until the gate named beside it
++passes, and enabling one is unsupported.
++
++The `runtime.migration` block (see `plans/MIGRATION-EVIDENCE.md`, "Disabled capabilities and their
++switches"):
++
++| Key | Default | State |
++|---|---|---|
++| `runtime.migration.capture.rawEvidence` | `false` | refused until the SP-20 M1 gate passes |
++| `runtime.migration.publication.durableFrontier` | `false` | refused until the SP-20 M1 gate passes |
++| `runtime.migration.replacement.newResult` | `false` | refused until the SP-21 M4 gate passes |
++| `runtime.migration.compaction.automaticVeto` | `false` | refused; the recovery/proactive distinction is unverified |
++| `runtime.migration.experiments.enabled` | `false` | refused until the SP-15/SP-16 gates pass |
++| `runtime.migration.compaction.blockManualCompact` | `false` | hardwired false — a manual `/compact` is never blocked; the key exists only to say so |
++| `runtime.migration.reinjection.sessionStartCompact` | `true` | the one switch on by default: the tested injection adapter, and the kill switch for injection without touching recording |
++
++The `runtime.phase7` block — `reuse.scopedCandidates`, `reuse.warmPrior`,
++`retrieval.demandPromotion`, `retrieval.reminders`, `filters.segmentBloom` — is off in the same way,
++each refused until its own SP-16 M6 gate passes. `runtime.telemetry.enabled` is hardwired off, and
++`runtime.selection.submodularEnabled` and `runtime.selection.loopWarningsEnabled` are off as
++ship-order gates.
++
++A `true` written against a refused switch falls back to the default and warns. Both blocks carry a
++`settingsVersion` (`runtime.migration.settingsVersion`, `runtime.phase7.settingsVersion`): a config
++file written for a **newer** version has the whole block reset to defaults, so switches a future
++build might add stay off in this one rather than being read by accident.
++
++`plans/V5-report.md` §24 records the same thing for SP-21's surface: the admission gate is off (a
++zero gate refuses; explicit opt-in only), replacement is off, and the host allowlist is empty. Those
++are recorded as *disabled*, never as *passed*.
++
++## Where to read next
++
++- [docs/architecture.md](docs/architecture.md) — the actual contracts: process model, write set,
++  identity, durability, retrieval, rehydration, and what is not supported
++- [docs/adr/README.md](docs/adr/README.md) — every architecture decision record, with its status
++- [docs/config-reference.md](docs/config-reference.md) — every configuration key (generated)
++- [docs/commands.md](docs/commands.md) — the slash commands (generated)
++- [docs/mcp-tools.md](docs/mcp-tools.md) — the MCP tools (generated)
++- [LICENSE](LICENSE)
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+new file mode 100644
+index 0000000..dfe9486
+--- /dev/null
++++ b/docs/adr/README.md
+@@ -0,0 +1,47 @@
++# Architecture decision records
++
++Every ADR in this directory is indexed below. The set is derived from the directory itself by
++`test/docs` (`TestADRIndexListsEveryADR`), so an ADR that is added without a row here fails the
++build, and a row whose title no longer matches its ADR fails too.
++
++**Status and date are quoted as the ADR states them**, not re-derived. Where an ADR gives no date,
++the cell says so rather than guessing one.
++
++The last column says how to read each one:
++
++- **Historical record** — a decision written at the time it was taken, kept for provenance. Read it
++  to learn why something is the way it is; do not read it as the current contract.
++- **Current amendment** — a record that changes or extends a contract other documents depend on.
++  Read it alongside `plans/00-ARCHITECTURE.md` and the code it names.
++- **Stands** — a decision still in force whose contract has not been amended since.
++
++| ADR | Title | Status / date, as stated | Kind |
++|---|---|---|---|
++| 0002 | [Replay methodology: what the numbers mean and how they are produced](0002-replay-methodology.md) | accepted (SP-02, wave 1); no date line | Stands. "Supersedes: nothing"; the replay gate in CI still enforces it |
++| 0003 | [Re-collecting the replay corpus, and the schedule the gate enforces](0003-replay-overfit-recollection.md) | accepted (SP-02, wave 1); no date line | Stands. Related to ADR 0002; the re-collection schedule is the one the gate runs |
++| 0007 | [DAG slices are scores, not drop decisions](0007-dag-slices-are-scores-not-drop-decisions.md) | Accepted. Implemented by SP-07 (`internal/dag`); 2026-08-15 | Stands |
++| 0008 | [Observer L0: capture, tombstones, supersession, and the Phase 1 exit](0008-observer-l0.md) | Accepted. Implemented by SP-08; 2026-08-25 | Stands |
++| 0009 | [Negative knowledge: the bloom is a cache, and nine decisions that follow from it](0009-negative-knowledge-bloom-as-cache.md) | Accepted. Implemented by SP-09 (`internal/negknow`); 2026-08-23 | Stands. The bloom is a cache over the records, never the source of truth |
++| 0010 | [A wall-clock budget is judged only where it is judgeable](0010-wall-clock-under-coload.md) | Accepted. Implemented at the close of V3-VERIFY's J5 backfill; 2026-09-06 | Current amendment. It states of itself: "Supersedes nothing; generalises two earlier rulings that had each been made once" |
++| 0011 | [Rehydration budget, item order, and whole-rule restoration](0011-rehydration-budget-and-item-order.md) | accepted; 2026-09-06; subplan SP-11 | Stands |
++| 0012 | [Scheduler L3: the composite trigger, BOCD, cache regimes and p-selection](0012-scheduler-l3.md) | Accepted; 2026-09-06 | Stands. `plans/V5-report.md` §29 item 8 carries an open pointer correction in this ADR to V6 planning |
++| 0013 | [Migration contracts: identities, publication, the shared ledger, envelopes and ownership](0013-migration-contracts.md) | "Proposed by SP-19 M0-02 on branch `arch/migration-contracts`"; 2026-09-07 | Current amendment, proposed. It amends `plans/00-ARCHITECTURE.md` with §0.2 and "takes effect for implementation only once those owners have approved it". Nothing in it enables a feature: every behaviour stays behind a pending `runtime.migration.*` gate |
++| 0014 | [The delivery path's group commit and the A/B seal](0014-delivery-group-commit-and-ab-seal.md) | Accepted, on branch `verify/v5-final`; 2026-09-13 | Current amendment. It "records decisions that are already implemented and merged rather than proposing new ones", and settles four of the twelve questions SP20-D1's design put to the owner |
++| 0030 | [The QPKS sketch binary format](0030-sketch-binary-format.md) | Accepted; subplan SP-03, `internal/sketch`; no date line | Stands |
++| 0100 | [V3 verification — wave 2 (observer L0 + negative knowledge)](0100-v3-verification.md) | accepted; 2026-08-26 | Historical record. It describes itself as "the abridged per-checkpoint entry V6-VERIFY expects in the 0100 block"; `plans/V3-report.md` is the full record |
++
++## Numbering
++
++Numbers are reserved by subplan, so the sequence has gaps. ADR 0030 states the convention it
++belongs to: "ADR numbers in this repository are `<SP number as three digits><sequence>`, so SP-03's
++ADRs are `0030`, `0031`, … and can never collide with a sibling subplan's." ADR 0100 refers to a
++"0100 block" of per-checkpoint verification entries. The low numbers 0002–0014 are a plain
++sequence.
++
++No reason is recorded anywhere for any specific missing number, and none is invented here: a gap
++means the number was reserved and not used, not that an ADR was withdrawn.
++
++## Writing a new one
++
++Keep the first line a level-1 heading with the ADR's title, state a status and a date in the header
++block, and add the row here in the same commit. `go test ./test/docs/...` checks the last part.
+diff --git a/docs/architecture.md b/docs/architecture.md
+new file mode 100644
+index 0000000..bab889d
+--- /dev/null
++++ b/docs/architecture.md
+@@ -0,0 +1,312 @@
++# Architecture
++
++This page describes the contracts Qompack actually ships, with a citation for each. It is not a
++design document: where `plans/00-ARCHITECTURE.md` or `Qompack.md` describes something the code does
++not do, the code wins and the difference is stated here.
++
++Sources are cited inline as file paths. `Qompack.md` is the design document (v1.5, 2026-09-06);
++`plans/00-ARCHITECTURE.md` is the architecture plan; `plans/V5-report.md` is the most recent
++verification record. ADRs are indexed in [docs/adr/README.md](adr/README.md).
++
++## 1. Process model
++
++Qompack is one binary, `cmd/qompack`, invoked in three roles.
++
++**Hook processes.** `plugin/hooks/hooks.json` registers seven hooks, each of which runs the binary
++as a short-lived subcommand:
++
++| Hook | Subcommand | Timeout in the manifest |
++|---|---|---|
++| `SessionStart` | `qompack session-start` | 15 s |
++| `PostToolUse` (matcher `*`) | `qompack observe tool` | 5 s |
++| `UserPromptSubmit` | `qompack observe prompt` | 5 s |
++| `Stop` | `qompack observe stop` | 5 s |
++| `SubagentStop` | `qompack observe stop --subagent` | 10 s |
++| `PreCompact` | `qompack checkpoint` | 20 s |
++| `SessionEnd` | `qompack flush` | 20 s |
++
++The command strings are `${CLAUDE_PLUGIN_ROOT}/bin/qompack …`. All four bundle files are generated
++from one typed value (`internal/pluginmanifest/manifest.go`: "Generating all four from one Go value
++is what makes it impossible for them to drift apart"), and `devtool plugin-validate` diffs the
++generated bytes against the committed tree in CI. That package's own comment records that the exact
++key names are "partly undocumented host contract and are expected to change (G9.3)".
++
++`internal/cli` is the dispatch layer and a composition root. Its package comment states the rule
++that governs every hook process: "a hook subcommand exits 0 no matter what happens inside it" —
++unreadable stdin, malformed JSON, an unresolvable project root, a read-only store or a panic in the
++handler are all logged and swallowed, and the host still receives valid JSON on stdout. A sidecar
++"must never be the reason a session gets worse".
++
++**The MCP server.** `plugin/.mcp.json` registers one server, `qompack`, as the binary with the
++single argument `mcp`. Per `internal/mcp`'s package comment, the transport "is stdio and only
++stdio": newline-delimited JSON-RPC 2.0 over the reader and writer its caller hands `Serve`, with no
++listener, no port and no socket.
++
++**The daemon.** `internal/daemon` is "the resident per-project process … the thing that holds the
++store, the sketches and the scheduler in memory so a hook does not have to". Its stated reason for
++existing is budget B-A: a hook has 15 ms at p99 and cannot open a store, load sketches and
++reconstruct scheduler state on every tool call, so "the daemon pays those costs once and the hook
++pays only a connect-write-ack".
++
++**What runs where.** The hook process parses its event, connects, writes and waits for an ACK. The
++daemon does the work: it is the single writer of the store, and — per `internal/mcp`'s package
++comment — the MCP *handlers* execute in the daemon too, not in the `qompack mcp` process. The stdio
++process "is a transcoder": it advertises this package's own `ToolDefs`, so `tools/list` is
++byte-identical on both sides, and forwards every `tools/call` over the local transport. That is not
++only a performance choice: Claude Code launches an MCP server once per client and hands it no
++`session_id`, so the daemon is also the only party that can resolve which session a call belongs to.
++
++**IPC.** `internal/ipc` implements the transport: endpoint resolution, NDJSON request/response
++framing, a one-byte ACK/NAK handshake, and "the spool that every failure path falls back to". It is
++the only package permitted to import `net`, and its package comment is emphatic that this is not
++network access: on Windows a named pipe ACL'd to the current user's SID, on POSIX a `SOCK_STREAM`
++Unix domain socket, mode 0600 in a 0700 directory. Decision D10 — no network I/O, ever — is enforced
++mechanically by CI's `security` job, which greps the import graph for `net/http`, `net/url` and
++`crypto/tls` outside `internal/ipc`.
++
++## 2. Write set and retention
++
++Everything Qompack writes for a project lives under `<project>/.qompack/`.
++`internal/paths/layout.go` names the directories, and `EnsureLayout` creates them at 0o700:
++
++`objects/`, `index/`, `sketches/`, `dag/`, `grammar/`, `checkpoints/`, `pins/`, `eval/` (with
++`replay/` and `opt/`), `records/`, `state/`, `run/`, `spool/`, `logs/`, `metrics/`, `tmp/`,
++`migrate/` and `backup/`. `EnsureLayout` also writes `<project>/.qompack/.gitignore` containing
++exactly `*\n`, so the store self-ignores even in a project whose own `.gitignore` is never touched.
++
++Named files referenced elsewhere on this page: `checkpoints/NNNN.json` and
++`checkpoints/MANIFEST.jsonl`, `index/observations.jsonl`, `records/eliminations.jsonl`,
++`state/frontier.json`, `state/config-violations.json`, `sketches/tried.bloom`.
++
++`internal/paths`'s package comment makes the §7.4 append-only invariant mechanical: "every function
++in this package that can write into `.qompack` refuses to truncate or rewrite `checkpoints/`,
++`pins/`, or `sketches/tried.bloom`" (`appendonly.go`: `IsProtected`, `OpenFile`, `AppendOnly`,
++`AppendJSONL`, `CreateNew`, `ReplaceBloom`).
++
++The write set is asserted, not asserted-about: `plans/V5-report.md` §27 records
++`TestV5_NoPackageWritesOutsideDotQompack` running under the real binary, plus
++`test/guards/writeset_test.go` and an extended append-only guard. §27 also records that retention
++roots and GC are covered by the I-06.x rows and the phase-7 compaction tests, and that the
++compaction tests rewrite by design and are documented as doing so.
++
++**What is never written.** Secrets. `internal/redact` is the choke point: "secrets must never reach
++`objects/`, so redaction is applied once, at `store.Put`/`PutBytes`, before canonicalization and
++chunking — never as an after-the-fact audit step". Ten built-in rules run in a fixed order plus
++whatever `runtime.redact.patterns` admits; redaction is idempotent and bounded in growth, and both
++properties are fuzzed. A rule is deliberately allowed to match an entire input, because a tool
++result that *is* nothing but a private key must still be fully redacted.
++
++No telemetry is written or sent: `runtime.telemetry.enabled` is hardwired off and the key exists
++only to say so (`docs/config-reference.md`).
++
++## 3. Identity
++
++`plans/00-ARCHITECTURE.md` §0.2 defines four closed enumerations. They are confirmed against
++`internal/core/evidence.go`, which declares exactly these values:
++
++- `core.Fidelity` ∈ {`exact`, `prefix`, `partial`, `redacted`, `truncated`, `binary`, `failure`,
++  `unknown`}
++- `core.Coverage` ∈ {`qompack_included`, `archive_only`, `native_load_observed`, `expired_deleted`,
++  `unknown`}
++- `core.EvidenceOutcome` ∈ {`ok`, `absent`, `unavailable`, `denied`, `corrupt`, `expired`,
++  `uncertain`}
++- `core.Authority` ∈ {`user_correction`, `explicit_decision`, `tool_observation`,
++  `candidate_extraction`, `hypothesis`, `conflict`}
++
++The architecture's rule for them: "Enumerations are closed and versioned; consumers receive them
++through composition roots, never by importing a sibling layer."
++
++Two identities are kept apart. `core.ObservationID` is Qompack-assigned per accepted host delivery
++and "never derived from content"; content identity is the hash root of the canonicalised content.
++Two deliveries with equal bytes are therefore two observations with one content identity. A host
++`tool_use_id` is carried verbatim as `HostID` when supplied and is absent otherwise — never
++synthesised. Ordering is recorded as `ArrivalSeq` beside the observed `Turn`, and observed order and
++arrival order are never inferred from one another. A record without an envelope (`v`, `transform`,
++`hash`) has fidelity `unknown`, not `exact`.
++
++`internal/state` carries the authority rules as types: "Only `AuthorityUserCorrection` and
++`AuthorityExplicitDecision` are authoritative; only they may supersede an authoritative record,
++correct anything, or resolve a conflict. A hypothesis or a candidate extraction never becomes an
++instruction by being newer." Records are append-only, a conflict is rendered *as* a conflict until
++an authorized source resolves it, and scope fails closed.
++
++## 4. Publication and durability
++
++Publication is ordered (`plans/00-ARCHITECTURE.md` §0.2.2): durable object (fsynced) → verified
++references (index lines naming the object, appended only after the object is durable and re-verified
++by hash on read) → committed frontier / checkpoint visibility. A reference or frontier failure leaves
++the object as a GC root; a capture failure leaves the host result in place and forbids any handle or
++pointer that claims it recoverable.
++
++Acknowledgement is idempotent by the persisted `ObservationID`: lease → handle → ack, so an
++interrupted drain re-delivers the same observation instead of consuming it or minting a second
++identity.
++
++[ADR 0014](adr/0014-delivery-group-commit-and-ab-seal.md) records the delivery path's group commit
++and the format-2 A/B seal as they are implemented and merged — it documents decisions already taken
++rather than proposing new ones, and settles four of the twelve questions SP20-D1's design put to the
++owner.
++
++Checkpoint durability is `internal/checkpoint`: the L4 checkpointer owns the immutable,
++importance-ordered checkpoint artifact, the incrementally advancing draft that encodes closed
++segments exactly once (the §4.6 DPI guard), the tiered truncation order, ground-truth pointer
++validation, and decision extraction. The on-disk JSON shape is versioned (`SchemaVersion`) and
++pinned against a frozen fixture. [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) covers
++the read end.
++
++There is exactly one draft owner per session — the checkpointer's `FileWriter`, which owns `Begin`,
++`Finalize` and `Abort` and adjudicates the DPI guard in one place.
++
++**Open on this tree.** `plans/V5-report.md` §29 item 2 records two known regressions in enabled
++scope that are not host questions: SP20-D1 (hot-path budget B-B red on the shipped leased delivery
++path) and SP20-D2 (verify-on-read over the `GetChunk` and `Search` budgets). Both are carried to
++V6-VERIFY under a recorded waiver, and the report states plainly that plan §8's gate of "no
++unresolved mandatory regression" is therefore **not met**.
++
++## 5. State authority and uncertainty
++
++`internal/state` separates what Qompack *observed* from what it *believes*: "An observation is
++immutable and lives elsewhere; a Record here is a statement DERIVED from one or more observations
++and is identified only by their `core.ObservationID`s." Nothing in that package holds observation
++bytes, rewrites an observation, or lets a record change its own authority after admission. Current
++authority and historical reads are therefore distinct: a superseded, corrected or conflicted record
++stays readable with links in both directions and a retained `Lineage.History`.
++
++**The recorded partial.** `plans/V5-report.md` §24 records the uncertainty gate as **partial**: it
++does not survive the digest surface under a blind ledger. Concretely (§29 item 11): the blind-ledger
++digest renders a stale record as `[active]`, and pin records are stamped `mcp` because `IngestPin`
++has no production caller. Both are routed and unruled, and the gate stays `partial` until they are
++ruled. Read an uncertainty marking in a digest as a claim that has not been verified end to end.
++
++## 6. Retrieval
++
++The MCP tools are documented in [docs/mcp-tools.md](mcp-tools.md), generated from
++`internal/mcp.ToolDefs`. Four contracts are worth stating here because they are easy to misread.
++
++**`unavailable` is not `absent`.** [ADR 0013](adr/0013-migration-contracts.md) names "errors read as
++absence" as a defect to be fixed and sets the rule: `absent` "may be asserted only with complete,
++fresh coverage; anything less is `uncertain` or `unavailable` with a reason and a recovery
++direction". `docs/mcp-tools.md` carries the same contract for `already_tried`: a failed ledger query
++returns `unavailable`, and "unavailable or unrecognized states never establish absence or prohibit
++an approach". An unavailable answer is never substituted with current content.
++
++**`dropped` reports qualified coverage.** It retrieves Qompack's own recorded omissions for the
++session — what Qompack did not carry, qualified by the coverage and fidelity of what it did carry.
++`docs/mcp-tools.md` states the boundary in its own words: "This report does not establish what
++remains in native context."
++
++**An `ephemeral` tag does not mean native eviction.** Every retrieval response exposes
++`_meta.qompack.ephemeral`. `docs/mcp-tools.md` states it directly: "this is not a host eviction
++control or proof of native context retention". `internal/mcp`'s package comment says the same:
++"Retrieval metadata marks Qompack representations ephemeral; it does not control host eviction or
++establish native context retention."
++
++**Spans are minimal by default.** A tool returning file content returns the smallest chunk-aligned
++span covering the request, widened to a symbol boundary where one is known, with `full: true` as the
++explicit escape hatch and a `next_span` for paging.
++
++Capture, fidelity and coverage may be partial or unknown, and the response says which.
++
++## 7. Checkpoint and rehydration
++
++At `PreCompact` the checkpointer finalizes a checkpoint artifact; after the compaction, the
++rehydrator builds the payload that `SessionStart source=compact` injects.
++
++Two things about that payload are load-bearing, per `internal/rehydrate`'s package comment. Its
++**order** is normative — `ItemKind`'s constants are the importance order, and a rehydration that
++reorders them is wrong even if it fits the budget, because position decides what survives
++truncation. Its **size** is deliberately small.
++
++**What "8–12K" is and is not.** It is a historical Qompack-added target for the material Qompack
++injects, recorded in [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) and in `Qompack.md`
++§8.6. It is not the total restored native context, and nothing here claims the native input shrinks:
++what the host restores on its own is the host's business, and Qompack neither measures nor controls
++it. The shipped defaults that implement the target are `runtime.rehydrate.minTokens` `8000` and
++`runtime.rehydrate.maxTokens` `12000`, with `checkpoint.budgetTokens` `12000` for the checkpoint
++artifact itself (`docs/config-reference.md`).
++
++Injection has an independent kill switch: `runtime.migration.reinjection.sessionStartCompact`
++(default `true`). Setting it false disables injection without touching recording. It names the one
++injection adapter that has been tested; `plans/MIGRATION-EVIDENCE.md` records injection as
++"documented; installed behavior unknown" and "no PostCompact prerequisite".
++
++## 8. Scheduler, observer, negative knowledge
++
++**Scheduler (L3).** [ADR 0012](adr/0012-scheduler-l3.md) records the composite trigger, BOCD
++changepoint detection, cache regimes and p-selection as shipped by SP-12, together with the idle
++work and frontier advancement. Its configuration surface is the `scheduler` block of
++`docs/config-reference.md`.
++
++**Observer (L0).** [ADR 0008](adr/0008-observer-l0.md) records the capture layer: content-address
++every tool result, canonicalize per tool, near-dedup, addressable tombstones, redundancy and
++supersession detection, verbatim prompt capture and subagent capture.
++
++**Negative knowledge.** [ADR 0009](adr/0009-negative-knowledge-bloom-as-cache.md) settles the one
++thing about this layer that is most often got wrong, and its title says it: the bloom is a cache.
++The records are the source of truth and every membership answer is checked against them. There is no
++"safe false positive" property here and none is claimed — an elimination is a *conditional* fact,
++and a false `already_tried` is a real cost. `sketches/tried.bloom` is append-only-protected, and
++`internal/negknow` is where it lives.
++
++**Slices are scores.** [ADR 0007](adr/0007-dag-slices-are-scores-not-drop-decisions.md): the
++dependence-DAG slice produces a relevance score per node, not a binary keep/drop.
++
++## 9. Historical records vs current amendments
++
++The full index, with each ADR's status and date as the ADR states it, is
++[docs/adr/README.md](adr/README.md). It is derived from the directory by `test/docs`, so it cannot
++go stale silently. In summary:
++
++| ADR | Kind |
++|---|---|
++| 0002, 0003, 0007, 0008, 0009, 0011, 0012, 0030 | stand |
++| 0010 (wall-clock under co-load), 0013 (migration contracts, *proposed*), 0014 (group commit and A/B seal) | current amendments |
++| 0100 (V3 verification) | historical record |
++
++Two of those deserve a note here. ADR 0013 is **proposed**, not accepted: it amends
++`plans/00-ARCHITECTURE.md` with §0.2 and "takes effect for implementation only once those owners
++have approved it", and nothing in it enables a feature — every behaviour it describes stays behind a
++`runtime.migration.*` gate that is pending in this build. ADR 0010 is the rule that a wall-clock
++budget is judged only where it is judgeable, which is why CI has separate `timing` and `test-e2e`
++jobs that run those tests alone.
++
++## 10. What is not supported
++
++Each item names where the limit is recorded. The full page is planned (SP-18 Commit 5):
++`docs/cannot-do.md`.
++
++- **No native cuts, markers or history eviction.** `plans/MIGRATION-EVIDENCE.md`, "Capability
++  decisions": history rewriting / native eviction is `unsupported` and `Excluded`; ephemeral
++  metadata is a future representation hint only. `internal/mcp`'s package comment says the same of
++  the `ephemeral` tag.
++- **No model-compliance or native-byte proof.** `plans/MIGRATION-EVIDENCE.md` records injection as
++  "documented; installed behavior unknown" and packaging as "repository-level met, installed-host
++  unverified" (B01). Nothing here observes what the model did with an injected payload, or what
++  bytes the host holds.
++- **No reconstruction of a missing original.** `plans/00-ARCHITECTURE.md` §0.2.2: a capture failure
++  "leaves the host result in place and forbids any handle or pointer that claims it recoverable". A
++  record without an envelope is `unknown` fidelity, not `exact`.
++- **No universal improvement claim.** `plans/V5-report.md` §26: no held-out task runs, stochastic
++  baselines or quality trials were executed; SP-21's quality row is "inconclusive by construction"
++  and recorded as such (§24).
++- **No performance guarantee.** The budgets in `docs/config-reference.md` are budgets that CI
++  gates, not promises about your machine. [ADR 0010](adr/0010-wall-clock-under-coload.md) exists
++  because a wall-clock figure measured under co-load is not a judgement, and `plans/V5-report.md`
++  §29 carries open reference-platform rows.
++- **No name-availability guarantee.** Slash-command and MCP tool names are advertised by this
++  plugin; whether a name is free in a given host session depends on what else that host has loaded.
++  `plans/V5-report.md` §29 item 6 records the competing-hook matrix (T21-HOST-01) as needing an
++  installed host and not yet run.
++- **Subscription usage is not API price.** `plans/V5-report.md` §25 records estimated price as
++  `unknown` with no rate table applied, and notes that a subscription allowance is not cash per
++  token. Qompack's own ledger never writes an estimate as an invoice and never fills an unknown
++  count with zero.
++
++## Known divergence from the plan documents
++
++`plans/00-ARCHITECTURE.md` is a planning document that later waves amend; `plans/V5-report.md` §24
++carries an explicit plan-vs-code drift list (SP-10's gate table, SP-11's gates, SP-13's manifest and
++installed transcript, SP-10's host-boundary correction) as `implemented_unverified` or `documented`,
++routed to V6 planning. Where this page and a plan document disagree, this page follows the code and
++says which code. Where neither can settle a question, it is marked unknown above rather than
++guessed.
+diff --git a/test/docs/doc.go b/test/docs/doc.go
+new file mode 100644
+index 0000000..fd541cf
+--- /dev/null
++++ b/test/docs/doc.go
+@@ -0,0 +1,26 @@
++// Package docs is the documentation test harness: a composition-root test package (nothing
++// imports it, and it imports nothing from internal/) that asserts the properties of this
++// repository's prose which a reviewer would otherwise have to check by hand.
++//
++// It exists because documentation rots silently. A moved file leaves a dead link, a renamed MCP
++// tool leaves a stale page, and a new ADR that nobody adds to the index is invisible — none of
++// which any compiler or existing test notices. The checks here are deliberately mechanical: they
++// verify that what a document POINTS AT exists, not that what it SAYS is true. Claims are the
++// reviewer's job; reachability is this package's.
++//
++// The three checks in this commit:
++//
++//   - TestRelativeLinksResolve walks README.md and every docs/**/*.md, and resolves every
++//     scheme-less markdown link — including heading anchors — against the filesystem.
++//   - TestOwnedDocsExist pins the set of hand-written pages SP-18 owns (ownedDocs), which later
++//     commits extend as they add pages.
++//   - TestADRIndexListsEveryADR derives the ADR set from the directory and requires the index to
++//     link every one of them under its own title.
++//
++// inventory_test.go holds the source-derived inventories (`docs/commands.md` and
++// `docs/mcp-tools.md` are generated from internal/commands.Specs() and internal/mcp.ToolDefs, and
++// the CI `docs` job fails if they drift), so later commits can assert prose against the real
++// command and tool sets rather than against a hand-maintained list.
++//
++// Stdlib only, by rule: this package must stay runnable against the repository as a tree of files.
++package docs
+diff --git a/test/docs/harness_test.go b/test/docs/harness_test.go
+new file mode 100644
+index 0000000..8764887
+--- /dev/null
++++ b/test/docs/harness_test.go
+@@ -0,0 +1,213 @@
++package docs
++
++import (
++	"os"
++	"os/exec"
++	"path/filepath"
++	"regexp"
++	"strings"
++	"testing"
++)
++
++// repoRoot resolves the module root via `go list`, so the harness works regardless of the
++// directory the test binary was started from. This is the same approach test/guards uses
++// (test/guards/stubs_test.go); it is copied rather than imported because nothing may import a
++// composition root.
++func repoRoot(t *testing.T) string {
++	t.Helper()
++	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}").Output()
++	if err != nil {
++		t.Fatalf("go list -m: %v", err)
++	}
++	return strings.TrimSpace(string(out))
++}
++
++// readLines returns the file's lines with any trailing carriage returns removed, so a checkout
++// with CRLF endings behaves like one without.
++func readLines(t *testing.T, path string) []string {
++	t.Helper()
++	b, err := os.ReadFile(path)
++	if err != nil {
++		t.Fatalf("read %s: %v", path, err)
++	}
++	lines := strings.Split(string(b), "\n")
++	for i, l := range lines {
++		lines[i] = strings.TrimSuffix(l, "\r")
++	}
++	return lines
++}
++
++// fenceRe matches the opening or closing line of a fenced code block. Everything between a pair
++// of these is prose to a human and noise to this harness: a JSON schema in docs/mcp-tools.md is
++// full of bracket-and-paren shapes that are not links.
++var fenceRe = regexp.MustCompile("^[ ]{0,3}(```|~~~)")
++
++// inlineCodeRe matches an inline code span.
++var inlineCodeRe = regexp.MustCompile("`[^`]*`")
++
++// defenced returns the file's lines with fenced blocks blanked out and nothing else changed. This
++// is the right input for a HEADING scan: "## `recall`" is a heading whose entire text is an inline
++// code span, and removing the span would leave nothing to slug.
++func defenced(t *testing.T, path string) []string {
++	t.Helper()
++	lines := readLines(t, path)
++	out := make([]string, len(lines))
++	inFence := false
++	for i, l := range lines {
++		if fenceRe.MatchString(l) {
++			inFence = !inFence
++			out[i] = ""
++			continue
++		}
++		if inFence {
++			out[i] = ""
++			continue
++		}
++		out[i] = l
++	}
++	return out
++}
++
++// scrubbed is defenced with inline code spans removed as well, which is the right input for a LINK
++// scan: a link written inside backticks is an example, not a reference.
++func scrubbed(t *testing.T, path string) []string {
++	t.Helper()
++	out := defenced(t, path)
++	for i, l := range out {
++		out[i] = inlineCodeRe.ReplaceAllString(l, "")
++	}
++	return out
++}
++
++// headingRe matches an ATX heading and captures its level and text.
++var headingRe = regexp.MustCompile(`^(#{1,6})\s+(.*)$`)
++
++// headingText returns the heading text of an ATX heading line, or "" and false.
++func headingText(line string) (string, int, bool) {
++	m := headingRe.FindStringSubmatch(line)
++	if m == nil {
++		return "", 0, false
++	}
++	text := strings.TrimSpace(strings.TrimRight(m[2], "#"))
++	return text, len(m[1]), true
++}
++
++// slug is the GitHub heading anchor for a heading's text: lowercase, backticks dropped, spaces
++// turned into hyphens, every other punctuation mark removed except '-' and '_'. Duplicate
++// headings in one file get "-1", "-2" … suffixes, which anchorsOf applies.
++func slug(text string) string {
++	var b strings.Builder
++	for _, r := range strings.ToLower(text) {
++		switch {
++		case r == '`':
++			// dropped entirely
++		case r == ' ':
++			b.WriteRune('-')
++		case r == '-' || r == '_':
++			b.WriteRune(r)
++		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
++			b.WriteRune(r)
++		case r > 127:
++			// Non-ASCII letters keep their identity on GitHub; punctuation above 127 (an em
++			// dash, a curly quote) does not. Only letters and digits survive here.
++			if isLetterOrDigit(r) {
++				b.WriteRune(r)
++			}
++		}
++	}
++	return b.String()
++}
++
++func isLetterOrDigit(r rune) bool {
++	return (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') ||
++		(r >= 0x00C0 && r <= 0x024F) // Latin-1 Supplement and Latin Extended-A/B letters
++}
++
++// anchorsOf returns the set of heading anchors a markdown file offers.
++func anchorsOf(t *testing.T, path string) map[string]bool {
++	t.Helper()
++	seen := map[string]int{}
++	out := map[string]bool{}
++	for _, l := range defenced(t, path) {
++		text, _, ok := headingText(l)
++		if !ok || text == "" {
++			continue
++		}
++		s := slug(text)
++		if s == "" {
++			continue
++		}
++		if n := seen[s]; n > 0 {
++			out[s+"-"+itoa(n)] = true
++		} else {
++			out[s] = true
++		}
++		seen[s]++
++	}
++	return out
++}
++
++func itoa(n int) string {
++	if n == 0 {
++		return "0"
++	}
++	var digits []byte
++	for n > 0 {
++		digits = append([]byte{byte('0' + n%10)}, digits...)
++		n /= 10
++	}
++	return string(digits)
++}
++
++// markdownFiles returns README.md and every docs/**/*.md, as repo-relative slash paths.
++func markdownFiles(t *testing.T, root string) []string {
++	t.Helper()
++	files := []string{"README.md"}
++	err := filepath.WalkDir(filepath.Join(root, "docs"), func(path string, d os.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		if d.IsDir() || !strings.HasSuffix(d.Name(), ".md") {
++			return nil
++		}
++		rel, err := filepath.Rel(root, path)
++		if err != nil {
++			return err
++		}
++		files = append(files, filepath.ToSlash(rel))
++		return nil
++	})
++	if err != nil {
++		t.Fatalf("walk docs/: %v", err)
++	}
++	return files
++}
++
++// firstHeading returns the text of a file's first level-1 heading, or "" if it has none.
++func firstHeading(t *testing.T, path string) string {
++	t.Helper()
++	for _, l := range defenced(t, path) {
++		text, level, ok := headingText(l)
++		if ok && level == 1 {
++			return text
++		}
++	}
++	return ""
++}
++
++// adrNumberPrefixRe matches the numbering an ADR title carries before its own words: either
++// "ADR 0011" or "12.". titleCore strips it so the index may write the number in its own column
++// and the title in the next one.
++var adrNumberPrefixRe = regexp.MustCompile(`^(?:ADR\s+)?[0-9]+\.?`)
++
++// titleCore is an ADR title with its leading number and the separator that follows removed.
++func titleCore(title string) string {
++	s := strings.TrimSpace(adrNumberPrefixRe.ReplaceAllString(strings.TrimSpace(title), ""))
++	for _, sep := range []string{"—", "–", "-", ":"} {
++		if strings.HasPrefix(s, sep+" ") {
++			s = strings.TrimSpace(strings.TrimPrefix(s, sep))
++			break
++		}
++	}
++	return s
++}
+diff --git a/test/docs/inventory_test.go b/test/docs/inventory_test.go
+new file mode 100644
+index 0000000..2120b9d
+--- /dev/null
++++ b/test/docs/inventory_test.go
+@@ -0,0 +1,72 @@
++package docs
++
++import (
++	"path/filepath"
++	"regexp"
++	"testing"
++)
++
++// commandHeadingRe matches a command page's per-command heading: ## `/qompack:NAME`.
++var commandHeadingRe = regexp.MustCompile("^## `/qompack:([a-z0-9-]+)`$")
++
++// toolHeadingRe matches a tool page's per-tool heading: ## `NAME`.
++var toolHeadingRe = regexp.MustCompile("^## `([a-z0-9_]+)`$")
++
++// generatedCommandNames returns the slash-command names docs/commands.md documents.
++//
++// That page is generated from internal/commands.Specs() and CI's `docs` job fails if it drifts, so
++// reading the page is reading the shipped command set — which is why nothing in this package
++// hard-codes a command list or a count. Later commits assert their prose against this.
++func generatedCommandNames(t *testing.T) []string {
++	t.Helper()
++	return headingNames(t, "docs/commands.md", commandHeadingRe)
++}
++
++// generatedToolNames returns the MCP tool names docs/mcp-tools.md documents. Same contract as
++// generatedCommandNames: the page is generated from internal/mcp.ToolDefs and gated in CI.
++//
++// The regexp is what excludes the page's prose headings ("## Tools at a glance"): only a heading
++// that is nothing but a backticked identifier is a tool.
++func generatedToolNames(t *testing.T) []string {
++	t.Helper()
++	return headingNames(t, "docs/mcp-tools.md", toolHeadingRe)
++}
++
++// headingNames collects the first capture group of re over a page's level-2 headings. It reads the
++// RAW lines rather than the scrubbed ones: both patterns require backticks, which scrubbing
++// removes. A page with no matching heading fails the test — an inventory that silently came back
++// empty would make every assertion built on it vacuously true.
++func headingNames(t *testing.T, rel string, re *regexp.Regexp) []string {
++	t.Helper()
++	path := filepath.Join(repoRoot(t), filepath.FromSlash(rel))
++	var names []string
++	inFence := false
++	for _, l := range readLines(t, path) {
++		if fenceRe.MatchString(l) {
++			inFence = !inFence
++			continue
++		}
++		if inFence {
++			continue
++		}
++		if m := re.FindStringSubmatch(l); m != nil {
++			names = append(names, m[1])
++		}
++	}
++	if len(names) == 0 {
++		t.Fatalf("%s: no headings matched %s: the page moved, changed shape, or is empty", rel, re)
++	}
++	return names
++}
++
++// TestGeneratedInventoriesAreNonEmpty exercises both inventory helpers so that a change to either
++// generated page's shape fails here, in one obvious place, rather than in whichever later test
++// happens to call them first.
++func TestGeneratedInventoriesAreNonEmpty(t *testing.T) {
++	if got := generatedCommandNames(t); len(got) == 0 {
++		t.Error("docs/commands.md: no commands")
++	}
++	if got := generatedToolNames(t); len(got) == 0 {
++		t.Error("docs/mcp-tools.md: no tools")
++	}
++}
+diff --git a/test/docs/links_test.go b/test/docs/links_test.go
+new file mode 100644
+index 0000000..399fc80
+--- /dev/null
++++ b/test/docs/links_test.go
+@@ -0,0 +1,127 @@
++package docs
++
++import (
++	"os"
++	"path/filepath"
++	"regexp"
++	"strings"
++	"testing"
++)
++
++// inlineLinkRe matches an inline markdown link and captures its target. The target stops at the
++// first whitespace so an optional title ( [x](y "title") ) is not mistaken for part of the path.
++var inlineLinkRe = regexp.MustCompile(`\[[^\]]*\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)`)
++
++// refDefRe matches a reference-style link definition: [label]: target.
++var refDefRe = regexp.MustCompile(`^ {0,3}\[[^\]]+\]:\s*(\S+)`)
++
++// schemeRe matches an absolute URL scheme (https:, mailto:, …). Those targets are out of scope:
++// this harness resolves what is on disk and makes no network request, ever (decision D10).
++var schemeRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.\-]*:`)
++
++// knownAnchorDefects are anchors this harness knows are broken and which this commit cannot fix,
++// because the page that carries them is GENERATED and the CI `docs` job diffs it byte for byte.
++//
++// docs/mcp-tools.md's "Tools at a glance" table links each tool to its own `## ` heading through
++// tools/devtool/genmcpdocs.go's anchorFor, which rewrites "_" as "-":
++//
++//	func anchorFor(name string) string { return strings.ReplaceAll(name, "_", "-") }
++//
++// GitHub does not do that. An underscore is a word character and survives slugging, so the
++// heading "## `re_read`" offers #re_read and the link to #re-read lands nowhere. The fix is one
++// line in the generator plus a regeneration, and it belongs to whoever owns that tool — not to a
++// prose commit that is forbidden to touch either file.
++//
++// The list is enforced in BOTH directions: an unlisted broken anchor fails the test, and a listed
++// anchor that starts resolving fails it too, so the fix cannot land without this entry being
++// struck. Keys are "<file>#<anchor>".
++var knownAnchorDefects = map[string]string{
++	"docs/mcp-tools.md#re-read":           "genmcpdocs.go anchorFor rewrites _ as -; GitHub keeps _ (heading offers #re_read)",
++	"docs/mcp-tools.md#already-tried":     "genmcpdocs.go anchorFor rewrites _ as -; GitHub keeps _ (heading offers #already_tried)",
++	"docs/mcp-tools.md#record-eliminated": "genmcpdocs.go anchorFor rewrites _ as -; GitHub keeps _ (heading offers #record_eliminated)",
++}
++
++// TestRelativeLinksResolve is the reachability check: every scheme-less markdown link in README.md
++// and in docs/**/*.md must name a file that exists, and every heading anchor must name a heading
++// that exists in that file. Failures are reported as "file:line: target" and the scan continues,
++// so one broken link does not hide the other nine.
++func TestRelativeLinksResolve(t *testing.T) {
++	root := repoRoot(t)
++	files := markdownFiles(t, root)
++	if len(files) == 0 {
++		t.Fatal("no markdown files found: the scan is looking in the wrong place")
++	}
++
++	// anchors are cached per target file: docs/mcp-tools.md is large and is linked many times.
++	anchorCache := map[string]map[string]bool{}
++	hit := map[string]bool{}
++
++	for _, rel := range files {
++		abs := filepath.Join(root, filepath.FromSlash(rel))
++		for i, line := range scrubbed(t, abs) {
++			lineNo := i + 1
++			var targets []string
++			for _, m := range inlineLinkRe.FindAllStringSubmatch(line, -1) {
++				targets = append(targets, m[1])
++			}
++			if m := refDefRe.FindStringSubmatch(line); m != nil {
++				targets = append(targets, m[1])
++			}
++			for _, target := range targets {
++				target = strings.Trim(target, "<>")
++				if target == "" || schemeRe.MatchString(target) || strings.HasPrefix(target, "//") {
++					continue
++				}
++				path, anchor, _ := strings.Cut(target, "#")
++
++				// Resolve the file half, which is empty for a same-file "#anchor".
++				targetRel := rel
++				if path != "" {
++					joined := filepath.Join(filepath.Dir(abs), filepath.FromSlash(path))
++					info, err := os.Stat(joined)
++					if err != nil || info.IsDir() {
++						t.Errorf("%s:%d: %s (no such file)", rel, lineNo, target)
++						continue
++					}
++					r, err := filepath.Rel(root, joined)
++					if err != nil {
++						t.Errorf("%s:%d: %s (outside the repository)", rel, lineNo, target)
++						continue
++					}
++					targetRel = filepath.ToSlash(r)
++				}
++				if anchor == "" {
++					continue
++				}
++				if !strings.HasSuffix(targetRel, ".md") {
++					t.Errorf("%s:%d: %s (anchor into a non-markdown file)", rel, lineNo, target)
++					continue
++				}
++
++				anchors, ok := anchorCache[targetRel]
++				if !ok {
++					anchors = anchorsOf(t, filepath.Join(root, filepath.FromSlash(targetRel)))
++					anchorCache[targetRel] = anchors
++				}
++				key := targetRel + "#" + anchor
++				_, known := knownAnchorDefects[key]
++				switch {
++				case anchors[anchor] && known:
++					t.Errorf("%s:%d: %s now resolves: strike it from knownAnchorDefects", rel, lineNo, target)
++				case anchors[anchor]:
++					// resolved, as it should
++				case known:
++					hit[key] = true
++				default:
++					t.Errorf("%s:%d: %s (no heading with that anchor in %s)", rel, lineNo, target, targetRel)
++				}
++			}
++		}
++	}
++
++	for key, why := range knownAnchorDefects {
++		if !hit[key] {
++			t.Errorf("knownAnchorDefects lists %s (%s) but no document links it: strike the entry", key, why)
++		}
++	}
++}
+diff --git a/test/docs/owned_test.go b/test/docs/owned_test.go
+new file mode 100644
+index 0000000..1bcf8ec
+--- /dev/null
++++ b/test/docs/owned_test.go
+@@ -0,0 +1,133 @@
++package docs
++
++import (
++	"os"
++	"path/filepath"
++	"regexp"
++	"strings"
++	"testing"
++)
++
++// ownedDocs is the set of hand-written pages SP-18 owns. Later commits in this subplan append to
++// it as they add the user guide, troubleshooting, limits and UAT pages; nothing else belongs here,
++// because the generated pages (docs/config-reference.md, docs/commands.md, docs/mcp-tools.md) have
++// their own drift check in CI's `docs` job and the ADRs have TestADRIndexListsEveryADR.
++var ownedDocs = []string{
++	"README.md",
++	"docs/architecture.md",
++	"docs/adr/README.md",
++}
++
++// TestOwnedDocsExist asserts the shape every owned page shares: it exists, it has content, and it
++// opens on a level-1 heading, so a page can never be half-created or left as a stub that other
++// documents already link.
++func TestOwnedDocsExist(t *testing.T) {
++	root := repoRoot(t)
++	for _, rel := range ownedDocs {
++		abs := filepath.Join(root, filepath.FromSlash(rel))
++		info, err := os.Stat(abs)
++		if err != nil {
++			t.Errorf("%s: %v", rel, err)
++			continue
++		}
++		if info.Size() == 0 {
++			t.Errorf("%s: empty", rel)
++			continue
++		}
++		var first string
++		for _, l := range readLines(t, abs) {
++			if strings.TrimSpace(l) != "" {
++				first = strings.TrimSpace(l)
++				break
++			}
++		}
++		if !strings.HasPrefix(first, "# ") {
++			t.Errorf("%s: first non-blank line is not a level-1 heading: %q", rel, first)
++		}
++	}
++}
++
++// adrFileRe matches an ADR file name: four digits, a hyphen, a slug.
++var adrFileRe = regexp.MustCompile(`^[0-9]{4}-.*\.md$`)
++
++// TestADRIndexListsEveryADR keeps docs/adr/README.md honest against the directory it indexes. The
++// ADR set is derived from disk — an index that hard-coded a count would go stale on the next ADR
++// and would still pass. Each ADR must be linked, each link must resolve, and the row that carries
++// the link must name the ADR's own title, so a renamed ADR cannot keep an obsolete description in
++// the index.
++func TestADRIndexListsEveryADR(t *testing.T) {
++	root := repoRoot(t)
++	adrDir := filepath.Join(root, "docs", "adr")
++
++	entries, err := os.ReadDir(adrDir)
++	if err != nil {
++		t.Fatalf("read docs/adr: %v", err)
++	}
++	var adrs []string
++	for _, e := range entries {
++		if !e.IsDir() && adrFileRe.MatchString(e.Name()) {
++			adrs = append(adrs, e.Name())
++		}
++	}
++	if len(adrs) == 0 {
++		t.Fatal("no ADR files found in docs/adr: the scan is looking in the wrong place")
++	}
++
++	indexPath := filepath.Join(adrDir, "README.md")
++	if _, err := os.Stat(indexPath); err != nil {
++		t.Fatalf("docs/adr/README.md: %v", err)
++	}
++	indexLines := scrubbed(t, indexPath)
++
++	// linked maps an ADR file name to the 1-based line numbers that link it.
++	linked := map[string][]int{}
++	for i, line := range indexLines {
++		for _, m := range inlineLinkRe.FindAllStringSubmatch(line, -1) {
++			target, _, _ := strings.Cut(m[1], "#")
++			if target == "" || schemeRe.MatchString(target) {
++				continue
++			}
++			name := filepath.Base(filepath.FromSlash(target))
++			if adrFileRe.MatchString(name) {
++				linked[name] = append(linked[name], i+1)
++			}
++		}
++	}
++
++	for _, name := range adrs {
++		lines, ok := linked[name]
++		if !ok {
++			t.Errorf("docs/adr/README.md: does not link %s", name)
++			continue
++		}
++		want := titleCore(firstHeading(t, filepath.Join(adrDir, name)))
++		if want == "" {
++			t.Errorf("docs/adr/%s: no level-1 heading to take a title from", name)
++			continue
++		}
++		named := false
++		for _, ln := range lines {
++			if strings.Contains(indexLines[ln-1], want) {
++				named = true
++				break
++			}
++		}
++		if !named {
++			t.Errorf("docs/adr/README.md:%d: the row linking %s does not name its title %q",
++				lines[0], name, want)
++		}
++	}
++
++	// The other direction: an index that links an ADR which no longer exists. The link test
++	// catches a missing file too, but only once the index is already in the scan set; this keeps
++	// the ADR-specific message.
++	have := map[string]bool{}
++	for _, name := range adrs {
++		have[name] = true
++	}
++	for name, lines := range linked {
++		if !have[name] {
++			t.Errorf("docs/adr/README.md:%d: links %s, which does not exist", lines[0], name)
++		}
++	}
++}
+diff --git a/tools/devtool/importrules.go b/tools/devtool/importrules.go
+index 973eb0b..0de8c9a 100644
+--- a/tools/devtool/importrules.go
++++ b/tools/devtool/importrules.go
+@@ -47,20 +47,24 @@ var compositionRoots = map[string]bool{
+ 	// test/replay/l3policy (SP-12) is the replay driver's qompack-l3 policy: a library over
+ 	// scheduler/eval/config/core/paths, declared here because classify() knows test/ paths only
+ 	// through this table. TestPolicy_DoesNotImportDaemon keeps it off the composition roots.
+ 	"test/replay/l3policy": true,
+ 	// test/canary (SP-19 M0-03) is the host-contract canary suite: it builds and drives the real
+ 	// binary, reads the committed plugin manifest, speaks JSON-RPC to `qompack mcp` and reports
+ 	// against internal/contract's capability register. Spanning cli/mcp/pluginmanifest/contract at
+ 	// once is what no internal package's allow-set permits and what a composition root exists to
+ 	// hold — the same reason test/e2e is one.
+ 	"test/canary": true,
++	// test/docs (SP-18) is the documentation harness: it reads README.md, docs/**/*.md and the
++	// generated command and tool pages as FILES, imports nothing from internal/, and nothing
++	// imports it — the same half of the rule every test/ package above is here for.
++	"test/docs": true,
+ }
+ 
+ // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
+ // additionally gets foundation appended at check time (see effectiveAllow). A package that exists
+ // on disk but is absent from both allow and compositionRoots is an error: new packages must be
+ // declared here, which forces an architecture amendment.
+ var allow = map[string][]string{
+ 	"core":   {},
+ 	"paths":  {"core"},
+ 	"config": {"core"},

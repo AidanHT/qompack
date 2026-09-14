@@ -1,0 +1,42 @@
+# Review package: a3e15ed..8abb7b8
+
+## Commits
+8abb7b8 docs(sp18): attribute the latency-cell quote to render.go
+
+## Files changed
+ docs/troubleshooting.md | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+## Diff
+diff --git a/docs/troubleshooting.md b/docs/troubleshooting.md
+index edc399f..7ce39af 100644
+--- a/docs/troubleshooting.md
++++ b/docs/troubleshooting.md
+@@ -190,23 +190,24 @@ scheduler-initiated checkpoints, no drop report. `qompack status` prints the mod
+ **Meaning — `unavailable` latency rows.** Observed on this tree, every per-hook row in a fresh
+ project read `unavailable` with its own reason, for example:
+ 
+ ```
+   PostToolUse        qompack observe tool             B-A     unavailable
+                        no per-hook instrument: PostToolUse is folded into the hook_controlled aggregate,
+                        which mixes every delivering hook and cannot be attributed to one
+ ```
+ 
+ and the B-D budget row read `no instrument records this histogram in this build; it measures host
+-process creation, which the created process cannot observe`. `internal/commands/statuscollect.go`
+-says why the cell is not filled with a borrowed number: "An absent measurement prints the
+-availability word, never a zero."
++process creation, which the created process cannot observe`. Both of those reason strings are
++`internal/commands/statuscollect.go`'s. Why the cell carries a word instead of a borrowed number is
++`internal/commands/render.go`'s, on `latencyText`: "An absent measurement prints the availability
++word, never a zero."
+ 
+ **Action.** No action; these are recorded limits. A missing number is a missing number.
+ 
+ **Telemetry.** Nothing is sent anywhere. `runtime.telemetry.enabled` is hardwired off — a `true`
+ value is refused as a violation (`internal/config/validate.go`) — and the key
+ "exists only to say so" ([docs/config-reference.md](config-reference.md#runtime)).
+ 
+ ## 3. Capture gaps
+ 
+ **Symptom.** Retrieved content is shorter, emptier or stranger than the thing you remember.

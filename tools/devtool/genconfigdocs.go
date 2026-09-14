@@ -222,8 +222,8 @@ func writeOriginSection(b *strings.Builder) {
 // writeVersionedSection renders the independently versioned blocks and what a newer file does.
 func writeVersionedSection(b *strings.Builder) {
 	b.WriteString("## Versioned blocks\n\n")
-	b.WriteString("Two blocks carry their own `settingsVersion` and are versioned independently, so a schema\n")
-	b.WriteString("change to one never resets the other.\n\n")
+	b.WriteString("The blocks below carry their own `settingsVersion` and are versioned independently, so a\n")
+	b.WriteString("schema change to one never resets the other.\n\n")
 	b.WriteString("| Block | `settingsVersion` this build understands | Behaviour |\n")
 	b.WriteString("|---|---|---|\n")
 	for _, s := range config.VersionedSections() {

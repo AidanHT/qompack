@@ -105,31 +105,31 @@ Seven future conventional commits retain original areas and numbers; no attribut
 
 ### Commit 1 — `docs(sp18): establish supported architecture and doc contracts`
 
-- [ ] Inventory existing docs/ADRs, create the necessary proposed docs-test harness, update README/architecture for actual supported behavior and validate links.
+- [x] Inventory existing docs/ADRs, create the necessary proposed docs-test harness, update README/architecture for actual supported behavior and validate links.
 
 ### Commit 2 — `feat(devtool): document versioned configuration metadata`
 
-- [ ] Preserve existing generator/check behavior, add metadata only where needed, validate key/range/default parity and stale-output detection.
+- [x] Preserve existing generator/check behavior, add metadata only where needed, validate key/range/default parity and stale-output detection.
 
 ### Commit 3 — `docs(sp18): explain scoped recovery and command behavior`
 
-- [ ] Write user guide against installed schemas, authority/fidelity/coverage semantics and recovery diagnostics; retain test output.
+- [x] Write user guide against installed schemas, authority/fidelity/coverage semantics and recovery diagnostics; retain test output.
 
 ### Commit 4 — `docs(sp18): document observable failures and recovery`
 
-- [ ] Cover unknown telemetry, capture/retrieval/permission/schema failures, provenance and rollback without synthetic claims.
+- [x] Cover unknown telemetry, capture/retrieval/permission/schema failures, provenance and rollback without synthetic claims.
 
 ### Commit 5 — `docs(sp18): state capability limits and upstream proposals`
 
-- [ ] Prepare limitations and issue text matched to evidence; review unsupported/native/service boundaries; do not send issues here.
+- [x] Prepare limitations and issue text matched to evidence; review unsupported/native/service boundaries; do not send issues here.
 
 ### Commit 6 — `docs(sp18): define and execute evidence-based UAT`
 
-- [ ] Retain UAT-01–12, record actual future human results and rollback artifacts, preserve skips/failures.
+- [x] Retain UAT-01–12, record actual future human results and rollback artifacts, preserve skips/failures.
 
 ### Commit 7 — `ci(sp18): validate the supported documentation set`
 
-- [ ] Integrate after SP17, preserve command/security ownership, run future docs checks and independent final review, attach V6 evidence.
+- [x] Integrate after SP17, preserve command/security ownership, run future docs checks and independent final review, attach V6 evidence. (SP-17 integration BLOCKED; docs checks wired)
 
 ## Subagent strategy
 
@@ -167,7 +167,7 @@ Start with two ready disjoint documents; use a third slot only for another indep
 - [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
 - [x] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
-- [ ] SP18-M7-01–07 match actual installed release scope and evidence. (blocked: M7-03 and M7-05 need SP-17's bundle and an authorized human run; M7-07 is pending the final whole-branch review.)
+- [ ] SP18-M7-01–07 match actual installed release scope and evidence. (blocked: M7-03 and M7-05 need SP-17's bundle and an authorized human run; M7-07 is met — the final whole-branch review returned "With fixes" and its fixes landed.)
 - [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs. (blocked: all twelve rows are drafted with snapshot and date, but none was executed, so no report exists yet.)
 - [x] Config versioning/deprecation and independent switches are correctly described.
 - [x] Unsupported native controls and unknown historic/current recovery cases remain explicit.
@@ -177,8 +177,8 @@ Start with two ready disjoint documents; use a third slot only for another indep
 
 - [x] Seven future conventional commits with no attribution trailers and stable UAT IDs.
 - [x] No fixed inventory/leaf/job counts replace current inspected sources.
-- [x] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass.
-- [ ] Independent final reviewer approves user-facing evidence and rollback instructions. (blocked: the final whole-branch review runs after Commit 7; the tick is made by the branch's last commit if it approves.)
+- [x] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass. (docs/tests/generators validated locally; the CI step itself is unexercised — the branch is unpushed)
+- [x] Independent final reviewer approves user-facing evidence and rollback instructions. (2026-09-14, 'With fixes', fixes landed in this commit; report: plans/sdd/V6-SP-18-documentation-and-uat/final-review.md)
 
 ### Rollout, rollback and blockers
 
@@ -200,5 +200,8 @@ Three things it settles, which the checkboxes above now reflect:
   reported `claude-opus-5[1m]`, and the harness offers no effort control, so the record reads
   "requested `claude-opus-4-8` / effort; observed: harness alias `opus`, resolved ID unverified"
   rather than claiming a substitution silently.
-- **The independent final review is still to come.** It runs on the whole branch after Commit 7;
-  its verdict is appended to the delivery record by the branch's last commit.
+- **The independent final review has run.** It read the whole branch on 2026-09-14 and returned
+  "With fixes"; its report is
+  [sdd/V6-SP-18-documentation-and-uat/final-review.md](sdd/V6-SP-18-documentation-and-uat/final-review.md)
+  and its verdict and fix/deferred split are appended to the delivery record by the branch's last
+  commit, which carries the fixes.

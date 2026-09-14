@@ -1,0 +1,649 @@
+# Review package: 0621f39..dca2146
+
+## Commits
+dca2146 ci(sp18): validate the supported documentation set
+
+## Files changed
+ .github/workflows/ci.yml                           |   1 +
+ README.md                                          |   9 +
+ docs/architecture.md                               |   3 +-
+ docs/troubleshooting.md                            |   8 +-
+ docs/uat.md                                        |   3 +-
+ docs/user-guide.md                                 |  12 +-
+ plans/V6-SP-18-documentation-and-uat.md            |  41 +++--
+ .../delivery-record.md                             | 198 +++++++++++++++++++++
+ test/docs/pointers_test.go                         | 150 ++++++++++++++++
+ 9 files changed, 404 insertions(+), 21 deletions(-)
+
+## Diff
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 346d830..649f780 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -417,10 +417,11 @@ jobs:
+   docs:
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v4
+         with: { fetch-depth: 0 }
+       - uses: actions/setup-go@v5
+         with: { go-version: '1.26.6', cache: true }
+       - run: go run ./tools/devtool gen-config-docs --check
+       - run: go run ./tools/devtool gen-mcp-docs --check
+       - run: go run ./tools/devtool gen-command-docs --check
++      - run: go test -count=1 ./test/docs/...
+diff --git a/README.md b/README.md
+index af967a6..fdac241 100644
+--- a/README.md
++++ b/README.md
+@@ -129,17 +129,26 @@ A `true` written against a refused switch falls back to the default and warns. B
+ `settingsVersion` (`runtime.migration.settingsVersion`, `runtime.phase7.settingsVersion`): a config
+ file written for a **newer** version has the whole block reset to defaults, so switches a future
+ build might add stay off in this one rather than being read by accident.
+ 
+ `plans/V5-report.md` §24 records the same thing for SP-21's surface: the admission gate is off (a
+ zero gate refuses; explicit opt-in only), replacement is off, and the host allowlist is empty. Those
+ are recorded as *disabled*, never as *passed*.
+ 
+ ## Where to read next
+ 
++- [docs/user-guide.md](docs/user-guide.md) — what each command, slash command and tool reports,
++  and how to read the qualifications those reports carry
++- [docs/troubleshooting.md](docs/troubleshooting.md) — what each observable failure means and what
++  to do about it
++- [docs/cannot-do.md](docs/cannot-do.md) — the capabilities this build does not have, and where
++  each limit is recorded
++- [docs/upstream-issues.md](docs/upstream-issues.md) — the host changes that would lift those
++  limits, as prepared proposals
++- [docs/uat.md](docs/uat.md) — the acceptance scenarios and the evidence a run has to leave
+ - [docs/architecture.md](docs/architecture.md) — the actual contracts: process model, write set,
+   identity, durability, retrieval, rehydration, and what is not supported
+ - [docs/adr/README.md](docs/adr/README.md) — every architecture decision record, with its status
+ - [docs/config-reference.md](docs/config-reference.md) — every configuration key (generated)
+ - [docs/commands.md](docs/commands.md) — the slash commands (generated)
+ - [docs/mcp-tools.md](docs/mcp-tools.md) — the MCP tools (generated)
+ - [LICENSE](LICENSE)
+diff --git a/docs/architecture.md b/docs/architecture.md
+index aa4cecc..6c8f390 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -275,22 +275,21 @@ date line, the cell says so rather than guessing one.
+ 
+ Two of those deserve a note here. ADR 0013 is **proposed**, not accepted: it amends
+ `plans/00-ARCHITECTURE.md` with §0.2 and "takes effect for implementation only once those owners
+ have approved it", and nothing in it enables a feature — every behaviour it describes stays behind a
+ `runtime.migration.*` gate that is pending in this build. ADR 0010 is the rule that a wall-clock
+ budget is judged only where it is judgeable, which is why CI has separate `timing` and `test-e2e`
+ jobs that run those tests alone.
+ 
+ ## 10. What is not supported
+ 
+-Each item names where the limit is recorded. The full page is planned (SP-18 Commit 5):
+-`docs/cannot-do.md`.
++Each item names where the limit is recorded. The full page is [docs/cannot-do.md](cannot-do.md).
+ 
+ - **No native cuts, markers or history eviction.** `plans/MIGRATION-EVIDENCE.md`, "Capability
+   decisions": history rewriting / native eviction is `unsupported` and `Excluded`; ephemeral
+   metadata is a future representation hint only. `internal/mcp`'s package comment says the same of
+   the `ephemeral` tag.
+ - **No model-compliance or native-byte proof.** `plans/MIGRATION-EVIDENCE.md` records injection as
+   "documented; installed behavior unknown" and packaging as "repository-level met, installed-host
+   unverified" (B01). Nothing here observes what the model did with an injected payload, or what
+   bytes the host holds.
+ - **No reconstruction of a missing original.** `plans/00-ARCHITECTURE.md` §0.2.2: a capture failure
+diff --git a/docs/troubleshooting.md b/docs/troubleshooting.md
+index 7ce39af..ec9818f 100644
+--- a/docs/troubleshooting.md
++++ b/docs/troubleshooting.md
+@@ -532,20 +532,23 @@ uncertainty, which is partial for the reason §5 of this page gives. §23 (Q19)
+ `internal/store/backup_test.go` and `migrate_test.go`. `plans/MIGRATION-EVIDENCE.md`
+ records a rollback rehearsal — a `--no-ff` merge reverted with `git revert -m 1`, after which
+ `git diff` against the baseline was empty — and records that "runtime rollback needs nothing: every
+ new artifact is a sidecar" and an older reader drops the `runtime.migration` block as an unknown
+ section with a warning.
+ 
+ **What is not.** There is no operator backup command, no operator restore command and no operator
+ rollback command. This page does not describe a manual copy-and-restore procedure either: the backup
+ layout under `.qompack/backup/` is produced by `TakeBackup`, which writes a manifest a restore
+ verifies against, and a hand-made copy is not that. An operator-facing procedure is planned (SP-17).
++The interim procedure the acceptance scenarios use is the operator's own pre-run copy of
++`.qompack/` compared afterwards against the index files ([docs/uat.md](uat.md)); it is a manual
++precaution for a test run, not a verified restore and not the planned SP-17 operator procedure.
+ 
+ **Do not downgrade data to match old prose.** If a document describes a recovery step this build
+ does not implement, the document is the thing that is wrong. Do not delete, truncate or rewrite
+ anything under `.qompack/` to make a command or a page appear to work — `checkpoints/`, `pins/` and
+ `sketches/tried.bloom` are append-only by construction and `internal/paths` refuses to truncate them
+ ([docs/architecture.md §2](architecture.md#2-write-set-and-retention)), which is a guard against
+ exactly that instinct.
+ 
+ ## 10. What not to conclude
+ 
+@@ -567,19 +570,20 @@ exactly that instinct.
+   §5.
+ - **Nothing on this page prescribes a status-line replacement**, and nothing on it claims a
+   performance, cost or saving effect of any kind.
+ 
+ ## Where to look next
+ 
+ - [docs/user-guide.md](user-guide.md) — what the commands, slash commands and tools do
+ - [docs/config-reference.md](config-reference.md) — every configuration key, generated
+ - [docs/commands.md](commands.md) — the slash commands and their exact flags, generated
+ - [docs/mcp-tools.md](mcp-tools.md) — the MCP tools and their argument schemas, generated
++- [docs/cannot-do.md](cannot-do.md) — the capabilities this build does not have, and where each
++  limit is recorded
++- [docs/uat.md](uat.md) — the acceptance scenarios and the evidence a run has to leave
+ - [docs/architecture.md](architecture.md) — the contracts behind all of it, including
+   [what is not supported](architecture.md#10-what-is-not-supported)
+ - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
+ 
+ Planned, and not yet written — named as plain text on purpose, because none of these files exists:
+ 
+-- planned (SP-18 Commit 5): docs/cannot-do.md
+-- planned (SP-18 Commit 6): docs/uat.md
+ - planned (SP-17): docs/install.md, docs/security.md and docs/release.md
+diff --git a/docs/uat.md b/docs/uat.md
+index b514fe7..aec1632 100644
+--- a/docs/uat.md
++++ b/docs/uat.md
+@@ -65,21 +65,22 @@ anyone looked is a scenario that has to be run again.
+ 
+ 1. **Record the snapshot before anything else.** `qompack version` prints the plugin version and
+    nothing else — on this tree, built from source, it printed `0.1.0` and exited `0` (observed in an
+    empty scratch directory outside the repository; it created no `.qompack/` there). Record beside
+    it the git SHA the bundle was built from, the host OS and its version, and the Claude Code
+    version, so the row names one build and not a family of them.
+ 2. **Take the pre-run copy of `.qompack/`.** Before the first write of the scenario, copy the whole
+    `<project>/.qompack/` directory (or record that it does not exist yet, which is itself the
+    pre-run state). This is a filesystem copy made by the operator: there is no operator backup
+    command in this build, and `TakeBackup`/`RestoreBackup` are unreachable behind a closed build
+-   gate ([docs/troubleshooting.md](troubleshooting.md#9-backup-rollback-and-recovery)).
++   gate ([docs/troubleshooting.md](troubleshooting.md#9-backup-rollback-and-recovery)) — it is this
++   page's interim precaution for a test run, not the operator procedure planned (SP-17).
+ 3. **Run the steps in order**, capturing each command's stdout, stderr and exit status.
+ 4. **Read the expected-result block field by field**, not impressionistically. Where the block says a
+    string is "to be confirmed at execution", the first run's job is to record what the string
+    actually was — not to decide whether it was close enough.
+ 5. **Restore and verify.** Delete the post-run `<project>/.qompack/` and put the pre-run copy back,
+    then verify the restore by comparing the index files — `.qompack/index/roots.jsonl` and
+    `.qompack/index/tool_use.jsonl` — line for line against the copy, and the checkpoint manifest
+    `.qompack/checkpoints/MANIFEST.jsonl` the same way. Record the comparison's result in
+    `Rollback verified`. A restore nobody compared is not a verified restore.
+ 6. **Fill the Result block in this file** (or in the run's own copy of it) and file the evidence.
+diff --git a/docs/user-guide.md b/docs/user-guide.md
+index 2ff1e24..6f4d79e 100644
+--- a/docs/user-guide.md
++++ b/docs/user-guide.md
+@@ -23,21 +23,21 @@ Three things it does not do, each recorded where
+ 
+ - **It never cuts, evicts or rewrites native context.** History rewriting and native eviction are
+   `unsupported` and `Excluded` (`plans/MIGRATION-EVIDENCE.md`, "Capability decisions").
+ - **It cannot prove the model used what it injected.** Injection is recorded as "documented;
+   installed behavior unknown", and nothing here observes what the model did with a payload — the
+   `why` tool says the same of recorded reasoning: it "does not prove model compliance".
+ - **It promises no improvement.** `plans/V5-report.md` §26: no held-out task runs, stochastic
+   baselines or quality trials were executed, and the admission quality row is "inconclusive by
+   construction".
+ 
+-The full list is planned (SP-18 Commit 5): docs/cannot-do.md.
++The full list is [docs/cannot-do.md](cannot-do.md).
+ 
+ **One warning before you run anything.** `qompack status` (and so `/qompack:status`) creates
+ `.qompack/` in the project directory it resolves and starts that project's daemon. It is a write.
+ See [Operator commands](#operator-commands) for exactly which commands do this.
+ 
+ ## Slash commands
+ 
+ Qompack installs seven slash commands. Each shells out to the `qompack` binary, so
+ `/qompack:status` and `qompack status` are the same code. The inventory, every flag and the exact
+ help text are in [docs/commands.md](commands.md); this section says what each one is *for* and what
+@@ -453,19 +453,21 @@ documentation, and `plans/V5-report.md` §25 records the estimated price for its
+ `unknown`, with no rate table applied.
+ 
+ ## Where to look next
+ 
+ - [docs/config-reference.md](config-reference.md) — every configuration key, generated; see also
+   [Versioned blocks](config-reference.md#versioned-blocks),
+   [Gated switches (ship off)](config-reference.md#gated-switches-ship-off) and
+   [Retired-meaning keys](config-reference.md#retired-meaning-keys)
+ - [docs/commands.md](commands.md) — the slash commands and their exact flags, generated
+ - [docs/mcp-tools.md](mcp-tools.md) — the MCP tools and their argument schemas, generated
++- [docs/troubleshooting.md](troubleshooting.md) — what each observation means and what to do
++- [docs/cannot-do.md](cannot-do.md) — the capabilities this build does not have, and where each
++  limit is recorded
++- [docs/uat.md](uat.md) — the acceptance scenarios and the evidence a run has to leave
+ - [docs/architecture.md](architecture.md) — the contracts behind all of it
+ - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
+ 
+-Planned, and not yet written — named as plain text on purpose, because none of these files exists:
++Planned, and not yet written — named as plain text on purpose, because these files are not on this
++tree:
+ 
+-- planned (SP-18 Commit 4): docs/troubleshooting.md
+-- planned (SP-18 Commit 5): docs/cannot-do.md
+-- planned (SP-18 Commit 6): docs/uat.md
+ - planned (SP-17): docs/install.md, docs/security.md and docs/release.md
+diff --git a/plans/V6-SP-18-documentation-and-uat.md b/plans/V6-SP-18-documentation-and-uat.md
+index 3668e8c..550a3ee 100644
+--- a/plans/V6-SP-18-documentation-and-uat.md
++++ b/plans/V6-SP-18-documentation-and-uat.md
+@@ -157,29 +157,48 @@ Apply [R1 model/effort, availability, fallback and cost policy](MIGRATION-EVIDEN
+ |---|---|---|
+ | A1 config reference | Opus 4.8 / high | Generator/schema/deprecation accuracy needs source reasoning; medium only for formatting an already-verified field inventory |
+ | A2 guide; A3 troubleshooting; A4 limits/upstream | Opus 4.8 / medium | Bounded prose from inspected capabilities and results; raise to high for ambiguous failure or supported-scope claims |
+ | A5 UAT | Opus 4.8 / high | Define observable acceptance, skipped/failed outcomes and recovery against SP-17's actual artifact |
+ | Independent supported-claim reviewer | Opus 4.8 / high | Check docs, links and actual evidence; return unresolved capability, privacy or rollback contradictions to the Fable 5.1 main session, raising this seat to Opus xhigh only for a documented unresolved issue |
+ 
+ Start with two ready disjoint documents; use a third slot only for another independent file or review. A5's actual UAT evidence and final integration wait for SP-17; drafting its guide does not prove results. Main alone integrates shared harness/config adapter/CI work. The reviewer must not be the document's author, and model agreement cannot replace human or installed-target UAT evidence. Preserve the no-unsolicited-upstream-messages rule.
+ 
+ ## Exit criteria
+ 
+-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
+-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
++- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
++- [x] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+ 
+-- [ ] SP18-M7-01–07 match actual installed release scope and evidence.
+-- [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs.
+-- [ ] Config versioning/deprecation and independent switches are correctly described.
+-- [ ] Unsupported native controls and unknown historic/current recovery cases remain explicit.
+-- [ ] SP17 artifacts are integrated before documentation signoff; no fabricated existing files.
++- [ ] SP18-M7-01–07 match actual installed release scope and evidence. (blocked: M7-03 and M7-05 need SP-17's bundle and an authorized human run; M7-07 is pending the final whole-branch review.)
++- [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs. (blocked: all twelve rows are drafted with snapshot and date, but none was executed, so no report exists yet.)
++- [x] Config versioning/deprecation and independent switches are correctly described.
++- [x] Unsupported native controls and unknown historic/current recovery cases remain explicit.
++- [ ] SP17 artifacts are integrated before documentation signoff; no fabricated existing files. (blocked: SP-17 has not landed, so nothing is integrated; no file was fabricated — every page named as a link exists, every page that does not exist is named as plain text.)
+ 
+ ## Done checklist
+ 
+-- [ ] Seven future conventional commits with no attribution trailers and stable UAT IDs.
+-- [ ] No fixed inventory/leaf/job counts replace current inspected sources.
+-- [ ] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass.
+-- [ ] Independent final reviewer approves user-facing evidence and rollback instructions.
++- [x] Seven future conventional commits with no attribution trailers and stable UAT IDs.
++- [x] No fixed inventory/leaf/job counts replace current inspected sources.
++- [x] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass.
++- [ ] Independent final reviewer approves user-facing evidence and rollback instructions. (blocked: the final whole-branch review runs after Commit 7; the tick is made by the branch's last commit if it approves.)
+ 
+ ### Rollout, rollback and blockers
+ 
+ Ship documentation with its matching artifact version; if a capability regresses, revise advertised support and disable it through SP17 controls. Do not downgrade data to match old prose. Missing host/UAT artifacts (SP18-M7-03/05) prevent delivered-capability claims; missing source metadata (SP18-M7-02) blocks config-reference readiness. Future public issue/release actions require their separate authorization, not this planning task.
++
++## Delivery record (2026-09-14)
++
++The full record — commits, routing, the R2 run map, the SP18-M7-01…07 dispositions, the
++requirement-to-doc map, the UAT dispositions and the blocked/carried/discovered list — is
++[sdd/V6-SP-18-documentation-and-uat/delivery-record.md](sdd/V6-SP-18-documentation-and-uat/delivery-record.md).
++
++Three things it settles, which the checkboxes above now reflect:
++
++- **"Integrate after SP17" is BLOCKED, not done.** SP-17 is in progress in a sibling worktree and
++  integrates first; `docs/install.md`, `docs/security.md` and `docs/release.md` stay named as plain
++  text, and SP18-M7-03 and SP18-M7-05 are blocked with them.
++- **Routing is recorded as R1's explicit fallback.** Every child was requested as
++  `claude-opus-4-8` at the plan's effort and dispatched through the harness alias `opus`; each
++  reported `claude-opus-5[1m]`, and the harness offers no effort control, so the record reads
++  "requested `claude-opus-4-8` / effort; observed: harness alias `opus`, resolved ID unverified"
++  rather than claiming a substitution silently.
++- **The independent final review is still to come.** It runs on the whole branch after Commit 7;
++  its verdict is appended to the delivery record by the branch's last commit.
+diff --git a/plans/sdd/V6-SP-18-documentation-and-uat/delivery-record.md b/plans/sdd/V6-SP-18-documentation-and-uat/delivery-record.md
+new file mode 100644
+index 0000000..4b35e93
+--- /dev/null
++++ b/plans/sdd/V6-SP-18-documentation-and-uat/delivery-record.md
+@@ -0,0 +1,198 @@
++# SP-18 delivery record (2026-09-14)
++
++The subplan is `plans/V6-SP-18-documentation-and-uat.md`; this file is its delivery record, written
++by Commit 7 (`ci(sp18): validate the supported documentation set`) on branch
++`feat/sp18-documentation-and-uat`, cut from `develop` 9c84e31.
++
++One thing to read first, because it governs everything below: **SP-17 has not landed.** It is in
++progress in a sibling worktree and integrates first. The plan's Commit 7 text says "integrate after
++SP17"; that half is recorded here as BLOCKED, not as done. Every claim that needs an installed
++package — SP18-M7-03, SP18-M7-05, and the ten UAT rows marked `[requires SP-17 artifact]` — is
++blocked with it, and `docs/install.md`, `docs/security.md` and `docs/release.md` stay named as
++plain text on the pages that point at them, because they do not exist on this tree.
++
++## 1. Commits
++
++Derived from `git log --format='%h %s' develop..HEAD` at the time this record was written.
++
++| Plan commit | Branch commits |
++|---|---|
++| preliminary | `7ace16a` docs(plans): record the V6 Opus 4.8-only routing override in SP-18 |
++| Commit 1 | `9848254` docs(sp18): establish supported architecture and doc contracts; `1360b6e` docs(sp18): narrow README's store claim and complete the ADR table (review fix) |
++| prerequisite fix | `ddb1a41` fix(devtool): slug MCP tool anchors the way GitHub does — a generator bug found by Commit 1's own harness (`anchorFor` mapped `_` to `-`); the page was regenerated and the allowlist removed |
++| Commit 2 | `4acc129` feat(devtool): document versioned configuration metadata |
++| Commit 3 | `6996795` docs(sp18): explain scoped recovery and command behavior; `ce52df3` docs(sp18): correct the checkpoint, preamble and source claims; `20678d8` docs(sp18): replace the hook no-write claim with a probed result (review fixes) |
++| Commit 4 | `a3e15ed` docs(sp18): document observable failures and recovery; `8abb7b8` docs(sp18): attribute the latency-cell quote to render.go (review fix) |
++| Commit 5 | `2bbd441` docs(sp18): state capability limits and upstream proposals; `c64f2f5` docs(sp18): scope contract-absence claims to self-test's run (review fix) |
++| Commit 6 | `0621f39` docs(sp18): define and execute evidence-based UAT |
++| Commit 7 | this commit |
++
++Fourteen commits on the branch: the seven numbered ones, five review fixes, one prerequisite fix
++and the preliminary plan revision. All conventional, all with subjects inside the 64-character
++limit the commit-msg hook enforces, none carrying an attribution trailer.
++
++## 2. Routing
++
++- Coordinator: Fable 5.1 (`claude-fable-5-1`), main session only; never a child.
++- Every child — 7 implementers including resumes, 6 task reviewers, 6 scoped re-reviewers so far,
++  and 1 final whole-branch reviewer still to come — was dispatched through the harness Agent tool
++  with the alias `opus` and with the requested identity and effort stated in its prompt
++  (implementers: `claude-opus-4-8` / high for Commits 1, 2, 6 and `claude-opus-4-8` / medium for
++  Commits 3, 4, 5, per the plan's role table; every reviewer: `claude-opus-4-8` / high).
++- Observed: each child reported its own model id as `claude-opus-5[1m]`. The harness exposes no
++  effort control and no way to select `claude-opus-4-8` from a running session — project agent
++  definitions pinned to it, written by the SP-17 session under `.claude/agents/`, return "Agent type
++  not found" in a running session.
++
++  The record therefore reads, for every role: **requested `claude-opus-4-8` / &lt;effort&gt;;
++  observed: harness alias `opus`, resolved ID unverified.** This is the explicit fallback R1
++  requires, stated as a fallback rather than as a silent substitution. It is not a claim that Opus
++  4.8 was observed.
++- Concurrency and ownership: one implementer at a time in one worktree; one reviewer per task; the
++  reviewer was never the author. Fix rounds: Commit 1 one round, Commit 3 two rounds, Commit 4 one
++  round, Commit 5 one round, Commit 2 none, Commit 6 as recorded in the ledger. One reviewer stalled
++  (stream watchdog) and was resumed; no result was lost.
++- Cross-session incident: the SP-17 session's subagent killed `devtool`, `go` and `*.test` processes
++  machine-wide between 11:22 and 11:36, including this worktree's `lint --only=stubskips` run. It
++  was re-run; no file damage.
++
++## 3. R2 run map
++
++Focused checks first, as R2 requires; the one broader check is `devtool lint`, and the generator
++`--check` runs are the drift gates. The snapshot column is the commit each command validated.
++
++| Row | Commands | Kind | Snapshot | Result |
++|---|---|---|---|---|
++| Commit 1 | `go test -count=1 ./test/docs/...` (RED 3 failing on absent pages, then GREEN), `go vet ./test/docs/...`, `go run ./tools/devtool fmt-check`, `go run ./tools/devtool lint` (all ten sub-checks, ~25 min) | focused + the one broader check | `9848254` | all exit 0; three negative controls confirmed the link and ADR-title checks fail when broken |
++| Commit 1 fix | `go test -count=1 ./test/docs/...`, `fmt-check` | focused | `1360b6e` | ok / exit 0 |
++| prerequisite fix | `go test -count=1 ./tools/devtool/ ./test/docs/...` (RED `TestMCPDocsGlanceLinksResolve`, then GREEN), `gen-mcp-docs --check`, `fmt-check` | focused + generator `--check` | `ddb1a41` | ok; page up to date |
++| Commit 2 | `go test -count=1 ./tools/devtool/ ./internal/config/...` (RED, then GREEN), `gen-config-docs --check`, `gen-mcp-docs --check`, `gen-command-docs --check`, `fmt-check`, `lint` (golangci-lint, nomagic, importgraph, testdeps, bindeps, sleepcheck PASS; stubskips PASS after ~80 min under co-load — it runs the whole tree's `go test`; runpatterns, docmarkers and coveragefloors read only `plans/`, untouched) | focused + broader + generator `--check` | `4acc129` | all exit 0; config page diff 64 insertions, 0 deletions |
++| Commit 3 (+2 fixes) | `go test -count=1 ./test/docs/...` (RED 4, then GREEN), `go vet`, `fmt-check`; probes in scratch dirs outside the repo (`status`, `config print`, `version`, `checkpoint` with empty stdin), daemons stopped by pid, dirs deleted | focused | `6996795`, `ce52df3`, `20678d8` | ok / exit 0 |
++| Commit 4 (+1 fix) | `go test -count=1 ./test/docs/...` (RED 5, then GREEN), `go vet`, `fmt-check`; six one-config-file probes in a scratch dir (these found the `LoadForCapture` defect in §6), five daemons stopped by pid, dir and binary deleted | focused | `a3e15ed`, `8abb7b8` | ok / exit 0 |
++| Commit 5 (+1 fix) | `go test -count=1 ./test/docs/...` (RED 4, then GREEN), `go vet`, `fmt-check`; mutation checks on the derivation and §12 tests; no binary run | focused | `2bbd441`, `c64f2f5` | ok / exit 0 |
++| Commit 6 | `go test -count=1 ./test/docs/...` (RED 5, then GREEN), `go vet`, `fmt-check`; three mutation checks; probes `version` and `config print --provenance` only, no daemon, dir and binary deleted | focused | `0621f39` | ok / exit 0 |
++| Commit 7 | `go test -count=1 ./test/docs/...` (RED 7 pointer sites, then GREEN), `go vet ./test/docs/...`, `go run ./tools/devtool fmt-check`, `gen-config-docs --check`, `gen-mcp-docs --check`, `gen-command-docs --check`; the workflow edit parsed with PyYAML | focused + generator `--check` | this commit | all exit 0; output tails in `task-7-report.md` |
++| CI | not run on this branch: it is unpushed, and pushing is a separate authorization | — | — | **no CI result is claimed anywhere in this record** |
++| Baseline | `go build ./...` and `go test -count=1 -timeout=20m ./tools/devtool/ ./internal/config/... ./internal/pluginmanifest/... ./test/guards/` on `develop` 9c84e31 before any change | focused | `9c84e31` | exit 0 (guards 146 s) |
++
++No timeout, zero-test run or old-tip result is counted as a pass in any row above. Whole-tree
++`go test`, the race detector, coverage and replay were deliberately not run for prose commits (R2:
++run the checks the change can break); the whole tree did run once, inside Commit 2's `stubskips`
++lint sub-check.
++
++## 4. Gate dispositions SP18-M7-01 … 07
++
++| Gate | Disposition | Evidence |
++|---|---|---|
++| SP18-M7-01 | **partially met** — every supported capability, residual and risk named in `Qompack.md` §12 and `plans/V5-report.md` §24/§29 has a user-facing explanation (README, architecture, user guide, troubleshooting, cannot-do), and each page's claims are test-checked against the generated inventories. The requirement-to-doc map is §5 below. "Tested fallback" holds only for behaviours probed or sourced, not for installed-host behaviour (B01) | the pages + `test/docs` |
++| SP18-M7-02 | **met** — `docs/config-reference.md` renders every leaf one-to-one from `config.Defaults().JSONSchema()` (`TestGenConfigDocs_LeavesMatchDefaultsOneToOne`), plus origins, versioned blocks, gated switches (pending/passed from `Passed`), build gates and retired-meaning keys from `internal/config`; `--check` detects missing and stale output (`TestGenConfigDocs_CheckDetectsMissingAndStale`); logs in `task-2-report.md` | `4acc129` |
++| SP18-M7-03 | **blocked** — commands, tools and IDs are matched against the generated pages (which CI diffs against `commands.Specs()` and `mcp.ToolDefs`) and against the built binary's `help`, not against an installed package; SP-17's bundle does not exist | user-guide tests; `qompack help` probe |
++| SP18-M7-04 | **met** — `TestRelativeLinksResolve` resolves every relative link and anchor in README and `docs/**`; the MCP anchor generator bug it found is fixed (`ddb1a41`); no fixed doc or job counts replace inspected sources (the twelve UAT IDs are the plan's fixed inventory, stated as such in the test comment); planned pages stay plain text until they exist, and `TestNoPlannedPointerToAnExistingPage` — added by this commit — enforces the conversion the moment one lands | `test/docs` |
++| SP18-M7-05 | **blocked** — no human executed any UAT row; all twelve record "not executed — capability unverified" with snapshot and date; ten of them need SP-17's bundle to run at all | `docs/uat.md` |
++| SP18-M7-06 | **met for what exists** — backup, the switch ladder and rollback are described consistently in troubleshooting §8–§9, in config-reference (gated switches, versioned blocks) and in `uat.md` (pre-run copy, restore, verify); the page states that no operator rollback command exists in this build and that `store.NewMigrator` refuses while the legacy-import build gate is closed | troubleshooting §9; the `uat.md` header |
++| SP18-M7-07 | **pending the final whole-branch review** — every task review (six independent reviewers) checked claims against sources and found no surviving performance, price, native-control or completeness guarantee. The final independent reader review runs **after** this commit; its verdict is recorded in the ledger and appended to this record by the branch's last commit | ledger |
++
++## 5. Requirement-to-doc map
++
++Where each supported area is explained to a user, and where its limit is stated. Section numbers
++are the pages' own headings.
++
++| Area | Explained in | Limit stated in |
++|---|---|---|
++| Process model, daemon lifecycle | architecture §1; user-guide "Operator commands" | troubleshooting §7; cannot-do §6 |
++| Write set, retention, append-only layout | architecture §2 | troubleshooting §8; cannot-do §3 |
++| Identity, publication and durability | architecture §3–§4 | troubleshooting §1; cannot-do §2 |
++| State authority and uncertainty | architecture §5; user-guide "Current vs historical reads", "Current-authority corrections" | troubleshooting §5; cannot-do §3 |
++| Retrieval and its qualifications | architecture §6; user-guide "MCP tools", "Fidelity, coverage and error states" | troubleshooting §4–§5; cannot-do §2 |
++| Checkpoint and rehydration | architecture §7 | troubleshooting §3; cannot-do §1 |
++| Scheduler, observer, negative knowledge | architecture §8 | cannot-do §4 |
++| Historical records vs current amendments | architecture §9 | troubleshooting §5 |
++| Configuration, versioning, gated switches | `docs/config-reference.md` (generated); README, "What ships off, and why you should leave it off" | troubleshooting §6; cannot-do §6 |
++| Slash commands and MCP tools | `docs/commands.md`, `docs/mcp-tools.md` (generated); user-guide "Slash commands", "MCP tools" | cannot-do §4 |
++| Budget, overflow and usage accounting | user-guide "Additional context: budget and overflow", "Usage accounting" | troubleshooting §2; cannot-do §4 |
++| Native context control | — (not supported) | architecture §10; cannot-do §1; upstream-issues §7 |
++| Model compliance and native-byte proof | — (not supported) | architecture §10; cannot-do §2; upstream-issues §1 |
++| Backup, rollback, recovery | troubleshooting §9; `uat.md`, "How to run a scenario" | troubleshooting §9; cannot-do §3 |
++| Trust boundary and safe disable | troubleshooting §8; cannot-do §5 | cannot-do §5 |
++| Installed-host behaviour, packaging, release | — | README, "Supported environments"; blocked on SP-17 (B01) |
++
++## 6. UAT
++
++All twelve rows (UAT-01 … UAT-12) are drafted with preconditions, steps, an expected observable
++result, evidence fields and a failure/rollback outcome. **None was executed.** Every Result block
++reads:
++
++```
++Result: not executed — capability unverified
++Snapshot: develop 9c84e31 / branch feat/sp18-documentation-and-uat
++Date: 2026-09-14
++Executed by: —
++```
++
++Ten of the twelve need SP-17's bundle to run at all; their steps carry `[requires SP-17 artifact]`.
++Row-level unknowns recorded on the page itself:
++
++- UAT-03: the explicit incomplete-outcome API (`ResolveLatest` / `ResolveChain`) has no production
++  caller; the row names the probe that would show one.
++- UAT-10: `status` prints no usage categories and `eval` has no artifact seam, so usage accounting
++  stays unverified.
++
++The rollback rule the page uses — the operator's own pre-run copy of `.qompack/` plus an index-file
++comparison afterwards — is UAT's interim procedure for a test run. It is not a verified restore and
++not the operator procedure planned under SP-17; troubleshooting §9 and `uat.md` now both say so.
++
++## 7. Blocked, carried and discovered
++
++**Blocked on SP-17** (in progress in a sibling worktree; it integrates first):
++
++- "Integrate after SP-17" — recorded as blocked, not claimed.
++- Installed-package claims (SP18-M7-03) and human UAT execution (SP18-M7-05).
++- Links to `docs/install.md`, `docs/security.md` and `docs/release.md`: plain text until they exist.
++
++**Discovered defect, documented and routed to V6-VERIFY** (owner: `internal/config` / SP-19 lineage;
++deliberately not fixed by SP-18, which is a documentation subplan): `config.LoadForCapture` has no
++per-leaf fallback (`internal/config/capture_load.go:87-91,111`;
++`internal/cli/capture_admission.go:111-114`). One unknown key, a newer `settingsVersion`, one
++invalid value or one refused gated switch therefore makes every hook admit nothing and create no
++`.qompack/` while printing `{}` and exiting 0 — and `self-test` still reports `config.load ok`,
++because it exercises the soft loader. Found by six one-config-file probes in Task 4; written up in
++`docs/troubleshooting.md` §6.
++
++**Fixed on this branch, not carried:** the MCP tool anchor slug bug (`ddb1a41`).
++
++**Carried observations for V6-VERIFY:** `/qompack:checkpoint` unrouted (SP-14 H3); `doctor`, `fsck`
++and `bench` print "not implemented in this build" (SP-17 owns doctor and fsck; `plans/V5-report.md`
++§29 item 7 for bench); the four self-test rows that read `not-yet-implemented` in self-test's
++zero-Services run; installed-host compatibility `implemented_unverified` (B01).
++
++**Deferred minor review findings**, all non-blocking and listed in the ledger for the final review's
++triage: harness edge cases in `test/docs` (fence toggle, unbalanced backtick, title scrub level,
++`itoa`); generator hygiene in `genconfigdocs.go` (schema re-parse per gate, silent empty string on
++error, the "pending" wording in the gated sentence); and the prose-precision items in the user
++guide, troubleshooting and upstream-issues named in the ledger.
++
++## 8. Checkbox dispositions
++
++Ticked in the plan file (Exit criteria and Done checklist):
++
++- Seven conventional commits with no attribution trailers and stable UAT IDs.
++- No fixed inventory, leaf or job counts replace currently inspected sources.
++- Docs, tests, generators and CI are validated in the implementation session.
++- Config versioning/deprecation and independent switches are correctly described.
++- Unsupported native controls and unknown historic/current recovery cases remain explicit.
++- The R2 run-map exit criterion (§3 above).
++- The R1 delegation exit criterion, with the routing fallback stated (§2 above).
++
++Left unticked, each annotated in place with its blocker:
++
++- Independent final reviewer approves user-facing evidence and rollback instructions — pending the
++  final whole-branch review, which runs after this commit; the tick is made by the branch's last
++  commit if that review approves.
++- SP18-M7-01–07 match actual installed release scope and evidence — M7-03 and M7-05 are blocked on
++  SP-17's artifact and on an authorized human run.
++- Future UAT reports include failures/skips, versions, dates and snapshots — the rows are drafted
++  with snapshot and date, but no report exists until a human runs them.
++- SP-17 artifacts are integrated before documentation signoff; no fabricated existing files — SP-17
++  has not landed, and no file was fabricated: every page named as a link exists on this tree, and
++  every page that does not exist is named as plain text, which
++  `TestNoPlannedPointerToAnExistingPage` now keeps honest in both directions.
+diff --git a/test/docs/pointers_test.go b/test/docs/pointers_test.go
+new file mode 100644
+index 0000000..cde1c11
+--- /dev/null
++++ b/test/docs/pointers_test.go
+@@ -0,0 +1,150 @@
++package docs
++
++import (
++	"os"
++	"path/filepath"
++	"regexp"
++	"strings"
++	"testing"
++)
++
++// The pages in ownedDocs name files that do not exist yet as plain text rather than as links —
++// "planned (SP-17): docs/install.md" — and docs/cannot-do.md states that convention in as many
++// words: plain text means the file is not on this tree, a link means it is. The convention has a
++// failure mode that no existing check catches. When the subplan that owns a planned page lands it,
++// the pointer keeps saying "planned" and keeps being plain text; TestRelativeLinksResolve is
++// silent, because a non-link cannot be a broken link. The page then lies in the one direction the
++// harness was built to prevent, and it lies quietly.
++//
++// TestNoPlannedPointerToAnExistingPage closes that direction: a "planned" pointer whose target
++// exists on disk is a failure, reported at the line the target is named on. It is the trigger for
++// a conversion, not a style rule — the fix is always to turn that pointer into a link.
++
++// plannedMarkerRe matches the forward-reference marker the pages use: the word "planned",
++// optionally followed by the owning subplan in parentheses ("planned (SP-17)", "planned (SP-18
++// Commit 5)"). The parenthetical is optional because a page may write "the page is planned:
++// docs/x.md" without naming the owner.
++var plannedMarkerRe = regexp.MustCompile(`(?i)\bplanned\b(?:[ \t]*\([^)\n]*\))?`)
++
++// pointerPathRe matches a repository documentation path as the pages spell it, with or without the
++// surrounding backticks both spellings use (README.md writes `docs/install.md`, troubleshooting.md
++// writes docs/install.md bare).
++var pointerPathRe = regexp.MustCompile("`?(docs/[A-Za-z0-9._-]+\\.md|README\\.md)`?")
++
++// maxFirstGap bounds the punctuation between the marker and the first path it introduces: a colon,
++// bold markers, an opening backtick and whitespace, nothing else.
++const maxFirstGap = 8
++
++// maxListGap bounds the text between two paths in one pointer ("a, b and c", "a and\nb, plus the
++// packaged bundle and c"). A sentence-ending period stops the list, so the prose that follows a
++// pointer is never scanned as part of it.
++const maxListGap = 60
++
++// TestNoPlannedPointerToAnExistingPage fails when an owned page still points at a page as
++// "planned" after that page has landed. The scan runs over the defenced text with inline links
++// blanked out, so a pointer that has already been converted to a link is invisible here and an
++// example inside a code fence is not a pointer at all.
++func TestNoPlannedPointerToAnExistingPage(t *testing.T) {
++	root := repoRoot(t)
++	type site struct {
++		rel  string
++		line int
++		path string
++	}
++	seen := map[site]bool{}
++	for _, rel := range ownedDocs {
++		abs := filepath.Join(root, filepath.FromSlash(rel))
++		text := blankLinks(strings.Join(defenced(t, abs), "\n"))
++		for _, m := range plannedMarkerRe.FindAllStringIndex(text, -1) {
++			for _, off := range plannedPointerTargets(text, m[1]) {
++				path := strings.Trim(text[off[0]:off[1]], "`")
++				if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(path))); err != nil {
++					continue // still planned, still absent: the convention is being honoured
++				}
++				s := site{rel: rel, line: lineOf(text, off[0]), path: path}
++				if seen[s] {
++					continue
++				}
++				seen[s] = true
++				t.Errorf("%s:%d: names %s as planned, but that file exists: make it a link",
++					s.rel, s.line, s.path)
++			}
++		}
++	}
++}
++
++// plannedPointerTargets returns the [start,end) offsets of every documentation path a planned
++// marker introduces, given the offset just past the marker. It walks the list one path at a time
++// rather than matching the whole list with one regular expression, because a path contains the
++// period that has to terminate the list ("docs/x.md. Neither file exists yet") and a greedy
++// separator would swallow it.
++func plannedPointerTargets(text string, pos int) [][]int {
++	var out [][]int
++	first := true
++	for {
++		// Look only a little way ahead: a pointer's list is short by construction.
++		end := min(pos+maxListGap+64, len(text))
++		m := pointerPathRe.FindStringSubmatchIndex(text[pos:end])
++		if m == nil {
++			return out
++		}
++		gap := text[pos : pos+m[2]]
++		if first {
++			if !okFirstGap(gap) {
++				return out
++			}
++		} else if !okListGap(gap) {
++			return out
++		}
++		out = append(out, []int{pos + m[2], pos + m[3]})
++		pos += m[1]
++		first = false
++	}
++}
++
++// okFirstGap reports whether the text between the marker and the first path is nothing but the
++// punctuation a pointer uses to introduce it.
++func okFirstGap(gap string) bool {
++	if len(gap) > maxFirstGap || strings.Count(gap, "\n") > 1 {
++		return false
++	}
++	for _, r := range gap {
++		if r != ' ' && r != '\t' && r != '\n' && r != ':' && r != '*' && r != '`' {
++			return false
++		}
++	}
++	return true
++}
++
++// okListGap reports whether the text between two paths in one pointer is a list separator: short,
++// inside one paragraph, and with no sentence-ending period.
++func okListGap(gap string) bool {
++	if len(gap) > maxListGap || strings.Contains(gap, ".") {
++		return false
++	}
++	if strings.Count(gap, "\n") > 1 || strings.Contains(gap, "\n\n") {
++		return false
++	}
++	return true
++}
++
++// blankLinks replaces every inline markdown link with the same number of spaces, so that offsets —
++// and therefore line numbers — are unchanged while a converted pointer stops being scannable. This
++// is what makes the test the trigger for a conversion: the moment the pointer becomes a link it
++// stops matching.
++func blankLinks(text string) string {
++	b := []byte(text)
++	for _, m := range inlineLinkRe.FindAllStringIndex(text, -1) {
++		for i := m[0]; i < m[1]; i++ {
++			if b[i] != '\n' {
++				b[i] = ' '
++			}
++		}
++	}
++	return string(b)
++}
++
++// lineOf returns the 1-based line number of a byte offset.
++func lineOf(text string, off int) int {
++	return strings.Count(text[:off], "\n") + 1
++}

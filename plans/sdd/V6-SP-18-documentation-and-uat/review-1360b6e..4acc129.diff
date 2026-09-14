@@ -1,0 +1,1081 @@
+# Review package: 1360b6e..4acc129
+
+## Commits
+4acc129 feat(devtool): document versioned configuration metadata
+ddb1a41 fix(devtool): slug MCP tool anchors the way GitHub does
+
+## Files changed
+ docs/config-reference.md            |  64 ++++++++
+ docs/mcp-tools.md                   |   6 +-
+ internal/config/migration.go        |  56 +++++--
+ internal/config/migration_test.go   | 158 +++++++++++++++++++
+ test/docs/links_test.go             |  40 +----
+ tools/devtool/genconfigdocs.go      | 133 ++++++++++++++++
+ tools/devtool/genconfigdocs_test.go | 295 ++++++++++++++++++++++++++++++++++++
+ tools/devtool/genmcpdocs.go         |  21 ++-
+ tools/devtool/genmcpdocs_test.go    |  51 +++++++
+ 9 files changed, 772 insertions(+), 52 deletions(-)
+
+## Diff
+diff --git a/docs/config-reference.md b/docs/config-reference.md
+index bba3277..6b88612 100644
+--- a/docs/config-reference.md
++++ b/docs/config-reference.md
+@@ -162,10 +162,74 @@ Run `qompack config print --provenance` to see the effective value of every key
+ | `store.canonicalize.minhash.nearDupThreshold` | number | `0.9` | (0,1] | §8.1 | Jaccard similarity above which two results are treated as near-duplicates |
+ | `store.canonicalize.minhash.permutations` | integer | `128` | [16,512] | §8.1 | number of MinHash permutation functions |
+ | `store.canonicalize.strip` | array | `["timestamps","ansi","pids","addresses","tmpPaths","durations"]` | one of `timestamps`, `ansi`, `pids`, `addresses`, `tmpPaths`, `durations`, `crlf`, `paths` | §8.1 | canonicalizer classes to strip before chunking |
+ | `store.chunk.max` | integer | `16384` | (target,∞) | §8.1 | FastCDC maximum chunk size in bytes |
+ | `store.chunk.min` | integer | `1024` | (0,target) | §8.1 | FastCDC minimum chunk size in bytes |
+ | `store.chunk.target` | integer | `4096` | (min,max) | §8.1 | FastCDC target chunk size in bytes |
+ | `store.compression` | string | `"zstd"` | one of `zstd`, `none` | §6.1 | object compression codec |
+ | `store.retention.days` | integer | `30` | [1,∞) | §8.2 | minimum object retention window in days before GC may collect |
+ | `store.retention.sessions` | integer | `10` | [1,∞) | §8.2 | minimum object retention window in sessions before GC may collect |
+ 
++## Provenance origins
++
++`qompack config print --provenance` labels every leaf with the layer that produced its
++effective value. These are the labels, lowest precedence first.
++
++| Origin | Meaning |
++|---|---|
++| `default` | came from `config.Defaults()` and was never overridden |
++| `user` | set by `~/.qompack/config.json` |
++| `project` | set by `<project>/.qompack/config.json` |
++| `env` | set by a `QOMPACK_*` environment variable |
++| `flag` | set by a `--set <dotted.key>=<value>` flag |
++
++## Versioned blocks
++
++Two blocks carry their own `settingsVersion` and are versioned independently, so a schema
++change to one never resets the other.
++
++| Block | `settingsVersion` this build understands | Behaviour |
++|---|---|---|
++| `runtime.migration` | `1` | a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
++| `runtime.phase7` | `1` | a file written for a newer version has its whole block reset to defaults, so unknown future switches stay off |
++
++## Gated switches (ship off)
++
++These leaves default to `false` and stay refused until their gate passes: a `true` value is
++refused at load, the leaf falls back to its default and the refusal is reported as a
++warning, so editing a config file cannot enable a capability this build does not support.
++
++| Key | Default | Owner | Gate | Status |
++|---|---|---|---|---|
++| `runtime.migration.capture.rawEvidence` | `false` | SP-20 | M1 capture fidelity (T20-M1-01/02) | pending |
++| `runtime.migration.publication.durableFrontier` | `false` | SP-20 | M1 durable publication (T20-M1-03/04/05) | pending |
++| `runtime.migration.replacement.newResult` | `false` | SP-21 | M4 admission (T21 pipeline, pass-through and recovery) | pending |
++| `runtime.migration.compaction.automaticVeto` | `false` | SP-19 M0-03, then SP-12 | recovery/proactive distinction verified in the target host | pending |
++| `runtime.migration.experiments.enabled` | `false` | SP-15 and SP-16 | M5/M6 selection and refinement acceptance | pending |
++| `runtime.phase7.reuse.scopedCandidates` | `false` | SP-16 | M6-G16-A scoped reuse and authorization | pending |
++| `runtime.phase7.reuse.warmPrior` | `false` | SP-16 | M6-G16-D optional-policy value against a simple baseline | pending |
++| `runtime.phase7.retrieval.reminders` | `false` | SP-16 | M6-G16-B bounded retrieval and usefulness telemetry | pending |
++| `runtime.phase7.retrieval.demandPromotion` | `false` | SP-16 | M6-G16-C promotion of future representations only | pending |
++| `runtime.phase7.filters.segmentBloom` | `false` | SP-16 | M6-G16-E filter coverage, staleness and recovery | pending |
++
++### Build gates (no config key)
++
++These capabilities have no configuration leaf behind them. They cannot be set from any
++config layer, and are reachable only from a build whose gate has passed.
++
++| Key | Owner | Gate | Status |
++|---|---|---|---|
++| `store.migrate.legacyImportCutover` | SP-20 M1-04 | M1 compatible migration (T20-M1-08: import/parity/cutover and the pre- and post-first-write rollback drill) | pending |
++
++## Retired-meaning keys
++
++These keys are still read and their value is still applied, so an existing config file keeps
++loading. Setting one from any non-default layer produces a deprecation warning naming the
++file and line it was set in, and what the key no longer means.
++
++| Key | What it no longer means |
++|---|---|
++| `scheduler.youngDaly.enabled` | Young–Daly pacing is compatibility/harness-only: no native compaction trigger, cut or veto depends on it (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
++| `scheduler.youngDaly.measuredDeltaSeconds` | Young–Daly pacing is compatibility/harness-only: the measured delta no longer times a native compaction (Qompack.md v1.5 Appendix C; SP-12 reviewed migration) |
++| `scheduler.idle.deepCutWhenCold` | no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration) |
++| `checkpoint.incrementalSpanInstruction` | custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration) |
++
+diff --git a/docs/mcp-tools.md b/docs/mcp-tools.md
+index 490756f..05b619a 100644
+--- a/docs/mcp-tools.md
++++ b/docs/mcp-tools.md
+@@ -27,23 +27,23 @@ one is known. Pass `full: true` when you genuinely need the whole object; the re
+ carries a `next_span` when there is more to page through.
+ 
+ A model should call `already_tried` before committing to an approach: Before committing to an approach, call already_tried.
+ 
+ ## Tools at a glance
+ 
+ | Tool | Ephemeral result | Purpose |
+ |---|---|---|
+ | [`recall`](#recall) | yes | Search captured archive material by content, path, or symbol; returns references and summaries. |
+ | [`expand`](#expand) | yes | Retrieve available archived content by hash or tool_use_id; fidelity and coverage may be incomplete. |
+-| [`re_read`](#re-read) | yes | The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. |
+-| [`already_tried`](#already-tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
+-| [`record_eliminated`](#record-eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
++| [`re_read`](#re_read) | yes | The latest captured, or a historical, version of a file, from the store's own version history — never a live read of disk. |
++| [`already_tried`](#already_tried) | yes | Query recorded elimination evidence: legacy answers are absent, active, or stale; a failed query is unavailable. |
++| [`record_eliminated`](#record_eliminated) | no | Write negative knowledge: record that an approach does not work, with evidence and the files the reason rests on, so it survives compaction. |
+ | [`timeline`](#timeline) | yes | Retrieve recorded session segments over a turn or timestamp range. |
+ | [`why`](#why) | yes | Retrieve an attributed decision and its evidence from the checkpoint chain. |
+ | [`dropped`](#dropped) | yes | Retrieve Qompack's recorded omissions for this session. |
+ 
+ ## `recall`
+ 
+ Search captured archive material by content, path, or symbol; returns references and summaries. Capture and coverage may be partial or unavailable.
+ 
+ *Result:* marked ephemeral in Qompack metadata, with host retention unknown; reported as `_meta.qompack.ephemeral: true`.
+ 
+diff --git a/internal/config/migration.go b/internal/config/migration.go
+index b0c5bf9..e00c0c9 100644
+--- a/internal/config/migration.go
++++ b/internal/config/migration.go
+@@ -147,20 +147,41 @@ type retiredMeaningKey struct {
+ 
+ // retiredMeaningKeys lists those keys. Ski rental has no config key (SkiRentalShouldWrite reads
+ // the cache multipliers), so it is not here; its disposition is SP-12's reviewed migration.
+ var retiredMeaningKeys = []retiredMeaningKey{
+ 	{"scheduler.youngDaly.enabled", "Young–Daly pacing is compatibility/harness-only: no native compaction trigger, cut or veto depends on it (Qompack.md v1.5 Appendix C; SP-12 reviewed migration)"},
+ 	{"scheduler.youngDaly.measuredDeltaSeconds", "Young–Daly pacing is compatibility/harness-only: the measured delta no longer times a native compaction (Qompack.md v1.5 Appendix C; SP-12 reviewed migration)"},
+ 	{"scheduler.idle.deepCutWhenCold", "no native cut is available to a plugin; the key is read for compatibility only and selects no history rewrite (Qompack.md v1.5 §12; SP-12 reviewed migration)"},
+ 	{"checkpoint.incrementalSpanInstruction", "custom_instructions is PreCompact input, not a summarizer setter; the key is read for compatibility only (Qompack.md v1.5 §7.3; SP-10 reviewed migration)"},
+ }
+ 
++// RetiredMeaningKey is one retired-meaning key as the reference documentation reports it: the
++// dotted leaf a user may still set, and what that leaf no longer means. It is the exported shape
++// of retiredMeaningKeys, which stays the single source of the rows.
++type RetiredMeaningKey struct {
++	// Key is the dotted leaf path, still read and still applied.
++	Key string
++	// Note is what the key no longer means — the same sentence the deprecation warning carries.
++	Note string
++}
++
++// RetiredMeaningKeys returns the retired-meaning table in table order. The value behind each key
++// is still applied; setting one from a non-default layer produces a Deprecated Warning naming the
++// file it was set in (migrationDeprecations).
++func RetiredMeaningKeys() []RetiredMeaningKey {
++	out := make([]RetiredMeaningKey, 0, len(retiredMeaningKeys))
++	for _, r := range retiredMeaningKeys {
++		out = append(out, RetiredMeaningKey{Key: r.key, Note: r.note})
++	}
++	return out
++}
++
+ // migrationDeprecations returns one Warning per retired-meaning key that a non-default layer set.
+ // Reading prov rather than the merged value is deliberate: a user who writes the default value
+ // explicitly still deserves the note, and a default that was never touched does not.
+ func migrationDeprecations(prov Provenance) []Warning {
+ 	var out []Warning
+ 	for _, r := range retiredMeaningKeys {
+ 		src, ok := prov[r.key]
+ 		if !ok || src.Origin == OriginDefault {
+ 			continue
+ 		}
+@@ -172,37 +193,54 @@ func migrationDeprecations(prov Provenance) []Warning {
+ 		})
+ 	}
+ 	return out
+ }
+ 
+ // applyVersionedSections resets each independently versioned block whose merged document declares
+ // a settingsVersion newer than this build understands. It returns one Warning per block it reset.
+ //
+ // Two blocks carry their own version — runtime.migration (SP-19) and runtime.phase7 (SP-16) — and
+ // they are reset independently: a refinement schema moving forward must not reset the pipeline's
+-// own controls, and vice versa. Adding a third means adding a row here and nothing else.
++// own controls, and vice versa. The blocks are the rows of versionedSections, which is also what
++// VersionedSections() reports, so adding a third means adding a row there and nothing else.
+ func applyVersionedSections(merged, defaults map[string]any, prov Provenance) []Warning {
+ 	var out []Warning
+-	for _, s := range []struct {
+-		section string
+-		build   int
+-	}{
+-		{migrationSection, MigrationSettingsVersion},
+-		{phase7Section, Phase7SettingsVersion},
+-	} {
+-		if w, reset := applyVersionedSection(merged, defaults, prov, s.section, s.build); reset {
++	for _, s := range versionedSections {
++		if w, reset := applyVersionedSection(merged, defaults, prov, s.Path, s.Version); reset {
+ 			out = append(out, w)
+ 		}
+ 	}
+ 	return out
+ }
+ 
++// VersionedSection is one independently versioned config block: its dotted path, and the
++// settingsVersion this build understands for it.
++type VersionedSection struct {
++	// Path is the block's dotted path, e.g. "runtime.migration".
++	Path string
++	// Version is the settingsVersion this build understands. A merged document declaring a newer
++	// one has the whole block reset to defaults (applyVersionedSection).
++	Version int
++}
++
++// versionedSections is the row source both applyVersionedSections and VersionedSections read, so
++// the behaviour of the reset and the documentation of it cannot name different blocks.
++var versionedSections = []VersionedSection{
++	{Path: migrationSection, Version: MigrationSettingsVersion},
++	{Path: phase7Section, Version: Phase7SettingsVersion},
++}
++
++// VersionedSections returns a copy of the versioned-block table in reset order.
++func VersionedSections() []VersionedSection {
++	return append([]VersionedSection(nil), versionedSections...)
++}
++
+ // applyVersionedSection resets the whole section block in merged to its defaults when the merged
+ // document declares a settingsVersion newer than build, rewriting the block's provenance to
+ // OriginDefault. It reports whether it did so and the Warning to record.
+ //
+ // It runs before Validate's fallback loop on purpose: that loop restores one violated leaf at a
+ // time, which would keep every switch a newer file set while resetting only the version number —
+ // the opposite of "unknown future behaviour disabled". Keys this build does not know under the
+ // block have already been dropped by deepMerge's unknown-key rule; this handles the ones it does.
+ func applyVersionedSection(merged, defaults map[string]any, prov Provenance, section string, build int) (Warning, bool) {
+ 	versionKey := section + ".settingsVersion"
+diff --git a/internal/config/migration_test.go b/internal/config/migration_test.go
+index 4702741..57bf077 100644
+--- a/internal/config/migration_test.go
++++ b/internal/config/migration_test.go
+@@ -299,10 +299,168 @@ func leafTypes(t *testing.T, node map[string]any, prefix string) map[string]stri
+ 			for kk, vv := range leafTypes(t, child, path) {
+ 				out[kk] = vv
+ 			}
+ 			continue
+ 		}
+ 		typ, _ := child["type"].(string)
+ 		out[path] = typ
+ 	}
+ 	return out
+ }
++
++// TestRetiredMeaningKeys_MirrorTheDeprecationTable pins the exported accessor against the
++// unexported table it reads, in both directions and without a count literal.
++//
++// The accessor cannot be compared to `retiredMeaningKeys` directly — these tests are an external
++// package — so the comparison is made against the only other thing that reads that table: the
++// deprecation diagnostic itself. A config file that sets EVERY leaf in the schema to its own
++// default value touches every candidate key from a non-default layer, so the Deprecated warnings
++// Load then reports ARE the table, whichever rows it has. A row the accessor dropped shows up
++// here as a warning nobody claimed; a row it invented shows up as a claim nobody warned about.
++func TestRetiredMeaningKeys_MirrorTheDeprecationTable(t *testing.T) {
++	var schema map[string]any
++	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
++
++	env := baseEnv(t)
++	writeConfigFile(t, env.ProjectRoot, string(schemaDefaultsDocument(t, schema)))
++	_, _, warns, err := config.Load(env)
++	require.NoError(t, err)
++
++	warned := map[string]string{}
++	for _, w := range warns {
++		require.True(t, w.Deprecated,
++			"setting every leaf to its own default must produce nothing but deprecation notes, got %q on %s",
++			w.Message, w.Key)
++		warned[w.Key] = w.Message
++	}
++	require.NotEmpty(t, warned, "the retired-meaning diagnostic must fire, or this row proves nothing")
++
++	claimed := map[string]bool{}
++	for _, r := range config.RetiredMeaningKeys() {
++		require.NotEmpty(t, r.Key)
++		require.NotEmpty(t, r.Note, "every retired key must say what it no longer means")
++		msg, ok := warned[r.Key]
++		require.True(t, ok, "RetiredMeaningKeys claims %q, but Load warns about no such key", r.Key)
++		require.Contains(t, msg, r.Note, "the accessor's Note must be the note the user is shown")
++		require.False(t, claimed[r.Key], "duplicate row for %q", r.Key)
++		claimed[r.Key] = true
++	}
++	for key := range warned {
++		require.True(t, claimed[key], "Load reports a retired meaning for %q that RetiredMeaningKeys omits", key)
++	}
++
++	// Every key is a real leaf, and the returned slice is a copy: a caller that scribbles on it
++	// must not edit the table behind the accessor.
++	leaves := leafTypes(t, schema, "")
++	for _, r := range config.RetiredMeaningKeys() {
++		_, isLeaf := leaves[r.Key]
++		require.True(t, isLeaf, "retired key %q must be a leaf in the schema", r.Key)
++	}
++	first := config.RetiredMeaningKeys()
++	first[0].Note = "scribbled"
++	require.NotEqual(t, "scribbled", config.RetiredMeaningKeys()[0].Note, "the accessor must return a copy")
++}
++
++// TestVersionedSections_MatchTheConstantsAndTheSchema pins the second accessor: each path is a
++// versioned object in the schema whose own settingsVersion leaf defaults to the version this
++// build understands, and the two blocks carry the two constants.
++func TestVersionedSections_MatchTheConstantsAndTheSchema(t *testing.T) {
++	var schema map[string]any
++	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
++	leaves := leafTypes(t, schema, "")
++
++	byPath := map[string]int{}
++	for _, s := range config.VersionedSections() {
++		require.NotEmpty(t, s.Path)
++		require.NotContains(t, byPath, s.Path, "duplicate row for %q", s.Path)
++		byPath[s.Path] = s.Version
++
++		// The path names an object, not a leaf...
++		_, isLeaf := leaves[s.Path]
++		require.False(t, isLeaf, "%q must be a block, not a leaf", s.Path)
++		// ...and that block carries the settingsVersion the accessor reports.
++		kind, ok := leaves[s.Path+".settingsVersion"]
++		require.True(t, ok, "%q must have a settingsVersion leaf", s.Path)
++		require.Equal(t, "integer", kind)
++		require.Equal(t, float64(s.Version), schemaDefaultOf(t, schema, s.Path+".settingsVersion"),
++			"the accessor's Version must be the version Defaults() ships for %q", s.Path)
++	}
++
++	require.Equal(t, map[string]int{
++		"runtime.migration": config.MigrationSettingsVersion,
++		"runtime.phase7":    config.Phase7SettingsVersion,
++	}, byPath, "the two independently versioned blocks, from their own constants")
++
++	// Independently versioned: a newer version on one block resets that block and leaves the
++	// other alone, which is the behaviour the generated page describes.
++	for _, s := range config.VersionedSections() {
++		env := baseEnv(t)
++		writeConfigFile(t, env.ProjectRoot, versionBump(s.Path, s.Version+1))
++		_, _, warns, err := config.Load(env)
++		require.NoError(t, err)
++		require.Equal(t, []string{s.Path}, warningKeys(warns),
++			"a newer %s must reset %s and nothing else", s.Path, s.Path)
++	}
++
++	scribbled := config.VersionedSections()
++	scribbled[0].Version = -1
++	require.NotEqual(t, -1, config.VersionedSections()[0].Version, "the accessor must return a copy")
++}
++
++// schemaDefaultsDocument renders a config document that sets every leaf in the schema to that
++// leaf's own default, so every key is touched from a non-default layer without changing a single
++// effective value.
++func schemaDefaultsDocument(t *testing.T, schema map[string]any) []byte {
++	t.Helper()
++	doc := map[string]any{}
++	var walk func(node map[string]any, into map[string]any)
++	walk = func(node map[string]any, into map[string]any) {
++		props, ok := node["properties"].(map[string]any)
++		if !ok {
++			return
++		}
++		for k, v := range props {
++			child, ok := v.(map[string]any)
++			require.True(t, ok, "schema node %s", k)
++			if _, isObj := child["properties"]; isObj {
++				sub := map[string]any{}
++				walk(child, sub)
++				into[k] = sub
++				continue
++			}
++			into[k] = child["default"]
++		}
++	}
++	walk(schema, doc)
++	b, err := json.Marshal(doc)
++	require.NoError(t, err)
++	return b
++}
++
++// schemaDefaultOf returns the JSON default of one dotted leaf.
++func schemaDefaultOf(t *testing.T, schema map[string]any, path string) any {
++	t.Helper()
++	node := schema
++	parts := strings.Split(path, ".")
++	for i, p := range parts {
++		props, ok := node["properties"].(map[string]any)
++		require.True(t, ok, "no properties at %q", strings.Join(parts[:i], "."))
++		child, ok := props[p].(map[string]any)
++		require.True(t, ok, "no schema node at %q", strings.Join(parts[:i+1], "."))
++		if i == len(parts)-1 {
++			return child["default"]
++		}
++		node = child
++	}
++	return nil
++}
++
++// versionBump renders a config document declaring one block's settingsVersion, nested under the
++// block's dotted path.
++func versionBump(path string, version int) string {
++	parts := strings.Split(path, ".")
++	doc := fmt.Sprintf(`{"settingsVersion":%d}`, version)
++	for i := len(parts) - 1; i >= 0; i-- {
++		doc = fmt.Sprintf(`{%q:%s}`, parts[i], doc)
++	}
++	return doc
++}
+diff --git a/test/docs/links_test.go b/test/docs/links_test.go
+index 399fc80..3d51176 100644
+--- a/test/docs/links_test.go
++++ b/test/docs/links_test.go
+@@ -12,56 +12,33 @@ import (
+ // first whitespace so an optional title ( [x](y "title") ) is not mistaken for part of the path.
+ var inlineLinkRe = regexp.MustCompile(`\[[^\]]*\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)`)
+ 
+ // refDefRe matches a reference-style link definition: [label]: target.
+ var refDefRe = regexp.MustCompile(`^ {0,3}\[[^\]]+\]:\s*(\S+)`)
+ 
+ // schemeRe matches an absolute URL scheme (https:, mailto:, …). Those targets are out of scope:
+ // this harness resolves what is on disk and makes no network request, ever (decision D10).
+ var schemeRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9+.\-]*:`)
+ 
+-// knownAnchorDefects are anchors this harness knows are broken and which this commit cannot fix,
+-// because the page that carries them is GENERATED and the CI `docs` job diffs it byte for byte.
+-//
+-// docs/mcp-tools.md's "Tools at a glance" table links each tool to its own `## ` heading through
+-// tools/devtool/genmcpdocs.go's anchorFor, which rewrites "_" as "-":
+-//
+-//	func anchorFor(name string) string { return strings.ReplaceAll(name, "_", "-") }
+-//
+-// GitHub does not do that. An underscore is a word character and survives slugging, so the
+-// heading "## `re_read`" offers #re_read and the link to #re-read lands nowhere. The fix is one
+-// line in the generator plus a regeneration, and it belongs to whoever owns that tool — not to a
+-// prose commit that is forbidden to touch either file.
+-//
+-// The list is enforced in BOTH directions: an unlisted broken anchor fails the test, and a listed
+-// anchor that starts resolving fails it too, so the fix cannot land without this entry being
+-// struck. Keys are "<file>#<anchor>".
+-var knownAnchorDefects = map[string]string{
+-	"docs/mcp-tools.md#re-read":           "genmcpdocs.go anchorFor rewrites _ as -; GitHub keeps _ (heading offers #re_read)",
+-	"docs/mcp-tools.md#already-tried":     "genmcpdocs.go anchorFor rewrites _ as -; GitHub keeps _ (heading offers #already_tried)",
+-	"docs/mcp-tools.md#record-eliminated": "genmcpdocs.go anchorFor rewrites _ as -; GitHub keeps _ (heading offers #record_eliminated)",
+-}
+-
+ // TestRelativeLinksResolve is the reachability check: every scheme-less markdown link in README.md
+ // and in docs/**/*.md must name a file that exists, and every heading anchor must name a heading
+ // that exists in that file. Failures are reported as "file:line: target" and the scan continues,
+ // so one broken link does not hide the other nine.
+ func TestRelativeLinksResolve(t *testing.T) {
+ 	root := repoRoot(t)
+ 	files := markdownFiles(t, root)
+ 	if len(files) == 0 {
+ 		t.Fatal("no markdown files found: the scan is looking in the wrong place")
+ 	}
+ 
+ 	// anchors are cached per target file: docs/mcp-tools.md is large and is linked many times.
+ 	anchorCache := map[string]map[string]bool{}
+-	hit := map[string]bool{}
+ 
+ 	for _, rel := range files {
+ 		abs := filepath.Join(root, filepath.FromSlash(rel))
+ 		for i, line := range scrubbed(t, abs) {
+ 			lineNo := i + 1
+ 			var targets []string
+ 			for _, m := range inlineLinkRe.FindAllStringSubmatch(line, -1) {
+ 				targets = append(targets, m[1])
+ 			}
+ 			if m := refDefRe.FindStringSubmatch(line); m != nil {
+@@ -96,32 +73,17 @@ func TestRelativeLinksResolve(t *testing.T) {
+ 				if !strings.HasSuffix(targetRel, ".md") {
+ 					t.Errorf("%s:%d: %s (anchor into a non-markdown file)", rel, lineNo, target)
+ 					continue
+ 				}
+ 
+ 				anchors, ok := anchorCache[targetRel]
+ 				if !ok {
+ 					anchors = anchorsOf(t, filepath.Join(root, filepath.FromSlash(targetRel)))
+ 					anchorCache[targetRel] = anchors
+ 				}
+-				key := targetRel + "#" + anchor
+-				_, known := knownAnchorDefects[key]
+-				switch {
+-				case anchors[anchor] && known:
+-					t.Errorf("%s:%d: %s now resolves: strike it from knownAnchorDefects", rel, lineNo, target)
+-				case anchors[anchor]:
+-					// resolved, as it should
+-				case known:
+-					hit[key] = true
+-				default:
++				if !anchors[anchor] {
+ 					t.Errorf("%s:%d: %s (no heading with that anchor in %s)", rel, lineNo, target, targetRel)
+ 				}
+ 			}
+ 		}
+ 	}
+-
+-	for key, why := range knownAnchorDefects {
+-		if !hit[key] {
+-			t.Errorf("knownAnchorDefects lists %s (%s) but no document links it: strike the entry", key, why)
+-		}
+-	}
+ }
+diff --git a/tools/devtool/genconfigdocs.go b/tools/devtool/genconfigdocs.go
+index 6a3a095..47656bb 100644
+--- a/tools/devtool/genconfigdocs.go
++++ b/tools/devtool/genconfigdocs.go
+@@ -160,23 +160,156 @@ func renderConfigDoc() ([]byte, error) {
+ 			section := r.Section
+ 			if section == "" {
+ 				section = "—"
+ 			}
+ 			fmt.Fprintf(&b, "| `%s` | %s | %s | %s | %s | %s |\n",
+ 				r.Key, r.Type, defaultCell(r), rng, section, r.Description)
+ 		}
+ 		b.WriteString("\n")
+ 	}
+ 
++	writeConfigMetadata(&b)
++
+ 	return []byte(b.String()), nil
+ }
+ 
++// originMeanings is the one-phrase gloss each Origin gets in the Provenance origins table, taken
++// from that constant's doc comment in internal/config/config.go. It is keyed by the constant, not
++// by a spelling, so an origin that is renamed keeps its meaning and an origin that is ADDED loses
++// its row's prose rather than acquiring a wrong one: writeOriginSection then falls back to the
++// String() name alone, which is all the enum itself can tell a reader.
++var originMeanings = map[config.Origin]string{
++	config.OriginDefault:     "came from `config.Defaults()` and was never overridden",
++	config.OriginUserFile:    "set by `~/.qompack/config.json`",
++	config.OriginProjectFile: "set by `<project>/.qompack/config.json`",
++	config.OriginEnv:         "set by a `QOMPACK_*` environment variable",
++	config.OriginFlag:        "set by a `--set <dotted.key>=<value>` flag",
++}
++
++// writeConfigMetadata appends the four metadata sections: where a value came from, which blocks
++// carry their own schema version, which switches ship off behind a gate, and which keys are still
++// read but no longer mean what they used to.
++//
++// Every row is rendered from internal/config — Origin, config.VersionedSections,
++// config.MigrationGates, config.MigrationBuildGates and config.RetiredMeaningKeys — so this
++// generator holds no config key of its own and the page cannot describe a build it was not
++// generated from.
++func writeConfigMetadata(b *strings.Builder) {
++	writeOriginSection(b)
++	writeVersionedSection(b)
++	writeGateSection(b)
++	writeRetiredSection(b)
++}
++
++// writeOriginSection renders one row per Origin, ascending from OriginDefault. The enum bounds
++// itself: String() answers "unknown" for the first value the enum does not define, which is where
++// the table stops.
++func writeOriginSection(b *strings.Builder) {
++	b.WriteString("## Provenance origins\n\n")
++	b.WriteString("`qompack config print --provenance` labels every leaf with the layer that produced its\n")
++	b.WriteString("effective value. These are the labels, lowest precedence first.\n\n")
++	b.WriteString("| Origin | Meaning |\n")
++	b.WriteString("|---|---|\n")
++	for o := config.Origin(0); o.String() != "unknown"; o++ {
++		meaning := originMeanings[o]
++		if meaning == "" {
++			meaning = o.String()
++		}
++		fmt.Fprintf(b, "| `%s` | %s |\n", escapePipes(o.String()), escapePipes(meaning))
++	}
++	b.WriteString("\n")
++}
++
++// writeVersionedSection renders the independently versioned blocks and what a newer file does.
++func writeVersionedSection(b *strings.Builder) {
++	b.WriteString("## Versioned blocks\n\n")
++	b.WriteString("Two blocks carry their own `settingsVersion` and are versioned independently, so a schema\n")
++	b.WriteString("change to one never resets the other.\n\n")
++	b.WriteString("| Block | `settingsVersion` this build understands | Behaviour |\n")
++	b.WriteString("|---|---|---|\n")
++	for _, s := range config.VersionedSections() {
++		fmt.Fprintf(b, "| `%s` | `%d` | %s |\n", escapePipes(s.Path), s.Version,
++			escapePipes("a file written for a newer version has its whole block reset to defaults, "+
++				"so unknown future switches stay off"))
++	}
++	b.WriteString("\n")
++}
++
++// writeGateSection renders the two gate tables: the config switches that ship off behind a gate,
++// and the build gates that no config layer can reach at all.
++func writeGateSection(b *strings.Builder) {
++	b.WriteString("## Gated switches (ship off)\n\n")
++	b.WriteString("These leaves default to `false` and stay refused until their gate passes: a `true` value is\n")
++	b.WriteString("refused at load, the leaf falls back to its default and the refusal is reported as a\n")
++	b.WriteString("warning, so editing a config file cannot enable a capability this build does not support.\n\n")
++	b.WriteString("| Key | Default | Owner | Gate | Status |\n")
++	b.WriteString("|---|---|---|---|---|\n")
++	for _, g := range config.MigrationGates() {
++		fmt.Fprintf(b, "| `%s` | `%s` | %s | %s | %s |\n",
++			escapePipes(g.Key), escapePipes(gateDefaultCell(g.Key)),
++			escapePipes(g.Owner), escapePipes(g.Gate), gateStatus(g))
++	}
++	b.WriteString("\n")
++
++	b.WriteString("### Build gates (no config key)\n\n")
++	b.WriteString("These capabilities have no configuration leaf behind them. They cannot be set from any\n")
++	b.WriteString("config layer, and are reachable only from a build whose gate has passed.\n\n")
++	b.WriteString("| Key | Owner | Gate | Status |\n")
++	b.WriteString("|---|---|---|---|\n")
++	for _, g := range config.MigrationBuildGates() {
++		fmt.Fprintf(b, "| `%s` | %s | %s | %s |\n",
++			escapePipes(g.Key), escapePipes(g.Owner), escapePipes(g.Gate), gateStatus(g))
++	}
++	b.WriteString("\n")
++}
++
++// gateStatus renders a gate's Status cell.
++func gateStatus(g config.MigrationGate) string {
++	if g.Passed {
++		return "passed"
++	}
++	return "pending"
++}
++
++// gateDefaultCell reads a gated leaf's default out of the schema rather than asserting it: the
++// page must report what this build ships, and genconfigdocs_test.go is what requires that value
++// to be false.
++func gateDefaultCell(key string) string {
++	var schema schemaNode
++	if err := json.Unmarshal(config.Defaults().JSONSchema(), &schema); err != nil {
++		return ""
++	}
++	node := schema
++	for _, part := range strings.Split(key, ".") {
++		child, ok := node.Properties[part]
++		if !ok {
++			return ""
++		}
++		node = child
++	}
++	return renderJSONValue(node.Default)
++}
++
++// writeRetiredSection renders the keys whose value is still applied but whose meaning is retired.
++func writeRetiredSection(b *strings.Builder) {
++	b.WriteString("## Retired-meaning keys\n\n")
++	b.WriteString("These keys are still read and their value is still applied, so an existing config file keeps\n")
++	b.WriteString("loading. Setting one from any non-default layer produces a deprecation warning naming the\n")
++	b.WriteString("file and line it was set in, and what the key no longer means.\n\n")
++	b.WriteString("| Key | What it no longer means |\n")
++	b.WriteString("|---|---|\n")
++	for _, r := range config.RetiredMeaningKeys() {
++		fmt.Fprintf(b, "| `%s` | %s |\n", escapePipes(r.Key), escapePipes(r.Note))
++	}
++	b.WriteString("\n")
++}
++
+ // collectRows walks n, appending one row per leaf. prefix is the dotted key path so far.
+ func collectRows(prefix string, n schemaNode, out *[]configRow) {
+ 	if len(n.Properties) > 0 {
+ 		keys := make([]string, 0, len(n.Properties))
+ 		for k := range n.Properties {
+ 			keys = append(keys, k)
+ 		}
+ 		sort.Strings(keys)
+ 		for _, k := range keys {
+ 			collectRows(prefix+"."+k, n.Properties[k], out)
+diff --git a/tools/devtool/genconfigdocs_test.go b/tools/devtool/genconfigdocs_test.go
+new file mode 100644
+index 0000000..3932a1b
+--- /dev/null
++++ b/tools/devtool/genconfigdocs_test.go
+@@ -0,0 +1,295 @@
++package main
++
++import (
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"regexp"
++	"strconv"
++	"strings"
++	"testing"
++
++	"github.com/stretchr/testify/require"
++
++	"github.com/qompack/qompack/internal/config"
++)
++
++// docs/config-reference.md is the page a user edits their config against, and §11.4 requires it to
++// name every key this build honours. The CI `docs` job runs the --check half; these rows make the
++// --check half able to fail, and pin the two properties a byte-identical regeneration cannot:
++// that the page's key inventory IS config.Defaults()'s, and that the metadata sections are
++// rendered from internal/config rather than transcribed.
++//
++// The package-level `root` is shared by every devtool test and these never run in parallel, which
++// is the house pattern gencommanddocs_test.go and genmcpdocs_test.go already follow.
++
++// configDocsSandbox points `root` at a scratch tree that holds page (when non-nil) at
++// configDocPath, restoring the previous root afterwards. It returns the sandbox root.
++func configDocsSandbox(t *testing.T, page []byte) string {
++	t.Helper()
++
++	dir := t.TempDir()
++	if page != nil {
++		p := filepath.Join(dir, filepath.FromSlash(configDocPath))
++		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
++		require.NoError(t, os.WriteFile(p, page, 0o644)) // #nosec G306 -- test fixture
++	}
++
++	prev := root
++	root = dir
++	t.Cleanup(func() { root = prev })
++	return dir
++}
++
++// sectionKeyRe matches the first cell of a key row: | `dotted.key` | …
++var sectionKeyRe = regexp.MustCompile("^\\| `([^`]+)` \\|")
++
++// keyTableHeadingRe matches a per-section heading, "## `scheduler`". The metadata sections
++// appended after the tables have prose headings, so restricting to the code-span spelling keeps
++// their keys (a build gate has no config leaf at all) out of the inventory comparison.
++var keyTableHeadingRe = regexp.MustCompile("^## `([^`]+)`$")
++
++// renderedConfigPage renders the page once for a test to read.
++func renderedConfigPage(t *testing.T) string {
++	t.Helper()
++	b, err := renderConfigDoc()
++	require.NoError(t, err, "renderConfigDoc")
++	require.NotEmpty(t, b)
++	return string(b)
++}
++
++// documentedLeaves returns every key the per-section tables document.
++func documentedLeaves(t *testing.T, page string) map[string]bool {
++	t.Helper()
++	out := map[string]bool{}
++	inKeyTable := false
++	for _, line := range strings.Split(page, "\n") {
++		if strings.HasPrefix(line, "## ") {
++			inKeyTable = keyTableHeadingRe.MatchString(line)
++			continue
++		}
++		if !inKeyTable {
++			continue
++		}
++		if m := sectionKeyRe.FindStringSubmatch(line); m != nil {
++			require.False(t, out[m[1]], "key %q is documented twice", m[1])
++			out[m[1]] = true
++		}
++	}
++	return out
++}
++
++// schemaLeaves flattens config.Defaults().JSONSchema() into dotted path -> that leaf's schema node.
++func schemaLeaves(t *testing.T) map[string]any {
++	t.Helper()
++	var schema map[string]any
++	require.NoError(t, json.Unmarshal(config.Defaults().JSONSchema(), &schema))
++	out := map[string]any{}
++	var walk func(node map[string]any, prefix string)
++	walk = func(node map[string]any, prefix string) {
++		props, ok := node["properties"].(map[string]any)
++		if !ok {
++			return
++		}
++		for k, v := range props {
++			child, ok := v.(map[string]any)
++			require.True(t, ok, "schema node %s.%s", prefix, k)
++			path := k
++			if prefix != "" {
++				path = prefix + "." + k
++			}
++			if _, isObj := child["properties"]; isObj {
++				walk(child, path)
++				continue
++			}
++			out[path] = child
++		}
++	}
++	walk(schema, "")
++	return out
++}
++
++// tableRows returns the rows of the first markdown table under the given heading, each row split
++// into trimmed cells, with the header and separator rows dropped.
++func tableRows(t *testing.T, page, heading string) [][]string {
++	t.Helper()
++	i := strings.Index(page, "\n"+heading+"\n")
++	require.GreaterOrEqual(t, i, 0, "the page must have a %q section", heading)
++	var rows [][]string
++	started := false
++	for _, line := range strings.Split(page[i+1:], "\n") {
++		if !strings.HasPrefix(line, "|") {
++			if started {
++				break
++			}
++			continue
++		}
++		started = true
++		if strings.HasPrefix(line, "|---") {
++			continue
++		}
++		cells := strings.Split(strings.Trim(line, "|"), "|")
++		for j := range cells {
++			cells[j] = strings.TrimSpace(cells[j])
++		}
++		rows = append(rows, cells)
++	}
++	require.NotEmpty(t, rows, "the %q table must have rows", heading)
++	return rows[1:] // drop the header row
++}
++
++// TestGenConfigDocs_LeavesMatchDefaultsOneToOne is the §11.4 assertion: the page documents every
++// key config.Defaults() honours, and no key it does not. Both directions are reported by name, so
++// a failure says which key was added without regenerating rather than "counts differ".
++func TestGenConfigDocs_LeavesMatchDefaultsOneToOne(t *testing.T) {
++	documented := documentedLeaves(t, renderedConfigPage(t))
++	require.NotEmpty(t, documented, "the page must document some keys, or this row proves nothing")
++
++	schema := schemaLeaves(t)
++	var missing, extra []string
++	for leaf := range schema {
++		if !documented[leaf] {
++			missing = append(missing, leaf)
++		}
++	}
++	for leaf := range documented {
++		if _, ok := schema[leaf]; !ok {
++			extra = append(extra, leaf)
++		}
++	}
++	require.Empty(t, missing, "keys in config.Defaults() that the page does not document")
++	require.Empty(t, extra, "keys the page documents that config.Defaults() does not have")
++}
++
++// TestGenConfigDocs_GatedSwitchesRenderFromSource pins the metadata sections against
++// internal/config. A page that carried a transcribed list would drift the moment a gate passed or
++// a block's version moved; every row here is checked against the accessor it came from.
++func TestGenConfigDocs_GatedSwitchesRenderFromSource(t *testing.T) {
++	page := renderedConfigPage(t)
++	schema := schemaLeaves(t)
++
++	t.Run("gated switches", func(t *testing.T) {
++		rows := map[string][]string{}
++		for _, r := range tableRows(t, page, "## Gated switches (ship off)") {
++			rows[strings.Trim(r[0], "`")] = r
++		}
++		for _, g := range config.MigrationGates() {
++			row, ok := rows[g.Key]
++			require.True(t, ok, "the gated-switch table must list %q", g.Key)
++			require.Equal(t, "`false`", row[1], "a gated switch ships off, so its default is false")
++
++			leaf, isLeaf := schema[g.Key].(map[string]any)
++			require.True(t, isLeaf, "gate %q must name a schema leaf", g.Key)
++			require.Equal(t, false, leaf["default"], "the schema default of %q must be false", g.Key)
++
++			require.Equal(t, escapePipes(g.Owner), row[2])
++			require.Equal(t, escapePipes(g.Gate), row[3])
++			want := "pending"
++			if g.Passed {
++				want = "passed"
++			}
++			require.Equal(t, want, row[4], "status of %q", g.Key)
++		}
++		require.Len(t, rows, len(config.MigrationGates()), "no row the gate table does not have")
++	})
++
++	t.Run("build gates", func(t *testing.T) {
++		rows := map[string][]string{}
++		for _, r := range tableRows(t, page, "### Build gates (no config key)") {
++			rows[strings.Trim(r[0], "`")] = r
++		}
++		for _, g := range config.MigrationBuildGates() {
++			row, ok := rows[g.Key]
++			require.True(t, ok, "the build-gate table must list %q", g.Key)
++			require.Equal(t, escapePipes(g.Owner), row[1])
++			require.Equal(t, escapePipes(g.Gate), row[2])
++			_, isLeaf := schema[g.Key]
++			require.False(t, isLeaf, "a build gate must have no config leaf: %q", g.Key)
++		}
++		require.Len(t, rows, len(config.MigrationBuildGates()))
++	})
++
++	t.Run("retired-meaning keys", func(t *testing.T) {
++		rows := map[string][]string{}
++		for _, r := range tableRows(t, page, "## Retired-meaning keys") {
++			rows[strings.Trim(r[0], "`")] = r
++		}
++		for _, r := range config.RetiredMeaningKeys() {
++			row, ok := rows[r.Key]
++			require.True(t, ok, "the retired-meaning table must list %q", r.Key)
++			require.Equal(t, escapePipes(r.Note), row[1])
++			_, isLeaf := schema[r.Key]
++			require.True(t, isLeaf, "retired key %q must still be a documented leaf", r.Key)
++		}
++		require.Len(t, rows, len(config.RetiredMeaningKeys()))
++	})
++
++	t.Run("versioned blocks", func(t *testing.T) {
++		rows := map[string][]string{}
++		for _, r := range tableRows(t, page, "## Versioned blocks") {
++			rows[strings.Trim(r[0], "`")] = r
++		}
++		for _, s := range config.VersionedSections() {
++			row, ok := rows[s.Path]
++			require.True(t, ok, "the versioned-block table must list %q", s.Path)
++			require.Equal(t, strconv.Itoa(s.Version), strings.Trim(row[1], "`"),
++				"the version rendered for %q", s.Path)
++		}
++		require.Len(t, rows, len(config.VersionedSections()))
++	})
++
++	t.Run("provenance origins", func(t *testing.T) {
++		rows := tableRows(t, page, "## Provenance origins")
++		for i, r := range rows {
++			require.Equal(t, config.Origin(i).String(), strings.Trim(r[0], "`"), //nolint:gosec // i is a table index
++				"origins must be listed in ascending order from OriginDefault")
++			require.NotEmpty(t, r[1], "every origin needs a meaning")
++		}
++		require.Equal(t, "unknown", config.Origin(len(rows)).String(), //nolint:gosec // the enum's own bound
++			"the table must stop exactly where the Origin enum does")
++	})
++}
++
++// TestGenConfigDocs_CommittedPageIsCurrent is the --check half, run here so a stale page fails the
++// ordinary test run and not only the CI docs job.
++func TestGenConfigDocs_CommittedPageIsCurrent(t *testing.T) {
++	prev := root
++	t.Cleanup(func() { root = prev })
++	root = repoRootForTest(t)
++
++	want, err := renderConfigDoc()
++	require.NoError(t, err)
++
++	got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(configDocPath)))
++	require.NoError(t, err,
++		"%s must be committed; run `go run ./tools/devtool gen-config-docs`", configDocPath)
++	require.Equal(t, string(want), string(normalizeNewlines(got)),
++		"%s is stale; run `go run ./tools/devtool gen-config-docs`", configDocPath)
++}
++
++// TestGenConfigDocs_CheckDetectsMissingAndStale drives the task's own --check against a sandbox
++// root, which is what makes the CI job's failure mode real rather than assumed. Missing and stale
++// are separate outcomes because they ask the reader for different things.
++func TestGenConfigDocs_CheckDetectsMissingAndStale(t *testing.T) {
++	want, err := renderConfigDoc()
++	require.NoError(t, err)
++
++	dir := configDocsSandbox(t, nil)
++	p := filepath.Join(dir, filepath.FromSlash(configDocPath))
++
++	err = taskGenConfigDocs([]string{"--check"})
++	require.Error(t, err, "a page that is not there at all must be reported")
++	require.Contains(t, err.Error(), "is missing")
++	require.Contains(t, err.Error(), configDocPath)
++
++	require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
++	require.NoError(t, os.WriteFile(p, want, 0o644)) // #nosec G306 -- test fixture
++	require.NoError(t, taskGenConfigDocs([]string{"--check"}),
++		"a byte-identical page must not be reported as drift")
++
++	require.NoError(t, os.WriteFile(p, append(append([]byte(nil), want...), '.'), 0o644)) // #nosec G306 -- test fixture
++	err = taskGenConfigDocs([]string{"--check"})
++	require.Error(t, err, "a page that differs from config.Defaults() must be reported")
++	require.Contains(t, err.Error(), "is stale")
++	require.Contains(t, err.Error(), configDocPath, "the error must name the file to regenerate")
++}
+diff --git a/tools/devtool/genmcpdocs.go b/tools/devtool/genmcpdocs.go
+index 28cc941..acfb530 100644
+--- a/tools/devtool/genmcpdocs.go
++++ b/tools/devtool/genmcpdocs.go
+@@ -276,21 +276,40 @@ func renderBounds(minimum, maximum *int64) string {
+ // ephemeralNote is the one-line result note under each tool's description.
+ func ephemeralNote(ephemeral bool) string {
+ 	if ephemeral {
+ 		return "marked ephemeral in Qompack metadata, with host retention unknown; reported as " +
+ 			"`_meta.qompack.ephemeral: true`"
+ 	}
+ 	return "durable — this tool writes a persistent record"
+ }
+ 
+ // anchorFor is the GitHub heading anchor for a tool's `## \x60name\x60` heading.
+-func anchorFor(name string) string { return strings.ReplaceAll(name, "_", "-") }
++//
++// It reproduces GitHub's heading slug rather than inventing one: the text is lowercased, a space
++// becomes "-", "_" and "-" survive because an underscore is a word character to that slugger, and
++// every other character is dropped. Rewriting "_" as "-" — which this did — offered #re-read for
++// a heading that answers to #re_read, so every underscored tool's glance-table link landed
++// nowhere.
++func anchorFor(name string) string {
++	var b strings.Builder
++	for _, r := range strings.ToLower(name) {
++		switch {
++		case r == ' ':
++			b.WriteRune('-')
++		case r == '-' || r == '_':
++			b.WriteRune(r)
++		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
++			b.WriteRune(r)
++		}
++	}
++	return b.String()
++}
+ 
+ // firstSentence trims a description to its first sentence, for the glance table.
+ func firstSentence(s string) string {
+ 	if i := strings.Index(s, ". "); i >= 0 {
+ 		return s[:i+1]
+ 	}
+ 	return s
+ }
+ 
+ // yesNo renders a boolean as a table cell.
+diff --git a/tools/devtool/genmcpdocs_test.go b/tools/devtool/genmcpdocs_test.go
+index 10b9430..385a13b 100644
+--- a/tools/devtool/genmcpdocs_test.go
++++ b/tools/devtool/genmcpdocs_test.go
+@@ -155,10 +155,61 @@ func TestGenMCPDocsCheckDetectsDrift(t *testing.T) {
+ 		dir := mcpDocsSandbox(t, nil)
+ 		require.NoError(t, taskGenMCPDocs(nil), "gen-mcp-docs must create the page it checks")
+ 
+ 		got, readErr := os.ReadFile(filepath.Join(dir, filepath.FromSlash(mcpDocPath)))
+ 		require.NoError(t, readErr)
+ 		require.True(t, bytes.Equal(want, normalizeNewlines(got)),
+ 			"what the task writes must be what --check then accepts")
+ 		require.NoError(t, taskGenMCPDocs([]string{"--check"}), "and it must accept its own output")
+ 	})
+ }
++
++// TestMCPDocsGlanceLinksResolve is the row the anchor bug got past: the "Tools at a glance" table
++// links every tool to its own `## ` heading, and those links have to resolve on GitHub, where the
++// anchor is derived from the heading text and nowhere else.
++//
++// The slug rule is re-derived here from the heading the renderer actually emits, rather than
++// calling anchorFor on both sides — a test that asked the generator to agree with itself would
++// have passed while the page shipped #re-read for a heading that answers to #re_read. Tool names
++// come from mcp.ToolDefs so a new tool is covered the day it is added, and no count is asserted.
++func TestMCPDocsGlanceLinksResolve(t *testing.T) {
++	page, err := renderMCPDoc()
++	require.NoError(t, err, "renderMCPDoc")
++
++	// githubSlug is GitHub's heading slug: lowercase, spaces to "-", "_" and "-" kept as word
++	// characters, everything else (the backticks around the name, above all) dropped.
++	githubSlug := func(headingText string) string {
++		var b strings.Builder
++		for _, r := range strings.ToLower(headingText) {
++			switch {
++			case r == ' ':
++				b.WriteRune('-')
++			case r == '-' || r == '_':
++				b.WriteRune(r)
++			case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
++				b.WriteRune(r)
++			}
++		}
++		return b.String()
++	}
++
++	// The anchors the page offers, read off its own `## ` headings.
++	offered := map[string]bool{}
++	for _, line := range strings.Split(string(page), "\n") {
++		if text, ok := strings.CutPrefix(line, "## "); ok {
++			offered[githubSlug(strings.TrimSpace(text))] = true
++		}
++	}
++	require.NotEmpty(t, offered, "the page must have headings, or this row proves nothing")
++
++	defs := mcp.ToolDefs(mcp.ToolDeps{})
++	require.NotEmpty(t, defs, "mcp.ToolDefs must return the tool set")
++	for _, d := range defs {
++		link := "[`" + d.Name + "`](#" + anchorFor(d.Name) + ")"
++		require.Contains(t, string(page), link,
++			"the glance table must link %q to its section", d.Name)
++		require.True(t, offered[anchorFor(d.Name)],
++			"the glance-table link for %q points at #%s, which no heading in the page offers; "+
++				"anchorFor must produce GitHub's slug of the heading text",
++			d.Name, anchorFor(d.Name))
++	}
++}

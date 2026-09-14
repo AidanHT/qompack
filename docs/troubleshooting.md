@@ -114,11 +114,12 @@ ways a value is refused.
 
 **Symptom.** You edited a config file and nothing changed.
 
-**Diagnose.** Read the file. It is the §11.3 record of every leaf that fell back to its default
+**Diagnose.** Read the file. It is the §11.3 record of every leaf-level fallback
 (`internal/cli/config.go`, `configViolationsFile`), written by any command that loads configuration
-through `LoadConfigAndReport` with a project root. On this tree, a project file setting
-`runtime.mode` to `sideways` and `runtime.phase7.reuse.scopedCandidates` to `true` produced exactly
-two entries:
+through `LoadConfigAndReport` with a project root. A whole-block reset is a day-log warning and not
+an entry here — see [§6](#6-configuration-and-schema-compatibility). On this tree, a project file
+setting `runtime.mode` to `sideways` and `runtime.phase7.reuse.scopedCandidates` to `true` produced
+exactly two entries:
 
 ```json
 [
@@ -439,8 +440,8 @@ before the daemon exits (`internal/daemon/daemon.go`, `idleExitDue`).
 but the only callers of `ipc.OpAdminShutdown` outside the daemon itself are the bench harness
 (`test/bench/hotpath/transport.go`) and tests: no `qompack` subcommand sends it, and `qompack help`
 lists no stop command. So the supported ways to end a daemon are to wait for its idle exit or to
-terminate the process, identified by the `pid` in `daemon.lock`. An operator-facing stop path is
-planned (SP-17).
+terminate the process, identified by the `pid` in `daemon.lock`. No subplan currently owns an
+operator-facing stop path.
 
 **Action.** Prefer waiting for idle exit. If you terminate the process, terminate only the one whose
 `pid` appears in that project's `daemon.lock`; daemons are per project and another project's daemon

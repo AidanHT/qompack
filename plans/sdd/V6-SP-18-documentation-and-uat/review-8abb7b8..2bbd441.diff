@@ -1,0 +1,848 @@
+# Review package: 8abb7b8..2bbd441
+
+## Commits
+2bbd441 docs(sp18): state capability limits and upstream proposals
+
+## Files changed
+ docs/cannot-do.md        | 385 +++++++++++++++++++++++++++++++++++++++++++++++
+ docs/upstream-issues.md  | 179 ++++++++++++++++++++++
+ test/docs/limits_test.go | 226 ++++++++++++++++++++++++++++
+ test/docs/owned_test.go  |   2 +
+ 4 files changed, 792 insertions(+)
+
+## Diff
+diff --git a/docs/cannot-do.md b/docs/cannot-do.md
+new file mode 100644
+index 0000000..0db7611
+--- /dev/null
++++ b/docs/cannot-do.md
+@@ -0,0 +1,385 @@
++# What Qompack cannot do
++
++This page is the long form of [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
++Its binding source is `Qompack.md` v1.5 §12, "What this plugin cannot do"; every entry below names
++the file and section it is recorded at, and says what Qompack does instead of the thing it cannot
++do.
++
++Read it as a capability boundary, not as a to-do list. Some of these limits are host boundaries a
++plugin cannot cross at all; some are gates this build has not passed; the **Recorded at** line tells
++you which, and the last group ("Not in this build") is the one that can move.
++
++Two pages carry the rest of the same material and are not repeated here:
++[docs/troubleshooting.md §10](troubleshooting.md#10-what-not-to-conclude) lists what a given output
++does *not* prove, and [docs/upstream-issues.md](upstream-issues.md) states which of these limits a
++host change could lift — as prepared proposals, none of which has been filed.
++
++## 1. Native context control
++
++### No native-history cuts, and no marker control
++
++- **Limit.** Qompack cannot perform native-history cuts, and it has no marker control: it cannot
++  move, insert or delete Claude Code's own cache markers or rewrite the native conversation.
++- **Why.** No documented host surface exposes either one. The capability register records history
++  rewriting and native eviction as `unsupported`, and the code survey behind it found no mechanism
++  at all — "two in-code statements say a plugin cannot move native cache markers".
++- **What Qompack does instead.** It records alongside the host: it captures tool results and file
++  versions into its own store, and after a compaction it offers material back through
++  `additionalContext`. What the host keeps or drops stays the host's decision.
++- **Recorded at.** `Qompack.md` v1.5 §12 "What this plugin cannot do"; `plans/MIGRATION-EVIDENCE.md`
++  "Capability register inputs" and its capability table row *History rewriting / native eviction —
++  unsupported — Excluded*; [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
++
++### No deletion of already-delivered results
++
++- **Limit.** Qompack cannot cause the deletion of already-delivered results. Once the host has
++  delivered a tool result into the conversation, nothing here removes it.
++- **Why.** The host boundary rule admits observation, reinjection and replacement of a *newly*
++  delivered result only, "through documented and target-tested adapters"; deletion of delivered
++  results is named on the excluded side of that sentence. New-result replacement itself is off on
++  this tree (`runtime.migration.replacement.newResult`, refused until the SP-21 M4 gate passes).
++- **What Qompack does instead.** It stores what it observed so the content can be retrieved later
++  ([docs/mcp-tools.md](mcp-tools.md)), and it reports what its own injected payload dropped
++  (`/qompack:dropped`). Neither touches what the host already delivered.
++- **Recorded at.** `Qompack.md` v1.5 §12; `plans/MIGRATION-EVIDENCE.md` item 7 "Host boundary";
++  [docs/config-reference.md](config-reference.md#gated-switches-ship-off) "Gated switches (ship
++  off)".
++
++### No history eviction, and an `ephemeral` tag is a Qompack record property
++
++- **Limit.** Qompack cannot evict anything from native context, and the `ephemeral` metadata on a
++  retrieval response is not a host eviction control.
++- **Why.** `internal/mcp`'s package comment states it directly: "Retrieval metadata marks Qompack
++  representations ephemeral; it does not control host eviction or establish native context
++  retention." The capability register calls ephemeral metadata "a future representation hint only".
++- **What Qompack does instead.** It marks its own representations, so a client can tell a Qompack
++  record from a host one. Coverage values (`archive_only`, `native_load_observed`, `unknown`) say
++  what was observed about a record's whereabouts and never describe complete native history —
++  [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states).
++- **Recorded at.** `internal/mcp` package comment; [docs/mcp-tools.md](mcp-tools.md) intro
++  ("Ephemeral metadata describes Qompack records"); `plans/MIGRATION-EVIDENCE.md` capability table.
++
++### No native compaction request/veto
++
++- **Limit.** Qompack cannot request a native compaction and cannot veto one. The production plugin
++  must function without a compaction request/veto, and does.
++- **Why.** §12 requires it, and the switch that would carry a veto is refused:
++  `runtime.migration.compaction.automaticVeto` defaults `false` and is refused because "the
++  recovery/proactive distinction is unverified". `runtime.migration.compaction.blockManualCompact`
++  is hardwired `false` — `internal/config/validate.go` raises a violation on `true`, with the
++  message "must be false: a manual compact is never blocked for optimization" — so a manual
++  `/compact` is never blocked; the key exists only to say so.
++- **What Qompack does instead.** It treats compaction as an event to survive rather than an event to
++  drive: PreCompact writes a checkpoint, and the next SessionStart with `source=compact` offers a
++  bounded payload back. Scheduler pacing is advisory: `scheduler.youngDaly.enabled` and
++  `scheduler.idle.deepCutWhenCold` are retired-meaning keys — "no native compaction trigger, cut or
++  veto depends on it", and "no native cut is available to a plugin".
++- **Recorded at.** `Qompack.md` v1.5 §12; `internal/config/validate.go` (the hardwired rule);
++  [docs/config-reference.md](config-reference.md#gated-switches-ship-off) and
++  [its retired-meaning keys](config-reference.md#retired-meaning-keys).
++
++## 2. Proof
++
++### No proof of model compliance with injected material
++
++- **Limit.** Qompack cannot prove model compliance: nothing here observes whether the model read,
++  used or obeyed material Qompack injected.
++- **Why.** The injection capability is recorded `implemented_unverified`, and its own note sets the
++  ceiling: "An observed sentinel documents one delivery under the tested contract, never complete
++  context or model compliance." A sentinel is evidence of a delivery, not of a behaviour.
++- **What Qompack does instead.** It reports what it emitted and what it had to drop, and marks a
++  truncated payload degraded ([docs/user-guide.md](user-guide.md#additional-context-budget-and-overflow)).
++- **Recorded at.** `Qompack.md` v1.5 §12; `internal/contract/capability.go` (`CapInjection` notes);
++  [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
++
++### No exact native loaded bytes
++
++- **Limit.** Qompack cannot report exact native loaded bytes — how much of what it injected reached
++  the model, or how many bytes the host holds.
++- **Why.** The assertion that would observe a delivery, `hook.additional_context_delivered`, has no
++  producer in this build: `contract.StandardAssertions` gates it, so `qompack self-test` reports it
++  `ok / info / not-yet-implemented`, which means no assertion was made at all. A number nobody
++  measured is `unknown`, not zero.
++- **What Qompack does instead.** It counts its own emitted tokens against its own budget and prints
++  the availability word rather than a borrowed number when there is no measurement —
++  [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance) and
++  [§2](troubleshooting.md#2-unknown-capability-or-telemetry).
++- **Recorded at.** `Qompack.md` v1.5 §12; `internal/contract/ids.go` (`CAdditionalContext`);
++  `internal/contract/assertions.go` (`gated`); proposal 1 in
++  [docs/upstream-issues.md](upstream-issues.md).
++
++### No summarizer model substitution
++
++- **Limit.** Qompack cannot perform summarizer model substitution: it cannot choose, replace or
++  configure the model that writes the host's compaction summary, and `custom_instructions` does not
++  set the summarizer's output.
++- **Why.** `Qompack.md` v1.5 §7.3 states the boundary: "`custom_instructions` is PreCompact input,
++  not a summarizer-output setter." The key that once implied otherwise,
++  `checkpoint.incrementalSpanInstruction`, is retired-meaning and read for compatibility only.
++  Whether the host accepts the instruction at all is itself unasserted here:
++  `precompact.custom_instructions_accepted` is `not-yet-implemented` on this tree.
++- **What Qompack does instead.** It writes its own checkpoint at PreCompact, which is Qompack's
++  artifact and does not depend on what the summarizer produces.
++- **Recorded at.** `Qompack.md` v1.5 §12 and §7.3;
++  [docs/config-reference.md](config-reference.md#retired-meaning-keys).
++
++### The rehydration budget is Qompack-added material, not restored native context
++
++- **Limit.** The rehydration budget bounds what Qompack adds. It is not a measurement or a promise
++  about the native context the host restores, and no claim here says the native input shrinks.
++- **Why.** [ADR 0011 §3](adr/0011-rehydration-budget-and-item-order.md) makes `Request.Budget` a
++  hard cap that is never raised; it governs the payload Qompack renders, and nothing else. What the
++  host restores on its own is not observed here.
++- **What Qompack does instead.** It fills a fixed item order inside the cap, truncates by prefix,
++  and names what did not fit in the drop report —
++  [docs/user-guide.md](user-guide.md#additional-context-budget-and-overflow).
++- **Recorded at.** [ADR 0011](adr/0011-rehydration-budget-and-item-order.md) §3 and §4;
++  [docs/architecture.md §7](architecture.md#7-checkpoint-and-rehydration).
++
++### No PostCompact dependency
++
++- **Limit.** Qompack does not depend on a post-compaction event. There is no PostCompact
++  prerequisite anywhere in the reinjection path, and this page makes no claim that such an event is
++  delivered to a plugin.
++- **Why.** The capability record is explicit: "Reinjection has no PostCompact prerequisite: it
++  cannot wait for an optional event." A capability that waits on an optional host event fails
++  silently when the event does not come.
++- **What Qompack does instead.** It infers the boundary from the next SessionStart carrying
++  `source=compact`, which is the tested adapter, and records the pairing as the
++  `session_start.source_compact` assertion.
++- **Recorded at.** `internal/contract/capability.go` (`CapInjection` notes);
++  [docs/architecture.md](architecture.md#7-checkpoint-and-rehydration); proposal 3 in
++  [docs/upstream-issues.md](upstream-issues.md).
++
++## 3. Reconstruction
++
++### It cannot reconstruct uncaptured history from current files
++
++- **Limit.** Qompack cannot reconstruct uncaptured history by reading the files that exist now. If a
++  turn was not observed, it is not recoverable from the working tree.
++- **Why.** Current file content is a statement about the present, not evidence about the past;
++  substituting it would manufacture history that nobody recorded. The architecture forbids the
++  pointer that would imply otherwise: a capture failure "leaves the host result in place and forbids
++  any handle or pointer that claims it recoverable" (`plans/00-ARCHITECTURE.md` §0.2.2).
++- **What Qompack does instead.** It separates historical reads from current reads: `re_read` returns
++  the store's own version history and is "never a live read of disk"
++  ([docs/mcp-tools.md](mcp-tools.md)), and a record with no envelope carries `unknown` fidelity
++  rather than `exact`.
++- **Recorded at.** `Qompack.md` v1.5 §12; `plans/00-ARCHITECTURE.md` §0.2.2;
++  [docs/user-guide.md](user-guide.md#current-vs-historical-reads).
++
++### A missing or `redacted`/`truncated`/`binary` original stays that way
++
++- **Limit.** Qompack cannot restore an original it does not hold. A record whose fidelity is
++  `redacted`, `truncated`, `binary`, `partial`, `failure` or `unknown` is returned as it is, with
++  that label; no substitute is invented and no gap is filled from elsewhere.
++- **Why.** Each label names something that happened at capture time: privacy policy removed content,
++  a size bound cut it, the bytes were not text, or the capture failed outright. The label is the
++  honest answer; replacing it with a plausible reconstruction would erase the one signal telling you
++  not to trust the bytes.
++- **What Qompack does instead.** It returns the label with the content and separates it from the
++  outcome enumeration, so `denied` (withheld) and `unavailable` (lookup failed) never read as
++  "absent" — [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states) and
++  [docs/troubleshooting.md §4](troubleshooting.md#4-denied-or-unavailable-evidence).
++- **Recorded at.** `internal/core/evidence.go` (the three enumerations);
++  [ADR 0013](adr/0013-migration-contracts.md) ("errors read as absence" is a named defect).
++
++### No complete capture of unobserved child work
++
++- **Limit.** Qompack cannot promise complete capture of unobserved child work. Work done inside a
++  subagent or child process that produces no hook event Qompack sees is not in the store.
++- **Why.** Capture is driven by the hook surface — the seven events declared in
++  `internal/pluginmanifest/manifest.go` — so anything that surface does not deliver is not observed.
++  Coverage of what a child did is therefore qualified, never complete.
++- **What Qompack does instead.** It reports coverage as a value rather than as an assumption
++  (`unknown` is a real answer), and `/qompack:dropped` is documented as "Qompack's recorded omissions
++  for this session", which "does not establish what remains in native context".
++- **Recorded at.** `Qompack.md` v1.5 §12 and §7.3 (hook surface);
++  [docs/mcp-tools.md](mcp-tools.md#dropped);
++  [docs/troubleshooting.md §3](troubleshooting.md#3-capture-gaps).
++
++## 4. Guarantees Qompack does not make
++
++### No universal improvement and no universal savings
++
++- **Limit.** Qompack claims no universal improvement and no universal savings. There is no claim
++  that any session gets better, cheaper or shorter, on average or at all.
++- **Why.** Nothing has measured it. `plans/V5-report.md` §26 records that no held-out task runs,
++  stochastic baselines or quality trials were executed, and that SP-21's quality row is
++  "inconclusive by construction". An unmeasured effect is not a small effect; it is an unknown one.
++- **What Qompack does instead.** It reports executed test results and single-machine benchmarks with
++  their conditions stated, and records inconclusive outcomes as inconclusive.
++- **Recorded at.** `Qompack.md` v1.5 §12; `plans/V5-report.md` §24 (the SP-21 enabled-surface matrix)
++  and §26; [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
++
++### No performance guarantee on any host
++
++- **Limit.** Qompack makes no performance guarantee. The latency budgets in this repository gate
++  CI; they are not promises about your machine.
++- **Why.** A wall-clock figure is only judgeable where it is judgeable:
++  [ADR 0010](adr/0010-wall-clock-under-coload.md) exists because a measurement taken under co-load
++  is not a judgement, and its Addendum 1 records a budget premise that was falsified by a later
++  measurement. The tails a shared machine adds are large enough to invert a verdict: the same
++  commit, on a single hosted CI runner class, minutes apart, product byte-identical, read a B-A
++  p99 of 3.072 ms in the isolated lane and 18.432 ms in the whole-tree job — a failure against a
++  15 ms limit (ADR 0010, Context table). Reference-platform rows remain open in
++  `plans/V5-report.md` §29 item 2, which also records two known in-scope regressions awaiting a
++  budget-versus-guarantee decision.
++- **What Qompack does instead.** It measures what it can attribute and prints the availability word
++  where it cannot — see the `unavailable` per-hook rows in
++  [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
++- **Recorded at.** [ADR 0010](adr/0010-wall-clock-under-coload.md) (Context, "What this does not
++  decide", Addendum 1); `plans/V5-report.md` §29.
++
++### No cost or price guarantee
++
++- **Limit.** Qompack cannot tell you what a session cost. Reported usage is not an estimated price,
++  and an estimated price is not an invoice.
++- **Why.** The category counts that a price needs — cache read, cache write, input, output — are not
++  exposed to a plugin. `plans/V5-report.md` §25 records cache categories, TTL and retries as
++  `unknown` and estimated price as `unknown`, "no rate table applied; subscription allowance is not
++  cash per token". `Qompack.md` Appendix A scopes the quantity the same way: "Request price — sum
++  reported category × applicable dated rate, plus non-token charges; unknown stays unknown."
++- **What Qompack does instead.** Its ledger never writes an estimate as an invoice and never fills
++  an unknown count with zero — [docs/user-guide.md](user-guide.md#usage-accounting).
++- **Recorded at.** `Qompack.md` v1.5 Appendix A; `plans/V5-report.md` §25;
++  [docs/architecture.md §10](architecture.md#10-what-is-not-supported). A host change that would
++  lift this is proposal 6 in [docs/upstream-issues.md](upstream-issues.md).
++
++### No name-availability guarantee
++
++- **Limit.** Qompack cannot guarantee that its slash-command or MCP tool names are available in your
++  session. This plugin advertises names; nothing reserves them, and another plugin may advertise the
++  same ones.
++- **Why.** What else a host has loaded is not visible from here, and the matrix that would test it
++  has not been run: `plans/V5-report.md` §29 item 6 carries T21-HOST-01, the competing-hook matrix,
++  as needing an installed host.
++- **What Qompack does instead.** It namespaces its commands (`/qompack:…`) and its tools, and treats
++  a collision as an operational question you can see in the host's own command list.
++- **Recorded at.** `plans/V5-report.md` §24 (host allowlist empty) and §29 item 6;
++  [docs/architecture.md §10](architecture.md#10-what-is-not-supported).
++
++### No inference of cache state from arbitrary elapsed time
++
++- **Limit.** Qompack cannot infer cache state from arbitrary elapsed time. It does not decide that a
++  prompt cache entry is warm or cold because a certain number of minutes passed.
++- **Why.** The break-even arithmetic is scoped as a diagnostic, not an oracle: `Qompack.md`
++  Appendix A prices it as "N > (w−r)/(1−r), assuming N identical uses, one write, later hits and
++  r<1". The host exposes no cache-state signal to a plugin, so an elapsed-time guess would be a
++  fabricated observation.
++- **What Qompack does instead.** It treats an unobserved quantity as `unknown` and leaves
++  cache-shaped decisions to the host. Where Qompack itself calls something a cache, it says so and
++  bounds the consequence — [ADR 0009](adr/0009-negative-knowledge-bloom-as-cache.md) is about
++  Qompack's own Bloom filter, not about the host's prompt cache.
++- **Recorded at.** `Qompack.md` v1.5 §12 and Appendix A; `plans/QOMPACK-ERRATA.md` v1.3 "What could
++  not be verified, and will not be".
++
++## 5. Trust boundary
++
++### An archive is never a denied-read bypass
++
++- **Limit.** Qompack cannot be used as a denied-read bypass. Retrieving from the archive is not a
++  way around a policy decision that refused a read.
++- **Why.** The risk register routes this to authorization before snippets and bounded decoding, with
++  "no denied-read bypass" as the stated boundary. `denied` means the content exists and was
++  withheld; returning it from a second door would invert the decision.
++- **What Qompack does instead.** It authorizes before it expands, keeps `denied` distinct from
++  `absent`, and never substitutes current content for a denied or unavailable one —
++  [docs/troubleshooting.md §4](troubleshooting.md#4-denied-or-unavailable-evidence).
++- **Recorded at.** `Qompack.md` v1.5 §12 (both the risk-register row and "What this plugin cannot
++  do"); [docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states).
++
++### Redaction is applied at capture, and telemetry is hardwired off
++
++- **Limit.** Qompack cannot retroactively redact what it already stored, and it cannot send
++  telemetry anywhere. Privacy policy is applied on the capture path; there is no upload path to turn
++  on.
++- **Why.** A record stored before a policy change was stored under the old policy; that is why
++  `redacted` is a capture-time fidelity value. For telemetry, `runtime.telemetry.enabled` is
++  hardwired off and a `true` is refused as a violation (`internal/config/validate.go`); decision D10
++  forbids network I/O anywhere in this repository, which `internal/mcp`'s package comment restates
++  for the one package most likely to be mistaken for an exception.
++- **What Qompack does instead.** It writes under `.qompack/` in your project and keeps retention and
++  write-set local — [docs/architecture.md §2](architecture.md#2-write-set-and-retention) — and
++  `qompack config print --provenance` shows the effective value of every key and where it came from.
++- **Recorded at.** `internal/config/validate.go`;
++  [docs/config-reference.md](config-reference.md#runtime); `internal/mcp` package comment (decision
++  D10); [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
++
++## 6. Not in this build
++
++These are the limits that can move. Each names the gate or the owner that would move it.
++
++### `/qompack:checkpoint` is not routed
++
++- **Limit.** `/qompack:checkpoint` is advertised but not reachable as a subcommand in this build.
++- **Why.** `qompack checkpoint` is the PreCompact hook entry point: it always exits 0 and reads a
++  hook event from stdin. A separate local-seal route needs an architecture pre-step (SP-14 handoff
++  edge H3), which is open by design.
++- **What Qompack does instead.** Checkpoints are written by the PreCompact hook on the host's
++  compaction boundary and by the scheduler; there is no manual route to one yet.
++- **Recorded at.** [docs/commands.md](commands.md#qompackcheckpoint) ("Not available in this
++  build"); `plans/V5-report.md` §29 item 3.
++
++### `doctor` and `fsck` are unimplemented
++
++- **Limit.** `qompack doctor` and `qompack fsck` do nothing. Each prints
++  `qompack <name>: not implemented in this build` and exits 1.
++- **Why.** Neither has been implemented; the exit code says so rather than pretending success. (The
++  `bench` survivor is in the same state and is SP-17's to implement or deprecate.)
++- **What Qompack does instead.** `qompack self-test` is the diagnostic that exists, and
++  [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance) is the procedure that
++  uses it.
++- **Recorded at.** [docs/user-guide.md](user-guide.md#operator-commands);
++  [docs/troubleshooting.md §9](troubleshooting.md#9-backup-rollback-and-recovery);
++  `plans/V5-report.md` §29 item 7.
++
++### Installed-host compatibility is `implemented_unverified`
++
++- **Limit.** No claim on this tree is backed by a run against an installed Claude Code. Compatibility
++  is verified at the repository-validator level only.
++- **Why.** `plans/V5-report.md` §24 records installed-host compatibility as `implemented_unverified`
++  (B01), and `plans/MIGRATION-EVIDENCE.md` states it flatly: "No test or document in either tree
++  claims installed-host verification for any capability; B01 stands." Four host contracts are
++  unasserted in this build for the same reason — `hook.additional_context_delivered`,
++  `precompact.has_time_to_write`, `precompact.custom_instructions_accepted` and
++  `mcp.server_registered` all report `not-yet-implemented`.
++- **What Qompack does instead.** It reports the producer-absent state honestly instead of reading it
++  as success, and pins that reading with a test over `internal/contract/observation.go`'s spellings
++  table.
++- **Recorded at.** `plans/V5-report.md` §24; `plans/MIGRATION-EVIDENCE.md` "Capability register
++  inputs"; [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance).
++
++### The enabled-surface rows that are "mechanism only"
++
++- **Limit.** Several SP-21 surfaces exist as code and are not enabled: the admission gate is off (a
++  zero gate refuses; explicit opt-in only), replacement is off, the host allowlist is empty, and
++  fresh-owned-result transformation, durable capture/authorization before replacement and
++  unsupported-content pass-through are recorded as *mechanism only*. The quality row has no
++  observations at all.
++- **Why.** Each is recorded as *disabled*, never as *passed*: the enabled-surface matrix in
++  `plans/V5-report.md` §24 gives the status of every row, and the switches behind them stay refused
++  until their gate passes.
++- **What Qompack does instead.** It ships them off. A `true` written against a refused switch falls
++  back to the default and warns, so a config file cannot enable a capability this build does not
++  support.
++- **Recorded at.** `plans/V5-report.md` §24 (SP-21 enabled-surface matrix);
++  [docs/config-reference.md](config-reference.md#gated-switches-ship-off) and its
++  [build gates](config-reference.md#build-gates-no-config-key); README, "What ships off, and why you
++  should leave it off".
++
++## How to read the rest of the docs
++
++When a page names a file as **planned (SP-NN)** in plain text rather than linking it, the file does
++not exist on this tree: the text is a forward reference to the subplan that owns it, not a broken
++link. Anything written as a link resolves to a file that is here now, and a test in `test/docs`
++fails the build if it stops resolving.
++
++The same convention governs claims. A behaviour stated on these pages is read from a named source
++and cited; where nothing here can settle a question, it is marked `unknown` with the observation
++that would answer it, rather than guessed. `unknown` is a real answer and appears as one in the
++fidelity, coverage and outcome enumerations
++([docs/user-guide.md](user-guide.md#fidelity-coverage-and-error-states)).
++
++Where a limit above could be lifted by a host change, the proposal that would lift it is on
++[docs/upstream-issues.md](upstream-issues.md) — prepared text, and nothing more than that.
+diff --git a/docs/upstream-issues.md b/docs/upstream-issues.md
+new file mode 100644
+index 0000000..384a9ed
+--- /dev/null
++++ b/docs/upstream-issues.md
+@@ -0,0 +1,179 @@
++# Upstream proposals
++
++These are **proposals prepared by SP-18**. None of them has been filed. Nothing on this page has
++been sent, submitted, drafted in a tracker, discussed with anyone, or acknowledged by anyone; the
++page is text in this repository and nothing else. A proposal becomes an issue only under separate
++authorization (`Qompack.md` v1.5 §12, "Upstream issues worth filing separately": "Sending issues
++requires separate authorization"), and this page then records the issue URL beside the proposal it
++came from.
++
++Each proposal names a host limitation as observed from this repository, the evidence that Qompack
++cannot assert the thing today, the smallest host change that would let it, and what Qompack would do
++with that change. The evidence is the point: a proposal without a named source is a wish. Where the
++limitation is stated as "not exposed to a plugin", that is a statement about what this repository
++could find and use — an absence of a documented surface, never a claim about Claude Code's internals.
++`plans/QOMPACK-ERRATA.md` v1.3, "What could not be verified, and will not be", is the standing rule
++for that distinction: of the host compaction internals named by identifier in the planning document,
++"None appears in published documentation. None can be confirmed or refuted from it" — so they are
++treated as motivating background at the version they were written against, not as a live contract,
++and nothing on this page rests on one.
++
++Every one of these limits is recorded on [docs/cannot-do.md](cannot-do.md) as a limit Qompack lives
++within today. None of them is a blocker: Qompack is designed to degrade rather than to depend on a
++capability it cannot verify.
++
++| # | Proposal | Status |
++|---|---|---|
++| 1 | Observability of delivered `additionalContext` | `not filed` |
++| 2 | A PreCompact contract for `custom_instructions` and time to write | `not filed` |
++| 3 | A post-compaction signal | `not filed` |
++| 4 | Per-hook latency attribution | `not filed` |
++| 5 | MCP server registration visibility | `not filed` |
++| 6 | Usage telemetry per request category | `not filed` |
++| 7 | A supported compaction request/veto or marker API | `not filed` |
++
++## 1. Observability of delivered `additionalContext`
++
++- **Host limitation.** A plugin that returns `additionalContext` from a SessionStart hook with
++  `source=compact` receives no signal about what happened to it: whether it was delivered to the
++  model at all, and how much of it. No documented host surface reports this.
++- **Evidence.** `hook.additional_context_delivered` — the assertion whose job this is — reports
++  `not-yet-implemented` on this tree, which is the producer-absent state and means no assertion was
++  made (`internal/contract/ids.go` `CAdditionalContext`; `internal/contract/assertions.go`, the
++  `gated` wrapper: the real check "never runs at all"). The design it belongs to,
++  [ADR 0011](adr/0011-rehydration-budget-and-item-order.md), can bound and order what Qompack emits
++  but cannot observe what the host did with it, and `internal/contract/capability.go` records
++  injection as `implemented_unverified` with the note that an observed sentinel "documents one
++  delivery under the tested contract, never complete context or model compliance".
++- **Proposal.** Report delivery of hook-supplied additional context back to the hook's own process:
++  a delivered/not-delivered flag and the delivered size, on the same event, would be enough.
++- **What Qompack would do with it.** Declare the producer for
++  `hook.additional_context_delivered`, so the assertion observes for real instead of reporting the
++  producer-absent state, and drop "no exact native loaded bytes" from
++  [docs/cannot-do.md](cannot-do.md) for the part that concerns Qompack's own injected block. It
++  would not lift the model-compliance limit, which is a different question.
++- **Status: not filed.**
++
++## 2. A PreCompact contract for `custom_instructions` acceptance and time to write
++
++- **Host limitation.** Two properties of the PreCompact hook are undocumented as guarantees:
++  whether `custom_instructions` returned by the hook is accepted, and how much wall time the hook
++  has before compaction proceeds without it.
++- **Evidence.** Both assertions report `not-yet-implemented` on this tree:
++  `precompact.has_time_to_write` ("measured PreCompact wall time vs. the manifest timeout") and
++  `precompact.custom_instructions_accepted` ("the emitted instruction's sentinel phrase is searched
++  for in the post-compaction summary; absent warns (advisory by design)") —
++  `internal/contract/ids.go`. `Qompack.md` v1.5 §7.3 records the boundary that makes the first
++  question sharp: "`custom_instructions` is PreCompact input, not a summarizer-output setter", and
++  "installed support remains unverified".
++- **Proposal.** State the PreCompact timeout as a contract, and acknowledge acceptance of
++  `custom_instructions` in the hook's own response path — accepted or ignored, with a reason —
++  rather than leaving both to be inferred from a later summary.
++- **What Qompack would do with it.** Size its PreCompact checkpoint work against a stated budget
++  instead of against a conservative guess, and turn the `custom_instructions` question from an
++  advisory sentinel search into a real assertion. It would not turn the instruction into a
++  summarizer setter; that limit stands regardless.
++- **Status: not filed.**
++
++## 3. A post-compaction signal that does not have to be inferred
++
++- **Host limitation.** There is no post-compaction event delivered to a plugin. A plugin learns that
++  a compaction happened by observing the next SessionStart carrying `source=compact`.
++- **Evidence.** `internal/contract/capability.go` records the design consequence directly:
++  "Reinjection has no PostCompact prerequisite: it cannot wait for an optional event." The pairing
++  Qompack infers instead is its own assertion, `session_start.source_compact` — "after a PreCompact
++  is observed, the next SessionStart must arrive with source == \"compact\" within the same session
++  id. Recorded in `state/contract.json` and evaluated on the FOLLOWING start"
++  (`internal/contract/ids.go`). `Qompack.md` v1.5 §7.3 lists PostCompact among the surfaces current
++  documentation describes while "installed support remains unverified".
++- **Proposal.** Deliver a post-compaction event (or an equivalent one-shot signal) carrying the
++  session id and the compaction's outcome, so a plugin need not reconstruct the boundary from the
++  event that follows it.
++- **What Qompack would do with it.** Observe the compaction boundary directly instead of evaluating
++  it one session-start late, which would remove a class of missed pairings when a session ends
++  between the two events. Qompack would keep working without it: the reinjection path must not
++  acquire a dependency on an optional event, and would not.
++- **Status: not filed.**
++
++## 4. Per-hook latency attribution
++
++- **Host limitation.** A hook process cannot attribute its own end-to-end latency per hook event.
++  Nothing tells the created process what the host measured for it, and the process cannot observe
++  the part that happens before it starts.
++- **Evidence.** `qompack status` prints `unavailable` for every per-hook row with the reason
++  `internal/commands/statuscollect.go` gives it: "no per-hook instrument: PostToolUse is folded into
++  the hook_controlled aggregate, which mixes every delivering hook and cannot be attributed to one"
++  (`hookRows`, formatted from the `no per-hook instrument: %s is folded into the %s aggregate`
++  string). The neighbouring B-D row says the other half: "no instrument records this histogram in
++  this build; it measures host process creation, which the created process cannot observe". Both are
++  quoted in [docs/troubleshooting.md §2](troubleshooting.md#2-unknown-capability-or-telemetry).
++- **Proposal.** Expose per-hook timing to the hook's own process — at minimum the host-measured
++  duration of the invocation, keyed by hook event — instead of leaving a plugin to fold every
++  delivering hook into one aggregate.
++- **What Qompack would do with it.** Fill the per-hook latency rows with a measured number instead
++  of the availability word, and judge the per-event budgets separately. It would not change
++  [ADR 0010](adr/0010-wall-clock-under-coload.md)'s rule that a wall-clock figure is judged only
++  where it is judgeable.
++- **Status: not filed.**
++
++## 5. MCP server registration visibility
++
++- **Host limitation.** A plugin cannot tell whether the host registered the MCP server its
++  `.mcp.json` declares. The stdio server learns it exists only if a client speaks to it, and a host
++  that never launched it produces the same silence as a host that launched it and sent nothing.
++- **Evidence.** `mcp.server_registered` — "the MCP server received initialize at least once this
++  session" (`internal/contract/ids.go` `CMCPRegistered`) — reports `not-yet-implemented` on this
++  tree. `internal/mcp`'s package comment records the related asymmetry: Claude Code "launches an MCP
++  server once per client and hands it no session_id", which is why the daemon, not the stdio
++  process, resolves the session.
++- **Proposal.** Make registration observable to the plugin that declared the server: report whether
++  the declared server was registered, and if it was refused, why.
++- **What Qompack would do with it.** Declare the producer for `mcp.server_registered` and answer
++  "are the retrieval tools actually available in this session?" in `qompack self-test`, instead of
++  reporting the producer-absent state. Today the honest answer is that the row asserts nothing —
++  [docs/troubleshooting.md §1](troubleshooting.md#1-start-with-provenance).
++- **Status: not filed.**
++
++## 6. Usage telemetry per request category
++
++- **Host limitation.** Per-request usage categories — cache read, cache write, input, output — are
++  not exposed to a plugin, and neither are TTL or retry counts. A plugin that wants to account for
++  usage can parse only what a transcript happens to carry.
++- **Evidence.** `plans/V5-report.md` §25 records it as measured absence: "Cache categories, TTL,
++  retries and the coordinator's own usage are not exposed to this session: `unknown`. Estimated
++  price: `unknown` (no rate table applied; subscription allowance is not cash per token)."
++  `plans/MIGRATION-EVIDENCE.md` records what Qompack can parse today: usage attribution "parses
++  exactly one field (`output_tokens`, `internal/eval/importer.go:55-57`) and is otherwise absent".
++  `Qompack.md` v1.5 Appendix A scopes the quantity itself: "Request price — sum reported category ×
++  applicable dated rate, plus non-token charges; unknown stays unknown", and §5's cache arithmetic
++  is a break-even condition, not a price.
++- **Proposal.** Expose per-request usage by category to plugins, with the cache TTL that applied, so
++  an accounting plugin reports categories it was given rather than inferring them.
++- **What Qompack would do with it.** Record the categories in its own ledger and stop writing
++  `unknown` where a count exists. It would still not publish a price: a rate table and a
++  subscription allowance are outside this repository, and an estimate is never written as an invoice
++  ([docs/cannot-do.md](cannot-do.md), "No cost or price guarantee").
++- **Status: not filed.**
++
++## 7. A supported native compaction request/veto or marker API
++
++- **Host limitation.** There is no supported way for a plugin to request a compaction, to veto one,
++  or to control cache markers or native history.
++- **Evidence.** `Qompack.md` v1.5 §12 states the design consequence as a requirement on Qompack, not
++  as a complaint about the host: "The production plugin must function without native compaction
++  request/veto." `plans/MIGRATION-EVIDENCE.md` records history rewriting and native eviction as
++  `unsupported` and "Excluded", with "no mechanism" for compaction requests, compaction blocking and
++  history rewriting in the tree survey. The corresponding switch is refused on purpose:
++  `runtime.migration.compaction.automaticVeto` stays `false` because "the recovery/proactive
++  distinction is unverified"
++  ([docs/config-reference.md](config-reference.md#gated-switches-ship-off)), and
++  `runtime.migration.compaction.blockManualCompact` is hardwired `false` so a manual `/compact` is
++  never blocked.
++- **Proposal.** If such a control is ever offered, offer it with the distinction Qompack would need
++  to use it safely: which compaction is a recovery and which is proactive. A veto without that
++  distinction is not usable.
++- **What Qompack would do with it.** Nothing, until the distinction is verified in a target host.
++  Qompack does not depend on this capability and would keep the switch gated off; the entry exists
++  so the requirement is on record, not because a gate is waiting on it. A manual `/compact` would
++  remain unblockable regardless: that is a hardwired local rule, not a host limitation.
++- **Status: not filed.**
+diff --git a/test/docs/limits_test.go b/test/docs/limits_test.go
+new file mode 100644
+index 0000000..56b8c8a
+--- /dev/null
++++ b/test/docs/limits_test.go
+@@ -0,0 +1,226 @@
++package docs
++
++import (
++	"path/filepath"
++	"regexp"
++	"strings"
++	"testing"
++)
++
++// This file checks the two pages SP-18 Commit 5 owns: docs/cannot-do.md (the limits page) and
++// docs/upstream-issues.md (proposals prepared, none filed).
++//
++// The checks here stay mechanical, in the spirit of doc.go: they verify that the limits page still
++// names every noun Qompack.md v1.5 §12 refuses, that the proposals page still says nothing was
++// filed, and that the host contracts this build cannot assert are named SOMEWHERE on the two pages.
++// Whether the prose around those nouns is true is the reviewer's job, not this package's.
++
++// section12Nouns are the limits Qompack.md v1.5 §12 "What this plugin cannot do" states, in its own
++// words. They are quoted from the plan rather than paraphrased so that a future §12 revision which
++// respells one of them shows up here as a failure instead of leaving the page quietly describing a
++// limit the binding source no longer states.
++var section12Nouns = []string{
++	"native-history cuts",
++	"marker control",
++	"deletion of already-delivered results",
++	"summarizer model substitution",
++	"exact native loaded bytes",
++	"model compliance",
++	"universal savings",
++	"unobserved child work",
++	"compaction request/veto",
++	"reconstruct uncaptured history",
++	"cache state from arbitrary elapsed time",
++	"denied-read bypass",
++}
++
++// readDoc returns a page's full text with carriage returns removed.
++func readDoc(t *testing.T, root, rel string) string {
++	t.Helper()
++	return strings.Join(readLines(t, filepath.Join(root, filepath.FromSlash(rel))), "\n")
++}
++
++// TestCannotDoCoversSection12Limits asserts docs/cannot-do.md states every limit §12 states. A
++// limits page that dropped one would read as though the limit had been lifted.
++func TestCannotDoCoversSection12Limits(t *testing.T) {
++	body := readDoc(t, repoRoot(t), "docs/cannot-do.md")
++	for _, noun := range section12Nouns {
++		if !strings.Contains(body, noun) {
++			t.Errorf("docs/cannot-do.md: does not state %q (Qompack.md v1.5 §12)", noun)
++		}
++	}
++}
++
++// issueURLRe matches a GitHub issue URL. Its presence on the proposals page would mean a proposal
++// became a real issue; see TestUpstreamIssuesAreAllUnfiled.
++var issueURLRe = regexp.MustCompile(`https://github\.com/\S*/issues/`)
++
++// TestUpstreamIssuesAreAllUnfiled pins the one fact that makes docs/upstream-issues.md safe to
++// publish: it is prepared text, and nothing on it has been sent anywhere. Every proposal section
++// must carry its own "Status: not filed" — a page-level disclaimer would not survive someone
++// appending a section — and the page must carry no issue URL at all.
++//
++// This test is meant to be flipped deliberately. The day a proposal is actually filed under
++// separate authorization, its author changes that section's status, records the URL beside it, and
++// changes this test with the artifact in hand. It must never be relaxed in advance.
++func TestUpstreamIssuesAreAllUnfiled(t *testing.T) {
++	root := repoRoot(t)
++	rel := "docs/upstream-issues.md"
++	lines := readLines(t, filepath.Join(root, filepath.FromSlash(rel)))
++
++	if m := issueURLRe.FindString(strings.Join(lines, "\n")); m != "" {
++		t.Errorf("%s: carries an issue URL (%s): a filed issue needs this test changed deliberately,"+
++			" with the artifact", rel, m)
++	}
++
++	// Each level-2 heading opens a proposal section; the section runs to the next level-2 heading
++	// or to the end of the page. The header material before the first one is not a proposal.
++	type section struct {
++		title string
++		line  int
++		body  []string
++	}
++	var sections []section
++	for i, l := range lines {
++		text, level, ok := headingText(l)
++		if ok && level == 2 {
++			sections = append(sections, section{title: text, line: i + 1})
++			continue
++		}
++		if len(sections) > 0 {
++			s := &sections[len(sections)-1]
++			s.body = append(s.body, l)
++		}
++	}
++	if len(sections) == 0 {
++		t.Fatalf("%s: no level-2 proposal sections found: the scan is looking in the wrong place", rel)
++	}
++	for _, s := range sections {
++		if !strings.Contains(strings.Join(s.body, "\n"), "Status: not filed") {
++			t.Errorf("%s:%d: section %q does not say \"Status: not filed\"", rel, s.line, s.title)
++		}
++	}
++}
++
++// gatedRe matches one row of contract.StandardAssertions: gated(CSomeName, …).
++var gatedRe = regexp.MustCompile(`gated\(\s*(C[A-Za-z0-9_]+)\s*,`)
++
++// idConstRe matches one contract ID constant declaration: CSomeName ID = "some.name".
++var idConstRe = regexp.MustCompile(`(C[A-Za-z0-9_]+)\s+ID\s*=\s*"([^"]+)"`)
++
++// declareRe matches one producer declaration inside daemon.DeclareProducers.
++var declareRe = regexp.MustCompile(`contract\.DeclareProducer\(\s*contract\.(C[A-Za-z0-9_]+)\s*\)`)
++
++// TestCannotDoNamesTheUnimplementedChecks derives — never hard-codes — the host contracts this
++// build cannot assert, and requires the documentation to name each one.
++//
++// The derivation follows the same path `qompack self-test` does. selfTestContractAssertions
++// (internal/cli/selftest.go) declares producers against a ZERO daemon.Services and then runs
++// contract.StandardAssertions; contract's gated wrapper (internal/contract/assertions.go) reports
++// Observed "not-yet-implemented" for any assertion whose producer was not declared. So the
++// not-yet-implemented set is every standard assertion minus those daemon.DeclareProducers declares
++// UNCONDITIONALLY — the conditional declarations sit behind nil checks on Services fields a zero
++// Services leaves nil.
++//
++// The premises of that walk are asserted, not assumed: if self-test stops passing a zero Services,
++// or stops going through StandardAssertions, this test fails loudly rather than deriving a stale
++// list from source it no longer describes.
++func TestCannotDoNamesTheUnimplementedChecks(t *testing.T) {
++	root := repoRoot(t)
++
++	selftest := readDoc(t, root, "internal/cli/selftest.go")
++	for _, premise := range []string{
++		"daemon.DeclareProducers(&daemon.Services{})",
++		"contract.StandardAssertions()",
++	} {
++		if !strings.Contains(selftest, premise) {
++			t.Fatalf("internal/cli/selftest.go: no longer contains %q; this test derives the "+
++				"not-yet-implemented rows from that call and must be rewritten against the new shape",
++				premise)
++		}
++	}
++
++	// Every standard assertion, by constant name, in declaration order.
++	standard := readDoc(t, root, "internal/contract/standard.go")
++	var all []string
++	for _, m := range gatedRe.FindAllStringSubmatch(standard, -1) {
++		all = append(all, m[1])
++	}
++	if len(all) == 0 {
++		t.Fatal("internal/contract/standard.go: no gated(C…) rows found: the scan is looking in the wrong place")
++	}
++
++	// The constant name -> on-disk ID string.
++	ids := map[string]string{}
++	for _, m := range idConstRe.FindAllStringSubmatch(readDoc(t, root, "internal/contract/ids.go"), -1) {
++		ids[m[1]] = m[2]
++	}
++
++	// The producers a zero Services declares: the DeclareProducer calls at the top level of
++	// DeclareProducers' body. Anything nested inside an `if` is conditional on a Services field
++	// that a zero Services leaves nil, so it is NOT declared on self-test's synthetic run.
++	declared := map[string]bool{}
++	body, ok := funcBody(readDoc(t, root, "internal/daemon/options.go"), "func DeclareProducers(s *Services) {")
++	if !ok {
++		t.Fatal("internal/daemon/options.go: DeclareProducers not found: the scan is looking in the wrong place")
++	}
++	depth := 0
++	for _, line := range strings.Split(body, "\n") {
++		if depth == 0 {
++			if m := declareRe.FindStringSubmatch(line); m != nil {
++				declared[m[1]] = true
++			}
++		}
++		depth += strings.Count(line, "{") - strings.Count(line, "}")
++	}
++	if len(declared) == 0 {
++		t.Fatal("internal/daemon/options.go: no unconditional DeclareProducer calls found")
++	}
++
++	var want []string
++	for _, name := range all {
++		if declared[name] {
++			continue
++		}
++		id, ok := ids[name]
++		if !ok {
++			t.Errorf("internal/contract/ids.go: no ID constant for %s", name)
++			continue
++		}
++		want = append(want, id)
++	}
++	if len(want) == 0 {
++		t.Fatal("derived an empty not-yet-implemented set: either every producer is now declared " +
++			"unconditionally (in which case the documentation claim is obsolete) or the derivation broke")
++	}
++
++	pages := readDoc(t, root, "docs/cannot-do.md") + "\n" + readDoc(t, root, "docs/upstream-issues.md")
++	for _, id := range want {
++		if !strings.Contains(pages, id) {
++			t.Errorf("neither docs/cannot-do.md nor docs/upstream-issues.md names %q, which self-test "+
++				"reports as not-yet-implemented on this tree", id)
++		}
++	}
++}
++
++// funcBody returns the text between the brace that opens decl and its matching close brace.
++func funcBody(src, decl string) (string, bool) {
++	i := strings.Index(src, decl)
++	if i < 0 {
++		return "", false
++	}
++	rest := src[i+len(decl):]
++	depth := 1
++	for j, r := range rest {
++		switch r {
++		case '{':
++			depth++
++		case '}':
++			depth--
++			if depth == 0 {
++				return rest[:j], true
++			}
++		}
++	}
++	return "", false
++}
+diff --git a/test/docs/owned_test.go b/test/docs/owned_test.go
+index a80fa5a..b80a206 100644
+--- a/test/docs/owned_test.go
++++ b/test/docs/owned_test.go
+@@ -11,20 +11,22 @@ import (
+ // ownedDocs is the set of hand-written pages SP-18 owns. Later commits in this subplan append to
+ // it as they add the user guide, troubleshooting, limits and UAT pages; nothing else belongs here,
+ // because the generated pages (docs/config-reference.md, docs/commands.md, docs/mcp-tools.md) have
+ // their own drift check in CI's `docs` job and the ADRs have TestADRIndexListsEveryADR.
+ var ownedDocs = []string{
+ 	"README.md",
+ 	"docs/architecture.md",
+ 	"docs/adr/README.md",
+ 	"docs/user-guide.md",
+ 	"docs/troubleshooting.md",
++	"docs/cannot-do.md",
++	"docs/upstream-issues.md",
+ }
+ 
+ // TestOwnedDocsExist asserts the shape every owned page shares: it exists, it has content, and it
+ // opens on a level-1 heading, so a page can never be half-created or left as a stub that other
+ // documents already link.
+ func TestOwnedDocsExist(t *testing.T) {
+ 	root := repoRoot(t)
+ 	for _, rel := range ownedDocs {
+ 		abs := filepath.Join(root, filepath.FromSlash(rel))
+ 		info, err := os.Stat(abs)
