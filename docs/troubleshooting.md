@@ -539,6 +539,9 @@ section with a warning.
 rollback command. This page does not describe a manual copy-and-restore procedure either: the backup
 layout under `.qompack/backup/` is produced by `TakeBackup`, which writes a manifest a restore
 verifies against, and a hand-made copy is not that. An operator-facing procedure is planned (SP-17).
+The interim procedure the acceptance scenarios use is the operator's own pre-run copy of
+`.qompack/` compared afterwards against the index files ([docs/uat.md](uat.md)); it is a manual
+precaution for a test run, not a verified restore and not the planned SP-17 operator procedure.
 
 **Do not downgrade data to match old prose.** If a document describes a recovery step this build
 does not implement, the document is the thing that is wrong. Do not delete, truncate or rewrite
@@ -574,12 +577,13 @@ exactly that instinct.
 - [docs/config-reference.md](config-reference.md) — every configuration key, generated
 - [docs/commands.md](commands.md) — the slash commands and their exact flags, generated
 - [docs/mcp-tools.md](mcp-tools.md) — the MCP tools and their argument schemas, generated
+- [docs/cannot-do.md](cannot-do.md) — the capabilities this build does not have, and where each
+  limit is recorded
+- [docs/uat.md](uat.md) — the acceptance scenarios and the evidence a run has to leave
 - [docs/architecture.md](architecture.md) — the contracts behind all of it, including
   [what is not supported](architecture.md#10-what-is-not-supported)
 - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
 
 Planned, and not yet written — named as plain text on purpose, because none of these files exists:
 
-- planned (SP-18 Commit 5): docs/cannot-do.md
-- planned (SP-18 Commit 6): docs/uat.md
 - planned (SP-17): docs/install.md, docs/security.md and docs/release.md

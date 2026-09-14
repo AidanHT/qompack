@@ -164,22 +164,41 @@ Start with two ready disjoint documents; use a third slot only for another indep
 
 ## Exit criteria
 
-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
+- [x] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
-- [ ] SP18-M7-01–07 match actual installed release scope and evidence.
-- [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs.
-- [ ] Config versioning/deprecation and independent switches are correctly described.
-- [ ] Unsupported native controls and unknown historic/current recovery cases remain explicit.
-- [ ] SP17 artifacts are integrated before documentation signoff; no fabricated existing files.
+- [ ] SP18-M7-01–07 match actual installed release scope and evidence. (blocked: M7-03 and M7-05 need SP-17's bundle and an authorized human run; M7-07 is pending the final whole-branch review.)
+- [ ] Future UAT reports include failures/skips, versions, dates and snapshots; no migration gate inferred from writing docs. (blocked: all twelve rows are drafted with snapshot and date, but none was executed, so no report exists yet.)
+- [x] Config versioning/deprecation and independent switches are correctly described.
+- [x] Unsupported native controls and unknown historic/current recovery cases remain explicit.
+- [ ] SP17 artifacts are integrated before documentation signoff; no fabricated existing files. (blocked: SP-17 has not landed, so nothing is integrated; no file was fabricated — every page named as a link exists, every page that does not exist is named as plain text.)
 
 ## Done checklist
 
-- [ ] Seven future conventional commits with no attribution trailers and stable UAT IDs.
-- [ ] No fixed inventory/leaf/job counts replace current inspected sources.
-- [ ] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass.
-- [ ] Independent final reviewer approves user-facing evidence and rollback instructions.
+- [x] Seven future conventional commits with no attribution trailers and stable UAT IDs.
+- [x] No fixed inventory/leaf/job counts replace current inspected sources.
+- [x] Future docs/tests/generators/CI are validated in the implementation session, not this plan pass.
+- [ ] Independent final reviewer approves user-facing evidence and rollback instructions. (blocked: the final whole-branch review runs after Commit 7; the tick is made by the branch's last commit if it approves.)
 
 ### Rollout, rollback and blockers
 
 Ship documentation with its matching artifact version; if a capability regresses, revise advertised support and disable it through SP17 controls. Do not downgrade data to match old prose. Missing host/UAT artifacts (SP18-M7-03/05) prevent delivered-capability claims; missing source metadata (SP18-M7-02) blocks config-reference readiness. Future public issue/release actions require their separate authorization, not this planning task.
+
+## Delivery record (2026-09-14)
+
+The full record — commits, routing, the R2 run map, the SP18-M7-01…07 dispositions, the
+requirement-to-doc map, the UAT dispositions and the blocked/carried/discovered list — is
+[sdd/V6-SP-18-documentation-and-uat/delivery-record.md](sdd/V6-SP-18-documentation-and-uat/delivery-record.md).
+
+Three things it settles, which the checkboxes above now reflect:
+
+- **"Integrate after SP17" is BLOCKED, not done.** SP-17 is in progress in a sibling worktree and
+  integrates first; `docs/install.md`, `docs/security.md` and `docs/release.md` stay named as plain
+  text, and SP18-M7-03 and SP18-M7-05 are blocked with them.
+- **Routing is recorded as R1's explicit fallback.** Every child was requested as
+  `claude-opus-4-8` at the plan's effort and dispatched through the harness alias `opus`; each
+  reported `claude-opus-5[1m]`, and the harness offers no effort control, so the record reads
+  "requested `claude-opus-4-8` / effort; observed: harness alias `opus`, resolved ID unverified"
+  rather than claiming a substitution silently.
+- **The independent final review is still to come.** It runs on the whole branch after Commit 7;
+  its verdict is appended to the delivery record by the branch's last commit.

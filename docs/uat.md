@@ -72,7 +72,8 @@ anyone looked is a scenario that has to be run again.
    `<project>/.qompack/` directory (or record that it does not exist yet, which is itself the
    pre-run state). This is a filesystem copy made by the operator: there is no operator backup
    command in this build, and `TakeBackup`/`RestoreBackup` are unreachable behind a closed build
-   gate ([docs/troubleshooting.md](troubleshooting.md#9-backup-rollback-and-recovery)).
+   gate ([docs/troubleshooting.md](troubleshooting.md#9-backup-rollback-and-recovery)) — it is this
+   page's interim precaution for a test run, not the operator procedure planned (SP-17).
 3. **Run the steps in order**, capturing each command's stdout, stderr and exit status.
 4. **Read the expected-result block field by field**, not impressionistically. Where the block says a
    string is "to be confirmed at execution", the first run's job is to record what the string

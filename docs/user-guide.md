@@ -30,7 +30,7 @@ Three things it does not do, each recorded where
   baselines or quality trials were executed, and the admission quality row is "inconclusive by
   construction".
 
-The full list is planned (SP-18 Commit 5): docs/cannot-do.md.
+The full list is [docs/cannot-do.md](cannot-do.md).
 
 **One warning before you run anything.** `qompack status` (and so `/qompack:status`) creates
 `.qompack/` in the project directory it resolves and starts that project's daemon. It is a write.
@@ -460,12 +460,14 @@ documentation, and `plans/V5-report.md` §25 records the estimated price for its
   [Retired-meaning keys](config-reference.md#retired-meaning-keys)
 - [docs/commands.md](commands.md) — the slash commands and their exact flags, generated
 - [docs/mcp-tools.md](mcp-tools.md) — the MCP tools and their argument schemas, generated
+- [docs/troubleshooting.md](troubleshooting.md) — what each observation means and what to do
+- [docs/cannot-do.md](cannot-do.md) — the capabilities this build does not have, and where each
+  limit is recorded
+- [docs/uat.md](uat.md) — the acceptance scenarios and the evidence a run has to leave
 - [docs/architecture.md](architecture.md) — the contracts behind all of it
 - [docs/adr/README.md](adr/README.md) — every architecture decision record, with its status
 
-Planned, and not yet written — named as plain text on purpose, because none of these files exists:
+Planned, and not yet written — named as plain text on purpose, because these files are not on this
+tree:
 
-- planned (SP-18 Commit 4): docs/troubleshooting.md
-- planned (SP-18 Commit 5): docs/cannot-do.md
-- planned (SP-18 Commit 6): docs/uat.md
 - planned (SP-17): docs/install.md, docs/security.md and docs/release.md
