@@ -1,0 +1,20 @@
+{
+  "name": "lifecycle_clear",
+  "phase": "lifecycle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-606-g21e6914-dirty",
+    "binary_sha256": "1b55a8731bbf9290c3fe3699f3d2f344ac4d3b059fa235bce1152b622166071d"
+  },
+  "boundary": "SessionStart source: clear",
+  "seed_method": "SessionStart(startup) + turn, SessionStart(clear) + turn (toolu_fault_clear_02)",
+  "outcome": "recovered",
+  "reason": "every hook exited 0 with parseable stdout, the index gained no duplicate tool_use record, and the event sequence left no dangling reference",
+  "detail": "audit before {tool_uses:8 roots:7 sidecars:12 checkpoints:0 dangling:0 reported:0}; after {tool_uses:12 roots:10 sidecars:18 checkpoints:0 dangling:0 reported:0}; newly dangling: none; duplicate tool_use ids: []; duplicate root records: []; loud lines gained: 0",
+  "dangling_before": 0,
+  "dangling_after": 0
+}

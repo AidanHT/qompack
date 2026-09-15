@@ -1,0 +1,20 @@
+{
+  "name": "historical_object_unavailable",
+  "phase": "historical",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-606-g21e6914-dirty",
+    "binary_sha256": "1b55a8731bbf9290c3fe3699f3d2f344ac4d3b059fa235bce1152b622166071d"
+  },
+  "boundary": "an object present at capture, damaged afterwards, asked for through the installed MCP server",
+  "seed_method": "a real session captures a file through the installed binary; one of the stored object files is then truncated in half — §12.3's \"store corrupt (bad CRC, truncated object)\" — and the retrieval is driven through `\u003cbundle\u003e/bin/qompack mcp`",
+  "outcome": "failed",
+  "reason": "a damaged historical object reaches the host as a tool error or a miss rather than as `unavailable`, so a real address that lost its bytes is indistinguishable from one that never existed (§7.1). Owner: internal/mcp. Returned as S-3 (Task 3); this row reproduces it on damaged rather than quarantined bytes.",
+  "detail": "damaged: truncated the object file for chunk 6139dde14f6a from 52 to 26 bytes\nexpand(hash=91daa03aa2e6): isError=true, body is not the retrieval envelope: expand failed: qompack: not found: object 6139dde14f6a failed to decode\nexpand(tool_use_id=prompt_sess-fault-historical_0): isError=true, body is not the retrieval envelope: expand failed: qompack: not found: object 6139dde14f6a\nquarantined: true\nforced GC (RetainDays -1, RetainSessions -1) deleted 2 object(s); quarantine 0→0, capture sidecars 3→3\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:2 reported:6}\nnamed as reported: root_chunk(91daa03aa2e6/6139dde14f6a): root 91daa03aa2e6 names chunk 6139dde14f6a, which the object store does not hold; root_chunk(e5ec33f50136/62706e319837): root e5ec33f50136 names chunk 62706e319837, which the object store does not hold; root_chunk(8152211d8f49/3e0c1c855d16): root 8152211d8f49 names chunk 3e0c1c855d16, which the object store does not hold; tool_use_root(prompt_sess-fault-historical_0): tool_use prompt_sess-fault-historical_0 points at root 91daa03aa2e6, which cannot be materialized; tool_use_root(toolu_fault_historical_01): tool_use toolu_fault_historical_01 points at root e5ec33f50136, which cannot be materialized; tool_use_root(toolu_fault_historical_02): tool_use toolu_fault_historical_02 points at root 8152211d8f49, which cannot be materialized",
+  "dangling_before": 0,
+  "dangling_after": 2
+}

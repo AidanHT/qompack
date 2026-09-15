@@ -69,6 +69,15 @@ var compositionRoots = map[string]bool{
 	// spawns, which no internal allow-set permits — the same reason test/e2e, test/canary and
 	// test/platform are roots. Nothing imports it back.
 	"test/security": true,
+	// test/fault (SP-17 Task 4) is the fault-and-recovery matrix: it assembles a real plugin bundle
+	// through `devtool bundle`, cuts a real detached daemon and the files it wrote at every
+	// publication boundary, drives the lifecycle and child-failure matrices through that bundle's
+	// binary and its `qompack mcp` server, and then walks `.qompack/` resolving every reference the
+	// product left behind. It therefore reaches store, checkpoint, daemon, ipc, paths, config,
+	// logging, core and testutil directly and cli through the binary it spawns, which no internal
+	// allow-set permits — the same reason test/e2e, test/canary, test/platform and test/security are
+	// roots. Nothing imports it back.
+	"test/fault": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
