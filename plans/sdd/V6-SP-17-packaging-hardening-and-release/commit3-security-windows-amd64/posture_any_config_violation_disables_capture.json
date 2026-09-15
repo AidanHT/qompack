@@ -1,0 +1,17 @@
+{
+  "name": "posture_any_config_violation_disables_capture",
+  "capability": "posture",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-604-g62a5975-dirty",
+    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+  },
+  "outcome": "failed",
+  "reason": "one invalid configuration key — a hardwired-off switch an operator can never legitimately enable — silently disabled the product. config.LoadForCapture refuses the whole delivery when Validate() reports anything at all, so internal/cli's hook path returns empty output before session-start reaches its daemon bootstrap and the ordinary capture never lands; the detail line above says what survived. §11.3's contract for an invalid value is clamp-and-record, which is what `config print` does through LoadConfigAndReport, so the two loaders disagree and the hot one fails closed over the entire product rather than over the key. Clamping is safe here for the reason the cap already relies on: the next use of the value is bounded again by internal/cli's own hookCaptureLimit. This generalizes S-2 to every validated key. Owner: internal/config + internal/cli. RETURNED, not fixed here.",
+  "detail": "config print reports runtime.telemetry.enabled=false and the §11.3 list names it afterwards=true; violations recorded by the hook path alone=0; ordinary capture retained=false; daemon reachable within 10s=false"
+}

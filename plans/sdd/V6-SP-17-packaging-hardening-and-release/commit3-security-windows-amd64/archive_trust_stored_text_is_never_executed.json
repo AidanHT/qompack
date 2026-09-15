@@ -1,0 +1,17 @@
+{
+  "name": "archive_trust_stored_text_is_never_executed",
+  "capability": "archive_trust",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-604-g62a5975-dirty",
+    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+  },
+  "outcome": "verified",
+  "reason": "prompt-injection-shaped content and a shell command were captured and then retrieved through 3 tools; every response carrying archived text set _meta.qompack.untrusted, the content came back verbatim, and the sentinel file the archived command would have created was never created.",
+  "detail": "labelled: expand, re_read, recall"
+}

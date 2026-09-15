@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_pins",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-604-g62a5975-dirty",
+    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+  },
+  "outcome": "verified",
+  "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under pins.",
+  "detail": "1 files, 3 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}

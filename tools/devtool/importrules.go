@@ -61,6 +61,14 @@ var compositionRoots = map[string]bool{
 	// directly and cli through the binary it spawns, which no internal allow-set permits — the
 	// same reason test/e2e and test/canary are roots. Nothing imports it back.
 	"test/platform": true,
+	// test/security (SP-17 Task 3) is the trust-and-privacy matrix: it assembles a real plugin
+	// bundle through `devtool bundle`, drives that bundle's binary and its `qompack mcp` server
+	// against denied and escaping addresses, sweeps every durable surface for planted credentials,
+	// and seeds malformed objects straight into the store. It therefore reaches store, mcp, eval,
+	// config, sketch, daemon, ipc, paths, core and testutil directly and cli through the binary it
+	// spawns, which no internal allow-set permits — the same reason test/e2e, test/canary and
+	// test/platform are roots. Nothing imports it back.
+	"test/security": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package

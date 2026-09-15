@@ -1,0 +1,18 @@
+{
+  "name": "privacy_surface_eval_export",
+  "capability": "privacy",
+  "scope": "installed_bundle",
+  "target": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "go1.26.6"
+  },
+  "bundle": {
+    "version": "v0.2.0-604-g62a5975-dirty",
+    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+  },
+  "outcome": "failed",
+  "reason": "2 credential hit(s) survive under eval-export; owner: internal/eval. github_token literal at sess-security.json; custom:0 literal at sess-security.json",
+  "detail": "1 files, 1457 bytes swept, 0 redaction placeholders",
+  "artifact": "privacy-surface-sweep.json"
+}
