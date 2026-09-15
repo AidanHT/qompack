@@ -317,6 +317,15 @@ func readBoundedObject(path string, limit int64) ([]byte, error) {
 // source intact for recovery; the caller still refuses its contents. Each attempt has its own
 // destination so concurrent or repeated corruption cannot overwrite earlier evidence.
 func (s *FSStore) quarantine(h core.Hash, path, reason string) {
+	if s.readOnly {
+		// A read-only store reports the rejection and leaves the bytes exactly where they are
+		// (readonly.go): the caller still refuses the contents, and `qompack fsck --repair` is what
+		// moves the object once an operator has asked for it.
+		s.log.Loud("store: object rejected; read-only store leaves it in place",
+			"hash", h.Short(), "reason", reason)
+		s.count("store.quarantine_skipped_read_only", 1)
+		return
+	}
 	root := filepath.Join(s.l.Tmp, quarantineDir)
 	err := os.MkdirAll(paths.Long(root), 0o700)
 	if err == nil {
