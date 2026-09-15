@@ -205,18 +205,19 @@ func TestDispatch_HookAlwaysExitsZero(t *testing.T) {
 // TestDispatch_NonHookErrorExitsOne proves the other half of the exit-code policy: an ordinary
 // subcommand is allowed to fail, and says which one failed.
 //
-// It used `status` until SP-14 implemented it. status now succeeds by design — reporting that it
-// observed nothing is one of its answers, not a failure to produce one — so the case moved to
-// fsck, which is still unimplemented and is what this test was always really about.
+// It used `status` until SP-14 implemented it, then `fsck` until SP-17 did. Both now succeed by
+// design — reporting what was observed, or that no defect was found, is one of their answers rather
+// than a failure to produce one — so the case moved to `bench`, the last subcommand whose owning
+// subplan has not merged and what this test was always really about.
 func TestDispatch_NonHookErrorExitsOne(t *testing.T) {
 	t.Parallel()
 
 	var out, errw bytes.Buffer
-	code := Dispatch(context.Background(), All(), []string{"qompack", "fsck"},
+	code := Dispatch(context.Background(), All(), []string{"qompack", "bench"},
 		Env{Getenv: noEnv, Stdin: strings.NewReader(""), Clock: testClock()}, &out, &errw)
 
 	require.Equal(t, ExitError, code)
-	require.Contains(t, errw.String(), "fsck")
+	require.Contains(t, errw.String(), "bench")
 }
 
 // TestDispatch_UnknownCommandExitsTwo checks the usage path, including that the usage text lands on

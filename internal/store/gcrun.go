@@ -74,7 +74,7 @@ type gcState struct {
 // GCReport.Duration read wall-clock time, because Deadline is a latency budget the idle scheduler
 // granted and a frozen logical clock must never make it un-expirable.
 func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return GCReport{}, err
 	}
 	// GCPolicy.Deadline bounds how long a pass runs once it has started; ctx is how the CALLER

@@ -53,7 +53,7 @@ type sessionRecord struct {
 // lost), then materialize the derived views, then persist the estimator's caches, then the store
 // counters, then the session index.
 func (s *FSStore) Flush(ctx context.Context) error {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {

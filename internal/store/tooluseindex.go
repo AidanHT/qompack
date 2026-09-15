@@ -205,7 +205,7 @@ func (s *FSStore) putToolUseLocked(rec ToolUseRecord) {
 // index lines. Re-recording an ID with a DIFFERENT Root is an append-only violation — a tool_use
 // id identifies one tool call, and one tool call has one result.
 func (s *FSStore) RecordToolUse(ctx context.Context, rec ToolUseRecord) error {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
@@ -311,7 +311,7 @@ var _ SupersedingRecorder = (*FSStore)(nil)
 func (s *FSStore) RecordToolUseSuperseding(ctx context.Context, rec ToolUseRecord,
 	older []core.ToolUseID,
 ) ([]core.ToolUseID, bool, error) {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return nil, false, err
 	}
 	// One ctx check, before any write and before the index is consulted, so a cancelled call is
@@ -436,7 +436,7 @@ func (s *FSStore) ToolUsesByPath(ctx context.Context, path string, limit int) ([
 // index/tool_use.jsonl append-only (§7.4). Marking the same pair twice is a no-op that writes
 // nothing, so a replayed hook cannot grow the file without bound.
 func (s *FSStore) MarkSuperseded(ctx context.Context, older core.ToolUseID, by core.ToolUseID) error {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {

@@ -375,18 +375,20 @@ type SegmentFilterPublisher interface {
 // about a filter only through BloomRef, so until this record lands there is no filter as far as
 // the system is concerned, and once it lands the bits are already there to be read.
 func (l *segLog) PublishFilter(ctx context.Context, id core.SegmentID, ref string) error {
-	if ref == "" {
-		return fmt.Errorf("store: publishing an empty filter reference for segment %d", int(id))
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	// writable() before any validation, like MarkEncoded: a caller of a closed or read-only log
+	// hears that the call cannot happen at all rather than what would have been wrong with it.
+	if err := l.writable(); err != nil {
+		return err
 	}
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	if l.degraded {
-		return fmt.Errorf("%w: store: the segment log is closed", core.ErrDegraded)
+	if ref == "" {
+		return fmt.Errorf("store: publishing an empty filter reference for segment %d", int(id))
 	}
+
 	seg, ok := l.byID[id]
 	if !ok {
 		return fmt.Errorf("%w: store: no segment %d", core.ErrNotFound, int(id))

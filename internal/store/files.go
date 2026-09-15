@@ -85,7 +85,7 @@ func (s *FSStore) loadFiles() error {
 // bytes observed at two different points in the session are two observations, and §8.3's
 // staleness comparison reads the newest one.
 func (s *FSStore) AppendFileVersion(ctx context.Context, path string, v FileVersion) error {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
