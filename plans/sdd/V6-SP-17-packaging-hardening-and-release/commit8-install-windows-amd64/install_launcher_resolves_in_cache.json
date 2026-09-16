@@ -3,7 +3,7 @@
   "capability": "install",
   "scope": "installed_cli",
   "outcome": "verified",
-  "reason": "the installed C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall3638506742\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.0\\bin\\qompack.exe runs, reports version 0.1.0 and hashes to the bundle's binary_sha256; shell resolution is commit2-evidence.md's",
+  "reason": "the installed C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall837989738\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.0\\bin\\qompack.exe runs, reports version 0.1.0 and hashes to the bundle's binary_sha256; shell resolution is commit2-evidence.md's",
   "target": {
     "provider": "claude-code",
     "version": "2.1.263",

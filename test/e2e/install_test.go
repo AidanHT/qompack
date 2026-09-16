@@ -364,9 +364,10 @@ func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	recordInstallVerified(t, "rollback_sealed_checkpoint_restore", capRollback, b.ID,
 		"RehearseRollback over a project that sealed a checkpoint: OK, backup verified, reader "+
 			"proved, writers stopped, automatic_downgrade false, evidence retained; the restored "+
-			"root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 fix round 1 "+
-			"(ada54d1, commit6-evidence.md row 19): RestoreBackup writes protected paths through "+
-			"paths.CreateNew (internal/store/backup.go:413).")
+			"root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 (ada54d1, "+
+			"commit6-evidence.md row 19) and its round 2: RestoreBackup writes protected artifacts "+
+			"through paths.CreateNew and the append-only logs through paths.RestoreLog, so the "+
+			"restored root can seal again (internal/store/backup.go RestoreBackup).")
 
 	// ── B. the same recording without a PreCompact seal ─────────────────────────────────────────
 	p := testutil.NewProject(t, testutil.WithGit(), testutil.WithFiles(installProjectFiles))
