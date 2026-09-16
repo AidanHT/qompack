@@ -28,6 +28,7 @@ import (
 	"github.com/qompack/qompack/internal/daemon"
 	"github.com/qompack/qompack/internal/mcp"
 	"github.com/qompack/qompack/internal/paths"
+	"github.com/qompack/qompack/internal/pluginmanifest"
 	"github.com/qompack/qompack/internal/store"
 	"github.com/qompack/qompack/internal/testutil"
 )
@@ -329,6 +330,23 @@ func requireHostOK(t *testing.T, name, capability string, b installBundleID, res
 	t.FailNow()
 }
 
+// failInstallRows records every caller row as failed with the host's combined output, then stops.
+// marketplace-add / plugin-install refusals happen before those rows exist, and an absent row
+// leaves release-scope looking at a hole instead of unverified.
+func failInstallRows(t *testing.T, capability string, b installBundleID, res hostResult, names ...string) {
+	t.Helper()
+	reason := res.Combined()
+	if reason == "" {
+		reason = fmt.Sprintf("claude exited %d with empty output", res.Code)
+	}
+	for _, name := range names {
+		rec := newInstallRecord(name, capability, b)
+		rec.Outcome, rec.Reason = installFailed, reason
+		writeInstallRecord(t, rec)
+	}
+	t.FailNow()
+}
+
 // ── the host CLI ───────────────────────────────────────────────────────────────────────────────
 
 // installHostBound bounds one `claude plugin …` invocation. The CLI resolves a local marketplace,
@@ -431,6 +449,15 @@ func runClaudePlugin(t *testing.T, home string, args ...string) hostResult {
 	switch {
 	case err == nil:
 		res.Code = 0
+	case ctx.Err() != nil:
+		// CommandContext kills the child when the deadline fires, so Run returns the dead
+		// process's *exec.ExitError — never ctx.Err() — and an errors.As arm first would
+		// swallow every timeout as an ordinary non-zero exit (test/fault/fault.go:339-345).
+		res.Code = -1
+		if errors.As(err, &exitErr) {
+			res.Code = exitErr.ExitCode()
+		}
+		res.Stderr += "\n<timed out after 120s>"
 	case errors.Is(err, exec.ErrWaitDelay):
 		res.Code = 0
 		t.Logf("install: claude %v exited 0 but its I/O was still open after %s (WaitDelay fired)",
@@ -836,10 +863,10 @@ type installPluginListEntry struct {
 }
 
 // installListPlugins asks the host what it believes is installed in this disposable home.
-func installListPlugins(t *testing.T, home string) []installPluginListEntry {
+func installListPlugins(t *testing.T, home, name, capability string, b installBundleID) []installPluginListEntry {
 	t.Helper()
 	res := runClaudePlugin(t, home, "plugin", "list", "--json")
-	require.Equal(t, 0, res.Code, "plugin list --json: %s", res.Combined())
+	requireHostOK(t, name, capability, b, res)
 	var out []installPluginListEntry
 	require.NoError(t, json.Unmarshal([]byte(res.Stdout), &out),
 		"plugin list --json must be JSON: %s", res.Stdout)
@@ -863,7 +890,7 @@ func installEnvFor(root, home string) map[string]string {
 // CLI is absent the bundled launcher stands in and the record says so: the file is byte-identical
 // either way (the install case proves that), so what the fallback costs is the claim about the
 // INSTALLATION, never the claim about the binary.
-func installedOrBundledLauncher(t *testing.T, b installedBundle) (bin, where string) {
+func installedOrBundledLauncher(t *testing.T, b installedBundle, capability string, names ...string) (bin, where string) {
 	t.Helper()
 	fingerprint := realClaudeConfigFingerprint(t)
 	if cli, _ := findClaudeCLI(); cli == "" {
@@ -873,11 +900,11 @@ func installedOrBundledLauncher(t *testing.T, b installedBundle) (bin, where str
 	require.NoError(t, os.MkdirAll(paths.Long(home), 0o700))
 	writeMarketplace(t, filepath.Dir(b.Dir), b.DirBase)
 	if add := runClaudePlugin(t, home, "plugin", "marketplace", "add", filepath.Dir(b.Dir)); add.Code != 0 {
-		t.Fatalf("install: marketplace add: %s", add.Combined())
+		failInstallRows(t, capability, b.ID, add, names...)
 	}
 	if ins := runClaudePlugin(t, home, "plugin", "install",
 		"qompack@"+installMarketplaceName, "-s", "user", "-y"); ins.Code != 0 {
-		t.Fatalf("install: plugin install: %s", ins.Combined())
+		failInstallRows(t, capability, b.ID, ins, names...)
 	}
 	t.Cleanup(func() {
 		_ = runClaudePlugin(t, home, "plugin", "uninstall", "qompack", "-s", "user", "-y")
@@ -1091,16 +1118,23 @@ func installFsckRow(t *testing.T, rep installFsckReport, id string) installFsckC
 	return installFsckCheck{}
 }
 
-// installAssertStatusJSON decodes `qompack status --json` and asserts a concrete field: the
-// document's schema version. json.Valid alone is decorative; hook rows can be empty before a
-// session has run.
+// installAssertStatusJSON decodes `qompack status --json` and asserts the envelope names the
+// status command, reports ok, and carries one hook row per manifest entry point.
 func installAssertStatusJSON(t *testing.T, stdout []byte) {
 	t.Helper()
 	var doc struct {
-		Schema int `json:"schema"`
+		Schema  int    `json:"schema"`
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Data    struct {
+			Hooks []json.RawMessage `json:"hooks"`
+		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(stdout, &doc), "status --json must decode: %s", stdout)
-	require.NotZero(t, doc.Schema, "status --json must carry a schema version")
+	require.Equal(t, "status", doc.Command, "status --json must name the status command")
+	require.True(t, doc.OK, "status --json must be ok")
+	require.Equal(t, len(pluginmanifest.HookEntryPoints()), len(doc.Data.Hooks),
+		"status --json must carry one hook row per manifest entry point")
 }
 
 // installAssertDoctorJSON decodes `qompack doctor --json` and asserts the project equals root and

@@ -135,7 +135,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		require.Equal(t, base.ID.Version, bundlePluginVersion(t, cache),
 			"the cached plugin.json version must equal BUNDLE.json's")
 
-		listed := installListPlugins(t, home)
+		listed := installListPlugins(t, home, "install_marketplace_user_scope", capInstall, base.ID)
 		require.Len(t, listed, 1, "exactly one plugin is installed in this disposable home")
 		require.Equal(t, "qompack@"+installMarketplaceName, listed[0].ID)
 		require.Equal(t, base.ID.Version, listed[0].Version)
@@ -191,7 +191,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		res := runClaudePlugin(t, home, "plugin", "update", "qompack", "-s", "user", "-y")
 		requireHostOK(t, "upgrade_marketplace_republish", capUpgrade, next.ID, res)
 
-		listed := installListPlugins(t, home)
+		listed := installListPlugins(t, home, "upgrade_marketplace_republish", capUpgrade, next.ID)
 		require.Len(t, listed, 1)
 		require.Equal(t, next.ID.Version, listed[0].Version, "the new version must be the enabled one")
 		require.True(t, listed[0].Enabled)
@@ -242,7 +242,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		readJSONFile(t, filepath.Join(home, "settings.json"), &settings)
 		require.NotContains(t, settings.EnabledPlugins, "qompack@"+installMarketplaceName,
 			"the enabledPlugins entry must be gone")
-		require.Empty(t, installListPlugins(t, home), "plugin list must report nothing installed")
+		require.Empty(t, installListPlugins(t, home, "uninstall_keep_data", capUninstall, next.ID), "plugin list must report nothing installed")
 
 		// What the host did with the payload and the data directory, recorded rather than asserted.
 		cacheKept := e2eFileExists(paths.Long(installCacheDir(home, next.ID.Version)))
@@ -264,7 +264,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		requireHostOK(t, "uninstall_default", capUninstall, next.ID, add)
 		ins := runClaudePlugin(t, home2, "plugin", "install", "qompack@"+installMarketplaceName, "-s", "user", "-y")
 		requireHostOK(t, "uninstall_default", capUninstall, next.ID, ins)
-		require.Len(t, installListPlugins(t, home2), 1)
+		require.Len(t, installListPlugins(t, home2, "uninstall_default", capUninstall, next.ID), 1)
 
 		res := runClaudePlugin(t, home2, "plugin", "uninstall", "qompack", "-s", "user", "-y")
 		requireHostOK(t, "uninstall_default", capUninstall, next.ID, res)
@@ -274,7 +274,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		}
 		readJSONFile(t, filepath.Join(home2, "settings.json"), &settings)
 		require.NotContains(t, settings.EnabledPlugins, "qompack@"+installMarketplaceName)
-		require.Empty(t, installListPlugins(t, home2))
+		require.Empty(t, installListPlugins(t, home2, "uninstall_default", capUninstall, next.ID))
 		cacheKept := e2eFileExists(paths.Long(installCacheDir(home2, next.ID.Version)))
 
 		// R8-3: the uninstall never touched the project, and it never touched .qompack/. The
@@ -314,14 +314,19 @@ const rollbackSession = core.SessionID("sess-e2e-sp17-rollback")
 // after the first new-format write — then the restored root opened by the installed binary.
 //
 // It rehearses TWO projects. A project that has sealed a checkpoint is restored through
-// RestoreBackup, which writes §7.4 paths with paths.CreateNew (commit 6 fix round 1, ada54d1,
-// backup.go). The second project, recorded without a PreCompact seal, still carries the
+// RestoreBackup, which writes §7.4 artifacts with paths.CreateNew and the two append-only
+// logs with paths.RestoreLog (commit 6, ada54d1 + round 2). The second project, recorded
+// without a PreCompact seal, still carries the
 // daemon-alive refusal, the after-first-new-write drill and identity parity through the
 // installed launcher — distinct properties, not a workaround for a restore that now succeeds.
 func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	ctx := context.Background()
 	b := hostBundle(t)
-	bin, where := installedOrBundledLauncher(t, b)
+	bin, where := installedOrBundledLauncher(t, b, capRollback,
+		"rollback_sealed_checkpoint_restore",
+		"rollback_before_first_new_write",
+		"rollback_after_first_new_write",
+		"rollback_restored_root_reads_through_the_launcher")
 
 	// ── A. a project that has sealed a checkpoint ───────────────────────────────────────────────
 	sealed := testutil.NewProject(t, testutil.WithGit(), testutil.WithFiles(installProjectFiles))
@@ -528,7 +533,11 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	if cli, _ := findClaudeCLI(); cli == "" {
 		skipUnknownSchemaCases(t, b.ID)
 	}
-	bin, _ := installedOrBundledLauncher(t, b)
+	bin, _ := installedOrBundledLauncher(t, b, capUnknownSchema,
+		"unknown_schema_config_settings_version",
+		"unknown_schema_checkpoint_artifact",
+		"unknown_schema_capture_sidecar",
+		"unknown_schema_delivery_seal_v2")
 
 	root, home := newInstallProject(t)
 	t.Cleanup(func() { e2eShutdownIfReachable(t, root) })
@@ -599,7 +608,7 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	//     switch a newer file could set planted beside it so the reset is observable.
 	cfgPath := filepath.Join(l.Dot, "config.json")
 	plant(cfgPath, []byte(fmt.Sprintf(
-		`{"runtime":{"migration":{"settingsVersion":%d,"experiments":{"enabled":true}}}}`+"\n",
+		`{"runtime":{"migration":{"settingsVersion":%d,"experiments":{"enabled":true},"reinjection":{"sessionStartCompact":false}}}}`+"\n",
 		config.MigrationSettingsVersion+1)))
 
 	// Capture CONTINUES: hooks exit 0, a daemon comes up, the reset is recorded.
@@ -632,6 +641,9 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 				Experiments     struct {
 					Enabled bool `json:"enabled"`
 				} `json:"experiments"`
+				Reinjection struct {
+					SessionStartCompact bool `json:"sessionStartCompact"`
+				} `json:"reinjection"`
 			} `json:"migration"`
 		} `json:"runtime"`
 	}
@@ -639,7 +651,9 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	require.Equal(t, config.MigrationSettingsVersion, effective.Runtime.Migration.SettingsVersion,
 		"the effective settingsVersion is this build's, never the file's")
 	require.False(t, effective.Runtime.Migration.Experiments.Enabled,
-		"a switch a newer file could set must be off after the reset: unknown future behaviour stays disabled")
+		"experiments.enabled is gated: Validate restores false on any build, reset or not")
+	require.True(t, effective.Runtime.Migration.Reinjection.SessionStartCompact,
+		"the ungated sessionStartCompact switch returns to default true only when the block resets")
 
 	// ── nothing the binary ran rewrote a single planted byte ────────────────────────────────────
 	for path, want := range planted {
@@ -650,10 +664,12 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	}
 
 	recordInstallVerified(t, "unknown_schema_config_settings_version", capUnknownSchema, b.ID,
-		fmt.Sprintf("runtime.migration.settingsVersion %d with experiments.enabled true (build reads %d): "+
-			"LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); "+
+		fmt.Sprintf("runtime.migration.settingsVersion %d with experiments.enabled true "+
+			"(gated; Validate restores false on any build) and reinjection.sessionStartCompact false "+
+			"(ungated, default true; build reads settingsVersion %d): LoadForCapture resets the "+
+			"block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); "+
 			"state/config-violations.json names the reset; the effective block is defaults "+
-			"(experiments.enabled off); hooks exit 0; a daemon comes up; config print --provenance "+
+			"(sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance "+
 			"still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
 			config.MigrationSettingsVersion+1, config.MigrationSettingsVersion))
 	recordInstallVerified(t, "unknown_schema_checkpoint_artifact", capUnknownSchema, b.ID,
