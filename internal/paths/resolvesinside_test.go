@@ -192,3 +192,20 @@ func chainedOutsideFixture(t *testing.T, relative bool) (root, secretRel string)
 	require.Equal(t, []byte("outside bytes\n"), got)
 	return root, "sub/secret.txt"
 }
+
+// TestResolvesInside_HopBoundIsFailClosed pins resolveLinks' cycle brake: a self-referential
+// junction followed more than 64 times has no on-disk answer, so the authorization gate refuses
+// rather than guessing containment.
+func TestResolvesInside_HopBoundIsFailClosed(t *testing.T) {
+	root := t.TempDir()
+	loop := filepath.Join(root, "loop")
+	if err := makeDirLink(loop, loop); err != nil {
+		t.Skip("platform: this host will create neither a directory symlink nor a junction: " + err.Error())
+	}
+	t.Cleanup(func() { _ = os.Remove(loop) })
+
+	require.False(t, paths.ResolvesInside(root, "loop"),
+		"a self-referential link past the hop bound must not be authorized")
+	require.True(t, paths.ResolvesInside(root, "ordinary.txt"),
+		"the same root must still authorize an ordinary in-project path")
+}
