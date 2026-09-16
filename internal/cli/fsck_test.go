@@ -369,7 +369,7 @@ func TestFsck_ReportsEachSeededDefectAndRepairsNone(t *testing.T) {
 		},
 		{
 			name: "a capture sidecar left at stage one", check: "captures", names: "stage 1",
-			seed: func(t *testing.T, p seededProject) string { return seedStageOneSidecar(t, p) },
+			seed: seedStageOneSidecar,
 		},
 		{
 			name:  "a checkpoint artifact that no longer matches its manifest digest",
@@ -425,7 +425,7 @@ func TestFsck_ReportsEachSeededDefectAndRepairsNone(t *testing.T) {
 		},
 		{
 			name: "a backup file that drifted from its manifest", check: "migrate", names: "digest",
-			seed: func(t *testing.T, p seededProject) string { return seedDriftedBackup(t, p) },
+			seed: seedDriftedBackup,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

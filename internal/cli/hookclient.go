@@ -410,7 +410,9 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 		// A hook process exits within milliseconds of its last log line, so production never needs
 		// this; an IN-PROCESS caller does, and test/guards runs all six hooks in process on purpose.
 		// Windows will not delete a directory whose files are still open.
-		defer hookLog.(*hookLogger).closeSink()
+		if hl, ok := hookLog.(*hookLogger); ok {
+			defer hl.closeSink()
+		}
 		hookMetrics := newHookMetrics(clk)
 		sp := ipc.NewSpoolWithObs(spoolDir, hookLog, hookMetrics)
 		sp = wrapFaultSpool(sp)

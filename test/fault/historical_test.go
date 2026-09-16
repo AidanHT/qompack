@@ -199,9 +199,9 @@ func TestFault_CheckpointDropsAnUnresolvablePointer(t *testing.T) {
 	// git-provenance drop the seeded checkpoint already carried, which names nothing about the
 	// removed object. A drop that does not name the cut is not this row's evidence.
 	cutNames := append(append([]string{}, checkpointDropNames...),
-		string(target.ID), shortHash(chunk.String()))
+		target.ID, shortHash(chunk.String()))
 	ev := namingEvidence(t, all, cutNames)
-	naming := dropsNaming(all.Drops, string(target.ID), shortHash(chunk.String()))
+	naming := dropsNaming(all.Drops, target.ID, shortHash(chunk.String()))
 	rec.Detail = fmt.Sprintf("removed: %s\nartifacts %d -> %d (sealed %d); pointers across them: %d"+
 		"\nnew drop entries: %v, of which naming the cut: %v"+
 		"\nrecovery observation %s indexed: %v"+

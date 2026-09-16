@@ -82,7 +82,9 @@ func reportCaptureViolations(root, home string, violations []config.Violation) {
 	// This logger exists for the length of this call, so it releases its file handles here rather
 	// than relying on process exit: admission also runs in process, from tests and from any future
 	// in-process caller, and an unreleased handle is a directory nobody can clean up on Windows.
-	defer log.(*hookLogger).closeSink()
+	if hl, ok := log.(*hookLogger); ok {
+		defer hl.closeSink()
+	}
 	for _, v := range violations {
 		log.Loud("invalid configuration value, using default",
 			"key", v.Key, "got", v.Got, "want", v.Want, "message", v.Message)
