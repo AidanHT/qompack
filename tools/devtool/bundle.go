@@ -109,6 +109,9 @@ func taskBundle(args []string) error {
 	outDir := fs.String("out", bundleOutDefault, "directory to assemble the per-target bundles under")
 	hostValidate := fs.Bool("host-validate", false,
 		"run the host's own `claude plugin validate` against the host target's bundle")
+	archive := fs.Bool("archive", false,
+		"also pack each assembled bundle into a reproducible .zip (windows) or .tar.gz, and write "+
+			"checksums.txt over them; these are the files a release uploads")
 	evidence := fs.String("evidence", "",
 		"file to write the --host-validate record to (default: print it to stdout)")
 	var targets repeatedFlag
@@ -124,6 +127,9 @@ func taskBundle(args []string) error {
 	}
 	if *evidence != "" && !*hostValidate {
 		return errors.Join(errUsage, errors.New("bundle: --evidence is the destination of --host-validate's record, so it requires that flag"))
+	}
+	if err := rejectEvidenceDirectoryPath(*evidence); err != nil {
+		return errors.Join(errUsage, err)
 	}
 
 	tgts, err := resolveBundleTargets(targets)
@@ -163,6 +169,12 @@ func taskBundle(args []string) error {
 		fmt.Printf("bundle: %s (%d file(s), version %s)\n", filepath.Base(dir), len(id.Files), id.Version)
 	}
 
+	if *archive {
+		if err := archiveAssembledBundles(asm.outDir, tgts, dirs); err != nil {
+			return err
+		}
+	}
+
 	if !*hostValidate {
 		return nil
 	}
@@ -173,6 +185,31 @@ func taskBundle(args []string) error {
 			host.OS, host.Arch)
 	}
 	return writeHostValidation(dir, ids[host], *evidence)
+}
+
+// archiveAssembledBundles packs each assembled directory and writes one checksums.txt over the
+// results. The targets are walked in their assembly order so the printed lines match the bundles
+// above them; the checksum file itself is sorted by archive name, because that is what a reader
+// verifying it will be comparing against.
+func archiveAssembledBundles(outDir string, tgts []bundleTarget, dirs map[bundleTarget]string) error {
+	if err := removeStaleArchives(outDir); err != nil {
+		return fmt.Errorf("bundle: clearing stale archives under %s: %w", outDir, err)
+	}
+	archives := make([]string, 0, len(tgts))
+	for _, tgt := range tgts {
+		a, err := writeArchive(dirs[tgt], tgt.OS)
+		if err != nil {
+			return fmt.Errorf("bundle: %s/%s: %w", tgt.OS, tgt.Arch, err)
+		}
+		archives = append(archives, a)
+		fmt.Printf("bundle: packed %s\n", filepath.Base(a))
+	}
+	sums, err := writeArchiveChecksums(outDir, archives)
+	if err != nil {
+		return fmt.Errorf("bundle: writing the archive checksums: %w", err)
+	}
+	fmt.Printf("bundle: %s covers %d archive(s)\n", filepath.Base(sums), len(archives))
+	return nil
 }
 
 // repeatedFlag collects a flag given more than once, in the order it was given.

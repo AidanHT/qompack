@@ -346,3 +346,22 @@ func TestHostPathRedactor(t *testing.T) {
 		}
 	})
 }
+
+// TestEvidencePathRefusesATrailingSeparator pins F2: --evidence names a file, so a path that
+// ends in a separator is refused rather than written as a file named after the directory.
+func TestEvidencePathRefusesATrailingSeparator(t *testing.T) {
+	for _, p := range []string{"dist/evidence/", `dist\evidence\`} {
+		err := rejectEvidenceDirectoryPath(p)
+		if err == nil {
+			t.Errorf("rejectEvidenceDirectoryPath(%q) = nil, want an error", p)
+		} else if !strings.Contains(err.Error(), "path separator") {
+			t.Errorf("rejectEvidenceDirectoryPath(%q) = %v, want it to name the separator", p, err)
+		}
+	}
+	if err := rejectEvidenceDirectoryPath("dist/evidence/host-validation.json"); err != nil {
+		t.Errorf("a file path must be accepted, got %v", err)
+	}
+	if err := rejectEvidenceDirectoryPath(""); err != nil {
+		t.Errorf("the empty path (stdout) must be accepted, got %v", err)
+	}
+}

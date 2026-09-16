@@ -146,6 +146,20 @@ type hostValidation struct {
 	Bundle        bundleIdentity  `json:"bundle"`
 }
 
+// rejectEvidenceDirectoryPath refuses an --evidence path that ends in a separator. The flag
+// names a FILE; a trailing slash would write a regular file whose name is the directory (Join
+// strips the separator) while upload-artifact with a trailing-slash pattern matches directories
+// only, so the record would be uploaded as nothing.
+func rejectEvidenceDirectoryPath(p string) error {
+	if p == "" {
+		return nil
+	}
+	if strings.HasSuffix(p, "/") || strings.HasSuffix(p, `\`) {
+		return fmt.Errorf("bundle: --evidence %q ends in a path separator; it names a file, not a directory", p)
+	}
+	return nil
+}
+
 // writeHostValidation runs the host validator over the assembled bundle and records the result,
 // either to evidencePath or to stdout.
 //
@@ -154,6 +168,9 @@ type hostValidation struct {
 // bundle is malformed. A timeout and a CLI that never ran are failures too, but they are neither
 // of the first two and the message says which.
 func writeHostValidation(dir string, id bundleIdentity, evidencePath string) error {
+	if err := rejectEvidenceDirectoryPath(evidencePath); err != nil {
+		return err
+	}
 	rec := runHostValidation(dir, id)
 	raw, err := marshalBundleJSON(rec)
 	if err != nil {
