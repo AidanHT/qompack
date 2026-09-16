@@ -40,6 +40,7 @@ func TestBackupWatchedFiles_NamesTheDeliveryStateThisPackageWrites(t *testing.T)
 
 	got[0] = "state/nothing.json"
 	got = got[:1]
+	require.Len(t, got, 1, "the caller's truncated view is shorter")
 	require.Equal(t, 4, len(BackupWatchedFiles()), "the list a caller mutated is not the list")
 	require.NotContains(t, BackupWatchedFiles(), "state/nothing.json")
 }

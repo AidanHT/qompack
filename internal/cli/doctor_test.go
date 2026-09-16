@@ -91,7 +91,9 @@ func TestDoctor_AlwaysExitsZeroAndNeverCreatesAProject(t *testing.T) {
 
 		row := doctorFindRow(t, doc, "scope", "scope.established")
 		require.Equal(t, "unknown", row["status"], "row=%v", row)
-		require.Contains(t, strings.ToLower(row["observed"].(string)), "no .qompack")
+		observed, ok := row["observed"].(string)
+		require.True(t, ok, "observed must be a string, row=%v", row)
+		require.Contains(t, strings.ToLower(observed), "no .qompack")
 
 		_, err := os.Stat(filepath.Join(dir, ".qompack"))
 		require.True(t, os.IsNotExist(err), "doctor must not create .qompack: %v", err)
@@ -234,7 +236,9 @@ func TestDoctor_ReportsTheProjectStoreWritabilityProbe(t *testing.T) {
 
 		row := doctorFindRow(t, doc, "recording", "store.writable")
 		require.Equal(t, "ok", row["status"], "row=%v", row)
-		require.Contains(t, strings.ToLower(row["observed"].(string)), "writable")
+		observed, ok := row["observed"].(string)
+		require.True(t, ok, "observed must be a string, row=%v", row)
+		require.Contains(t, strings.ToLower(observed), "writable")
 		require.Contains(t, row["detail"], "no file was created to find out")
 	})
 

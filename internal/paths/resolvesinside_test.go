@@ -132,7 +132,7 @@ func TestResolvesInside_AllowsALinkThatStaysInside(t *testing.T) {
 }
 
 // TestResolvesInside_RefusesAChainedLinkThroughAnotherLink is the two-junction S-1 bypass:
-// proj\other points at a directory outside the project and proj\sub points at proj\other\x.
+// proj/other points at a directory outside the project and proj/sub points at proj/other/x.
 // Following the second link as a whole left a lexically-inside path whose bytes live outside.
 // A relative-target variant is the same shape with the second link stored relative to its parent.
 func TestResolvesInside_RefusesAChainedLinkThroughAnotherLink(t *testing.T) {
@@ -154,8 +154,8 @@ func TestResolvesInside_RefusesAChainedLinkThroughAnotherLink(t *testing.T) {
 	})
 }
 
-// chainedOutsideFixture builds proj\other → outside and proj\sub → other\x (absolute or
-// relative), with outside\x\secret.txt holding bytes that a live read would serve.
+// chainedOutsideFixture builds proj/other → outside and proj/sub → other/x (absolute or
+// relative), with outside/x/secret.txt holding bytes that a live read would serve.
 func chainedOutsideFixture(t *testing.T, relative bool) (root, secretRel string) {
 	t.Helper()
 	base := t.TempDir()

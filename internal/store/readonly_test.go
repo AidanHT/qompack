@@ -483,7 +483,9 @@ func TestOpenReadOnly_TheSegmentLogRefusesWrites(t *testing.T) {
 	s, err := OpenReadOnly(tp.Root, config.Defaults(), Deps{})
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, s.Close()) })
-	log := s.(readOnlyStore).fs.seg // the concrete log: PublishFilter is not on the §5.8 seam
+	ros, ok := s.(readOnlyStore)
+	require.True(t, ok)
+	log := ros.fs.seg // the concrete log: PublishFilter is not on the §5.8 seam
 
 	_, openErr := log.Open(ctx, Segment{Session: "sess-ro-w", StartTurn: 9})
 	require.ErrorIs(t, openErr, ErrReadOnly, "Segments().Open is a write")

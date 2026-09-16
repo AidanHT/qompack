@@ -32,7 +32,9 @@ func TestHookLogger_FallsBackToTheUserLevelLogDirectory(t *testing.T) {
 
 	log := newHookLoggerWithHome(root, home)
 	log.Loud("store: object write refused", "err", "read-only")
-	log.(*hookLogger).closeSink()
+	hl, ok := log.(*hookLogger)
+	require.True(t, ok)
+	hl.closeSink()
 
 	homeLogs := filepath.Join(paths.Global(home), "logs")
 	entries, err := os.ReadDir(homeLogs)
@@ -61,7 +63,9 @@ func TestHookLogger_PrefersTheProjectLogDirectory(t *testing.T) {
 
 	log := newHookLoggerWithHome(root, home)
 	log.Loud("store: object write refused", "err", "none")
-	log.(*hookLogger).closeSink()
+	hl, ok := log.(*hookLogger)
+	require.True(t, ok)
+	hl.closeSink()
 
 	_, err := os.Stat(paths.Global(home))
 	require.True(t, os.IsNotExist(err), "an ordinary project must not reach for the user-level sink")
@@ -79,7 +83,9 @@ func TestHookLogger_NeverCreatesStateForAProjectThatNeverOptedIn(t *testing.T) {
 
 	log := newHookLoggerWithHome(root, home)
 	log.Loud("store: object write refused", "err", "none")
-	log.(*hookLogger).closeSink()
+	hl, ok := log.(*hookLogger)
+	require.True(t, ok)
+	hl.closeSink()
 
 	_, err := os.Stat(paths.Global(home))
 	require.True(t, os.IsNotExist(err), "a project with no .qompack store has not degraded")
