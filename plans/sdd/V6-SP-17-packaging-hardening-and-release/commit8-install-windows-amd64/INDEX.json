@@ -4,7 +4,7 @@
     "capability": "install",
     "scope": "installed_cli",
     "outcome": "verified",
-    "reason": "the installed C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall1206811284\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.0\\bin\\qompack.exe runs, reports version 0.1.0 and hashes to the bundle's binary_sha256; shell resolution is commit2-evidence.md's",
+    "reason": "the installed C:\\Users\\Quant\\AppData\\Local\\Temp\\TestInstall_HostCLIInstallUpgradeUninstall3638506742\\001\\claude-home\\plugins\\cache\\qompack-rehearsal\\qompack\\0.1.0\\bin\\qompack.exe runs, reports version 0.1.0 and hashes to the bundle's binary_sha256; shell resolution is commit2-evidence.md's",
     "target": {
       "provider": "claude-code",
       "version": "2.1.263",
@@ -15,7 +15,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/install_launcher_resolves_in_cache.json"
   },
@@ -35,7 +35,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/install_marketplace_user_scope.json"
   },
@@ -55,7 +55,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/install_validate_bundle_strict.json"
   },
@@ -75,7 +75,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/rollback_after_first_new_write.json"
   },
@@ -84,7 +84,7 @@
     "capability": "rollback",
     "scope": "installed_cli",
     "outcome": "verified",
-    "reason": "RehearseRollback(before-first-new-format-write) on a project recorded by the real launcher: refused as a RESULT beside a live daemon (\"the incompatible writers could not be stopped: the qompack daemon (pid 37640) still holds C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite3823309435\\\\004\\\\project\\\\.qompack\\\\run\\\\daemon.lock\"), then OK with the daemon stopped — backup verified, reader proved, writers stopped, 3 legacy ids retained, automatic_downgrade false, evidence retained",
+    "reason": "RehearseRollback(before-first-new-format-write) on a project recorded by the real launcher: refused as a RESULT beside a live daemon (\"the incompatible writers could not be stopped: the qompack daemon (pid 34824) still holds C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite810163559\\\\004\\\\project\\\\.qompack\\\\run\\\\daemon.lock\"), then OK with the daemon stopped — backup verified, reader proved, writers stopped, 3 legacy ids retained, automatic_downgrade false, evidence retained",
     "target": {
       "provider": "claude-code",
       "version": "2.1.263",
@@ -95,7 +95,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/rollback_before_first_new_write.json"
   },
@@ -115,7 +115,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/rollback_restored_root_reads_through_the_launcher.json"
   },
@@ -135,7 +135,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/rollback_sealed_checkpoint_restore.json"
   },
@@ -155,7 +155,7 @@
       "name": "qompack",
       "version": "0.1.1",
       "target": "windows/amd64",
-      "binary_sha256": "e6180b9d40351f01ed2f93fbbaf9064c0855fc210790d7bc6746693fb32fe2ee"
+      "binary_sha256": "d8c24818de055009831971cea3b92ce25a4b588625f3853e6bd65949097e653f"
     },
     "artifact": "commit8-install-windows-amd64/uninstall_default.json"
   },
@@ -175,7 +175,7 @@
       "name": "qompack",
       "version": "0.1.1",
       "target": "windows/amd64",
-      "binary_sha256": "e6180b9d40351f01ed2f93fbbaf9064c0855fc210790d7bc6746693fb32fe2ee"
+      "binary_sha256": "d8c24818de055009831971cea3b92ce25a4b588625f3853e6bd65949097e653f"
     },
     "artifact": "commit8-install-windows-amd64/uninstall_keep_data.json"
   },
@@ -195,7 +195,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/unknown_schema_capture_sidecar.json"
   },
@@ -215,7 +215,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/unknown_schema_checkpoint_artifact.json"
   },
@@ -224,7 +224,7 @@
     "capability": "unknown_schema",
     "scope": "installed_cli",
     "outcome": "verified",
-    "reason": "runtime.migration.settingsVersion 2 with experiments.enabled true (build reads 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (experiments.enabled off); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
+    "reason": "runtime.migration.settingsVersion 2 with experiments.enabled true (gated; Validate restores false on any build) and reinjection.sessionStartCompact false (ungated, default true; build reads settingsVersion 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
     "target": {
       "provider": "claude-code",
       "version": "2.1.263",
@@ -235,7 +235,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/unknown_schema_config_settings_version.json"
   },
@@ -255,7 +255,7 @@
       "name": "qompack",
       "version": "0.1.0",
       "target": "windows/amd64",
-      "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+      "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
     },
     "artifact": "commit8-install-windows-amd64/unknown_schema_delivery_seal_v2.json"
   },
@@ -275,7 +275,7 @@
       "name": "qompack",
       "version": "0.1.1",
       "target": "windows/amd64",
-      "binary_sha256": "e6180b9d40351f01ed2f93fbbaf9064c0855fc210790d7bc6746693fb32fe2ee"
+      "binary_sha256": "d8c24818de055009831971cea3b92ce25a4b588625f3853e6bd65949097e653f"
     },
     "artifact": "commit8-install-windows-amd64/upgrade_marketplace_republish.json"
   }

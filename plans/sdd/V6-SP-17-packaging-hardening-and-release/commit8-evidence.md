@@ -218,9 +218,10 @@ Fixed in `ada54d1`, `commit6-evidence.md` row 8: `internal/config/capture_load.g
 `applyVersionedSections` before the clamp and returns the reset as a violation. Re-measured
 here: `unknown_schema_config_settings_version` stays **verified** with the new reason — capture
 continues, `state/config-violations.json` names the reset, the effective block is defaults
-(`experiments.enabled` planted true, observed off), hooks exit 0, a daemon comes up, the planted
-file's bytes are unchanged, and `config print --provenance` still reports
-`reset: newer settingsVersion`.
+(`reinjection.sessionStartCompact` planted false, observed true after the reset;
+`experiments.enabled` is a gated key restored by Validate on any build, not reset evidence),
+hooks exit 0, a daemon comes up, the planted file's bytes are unchanged, and
+`config print --provenance` still reports `reset: newer settingsVersion`.
 
 ## 6. Unknown schemas, planted in a project that already holds real data
 
@@ -233,7 +234,7 @@ it found them. Every planted file is hashed before and after, and every hash is 
 | `unknown_schema_checkpoint_artifact` | `checkpoints/9999-newer-plugin.json` with `version` 2 (build reads 1), no MANIFEST line | verified | a whole session still records; `fsck`'s `checkpoints` row stays `ok` and its `detail` names the file "written by a newer plugin"; bytes unchanged |
 | `unknown_schema_capture_sidecar` | `records/captures/newer-plugin.json` with `v` 2 (build reads 1) | verified | readable and degraded: `fsck`'s `captures` row stays `ok` and names it "newer than this build"; sidecars are evidence and are never repaired or swept; bytes unchanged |
 | `unknown_schema_delivery_seal_v2` | `state/delivery-ack-position.json` declaring `v` 2 | verified | `fsck`'s `delivery` row classifies it as "a v2 position document" and leaves it alone; bytes unchanged |
-| `unknown_schema_config_settings_version` | `.qompack/config.json` with `runtime.migration.settingsVersion` 2 and `experiments.enabled` true (build reads 1) | verified | see §5 D8-2 (fixed): capture continues with the block reset; `state/config-violations.json` names the reset; effective `experiments.enabled` is off; hooks exit 0; a daemon comes up; `config print --provenance` still reports `reset: newer settingsVersion`; bytes unchanged |
+| `unknown_schema_config_settings_version` | `.qompack/config.json` with `runtime.migration.settingsVersion` 2, gated `experiments.enabled` true, and ungated `reinjection.sessionStartCompact` false (build reads 1 / default true) | verified | see §5 D8-2 (fixed): capture continues with the block reset; `state/config-violations.json` names the reset; effective `sessionStartCompact` is true; `experiments.enabled` is gated and restored by Validate on any build; hooks exit 0; a daemon comes up; `config print --provenance` still reports `reset: newer settingsVersion`; bytes unchanged |
 
 Two orderings in that test are findings rather than conveniences, and both are commented in the
 source so nobody "tidies" them away:

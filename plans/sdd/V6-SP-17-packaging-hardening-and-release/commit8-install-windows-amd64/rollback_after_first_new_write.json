@@ -14,7 +14,7 @@
     "name": "qompack",
     "version": "0.1.0",
     "target": "windows/amd64",
-    "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+    "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
   },
   "artifact": "commit8-install-windows-amd64/rollback_after_first_new_write.json"
 }

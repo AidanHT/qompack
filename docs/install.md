@@ -70,8 +70,9 @@ claude plugin install qompack@<marketplace> -s user -y
 ```
 
 `-s` selects the scope: `user` writes `enabledPlugins` in `~/.claude/settings.json`, `project`
-writes `.claude/settings.json`, `local` writes `.claude/settings.local.json`. Task 8 rehearsed
-**user** scope only; project and local are recorded from host docs, not rehearsed.
+writes `.claude/settings.json`, `local` writes `.claude/settings.local.json`. `install` and
+`uninstall` take `user|project|local`; `update` also accepts `managed`. Task 8 rehearsed
+**user** scope only; project, local and managed are recorded from host docs, not rehearsed.
 
 What an install writes, as observed on 2.1.263 (host-output observations, not test assertions,
 except where noted):
@@ -134,6 +135,7 @@ claude plugin update qompack -s user -y
 
 The first re-reads a local directory marketplace ("Validating local marketplace"). The second
 prints `Plugin "<name>" updated from <old> to <new> for scope <scope>. Restart to apply changes.`
+`update` also accepts `-s managed`.
 
 After an upgrade the **old** cache version directory is retained
 (`plugins/cache/<marketplace>/qompack/` held both `0.1.0` and `0.1.1`). The host docs' "about

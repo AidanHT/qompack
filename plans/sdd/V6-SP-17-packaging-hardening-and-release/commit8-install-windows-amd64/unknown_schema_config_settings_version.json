@@ -3,7 +3,7 @@
   "capability": "unknown_schema",
   "scope": "installed_cli",
   "outcome": "verified",
-  "reason": "runtime.migration.settingsVersion 2 with experiments.enabled true (build reads 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (experiments.enabled off); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
+  "reason": "runtime.migration.settingsVersion 2 with experiments.enabled true (gated; Validate restores false on any build) and reinjection.sessionStartCompact false (ungated, default true; build reads settingsVersion 1): LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); state/config-violations.json names the reset; the effective block is defaults (sessionStartCompact true); hooks exit 0; a daemon comes up; config print --provenance still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
   "target": {
     "provider": "claude-code",
     "version": "2.1.263",
@@ -14,7 +14,7 @@
     "name": "qompack",
     "version": "0.1.0",
     "target": "windows/amd64",
-    "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
+    "binary_sha256": "b696f726986bd365f34ef0c70b5a816af67bf70478e29e2bd62394ecf83a089a"
   },
   "artifact": "commit8-install-windows-amd64/unknown_schema_config_settings_version.json"
 }

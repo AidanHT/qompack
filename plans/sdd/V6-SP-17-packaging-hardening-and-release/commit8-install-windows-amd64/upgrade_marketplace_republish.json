@@ -14,7 +14,7 @@
     "name": "qompack",
     "version": "0.1.1",
     "target": "windows/amd64",
-    "binary_sha256": "e6180b9d40351f01ed2f93fbbaf9064c0855fc210790d7bc6746693fb32fe2ee"
+    "binary_sha256": "d8c24818de055009831971cea3b92ce25a4b588625f3853e6bd65949097e653f"
   },
   "artifact": "commit8-install-windows-amd64/upgrade_marketplace_republish.json"
 }
