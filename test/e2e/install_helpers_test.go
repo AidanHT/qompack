@@ -131,7 +131,19 @@ var (
 	installWritten   []installRecord
 )
 
+// installChildWaitDelay bounds how long Wait may go on after a child has exited. CommandContext
+// kills only the direct child; on this host `claude` is an npm shim (cmd.exe → node) and `go run`
+// spawns the assembled binary as a grandchild, so without WaitDelay a wedged grandchild keeps
+// stdout/stderr open and the bound is not a bound. Same constant and the same ErrWaitDelay
+// treatment as test/fault/fault.go.
+const installChildWaitDelay = 5 * time.Second
+
 // installArtifactDir returns where records are written.
+//
+// A collecting run ($QOMPACK_INSTALL_ARTIFACTS set) writes every test's records into one directory
+// and TestMain writes INDEX.json over them. A plain run uses t.TempDir, so the schema's "same
+// layout" cannot include INDEX.json: each test has its own directory and TestMain has no single
+// path to write the index into.
 func installArtifactDir(t *testing.T) string {
 	t.Helper()
 	if os.Getenv(installArtifactsEnv) != "" {
@@ -180,7 +192,8 @@ func prepareInstallCollectDir() {
 
 // writeInstallRecordIndex writes INDEX.json for a collecting run. TestMain calls it after the last
 // case, so a case that fatalled before writing its record is visible as an absence in a document
-// written afterwards rather than as nothing at all.
+// written afterwards rather than as nothing at all. Errors go to stderr: the records are already
+// on disk, and release-scope reads the individual files, so a missing index must not be silent.
 func writeInstallRecordIndex() {
 	if os.Getenv(installArtifactsEnv) == "" || installCollectDir == "" {
 		return
@@ -192,9 +205,12 @@ func writeInstallRecordIndex() {
 
 	b, err := json.MarshalIndent(recs, "", "  ")
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "install: marshalling %s: %v\n", installRecordIndexName, err)
 		return
 	}
-	_ = os.WriteFile(paths.Long(filepath.Join(installCollectDir, installRecordIndexName)), append(b, '\n'), 0o600)
+	if err := os.WriteFile(paths.Long(filepath.Join(installCollectDir, installRecordIndexName)), append(b, '\n'), 0o600); err != nil {
+		fmt.Fprintf(os.Stderr, "install: writing %s: %v\n", installRecordIndexName, err)
+	}
 }
 
 // newInstallRecord returns a record pre-filled with the host target and the bundle identity, so no
@@ -248,15 +264,69 @@ func recordInstallVerified(t *testing.T, name, capability string, b installBundl
 	writeInstallRecord(t, rec)
 }
 
-// skipInstallRecorded writes rec as `skipped` with reason, THEN skips — the order test/canary's own
-// skipRecorded fixes: a case that skips without leaving a record is indistinguishable from one
-// nobody ever wrote, and the matrix in commit8-evidence.md is assembled from the records.
-func skipInstallRecorded(t *testing.T, name, capability string, b installBundleID, reason string) {
+// skipInstallHostCases writes one skipped record per install/upgrade/uninstall case with the
+// schema's platform-skip reason, then skips with that exact string. One record for the whole
+// test would leave the other five cases invisible to release-scope.
+func skipInstallHostCases(t *testing.T, b installBundleID) {
+	t.Helper()
+	for _, c := range []struct{ name, cap string }{
+		{"install_validate_bundle_strict", capInstall},
+		{"install_marketplace_user_scope", capInstall},
+		{"install_launcher_resolves_in_cache", capInstall},
+		{"upgrade_marketplace_republish", capUpgrade},
+		{"uninstall_keep_data", capUninstall},
+		{"uninstall_default", capUninstall},
+	} {
+		rec := newInstallRecord(c.name, c.cap, b)
+		rec.Outcome, rec.Reason = installSkipped, installSkipPrefix+"claude CLI not on PATH"
+		writeInstallRecord(t, rec)
+	}
+	t.Skip(installSkipPrefix + "claude CLI not on PATH")
+}
+
+// skipUnknownSchemaCases writes the four unknown-schema records as skipped and skips the test.
+// Those records are attributed to installed_cli; without the host CLI they must not be verified
+// through the bundled launcher.
+func skipUnknownSchemaCases(t *testing.T, b installBundleID) {
+	t.Helper()
+	for _, name := range []string{
+		"unknown_schema_checkpoint_artifact",
+		"unknown_schema_capture_sidecar",
+		"unknown_schema_delivery_seal_v2",
+		"unknown_schema_config_settings_version",
+	} {
+		rec := newInstallRecord(name, capUnknownSchema, b)
+		rec.Outcome, rec.Reason = installSkipped, installSkipPrefix+"claude CLI not on PATH"
+		writeInstallRecord(t, rec)
+	}
+	t.Skip(installSkipPrefix + "claude CLI not on PATH")
+}
+
+// recordInstallSkipped writes a skipped record without skipping the test: the store-API drills
+// can still run through the bundled launcher when the CLI is absent; only the installed-cli
+// rows (restored-root reads) must not claim verified.
+func recordInstallSkipped(t *testing.T, name, capability string, b installBundleID, reason string) {
 	t.Helper()
 	rec := newInstallRecord(name, capability, b)
 	rec.Outcome, rec.Reason = installSkipped, reason
 	writeInstallRecord(t, rec)
-	t.Skip(installSkipPrefix + name + ": " + reason)
+}
+
+// requireHostOK records a host refusal as a failed row and stops the test. A non-zero exit
+// without a record would leave release-scope with an absent row rather than unverified.
+func requireHostOK(t *testing.T, name, capability string, b installBundleID, res hostResult) {
+	t.Helper()
+	if res.Code == 0 {
+		return
+	}
+	reason := res.Combined()
+	if reason == "" {
+		reason = fmt.Sprintf("claude exited %d with empty output", res.Code)
+	}
+	rec := newInstallRecord(name, capability, b)
+	rec.Outcome, rec.Reason = installFailed, reason
+	writeInstallRecord(t, rec)
+	t.FailNow()
 }
 
 // ── the host CLI ───────────────────────────────────────────────────────────────────────────────
@@ -283,16 +353,25 @@ func findClaudeCLI() (string, string) {
 			return
 		}
 		installCLIPath = bin
+		probeHome, tmpErr := os.MkdirTemp("", "qompack-claude-version-")
+		if tmpErr != nil {
+			return
+		}
+		defer func() { _ = os.RemoveAll(probeHome) }()
 		ctx, cancel := context.WithTimeout(context.Background(), installHostBound)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, bin, "--version") //nolint:gosec // G204: fixed argument, path from LookPath
 		cmd.Stdin = bytes.NewReader(nil)
-		out, runErr := cmd.Output()
-		if runErr != nil {
+		cmd.Env = append(os.Environ(), "CLAUDE_CONFIG_DIR="+probeHome)
+		cmd.WaitDelay = installChildWaitDelay
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		cmd.Stderr = io.Discard
+		if runErr := cmd.Run(); runErr != nil && !errors.Is(runErr, exec.ErrWaitDelay) {
 			return
 		}
 		// The CLI answers "2.1.263 (Claude Code)"; the leading token is the version.
-		raw := strings.TrimSpace(string(out))
+		raw := strings.TrimSpace(out.String())
 		installCLIVers = raw
 		if f := strings.Fields(raw); len(f) > 0 {
 			installCLIVers = f[0]
@@ -309,7 +388,6 @@ func claudeCLIVersion() string {
 
 // hostResult is one `claude plugin …` invocation's outcome.
 type hostResult struct {
-	Argv   []string
 	Stdout string
 	Stderr string
 	Code   int
@@ -338,6 +416,7 @@ func runClaudePlugin(t *testing.T, home string, args ...string) hostResult {
 	cmd := exec.CommandContext(ctx, bin, args...) //nolint:gosec // G204: fixed subcommands, path from LookPath
 	cmd.Dir = home
 	cmd.Stdin = bytes.NewReader(nil)
+	cmd.WaitDelay = installChildWaitDelay
 	cmd.Env = append(os.Environ(),
 		"CLAUDE_CONFIG_DIR="+home,
 		"HOME="+realUserHome,
@@ -347,11 +426,15 @@ func runClaudePlugin(t *testing.T, home string, args ...string) hostResult {
 	cmd.Stdout, cmd.Stderr = &outBuf, &errBuf
 
 	err := cmd.Run()
-	res := hostResult{Argv: args, Stdout: outBuf.String(), Stderr: errBuf.String()}
+	res := hostResult{Stdout: outBuf.String(), Stderr: errBuf.String()}
 	var exitErr *exec.ExitError
 	switch {
 	case err == nil:
 		res.Code = 0
+	case errors.Is(err, exec.ErrWaitDelay):
+		res.Code = 0
+		t.Logf("install: claude %v exited 0 but its I/O was still open after %s (WaitDelay fired)",
+			args, installChildWaitDelay)
 	case errors.As(err, &exitErr):
 		res.Code = exitErr.ExitCode()
 	default:
@@ -376,7 +459,7 @@ func detectRealUserHome() string {
 }
 
 // realClaudeConfigFingerprint hashes the user's real ~/.claude/settings.json and lists
-// ~/.claude/plugins/ with every entry's size and digest.
+// ~/.claude/plugins/ with every entry's path and size.
 //
 // It is READ-ONLY and it is the whole of R8-2's mechanism: this package asserts the fingerprint is
 // unchanged across every host invocation, so a subcommand that fell through to the live
@@ -530,7 +613,8 @@ func assembleOneBundle(repo, out, version string) (installedBundle, error) {
 	// already on disk (test/canary's doBuild gives the same reason).
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	if err := cmd.Run(); err != nil {
+	cmd.WaitDelay = installChildWaitDelay
+	if err := cmd.Run(); err != nil && !errors.Is(err, exec.ErrWaitDelay) {
 		return installedBundle{}, fmt.Errorf(
 			"go run ./tools/devtool bundle --target %s --out %s --version %s (in %s): %w\nstdout:\n%s\nstderr:\n%s",
 			target, out, version, repo, err, stdout.String(), stderr.String())
@@ -764,11 +848,9 @@ func installListPlugins(t *testing.T, home string) []installPluginListEntry {
 
 // ── driving the launcher ───────────────────────────────────────────────────────────────────────
 
-// installEnv is the environment a real-binary invocation against p runs with, matching e2eEnv.
-func installEnv(p *testutil.Project) map[string]string { return e2eEnv(p) }
-
-// installEnvFor is installEnv for a root that is not a testutil.Project's own — a restored backup
-// root, which is a real project root with no Project object behind it.
+// installEnvFor is the environment a real-binary invocation against a project root runs with.
+// The root need not be a testutil.Project's own — a restored backup root is a real project
+// root with no Project object behind it.
 func installEnvFor(root, home string) map[string]string {
 	return map[string]string{"QOMPACK_PROJECT_ROOT": root, "HOME": home, "USERPROFILE": home}
 }
@@ -783,12 +865,12 @@ func installEnvFor(root, home string) map[string]string {
 // INSTALLATION, never the claim about the binary.
 func installedOrBundledLauncher(t *testing.T, b installedBundle) (bin, where string) {
 	t.Helper()
+	fingerprint := realClaudeConfigFingerprint(t)
 	if cli, _ := findClaudeCLI(); cli == "" {
 		return b.Bin, "bundled (claude CLI not on PATH)"
 	}
 	home := filepath.Join(t.TempDir(), "claude-home")
 	require.NoError(t, os.MkdirAll(paths.Long(home), 0o700))
-	fingerprint := realClaudeConfigFingerprint(t)
 	writeMarketplace(t, filepath.Dir(b.Dir), b.DirBase)
 	if add := runClaudePlugin(t, home, "plugin", "marketplace", "add", filepath.Dir(b.Dir)); add.Code != 0 {
 		t.Fatalf("install: marketplace add: %s", add.Combined())
@@ -864,9 +946,8 @@ func installDriveSession(t *testing.T, bin, root, home string, sess core.Session
 }
 
 // installHookSuite drives every hook of one session EXCEPT session-start, asserting only §2.3's two
-// invariants. It is split out of installDriveSession because the degradation rehearsal needs the
-// same calls over a project whose capture configuration the build refuses — where no daemon comes
-// up at all, and where exit 0 with a parseable empty output is the whole of what is promised.
+// invariants. It is split out of installDriveSession so a caller can omit PreCompact (the rollback
+// project's no-checkpoint arm) without copying the rest of the suite.
 func installHookSuite(t *testing.T, bin, root, home string, sess core.SessionID, marker string, precompact bool) {
 	t.Helper()
 	env := installEnvFor(root, home)
@@ -893,11 +974,10 @@ func installHookSuite(t *testing.T, bin, root, home string, sess core.SessionID,
 // installDriveSessionWithoutCheckpoint is installDriveSession with the PreCompact hook left out, so
 // the project records real objects, index lines and spool state but seals no checkpoint artifact.
 //
-// It exists because checkpoints/ is a §7.4 PROTECTED path and store.RestoreBackup writes through
-// paths.WriteAtomic, which refuses those outright — so a rollback drill over a project that HAS a
-// sealed checkpoint stops at its restore step (install_test.go's own sealed-checkpoint row records
-// exactly that). This variant is what lets the remaining nine properties of the drill be
-// demonstrated rather than blocked behind that one refusal.
+// The sealed-checkpoint project now restores (RestoreBackup writes protected paths through
+// paths.CreateNew). This variant still exists because the daemon-alive refusal, the after-first-
+// new-write drill and identity parity through the installed launcher are distinct properties and
+// are cheaper to demonstrate on a project that did not also seal.
 func installDriveSessionWithoutCheckpoint(t *testing.T, bin, root, home string, sess core.SessionID, marker string) {
 	t.Helper()
 	before := len(obsToolUseLines(root))
@@ -910,45 +990,6 @@ func installDriveSessionWithoutCheckpoint(t *testing.T, bin, root, home string, 
 	require.Eventually(t, func() bool { return len(obsToolUseLines(root)) >= want },
 		installIndexBound, installIndexTick,
 		"index/tool_use.jsonl never reached %d records after a session through %s", want, bin)
-}
-
-// installRunDegradedSession drives all six hooks over a project the build cannot fully configure.
-// session-start is included and no daemon is waited for: when admission refuses, session-start never
-// reaches its daemon-spawning preSend, and asserting otherwise would be asserting a spawn the
-// product deliberately does not perform.
-func installRunDegradedSession(t *testing.T, bin, root, home string, sess core.SessionID, marker string) {
-	t.Helper()
-	installRunHook(t, bin, []string{"session-start"}, installSessionStartPayload(t, root, sess),
-		installEnvFor(root, home))
-	installHookSuite(t, bin, root, home, sess, marker, true)
-}
-
-// installHookQuietLines returns every line of logs/hook-quiet-*.jsonl: the record a hook writes when
-// it answers §2.3's "exit 0, always" from a degraded path. It is where "degradation is loud"
-// (00-ARCHITECTURE.md §13 invariant 10) is observable for a hook that by contract says nothing on
-// stdout.
-func installHookQuietLines(t *testing.T, root string) []string {
-	t.Helper()
-	dir := paths.Of(root).Logs
-	entries, err := os.ReadDir(paths.Long(dir))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	require.NoError(t, err)
-	var out []string
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasPrefix(e.Name(), "hook-quiet-") {
-			continue
-		}
-		raw, readErr := os.ReadFile(paths.Long(filepath.Join(dir, e.Name())))
-		require.NoError(t, readErr)
-		for _, line := range strings.Split(strings.TrimRight(string(raw), "\n"), "\n") {
-			if strings.TrimSpace(line) != "" {
-				out = append(out, line)
-			}
-		}
-	}
-	return out
 }
 
 // installRootHashes is every content root index/roots.jsonl names, as a set of hash strings. It is
@@ -1048,6 +1089,61 @@ func installFsckRow(t *testing.T, rep installFsckReport, id string) installFsckC
 	}
 	require.FailNowf(t, "missing fsck row", "the report carries no %q row: %+v", id, rep.Checks)
 	return installFsckCheck{}
+}
+
+// installAssertStatusJSON decodes `qompack status --json` and asserts a concrete field: the
+// document's schema version. json.Valid alone is decorative; hook rows can be empty before a
+// session has run.
+func installAssertStatusJSON(t *testing.T, stdout []byte) {
+	t.Helper()
+	var doc struct {
+		Schema int `json:"schema"`
+	}
+	require.NoError(t, json.Unmarshal(stdout, &doc), "status --json must decode: %s", stdout)
+	require.NotZero(t, doc.Schema, "status --json must carry a schema version")
+}
+
+// installAssertDoctorJSON decodes `qompack doctor --json` and asserts the project equals root and
+// that a checkpoint.latest row exists. json.Valid alone is decorative.
+func installAssertDoctorJSON(t *testing.T, stdout []byte, root string) {
+	t.Helper()
+	var doc struct {
+		Project  string `json:"project"`
+		Sections []struct {
+			Rows []struct {
+				ID     string `json:"id"`
+				Status string `json:"status"`
+			} `json:"rows"`
+		} `json:"sections"`
+	}
+	require.NoError(t, json.Unmarshal(stdout, &doc), "doctor --json must decode: %s", stdout)
+	require.Equal(t, root, doc.Project, "doctor --json project must be the root we asked about")
+	var latest string
+	for _, sec := range doc.Sections {
+		for _, row := range sec.Rows {
+			if row.ID == "checkpoint.latest" {
+				latest = row.Status
+			}
+		}
+	}
+	require.NotEmpty(t, latest, "doctor must carry a checkpoint.latest row")
+}
+
+// installViolation is one row of state/config-violations.json. The product writes config.Violation
+// with no JSON tags, so the fields are Key and Message with capital letters.
+type installViolation struct {
+	Key     string `json:"Key"`
+	Message string `json:"Message"`
+}
+
+// installConfigViolations reads state/config-violations.json.
+func installConfigViolations(t *testing.T, root string) []installViolation {
+	t.Helper()
+	raw, err := os.ReadFile(paths.Long(filepath.Join(paths.Of(root).State, "config-violations.json")))
+	require.NoError(t, err, "state/config-violations.json must exist after a versioned-section reset")
+	var rows []installViolation
+	require.NoError(t, json.Unmarshal(raw, &rows), "state/config-violations.json must parse:\n%s", raw)
+	return rows
 }
 
 // installFsckFailures renders every failing row, for the message of an assertion that expected none.
@@ -1195,14 +1291,28 @@ func newInstallProject(t *testing.T) (root, home string) {
 // door, and nothing here is forked from the package under test.
 func installMigrator(t *testing.T, p *testutil.Project) (store.Store, *store.Migrator) {
 	t.Helper()
+	s, m, closeFn := installOpenMigrator(t, p)
+	t.Cleanup(closeFn)
+	return s, m
+}
+
+// installOpenMigrator opens a store and a migrator the caller must close. Use it when a daemon
+// will run on the same root: p.Store(t) holds append handles until the test ends, which races
+// the daemon (single-writer). Open after the daemon-alive refusal, or close before starting one.
+func installOpenMigrator(t *testing.T, p *testutil.Project) (store.Store, *store.Migrator, func()) {
+	t.Helper()
 	gate := config.LegacyImportGate()
 	gate.Passed = true
-	s := p.Store(t)
+	s, err := store.Open(p.Root, p.Cfg, store.Deps{Log: p.Log, Clock: p.Clock})
+	require.NoError(t, err, "opening a store over %s", p.Root)
 	m, err := store.NewMigrator(s, p.Root, store.MigrateOptions{
 		Source: newInstallLegacySource(installLegacyRecords), Gate: gate, Clock: p.Clock, Batch: 2,
 	})
+	if err != nil {
+		_ = s.Close()
+	}
 	require.NoError(t, err)
-	return s, m
+	return s, m, func() { _ = s.Close() }
 }
 
 // installImportAndBackup runs the bounded import and takes the verified backup every drill in this

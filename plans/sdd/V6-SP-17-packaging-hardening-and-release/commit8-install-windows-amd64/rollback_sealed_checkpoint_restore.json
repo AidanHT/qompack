@@ -2,19 +2,19 @@
   "name": "rollback_sealed_checkpoint_restore",
   "capability": "rollback",
   "scope": "installed_cli",
-  "outcome": "failed",
-  "reason": "SP17-M7-05 does not pass on a project that has sealed a checkpoint: store.RestoreBackup writes every backed-up file with paths.WriteAtomic, which refuses checkpoints/, pins/ and sketches/tried.bloom by §7.4. Drill refusal: the backup did not restore: store: restore backup \"sp17-pre-cutover\": qompack: append-only violation: WriteAtomic on protected path C:\\Users\\Quant\\AppData\\Local\\Temp\\TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite1942333981\\003\\restore-sealed\\.qompack\\checkpoints\\0001.json — RETURNED to internal/store (SP-20 M1-04), not fixed here.",
+  "outcome": "verified",
+  "reason": "RehearseRollback over a project that sealed a checkpoint: OK, backup verified, reader proved, writers stopped, automatic_downgrade false, evidence retained; the restored root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 fix round 1 (ada54d1, commit6-evidence.md row 19): RestoreBackup writes protected paths through paths.CreateNew (internal/store/backup.go:413).",
   "target": {
     "provider": "claude-code",
     "version": "2.1.263",
     "platform": "windows/amd64",
-    "date": "2026-09-15"
+    "date": "2026-09-16"
   },
   "bundle": {
     "name": "qompack",
     "version": "0.1.0",
     "target": "windows/amd64",
-    "binary_sha256": "596aa5dd1fe9d42bf4396d1da4b2237ba841817f9672c68d840b4d93f409af5c"
+    "binary_sha256": "c8ad3b9ffe8ad1986c1b524c1a5568083cafa94652b88830ec92dd124e854d83"
   },
   "artifact": "commit8-install-windows-amd64/rollback_sealed_checkpoint_restore.json"
 }

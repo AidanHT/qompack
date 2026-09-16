@@ -8,13 +8,13 @@
     "provider": "claude-code",
     "version": "2.1.263",
     "platform": "windows/amd64",
-    "date": "2026-09-15"
+    "date": "2026-09-16"
   },
   "bundle": {
     "name": "qompack",
     "version": "0.1.1",
     "target": "windows/amd64",
-    "binary_sha256": "167e14ac5469cddc982f681a98bddb226ef1790512aae62947a6606cec7c9ee3"
+    "binary_sha256": "e6180b9d40351f01ed2f93fbbaf9064c0855fc210790d7bc6746693fb32fe2ee"
   },
   "artifact": "commit8-install-windows-amd64/uninstall_keep_data.json"
 }
