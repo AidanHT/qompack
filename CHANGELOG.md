@@ -36,6 +36,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   bundle's own binary and each writing a per-case evidence record.
 - `.github/workflows/ci.yml` gains a `release-dry-run` job, so every push proves the release path
   builds rather than discovering it on the day of a release.
+- Installation, upgrade, uninstall, rollback and unknown-schema rehearsal against the host CLI,
+  with committed evidence records under `commit8-install-windows-amd64/`.
 
 ### Changed
 

@@ -1,10 +1,12 @@
 # Installing Qompack
 
-Every command on this page was **recorded from the Claude Code documentation** and is rehearsed
-against a real host in SP-17 Task 8; until that rehearsal lands, treat the exact spellings as the
-host's published contract rather than as something this repository has executed. The supported-scope
-table in `docs/release.md` §3 says which platforms actually have a record behind them — today that
-is one of six, and it is a *directory* validation rather than an installed one.
+Task 8 rehearsed install, upgrade and uninstall on **windows/amd64** against `claude` 2.1.263,
+with `CLAUDE_CONFIG_DIR` pointed at a disposable home. The supported-scope table in
+`docs/release.md` §3 is generated from those records: today that host reads `installed-verified`;
+the other five targets have no install record.
+
+Commands this page marks **rehearsed** are the ones Task 8 actually ran. Anything else stays
+**recorded from host docs, not rehearsed**.
 
 ## 1. What you are installing
 
@@ -23,7 +25,9 @@ qompack-plugin-<version>-<os>-<arch>/
 ```
 
 A release ships each bundle as a `.zip` (windows) or `.tar.gz`, plus one `checksums.txt` over the
-archives. Verify before you extract:
+archives (`devtool bundle --archive`, Task 7). Task 8 rehearsed the **directory** form: it verified
+the bundle's own `checksums.txt` against the assembled tree (11 lines) and installed from that
+directory. Archive extraction was **recorded from host docs, not rehearsed**:
 
 ```sh
 sha256sum -c checksums.txt
@@ -36,6 +40,8 @@ from its commit and therefore is not a release artifact.
 
 ## 2. Trying it without installing anything
 
+*(Recorded from host docs, not rehearsed.)*
+
 ```sh
 claude --plugin-dir /path/to/qompack-plugin-<version>-<os>-<arch>
 ```
@@ -47,67 +53,124 @@ setup.
 
 `claude --settings '<json or path>'` applies configuration keys for one session in the same spirit,
 and `CLAUDE_CONFIG_DIR` relocates the whole home configuration if you want an install rehearsal that
-cannot touch your real one.
+cannot touch your real one. Task 8 used `CLAUDE_CONFIG_DIR` for every host invocation.
 
 ## 3. Installing from a local directory
 
-*(Recorded from host docs, rehearsed in Task 8.)*
+A marketplace plugin `source` must be a `./`-relative path **beneath** the marketplace root — the
+directory holding `.claude-plugin/` — not relative to `marketplace.json`. A `..` segment is refused
+outright. Practically, `devtool bundle --out <dir>` and the marketplace share `<dir>`, and the
+plugin source is `./qompack-plugin-<version>-<os>-<arch>`. Under `--strict`, a marketplace manifest
+without a `description` fails (`success: false`, one warning); a passing minimal manifest carries
+`name`, `description`, `owner` and `plugins`.
 
 ```sh
-# inside claude, add the directory holding the bundle as a marketplace
-/plugin marketplace add /path/to/qompack-plugin-<version>-<os>-<arch>
-
-# then install from it
-claude plugin install qompack@<marketplace> -s user
+claude plugin marketplace add /path/to/parent-of-the-bundle
+claude plugin install qompack@<marketplace> -s user -y
 ```
 
 `-s` selects the scope: `user` writes `enabledPlugins` in `~/.claude/settings.json`, `project`
-writes `.claude/settings.json`, `local` writes `.claude/settings.local.json`. The payload is cached
-under `~/.claude/plugins/cache/<marketplace>/qompack/<version>/`, and per-plugin host data under
-`~/.claude/plugins/data/<id>/`.
+writes `.claude/settings.json`, `local` writes `.claude/settings.local.json`. Task 8 rehearsed
+**user** scope only; project and local are recorded from host docs, not rehearsed.
 
-Your recorded sessions are **not** in either place. They are in `<project>/.qompack/` and
+What an install writes, as observed on 2.1.263 (host-output observations, not test assertions,
+except where noted):
+
+- `enabledPlugins` keys are `<plugin>@<marketplace>` (`qompack@qompack-rehearsal`), never the bare
+  name. **Asserted.**
+- `claude plugin marketplace add <dir>` writes `extraKnownMarketplaces` into `settings.json` and
+  `plugins/known_marketplaces.json`, and reports "(declared in user settings)".
+- Installing creates, under `CLAUDE_CONFIG_DIR`: `settings.json`, `.claude.json`,
+  `backups/.claude.json.backup.<ms>`, `plugins/installed_plugins.json`,
+  `plugins/known_marketplaces.json`, an empty `plugins/marketplaces/`, and the payload cache
+  `plugins/cache/<marketplace>/<plugin>/<version>/`.
+- The payload cache holds the **whole** bundle, `BUNDLE.json` and `checksums.txt` included. Every
+  `checksums.txt` line verifies inside the cache, and the cached `bin/qompack.exe` is
+  byte-identical to the assembled one. **Asserted.**
+- `plugins/data/<id>/` is **not** created by an install. It appears only once a plugin has run in a
+  live session, so `--keep-data` has nothing host-side to keep on a rehearsal host.
+
+Only `validate` and `list` accept `--json`. `install`, `update`, `uninstall` and every
+`marketplace` subcommand do not; their output is prose on stdout. `install`, `update` and
+`uninstall` accept `-y`/`--yes`, which the CLI documents as required when stdin or stdout is not a
+TTY (host-output observation).
+
+Your recorded sessions are **not** in the cache. They are in `<project>/.qompack/` and
 `~/.qompack/` — see §6.
 
 ## 4. Checking that it worked
 
 ```sh
 claude plugin validate /path/to/qompack-plugin-<version>-<os>-<arch> --strict --json
-qompack doctor
+qompack doctor --json
 ```
 
-`claude plugin validate` is the host's own verdict on the manifest. Note what it is not: the
-directory is validated **where it sits**, so installed manifest resolution,
+On an assembled qompack bundle, `claude plugin validate --strict --json` reported `success: true`,
+`manifest.type: "plugin"`, and empty `errors`, `warnings` and `contents`; `target` is the resolved
+`.claude-plugin/plugin.json` path, not the directory (host-output observation). Note what
+validation is not: the directory is validated **where it sits**, so installed manifest resolution,
 `${CLAUDE_PLUGIN_ROOT}` expansion and launcher discovery remain unverified by it (Qompack.md §7.5).
-`qompack doctor` answers the other half — version, host, capability, scope, and which controls are
-disabled — and is the first thing to attach to any bug report.
+The install record is what raises `installed-verified`.
+
+`qompack doctor --json` answers version, host, capability, scope, and which controls are disabled.
+It carries a `project` field and a `checkpoint.latest` row; it does **not** carry a per-artifact
+schema row. A checkpoint artifact or capture sidecar newer than the build appears in
+`qompack fsck --project <root> --json` as a note inside the row's `detail`, with `ok: true` and
+`exit: 0` — a support gap, not a defect. Point a reader at `fsck` for that question.
+`fsck --json`'s `severity` field is a number (`internal/contract.Severity` is a uint8), and
+`read_only` is true for a default run.
+
+`qompack config print --json` prints the effective configuration only. Provenance is
+`qompack config print --provenance`, which is not a JSON document.
 
 ## 5. Upgrading
 
-Install the new version the same way. The host keeps the previous version's payload for roughly
-**14 days** and then removes it. `${CLAUDE_PLUGIN_ROOT}` therefore **changes on every update**:
-anything that hard-codes the old path — a shell alias, a wrapper script, a `PATH` entry pointing
-into the cache — breaks silently at the next upgrade. Resolve the binary through the plugin root the
-host exports, never through a remembered path.
+Republishing is two commands, in this order:
 
-Your data is untouched by an upgrade. `.qompack/` belongs to the project, not to the plugin
-directory (00-ARCHITECTURE.md §3.3).
+```sh
+claude plugin marketplace update <marketplace>
+claude plugin update qompack -s user -y
+```
+
+The first re-reads a local directory marketplace ("Validating local marketplace"). The second
+prints `Plugin "<name>" updated from <old> to <new> for scope <scope>. Restart to apply changes.`
+
+After an upgrade the **old** cache version directory is retained
+(`plugins/cache/<marketplace>/qompack/` held both `0.1.0` and `0.1.1`). The host docs' "about
+fourteen days" is consistent with this; this page does not promise removal.
+`${CLAUDE_PLUGIN_ROOT}` therefore **changes on every update**: anything that hard-codes the old
+path — a shell alias, a wrapper script, a `PATH` entry pointing into the cache — breaks silently
+at the next upgrade. Resolve the binary through the plugin root the host exports, never through a
+remembered path.
+
+Every source file is byte-identical across install, upgrade and uninstall. `.qompack/` is
+byte-identical across the upgrade and survives the uninstall with its objects. Deleting recorded
+data is a manual step (remove `<project>/.qompack/`), and it is not secure physical erasure across
+backups or media.
 
 ## 6. Uninstalling, and what happens to your data
 
 ```sh
-claude plugin uninstall qompack -s user
-claude plugin uninstall qompack -s user --keep-data     # keep the host-side plugin data directory
-claude plugin uninstall qompack -s user --prune         # also remove the cached payload
+claude plugin uninstall qompack -s user -y
+claude plugin uninstall qompack -s user --keep-data -y
 ```
+
+`--prune` (also remove the cached payload) is recorded from host docs, not rehearsed; it needs
+`-y` in non-interactive use.
+
+**On Claude Code 2.1.263 the payload cache is retained on both paths** — `--keep-data` and the
+default. The two commands are indistinguishable here because no `plugins/data/<id>/` is ever
+created by an install. A page that says the default uninstall deletes the payload is wrong for
+this version. An uninstall leaves `extraKnownMarketplaces` in place; removing the marketplace is a
+separate `claude plugin marketplace remove <name>` (host-output observation).
 
 **The policy, stated plainly:**
 
-| what | what uninstall does |
+| what | what uninstall does on 2.1.263 |
 | --- | --- |
-| the host integration (`enabledPlugins` entry, hooks, MCP server registration) | removed |
-| the bundle's binaries and manifest under the host's cache | removed (`--prune` removes the cached payload too) |
-| host-side plugin data under `~/.claude/plugins/data/<id>/` | removed unless you pass `--keep-data` |
+| the host integration (`enabledPlugins` entry, `plugin list`) | removed |
+| the bundle's binaries and manifest under the host's cache | **retained** on both paths |
+| host-side plugin data under `~/.claude/plugins/data/<id>/` | not created by an install; `--keep-data` has nothing to keep |
 | **`<project>/.qompack/` and `~/.qompack/` — your recorded sessions** | **retained. Always.** |
 
 The last row is deliberate and it is not an oversight. `.qompack/` is your data: the captures, the
@@ -131,18 +194,9 @@ it.
 
 Four keys disable a live path, and they compose: set one and the rest keep working. The full table,
 including `runtime.redact.enabled` and which keys are *refused* rather than disabled, is in
-`docs/release.md` §4. The short version:
-
-| to | set |
-| --- | --- |
-| stop everything | `runtime.mode: "off"` |
-| keep recording, stop acting | `runtime.mode: "passive"` |
-| stop reinjection after compaction | `runtime.migration.reinjection.sessionStartCompact: false` |
-| run without a resident daemon | `runtime.daemon.enabled: false` |
-
-Put them in `<project>/.qompack/config.json` or `~/.qompack/config.json`; see
-`docs/config-reference.md` for the schema and every default. After changing configuration, check
-`state/config-violations.json` — it is where the product records any value it refused.
+`docs/release.md` §4. Schema and every default live in `docs/config-reference.md`. After changing
+configuration, check `state/config-violations.json` — it is where the product records any value it
+refused, including a newer `settingsVersion` reset.
 
 Recording can be disabled for privacy (`runtime.mode: "off"`) while whatever was already recorded
 stays retrievable: retrieval remains scoped to what host permission allows **today**, re-checked at
