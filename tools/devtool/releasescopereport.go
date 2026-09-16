@@ -92,8 +92,8 @@ func targetRow(ev scopeEvidence, target string) scopeTargetRow {
 func acceptanceRow(ev scopeEvidence, id string) scopeAcceptanceRow {
 	switch id {
 	case "SP17-M7-01":
-		row := installCapabilityRow(ev, "install")
-		if row.Status != scopeVerified && ev.HostValidation != nil {
+		row, _ := installCapabilityRow(ev, "install")
+		if row.Status != scopeVerified && row.Artifact == "" && ev.HostValidation != nil {
 			row.Artifact = ev.HostValidation.citation()
 			row.Note = "directory validation only: the bundle was validated where it sits, which is " +
 				"not an installed-plugin canary (Qompack.md §7.5)"
@@ -106,7 +106,8 @@ func acceptanceRow(ev scopeEvidence, id string) scopeAcceptanceRow {
 	case "SP17-M7-04":
 		return familyRow(ev, "fault")
 	case "SP17-M7-05":
-		return installCapabilityRow(ev, "rollback")
+		row, _ := installCapabilityRow(ev, "rollback")
+		return row
 	case "SP17-M7-06":
 		return switchesAndUninstallRow(ev)
 	case "SP17-M7-07":
@@ -149,8 +150,9 @@ func familyRow(ev scopeEvidence, family string) scopeAcceptanceRow {
 }
 
 // installCapabilityRow is verified when at least one install record of the named capability is
-// verified, and pinned to unverified by any failed one.
-func installCapabilityRow(ev scopeEvidence, capability string) scopeAcceptanceRow {
+// verified, and pinned to unverified by any failed one. The bool is true when a failed record
+// spoke and pinned the row.
+func installCapabilityRow(ev scopeEvidence, capability string) (scopeAcceptanceRow, bool) {
 	id := map[string]string{"install": "SP17-M7-01", "rollback": "SP17-M7-05"}[capability]
 	row := scopeAcceptanceRow{
 		ID: id, Status: scopeUnverified,
@@ -164,13 +166,13 @@ func installCapabilityRow(ev scopeEvidence, capability string) scopeAcceptanceRo
 			return scopeAcceptanceRow{
 				ID: id, Status: scopeUnverified, Artifact: rec.citation(),
 				Note: "a " + capability + " record reports failed: " + rec.Name,
-			}
+			}, true
 		}
 		if rec.Outcome == scopeVerified && row.Status != scopeVerified {
 			row = scopeAcceptanceRow{ID: id, Status: scopeVerified, Artifact: rec.citation()}
 		}
 	}
-	return row
+	return row, false
 }
 
 // switchesAndUninstallRow needs BOTH halves of SP17-M7-06: the switch matrix this commit produces,
@@ -185,8 +187,8 @@ func switchesAndUninstallRow(ev scopeEvidence) scopeAcceptanceRow {
 		missing = append(missing, "the switch matrix ("+switches.Note+")")
 	}
 	for _, capability := range []string{"uninstall", "unknown_schema"} {
-		capRow := installCapabilityRow(ev, capability)
-		if capRow.Artifact != "" && strings.Contains(capRow.Note, "reports failed") {
+		capRow, failed := installCapabilityRow(ev, capability)
+		if failed {
 			return scopeAcceptanceRow{
 				ID: "SP17-M7-06", Status: scopeUnverified,
 				Artifact: capRow.Artifact, Note: capRow.Note,
@@ -243,7 +245,14 @@ func attachmentsRow(ev scopeEvidence) scopeAcceptanceRow {
 	if ev.ReleaseCheck == nil || ev.ReleaseCheck.outcome != scopeVerified {
 		missing = append(missing, "a verified release-check record")
 	}
-	if installCapabilityRow(ev, "rollback").Status != scopeVerified {
+	rollback, rollbackFailed := installCapabilityRow(ev, "rollback")
+	if rollbackFailed {
+		return scopeAcceptanceRow{
+			ID: "SP17-M7-08", Status: scopeUnverified,
+			Artifact: rollback.Artifact, Note: rollback.Note,
+		}
+	}
+	if rollback.Status != scopeVerified {
 		missing = append(missing, "a verified rollback rehearsal record")
 	}
 	if len(missing) == 0 {
@@ -261,7 +270,8 @@ func renderScopeMarkdown(rep scopeReport) string {
 	var b strings.Builder
 	b.WriteString("## Supported scope\n\n")
 	fmt.Fprintf(&b, "Derived by `go run ./tools/devtool release-scope` from the committed records under `%s`.\n", rep.Evidence)
-	b.WriteString("A status is raised only by a record with an `outcome`; prose never raises one.\n\n")
+	b.WriteString("A status is raised only by a record with an `outcome` (for `release-check.json`, " +
+		"derived from `ok` and its step statuses); prose never raises one.\n\n")
 	b.WriteString("| target | status | artifact |\n| --- | --- | --- |\n")
 	for _, r := range rep.Targets {
 		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", r.Target, r.Status, orDash(r.Artifact))

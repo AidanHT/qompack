@@ -277,7 +277,7 @@ is `verified` (uninstall + unknown_schema). SP17-M7-01's installed half is `veri
 ## Supported scope
 
 Derived by `go run ./tools/devtool release-scope` from the committed records under `plans/sdd/V6-SP-17-packaging-hardening-and-release`.
-A status is raised only by a record with an `outcome`; prose never raises one.
+A status is raised only by a record with an `outcome` (for `release-check.json`, derived from `ok` and its step statuses); prose never raises one.
 
 | target | status | artifact |
 | --- | --- | --- |

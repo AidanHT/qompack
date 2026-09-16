@@ -2,6 +2,7 @@ package guards
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -99,7 +100,8 @@ func goreleaserDistValue(text string) (string, bool) {
 // or of dist/release-notes.md's directory `dist`. goreleaser --clean removes its dist folder;
 // that folder must not be the one holding the archives or the notes it is asked to upload.
 func goreleaserDistIsSafe(value string) bool {
-	v := strings.TrimSuffix(filepath.ToSlash(value), "/")
+	v := path.Clean(filepath.ToSlash(value))
+	v = strings.TrimSuffix(v, "/")
 	if v == "" || v == "." || v == "dist" {
 		return false
 	}
@@ -229,6 +231,8 @@ func TestGoreleaserGuardRejectsReshapedYAML(t *testing.T) {
 	require.NotContains(t, yamlSection(onlyRelease, "checksum"), "disable: true",
 		"disable: true under release: alone must not satisfy the checksum assertion")
 	require.False(t, goreleaserDistIsSafe("dist"))
+	require.False(t, goreleaserDistIsSafe("./dist"))
 	require.False(t, goreleaserDistIsSafe("dist/bundle"))
+	require.False(t, goreleaserDistIsSafe("dist/bundle/.."))
 	require.True(t, goreleaserDistIsSafe("dist/goreleaser"))
 }

@@ -262,6 +262,38 @@ func TestReleaseScope_ReleaseCheckFailPinsM707(t *testing.T) {
 	}
 }
 
+// TestReleaseScope_FailedInstallPinsM701 keeps the failed install record when host validation
+// is also present.
+func TestReleaseScope_FailedInstallPinsM701(t *testing.T) {
+	rep := scopeOf(t, scopeFixture(t, map[string]string{
+		"commit1-host-validation.json": scopeHostValidationAccepted,
+		"commit8-install-windows-amd64/install.json": `{"name":"install_launcher","capability":"install",` +
+			`"outcome":"failed","reason":"host refused","target":{"platform":"windows/amd64"},` +
+			`"artifact":"commit8-install-windows-amd64/install.json"}`,
+	}))
+	got := rowStatus(t, rep, "SP17-M7-01")
+	if got.Status != scopeUnverified ||
+		got.Artifact != "commit8-install-windows-amd64/install.json" ||
+		!strings.Contains(got.Note, "install_launcher") {
+		t.Errorf("a failed install record must pin SP17-M7-01 citing itself, got %+v", got)
+	}
+}
+
+// TestReleaseScope_FailedRollbackPinsM708 propagates the failed rollback record's artifact and note.
+func TestReleaseScope_FailedRollbackPinsM708(t *testing.T) {
+	rep := scopeOf(t, scopeFixture(t, map[string]string{
+		"commit8-install-windows-amd64/rollback.json": `{"name":"rollback_rehearsal","capability":"rollback",` +
+			`"outcome":"failed","reason":"host refused","target":{"platform":"windows/amd64"},` +
+			`"artifact":"commit8-install-windows-amd64/rollback.json"}`,
+	}))
+	got := rowStatus(t, rep, "SP17-M7-08")
+	if got.Status != scopeUnverified ||
+		got.Artifact != "commit8-install-windows-amd64/rollback.json" ||
+		!strings.Contains(got.Note, "rollback_rehearsal") {
+		t.Errorf("a failed rollback record must pin SP17-M7-08 citing itself, got %+v", got)
+	}
+}
+
 // TestReleaseScope_FailedUninstallPinsM706 propagates the failed record's artifact and note.
 func TestReleaseScope_FailedUninstallPinsM706(t *testing.T) {
 	rep := scopeOf(t, scopeFixture(t, map[string]string{
