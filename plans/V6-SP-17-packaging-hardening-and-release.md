@@ -1,6 +1,6 @@
 # SP-17: production packaging, compatibility, hardening and reversible release
 
-**Status:** future Wave 5/M7 plan, revised 2026-09-06; no implementation/release work performed here.
+**Status:** implementation complete 2026-09-16; final gate passed at `4db5cea`; independent review CLEAN at `87966da`; reduced scope in `docs/release.md` §3; no publication.
 **Branch:** `feat/sp17-packaging-hardening-and-release` | **Wave:** 5 | **Prerequisites:** V5 and applicable M0–M6 gates, SP19 installed capability register, SP20 migration/backup contract | **Runs in parallel with:** SP18 on disjoint files; SP18 integrates after this artifact exists | **Design sections:** §§7, 11, 12 | **Gaps addressed:** G9.2, G9.3 packaging/residual reporting.
 
 ---
@@ -96,35 +96,35 @@ Eight future commits retain original numbering/areas, conventional subjects and 
 
 ### Commit 1 — `build(packaging): assemble a versioned plugin bundle`
 
-- [ ] Specify bundle/launcher/version contracts, implement deterministic assembly and retain installed validation evidence.
+- [x] Specify bundle/launcher/version contracts, implement deterministic assembly and retain installed validation evidence.
 
 ### Commit 2 — `test(platform): verify supported deployment environments`
 
-- [ ] Add path/filesystem/IPC/permission cases, execute the actual supported matrix and record unsupported cases.
+- [x] Add path/filesystem/IPC/permission cases, execute the actual supported matrix and record unsupported cases.
 
 ### Commit 3 — `test(security): verify archive trust and privacy boundaries`
 
-- [ ] Verify permission-before-preview/expansion, redaction/retention and bounded decoding; independent trust review.
+- [x] Verify permission-before-preview/expansion, redaction/retention and bounded decoding; independent trust review.
 
 ### Commit 4 — `test(fault): exercise capture and lifecycle failures`
 
-- [ ] Reuse and extend publication/locking/lifecycle/child failure matrix on installed package; no unit-only certification.
+- [x] Reuse and extend publication/locking/lifecycle/child failure matrix on installed package; no unit-only certification.
 
 ### Commit 5 — `feat(cli): report integrity and capability diagnostics`
 
-- [ ] Implement compatible fsck/doctor contracts, error/unknown status and explicit repair behavior; test rollback-safe diagnostics.
+- [x] Implement compatible fsck/doctor contracts, error/unknown status and explicit repair behavior; test rollback-safe diagnostics.
 
 ### Commit 6 — `fix(hardening): resolve verified release blockers`
 
-- [ ] Integrate minimal fixes with affected owners, preserve frozen reader compatibility and repeat affected failure gates.
+- [x] Integrate minimal fixes with affected owners, preserve frozen reader compatibility and repeat affected failure gates.
 
 ### Commit 7 — `ci(release): gate release on evidence and rollback`
 
-- [ ] Prepare versioned release workflow/tooling and independent feature switches; validate package identity/licenses and rollback before future publication.
+- [x] Prepare versioned release workflow/tooling and independent feature switches; validate package identity/licenses and rollback before future publication.
 
 ### Commit 8 — `test(e2e): rehearse installation upgrade and removal`
 
-- [ ] Execute install/upgrade/uninstall and pre/post-write rollback; attach V6 evidence and actual supported release scope.
+- [x] Execute install/upgrade/uninstall and pre/post-write rollback; attach V6 evidence and actual supported release scope.
 
 ## Subagent strategy
 
@@ -160,21 +160,21 @@ A establishes the artifact/version contract first. B/C/D may then occupy up to t
 
 ## Exit criteria
 
-- [ ] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
-- [ ] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
+- [x] R2 run map distinguishes focused checks, parallel isolated groups and justified long gates; every required case has current evidence or an explicitly accepted blocked/disabled disposition, with no timeout, zero-test run or old-tip result counted as a pass.
+- [x] Future delegation follows R1 and this plan's role/effort table: record requested/observed routing or its explicit fallback, enforce ownership/concurrency, review the first slice, and retain required independent review and available usage evidence.
 
-- [ ] SP17-M7-01–08 and V6 primary quality/recovery gates have actual evidence or a documented reduced release scope.
-- [ ] Migration and rollback are rehearsed before/after new-format writes.
-- [ ] Installed host validation covers claimed environments; skipped tests leave capability unverified.
-- [ ] Independent switches and privacy denial behave as documented.
-- [ ] Supported artifact identifiers, dependency licenses and name checks are current at release.
+- [x] SP17-M7-01–08 and V6 primary quality/recovery gates have actual evidence or a documented reduced release scope.
+- [x] Migration and rollback are rehearsed before/after new-format writes.
+- [x] Installed host validation covers claimed environments; skipped tests leave capability unverified.
+- [x] Independent switches and privacy denial behave as documented.
+- [x] Supported artifact identifiers, dependency licenses and name checks are current at release.
 
 ## Done checklist
 
-- [ ] Eight conventional future commits retain original IDs and no attribution trailers.
-- [ ] Release/upgrade owner and independent reviewer sign the same evidence-backed scope.
-- [ ] No unverified native controls, universal performance or exact-history claims appear in package/help.
-- [ ] SP18 receives the real supported package and rollback instructions before final UAT documentation.
+- [x] Eight conventional future commits retain original IDs and no attribution trailers.
+- [x] Release/upgrade owner and independent reviewer sign the same evidence-backed scope.
+- [x] No unverified native controls, universal performance or exact-history claims appear in package/help.
+- [x] SP18 receives the real supported package and rollback instructions before final UAT documentation.
 
 ### Rollout, rollback and blockers
 
