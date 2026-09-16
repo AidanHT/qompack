@@ -130,7 +130,7 @@ Every row is one record under `commit8-install-windows-amd64/`. `outcome` is the
 | `upgrade_marketplace_republish` | upgrade | `claude plugin marketplace update qompack-rehearsal` then `claude plugin update qompack -s user -y` | verified | `0.1.0` -> `0.1.1` enabled; the OLD cache directory was RETAINED; `.qompack/` byte-identical across the upgrade; `fsck` exit 0 and MCP `recall` answered through the new launcher |
 | `uninstall_keep_data` | uninstall | `claude plugin uninstall qompack -s user --keep-data -y` | verified | `enabledPlugins` entry gone, `plugin list` empty, payload cache RETAINED, no `plugins/data/` had ever been created |
 | `uninstall_default` | uninstall | `claude plugin uninstall qompack -s user -y` | verified | same as above plus: the project tree outside `.qompack/` and `.git/` is byte-identical to the pre-install snapshot, `.qompack/` survives with its objects, and the manual deletion then restores the tree exactly |
-| `rollback_sealed_checkpoint_restore` | rollback | `store.RehearseRollback` over a project that sealed a checkpoint | verified | OK after ada54d1 (`commit6-evidence.md` row 19): RestoreBackup writes protected paths through `paths.CreateNew`. The restored root holds the checkpoint artifact byte-for-byte. Original observation (failed, WriteAtomic on protected path) is history in §5 |
+| `rollback_sealed_checkpoint_restore` | rollback | `store.RehearseRollback` over a project that sealed a checkpoint | verified | OK after ada54d1 (`commit6-evidence.md` row 19) and round 2 (`108da5b`): RestoreBackup writes protected artifacts through `paths.CreateNew` and the two append-only logs through `paths.RestoreLog`. The restored root holds the checkpoint artifact byte-for-byte. Original observation (failed, WriteAtomic on protected path) is history in §5 |
 | `rollback_before_first_new_write` | rollback | `store.RehearseRollback(before-first-new-format-write)` | verified | refused as a RESULT beside a live daemon, then OK with it stopped: backup verified, reader proved, writers stopped, 3 legacy ids retained, `automatic_downgrade` false, evidence retained |
 | `rollback_after_first_new_write` | rollback | `store.RehearseRollback(after-first-new-format-write)` | verified | OK with exactly 1 write enumerated in `unreadable_by_old_reader`, legacy ids still 3, `automatic_downgrade` false |
 | `rollback_restored_root_reads_through_the_launcher` | rollback | `qompack status --json`, `qompack fsck --json`, `qompack mcp` `recall` over the restored root | verified | status parses, `fsck` exit 0 with no defect row, and every recall hit carried a root identity the live project holds |
@@ -202,8 +202,11 @@ the backup did not restore: store: restore backup "sp17-pre-cutover": qompack: a
 violation: WriteAtomic on protected path <restore root>/.qompack/checkpoints/0001.json
 ```
 
-Fixed in `ada54d1`, `commit6-evidence.md` row 19: `internal/store/backup.go:413` `RestoreBackup`
-writes a destination `paths.IsProtected` names through `paths.CreateNew`. Re-measured here:
+Fixed in `ada54d1` (`commit6-evidence.md` row 19) and its round 2 (`108da5b`): `RestoreBackup`
+writes a `paths.IsProtected` destination through `paths.CreateNew` when it is an artifact or the
+bloom, and through `paths.RestoreLog` when it is one of the two append-only logs
+(`checkpoints/MANIFEST.jsonl`, `pins/invariants.jsonl`), so the restored root can seal and pin
+again. Re-measured here on that tree:
 `rollback_sealed_checkpoint_restore` is **verified** — OK, backup verified, reader proved,
 writers stopped, `automatic_downgrade` false, evidence retained; the restored root holds the
 checkpoint artifact byte-for-byte.
