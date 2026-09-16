@@ -304,7 +304,9 @@ func TestSwitch_DaemonDisabled(t *testing.T) {
 	p := newProject(t)
 
 	env := p.envWith(envDaemon, "false")
-	_ = runAllHooksExpectZero(t, b, p, env, "runtime.daemon.enabled false")
+	out := runAllHooksExpectZero(t, b, p, env, "runtime.daemon.enabled false")
+	require.NotContains(t, out, "additionalContext",
+		"no hook may answer with additionalContext when the daemon is disabled")
 
 	require.False(t, lockFileExists(p.Root),
 		"runtime.daemon.enabled false must never create %s", lockPath(p.Root))
