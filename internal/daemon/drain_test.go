@@ -343,6 +343,63 @@ func TestDrainKeepsLiveSessionWAL(t *testing.T) {
 	require.EqualValues(t, 3, atomic.LoadInt64(count))
 }
 
+// TestDrainNotesAStaleProgressOnceThenClears is the owning-package half of F4-7: a
+// state/drain.json that no longer matches the spool Louds once across two Drain calls
+// (noteWedged), and the flag clears on the first pass that gets through validateProgress
+// so a later wedge is announced again.
+func TestDrainNotesAStaleProgressOnceThenClears(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	present := writeSpoolFile(t, root, "wal-sess-1.ndjson", 1)
+	size := spoolFileSize(t, present)
+	writeStaleDrainProgress(t, root, filepath.Base(present), size+1)
+
+	log := newRecordingLogger()
+	dr := newDrainer(DrainConfig{
+		Root: root, Log: log, Clock: newFakeClock(epoch),
+		IsLive:   func(sess core.SessionID) bool { return sess == "sess-1" },
+		Dispatch: func(context.Context, ipc.Request) ipc.Response { return ipc.Response{OK: true} },
+	})
+
+	_, err := dr.Drain(context.Background())
+	require.Error(t, err)
+	_, err = dr.Drain(context.Background())
+	require.Error(t, err)
+	require.Equal(t, 1, log.count(logLoud), "noteWedged is once per wedge, not once per pass")
+	require.Contains(t, log.msgs(logLoud)[0], "state/drain.json")
+
+	writeMatchingDrainProgress(t, root, filepath.Base(present), size)
+	n, err := dr.Drain(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, 1, n)
+	require.Equal(t, 1, log.count(logLoud), "a pass that validates must not Loud again")
+
+	writeStaleDrainProgress(t, root, filepath.Base(present), size+1)
+	_, err = dr.Drain(context.Background())
+	require.Error(t, err)
+	require.Equal(t, 2, log.count(logLoud), "clearing the flag lets a later wedge speak")
+}
+
+func writeStaleDrainProgress(t *testing.T, root, base string, size int64) {
+	t.Helper()
+	writeDrainProgress(t, root, drainState{base: {Size: size, Offset: size, Done: true}})
+}
+
+func writeMatchingDrainProgress(t *testing.T, root, base string, size int64) {
+	t.Helper()
+	writeDrainProgress(t, root, drainState{base: {Size: size, Offset: 0}})
+}
+
+func writeDrainProgress(t *testing.T, root string, st drainState) {
+	t.Helper()
+	state, err := json.Marshal(st)
+	require.NoError(t, err)
+	p := drainStatePath(root)
+	require.NoError(t, os.MkdirAll(paths.Long(filepath.Dir(p)), 0o700))
+	require.NoError(t, os.WriteFile(paths.Long(p), state, 0o600))
+}
+
 // TestWalSessionID pins the filename parser rotation-suffix handling.
 func TestWalSessionID(t *testing.T) {
 	t.Parallel()

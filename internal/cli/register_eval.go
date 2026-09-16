@@ -27,8 +27,18 @@ func evalCmds() []Cmd {
 //
 // Diagnostics go to the command's own writer, so the error returned here is errAlreadyReported:
 // Dispatch must not print a second, less useful line on top of the one the importer already wrote.
+//
+// The config.Env it builds carries the project root and home directory, not just Getenv, and that
+// is finding S-4: without them the importer could not read `runtime.redact.patterns`, so an export
+// applied the built-in rules alone while the capture path applied the operator's too — the export
+// was strictly weaker over exactly the secrets the operator had already declared.
 func runEvalImport(_ context.Context, env Env, args []string, out, _ io.Writer) error {
-	if code := eval.ImportCommand(args, out, config.Env{Getenv: env.Getenv}); code != 0 {
+	cfgEnv := config.Env{
+		Getenv:      env.Getenv,
+		ProjectRoot: resolveProjectRoot(env, nil),
+		HomeDir:     homeDir(env),
+	}
+	if code := eval.ImportCommand(args, out, cfgEnv); code != 0 {
 		return errAlreadyReported
 	}
 	return nil

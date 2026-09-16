@@ -204,9 +204,11 @@ func publicationRows() []boundaryRow {
 			Seed:            "a second artifact is written beside the sealed one with no manifest line, the state finalize.go logs when CreateNew succeeded and AppendManifest did not",
 			Owner:           "internal/checkpoint",
 			WantsCheckpoint: true,
-			Known:           "F4-9",
-			Names:           []string{"checkpoint", "manifest", "artifact", "orphan"},
-			Cut:             cutOrphanCheckpointArtifact,
+			// F4-9's pin is gone: checkpoint.Reader.List now sweeps the directory and Louds an
+			// artifact no MANIFEST line claims. The row is `explicit_incomplete` — the orphan is
+			// still an orphan, and it is now named.
+			Names: []string{"checkpoint", "manifest", "artifact", "orphan"},
+			Cut:   cutOrphanCheckpointArtifact,
 		},
 		{
 			Name:            "checkpoint_manifest_artifact_missing",
@@ -214,9 +216,10 @@ func publicationRows() []boundaryRow {
 			Seed:            "the sealed artifact is removed and its manifest line left in place (checkpoint/reader_test.go's ErrContract case)",
 			Owner:           "internal/checkpoint",
 			WantsCheckpoint: true,
-			Known:           "F4-9",
-			Names:           []string{"checkpoint", "manifest", "artifact"},
-			Cut:             cutRemoveCheckpointArtifact,
+			// F4-9's pin is gone: List stats every artifact the manifest claims and Louds the
+			// missing one, and Verify Louds it too on the pass that reads it.
+			Names: []string{"checkpoint", "manifest", "artifact"},
+			Cut:   cutRemoveCheckpointArtifact,
 		},
 		{
 			Name:            "checkpoint_manifest_digest_mismatch",
@@ -224,9 +227,9 @@ func publicationRows() []boundaryRow {
 			Seed:            "one byte of the sealed artifact is flipped so it no longer re-hashes to its manifest line (§12.3 \"checkpoint MANIFEST mismatch\")",
 			Owner:           "internal/checkpoint",
 			WantsCheckpoint: true,
-			Known:           "F4-9",
-			Names:           []string{"checkpoint", "manifest", "mismatch", "digest"},
-			Cut:             cutFlipCheckpointBit,
+			// F4-9's pin is gone: Verify is no longer silent about a digest that does not match.
+			Names: []string{"checkpoint", "manifest", "mismatch", "digest"},
+			Cut:   cutFlipCheckpointBit,
 		},
 		{
 			Name:     "wal_segment_truncated",
@@ -279,8 +282,10 @@ func publicationRows() []boundaryRow {
 			Seed: "state/retention-roots.jsonl is truncated mid-record, then a forced GC pass is run " +
 				"to measure what that actually costs (declaredRetentionLine retains everything on a " +
 				"line it cannot parse; only an in-process source failure stops a pass)",
-			Owner:   "internal/store",
-			Known:   "F4-5",
+			Owner: "internal/store",
+			// F4-5's pin is gone: an unreadable retention line Louds once per GC pass and says that
+			// everything it names is retained under the blanket rollback class. The over-retention
+			// itself is unchanged and is still what the row measures.
 			Names:   []string{"retention", "retention-roots.jsonl", "collect"},
 			Cut:     cutTruncateRetentionRoots,
 			Measure: measureForcedGC,

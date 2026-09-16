@@ -568,7 +568,8 @@ const runBound = 120 * time.Second
 // whoever launched `go test`.
 //
 // Both matter. Every `QOMPACK_` variable is a configuration or state input — an ambient
-// `QOMPACK_RUNTIME__…`, `QOMPACK_PROJECT_ROOT`, `QOMPACK_IPC_ADDR` or `QOMPACK_FAULT` would
+// `QOMPACK_RUNTIME__…`, `QOMPACK_PROJECT_ROOT`, `QOMPACK_IPC_ADDR` or the §12.3 fault-injection
+// switch would
 // silently change what this matrix measures, and `QOMPACK_PLATFORM_ARTIFACTS` is set for exactly
 // the run that collects evidence. Every `CLAUDE_` variable is a host input, and `CLAUDE_PLUGIN_ROOT`
 // in particular is the one thing the plugin-root cases set deliberately: inherited from an ambient
@@ -619,7 +620,8 @@ func run(t *testing.T, bin, dir string, args []string, stdin []byte, env map[str
 // The match on the KEY is case-insensitive because Windows environment variable names are: an
 // ambient `claude_plugin_root` is the same variable to the child as `CLAUDE_PLUGIN_ROOT`, and a
 // case-sensitive strip would leave it in place on the one platform where it can differ in spelling
-// (internal/daemon/spawn.go's buildSpawnEnv makes the same point about QOMPACK_FAULT).
+// (internal/daemon/spawn.go's buildSpawnEnv makes the same point about the fault-injection
+// switch it strips).
 func childEnv(env map[string]string) []string {
 	out := make([]string, 0, len(os.Environ())+len(env))
 	for _, kv := range os.Environ() {

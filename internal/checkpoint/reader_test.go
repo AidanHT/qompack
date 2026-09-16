@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/qompack/qompack/internal/checkpoint"
@@ -552,4 +553,80 @@ func TestChainStopsAtTheDepthCapWithoutReportingCorruption(t *testing.T) {
 	require.Len(t, got, 1024, "the newest maxChainDepth links come back")
 	require.Equal(t, core.CheckpointSeq(links), got[len(got)-1].Seq, "the window keeps the newest end")
 	require.Equal(t, core.CheckpointSeq(2), got[0].Seq, "and is still ordered oldest-first")
+}
+
+// loudCapture is an injected logger that records Loud messages only. The F4-9 memo is per
+// reader, so the test must count what THIS reader emitted, not the process-wide ring.
+type loudCapture struct {
+	mu   sync.Mutex
+	msgs []string
+}
+
+func (l *loudCapture) With(...any) logging.Logger { return l }
+func (l *loudCapture) Debug(string, ...any)       {}
+func (l *loudCapture) Info(string, ...any)        {}
+func (l *loudCapture) Warn(string, ...any)        {}
+func (l *loudCapture) Error(string, ...any)       {}
+func (l *loudCapture) Loud(msg string, _ ...any) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.msgs = append(l.msgs, msg)
+}
+
+func (l *loudCapture) all() []string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]string(nil), l.msgs...)
+}
+
+// TestListThenVerifyLoudsEachIntegrityDefectOnce is the owning-package half of F4-9:
+// an orphan, a missing artifact and a flipped-bit artifact each Loud exactly once across
+// List then Verify then Verify again (sweepIntegrity / noteIntegrity memo).
+func TestListThenVerifyLoudsEachIntegrityDefectOnce(t *testing.T) {
+	l := paths.Of(t.TempDir())
+	require.NoError(t, paths.EnsureLayout(l))
+	log := &loudCapture{}
+	reg := obs.New(testutil.NewFakeClock(testutil.Epoch))
+	r, err := checkpoint.OpenReader(l.Root, log, reg)
+	require.NoError(t, err)
+	e := &readerEnv{l: l, r: r, reg: reg}
+	clk := testutil.NewFakeClock(testutil.Epoch)
+
+	e.write(t, clk, checkpoint.Checkpoint{
+		Session: readerSession, Seq: 1, Created: checkpoint.CreatedNow(clk),
+		UserIntent:  checkpoint.UserIntent{Original: "missing artifact fixture"},
+		CurrentWork: checkpoint.CurrentWork{Goal: "gone", NextStep: "verify"},
+	})
+	require.NoError(t, os.Remove(paths.Long(paths.CheckpointPath(l, 1))))
+
+	e.write(t, clk, checkpoint.Checkpoint{
+		Session: readerSession, Seq: 2, Created: checkpoint.CreatedNow(clk),
+		UserIntent:  checkpoint.UserIntent{Original: "flipped bit fixture"},
+		CurrentWork: checkpoint.CurrentWork{Goal: "mismatch", NextStep: "verify"},
+	})
+	e.corrupt(t, 2)
+
+	orphan := checkpoint.Checkpoint{
+		Session: readerSession, Seq: 3, Created: checkpoint.CreatedNow(clk),
+		UserIntent:  checkpoint.UserIntent{Original: "orphan artifact fixture"},
+		CurrentWork: checkpoint.CurrentWork{Goal: "unclaimed", NextStep: "verify"},
+	}
+	b, err := checkpoint.Marshal(orphan)
+	require.NoError(t, err)
+	require.NoError(t, paths.CreateNew(paths.CheckpointPath(l, 3), b))
+
+	ctx := context.Background()
+	_, err = r.List(ctx)
+	require.NoError(t, err)
+	_, err = r.Verify(ctx)
+	require.NoError(t, err)
+	_, err = r.Verify(ctx)
+	require.NoError(t, err)
+
+	got := log.all()
+	require.Len(t, got, 3, "exactly one Loud per artifact, not one per pass: %v", got)
+	joined := got[0] + "\n" + got[1] + "\n" + got[2]
+	require.Contains(t, joined, "no MANIFEST line")
+	require.Contains(t, joined, "missing")
+	require.Contains(t, joined, "does not match its MANIFEST digest")
 }

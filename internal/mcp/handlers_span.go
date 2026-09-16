@@ -87,6 +87,41 @@ func unavailable(reason string) missBody {
 	return missBody{Available: &no, Reason: reason}
 }
 
+// spanFailure renders a content-resolution failure, keeping §12.3's three answers apart.
+//
+// A store that FOUND the object and refused it is a degradation the retrieval layer continues
+// through, so it answers `unavailable` — an ordinary domain outcome, not a protocol error. Anything
+// else really is a failure of the call and stays an error response, which is what a model needs in
+// order to stop retrying.
+func (h *handlers) spanFailure(tool, verb string, err error) Response {
+	if errors.Is(err, store.ErrDamaged) {
+		return h.jsonResponse(tool, damaged(), nil)
+	}
+	return errResponse(verb + " failed: " + err.Error())
+}
+
+// damaged is what every retrieval tool reports for an object the store found and REFUSED: a bad
+// content address, a torn zstd frame, a physical size past the read bound, a length that disagrees
+// with the index. §12.3's answer to that is "quarantine the object, Loud, continue; qompack fsck
+// repairs", and the retrieval layer's share of it is to say so in the one word that already means
+// it — `unavailable`, an explicit third answer beside found and not-found.
+//
+// It is finding S-3 that this exists at all. A quarantined object reached the model as a
+// protocol-level tool ERROR through one address form and as `miss` — that is, as ABSENT — through
+// the other. Both are wrong, and the second is worse: it tells a model the content was never
+// captured, when what happened is that the bytes were refused and preserved as evidence.
+//
+// The reason carries no path and no secret, and no hash: the caller supplied the address, so
+// repeating it adds nothing, and the store has already Louded the full identity where an operator
+// can act on it. It also does not claim an integrity failure: store.ErrDamaged covers a bad
+// envelope, an indexed object whose file is gone AND a plain read refusal (a sharing violation, a
+// permission error), and only the first of those was checked and quarantined. The wording is
+// therefore the outcome — refused, not served — and where the evidence, if any, lives.
+func damaged() missBody {
+	return unavailable("the stored object was refused rather than served: its bytes could not be " +
+		"read intact; a damaged object is preserved as evidence and `qompack fsck` reports it")
+}
+
 // noCapturedHistory is what `re_read` with an empty `at` reports when nothing has ever been
 // captured for the path. It is spelled as an explicit unavailable outcome — Available:false plus a
 // reason — rather than a plain miss, because "Qompack has no historical record" is a stronger,
@@ -129,15 +164,18 @@ func (h *handlers) expand(ctx context.Context, r Request, raw json.RawMessage) (
 
 	root, path, tool, inline, res, err := h.resolveExpandTarget(ctx, a)
 	if err != nil {
-		return errResponse("expand failed: " + err.Error()), nil
+		return h.spanFailure(ToolExpand, "expand", err), nil
 	}
 	if res != nil {
 		return h.jsonResponse(ToolExpand, res, nil), nil
 	}
 
+	// This is where the tool_use_id form actually meets a damaged object. GetRoot answers from the
+	// in-memory index and succeeds; the bytes are not touched until here, so this — not the lookup
+	// above — is the branch finding S-3 was measured on.
 	span, err := h.resolveContent(ctx, root, path, inline, h.spanOptsFor(a.Full, a.Span, path, "", 0))
 	if err != nil {
-		return errResponse("expand failed: " + err.Error()), nil
+		return h.spanFailure(ToolExpand, "expand", err), nil
 	}
 
 	content, ok := h.redactForRetrieval(ToolExpand, span.Body)
@@ -179,6 +217,9 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 			return store.Root{}, "", "", nil, denied(reason), nil
 		}
 		rt, gerr := h.store.GetRoot(ctx, rec.Root)
+		if errors.Is(gerr, store.ErrDamaged) {
+			return store.Root{}, "", "", nil, damaged(), nil
+		}
 		if errors.Is(gerr, core.ErrNotFound) {
 			return store.Root{}, "", "", nil, miss("tool_use index, object store"), nil
 		}
@@ -202,6 +243,12 @@ func (h *handlers) resolveExpandTarget(ctx context.Context, a ExpandArgs) (
 	// A model that pasted a CHUNK hash rather than a root hash asked a reasonable question with
 	// the wrong noun. The chunk is addressable, so answer it rather than reporting a miss.
 	b, cerr := h.store.GetChunk(ctx, hash)
+	if errors.Is(cerr, store.ErrDamaged) {
+		// Finding S-3's second address form. This branch used to map EVERY failure here to miss(),
+		// which renders as ABSENT — the one answer §12.3 forbids for a quarantined object, because
+		// it tells a model the content was never there when in fact it was refused and preserved.
+		return store.Root{}, "", "", nil, damaged(), nil
+	}
 	if cerr != nil {
 		return store.Root{}, "", "", nil, miss("object store (root and chunk index)"), nil
 	}
@@ -231,6 +278,15 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 	if err != nil {
 		return errResponse("path escapes the project root"), nil
 	}
+	// The second half of the gate, and the second call site finding S-1 names. A LEXICAL escape is
+	// refused above as an error, deliberately: a miss would read as "that file does not exist" and
+	// invite a cleverer spelling. A path that normalises cleanly but RESOLVES outside the root today
+	// — its parent replaced by a link or a junction pointing out of the project — is a policy
+	// refusal, so it gets the explicit denied envelope: found:false, denied:true, no preview bytes,
+	// and a reason that does not echo the path back.
+	if ok, reason := h.authorizePath(norm); !ok {
+		return h.jsonResponse(ToolReRead, denied(reason), nil), nil
+	}
 	key := paths.Key(norm)
 
 	root, source, turn, ok, err := h.resolveVersion(ctx, a.At, key)
@@ -250,7 +306,7 @@ func (h *handlers) reRead(ctx context.Context, r Request, raw json.RawMessage) (
 
 	span, err := h.resolveContent(ctx, root, key, nil, h.spanOptsFor(a.Full, "", key, sym, line))
 	if err != nil {
-		return errResponse("re_read failed: " + err.Error()), nil
+		return h.spanFailure(ToolReRead, "re_read", err), nil
 	}
 
 	content, ok := h.redactForRetrieval(ToolReRead, span.Body)

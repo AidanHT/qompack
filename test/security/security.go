@@ -544,7 +544,8 @@ const slowChildNotice = 5 * time.Second
 // whoever launched `go test`.
 //
 // Both matter. Every `QOMPACK_` variable is a configuration or state input — an ambient
-// `QOMPACK_RUNTIME__…`, `QOMPACK_PROJECT_ROOT`, `QOMPACK_IPC_ADDR` or `QOMPACK_FAULT` would
+// `QOMPACK_RUNTIME__…`, `QOMPACK_PROJECT_ROOT`, `QOMPACK_IPC_ADDR` or the §12.3 fault-injection
+// switch would
 // silently change what this matrix measures, and `QOMPACK_SECURITY_ARTIFACTS` is set for exactly
 // the run that collects evidence and must not reach a child at all. Every `CLAUDE_` variable is a
 // host input, and an inherited `CLAUDE_PLUGIN_ROOT` would point at the developer's real installed
@@ -680,7 +681,8 @@ func (c childStdio) read(t *testing.T) (stdout, stderr []byte) {
 // The match on the KEY is case-insensitive because Windows environment variable names are: an
 // ambient `claude_plugin_root` is the same variable to the child as `CLAUDE_PLUGIN_ROOT`, and a
 // case-sensitive strip would leave it in place on the one platform where the spelling can differ
-// (internal/daemon/spawn.go's buildSpawnEnv makes the same point about QOMPACK_FAULT).
+// (internal/daemon/spawn.go's buildSpawnEnv makes the same point about the fault-injection
+// switch it strips).
 func childEnv(env map[string]string) []string {
 	out := make([]string, 0, len(os.Environ())+len(env))
 	for _, kv := range os.Environ() {
@@ -1696,16 +1698,22 @@ func judgeEnvelopes(shape, diagnosis string, observed map[string]string) (Outcom
 
 // normDiagnosis is the mechanism behind an unrefused link escape, stated once.
 //
+// It is finding S-1, and since Task 6 it is a REGRESSION diagnosis rather than a live one: it is
+// rendered only on the `failed` branch, which now means the fix has come undone.
+//
 // The wording is the reviewer's correction and it matters: paths.Norm does NOT "leave a symlink
 // unresolved". It calls EvalSymlinks and then DISCARDS a resolution that lands outside the root,
 // keeping the unresolved spelling — which is a deliberate anti-smuggling rule pinned by
-// internal/paths/norm_test.go. The consequence for retrieval is that an escaping path normalizes
-// cleanly, so authorizePath has nothing to refuse.
+// internal/paths/norm_test.go, and it is still what Norm does. What changed is that authorization
+// no longer rests on Norm alone: paths.ResolvesInside walks the path component by component
+// through os.Readlink — junction-aware, which filepath.EvalSymlinks is not on Windows — and both
+// retrieval call sites refuse a path that lands outside the root.
 const normDiagnosis = "paths.Norm does not adopt an outside-landing resolution: it calls " +
 	"EvalSymlinks and discards the result when it lands outside the root, keeping the unresolved " +
-	"spelling, so the escaping path normalizes cleanly and authorizePath has nothing to refuse. " +
-	"internal/mcp/handlers_span.go's re_read gate is the second call site needing the same check. " +
-	"Owner: internal/paths + internal/mcp."
+	"spelling, so the escaping path normalizes cleanly and Norm alone has nothing to refuse. Since " +
+	"the S-1 fix, internal/mcp's authorizePath asks paths.ResolvesInside as well, and " +
+	"internal/mcp/handlers_span.go's re_read gate — the second call site — asks it too. Content " +
+	"served here means one of those two checks is gone. Owner: internal/paths + internal/mcp."
 
 // lexicalDiagnosis is what a lexical `../` escape would mean if it were ever served. It is a
 // different mechanism from normDiagnosis — Norm rejects `../` outright — so it gets its own

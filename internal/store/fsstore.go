@@ -117,6 +117,12 @@ func openAppendFile(p string) (*appendFile, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A torn JSONL tail must not glue the next record onto the damaged line (F4-2). The store
+	// holds the single-writer lock, so this write has no concurrent-appender window.
+	if err := paths.TerminatePartialTail(w, p); err != nil {
+		_ = w.Close()
+		return nil, err
+	}
 	return &appendFile{p: p, w: w}, nil
 }
 

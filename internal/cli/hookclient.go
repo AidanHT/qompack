@@ -3,7 +3,9 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -59,38 +61,117 @@ func newHookMetrics(clk core.Clock) obs.Registry { return obs.New(clk) }
 // "one Loud" expectation requires.
 type hookLogger struct {
 	root string
+	// home is the user's home directory, when the caller knows it. It enables the user-level
+	// fallback sink below; an empty home simply means there is no second place to try.
+	home string
 	mu   sync.Mutex
 	real logging.Logger
-	kv   []any
+	// closer releases the file handles the materialized sink holds. A hook process exits within
+	// milliseconds of its last log line, so production never needs it; an IN-PROCESS caller does,
+	// because Windows refuses to delete a directory whose files are still open.
+	closer io.Closer
+	kv     []any
 }
 
-// newHookLogger returns a hookLogger rooted at root. Constructing one never touches the
-// filesystem; only Warn/Error/Loud does, and only on first use.
+// newHookLogger returns a hookLogger rooted at root with no user-level fallback. Constructing one
+// never touches the filesystem; only Warn/Error/Loud does, and only on first use.
+//
+// It is what the seams with no Env in hand use (session-start's preSend, self-test's probes). Every
+// caller that can name the home directory should use newHookLoggerWithHome instead, because that is
+// the one that survives a project store this process cannot write to.
 func newHookLogger(root string) logging.Logger {
 	return &hookLogger{root: root}
 }
 
+// newHookLoggerWithHome is newHookLogger plus the user-level fallback sink.
+func newHookLoggerWithHome(root, home string) logging.Logger {
+	return &hookLogger{root: root, home: home}
+}
+
 // materialize returns the real logger, constructing it under lock exactly once.
+//
+// Three sinks are tried in order, and the second of them is finding F-2. A project whose .qompack
+// directory has been made read-only underneath a live session produced NO durable evidence of the
+// degradation at all: logging.New failed, this fell straight to logging.Nop, and the only trace —
+// the l0.dropped counter — died with the hook process. §13 invariant 10 says degradation is loud,
+// and a Loud nobody can read afterwards is not loud.
+//
+//  1. the project's own <root>/.qompack/logs, when it exists and can be opened;
+//  2. the user-level <home>/.qompack/logs, one of the five §3.3 write locations, tried only when the
+//     project's log directory EXISTS and could not be opened — which is the degradation. A project
+//     with no log directory at all has not been written to yet and has not degraded either, and a
+//     hook must never conjure state for one out of a diagnostic;
+//  3. logging.Nop, which still records Loud calls into the process-wide ring (internal/logging's
+//     LastLoud) even with no file sink.
+//
+// Falling back to (2) also emits one best-effort stderr line naming the root and the reason, so the
+// degradation is visible in the host's own transcript and not only in a file the operator has to
+// know to look for.
 func (l *hookLogger) materialize() logging.Logger {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.real != nil {
 		return l.real
 	}
-	if isDir(paths.Of(l.root).Logs) {
-		if log, _, err := logging.New(paths.Of(l.root).Logs, logging.Warn); err == nil {
-			l.real = log
+	projectLogs := paths.Of(l.root).Logs
+	reason := ""
+	if isDir(projectLogs) {
+		log, closer, err := logging.New(projectLogs, logging.Warn)
+		if err == nil {
+			l.real, l.closer = log, closer
+			return l.real
+		}
+		reason = err.Error()
+	}
+	if reason != "" && l.home != "" {
+		if homeLogs, ok := openHomeFallbackLogs(l.home); ok {
+			fmt.Fprintf(os.Stderr,
+				"qompack: cannot write the project log for %s (%s); degradation for this session is "+
+					"being recorded under %s instead\n", l.root, reason, homeLogs.dir)
+			l.real, l.closer = homeLogs.log, homeLogs.closer
 			return l.real
 		}
 	}
-	// No logs directory yet, or logging.New itself failed: fall back to Nop, which still records
-	// Loud calls into the process-wide ring (internal/logging's LastLoud) even with no file sink.
 	l.real = logging.Nop()
 	return l.real
 }
 
+// homeFallbackSink is the user-level logger openHomeFallbackLogs returns, with the directory it
+// opened so the stderr line can name it.
+type homeFallbackSink struct {
+	log    logging.Logger
+	closer io.Closer
+	dir    string
+}
+
+// openHomeFallbackLogs opens a logger on <home>/.qompack/logs, creating it.
+//
+// Unlike the project sink this one DOES create its directory — logging.New's own MkdirAll does the
+// work — because it is the fallback: requiring it to already exist would make it unavailable
+// exactly when it is needed. <home>/.qompack is a permitted write location (§3.3,
+// test/guards/writeset_test.go), and nothing here can fail the hook.
+func openHomeFallbackLogs(home string) (homeFallbackSink, bool) {
+	dir := filepath.Join(paths.Global(home), "logs")
+	log, closer, err := logging.New(dir, logging.Warn)
+	if err != nil {
+		return homeFallbackSink{}, false
+	}
+	return homeFallbackSink{log: log, closer: closer, dir: dir}, true
+}
+
+// closeSink releases whatever sink this logger materialized, and is a no-op for one that never did.
+// Only in-process callers need it; see the closer field.
+func (l *hookLogger) closeSink() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.closer != nil {
+		_ = l.closer.Close()
+		l.closer = nil
+	}
+}
+
 func (l *hookLogger) With(kv ...any) logging.Logger {
-	return &hookLogger{root: l.root, kv: append(append([]any(nil), l.kv...), kv...)}
+	return &hookLogger{root: l.root, home: l.home, kv: append(append([]any(nil), l.kv...), kv...)}
 }
 
 func (l *hookLogger) Debug(string, ...any) {}
@@ -320,7 +401,18 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 
 		spoolDir := paths.Of(root).Spool
 		faultLockSpoolDirIfNeeded(spoolDir)
-		sp, _ := ipc.NewSpool(spoolDir)
+		// The spool gets THIS hook's logger and metrics, not a Nop, and that is finding F-2: an
+		// ordinary spool write failure is handled entirely inside spool.Append, which drops, counts
+		// and Louds and then returns nil, so the client's own drop branch never runs. Built through
+		// ipc.NewSpool the whole announcement went to logging.Nop() and a read-only .qompack left no
+		// durable evidence of the degradation anywhere.
+		hookLog := newHookLoggerWithHome(root, homeDir(env))
+		// A hook process exits within milliseconds of its last log line, so production never needs
+		// this; an IN-PROCESS caller does, and test/guards runs all six hooks in process on purpose.
+		// Windows will not delete a directory whose files are still open.
+		defer hookLog.(*hookLogger).closeSink()
+		hookMetrics := newHookMetrics(clk)
+		sp := ipc.NewSpoolWithObs(spoolDir, hookLog, hookMetrics)
 		sp = wrapFaultSpool(sp)
 		defer func() {
 			if cl, ok := sp.(interface{ Close() error }); ok {
@@ -347,7 +439,7 @@ func doHook(spec hookSpec) func(ctx context.Context, env Env, args []string, out
 
 		connectDeadline := hookConnectDeadline(spec, st)
 
-		c := ipc.NewClientWithOptions(addr, sp, newHookLogger(root), newHookMetrics(clk), ipc.ClientOptions{
+		c := ipc.NewClientWithOptions(addr, sp, hookLog, hookMetrics, ipc.ClientOptions{
 			// State is already this hook's own single 32-byte read (st, above); NewClientWithOptions
 			// trusts a non-zero State outright and never re-reads it from disk even though
 			// ProjectRoot is also set (internal/ipc/client.go — fix round 1, Important I-1).

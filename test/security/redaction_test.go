@@ -176,8 +176,13 @@ func TestSecurity_NoSecretReachesAnyDurableSurface(t *testing.T) {
 
 	// A hit on one of the product's OWN durable surfaces is invariant 7 broken and fails here. The
 	// eval export is judged separately and deliberately: it is an opt-in developer export written
-	// outside the working tree through internal/eval's own, admittedly weaker, rule set, and the
-	// audit proposal states that limitation rather than this package pretending it does not exist.
+	// outside the working tree through internal/eval's OWN rule set, which is a hand-kept
+	// transcription of internal/redact's because §3.2 gives internal/eval a foundation-only
+	// allow-set that does not include internal/redact. Finding S-4 closed the gap that mattered —
+	// the GitHub PAT shapes, the underscored and .env key spellings, and the operator's own
+	// patterns — but the two tables are still two tables, so a hit here is recorded as a returned
+	// finding rather than failing this test, and the audit proposal states that limitation rather
+	// than this package pretending it does not exist.
 	for _, h := range hits {
 		if h.Surface == "eval-export" {
 			t.Logf("RETURNED FINDING (owner internal/eval): the %s %s survives the eval export at %s",
@@ -283,7 +288,14 @@ func runSweepExport(t *testing.T, base string, seeds []secretSeed) (dir string, 
 	dir = filepath.Join(base, "export")
 	report, err := eval.Import(context.Background(), eval.ImportOptions{
 		From: from, To: dir, Redact: true,
-		Getenv: func(string) string { return "" },
+		// The operator's own rule, the same one the project's configuration declares for the capture
+		// path. Passing it is finding S-4's second half: the exporter had no way to receive it at
+		// all, so an export applied the built-in table alone and was strictly weaker than the
+		// capture path over exactly the secret the operator had already told the product about.
+		// `qompack eval import` reads it from the configuration itself; this sweep calls the library
+		// directly, so it supplies what that command would have loaded.
+		Patterns: []string{userPatternRegexp},
+		Getenv:   func(string) string { return "" },
 	})
 	if err != nil {
 		rec.Outcome = OutcomeSkipped
@@ -293,7 +305,8 @@ func runSweepExport(t *testing.T, base string, seeds []secretSeed) (dir string, 
 
 	rec.Outcome = OutcomeVerified
 	rec.Reason = fmt.Sprintf("eval.Import wrote %d session(s) from %d transcript file(s) with the "+
-		"default redaction, replacing %d spans; the destination is swept as its own surface.",
+		"default redaction and the operator's own runtime.redact.patterns rule, replacing %d spans; "+
+		"the destination is swept as its own surface.",
 		report.Sessions, report.Files, report.RedactedSpans)
 	require.Positive(t, report.Sessions, "the export must have written a session to sweep")
 	return dir, rec
@@ -403,8 +416,10 @@ var npmrcProbe = "Kq4Rm8Tv2Wy6" + "Ze0AbCdEfGhIj"
 //
 // This is a COVERAGE measurement, not an invariant. The rule table is prose in §5.22a rather than a
 // frozen fixture — internal/redact/redacttest pins behaviour, not this alternation — so widening it
-// disturbs nothing, but it is still the owning package's call. The outcome is recorded with its
-// owner and the Go test does not fail on it.
+// disturbed nothing, and internal/redact took the call in Task 6: the family's leading gate is now
+// `\b_?` and a bare `auth` branch sits beside `auth[_-]?token`. The outcome is still recorded with
+// its owner and the Go test still does not fail on it; the `failed` branch below is the regression
+// diagnosis.
 func TestSecurity_AssignmentRuleCoverageForUnderscoredKeys(t *testing.T) {
 	b := assembledBundle(t)
 	p := newProject(t, "proj")

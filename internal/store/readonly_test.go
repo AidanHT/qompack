@@ -285,6 +285,12 @@ func readOnlyRefusals(seeded core.Hash) []storeOp {
 				TS: 1, Root: seeded, Turn: 1, Bytes: 4,
 			})
 		}},
+		// R5-2's exported quarantine. It MOVES a file, so a read-only store must refuse it like any
+		// other writer — which is the property `qompack fsck`'s fidelity pass depends on: it opens
+		// read-only precisely so that asking about a damaged root cannot relocate it.
+		{"Quarantine", func(_ context.Context, s *FSStore) error {
+			return s.Quarantine(seeded, "readonly refusal probe")
+		}},
 	}
 }
 
@@ -372,7 +378,9 @@ func TestReadOnly_EveryExportedMethodIsClassified(t *testing.T) {
 // method writes nothing, and the test above makes that claim mandatory: a new method that is not
 // delegated, not swept and not listed fails, whether or not it took the mutate() guard.
 var readOnlyReadsAllowlist = map[string]string{
-	"Has":            "a map lookup under an RLock; it stats no file and opens nothing",
+	"Has": "a map lookup under an RLock, with a stat only when the index says no; it opens " +
+		"and writes nothing",
+	"ObjectOnDisk":   "one stat per candidate object spelling; it opens, decodes and writes nothing",
 	"Open":           "returns a reader over already-loaded chunk refs; objects are read, never written",
 	"OpenSpan":       "Open's bounded form, over the same read path",
 	"Search":         "materializes candidates through the same object reads Open uses",

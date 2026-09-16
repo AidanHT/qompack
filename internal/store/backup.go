@@ -386,6 +386,11 @@ func (m *Migrator) VerifyBackup(id string) (BackupManifest, error) {
 // RestoreBackup verifies the backup and writes it out as a project tree under dest, which is a
 // PROJECT root: dest/.qompack is what gets populated. The result is openable by an ordinary
 // store.Open, which is the point — a backup that cannot be opened is not a verified restore.
+//
+// Files under §7.4's protected paths (checkpoints/, pins/, sketches/tried.bloom) are written
+// with paths.CreateNew — the sanctioned create-once writer — because WriteAtomic refuses them
+// outright. A restore never overwrites a checkpoint that is already at dest: CreateNew returns
+// os.ErrExist and this function wraps it naming the file.
 func (m *Migrator) RestoreBackup(id, dest string) error {
 	man, err := m.VerifyBackup(id)
 	if err != nil {
@@ -404,6 +409,12 @@ func (m *Migrator) RestoreBackup(id, dest string) error {
 		out := filepath.Join(dl.Dot, filepath.FromSlash(f.Name))
 		if err := os.MkdirAll(paths.Long(filepath.Dir(out)), 0o700); err != nil {
 			return fmt.Errorf("store: restore backup %q: %w", id, err)
+		}
+		if paths.IsProtected(dest, out) {
+			if err := paths.CreateNew(out, b); err != nil {
+				return fmt.Errorf("store: restore backup %q: %s: %w", id, f.Name, err)
+			}
+			continue
 		}
 		if err := paths.WriteAtomic(out, b, 0o600); err != nil {
 			return fmt.Errorf("store: restore backup %q: %w", id, err)

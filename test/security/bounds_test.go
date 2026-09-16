@@ -342,8 +342,13 @@ func TestSecurity_HookCaptureCapBoundsAnOversizePayload(t *testing.T) {
 // TestSecurity_ConfigurationCannotRaiseTheCaptureCap sets runtime.hotPath.maxPayloadBytes above the
 // hard 4 MiB allocation cap and asserts the cap still wins.
 //
-// What the record says about HOW it wins is the point: the value is not clamped by config
-// validation (which bounds it only from below), so the refusal happens later, at admission.
+// What the record says about HOW it wins is the point, and that is what finding S-2 changed. The
+// value used to be unclamped — validation bounded the key only from BELOW — so `config print`
+// echoed the operator's number, no §11.3 violation was recorded, and admission refused every
+// delivery before session-start reached its daemon bootstrap: the cap held by switching the product
+// off. config.Validate now bounds the key at config.HookCaptureHardCapBytes, so the value is
+// clamped and reported and the row takes its `clamped` branch. The two `failed` branches below are
+// kept as the regression diagnosis for each way that could come undone.
 func TestSecurity_ConfigurationCannotRaiseTheCaptureCap(t *testing.T) {
 	b := assembledBundle(t)
 	p := newProject(t, "proj")

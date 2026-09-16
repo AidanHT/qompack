@@ -101,8 +101,47 @@ func AppendJSONL(p string, v any) error {
 		return err
 	}
 	defer func() { _ = w.Close() }()
-	if _, err := w.Write(line); err != nil {
+	// A torn tail must not swallow this record too. That is finding F4-2: a crash or a torn write
+	// can leave the file ending mid-record with no newline, and appending straight onto it glues
+	// this record's first bytes to the partial one — so the reader steps over ONE malformed line and
+	// loses TWO records, the damaged one and this perfectly good one.
+	//
+	// Writer-side only, and deliberately so: nothing about the line format changes, no reader is
+	// touched, and the damaged line stays on disk exactly as it was, still reported as malformed by
+	// whoever reads it. What stops is the loss spreading forward.
+	if err := TerminatePartialTail(w, p); err != nil {
 		return err
+	}
+	record := make([]byte, len(line)+1)
+	copy(record, line)
+	record[len(line)] = jsonRecordNewline
+	_, err = w.Write(record)
+	return err
+}
+
+// TerminatePartialTail writes a newline to w when p is non-empty and its last byte is not one.
+//
+// It re-stats the path rather than seeking on the handle because the handle is append-only: on
+// Windows an O_APPEND handle's offset is not a reliable read cursor, and a separate bounded read of
+// the final byte is the same answer on every platform. A file that cannot be stat'ed or read is
+// left alone — the append itself is what the caller cares about, and refusing it over a failed
+// diagnostic read would trade a recoverable torn line for a lost record.
+func TerminatePartialTail(w io.Writer, p string) error {
+	info, err := os.Stat(Long(p))
+	if err != nil || info.Size() == 0 {
+		return nil
+	}
+	f, err := os.Open(Long(p))
+	if err != nil {
+		return nil
+	}
+	defer func() { _ = f.Close() }()
+	var last [1]byte
+	if _, err := f.ReadAt(last[:], info.Size()-1); err != nil {
+		return nil
+	}
+	if last[0] == jsonRecordNewline {
+		return nil
 	}
 	_, err = w.Write([]byte{jsonRecordNewline})
 	return err

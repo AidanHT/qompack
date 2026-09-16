@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/qompack/qompack/internal/checkpoint"
 	"github.com/qompack/qompack/internal/config"
 	"github.com/qompack/qompack/internal/contract"
 	"github.com/qompack/qompack/internal/core"
@@ -590,6 +591,7 @@ func (d *daemon) Run(ctx context.Context) error {
 	if _, err := d.Drain(runCtx); err != nil && !errors.Is(err, context.Canceled) {
 		d.log.Warn("daemon: startup drain failed", "err", err)
 	}
+	d.sweepCheckpointIntegrity(runCtx)
 
 	hbTicker := time.NewTicker(heartbeatInterval)
 	defer hbTicker.Stop()
@@ -1050,4 +1052,42 @@ func (d *daemon) DrainGaps() DrainGapState {
 		return DrainGapState{}
 	}
 	return dr.GapState()
+}
+
+// sweepCheckpointIntegrity announces the three checkpoint integrity defects at startup, rather than
+// when something happens to need the affected checkpoint.
+//
+// It is finding F4-9's missing half. §12.3 promises that a MANIFEST mismatch is Loud and the
+// affected checkpoint refused; the refusal was already there — Get, Latest and Chain each report
+// core.ErrContract and fall back to the parent — but the Loud only ever fired if some caller
+// happened to LOAD the damaged checkpoint. test/fault cut all three defects, ran a full recovery
+// session, and found nothing naming any of them on LOUD.log, status, self-test or the day log,
+// because nothing in a recovery reads the manifest at all.
+//
+// Both calls are needed and they find different things. List sweeps the DIRECTORY — an artifact no
+// manifest line claims, and a manifest line whose artifact is gone — which no amount of hashing
+// would reveal. Verify re-hashes, which is the only way to see a flipped bit. The reader announces
+// each artifact once, so an entry both of them reach is one line and not two.
+//
+// The cost is a directory read, a stat per entry and a re-hash of each artifact's bytes, once per
+// daemon lifetime, after the startup drain so it can never delay the spool. A checkpoint artifact is
+// a small JSON document and §8.5's cadence bounds how many a project accumulates, so this is
+// kilobytes of reading at a moment when nothing is waiting on it.
+//
+// Nothing is repaired, moved or deleted; both results are discarded, because the Loud IS the result.
+// A reader that will not open, or a manifest that will not read, is left to the callers that need
+// it: this is an announcement, not a gate, and a daemon must not refuse to start over a checkpoint
+// nobody has asked for yet.
+func (d *daemon) sweepCheckpointIntegrity(ctx context.Context) {
+	r, err := checkpoint.OpenReader(d.root, d.log, d.m)
+	if err != nil || r == nil {
+		return
+	}
+	if _, err := r.List(ctx); err != nil {
+		d.log.Warn("daemon: checkpoint manifest could not be listed at startup", "err", err)
+		return // Verify reads the same manifest; a second failure would say the same thing twice.
+	}
+	if _, err := r.Verify(ctx); err != nil {
+		d.log.Warn("daemon: checkpoint artifacts could not be verified at startup", "err", err)
+	}
 }

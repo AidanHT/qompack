@@ -580,6 +580,17 @@ type ImportOptions struct {
 	// Redact scrubs secrets, home paths and emails. It is on by default at the command layer, and
 	// turning it off requires a second environment variable.
 	Redact bool
+	// Patterns is the operator's own `runtime.redact.patterns`, as written in configuration.
+	//
+	// It exists because of finding S-4: the exporter carried its own transcription of
+	// internal/redact's built-in table and nothing at all of the operator's private rules, so the
+	// export was strictly weaker than the capture path over exactly the secrets an operator had
+	// already told the product about. A pattern that does not compile REFUSES the import rather
+	// than being skipped — the same fail-closed direction redact.CapturePolicies takes, and for the
+	// same reason: a rule the operator believes is in force and is not is worse than no export.
+	//
+	// It is ignored when Redact is false.
+	Patterns []string
 	// Getenv is injected so a test never mutates the process environment. Nil → os.Getenv.
 	Getenv func(string) string
 }

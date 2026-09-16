@@ -206,17 +206,24 @@ func sortedKeys(m map[string]bool) []string {
 	return out
 }
 
-// TestSecurity_AnyConfigurationViolationDisablesCapture is finding S-7, and this fix round found it
-// by accident: an attempt to force a Loud by setting the hardwired-off telemetry key produced a
-// session with no daemon, no objects and no index at all.
+// TestSecurity_AnyConfigurationViolationDisablesCapture was finding S-7, and since Task 6 it is the
+// regression assertion for the fix. Its RECORD NAME is historical and describes the defect, not the
+// product: the row is `verified` when capture survives a violation.
 //
-// The mechanism generalizes finding S-2 well past the one key S-2 names. config.LoadForCapture ends
-// with `if len(cfg.Validate()) != 0 { return fail() }` — ANY violation, in any key, makes the whole
-// capture unavailable with core.ErrDegraded. internal/cli's hook path then returns empty output
-// before session-start reaches its own daemon bootstrap. §11.3's contract for an invalid value is
-// the opposite: clamp to the default and record the violation, which is exactly what `config print`
-// does through LoadConfigAndReport. So the two loaders disagree about what an invalid key means,
-// and the hot one silently switches the product off.
+// The finding: config.LoadForCapture ended with `if len(cfg.Validate()) != 0 { return fail() }` —
+// ANY violation, in any key, made the whole capture unavailable with core.ErrDegraded, and
+// internal/cli's hook path then returned empty output before session-start reached its own daemon
+// bootstrap. It was found by accident, by an attempt to force a Loud through the hardwired-off
+// telemetry key that produced a session with no daemon, no objects and no index at all. The
+// mechanism generalized finding S-2 well past the one key S-2 names.
+//
+// §11.3's contract for an invalid value is the opposite: clamp to the default and record the
+// violation, which is what `config print` does through LoadConfigAndReport. The two loaders now
+// agree — LoadForCapture runs the same per-leaf fallback and returns the violations, and the hook
+// path records them in state/config-violations.json. A NEWER runtime.migration/runtime.phase7
+// settingsVersion is handled the way Load handles it: the whole block is reset to this build's
+// defaults and one Warning is recorded (§7.1 — degraded and reported, never guessed), so capture
+// keeps running with every unknown future switch off.
 //
 // The key chosen here has nothing to do with capture or with bounds, which is the point: it is a
 // value the operator cannot enable under any circumstances, so the only thing being measured is

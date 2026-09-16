@@ -72,19 +72,44 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 
 	cfg := fromMap(merged)
 	deriveSubmodularEnabled(&cfg)
-	// Restoring the key a violation NAMES does not always clear it. Three rules are relational —
-	// store.chunk.min < target < max, and runtime.rehydrate.minTokens <= maxTokens — and each is
-	// keyed on one side of its comparison, so when the other side carries the bad value the named
-	// key is already at its default and resetting it changes nothing. A single pass therefore
-	// returned a Config that failed its own Validate() (FuzzConfigLoad found `{"store":{"chunk":
-	// {"target":0}}}`: min=1024 is blamed, min is already 1024, target stays 0). So iterate, and
-	// when a pass restores nothing new, widen to the violated key's parent section and restore
-	// every sibling leaf from Defaults(). Defaults() satisfies every rule, so a section restore
-	// clears any relation confined to that section.
-	//
-	// The loop terminates because it only ever writes default values and only counts a write that
-	// actually changed something: the set of paths differing from Defaults() shrinks strictly on
-	// every iteration, and a pass that changes nothing exits.
+	cfg, clampWarns, _ := clampInvalidLeaves(cfg, merged, defaults, prov, func(m map[string]any) (Config, bool) {
+		c := fromMap(m)
+		deriveSubmodularEnabled(&c)
+		return c, true
+	})
+	warns = append(warns, clampWarns...)
+
+	return cfg, prov, warns, nil
+}
+
+// clampInvalidLeaves is §11.3's fallback: every leaf a Violation names is restored from Defaults(),
+// the substitution is reported as a Warning, and provenance records that the value now comes from
+// the fallback rather than from whatever layer set it.
+//
+// Restoring the key a violation NAMES does not always clear it. Three rules are relational —
+// store.chunk.min < target < max, and runtime.rehydrate.minTokens <= maxTokens — and each is keyed
+// on one side of its comparison, so when the other side carries the bad value the named key is
+// already at its default and resetting it changes nothing. A single pass therefore returned a
+// Config that failed its own Validate() (FuzzConfigLoad found `{"store":{"chunk":{"target":0}}}`:
+// min=1024 is blamed, min is already 1024, target stays 0). So iterate, and when a pass restores
+// nothing new, widen to the violated key's parent section and restore every sibling leaf from
+// Defaults(). Defaults() satisfies every rule, so a section restore clears any relation confined to
+// that section.
+//
+// The loop terminates because it only ever writes default values and only counts a write that
+// actually changed something: the set of paths differing from Defaults() shrinks strictly on every
+// iteration, and a pass that changes nothing exits.
+//
+// decode re-derives a Config from the mutated map. Load supplies the TOLERANT decoder it has always
+// used, which cannot fail; LoadForCapture supplies a strict one and gets `false` back when the map
+// stops decoding at all, which is a refusal rather than a fallback. Sharing the loop is what closes
+// finding S-7: before it, the capture loader had no fallback of its own and refused the entire
+// delivery over any violation, so the two loaders disagreed about what an invalid key means and the
+// hot one silently switched the product off.
+func clampInvalidLeaves(cfg Config, merged, defaults map[string]any, prov Provenance,
+	decode func(map[string]any) (Config, bool),
+) (Config, []Warning, bool) {
+	var warns []Warning
 	warned := make(map[string]bool)
 	for {
 		violations := cfg.Validate()
@@ -132,11 +157,13 @@ func Load(env Env) (Config, Provenance, []Warning, error) {
 		if !changed {
 			break // nothing left to restore; Validate's remaining rows are unreachable by fallback
 		}
-		cfg = fromMap(merged) // re-derive after fallbacks
-		deriveSubmodularEnabled(&cfg)
+		next, ok := decode(merged) // re-derive after fallbacks
+		if !ok {
+			return cfg, warns, false
+		}
+		cfg = next
 	}
-
-	return cfg, prov, warns, nil
+	return cfg, warns, true
 }
 
 // parentPath returns the section a dotted leaf path lives in. A top-level path has no parent, and

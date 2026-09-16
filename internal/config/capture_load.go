@@ -20,18 +20,33 @@ const (
 	captureConfigMaxRules = 256
 )
 
-// LoadForCapture composes the normal five configuration layers without fallback. It is
+// LoadForCapture composes the normal five configuration layers under strict admission. It is
 // read-only and returns no configuration, provenance, path or rejected value on failure.
 // Callers must additionally compile the privacy policy before admitting payload bytes.
-// Load retains its historical soft diagnostic behavior for other consumers.
 //
 // Both roots must be explicit absolute paths. Missing files use defaults; existing files
 // must be bounded regular leaves. This does not establish trust in ancestor directories.
 // Getenv only exposes known names, so unknown or explicitly empty environment variables
 // cannot be distinguished from absence through Env's existing lookup contract.
-func LoadForCapture(env Env) (Config, Provenance, error) {
-	fail := func() (Config, Provenance, error) {
-		return Config{}, nil, fmt.Errorf("%w: capture configuration unavailable", core.ErrDegraded)
+//
+// What is STRICT here is admission: an unknown key, a wrong leaf type, an oversize value, a
+// malformed layer, an unparseable environment value or a flag this schema does not declare all
+// refuse the delivery outright and reveal nothing about the input.
+//
+// What is NOT strict is an out-of-range value, and that is finding S-7. This used to end with
+// `if len(cfg.Validate()) != 0 { return fail() }`, so ANY violation in ANY key made the whole
+// capture unavailable: one invalid value left the project with no daemon and no recording at all,
+// while `config print` clamped the same key and recorded the violation (§11.3). Two loaders,
+// opposite meanings, and the hot one failed closed over the entire product. It now runs the same
+// per-leaf fallback Load does, the same wholesale reset for a newer settingsVersion, and RETURNS
+// the resulting violations so its caller can record them where an operator would look. Clamping
+// is safe on this path for the reason the capture cap already relies on: every value it hands
+// forward is bounded again by internal/cli's own hookCaptureLimit before a byte is read.
+//
+// The returned violations are the §11.3 list, empty for an ordinary project.
+func LoadForCapture(env Env) (Config, Provenance, []Violation, error) {
+	fail := func() (Config, Provenance, []Violation, error) {
+		return Config{}, nil, nil, fmt.Errorf("%w: capture configuration unavailable", core.ErrDegraded)
 	}
 	if !filepath.IsAbs(env.ProjectRoot) || !filepath.IsAbs(env.HomeDir) {
 		return fail()
@@ -99,6 +114,13 @@ func LoadForCapture(env Env) (Config, Provenance, error) {
 	if len(warnings) != 0 {
 		return fail()
 	}
+	// defaults is a private, per-call copy used only to look up fallback values; restoreDefault
+	// deep-copies whatever it takes from it, so nothing merged holds can alias it.
+	defaults := toMap(Defaults())
+	// Same reset Load runs: a newer settingsVersion is a known-defaults Warning, not a refusal.
+	// Refusing here was the S-7 outage for plan §4's rollback (D8-2): the daemon kept running
+	// with the block reset while every hook dropped every capture.
+	versionWarns := applyVersionedSections(merged, defaults, prov)
 	// Do not use fromMap: it intentionally falls back on marshal/unmarshal failure, including
 	// nonfinite environment floats and numbers that do not fit a target integer field.
 	b, err := json.Marshal(merged)
@@ -110,7 +132,17 @@ func LoadForCapture(env Env) (Config, Provenance, error) {
 		return fail()
 	}
 	deriveSubmodularEnabled(&cfg)
+
+	// §11.3's fallback, run through the same loop Load uses, with a STRICT re-decode: a map that
+	// stops decoding under the capture rules is a refusal, never a silent tolerance.
+	cfg, warns, ok := clampInvalidLeaves(cfg, merged, defaults, prov, decodeCaptureMap)
+	if !ok {
+		return fail()
+	}
 	if len(cfg.Validate()) != 0 {
+		// The fallback restored everything it could name and the result is still invalid, so there
+		// is no value this loader can stand behind. That is a refusal, and it is unreachable for
+		// any rule confined to one section because Defaults() satisfies every rule.
 		return fail()
 	}
 	if len(cfg.Runtime.Redact.Patterns) > captureConfigMaxRules {
@@ -121,7 +153,29 @@ func LoadForCapture(env Env) (Config, Provenance, error) {
 			return fail()
 		}
 	}
-	return cfg, prov, nil
+	violations := ViolationsFromWarnings(warns)
+	for _, w := range versionWarns {
+		violations = append(violations, Violation{Key: w.Key, Message: w.Message})
+	}
+	return cfg, prov, violations, nil
+}
+
+// decodeCaptureMap re-derives a Config from a merged map under the capture loader's strict rules.
+//
+// It deliberately does not use fromMap: that one intentionally falls back on marshal/unmarshal
+// failure, including nonfinite environment floats and numbers that do not fit a target integer
+// field, and this loader must refuse those rather than substitute for them.
+func decodeCaptureMap(merged map[string]any) (Config, bool) {
+	b, err := json.Marshal(merged)
+	if err != nil || len(b) > captureConfigMaxBytes {
+		return Config{}, false
+	}
+	var cfg Config
+	if json.Unmarshal(b, &cfg) != nil {
+		return Config{}, false
+	}
+	deriveSubmodularEnabled(&cfg)
+	return cfg, true
 }
 
 func readCaptureConfig(path string) ([]byte, bool, bool) {
