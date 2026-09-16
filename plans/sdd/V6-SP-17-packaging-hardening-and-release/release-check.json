@@ -1,0 +1,96 @@
+{
+  "version": "0.1.0",
+  "steps": [
+    {
+      "name": "version agreement",
+      "status": "SKIPPED",
+      "seconds": 0,
+      "detail": "no tag: pass --tag vX.Y.Z to gate the tag/core.Version agreement"
+    },
+    {
+      "name": "ci-local fmt-check",
+      "status": "PASS",
+      "seconds": 4.749
+    },
+    {
+      "name": "ci-local lint",
+      "status": "PASS",
+      "seconds": 1418.285
+    },
+    {
+      "name": "ci-local vet",
+      "status": "PASS",
+      "seconds": 3.215
+    },
+    {
+      "name": "ci-local build",
+      "status": "PASS",
+      "seconds": 2.322
+    },
+    {
+      "name": "ci-local test",
+      "status": "PASS",
+      "seconds": 3032.007
+    },
+    {
+      "name": "ci-local cover",
+      "status": "PASS",
+      "seconds": 2483.883
+    },
+    {
+      "name": "ci-local plugin-validate",
+      "status": "PASS",
+      "seconds": 0.261
+    },
+    {
+      "name": "ci-local gen-config-docs",
+      "status": "PASS",
+      "seconds": 0.071
+    },
+    {
+      "name": "build-all",
+      "status": "PASS",
+      "seconds": 130.019
+    },
+    {
+      "name": "generated docs",
+      "status": "PASS",
+      "seconds": 0.059
+    },
+    {
+      "name": "guards",
+      "status": "PASS",
+      "seconds": 295.89,
+      "detail": "go test -count=1 ./test/guards/"
+    },
+    {
+      "name": "govulncheck",
+      "status": "PASS",
+      "seconds": 13.721,
+      "detail": "govulncheck ./... reported nothing"
+    },
+    {
+      "name": "licenses",
+      "status": "PASS",
+      "seconds": 3.722
+    },
+    {
+      "name": "real-binary determinism",
+      "status": "PASS",
+      "seconds": 994.193,
+      "detail": "two real-binary assemblies of windows/amd64 at version v0.2.0-619-g4db5cea are byte-identical (version from resolveVersion())"
+    },
+    {
+      "name": "rollback rehearsal",
+      "status": "PASS",
+      "seconds": 69.181,
+      "detail": "rehearsed ./internal/store/ (3), ./test/e2e/ (3)"
+    },
+    {
+      "name": "plugin-validate",
+      "status": "PASS",
+      "seconds": 0.004
+    }
+  ],
+  "ok": true
+}
