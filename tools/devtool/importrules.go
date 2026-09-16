@@ -78,6 +78,14 @@ var compositionRoots = map[string]bool{
 	// allow-set permits — the same reason test/e2e, test/canary, test/platform and test/security are
 	// roots. Nothing imports it back.
 	"test/fault": true,
+	// test/release (SP-17 Task 7) is the independent-switch matrix: it assembles a real plugin
+	// bundle through `devtool bundle`, drives that bundle's binary with one configuration switch
+	// flipped at a time, and speaks admin IPC to the daemon it started so the NEXT hook starts one
+	// that actually read the switch. It therefore reaches daemon, ipc, paths, hookio, core and
+	// testutil directly and cli through the binary it spawns, which no internal allow-set permits —
+	// the same reason test/e2e, test/canary, test/platform, test/security and test/fault are roots.
+	// Nothing imports it back.
+	"test/release": true,
 }
 
 // allow is the §3.2 layer-mapping table, transcribed verbatim. Every non-foundation package
