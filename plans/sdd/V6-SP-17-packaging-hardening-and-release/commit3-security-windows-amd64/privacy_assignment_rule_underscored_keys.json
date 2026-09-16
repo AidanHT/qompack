@@ -8,10 +8,10 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-604-g62a5975-dirty",
-    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
-  "outcome": "failed",
-  "reason": "an `_authToken=\u003cvalue\u003e` credential — the spelling npm writes into .npmrc and the one every `npm config set` command line carries — survives in clear on [index:index/tool_use.jsonl objects:objects/30/68/30682e38edbdc2d6aded23863b210856146abf2d1c63238709e53b385a0be450.zst]. One leading word boundary gates the whole key alternation, and a word boundary cannot match between `_` and a letter, so `_authToken=` and `_password=` are outside the rule. `_auth=` is outside it for a SECOND and independent reason: the alternation has no bare `auth` branch at all, only `auth[_-]?token`, so even plain `auth=` is unmatched and an optional-leading-underscore remedy would not reach it. Owner: internal/redact. RETURNED, not fixed here: the rule table is prose in §5.22a rather than a frozen fixture — redacttest pins behaviour, not this alternation — so widening it disturbs nothing, but it is the owning package's call.",
+  "outcome": "verified",
+  "reason": "the assignment rule reaches an underscore-prefixed key: an `_authToken=` credential was redacted on every durable surface.",
   "detail": "swept 30 files under .qompack/; probe key spelling `_authToken=`"
 }

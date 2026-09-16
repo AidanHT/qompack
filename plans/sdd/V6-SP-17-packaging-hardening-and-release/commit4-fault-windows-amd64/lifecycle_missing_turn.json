@@ -7,8 +7,8 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-606-g21e6914-dirty",
-    "binary_sha256": "1b55a8731bbf9290c3fe3699f3d2f344ac4d3b059fa235bce1152b622166071d"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "boundary": "a turn the host never delivered, followed by the next one",
   "seed_method": "turn toolu_fault_missing_turn_01 and turn toolu_fault_missing_turn_03 delivered; the turn between them never was. An undelivered turn leaves no trace for the product to detect, so the row measures that the turns either side of the hole are intact rather than that the hole was noticed",

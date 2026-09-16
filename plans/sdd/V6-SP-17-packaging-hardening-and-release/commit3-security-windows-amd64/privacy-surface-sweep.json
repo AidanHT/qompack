@@ -2,7 +2,7 @@
   "surfaces": {
     "backup": {
       "files": 49,
-      "bytes": 150157,
+      "bytes": 150170,
       "names": [
         "backup/security-sweep-backup/manifest.json",
         "backup/security-sweep-backup/tree/.gitignore",
@@ -33,7 +33,7 @@
         "backup/security-sweep-backup/tree/sketches/explore.hll",
         "backup/security-sweep-backup/tree/sketches/touch.cms",
         "backup/security-sweep-backup/tree/sketches/tried.bloom",
-        "backup/security-sweep-backup/tree/spool/client-58884.ndjson",
+        "backup/security-sweep-backup/tree/spool/client-42048.ndjson",
         "backup/security-sweep-backup/tree/state/bocd.json",
         "backup/security-sweep-backup/tree/state/chunktokens.bin",
         "backup/security-sweep-backup/tree/state/delivery-ack-position.json",
@@ -57,7 +57,7 @@
     },
     "checkpoints": {
       "files": 2,
-      "bytes": 1163,
+      "bytes": 1165,
       "names": [
         "checkpoints/0001.json",
         "checkpoints/MANIFEST.jsonl"
@@ -80,7 +80,7 @@
     },
     "eval-export": {
       "files": 1,
-      "bytes": 1457,
+      "bytes": 1361,
       "names": [
         "sess-security.json"
       ]
@@ -99,9 +99,9 @@
     },
     "logs": {
       "files": 1,
-      "bytes": 848,
+      "bytes": 847,
       "names": [
-        "logs/qompack-20260915.log"
+        "logs/qompack-20260916.log"
       ]
     },
     "mcp-retrieval": {
@@ -119,7 +119,7 @@
     },
     "metrics": {
       "files": 1,
-      "bytes": 2090,
+      "bytes": 2093,
       "names": [
         "metrics/latency.json"
       ]
@@ -148,7 +148,7 @@
     },
     "records": {
       "files": 4,
-      "bytes": 10207,
+      "bytes": 10215,
       "names": [
         "records/captures/2e/2e61c1cf560618e71f211c109d07c8a678945204a81add94319bdd3e65a81e66.json",
         "records/captures/60/60420e98e846d496e81591453a2ab5015a97b936de7ec0343cf6586a2aa3eeac.json",
@@ -176,12 +176,12 @@
       "files": 1,
       "bytes": 58,
       "names": [
-        "spool/client-58884.ndjson"
+        "spool/client-42048.ndjson"
       ]
     },
     "state": {
       "files": 19,
-      "bytes": 11343,
+      "bytes": 11344,
       "names": [
         "state/bocd.json",
         "state/chunktokens.bin",
@@ -223,22 +223,7 @@
     "spool": 0,
     "state": 1
   },
-  "hits": [
-    {
-      "surface": "eval-export",
-      "path": "sess-security.json",
-      "rule": "github_token",
-      "kind": "literal",
-      "window": "ghp_1234…"
-    },
-    {
-      "surface": "eval-export",
-      "path": "sess-security.json",
-      "rule": "custom:0",
-      "kind": "literal",
-      "window": "Zx7Qv2Lm…"
-    }
-  ],
+  "hits": null,
   "planted_rules": [
     "anthropic_key",
     "assignment_secret",

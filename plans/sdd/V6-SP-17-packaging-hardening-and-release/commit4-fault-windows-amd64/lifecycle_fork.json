@@ -7,8 +7,8 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-606-g21e6914-dirty",
-    "binary_sha256": "1b55a8731bbf9290c3fe3699f3d2f344ac4d3b059fa235bce1152b622166071d"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "boundary": "SessionStart source: fork (a source the observer's own set does not name)",
   "seed_method": "SessionStart(source:fork) + one turn; the hook exited 0 and the turn was indexed — `fork` is not one of the four sources internal/observer names, so the source is carried but not branched on",

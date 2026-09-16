@@ -52,7 +52,7 @@ divergence is recorded and the case goes on. No leak was found on this host.
 
 | # | record | what was measured | outcome |
 | --- | --- | --- | --- |
-| 1 | `archive_trust_parent_directory_replaced_by_link_outside` | after capture, the file's parent directory is replaced by a link pointing outside the root; `recall`, `expand` and `re_read` are then asked for it | **failed** — finding S-1 |
+| 1 | `archive_trust_parent_directory_replaced_by_link_outside` | after capture, the file's parent directory is replaced by a link pointing outside the root; `recall`, `expand` and `re_read` are then asked for it | **verified** — S-1 fixed in commit 6 |
 | 2 | `archive_trust_captured_file_replaced_by_link_outside` | the same, with the captured FILE itself replaced by a link outside the root | **skipped** — no link mechanism for a file on this host |
 | 3 | `archive_trust_lexical_parent_escape_in_a_stored_record` | a hand-written `tool_use` record whose stored path is `../outside/leak.txt` | **verified** |
 | 4 | `archive_trust_re_read_never_reads_the_live_disk` | the captured file is rewritten, then deleted; `re_read` is asked for it both times | **verified** |
@@ -115,9 +115,9 @@ duplicated.
 | 10 | `bounds_decompression_bomb` | a valid frame expanding past store's 64 MiB `maxDecodedSize` | **verified** |
 | 11 | `bounds_content_hash_mismatch` | a valid frame of the right length whose plaintext hashes elsewhere | **verified** |
 | 12 | `bounds_retrieval_and_checkpoint_survive_corruption` | the daemon, the MCP server and `checkpoint` after all five | **verified** |
-| 13 | `bounds_corrupt_object_envelope` | how a quarantined object reaches the model, through both address forms | **failed** — finding S-3 |
+| 13 | `bounds_corrupt_object_envelope` | how a quarantined object reaches the model, through both address forms | **verified** — S-3 fixed in commit 6 |
 | 14 | `bounds_hook_capture_cap` | a 6 MiB `tool_response` against the hard 4 MiB capture cap | **verified** |
-| 15 | `bounds_config_cannot_raise_the_capture_cap` | `runtime.hotPath.maxPayloadBytes` set to 64 MiB | **failed** — finding S-2 |
+| 15 | `bounds_config_cannot_raise_the_capture_cap` | `runtime.hotPath.maxPayloadBytes` set to 64 MiB | **verified** — S-2 fixed in commit 6 |
 | 16 | `bounds_mcp_max_response_bytes` | a full `expand` against `runtime.mcp.maxResponseBytes` of 4096 | **verified** |
 
 Rows 7-11 each assert the same two things and each record carries the store's own refusal text: the
@@ -202,7 +202,7 @@ whose count was zero.
 | `dot-root` (`.gitignore`, `config.json`) | 2 | 135 | 0 | 0 | **verified** |
 | `backup` (tree + manifest) | 49 | 150 157 | 40 | 0 | **verified** |
 | `mcp-retrieval` (7 tool responses) | 7 | 10 075 | 23 | 0 | **verified** |
-| `eval-export` | 1 | 1 457 | 0 | 0 | **failed** — finding S-4 |
+| `eval-export` | 1 | 1 387 | 1 | 0 | **verified** — S-4 fixed in commit 6 |
 
 **The `logs` row is one file, and it is the day log.** That is stated rather than glossed, because an
 earlier draft of this document claimed "logs/ including LOUD.log swept and clean" on the strength of
@@ -223,7 +223,7 @@ not passed a second time as its own root, because a double-counted tree reports 
 | 17 | `privacy_backup_take` | a consistent 48-file backup through the real `store.Migrator.TakeBackup` | **verified** |
 | 18 | `privacy_eval_export` | a real `eval.Import` with the default redaction: 1 session, 18 spans replaced | **verified** |
 | 19 | `privacy_loud_log_carries_no_secret` | a Loud ABOUT a credential-bearing object, and the `LOUD.log` it writes | **verified** |
-| 20 | `privacy_assignment_rule_underscored_keys` | whether the §5.22a assignment rule reaches an `_authToken=` key | **failed** — finding S-5 |
+| 20 | `privacy_assignment_rule_underscored_keys` | whether the §5.22a assignment rule reaches an `_authToken=` key | **verified** — S-5 fixed in commit 6 |
 
 Row 17 needs one qualification stated plainly, and the record states it: **the legacy-import gate
 ships closed**, so no shipped build can reach `TakeBackup` at all. The test supplies a passing gate
@@ -251,7 +251,7 @@ and this row asks a different question about a spelling it does not.
 | --- | --- | --- | --- |
 | 21 | `posture_telemetry_is_refused` | a project config setting `runtime.telemetry.enabled: true`, read back through `config print` | **verified** |
 | 22 | `posture_out_of_project_capture_is_archived` | a capture whose `tool_input.file_path` names a file outside the project root | **failed** — finding S-6 |
-| 23 | `posture_any_config_violation_disables_capture` | one invalid configuration key, and what the hook path does with it | **failed** — finding S-7 |
+| 23 | `posture_any_config_violation_disables_capture` | one invalid configuration key, and what the hook path does with it | **verified** — S-7 fixed in commit 6 (the record NAME is historical and describes the defect) |
 | 24 | `retention_forced_gc_preserves_evidence` | a GC pass with negative retention on both axes | **verified** |
 
 Rows 21 and 23 measure the same key and disagree, which is the whole of finding S-7. Through
@@ -276,6 +276,8 @@ it of the import graph for the whole tree, and the audit proposal names it as th
 ## 6. Findings returned (not fixed here)
 
 ### S-1 — a post-capture link escape is authorized, because `paths.Norm` discards the outside result
+
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
 
 **Owner: `internal/paths` + `internal/mcp`.** Record:
 `commit3-security-windows-amd64/archive_trust_parent_directory_replaced_by_link_outside.json`.
@@ -311,6 +313,8 @@ fix must be tested against both rather than against whichever one the fixing hos
 
 ### S-2 — a payload bound above the hard cap disables capture entirely, silently
 
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
+
 **Owner: `internal/config` (an upper bound on the key) + `internal/cli` (clamp-and-warn rather than
 refuse).** Record: `commit3-security-windows-amd64/bounds_config_cannot_raise_the_capture_cap.json`.
 
@@ -340,6 +344,8 @@ allocation. S-7 generalizes this finding well past this one key.
 
 ### S-3 — a quarantined object reaches the model as a tool error, or as an absence
 
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
+
 **Owner: `internal/mcp`.** Record: `commit3-security-windows-amd64/bounds_corrupt_object_envelope.json`.
 
 All five hostile objects are correctly refused by the store and quarantined, and none is ever
@@ -363,6 +369,8 @@ leaves the other.
 
 ### S-4 — the eval exporter's rule set is weaker than `internal/redact`
 
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
+
 **Owner: `internal/eval`.** Records: `privacy_surface_eval_export.json`, `privacy_eval_export.json`.
 
 `eval.Redact` carries its own, separate rule table, and it caught 18 spans in the transcript. Two
@@ -383,6 +391,8 @@ reader to assume the two rule sets agree. This surface's failure does NOT fail t
 reason the package comment gives: the exporter is not one of the product's durable surfaces.
 
 ### S-5 — the assignment rule cannot reach an underscore-prefixed key, and has no bare `auth` branch
+
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
 
 **Owner: `internal/redact`.** Record:
 `commit3-security-windows-amd64/privacy_assignment_rule_underscored_keys.json`.
@@ -429,6 +439,8 @@ authorization — the S-1 fix — plus redaction at capture. What is owed is tha
 states this behaviour explicitly rather than implying a refusal that does not exist.
 
 ### S-7 — any configuration violation disables capture and the daemon, silently
+
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
 
 **Owner: `internal/config` + `internal/cli`.** Record:
 `commit3-security-windows-amd64/posture_any_config_violation_disables_capture.json`.

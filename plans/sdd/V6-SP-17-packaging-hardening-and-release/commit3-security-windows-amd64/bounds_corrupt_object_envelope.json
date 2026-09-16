@@ -8,10 +8,10 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-604-g62a5975-dirty",
-    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
-  "outcome": "failed",
-  "reason": "a quarantined object does not reach the model as the `unavailable` domain outcome. By tool_use_id, 5 of 5 came back as a protocol-level tool error (internal/mcp's expand and re_read render a store refusal through errResponse). By bare chunk hash, 5 of 5 came back as `miss` — that is, as ABSENT, which §12.3 forbids for a quarantined object because it tells a model the content was never there when in fact it was refused and preserved; internal/mcp/handlers_span.go maps the chunk-hash courtesy branch's failure straight to miss(). internal/mcp/unavailable_test.go already establishes the right answer for already_tried's equivalent backend failure. No path and no secret appears in any of these answers — they carry a 12-character hash prefix. Owner: internal/mcp.",
-  "detail": "by tool_use_id: content_hash_mismatch=tool_error damaged_zstd_frame=tool_error decompression_bomb=tool_error physical_size_past_the_read_bound=tool_error truncated_object=tool_error; by bare chunk hash: content_hash_mismatch=miss damaged_zstd_frame=miss decompression_bomb=miss physical_size_past_the_read_bound=miss truncated_object=miss"
+  "outcome": "verified",
+  "reason": "a quarantined object is reported unavailable through both address forms: the explicit third answer, neither a protocol error nor an absence.",
+  "detail": "by tool_use_id: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable; by bare chunk hash: content_hash_mismatch=unavailable damaged_zstd_frame=unavailable decompression_bomb=unavailable physical_size_past_the_read_bound=unavailable truncated_object=unavailable"
 }

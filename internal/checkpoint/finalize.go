@@ -229,8 +229,9 @@ func keepResolvableFiles(in []FilePointer, drops []DropEntry) []FilePointer {
 // pointer that names a chunk directly is still honoured through Has.
 func keepResolvableTools(ctx context.Context, in []ToolPointer, drops []DropEntry, src SourceSet) ([]ToolPointer, []DropEntry) {
 	out := in[:0:0]
+	present := objectPresent(src.Store)
 	for _, p := range in {
-		if toolResultResolvable(ctx, src.Store, p.Hash) {
+		if toolResultResolvable(ctx, src.Store, present, p.Hash) {
 			out = append(out, p)
 			continue
 		}
@@ -243,12 +244,35 @@ func keepResolvableTools(ctx context.Context, in []ToolPointer, drops []DropEntr
 	return out, drops
 }
 
+// objectPresent returns the predicate this package uses to decide whether an object is really
+// there, and it is finding F4-8.
+//
+// It used to be store.Has, which is the store's BELIEF: a yes from the in-memory chunk set is taken
+// at face value and nothing is statted, so an object deleted, moved or quarantined underneath a live
+// store still answered true. A checkpoint built on that keeps a pointer into bytes that are gone —
+// a durable promise about content nothing can materialize — and §12.3's whole point is that a
+// checkpoint must not make one. store.ObjectPresence asks the filesystem instead, at one stat per
+// candidate spelling.
+//
+// A store that does not offer the capability falls back to Has, which is the weaker, index-only
+// answer. No shipped store takes that branch — internal/store asserts *FSStore satisfies
+// ObjectPresence at compile time — and it exists so a hand-written double in a test cannot turn a
+// missing method into a panic.
+func objectPresent(s store.Store) func(core.Hash) bool {
+	if p, ok := s.(store.ObjectPresence); ok {
+		return p.ObjectOnDisk
+	}
+	return s.Has
+}
+
 // toolResultResolvable reports whether h — a tool result's root, or a chunk named directly — can
-// still be materialized from the store: the object itself is held, or the root resolves and every
-// chunk it lists is held. A root whose chunks were collected is unresolvable even though the
+// still be materialized from the store: the object itself is on disk, or the root resolves and every
+// chunk it lists is on disk. A root whose chunks were collected is unresolvable even though the
 // root index still remembers it, because expand(hash) reads chunks, not index entries.
-func toolResultResolvable(ctx context.Context, s store.Store, h core.Hash) bool {
-	if s.Has(h) {
+//
+// present is objectPresent's predicate, resolved once by the caller rather than per pointer.
+func toolResultResolvable(ctx context.Context, s store.Store, present func(core.Hash) bool, h core.Hash) bool {
+	if present(h) {
 		return true
 	}
 	root, err := s.GetRoot(ctx, h)
@@ -256,7 +280,7 @@ func toolResultResolvable(ctx context.Context, s store.Store, h core.Hash) bool 
 		return false
 	}
 	for _, c := range root.Chunks {
-		if !s.Has(c.Hash) {
+		if !present(c.Hash) {
 			return false
 		}
 	}

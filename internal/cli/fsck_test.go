@@ -455,6 +455,28 @@ func TestFsck_ReportsEachSeededDefectAndRepairsNone(t *testing.T) {
 	}
 }
 
+// TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog is finding 5: a present but
+// unreadable index/files.json used to be reported as index/files.jsonl:0 and then as
+// "index/files.json is absent". The defect names the view file, and it must not claim
+// the file is missing.
+func TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog(t *testing.T) {
+	t.Parallel()
+
+	p := seedFsckProject(t)
+	view := filepath.Join(p.Layot.Index, "files.json")
+	require.NoError(t, os.Remove(paths.Long(view)))
+	require.NoError(t, os.MkdirAll(paths.Long(view), 0o700))
+
+	code, doc, errw := fsckJSON(t, p.Root)
+	require.Equal(t, ExitError, code, "stderr=%s", errw)
+	row := fsckRequireRow(t, doc, "index.files")
+	require.Equal(t, false, row["ok"])
+	detail := fsckDetail(row)
+	require.Contains(t, detail, "index/files.json")
+	require.NotContains(t, detail, "is absent")
+	require.NotContains(t, detail, "index/files.jsonl:0")
+}
+
 // flipOneBit is checkpoint/reader_test.go's own corruption seed, reused for objects as well: the
 // artifact stays the same length and stays readable, so only a re-hash can tell it apart from the
 // one the manifest recorded. It returns the path it damaged.
@@ -885,26 +907,49 @@ func TestFsck_RepairSeamGetsTheOperatorsOptions(t *testing.T) {
 	}
 }
 
-// TestFsck_TheViewVersionMatchesTheStoresOwn pins fsckKnownRecordVersion against what the store
-// actually writes.
+// TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator replaces the version pin SP-17 R5-1
+// retired.
 //
-// index/files.json's writer is internal/store's unexported materializeFilesJSON and its version
-// constant is unexported too, so the repair that regenerates that view has to carry its own copy of
-// the number. A copy nothing checks is a copy that drifts, and a drifted one would make --repair
-// write a view every reader refuses. This is the check.
-func TestFsck_TheViewVersionMatchesTheStoresOwn(t *testing.T) {
-	t.Parallel()
-
+// index/files.json had no exported writer, so --repair carried a private copy of the view's shape
+// and of its version constant, and the only thing holding that copy to the original was a test that
+// read the number back out of a flushed project. internal/store now exports RegenerateFilesView and
+// this command calls it, so there is no copy left to drift; what can still regress is the repair
+// going back to writing the view itself. That is what this asserts. After a repair the view on disk
+// is exactly the exported regenerator's projection of the log, and the regenerator agrees there is
+// nothing left to do.
+func TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator(t *testing.T) {
+	// Not parallel: --repair takes the project's singleton lock.
 	p := seedFsckProject(t)
-	raw, err := os.ReadFile(paths.Long(filepath.Join(p.Layot.Index, "files.json")))
-	require.NoError(t, err, "the seeded project flushes, so the store has written its own view")
+	viewPath := filepath.Join(p.Layot.Index, "files.json")
 
-	var view struct {
-		Version int `json:"version"`
-	}
-	require.NoError(t, json.Unmarshal(raw, &view))
-	require.Equal(t, fsckKnownRecordVersion, view.Version,
-		"internal/store bumped the view version and internal/cli's copy did not follow")
+	raw, err := os.ReadFile(paths.Long(viewPath))
+	require.NoError(t, err, "the seeded project flushes, so the store has written its own view")
+	var flushed store.FilesView
+	require.NoError(t, json.Unmarshal(raw, &flushed))
+	require.Equal(t, store.FilesViewVersion, flushed.Version,
+		"the version a flushed store writes is the one the exported constant names")
+
+	// Stale the view so the repair has to regenerate it.
+	require.NoError(t, os.WriteFile(paths.Long(viewPath), []byte(`{"version":1,"files":{}}`), 0o600))
+	code, _, errw := fsckDispatch(t, "fsck", "--project", p.Root, "--repair", "--yes")
+	require.NotEqual(t, ExitUsage, code, "stderr=%s", errw)
+
+	repaired, err := os.ReadFile(paths.Long(viewPath))
+	require.NoError(t, err)
+	var got store.FilesView
+	require.NoError(t, json.Unmarshal(repaired, &got))
+	require.Equal(t, store.FilesViewVersion, got.Version)
+
+	log, defects, err := store.ReplayFilesLog(p.Layot)
+	require.NoError(t, err)
+	require.Empty(t, defects, "the seeded log parses cleanly")
+	require.Equal(t, log, got.Files,
+		"the repaired view is not the exported regenerator's projection of index/files.jsonl")
+
+	wrote, err := store.RegenerateFilesView(p.Layot, testClock())
+	require.NoError(t, err)
+	require.False(t, wrote,
+		"the repaired view already describes its log; the regenerator rewrote it anyway")
 }
 
 // TestFsck_RegisteredInAllAndNotAHook asserts both commands are in the real dispatch table and that

@@ -54,10 +54,22 @@ func manifestCommand(t *testing.T, bundleDir, event string) string {
 	require.NotEmpty(t, groups, "hooks.json's %s must carry a group", event)
 	require.NotEmpty(t, groups[0].Hooks, "hooks.json's %s group must carry a hook", event)
 	cmd := groups[0].Hooks[0].Command
-	require.True(t, strings.HasPrefix(cmd, pluginRootPlaceholder+"/bin/qompack"),
-		"this test derives its quoted and PowerShell forms from the manifest's own string, so that "+
-			"string must still begin with %s/bin/qompack; it is %q", pluginRootPlaceholder, cmd)
+	require.True(t, strings.HasPrefix(cmd, quotedBinaryWord),
+		"this test derives its unquoted contrast and PowerShell forms from the manifest's own "+
+			"string, so that string must still begin with %s; it is %q", quotedBinaryWord, cmd)
 	return cmd
+}
+
+// quotedBinaryWord is the executable word hooks.json carries since the F-1 fix: the placeholder
+// double-quoted, which is what stops a shell splitting a spaced install directory into two
+// arguments. It is a SHELL-form spelling only — see mcpExecFormNote.
+const quotedBinaryWord = `"` + pluginRootPlaceholder + `/bin/qompack"`
+
+// unquoteBinaryWord returns the PRE-FIX spelling of a manifest command: the same string with the
+// executable word's quotes removed. It is what the contrast rows below run, so the package can
+// still say what the quoting buys on this host rather than merely asserting it is present.
+func unquoteBinaryWord(cmd string) string {
+	return strings.Replace(cmd, quotedBinaryWord, pluginRootPlaceholder+"/bin/qompack", 1)
 }
 
 // mcpExecFormNote is the scope limit every record and document that carries the shell-form finding
@@ -90,19 +102,22 @@ type launcherResult struct {
 //
 // Claude Code runs a shell-form hook command through Git Bash when one is installed and through
 // PowerShell otherwise (Claude Code hooks reference). qompack's manifest names
-// `${CLAUDE_PLUGIN_ROOT}/bin/qompack <subcommand>` — one string for all six targets, with no
-// extension and NO QUOTES around the placeholder — while the Windows bundle ships
-// `bin/qompack.exe`. Two things follow that nothing in the repository has ever established:
-// whether the extension is appended, and what happens when the install directory contains a space.
+// `"${CLAUDE_PLUGIN_ROOT}/bin/qompack" <subcommand>` — one string for all six targets, with no
+// extension — while the Windows bundle ships `bin/qompack.exe`. Two things follow that nothing in
+// the repository had ever established: whether the extension is appended, and what happens when the
+// install directory contains a space.
 //
 // Every row runs against TWO install directories, one spaced and one not. The plain one is the
 // control: it is what makes a failure at the spaced path attributable to the space rather than to
 // the drive-letter path, the missing extension or the encoding.
 //
-// The unquoted row is EXPECTED to fail with a space in the path. That is a finding returned to
-// internal/pluginmanifest (SP-17 Task 6) for hooks.json alone — see mcpExecFormNote — recorded with
-// outcome `failed`, not an assertion weakened to accommodate it and not something this package
-// fixes.
+// The unquoted spelling this originally measured was finding F-1: it exits 127 under Git Bash when
+// the install directory contains a space, because the expansion word-splits. The fix landed in
+// internal/pluginmanifest for hooks.json ALONE — see mcpExecFormNote — and this test is now its
+// regression assertion: the string READ FROM THE BUNDLE must carry the quotes and must exit 0 from
+// the spaced root under both Git Bash and PowerShell. The pre-fix spelling is still run beside it
+// as the recorded contrast, because what a particular Git Bash does with it is a fact about the
+// shell rather than a property of the product.
 func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 	rec := newRecord(t, "shell-launcher-forms")
 	if runtime.GOOS != "windows" {
@@ -128,9 +143,13 @@ func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 			"extension-resolution question this test exists to answer is not being asked")
 	require.FileExists(t, filepath.Join(spaced, "bin", "qompack.exe"))
 
+	// `literal` is the string the bundle actually ships, read from the bundle. Since the F-1 fix it
+	// is the QUOTED form, so it is what every "does the shipped manifest work" row runs; `unquoted`
+	// is the pre-fix spelling, kept as the contrast that shows what the quotes buy on this host.
 	literal := manifestCommand(t, b.Dir, "PostToolUse")
-	quoted := strings.Replace(literal, pluginRootPlaceholder, `"`+pluginRootPlaceholder+`"`, 1)
-	argTail := strings.TrimPrefix(literal, pluginRootPlaceholder+"/bin/qompack")
+	unquoted := unquoteBinaryWord(literal)
+	require.NotEqual(t, literal, unquoted, "the contrast row must differ from the shipped string")
+	argTail := strings.TrimPrefix(literal, quotedBinaryWord)
 
 	p := newProjectAt(t, base, plainRootName)
 	payload := hookPayload(t, "PostToolUse", p.Root)
@@ -155,10 +174,10 @@ func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 		for _, form := range []struct {
 			name, script, root string
 		}{
-			{"unquoted/plain", literal, plain},
-			{"unquoted/spaced", literal, spaced},
-			{"quoted/plain", quoted, plain},
-			{"quoted/spaced", quoted, spaced},
+			{"unquoted/plain", unquoted, plain},
+			{"unquoted/spaced", unquoted, spaced},
+			{"quoted/plain", literal, plain},
+			{"quoted/spaced", literal, spaced},
 		} {
 			env := launcherEnv(p, form.root)
 			out, errOut, code := run(t, bash, b.Dir, []string{"-c", form.script}, payload, env)
@@ -174,19 +193,19 @@ func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 		// rather than relying on the exported variable. That form has to be measured too, because
 		// it is the one where the quoting of the manifest string is the ONLY thing standing between
 		// a spaced path and word splitting.
-		substituted := strings.Replace(literal, pluginRootPlaceholder, spaced, 1)
+		substituted := strings.Replace(unquoted, pluginRootPlaceholder, spaced, 1)
 		out, errOut, code := run(t, bash, b.Dir, []string{"-c", substituted}, payload, launcherEnv(p, spaced))
 		rows = append(rows, launcherResult{
 			form: "git-bash unquoted/spaced (textually substituted)", script: substituted,
 			code: code, stdout: out, stderr: errOut, parseable: emptyOrParseableJSON(out),
 		})
 
-		// And the same substitution through the QUOTED manifest string, which is the remedy this
-		// finding asks Task 6 for. It has to be measured too: under textual substitution a Windows
-		// path reaches bash carrying backslashes, and an unquoted word can have them consumed as
-		// escapes as well as being split on the space — two failure modes, one fix, and only a row
-		// that tries it can say the fix covers both.
-		substitutedQuoted := strings.Replace(quoted, pluginRootPlaceholder, spaced, 1)
+		// And the same substitution through the SHIPPED (quoted) manifest string, which is the
+		// remedy F-1 asked for and the one the bundle now carries. It has to be measured too: under
+		// textual substitution a Windows path reaches bash carrying backslashes, and an unquoted
+		// word can have them consumed as escapes as well as being split on the space — two failure
+		// modes, one fix, and only a row that tries it can say the fix covers both.
+		substitutedQuoted := strings.Replace(literal, pluginRootPlaceholder, spaced, 1)
 		out, errOut, code = run(t, bash, b.Dir, []string{"-c", substitutedQuoted}, payload, launcherEnv(p, spaced))
 		rows = append(rows, launcherResult{
 			form: "git-bash quoted/spaced (textually substituted)", script: substitutedQuoted,
@@ -195,8 +214,9 @@ func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 
 		byForm := indexRows(rows)
 
-		// The control must work, or nothing else in this subtest means anything.
-		control := byForm["git-bash unquoted/plain"]
+		// The control must work, or nothing else in this subtest means anything. It is the SHIPPED
+		// manifest string against the space-free install directory.
+		control := byForm["git-bash quoted/plain"]
 		require.Equal(t, 0, control.code,
 			"the manifest's own command string must work from an install directory with no space in it; "+
 				"exit %d\nstdout:\n%s\nstderr:\n%s", control.code, control.stdout, control.stderr)
@@ -230,44 +250,48 @@ func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 			Reason:  "the QUOTED placeholder form works from an install directory containing a space",
 			Detail: fmt.Sprintf("shell %s (%s); env-expanded script %q exited %d (stdout parseable=%t); "+
 				"the textually substituted script %q exited %d; CLAUDE_PLUGIN_ROOT=%q throughout",
-				bash, bashWhy, quoted, quotedSpaced.code, quotedSpaced.parseable,
+				bash, bashWhy, literal, quotedSpaced.code, quotedSpaced.parseable,
 				quotedSubstituted.script, quotedSubstituted.code, spaced),
 		})
 
-		// The finding. Recorded, not asserted away and not fixed here — and the record's DETAIL is
-		// built from what was measured, not from what was expected: a host expansion that made the
-		// unquoted form work would otherwise leave a `verified` record whose prose still asserted a
-		// defect and assigned an owner.
+		// F-1's regression assertion. The row that used to record the finding now ASSERTS the
+		// remedy: the string the bundle ships must exit 0 from a spaced install directory under both
+		// of the host's expansion strategies, and it must still be the quoted spelling — a manifest
+		// that silently lost its quotes would exit 0 on a host whose shell happens not to split, and
+		// this row would be the only thing between that and a re-shipped F-1.
+		//
+		// The pre-fix spelling is still RUN, and its exit codes are recorded rather than asserted.
+		// It is the contrast that says what the quoting bought on this host; asserting it must fail
+		// would be asserting a property of Git Bash, not of the product.
 		unquotedSpaced := byForm["git-bash unquoted/spaced"]
 		substitutedSpaced := byForm["git-bash unquoted/spaced (textually substituted)"]
-		measured := fmt.Sprintf(
-			"shell %s (%s). Env-expanded form %q exited %d (stderr: %s). Textually-substituted form %q "+
-				"exited %d (stderr: %s). The same manifest string against the space-free control %q "+
-				"exited %d, and the quoted form against the spaced root exited %d.",
-			bash, bashWhy,
-			literal, unquotedSpaced.code, strings.TrimSpace(string(unquotedSpaced.stderr)),
-			substitutedSpaced.script, substitutedSpaced.code, strings.TrimSpace(string(substitutedSpaced.stderr)),
-			plain, control.code, quotedSpaced.code)
+		require.Contains(t, literal, quotedBinaryWord,
+			"regression guard for F-1: the shipped hooks.json command must keep the quoted plugin "+
+				"root; it is %q", literal)
+		require.Equal(t, 0, quotedSpaced.code, "F-1 regression: the shipped manifest string must "+
+			"exit 0 from a spaced install directory")
+		require.Equal(t, 0, quotedSubstituted.code, "F-1 regression: and under textual substitution")
 
-		outcome := OutcomeFailed
-		reason := "the manifest's UNQUOTED ${CLAUDE_PLUGIN_ROOT} breaks under Git Bash when the " +
-			"plugin install directory contains a space"
-		verdict := "OWNER: internal/pluginmanifest (SP-17 Task 6) — hooks.json must quote the " +
-			"placeholder; test/platform records this and does not fix it. " + mcpExecFormNote
-		if unquotedSpaced.code == 0 && substitutedSpaced.code == 0 {
-			outcome = OutcomeVerified
-			reason = "the manifest's unquoted ${CLAUDE_PLUGIN_ROOT} survived a spaced install " +
-				"directory under this host's Git Bash"
-			verdict = "No owner and no change requested: both unquoted forms exited 0 here, so this " +
-				"host's expansion and shell do not split the path. That is a fact about THIS host, " +
-				"not a guarantee for every Git Bash version or expansion strategy."
-		}
 		writeRecord(t, Record{
 			Name: "shell-gitbash-unquoted-spaced", Target: rec.Target, Bundle: rec.Bundle,
-			Outcome: outcome, Reason: reason,
-			Detail: measured + " " + verdict,
+			Outcome: OutcomeVerified,
+			Reason: "F-1 is fixed and this row is now its regression assertion: the command the " +
+				"bundle SHIPS quotes the plugin root and exits 0 from an install directory " +
+				"containing a space, under both host expansion strategies",
+			Detail: fmt.Sprintf(
+				"shell %s (%s). Shipped (quoted) form %q exited %d env-expanded and %d textually "+
+					"substituted against the spaced root, and %d against the space-free control %q. "+
+					"The PRE-FIX spelling %q is still run as the contrast and is not asserted on: it "+
+					"exited %d env-expanded (stderr: %s) and %d textually substituted (stderr: %s). %s",
+				bash, bashWhy,
+				literal, quotedSpaced.code, quotedSubstituted.code, control.code, plain,
+				unquoted,
+				unquotedSpaced.code, strings.TrimSpace(string(unquotedSpaced.stderr)),
+				substitutedSpaced.code, strings.TrimSpace(string(substitutedSpaced.stderr)),
+				mcpExecFormNote),
 		})
-		t.Logf("launcher verdict (%s): %s", outcome, reason)
+		t.Logf("launcher verdict: shipped=%d/%d (env/substituted) pre-fix contrast=%d/%d",
+			quotedSpaced.code, quotedSubstituted.code, unquotedSpaced.code, substitutedSpaced.code)
 	})
 
 	t.Run("powershell", func(t *testing.T) {
@@ -319,6 +343,12 @@ func TestPlatform_WindowsHookLauncherForms(t *testing.T) {
 				"extension-resolution question",
 				pwsh, script, spaced, spacedRow.code, spacedRow.parseable, control.code),
 		})
+		// F-1's regression assertion on the second launcher: the record is written first so a
+		// failure still leaves evidence, and only then is the spaced root asserted.
+		require.Equal(t, 0, spacedRow.code,
+			"F-1 regression: the PowerShell launcher form must exit 0 from a spaced install "+
+				"directory; exit %d\nstdout:\n%s\nstderr:\n%s",
+			spacedRow.code, spacedRow.stdout, spacedRow.stderr)
 	})
 
 	// The aggregate record's outcome comes from what the subtests actually did, not from reaching

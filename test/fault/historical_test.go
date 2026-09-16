@@ -237,18 +237,28 @@ func TestFault_CheckpointDropsAnUnresolvablePointer(t *testing.T) {
 		// The standard judge, not a verdict of this row's own. The previous round recorded `recovered`
 		// here with `dangling_after: 2` and `reported: 0`, which is exactly what M16 exists to forbid:
 		// the sealed checkpoint holds no pointer into gone bytes, but the index that outlived the
-		// removed object still names it and no surface says so. That is the same blindness F4-8 pins
-		// — `store.Has` answers from an index-derived set — reached from the other side, so the row
-		// carries that pin and judgeRecovery decides the outcome. Which references those are is left
-		// to the "newly dangling" line judgeRecovery writes, rather than asserted here: naming them
-		// in advance is how the subagent row came to claim a tool_use record that did exist.
+		// removed object still names it and no surface says so.
+		//
+		// The pin is F4-1, mirror shape, not F4-8. F4-8 was the checkpoint predicate's blindness
+		// and it is FIXED — finalize decides with store.ObjectPresence.ObjectOnDisk now, and
+		// TestFault_CheckpointResolvabilityIsBlindToADeletedObject is its regression assertion.
+		// F4-1 as recorded is index line gone, object present; this row's residue is the mirror
+		// (object gone, index line present). Both are index/objects disagreements whose surface
+		// is `qompack fsck`'s objects/roots walk. What this branch is left holding is the OTHER
+		// half the row always measured and the one that is ruled out of Task 6's scope:
+		// index/roots.jsonl goes on naming bytes that are gone, and no surface says so. That is
+		// F4-1, owner internal/store.
+		//
+		// Which references those are is left to the "newly dangling" line judgeRecovery writes,
+		// rather than asserted here: naming them in advance is how the subagent row came to claim a
+		// tool_use record that did exist.
 		rec.Detail += "\nnote: the sealed checkpoint's OWN pointers all resolve on disk, so the " +
 			"references listed as newly dangling below are not the checkpoint's — they are what the " +
 			"removed object left behind in the index that outlived it. This row cannot distinguish " +
 			"finalize having DROPPED an unresolvable pointer from the pointer never having been a " +
 			"candidate: no drop entry names the removed object either way."
 		judgeRecovery(t, rec, before, after, recording, ev,
-			"internal/store (the index keeps naming bytes that are gone) + internal/checkpoint", "F4-8")
+			"internal/store (the index keeps naming bytes that are gone)", "F4-1")
 	}
 }
 
@@ -403,11 +413,13 @@ func mentionsUnavailable(res callResult, err error) bool {
 	}
 	var env retrievalEnvelope
 	if json.Unmarshal([]byte(res.Text), &env) == nil {
-		if env.Status == "unavailable" || (env.Unavailable != nil && *env.Unavailable) {
+		// `available: false`, present, is the wire spelling of the `unavailable` outcome. An ABSENT
+		// key is a miss or a hit, not this.
+		if env.Available != nil && !*env.Available {
 			return true
 		}
 	}
-	return strings.Contains(res.Text, `"unavailable"`)
+	return false
 }
 
 // checkpointPointerCount is how many file and tool pointers the artifacts on disk carry between
@@ -447,20 +459,25 @@ func refsOfKind(refs []danglingRef, kind refKind) []danglingRef {
 	return out
 }
 
-// TestFault_CheckpointResolvabilityIsBlindToADeletedObject returns F4-8.
+// TestFault_CheckpointResolvabilityIsBlindToADeletedObject returned F4-8, and is now its regression
+// assertion. The row's NAME is historical and describes the defect, not the product.
 //
-// internal/checkpoint/finalize.go:248-263's toolResultResolvable decides whether a checkpoint keeps
-// a tool pointer or drops it, and its comment says the pointer is kept when the root "resolves and
-// every chunk the root names is still held". It asks store.Has, and FSStore.Has answers from an
-// in-memory chunkSet that Open builds from index/roots.jsonl and never stats a file
-// (internal/store/read.go:65-75, roots.go:318-323). So an object deleted from objects/ while its
-// index line survives is "still held" as far as that function can tell, and the checkpoint keeps a
-// pointer into bytes that are gone.
+// The finding: internal/checkpoint/finalize.go's toolResultResolvable decides whether a checkpoint
+// KEEPS a tool pointer or drops it, and its comment said the pointer is kept when the root
+// "resolves and every chunk the root names is still held". It asked store.Has, which answers from
+// an in-memory chunkSet built from index/roots.jsonl and does not stat when the index says yes. So
+// an object deleted from objects/ while its index line survived was "still held" as far as that
+// function could tell, and the checkpoint kept a pointer into bytes that were gone.
 //
 // This package found it by having the same defect: the round-1 audit asked Has and reported a clean
-// store for a project it had just deleted an object from. The row asserts the product's OWN
-// predicate against the on-disk truth rather than re-testing checkpoint's internals, which it cannot
-// reach; the divergence is the finding.
+// store for a project it had just deleted an object from.
+//
+// What is asserted now is the divergence that MATTERS, and the two answers are kept apart because
+// only one of them moved. store.Has still answers from the index — that is its documented contract,
+// it is the cheap question, and its comment now says so — while store.ObjectPresence.ObjectOnDisk
+// is the filesystem question the checkpoint decides with. The row measures the product's own
+// predicate through the exported capability rather than re-implementing it, and fails if it drifts
+// from the filesystem in either direction.
 func TestFault_CheckpointResolvabilityIsBlindToADeletedObject(t *testing.T) {
 	b := assembledBundle(t)
 	p := newProject(t, "proj")
@@ -498,25 +515,34 @@ func TestFault_CheckpointResolvabilityIsBlindToADeletedObject(t *testing.T) {
 
 	r := resolvabilityDisagreement(t, p.Root, target.Root, chunk)
 	rec.Detail = fmt.Sprintf("after deleting the object backing chunk %s with its index line intact: "+
-		"store.Has(chunk)=%v, the bytes are on disk=%v, and the whole root %s answers "+
-		"resolvable-by-Has=%s", shortHash(chunk.String()), r.ChunkHeld, r.OnDisk,
-		shortHash(target.Root), describeRootHeld(r))
+		"store.Has(chunk)=%v (the index's belief), store.ObjectOnDisk(chunk)=%v (offered=%v, the "+
+		"predicate the checkpoint decides with), the bytes are on disk=%v, and the whole root %s "+
+		"answers resolvable=%s", shortHash(chunk.String()), r.ChunkHeld, r.ChunkPresent,
+		r.PresenceOffered, r.OnDisk, shortHash(target.Root), describeRootHeld(r))
 
-	if r.ChunkHeld && !r.OnDisk {
-		recordOutcome(t, rec, OutcomeFailed, "store.Has reports a chunk held whose bytes are not on "+
-			"disk, because it answers from an index-derived set rather than the filesystem. "+
-			"internal/checkpoint/finalize.go's toolResultResolvable decides with it, so a checkpoint "+
-			"keeps a pointer into bytes that are gone and reports no drop. Owner: internal/checkpoint "+
-			"(the predicate) + internal/store (the comment on Has). Returned as F4-8.")
-		t.Logf("fault %s: reproduced the returned finding F4-8 (owner internal/checkpoint); the "+
-			"record is the deliverable and nothing here fixes it", rec.Name)
-		return
+	switch {
+	case !r.PresenceOffered:
+		recordOutcome(t, rec, OutcomeFailed, "the store no longer offers store.ObjectPresence, so "+
+			"internal/checkpoint has nothing to decide pointer resolvability with except store.Has "+
+			"— which answers from the index and not from the filesystem. That is F4-8 returning. "+
+			"Owner: internal/store.")
+		t.Errorf("fault %s: %s\n%s", rec.Name, rec.Reason, rec.Detail)
+	case r.ChunkPresent != r.OnDisk:
+		recordOutcome(t, rec, OutcomeFailed, "store.ObjectOnDisk and the filesystem disagree about a "+
+			"deleted object, so the predicate internal/checkpoint keeps or drops a pointer with is "+
+			"blind again. Owner: internal/checkpoint (the predicate) + internal/store. F4-8.")
+		t.Errorf("fault %s: %s\n%s", rec.Name, rec.Reason, rec.Detail)
+	case r.RootAsked && r.RootHeld:
+		recordOutcome(t, rec, OutcomeFailed, "the root-level predicate — the one finalize.go asks — "+
+			"still reports every chunk resolvable after one of them was deleted. Owner: "+
+			"internal/checkpoint. F4-8.")
+		t.Errorf("fault %s: %s\n%s", rec.Name, rec.Reason, rec.Detail)
+	default:
+		recordOutcome(t, rec, OutcomeRecovered, "the predicate internal/checkpoint decides pointer "+
+			"resolvability with agrees with the filesystem about a deleted object, and so does the "+
+			"root-level form of it. store.Has still answers from the index, which is its documented "+
+			"contract and no longer what a durable promise is made on.")
 	}
-	recordOutcome(t, rec, OutcomeRecovered, "store.Has and the filesystem agree about a deleted "+
-		"object, so checkpoint's resolvability predicate is not blind to it")
-	t.Errorf("fault %s: this row pins F4-8 and the divergence is gone. If store.Has now stats the "+
-		"filesystem, remove F4-8 from the row, from commit4-evidence.md §6 and from the proposal.\n%s",
-		rec.Name, rec.Detail)
 }
 
 // describeRootHeld renders the root-level answer, keeping "the predicate said no" apart from "the
@@ -536,10 +562,19 @@ func describeRootHeld(r resolvability) string {
 // boolean twice and could not have said otherwise. They are different questions, and the finding
 // turns on both: Has is what the store believes, the root form is what finalize.go actually asks.
 type resolvability struct {
-	// ChunkHeld is store.Has for the deleted chunk itself.
+	// ChunkHeld is store.Has for the deleted chunk itself: the store's BELIEF, answered from the
+	// index. Since the F4-8 fix that is documented behaviour rather than the defect, and the row
+	// keeps measuring it so a future reader can see the two answers side by side.
 	ChunkHeld bool
+	// ChunkPresent is store.ObjectPresence.ObjectOnDisk for the same chunk: the predicate
+	// internal/checkpoint now decides pointer resolvability with. It is the one that must agree
+	// with the filesystem.
+	ChunkPresent bool
+	// PresenceOffered says the store offered the ObjectPresence capability at all, so a `false`
+	// ChunkPresent is distinguishable from "never asked".
+	PresenceOffered bool
 	// RootHeld is finalize.go's actual predicate: the root resolves and every chunk it names is
-	// held. Meaningless unless RootAsked.
+	// present. Meaningless unless RootAsked.
 	RootHeld bool
 	// RootAsked says the root could be read at all, so "false" is distinguishable from "not asked".
 	RootAsked bool
@@ -563,8 +598,17 @@ func resolvabilityDisagreement(t *testing.T, root, rootHash string, chunk core.H
 
 	r := resolvability{ChunkHeld: s.Has(chunk), OnDisk: objectOnDisk(root, chunk)}
 
+	// The predicate internal/checkpoint decides with since the F4-8 fix. It is asked through the
+	// exported capability rather than re-implemented here, so this row measures the product's own
+	// answer and not a second opinion that could agree by accident.
+	present, offered := s.(store.ObjectPresence)
+	r.PresenceOffered = offered
+	if offered {
+		r.ChunkPresent = present.ObjectOnDisk(chunk)
+	}
+
 	// The same question at the level the checkpoint actually asks it: the root resolves and every
-	// chunk it names is "held".
+	// chunk it names is present.
 	h, parseErr := core.ParseHash(rootHash)
 	if parseErr != nil {
 		return r
@@ -576,7 +620,11 @@ func resolvabilityDisagreement(t *testing.T, root, rootHash string, chunk core.H
 	r.RootAsked = true
 	r.RootHeld = true
 	for _, c := range rec.Chunks {
-		if !s.Has(c.Hash) {
+		held := s.Has(c.Hash)
+		if offered {
+			held = present.ObjectOnDisk(c.Hash)
+		}
+		if !held {
 			r.RootHeld = false
 			break
 		}

@@ -129,6 +129,9 @@ var ruleCases = []ruleCase{
 	{"hotPath.budgetMs at 0", func(c *config.Config) { c.Runtime.HotPath.BudgetMs = 0 }, "runtime.hotPath.budgetMs"},
 	{"hotPath.breachWindows below 1", func(c *config.Config) { c.Runtime.HotPath.BreachWindows = 0 }, "runtime.hotPath.breachWindows"},
 	{"hotPath.maxPayloadBytes below 4096", func(c *config.Config) { c.Runtime.HotPath.MaxPayloadBytes = 4095 }, "runtime.hotPath.maxPayloadBytes"},
+	{"hotPath.maxPayloadBytes above the hook cap", func(c *config.Config) {
+		c.Runtime.HotPath.MaxPayloadBytes = config.HookCaptureHardCapBytes + 1
+	}, "runtime.hotPath.maxPayloadBytes"},
 
 	// runtime.logging.level ∈ {debug,info,warn,error}
 	{"logging.level unknown", func(c *config.Config) { c.Runtime.Logging.Level = "bogus" }, "runtime.logging.level"},
@@ -389,4 +392,48 @@ func allLeafPaths(t *testing.T) map[string]bool {
 	}
 	walk(reflect.TypeOf(config.Config{}), "")
 	return out
+}
+
+// TestValidate_HotPathPayloadIsBoundedFromAbove is finding S-2.
+//
+// runtime.hotPath.maxPayloadBytes was bounded only from BELOW, so a value above internal/cli's hard
+// 4 MiB capture allocation cap was a perfectly valid configuration that admission then refused every
+// delivery on: `config print` echoed the operator's number, no §11.3 violation was recorded, and the
+// product was off. An upper bound turns that into an ordinary clamp-and-record.
+func TestValidate_HotPathPayloadIsBoundedFromAbove(t *testing.T) {
+	c := config.Defaults()
+	c.Runtime.HotPath.MaxPayloadBytes = config.HookCaptureHardCapBytes + 1
+
+	vs := c.Validate()
+	require.Len(t, vs, 1)
+	require.Equal(t, "runtime.hotPath.maxPayloadBytes", vs[0].Key)
+	require.Contains(t, vs[0].Want, "4194304", "the bound must name the cap it enforces")
+
+	c.Runtime.HotPath.MaxPayloadBytes = config.HookCaptureHardCapBytes
+	require.Empty(t, c.Validate(), "the cap itself is a legal value")
+}
+
+// TestLoad_ClampsAnOverCapHotPathPayload is S-2 through the tolerant loader: the operator's number
+// is replaced by a valid one and the substitution is reported as a §11.3 warning.
+func TestLoad_ClampsAnOverCapHotPathPayload(t *testing.T) {
+	env := baseEnv(t)
+	writeConfigFile(t, env.ProjectRoot,
+		`{"runtime":{"hotPath":{"maxPayloadBytes":33554432}}}`)
+
+	cfg, _, warns, err := config.Load(env)
+	require.NoError(t, err)
+	require.LessOrEqual(t, cfg.Runtime.HotPath.MaxPayloadBytes, config.HookCaptureHardCapBytes,
+		"a value above the hard capture cap must not survive the load")
+	require.True(t, namesKey(warns, "runtime.hotPath.maxPayloadBytes"),
+		"the clamp must be reported: %+v", warns)
+}
+
+// namesKey reports whether any warning names key.
+func namesKey(warns []config.Warning, key string) bool {
+	for _, w := range warns {
+		if w.Key == key {
+			return true
+		}
+	}
+	return false
 }

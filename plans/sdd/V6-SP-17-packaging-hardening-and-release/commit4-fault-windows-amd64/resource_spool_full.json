@@ -7,14 +7,14 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-606-g21e6914-dirty",
-    "binary_sha256": "1b55a8731bbf9290c3fe3699f3d2f344ac4d3b059fa235bce1152b622166071d"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "boundary": "the spool accepts nothing at all",
   "seed_method": "the `spool-full:0` QOMPACK_FAULT site, whose allowance of zero makes every Append fail. SIMULATED: a forced Append failure, not a real ENOSPC",
   "outcome": "recovered",
   "reason": "the cut introduced no dangling reference, none remains anywhere under .qompack/, and the product went on recording: the recovery session's own observation was indexed.",
-  "detail": "the faulted delivery toolu_fault_spool_full_01 did not reach the index, so the spool-full:0 site bit; after the restart and drain it still had not landed\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:0}\ndegradation (new since the cut): daylog[2]: qompack-20260915.log: ts=2026-09-15T17:42:33.354093Z level=loud msg=\"ipc: spool append refused — event dropped\" op=observe.tool err=\"qompack: spool file at cap\"; loud[2]: ts=2026-09-15T17:42:33.354093Z level=loud msg=\"ipc: spool append refused — event dropped\" op=observe.tool err=\"qompack: spool file at cap\"; surfaces LOUD.log+day log (warn)\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
+  "detail": "the faulted delivery toolu_fault_spool_full_01 did not reach the index, so the spool-full:0 site bit; after the restart and drain it still had not landed\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}\naudit after  {tool_uses:4 roots:4 sidecars:4 checkpoints:0 dangling:0 reported:0}\ndegradation (new since the cut): daylog[2]: qompack-20260916.log: ts=2026-09-16T03:03:35.4386851Z level=loud msg=\"ipc: spool append refused — event dropped\" op=observe.tool err=\"qompack: spool file at cap\"; loud[2]: ts=2026-09-16T03:03:35.4386851Z level=loud msg=\"ipc: spool append refused — event dropped\" op=observe.tool err=\"qompack: spool file at cap\"; surfaces LOUD.log+day log (warn)\nnewly dangling: none\nnewly reported: none\nremaining dangling after recovery: none",
   "dangling_before": 0,
   "dangling_after": 0
 }

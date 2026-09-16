@@ -58,11 +58,11 @@ Transcribed from `commit2-platform-windows-amd64/`; the `reason` column is each 
 | 6 | `path-plugin-root-spaces-unicode` | plugin root containing a space and non-ASCII characters | **verified** |
 | 7 | `shell-gitbash-exe-resolution` | Git Bash resolves the manifest's extensionless bin/qompack to bin/qompack.exe | **verified** |
 | 8 | `shell-gitbash-quoted-spaced` | the QUOTED placeholder form works from an install directory containing a space | **verified** |
-| 9 | `shell-gitbash-unquoted-spaced` | the manifest's UNQUOTED `${CLAUDE_PLUGIN_ROOT}` breaks under Git Bash when the plugin install directory contains a space | **failed** — finding F-1 |
+| 9 | `shell-gitbash-unquoted-spaced` | F-1's regression assertion: the command the bundle SHIPS quotes the plugin root and exits 0 from a spaced install directory under both host expansion strategies; the pre-fix spelling is still run beside it as the recorded contrast | **verified** — F-1 fixed in commit 6 |
 | 10 | `shell-powershell-spaced` | the PowerShell launcher form works from an install directory containing a space and non-ASCII characters | **verified** |
 | 11 | `shell-launcher-forms` | the Windows hook launcher matrix ran (8 invocations) | **verified** |
 | 12 | `restrict-readonly-project-root` | all six hooks exit 0 with consumable output on a read-only project root | **verified** |
-| 13 | `restrict-readonly-qompack-dir` | a read-only `.qompack` produces NO durable degradation evidence a later process can read | **failed** — finding F-2 |
+| 13 | `restrict-readonly-qompack-dir` | a read-only `.qompack` leaves durable evidence that names the dropped event: the hook's own stderr | **verified** — F-2 fixed in commit 6 |
 | 14 | `restrict-readonly-bundle-dir` | all six hooks run from a read-only plugin install directory | **verified** |
 | 15 | `restrict-unwritable-home` | all six hooks exit 0 with an unwritable HOME | **verified** |
 | 16 | `optimizations-disabled-fresh-project` | every gated optimization is reported disabled by the shipped bundle | **verified** |
@@ -108,7 +108,7 @@ Two observations recorded but not asserted, because nothing in the specification
 
 | target | status | basis |
 | --- | --- | --- |
-| **windows/amd64** | **executed here** — 15 verified, 2 failed (F-1, F-2), 0 skipped | the 17 records in `commit2-platform-windows-amd64/`, listed in its `INDEX.json` |
+| **windows/amd64** | **executed here** — 17 verified, 0 failed, 0 skipped after commit 6 (15 verified / 2 failed when this commit landed; F-1 and F-2 were the two) | the 17 records in `commit2-platform-windows-amd64/`, listed in its `INDEX.json` |
 | linux/amd64 | **CI-pending**: the tests run in the `test` job's OS matrix (`ubuntu-latest`) once the branch is pushed; not executed by this task | `.github/workflows/ci.yml` `test` job, `matrix.os` |
 | darwin/arm64 | **CI-pending**: the tests run in the `test` job's OS matrix (`macos-latest`) once the branch is pushed; not executed by this task | as above |
 | linux/arm64 | **built, unverified: no runner** | packaging/README.md §6 |
@@ -128,6 +128,8 @@ executed, a host having loaded the manifest, or the launcher having been discove
 ## 4. Findings returned (not fixed here)
 
 ### F-1 — the manifest's unquoted `${CLAUDE_PLUGIN_ROOT}` breaks under Git Bash on a spaced install directory
+
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
 
 **Owner: `internal/pluginmanifest` (SP-17 Task 6), for `hooks.json` ONLY.** Record:
 `commit2-platform-windows-amd64/shell-gitbash-unquoted-spaced.json`.
@@ -166,6 +168,8 @@ the extension.
 
 ### F-2 — a read-only `.qompack` leaves no durable degradation evidence
 
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
+
 **Owner: `internal/cli` + `internal/ipc`** (route through SP-17 Task 6; Task 5 if it needs a
 `doctor`-visible surface). Record: `commit2-platform-windows-amd64/restrict-readonly-qompack-dir.json`.
 
@@ -190,6 +194,8 @@ should surface (stderr? `~/.qompack`? `doctor`?), and that is an owning-package 
 test's.
 
 ### F-3 (minor, adjacent) — `test/e2e`'s `obsDenyWrites` denies more than writes
+
+> **RESOLVED in commit 6** (`fix(hardening): resolve verified release blockers`). The account below is the finding AS MEASURED, kept because it is what the fix was made against; `commit6-evidence.md` records the change, and this record file has been regenerated from a run of the fixed product.
 
 **Owner: `test/e2e`.** No record: this is a defect in a sibling test helper, found while building
 this package's own.

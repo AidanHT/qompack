@@ -7,10 +7,10 @@
     "host_cli_version": "2.1.263"
   },
   "bundle": {
-    "version": "v0.2.0-603-gbb7066f-dirty",
-    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
-  "outcome": "failed",
-  "reason": "a read-only .qompack produces NO durable degradation evidence a later process can read",
-  "detail": "all six hooks exited 0 with consumable output, but none of [logs/* logs/LOUD.log metrics/* records/* spool/client-*.ndjson state/config-violations.json] changed and stderr was empty. §12.3's drop path Louds through internal/cli's hookLogger, whose sink is \u003croot\u003e/.qompack/logs — inside the directory that cannot be written — and counts l0_dropped in an obs.Registry that dies with the hook process, so a degradation that §13 invariant 10 calls loud is invisible to everything outside that one process. OWNER: internal/cli + internal/ipc (SP-17 Task 6 to route, Task 5 if it needs a doctor-visible surface); test/platform records this and does not fix it; deny applied to \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1553159442\\\\plain-project\\\\.qompack\" after the layout existed; daemon suppressed through QOMPACK_RUNTIME__DAEMON__ENABLED=false"
+  "outcome": "verified",
+  "reason": "a read-only .qompack leaves durable evidence that names the dropped event",
+  "detail": "drop-naming observables that changed under the deny: [hook stderr (3114 bytes)] (all changes: [hook stderr (3114 bytes)]); deny applied to \"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-2196907692\\\\plain-project\\\\.qompack\" after the layout existed; daemon suppressed through QOMPACK_RUNTIME__DAEMON__ENABLED=false"
 }

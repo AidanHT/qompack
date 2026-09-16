@@ -7,8 +7,8 @@
     "host_cli_version": "2.1.263"
   },
   "bundle": {
-    "version": "v0.2.0-603-gbb7066f-dirty",
-    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "outcome": "verified",
   "reason": "a configuration from a newer plugin has its whole runtime.migration block reset to defaults",

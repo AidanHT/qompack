@@ -8,10 +8,10 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-604-g62a5975-dirty",
-    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
-  "outcome": "failed",
-  "reason": "for parent_directory_replaced_by_link_outside, expand and re_read answered with archived content instead of the explicit denial internal/mcp/authorize.go describes. The bytes served were the ones captured from INSIDE the project — the assertions above prove no byte of the outside file was returned — so this is a policy divergence, not a data leak. paths.Norm does not adopt an outside-landing resolution: it calls EvalSymlinks and discards the result when it lands outside the root, keeping the unresolved spelling, so the escaping path normalizes cleanly and authorizePath has nothing to refuse. internal/mcp/handlers_span.go's re_read gate is the second call site needing the same check. Owner: internal/paths + internal/mcp.",
-  "detail": "escape built with an NTFS directory junction (mklink /J); envelopes: expand=content(24636 bytes) re_read=content(24636 bytes) recall=hits(1)"
+  "outcome": "verified",
+  "reason": "for parent_directory_replaced_by_link_outside, neither expand-by-id nor re_read-by-path materialized content for the escaping address; no byte of the file outside the project root appeared in any response, no refusal echoed the offending path, and the stored objects were untouched.",
+  "detail": "escape built with an NTFS directory junction (mklink /J); envelopes: expand=denied(found=false) re_read=denied(found=false) recall=non_json({\"hits\":[],\"count\":0,\"found\":false,\"query\":{\"text\":\"refresh token rotati…)"
 }

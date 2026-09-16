@@ -1478,9 +1478,11 @@ func (a *auditResult) append(d danglingRef) {
 // `dangling 0 -> 0` for a row that had just removed an object file — with every object under
 // .qompack/objects/ deleted it would have reported a clean store.
 //
-// internal/checkpoint/finalize.go:248-263's toolResultResolvable has the same blindness behind a
-// comment that claims resolvability, and it decides whether a checkpoint keeps a pointer. That is
-// returned as F4-8, owner internal/checkpoint.
+// internal/checkpoint/finalize.go's toolResultResolvable HAD the same blindness behind a comment
+// that claimed resolvability, and it decides whether a checkpoint keeps a pointer. That was F4-8,
+// and the fix gave internal/store an exported store.ObjectPresence.ObjectOnDisk for the question
+// this function asks with its own Lstat; the checkpoint decides with that now. Has is unchanged and
+// is still the index's belief, which is why the audit here still does not use it.
 func hashHeld(ctx context.Context, s store.Store, root, h string) bool {
 	parsed, err := core.ParseHash(h)
 	if err != nil {
@@ -2275,12 +2277,20 @@ func (w *lockedBuffer) String() string {
 // rows judge. internal/mcp keeps `unavailable` (the bytes were there and are not reachable now),
 // `miss` (nothing matched) and `denied` (the address was refused) strictly apart, and §7.1's
 // "unsupported/degraded instead of guessing" is exactly the distinction between the first two.
+//
+// The `unavailable` outcome is spelled `"available": false` ON THE WIRE — internal/mcp's missBody
+// carries an `Available *bool`, present only when the answer is that third one — and this struct
+// modelled it as a key named `unavailable` that nothing has ever written. That made the row unable
+// to RECOGNISE the right answer, which went unnoticed while the product was giving the wrong one:
+// the S-3 fix landed, `expand` began answering `{"found":false,"available":false,"reason":…}`, and
+// the row still recorded `failed`. The field is named after the wire now, and `status` is gone with
+// it: only the capability document carries a `status`, and no retrieval envelope does.
 type retrievalEnvelope struct {
-	Status      string `json:"status"`
-	Found       *bool  `json:"found"`
-	Denied      bool   `json:"denied"`
-	Reason      string `json:"reason"`
-	Unavailable *bool  `json:"unavailable"`
+	Found  *bool  `json:"found"`
+	Denied bool   `json:"denied"`
+	Reason string `json:"reason"`
+	// Available is present, and false, exactly when the answer is `unavailable`.
+	Available *bool `json:"available"`
 }
 
 // describeEnvelope names the shape a retrieval answer arrived in, for a record's Detail.
@@ -2292,8 +2302,8 @@ func describeEnvelope(res callResult, err error) string {
 	if json.Unmarshal([]byte(res.Text), &env) != nil {
 		return fmt.Sprintf("isError=%v, body is not the retrieval envelope: %s", res.IsError, snippet(res.Text))
 	}
-	return fmt.Sprintf("isError=%v status=%q found=%v denied=%v unavailable=%v reason=%q",
-		res.IsError, env.Status, boolPtr(env.Found), env.Denied, boolPtr(env.Unavailable), env.Reason)
+	return fmt.Sprintf("isError=%v found=%v denied=%v available=%v reason=%q",
+		res.IsError, boolPtr(env.Found), env.Denied, boolPtr(env.Available), env.Reason)
 }
 
 func boolPtr(b *bool) string {

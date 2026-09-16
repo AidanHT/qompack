@@ -8,10 +8,10 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-604-g62a5975-dirty",
-    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
-  "outcome": "failed",
-  "reason": "the hard 4 MiB capture cap held — no byte past the refusal prefix survived — but a configuration ABOVE the cap disabled the product rather than being clamped to it: admitHookCapture refuses the whole delivery with ErrBudget before session-start reaches its own daemon bootstrap, so no daemon came up and an ordinary capture under the same configuration was not retained either. Nothing records the refusal where an operator would look: config validation bounds the key only from below, so no §11.3 violation is written and `config print` reports the operator's number as if it were in effect. Owner: internal/config (an upper bound on the key) + internal/cli (clamp-and-warn rather than refuse). RETURNED, not fixed here.",
-  "detail": "config print reports runtime.hotPath.maxPayloadBytes=67108864; 0 configuration violation(s) recorded; daemon reachable=false; ordinary capture retained=false"
+  "outcome": "verified",
+  "reason": "the configured payload bound was clamped to the supported value, the oversize payload was refused, and the hook contract held.",
+  "detail": "config print reports runtime.hotPath.maxPayloadBytes=1048576; 1 configuration violation(s) recorded; daemon reachable=true; ordinary capture retained=true"
 }

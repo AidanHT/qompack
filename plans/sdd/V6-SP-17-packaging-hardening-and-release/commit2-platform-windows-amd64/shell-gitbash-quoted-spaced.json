@@ -7,10 +7,10 @@
     "host_cli_version": "2.1.263"
   },
   "bundle": {
-    "version": "v0.2.0-603-gbb7066f-dirty",
-    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "outcome": "verified",
   "reason": "the QUOTED placeholder form works from an install directory containing a space",
-  "detail": "shell C:\\Program Files\\Git\\usr\\bin\\bash.exe (found at the Git for Windows install location under %ProgramFiles%); env-expanded script \"\\\"${CLAUDE_PLUGIN_ROOT}\\\"/bin/qompack observe tool\" exited 0 (stdout parseable=true); the textually substituted script \"\\\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plug in ünï\\\"/bin/qompack observe tool\" exited 0; CLAUDE_PLUGIN_ROOT=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-1700057959\\\\plug in ünï\" throughout"
+  "detail": "shell C:\\Program Files\\Git\\usr\\bin\\bash.exe (found at the Git for Windows install location under %ProgramFiles%); env-expanded script \"\\\"${CLAUDE_PLUGIN_ROOT}/bin/qompack\\\" observe tool\" exited 0 (stdout parseable=true); the textually substituted script \"\\\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3859752902\\\\plug in ünï/bin/qompack\\\" observe tool\" exited 0; CLAUDE_PLUGIN_ROOT=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3859752902\\\\plug in ünï\" throughout"
 }

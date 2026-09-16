@@ -7,14 +7,14 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-606-g21e6914-dirty",
-    "binary_sha256": "1b55a8731bbf9290c3fe3699f3d2f344ac4d3b059fa235bce1152b622166071d"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "boundary": "two daemons for one project, and a stale lock left by a dead one",
   "seed_method": "a real session brings the first daemon up; a second `qompack daemon` is run against the same project in the foreground; then the lock is rewritten to name a dead pid",
   "outcome": "recovered",
   "reason": "exactly one daemon held the lock, the second exited 0 without touching the project, hooks delivered during the contention exited 0, and a stale lock was reclaimed by the next daemon",
-  "detail": "second `qompack daemon` exited 0 (stdout \"\", stderr \"\"); the lock holder was pid 25936 before and pid 25936 after (held=true)\nstale lock: planted a lock naming pid 0 with an ancient heartbeat; a daemon answered and the lock is now held=true by pid 55828\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:3 sidecars:4 checkpoints:0 dangling:0 reported:0}",
+  "detail": "second `qompack daemon` exited 0 (stdout \"\", stderr \"\"); the lock holder was pid 50064 before and pid 50064 after (held=true)\nstale lock: planted a lock naming pid 0 with an ancient heartbeat; a daemon answered and the lock is now held=true by pid 56188\naudit before {tool_uses:3 roots:3 sidecars:3 checkpoints:0 dangling:0 reported:0}; after {tool_uses:5 roots:3 sidecars:4 checkpoints:0 dangling:0 reported:0}",
   "dangling_before": 0,
   "dangling_after": 0
 }

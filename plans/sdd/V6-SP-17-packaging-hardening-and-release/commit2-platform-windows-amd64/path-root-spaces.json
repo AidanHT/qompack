@@ -7,10 +7,10 @@
     "host_cli_version": "2.1.263"
   },
   "bundle": {
-    "version": "v0.2.0-603-gbb7066f-dirty",
-    "binary_sha256": "31bfeaf5c56f10aee803088d52baccc60738016824f376829e5beca20f50a5e1"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "outcome": "verified",
   "reason": "a project root containing spaces",
-  "detail": "root=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-921075138\\\\my proj ect\" (72 chars); six hooks exit 0 with parseable hookio.Output; C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-921075138\\my proj ect\\.qompack exists; daemon reachable at \\\\.\\pipe\\qompack.39fb4cd7b464; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-921075138\\my proj ect\\.qompack\\ C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-921075138\\home\\.qompack\\]"
+  "detail": "root=\"C:\\\\Users\\\\Quant\\\\AppData\\\\Local\\\\Temp\\\\qompack-platform-3973510128\\\\my proj ect\" (73 chars); six hooks exit 0 with parseable hookio.Output; C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-3973510128\\my proj ect\\.qompack exists; daemon reachable at \\\\.\\pipe\\qompack.d08fc55649f9; admin.ping answered (mode=degraded-passive hot=sync); within the project root and HOME trees (the only two walked) nothing was written outside [C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-3973510128\\my proj ect\\.qompack\\ C:\\Users\\Quant\\AppData\\Local\\Temp\\qompack-platform-3973510128\\home\\.qompack\\]"
 }

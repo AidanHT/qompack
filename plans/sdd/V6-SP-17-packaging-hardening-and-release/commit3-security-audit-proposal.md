@@ -210,18 +210,22 @@ Nothing in this build has one, and no configuration key can create one.
 
 ## 6. Findings returned by this work
 
-Seven, all recorded with their owning package and none fixed here. Full detail, with the record
-that backs each, is in `commit3-evidence.md` §6.
+Seven, all recorded with their owning package and none fixed in commit 3. **Commit 6 fixed six of
+them** — S-1, S-2, S-3, S-4, S-5 and S-7 — and regenerated every record in
+`commit3-security-windows-amd64/` from a run of the fixed product; the `status` column below says so
+per row. S-6 was ruled: it is settled behaviour to DOCUMENT (Task 7), not a guard to add, and its row
+is still `failed`. Full detail, with the record that backs each, is in `commit3-evidence.md` §6, and
+the change itself is in `commit6-evidence.md`.
 
-| id | summary | owner |
-| --- | --- | --- |
-| S-1 | a post-capture link escape is authorized, because `paths.Norm` discards an outside-landing resolution and keeps the clean spelling; `authorize.go` documents a refusal that does not happen. No data leaked. A retrieval-layer fix needs both call sites. | `internal/paths` + `internal/mcp` |
-| S-2 | `runtime.hotPath.maxPayloadBytes` above the hard cap disables capture and the daemon entirely, with no violation recorded | `internal/config` + `internal/cli` |
-| S-3 | a quarantined object surfaces as a tool error by `tool_use_id`, and as ABSENT by bare chunk hash, rather than as the `unavailable` domain outcome | `internal/mcp` |
-| S-4 | the eval exporter's rule set misses a long GitHub token, the `ghu`/`ghs`/`ghr` prefixes, a bare unkeyed token, and every operator-supplied pattern | `internal/eval` |
-| S-5 | the assignment rule cannot match an underscore-prefixed key such as `_authToken=`, and has no bare `auth` branch, so `auth=` and `_auth=` need a second change | `internal/redact` |
-| S-6 | an out-of-project capture is archived with its path dropped; settled behaviour to document, not a guard to add | `internal/observer` + `internal/cli` |
-| S-7 | ANY configuration violation makes the hook path refuse every delivery, so one bad key silently disables the daemon and capture, while `config print` clamps and reports the same key | `internal/config` + `internal/cli` |
+| id | summary | owner | status |
+| --- | --- | --- | --- |
+| S-1 | a post-capture link escape is authorized, because `paths.Norm` discards an outside-landing resolution and keeps the clean spelling; `authorize.go` documents a refusal that does not happen. No data leaked. A retrieval-layer fix needs both call sites. | `internal/paths` + `internal/mcp` | **FIXED (commit 6)** — `paths.ResolvesInside` at both call sites |
+| S-2 | `runtime.hotPath.maxPayloadBytes` above the hard cap disables capture and the daemon entirely, with no violation recorded | `internal/config` + `internal/cli` | **FIXED (commit 6)** — `Validate` bounds the key from above |
+| S-3 | a quarantined object surfaces as a tool error by `tool_use_id`, and as ABSENT by bare chunk hash, rather than as the `unavailable` domain outcome | `internal/mcp` | **FIXED (commit 6)** — `store.ErrDamaged` and `unavailable` on both forms |
+| S-4 | the eval exporter's rule set misses a long GitHub token, the `ghu`/`ghs`/`ghr` prefixes, a bare unkeyed token, and every operator-supplied pattern | `internal/eval` | **FIXED (commit 6)** — rules widened; `ImportOptions.Patterns` carries the operator's |
+| S-5 | the assignment rule cannot match an underscore-prefixed key such as `_authToken=`, and has no bare `auth` branch, so `auth=` and `_auth=` need a second change | `internal/redact` | **FIXED (commit 6)** — `\b_?` gate plus a bare `auth` branch |
+| S-6 | an out-of-project capture is archived with its path dropped; settled behaviour to document, not a guard to add | `internal/observer` + `internal/cli` | open by ruling — documented in Task 7 |
+| S-7 | ANY configuration violation makes the hook path refuse every delivery, so one bad key silently disables the daemon and capture, while `config print` clamps and reports the same key | `internal/config` + `internal/cli` | **FIXED (commit 6)** — `LoadForCapture` clamps and returns the violations |
 
 ## 7. What this proposal does not claim
 

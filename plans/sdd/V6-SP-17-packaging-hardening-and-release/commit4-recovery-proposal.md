@@ -42,10 +42,13 @@ than silent.
 - **A checkpoint whose artifact is missing, or whose bytes no longer match its MANIFEST digest.** The
   affected checkpoint is refused and its parent is used instead; the artifact is never repaired in
   place. `qompack fsck` (Task 5) is where reconciliation belongs. What must NOT be said in the docs
-  is that a user is told: this matrix cut all three checkpoint failures — orphan artifact, manifest
-  entry without its artifact, digest mismatch — and none of them reached LOUD.log, `status --json`,
-  `self-test --json`, the day log or a drop entry. That is F4-9, and until it is fixed these belong
-  in the operator list below rather than here.
+  is that a user is told — or rather, that WAS what must not be said: this matrix cut all three
+  checkpoint failures (orphan artifact, manifest entry without its artifact, digest mismatch) and
+  none of them reached LOUD.log, `status --json`, `self-test --json`, the day log or a drop entry.
+  That was F4-9. **Commit 6 fixed it**: `List` sweeps the directory, `Verify` is no longer silent
+  about a digest mismatch, and the daemon runs both once at startup, so a recovery session now Louds
+  each defect by artifact name. The pins are gone and all three rows are `explicit_incomplete`. The
+  docs may say the user is told; they still may not say anything is repaired.
 - **Spool bytes a drain has not replayed.** They are named as a pending gap rather than assumed
   delivered. A truncated WAL segment or client spool file leaves the record that was torn behind and
   the rest is replayed.
@@ -66,17 +69,18 @@ editor. They are listed in the order a session notices them.
 
 1. **A corrupt `.qompack/config.json`.** The daemon will not start. Hooks keep exiting 0 and
    recording has stopped. Repair or delete the file; the defaults are reloaded on the next run. The
-   only place this is reported is a Warn line in the day log (`configuration warning ... unparseable
-   config`) — not LOUD.log, not `self-test --json`, not `status --json` — which is why it is on
-   Task 6's list (F4-6).
-2. **A torn index line.** `index/roots.jsonl` and `index/tool_use.jsonl` are append-only logs, and a
-   line torn by a crash costs that record — and also the next record appended after it, because
-   `paths.AppendJSONL` writes `line + newline` without checking that the file already ends in one, so
-   the append is glued onto the partial line. The store reports it (`store: skipped malformed index
-   lines` at Warn, and a `store.index.badline` counter on a live status snapshot) but reports a LINE
-   COUNT, never which records were lost. Truncating the file back to its last complete newline
-   recovers everything below it. fsck should do this as an explicit repair, and should name the
-   records.
+   It is reported on LOUD.log since **commit 6 fixed F4-6**: a configuration layer that does not
+   parse is a keyless warning, and `LoadConfigAndReport` Louds those rather than filing them at Warn
+   in the day log, where they were the only trace. `self-test --json` and `status --json` still do
+   not carry it.
+2. **A torn index line.** `index/roots.jsonl` and `index/tool_use.jsonl` are append-only logs written
+   by `store.(*appendFile).write` on a handle from `openAppendFile`, not by `paths.AppendJSONL`. A
+   line torn by a crash costs that record. Commit 6's choke-point fix writes one newline when that
+   handle opens if the file is non-empty and does not already end in one, so the next record is its
+   own line. The store reports the torn line (`store: skipped malformed index lines` at Warn, and a
+   `store.index.badline` counter on a live status snapshot) but reports a LINE COUNT, never which
+   records were lost. Truncating the file back to its last complete newline recovers everything
+   below it. fsck should do this as an explicit repair, and should name the records.
 3. **A stale `state/drain.json`.** A progress document that claims durable bytes the spool no longer
    has wedges the spool: the drain refuses to consume it. This one IS reported where an operator can
    find it — `daemon: startup drain failed ... progress no longer matches spool` at Warn, and a
@@ -106,10 +110,14 @@ editor. They are listed in the order a session notices them.
    one of them resolved on disk — but the index that outlived the object still names it: a root that
    names a chunk `objects/` does not hold, and a `tool_use` record pointing at that root. Neither
    reaches LOUD.log, `status --json` with a daemon up, `self-test --json`, the day log or a drop
-   entry. The product cannot notice it on its own today: `store.Has` answers from the index rather
-   than the filesystem (F4-8), so the store believes it holds bytes that are gone. Until `qompack
-   fsck` re-resolves references against disk, the only repair is a backup, and the only detection is
-   to look.
+   entry. **Commit 6 fixed the half of this that was F4-8**: `internal/checkpoint` decides whether to
+   keep a pointer with `store.ObjectPresence.ObjectOnDisk`, which stats, rather than with `store.Has`,
+   which answers from the index — so a checkpoint no longer makes a durable promise about bytes that
+   are gone. `store.Has` is unchanged and still answers from the index; that is its documented
+   contract and it is the cheap question. What survives is F4-1, ruled out of commit 6's scope: the
+   INDEX goes on naming bytes that are gone and no surface says so. `qompack fsck` (Task 5)
+   re-resolves references against disk and is the surface for it; short of that, the only repair is a
+   backup and the only detection is to look.
 
 ## Limitations to state in the docs rather than leave to discovery
 

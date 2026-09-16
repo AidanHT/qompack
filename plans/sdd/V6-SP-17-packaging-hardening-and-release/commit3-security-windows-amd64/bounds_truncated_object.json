@@ -8,10 +8,10 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-604-g62a5975-dirty",
-    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "outcome": "verified",
   "reason": "truncated_object was refused with core.ErrNotFound and moved to .qompack/tmp/quarantine/ (§12.3): a zstd frame cut in half.",
-  "detail": "read error: qompack: not found: object 2e2772655b5f failed to decode"
+  "detail": "read error: qompack: not found: object refused as damaged: object 2e2772655b5f failed to decode"
 }

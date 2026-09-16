@@ -266,11 +266,31 @@ func (s *FSStore) readObjectFile(h core.Hash) (raw []byte, path string, compress
 		}
 		if errors.Is(readErr, errObjectTooLarge) {
 			s.quarantine(h, p, "physical size exceeds limit")
-			return nil, p, i == 0, fmt.Errorf("%w: object %s exceeds size limit", core.ErrNotFound, h.Short())
+			return nil, p, i == 0, fmt.Errorf("%w: object %s exceeds size limit", ErrDamaged, h.Short())
 		}
 		if !os.IsNotExist(readErr) {
-			return nil, p, i == 0, fmt.Errorf("%w: reading object %s", core.ErrNotFound, h.Short())
+			// The file is there and unreadable — a nonregular leaf, a leaf replaced mid-open, an I/O
+			// refusal. That is not an integrity failure: the bytes were not checked. ErrDamaged still
+			// maps the retrieval layer to unavailable (the right outcome). The wrap says the read
+			// itself failed so a log line does not claim a failed checksum. The model-facing reason
+			// string lives in mcp.damaged, which this package does not own.
+			return nil, p, i == 0, fmt.Errorf("%w: reading object %s", ErrDamaged, h.Short())
 		}
+	}
+	// No candidate file exists. Whether that is ABSENCE or DAMAGE is a question only the index can
+	// answer, and answering it is the rest of finding S-3: a quarantined object is gone from
+	// objects/ by construction — quarantine MOVED it — while its index entry survives, so a store
+	// that reported "not found" for it told the retrieval layer the content was never there when in
+	// fact it was refused and preserved as evidence. An index entry with no file is exactly the
+	// shape §12.3 calls a corrupt object after the quarantine has happened.
+	//
+	// A hash the index does not know is an ordinary miss: nothing ever promised it.
+	s.mu.RLock()
+	_, indexed := s.chunkSet[h]
+	s.mu.RUnlock()
+	if indexed {
+		return nil, "", false, fmt.Errorf(
+			"%w: object %s is indexed but absent from objects/", ErrDamaged, h.Short())
 	}
 	return nil, "", false, fmt.Errorf("%w: object %s", core.ErrNotFound, h.Short())
 }
@@ -313,6 +333,62 @@ func readBoundedObject(path string, limit int64) ([]byte, error) {
 	return raw, nil
 }
 
+// ErrDamaged reports that an object was FOUND on disk and REFUSED: its physical size, its zstd
+// frame, its indexed length or its content address did not hold up, so the bytes exist but may not
+// be served.
+//
+// It wraps core.ErrNotFound because every caller written before it treated the two as one, and
+// changing that silently would turn a degradation into a hard failure somewhere far from here.
+// What it adds is the distinction §12.3 actually cares about, and finding S-3 is what happens
+// without it: a quarantined object reached the model as `miss` — that is, as ABSENT, "the content
+// was never there" — when what happened is that it was refused and preserved. A caller that wants
+// the stronger fact tests errors.Is(err, store.ErrDamaged) BEFORE core.ErrNotFound; one that does
+// not keeps the behaviour it had.
+var ErrDamaged = fmt.Errorf("%w: object refused as damaged", core.ErrNotFound)
+
+// Quarantiner is the §12.3 single-object quarantine, as a capability a caller can ask a Store for.
+//
+// It is deliberately not part of the Store interface: quarantining is not something a writer does
+// in the ordinary course of storing anything, and widening Store would oblige every test double in
+// the tree to grow a method none of them mean. A caller that has already decided an object is
+// damaged — `qompack fsck --repair` is the one in this build — type-asserts for this instead of
+// reaching for GetChunk and relying on its side effect to perform the move (R5-2).
+type Quarantiner interface {
+	Quarantine(h core.Hash, reason string) error
+}
+
+// Quarantine moves h's object file into tmp/quarantine/ as evidence, Louds once, and counts it —
+// the same operation getObject performs when it rejects what it read, and now the only
+// implementation of it.
+//
+// It reports:
+//   - ErrReadOnly on a read-only store, which never moves anything, and core.ErrDegraded on a closed
+//     one. `qompack fsck`'s fidelity pass runs through store.OpenReadOnly precisely so that ASKING
+//     about a damaged root cannot relocate it; that property is enforced here rather than remembered
+//     at each call site.
+//   - core.ErrNotFound when no object file for h is on disk, so "nothing to move" is distinguishable
+//     from "moved".
+//
+// A failed move is not an error to the caller: quarantine keeps the source intact and Louds, which
+// is §12.3's "quarantine, Loud, continue" with the move part unavailable. The object still must not
+// be served, and that is the caller's own refusal to make.
+func (s *FSStore) Quarantine(h core.Hash, reason string) error {
+	// mutate(), not a bare readOnly check: the refusal is a property of the METHOD, which is what
+	// keeps a caller that reaches the *FSStore behind a narrow value from writing through it, and
+	// what TestReadOnly_EveryExportedMethodIsClassified partitions the exported surface by.
+	if err := s.mutate(); err != nil {
+		return err
+	}
+	for _, p := range s.objectCandidates(h) {
+		if _, err := os.Stat(paths.Long(p)); err != nil {
+			continue
+		}
+		s.quarantine(h, p, reason)
+		return nil
+	}
+	return fmt.Errorf("%w: object %s", core.ErrNotFound, h.Short())
+}
+
 // quarantine preserves rejected bytes in a unique attempt directory. A failed move leaves the
 // source intact for recovery; the caller still refuses its contents. Each attempt has its own
 // destination so concurrent or repeated corruption cannot overwrite earlier evidence.
@@ -349,7 +425,9 @@ func (s *FSStore) quarantine(h core.Hash, path, reason string) {
 // wantLen is the length index/roots.jsonl recorded for this chunk, or a negative number when the
 // caller has no recorded length to check against. Physical size, decompression, indexed length
 // and the DomainChunk content address are checked before any plaintext is returned. A rejected
-// object is quarantined when possible and reports the legacy core.ErrNotFound degradation.
+// object is quarantined when possible and reports ErrDamaged, which wraps core.ErrNotFound so every
+// caller written against the legacy degradation keeps working while a caller that cares can tell
+// "refused and preserved" from "absent" (finding S-3).
 func (s *FSStore) getObject(h core.Hash, wantLen int) ([]byte, error) {
 	raw, path, compressed, err := s.readObjectFile(h)
 	if err != nil {
@@ -361,18 +439,18 @@ func (s *FSStore) getObject(h core.Hash, wantLen int) ([]byte, error) {
 		decoded, decErr := Decode(raw)
 		if decErr != nil {
 			s.quarantine(h, path, "zstd decode failed")
-			return nil, fmt.Errorf("%w: object %s failed to decode", core.ErrNotFound, h.Short())
+			return nil, fmt.Errorf("%w: object %s failed to decode", ErrDamaged, h.Short())
 		}
 		plain = decoded
 	}
 
 	if wantLen >= 0 && len(plain) != wantLen {
 		s.quarantine(h, path, fmt.Sprintf("length %d, index says %d", len(plain), wantLen))
-		return nil, fmt.Errorf("%w: object %s has the wrong length", core.ErrNotFound, h.Short())
+		return nil, fmt.Errorf("%w: object %s has the wrong length", ErrDamaged, h.Short())
 	}
 	if core.HashBytes(core.DomainChunk, plain) != h {
 		s.quarantine(h, path, "content hash mismatch")
-		return nil, fmt.Errorf("%w: object %s has the wrong content hash", core.ErrNotFound, h.Short())
+		return nil, fmt.Errorf("%w: object %s has the wrong content hash", ErrDamaged, h.Short())
 	}
 	return plain, nil
 }

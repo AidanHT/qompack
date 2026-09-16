@@ -13,7 +13,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -874,31 +873,6 @@ func (s *fsckScan) checkToolUse() fsckCheck {
 
 // ── 4. files log and its derived view ──────────────────────────────────────────────────────────
 
-// fsckFileVersion is one index/files.jsonl record and one entry of index/files.json's per-path list.
-type fsckFileVersion struct {
-	TS    int64  `json:"ts"`
-	Root  string `json:"root"`
-	Turn  int64  `json:"turn"`
-	Bytes int64  `json:"bytes"`
-}
-
-// fsckFilesLogRec is one line of index/files.jsonl.
-type fsckFilesLogRec struct {
-	V     int    `json:"v"`
-	Path  string `json:"path"`
-	TS    int64  `json:"ts"`
-	Turn  int64  `json:"turn"`
-	Root  string `json:"root"`
-	Bytes int64  `json:"bytes"`
-}
-
-// fsckFilesView is index/files.json, the materialized view over that log.
-type fsckFilesView struct {
-	Version   int                          `json:"version"`
-	Generated int64                        `json:"generated"`
-	Files     map[string][]fsckFileVersion `json:"files"`
-}
-
 // checkFiles parses the append-only log and compares the derived view against it. The LOG is the
 // truth: a crash between the last append and the next Flush leaves files.json stale, which is why a
 // disagreement here is a DERIVED-VIEW defect and one of the five things --repair may regenerate.
@@ -911,6 +885,9 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		return row.build()
 	}
 	row.scan(len(log))
+	if view.viewErr != nil {
+		row.defect("index/files.json:0 does not parse as a file-version record: %s", view.viewErr)
+	}
 	for _, bad := range view.badLines {
 		row.defect("index/files.jsonl:%d does not parse as a file-version record: %s", bad.line, bad.why)
 	}
@@ -921,7 +898,7 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		}
 		return row.build()
 	}
-	if view.doc.Version != fsckKnownRecordVersion {
+	if view.doc.Version != store.FilesViewVersion {
 		row.defect("index/files.json declares view version %d, which this build does not read",
 			view.doc.Version)
 	}
@@ -954,49 +931,40 @@ type fsckFilesBadLine struct {
 // fsckFilesState is what checkFiles and the view repair both need: the parsed view, whether it is
 // there at all, and the log's own bad lines.
 type fsckFilesState struct {
-	doc      fsckFilesView
+	doc      store.FilesView
 	present  bool
+	viewErr  error
 	badLines []fsckFilesBadLine
 }
 
-// fsckReadFilesState parses index/files.json and replays index/files.jsonl into the per-path
-// history the view is a projection of. The replay applies the store's own acceptance rule
-// (internal/store/files.go loadFiles): a record whose version or path is wrong is skipped.
-func fsckReadFilesState(l paths.Layout) (fsckFilesState, map[string][]fsckFileVersion, error) {
+// fsckReadFilesState reads index/files.json and replays index/files.jsonl through internal/store's
+// own exported readers (SP-17 R5-1).
+//
+// It used to carry a copy of the view's shape, of its version constant and of storeKey's path
+// normalization, because the store exported none of the three. It now asks the package that writes
+// the document what the document is, so a schema change reaches this check by failing to compile
+// rather than by silently disagreeing.
+func fsckReadFilesState(l paths.Layout) (fsckFilesState, map[string][]store.FileVersion, error) {
 	var state fsckFilesState
 
-	if raw, err := paths.ReadFileShared(filepath.Join(l.Index, "files.json")); err == nil {
-		state.present = true
-		if jsonErr := json.Unmarshal(raw, &state.doc); jsonErr != nil {
-			state.doc = fsckFilesView{}
-			state.badLines = append(state.badLines,
-				fsckFilesBadLine{line: 0, why: "index/files.json does not parse: " + jsonErr.Error()})
-		}
+	doc, present, err := store.ReadFilesView(l)
+	state.present = present
+	if err != nil {
+		// A view that is there and unreadable — unparseable, or a path that is not a file — is a
+		// defect of the VIEW, reported against index/files.json. It is not a reason to abandon
+		// the check: the LOG is the truth here, and the comparison against it is the row's
+		// whole content.
+		state.viewErr = err
+	} else {
+		state.doc = doc
 	}
 
-	lines, err := fsckReadLines(filepath.Join(l.Index, "files.jsonl"))
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	log, defects, err := store.ReplayFilesLog(l)
+	if err != nil {
 		return state, nil, err
 	}
-	log := map[string][]fsckFileVersion{}
-	for i, raw := range lines {
-		var rec fsckFilesLogRec
-		if jsonErr := json.Unmarshal(raw, &rec); jsonErr != nil {
-			state.badLines = append(state.badLines, fsckFilesBadLine{line: i + 1, why: jsonErr.Error()})
-			continue
-		}
-		if rec.V != fsckKnownRecordVersion || rec.Path == "" {
-			continue
-		}
-		key := fsckStoreKey(rec.Path)
-		log[key] = append(log[key], fsckFileVersion{
-			TS: rec.TS, Root: rec.Root, Turn: rec.Turn, Bytes: rec.Bytes,
-		})
-	}
-	for k := range log {
-		hist := log[k]
-		sort.SliceStable(hist, func(i, j int) bool { return hist[i].TS < hist[j].TS })
-		log[k] = hist
+	for _, d := range defects {
+		state.badLines = append(state.badLines, fsckFilesBadLine{line: d.Line, why: d.Why})
 	}
 	return state, log, nil
 }
@@ -2191,67 +2159,30 @@ func fsckFileDigest(p string) string {
 
 // fsckRepairFilesView regenerates index/files.json from index/files.jsonl when the two disagree.
 //
-// The view's shape is internal/store's filesView and its writer is unexported, so this reproduces
-// it: version, generated and a path-keyed map of ascending version lists. encoding/json sorts map
-// keys itself, which is the lexicographic path order the view is specified to have.
+// The regeneration itself belongs to internal/store — RegenerateFilesView is the exported name of
+// the operation Flush performs, sharing one writer and one view shape with it (SP-17 R5-1) — so
+// what is left here is the repair's own reporting: the before and after digests an operator reads,
+// and the rule that a regeneration which did not happen is not a repair row.
 func fsckRepairFilesView(l paths.Layout, clk core.Clock) []fsckRepair {
-	state, log, err := fsckReadFilesState(l)
-	if err != nil {
-		return nil
-	}
-	switch {
-	case state.present && fsckFilesViewAgrees(state.doc, log):
-		return nil // the view already describes the log
-	case !state.present && len(log) == 0:
-		// An ABSENT view over an EMPTY log is not a defect — checkFiles does not report one — so
-		// repairing it would write a file into a project that had nothing wrong with it. A repair
-		// surface wider than the defect surface is how "no destructive default cleanup" starts to
-		// erode.
-		return nil
-	}
-	view := fsckFilesView{
-		Version:   fsckKnownRecordVersion,
-		Generated: int64(core.NowMilli(clk)),
-		Files:     log,
-	}
-	if view.Files == nil {
-		view.Files = map[string][]fsckFileVersion{}
-	}
-	encoded, marshalErr := json.Marshal(view)
-	if marshalErr != nil {
-		return nil
-	}
 	p := filepath.Join(l.Index, "files.json")
 	before := fsckFileDigest(p)
-	if writeErr := paths.WriteAtomic(p, encoded, 0o600); writeErr != nil {
+	wrote, err := store.RegenerateFilesView(l, clk)
+	switch {
+	case err != nil:
 		return []fsckRepair{{
 			Kind: "files.view", Target: "index/files.json",
-			Before: before, After: "unchanged: " + writeErr.Error(),
+			Before: before, After: "unchanged: " + err.Error(),
 		}}
+	case !wrote:
+		// Either the view already describes the log, or an absent view stands over an empty log.
+		// Neither is a defect checkFiles reports, and a repair surface wider than the defect
+		// surface is how "no destructive default cleanup" starts to erode.
+		return nil
 	}
 	return []fsckRepair{{
 		Kind: "files.view", Target: "index/files.json",
 		Before: before, After: fsckFileDigest(p),
 	}}
-}
-
-// fsckFilesViewAgrees reports whether the view already describes the log.
-func fsckFilesViewAgrees(view fsckFilesView, log map[string][]fsckFileVersion) bool {
-	if view.Version != fsckKnownRecordVersion || len(view.Files) != len(log) {
-		return false
-	}
-	for path, want := range log {
-		got, ok := view.Files[path]
-		if !ok || len(got) != len(want) {
-			return false
-		}
-		for i := range want {
-			if got[i] != want[i] {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 // fsckRepairPinsView regenerates pins/invariants.json through pins' own Materialize, which is the
@@ -2397,10 +2328,16 @@ func fsckHasActiveEliminations(l paths.Layout) bool {
 // fsckRepairQuarantineObjects moves every object that fails verification into tmp/quarantine,
 // through the STORE's own quarantine path rather than a rename of this command's own.
 //
-// The trigger is store.GetChunk, whose getObject verifies the physical size, the decode and the
-// content address, and quarantines what it rejects with its own reason string and counters
-// (§12.3). Using it means the moved file lands where every other rejected object lands, and the
-// bytes are kept as evidence rather than deleted.
+// It calls store.Quarantiner directly. It used to call store.GetChunk and rely on getObject's
+// SIDE EFFECT to perform the move, which is R5-2: the repair's behaviour depended on a read path's
+// incidental consequence, so a read that stopped quarantining — or one that rejected for a reason
+// getObject does not check, which is most of what fsckFailingObjects finds — silently stopped
+// repairing. Asking for the operation by name means the moved file lands where every other rejected
+// object lands, with the store's own reason string and counters (§12.3), and the bytes are kept as
+// evidence rather than deleted.
+//
+// A store that cannot be type-asserted to Quarantiner is reported, not worked around: a repair that
+// quietly did nothing would be worse than one that says it could not.
 func fsckRepairQuarantineObjects(ctx context.Context, root string, l paths.Layout) []fsckRepair {
 	bad := fsckFailingObjects(l)
 	if len(bad) == 0 {
@@ -2416,20 +2353,34 @@ func fsckRepairQuarantineObjects(ctx context.Context, root string, l paths.Layou
 	}
 	defer func() { _ = opened.Close() }()
 
+	q, ok := opened.(store.Quarantiner)
+	if !ok {
+		return []fsckRepair{{
+			Kind: "object.quarantine", Target: "objects/",
+			Before: fmt.Sprintf("%d object(s) fail verification", len(bad)),
+			After:  "unchanged: this store does not offer the quarantine operation",
+		}}
+	}
+
 	out := make([]fsckRepair, 0, len(bad))
 	for _, h := range bad {
+		if ctx.Err() != nil {
+			// A cancelled repair reports what it did and stops. The moves already made are durable
+			// and are already in `out`; inventing rows for the rest would claim work never done.
+			break
+		}
 		p, present := fsckObjectPath(l, h)
 		before := "fails verification at " + filepath.Base(p)
 		if !present {
 			continue
 		}
-		_, readErr := opened.GetChunk(ctx, h)
+		moveErr := q.Quarantine(h, "fsck --repair: object fails verification")
 		after := "still in objects/"
 		if _, stillThere := fsckObjectPath(l, h); !stillThere {
 			after = "moved to tmp/quarantine/ as evidence"
 		}
-		if readErr != nil {
-			after += fmt.Sprintf(" (the store reported %v)", readErr)
+		if moveErr != nil {
+			after += fmt.Sprintf(" (the store reported %v)", moveErr)
 		}
 		out = append(out, fsckRepair{
 			Kind: "object.quarantine", Target: "objects/" + filepath.Base(p),
@@ -2503,23 +2454,6 @@ func fsckDaemonLiveness(root string) (info daemon.LockInfo, held, alive bool) {
 		addr = ipc.Addr{Kind: addr.Kind, Path: info.Addr}
 	}
 	return info, true, ipc.Probe(addr, selfTestProbeTimeout)
-}
-
-// fsckStoreKey normalizes a path the way internal/store's own storeKey does
-// (internal/store/fsstore.go:65-75), so the view fsck compares against — and the one --repair
-// regenerates — is keyed identically to the one the store writes. loadFiles applies the same
-// normalization on replay, so a hand-written or legacy line with an un-normalized path would
-// otherwise read as a path the view is missing.
-func fsckStoreKey(p string) string {
-	if p == "" {
-		return ""
-	}
-	q := path.Clean(filepath.ToSlash(p))
-	q = strings.TrimPrefix(q, "./")
-	if q == "." {
-		return ""
-	}
-	return paths.Key(q)
 }
 
 // fsckLivePinIDs replays pins/invariants.jsonl into the set of live invariant ids, applying the

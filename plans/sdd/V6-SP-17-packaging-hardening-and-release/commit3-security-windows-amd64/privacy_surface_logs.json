@@ -8,11 +8,11 @@
     "go": "go1.26.6"
   },
   "bundle": {
-    "version": "v0.2.0-604-g62a5975-dirty",
-    "binary_sha256": "b0b0bf83152d04485ca5f5648b896cfd015957467479b1947e157dbf146e4e9a"
+    "version": "v0.2.0-611-gc584919-dirty",
+    "binary_sha256": "a9476807da3f7f54344bd935f63088015b747e7221fc5f10098cdc6403159020"
   },
   "outcome": "verified",
   "reason": "no literal and no \u003e8-byte fragment of any of the 11 planted credential families survives under logs.",
-  "detail": "1 files, 848 bytes swept, 0 redaction placeholders",
+  "detail": "1 files, 847 bytes swept, 0 redaction placeholders",
   "artifact": "privacy-surface-sweep.json"
 }
