@@ -234,6 +234,36 @@ func TestCreateNew_SetsReadOnly(t *testing.T) {
 	require.Equal(t, "{}", string(b))
 }
 
+func TestRestoreLog_CreatesAnAppendableLogAndRefusesToOverwrite(t *testing.T) {
+	l := newLayout(t)
+	p := paths.ManifestPath(l)
+	first := []byte("{\"seq\":1}\n")
+	require.NoError(t, paths.RestoreLog(p, first))
+
+	fi, err := os.Stat(p)
+	require.NoError(t, err)
+	require.NotZero(t, fi.Mode().Perm()&0o200, "a restored log must stay owner-writable")
+
+	got, err := os.ReadFile(p)
+	require.NoError(t, err)
+	require.Equal(t, first, got)
+
+	require.NoError(t, paths.AppendJSONL(p, map[string]int{"seq": 2}))
+	got, err = os.ReadFile(p)
+	require.NoError(t, err)
+	require.Contains(t, string(got), `"seq":1`)
+	require.Contains(t, string(got), `"seq":2`)
+
+	err = paths.RestoreLog(p, []byte("overwrite\n"))
+	require.ErrorIs(t, err, os.ErrExist)
+	got, err = os.ReadFile(p)
+	require.NoError(t, err)
+	require.NotContains(t, string(got), "overwrite")
+
+	err = paths.RestoreLog(filepath.Join(l.Checkpoints, "0001.json"), []byte("{}"))
+	require.ErrorIs(t, err, core.ErrAppendOnly)
+}
+
 // TestCreateNew_DirectoryAtPathIsNotACollision pins the one error CreateNew reserves: os.ErrExist
 // means a regular file already at p, the collision checkpoint.Finalize retries past by bumping its
 // sequence number. A directory there is not that. POSIX open(2) answers EEXIST for a directory

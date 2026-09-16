@@ -174,8 +174,10 @@ func chainedOutsideFixture(t *testing.T, relative bool) (root, secretRel string)
 	sub := filepath.Join(root, "sub")
 	var linkErr error
 	if relative {
-		// Relative to the link's parent so Readlink returns a non-absolute target.
-		// mklink /J otherwise resolves the target against the process cwd.
+		// Requested relative to the link's parent so a real symlink stores a non-absolute
+		// name and resolveLinks' !IsAbs branch runs. The junction fallback (mklink /J)
+		// stores an absolute substitute name regardless of how the target was spelled, so
+		// that branch is exercised only where os.Symlink succeeds.
 		linkErr = makeRelativeDirLink(sub, filepath.Join("other", "x"))
 	} else {
 		linkErr = makeDirLink(sub, filepath.Join(other, "x"))

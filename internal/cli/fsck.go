@@ -887,6 +887,7 @@ func (s *fsckScan) checkFiles() fsckCheck {
 	row.scan(len(log))
 	if view.viewErr != nil {
 		row.defect("index/files.json:0 does not parse as a file-version record: %s", view.viewErr)
+		return row.build()
 	}
 	for _, bad := range view.badLines {
 		row.defect("index/files.jsonl:%d does not parse as a file-version record: %s", bad.line, bad.why)
