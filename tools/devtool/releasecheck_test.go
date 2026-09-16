@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -174,7 +175,8 @@ func TestReleaseCheckStepsAreOrderedAndCoverCILocal(t *testing.T) {
 }
 
 // TestReleaseCheckRollbackTestsAreNamed guards the hook Task 8 appends to: the rehearsal list must
-// never be empty, and every entry must name both a package and a test.
+// never be empty, every entry must name both a package and a test, and the three install
+// rehearsal names must be present and exist under ./test/e2e/ (`go test -list`).
 func TestReleaseCheckRollbackTestsAreNamed(t *testing.T) {
 	all := append(append([]releaseCheckTest{}, releaseCheckRollbackTests...), releaseCheckExtraTests...)
 	if len(all) == 0 {
@@ -183,6 +185,49 @@ func TestReleaseCheckRollbackTestsAreNamed(t *testing.T) {
 	for _, tc := range all {
 		if !strings.HasPrefix(tc.pkg, "./") || tc.run == "" {
 			t.Errorf("%+v: pkg must be a ./ package pattern and run a test name", tc)
+		}
+	}
+
+	want := []releaseCheckTest{
+		{pkg: "./test/e2e/", run: "TestInstall_HostCLIInstallUpgradeUninstall"},
+		{pkg: "./test/e2e/", run: "TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite"},
+		{pkg: "./test/e2e/", run: "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting"},
+	}
+	have := map[string]releaseCheckTest{}
+	for _, tc := range releaseCheckExtraTests {
+		have[tc.run] = tc
+	}
+	for _, w := range want {
+		got, ok := have[w.run]
+		if !ok {
+			t.Errorf("releaseCheckExtraTests is missing %s", w.run)
+			continue
+		}
+		if got.pkg != w.pkg {
+			t.Errorf("%s: pkg=%q, want %q", w.run, got.pkg, w.pkg)
+		}
+	}
+
+	root, err := findModuleRoot()
+	if err != nil {
+		t.Fatalf("findModuleRoot: %v", err)
+	}
+	pattern := "^(" + want[0].run + "|" + want[1].run + "|" + want[2].run + ")$"
+	cmd := exec.Command("go", "test", "-count=1", "./test/e2e/", "-list", pattern)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("go test ./test/e2e/ -list: %v\n%s", err, out)
+	}
+	listed := map[string]bool{}
+	for _, line := range strings.Split(string(out), "\n") {
+		if name := strings.TrimSpace(line); goTestNameRE.MatchString(name) {
+			listed[name] = true
+		}
+	}
+	for _, w := range want {
+		if !listed[w.run] {
+			t.Errorf("./test/e2e/ has no test named %s; go test -run would print ok having run nothing", w.run)
 		}
 	}
 }

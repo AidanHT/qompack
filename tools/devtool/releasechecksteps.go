@@ -32,7 +32,11 @@ var releaseCheckRollbackTests = []releaseCheckTest{
 }
 
 // releaseCheckExtraTests lists additional `go test -run` names step 9 executes; Task 8 appends here.
-var releaseCheckExtraTests = []releaseCheckTest{ /* {pkg: "./test/e2e/", run: "TestInstall_..."} */ }
+var releaseCheckExtraTests = []releaseCheckTest{
+	{pkg: "./test/e2e/", run: "TestInstall_HostCLIInstallUpgradeUninstall"},
+	{pkg: "./test/e2e/", run: "TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite"},
+	{pkg: "./test/e2e/", run: "TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting"},
+}
 
 // releaseCheckSteps is the ordered gate.
 func releaseCheckSteps() []releaseCheckStep {
