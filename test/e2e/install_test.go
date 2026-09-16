@@ -28,9 +28,9 @@ import (
 // subcommands are `plugin validate|install|update|uninstall|list` and `plugin marketplace
 // add|update`, each with a bound and a closed stdin.
 //
-// What is NOT rehearsed here, and why: the archive form of a bundle (this base's `devtool bundle`
-// assembles a DIRECTORY and has no --archive flag), and the release-check/release-scope wiring
-// (Task 7's files do not exist on this base). Both are folded in after Task 7 lands.
+// The archive form of a bundle (`devtool bundle --archive`) exists on this tree (Task 7) but is
+// not driven here: the rehearsal installs from the assembled DIRECTORY. Release-check wiring
+// of these three names is deliverable 7 of the follow-up, not this file.
 
 // installSession and installMarker are this file's session identity and the content string every
 // recall assertion searches for. The marker is deliberately long and unusual: recall is a real
@@ -61,18 +61,17 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 	bundles := hostBundles(t)
 	base, next := bundles[installBaseVersion], bundles[installNextVersion]
 
-	if cli, _ := findClaudeCLI(); cli == "" {
-		skipInstallRecorded(t, "install_marketplace_user_scope", capInstall, base.ID,
-			"claude CLI not on PATH")
-	}
-
-	// R8-2: the user's real configuration is read-only evidence. The fingerprint is taken before
-	// the first host invocation and re-taken after the last one.
+	// R8-2: the fingerprint is taken before the first host invocation — including `claude
+	// --version`, which findClaudeCLI runs under a temp CLAUDE_CONFIG_DIR.
 	fingerprint := realClaudeConfigFingerprint(t)
 	t.Cleanup(func() {
 		require.Equal(t, fingerprint, realClaudeConfigFingerprint(t),
 			"R8-2: the user's real ~/.claude must be byte-identical across every host invocation")
 	})
+
+	if cli, _ := findClaudeCLI(); cli == "" {
+		skipInstallHostCases(t, base.ID)
+	}
 
 	// The bundle's own identity, before a host has seen it: every line of checksums.txt verifies
 	// against the assembled tree, and BUNDLE.json agrees with the plugin manifest inside it.
@@ -94,7 +93,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 
 	t.Run("validate_the_bundle_strictly", func(t *testing.T) {
 		res := runClaudePlugin(t, home, "plugin", "validate", base.Dir, "--strict", "--json")
-		require.Equal(t, 0, res.Code, "a bundle this repository assembled must validate: %s", res.Combined())
+		requireHostOK(t, "install_validate_bundle_strict", capInstall, base.ID, res)
 		var report struct {
 			Success  bool `json:"success"`
 			Strict   bool `json:"strict"`
@@ -116,10 +115,10 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 
 	t.Run("install_into_the_user_scope", func(t *testing.T) {
 		add := runClaudePlugin(t, home, "plugin", "marketplace", "add", market)
-		require.Equal(t, 0, add.Code, "marketplace add: %s", add.Combined())
+		requireHostOK(t, "install_marketplace_user_scope", capInstall, base.ID, add)
 
 		res := runClaudePlugin(t, home, "plugin", "install", "qompack@"+installMarketplaceName, "-s", "user", "-y")
-		require.Equal(t, 0, res.Code, "plugin install: %s", res.Combined())
+		requireHostOK(t, "install_marketplace_user_scope", capInstall, base.ID, res)
 
 		// The host's own record of the installation, in the three places it keeps one.
 		var settings struct {
@@ -167,7 +166,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 
 		stdout, stderr, code = Run(t, launcher, []string{"status", "--json"}, nil, installEnvFor(root, projHome))
 		require.Equal(t, 0, code, "status --json from the installed location: %s", stderr)
-		require.True(t, json.Valid(stdout), "status --json must be JSON: %s", stdout)
+		installAssertStatusJSON(t, stdout)
 
 		// Task 2's platform matrix already established how ${CLAUDE_PLUGIN_ROOT}/bin/qompack
 		// resolves under each Windows shell (commit2-evidence.md, shell-* records); this row adds
@@ -188,9 +187,9 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		// Republish: the same marketplace now points at the next bundle directory.
 		writeMarketplace(t, filepath.Dir(next.Dir), next.DirBase)
 		upd := runClaudePlugin(t, home, "plugin", "marketplace", "update", installMarketplaceName)
-		require.Equal(t, 0, upd.Code, "marketplace update: %s", upd.Combined())
+		requireHostOK(t, "upgrade_marketplace_republish", capUpgrade, next.ID, upd)
 		res := runClaudePlugin(t, home, "plugin", "update", "qompack", "-s", "user", "-y")
-		require.Equal(t, 0, res.Code, "plugin update: %s", res.Combined())
+		requireHostOK(t, "upgrade_marketplace_republish", capUpgrade, next.ID, res)
 
 		listed := installListPlugins(t, home)
 		require.Len(t, listed, 1)
@@ -235,7 +234,7 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 
 	t.Run("uninstall_keeping_the_data", func(t *testing.T) {
 		res := runClaudePlugin(t, home, "plugin", "uninstall", "qompack", "-s", "user", "--keep-data", "-y")
-		require.Equal(t, 0, res.Code, "plugin uninstall --keep-data: %s", res.Combined())
+		requireHostOK(t, "uninstall_keep_data", capUninstall, next.ID, res)
 
 		var settings struct {
 			EnabledPlugins map[string]bool `json:"enabledPlugins"`
@@ -262,13 +261,13 @@ func TestInstall_HostCLIInstallUpgradeUninstall(t *testing.T) {
 		home2 := filepath.Join(t.TempDir(), "claude-home-default")
 		require.NoError(t, os.MkdirAll(paths.Long(home2), 0o700))
 		add := runClaudePlugin(t, home2, "plugin", "marketplace", "add", market)
-		require.Equal(t, 0, add.Code, "marketplace add: %s", add.Combined())
+		requireHostOK(t, "uninstall_default", capUninstall, next.ID, add)
 		ins := runClaudePlugin(t, home2, "plugin", "install", "qompack@"+installMarketplaceName, "-s", "user", "-y")
-		require.Equal(t, 0, ins.Code, "plugin install: %s", ins.Combined())
+		requireHostOK(t, "uninstall_default", capUninstall, next.ID, ins)
 		require.Len(t, installListPlugins(t, home2), 1)
 
 		res := runClaudePlugin(t, home2, "plugin", "uninstall", "qompack", "-s", "user", "-y")
-		require.Equal(t, 0, res.Code, "plugin uninstall: %s", res.Combined())
+		requireHostOK(t, "uninstall_default", capUninstall, next.ID, res)
 
 		var settings struct {
 			EnabledPlugins map[string]bool `json:"enabledPlugins"`
@@ -314,13 +313,11 @@ const rollbackSession = core.SessionID("sess-e2e-sp17-rollback")
 // projects recorded by the real launcher, backed up, and rolled back in rehearsal both before and
 // after the first new-format write — then the restored root opened by the installed binary.
 //
-// It rehearses TWO projects because this host found the boundary between them. A project that has
-// sealed a checkpoint cannot be restored at all: store.RestoreBackup writes every backed-up file
-// with paths.WriteAtomic, which refuses §7.4's protected paths outright, so the drill stops at its
-// restore step and says so. That refusal is recorded as a FAILED row and RETURNED (commit8-evidence
-// §5); the second project, recorded identically but without a PreCompact seal, then carries the
-// drill through every remaining step so that the other nine properties are demonstrated rather than
-// blocked behind one defect.
+// It rehearses TWO projects. A project that has sealed a checkpoint is restored through
+// RestoreBackup, which writes §7.4 paths with paths.CreateNew (commit 6 fix round 1, ada54d1,
+// backup.go). The second project, recorded without a PreCompact seal, still carries the
+// daemon-alive refusal, the after-first-new-write drill and identity parity through the
+// installed launcher — distinct properties, not a workaround for a restore that now succeeds.
 func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	ctx := context.Background()
 	b := hostBundle(t)
@@ -330,30 +327,41 @@ func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	sealed := testutil.NewProject(t, testutil.WithGit(), testutil.WithFiles(installProjectFiles))
 	t.Cleanup(func() { e2eShutdownIfReachable(t, sealed.Root) })
 	installDriveSession(t, bin, sealed.Root, sealed.Home(), rollbackSession, installMarker)
-	require.NotEmpty(t, cpCheckpointArtifacts(t, sealed.Root), "PreCompact must have sealed a checkpoint")
+	arts := cpCheckpointArtifacts(t, sealed.Root)
+	require.NotEmpty(t, arts, "PreCompact must have sealed a checkpoint")
+	liveCkpt := map[string]string{}
+	for _, name := range arts {
+		sum, sumErr := installFileSHA256(filepath.Join(paths.Of(sealed.Root).Checkpoints, name))
+		require.NoError(t, sumErr)
+		liveCkpt[name] = sum
+	}
 	e2eShutdownIfReachable(t, sealed.Root)
 
 	_, ms := installMigrator(t, sealed)
 	installImportAndBackup(t, ms, installBackupID)
-	blocked, err := ms.RehearseRollback(ctx, store.RollbackOptions{
+	sealedRestore := filepath.Join(t.TempDir(), "restore-sealed")
+	sealedDrill, err := ms.RehearseRollback(ctx, store.RollbackOptions{
 		Phase: store.RollbackBeforeFirstNewWrite, BackupID: installBackupID,
-		RestoreRoot: filepath.Join(t.TempDir(), "restore-sealed"), StopWriters: installStopWriters(sealed.Root),
+		RestoreRoot: sealedRestore, StopWriters: installStopWriters(sealed.Root),
 	})
 	require.NoError(t, err, "a drill that cannot pass is a RESULT, not an error")
-	require.True(t, blocked.WritersStopped, "the writer step ran before the restore step")
-	require.True(t, blocked.BackupVerified, "the backup itself re-hashes: the refusal is the restore's")
-	require.False(t, blocked.AutomaticDowngrade, "no drill may promise an automatic downgrade")
-	require.False(t, blocked.OK,
-		"a project with a sealed checkpoint restored on this build — re-read commit8-evidence §5 before "+
-			"deleting this row, and move the record back to verified")
-	require.Contains(t, blocked.Refusal, "the backup did not restore")
-	require.Contains(t, blocked.Refusal, "protected path")
-	sealedRec := newInstallRecord("rollback_sealed_checkpoint_restore", capRollback, b.ID)
-	sealedRec.Outcome, sealedRec.Reason = installFailed, "SP17-M7-05 does not pass on a project that has "+
-		"sealed a checkpoint: store.RestoreBackup writes every backed-up file with paths.WriteAtomic, "+
-		"which refuses checkpoints/, pins/ and sketches/tried.bloom by §7.4. Drill refusal: "+blocked.Refusal+
-		" — RETURNED to internal/store (SP-20 M1-04), not fixed here."
-	writeInstallRecord(t, sealedRec)
+	require.True(t, sealedDrill.OK, "refusal: %s", sealedDrill.Refusal)
+	require.True(t, sealedDrill.BackupVerified)
+	require.True(t, sealedDrill.ReaderProved)
+	require.True(t, sealedDrill.WritersStopped)
+	require.False(t, sealedDrill.AutomaticDowngrade, "no drill may promise an automatic downgrade")
+	require.True(t, sealedDrill.EvidenceRetained)
+	for name, want := range liveCkpt {
+		got, sumErr := installFileSHA256(filepath.Join(paths.Of(sealedRestore).Checkpoints, name))
+		require.NoError(t, sumErr, "the restored root must hold checkpoint %s", name)
+		require.Equal(t, want, got, "restored checkpoint %s must match the live artifact byte for byte", name)
+	}
+	recordInstallVerified(t, "rollback_sealed_checkpoint_restore", capRollback, b.ID,
+		"RehearseRollback over a project that sealed a checkpoint: OK, backup verified, reader "+
+			"proved, writers stopped, automatic_downgrade false, evidence retained; the restored "+
+			"root holds the checkpoint artifact byte-for-byte. Fixed in commit 6 fix round 1 "+
+			"(ada54d1, commit6-evidence.md row 19): RestoreBackup writes protected paths through "+
+			"paths.CreateNew (internal/store/backup.go:413).")
 
 	// ── B. the same recording without a PreCompact seal ─────────────────────────────────────────
 	p := testutil.NewProject(t, testutil.WithGit(), testutil.WithFiles(installProjectFiles))
@@ -363,18 +371,22 @@ func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	require.Empty(t, cpCheckpointArtifacts(t, p.Root), "this project deliberately seals no checkpoint")
 	e2eShutdownIfReachable(t, p.Root)
 
-	s, m := installMigrator(t, p)
-	installImportAndBackup(t, m, installBackupID)
+	// Import and backup, then close the handle before any daemon starts (single-writer).
+	_, mImport, closeImport := installOpenMigrator(t, p)
+	installImportAndBackup(t, mImport, installBackupID)
+	closeImport()
 	stopWriters := installStopWriters(p.Root)
 
 	// ── the daemon ALIVE: the drill refuses as a RESULT ─────────────────────────────────────────
 	installRunHook(t, bin, []string{"session-start"},
 		installSessionStartPayload(t, p.Root, rollbackSession), installEnvFor(p.Root, p.Home()))
 	e2eWaitDaemonUp(t, p.Root)
-	refused, err := m.RehearseRollback(ctx, store.RollbackOptions{
+	_, mRefuse, closeRefuse := installOpenMigrator(t, p)
+	refused, err := mRefuse.RehearseRollback(ctx, store.RollbackOptions{
 		Phase: store.RollbackBeforeFirstNewWrite, BackupID: installBackupID,
 		RestoreRoot: filepath.Join(t.TempDir(), "restore-refused"), StopWriters: stopWriters,
 	})
+	closeRefuse()
 	require.NoError(t, err, "a drill that cannot pass is a RESULT, not an error")
 	require.False(t, refused.OK, "the writer handoff cannot complete beside a live daemon")
 	require.False(t, refused.WritersStopped)
@@ -382,8 +394,10 @@ func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	require.False(t, refused.AutomaticDowngrade, "no drill may promise an automatic downgrade")
 	require.Len(t, rollbackDrillLines(t, p.Root), 1, "the refusal is recorded, not swallowed")
 
-	// ── the daemon stopped: the before-phase drill passes ───────────────────────────────────────
+	// ── the daemon stopped: open the long-lived handle, then the before-phase drill passes ────
 	e2eShutdownIfReachable(t, p.Root)
+	s, m, closeRest := installOpenMigrator(t, p)
+	t.Cleanup(closeRest)
 	pre, err := m.RehearseRollback(ctx, store.RollbackOptions{
 		Phase: store.RollbackBeforeFirstNewWrite, BackupID: installBackupID,
 		RestoreRoot: filepath.Join(t.TempDir(), "restore-pre"), StopWriters: stopWriters,
@@ -435,35 +449,6 @@ func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 	require.DirExists(t, paths.Long(paths.Of(p.Root).Migrate))
 	require.DirExists(t, paths.Long(paths.Of(p.Root).Backup))
 
-	// ── the restored root, opened by the installed binary ──────────────────────────────────────
-	restored := pre.RestoreRoot
-	require.DirExists(t, paths.Long(filepath.Join(restored, ".qompack")),
-		"a restore root is a PROJECT root: dest/.qompack is what gets populated")
-	t.Cleanup(func() { e2eShutdownIfReachable(t, restored) })
-
-	stdout, stderr, code := Run(t, bin, []string{"status", "--json"}, nil, installEnvFor(restored, p.Home()))
-	require.Equal(t, 0, code, "status --json over the restored root: %s", stderr)
-	require.True(t, json.Valid(stdout), "status --json must be JSON: %s", stdout)
-
-	report := installFsck(t, bin, restored, p.Home())
-	require.Equal(t, 0, report.Exit, "fsck over the restored root reported defects: %s",
-		installFsckFailures(report))
-
-	// Identity parity: the restored store answers recall with the SAME root hashes the live project
-	// recorded, through the installed launcher's own MCP server.
-	liveRoots := installRootHashes(t, p.Root)
-	require.NotEmpty(t, liveRoots)
-	hits := installRecallHashes(t, bin, restored, p.Home(), installMarker)
-	require.NotEmpty(t, hits, "the restored root must answer recall for content the live project recorded")
-	var parity int
-	for _, h := range hits {
-		if liveRoots[h] {
-			parity++
-		}
-	}
-	require.NotZero(t, parity, "at least one recalled hit must carry a root identity the live project holds:\nhits=%v", hits)
-	e2eShutdownIfReachable(t, restored)
-
 	recordInstallVerified(t, "rollback_before_first_new_write", capRollback, b.ID,
 		fmt.Sprintf("RehearseRollback(before-first-new-format-write) on a project recorded by the "+
 			"real launcher: refused as a RESULT beside a live daemon (%q), then OK with the daemon "+
@@ -474,6 +459,42 @@ func TestRollbackRehearsal_BeforeAndAfterTheFirstNewFormatWrite(t *testing.T) {
 			"OK, %d write enumerated in unreadable_by_old_reader (%s), legacy ids still %d, "+
 			"automatic_downgrade false", len(post.UnreadableByOldReader),
 			written.Root.Hash.Short(), len(post.RetainedLegacyIDs)))
+
+	// ── the restored root, opened by the INSTALLED binary ──────────────────────────────────────
+	// Without the CLI this row is skipped: a verified installed_cli record through the bundled
+	// launcher would claim an install that never happened (R8-2).
+	if where != "installed" {
+		recordInstallSkipped(t, "rollback_restored_root_reads_through_the_launcher", capRollback, b.ID,
+			"platform: claude CLI not on PATH")
+		return
+	}
+	restored := pre.RestoreRoot
+	require.DirExists(t, paths.Long(filepath.Join(restored, ".qompack")),
+		"a restore root is a PROJECT root: dest/.qompack is what gets populated")
+	t.Cleanup(func() { e2eShutdownIfReachable(t, restored) })
+
+	stdout, stderr, code := Run(t, bin, []string{"status", "--json"}, nil, installEnvFor(restored, p.Home()))
+	require.Equal(t, 0, code, "status --json over the restored root: %s", stderr)
+	installAssertStatusJSON(t, stdout)
+
+	report := installFsck(t, bin, restored, p.Home())
+	require.Equal(t, 0, report.Exit, "fsck over the restored root reported defects: %s",
+		installFsckFailures(report))
+
+	// Identity parity: every recalled hit carries a root identity the live project holds.
+	liveRoots := installRootHashes(t, p.Root)
+	require.NotEmpty(t, liveRoots)
+	hits := installRecallHashes(t, bin, restored, p.Home(), installMarker)
+	require.NotEmpty(t, hits, "the restored root must answer recall for content the live project recorded")
+	var parity int
+	for _, h := range hits {
+		if liveRoots[h] {
+			parity++
+		}
+	}
+	require.Equal(t, len(hits), parity, "every recalled hit must carry a root identity the live project holds:\nhits=%v", hits)
+	e2eShutdownIfReachable(t, restored)
+
 	recordInstallVerified(t, "rollback_restored_root_reads_through_the_launcher", capRollback, b.ID,
 		fmt.Sprintf("the restored root opened by the %s launcher: status --json parses, fsck exit 0 "+
 			"with no defect row, and MCP recall answered %d hit(s) of which %d carry a root identity "+
@@ -493,14 +514,20 @@ const unknownSchemaSession = core.SessionID("sess-e2e-sp17-unknown-schema")
 // artifact into a shape it understands would be guessing, and it would destroy the evidence that a
 // newer plugin ever wrote there.
 //
-// The config plant comes LAST, and that ordering is a finding rather than a convenience: a project
-// config whose runtime.migration block is newer than this build makes the HOT PATH refuse
-// admission outright (internal/config.LoadForCapture has no versioned-section reset and no
-// fallback), so every hook after it answers empty and session-start never spawns a daemon. It is
-// asserted here in the shape the product actually has — see commit8-evidence.md, which returns the
-// divergence between Load and LoadForCapture to its owner.
+// The config plant comes LAST so the other three artifacts are hashed against a session that
+// still has a default configuration. After commit 6 fix round 1 (ada54d1, commit6-evidence.md
+// row 8) LoadForCapture applies the same versioned-section reset Load does: capture CONTINUES,
+// a daemon comes up, and state/config-violations.json names the reset.
 func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) {
 	b := hostBundle(t)
+	fingerprint := realClaudeConfigFingerprint(t)
+	t.Cleanup(func() {
+		require.Equal(t, fingerprint, realClaudeConfigFingerprint(t),
+			"R8-2: the user's real ~/.claude must be byte-identical across every host invocation")
+	})
+	if cli, _ := findClaudeCLI(); cli == "" {
+		skipUnknownSchemaCases(t, b.ID)
+	}
 	bin, _ := installedOrBundledLauncher(t, b)
 
 	root, home := newInstallProject(t)
@@ -564,31 +591,32 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	require.Contains(t, strings.Join(sealRow.Detail, "\n"), "v2 position document",
 		"fsck must classify the seal by its declared version: %+v", sealRow.Detail)
 
-	stdout, stderr, code := Run(t, bin, []string{"doctor", "--json"}, nil, installEnvFor(root, home))
+	stdout, stderr, code := Run(t, bin, []string{"doctor", "--project", root, "--json"}, nil, installEnvFor(root, home))
 	require.Equal(t, 0, code, "doctor --json: %s", stderr)
-	require.True(t, json.Valid(stdout), "doctor --json must be JSON: %s", stdout)
+	installAssertDoctorJSON(t, stdout, root)
 
-	// (d) a config section whose settingsVersion is newer than this build understands. Planted last
-	//     because it changes what every later hook can do.
-	quietBefore := len(installHookQuietLines(t, root))
+	// (d) a config section whose settingsVersion is newer than this build understands, with a
+	//     switch a newer file could set planted beside it so the reset is observable.
 	cfgPath := filepath.Join(l.Dot, "config.json")
-	plant(cfgPath, []byte(fmt.Sprintf(`{"runtime":{"migration":{"settingsVersion":%d}}}`+"\n",
+	plant(cfgPath, []byte(fmt.Sprintf(
+		`{"runtime":{"migration":{"settingsVersion":%d,"experiments":{"enabled":true}}}}`+"\n",
 		config.MigrationSettingsVersion+1)))
 
-	// Every hook still exits 0 with a parseable output — §13 invariant 6, under a configuration the
-	// build refuses to admit from.
-	installRunDegradedSession(t, bin, root, home, unknownSchemaSession, installMarker)
+	// Capture CONTINUES: hooks exit 0, a daemon comes up, the reset is recorded.
+	installDriveSession(t, bin, root, home, unknownSchemaSession, installMarker)
 	e2eShutdownIfReachable(t, root)
 
-	// The degradation is LOUD rather than silent (§13 invariant 10): the hooks that answered empty
-	// said why, in the log that exists for exactly that.
-	quiet := installHookQuietLines(t, root)
-	require.Greater(t, len(quiet), quietBefore,
-		"a hook that degrades must record why: logs/hook-quiet-*.jsonl gained nothing")
-	require.Contains(t, strings.Join(quiet[quietBefore:], "\n"), "degraded mode",
-		"the record must name the degradation: %v", quiet[quietBefore:])
+	violations := installConfigViolations(t, root)
+	var namedReset bool
+	for _, v := range violations {
+		if v.Key == "runtime.migration" && strings.Contains(v.Message, "reset") {
+			namedReset = true
+		}
+	}
+	require.True(t, namedReset,
+		"state/config-violations.json must name the versioned-section reset: %+v", violations)
 
-	// Off the hot path the same file is RESET rather than refused, with the provenance saying why.
+	// Off the hot path the same file is RESET, with the provenance saying why.
 	stdout, stderr, code = Run(t, bin, []string{"config", "print", "--provenance"}, nil,
 		installEnvFor(root, home))
 	require.Equal(t, 0, code, "config print --provenance: %s", stderr)
@@ -622,11 +650,11 @@ func TestUnknownSchema_NewerThanThisBuildDegradesWithoutRewriting(t *testing.T) 
 	}
 
 	recordInstallVerified(t, "unknown_schema_config_settings_version", capUnknownSchema, b.ID,
-		fmt.Sprintf("runtime.migration.settingsVersion %d (build reads %d): off the hot path the whole "+
-			"block resets to defaults with provenance \"reset: newer settingsVersion\"; ON the hot path "+
-			"config.LoadForCapture has no such reset and refuses, so all six hooks exit 0 with an empty "+
-			"output, session-start spawns no daemon, and logs/hook-quiet names the degraded mode; "+
-			".qompack/config.json is byte-identical afterwards",
+		fmt.Sprintf("runtime.migration.settingsVersion %d with experiments.enabled true (build reads %d): "+
+			"LoadForCapture resets the block (ada54d1, commit6-evidence.md row 8, capture_load.go:123); "+
+			"state/config-violations.json names the reset; the effective block is defaults "+
+			"(experiments.enabled off); hooks exit 0; a daemon comes up; config print --provenance "+
+			"still reports reset: newer settingsVersion; .qompack/config.json is byte-identical afterwards",
 			config.MigrationSettingsVersion+1, config.MigrationSettingsVersion))
 	recordInstallVerified(t, "unknown_schema_checkpoint_artifact", capUnknownSchema, b.ID,
 		fmt.Sprintf("a checkpoints/ artifact declaring schema version %d (build reads %d): a whole "+
