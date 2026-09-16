@@ -885,12 +885,15 @@ func (s *fsckScan) checkFiles() fsckCheck {
 		return row.build()
 	}
 	row.scan(len(log))
+	// The log's own bad lines are real defects and are reported whatever state the view is in;
+	// an unreadable view then ends the row, because comparing the log against a document that
+	// declared nothing would only add phantom "version 0" and "omits" defects.
+	for _, bad := range view.badLines {
+		row.defect("index/files.jsonl:%d does not parse as a file-version record: %s", bad.line, bad.why)
+	}
 	if view.viewErr != nil {
 		row.defect("index/files.json:0 does not parse as a file-version record: %s", view.viewErr)
 		return row.build()
-	}
-	for _, bad := range view.badLines {
-		row.defect("index/files.jsonl:%d does not parse as a file-version record: %s", bad.line, bad.why)
 	}
 	if !view.present {
 		if len(log) > 0 {

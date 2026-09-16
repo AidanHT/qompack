@@ -457,7 +457,7 @@ func runClaudePlugin(t *testing.T, home string, args ...string) hostResult {
 		if errors.As(err, &exitErr) {
 			res.Code = exitErr.ExitCode()
 		}
-		res.Stderr += "\n<timed out after 120s>"
+		res.Stderr += fmt.Sprintf("\n<timed out after %s>", installHostBound)
 	case errors.Is(err, exec.ErrWaitDelay):
 		res.Code = 0
 		t.Logf("install: claude %v exited 0 but its I/O was still open after %s (WaitDelay fired)",
