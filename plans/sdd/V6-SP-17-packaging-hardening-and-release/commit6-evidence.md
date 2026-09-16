@@ -18,7 +18,7 @@ fixed behaviour.
 | 5 | G-1 | `test/platform` + `test/security` | four comment lines reworded in `platform.go` and `security.go` | the guard itself | `go test ./test/guards/` **RED → green** |
 | 6 | S-1 | `internal/paths` + `internal/mcp` | `paths.ResolvesInside` + `resolveLinks`; `mcp/authorize.go` `authorizePath`; `handlers_span.go` re_read gate | — | `archive_trust_parent_directory_replaced_by_link_outside` **failed → verified** |
 | 7 | S-2 | `internal/config` | `validate.go` `HookCaptureHardCapBytes` upper bound | — | `bounds_config_cannot_raise_the_capture_cap` **failed → verified** |
-| 8 | S-7 | `internal/config` + `internal/cli` | `load.go` `clampInvalidLeaves` extracted; `capture_load.go` uses it, calls `applyVersionedSections` before the clamp, and returns the reset as a violation; `capture_admission.go` records them. D8-2 closed here: `Load` and `LoadForCapture` agree on a newer `settingsVersion` | — | `posture_any_config_violation_disables_capture` **failed → verified** |
+| 8 | S-7 | `internal/config` + `internal/cli` | `load.go` `clampInvalidLeaves` extracted; `capture_load.go` uses it, calls `applyVersionedSections` before the clamp, and returns the reset as a violation; `capture_admission.go` records them. D8-2 closed here: `Load` and `LoadForCapture` agree on a newer `settingsVersion` whose keys this build knows; an unknown key anywhere in the file still refuses on the capture path (pinned) | — | `posture_any_config_violation_disables_capture` **failed → verified** |
 | 9 | S-3 + R5-2 | `internal/mcp` + `internal/store` | `store.ErrDamaged`, `store.Quarantiner`/`Quarantine`; `mcp` `damaged()` + `spanFailure` on both address forms | — | `bounds_corrupt_object_envelope` **failed → verified**; `historical_object_unavailable` flips |
 | 10 | S-5 | `internal/redact` | `rules.go` assignment family: `\b_?` gate + a bare `auth` branch + the `auth` prefilter literal | — | `privacy_assignment_rule_underscored_keys` **failed → verified** |
 | 11 | S-4 | `internal/eval` | `importer.go` rule table widened to redact's shapes; `Redact(s, extra…)`; `ImportOptions.Patterns`; `register_eval.go` passes a full `config.Env` | — | `privacy_surface_eval_export` **failed → verified** |
@@ -29,7 +29,7 @@ fixed behaviour.
 | 16 | F4-9 | `internal/checkpoint` | `reader.go` `sweepIntegrity`/`noteIntegrity` in `List`; `Verify` is no longer silent | `Known: "F4-9"` deleted from three rows | the three `checkpoint_*` rows **failed → explicit_incomplete** |
 | 17 | R5-1 | `internal/store` + `internal/cli` | `store/filesview.go` (new) exports `FilesView`, `FilesViewVersion`, `FilesLogDefect`, `ReadFilesView`, `ReplayFilesLog`, `RegenerateFilesView`; `writeFilesView` is the one writer, used by `files.go` `materializeFilesJSON` (Flush) and by the repair; `cli/fsck.go` deletes `fsckFilesView`, `fsckFileVersion`, `fsckFilesLogRec`, `fsckFilesViewAgrees`, `fsckStoreKey` and calls the exported API from `fsckReadFilesState`, `checkFiles`, `fsckRepairFilesView` | `TestFsck_TheViewVersionMatchesTheStoresOwn` (the version pin) replaced by `TestFsck_TheViewRepairGoesThroughTheStoresOwnRegenerator`, which asserts the repaired view IS `ReplayFilesLog`'s projection and that a second regeneration writes nothing | n/a — a Task 5 finding, no platform/security/fault record; `go test ./internal/cli/ -run TestFsck` **ok** (24 tests) |
 | 18 | R5-7 | `internal/store` | twelve new behaviour-test files (`backupedge`, `canonargs`, `capturesidecaredge`, `filesview`, `lifecycleedge`, `migrateedge`, `readonlyguards`, `retentionsourceedge`, `searchtrim`, `segmentsedge`, `tooluseedge`, `writerleaseedge` `_test.go`; 50 tests) | — (the floor in `plans/OWNERS.tsv` is unchanged) | `internal/store` **89.0% → 90.8%** on the store-only tree; **90.6%** re-measured on this combined tree (§3), above the floor |
-| 19 | D8-1 (returned by Task 8) | `internal/store` | `backup.go` `RestoreBackup`: a destination `paths.IsProtected` names (`checkpoints/`, `pins/`, `sketches/tried.bloom`) is written through `paths.CreateNew`, the create-once writer §7.4 sanctions for those paths; every other file keeps `paths.WriteAtomic`; a restore never overwrites an existing checkpoint (`os.ErrExist`, named). Tests `TestRestoreBackup_RestoresProtectedPathsWithCreateNew`, `TestRestoreBackup_RefusesToOverwriteAnExistingCheckpoint` | none — Task 8's `rollback_sealed_checkpoint_restore` record re-measures on this tree | `rollback_sealed_checkpoint_restore` **failed → verified** (re-measured in Task 8's evidence after the fold) |
+| 19 | D8-1 (returned by Task 8) | `internal/store` | `backup.go` `RestoreBackup` splits protected destinations: `*.jsonl` logs (`checkpoints/MANIFEST.jsonl`, `pins/invariants.jsonl`) through `paths.RestoreLog` (create-if-absent, O_APPEND, 0600, Sync) so a later seal or pin can append; artifacts (`checkpoints/NNNN.json`) and `sketches/tried.bloom` keep `paths.CreateNew` (0444); everything else keeps `paths.WriteAtomic`; a restore never overwrites (`os.ErrExist`, named). Tests `TestRestoreBackup_RestoresProtectedPathsWithCreateNew`, `TestRestoreBackup_RestoredLogsStayAppendable`, `TestRestoreBackup_RefusesToOverwriteAnExistingCheckpoint`, `TestRestoreLog_CreatesAnAppendableLogAndRefusesToOverwrite`. A seal after the restore is proven in-package by the N1 test | none — Task 8's `rollback_sealed_checkpoint_restore` record re-measures on this tree | `rollback_sealed_checkpoint_restore` **failed → verified** (re-measured in Task 8's evidence after the fold) |
 | 20 | S-1 (review) | `internal/paths` | `norm.go` `resolveLinks` is a worklist: a followed link's target is split and re-walked component by component (hop bound 64, fail closed), so a link whose target passes THROUGH another link cannot land lexically inside while its bytes are outside. Test `TestResolvesInside_RefusesAChainedLinkThroughAnotherLink` (two-junction and relative-target shapes) | — | `archive_trust_parent_directory_replaced_by_link_outside` stays **verified** on a predicate without the chained-link hole |
 | 21 | review minors | `internal/paths`, `internal/store`, `internal/eval`, `internal/mcp`, `internal/cli` | `AppendJSONL` writes the record and its newline in ONE `Write`; `store.retention_roots_badline` counts per bad line (Loud still once per pass) with `TestDeclaredRetentionLines_CountsEachBadLineAndLoudsOnce`; `eval.ImportCommand` refuses an empty project root instead of silently skipping operator patterns; `mcp` `damaged()` no longer calls an I/O refusal an integrity failure; `store.ReadFilesView` reports a present-but-unreadable view as present and `fsck` names the line-0 defect by `index/files.json`; owning-package tests added for F4-7 (`TestDrainNotesAStaleProgressOnceThenClears`), F4-8 (`TestFinalizeDropsAToolPointerWhoseChunkFileIsGone`) and F4-9 (`TestListThenVerifyLoudsEachIntegrityDefectOnce`) | — | no record outcome changes |
 
@@ -155,19 +155,24 @@ about what it accepts.
   the tree splits on `\n` and steps over an empty line, so the previous binary reads a file written
   by this one unchanged; a file written by the previous binary is read by this one unchanged. No
   line shape, field or order moved.
-- **Backup restore of §7.4 paths**: `RestoreBackup` now writes `checkpoints/`, `pins/` and
-  `sketches/tried.bloom` through `paths.CreateNew` instead of `paths.WriteAtomic`. The bytes and
-  names are the same create-once artifacts the previous binary already wrote at seal time;
-  `TakeBackup`, the backup tree layout and the append-only rule are unchanged. A restore never
-  overwrites an existing checkpoint (`os.ErrExist`). A previous reader opens a tree this commit
-  restored the same way it opens a live project.
+- **Backup restore of §7.4 paths**: `RestoreBackup` now writes protected destinations instead of
+  refusing them with `paths.WriteAtomic`. Append-only logs (`*.jsonl` under those paths) go
+  through `paths.RestoreLog` and stay appendable (0600) so a later seal or pin succeeds;
+  artifacts (`checkpoints/NNNN.json`) and `sketches/tried.bloom` go through `paths.CreateNew`
+  and stay read-only (0444). The bytes and names are the same files the previous binary already
+  wrote at seal or pin time; `TakeBackup`, the backup tree layout and the append-only rule are
+  unchanged. A restore never overwrites an existing checkpoint or log (`os.ErrExist`). A previous
+  reader opens a tree this commit restored the same way it opens a live project.
 - **Checkpoint v1 reader**: `checkpoint.Reader` gained a directory sweep and two Loud lines. It
   writes nothing, `MANIFEST.jsonl` is untouched, and `List` still returns a `Ref` for every entry
   the manifest records — defects included — so a caller sees exactly the set it saw before.
 - **Sidecars, seals, `state/*`**: untouched. `state/config-violations.json` is written by one more
   code path (the hook) in the shape `internal/cli` already wrote from `config print`. A newer
-  `settingsVersion` now resets the versioned block on `LoadForCapture` the same way `Load` does
-  (D8-2 closed here) and the hook records that reset on the same file.
+  `settingsVersion` whose keys this build knows now resets the versioned block on
+  `LoadForCapture` the same way `Load` does (D8-2 closed here) and the hook records that reset
+  on the same file. A newer block that also carries a key this build does not know still
+  refuses on the capture path (`LoadForCapture` fails on any `deepMerge` warning) while `Load`
+  drops the key and continues — pinned, see §7.
 - **Objects**: `store.Quarantine` performs the move `getObject` already performed. `ErrDamaged`
   WRAPS `core.ErrNotFound`, so every caller written against the old sentinel keeps its behaviour.
 - **`index/files.json`**: the document's shape and `version` are unchanged; `Flush` and
@@ -208,3 +213,9 @@ their surface.
   observed between the artifact `CreateNew` and the manifest append is Louded as an orphan and
   bumps `metricManifestMismatch`. Every cheap rule either hides a real orphan or changes crash
   semantics. Returned to `internal/checkpoint` (R6F-2); not fixed this round.
+- **Unknown-key refusal on the capture path** `internal/config`: `LoadForCapture` fails on any
+  `deepMerge` warning (including `unknown key`) before `applyVersionedSections` runs, while
+  `Load` drops the key, resets a newer versioned block and continues. Pre-existing and pinned
+  (`TestLoadForCapture_RefusesSchemaEnvFlagAndEffectiveConfigurationFailures/unknown key`); a
+  permitted degraded mode under the plan's rollout section (unknown schema → report degraded,
+  do not guess). Not changed this round.

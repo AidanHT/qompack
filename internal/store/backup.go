@@ -387,10 +387,11 @@ func (m *Migrator) VerifyBackup(id string) (BackupManifest, error) {
 // PROJECT root: dest/.qompack is what gets populated. The result is openable by an ordinary
 // store.Open, which is the point — a backup that cannot be opened is not a verified restore.
 //
-// Files under §7.4's protected paths (checkpoints/, pins/, sketches/tried.bloom) are written
-// with paths.CreateNew — the sanctioned create-once writer — because WriteAtomic refuses them
-// outright. A restore never overwrites a checkpoint that is already at dest: CreateNew returns
-// os.ErrExist and this function wraps it naming the file.
+// Files under §7.4's protected paths split by kind. A *.jsonl (checkpoints/MANIFEST.jsonl,
+// pins/invariants.jsonl) is an append-only log: RestoreLog creates it if absent (O_APPEND,
+// 0600, Sync) so a later seal or pin can append. Artifacts (checkpoints/NNNN.json) and
+// sketches/tried.bloom keep CreateNew — 0444 is right for them. A restore never overwrites:
+// both writers return os.ErrExist and this function wraps it naming the file.
 func (m *Migrator) RestoreBackup(id, dest string) error {
 	man, err := m.VerifyBackup(id)
 	if err != nil {
@@ -411,8 +412,14 @@ func (m *Migrator) RestoreBackup(id, dest string) error {
 			return fmt.Errorf("store: restore backup %q: %w", id, err)
 		}
 		if paths.IsProtected(dest, out) {
-			if err := paths.CreateNew(out, b); err != nil {
-				return fmt.Errorf("store: restore backup %q: %s: %w", id, f.Name, err)
+			var werr error
+			if filepath.Ext(out) == ".jsonl" {
+				werr = paths.RestoreLog(out, b)
+			} else {
+				werr = paths.CreateNew(out, b)
+			}
+			if werr != nil {
+				return fmt.Errorf("store: restore backup %q: %s: %w", id, f.Name, werr)
 			}
 			continue
 		}

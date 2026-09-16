@@ -18,8 +18,9 @@ import (
 // project's backup holds checkpoints/NNNN.json, pins/*, and sketches/tried.bloom. RestoreBackup
 // used to write every file with paths.WriteAtomic, which refuses those paths outright, so any
 // project that had sealed a checkpoint, pinned, or built a tried bloom could not be restored.
-// paths.CreateNew is the sanctioned create-once writer for those destinations: a restore into a
-// fresh root creates them, and a restore never overwrites a checkpoint that is already there.
+// Artifacts and sketches/tried.bloom still go through paths.CreateNew (0444). The two
+// append-only logs (checkpoints/MANIFEST.jsonl, pins/invariants.jsonl) go through
+// paths.RestoreLog so a later seal or pin can append. A restore never overwrites.
 
 func TestRestoreBackup_RestoresProtectedPathsWithCreateNew(t *testing.T) {
 	tp := newTestStore(t)
@@ -47,6 +48,63 @@ func TestRestoreBackup_RestoresProtectedPathsWithCreateNew(t *testing.T) {
 	rs, err := openFS(dest, tp.Cfg, Deps{Log: tp.Log, Clock: tp.Clock})
 	require.NoError(t, err)
 	defer func() { _ = rs.Close() }()
+}
+
+// TestRestoreBackup_RestoredLogsStayAppendable is N1: a restore of a project that has sealed
+// and pinned must leave checkpoints/MANIFEST.jsonl and pins/invariants.jsonl appendable, so
+// the next seal and the next pin succeed. Artifacts stay read-only; a restore still never
+// overwrites.
+func TestRestoreBackup_RestoredLogsStayAppendable(t *testing.T) {
+	tp := newTestStore(t)
+	src := legacySource(2)
+	m := newMigrator(t, tp, src)
+	ctx := context.Background()
+	_, err := m.Import(ctx)
+	require.NoError(t, err)
+
+	l := paths.Of(tp.Root)
+	cpBody := []byte("{\"seq\":1,\"kind\":\"sealed-restore-probe\"}\n")
+	require.NoError(t, paths.CreateNew(paths.CheckpointPath(l, core.CheckpointSeq(1)), cpBody))
+	first := paths.ManifestEntry{Seq: 1, SHA256: "aaaaaaaa", Bytes: int64(len(cpBody)), Created: 1}
+	require.NoError(t, paths.AppendManifest(l, first))
+	pinLog := filepath.Join(l.Pins, "invariants.jsonl")
+	require.NoError(t, paths.AppendJSONL(pinLog, map[string]string{"id": "pin-before-backup"}))
+
+	_, err = m.TakeBackup(ctx, "b1")
+	require.NoError(t, err)
+
+	dest := filepath.Join(t.TempDir(), "restored")
+	require.NoError(t, m.RestoreBackup("b1", dest))
+
+	dl := paths.Of(dest)
+	restoredCP := paths.CheckpointPath(dl, core.CheckpointSeq(1))
+	assertRestoredBytes(t, restoredCP, cpBody)
+	fi, err := os.Stat(paths.Long(restoredCP))
+	require.NoError(t, err)
+	require.Zero(t, fi.Mode().Perm()&0o222, "the restored checkpoint artifact must stay read-only")
+
+	second := paths.ManifestEntry{Seq: 2, SHA256: "bbbbbbbb", Bytes: 4, Created: 2}
+	require.NoError(t, paths.AppendManifest(dl, second),
+		"a restored MANIFEST.jsonl must accept the next seal")
+	require.NoError(t, paths.AppendJSONL(filepath.Join(dl.Pins, "invariants.jsonl"),
+		map[string]string{"id": "pin-after-restore"}),
+		"a restored pins log must accept the next pin")
+
+	got, err := paths.ReadManifest(dl)
+	require.NoError(t, err)
+	require.Equal(t, []paths.ManifestEntry{first, second}, got)
+
+	existing := []byte("pre-existing checkpoint; a restore must not overwrite this\n")
+	occupied := filepath.Join(t.TempDir(), "occupied")
+	ol := paths.Of(occupied)
+	require.NoError(t, paths.EnsureLayout(ol))
+	require.NoError(t, paths.CreateNew(paths.CheckpointPath(ol, core.CheckpointSeq(1)), existing))
+	err = m.RestoreBackup("b1", occupied)
+	require.ErrorIs(t, err, os.ErrExist)
+	require.Contains(t, err.Error(), "0001.json")
+	gotCP, rerr := os.ReadFile(paths.Long(paths.CheckpointPath(ol, core.CheckpointSeq(1))))
+	require.NoError(t, rerr)
+	require.Equal(t, existing, gotCP)
 }
 
 func TestRestoreBackup_RefusesToOverwriteAnExistingCheckpoint(t *testing.T) {

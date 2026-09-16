@@ -188,6 +188,35 @@ func CreateNew(p string, b []byte) error {
 	return os.Chmod(Long(p), 0o444)
 }
 
+// RestoreLog writes b into an append-only log at p through AppendOnly's flags (create-if-absent,
+// O_APPEND, mode 0600) and Syncs. It is the restore door for the two §7.4 logs a backup carries —
+// checkpoints/MANIFEST.jsonl and pins/invariants.jsonl — because CreateNew's chmod 0444 would
+// leave a restored project unable to seal or pin. A restore never overwrites: an existing path
+// returns a wrapped os.ErrExist after os.Lstat.
+func RestoreLog(p string, b []byte) error {
+	if filepath.Ext(p) != ".jsonl" && !strings.HasSuffix(p, ".ndjson") && !strings.HasSuffix(p, ".log") {
+		return fmt.Errorf("%w: RestoreLog is for *.jsonl/*.ndjson/*.log only: %s", core.ErrAppendOnly, p)
+	}
+	if _, err := os.Lstat(Long(p)); err == nil {
+		return fmt.Errorf("%w: %s", os.ErrExist, p)
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	f, err := OpenFile(p, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(b); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
+}
+
 // bloomBackupPrefix and bloomBackupSuffix bracket the sequence number in a tried.bloom backup's
 // filename: tried.bloom.<seq>.bak.
 const (

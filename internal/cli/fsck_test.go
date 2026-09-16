@@ -475,6 +475,9 @@ func TestFsck_UnreadableFilesViewIsNamedAsTheViewNotTheLog(t *testing.T) {
 	require.Contains(t, detail, "index/files.json")
 	require.NotContains(t, detail, "is absent")
 	require.NotContains(t, detail, "index/files.jsonl:0")
+	require.NotContains(t, detail, "declares view version")
+	require.NotContains(t, detail, "omits")
+	require.EqualValues(t, 1, row["count"], "an unreadable view is one defect, not phantom comparisons")
 }
 
 // flipOneBit is checkpoint/reader_test.go's own corruption seed, reused for objects as well: the
