@@ -1,0 +1,20 @@
+{
+  "name": "unknown_schema_config_settings_version",
+  "capability": "unknown_schema",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "runtime.migration.settingsVersion 2 (build reads 1): off the hot path the whole block resets to defaults with provenance \"reset: newer settingsVersion\"; ON the hot path config.LoadForCapture has no such reset and refuses, so all six hooks exit 0 with an empty output, session-start spawns no daemon, and logs/hook-quiet names the degraded mode; .qompack/config.json is byte-identical afterwards",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-15"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "596aa5dd1fe9d42bf4396d1da4b2237ba841817f9672c68d840b4d93f409af5c"
+  },
+  "artifact": "commit8-install-windows-amd64/unknown_schema_config_settings_version.json"
+}

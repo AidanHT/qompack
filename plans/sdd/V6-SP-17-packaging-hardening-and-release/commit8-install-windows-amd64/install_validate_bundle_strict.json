@@ -1,0 +1,20 @@
+{
+  "name": "install_validate_bundle_strict",
+  "capability": "install",
+  "scope": "installed_cli",
+  "outcome": "verified",
+  "reason": "claude plugin validate --strict --json: exit 0, success true, zero errors and zero warnings",
+  "target": {
+    "provider": "claude-code",
+    "version": "2.1.263",
+    "platform": "windows/amd64",
+    "date": "2026-09-15"
+  },
+  "bundle": {
+    "name": "qompack",
+    "version": "0.1.0",
+    "target": "windows/amd64",
+    "binary_sha256": "596aa5dd1fe9d42bf4396d1da4b2237ba841817f9672c68d840b4d93f409af5c"
+  },
+  "artifact": "commit8-install-windows-amd64/install_validate_bundle_strict.json"
+}

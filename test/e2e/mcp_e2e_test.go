@@ -101,13 +101,21 @@ type mcpE2EChild struct {
 // mcpE2EStart launches the real binary's `mcp` subcommand against the project p.
 func mcpE2EStart(t *testing.T, bin string, p *testutil.Project) *mcpE2EChild {
 	t.Helper()
+	return mcpE2EStartWithEnv(t, bin, e2eEnv(p))
+}
+
+// mcpE2EStartWithEnv is mcpE2EStart over an explicit environment, for a caller whose project root
+// is not a testutil.Project's own — an installation rehearsal driving a RESTORED backup root
+// (install_test.go). It is the same child in every other respect, so the two paths cannot drift.
+func mcpE2EStartWithEnv(t *testing.T, bin string, env map[string]string) *mcpE2EChild {
+	t.Helper()
 
 	cmd := exec.CommandContext(context.Background(), bin, "mcp")
 	// The build directory, deliberately: a neutral cwd that is not the repository, so a root
 	// resolution that fell back to the process cwd could not reach this checkout.
 	cmd.Dir = filepath.Dir(bin)
 	cmd.Env = os.Environ()
-	for k, v := range e2eEnv(p) {
+	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
 
