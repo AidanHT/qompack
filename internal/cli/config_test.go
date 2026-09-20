@@ -182,6 +182,42 @@ func TestCLI_ConfigViolationsAreLoudAndPersisted(t *testing.T) {
 	require.ElementsMatch(t, []string{"scheduler.softFloorPct", "eval.minSessions"}, keys)
 }
 
+// TestCLI_UnparseableConfigIsLoud is finding F4-6.
+//
+// A .qompack/config.json that does not parse at all leaves EVERY value from that layer silently at
+// its default: the file the operator edited is not in effect, and — measured by test/fault's
+// config_json_corrupt row — the daemon does not come up either. It reached the day log at Warn and
+// nothing stronger, so LOUD.log, self-test and status all stayed clean while the product was off.
+//
+// config.Load's only KEYLESS warning is this one, which is what makes "keyless means the whole layer
+// is unusable" a safe rule rather than a guess. A warning that names a key is the ordinary per-leaf
+// case and stays a Warn.
+func TestCLI_UnparseableConfigIsLoud(t *testing.T) {
+	dir := t.TempDir()
+	writeProjectConfig(t, dir, `{"scheduler":{"softFloorPct":`)
+
+	logDir := filepath.Join(t.TempDir(), "logs")
+	require.NoError(t, os.MkdirAll(logDir, 0o700))
+	log, closer, err := logging.New(logDir, logging.Info)
+	require.NoError(t, err)
+	defer func() { _ = closer.Close() }()
+
+	cfg, _, err := LoadConfigAndReport(config.Env{
+		ProjectRoot: dir, HomeDir: t.TempDir(), Getenv: noEnv,
+	}, log, nil)
+	require.NoError(t, err, "an unparseable layer is a degradation, never a crash")
+	require.Equal(t, config.Defaults().Scheduler.SoftFloorPct, cfg.Scheduler.SoftFloorPct,
+		"an unusable layer leaves every value at its default")
+
+	loud := strings.Join(logging.LastLoud(), "\n")
+	require.Contains(t, loud, "unparseable config",
+		"the whole layer being unusable must be Loud, not a day-log Warn")
+
+	raw, readErr := os.ReadFile(filepath.Join(logDir, "LOUD.log"))
+	require.NoError(t, readErr, "a Loud is durable, or an operator cannot find it afterwards")
+	require.Contains(t, string(raw), "unparseable config")
+}
+
 // TestLoud_CounterWiring closes the loop §3.2 forces open: logging cannot import obs, so the Loud
 // counter only exists if a composition root wires it. This asserts the real registry sees it.
 func TestLoud_CounterWiring(t *testing.T) {

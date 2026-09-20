@@ -25,7 +25,20 @@ const pluginDir = "plugin"
 
 // binaryRef is how every generated file refers to the platform binary. The host expands
 // ${CLAUDE_PLUGIN_ROOT} to the installed plugin directory.
+//
+// It is used BARE in .mcp.json and QUOTED in hooks.json, and the difference is not cosmetic. The
+// MCP server entry carries `args`, which makes it exec form: no shell runs, the string is the
+// executable path, and a quote character in it would become part of that path. A hooks.json
+// `command` is shell form, so an install directory containing a space word-splits an unquoted
+// expansion into two arguments and the hook exits 127 — measured under Git Bash by test/platform
+// and returned as finding F-1.
 const binaryRef = "${CLAUDE_PLUGIN_ROOT}/bin/qompack"
+
+// quotedBinaryRef is binaryRef as a shell command word: the host documentation's own form, and the
+// one test/platform measured green against a spaced install directory in both the environment
+// expansion (Git Bash `${CLAUDE_PLUGIN_ROOT}`) and the textual substitution a host performs before
+// handing the string to a shell. Only the executable is quoted; each subcommand tail stays bare.
+const quotedBinaryRef = `"` + binaryRef + `"`
 
 // Manifest is the whole bundle as one typed value.
 type Manifest struct {
@@ -194,7 +207,7 @@ func Default(version string) Manifest {
 			Matcher: h.matcher,
 			Hooks: []HookEntry{{
 				Type:    "command",
-				Command: binaryRef + " " + h.args,
+				Command: quotedBinaryRef + " " + h.args,
 				Timeout: h.timeout,
 			}},
 		}}

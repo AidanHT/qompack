@@ -56,12 +56,21 @@ func (s *FSStore) GetRoot(ctx context.Context, root core.Hash) (Root, error) {
 	return e.Root, nil
 }
 
-// Has reports whether h is present in the object store.
+// Has reports whether the store BELIEVES h is present: the index says so, or — when the index does
+// not — a file for it is on disk.
 //
-// It answers from the in-memory chunk set without touching the filesystem in the common case, and
-// falls back to a stat only when the index says no — which tolerates an object left on disk by a
-// crash between its write and its index append. Has has no error return, so a closed store answers
-// false rather than reporting core.ErrDegraded (00-ARCHITECTURE.md §5.8's documented exception).
+// The asymmetry is the whole of what this answers, and the comment used to elide it. A YES from the
+// in-memory chunk set is taken at face value and NOTHING IS STATTED, so an object deleted, moved or
+// quarantined underneath a live store still answers true until the index is reloaded. The stat
+// happens only on the other branch, where it tolerates an object left on disk by a crash between its
+// write and its index append.
+//
+// So this is the cheap question, and it is the wrong one for "can this still be materialized" —
+// finding F4-8, where internal/checkpoint decided whether to KEEP a pointer with it and kept
+// pointers into objects that were gone. ObjectOnDisk is the question that touches the filesystem.
+//
+// Has has no error return, so a closed store answers false rather than reporting core.ErrDegraded
+// (00-ARCHITECTURE.md §5.8's documented exception).
 func (s *FSStore) Has(h core.Hash) bool {
 	if s.closed.Load() {
 		return false
@@ -71,6 +80,40 @@ func (s *FSStore) Has(h core.Hash) bool {
 	s.mu.RUnlock()
 	if ok {
 		return true
+	}
+	return s.objectExists(h)
+}
+
+// ObjectPresence is "is this object's file on disk right now", offered as a capability a caller can
+// ask a Store for rather than as a method on the Store interface.
+//
+// It is narrow on purpose. Presence-on-disk is not something a reader or a writer needs in the
+// ordinary course of anything — it is what a caller needs when it is about to make a DURABLE
+// PROMISE about an object it is not going to read, which in this build is internal/checkpoint
+// deciding whether a checkpoint may keep a pointer. Widening Store for that would oblige every test
+// double in the tree to grow a method none of them mean.
+type ObjectPresence interface {
+	// ObjectOnDisk reports whether a file for h exists right now, independently of what any index
+	// remembers. It is one stat per candidate spelling and no read.
+	ObjectOnDisk(h core.Hash) bool
+}
+
+// The shipped store answers it.
+var _ ObjectPresence = (*FSStore)(nil)
+
+// ObjectOnDisk reports whether a file for h is on disk right now.
+//
+// Unlike Has it never consults the in-memory index, so an object deleted or quarantined underneath a
+// live store answers false immediately. That is the point: this is the question asked by a caller
+// that is about to keep a reference it will not read, and an index that has not been reloaded is
+// exactly the thing that would make the answer stale.
+//
+// It costs one stat per candidate object spelling (compressed and raw) and never opens or decodes
+// anything, so it is bounded and safe to call over a whole pointer set. A closed store answers
+// false, matching Has.
+func (s *FSStore) ObjectOnDisk(h core.Hash) bool {
+	if s.closed.Load() {
+		return false
 	}
 	return s.objectExists(h)
 }

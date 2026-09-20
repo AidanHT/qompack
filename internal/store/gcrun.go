@@ -74,7 +74,7 @@ type gcState struct {
 // GCReport.Duration read wall-clock time, because Deadline is a latency budget the idle scheduler
 // granted and a frozen logical clock must never make it un-expirable.
 func (s *FSStore) GC(ctx context.Context, p GCPolicy) (GCReport, error) {
-	if err := s.use(); err != nil {
+	if err := s.mutate(); err != nil {
 		return GCReport{}, err
 	}
 	// GCPolicy.Deadline bounds how long a pass runs once it has started; ctx is how the CALLER
@@ -613,7 +613,7 @@ func (s *FSStore) gcRootFiles() []gcRootFile {
 		},
 		{
 			filepath.Join(s.l.State, retentionRootsFile), RetentionRollback, declaredRootReason,
-			declaredRetentionLine,
+			s.declaredRetentionLines(),
 		},
 	}
 	if entries, err := os.ReadDir(paths.Long(s.l.Checkpoints)); err == nil {
@@ -761,22 +761,39 @@ func openLeaseLines(acked map[string]struct{}) func([]byte) (RetentionClass, str
 	}
 }
 
-// declaredRetentionLine reads one retention-roots.jsonl line as the RetentionRoot it declares, so
-// the class and reason the PRODUCER wrote are the ones the report gives back.
+// declaredRetentionLines returns the per-line reader for state/retention-roots.jsonl, so the class
+// and reason the PRODUCER wrote are the ones the report gives back.
 //
 // The file carries a class per line and used to be harvested as an undifferentiated token stream
 // under a blanket "rollback" label, which reported published evidence as rollback material. A line
 // that does not parse still retains everything on it, under that same blanket label: an
 // unrecognized declaration is a claim this build cannot read, never a claim it may ignore.
-func declaredRetentionLine(line []byte) (RetentionClass, string, bool) {
-	var r RetentionRoot
-	if json.Unmarshal(line, &r) != nil || r.Class == "" {
-		return RetentionRollback, declaredRootReason, true
+//
+// Retaining it is safe; saying nothing about it is not, and that is finding F4-5. test/fault
+// truncated this file mid-record and found a pass that completed with RetentionRootsError=false
+// while quietly over-retaining everything the damaged line names — reported on no surface at all.
+// §13 invariant 10 makes it Loud, ONCE per pass: the closure is built per call of gcRootFiles,
+// which is once per mark phase, so a file with a thousand bad lines produces one line and not a
+// thousand. The counter is per bad line so a later pass can be compared against the file.
+func (s *FSStore) declaredRetentionLines() func([]byte) (RetentionClass, string, bool) {
+	louded := false
+	return func(line []byte) (RetentionClass, string, bool) {
+		var r RetentionRoot
+		if json.Unmarshal(line, &r) != nil || r.Class == "" {
+			s.count("store.retention_roots_badline", 1)
+			if !louded {
+				louded = true
+				s.log.Loud("store: retention-roots line unreadable; everything it names is retained "+
+					"under the blanket rollback class rather than its declared one",
+					"file", retentionRootsFile, "class", string(RetentionRollback))
+			}
+			return RetentionRollback, declaredRootReason, true
+		}
+		if r.Reason == "" {
+			return r.Class, declaredRootReason, true
+		}
+		return r.Class, declaredRootReason + ": " + r.Reason, true
 	}
-	if r.Reason == "" {
-		return r.Class, declaredRootReason, true
-	}
-	return r.Class, declaredRootReason + ": " + r.Reason, true
 }
 
 // retentionFromSources folds every in-process RetentionRootSource into the harvested set.

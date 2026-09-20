@@ -117,6 +117,12 @@ func openAppendFile(p string) (*appendFile, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A torn JSONL tail must not glue the next record onto the damaged line (F4-2). The caller
+	// holds the single-writer lock, so this write has no concurrent-appender window.
+	if err := paths.TerminatePartialTail(w, p); err != nil {
+		_ = w.Close()
+		return nil, err
+	}
 	return &appendFile{p: p, w: w}, nil
 }
 
@@ -216,6 +222,13 @@ type FSStore struct {
 	deps Deps
 	log  logging.Logger
 
+	// readOnly marks a store OpenReadOnly built (readonly.go). It has no writers at all, and it
+	// also suppresses the one write the READ path can make on its own: quarantine's move of a
+	// rejected object. Verifying an object is a read; moving it is not, and a diagnostic that
+	// relocated evidence as a side effect of looking at it would change the answer for whoever
+	// looked next.
+	readOnly bool
+
 	// mu guards every in-memory index below.
 	mu sync.RWMutex
 
@@ -276,6 +289,24 @@ type FSStore struct {
 func (s *FSStore) use() error {
 	if s.closed.Load() {
 		return core.ErrDegraded
+	}
+	return nil
+}
+
+// mutate is use's sibling for every method that writes. It applies the closed-store guard first and
+// then refuses a read-only store with ErrReadOnly (readonly.go).
+//
+// It exists because `readOnly` was a property of the VALUE OpenReadOnly returned rather than of the
+// store: the narrow ReadOnlyStore hid the mutating half, but the store behind it still had it, so
+// any path that reached the *FSStore (an embedding, a type assertion, a future caller inside this
+// package) could write through a store whose whole contract is that it does not. The guard makes
+// the refusal a property of the method, which is the only place it cannot be routed around.
+func (s *FSStore) mutate() error {
+	if err := s.use(); err != nil {
+		return err
+	}
+	if s.readOnly {
+		return ErrReadOnly
 	}
 	return nil
 }
@@ -390,6 +421,11 @@ func (s *FSStore) releaseWriters() {
 func (s *FSStore) closeBody() error {
 	// Flush before the closed flag goes up, since Flush itself refuses a closed store.
 	err := s.Flush(context.Background())
+	if errors.Is(err, ErrReadOnly) {
+		// Closing is not a write. A read-only store holds no handle and no buffered record, so
+		// Flush's mutate() guard must not turn releasing it into a reported failure.
+		err = nil
+	}
 	s.closed.Store(true)
 
 	if s.seg != nil {

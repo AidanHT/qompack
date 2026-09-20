@@ -71,7 +71,11 @@ func TestHookCapture_RefusesBeforeSpoolAndDaemonStart(t *testing.T) {
 		`{"runtime":{"redact":{"patterns":"PRIVATE-ABCDEFGHIJKL"}}}`,
 		`{"runtime":{"redact":{"patterns":["["]}}}`,
 		`{"runtime":{"redact":{"enabled":false,"enabled":true}}}`,
-		`{"runtime":{"migration":{"capture":{"rawEvidence":true}}}}`,
+		// A gated runtime.migration switch set to true is NOT in this list any more: since finding
+		// S-7 an out-of-range VALUE clamps rather than refusing the delivery, and clamping a gate to
+		// false is the safe direction — the switch still cannot be turned on by editing a file.
+		// TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture is that case. A newer
+		// settingsVersion is the same clamp: TestHookCapture_ConfigViolationClampsAndIsRecorded.
 	} {
 		t.Run(body, func(t *testing.T) {
 			root := t.TempDir()
@@ -248,4 +252,111 @@ func assertAdmissionTreeHasNoSecret(t *testing.T, root string) {
 		require.False(t, strings.Contains(string(b), admissionSecret), "private bytes persisted in %s", path)
 		return nil
 	}))
+}
+
+// TestHookCapture_HardCapMatchesTheValidationBound keeps the two halves of finding S-2 in step.
+//
+// internal/config cannot import this package (§3.2 gives config the allow-set {core}), so the
+// validation bound it enforces on runtime.hotPath.maxPayloadBytes is a restated literal. This is the
+// only thing that would notice if one of them moved: a smaller cap here would refuse deliveries a
+// validated configuration says are legal, and a larger one would put the silent switch-off S-2
+// describes back.
+func TestHookCapture_HardCapMatchesTheValidationBound(t *testing.T) {
+	require.Equal(t, hookCaptureMaxBytes, config.HookCaptureHardCapBytes,
+		"internal/config restates this cap as a validation bound; the two must not drift")
+}
+
+// TestHookCapture_ConfigViolationClampsAndIsRecorded is finding S-7 end to end through the hook
+// path: a hardwired-off switch an operator can never legitimately enable used to make
+// config.LoadForCapture refuse the whole delivery, so the hook produced nothing at all. It must now
+// clamp, record the violation where an operator would look, and capture the delivery anyway.
+func TestHookCapture_ConfigViolationClampsAndIsRecorded(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		body    string
+		wantKey string
+		check   func(t *testing.T, cfg config.Config)
+	}{
+		{
+			name:    "hardwired-off switch",
+			body:    `{"runtime":{"telemetry":{"enabled":true}}}`,
+			wantKey: "runtime.telemetry.enabled",
+			check: func(t *testing.T, cfg config.Config) {
+				require.False(t, cfg.Runtime.Telemetry.Enabled, "the hardwired-off switch stays off")
+			},
+		},
+		{
+			name:    "newer settingsVersion",
+			body:    `{"runtime":{"migration":{"settingsVersion":2,"reinjection":{"sessionStartCompact":false}}}}`,
+			wantKey: "runtime.migration",
+			check: func(t *testing.T, cfg config.Config) {
+				require.Equal(t, config.Defaults().Runtime.Migration, cfg.Runtime.Migration,
+					"the versioned block resets to defaults, not leaf-by-leaf")
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			require.NoError(t, os.MkdirAll(paths.Of(root).Run, 0o700))
+			writeAdmissionConfig(t, root, tc.body)
+
+			in := hookInput{Raw: []byte(`{"hook_event_name":"UserPromptSubmit","session_id":"sess-s7",` +
+				`"cwd":` + mustJSON(t, root) + `,"prompt":"an ordinary prompt"}`)}
+			capture, _, cfg, err := admitHookCapture(admissionEnv(t), root, in)
+			require.NoError(t, err, "one invalid key must not disable capture")
+			require.Equal(t, core.OutcomeOK, capture.Outcome, "the ordinary delivery is still admitted")
+			tc.check(t, cfg)
+
+			raw, readErr := os.ReadFile(filepath.Join(paths.Of(root).State, "config-violations.json"))
+			require.NoError(t, readErr, "the clamp must be recorded in state/config-violations.json")
+			require.Contains(t, string(raw), tc.wantKey)
+			if tc.name == "newer settingsVersion" {
+				require.Contains(t, string(raw), "reset")
+			}
+		})
+	}
+}
+
+// TestHookCapture_NoViolationWritesNothing is the other direction: an ordinary project must not
+// gain a violations file it has no violations for.
+func TestHookCapture_NoViolationWritesNothing(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(paths.Of(root).Run, 0o700))
+
+	in := hookInput{Raw: []byte(`{"hook_event_name":"UserPromptSubmit","session_id":"sess-s7b",` +
+		`"cwd":` + mustJSON(t, root) + `,"prompt":"an ordinary prompt"}`)}
+	_, _, _, err := admitHookCapture(admissionEnv(t), root, in)
+	require.NoError(t, err)
+
+	_, statErr := os.Stat(filepath.Join(paths.Of(root).State, "config-violations.json"))
+	require.True(t, os.IsNotExist(statErr), "a clean configuration writes no §11.3 record")
+}
+
+// mustJSON renders v as a JSON literal for embedding in a hook payload.
+func mustJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	require.NoError(t, err)
+	return string(b)
+}
+
+// TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture is the row finding S-7 moved out of
+// TestHookCapture_RefusesBeforeSpoolAndDaemonStart.
+//
+// A gated runtime.migration switch set to true used to make config.LoadForCapture refuse the whole
+// delivery, so one line in a config file cost the project every observation. The gate's own contract
+// is only that the switch cannot be turned ON by editing a file (internal/config's migrationGates):
+// restoring it to false honours that and keeps recording. A newer settingsVersion is the same
+// clamp: the whole block resets to defaults and the reset is recorded (finding 4 / D8-2).
+func TestHookCapture_GatedSwitchClampsRatherThanDisablingCapture(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.MkdirAll(paths.Of(root).Run, 0o700))
+	writeAdmissionConfig(t, root, `{"runtime":{"migration":{"capture":{"rawEvidence":true}}}}`)
+
+	in := hookInput{Raw: []byte(`{"hook_event_name":"UserPromptSubmit","session_id":"sess-gate",` +
+		`"cwd":` + mustJSON(t, root) + `,"prompt":"an ordinary prompt"}`)}
+	capture, _, cfg, err := admitHookCapture(admissionEnv(t), root, in)
+	require.NoError(t, err, "a pending gate must not disable capture")
+	require.False(t, cfg.Runtime.Migration.Capture.RawEvidence, "the gate stays closed")
+	require.Equal(t, core.OutcomeOK, capture.Outcome, "the ordinary delivery is still admitted")
 }

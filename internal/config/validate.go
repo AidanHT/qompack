@@ -6,6 +6,23 @@ import (
 	"strings"
 )
 
+// HookCaptureHardCapBytes is the hard allocation cap a hook capture read is bounded by, restated
+// here as a validation bound.
+//
+// internal/cli owns the enforcement (its own hookCaptureMaxBytes: neither stale state nor user
+// configuration may enlarge the capture read beyond it) and keeps its own literal deliberately, so
+// the bound stays independent of whatever configuration happens to say. This package cannot import
+// that one — §3.2 gives config the allow-set {core} — so the two are kept in step by a test in
+// internal/cli that asserts they are equal rather than by an import.
+//
+// It exists because of finding S-2: runtime.hotPath.maxPayloadBytes was bounded only from BELOW, so
+// a configured value above the cap validated cleanly, `config print` echoed the operator's number,
+// no §11.3 violation was recorded — and admission then refused every delivery. Bounding the key
+// from above turns that silent switch-off into an ordinary clamp-and-record.
+//
+//nomagic:allow validation bound restated from internal/cli, not a config default (§11.3)
+const HookCaptureHardCapBytes = 4 << 20
+
 // Validate checks every rule below against c and returns one Violation per failing leaf. It
 // never panics: a malformed Config (for example one built by hand in a test, or one that Load
 // produced from adversarial input) can only ever produce a slice of Violations, never a crash.
@@ -38,7 +55,7 @@ import (
 //	selection.submodular.lambda ≥ 0
 //	eval.minSessions ≥ 1
 //	runtime.mode ∈ {auto,full,passive,off}
-//	runtime.hotPath.budgetMs > 0 ; runtime.hotPath.breachWindows ≥ 1 ; runtime.hotPath.maxPayloadBytes ≥ 4096
+//	runtime.hotPath.budgetMs > 0 ; runtime.hotPath.breachWindows ≥ 1 ; 4096 ≤ runtime.hotPath.maxPayloadBytes ≤ 4 MiB
 //	runtime.logging.level ∈ {debug,info,warn,error}
 //	runtime.rehydrate.minTokens ≥ 1 ; minTokens ≤ maxTokens ; skillIndexTokens ≥ 1 ; eliminationsTopN ≥ 1
 //	runtime.mcp.spanWidenLines ≥ 0 ; runtime.mcp.maxResponseBytes ≥ 4096
@@ -218,7 +235,7 @@ func (c Config) Validate() []Violation {
 		add("runtime.mode", "must be one of the allowed values", c.Runtime.Mode, "auto|full|passive|off")
 	}
 
-	// runtime.hotPath.budgetMs > 0 ; breachWindows ≥ 1 ; maxPayloadBytes ≥ 4096
+	// runtime.hotPath.budgetMs > 0 ; breachWindows ≥ 1 ; 4096 ≤ maxPayloadBytes ≤ HookCaptureHardCapBytes
 	if c.Runtime.HotPath.BudgetMs <= 0 {
 		add("runtime.hotPath.budgetMs", "must be greater than 0", c.Runtime.HotPath.BudgetMs, "> 0")
 	}
@@ -227,6 +244,11 @@ func (c Config) Validate() []Violation {
 	}
 	if c.Runtime.HotPath.MaxPayloadBytes < 4096 { //nomagic:allow validation bound, not a default
 		add("runtime.hotPath.maxPayloadBytes", "must be at least 4096", c.Runtime.HotPath.MaxPayloadBytes, ">= 4096")
+	}
+	if c.Runtime.HotPath.MaxPayloadBytes > HookCaptureHardCapBytes {
+		add("runtime.hotPath.maxPayloadBytes",
+			fmt.Sprintf("must not exceed the hard capture allocation cap of %d", HookCaptureHardCapBytes),
+			c.Runtime.HotPath.MaxPayloadBytes, fmt.Sprintf("<= %d", HookCaptureHardCapBytes))
 	}
 
 	// runtime.logging.level ∈ {debug,info,warn,error}

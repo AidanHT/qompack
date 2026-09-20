@@ -233,16 +233,29 @@ func TestE2E_ObserverThroughDaemon(t *testing.T) {
 // obsDenyWrites makes dir non-writable for the current user: a real deny-ACE via icacls on
 // Windows (the FILE_ATTRIBUTE_READONLY bit is a near-no-op for directories there — the same
 // mechanism internal/cli's spool-readonly fault site uses), plain permission bits elsewhere.
+//
+// The mask names the specific write, delete and entry-creation rights rather than icacls' simple
+// `W`, which is finding F-3. `W` is FILE_GENERIC_WRITE and that mask also carries READ_CONTROL and
+// SYNCHRONIZE — rights a READER needs: under it os.ReadDir on a directory beneath the deny fails
+// (Go opens a directory handle with SYNCHRONIZE) and CreateProcess on a binary beneath it fails
+// with "Access is denied". Denying reads is not the restriction this case means to impose, and
+// test/platform measured both consequences before settling on the named rights used here: WD
+// write-data/add-file, AD append-data/add-subdirectory, WEA write-extended-attributes, WA
+// write-attributes, DE delete, DC delete-child.
 func obsDenyWrites(dir string) error {
 	if runtime.GOOS == "windows" {
 		u, err := user.Current()
 		if err != nil {
 			return err
 		}
-		return exec.Command("icacls", dir, "/deny", u.Username+":(OI)(CI)W").Run() //nolint:gosec // G204: fixed subcommand over this test's own temp directory
+		return exec.Command("icacls", dir, "/deny", u.Username+obsWindowsDenyMask).Run() //nolint:gosec // G204: fixed subcommand over this test's own temp directory
 	}
 	return os.Chmod(dir, 0o500)
 }
+
+// obsWindowsDenyMask is the deny-ACE obsDenyWrites applies; see its doc comment for why it is not
+// icacls' simple `W`. (OI)(CI) makes the ACE inheritable, so one call covers the whole tree.
+const obsWindowsDenyMask = ":(OI)(CI)(WD,AD,WEA,WA,DE,DC)"
 
 // obsErrCounterTotal sums every observer.err.* counter in the daemon's status snapshot, or -1
 // when the daemon cannot be asked — Eventually-safe, mirroring e2eLiveIngestSamplesOrUnknown.
